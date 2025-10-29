@@ -213,6 +213,7 @@ function BasicEarnHome() {
       indexedAccountId?: string;
       symbol: string;
       protocols: IEarnAvailableAssetProtocol[];
+      logoURI?: string;
     }) => {
       await EarnNavigation.toTokenProviderListPage(navigation, params);
     },

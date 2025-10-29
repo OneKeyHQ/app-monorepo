@@ -5,12 +5,16 @@ import {
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  EModalRoutes,
+  EModalStakingRoutes,
+  ERootRoutes,
+  ETabEarnRoutes,
+  ETabRoutes,
+} from '@onekeyhq/shared/src/routes';
 import type { IEarnAvailableAssetProtocol } from '@onekeyhq/shared/types/earn';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-
-import { showProtocolListDialog } from './components/showProtocolListDialog';
 
 import type useAppNavigation from '../../hooks/useAppNavigation';
 import type { IAppNavigation } from '../../hooks/useAppNavigation';
@@ -156,12 +160,14 @@ export const EarnNavigation = {
       indexedAccountId,
       symbol,
       protocols,
+      logoURI,
     }: {
       networkId: string;
       accountId: string;
       indexedAccountId?: string;
       symbol: string;
       protocols: IEarnAvailableAssetProtocol[];
+      logoURI?: string;
     },
   ) => {
     defaultLogger.staking.page.selectAsset({ tokenSymbol: symbol });
@@ -188,17 +194,15 @@ export const EarnNavigation = {
       return;
     }
 
-    // Show dialog for multiple protocols instead of navigating to modal
-    showProtocolListDialog({
-      symbol,
-      accountId: earnAccount?.accountId || accountId,
-      indexedAccountId:
-        earnAccount?.account.indexedAccountId || indexedAccountId,
-      onProtocolSelect: async (params) => {
-        navigation.pushModal(EModalRoutes.StakingModal, {
-          screen: EModalStakingRoutes.ProtocolDetailsV2,
-          params,
-        });
+    navigation.navigate(ERootRoutes.Main, {
+      screen: ETabRoutes.Earn,
+      params: {
+        screen: ETabEarnRoutes.EarnProtocols,
+        params: {
+          symbol,
+          filterNetworkId: undefined,
+          logoURI,
+        },
       },
     });
   },

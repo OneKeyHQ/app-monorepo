@@ -5,15 +5,11 @@ import { StyleSheet } from 'react-native';
 import { useSharedValue } from 'react-native-reanimated';
 import { useThrottledCallback } from 'use-debounce';
 
-import type { IKeyOfIcons, IXStackProps } from '@onekeyhq/components';
 import {
   Badge,
-  Icon,
   IconButton,
-  ListView,
   SizableText,
   Skeleton,
-  Stack,
   Tabs,
   XStack,
   YStack,
@@ -21,6 +17,8 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { TableList } from '@onekeyhq/kit/src/components/ListView/TableList';
+import type { ITableColumn } from '@onekeyhq/kit/src/components/ListView/TableList';
 import { NetworkAvatarGroup } from '@onekeyhq/kit/src/components/NetworkAvatar/NetworkAvatar';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -37,100 +35,6 @@ import type {
 import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
 
 import { AprText } from './AprText';
-
-const SortButton = ({
-  label,
-  iconName,
-  onPress,
-  width,
-  ai = 'flex-start',
-}: {
-  label: string;
-  iconName?: IKeyOfIcons;
-  onPress?: IXStackProps['onPress'];
-  width?: number;
-  ai?: 'flex-start' | 'center' | 'flex-end';
-}) => {
-  return (
-    <XStack
-      role="button"
-      width={width}
-      ai="center"
-      jc={ai}
-      gap="$1"
-      cursor="pointer"
-      hoverStyle={{ opacity: 0.7 }}
-      userSelect="none"
-      onPress={onPress}
-    >
-      {iconName ? (
-        <Icon name={iconName} color="$iconSubdued" size="$4.5" />
-      ) : null}
-      <SizableText size="$bodyMdMedium" color="$textSubdued">
-        {label}
-      </SizableText>
-    </XStack>
-  );
-};
-
-const AvailableAssetsListHeader = ({
-  tableLayout,
-  sortDirection,
-  onSortPress,
-}: {
-  tableLayout?: boolean;
-  sortDirection: 'asc' | 'desc';
-  onSortPress?: () => void;
-}) => {
-  const intl = useIntl();
-
-  const renderSortIcon = (): IKeyOfIcons => {
-    return sortDirection === 'desc'
-      ? 'ChevronDownSmallOutline'
-      : 'ChevronTopSmallOutline';
-  };
-
-  if (!tableLayout) {
-    return (
-      <ListItem>
-        <Stack flex={1} ai="flex-start">
-          <SizableText size="$bodyMdMedium" color="$textSubdued">
-            {intl.formatMessage({ id: ETranslations.global_asset })}
-          </SizableText>
-        </Stack>
-        <Stack flexShrink={0} ai="flex-end">
-          <SizableText size="$bodyMdMedium" color="$textSubdued">
-            Yield
-          </SizableText>
-        </Stack>
-      </ListItem>
-    );
-  }
-
-  return (
-    <ListItem gap="$3">
-      <Stack flexGrow={1} flexBasis={0} ai="flex-start">
-        <SizableText size="$bodyMdMedium" color="$textSubdued">
-          {intl.formatMessage({ id: ETranslations.global_asset })}
-        </SizableText>
-      </Stack>
-      <Stack flexGrow={1} flexBasis={0} ai="flex-start">
-        <SizableText size="$bodyMdMedium" color="$textSubdued">
-          Network
-        </SizableText>
-      </Stack>
-      <Stack flexGrow={1} flexBasis={0} ai="flex-end">
-        <SortButton
-          label="Yield"
-          iconName={renderSortIcon()}
-          onPress={onSortPress}
-          ai="flex-end"
-        />
-      </Stack>
-      <Stack flexGrow={1} flexBasis={0} />
-    </ListItem>
-  );
-};
 
 // Skeleton component for loading state
 function AvailableAssetsSkeleton() {
@@ -200,6 +104,7 @@ interface IAvailableAssetsTabViewListProps {
     indexedAccountId?: string;
     symbol: string;
     protocols: IEarnAvailableAssetProtocol[];
+    logoURI?: string;
   }) => Promise<void>;
 }
 
@@ -212,13 +117,7 @@ export function AvailableAssetsTabViewList({
   const [{ availableAssetsByType = {}, refreshTrigger = 0 }] = useEarnAtom();
   const actions = useEarnActions();
   const intl = useIntl();
-  const media = useMedia();
   const [selectedTabIndex, setSelectedTabIndex] = useState(0);
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
-
-  const handleSortYield = useCallback(() => {
-    setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
-  }, []);
 
   const tabData = useMemo(
     () => [
@@ -244,23 +143,11 @@ export function AvailableAssetsTabViewList({
   }, [tabData]);
   const focusedTab = useSharedValue(TabNames[0]);
 
-  // Get filtered and sorted assets based on selected tab
+  // Get filtered assets based on selected tab
   const assets = useMemo(() => {
     const currentTabType = tabData[selectedTabIndex]?.type;
-    const assetList = availableAssetsByType[currentTabType] || [];
-
-    return [...assetList].sort(
-      (a: IEarnAvailableAsset, b: IEarnAvailableAsset) => {
-        const aprA = parseFloat(a.aprWithoutFee || a.apr || '0');
-        const aprB = parseFloat(b.aprWithoutFee || b.apr || '0');
-
-        if (sortDirection === 'asc') {
-          return aprA - aprB;
-        }
-        return aprB - aprA;
-      },
-    );
-  }, [availableAssetsByType, selectedTabIndex, tabData, sortDirection]);
+    return availableAssetsByType[currentTabType] || [];
+  }, [availableAssetsByType, selectedTabIndex, tabData]);
 
   // Throttled function to fetch assets data
   const fetchAssetsData = useThrottledCallback(
@@ -314,6 +201,126 @@ export function AvailableAssetsTabViewList({
     [focusedTab, tabData],
   );
 
+  // Define table columns
+  const columns: ITableColumn<IEarnAvailableAsset>[] = useMemo(
+    () => [
+      {
+        key: 'asset',
+        label: intl.formatMessage({ id: ETranslations.global_asset }),
+        sortable: true,
+        comparator: (a, b) => a.symbol.localeCompare(b.symbol),
+        render: (asset) => (
+          <XStack ai="center" gap="$3">
+            <Token
+              size="md"
+              tokenImageUri={asset.logoURI}
+              borderRadius="$full"
+            />
+            <SizableText size="$bodyLgMedium">{asset.symbol}</SizableText>
+            <XStack gap="$1">
+              {asset.badges?.map((badge) => (
+                <Badge
+                  key={badge.tag}
+                  badgeType={badge.badgeType}
+                  badgeSize="sm"
+                  userSelect="none"
+                >
+                  <Badge.Text>{badge.tag}</Badge.Text>
+                </Badge>
+              ))}
+            </XStack>
+          </XStack>
+        ),
+      },
+      {
+        key: 'network',
+        label: 'Network',
+        hideInMobile: true,
+        render: (asset) => (
+          <NetworkAvatarGroup
+            networkIds={Array.from(
+              new Set(asset.protocols.map((p) => p.networkId)),
+            )}
+            size="$5"
+            variant="spread"
+            maxVisible={3}
+          />
+        ),
+      },
+      {
+        key: 'yield',
+        label: 'Yield',
+        align: 'flex-end',
+        sortable: true,
+        comparator: (a, b) => {
+          const aprA = parseFloat(a.aprWithoutFee || a.apr || '0');
+          const aprB = parseFloat(b.aprWithoutFee || b.apr || '0');
+          return aprA - aprB;
+        },
+        render: (asset) => <AprText asset={asset} />,
+      },
+    ],
+    [intl],
+  );
+
+  // Handle row press
+  const handleRowPress = useCallback(
+    async (asset: IEarnAvailableAsset) => {
+      await onTokenPress?.({
+        networkId: asset.protocols[0]?.networkId || '',
+        accountId: account?.id ?? '',
+        indexedAccountId: indexedAccount?.id,
+        symbol: asset.symbol,
+        protocols: asset.protocols,
+        logoURI: asset.logoURI,
+      });
+    },
+    [onTokenPress, account?.id, indexedAccount?.id],
+  );
+
+  // Mobile custom renderer
+  const mobileRenderItem = useCallback(
+    (asset: IEarnAvailableAsset) => (
+      <ListItem
+        userSelect="none"
+        onPress={() => handleRowPress(asset)}
+        avatarProps={{
+          src: asset.logoURI,
+          fallbackProps: {
+            borderRadius: '$full',
+          },
+        }}
+      >
+        <ListItem.Text
+          flex={1}
+          primary={
+            <XStack gap="$2" ai="center">
+              <SizableText size="$bodyLgMedium">{asset.symbol}</SizableText>
+              <XStack gap="$1">
+                {asset.badges?.map((badge) => (
+                  <Badge
+                    key={badge.tag}
+                    badgeType={badge.badgeType}
+                    badgeSize="sm"
+                    userSelect="none"
+                  >
+                    <Badge.Text>{badge.tag}</Badge.Text>
+                  </Badge>
+                ))}
+              </XStack>
+            </XStack>
+          }
+        />
+        <XStack flex={1} ai="center" jc="flex-end">
+          <XStack flexShrink={0} jc="flex-end">
+            <AprText asset={asset} />
+          </XStack>
+        </XStack>
+      </ListItem>
+    ),
+    [handleRowPress],
+  );
+
   if (assets.length || isLoading) {
     return (
       <YStack gap="$3">
@@ -347,130 +354,18 @@ export function AvailableAssetsTabViewList({
           )}
         />
 
-        {isLoading && assets.length === 0 ? (
-          <AvailableAssetsSkeleton />
-        ) : (
-          <ListView
-            extraData={assets.length}
-            data={assets}
-            ListHeaderComponent={
-              media.gtLg ? (
-                <AvailableAssetsListHeader
-                  tableLayout={media.gtLg}
-                  sortDirection={sortDirection}
-                  onSortPress={handleSortYield}
-                />
-              ) : null
-            }
-            renderItem={({ item: asset }) => {
-              const { logoURI, symbol, badges = [], protocols } = asset;
-
-              return media.gtLg ? (
-                <ListItem
-                  gap="$3"
-                  userSelect="none"
-                  onPress={async () => {
-                    await onTokenPress?.({
-                      networkId: protocols[0]?.networkId || '',
-                      accountId: account?.id ?? '',
-                      indexedAccountId: indexedAccount?.id,
-                      symbol,
-                      protocols,
-                    });
-                  }}
-                >
-                  <XStack flexGrow={1} flexBasis={0} ai="center" gap="$3">
-                    <Token
-                      size="md"
-                      tokenImageUri={logoURI}
-                      borderRadius="$full"
-                    />
-                    <SizableText size="$bodyLgMedium">{symbol}</SizableText>
-                    <XStack gap="$1">
-                      {badges.map((badge) => (
-                        <Badge
-                          key={badge.tag}
-                          badgeType={badge.badgeType}
-                          badgeSize="sm"
-                          userSelect="none"
-                        >
-                          <Badge.Text>{badge.tag}</Badge.Text>
-                        </Badge>
-                      ))}
-                    </XStack>
-                  </XStack>
-                  <YStack flexGrow={1} flexBasis={0} ai="flex-start">
-                    <NetworkAvatarGroup
-                      networkIds={Array.from(
-                        new Set(protocols.map((p) => p.networkId)),
-                      )}
-                      size="$5"
-                      variant="spread"
-                      maxVisible={3}
-                    />
-                  </YStack>
-                  <YStack flexGrow={1} flexBasis={0} ai="flex-end">
-                    <AprText asset={asset} />
-                  </YStack>
-                  <Stack flexGrow={1} flexBasis={0} ai="flex-end">
-                    <Icon
-                      name="ChevronRightSmallOutline"
-                      size="$5"
-                      color="$iconSubdued"
-                    />
-                  </Stack>
-                </ListItem>
-              ) : (
-                <ListItem
-                  userSelect="none"
-                  onPress={async () => {
-                    await onTokenPress?.({
-                      networkId: protocols[0]?.networkId || '',
-                      accountId: account?.id ?? '',
-                      indexedAccountId: indexedAccount?.id,
-                      symbol,
-                      protocols,
-                    });
-                  }}
-                  avatarProps={{
-                    src: logoURI,
-                    fallbackProps: {
-                      borderRadius: '$full',
-                    },
-                  }}
-                  // mx="$0"
-                  // px="$0"
-                >
-                  <ListItem.Text
-                    flex={1}
-                    primary={
-                      <XStack gap="$2" ai="center">
-                        <SizableText size="$bodyLgMedium">{symbol}</SizableText>
-                        <XStack gap="$1">
-                          {badges.map((badge) => (
-                            <Badge
-                              key={badge.tag}
-                              badgeType={badge.badgeType}
-                              badgeSize="sm"
-                              userSelect="none"
-                            >
-                              <Badge.Text>{badge.tag}</Badge.Text>
-                            </Badge>
-                          ))}
-                        </XStack>
-                      </XStack>
-                    }
-                  />
-                  <XStack flex={1} ai="center" jc="flex-end">
-                    <XStack flexShrink={0} jc="flex-end">
-                      <AprText asset={asset} />
-                    </XStack>
-                  </XStack>
-                </ListItem>
-              );
-            }}
-          />
-        )}
+        <TableList<IEarnAvailableAsset>
+          data={assets}
+          columns={columns}
+          keyExtractor={(asset) => asset.symbol}
+          withHeader
+          defaultSortKey="yield"
+          defaultSortDirection="desc"
+          onPressRow={(asset) => void handleRowPress(asset)}
+          mobileRenderItem={mobileRenderItem}
+          enableDrillIn
+          isLoading={Boolean(isLoading && assets.length === 0)}
+        />
       </YStack>
     );
   }

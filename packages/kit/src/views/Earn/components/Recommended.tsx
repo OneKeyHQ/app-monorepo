@@ -86,6 +86,7 @@ function RecommendedItem({
         networkId: token.protocols[0]?.networkId,
         symbol: token.symbol,
         protocols: token.protocols,
+        logoURI: token.logoURI,
       });
     }
   }, [account?.id, indexedAccount?.id, navigation, token]);
