@@ -32,7 +32,6 @@ export class PushProviderJPush extends PushProviderBase {
       channel: process.env.JPUSH_CHANNEL || 'prod',
       production: true,
     };
-    JPush.setLoggerEnable(true);
     defaultLogger.notification.jpush.consoleLog('JPush setLoggerEnable', true);
     void LaunchOptionsManager.registerDeviceToken();
     JPush.init(options);
@@ -47,9 +46,6 @@ export class PushProviderJPush extends PushProviderBase {
     JPush.addConnectEventListener(this.handleConnect);
     JPush.addNotificationListener(this.handleNotification as any);
     JPush.addLocalNotificationListener(this.handleLocalNotification as any);
-    if (platformEnv.isNativeAndroid) {
-      JPush.addCommandEventListener(this.handleVendorToken as any);
-    }
 
     try {
       JPush.addTagAliasListener((payload) => {
@@ -101,15 +97,6 @@ export class PushProviderJPush extends PushProviderBase {
         });
       });
     }
-  };
-
-  private handleVendorToken = (result: {
-    command: number;
-    commandExtra: string;
-    commandMessage: string;
-    commandResult: number;
-  }) => {
-    defaultLogger.notification.jpush.consoleLog('JPush Vendor Token:', result);
   };
 
   baseHandleNotification({
