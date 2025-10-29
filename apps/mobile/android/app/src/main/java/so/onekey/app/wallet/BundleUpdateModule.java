@@ -757,10 +757,17 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
             List<Map<String, String>> fallbackUpdateBundleData = readFallbackUpdateBundleDataFile(reactContext);
             log("installBundle", "fallbackUpdateBundleData: " + fallbackUpdateBundleData);
             if (currentFolderName != null && !currentFolderName.isEmpty()) {
-                String currentAppVersion = currentFolderName.split("-")[0];
-                String currentBundleVersion = currentFolderName.split("-")[1];
-                log("installBundle", "fallbackUpdateBundleData signature: " + currentSignature);
-                fallbackUpdateBundleData.add(Map.of("appVersion", currentAppVersion, "bundleVersion", currentBundleVersion, "signature", currentSignature));
+                String[] parts = currentFolderName.split("-");
+                if (parts.length >= 2) {
+                    String currentAppVersion = parts[0];
+                    String currentBundleVersion = parts[1];
+                    log("installBundle", "fallbackUpdateBundleData signature: " + currentSignature);
+                    Map<String, String> bundleData = new HashMap<>();
+                    bundleData.put("appVersion", currentAppVersion);
+                    bundleData.put("bundleVersion", currentBundleVersion);
+                    bundleData.put("signature", currentSignature);
+                    fallbackUpdateBundleData.add(bundleData);
+                }
             }
 
             log("installBundle", "fallbackUpdateBundleData size: " + fallbackUpdateBundleData.size());
