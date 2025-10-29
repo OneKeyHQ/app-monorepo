@@ -114,6 +114,7 @@ export function useTransactionsWebSocket({
             timestamp: transactionData.blockUnixTime || Date.now() / 1000,
             url: '', // URL not provided in data, could be constructed from txHash
             poolLogoUrl: transactionData.poolLogoUrl,
+            volumeUSD: transactionData.volumeUSD,
             from: {
               symbol: fromData?.symbol || '',
               amount: BigNumber(fromData?.amount || '0')
