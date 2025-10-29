@@ -192,8 +192,9 @@ function createBackgroundProviders({
 
   Object.defineProperty(backgroundProviders, IInjectedProviderNames.cardano, {
     get() {
-      const ProviderApiCardano =
-        require('./ProviderApiCardano') as unknown as typeof import('./ProviderApiCardano').default;
+      const ProviderApiCardano = (
+        require('./ProviderApiCardano') as unknown as typeof import('./ProviderApiCardano')
+      ).default;
       const value = new ProviderApiCardano({ backgroundApi });
       Object.defineProperty(this, IInjectedProviderNames.cardano, { value });
       return value;
