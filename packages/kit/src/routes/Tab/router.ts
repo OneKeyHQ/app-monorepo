@@ -171,11 +171,7 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
           freezeOnBlur: Boolean(params?.freezeOnBlur),
           rewrite: perpTabShowWeb ? '/perp' : undefined,
           exact: true,
-          children: platformEnv.isExtension
-            ? // small screen error: Cannot read properties of null (reading 'filter')
-              // null
-              perpWebviewRouters
-            : perpWebviewRouters,
+          children: perpWebviewRouters,
           trackId: 'global-perp',
           hideOnTabBar: !perpTabShowWeb,
         },
