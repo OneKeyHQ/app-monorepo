@@ -302,7 +302,7 @@ function SelectTokenPopoverContent({
       >
         <SizableText size="$bodyMd" color="$textSubdued" textAlign="center">
           {intl.formatMessage({ id: ETranslations.dexmarket_switch_to_trade })}
-          <SizableText fontWeight="bold">
+          <SizableText fontWeight="bold" color="$textSuccess">
             {intl.formatMessage({ id: ETranslations.global_trade })}
           </SizableText>
         </SizableText>
@@ -619,15 +619,12 @@ function DepositWithdrawContent({
         value: true,
       };
     }
-    const minFromTokenAmountFormatted = numberFormat(
-      minFromTokenAmount
-        .decimalPlaces(
-          currentPerpsDepositSelectedToken?.decimals ?? 0,
-          BigNumber.ROUND_UP,
-        )
-        .toFixed(),
-      { formatter: 'balance' },
-    );
+    const minFromTokenAmountFormatted = minFromTokenAmount
+      .decimalPlaces(
+        currentPerpsDepositSelectedToken?.decimals ?? 0,
+        BigNumber.ROUND_UP,
+      )
+      .toFixed();
     return {
       value: false,
       minFromTokenAmount: minFromTokenAmountFormatted,

@@ -57,7 +57,9 @@ function TabHeader({
         borderBottomColor="$borderActive"
         onPress={() => onTabChange('Account')}
       >
-        <SizableText size="$headingXs">Account</SizableText>
+        <SizableText size="$headingXs">
+          {intl.formatMessage({ id: ETranslations.perp_account_history })}
+        </SizableText>
       </XStack>
     </XStack>
   );
