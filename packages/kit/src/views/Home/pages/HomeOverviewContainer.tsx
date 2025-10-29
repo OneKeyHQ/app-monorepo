@@ -134,22 +134,24 @@ function HomeOverviewContainer() {
     ) {
       let accountValueId = '';
       if (accountUtils.isOthersAccount({ accountId: account.id })) {
-        if (!network.isAllNetworks && account.createAtNetwork !== network.id)
-          return;
-
         accountValueId = account.id;
 
-        void backgroundApiProxy.serviceAccountProfile.updateAccountValue({
-          accountId: accountValueId,
-          value: accountWorth.createAtNetworkWorth,
-          currency: settings.currencyInfo.id,
-          shouldUpdateActiveAccountValue: true,
-        });
+        if (network.isAllNetworks || account.createAtNetwork === network.id) {
+          void backgroundApiProxy.serviceAccountProfile.updateAccountValue({
+            accountId: accountValueId,
+            value: accountWorth.createAtNetworkWorth,
+            currency: settings.currencyInfo.id,
+            shouldUpdateActiveAccountValue: true,
+          });
+        }
       } else {
         accountValueId = account.indexedAccountId as string;
       }
 
-      if (!network.isAllNetworks) {
+      if (
+        !accountUtils.isOthersAccount({ accountId: account.id }) &&
+        !network.isAllNetworks
+      ) {
         void backgroundApiProxy.serviceAccountProfile.updateAccountValueForSingleNetwork(
           {
             accountId: accountValueId,
