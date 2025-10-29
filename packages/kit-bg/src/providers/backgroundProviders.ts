@@ -29,6 +29,7 @@ function createBackgroundProviders({
   //     return value;
   //   },
   //   configurable: true,
+  //   enumerable: true,
   // });
 
   // Lazy load providers using getters
@@ -43,6 +44,7 @@ function createBackgroundProviders({
       return value;
     },
     configurable: true,
+    enumerable: true,
   });
 
   Object.defineProperty(backgroundProviders, IInjectedProviderNames.solana, {
@@ -55,6 +57,7 @@ function createBackgroundProviders({
       return value;
     },
     configurable: true,
+    enumerable: true,
   });
 
   Object.defineProperty(backgroundProviders, IInjectedProviderNames.near, {
@@ -67,6 +70,7 @@ function createBackgroundProviders({
       return value;
     },
     configurable: true,
+    enumerable: true,
   });
 
   Object.defineProperty(backgroundProviders, IInjectedProviderNames.aptos, {
@@ -79,6 +83,7 @@ function createBackgroundProviders({
       return value;
     },
     configurable: true,
+    enumerable: true,
   });
 
   Object.defineProperty(backgroundProviders, IInjectedProviderNames.conflux, {
@@ -91,6 +96,7 @@ function createBackgroundProviders({
       return value;
     },
     configurable: true,
+    enumerable: true,
   });
 
   Object.defineProperty(backgroundProviders, IInjectedProviderNames.tron, {
@@ -103,6 +109,7 @@ function createBackgroundProviders({
       return value;
     },
     configurable: true,
+    enumerable: true,
   });
 
   Object.defineProperty(backgroundProviders, IInjectedProviderNames.algo, {
@@ -115,6 +122,7 @@ function createBackgroundProviders({
       return value;
     },
     configurable: true,
+    enumerable: true,
   });
 
   Object.defineProperty(backgroundProviders, IInjectedProviderNames.sui, {
@@ -127,6 +135,7 @@ function createBackgroundProviders({
       return value;
     },
     configurable: true,
+    enumerable: true,
   });
 
   Object.defineProperty(backgroundProviders, IInjectedProviderNames.bfc, {
@@ -139,6 +148,7 @@ function createBackgroundProviders({
       return value;
     },
     configurable: true,
+    enumerable: true,
   });
 
   Object.defineProperty(backgroundProviders, IInjectedProviderNames.ton, {
@@ -151,6 +161,7 @@ function createBackgroundProviders({
       return value;
     },
     configurable: true,
+    enumerable: true,
   });
 
   Object.defineProperty(backgroundProviders, IInjectedProviderNames.alephium, {
@@ -163,6 +174,7 @@ function createBackgroundProviders({
       return value;
     },
     configurable: true,
+    enumerable: true,
   });
 
   Object.defineProperty(backgroundProviders, IInjectedProviderNames.scdo, {
@@ -175,6 +187,7 @@ function createBackgroundProviders({
       return value;
     },
     configurable: true,
+    enumerable: true,
   });
 
   Object.defineProperty(backgroundProviders, IInjectedProviderNames.cardano, {
@@ -186,6 +199,7 @@ function createBackgroundProviders({
       return value;
     },
     configurable: true,
+    enumerable: true,
   });
 
   Object.defineProperty(backgroundProviders, IInjectedProviderNames.cosmos, {
@@ -198,6 +212,7 @@ function createBackgroundProviders({
       return value;
     },
     configurable: true,
+    enumerable: true,
   });
 
   Object.defineProperty(backgroundProviders, IInjectedProviderNames.polkadot, {
@@ -210,6 +225,7 @@ function createBackgroundProviders({
       return value;
     },
     configurable: true,
+    enumerable: true,
   });
 
   Object.defineProperty(backgroundProviders, IInjectedProviderNames.webln, {
@@ -222,6 +238,7 @@ function createBackgroundProviders({
       return value;
     },
     configurable: true,
+    enumerable: true,
   });
 
   Object.defineProperty(backgroundProviders, IInjectedProviderNames.nostr, {
@@ -234,6 +251,7 @@ function createBackgroundProviders({
       return value;
     },
     configurable: true,
+    enumerable: true,
   });
 
   Object.defineProperty(backgroundProviders, IInjectedProviderNames.btc, {
@@ -246,6 +264,7 @@ function createBackgroundProviders({
       return value;
     },
     configurable: true,
+    enumerable: true,
   });
 
   Object.defineProperty(backgroundProviders, IInjectedProviderNames.neo, {
@@ -258,6 +277,7 @@ function createBackgroundProviders({
       return value;
     },
     configurable: true,
+    enumerable: true,
   });
 
   return backgroundProviders;
