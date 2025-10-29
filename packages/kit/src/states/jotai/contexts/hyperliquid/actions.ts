@@ -18,6 +18,7 @@ import {
   perpsActiveAssetDataAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
+import { PERPS_FILTERED_LEDGER_TYPES } from '@onekeyhq/shared/src/consts/perp';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
@@ -29,11 +30,7 @@ import {
   resolveTradingSize,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import type {
-  IMarginTable,
-  IPerpsAssetPosition,
-  IPerpsUniverse,
-} from '@onekeyhq/shared/types/hyperliquid';
+import type { IPerpsAssetPosition } from '@onekeyhq/shared/types/hyperliquid';
 import type * as HL from '@onekeyhq/shared/types/hyperliquid/sdk';
 import {
   EPerpsSizeInputMode,
@@ -179,7 +176,10 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
 
       if (activeAccountAddress === dataUser) {
         const isSnapshot = data?.isSnapshot === true;
-        const incomingUpdates = data?.nonFundingLedgerUpdates || [];
+        const incomingUpdates = (data?.nonFundingLedgerUpdates || []).filter(
+          (update) =>
+            !PERPS_FILTERED_LEDGER_TYPES.has(update.delta.type as string),
+        );
 
         if (isSnapshot) {
           const sortedUpdates = [...incomingUpdates].sort(

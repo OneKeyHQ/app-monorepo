@@ -6,6 +6,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useRouteIsFocused } from '../../../hooks/useRouteIsFocused';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
+import { useCurrency } from '../../Currency';
 import WebView from '../../WebView';
 import { useNavigationHandler, useTradingViewUrl } from '../hooks';
 
@@ -38,6 +39,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
   const webRef = useRef<IWebViewRef | null>(null);
   const theme = useThemeVariant();
   const isVisible = useRouteIsFocused();
+  const currencyInfo = useCurrency();
 
   const {
     tokenAddress = '',
@@ -86,7 +88,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     webRef,
     enabled: isVisible && dataSource === 'websocket',
     chartType: '1m',
-    currency: 'usd',
+    currency: currencyInfo.id,
   });
 
   const onShouldStartLoadWithRequest = useCallback(

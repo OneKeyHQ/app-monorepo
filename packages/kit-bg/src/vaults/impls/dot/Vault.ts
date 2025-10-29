@@ -264,8 +264,6 @@ export default class VaultDot extends VaultBase {
 
       unsigned = unsignedToken;
     } else {
-      console.log('======>>>>>> buildEncodedTx tokenInfo send native');
-
       amountValue = new BigNumber(amount)
         .shiftedBy(network.decimals)
         .toFixed(0);

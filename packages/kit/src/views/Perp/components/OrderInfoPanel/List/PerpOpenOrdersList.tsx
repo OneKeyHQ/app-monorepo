@@ -29,10 +29,13 @@ function PerpOpenOrdersList({
   disableListScroll,
 }: IPerpOpenOrdersListProps) {
   const intl = useIntl();
-  const [{ openOrders: orders }] = usePerpsActiveOpenOrdersAtom();
+  const [{ openOrders }] = usePerpsActiveOpenOrdersAtom();
   const [currentUser] = usePerpsActiveAccountAtom();
   const actions = useHyperliquidActions();
   const [currentListPage, setCurrentListPage] = useState(1);
+  const orders = useMemo(() => {
+    return openOrders.filter((o) => !o.coin.startsWith('@'));
+  }, [openOrders]);
   useEffect(() => {
     noop(currentUser?.accountAddress);
     setCurrentListPage(1);
