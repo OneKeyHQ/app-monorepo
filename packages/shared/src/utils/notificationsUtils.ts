@@ -181,6 +181,7 @@ async function navigateToNotificationDetail({
     defaultLogger.app.page.notificationItemClicked(
       notificationId,
       topicType || 'unknown',
+      isFromNotificationClick ? 'notificationClick' : 'notificationListClick',
     );
   });
 
