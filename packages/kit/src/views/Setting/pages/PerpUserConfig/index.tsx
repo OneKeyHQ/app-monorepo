@@ -41,7 +41,6 @@ function PerpUserConfig() {
               void setPerpUserConfig(value as EPerpUserType);
               setTimeout(() => {
                 const rootState = rootNavigationRef.current?.getRootState();
-                console.log('rootState', rootState);
                 const routes = rootState?.routes;
                 if (routes) {
                   const routesState = routes[0].state;
