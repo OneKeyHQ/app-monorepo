@@ -8,6 +8,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
 import type { IMarketTokenTransaction } from '@onekeyhq/shared/types/marketV2';
 
 interface IUseTransactionsWebSocketProps {
@@ -82,11 +83,17 @@ export function useTransactionsWebSocket({
         // Convert the received data to IMarketTokenTransaction format
         const transactionData = payload.data as IWsTxsData;
 
-        if (
-          transactionData.from?.address !== tokenAddress &&
-          transactionData.to?.address !== tokenAddress
-        ) {
-          return;
+        // Filter transactions: only show if one of the tokens matches current token
+        // Skip filtering if addresses are empty (will be determined by other means)
+        const txFromAddress = transactionData.from?.address;
+        const txToAddress = transactionData.to?.address;
+        if (txFromAddress && txToAddress) {
+          // Both addresses present, check if at least one matches
+          const fromMatches = equalsIgnoreCase(txFromAddress, tokenAddress);
+          const toMatches = equalsIgnoreCase(txToAddress, tokenAddress);
+          if (!fromMatches && !toMatches) {
+            return;
+          }
         }
 
         if (transactionData && typeof transactionData === 'object') {
@@ -99,14 +106,15 @@ export function useTransactionsWebSocket({
             hash: transactionData.txHash || '',
             owner: transactionData.owner || '',
             type: (() => {
-              if (transactionData.side === 'swap') {
-                return fromData?.address === tokenAddress ? 'sell' : 'buy';
-              }
-              return 'buy';
+              // OKX provides the correct transaction type from current token's perspective
+              // Use OKX side directly as it's already calculated correctly
+              const side = transactionData.side;
+              return side === 'sell' ? 'sell' : 'buy';
             })(),
             timestamp: transactionData.blockUnixTime || Date.now() / 1000,
             url: '', // URL not provided in data, could be constructed from txHash
             poolLogoUrl: transactionData.poolLogoUrl,
+            volumeUSD: transactionData.volumeUSD,
             from: {
               symbol: fromData?.symbol || '',
               amount: BigNumber(fromData?.amount || '0')
