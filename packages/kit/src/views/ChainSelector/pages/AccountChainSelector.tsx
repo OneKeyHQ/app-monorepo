@@ -97,13 +97,16 @@ const EditableAccountChainSelector = ({
         const {
           chainSelectorNetworks: sortedChainSelectorNetworks,
           formattedAccountNetworkValues,
-        } = networkUtils.sortChainSelectorNetworksByValue({
-          walletId: accountUtils.getWalletIdFromAccountId({
-            accountId: _accountsValue[0].accountId,
-          }),
-          chainSelectorNetworks: _chainSelectorNetworks,
-          accountNetworkValues: _accountsValue[0].value ?? {},
-        });
+        } =
+          await backgroundApiProxy.serviceNetwork.sortChainSelectorNetworksByValue(
+            {
+              walletId: accountUtils.getWalletIdFromAccountId({
+                accountId: _accountsValue[0].accountId,
+              }),
+              chainSelectorNetworks: _chainSelectorNetworks,
+              accountNetworkValues: _accountsValue[0].value ?? {},
+            },
+          );
 
         return {
           chainSelectorNetworks: sortedChainSelectorNetworks,

@@ -1,4 +1,4 @@
-import { uniq, uniqBy } from 'lodash';
+import { isEmpty, isNil, uniq, uniqBy } from 'lodash';
 
 import type { CoreChainScopeBase } from '@onekeyhq/core/src/base/CoreChainScopeBase';
 import { getCoreChainApiScopeByImpl } from '@onekeyhq/core/src/instance/coreChainApi';
@@ -15,7 +15,10 @@ import {
   dangerAggregateTokenNetworkRepresent,
   getPresetNetworks,
 } from '@onekeyhq/shared/src/config/presetNetworks';
-import { AGGREGATE_TOKEN_MOCK_NETWORK_ID } from '@onekeyhq/shared/src/consts/networkConsts';
+import {
+  AGGREGATE_TOKEN_MOCK_NETWORK_ID,
+  NETWORK_SHOW_VALUE_THRESHOLD_USD,
+} from '@onekeyhq/shared/src/consts/networkConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
@@ -40,6 +43,8 @@ import type {
   IAccountDeriveInfoItems,
   IAccountDeriveTypes,
 } from '../../vaults/types';
+import BigNumber from 'bignumber.js';
+import { SEPERATOR } from '@onekeyhq/shared/src/engine/engineConsts';
 
 const defaultPinnedNetworkIds = [
   getNetworkIdsMap().btc,
@@ -1268,6 +1273,123 @@ class ServiceNetwork extends ServiceBase {
     return this.backgroundApi.simpleDb.recentNetworks.deleteRecentNetwork({
       networkId,
     });
+  }
+
+  @backgroundMethod()
+  async sortChainSelectorNetworksByValue({
+    walletId,
+    chainSelectorNetworks,
+    accountNetworkValues,
+  }: {
+    walletId: string;
+    chainSelectorNetworks: {
+      mainnetItems: IServerNetwork[];
+      testnetItems: IServerNetwork[];
+      frequentlyUsedItems: IServerNetwork[];
+      unavailableItems: IServerNetwork[];
+      allNetworkItem?: IServerNetwork;
+    };
+    accountNetworkValues: Record<string, string>;
+  }) {
+    if (isEmpty(accountNetworkValues)) {
+      return {
+        chainSelectorNetworks,
+        formattedAccountNetworkValues: {},
+      };
+    }
+
+    const networkInfoMap: Record<
+      string,
+      { deriveType: IAccountDeriveTypes; mergeDeriveAssetsEnabled: boolean }
+    > = {};
+
+    const formattedAccountNetworkValues: Record<string, string> = {};
+
+    for (const [key, value] of Object.entries(accountNetworkValues)) {
+      const [accountId, networkId] = key.split('_') as [string, string];
+      const [_walletId, _path, _deriveType] = accountId.split(SEPERATOR) as [
+        string,
+        string,
+        string,
+      ];
+
+      const deriveType: IAccountDeriveTypes =
+        (_deriveType as IAccountDeriveTypes) || 'default';
+
+      if (!networkInfoMap[networkId]) {
+        const [globalDeriveType, vaultSettings] = await Promise.all([
+          this.backgroundApi.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+            networkId,
+          }),
+          this.backgroundApi.serviceNetwork.getVaultSettings({ networkId }),
+        ]);
+        networkInfoMap[networkId] = {
+          deriveType: globalDeriveType,
+          mergeDeriveAssetsEnabled:
+            vaultSettings.mergeDeriveAssetsEnabled ?? false,
+        };
+      }
+
+      if (
+        walletId === _walletId &&
+        networkInfoMap[networkId] &&
+        (networkInfoMap[networkId].mergeDeriveAssetsEnabled ||
+          networkInfoMap[networkId].deriveType.toLowerCase() ===
+            deriveType.toLowerCase())
+      ) {
+        if (isNil(formattedAccountNetworkValues[networkId])) {
+          formattedAccountNetworkValues[networkId] = value;
+        } else {
+          formattedAccountNetworkValues[networkId] = new BigNumber(
+            formattedAccountNetworkValues[networkId],
+          )
+            .plus(value)
+            .toFixed();
+        }
+      }
+    }
+
+    // if network in frequentlyUsedItems do not has value or value is less than 1 usd, remove it from frequentlyUsedItems
+    let frequentlyUsedItems = chainSelectorNetworks.frequentlyUsedItems.filter(
+      (item) => {
+        return new BigNumber(formattedAccountNetworkValues[item.id] ?? '0').gt(
+          NETWORK_SHOW_VALUE_THRESHOLD_USD,
+        );
+      },
+    );
+
+    // check if any network in mainnetItems has non-zero value, add it to frequentlyUsedItems
+    for (const item of chainSelectorNetworks.mainnetItems) {
+      if (
+        new BigNumber(formattedAccountNetworkValues[item.id] ?? '0').gt(
+          NETWORK_SHOW_VALUE_THRESHOLD_USD,
+        )
+      ) {
+        frequentlyUsedItems.push(item);
+      }
+    }
+
+    if (isEmpty(frequentlyUsedItems)) {
+      return {
+        chainSelectorNetworks,
+        formattedAccountNetworkValues,
+      };
+    }
+
+    // uniq frequentlyUsedItems and sort by value
+    frequentlyUsedItems = uniqBy(frequentlyUsedItems, 'id').sort((a, b) => {
+      return new BigNumber(
+        formattedAccountNetworkValues[b.id] ?? '0',
+      ).comparedTo(new BigNumber(formattedAccountNetworkValues[a.id] ?? '0'));
+    });
+
+    return {
+      chainSelectorNetworks: {
+        ...chainSelectorNetworks,
+        frequentlyUsedItems,
+      },
+      formattedAccountNetworkValues,
+    };
   }
 
   getCoreApiByNetwork({

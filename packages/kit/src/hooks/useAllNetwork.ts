@@ -21,6 +21,7 @@ import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import { perfTokenListView } from '../components/TokenListView/perfTokenListView';
 
 import { usePromiseResult } from './usePromiseResult';
+import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 
 // useRef not working as expected, so use a global object
 const currentRequestsUUID = { current: '' };
@@ -420,16 +421,23 @@ function useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
   networkId,
   filterNetworksWithoutAccount,
   indexedAccountId,
+  withNetworksInfo = false,
 }: {
   walletId: string;
   networkId?: string;
   filterNetworksWithoutAccount?: boolean;
   indexedAccountId?: string;
+  withNetworksInfo?: boolean;
 }) {
   const { result, run } = usePromiseResult(
     async () => {
+      const networkInfoMap: Record<
+        string,
+        { deriveType: IAccountDeriveTypes; mergeDeriveAssetsEnabled: boolean }
+      > = {};
       if (networkId && !networkUtils.isAllNetwork({ networkId })) {
         return {
+          networkInfoMap,
           compatibleNetworks: [],
           compatibleNetworksWithoutAccount: [],
         };
@@ -464,6 +472,24 @@ function useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
       const compatibleNetworksWithoutAccount: IServerNetwork[] = [];
 
       const mainnetItems = compatibleNetworks.mainnetItems;
+
+      if (withNetworksInfo) {
+        for (const network of mainnetItems) {
+          const [globalDeriveType, vaultSettings] = await Promise.all([
+            backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+              networkId: network.id,
+            }),
+            backgroundApiProxy.serviceNetwork.getVaultSettings({
+              networkId: network.id,
+            }),
+          ]);
+          networkInfoMap[network.id] = {
+            deriveType: globalDeriveType,
+            mergeDeriveAssetsEnabled: !!vaultSettings.mergeDeriveAssetsEnabled,
+          };
+        }
+      }
+
       if (filterNetworksWithoutAccount && indexedAccountId) {
         const networksByImpl = compatibleNetworks.mainnetItems.reduce(
           (acc, network) => {
@@ -524,13 +550,21 @@ function useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
       }
 
       return {
+        networkInfoMap,
         compatibleNetworks: mainnetItems,
         compatibleNetworksWithoutAccount,
       };
     },
-    [walletId, networkId, filterNetworksWithoutAccount, indexedAccountId],
+    [
+      walletId,
+      networkId,
+      filterNetworksWithoutAccount,
+      indexedAccountId,
+      withNetworksInfo,
+    ],
     {
       initResult: {
+        networkInfoMap: {},
         compatibleNetworks: [],
         compatibleNetworksWithoutAccount: [],
       },
@@ -543,6 +577,7 @@ function useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
     result?.compatibleNetworksWithoutAccount ?? [];
 
   return {
+    networkInfoMap: result?.networkInfoMap ?? {},
     enabledNetworksCompatibleWithWalletId,
     enabledNetworksWithoutAccount,
     run,
