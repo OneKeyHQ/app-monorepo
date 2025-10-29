@@ -1021,6 +1021,8 @@ const usePerpDeposit = (
     perpDepositQuote,
     perpDepositQuoteLoading,
     shouldApprove: !!perpDepositQuote?.result?.allowanceResult,
+    shouldResetApprove:
+      perpDepositQuote?.result?.allowanceResult?.shouldResetApprove,
     multipleStepText,
     buildPerpDepositTx,
     isArbitrumUsdcToken,
