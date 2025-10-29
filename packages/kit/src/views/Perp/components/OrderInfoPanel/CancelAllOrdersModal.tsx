@@ -22,7 +22,10 @@ interface ICancelAllOrdersContentProps {
 function CancelAllOrdersContent({ onClose }: ICancelAllOrdersContentProps) {
   const actions = useHyperliquidActions();
   const intl = useIntl();
-  const [{ openOrders: orders }] = usePerpsActiveOpenOrdersAtom();
+  const [{ openOrders }] = usePerpsActiveOpenOrdersAtom();
+  const orders = useMemo(() => {
+    return openOrders.filter((o) => !o.coin.startsWith('@'));
+  }, [openOrders]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleConfirm = useCallback(async () => {

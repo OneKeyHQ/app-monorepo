@@ -116,12 +116,15 @@ export default function MobileBottomTabBar({
         const isActive = index === state.index;
         const { options } = descriptors[route.key];
 
-        if (route.name === extraConfig?.name) {
+        if (
+          route.name === extraConfig?.name ||
+          (options as { hideOnTabBar?: boolean })?.hideOnTabBar
+        ) {
           return null;
         }
 
-        // Hide tab if hidden property is set to true
-        if ((options as { hidden?: boolean })?.hidden) {
+        // Hide tab icon if hiddenIcon property is set to true
+        if ((options as { hiddenIcon?: boolean })?.hiddenIcon) {
           return null;
         }
 

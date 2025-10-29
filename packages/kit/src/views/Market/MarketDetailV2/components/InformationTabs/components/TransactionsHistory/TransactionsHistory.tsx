@@ -13,6 +13,7 @@ import {
   useCurrentTabScrollY,
   useMedia,
 } from '@onekeyhq/components';
+import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useTokenDetail } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -59,6 +60,7 @@ export function TransactionsHistory({
   const { websocketConfig } = useTokenDetail();
   const isVisible = useRouteIsFocused();
   const { gtXl } = useMedia();
+  const currencyInfo = useCurrency();
 
   const normalMode =
     !platformEnv.isNative && !gtXl && !(websocketConfig?.txs ?? false);
@@ -83,6 +85,7 @@ export function TransactionsHistory({
     networkId,
     tokenAddress,
     enabled: !normalMode && isVisible,
+    currency: currencyInfo.id,
     onNewTransaction: addNewTransaction,
   });
 
