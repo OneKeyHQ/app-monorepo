@@ -309,7 +309,7 @@ function PageWebviewPerpTradeView() {
   if (!isMounted) {
     return null;
   }
-  return <WebviewPerpTradeView />;
+  return shouldOpenExpandExtPerp() ? <ExtPerp /> : <WebviewPerpTradeView />;
 }
 
 const PageWebviewPerpTrade = () => {
@@ -325,7 +325,7 @@ const PageWebviewPerpTrade = () => {
       }}
       enabledNum={[0]}
     >
-      {shouldOpenExpandExtPerp() ? <ExtPerp /> : <PageWebviewPerpTradeView />}
+      <PageWebviewPerpTradeView />
     </AccountSelectorProviderMirror>
   );
 };
