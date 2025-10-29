@@ -15,16 +15,10 @@ import {
   useIsGtMdNonNative,
   useToMyOneKeyModalByRootNavigation,
 } from '@onekeyhq/kit/src/views/DeviceManagement/hooks/useToMyOneKeyModal';
-import {
-  usePerpsCommonConfigPersistAtom,
-  usePerpsUserConfigPersistAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabMarketRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
-import { EPerpUserType } from '@onekeyhq/shared/types/hyperliquid';
 
-import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { usePerpTabConfig } from '../../hooks/usePerpTabConfig';
 import { useToReferFriendsModalByRootNavigation } from '../../hooks/useReferFriends';
 import { developerRouters } from '../../views/Developer/router';
@@ -92,39 +86,6 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
   );
 
   const { perpDisabled, perpTabShowWeb } = usePerpTabConfig();
-  const perpTabShowRes = useMemo(() => {
-    if (perpDisabled) {
-      return null;
-    }
-    if (perpTabShowWeb) {
-      return {
-        name: ETabRoutes.WebviewPerpTrade,
-        tabBarIcon: (focused?: boolean) =>
-          focused ? 'TradingViewCandlesSolid' : 'TradingViewCandlesOutline',
-        translationId: ETranslations.global_perp,
-        freezeOnBlur: Boolean(params?.freezeOnBlur),
-        rewrite: '/perp',
-        exact: true,
-        children: platformEnv.isExtension
-          ? // small screen error: Cannot read properties of null (reading 'filter')
-            // null
-            perpWebviewRouters
-          : perpWebviewRouters,
-        trackId: 'global-perp',
-      };
-    }
-    return {
-      name: ETabRoutes.Perp,
-      tabBarIcon: (focused?: boolean) =>
-        focused ? 'TradingViewCandlesSolid' : 'TradingViewCandlesOutline',
-      translationId: ETranslations.global_perp,
-      freezeOnBlur: Boolean(params?.freezeOnBlur),
-      children: perpRouters,
-      rewrite: '/perp',
-      exact: true,
-      // tabbarOnPress,
-    };
-  }, [perpDisabled, perpTabShowWeb, params?.freezeOnBlur]);
   // Custom Market tab press handler - only for non-mobile platforms
   const handleMarketTabPress = useMemo(() => {
     return () => {
@@ -200,7 +161,30 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
         children: swapRouters,
         trackId: 'global-trade',
       },
-      perpTabShowRes,
+      !perpDisabled && {
+        name: ETabRoutes.WebviewPerpTrade,
+        tabBarIcon: (focused?: boolean) =>
+          focused ? 'TradingViewCandlesSolid' : 'TradingViewCandlesOutline',
+        translationId: ETranslations.global_perp,
+        freezeOnBlur: Boolean(params?.freezeOnBlur),
+        rewrite: perpTabShowWeb ? '/perp' : undefined,
+        exact: true,
+        children: perpWebviewRouters,
+        trackId: 'global-perp',
+        hideOnTabBar: !perpTabShowWeb,
+      },
+      !perpDisabled && {
+        name: ETabRoutes.Perp,
+        tabBarIcon: (focused?: boolean) =>
+          focused ? 'TradingViewCandlesSolid' : 'TradingViewCandlesOutline',
+        translationId: ETranslations.global_perp,
+        freezeOnBlur: Boolean(params?.freezeOnBlur),
+        children: perpRouters,
+        rewrite: perpTabShowWeb ? undefined : '/perp',
+        exact: true,
+        // tabbarOnPress,
+        hideOnTabBar: perpTabShowWeb,
+      },
       {
         name: ETabRoutes.Earn,
         tabBarIcon: (focused?: boolean) =>
@@ -215,22 +199,20 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
       },
       isWebDappMode ? referFriendsTabConfig : undefined,
       // In non-DAPP mode, show ReferFriends in more actions
-      !isWebDappMode && isGtMdNonNative
-        ? {
-            ...referFriendsTabConfig,
-            inMoreAction: true,
-          }
-        : undefined,
-      isGtMdNonNative
-        ? {
-            name: ETabRoutes.DeviceManagement,
-            tabBarIcon: () => 'OnekeyDeviceCustom',
-            translationId: ETranslations.global_device,
-            tabbarOnPress: toMyOneKeyModal,
-            children: null,
-            trackId: 'global-my-onekey',
-          }
-        : undefined,
+      !isWebDappMode && {
+        ...referFriendsTabConfig,
+        inMoreAction: true,
+        hideOnTabBar: !isGtMdNonNative,
+      },
+      {
+        name: ETabRoutes.DeviceManagement,
+        tabBarIcon: () => 'OnekeyDeviceCustom',
+        translationId: ETranslations.global_device,
+        tabbarOnPress: toMyOneKeyModal,
+        children: null,
+        trackId: 'global-my-onekey',
+        hideOnTabBar: !isGtMdNonNative,
+      },
       isShowMDDiscover ? getDiscoverRouterConfig(params) : undefined,
       platformEnv.isDev
         ? {
@@ -263,9 +245,8 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
             marginTop: getTokenValue('$4', 'size'),
           })
         : undefined,
-    ].filter((i) => !!i) as ITabNavigatorConfig<ETabRoutes>[];
+    ].filter((i) => !!i);
 
-    // In WebDappMode, move Market tab to first position for initial route
     if (isWebDappMode && tabs.length >= 2) {
       const marketTabIndex = tabs.findIndex(
         (tab) => tab.name === ETabRoutes.Market,
@@ -280,16 +261,17 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
     return tabs;
   }, [
     isWebDappMode,
-    isGtMdNonNative,
     referFriendsTabConfig,
     params,
     shouldShowMarketTab,
     handleMarketTabPress,
-    perpTabShowRes,
+    perpDisabled,
+    perpTabShowWeb,
+    isGtMdNonNative,
     toMyOneKeyModal,
     isShowMDDiscover,
     isShowDesktopDiscover,
-  ]);
+  ]) as ITabNavigatorConfig<ETabRoutes>[];
 };
 
 export const tabExtraConfig: ITabNavigatorExtraConfig<ETabRoutes> | undefined =

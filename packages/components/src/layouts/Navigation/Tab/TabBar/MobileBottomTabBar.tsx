@@ -116,7 +116,10 @@ export default function MobileBottomTabBar({
         const isActive = index === state.index;
         const { options } = descriptors[route.key];
 
-        if (route.name === extraConfig?.name) {
+        if (
+          route.name === extraConfig?.name ||
+          (options as { hideOnTabBar?: boolean })?.hideOnTabBar
+        ) {
           return null;
         }
 
