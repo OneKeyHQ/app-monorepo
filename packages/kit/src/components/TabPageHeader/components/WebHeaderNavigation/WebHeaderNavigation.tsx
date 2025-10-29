@@ -55,6 +55,8 @@ function useWebHeaderNavigation({
         return 'defi';
       case ETabRoutes.Swap:
         return 'swap';
+      case ETabRoutes.WebviewPerpTrade:
+        return 'perps';
       default:
         return undefined;
     }

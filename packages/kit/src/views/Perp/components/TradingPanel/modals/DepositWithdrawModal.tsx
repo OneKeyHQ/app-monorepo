@@ -709,6 +709,7 @@ function DepositWithdrawContent({
     multipleStepText,
     isArbitrumUsdcToken,
     shouldApprove,
+    shouldResetApprove,
     checkRefreshQuote,
     perpDepositQuoteAction,
   } = usePerpDeposit(
@@ -975,6 +976,20 @@ function DepositWithdrawContent({
   const isInsufficientBalance = useMemo(() => {
     return amountBN.gt(availableBalanceBN) && amountBN.gt(0);
   }, [amountBN, availableBalanceBN]);
+
+  const accountTypeInfo = useMemo(() => {
+    const isHwWallet = accountUtils.isHwAccount({
+      accountId: selectedAccount.accountId ?? '',
+    });
+    const isExternalAccount = accountUtils.isExternalAccount({
+      accountId: selectedAccount.accountId ?? '',
+    });
+    return {
+      isHwWallet,
+      isExternalAccount,
+    };
+  }, [selectedAccount.accountId]);
+
   const buttonText = useMemo(() => {
     if (isInsufficientBalance)
       return intl.formatMessage({
@@ -990,6 +1005,20 @@ function DepositWithdrawContent({
       depositActionText = intl.formatMessage({
         id: ETranslations.perp_lifi_deposit_approve,
       });
+      if (accountTypeInfo.isHwWallet) {
+        depositActionText = intl.formatMessage({
+          id: shouldResetApprove
+            ? ETranslations.swap_review_confirm_3_on_device
+            : ETranslations.swap_review_confirm_2_on_device,
+        });
+      }
+      if (accountTypeInfo.isExternalAccount) {
+        depositActionText = intl.formatMessage({
+          id: shouldResetApprove
+            ? ETranslations.swap_review_confirm_3_on_wallet
+            : ETranslations.swap_review_confirm_2_on_wallet,
+        });
+      }
     }
     if (checkRefreshQuote) {
       depositActionText = intl.formatMessage({
@@ -1009,9 +1038,12 @@ function DepositWithdrawContent({
     intl,
     multipleStepText,
     shouldApprove,
+    checkRefreshQuote,
     perpDepositQuoteLoading,
     selectedAction,
-    checkRefreshQuote,
+    accountTypeInfo.isHwWallet,
+    accountTypeInfo.isExternalAccount,
+    shouldResetApprove,
   ]);
 
   useEffect(() => {
