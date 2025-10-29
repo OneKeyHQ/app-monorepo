@@ -17,6 +17,7 @@ import { getExtensionIndexHtml } from '@onekeyhq/shared/src/utils/extUtils';
 import type { IScreenPathConfig } from '@onekeyhq/shared/src/utils/routeUtils';
 import { buildAllowList } from '@onekeyhq/shared/src/utils/routeUtils';
 
+import { usePerpTabConfig } from '../../hooks/usePerpTabConfig';
 import { rootRouter, useRootRouter } from '../router';
 
 import { registerDeepLinking } from './deeplink';
@@ -73,11 +74,16 @@ const onGetStateFromPath = platformEnv.isExtension
 
 const useBuildLinking = (): LinkingOptions<any> => {
   const routes = useRootRouter();
+  const { perpDisabled, perpTabShowWeb } = usePerpTabConfig();
   const screenHierarchyConfig = resolveScreens(routes);
   if (!screenHierarchyConfig) {
     return { prefixes: [routerPrefix] };
   }
-  const allowList = buildAllowList(screenHierarchyConfig);
+  const allowList = buildAllowList(
+    screenHierarchyConfig,
+    perpDisabled,
+    perpTabShowWeb,
+  );
   const allowListKeys = Object.keys(allowList);
   return {
     enabled: true,

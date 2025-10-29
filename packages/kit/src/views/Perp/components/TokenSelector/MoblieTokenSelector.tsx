@@ -82,7 +82,14 @@ function MobileTokenSelectorModal({
     },
     [setSortConfig],
   );
-
+  let iconName: string;
+  if (sortConfig?.field === 'volume24h' && sortConfig?.direction === 'asc') {
+    iconName = 'ChevronTopOutline';
+  } else if (sortConfig?.field === 'volume24h') {
+    iconName = 'ChevronBottomOutline';
+  } else {
+    iconName = 'ChevronGrabberVerOutline';
+  }
   return (
     <Page>
       <Page.Header
@@ -124,17 +131,7 @@ function MobileTokenSelectorModal({
               id: ETranslations.perp_token_selector_volume,
             })}
           </SizableText>
-          {sortConfig?.field === 'volume24h' ? (
-            <Icon
-              name={
-                sortConfig.direction === 'asc'
-                  ? 'ChevronTopOutline'
-                  : 'ChevronBottomOutline'
-              }
-              size="$3"
-              color="$icon"
-            />
-          ) : null}
+          <Icon name={iconName as any} size="$3" color="$icon" />
         </XStack>
         <XStack
           gap="$1"
