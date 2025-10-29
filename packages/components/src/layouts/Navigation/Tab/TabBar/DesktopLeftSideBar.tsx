@@ -346,10 +346,10 @@ export function DesktopLeftSideBar({
     return routes.filter((route) => {
       const { options } = descriptors[route.key] as {
         options: {
-          hidden?: boolean;
+          hiddenIcon?: boolean;
         };
       };
-      return !options.hidden;
+      return !options.hiddenIcon;
     });
   }, [routes, descriptors]);
 

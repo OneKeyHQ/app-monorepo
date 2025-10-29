@@ -124,6 +124,104 @@ function convertToBlackAndWhiteImageBase64(
   });
 }
 
+function buildHtmlImage(dataUrl: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = (e) => reject(e);
+    image.src = dataUrl;
+  });
+}
+
+function drawRoundRectPath(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  radius: number,
+) {
+  const r = Math.max(0, Math.min(radius, width / 2, height / 2));
+  if (r === 0) {
+    ctx.beginPath();
+    ctx.rect(0, 0, width, height);
+    ctx.closePath();
+    return;
+  }
+  ctx.beginPath();
+  ctx.moveTo(r, 0);
+  ctx.lineTo(width - r, 0);
+  ctx.quadraticCurveTo(width, 0, width, r);
+  ctx.lineTo(width, height - r);
+  ctx.quadraticCurveTo(width, height, width - r, height);
+  ctx.lineTo(r, height);
+  ctx.quadraticCurveTo(0, height, 0, height - r);
+  ctx.lineTo(0, r);
+  ctx.quadraticCurveTo(0, 0, r, 0);
+  ctx.closePath();
+}
+
+async function applyRoundedCorners({
+  base64,
+  width,
+  height,
+  radius,
+  backgroundColor = '#000000',
+}: {
+  base64: string;
+  width: number;
+  height: number;
+  radius: number;
+  backgroundColor?: string;
+}): Promise<string> {
+  if (!base64 || radius <= 0) {
+    return base64;
+  }
+
+  if (platformEnv.isNative) {
+    return appGlobals.$webembedApiProxy.imageUtils.applyRoundedCorners({
+      base64,
+      width,
+      height,
+      radius,
+      backgroundColor,
+    });
+  }
+
+  if (typeof document === 'undefined') {
+    return base64;
+  }
+
+  const dataUrl = prefixBase64Uri(base64, 'image/jpeg');
+  const image = await buildHtmlImage(dataUrl);
+
+  const targetWidth = width || image.width || 0;
+  const targetHeight = height || image.height || 0;
+
+  if (targetWidth === 0 || targetHeight === 0) {
+    return base64;
+  }
+
+  const canvas = document.createElement('canvas');
+  canvas.width = targetWidth;
+  canvas.height = targetHeight;
+
+  const ctx = canvas.getContext('2d');
+  if (!ctx) {
+    throw new OneKeyLocalError('2D context is null');
+  }
+
+  ctx.fillStyle = backgroundColor ?? '#000000';
+  ctx.fillRect(0, 0, targetWidth, targetHeight);
+
+  ctx.save();
+  drawRoundRectPath(ctx, targetWidth, targetHeight, radius);
+  ctx.clip();
+  ctx.drawImage(image, 0, 0, targetWidth, targetHeight);
+  ctx.restore();
+
+  const roundedBase64Uri = canvas.toDataURL('image/jpeg');
+  return stripBase64UriPrefix(roundedBase64Uri);
+}
+
 export type IResizeImageResult = {
   hex: string;
   uri: string;
@@ -140,9 +238,20 @@ async function resizeImage(params: {
   originH: number;
   isMonochrome?: boolean;
   compress?: number;
+  cornerRadius?: number;
+  cornerBackgroundColor?: string;
 }): Promise<IResizeImageResult> {
-  const { uri, width, height, isMonochrome, compress, originW, originH } =
-    params;
+  const {
+    uri,
+    width,
+    height,
+    isMonochrome,
+    compress,
+    originW,
+    originH,
+    cornerRadius = 0,
+    cornerBackgroundColor,
+  } = params;
   if (!uri) return { hex: '', uri: '', width: 0, height: 0 };
   const actions: ExpoImageManipulatorAction[] = [];
 
@@ -199,6 +308,17 @@ async function resizeImage(params: {
     );
     bwBase64 = stripBase64UriPrefix(bwBase64);
     imageResult.base64 = bwBase64;
+  }
+
+  if (cornerRadius > 0 && imageResult?.base64) {
+    const roundedBase64 = await applyRoundedCorners({
+      base64: imageResult.base64,
+      width: imageResult.width,
+      height: imageResult.height,
+      radius: cornerRadius,
+      backgroundColor: cornerBackgroundColor,
+    });
+    imageResult.base64 = roundedBase64;
   }
 
   const buffer = Buffer.from(imageResult.base64 ?? '', 'base64');
@@ -455,15 +575,6 @@ async function getBase64FromRequiredImageSource(
   });
 }
 
-function buildHtmlImage(dataUrl: string): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const image = new Image();
-    image.onload = () => resolve(image);
-    image.onerror = (e) => reject(e);
-    image.src = dataUrl;
-  });
-}
-
 function htmlImageToCanvas({
   image,
   width,
@@ -668,4 +779,5 @@ export default {
   base64ImageToBitmap,
   buildHtmlImage,
   getBase64ImageFromUrl,
+  applyRoundedCorners,
 };
