@@ -86,39 +86,6 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
   );
 
   const { perpDisabled, perpTabShowWeb } = usePerpTabConfig();
-  const perpTabShowRes = useMemo(() => {
-    if (perpDisabled) {
-      return null;
-    }
-    if (perpTabShowWeb) {
-      return {
-        name: ETabRoutes.WebviewPerpTrade,
-        tabBarIcon: (focused?: boolean) =>
-          focused ? 'TradingViewCandlesSolid' : 'TradingViewCandlesOutline',
-        translationId: ETranslations.global_perp,
-        freezeOnBlur: Boolean(params?.freezeOnBlur),
-        rewrite: '/perp',
-        exact: true,
-        children: platformEnv.isExtension
-          ? // small screen error: Cannot read properties of null (reading 'filter')
-            // null
-            perpWebviewRouters
-          : perpWebviewRouters,
-        trackId: 'global-perp',
-      };
-    }
-    return {
-      name: ETabRoutes.Perp,
-      tabBarIcon: (focused?: boolean) =>
-        focused ? 'TradingViewCandlesSolid' : 'TradingViewCandlesOutline',
-      translationId: ETranslations.global_perp,
-      freezeOnBlur: Boolean(params?.freezeOnBlur),
-      children: perpRouters,
-      rewrite: '/perp',
-      exact: true,
-      // tabbarOnPress,
-    };
-  }, [perpDisabled, perpTabShowWeb, params?.freezeOnBlur]);
   // Custom Market tab press handler - only for non-mobile platforms
   const handleMarketTabPress = useMemo(() => {
     return () => {
@@ -196,7 +163,34 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
           children: swapRouters,
           trackId: 'global-trade',
         },
-        perpTabShowRes,
+        !perpDisabled && {
+          name: ETabRoutes.WebviewPerpTrade,
+          tabBarIcon: (focused?: boolean) =>
+            focused ? 'TradingViewCandlesSolid' : 'TradingViewCandlesOutline',
+          translationId: ETranslations.global_perp,
+          freezeOnBlur: Boolean(params?.freezeOnBlur),
+          rewrite: '/perp',
+          exact: true,
+          children: platformEnv.isExtension
+            ? // small screen error: Cannot read properties of null (reading 'filter')
+              // null
+              perpWebviewRouters
+            : perpWebviewRouters,
+          trackId: 'global-perp',
+          hideOnTabBar: !perpTabShowWeb,
+        },
+        !perpDisabled && {
+          name: ETabRoutes.Perp,
+          tabBarIcon: (focused?: boolean) =>
+            focused ? 'TradingViewCandlesSolid' : 'TradingViewCandlesOutline',
+          translationId: ETranslations.global_perp,
+          freezeOnBlur: Boolean(params?.freezeOnBlur),
+          children: perpRouters,
+          rewrite: '/perp',
+          exact: true,
+          // tabbarOnPress,
+          hideOnTabBar: perpTabShowWeb,
+        },
         {
           name: ETabRoutes.Earn,
           tabBarIcon: (focused?: boolean) =>
