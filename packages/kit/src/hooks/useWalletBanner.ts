@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { parseNotificationPayload } from '@onekeyhq/shared/src/utils/notificationsUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
@@ -77,6 +78,10 @@ function useWalletBanner({
           );
         }
         return;
+      }
+
+      if (item.mode) {
+        parseNotificationPayload(item.mode, item.payload, () => {});
       }
 
       if (item.href) {
