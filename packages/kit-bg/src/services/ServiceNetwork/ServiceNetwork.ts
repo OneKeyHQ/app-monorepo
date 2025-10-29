@@ -1,3 +1,4 @@
+import BigNumber from 'bignumber.js';
 import { isEmpty, isNil, uniq, uniqBy } from 'lodash';
 
 import type { CoreChainScopeBase } from '@onekeyhq/core/src/base/CoreChainScopeBase';
@@ -19,6 +20,7 @@ import {
   AGGREGATE_TOKEN_MOCK_NETWORK_ID,
   NETWORK_SHOW_VALUE_THRESHOLD_USD,
 } from '@onekeyhq/shared/src/consts/networkConsts';
+import { SEPERATOR } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
@@ -38,13 +40,12 @@ import {
 import ServiceBase from '../ServiceBase';
 
 import type { IDBAccount } from '../../dbs/local/types';
+import type { IAccountSelectorPersistInfo } from '../../dbs/simple/entity/SimpleDbEntityAccountSelector';
 import type {
   IAccountDeriveInfo,
   IAccountDeriveInfoItems,
   IAccountDeriveTypes,
 } from '../../vaults/types';
-import BigNumber from 'bignumber.js';
-import { SEPERATOR } from '@onekeyhq/shared/src/engine/engineConsts';
 
 const defaultPinnedNetworkIds = [
   getNetworkIdsMap().btc,
@@ -588,12 +589,15 @@ class ServiceNetwork extends ServiceBase {
   @backgroundMethod()
   async getGlobalDeriveTypeOfNetwork({
     networkId,
+    rawData,
   }: {
     networkId: string;
+    rawData?: IAccountSelectorPersistInfo | null;
   }): Promise<IAccountDeriveTypes> {
     const currentGlobalDeriveType =
       await this.backgroundApi.simpleDb.accountSelector.getGlobalDeriveType({
         networkId,
+        rawData,
       });
     return currentGlobalDeriveType ?? 'default';
   }
@@ -1305,8 +1309,13 @@ class ServiceNetwork extends ServiceBase {
 
     const formattedAccountNetworkValues: Record<string, string> = {};
 
+    const deriveTypeRawData =
+      await this.backgroundApi.simpleDb.accountSelector.getRawData();
+
     for (const [key, value] of Object.entries(accountNetworkValues)) {
-      const [accountId, networkId] = key.split('_') as [string, string];
+      const keyArray = key.split('_');
+      const networkId = keyArray.pop() as string;
+      const accountId = keyArray.join('_');
       const [_walletId, _path, _deriveType] = accountId.split(SEPERATOR) as [
         string,
         string,
@@ -1320,6 +1329,7 @@ class ServiceNetwork extends ServiceBase {
         const [globalDeriveType, vaultSettings] = await Promise.all([
           this.backgroundApi.serviceNetwork.getGlobalDeriveTypeOfNetwork({
             networkId,
+            rawData: deriveTypeRawData,
           }),
           this.backgroundApi.serviceNetwork.getVaultSettings({ networkId }),
         ]);
@@ -1329,11 +1339,11 @@ class ServiceNetwork extends ServiceBase {
             vaultSettings.mergeDeriveAssetsEnabled ?? false,
         };
       }
-
       if (
         walletId === _walletId &&
         networkInfoMap[networkId] &&
         (networkInfoMap[networkId].mergeDeriveAssetsEnabled ||
+          accountUtils.isOthersAccount({ accountId }) ||
           networkInfoMap[networkId].deriveType.toLowerCase() ===
             deriveType.toLowerCase())
       ) {

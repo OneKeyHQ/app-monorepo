@@ -97,7 +97,9 @@ function AccountValue(accountValue: {
     }
 
     return Object.entries(value).reduce((acc, [k, v]) => {
-      const [accountId, networkId] = k.split('_') as [string, string];
+      const keyArray = k.split('_');
+      const networkId = keyArray.pop() as string;
+      const accountId = keyArray.join('_');
       const [_walletId, _path, _deriveType] = accountId.split(SEPERATOR) as [
         string,
         string,
