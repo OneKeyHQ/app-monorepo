@@ -169,7 +169,7 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
             focused ? 'TradingViewCandlesSolid' : 'TradingViewCandlesOutline',
           translationId: ETranslations.global_perp,
           freezeOnBlur: Boolean(params?.freezeOnBlur),
-          rewrite: '/perp',
+          rewrite: perpTabShowWeb ? '/perp' : undefined,
           exact: true,
           children: platformEnv.isExtension
             ? // small screen error: Cannot read properties of null (reading 'filter')
@@ -186,7 +186,7 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
           translationId: ETranslations.global_perp,
           freezeOnBlur: Boolean(params?.freezeOnBlur),
           children: perpRouters,
-          rewrite: '/perp',
+          rewrite: perpTabShowWeb ? undefined : '/perp',
           exact: true,
           // tabbarOnPress,
           hideOnTabBar: perpTabShowWeb,
