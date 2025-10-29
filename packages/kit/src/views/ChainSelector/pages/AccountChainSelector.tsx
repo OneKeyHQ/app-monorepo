@@ -18,6 +18,7 @@ import {
   EChainSelectorPages,
   type IChainSelectorParamList,
 } from '@onekeyhq/shared/src/routes';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -97,9 +98,13 @@ const EditableAccountChainSelector = ({
           chainSelectorNetworks: sortedChainSelectorNetworks,
           formattedAccountNetworkValues,
         } = networkUtils.sortChainSelectorNetworksByValue({
+          walletId: accountUtils.getWalletIdFromAccountId({
+            accountId: _accountsValue[0].accountId,
+          }),
           chainSelectorNetworks: _chainSelectorNetworks,
           accountNetworkValues: _accountsValue[0].value ?? {},
         });
+
         return {
           chainSelectorNetworks: sortedChainSelectorNetworks,
           accountNetworkValues: formattedAccountNetworkValues,

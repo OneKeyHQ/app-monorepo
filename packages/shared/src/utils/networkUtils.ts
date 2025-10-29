@@ -12,7 +12,10 @@ import {
   getDefaultEnabledNetworksInAllNetworks,
   getPresetNetworks,
 } from '../config/presetNetworks';
-import { AGGREGATE_TOKEN_MOCK_NETWORK_ID } from '../consts/networkConsts';
+import {
+  AGGREGATE_TOKEN_MOCK_NETWORK_ID,
+  NETWORK_SHOW_VALUE_THRESHOLD_USD,
+} from '../consts/networkConsts';
 import {
   COINTYPE_LIGHTNING,
   COINTYPE_LIGHTNING_TESTNET,
@@ -251,9 +254,11 @@ function getNetworkIdFromShortCode({
 }
 
 function sortChainSelectorNetworksByValue({
+  walletId,
   chainSelectorNetworks,
   accountNetworkValues,
 }: {
+  walletId: string;
   chainSelectorNetworks: {
     mainnetItems: IServerNetwork[];
     testnetItems: IServerNetwork[];
@@ -273,30 +278,38 @@ function sortChainSelectorNetworksByValue({
   const formattedAccountNetworkValues: Record<string, string> = {};
 
   for (const [key, value] of Object.entries(accountNetworkValues)) {
-    const [_, networkId] = key.split('_') as [string, string];
-    if (isNil(formattedAccountNetworkValues[networkId])) {
-      formattedAccountNetworkValues[networkId] = value;
-    } else {
-      formattedAccountNetworkValues[networkId] = new BigNumber(
-        formattedAccountNetworkValues[networkId],
-      )
-        .plus(value)
-        .toFixed();
+    const [accountId, networkId] = key.split('_') as [string, string];
+    const _walletId = accountId.split(SEPERATOR)[0];
+
+    if (walletId === _walletId) {
+      if (isNil(formattedAccountNetworkValues[networkId])) {
+        formattedAccountNetworkValues[networkId] = value;
+      } else {
+        formattedAccountNetworkValues[networkId] = new BigNumber(
+          formattedAccountNetworkValues[networkId],
+        )
+          .plus(value)
+          .toFixed();
+      }
     }
   }
 
-  // if network in frequentlyUsedItems do not has value or value is 0, remove it from frequentlyUsedItems
+  // if network in frequentlyUsedItems do not has value or value is less than 1 usd, remove it from frequentlyUsedItems
   let frequentlyUsedItems = chainSelectorNetworks.frequentlyUsedItems.filter(
     (item) => {
       return new BigNumber(formattedAccountNetworkValues[item.id] ?? '0').gt(
-        '0',
+        NETWORK_SHOW_VALUE_THRESHOLD_USD,
       );
     },
   );
 
   // check if any network in mainnetItems has non-zero value, add it to frequentlyUsedItems
   for (const item of chainSelectorNetworks.mainnetItems) {
-    if (new BigNumber(formattedAccountNetworkValues[item.id] ?? '0').gt(0)) {
+    if (
+      new BigNumber(formattedAccountNetworkValues[item.id] ?? '0').gt(
+        NETWORK_SHOW_VALUE_THRESHOLD_USD,
+      )
+    ) {
       frequentlyUsedItems.push(item);
     }
   }
