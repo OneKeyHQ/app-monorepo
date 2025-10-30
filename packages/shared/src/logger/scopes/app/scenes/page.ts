@@ -50,17 +50,17 @@ export class PageScene extends BaseScene {
 
   @LogToServer()
   @LogToLocal()
-  public jsReadyTime(time: number) {
+  public jsReadyTime(duration: number) {
     return {
-      time,
+      duration,
     };
   }
 
   @LogToServer()
   @LogToLocal()
-  public uiVisibleTime(time: number) {
+  public uiVisibleTime(duration: number) {
     return {
-      time,
+      duration,
     };
   }
 }

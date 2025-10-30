@@ -39,7 +39,6 @@ export function useMarketTokenList({
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isNetworkSwitching, setIsNetworkSwitching] = useState(false);
   const [hasReachedEnd, setHasReachedEnd] = useState(false);
-  const [consecutiveEmptyResponses, setConsecutiveEmptyResponses] = useState(0);
   const maxPages = 5;
 
   // Optimize network logo URI calculation
@@ -104,7 +103,6 @@ export function useMarketTokenList({
     setCurrentPage(1);
     setIsLoadingMore(false);
     setHasReachedEnd(false);
-    setConsecutiveEmptyResponses(0);
     // Don't clear data immediately to avoid UI flicker
     // The data will be replaced when new API result arrives
   }, [networkId, sortBy, sortType]);
@@ -153,9 +151,6 @@ export function useMarketTokenList({
         });
 
       if (response?.list?.length > 0) {
-        // Reset consecutive empty responses counter when we get data
-        setConsecutiveEmptyResponses(0);
-
         // Transform new data
         const newTransformed = response.list.map((item) =>
           transformApiItemToToken(item, {
@@ -171,17 +166,8 @@ export function useMarketTokenList({
         setTransformedData((prev) => [...prev, ...newTransformed]);
         setCurrentPage(nextPage);
       } else {
-        // Increment consecutive empty responses counter
-        const newConsecutiveEmptyCount = consecutiveEmptyResponses + 1;
-        setConsecutiveEmptyResponses(newConsecutiveEmptyCount);
-
-        // Only mark as reached end after 3 consecutive empty responses
-        if (newConsecutiveEmptyCount >= 3) {
-          setHasReachedEnd(true);
-        } else {
-          // Still try to load the next page
-          setCurrentPage(nextPage);
-        }
+        // Empty response - stop loading immediately
+        setHasReachedEnd(true);
       }
     } catch (error) {
       console.error('Failed to load more market tokens:', error);
@@ -200,7 +186,6 @@ export function useMarketTokenList({
     minLiquidity,
     trackNetworkLoading,
     networkLogoUri,
-    consecutiveEmptyResponses,
   ]);
 
   const canLoadMore =

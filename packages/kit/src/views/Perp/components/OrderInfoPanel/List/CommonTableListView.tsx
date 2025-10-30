@@ -321,7 +321,7 @@ export function CommonTableListView({
   headerBgColor = '$bgSubtle',
   headerTextColor = '$textSubdued',
   borderColor = '$borderSubdued',
-  enablePagination = false,
+  enablePagination = true,
   pageSize = 20,
   listViewDebugRenderTrackerProps,
   onViewAll,
@@ -617,10 +617,10 @@ export function CommonTableListView({
                 )
               }
               contentContainerStyle={{
-                paddingBottom: enablePagination && totalPages > 1 ? 0 : 16,
+                paddingBottom: enablePagination ? 0 : 16,
               }}
             />
-            {enablePagination && currentListPage && totalPages > 1 ? (
+            {enablePagination && currentListPage ? (
               <PaginationFooter
                 currentPage={currentListPage}
                 totalPages={totalPages}

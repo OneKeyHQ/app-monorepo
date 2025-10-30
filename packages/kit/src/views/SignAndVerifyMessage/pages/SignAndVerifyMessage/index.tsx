@@ -12,6 +12,7 @@ import {
   useForm,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EModalSignAndVerifyRoutes,
@@ -153,6 +154,8 @@ function SignAndVerifyMessage() {
               format,
               networkId: currentSignAccount.network.id,
               accountId: currentSignAccount.account.id,
+              indexedAccountId: currentSignAccount.account.indexedAccountId,
+              deriveType: currentSignAccount.deriveType as IAccountDeriveTypes,
             },
           );
         signedMessageRef.current = {
