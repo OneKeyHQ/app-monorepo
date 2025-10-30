@@ -444,6 +444,8 @@ export type IHwAllNetworkPrepareAccountsItem =
 
       derivedPath?: string; // alph
     };
+
+    useTweak?: boolean; // kaspa
   };
 
 export type IHwAllNetworkPrepareAccountsResponse =
