@@ -921,9 +921,9 @@ function DepositWithdrawContent({
       if (selectedAction === 'deposit') {
         if (isArbitrumUsdcToken) {
           await normalizeTxConfirm({
-            onSuccess: () => {
-              // TODO wait tx confirmed then check account status
-              void backgroundApiProxy.serviceHyperliquid.checkPerpsAccountStatus();
+            onSuccess: async () => {
+              await backgroundApiProxy.serviceHyperliquid.checkPerpsAccountStatus();
+              onClose?.();
             },
             transfersInfo: [
               {
@@ -936,15 +936,14 @@ function DepositWithdrawContent({
           });
         } else {
           await buildPerpDepositTx();
+          onClose?.();
         }
-        onClose?.();
       } else {
         await withdraw({
           userAccountId: selectedAccount.accountId || '',
           amount,
           destination: selectedAccount.accountAddress,
         });
-
         onClose?.();
       }
     } catch (error) {
@@ -1499,10 +1498,9 @@ function MobileDepositWithdrawModal() {
   const [selectedAccount] = usePerpsActiveAccountAtom();
 
   const handleClose = useCallback(() => {
-    if (platformEnv.isNative) {
-      return;
-    }
-    navigation.goBack();
+    setTimeout(() => {
+      navigation.goBack();
+    }, 150);
   }, [navigation]);
   if (!selectedAccount) {
     return (
