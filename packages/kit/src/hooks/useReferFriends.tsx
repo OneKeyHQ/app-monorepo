@@ -17,11 +17,7 @@ import { FormatHyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText'
 import { REFERRAL_HELP_LINK } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import {
-  EModalReferFriendsRoutes,
-  EModalRoutes,
-  ERootRoutes,
-} from '@onekeyhq/shared/src/routes';
+import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
@@ -33,12 +29,12 @@ export function useToReferFriendsModalByRootNavigation() {
   return useCallback(async () => {
     const isLogin = await backgroundApiProxy.servicePrime.isLoggedIn();
 
-    const screen = isLogin
-      ? EModalReferFriendsRoutes.InviteReward
-      : EModalReferFriendsRoutes.ReferAFriend;
+    const screen: 'TabInviteReward' | 'TabReferAFriend' = isLogin
+      ? 'TabInviteReward'
+      : 'TabReferAFriend';
 
-    rootNavigationRef.current?.navigate(ERootRoutes.Modal, {
-      screen: EModalRoutes.ReferFriendsModal,
+    rootNavigationRef.current?.navigate(ERootRoutes.Main, {
+      screen: ETabRoutes.ReferFriends,
       params: {
         screen,
       },
@@ -49,10 +45,14 @@ export function useToReferFriendsModalByRootNavigation() {
 export const isOpenedReferFriendsPage = () => {
   const routeState = rootNavigationRef.current?.getRootState();
   if (routeState?.routes) {
-    return routeState.routes.find(
-      // @ts-expect-error
-      (route) => route.params?.screen === EModalRoutes.ReferFriendsModal,
+    const mainRoute = routeState.routes.find(
+      (route) => route.name === ERootRoutes.Main,
     );
+    if (mainRoute?.state?.routes) {
+      return mainRoute.state.routes.find(
+        (route) => route.name === ETabRoutes.ReferFriends,
+      );
+    }
   }
   return false;
 };
@@ -65,8 +65,8 @@ export const useReferFriends = () => {
   const toInviteRewardPage = useCallback(async () => {
     const isLogin = await backgroundApiProxy.servicePrime.isLoggedIn();
     if (isLogin) {
-      navigation.pushModal(EModalRoutes.ReferFriendsModal, {
-        screen: EModalReferFriendsRoutes.InviteReward,
+      navigation.switchTab<ETabRoutes.ReferFriends>(ETabRoutes.ReferFriends, {
+        screen: 'TabInviteReward',
       });
     } else {
       void loginOneKeyId({ toOneKeyIdPageOnLoginSuccess: true });
@@ -79,12 +79,12 @@ export const useReferFriends = () => {
       ESpotlightTour.referAFriend,
     );
     if (isLogin && isVisited) {
-      navigation.pushModal(EModalRoutes.ReferFriendsModal, {
-        screen: EModalReferFriendsRoutes.InviteReward,
+      navigation.switchTab<ETabRoutes.ReferFriends>(ETabRoutes.ReferFriends, {
+        screen: 'TabInviteReward',
       });
     } else {
-      navigation.pushModal(EModalRoutes.ReferFriendsModal, {
-        screen: EModalReferFriendsRoutes.ReferAFriend,
+      navigation.switchTab<ETabRoutes.ReferFriends>(ETabRoutes.ReferFriends, {
+        screen: 'TabReferAFriend',
       });
     }
   }, [navigation]);
@@ -92,7 +92,7 @@ export const useReferFriends = () => {
   const { copyText } = useClipboard();
 
   const shareReferRewards = useCallback(
-    async (onSuccess?: () => void, onFail?: () => void) => {
+    async (_onSuccess?: () => void, _onFail?: () => void) => {
       const isLogin = await backgroundApiProxy.servicePrime.isLoggedIn();
       const myReferralCode =
         await backgroundApiProxy.serviceReferralCode.getMyReferralCode();
@@ -102,9 +102,12 @@ export const useReferFriends = () => {
 
       const handleConfirm = () => {
         if (isLogin) {
-          navigation.pushModal(EModalRoutes.ReferFriendsModal, {
-            screen: EModalReferFriendsRoutes.InviteReward,
-          });
+          navigation.switchTab<ETabRoutes.ReferFriends>(
+            ETabRoutes.ReferFriends,
+            {
+              screen: 'TabInviteReward',
+            },
+          );
         } else {
           void loginOneKeyId({ toOneKeyIdPageOnLoginSuccess: true });
         }
