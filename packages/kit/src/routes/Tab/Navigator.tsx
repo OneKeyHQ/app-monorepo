@@ -40,84 +40,6 @@ const useIsIOSTabNavigatorFocused =
       }
     : () => true;
 
-const preloadTab = (
-  navigation: NavigationProp<any>,
-  route: string | undefined,
-  screen: string | undefined,
-  timeout: number,
-) => {
-  setTimeout(() => {
-    if (route && screen) {
-      navigation.preload(ERootRoutes.Main, {
-        screen: route,
-        params: {
-          screen,
-        },
-      });
-    } else {
-      navigation.preload(ERootRoutes.Main);
-    }
-  }, timeout);
-};
-
-const preloadTabs = (navigation: NavigationProp<any>) => {
-  let timeout = 100;
-  const gap = 150;
-  preloadTab(
-    navigation,
-    ETabRoutes.Market,
-    ETabMarketRoutes.TabMarket,
-    timeout,
-  );
-  preloadTab(
-    navigation,
-    ETabRoutes.Earn,
-    ETabEarnRoutes.EarnHome,
-    (timeout += gap),
-  );
-  preloadTab(
-    navigation,
-    ETabRoutes.Swap,
-    ETabSwapRoutes.TabSwap,
-    (timeout += gap),
-  );
-  preloadTab(navigation, ETabRoutes.Perp, ETabRoutes.Perp, (timeout += gap));
-  preloadTab(
-    navigation,
-    ETabRoutes.Discovery,
-    ETabDiscoveryRoutes.TabDiscovery,
-    (timeout += gap),
-  );
-  preloadTab(
-    navigation,
-    ETabRoutes.Home,
-    ETabHomeRoutes.TabHome,
-    (timeout += gap),
-  );
-  preloadTab(navigation, undefined, undefined, (timeout += gap));
-};
-
-let runOnce = false;
-const usePreloadTabs =
-  platformEnv.isDev || platformEnv.isNative
-    ? () => {}
-    : () => {
-        const navigation = useNavigation();
-        useEffect(() => {
-          if (runOnce) {
-            return;
-          }
-          runOnce = true;
-          setTimeout(async () => {
-            await Promise.race([
-              new Promise<void>((resolve) => setTimeout(resolve, 1200)),
-              whenAppUnlocked(),
-            ]);
-            preloadTabs(navigation as NavigationProp<any>);
-          });
-        }, [navigation]);
-      };
-
 // When using navigation.preload, the web layer will re-render the interface with sidebar,
 // which may cause duplicate Portal rendering. Use isRendered to prevent duplicate Portal rendering.
 let isRendered = false;
@@ -163,7 +85,6 @@ export function TabNavigator() {
   const { gtMd } = useMedia();
 
   useCheckTabsChangedInDev(config);
-  usePreloadTabs();
 
   return (
     <>

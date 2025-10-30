@@ -38,6 +38,7 @@ import {
   WalletConnectionForWeb,
 } from './components';
 import { MoreActionButton } from './MoreActionButton';
+import { UrlAccountPageHeader } from './urlAccountPageHeader';
 
 function GiftAction() {
   const { shareReferRewards } = useReferFriends();
@@ -129,7 +130,7 @@ export function HeaderRight({
   }) => ReactNode;
 }) {
   const isHorizontal = useIsHorizontalLayout();
-  const { gtXl } = useMedia();
+  const { gtXl, gtMd } = useMedia();
 
   const items = useMemo(() => {
     if (customHeaderRightItems) {
@@ -165,15 +166,16 @@ export function HeaderRight({
           platformEnv.isWebDappMode &&
           sceneName === EAccountSelectorSceneName.homeUrlAccount;
 
-        const urlAccountBackButton = isUrlWallet ? (
-          <NavBackButton
-            onPress={() => {
-              rootNavigationRef.current?.navigate(ETabRoutes.Market, {
-                screen: ETabMarketRoutes.TabMarket,
-              });
-            }}
-          />
-        ) : null;
+        const urlAccountBackButton =
+          isUrlWallet && gtMd && platformEnv.isWebDappMode ? (
+            <NavBackButton
+              onPress={() => {
+                rootNavigationRef.current?.navigate(ETabRoutes.Market, {
+                  screen: ETabMarketRoutes.TabMarket,
+                });
+              }}
+            />
+          ) : null;
 
         return (
           <>
@@ -182,7 +184,11 @@ export function HeaderRight({
               <SearchInput isUrlWallet={isUrlWallet} />
             ) : undefined}
             {isHorizontal ? undefined : <SelectorTrigger />}
-            <WalletConnectionForWeb tabRoute={tabRoute} />
+            {isUrlWallet && gtMd && platformEnv.isWebDappMode ? (
+              <UrlAccountPageHeader />
+            ) : (
+              <WalletConnectionForWeb tabRoute={tabRoute} />
+            )}
             {fixedItems}
           </>
         );
@@ -239,12 +245,13 @@ export function HeaderRight({
         break;
     }
   }, [
+    customHeaderRightItems,
     isHorizontal,
     gtXl,
+    renderCustomHeaderRightItems,
     tabRoute,
     sceneName,
-    customHeaderRightItems,
-    renderCustomHeaderRightItems,
+    gtMd,
   ]);
   const width = useMemo(() => {
     if (platformEnv.isNative) {

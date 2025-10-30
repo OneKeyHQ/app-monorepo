@@ -30,7 +30,7 @@ function useWebHeaderNavigation({
 
   useOnRouterChange((state) => {
     if (!state) {
-      setCurrentTab(ETabRoutes.Home);
+      setCurrentTab(null);
       return;
     }
     const rootState = state?.routes.find(
@@ -57,7 +57,7 @@ function useWebHeaderNavigation({
       case ETabRoutes.Swap:
         return 'swap';
       default:
-        return undefined;
+        return null;
     }
   }, [controlledActiveKey, currentTab]);
 
