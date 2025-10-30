@@ -235,7 +235,7 @@ export function ActionButton({
     async (event: GestureResponderEvent) => {
       setHasClickedWithoutAmount(true);
 
-      if (!hasAmount) {
+      if (!hasAmount && !hasClickedWithoutAmount) {
         return;
       }
 
@@ -277,6 +277,7 @@ export function ActionButton({
       onPress?.(event);
     },
     [
+      hasClickedWithoutAmount,
       hasAmount,
       noAccount,
       shouldCreateAddress?.result,
