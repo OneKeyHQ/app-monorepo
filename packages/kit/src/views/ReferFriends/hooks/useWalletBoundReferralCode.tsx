@@ -26,6 +26,7 @@ import {
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import type { OneKeyError } from '@onekeyhq/shared/src/errors';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -496,7 +497,19 @@ export function useWalletBoundReferralCode({
           onSuccess?.();
         }
       } catch (e) {
+        // Disable auto toast for this error to show custom toast without requestId
+        errorToastUtils.toastIfErrorDisable(e);
+
+        // Show custom error toast without requestId
+        const err = e as OneKeyError;
+        if (err?.message) {
+          Toast.error({
+            title: err.message,
+          });
+        }
+
         preventClose?.();
+        throw e;
       }
     },
     [intl],

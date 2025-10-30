@@ -8,9 +8,11 @@ import {
   Badge,
   Button,
   Form,
+  Icon,
   Input,
   Skeleton,
   Stack,
+  Toast,
   XStack,
   YStack,
   useForm,
@@ -20,17 +22,15 @@ import { WalletBackupActions } from '@onekeyhq/kit/src/components/WalletBackup';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
+import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import type { OneKeyError } from '@onekeyhq/shared/src/errors';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-
-import { useThemeVariant } from '../../../../hooks/useThemeVariant';
 import {
   useGetReferralCodeWalletInfo,
   useWalletBoundReferralCode,
-} from '../../../ReferFriends/hooks/useWalletBoundReferralCode';
+} from '@onekeyhq/kit/src/views/ReferFriends/hooks/useWalletBoundReferralCode';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import InfoBlock from './InfoBlock';
 import MainInfoBlock from './MainBlock';
@@ -134,6 +134,18 @@ function NotBackedUp() {
   }, [intl]);
 
   const handleJoinReferral = useCallback(async () => {
+    const referralCode = form.getValues().referralCode?.trim();
+
+    // Check if referral code is empty
+    if (!referralCode) {
+      Toast.error({
+        title: intl.formatMessage({
+          id: ETranslations.referral_invalid_code,
+        }),
+      });
+      return;
+    }
+
     const isValidForm = await form.trigger();
     if (!isValidForm) {
       return;
@@ -148,22 +160,13 @@ function NotBackedUp() {
           setTimeout(() => refreshDisplayReferralCodeButton(), 200);
         },
       });
-    } catch (e) {
-      if (
-        (e as OneKeyError).className === 'OneKeyServerApiError' &&
-        (e as OneKeyError).message
-      ) {
-        form.setError('referralCode', {
-          message: (e as OneKeyError).message,
-        });
-      }
-      throw e;
     } finally {
       setIsJoiningReferral(false);
     }
   }, [
     confirmBindReferralCode,
     form,
+    intl,
     navigationToMessageConfirmAsync,
     refreshDisplayReferralCodeButton,
     walletInfo,
@@ -188,6 +191,7 @@ function NotBackedUp() {
                 }),
               },
             }}
+            renderErrorMessage={() => <></>}
           >
             <Input
               h={48}
@@ -215,7 +219,15 @@ function NotBackedUp() {
       </XStack>
     ) : (
       <XStack>
-        <Badge badgeSize="md" badgeType="info">
+        <Badge
+          badgeSize="md"
+          badgeType="info"
+          py={13}
+          px={20}
+          borderRadius="$3"
+          gap="$2"
+        >
+          <Icon name="CheckLargeOutline" size="$4" color="$iconInfo" />
           <Badge.Text>
             {intl.formatMessage({
               id: ETranslations.referral_wallet_bind_code_finish,
