@@ -12,13 +12,13 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import {
   ERootRoutes,
   ETabDiscoveryRoutes,
   ETabEarnRoutes,
   ETabHomeRoutes,
   ETabMarketRoutes,
-  ETabRoutes,
   ETabSwapRoutes,
 } from '@onekeyhq/shared/src/routes';
 
