@@ -811,6 +811,9 @@ function ReceiveToken() {
     nativeToken?.logoURI,
   ]);
 
+  const isPressable = useMemo(() => {
+    return !!(banner?.href || banner?.mode);
+  }, [banner]);
   return (
     <Page safeAreaEnabled={false}>
       <Page.Header
@@ -832,7 +835,7 @@ function ReceiveToken() {
               borderRadius="$2"
               borderCurve="continuous"
               userSelect="none"
-              {...(banner?.href || banner?.mode
+              {...(isPressable
                 ? {
                     focusable: true,
                     focusVisibleStyle: {
@@ -853,7 +856,7 @@ function ReceiveToken() {
                     },
                     onPress: () => handleBannerOnPress(banner),
                   }
-                : null)}
+                : undefined)}
             >
               <Image
                 size="$5"
