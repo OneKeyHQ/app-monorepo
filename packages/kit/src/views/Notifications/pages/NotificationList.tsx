@@ -480,7 +480,6 @@ function BaseNotificationList() {
                     isVersionCompatible(item.body.extras?.miniBundlerVersion)
                   ) {
                     void notificationsUtils.navigateToNotificationDetail({
-                      topicType: item.topicType,
                       navigation,
                       message: item.body,
                       notificationAccountId:

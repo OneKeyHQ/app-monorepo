@@ -10,7 +10,6 @@ import {
 } from '../../types/notification';
 import appGlobals from '../appGlobals';
 import { EAppEventBusNames, appEventBus } from '../eventBus/appEventBus';
-import { defaultLogger } from '../logger/logger';
 import platformEnv from '../platformEnv';
 import { EModalAssetDetailRoutes, EModalRoutes } from '../routes';
 import { EModalNotificationsRoutes } from '../routes/notifications';
@@ -22,10 +21,7 @@ import { buildModalRouteParams } from './routeUtils';
 import timerUtils from './timerUtils';
 
 import type { INetworkAccount } from '../../types/account';
-import type {
-  ENotificationPushTopicTypes,
-  INotificationPushMessageInfo,
-} from '../../types/notification';
+import type { INotificationPushMessageInfo } from '../../types/notification';
 
 function convertWebPermissionToEnum(
   permission: NotificationPermission,
@@ -118,7 +114,6 @@ export interface INavigateToNotificationDetailParams {
   navigation?: IAppNavigation;
   mode?: ENotificationPushMessageMode;
   payload?: string;
-  topicType?: ENotificationPushTopicTypes;
 }
 
 export function parseNotificationPayload(
@@ -171,19 +166,10 @@ async function navigateToNotificationDetail({
   navigation,
   mode,
   payload,
-  topicType,
 }: INavigateToNotificationDetailParams) {
   let routes: string[] = [];
   let params: any = {};
   let shouldAckRead = true;
-
-  setTimeout(() => {
-    defaultLogger.app.page.notificationItemClicked(
-      notificationId,
-      topicType || 'unknown',
-      isFromNotificationClick ? 'notificationClick' : 'notificationListClick',
-    );
-  });
 
   if (isFromNotificationClick) {
     const statusRoutes = appGlobals.$navigationRef.current?.getState().routes;

@@ -260,7 +260,7 @@ export type INativeNotificationCenterMessageInfo = {
 };
 export type INotificationPushMessageListItem = {
   msgId: string;
-  topicType: ENotificationPushTopicTypes;
+  topicType: string;
   body: INotificationPushMessageInfo;
   referId: string;
   readed: boolean | undefined;

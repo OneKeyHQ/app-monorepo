@@ -1,5 +1,4 @@
 import { addBreadcrumb } from '@onekeyhq/shared/src/modules3rdParty/sentry';
-import type { ENotificationPushTopicTypes } from '@onekeyhq/shared/types/notification';
 
 import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal, LogToServer } from '../../../base/decorators';
@@ -30,16 +29,6 @@ export class PageScene extends BaseScene {
   @LogToLocal()
   public tabBarClick(tabName: string) {
     return { tabName };
-  }
-
-  @LogToServer()
-  @LogToLocal()
-  public notificationItemClicked(
-    notificationId: string,
-    type: ENotificationPushTopicTypes | 'unknown',
-    clickFrom: 'notificationClick' | 'notificationListClick',
-  ) {
-    return { notificationId, type, clickFrom };
   }
 
   @LogToServer()
