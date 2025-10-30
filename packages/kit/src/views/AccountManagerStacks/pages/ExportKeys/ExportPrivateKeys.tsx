@@ -36,6 +36,7 @@ import {
 } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   EAccountManagerStacksRoutes,
   IAccountManagerStacksParamList,
@@ -70,6 +71,7 @@ function SecureEntryTextArea({
       testID="account-key-input"
       value={secureEntry ? SECURE_ENTRY_PLACEHOLDER : value}
       onChangeText={onChange}
+      numberOfLines={platformEnv.isNativeAndroid ? 10 : 3}
       {...props}
     />
   );
