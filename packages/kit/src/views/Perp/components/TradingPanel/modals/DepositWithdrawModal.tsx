@@ -1499,6 +1499,9 @@ function MobileDepositWithdrawModal() {
   const [selectedAccount] = usePerpsActiveAccountAtom();
 
   const handleClose = useCallback(() => {
+    if (platformEnv.isNative) {
+      return;
+    }
     navigation.goBack();
   }, [navigation]);
   if (!selectedAccount) {

@@ -755,7 +755,7 @@ export default function HardwareHomeScreenModal({
 
   return (
     <Page scrollEnabled safeAreaEnabled>
-      <Page.Header title="HomeScreen" />
+      <Page.Header title={intl.formatMessage({ id: ETranslations.global_wallpaper })} />
       <Page.Body px="$4">
         <YStack gap="$2" py="$2">
           <WallpaperCustomCategorySection

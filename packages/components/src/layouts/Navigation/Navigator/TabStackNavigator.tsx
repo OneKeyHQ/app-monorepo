@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useIntl } from 'react-intl';
@@ -18,14 +18,25 @@ const Stack = createStackNavigator();
 
 function BasicTabSubStackNavigator({
   config,
+  delay,
 }: {
   config: ITabSubNavigatorConfig<string, any>[] | null;
+  delay?: number;
 }) {
   const [bgColor, titleColor] = useThemeValue(['bgApp', 'text']);
   const intl = useIntl();
+  const [isMounted, setIsMounted] = useState(!(delay && delay > 0));
+  useEffect(() => {
+    if (!delay) {
+      return;
+    }
+    setTimeout(() => {
+      setIsMounted(true);
+    }, delay + 100);
+  }, [delay]);
 
   // Handle null config case - return null to avoid creating empty Stack.Navigator
-  if (!config || config.length === 0) {
+  if (!isMounted || !config || config.length === 0) {
     return null;
   }
 
@@ -70,6 +81,7 @@ const useTabBarPosition = platformEnv.isNativeIOSPad
       return platformEnv.isNativeAndroid || media.md ? 'bottom' : 'left';
     };
 
+const GAP_TIME = 150;
 export function TabStackNavigator<RouteName extends string>({
   config,
   extraConfig,
@@ -86,10 +98,12 @@ export function TabStackNavigator<RouteName extends string>({
     () =>
       config
         .filter(({ disable }) => !disable)
-        .map(({ children, ...options }) => ({
+        .map(({ children, ...options }, index) => ({
           ...options,
           // eslint-disable-next-line react/no-unstable-nested-components
-          children: () => <TabSubStackNavigatorMemo config={children} />,
+          children: () => (
+            <TabSubStackNavigator config={children} delay={index * GAP_TIME} />
+          ),
         })),
     [config],
   );
@@ -119,7 +133,7 @@ export function TabStackNavigator<RouteName extends string>({
 
     if (extraConfig) {
       const children = () => (
-        <TabSubStackNavigatorMemo config={extraConfig.children} />
+        <TabSubStackNavigator config={extraConfig.children} />
       );
       screens.push(
         <Tab.Screen
@@ -143,9 +157,7 @@ export function TabStackNavigator<RouteName extends string>({
       screenOptions={{
         headerShown: false,
         freezeOnBlur: true,
-        // Native Load all tabs at once
-        // Web Lazy load
-        lazy: !platformEnv.isNative,
+        lazy: false,
       }}
     >
       {tabScreens}
