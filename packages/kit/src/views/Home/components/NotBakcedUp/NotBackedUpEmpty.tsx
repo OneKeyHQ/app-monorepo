@@ -1,6 +1,7 @@
 import { memo, useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 
 import {
   Anchor,
@@ -8,7 +9,6 @@ import {
   Button,
   Form,
   Input,
-  SizableText,
   Skeleton,
   Stack,
   XStack,
@@ -26,6 +26,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
+import { useThemeVariant } from '../../../../hooks/useThemeVariant';
 import {
   useGetReferralCodeWalletInfo,
   useWalletBoundReferralCode,
@@ -36,6 +37,7 @@ import MainInfoBlock from './MainBlock';
 
 function NotBackedUp() {
   const intl = useIntl();
+  const themeVariant = useThemeVariant();
   const {
     activeAccount: { wallet },
   } = useActiveAccount({
@@ -105,10 +107,10 @@ function NotBackedUp() {
   );
 
   // TODO fix help link
-  const referralHelpLink = useHelpLink({ path: 'articles/11461265' });
-  const securityFeaturesLink = useHelpLink({ path: 'articles/11829439' });
-  const sendAndReceiveLink = useHelpLink({ path: 'articles/11829440' });
-  const swapAndBridgeLink = useHelpLink({ path: 'articles/11829441' });
+  const referralHelpLink = useHelpLink({ path: 'articles/11461266' });
+  const howToDepositLink = useHelpLink({ path: 'articles/11461136' });
+  const depositFaqLink = useHelpLink({ path: 'articles/12569147' });
+  const swapAndBridgeLink = useHelpLink({ path: 'articles/11461146' });
 
   const handleBackupWallet = useCallback(() => {
     if (platformEnv.isNativeIOS || platformEnv.isDesktopMac) {
@@ -173,8 +175,8 @@ function NotBackedUp() {
     }
 
     return shouldBoundReferralCode ? (
-      <XStack alignItems="center" gap="$2">
-        <Stack flex={1}>
+      <XStack alignItems="center" gap="$2" alignSelf="stretch">
+        <Stack>
           <Form.Field
             name="referralCode"
             rules={{
@@ -188,9 +190,12 @@ function NotBackedUp() {
             }}
           >
             <Input
+              h={48}
               size="large"
-              w="100%"
-              placeholder="Referral code"
+              // w="100%"
+              placeholder={intl.formatMessage({
+                id: ETranslations.referral_your_code,
+              })}
               backgroundColor="$bgApp"
               maxLength={30}
             />
@@ -201,11 +206,7 @@ function NotBackedUp() {
           variant="secondary"
           onPress={handleJoinReferral}
           loading={isJoiningReferral}
-          disabled={
-            form.formState.isSubmitting ||
-            !form.formState.isValid ||
-            isJoiningReferral
-          }
+          disabled={form.formState.isSubmitting || isJoiningReferral}
         >
           {intl.formatMessage({
             id: ETranslations.global_join,
@@ -229,22 +230,31 @@ function NotBackedUp() {
     handleJoinReferral,
     isJoiningReferral,
     form.formState.isSubmitting,
-    form.formState.isValid,
     intl,
   ]);
   return (
-    <Stack flexDirection="column" gap="$10" px="$5" pb="$6">
-      <Stack
-        flexDirection="column"
-        $gtMd={{ flexDirection: 'row' }}
-        gap="$5"
-        pt="$0.5"
-      >
+    <YStack gap="$5" px="$5" pb="$6">
+      <YStack $gtMd={{ flexDirection: 'row' }} gap="$5" pt="$0.5">
         <MainInfoBlock
-          title="Backup your wallet"
+          bgSource={
+            themeVariant === 'light'
+              ? require('@onekeyhq/kit/assets/wallet-backup-bg.png')
+              : require('@onekeyhq/kit/assets/wallet-backup-bg-dark.png')
+          }
+          title={intl.formatMessage({
+            id: ETranslations.wallet_backup_prompt,
+          })}
           iconProps={{ name: 'ShieldCheckDoneOutline' }}
           iconContainerProps={{ bg: '$brand8' }}
-          containerProps={{ bg: '$brand1' }}
+          containerProps={{
+            bg: '$brand1',
+            $gtMd: { flexBasis: 0, flexShrink: 1, flexGrow: 1 },
+            '$theme-dark': {
+              borderWidth: StyleSheet.hairlineWidth,
+              borderColor: '$borderSubdued',
+              bg: '$brand2',
+            },
+          }}
           actions={
             <XStack>
               {platformEnv.isNativeIOS ||
@@ -269,57 +279,87 @@ function NotBackedUp() {
           }
         />
         <MainInfoBlock
-          title="Join the OneKey Referral Program"
+          bgSource={
+            themeVariant === 'light'
+              ? require('@onekeyhq/kit/assets/promo-code-bg.png')
+              : require('@onekeyhq/kit/assets/promo-code-bg-dark.png')
+          }
+          title={intl.formatMessage({ id: ETranslations.referral_promo_title })}
           iconProps={{ name: 'GiftOutline' }}
           iconContainerProps={{ bg: '$info8' }}
-          containerProps={{ bg: '$blue2' }}
+          containerProps={{
+            bg: '$blue1',
+            $gtMd: { flexBasis: 0, flexShrink: 1, flexGrow: 1 },
+          }}
           actions={
             <Form form={form}>
-              <YStack gap="$6">
+              <YStack gap="$6" alignItems="flex-start">
                 <Anchor
                   href={referralHelpLink}
                   color="$textSubdued"
                   size="$bodyMd"
                   textDecorationLine="underline"
                 >
-                  How to get a referral code?
+                  {intl.formatMessage({
+                    id: ETranslations.referral_code_tutorial_label,
+                  })}
                 </Anchor>
                 {renderReferralCodeActions()}
               </YStack>
             </Form>
           }
         />
-      </Stack>
-      <YStack gap="$3">
-        <SizableText size="$headingXs" textTransform="uppercase">
-          Learn
-        </SizableText>
-        <Stack
-          flexDirection="column"
-          gap="$5"
-          $gtMd={{
-            flexDirection: 'row',
-            justifyContent: 'space-between',
-          }}
-        >
-          <InfoBlock
-            iconProps={{ name: 'ShieldCheckDoneOutline' }}
-            title="Security Features of OneKey App"
-            url={securityFeaturesLink}
-          />
-          <InfoBlock
-            iconProps={{ name: 'CoinsAddOutline' }}
-            title="Send and receive cryptos"
-            url={sendAndReceiveLink}
-          />
-          <InfoBlock
-            iconProps={{ name: 'TradeOutline' }}
-            title="Swap and bridge cryptos"
-            url={swapAndBridgeLink}
-          />
-        </Stack>
       </YStack>
-    </Stack>
+      <YStack
+        gap="$5"
+        $gtMd={{
+          flexDirection: 'row',
+        }}
+      >
+        <InfoBlock
+          iconProps={{ name: 'ArrowBottomOutline' }}
+          title={intl.formatMessage({
+            id: ETranslations.wallet_empty_article_deposit,
+          })}
+          url={howToDepositLink}
+          containerProps={{
+            $gtMd: {
+              flexBasis: 0,
+              flexShrink: 1,
+              flexGrow: 1,
+            },
+          }}
+        />
+        <InfoBlock
+          iconProps={{ name: 'HelpSupportOutline' }}
+          title={intl.formatMessage({
+            id: ETranslations.wallet_empty_article_deposit_faq,
+          })}
+          url={depositFaqLink}
+          containerProps={{
+            $gtMd: {
+              flexBasis: 0,
+              flexShrink: 1,
+              flexGrow: 1,
+            },
+          }}
+        />
+        <InfoBlock
+          iconProps={{ name: 'SwapHorOutline' }}
+          title={intl.formatMessage({
+            id: ETranslations.wallet_empty_article_trade,
+          })}
+          url={swapAndBridgeLink}
+          containerProps={{
+            $gtMd: {
+              flexBasis: 0,
+              flexShrink: 1,
+              flexGrow: 1,
+            },
+          }}
+        />
+      </YStack>
+    </YStack>
   );
 }
 
