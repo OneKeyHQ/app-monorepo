@@ -18,6 +18,7 @@ import com.facebook.react.bridge.ReactContext;
 import com.facebook.react.bridge.ReactContextBaseJavaModule;
 import com.facebook.react.bridge.ReactMethod;
 import com.facebook.react.bridge.ReadableMap;
+import com.facebook.react.bridge.ReadableType;
 import com.facebook.react.bridge.WritableMap;
 import com.facebook.react.modules.core.DeviceEventManagerModule;
 
@@ -516,6 +517,41 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         }
     }
 
+    public long getFileSize(final ReadableMap map) {
+        String key = "fileSize";
+        try {
+            if (map.hasKey(key)) {
+                ReadableType type = map.getType(key);
+                switch (type) {
+                    case Number:
+                        // Try different number types
+                        try {
+                            return map.getLong(key);
+                        } catch (Exception e1) {
+                            log("getFileSize e1", "Error getting file size: " + e1.getMessage());
+                            try {
+                                return (long) map.getDouble(key);
+                            } catch (Exception e2) {
+                                log("getFileSize e2", "Error getting file size: " + e2.getMessage());
+                                return (long) map.getInt(key);
+                            }
+                        }
+                    case String:
+                        String sizeStr = map.getString(key);
+                        if (sizeStr != null) {
+                            return Long.parseLong(sizeStr);
+                        }
+                        break;
+                    default:
+                        break;
+                }
+            }
+            return 0;
+        } catch (Exception e) {
+            return 0;
+        }
+    }
+
     @ReactMethod
     public void downloadBundleASC(ReadableMap params, Promise promise) {
         String downloadUrl = params.getString("downloadUrl");
@@ -634,8 +670,8 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         String appVersion = params.getString("latestVersion");
         String bundleVersion = getBundleVersion(params);
         String downloadUrl = params.getString("downloadUrl");
-        Double doubleFileSize = params.getDouble("fileSize");
-        long fileSize = Double.valueOf(doubleFileSize).longValue();
+        long fileSize = getFileSize(params);
+        log("downloadBundle", "fileSize: " + fileSize);
         String sha256 = params.getString("sha256");
 
         if (downloadUrl == null || sha256 == null || appVersion == null || bundleVersion == null) {
