@@ -47,7 +47,7 @@ import { EConfirmOnDeviceType } from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import AddressTypeSelector from '../../../components/AddressTypeSelector/AddressTypeSelector';
-import { HyperlinkText } from '../../../components/HyperlinkText';
+import { FormatHyperlinkText, HyperlinkText } from '../../../components/HyperlinkText';
 import { NetworkAvatar } from '../../../components/NetworkAvatar';
 import { Token } from '../../../components/Token';
 import { useAccountData } from '../../../hooks/useAccountData';
@@ -857,9 +857,9 @@ function ReceiveToken() {
                 source={{ uri: banner.src }}
                 fallback={<NetworkAvatar size="$5" networkId={networkId} />}
               />
-              <SizableText size="$bodyMd" flex={1}>
+              <FormatHyperlinkText size="$bodyMd" flex={1}>
                 {banner.title}
-              </SizableText>
+              </FormatHyperlinkText>
             </XStack>
           ) : null}
         </YStack>
