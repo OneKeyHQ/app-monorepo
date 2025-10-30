@@ -157,7 +157,7 @@ export function HyperlinkText({
                 <SizableText
                   {...basicTextProps}
                   {...boldTextProps}
-                  fontWeight="800"
+                  fontWeight="600"
                 >
                   {string}
                 </SizableText>
