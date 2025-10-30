@@ -1,6 +1,6 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 
 import { Page, Stack, YStack, useMedia } from '@onekeyhq/components';
 import { FLOAT_NAV_BAR_Z_INDEX } from '@onekeyhq/shared/src/consts/zIndexConsts';
@@ -90,6 +90,32 @@ function PerpContent() {
   );
 }
 
+export function PerpView() {
+  const isFocused = useIsFocused();
+  const [isMounted, setIsMounted] = useState(false);
+  const isMountedRef = useRef(false);
+  useEffect(() => {
+    if (isMountedRef.current) {
+      return;
+    }
+    if (isFocused) {
+      isMountedRef.current = true;
+      setIsMounted(true);
+    }
+  }, [isFocused]);
+  if (!isMounted) {
+    return null;
+  }
+  return shouldOpenExpandExtPerp() ? (
+    <ExtPerp />
+  ) : (
+    <>
+      <PerpsGlobalEffects />
+      <PerpContent />
+    </>
+  );
+}
+
 export default function Perp() {
   useFocusEffect(() => {
     void backgroundApiProxy.serviceHyperliquid.updatePerpsConfigByServer();
@@ -98,14 +124,7 @@ export default function Perp() {
   return (
     <PerpsAccountSelectorProviderMirror>
       <PerpsProviderMirror>
-        {shouldOpenExpandExtPerp() ? (
-          <ExtPerp />
-        ) : (
-          <>
-            <PerpsGlobalEffects />
-            <PerpContent />
-          </>
-        )}
+        <PerpView />
       </PerpsProviderMirror>
     </PerpsAccountSelectorProviderMirror>
   );
