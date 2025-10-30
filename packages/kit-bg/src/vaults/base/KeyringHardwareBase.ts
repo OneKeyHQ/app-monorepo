@@ -193,7 +193,7 @@ export abstract class KeyringHardwareBase extends KeyringBase {
             path,
             hwSdkNetwork,
             useTweak:
-              params.deriveInfo.addressEncoding === EAddressEncodings.KASPA_ORG,
+              params.deriveInfo.addressEncoding !== EAddressEncodings.KASPA_ORG,
           });
           if (account && account.success && account.payload) {
             const resultAccount = buildResultAccount({ account, index });
