@@ -28,11 +28,10 @@ import {
   useEarnAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/earn';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type {
-  IEarnAvailableAsset,
-  IEarnAvailableAssetProtocol,
-} from '@onekeyhq/shared/types/earn';
+import type { IEarnAvailableAsset } from '@onekeyhq/shared/types/earn';
 import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
+
+import { useToTokenProviderListPage } from '../hooks/useToTokenProviderListPage';
 
 import { AprText } from './AprText';
 
@@ -97,20 +96,7 @@ function AvailableAssetsSkeleton() {
   );
 }
 
-interface IAvailableAssetsTabViewListProps {
-  onTokenPress?: (params: {
-    networkId: string;
-    accountId: string;
-    indexedAccountId?: string;
-    symbol: string;
-    protocols: IEarnAvailableAssetProtocol[];
-    logoURI?: string;
-  }) => Promise<void>;
-}
-
-export function AvailableAssetsTabViewList({
-  onTokenPress,
-}: IAvailableAssetsTabViewListProps) {
+export function AvailableAssetsTabViewList() {
   const {
     activeAccount: { account, indexedAccount },
   } = useActiveAccount({ num: 0 });
@@ -118,6 +104,8 @@ export function AvailableAssetsTabViewList({
   const actions = useEarnActions();
   const intl = useIntl();
   const [selectedTabIndex, setSelectedTabIndex] = useState(0);
+
+  const toTokenProviderListPage = useToTokenProviderListPage();
 
   const tabData = useMemo(
     () => [
@@ -201,12 +189,12 @@ export function AvailableAssetsTabViewList({
     [focusedTab, tabData],
   );
 
-  // Define table columns
   const columns: ITableColumn<IEarnAvailableAsset>[] = useMemo(
     () => [
       {
         key: 'asset',
         label: intl.formatMessage({ id: ETranslations.global_asset }),
+        flex: 2,
         sortable: true,
         comparator: (a, b) => a.symbol.localeCompare(b.symbol),
         render: (asset) => (
@@ -235,6 +223,7 @@ export function AvailableAssetsTabViewList({
       {
         key: 'network',
         label: 'Network',
+        flex: 1,
         hideInMobile: true,
         render: (asset) => (
           <NetworkAvatarGroup
@@ -250,6 +239,7 @@ export function AvailableAssetsTabViewList({
       {
         key: 'yield',
         label: 'Yield',
+        flex: 1,
         align: 'flex-end',
         sortable: true,
         comparator: (a, b) => {
@@ -266,7 +256,7 @@ export function AvailableAssetsTabViewList({
   // Handle row press
   const handleRowPress = useCallback(
     async (asset: IEarnAvailableAsset) => {
-      await onTokenPress?.({
+      await toTokenProviderListPage({
         networkId: asset.protocols[0]?.networkId || '',
         accountId: account?.id ?? '',
         indexedAccountId: indexedAccount?.id,
@@ -275,7 +265,7 @@ export function AvailableAssetsTabViewList({
         logoURI: asset.logoURI,
       });
     },
-    [onTokenPress, account?.id, indexedAccount?.id],
+    [account?.id, indexedAccount?.id, toTokenProviderListPage],
   );
 
   // Mobile custom renderer
@@ -373,9 +363,8 @@ export function AvailableAssetsTabViewList({
 }
 
 export function AvailableAssetsTabViewListMobile({
-  onTokenPress,
   assetType,
-}: IAvailableAssetsTabViewListProps & {
+}: {
   assetType: EAvailableAssetsTypeEnum;
 }) {
   const {
@@ -384,6 +373,7 @@ export function AvailableAssetsTabViewListMobile({
   const [{ availableAssetsByType = {}, refreshTrigger = 0 }] = useEarnAtom();
   const actions = useEarnActions();
   const media = useMedia();
+  const toTokenProviderListPage = useToTokenProviderListPage();
 
   // Get filtered assets based on selected tab
   const assets = useMemo(() => {
@@ -457,7 +447,7 @@ export function AvailableAssetsTabViewListMobile({
                     userSelect="none"
                     key={`${name}-${index}`}
                     onPress={async () => {
-                      await onTokenPress?.({
+                      await toTokenProviderListPage?.({
                         networkId: protocols[0]?.networkId || '',
                         accountId: account?.id ?? '',
                         indexedAccountId: indexedAccount?.id,

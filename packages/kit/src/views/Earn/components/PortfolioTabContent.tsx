@@ -19,7 +19,7 @@ export const PortfolioTabContent = () => {
   }, [navigation]);
 
   return (
-    <YStack gap="$4" py="$4">
+    <YStack pt="$6">
       <YStack
         gap="$4"
         p="$5"

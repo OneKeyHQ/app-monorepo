@@ -171,13 +171,14 @@ export const EarnNavigation = {
     },
   ) => {
     defaultLogger.staking.page.selectAsset({ tokenSymbol: symbol });
-    const earnAccount = await backgroundApiProxy.serviceStaking.getEarnAccount({
-      accountId,
-      indexedAccountId,
-      networkId,
-    });
 
     if (protocols.length === 1) {
+      const earnAccount =
+        await backgroundApiProxy.serviceStaking.getEarnAccount({
+          accountId,
+          indexedAccountId,
+          networkId,
+        });
       const protocol = protocols[0];
       navigation.pushModal(EModalRoutes.StakingModal, {
         screen: EModalStakingRoutes.ProtocolDetailsV2,

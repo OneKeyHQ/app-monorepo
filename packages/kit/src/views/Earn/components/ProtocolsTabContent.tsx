@@ -16,16 +16,8 @@ const renderEarnTabBar = (props: any, containerStyle?: any) => (
 
 export function ProtocolsTabContentMobile({
   assetTabData,
-  handleTokenPress,
 }: {
   assetTabData: Array<{ title: string; type: EAvailableAssetsTypeEnum }>;
-  handleTokenPress: (params: {
-    networkId: string;
-    accountId: string;
-    indexedAccountId?: string;
-    symbol: string;
-    protocols: IEarnAvailableAssetProtocol[];
-  }) => Promise<void>;
 }) {
   return (
     <>
@@ -40,10 +32,7 @@ export function ProtocolsTabContentMobile({
         {assetTabData.map((item) => (
           <Tabs.Tab name={item.title} key={item.type}>
             <Tabs.ScrollView>
-              <AvailableAssetsTabViewListMobile
-                onTokenPress={handleTokenPress}
-                assetType={item.type}
-              />
+              <AvailableAssetsTabViewListMobile assetType={item.type} />
             </Tabs.ScrollView>
           </Tabs.Tab>
         ))}
@@ -52,21 +41,11 @@ export function ProtocolsTabContentMobile({
   );
 }
 
-export function ProtocolsTabContentDesktop({
-  handleTokenPress,
-}: {
-  handleTokenPress: (params: {
-    networkId: string;
-    accountId: string;
-    indexedAccountId?: string;
-    symbol: string;
-    protocols: IEarnAvailableAssetProtocol[];
-  }) => Promise<void>;
-}) {
+export function ProtocolsTabContentDesktop() {
   return (
     <YStack pt="$6" gap="$8">
       <Recommended />
-      <AvailableAssetsTabViewList onTokenPress={handleTokenPress} />
+      <AvailableAssetsTabViewList />
     </YStack>
   );
 }

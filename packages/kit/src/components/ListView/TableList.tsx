@@ -21,8 +21,9 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 export interface ITableColumn<T> {
   key: string;
   label?: string;
-  // Styling
-  width?: number | string; // Fixed width. If not set, column uses flexGrow=1 flexBasis=0
+  flex?: number | string;
+  minWidth?: number | string;
+  maxWidth?: number | string;
   align?: 'flex-start' | 'center' | 'flex-end';
   // Sorting
   sortable?: boolean;
@@ -85,6 +86,75 @@ export interface ITableListProps<T> {
   // Row styling
   rowGap?: string;
   enableDrillIn?: boolean;
+}
+
+function parseFlexShorthand(flex: string): {
+  flexGrow?: number;
+  flexShrink?: number;
+  flexBasis?: number | string;
+} {
+  const parts = flex.trim().split(/\s+/);
+
+  if (parts.length === 1) {
+    const value = parts[0];
+    if (/^\d+$/.test(value)) {
+      return { flexGrow: Number(value), flexShrink: 1, flexBasis: 0 };
+    }
+    return { flexBasis: value };
+  }
+
+  if (parts.length === 2) {
+    const first = Number(parts[0]);
+    const second = parts[1];
+    if (/^\d+$/.test(second)) {
+      return { flexGrow: first, flexShrink: Number(second), flexBasis: 0 };
+    }
+    return { flexGrow: first, flexShrink: 1, flexBasis: second };
+  }
+
+  if (parts.length === 3) {
+    return {
+      flexGrow: Number(parts[0]),
+      flexShrink: Number(parts[1]),
+      flexBasis: parts[2],
+    };
+  }
+
+  return {};
+}
+
+/**
+ * Get flex style properties for a column based on its configuration
+ * Supports: number flex-grow, CSS flex shorthand, and min/max constraints
+ */
+function getColumnFlexStyle<T>(column: ITableColumn<T>) {
+  const style: Record<string, any> = {
+    ai: column.align ?? 'flex-start',
+  };
+
+  // Handle flex value (number or string)
+  const flexValue = column.flex ?? 1;
+
+  if (typeof flexValue === 'number') {
+    // If flex is a number, treat it as flex-grow
+    style.flexGrow = flexValue;
+    style.flexShrink = 1;
+    style.flexBasis = 0;
+  } else {
+    // If flex is a string, parse CSS flex shorthand
+    const flexProps = parseFlexShorthand(flexValue);
+    Object.assign(style, flexProps);
+  }
+
+  // Apply min/max width constraints
+  if (column.minWidth !== undefined) {
+    style.minWidth = column.minWidth;
+  }
+  if (column.maxWidth !== undefined) {
+    style.maxWidth = column.maxWidth;
+  }
+
+  return style;
 }
 
 // ==================== Sort Button ====================
@@ -184,13 +254,7 @@ function TableListHeader<T>({
         }
 
         return (
-          <Stack
-            key={column.key}
-            ai={column.align ?? 'flex-start'}
-            {...(column.width
-              ? { width: column.width }
-              : { flexGrow: 1, flexBasis: 0 })}
-          >
+          <Stack key={column.key} {...getColumnFlexStyle(column)}>
             {content}
           </Stack>
         );
@@ -215,14 +279,10 @@ export const TableListSkeleton = memo(
     return (
       <YStack
         mx="$-5"
-        $gtLg={{
+        $gtSm={{
           mx: 0,
           overflow: 'hidden',
           bg: '$bg',
-          borderRadius: '$3',
-          borderWidth: StyleSheet.hairlineWidth,
-          borderColor: '$borderSubdued',
-          borderCurve: 'continuous',
         }}
       >
         {Array.from({ length: itemCount }).map((_, index) => (
@@ -231,27 +291,16 @@ export const TableListSkeleton = memo(
             gap={rowGap ?? '$3'}
             mx="$0"
             px="$4"
-            {...(media.gtLg
+            {...(media.gtSm
               ? {
                   borderRadius: '$0',
                 }
               : {})}
-            {...(index !== 0 && media.gtLg
-              ? {
-                  borderTopWidth: StyleSheet.hairlineWidth,
-                  borderTopColor: '$borderSubdued',
-                }
-              : {})}
           >
             {columns
-              .filter((col) => !col.hideInMobile || media.gtLg)
+              .filter((col) => !col.hideInMobile || media.gtSm)
               .map((column, colIndex) => (
-                <Stack
-                  key={column.key}
-                  {...(column.width
-                    ? { width: column.width }
-                    : { flexGrow: 1, flexBasis: 0 })}
-                >
+                <Stack key={column.key} {...getColumnFlexStyle(column)}>
                   <Skeleton
                     w={colIndex === 0 ? 120 : 80}
                     h={20}
@@ -293,13 +342,7 @@ function TableListRow<T>({
       onPress={onPress ? () => onPress(item, index) : undefined}
     >
       {columns.map((column) => (
-        <Stack
-          key={column.key}
-          ai={column.align ?? 'flex-start'}
-          {...(column.width
-            ? { width: column.width }
-            : { flexGrow: 1, flexBasis: 0 })}
-        >
+        <Stack key={column.key} {...getColumnFlexStyle(column)}>
           {column.render(item, index)}
         </Stack>
       ))}
@@ -370,8 +413,8 @@ function BasicTableList<T>({
 
   // Determine layout mode
   const tableLayout = useMemo(
-    () => tableLayoutProp ?? media.gtLg,
-    [tableLayoutProp, media.gtLg],
+    () => tableLayoutProp ?? media.gtSm,
+    [tableLayoutProp, media.gtSm],
   );
 
   // Filter columns for mobile

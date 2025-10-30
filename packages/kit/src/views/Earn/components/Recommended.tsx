@@ -24,8 +24,8 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { useEarnAtom } from '../../../states/jotai/contexts/earn';
-import { EarnNavigation } from '../earnUtils';
 import { useAllNetworkId } from '../hooks/useAllNetworkId';
+import { useToTokenProviderListPage } from '../hooks/useToTokenProviderListPage';
 
 import { AprText } from './AprText';
 
@@ -71,6 +71,8 @@ function RecommendedItem({
     [account, indexedAccount],
   );
 
+  const toTokenProviderListPage = useToTokenProviderListPage();
+
   const onPress = useCallback(async () => {
     if (token) {
       const earnAccount =
@@ -79,7 +81,7 @@ function RecommendedItem({
           accountId: account?.id ?? '',
           networkId: token.protocols[0]?.networkId,
         });
-      await EarnNavigation.toTokenProviderListPage(navigation, {
+      await toTokenProviderListPage({
         indexedAccountId:
           earnAccount?.account.indexedAccountId || indexedAccount?.id,
         accountId: earnAccount?.accountId || account?.id || '',
@@ -89,7 +91,7 @@ function RecommendedItem({
         logoURI: token.logoURI,
       });
     }
-  }, [account?.id, indexedAccount?.id, navigation, token]);
+  }, [account?.id, indexedAccount?.id, toTokenProviderListPage, token]);
 
   if (!token) {
     return <YStack width="$40" flexGrow={1} />;

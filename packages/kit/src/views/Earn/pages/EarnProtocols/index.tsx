@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
@@ -15,118 +14,31 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import type { ITableColumn } from '@onekeyhq/kit/src/components/ListView/TableList';
+import { TableList } from '@onekeyhq/kit/src/components/ListView/TableList';
+import { NetworkAvatarGroup } from '@onekeyhq/kit/src/components/NetworkAvatar/NetworkAvatar';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  EModalRoutes,
+  EModalStakingRoutes,
+  ETabRoutes,
+} from '@onekeyhq/shared/src/routes';
 import type {
   ETabEarnRoutes,
   ITabEarnParamList,
 } from '@onekeyhq/shared/src/routes';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import type { IEarnAvailableAsset } from '@onekeyhq/shared/types/earn';
-import { EStakeProtocolGroupEnum } from '@onekeyhq/shared/types/staking';
 import type { IStakeProtocolListItem } from '@onekeyhq/shared/types/staking';
 
-import { capitalizeString } from '../../../Staking/utils/utils';
 import { AprText } from '../../components/AprText';
 import { EarnPageContainer } from '../../components/EarnPageContainer';
 
 import type { RouteProp } from '@react-navigation/core';
-
-// Adapter function to convert IStakeProtocolListItem to IEarnAvailableAsset format
-const createAssetFromProtocol = (
-  item: IStakeProtocolListItem,
-): IEarnAvailableAsset => ({
-  name: item.provider.name,
-  symbol: '',
-  logoURI: item.provider.logoURI,
-  apr: `${BigNumber(item.provider.aprWithoutFee || 0).toFixed(2)}%`,
-  aprWithoutFee: `${BigNumber(item.provider.aprWithoutFee || 0).toFixed(2)}%`,
-  tags: [],
-  rewardUnit: item.provider.rewardUnit,
-  protocols: [],
-  aprInfo: item.aprInfo,
-});
-
-interface IProtocolSection {
-  title: string;
-  data: IStakeProtocolListItem[];
-  group: EStakeProtocolGroupEnum;
-}
-
-const getSectionTitle = (
-  intl: ReturnType<typeof useIntl>,
-  group: string,
-): string => {
-  switch (group) {
-    case EStakeProtocolGroupEnum.Available:
-      return intl.formatMessage({
-        id: ETranslations.earn_available_to_deposit,
-      });
-    case EStakeProtocolGroupEnum.WithdrawOnly:
-      return intl.formatMessage({
-        id: ETranslations.earn_withdrawal_only,
-      });
-    case EStakeProtocolGroupEnum.Deposited:
-      return intl.formatMessage({ id: ETranslations.earn_deposited });
-    case EStakeProtocolGroupEnum.Unavailable:
-      return intl.formatMessage({
-        id: ETranslations.provider_unavailable,
-      });
-    default:
-      return group;
-  }
-};
-
-const groupProtocolsByGroup = (
-  intl: ReturnType<typeof useIntl>,
-  protocols: IStakeProtocolListItem[],
-): IProtocolSection[] => {
-  const grouped = protocols.reduce((acc, protocol) => {
-    const group = protocol.provider.group || EStakeProtocolGroupEnum.Available;
-    if (!acc[group]) {
-      acc[group] = [];
-    }
-    acc[group].push(protocol);
-    return acc;
-  }, {} as Record<string, IStakeProtocolListItem[]>);
-
-  const groupOrder = [
-    EStakeProtocolGroupEnum.Deposited,
-    EStakeProtocolGroupEnum.Available,
-    EStakeProtocolGroupEnum.WithdrawOnly,
-  ];
-  const sections: IProtocolSection[] = [];
-
-  groupOrder.forEach((group) => {
-    if (grouped[group] && grouped[group].length > 0) {
-      sections.push({
-        title: getSectionTitle(intl, group),
-        data: grouped[group],
-        group,
-      });
-    }
-  });
-
-  Object.keys(grouped).forEach((group: string) => {
-    if (
-      !groupOrder.includes(group as EStakeProtocolGroupEnum) &&
-      grouped[group].length > 0
-    ) {
-      sections.push({
-        title: getSectionTitle(intl, group),
-        data: grouped[group],
-        group: group as EStakeProtocolGroupEnum,
-      });
-    }
-  });
-
-  return sections;
-};
 
 type IRouteProps = RouteProp<ITabEarnParamList, ETabEarnRoutes.EarnProtocols>;
 
@@ -152,7 +64,9 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
     [intl, symbol, logoURI],
   );
 
-  const [protocolData, setProtocolData] = useState<IProtocolSection[]>([]);
+  const [protocolData, setProtocolData] = useState<IStakeProtocolListItem[]>(
+    [],
+  );
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchProtocolData = useCallback(async () => {
@@ -170,8 +84,8 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
         filterNetworkId,
       });
 
-      const groupedData = groupProtocolsByGroup(intl, data);
-      setProtocolData(groupedData);
+      // const groupedData = groupProtocolsByGroup(intl, data);
+      setProtocolData(data);
     } catch (error) {
       console.error('Failed to fetch protocol data:', error);
       setProtocolData([]);
@@ -183,7 +97,6 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
     activeAccount?.account?.id,
     activeAccount?.indexedAccount?.id,
     filterNetworkId,
-    intl,
   ]);
 
   useEffect(() => {
@@ -238,49 +151,39 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
     ],
   );
 
-  const renderSectionHeader = useCallback(
-    ({ section }: { section: IProtocolSection }) => (
-      <YStack px="$5" pb="$2" h={28}>
-        <SizableText
-          size="$bodyMdMedium"
-          color={
-            section.group === EStakeProtocolGroupEnum.Deposited
-              ? '$textSuccess'
-              : '$textSubdued'
-          }
-        >
-          {section.title}
-        </SizableText>
-      </YStack>
-    ),
-    [],
-  );
-
-  const renderItem = useCallback(
-    ({ item }: { item: IStakeProtocolListItem }) => (
-      <ListItem
-        userSelect="none"
-        onPress={() => handleProtocolPress(item)}
-        borderRadius="$2"
-        borderCurve="continuous"
-        pressStyle={{ backgroundColor: '$bgHover' }}
-        px="$2.5"
-        mx="$2.5"
-        h={62}
-      >
-        <Token
-          size="lg"
-          borderRadius="$2"
-          tokenImageUri={item.provider.logoURI}
-          networkImageUri={item.network.logoURI}
-        />
-        <ListItem.Text
-          flex={1}
-          primary={
-            <XStack ai="center" gap="$1.5">
-              <SizableText>{capitalizeString(item.provider.name)}</SizableText>
+  const columns: ITableColumn<IStakeProtocolListItem>[] = useMemo(() => {
+    return [
+      {
+        key: 'protocol',
+        label: 'Protocol',
+        flex: 2.5,
+        render: (item) => {
+          return (
+            <XStack>
+              <Token
+                size="md"
+                borderRadius="$2"
+                mr="$3"
+                my="$3"
+                tokenImageUri={item.provider.logoURI}
+              />
+              <YStack mr="$2" jc="center">
+                <SizableText size="$bodyLgMedium">
+                  {item.provider.name}
+                </SizableText>
+                {item?.provider?.description ? (
+                  <SizableText
+                    mt="$0.5"
+                    size="$bodySmMedium"
+                    color="$textSubdued"
+                  >
+                    {item.provider.description}
+                  </SizableText>
+                ) : null}
+              </YStack>
               {item.provider.badges?.map((badge) => (
                 <Badge
+                  my="auto"
                   key={badge.tag}
                   badgeType={badge.badgeType}
                   badgeSize="sm"
@@ -289,17 +192,50 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
                 </Badge>
               ))}
             </XStack>
-          }
-          secondary={item.provider.description || ''}
-        />
-        <ListItem.Text
-          alignSelf="flex-start"
-          primary={<AprText asset={createAssetFromProtocol(item)} />}
-        />
-      </ListItem>
-    ),
-    [handleProtocolPress],
-  );
+          );
+        },
+      },
+      {
+        key: 'network',
+        label: 'Network',
+        flex: 1,
+        hideInMobile: true,
+        render: (item) => (
+          <NetworkAvatarGroup
+            networkIds={[item.network.networkId]}
+            size="$5"
+            variant="spread"
+            maxVisible={3}
+          />
+        ),
+      },
+      {
+        key: 'tvl',
+        label: 'Tvl',
+        flex: 1,
+        hideInMobile: true,
+        // TODO: render actual TVL
+        render: (item) => (
+          <SizableText mr="$2" size="$bodyLgMedium">
+            -
+          </SizableText>
+        ),
+      },
+      {
+        key: 'yield',
+        label: 'Yield',
+        flex: 1,
+        render: (item) => (
+          <AprText
+            asset={{
+              aprWithoutFee: item?.provider?.aprWithoutFee ?? '',
+              aprInfo: item?.aprInfo,
+            }}
+          />
+        ),
+      },
+    ];
+  }, []);
 
   const content = useMemo(() => {
     if (isLoading) {
@@ -337,7 +273,6 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
             })}
             buttonProps={{
               flex: 1,
-              width: '100%',
               children: intl.formatMessage({
                 id: ETranslations.global_refresh,
               }),
@@ -351,26 +286,30 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
     }
 
     return (
-      <YStack gap="$4" minHeight={90}>
-        {protocolData.map((section) => (
-          <YStack key={section.group}>
-            {renderSectionHeader({ section })}
-            {section.data.map((item) => renderItem({ item }))}
-          </YStack>
-        ))}
-      </YStack>
+      <TableList<IStakeProtocolListItem>
+        data={protocolData}
+        columns={columns}
+        withHeader
+        defaultSortKey="yield"
+        defaultSortDirection="desc"
+        onPressRow={handleProtocolPress}
+        enableDrillIn
+        isLoading={isLoading}
+      />
     );
   }, [
+    columns,
     fetchProtocolData,
     intl,
     isLoading,
     protocolData,
-    renderItem,
-    renderSectionHeader,
+    handleProtocolPress,
   ]);
 
   return (
     <EarnPageContainer
+      sceneName={EAccountSelectorSceneName.home}
+      tabRoute={ETabRoutes.Earn}
       pageTitle={customHeaderLeft}
       breadcrumbProps={{
         items: [

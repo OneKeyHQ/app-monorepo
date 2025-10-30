@@ -1,22 +1,38 @@
 import { useMemo } from 'react';
 
-import { ScrollView } from 'react-native';
-
 import type { IBreadcrumbProps } from '@onekeyhq/components';
-import { Breadcrumb, Page, XStack, YStack } from '@onekeyhq/components';
+import {
+  Breadcrumb,
+  Page,
+  ScrollView,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
-import { ETabRoutes } from '@onekeyhq/shared/src/routes';
-import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import type { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+
+import { EARN_PAGE_MAX_WIDTH } from '../EarnConfig';
+
+import type { RefreshControlProps } from 'react-native';
+
+interface IEarnPageContainerProps {
+  pageTitle?: React.ReactNode;
+  children: React.ReactNode;
+  breadcrumbProps?: IBreadcrumbProps;
+  sceneName: EAccountSelectorSceneName;
+  tabRoute: ETabRoutes;
+  refreshControl?: React.ReactElement<RefreshControlProps>;
+}
 
 export function EarnPageContainer({
   pageTitle,
   children,
   breadcrumbProps,
-}: {
-  pageTitle?: React.ReactNode;
-  children: React.ReactNode;
-  breadcrumbProps?: IBreadcrumbProps;
-}) {
+  sceneName,
+  tabRoute,
+  refreshControl,
+}: IEarnPageContainerProps) {
   const customHeaderLeft = useMemo(
     () =>
       pageTitle ? (
@@ -29,17 +45,19 @@ export function EarnPageContainer({
 
   return (
     <Page>
-      <TabPageHeader
-        sceneName={EAccountSelectorSceneName.home}
-        tabRoute={ETabRoutes.Earn}
-      />
+      <TabPageHeader sceneName={sceneName} tabRoute={tabRoute} />
       <Page.Body>
-        <ScrollView contentContainerStyle={{ paddingVertical: 24 }}>
-          <YStack px="$5" pb="$5" gap="$5">
-            {breadcrumbProps ? <Breadcrumb {...breadcrumbProps} /> : null}
-            {customHeaderLeft}
+        <ScrollView
+          contentContainerStyle={{ py: '$6' }}
+          refreshControl={refreshControl}
+        >
+          <YStack w="100%" maxWidth={EARN_PAGE_MAX_WIDTH} mx="auto">
+            <YStack px="$5" pb="$5" gap="$5">
+              {breadcrumbProps ? <Breadcrumb {...breadcrumbProps} /> : null}
+              {customHeaderLeft}
+            </YStack>
+            {children}
           </YStack>
-          {children}
         </ScrollView>
       </Page.Body>
     </Page>

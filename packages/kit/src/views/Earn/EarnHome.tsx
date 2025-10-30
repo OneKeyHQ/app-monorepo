@@ -5,7 +5,6 @@ import { useIntl } from 'react-intl';
 import {
   Page,
   RefreshControl,
-  ScrollView,
   Stack,
   YStack,
   useMedia,
@@ -23,7 +22,6 @@ import {
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IDiscoveryBanner } from '@onekeyhq/shared/types/discovery';
-import type { IEarnAvailableAssetProtocol } from '@onekeyhq/shared/types/earn';
 import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
 
 import { AccountSelectorProviderMirror } from '../../components/AccountSelector';
@@ -40,8 +38,8 @@ import { useEarnActions } from '../../states/jotai/contexts/earn';
 import { BannerV2 } from './components/BannerV2';
 import { EarnBlockedOverview } from './components/EarnBlockedOverview';
 import { EarnMainTabs } from './components/EarnMainTabs';
+import { EarnPageContainer } from './components/EarnPageContainer';
 import { Overview } from './components/Overview';
-import { EARN_PAGE_MAX_WIDTH } from './EarnConfig';
 import { EarnProviderMirror } from './EarnProviderMirror';
 import { EarnNavigation } from './earnUtils';
 import { useAllNetworkId } from './hooks/useAllNetworkId';
@@ -205,21 +203,6 @@ function BasicEarnHome() {
     ),
   );
 
-  // Create adapter function for AvailableAssetsTabViewList
-  const handleTokenPress = useCallback(
-    async (params: {
-      networkId: string;
-      accountId: string;
-      indexedAccountId?: string;
-      symbol: string;
-      protocols: IEarnAvailableAssetProtocol[];
-      logoURI?: string;
-    }) => {
-      await EarnNavigation.toTokenProviderListPage(navigation, params);
-    },
-    [navigation],
-  );
-
   const onBannerPress = useCallback(
     async ({ hrefType, href }: IDiscoveryBanner) => {
       if (account || indexedAccount) {
@@ -336,7 +319,6 @@ function BasicEarnHome() {
           <EarnMainTabs
             isMobile
             assetTabData={assetTabData}
-            handleTokenPress={handleTokenPress}
             faqList={faqList || []}
             isFaqLoading={isFaqLoading}
             isLoading={isLoading}
@@ -391,71 +373,50 @@ function BasicEarnHome() {
   }
 
   return (
-    <Page fullPage>
-      <TabPageHeader
-        sceneName={EAccountSelectorSceneName.home}
-        tabRoute={ETabRoutes.Earn}
-      >
-        {/* {headerRight} */}
-      </TabPageHeader>
-      <Page.Body>
-        <ScrollView
-          contentContainerStyle={{ py: '$6' }}
-          refreshControl={
-            <RefreshControl
-              refreshing={isLoading}
-              onRefresh={refreshOverViewData}
-            />
-          }
-        >
-          {/* container */}
+    <EarnPageContainer
+      sceneName={EAccountSelectorSceneName.home}
+      tabRoute={ETabRoutes.Earn}
+      refreshControl={
+        <RefreshControl
+          refreshing={isLoading}
+          onRefresh={refreshOverViewData}
+        />
+      }
+    >
+      <YStack flex={1} gap="$4">
+        {/* overview and banner */}
+        <YStack gap="$8">
           <YStack
-            w="100%"
-            maxWidth={EARN_PAGE_MAX_WIDTH}
-            mx="auto"
-            flexDirection={banners ? 'column' : 'row'}
+            $gtLg={{
+              px: '$5',
+            }}
           >
-            <YStack flex={1} gap="$4">
-              {/* overview and banner */}
-              <YStack gap="$8">
-                <YStack
-                  $gtLg={{
-                    px: '$5',
-                  }}
-                >
-                  <Overview
-                    onRefresh={refreshOverViewData}
-                    isLoading={isLoading}
-                  />
-                </YStack>
-                {banners ? (
-                  <YStack
-                    minHeight="$36"
-                    $md={{
-                      minHeight: '$28',
-                    }}
-                    borderRadius="$3"
-                    width="100%"
-                    borderCurve="continuous"
-                  >
-                    {banners}
-                  </YStack>
-                ) : null}
-              </YStack>
-              <YStack pt="$3.5">
-                <EarnMainTabs
-                  isMobile={false}
-                  assetTabData={assetTabData}
-                  handleTokenPress={handleTokenPress}
-                  faqList={faqList || []}
-                  isFaqLoading={isFaqLoading}
-                />
-              </YStack>
-            </YStack>
+            <Overview onRefresh={refreshOverViewData} isLoading={isLoading} />
           </YStack>
-        </ScrollView>
-      </Page.Body>
-    </Page>
+          {banners ? (
+            <YStack
+              minHeight="$36"
+              $md={{
+                minHeight: '$28',
+              }}
+              borderRadius="$3"
+              width="100%"
+              borderCurve="continuous"
+            >
+              {banners}
+            </YStack>
+          ) : null}
+        </YStack>
+        <YStack pt="$3.5">
+          <EarnMainTabs
+            isMobile={false}
+            assetTabData={assetTabData}
+            faqList={faqList || []}
+            isFaqLoading={isFaqLoading}
+          />
+        </YStack>
+      </YStack>
+    </EarnPageContainer>
   );
 }
 

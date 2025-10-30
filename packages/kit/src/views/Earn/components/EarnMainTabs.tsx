@@ -17,7 +17,6 @@ import {
 export function EarnMainTabs({
   isMobile,
   assetTabData,
-  handleTokenPress,
   faqList,
   isFaqLoading = false,
   isLoading,
@@ -26,13 +25,6 @@ export function EarnMainTabs({
 }: {
   isMobile: boolean;
   assetTabData: Array<{ title: string; type: EAvailableAssetsTypeEnum }>;
-  handleTokenPress: (params: {
-    networkId: string;
-    accountId: string;
-    indexedAccountId?: string;
-    symbol: string;
-    protocols: IEarnAvailableAssetProtocol[];
-  }) => Promise<void>;
   faqList: Array<{ question: string; answer: string }>;
   isFaqLoading?: boolean;
   isLoading?: boolean;
@@ -63,13 +55,10 @@ export function EarnMainTabs({
       >
         {isMobile ? (
           <Tabs.ScrollView refreshControl={refreshControl}>
-            <ProtocolsTabContentMobile
-              assetTabData={assetTabData}
-              handleTokenPress={handleTokenPress}
-            />
+            <ProtocolsTabContentMobile assetTabData={assetTabData} />
           </Tabs.ScrollView>
         ) : (
-          <ProtocolsTabContentDesktop handleTokenPress={handleTokenPress} />
+          <ProtocolsTabContentDesktop />
         )}
       </Tabs.Tab>
       <Tabs.Tab
