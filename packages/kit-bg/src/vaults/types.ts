@@ -665,6 +665,7 @@ export interface ISignMessageParams {
   messages: IUnsignedMessage[];
   password: string;
   deviceParams: IDeviceSharedCallParams | undefined;
+  chainExtraParams?: IPrepareHDOrHWAccountChainExtraParams;
 
   // addressEncoding other derive address
   addressEncoding?: EAddressEncodings;
