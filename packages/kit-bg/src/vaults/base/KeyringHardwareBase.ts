@@ -158,6 +158,7 @@ export abstract class KeyringHardwareBase extends KeyringBase {
     usedIndexes,
     buildPath,
     buildResultAccount,
+    useTweak,
   }: {
     hwSdkNetwork: IHwSdkNetwork | undefined;
     params: IPrepareHardwareAccountsParams;
@@ -167,6 +168,7 @@ export abstract class KeyringHardwareBase extends KeyringBase {
       account: IHwAllNetworkPrepareAccountsItem;
       index: number;
     }) => T;
+    useTweak?: boolean;
   }): Promise<
     | {
         success: true;
@@ -192,8 +194,7 @@ export abstract class KeyringHardwareBase extends KeyringBase {
           const account = await hwAllNetworkPrepareAccountsResponse.getItem({
             path,
             hwSdkNetwork,
-            useTweak:
-              params.deriveInfo.addressEncoding !== EAddressEncodings.KASPA_ORG,
+            useTweak,
           });
           if (account && account.success && account.payload) {
             const resultAccount = buildResultAccount({ account, index });
