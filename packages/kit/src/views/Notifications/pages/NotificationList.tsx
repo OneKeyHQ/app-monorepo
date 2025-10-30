@@ -492,6 +492,7 @@ function BaseNotificationList() {
                         item?.body?.extras?.params?.msgId ||
                         item?.body?.extras?.msgId ||
                         '',
+                      isRead: !!item.readed,
                     });
                     setTimeout(() => {
                       if (!item.readed) {
