@@ -813,7 +813,7 @@ function ReceiveToken() {
 
   const isPressable = useMemo(() => {
     return !!(banner?.href || banner?.mode);
-  }, [banner]);
+  }, [banner?.href, banner?.mode]);
   return (
     <Page safeAreaEnabled={false}>
       <Page.Header
