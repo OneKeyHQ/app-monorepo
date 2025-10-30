@@ -73,9 +73,11 @@ export function Footer() {
     [intl],
   );
 
-  const isInPerpRoute =
-    currentTab === ETabRoutes.Perp ||
-    currentTab === ETabRoutes.WebviewPerpTrade;
+  if (currentTab === ETabRoutes.WebviewPerpTrade) {
+    return null;
+  }
+
+  const isInPerpRoute = currentTab === ETabRoutes.Perp;
 
   return (
     <XStack

@@ -16,6 +16,7 @@ import {
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import perfUtils, {
   EPerformanceTimerLogNames,
 } from '@onekeyhq/shared/src/utils/debug/perfUtils';
@@ -171,6 +172,29 @@ const LoggerDemo = () => {
         </Accordion.Item>
       </Accordion>
       <Button onPress={uploadLog}>Upload Log</Button>
+      <Button
+        onPress={() => {
+          alert(
+            JSON.stringify(
+              {
+                isWebDappMode: platformEnv.isWebDappMode,
+              },
+              null,
+              2,
+            ),
+          );
+        }}
+      >
+        Show PlatformEnv
+      </Button>
+      <Button
+        onPress={async () => {
+          const res = await backgroundApiProxy.serviceDemo.demoGetPlatformEnv();
+          alert(JSON.stringify(res, null, 2));
+        }}
+      >
+        Show PlatformEnv(bg)
+      </Button>
     </Stack>
   );
 };

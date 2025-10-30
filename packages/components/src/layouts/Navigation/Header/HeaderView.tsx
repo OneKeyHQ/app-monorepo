@@ -42,7 +42,7 @@ const DesktopDragZoneBoxView = platformEnv.isDesktop
   ? ({ disabled, children }: IDesktopDragZoneBoxProps) => {
       const isModalPage = useIsModalPage();
 
-      const [isFocus, setIsFocus] = useState(true);
+      const [isFocus, setIsFocus] = useState(false);
 
       // eslint-disable-next-line @typescript-eslint/unbound-method
       const { getState } = useNavigation();

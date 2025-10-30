@@ -81,6 +81,13 @@ const PreSwapDialogContent = ({
       }),
     [activeAccount?.wallet?.id],
   );
+  const isExternalAccount = useMemo(
+    () =>
+      accountUtils.isExternalWallet({
+        walletId: activeAccount?.wallet?.id ?? '',
+      }),
+    [activeAccount?.wallet?.id],
+  );
 
   const [inAppNotificationAtom, setInAppNotificationAtom] =
     useInAppNotificationAtom();
@@ -255,11 +262,20 @@ const PreSwapDialogContent = ({
 
   const actionBtnTest = useMemo(() => {
     if (preSwapData?.isHWAndExBatchTransfer) {
-      return intl.formatMessage({
-        id: quoteResult?.allowanceResult?.shouldResetApprove
-          ? ETranslations.swap_review_confirm_3_on_device
-          : ETranslations.swap_review_confirm_2_on_device,
-      });
+      if (isHwWallet) {
+        return intl.formatMessage({
+          id: quoteResult?.allowanceResult?.shouldResetApprove
+            ? ETranslations.swap_review_confirm_3_on_device
+            : ETranslations.swap_review_confirm_2_on_device,
+        });
+      }
+      if (isExternalAccount) {
+        return intl.formatMessage({
+          id: quoteResult?.allowanceResult?.shouldResetApprove
+            ? ETranslations.swap_review_confirm_3_on_wallet
+            : ETranslations.swap_review_confirm_2_on_wallet,
+        });
+      }
     }
     return intl.formatMessage({
       id: isHwWallet
@@ -268,6 +284,7 @@ const PreSwapDialogContent = ({
     });
   }, [
     intl,
+    isExternalAccount,
     isHwWallet,
     preSwapData?.isHWAndExBatchTransfer,
     quoteResult?.allowanceResult?.shouldResetApprove,

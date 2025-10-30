@@ -12,6 +12,7 @@ export {
   usePerpsActivePositionAtom,
   useSubscriptionActiveAtom,
   usePerpsAllAssetCtxsAtom,
+  usePerpsLedgerUpdatesAtom,
 } from './atoms';
 
 export type { ITradingFormData } from './atoms';

@@ -1093,6 +1093,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
             forcedUpdateRes: forceUpdateResEvenIfSameVersion === true,
             version: versionArr,
             platform: platformEnv.symbol ?? 'web',
+            skipWebDevicePrompt: platformEnv.isDesktop,
           },
         ),
       );

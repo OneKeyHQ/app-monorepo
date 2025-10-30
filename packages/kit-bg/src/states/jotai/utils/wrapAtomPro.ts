@@ -128,5 +128,6 @@ export function wrapAtomPro(
     Promise<void> | undefined
   >;
 
+  proAtom.name = name;
   return proAtom;
 }

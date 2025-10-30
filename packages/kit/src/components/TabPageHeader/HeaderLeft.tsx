@@ -10,7 +10,11 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { ETabHomeRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  ETabHomeRoutes,
+  ETabMarketRoutes,
+  ETabRoutes,
+} from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { AccountSelectorProviderMirror } from '../AccountSelector';
@@ -39,57 +43,79 @@ export function HeaderLeft({
 
   const items = useMemo(() => {
     const withWebNavigation = (content: ReactNode) => {
-      if (!(platformEnv.isWeb && gtMd)) {
-        return content;
+      if (platformEnv.isWebDappMode && gtMd) {
+        return (
+          <XStack gap="$6" ai="center">
+            <WebHeaderNavigation />
+            {content}
+          </XStack>
+        );
       }
-      return (
-        <XStack gap="$6" ai="center">
-          <WebHeaderNavigation />
-          {content}
-        </XStack>
-      );
+
+      return content;
     };
+
     if (customHeaderLeftItems) {
+      if (tabRoute === ETabRoutes.WebviewPerpTrade) {
+        return withWebNavigation(customHeaderLeftItems);
+      }
       return customHeaderLeftItems;
     }
+
     if (sceneName === EAccountSelectorSceneName.homeUrlAccount) {
-      return withWebNavigation(
+      if (platformEnv.isWebDappMode && gtMd) {
+        return withWebNavigation(null);
+      }
+
+      return (
         <XStack gap="$1.5">
           <NavBackButton
             onPress={() => {
-              rootNavigationRef.current?.navigate(
-                ETabRoutes.Home,
-                {
-                  screen: ETabHomeRoutes.TabHome,
-                },
-                {
-                  pop: true,
-                },
-              );
+              if (platformEnv.isWebDappMode) {
+                rootNavigationRef.current?.navigate(
+                  ETabRoutes.Market,
+                  {
+                    screen: ETabMarketRoutes.TabMarket,
+                  },
+                  {
+                    pop: true,
+                  },
+                );
+              } else {
+                rootNavigationRef.current?.navigate(
+                  ETabRoutes.Home,
+                  {
+                    screen: ETabHomeRoutes.TabHome,
+                  },
+                  {
+                    pop: true,
+                  },
+                );
+              }
             }}
           />
           {platformEnv.isNativeIOS ? <UrlAccountPageHeader /> : null}
-        </XStack>,
+        </XStack>
       );
     }
 
     if (tabRoute === ETabRoutes.Discovery) {
-      return withWebNavigation(
+      return (
         <SizableText size="$headingLg">
           {/* {intl.formatMessage({
             id: ETranslations.global_browser,
           })} */}
-        </SizableText>,
+        </SizableText>
       );
     }
 
     if (tabRoute === ETabRoutes.WebviewPerpTrade) {
-      return withWebNavigation(
+      return (
         <SizableText size="$headingLg">
           {/* {intl.formatMessage({
             id: ETranslations.global_browser,
           })} */}
-        </SizableText>,
+        </SizableText>
       );
     }
 
