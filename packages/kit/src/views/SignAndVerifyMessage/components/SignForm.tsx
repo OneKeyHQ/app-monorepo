@@ -670,6 +670,7 @@ export const SignForm = ({
                   color="$textSubdued"
                   wordWrap="break-word"
                   style={{ overflowWrap: 'break-word' }}
+                  numberOfLines={2}
                 >
                   {rawMessage}
                 </SizableText>
