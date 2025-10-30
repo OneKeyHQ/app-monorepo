@@ -37,7 +37,7 @@ export class PageScene extends BaseScene {
   public notificationItemClicked(
     notificationId: string,
     type: ENotificationPushTopicTypes | 'unknown',
-    clickFrom: 'notificationClick' | 'notificationListClick',
+    clickFrom: 'app' | 'system',
   ) {
     return { notificationId, type, clickFrom };
   }

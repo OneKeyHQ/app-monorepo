@@ -121,6 +121,7 @@ export interface INavigateToNotificationDetailParams {
   mode?: ENotificationPushMessageMode;
   payload?: string;
   topicType?: ENotificationPushTopicTypes;
+  isRead?: boolean;
 }
 
 export function parseNotificationPayload(
@@ -174,18 +175,21 @@ async function navigateToNotificationDetail({
   mode,
   payload,
   topicType,
+  isRead = false,
 }: INavigateToNotificationDetailParams) {
   let routes: string[] = [];
   let params: any = {};
   let shouldAckRead = true;
 
-  setTimeout(() => {
-    defaultLogger.app.page.notificationItemClicked(
-      notificationId,
-      topicType || 'unknown',
-      isFromNotificationClick ? 'notificationClick' : 'notificationListClick',
-    );
-  });
+  if (!isRead) {
+    setTimeout(() => {
+      defaultLogger.app.page.notificationItemClicked(
+        notificationId,
+        topicType || 'unknown',
+        isFromNotificationClick ? 'app' : 'system',
+      );
+    });
+  }
 
   if (isFromNotificationClick) {
     const statusRoutes = appGlobals.$navigationRef.current?.getState().routes;
