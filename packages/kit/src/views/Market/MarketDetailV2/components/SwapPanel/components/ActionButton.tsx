@@ -234,11 +234,9 @@ export function ActionButton({
   const handlePress = useCallback(
     async (event: GestureResponderEvent) => {
       setHasClickedWithoutAmount(true);
-
       if (!hasAmount && !hasClickedWithoutAmount) {
         return;
       }
-
       if (noAccount) {
         navigation.pushModal(EModalRoutes.OnboardingModal, {
           screen: EOnboardingPages.GetStarted,
@@ -296,7 +294,7 @@ export function ActionButton({
     <Button
       size={gtMd ? 'medium' : 'large'}
       disabled={isButtonDisabled}
-      onPress={shouldDisable ? undefined : handlePress}
+      onPress={handlePress}
       loading={createAddressLoading || otherProps.loading}
       {...otherProps}
       {...buttonStyleProps}
