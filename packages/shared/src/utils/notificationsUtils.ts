@@ -101,7 +101,9 @@ export async function navigateToNotificationDetailByLocalParams({
     }
   }
   if (screen === ERootRoutes.Main) {
-    appGlobals.$navigationRef.current?.goBack?.();
+    if (appGlobals.$navigationRef.current?.canGoBack()) {
+      appGlobals.$navigationRef.current?.goBack?.();
+    }
     await timerUtils.wait(350);
     appGlobals.$navigationRef.current?.navigate(screen, navigationParams);
   } else {
