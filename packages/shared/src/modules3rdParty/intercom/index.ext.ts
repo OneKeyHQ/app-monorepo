@@ -14,3 +14,9 @@ export const showIntercom = async () => {
 
   window.open(url);
 };
+
+// Empty update function for extension compatibility
+// Extension doesn't use the Intercom SDK, so this is a no-op
+export const update = () => {
+  // No-op for extension
+};
