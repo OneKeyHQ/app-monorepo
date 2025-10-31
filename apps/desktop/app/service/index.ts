@@ -104,12 +104,12 @@ export const checkAvailabilityAsync = async () => {
     return false;
   }
   if (cacheWindowsHelloSupported === null) {
-    cacheWindowsHelloSupported = await Promise.race<boolean>([
+    cacheWindowsHelloSupported = await Promise.race([
       postServiceMessage<boolean>(
         EServiceName.WindowsHello,
         EWindowHelloEventType.CheckAvailabilityAsync,
       ),
-      new Promise((resolve) =>
+      new Promise<boolean>((resolve) =>
         setTimeout(() => {
           cacheWindowsHelloSupported = false;
           resolve(cacheWindowsHelloSupported);
@@ -147,7 +147,7 @@ export const checkBiometricAuthChanged = async () => {
       EServiceName.CheckBiometricAuthChanged,
       ECheckBiometricAuthChangedEventType.CheckBiometricAuthChanged,
     ),
-    new Promise((resolve) =>
+    new Promise<boolean>((resolve) =>
       setTimeout(() => {
         resolve(false);
       }, 500),
