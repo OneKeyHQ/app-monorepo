@@ -94,8 +94,15 @@ const postServiceMessage = <T>(
     });
   });
 
+const checkServiceExist = (serviceName: EServiceName) => {
+  return processConfig[serviceName].childProcess !== null;
+};
+
 let cacheWindowsHelloSupported: boolean | null = null;
 export const checkAvailabilityAsync = async () => {
+  if (!checkServiceExist(EServiceName.WindowsHello)) {
+    return false;
+  }
   if (cacheWindowsHelloSupported === null) {
     cacheWindowsHelloSupported = await Promise.race<boolean>([
       postServiceMessage<boolean>(
@@ -123,8 +130,12 @@ export const requestVerificationAsync = (message: string) =>
     message,
   );
 
-export const checkBiometricAuthChanged = async () =>
-  Promise.race<boolean>([
+export const checkBiometricAuthChanged = async () => {
+  if (!checkServiceExist(EServiceName.CheckBiometricAuthChanged)) {
+    return false;
+  }
+
+  return Promise.race<boolean>([
     postServiceMessage<boolean>(
       EServiceName.CheckBiometricAuthChanged,
       ECheckBiometricAuthChangedEventType.CheckBiometricAuthChanged,
@@ -135,3 +146,4 @@ export const checkBiometricAuthChanged = async () =>
       }, 500),
     ),
   ]);
+};
