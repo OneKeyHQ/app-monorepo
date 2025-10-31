@@ -1748,6 +1748,12 @@ export function useSwapBuildTx() {
                 fromTokenInfo: buildSwapRes.result.fromTokenInfo,
                 type: swapTypeSwitch,
               });
+          } else if (buildSwapRes.tronTxData) {
+            transferInfo = undefined;
+            encodedTx = buildSwapRes.tronTxData;
+          } else if (buildSwapRes.xrpTxData) {
+            transferInfo = undefined;
+            encodedTx = buildSwapRes.xrpTxData;
           } else if (buildSwapRes?.tx) {
             transferInfo = undefined;
             if (typeof buildSwapRes.tx !== 'string' && buildSwapRes.tx.data) {
