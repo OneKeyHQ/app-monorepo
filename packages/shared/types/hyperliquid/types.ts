@@ -14,6 +14,7 @@ export enum ESubscriptionType {
   ACTIVE_ASSET_DATA = 'activeAssetData',
   WEB_DATA2 = 'webData2',
   USER_FILLS = 'userFills',
+  USER_NON_FUNDING_LEDGER_UPDATES = 'userNonFundingLedgerUpdates',
   // TRADES = 'trades',
   // BBO = 'bbo',
   // USER_EVENTS = 'userEvents',

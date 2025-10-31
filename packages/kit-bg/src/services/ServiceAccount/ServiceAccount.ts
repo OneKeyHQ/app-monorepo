@@ -1576,6 +1576,13 @@ class ServiceAccount extends ServiceBase {
           return accountUtils.buildBaseAccountName({ nextAccountId });
         },
       });
+
+    void this.fixAccountName({
+      account: existsAccounts?.[0],
+      name,
+      fallbackName,
+    });
+
     appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
 
     if (isOverrideAccounts && existsAccounts.length) {
@@ -1690,6 +1697,27 @@ class ServiceAccount extends ServiceBase {
       walletId,
       accounts,
     };
+  }
+
+  async fixAccountName({
+    account,
+    name,
+    fallbackName,
+  }: {
+    account: IDBAccount | undefined;
+    name?: string;
+    fallbackName?: string;
+  }) {
+    if (!account) {
+      return;
+    }
+    const newName = name || fallbackName;
+    if (newName && account.name !== newName) {
+      await this.setAccountName({
+        accountId: account.id,
+        name: newName,
+      });
+    }
   }
 
   @backgroundMethod()
@@ -1845,6 +1873,13 @@ class ServiceAccount extends ServiceBase {
           return accountUtils.buildBaseAccountName({ nextAccountId });
         },
       });
+
+    void this.fixAccountName({
+      account: existsAccounts?.[0],
+      name,
+      fallbackName,
+    });
+
     appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
 
     if (isOverrideAccounts && existsAccounts.length) {

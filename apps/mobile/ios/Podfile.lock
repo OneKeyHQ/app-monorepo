@@ -209,9 +209,9 @@ PODS:
   - hermes-engine/Pre-built (0.79.5)
   - ImageColors (2.5.0):
     - ExpoModulesCore
-  - JCore (2.0.3):
+  - JCoreRN (2.3.2):
     - React
-  - JPush (2.9.2):
+  - JPushRN (3.2.1):
     - React
   - libavif/core (0.11.1)
   - libavif/libdav1d (0.11.1):
@@ -2943,8 +2943,8 @@ DEPENDENCIES:
   - glog (from `../../../node_modules/react-native/third-party-podspecs/glog.podspec`)
   - hermes-engine (from `../../../node_modules/react-native/sdks/hermes-engine/hermes-engine.podspec`)
   - ImageColors (from `../../../node_modules/react-native-image-colors/ios`)
-  - JCore (from `../../../node_modules/jcore-react-native`)
-  - JPush (from `../../../node_modules/jpush-react-native`)
+  - JCoreRN (from `../../../node_modules/jcore-react-native`)
+  - JPushRN (from `../../../node_modules/jpush-react-native`)
   - lottie-react-native (from `../../../node_modules/lottie-react-native`)
   - RCT-Folly (from `../../../node_modules/react-native/third-party-podspecs/RCT-Folly.podspec`)
   - RCT-Folly/Fabric (from `../../../node_modules/react-native/third-party-podspecs/RCT-Folly.podspec`)
@@ -3157,9 +3157,9 @@ EXTERNAL SOURCES:
     :tag: hermes-2025-06-04-RNv0.79.3-7f9a871eefeb2c3852365ee80f0b6733ec12ac3b
   ImageColors:
     :path: "../../../node_modules/react-native-image-colors/ios"
-  JCore:
+  JCoreRN:
     :path: "../../../node_modules/jcore-react-native"
-  JPush:
+  JPushRN:
     :path: "../../../node_modules/jpush-react-native"
   lottie-react-native:
     :path: "../../../node_modules/lottie-react-native"
@@ -3407,8 +3407,8 @@ SPEC CHECKSUMS:
   glog: 5683914934d5b6e4240e497e0f4a3b42d1854183
   hermes-engine: f03b0e06d3882d71e67e45b073bb827da1a21aae
   ImageColors: 51cd79f7a9d2524b7a681c660b0a50574085563b
-  JCore: 4707d226b452782383a401bea8ee2518565017e6
-  JPush: 7888dd3b0b4b2acaec7e1368eb8a9e3418e311d1
+  JCoreRN: d985de509185b381c177fde4bb6bfc686089fdbd
+  JPushRN: 807bc962b2f25860e5c0caa5fcb7b4910572b890
   libavif: 84bbb62fb232c3018d6f1bab79beea87e35de7b7
   libdav1d: 23581a4d8ec811ff171ed5e2e05cd27bad64c39f
   libwebp: 02b23773aedb6ff1fd38cec7a77b81414c6842a8

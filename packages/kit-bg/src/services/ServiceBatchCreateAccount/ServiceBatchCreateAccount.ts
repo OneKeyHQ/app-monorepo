@@ -61,6 +61,7 @@ export type IBatchBuildAccountsBaseParams = {
   showUIProgress?: boolean;
   createAllDeriveTypes?: boolean;
   errorMessage?: string;
+  customNetworks?: { networkId: string; deriveType: IAccountDeriveTypes }[];
 } & IWithHardwareProcessingControlParams;
 export type IBatchBuildAccountsParams = IBatchBuildAccountsBaseParams & {
   indexes: number[];
@@ -228,6 +229,14 @@ class ServiceBatchCreateAccount extends ServiceBase {
             deriveType: payload.params.deriveType,
           },
         ];
+
+        if (payload.params.customNetworks) {
+          customNetworks = uniqBy(
+            customNetworks.concat(payload.params.customNetworks),
+            (item) => `${item.networkId}_${item.deriveType}`,
+          );
+        }
+
         if (
           payload.params.createAllDeriveTypes &&
           vaultSettings.mergeDeriveAssetsEnabled

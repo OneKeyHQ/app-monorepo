@@ -31,7 +31,7 @@ export type IModalSettingParamList = {
   [EModalSettingRoutes.SettingListSubModal]:
     | {
         name: string;
-        title: string;
+        title?: string;
       }
     | undefined;
   [EModalSettingRoutes.SettingCurrencyModal]: undefined;
