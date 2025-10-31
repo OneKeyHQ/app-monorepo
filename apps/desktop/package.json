@@ -49,7 +49,7 @@
     "electron-windows-security": "0.0.7",
     "keytar": "^7.9.0",
     "node-fetch": "^2.6.7",
-    "node-mac-icloud-keyvalue": "git+https://github.com/huhuanming/node-mac-icloud-keyvalue.git#8246f8ac7f839a58bb37c4ac210f8703af825043",
+    "node-mac-icloud-keyvalue": "git+https://github.com/huhuanming/node-mac-icloud-keyvalue.git#4488efbb6ad8df3940f3cd6acb30d6604810a653",
     "semver": "7.5.4"
   },
   "devDependencies": {
