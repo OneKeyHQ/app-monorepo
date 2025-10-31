@@ -51,12 +51,15 @@ class DesktopApiAppBundleUpdate {
   }
 
   async verifyAndResolve(filePath: string, sha256: string) {
+    logger.info('verifyAndResolve', { filePath, sha256 });
     return new Promise<boolean>((resolve, reject) => {
       setTimeout(async () => {
         const verified = verifySha256(filePath, sha256);
         if (!verified) {
+          logger.error('verifyAndResolve failed', { filePath, sha256 });
           reject(new OneKeyLocalError('Downloaded file is not valid'));
         }
+        logger.info('verifyAndResolve success', { filePath, sha256 });
         resolve(true);
       }, 1000);
     });
@@ -278,6 +281,7 @@ class DesktopApiAppBundleUpdate {
     appVersion: string;
     bundleVersion: string;
   }) {
+    logger.info('getBundleBuildPath', { appVersion, bundleVersion });
     const bundleDir = getBundleDirName();
     return path.join(bundleDir, `${appVersion}-${bundleVersion}`, 'build');
   }
@@ -289,6 +293,7 @@ class DesktopApiAppBundleUpdate {
     appVersion: string;
     bundleVersion: string;
   }) {
+    logger.info('getMetadataFilePath', { appVersion, bundleVersion });
     const bundleDir = getBundleDirName();
     return path.join(
       bundleDir,
@@ -298,6 +303,7 @@ class DesktopApiAppBundleUpdate {
   }
 
   async verifyBundle(params: IUpdateDownloadedEvent) {
+    logger.info('verifyBundle', params);
     const {
       downloadedFile,
       sha256,
@@ -312,9 +318,11 @@ class DesktopApiAppBundleUpdate {
       !bundleVersion ||
       !signature
     ) {
+      logger.error('verifyBundle invalid parameters', params);
       throw new OneKeyLocalError('Invalid parameters');
     }
     await verifyMetadataFileSha256({ appVersion, bundleVersion, signature });
+    logger.info('verifyBundle success', params);
   }
 
   /**
@@ -326,6 +334,7 @@ class DesktopApiAppBundleUpdate {
    * @returns Promise that resolves when verification is complete
    */
   async downloadBundleASC(params: IUpdateDownloadedEvent) {
+    logger.info('downloadBundleASC', params);
     const {
       downloadedFile,
       sha256,
@@ -334,14 +343,18 @@ class DesktopApiAppBundleUpdate {
       signature,
     } = params || {};
     if (!downloadedFile || !sha256 || !appVersion || !bundleVersion) {
+      logger.error('downloadBundleASC invalid parameters', params);
       throw new OneKeyLocalError('Invalid parameters');
     }
     if (!signature) {
+      logger.error('downloadBundleASC invalid signature', params);
       throw new OneKeyLocalError('Invalid parameters');
     }
+    logger.info('downloadBundleASC success', params);
   }
 
   async verifyBundleASC(params: IUpdateDownloadedEvent) {
+    logger.info('verifyBundleASC', params);
     const {
       downloadedFile,
       sha256,
@@ -356,10 +369,12 @@ class DesktopApiAppBundleUpdate {
       !bundleVersion ||
       !signature
     ) {
+      logger.error('verifyBundleASC invalid parameters', params);
       throw new OneKeyLocalError('Invalid parameters');
     }
     const isBundleVerified = verifySha256(downloadedFile, sha256);
     if (!isBundleVerified) {
+      logger.error('verifyBundleASC invalid bundle file', params);
       throw new OneKeyLocalError('Invalid bundle file');
     }
     const extractDir = getBundleExtractDir({
@@ -381,6 +396,7 @@ class DesktopApiAppBundleUpdate {
     });
     logger.info('bundle-verifyBundleASC', metadataFilePath);
     await verifyMetadataFileSha256({ appVersion, bundleVersion, signature });
+    logger.info('verifyBundleASC success', params);
   }
 
   async installBundle(params: IUpdateDownloadedEvent) {
@@ -440,18 +456,23 @@ class DesktopApiAppBundleUpdate {
   }
 
   async clearDownload() {
+    logger.info('clearDownload');
     return new Promise<void>((resolve) => {
       setTimeout(() => {
         this.cancelCurrentDownload?.();
         const downloadDir = this.getDownloadDir();
         fs.rmSync(downloadDir, { recursive: true });
+        logger.info('clearDownload success');
         resolve();
       }, 100);
     });
   }
 
   async getFallbackUpdateBundleData() {
-    return store.getFallbackUpdateBundleData();
+    logger.info('getFallbackUpdateBundleData');
+    const data = store.getFallbackUpdateBundleData();
+    logger.info('getFallbackUpdateBundleData result', data);
+    return data;
   }
 
   async setCurrentUpdateBundleData(
@@ -468,18 +489,22 @@ class DesktopApiAppBundleUpdate {
   }
 
   async clearBundleExtract() {
+    logger.info('clearBundleExtract');
     const bundleDir = getBundleDirName();
     try {
       fs.rmSync(bundleDir, { recursive: true, force: true });
+      logger.info('clearBundleExtract success', bundleDir);
     } catch (error) {
       logger.error('Failed to clear bundle extract:', error);
     }
   }
 
   async clearBundle() {
+    logger.info('clearBundle');
     await this.clearDownload();
     return new Promise<void>((resolve) => {
       setTimeout(() => {
+        logger.info('clearBundle success');
         resolve();
       }, 300);
     });
@@ -492,6 +517,7 @@ class DesktopApiAppBundleUpdate {
     store.clearUpdateBundleData();
     return new Promise<{ success: boolean; message: string }>((resolve) => {
       setTimeout(() => {
+        logger.info('clearAllJSBundleData success');
         resolve({
           success: true,
           message: 'Successfully cleared all JS bundle data',
@@ -501,7 +527,10 @@ class DesktopApiAppBundleUpdate {
   }
 
   async testVerification() {
-    return testExtractedSha256FromVerifyAscFile();
+    logger.info('testVerification');
+    const result = testExtractedSha256FromVerifyAscFile();
+    logger.info('testVerification result', result);
+    return result;
   }
 
   /**
@@ -510,6 +539,7 @@ class DesktopApiAppBundleUpdate {
    * @param bundleVersion - Bundle version
    */
   async testDeleteJsBundle(appVersion: string, bundleVersion: string) {
+    logger.info('testDeleteJsBundle', { appVersion, bundleVersion });
     try {
       const bundleDir = getBundleExtractDir({ appVersion, bundleVersion });
       const mainIndexHtmlPath = path.join(bundleDir, 'index.html');
@@ -550,6 +580,7 @@ class DesktopApiAppBundleUpdate {
    * @param bundleVersion - Bundle version
    */
   async testDeleteJsRuntimeDir(appVersion: string, bundleVersion: string) {
+    logger.info('testDeleteJsRuntimeDir', { appVersion, bundleVersion });
     try {
       const bundleDir = getBundleExtractDir({ appVersion, bundleVersion });
 
@@ -589,6 +620,7 @@ class DesktopApiAppBundleUpdate {
    * @param bundleVersion - Bundle version
    */
   async testDeleteMetadataJson(appVersion: string, bundleVersion: string) {
+    logger.info('testDeleteMetadataJson', { appVersion, bundleVersion });
     try {
       const metadataFilePath = this.getMetadataFilePath({
         appVersion,
@@ -631,6 +663,7 @@ class DesktopApiAppBundleUpdate {
    * @param bundleVersion - Bundle version
    */
   async testWriteEmptyMetadataJson(appVersion: string, bundleVersion: string) {
+    logger.info('testWriteEmptyMetadataJson', { appVersion, bundleVersion });
     try {
       const bundleDir = getBundleExtractDir({ appVersion, bundleVersion });
       const metadataFilePath = path.join(bundleDir, 'metadata.json');
@@ -667,21 +700,29 @@ class DesktopApiAppBundleUpdate {
   }
 
   async getNativeAppVersion() {
-    return app.getVersion();
+    const version = app.getVersion();
+    logger.info('getNativeAppVersion result', version);
+    return version;
   }
 
   async getNativeBuildNumber() {
-    return process.env.BUILD_NUMBER || '';
+    const buildNumber = process.env.BUILD_NUMBER || '';
+    logger.info('getNativeBuildNumber result', buildNumber);
+    return buildNumber;
   }
 
   async getJsBundlePath() {
-    return (
-      globalThis.$desktopMainAppFunctions?.getBundleIndexHtmlPath?.() || ''
-    );
+    const jsBundlePath =
+      globalThis.$desktopMainAppFunctions?.getBundleIndexHtmlPath?.() || '';
+    logger.info('getJsBundlePath result', jsBundlePath);
+    return jsBundlePath;
   }
 
   async getSha256FromFilePath(filePath: string) {
-    return calculateSHA256(filePath);
+    logger.info('getSha256FromFilePath', { filePath });
+    const sha256 = calculateSHA256(filePath);
+    logger.info('getSha256FromFilePath result', { filePath, sha256 });
+    return sha256;
   }
 }
 
