@@ -72,13 +72,9 @@ export function useTransactionItemData({ item }: IUseTransactionItemDataProps) {
     [isBuy, intl],
   );
 
-  const price = isBuy ? item.to.price : item.from.price;
-
-  // Use volumeUSD from data if available (most accurate)
-  // Otherwise calculate: from.amount * from.price
   const value =
     item.volumeUSD ??
-    BigNumber(item.from.amount).times(BigNumber(item.from.price)).toNumber();
+    BigNumber(baseToken.amount).times(BigNumber(baseToken.price)).toNumber();
 
   return {
     isBuy,
@@ -88,7 +84,7 @@ export function useTransactionItemData({ item }: IUseTransactionItemDataProps) {
     quoteSign,
     typeColor,
     typeText,
-    price,
+    price: baseToken.price,
     value,
     formattedTime,
   };

@@ -218,7 +218,7 @@ export const buildAllowList = (
           },
         }
       : {
-          ...(perpDisabled
+          ...(!perpDisabled
             ? {
                 [pagePath`${ERootRoutes.Main}${ETabRoutes.Perp}`]: {
                   showUrl: true,

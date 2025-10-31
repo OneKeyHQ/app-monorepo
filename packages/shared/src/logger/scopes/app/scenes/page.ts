@@ -37,7 +37,7 @@ export class PageScene extends BaseScene {
   public notificationItemClicked(
     notificationId: string,
     type: ENotificationPushTopicTypes | 'unknown',
-    clickFrom: 'notificationClick' | 'notificationListClick',
+    clickFrom: 'app' | 'system',
   ) {
     return { notificationId, type, clickFrom };
   }
@@ -50,17 +50,17 @@ export class PageScene extends BaseScene {
 
   @LogToServer()
   @LogToLocal()
-  public jsReadyTime(time: number) {
+  public jsReadyTime(duration: number) {
     return {
-      time,
+      duration,
     };
   }
 
   @LogToServer()
   @LogToLocal()
-  public uiVisibleTime(time: number) {
+  public uiVisibleTime(duration: number) {
     return {
-      time,
+      duration,
     };
   }
 }

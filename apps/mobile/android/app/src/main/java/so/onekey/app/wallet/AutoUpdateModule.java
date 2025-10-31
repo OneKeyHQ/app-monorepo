@@ -34,6 +34,7 @@ import com.facebook.react.bridge.ReactContextBaseJavaModule;
 import com.facebook.react.bridge.ReactMethod;
 import com.facebook.react.bridge.Promise;
 import com.facebook.react.bridge.ReadableMap;
+import com.facebook.react.bridge.ReadableType;
 import com.facebook.react.bridge.WritableMap;
 import com.facebook.react.modules.core.DeviceEventManagerModule;
 
@@ -171,6 +172,41 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
         return extractedSha256;
     }
 
+    public long getFileSize(final ReadableMap map) {
+        String key = "fileSize";
+        try {
+            if (map.hasKey(key)) {
+                ReadableType type = map.getType(key);
+                switch (type) {
+                    case Number:
+                        // Try different number types
+                        try {
+                            return map.getLong(key);
+                        } catch (Exception e1) {
+                            log("getFileSize e1", "Error getting file size: " + e1.getMessage());
+                            try {
+                                return (long) map.getDouble(key);
+                            } catch (Exception e2) {
+                                log("getFileSize e2", "Error getting file size: " + e2.getMessage());
+                                return (long) map.getInt(key);
+                            }
+                        }
+                    case String:
+                        String sizeStr = map.getString(key);
+                        if (sizeStr != null) {
+                            return Long.parseLong(sizeStr);
+                        }
+                        break;
+                    default:
+                        break;
+                }
+            }
+            return 0;
+        } catch (Exception e) {
+            return 0;
+        }
+    }
+
     @ReactMethod
     public void verifyASC(final ReadableMap map, final Promise promise) {
         String filePath = map.getString("filePath");
@@ -243,7 +279,6 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
 
     @ReactMethod void verifyAPK(final ReadableMap map, final Promise promise) {
         String filePath = map.getString("filePath");
-
         File downloadedFile = buildFile(filePath);
         if (!downloadedFile.exists()) {
             promise.reject(new Exception("NOT_FOUND_PACKAGE"));
@@ -270,8 +305,8 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
         String url = map.getString("downloadUrl");
         String filePath = map.getString("filePath");
         String notificationTitle = map.getString("notificationTitle");
-        double doubleFileSize = map.getDouble("fileSize");
-        long fileSize = Double.valueOf(doubleFileSize).longValue();
+        long fileSize = getFileSize(map);
+        log("downloadAPK", "fileSize: " + fileSize);
         if (this.isDownloading) {
             return;
         }
