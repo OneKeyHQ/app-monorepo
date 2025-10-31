@@ -7783,7 +7783,7 @@ __metadata:
     glob: "npm:^7.2.0"
     keytar: "npm:^7.9.0"
     node-fetch: "npm:^2.6.7"
-    node-mac-icloud-keyvalue: "git+http://github.com/huhuanming/node-mac-icloud-keyvalue.git#6de21d23d0143956424ef6c3cf93c3d272d71a88"
+    node-mac-icloud-keyvalue: "git+http://github.com/huhuanming/node-mac-icloud-keyvalue.git#main"
     rimraf: "npm:^3"
     semver: "npm:7.5.4"
     webpack: "npm:5.90.3"
@@ -31893,7 +31893,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"node-mac-icloud-keyvalue@git+http://github.com/huhuanming/node-mac-icloud-keyvalue.git#6de21d23d0143956424ef6c3cf93c3d272d71a88":
+"node-mac-icloud-keyvalue@git+http://github.com/huhuanming/node-mac-icloud-keyvalue.git#main":
   version: 0.2.5
   resolution: "node-mac-icloud-keyvalue@git+http://github.com/huhuanming/node-mac-icloud-keyvalue.git#commit=6de21d23d0143956424ef6c3cf93c3d272d71a88"
   dependencies:
