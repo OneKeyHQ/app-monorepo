@@ -7,7 +7,7 @@ const glob = require('glob');
 const fs = require('fs');
 const pkg = require('../app/package.json');
 
-// Add passport-desktop dependency for Windows
+// Add passport-desktop-win32-x64-msvc dependency for Windows
 if (process.platform === 'win32') {
   pkg.dependencies = pkg.dependencies || {};
   pkg.dependencies['passport-desktop-win32-x64-msvc'] = '0.1.2';
