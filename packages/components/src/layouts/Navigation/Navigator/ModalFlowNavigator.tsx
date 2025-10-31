@@ -79,10 +79,11 @@ function ModalFlowNavigator<RouteName extends string, P extends ParamListBase>({
     [pageTypeFromProps],
   );
   const ModalStackComponent = useMemo(() => {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     return contextValue.pageType === EPageType.onboarding
       ? OnBoardingStack
       : ModalStack;
-  }, [pageTypeFromProps]);
+  }, [contextValue.pageType]);
 
   const makeScreenOptions = useCallback(
     (optionsInfo: IScreenOptionsInfo<any>) => ({
