@@ -81,13 +81,11 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
     public Map<String, Object> getConstants() {
         final Map<String, Object> constants = new HashMap<>();
         constants.put("ANDROID_CHANNEL", BuildConfig.ANDROID_CHANNEL);
-        staticLog("getConstants", "ANDROID_CHANNEL: " + BuildConfig.ANDROID_CHANNEL);
         return constants;
     }
 
     private void sendEvent(String eventName, @Nullable WritableMap params) {
         reactContext.getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class).emit(eventName, params);
-        log("sendEvent", "Event: " + eventName + ", Params: " + params);
     }
 
     private void log(String method, String message) {
