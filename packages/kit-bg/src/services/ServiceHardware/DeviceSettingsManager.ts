@@ -22,6 +22,7 @@ import type {
 import type {
   DeviceSettingsParams,
   DeviceUploadResourceParams,
+  DeviceUploadResourceResponse,
 } from '@onekeyfe/hd-core';
 
 export type ISetInputPinOnSoftwareParams = {
@@ -52,6 +53,7 @@ export type IHardwareHomeScreenData = {
 
   // software generated image
   thumbnailHex?: string; // Pro、Touch：thumb image hex by resize
+  blurScreenHex?: string; // Pro、Touch：blur image hex by blur effect
 
   // User upload config
   uri?: string; // image base64 by upload & crop
@@ -213,11 +215,17 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
   async setDeviceHomeScreen({
     dbDeviceId,
     screenItem,
-  }: ISetDeviceHomeScreenParams) {
+  }: ISetDeviceHomeScreenParams): Promise<DeviceUploadResourceResponse> {
     const device = await localDb.getDevice(dbDeviceId);
 
-    const { nameHex, screenHex, thumbnailHex, resType, isUserUpload } =
-      screenItem;
+    const {
+      nameHex,
+      screenHex,
+      thumbnailHex,
+      blurScreenHex,
+      resType,
+      isUserUpload,
+    } = screenItem;
 
     const isMonochrome = deviceHomeScreenUtils.isMonochromeScreen(
       device.deviceType,
@@ -254,26 +262,30 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
             suffix: 'jpeg',
             dataHex: finallyScreenHex,
             thumbnailDataHex: finallyThumbnailHex,
+            blurDataHex: blurScreenHex ?? '',
             nftMetaData: '',
           };
           // upload wallpaper resource will automatically set the home screen
-          await convertDeviceResponse(() =>
+          return convertDeviceResponse(() =>
             hardwareSDK.deviceUploadResource(
               compatibleConnectId,
               uploadResParams,
             ),
           );
-        } else {
-          // Pro、Touch: built-in wallpaper
-          // Classic、mini、1s、pure: custom upload and built-in wallpaper
-          if (!finallyScreenHex && !isMonochrome) {
-            // empty string will clear the home screen(classic,mini)
-            throw new OneKeyLocalError('Invalid home screen hex');
-          }
-          await this.applySettingsToDevice(device.connectId, {
-            homescreen: finallyScreenHex,
-          });
         }
+        // Pro、Touch: built-in wallpaper
+        // Classic、mini、1s、pure: custom upload and built-in wallpaper
+        if (!finallyScreenHex && !isMonochrome) {
+          // empty string will clear the home screen(classic,mini)
+          throw new OneKeyLocalError('Invalid home screen hex');
+        }
+        const response = await this.applySettingsToDevice(device.connectId, {
+          homescreen: finallyScreenHex,
+        });
+        return {
+          ...response,
+          applyScreen: true,
+        };
       },
       {
         deviceParams: {

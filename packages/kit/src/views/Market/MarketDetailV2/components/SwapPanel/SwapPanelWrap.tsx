@@ -1,4 +1,4 @@
-import { act, useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -135,7 +135,8 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
     speedSwapBuildTxLoading,
     checkTokenAllowanceLoading,
     speedSwapApproveHandler,
-    speedSwapApproveLoading,
+    speedSwapApproveActionLoading,
+    speedSwapApproveTransactionLoading,
     shouldApprove,
     balance,
     balanceToken,
@@ -209,7 +210,8 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
       balanceLoading={fetchBalanceLoading}
       isLoading={
         isLoading ||
-        speedSwapApproveLoading ||
+        speedSwapApproveActionLoading ||
+        speedSwapApproveTransactionLoading ||
         speedSwapBuildTxLoading ||
         checkTokenAllowanceLoading
       }

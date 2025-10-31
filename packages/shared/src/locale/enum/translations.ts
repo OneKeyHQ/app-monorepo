@@ -2689,7 +2689,6 @@
   referral_your_referred_wallets_1address = 'referral.your_referred_wallets_1address',
   referral_your_referred_wallets_details = 'referral.your_referred_wallets_details',
   referral_your_referred_wallets_more_address = 'referral.your_referred_wallets_more_address',
-  referral_code_tutorial_label = 'referral_code_tutorial_label',
   referral_promo_title = 'referral_promo_title',
   remove_account_desc = 'remove_account_desc',
   remove_device = 'remove_device',

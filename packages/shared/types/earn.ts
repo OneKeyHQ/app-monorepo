@@ -8,6 +8,8 @@ export enum EEarnProviderEnum {
   Falcon = 'Falcon',
   Ethena = 'Ethena',
   Momentum = 'Momentum',
+  Lista = 'Lista',
+  Stakefish = 'Stakefish',
 }
 
 export type ISupportedSymbol =
@@ -77,7 +79,6 @@ export enum EAvailableAssetsTypeEnum {
   All = 'all',
   StableCoins = 'stableCoins',
   NativeTokens = 'nativeTokens',
-  Recommend = 'recommend',
 }
 
 export interface IEarnAvailableAssetProtocol {

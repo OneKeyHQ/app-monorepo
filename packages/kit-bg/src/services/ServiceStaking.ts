@@ -55,6 +55,7 @@ import type {
   IEarnSummary,
   IEarnUnbondingDelegationList,
   IGetPortfolioParams,
+  IRecommendAsset,
   IStakeBaseParams,
   IStakeBlockRegionResponse,
   IStakeClaimBaseParams,
@@ -97,6 +98,12 @@ interface IRecommendResponse {
   code: string;
   message?: string;
   data: { tokens: IEarnAccountToken[] };
+}
+
+interface IRecommendV2Response {
+  code: string;
+  message?: string;
+  data: { tokens: IRecommendAsset[] };
 }
 
 interface IAvailableAssetsResponse {
@@ -265,7 +272,7 @@ class ServiceStaking extends ServiceBase {
     if (!stakingConfig) {
       throw new OneKeyLocalError('Staking config not found');
     }
-    const useVaultProvider = earnUtils.useVaultProvider({
+    const isVaultBased = earnUtils.isVaultBasedProvider({
       providerName: provider,
     });
     const paramsToSend: Record<string, any> = {
@@ -285,7 +292,7 @@ class ServiceStaking extends ServiceBase {
       ...rest,
     };
 
-    if (useVaultProvider) {
+    if (isVaultBased) {
       paramsToSend.vault = protocolVault;
     }
 
@@ -317,7 +324,7 @@ class ServiceStaking extends ServiceBase {
     if (!stakingConfig) {
       throw new OneKeyLocalError('Staking config not found');
     }
-    const useVaultProvider = earnUtils.useVaultProvider({
+    const isVaultBased = earnUtils.isVaultBasedProvider({
       providerName: params.provider,
     });
     const resp = await client.post<{
@@ -329,7 +336,7 @@ class ServiceStaking extends ServiceBase {
       firmwareDeviceType: await this.getFirmwareDeviceTypeParam({
         accountId,
       }),
-      vault: useVaultProvider ? protocolVault : '',
+      vault: isVaultBased ? protocolVault : '',
       ...rest,
     });
     return resp.data.data;
@@ -403,7 +410,7 @@ class ServiceStaking extends ServiceBase {
       sendParams.rewardTokenAddress = rewardTokenAddress;
     }
     if (
-      earnUtils.useVaultProvider({ providerName: params.provider }) &&
+      earnUtils.isVaultBasedProvider({ providerName: params.provider }) &&
       vaultAddress
     ) {
       sendParams.vault = vaultAddress;
@@ -489,9 +496,9 @@ class ServiceStaking extends ServiceBase {
         networkId,
         accountId,
       });
-    const useVaultProvider =
+    const isVaultBased =
       params.provider &&
-      earnUtils.useVaultProvider({
+      earnUtils.isVaultBasedProvider({
         providerName: params.provider,
       });
     const data: Record<string, string | undefined> & { type?: string } = {
@@ -500,7 +507,7 @@ class ServiceStaking extends ServiceBase {
       ...rest,
     };
 
-    if (useVaultProvider) {
+    if (isVaultBased) {
       data.vault = protocolVault;
     }
     if (type) {
@@ -845,6 +852,28 @@ class ServiceStaking extends ServiceBase {
     return result;
   }
 
+  private _getAccountAssetV2 = memoizee(
+    async (
+      params: {
+        networkId: string;
+        accountAddress: string;
+        publicKey?: string;
+      }[],
+    ) => {
+      const client = await this.getRawDataClient(EServiceEndpointEnum.Earn);
+      const tokensResponse = await client.post<
+        IRecommendV2Response,
+        IAxiosResponse<IRecommendV2Response>
+      >(`/earn/v2/recommend`, { accounts: params });
+      this.handleServerError({
+        ...tokensResponse.data,
+        requestId: tokensResponse.$requestId,
+      });
+      return tokensResponse.data.data;
+    },
+    { promise: true, maxAge: timerUtils.getTimeDurationMs({ seconds: 2 }) },
+  );
+
   @backgroundMethod()
   async getEarnAvailableAccountsParams({
     accountId,
@@ -961,6 +990,28 @@ class ServiceStaking extends ServiceBase {
   }
 
   @backgroundMethod()
+  async fetchAllNetworkAssetsV2({
+    accountId,
+    networkId,
+    indexedAccountId,
+  }: {
+    accountId: string;
+    networkId: string;
+    indexedAccountId?: string;
+  }) {
+    if (!accountId) {
+      return this._getAccountAssetV2([]);
+    }
+
+    const accounts = await this.getEarnAvailableAccountsParams({
+      accountId,
+      networkId,
+      indexedAccountId,
+    });
+    return this._getAccountAssetV2(accounts);
+  }
+
+  @backgroundMethod()
   async fetchInvestmentDetail(
     list: {
       accountAddress: string;
@@ -1052,7 +1103,7 @@ class ServiceStaking extends ServiceBase {
         'networkId or accountId or provider not found',
       );
     }
-    const useVaultProvider = earnUtils.useVaultProvider({
+    const isVaultBased = earnUtils.isVaultBasedProvider({
       providerName: provider,
     });
     const vault = await vaultFactory.getVault({ networkId, accountId });
@@ -1070,7 +1121,7 @@ class ServiceStaking extends ServiceBase {
         provider: provider || '',
         action,
         amount: amountNumber.isNaN() ? '0' : amountNumber.toFixed(),
-        vault: useVaultProvider ? protocolVault : '',
+        vault: isVaultBased ? protocolVault : '',
         withdrawAll,
       },
     });
@@ -1388,7 +1439,7 @@ class ServiceStaking extends ServiceBase {
       symbol,
       ...rest,
     };
-    if (earnUtils.useVaultProvider({ providerName: params.provider })) {
+    if (earnUtils.isVaultBasedProvider({ providerName: params.provider })) {
       sendParams.vault = protocolVault;
     }
     const resp = await client.get<{

@@ -8,6 +8,7 @@ import { app } from 'electron';
 import logger from 'electron-log/main';
 
 import {
+  calculateSHA256,
   getBundleDirName,
   getBundleExtractDir,
   testExtractedSha256FromVerifyAscFile,
@@ -660,6 +661,24 @@ class DesktopApiAppBundleUpdate {
         `Failed to write empty metadata.json: ${(error as Error).message}`,
       );
     }
+  }
+
+  async getNativeAppVersion() {
+    return app.getVersion();
+  }
+
+  async getNativeBuildNumber() {
+    return process.env.BUILD_NUMBER || '';
+  }
+
+  async getJsBundlePath() {
+    return (
+      globalThis.$desktopMainAppFunctions?.getBundleIndexHtmlPath?.() || ''
+    );
+  }
+
+  async getSha256FromFilePath(filePath: string) {
+    return calculateSHA256(filePath);
   }
 }
 

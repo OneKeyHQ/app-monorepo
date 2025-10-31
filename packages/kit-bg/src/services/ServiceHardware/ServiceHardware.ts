@@ -54,6 +54,7 @@ import {
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import localDb from '../../dbs/local/localDb';
+import { ELocalDBStoreNames } from '../../dbs/local/localDBStoreNames';
 import simpleDb from '../../dbs/simple/simpleDb';
 import {
   EHardwareUiStateAction,
@@ -84,6 +85,7 @@ import type {
   IShouldAuthenticateFirmwareParams,
 } from './HardwareVerifyManager';
 import type { IHardwareHomeScreenResponse } from './ServerType';
+import type { ISimpleDBAppStatus } from '../../dbs/simple/entity/SimpleDbEntityAppStatus';
 import type {
   IHardwareUiPayload,
   IHardwareUiState,
@@ -1064,6 +1066,26 @@ class ServiceHardware extends ServiceBase {
   }
 
   @backgroundMethod()
+  async removeDeviceHomeScreen() {
+    const appStatus = await simpleDb.appStatus.getRawData();
+    if (appStatus?.removeDeviceHomeScreenMigrated) {
+      console.log('removeDeviceHomeScreen: already migrated');
+      return;
+    }
+
+    await localDb.clearRecords({
+      name: ELocalDBStoreNames.HardwareHomeScreen,
+    });
+
+    await simpleDb.appStatus.setRawData(
+      (v): ISimpleDBAppStatus => ({
+        ...v,
+        removeDeviceHomeScreenMigrated: true,
+      }),
+    );
+  }
+
+  @backgroundMethod()
   async getDeviceHomeScreenConfig({
     dbDeviceId,
     homeScreenType,
@@ -1400,9 +1422,15 @@ class ServiceHardware extends ServiceBase {
     const hardwareSDK = await this.getSDKInstance({
       connectId: undefined,
     });
-    await hardwareSDK.switchTransport(
-      transportType === EHardwareTransportType.WEBUSB ? 'webusb' : 'web',
-    );
+    let env: 'webusb' | 'desktop-web-ble' | 'web';
+    if (transportType === EHardwareTransportType.WEBUSB) {
+      env = 'webusb';
+    } else if (transportType === EHardwareTransportType.DesktopWebBle) {
+      env = 'desktop-web-ble';
+    } else {
+      env = 'web';
+    }
+    await hardwareSDK.switchTransport(env);
   }
 
   @backgroundMethod()

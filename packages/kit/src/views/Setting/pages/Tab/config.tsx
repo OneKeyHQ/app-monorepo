@@ -9,7 +9,7 @@ import type {
   ISizableTextProps,
   IStackStyle,
 } from '@onekeyhq/components';
-import { Dialog, SizableText, Stack, useClipboard } from '@onekeyhq/components';
+import { Dialog } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import PasswordUpdateContainer from '@onekeyhq/kit/src/components/Password/container/PasswordUpdateContainer';
 import {
@@ -59,6 +59,7 @@ import { showApiEndpointDialog } from '../../components/ApiEndpointDialog';
 
 import {
   AutoLockListItem,
+  BTCFreshAddressListItem,
   BiologyAuthListItem,
   CleanDataListItem,
   ClearAppCacheListItem,
@@ -70,7 +71,7 @@ import {
   ThemeListItem,
 } from './CustomElement';
 import { DevSettingsSection } from './DevSettingsSection';
-import { exportLogs } from './exportLogs';
+import { showExportLogsDialog } from './exportLogs/showExportLogsDialog';
 import { SubSearchSettings } from './SubSettings';
 
 import type { RouteProp } from '@react-navigation/native';
@@ -134,7 +135,6 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
   const [{ isSupport: biologyAuthIsSupport }] =
     usePasswordBiologyAuthInfoAtom();
   const [{ isSupport: webAuthIsSupport }] = usePasswordWebAuthInfoAtom();
-  const { copyText } = useClipboard();
   const biometricAuthInfo = useBiometricAuthInfo();
   const userAgreementUrl = useHelpLink({ path: 'articles/11461297' });
   const privacyPolicyUrl = useHelpLink({ path: 'articles/11461298' });
@@ -188,34 +188,38 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               : undefined,
           ],
           [
-            {
-              // OneKey Transfer
-              icon: 'MultipleDevicesOutline',
-              title: intl.formatMessage({
-                id: ETranslations.transfer_transfer,
-              }),
-              subtitle: intl.formatMessage({
-                id: ETranslations.prime_transfer_description,
-              }),
-              onPress: (navigation) => {
-                navigation?.pushModal(EModalRoutes.PrimeModal, {
-                  screen: EPrimePages.PrimeTransfer,
-                });
-              },
-            },
+            !platformEnv.isWebDappMode
+              ? {
+                  // OneKey Transfer
+                  icon: 'MultipleDevicesOutline',
+                  title: intl.formatMessage({
+                    id: ETranslations.transfer_transfer,
+                  }),
+                  subtitle: intl.formatMessage({
+                    id: ETranslations.prime_transfer_description,
+                  }),
+                  onPress: (navigation) => {
+                    navigation?.pushModal(EModalRoutes.PrimeModal, {
+                      screen: EPrimePages.PrimeTransfer,
+                    });
+                  },
+                }
+              : undefined,
           ],
           [
-            {
-              icon: 'SignatureOutline',
-              title: intl.formatMessage({
-                id: ETranslations.manual_backup,
-              }),
-              onPress: (navigation) => {
-                navigation?.pushModal(EModalRoutes.ManualBackupModal, {
-                  screen: EManualBackupRoutes.ManualBackupSelectWallet,
-                });
-              },
-            },
+            !platformEnv.isWebDappMode
+              ? {
+                  icon: 'SignatureOutline',
+                  title: intl.formatMessage({
+                    id: ETranslations.manual_backup,
+                  }),
+                  onPress: (navigation) => {
+                    navigation?.pushModal(EModalRoutes.ManualBackupModal, {
+                      screen: EManualBackupRoutes.ManualBackupSelectWallet,
+                    });
+                  },
+                }
+              : undefined,
             platformEnv.isNative
               ? {
                   icon: 'OnekeyLiteOutline',
@@ -386,6 +390,18 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   },
                 }
               : null,
+          ],
+          [
+            {
+              icon: 'FlashCardsOutline',
+              title: intl.formatMessage({
+                id: ETranslations.settings_btc_multiple_addresses,
+              }),
+              subtitle: intl.formatMessage({
+                id: ETranslations.settings_btc_multiple_addresses_description,
+              }),
+              renderElement: <BTCFreshAddressListItem />,
+            },
           ],
         ],
       },
@@ -701,50 +717,11 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               title: intl.formatMessage({
                 id: ETranslations.settings_export_state_logs,
               }),
-              onPress: (navigation) => {
-                Dialog.show({
-                  icon: 'FileDownloadOutline',
+              onPress: () => {
+                showExportLogsDialog({
                   title: intl.formatMessage({
                     id: ETranslations.settings_export_state_logs,
                   }),
-                  renderContent: (
-                    <Stack>
-                      <SizableText size="$bodyLg">
-                        {intl.formatMessage({
-                          id: ETranslations.settings_logs_do_not_include_sensitive_data,
-                        })}
-                      </SizableText>
-                      <Stack h="$5" />
-                      <SizableText size="$bodyLg">
-                        {intl.formatMessage(
-                          {
-                            id: ETranslations.settings_export_state_logs_desc,
-                          },
-                          {
-                            email: (
-                              <SizableText
-                                size="$bodyLg"
-                                textDecorationLine="underline"
-                                onPress={() => copyText('hi@onekey.so')}
-                              >
-                                hi@onekey.so
-                              </SizableText>
-                            ),
-                          },
-                        )}
-                      </SizableText>
-                    </Stack>
-                  ),
-                  confirmButtonProps: {
-                    variant: 'primary',
-                  },
-                  onConfirmText: intl.formatMessage({
-                    id: ETranslations.global_export,
-                  }),
-                  onConfirm: () => {
-                    const str = new Date().toISOString().replace(/[-:.]/g, '');
-                    void exportLogs(`OneKeyLogs-${str}`);
-                  },
                 });
               },
             },
@@ -817,7 +794,6 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
       helpCenterUrl,
       userAgreementUrl,
       privacyPolicyUrl,
-      copyText,
     ],
   );
 };

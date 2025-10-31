@@ -11,6 +11,7 @@ import {
   getDialogInstances,
   getFormInstances,
   rootNavigationRef,
+  useMedia,
   useShortcuts,
 } from '@onekeyhq/components';
 import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
@@ -19,7 +20,11 @@ import {
   useDevSettingsPersistAtom,
   useOnboardingConnectWalletLoadingAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { EAppUpdateStatus } from '@onekeyhq/shared/src/appUpdate';
+import {
+  EAppUpdateStatus,
+  EUpdateFileType,
+  getUpdateFileType,
+} from '@onekeyhq/shared/src/appUpdate';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -27,7 +32,10 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { electronUpdateListeners } from '@onekeyhq/shared/src/modules3rdParty/auto-update/electronUpdateListeners';
-import { initIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
+import {
+  initIntercom,
+  update,
+} from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import performance from '@onekeyhq/shared/src/performance';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -38,7 +46,6 @@ import {
   EOnboardingPages,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
-import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { ERootRoutes } from '@onekeyhq/shared/src/routes/root';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
@@ -453,10 +460,21 @@ const launchFloatingIconEvent = async (intl: IntlShape) => {
 };
 
 export const useIntercomInit = () => {
+  const { md } = useMedia();
+  const isInitializedRef = useRef(false);
+
   useEffect(() => {
-    // 初始化 Intercom
-    void initIntercom();
-  }, []);
+    const shouldHideLauncher = md || !platformEnv.isWebDappMode;
+
+    if (!isInitializedRef.current) {
+      // Initialize Intercom on first render, hide launcher on small screens
+      void initIntercom({ hide_default_launcher: shouldHideLauncher });
+      isInitializedRef.current = true;
+    } else {
+      // Update launcher visibility when screen size changes
+      update({ hide_default_launcher: shouldHideLauncher });
+    }
+  }, [md]);
 };
 
 export const useLaunchEvents = (): void => {
@@ -503,6 +521,15 @@ export const useCheckUpdateOnDesktop =
             },
           );
           setTimeout(async () => {
+            const updateInfo =
+              await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
+            const fileType = getUpdateFileType(updateInfo);
+            if (
+              updateInfo.status === EAppUpdateStatus.done ||
+              fileType === EUpdateFileType.appShell
+            ) {
+              return;
+            }
             const previousBuildNumber =
               await globalThis.desktopApiProxy.appUpdate.getPreviousUpdateBuildNumber();
             defaultLogger.app.appUpdate.isInstallFailed(

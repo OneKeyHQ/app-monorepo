@@ -12,7 +12,7 @@ import {
   StyledSizableText,
   XStack,
 } from '../../primitives';
-import { NATIVE_HIT_SLOP } from '../../utils';
+import { NATIVE_HIT_SLOP } from '../../utils/getFontSize';
 
 import type {
   IImageProps,

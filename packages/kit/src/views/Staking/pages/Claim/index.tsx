@@ -41,8 +41,7 @@ const ClaimPage = () => {
   const symbol = info?.symbol || '';
   const price = tokenInfo?.price ? String(tokenInfo.price) : '0';
   const actionTag = protocolInfo?.stakeTag || '';
-  const vault =
-    protocolInfo?.approve?.approveTarget || protocolInfo?.vault || '';
+  const vault = protocolInfo?.vault || '';
   const appNavigation = useAppNavigation();
   const handleClaim = useUniversalClaim({ accountId, networkId });
   const onConfirm = useCallback(

@@ -2,6 +2,7 @@ import { EDeviceType } from '@onekeyfe/hd-shared';
 
 import { OneKeyLocalError } from '../errors/errors/localError';
 import { defaultLogger } from '../logger/logger';
+import platformEnv from '../platformEnv';
 
 import imageUtils from './imageUtils';
 
@@ -194,6 +195,7 @@ async function buildCustomScreenHex(
     return {
       screenHex: customHex,
       thumbnailHex: undefined,
+      blurScreenHex: undefined,
     };
   }
 
@@ -201,6 +203,7 @@ async function buildCustomScreenHex(
     return {
       screenHex: '',
       thumbnailHex: undefined,
+      blurScreenHex: undefined,
     };
   }
 
@@ -215,10 +218,12 @@ async function buildCustomScreenHex(
       originW: config.size?.width,
       originH: config.size?.height,
       isMonochrome: false,
+      cornerRadius: config.thumbnailSize?.radius ?? config.size?.radius ?? 0,
     });
   }
 
   let screenHex = '';
+  let screenBase64 = '';
   if (!isUserUpload) {
     const imgScreen = await imageUtils.resizeImage({
       uri: imgUri,
@@ -229,18 +234,29 @@ async function buildCustomScreenHex(
       originW: config.size?.width,
       originH: config.size?.height,
       isMonochrome: false,
+      cornerRadius: config.size?.radius ?? 0,
     });
     screenHex = imgScreen.hex;
+    screenBase64 = imageUtils.prefixBase64Uri(
+      imgScreen.base64 || imgUri,
+      'image/jpeg',
+    );
   } else {
     screenHex = Buffer.from(
       imageUtils.stripBase64UriPrefix(imgUri),
       'base64',
     ).toString('hex');
+    screenBase64 = imageUtils.prefixBase64Uri(imgUri, 'image/jpeg');
   }
+
+  const blurScreen = await imageUtils.processImageBlur({
+    base64Data: screenBase64 || '',
+  });
 
   return {
     screenHex,
     thumbnailHex: imgThumb?.hex,
+    blurScreenHex: blurScreen.hex,
   };
 }
 

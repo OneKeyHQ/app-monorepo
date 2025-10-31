@@ -83,6 +83,7 @@ const ListHeaderComponent = ({
 type IEditableChainSelectorContentProps = {
   isEditMode?: boolean;
   recentNetworksEnabled?: boolean;
+  accountNetworkValues: Record<string, string>;
   mainnetItems: IServerNetwork[];
   testnetItems: IServerNetwork[];
   unavailableItems: IServerNetwork[];
@@ -97,9 +98,14 @@ type IEditableChainSelectorContentProps = {
   onEditCustomNetwork?: (network: IServerNetwork) => void;
   onFrequentlyUsedItemsChange?: (networks: IServerNetwork[]) => void;
   setAllNetworksChanged?: (value: boolean) => void;
+  accountNetworkValueCurrency?: string;
 };
 
 export const EditableChainSelectorContent = ({
+  walletId,
+  indexedAccountId,
+  accountNetworkValues,
+  accountNetworkValueCurrency,
   mainnetItems,
   testnetItems,
   frequentlyUsedItems,
@@ -337,6 +343,8 @@ export const EditableChainSelectorContent = ({
 
   const context = useMemo<IEditableChainSelectorContext>(
     () => ({
+      walletId: walletId ?? '',
+      indexedAccountId,
       frequentlyUsedItems: tempFrequentlyUsedItems,
       setFrequentlyUsedItems: setTempFrequentlyUsedItems,
       frequentlyUsedItemsIds: new Set(
@@ -354,18 +362,23 @@ export const EditableChainSelectorContent = ({
       searchText: searchTextTrim,
       allNetworkItem,
       setRecentNetworksHeight,
+      accountNetworkValues,
+      accountNetworkValueCurrency,
     }),
     [
+      walletId,
+      indexedAccountId,
       tempFrequentlyUsedItems,
-      setTempFrequentlyUsedItems,
       networkId,
       onPressItem,
       onAddCustomNetwork,
-      onEditCustomNetwork,
-      onFrequentlyUsedItemsChange,
       isEditMode,
       searchTextTrim,
       allNetworkItem,
+      accountNetworkValues,
+      accountNetworkValueCurrency,
+      onFrequentlyUsedItemsChange,
+      onEditCustomNetwork,
     ],
   );
   const renderItem = useCallback(
@@ -411,7 +424,9 @@ export const EditableChainSelectorContent = ({
 
       let offset = 0;
 
-      if (initialScrollIndex.sectionIndex !== 0) {
+      if (initialScrollIndex.sectionIndex === 0) {
+        offset = CELL_HEIGHT * (initialScrollIndex.itemIndex ?? 0);
+      } else {
         const index = layoutList.findIndex(
           (item) => item.sectionIndex === initialScrollIndex.sectionIndex,
         );
@@ -469,7 +484,7 @@ export const EditableChainSelectorContent = ({
           {sections.length > 0 ? (
             <SortableSectionList
               ref={listRef}
-              enabled={isEditMode}
+              enabled={false}
               stickySectionHeadersEnabled
               sections={sections}
               renderItem={renderItem}

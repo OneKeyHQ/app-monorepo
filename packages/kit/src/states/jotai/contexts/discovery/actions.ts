@@ -513,7 +513,8 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       const { data, isRemove, options, skipSaveLocalSyncItem } = payload;
       const isReady = get(browserDataReadyAtom());
       // web always ready
-      const isBrowserDataReady = isReady || platformEnv.isWeb;
+      const isBrowserDataReady =
+        isReady || platformEnv.isWeb || platformEnv.isExtension;
       if (!isBrowserDataReady && !options?.isInitFromStorage) {
         return;
       }
@@ -591,6 +592,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         next: IBrowserBookmark | undefined;
       },
     ) => {
+      console.log('sortBrowserBookmark_____', payload);
       const { target, prev, next } = payload;
       const newSortIndex = sortUtils.buildNewSortIndex({
         target,

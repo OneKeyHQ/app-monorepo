@@ -601,6 +601,12 @@ export interface IEarnCloseActionIcon {
   text: IEarnText;
 }
 
+export interface IEarnListaCheckActionIcon {
+  type: 'listaCheck';
+  disabled: boolean;
+  text: IEarnText;
+}
+
 export type IEarnActionIcon =
   | IEarnPopupActionIcon
   | IEarnLinkActionIcon
@@ -610,7 +616,8 @@ export type IEarnActionIcon =
   | IEarnActivateActionIcon
   | IEarnReceiveActionIcon
   | IEarnTradeActionIcon
-  | IEarnCloseActionIcon;
+  | IEarnCloseActionIcon
+  | IEarnListaCheckActionIcon;
 
 interface IEarnGridItem {
   title: IEarnText;
@@ -1009,6 +1016,24 @@ export type IAvailableAsset = {
     badgeType: IBadgeType;
     tag: string;
   }>;
+};
+
+export type IRecommendAsset = {
+  name: string;
+  symbol: string;
+  logoURI: string;
+  protocols: Array<{
+    networkId: string;
+    provider: string;
+    vault: string;
+  }>;
+  aprWithoutFee: string;
+  aprInfo: IEarnAvailableAssetAprInfo;
+  bgColor: ColorTokens;
+  available: {
+    text: string;
+    color: ColorTokens;
+  };
 };
 
 export interface IEarnAtomData {

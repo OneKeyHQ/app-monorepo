@@ -12,7 +12,8 @@ import { useWindowDimensions } from 'react-native';
 import { useAppSideBarStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { getTokens, useIsHorizontalLayout, useMedia } from '../../hooks';
+import { useIsHorizontalLayout, useMedia } from '../../hooks';
+import { MAX_SIDEBAR_WIDTH, MIN_SIDEBAR_WIDTH } from '../../utils/sidebar';
 
 import { useTabNameContext as useNativeTabNameContext } from './TabNameContext';
 import { useFocusedTab } from './useFocusedTab';
@@ -74,29 +75,33 @@ const useNativeTabContainerWidth = platformEnv.isNativeIOSPad
   ? () => {
       const isHorizontal = useIsHorizontalLayout();
       const { width } = useWindowDimensions();
-      const sideBarWidth = useMemo(() => {
-        if (isHorizontal) {
-          return getTokens().size.sideBarWidth.val;
-        }
-        return 0;
-      }, [isHorizontal]);
+      const [{ isCollapsed: leftSidebarCollapsed = false }] =
+        useAppSideBarStatusAtom();
+      if (isHorizontal) {
+        return width - MIN_SIDEBAR_WIDTH;
+      }
+      const sideBarWidth = leftSidebarCollapsed
+        ? MIN_SIDEBAR_WIDTH
+        : MAX_SIDEBAR_WIDTH;
       return width - sideBarWidth;
     }
   : () => undefined;
 export const useTabContainerWidth = platformEnv.isNative
   ? useNativeTabContainerWidth
   : () => {
-      const [{ collapsed: leftSidebarCollapsed = false }] =
+      const [{ isCollapsed: leftSidebarCollapsed = false }] =
         useAppSideBarStatusAtom();
       const { md } = useMedia();
-      const sideBarWidth = useMemo(() => {
-        if (md) {
-          return 0;
+      return useMemo(() => {
+        // Small screen or WebDappMode: no sidebar, use full width
+        if (platformEnv.isWebDappMode || md) {
+          return `calc(100vw)`;
         }
-        if (!leftSidebarCollapsed) {
-          return getTokens().size.sideBarWidth.val;
-        }
-        return 0;
-      }, [md, leftSidebarCollapsed]);
-      return `calc(100vw - ${sideBarWidth}px)`;
+
+        // Large screen: subtract sidebar width
+        const sideBarWidth = leftSidebarCollapsed
+          ? MIN_SIDEBAR_WIDTH
+          : MAX_SIDEBAR_WIDTH;
+        return `calc(100vw - ${sideBarWidth}px)`;
+      }, [leftSidebarCollapsed, md]);
     };

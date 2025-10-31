@@ -90,6 +90,9 @@ class ServiceAccountProfile extends ServiceBase {
       xpub,
       // cardanoPubKey, // only for UTXO query, not for balance query
       withNetWorth: true,
+    }).catch((e) => {
+      console.error('=====>>>>>> fetchAccountNativeBalance error', e);
+      throw e;
     });
   }
 
@@ -424,6 +427,19 @@ class ServiceAccountProfile extends ServiceBase {
         walletAccountItems = [walletAccountItem];
       }
 
+      if (
+        walletAccountItems.length === 0 &&
+        networkUtils.isBTCNetwork(networkId)
+      ) {
+        walletAccountItems =
+          await this.backgroundApi.serviceFreshAddress.getAccountNameFromFreshAddress(
+            {
+              address,
+              networkId,
+            },
+          );
+      }
+
       if (walletAccountItems.length > 0) {
         let item = walletAccountItems[0];
         try {
@@ -466,6 +482,8 @@ class ServiceAccountProfile extends ServiceBase {
           console.error(e);
           // pass
         }
+        result.walletName = item.walletName;
+        result.accountName = item.accountName;
         result.walletAccountName = `${item.walletName} / ${item.accountName}`;
         result.walletAccountId = item.accountId;
         if (enableAddressDeriveInfo) {

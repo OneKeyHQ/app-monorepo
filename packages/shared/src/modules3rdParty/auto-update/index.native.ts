@@ -5,8 +5,8 @@ import RNRestart from 'react-native-restart';
 import { useThrottledCallback } from 'use-debounce';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
-import { defaultLogger } from '../../logger/logger';
 import RNFS from '../react-native-fs';
 
 import type {
@@ -226,7 +226,8 @@ interface INativeBundleUpdateModule {
   setCurrentUpdateBundleData: (params: IJSBundle) => Promise<void>;
   clearBundle: () => Promise<void>;
   clearAllJSBundleData: () => Promise<{ success: boolean; message: string }>;
-  getWebEmbedPath: () => Promise<string>;
+  getWebEmbedPath: () => string;
+  getWebEmbedPathAsync: () => Promise<string>;
   testVerification: () => Promise<boolean>;
   testDeleteJsBundle: (
     appVersion: string,
@@ -244,6 +245,9 @@ interface INativeBundleUpdateModule {
     appVersion: string,
     bundleVersion: string,
   ) => Promise<{ success: boolean; message: string }>;
+  getNativeAppVersion: () => Promise<string>;
+  getSha256FromFilePath: (filePath: string) => Promise<string>;
+  getJsBundlePath: () => Promise<string>;
 }
 
 const { BundleUpdateModule } = NativeModules as {
@@ -288,6 +292,7 @@ export const BundleUpdate: IBundleUpdate = {
   downloadBundleASC: (params) => BundleUpdateModule.downloadBundleASC(params),
   installBundle: async (params) => {
     await BundleUpdateModule.installBundle(params);
+    defaultLogger.app.appUpdate.restartRNApp();
     setTimeout(() => {
       RNRestart.restart();
     }, 2500);
@@ -303,9 +308,10 @@ export const BundleUpdate: IBundleUpdate = {
     BundleUpdateModule.testDeleteMetadataJson(appVersion, bundleVersion),
   testWriteEmptyMetadataJson: (appVersion, bundleVersion) =>
     BundleUpdateModule.testWriteEmptyMetadataJson(appVersion, bundleVersion),
-  getWebEmbedPath: () =>
-    BundleUpdateModule && BundleUpdateModule.getWebEmbedPath
-      ? BundleUpdateModule.getWebEmbedPath()
+  getWebEmbedPath: () => BundleUpdateModule?.getWebEmbedPath() || '',
+  getWebEmbedPathAsync: () =>
+    BundleUpdateModule && BundleUpdateModule.getWebEmbedPathAsync
+      ? BundleUpdateModule.getWebEmbedPathAsync()
       : Promise.resolve(''),
   getFallbackBundles: () => BundleUpdateModule.getFallbackUpdateBundleData(),
   switchBundle: async (params) => {
@@ -314,4 +320,9 @@ export const BundleUpdate: IBundleUpdate = {
       RNRestart.restart();
     }, 2500);
   },
+  getNativeAppVersion: () => BundleUpdateModule.getNativeAppVersion(),
+  getNativeBuildNumber: () => Promise.resolve(''),
+  getJsBundlePath: () => BundleUpdateModule.getJsBundlePath(),
+  getSha256FromFilePath: (filePath) =>
+    BundleUpdateModule.getSha256FromFilePath(filePath),
 };

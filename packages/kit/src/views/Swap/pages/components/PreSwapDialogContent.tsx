@@ -81,6 +81,13 @@ const PreSwapDialogContent = ({
       }),
     [activeAccount?.wallet?.id],
   );
+  const isExternalAccount = useMemo(
+    () =>
+      accountUtils.isExternalWallet({
+        walletId: activeAccount?.wallet?.id ?? '',
+      }),
+    [activeAccount?.wallet?.id],
+  );
 
   const [inAppNotificationAtom, setInAppNotificationAtom] =
     useInAppNotificationAtom();
@@ -253,6 +260,36 @@ const PreSwapDialogContent = ({
     }
   }, [lastStep?.status, swapSteps.steps.length]);
 
+  const actionBtnTest = useMemo(() => {
+    if (preSwapData?.isHWAndExBatchTransfer) {
+      if (isHwWallet) {
+        return intl.formatMessage({
+          id: quoteResult?.allowanceResult?.shouldResetApprove
+            ? ETranslations.swap_review_confirm_3_on_device
+            : ETranslations.swap_review_confirm_2_on_device,
+        });
+      }
+      if (isExternalAccount) {
+        return intl.formatMessage({
+          id: quoteResult?.allowanceResult?.shouldResetApprove
+            ? ETranslations.swap_review_confirm_3_on_wallet
+            : ETranslations.swap_review_confirm_2_on_wallet,
+        });
+      }
+    }
+    return intl.formatMessage({
+      id: isHwWallet
+        ? ETranslations.global_confirm_on_device
+        : ETranslations.global_confirm,
+    });
+  }, [
+    intl,
+    isExternalAccount,
+    isHwWallet,
+    preSwapData?.isHWAndExBatchTransfer,
+    quoteResult?.allowanceResult?.shouldResetApprove,
+  ]);
+
   return (
     <HeightTransition initialHeight={355}>
       {showResultContent && swapSteps.steps.length > 0 ? (
@@ -342,35 +379,18 @@ const PreSwapDialogContent = ({
                 }}
               />
               {/* Primary button */}
-              <YStack gap="$2">
-                {preSwapData?.isHWAndExBatchTransfer ? (
-                  <XStack gap="$1" alignItems="center">
-                    <SizableText size="$bodyMd">
-                      {intl.formatMessage({
-                        id: quoteResult?.allowanceResult?.shouldResetApprove
-                          ? ETranslations.swap_review_confirm_3_on_device
-                          : ETranslations.swap_review_confirm_2_on_device,
-                      })}
-                    </SizableText>
-                  </XStack>
-                ) : null}
-                <Button
-                  variant="primary"
-                  onPress={onConfirm}
-                  size="medium"
-                  disabled={
-                    swapSteps.preSwapData.estimateNetworkFeeLoading ||
-                    swapSteps.preSwapData.swapBuildLoading ||
-                    swapSteps.preSwapData.stepBeforeActionsLoading
-                  }
-                >
-                  {intl.formatMessage({
-                    id: isHwWallet
-                      ? ETranslations.global_confirm_on_device
-                      : ETranslations.global_confirm,
-                  })}
-                </Button>
-              </YStack>
+              <Button
+                variant="primary"
+                onPress={onConfirm}
+                size="medium"
+                disabled={
+                  swapSteps.preSwapData.estimateNetworkFeeLoading ||
+                  swapSteps.preSwapData.swapBuildLoading ||
+                  swapSteps.preSwapData.stepBeforeActionsLoading
+                }
+              >
+                {actionBtnTest}
+              </Button>
             </YStack>
           ) : (
             <PreSwapStep steps={swapSteps.steps} onRetry={onConfirm} />

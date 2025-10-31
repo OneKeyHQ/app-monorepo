@@ -14,6 +14,7 @@ export enum ESubscriptionType {
   ACTIVE_ASSET_DATA = 'activeAssetData',
   WEB_DATA2 = 'webData2',
   USER_FILLS = 'userFills',
+  USER_NON_FUNDING_LEDGER_UPDATES = 'userNonFundingLedgerUpdates',
   // TRADES = 'trades',
   // BBO = 'bbo',
   // USER_EVENTS = 'userEvents',
@@ -208,4 +209,20 @@ export type IPerpsFormattedAssetCtx = {
 export enum EPerpsSizeInputMode {
   MANUAL = 'manual',
   SLIDER = 'slider',
+}
+
+// Token Selector Sorting Types
+export type IPerpTokenSortField =
+  | 'name'
+  | 'markPrice'
+  | 'change24hPercent'
+  | 'fundingRate'
+  | 'volume24h'
+  | 'openInterest';
+
+export type IPerpTokenSortDirection = 'asc' | 'desc';
+
+export interface IPerpTokenSortConfig {
+  field: IPerpTokenSortField;
+  direction: IPerpTokenSortDirection;
 }

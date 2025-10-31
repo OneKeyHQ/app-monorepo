@@ -403,6 +403,7 @@ function TxHistoryListContainer() {
 
   return (
     <TxHistoryListView
+      isTabFocused={isFocused}
       showIcon
       inTabList
       hideValue

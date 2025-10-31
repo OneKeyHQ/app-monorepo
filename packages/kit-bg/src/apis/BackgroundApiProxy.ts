@@ -34,6 +34,7 @@ import type ServiceE2E from '../services/ServiceE2E';
 import type ServiceExplorer from '../services/ServiceExplorer';
 import type ServiceFiatCrypto from '../services/ServiceFiatCrypto';
 import type ServiceFirmwareUpdate from '../services/ServiceFirmwareUpdate';
+import type ServiceFreshAddress from '../services/ServiceFreshAddress';
 import type ServiceGas from '../services/ServiceGas';
 import type ServiceHardware from '../services/ServiceHardware';
 import type ServiceHardwareUI from '../services/ServiceHardwareUI';
@@ -73,6 +74,7 @@ import type ServiceSpotlight from '../services/ServiceSpotlight';
 import type ServiceStaking from '../services/ServiceStaking';
 import type ServiceSwap from '../services/ServiceSwap';
 import type ServiceToken from '../services/ServiceToken';
+import type ServiceTransaction from '../services/ServiceTransaction';
 import type ServiceUniversalSearch from '../services/ServiceUniversalSearch';
 import type ServiceV4Migration from '../services/ServiceV4Migration';
 import type ServiceValidator from '../services/ServiceValidator';
@@ -148,6 +150,10 @@ class BackgroundApiProxy
 
   serviceHistory = this._createProxyService('serviceHistory') as ServiceHistory;
 
+  serviceTransaction = this._createProxyService(
+    'serviceTransaction',
+  ) as ServiceTransaction;
+
   serviceDefi = this._createProxyService('serviceDefi') as ServiceDefi;
 
   serviceValidator = this._createProxyService(
@@ -213,6 +219,10 @@ class BackgroundApiProxy
   serviceAccountProfile = this._createProxyService(
     'serviceAccountProfile',
   ) as ServiceAccountProfile;
+
+  serviceFreshAddress = this._createProxyService(
+    'serviceFreshAddress',
+  ) as ServiceFreshAddress;
 
   serviceBatchCreateAccount = this._createProxyService(
     'serviceBatchCreateAccount',

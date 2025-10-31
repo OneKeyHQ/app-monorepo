@@ -7,9 +7,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { type IIconButtonProps } from '../../../actions';
 
 import HeaderButtonGroup from './HeaderButtonGroup';
-import HeaderCollapseButton, {
-  useHeaderCollapseButtonVisibility,
-} from './HeaderCollapseButton';
+import { useHeaderCollapseButtonVisibility } from './HeaderCollapseButton';
 import HeaderIconButton from './HeaderIconButton';
 
 import type { IOnekeyStackHeaderProps } from './HeaderScreenOptions';
@@ -75,16 +73,7 @@ function HeaderBackButton({
     return null;
   };
 
-  const renderCollapseButton = useCallback(
-    () =>
-      showCollapseButton ? (
-        <HeaderCollapseButton
-          {...headerCollapseButtonProps}
-          isRootScreen={isRootScreen}
-        />
-      ) : null,
-    [showCollapseButton, headerCollapseButtonProps, isRootScreen],
-  );
+  const renderCollapseButton = useCallback(() => null, []);
 
   // If neither button should be shown, return null early.
   if (!showCollapseButton && !showBackButton && !renderLeft) {

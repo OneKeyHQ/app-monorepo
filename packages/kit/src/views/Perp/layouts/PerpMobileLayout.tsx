@@ -72,12 +72,11 @@ const TabBarItem = memo(
         name={`PerpMobileLayout_TabBarItem_${name}`}
       >
         <XStack
-          py="$3"
-          ml="$5"
-          mr="$2"
+          py="$2"
           borderBottomWidth={isFocused ? '$0.5' : '$0'}
           borderBottomColor="$borderActive"
           onPress={() => onPress(name)}
+          mb={-2}
         >
           <SizableText size="$headingXs">
             {`${intl.formatMessage({
@@ -145,9 +144,10 @@ export function PerpMobileLayout() {
         borderBottomColor="$borderSubdued"
         justifyContent="space-between"
         alignItems="center"
-        pr="$2"
+        pr="$4"
+        pl="$4"
       >
-        <XStack>
+        <XStack gap="$5">
           <TabBarItem
             name={ETabName.Positions}
             isFocused={activeTab === ETabName.Positions}

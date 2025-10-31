@@ -474,7 +474,7 @@ async function createMainWindow() {
     title: APP_TITLE_NAME,
     titleBarStyle: 'hidden',
     titleBarOverlay: !isMac,
-    trafficLightPosition: { x: 20, y: 18 },
+    trafficLightPosition: { x: 10, y: 18 },
     autoHideMenuBar: true,
     frame: true,
     resizable: true,
@@ -729,6 +729,15 @@ async function createMainWindow() {
     ],
   };
 
+  // WebUSB permission handlers - Enable WebUSB support for hardware wallet connections
+
+  browserWindow.webContents.session.setDevicePermissionHandler((details) => {
+    if (details.deviceType === 'usb') {
+      return true;
+    }
+    return false;
+  });
+
   session.defaultSession.webRequest.onBeforeSendHeaders(
     filter,
     (details, callback) => {
@@ -755,6 +764,19 @@ async function createMainWindow() {
       PROTOCOL,
       (request, callback) => {
         console.log('request url', request);
+        const jsSdkPattern = '/static/js-sdk/';
+        const jsSdkIndex = request.url.indexOf(jsSdkPattern);
+
+        // resolve js-sdk files path in dev mode
+        if (jsSdkIndex > -1) {
+          const fileName = request.url.substring(
+            jsSdkIndex + jsSdkPattern.length,
+          );
+          callback({
+            path: path.join(staticPath, 'js-sdk', fileName),
+          });
+          return;
+        }
         callback(request.url);
       },
     );
@@ -784,10 +806,17 @@ async function createMainWindow() {
         // resolve iframe path
         if (isJsSdkFile && isIFrameHtml) {
           if (useJsBundle && indexHtmlPath && bundleDirPath) {
-            const key = path.join('static', 'js-sdk', 'iframe.html');
+            let key = path.join('static', 'js-sdk', 'iframe.html');
             const filePath = path.join(bundleDirPath, key);
+            if (isWin) {
+              key = key.replace(/\\/g, '/');
+            }
             const sha512 = metadata[key];
             if (!checkFileSha512(filePath, sha512)) {
+              logger.info(
+                'checkFileHash error in js-sdk:',
+                `${key}:  ${filePath} not matched ${sha512}`,
+              );
               throw new OneKeyLocalError(`File ${key} sha512 mismatch`);
             }
             callback(filePath);
@@ -810,7 +839,15 @@ async function createMainWindow() {
         const url = request.url.substring(PROTOCOL.length + 1);
         if (useJsBundle && indexHtmlPath && bundleDirPath) {
           const decodedUrl = decodeURIComponent(url);
-          if (!decodedUrl.includes(bundleDirPath)) {
+          if (decodedUrl.includes(bundleDirPath)) {
+            const filePath = checkFileHash({
+              bundleDirPath,
+              metadata,
+              driveLetter,
+              url: decodedUrl.replace(bundleDirPath, ''),
+            });
+            callback(filePath);
+          } else {
             const filePath = checkFileHash({
               bundleDirPath,
               metadata,
@@ -818,9 +855,7 @@ async function createMainWindow() {
               url: decodedUrl,
             });
             callback(filePath);
-            return;
           }
-          callback(indexHtmlPath);
         } else {
           callback(path.join(__dirname, '..', 'build', url));
         }

@@ -14,7 +14,6 @@ import {
   Tooltip,
   XStack,
   YStack,
-  useInTabDialog,
 } from '@onekeyhq/components';
 import type { ICheckedState } from '@onekeyhq/components';
 import {
@@ -37,6 +36,8 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatPriceToSignificantDigits } from '@onekeyhq/shared/src/utils/perpsUtils';
 import { EPerpsSizeInputMode } from '@onekeyhq/shared/types/hyperliquid';
 
+import { useShowDepositWithdrawModal } from '../../../hooks/useShowDepositWithdrawModal';
+import { useTradingPrice } from '../../../hooks/useTradingPrice';
 import {
   type ITradeSide,
   getTradingSideTextColor,
@@ -46,7 +47,6 @@ import { PerpsAccountNumberValue } from '../components/PerpsAccountNumberValue';
 import { PriceInput } from '../inputs/PriceInput';
 import { SizeInput } from '../inputs/SizeInput';
 import { TpSlFormInput } from '../inputs/TpSlFormInput';
-import { showDepositWithdrawModal } from '../modals/DepositWithdrawModal';
 import { LeverageAdjustModal } from '../modals/LeverageAdjustModal';
 import { MarginModeSelector } from '../selectors/MarginModeSelector';
 import { OrderTypeSelector } from '../selectors/OrderTypeSelector';
@@ -57,7 +57,7 @@ interface IPerpTradingFormProps {
 }
 
 function MobileDepositButton() {
-  const dialogInTab = useInTabDialog();
+  const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
   return (
     <IconButton
       testID="perp-trading-form-mobile-deposit-button"
@@ -65,14 +65,7 @@ function MobileDepositButton() {
       variant="tertiary"
       iconSize="$3.5"
       icon="PlusCircleSolid"
-      onPress={() =>
-        showDepositWithdrawModal(
-          {
-            actionType: 'deposit',
-          },
-          dialogInTab,
-        )
-      }
+      onPress={() => void showDepositWithdrawModal('deposit')}
       color="$iconSubdued"
       cursor="pointer"
     />
@@ -93,6 +86,7 @@ function PerpTradingForm({
   const actions = useHyperliquidActions();
   const [activeAsset] = usePerpsActiveAssetAtom();
   const [activeAssetCtx] = usePerpsActiveAssetCtxAtom();
+  const { midPrice, midPriceBN } = useTradingPrice();
   const currentTokenName = activeAsset?.coin;
   const [{ activePositions: perpsPositions }] = usePerpsActivePositionAtom();
   const [perpsSelectedSymbol] = usePerpsActiveAssetAtom();
@@ -115,27 +109,18 @@ function PerpTradingForm({
     const prevType = prevTypeRef.current;
     const currentType = formData.type;
 
-    if (
-      prevType !== 'limit' &&
-      currentType === 'limit' &&
-      activeAssetCtx?.ctx?.markPrice
-    ) {
+    if (prevType !== 'limit' && currentType === 'limit' && midPrice) {
       updateForm({
-        price: formatPriceToSignificantDigits(activeAssetCtx?.ctx?.markPrice),
+        price: formatPriceToSignificantDigits(midPrice),
       });
     }
 
     prevTypeRef.current = currentType;
-  }, [
-    formData.type,
-    formData.price,
-    activeAssetCtx?.ctx?.markPrice,
-    updateForm,
-  ]);
+  }, [formData.type, formData.price, midPrice, updateForm]);
 
   useEffect(() => {
     const nextEnv = {
-      markPrice: activeAssetCtx?.ctx?.markPrice,
+      markPrice: midPrice,
       availableToTrade: activeAssetData?.availableToTrade,
       leverageValue: activeAssetData?.leverage?.value,
       fallbackLeverage: activeAsset?.universe?.maxLeverage,
@@ -162,7 +147,7 @@ function PerpTradingForm({
       });
     }
   }, [
-    activeAssetCtx?.ctx?.markPrice,
+    midPrice,
     activeAssetData?.availableToTrade,
     activeAssetData?.leverage?.value,
     activeAsset?.universe?.maxLeverage,
@@ -183,20 +168,20 @@ function PerpTradingForm({
       tokenSwitchingRef.current === currentTokenName &&
       formData.type === 'limit' &&
       currentTokenName &&
-      activeAssetCtx?.ctx?.markPrice &&
+      midPrice &&
       isDataSynced;
 
     // Step 1: Detect token switch and mark switching state
     if (hasTokenChanged) {
       tokenSwitchingRef.current = currentTokenName;
       prevTokenRef.current = currentTokenName;
-      return; // Early return to avoid price update with stale data
+      return;
     }
 
     // Step 2: Update price after token data is synchronized (prevents stale price)
-    if (shouldUpdatePrice && activeAssetCtx?.ctx?.markPrice) {
+    if (shouldUpdatePrice && midPrice) {
       updateForm({
-        price: formatPriceToSignificantDigits(activeAssetCtx?.ctx?.markPrice),
+        price: formatPriceToSignificantDigits(midPrice),
       });
       tokenSwitchingRef.current = false;
     }
@@ -205,12 +190,7 @@ function PerpTradingForm({
     if (!prevToken && currentTokenName) {
       prevTokenRef.current = currentTokenName;
     }
-  }, [
-    currentTokenName,
-    activeAssetCtx?.ctx?.markPrice,
-    formData.type,
-    updateForm,
-  ]);
+  }, [currentTokenName, midPrice, formData.type, updateForm]);
 
   // Reference Price: Get the effective trading price (limit price or market price)
   const [, referencePriceString] = useMemo(() => {
@@ -218,8 +198,8 @@ function PerpTradingForm({
     if (formData.type === 'limit' && formData.price) {
       price = new BigNumber(formData.price);
     }
-    if (formData.type === 'market' && activeAssetCtx?.ctx?.markPrice) {
-      price = new BigNumber(activeAssetCtx?.ctx?.markPrice);
+    if (formData.type === 'market') {
+      price = midPriceBN;
     }
     return [
       price,
@@ -231,7 +211,7 @@ function PerpTradingForm({
   }, [
     formData.type,
     formData.price,
-    activeAssetCtx?.ctx?.markPrice,
+    midPriceBN,
     activeAsset?.universe?.szDecimals,
   ]);
 
@@ -473,12 +453,10 @@ function PerpTradingForm({
 
       {formData.type === 'limit' || isMobile ? (
         <PriceInput
-          onUseMarketPrice={() => {
-            if (activeAssetCtx?.ctx?.markPrice) {
+          onUseMidPrice={() => {
+            if (midPrice) {
               updateForm({
-                price: formatPriceToSignificantDigits(
-                  activeAssetCtx?.ctx?.markPrice,
-                ),
+                price: formatPriceToSignificantDigits(midPrice),
               });
             }
           }}

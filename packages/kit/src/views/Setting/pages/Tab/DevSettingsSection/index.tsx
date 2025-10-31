@@ -8,6 +8,7 @@ import {
   Dialog,
   ESwitchSize,
   Input,
+  Select,
   Switch,
   TextAreaInput,
   Toast,
@@ -60,6 +61,8 @@ import {
 import { stableStringify } from '@onekeyhq/shared/src/utils/stringUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EMessageTypesBtc } from '@onekeyhq/shared/types/message';
+
+import { exportLogs } from '../exportLogs';
 
 import { AddressBookDevSetting } from './AddressBookDevSetting';
 import { AsyncStorageDevSettings } from './AsyncStorageDevSettings';
@@ -257,6 +260,20 @@ const BaseDevSettingsSection = () => {
               });
             }}
           />
+          <SectionFieldItem
+            icon="UsbOutline"
+            name="usbCommunicationMode"
+            title="USB 通信方式"
+          >
+            <Select
+              title="USB 通信方式"
+              items={[
+                { label: 'WebUSB', value: 'webusb' },
+                { label: 'Bridge', value: 'bridge' },
+              ]}
+              placement="bottom-end"
+            />
+          </SectionFieldItem>
         </>
       ) : null}
       <SectionPressItem
@@ -1079,6 +1096,13 @@ const BaseDevSettingsSection = () => {
           }}
         />
       ) : null}
+      <SectionPressItem
+        icon="FolderOutline"
+        title="Export Logs"
+        onPress={() => {
+          void exportLogs('onekey_logs');
+        }}
+      />
     </Section>
   );
 };

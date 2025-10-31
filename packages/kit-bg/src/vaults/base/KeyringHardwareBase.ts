@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
 
+import { EAddressEncodings } from '@onekeyhq/core/src/types';
 import { slicePathTemplate } from '@onekeyhq/core/src/utils';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import {
@@ -71,11 +72,12 @@ export abstract class KeyringHardwareBase extends KeyringBase {
     ) => IDeviceResponse<Array<T>>;
     errorMessage: string;
   }): Promise<T[]> {
-    const { deriveInfo, deviceParams } = params;
+    const { deriveInfo, deviceParams, chainExtraParams } = params;
     const { dbDevice, confirmOnDevice } = deviceParams;
     const { connectId, deviceId } = dbDevice;
     const { template, coinName } = deriveInfo;
     const { pathPrefix, pathSuffix } = slicePathTemplate(template);
+    const { receiveAddressPath } = chainExtraParams ?? {};
 
     const showOnOnekeyFn = (arrIndex: number) => {
       if (confirmOnDevice === EConfirmOnDeviceType.EveryItem) {
@@ -97,6 +99,7 @@ export abstract class KeyringHardwareBase extends KeyringBase {
         pathSuffix,
         template,
         coinName,
+        receiveAddressPath,
         showOnOnekeyFn,
       }),
     );
@@ -155,6 +158,7 @@ export abstract class KeyringHardwareBase extends KeyringBase {
     usedIndexes,
     buildPath,
     buildResultAccount,
+    useTweak,
   }: {
     hwSdkNetwork: IHwSdkNetwork | undefined;
     params: IPrepareHardwareAccountsParams;
@@ -164,6 +168,7 @@ export abstract class KeyringHardwareBase extends KeyringBase {
       account: IHwAllNetworkPrepareAccountsItem;
       index: number;
     }) => T;
+    useTweak?: boolean;
   }): Promise<
     | {
         success: true;
@@ -189,6 +194,7 @@ export abstract class KeyringHardwareBase extends KeyringBase {
           const account = await hwAllNetworkPrepareAccountsResponse.getItem({
             path,
             hwSdkNetwork,
+            useTweak,
           });
           if (account && account.success && account.payload) {
             const resultAccount = buildResultAccount({ account, index });

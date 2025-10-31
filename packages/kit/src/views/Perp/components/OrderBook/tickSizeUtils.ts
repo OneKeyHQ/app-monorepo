@@ -195,14 +195,14 @@ export function buildTickOptions(
 }
 
 /**
- * Get the default tick option (usually the first exact match or smallest multiplier)
+ * Get the default tick option
  */
 export function getDefaultTickOption(options: ITickParam[]): ITickParam {
   if (!options.length) {
     throw new OneKeyError('tick options must not be empty');
   }
 
-  // UI defaults to the first generated option to match display ordering
+  // Default to the first option
   return options[0];
 }
 

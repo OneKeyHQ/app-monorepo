@@ -2529,26 +2529,6 @@ const astar: IServerNetwork = {
   'status': ENetworkStatus.LISTED,
 };
 
-const kusama: IServerNetwork = {
-  'chainId': 'kusama',
-  'code': 'ksm',
-  'decimals': 12,
-  'id': 'dot--kusama',
-  'impl': 'dot',
-  'isTestnet': false,
-  'logoURI': 'https://uni.onekey-asset.com/static/chain/kusama.png',
-  'name': 'Kusama',
-  'shortcode': 'ksm',
-  'shortname': 'KSM',
-  'symbol': 'KSM',
-  'feeMeta': {
-    'decimals': 12,
-    'symbol': 'KSM',
-  },
-  'defaultEnabled': true,
-  'status': ENetworkStatus.LISTED,
-};
-
 const manta: IServerNetwork = {
   'chainId': 'manta',
   'code': 'manta',
@@ -2584,6 +2564,86 @@ const joystream: IServerNetwork = {
   'feeMeta': {
     'decimals': 10,
     'symbol': 'JOY',
+  },
+  'defaultEnabled': true,
+  'status': ENetworkStatus.LISTED,
+};
+
+const hydradx: IServerNetwork = {
+  'chainId': 'hydration',
+  'code': 'hydration',
+  'decimals': 12,
+  'id': 'dot--hydration',
+  'impl': 'dot',
+  'isTestnet': false,
+  'logoURI': 'https://uni.onekey-asset.com/static/chain/hdx.png',
+  'name': 'Hydration',
+  'shortcode': 'hydration',
+  'shortname': 'HDX',
+  'symbol': 'HDX',
+  'feeMeta': {
+    'decimals': 12,
+    'symbol': 'HDX',
+  },
+  'defaultEnabled': true,
+  'status': ENetworkStatus.LISTED,
+};
+
+const assethubPolkadot: IServerNetwork = {
+  'chainId': 'polkadot-asset-hub',
+  'code': 'assetHub',
+  'decimals': 10,
+  'id': 'dot--asset-hub',
+  'impl': 'dot',
+  'isTestnet': false,
+  'logoURI': 'https://uni.onekey-asset.com/static/chain/dot-assethub.png',
+  'name': 'Polkadot AssetHub',
+  'shortcode': 'assetHub',
+  'shortname': 'DOT',
+  'symbol': 'DOT',
+  'feeMeta': {
+    'decimals': 10,
+    'symbol': 'DOT',
+  },
+  'defaultEnabled': true,
+  'status': ENetworkStatus.LISTED,
+};
+
+const assethubKusama: IServerNetwork = {
+  'impl': 'dot',
+  'chainId': 'dot--kusama-assethub',
+  'id': 'dot--kusama-assethub',
+  'name': 'Kusama AssetHub',
+  'symbol': 'KSM',
+  'code': 'ksmAssetHub',
+  'shortcode': 'ksmAssetHub',
+  'shortname': 'KsmAssetHub',
+  'decimals': 12,
+  'feeMeta': {
+    'decimals': 12,
+    'symbol': 'KSM',
+  },
+  'status': ENetworkStatus.LISTED,
+  'isTestnet': false,
+  'logoURI': 'https://uni.onekey-asset.com/static/chain/dot-ksm-assethub.png',
+  'defaultEnabled': false,
+};
+
+const bifrost: IServerNetwork = {
+  'chainId': 'bifrost-ksm',
+  'code': 'bifrost',
+  'decimals': 12,
+  'id': 'dot--bifrost-ksm',
+  'impl': 'dot',
+  'isTestnet': false,
+  'logoURI': 'https://uni.onekey-asset.com/static/chain/bnc.png',
+  'name': 'Bifrost Kusama',
+  'shortcode': 'bifrost',
+  'shortname': 'BNC',
+  'symbol': 'BNC',
+  'feeMeta': {
+    'decimals': 12,
+    'symbol': 'BNC',
   },
   'defaultEnabled': true,
   'status': ENetworkStatus.LISTED,
@@ -2950,9 +3010,12 @@ export const presetNetworksMap = {
   // polkadot
   polkadot,
   astar,
-  kusama,
   manta,
   joystream,
+  hydradx,
+  bifrost,
+  assethubPolkadot,
+  assethubKusama,
 
   aptos,
   lightning,
@@ -3146,9 +3209,12 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     // polkadot
     polkadot,
     astar,
-    kusama,
     manta,
     joystream,
+    hydradx,
+    bifrost,
+    assethubPolkadot,
+    assethubKusama,
 
     aptos,
     lightning,

@@ -815,6 +815,14 @@ function buildAccountValueKey({
   return `${accountId}_${networkId}`;
 }
 
+function parseAccountValueKey({ key }: { key: string }) {
+  const [accountId, networkId] = key.split('_');
+  return {
+    accountId,
+    networkId,
+  };
+}
+
 function isAllNetworkMockAddress({ address }: { address?: string }) {
   return address === ALL_NETWORK_ACCOUNT_MOCK_ADDRESS;
 }
@@ -856,9 +864,49 @@ function getHDAccountPathIndex({ account }: { account: IDBAccount }) {
   return isNumber(index) && !isNaN(index) ? index : undefined;
 }
 
+function getBTCFreshAddressKey({
+  networkId,
+  xpubSegwit,
+}: {
+  networkId: string;
+  xpubSegwit: string;
+}) {
+  if (!xpubSegwit) {
+    throw new OneKeyLocalError('xpubSegwit is required');
+  }
+  return `${networkId}__${xpubSegwit}`;
+}
+
+function isEnabledBtcFreshAddress({
+  accountId,
+  walletId,
+  networkId,
+  enableBTCFreshAddress,
+}: {
+  accountId?: string | undefined;
+  walletId?: string | undefined;
+  networkId?: string | undefined;
+  enableBTCFreshAddress?: boolean | undefined;
+}) {
+  if (!networkUtils.isBTCNetwork(networkId)) {
+    return false;
+  }
+  if (!enableBTCFreshAddress) {
+    return false;
+  }
+  if (accountId) {
+    return isHdAccount({ accountId }) || isHwAccount({ accountId });
+  }
+  if (walletId) {
+    return isHdWallet({ walletId }) || isHwWallet({ walletId });
+  }
+  return false;
+}
+
 export default {
   URL_ACCOUNT_ID,
   buildAccountValueKey,
+  parseAccountValueKey,
   buildUtxoAddressRelPath,
   buildBaseAccountName,
   buildHDAccountName,
@@ -924,4 +972,6 @@ export default {
   isValidWalletXfp,
   buildFullXfp,
   getShortXfp,
+  getBTCFreshAddressKey,
+  isEnabledBtcFreshAddress,
 };

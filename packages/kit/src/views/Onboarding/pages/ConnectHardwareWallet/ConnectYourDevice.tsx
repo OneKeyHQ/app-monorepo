@@ -131,14 +131,15 @@ async function getForceTransportType(
         : EHardwareTransportType.BLE;
     case EConnectDeviceChannel.usbOrBle: {
       // For usbOrBle, constrain based on platform
-      if (platformEnv.isNative) {
-        return EHardwareTransportType.BLE;
-      }
-      // For desktop/web/extension, use system setting transport type
+      if (platformEnv.isNative) return EHardwareTransportType.BLE;
       if (platformEnv.isDesktop) {
-        return EHardwareTransportType.Bridge;
+        const dev = await backgroundApiProxy.serviceDevSetting.getDevSetting();
+        const usbCommunicationMode = dev?.settings?.usbCommunicationMode;
+        if (usbCommunicationMode === 'bridge')
+          return EHardwareTransportType.Bridge;
+        return EHardwareTransportType.WEBUSB;
       }
-      // For web/extension, get the current transport type setting
+      // For web/extension, use system setting transport type
       const currentTransportType =
         await backgroundApiProxy.serviceSetting.getHardwareTransportType();
       return currentTransportType;
@@ -820,7 +821,8 @@ function ConnectByUSBOrBLE({
   useEffect(() => {
     if (
       platformEnv.isNative ||
-      hardwareTransportType === EHardwareTransportType.WEBUSB
+      (hardwareTransportType === EHardwareTransportType.WEBUSB &&
+        !platformEnv.isDesktop)
     ) {
       return;
     }

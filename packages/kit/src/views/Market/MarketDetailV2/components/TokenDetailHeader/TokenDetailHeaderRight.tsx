@@ -10,7 +10,10 @@ import { MarketTokenPrice } from '@onekeyhq/kit/src/views/Market/components/Mark
 import { PriceChangePercentage } from '@onekeyhq/kit/src/views/Market/components/PriceChangePercentage';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
+
+import { ShareButton } from './ShareButton';
 
 interface IStatItemProps {
   label: string;
@@ -32,10 +35,16 @@ function StatItem({ label, value }: IStatItemProps) {
 
 interface ITokenDetailHeaderRightProps {
   tokenDetail?: IMarketTokenDetail;
+  networkId?: string;
+  isNative?: boolean;
+  showStats: boolean;
 }
 
 export function TokenDetailHeaderRight({
   tokenDetail,
+  networkId,
+  isNative,
+  showStats,
 }: ITokenDetailHeaderRightProps) {
   const intl = useIntl();
   const [settingsPersistAtom] = useSettingsPersistAtom();
@@ -47,7 +56,21 @@ export function TokenDetailHeaderRight({
     marketCap = '0',
     liquidity = '0',
     holders = 0,
+    address = '',
   } = tokenDetail || {};
+
+  const shareButton =
+    networkId && platformEnv.isNative ? (
+      <ShareButton
+        networkId={networkId}
+        address={address}
+        isNative={isNative}
+      />
+    ) : null;
+
+  if (!showStats) {
+    return shareButton ? <XStack gap="$3">{shareButton}</XStack> : null;
+  }
 
   return (
     <XStack gap="$6" ai="center">
@@ -110,6 +133,8 @@ export function TokenDetailHeaderRight({
           </NumberSizeableText>
         }
       />
+
+      {shareButton}
     </XStack>
   );
 }

@@ -1,4 +1,4 @@
-import { LogToConsole } from './decorators';
+import { LogToConsole, LogToLocal, LogToServer } from './decorators';
 
 export abstract class BaseScene {
   constructor() {
@@ -18,6 +18,13 @@ export abstract class BaseScene {
   ignoreDurationBegin() {
     // return empty array to avoid log
     return [];
+  }
+
+  @LogToServer()
+  registerRid(rid: string) {
+    return {
+      jpush_rid: rid,
+    };
   }
 
   @LogToConsole()

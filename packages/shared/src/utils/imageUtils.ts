@@ -1,3 +1,4 @@
+/* eslint-disable no-plusplus */
 import {
   downloadAsync as ExpoFSDownloadAsync,
   readAsStringAsync as ExpoFSReadAsStringAsync,
@@ -6,6 +7,7 @@ import {
 import { SaveFormat, manipulateAsync } from 'expo-image-manipulator';
 import { isArray, isNil, isNumber, isObject, isString } from 'lodash';
 import { Image as RNImage } from 'react-native';
+import { canvasRGBA as blurCanvasRGBA } from 'stackblur-canvas';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
@@ -122,6 +124,104 @@ function convertToBlackAndWhiteImageBase64(
   });
 }
 
+function buildHtmlImage(dataUrl: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = (e) => reject(e);
+    image.src = dataUrl;
+  });
+}
+
+function drawRoundRectPath(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  radius: number,
+) {
+  const r = Math.max(0, Math.min(radius, width / 2, height / 2));
+  if (r === 0) {
+    ctx.beginPath();
+    ctx.rect(0, 0, width, height);
+    ctx.closePath();
+    return;
+  }
+  ctx.beginPath();
+  ctx.moveTo(r, 0);
+  ctx.lineTo(width - r, 0);
+  ctx.quadraticCurveTo(width, 0, width, r);
+  ctx.lineTo(width, height - r);
+  ctx.quadraticCurveTo(width, height, width - r, height);
+  ctx.lineTo(r, height);
+  ctx.quadraticCurveTo(0, height, 0, height - r);
+  ctx.lineTo(0, r);
+  ctx.quadraticCurveTo(0, 0, r, 0);
+  ctx.closePath();
+}
+
+async function applyRoundedCorners({
+  base64,
+  width,
+  height,
+  radius,
+  backgroundColor = '#000000',
+}: {
+  base64: string;
+  width: number;
+  height: number;
+  radius: number;
+  backgroundColor?: string;
+}): Promise<string> {
+  if (!base64 || radius <= 0) {
+    return base64;
+  }
+
+  if (platformEnv.isNative) {
+    return appGlobals.$webembedApiProxy.imageUtils.applyRoundedCorners({
+      base64,
+      width,
+      height,
+      radius,
+      backgroundColor,
+    });
+  }
+
+  if (typeof document === 'undefined') {
+    return base64;
+  }
+
+  const dataUrl = prefixBase64Uri(base64, 'image/jpeg');
+  const image = await buildHtmlImage(dataUrl);
+
+  const targetWidth = width || image.width || 0;
+  const targetHeight = height || image.height || 0;
+
+  if (targetWidth === 0 || targetHeight === 0) {
+    return base64;
+  }
+
+  const canvas = document.createElement('canvas');
+  canvas.width = targetWidth;
+  canvas.height = targetHeight;
+
+  const ctx = canvas.getContext('2d');
+  if (!ctx) {
+    throw new OneKeyLocalError('2D context is null');
+  }
+
+  ctx.fillStyle = backgroundColor ?? '#000000';
+  ctx.fillRect(0, 0, targetWidth, targetHeight);
+
+  ctx.save();
+  drawRoundRectPath(ctx, targetWidth, targetHeight, radius);
+  ctx.clip();
+  ctx.drawImage(image, 0, 0, targetWidth, targetHeight);
+  ctx.restore();
+
+  const roundedBase64Uri = canvas.toDataURL('image/jpeg');
+  return stripBase64UriPrefix(roundedBase64Uri);
+}
+
 export type IResizeImageResult = {
   hex: string;
   uri: string;
@@ -137,17 +237,51 @@ async function resizeImage(params: {
   originW: number;
   originH: number;
   isMonochrome?: boolean;
+  compress?: number;
+  cornerRadius?: number;
+  cornerBackgroundColor?: string;
 }): Promise<IResizeImageResult> {
-  const { uri, width, height, isMonochrome } = params;
+  const {
+    uri,
+    width,
+    height,
+    isMonochrome,
+    compress,
+    originW,
+    originH,
+    cornerRadius = 0,
+    cornerBackgroundColor,
+  } = params;
   if (!uri) return { hex: '', uri: '', width: 0, height: 0 };
-  const actions: ExpoImageManipulatorAction[] = [
+  const actions: ExpoImageManipulatorAction[] = [];
+
+  if (originW < width && originH < height) {
+    // Enlarging the image may result in the loss of width
+    // Slightly enlarge the picture and then precisely crop it
+    actions.push(
+      {
+        resize: {
+          height: height * 1.02,
+        },
+      },
+      {
+        crop: {
+          height,
+          width,
+          originX: 0,
+          originY: 0,
+        },
+      },
+    );
+  } else {
     // resize first
-    {
+    actions.push({
       resize: {
         height,
       },
-    },
-  ];
+    });
+  }
+
   //   const originX = getOriginX(originW, originH, width, height);
   const originX = null;
   if (originX !== null) {
@@ -162,7 +296,7 @@ async function resizeImage(params: {
     });
   }
   const imageResult: ImageResult = await manipulateAsync(uri, actions, {
-    compress: 0.8,
+    compress: compress || 0.8,
     format: SaveFormat.JPEG,
     base64: true,
   });
@@ -174,6 +308,17 @@ async function resizeImage(params: {
     );
     bwBase64 = stripBase64UriPrefix(bwBase64);
     imageResult.base64 = bwBase64;
+  }
+
+  if (cornerRadius > 0 && imageResult?.base64) {
+    const roundedBase64 = await applyRoundedCorners({
+      base64: imageResult.base64,
+      width: imageResult.width,
+      height: imageResult.height,
+      radius: cornerRadius,
+      backgroundColor: cornerBackgroundColor,
+    });
+    imageResult.base64 = roundedBase64;
   }
 
   const buffer = Buffer.from(imageResult.base64 ?? '', 'base64');
@@ -430,15 +575,6 @@ async function getBase64FromRequiredImageSource(
   });
 }
 
-function buildHtmlImage(dataUrl: string): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const image = new Image();
-    image.onload = () => resolve(image);
-    image.onerror = (e) => reject(e);
-    image.src = dataUrl;
-  });
-}
-
 function htmlImageToCanvas({
   image,
   width,
@@ -545,8 +681,95 @@ async function getBase64ImageFromUrl(imageUrl: string) {
   });
 }
 
+/**
+ * core method for image blur
+ * @param {string} base64Data - Base64 string
+ * @param {number} blurRadius - blur radius (0-300, recommended 200)
+ * @param {number} overlayOpacity - black mask opacity (0-1, recommended 0.2)
+ * @returns {Promise<string>} processed base64 string
+ */
+async function processImageBlur({
+  base64Data,
+  blurRadius = 100,
+  overlayOpacity = 0.2,
+}: {
+  base64Data: string;
+  blurRadius?: number;
+  overlayOpacity?: number;
+}): Promise<{
+  hex: string;
+  width: number;
+  height: number;
+}> {
+  if (platformEnv.isNative) {
+    return appGlobals.$webembedApiProxy.imageUtils.processImageBlur({
+      base64Data,
+      blurRadius,
+      overlayOpacity,
+    });
+  }
+
+  if (!base64Data || typeof base64Data !== 'string') {
+    throw new OneKeyLocalError('Invalid base64 data');
+  }
+
+  if (!base64Data.startsWith('data:image/')) {
+    throw new OneKeyLocalError('base64 data must be image format');
+  }
+
+  const img = await buildHtmlImage(base64Data);
+
+  try {
+    // 1. create canvas
+    const { canvas, ctx } = htmlImageToCanvas({
+      image: img,
+      width: img.width,
+      height: img.height,
+    });
+
+    // 2. add black semi-transparent mask
+    ctx.globalCompositeOperation = 'source-atop';
+    ctx.fillStyle = `rgba(0, 0, 0, ${overlayOpacity})`;
+    ctx.globalCompositeOperation = 'multiply';
+    ctx.globalCompositeOperation = 'source-over';
+
+    // 3. apply blur effect
+    if (blurRadius > 0) {
+      try {
+        blurCanvasRGBA(
+          canvas,
+          0,
+          0,
+          canvas.width,
+          canvas.height,
+          Math.min(blurRadius, 300),
+        );
+      } catch (blurError) {
+        console.warn('blur processing failed, skip blur effect:', blurError);
+      }
+    }
+
+    const base64Uri = canvas.toDataURL('image/jpeg');
+
+    const base64 = stripBase64UriPrefix(base64Uri);
+    const buffer = Buffer.from(base64, 'base64');
+    const hex = bufferUtils.bytesToHex(buffer);
+
+    return {
+      hex: hex || '',
+      width: canvas.width,
+      height: canvas.height,
+    };
+  } catch (error) {
+    throw new OneKeyLocalError(
+      `Canvas processing failed: ${(error as Error).message}`,
+    );
+  }
+}
+
 export default {
   resizeImage,
+  processImageBlur,
   prefixBase64Uri,
   stripBase64UriPrefix,
   convertToBlackAndWhiteImageBase64,
@@ -556,4 +779,5 @@ export default {
   base64ImageToBitmap,
   buildHtmlImage,
   getBase64ImageFromUrl,
+  applyRoundedCorners,
 };

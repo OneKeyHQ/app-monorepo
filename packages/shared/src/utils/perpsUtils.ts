@@ -14,7 +14,15 @@ import {
   MAX_PRICE_INTEGER_DIGITS,
   MAX_SIGNIFICANT_FIGURES,
 } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
-import type { IWsActiveAssetCtx } from '@onekeyhq/shared/types/hyperliquid/sdk';
+import type {
+  IPerpsAssetCtx,
+  IPerpsUniverse,
+  IWsActiveAssetCtx,
+} from '@onekeyhq/shared/types/hyperliquid/sdk';
+import type {
+  IPerpTokenSortDirection,
+  IPerpTokenSortField,
+} from '@onekeyhq/shared/types/hyperliquid/types';
 
 // Types for liquidation price calculation
 interface IMarginTier {
@@ -779,8 +787,27 @@ function calculateLiquidationPrice(
 
   if (positionSize.isZero()) return null;
 
-  const effectivePrice =
-    markPrice && referencePrice.gt(markPrice) ? markPrice : referencePrice;
+  let effectivePrice = referencePrice;
+  if (markPrice) {
+    const _side = newOrderSide || side;
+    if (_side === 'long') {
+      // Long: if limit price > mark price, will execute at market price
+      effectivePrice = referencePrice.gt(markPrice)
+        ? markPrice
+        : referencePrice;
+    } else {
+      // Short: if limit price < mark price, will execute at market price
+      effectivePrice = referencePrice.lt(markPrice)
+        ? markPrice
+        : referencePrice;
+    }
+  }
+
+  // Recalculate totalValue with effectivePrice if it differs from referencePrice
+  // This ensures consistency when limit orders would execute at market price
+  const adjustedTotalValue = effectivePrice.isEqualTo(referencePrice)
+    ? totalValue
+    : positionSize.multipliedBy(effectivePrice);
 
   // Check if we need to consider existing position
   const hasExistingPosition =
@@ -791,9 +818,11 @@ function calculateLiquidationPrice(
 
   if (hasExistingPosition) {
     // Calculate existing position metrics
+    // IMPORTANT: Use current mark price for maintenance margin calculation, not entry price
+    // Maintenance margin is based on position's current market value, not entry value
     const existingPositionValue = existingPositionSize
       .abs()
-      .multipliedBy(existingEntryPrice);
+      .multipliedBy(effectivePrice);
     const existingMarginTier = findMarginTier(
       existingPositionValue,
       marginTiers || [],
@@ -817,9 +846,8 @@ function calculateLiquidationPrice(
     if (combinedPosition.isEmpty) return null;
 
     // Calculate combined position metrics
-    const combinedPositionValue = combinedPosition.finalSize.multipliedBy(
-      combinedPosition.finalEntryPrice,
-    );
+    const combinedPositionValue =
+      combinedPosition.finalSize.multipliedBy(effectivePrice);
     const combinedMarginTier = findMarginTier(
       combinedPositionValue,
       marginTiers || [],
@@ -851,15 +879,15 @@ function calculateLiquidationPrice(
   }
 
   // Simple case without existing position
-  const marginTier = findMarginTier(totalValue, marginTiers || []);
+  const marginTier = findMarginTier(adjustedTotalValue, marginTiers || []);
   const mmr = new BigNumber(1)
     .dividedBy(marginTier?.maxLeverage || maxLeverage)
     .dividedBy(2);
-  const maintenanceMarginRequired = totalValue.multipliedBy(mmr);
+  const maintenanceMarginRequired = adjustedTotalValue.multipliedBy(mmr);
 
   const marginAvailable =
     mode === 'isolated'
-      ? totalValue.dividedBy(leverage).minus(maintenanceMarginRequired)
+      ? adjustedTotalValue.dividedBy(leverage).minus(maintenanceMarginRequired)
       : crossMarginUsed
           .minus(maintenanceMarginRequired)
           .minus(crossMaintenanceMarginUsed);
@@ -1078,6 +1106,95 @@ const resolveTradingSize = (params: ITradingSizeParams): string => {
 
 function getHyperliquidTokenImageUrl(tokenSymbol: string): string {
   return `https://uni.onekey-asset.com/static/hyperliquid/${tokenSymbol}.png`;
+}
+
+/**
+ * Sort perps assets by various fields
+ * Pre-converts numeric values to avoid repeated conversions during sorting
+ * If sortField is empty, returns original order (no sorting)
+ */
+export function sortPerpsAssetIndices({
+  assets,
+  assetCtxs,
+  sortField,
+  sortDirection,
+}: {
+  assets: IPerpsUniverse[];
+  assetCtxs: Record<number, IPerpsAssetCtx>;
+  sortField: IPerpTokenSortField | '';
+  sortDirection: IPerpTokenSortDirection;
+}): number[] {
+  if (!assets.length) {
+    return [];
+  }
+
+  // No sorting - preserve original order
+  if (!sortField) {
+    return assets.map((_, index) => index);
+  }
+
+  const indicesWithData = assets.map((asset, index) => {
+    const rawCtx = assetCtxs[asset.assetId];
+
+    const markPrice = Number(rawCtx?.markPx || 0);
+    const fundingRate = Number(rawCtx?.funding || 0);
+    const volume24h = Number(rawCtx?.dayNtlVlm || 0);
+    const openInterest = Number(rawCtx?.openInterest || 0);
+    const prevDayPx = Number(rawCtx?.prevDayPx || 0);
+    const change24hPercent =
+      prevDayPx > 0 ? ((markPrice - prevDayPx) / prevDayPx) * 100 : 0;
+    const openInterestValue = openInterest * markPrice;
+
+    return {
+      index,
+      asset,
+      markPrice,
+      fundingRate,
+      volume24h,
+      openInterest,
+      openInterestValue,
+      change24hPercent,
+    };
+  });
+
+  indicesWithData.sort((a, b) => {
+    let compareResult = 0;
+
+    switch (sortField) {
+      case 'name':
+        compareResult = a.asset.name.localeCompare(b.asset.name, undefined, {
+          sensitivity: 'base',
+        });
+        break;
+
+      case 'markPrice':
+        compareResult = a.markPrice - b.markPrice;
+        break;
+
+      case 'change24hPercent':
+        compareResult = a.change24hPercent - b.change24hPercent;
+        break;
+
+      case 'fundingRate':
+        compareResult = a.fundingRate - b.fundingRate;
+        break;
+
+      case 'volume24h':
+        compareResult = a.volume24h - b.volume24h;
+        break;
+
+      case 'openInterest':
+        compareResult = a.openInterestValue - b.openInterestValue;
+        break;
+
+      default:
+        break;
+    }
+
+    return sortDirection === 'asc' ? compareResult : -compareResult;
+  });
+
+  return indicesWithData.map((item) => item.index);
 }
 
 export {

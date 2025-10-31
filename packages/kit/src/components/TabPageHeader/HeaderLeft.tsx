@@ -1,6 +1,4 @@
-import { type ReactNode, memo, useMemo, useState } from 'react';
-
-import { useIntl } from 'react-intl';
+import { type ReactNode, useMemo } from 'react';
 
 import {
   DebugRenderTracker,
@@ -11,25 +9,17 @@ import {
   rootNavigationRef,
   useMedia,
 } from '@onekeyhq/components';
-import { AccountSelectorActiveAccountHome } from '@onekeyhq/kit/src/components/AccountSelector';
-import { NetworkSelectorTriggerHome } from '@onekeyhq/kit/src/components/AccountSelector/NetworkSelectorTrigger';
-import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
-import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { ETabHomeRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
-import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
+import {
+  ETabHomeRoutes,
+  ETabMarketRoutes,
+  ETabRoutes,
+} from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import useListenTabFocusState from '../../hooks/useListenTabFocusState';
-import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
-import {
-  AccountSelectorProviderMirror,
-  AccountSelectorTriggerHome,
-} from '../AccountSelector';
-import { useSpotlight } from '../Spotlight';
+import { AccountSelectorProviderMirror } from '../AccountSelector';
 
+import { WalletConnectionGroup, WebHeaderNavigation } from './components';
 import { UrlAccountPageHeader } from './urlAccountPageHeader';
 
 export function HeaderLeftCloseButton() {
@@ -40,54 +30,7 @@ export function HeaderLeftCloseButton() {
   );
 }
 
-function AccountSelectorTriggerWithSpotlight({
-  isFocus,
-  linkNetworkId,
-  hideAddress,
-}: {
-  isFocus: boolean;
-  linkNetworkId?: string;
-  hideAddress?: boolean;
-}) {
-  const intl = useIntl();
-  const { tourTimes, tourVisited } = useSpotlight(
-    ESpotlightTour.switchDappAccount,
-  );
-  const [isLocked] = useAppIsLockedAtom();
-
-  const spotlightVisible = useMemo(
-    () => tourTimes === 1 && isFocus && !isLocked,
-    [isFocus, isLocked, tourTimes],
-  );
-  return (
-    <AccountSelectorTriggerHome
-      num={0}
-      key="accountSelectorTrigger"
-      linkNetworkId={linkNetworkId}
-      hideAddress={hideAddress}
-      spotlightProps={{
-        visible: spotlightVisible,
-        content: (
-          <SizableText size="$bodyMd">
-            {intl.formatMessage({
-              id: ETranslations.spotlight_account_alignment_desc,
-            })}
-          </SizableText>
-        ),
-        onConfirm: () => {
-          void tourVisited(2);
-        },
-        childrenPaddingVertical: 0,
-      }}
-    />
-  );
-}
-
-const MemoizedAccountSelectorTriggerWithSpotlight = memo(
-  AccountSelectorTriggerWithSpotlight,
-);
-
-function HeaderLeftContent({
+export function HeaderLeft({
   sceneName,
   tabRoute,
   customHeaderLeftItems,
@@ -98,69 +41,63 @@ function HeaderLeftContent({
 }) {
   const { gtMd } = useMedia();
 
-  const [isFocus, setIsFocus] = useState(false);
-
-  const {
-    activeAccount: { wallet },
-  } = useActiveAccount({
-    num: 0,
-  });
-
-  const isWalletNotBackedUp = useMemo(() => {
-    if (wallet && wallet.type === WALLET_TYPE_HD && !wallet.backuped) {
-      return true;
-    }
-    return false;
-  }, [wallet]);
-
-  useListenTabFocusState(
-    ETabRoutes.Home,
-    async (focus: boolean, hideByModal: boolean) => {
-      setIsFocus(!hideByModal && focus);
-    },
-  );
   const items = useMemo(() => {
+    const withWebNavigation = (content: ReactNode) => {
+      if (platformEnv.isWebDappMode && gtMd) {
+        return (
+          <XStack gap="$6" ai="center">
+            <WebHeaderNavigation />
+            {content}
+          </XStack>
+        );
+      }
+
+      return content;
+    };
+
     if (customHeaderLeftItems) {
+      if (tabRoute === ETabRoutes.WebviewPerpTrade) {
+        return withWebNavigation(customHeaderLeftItems);
+      }
       return customHeaderLeftItems;
     }
+
     if (sceneName === EAccountSelectorSceneName.homeUrlAccount) {
+      if (platformEnv.isWebDappMode && gtMd) {
+        return withWebNavigation(null);
+      }
+
       return (
         <XStack gap="$1.5">
           <NavBackButton
             onPress={() => {
-              rootNavigationRef.current?.navigate(
-                ETabRoutes.Home,
-                {
-                  screen: ETabHomeRoutes.TabHome,
-                },
-                {
-                  pop: true,
-                },
-              );
+              if (platformEnv.isWebDappMode) {
+                rootNavigationRef.current?.navigate(
+                  ETabRoutes.Market,
+                  {
+                    screen: ETabMarketRoutes.TabMarket,
+                  },
+                  {
+                    pop: true,
+                  },
+                );
+              } else {
+                rootNavigationRef.current?.navigate(
+                  ETabRoutes.Home,
+                  {
+                    screen: ETabHomeRoutes.TabHome,
+                  },
+                  {
+                    pop: true,
+                  },
+                );
+              }
             }}
           />
           {platformEnv.isNativeIOS ? <UrlAccountPageHeader /> : null}
         </XStack>
       );
     }
-
-    let linkNetworkId: string | undefined;
-    let hideAddress: boolean | undefined;
-    if (
-      tabRoute === ETabRoutes.WebviewPerpTrade ||
-      tabRoute === ETabRoutes.Perp
-    ) {
-      linkNetworkId = PERPS_NETWORK_ID;
-      hideAddress = false;
-    }
-
-    const accountSelectorTrigger = (
-      <MemoizedAccountSelectorTriggerWithSpotlight
-        isFocus={isFocus}
-        linkNetworkId={linkNetworkId}
-        hideAddress={hideAddress}
-      />
-    );
 
     if (tabRoute === ETabRoutes.Discovery) {
       return (
@@ -181,51 +118,16 @@ function HeaderLeftContent({
         </SizableText>
       );
     }
-    return (
-      <XStack gap="$3" ai="center">
-        {accountSelectorTrigger}
-        {!isWalletNotBackedUp && tabRoute === ETabRoutes.Home && gtMd ? (
-          <NetworkSelectorTriggerHome
-            num={0}
-            recordNetworkHistoryEnabled
-            hideOnNoAccount
-          />
-        ) : null}
-        {isWalletNotBackedUp ? null : (
-          <AccountSelectorActiveAccountHome
-            num={0}
-            showAccountAddress={false}
-            showCopyButton={tabRoute === ETabRoutes.Home}
-            showCreateAddressButton={false}
-            showNoAddressTip={false}
-          />
-        )}
-      </XStack>
-    );
-  }, [
-    customHeaderLeftItems,
-    sceneName,
-    isFocus,
-    tabRoute,
-    gtMd,
-    isWalletNotBackedUp,
-  ]);
-  return (
-    <DebugRenderTracker name="TabPageHeader__HeaderLeft" position="top-right">
-      {items}
-    </DebugRenderTracker>
-  );
-}
 
-export function HeaderLeft({
-  sceneName,
-  tabRoute,
-  customHeaderLeftItems,
-}: {
-  sceneName: EAccountSelectorSceneName;
-  tabRoute: ETabRoutes;
-  customHeaderLeftItems?: ReactNode;
-}) {
+    // For web platform, only show WebHeaderNavigation (logo + navigation)
+    // Account selector will be moved to HeaderRight
+    if (platformEnv.isWebDappMode && gtMd) {
+      return <WebHeaderNavigation />;
+    }
+
+    // For mobile and native platforms, keep the original layout
+    return <WalletConnectionGroup tabRoute={tabRoute} />;
+  }, [customHeaderLeftItems, sceneName, tabRoute, gtMd]);
   return (
     <AccountSelectorProviderMirror
       enabledNum={[0]}
@@ -234,11 +136,9 @@ export function HeaderLeft({
         sceneUrl: '',
       }}
     >
-      <HeaderLeftContent
-        sceneName={sceneName}
-        tabRoute={tabRoute}
-        customHeaderLeftItems={customHeaderLeftItems}
-      />
+      <DebugRenderTracker name="TabPageHeader__HeaderLeft" position="top-right">
+        {items}
+      </DebugRenderTracker>
     </AccountSelectorProviderMirror>
   );
 }

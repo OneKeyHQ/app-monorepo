@@ -11,7 +11,6 @@ import {
   Toast,
   XStack,
   YStack,
-  useInTabDialog,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorCreateAddressButton } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorCreateAddressButton';
@@ -19,7 +18,6 @@ import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { useSelectedAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type { ITradingFormData } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
-  perpsActiveAssetCtxAtom,
   usePerpsAccountLoadingInfoAtom,
   usePerpsActiveAccountAtom,
   usePerpsActiveAccountStatusAtom,
@@ -29,9 +27,9 @@ import {
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { useShowDepositWithdrawModal } from '../../hooks/useShowDepositWithdrawModal';
+import { useTradingPrice } from '../../hooks/useTradingPrice';
 import { PERP_TRADE_BUTTON_COLORS } from '../../utils/styleUtils';
-
-import { showDepositWithdrawModal } from './modals/DepositWithdrawModal';
 
 const sharedButtonProps = {
   size: 'medium',
@@ -63,6 +61,7 @@ export function PerpTradingButton({
   const [perpsAccountStatus] = usePerpsActiveAccountStatusAtom();
   const [shouldShowEnableTradingButton] =
     usePerpsShouldShowEnableTradingButtonAtom();
+  const { midPrice } = useTradingPrice();
   const themeVariant = useThemeVariant();
   const isAccountLoading = useMemo<boolean>(() => {
     return (
@@ -73,7 +72,7 @@ export function PerpTradingButton({
     perpsAccountLoading.enableTradingLoading,
     perpsAccountLoading.selectAccountLoading,
   ]);
-  const dialogInTab = useInTabDialog();
+  const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
   const enableTrading = useCallback(async () => {
     const status = await backgroundApiProxy.serviceHyperliquid.enableTrading();
     if (
@@ -81,14 +80,13 @@ export function PerpTradingButton({
       perpsAccount.accountAddress &&
       perpsAccount.accountId
     ) {
-      await showDepositWithdrawModal(
-        {
-          actionType: 'deposit',
-        },
-        dialogInTab,
-      );
+      await showDepositWithdrawModal('deposit');
     }
-  }, [perpsAccount.accountAddress, perpsAccount.accountId, dialogInTab]);
+  }, [
+    perpsAccount.accountAddress,
+    perpsAccount.accountId,
+    showDepositWithdrawModal,
+  ]);
 
   const buttonDisabled = useMemo(() => {
     return (
@@ -182,11 +180,8 @@ export function PerpTradingButton({
   const validateTpslPrices = useCallback(async () => {
     if (!formData.hasTpsl || !formData.price) return true;
 
-    const activeAssetCtx = await perpsActiveAssetCtxAtom.get();
     const entryPrice = new BigNumber(
-      formData.type === 'limit'
-        ? formData.price
-        : activeAssetCtx?.ctx?.markPrice || '0',
+      formData.type === 'limit' ? formData.price : midPrice || '0',
     );
     if (!entryPrice.isFinite() || entryPrice.isZero()) {
       // entry price is invalid
@@ -230,6 +225,7 @@ export function PerpTradingButton({
     formData.type,
     formData.tpTriggerPx,
     formData.slTriggerPx,
+    midPrice,
     isLong,
     getTpslErrorMessage,
   ]);

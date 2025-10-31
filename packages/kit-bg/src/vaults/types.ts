@@ -334,6 +334,9 @@ export type IPrepareImportedAccountsParams = {
   template?: string; // TODO use deriveInfo
   deriveInfo?: IAccountDeriveInfo;
 };
+export type IPrepareHDOrHWAccountChainExtraParams = {
+  receiveAddressPath?: string;
+};
 export type IPrepareHdAccountsParamsBase = {
   indexes: Array<number>;
   names?: Array<string>; // custom names
@@ -360,6 +363,7 @@ export type IPrepareHdAccountsOptions = {
 export type IPrepareHardwareAccountsParams = IPrepareHdAccountsParamsBase & {
   deviceParams: IDeviceSharedCallParams;
   hwAllNetworkPrepareAccountsResponse?: IHwAllNetworkPrepareAccountsResponse;
+  chainExtraParams?: IPrepareHDOrHWAccountChainExtraParams;
 };
 export type IPrepareAccountsParams =
   | IPrepareWatchingAccountsParams
@@ -440,6 +444,8 @@ export type IHwAllNetworkPrepareAccountsItem =
 
       derivedPath?: string; // alph
     };
+
+    useTweak?: boolean; // kaspa
   };
 
 export type IHwAllNetworkPrepareAccountsResponse =
@@ -661,6 +667,7 @@ export interface ISignMessageParams {
   messages: IUnsignedMessage[];
   password: string;
   deviceParams: IDeviceSharedCallParams | undefined;
+  chainExtraParams?: IPrepareHDOrHWAccountChainExtraParams;
 
   // addressEncoding other derive address
   addressEncoding?: EAddressEncodings;

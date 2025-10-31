@@ -27,6 +27,7 @@ import type {
   IExportKeyType,
 } from '@onekeyhq/core/src/types';
 import { ECoreApiExportedSecretKeyType } from '@onekeyhq/core/src/types';
+import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 import {
   backgroundClass,
   backgroundMethod,
@@ -154,6 +155,7 @@ import type {
   IAccountDeriveInfoItems,
   IAccountDeriveTypes,
   IHwAllNetworkPrepareAccountsResponse,
+  IPrepareHDOrHWAccountChainExtraParams,
   IPrepareHardwareAccountsParams,
   IPrepareHdAccountsParams,
   IPrepareImportedAccountsParams,
@@ -608,6 +610,7 @@ class ServiceAccount extends ServiceBase {
     confirmOnDevice,
     hwAllNetworkPrepareAccountsResponse,
     isVerifyAddressAction,
+    customReceiveAddressPath,
   }: {
     walletId: string | undefined;
     networkId: string | undefined;
@@ -618,6 +621,7 @@ class ServiceAccount extends ServiceBase {
     confirmOnDevice?: EConfirmOnDeviceType;
     hwAllNetworkPrepareAccountsResponse?: IHwAllNetworkPrepareAccountsResponse;
     isVerifyAddressAction?: boolean;
+    customReceiveAddressPath?: string;
   }) {
     if (!walletId) {
       throw new OneKeyLocalError('walletId is required');
@@ -665,6 +669,13 @@ class ServiceAccount extends ServiceBase {
         deriveType,
       });
 
+    const chainExtraParams = await this.prepareHDOrHWAccountChainExtraParams({
+      networkId,
+      indexedAccountId,
+      deriveType,
+      customReceiveAddressPath,
+    });
+
     let prepareParams:
       | IPrepareHdAccountsParams
       | IPrepareHardwareAccountsParams;
@@ -679,6 +690,7 @@ class ServiceAccount extends ServiceBase {
         names,
         deriveInfo,
         hwAllNetworkPrepareAccountsResponse,
+        chainExtraParams,
       };
       prepareParams = hwParams;
     } else {
@@ -1564,6 +1576,13 @@ class ServiceAccount extends ServiceBase {
           return accountUtils.buildBaseAccountName({ nextAccountId });
         },
       });
+
+    void this.fixAccountName({
+      account: existsAccounts?.[0],
+      name,
+      fallbackName,
+    });
+
     appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
 
     if (isOverrideAccounts && existsAccounts.length) {
@@ -1678,6 +1697,27 @@ class ServiceAccount extends ServiceBase {
       walletId,
       accounts,
     };
+  }
+
+  async fixAccountName({
+    account,
+    name,
+    fallbackName,
+  }: {
+    account: IDBAccount | undefined;
+    name?: string;
+    fallbackName?: string;
+  }) {
+    if (!account) {
+      return;
+    }
+    const newName = name || fallbackName;
+    if (newName && account.name !== newName) {
+      await this.setAccountName({
+        accountId: account.id,
+        name: newName,
+      });
+    }
   }
 
   @backgroundMethod()
@@ -1833,6 +1873,13 @@ class ServiceAccount extends ServiceBase {
           return accountUtils.buildBaseAccountName({ nextAccountId });
         },
       });
+
+    void this.fixAccountName({
+      account: existsAccounts?.[0],
+      name,
+      fallbackName,
+    });
+
     appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
 
     if (isOverrideAccounts && existsAccounts.length) {
@@ -3527,6 +3574,7 @@ class ServiceAccount extends ServiceBase {
     indexedAccountId: string | undefined;
     deriveType: IAccountDeriveTypes;
     confirmOnDevice?: EConfirmOnDeviceType;
+    customReceiveAddressPath?: string;
   }): Promise<string[]> {
     const { prepareParams, deviceParams, networkId, walletId } =
       await this.getPrepareHDOrHWAccountsParams(params);
@@ -5076,6 +5124,91 @@ class ServiceAccount extends ServiceBase {
       console.error('addWatchingAccountByInput error', e);
     }
     return { addedAccounts };
+  }
+
+  @backgroundMethod()
+  async getMasterAddress({
+    networkAccount,
+    allNetworkAccountInfo,
+    networkId,
+  }: {
+    networkAccount: INetworkAccount | undefined;
+    allNetworkAccountInfo: IAllNetworkAccountInfo | undefined;
+    networkId: string;
+  }): Promise<{
+    masterAddress: string;
+  }> {
+    const enableBTCFreshAddress =
+      await this.backgroundApi.serviceSetting.getEnableBTCFreshAddress();
+    if (!networkUtils.isBTCNetwork(networkId) || !enableBTCFreshAddress) {
+      if (networkAccount) {
+        return {
+          masterAddress: networkAccount.address || '',
+        };
+      }
+      if (allNetworkAccountInfo) {
+        return {
+          masterAddress: allNetworkAccountInfo.apiAddress || '',
+        };
+      }
+    }
+
+    let account: INetworkAccount | undefined = networkAccount;
+    if (!networkAccount && allNetworkAccountInfo) {
+      account = await this.getAccount({
+        accountId: allNetworkAccountInfo.accountId,
+        networkId,
+      });
+    }
+
+    return {
+      masterAddress:
+        account?.addressDetail.masterAddress || account?.address || '',
+    };
+  }
+
+  @backgroundMethod()
+  async prepareHDOrHWAccountChainExtraParams({
+    networkId,
+    indexedAccountId,
+    deriveType,
+    customReceiveAddressPath,
+  }: {
+    networkId: string;
+    indexedAccountId: string | undefined;
+    deriveType: IAccountDeriveTypes;
+    customReceiveAddressPath: string | undefined;
+  }): Promise<IPrepareHDOrHWAccountChainExtraParams | undefined> {
+    if (!networkUtils.isBTCNetwork(networkId)) {
+      return undefined;
+    }
+    if (customReceiveAddressPath) {
+      return { receiveAddressPath: customReceiveAddressPath };
+    }
+    if (!indexedAccountId) {
+      return undefined;
+    }
+    const enabledBTCFreshAddress =
+      await this.backgroundApi.serviceSetting.getEnableBTCFreshAddress();
+    if (!enabledBTCFreshAddress) {
+      return undefined;
+    }
+    try {
+      const account = await this.getNetworkAccount({
+        indexedAccountId,
+        deriveType,
+        networkId,
+        accountId: undefined,
+      });
+      if (!account) {
+        return undefined;
+      }
+      return {
+        receiveAddressPath: account.addressDetail.receiveAddressPath,
+      };
+    } catch {
+      return undefined;
+    }
   }
 }
 

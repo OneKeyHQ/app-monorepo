@@ -18,6 +18,7 @@ const NetworkNameToIdMap: Record<string, string> = {
   aptos: getNetworkIdsMap().apt,
   cosmos: getNetworkIdsMap().cosmoshub,
   sbtc: getNetworkIdsMap().sbtc,
+  bsc: getNetworkIdsMap().bsc,
 };
 
 const NetworkIdToNameMap: Record<string, string> = Object.fromEntries(

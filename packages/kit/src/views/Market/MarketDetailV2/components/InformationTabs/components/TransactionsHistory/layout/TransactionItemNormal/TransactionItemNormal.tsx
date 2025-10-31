@@ -1,6 +1,7 @@
 import { memo } from 'react';
 
 import {
+  Image,
   NumberSizeableText,
   SizableText,
   XStack,
@@ -44,9 +45,19 @@ function TransactionItemNormalBase({
         {formattedTime}
       </SizableText>
 
-      <SizableText size="$bodyMdMedium" color={typeColor} {...styles.type}>
-        {typeText}
-      </SizableText>
+      <XStack alignItems="center" gap="$2" {...styles.type}>
+        {item.poolLogoUrl ? (
+          <Image
+            width="$5"
+            height="$5"
+            borderRadius="$full"
+            source={{ uri: item.poolLogoUrl }}
+          />
+        ) : null}
+        <SizableText size="$bodyMdMedium" color={typeColor}>
+          {typeText}
+        </SizableText>
+      </XStack>
 
       <TransactionAmount
         baseToken={baseToken}

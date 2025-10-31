@@ -225,7 +225,7 @@ function ProfitInfo({
             </GridItem>
           ) : null}
           {stakingTime &&
-          !earnUtils.isEverstakeProvider({
+          !earnUtils.isValidatorProvider({
             providerName: providerName || '',
           }) ? (
             <GridItem

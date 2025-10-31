@@ -20,7 +20,7 @@ import {
   shortcutsMap,
 } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
-import { Divider } from '../../content';
+import { Divider } from '../../content/Divider';
 import { Portal } from '../../hocs';
 import { ModalNavigatorContext, useModalNavigatorContext } from '../../hooks';
 import { PageContext, usePageContext } from '../../layouts/Page/PageContext';
