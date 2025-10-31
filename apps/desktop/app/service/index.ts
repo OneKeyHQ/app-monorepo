@@ -120,8 +120,14 @@ export const checkAvailabilityAsync = async () => {
   return cacheWindowsHelloSupported;
 };
 
-export const requestVerificationAsync = (message: string) =>
-  postServiceMessage<{
+export const requestVerificationAsync = async (message: string) => {
+  if (!checkServiceExist(EServiceName.WindowsHello)) {
+    return {
+      success: false,
+      error: 'Windows Hello service not found',
+    };
+  }
+  return postServiceMessage<{
     success: boolean;
     error?: string;
   }>(
@@ -129,6 +135,7 @@ export const requestVerificationAsync = (message: string) =>
     EWindowHelloEventType.RequestVerificationAsync,
     message,
   );
+};
 
 export const checkBiometricAuthChanged = async () => {
   if (!checkServiceExist(EServiceName.CheckBiometricAuthChanged)) {
