@@ -13,6 +13,7 @@ export enum EOnboardingPagesV2 {
   ConnectYourDevice = 'ConnectYourDevice',
   CheckAndUpdate = 'CheckAndUpdate',
   ImportPhraseOrPrivateKey = 'ImportPhraseOrPrivateKey',
+  ICloudBackup = 'ICloudBackup',
 }
 
 export type IOnboardingParamListV2 = {
@@ -28,4 +29,5 @@ export type IOnboardingParamListV2 = {
   };
   [EOnboardingPagesV2.CheckAndUpdate]: undefined;
   [EOnboardingPagesV2.ImportPhraseOrPrivateKey]: undefined;
+  [EOnboardingPagesV2.ICloudBackup]: undefined;
 };

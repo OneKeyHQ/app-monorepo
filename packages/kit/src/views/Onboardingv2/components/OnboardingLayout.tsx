@@ -131,13 +131,19 @@ function OnboardingLayoutConstrainedContent({
 }: { children: React.ReactNode } & IYStackProps) {
   return (
     <YStack
-      $platform-web={{
-        animation: 'quick',
-        animateOnly: ['opacity', 'transform'],
-        enterStyle: {
-          opacity: 0,
-          x: 24,
-        },
+      // $platform-web={{
+      //   animation: 'quick',
+      //   animateOnly: ['opacity', 'transform'],
+      //   enterStyle: {
+      //     opacity: 0,
+      //     x: 24,
+      //   },
+      // }}
+      animation="quick"
+      animateOnly={['opacity', 'transform']}
+      enterStyle={{
+        opacity: 0,
+        x: 24,
       }}
       w="100%"
       maxWidth={400}

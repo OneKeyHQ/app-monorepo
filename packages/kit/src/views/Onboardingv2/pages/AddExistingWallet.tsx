@@ -39,6 +39,9 @@ export default function AddExistingWallet() {
     {
       title: 'iCloud',
       icon: 'CloudOutline',
+      onPress: () => {
+        navigation.push(EOnboardingPagesV2.ICloudBackup);
+      },
     },
     {
       title: 'Watch-only address',
