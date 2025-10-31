@@ -10,6 +10,7 @@ import {
   Skeleton,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
@@ -45,8 +46,21 @@ type IRouteProps = RouteProp<ITabEarnParamList, ETabEarnRoutes.EarnProtocols>;
 function BasicEarnProtocols({ route }: { route: IRouteProps }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
-  const { symbol, filterNetworkId, logoURI } = route.params || {};
+  const {
+    symbol,
+    filterNetworkId,
+    logoURI: encodedLogoURI,
+  } = route.params || {};
 
+  const logoURI = useMemo(() => {
+    try {
+      return encodedLogoURI ? decodeURIComponent(encodedLogoURI) : undefined;
+    } catch {
+      return undefined;
+    }
+  }, [encodedLogoURI]);
+
+  const media = useMedia();
   const { activeAccount } = useActiveAccount({ num: 0 });
 
   const customHeaderLeft = useMemo(
@@ -290,14 +304,16 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
         data={protocolData}
         columns={columns}
         withHeader
+        tableLayout
         defaultSortKey="yield"
         defaultSortDirection="desc"
         onPressRow={handleProtocolPress}
-        enableDrillIn
+        enableDrillIn={media.gtSm}
         isLoading={isLoading}
       />
     );
   }, [
+    media,
     columns,
     fetchProtocolData,
     intl,

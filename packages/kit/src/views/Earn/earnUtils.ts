@@ -202,7 +202,7 @@ export const EarnNavigation = {
         params: {
           symbol,
           filterNetworkId: undefined,
-          logoURI,
+          logoURI: encodeURIComponent(logoURI ?? ''),
         },
       },
     });

@@ -453,6 +453,7 @@ export function AvailableAssetsTabViewListMobile({
                         indexedAccountId: indexedAccount?.id,
                         symbol,
                         protocols,
+                        logoURI,
                       });
                     }}
                     avatarProps={{

@@ -264,7 +264,11 @@ function BasicEarnHome() {
   );
 
   const banners = useMemo(
-    () => <BannerV2 data={earnBanners} onBannerPress={onBannerPress} />,
+    () => (
+      <Stack px="$5">
+        <BannerV2 data={earnBanners} onBannerPress={onBannerPress} />
+      </Stack>
+    ),
     [earnBanners, onBannerPress],
   );
 

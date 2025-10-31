@@ -37,11 +37,15 @@ export function BannerV2({ data, onBannerPress }: IBannerV2Props) {
           containerStyle={{
             height: 98,
           }}
-          renderItem={({ item }) => (
-            <Stack px="$5">
-              <BannerItemV2 item={item} onPress={onBannerPress} />
-            </Stack>
-          )}
+          renderItem={({ item }) => {
+            const noPadding = data.length > 0 && data[data.length - 1] === item;
+
+            return (
+              <Stack pr={noPadding ? 0 : '$5'}>
+                <BannerItemV2 item={item} onPress={onBannerPress} />
+              </Stack>
+            );
+          }}
           autoPlayInterval={3000}
           loop
           showPagination
