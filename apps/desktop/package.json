@@ -49,6 +49,7 @@
     "electron-windows-security": "0.0.7",
     "keytar": "^7.9.0",
     "node-fetch": "^2.6.7",
+    "node-mac-icloud-keyvalue": "0.2.5",
     "semver": "7.5.4"
   },
   "devDependencies": {

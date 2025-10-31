@@ -24,6 +24,7 @@ import {
 import contextMenu from 'electron-context-menu';
 import isDev from 'electron-is-dev';
 import logger from 'electron-log/main';
+import { getAllValues, setValue } from 'node-mac-icloud-keyvalue';
 
 import { getTemplatePhishingUrls } from '@onekeyhq/kit-bg/src/desktopApis/DesktopApiWebview';
 import desktopApi from '@onekeyhq/kit-bg/src/desktopApis/instance/desktopApi';
@@ -58,6 +59,15 @@ import { startServices } from './service';
 
 logger.initialize();
 logger.transports.file.maxSize = 1024 * 1024 * 10;
+
+setTimeout(() => {
+  const value = `hello world${Date.now()}`;
+  logger.info('icloud test value >>>> ', value);
+  setValue('string', 'test', value);
+  logger.info('icloud test setValue >>>> ', value);
+  const allValues = getAllValues();
+  logger.info('icloud test getAllValues >>>> ', allValues);
+}, 1000);
 
 initSentry();
 
