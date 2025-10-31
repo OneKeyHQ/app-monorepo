@@ -69,6 +69,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         this.fileLogger = new FileLoggerModule(reactContext);
         staticFileLogger = this.fileLogger;
         this.httpClient = new OkHttpClient();
+        staticLog("BundleUpdateModule", "Constructor initialized");
     }
 
     @Override
@@ -80,11 +81,13 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
     public Map<String, Object> getConstants() {
         final Map<String, Object> constants = new HashMap<>();
         constants.put("ANDROID_CHANNEL", BuildConfig.ANDROID_CHANNEL);
+        staticLog("getConstants", "ANDROID_CHANNEL: " + BuildConfig.ANDROID_CHANNEL);
         return constants;
     }
 
     private void sendEvent(String eventName, @Nullable WritableMap params) {
         reactContext.getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class).emit(eventName, params);
+        log("sendEvent", "Event: " + eventName + ", Params: " + params);
     }
 
     private void log(String method, String message) {
@@ -108,6 +111,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         if (!downloadDir.exists()) {
             downloadDir.mkdirs();
         }
+        staticLog("getDownloadBundleDir", "Download dir: " + downloadDir.getAbsolutePath());
         return downloadDir.getAbsolutePath();
     }
 
@@ -121,6 +125,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
             Double doubleBundleVersion = params.getDouble(key);
             stringBundleVersion = String.valueOf(doubleBundleVersion.intValue());
         }
+        staticLog("getBundleVersion", "Bundle version: " + stringBundleVersion);
         return stringBundleVersion;
     }
 
@@ -129,12 +134,15 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         if (!bundleDir.exists()) {
             bundleDir.mkdirs();
         }
+        staticLog("getBundleDir", "Bundle dir: " + bundleDir.getAbsolutePath());
         return bundleDir.getAbsolutePath();
     }
 
     public static String getCurrentBundleVersion(Context context) {
         SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        return prefs.getString(CURRENT_BUNDLE_VERSION_KEY, null);
+        String version = prefs.getString(CURRENT_BUNDLE_VERSION_KEY, null);
+        staticLog("getCurrentBundleVersion", "Current bundle version: " + version);
+        return version;
     }
 
     public static void setCurrentBundleVersionAndSignature(Context context, String version, String signature) {
@@ -144,6 +152,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         if (currentVersion != null && !currentVersion.isEmpty()) {
             prefs.edit().remove(currentVersion).apply();
         }
+        staticLog("setCurrentBundleVersionAndSignature", "Set version: " + version + ", signature: " + signature);
     }
 
     public static void clearUpdateBundleData(Context context) {
@@ -152,32 +161,42 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         if (version != null) {
             prefs.edit().clear().apply();
         }
+        staticLog("clearUpdateBundleData", "Cleared update bundle data for version: " + version);
     }
 
     public static String getCurrentBundleDir(Context context, String currentBundleVersion) {
         if (currentBundleVersion == null) {
+            staticLog("getCurrentBundleDir", "Current bundle version is null");
             return null;
         }
-        return new File(getBundleDir(context), currentBundleVersion).getAbsolutePath();
+        String bundleDir = new File(getBundleDir(context), currentBundleVersion).getAbsolutePath();
+        staticLog("getCurrentBundleDir", "Current bundle dir: " + bundleDir);
+        return bundleDir;
     }
 
     public static String getMetadataFilePath(Context context, String currentBundleVersion) {
         if (currentBundleVersion == null) {
+            staticLog("getMetadataFilePath", "Current bundle version is null");
             return null;
         }
         File metadataFile = new File(new File(getBundleDir(context), currentBundleVersion), "metadata.json");
         if (!metadataFile.exists()) {
+            staticLog("getMetadataFilePath", "Metadata file does not exist: " + metadataFile.getAbsolutePath());
             return null;
         }
+        staticLog("getMetadataFilePath", "Metadata file path: " + metadataFile.getAbsolutePath());
         return metadataFile.getAbsolutePath();
     }
 
     public static String getMetadataFileContent(Context context, String currentBundleVersion) throws IOException {
         String metadataFilePath = getMetadataFilePath(context, currentBundleVersion);
         if (metadataFilePath == null) {
+            staticLog("getMetadataFileContent", "Metadata file path is null");
             return null;
         }
-        return readFileContent(new File(metadataFilePath));
+        String content = readFileContent(new File(metadataFilePath));
+        staticLog("getMetadataFileContent", "Metadata content length: " + (content != null ? content.length() : 0));
+        return content;
     }
 
     public static Map<String, String> parseMetadataJson(String jsonContent) {
@@ -190,6 +209,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
                 String value = jsonObject.getString(key);
                 metadata.put(key, value);
             }
+            staticLog("parseMetadataJson", "Parsed metadata with " + metadata.size() + " entries");
         } catch (Exception e) {
             staticLog(TAG, "Error parsing JSON: " + e.getMessage());
         }
@@ -204,12 +224,17 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         }
         String extractedSha256 = readMetadataFileSha256(context, signature);
         if (extractedSha256 == null || extractedSha256.isEmpty()) {
+            staticLog("validateMetadataFileSha256", "Extracted SHA256 is null or empty");
             return false;
         }
-        return calculateSHA256(metadataFilePath).equals(extractedSha256);
+        String calculatedSha256 = calculateSHA256(metadataFilePath);
+        boolean isValid = calculatedSha256.equals(extractedSha256);
+        staticLog("validateMetadataFileSha256", "Calculated: " + calculatedSha256 + ", Expected: " + extractedSha256 + ", Valid: " + isValid);
+        return isValid;
     }
 
     public static int compareVersion(String version1, String version2) {
+        staticLog("compareVersion", "Comparing version1: " + version1 + " with version2: " + version2);
         if (version1 == null && version2 == null) {
             return 0;
         }
@@ -246,12 +271,15 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
             }
             
             if (value1 < value2) {
+                staticLog("compareVersion", "Result: -1");
                 return -1;
             } else if (value1 > value2) {
+                staticLog("compareVersion", "Result: 1");
                 return 1;
             }
         }
         
+        staticLog("compareVersion", "Result: 0");
         return 0;
     }
 
@@ -264,6 +292,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
             
             String prevNativeVersion = getNativeVersion(context);
             if (prevNativeVersion == null || prevNativeVersion.isEmpty()) {
+                staticLog("getCurrentBundleMainJSBundle", "Previous native version is null or empty");
                 return "";
             }
             
@@ -285,6 +314,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
                 staticLog(TAG, "Retrieved signature for key: " + currentBundleVersion + ", signature: " + signature);
             }
             if (!validateMetadataFileSha256(context, currentBundleVersion, signature)) {
+                staticLog("getCurrentBundleMainJSBundle", "Metadata file SHA256 validation failed");
                 return null;
             }
             Map<String, String> metadata = parseMetadataJson(getMetadataFileContent(context, currentBundleVersion));
@@ -301,11 +331,14 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
             String calculatedSha256 = calculateSHA256(mainJSBundlePath);
             staticLog(TAG, "calculatedSha256: " + calculatedSha256 + ", sha256: " + sha256);
             if (calculatedSha256 == null || sha256 == null) {
+                staticLog("getCurrentBundleMainJSBundle", "SHA256 calculation or retrieval failed");
                 return null;
             }
             if (!calculatedSha256.equals(sha256)) {
+                staticLog("getCurrentBundleMainJSBundle", "SHA256 mismatch");
                 return null;
             }
+            staticLog("getCurrentBundleMainJSBundle", "Successfully validated main JS bundle: " + mainJSBundlePath);
             return mainJSBundlePath;
         } catch (IOException e) {
             staticLog(TAG, "Error getting package info: " + e.getMessage());
@@ -323,7 +356,9 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
                     digest.update(buffer, 0, count);
                 }
             }
-            return bytesToHex(digest.digest());
+            String result = bytesToHex(digest.digest());
+            staticLog("calculateSHA256", "File: " + filePath + ", SHA256: " + result);
+            return result;
         } catch (Exception e) {
             staticLog(TAG, "Error calculating SHA256: " + e.getMessage());
             return null;
@@ -339,8 +374,10 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
     }
 
     public static boolean validateAllFilesInDir(Context context, String dirPath, Map<String, String> metadata, String appVersion, String bundleVersion) {
+        staticLog("validateAllFilesInDir", "Validating directory: " + dirPath + " for version: " + appVersion + "-" + bundleVersion);
         File dir = new File(dirPath);
         if (!dir.exists() || !dir.isDirectory()) {
+            staticLog("validateAllFilesInDir", "Directory does not exist or is not a directory");
             return false;
         }
 
@@ -348,7 +385,9 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         String folderName = appVersion + "-" + bundleVersion;
         String jsBundleDir = new File(parentBundleDir, folderName).getAbsolutePath() + "/";
 
-        return validateFilesRecursive(dir, metadata, jsBundleDir);
+        boolean result = validateFilesRecursive(dir, metadata, jsBundleDir);
+        staticLog("validateAllFilesInDir", "Validation result: " + result);
+        return result;
     }
 
     public static String readMetadataFileSha256(Context context, String signature) {
@@ -362,6 +401,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         try {
             String content = Verification.extractedTextContentFromVerifyAscFile(ascFileContentString, cacheFilePath);
             if (content == null || content.isEmpty()) {
+                staticLog("readMetadataFileSha256", "Extracted content is null or empty");
                 return null;
             }
             JSONObject jsonObject = new JSONObject(content);
@@ -376,6 +416,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
     private static boolean validateFilesRecursive(File dir, Map<String, String> metadata, String jsBundleDir) {
         File[] files = dir.listFiles();
         if (files == null) {
+            staticLog("validateFilesRecursive", "No files in directory: " + dir.getAbsolutePath());
             return true;
         }
 
@@ -421,6 +462,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         if (!fallbackUpdateBundleDataFile.exists()) {
             try {
                 fallbackUpdateBundleDataFile.createNewFile();
+                staticLog("getFallbackUpdateBundleDataFile", "Created new fallback data file: " + fallbackUpdateBundleDataPath);
             } catch (IOException e) {
                 staticLog(TAG, "getFallbackUpdateBundleDataFile:" + e.getMessage());
             }
@@ -435,6 +477,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         try (FileOutputStream fos = new FileOutputStream(file)) {
             fos.write(content.getBytes());
         }
+        staticLog("writeFileContent", "Written content to file: " + file.getAbsolutePath() + ", length: " + content.length());
     }
 
     public static void writeFallbackUpdateBundleDataFile(List<Map<String, String>> fallbackUpdateBundleData, ReactContext context) {
@@ -442,6 +485,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         String fallbackUpdateBundleDataString = new JSONArray(fallbackUpdateBundleData).toString();
         try {
             writeFileContent(fallbackUpdateBundleDataFile, fallbackUpdateBundleDataString);
+            staticLog("writeFallbackUpdateBundleDataFile", "Written fallback data with " + fallbackUpdateBundleData.size() + " entries");
         } catch (IOException e) {
             staticLog(TAG, "writeFallbackUpdateBundleDataFile:" + e.getMessage());
         }
@@ -456,6 +500,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
             staticLog(TAG, "readFallbackUpdateBundleDataFile:" + e.getMessage());
         }
         if (fallbackUpdateBundleDataString == null || fallbackUpdateBundleDataString.isEmpty()) {
+            staticLog("readFallbackUpdateBundleDataFile", "Fallback data is empty, returning empty list");
             return new ArrayList<>();
         }
         List<Map<String, String>> fallbackUpdateBundleData = new ArrayList<>();
@@ -471,6 +516,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
                 }
                 fallbackUpdateBundleData.add(map);
             }
+            staticLog("readFallbackUpdateBundleDataFile", "Read fallback data with " + fallbackUpdateBundleData.size() + " entries");
         } catch (JSONException e) {
             staticLog(TAG, "readFallbackUpdateBundleDataFile:" + e.getMessage());
         }
@@ -481,7 +527,9 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         try {
             PackageManager packageManager = context.getPackageManager();
             PackageInfo packageInfo = packageManager.getPackageInfo(context.getPackageName(), 0);
-            return packageInfo.versionName;
+            String version = packageInfo.versionName;
+            staticLog("getAppVersion", "App version: " + version);
+            return version;
         } catch (PackageManager.NameNotFoundException e) {
             staticLog(TAG, "Error getting package info: " + e.getMessage());
             return null;
@@ -490,12 +538,15 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
 
     public static String getNativeVersion(Context context) {
         SharedPreferences prefs = context.getSharedPreferences(NATIVE_VERSION_PREFS_NAME, Context.MODE_PRIVATE);
-        return prefs.getString("nativeVersion", "");
+        String version = prefs.getString("nativeVersion", "");
+        staticLog("getNativeVersion", "Native version: " + version);
+        return version;
     }
 
     public static void setNativeVersion(Context context, String nativeVersion) {
         SharedPreferences prefs = context.getSharedPreferences(NATIVE_VERSION_PREFS_NAME, Context.MODE_PRIVATE);
         prefs.edit().putString("nativeVersion", nativeVersion).apply();
+        staticLog("setNativeVersion", "Set native version: " + nativeVersion);
     }
 
     private boolean verifyBundleSHA256(String bundlePath, String sha256) {
@@ -515,6 +566,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
             currentDownloadCall.cancel();
             currentDownloadCall = null;
         }
+        log("clearDownloadTask", "Download task cleared");
     }
 
     public long getFileSize(final ReadableMap map) {
@@ -561,12 +613,15 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         String bundleVersion = getBundleVersion(params);
         String sha256 = params.getString("sha256");
 
+        log("downloadBundleASC", "downloadUrl: " + downloadUrl + ", filePath: " + filePath + ", appVersion: " + appVersion + ", bundleVersion: " + bundleVersion);
+
         if (downloadUrl == null || filePath == null || signature == null || appVersion == null || bundleVersion == null || sha256 == null) {
             promise.reject("INVALID_PARAMS", "downloadUrl, filePath, signature, appVersion, bundleVersion and sha256 are required");
             return;
         }
 
         String storageKey = appVersion + "-" + bundleVersion;
+        log("downloadBundleASC", "Storage key: " + storageKey);
         promise.resolve(null);
     }
 
@@ -577,6 +632,8 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         String appVersion = params.getString("latestVersion");
         String bundleVersion = getBundleVersion(params);
         String signature = params.getString("signature");
+
+        log("verifyBundleASC", "filePath: " + filePath + ", appVersion: " + appVersion + ", bundleVersion: " + bundleVersion);
 
         if (filePath == null || sha256 == null) {
             promise.reject("INVALID_PARAMS", "filePath and sha256 are required");
@@ -611,6 +668,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
                 promise.reject("INVALID_PARAMS", "Bundle signature verification failed");
                 return;
             }
+            log("verifyBundleASC", "Bundle verification successful");
             promise.resolve(null);
         } catch (Exception e) {
             log("verifyBundle", "Error: " + e.getMessage());
@@ -624,6 +682,8 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         String sha256 = params.getString("sha256");
         String appVersion = params.getString("latestVersion");
         String bundleVersion = getBundleVersion(params);
+
+        log("verifyBundle", "filePath: " + filePath + ", appVersion: " + appVersion + ", bundleVersion: " + bundleVersion);
 
         if (filePath == null || sha256 == null) {
             promise.reject("INVALID_PARAMS", "filePath and sha256 are required");
@@ -652,6 +712,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
                 promise.reject("INVALID_PARAMS", "Bundle signature verification failed");
                 return;
             }
+            log("verifyBundle", "Bundle verification successful");
             promise.resolve(null);
         } catch (Exception e) {
             log("verifyBundle", "Error: " + e.getMessage());
@@ -779,6 +840,8 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         String filePath = params.getString("downloadedFile");
         String signature = params.getString("signature");
         
+        log("installBundle", "appVersion: " + appVersion + ", bundleVersion: " + bundleVersion + ", filePath: " + filePath);
+        
         if (filePath == null || appVersion == null || bundleVersion == null) {
             promise.reject("INVALID_PARAMS", "filePath, appVersion and bundleVersion are required");
             return;
@@ -822,6 +885,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
                     String bundleDirPath = new File(bundleDir, shiftFolderName).getAbsolutePath();
                     if (new File(bundleDirPath).exists()) {
                         deleteDirectory(new File(bundleDirPath));
+                        log("installBundle", "Deleted old bundle directory: " + bundleDirPath);
                     }
                 }
             }
@@ -830,12 +894,14 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         } catch (Exception e) {
             staticLog(TAG, "installBundle fallbackUpdateBundleData error:" + e.getMessage());
         }
+        log("installBundle", "Bundle installation completed successfully");
         promise.resolve(null);
     }
 
     @ReactMethod
     public void getFallbackUpdateBundleData(Promise promise) {
         List<Map<String, String>> fallbackUpdateBundleData = readFallbackUpdateBundleDataFile(reactContext);
+        log("getFallbackUpdateBundleData", "Retrieved " + fallbackUpdateBundleData.size() + " fallback entries");
         promise.resolve(fallbackUpdateBundleData);
     }
 
@@ -852,10 +918,12 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
        
     @ReactMethod
     public void clearBundle(Promise promise) {
+        log("clearBundle", "Starting bundle clear operation");
         try {
             File downloadBundleDir = new File(getDownloadBundleDir(reactContext));
             if (downloadBundleDir.exists()) {
                 deleteDirectory(downloadBundleDir);
+                log("clearBundle", "Deleted download bundle directory");
             }
             
             if (currentDownloadCall != null) {
@@ -863,6 +931,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
                 currentDownloadCall = null;
             }
             clearDownloadTask();
+            log("clearBundle", "Bundle clear operation completed successfully");
             promise.resolve(null);
         } catch (Exception e) {
             staticLog(TAG, "clearBundle:" + e.getMessage());
@@ -873,6 +942,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
     // Helper methods
     @RequiresApi(api = Build.VERSION_CODES.O)
     private void unzipFile(String zipFilePath, String destDirectory) throws IOException {
+        log("unzipFile", "Unzipping " + zipFilePath + " to " + destDirectory);
         File destDir = new File(destDirectory);
         if (!destDir.exists()) {
             destDir.mkdirs();
@@ -904,14 +974,18 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
                 entry = zipIn.getNextEntry();
             }
         }
+        log("unzipFile", "Unzip operation completed successfully");
     }
 
     public static String getWebEmbedPath(Context context) {
         String currentBundleDir = getCurrentBundleDir(context, getCurrentBundleVersion(context));
         if (currentBundleDir == null) {
+            staticLog("getWebEmbedPath", "Current bundle dir is null, returning empty path");
             return "";
         }
-        return new File(currentBundleDir, "web-embed").getAbsolutePath();
+        String webEmbedPath = new File(currentBundleDir, "web-embed").getAbsolutePath();
+        staticLog("getWebEmbedPath", "Web embed path: " + webEmbedPath);
+        return webEmbedPath;
     }
 
     @ReactMethod
@@ -934,10 +1008,12 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         File downloadBundleDir = new File(getDownloadBundleDir(reactContext));
         if (downloadBundleDir.exists()) {
             deleteDirectory(downloadBundleDir);
+            log("clearAllJSBundleData", "Deleted download bundle directory");
         }
         File bundleDir = new File(getBundleDir(reactContext));
         if (bundleDir.exists()) {
             deleteDirectory(bundleDir);
+            log("clearAllJSBundleData", "Deleted bundle directory");
         }
         BundleUpdateModule.clearUpdateBundleData(reactContext);
         WritableMap result = Arguments.createMap();
@@ -949,10 +1025,12 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
 
     @ReactMethod
     public void testVerification(Promise promise) {
+        log("testVerification", "Starting verification test");
         String cacheFilePath = reactContext.getCacheDir().getAbsolutePath() + "/bundle-gpg-test-verification-temp";
         boolean result = false;
         try {
             result = Verification.testExtractedSha256FromVerifyAscFile(cacheFilePath);
+            log("testVerification", "Verification test result: " + result);
         } catch (Exception e) {
             staticLog(TAG, "testVerification:" + e.getMessage());
             throw new RuntimeException(e);
@@ -962,6 +1040,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
 
     @ReactMethod
     public void testDeleteJsBundle(String appVersion, String bundleVersion, Promise promise) {
+        log("testDeleteJsBundle", "Attempting to delete JS bundle for version: " + appVersion + "-" + bundleVersion);
         String folderName = appVersion + "-" + bundleVersion;
         String bundleDir = getBundleDir(reactContext);
         String jsBundlePath = new File(new File(bundleDir, folderName), "main.jsbundle.hbc").getAbsolutePath();
@@ -990,6 +1069,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
 
     @ReactMethod
     public void testDeleteJsRuntimeDir(String appVersion, String bundleVersion, Promise promise) {
+        log("testDeleteJsRuntimeDir", "Attempting to delete JS runtime directory for version: " + appVersion + "-" + bundleVersion);
         String folderName = appVersion + "-" + bundleVersion;
         String bundleDir = getBundleDir(reactContext);
         String jsRuntimeDir = new File(bundleDir, folderName).getAbsolutePath();
@@ -1019,6 +1099,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
 
     @ReactMethod
     public void testDeleteMetadataJson(String appVersion, String bundleVersion, Promise promise) {
+        log("testDeleteMetadataJson", "Attempting to delete metadata.json for version: " + appVersion + "-" + bundleVersion);
         String folderName = appVersion + "-" + bundleVersion;
         String bundleDir = getBundleDir(reactContext);
         String metadataPath = new File(new File(bundleDir, folderName), "metadata.json").getAbsolutePath();
@@ -1047,6 +1128,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
 
     @ReactMethod
     public void testWriteEmptyMetadataJson(String appVersion, String bundleVersion, Promise promise) {
+        log("testWriteEmptyMetadataJson", "Writing empty metadata.json for version: " + appVersion + "-" + bundleVersion);
         String folderName = appVersion + "-" + bundleVersion;
         String bundleDir = getBundleDir(reactContext);
         String jsRuntimeDir = new File(bundleDir, folderName).getAbsolutePath();
@@ -1087,6 +1169,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
 
     @ReactMethod
     public void getNativeAppVersion(Promise promise) {
+        log("getNativeAppVersion", "Getting native app version");
         String nativeVersion = getAppVersion(reactContext);
         if (nativeVersion == null) {
             promise.resolve("");
@@ -1097,6 +1180,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
 
     @ReactMethod
     public void getJsBundlePath(Promise promise) {
+        log("getJsBundlePath", "Getting JS bundle path");
         String jsBundlePath = getCurrentBundleMainJSBundle(reactContext);
         if (jsBundlePath == null) {
             promise.resolve("");
@@ -1127,6 +1211,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         if (jsBundlePath == null) {
             return "";
         }
+        staticLog("jsBundlePath", "Returning JS bundle path: " + jsBundlePath);
         return jsBundlePath;
     }
 
@@ -1141,6 +1226,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
                 fos.write(buffer, 0, length);
             }
         }
+        staticLog("extractFile", "Extracted file: " + filePath);
     }
 
     private static String readFileContent(File file) throws IOException {
@@ -1152,6 +1238,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
                 content.append(new String(buffer, 0, bytesRead));
             }
         }
+        staticLog("readFileContent", "Read file content, length: " + content.length() + " from: " + file.getAbsolutePath());
         return content.toString();
     }
 
