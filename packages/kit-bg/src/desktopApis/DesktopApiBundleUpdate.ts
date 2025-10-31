@@ -204,6 +204,7 @@ class DesktopApiAppBundleUpdate {
             // Emit progress
             const percent =
               totalBytes > 0 ? (downloadedBytes / totalBytes) * 100 : 0;
+            logger.info('bundle-download-progress', percent);
             this.getMainWindow()?.webContents.send(
               ipcMessageKeys.UPDATE_DOWNLOADING,
               {
