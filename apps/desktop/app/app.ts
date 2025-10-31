@@ -24,7 +24,13 @@ import {
 import contextMenu from 'electron-context-menu';
 import isDev from 'electron-is-dev';
 import logger from 'electron-log/main';
-import { getAllValues, setValue } from 'node-mac-icloud-keyvalue';
+import {
+  getAllValues,
+  getDocumentDirectoryPath,
+  // eslint-disable-next-line spellcheck/spell-checker
+  getiCloudDirectoryPath,
+  setValue,
+} from 'node-mac-icloud-keyvalue';
 
 import { getTemplatePhishingUrls } from '@onekeyhq/kit-bg/src/desktopApis/DesktopApiWebview';
 import desktopApi from '@onekeyhq/kit-bg/src/desktopApis/instance/desktopApi';
@@ -61,12 +67,25 @@ logger.initialize();
 logger.transports.file.maxSize = 1024 * 1024 * 10;
 
 setTimeout(() => {
+  const previousValue = getAllValues();
+  logger.info('icloud test previousValue >>>> ', previousValue);
   const value = `hello world${Date.now()}`;
   logger.info('icloud test value >>>> ', value);
   setValue('string', 'test', value);
   logger.info('icloud test setValue >>>> ', value);
   const allValues = getAllValues();
   logger.info('icloud test getAllValues >>>> ', allValues);
+
+  logger.info(
+    'icloud test getDocumentDirectoryPath >>>> ',
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+    getDocumentDirectoryPath(),
+  );
+  logger.info(
+    'icloud test getiCloudDirectoryPath >>>> ',
+    // eslint-disable-next-line spellcheck/spell-checker, @typescript-eslint/no-unsafe-call
+    getiCloudDirectoryPath(),
+  );
 }, 1000);
 
 initSentry();
