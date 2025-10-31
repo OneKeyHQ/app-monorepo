@@ -456,6 +456,7 @@ class DesktopApiAppBundleUpdate {
   async setCurrentUpdateBundleData(
     updateBundleData: IDesktopStoreUpdateBundleData,
   ) {
+    logger.info('setCurrentUpdateBundleData', updateBundleData);
     store.setUpdateBundleData(updateBundleData);
     setTimeout(() => {
       if (!process.mas) {
@@ -484,6 +485,7 @@ class DesktopApiAppBundleUpdate {
   }
 
   async clearAllJSBundleData() {
+    logger.info('clearAllJSBundleData');
     await this.clearDownload();
     await this.clearBundleExtract();
     store.clearUpdateBundleData();

@@ -844,6 +844,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         String appVersion = params.getString("appVersion");
         String bundleVersion = getBundleVersion(params);
         String signature = params.getString("signature");
+        staticLog("setCurrentUpdateBundleData", "appVersion: " + appVersion + ", bundleVersion: " + bundleVersion + ", signature: " + signature);
         String folderName = appVersion + "-" + bundleVersion;
         setCurrentBundleVersionAndSignature(reactContext, folderName, signature);
         promise.resolve(null);
@@ -928,7 +929,8 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
     }
 
     @ReactMethod
-    public void clearAllJSBundleData(Promise promise) {
+        public void clearAllJSBundleData(Promise promise) {
+        staticLog("clearAllJSBundleData", "start");
         File downloadBundleDir = new File(getDownloadBundleDir(reactContext));
         if (downloadBundleDir.exists()) {
             deleteDirectory(downloadBundleDir);
@@ -942,6 +944,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         result.putBoolean("success", true);
         result.putString("message", "Successfully cleared all JS bundle data");
         promise.resolve(result);
+        staticLog("clearAllJSBundleData", "end");
     }
 
     @ReactMethod

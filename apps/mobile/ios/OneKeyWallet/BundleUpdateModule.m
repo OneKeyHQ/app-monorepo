@@ -1005,6 +1005,7 @@ RCT_EXPORT_METHOD(getFallbackUpdateBundleData:(RCTPromiseResolveBlock)resolve
 }
 
 RCT_EXPORT_METHOD(setCurrentUpdateBundleData:(NSDictionary *)params) {
+    DDLogDebug(@"setCurrentUpdateBundleData: params: %@", params);
     NSString *appVersion = params[@"appVersion"];
     NSString *jsBundleVersion = params[@"bundleVersion"];
     NSString *signature = params[@"signature"];
