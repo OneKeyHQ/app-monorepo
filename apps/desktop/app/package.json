@@ -9,6 +9,6 @@
     "@stoprocent/noble": "2.3.4",
     "electron-check-biometric-auth-changed": "0.0.6",
     "electron-windows-security": "0.0.7",
-    "node-mac-icloud-keyvalue": "github:huhuanming/node-mac-icloud-keyvalue#6de21d23d0143956424ef6c3cf93c3d272d71a88"
+    "node-mac-icloud-keyvalue": "https://github.com/OneKeyHQ/jcore-react-native.git#6de21d23d0143956424ef6c3cf93c3d272d71a88"
   }
 }
