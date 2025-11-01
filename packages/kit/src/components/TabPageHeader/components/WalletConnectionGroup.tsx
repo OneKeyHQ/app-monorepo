@@ -16,6 +16,8 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
+import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
+import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
 
 function AccountSelectorTriggerWithSpotlight({
   isFocus,
@@ -77,7 +79,16 @@ export function WalletConnectionGroup({
   showAccountInfo = true,
 }: IWalletConnectionGroupProps) {
   const { gtMd } = useMedia();
+  const {
+    activeAccount: { wallet },
+  } = useActiveAccount({
+    num: 0,
+  });
   const [isFocus, setIsFocus] = useState(false);
+
+  const isNonBackedUpWallet = useMemo(() => {
+    return wallet && wallet.type === WALLET_TYPE_HD && !wallet.backuped;
+  }, [wallet]);
 
   useListenTabFocusState(
     ETabRoutes.Home,
@@ -107,14 +118,14 @@ export function WalletConnectionGroup({
         linkNetworkId={linkNetworkId}
         hideAddress={hideAddress}
       />
-      {shouldShowNetworkSelector ? (
+      {shouldShowNetworkSelector && !isNonBackedUpWallet ? (
         <NetworkSelectorTriggerHome
           num={0}
           recordNetworkHistoryEnabled
           hideOnNoAccount
         />
       ) : null}
-      {showAccountInfo ? (
+      {showAccountInfo && !isNonBackedUpWallet ? (
         <AccountSelectorActiveAccountHome
           num={0}
           showAccountAddress={false}
