@@ -1,4 +1,4 @@
-import type { ILocaleSymbol } from '@onekeyhq/shared/src/locale';
+import { ETranslations, ILocaleSymbol } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import { EHardwareTransportType, EOnekeyDomain } from '@onekeyhq/shared/types';
@@ -24,6 +24,7 @@ function getDefaultHardwareTransportType(): EHardwareTransportType {
 
 export type ISettingsPersistAtom = {
   theme: 'light' | 'dark' | 'system';
+  selectedBrowserTab: ETranslations;
   lastLocale: ILocaleSymbol;
   locale: ILocaleSymbol;
   version: string;
@@ -67,6 +68,7 @@ export type ISettingsPersistAtom = {
 export const settingsAtomInitialValue: ISettingsPersistAtom = {
   theme: 'system',
   lastLocale: 'system',
+  selectedBrowserTab: ETranslations.global_browser,
   locale: 'system',
   version: process.env.VERSION ?? '1.0.0',
   buildNumber: process.env.BUILD_NUMBER ?? '2022010100',

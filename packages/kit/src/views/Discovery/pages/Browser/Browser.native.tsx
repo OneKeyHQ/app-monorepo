@@ -20,6 +20,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useListenTabFocusState from '@onekeyhq/kit/src/hooks/useListenTabFocusState';
 import { useBrowserTabActions } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import { useTakeScreenshot } from '@onekeyhq/kit/src/views/Discovery/hooks/useTakeScreenshot';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -39,6 +40,7 @@ import {
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/debugUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
+import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { EarnHomeWithProvider } from '../../../Earn/EarnHome';
 import CustomHeaderTitle from '../../components/CustomHeaderTitle';
 import { HandleRebuildBrowserData } from '../../components/HandleData/HandleRebuildBrowserTabData';
@@ -133,21 +135,27 @@ function MobileBrowser() {
       RouteProp<ITabDiscoveryParamList, ETabDiscoveryRoutes.TabDiscovery>
     >();
   const { defaultTab } = route?.params || {};
-
+  const [settings] = useSettingsPersistAtom();
   const [selectedHeaderTab, setSelectedHeaderTab] = useState<ETranslations>(
-    defaultTab || ETranslations.global_browser,
+    defaultTab || settings.selectedBrowserTab || ETranslations.global_browser,
   );
+  const handleChangeHeaderTab = useCallback(async (tab: ETranslations) => {
+    setSelectedHeaderTab(tab);
+    setTimeout(async () => {
+      await backgroundApiProxy.serviceSetting.setSelectedBrowserTab(tab);
+    }, 150);
+  }, []);
   const previousDefaultTab = useRef<ETranslations | undefined>(defaultTab);
   useEffect(() => {
     if (previousDefaultTab.current !== defaultTab) {
       previousDefaultTab.current = defaultTab;
       if (defaultTab) {
-        setTimeout(() => {
-          setSelectedHeaderTab(defaultTab);
+        setTimeout(async () => {
+          await handleChangeHeaderTab(defaultTab);
         }, 100);
       }
     }
-  }, [defaultTab]);
+  }, [defaultTab, handleChangeHeaderTab]);
   const { tabs } = useWebTabs();
   const { activeTabId } = useActiveTabId();
   const { closeWebTab, setCurrentWebTab } = useBrowserTabActions().current;
@@ -388,7 +396,7 @@ function MobileBrowser() {
             sceneName={EAccountSelectorSceneName.home}
             tabRoute={ETabRoutes.Discovery}
             selectedHeaderTab={selectedHeaderTab}
-            onSelectHeaderTab={setSelectedHeaderTab}
+            onSelectHeaderTab={handleChangeHeaderTab}
           />
         </YStack>
       ) : null}
