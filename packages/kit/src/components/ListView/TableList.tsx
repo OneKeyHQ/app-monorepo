@@ -86,6 +86,13 @@ export interface ITableListProps<T> {
   // Row styling
   rowGap?: string;
   enableDrillIn?: boolean;
+
+  // Actions column
+  actions?: {
+    render: (item: T, index: number) => ReactNode;
+    width?: number | string; // Fixed width for actions column
+    align?: 'flex-start' | 'center' | 'flex-end';
+  };
 }
 
 function parseFlexShorthand(flex: string): {
@@ -198,6 +205,7 @@ interface ITableListHeaderProps<T> {
   onSortChange?: (key: string, direction: 'asc' | 'desc') => void;
   rowGap?: string;
   enableDrillIn?: boolean;
+  actions?: ITableListProps<T>['actions'];
 }
 
 function TableListHeader<T>({
@@ -207,6 +215,7 @@ function TableListHeader<T>({
   onSortChange,
   rowGap,
   enableDrillIn,
+  actions,
 }: ITableListHeaderProps<T>) {
   const handleSort = useCallback(
     (columnKey: string) => {
@@ -259,6 +268,13 @@ function TableListHeader<T>({
           </Stack>
         );
       })}
+      {actions ? (
+        <Stack
+          width={actions.width ?? 'auto'}
+          flexShrink={0}
+          ai={actions.align ?? 'flex-end'}
+        />
+      ) : null}
       {enableDrillIn ? <Stack flexGrow={1} flexBasis={0} /> : null}
     </ListItem>
   );
@@ -325,6 +341,7 @@ interface ITableListRowProps<T> {
   onPress?: (item: T, index: number) => void | Promise<void>;
   rowGap?: string;
   enableDrillIn?: boolean;
+  actions?: ITableListProps<T>['actions'];
 }
 
 function TableListRow<T>({
@@ -334,6 +351,7 @@ function TableListRow<T>({
   onPress,
   rowGap,
   enableDrillIn,
+  actions,
 }: ITableListRowProps<T>) {
   return (
     <ListItem
@@ -346,6 +364,15 @@ function TableListRow<T>({
           {column.render(item, index)}
         </Stack>
       ))}
+      {actions ? (
+        <Stack
+          width={actions.width ?? 'auto'}
+          flexShrink={0}
+          ai={actions.align ?? 'flex-end'}
+        >
+          {actions.render(item, index)}
+        </Stack>
+      ) : null}
       {enableDrillIn ? (
         <Stack flexGrow={1} flexBasis={0} ai="flex-end">
           <Icon
@@ -383,6 +410,7 @@ function BasicTableList<T>({
   SkeletonComponent,
   rowGap,
   enableDrillIn,
+  actions,
 }: ITableListProps<T>) {
   const media = useMedia();
 
@@ -452,6 +480,7 @@ function BasicTableList<T>({
           onSortChange={handleSortChange}
           rowGap={rowGap}
           enableDrillIn={enableDrillIn}
+          actions={actions}
         />
       );
     }
@@ -466,6 +495,7 @@ function BasicTableList<T>({
     handleSortChange,
     rowGap,
     enableDrillIn,
+    actions,
   ]);
 
   // Render item function
@@ -485,6 +515,7 @@ function BasicTableList<T>({
           onPress={onPressRow}
           rowGap={rowGap}
           enableDrillIn={enableDrillIn}
+          actions={actions}
         />
       );
     },
@@ -495,6 +526,7 @@ function BasicTableList<T>({
       onPressRow,
       rowGap,
       enableDrillIn,
+      actions,
     ],
   );
 

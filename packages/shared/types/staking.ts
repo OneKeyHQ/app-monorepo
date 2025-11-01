@@ -1080,6 +1080,10 @@ export interface IInvestment {
   rewardNum?: IEarnRewardNum;
   rewards?: string;
   vault?: string;
+  vaultName?: string;
+  networkInfo?: {
+    logoURI: string;
+  };
 }
 export interface IEarnInvestmentItem {
   name: string;

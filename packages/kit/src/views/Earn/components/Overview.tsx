@@ -3,6 +3,7 @@ import { useCallback, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
+  Badge,
   Button,
   IconButton,
   NumberSizeableText,
@@ -58,20 +59,20 @@ export const Overview = ({
     () => earnAccount?.[totalFiatMapKey]?.earnings24h || '0',
     [earnAccount, totalFiatMapKey],
   );
-  // const hasClaimableAssets = useMemo(
-  //   () => earnAccount?.[totalFiatMapKey]?.hasClaimableAssets || false,
-  //   [earnAccount, totalFiatMapKey],
-  // );
-  // const isOverviewLoaded = useMemo(
-  //   () => earnAccount?.[totalFiatMapKey]?.isOverviewLoaded || false,
-  //   [earnAccount, totalFiatMapKey],
-  // );
-  const evmNetworkId = useMemo(() => getNetworkIdsMap().eth, []);
-  const shouldShowReferralBonus = useMemo(() => {
-    return !!earnAccount?.[totalFiatMapKey]?.accounts.find(
-      (item) => item.networkId === evmNetworkId,
-    );
-  }, [earnAccount, totalFiatMapKey, evmNetworkId]);
+  const hasClaimableAssets = useMemo(
+    () => earnAccount?.[totalFiatMapKey]?.hasClaimableAssets || false,
+    [earnAccount, totalFiatMapKey],
+  );
+  const isOverviewLoaded = useMemo(
+    () => earnAccount?.[totalFiatMapKey]?.isOverviewLoaded || false,
+    [earnAccount, totalFiatMapKey],
+  );
+  // const evmNetworkId = useMemo(() => getNetworkIdsMap().eth, []);
+  // const shouldShowReferralBonus = useMemo(() => {
+  //   return !!earnAccount?.[totalFiatMapKey]?.accounts.find(
+  //     (item) => item.networkId === evmNetworkId,
+  //   );
+  // }, [earnAccount, totalFiatMapKey, evmNetworkId]);
   const navigation = useAppNavigation();
   const onPress = useCallback(() => {
     navigation.pushModal(EModalRoutes.StakingModal, {
@@ -192,7 +193,33 @@ export const Overview = ({
       </XStack>
 
       {/* details button */}
-      {shouldShowReferralBonus ? (
+      {!isOverviewLoaded ? null : (
+        <Button
+          childrenAsText={!hasClaimableAssets}
+          onPress={onPress}
+          variant="tertiary"
+          iconAfter="ChevronRightOutline"
+          position="absolute"
+          jc="center"
+          top={0}
+          right="$4"
+          $gtLg={{
+            right: '$8',
+            top: '$8',
+          }}
+        >
+          {hasClaimableAssets ? (
+            <Badge badgeType="info" badgeSize="sm" userSelect="none">
+              <Badge.Text>
+                {intl.formatMessage({ id: ETranslations.earn_claimable })}
+              </Badge.Text>
+            </Badge>
+          ) : (
+            intl.formatMessage({ id: ETranslations.global_details })
+          )}
+        </Button>
+      )}
+      {/* {shouldShowReferralBonus ? (
         <Button
           onPress={onPress}
           variant="tertiary"
@@ -208,7 +235,7 @@ export const Overview = ({
         >
           {intl.formatMessage({ id: ETranslations.earn_referral_bonus })}
         </Button>
-      ) : null}
+      ) : null} */}
     </YStack>
   );
 };

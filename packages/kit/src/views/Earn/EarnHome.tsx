@@ -43,6 +43,9 @@ import { Overview } from './components/Overview';
 import { EarnProviderMirror } from './EarnProviderMirror';
 import { EarnNavigation } from './earnUtils';
 import { useAllNetworkId } from './hooks/useAllNetworkId';
+import { useBannerInfo } from './hooks/useBannerInfo';
+import { useFAQListInfo } from './hooks/useFAQListInfo';
+import { usePortfolioInfo } from './hooks/usePortfolioInfo';
 
 import type { LayoutChangeEvent } from 'react-native';
 
@@ -122,45 +125,9 @@ function BasicEarnHome() {
       },
     );
 
-  const { result: earnBanners, run: refetchBanners } = usePromiseResult(
-    async () => {
-      const bannerResult =
-        await backgroundApiProxy.serviceStaking.fetchEarnHomePageData();
-      return (
-        bannerResult?.map((i) => ({
-          ...i,
-          imgUrl: i.src,
-          title: i.title || '',
-          titleTextProps: {
-            size: '$headingMd',
-          },
-        })) || []
-      );
-    },
-    [],
-    {
-      revalidateOnReconnect: true,
-      revalidateOnFocus: true,
-    },
-  );
-
-  const {
-    result: faqList,
-    isLoading: isFaqLoading,
-    run: refetchFAQ,
-  } = usePromiseResult(
-    async () => {
-      const result =
-        await backgroundApiProxy.serviceStaking.getFAQListForHome();
-      return result;
-    },
-    [],
-    {
-      initResult: [],
-      watchLoading: true,
-      revalidateOnFocus: true,
-    },
-  );
+  const { earnBanners, refetchBanners } = useBannerInfo();
+  const { faqList, isFaqLoading, refetchFAQ } = useFAQListInfo();
+  const { portfolioInfo, isLoading: isPortfolioLoading } = usePortfolioInfo();
 
   const navigation = useAppNavigation();
 
@@ -325,6 +292,8 @@ function BasicEarnHome() {
             assetTabData={assetTabData}
             faqList={faqList || []}
             isFaqLoading={isFaqLoading}
+            portfolioInfo={portfolioInfo?.earnInvestmentItems || []}
+            isPortfolioLoading={isPortfolioLoading}
             isLoading={isLoading}
             refreshOverViewData={refreshOverViewData}
             containerProps={{
@@ -417,6 +386,8 @@ function BasicEarnHome() {
             assetTabData={assetTabData}
             faqList={faqList || []}
             isFaqLoading={isFaqLoading}
+            portfolioInfo={portfolioInfo?.earnInvestmentItems || []}
+            isPortfolioLoading={isPortfolioLoading}
           />
         </YStack>
       </YStack>

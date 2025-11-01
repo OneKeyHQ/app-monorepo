@@ -1,0 +1,243 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useEarnActions } from '@onekeyhq/kit/src/states/jotai/contexts/earn/actions';
+import { MorphoBundlerContract } from '@onekeyhq/shared/src/consts/addresses';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
+import type { IFeeUTXO } from '@onekeyhq/shared/types/fee';
+import { EApproveType, EEarnLabels } from '@onekeyhq/shared/types/staking';
+import type {
+  IApproveConfirmFnParams,
+  IEarnTokenInfo,
+  IProtocolInfo,
+} from '@onekeyhq/shared/types/staking';
+import type { IToken } from '@onekeyhq/shared/types/token';
+
+import { UniversalStake } from '../../../components/UniversalStake';
+import { useUniversalStake } from '../../../hooks/useUniversalHooks';
+
+export const StakeSection = ({
+  accountId,
+  networkId,
+  tokenInfo,
+  protocolInfo,
+}: {
+  accountId: string;
+  networkId: string;
+  tokenInfo?: IEarnTokenInfo;
+  protocolInfo?: IProtocolInfo;
+}) => {
+  const { result: estimateFeeUTXO } = usePromiseResult(async () => {
+    if (!networkUtils.isBTCNetwork(networkId)) {
+      return;
+    }
+    const account = await backgroundApiProxy.serviceAccount.getAccount({
+      accountId,
+      networkId,
+    });
+    const accountAddress = account.address;
+    const result = await backgroundApiProxy.serviceGas.estimateFee({
+      accountId,
+      networkId,
+      accountAddress,
+    });
+    return result.feeUTXO?.filter(
+      (o): o is Required<Pick<IFeeUTXO, 'feeRate'>> => o.feeRate !== undefined,
+    );
+  }, [accountId, networkId]);
+
+  const [btcFeeRate, setBtcFeeRate] = useState<string | undefined>();
+  const btcFeeRateInit = useRef<boolean>(false);
+  const { removePermitCache } = useEarnActions().current;
+
+  const onFeeRateChange = useMemo(() => {
+    if (
+      protocolInfo?.provider.toLowerCase() ===
+      EEarnProviderEnum.Babylon.toLowerCase()
+    ) {
+      return (value: string) => setBtcFeeRate(value);
+    }
+  }, [protocolInfo?.provider]);
+
+  useEffect(() => {
+    if (
+      estimateFeeUTXO &&
+      estimateFeeUTXO.length === 3 &&
+      !btcFeeRateInit.current
+    ) {
+      const [, normalFee] = estimateFeeUTXO;
+      setBtcFeeRate(normalFee.feeRate);
+      btcFeeRateInit.current = true;
+    }
+  }, [estimateFeeUTXO]);
+
+  const { result, isLoading } = usePromiseResult(
+    async () => {
+      if (protocolInfo?.approve?.approveTarget) {
+        // For vault-based providers, check allowance against vault address
+        const isVaultBased = earnUtils.isVaultBasedProvider({
+          providerName: protocolInfo.provider,
+        });
+
+        // Determine the correct spender address for allowance check
+        let spenderAddress = protocolInfo.approve.approveTarget;
+        if (protocolInfo.approve?.approveType === EApproveType.Permit) {
+          spenderAddress = MorphoBundlerContract;
+        } else if (isVaultBased) {
+          spenderAddress = protocolInfo.vault ?? '';
+        }
+
+        const { allowanceParsed } =
+          await backgroundApiProxy.serviceStaking.fetchTokenAllowance({
+            accountId,
+            networkId,
+            spenderAddress,
+            tokenAddress: tokenInfo?.token.address || '',
+          });
+
+        return { allowanceParsed };
+      }
+
+      return undefined;
+    },
+    [
+      accountId,
+      networkId,
+      protocolInfo?.approve?.approveTarget,
+      protocolInfo?.approve?.approveType,
+      protocolInfo?.provider,
+      protocolInfo?.vault,
+      tokenInfo?.token.address,
+    ],
+    {
+      watchLoading: true,
+    },
+  );
+
+  const handleStake = useUniversalStake({ accountId, networkId });
+  const appNavigation = useAppNavigation();
+
+  const onConfirm = useCallback(
+    async ({
+      amount,
+      approveType,
+      permitSignature,
+    }: IApproveConfirmFnParams) => {
+      const providerName = protocolInfo?.provider ?? '';
+      const token = tokenInfo?.token as IToken;
+      const symbol = tokenInfo?.token.symbol || '';
+
+      await handleStake({
+        amount,
+        approveType,
+        permitSignature,
+        symbol,
+        provider: providerName,
+        stakingInfo: {
+          label: EEarnLabels.Stake,
+          protocol: earnUtils.getEarnProviderName({
+            providerName,
+          }),
+          protocolLogoURI: protocolInfo?.providerDetail.logoURI,
+          send: { token, amount },
+          tags: [protocolInfo?.stakeTag || ''],
+        },
+        // TODO: remove term after babylon remove term
+        term: undefined,
+        feeRate: Number(btcFeeRate) > 0 ? Number(btcFeeRate) : undefined,
+        protocolVault: earnUtils.isVaultBasedProvider({
+          providerName,
+        })
+          ? protocolInfo?.vault
+          : undefined,
+        onSuccess: async (txs) => {
+          appNavigation.pop();
+          defaultLogger.staking.page.staking({
+            token,
+            stakingProtocol: providerName,
+          });
+          const tx = txs[0];
+          if (approveType === EApproveType.Permit && permitSignature) {
+            removePermitCache({
+              accountId,
+              networkId,
+              tokenAddress: tokenInfo?.token.address || '',
+              amount,
+            });
+          }
+          if (
+            tx &&
+            providerName.toLowerCase() ===
+              EEarnProviderEnum.Babylon.toLowerCase()
+          ) {
+            await backgroundApiProxy.serviceStaking.addBabylonTrackingItem({
+              txId: tx.decodedTx.txid,
+              action: 'stake',
+              createAt: Date.now(),
+              accountId,
+              networkId,
+              amount,
+              // TODO: remove term after babylon remove term
+              minStakeTerm: undefined,
+            });
+          }
+          // onSuccess?.();
+        },
+      });
+    },
+    [
+      tokenInfo?.token,
+      handleStake,
+      protocolInfo?.providerDetail.logoURI,
+      protocolInfo?.vault,
+      btcFeeRate,
+      appNavigation,
+      removePermitCache,
+      accountId,
+      networkId,
+      protocolInfo?.provider,
+      protocolInfo?.stakeTag,
+    ],
+  );
+
+  if (isLoading) {
+    // FIXME: ...
+    return null;
+  }
+
+  return (
+    <UniversalStake
+      accountId={accountId}
+      networkId={networkId}
+      decimals={tokenInfo?.token?.decimals}
+      balance={tokenInfo?.balanceParsed ?? ''}
+      tokenImageUri={tokenInfo?.token.logoURI}
+      tokenSymbol={tokenInfo?.token.symbol}
+      providerLogo={protocolInfo?.providerDetail.logoURI}
+      providerName={protocolInfo?.provider}
+      onConfirm={onConfirm}
+      approveType={protocolInfo?.approve?.approveType}
+      currentAllowance={result?.allowanceParsed}
+      minTransactionFee={protocolInfo?.minTransactionFee}
+      estimateFeeUTXO={estimateFeeUTXO}
+      onFeeRateChange={onFeeRateChange}
+      tokenInfo={tokenInfo}
+      protocolInfo={protocolInfo}
+      approveTarget={{
+        accountId,
+        networkId,
+        spenderAddress: earnUtils.isVaultBasedProvider({
+          providerName: protocolInfo?.provider || '',
+        })
+          ? protocolInfo?.vault ?? ''
+          : protocolInfo?.approve?.approveTarget ?? '',
+        token: tokenInfo?.token,
+      }}
+    />
+  );
+};
