@@ -23,6 +23,7 @@ import { LiteCardPages } from '../../views/LiteCard/router';
 import { ManualBackupRouter } from '../../views/ManualBackup/router';
 import { ModalMarketStack } from '../../views/Market/router';
 import { ModalNotificationsRouter } from '../../views/Notifications/router';
+import { OnboardingRouter } from '../../views/Onboarding/router';
 import { OnboardingRouterV2 } from '../../views/Onboardingv2/router';
 import { ModalPerpStack } from '../../views/Perp/router';
 import { PrimeRouter } from '../../views/Prime/router';
@@ -56,7 +57,7 @@ const onboardingRouterConfig = {
     await backgroundApiProxy.serviceV4Migration.clearV4MigrationPayload();
   },
   name: EModalRoutes.OnboardingModal,
-  children: OnboardingRouterV2,
+  children: OnboardingRouter,
 };
 
 const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
@@ -101,6 +102,7 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
       );
     },
   },
+  onboardingRouterConfig,
   {
     name: EModalRoutes.PrimeModal,
     children: PrimeRouter,
@@ -226,7 +228,6 @@ if (platformEnv.isDev) {
 export const modalRouter = router;
 
 export const fullModalRouter = [
-  onboardingRouterConfig,
   {
     name: EModalRoutes.AppUpdateModal,
     children: AppUpdateRouter,
