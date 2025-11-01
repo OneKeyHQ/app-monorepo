@@ -1,7 +1,8 @@
 import { StyleSheet } from 'react-native';
 
 import type { IKeyOfIcons } from '@onekeyhq/components';
-import { Icon, Page, SizableText, XStack, YStack } from '@onekeyhq/components';
+import { Icon, Page, SizableText, YStack } from '@onekeyhq/components';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes';
 
@@ -59,10 +60,8 @@ export default function AddExistingWallet() {
         <OnboardingLayout.Header title="Add Existing Wallet" />
         <OnboardingLayout.Body>
           {DATA.map(({ title, icon, description, onPress }) => (
-            <XStack
+            <ListItem
               key={title}
-              animation="quick"
-              animateOnly={['transform', 'backgroundColor']}
               gap="$3"
               bg="$bg"
               $platform-web={{
@@ -80,21 +79,8 @@ export default function AddExistingWallet() {
               borderRadius="$5"
               borderCurve="continuous"
               p="$3"
-              alignItems="center"
-              hoverStyle={{
-                bg: '$bgSubdued',
-              }}
-              pressStyle={{
-                scale: 0.985,
-              }}
+              m="$0"
               onPress={onPress}
-              focusable
-              focusVisibleStyle={{
-                outlineColor: '$focusRing',
-                outlineStyle: 'solid',
-                outlineWidth: 2,
-                outlineOffset: 2,
-              }}
               userSelect="none"
             >
               <YStack
@@ -118,7 +104,7 @@ export default function AddExistingWallet() {
                 ) : null}
               </YStack>
               <Icon name="ChevronRightSmallOutline" color="$iconDisabled" />
-            </XStack>
+            </ListItem>
           ))}
         </OnboardingLayout.Body>
       </OnboardingLayout>

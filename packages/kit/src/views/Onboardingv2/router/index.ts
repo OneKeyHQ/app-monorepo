@@ -22,6 +22,9 @@ const ConnectYourDevice = LazyLoadPage(
 );
 const CheckAndUpdate = LazyLoadPage(() => import('../pages/CheckAndUpdate'));
 const ICloudBackup = LazyLoadPage(() => import('../pages/ICloudBackup'));
+const ICloudBackupDetails = LazyLoadPage(
+  () => import('../pages/ICloudBackupDetails'),
+);
 
 const hiddenHeaderOptions = {
   headerShown: false,
@@ -73,6 +76,11 @@ export const OnboardingRouterV2: IModalFlowNavigatorConfig<
   {
     name: EOnboardingPagesV2.ICloudBackup,
     component: ICloudBackup,
+    options: hiddenHeaderOptions,
+  },
+  {
+    name: EOnboardingPagesV2.ICloudBackupDetails,
+    component: ICloudBackupDetails,
     options: hiddenHeaderOptions,
   },
 ];

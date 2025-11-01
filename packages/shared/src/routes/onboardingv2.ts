@@ -14,6 +14,7 @@ export enum EOnboardingPagesV2 {
   CheckAndUpdate = 'CheckAndUpdate',
   ImportPhraseOrPrivateKey = 'ImportPhraseOrPrivateKey',
   ICloudBackup = 'ICloudBackup',
+  ICloudBackupDetails = 'ICloudBackupDetails',
 }
 
 export type IOnboardingParamListV2 = {
@@ -30,4 +31,7 @@ export type IOnboardingParamListV2 = {
   [EOnboardingPagesV2.CheckAndUpdate]: undefined;
   [EOnboardingPagesV2.ImportPhraseOrPrivateKey]: undefined;
   [EOnboardingPagesV2.ICloudBackup]: undefined;
+  [EOnboardingPagesV2.ICloudBackupDetails]: {
+    backupTime: string;
+  };
 };
