@@ -11,7 +11,7 @@ import { readCleartextMessage, readKey } from 'openpgp';
 import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
 import { PUBLIC_KEY } from '@onekeyhq/desktop/app/constant/gpg';
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
-import { ETranslations, i18nText } from '@onekeyhq/desktop/app/i18n';
+import { ElectronTranslations, i18nText } from '@onekeyhq/desktop/app/i18n';
 import * as store from '@onekeyhq/desktop/app/libs/store';
 import { b2t, toHumanReadable } from '@onekeyhq/desktop/app/libs/utils';
 import type { IInstallUpdateParams } from '@onekeyhq/desktop/app/preload';
@@ -465,7 +465,7 @@ class DesktopApiAppUpdate {
         return sha256;
       }
       throw new OneKeyLocalError(
-        ETranslations.update_signature_verification_failed_alert_text,
+        ElectronTranslations.update_signature_verification_failed_alert_text,
       );
     } catch (error) {
       logger.error(
@@ -482,8 +482,8 @@ class DesktopApiAppUpdate {
         lowerCaseMessage.includes('ascii armor integrity check failed');
       throw new OneKeyLocalError(
         isInValid
-          ? ETranslations.update_signature_verification_failed_alert_text
-          : ETranslations.update_installation_package_possibly_compromised,
+          ? ElectronTranslations.update_signature_verification_failed_alert_text
+          : ElectronTranslations.update_installation_package_possibly_compromised,
       );
     }
   }
@@ -527,7 +527,7 @@ class DesktopApiAppUpdate {
     } catch (error) {
       logger.info('auto-updater', 'verifyFile error', error);
       throw new OneKeyLocalError(
-        ETranslations.update_installation_package_possibly_compromised,
+        ElectronTranslations.update_installation_package_possibly_compromised,
       );
     }
     return true;
@@ -549,11 +549,11 @@ class DesktopApiAppUpdate {
       .showMessageBox({
         type: 'question',
         buttons: [
-          i18nText(ETranslations.update_install_and_restart),
-          i18nText(ETranslations.global_later),
+          i18nText(ElectronTranslations.update_install_and_restart),
+          i18nText(ElectronTranslations.global_later),
         ],
         defaultId: 0,
-        message: i18nText(ETranslations.update_new_update_downloaded),
+        message: i18nText(ElectronTranslations.update_new_update_downloaded),
       })
       .then((selection) => {
         if (selection.response === 0) {

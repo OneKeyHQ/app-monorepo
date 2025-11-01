@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 
+import { rootNavigationRef } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -7,8 +8,11 @@ import type { IOnboardingParamList } from '@onekeyhq/shared/src/routes';
 import {
   EModalRoutes,
   EOnboardingPages,
+  EOnboardingPagesV2,
+  EOnboardingV2Routes,
   ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 export const isOnboardingFromExtensionUrl = () => {
   // eslint-disable-next-line unicorn/prefer-global-this
@@ -18,17 +22,29 @@ export const isOnboardingFromExtensionUrl = () => {
   return false;
 };
 
-export const useToOnBoardingPage = () => {
+async function popToTop(navigation: ReturnType<typeof useAppNavigation>) {
+  const state = rootNavigationRef.current?.getState();
+  if (state?.routes?.length && state.routes.length > 1) {
+    navigation.pop();
+    await timerUtils.wait(350);
+    const newState = rootNavigationRef.current?.getState();
+    if (newState?.routes?.length && newState.routes.length > 1) {
+      await popToTop(navigation);
+    }
+  }
+  await timerUtils.wait(350);
+}
+
+export const useToOnBoardingPage = (newOnboarding?: boolean) => {
   const navigation = useAppNavigation();
 
   return useMemo(
     () =>
       async ({
-        isFullModal = false,
         params,
       }: {
         isFullModal?: boolean;
-        params?: IOnboardingParamList[EOnboardingPages.GetStarted];
+        params?: IOnboardingParamList[EOnboardingPagesV2.GetStarted];
       } = {}) => {
         if (platformEnv.isWebDappMode) {
           navigation.pushModal(EModalRoutes.OnboardingModal, {
@@ -43,13 +59,16 @@ export const useToOnBoardingPage = () => {
         ) {
           await backgroundApiProxy.serviceApp.openExtensionExpandTab({
             routes: [
-              isFullModal ? ERootRoutes.iOSFullScreen : ERootRoutes.Modal,
-              EModalRoutes.OnboardingModal,
-              EOnboardingPages.GetStarted,
+              newOnboarding ? ERootRoutes.Onboarding : ERootRoutes.Modal,
+              newOnboarding
+                ? EOnboardingV2Routes.OnboardingV2
+                : EModalRoutes.OnboardingModal,
+              newOnboarding
+                ? EOnboardingPagesV2.GetStarted
+                : EOnboardingPages.GetStarted,
             ],
             params: {
               ...params,
-              isFullModal,
               fromExt: true,
             },
           });
@@ -57,18 +76,27 @@ export const useToOnBoardingPage = () => {
             window.close();
           }
         } else {
-          navigation[isFullModal ? 'pushFullModal' : 'pushModal'](
-            EModalRoutes.OnboardingModal,
+          if (platformEnv.isNative) {
+            await popToTop(navigation);
+          }
+          navigation.navigate(
+            newOnboarding ? ERootRoutes.Onboarding : ERootRoutes.Modal,
             {
-              screen: EOnboardingPages.GetStarted,
+              screen: newOnboarding
+                ? EOnboardingV2Routes.OnboardingV2
+                : EModalRoutes.OnboardingModal,
               params: {
-                ...params,
-                isFullModal,
+                screen: newOnboarding
+                  ? EOnboardingPagesV2.GetStarted
+                  : EOnboardingPages.GetStarted,
+                params: {
+                  ...params,
+                },
               },
             },
           );
         }
       },
-    [navigation],
+    [navigation, newOnboarding],
   );
 };

@@ -2684,7 +2684,8 @@
   "referral.your_referred_wallets_1address": "1개 주소",
   "referral.your_referred_wallets_details": "세부사항",
   "referral.your_referred_wallets_more_address": "{amount}개의 주소",
-  "referral_promo_title": "Join the OneKey Referral Program",
+  "referral_code_tutorial_label": "추천 코드는 어떻게 받나요?",
+  "referral_promo_title": "OneKey 추천 프로그램에 참여하세요",
   "remove_account_desc": "이 계정은 삭제될 것입니다.",
   "remove_device": "장치 제거",
   "remove_device_desc": "이 작업은 이 하드웨어 지갑을 OneKey App에서 연결 해제합니다. 언제든지 App에 다시 연결할 수 있습니다.",
@@ -3645,5 +3646,8 @@
   "wallet_backup.backup_warning": "<strong>지갑을 백업하세요</strong> — 기기 분실 시 자산을 보호하세요",
   "wallet_backup.save_recovery_phrase": "복구 구문 저장",
   "wallet_backup.status_not_backed_up": "백업되지 않음",
+  "wallet_empty_article_deposit": "암호화폐를 어떻게 입금하나요?",
+  "wallet_empty_article_deposit_faq": "입금이 아직 안 들어왔나요?",
+  "wallet_empty_article_trade": "OneKey에서 암호화폐를 거래하려면 어떻게 하나요?",
   "word": "워드"
 }
