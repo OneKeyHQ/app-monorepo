@@ -9,6 +9,7 @@ import {
   useCurrencyPersistAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
 import {
   HISTORY_PAGE_SIZE,
   POLLING_DEBOUNCE_INTERVAL,
@@ -395,6 +396,10 @@ function TxHistoryListContainer() {
   useEffect(() => {
     void initAddressesInfoDataFromStorage();
   }, [initAddressesInfoDataFromStorage]);
+
+  if (wallet && wallet.type === WALLET_TYPE_HD && !wallet.backuped) {
+    return null;
+  }
 
   return (
     <TxHistoryListView

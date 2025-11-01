@@ -5,6 +5,7 @@ import type {
   IEventActiveAssetDataParameters,
   IEventL2BookParameters,
   IEventUserFillsParameters,
+  IEventUserNonFundingLedgerUpdatesParameters,
   IEventWebData2Parameters,
   IHex,
   IPerpsSubscriptionParams,
@@ -35,6 +36,10 @@ export const SUBSCRIPTION_TYPE_INFO: {
     priority: 2,
   },
   [ESubscriptionType.USER_FILLS]: {
+    eventType: EPerpsSubscriptionCategory.ACCOUNT,
+    priority: 2,
+  },
+  [ESubscriptionType.USER_NON_FUNDING_LEDGER_UPDATES]: {
     eventType: EPerpsSubscriptionCategory.ACCOUNT,
     priority: 2,
   },
@@ -76,6 +81,7 @@ export interface ISubscriptionState {
   currentSymbol: string;
   isConnected: boolean;
   l2BookOptions?: IL2BookOptions | null;
+  enableLedgerUpdates?: boolean;
 }
 
 export interface ISubscriptionDiff {
@@ -178,6 +184,18 @@ export function calculateRequiredSubscriptions(
         params: userFillsParams,
       }),
     );
+
+    if (state.enableLedgerUpdates) {
+      const ledgerUpdatesParams: IEventUserNonFundingLedgerUpdatesParameters = {
+        user: state.currentUser,
+      };
+      specs.push(
+        buildSubscriptionSpec({
+          type: ESubscriptionType.USER_NON_FUNDING_LEDGER_UPDATES,
+          params: ledgerUpdatesParams,
+        }),
+      );
+    }
 
     if (state.currentSymbol) {
       const activeAssetDataParams: IEventActiveAssetDataParameters = {

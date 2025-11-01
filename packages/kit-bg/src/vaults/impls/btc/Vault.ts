@@ -50,6 +50,7 @@ import {
 } from '@onekeyhq/core/src/utils/coinSelectUtils';
 import { BTC_TX_PLACEHOLDER_VSIZE } from '@onekeyhq/shared/src/consts/chainConsts';
 import {
+  BTCFreshAddressCanNotConnectDappError,
   InsufficientBalance,
   OneKeyInternalError,
   OneKeyLocalError,
@@ -76,9 +77,10 @@ import type {
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import type { IVerifyMessageParams } from '@onekeyhq/shared/types/message';
-import type {
-  IInternalDappTxParams,
-  IStakeTxBtcBabylon,
+import {
+  EInternalDappEnum,
+  type IInternalDappTxParams,
+  type IStakeTxBtcBabylon,
 } from '@onekeyhq/shared/types/staking';
 import type { IDecodedTx, IDecodedTxAction } from '@onekeyhq/shared/types/tx';
 import {
@@ -1471,6 +1473,11 @@ export default class VaultBtc extends VaultBase {
   override async buildInternalDappEncodedTx(
     params: IInternalDappTxParams,
   ): Promise<IEncodedTxBtc> {
+    if (params.internalDappType === EInternalDappEnum.Staking) {
+      if (await this.isEnabledBtcFreshAddress()) {
+        throw new BTCFreshAddressCanNotConnectDappError();
+      }
+    }
     const { psbtHex } = params.internalDappTx as IStakeTxBtcBabylon;
     const network = await this.getNetwork();
     const formattedPsbtHex = formatPsbtHex(psbtHex);
@@ -1653,7 +1660,13 @@ export default class VaultBtc extends VaultBase {
     }
 
     const { enableBTCFreshAddress } = await settingsPersistAtom.get();
-    if (!enableBTCFreshAddress) {
+    if (
+      !accountUtils.isEnabledBtcFreshAddress({
+        networkId,
+        walletId: this.walletId,
+        enableBTCFreshAddress,
+      })
+    ) {
       return fallback;
     }
 
@@ -1817,12 +1830,14 @@ export default class VaultBtc extends VaultBase {
       path: checkIfValidPath(getBIP44Path(dbAccount, fallbackAddress)),
     };
 
-    const isHwOrHdWallet =
-      accountUtils.isHwWallet({ walletId: this.walletId }) ||
-      accountUtils.isHdWallet({ walletId: this.walletId });
     const isEnabledBtcFreshAddress = await this.isEnabledBtcFreshAddress();
-    const isBTCNetwork = networkUtils.isBTCNetwork(this.networkId);
-    if (!isHwOrHdWallet || !isEnabledBtcFreshAddress || !isBTCNetwork) {
+    if (
+      !accountUtils.isEnabledBtcFreshAddress({
+        enableBTCFreshAddress: isEnabledBtcFreshAddress,
+        networkId: this.networkId,
+        walletId: this.walletId,
+      })
+    ) {
       return fallback;
     }
 

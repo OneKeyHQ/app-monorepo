@@ -480,6 +480,7 @@ function BaseNotificationList() {
                     isVersionCompatible(item.body.extras?.miniBundlerVersion)
                   ) {
                     void notificationsUtils.navigateToNotificationDetail({
+                      topicType: item.topicType,
                       navigation,
                       message: item.body,
                       notificationAccountId:
@@ -491,6 +492,7 @@ function BaseNotificationList() {
                         item?.body?.extras?.params?.msgId ||
                         item?.body?.extras?.msgId ||
                         '',
+                      isRead: !!item.readed,
                     });
                     setTimeout(() => {
                       if (!item.readed) {

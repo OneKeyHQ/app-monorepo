@@ -34,7 +34,8 @@ export function PerpContentFooter() {
           <Stack flex={1} />
           <Image
             source={poweredByHyperliquidLogo}
-            size={170}
+            w={145}
+            h={25}
             resizeMode="contain"
           />
         </XStack>

@@ -3,7 +3,7 @@ import { useCallback, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Tabs, YStack } from '@onekeyhq/components';
-import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { isHoldersTabSupported } from '@onekeyhq/shared/src/consts/marketConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   NUMBER_FORMATTER,
@@ -46,10 +46,6 @@ export function MobileInformationTabs({
   const { tokenAddress, networkId, tokenDetail } = useTokenDetail();
   const { handleTabChange } = useBottomTabAnalytics();
 
-  const shouldShowHolders = useMemo(() => {
-    return networkId === getNetworkIdsMap().sol;
-  }, [networkId]);
-
   const holdersTabName = useMemo(() => {
     const baseTitle = intl.formatMessage({
       id: ETranslations.dexmarket_holders,
@@ -65,6 +61,9 @@ export function MobileInformationTabs({
   }, [intl, tokenDetail?.holders]);
 
   const tabs = useMemo(() => {
+    // Check if current network supports holders tab
+    const shouldShowHoldersTab = isHoldersTabSupported(networkId);
+
     const items = [
       <Tabs.Tab
         key="transactions"
@@ -78,23 +77,14 @@ export function MobileInformationTabs({
           onScrollEnd={onScrollEnd}
         />
       </Tabs.Tab>,
-    ];
-    if (shouldShowHolders) {
-      items.push(
+      shouldShowHoldersTab && (
         <Tabs.Tab key="holders" name={holdersTabName}>
           <Holders tokenAddress={tokenAddress} networkId={networkId} />
-        </Tabs.Tab>,
-      );
-    }
+        </Tabs.Tab>
+      ),
+    ].filter(Boolean);
     return items;
-  }, [
-    intl,
-    tokenAddress,
-    networkId,
-    onScrollEnd,
-    shouldShowHolders,
-    holdersTabName,
-  ]);
+  }, [intl, tokenAddress, networkId, onScrollEnd, holdersTabName]);
 
   const renderTabBar = useCallback(({ ...props }: any) => {
     return <MobileInformationTabsHeader {...props} />;

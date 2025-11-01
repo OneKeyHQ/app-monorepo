@@ -736,14 +736,6 @@ async function createMainWindow() {
   };
 
   // WebUSB permission handlers - Enable WebUSB support for hardware wallet connections
-  browserWindow.webContents.session.setPermissionCheckHandler(
-    (webContents, permission) => {
-      if (permission === 'usb') {
-        return true;
-      }
-      return false;
-    },
-  );
 
   browserWindow.webContents.session.setDevicePermissionHandler((details) => {
     if (details.deviceType === 'usb') {
@@ -820,10 +812,17 @@ async function createMainWindow() {
         // resolve iframe path
         if (isJsSdkFile && isIFrameHtml) {
           if (useJsBundle && indexHtmlPath && bundleDirPath) {
-            const key = path.join('static', 'js-sdk', 'iframe.html');
+            let key = path.join('static', 'js-sdk', 'iframe.html');
             const filePath = path.join(bundleDirPath, key);
+            if (isWin) {
+              key = key.replace(/\\/g, '/');
+            }
             const sha512 = metadata[key];
             if (!checkFileSha512(filePath, sha512)) {
+              logger.info(
+                'checkFileHash error in js-sdk:',
+                `${key}:  ${filePath} not matched ${sha512}`,
+              );
               throw new OneKeyLocalError(`File ${key} sha512 mismatch`);
             }
             callback(filePath);
@@ -846,7 +845,15 @@ async function createMainWindow() {
         const url = request.url.substring(PROTOCOL.length + 1);
         if (useJsBundle && indexHtmlPath && bundleDirPath) {
           const decodedUrl = decodeURIComponent(url);
-          if (!decodedUrl.includes(bundleDirPath)) {
+          if (decodedUrl.includes(bundleDirPath)) {
+            const filePath = checkFileHash({
+              bundleDirPath,
+              metadata,
+              driveLetter,
+              url: decodedUrl.replace(bundleDirPath, ''),
+            });
+            callback(filePath);
+          } else {
             const filePath = checkFileHash({
               bundleDirPath,
               metadata,
@@ -854,9 +861,7 @@ async function createMainWindow() {
               url: decodedUrl,
             });
             callback(filePath);
-            return;
           }
-          callback(indexHtmlPath);
         } else {
           callback(path.join(__dirname, '..', 'build', url));
         }

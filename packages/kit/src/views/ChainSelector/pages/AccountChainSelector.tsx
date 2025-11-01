@@ -18,6 +18,8 @@ import {
   EChainSelectorPages,
   type IChainSelectorParamList,
 } from '@onekeyhq/shared/src/routes';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -68,19 +70,65 @@ const EditableAccountChainSelector = ({
   const {
     activeAccount: { network, account, wallet, indexedAccount },
   } = useActiveAccount({ num });
-  const { result: chainSelectorNetworks, run: refreshLocalData } =
-    usePromiseResult(
-      async () =>
+  const {
+    result: {
+      chainSelectorNetworks,
+      accountNetworkValues,
+      accountNetworkValueCurrency,
+    },
+    run: refreshLocalData,
+  } = usePromiseResult(
+    async () => {
+      const [_accountsValue, _chainSelectorNetworks] = await Promise.all([
+        backgroundApiProxy.serviceAccountProfile.getAllNetworkAccountsValue({
+          accounts: [{ accountId: indexedAccount?.id ?? account?.id ?? '' }],
+        }),
         backgroundApiProxy.serviceNetwork.getChainSelectorNetworksCompatibleWithAccountId(
           {
             accountId: account?.id,
             walletId: wallet?.id,
             networkIds,
+            useDefaultPinnedNetworks: true,
           },
         ),
-      [account?.id, networkIds, wallet?.id],
-      { initResult: defaultChainSelectorNetworks },
-    );
+      ]);
+
+      if (_accountsValue[0]) {
+        const {
+          chainSelectorNetworks: sortedChainSelectorNetworks,
+          formattedAccountNetworkValues,
+        } =
+          await backgroundApiProxy.serviceNetwork.sortChainSelectorNetworksByValue(
+            {
+              walletId: accountUtils.getWalletIdFromAccountId({
+                accountId: _accountsValue[0].accountId,
+              }),
+              chainSelectorNetworks: _chainSelectorNetworks,
+              accountNetworkValues: _accountsValue[0].value ?? {},
+            },
+          );
+
+        return {
+          chainSelectorNetworks: sortedChainSelectorNetworks,
+          accountNetworkValues: formattedAccountNetworkValues,
+          accountNetworkValueCurrency: _accountsValue[0].currency,
+        };
+      }
+
+      return {
+        chainSelectorNetworks: _chainSelectorNetworks,
+        accountNetworkValues: {},
+      };
+    },
+
+    [account?.id, networkIds, wallet?.id, indexedAccount?.id],
+    {
+      initResult: {
+        chainSelectorNetworks: defaultChainSelectorNetworks,
+        accountNetworkValues: {},
+      },
+    },
+  );
 
   useEffect(() => {
     const fn = async () => {
@@ -103,6 +151,8 @@ const EditableAccountChainSelector = ({
       unavailableItems={chainSelectorNetworks.unavailableItems}
       frequentlyUsedItems={chainSelectorNetworks.frequentlyUsedItems}
       allNetworkItem={chainSelectorNetworks.allNetworkItem}
+      accountNetworkValues={accountNetworkValues}
+      accountNetworkValueCurrency={accountNetworkValueCurrency}
       onPressItem={onPressItem}
       onAddCustomNetwork={onAddCustomNetwork}
       onEditCustomNetwork={(item: IServerNetwork) =>

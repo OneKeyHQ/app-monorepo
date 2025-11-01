@@ -5,9 +5,11 @@ import { StyleSheet } from 'react-native';
 
 import {
   Button,
+  NavBackButton,
   SizableText,
   XStack,
   YStack,
+  rootNavigationRef,
   useIsHorizontalLayout,
   useMedia,
 } from '@onekeyhq/components';
@@ -20,7 +22,8 @@ import { UniversalSearchInput } from '@onekeyhq/kit/src/components/TabPageHeader
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
-import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import { ETabMarketRoutes } from '@onekeyhq/shared/src/routes/tabMarket';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { useReferFriends } from '../../hooks/useReferFriends';
 import TabCountButton from '../../views/Discovery/components/MobileBrowser/TabCountButton';
@@ -35,6 +38,7 @@ import {
   WalletConnectionForWeb,
 } from './components';
 import { MoreActionButton } from './MoreActionButton';
+import { UrlAccountPageHeader } from './urlAccountPageHeader';
 
 function GiftAction() {
   const { shareReferRewards } = useReferFriends();
@@ -95,13 +99,23 @@ function DepositAction() {
   );
 }
 
-export function SearchInput() {
-  const { gtXl, gtLg } = useMedia();
-  const size = platformEnv.isWeb ? gtXl : gtLg;
+export function SearchInput({
+  isUrlWallet = false,
+}: { isUrlWallet?: boolean } = {}) {
+  const { gtXl, gtLg, gt2xl } = useMedia();
+
+  let size: boolean;
+  if (isUrlWallet) {
+    size = platformEnv.isWeb ? gt2xl : gtXl;
+  } else {
+    size = platformEnv.isWeb ? gtXl : gtLg;
+  }
+
   return <UniversalSearchInput size={size ? 'large' : 'small'} />;
 }
 
 export function HeaderRight({
+  sceneName,
   tabRoute,
   customHeaderRightItems,
   renderCustomHeaderRightItems,
@@ -116,7 +130,7 @@ export function HeaderRight({
   }) => ReactNode;
 }) {
   const isHorizontal = useIsHorizontalLayout();
-  const { gtXl } = useMedia();
+  const { gtXl, gtMd } = useMedia();
 
   const items = useMemo(() => {
     if (customHeaderRightItems) {
@@ -147,15 +161,38 @@ export function HeaderRight({
     }
 
     switch (tabRoute) {
-      case ETabRoutes.Home:
+      case ETabRoutes.Home: {
+        const isUrlWallet =
+          platformEnv.isWebDappMode &&
+          sceneName === EAccountSelectorSceneName.homeUrlAccount;
+
+        const urlAccountBackButton =
+          isUrlWallet && gtMd && platformEnv.isWebDappMode ? (
+            <NavBackButton
+              onPress={() => {
+                rootNavigationRef.current?.navigate(ETabRoutes.Market, {
+                  screen: ETabMarketRoutes.TabMarket,
+                });
+              }}
+            />
+          ) : null;
+
         return (
           <>
-            {isHorizontal ? <SearchInput /> : undefined}
+            {urlAccountBackButton}
+            {isHorizontal ? (
+              <SearchInput isUrlWallet={isUrlWallet} />
+            ) : undefined}
             {isHorizontal ? undefined : <SelectorTrigger />}
-            <WalletConnectionForWeb tabRoute={tabRoute} />
+            {isUrlWallet && gtMd && platformEnv.isWebDappMode ? (
+              <UrlAccountPageHeader />
+            ) : (
+              <WalletConnectionForWeb tabRoute={tabRoute} />
+            )}
             {fixedItems}
           </>
         );
+      }
       case ETabRoutes.Swap:
         return (
           <>
@@ -208,11 +245,13 @@ export function HeaderRight({
         break;
     }
   }, [
+    customHeaderRightItems,
     isHorizontal,
     gtXl,
-    tabRoute,
-    customHeaderRightItems,
     renderCustomHeaderRightItems,
+    tabRoute,
+    sceneName,
+    gtMd,
   ]);
   const width = useMemo(() => {
     if (platformEnv.isNative) {

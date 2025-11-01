@@ -17,6 +17,9 @@ export function DeviceToken() {
     <SectionPressItem
       icon="CodeOutline"
       copyable
+      onPress={() => {
+        void LaunchOptionsManager.registerDeviceToken();
+      }}
       title={deviceToken}
       subtitle="iOS DeviceToken"
     />

@@ -23,6 +23,7 @@ import type {
   IAccountSelectorSelectedAccount,
   IAccountSelectorSelectedAccountsMap,
 } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
+import { devSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IJotaiSetter } from '@onekeyhq/kit-bg/src/states/jotai/types';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
@@ -335,6 +336,23 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         const newSelectedAccount: IAccountSelectorSelectedAccount = cloneDeep(
           builder(oldSelectedAccount),
         );
+
+        if (
+          platformEnv.isWebDappMode &&
+          sceneInfo?.sceneName &&
+          ![EAccountSelectorSceneName.swap].includes(sceneInfo?.sceneName)
+        ) {
+          const oldIsNotAllNetwork =
+            oldSelectedAccount.networkId &&
+            oldSelectedAccount.networkId !== getNetworkIdsMap().onekeyall;
+          const newIsNotAllNetwork =
+            newSelectedAccount.networkId &&
+            newSelectedAccount.networkId !== getNetworkIdsMap().onekeyall;
+          if (newIsNotAllNetwork || oldIsNotAllNetwork) {
+            newSelectedAccount.networkId = getNetworkIdsMap().onekeyall;
+            newSelectedAccount.deriveType = 'default';
+          }
+        }
 
         if (
           isEqual(

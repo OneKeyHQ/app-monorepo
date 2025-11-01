@@ -7,9 +7,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { type IIconButtonProps } from '../../../actions';
 
 import HeaderButtonGroup from './HeaderButtonGroup';
-import HeaderCollapseButton, {
-  useHeaderCollapseButtonVisibility,
-} from './HeaderCollapseButton';
+import { useHeaderCollapseButtonVisibility } from './HeaderCollapseButton';
 import HeaderIconButton from './HeaderIconButton';
 
 import type { IOnekeyStackHeaderProps } from './HeaderScreenOptions';

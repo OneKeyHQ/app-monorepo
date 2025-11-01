@@ -149,7 +149,8 @@ export const {
   use: usePerpsActiveOpenOrdersLengthAtom,
 } = contextAtomComputed((get) => {
   const { openOrders } = get(perpsActiveOpenOrdersAtom());
-  return openOrders.length ?? 0;
+  const filteredOpenOrders = openOrders.filter((o) => !o.coin.startsWith('@'));
+  return filteredOpenOrders.length ?? 0;
 });
 
 export const {
@@ -161,11 +162,24 @@ export const {
   }>
 >((get) => {
   const { openOrders } = get(perpsActiveOpenOrdersAtom());
-  return openOrders.reduce((acc, order, index) => {
+  const filteredOpenOrders = openOrders.filter((o) => !o.coin.startsWith('@'));
+  return filteredOpenOrders.reduce((acc, order, index) => {
     acc[order.coin] = [...(acc[order.coin] || []), index];
     return acc;
   }, {} as { [coin: string]: number[] });
 });
+
+export type IPerpsLedgerUpdatesAtom = {
+  accountAddress: string | undefined;
+  updates: HL.IUserNonFundingLedgerUpdate[];
+  isSubscribed: boolean;
+};
+export const { atom: perpsLedgerUpdatesAtom, use: usePerpsLedgerUpdatesAtom } =
+  contextAtom<IPerpsLedgerUpdatesAtom>({
+    accountAddress: undefined,
+    updates: [],
+    isSubscribed: false,
+  });
 
 export interface ITradingFormEnv {
   markPrice?: string;

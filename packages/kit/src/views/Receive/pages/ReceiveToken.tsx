@@ -47,7 +47,10 @@ import { EConfirmOnDeviceType } from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import AddressTypeSelector from '../../../components/AddressTypeSelector/AddressTypeSelector';
-import { HyperlinkText } from '../../../components/HyperlinkText';
+import {
+  FormatHyperlinkText,
+  HyperlinkText,
+} from '../../../components/HyperlinkText';
 import { NetworkAvatar } from '../../../components/NetworkAvatar';
 import { Token } from '../../../components/Token';
 import { useAccountData } from '../../../hooks/useAccountData';
@@ -219,7 +222,7 @@ function ReceiveToken() {
 
   const throttledSyncBTCFreshAddress = useThrottledCallback(
     (params: { networkId: string; accountId: string }) => {
-      void backgroundApiProxy.serviceAccountProfile.syncBTCFreshAddressByAccountId(
+      void backgroundApiProxy.serviceFreshAddress.syncBTCFreshAddressByAccountId(
         params,
       );
     },
@@ -260,8 +263,12 @@ function ReceiveToken() {
 
   const [{ enableBTCFreshAddress }] = useSettingsPersistAtom();
   const isEnableBTCFreshAddressSetting = useMemo(() => {
-    return networkUtils.isBTCNetwork(networkId) && enableBTCFreshAddress;
-  }, [networkId, enableBTCFreshAddress]);
+    return accountUtils.isEnabledBtcFreshAddress({
+      enableBTCFreshAddress,
+      networkId,
+      walletId,
+    });
+  }, [networkId, enableBTCFreshAddress, walletId]);
 
   const handleVerifyOnDevicePress = useCallback(async () => {
     setAddressState(EAddressState.Verifying);
@@ -383,7 +390,7 @@ function ReceiveToken() {
 
   useEffect(() => {
     void fetchAccount();
-  }, [fetchAccount]);
+  }, [fetchAccount, currentDeriveType, onDeriveTypeChange]);
 
   const throttledRefreshOnEvent = useThrottledCallback(
     () => {
@@ -672,6 +679,9 @@ function ReceiveToken() {
                 walletId,
               });
             }}
+            boldTextProps={{
+              size: '$bodyMd',
+            }}
           />
         ) : null}
       </YStack>
@@ -801,6 +811,9 @@ function ReceiveToken() {
     nativeToken?.logoURI,
   ]);
 
+  const isPressable = useMemo(() => {
+    return !!(banner?.href || banner?.mode);
+  }, [banner?.href, banner?.mode]);
   return (
     <Page safeAreaEnabled={false}>
       <Page.Header
@@ -822,7 +835,7 @@ function ReceiveToken() {
               borderRadius="$2"
               borderCurve="continuous"
               userSelect="none"
-              {...(banner?.href
+              {...(isPressable
                 ? {
                     focusable: true,
                     focusVisibleStyle: {
@@ -843,16 +856,16 @@ function ReceiveToken() {
                     },
                     onPress: () => handleBannerOnPress(banner),
                   }
-                : null)}
+                : undefined)}
             >
               <Image
                 size="$5"
                 source={{ uri: banner.src }}
                 fallback={<NetworkAvatar size="$5" networkId={networkId} />}
               />
-              <SizableText size="$bodyMd" flex={1}>
+              <FormatHyperlinkText size="$bodyMd" flex={1}>
                 {banner.title}
-              </SizableText>
+              </FormatHyperlinkText>
             </XStack>
           ) : null}
         </YStack>
