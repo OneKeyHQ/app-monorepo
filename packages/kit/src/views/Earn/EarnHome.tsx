@@ -637,6 +637,7 @@ function Overview({
 }
 
 function EarnBlockedOverview(props: {
+  showHeader?: boolean;
   icon: IKeyOfIcons;
   title: string;
   description: string;
@@ -644,14 +645,16 @@ function EarnBlockedOverview(props: {
   refreshing: boolean;
 }) {
   const intl = useIntl();
-  const { title, description, icon, refresh, refreshing } = props;
+  const { title, description, icon, refresh, refreshing, showHeader } = props;
 
   return (
     <Page fullPage>
-      <TabPageHeader
-        sceneName={EAccountSelectorSceneName.home}
-        tabRoute={ETabRoutes.Earn}
-      />
+      {showHeader ? (
+        <TabPageHeader
+          sceneName={EAccountSelectorSceneName.home}
+          tabRoute={ETabRoutes.Earn}
+        />
+      ) : null}
       <Page.Body>
         <Empty
           icon={icon}
@@ -676,7 +679,7 @@ function EarnBlockedOverview(props: {
   );
 }
 
-export function EarnHomeContent() {
+function EarnHomeContent({ showHeader }: { showHeader?: boolean }) {
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { account, indexedAccount } = activeAccount;
   const media = useMedia();
@@ -1022,6 +1025,7 @@ export function EarnHomeContent() {
   if (!isFetchingBlockResult && blockResult?.blockData) {
     return (
       <EarnBlockedOverview
+        showHeader={showHeader}
         refresh={refreshBlockResult}
         refreshing={!!isFetchingBlockResult}
         icon={blockResult.blockData.icon.icon}
@@ -1034,7 +1038,7 @@ export function EarnHomeContent() {
   if (platformEnv.isNative && media.md) {
     return (
       <>
-        <Stack h={tabPageHeight} />
+        {showHeader ? <Stack h={tabPageHeight} /> : null}
         <Tabs.Container
           allowHeaderOverscroll
           renderHeader={() => (
@@ -1134,7 +1138,7 @@ export function EarnHomeContent() {
             </Tabs.Tab>
           ))}
         </Tabs.Container>
-        {platformEnv.isNative ? (
+        {showHeader && platformEnv.isNative ? (
           <YStack
             position="absolute"
             top={-20}
@@ -1244,17 +1248,11 @@ export function EarnHomeContent() {
   );
 }
 
-export function WithPageEarnHome() {
-  return (
-    <Page fullPage>
-      <Page.Body>
-        <EarnHomeContent />
-      </Page.Body>
-    </Page>
-  );
-}
-
-export default function EarnHome() {
+export function EarnHomeWithProvider({
+  showHeader = true,
+}: {
+  showHeader?: boolean;
+}) {
   return (
     <AccountSelectorProviderMirror
       config={{
@@ -1264,8 +1262,18 @@ export default function EarnHome() {
       enabledNum={[0]}
     >
       <EarnProviderMirror storeName={EJotaiContextStoreNames.earn}>
-        <WithPageEarnHome />
+        <EarnHomeContent showHeader={showHeader} />
       </EarnProviderMirror>
     </AccountSelectorProviderMirror>
+  );
+}
+
+export default function EarnHome() {
+  return (
+    <Page fullPage>
+      <Page.Body>
+        <EarnHomeWithProvider />
+      </Page.Body>
+    </Page>
   );
 }
