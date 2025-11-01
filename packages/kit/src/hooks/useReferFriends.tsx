@@ -17,7 +17,11 @@ import { FormatHyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText'
 import { REFERRAL_HELP_LINK } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  ERootRoutes,
+  ETabReferFriendsRoutes,
+  ETabRoutes,
+} from '@onekeyhq/shared/src/routes';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
@@ -29,9 +33,9 @@ export function useToReferFriendsModalByRootNavigation() {
   return useCallback(async () => {
     const isLogin = await backgroundApiProxy.servicePrime.isLoggedIn();
 
-    const screen: 'TabInviteReward' | 'TabReferAFriend' = isLogin
-      ? 'TabInviteReward'
-      : 'TabReferAFriend';
+    const screen = isLogin
+      ? ETabReferFriendsRoutes.TabInviteReward
+      : ETabReferFriendsRoutes.TabReferAFriend;
 
     rootNavigationRef.current?.navigate(ERootRoutes.Main, {
       screen: ETabRoutes.ReferFriends,
@@ -66,7 +70,7 @@ export const useReferFriends = () => {
     const isLogin = await backgroundApiProxy.servicePrime.isLoggedIn();
     if (isLogin) {
       navigation.switchTab<ETabRoutes.ReferFriends>(ETabRoutes.ReferFriends, {
-        screen: 'TabInviteReward',
+        screen: ETabReferFriendsRoutes.TabInviteReward,
       });
     } else {
       void loginOneKeyId({ toOneKeyIdPageOnLoginSuccess: true });
@@ -80,11 +84,11 @@ export const useReferFriends = () => {
     );
     if (isLogin && isVisited) {
       navigation.switchTab<ETabRoutes.ReferFriends>(ETabRoutes.ReferFriends, {
-        screen: 'TabInviteReward',
+        screen: ETabReferFriendsRoutes.TabInviteReward,
       });
     } else {
       navigation.switchTab<ETabRoutes.ReferFriends>(ETabRoutes.ReferFriends, {
-        screen: 'TabReferAFriend',
+        screen: ETabReferFriendsRoutes.TabReferAFriend,
       });
     }
   }, [navigation]);
@@ -105,7 +109,7 @@ export const useReferFriends = () => {
           navigation.switchTab<ETabRoutes.ReferFriends>(
             ETabRoutes.ReferFriends,
             {
-              screen: 'TabInviteReward',
+              screen: ETabReferFriendsRoutes.TabInviteReward,
             },
           );
         } else {

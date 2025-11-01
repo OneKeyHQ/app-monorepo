@@ -19,7 +19,7 @@ export function FAQ({ faqs }: { faqs: IInviteSummary['faqs'] }) {
       </SizableText>
       <YStack>
         <Accordion type="multiple" gap="$2">
-          {faqs.map(({ q, a }, index) => (
+          {(faqs ?? []).map(({ q, a }, index) => (
             <Accordion.Item value={String(index)} key={String(index)}>
               <Accordion.Trigger
                 unstyled

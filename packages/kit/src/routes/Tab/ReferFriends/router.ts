@@ -1,7 +1,10 @@
 import type { ITabSubNavigatorConfig } from '@onekeyhq/components';
 import { LazyLoadPage } from '@onekeyhq/kit/src/components/LazyLoadPage';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { ETabReferFriendsRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  ETabReferFriendsRoutes,
+  type ITabReferFriendsParamList,
+} from '@onekeyhq/shared/src/routes';
 
 const ReferAFriend = LazyLoadPage(
   () => import('../../../views/ReferFriends/pages/ReferAFriend'),
@@ -39,7 +42,10 @@ const RewardDistributionHistory = LazyLoadPage(
   () => import('../../../views/ReferFriends/pages/RewardDistributionHistory'),
 );
 
-export const referFriendsRouters: ITabSubNavigatorConfig<any, any>[] = [
+export const referFriendsRouters: ITabSubNavigatorConfig<
+  ETabReferFriendsRoutes,
+  ITabReferFriendsParamList
+>[] = [
   {
     name: ETabReferFriendsRoutes.TabReferAFriend,
     rewrite: '/',

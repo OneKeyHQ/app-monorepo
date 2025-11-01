@@ -24,7 +24,10 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IInvitePostConfig } from '@onekeyhq/shared/src/referralCode/type';
-import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  ETabReferFriendsRoutes,
+  ETabRoutes,
+} from '@onekeyhq/shared/src/routes';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
@@ -298,7 +301,7 @@ function ReferAFriendPageWrapper() {
       });
     void backgroundApiProxy.servicePrime.isLoggedIn().then((isLogin) => {
       if (isLogin) {
-        navigation.push('TabInviteReward');
+        navigation.push(ETabReferFriendsRoutes.TabInviteReward);
         return;
       }
 
