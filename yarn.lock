@@ -7769,7 +7769,7 @@ __metadata:
     adm-zip: "npm:^0.5.10"
     concurrently: "npm:8.2.2"
     cross-env: "npm:^7.0.3"
-    electron: "npm:31.7.7"
+    electron: "npm:39.0.0"
     electron-builder: "npm:26.0.9"
     electron-check-biometric-auth-changed: "npm:0.0.6"
     electron-context-menu: "npm:^3.5.0"
@@ -7777,12 +7777,13 @@ __metadata:
     electron-log: "npm:5.2.0"
     electron-store: "npm:^8.2.0"
     electron-updater: "npm:6.1.8"
-    electron-windows-security: "npm:0.0.7"
     esbuild: "npm:0.15.18"
     folderslint: "npm:^1.2.0"
     glob: "npm:^7.2.0"
     keytar: "npm:^7.9.0"
     node-fetch: "npm:^2.6.7"
+    passport-desktop: "npm:0.1.2"
+    passport-desktop-win32-x64-msvc: "npm:0.1.2"
     rimraf: "npm:^3"
     semver: "npm:7.5.4"
     webpack: "npm:5.90.3"
@@ -22613,25 +22614,16 @@ __metadata:
   languageName: node
   linkType: hard
 
-"electron-windows-security@npm:0.0.7":
-  version: 0.0.7
-  resolution: "electron-windows-security@npm:0.0.7"
-  dependencies:
-    nan: "npm:2.20.0"
-  checksum: 10/c5d184fb3d67c6f1a763d5b4951bc145511f31c0d6d47ea055d2b30b3985a68ccdf9c4621bb40f3c3a7e77743be9076be44b03b32438c9c548bbb3fde96879d7
-  languageName: node
-  linkType: hard
-
-"electron@npm:31.7.7":
-  version: 31.7.7
-  resolution: "electron@npm:31.7.7"
+"electron@npm:39.0.0":
+  version: 39.0.0
+  resolution: "electron@npm:39.0.0"
   dependencies:
     "@electron/get": "npm:^2.0.0"
-    "@types/node": "npm:^20.9.0"
+    "@types/node": "npm:^22.7.7"
     extract-zip: "npm:^2.0.1"
   bin:
     electron: cli.js
-  checksum: 10/18305f258de6611867853b399c0d78b09651cc3452150b0a14b33863323a36fdbb29df70b440a7f75ff7db8ebd2132043cbe64804f6f5a191f830af10375d646
+  checksum: 10/c2bb9f84bd06d12a90c650b2741ee618426e1ce20be18ff3708bf5f373e942e75e6a8cade94c15d96a06077f7f1fae6709b95f53784456d1db09f493928b47f3
   languageName: node
   linkType: hard
 
@@ -31379,15 +31371,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"nan@npm:2.20.0":
-  version: 2.20.0
-  resolution: "nan@npm:2.20.0"
-  dependencies:
-    node-gyp: "npm:latest"
-  checksum: 10/5f16e4c9953075d9920229c703c1d781c0b74118ce3d9e926b448a4eef92b7d8be5ac6adc748a13a5fafb594436cbfe63250e3471aefdd78e3a0cd14603b9ba7
-  languageName: node
-  linkType: hard
-
 "nan@npm:^2.13.2, nan@npm:^2.14.0, nan@npm:^2.2.1":
   version: 2.18.0
   resolution: "nan@npm:2.18.0"
@@ -31618,21 +31601,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"node-abi@npm:^3.3.0":
-  version: 3.52.0
-  resolution: "node-abi@npm:3.52.0"
+"node-abi@npm:3.80.0":
+  version: 3.80.0
+  resolution: "node-abi@npm:3.80.0"
   dependencies:
     semver: "npm:^7.3.5"
-  checksum: 10/052f6d61308ce42c82f44c5b413164c0837c078946f928681ebecaf7cc804c738686e9b17063d0273a303c9bc1e3586ecf2a45328ef4d68919d8e93e1257ee05
-  languageName: node
-  linkType: hard
-
-"node-abi@npm:^3.45.0":
-  version: 3.74.0
-  resolution: "node-abi@npm:3.74.0"
-  dependencies:
-    semver: "npm:^7.3.5"
-  checksum: 10/314ba5f773690e12a3d87b967d509e9badf16bf2a8ba7619104794f9594545dd268a42f34817d3c81402bf1dc6308545456e2fa9c0200bb6e648cfb75addbe66
+  checksum: 10/f9d1d7cc1a088c0c8c9e4606ad594b860c664f3872aecbb2a735ef9ef7395324597c0ef16dc7952cbb747cac658df633588e98b1c97f0c01b18975a43d954f87
   languageName: node
   linkType: hard
 
@@ -32694,6 +32668,36 @@ __metadata:
     no-case: "npm:^3.0.4"
     tslib: "npm:^2.0.3"
   checksum: 10/ba98bfd595fc91ef3d30f4243b1aee2f6ec41c53b4546bfa3039487c367abaa182471dcfc830a1f9e1a0df00c14a370514fa2b3a1aacc68b15a460c31116873e
+  languageName: node
+  linkType: hard
+
+"passport-desktop-win32-ia32-msvc@npm:0.1.2":
+  version: 0.1.2
+  resolution: "passport-desktop-win32-ia32-msvc@npm:0.1.2"
+  conditions: os=win32 & cpu=ia32
+  languageName: node
+  linkType: hard
+
+"passport-desktop-win32-x64-msvc@npm:0.1.2":
+  version: 0.1.2
+  resolution: "passport-desktop-win32-x64-msvc@npm:0.1.2"
+  checksum: 10/3e90d6300f0a81bd528b388171e342aa68ec573753f3d75b37201cf70a7e017b5b64df99f67b6a3bc87fe556091d64a4ce7b42bafe1ac3dd3bda0f7c2cfc1400
+  conditions: os=win32 & cpu=x64
+  languageName: node
+  linkType: hard
+
+"passport-desktop@npm:0.1.2":
+  version: 0.1.2
+  resolution: "passport-desktop@npm:0.1.2"
+  dependencies:
+    passport-desktop-win32-ia32-msvc: "npm:0.1.2"
+    passport-desktop-win32-x64-msvc: "npm:0.1.2"
+  dependenciesMeta:
+    passport-desktop-win32-ia32-msvc:
+      optional: true
+    passport-desktop-win32-x64-msvc:
+      optional: true
+  checksum: 10/1898c46b4dd8a9a32fcd82abf6862c61da9551ba00f4c42bc53c7059394b72ebd94bdc3f11ed92e1a5afcffb611482c74ad8468eed36a1459a41a7be9243c436
   languageName: node
   linkType: hard
 

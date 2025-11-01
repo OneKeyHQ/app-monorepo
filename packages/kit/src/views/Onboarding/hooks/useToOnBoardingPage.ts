@@ -1,6 +1,5 @@
 import { useMemo } from 'react';
 
-import type { StackNavigationProp } from '@onekeyhq/components';
 import { rootNavigationRef } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -36,7 +35,7 @@ async function popToTop(navigation: ReturnType<typeof useAppNavigation>) {
   await timerUtils.wait(350);
 }
 
-export const useToOnBoardingPage = () => {
+export const useToOnBoardingPage = (newOnboarding?: boolean) => {
   const navigation = useAppNavigation();
 
   return useMemo(
@@ -60,9 +59,13 @@ export const useToOnBoardingPage = () => {
         ) {
           await backgroundApiProxy.serviceApp.openExtensionExpandTab({
             routes: [
-              ERootRoutes.Onboarding,
-              EOnboardingV2Routes.OnboardingV2,
-              EOnboardingPagesV2.GetStarted,
+              newOnboarding ? ERootRoutes.Onboarding : ERootRoutes.Modal,
+              newOnboarding
+                ? EOnboardingV2Routes.OnboardingV2
+                : EModalRoutes.OnboardingModal,
+              newOnboarding
+                ? EOnboardingPagesV2.GetStarted
+                : EOnboardingPages.GetStarted,
             ],
             params: {
               ...params,
@@ -76,17 +79,24 @@ export const useToOnBoardingPage = () => {
           if (platformEnv.isNative) {
             await popToTop(navigation);
           }
-          navigation.navigate(ERootRoutes.Onboarding, {
-            screen: EOnboardingV2Routes.OnboardingV2,
-            params: {
-              screen: EOnboardingPagesV2.GetStarted,
+          navigation.navigate(
+            newOnboarding ? ERootRoutes.Onboarding : ERootRoutes.Modal,
+            {
+              screen: newOnboarding
+                ? EOnboardingV2Routes.OnboardingV2
+                : EModalRoutes.OnboardingModal,
               params: {
-                ...params,
+                screen: newOnboarding
+                  ? EOnboardingPagesV2.GetStarted
+                  : EOnboardingPages.GetStarted,
+                params: {
+                  ...params,
+                },
               },
             },
-          });
+          );
         }
       },
-    [navigation],
+    [navigation, newOnboarding],
   );
 };

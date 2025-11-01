@@ -31,6 +31,7 @@ import { earnRouters } from './Earn/router';
 import { marketRouters } from './Marktet/router';
 import { meRouters } from './Me/router';
 import { multiTabBrowserRouters } from './MultiTabBrowser/router';
+import { referFriendsRouters } from './ReferFriends/router';
 import { swapRouters } from './Swap/router';
 
 type IGetTabRouterParams = {
@@ -111,11 +112,13 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
       name: ETabRoutes.ReferFriends,
       tabBarIcon: () => 'GiftOutline',
       translationId: ETranslations.sidebar_refer_a_friend,
-      tabbarOnPress: toReferFriendsPage,
-      children: null,
+      rewrite: '/refer-friends',
+      exact: true,
+      children: referFriendsRouters,
       trackId: 'global-referral',
+      freezeOnBlur: Boolean(params?.freezeOnBlur),
     };
-  }, [toReferFriendsPage]);
+  }, [params?.freezeOnBlur]);
 
   return useMemo(() => {
     const tabs = [
