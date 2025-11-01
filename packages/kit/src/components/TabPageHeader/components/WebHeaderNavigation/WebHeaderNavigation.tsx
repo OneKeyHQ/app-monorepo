@@ -56,6 +56,8 @@ function useWebHeaderNavigation({
         return 'defi';
       case ETabRoutes.Swap:
         return 'swap';
+      case ETabRoutes.ReferFriends:
+        return 'commission';
       default:
         return null;
     }

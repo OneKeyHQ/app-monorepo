@@ -29,9 +29,9 @@ import type {
   IEarnRewardResponse,
 } from '@onekeyhq/shared/src/referralCode/type';
 import type {
-  EModalReferFriendsRoutes,
-  IModalReferFriendsParamList,
-} from '@onekeyhq/shared/src/routes/referFriends';
+  ETabReferFriendsRoutes,
+  ITabReferFriendsParamList,
+} from '@onekeyhq/shared/src/routes';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
@@ -260,10 +260,7 @@ const buildAccountNetworkKey = (accountAddress: string, networkId: string) =>
 export default function EarnReward() {
   const route =
     useRoute<
-      RouteProp<
-        IModalReferFriendsParamList,
-        EModalReferFriendsRoutes.EarnReward
-      >
+      RouteProp<ITabReferFriendsParamList, ETabReferFriendsRoutes.TabEarnReward>
     >();
 
   const { title } = route.params;
