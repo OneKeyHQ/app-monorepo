@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Freeze } from 'react-freeze';
 import { BackHandler } from 'react-native';
@@ -22,6 +22,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IDiscoveryModalParamList } from '@onekeyhq/shared/src/routes';
 import {
@@ -261,6 +262,9 @@ function MobileBrowser() {
     handleGoBackHome,
   });
 
+  const [selectedHeaderTab, setSelectedHeaderTab] = useState<ETranslations>(
+    ETranslations.global_browser,
+  );
   return (
     <Page fullPage>
       {/* custom header */}
@@ -269,6 +273,8 @@ function MobileBrowser() {
         <TabPageHeader
           sceneName={EAccountSelectorSceneName.home}
           tabRoute={ETabRoutes.Discovery}
+          selectedHeaderTab={selectedHeaderTab}
+          onSelectHeaderTab={setSelectedHeaderTab}
         />
       ) : (
         <XStack

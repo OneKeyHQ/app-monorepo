@@ -1,4 +1,6 @@
-import { type ReactNode, useMemo } from 'react';
+import { type ReactNode, useCallback, useMemo } from 'react';
+
+import { useIntl } from 'react-intl';
 
 import {
   DebugRenderTracker,
@@ -9,6 +11,7 @@ import {
   rootNavigationRef,
   useMedia,
 } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   ETabHomeRoutes,
@@ -29,12 +32,62 @@ export function HeaderLeftCloseButton() {
     </Page.Close>
   );
 }
+const discoveryTabs = [ETranslations.global_browser, ETranslations.global_earn];
+
+function SegmentText({
+  translationId,
+  selected,
+  setSelectedTab,
+}: {
+  translationId: (typeof discoveryTabs)[number];
+  selected: boolean;
+  setSelectedTab?: (tab: ETranslations) => void;
+}) {
+  const intl = useIntl();
+  const handlePress = useCallback(() => {
+    setSelectedTab?.(translationId);
+  }, [setSelectedTab, translationId]);
+  return (
+    <SizableText
+      size="$headingLg"
+      color={selected ? '$text' : '$textDisabled'}
+      onPress={handlePress}
+    >
+      {intl.formatMessage({ id: translationId })}
+    </SizableText>
+  );
+}
+
+function DiscoveryHeaderSegment({
+  selectedHeaderTab,
+  onSelectHeaderTab,
+}: {
+  selectedHeaderTab?: ETranslations;
+  onSelectHeaderTab?: (tab: ETranslations) => void;
+}) {
+  return (
+    <XStack gap="$5">
+      {discoveryTabs.map((tab) => (
+        <SegmentText
+          key={tab}
+          translationId={tab}
+          selected={selectedHeaderTab === tab}
+          setSelectedTab={onSelectHeaderTab}
+        />
+      ))}
+    </XStack>
+  );
+}
 
 export function HeaderLeft({
+  selectedHeaderTab,
   sceneName,
   tabRoute,
   customHeaderLeftItems,
+  onSelectHeaderTab,
 }: {
+  selectedHeaderTab?: ETranslations;
+  onSelectHeaderTab?: (tab: ETranslations) => void;
   sceneName: EAccountSelectorSceneName;
   tabRoute: ETabRoutes;
   customHeaderLeftItems?: ReactNode;
@@ -99,13 +152,12 @@ export function HeaderLeft({
       );
     }
 
-    if (tabRoute === ETabRoutes.Discovery) {
+    if (platformEnv.isNative && tabRoute === ETabRoutes.Discovery) {
       return (
-        <SizableText size="$headingLg">
-          {/* {intl.formatMessage({
-            id: ETranslations.global_browser,
-          })} */}
-        </SizableText>
+        <DiscoveryHeaderSegment
+          selectedHeaderTab={selectedHeaderTab}
+          onSelectHeaderTab={onSelectHeaderTab}
+        />
       );
     }
 
@@ -127,7 +179,14 @@ export function HeaderLeft({
 
     // For mobile and native platforms, keep the original layout
     return <WalletConnectionGroup tabRoute={tabRoute} />;
-  }, [customHeaderLeftItems, sceneName, tabRoute, gtMd]);
+  }, [
+    customHeaderLeftItems,
+    sceneName,
+    tabRoute,
+    gtMd,
+    selectedHeaderTab,
+    onSelectHeaderTab,
+  ]);
   return (
     <AccountSelectorProviderMirror
       enabledNum={[0]}
