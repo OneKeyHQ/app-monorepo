@@ -45,4 +45,3 @@ export type ITabReferFriendsParamList = {
   };
   TabRewardDistributionHistory: undefined;
 };
-
