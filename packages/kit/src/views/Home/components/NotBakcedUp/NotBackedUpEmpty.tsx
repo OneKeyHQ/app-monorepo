@@ -9,6 +9,7 @@ import {
   Button,
   Form,
   Icon,
+  IconButton,
   Input,
   Skeleton,
   Stack,
@@ -34,6 +35,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import InfoBlock from './InfoBlock';
 import MainInfoBlock from './MainBlock';
+import { useBackupWallet } from '@onekeyhq/kit/src/hooks/useBackupWallet';
 
 function NotBackedUp() {
   const intl = useIntl();
@@ -112,22 +114,36 @@ function NotBackedUp() {
   const depositFaqLink = useHelpLink({ path: 'articles/12569147' });
   const swapAndBridgeLink = useHelpLink({ path: 'articles/11461146' });
 
+  const {
+    handleBackUpByiCloud,
+    handleBackUpByGoogleDrive,
+    handleBackUpByPhrase,
+  } = useBackupWallet({
+    walletId: wallet?.id ?? '',
+  });
+
   const handleBackupWallet = useCallback(() => {
     if (platformEnv.isNativeIOS || platformEnv.isDesktopMac) {
-      // TODO backup to iCloud
+      void handleBackUpByiCloud();
+      return;
     }
     if (platformEnv.isNativeAndroid || platformEnv.isDesktopWin) {
-      // TODO backup to Google Drive
+      void handleBackUpByGoogleDrive();
+      return;
     }
-  }, []);
+
+    void handleBackUpByPhrase();
+  }, [handleBackUpByiCloud, handleBackUpByGoogleDrive, handleBackUpByPhrase]);
 
   const backupText = useMemo(() => {
     if (platformEnv.isNativeIOS || platformEnv.isDesktopMac) {
-      return 'Backup to iCloud';
+      return intl.formatMessage({ id: ETranslations.backup_backup_to_icloud });
     }
 
     if (platformEnv.isNativeAndroid || platformEnv.isDesktopWin) {
-      return 'Backup to Google Drive';
+      return intl.formatMessage({
+        id: ETranslations.backup_backup_to_google_drive,
+      });
     }
 
     return intl.formatMessage({ id: ETranslations.backup_backup_now });
@@ -244,6 +260,35 @@ function NotBackedUp() {
     form.formState.isSubmitting,
     intl,
   ]);
+
+  const renderBackupWalletActions = useCallback(() => {
+    return (
+      <XStack alignItems="center" gap="$4">
+        <Button variant="primary" size="medium" onPress={handleBackupWallet}>
+          {backupText}
+        </Button>
+        <WalletBackupActions
+          wallet={wallet}
+          hidePhrase={
+            !(
+              platformEnv.isNativeIOS ||
+              platformEnv.isDesktopMac ||
+              platformEnv.isDesktopWin ||
+              platformEnv.isNativeAndroid
+            )
+          }
+        >
+          <IconButton
+            icon="DotHorOutline"
+            variant="primary"
+            size="medium"
+            onPress={() => {}}
+          />
+        </WalletBackupActions>
+      </XStack>
+    );
+  }, [backupText, handleBackupWallet, wallet]);
+
   return (
     <YStack gap="$5" px="$5" pb="$6">
       <YStack $gtMd={{ flexDirection: 'row' }} gap="$5" pt="$0.5">
@@ -267,28 +312,7 @@ function NotBackedUp() {
               bg: '$brand2',
             },
           }}
-          actions={
-            <XStack>
-              {platformEnv.isNativeIOS ||
-              platformEnv.isDesktopMac ||
-              platformEnv.isDesktopWin ||
-              platformEnv.isNativeAndroid ? (
-                <Button
-                  variant="primary"
-                  size="medium"
-                  onPress={handleBackupWallet}
-                >
-                  {backupText}
-                </Button>
-              ) : (
-                <WalletBackupActions wallet={wallet}>
-                  <Button variant="primary" size="large" onPress={() => {}}>
-                    {backupText}
-                  </Button>
-                </WalletBackupActions>
-              )}
-            </XStack>
-          }
+          actions={renderBackupWalletActions()}
         />
         <MainInfoBlock
           bgSource={
