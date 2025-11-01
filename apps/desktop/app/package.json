@@ -8,6 +8,6 @@
   "dependencies": {
     "@stoprocent/noble": "2.3.4",
     "electron-check-biometric-auth-changed": "0.0.6",
-    "electron-windows-security": "0.0.7"
+    "passport-desktop": "0.1.2"
   }
 }
