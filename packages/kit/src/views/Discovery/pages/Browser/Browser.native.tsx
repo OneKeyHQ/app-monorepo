@@ -308,39 +308,48 @@ function MobileBrowser() {
         </XStack>
       )}
       <Page.Body>
-        {selectedHeaderTab === ETranslations.global_browser ? (
-          <Stack flex={1} zIndex={3} pb={gtMd ? bottom : 0}>
-            <HandleRebuildBrowserData />
-            <Stack flex={1}>
-              {gtMd ? null : (
-                <Stack display={displayHomePage ? 'flex' : 'none'}>
-                  <DashboardContent onScroll={handleScroll} />
-                </Stack>
-              )}
-              <Freeze freeze={displayHomePage}>{content}</Freeze>
-            </Stack>
-            <Freeze freeze={!displayBottomBar}>
-              <Animated.View
-                ref={toolbarRef}
-                style={[
-                  toolbarAnimatedStyle,
-                  {
-                    bottom: 0,
-                    left: 0,
-                    right: 0,
-                  },
-                ]}
-              >
-                <MobileBrowserBottomBar
-                  id={activeTabId ?? ''}
-                  onGoBackHomePage={handleGoBackHome}
-                />
-              </Animated.View>
-            </Freeze>
+        <Stack
+          flex={1}
+          zIndex={3}
+          pb={gtMd ? bottom : 0}
+          display={
+            selectedHeaderTab === ETranslations.global_browser
+              ? undefined
+              : 'none'
+          }
+        >
+          <HandleRebuildBrowserData />
+          <Stack flex={1}>
+            {gtMd ? null : (
+              <Stack display={displayHomePage ? 'flex' : 'none'}>
+                <DashboardContent onScroll={handleScroll} />
+              </Stack>
+            )}
+            <Freeze freeze={displayHomePage}>{content}</Freeze>
           </Stack>
-        ) : (
-          <EarnHomeWithProvider showHeader={false} />
-        )}
+          <Freeze freeze={!displayBottomBar}>
+            <Animated.View
+              ref={toolbarRef}
+              style={[
+                toolbarAnimatedStyle,
+                {
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                },
+              ]}
+            >
+              <MobileBrowserBottomBar
+                id={activeTabId ?? ''}
+                onGoBackHomePage={handleGoBackHome}
+              />
+            </Animated.View>
+          </Freeze>
+        </Stack>
+        <EarnHomeWithProvider
+          showHeader={false}
+          showContent={selectedHeaderTab === ETranslations.global_earn}
+        />
       </Page.Body>
       {displayHomePage ? (
         <YStack
