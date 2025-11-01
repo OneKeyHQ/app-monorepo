@@ -12,7 +12,7 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { PUBLIC_KEY } from './constant/gpg';
 import { ETranslations } from './i18n';
-import { getNativeVersion } from './libs/store';
+import { clearUpdateBundleData, getNativeVersion } from './libs/store';
 
 const readMetadataFileSha256 = async (signature: string) => {
   try {
@@ -128,6 +128,7 @@ export const getBundleIndexHtmlPath = ({
     prevNativeVersion,
   );
   if (!semver.eq(currentAppVersion, prevNativeVersion)) {
+    clearUpdateBundleData();
     return undefined;
   }
   const extractDir = getBundleExtractDir({
