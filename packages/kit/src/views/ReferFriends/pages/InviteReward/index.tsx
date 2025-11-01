@@ -34,17 +34,20 @@ import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
 import { Token } from '@onekeyhq/kit/src/components/Token';
-import { FAQ } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/FAQ';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { FAQ } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/FAQ';
 import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { OneKeyServerApiError } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IInviteSummary } from '@onekeyhq/shared/src/referralCode/type';
-import { ETabReferFriendsRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  ETabReferFriendsRoutes,
+  ETabRoutes,
+} from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -716,64 +719,71 @@ function Dashboard({
               {renderNextStage()}
             </XStack>
           </YStack>
-          {showHardwareSalesAvailableFiat || showHardwarePendingFiat ? (
-            <XStack gap="$2" pt="$4">
-              {hardwareSales.available?.[0]?.token?.networkId ||
-              hardwareSales.pending?.[0]?.token?.networkId ? (
-                <Token
-                  size="xs"
-                  tokenImageUri={
-                    hardwareSales.available?.[0]?.token?.logoURI ||
-                    hardwareSales.pending?.[0]?.token?.logoURI
-                  }
-                />
-              ) : null}
-              <SizableText size="$bodyMd">
-                <NumberSizeableText
-                  formatter="value"
-                  size="$bodyMd"
-                  formatterOptions={{
-                    tokenSymbol: hardwareSales.available?.[0]?.token?.symbol,
-                  }}
-                >
-                  {hardwareSales.available?.[0]?.amount || 0}
-                </NumberSizeableText>
-                {hardwareSales.available?.[0]?.amount ? (
-                  <FiatValue
-                    fiatValue={hardwareSales.available?.[0]?.fiatValue}
+          {(() => {
+            if (!showHardwareSalesAvailableFiat && !showHardwarePendingFiat) {
+              return <NoRewardYet />;
+            }
+
+            const hasTokenNetworkId =
+              hardwareSales.available?.[0]?.token?.networkId ||
+              hardwareSales.pending?.[0]?.token?.networkId;
+
+            return (
+              <XStack gap="$2" pt="$4">
+                {hasTokenNetworkId ? (
+                  <Token
+                    size="xs"
+                    tokenImageUri={
+                      hardwareSales.available?.[0]?.token?.logoURI ||
+                      hardwareSales.pending?.[0]?.token?.logoURI
+                    }
                   />
                 ) : null}
-                {showHardwarePendingFiat ? (
-                  <>
-                    <SizableText size="$bodyMd">{` + `}</SizableText>
-                    <NumberSizeableText
-                      formatter="value"
-                      size="$bodyMd"
-                      formatterOptions={{
-                        tokenSymbol: hardwareSales.pending?.[0]?.token.symbol,
-                      }}
-                    >
-                      {hardwareSales.pending?.[0]?.amount || 0}
-                    </NumberSizeableText>
-                    {hardwareSales.pending?.[0]?.amount ? (
-                      <FiatValue
-                        fiatValue={hardwareSales.pending?.[0]?.fiatValue}
-                      />
-                    ) : null}
-                  </>
-                ) : null}
-              </SizableText>
-              {showHardwarePendingFiat ? (
-                <SizableText size="$bodyMd" color="$textSubdued">
-                  {intl.formatMessage({
-                    id: ETranslations.referral_sales_reward_pending,
-                  })}
+                <SizableText size="$bodyMd">
+                  <NumberSizeableText
+                    formatter="value"
+                    size="$bodyMd"
+                    formatterOptions={{
+                      tokenSymbol: hardwareSales.available?.[0]?.token?.symbol,
+                    }}
+                  >
+                    {hardwareSales.available?.[0]?.amount || 0}
+                  </NumberSizeableText>
+                  {hardwareSales.available?.[0]?.amount ? (
+                    <FiatValue
+                      fiatValue={hardwareSales.available?.[0]?.fiatValue}
+                    />
+                  ) : null}
+                  {showHardwarePendingFiat ? (
+                    <>
+                      <SizableText size="$bodyMd">{` + `}</SizableText>
+                      <NumberSizeableText
+                        formatter="value"
+                        size="$bodyMd"
+                        formatterOptions={{
+                          tokenSymbol: hardwareSales.pending?.[0]?.token.symbol,
+                        }}
+                      >
+                        {hardwareSales.pending?.[0]?.amount || 0}
+                      </NumberSizeableText>
+                      {hardwareSales.pending?.[0]?.amount ? (
+                        <FiatValue
+                          fiatValue={hardwareSales.pending?.[0]?.fiatValue}
+                        />
+                      ) : null}
+                    </>
+                  ) : null}
                 </SizableText>
-              ) : null}
-            </XStack>
-          ) : (
-            <NoRewardYet />
-          )}
+                {showHardwarePendingFiat ? (
+                  <SizableText size="$bodyMd" color="$textSubdued">
+                    {intl.formatMessage({
+                      id: ETranslations.referral_sales_reward_pending,
+                    })}
+                  </SizableText>
+                ) : null}
+              </XStack>
+            );
+          })()}
         </YStack>
       </YStack>
       <YStack
@@ -904,7 +914,6 @@ function Dashboard({
   );
 }
 
-
 function Link() {
   return (
     <XStack px="$5" mb="$5">
@@ -1002,52 +1011,64 @@ function InviteRewardPage() {
         tabRoute={ETabRoutes.ReferFriends}
       />
       <Page.Body>
-        {isFetching ? (
-          <Stack
-            position="absolute"
-            top={0}
-            left={0}
-            right={0}
-            bottom={0}
-            ai="center"
-            jc="center"
-            flex={1}
-          >
-            <Spinner size="large" />
-          </Stack>
-        ) : summaryInfo ? (
-          <ScrollView>
-            <InviteRewardContent
-              summaryInfo={summaryInfo}
-              fetchSummaryInfo={fetchSummaryInfo}
-            />
-          </ScrollView>
-        ) : (
-          <Stack flex={1} ai="center" jc="center" px="$5">
-            <Empty
-              icon="GiftOutline"
-              title={intl.formatMessage({
-                id: ETranslations.referral_referred_empty,
-              })}
-              description={intl.formatMessage({
-                id: ETranslations.referral_referred_empty_desc,
-              })}
-              button={
-                <Button
-                  size="medium"
-                  variant="primary"
-                  onPress={() => {
-                    navigation.replace(ETabReferFriendsRoutes.TabReferAFriend);
-                  }}
-                >
-                  {intl.formatMessage({
-                    id: ETranslations.referral_invite_via,
-                  })}
-                </Button>
-              }
-            />
-          </Stack>
-        )}
+        {(() => {
+          if (isFetching) {
+            return (
+              <Stack
+                position="absolute"
+                top={0}
+                left={0}
+                right={0}
+                bottom={0}
+                ai="center"
+                jc="center"
+                flex={1}
+              >
+                <Spinner size="large" />
+              </Stack>
+            );
+          }
+
+          if (summaryInfo) {
+            return (
+              <ScrollView>
+                <InviteRewardContent
+                  summaryInfo={summaryInfo}
+                  fetchSummaryInfo={fetchSummaryInfo}
+                />
+              </ScrollView>
+            );
+          }
+
+          return (
+            <Stack flex={1} ai="center" jc="center" px="$5">
+              <Empty
+                icon="GiftOutline"
+                title={intl.formatMessage({
+                  id: ETranslations.referral_referred_empty,
+                })}
+                description={intl.formatMessage({
+                  id: ETranslations.referral_referred_empty_desc,
+                })}
+                button={
+                  <Button
+                    size="medium"
+                    variant="primary"
+                    onPress={() => {
+                      navigation.replace(
+                        ETabReferFriendsRoutes.TabReferAFriend,
+                      );
+                    }}
+                  >
+                    {intl.formatMessage({
+                      id: ETranslations.referral_invite_via,
+                    })}
+                  </Button>
+                }
+              />
+            </Stack>
+          );
+        })()}
       </Page.Body>
     </Page>
   );
