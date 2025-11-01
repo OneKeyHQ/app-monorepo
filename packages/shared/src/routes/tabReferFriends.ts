@@ -13,6 +13,7 @@ export enum ETabReferFriendsRoutes {
   TabEditAddress = 'TabEditAddress',
   TabEarnReward = 'TabEarnReward',
   TabRewardDistributionHistory = 'TabRewardDistributionHistory',
+  TabReferralLevel = 'TabReferralLevel',
 }
 
 export type ITabReferFriendsParamList = {
@@ -44,4 +45,5 @@ export type ITabReferFriendsParamList = {
     title: string;
   };
   TabRewardDistributionHistory: undefined;
+  TabReferralLevel: undefined;
 };

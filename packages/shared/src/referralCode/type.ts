@@ -256,3 +256,47 @@ export interface IInvitePostConfig {
     };
   };
 }
+
+export interface IInviteLevelDetail {
+  currentLevel: number;
+  levelProgress: {
+    HardwareSales?: {
+      current: string;
+      currentFiatValue: string;
+      threshold: string;
+      thresholdFiatValue: string;
+      progress: string;
+    };
+  };
+  levels: {
+    level: number;
+    emoji: string;
+    labelKey: string;
+    label: string;
+    isCurrent: boolean;
+    upgradeConditions: {
+      subject: string;
+      current: string;
+      currentFiatValue: string;
+      threshold: string;
+      thresholdFiatValue: string;
+      progress: string;
+    }[];
+    commissionRates: {
+      HardwareSales?: {
+        rebate: number;
+        discount: number;
+        enabled: boolean;
+        hasThreshold: boolean;
+        threshold: number;
+      };
+      Onchain?: {
+        rebate: number;
+        discount: number;
+        enabled: boolean;
+        hasThreshold: boolean;
+        threshold?: number;
+      };
+    };
+  }[];
+}

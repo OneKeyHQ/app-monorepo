@@ -42,6 +42,10 @@ const RewardDistributionHistory = LazyLoadPage(
   () => import('../../../views/ReferFriends/pages/RewardDistributionHistory'),
 );
 
+const ReferralLevel = LazyLoadPage(
+  () => import('../../../views/ReferFriends/pages/ReferralLevel'),
+);
+
 export const referFriendsRouters: ITabSubNavigatorConfig<
   ETabReferFriendsRoutes,
   ITabReferFriendsParamList
@@ -92,6 +96,11 @@ export const referFriendsRouters: ITabSubNavigatorConfig<
   {
     name: ETabReferFriendsRoutes.TabRewardDistributionHistory,
     component: RewardDistributionHistory,
+    headerShown: !platformEnv.isNative,
+  },
+  {
+    name: ETabReferFriendsRoutes.TabReferralLevel,
+    component: ReferralLevel,
     headerShown: !platformEnv.isNative,
   },
 ];

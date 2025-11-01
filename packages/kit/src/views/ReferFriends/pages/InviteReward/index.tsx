@@ -953,9 +953,25 @@ function InviteRewardContent({
     rebateConfig,
     withdrawAddresses,
   } = summaryInfo;
+  const navigation = useAppNavigation();
+
+  const handleViewLevelDetail = useCallback(() => {
+    navigation.push(ETabReferFriendsRoutes.TabReferralLevel);
+  }, [navigation]);
+
   return (
     <>
       <ShareCode inviteUrl={inviteUrl} inviteCode={inviteCode} />
+      <YStack px="$5" py="$4">
+        <Button
+          variant="secondary"
+          size="medium"
+          onPress={handleViewLevelDetail}
+          icon="TrophyOutline"
+        >
+          查看等级详情
+        </Button>
+      </YStack>
       <Dashboard
         enabledNetworks={enabledNetworks}
         onChain={Onchain}
