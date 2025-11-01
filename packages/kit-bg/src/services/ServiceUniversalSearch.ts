@@ -856,6 +856,13 @@ class ServiceUniversalSearch extends ServiceBase {
           const network = await serviceNetwork.getNetworkSafe({
             networkId: i.item.createAtNetwork,
           });
+          let account = i.item;
+          if (!account.address && network?.id) {
+            account = await serviceAccount.getAccount({
+              accountId: i.item.id,
+              networkId: network.id,
+            });
+          }
           const accountsValue = (
             await serviceAccountProfile.getAccountsValue({
               accounts: [{ accountId: i.item.id }],
@@ -869,7 +876,7 @@ class ServiceUniversalSearch extends ServiceBase {
           return {
             wallet,
             network,
-            account: i.item,
+            account,
             accountsValue,
             addressInfo: localValidateResult,
             accountInfo: {

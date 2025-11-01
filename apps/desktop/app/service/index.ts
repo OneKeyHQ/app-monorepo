@@ -19,6 +19,7 @@ const processConfig: Record<
   EServiceName,
   {
     childProcess: UtilityProcess | null;
+    platforms: NodeJS.Platform[];
     callbacks: {
       type: string;
       callback: (e: any) => void;
@@ -28,42 +29,45 @@ const processConfig: Record<
 > = {
   [EServiceName.WindowsHello]: {
     childProcess: null,
+    platforms: ['win32'],
     callbacks: [],
   },
   [EServiceName.CheckBiometricAuthChanged]: {
     childProcess: null,
+    platforms: ['darwin'],
     callbacks: [],
   },
 };
 
 const startService = (key: EServiceName) => {
-  if (!processConfig[key].childProcess) {
-    processConfig[key].childProcess = utilityProcess.fork(
+  const config = processConfig[key];
+  if (!config.platforms.includes(process.platform)) {
+    return;
+  }
+  if (!config.childProcess) {
+    config.childProcess = utilityProcess.fork(
       path.join(__dirname, `./service/${key}.js`),
     );
   }
 
-  processConfig[key].childProcess?.on(
-    'message',
-    (e: { type: string; result: boolean }) => {
-      Logger.info(`${key}ChildProcess-onMessage`, e);
-      const callbacks = processConfig[key].callbacks.filter(
-        (callbackItem) => callbackItem.type === e.type,
+  config.childProcess?.on('message', (e: { type: string; result: boolean }) => {
+    Logger.info(`${key}ChildProcess-onMessage`, e);
+    const callbacks = processConfig[key].callbacks.filter(
+      (callbackItem) => callbackItem.type === e.type,
+    );
+    if (callbacks.length) {
+      callbacks.forEach((callbackItem) => {
+        // Callbacks older than 1 minute will not be executed
+        if (Date.now() - callbackItem.timestamp < 60 * 1000) {
+          callbackItem.callback(e.result);
+        }
+      });
+      config.callbacks = config.callbacks.filter(
+        (callbackItem) => !callbacks.includes(callbackItem),
       );
-      if (callbacks.length) {
-        callbacks.forEach((callbackItem) => {
-          // Callbacks older than 1 minute will not be executed
-          if (Date.now() - callbackItem.timestamp < 60 * 1000) {
-            callbackItem.callback(e.result);
-          }
-        });
-        processConfig[key].callbacks = processConfig[key].callbacks.filter(
-          (callbackItem) => !callbacks.includes(callbackItem),
-        );
-      }
-    },
-  );
-  processConfig[key].childProcess?.on('exit', (code) => {
+    }
+  });
+  config.childProcess?.on('exit', (code) => {
     Logger.info(`${key}ChildProcess--onExit`, code);
   });
 };
@@ -90,15 +94,22 @@ const postServiceMessage = <T>(
     });
   });
 
+const checkServiceExist = (serviceName: EServiceName) => {
+  return processConfig[serviceName].childProcess !== null;
+};
+
 let cacheWindowsHelloSupported: boolean | null = null;
 export const checkAvailabilityAsync = async () => {
+  if (!checkServiceExist(EServiceName.WindowsHello)) {
+    return false;
+  }
   if (cacheWindowsHelloSupported === null) {
-    cacheWindowsHelloSupported = await Promise.race<boolean>([
+    cacheWindowsHelloSupported = await Promise.race([
       postServiceMessage<boolean>(
         EServiceName.WindowsHello,
         EWindowHelloEventType.CheckAvailabilityAsync,
       ),
-      new Promise((resolve) =>
+      new Promise<boolean>((resolve) =>
         setTimeout(() => {
           cacheWindowsHelloSupported = false;
           resolve(cacheWindowsHelloSupported);
@@ -109,8 +120,14 @@ export const checkAvailabilityAsync = async () => {
   return cacheWindowsHelloSupported;
 };
 
-export const requestVerificationAsync = (message: string) =>
-  postServiceMessage<{
+export const requestVerificationAsync = async (message: string) => {
+  if (!checkServiceExist(EServiceName.WindowsHello)) {
+    return {
+      success: false,
+      error: 'Windows Hello service not found',
+    };
+  }
+  return postServiceMessage<{
     success: boolean;
     error?: string;
   }>(
@@ -118,16 +135,22 @@ export const requestVerificationAsync = (message: string) =>
     EWindowHelloEventType.RequestVerificationAsync,
     message,
   );
+};
 
-export const checkBiometricAuthChanged = async () =>
-  Promise.race<boolean>([
+export const checkBiometricAuthChanged = async () => {
+  if (!checkServiceExist(EServiceName.CheckBiometricAuthChanged)) {
+    return false;
+  }
+
+  return Promise.race<boolean>([
     postServiceMessage<boolean>(
       EServiceName.CheckBiometricAuthChanged,
       ECheckBiometricAuthChangedEventType.CheckBiometricAuthChanged,
     ),
-    new Promise((resolve) =>
+    new Promise<boolean>((resolve) =>
       setTimeout(() => {
         resolve(false);
       }, 500),
     ),
   ]);
+};
