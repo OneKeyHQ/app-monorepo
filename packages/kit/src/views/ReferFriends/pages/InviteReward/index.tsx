@@ -761,7 +761,8 @@ function Dashboard({
                         formatter="value"
                         size="$bodyMd"
                         formatterOptions={{
-                          tokenSymbol: hardwareSales.pending?.[0]?.token?.symbol,
+                          tokenSymbol:
+                            hardwareSales.pending?.[0]?.token?.symbol,
                         }}
                       >
                         {hardwareSales.pending?.[0]?.amount || 0}
