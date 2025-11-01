@@ -638,6 +638,7 @@ function Overview({
 
 function EarnBlockedOverview(props: {
   showHeader?: boolean;
+  showContent?: boolean;
   icon: IKeyOfIcons;
   title: string;
   description: string;
@@ -645,7 +646,15 @@ function EarnBlockedOverview(props: {
   refreshing: boolean;
 }) {
   const intl = useIntl();
-  const { title, description, icon, refresh, refreshing, showHeader } = props;
+  const {
+    title,
+    description,
+    icon,
+    refresh,
+    refreshing,
+    showHeader,
+    showContent,
+  } = props;
 
   return (
     <Page fullPage>
@@ -657,6 +666,7 @@ function EarnBlockedOverview(props: {
       ) : null}
       <Page.Body>
         <Empty
+          display={showContent ? undefined : 'none'}
           icon={icon}
           title={title}
           description={description}
@@ -679,7 +689,13 @@ function EarnBlockedOverview(props: {
   );
 }
 
-function EarnHomeContent({ showHeader }: { showHeader?: boolean }) {
+function EarnHomeContent({
+  showHeader,
+  showContent,
+}: {
+  showHeader?: boolean;
+  showContent?: boolean;
+}) {
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { account, indexedAccount } = activeAccount;
   const media = useMedia();
@@ -1026,6 +1042,7 @@ function EarnHomeContent({ showHeader }: { showHeader?: boolean }) {
     return (
       <EarnBlockedOverview
         showHeader={showHeader}
+        showContent={showContent}
         refresh={refreshBlockResult}
         refreshing={!!isFetchingBlockResult}
         icon={blockResult.blockData.icon.icon}
@@ -1040,6 +1057,9 @@ function EarnHomeContent({ showHeader }: { showHeader?: boolean }) {
       <>
         {showHeader ? <Stack h={tabPageHeight} /> : null}
         <Tabs.Container
+          containerStyle={{
+            display: showContent ? undefined : 'none',
+          }}
           allowHeaderOverscroll
           renderHeader={() => (
             <YStack
@@ -1250,9 +1270,12 @@ function EarnHomeContent({ showHeader }: { showHeader?: boolean }) {
 
 export function EarnHomeWithProvider({
   showHeader = true,
+  showContent = true,
 }: {
   showHeader?: boolean;
+  showContent?: boolean;
 }) {
+  console.log('showContent', showContent);
   return (
     <AccountSelectorProviderMirror
       config={{
@@ -1262,7 +1285,7 @@ export function EarnHomeWithProvider({
       enabledNum={[0]}
     >
       <EarnProviderMirror storeName={EJotaiContextStoreNames.earn}>
-        <EarnHomeContent showHeader={showHeader} />
+        <EarnHomeContent showHeader={showHeader} showContent={showContent} />
       </EarnProviderMirror>
     </AccountSelectorProviderMirror>
   );
