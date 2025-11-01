@@ -9,6 +9,7 @@ import {
   Page,
   Stack,
   XStack,
+  YStack,
   useMedia,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
@@ -33,6 +34,7 @@ import {
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/debugUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
+import { EarnHomeWithProvider } from '../../../Earn/EarnHome';
 import CustomHeaderTitle from '../../components/CustomHeaderTitle';
 import { HandleRebuildBrowserData } from '../../components/HandleData/HandleRebuildBrowserTabData';
 import HeaderRightToolBar from '../../components/HeaderRightToolBar';
@@ -53,6 +55,7 @@ import DashboardContent from '../Dashboard/DashboardContent';
 import MobileBrowserContent from './MobileBrowserContent';
 import { withBrowserProvider } from './WithBrowserProvider';
 
+import type { LayoutChangeEvent } from 'react-native';
 import type { WebView } from 'react-native-webview';
 
 const isNativeMobile = platformEnv.isNative && !platformEnv.isNativeIOSPad;
@@ -265,17 +268,20 @@ function MobileBrowser() {
   const [selectedHeaderTab, setSelectedHeaderTab] = useState<ETranslations>(
     ETranslations.global_browser,
   );
+  const [tabPageHeight, setTabPageHeight] = useState(
+    platformEnv.isNativeIOS ? 143 : 92,
+  );
+  const handleTabPageLayout = useCallback((e: LayoutChangeEvent) => {
+    // Use the actual measured height without arbitrary adjustments
+    const height = e.nativeEvent.layout.height - 20;
+    setTabPageHeight(height);
+  }, []);
   return (
     <Page fullPage>
       {/* custom header */}
 
       {displayHomePage ? (
-        <TabPageHeader
-          sceneName={EAccountSelectorSceneName.home}
-          tabRoute={ETabRoutes.Discovery}
-          selectedHeaderTab={selectedHeaderTab}
-          onSelectHeaderTab={setSelectedHeaderTab}
-        />
+        <Stack h={tabPageHeight} />
       ) : (
         <XStack
           pt={top}
@@ -302,36 +308,58 @@ function MobileBrowser() {
         </XStack>
       )}
       <Page.Body>
-        <Stack flex={1} zIndex={3} pb={gtMd ? bottom : 0}>
-          <HandleRebuildBrowserData />
-          <Stack flex={1}>
-            {gtMd ? null : (
-              <Stack display={displayHomePage ? 'flex' : 'none'}>
-                <DashboardContent onScroll={handleScroll} />
-              </Stack>
-            )}
-            <Freeze freeze={displayHomePage}>{content}</Freeze>
+        {selectedHeaderTab === ETranslations.global_browser ? (
+          <Stack flex={1} zIndex={3} pb={gtMd ? bottom : 0}>
+            <HandleRebuildBrowserData />
+            <Stack flex={1}>
+              {gtMd ? null : (
+                <Stack display={displayHomePage ? 'flex' : 'none'}>
+                  <DashboardContent onScroll={handleScroll} />
+                </Stack>
+              )}
+              <Freeze freeze={displayHomePage}>{content}</Freeze>
+            </Stack>
+            <Freeze freeze={!displayBottomBar}>
+              <Animated.View
+                ref={toolbarRef}
+                style={[
+                  toolbarAnimatedStyle,
+                  {
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                  },
+                ]}
+              >
+                <MobileBrowserBottomBar
+                  id={activeTabId ?? ''}
+                  onGoBackHomePage={handleGoBackHome}
+                />
+              </Animated.View>
+            </Freeze>
           </Stack>
-          <Freeze freeze={!displayBottomBar}>
-            <Animated.View
-              ref={toolbarRef}
-              style={[
-                toolbarAnimatedStyle,
-                {
-                  bottom: 0,
-                  left: 0,
-                  right: 0,
-                },
-              ]}
-            >
-              <MobileBrowserBottomBar
-                id={activeTabId ?? ''}
-                onGoBackHomePage={handleGoBackHome}
-              />
-            </Animated.View>
-          </Freeze>
-        </Stack>
+        ) : (
+          <EarnHomeWithProvider showHeader={false} />
+        )}
       </Page.Body>
+      {displayHomePage ? (
+        <YStack
+          position="absolute"
+          top={-20}
+          left={0}
+          bg="$bgApp"
+          pt="$5"
+          width="100%"
+          onLayout={handleTabPageLayout}
+        >
+          <TabPageHeader
+            sceneName={EAccountSelectorSceneName.home}
+            tabRoute={ETabRoutes.Discovery}
+            selectedHeaderTab={selectedHeaderTab}
+            onSelectHeaderTab={setSelectedHeaderTab}
+          />
+        </YStack>
+      ) : null}
     </Page>
   );
 }
