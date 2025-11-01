@@ -5,7 +5,7 @@ import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 
 export default function useListenTabFocusState(
   tabName: ETabRoutes | ETabRoutes[],
-  callback: (isFocus: boolean, isHideByModal: boolean) => void,
+  callback: (isFocus: boolean, isHideByModal: boolean) => void, // do NOT useCallback to wrap the callback
 ) {
   const tabNames = Array.isArray(tabName) ? tabName : [tabName];
   useOnRouterChange((state) => {

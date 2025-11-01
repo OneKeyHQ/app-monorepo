@@ -3,7 +3,7 @@ import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { isEqual, noop } from 'lodash';
 
-import { useUpdateEffect } from '@onekeyhq/components';
+import { Toast, useUpdateEffect } from '@onekeyhq/components';
 import { DelayedRender } from '@onekeyhq/components/src/hocs/DelayedRender';
 import {
   useAccountIsAutoCreatingAtom,
@@ -38,7 +38,10 @@ import type {
   IWsUserNonFundingLedgerUpdates,
   IWsWebData2,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
-import type { EPerpsSubscriptionCategory } from '@onekeyhq/shared/types/hyperliquid/types';
+import type {
+  EPerpsSubscriptionCategory,
+  IPerpOrderBookTickOptionPersist,
+} from '@onekeyhq/shared/types/hyperliquid/types';
 import {
   EPerpUserType,
   ESubscriptionType,
@@ -60,26 +63,36 @@ function useSyncContextOrderBookOptionsToGlobal() {
   const [activeAsset] = usePerpsActiveAssetAtom();
   const [orderBookTickOptions] = useOrderBookTickOptionsAtom();
 
-  const l2SubscriptionOptions = useMemo(() => {
-    const coin = activeAsset?.coin;
-    if (!coin) {
-      return { nSigFigs: null, mantissa: undefined };
-    }
-    const stored = orderBookTickOptions[coin];
-    const nSigFigs = stored?.nSigFigs ?? null;
-    const mantissa =
-      stored?.mantissa === undefined ? undefined : stored.mantissa;
-    return { nSigFigs: nSigFigs ?? null, mantissa: mantissa ?? null };
-  }, [orderBookTickOptions, activeAsset?.coin]);
+  const orderBookTickOptionsRef = useRef(orderBookTickOptions);
+  orderBookTickOptionsRef.current = orderBookTickOptions;
 
   const isFocusedRef = useRef(true);
 
-  const updateGlobalOrderBookOptions = useCallback(async () => {
-    if (isFocusedRef.current) {
+  const updateGlobalOrderBookOptions = useCallback(
+    async (
+      _orderBookTickOptions: Record<string, IPerpOrderBookTickOptionPersist>,
+    ) => {
+      if (!isFocusedRef.current) {
+        return;
+      }
       const prev = await perpsActiveOrderBookOptionsAtom.get();
+      const _activeAsset = await perpsActiveAssetAtom.get();
+
+      const l2SubscriptionOptions = (() => {
+        const coin = _activeAsset?.coin;
+        if (!coin) {
+          return { nSigFigs: null, mantissa: null };
+        }
+        const stored = _orderBookTickOptions[coin];
+        const nSigFigs = stored?.nSigFigs ?? null;
+        const mantissa =
+          stored?.mantissa === undefined ? undefined : stored.mantissa;
+        return { nSigFigs: nSigFigs ?? null, mantissa: mantissa ?? null };
+      })();
+
       const next: IPerpsActiveOrderBookOptionsAtom = {
-        coin: activeAsset?.coin,
-        assetId: activeAsset?.assetId,
+        coin: _activeAsset?.coin,
+        assetId: _activeAsset?.assetId,
         ...l2SubscriptionOptions,
       };
       if (isEqual(prev, next)) {
@@ -88,22 +101,25 @@ function useSyncContextOrderBookOptionsToGlobal() {
       await perpsActiveOrderBookOptionsAtom.set(
         (): IPerpsActiveOrderBookOptionsAtom => next,
       );
-    }
-  }, [l2SubscriptionOptions, activeAsset?.coin, activeAsset?.assetId]);
+    },
+    [],
+  );
 
   useEffect(() => {
-    void updateGlobalOrderBookOptions();
-  }, [updateGlobalOrderBookOptions]);
+    noop(orderBookTickOptions);
+    noop(activeAsset?.coin);
+    void updateGlobalOrderBookOptions(orderBookTickOptions);
+  }, [orderBookTickOptions, activeAsset?.coin, updateGlobalOrderBookOptions]);
 
   useListenTabFocusState(
     ETabRoutes.Perp,
-    useCallback(
-      (isFocus: boolean) => {
-        isFocusedRef.current = isFocus;
-        void updateGlobalOrderBookOptions();
-      },
-      [updateGlobalOrderBookOptions],
-    ),
+    (isFocus: boolean, _isHiddenByModal: boolean) => {
+      const isFocusedPrev = isFocusedRef.current;
+      isFocusedRef.current = isFocus;
+      if (isFocus !== isFocusedPrev) {
+        void updateGlobalOrderBookOptions(orderBookTickOptionsRef.current);
+      }
+    },
   );
 }
 
@@ -391,14 +407,21 @@ function WebSocketSubscriptionUpdate() {
     noop(activeOrderBookOptions?.mantissa);
     noop(activeOrderBookOptions?.nSigFigs);
 
-    if (
-      isWebSocketConnected === true &&
-      !isLoading &&
-      activeAsset?.coin &&
-      activeOrderBookOptions?.coin === activeAsset?.coin
-    ) {
-      console.log('updateSubscriptions______PerpsGlobalEffects');
-      void actions.current.updateSubscriptions();
+    if (isWebSocketConnected === true && !isLoading) {
+      if (
+        activeAsset?.coin &&
+        activeOrderBookOptions?.coin === activeAsset?.coin
+      ) {
+        console.log('updateSubscriptions______PerpsGlobalEffects');
+        void actions.current.updateSubscriptions();
+      } else {
+        // update orderbook options to match the active asset
+        // Toast.error({
+        //   title: 'Error',
+        //   message:
+        //     'Orderbook options do not match the active asset coin, please change the asset',
+        // });
+      }
     }
   }, [
     checkDeps,
@@ -506,17 +529,13 @@ function AutoPauseSubscriptions() {
   );
 
   const isFocusedRef = useRef(false);
-
-  useListenTabFocusState(
-    ETabRoutes.Perp,
-    useCallback(
-      (isFocus: boolean) => {
-        isFocusedRef.current = isFocus;
-        void onFocusHandler({ isFocus: isFocusedRef.current });
-      },
-      [onFocusHandler],
-    ),
-  );
+  useListenTabFocusState(ETabRoutes.Perp, (isFocus: boolean) => {
+    const isFocusPrev = isFocusedRef.current;
+    isFocusedRef.current = isFocus;
+    if (isFocusPrev !== isFocus) {
+      void onFocusHandler({ isFocus: isFocusedRef.current });
+    }
+  });
 
   const [isLocked] = useAppIsLockedAtom();
 
