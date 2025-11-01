@@ -1062,28 +1062,11 @@ function InviteRewardPage() {
 
   const isFetching = isLoading ?? summaryInfo === undefined;
 
-  const renderHeaderTitle = useCallback(
-    () => (
-      <XStack gap="$2">
-        <SizableText size="$headingLg">
-          {intl.formatMessage({
-            id: ETranslations.referral_title,
-          })}
-        </SizableText>
-        <Badge badgeType="info" badgeSize="sm">
-          <Badge.Text>Beta</Badge.Text>
-        </Badge>
-      </XStack>
-    ),
-    [intl],
-  );
-
   return (
     <Page>
       <TabPageHeader
         sceneName={EAccountSelectorSceneName.home}
         tabRoute={ETabRoutes.ReferFriends}
-        headerTitle={renderHeaderTitle}
       />
       <Page.Body>
         {isFetching ? (

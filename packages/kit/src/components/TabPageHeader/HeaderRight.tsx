@@ -241,6 +241,8 @@ export function HeaderRight({
             <DepositAction />
           </>
         );
+      case ETabRoutes.ReferFriends:
+        return fixedItems;
       default:
         break;
     }
