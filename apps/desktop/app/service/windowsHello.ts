@@ -7,7 +7,7 @@ function checkWindowsHelloAvailability(callback: (result: boolean) => void) {
     const isAvailable = Passport.available();
     callback(isAvailable);
   } catch (error) {
-    return false;
+    callback(false);
   }
 }
 
