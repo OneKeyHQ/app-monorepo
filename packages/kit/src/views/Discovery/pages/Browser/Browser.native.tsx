@@ -1,5 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { useRoute } from '@react-navigation/core';
 import { Freeze } from 'react-freeze';
 import { BackHandler } from 'react-native';
 import Animated from 'react-native-reanimated';
@@ -25,7 +26,11 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import type { IDiscoveryModalParamList } from '@onekeyhq/shared/src/routes';
+import type {
+  ETabDiscoveryRoutes,
+  IDiscoveryModalParamList,
+  ITabDiscoveryParamList,
+} from '@onekeyhq/shared/src/routes';
 import {
   EDiscoveryModalRoutes,
   EModalRoutes,
@@ -55,6 +60,7 @@ import DashboardContent from '../Dashboard/DashboardContent';
 import MobileBrowserContent from './MobileBrowserContent';
 import { withBrowserProvider } from './WithBrowserProvider';
 
+import type { RouteProp } from '@react-navigation/core';
 import type { LayoutChangeEvent } from 'react-native';
 import type { WebView } from 'react-native-webview';
 
@@ -122,6 +128,26 @@ const useAndroidHardwareBack = platformEnv.isNativeAndroid
   : () => {};
 
 function MobileBrowser() {
+  const route =
+    useRoute<
+      RouteProp<ITabDiscoveryParamList, ETabDiscoveryRoutes.TabDiscovery>
+    >();
+  const { defaultTab } = route?.params || {};
+
+  const [selectedHeaderTab, setSelectedHeaderTab] = useState<ETranslations>(
+    defaultTab || ETranslations.global_browser,
+  );
+  const previousDefaultTab = useRef<ETranslations | undefined>(defaultTab);
+  useEffect(() => {
+    if (previousDefaultTab.current !== defaultTab) {
+      previousDefaultTab.current = defaultTab;
+      if (defaultTab) {
+        setTimeout(() => {
+          setSelectedHeaderTab(defaultTab);
+        }, 100);
+      }
+    }
+  }, [defaultTab]);
   const { tabs } = useWebTabs();
   const { activeTabId } = useActiveTabId();
   const { closeWebTab, setCurrentWebTab } = useBrowserTabActions().current;
@@ -265,9 +291,6 @@ function MobileBrowser() {
     handleGoBackHome,
   });
 
-  const [selectedHeaderTab, setSelectedHeaderTab] = useState<ETranslations>(
-    ETranslations.global_browser,
-  );
   const [tabPageHeight, setTabPageHeight] = useState(
     platformEnv.isNativeIOS ? 143 : 92,
   );

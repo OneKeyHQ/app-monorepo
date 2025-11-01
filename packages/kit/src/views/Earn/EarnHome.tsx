@@ -1,5 +1,5 @@
 import type { PropsWithChildren } from 'react';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useLayoutEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
@@ -43,6 +43,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalRoutes,
   EModalStakingRoutes,
+  ETabDiscoveryRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
 import {
@@ -1291,7 +1292,31 @@ export function EarnHomeWithProvider({
   );
 }
 
+const useNavigateToNativeEarnPage = platformEnv.isNative
+  ? () => {
+      const { md } = useMedia();
+      const navigation = useAppNavigation();
+      useLayoutEffect(() => {
+        if (md) {
+          navigation.navigate(
+            ETabRoutes.Discovery,
+            {
+              screen: ETabDiscoveryRoutes.TabDiscovery,
+              params: {
+                defaultTab: ETranslations.global_earn,
+              },
+            },
+            {
+              pop: true,
+            },
+          );
+        }
+      }, [navigation, md]);
+    }
+  : () => {};
+
 export default function EarnHome() {
+  useNavigateToNativeEarnPage();
   return (
     <Page fullPage>
       <Page.Body>
