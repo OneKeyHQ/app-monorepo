@@ -10,6 +10,7 @@ import {
   ERootRoutes,
   ETabDeveloperRoutes,
   ETabMarketRoutes,
+  ETabReferFriendsRoutes,
   ETabRoutes,
   ETabSwapRoutes,
   ETestModalPages,
@@ -125,6 +126,9 @@ export const buildAllowList = (
     return fullPath;
   }
 
+  const { TabReferAFriend, TabInviteReward, TabOneKeyId } =
+    ETabReferFriendsRoutes;
+
   // fill in the route name as the key according to the route stacks order
   // Page: /main/tab-Home/TabHomeStack1
   const rules = {
@@ -149,6 +153,14 @@ export const buildAllowList = (
         showUrl: true,
         showParams: true,
       },
+    [pagePath`${ERootRoutes.Main}${ETabRoutes.ReferFriends}${TabReferAFriend}`]:
+      { showUrl: true, showParams: false },
+    [pagePath`${ERootRoutes.Main}${ETabRoutes.ReferFriends}${TabInviteReward}`]:
+      { showUrl: true, showParams: false },
+    [pagePath`${ERootRoutes.Main}${ETabRoutes.ReferFriends}${TabOneKeyId}`]: {
+      showUrl: true,
+      showParams: false,
+    },
     [pagePath`${ERootRoutes.Main}${ETabRoutes.Earn}`]: {
       showUrl: true,
       showParams: true,

@@ -8,8 +8,8 @@ import { ControlledNetworkSelectorIconTrigger } from '@onekeyhq/kit/src/componen
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import type {
-  EModalReferFriendsRoutes,
-  IModalReferFriendsParamList,
+  ETabReferFriendsRoutes,
+  ITabReferFriendsParamList,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
@@ -21,8 +21,8 @@ export default function YourReferredWalletAddresses() {
   const { params } =
     useRoute<
       RouteProp<
-        IModalReferFriendsParamList,
-        EModalReferFriendsRoutes.YourReferredWalletAddresses
+        ITabReferFriendsParamList,
+        ETabReferFriendsRoutes.TabYourReferredWalletAddresses
       >
     >();
 
