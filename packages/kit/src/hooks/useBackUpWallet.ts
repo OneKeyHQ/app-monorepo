@@ -15,7 +15,7 @@ import useLiteCard from '../views/LiteCard/hooks/useLiteCard';
 import { useAccountData } from './useAccountData';
 import useAppNavigation from './useAppNavigation';
 
-function useBackupWallet({ walletId }: { walletId: string }) {
+function useBackUpWallet({ walletId }: { walletId: string }) {
   const { wallet } = useAccountData({ walletId });
 
   const navigation = useAppNavigation();
@@ -88,4 +88,4 @@ function useBackupWallet({ walletId }: { walletId: string }) {
   };
 }
 
-export { useBackupWallet };
+export { useBackUpWallet };

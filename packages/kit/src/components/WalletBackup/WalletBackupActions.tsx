@@ -8,7 +8,7 @@ import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useBackupWallet } from '../../hooks/useBackUpWallet';
+import { useBackUpWallet } from '../../hooks/useBackUpWallet';
 
 export function WalletBackupActions({
   wallet,
@@ -32,7 +32,7 @@ export function WalletBackupActions({
   const intl = useIntl();
 
   const { handleBackUpByPhrase, handleBackUpByLiteCard, handleBackUpByKeyTag } =
-    useBackupWallet({ walletId: wallet?.id ?? '' });
+    useBackUpWallet({ walletId: wallet?.id ?? '' });
 
   return (
     <ActionList

@@ -11,13 +11,14 @@ import { NetworkSelectorTriggerHome } from '@onekeyhq/kit/src/components/Account
 import { useSpotlight } from '@onekeyhq/kit/src/components/Spotlight';
 import useListenTabFocusState from '@onekeyhq/kit/src/hooks/useListenTabFocusState';
 import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
 import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
+
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
-import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
 
 function AccountSelectorTriggerWithSpotlight({
   isFocus,

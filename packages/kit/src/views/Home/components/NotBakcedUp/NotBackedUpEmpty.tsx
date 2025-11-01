@@ -20,6 +20,7 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { WalletBackupActions } from '@onekeyhq/kit/src/components/WalletBackup';
+import { useBackUpWallet } from '@onekeyhq/kit/src/hooks/useBackUpWallet';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
@@ -35,7 +36,6 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import InfoBlock from './InfoBlock';
 import MainInfoBlock from './MainBlock';
-import { useBackupWallet } from '@onekeyhq/kit/src/hooks/useBackupWallet';
 
 function NotBackedUp() {
   const intl = useIntl();
@@ -118,7 +118,7 @@ function NotBackedUp() {
     handleBackUpByiCloud,
     handleBackUpByGoogleDrive,
     handleBackUpByPhrase,
-  } = useBackupWallet({
+  } = useBackUpWallet({
     walletId: wallet?.id ?? '',
   });
 
