@@ -59,6 +59,25 @@ type IBuildUnsignedTxParams = {
   disableMev?: boolean;
 };
 
+export type INavigationToMessageConfirmParams = {
+  unsignedMessage: IUnsignedMessage;
+  accountId: string;
+  networkId: string;
+  walletInternalSign?: boolean;
+  sameModal?: boolean;
+  swapInfo?: ISwapTxInfo;
+  sourceInfo?: IDappSourceInfo;
+  onSuccess?: (result: string) => void;
+  onFail?: (error: Error) => void;
+  onCancel?: () => void;
+  skipBackupCheck?: boolean;
+};
+
+export type INavigationToMessageConfirmAsyncParams = Omit<
+  INavigationToMessageConfirmParams,
+  'onSuccess' | 'onFail' | 'onCancel'
+>;
+
 function useSignatureConfirm(params: IParams) {
   const { accountId, networkId } = params;
 
@@ -279,19 +298,7 @@ function useSignatureConfirm(params: IParams) {
   );
 
   const navigationToMessageConfirm = useCallback(
-    (params: {
-      unsignedMessage: IUnsignedMessage;
-      accountId: string;
-      networkId: string;
-      walletInternalSign?: boolean;
-      sameModal?: boolean;
-      swapInfo?: ISwapTxInfo;
-      sourceInfo?: IDappSourceInfo;
-      skipBackupCheck?: boolean;
-      onSuccess?: (result: string) => void;
-      onFail?: (error: Error) => void;
-      onCancel?: () => void;
-    }) => {
+    (params: INavigationToMessageConfirmParams) => {
       const {
         unsignedMessage,
         accountId,
@@ -342,16 +349,7 @@ function useSignatureConfirm(params: IParams) {
 
   // Promise-based version of navigationToMessageConfirm
   const navigationToMessageConfirmAsync = useCallback(
-    async (params: {
-      unsignedMessage: IUnsignedMessage;
-      accountId: string;
-      networkId: string;
-      walletInternalSign?: boolean;
-      sameModal?: boolean;
-      swapInfo?: ISwapTxInfo;
-      sourceInfo?: IDappSourceInfo;
-      skipBackupCheck?: boolean;
-    }): Promise<string> => {
+    async (params: INavigationToMessageConfirmAsyncParams): Promise<string> => {
       return new Promise((resolve, reject) => {
         navigationToMessageConfirm({
           ...params,

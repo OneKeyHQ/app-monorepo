@@ -80,7 +80,7 @@ export function Layout({
   wideScreen?: boolean;
   getFilePath?: () => string | undefined;
   elements?: {
-    title: string;
+    title?: string;
     description?: string;
     element: ComponentType | ReactElement;
   }[];
@@ -88,7 +88,7 @@ export function Layout({
   const keyboardHeight = useKeyboardHeight();
   const navigation = useAppNavigation();
   const [wideScreen, setWideScreen] = useState(initialWideScreen);
-  const contentWidth = wideScreen ? 960 : 576;
+  const contentWidth = wideScreen ? 1440 : 576;
   const [settings] = useSettingsPersistAtom();
   const isDarkTheme = settings.theme === 'dark';
 
@@ -242,11 +242,13 @@ export function Layout({
                   key={`elements-${index}`}
                   pb="$8"
                   mb="$8"
-                  borderBottomWidth="$px"
-                  borderBottomColor="$borderSubdued"
+                  // borderBottomWidth="$px"
+                  // borderBottomColor="$borderSubdued"
                 >
                   <Stack flexDirection="column">
-                    <SizableText size="$headingLg">{item.title}</SizableText>
+                    {item.title ? (
+                      <SizableText size="$headingLg">{item.title}</SizableText>
+                    ) : null}
                     {item.description ? (
                       <Stack paddingTop={1}>
                         <SizableText>{item.description}。</SizableText>

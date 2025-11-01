@@ -17,6 +17,7 @@ export * from './liteCard';
 export * from './modal';
 export * from './modalUrlAccount';
 export * from './onboarding';
+export * from './onboardingv2';
 export * from './receive';
 export * from './referFriends';
 export * from './root';

@@ -2684,7 +2684,8 @@
   "referral.your_referred_wallets_1address": "1 alamat",
   "referral.your_referred_wallets_details": "Rincian",
   "referral.your_referred_wallets_more_address": "{amount} alamat",
-  "referral_promo_title": "Join the OneKey Referral Program",
+  "referral_code_tutorial_label": "Cara mendapatkan kode rujukan?",
+  "referral_promo_title": "Bergabung dengan Program Rujukan OneKey",
   "remove_account_desc": "Akun ini akan dihapus.",
   "remove_device": "Hapus perangkat",
   "remove_device_desc": "Ini akan memutuskan dompet hardware ini dari OneKey App. Anda dapat menyambungkannya kembali ke App kapan saja Anda mau.",
@@ -3645,5 +3646,8 @@
   "wallet_backup.backup_warning": "<strong>Cadangkan dompet Anda</strong> — lindungi aset Anda dari kehilangan perangkat",
   "wallet_backup.save_recovery_phrase": "Simpan frasa pemulihan",
   "wallet_backup.status_not_backed_up": "Tidak dicadangkan",
+  "wallet_empty_article_deposit": "Bagaimana cara menyetor crypto?",
+  "wallet_empty_article_deposit_faq": "Setoran belum masuk?",
+  "wallet_empty_article_trade": "Bagaimana cara saya memperdagangkan kripto di OneKey?",
   "word": "Kata"
 }
