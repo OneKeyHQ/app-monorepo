@@ -3,8 +3,6 @@
 # dependencies
 node_modules/
 
-scripts/MacApiBridge/bin/*
-
 # Expo
 .expo/
 dist/

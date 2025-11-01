@@ -8,7 +8,6 @@
   "scripts": {
     "postinstall": "yarn keytar",
     "keytar": "node development/build_keytar.js",
-    "build:mac-api-bridge": "bash scripts/MacApiBridge/build.sh",
     "clean": "rimraf ./build-electron && rimraf .tamagui && rimraf ./app/build && rimraf ./app/dist && rimraf __generated__",
     "clean:build": "rimraf ./build-electron && rimraf ./app/build && rimraf ./app/dist && rimraf ./node_modules/.cache",
     "start": "cross-env NODE_OPTIONS=\"--max-old-space-size=8192\" yarn dev",

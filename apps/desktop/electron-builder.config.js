@@ -34,11 +34,6 @@ module.exports = {
         'from': 'app/build/static/bin/bridge/mac-${arch}',
         'to': 'bin/bridge',
       },
-      // {
-      //   'from':
-      //     'scripts/MacApiBridge/bin/onekey-desktop-mac-api-bridge-${arch}',
-      //   'to': 'bin/onekey-desktop-mac-api-bridge-${arch}',
-      // },
     ],
     'icon': 'app/build/static/images/icons/512x512.png',
     'artifactName': 'OneKey-Wallet-${version}-mac-${arch}.${ext}',
