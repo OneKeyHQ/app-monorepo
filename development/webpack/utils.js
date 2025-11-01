@@ -4,6 +4,11 @@ const { EXT_CHANNEL, TARGET_BROWSER } = require('./constant');
 
 exports.createResolveExtensions = function ({ platform, configName }) {
   console.log('createResolveExtensions>>>>>>', platform, configName);
+
+  // if (platform === 'desktop') {
+  //    uniq(['.ts', '.tsx', '.js', '.jsx']);
+  // }
+
   return uniq([
     // .chrome-ext.ts, .firefox-ext.ts
     ...(EXT_CHANNEL && TARGET_BROWSER

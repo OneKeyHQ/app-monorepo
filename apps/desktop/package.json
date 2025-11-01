@@ -8,6 +8,7 @@
   "scripts": {
     "postinstall": "yarn keytar",
     "keytar": "node development/build_keytar.js",
+    "build:mac-api-bridge": "bash scripts/MacApiBridge/build.sh",
     "clean": "rimraf ./build-electron && rimraf .tamagui && rimraf ./app/build && rimraf ./app/dist && rimraf __generated__",
     "clean:build": "rimraf ./build-electron && rimraf ./app/build && rimraf ./app/dist && rimraf ./node_modules/.cache",
     "start": "cross-env NODE_OPTIONS=\"--max-old-space-size=8192\" yarn dev",
@@ -48,6 +49,7 @@
     "electron-updater": "6.1.8",
     "keytar": "^7.9.0",
     "node-fetch": "^2.6.7",
+    "node-mac-icloud-keyvalue": "git+https://github.com/sidmorizon/node-mac-icloud-keyvalue.git#a4e0f782d565521067913fef8c0e6ab804fcfa72",
     "passport-desktop": "0.1.2",
     "passport-desktop-win32-x64-msvc": "0.1.2",
     "semver": "7.5.4"

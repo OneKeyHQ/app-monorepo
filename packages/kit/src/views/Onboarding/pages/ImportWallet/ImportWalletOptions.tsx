@@ -1,3 +1,5 @@
+import { useCallback, useMemo } from 'react';
+
 import { useIntl } from 'react-intl';
 import { Keyboard } from 'react-native';
 
@@ -84,11 +86,11 @@ export function ImportWalletOptions() {
   const v4MigrationActions = useV4MigrationActions();
   const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
 
-  const handleConnectHardwareWalletPress = async () => {
+  const handleConnectHardwareWalletPress = useCallback(async () => {
     navigation.push(EOnboardingPages.ConnectYourDevice);
-  };
+  }, [navigation]);
 
-  const handleImportRecoveryPhrasePress = async () => {
+  const handleImportRecoveryPhrasePress = useCallback(async () => {
     await backgroundApiProxy.servicePassword.promptPasswordVerify();
     await closeKeyboard();
     navigation.push(EOnboardingPages.ImportRecoveryPhrase);
@@ -99,9 +101,9 @@ export function ImportWalletOptions() {
       },
       isSoftwareWalletOnlyUser,
     });
-  };
+  }, [navigation, isSoftwareWalletOnlyUser]);
 
-  const handleImportKeyTag = async () => {
+  const handleImportKeyTag = useCallback(async () => {
     await backgroundApiProxy.servicePassword.promptPasswordVerify();
     navigation.push(EOnboardingPages.ImportKeyTag);
     defaultLogger.account.wallet.addWalletStarted({
@@ -111,9 +113,9 @@ export function ImportWalletOptions() {
       },
       isSoftwareWalletOnlyUser,
     });
-  };
+  }, [isSoftwareWalletOnlyUser, navigation]);
 
-  const handleImportPrivateKeyPress = async () => {
+  const handleImportPrivateKeyPress = useCallback(async () => {
     await backgroundApiProxy.servicePassword.promptPasswordVerify();
     await closeKeyboard();
     navigation.push(EOnboardingPages.ImportPrivateKey);
@@ -124,9 +126,9 @@ export function ImportWalletOptions() {
       },
       isSoftwareWalletOnlyUser,
     });
-  };
+  }, [navigation, isSoftwareWalletOnlyUser]);
 
-  const handleImportAddressPress = async () => {
+  const handleImportAddressPress = useCallback(async () => {
     navigation.push(EOnboardingPages.ImportAddress);
     defaultLogger.account.wallet.addWalletStarted({
       addMethod: 'ImportWallet',
@@ -135,9 +137,9 @@ export function ImportWalletOptions() {
       },
       isSoftwareWalletOnlyUser,
     });
-  };
+  }, [navigation, isSoftwareWalletOnlyUser]);
 
-  const handleImportFromCloud = async () => {
+  const handleImportFromCloud = useCallback(async () => {
     await backupEntryStatus.check();
     navigation.push(EOnboardingPages.ImportCloudBackup);
     defaultLogger.account.wallet.addWalletStarted({
@@ -147,9 +149,9 @@ export function ImportWalletOptions() {
       },
       isSoftwareWalletOnlyUser,
     });
-  };
+  }, [backupEntryStatus, navigation, isSoftwareWalletOnlyUser]);
 
-  const handleImportByTransfer = async () => {
+  const handleImportByTransfer = useCallback(async () => {
     // await backupEntryStatus.check();
     navigation?.pushModal(EModalRoutes.PrimeModal, {
       screen: EPrimePages.PrimeTransfer,
@@ -161,144 +163,170 @@ export function ImportWalletOptions() {
       },
       isSoftwareWalletOnlyUser,
     });
-  };
+  }, [navigation, isSoftwareWalletOnlyUser]);
 
-  const options: IOptionSection[] = [
-    {
-      sectionTitle: intl.formatMessage({
-        id: ETranslations.global_restore,
-      }),
-      data: [
-        {
-          icon: 'MultipleDevicesOutline',
-          title: intl.formatMessage({
-            id: ETranslations.transfer_transfer,
-          }),
-          description: intl.formatMessage({
-            id: ETranslations.prime_transfer_description,
-          }),
-          onPress: handleImportByTransfer,
-        },
-        {
-          title: intl.formatMessage({
-            id: ETranslations.global_recovery_phrase,
-          }),
-          icon: 'SecretPhraseOutline',
-          onPress: () => {
-            const dialog = Dialog.show({
-              tone: 'warning',
-              icon: 'ErrorOutline',
-              title: intl.formatMessage({
-                id: ETranslations.onboarding_import_recovery_phrase_warning,
-              }),
-              description: intl.formatMessage({
-                id: ETranslations.onboarding_import_recovery_phrase_warning_help_text,
-              }),
-              renderContent: (
-                <Stack>
-                  <Button
-                    variant="secondary"
-                    onPress={async () => {
-                      await dialog.close();
-                      await handleImportRecoveryPhrasePress();
-                    }}
-                    testID="acknowledged"
-                  >
-                    {intl.formatMessage({
-                      id: ETranslations.global_ok,
-                    })}
-                  </Button>
-                  <Button
-                    variant="tertiary"
-                    m="0"
-                    mt="$2.5"
-                    onPress={async () => {
-                      await dialog.close();
-                      await handleConnectHardwareWalletPress();
-                    }}
-                    testID="hardware-wallet"
-                  >
-                    {intl.formatMessage({
-                      id: ETranslations.global_connect_hardware_wallet,
-                    })}
-                  </Button>
-                </Stack>
-              ),
-              showFooter: false,
-            });
+  const { result: cloudBackupOption = null } = usePromiseResult(async () => {
+    const support =
+      await backgroundApiProxy.serviceCloudBackupV2.supportCloudBackup();
+    if (!support) {
+      return null;
+    }
+    const info =
+      await backgroundApiProxy.serviceCloudBackupV2.getBackupProviderInfo();
+
+    const option: IOptionItem = {
+      icon: 'CloudOutline',
+      title: info.displayNameI18nKey
+        ? intl.formatMessage({
+            id: info.displayNameI18nKey as any,
+          })
+        : info.displayName,
+      onPress: handleImportFromCloud,
+    };
+    return option;
+  }, [handleImportFromCloud, intl]);
+
+  const options: IOptionSection[] = useMemo(() => {
+    return [
+      {
+        sectionTitle: intl.formatMessage({
+          id: ETranslations.global_restore,
+        }),
+        data: [
+          {
+            icon: 'MultipleDevicesOutline',
+            title: intl.formatMessage({
+              id: ETranslations.transfer_transfer,
+            }),
+            description: intl.formatMessage({
+              id: ETranslations.prime_transfer_description,
+            }),
+            onPress: handleImportByTransfer,
           },
-          testID: 'import-recovery-phrase',
-        },
-        ...(platformEnv.isNative
-          ? [
-              {
+          {
+            title: intl.formatMessage({
+              id: ETranslations.global_recovery_phrase,
+            }),
+            icon: 'SecretPhraseOutline',
+            onPress: () => {
+              const dialog = Dialog.show({
+                tone: 'warning',
+                icon: 'ErrorOutline',
                 title: intl.formatMessage({
-                  id: ETranslations.global_onekey_lite,
+                  id: ETranslations.onboarding_import_recovery_phrase_warning,
                 }),
-                icon: 'OnekeyLiteOutline',
-                onPress: liteCard.importWallet,
-              } as IOptionItem,
-            ]
-          : []),
-        {
-          icon: 'OnekeyKeytagOutline',
-          title: 'OneKey KeyTag',
-          onPress: handleImportKeyTag,
-        },
-        platformEnv.isNative
-          ? ({
-              icon: 'CloudOutline',
-              title: intl.formatMessage({
-                id: platformEnv.isNativeAndroid
-                  ? ETranslations.global_google_drive
-                  : ETranslations.global_icloud,
-              }),
-              onPress: handleImportFromCloud,
-            } as IOptionItem)
-          : null,
-        isV4DbExist
-          ? {
-              title: intl.formatMessage({
-                id: ETranslations.onboarding_migrate_from_v4,
-              }),
-              icon: 'StorageOutline',
-              onPress: async () => {
-                navigation.popStack();
-                await timerUtils.wait(100);
-                await v4MigrationActions.navigateToV4MigrationPage();
-              },
-              testID: 'migrate-from-v4',
-            }
-          : null,
-      ].filter(Boolean),
-    },
-    {
-      sectionTitle: intl.formatMessage({ id: ETranslations.global_import }),
-      data: [
-        {
-          title: intl.formatMessage({ id: ETranslations.global_private_key }),
-          icon: 'Key2Outline',
-          onPress: handleImportPrivateKeyPress,
-          testID: 'import-private-key',
-        },
-      ],
-    },
-    {
-      sectionTitle: intl.formatMessage({
-        id: ETranslations.global_watch_only,
-      }),
-      data: [
-        {
-          title: intl.formatMessage({
-            id: ETranslations.global_address,
-          }),
-          icon: 'EyeOutline',
-          onPress: handleImportAddressPress,
-          testID: 'import-address',
-        },
-      ],
-    },
-  ];
+                description: intl.formatMessage({
+                  id: ETranslations.onboarding_import_recovery_phrase_warning_help_text,
+                }),
+                renderContent: (
+                  <Stack>
+                    <Button
+                      variant="secondary"
+                      onPress={async () => {
+                        await dialog.close();
+                        await handleImportRecoveryPhrasePress();
+                      }}
+                      testID="acknowledged"
+                    >
+                      {intl.formatMessage({
+                        id: ETranslations.global_ok,
+                      })}
+                    </Button>
+                    <Button
+                      variant="tertiary"
+                      m="0"
+                      mt="$2.5"
+                      onPress={async () => {
+                        await dialog.close();
+                        await handleConnectHardwareWalletPress();
+                      }}
+                      testID="hardware-wallet"
+                    >
+                      {intl.formatMessage({
+                        id: ETranslations.global_connect_hardware_wallet,
+                      })}
+                    </Button>
+                  </Stack>
+                ),
+                showFooter: false,
+              });
+            },
+            testID: 'import-recovery-phrase',
+          },
+          ...(platformEnv.isNative
+            ? [
+                {
+                  title: intl.formatMessage({
+                    id: ETranslations.global_onekey_lite,
+                  }),
+                  icon: 'OnekeyLiteOutline',
+                  onPress: liteCard.importWallet,
+                } as IOptionItem,
+              ]
+            : []),
+          {
+            icon: 'OnekeyKeytagOutline',
+            title: 'OneKey KeyTag',
+            onPress: handleImportKeyTag,
+          },
+          cloudBackupOption,
+          isV4DbExist
+            ? {
+                title: intl.formatMessage({
+                  id: ETranslations.onboarding_migrate_from_v4,
+                }),
+                icon: 'StorageOutline',
+                onPress: async () => {
+                  navigation.popStack();
+                  await timerUtils.wait(100);
+                  await v4MigrationActions.navigateToV4MigrationPage();
+                },
+                testID: 'migrate-from-v4',
+              }
+            : null,
+        ].filter(Boolean),
+      },
+      {
+        sectionTitle: intl.formatMessage({ id: ETranslations.global_import }),
+        data: [
+          {
+            title: intl.formatMessage({ id: ETranslations.global_private_key }),
+            icon: 'Key2Outline',
+            onPress: handleImportPrivateKeyPress,
+            testID: 'import-private-key',
+          },
+        ],
+      },
+      {
+        sectionTitle: intl.formatMessage({
+          id: ETranslations.global_watch_only,
+        }),
+        data: [
+          {
+            title: intl.formatMessage({
+              id: ETranslations.global_address,
+            }),
+            icon: 'EyeOutline',
+            onPress: handleImportAddressPress,
+            testID: 'import-address',
+          },
+        ],
+      },
+    ];
+  }, [
+    cloudBackupOption,
+    handleConnectHardwareWalletPress,
+    handleImportAddressPress,
+    handleImportByTransfer,
+    handleImportKeyTag,
+    handleImportPrivateKeyPress,
+    handleImportRecoveryPhrasePress,
+    intl,
+    isV4DbExist,
+    liteCard.importWallet,
+    navigation,
+    v4MigrationActions,
+  ]);
 
   return (
     <Page scrollEnabled>

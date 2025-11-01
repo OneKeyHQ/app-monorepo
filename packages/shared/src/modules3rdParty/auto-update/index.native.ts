@@ -27,27 +27,7 @@ import type { NativeEventSubscription } from 'react-native';
 const DIR_PATH = `file://${RNFS?.CachesDirectoryPath || ''}/apk`;
 const buildFilePath = (version: string) => `${DIR_PATH}/${version}.apk`;
 
-interface IFileParams {
-  downloadUrl: string;
-  filePath: string;
-}
-
-const { AutoUpdateModule } = NativeModules as {
-  AutoUpdateModule: {
-    clearCache: () => Promise<void>;
-    downloadAPK: (
-      params: IFileParams & {
-        notificationTitle: string;
-      },
-    ) => Promise<void>;
-    downloadASC: (params: IFileParams) => Promise<void>;
-    verifyASC: (params: IFileParams) => Promise<void>;
-    // an exception will be thrown when validation fails.
-    verifyAPK: (params: IFileParams) => Promise<void>;
-    // verifyAPK will be called by default in the native module when calling to install the APK
-    installAPK: (params: IFileParams) => Promise<void>;
-  };
-};
+const { AutoUpdateModule } = NativeModules;
 
 const clearPackage: IClearPackage = async () => {
   if (!AutoUpdateModule) {
@@ -216,43 +196,7 @@ export const AppUpdate: IAppUpdate = {
   clearPackage,
 };
 
-interface INativeBundleUpdateModule {
-  downloadBundle: (params: any) => Promise<any>;
-  verifyBundle: (params: any) => Promise<void>;
-  verifyBundleASC: (params: any) => Promise<void>;
-  downloadBundleASC: (params: any) => Promise<void>;
-  installBundle: (params: any) => Promise<void>;
-  getFallbackUpdateBundleData: () => Promise<IJSBundle[]>;
-  setCurrentUpdateBundleData: (params: IJSBundle) => Promise<void>;
-  clearBundle: () => Promise<void>;
-  clearAllJSBundleData: () => Promise<{ success: boolean; message: string }>;
-  getWebEmbedPath: () => string;
-  getWebEmbedPathAsync: () => Promise<string>;
-  testVerification: () => Promise<boolean>;
-  testDeleteJsBundle: (
-    appVersion: string,
-    bundleVersion: string,
-  ) => Promise<{ success: boolean; message: string }>;
-  testDeleteJsRuntimeDir: (
-    appVersion: string,
-    bundleVersion: string,
-  ) => Promise<{ success: boolean; message: string }>;
-  testDeleteMetadataJson: (
-    appVersion: string,
-    bundleVersion: string,
-  ) => Promise<{ success: boolean; message: string }>;
-  testWriteEmptyMetadataJson: (
-    appVersion: string,
-    bundleVersion: string,
-  ) => Promise<{ success: boolean; message: string }>;
-  getNativeAppVersion: () => Promise<string>;
-  getSha256FromFilePath: (filePath: string) => Promise<string>;
-  getJsBundlePath: () => Promise<string>;
-}
-
-const { BundleUpdateModule } = NativeModules as {
-  BundleUpdateModule: INativeBundleUpdateModule;
-};
+const { BundleUpdateModule } = NativeModules;
 
 export const BundleUpdate: IBundleUpdate = {
   downloadBundle: (params) => {

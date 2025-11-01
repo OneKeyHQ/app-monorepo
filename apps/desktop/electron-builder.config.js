@@ -1,3 +1,4 @@
+/* eslint-disable no-template-curly-in-string */
 const baseElectronBuilderConfig = require('./electron-builder-base.config');
 const DLLs = require('./electron-dll.config');
 const { getPath } = require('./scripts/utils');
@@ -33,6 +34,11 @@ module.exports = {
         'from': 'app/build/static/bin/bridge/mac-${arch}',
         'to': 'bin/bridge',
       },
+      // {
+      //   'from':
+      //     'scripts/MacApiBridge/bin/onekey-desktop-mac-api-bridge-${arch}',
+      //   'to': 'bin/onekey-desktop-mac-api-bridge-${arch}',
+      // },
     ],
     'icon': 'app/build/static/images/icons/512x512.png',
     'artifactName': 'OneKey-Wallet-${version}-mac-${arch}.${ext}',
@@ -45,6 +51,7 @@ module.exports = {
       { target: 'zip', arch: ['x64', 'arm64', 'universal'] },
     ],
     'entitlements': getPath('entitlements.mac.plist'),
+    // 'entitlementsInherit': getPath('entitlements.mas.inherit.plist'),
     'extendInfo': {
       'NSCameraUsageDescription': 'Please allow OneKey to use your camera',
     },

@@ -105,6 +105,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
           CSC_LINK: './sign.p12'
+        # run: 'cd apps/desktop && yarn build:mac-api-bridge && yarn build'
         run: 'cd apps/desktop && yarn build'
        
       - name: Upload Artifacts latest.yml

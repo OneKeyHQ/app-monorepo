@@ -8,6 +8,8 @@
   "dependencies": {
     "@stoprocent/noble": "2.3.4",
     "electron-check-biometric-auth-changed": "0.0.6",
-    "passport-desktop": "0.1.2"
+    "passport-desktop": "0.1.2",
+    "electron-windows-security": "0.0.7",
+    "node-mac-icloud-keyvalue": "git+https://github.com/sidmorizon/node-mac-icloud-keyvalue.git#a4e0f782d565521067913fef8c0e6ab804fcfa72"
   }
 }
