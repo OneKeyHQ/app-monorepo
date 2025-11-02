@@ -1,4 +1,5 @@
-import { ETranslations, ILocaleSymbol } from '@onekeyhq/shared/src/locale';
+import type { ILocaleSymbol } from '@onekeyhq/shared/src/locale';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import { EHardwareTransportType, EOnekeyDomain } from '@onekeyhq/shared/types';
