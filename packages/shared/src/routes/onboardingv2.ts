@@ -1,4 +1,5 @@
 import type { EMnemonicType } from '../utils/secret';
+import type { SearchDevice } from '@onekeyfe/hd-core';
 import type { EDeviceType } from '@onekeyfe/hd-shared';
 
 export enum EOnboardingV2Routes {
@@ -33,7 +34,9 @@ export type IOnboardingParamListV2 = {
   [EOnboardingPagesV2.ConnectYourDevice]: {
     deviceType: EDeviceType[];
   };
-  [EOnboardingPagesV2.CheckAndUpdate]: undefined;
+  [EOnboardingPagesV2.CheckAndUpdate]: {
+    deviceData: SearchDevice;
+  };
   [EOnboardingPagesV2.ImportPhraseOrPrivateKey]: undefined;
   [EOnboardingPagesV2.ICloudBackup]: undefined;
   [EOnboardingPagesV2.ICloudBackupDetails]: {
