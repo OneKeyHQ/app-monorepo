@@ -508,16 +508,19 @@ export default function ConnectYourDevice() {
   console.log('deviceType', deviceType);
   const [value, setValue] = useState('usb');
 
+  const isSupportedUSB = useMemo(() => {
+    return platformEnv.isNative;
+  }, []);
   const isSupportedQRCode = useMemo(() => {
     return deviceType.every(isSupportedDevice);
   }, [deviceType]);
   const options = useMemo(() => {
     return [
-      { label: 'USB', value: 'usb' },
+      isSupportedUSB ? { label: 'USB', value: 'usb' } : undefined,
       { label: 'Bluetooth', value: 'bluetooth' },
       isSupportedQRCode ? { label: 'QR Code', value: 'qr' } : undefined,
     ].filter(Boolean);
-  }, [isSupportedQRCode]);
+  }, [isSupportedQRCode, isSupportedUSB]);
   return (
     <Page>
       <OnboardingLayout>
@@ -534,7 +537,9 @@ export default function ConnectYourDevice() {
               onChange={(v) => setValue(v as string)}
               options={options}
             />
-            {value === 'usb' ? <USBConnectionIndicator /> : null}
+            {value === 'usb' && isSupportedUSB ? (
+              <USBConnectionIndicator />
+            ) : null}
             {value === 'bluetooth' ? <BluetoothConnectionIndicator /> : null}
             {value === 'qr' && isSupportedQRCode ? (
               <QRCodeConnectionIndicator />
