@@ -185,7 +185,7 @@ function FinalizeWalletSetupPage({
                 // **** TON mnemonic case
                 // Create TON imported account when mnemonicType is TON
                 await actions.current.createTonImportedWallet({ mnemonic });
-                setCurrentStep(EFinalizeWalletSetupSteps.Ready);
+                setCurrentStep(EFinalizeWalletSetupSteps.CreatingWallet);
                 return;
               }
               await actions.current.createHDWallet({
@@ -249,14 +249,14 @@ function FinalizeWalletSetupPage({
       skipIfTimeout: true,
     });
 
-    if (!needBondReferralCode) {
-      setTimeout(() => {
-        closePage();
-        if (isFirstCreateWallet.current) {
-          // void useBackupToggleDialog().maybeShow(true);
-        }
-      }, 1000);
-    }
+    // if (!needBondReferralCode) {
+    setTimeout(() => {
+      closePage();
+      if (isFirstCreateWallet.current) {
+        // void useBackupToggleDialog().maybeShow(true);
+      }
+    }, 1000);
+    // }
   }, [getReferralCodeBondStatus, closePage, wallet]);
 
   const handleWalletSetupReady = useThrottledCallback(
@@ -272,6 +272,7 @@ function FinalizeWalletSetupPage({
     if (!showStep) {
       return;
     }
+    console.log('currentStep', currentStep);
     if (currentStep === EFinalizeWalletSetupSteps.Ready) {
       void handleWalletSetupReady();
     }
