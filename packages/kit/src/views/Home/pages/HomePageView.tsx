@@ -24,11 +24,9 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { EModalRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
-import { EModalApprovalManagementRoutes } from '@onekeyhq/shared/src/routes/approvalManagement';
+import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EHomeWalletTab } from '@onekeyhq/shared/types/wallet';
 
@@ -37,7 +35,6 @@ import { EmptyAccount, EmptyWallet } from '../../../components/Empty';
 import { NetworkAlert } from '../../../components/NetworkAlert';
 import { TabPageHeader } from '../../../components/TabPageHeader';
 import { WebDappEmptyView } from '../../../components/WebDapp/WebDappEmptyView';
-import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import {
   useAccountOverviewActions,
@@ -79,8 +76,6 @@ export function HomePageView({
       indexedAccount,
     },
   } = useActiveAccount({ num: 0 });
-
-  const navigation = useAppNavigation();
 
   const [{ hasRiskApprovals }] = useApprovalsInfoAtom();
   const { updateApprovalsInfo } = useAccountOverviewActions().current;
@@ -132,65 +127,12 @@ export function HomePageView({
       const riskApprovals = resp.contractApprovals.filter(
         (item) => item.isRiskContract,
       );
-      const inactiveApprovals = resp.contractApprovals.filter(
-        (item) => item.isInactiveApproval,
-      );
 
       updateApprovalsInfo({
         hasRiskApprovals: !!(riskApprovals && riskApprovals.length > 0),
       });
-
-      if (
-        !accountUtils.isWatchingWallet({ walletId: wallet?.id }) &&
-        (riskApprovals.length > 0 || inactiveApprovals.length > 0)
-      ) {
-        const [
-          shouldShowRiskApprovalsRevokeSuggestion,
-          shouldShowInactiveApprovalsRevokeSuggestion,
-        ] = await Promise.all([
-          backgroundApiProxy.serviceApproval.shouldShowRiskApprovalsRevokeSuggestion(
-            {
-              accountId: account.id,
-              indexedAccountId: indexedAccount?.id,
-            },
-          ),
-          backgroundApiProxy.serviceApproval.shouldShowInactiveApprovalsRevokeSuggestion(
-            {
-              accountId: account.id,
-              indexedAccountId: indexedAccount?.id,
-            },
-          ),
-        ]);
-        if (
-          (shouldShowRiskApprovalsRevokeSuggestion &&
-            riskApprovals.length > 0) ||
-          (shouldShowInactiveApprovalsRevokeSuggestion &&
-            inactiveApprovals.length > 0)
-        ) {
-          await timerUtils.wait(2000);
-          navigation.pushModal(EModalRoutes.ApprovalManagementModal, {
-            screen: EModalApprovalManagementRoutes.RevokeSuggestion,
-            params: {
-              approvals: [...riskApprovals, ...inactiveApprovals],
-              contractMap: resp.contractMap,
-              tokenMap: resp.tokenMap,
-              accountId: account.id,
-              networkId: network.id,
-              indexedAccountId: indexedAccount?.id,
-              autoShow: true,
-            },
-          });
-        }
-      }
     }
-  }, [
-    network?.id,
-    indexedAccount?.id,
-    navigation,
-    account,
-    updateApprovalsInfo,
-    wallet?.id,
-  ]);
+  }, [network?.id, indexedAccount?.id, account, updateApprovalsInfo]);
 
   const { vaultSettings, networkAccounts } = result.result ?? {};
 
