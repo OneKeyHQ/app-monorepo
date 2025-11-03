@@ -1,19 +1,16 @@
 import { useCallback, useMemo, useState } from 'react';
 
-import { useIntl } from 'react-intl';
 import { useSharedValue } from 'react-native-reanimated';
 
 import { Page, SizableText, Tabs, XStack } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type {
-  EModalStakingRoutes,
-  IModalStakingParamList,
-} from '@onekeyhq/shared/src/routes';
+import { EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
+import type { IModalStakingParamList } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { type ISupportedSymbol } from '@onekeyhq/shared/types/earn';
 import {
@@ -26,6 +23,7 @@ import { DiscoveryBrowserProviderMirror } from '../../../Discovery/components/Di
 import { EarnProviderMirror } from '../../../Earn/EarnProviderMirror';
 import { EarnNetworkUtils } from '../../../Earn/earnUtils';
 
+import { HeaderRight } from './components/HeaderRight';
 import { StakeSection } from './components/StakeSection';
 import { WithdrawSection } from './components/WithdrawSection';
 import { useProtocolDetails } from './hooks/useProtocolDetails';
@@ -105,10 +103,11 @@ const ManagePositionPage = () => {
     };
   }, [route.params, activeAccount]);
 
+  const appNavigation = useAppNavigation();
   const { account, indexedAccount } = activeAccount;
   const { networkId, symbol, provider, vault } = resolvedParams;
 
-  const { isLoading, tokenInfo, earnAccount, protocolInfo } =
+  const { isLoading, tokenInfo, earnAccount, protocolInfo, detailInfo } =
     useProtocolDetails({
       accountId: account?.id || '',
       networkId,
@@ -118,7 +117,37 @@ const ManagePositionPage = () => {
       vault,
     });
 
-  const intl = useIntl();
+  const historyAction = useMemo(() => {
+    return detailInfo?.actions?.find((i) => i.type === 'history');
+  }, [detailInfo?.actions]);
+
+  const onHistory = useMemo(() => {
+    if (historyAction?.disabled || !earnAccount?.accountId) {
+      return undefined;
+    }
+    return (params?: { filterType?: string }) => {
+      const { filterType } = params || {};
+      appNavigation.navigate(EModalStakingRoutes.HistoryList, {
+        accountId: earnAccount?.accountId,
+        networkId,
+        symbol,
+        provider,
+        stakeTag: protocolInfo?.stakeTag || '',
+        protocolVault: vault,
+        filterType,
+      });
+    };
+  }, [
+    historyAction?.disabled,
+    appNavigation,
+    earnAccount?.accountId,
+    networkId,
+    protocolInfo?.stakeTag,
+    provider,
+    symbol,
+    vault,
+  ]);
+
   const [selectedTabIndex, setSelectedTabIndex] = useState(0);
 
   const tabData = useMemo(
@@ -158,39 +187,36 @@ const ManagePositionPage = () => {
 
   return (
     <Page scrollEnabled>
-      <Page.Header
-        title={intl.formatMessage(
-          { id: ETranslations.earn_withdraw_token },
-          { token: symbol },
-        )}
-      />
+      <Page.Header title={symbol} />
       <Page.Body>
-        <Tabs.TabBar
-          containerStyle={{ px: '$5' }}
-          divider={false}
-          onTabPress={handleTabChange}
-          tabNames={TabNames}
-          focusedTab={focusedTab}
-          renderItem={({ name, isFocused, onPress }) => (
-            <XStack
-              px="$2"
-              py="$1.5"
-              mr="$1"
-              bg={isFocused ? '$bgActive' : '$bg'}
-              borderRadius="$2"
-              borderCurve="continuous"
-              onPress={() => onPress(name)}
-            >
-              <SizableText
-                size="$bodyMdMedium"
-                color={isFocused ? '$text' : '$textSubdued'}
-                letterSpacing={-0.15}
+        <XStack jc="space-between" px="$5">
+          <Tabs.TabBar
+            divider={false}
+            onTabPress={handleTabChange}
+            tabNames={TabNames}
+            focusedTab={focusedTab}
+            renderItem={({ name, isFocused, onPress }) => (
+              <XStack
+                px="$2"
+                py="$1.5"
+                mr="$1"
+                bg={isFocused ? '$bgActive' : '$bg'}
+                borderRadius="$2"
+                borderCurve="continuous"
+                onPress={() => onPress(name)}
               >
-                {name}
-              </SizableText>
-            </XStack>
-          )}
-        />
+                <SizableText
+                  size="$bodyMdMedium"
+                  color={isFocused ? '$text' : '$textSubdued'}
+                  letterSpacing={-0.15}
+                >
+                  {name}
+                </SizableText>
+              </XStack>
+            )}
+          />
+          <HeaderRight historyAction={historyAction} onHistory={onHistory} />
+        </XStack>
         {selectedTabIndex === 0 ? (
           <StakeSection
             accountId={earnAccount?.account?.id || ''}
