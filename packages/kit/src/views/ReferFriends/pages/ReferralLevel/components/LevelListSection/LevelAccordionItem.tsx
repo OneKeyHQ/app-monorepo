@@ -77,37 +77,39 @@ export function LevelAccordionItem({
                 })}
               </SizableText>
 
-              {hardwareSalesRate ? (
-                <XStack jc="space-between" ai="center">
-                  <XStack gap="$2" ai="center">
-                    <Icon name="OnekeyLiteOutline" size="$5" />
-                    <SizableText size="$bodyMd">
-                      {intl.formatMessage({
-                        id: ETranslations.referral_hw_sales_title,
-                      })}
+              <XStack gap="$4">
+                {hardwareSalesRate ? (
+                  <YStack gap="$1.5" flex={1}>
+                    <XStack gap="$2" ai="center">
+                      <Icon name="OnekeyLiteOutline" size="$5" />
+                      <SizableText size="$bodyMd">Hardware sales</SizableText>
+                    </XStack>
+                    <SizableText size="$bodyMd" color="$textSubdued">
+                      Rebate: <SizableText size="$bodyMdMedium" color="$textSuccess">{hardwareSalesRate.rebate}%</SizableText>
                     </SizableText>
-                  </XStack>
-                  <SizableText size="$bodyMdMedium" color="$textSuccess">
-                    {hardwareSalesRate.rebate}%
-                  </SizableText>
-                </XStack>
-              ) : null}
+                    <SizableText size="$bodyMd" color="$textSubdued">
+                      Discount: <SizableText size="$bodyMdMedium" color="$textSuccess">{hardwareSalesRate.discount}%</SizableText>
+                    </SizableText>
+                  </YStack>
+                ) : null}
 
-              {onchainRate ? (
-                <XStack jc="space-between" ai="center">
-                  <XStack gap="$2" ai="center">
-                    <Icon name="CoinsOutline" size="$5" />
-                    <SizableText size="$bodyMd">
-                      {intl.formatMessage({
-                        id: ETranslations.referral_onchain_desc,
-                      })}
+                {onchainRate ? (
+                  <YStack gap="$1.5" flex={1}>
+                    <XStack gap="$2" ai="center">
+                      <Icon name="CoinsOutline" size="$5" />
+                      <SizableText size="$bodyMd">
+                        DeFi performance fee
+                      </SizableText>
+                    </XStack>
+                    <SizableText size="$bodyMd" color="$textSubdued">
+                      Rebate: <SizableText size="$bodyMdMedium" color="$textSuccess">{onchainRate.rebate}%</SizableText>
                     </SizableText>
-                  </XStack>
-                  <SizableText size="$bodyMdMedium" color="$textSuccess">
-                    {onchainRate.rebate}%
-                  </SizableText>
-                </XStack>
-              ) : null}
+                    <SizableText size="$bodyMd" color="$textSubdued">
+                      Discount: <SizableText size="$bodyMdMedium" color="$textSuccess">{onchainRate.discount}%</SizableText>
+                    </SizableText>
+                  </YStack>
+                ) : null}
+              </XStack>
             </YStack>
 
             {level.upgradeConditions.length > 0 ? (
@@ -122,9 +124,9 @@ export function LevelAccordionItem({
                   {level.upgradeConditions.map((condition, index) => (
                     <XStack key={index} jc="space-between" ai="center">
                       <SizableText size="$bodyMd" color="$textSubdued">
-                        {intl.formatMessage({
-                          id: ETranslations.referral_hw_sales_title,
-                        })}
+                        {condition.subject === 'HardwareSales'
+                          ? 'Hardware sales'
+                          : 'DeFi performance fee'}
                       </SizableText>
                       <Currency size="$bodyMd" formatter="value">
                         {condition.thresholdFiatValue}
