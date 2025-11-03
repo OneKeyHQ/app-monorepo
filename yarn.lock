@@ -7629,7 +7629,7 @@ __metadata:
     react-native-draggable-flatlist: "npm:4.0.3"
     react-native-get-random-values: "npm:1.9.0"
     react-native-reanimated: "npm:3.18.0"
-    react-native-screens: "npm:4.11.0"
+    react-native-screens: "npm:4.18.0"
     react-native-web: "npm:0.21.1"
     react-refresh: "npm:^0.14.0"
     react-render-tracker: "npm:^0.7.6"
@@ -7936,7 +7936,7 @@ __metadata:
     react-native-reanimated: "npm:3.18.0"
     react-native-restart: "npm:react-native-restart-newarch@1.0.80"
     react-native-safe-area-context: "npm:5.4.1"
-    react-native-screens: "npm:4.11.0"
+    react-native-screens: "npm:4.18.0"
     react-native-svg: "npm:15.12.1"
     react-native-tcp-socket: "npm:6.3.0"
     react-native-video: "npm:6.14.0"
@@ -34797,7 +34797,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-is-edge-to-edge@npm:^1.1.6, react-native-is-edge-to-edge@npm:^1.1.7":
+"react-native-is-edge-to-edge@npm:^1.1.6":
   version: 1.2.1
   resolution: "react-native-is-edge-to-edge@npm:1.2.1"
   peerDependencies:
@@ -35037,17 +35037,16 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-screens@npm:4.11.0":
-  version: 4.11.0
-  resolution: "react-native-screens@npm:4.11.0"
+"react-native-screens@npm:4.18.0":
+  version: 4.18.0
+  resolution: "react-native-screens@npm:4.18.0"
   dependencies:
     react-freeze: "npm:^1.0.0"
-    react-native-is-edge-to-edge: "npm:^1.1.7"
     warn-once: "npm:^0.1.0"
   peerDependencies:
     react: "*"
     react-native: "*"
-  checksum: 10/80aee0874059848009f2d2f669499ba480e26a4dde67e1f15cb3d262fdff1b01b2c6cda7d923aec0635bbaf2ed425d204f8c408b48ab6cfafb458cf633307335
+  checksum: 10/456c18069ab8fee1d6c341d6bd13cba477fcda10f266844fb5f486ad5ac2c7336a5181956e261be010318be53585d4a72fd9bd00289117bbbdea681309de21f4
   languageName: node
   linkType: hard
 

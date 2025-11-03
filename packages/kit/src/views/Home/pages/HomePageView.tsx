@@ -328,27 +328,30 @@ export function HomePageView({
         allowHeaderOverscroll
         width={tabContainerWidth}
         renderHeader={renderHeader}
-        renderTabBar={(props: any) =>
-          isWalletNotBackedUp ? null : (
-            <Tabs.TabBar
-              {...props}
-              renderItem={handleRenderItem}
-              renderToolbar={({ focusedTab }) => (
-                <TabHeaderSettings focusedTab={focusedTab} />
-              )}
-            />
-          )
-        }
-      >
-        {isWalletNotBackedUp ? (
-          <NotBackedUpEmpty />
-        ) : (
-          tabConfigs.map((tab) => (
-            <Tabs.Tab key={tab.name} name={tab.name}>
-              {tab.component}
-            </Tabs.Tab>
-          ))
+        renderTabBar={(props: any) => (
+          // isWalletNotBackedUp ? null : (
+          //   <Tabs.TabBar
+          //     {...props}
+          //     renderItem={handleRenderItem}
+          //     renderToolbar={({ focusedTab }) => (
+          //       <TabHeaderSettings focusedTab={focusedTab} />
+          //     )}
+          //   />
+          // )
+          <Tabs.TabBar
+            {...props}
+            renderItem={handleRenderItem}
+            renderToolbar={({ focusedTab }) => (
+              <TabHeaderSettings focusedTab={focusedTab} />
+            )}
+          />
         )}
+      >
+        {tabConfigs.map((tab) => (
+          <Tabs.Tab key={tab.name} name={tab.name}>
+            {tab.component}
+          </Tabs.Tab>
+        ))}
       </Tabs.Container>
     );
   }, [
@@ -357,7 +360,6 @@ export function HomePageView({
     handleRenderItem,
     isBulkRevokeApprovalEnabled,
     isNFTEnabled,
-    isWalletNotBackedUp,
     network?.id,
     renderHeader,
     tabConfigs,
