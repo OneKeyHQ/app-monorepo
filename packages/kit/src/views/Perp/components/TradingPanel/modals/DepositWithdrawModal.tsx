@@ -1061,11 +1061,17 @@ function DepositWithdrawContent({
         currentPerpsDepositSelectedToken:
           arbUSDCToken ?? depositTokensWithPrice?.[0],
       }));
+    } else if (!checkAccountSupport) {
+      setPerpsDepositTokensAtom((prev) => ({
+        ...prev,
+        currentPerpsDepositSelectedToken: undefined,
+      }));
     }
   }, [
     depositTokensWithPrice,
     currentPerpsDepositSelectedToken,
     setPerpsDepositTokensAtom,
+    checkAccountSupport,
   ]);
 
   const depositTokenSelectComponent = useMemo(() => {

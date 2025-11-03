@@ -11,8 +11,8 @@ import semver from 'semver';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { PUBLIC_KEY } from './constant/gpg';
-import { ETranslations } from './i18n';
-import { getNativeVersion } from './libs/store';
+import { ElectronTranslations } from './i18n';
+import { clearUpdateBundleData, getNativeVersion } from './libs/store';
 
 const readMetadataFileSha256 = async (signature: string) => {
   try {
@@ -41,7 +41,7 @@ const readMetadataFileSha256 = async (signature: string) => {
       return sha256;
     }
     throw new OneKeyLocalError(
-      ETranslations.update_signature_verification_failed_alert_text,
+      ElectronTranslations.update_signature_verification_failed_alert_text,
     );
   } catch (error) {
     logger.error(
@@ -58,8 +58,8 @@ const readMetadataFileSha256 = async (signature: string) => {
       lowerCaseMessage.includes('ascii armor integrity check failed');
     throw new OneKeyLocalError(
       isInValid
-        ? ETranslations.update_signature_verification_failed_alert_text
-        : ETranslations.update_installation_package_possibly_compromised,
+        ? ElectronTranslations.update_signature_verification_failed_alert_text
+        : ElectronTranslations.update_installation_package_possibly_compromised,
     );
   }
 };
@@ -128,6 +128,7 @@ export const getBundleIndexHtmlPath = ({
     prevNativeVersion,
   );
   if (!semver.eq(currentAppVersion, prevNativeVersion)) {
+    clearUpdateBundleData();
     return undefined;
   }
   const extractDir = getBundleExtractDir({

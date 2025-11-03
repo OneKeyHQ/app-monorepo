@@ -2684,8 +2684,8 @@
   "referral.your_referred_wallets_1address": "1 адрес",
   "referral.your_referred_wallets_details": "Подробности",
   "referral.your_referred_wallets_more_address": "{amount} адресов",
-  "referral_code_tutorial_label": "How to get a referral code?",
-  "referral_promo_title": "Join the OneKey Referral Program",
+  "referral_code_tutorial_label": "Как получить реферальный код?",
+  "referral_promo_title": "Присоединяйтесь к реферальной программе OneKey",
   "remove_account_desc": "Этот аккаунт будет удален.",
   "remove_device": "Удалить устройство",
   "remove_device_desc": "Это отключит этот аппаратный кошелек от приложения OneKey. Вы можете снова подключить его к приложению в любое время.",
@@ -3646,5 +3646,8 @@
   "wallet_backup.backup_warning": "<strong>Сделайте резервную копию кошелька</strong> — защитите свои активы от потери устройства",
   "wallet_backup.save_recovery_phrase": "Сохранить фразу восстановления",
   "wallet_backup.status_not_backed_up": "Не сохранено",
+  "wallet_empty_article_deposit": "Как внести криптовалюту?",
+  "wallet_empty_article_deposit_faq": "Депозит ещё не поступил?",
+  "wallet_empty_article_trade": "Как мне торговать криптовалютой в OneKey?",
   "word": "Слово"
 }

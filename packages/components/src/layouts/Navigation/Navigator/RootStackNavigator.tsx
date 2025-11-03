@@ -8,13 +8,19 @@ import {
   clearStackNavigatorOptions,
   makeFullScreenOptions,
   makeModalScreenOptions,
+  makeOnboardingScreenOptions,
 } from '../GlobalScreenOptions';
 import { createStackNavigator } from '../StackNavigator';
 
 import type { ICommonNavigatorConfig, IScreenOptionsInfo } from './types';
 import type { ParamListBase } from '@react-navigation/routers';
 
-type IRootStackType = 'normal' | 'modal' | 'fullScreen' | 'iOSFullScreen';
+type IRootStackType =
+  | 'normal'
+  | 'modal'
+  | 'fullScreen'
+  | 'iOSFullScreen'
+  | 'onboarding';
 
 export interface IRootStackNavigatorConfig<
   RouteName extends string,
@@ -73,6 +79,8 @@ export function RootStackNavigator<
           return platformEnv.isNative
             ? makeFullScreenOptions()
             : makeModalScreenOptions({ isVerticalLayout, optionsInfo });
+        case 'onboarding':
+          return makeOnboardingScreenOptions({ isVerticalLayout, optionsInfo });
         default:
           return {};
       }

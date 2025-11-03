@@ -87,6 +87,7 @@ function HeaderView({
   navigation,
   isModelScreen = false,
   isRootScreen = false,
+  isOnboardingScreen = false,
 }: IStackHeaderProps & IOnekeyStackHeaderProps) {
   const {
     headerLeft,
@@ -128,6 +129,7 @@ function HeaderView({
           onPress={onBackCallback}
           isRootScreen={isRootScreen}
           isModelScreen={isModelScreen}
+          isOnboardingScreen={isOnboardingScreen}
           renderLeft={headerLeft}
           {...props}
         />
@@ -137,7 +139,14 @@ function HeaderView({
         <XStack className="app-region-no-drag">{headerBackButton}</XStack>
       ) : null;
     },
-    [topStack, onBackCallback, isRootScreen, isModelScreen, headerLeft],
+    [
+      topStack,
+      onBackCallback,
+      isRootScreen,
+      isModelScreen,
+      isOnboardingScreen,
+      headerLeft,
+    ],
   );
 
   const { gtMd } = useMedia();
@@ -163,6 +172,7 @@ function HeaderView({
       <Stack
         alignItems="center"
         bg={headerTransparent ? 'transparent' : '$bgApp'}
+        pt={isOnboardingScreen ? '$10' : undefined}
         style={
           headerTransparent && !platformEnv.isNativeAndroid
             ? { position: 'absolute', right: 0, left: 0 }
@@ -181,7 +191,7 @@ function HeaderView({
       >
         <Stack
           alignSelf="stretch"
-          px="$5"
+          px={isOnboardingScreen ? '$16' : '$5'}
           $gtMd={
             platformEnv.isNativeAndroid
               ? undefined
@@ -195,7 +205,9 @@ function HeaderView({
             title={getHeaderTitle(options, route.name)}
             headerTintColor={theme.text.val}
             headerLeft={headerLeftView as any}
-            headerRightContainerStyle={headerRightContainerStyle}
+            headerRightContainerStyle={
+              isOnboardingScreen ? { flexGrow: 0 } : headerRightContainerStyle
+            }
             headerRight={
               typeof headerRight === 'function'
                 ? ({ tintColor }) => {
@@ -219,6 +231,9 @@ function HeaderView({
             headerTitleContainerStyle={{
               marginHorizontal: 0,
               ...(headerTitleContainerStyle as any),
+              ...(isOnboardingScreen
+                ? { flex: 1, alignItems: 'center' }
+                : undefined),
             }}
             headerTransparent
             headerBackground={headerBackground}

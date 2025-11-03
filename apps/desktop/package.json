@@ -46,9 +46,10 @@
     "electron-log": "5.2.0",
     "electron-store": "^8.2.0",
     "electron-updater": "6.1.8",
-    "electron-windows-security": "0.0.7",
     "keytar": "^7.9.0",
     "node-fetch": "^2.6.7",
+    "passport-desktop": "0.1.2",
+    "passport-desktop-win32-x64-msvc": "0.1.2",
     "semver": "7.5.4"
   },
   "devDependencies": {
@@ -59,7 +60,7 @@
     "@types/node-fetch": "^2.6.1",
     "concurrently": "8.2.2",
     "cross-env": "^7.0.3",
-    "electron": "31.7.7",
+    "electron": "39.0.0",
     "electron-builder": "26.0.9",
     "esbuild": "0.15.18",
     "folderslint": "^1.2.0",
