@@ -120,7 +120,7 @@
     "react-native-reanimated": "3.18.0",
     "react-native-restart": "npm:react-native-restart-newarch@1.0.80",
     "react-native-safe-area-context": "5.4.1",
-    "react-native-screens": "4.11.0",
+    "react-native-screens": "4.18.0",
     "react-native-svg": "15.12.1",
     "react-native-tcp-socket": "6.3.0",
     "react-native-video": "6.14.0",
