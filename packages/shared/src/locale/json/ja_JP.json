@@ -2684,7 +2684,8 @@
   "referral.your_referred_wallets_1address": "1件の住所",
   "referral.your_referred_wallets_details": "詳細",
   "referral.your_referred_wallets_more_address": "{amount} 件のアドレス",
-  "referral_promo_title": "Join the OneKey Referral Program",
+  "referral_code_tutorial_label": "紹介コードの入手方法は？",
+  "referral_promo_title": "OneKey リファラルプログラムに参加する",
   "remove_account_desc": "このアカウントは削除されます。",
   "remove_device": "デバイスを削除",
   "remove_device_desc": "これにより、このハードウェアウォレットはOneKey Appから切断されます。必要に応じて、Appに再接続することができます。",
@@ -3645,5 +3646,8 @@
   "wallet_backup.backup_warning": "<strong>ウォレットをバックアップしましょう</strong> — デバイスの紛失から資産を守るために",
   "wallet_backup.save_recovery_phrase": "リカバリーフレーズを保存",
   "wallet_backup.status_not_backed_up": "バックアップされていない",
+  "wallet_empty_article_deposit": "暗号資産を入金するには？",
+  "wallet_empty_article_deposit_faq": "入金がまだ届いていませんか？",
+  "wallet_empty_article_trade": "OneKeyで暗号資産を取引するにはどうすればよいですか？",
   "word": "ワード"
 }

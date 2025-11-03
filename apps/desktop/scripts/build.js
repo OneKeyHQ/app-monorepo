@@ -4,7 +4,18 @@ const path = require('path');
 const childProcess = require('child_process');
 const { build } = require('esbuild');
 const glob = require('glob');
+const fs = require('fs');
 const pkg = require('../app/package.json');
+
+// Add passport-desktop-win32-x64-msvc dependency for Windows
+if (process.platform === 'win32') {
+  pkg.dependencies = pkg.dependencies || {};
+  pkg.dependencies['passport-desktop-win32-x64-msvc'] = '0.1.2';
+
+  // Write back to package.json file
+  const packageJsonPath = path.join(__dirname, '..', 'app', 'package.json');
+  fs.writeFileSync(packageJsonPath, JSON.stringify(pkg, null, 2));
+}
 
 const electronSource = path.join(__dirname, '..', 'app');
 

@@ -2684,7 +2684,8 @@
   "referral.your_referred_wallets_1address": "1 Adresse",
   "referral.your_referred_wallets_details": "Details",
   "referral.your_referred_wallets_more_address": "{amount} Adressen",
-  "referral_promo_title": "Join the OneKey Referral Program",
+  "referral_code_tutorial_label": "Wie erhalte ich einen Empfehlungscode?",
+  "referral_promo_title": "Tritt dem OneKey-Empfehlungsprogramm bei",
   "remove_account_desc": "Dieses Konto wird entfernt.",
   "remove_device": "Gerät entfernen",
   "remove_device_desc": "Dies wird diese Hardware-Wallet von der OneKey App trennen. Sie können sie jederzeit wieder mit der App verbinden.",
@@ -3645,5 +3646,8 @@
   "wallet_backup.backup_warning": "<strong>Sichern Sie Ihre Wallet</strong> – schützen Sie Ihre Vermögenswerte vor Geräteverlust",
   "wallet_backup.save_recovery_phrase": "Wiederherstellungsphrase speichern",
   "wallet_backup.status_not_backed_up": "Nicht gesichert",
+  "wallet_empty_article_deposit": "Wie kann ich Kryptowährungen einzahlen?",
+  "wallet_empty_article_deposit_faq": "Ist die Einzahlung noch nicht eingetroffen?",
+  "wallet_empty_article_trade": "Wie kann ich in OneKey mit Kryptowährungen handeln?",
   "word": "Wort"
 }

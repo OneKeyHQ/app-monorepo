@@ -168,3 +168,13 @@ export function makeFullScreenOptions(): IStackNavigationOptions {
     ...makeModalOpenAnimationOptions({ isVerticalLayout: true }),
   };
 }
+
+export function makeOnboardingScreenOptions(): IStackNavigationOptions {
+  return {
+    headerShown: false,
+    presentation: 'card',
+    gestureEnabled: false,
+    gestureDirection: 'horizontal',
+    animation: 'fade',
+  };
+}

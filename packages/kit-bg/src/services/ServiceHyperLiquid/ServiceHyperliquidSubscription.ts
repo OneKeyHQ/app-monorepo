@@ -129,6 +129,11 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       console.warn(
         'updateSubscriptionsDebounced ERROR: orderbook coin not matched',
       );
+      void this.showToast({
+        method: 'error',
+        title: 'orderbook coin not matched',
+        message: 'Please change the asset',
+      });
       return;
     }
 
