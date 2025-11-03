@@ -262,11 +262,13 @@ function USBConnectionIndicator() {
         <ConnectionIndicator.Card>
           <ConnectionIndicator.Animation>
             <Video
+              muted
+              autoPlay
               w="100%"
               h="100%" // required for native
-              resizeMode={EVideoResizeMode.COVER}
               controls={false}
               playInBackground={false}
+              resizeMode={EVideoResizeMode.COVER}
               source={
                 themeVariant === 'dark'
                   ? require('@onekeyhq/kit/assets/onboarding/ProW-D.mp4')
