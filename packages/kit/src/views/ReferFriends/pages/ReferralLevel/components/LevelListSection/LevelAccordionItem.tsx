@@ -85,10 +85,16 @@ export function LevelAccordionItem({
                       <SizableText size="$bodyMd">Hardware sales</SizableText>
                     </XStack>
                     <SizableText size="$bodyMd" color="$textSubdued">
-                      Rebate: <SizableText size="$bodyMdMedium" color="$textSuccess">{hardwareSalesRate.rebate}%</SizableText>
+                      Rebate:{' '}
+                      <SizableText size="$bodyMdMedium" color="$textSuccess">
+                        {hardwareSalesRate.rebate}%
+                      </SizableText>
                     </SizableText>
                     <SizableText size="$bodyMd" color="$textSubdued">
-                      Discount: <SizableText size="$bodyMdMedium" color="$textSuccess">{hardwareSalesRate.discount}%</SizableText>
+                      Discount:{' '}
+                      <SizableText size="$bodyMdMedium" color="$textSuccess">
+                        {hardwareSalesRate.discount}%
+                      </SizableText>
                     </SizableText>
                   </YStack>
                 ) : null}
@@ -102,10 +108,16 @@ export function LevelAccordionItem({
                       </SizableText>
                     </XStack>
                     <SizableText size="$bodyMd" color="$textSubdued">
-                      Rebate: <SizableText size="$bodyMdMedium" color="$textSuccess">{onchainRate.rebate}%</SizableText>
+                      Rebate:{' '}
+                      <SizableText size="$bodyMdMedium" color="$textSuccess">
+                        {onchainRate.rebate}%
+                      </SizableText>
                     </SizableText>
                     <SizableText size="$bodyMd" color="$textSubdued">
-                      Discount: <SizableText size="$bodyMdMedium" color="$textSuccess">{onchainRate.discount}%</SizableText>
+                      Discount:{' '}
+                      <SizableText size="$bodyMdMedium" color="$textSuccess">
+                        {onchainRate.discount}%
+                      </SizableText>
                     </SizableText>
                   </YStack>
                 ) : null}
