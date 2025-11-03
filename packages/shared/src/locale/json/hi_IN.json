@@ -2684,7 +2684,8 @@
   "referral.your_referred_wallets_1address": "1 पता",
   "referral.your_referred_wallets_details": "विवरण",
   "referral.your_referred_wallets_more_address": "{amount} पते",
-  "referral_promo_title": "Join the OneKey Referral Program",
+  "referral_code_tutorial_label": "रेफ़रल कोड कैसे प्राप्त करें?",
+  "referral_promo_title": "OneKey रेफ़रल प्रोग्राम से जुड़ें",
   "remove_account_desc": "यह खाता हटा दिया जाएगा।",
   "remove_device": "उपकरण हटाएं",
   "remove_device_desc": "यह इस हार्डवेयर वॉलेट को OneKey App से डिस्कनेक्ट कर देगा। आप इसे जब चाहें App से फिर से कनेक्ट कर सकते हैं।",
@@ -3645,5 +3646,8 @@
   "wallet_backup.backup_warning": "<strong>अपने वॉलेट का बैकअप लें</strong> — डिवाइस खोने पर अपनी संपत्ति की सुरक्षा करें",
   "wallet_backup.save_recovery_phrase": "रिकवरी वाक्यांश सहेजें",
   "wallet_backup.status_not_backed_up": "बैकअप नहीं लिया गया",
+  "wallet_empty_article_deposit": "क्रिप्टो जमा कैसे करें?",
+  "wallet_empty_article_deposit_faq": "जमा नहीं पहुँचा?",
+  "wallet_empty_article_trade": "मैं OneKey में क्रिप्टो का ट्रेड कैसे कर सकता/सकती हूँ?",
   "word": "शब्द"
 }

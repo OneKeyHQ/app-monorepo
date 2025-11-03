@@ -1,0 +1,86 @@
+import type { IModalFlowNavigatorConfig } from '@onekeyhq/components';
+import { LazyLoadPage } from '@onekeyhq/kit/src/components/LazyLoadPage';
+import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes';
+import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes';
+
+const GetStarted = LazyLoadPage(() => import('../pages/GetStarted'));
+const AddExistingWallet = LazyLoadPage(
+  () => import('../pages/AddExistingWallet'),
+);
+const CreateOrImportWallet = LazyLoadPage(
+  () => import('../pages/CreateOrImportWallet'),
+);
+const FinalizeWalletSetup = LazyLoadPage(
+  () => import('../pages/FinalizeWalletSetup'),
+);
+const PickYourDevice = LazyLoadPage(() => import('../pages/PickYourDevice'));
+const ImportPhraseOrPrivateKey = LazyLoadPage(
+  () => import('../pages/ImportPhraseOrPrivateKey'),
+);
+const ConnectYourDevice = LazyLoadPage(
+  () => import('../pages/ConnectYourDevice'),
+);
+const CheckAndUpdate = LazyLoadPage(() => import('../pages/CheckAndUpdate'));
+const ICloudBackup = LazyLoadPage(() => import('../pages/ICloudBackup'));
+const ICloudBackupDetails = LazyLoadPage(
+  () => import('../pages/ICloudBackupDetails'),
+);
+
+const hiddenHeaderOptions = {
+  headerShown: false,
+};
+export const OnboardingRouterV2: IModalFlowNavigatorConfig<
+  EOnboardingPagesV2,
+  IOnboardingParamListV2
+>[] = [
+  {
+    name: EOnboardingPagesV2.GetStarted,
+    component: GetStarted,
+    options: hiddenHeaderOptions,
+  },
+  {
+    name: EOnboardingPagesV2.AddExistingWallet,
+    component: AddExistingWallet,
+    options: hiddenHeaderOptions,
+  },
+  {
+    name: EOnboardingPagesV2.CreateOrImportWallet,
+    component: CreateOrImportWallet,
+    options: hiddenHeaderOptions,
+  },
+  {
+    name: EOnboardingPagesV2.FinalizeWalletSetup,
+    component: FinalizeWalletSetup,
+    options: hiddenHeaderOptions,
+  },
+  {
+    name: EOnboardingPagesV2.PickYourDevice,
+    component: PickYourDevice,
+    options: hiddenHeaderOptions,
+  },
+  {
+    name: EOnboardingPagesV2.ConnectYourDevice,
+    component: ConnectYourDevice,
+    options: hiddenHeaderOptions,
+  },
+  {
+    name: EOnboardingPagesV2.CheckAndUpdate,
+    component: CheckAndUpdate,
+    options: hiddenHeaderOptions,
+  },
+  {
+    name: EOnboardingPagesV2.ImportPhraseOrPrivateKey,
+    component: ImportPhraseOrPrivateKey,
+    options: hiddenHeaderOptions,
+  },
+  {
+    name: EOnboardingPagesV2.ICloudBackup,
+    component: ICloudBackup,
+    options: hiddenHeaderOptions,
+  },
+  {
+    name: EOnboardingPagesV2.ICloudBackupDetails,
+    component: ICloudBackupDetails,
+    options: hiddenHeaderOptions,
+  },
+];

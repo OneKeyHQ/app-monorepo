@@ -2689,6 +2689,7 @@
   referral_your_referred_wallets_1address = 'referral.your_referred_wallets_1address',
   referral_your_referred_wallets_details = 'referral.your_referred_wallets_details',
   referral_your_referred_wallets_more_address = 'referral.your_referred_wallets_more_address',
+  referral_code_tutorial_label = 'referral_code_tutorial_label',
   referral_promo_title = 'referral_promo_title',
   remove_account_desc = 'remove_account_desc',
   remove_device = 'remove_device',
@@ -3650,5 +3651,8 @@
   wallet_backup_backup_warning = 'wallet_backup.backup_warning',
   wallet_backup_save_recovery_phrase = 'wallet_backup.save_recovery_phrase',
   wallet_backup_status_not_backed_up = 'wallet_backup.status_not_backed_up',
+  wallet_empty_article_deposit = 'wallet_empty_article_deposit',
+  wallet_empty_article_deposit_faq = 'wallet_empty_article_deposit_faq',
+  wallet_empty_article_trade = 'wallet_empty_article_trade',
   word = 'word',
 }
