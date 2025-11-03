@@ -147,36 +147,17 @@ function FiatValue({ fiatValue }: { fiatValue?: string | number }) {
 }
 
 function Dashboard({
-  enabledNetworks,
   hardwareSales,
   onChain,
   levelPercent,
   rebateLevels,
   rebateConfig,
-  cumulativeRewards = {
-    distributed: '0',
-    undistributed: '0',
-    nextDistribution: '0',
-    token: {
-      networkId: '',
-      address: '',
-      logoURI: '',
-      name: '',
-      symbol: '',
-    },
-  },
-  fetchSummaryInfo,
-  withdrawAddresses,
 }: {
-  enabledNetworks: IInviteSummary['enabledNetworks'];
   onChain: IInviteSummary['Onchain'];
   hardwareSales: IInviteSummary['HardwareSales'];
-  cumulativeRewards: IInviteSummary['cumulativeRewards'];
-  withdrawAddresses: IInviteSummary['withdrawAddresses'];
   levelPercent: number;
   rebateLevels: IInviteSummary['rebateLevels'];
   rebateConfig: IInviteSummary['rebateConfig'];
-  fetchSummaryInfo: () => void;
 }) {
   const navigation = useAppNavigation();
   const intl = useIntl();
@@ -251,12 +232,6 @@ function Dashboard({
   }, [hardwareSales.nextStage, intl]);
   return (
     <YStack py="$8" px="$5" gap="$5" borderRadius="$3">
-      <CumulativeRewards
-        cumulativeRewards={cumulativeRewards}
-        withdrawAddresses={withdrawAddresses}
-        enabledNetworks={enabledNetworks}
-        fetchSummaryInfo={fetchSummaryInfo}
-      />
       <YStack
         pb="$4"
         borderWidth={StyleSheet.hairlineWidth}
@@ -597,7 +572,25 @@ function InviteRewardContent({
 
   return (
     <>
-      <ReferralCodeCard inviteUrl={inviteUrl} inviteCode={inviteCode} />
+      <Stack
+        gap="$5"
+        flexDirection="row"
+        $md={{
+          flexDirection: 'column',
+        }}
+      >
+        <Stack flex={1} px="$5" pt="$6">
+          <CumulativeRewards
+            cumulativeRewards={cumulativeRewards}
+            withdrawAddresses={withdrawAddresses}
+            enabledNetworks={enabledNetworks}
+            fetchSummaryInfo={fetchSummaryInfo}
+          />
+        </Stack>
+        <Stack flex={1}>
+          <ReferralCodeCard inviteUrl={inviteUrl} inviteCode={inviteCode} />
+        </Stack>
+      </Stack>
       <YStack px="$5" py="$4">
         <Button
           variant="secondary"
@@ -609,15 +602,11 @@ function InviteRewardContent({
         </Button>
       </YStack>
       <Dashboard
-        enabledNetworks={enabledNetworks}
         onChain={Onchain}
         hardwareSales={HardwareSales}
-        cumulativeRewards={cumulativeRewards}
         levelPercent={Number(levelPercent)}
         rebateLevels={rebateLevels}
         rebateConfig={rebateConfig}
-        fetchSummaryInfo={fetchSummaryInfo}
-        withdrawAddresses={withdrawAddresses}
       />
       <FAQ faqs={faqs} />
       <Link />
