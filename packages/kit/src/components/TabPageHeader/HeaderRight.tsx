@@ -115,11 +115,13 @@ export function SearchInput({
 }
 
 export function HeaderRight({
+  selectedHeaderTab,
   sceneName,
   tabRoute,
   customHeaderRightItems,
   renderCustomHeaderRightItems,
 }: {
+  selectedHeaderTab?: ETranslations;
   sceneName: EAccountSelectorSceneName;
   tabRoute: ETabRoutes;
   customHeaderRightItems?: ReactNode;
@@ -153,6 +155,14 @@ export function HeaderRight({
         {isHorizontal && platformEnv.isWebDappMode && gtXl ? (
           <ThemeButton />
         ) : null}
+      </>
+    );
+
+    const earnItems = (
+      <>
+        <GiftAction />
+        <WalletConnectionForWeb tabRoute={tabRoute} />
+        {fixedItems}
       </>
     );
 
@@ -216,7 +226,7 @@ export function HeaderRight({
           </>
         );
       case ETabRoutes.Discovery:
-        return (
+        return selectedHeaderTab === ETranslations.global_browser ? (
           <>
             <HistoryIconButton />
             {isHorizontal || !platformEnv.isNative ? undefined : (
@@ -225,15 +235,11 @@ export function HeaderRight({
             <WalletConnectionForWeb tabRoute={tabRoute} />
             {fixedItems}
           </>
+        ) : (
+          earnItems
         );
       case ETabRoutes.Earn:
-        return (
-          <>
-            <GiftAction />
-            <WalletConnectionForWeb tabRoute={tabRoute} />
-            {fixedItems}
-          </>
-        );
+        return earnItems;
       case ETabRoutes.Perp:
         return (
           <>
@@ -250,8 +256,9 @@ export function HeaderRight({
     customHeaderRightItems,
     isHorizontal,
     gtXl,
-    renderCustomHeaderRightItems,
     tabRoute,
+    renderCustomHeaderRightItems,
+    selectedHeaderTab,
     sceneName,
     gtMd,
   ]);

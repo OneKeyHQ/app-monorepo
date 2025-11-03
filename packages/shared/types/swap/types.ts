@@ -1,4 +1,6 @@
 import type { IKeyOfIcons } from '@onekeyhq/components';
+import type { IEncodedTxTron } from '@onekeyhq/core/src/chains/tron/types';
+import type { IEncodedTxXrp } from '@onekeyhq/core/src/chains/xrp/types';
 import type { EAddressEncodings, IEncodedTx } from '@onekeyhq/core/src/types';
 import type { useSwapAddressInfo } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapAccount';
 import type { IDBWalletId } from '@onekeyhq/kit-bg/src/dbs/local/types';
@@ -752,6 +754,8 @@ export interface IFetchBuildTxResponse {
   changellyOrder?: IFetchBuildTxChangellyOrderResponse;
   OKXTxObject?: IOKXTransactionObject;
   ctx?: any;
+  tronTxData?: IEncodedTxTron;
+  xrpTxData?: IEncodedTxXrp;
   socketBridgeScanUrl?: string;
   orderId?: string;
   btcData?: {
