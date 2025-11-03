@@ -36,14 +36,7 @@ export function LevelAccordionItem({
         {({ open }: { open: boolean }) => (
           <XStack flex={1} ai="center" jc="space-between">
             <XStack flex={1} gap="$3" ai="center">
-              <Stack
-                borderRadius="$2"
-                w="$10"
-                h="$10"
-                bg="$bgStrong"
-                ai="center"
-                jc="center"
-              >
+              <Stack borderRadius="$2" w="$10" h="$10" ai="center" jc="center">
                 <Image w="$10" h="$10" src={level.icon} />
               </Stack>
               <XStack gap="$2" ai="center">

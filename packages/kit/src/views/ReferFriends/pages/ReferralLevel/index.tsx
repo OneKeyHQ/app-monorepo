@@ -12,6 +12,7 @@ import { ApiDataButton } from './components/ApiDataButton';
 import { BreadcrumbSection } from './components/BreadcrumbSection';
 import { CurrentLevelSection } from './components/CurrentLevelSection';
 import { LevelListSection } from './components/LevelListSection';
+import { UpgradeProgressTitle } from './components/UpgradeProgressTitle';
 
 function ReferralLevelContent({ data }: { data: IInviteLevelDetail }) {
   // Find current level info
@@ -21,6 +22,7 @@ function ReferralLevelContent({ data }: { data: IInviteLevelDetail }) {
     <ScrollView>
       <YStack px="$5" py="$5" gap="$5">
         <BreadcrumbSection />
+        <UpgradeProgressTitle />
         {currentLevelInfo ? (
           <CurrentLevelSection
             currentLevel={data.currentLevel}
