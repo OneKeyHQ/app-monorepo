@@ -88,7 +88,6 @@ import { useSelectAddWalletTypeDialog } from '../../Onboarding/pages/ConnectHard
 import { OnboardingLayout } from '../components/OnboardingLayout';
 
 import type { Features, IDeviceType, SearchDevice } from '@onekeyfe/hd-core';
-import type { RouteProp } from '@react-navigation/core';
 import type { ImageSourcePropType } from 'react-native';
 
 type IConnectYourDeviceItem = {
@@ -418,8 +417,8 @@ function useDeviceConnection({
   }, [deviceScanner]);
 
   const devicesData = useMemo<IConnectYourDeviceItem[]>(
-    () => [
-      ...searchedDevices.map((item) => ({
+    () =>
+      searchedDevices.map((item) => ({
         title: item.name,
         src: HwWalletAvatarImages[getDeviceAvatarImage(item.deviceType)],
         device: item,
@@ -428,9 +427,7 @@ function useDeviceConnection({
           await ensureStopScan();
           await onDeviceConnect(item);
         },
-        opacity: 1,
       })),
-    ],
     [searchedDevices, onDeviceConnect, ensureStopScan],
   );
 
@@ -861,7 +858,7 @@ function USBConnectionIndicator({
                     drillIn
                     onPress={() => {
                       navigation.push(EOnboardingPagesV2.CheckAndUpdate, {
-                        deviceData: data.device,
+                        deviceData: data,
                       });
                     }}
                     userSelect="none"
