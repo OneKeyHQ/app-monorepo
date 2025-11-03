@@ -15,6 +15,7 @@ import {
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useListenTabFocusState from '@onekeyhq/kit/src/hooks/useListenTabFocusState';
@@ -40,7 +41,6 @@ import {
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/debugUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { EarnHomeWithProvider } from '../../../Earn/EarnHome';
 import CustomHeaderTitle from '../../components/CustomHeaderTitle';
 import { HandleRebuildBrowserData } from '../../components/HandleData/HandleRebuildBrowserTabData';
