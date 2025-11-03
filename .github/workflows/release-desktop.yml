@@ -82,7 +82,13 @@ jobs:
 
       - name: Setup Code Signing file
         run: |
+          PP_PATH=./apps/desktop/OneKey_Mac_App.provisionprofile
           echo ${{ secrets.DESKTOP_KEYS_SECRET }} | base64 -d > apps/desktop/sign.p12
+          echo -n ${{secrets.DESKTOP_ISO_PROVISION_PROFILE_BASE64}} | base64 --decode > $PP_PATH
+
+          # apply provisioning profile
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          cp $PP_PATH ~/Library/MobileDevice/Provisioning\ Profiles
 
       # - name: Publish and Sign Static Linux / Macos
       #   if: ${{ (github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/x') }}
@@ -106,6 +112,11 @@ jobs:
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
           CSC_LINK: './sign.p12'
         run: 'cd apps/desktop && yarn build'
+
+      - name: Clean up keychain and provisioning profile
+        if: ${{ always() }}
+        run: |
+          rm ~/Library/MobileDevice/Provisioning\ Profiles/OneKey_Mac_App.provisionprofile
        
       - name: Upload Artifacts latest.yml
         uses: actions/upload-artifact@v4
