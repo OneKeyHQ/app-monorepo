@@ -12,6 +12,7 @@ import {
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 
@@ -19,17 +20,20 @@ import { OnboardingLayout } from '../components/OnboardingLayout';
 
 const DATA = [
   {
-    time: '2022-06-24T14:43:00.000Z',
+    id: '1',
+    time: new Date('2022-06-24T14:43:00.000Z').getTime(),
     walletCount: 3,
     accountCount: 22,
   },
   {
-    time: '2022-06-24T14:43:00.000Z',
+    id: '2',
+    time: new Date('2022-06-24T14:43:00.000Z').getTime(),
     walletCount: 1,
     accountCount: 1,
   },
   {
-    time: '2022-06-24T14:43:00.000Z',
+    id: '3',
+    time: new Date('2022-06-24T14:43:00.000Z').getTime(),
     walletCount: 1,
     accountCount: 1,
   },
@@ -84,9 +88,13 @@ export default function ICloudBackup() {
   const [data] = useState(DATA);
 
   const handleBackupPress = (item: (typeof DATA)[0]) => {
-    navigation.push(EOnboardingPagesV2.ICloudBackupDetails, {
-      backupTime: item.time,
-    });
+    const params: IOnboardingParamListV2[EOnboardingPagesV2.ICloudBackupDetails] =
+      {
+        backupTime: item.time,
+        backupId: item.id,
+        actionType: 'restore',
+      };
+    navigation.push(EOnboardingPagesV2.ICloudBackupDetails, params);
   };
 
   const renderContent = () => {

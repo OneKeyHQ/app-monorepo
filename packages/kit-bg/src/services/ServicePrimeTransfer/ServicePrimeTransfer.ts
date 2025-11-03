@@ -42,7 +42,12 @@ import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { headerPlatform } from '@onekeyhq/shared/src/request/InterceptorConsts';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import type {
+  IAllWalletAvatarImageNamesWithoutDividers,
+  IOthersWalletAvatarImageNames,
+} from '@onekeyhq/shared/src/utils/avatarUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
+import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -53,6 +58,7 @@ import type {
   IPrimeTransferData,
   IPrimeTransferHDWallet,
   IPrimeTransferPrivateData,
+  IPrimeTransferPublicData,
   IPrimeTransferSelectedData,
   IPrimeTransferSelectedDataItem,
   IPrimeTransferSelectedItemMap,
@@ -738,6 +744,13 @@ class ServicePrimeTransfer extends ServiceBase {
 
     const credentials = await serviceAccount.dumpCredentials();
 
+    const publicData: IPrimeTransferPublicData = {
+      dataTime: Date.now(),
+      totalWalletsCount: 0,
+      totalAccountsCount: 0,
+      walletDetails: [],
+    };
+
     const privateBackupData: IPrimeTransferPrivateData = {
       credentials,
       importedAccounts: {},
@@ -899,10 +912,88 @@ class ServicePrimeTransfer extends ServiceBase {
       }
     }
 
+    // fill publicData summary by aggregating from privateBackupData
+    try {
+      const hdWallets = Object.values(privateBackupData.wallets);
+      const sortedHdWallets = hdWallets.sort((a, b) => this.walletSortFn(a, b));
+      const totalHdAccounts = hdWallets.reduce(
+        (sum, w) => sum + (w.indexedAccountUUIDs?.length || 0),
+        0,
+      );
+      const importedAccountsCount = Object.keys(
+        privateBackupData.importedAccounts,
+      ).length;
+      const watchingAccountsCount = Object.keys(
+        privateBackupData.watchingAccounts,
+      ).length;
+      publicData.totalWalletsCount = hdWallets.length;
+      publicData.totalAccountsCount =
+        totalHdAccounts + importedAccountsCount + watchingAccountsCount;
+      const walletDetails: Array<{
+        name: string;
+        avatar: IAllWalletAvatarImageNamesWithoutDividers;
+        accountsCount: number;
+      }> = [
+        ...sortedHdWallets.map((w) => {
+          let avatarInfo: IAvatarInfo | undefined;
+          try {
+            const parsedAvatar = JSON.parse(
+              walletAccountMap[w.id]?.avatar || '' || '{}',
+            );
+            if (parsedAvatar && Object.keys(parsedAvatar).length > 0) {
+              avatarInfo = parsedAvatar;
+            }
+          } catch (error) {
+            console.error('refillWalletInfo', error);
+          }
+
+          const avatar: IAllWalletAvatarImageNamesWithoutDividers =
+            avatarInfo?.img || 'bear';
+          return {
+            name: w.name,
+            avatar,
+            accountsCount: w.indexedAccountUUIDs?.length || 0,
+          };
+        }),
+      ].filter(Boolean);
+      if (importedAccountsCount > 0) {
+        const data: {
+          name: string;
+          avatar: IOthersWalletAvatarImageNames;
+          accountsCount: number;
+        } = {
+          name: appLocale.intl.formatMessage({
+            id: ETranslations.wallet_label_private_key,
+          }),
+          avatar: 'othersImported',
+          accountsCount: importedAccountsCount,
+        };
+        walletDetails.push(data);
+      }
+      if (watchingAccountsCount > 0) {
+        const data: {
+          name: string;
+          avatar: IOthersWalletAvatarImageNames;
+          accountsCount: number;
+        } = {
+          name: appLocale.intl.formatMessage({
+            id: ETranslations.wallet_label_watch_only,
+          }),
+          avatar: 'othersWatching',
+          accountsCount: watchingAccountsCount,
+        };
+        walletDetails.push(data);
+      }
+      publicData.walletDetails = walletDetails;
+    } catch (e) {
+      console.error('buildTransferData publicData fill error', e);
+    }
+
     const privateData = privateBackupData;
 
     return {
       privateData,
+      publicData,
       appVersion: version ?? '',
       isWatchingOnly: Boolean(
         !Object.keys(privateData?.wallets || {}).length &&

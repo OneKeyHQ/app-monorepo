@@ -1,6 +1,7 @@
 import {
   backgroundClass,
   backgroundMethod,
+  toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import googlePlayService from '@onekeyhq/shared/src/googlePlayService/googlePlayService';
@@ -99,7 +100,18 @@ class ServiceCloudBackupV2 extends ServiceBase {
   }
 
   @backgroundMethod()
+  async buildBackupData() {
+    const data =
+      await this.backgroundApi.servicePrimeTransfer.buildTransferData();
+    return data;
+  }
+
+  @backgroundMethod()
+  @toastIfError()
   async backup(params?: { password?: string }): Promise<{ recordID: string }> {
+    if (!params?.password) {
+      throw new OneKeyLocalError('Password is required for backup');
+    }
     const provider = this.getProvider();
     await provider.checkAvailability();
     return provider.backupData(params);

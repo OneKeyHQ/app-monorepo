@@ -1,6 +1,7 @@
 import { HdWalletAvatarImageNames } from './avatarUtils';
 
 import type {
+  IAllWalletAvatarImageNamesWithoutDividers,
   IHdWalletAvatarImageNames,
   IHwWalletAvatarImageNames,
   IOthersWalletAvatarImageNames,
@@ -1845,10 +1846,7 @@ export type IEmojiTypes = (typeof emojiList)[number];
 export const colors = [];
 
 export type IAvatarInfo = {
-  img:
-    | IHdWalletAvatarImageNames
-    | IHwWalletAvatarImageNames
-    | IOthersWalletAvatarImageNames;
+  img: IAllWalletAvatarImageNamesWithoutDividers;
   emoji?: IEmojiTypes | 'img';
   bgColor?: string;
 };

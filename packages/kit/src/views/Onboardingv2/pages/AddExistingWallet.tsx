@@ -17,8 +17,8 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useUserWalletProfile } from '../../../hooks/useUserWalletProfile';
 import useLiteCard from '../../LiteCard/hooks/useLiteCard';
-import { useCloudBackup } from '../../Onboarding/hooks/useCloudBackup';
 import { OnboardingLayout } from '../components/OnboardingLayout';
+import { useCloudBackup } from '../hooks/useCloudBackup';
 
 type IAddExistingWalletOption = {
   title: string;
@@ -32,7 +32,7 @@ export default function AddExistingWallet() {
   const navigation = useAppNavigation();
   const intl = useIntl();
 
-  const { checkLoading, supportCloudBackup, goToPageBackupList } =
+  const { checkLoading, supportCloudBackup, goToPageBackupList, startBackup } =
     useCloudBackup();
 
   const { result: cloudBackupOption = null } =
@@ -70,13 +70,7 @@ export default function AddExistingWallet() {
   const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
   const liteCard = useLiteCard();
 
-  const DATA: {
-    title: string;
-    icon: IKeyOfIcons;
-    description?: string | string[];
-    onPress?: () => void;
-    isLoading?: boolean;
-  }[] = useMemo(
+  const DATA: IAddExistingWalletOption[] = useMemo(
     () =>
       [
         {
@@ -128,12 +122,30 @@ export default function AddExistingWallet() {
             '🙅 You cannot manage the wallet.',
           ],
         },
+        ...(() => {
+          if (platformEnv.isDev) {
+            return [
+              supportCloudBackup
+                ? {
+                    title: '===DEBUG===TestCloudBackup',
+                    icon: 'StorageOutline',
+                    onPress: startBackup,
+                    isLoading: checkLoading,
+                  }
+                : null,
+            ].filter(Boolean);
+          }
+          return [];
+        })(),
       ].filter(Boolean),
     [
       cloudBackupOptionWithLoading,
       navigation,
       isSoftwareWalletOnlyUser,
       liteCard,
+      checkLoading,
+      startBackup,
+      supportCloudBackup,
     ],
   );
 

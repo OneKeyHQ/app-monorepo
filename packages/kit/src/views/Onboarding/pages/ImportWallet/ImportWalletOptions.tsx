@@ -30,7 +30,7 @@ import { EModalRoutes, EOnboardingPages } from '@onekeyhq/shared/src/routes';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
-import { useCloudBackup } from '../../hooks/useCloudBackup';
+import { useCloudBackup } from '../../../Onboardingv2/hooks/useCloudBackup';
 import { useV4MigrationActions } from '../V4Migration/hooks/useV4MigrationActions';
 
 type IOptionItem = IPropsWithTestId<{

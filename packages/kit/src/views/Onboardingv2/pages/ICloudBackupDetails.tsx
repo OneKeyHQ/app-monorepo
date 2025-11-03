@@ -1,3 +1,5 @@
+import { useCallback } from 'react';
+
 import { StyleSheet } from 'react-native';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
@@ -22,6 +24,7 @@ import type { IAllWalletAvatarImageNames } from '@onekeyhq/shared/src/utils/avat
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 
 import { OnboardingLayout } from '../components/OnboardingLayout';
+import { useCloudBackup } from '../hooks/useCloudBackup';
 
 // Mock data for wallets
 const MOCK_WALLET_DATA: {
@@ -62,20 +65,25 @@ export default function ICloudBackupDetails({
   IOnboardingParamListV2,
   EOnboardingPagesV2.ICloudBackupDetails
 >) {
-  const { backupTime } = route.params;
+  const backupTime = route.params?.backupTime;
+  const actionType = route.params?.actionType;
   const navigation = useAppNavigation();
-
-  const formattedDate = formatDate(new Date(backupTime), {
+  const { doBackup, checkLoading } = useCloudBackup();
+  const formattedDate = formatDate(new Date(backupTime ?? Date.now()), {
     hideSeconds: true,
   });
 
-  const handleImport = () => {
+  const handleImport = useCallback(() => {
     Toast.success({
       title: 'Backup imported',
     });
-  };
+  }, []);
 
-  const handleDelete = () => {
+  const handleBackup = useCallback(async () => {
+    await doBackup();
+  }, [doBackup]);
+
+  const handleDelete = useCallback(() => {
     Dialog.show({
       icon: 'DeleteOutline',
       tone: 'destructive',
@@ -97,7 +105,7 @@ export default function ICloudBackupDetails({
         navigation.pop();
       },
     });
-  };
+  }, [navigation]);
 
   return (
     <Page>
@@ -142,17 +150,41 @@ export default function ICloudBackupDetails({
         </OnboardingLayout.Body>
         <OnboardingLayout.Footer>
           <XStack gap="$3" w="100%" py="$3">
-            <Button
-              flex={1}
-              variant="primary"
-              size="large"
-              onPress={handleImport}
-            >
-              Import
-            </Button>
-            <Button size="large" onPress={handleDelete} childrenAsText={false}>
-              <Icon name="DeleteOutline" />
-            </Button>
+            {actionType === 'backup' ? (
+              <>
+                <Button
+                  isLoading={checkLoading}
+                  flex={1}
+                  variant="primary"
+                  size="large"
+                  onPress={handleBackup}
+                >
+                  Backup
+                </Button>
+              </>
+            ) : null}
+
+            {actionType === 'restore' ? (
+              <>
+                <Button
+                  isLoading={checkLoading}
+                  flex={1}
+                  variant="primary"
+                  size="large"
+                  onPress={handleImport}
+                >
+                  Import
+                </Button>
+                <Button
+                  isLoading={checkLoading}
+                  size="large"
+                  onPress={handleDelete}
+                  childrenAsText={false}
+                >
+                  <Icon name="DeleteOutline" />
+                </Button>
+              </>
+            ) : null}
           </XStack>
         </OnboardingLayout.Footer>
       </OnboardingLayout>

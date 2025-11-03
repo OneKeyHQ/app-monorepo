@@ -58,7 +58,9 @@ export type IOnboardingParamListV2 = {
   };
   [EOnboardingPagesV2.ICloudBackup]: undefined;
   [EOnboardingPagesV2.ICloudBackupDetails]: {
-    backupTime: string;
+    backupTime: number;
+    backupId?: string;
+    actionType: 'backup' | 'restore';
   };
   [EOnboardingPagesV2.ConnectWalletSelectNetworks]: {
     impl: string;

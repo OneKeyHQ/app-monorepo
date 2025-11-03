@@ -10,6 +10,8 @@ import type {
 // };
 import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
 
+import type { IAllWalletAvatarImageNamesWithoutDividers } from '../../src/utils/avatarUtils';
+
 export enum EPrimeTransferServerType {
   OFFICIAL = 'official',
   CUSTOM = 'custom',
@@ -36,6 +38,17 @@ export type IPrimeTransferHDWallet = Omit<
 
 export type IPrimeTransferAccount = IDBAccount & IHasVersion;
 
+export type IPrimeTransferPublicData = {
+  dataTime: number;
+  totalWalletsCount: number;
+  totalAccountsCount: number;
+  walletDetails: Array<{
+    name: string;
+    avatar: IAllWalletAvatarImageNamesWithoutDividers;
+    accountsCount: number;
+  }>;
+};
+
 export type IPrimeTransferPrivateData = {
   // WalletID/ImportedAccountID -> encrypted credential
   credentials: Record<string, string>;
@@ -53,6 +66,7 @@ export type IPrimeTransferPrivateData = {
 
 export type IPrimeTransferData = {
   privateData: IPrimeTransferPrivateData;
+  publicData: IPrimeTransferPublicData | undefined;
   isEmptyData: boolean;
   isWatchingOnly: boolean;
   appVersion: string;
