@@ -1,7 +1,4 @@
-import { useCallback, useMemo } from 'react';
-
-import { useIntl } from 'react-intl';
-import { Share, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
 
 import {
   Button,
@@ -11,62 +8,39 @@ import {
   Stack,
   XStack,
   YStack,
-  useClipboard,
 } from '@onekeyhq/components';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { ETabReferFriendsRoutes } from '@onekeyhq/shared/src/routes';
 
-interface IReferralCodeCardProps {
-  inviteUrl: string;
-  inviteCode: string;
-}
+import { useReferralCodeCard } from '../hooks/useReferralCodeCard';
 
-export function ReferralCodeCard({
+import type { IReferralCodeCardProps } from '../types';
+
+export function ReferralCodeCardDesktop({
   inviteUrl,
   inviteCode,
 }: IReferralCodeCardProps) {
-  const navigation = useAppNavigation();
-  const { copyText } = useClipboard();
-  const intl = useIntl();
-
-  const handleCopy = useCallback(() => {
-    copyText(inviteCode);
-    defaultLogger.referral.page.copyReferralCode();
-  }, [copyText, inviteCode]);
-
-  const inviteCodeUrl = useMemo(() => {
-    return inviteUrl.replace('https://', '');
-  }, [inviteUrl]);
-
-  const toYourReferredPage = useCallback(() => {
-    navigation.push(ETabReferFriendsRoutes.TabYourReferred);
-  }, [navigation]);
-
-  const sharedUrl = useMemo(() => `https://${inviteCodeUrl}`, [inviteCodeUrl]);
-
-  const copyLink = useCallback(() => {
-    copyText(sharedUrl);
-    defaultLogger.referral.page.shareReferralLink('copy');
-  }, [copyText, sharedUrl]);
+  const {
+    handleCopy,
+    copyLink,
+    inviteCodeUrl,
+    toYourReferredPage,
+    handleShare,
+    intl,
+  } = useReferralCodeCard({ inviteUrl, inviteCode });
 
   return (
     <>
       <YStack px="$5" pt="$6" pb="$5" $platform-native={{ pb: '$8' }}>
         <YStack>
           <XStack jc="space-between">
-            <SizableText size="$headingMd">
-              {intl.formatMessage({ id: ETranslations.referral_your_code })}
-            </SizableText>
+            <SizableText size="$headingMd">{intl.yourCode}</SizableText>
             <Button
               onPress={toYourReferredPage}
               variant="tertiary"
               iconAfter="ChevronRightOutline"
               jc="center"
             >
-              {intl.formatMessage({ id: ETranslations.referral_referred })}
+              {intl.referred}
             </Button>
           </XStack>
           <XStack pt="$2">
@@ -84,7 +58,7 @@ export function ReferralCodeCard({
             >
               <SizableText size="$heading4xl">{inviteCode}</SizableText>
               <IconButton
-                title={intl.formatMessage({ id: ETranslations.global_copy })}
+                title={intl.copy}
                 variant="tertiary"
                 icon="Copy3Outline"
                 size="large"
@@ -132,7 +106,7 @@ export function ReferralCodeCard({
               </SizableText>
               {platformEnv.isNative ? null : (
                 <IconButton
-                  title={intl.formatMessage({ id: ETranslations.global_copy })}
+                  title={intl.copy}
                   icon="Copy3Outline"
                   variant="tertiary"
                   size="medium"
@@ -160,7 +134,7 @@ export function ReferralCodeCard({
                   size="medium"
                   onPress={copyLink}
                 >
-                  {intl.formatMessage({ id: ETranslations.global_copy })}
+                  {intl.copy}
                 </Button>
                 <Button
                   variant="primary"
@@ -169,22 +143,9 @@ export function ReferralCodeCard({
                   $md={{
                     flex: 1,
                   }}
-                  onPress={() => {
-                    setTimeout(() => {
-                      void Share.share(
-                        platformEnv.isNativeIOS
-                          ? {
-                              url: sharedUrl,
-                            }
-                          : {
-                              message: sharedUrl,
-                            },
-                      );
-                    }, 300);
-                    defaultLogger.referral.page.shareReferralLink('share');
-                  }}
+                  onPress={handleShare}
                 >
-                  {intl.formatMessage({ id: ETranslations.explore_share })}
+                  {intl.share}
                 </Button>
               </XStack>
             ) : null}
