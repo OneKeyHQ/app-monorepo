@@ -1,5 +1,6 @@
-import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { useRoute } from '@react-navigation/core';
 import { Freeze } from 'react-freeze';
 import { BackHandler } from 'react-native';
 import Animated from 'react-native-reanimated';
@@ -9,21 +10,29 @@ import {
   Page,
   Stack,
   XStack,
+  YStack,
   useMedia,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useListenTabFocusState from '@onekeyhq/kit/src/hooks/useListenTabFocusState';
 import { useBrowserTabActions } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import { useTakeScreenshot } from '@onekeyhq/kit/src/views/Discovery/hooks/useTakeScreenshot';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import type { IDiscoveryModalParamList } from '@onekeyhq/shared/src/routes';
+import type {
+  ETabDiscoveryRoutes,
+  IDiscoveryModalParamList,
+  ITabDiscoveryParamList,
+} from '@onekeyhq/shared/src/routes';
 import {
   EDiscoveryModalRoutes,
   EModalRoutes,
@@ -32,6 +41,7 @@ import {
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/debugUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
+import { EarnHomeWithProvider } from '../../../Earn/EarnHome';
 import CustomHeaderTitle from '../../components/CustomHeaderTitle';
 import { HandleRebuildBrowserData } from '../../components/HandleData/HandleRebuildBrowserTabData';
 import HeaderRightToolBar from '../../components/HeaderRightToolBar';
@@ -52,6 +62,8 @@ import DashboardContent from '../Dashboard/DashboardContent';
 import MobileBrowserContent from './MobileBrowserContent';
 import { withBrowserProvider } from './WithBrowserProvider';
 
+import type { RouteProp } from '@react-navigation/core';
+import type { LayoutChangeEvent } from 'react-native';
 import type { WebView } from 'react-native-webview';
 
 const isNativeMobile = platformEnv.isNative && !platformEnv.isNativeIOSPad;
@@ -118,6 +130,32 @@ const useAndroidHardwareBack = platformEnv.isNativeAndroid
   : () => {};
 
 function MobileBrowser() {
+  const route =
+    useRoute<
+      RouteProp<ITabDiscoveryParamList, ETabDiscoveryRoutes.TabDiscovery>
+    >();
+  const { defaultTab } = route?.params || {};
+  const [settings] = useSettingsPersistAtom();
+  const [selectedHeaderTab, setSelectedHeaderTab] = useState<ETranslations>(
+    defaultTab || settings.selectedBrowserTab || ETranslations.global_browser,
+  );
+  const handleChangeHeaderTab = useCallback(async (tab: ETranslations) => {
+    setSelectedHeaderTab(tab);
+    setTimeout(async () => {
+      await backgroundApiProxy.serviceSetting.setSelectedBrowserTab(tab);
+    }, 150);
+  }, []);
+  const previousDefaultTab = useRef<ETranslations | undefined>(defaultTab);
+  useEffect(() => {
+    if (previousDefaultTab.current !== defaultTab) {
+      previousDefaultTab.current = defaultTab;
+      if (defaultTab) {
+        setTimeout(async () => {
+          await handleChangeHeaderTab(defaultTab);
+        }, 100);
+      }
+    }
+  }, [defaultTab, handleChangeHeaderTab]);
   const { tabs } = useWebTabs();
   const { activeTabId } = useActiveTabId();
   const { closeWebTab, setCurrentWebTab } = useBrowserTabActions().current;
@@ -261,15 +299,20 @@ function MobileBrowser() {
     handleGoBackHome,
   });
 
+  const [tabPageHeight, setTabPageHeight] = useState(
+    platformEnv.isNativeIOS ? 143 : 92,
+  );
+  const handleTabPageLayout = useCallback((e: LayoutChangeEvent) => {
+    // Use the actual measured height without arbitrary adjustments
+    const height = e.nativeEvent.layout.height - 20;
+    setTabPageHeight(height);
+  }, []);
   return (
     <Page fullPage>
       {/* custom header */}
 
       {displayHomePage ? (
-        <TabPageHeader
-          sceneName={EAccountSelectorSceneName.home}
-          tabRoute={ETabRoutes.Discovery}
-        />
+        <Stack h={tabPageHeight} />
       ) : (
         <XStack
           pt={top}
@@ -296,7 +339,16 @@ function MobileBrowser() {
         </XStack>
       )}
       <Page.Body>
-        <Stack flex={1} zIndex={3} pb={gtMd ? bottom : 0}>
+        <Stack
+          flex={1}
+          zIndex={3}
+          pb={gtMd ? bottom : 0}
+          display={
+            selectedHeaderTab === ETranslations.global_browser
+              ? undefined
+              : 'none'
+          }
+        >
           <HandleRebuildBrowserData />
           <Stack flex={1}>
             {gtMd ? null : (
@@ -325,7 +377,29 @@ function MobileBrowser() {
             </Animated.View>
           </Freeze>
         </Stack>
+        <EarnHomeWithProvider
+          showHeader={false}
+          showContent={selectedHeaderTab === ETranslations.global_earn}
+        />
       </Page.Body>
+      {displayHomePage ? (
+        <YStack
+          position="absolute"
+          top={-20}
+          left={0}
+          bg="$bgApp"
+          pt="$5"
+          width="100%"
+          onLayout={handleTabPageLayout}
+        >
+          <TabPageHeader
+            sceneName={EAccountSelectorSceneName.home}
+            tabRoute={ETabRoutes.Discovery}
+            selectedHeaderTab={selectedHeaderTab}
+            onSelectHeaderTab={handleChangeHeaderTab}
+          />
+        </YStack>
+      ) : null}
     </Page>
   );
 }

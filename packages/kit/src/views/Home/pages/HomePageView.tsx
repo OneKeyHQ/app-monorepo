@@ -16,6 +16,7 @@ import {
 import type { ITabBarItemProps } from '@onekeyhq/components/src/composite/Tabs/TabBar';
 import { TabBarItem } from '@onekeyhq/components/src/composite/Tabs/TabBar';
 import { getNetworksSupportBulkRevokeApproval } from '@onekeyhq/shared/src/config/presetNetworks';
+import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
 import { getEnabledNFTNetworkIds } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   EAppEventBusNames,
@@ -35,7 +36,6 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { EmptyAccount, EmptyWallet } from '../../../components/Empty';
 import { NetworkAlert } from '../../../components/NetworkAlert';
 import { TabPageHeader } from '../../../components/TabPageHeader';
-import { WalletBackupAlert } from '../../../components/WalletBackup';
 import { WebDappEmptyView } from '../../../components/WebDapp/WebDappEmptyView';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
@@ -45,6 +45,7 @@ import {
 } from '../../../states/jotai/contexts/accountOverview';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { HomeSupportedWallet } from '../components/HomeSupportedWallet';
+import { NotBackedUpEmpty } from '../components/NotBakcedUp';
 
 import { ApprovalListContainerWithProvider } from './ApprovalListContainer';
 import { HomeHeaderContainer } from './HomeHeaderContainer';
@@ -197,6 +198,13 @@ export function HomePageView({
     vaultSettings?.NFTEnabled &&
     getEnabledNFTNetworkIds().includes(network?.id ?? '');
 
+  const isWalletNotBackedUp = useMemo(() => {
+    if (wallet && wallet.type === WALLET_TYPE_HD && !wallet.backuped) {
+      return true;
+    }
+    return false;
+  }, [wallet]);
+
   const isBulkRevokeApprovalEnabled = useMemo(() => {
     if (network?.isAllNetworks) {
       if (
@@ -321,6 +329,15 @@ export function HomePageView({
         width={tabContainerWidth}
         renderHeader={renderHeader}
         renderTabBar={(props: any) => (
+          // isWalletNotBackedUp ? null : (
+          //   <Tabs.TabBar
+          //     {...props}
+          //     renderItem={handleRenderItem}
+          //     renderToolbar={({ focusedTab }) => (
+          //       <TabHeaderSettings focusedTab={focusedTab} />
+          //     )}
+          //   />
+          // )
           <Tabs.TabBar
             {...props}
             renderItem={handleRenderItem}
@@ -479,7 +496,6 @@ export function HomePageView({
             ) : null
           } */}
           {content}
-          <WalletBackupAlert />
           {platformEnv.isNative ? (
             <YStack
               position="absolute"

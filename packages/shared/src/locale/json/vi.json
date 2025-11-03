@@ -2684,8 +2684,8 @@
   "referral.your_referred_wallets_1address": "1 địa chỉ",
   "referral.your_referred_wallets_details": "Chi tiết",
   "referral.your_referred_wallets_more_address": "{amount} địa chỉ",
-  "referral_code_tutorial_label": "How to get a referral code?",
-  "referral_promo_title": "Join the OneKey Referral Program",
+  "referral_code_tutorial_label": "Làm thế nào để nhận mã giới thiệu?",
+  "referral_promo_title": "Tham gia Chương trình Giới thiệu OneKey",
   "remove_account_desc": "Tài khoản này sẽ bị xóa.",
   "remove_device": "Gỡ bỏ thiết bị",
   "remove_device_desc": "Điều này sẽ ngắt kết nối ví cứng này khỏi ứng dụng OneKey. Bạn có thể kết nối lại với ứng dụng bất cứ khi nào bạn muốn.",
@@ -3646,5 +3646,8 @@
   "wallet_backup.backup_warning": "<strong>Sao lưu ví của bạn</strong> — bảo vệ tài sản của bạn khỏi mất thiết bị",
   "wallet_backup.save_recovery_phrase": "Lưu cụm từ khôi phục",
   "wallet_backup.status_not_backed_up": "Không được sao lưu",
+  "wallet_empty_article_deposit": "Cách nạp tiền điện mã hóa?",
+  "wallet_empty_article_deposit_faq": "Khoản tiền gửi chưa đến?",
+  "wallet_empty_article_trade": "Làm thế nào để tôi giao dịch tiền mã hóa trong OneKey?",
   "word": "Từ"
 }

@@ -6,27 +6,21 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useAccountSelectorRoute } from '../../../router/useAccountSelectorRoute';
 
-export function AccountSelectorCreateWalletButton() {
+export function AccountSelectorCreateWalletButton({
+  newOnboarding,
+}: {
+  newOnboarding?: boolean;
+}) {
   const intl = useIntl();
 
   const route = useAccountSelectorRoute();
-  const toOnBoardingPage = useToOnBoardingPage();
+  const toOnBoardingPage = useToOnBoardingPage(newOnboarding);
   // const linkNetwork = route.params?.linkNetwork;
   const isEditableRouteParams = route.params?.editable;
 
   if (!isEditableRouteParams) {
     return null;
   }
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const onboardingButton = (
-    <IconButton
-      onPress={() => {
-        void toOnBoardingPage();
-      }}
-      icon="PlusSmallOutline"
-      testID="account-add-wallet"
-    />
-  );
   return (
     <Stack p="$1" alignItems="center">
       <IconButton
@@ -39,7 +33,9 @@ export function AccountSelectorCreateWalletButton() {
         variant="primary"
       />
       <SizableText textAlign="center" size="$bodySm" mt="$1">
-        {intl.formatMessage({ id: ETranslations.global_wallet })}
+        {newOnboarding
+          ? 'new onboarding'
+          : intl.formatMessage({ id: ETranslations.global_wallet })}
       </SizableText>
     </Stack>
   );

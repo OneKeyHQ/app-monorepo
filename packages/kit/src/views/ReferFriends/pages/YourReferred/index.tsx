@@ -14,7 +14,7 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { EModalReferFriendsRoutes } from '@onekeyhq/shared/src/routes';
+import { ETabReferFriendsRoutes } from '@onekeyhq/shared/src/routes';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 
 function EmptyData() {
@@ -154,7 +154,7 @@ function WalletList() {
               title={`Wallet ${index + 1}`}
               onPress={() => {
                 navigation.push(
-                  EModalReferFriendsRoutes.YourReferredWalletAddresses,
+                  ETabReferFriendsRoutes.TabYourReferredWalletAddresses,
                   {
                     items: item.items,
                     networks,

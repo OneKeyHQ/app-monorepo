@@ -44,7 +44,7 @@ import {
   getMetadata,
 } from './bundle';
 import { ipcMessageKeys } from './config';
-import { ETranslations, i18nText, initLocale } from './i18n';
+import { ElectronTranslations, i18nText, initLocale } from './i18n';
 import { registerShortcuts, unregisterShortcuts } from './libs/shortcuts';
 import * as store from './libs/store';
 import initProcess from './process';
@@ -142,7 +142,7 @@ const initMenu = () => {
       submenu: [
         {
           role: isMac ? 'about' : undefined,
-          label: i18nText(ETranslations.menu_about_onekey_wallet),
+          label: i18nText(ElectronTranslations.menu_about_onekey_wallet),
           click: isMac
             ? undefined
             : () => {
@@ -156,7 +156,7 @@ const initMenu = () => {
         },
         { type: 'separator' },
         !process.mas && {
-          label: i18nText(ETranslations.menu_check_for_updates),
+          label: i18nText(ElectronTranslations.menu_check_for_updates),
           click: () => {
             showMainWindow();
             const safelyMainWindow = getSafelyMainWindow();
@@ -167,7 +167,7 @@ const initMenu = () => {
         },
         { type: 'separator' },
         {
-          label: i18nText(ETranslations.menu_preferences),
+          label: i18nText(ElectronTranslations.menu_preferences),
           accelerator: 'CmdOrCtrl+,',
           click: () => {
             const safelyMainWindow = getSafelyMainWindow();
@@ -182,7 +182,7 @@ const initMenu = () => {
         },
         { type: 'separator' },
         {
-          label: i18nText(ETranslations.menu_lock_now),
+          label: i18nText(ElectronTranslations.menu_lock_now),
           accelerator: 'CmdOrCtrl+Shift+L',
           click: () => {
             showMainWindow();
@@ -196,42 +196,42 @@ const initMenu = () => {
         isMac && {
           role: 'hide',
           accelerator: 'Alt+CmdOrCtrl+H',
-          label: i18nText(ETranslations.menu_hide_onekey_wallet),
+          label: i18nText(ElectronTranslations.menu_hide_onekey_wallet),
         },
         isMac && {
           role: 'unhide',
-          label: i18nText(ETranslations.menu_show_all),
+          label: i18nText(ElectronTranslations.menu_show_all),
         },
         { type: 'separator' },
         {
           role: 'quit',
           accelerator: 'CmdOrCtrl+Q',
-          label: i18nText(ETranslations.menu_quit_onekey_wallet),
+          label: i18nText(ElectronTranslations.menu_quit_onekey_wallet),
         },
       ].filter(Boolean),
     },
     {
-      label: i18nText(ETranslations.global_edit),
+      label: i18nText(ElectronTranslations.global_edit),
       submenu: [
-        { role: 'undo', label: i18nText(ETranslations.menu_undo) },
-        { role: 'redo', label: i18nText(ETranslations.menu_redo) },
+        { role: 'undo', label: i18nText(ElectronTranslations.menu_undo) },
+        { role: 'redo', label: i18nText(ElectronTranslations.menu_redo) },
         { type: 'separator' },
-        { role: 'cut', label: i18nText(ETranslations.menu_cut) },
-        { role: 'copy', label: i18nText(ETranslations.global_copy) },
-        { role: 'paste', label: i18nText(ETranslations.menu_paste) },
+        { role: 'cut', label: i18nText(ElectronTranslations.menu_cut) },
+        { role: 'copy', label: i18nText(ElectronTranslations.global_copy) },
+        { role: 'paste', label: i18nText(ElectronTranslations.menu_paste) },
         { type: 'separator' },
         {
           role: 'delete',
-          label: i18nText(ETranslations.global_delete),
+          label: i18nText(ElectronTranslations.global_delete),
         },
         {
           role: 'selectAll',
-          label: i18nText(ETranslations.menu_select_all),
+          label: i18nText(ElectronTranslations.menu_select_all),
         },
       ],
     },
     {
-      label: i18nText(ETranslations.menu_view),
+      label: i18nText(ElectronTranslations.menu_view),
       submenu: [
         ...(isDev || store.getDevTools()
           ? [
@@ -249,46 +249,52 @@ const initMenu = () => {
           : []),
         {
           role: 'resetZoom',
-          label: i18nText(ETranslations.menu_actual_size),
+          label: i18nText(ElectronTranslations.menu_actual_size),
           accelerator: 'CmdOrCtrl+0',
         },
         isMac
           ? {
               role: 'zoomIn',
-              label: i18nText(ETranslations.menu_zoom_in),
+              label: i18nText(ElectronTranslations.menu_zoom_in),
             }
           : {
               role: 'zoomIn',
-              label: i18nText(ETranslations.menu_zoom_in),
+              label: i18nText(ElectronTranslations.menu_zoom_in),
               accelerator: 'CmdOrCtrl+Shift+]',
             },
         {
           role: 'zoomOut',
-          label: i18nText(ETranslations.menu_zoom_out),
+          label: i18nText(ElectronTranslations.menu_zoom_out),
           accelerator: isMac ? 'CmdOrCtrl+-' : 'CmdOrCtrl+Shift+[',
         },
         { type: 'separator' },
         {
           role: 'togglefullscreen',
-          label: i18nText(ETranslations.menu_toggle_full_screen),
+          label: i18nText(ElectronTranslations.menu_toggle_full_screen),
         },
       ],
     },
     {
-      label: i18nText(ETranslations.menu_window),
+      label: i18nText(ElectronTranslations.menu_window),
       submenu: [
-        { role: 'minimize', label: i18nText(ETranslations.menu_minimize) },
-        isMac && { role: 'zoom', label: i18nText(ETranslations.menu_zoom) },
+        {
+          role: 'minimize',
+          label: i18nText(ElectronTranslations.menu_minimize),
+        },
+        isMac && {
+          role: 'zoom',
+          label: i18nText(ElectronTranslations.menu_zoom),
+        },
         ...(isMac
           ? [
               { type: 'separator' },
               {
                 role: 'front',
-                label: i18nText(ETranslations.menu_bring_all_to_front),
+                label: i18nText(ElectronTranslations.menu_bring_all_to_front),
               },
               { type: 'separator' },
               {
-                label: i18nText(ETranslations.menu_window),
+                label: i18nText(ElectronTranslations.menu_window),
                 click: () => {
                   showMainWindow();
                 },
@@ -299,17 +305,17 @@ const initMenu = () => {
     },
     {
       role: 'help',
-      label: i18nText(ETranslations.menu_help),
+      label: i18nText(ElectronTranslations.menu_help),
       submenu: [
         {
-          label: i18nText(ETranslations.menu_visit_help_center),
+          label: i18nText(ElectronTranslations.menu_visit_help_center),
           click: async () => {
             await shell.openExternal('https://help.onekey.so');
           },
         },
         { type: 'separator' },
         {
-          label: i18nText(ETranslations.menu_official_website),
+          label: i18nText(ElectronTranslations.menu_official_website),
           click: async () => {
             await shell.openExternal('https://onekey.so');
           },
@@ -340,12 +346,12 @@ const initMenu = () => {
     showLookUpSelection: false,
     showSelectAll: true,
     labels: {
-      cut: i18nText(ETranslations.menu_cut),
-      copy: i18nText(ETranslations.global_copy),
-      paste: i18nText(ETranslations.menu_paste),
-      selectAll: i18nText(ETranslations.menu_select_all),
-      copyImage: i18nText(ETranslations.menu__copy_image),
-      saveImageAs: i18nText(ETranslations.menu__save_image_as),
+      cut: i18nText(ElectronTranslations.menu_cut),
+      copy: i18nText(ElectronTranslations.global_copy),
+      paste: i18nText(ElectronTranslations.menu_paste),
+      selectAll: i18nText(ElectronTranslations.menu_select_all),
+      copyImage: i18nText(ElectronTranslations.menu__copy_image),
+      saveImageAs: i18nText(ElectronTranslations.menu__save_image_as),
     },
   });
 };

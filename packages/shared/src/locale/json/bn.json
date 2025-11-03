@@ -2684,7 +2684,8 @@
   "referral.your_referred_wallets_1address": "১টি ঠিকানা",
   "referral.your_referred_wallets_details": "বিস্তারিত",
   "referral.your_referred_wallets_more_address": "{amount} ঠিকানা",
-  "referral_promo_title": "Join the OneKey Referral Program",
+  "referral_code_tutorial_label": "রেফারাল কোড কীভাবে পাবো?",
+  "referral_promo_title": "OneKey রেফারেল প্রোগ্রামে যোগ দিন",
   "remove_account_desc": "এই অ্যাকাউন্টটি মুছে ফেলা হবে।",
   "remove_device": "ডিভাইস মুছুন",
   "remove_device_desc": "এটি OneKey App থেকে এই হার্ডওয়্যার ওয়ালেটটি সংযোগ বিচ্ছিন্ন করবে। আপনি যখনই চান তখন এটি App এ পুনরায় সংযোগ করতে পারেন।",
@@ -3645,5 +3646,8 @@
   "wallet_backup.backup_warning": "<strong>আপনার ওয়ালেট ব্যাকআপ করুন</strong> — ডিভাইস হারিয়ে গেলে আপনার সম্পদ রক্ষা করুন",
   "wallet_backup.save_recovery_phrase": "পুনরুদ্ধার বাক্যাংশ সংরক্ষণ করুন",
   "wallet_backup.status_not_backed_up": "ব্যাকআপ করা হয়নি",
+  "wallet_empty_article_deposit": "ক্রিপ্টো কীভাবে জমা দেবেন?",
+  "wallet_empty_article_deposit_faq": "জমা কি এখনও পৌঁছেনি?",
+  "wallet_empty_article_trade": "আমি কীভাবে OneKey-এ ক্রিপ্টো ট্রেড করতে পারি?",
   "word": "শব্দ"
 }
