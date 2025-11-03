@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { EDeviceType } from '@onekeyfe/hd-shared';
 import { useRoute } from '@react-navigation/core';
@@ -489,6 +489,14 @@ function QRCodeConnectionIndicator() {
   );
 }
 
+const isSupportedDevice = (deviceType: string) => {
+  return (
+    deviceType === EDeviceType.Pro ||
+    deviceType === EDeviceType.Touch ||
+    deviceType === EDeviceType.Unknown
+  );
+};
+
 export default function ConnectYourDevice() {
   const params =
     useRoute<
@@ -497,6 +505,17 @@ export default function ConnectYourDevice() {
   const { deviceType } = params?.params || {};
   console.log('deviceType', deviceType);
   const [value, setValue] = useState('usb');
+
+  const isSupportedQRCode = useMemo(() => {
+    return deviceType.every(isSupportedDevice);
+  }, [deviceType]);
+  const options = useMemo(() => {
+    return [
+      { label: 'USB', value: 'usb' },
+      { label: 'Bluetooth', value: 'bluetooth' },
+      isSupportedQRCode ? { label: 'QR Code', value: 'qr' } : undefined,
+    ].filter(Boolean);
+  }, [isSupportedQRCode]);
   return (
     <Page>
       <OnboardingLayout>
@@ -511,15 +530,13 @@ export default function ConnectYourDevice() {
               fullWidth
               value={value}
               onChange={(v) => setValue(v as string)}
-              options={[
-                { label: 'USB', value: 'usb' },
-                { label: 'Bluetooth', value: 'bluetooth' },
-                { label: 'QR Code', value: 'qr' },
-              ]}
+              options={options}
             />
             {value === 'usb' ? <USBConnectionIndicator /> : null}
             {value === 'bluetooth' ? <BluetoothConnectionIndicator /> : null}
-            {value === 'qr' ? <QRCodeConnectionIndicator /> : null}
+            {value === 'qr' && isSupportedQRCode ? (
+              <QRCodeConnectionIndicator />
+            ) : null}
           </OnboardingLayout.ConstrainedContent>
         </OnboardingLayout.Body>
       </OnboardingLayout>
