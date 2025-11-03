@@ -20,4 +20,9 @@ const storage: ISecureStorage = {
   supportSecureStorage,
 };
 
+// native
+// https://docs.expo.dev/versions/latest/sdk/securestore/#platform-value-storage
+// desktop
+// https://www.electronjs.org/docs/latest/api/safe-storage
+
 export default storage;

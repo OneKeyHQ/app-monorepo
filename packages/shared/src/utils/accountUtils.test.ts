@@ -5,6 +5,10 @@ import {
 
 import accountUtils from './accountUtils';
 
+/*
+yarn test packages/shared/src/utils/accountUtils.test.ts
+*/
+
 function testWithRandomAccountIndexes(
   testFunc: (accountIndex: number) => void,
 ) {

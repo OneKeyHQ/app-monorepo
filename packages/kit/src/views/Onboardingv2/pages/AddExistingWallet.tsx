@@ -1,5 +1,7 @@
 import { useMemo } from 'react';
 
+import { noop } from 'lodash';
+import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import type { IKeyOfIcons } from '@onekeyhq/components';
@@ -11,12 +13,60 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useUserWalletProfile } from '../../../hooks/useUserWalletProfile';
 import useLiteCard from '../../LiteCard/hooks/useLiteCard';
+import { useCloudBackup } from '../../Onboarding/hooks/useCloudBackup';
 import { OnboardingLayout } from '../components/OnboardingLayout';
+
+type IAddExistingWalletOption = {
+  title: string;
+  icon: IKeyOfIcons;
+  description?: string | string[];
+  isLoading?: boolean;
+  onPress?: () => Promise<void>;
+};
 
 export default function AddExistingWallet() {
   const navigation = useAppNavigation();
+  const intl = useIntl();
+
+  const { checkLoading, supportCloudBackup, goToPageBackupList } =
+    useCloudBackup();
+
+  const { result: cloudBackupOption = null } =
+    usePromiseResult<IAddExistingWalletOption | null>(async () => {
+      if (!supportCloudBackup) {
+        return null;
+      }
+      noop(navigation);
+      const info =
+        await backgroundApiProxy.serviceCloudBackupV2.getBackupProviderInfo();
+
+      const option: IAddExistingWalletOption = {
+        icon: 'CloudOutline',
+        title: info.displayNameI18nKey
+          ? intl.formatMessage({
+              id: info.displayNameI18nKey as any,
+            })
+          : info.displayName,
+        onPress: goToPageBackupList,
+        // onPress: () => navigation.push(EOnboardingPagesV2.ICloudBackup),
+      };
+      return option;
+    }, [goToPageBackupList, intl, navigation, supportCloudBackup]);
+  const cloudBackupOptionWithLoading =
+    useMemo<IAddExistingWalletOption | null>(() => {
+      if (!cloudBackupOption) {
+        return null;
+      }
+      // navigation.push(EOnboardingPagesV2.ICloudBackup);
+      return {
+        ...cloudBackupOption,
+        isLoading: checkLoading,
+      };
+    }, [cloudBackupOption, checkLoading]);
   const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
   const liteCard = useLiteCard();
 
@@ -25,6 +75,7 @@ export default function AddExistingWallet() {
     icon: IKeyOfIcons;
     description?: string | string[];
     onPress?: () => void;
+    isLoading?: boolean;
   }[] = useMemo(
     () =>
       [
@@ -68,13 +119,7 @@ export default function AddExistingWallet() {
               },
             }
           : undefined,
-        {
-          title: 'iCloud',
-          icon: 'CloudOutline' as IKeyOfIcons,
-          onPress: () => {
-            navigation.push(EOnboardingPagesV2.ICloudBackup);
-          },
-        },
+        cloudBackupOptionWithLoading,
         {
           title: 'Watch-only address',
           icon: 'EyeOutline' as IKeyOfIcons,
@@ -84,7 +129,12 @@ export default function AddExistingWallet() {
           ],
         },
       ].filter(Boolean),
-    [navigation, isSoftwareWalletOnlyUser, liteCard],
+    [
+      cloudBackupOptionWithLoading,
+      navigation,
+      isSoftwareWalletOnlyUser,
+      liteCard,
+    ],
   );
 
   return (
@@ -92,7 +142,7 @@ export default function AddExistingWallet() {
       <OnboardingLayout>
         <OnboardingLayout.Header title="Add Existing Wallet" />
         <OnboardingLayout.Body>
-          {DATA.map(({ title, icon, description, onPress }) => (
+          {DATA.map(({ title, icon, description, onPress, isLoading }) => (
             <ListItem
               key={title}
               gap="$3"
@@ -114,6 +164,7 @@ export default function AddExistingWallet() {
               p="$3"
               m="$0"
               onPress={onPress}
+              isLoading={isLoading}
               userSelect="none"
             >
               <YStack
@@ -136,7 +187,9 @@ export default function AddExistingWallet() {
                   </SizableText>
                 ) : null}
               </YStack>
-              <Icon name="ChevronRightSmallOutline" color="$iconDisabled" />
+              {isLoading ? null : (
+                <Icon name="ChevronRightSmallOutline" color="$iconDisabled" />
+              )}
             </ListItem>
           ))}
         </OnboardingLayout.Body>
