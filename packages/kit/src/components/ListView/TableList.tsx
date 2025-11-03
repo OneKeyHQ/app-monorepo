@@ -395,7 +395,7 @@ function BasicTableList<T>({
   mobileRenderItem,
   onPressRow,
   tableLayout: tableLayoutProp,
-  withHeader = false,
+  withHeader = true,
   sortKey: sortKeyProp,
   sortDirection: sortDirectionProp,
   onSortChange,
@@ -471,7 +471,7 @@ function BasicTableList<T>({
     if (ListHeaderComponent) {
       return ListHeaderComponent;
     }
-    if (withHeader && tableLayout) {
+    if (withHeader) {
       return (
         <TableListHeader
           columns={visibleColumns}

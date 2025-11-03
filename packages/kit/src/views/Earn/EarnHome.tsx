@@ -359,13 +359,7 @@ function BasicEarnHome() {
       <YStack flex={1} gap="$4">
         {/* overview and banner */}
         <YStack gap="$8">
-          <YStack
-            $gtLg={{
-              px: '$5',
-            }}
-          >
-            <Overview onRefresh={refreshOverViewData} isLoading={isLoading} />
-          </YStack>
+          <Overview onRefresh={refreshOverViewData} isLoading={isLoading} />
           {banners ? (
             <YStack
               minHeight="$36"
@@ -380,17 +374,15 @@ function BasicEarnHome() {
             </YStack>
           ) : null}
         </YStack>
-        <YStack pt="$3.5">
-          <EarnMainTabs
-            isMobile={false}
-            assetTabData={assetTabData}
-            faqList={faqList || []}
-            isFaqLoading={isFaqLoading}
-            portfolioInfo={portfolioInfo?.earnInvestmentItems || []}
-            isPortfolioLoading={isPortfolioLoading}
-            isAccountsLoading={isLoading}
-          />
-        </YStack>
+        <EarnMainTabs
+          isMobile={false}
+          assetTabData={assetTabData}
+          faqList={faqList || []}
+          isFaqLoading={isFaqLoading}
+          portfolioInfo={portfolioInfo?.earnInvestmentItems || []}
+          isPortfolioLoading={isPortfolioLoading}
+          isAccountsLoading={isLoading}
+        />
       </YStack>
     </EarnPageContainer>
   );

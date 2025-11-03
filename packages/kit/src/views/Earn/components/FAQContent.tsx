@@ -16,7 +16,7 @@ function FAQPanelSkeleton() {
       <YStack gap="$2">
         {Array.from({ length: 4 }).map((_, index) => (
           <YStack key={index} gap="$2">
-            <Skeleton width="100%" height={20} borderRadius="$2" />
+            <Skeleton width="100%" height={32} borderRadius="$2" />
           </YStack>
         ))}
       </YStack>

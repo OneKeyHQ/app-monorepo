@@ -11,6 +11,7 @@ import {
   SizableText,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -35,6 +36,7 @@ export const Overview = ({
   isLoading: boolean;
   onRefresh: () => void;
 }) => {
+  const media = useMedia();
   const {
     activeAccount: { account, indexedAccount },
   } = useActiveAccount({ num: 0 });
@@ -90,7 +92,7 @@ export const Overview = ({
   return (
     <YStack
       gap="$1"
-      px="$5"
+      px={media.gtSm ? '$5' : undefined}
       $gtLg={{
         flexDirection: 'row',
         alignItems: 'center',
@@ -202,7 +204,7 @@ export const Overview = ({
           position="absolute"
           jc="center"
           top={0}
-          right="$4"
+          right={media.gtSm ? '$4' : '0'}
           $gtLg={{
             right: '$8',
             top: '$8',

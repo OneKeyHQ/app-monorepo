@@ -7,10 +7,7 @@ import type { IEarnInvestmentItem } from '@onekeyhq/shared/types/staking';
 
 import { FAQContent } from './FAQContent';
 import { PortfolioTabContent } from './PortfolioTabContent';
-import {
-  ProtocolsTabContentDesktop,
-  ProtocolsTabContentMobile,
-} from './ProtocolsTabContent';
+import { ProtocolsTabContent } from './ProtocolsTabContent';
 
 export function EarnMainTabs({
   isMobile,
@@ -44,9 +41,6 @@ export function EarnMainTabs({
     ) : undefined;
 
   const WrapperComponent = isMobile ? Tabs.ScrollView : YStack;
-  const wrapperProps = isMobile
-    ? { refreshControl }
-    : { pt: '$6' as const, gap: '$8' as const };
 
   return (
     <Tabs.Container
@@ -58,21 +52,19 @@ export function EarnMainTabs({
           id: ETranslations.earn_available_assets,
         })}
       >
-        {isMobile ? (
-          <Tabs.ScrollView refreshControl={refreshControl}>
-            <ProtocolsTabContentMobile assetTabData={assetTabData} />
-          </Tabs.ScrollView>
-        ) : (
-          <ProtocolsTabContentDesktop />
-        )}
+        <WrapperComponent>
+          <YStack pt="$6" gap="$8">
+            <ProtocolsTabContent />
+          </YStack>
+        </WrapperComponent>
       </Tabs.Tab>
       <Tabs.Tab
         name={intl.formatMessage({
           id: ETranslations.earn_portfolio,
         })}
       >
-        <WrapperComponent {...wrapperProps}>
-          <YStack px="$5">
+        <WrapperComponent>
+          <YStack px="$5" pt="$6" gap="$8">
             <PortfolioTabContent
               isLoading={isPortfolioLoading}
               portfolioInfo={portfolioInfo ?? []}
@@ -81,8 +73,8 @@ export function EarnMainTabs({
         </WrapperComponent>
       </Tabs.Tab>
       <Tabs.Tab name={intl.formatMessage({ id: ETranslations.global_faqs })}>
-        <WrapperComponent {...wrapperProps}>
-          <YStack px="$5">
+        <WrapperComponent>
+          <YStack px="$5" pt="$6" gap="$8">
             <FAQContent faqList={faqList} isLoading={isFaqLoading} />
           </YStack>
         </WrapperComponent>

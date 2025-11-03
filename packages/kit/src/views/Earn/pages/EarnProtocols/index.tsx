@@ -303,8 +303,6 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
       <TableList<IStakeProtocolListItem>
         data={protocolData}
         columns={columns}
-        withHeader
-        tableLayout
         defaultSortKey="yield"
         defaultSortDirection="desc"
         onPressRow={handleProtocolPress}

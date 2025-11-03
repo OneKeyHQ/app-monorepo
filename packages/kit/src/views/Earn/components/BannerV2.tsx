@@ -17,7 +17,7 @@ export function BannerV2({ data, onBannerPress }: IBannerV2Props) {
 
     if (shouldShowSkeleton) {
       return (
-        <Stack px="$5">
+        <Stack py="$5">
           <Skeleton
             height={88}
             width={440}
@@ -35,7 +35,8 @@ export function BannerV2({ data, onBannerPress }: IBannerV2Props) {
           data={data}
           maxPageWidth={440}
           containerStyle={{
-            height: 98,
+            height: 140,
+            paddingTop: 30,
           }}
           renderItem={({ item }) => {
             const noPadding = data.length > 0 && data[data.length - 1] === item;

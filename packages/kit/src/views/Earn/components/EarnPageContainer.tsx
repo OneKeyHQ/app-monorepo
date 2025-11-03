@@ -5,8 +5,10 @@ import {
   Breadcrumb,
   Page,
   ScrollView,
+  Stack,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
 import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
 import type { ETabRoutes } from '@onekeyhq/shared/src/routes';
@@ -33,6 +35,8 @@ export function EarnPageContainer({
   tabRoute,
   refreshControl,
 }: IEarnPageContainerProps) {
+  const media = useMedia();
+
   const customHeaderLeft = useMemo(
     () =>
       pageTitle ? (
@@ -53,7 +57,9 @@ export function EarnPageContainer({
         >
           <YStack w="100%" maxWidth={EARN_PAGE_MAX_WIDTH} mx="auto">
             <YStack px="$5" pb="$5" gap="$5">
-              {breadcrumbProps ? <Breadcrumb {...breadcrumbProps} /> : null}
+              {breadcrumbProps && media.gtSm ? (
+                <Breadcrumb {...breadcrumbProps} />
+              ) : null}
               {customHeaderLeft}
             </YStack>
             {children}

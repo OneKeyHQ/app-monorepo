@@ -189,7 +189,7 @@ export const PortfolioTabContent = ({
   isLoading: boolean;
 }) => {
   return (
-    <YStack pt="$6">
+    <YStack>
       {portfolioInfo.length > 0
         ? portfolioInfo.map((item) => {
             const showDivider =
