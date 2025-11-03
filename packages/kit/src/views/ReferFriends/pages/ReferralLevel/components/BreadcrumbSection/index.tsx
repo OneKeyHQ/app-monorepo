@@ -12,9 +12,9 @@ export function BreadcrumbSection() {
 
   const breadcrumbItems: IBreadcrumbItem[] = [
     {
-      label: intl.formatMessage({ id: ETranslations.referral_intro_title }),
+      label: intl.formatMessage({ id: ETranslations.global_overview }),
       onClick: () => {
-        navigation.navigate(ETabReferFriendsRoutes.TabReferAFriend, {});
+        navigation.replace(ETabReferFriendsRoutes.TabReferAFriend, {});
       },
     },
     {

@@ -1,16 +1,22 @@
 import { useIntl } from 'react-intl';
 
-import { SizableText, Stack, XStack, YStack } from '@onekeyhq/components';
+import {
+  Image,
+  SizableText,
+  Stack,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 interface ICurrentLevelSectionProps {
   currentLevel: number;
-  levelEmoji: string;
+  levelIcon: string;
   levelLabel: string;
 }
 
 export function CurrentLevelSection({
-  levelEmoji,
+  levelIcon,
   levelLabel,
 }: ICurrentLevelSectionProps) {
   const intl = useIntl();
@@ -27,7 +33,7 @@ export function CurrentLevelSection({
       {/* Header with level icon and name */}
       <XStack gap="$3" ai="center">
         <Stack w="$10" h="$10" ai="center" jc="center">
-          <SizableText size="$heading3xl">{levelEmoji}</SizableText>
+          <Image w="$10" h="$10" src={levelIcon} />
         </Stack>
         <YStack flex={1} gap="$1">
           <SizableText size="$headingLg" color="$text">

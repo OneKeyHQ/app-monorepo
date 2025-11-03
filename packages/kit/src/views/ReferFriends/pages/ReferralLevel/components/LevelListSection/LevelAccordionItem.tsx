@@ -5,6 +5,7 @@ import {
   Badge,
   Divider,
   Icon,
+  Image,
   SizableText,
   Stack,
   XStack,
@@ -43,17 +44,17 @@ export function LevelAccordionItem({
                 ai="center"
                 jc="center"
               >
-                <SizableText size="$heading3xl">{level.emoji}</SizableText>
+                <Image w="$10" h="$10" src={level.icon} />
               </Stack>
               <XStack gap="$2" ai="center">
                 <SizableText size="$headingLg">{level.label}</SizableText>
-                {isCurrent && (
+                {isCurrent ? (
                   <Badge badgeType="success" badgeSize="sm">
                     {intl.formatMessage({
                       id: ETranslations.referral_current_level,
                     })}
                   </Badge>
-                )}
+                ) : null}
               </XStack>
             </XStack>
             <Stack animation="quick" rotate={open ? '180deg' : '0deg'}>
@@ -83,7 +84,7 @@ export function LevelAccordionItem({
                 })}
               </SizableText>
 
-              {hardwareSalesRate && (
+              {hardwareSalesRate ? (
                 <XStack jc="space-between" ai="center">
                   <XStack gap="$2" ai="center">
                     <Icon name="OnekeyLiteOutline" size="$5" />
@@ -97,9 +98,9 @@ export function LevelAccordionItem({
                     {hardwareSalesRate.rebate}%
                   </SizableText>
                 </XStack>
-              )}
+              ) : null}
 
-              {onchainRate && (
+              {onchainRate ? (
                 <XStack jc="space-between" ai="center">
                   <XStack gap="$2" ai="center">
                     <Icon name="CoinsOutline" size="$5" />
@@ -113,10 +114,10 @@ export function LevelAccordionItem({
                     {onchainRate.rebate}%
                   </SizableText>
                 </XStack>
-              )}
+              ) : null}
             </YStack>
 
-            {level.upgradeConditions.length > 0 && (
+            {level.upgradeConditions.length > 0 ? (
               <>
                 <Divider />
                 <YStack gap="$2">
@@ -139,7 +140,7 @@ export function LevelAccordionItem({
                   ))}
                 </YStack>
               </>
-            )}
+            ) : null}
           </YStack>
         </Accordion.Content>
       </Accordion.HeightAnimator>

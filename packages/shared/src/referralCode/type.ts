@@ -270,6 +270,7 @@ export interface IInviteLevelDetail {
   };
   levels: {
     level: number;
+    icon: string;
     emoji: string;
     labelKey: string;
     label: string;

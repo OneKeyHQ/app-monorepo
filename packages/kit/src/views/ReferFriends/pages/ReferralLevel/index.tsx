@@ -1,13 +1,17 @@
+import { useCallback } from 'react';
+
 import { useIntl } from 'react-intl';
 
 import { Page, ScrollView, Spinner, Stack, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { BreadcrumbSection } from '@onekeyhq/kit/src/views/ReferFriends/pages/ReferralLevel/components/BreadcrumbSection';
-import { CurrentLevelSection } from '@onekeyhq/kit/src/views/ReferFriends/pages/ReferralLevel/components/CurrentLevelSection';
-import { LevelListSection } from '@onekeyhq/kit/src/views/ReferFriends/pages/ReferralLevel/components/LevelListSection';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IInviteLevelDetail } from '@onekeyhq/shared/src/referralCode/type';
+
+import { ApiDataButton } from './components/ApiDataButton';
+import { BreadcrumbSection } from './components/BreadcrumbSection';
+import { CurrentLevelSection } from './components/CurrentLevelSection';
+import { LevelListSection } from './components/LevelListSection';
 
 function ReferralLevelContent({ data }: { data: IInviteLevelDetail }) {
   // Find current level info
@@ -20,7 +24,7 @@ function ReferralLevelContent({ data }: { data: IInviteLevelDetail }) {
         {currentLevelInfo ? (
           <CurrentLevelSection
             currentLevel={data.currentLevel}
-            levelEmoji={currentLevelInfo.emoji}
+            levelIcon={currentLevelInfo.icon}
             levelLabel={currentLevelInfo.label}
           />
         ) : null}
@@ -41,12 +45,18 @@ function ReferralLevelPage() {
     },
   );
 
+  const headerRight = useCallback(
+    () => <ApiDataButton data={levelDetail} />,
+    [levelDetail],
+  );
+
   return (
     <Page>
       <Page.Header
         title={intl.formatMessage({
           id: ETranslations.referral_referral_level,
         })}
+        headerRight={headerRight}
       />
       <Page.Body>
         {isLoading || !levelDetail ? (
