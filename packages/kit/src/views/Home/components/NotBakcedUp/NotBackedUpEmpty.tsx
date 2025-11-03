@@ -195,7 +195,7 @@ function NotBackedUp() {
 
     return shouldBoundReferralCode ? (
       <XStack alignItems="center" gap="$2" alignSelf="stretch">
-        <Stack>
+        <Stack flex={platformEnv.isNative ? 1 : undefined}>
           <Form.Field
             name="referralCode"
             rules={{
