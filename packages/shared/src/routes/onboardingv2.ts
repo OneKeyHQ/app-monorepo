@@ -1,3 +1,4 @@
+import type { EMnemonicType } from '../utils/secret';
 import type { EDeviceType } from '@onekeyfe/hd-shared';
 
 export enum EOnboardingV2Routes {
@@ -23,7 +24,11 @@ export type IOnboardingParamListV2 = {
   };
   [EOnboardingPagesV2.AddExistingWallet]: undefined;
   [EOnboardingPagesV2.CreateOrImportWallet]: undefined;
-  [EOnboardingPagesV2.FinalizeWalletSetup]: undefined;
+  [EOnboardingPagesV2.FinalizeWalletSetup]: {
+    mnemonic?: string;
+    mnemonicType?: EMnemonicType;
+    isWalletBackedUp?: boolean;
+  };
   [EOnboardingPagesV2.PickYourDevice]: undefined;
   [EOnboardingPagesV2.ConnectYourDevice]: {
     deviceType: EDeviceType[];

@@ -15,6 +15,10 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import {
+  ensureSensitiveTextEncoded,
+  generateMnemonic,
+} from '@onekeyhq/core/src/secret';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes';
 import externalWalletLogoUtils from '@onekeyhq/shared/src/utils/externalWalletLogoUtils';
 
@@ -99,7 +103,15 @@ export default function CreateOrImportWallet() {
 
   const handleCreateNewWallet = useCallback(async () => {
     await backgroundApiProxy.servicePassword.promptPasswordVerify();
-    navigation.push(EOnboardingPagesV2.FinalizeWalletSetup);
+    const mnemonic = generateMnemonic();
+    const encodedMnemonic =
+      await backgroundApiProxy.servicePassword.encodeSensitiveText({
+        text: mnemonic,
+      });
+    navigation.push(EOnboardingPagesV2.FinalizeWalletSetup, {
+      mnemonic: encodedMnemonic,
+      isWalletBackedUp: false,
+    });
   }, [navigation]);
 
   const handleAddExistingWallet = () => {
