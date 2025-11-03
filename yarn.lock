@@ -7881,6 +7881,7 @@ __metadata:
     "@onekeyhq/components": "npm:*"
     "@onekeyhq/kit": "npm:*"
     "@onekeyhq/shared": "npm:*"
+    "@originalix/react-native-sni-connect": "npm:^0.1.3"
     "@privy-io/expo": "npm:0.49.1"
     "@privy-io/expo-native-extensions": "npm:0.0.4"
     "@react-native-async-storage/async-storage": "npm:2.2.0"
@@ -8506,6 +8507,16 @@ __metadata:
   peerDependencies:
     "@opentelemetry/api": ^1.1.0
   checksum: 10/f887b4135be56c9ef6e29f040c9f75f34709e38c11897d59d284d7e73175a2dd2c6267c18061144e81a0045fc461b7813769db2e49c42a8d6becc58b1456d55c
+  languageName: node
+  linkType: hard
+
+"@originalix/react-native-sni-connect@npm:^0.1.3":
+  version: 0.1.3
+  resolution: "@originalix/react-native-sni-connect@npm:0.1.3"
+  peerDependencies:
+    react: "*"
+    react-native: "*"
+  checksum: 10/60e567af1214ca4dc9f7773c6cd67bab42d19d960d4d193bdf513c7249729ea2efac51473446f01a1cac52ce7ee6e18cf32952136ac8a55b165d426f72caf65f
   languageName: node
   linkType: hard
 
