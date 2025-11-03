@@ -294,7 +294,7 @@ function BasicEarnHome() {
             isFaqLoading={isFaqLoading}
             portfolioInfo={portfolioInfo?.earnInvestmentItems || []}
             isPortfolioLoading={isPortfolioLoading}
-            isLoading={isLoading}
+            isAccountsLoading={isLoading}
             refreshOverViewData={refreshOverViewData}
             containerProps={{
               // eslint-disable-next-line spellcheck/spell-checker
@@ -388,6 +388,7 @@ function BasicEarnHome() {
             isFaqLoading={isFaqLoading}
             portfolioInfo={portfolioInfo?.earnInvestmentItems || []}
             isPortfolioLoading={isPortfolioLoading}
+            isAccountsLoading={isLoading}
           />
         </YStack>
       </YStack>

@@ -19,7 +19,7 @@ export function EarnMainTabs({
   isFaqLoading = false,
   isPortfolioLoading = false,
   portfolioInfo,
-  isLoading,
+  isAccountsLoading,
   refreshOverViewData,
   containerProps,
 }: {
@@ -29,15 +29,18 @@ export function EarnMainTabs({
   isFaqLoading?: boolean;
   isPortfolioLoading?: boolean;
   portfolioInfo?: IEarnInvestmentItem[];
-  isLoading?: boolean;
+  isAccountsLoading?: boolean;
   refreshOverViewData?: () => void;
   containerProps?: any;
 }) {
   const intl = useIntl();
 
   const refreshControl =
-    isMobile && refreshOverViewData && isLoading !== undefined ? (
-      <RefreshControl refreshing={isLoading} onRefresh={refreshOverViewData} />
+    isMobile && refreshOverViewData && isAccountsLoading !== undefined ? (
+      <RefreshControl
+        refreshing={isAccountsLoading}
+        onRefresh={refreshOverViewData}
+      />
     ) : undefined;
 
   const WrapperComponent = isMobile ? Tabs.ScrollView : YStack;
