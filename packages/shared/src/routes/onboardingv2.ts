@@ -13,6 +13,9 @@ export enum EOnboardingPagesV2 {
   ConnectYourDevice = 'ConnectYourDevice',
   CheckAndUpdate = 'CheckAndUpdate',
   ImportPhraseOrPrivateKey = 'ImportPhraseOrPrivateKey',
+  BackupWalletReminder = 'BackupWalletReminder',
+  ShowRecoveryPhrase = 'ShowRecoveryPhrase',
+  VerifyRecoveryPhrase = 'VerifyRecoveryPhrase',
   ICloudBackup = 'ICloudBackup',
   ICloudBackupDetails = 'ICloudBackupDetails',
 }
@@ -30,6 +33,9 @@ export type IOnboardingParamListV2 = {
   };
   [EOnboardingPagesV2.CheckAndUpdate]: undefined;
   [EOnboardingPagesV2.ImportPhraseOrPrivateKey]: undefined;
+  [EOnboardingPagesV2.BackupWalletReminder]: undefined;
+  [EOnboardingPagesV2.ShowRecoveryPhrase]: undefined;
+  [EOnboardingPagesV2.VerifyRecoveryPhrase]: undefined;
   [EOnboardingPagesV2.ICloudBackup]: undefined;
   [EOnboardingPagesV2.ICloudBackupDetails]: {
     backupTime: string;

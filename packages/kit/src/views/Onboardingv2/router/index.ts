@@ -17,6 +17,15 @@ const PickYourDevice = LazyLoadPage(() => import('../pages/PickYourDevice'));
 const ImportPhraseOrPrivateKey = LazyLoadPage(
   () => import('../pages/ImportPhraseOrPrivateKey'),
 );
+const BackupWalletReminder = LazyLoadPage(
+  () => import('../pages/BackupWalletReminder'),
+);
+const ShowRecoveryPhrase = LazyLoadPage(
+  () => import('../pages/ShowRecoveryPhrase'),
+);
+const VerifyRecoveryPhrase = LazyLoadPage(
+  () => import('../pages/VerifyRecoveryPhrase'),
+);
 const ConnectYourDevice = LazyLoadPage(
   () => import('../pages/ConnectYourDevice'),
 );
@@ -71,6 +80,21 @@ export const OnboardingRouterV2: IModalFlowNavigatorConfig<
   {
     name: EOnboardingPagesV2.ImportPhraseOrPrivateKey,
     component: ImportPhraseOrPrivateKey,
+    options: hiddenHeaderOptions,
+  },
+  {
+    name: EOnboardingPagesV2.BackupWalletReminder,
+    component: BackupWalletReminder,
+    options: hiddenHeaderOptions,
+  },
+  {
+    name: EOnboardingPagesV2.ShowRecoveryPhrase,
+    component: ShowRecoveryPhrase,
+    options: hiddenHeaderOptions,
+  },
+  {
+    name: EOnboardingPagesV2.VerifyRecoveryPhrase,
+    component: VerifyRecoveryPhrase,
     options: hiddenHeaderOptions,
   },
   {
