@@ -1276,7 +1276,6 @@ export function EarnHomeWithProvider({
   showHeader?: boolean;
   showContent?: boolean;
 }) {
-  console.log('showContent', showContent);
   return (
     <AccountSelectorProviderMirror
       config={{
