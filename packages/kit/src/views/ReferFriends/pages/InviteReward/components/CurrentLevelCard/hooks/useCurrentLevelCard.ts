@@ -4,7 +4,7 @@ import type {
 } from '../types';
 
 export function useCurrentLevelCard(
-  props: ICurrentLevelCardProps,
+  _props: ICurrentLevelCardProps,
 ): IUseCurrentLevelCardReturn {
   // TODO: Implement hook logic
 
