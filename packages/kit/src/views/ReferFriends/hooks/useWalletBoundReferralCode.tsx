@@ -26,6 +26,7 @@ import {
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import type { OneKeyError } from '@onekeyhq/shared/src/errors';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -39,7 +40,19 @@ import { WalletAvatar } from '../../../components/WalletAvatar/WalletAvatar';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useSignatureConfirm } from '../../../hooks/useSignatureConfirm';
 
-function useGetReferralCodeWalletInfo() {
+import type { INavigationToMessageConfirmParams } from '../../../hooks/useSignatureConfirm';
+
+type IReferralCodeWalletInfo = {
+  address: string;
+  networkId: string;
+  pubkey?: string;
+  isBtcOnlyWallet: boolean;
+  accountId: string;
+  walletId: string;
+  wallet: IDBWallet;
+};
+
+export function useGetReferralCodeWalletInfo() {
   return useCallback(async (queryWalletId: string | undefined) => {
     if (!queryWalletId) {
       return null;
@@ -124,10 +137,20 @@ function InviteCode({
   entry,
   wallet,
   onSuccess,
+  confirmBindReferralCode,
 }: {
   entry?: 'tab' | 'modal';
   wallet?: IDBWallet;
   onSuccess?: () => void;
+  confirmBindReferralCode: (params: {
+    referralCode: string;
+    preventClose?: () => void;
+    walletInfo: IReferralCodeWalletInfo | null | undefined;
+    navigationToMessageConfirmAsync: (
+      params: INavigationToMessageConfirmParams,
+    ) => Promise<string>;
+    onSuccess?: () => void;
+  }) => Promise<void>;
 }) {
   const intl = useIntl();
   const form = useForm({
@@ -157,122 +180,32 @@ function InviteCode({
           preventClose?.();
           return;
         }
-
-        if (!walletInfo) {
-          throw new OneKeyLocalError('Invalid Wallet');
-        }
-        const { referralCode } = form.getValues();
-        let unsignedMessage: string | undefined;
-        try {
-          unsignedMessage =
-            await backgroundApiProxy.serviceReferralCode.getBoundReferralCodeUnsignedMessage(
-              {
-                address: walletInfo.address,
-                networkId: walletInfo.networkId,
-                inviteCode: referralCode,
-              },
-            );
-          console.log('===>>> unsignedMessage: ', unsignedMessage);
-        } catch (e) {
-          if (
-            (e as OneKeyError).className === 'OneKeyServerApiError' &&
-            (e as OneKeyError).message
-          ) {
-            form.setError('referralCode', {
-              message: (e as OneKeyError).message,
-            });
-          }
-          throw e;
-        }
-        if (walletInfo.networkId === getNetworkIdsMap().eth) {
-          unsignedMessage = autoFixPersonalSignMessage({
-            message: unsignedMessage,
-          });
-        }
-
-        const isBtcOnlyWallet =
-          walletInfo.isBtcOnlyWallet &&
-          networkUtils.isBTCNetwork(walletInfo.networkId);
-
-        const finalUnsignedMessage: IUnsignedMessage = isBtcOnlyWallet
-          ? {
-              type: EMessageTypesBtc.ECDSA,
-              message: unsignedMessage,
-              sigOptions: {
-                noScriptType: true,
-              },
-              payload: {
-                isFromDApp: false,
-              },
-            }
-          : {
-              type: EMessageTypesEth.PERSONAL_SIGN,
-              message: unsignedMessage,
-              payload: [unsignedMessage, walletInfo.address],
-            };
-
-        let signedMessage: string | null;
-
-        signedMessage =
-          await backgroundApiProxy.serviceReferralCode.autoSignBoundReferralCodeMessageByHDWallet(
-            {
-              unsignedMessage: finalUnsignedMessage,
-              networkId: walletInfo.networkId,
-              accountId: walletInfo.accountId,
-            },
-          );
-
-        if (!signedMessage) {
-          signedMessage = await navigationToMessageConfirmAsync({
-            accountId: walletInfo.accountId,
-            networkId: walletInfo.networkId,
-            unsignedMessage: finalUnsignedMessage,
-            walletInternalSign: true,
-            sameModal: false,
-            skipBackupCheck: true,
-          });
-        }
-
-        if (!signedMessage) {
-          throw new OneKeyLocalError('Failed to sign message');
-        }
-
-        const bindResult =
-          await backgroundApiProxy.serviceReferralCode.boundReferralCodeWithSignedMessage(
-            {
-              address: walletInfo.address,
-              networkId: walletInfo.networkId,
-              pubkey: walletInfo.pubkey || undefined,
-              referralCode,
-              signature: isBtcOnlyWallet
-                ? Buffer.from(signedMessage, 'hex').toString('base64')
-                : signedMessage,
-            },
-          );
-        console.log('===>>> signedMessage: ', signedMessage);
-        if (bindResult) {
-          await backgroundApiProxy.serviceReferralCode.setWalletReferralCode({
-            walletId: walletInfo.walletId,
-            referralCodeInfo: {
-              walletId: walletInfo.walletId,
-              address: walletInfo.address,
-              networkId: walletInfo.networkId,
-              pubkey: walletInfo.pubkey ?? '',
-              isBound: true,
-            },
-          });
-          Toast.success({
-            title: intl.formatMessage({
-              id: ETranslations.global_success,
-            }),
-          });
-          onSuccess?.();
-        }
+        await confirmBindReferralCode({
+          referralCode: form.getValues().referralCode,
+          preventClose,
+          walletInfo,
+          navigationToMessageConfirmAsync,
+          onSuccess,
+        });
       } catch (e) {
-        preventClose?.();
+        if (
+          (e as OneKeyError).className === 'OneKeyServerApiError' &&
+          (e as OneKeyError).message
+        ) {
+          form.setError('referralCode', {
+            message: (e as OneKeyError).message,
+          });
+        }
+        throw e;
       }
     },
-    [onSuccess, form, walletInfo, intl, navigationToMessageConfirmAsync],
+    [
+      form,
+      walletInfo,
+      confirmBindReferralCode,
+      navigationToMessageConfirmAsync,
+      onSuccess,
+    ],
   );
 
   return (
@@ -447,6 +380,141 @@ export function useWalletBoundReferralCode({
     [mnemonicType, getReferralCodeWalletInfo],
   );
 
+  const confirmBindReferralCode = useCallback(
+    async ({
+      referralCode,
+      preventClose,
+      walletInfo,
+      navigationToMessageConfirmAsync,
+      onSuccess,
+    }: {
+      referralCode: string;
+      walletInfo: IReferralCodeWalletInfo | null | undefined;
+      navigationToMessageConfirmAsync: (
+        params: INavigationToMessageConfirmParams,
+      ) => Promise<string>;
+      preventClose?: () => void;
+      onSuccess?: () => void;
+    }) => {
+      try {
+        if (!walletInfo) {
+          throw new OneKeyLocalError('Invalid Wallet');
+        }
+        let unsignedMessage: string | undefined;
+
+        unsignedMessage =
+          await backgroundApiProxy.serviceReferralCode.getBoundReferralCodeUnsignedMessage(
+            {
+              address: walletInfo.address,
+              networkId: walletInfo.networkId,
+              inviteCode: referralCode,
+            },
+          );
+        console.log('===>>> unsignedMessage: ', unsignedMessage);
+
+        if (walletInfo.networkId === getNetworkIdsMap().eth) {
+          unsignedMessage = autoFixPersonalSignMessage({
+            message: unsignedMessage,
+          });
+        }
+
+        const isBtcOnlyWallet =
+          walletInfo.isBtcOnlyWallet &&
+          networkUtils.isBTCNetwork(walletInfo.networkId);
+
+        const finalUnsignedMessage: IUnsignedMessage = isBtcOnlyWallet
+          ? {
+              type: EMessageTypesBtc.ECDSA,
+              message: unsignedMessage,
+              sigOptions: {
+                noScriptType: true,
+              },
+              payload: {
+                isFromDApp: false,
+              },
+            }
+          : {
+              type: EMessageTypesEth.PERSONAL_SIGN,
+              message: unsignedMessage,
+              payload: [unsignedMessage, walletInfo.address],
+            };
+
+        let signedMessage: string | null;
+
+        signedMessage =
+          await backgroundApiProxy.serviceReferralCode.autoSignBoundReferralCodeMessageByHDWallet(
+            {
+              unsignedMessage: finalUnsignedMessage,
+              networkId: walletInfo.networkId,
+              accountId: walletInfo.accountId,
+            },
+          );
+
+        if (!signedMessage) {
+          signedMessage = await navigationToMessageConfirmAsync({
+            accountId: walletInfo.accountId,
+            networkId: walletInfo.networkId,
+            unsignedMessage: finalUnsignedMessage,
+            walletInternalSign: true,
+            sameModal: false,
+            skipBackupCheck: true,
+          });
+        }
+
+        if (!signedMessage) {
+          throw new OneKeyLocalError('Failed to sign message');
+        }
+
+        const bindResult =
+          await backgroundApiProxy.serviceReferralCode.boundReferralCodeWithSignedMessage(
+            {
+              address: walletInfo.address,
+              networkId: walletInfo.networkId,
+              pubkey: walletInfo.pubkey || undefined,
+              referralCode,
+              signature: isBtcOnlyWallet
+                ? Buffer.from(signedMessage, 'hex').toString('base64')
+                : signedMessage,
+            },
+          );
+        console.log('===>>> signedMessage: ', signedMessage);
+        if (bindResult) {
+          await backgroundApiProxy.serviceReferralCode.setWalletReferralCode({
+            walletId: walletInfo.walletId,
+            referralCodeInfo: {
+              walletId: walletInfo.walletId,
+              address: walletInfo.address,
+              networkId: walletInfo.networkId,
+              pubkey: walletInfo.pubkey ?? '',
+              isBound: true,
+            },
+          });
+          Toast.success({
+            title: intl.formatMessage({
+              id: ETranslations.global_success,
+            }),
+          });
+          onSuccess?.();
+        }
+      } catch (e) {
+        // Disable auto toast for this error to show custom toast without requestId
+        errorToastUtils.toastIfErrorDisable(e);
+
+        // Show custom error toast without requestId
+        const err = e as OneKeyError;
+        if (err?.message) {
+          Toast.error({
+            title: err.message,
+          });
+        }
+
+        preventClose?.();
+        throw e;
+      }
+    },
+    [intl],
+  );
+
   const dialog = useInPageDialog(
     entry === 'modal'
       ? EInPageDialogType.inModalPage
@@ -462,16 +530,22 @@ export function useWalletBoundReferralCode({
           id: ETranslations.referral_wallet_code_title,
         }),
         renderContent: (
-          <InviteCode wallet={wallet} onSuccess={onSuccess} entry={entry} />
+          <InviteCode
+            wallet={wallet}
+            onSuccess={onSuccess}
+            entry={entry}
+            confirmBindReferralCode={confirmBindReferralCode}
+          />
         ),
       });
     },
-    [dialog, intl, entry],
+    [dialog, intl, entry, confirmBindReferralCode],
   );
 
   return {
     getReferralCodeBondStatus,
     shouldBondReferralCode,
     bindWalletInviteCode,
+    confirmBindReferralCode,
   };
 }

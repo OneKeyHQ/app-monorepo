@@ -102,4 +102,5 @@ export enum EGalleryRoutes {
   ComponentRestart = 'component-Restart',
   ComponentUnOrderedList = 'component-UnOrderedList',
   FontGallery = 'component-Font',
+  ComponentPlayground = 'component-Playground',
 }

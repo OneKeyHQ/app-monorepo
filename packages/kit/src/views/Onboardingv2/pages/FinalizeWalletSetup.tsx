@@ -1,0 +1,342 @@
+import { useCallback, useEffect, useState } from 'react';
+
+import { StyleSheet } from 'react-native';
+import Animated, {
+  Easing,
+  cancelAnimation,
+  runOnJS,
+  useAnimatedProps,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
+import Svg, { Defs, Path, RadialGradient, Rect, Stop } from 'react-native-svg';
+
+import {
+  AnimatePresence,
+  Image,
+  LinearGradient,
+  Page,
+  SizableText,
+  YStack,
+  useThemeValue,
+} from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import { OnboardingLayout } from '../components/OnboardingLayout';
+
+const MatrixBackground = ({
+  lineCount = 30,
+  charsPerLine = 60,
+  updateInterval = 200,
+  characterSet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789',
+}: {
+  lineCount?: number;
+  charsPerLine?: number;
+  updateInterval?: number;
+  characterSet?: string;
+}) => {
+  const [lines, setLines] = useState<string[]>([]);
+
+  useEffect(() => {
+    // generate lines of random characters
+    const generateLines = () => {
+      const newLines: string[] = [];
+
+      for (let i = 0; i < lineCount; i += 1) {
+        let line = '';
+        for (let j = 0; j < charsPerLine; j += 1) {
+          line += characterSet[Math.floor(Math.random() * characterSet.length)];
+        }
+        newLines.push(line);
+      }
+      setLines(() => newLines);
+    };
+
+    generateLines();
+
+    // update all characters at regular intervals
+    const interval = setInterval(generateLines, updateInterval);
+
+    return () => clearInterval(interval);
+  }, [lineCount, charsPerLine, updateInterval, characterSet]);
+
+  return (
+    <YStack>
+      {lines.map((line, idx) => (
+        <SizableText fontFamily="$monoRegular" letterSpacing={2} key={idx}>
+          {line}
+        </SizableText>
+      ))}
+    </YStack>
+  );
+};
+
+const AnimatedPath = Animated.createAnimatedComponent(Path);
+
+const STEPS_DATA = [
+  {
+    pathData:
+      'M7 12V35C7 38.3138 9.6863 41 13 41H35C38.3138 41 41 38.3138 41 35V23C41 19.6863 38.3138 17 35 17H33M7 12C7 14.7614 9.23858 17 12 17H33M7 12C7 9.23858 9.23858 7 12 7H28.6666C31.06 7 33 8.9401 33 11.3333V17M35 29C35 31.2091 33.2091 33 31 33C28.7909 33 27 31.2091 27 29C27 26.7909 28.7909 25 31 25C33.2091 25 35 26.7909 35 29Z',
+    title: 'Creating your wallet',
+  },
+  {
+    pathData:
+      'M31 19V12C31 8.134 27.866 5 24 5C20.134 5 17 8.134 17 12V19M24 28V34M15 43H33C36.3138 43 39 40.3138 39 37V25C39 21.6862 36.3138 19 33 19H15C11.6863 19 9 21.6862 9 25V37C9 40.3138 11.6863 43 15 43Z',
+    title: 'Encrypted your data',
+  },
+  {
+    pathData:
+      'M43 24C43 34.4934 34.4934 43 24 43C13.5066 43 5 34.4934 5 24C5 13.5066 13.5066 5 24 5C34.4934 5 43 13.5066 43 24Z M22 14.7624C23.2376 14.0479 24.7624 14.0479 26 14.7624L31 17.6491C32.2376 18.3636 33 19.6842 33 21.1133V26.8865C33 28.3155 32.2376 29.6361 31 30.3505L26 33.2373C24.7624 33.9517 23.2376 33.9517 22 33.2373L17 30.3505C15.7624 29.6361 15 28.3155 15 26.8865V21.1133C15 19.6842 15.7624 18.3636 17 17.6491L22 14.7624Z',
+    title: 'Creating addresses',
+  },
+];
+
+export default function FinalizeWalletSetup() {
+  const [currentStep, setCurrentStep] = useState(0);
+  const progress = useSharedValue(0);
+  const pathLength = 150;
+
+  const goToNextStep = useCallback(() => {
+    setCurrentStep((prev) => {
+      const nextStep = prev + 1;
+      if (nextStep < STEPS_DATA.length) {
+        return nextStep;
+      }
+      return prev;
+    });
+  }, []);
+
+  useEffect(() => {
+    // Cancel any ongoing animation
+    cancelAnimation(progress);
+
+    // Reset and start animation
+    progress.value = 0;
+    progress.value = withTiming(
+      1,
+      {
+        duration: 2000,
+        easing: Easing.inOut(Easing.ease),
+      },
+      (finished) => {
+        if (finished) {
+          runOnJS(goToNextStep)();
+        }
+      },
+    );
+
+    // Cleanup function
+    return () => {
+      cancelAnimation(progress);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentStep]);
+
+  const animatedProps = useAnimatedProps(() => {
+    // eslint-disable-next-line spellcheck/spell-checker
+    const strokeDashoffset = pathLength * (1 - progress.value);
+
+    return {
+      // eslint-disable-next-line spellcheck/spell-checker
+      strokeDashoffset,
+      // eslint-disable-next-line spellcheck/spell-checker
+      strokeDasharray: pathLength,
+    };
+  });
+
+  const currentStepData = STEPS_DATA[currentStep] || STEPS_DATA[0];
+
+  return (
+    <Page>
+      <OnboardingLayout>
+        <OnboardingLayout.Header
+          showBackButton={false}
+          showLanguageSelector={false}
+        />
+        <OnboardingLayout.Body constrained={false} scrollable={false}>
+          <YStack w="100%" h="100%">
+            <YStack
+              position="absolute"
+              left="50%"
+              top="50%"
+              x="-50%"
+              y="-50%"
+              opacity={0.15}
+            >
+              <MatrixBackground />
+              <Svg
+                height="100%"
+                width="100%"
+                style={{
+                  position: 'absolute',
+                  left: 0,
+                  top: 0,
+                  right: 0,
+                  bottom: 0,
+                }}
+              >
+                <Defs>
+                  <RadialGradient
+                    id="grad"
+                    cx="50%"
+                    cy="50%"
+                    {...(platformEnv.isNative && {
+                      rx: '60%',
+                      ry: '30%',
+                    })}
+                  >
+                    <Stop
+                      offset="0%"
+                      stopColor={useThemeValue('$bgApp')}
+                      stopOpacity="0"
+                    />
+                    <Stop
+                      offset="50%"
+                      stopColor={useThemeValue('$bgApp')}
+                      stopOpacity="0.5"
+                    />
+                    <Stop
+                      offset="100%"
+                      stopColor={useThemeValue('$bgApp')}
+                      stopOpacity="1"
+                    />
+                  </RadialGradient>
+                </Defs>
+                <Rect
+                  x="0"
+                  y="0"
+                  width="100%"
+                  height="100%"
+                  fill="url(#grad)"
+                />
+              </Svg>
+            </YStack>
+            <YStack
+              animation="quick"
+              animateOnly={['opacity']}
+              enterStyle={{
+                opacity: 0,
+              }}
+              flex={1}
+              alignItems="center"
+              justifyContent="center"
+              gap="$6"
+            >
+              <YStack w="$16" h="$16">
+                <Image
+                  position="absolute"
+                  $theme-dark={{
+                    opacity: 0.5,
+                  }}
+                  bottom={0}
+                  left="50%"
+                  x="-50%"
+                  y="50%"
+                  source={require('@onekeyhq/kit/assets/onboarding/tiny-shadow-illus.png')}
+                  w={87}
+                  h={49}
+                />
+                <YStack
+                  w="100%"
+                  h="100%"
+                  bg="$bg"
+                  borderRadius="$2"
+                  borderCurve="continuous"
+                  alignItems="center"
+                  justifyContent="center"
+                  $platform-web={{
+                    boxShadow:
+                      '0 1px 1px 0 rgba(0, 0, 0, 0.05), 0 0 0 2px rgba(0, 0, 0, 0.10), 0 4px 6px 0 rgba(0, 0, 0, 0.04), 0 24px 68px 0 rgba(0, 0, 0, 0.05), 0 2px 3px 0 rgba(0, 0, 0, 0.04)',
+                  }}
+                  $theme-dark={{
+                    borderWidth: StyleSheet.hairlineWidth,
+                    borderColor: '$borderSubdued',
+                  }}
+                  $platform-native={{
+                    borderWidth: StyleSheet.hairlineWidth,
+                    borderColor: '$borderSubdued',
+                  }}
+                  $platform-android={{ elevation: 1 }}
+                  $platform-ios={{
+                    shadowColor: '#000',
+                    shadowOffset: { width: 0, height: 1 },
+                    shadowOpacity: 0.2,
+                    shadowRadius: 1,
+                  }}
+                >
+                  <LinearGradient
+                    colors={['$neutral1', '$neutral4']}
+                    start={{ x: 1, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    w="$14"
+                    h="$14"
+                    borderRadius="$1"
+                    borderCurve="continuous"
+                    alignItems="center"
+                    justifyContent="center"
+                    borderWidth={1}
+                    borderColor="$borderSubdued"
+                  >
+                    <AnimatePresence exitBeforeEnter initial={false}>
+                      <YStack
+                        key={`icon-${currentStep}`}
+                        animation="quick"
+                        animateOnly={['transform', 'opacity']}
+                        enterStyle={{
+                          y: 4,
+                          opacity: 0,
+                        }}
+                        exitStyle={{
+                          y: -4,
+                          opacity: 0,
+                        }}
+                      >
+                        <Svg width="48" height="48" viewBox="0 0 48 48">
+                          <Path
+                            d={currentStepData.pathData}
+                            stroke={useThemeValue('$borderDisabled')}
+                            strokeWidth="2"
+                            fill="none"
+                          />
+
+                          <AnimatedPath
+                            d={currentStepData.pathData}
+                            stroke={useThemeValue('$borderActive')}
+                            fill="none"
+                            stroke-width="2"
+                            stroke-linecap="square"
+                            stroke-linejoin="round"
+                            animatedProps={animatedProps}
+                          />
+                        </Svg>
+                      </YStack>
+                    </AnimatePresence>
+                  </LinearGradient>
+                </YStack>
+              </YStack>
+              <AnimatePresence exitBeforeEnter initial={false}>
+                <SizableText
+                  key={`title-${currentStep}`}
+                  size="$heading2xl"
+                  textAlign="center"
+                  animation="quick"
+                  animateOnly={['transform', 'opacity']}
+                  enterStyle={{
+                    y: 8,
+                    opacity: 0,
+                  }}
+                  exitStyle={{
+                    y: -8,
+                    opacity: 0,
+                  }}
+                >
+                  {currentStepData.title}
+                </SizableText>
+              </AnimatePresence>
+            </YStack>
+          </YStack>
+        </OnboardingLayout.Body>
+      </OnboardingLayout>
+    </Page>
+  );
+}

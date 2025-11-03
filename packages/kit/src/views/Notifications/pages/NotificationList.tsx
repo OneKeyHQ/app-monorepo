@@ -34,6 +34,7 @@ import {
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalNotificationsRoutes } from '@onekeyhq/shared/src/routes/notifications';
 import notificationsUtils, {
@@ -54,6 +55,14 @@ import { useVersionCompatible } from '../../../hooks/useVersionCompatible';
 import type { IListItemProps } from '../../../components/ListItem';
 
 let maxAccountLimitWarningDismissed = false;
+
+const canShowNotificationSettings = (() => {
+  if (platformEnv.isWebDappMode) {
+    // return true;
+    return false;
+  }
+  return true;
+})();
 
 function HeaderRight({ onClearUnread }: { onClearUnread: () => void }) {
   const intl = useIntl();
@@ -90,10 +99,12 @@ function HeaderRight({ onClearUnread }: { onClearUnread: () => void }) {
           });
         }}
       />
-      <HeaderIconButton
-        icon="SettingsOutline"
-        onPress={handleSettingsButtonPress}
-      />
+      {canShowNotificationSettings ? (
+        <HeaderIconButton
+          icon="SettingsOutline"
+          onPress={handleSettingsButtonPress}
+        />
+      ) : null}
     </HeaderButtonGroup>
   );
 }
@@ -298,7 +309,11 @@ function BaseNotificationList() {
   const listRef = useRef<ISectionListRef<unknown>>(null);
 
   useEffect(() => {
-    if (!firstTimeGuideOpened && !isFirstTimeGuideOpened.current) {
+    if (
+      canShowNotificationSettings &&
+      !firstTimeGuideOpened &&
+      !isFirstTimeGuideOpened.current
+    ) {
       // showNotificationPermissionsDialog();
       setTimeout(() => {
         navigation.pushModal(EModalRoutes.NotificationsModal, {

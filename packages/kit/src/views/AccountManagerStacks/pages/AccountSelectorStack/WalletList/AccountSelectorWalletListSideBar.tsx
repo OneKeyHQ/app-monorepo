@@ -399,6 +399,7 @@ export function AccountSelectorWalletListSideBar({
           mb={bottom}
         >
           <AccountSelectorCreateWalletButton />
+          <AccountSelectorCreateWalletButton newOnboarding />
           {/* <OthersWalletItem onWalletPress={onWalletPress} num={num} /> */}
         </Stack>
       ) : null}
