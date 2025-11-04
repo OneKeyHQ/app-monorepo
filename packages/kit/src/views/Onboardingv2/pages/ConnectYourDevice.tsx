@@ -207,6 +207,14 @@ function BridgeNotInstalledDialogContent(_props: { error: NeedOneKeyBridge }) {
   );
 }
 
+interface IDeviceConnectionProps {
+  onDeviceConnect: (device: SearchDevice) => Promise<void>;
+  onSelectAddWalletType: (params: {
+    device: SearchDevice;
+    isFirmwareVerified: boolean;
+  }) => Promise<void>;
+}
+
 // Common device list and connection logic
 function useDeviceConnection({
   tabValue,
@@ -214,12 +222,7 @@ function useDeviceConnection({
   onSelectAddWalletType,
 }: {
   tabValue: EConnectDeviceChannel;
-  onDeviceConnect: (device: SearchDevice) => Promise<void>;
-  onSelectAddWalletType: (params: {
-    device: SearchDevice;
-    isFirmwareVerified: boolean;
-  }) => Promise<void>;
-}) {
+} & IDeviceConnectionProps) {
   const intl = useIntl();
   const [connectStatus, setConnectStatus] = useState(EConnectionStatus.init);
   const [searchedDevices, setSearchedDevices] = useState<SearchDevice[]>([]);
@@ -679,12 +682,7 @@ function USBConnectionIndicator({
   onSelectAddWalletType,
 }: {
   tabValue: EConnectDeviceChannel;
-  onDeviceConnect: (device: SearchDevice) => Promise<void>;
-  onSelectAddWalletType: (params: {
-    device: SearchDevice;
-    isFirmwareVerified: boolean;
-  }) => Promise<void>;
-}) {
+} & IDeviceConnectionProps) {
   const themeVariant = useThemeVariant();
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -896,7 +894,10 @@ function USBConnectionIndicator({
   );
 }
 
-function BluetoothConnectionIndicator() {
+function BluetoothConnectionIndicator({
+  onDeviceConnect,
+  onSelectAddWalletType,
+}: IDeviceConnectionProps) {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const [bluetoothStatus, _setBluetoothStatus] = useState<
@@ -1713,7 +1714,10 @@ function ConnectYourDevicePage({
               />
             ) : null}
             {tabValue === EConnectDeviceChannel.bluetooth ? (
-              <BluetoothConnectionIndicator />
+              <BluetoothConnectionIndicator
+                onDeviceConnect={handleDeviceConnect}
+                onSelectAddWalletType={selectAddWalletType}
+              />
             ) : null}
           </OnboardingLayout.ConstrainedContent>
         </OnboardingLayout.Body>
