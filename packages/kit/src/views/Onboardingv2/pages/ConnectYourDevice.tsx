@@ -15,9 +15,11 @@ import {
   Empty,
   HeightTransition,
   Icon,
+  IconButton,
   Image,
   LottieView,
   Page,
+  Popover,
   SegmentControl,
   SizableText,
   Stack,
@@ -25,6 +27,7 @@ import {
   Video,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
 import { usePromptWebDeviceAccess } from '@onekeyhq/kit/src/hooks/usePromptWebDeviceAccess';
 import type { IDBCreateHwWalletParamsBase } from '@onekeyhq/kit-bg/src/dbs/local/types';
@@ -654,7 +657,7 @@ function ConnectionIndicatorRoot({ children }: { children: React.ReactNode }) {
   );
 }
 
-const ConnectionIndicator = Object.assign(ConnectionIndicatorRoot, {
+export const ConnectionIndicator = Object.assign(ConnectionIndicatorRoot, {
   Animation: ConnectionIndicatorAnimation,
   Card: ConnectionIndicatorCard,
   Content: ConnectionIndicatorContent,
@@ -1051,27 +1054,6 @@ function BluetoothConnectionIndicator() {
   );
 }
 
-function QRCodeConnectionIndicator() {
-  return (
-    <ConnectionIndicator>
-      <ConnectionIndicator.Card>
-        <ConnectionIndicator.Animation>
-          <SizableText>Placeholder</SizableText>
-        </ConnectionIndicator.Animation>
-        <ConnectionIndicator.Content gap="$4">
-          <SizableText>
-            Swipe up and choose Connect App Wallet → QR Code → OneKey App.
-          </SizableText>
-          <SizableText>Tap below to scan the QR code.</SizableText>
-          <Button variant="primary" onPress={() => {}}>
-            Scan QR code
-          </Button>
-        </ConnectionIndicator.Content>
-      </ConnectionIndicator.Card>
-    </ConnectionIndicator>
-  );
-}
-
 const isSupportedDevice = (deviceType: string) => {
   return (
     deviceType === EDeviceType.Pro ||
@@ -1107,16 +1089,11 @@ function ConnectYourDevicePage({
             value: EConnectDeviceChannel.bluetooth,
           }
         : undefined,
-      isSupportedQRCode
-        ? {
-            label: intl.formatMessage({ id: ETranslations.global_qr_code }),
-            value: EConnectDeviceChannel.qr,
-          }
-        : undefined,
     ].filter(Boolean);
-  }, [intl, isSupportedQRCode]);
+  }, [intl]);
   const [tabValue, setTabValue] = useState(tabOptions[0]?.value);
 
+  const { gtMd } = useMedia();
   const navigation = useAppNavigation();
   const actions = useAccountSelectorActions();
   const { showFirmwareVerifyDialog } = useFirmwareVerifyDialog();
@@ -1658,17 +1635,70 @@ function ConnectYourDevicePage({
       <OnboardingLayout>
         <OnboardingLayout.Header title="Connect your device" />
         <OnboardingLayout.Body constrained={false}>
-          <OnboardingLayout.ConstrainedContent
-            $platform-native={{
-              py: 0,
-            }}
-          >
-            <SegmentControl
-              fullWidth
-              value={tabValue}
-              onChange={(v) => setTabValue(v as EConnectDeviceChannel)}
-              options={tabOptions}
-            />
+          <OnboardingLayout.ConstrainedContent>
+            <XStack alignItems="center" gap="$4">
+              {tabOptions.length > 1 ? (
+                <YStack flex={1}>
+                  <SegmentControl
+                    fullWidth
+                    value={tabValue}
+                    onChange={(v) => setTabValue(v as EConnectDeviceChannel)}
+                    options={tabOptions}
+                  />
+                </YStack>
+              ) : null}
+              {isSupportedQRCode ? (
+                <YStack ml="auto">
+                  <Popover
+                    title="Advanced"
+                    renderTrigger={
+                      <IconButton variant="tertiary" icon="DotHorOutline" />
+                    }
+                    renderContent={({ closePopover }) => (
+                      <YStack
+                        p="$5"
+                        pt="$0"
+                        gap="$3"
+                        $gtMd={{
+                          p: '$3',
+                        }}
+                      >
+                        {gtMd ? (
+                          <SizableText size="$headingSm">Advanced</SizableText>
+                        ) : null}
+                        <SizableText color="$textSubdued">
+                          Some crypto assets and hardware features are
+                          unavailable in QR Code communication mode.
+                        </SizableText>
+                        <SizableText color="$textSubdued">
+                          This mode is intended only for a small number of users
+                          who rarely operate their hardware wallet and is not
+                          compatible with other connection methods.
+                        </SizableText>
+                        <SizableText color="$textSubdued">
+                          If you wish to connect your hardware wallet via
+                          Bluetooth or USB, please re-add the wallet to switch
+                          the communication mode.
+                        </SizableText>
+                        <Button
+                          mt="$3"
+                          size="large"
+                          onPress={() => {
+                            void (
+                              closePopover() as unknown as Promise<void>
+                            ).then(() => {
+                              navigation.push(EOnboardingPagesV2.ConnectQRCode);
+                            });
+                          }}
+                        >
+                          Continue with QR Code
+                        </Button>
+                      </YStack>
+                    )}
+                  />
+                </YStack>
+              ) : null}
+            </XStack>
             {tabValue === EConnectDeviceChannel.usbOrBle ? (
               <USBConnectionIndicator
                 tabValue={tabValue}
@@ -1677,9 +1707,6 @@ function ConnectYourDevicePage({
             ) : null}
             {tabValue === EConnectDeviceChannel.bluetooth ? (
               <BluetoothConnectionIndicator />
-            ) : null}
-            {tabValue === EConnectDeviceChannel.qr && isSupportedQRCode ? (
-              <QRCodeConnectionIndicator />
             ) : null}
           </OnboardingLayout.ConstrainedContent>
         </OnboardingLayout.Body>

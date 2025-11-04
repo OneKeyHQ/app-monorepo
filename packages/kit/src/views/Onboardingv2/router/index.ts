@@ -23,6 +23,7 @@ const SelectPrivateKeyNetwork = LazyLoadPage(
 const ConnectYourDevice = LazyLoadPage(
   () => import('../pages/ConnectYourDevice'),
 );
+const ConnectQRCode = LazyLoadPage(() => import('../pages/ConnectQRCode'));
 const CheckAndUpdate = LazyLoadPage(() => import('../pages/CheckAndUpdate'));
 const ICloudBackup = LazyLoadPage(() => import('../pages/ICloudBackup'));
 const ICloudBackupDetails = LazyLoadPage(
@@ -64,6 +65,11 @@ export const OnboardingRouterV2: IModalFlowNavigatorConfig<
   {
     name: EOnboardingPagesV2.ConnectYourDevice,
     component: ConnectYourDevice,
+    options: hiddenHeaderOptions,
+  },
+  {
+    name: EOnboardingPagesV2.ConnectQRCode,
+    component: ConnectQRCode,
     options: hiddenHeaderOptions,
   },
   {
