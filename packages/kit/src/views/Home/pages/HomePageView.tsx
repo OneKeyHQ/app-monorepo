@@ -319,6 +319,17 @@ export function HomePageView({
   );
 
   const tabs = useMemo(() => {
+    if (isWalletNotBackedUp) {
+      return (
+        <ScrollView
+          h="100%"
+          contentContainerStyle={{ justifyContent: 'center', flexGrow: 1 }}
+        >
+          {renderHeader()}
+          <NotBackedUpEmpty />
+        </ScrollView>
+      );
+    }
     const key = `${account?.id ?? ''}-${account?.indexedAccountId ?? ''}-${
       network?.id ?? ''
     }-${isNFTEnabled ? '1' : '0'}-${isBulkRevokeApprovalEnabled ? '1' : '0'}`;
@@ -328,27 +339,21 @@ export function HomePageView({
         allowHeaderOverscroll
         width={tabContainerWidth}
         renderHeader={renderHeader}
-        renderTabBar={(props: any) =>
-          isWalletNotBackedUp ? null : (
-            <Tabs.TabBar
-              {...props}
-              renderItem={handleRenderItem}
-              renderToolbar={({ focusedTab }) => (
-                <TabHeaderSettings focusedTab={focusedTab} />
-              )}
-            />
-          )
-        }
-      >
-        {isWalletNotBackedUp ? (
-          <NotBackedUpEmpty />
-        ) : (
-          tabConfigs.map((tab) => (
-            <Tabs.Tab key={tab.name} name={tab.name}>
-              {tab.component}
-            </Tabs.Tab>
-          ))
+        renderTabBar={(props: any) => (
+          <Tabs.TabBar
+            {...props}
+            renderItem={handleRenderItem}
+            renderToolbar={({ focusedTab }) => (
+              <TabHeaderSettings focusedTab={focusedTab} />
+            )}
+          />
         )}
+      >
+        {tabConfigs.map((tab) => (
+          <Tabs.Tab key={tab.name} name={tab.name}>
+            {tab.component}
+          </Tabs.Tab>
+        ))}
       </Tabs.Container>
     );
   }, [

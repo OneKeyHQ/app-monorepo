@@ -22,7 +22,7 @@ import {
   IMPL_LTC,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import type { ILocaleSymbol } from '@onekeyhq/shared/src/locale';
+import type { ETranslations, ILocaleSymbol } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import {
   getDefaultLocale,
@@ -658,6 +658,14 @@ class ServiceSetting extends ServiceBase {
       controller.abort(),
     );
     this._fetchWalletConfigControllers = [];
+  }
+
+  @backgroundMethod()
+  public async setSelectedBrowserTab(tab: ETranslations) {
+    await settingsPersistAtom.set((prev) => ({
+      ...prev,
+      selectedBrowserTab: tab,
+    }));
   }
 
   @backgroundMethod()
