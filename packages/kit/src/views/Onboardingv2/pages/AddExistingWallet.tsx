@@ -1,58 +1,79 @@
+import { useMemo } from 'react';
+
 import { StyleSheet } from 'react-native';
 
 import type { IKeyOfIcons } from '@onekeyhq/components';
 import { Icon, Page, SizableText, YStack } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { EModalRoutes, EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes';
+import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 
+import { useUserWalletProfile } from '../../../hooks/useUserWalletProfile';
 import { OnboardingLayout } from '../components/OnboardingLayout';
 
 export default function AddExistingWallet() {
   const navigation = useAppNavigation();
+  const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
 
   const DATA: {
     title: string;
     icon: IKeyOfIcons;
     description?: string | string[];
     onPress?: () => void;
-  }[] = [
-    {
-      title: 'Transfer',
-      icon: 'MultipleDevicesOutline',
-      description: 'Safely transfer wallets between devices',
-    },
-    {
-      title: 'Import phrase or private key',
-      icon: 'SecretPhraseOutline',
-      onPress: () => {
-        navigation.push(EOnboardingPagesV2.ImportPhraseOrPrivateKey);
+  }[] = useMemo(
+    () => [
+      {
+        title: 'Transfer',
+        icon: 'MultipleDevicesOutline',
+        description: 'Safely transfer wallets between devices',
+        onPress: () => {
+          navigation?.pushModal(EModalRoutes.PrimeModal, {
+            screen: EPrimePages.PrimeTransfer,
+          });
+          defaultLogger.account.wallet.addWalletStarted({
+            addMethod: 'ImportWallet',
+            details: {
+              importType: 'transfer',
+            },
+            isSoftwareWalletOnlyUser,
+          });
+        },
       },
-    },
-    {
-      title: 'OneKey KeyTag',
-      icon: 'OnekeyKeytagOutline',
-    },
-    {
-      title: 'OneKey Lite',
-      icon: 'OnekeyLiteOutline',
-    },
-    {
-      title: 'iCloud',
-      icon: 'CloudOutline',
-      onPress: () => {
-        navigation.push(EOnboardingPagesV2.ICloudBackup);
+      {
+        title: 'Import phrase or private key',
+        icon: 'SecretPhraseOutline',
+        onPress: () => {
+          navigation.push(EOnboardingPagesV2.ImportPhraseOrPrivateKey);
+        },
       },
-    },
-    {
-      title: 'Watch-only address',
-      icon: 'EyeOutline',
-      description: [
-        "👀 Watch other's transactions. ",
-        '🙅 You cannot manage the wallet.',
-      ],
-    },
-  ];
+      {
+        title: 'OneKey KeyTag',
+        icon: 'OnekeyKeytagOutline',
+      },
+      {
+        title: 'OneKey Lite',
+        icon: 'OnekeyLiteOutline',
+      },
+      {
+        title: 'iCloud',
+        icon: 'CloudOutline',
+        onPress: () => {
+          navigation.push(EOnboardingPagesV2.ICloudBackup);
+        },
+      },
+      {
+        title: 'Watch-only address',
+        icon: 'EyeOutline',
+        description: [
+          "👀 Watch other's transactions. ",
+          '🙅 You cannot manage the wallet.',
+        ],
+      },
+    ],
+    [navigation, isSoftwareWalletOnlyUser],
+  );
 
   return (
     <Page>
