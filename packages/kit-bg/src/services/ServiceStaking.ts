@@ -50,6 +50,7 @@ import type {
   IEarnEstimateFeeResp,
   IEarnFAQList,
   IEarnInvestmentItem,
+  IEarnInvestmentItemV2,
   IEarnPermit2ApproveSignData,
   IEarnRegisterSignMessageResponse,
   IEarnSummary,
@@ -110,6 +111,19 @@ interface IAvailableAssetsResponse {
   code: string;
   message?: string;
   data: { assets: IAvailableAsset[] };
+}
+
+interface IAvailableAssetsResponseV2 {
+  code: string;
+  message?: string;
+  data: {
+    assets: {
+      networkId: string;
+      provider: string;
+      symbol: string;
+      vault?: string;
+    }[];
+  };
 }
 
 @backgroundClass()
@@ -1028,6 +1042,25 @@ class ServiceStaking extends ServiceBase {
     return response.data.data;
   }
 
+  @backgroundMethod()
+  async fetchInvestmentDetailV2(params: {
+    publicKey?: string | undefined;
+    vault?: string | undefined;
+    accountAddress: string;
+    networkId: string;
+    provider: string;
+    symbol: string;
+  }) {
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+
+    const response = await client.get<{ data: IEarnInvestmentItemV2 }>(
+      `/earn/v2/investment/detail`,
+      { params },
+    );
+
+    return response.data.data;
+  }
+
   _getAvailableAssets = memoizee(
     async ({ type }: { type?: EAvailableAssetsTypeEnum }) => {
       const client = await this.getRawDataClient(EServiceEndpointEnum.Earn);
@@ -1060,6 +1093,21 @@ class ServiceStaking extends ServiceBase {
   @backgroundMethod()
   async clearAvailableAssetsCache() {
     void this._getAvailableAssets.clear();
+  }
+
+  @backgroundMethod()
+  async getAvailableAssetsV2() {
+    const client = await this.getRawDataClient(EServiceEndpointEnum.Earn);
+    const resp = await client.get<
+      IAvailableAssetsResponseV2,
+      IAxiosResponse<IAvailableAssetsResponseV2>
+    >(`/earn/v2/available-assets`);
+
+    this.handleServerError({
+      ...resp.data,
+      requestId: resp.$requestId,
+    });
+    return resp.data.data.assets;
   }
 
   handleServerError(data: {

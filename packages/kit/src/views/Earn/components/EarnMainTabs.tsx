@@ -3,7 +3,7 @@ import { useIntl } from 'react-intl';
 import { RefreshControl, Tabs, YStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
-import type { IEarnInvestmentItem } from '@onekeyhq/shared/types/staking';
+import type { IEarnInvestmentItemV2 } from '@onekeyhq/shared/types/staking';
 
 import { FAQContent } from './FAQContent';
 import { PortfolioTabContent } from './PortfolioTabContent';
@@ -25,7 +25,7 @@ export function EarnMainTabs({
   faqList: Array<{ question: string; answer: string }>;
   isFaqLoading?: boolean;
   isPortfolioLoading?: boolean;
-  portfolioInfo?: IEarnInvestmentItem[];
+  portfolioInfo?: IEarnInvestmentItemV2[];
   isAccountsLoading?: boolean;
   refreshEarnAccounts?: () => void;
   containerProps?: any;

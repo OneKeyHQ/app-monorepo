@@ -59,7 +59,7 @@ function BasicEarnHome() {
     isFetchingAccounts,
     isPortfolioLoading,
     refreshEarnAccounts,
-    portfolioInfo,
+    investments,
   } = useEarn();
 
   const { earnBanners, refetchBanners } = useBannerInfo();
@@ -228,7 +228,7 @@ function BasicEarnHome() {
             assetTabData={assetTabData}
             faqList={faqList || []}
             isFaqLoading={isFaqLoading}
-            portfolioInfo={portfolioInfo?.earnInvestmentItems || []}
+            portfolioInfo={investments}
             isPortfolioLoading={isPortfolioLoading}
             isAccountsLoading={isLoading}
             refreshEarnAccounts={refreshEarnAccounts}
@@ -315,7 +315,7 @@ function BasicEarnHome() {
           assetTabData={assetTabData}
           faqList={faqList || []}
           isFaqLoading={isFaqLoading}
-          portfolioInfo={portfolioInfo?.earnInvestmentItems || []}
+          portfolioInfo={investments}
           isPortfolioLoading={isPortfolioLoading}
           isAccountsLoading={isLoading}
         />

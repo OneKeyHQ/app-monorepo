@@ -1085,10 +1085,62 @@ export interface IInvestment {
     logoURI: string;
   };
 }
+
 export interface IEarnInvestmentItem {
   name: string;
   logoURI: string;
   investment: IInvestment[];
+}
+
+export interface IEarnInvestmentItemV2 {
+  totalFiatValue: string;
+  protocol: {
+    vaultName?: string;
+    providerDetail: {
+      code: string;
+      name: string;
+      logoURI: string;
+    };
+  };
+  assets: {
+    token: {
+      info: {
+        symbol: string;
+        logoURI: string;
+      };
+    };
+    type: string; // normal / reward
+    deposit: {
+      title: IEarnText;
+      description: IEarnText;
+    };
+    earnings24h: {
+      title: IEarnText;
+    };
+    rewardAssets: {
+      text: IEarnText;
+      tooltip: IEarnTooltip;
+      button: IEarnActionIcon;
+      description: IEarnText;
+    }[];
+    assetsStatus: {
+      title: IEarnText;
+      description: IEarnText;
+      tooltip: IEarnTooltip;
+    }[];
+    buttons: {
+      type: string;
+      text: {
+        text: string;
+      };
+      disabled: boolean;
+    }[];
+  }[];
+  network: {
+    networkId: string;
+    name: string;
+    logoURI: string;
+  };
 }
 
 export interface IEarnFAQListItem {
