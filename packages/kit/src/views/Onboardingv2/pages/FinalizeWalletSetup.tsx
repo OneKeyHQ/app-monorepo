@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { StyleSheet } from 'react-native';
 import Animated, {
@@ -10,7 +10,9 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import Svg, { Defs, Path, RadialGradient, Rect, Stop } from 'react-native-svg';
+import { useThrottledCallback } from 'use-debounce';
 
+import type { IPageScreenProps } from '@onekeyhq/components';
 import {
   AnimatePresence,
   Image,
@@ -20,8 +22,30 @@ import {
   YStack,
   useThemeValue,
 } from '@onekeyhq/components';
+import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import {
+  EAppEventBusNames,
+  EFinalizeWalletSetupSteps,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  type EOnboardingPagesV2,
+  ERootRoutes,
+  type IOnboardingParamListV2,
+} from '@onekeyhq/shared/src/routes';
+import { EMnemonicType } from '@onekeyhq/shared/src/utils/secret';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
+import useAppNavigation from '../../../hooks/useAppNavigation';
+import {
+  useAccountSelectorActions,
+  useActiveAccount,
+} from '../../../states/jotai/contexts/accountSelector';
+import { withPromptPasswordVerify } from '../../../utils/passwordUtils';
+import { useWalletBoundReferralCode } from '../../ReferFriends/hooks/useWalletBoundReferralCode';
 import { OnboardingLayout } from '../components/OnboardingLayout';
 
 const MatrixBackground = ({
@@ -36,7 +60,6 @@ const MatrixBackground = ({
   characterSet?: string;
 }) => {
   const [lines, setLines] = useState<string[]>([]);
-
   useEffect(() => {
     // generate lines of random characters
     const generateLines = () => {
@@ -73,64 +96,116 @@ const MatrixBackground = ({
 
 const AnimatedPath = Animated.createAnimatedComponent(Path);
 
-const STEPS_DATA = [
-  {
+const STEPS_DATA: Record<
+  EFinalizeWalletSetupSteps,
+  { pathData: string; title: string } | null
+> = {
+  [EFinalizeWalletSetupSteps.CreatingWallet]: null,
+  [EFinalizeWalletSetupSteps.Ready]: {
     pathData:
       'M7 12V35C7 38.3138 9.6863 41 13 41H35C38.3138 41 41 38.3138 41 35V23C41 19.6863 38.3138 17 35 17H33M7 12C7 14.7614 9.23858 17 12 17H33M7 12C7 9.23858 9.23858 7 12 7H28.6666C31.06 7 33 8.9401 33 11.3333V17M35 29C35 31.2091 33.2091 33 31 33C28.7909 33 27 31.2091 27 29C27 26.7909 28.7909 25 31 25C33.2091 25 35 26.7909 35 29Z',
     title: 'Creating your wallet',
   },
-  {
+  [EFinalizeWalletSetupSteps.GeneratingAccounts]: {
     pathData:
       'M31 19V12C31 8.134 27.866 5 24 5C20.134 5 17 8.134 17 12V19M24 28V34M15 43H33C36.3138 43 39 40.3138 39 37V25C39 21.6862 36.3138 19 33 19H15C11.6863 19 9 21.6862 9 25V37C9 40.3138 11.6863 43 15 43Z',
     title: 'Encrypted your data',
   },
-  {
+  [EFinalizeWalletSetupSteps.EncryptingData]: {
     pathData:
       'M43 24C43 34.4934 34.4934 43 24 43C13.5066 43 5 34.4934 5 24C5 13.5066 13.5066 5 24 5C34.4934 5 43 13.5066 43 24Z M22 14.7624C23.2376 14.0479 24.7624 14.0479 26 14.7624L31 17.6491C32.2376 18.3636 33 19.6842 33 21.1133V26.8865C33 28.3155 32.2376 29.6361 31 30.3505L26 33.2373C24.7624 33.9517 23.2376 33.9517 22 33.2373L17 30.3505C15.7624 29.6361 15 28.3155 15 26.8865V21.1133C15 19.6842 15.7624 18.3636 17 17.6491L22 14.7624Z',
     title: 'Creating addresses',
   },
-];
+};
 
-export default function FinalizeWalletSetup() {
-  const [currentStep, setCurrentStep] = useState(0);
+function FinalizeWalletSetupPage({
+  route,
+}: IPageScreenProps<
+  IOnboardingParamListV2,
+  EOnboardingPagesV2.FinalizeWalletSetup
+>) {
+  const {
+    activeAccount: { wallet },
+  } = useActiveAccount({ num: 0 });
+  const navigation = useAppNavigation();
+  const [showStep, setShowStep] = useState(false);
+  const [bgAppColor, borderDisabledColor, borderActiveColor] = useThemeValue([
+    '$bgApp',
+    '$borderDisabled',
+    '$borderActive',
+  ]);
+
+  const created = useRef(false);
+  const mnemonic = route?.params?.mnemonic;
+  const mnemonicType = route?.params?.mnemonicType;
+  const isWalletBackedUp = route?.params?.isWalletBackedUp;
+
+  const [currentStep, setCurrentStep] = useState<EFinalizeWalletSetupSteps>(
+    EFinalizeWalletSetupSteps.CreatingWallet,
+  );
   const progress = useSharedValue(0);
   const pathLength = 150;
 
-  const goToNextStep = useCallback(() => {
-    setCurrentStep((prev) => {
-      const nextStep = prev + 1;
-      if (nextStep < STEPS_DATA.length) {
-        return nextStep;
-      }
-      return prev;
-    });
-  }, []);
+  // useEffect(() => {
+  //   // Cancel any ongoing animation
+  //   cancelAnimation(progress);
+
+  //   // Reset and start animation
+  //   progress.value = 0;
+  //   progress.value = withTiming(
+  //     1,
+  //     {
+  //       duration: 2000,
+  //       easing: Easing.inOut(Easing.ease),
+  //     },
+  //     (finished) => {
+  //       if (finished) {
+  //         runOnJS(goToNextStep)();
+  //       }
+  //     },
+  //   );
+
+  //   // Cleanup function
+  //   return () => {
+  //     cancelAnimation(progress);
+  //   };
+  //   // eslint-disable-next-line react-hooks/exhaustive-deps
+  // }, [currentStep]);
+  const actions = useAccountSelectorActions();
 
   useEffect(() => {
-    // Cancel any ongoing animation
-    cancelAnimation(progress);
-
-    // Reset and start animation
-    progress.value = 0;
-    progress.value = withTiming(
-      1,
-      {
-        duration: 2000,
-        easing: Easing.inOut(Easing.ease),
-      },
-      (finished) => {
-        if (finished) {
-          runOnJS(goToNextStep)();
+    void (async () => {
+      try {
+        // **** hd wallet case
+        if (mnemonic && !created.current) {
+          await withPromptPasswordVerify({
+            run: async () => {
+              if (mnemonicType === EMnemonicType.TON) {
+                // TODO check TON case
+                // **** TON mnemonic case
+                // Create TON imported account when mnemonicType is TON
+                await actions.current.createTonImportedWallet({ mnemonic });
+                setCurrentStep(EFinalizeWalletSetupSteps.CreatingWallet);
+                return;
+              }
+              await actions.current.createHDWallet({
+                mnemonic,
+                isWalletBackedUp,
+              });
+            },
+          });
+          created.current = true;
+        } else {
+          // **** hardware wallet case
+          // createHWWallet() is called before this page loaded
         }
-      },
-    );
-
-    // Cleanup function
-    return () => {
-      cancelAnimation(progress);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentStep]);
+        setShowStep(true);
+      } catch (error) {
+        navigation.pop();
+        throw error;
+      }
+    })();
+  }, [actions, mnemonic, mnemonicType, isWalletBackedUp, navigation]);
 
   const animatedProps = useAnimatedProps(() => {
     // eslint-disable-next-line spellcheck/spell-checker
@@ -144,7 +219,80 @@ export default function FinalizeWalletSetup() {
     };
   });
 
-  const currentStepData = STEPS_DATA[currentStep] || STEPS_DATA[0];
+  const closePageCalled = useRef(false);
+  const closePage = useCallback(() => {
+    closePageCalled.current = true;
+    void backgroundApiProxy.serviceHardware.clearForceTransportType();
+    navigation.navigate(ERootRoutes.Main, undefined, {
+      pop: true,
+    });
+  }, [navigation]);
+
+  const isFirstCreateWallet = useRef(false);
+  const readIsFirstCreateWallet = async () => {
+    const { isOnboardingDone } =
+      await backgroundApiProxy.serviceOnboarding.isOnboardingDone();
+    isFirstCreateWallet.current = !isOnboardingDone;
+  };
+
+  const {
+    shouldBondReferralCode,
+    getReferralCodeBondStatus,
+    bindWalletInviteCode,
+  } = useWalletBoundReferralCode({
+    entry: 'tab',
+    mnemonicType,
+  });
+  const handleWalletSetupReadyInner = useCallback(async () => {
+    const needBondReferralCode = await getReferralCodeBondStatus({
+      walletId: wallet?.id,
+      skipIfTimeout: true,
+    });
+
+    // if (!needBondReferralCode) {
+    setTimeout(() => {
+      closePage();
+      if (isFirstCreateWallet.current) {
+        // void useBackupToggleDialog().maybeShow(true);
+      }
+    }, 1000);
+    // }
+  }, [getReferralCodeBondStatus, closePage, wallet]);
+
+  const handleWalletSetupReady = useThrottledCallback(
+    handleWalletSetupReadyInner,
+    500,
+    { leading: true, trailing: false },
+  );
+
+  useEffect(() => {
+    if (currentStep === EFinalizeWalletSetupSteps.CreatingWallet) {
+      void readIsFirstCreateWallet();
+    }
+    if (!showStep) {
+      return;
+    }
+    console.log('currentStep', currentStep);
+    if (currentStep === EFinalizeWalletSetupSteps.Ready) {
+      void handleWalletSetupReady();
+    }
+  }, [currentStep, navigation, showStep, handleWalletSetupReady]);
+
+  useEffect(() => {
+    const fn = (
+      event: IAppEventBusPayload[EAppEventBusNames.FinalizeWalletSetupStep],
+    ) => {
+      console.log('FinalizeWalletSetupStep', event.step);
+      setCurrentStep(event.step);
+    };
+
+    appEventBus.on(EAppEventBusNames.FinalizeWalletSetupStep, fn);
+    return () => {
+      appEventBus.off(EAppEventBusNames.FinalizeWalletSetupStep, fn);
+    };
+  }, []);
+
+  const currentStepData = STEPS_DATA[currentStep];
 
   return (
     <Page>
@@ -185,19 +333,15 @@ export default function FinalizeWalletSetup() {
                       ry: '30%',
                     })}
                   >
-                    <Stop
-                      offset="0%"
-                      stopColor={useThemeValue('$bgApp')}
-                      stopOpacity="0"
-                    />
+                    <Stop offset="0%" stopColor={bgAppColor} stopOpacity="0" />
                     <Stop
                       offset="50%"
-                      stopColor={useThemeValue('$bgApp')}
+                      stopColor={bgAppColor}
                       stopOpacity="0.5"
                     />
                     <Stop
                       offset="100%"
-                      stopColor={useThemeValue('$bgApp')}
+                      stopColor={bgAppColor}
                       stopOpacity="1"
                     />
                   </RadialGradient>
@@ -291,24 +435,26 @@ export default function FinalizeWalletSetup() {
                           opacity: 0,
                         }}
                       >
-                        <Svg width="48" height="48" viewBox="0 0 48 48">
-                          <Path
-                            d={currentStepData.pathData}
-                            stroke={useThemeValue('$borderDisabled')}
-                            strokeWidth="2"
-                            fill="none"
-                          />
+                        {currentStepData ? (
+                          <Svg width="48" height="48" viewBox="0 0 48 48">
+                            <Path
+                              d={currentStepData.pathData}
+                              stroke={borderDisabledColor}
+                              strokeWidth="2"
+                              fill="none"
+                            />
 
-                          <AnimatedPath
-                            d={currentStepData.pathData}
-                            stroke={useThemeValue('$borderActive')}
-                            fill="none"
-                            stroke-width="2"
-                            stroke-linecap="square"
-                            stroke-linejoin="round"
-                            animatedProps={animatedProps}
-                          />
-                        </Svg>
+                            <AnimatedPath
+                              d={currentStepData.pathData}
+                              stroke={borderActiveColor}
+                              fill="none"
+                              stroke-width="2"
+                              stroke-linecap="square"
+                              stroke-linejoin="round"
+                              animatedProps={animatedProps}
+                            />
+                          </Svg>
+                        ) : null}
                       </YStack>
                     </AnimatePresence>
                   </LinearGradient>
@@ -330,7 +476,7 @@ export default function FinalizeWalletSetup() {
                     opacity: 0,
                   }}
                 >
-                  {currentStepData.title}
+                  {currentStepData?.title || ''}
                 </SizableText>
               </AnimatePresence>
             </YStack>
@@ -340,3 +486,24 @@ export default function FinalizeWalletSetup() {
     </Page>
   );
 }
+
+export function FinalizeWalletSetup({
+  route,
+  navigation,
+}: IPageScreenProps<
+  IOnboardingParamListV2,
+  EOnboardingPagesV2.FinalizeWalletSetup
+>) {
+  return (
+    <AccountSelectorProviderMirror
+      enabledNum={[0]}
+      config={{
+        sceneName: EAccountSelectorSceneName.home,
+      }}
+    >
+      <FinalizeWalletSetupPage route={route} navigation={navigation} />
+    </AccountSelectorProviderMirror>
+  );
+}
+
+export default FinalizeWalletSetup;

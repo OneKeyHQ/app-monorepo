@@ -319,6 +319,17 @@ export function HomePageView({
   );
 
   const tabs = useMemo(() => {
+    if (isWalletNotBackedUp) {
+      return (
+        <ScrollView
+          h="100%"
+          contentContainerStyle={{ justifyContent: 'center', flexGrow: 1 }}
+        >
+          {renderHeader()}
+          <NotBackedUpEmpty />
+        </ScrollView>
+      );
+    }
     const key = `${account?.id ?? ''}-${account?.indexedAccountId ?? ''}-${
       network?.id ?? ''
     }-${isNFTEnabled ? '1' : '0'}-${isBulkRevokeApprovalEnabled ? '1' : '0'}`;
@@ -329,15 +340,6 @@ export function HomePageView({
         width={tabContainerWidth}
         renderHeader={renderHeader}
         renderTabBar={(props: any) => (
-          // isWalletNotBackedUp ? null : (
-          //   <Tabs.TabBar
-          //     {...props}
-          //     renderItem={handleRenderItem}
-          //     renderToolbar={({ focusedTab }) => (
-          //       <TabHeaderSettings focusedTab={focusedTab} />
-          //     )}
-          //   />
-          // )
           <Tabs.TabBar
             {...props}
             renderItem={handleRenderItem}
@@ -360,6 +362,7 @@ export function HomePageView({
     handleRenderItem,
     isBulkRevokeApprovalEnabled,
     isNFTEnabled,
+    isWalletNotBackedUp,
     network?.id,
     renderHeader,
     tabConfigs,
