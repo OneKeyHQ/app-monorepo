@@ -12,14 +12,12 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-// import { getPrimaryColor } from '@onekeyhq/shared/src/modules3rdParty/react-native-image-colors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import {
   openUrlExternal,
   openUrlInApp,
 } from '@onekeyhq/shared/src/utils/openUrlUtils';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IDiscoveryBanner } from '@onekeyhq/shared/types/discovery';
 import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
@@ -28,7 +26,6 @@ import { AccountSelectorProviderMirror } from '../../components/AccountSelector'
 import { TabPageHeader } from '../../components/TabPageHeader';
 import useAppNavigation from '../../hooks/useAppNavigation';
 import useListenTabFocusState from '../../hooks/useListenTabFocusState';
-import { usePromiseResult } from '../../hooks/usePromiseResult';
 import {
   useAccountSelectorActions,
   useActiveAccount,
@@ -42,10 +39,10 @@ import { EarnPageContainer } from './components/EarnPageContainer';
 import { Overview } from './components/Overview';
 import { EarnProviderMirror } from './EarnProviderMirror';
 import { EarnNavigation } from './earnUtils';
-import { useAllNetworkId } from './hooks/useAllNetworkId';
 import { useBannerInfo } from './hooks/useBannerInfo';
+import { useBlockRegion } from './hooks/useBlockRegion';
+import { useEarn } from './hooks/useEarn';
 import { useFAQListInfo } from './hooks/useFAQListInfo';
-import { usePortfolioInfo } from './hooks/usePortfolioInfo';
 
 import type { LayoutChangeEvent } from 'react-native';
 
@@ -54,80 +51,19 @@ function BasicEarnHome() {
   const { account, indexedAccount } = activeAccount;
   const media = useMedia();
   const actions = useEarnActions();
-  const allNetworkId = useAllNetworkId();
+
+  const { isFetchingBlockResult, refreshBlockResult, blockResult } =
+    useBlockRegion();
 
   const {
-    isLoading: isFetchingBlockResult,
-    run: refreshBlockResult,
-    result: blockResult,
-  } = usePromiseResult(
-    async () => {
-      const blockData =
-        await backgroundApiProxy.serviceStaking.getBlockRegion();
-      return { blockData };
-    },
-    [],
-    {
-      revalidateOnFocus: true,
-    },
-  );
-
-  const { isLoading: isFetchingAccounts, run: refreshOverViewData } =
-    usePromiseResult(
-      async () => {
-        if (!account && !indexedAccount) {
-          return;
-        }
-        const totalFiatMapKey = actions.current.buildEarnAccountsKey({
-          accountId: account?.id,
-          indexAccountId: indexedAccount?.id,
-          networkId: allNetworkId,
-        });
-
-        const fetchAndUpdateOverview = async () => {
-          if (!account && !indexedAccount) {
-            return;
-          }
-
-          const overviewData =
-            await backgroundApiProxy.serviceStaking.fetchAccountOverview({
-              accountId: account?.id ?? '',
-              networkId: allNetworkId,
-              indexedAccountId: account?.indexedAccountId || indexedAccount?.id,
-            });
-          const earnAccountData =
-            actions.current.getEarnAccount(totalFiatMapKey);
-          actions.current.updateEarnAccounts({
-            key: totalFiatMapKey,
-            earnAccount: {
-              accounts: earnAccountData?.accounts || [],
-              ...overviewData,
-              isOverviewLoaded: true,
-            },
-          });
-        };
-
-        const earnAccountData = actions.current.getEarnAccount(totalFiatMapKey);
-        if (earnAccountData) {
-          await timerUtils.wait(350);
-          await fetchAndUpdateOverview();
-        } else {
-          await fetchAndUpdateOverview();
-        }
-        return { loaded: true };
-      },
-      [actions, account, allNetworkId, indexedAccount],
-      {
-        watchLoading: true,
-        pollingInterval: timerUtils.getTimeDurationMs({ minute: 3 }),
-        revalidateOnReconnect: true,
-        alwaysSetState: true,
-      },
-    );
+    isFetchingAccounts,
+    isPortfolioLoading,
+    refreshEarnAccounts,
+    portfolioInfo,
+  } = useEarn();
 
   const { earnBanners, refetchBanners } = useBannerInfo();
   const { faqList, isFaqLoading, refetchFAQ } = useFAQListInfo();
-  const { portfolioInfo, isLoading: isPortfolioLoading } = usePortfolioInfo();
 
   const navigation = useAppNavigation();
 
@@ -295,7 +231,7 @@ function BasicEarnHome() {
             portfolioInfo={portfolioInfo?.earnInvestmentItems || []}
             isPortfolioLoading={isPortfolioLoading}
             isAccountsLoading={isLoading}
-            refreshOverViewData={refreshOverViewData}
+            refreshEarnAccounts={refreshEarnAccounts}
             containerProps={{
               // eslint-disable-next-line spellcheck/spell-checker
               allowHeaderOverscroll: true,
@@ -304,7 +240,7 @@ function BasicEarnHome() {
                   <YStack gap="$7.5">
                     <YStack px="$5">
                       <Overview
-                        onRefresh={refreshOverViewData}
+                        onRefresh={refreshEarnAccounts}
                         isLoading={isLoading}
                       />
                     </YStack>
@@ -352,14 +288,14 @@ function BasicEarnHome() {
       refreshControl={
         <RefreshControl
           refreshing={isLoading}
-          onRefresh={refreshOverViewData}
+          onRefresh={refreshEarnAccounts}
         />
       }
     >
       <YStack flex={1} gap="$4">
         {/* overview and banner */}
         <YStack gap="$8">
-          <Overview onRefresh={refreshOverViewData} isLoading={isLoading} />
+          <Overview onRefresh={refreshEarnAccounts} isLoading={isLoading} />
           {banners ? (
             <YStack
               minHeight="$36"

@@ -17,7 +17,7 @@ export function EarnMainTabs({
   isPortfolioLoading = false,
   portfolioInfo,
   isAccountsLoading,
-  refreshOverViewData,
+  refreshEarnAccounts,
   containerProps,
 }: {
   isMobile: boolean;
@@ -27,16 +27,16 @@ export function EarnMainTabs({
   isPortfolioLoading?: boolean;
   portfolioInfo?: IEarnInvestmentItem[];
   isAccountsLoading?: boolean;
-  refreshOverViewData?: () => void;
+  refreshEarnAccounts?: () => void;
   containerProps?: any;
 }) {
   const intl = useIntl();
 
   const refreshControl =
-    isMobile && refreshOverViewData && isAccountsLoading !== undefined ? (
+    isMobile && refreshEarnAccounts && isAccountsLoading !== undefined ? (
       <RefreshControl
         refreshing={isAccountsLoading}
-        onRefresh={refreshOverViewData}
+        onRefresh={refreshEarnAccounts}
       />
     ) : undefined;
 

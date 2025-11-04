@@ -15,39 +15,39 @@ import { useAllNetworkId } from './useAllNetworkId';
 export const usePortfolioInfo = () => {
   const [EarnData] = useEarnAtom();
   const actions = useEarnActions();
-  const earnAccount = EarnData.earnAccount;
   const accountInfo = useActiveAccount({ num: 0 });
   const allNetworkId = useAllNetworkId();
   const evmNetworkId = useMemo(() => getNetworkIdsMap().eth, []);
 
-  const { result, isLoading } = usePromiseResult(
-    async () => {
-      const totalFiatMapKey = actions.current.buildEarnAccountsKey({
-        accountId: accountInfo.activeAccount?.account?.id,
-        indexAccountId: accountInfo.activeAccount?.indexedAccount?.id,
-        networkId: allNetworkId,
-      });
-      let list = earnAccount?.[totalFiatMapKey]?.accounts || [];
-      if (list.length === 0) {
-        const earnAccountOnNetwork =
-          await backgroundApiProxy.serviceStaking.fetchAllNetworkAssets({
-            accountId: accountInfo.activeAccount?.account?.id ?? '',
-            networkId: allNetworkId,
-            indexedAccountId: accountInfo.activeAccount?.indexedAccount?.id,
-          });
-        list = earnAccountOnNetwork.accounts;
-      }
+  const totalFiatMapKey = useMemo(() => {
+    return actions.current.buildEarnAccountsKey({
+      accountId: accountInfo.activeAccount?.account?.id,
+      indexAccountId: accountInfo.activeAccount?.indexedAccount?.id,
+      networkId: allNetworkId,
+    });
+  }, [
+    actions,
+    accountInfo.activeAccount?.account?.id,
+    accountInfo.activeAccount?.indexedAccount?.id,
+    allNetworkId,
+  ]);
 
-      if (list.length > 0) {
+  const { result, isLoading: isPortfolioLoading } = usePromiseResult(
+    async () => {
+      const earnAccount =
+        EarnData.earnAccount?.[totalFiatMapKey]?.accounts || [];
+      if (earnAccount.length > 0) {
         const response =
           await backgroundApiProxy.serviceStaking.fetchInvestmentDetail(
-            list.map(({ networkId, accountAddress, publicKey }) => ({
+            earnAccount.map(({ networkId, accountAddress, publicKey }) => ({
               networkId,
               accountAddress,
               publicKey,
             })),
           );
-        const evmAccount = list.find((item) => item.networkId === evmNetworkId);
+        const evmAccount = earnAccount.find(
+          (item) => item.networkId === evmNetworkId,
+        );
         // XXX
         if (evmAccount) {
           const earnSummary =
@@ -64,20 +64,18 @@ export const usePortfolioInfo = () => {
           earnInvestmentItems: response,
         };
       }
+
+      return {
+        earnSummary: undefined,
+        evmAccount: undefined,
+        earnInvestmentItems: [],
+      };
     },
-    [
-      accountInfo.activeAccount?.account?.id,
-      accountInfo.activeAccount?.indexedAccount?.id,
-      actions,
-      allNetworkId,
-      earnAccount,
-      evmNetworkId,
-    ],
+    [evmNetworkId, EarnData.earnAccount, totalFiatMapKey],
     {
       watchLoading: true,
-      // debounced: 1000,
     },
   );
 
-  return { portfolioInfo: result, isLoading };
+  return { portfolioInfo: result, isPortfolioLoading };
 };
