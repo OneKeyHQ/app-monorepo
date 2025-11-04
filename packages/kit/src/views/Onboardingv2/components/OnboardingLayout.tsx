@@ -184,6 +184,7 @@ const OnboardingLayoutBody = ({
     >
       {scrollable ? (
         <ScrollView
+          showsVerticalScrollIndicator={false}
           contentContainerStyle={{
             px: '$5',
             $gtMd: {

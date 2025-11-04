@@ -1,6 +1,8 @@
+const { withRozenite } = require('@rozenite/metro');
 const path = require('path');
 const fs = require('fs-extra');
 const { getSentryExpoConfig } = require('@sentry/react-native/metro');
+const { withRozeniteExpoAtlasPlugin } = require('@rozenite/expo-atlas-plugin');
 
 // Find the project and workspace directories
 const projectRoot = __dirname;
@@ -83,4 +85,7 @@ config.server.rewriteRequestUrl = (url) =>
 
 const splitCodePlugin = require('./plugins');
 
-module.exports = splitCodePlugin(config, projectRoot);
+module.exports = withRozenite(splitCodePlugin(config, projectRoot), {
+  enabled: process.env.WITH_ROZENITE === 'true',
+  enhanceMetroConfig: (config) => withRozeniteExpoAtlasPlugin(config),
+});
