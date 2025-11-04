@@ -236,12 +236,14 @@ export default function CheckAndUpdate({
         return newSteps;
       });
 
+      void deviceData.onCreateWallet();
+
       // After showing success, wait another 2 seconds before navigating
       setTimeout(() => {
         void navigation.push(EOnboardingPagesV2.FinalizeWalletSetup);
       }, 2000);
     }, 2000);
-  }, [navigation]);
+  }, [deviceData, navigation]);
 
   const handleSkipUpdate = useCallback(() => {
     Dialog.show({
