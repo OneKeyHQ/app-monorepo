@@ -676,7 +676,7 @@ export const ConnectionIndicator = Object.assign(ConnectionIndicatorRoot, {
   Footer: connectionIndicatorFooter,
 });
 
-function USBConnectionIndicator({
+function USBOrBLEConnectionIndicator({
   tabValue,
   onDeviceConnect,
   onSelectAddWalletType,
@@ -1797,14 +1797,12 @@ function ConnectYourDevicePage({
           <OnboardingLayout.ConstrainedContent>
             <XStack alignItems="center" gap="$4">
               {tabOptions.length > 1 ? (
-                <YStack flex={1}>
-                  <SegmentControl
-                    fullWidth
-                    value={tabValue}
-                    onChange={(v) => setTabValue(v as EConnectDeviceChannel)}
-                    options={tabOptions}
-                  />
-                </YStack>
+                <SegmentControl
+                  fullWidth
+                  value={tabValue}
+                  onChange={(v) => setTabValue(v as EConnectDeviceChannel)}
+                  options={tabOptions}
+                />
               ) : null}
               {isSupportedQRCode ? (
                 <YStack ml="auto">
@@ -1859,7 +1857,7 @@ function ConnectYourDevicePage({
               ) : null}
             </XStack>
             {tabValue === EConnectDeviceChannel.usbOrBle ? (
-              <USBConnectionIndicator
+              <USBOrBLEConnectionIndicator
                 tabValue={tabValue}
                 onDeviceConnect={handleDeviceConnect}
                 onSelectAddWalletType={selectAddWalletType}
