@@ -28,6 +28,7 @@ import {
   XStack,
   YStack,
   useMedia,
+  usePopoverContext,
 } from '@onekeyhq/components';
 import { usePromptWebDeviceAccess } from '@onekeyhq/kit/src/hooks/usePromptWebDeviceAccess';
 import type { IDBCreateHwWalletParamsBase } from '@onekeyhq/kit-bg/src/dbs/local/types';
@@ -79,6 +80,7 @@ import type {
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector/AccountSelectorProvider';
+import { useCreateQrWallet } from '../../../components/AccountSelector/hooks/useCreateQrWallet';
 import { ConnectionTroubleShootingAccordion } from '../../../components/Hardware/ConnectionTroubleShootingAccordion';
 import {
   OpenBleSettingsDialog,
@@ -1251,6 +1253,83 @@ const isSupportedDevice = (deviceType: string) => {
   );
 };
 
+function QRWalletConnect() {
+  const { gtMd } = useMedia();
+  const navigation = useAppNavigation();
+  const { createQrWallet } = useCreateQrWallet();
+  const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
+  const intl = useIntl();
+  const { closePopover } = usePopoverContext();
+  const handleCreateQRWallet = useCallback(async () => {
+    try {
+      // qrHiddenCreateGuideDialog.showDialog();
+      // return;
+      defaultLogger.account.wallet.addWalletStarted({
+        addMethod: 'ConnectHWWallet',
+        details: {
+          hardwareWalletType: 'Standard',
+          communication: 'QRCode',
+        },
+        isSoftwareWalletOnlyUser,
+      });
+      await createQrWallet({
+        isOnboarding: true,
+        isOnboardingV2: true,
+        onFinalizeWalletSetupError: () => {
+          // only pop when finalizeWalletSetup pushed
+          navigation.pop();
+        },
+      });
+
+      void trackHardwareWalletConnection({
+        status: 'success',
+        deviceType: EDeviceType.Pro,
+        isSoftwareWalletOnlyUser,
+        hardwareTransportType: 'QRCode',
+      });
+    } catch (error) {
+      // Clear force transport type on QR wallet creation error
+      void backgroundApiProxy.serviceHardware.clearForceTransportType();
+      errorToastUtils.toastIfError(error);
+      void trackHardwareWalletConnection({
+        status: 'failure',
+        deviceType: EDeviceType.Pro,
+        isSoftwareWalletOnlyUser,
+        hardwareTransportType: 'QRCode',
+      });
+      throw error;
+    }
+  }, [createQrWallet, isSoftwareWalletOnlyUser, navigation]);
+  return (
+    <YStack
+      p="$5"
+      pt="$0"
+      gap="$3"
+      $gtMd={{
+        p: '$3',
+      }}
+    >
+      {gtMd ? <SizableText size="$headingSm">Advanced</SizableText> : null}
+      <SizableText color="$textSubdued">
+        Some crypto assets and hardware features are unavailable in QR Code
+        communication mode.
+      </SizableText>
+      <SizableText color="$textSubdued">
+        This mode is intended only for a small number of users who rarely
+        operate their hardware wallet and is not compatible with other
+        connection methods.
+      </SizableText>
+      <SizableText color="$textSubdued">
+        If you wish to connect your hardware wallet via Bluetooth or USB, please
+        re-add the wallet to switch the communication mode.
+      </SizableText>
+      <Button mt="$3" size="large" onPress={handleCreateQRWallet}>
+        Continue with QR Code
+      </Button>
+    </YStack>
+  );
+}
+
 function ConnectYourDevicePage({
   route: routeParams,
 }: IPageScreenProps<
@@ -1845,47 +1924,7 @@ function ConnectYourDevicePage({
                     renderTrigger={
                       <IconButton variant="tertiary" icon="DotHorOutline" />
                     }
-                    renderContent={({ closePopover }) => (
-                      <YStack
-                        p="$5"
-                        pt="$0"
-                        gap="$3"
-                        $gtMd={{
-                          p: '$3',
-                        }}
-                      >
-                        {gtMd ? (
-                          <SizableText size="$headingSm">Advanced</SizableText>
-                        ) : null}
-                        <SizableText color="$textSubdued">
-                          Some crypto assets and hardware features are
-                          unavailable in QR Code communication mode.
-                        </SizableText>
-                        <SizableText color="$textSubdued">
-                          This mode is intended only for a small number of users
-                          who rarely operate their hardware wallet and is not
-                          compatible with other connection methods.
-                        </SizableText>
-                        <SizableText color="$textSubdued">
-                          If you wish to connect your hardware wallet via
-                          Bluetooth or USB, please re-add the wallet to switch
-                          the communication mode.
-                        </SizableText>
-                        <Button
-                          mt="$3"
-                          size="large"
-                          onPress={() => {
-                            void (
-                              closePopover() as unknown as Promise<void>
-                            ).then(() => {
-                              navigation.push(EOnboardingPagesV2.ConnectQRCode);
-                            });
-                          }}
-                        >
-                          Continue with QR Code
-                        </Button>
-                      </YStack>
-                    )}
+                    renderContent={<QRWalletConnect />}
                   />
                 </YStack>
               ) : null}
