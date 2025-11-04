@@ -46,8 +46,16 @@ module.exports = {
     ],
     'provisioningProfile': 'OneKey_Mac_App.provisionprofile',
     'entitlements': getPath('entitlements.mac.plist'),
+    'entitlementsInherit': 'entitlements.mas.inherit.plist',
+    'entitlementsLoginHelper': 'entitlements.mas.loginhelper.plist',
     'extendInfo': {
+      'ElectronTeamID': 'BVJ3FU5H2K',
+      'ITSAppUsesNonExemptEncryption': false,
       'NSCameraUsageDescription': 'Please allow OneKey to use your camera',
+      'NSBluetoothAlwaysUsageDescription':
+        'OneKey wallet needs Bluetooth access to communicate with hardware wallets',
+      'NSBluetoothPeripheralUsageDescription':
+        'OneKey wallet needs Bluetooth access to discover and connect with hardware wallets',
     },
   },
   'win': {
