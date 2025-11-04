@@ -1,10 +1,7 @@
-import { useCallback } from 'react';
-
-import { useIntl } from 'react-intl';
+import { useCallback, useEffect } from 'react';
 
 import {
   Button,
-  Empty,
   Page,
   ScrollView,
   Spinner,
@@ -22,7 +19,6 @@ import { CumulativeRewards } from '@onekeyhq/kit/src/views/ReferFriends/pages/In
 import { Dashboard } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/Dashboard';
 import { FAQ } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/FAQ';
 import { ReferralCodeCard } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/ReferralCodeCard';
-import { OneKeyServerApiError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IInviteSummary } from '@onekeyhq/shared/src/referralCode/type';
 import {
@@ -120,7 +116,6 @@ function InviteRewardContent({
 }
 
 function InviteRewardPage() {
-  const intl = useIntl();
   const navigation = useAppNavigation();
   const {
     result: summaryInfo,
@@ -128,16 +123,7 @@ function InviteRewardPage() {
     isLoading,
   } = usePromiseResult(
     async () => {
-      try {
-        return await backgroundApiProxy.serviceReferralCode.getSummaryInfo();
-      } catch (error) {
-        if (error instanceof OneKeyServerApiError) {
-          // Silently swallow known backend errors so we can show fallback UI
-          console.warn('InviteRewardPage getSummaryInfo failed:', error);
-          return undefined;
-        }
-        throw error;
-      }
+      return backgroundApiProxy.serviceReferralCode.getSummaryInfo();
     },
     [],
     {
@@ -150,6 +136,12 @@ function InviteRewardPage() {
   );
 
   const isFetching = isLoading ?? summaryInfo === undefined;
+
+  useEffect(() => {
+    if (!isLoading && summaryInfo === undefined) {
+      navigation.replace(ETabReferFriendsRoutes.TabReferAFriend);
+    }
+  }, [isLoading, summaryInfo, navigation]);
 
   return (
     <Page>
@@ -187,34 +179,7 @@ function InviteRewardPage() {
             );
           }
 
-          return (
-            <Stack flex={1} ai="center" jc="center" px="$5">
-              <Empty
-                icon="GiftOutline"
-                title={intl.formatMessage({
-                  id: ETranslations.referral_referred_empty,
-                })}
-                description={intl.formatMessage({
-                  id: ETranslations.referral_referred_empty_desc,
-                })}
-                button={
-                  <Button
-                    size="medium"
-                    variant="primary"
-                    onPress={() => {
-                      navigation.replace(
-                        ETabReferFriendsRoutes.TabReferAFriend,
-                      );
-                    }}
-                  >
-                    {intl.formatMessage({
-                      id: ETranslations.referral_invite_via,
-                    })}
-                  </Button>
-                }
-              />
-            </Stack>
-          );
+          return null;
         })()}
       </Page.Body>
     </Page>
