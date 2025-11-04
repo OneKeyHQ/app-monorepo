@@ -23,8 +23,12 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
-import type { IFirmwareVerifyResult } from '@onekeyhq/shared/types/device';
+import {
+  EHardwareCallContext,
+  type IFirmwareVerifyResult,
+} from '@onekeyhq/shared/types/device';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import { OnboardingLayout } from '../components/OnboardingLayout';
@@ -89,8 +93,40 @@ export default function CheckAndUpdate({
     },
   ]);
 
+  const checkFirmwareUpdate = useCallback(async () => {
+    if (!deviceData.device?.connectId) {
+      return;
+    }
+    const compatibleConnectId =
+      await backgroundApiProxy.serviceHardware.getCompatibleConnectId({
+        connectId: deviceData.device.connectId,
+        hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+      });
+    const r =
+      await backgroundApiProxy.serviceFirmwareUpdate.checkAllFirmwareRelease({
+        connectId: compatibleConnectId,
+      });
+    if (r) {
+      setSteps((prev) => {
+        const newSteps = [...prev];
+        newSteps[1] = {
+          ...newSteps[1],
+          state: r.hasUpgrade ? 'warning' : 'success',
+        };
+        if (!r.hasUpgrade) {
+          newSteps[2] = {
+            ...newSteps[2],
+            state: 'inProgress',
+          };
+        }
+        return newSteps;
+      });
+    }
+    return r;
+  }, [deviceData]);
+
   useEffect(() => {
-    const callback = (result: IFirmwareVerifyResult) => {
+    const callback = async (result: IFirmwareVerifyResult) => {
       console.log('EmitFirmwareVerifyResult', result);
       setSteps((prev) => {
         const newSteps = [...prev];
@@ -107,12 +143,15 @@ export default function CheckAndUpdate({
         }
         return newSteps;
       });
+      if (result.verified) {
+        await checkFirmwareUpdate();
+      }
     };
     appEventBus.on(EAppEventBusNames.EmitFirmwareVerifyResult, callback);
     return () => {
       appEventBus.off(EAppEventBusNames.EmitFirmwareVerifyResult, callback);
     };
-  }, []);
+  }, [checkFirmwareUpdate]);
 
   const handleCheck = useCallback(async () => {
     // Set first step to inProgress
