@@ -2684,6 +2684,7 @@
   "referral.your_referred_wallets_1address": "1 address",
   "referral.your_referred_wallets_details": "Details",
   "referral.your_referred_wallets_more_address": "{amount} addresses",
+  "referral_code_tutorial_label": "How to get a referral code?",
   "referral_promo_title": "Join the OneKey Referral Program",
   "remove_account_desc": "This account will be removed.",
   "remove_device": "Remove device",
@@ -3645,5 +3646,8 @@
   "wallet_backup.backup_warning": "<strong>Backup your wallet</strong> — protect your assets from device loss",
   "wallet_backup.save_recovery_phrase": "Save recovery phrase",
   "wallet_backup.status_not_backed_up": "Not backed up",
+  "wallet_empty_article_deposit": "How to deposit cryptos?",
+  "wallet_empty_article_deposit_faq": "Deposit hasn’t arrived?",
+  "wallet_empty_article_trade": "How can I trade cryptos in OneKey?",
   "word": "Word"
 }

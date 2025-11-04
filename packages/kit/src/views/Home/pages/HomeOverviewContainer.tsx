@@ -16,6 +16,7 @@ import {
   settingsValuePersistAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -64,6 +65,13 @@ function HomeOverviewContainer() {
     useAccountOverviewActions().current;
 
   const [settings] = useSettingsPersistAtom();
+
+  const isWalletNotBackedUp = useMemo(() => {
+    if (wallet && wallet.type === WALLET_TYPE_HD && !wallet.backuped) {
+      return true;
+    }
+    return false;
+  }, [wallet]);
 
   useEffect(() => {
     if (account?.id && network?.id && wallet?.id) {
@@ -207,7 +215,7 @@ function HomeOverviewContainer() {
     isRefreshingApprovalList;
 
   const refreshButton = useMemo(() => {
-    return platformEnv.isNative ? undefined : (
+    return platformEnv.isNative || isWalletNotBackedUp ? undefined : (
       <IconButton
         icon="RefreshCcwOutline"
         variant="tertiary"
@@ -216,7 +224,7 @@ function HomeOverviewContainer() {
         trackID="wallet-refresh-manually"
       />
     );
-  }, [handleRefreshWorth, isLoading]);
+  }, [handleRefreshWorth, isLoading, isWalletNotBackedUp]);
 
   const handleBalanceOnPress = useCallback(async () => {
     const settingsValue = await settingsValuePersistAtom.get();

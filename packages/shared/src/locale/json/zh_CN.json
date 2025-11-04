@@ -2684,8 +2684,8 @@
   "referral.your_referred_wallets_1address": "1 个地址",
   "referral.your_referred_wallets_details": "详情",
   "referral.your_referred_wallets_more_address": "{amount} 个地址",
-  "referral_code_tutorial_label": "How to get a referral code?",
-  "referral_promo_title": "Join the OneKey Referral Program",
+  "referral_code_tutorial_label": "如何获取邀请码?",
+  "referral_promo_title": "加入 OneKey 推荐计划",
   "remove_account_desc": "此账户将被删除。",
   "remove_device": "移除设备",
   "remove_device_desc": "这将断开此硬件钱包与 OneKey App 的连接。您可以随时重新连接到 App。",
@@ -3646,5 +3646,8 @@
   "wallet_backup.backup_warning": "<strong>备份您的钱包</strong> — 防止设备丢失导致资产无法找回",
   "wallet_backup.save_recovery_phrase": "保存助记词",
   "wallet_backup.status_not_backed_up": "未备份",
+  "wallet_empty_article_deposit": "如何充值加密货币？",
+  "wallet_empty_article_deposit_faq": "收款未到账？",
+  "wallet_empty_article_trade": "如何在 OneKey 中交易加密货币?",
   "word": "Word"
 }

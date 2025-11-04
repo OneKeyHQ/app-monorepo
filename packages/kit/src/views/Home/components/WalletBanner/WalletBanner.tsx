@@ -168,7 +168,7 @@ function WalletBanner() {
                   gap: '$3',
                   py: '$3',
                 }}
-                borderRadius="$2"
+                borderRadius="$3"
                 $platform-native={{
                   borderWidth: StyleSheet.hairlineWidth,
                   borderColor: '$borderSubdued',
