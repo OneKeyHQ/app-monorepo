@@ -1,14 +1,12 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
-import type { IStackStyle } from '@onekeyhq/components';
 import {
   Icon,
   NumberSizeableText,
-  Progress,
   SizableText,
   XStack,
   YStack,
@@ -24,81 +22,10 @@ import { NoRewardYet } from '../shared/NoRewardYet';
 
 import type { IDashboardProps } from './types';
 
-function RewardLevelMoney({
-  threshold: _threshold,
-  isLeft,
-  isRight,
-}: { threshold: string; isLeft?: boolean; isRight?: boolean } & IStackStyle) {
-  const ai = useMemo(() => {
-    if (isRight) {
-      return 'flex-end';
-    }
-    if (!isLeft && !isRight) {
-      return 'center';
-    }
-  }, [isLeft, isRight]);
-  if (isLeft || isRight) {
-    return null;
-  }
-  return (
-    <YStack position="absolute" gap={5} top={22} width="100%" ai={ai}>
-      <YStack
-        w={1}
-        h={10}
-        bg="$neutral7"
-        borderTopLeftRadius="$1"
-        borderTopRightRadius="$1"
-        borderBottomLeftRadius="$1"
-        borderBottomRightRadius="$1"
-      />
-      {/* {threshold ? (
-        <Currency
-          formatter="balance"
-          textAlign={isRight ? 'right' : undefined}
-          size="$bodySmMedium"
-          color="$textSubdued"
-          dynamicWidth={(v, c) =>
-            (v.length + c.length) * 8 + Math.ceil(v.length / 3) * 4
-          }
-        >
-          {threshold}
-        </Currency>
-      ) : null} */}
-    </YStack>
-  );
-}
-
-function RewardLevelText({
-  level,
-  percent,
-  threshold,
-  isLeft,
-  isRight,
-}: {
-  level: string;
-  percent: string;
-  threshold: string;
-  isLeft?: boolean;
-  isRight?: boolean;
-}) {
-  return (
-    <YStack>
-      <SizableText size="$bodySm" color="$textSubdued">
-        {`${level} ${percent}`}
-      </SizableText>
-      <RewardLevelMoney
-        threshold={threshold}
-        isLeft={isLeft}
-        isRight={isRight}
-      />
-    </YStack>
-  );
-}
-
 export function Dashboard({
   hardwareSales,
-  levelPercent,
-  rebateLevels,
+  levelPercent: _levelPercent,
+  rebateLevels: _rebateLevels,
   rebateConfig,
 }: IDashboardProps) {
   const navigation = useAppNavigation();
@@ -112,34 +39,6 @@ export function Dashboard({
     (hardwareSales.available?.length || 0) > 0;
   const showHardwarePendingFiat = (hardwareSales.pending?.length || 0) > 0;
 
-  const renderNextStage = useCallback(() => {
-    if (hardwareSales.nextStage) {
-      if (hardwareSales.nextStage.isEnd) {
-        return (
-          <SizableText size="$bodySmMedium" color="$textSubdued">
-            {intl.formatMessage({
-              id: ETranslations.referral_hw_level_up_diamond,
-            })}
-          </SizableText>
-        );
-      }
-      return (
-        <SizableText size="$bodySmMedium" color="$textSubdued">
-          {intl.formatMessage(
-            { id: ETranslations.referral_hw_level_up_remain },
-            {
-              Amount: (
-                <Currency size="$bodySm" formatter="balance" color="$text">
-                  {hardwareSales.nextStage.amount}
-                </Currency>
-              ),
-              LevelName: hardwareSales.nextStage.label,
-            },
-          )}
-        </SizableText>
-      );
-    }
-  }, [hardwareSales.nextStage, intl]);
   return (
     <YStack
       pb="$4"
@@ -208,35 +107,6 @@ export function Dashboard({
                 })}
               </SizableText>
             </YStack>
-          </XStack>
-          <YStack h={28} borderRadius="$2" py="$2">
-            <XStack mb="$2" jc="space-between" h="$4">
-              {rebateLevels.map((rebateLevel, index) => {
-                return (
-                  <RewardLevelText
-                    key={index}
-                    level={rebateLevel.emoji}
-                    percent={`${rebateLevel.rebate}%`}
-                    isLeft={index === 0}
-                    isRight={index === rebateLevels.length - 1}
-                    threshold={
-                      rebateLevel.level === rebateConfig.level + 1
-                        ? String(rebateLevel.thresholdFiatValue)
-                        : ''
-                    }
-                  />
-                );
-              })}
-            </XStack>
-            <Progress
-              indicatorColor="$bgSuccessStrong"
-              value={levelPercent ? Number(levelPercent) * 100 : 0}
-              width="100%"
-              size="medium"
-            />
-          </YStack>
-          <XStack gap="$1" pt="$5" pb="$2">
-            {renderNextStage()}
           </XStack>
         </YStack>
         {(() => {
