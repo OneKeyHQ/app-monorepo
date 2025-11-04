@@ -30,9 +30,12 @@ function BasicTabSubStackNavigator({
     if (!delay) {
       return;
     }
-    setTimeout(() => {
+    const timer = setTimeout(() => {
       setIsMounted(true);
     }, delay + 100);
+    return () => {
+      clearTimeout(timer);
+    };
   }, [delay]);
 
   // Handle null config case - return null to avoid creating empty Stack.Navigator
