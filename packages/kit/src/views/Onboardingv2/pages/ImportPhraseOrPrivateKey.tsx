@@ -9,6 +9,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes';
+import type { EMnemonicType } from '@onekeyhq/shared/src/utils/secret';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { OnboardingLayout } from '../components/OnboardingLayout';
@@ -19,9 +20,19 @@ export default function ImportPhraseOrPrivateKey() {
   const navigation = useAppNavigation();
   const [selected, setSelected] = useState<'phrase' | 'privateKey'>('phrase');
 
-  const handleConfirm = () => {
+  const handleConfirm = ({
+    mnemonic,
+    mnemonicType,
+  }: {
+    mnemonic: string;
+    mnemonicType: EMnemonicType;
+  }) => {
     if (selected === 'phrase') {
       console.log('handlePhraseConfirm');
+      navigation.push(EOnboardingPagesV2.FinalizeWalletSetup, {
+        mnemonic,
+        mnemonicType,
+      });
     } else {
       // Navigate to network selection page for private key import
       void navigation.push(EOnboardingPagesV2.SelectPrivateKeyNetwork, {
