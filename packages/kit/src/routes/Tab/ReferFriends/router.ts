@@ -22,10 +22,6 @@ const HardwareSalesReward = LazyLoadPage(
   () => import('../../../views/ReferFriends/pages/HardwareSalesReward'),
 );
 
-const OneKeyId = LazyLoadPage(
-  () => import('../../../views/ReferFriends/pages/OneKeyId'),
-);
-
 const EditAddress = LazyLoadPage(
   () => import('../../../views/ReferFriends/pages/EditAddress'),
 );
@@ -75,12 +71,6 @@ export const referFriendsRouters: ITabSubNavigatorConfig<
   {
     name: ETabReferFriendsRoutes.TabHardwareSalesReward,
     component: HardwareSalesReward,
-    headerShown: !platformEnv.isNative,
-  },
-  {
-    name: ETabReferFriendsRoutes.TabOneKeyId,
-    rewrite: '/onekey-id',
-    component: OneKeyId,
     headerShown: !platformEnv.isNative,
   },
   {

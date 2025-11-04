@@ -9,7 +9,6 @@ export enum ETabReferFriendsRoutes {
   TabYourReferred = 'TabYourReferred',
   TabYourReferredWalletAddresses = 'TabYourReferredWalletAddresses',
   TabHardwareSalesReward = 'TabHardwareSalesReward',
-  TabOneKeyId = 'TabOneKeyId',
   TabEditAddress = 'TabEditAddress',
   TabEarnReward = 'TabEarnReward',
   TabRewardDistributionHistory = 'TabRewardDistributionHistory',
@@ -28,7 +27,6 @@ export type ITabReferFriendsParamList = {
     items: IEarnWalletHistoryItem[];
   };
   TabHardwareSalesReward: undefined;
-  TabOneKeyId: undefined;
   TabEditAddress: {
     enabledNetworks: string[];
     accountId: string;

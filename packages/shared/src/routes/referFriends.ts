@@ -8,7 +8,6 @@ export enum EModalReferFriendsRoutes {
   YourReferred = 'YourReferred',
   YourReferredWalletAddresses = 'YourReferredWalletAddresses',
   HardwareSalesReward = 'HardwareSalesReward',
-  OneKeyId = 'OneKeyId',
   InviteReward = 'InviteReward',
   EditAddress = 'EditAddress',
   EarnReward = 'EarnReward',
@@ -26,7 +25,6 @@ export type IModalReferFriendsParamList = {
     items: IEarnWalletHistoryItem[];
   };
   [EModalReferFriendsRoutes.HardwareSalesReward]: undefined;
-  [EModalReferFriendsRoutes.OneKeyId]: undefined;
   [EModalReferFriendsRoutes.InviteReward]: undefined;
   [EModalReferFriendsRoutes.EditAddress]: {
     enabledNetworks: string[];
