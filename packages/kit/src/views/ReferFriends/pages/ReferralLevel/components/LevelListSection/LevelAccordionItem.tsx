@@ -35,14 +35,13 @@ export function LevelAccordionItem({
     }
     if (Array.isArray(rates)) {
       return rates.map((rate, index) => ({
-        subject: rate.subject ?? rate.labelKey ?? `${index}`,
+        subject: rate.labelKey ?? `${index}`,
         rate,
       }));
     }
     return Object.entries(rates).map(([subject, rate]) => ({
       subject,
-
-      rate: { ...rate, subject: rate.subject ?? subject },
+      rate,
     }));
   }, [level.commissionRates]);
   const getDefaultSubjectLabel = (subject?: string) => subject ?? '';
@@ -109,32 +108,23 @@ export function LevelAccordionItem({
 
               <YStack gap="$3">
                 {commissionRateItems.map(({ subject, rate }, index) => {
-                  const normalizedSubject = rate.subject ?? subject;
                   const label = getDisplayLabel(
                     rate.commissionRatesLabelKey || rate.labelKey,
                     rate.commissionRatesLabel ??
                       rate.label ??
-                      getDefaultSubjectLabel(normalizedSubject),
-                  );
-                  const rebateLabel = getDisplayLabel(
-                    rate.rebateLabelKey,
-                    rate.rebateLabel ?? 'Rebate',
-                  );
-                  const discountLabel = getDisplayLabel(
-                    rate.discountLabelKey,
-                    rate.discountLabel ?? 'Discount',
+                      getDefaultSubjectLabel(subject),
                   );
                   return (
-                    <YStack key={normalizedSubject || `${index}`} gap="$1.5">
+                    <YStack key={subject || `${index}`} gap="$1.5">
                       <SizableText size="$bodyMd">{label}</SizableText>
                       <SizableText size="$bodyMd" color="$textSubdued">
-                        {rebateLabel}:{' '}
+                        Rebate:{' '}
                         <SizableText size="$bodyMdMedium" color="$textSuccess">
                           {rate.rebate}%
                         </SizableText>
                       </SizableText>
                       <SizableText size="$bodyMd" color="$textSubdued">
-                        {discountLabel}:{' '}
+                        Discount:{' '}
                         <SizableText size="$bodyMdMedium" color="$textSuccess">
                           {rate.discount}%
                         </SizableText>

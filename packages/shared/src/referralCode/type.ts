@@ -263,7 +263,6 @@ export interface IInviteLevelProgressMeta {
   threshold: string;
   thresholdFiatValue: string;
   progress: string;
-  subject?: string;
   labelKey?: string;
   label?: string;
   commissionRatesLabelKey?: string;
@@ -288,7 +287,6 @@ export interface IInviteLevelUpgradeCondition {
 }
 
 export interface IInviteLevelCommissionRate {
-  subject?: string;
   rebate: number;
   discount: number;
   enabled: boolean;
@@ -300,10 +298,6 @@ export interface IInviteLevelCommissionRate {
   commissionRatesLabel?: string;
   levelUpLabelKey?: string;
   levelUpLabel?: string;
-  rebateLabelKey?: string;
-  rebateLabel?: string;
-  discountLabelKey?: string;
-  discountLabel?: string;
 }
 
 export interface IInviteLevelItem {
