@@ -21,6 +21,7 @@ import type {
   ImageResult,
 } from 'expo-image-manipulator';
 import type { ImageSourcePropType } from 'react-native';
+import { defaultLogger } from '../logger/logger';
 
 type ICommonImageLogFn = (...args: string[]) => void;
 
@@ -253,48 +254,83 @@ async function resizeImage(params: {
     cornerBackgroundColor,
   } = params;
   if (!uri) return { hex: '', uri: '', width: 0, height: 0 };
-  const actions: ExpoImageManipulatorAction[] = [];
 
-  if (originW < width && originH < height) {
-    // Enlarging the image may result in the loss of width
-    // Slightly enlarge the picture and then precisely crop it
-    actions.push(
-      {
-        resize: {
-          height: height * 1.02,
-        },
-      },
-      {
-        crop: {
-          height,
-          width,
-          originX: 0,
-          originY: 0,
-        },
-      },
+  // Handle invalid origin dimensions - detect actual image size first
+  let actualOriginW = originW;
+  let actualOriginH = originH;
+  if (originW <= 0 || originH <= 0) {
+    console.warn(
+      `Invalid origin dimensions: originW=${originW}, originH=${originH}. Detecting actual image size...`,
     );
-  } else {
-    // resize first
-    actions.push({
-      resize: {
-        height,
-      },
-    });
+    try {
+      // Perform a no-op manipulation to get actual image dimensions
+      const detectResult: ImageResult = await manipulateAsync(uri, [], {
+        compress: 1, // 100% quality, no compression
+        format: SaveFormat.JPEG,
+      });
+      actualOriginW = detectResult.width;
+      actualOriginH = detectResult.height;
+    } catch (error) {
+      console.error('Failed to detect image dimensions:', error);
+      return { hex: '', uri: '', width: 0, height: 0 };
+    }
   }
 
-  //   const originX = getOriginX(originW, originH, width, height);
-  const originX = null;
-  if (originX !== null) {
+  const actions: ExpoImageManipulatorAction[] = [];
+
+  // Skip processing if image is already at exact target size
+  if (actualOriginW === width && actualOriginH === height) {
+    defaultLogger.hardware.homescreen.recordImageCompression({
+      target: `${width}x${height}`,
+      origin: `${actualOriginW}x${actualOriginH}`,
+      scale: '1.00',
+      actual: 'skipped - already exact size',
+    });
+    // No actions needed, image is already perfect
+  } else {
+    // Calculate the scale ratio to ensure the resized image covers the target dimensions
+    // Use the larger ratio to ensure the image fills the target area
+    const scaleRatioW = width / actualOriginW;
+    const scaleRatioH = height / actualOriginH;
+    const scaleRatio = Math.max(scaleRatioW, scaleRatioH);
+
+    // Calculate the actual size after scaling
+    // Add a small margin (1.02) ONLY when scaling up to avoid potential precision issues
+    // When scaling down, use exact ratio to minimize unnecessary cropping
+    const precisionBuffer = scaleRatio > 1 ? 1.02 : 1.0;
+    const actualHeight = Math.ceil(actualOriginH * scaleRatio * precisionBuffer);
+    const actualWidth = Math.ceil(actualOriginW * scaleRatio * precisionBuffer);
+
+    defaultLogger.hardware.homescreen.recordImageCompression({
+      target: `${width}x${height}`,
+      origin: `${actualOriginW}x${actualOriginH}`,
+      scale: scaleRatio.toFixed(2),
+      actual: `${actualWidth}x${actualHeight}`,
+    });
+
+    // Step 1: Resize to intermediate size (larger than or equal to target)
+    // Use height-based resize to maintain aspect ratio
     actions.push({
-      // crop later if needed
+      resize: {
+        height: actualHeight,
+      },
+    });
+
+    // Step 2: Always crop to exact target dimensions
+    // Calculate crop origin to center the crop
+    const cropOriginX = Math.max(0, Math.floor((actualWidth - width) / 2));
+    const cropOriginY = Math.max(0, Math.floor((actualHeight - height) / 2));
+
+    actions.push({
       crop: {
         height,
         width,
-        originX: 0,
-        originY: 0,
+        originX: cropOriginX,
+        originY: cropOriginY,
       },
     });
   }
+
   const imageResult: ImageResult = await manipulateAsync(uri, actions, {
     compress: compress || 0.8,
     format: SaveFormat.JPEG,
