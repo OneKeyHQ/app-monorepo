@@ -4,8 +4,19 @@ import type {
   ICloudKitAccountStatusName,
 } from '@onekeyhq/shared/src/storage/AppleCloudKitStorage/types';
 import type { IGoogleDriveFile } from '@onekeyhq/shared/src/storage/GoogleDriveStorage';
-import type { IPrimeTransferData } from '@onekeyhq/shared/types/prime/primeTransferTypes';
+import type {
+  IPrimeTransferData,
+  IPrimeTransferPublicData,
+} from '@onekeyhq/shared/types/prime/primeTransferTypes';
 
+export type IBackupCloudServerData = {
+  iCloud?: IAppleCloudKitRecord;
+  googleDrive?: IGoogleDriveFile;
+};
+export type IBackupCloudServerDownloadData = {
+  payload: IBackupDataEncryptedPayload;
+  content: string;
+};
 export type IBackupProviderInfo = {
   displayName: string;
   displayNameI18nKey: string;
@@ -23,6 +34,22 @@ export type IBackupProviderAccountInfo = {
     email?: string;
     googlePlayServiceAvailable: boolean;
   };
+};
+export type IBackupDataEncryptedPayload = Omit<
+  IPrimeTransferData,
+  'privateData'
+> & {
+  privateDataEncrypted: string; // base64 string
+};
+export type IBackupDataManifestItem = Omit<
+  IPrimeTransferPublicData,
+  'walletDetails'
+> & {
+  recordID: string;
+};
+export type IBackupDataManifest = {
+  items: IBackupDataManifestItem[];
+  total: number;
 };
 /**
  * Common interface for all cloud backup providers (iCloud, Google Drive, etc.)
@@ -62,13 +89,6 @@ export interface IOneKeyBackupProvider {
    */
   recoverEncryptionKey(params?: { password?: string }): Promise<string | null>;
 
-  /**
-   * Get the backup data to be encrypted and stored
-   * @returns Transfer data containing all wallet information
-   */
-  getBackupData(): Promise<IPrimeTransferData>;
-  // TODO buildBackupData(): Promise<IPrimeTransferData>;
-
   // TODO requestSync()
 
   /**
@@ -76,17 +96,8 @@ export interface IOneKeyBackupProvider {
    * @param password Optional user password (required for some providers like Google Drive)
    * @returns Unique identifier for the backup record
    */
-  backupData(params?: {
-    password?: string;
-  }): Promise<{ recordID: string; content: string }>;
-
-  /**
-   * Perform backup using provided encryption key
-   * @param encryptionKey Base64-encoded encryption key
-   * @returns Unique identifier for the backup record
-   */
-  backupDataWithEncryptionKey(
-    encryptionKey: string,
+  backupData(
+    payload: IBackupDataEncryptedPayload,
   ): Promise<{ recordID: string; content: string }>;
 
   /**
@@ -102,18 +113,13 @@ export interface IOneKeyBackupProvider {
 
   downloadData(params: {
     recordId: string;
-  }): Promise<IAppleCloudKitRecord | IGoogleDriveFile | null>;
+  }): Promise<IBackupCloudServerDownloadData | null>;
 
   /**
    * Get all available backups from cloud
    * @returns Array of backup records with decrypted data
    */
-  getAllBackups(): Promise<
-    Array<{
-      record: IAppleCloudKitRecord | IGoogleDriveFile;
-      backupData: IPrimeTransferData | null;
-    }>
-  >;
+  getAllBackups(): Promise<IBackupDataManifest>;
 
   /**
    * Delete a backup from cloud

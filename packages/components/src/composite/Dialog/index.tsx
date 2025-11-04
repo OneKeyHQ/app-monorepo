@@ -632,7 +632,6 @@ const dialogDebugMessage = (
     }
     return stringUtils.stableStringify(props.debugMessage, null, 4);
   })();
-  console.log('dialogDebugMessage: ', dataContent);
   const copyContent = async () => {
     await setStringAsync(dataContent);
     console.log('dialogDebugMessage: object >>> ', props.debugMessage);

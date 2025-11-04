@@ -3,6 +3,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Dialog, Toast } from '@onekeyhq/components';
+import type { IBackupDataEncryptedPayload } from '@onekeyhq/kit-bg/src/services/ServiceCloudBackupV2/backupProviders/IOneKeyBackupProvider';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes';
@@ -12,12 +13,18 @@ import {
   ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import type { IPrimeTransferData } from '@onekeyhq/shared/types/prime/primeTransferTypes';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { showCloudBackupPasswordDialog } from '../components/CloudBackupPasswordDialog';
+import { showPrimeTransferImportProcessingDialog } from '../../Prime/pages/PagePrimeTransfer/components/PrimeTransferImportProcessingDialog';
+import {
+  showCloudBackupDeleteDialog,
+  showCloudBackupPasswordDialog,
+} from '../components/CloudBackupDialogs';
 
 export function useCloudBackup() {
   const intl = useIntl();
@@ -159,17 +166,6 @@ export function useCloudBackup() {
     [checkIsAvailable, navigation],
   );
 
-  const doBackup = useCallback(async () => {
-    showCloudBackupPasswordDialog({
-      title: 'Enter your backup password',
-      onSubmit: async (input: string) => {
-        await backgroundApiProxy.serviceCloudBackupV2.backup({
-          password: input,
-        });
-      },
-    });
-  }, []);
-
   const startBackup = useCallback(async () => {
     const isAvailable = await checkIsAvailable();
     if (isAvailable) {
@@ -180,6 +176,82 @@ export function useCloudBackup() {
     }
   }, [checkIsAvailable, goToPageBackupDetail]);
 
+  const doBackup = useCallback(
+    async ({ data }: { data: IPrimeTransferData }) => {
+      showCloudBackupPasswordDialog({
+        onSubmit: async (password: string) => {
+          const isAvailable = await checkIsAvailable();
+          await timerUtils.wait(1000);
+          if (isAvailable) {
+            const _result =
+              await backgroundApiProxy.serviceCloudBackupV2.backup({
+                password,
+                data,
+              });
+            Toast.success({
+              title: 'Backup done!',
+            });
+            navigation.pop();
+          }
+        },
+      });
+    },
+    [checkIsAvailable, navigation],
+  );
+
+  const doDeleteBackup = useCallback(
+    ({ recordID }: { recordID: string }) => {
+      showCloudBackupDeleteDialog({ recordID, navigation });
+    },
+    [navigation],
+  );
+
+  const doRestoreBackup = useCallback(
+    ({
+      payload,
+    }: {
+      // recordID: string;
+      payload: IBackupDataEncryptedPayload | undefined;
+    }) => {
+      showCloudBackupPasswordDialog({
+        onSubmit: async (password: string) => {
+          const isAvailable = await checkIsAvailable();
+          await timerUtils.wait(1000);
+          if (isAvailable) {
+            // Show progress dialog
+            const dialog = showPrimeTransferImportProcessingDialog({
+              navigation,
+            });
+            try {
+              const result =
+                await backgroundApiProxy.serviceCloudBackupV2.restore({
+                  password,
+                  payload,
+                });
+              // Dialog.debugMessage({
+              //   debugMessage: result,
+              // });
+              if (result?.success) {
+                Toast.success({
+                  title: 'Backup restored!',
+                });
+                navigation.pop();
+              }
+              // eslint-disable-next-line no-useless-catch
+            } catch (error) {
+              // password error
+              void dialog.close();
+              throw error;
+            } finally {
+              // void dialog.close();
+            }
+          }
+        },
+      });
+    },
+    [checkIsAvailable, navigation],
+  );
+
   return useMemo(
     () => ({
       supportCloudBackup,
@@ -187,6 +259,8 @@ export function useCloudBackup() {
       goToPageBackupList,
       checkLoading,
       doBackup,
+      doDeleteBackup,
+      doRestoreBackup,
     }),
     [
       supportCloudBackup,
@@ -194,6 +268,8 @@ export function useCloudBackup() {
       goToPageBackupList,
       checkLoading,
       doBackup,
+      doDeleteBackup,
+      doRestoreBackup,
     ],
   );
 }

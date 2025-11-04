@@ -141,9 +141,12 @@ export function CloudBackupApiTests() {
           <Button
             onPress={() =>
               handleApiCall(async () => {
+                const data =
+                  await backgroundApiProxy.serviceCloudBackupV2.buildBackupData();
                 const result =
                   await backgroundApiProxy.serviceCloudBackupV2.backup({
                     password,
+                    data,
                   });
                 lastRecordId = result.recordID;
                 setRecordId(result.recordID);
@@ -190,25 +193,9 @@ export function CloudBackupApiTests() {
             onPress={() =>
               handleApiCall(async () => {
                 const result =
-                  await backgroundApiProxy.serviceCloudBackupV2.backupDataWithEncryptionKey(
-                    {
-                      encryptionKey: '1111',
-                    },
-                  );
-                return result;
-              }, 'backupDataWithEncryptionKey')
-            }
-          >
-            Backup Data with Encryption Key
-          </Button>
-
-          <Button
-            onPress={() =>
-              handleApiCall(async () => {
-                const result =
                   await backgroundApiProxy.serviceCloudBackupV2.restore({
-                    recordId: lastRecordId,
                     password,
+                    payload: {} as any,
                   });
                 return result;
               }, 'restore')
@@ -258,7 +245,10 @@ export function CloudBackupApiTests() {
               void handleApiCall(async () => {
                 const result =
                   await backgroundApiProxy.serviceCloudBackupV2.restore({
-                    recordId,
+                    payload: {
+                      recordId,
+                    } as any,
+                    password,
                   });
                 return result;
               }, 'restore');
@@ -286,7 +276,7 @@ export function CloudBackupApiTests() {
             onPress={() =>
               handleApiCall(
                 () =>
-                  backgroundApiProxy.serviceCloudBackupV2.deleteBackup({
+                  backgroundApiProxy.serviceCloudBackupV2.delete({
                     recordId: '123',
                   }),
                 'deleteBackup',

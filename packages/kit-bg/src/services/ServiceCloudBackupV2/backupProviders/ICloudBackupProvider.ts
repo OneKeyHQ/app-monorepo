@@ -15,6 +15,11 @@ import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import type { IPrimeTransferData } from '@onekeyhq/shared/types/prime/primeTransferTypes';
 
 import type {
+  IBackupCloudServerData,
+  IBackupCloudServerDownloadData,
+  IBackupDataEncryptedPayload,
+  IBackupDataManifest,
+  IBackupDataManifestItem,
   IBackupProviderAccountInfo,
   IBackupProviderInfo,
   IOneKeyBackupProvider,
@@ -150,12 +155,6 @@ export class ICloudBackupProvider implements IOneKeyBackupProvider {
     }
   }
 
-  async getBackupData() {
-    const data =
-      await this.backgroundApi.servicePrimeTransfer.buildTransferData();
-    return data;
-  }
-
   // Generate or retrieve encryption key with recovery support
   // Note: password parameter not used for iCloud (uses Keychain instead)
   async prepareEncryptionKey(_params?: { password?: string }): Promise<string> {
@@ -174,49 +173,25 @@ export class ICloudBackupProvider implements IOneKeyBackupProvider {
   }
 
   // Note: password parameter not used for iCloud (uses Keychain instead)
-  async backupData(_params: {
-    password?: string;
-  }): Promise<{ recordID: string; content: string }> {
-    // await this.checkAvailability();
-    const encryptionKey = await this.prepareEncryptionKey();
-    const { recordID, content } = await this.backupDataWithEncryptionKey(
-      encryptionKey,
-    );
-    return { recordID, content };
-  }
-
-  async backupDataWithEncryptionKey(
-    encryptionKey: string,
+  async backupData(
+    payload: IBackupDataEncryptedPayload,
   ): Promise<{ recordID: string; content: string }> {
     // await this.checkAvailability();
+    const recordID = `${CLOUDKIT_RECORD_ID_PREFIX}-${stringUtils.generateUUID()}`;
 
-    // Get backup data
-    const data: IPrimeTransferData = await this.getBackupData();
-    const dataJson = stringUtils.stableStringify(data);
-
-    // Encrypt data
-    const encryptedData = await encryptAsync({
-      data: Buffer.from(dataJson, 'utf8'),
-      password: encryptionKey,
-      allowRawPassword: true,
-    });
-
-    // Convert encrypted data to base64 for CloudKit storage
-    const encryptedDataBase64 = encryptedData.toString('base64');
-
-    const recordId = `${CLOUDKIT_RECORD_ID_PREFIX}-${stringUtils.generateUUID()}`;
-
+    const content = stringUtils.stableStringify(payload);
     // Save to CloudKit
     const result = await appleCloudKitStorage.saveRecord({
       recordType: CLOUDKIT_RECORD_TYPE,
-      recordID: recordId,
-      data: encryptedDataBase64,
+      recordID,
+      data: content,
     });
 
     console.log('backupData__savedRecordId: result', result);
+
     return {
-      recordID: result.recordID,
-      content: encryptedDataBase64,
+      recordID,
+      content,
     };
   }
 
@@ -224,68 +199,72 @@ export class ICloudBackupProvider implements IOneKeyBackupProvider {
     recordId,
   }: {
     recordId: string;
-  }): Promise<IAppleCloudKitRecord | null> {
+  }): Promise<IBackupCloudServerDownloadData | null> {
     await this.checkAvailability();
     const record = await appleCloudKitStorage.fetchRecord({
       recordID: recordId,
       recordType: CLOUDKIT_RECORD_TYPE,
     });
-    if (!record) {
+    if (!record?.data) {
       return null;
     }
-    return record;
+    try {
+      return {
+        payload: JSON.parse(record.data) as IBackupDataEncryptedPayload,
+        content: record.data,
+      };
+    } catch (error) {
+      console.error('Failed to download backup data:', error);
+      return null;
+    }
   }
 
   // Note: password parameter not used for iCloud (uses Keychain instead)
   async restoreData({
     recordId,
+    password,
   }: {
     recordId: string;
-    password?: string;
+    password: string;
   }): Promise<IPrimeTransferData | null> {
     await this.checkAvailability();
 
     // Fetch backup record from CloudKit
-    const record = await this.downloadData({
+    const serverData = await this.downloadData({
       recordId,
     });
 
-    if (!record || !record.data) {
+    if (!serverData || !serverData?.payload?.privateDataEncrypted) {
       throw new OneKeyLocalError('No backup found in CloudKit');
     }
 
-    // Retrieve encryption key with automatic recovery
-    const encryptionKey = await this.recoverEncryptionKeyFromKeyChain();
-    if (!encryptionKey) {
-      throw new OneKeyLocalError(
-        'Encryption key not found and recovery failed. Cannot restore backup. Please ensure iCloud Keychain is enabled or try restoring on the original device.',
-      );
-    }
-
     return this.decryptBackupData({
-      record,
-      encryptionKey,
+      payload: serverData.payload,
+      password,
     });
   }
 
   private async decryptBackupData({
-    record,
-    encryptionKey,
+    payload,
+    password,
   }: {
-    record: IAppleCloudKitRecord | null;
-    encryptionKey: string;
+    payload: IBackupDataEncryptedPayload;
+    password: string;
   }): Promise<IPrimeTransferData | null> {
     try {
-      if (!record || !record.data) {
+      if (!payload || !payload.privateDataEncrypted) {
         return null;
       }
       // Decode and decrypt data
-      const encryptedData = Buffer.from(record.data, 'base64');
+      const encryptedData: Buffer = Buffer.from(
+        payload.privateDataEncrypted,
+        'base64',
+      );
 
       // Decrypt data
       const decryptedData = await decryptAsync({
         data: encryptedData,
-        password: encryptionKey,
+        password,
         allowRawPassword: true,
       });
 
@@ -298,49 +277,48 @@ export class ICloudBackupProvider implements IOneKeyBackupProvider {
     }
   }
 
-  async getAllBackups(): Promise<
-    { record: IAppleCloudKitRecord; backupData: IPrimeTransferData | null }[]
-  > {
+  async getAllBackups(): Promise<IBackupDataManifest> {
     await this.checkAvailability();
 
     const result = await appleCloudKitStorage.queryRecords({
       recordType: CLOUDKIT_RECORD_TYPE, // TODO pagination
     });
-    const encryptionKey = await this.recoverEncryptionKeyFromKeyChain();
-    if (!encryptionKey) {
-      throw new OneKeyLocalError(
-        'Encryption key not found and recovery failed. Cannot restore backup. Please ensure iCloud Keychain is enabled or try restoring on the original device.',
-      );
-    }
-    return (
+    const items: IBackupDataManifestItem[] = (
       await Promise.all(
         result.records.map(async (record) => {
-          return {
-            record,
-            // TODO decrypt backup data later
-            backupData: await this.decryptBackupData({
-              record,
-              encryptionKey,
-            }),
-          };
+          try {
+            const data = JSON.parse(record.data) as IBackupDataEncryptedPayload;
+            const d: IBackupDataManifestItem = {
+              recordID: record.recordID,
+              dataTime: data.publicData?.dataTime ?? 0,
+              totalWalletsCount: data.publicData?.totalWalletsCount ?? 0,
+              totalAccountsCount: data.publicData?.totalAccountsCount ?? 0,
+            };
+            return d;
+          } catch (e) {
+            return {
+              recordID: record.recordID,
+              dataTime: 0,
+              totalWalletsCount: 0,
+              totalAccountsCount: 0,
+            };
+          }
         }),
       )
-    ).filter((item) => !!item?.backupData);
+    )
+      .filter(Boolean)
+      .sort((a, b) => (b.dataTime ?? 0) - (a.dataTime ?? 0));
+    return {
+      total: items.length,
+      items,
+    };
   }
 
   async deleteBackup({ recordId }: { recordId: string }): Promise<void> {
     await this.checkAvailability();
-
-    // Delete ALL data to free up iCloud storage
-    try {
-      // 1. Delete backup data from CloudKit
-      await appleCloudKitStorage.deleteRecord({
-        recordID: recordId,
-        recordType: CLOUDKIT_RECORD_TYPE,
-      });
-    } catch (error) {
-      console.warn('Failed to delete backup data:', error);
-      // Continue to delete other data even if this fails
-    }
+    await appleCloudKitStorage.deleteRecord({
+      recordID: recordId,
+      recordType: CLOUDKIT_RECORD_TYPE,
+    });
   }
 }

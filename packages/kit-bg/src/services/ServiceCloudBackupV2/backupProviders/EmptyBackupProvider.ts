@@ -9,6 +9,9 @@ import type { IGoogleDriveFile } from '@onekeyhq/shared/src/storage/GoogleDriveS
 import type { IPrimeTransferData } from '@onekeyhq/shared/types/prime/primeTransferTypes';
 
 import type {
+  IBackupCloudServerData,
+  IBackupCloudServerDownloadData,
+  IBackupDataManifest,
   IBackupProviderAccountInfo,
   IBackupProviderInfo,
   IOneKeyBackupProvider,
@@ -56,19 +59,7 @@ export class EmptyBackupProvider implements IOneKeyBackupProvider {
     throw new OneKeyLocalError('Method not implemented.');
   }
 
-  getBackupData(): Promise<IPrimeTransferData> {
-    throw new OneKeyLocalError('Method not implemented.');
-  }
-
-  backupData(params?: {
-    password?: string;
-  }): Promise<{ recordID: string; content: string }> {
-    throw new OneKeyLocalError('Method not implemented.');
-  }
-
-  backupDataWithEncryptionKey(
-    encryptionKey: string,
-  ): Promise<{ recordID: string; content: string }> {
+  backupData(): Promise<{ recordID: string; content: string }> {
     throw new OneKeyLocalError('Method not implemented.');
   }
 
@@ -79,18 +70,11 @@ export class EmptyBackupProvider implements IOneKeyBackupProvider {
     throw new OneKeyLocalError('Method not implemented.');
   }
 
-  downloadData(params: {
-    recordId: string;
-  }): Promise<IAppleCloudKitRecord | IGoogleDriveFile | null> {
+  downloadData(): Promise<IBackupCloudServerDownloadData | null> {
     throw new OneKeyLocalError('Method not implemented.');
   }
 
-  getAllBackups(): Promise<
-    Array<{
-      record: IAppleCloudKitRecord | IGoogleDriveFile;
-      backupData: IPrimeTransferData | null;
-    }>
-  > {
+  getAllBackups(): Promise<IBackupDataManifest> {
     throw new OneKeyLocalError('Method not implemented.');
   }
 

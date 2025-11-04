@@ -5,7 +5,7 @@ import {
   cloudkitQueryRecords,
   cloudkitRecordExists,
   cloudkitSaveRecord,
-} from 'node-mac-icloud-keyvalue';
+} from '@onekeyfe/electron-mac-icloud';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type {

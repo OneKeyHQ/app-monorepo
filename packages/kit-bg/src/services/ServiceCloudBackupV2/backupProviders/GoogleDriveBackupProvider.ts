@@ -11,6 +11,10 @@ import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import type { IPrimeTransferData } from '@onekeyhq/shared/types/prime/primeTransferTypes';
 
 import type {
+  IBackupCloudServerData,
+  IBackupCloudServerDownloadData,
+  IBackupDataEncryptedPayload,
+  IBackupDataManifest,
   IBackupProviderAccountInfo,
   IBackupProviderInfo,
   IOneKeyBackupProvider,
@@ -74,12 +78,6 @@ export class GoogleDriveBackupProvider implements IOneKeyBackupProvider {
     }
   }
 
-  async getBackupData(): Promise<IPrimeTransferData> {
-    const data =
-      await this.backgroundApi.servicePrimeTransfer.buildTransferData();
-    return data;
-  }
-
   async prepareEncryptionKey(params?: { password?: string }): Promise<string> {
     // Get Google user info
     const userInfo = await googleDriveStorage.getUserInfo();
@@ -102,80 +100,46 @@ export class GoogleDriveBackupProvider implements IOneKeyBackupProvider {
     );
   }
 
-  async backupData(params?: {
-    password?: string;
-  }): Promise<{ recordID: string; content: string }> {
-    await this.checkAvailability();
-    const password = params?.password;
-    if (!password) {
-      throw new OneKeyLocalError(
-        'Password is required for Google Drive backup',
-      );
-    }
-
-    // TODO move to interface
-    const userInfo = await googleDriveStorage.signIn();
-    if (!userInfo) {
-      throw new OneKeyLocalError('Failed to sign in to Google Drive');
-    }
-
-    const encryptionKey = await this.prepareEncryptionKey({ password });
-    const { recordID, content } = await this.backupDataWithEncryptionKey(
-      encryptionKey,
-    );
-    return { recordID, content };
-  }
-
-  async backupDataWithEncryptionKey(
-    encryptionKey: string,
+  async backupData(
+    payload: IBackupDataEncryptedPayload,
   ): Promise<{ recordID: string; content: string }> {
     await this.checkAvailability();
+    throw new OneKeyLocalError(
+      'GoogleDriveBackupProvider.backupData() Method not implemented.',
+    );
+    // const password = params?.password;
+    // if (!password) {
+    //   throw new OneKeyLocalError(
+    //     'Password is required for Google Drive backup',
+    //   );
+    // }
 
-    // Generate backup ID
-    const backupId = stringUtils.generateUUID();
+    // // TODO move to interface
+    // const userInfo = await googleDriveStorage.signIn();
+    // if (!userInfo) {
+    //   throw new OneKeyLocalError('Failed to sign in to Google Drive');
+    // }
 
-    // Get and encrypt backup data
-    const data: IPrimeTransferData = await this.getBackupData();
-    const dataJson = stringUtils.stableStringify(data);
-
-    // Encrypt data with MEK
-    const encryptedData = await encryptAsync({
-      data: Buffer.from(dataJson, 'utf8'),
-      password: encryptionKey,
-      allowRawPassword: true,
-    });
-
-    // TODO publicData and privateData(encrypted)
-    const encryptedDataBase64 = encryptedData.toString('base64');
-
-    // Upload encrypted data to Google Drive
-    const result = await googleDriveStorage.uploadFile({
-      fileName: `${GOOGLE_DRIVE_BACKUP_PREFIX}_${backupId}.encrypted`,
-      content: encryptedDataBase64,
-    });
-
-    console.log('GoogleDrive backup created:', {
-      backupId,
-      fileId: result.fileId,
-    });
-
-    return {
-      recordID: result.fileId,
-      content: encryptedDataBase64,
-    };
+    // const encryptionKey = await this.prepareEncryptionKey({ password });
+    // const { recordID, content } = await this.backupDataWithEncryptionKey(
+    //   encryptionKey,
+    // );
+    // return { recordID, content };
   }
 
   async downloadData({
     recordId,
   }: {
     recordId: string;
-  }): Promise<IGoogleDriveFile | null> {
+  }): Promise<IBackupCloudServerDownloadData | null> {
     await this.checkAvailability();
     const file = await googleDriveStorage.downloadFile({ fileId: recordId });
     if (!file) {
       return null;
     }
-    return file;
+    throw new OneKeyLocalError(
+      'GoogleDriveBackupProvider.downloadData() Method not implemented.',
+    );
   }
 
   async restoreData({
@@ -200,10 +164,10 @@ export class GoogleDriveBackupProvider implements IOneKeyBackupProvider {
     }
 
     // Download data file
-    const dataFile = await this.downloadData({
+    const serverData = await this.downloadData({
       recordId,
     });
-    if (!dataFile || !dataFile.content) {
+    if (!serverData || !serverData.payload?.privateDataEncrypted) {
       throw new OneKeyLocalError('Backup data not found in Google Drive');
     }
 
@@ -211,7 +175,10 @@ export class GoogleDriveBackupProvider implements IOneKeyBackupProvider {
 
     // Decrypt backup data with MEK
     try {
-      const encryptedData = Buffer.from(dataFile.content, 'base64');
+      const encryptedData = Buffer.from(
+        serverData.payload.privateDataEncrypted,
+        'base64',
+      );
       const decryptedData = await decryptAsync({
         data: encryptedData,
         password: encryptionKey,
@@ -229,35 +196,34 @@ export class GoogleDriveBackupProvider implements IOneKeyBackupProvider {
     }
   }
 
-  async getAllBackups(): Promise<
-    Array<{ record: IGoogleDriveFile; backupData: IPrimeTransferData | null }>
-  > {
+  async getAllBackups(): Promise<IBackupDataManifest> {
     await this.checkAvailability();
+    return { items: [], total: 0 };
 
-    // List all backup data files
-    const result = await googleDriveStorage.listFiles({
-      // TODO query not working
-      query: `name contains '${GOOGLE_DRIVE_BACKUP_PREFIX}_'`,
-      pageSize: 10_000, // TODO pagination
-    });
+    // // List all backup data files
+    // const result = await googleDriveStorage.listFiles({
+    //   // TODO query not working
+    //   query: `name contains '${GOOGLE_DRIVE_BACKUP_PREFIX}_'`,
+    //   pageSize: 10_000, // TODO pagination
+    // });
 
-    return (
-      await Promise.all(
-        result.files.map(async (file) => {
-          // const backupData = await this.restoreData({
-          //   recordId: file.id,
-          //   password,
-          // });
-          if (
-            file?.name &&
-            file?.name?.startsWith(GOOGLE_DRIVE_BACKUP_PREFIX)
-          ) {
-            return { record: file, backupData: null };
-          }
-          return null;
-        }),
-      )
-    ).filter((item) => !!item);
+    // return (
+    //   await Promise.all(
+    //     result.files.map(async (file) => {
+    //       // const backupData = await this.restoreData({
+    //       //   recordId: file.id,
+    //       //   password,
+    //       // });
+    //       if (
+    //         file?.name &&
+    //         file?.name?.startsWith(GOOGLE_DRIVE_BACKUP_PREFIX)
+    //       ) {
+    //         return { record: file, backupData: null };
+    //       }
+    //       return null;
+    //     }),
+    //   )
+    // ).filter((item) => !!item);
   }
 
   async deleteBackup({ recordId }: { recordId: string }): Promise<void> {

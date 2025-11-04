@@ -154,7 +154,10 @@ function PreviewItem({
                     id: ETranslations.global_transfer_accounts_count,
                   },
                   {
-                    amount: wallet?.indexedAccountUUIDs?.length || 0,
+                    amount:
+                      wallet?.indexedAccountUUIDs?.length ||
+                      wallet?.indexedAccountUUIDsLength ||
+                      0,
                   },
                 )
               : accountUtils.shortenAddress({
@@ -182,7 +185,10 @@ function PreviewItem({
   );
 }
 
-const accountSortFn = (a: IDBAccount, b: IDBAccount) =>
+const accountSortFn = (
+  a: IDBAccount | IPrimeTransferAccount,
+  b: IDBAccount | IPrimeTransferAccount,
+) =>
   natsort({ insensitive: true })(
     a.accountOrder ?? a.accountOrderSaved ?? 0,
     b.accountOrder ?? b.accountOrderSaved ?? 0,

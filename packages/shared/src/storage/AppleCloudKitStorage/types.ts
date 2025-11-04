@@ -1,7 +1,7 @@
 export interface IAppleCloudKitRecord {
   recordID: string;
   recordType: string;
-  data: string; // base64 encoded encrypted data
+  data: string; // JSON parsed IBackupDataEncryptedPayload
   createdAt?: number;
   modifiedAt?: number;
 }

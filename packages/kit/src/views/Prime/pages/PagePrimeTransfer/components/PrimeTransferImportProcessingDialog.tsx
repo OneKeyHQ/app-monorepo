@@ -9,6 +9,7 @@ import {
   SizableText,
   Stack,
   XStack,
+  YStack,
   useDialogInstance,
 } from '@onekeyhq/components';
 import type { IDialogShowProps } from '@onekeyhq/components/src/composite/Dialog/type';
@@ -85,6 +86,7 @@ function PrimeTransferImportProcessingDialogContent({
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       payload: IAppEventBusPayload[EAppEventBusNames.BatchCreateAccount],
     ) => {
+      console.log('servicePrimeTransfer___updateImportProgress');
       await backgroundApiProxy.servicePrimeTransfer.updateImportProgress();
     };
     appEventBus.on(EAppEventBusNames.BatchCreateAccount, cb);
@@ -110,82 +112,61 @@ function PrimeTransferImportProcessingDialogContent({
 
   return (
     <Stack>
-      <Stack
-        py="$2.5"
-        px="$5"
-        gap="$5"
-        flex={1}
-        alignItems="center"
-        justifyContent="center"
-      >
-        <Stack
-          flex={1}
-          alignItems="center"
-          justifyContent="center"
-          alignSelf="center"
-          w="100%"
-          maxWidth="$80"
-        >
-          {isDone ? (
-            <Icon name="CheckRadioSolid" size="$12" color="$iconSuccess" />
-          ) : null}
+      <YStack alignItems="center">
+        {isDone ? (
+          <Icon name="CheckRadioSolid" size="$12" color="$iconSuccess" />
+        ) : null}
 
-          {(isCancelled || hasError) && !isDone ? (
-            <Icon name="XCircleSolid" size="$12" color="$iconCritical" />
-          ) : null}
+        {(isCancelled || hasError) && !isDone ? (
+          <Icon name="XCircleSolid" size="$12" color="$iconCritical" />
+        ) : null}
 
-          {!isFlowEnded && importProgress ? (
-            <Progress
-              mt="$4"
-              w="100%"
-              size="medium"
-              value={progressPercentage}
-            />
-          ) : null}
+        {!isFlowEnded && importProgress ? (
+          <Progress mt="$4" w="100%" size="medium" value={progressPercentage} />
+        ) : null}
 
-          <XStack mt="$5" alignItems="center" gap="$2">
-            <MultipleClickStack
-              onPress={() => {
-                Dialog.debugMessage({
-                  debugMessage: importProgress?.stats,
-                });
-              }}
-            >
-              <SizableText size="$bodyLg" textAlign="center">
-                {(() => {
-                  if (isDone || importProgress) {
-                    return `${intl.formatMessage(
-                      {
-                        id: ETranslations.global_import_progress,
-                      },
-                      {
-                        amount: platformEnv.isDev
-                          ? `${importProgress?.current || 0}/${
-                              importProgress?.total || 0
-                            } ${progressPercentage}%`
-                          : importProgress?.current ?? 0,
-                      },
-                    )} ${progressPercentage}%`;
-                  }
-                  if (isCancelled) {
-                    return intl.formatMessage({
-                      id: ETranslations.global_cancel,
-                    });
-                  }
-                  if (hasError) {
-                    return intl.formatMessage({
-                      id: ETranslations.global_an_error_occurred,
-                    });
-                  }
+        <XStack mt="$5" alignItems="center" gap="$2">
+          <MultipleClickStack
+            onPress={() => {
+              Dialog.debugMessage({
+                debugMessage: importProgress?.stats,
+              });
+            }}
+          >
+            <SizableText size="$bodyLg" textAlign="center">
+              {(() => {
+                if (isDone || importProgress) {
+                  return `${intl.formatMessage(
+                    {
+                      id: ETranslations.global_import_progress,
+                    },
+                    {
+                      amount: platformEnv.isDev
+                        ? `${importProgress?.current || 0}/${
+                            importProgress?.total || 0
+                          } ${progressPercentage}%`
+                        : importProgress?.current ?? 0,
+                    },
+                  )} ${progressPercentage}%`;
+                }
+                if (isCancelled) {
                   return intl.formatMessage({
-                    id: ETranslations.transfer_transfer_loading,
+                    id: ETranslations.global_cancel,
                   });
-                })()}
-              </SizableText>
-            </MultipleClickStack>
-          </XStack>
-        </Stack>
-      </Stack>
+                }
+                if (hasError) {
+                  return intl.formatMessage({
+                    id: ETranslations.global_an_error_occurred,
+                  });
+                }
+                return intl.formatMessage({
+                  id: ETranslations.transfer_transfer_loading,
+                });
+              })()}
+            </SizableText>
+          </MultipleClickStack>
+        </XStack>
+      </YStack>
 
       <Dialog.Footer
         showCancelButton={false}
@@ -236,8 +217,8 @@ export function showPrimeTransferImportProcessingDialog({
   closeAfterCancel?: boolean;
   closeAfterError?: boolean;
 }) {
-  Dialog.show({
-    showExitButton: false,
+  return Dialog.show({
+    showExitButton: !!platformEnv.isDev,
     dismissOnOverlayPress: false,
     onCancel() {
       void backgroundApiProxy.servicePrimeTransfer.resetImportProgress();

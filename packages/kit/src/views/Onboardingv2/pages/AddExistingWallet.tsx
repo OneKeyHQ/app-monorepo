@@ -17,6 +17,7 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useUserWalletProfile } from '../../../hooks/useUserWalletProfile';
 import useLiteCard from '../../LiteCard/hooks/useLiteCard';
+import { showPrimeTransferImportProcessingDialog } from '../../Prime/pages/PagePrimeTransfer/components/PrimeTransferImportProcessingDialog';
 import { OnboardingLayout } from '../components/OnboardingLayout';
 import { useCloudBackup } from '../hooks/useCloudBackup';
 
@@ -123,19 +124,16 @@ export default function AddExistingWallet() {
           ],
         },
         ...(() => {
-          if (platformEnv.isDev) {
-            return [
-              supportCloudBackup
-                ? {
-                    title: '===DEBUG===TestCloudBackup',
-                    icon: 'StorageOutline',
-                    onPress: startBackup,
-                    isLoading: checkLoading,
-                  }
-                : null,
-            ].filter(Boolean);
-          }
-          return [];
+          return [
+            supportCloudBackup
+              ? {
+                  title: '===DEBUG===BackUpNow',
+                  icon: 'StorageOutline',
+                  onPress: startBackup,
+                  isLoading: checkLoading,
+                }
+              : null,
+          ].filter(Boolean);
         })(),
       ].filter(Boolean),
     [

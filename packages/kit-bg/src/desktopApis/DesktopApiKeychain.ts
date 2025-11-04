@@ -1,12 +1,12 @@
 /* eslint-disable spellcheck/spell-checker */
-import _logger from 'electron-log/main';
 import {
   keychainGetItem,
   keychainHasItem,
   keychainIsICloudSyncEnabled,
   keychainRemoveItem,
   keychainSetItem,
-} from 'node-mac-icloud-keyvalue';
+} from '@onekeyfe/electron-mac-icloud';
+import _logger from 'electron-log/main';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IAppleKeyChainStorage } from '@onekeyhq/shared/src/storage/AppleKeyChainStorage/types';
