@@ -1664,7 +1664,7 @@ function ConnectYourDevicePage({
                         }}
                       >
                         {gtMd ? (
-                          <SizableText size="$headingSm">Advance</SizableText>
+                          <SizableText size="$headingSm">Advanced</SizableText>
                         ) : null}
                         <SizableText color="$textSubdued">
                           Some crypto assets and hardware features are

@@ -1,5 +1,3 @@
-import { useRoute } from '@react-navigation/core';
-
 import {
   Anchor,
   Button,
@@ -9,26 +7,12 @@ import {
   Video,
   XStack,
 } from '@onekeyhq/components';
-import type {
-  EOnboardingPagesV2,
-  IOnboardingParamListV2,
-} from '@onekeyhq/shared/src/routes/onboardingv2';
 
 import { OnboardingLayout } from '../components/OnboardingLayout';
 
 import { ConnectionIndicator } from './ConnectYourDevice';
 
-import type { RouteProp } from '@react-navigation/core';
-
 export default function ConnectQRCode() {
-  const params =
-    useRoute<
-      RouteProp<IOnboardingParamListV2, EOnboardingPagesV2.ConnectQRCode>
-    >();
-  const { deviceType } = params?.params || {};
-
-  console.log('ConnectQRCode page, deviceType:', deviceType);
-
   const STEPS = [
     'Select Connect App Wallet on home screen',
     'Tap "•••" button on the top right, then tap continue',
