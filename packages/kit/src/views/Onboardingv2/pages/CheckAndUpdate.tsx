@@ -2,7 +2,7 @@ import { useCallback, useState } from 'react';
 
 import { StyleSheet } from 'react-native';
 
-import type { IImageProps } from '@onekeyhq/components';
+import type { IImageProps, IPageScreenProps } from '@onekeyhq/components';
 import {
   AnimatePresence,
   Button,
@@ -17,13 +17,23 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import { OnboardingLayout } from '../components/OnboardingLayout';
 
-export default function CheckAndUpdate() {
+import type { KnownDevice, SearchDevice } from '@onekeyfe/hd-core';
+
+export default function CheckAndUpdate({
+  route: routeParams,
+}: IPageScreenProps<
+  IOnboardingParamListV2,
+  EOnboardingPagesV2.CheckAndUpdate
+>) {
+  const { deviceData } = routeParams?.params || {};
+  console.log('deviceData', deviceData);
   const themeVariant = useThemeVariant();
   const navigation = useAppNavigation();
   const [steps, setSteps] = useState<
@@ -65,7 +75,7 @@ export default function CheckAndUpdate() {
     },
   ]);
 
-  const handleCheck = useCallback(() => {
+  const handleCheck = useCallback(async () => {
     // Set first step to inProgress
     setSteps((prev) => {
       const newSteps = [...prev];
@@ -73,20 +83,22 @@ export default function CheckAndUpdate() {
       return newSteps;
     });
 
+    await deviceData.onPress();
+
     // Simulate first check completing after 2 seconds
-    setTimeout(() => {
-      setSteps((prev) => {
-        const newSteps = [...prev];
-        newSteps[0] = {
-          ...newSteps[0],
-          state: 'error',
-        };
-        // Start second step
-        // newSteps[1] = { ...newSteps[1], state: 'inProgress' };
-        return newSteps;
-      });
-    }, 2000);
-  }, []);
+    // setTimeout(() => {
+    //   setSteps((prev) => {
+    //     const newSteps = [...prev];
+    //     newSteps[0] = {
+    //       ...newSteps[0],
+    //       state: 'error',
+    //     };
+    //     // Start second step
+    //     // newSteps[1] = { ...newSteps[1], state: 'inProgress' };
+    //     return newSteps;
+    //   });
+    // }, 2000);
+  }, [deviceData]);
 
   const handleRetry = useCallback(() => {
     // Set first step to inProgress
@@ -537,13 +549,13 @@ export default function CheckAndUpdate() {
                   animateOnly={['opacity', 'transform']}
                   variant="primary"
                   size="large"
-                  onPress={() => handleCheck()}
+                  onPress={handleCheck}
                   exitStyle={{
                     opacity: 0,
                     scale: 0.97,
                   }}
                 >
-                  Check my OneKey Pro
+                  Check my {deviceData.title}
                 </Button>
               ) : null}
             </AnimatePresence>
