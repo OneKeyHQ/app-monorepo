@@ -87,7 +87,6 @@ import {
 import { EConnectDeviceChannel } from '@onekeyhq/shared/types/connectDevice';
 import {
   EOneKeyDeviceMode,
-  IConnectYourDeviceItem,
   type IOneKeyDeviceFeatures,
 } from '@onekeyhq/shared/types/device';
 
@@ -99,6 +98,14 @@ import { useSelectAddWalletTypeDialog } from './SelectAddWalletTypeDialog';
 
 import type { Features, IDeviceType, SearchDevice } from '@onekeyfe/hd-core';
 import type { ImageSourcePropType } from 'react-native';
+
+interface IConnectYourDeviceItem {
+  title: string;
+  src: ImageSourcePropType;
+  opacity?: number;
+  device: SearchDevice;
+  onPress: () => Promise<void>;
+}
 
 // Helper function to convert transport type enum to analytics string
 type IHardwareCommunicationType = 'Bluetooth' | 'WebUSB' | 'USB' | 'QRCode';
