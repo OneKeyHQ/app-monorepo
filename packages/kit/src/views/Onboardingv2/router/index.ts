@@ -29,6 +29,12 @@ const ICloudBackup = LazyLoadPage(() => import('../pages/ICloudBackup'));
 const ICloudBackupDetails = LazyLoadPage(
   () => import('../pages/ICloudBackupDetails'),
 );
+const ConnectWalletSelectNetworks = LazyLoadPage(
+  () => import('../pages/ConnectWalletSelectNetworks'),
+);
+const ConnectExternalWallet = LazyLoadPage(
+  () => import('../pages/ConnectExternalWallet'),
+);
 
 const hiddenHeaderOptions = {
   headerShown: false,
@@ -95,6 +101,16 @@ export const OnboardingRouterV2: IModalFlowNavigatorConfig<
   {
     name: EOnboardingPagesV2.ICloudBackupDetails,
     component: ICloudBackupDetails,
+    options: hiddenHeaderOptions,
+  },
+  {
+    name: EOnboardingPagesV2.ConnectWalletSelectNetworks,
+    component: ConnectWalletSelectNetworks,
+    options: hiddenHeaderOptions,
+  },
+  {
+    name: EOnboardingPagesV2.ConnectExternalWallet,
+    component: ConnectExternalWallet,
     options: hiddenHeaderOptions,
   },
 ];
