@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback } from 'react';
 
 import {
   Button,
@@ -116,7 +116,6 @@ function InviteRewardContent({
 }
 
 function InviteRewardPage() {
-  const navigation = useAppNavigation();
   const {
     result: summaryInfo,
     run: fetchSummaryInfo,
@@ -136,12 +135,6 @@ function InviteRewardPage() {
   );
 
   const isFetching = isLoading ?? summaryInfo === undefined;
-
-  useEffect(() => {
-    if (!isLoading && summaryInfo === undefined) {
-      navigation.replace(ETabReferFriendsRoutes.TabReferAFriend);
-    }
-  }, [isLoading, summaryInfo, navigation]);
 
   return (
     <Page>
