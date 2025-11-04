@@ -878,6 +878,7 @@ function USBOrBLEConnectionIndicator({
     };
   }, [isUSB, onConnectWebDevice, startBLEConnection, stopScan]);
 
+  console.log('devicesData', devicesData);
   return (
     <>
       <TroubleShootingButton type="usb" />
@@ -1781,10 +1782,7 @@ function ConnectYourDevicePage({
 
         if (deviceMode === EOneKeyDeviceMode.notInitialized) {
           handleNotActivatedDevicePress({ deviceType });
-          return;
         }
-
-        await selectAddWalletType({ device });
       } catch (error) {
         // Clear force transport type on device connection error
         void backgroundApiProxy.serviceHardware.clearForceTransportType();
@@ -1802,7 +1800,6 @@ function ConnectYourDevicePage({
       connectDevice,
       showFirmwareVerifyDialog,
       handleNotActivatedDevicePress,
-      selectAddWalletType,
     ],
   );
 
