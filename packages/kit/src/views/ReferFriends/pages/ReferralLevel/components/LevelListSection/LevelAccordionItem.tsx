@@ -1,3 +1,5 @@
+import { useMemo } from 'react';
+
 import { useIntl } from 'react-intl';
 
 import {
@@ -13,7 +15,10 @@ import {
 } from '@onekeyhq/components';
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type { IInviteLevelDetail } from '@onekeyhq/shared/src/referralCode/type';
+import type {
+  IInviteLevelCommissionRate,
+  IInviteLevelDetail,
+} from '@onekeyhq/shared/src/referralCode/type';
 
 export function LevelAccordionItem({
   level,
@@ -23,8 +28,33 @@ export function LevelAccordionItem({
   isCurrent: boolean;
 }) {
   const intl = useIntl();
-  const hardwareSalesRate = level.commissionRates.HardwareSales;
-  const onchainRate = level.commissionRates.Onchain;
+  const commissionRateItems = useMemo(() => {
+    const rates = level.commissionRates;
+    if (!rates) {
+      return [] as { subject: string; rate: IInviteLevelCommissionRate }[];
+    }
+    if (Array.isArray(rates)) {
+      return rates.map((rate, index) => ({
+        subject: rate.subject ?? rate.labelKey ?? `${index}`,
+        rate,
+      }));
+    }
+    return Object.entries(rates).map(([subject, rate]) => ({
+      subject,
+
+      rate: { ...rate, subject: rate.subject ?? subject },
+    }));
+  }, [level.commissionRates]);
+  const getDefaultSubjectLabel = (subject?: string) => subject ?? '';
+  const getDisplayLabel = (labelKey?: string, fallback?: string): string => {
+    if (labelKey) {
+      return intl.formatMessage({
+        id: labelKey as any,
+        defaultMessage: fallback,
+      });
+    }
+    return fallback ?? '';
+  };
 
   return (
     <Accordion.Item value={`level-${level.level}`}>
@@ -77,51 +107,42 @@ export function LevelAccordionItem({
                 })}
               </SizableText>
 
-              <XStack gap="$4">
-                {hardwareSalesRate ? (
-                  <YStack gap="$1.5" flex={1}>
-                    <XStack gap="$2" ai="center">
-                      <Icon name="OnekeyLiteOutline" size="$5" />
-                      <SizableText size="$bodyMd">Hardware sales</SizableText>
-                    </XStack>
-                    <SizableText size="$bodyMd" color="$textSubdued">
-                      Rebate:{' '}
-                      <SizableText size="$bodyMdMedium" color="$textSuccess">
-                        {hardwareSalesRate.rebate}%
+              <YStack gap="$3">
+                {commissionRateItems.map(({ subject, rate }, index) => {
+                  const normalizedSubject = rate.subject ?? subject;
+                  const label = getDisplayLabel(
+                    rate.commissionRatesLabelKey || rate.labelKey,
+                    rate.commissionRatesLabel ??
+                      rate.label ??
+                      getDefaultSubjectLabel(normalizedSubject),
+                  );
+                  const rebateLabel = getDisplayLabel(
+                    rate.rebateLabelKey,
+                    rate.rebateLabel ?? 'Rebate',
+                  );
+                  const discountLabel = getDisplayLabel(
+                    rate.discountLabelKey,
+                    rate.discountLabel ?? 'Discount',
+                  );
+                  return (
+                    <YStack key={normalizedSubject || `${index}`} gap="$1.5">
+                      <SizableText size="$bodyMd">{label}</SizableText>
+                      <SizableText size="$bodyMd" color="$textSubdued">
+                        {rebateLabel}:{' '}
+                        <SizableText size="$bodyMdMedium" color="$textSuccess">
+                          {rate.rebate}%
+                        </SizableText>
                       </SizableText>
-                    </SizableText>
-                    <SizableText size="$bodyMd" color="$textSubdued">
-                      Discount:{' '}
-                      <SizableText size="$bodyMdMedium" color="$textSuccess">
-                        {hardwareSalesRate.discount}%
+                      <SizableText size="$bodyMd" color="$textSubdued">
+                        {discountLabel}:{' '}
+                        <SizableText size="$bodyMdMedium" color="$textSuccess">
+                          {rate.discount}%
+                        </SizableText>
                       </SizableText>
-                    </SizableText>
-                  </YStack>
-                ) : null}
-
-                {onchainRate ? (
-                  <YStack gap="$1.5" flex={1}>
-                    <XStack gap="$2" ai="center">
-                      <Icon name="CoinsOutline" size="$5" />
-                      <SizableText size="$bodyMd">
-                        DeFi performance fee
-                      </SizableText>
-                    </XStack>
-                    <SizableText size="$bodyMd" color="$textSubdued">
-                      Rebate:{' '}
-                      <SizableText size="$bodyMdMedium" color="$textSuccess">
-                        {onchainRate.rebate}%
-                      </SizableText>
-                    </SizableText>
-                    <SizableText size="$bodyMd" color="$textSubdued">
-                      Discount:{' '}
-                      <SizableText size="$bodyMdMedium" color="$textSuccess">
-                        {onchainRate.discount}%
-                      </SizableText>
-                    </SizableText>
-                  </YStack>
-                ) : null}
-              </XStack>
+                    </YStack>
+                  );
+                })}
+              </YStack>
             </YStack>
 
             {level.upgradeConditions.length > 0 ? (
@@ -136,9 +157,12 @@ export function LevelAccordionItem({
                   {level.upgradeConditions.map((condition, index) => (
                     <XStack key={index} jc="space-between" ai="center">
                       <SizableText size="$bodyMd" color="$textSubdued">
-                        {condition.subject === 'HardwareSales'
-                          ? 'Hardware sales'
-                          : 'DeFi performance fee'}
+                        {getDisplayLabel(
+                          condition.levelUpLabelKey,
+                          condition.levelUpLabel ??
+                            condition.label ??
+                            getDefaultSubjectLabel(condition.subject),
+                        )}
                       </SizableText>
                       <Currency size="$bodyMd" formatter="value">
                         {condition.thresholdFiatValue}
