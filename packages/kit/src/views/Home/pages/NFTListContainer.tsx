@@ -337,10 +337,6 @@ function NFTListContainer() {
     };
   }, [handleRefreshAllNetworkData, isFocused, network?.isAllNetworks, run]);
 
-  // if (wallet && wallet.type === WALLET_TYPE_HD && !wallet.backuped) {
-  //   return null;
-  // }
-
   return (
     <NFTListView
       onRefresh={onHomePageRefresh}
