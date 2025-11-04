@@ -6,7 +6,6 @@ import { AnimatePresence, Page, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useReferFriends } from '@onekeyhq/kit/src/hooks/useReferFriends';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
@@ -25,7 +24,6 @@ function ReferAFriendPage({ postConfig }: IReferAFriendPageProps) {
   const [phaseState, setPhaseState] = useState<EPhaseState | undefined>(
     EPhaseState.next,
   );
-  const navigation = useAppNavigation();
   const { toInviteRewardPage } = useReferFriends();
 
   return (
@@ -58,7 +56,6 @@ function ReferAFriendPage({ postConfig }: IReferAFriendPageProps) {
           await backgroundApiProxy.serviceSpotlight.firstVisitTour(
             ESpotlightTour.referAFriend,
           );
-          navigation.popStack();
           setTimeout(() => {
             void toInviteRewardPage();
           }, 200);
