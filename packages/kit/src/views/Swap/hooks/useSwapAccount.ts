@@ -275,9 +275,10 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
         address: isAllNetwork
           ? accountForAllNet?.addressDetail?.address
           : swapToAnotherAccountAddressAtom.address,
-        networkId: isAllNetwork
-          ? tokenNetworkId
-          : swapToAnotherAccountAddressAtom.networkId,
+        networkId:
+          isAllNetwork && tokenNetworkId
+            ? tokenNetworkId
+            : swapToAnotherAccountAddressAtom.networkId,
         accountInfo: swapToAnotherAccountAddressAtom.accountInfo,
         activeAccount: { ...activeAccount },
       };
@@ -288,7 +289,10 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
         address: isAllNetwork
           ? accountForAllNet?.addressDetail?.address
           : activeAccount.account?.address,
-        networkId: isAllNetwork ? tokenNetworkId : activeAccount.network?.id,
+        networkId:
+          isAllNetwork && tokenNetworkId
+            ? tokenNetworkId
+            : activeAccount.network?.id,
         accountInfo: { ...activeAccount },
         activeAccount: { ...activeAccount },
       };
