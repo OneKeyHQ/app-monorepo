@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { StyleSheet } from 'react-native';
 
@@ -36,6 +36,14 @@ export default function CheckAndUpdate({
   console.log('deviceData', deviceData);
   const themeVariant = useThemeVariant();
   const navigation = useAppNavigation();
+
+  const deviceLabel = useMemo(() => {
+    if ((deviceData.device as KnownDevice)?.label) {
+      return (deviceData.device as KnownDevice).label;
+    }
+    return (deviceData.device as SearchDevice).name;
+  }, [deviceData]);
+
   const [steps, setSteps] = useState<
     {
       image: IImageProps['source'];
@@ -53,7 +61,7 @@ export default function CheckAndUpdate({
           ? require('@onekeyhq/kit/assets/onboarding/genuine-check.png')
           : require('@onekeyhq/kit/assets/onboarding/genuine-check-dark.png'),
       title: 'Genuine check',
-      description: 'Make sure your OneKey Pro is authentic',
+      description: `Make sure your ${deviceLabel} is authentic`,
       state: 'idle',
     },
     {
@@ -63,7 +71,7 @@ export default function CheckAndUpdate({
           ? require('@onekeyhq/kit/assets/onboarding/firmware-check.png')
           : require('@onekeyhq/kit/assets/onboarding/firmware-check-dark.png'),
       title: 'Firmware check',
-      description: 'See if your OneKey Pro has the latest software',
+      description: `See if your ${deviceLabel} has the latest software`,
       state: 'idle',
     },
     {
@@ -191,31 +199,33 @@ export default function CheckAndUpdate({
     });
   }, []);
 
-  const DEVICE_SETUP_INSTRUCTIONS = [
-    {
-      title: 'Choose your setup option',
-      details: [
-        'Create New Wallet: If this is your first wallet',
-        'Import Wallet: If you have an existing recovery phrase',
-      ],
-    },
-    {
-      title: 'Setup PIN',
-      details: [
-        'Set a PIN of at least 4 on your device',
-        "Remember this PIN — you'll need it to unlock your device",
-      ],
-    },
-    {
-      title: 'Setup recovery phrase',
-      details: [
-        "If you don't have a recovery phrase yet, write down the one shown on your device",
-        'If you already have one, make sure it matches',
-        'Keep your device charging during the process',
-        'Do not power off or lock the device',
-      ],
-    },
-  ];
+  const DEVICE_SETUP_INSTRUCTIONS = useMemo(() => {
+    return [
+      {
+        title: 'Choose your setup option',
+        details: [
+          'Create New Wallet: If this is your first wallet',
+          'Import Wallet: If you have an existing recovery phrase',
+        ],
+      },
+      {
+        title: 'Setup PIN',
+        details: [
+          'Set a PIN of at least 4 on your device',
+          "Remember this PIN — you'll need it to unlock your device",
+        ],
+      },
+      {
+        title: 'Setup recovery phrase',
+        details: [
+          "If you don't have a recovery phrase yet, write down the one shown on your device",
+          'If you already have one, make sure it matches',
+          'Keep your device charging during the process',
+          'Do not power off or lock the device',
+        ],
+      },
+    ];
+  }, []);
 
   return (
     <Page>
@@ -555,7 +565,7 @@ export default function CheckAndUpdate({
                     scale: 0.97,
                   }}
                 >
-                  Check my {deviceData.title}
+                  Check my {deviceLabel}
                 </Button>
               ) : null}
             </AnimatePresence>

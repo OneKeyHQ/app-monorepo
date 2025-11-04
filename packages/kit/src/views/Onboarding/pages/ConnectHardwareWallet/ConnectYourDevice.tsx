@@ -188,14 +188,6 @@ const trackHardwareWalletConnection = async ({
   });
 };
 
-type IConnectYourDeviceItem = {
-  title: string;
-  src: ImageSourcePropType;
-  onPress: () => void | Promise<void>;
-  opacity?: number;
-  device: SearchDevice | undefined;
-};
-
 function DeviceListItem({ item }: { item: IConnectYourDeviceItem }) {
   const [isLoading, setIsLoading] = useState(false);
 
