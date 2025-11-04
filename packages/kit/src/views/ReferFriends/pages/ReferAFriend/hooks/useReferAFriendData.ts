@@ -9,11 +9,18 @@ import type { IInvitePostConfig } from '@onekeyhq/shared/src/referralCode/type';
 import { ETabReferFriendsRoutes } from '@onekeyhq/shared/src/routes';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 
+import { useLoginStatusChange } from './useLoginStatusChange';
+
 export function useReferAFriendData() {
   const navigation = useAppNavigation();
   const [postConfig, setPostConfig] = useState<IInvitePostConfig | undefined>(
     undefined,
   );
+
+  // Monitor login status changes and auto-navigate when user logs in
+  useLoginStatusChange(() => {
+    navigation.replace(ETabReferFriendsRoutes.TabInviteReward);
+  });
 
   useEffect(() => {
     // Fetch post configuration
