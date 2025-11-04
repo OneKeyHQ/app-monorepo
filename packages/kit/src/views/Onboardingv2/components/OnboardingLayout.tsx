@@ -57,22 +57,20 @@ function OnboardingLayoutLanguageSelector() {
         placement="bottom-end"
         floatingPanelProps={{ maxHeight: 280 }}
         sheetProps={{ snapPoints: [80], snapPointsMode: 'percent' }}
-        renderTrigger={({ label }) => (
-          <>
-            {gtMd ? (
-              <Button
-                size="small"
-                icon="GlobusOutline"
-                variant="tertiary"
-                ml="auto"
-              >
-                {label}
-              </Button>
-            ) : (
-              <IconButton icon="GlobusOutline" variant="tertiary" ml="auto" />
-            )}
-          </>
-        )}
+        renderTrigger={({ label }) =>
+          gtMd ? (
+            <Button
+              size="small"
+              icon="GlobusOutline"
+              variant="tertiary"
+              ml="auto"
+            >
+              {label}
+            </Button>
+          ) : (
+            <IconButton icon="GlobusOutline" variant="tertiary" ml="auto" />
+          )
+        }
       />
     </YStack>
   );
