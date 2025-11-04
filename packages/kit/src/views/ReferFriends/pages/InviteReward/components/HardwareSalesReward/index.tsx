@@ -20,14 +20,14 @@ import { ETabReferFriendsRoutes } from '@onekeyhq/shared/src/routes';
 import { FiatValue } from '../shared/FiatValue';
 import { NoRewardYet } from '../shared/NoRewardYet';
 
-import type { IDashboardProps } from './types';
+import type { IHardwareSalesRewardProps } from './types';
 
-export function Dashboard({
+export function HardwareSalesReward({
   hardwareSales,
   levelPercent: _levelPercent,
   rebateLevels: _rebateLevels,
   rebateConfig,
-}: IDashboardProps) {
+}: IHardwareSalesRewardProps) {
   const navigation = useAppNavigation();
   const intl = useIntl();
 

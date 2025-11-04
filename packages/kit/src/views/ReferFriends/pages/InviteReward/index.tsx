@@ -16,7 +16,7 @@ import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { CumulativeRewards } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/CumulativeRewards';
-import { Dashboard } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/Dashboard';
+import { HardwareSalesReward } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/HardwareSalesReward';
 import { FAQ } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/FAQ';
 import { OnChainReward } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/OnChainReward';
 import { ReferralCodeCard } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/ReferralCodeCard';
@@ -104,7 +104,7 @@ function InviteRewardContent({
         </Button>
       </YStack>
       <YStack py="$8" px="$5" gap="$5">
-        <Dashboard
+        <HardwareSalesReward
           hardwareSales={HardwareSales}
           levelPercent={Number(levelPercent)}
           rebateLevels={rebateLevels}
