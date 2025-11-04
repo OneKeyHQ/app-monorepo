@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { StyleSheet } from 'react-native';
 
@@ -17,8 +17,13 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
+import type { IFirmwareVerifyResult } from '@onekeyhq/shared/types/device';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
@@ -52,6 +57,7 @@ export default function CheckAndUpdate({
       description?: string;
       state?: 'idle' | 'inProgress' | 'warning' | 'success' | 'error';
       neededAction?: boolean;
+      errorMessage?: string;
     }[]
   >([
     {
@@ -83,6 +89,31 @@ export default function CheckAndUpdate({
     },
   ]);
 
+  useEffect(() => {
+    const callback = (result: IFirmwareVerifyResult) => {
+      console.log('EmitFirmwareVerifyResult', result);
+      setSteps((prev) => {
+        const newSteps = [...prev];
+        newSteps[0] = {
+          ...newSteps[0],
+          state: result.verified ? 'success' : 'error',
+          errorMessage: result.result?.message ?? undefined,
+        };
+        if (result.verified) {
+          newSteps[1] = {
+            ...newSteps[1],
+            state: 'inProgress',
+          };
+        }
+        return newSteps;
+      });
+    };
+    appEventBus.on(EAppEventBusNames.EmitFirmwareVerifyResult, callback);
+    return () => {
+      appEventBus.off(EAppEventBusNames.EmitFirmwareVerifyResult, callback);
+    };
+  }, []);
+
   const handleCheck = useCallback(async () => {
     // Set first step to inProgress
     setSteps((prev) => {
@@ -91,24 +122,10 @@ export default function CheckAndUpdate({
       return newSteps;
     });
 
-    await deviceData.onPress();
-
-    // Simulate first check completing after 2 seconds
-    // setTimeout(() => {
-    //   setSteps((prev) => {
-    //     const newSteps = [...prev];
-    //     newSteps[0] = {
-    //       ...newSteps[0],
-    //       state: 'error',
-    //     };
-    //     // Start second step
-    //     // newSteps[1] = { ...newSteps[1], state: 'inProgress' };
-    //     return newSteps;
-    //   });
-    // }, 2000);
+    await deviceData.onFirmwareVerified();
   }, [deviceData]);
 
-  const handleRetry = useCallback(() => {
+  const handleRetry = useCallback(async () => {
     // Set first step to inProgress
     setSteps((prev) => {
       const newSteps = [...prev];
@@ -116,28 +133,8 @@ export default function CheckAndUpdate({
       return newSteps;
     });
 
-    // After 2 seconds, set first step to success and start second step
-    setTimeout(() => {
-      setSteps((prev) => {
-        const newSteps = [...prev];
-        newSteps[0] = {
-          ...newSteps[0],
-          state: 'success',
-        };
-        newSteps[1] = { ...newSteps[1], state: 'inProgress' };
-        return newSteps;
-      });
-
-      // After another 2 seconds, set firmware check to warning
-      setTimeout(() => {
-        setSteps((prev) => {
-          const newSteps = [...prev];
-          newSteps[1] = { ...newSteps[1], state: 'warning' };
-          return newSteps;
-        });
-      }, 2000);
-    }, 2000);
-  }, []);
+    await handleCheck();
+  }, [handleCheck]);
 
   const handleDeviceSetupDone = useCallback(() => {
     // Set setup-on-device step to inProgress
@@ -536,7 +533,7 @@ export default function CheckAndUpdate({
                           flex={1}
                           textAlign="left"
                         >
-                          Something wrong
+                          {step.errorMessage ?? 'Something wrong'}
                         </SizableText>
                         <XStack gap="$2">
                           <Button

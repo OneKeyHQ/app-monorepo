@@ -87,6 +87,7 @@ import {
 import { EConnectDeviceChannel } from '@onekeyhq/shared/types/connectDevice';
 import {
   EOneKeyDeviceMode,
+  IConnectYourDeviceItem,
   type IOneKeyDeviceFeatures,
 } from '@onekeyhq/shared/types/device';
 

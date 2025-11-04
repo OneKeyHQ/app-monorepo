@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { EDeviceType, HardwareErrorCode } from '@onekeyfe/hd-shared';
-import { useIsFocused, useRoute } from '@react-navigation/core';
+import { useIsFocused } from '@react-navigation/core';
 import { get, isString } from 'lodash';
 import natsort from 'natsort';
 import { useIntl } from 'react-intl';
@@ -68,7 +68,10 @@ import {
 } from '@onekeyhq/shared/types';
 import { EConnectDeviceChannel } from '@onekeyhq/shared/types/connectDevice';
 import { EOneKeyDeviceMode } from '@onekeyhq/shared/types/device';
-import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types/device';
+import type {
+  IConnectYourDeviceItem,
+  IOneKeyDeviceFeatures,
+} from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector/AccountSelectorProvider';
@@ -93,13 +96,6 @@ import { OnboardingLayout } from '../components/OnboardingLayout';
 import type { Features, IDeviceType, SearchDevice } from '@onekeyfe/hd-core';
 import type { ImageSourcePropType } from 'react-native';
 
-type IConnectYourDeviceItem = {
-  title: string;
-  src: ImageSourcePropType;
-  onPress: () => void | Promise<void>;
-  opacity?: number;
-  device: SearchDevice | undefined;
-};
 // Helper function to convert transport type enum to analytics string
 type IHardwareCommunicationType = 'Bluetooth' | 'WebUSB' | 'USB' | 'QRCode';
 // TODO: update this function to use the new transport type
@@ -215,9 +211,14 @@ function BridgeNotInstalledDialogContent(_props: { error: NeedOneKeyBridge }) {
 function useDeviceConnection({
   tabValue,
   onDeviceConnect,
+  onSelectAddWalletType,
 }: {
   tabValue: EConnectDeviceChannel;
   onDeviceConnect: (device: SearchDevice) => Promise<void>;
+  onSelectAddWalletType: (params: {
+    device: SearchDevice;
+    isFirmwareVerified: boolean;
+  }) => Promise<void>;
 }) {
   const intl = useIntl();
   const [connectStatus, setConnectStatus] = useState(EConnectionStatus.init);
@@ -425,13 +426,20 @@ function useDeviceConnection({
         title: item.name,
         src: HwWalletAvatarImages[getDeviceAvatarImage(item.deviceType)],
         device: item,
-        onPress: async () => {
+        onFirmwareVerified: async () => {
           // Ensure device scanning is completely stopped before connecting
           await ensureStopScan();
           await onDeviceConnect(item);
         },
+        onCreateWallet: async () => {
+          await ensureStopScan();
+          await onSelectAddWalletType({
+            device: item,
+            isFirmwareVerified: true,
+          });
+        },
       })),
-    [searchedDevices, onDeviceConnect, ensureStopScan],
+    [searchedDevices, onSelectAddWalletType, ensureStopScan, onDeviceConnect],
   );
 
   return {
@@ -668,9 +676,14 @@ export const ConnectionIndicator = Object.assign(ConnectionIndicatorRoot, {
 function USBConnectionIndicator({
   tabValue,
   onDeviceConnect,
+  onSelectAddWalletType,
 }: {
   tabValue: EConnectDeviceChannel;
   onDeviceConnect: (device: SearchDevice) => Promise<void>;
+  onSelectAddWalletType: (params: {
+    device: SearchDevice;
+    isFirmwareVerified: boolean;
+  }) => Promise<void>;
 }) {
   const themeVariant = useThemeVariant();
   const intl = useIntl();
@@ -682,6 +695,7 @@ function USBConnectionIndicator({
   const deviceConnection = useDeviceConnection({
     tabValue,
     onDeviceConnect,
+    onSelectAddWalletType,
   });
 
   const {
@@ -1402,7 +1416,6 @@ function ConnectYourDevicePage({
       isFirmwareVerified,
     }: {
       device: SearchDevice;
-      features: IOneKeyDeviceFeatures;
       isFirmwareVerified?: boolean;
     }) => {
       setIsChecking(true);
@@ -1587,14 +1600,7 @@ function ConnectYourDevicePage({
               setIsChecking(false);
               if (deviceMode === EOneKeyDeviceMode.notInitialized) {
                 handleNotActivatedDevicePress({ deviceType });
-                return;
               }
-
-              await selectAddWalletType({
-                device,
-                isFirmwareVerified: checked,
-                features,
-              });
             },
             onClose: () => {
               setIsChecking(false);
@@ -1608,7 +1614,7 @@ function ConnectYourDevicePage({
           return;
         }
 
-        await selectAddWalletType({ device, features });
+        await selectAddWalletType({ device });
       } catch (error) {
         // Clear force transport type on device connection error
         void backgroundApiProxy.serviceHardware.clearForceTransportType();
@@ -1703,6 +1709,7 @@ function ConnectYourDevicePage({
               <USBConnectionIndicator
                 tabValue={tabValue}
                 onDeviceConnect={handleDeviceConnect}
+                onSelectAddWalletType={selectAddWalletType}
               />
             ) : null}
             {tabValue === EConnectDeviceChannel.bluetooth ? (

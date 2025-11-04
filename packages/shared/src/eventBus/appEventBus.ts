@@ -42,6 +42,7 @@ import type { IAccountToken, ITokenFiat } from '../../types/token';
 import type { IOneKeyError } from '../errors/types/errorTypes';
 import type { IWalletConnectSession } from '../walletConnect/types';
 import type { FuseResult } from 'fuse.js';
+import { IFirmwareVerifyResult } from '../../types/device';
 
 // Supported hardware error types for dialog display
 export const HARDWARE_ERROR_DIALOG_TYPES = {
@@ -393,6 +394,7 @@ export interface IAppEventBusPayload {
     retry?: number;
     message?: string;
   };
+  [EAppEventBusNames.EmitFirmwareVerifyResult]: IFirmwareVerifyResult;
 }
 
 export enum EEventBusBroadcastMethodNames {
