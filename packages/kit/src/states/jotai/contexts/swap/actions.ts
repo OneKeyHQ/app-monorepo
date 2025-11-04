@@ -924,7 +924,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         });
         return;
       }
-
       if (
         fromToken &&
         !swapFromAddressInfo.address &&
@@ -932,6 +931,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           walletId: swapFromAddressInfo.accountInfo?.wallet?.id,
         }) &&
         !accountUtils.isHwWallet({
+          walletId: swapFromAddressInfo.accountInfo?.wallet?.id,
+        }) &&
+        !accountUtils.isQrWallet({
           walletId: swapFromAddressInfo.accountInfo?.wallet?.id,
         })
       ) {
