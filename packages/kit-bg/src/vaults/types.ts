@@ -1,4 +1,5 @@
 import type { IAdaAmount } from '@onekeyhq/core/src/chains/ada/types';
+import type { IXrpMemoField } from '@onekeyhq/core/src/chains/xrp/types';
 import type {
   EAddressEncodings,
   ECoreApiExportedSecretKeyType,
@@ -444,6 +445,8 @@ export type IHwAllNetworkPrepareAccountsItem =
 
       derivedPath?: string; // alph
     };
+
+    useTweak?: boolean; // kaspa
   };
 
 export type IHwAllNetworkPrepareAccountsResponse =
@@ -502,6 +505,8 @@ export type ITransferInfo = {
   note?: string; // Algo chain note
 
   hexData?: string; // evm tx hex data
+
+  xrpMemoFields?: IXrpMemoField[]; // https://xrpl.org/docs/references/protocol/transactions/common-fields#memos-field
 };
 
 export type IApproveInfo = {

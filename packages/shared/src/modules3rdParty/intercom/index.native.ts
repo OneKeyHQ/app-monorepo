@@ -16,3 +16,9 @@ export const showIntercom = async () => {
 
   openUrlUtils.openUrlInApp(url, 'Support');
 };
+
+// Empty update function for native compatibility
+// Native doesn't use the Intercom SDK, so this is a no-op
+export const update = () => {
+  // No-op for native
+};

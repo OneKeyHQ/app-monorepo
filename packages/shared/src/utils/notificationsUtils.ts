@@ -101,7 +101,9 @@ export async function navigateToNotificationDetailByLocalParams({
     }
   }
   if (screen === ERootRoutes.Main) {
-    appGlobals.$navigationRef.current?.goBack?.();
+    if (appGlobals.$navigationRef.current?.canGoBack()) {
+      appGlobals.$navigationRef.current?.goBack?.();
+    }
     await timerUtils.wait(350);
     appGlobals.$navigationRef.current?.navigate(screen, navigationParams);
   } else {
@@ -119,6 +121,7 @@ export interface INavigateToNotificationDetailParams {
   mode?: ENotificationPushMessageMode;
   payload?: string;
   topicType?: ENotificationPushTopicTypes;
+  isRead?: boolean;
 }
 
 export function parseNotificationPayload(
@@ -172,18 +175,21 @@ async function navigateToNotificationDetail({
   mode,
   payload,
   topicType,
+  isRead = false,
 }: INavigateToNotificationDetailParams) {
   let routes: string[] = [];
   let params: any = {};
   let shouldAckRead = true;
 
-  setTimeout(() => {
-    defaultLogger.app.page.notificationItemClicked(
-      notificationId,
-      topicType || 'unknown',
-      isFromNotificationClick ? 'notificationClick' : 'notificationListClick',
-    );
-  });
+  if (!isRead) {
+    setTimeout(() => {
+      defaultLogger.app.page.notificationItemClicked(
+        notificationId,
+        topicType || 'unknown',
+        isFromNotificationClick ? 'app' : 'system',
+      );
+    });
+  }
 
   if (isFromNotificationClick) {
     const statusRoutes = appGlobals.$navigationRef.current?.getState().routes;

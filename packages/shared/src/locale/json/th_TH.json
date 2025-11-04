@@ -2684,8 +2684,8 @@
   "referral.your_referred_wallets_1address": "1 ที่อยู่",
   "referral.your_referred_wallets_details": "รายละเอียด",
   "referral.your_referred_wallets_more_address": "{amount} ที่อยู่",
-  "referral_code_tutorial_label": "How to get a referral code?",
-  "referral_promo_title": "Join the OneKey Referral Program",
+  "referral_code_tutorial_label": "จะขอรับรหัสแนะนำได้อย่างไร?",
+  "referral_promo_title": "เข้าร่วมโปรแกรมแนะนำเพื่อน OneKey",
   "remove_account_desc": "บัญชีนี้จะถูกลบออก",
   "remove_device": "นำอุปกรณ์ออก",
   "remove_device_desc": "การดำเนินการนี้จะตัดการเชื่อมต่อกระเป๋าสตางค์ฮาร์ดแวร์นี้ออกจาก OneKey App คุณสามารถเชื่อมต่อใหม่กับ App ได้ทุกเมื่อที่ต้องการ",
@@ -3646,5 +3646,8 @@
   "wallet_backup.backup_warning": "<strong>สำรองข้อมูลกระเป๋าเงินของคุณ</strong> — ปกป้องทรัพย์สินของคุณจากการสูญหายของอุปกรณ์",
   "wallet_backup.save_recovery_phrase": "บันทึกวลีการกู้คืน",
   "wallet_backup.status_not_backed_up": "ไม่ได้สำรองข้อมูล",
+  "wallet_empty_article_deposit": "วิธีฝากคริปโตทำอย่างไร?",
+  "wallet_empty_article_deposit_faq": "เงินฝากยังมาไม่ถึงใช่ไหม?",
+  "wallet_empty_article_trade": "ฉันจะเทรดคริปโตใน OneKey ได้อย่างไร?",
   "word": "คำ"
 }

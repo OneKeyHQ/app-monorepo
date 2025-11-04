@@ -11,6 +11,7 @@ import {
   Badge,
   Button,
   Divider,
+  Empty,
   Icon,
   IconButton,
   LinearGradient,
@@ -31,16 +32,22 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
+import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { FAQ } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/FAQ';
 import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
+import { OneKeyServerApiError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IInviteSummary } from '@onekeyhq/shared/src/referralCode/type';
-import { EModalReferFriendsRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  ETabReferFriendsRoutes,
+  ETabRoutes,
+} from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -90,7 +97,7 @@ function ShareCode({
   }, [inviteUrl]);
 
   const toYourReferredPage = useCallback(() => {
-    navigation.push(EModalReferFriendsRoutes.YourReferred);
+    navigation.push(ETabReferFriendsRoutes.TabYourReferred);
   }, [navigation]);
   const intl = useIntl();
   const sharedUrl = useMemo(() => `https://${inviteCodeUrl}`, [inviteCodeUrl]);
@@ -390,7 +397,7 @@ function Dashboard({
   const isNewEditWithdrawAddress = withdrawAddresses.length === 0;
 
   const toEditAddressPage = useCallback(() => {
-    navigation.push(EModalReferFriendsRoutes.EditAddress, {
+    navigation.push(ETabReferFriendsRoutes.TabEditAddress, {
       enabledNetworks,
       accountId: activeAccount.account?.id ?? '',
       address: withdrawAddresses[0]?.address,
@@ -420,17 +427,17 @@ function Dashboard({
   ]);
 
   const toEarnRewardPage = useCallback(() => {
-    navigation.push(EModalReferFriendsRoutes.EarnReward, {
+    navigation.push(ETabReferFriendsRoutes.TabEarnReward, {
       title: onChain.title || '',
     });
   }, [navigation, onChain.title]);
 
   const toHardwareSalesRewardPage = useCallback(() => {
-    navigation.push(EModalReferFriendsRoutes.HardwareSalesReward);
+    navigation.push(ETabReferFriendsRoutes.TabHardwareSalesReward);
   }, [navigation]);
 
   const toRewardDistributionHistoryPage = useCallback(() => {
-    navigation.push(EModalReferFriendsRoutes.RewardDistributionHistory);
+    navigation.push(ETabReferFriendsRoutes.TabRewardDistributionHistory);
   }, [navigation]);
 
   const showEarnSalesAvailableFiat = (onChain.available?.length || 0) > 0;
@@ -712,64 +719,72 @@ function Dashboard({
               {renderNextStage()}
             </XStack>
           </YStack>
-          {showHardwareSalesAvailableFiat || showHardwarePendingFiat ? (
-            <XStack gap="$2" pt="$4">
-              {hardwareSales.available?.[0]?.token?.networkId ||
-              hardwareSales.pending?.[0]?.token?.networkId ? (
-                <Token
-                  size="xs"
-                  tokenImageUri={
-                    hardwareSales.available?.[0]?.token?.logoURI ||
-                    hardwareSales.pending?.[0]?.token?.logoURI
-                  }
-                />
-              ) : null}
-              <SizableText size="$bodyMd">
-                <NumberSizeableText
-                  formatter="value"
-                  size="$bodyMd"
-                  formatterOptions={{
-                    tokenSymbol: hardwareSales.available?.[0]?.token?.symbol,
-                  }}
-                >
-                  {hardwareSales.available?.[0]?.amount || 0}
-                </NumberSizeableText>
-                {hardwareSales.available?.[0]?.amount ? (
-                  <FiatValue
-                    fiatValue={hardwareSales.available?.[0]?.fiatValue}
+          {(() => {
+            if (!showHardwareSalesAvailableFiat && !showHardwarePendingFiat) {
+              return <NoRewardYet />;
+            }
+
+            const hasTokenNetworkId =
+              hardwareSales.available?.[0]?.token?.networkId ||
+              hardwareSales.pending?.[0]?.token?.networkId;
+
+            return (
+              <XStack gap="$2" pt="$4">
+                {hasTokenNetworkId ? (
+                  <Token
+                    size="xs"
+                    tokenImageUri={
+                      hardwareSales.available?.[0]?.token?.logoURI ||
+                      hardwareSales.pending?.[0]?.token?.logoURI
+                    }
                   />
                 ) : null}
-                {showHardwarePendingFiat ? (
-                  <>
-                    <SizableText size="$bodyMd">{` + `}</SizableText>
-                    <NumberSizeableText
-                      formatter="value"
-                      size="$bodyMd"
-                      formatterOptions={{
-                        tokenSymbol: hardwareSales.pending?.[0]?.token.symbol,
-                      }}
-                    >
-                      {hardwareSales.pending?.[0]?.amount || 0}
-                    </NumberSizeableText>
-                    {hardwareSales.pending?.[0]?.amount ? (
-                      <FiatValue
-                        fiatValue={hardwareSales.pending?.[0]?.fiatValue}
-                      />
-                    ) : null}
-                  </>
-                ) : null}
-              </SizableText>
-              {showHardwarePendingFiat ? (
-                <SizableText size="$bodyMd" color="$textSubdued">
-                  {intl.formatMessage({
-                    id: ETranslations.referral_sales_reward_pending,
-                  })}
+                <SizableText size="$bodyMd">
+                  <NumberSizeableText
+                    formatter="value"
+                    size="$bodyMd"
+                    formatterOptions={{
+                      tokenSymbol: hardwareSales.available?.[0]?.token?.symbol,
+                    }}
+                  >
+                    {hardwareSales.available?.[0]?.amount || 0}
+                  </NumberSizeableText>
+                  {hardwareSales.available?.[0]?.amount ? (
+                    <FiatValue
+                      fiatValue={hardwareSales.available?.[0]?.fiatValue}
+                    />
+                  ) : null}
+                  {showHardwarePendingFiat ? (
+                    <>
+                      <SizableText size="$bodyMd">{` + `}</SizableText>
+                      <NumberSizeableText
+                        formatter="value"
+                        size="$bodyMd"
+                        formatterOptions={{
+                          tokenSymbol:
+                            hardwareSales.pending?.[0]?.token?.symbol,
+                        }}
+                      >
+                        {hardwareSales.pending?.[0]?.amount || 0}
+                      </NumberSizeableText>
+                      {hardwareSales.pending?.[0]?.amount ? (
+                        <FiatValue
+                          fiatValue={hardwareSales.pending?.[0]?.fiatValue}
+                        />
+                      ) : null}
+                    </>
+                  ) : null}
                 </SizableText>
-              ) : null}
-            </XStack>
-          ) : (
-            <NoRewardYet />
-          )}
+                {showHardwarePendingFiat ? (
+                  <SizableText size="$bodyMd" color="$textSubdued">
+                    {intl.formatMessage({
+                      id: ETranslations.referral_sales_reward_pending,
+                    })}
+                  </SizableText>
+                ) : null}
+              </XStack>
+            );
+          })()}
         </YStack>
       </YStack>
       <YStack
@@ -900,75 +915,6 @@ function Dashboard({
   );
 }
 
-function FAQ({ faqs }: { faqs: IInviteSummary['faqs'] }) {
-  const intl = useIntl();
-  return (
-    <YStack gap="$6" px="$5" py="$8">
-      <SizableText size="$headingLg">
-        {intl.formatMessage({ id: ETranslations.global_faqs })}
-      </SizableText>
-      <YStack>
-        <Accordion type="multiple" gap="$2">
-          {faqs.map(({ q, a }, index) => (
-            <Accordion.Item value={String(index)} key={String(index)}>
-              <Accordion.Trigger
-                unstyled
-                flexDirection="row"
-                alignItems="center"
-                borderWidth={0}
-                bg="$transparent"
-                px="$2"
-                py="$1"
-                mx="$-2"
-                my="$-1"
-                hoverStyle={{
-                  bg: '$bgHover',
-                }}
-                pressStyle={{
-                  bg: '$bgActive',
-                }}
-                borderRadius="$2"
-              >
-                {({ open }: { open: boolean }) => (
-                  <>
-                    <SizableText
-                      textAlign="left"
-                      flex={1}
-                      size="$bodyLgMedium"
-                      color={open ? '$text' : '$textSubdued'}
-                    >
-                      {q}
-                    </SizableText>
-                    <Stack animation="quick" rotate={open ? '180deg' : '0deg'}>
-                      <Icon
-                        name="ChevronDownSmallOutline"
-                        color={open ? '$iconActive' : '$iconSubdued'}
-                        size="$5"
-                      />
-                    </Stack>
-                  </>
-                )}
-              </Accordion.Trigger>
-              <Accordion.HeightAnimator animation="quick">
-                <Accordion.Content
-                  unstyled
-                  pt="$2"
-                  pb="$5"
-                  animation="100ms"
-                  enterStyle={{ opacity: 0 }}
-                  exitStyle={{ opacity: 0 }}
-                >
-                  <SizableText size="$bodyMd">{a}</SizableText>
-                </Accordion.Content>
-              </Accordion.HeightAnimator>
-            </Accordion.Item>
-          ))}
-        </Accordion>
-      </YStack>
-    </YStack>
-  );
-}
-
 function Link() {
   return (
     <XStack px="$5" mb="$5">
@@ -1010,85 +956,135 @@ function InviteRewardContent({
   return (
     <>
       <ShareCode inviteUrl={inviteUrl} inviteCode={inviteCode} />
-      <AccountSelectorProviderMirror
-        config={{
-          sceneName: EAccountSelectorSceneName.home,
-        }}
-        enabledNum={[0]}
-      >
-        <Dashboard
-          enabledNetworks={enabledNetworks}
-          onChain={Onchain}
-          hardwareSales={HardwareSales}
-          cumulativeRewards={cumulativeRewards}
-          levelPercent={Number(levelPercent)}
-          rebateLevels={rebateLevels}
-          rebateConfig={rebateConfig}
-          fetchSummaryInfo={fetchSummaryInfo}
-          withdrawAddresses={withdrawAddresses}
-        />
-      </AccountSelectorProviderMirror>
-
+      <Dashboard
+        enabledNetworks={enabledNetworks}
+        onChain={Onchain}
+        hardwareSales={HardwareSales}
+        cumulativeRewards={cumulativeRewards}
+        levelPercent={Number(levelPercent)}
+        rebateLevels={rebateLevels}
+        rebateConfig={rebateConfig}
+        fetchSummaryInfo={fetchSummaryInfo}
+        withdrawAddresses={withdrawAddresses}
+      />
       <FAQ faqs={faqs} />
       <Link />
     </>
   );
 }
 
-export default function InviteReward() {
+function InviteRewardPage() {
   const intl = useIntl();
-  const { result: summaryInfo, run: fetchSummaryInfo } = usePromiseResult(
-    async () => backgroundApiProxy.serviceReferralCode.getSummaryInfo(),
+  const navigation = useAppNavigation();
+  const {
+    result: summaryInfo,
+    run: fetchSummaryInfo,
+    isLoading,
+  } = usePromiseResult(
+    async () => {
+      try {
+        return await backgroundApiProxy.serviceReferralCode.getSummaryInfo();
+      } catch (error) {
+        if (error instanceof OneKeyServerApiError) {
+          // Silently swallow known backend errors so we can show fallback UI
+          console.warn('InviteRewardPage getSummaryInfo failed:', error);
+          return undefined;
+        }
+        throw error;
+      }
+    },
     [],
     {
       initResult: undefined,
       revalidateOnFocus: true,
       revalidateOnReconnect: true,
+      undefinedResultIfError: true,
+      watchLoading: true,
     },
   );
 
-  const renderHeaderTitle = useCallback(
-    () => (
-      <XStack gap="$2">
-        <SizableText size="$headingLg">
-          {intl.formatMessage({
-            id: ETranslations.referral_title,
-          })}
-        </SizableText>
-        <Badge badgeType="info" badgeSize="sm">
-          <Badge.Text>Beta</Badge.Text>
-        </Badge>
-      </XStack>
-    ),
-    [intl],
-  );
+  const isFetching = isLoading ?? summaryInfo === undefined;
 
   return (
     <Page>
-      <Page.Header headerTitle={renderHeaderTitle} />
+      <TabPageHeader
+        sceneName={EAccountSelectorSceneName.home}
+        tabRoute={ETabRoutes.ReferFriends}
+      />
       <Page.Body>
-        {!summaryInfo ? (
-          <Stack
-            position="absolute"
-            top={0}
-            left={0}
-            right={0}
-            bottom={0}
-            ai="center"
-            jc="center"
-            flex={1}
-          >
-            <Spinner size="large" />
-          </Stack>
-        ) : (
-          <ScrollView>
-            <InviteRewardContent
-              summaryInfo={summaryInfo}
-              fetchSummaryInfo={fetchSummaryInfo}
-            />
-          </ScrollView>
-        )}
+        {(() => {
+          if (isFetching) {
+            return (
+              <Stack
+                position="absolute"
+                top={0}
+                left={0}
+                right={0}
+                bottom={0}
+                ai="center"
+                jc="center"
+                flex={1}
+              >
+                <Spinner size="large" />
+              </Stack>
+            );
+          }
+
+          if (summaryInfo) {
+            return (
+              <ScrollView>
+                <InviteRewardContent
+                  summaryInfo={summaryInfo}
+                  fetchSummaryInfo={fetchSummaryInfo}
+                />
+              </ScrollView>
+            );
+          }
+
+          return (
+            <Stack flex={1} ai="center" jc="center" px="$5">
+              <Empty
+                icon="GiftOutline"
+                title={intl.formatMessage({
+                  id: ETranslations.referral_referred_empty,
+                })}
+                description={intl.formatMessage({
+                  id: ETranslations.referral_referred_empty_desc,
+                })}
+                button={
+                  <Button
+                    size="medium"
+                    variant="primary"
+                    onPress={() => {
+                      navigation.replace(
+                        ETabReferFriendsRoutes.TabReferAFriend,
+                      );
+                    }}
+                  >
+                    {intl.formatMessage({
+                      id: ETranslations.referral_invite_via,
+                    })}
+                  </Button>
+                }
+              />
+            </Stack>
+          );
+        })()}
       </Page.Body>
     </Page>
+  );
+}
+
+export default function InviteReward() {
+  return (
+    <AccountSelectorProviderMirror
+      config={{
+        sceneName: EAccountSelectorSceneName.home,
+        sceneUrl: '',
+      }}
+      enabledNum={[0]}
+    >
+      <InviteRewardPage />
+    </AccountSelectorProviderMirror>
   );
 }

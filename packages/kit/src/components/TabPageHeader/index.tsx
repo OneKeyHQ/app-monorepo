@@ -16,6 +16,8 @@ import type { ITabPageHeaderProp } from './type';
 export function TabPageHeader({
   sceneName,
   tabRoute,
+  selectedHeaderTab,
+  onSelectHeaderTab,
   renderCustomHeaderRightItems,
   customHeaderRightItems,
   customHeaderLeftItems,
@@ -24,12 +26,20 @@ export function TabPageHeader({
   const renderHeaderLeft = useCallback(
     () => (
       <HeaderLeft
+        selectedHeaderTab={selectedHeaderTab}
+        onSelectHeaderTab={onSelectHeaderTab}
         sceneName={sceneName}
         tabRoute={tabRoute}
         customHeaderLeftItems={customHeaderLeftItems}
       />
     ),
-    [sceneName, tabRoute, customHeaderLeftItems],
+    [
+      selectedHeaderTab,
+      onSelectHeaderTab,
+      sceneName,
+      tabRoute,
+      customHeaderLeftItems,
+    ],
   );
 
   const { config } = useAccountSelectorContextData();
@@ -40,6 +50,7 @@ export function TabPageHeader({
         <HomeTokenListProviderMirror>
           <AccountSelectorProviderMirror enabledNum={[0]} config={config}>
             <HeaderRight
+              selectedHeaderTab={selectedHeaderTab}
               sceneName={sceneName}
               tabRoute={tabRoute}
               customHeaderRightItems={customHeaderRightItems}
@@ -50,6 +61,7 @@ export function TabPageHeader({
       ) : null,
     [
       config,
+      selectedHeaderTab,
       sceneName,
       tabRoute,
       customHeaderRightItems,

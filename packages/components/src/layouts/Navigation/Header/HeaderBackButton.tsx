@@ -39,6 +39,7 @@ export function NavCloseButton(props: INavButtonProps) {
 function HeaderBackButton({
   isModelScreen,
   isRootScreen,
+  isOnboardingScreen,
   canGoBack,
   renderLeft,
   ...props
@@ -48,8 +49,8 @@ function HeaderBackButton({
     canGoBack?: boolean;
   }) {
   const isVerticalLayout = useMedia().md;
-
-  const showCloseButton = isModelScreen && !isRootScreen && !canGoBack;
+  const showCloseButton =
+    (isModelScreen || isOnboardingScreen) && !isRootScreen && !canGoBack;
   const showCollapseButton = isRootScreen && !isVerticalLayout;
   const showBackButton = canGoBack || showCloseButton;
 
