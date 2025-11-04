@@ -93,6 +93,33 @@ export default function CheckAndUpdate({
     },
   ]);
 
+  const skipFirmwareUpgrade = useCallback(() => {
+    setSteps((prev) => {
+      const newSteps = [...prev];
+      newSteps[1] = {
+        ...newSteps[1],
+        state: 'success',
+      };
+      newSteps[2] = {
+        ...newSteps[2],
+        state: 'inProgress',
+      };
+      return newSteps;
+    });
+
+    // After 2 seconds, set to warning to show setup instructions
+    setTimeout(() => {
+      setSteps((prev) => {
+        const newSteps = [...prev];
+        newSteps[2] = {
+          ...newSteps[2],
+          state: 'warning',
+        };
+        return newSteps;
+      });
+    }, 2000);
+  }, []);
+
   const checkFirmwareUpdate = useCallback(async () => {
     if (!deviceData.device?.connectId) {
       return;
@@ -114,16 +141,13 @@ export default function CheckAndUpdate({
           state: r.hasUpgrade ? 'warning' : 'success',
         };
         if (!r.hasUpgrade) {
-          newSteps[2] = {
-            ...newSteps[2],
-            state: 'inProgress',
-          };
+          skipFirmwareUpgrade();
         }
         return newSteps;
       });
     }
     return r;
-  }, [deviceData]);
+  }, [deviceData.device?.connectId, skipFirmwareUpgrade]);
 
   useEffect(() => {
     const callback = async (result: IFirmwareVerifyResult) => {
@@ -207,33 +231,10 @@ export default function CheckAndUpdate({
         'Are you sure you want to skip the check? Using up-to-date firmware gives you the best protection.',
       onConfirm: () => {
         // Execute skip logic after confirmation
-        setSteps((prev) => {
-          const newSteps = [...prev];
-          newSteps[1] = {
-            ...newSteps[1],
-            state: 'success',
-          };
-          newSteps[2] = {
-            ...newSteps[2],
-            state: 'inProgress',
-          };
-          return newSteps;
-        });
-
-        // After 2 seconds, set to warning to show setup instructions
-        setTimeout(() => {
-          setSteps((prev) => {
-            const newSteps = [...prev];
-            newSteps[2] = {
-              ...newSteps[2],
-              state: 'warning',
-            };
-            return newSteps;
-          });
-        }, 2000);
+        skipFirmwareUpgrade();
       },
     });
-  }, []);
+  }, [skipFirmwareUpgrade]);
 
   const DEVICE_SETUP_INSTRUCTIONS = useMemo(() => {
     return [
