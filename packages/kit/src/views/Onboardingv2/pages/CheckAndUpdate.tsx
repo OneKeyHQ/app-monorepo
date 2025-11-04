@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { useFocusEffect } from '@react-navigation/native';
 import { StyleSheet } from 'react-native';
 
 import type { IImageProps, IPageScreenProps } from '@onekeyhq/components';
@@ -31,6 +32,7 @@ import {
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
+import { useFirmwareUpdateActions } from '../../FirmwareUpdate/hooks/useFirmwareUpdateActions';
 import { OnboardingLayout } from '../components/OnboardingLayout';
 
 import type { KnownDevice, SearchDevice } from '@onekeyfe/hd-core';
@@ -93,6 +95,15 @@ export default function CheckAndUpdate({
     },
   ]);
 
+  const actions = useFirmwareUpdateActions();
+  const toFirmwareUpgradePage = useCallback(() => {
+    if (deviceData.device?.connectId) {
+      actions.openChangeLogModal({
+        connectId: deviceData.device?.connectId,
+      });
+    }
+  }, [actions, deviceData.device?.connectId]);
+
   const skipFirmwareUpgrade = useCallback(() => {
     setSteps((prev) => {
       const newSteps = [...prev];
@@ -134,20 +145,30 @@ export default function CheckAndUpdate({
         connectId: compatibleConnectId,
       });
     if (r) {
-      setSteps((prev) => {
-        const newSteps = [...prev];
-        newSteps[1] = {
-          ...newSteps[1],
-          state: r.hasUpgrade ? 'warning' : 'success',
-        };
-        if (!r.hasUpgrade) {
-          skipFirmwareUpgrade();
-        }
-        return newSteps;
-      });
+      if (r.hasUpgrade) {
+        setSteps((prev) => {
+          const newSteps = [...prev];
+          newSteps[1] = {
+            ...newSteps[1],
+            state: r.hasUpgrade ? 'warning' : 'success',
+          };
+          return newSteps;
+        });
+      } else {
+        skipFirmwareUpgrade();
+      }
     }
-    return r;
   }, [deviceData.device?.connectId, skipFirmwareUpgrade]);
+
+  const firmwareStepStateRef = useRef(steps[1].state);
+  firmwareStepStateRef.current = steps[1].state;
+  useFocusEffect(
+    useCallback(() => {
+      if (firmwareStepStateRef.current === 'warning') {
+        void checkFirmwareUpdate();
+      }
+    }, [checkFirmwareUpdate]),
+  );
 
   useEffect(() => {
     const callback = async (result: IFirmwareVerifyResult) => {
@@ -551,7 +572,12 @@ export default function CheckAndUpdate({
                           Update available
                         </SizableText>
                         <XStack gap="$2">
-                          <Button variant="primary">Update</Button>
+                          <Button
+                            variant="primary"
+                            onPress={toFirmwareUpgradePage}
+                          >
+                            Update
+                          </Button>
                           <Button onPress={handleSkipUpdate}>Skip</Button>
                         </XStack>
                       </XStack>
