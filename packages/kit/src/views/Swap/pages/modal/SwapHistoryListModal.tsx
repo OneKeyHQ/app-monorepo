@@ -12,6 +12,7 @@ import {
   type IPageNavigationProp,
   Icon,
   Page,
+  ScrollView,
   SectionList,
   Select,
   SizableText,
@@ -34,6 +35,7 @@ import {
   EModalSwapRoutes,
   type IModalSwapParamList,
 } from '@onekeyhq/shared/src/routes/swap';
+import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import {
   EProtocolOfExchange,
   ESwapCleanHistorySource,
@@ -82,7 +84,6 @@ const SwapHistoryListModal = ({
 
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
-  const { formatDate } = useFormatDate();
   const sectionData = useMemo(() => {
     const pendingData =
       swapTxHistoryList?.filter(
@@ -100,8 +101,7 @@ const SwapHistoryListModal = ({
       (acc, item) => {
         const date = new Date(item.date.created);
         const monthDay = formatDate(date, {
-          hideTimeForever: true,
-          hideYear: true,
+          formatTemplate: 'yyyy-LL-dd',
         });
 
         if (!acc[monthDay]) {
@@ -134,7 +134,7 @@ const SwapHistoryListModal = ({
       ];
     }
     return result;
-  }, [formatDate, intl, swapTxHistoryList]);
+  }, [intl, swapTxHistoryList]);
 
   const onDeleteHistory = useCallback(() => {
     // dialog
@@ -292,7 +292,7 @@ const SwapHistoryListModal = ({
         headerTitle={() => headerSelectType}
       />
       {historyType !== EProtocolOfExchange.LIMIT ? (
-        <>
+        <ScrollView px="$2">
           {isLoading ? (
             Array.from({ length: 5 }).map((_, index) => (
               <ListItem key={index}>
@@ -311,22 +311,22 @@ const SwapHistoryListModal = ({
             <SectionList
               renderItem={renderItem}
               sections={sectionData}
-              py="$1"
+              py="$2"
               renderSectionHeader={({ section: { title, status } }) => (
-                <XStack px="$5" py="$2" gap="$3" alignItems="center">
+                <XStack px="$4" py="$2" gap="$3" alignItems="center">
                   {status === ESwapTxHistoryStatus.PENDING ? (
                     <Stack
                       w="$2"
                       h="$2"
-                      backgroundColor="$textCaution"
+                      backgroundColor="$textInfo"
                       borderRadius="$full"
                     />
                   ) : null}
                   <Heading
-                    size="$headingSm"
+                    size="$headingXs"
                     color={
                       status === ESwapTxHistoryStatus.PENDING
-                        ? '$textCaution'
+                        ? '$textInfo'
                         : '$textSubdued'
                     }
                   >
@@ -345,7 +345,7 @@ const SwapHistoryListModal = ({
               }
             />
           )}
-        </>
+        </ScrollView>
       ) : (
         <LimitOrderListModalWithAllProvider storeName={storeName} />
       )}
