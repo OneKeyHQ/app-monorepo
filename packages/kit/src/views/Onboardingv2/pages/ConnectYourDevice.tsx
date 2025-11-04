@@ -880,7 +880,7 @@ function USBConnectionIndicator({
                   >
                     <WalletAvatar
                       wallet={undefined}
-                      img={data.device?.deviceType as any}
+                      img={data.device?.deviceType as IDeviceType}
                     />
                     <ListItem.Text primary={data.device?.name} flex={1} />
                   </ListItem>
@@ -899,29 +899,185 @@ function BluetoothConnectionIndicator({
   onSelectAddWalletType,
 }: IDeviceConnectionProps) {
   const intl = useIntl();
+  const isFocused = useIsFocused();
   const navigation = useAppNavigation();
-  const [bluetoothStatus, _setBluetoothStatus] = useState<
+  const [bluetoothStatus, setBluetoothStatus] = useState<
     | 'enabled'
     | 'disabledInSystem'
     | 'disabledInApp'
     | 'checking'
     | 'noSystemPermission'
-  >('enabled');
-  const [devices, setDevices] = useState<
-    Array<{ id: string; name: string; type: string }>
-  >([]);
+  >('checking');
 
-  // Simulate loading devices after a delay
-  const handleToggleDevices = useCallback(() => {
-    if (devices.length > 0) {
-      setDevices([]);
-    } else {
-      setDevices([
-        { id: '1', name: 'Pro 062B', type: EDeviceType.Pro },
-        { id: '2', name: 'Classic 1A3F', type: EDeviceType.Classic },
-      ]);
+  const nobleInitializedRef = useRef(false);
+  const isConnectingRef = useRef(false);
+  const pollingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const checkBluetoothStatus = useCallback(async () => {
+    try {
+      // Ensure Noble is initialized before checking status
+      if (!nobleInitializedRef.current) {
+        try {
+          console.log(
+            'onboarding checkBluetoothStatus: noble pre-initialization',
+          );
+          await globalThis?.desktopApi?.nobleBle?.checkAvailability();
+        } catch (error) {
+          console.log(
+            'Noble pre-initialization completed with expected error:',
+            error,
+          );
+        }
+        nobleInitializedRef.current = true;
+      }
+
+      // Desktop platform: check desktop bluetooth availability
+      const enableDesktopBluetoothInApp =
+        await backgroundApiProxy.serviceSetting.getEnableDesktopBluetooth();
+      if (!enableDesktopBluetoothInApp) {
+        console.log('onboarding checkBluetoothStatus: disabledInApp');
+        setBluetoothStatus('disabledInApp');
+        return;
+      }
+
+      const available =
+        await globalThis?.desktopApi?.nobleBle?.checkAvailability();
+      if (available.state === 'unknown') {
+        return;
+      }
+      if (available.state === 'unauthorized') {
+        console.log('onboarding checkBluetoothStatus: noSystemPermission');
+        setBluetoothStatus('noSystemPermission');
+        return;
+      }
+      if (!available?.available) {
+        console.log('onboarding checkBluetoothStatus: disabledInSystem');
+        setBluetoothStatus('disabledInSystem');
+        return;
+      }
+
+      console.log('onboarding checkBluetoothStatus: enabled');
+      await backgroundApiProxy.serviceSetting.setDesktopBluetoothAtom({
+        isRequestedPermission: true,
+      });
+      // All checks passed
+      setBluetoothStatus('enabled');
+    } catch (error) {
+      console.error('Desktop bluetooth check failed:', error);
+      setBluetoothStatus('disabledInSystem');
     }
-  }, [devices.length]);
+  }, []);
+
+  const startBluetoothStatusPolling = useCallback(() => {
+    if (pollingTimerRef.current) {
+      clearInterval(pollingTimerRef.current);
+    }
+
+    pollingTimerRef.current = setInterval(() => {
+      // Don't poll if connecting to a device
+      if (!isConnectingRef.current) {
+        void checkBluetoothStatus();
+      }
+    }, 1500);
+  }, [checkBluetoothStatus]);
+
+  const stopBluetoothStatusPolling = useCallback(() => {
+    if (pollingTimerRef.current) {
+      clearInterval(pollingTimerRef.current);
+      pollingTimerRef.current = null;
+    }
+  }, []);
+
+  // Enhanced device connection wrapper for Bluetooth
+  const handleBluetoothDeviceConnect = useCallback(
+    async (device: SearchDevice) => {
+      // Immediately stop bluetooth polling and scanning when connecting
+      isConnectingRef.current = true;
+      stopBluetoothStatusPolling();
+
+      try {
+        await onDeviceConnect(device);
+      } catch (error) {
+        // Resume polling on error only if still focused
+        if (isFocused) {
+          startBluetoothStatusPolling();
+        }
+        throw error;
+      } finally {
+        isConnectingRef.current = false;
+      }
+    },
+    [
+      onDeviceConnect,
+      stopBluetoothStatusPolling,
+      startBluetoothStatusPolling,
+      isFocused,
+    ],
+  );
+
+  // Use shared device connection logic for Bluetooth
+  const deviceConnection = useDeviceConnection({
+    tabValue: EConnectDeviceChannel.bluetooth,
+    onDeviceConnect: handleBluetoothDeviceConnect,
+    onSelectAddWalletType,
+  });
+
+  const { devicesData, scanDevice, stopScan } = deviceConnection;
+
+  const handleOpenPrivacySettings = useCallback(() => {
+    void globalThis.desktopApiProxy.bluetooth.openPrivacySettings();
+  }, []);
+
+  const handleAppEnableDesktopBluetooth = useCallback(async () => {
+    try {
+      await backgroundApiProxy.serviceSetting.setEnableDesktopBluetooth(true);
+      // Re-check bluetooth status after enabling
+      void checkBluetoothStatus();
+    } catch (error) {
+      console.error('Failed to enable desktop bluetooth:', error);
+    }
+  }, [checkBluetoothStatus]);
+
+  const handleOpenBleSettings = useCallback(() => {
+    void globalThis.desktopApiProxy.bluetooth.openBluetoothSettings();
+  }, []);
+
+  // Check bluetooth status on mount and when focused, start polling
+  useEffect(() => {
+    if (isFocused) {
+      void checkBluetoothStatus();
+      startBluetoothStatusPolling();
+    } else {
+      stopBluetoothStatusPolling();
+    }
+
+    return () => {
+      stopBluetoothStatusPolling();
+    };
+  }, [
+    checkBluetoothStatus,
+    isFocused,
+    startBluetoothStatusPolling,
+    stopBluetoothStatusPolling,
+  ]);
+
+  // Start scanning when bluetooth is enabled and focused
+  useEffect(() => {
+    if (isFocused && bluetoothStatus === 'enabled') {
+      void scanDevice();
+    } else if (!isFocused) {
+      stopScan();
+    }
+  }, [bluetoothStatus, isFocused, scanDevice, stopScan]);
+
+  // Cleanup on unmount
+  useEffect(
+    () => () => {
+      stopScan();
+      stopBluetoothStatusPolling();
+    },
+    [stopScan, stopBluetoothStatusPolling],
+  );
 
   if (bluetoothStatus === 'disabledInApp') {
     return (
@@ -1035,29 +1191,25 @@ function BluetoothConnectionIndicator({
               <SizableText color="$textDisabled">
                 Looking for your device...
               </SizableText>
-              <Button
-                size="small"
-                variant="tertiary"
-                onPress={handleToggleDevices}
-              >
-                {devices.length > 0 ? 'Delete data' : 'Mock data'}
-              </Button>
             </XStack>
           </YStack>
           <HeightTransition initialHeight={0}>
-            {devices.length > 0 ? (
+            {devicesData.length > 0 ? (
               <>
-                {devices.map((device) => (
+                {devicesData.map((device) => (
                   <ListItem
-                    key={device.id}
+                    key={device.device?.connectId}
                     drillIn
                     onPress={() => {
                       navigation.push(EOnboardingPagesV2.CheckAndUpdate);
                     }}
                     userSelect="none"
                   >
-                    <WalletAvatar wallet={undefined} img={device.type as any} />
-                    <ListItem.Text primary={device.name} flex={1} />
+                    <WalletAvatar
+                      wallet={undefined}
+                      img={device.device?.deviceType as IDeviceType}
+                    />
+                    <ListItem.Text primary={device.device?.name} flex={1} />
                   </ListItem>
                 ))}
               </>
