@@ -15,9 +15,14 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import {
+  ensureSensitiveTextEncoded,
+  generateMnemonic,
+} from '@onekeyhq/core/src/secret';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes';
 import externalWalletLogoUtils from '@onekeyhq/shared/src/utils/externalWalletLogoUtils';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { OnboardingLayout } from '../components/OnboardingLayout';
 
@@ -90,11 +95,24 @@ export default function CreateOrImportWallet() {
   const [expanded, setExpanded] = useState(false);
 
   const walletKeys = ['metamask', 'okx', 'rainbow', 'tokenpocket'] as const;
+  const navigation = useAppNavigation();
 
   const handleExpand = useCallback(() => {
     setExpanded((prev) => !prev);
   }, []);
-  const navigation = useAppNavigation();
+
+  const handleCreateNewWallet = useCallback(async () => {
+    await backgroundApiProxy.servicePassword.promptPasswordVerify();
+    const mnemonic = generateMnemonic();
+    const encodedMnemonic =
+      await backgroundApiProxy.servicePassword.encodeSensitiveText({
+        text: mnemonic,
+      });
+    navigation.push(EOnboardingPagesV2.FinalizeWalletSetup, {
+      mnemonic: encodedMnemonic,
+      isWalletBackedUp: false,
+    });
+  }, [navigation]);
 
   const handleAddExistingWallet = () => {
     navigation.push(EOnboardingPagesV2.AddExistingWallet);
@@ -151,7 +169,11 @@ export default function CreateOrImportWallet() {
                   </XStack>
                 </Button>
               </YStack>
-              <Button size="small" minWidth="$20">
+              <Button
+                size="small"
+                minWidth="$20"
+                onPress={handleCreateNewWallet}
+              >
                 Create
               </Button>
             </Card.Header>

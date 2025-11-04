@@ -17,6 +17,9 @@ const PickYourDevice = LazyLoadPage(() => import('../pages/PickYourDevice'));
 const ImportPhraseOrPrivateKey = LazyLoadPage(
   () => import('../pages/ImportPhraseOrPrivateKey'),
 );
+const SelectPrivateKeyNetwork = LazyLoadPage(
+  () => import('../pages/SelectPrivateKeyNetwork'),
+);
 const ConnectYourDevice = LazyLoadPage(
   () => import('../pages/ConnectYourDevice'),
 );
@@ -71,6 +74,11 @@ export const OnboardingRouterV2: IModalFlowNavigatorConfig<
   {
     name: EOnboardingPagesV2.ImportPhraseOrPrivateKey,
     component: ImportPhraseOrPrivateKey,
+    options: hiddenHeaderOptions,
+  },
+  {
+    name: EOnboardingPagesV2.SelectPrivateKeyNetwork,
+    component: SelectPrivateKeyNetwork,
     options: hiddenHeaderOptions,
   },
   {

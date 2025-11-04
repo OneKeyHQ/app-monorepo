@@ -1,5 +1,5 @@
 import type { PropsWithChildren } from 'react';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useLayoutEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
@@ -43,6 +43,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalRoutes,
   EModalStakingRoutes,
+  ETabDiscoveryRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
 import {
@@ -637,6 +638,8 @@ function Overview({
 }
 
 function EarnBlockedOverview(props: {
+  showHeader?: boolean;
+  showContent?: boolean;
   icon: IKeyOfIcons;
   title: string;
   description: string;
@@ -644,16 +647,27 @@ function EarnBlockedOverview(props: {
   refreshing: boolean;
 }) {
   const intl = useIntl();
-  const { title, description, icon, refresh, refreshing } = props;
+  const {
+    title,
+    description,
+    icon,
+    refresh,
+    refreshing,
+    showHeader,
+    showContent,
+  } = props;
 
   return (
     <Page fullPage>
-      <TabPageHeader
-        sceneName={EAccountSelectorSceneName.home}
-        tabRoute={ETabRoutes.Earn}
-      />
+      {showHeader ? (
+        <TabPageHeader
+          sceneName={EAccountSelectorSceneName.home}
+          tabRoute={ETabRoutes.Earn}
+        />
+      ) : null}
       <Page.Body>
         <Empty
+          display={showContent ? undefined : 'none'}
           icon={icon}
           title={title}
           description={description}
@@ -676,7 +690,13 @@ function EarnBlockedOverview(props: {
   );
 }
 
-function BasicEarnHome() {
+function EarnHomeContent({
+  showHeader,
+  showContent,
+}: {
+  showHeader?: boolean;
+  showContent?: boolean;
+}) {
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { account, indexedAccount } = activeAccount;
   const media = useMedia();
@@ -1022,6 +1042,8 @@ function BasicEarnHome() {
   if (!isFetchingBlockResult && blockResult?.blockData) {
     return (
       <EarnBlockedOverview
+        showHeader={showHeader}
+        showContent={showContent}
         refresh={refreshBlockResult}
         refreshing={!!isFetchingBlockResult}
         icon={blockResult.blockData.icon.icon}
@@ -1033,137 +1055,132 @@ function BasicEarnHome() {
 
   if (platformEnv.isNative && media.md) {
     return (
-      <Page fullPage>
-        <Page.Body>
-          <Stack h={tabPageHeight} />
-          <Tabs.Container
-            allowHeaderOverscroll
-            renderHeader={() => (
-              <YStack
-                flex={1}
-                gap="$4"
-                pt="$5"
-                bg="$bgApp"
+      <>
+        {showHeader ? <Stack h={tabPageHeight} /> : null}
+        <Tabs.Container
+          containerStyle={{
+            display: showContent ? undefined : 'none',
+          }}
+          allowHeaderOverscroll
+          renderHeader={() => (
+            <YStack
+              flex={1}
+              gap="$4"
+              pt="$5"
+              bg="$bgApp"
+              pointerEvents="box-none"
+            >
+              {/* overview and banner */}
+              <YStack gap="$8">
+                <Overview
+                  onRefresh={refreshOverViewData}
+                  isLoading={isLoading}
+                />
+                {banners ? (
+                  <YStack
+                    px="$5"
+                    minHeight="$36"
+                    $md={{
+                      minHeight: '$28',
+                    }}
+                    borderRadius="$3"
+                    width="100%"
+                    borderCurve="continuous"
+                  >
+                    {banners}
+                  </YStack>
+                ) : null}
+              </YStack>
+              {/* Recommended, available assets and introduction */}
+              <YStack px="$5" gap="$8">
+                <YStack pt="$3.5" gap="$8">
+                  <Recommended />
+                </YStack>
+                {/* FAQ Panel */}
+                {banners ? gtLgFaqPanel : null}
+              </YStack>
+              <SizableText
+                mx="$5"
+                pb="$4"
+                size="$headingLg"
                 pointerEvents="box-none"
               >
-                {/* overview and banner */}
-                <YStack gap="$8">
-                  <Overview
-                    onRefresh={refreshOverViewData}
-                    isLoading={isLoading}
-                  />
-                  {banners ? (
-                    <YStack
-                      px="$5"
-                      minHeight="$36"
-                      $md={{
-                        minHeight: '$28',
-                      }}
-                      borderRadius="$3"
-                      width="100%"
-                      borderCurve="continuous"
-                    >
-                      {banners}
-                    </YStack>
-                  ) : null}
-                </YStack>
-                {/* Recommended, available assets and introduction */}
-                <YStack px="$5" gap="$8">
-                  <YStack pt="$3.5" gap="$8">
-                    <Recommended />
-                  </YStack>
-                  {/* FAQ Panel */}
-                  {banners ? gtLgFaqPanel : null}
-                </YStack>
-                <SizableText
-                  mx="$5"
-                  pb="$4"
-                  size="$headingLg"
-                  pointerEvents="box-none"
-                >
-                  {intl.formatMessage({
-                    id: ETranslations.earn_available_assets,
-                  })}
-                </SizableText>
-              </YStack>
-            )}
-            renderTabBar={(props) => (
-              <Tabs.TabBar
-                {...props}
-                containerStyle={{
-                  px: '$5',
-                }}
-                divider={false}
-                renderItem={({ name, isFocused, onPress }) => (
-                  <XStack
-                    px="$2"
-                    py="$1.5"
-                    mr="$1"
-                    bg={isFocused ? '$bgActive' : '$bg'}
-                    borderRadius="$2"
-                    borderCurve="continuous"
-                    onPress={() => onPress(name)}
-                  >
-                    <SizableText
-                      size="$bodyMdMedium"
-                      color={isFocused ? '$text' : '$textSubdued'}
-                      letterSpacing={-0.15}
-                    >
-                      {name}
-                    </SizableText>
-                  </XStack>
-                )}
-              />
-            )}
-          >
-            {tabData.map((item) => (
-              <Tabs.Tab name={item.title} key={item.type}>
-                <Tabs.ScrollView
-                  refreshControl={
-                    <RefreshControl
-                      refreshing={isLoading}
-                      onRefresh={refreshOverViewData}
-                    />
-                  }
-                >
-                  <AvailableAssetsTabViewListMobile
-                    onTokenPress={handleTokenPress}
-                    assetType={item.type}
-                    faqList={faqList}
-                  />
-                </Tabs.ScrollView>
-              </Tabs.Tab>
-            ))}
-          </Tabs.Container>
-          {platformEnv.isNative ? (
-            <YStack
-              position="absolute"
-              top={-20}
-              left={0}
-              bg="$bgApp"
-              pt="$5"
-              width="100%"
-              onLayout={handleTabPageLayout}
-            >
-              <TabPageHeader
-                sceneName={EAccountSelectorSceneName.home}
-                tabRoute={ETabRoutes.Earn}
-              />
+                {intl.formatMessage({
+                  id: ETranslations.earn_available_assets,
+                })}
+              </SizableText>
             </YStack>
-          ) : null}
-        </Page.Body>
-      </Page>
+          )}
+          renderTabBar={(props) => (
+            <Tabs.TabBar
+              {...props}
+              containerStyle={{
+                px: '$5',
+              }}
+              divider={false}
+              renderItem={({ name, isFocused, onPress }) => (
+                <XStack
+                  px="$2"
+                  py="$1.5"
+                  mr="$1"
+                  bg={isFocused ? '$bgActive' : '$bg'}
+                  borderRadius="$2"
+                  borderCurve="continuous"
+                  onPress={() => onPress(name)}
+                >
+                  <SizableText
+                    size="$bodyMdMedium"
+                    color={isFocused ? '$text' : '$textSubdued'}
+                    letterSpacing={-0.15}
+                  >
+                    {name}
+                  </SizableText>
+                </XStack>
+              )}
+            />
+          )}
+        >
+          {tabData.map((item) => (
+            <Tabs.Tab name={item.title} key={item.type}>
+              <Tabs.ScrollView
+                refreshControl={
+                  <RefreshControl
+                    refreshing={isLoading}
+                    onRefresh={refreshOverViewData}
+                  />
+                }
+              >
+                <AvailableAssetsTabViewListMobile
+                  onTokenPress={handleTokenPress}
+                  assetType={item.type}
+                  faqList={faqList}
+                />
+              </Tabs.ScrollView>
+            </Tabs.Tab>
+          ))}
+        </Tabs.Container>
+        {showHeader && platformEnv.isNative ? (
+          <YStack
+            position="absolute"
+            top={-20}
+            left={0}
+            bg="$bgApp"
+            pt="$5"
+            width="100%"
+            onLayout={handleTabPageLayout}
+          >
+            <TabPageHeader
+              sceneName={EAccountSelectorSceneName.home}
+              tabRoute={ETabRoutes.Earn}
+            />
+          </YStack>
+        ) : null}
+      </>
     );
   }
 
   return (
     <Page fullPage>
-      <TabPageHeader
-        sceneName={EAccountSelectorSceneName.home}
-        tabRoute={ETabRoutes.Earn}
-      >
-        {/* {headerRight} */}
-      </TabPageHeader>
       <Page.Body>
         <ScrollView
           contentContainerStyle={{ py: '$5' }}
@@ -1252,7 +1269,13 @@ function BasicEarnHome() {
   );
 }
 
-export default function EarnHome() {
+export function EarnHomeWithProvider({
+  showHeader = true,
+  showContent = true,
+}: {
+  showHeader?: boolean;
+  showContent?: boolean;
+}) {
   return (
     <AccountSelectorProviderMirror
       config={{
@@ -1262,8 +1285,42 @@ export default function EarnHome() {
       enabledNum={[0]}
     >
       <EarnProviderMirror storeName={EJotaiContextStoreNames.earn}>
-        <BasicEarnHome />
+        <EarnHomeContent showHeader={showHeader} showContent={showContent} />
       </EarnProviderMirror>
     </AccountSelectorProviderMirror>
+  );
+}
+
+const useNavigateToNativeEarnPage = platformEnv.isNative
+  ? () => {
+      const { md } = useMedia();
+      const navigation = useAppNavigation();
+      useLayoutEffect(() => {
+        if (md) {
+          navigation.navigate(
+            ETabRoutes.Discovery,
+            {
+              screen: ETabDiscoveryRoutes.TabDiscovery,
+              params: {
+                defaultTab: ETranslations.global_earn,
+              },
+            },
+            {
+              pop: true,
+            },
+          );
+        }
+      }, [navigation, md]);
+    }
+  : () => {};
+
+export default function EarnHome() {
+  useNavigateToNativeEarnPage();
+  return (
+    <Page fullPage>
+      <Page.Body>
+        <EarnHomeWithProvider />
+      </Page.Body>
+    </Page>
   );
 }

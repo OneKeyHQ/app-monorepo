@@ -12,10 +12,12 @@ import type {
   IDeviceType,
   ReleaseInfoPayload,
   Response,
+  SearchDevice,
   Success,
   Unsuccessful,
 } from '@onekeyfe/hd-core';
 import type { Features as FeaturesTransport } from '@onekeyfe/hd-transport';
+import type { ImageSourcePropType } from 'react-native';
 
 export type IOneKeyDeviceType = IDeviceType;
 
@@ -401,3 +403,11 @@ export enum EHardwareCallContext {
 }
 
 export type IHardwareCallContext = EHardwareCallContext;
+
+export interface IConnectYourDeviceItem {
+  title: string;
+  src: ImageSourcePropType;
+  onPress: () => void | Promise<void>;
+  opacity?: number;
+  device: SearchDevice | undefined;
+}
