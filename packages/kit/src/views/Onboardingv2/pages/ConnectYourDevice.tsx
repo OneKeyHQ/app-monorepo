@@ -67,6 +67,7 @@ import {
   getDeviceAvatarImage,
 } from '@onekeyhq/shared/src/utils/avatarUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   EAccountSelectorSceneName,
   EHardwareTransportType,
@@ -1261,6 +1262,8 @@ function QRWalletConnect() {
   const intl = useIntl();
   const { closePopover } = usePopoverContext();
   const handleCreateQRWallet = useCallback(async () => {
+    await closePopover?.();
+    await timerUtils.wait(100);
     try {
       // qrHiddenCreateGuideDialog.showDialog();
       // return;
