@@ -131,14 +131,6 @@ function OnboardingLayoutConstrainedContent({
 }: { children: React.ReactNode } & IYStackProps) {
   return (
     <YStack
-      // $platform-web={{
-      //   animation: 'quick',
-      //   animateOnly: ['opacity', 'transform'],
-      //   enterStyle: {
-      //     opacity: 0,
-      //     x: 24,
-      //   },
-      // }}
       animation="quick"
       animateOnly={['opacity', 'transform']}
       enterStyle={{
@@ -148,7 +140,9 @@ function OnboardingLayoutConstrainedContent({
       w="100%"
       maxWidth={400}
       alignSelf="center"
-      py="$10"
+      $gtMd={{
+        py: '$10',
+      }}
       gap="$5"
       {...rest}
     >

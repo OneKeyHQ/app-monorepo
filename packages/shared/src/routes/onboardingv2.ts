@@ -11,6 +11,7 @@ export enum EOnboardingPagesV2 {
   FinalizeWalletSetup = 'FinalizeWalletSetup',
   PickYourDevice = 'PickYourDevice',
   ConnectYourDevice = 'ConnectYourDevice',
+  ConnectQRCode = 'ConnectQRCode',
   CheckAndUpdate = 'CheckAndUpdate',
   ImportPhraseOrPrivateKey = 'ImportPhraseOrPrivateKey',
   SelectPrivateKeyNetwork = 'SelectPrivateKeyNetwork',
@@ -27,6 +28,9 @@ export type IOnboardingParamListV2 = {
   [EOnboardingPagesV2.FinalizeWalletSetup]: undefined;
   [EOnboardingPagesV2.PickYourDevice]: undefined;
   [EOnboardingPagesV2.ConnectYourDevice]: {
+    deviceType: EDeviceType[];
+  };
+  [EOnboardingPagesV2.ConnectQRCode]: {
     deviceType: EDeviceType[];
   };
   [EOnboardingPagesV2.CheckAndUpdate]: undefined;

@@ -12,14 +12,17 @@ import {
   Empty,
   HeightTransition,
   Icon,
+  IconButton,
   Image,
   LottieView,
   Page,
+  Popover,
   SegmentControl,
   SizableText,
   Video,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -244,7 +247,7 @@ function ConnectionIndicatorRoot({ children }: { children: React.ReactNode }) {
   );
 }
 
-const ConnectionIndicator = Object.assign(ConnectionIndicatorRoot, {
+export const ConnectionIndicator = Object.assign(ConnectionIndicatorRoot, {
   Animation: ConnectionIndicatorAnimation,
   Card: ConnectionIndicatorCard,
   Content: ConnectionIndicatorContent,
@@ -468,27 +471,6 @@ function BluetoothConnectionIndicator() {
   );
 }
 
-function QRCodeConnectionIndicator() {
-  return (
-    <ConnectionIndicator>
-      <ConnectionIndicator.Card>
-        <ConnectionIndicator.Animation>
-          <SizableText>Placeholder</SizableText>
-        </ConnectionIndicator.Animation>
-        <ConnectionIndicator.Content gap="$4">
-          <SizableText>
-            Swipe up and choose Connect App Wallet → QR Code → OneKey App.
-          </SizableText>
-          <SizableText>Tap below to scan the QR code.</SizableText>
-          <Button variant="primary" onPress={() => {}}>
-            Scan QR code
-          </Button>
-        </ConnectionIndicator.Content>
-      </ConnectionIndicator.Card>
-    </ConnectionIndicator>
-  );
-}
-
 export default function ConnectYourDevice() {
   const params =
     useRoute<
@@ -497,29 +479,83 @@ export default function ConnectYourDevice() {
   const { deviceType } = params?.params || {};
   console.log('deviceType', deviceType);
   const [value, setValue] = useState('usb');
+  const { gtMd } = useMedia();
+  const navigation = useAppNavigation();
+
+  const handleContinueWithQRCode = () => {
+    void navigation.push(EOnboardingPagesV2.ConnectQRCode, {
+      deviceType,
+    });
+  };
+
   return (
     <Page>
       <OnboardingLayout>
         <OnboardingLayout.Header title="Connect your device" />
         <OnboardingLayout.Body constrained={false}>
-          <OnboardingLayout.ConstrainedContent
-            $platform-native={{
-              py: 0,
-            }}
-          >
-            <SegmentControl
-              fullWidth
-              value={value}
-              onChange={(v) => setValue(v as string)}
-              options={[
-                { label: 'USB', value: 'usb' },
-                { label: 'Bluetooth', value: 'bluetooth' },
-                { label: 'QR Code', value: 'qr' },
-              ]}
-            />
+          <OnboardingLayout.ConstrainedContent>
+            <XStack alignItems="center" gap="$3">
+              <YStack flex={1}>
+                <SegmentControl
+                  fullWidth
+                  value={value}
+                  onChange={(v) => setValue(v as string)}
+                  options={[
+                    { label: 'USB', value: 'usb' },
+                    { label: 'Bluetooth', value: 'bluetooth' },
+                  ]}
+                />
+              </YStack>
+              <Popover
+                title="Advanced"
+                renderTrigger={
+                  <IconButton variant="tertiary" icon="DotHorOutline" />
+                }
+                renderContent={({ closePopover }) => (
+                  <YStack
+                    p="$5"
+                    pt="$0"
+                    gap="$3"
+                    $gtMd={{
+                      p: '$3',
+                    }}
+                  >
+                    {gtMd ? (
+                      <SizableText size="$headingSm">Advance</SizableText>
+                    ) : null}
+                    <SizableText color="$textSubdued">
+                      Some crypto assets and hardware features are unavailable
+                      in QR Code communication mode.
+                    </SizableText>
+                    <SizableText color="$textSubdued">
+                      This mode is intended only for a small number of users who
+                      rarely operate their hardware wallet and is not compatible
+                      with other connection methods.
+                    </SizableText>
+                    <SizableText color="$textSubdued">
+                      If you wish to connect your hardware wallet via Bluetooth
+                      or USB, please re-add the wallet to switch the
+                      communication mode.
+                    </SizableText>
+                    <Button
+                      mt="$3"
+                      size="large"
+                      onPress={() => {
+                        void (closePopover() as unknown as Promise<void>).then(
+                          () => {
+                            handleContinueWithQRCode();
+                          },
+                        );
+                      }}
+                    >
+                      Continue with QR Code
+                    </Button>
+                  </YStack>
+                )}
+              />
+            </XStack>
             {value === 'usb' ? <USBConnectionIndicator /> : null}
             {value === 'bluetooth' ? <BluetoothConnectionIndicator /> : null}
-            {value === 'qr' ? <QRCodeConnectionIndicator /> : null}
           </OnboardingLayout.ConstrainedContent>
         </OnboardingLayout.Body>
       </OnboardingLayout>
