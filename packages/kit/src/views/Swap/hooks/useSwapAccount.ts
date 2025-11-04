@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { debounce } from 'lodash';
 
@@ -8,6 +8,7 @@ import { useSettingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 
@@ -188,6 +189,65 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
     num: type === ESwapDirectionType.FROM ? 0 : 1,
   });
   const [{ swapToAnotherAccountSwitchOn }] = useSettingsAtom();
+  const [fromToken] = useSwapSelectFromTokenAtom();
+  const [toToken] = useSwapSelectToTokenAtom();
+  const [accountForAllNet, setAccountForAllNet] = useState<
+    INetworkAccount | undefined
+  >(undefined);
+
+  const isAllNetwork = useMemo(() => {
+    return networkUtils.isAllNetwork({
+      networkId: activeAccount.network?.id,
+    });
+  }, [activeAccount.network?.id]);
+
+  const tokenNetworkId = useMemo(() => {
+    return type === ESwapDirectionType.FROM
+      ? fromToken?.networkId
+      : toToken?.networkId;
+  }, [type, fromToken?.networkId, toToken?.networkId]);
+  useEffect(() => {
+    void (async () => {
+      if (isAllNetwork) {
+        if (fromToken?.networkId && type === ESwapDirectionType.FROM) {
+          const fromTokenAccount =
+            await backgroundApiProxy.serviceAccount.getNetworkAccount({
+              deriveType: activeAccount.deriveType || 'default',
+              indexedAccountId: activeAccount.indexedAccount?.id,
+              accountId: activeAccount.indexedAccount?.id
+                ? undefined
+                : activeAccount.account?.id,
+              dbAccount: activeAccount.dbAccount,
+              networkId: fromToken?.networkId,
+            });
+          setAccountForAllNet(fromTokenAccount);
+        }
+        if (toToken?.networkId && type === ESwapDirectionType.TO) {
+          const toTokenAccount =
+            await backgroundApiProxy.serviceAccount.getNetworkAccount({
+              deriveType: activeAccount.deriveType || 'default',
+              indexedAccountId: activeAccount.indexedAccount?.id,
+              accountId: activeAccount.indexedAccount?.id
+                ? undefined
+                : activeAccount.account?.id,
+              dbAccount: activeAccount.dbAccount,
+              networkId: toToken?.networkId,
+            });
+          setAccountForAllNet(toTokenAccount);
+        }
+      }
+    })();
+  }, [
+    fromToken?.networkId,
+    activeAccount.network?.id,
+    activeAccount.indexedAccount?.id,
+    activeAccount.account?.id,
+    activeAccount.deriveType,
+    activeAccount.dbAccount,
+    type,
+    toToken?.networkId,
+    isAllNetwork,
+  ]);
   const [swapToAnotherAccountAddressAtom] =
     useSwapToAnotherAccountAddressAtom();
   const addressInfo = useMemo(() => {
@@ -212,12 +272,13 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
     ) {
       return {
         ...res,
-        address: networkUtils.isAllNetwork({
-          networkId: activeAccount.network?.id,
-        })
-          ? ''
+        address: isAllNetwork
+          ? accountForAllNet?.addressDetail?.address
           : swapToAnotherAccountAddressAtom.address,
-        networkId: swapToAnotherAccountAddressAtom.networkId,
+        networkId:
+          isAllNetwork && tokenNetworkId
+            ? tokenNetworkId
+            : swapToAnotherAccountAddressAtom.networkId,
         accountInfo: swapToAnotherAccountAddressAtom.accountInfo,
         activeAccount: { ...activeAccount },
       };
@@ -225,12 +286,13 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
     if (activeAccount) {
       return {
         ...res,
-        address: networkUtils.isAllNetwork({
-          networkId: activeAccount.network?.id,
-        })
-          ? ''
+        address: isAllNetwork
+          ? accountForAllNet?.addressDetail?.address
           : activeAccount.account?.address,
-        networkId: activeAccount.network?.id,
+        networkId:
+          isAllNetwork && tokenNetworkId
+            ? tokenNetworkId
+            : activeAccount.network?.id,
         accountInfo: { ...activeAccount },
         activeAccount: { ...activeAccount },
       };
@@ -239,8 +301,13 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
   }, [
     type,
     swapToAnotherAccountSwitchOn,
-    swapToAnotherAccountAddressAtom,
+    swapToAnotherAccountAddressAtom.address,
+    swapToAnotherAccountAddressAtom.networkId,
+    swapToAnotherAccountAddressAtom.accountInfo,
     activeAccount,
+    isAllNetwork,
+    accountForAllNet?.addressDetail?.address,
+    tokenNetworkId,
   ]);
   return addressInfo;
 }
