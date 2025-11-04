@@ -55,6 +55,9 @@ export default function AddExistingWallet() {
         {
           title: 'OneKey KeyTag',
           icon: 'OnekeyKeytagOutline' as IKeyOfIcons,
+          onPress: () => {
+            navigation.push(EOnboardingPagesV2.ImportKeyTag);
+          },
         },
         platformEnv.isNative
           ? {

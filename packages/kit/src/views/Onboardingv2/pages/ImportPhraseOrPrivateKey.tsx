@@ -14,7 +14,7 @@ import type { EMnemonicType } from '@onekeyhq/shared/src/utils/secret';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { OnboardingLayout } from '../components/OnboardingLayout';
 
-import { PhaseInputArea } from './PhaseInputArea';
+import { PhaseInputArea } from '../components/PhaseInputArea';
 
 export default function ImportPhraseOrPrivateKey() {
   const navigation = useAppNavigation();

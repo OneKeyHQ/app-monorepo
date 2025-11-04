@@ -35,6 +35,7 @@ const ConnectWalletSelectNetworks = LazyLoadPage(
 const ConnectExternalWallet = LazyLoadPage(
   () => import('../pages/ConnectExternalWallet'),
 );
+const ImportKeyTag = LazyLoadPage(() => import('../pages/ImportKeyTag'));
 
 const hiddenHeaderOptions = {
   headerShown: false,
@@ -111,6 +112,11 @@ export const OnboardingRouterV2: IModalFlowNavigatorConfig<
   {
     name: EOnboardingPagesV2.ConnectExternalWallet,
     component: ConnectExternalWallet,
+    options: hiddenHeaderOptions,
+  },
+  {
+    name: EOnboardingPagesV2.ImportKeyTag,
+    component: ImportKeyTag,
     options: hiddenHeaderOptions,
   },
 ];

@@ -22,6 +22,7 @@ export enum EOnboardingPagesV2 {
   ICloudBackupDetails = 'ICloudBackupDetails',
   ConnectWalletSelectNetworks = 'ConnectWalletSelectNetworks',
   ConnectExternalWallet = 'ConnectExternalWallet',
+  ImportKeyTag = 'ImportKeyTag',
 }
 
 export type IOnboardingParamListV2 = {
@@ -61,4 +62,5 @@ export type IOnboardingParamListV2 = {
     impl: string;
     title: string;
   };
+  [EOnboardingPagesV2.ImportKeyTag]: undefined;
 };
