@@ -37,6 +37,14 @@ import { OnboardingLayout } from '../components/OnboardingLayout';
 
 import type { KnownDevice, SearchDevice } from '@onekeyfe/hd-core';
 
+enum ECheckAndUpdateStepState {
+  Idle = 'idle',
+  InProgress = 'inProgress',
+  Warning = 'warning',
+  Success = 'success',
+  Error = 'error',
+}
+
 export default function CheckAndUpdate({
   route: routeParams,
 }: IPageScreenProps<
@@ -61,7 +69,7 @@ export default function CheckAndUpdate({
       id: string;
       title: string;
       description?: string;
-      state?: 'idle' | 'inProgress' | 'warning' | 'success' | 'error';
+      state?: ECheckAndUpdateStepState;
       neededAction?: boolean;
       errorMessage?: string;
     }[]
@@ -74,7 +82,7 @@ export default function CheckAndUpdate({
           : require('@onekeyhq/kit/assets/onboarding/genuine-check-dark.png'),
       title: 'Genuine check',
       description: `Make sure your ${deviceLabel} is authentic`,
-      state: 'idle',
+      state: ECheckAndUpdateStepState.Idle,
     },
     {
       id: 'firmware-check',
@@ -84,14 +92,14 @@ export default function CheckAndUpdate({
           : require('@onekeyhq/kit/assets/onboarding/firmware-check-dark.png'),
       title: 'Firmware check',
       description: `See if your ${deviceLabel} has the latest software`,
-      state: 'idle',
+      state: ECheckAndUpdateStepState.Idle,
     },
     {
       id: 'setup-on-device',
       image: require('@onekeyhq/shared/src/assets/wallet/avatar/ProBlack.png'),
       title: 'Device setup check',
       description: 'Checking wallet initialization on device',
-      state: 'idle',
+      state: ECheckAndUpdateStepState.Idle,
     },
   ]);
 
@@ -109,11 +117,11 @@ export default function CheckAndUpdate({
       const newSteps = [...prev];
       newSteps[1] = {
         ...newSteps[1],
-        state: 'success',
+        state: ECheckAndUpdateStepState.Success,
       };
       newSteps[2] = {
         ...newSteps[2],
-        state: 'inProgress',
+        state: ECheckAndUpdateStepState.InProgress,
       };
       return newSteps;
     });
@@ -124,7 +132,7 @@ export default function CheckAndUpdate({
         const newSteps = [...prev];
         newSteps[2] = {
           ...newSteps[2],
-          state: 'warning',
+          state: ECheckAndUpdateStepState.Warning,
         };
         return newSteps;
       });
@@ -150,7 +158,9 @@ export default function CheckAndUpdate({
           const newSteps = [...prev];
           newSteps[1] = {
             ...newSteps[1],
-            state: r.hasUpgrade ? 'warning' : 'success',
+            state: r.hasUpgrade
+              ? ECheckAndUpdateStepState.Warning
+              : ECheckAndUpdateStepState.Success,
           };
           return newSteps;
         });
@@ -160,11 +170,11 @@ export default function CheckAndUpdate({
     }
   }, [deviceData.device?.connectId, skipFirmwareUpgrade]);
 
-  const firmwareStepStateRef = useRef(steps[1].state);
+  const firmwareStepStateRef = useRef<ECheckAndUpdateStepState>(steps[1].state);
   firmwareStepStateRef.current = steps[1].state;
   useFocusEffect(
     useCallback(() => {
-      if (firmwareStepStateRef.current === 'warning') {
+      if (firmwareStepStateRef.current === ECheckAndUpdateStepState.Warning) {
         void checkFirmwareUpdate();
       }
     }, [checkFirmwareUpdate]),
@@ -177,13 +187,15 @@ export default function CheckAndUpdate({
         const newSteps = [...prev];
         newSteps[0] = {
           ...newSteps[0],
-          state: result.verified ? 'success' : 'error',
+          state: result.verified
+            ? ECheckAndUpdateStepState.Success
+            : ECheckAndUpdateStepState.Error,
           errorMessage: result.result?.message ?? undefined,
         };
         if (result.verified) {
           newSteps[1] = {
             ...newSteps[1],
-            state: 'inProgress',
+            state: ECheckAndUpdateStepState.InProgress,
           };
         }
         return newSteps;
@@ -202,7 +214,10 @@ export default function CheckAndUpdate({
     // Set first step to inProgress
     setSteps((prev) => {
       const newSteps = [...prev];
-      newSteps[0] = { ...newSteps[0], state: 'inProgress' };
+      newSteps[0] = {
+        ...newSteps[0],
+        state: ECheckAndUpdateStepState.InProgress,
+      };
       return newSteps;
     });
 
@@ -213,7 +228,10 @@ export default function CheckAndUpdate({
     // Set first step to inProgress
     setSteps((prev) => {
       const newSteps = [...prev];
-      newSteps[0] = { ...newSteps[0], state: 'inProgress' };
+      newSteps[0] = {
+        ...newSteps[0],
+        state: ECheckAndUpdateStepState.InProgress,
+      };
       return newSteps;
     });
 
@@ -224,7 +242,10 @@ export default function CheckAndUpdate({
     // Set setup-on-device step to inProgress
     setSteps((prev) => {
       const newSteps = [...prev];
-      newSteps[2] = { ...newSteps[2], state: 'inProgress' };
+      newSteps[2] = {
+        ...newSteps[2],
+        state: ECheckAndUpdateStepState.InProgress,
+      };
       return newSteps;
     });
 
@@ -232,7 +253,10 @@ export default function CheckAndUpdate({
     setTimeout(() => {
       setSteps((prev) => {
         const newSteps = [...prev];
-        newSteps[2] = { ...newSteps[2], state: 'success' };
+        newSteps[2] = {
+          ...newSteps[2],
+          state: ECheckAndUpdateStepState.Success,
+        };
         return newSteps;
       });
 
