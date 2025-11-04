@@ -676,6 +676,55 @@ export const ConnectionIndicator = Object.assign(ConnectionIndicatorRoot, {
   Footer: connectionIndicatorFooter,
 });
 
+function BluetoothCard() {
+  return (
+    <ConnectionIndicator.Card>
+      <ConnectionIndicator.Animation>
+        <YStack w="100%" h="100%" alignItems="center" justifyContent="center">
+          <YStack
+            position="absolute"
+            w={420}
+            h={420}
+            left="50%"
+            top="50%"
+            transform={[{ translateX: '-50%' }, { translateY: '-50%' }]}
+            p={60}
+            flex={1}
+            borderWidth={3}
+            borderColor="$neutral1"
+            borderRadius="$full"
+          >
+            <YStack
+              p={50}
+              flex={1}
+              borderWidth={2}
+              borderColor="$neutral2"
+              borderRadius="$full"
+            >
+              <YStack
+                flex={1}
+                borderWidth={1}
+                borderColor="$neutral3"
+                borderRadius="$full"
+              />
+            </YStack>
+          </YStack>
+          <LottieView
+            source={require('@onekeyhq/kit/assets/animations/bluetooth_signal_spreading.json')}
+            width={320}
+            height={320}
+          />
+        </YStack>
+      </ConnectionIndicator.Animation>
+      <ConnectionIndicator.Content>
+        <ConnectionIndicator.Title>
+          Keep your device near the computer to pair
+        </ConnectionIndicator.Title>
+      </ConnectionIndicator.Content>
+    </ConnectionIndicator.Card>
+  );
+}
+
 function USBOrBLEConnectionIndicator({
   tabValue,
   onDeviceConnect,
@@ -705,6 +754,14 @@ function USBOrBLEConnectionIndicator({
     scanDevice,
     stopScan,
   } = deviceConnection;
+
+  const isUSB = useMemo(() => {
+    return hardwareTransportType === EHardwareTransportType.WEBUSB;
+  }, [hardwareTransportType]);
+
+  const isBLE = useMemo(() => {
+    return hardwareTransportType === EHardwareTransportType.BLE;
+  }, [hardwareTransportType]);
 
   // USB/BLE specific logic only
   const checkBLEState = useCallback(async () => {
@@ -808,53 +865,61 @@ function USBOrBLEConnectionIndicator({
     })();
   }, [listingDevice, hardwareTransportType, tabValue]);
 
-  useEffect(
-    () =>
-      // unmount page stop scan
-      () => {
-        stopScan();
-      },
-    [stopScan],
-  );
+  useEffect(() => {
+    setTimeout(async () => {
+      if (isUSB) {
+        await onConnectWebDevice();
+      } else {
+        await startBLEConnection();
+      }
+    }, 2500);
+    return () => {
+      stopScan();
+    };
+  }, [isUSB, onConnectWebDevice, startBLEConnection, stopScan]);
 
   return (
     <>
       <TroubleShootingButton type="usb" />
       <ConnectionIndicator>
-        <ConnectionIndicator.Card>
-          <ConnectionIndicator.Animation>
-            <Video
-              muted
-              autoPlay
-              w="100%"
-              h="100%" // required for native
-              controls={false}
-              playInBackground={false}
-              resizeMode={EVideoResizeMode.COVER}
-              source={
-                themeVariant === 'dark'
-                  ? require('@onekeyhq/kit/assets/onboarding/ProW-D.mp4')
-                  : require('@onekeyhq/kit/assets/onboarding/ProW-L.mp4')
-              }
-            />
-          </ConnectionIndicator.Animation>
-          <ConnectionIndicator.Content gap="$2">
-            <ConnectionIndicator.Title>
-              Connect OneKey Pro to your computer via USB
-            </ConnectionIndicator.Title>
-            {platformEnv.isExtension ? (
-              <>
-                <SizableText color="$textSubdued">
-                  Click the button below then select your device in the popup to
-                  connect
-                </SizableText>
-                <Button variant="primary" onPress={() => {}} mt="$2">
-                  Start connection
-                </Button>
-              </>
-            ) : null}
-          </ConnectionIndicator.Content>
-        </ConnectionIndicator.Card>
+        {isBLE ? (
+          <BluetoothCard />
+        ) : (
+          <ConnectionIndicator.Card>
+            <ConnectionIndicator.Animation>
+              <Video
+                muted
+                autoPlay
+                w="100%"
+                h="100%" // required for native
+                controls={false}
+                playInBackground={false}
+                resizeMode={EVideoResizeMode.COVER}
+                source={
+                  themeVariant === 'dark'
+                    ? require('@onekeyhq/kit/assets/onboarding/ProW-D.mp4')
+                    : require('@onekeyhq/kit/assets/onboarding/ProW-L.mp4')
+                }
+              />
+            </ConnectionIndicator.Animation>
+            <ConnectionIndicator.Content gap="$2">
+              <ConnectionIndicator.Title>
+                Connect OneKey Pro to your computer via USB
+              </ConnectionIndicator.Title>
+              {platformEnv.isExtension ? (
+                <>
+                  <SizableText color="$textSubdued">
+                    Click the button below then select your device in the popup
+                    to connect
+                  </SizableText>
+                  <Button variant="primary" onPress={() => {}} mt="$2">
+                    Start connection
+                  </Button>
+                </>
+              ) : null}
+            </ConnectionIndicator.Content>
+          </ConnectionIndicator.Card>
+        )}
 
         <ConnectionIndicator.Footer>
           <YStack px="$5">
@@ -1136,55 +1201,7 @@ function BluetoothConnectionIndicator({
     <>
       <TroubleShootingButton type="bluetooth" />
       <ConnectionIndicator>
-        <ConnectionIndicator.Card>
-          <ConnectionIndicator.Animation>
-            <YStack
-              w="100%"
-              h="100%"
-              alignItems="center"
-              justifyContent="center"
-            >
-              <YStack
-                position="absolute"
-                w={420}
-                h={420}
-                left="50%"
-                top="50%"
-                transform={[{ translateX: '-50%' }, { translateY: '-50%' }]}
-                p={60}
-                flex={1}
-                borderWidth={3}
-                borderColor="$neutral1"
-                borderRadius="$full"
-              >
-                <YStack
-                  p={50}
-                  flex={1}
-                  borderWidth={2}
-                  borderColor="$neutral2"
-                  borderRadius="$full"
-                >
-                  <YStack
-                    flex={1}
-                    borderWidth={1}
-                    borderColor="$neutral3"
-                    borderRadius="$full"
-                  />
-                </YStack>
-              </YStack>
-              <LottieView
-                source={require('@onekeyhq/kit/assets/animations/bluetooth_signal_spreading.json')}
-                width={320}
-                height={320}
-              />
-            </YStack>
-          </ConnectionIndicator.Animation>
-          <ConnectionIndicator.Content>
-            <ConnectionIndicator.Title>
-              Keep your device near the computer to pair
-            </ConnectionIndicator.Title>
-          </ConnectionIndicator.Content>
-        </ConnectionIndicator.Card>
+        <BluetoothCard />
         <ConnectionIndicator.Footer>
           <YStack px="$5">
             <XStack alignItems="center" justifyContent="space-between">
@@ -1796,14 +1813,12 @@ function ConnectYourDevicePage({
         <OnboardingLayout.Body constrained={false}>
           <OnboardingLayout.ConstrainedContent>
             <XStack alignItems="center" gap="$4">
-              {tabOptions.length > 1 ? (
-                <SegmentControl
-                  fullWidth
-                  value={tabValue}
-                  onChange={(v) => setTabValue(v as EConnectDeviceChannel)}
-                  options={tabOptions}
-                />
-              ) : null}
+              <SegmentControl
+                fullWidth
+                value={tabValue}
+                onChange={(v) => setTabValue(v as EConnectDeviceChannel)}
+                options={tabOptions}
+              />
               {isSupportedQRCode ? (
                 <YStack ml="auto">
                   <Popover
