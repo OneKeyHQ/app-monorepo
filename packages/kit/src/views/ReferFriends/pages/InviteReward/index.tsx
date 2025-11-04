@@ -18,6 +18,7 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { CumulativeRewards } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/CumulativeRewards';
 import { Dashboard } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/Dashboard';
 import { FAQ } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/FAQ';
+import { OnChainReward } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/OnChainReward';
 import { ReferralCodeCard } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/ReferralCodeCard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IInviteSummary } from '@onekeyhq/shared/src/referralCode/type';
@@ -102,13 +103,15 @@ function InviteRewardContent({
           查看等级详情
         </Button>
       </YStack>
-      <Dashboard
-        onChain={Onchain}
-        hardwareSales={HardwareSales}
-        levelPercent={Number(levelPercent)}
-        rebateLevels={rebateLevels}
-        rebateConfig={rebateConfig}
-      />
+      <YStack py="$8" px="$5" gap="$5">
+        <Dashboard
+          hardwareSales={HardwareSales}
+          levelPercent={Number(levelPercent)}
+          rebateLevels={rebateLevels}
+          rebateConfig={rebateConfig}
+        />
+        <OnChainReward onChain={Onchain} />
+      </YStack>
       <FAQ faqs={faqs} />
       <Link />
     </>
