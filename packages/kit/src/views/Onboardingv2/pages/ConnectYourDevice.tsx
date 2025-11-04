@@ -49,6 +49,10 @@ import {
 } from '@onekeyhq/shared/src/errors';
 import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import bleManagerInstance from '@onekeyhq/shared/src/hardware/bleManager';
 import { checkBLEPermissions } from '@onekeyhq/shared/src/hardware/blePermissions';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -1779,10 +1783,28 @@ function ConnectYourDevicePage({
           });
           return;
         }
+        void backgroundApiProxy.serviceHardwareUI.closeHardwareUiStateDialog({
+          connectId: device.connectId ?? '',
+          hardClose: false,
+          skipDelayClose: true,
+          deviceResetToHome: false,
+        });
 
         if (deviceMode === EOneKeyDeviceMode.notInitialized) {
           handleNotActivatedDevicePress({ deviceType });
         }
+
+        appEventBus.emit(EAppEventBusNames.EmitFirmwareVerifyResult, {
+          verified: true,
+          device,
+          payload: {
+            deviceType: device.deviceType,
+            data: '',
+            cert: '',
+            signature: '',
+          },
+          result: undefined,
+        });
       } catch (error) {
         // Clear force transport type on device connection error
         void backgroundApiProxy.serviceHardware.clearForceTransportType();
