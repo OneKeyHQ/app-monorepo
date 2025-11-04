@@ -1,6 +1,9 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
-import { request as sniRequest } from '@originalix/react-native-sni-connect';
+import {
+  request as sniRequest,
+  subscribeToLogs,
+} from '@originalix/react-native-sni-connect';
 
 import { Button, SizableText, Stack, TextArea } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -39,6 +42,19 @@ const IpRequestGallery = () => {
   const [loading, setLoading] = useState(false);
   const [response, setResponse] = useState<SniConnectResponse | null>(null);
   const [error, setError] = useState<string>();
+
+  useEffect(() => {
+    const unsubscribe = subscribeToLogs((log) => {
+      console.log(
+        `[sni-connect][${log.level}][${new Date(
+          log.timestamp,
+        ).toISOString()}]: ${log.message}`,
+      );
+    });
+    return () => {
+      unsubscribe();
+    };
+  }, []);
 
   const handleSend = useCallback(async () => {
     if (!platformEnv.isNative) {
