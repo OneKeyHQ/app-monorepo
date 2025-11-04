@@ -19,6 +19,7 @@ import type {
 } from '@onekeyhq/core/src/types';
 import {
   useInAppNotificationAtom,
+  useSettingsAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type {
@@ -96,15 +97,19 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { useSignatureConfirm } from '../../../hooks/useSignatureConfirm';
 import {
   useSwapBuildTxFetchingAtom,
+  useSwapFromTokenAmountAtom,
   useSwapLimitExpirationTimeAtom,
   useSwapLimitPartiallyFillAtom,
   useSwapLimitPriceFromAmountAtom,
   useSwapLimitPriceToAmountAtom,
   useSwapQuoteCurrentSelectAtom,
+  useSwapQuoteEventTotalCountAtom,
+  useSwapQuoteListAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapStepNetFeeLevelAtom,
   useSwapStepsAtom,
+  useSwapToTokenAmountAtom,
   useSwapTypeSwitchAtom,
 } from '../../../states/jotai/contexts/swap';
 
@@ -146,6 +151,11 @@ export function useSwapBuildTx() {
   const [{ isFirstTimeSwap }, setPersistSettings] = useSettingsPersistAtom();
   const swapActionState = useSwapActionState();
   const [swapNetWorkFeeLevel] = useSwapStepNetFeeLevelAtom();
+  const [, setSwapFromTokenAmount] = useSwapFromTokenAmountAtom();
+  const [, setSwapToTokenAmount] = useSwapToTokenAmountAtom();
+  const [, setSwapQuoteResultList] = useSwapQuoteListAtom();
+  const [, setSwapQuoteEventTotalCount] = useSwapQuoteEventTotalCountAtom();
+  const [, setSettings] = useSettingsAtom();
   const { navigationToMessageConfirm, navigationToTxConfirm } =
     useSignatureConfirm({
       accountId: swapFromAddressInfo.accountInfo?.account?.id ?? '',
@@ -175,31 +185,31 @@ export function useSwapBuildTx() {
     [],
   );
 
-  // const clearQuoteData = useCallback(() => {
-  //   setSwapFromTokenAmount({
-  //     value: '',
-  //     isInput: false,
-  //   }); // send success, clear from token amount
-  //   setSwapToTokenAmount({
-  //     value: '',
-  //     isInput: false,
-  //   }); // send success, clear to token amount
-  //   setSwapQuoteResultList([]);
-  //   setSwapQuoteEventTotalCount({
-  //     count: 0,
-  //   });
-  //   setSettings((v) => ({
-  //     // reset account switch for reset swap receive address
-  //     ...v,
-  //     swapToAnotherAccountSwitchOn: false,
-  //   }));
-  // }, [
-  //   setSettings,
-  //   setSwapFromTokenAmount,
-  //   setSwapQuoteEventTotalCount,
-  //   setSwapQuoteResultList,
-  //   setSwapToTokenAmount,
-  // ]);
+  const clearQuoteData = useCallback(() => {
+    setSwapFromTokenAmount({
+      value: '',
+      isInput: false,
+    }); // send success, clear from token amount
+    setSwapToTokenAmount({
+      value: '',
+      isInput: false,
+    }); // send success, clear to token amount
+    setSwapQuoteResultList([]);
+    setSwapQuoteEventTotalCount({
+      count: 0,
+    });
+    setSettings((v) => ({
+      // reset account switch for reset swap receive address
+      ...v,
+      swapToAnotherAccountSwitchOn: false,
+    }));
+  }, [
+    setSettings,
+    setSwapFromTokenAmount,
+    setSwapQuoteEventTotalCount,
+    setSwapQuoteResultList,
+    setSwapToTokenAmount,
+  ]);
 
   const goBackQrCodeModal = useCallback(() => {
     if (
@@ -213,8 +223,8 @@ export function useSwapBuildTx() {
 
   const onBuildTxSuccess = useCallback(
     async (txId: string, swapInfo: ISwapTxInfo, orderId?: string) => {
-      // clearQuoteData();
       if (swapInfo) {
+        clearQuoteData();
         setSwapSteps(
           (prevSteps: {
             steps: ISwapStep[];
@@ -256,6 +266,7 @@ export function useSwapBuildTx() {
       }
     },
     [
+      clearQuoteData,
       goBackQrCodeModal,
       generateSwapHistoryItem,
       setSwapSteps,
