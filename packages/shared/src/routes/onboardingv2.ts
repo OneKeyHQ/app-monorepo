@@ -53,6 +53,12 @@ export type IOnboardingParamListV2 = {
   [EOnboardingPagesV2.ICloudBackupDetails]: {
     backupTime: string;
   };
-  [EOnboardingPagesV2.ConnectWalletSelectNetworks]: undefined;
-  [EOnboardingPagesV2.ConnectExternalWallet]: undefined;
+  [EOnboardingPagesV2.ConnectWalletSelectNetworks]: {
+    impl: string;
+    title: string;
+  };
+  [EOnboardingPagesV2.ConnectExternalWallet]: {
+    impl: string;
+    title: string;
+  };
 };
