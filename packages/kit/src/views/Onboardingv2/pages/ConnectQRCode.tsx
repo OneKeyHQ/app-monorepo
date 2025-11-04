@@ -1,6 +1,7 @@
 import { useRoute } from '@react-navigation/core';
 
 import {
+  Anchor,
   Button,
   EVideoResizeMode,
   Page,
@@ -70,6 +71,16 @@ export default function ConnectQRCode() {
             </ConnectionIndicator.Card>
           </ConnectionIndicator>
         </OnboardingLayout.Body>
+        <OnboardingLayout.Footer>
+          <Anchor
+            href="https://help.onekey.so/articles/11461088"
+            target="_blank"
+            size="$bodySm"
+            color="$textSubdued"
+          >
+            Learn more about QR-based wallet
+          </Anchor>
+        </OnboardingLayout.Footer>
       </OnboardingLayout>
     </Page>
   );
