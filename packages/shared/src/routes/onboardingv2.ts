@@ -16,6 +16,7 @@ export enum EOnboardingPagesV2 {
   ConnectYourDevice = 'ConnectYourDevice',
   CheckAndUpdate = 'CheckAndUpdate',
   ImportPhraseOrPrivateKey = 'ImportPhraseOrPrivateKey',
+  SelectPrivateKeyNetwork = 'SelectPrivateKeyNetwork',
   ICloudBackup = 'ICloudBackup',
   ICloudBackupDetails = 'ICloudBackupDetails',
 }
@@ -39,6 +40,9 @@ export type IOnboardingParamListV2 = {
     deviceData: IConnectYourDeviceItem;
   };
   [EOnboardingPagesV2.ImportPhraseOrPrivateKey]: undefined;
+  [EOnboardingPagesV2.SelectPrivateKeyNetwork]: {
+    privateKey: string;
+  };
   [EOnboardingPagesV2.ICloudBackup]: undefined;
   [EOnboardingPagesV2.ICloudBackupDetails]: {
     backupTime: string;
