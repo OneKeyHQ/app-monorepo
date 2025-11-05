@@ -102,6 +102,7 @@ import {
   getDeviceLabel,
   getForceTransportType,
   getHardwareCommunicationTypeString,
+  sortDevicesData,
   trackHardwareWalletConnection,
 } from '../utils';
 
@@ -131,6 +132,7 @@ function BridgeNotInstalledDialogContent(_props: { error: NeedOneKeyBridge }) {
 }
 
 interface IDeviceConnectionProps {
+  deviceTypeItems: EDeviceType[];
   onDeviceConnect: (device: SearchDevice) => Promise<void>;
   onSelectAddWalletType: (params: {
     device: SearchDevice;
@@ -725,7 +727,6 @@ function USBOrBLEConnectionIndicator({
   deviceTypeItems,
 }: {
   tabValue: EConnectDeviceChannel;
-  deviceTypeItems: EDeviceType[];
 } & IDeviceConnectionProps) {
   const themeVariant = useThemeVariant();
   const intl = useIntl();
@@ -736,6 +737,7 @@ function USBOrBLEConnectionIndicator({
   // Use the shared device connection logic
   const deviceConnection = useDeviceConnection({
     tabValue,
+    deviceTypeItems,
     onDeviceConnect,
     onSelectAddWalletType,
   });
@@ -877,7 +879,11 @@ function USBOrBLEConnectionIndicator({
     return getDeviceLabel(deviceTypeItems);
   }, [deviceTypeItems]);
 
-  console.log('devicesData', devicesData);
+  const sortedDevicesData = useMemo(() => {
+    return sortDevicesData(devicesData, deviceTypeItems);
+  }, [deviceTypeItems, devicesData]);
+
+  console.log('sortedDevicesData', sortedDevicesData);
   return (
     <>
       <TroubleShootingButton type="usb" />
@@ -920,9 +926,9 @@ function USBOrBLEConnectionIndicator({
             </XStack>
           </YStack>
           <HeightTransition initialHeight={0}>
-            {devicesData.length > 0 ? (
+            {sortedDevicesData.length > 0 ? (
               <>
-                {devicesData.map((data) => (
+                {sortedDevicesData.map((data) => (
                   <ListItem
                     key={data.device?.deviceId}
                     drillIn
@@ -950,6 +956,7 @@ function USBOrBLEConnectionIndicator({
 }
 
 function BluetoothConnectionIndicator({
+  deviceTypeItems,
   onDeviceConnect,
   onSelectAddWalletType,
 }: IDeviceConnectionProps) {
@@ -1073,6 +1080,7 @@ function BluetoothConnectionIndicator({
   // Use shared device connection logic for Bluetooth
   const deviceConnection = useDeviceConnection({
     tabValue: EConnectDeviceChannel.bluetooth,
+    deviceTypeItems,
     onDeviceConnect: handleBluetoothDeviceConnect,
     onSelectAddWalletType,
   });
@@ -1133,6 +1141,10 @@ function BluetoothConnectionIndicator({
     },
     [stopScan, stopBluetoothStatusPolling],
   );
+
+  const sortedDevicesData = useMemo(() => {
+    return sortDevicesData(devicesData, deviceTypeItems);
+  }, [deviceTypeItems, devicesData]);
 
   if (bluetoothStatus === 'disabledInApp') {
     return (
@@ -1201,9 +1213,9 @@ function BluetoothConnectionIndicator({
             </XStack>
           </YStack>
           <HeightTransition initialHeight={0}>
-            {devicesData.length > 0 ? (
+            {sortedDevicesData.length > 0 ? (
               <>
-                {devicesData.map((device) => (
+                {sortedDevicesData.map((device) => (
                   <ListItem
                     key={device.device?.connectId}
                     drillIn
@@ -1880,6 +1892,7 @@ function ConnectYourDevicePage({
             ) : null}
             {tabValue === EConnectDeviceChannel.bluetooth ? (
               <BluetoothConnectionIndicator
+                deviceTypeItems={deviceTypeItems}
                 onDeviceConnect={handleDeviceConnect}
                 onSelectAddWalletType={selectAddWalletType}
               />
