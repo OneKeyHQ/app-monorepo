@@ -1,3 +1,4 @@
+import simpleDb from '@onekeyhq/kit-bg/src/dbs/simple/simpleDb';
 import requestHelper from '@onekeyhq/shared/src/request/requestHelper';
 
 import { checkIsOneKeyDomain } from '../endpoints';
@@ -13,5 +14,12 @@ export function updateInterceptorRequestHelper() {
     getDevSettingsPersistAtom: async () => devSettingsPersistAtom.get(),
     getSettingsPersistAtom: async () => settingsPersistAtom.get(),
     getSettingsValuePersistAtom: async () => settingsValuePersistAtom.get(),
+    getIpTableConfig: async () => {
+      // Access backgroundApi through global proxy for lazy initialization
+      if (!simpleDb) {
+        return null;
+      }
+      return simpleDb.ipTable.getConfig();
+    },
   });
 }

@@ -2,10 +2,10 @@ import axios, { AxiosHeaders } from 'axios';
 
 import { OneKeyLocalError } from '../../errors';
 import platformEnv from '../../platformEnv';
+import requestHelper from '../requestHelper';
 
 import { isSniSupported, sniRequest } from './sniRequest';
 
-import type { IIpTableConfig } from '../types/ipTable';
 import type {
   AxiosAdapter,
   AxiosRequestConfig,
@@ -33,24 +33,6 @@ const debugError = (...args: any[]) => {
 };
 
 /**
- * Hard-coded IP Table configuration for Phase 1 validation
- * Maps onekey test domain to IP address
- */
-const HARDCODED_IP_TABLE_CONFIG: IIpTableConfig = {
-  enabled: true,
-  hosts: {
-    'onekeytest.com': {
-      primaryIps: ['216.19.4.106'],
-      fallbackIps: [],
-      enabled: true,
-    },
-  },
-  currentSelections: {
-    'onekeytest.com': '216.19.4.106',
-  },
-};
-
-/**
  * Extract root domain from hostname
  * Example: wallet.example.com -> example.com
  * Example: api.example.so -> example.so
@@ -64,22 +46,33 @@ function extractRootDomain(hostname: string): string {
 }
 
 /**
- * Get selected IP for a given hostname from IP Table
+ * Get selected IP for a given hostname from IP Table configuration
+ * Uses dynamic configuration from requestHelper
  * @returns IP address if found and enabled, null otherwise
  */
-function getSelectedIpForHost(hostname: string): string | null {
-  if (!HARDCODED_IP_TABLE_CONFIG.enabled) {
+async function getSelectedIpForHost(hostname: string): Promise<string | null> {
+  try {
+    const config = await requestHelper.getIpTableConfig();
+
+    // Check global enable flag
+    if (!config || !config.enabled) {
+      return null;
+    }
+
+    const rootDomain = extractRootDomain(hostname);
+    const hostConfig = config.hosts[rootDomain];
+
+    // Check if host configuration exists
+    if (!hostConfig) {
+      return null;
+    }
+
+    // Return currently selected IP for this host
+    return config.currentSelections[rootDomain] || null;
+  } catch (error) {
+    debugWarn('[IpTableAdapter] Failed to get IP table config:', error);
     return null;
   }
-
-  const rootDomain = extractRootDomain(hostname);
-  const hostConfig = HARDCODED_IP_TABLE_CONFIG.hosts[rootDomain];
-
-  if (!hostConfig || !hostConfig.enabled) {
-    return null;
-  }
-
-  return HARDCODED_IP_TABLE_CONFIG.currentSelections[rootDomain] || null;
 }
 
 /**
@@ -242,8 +235,8 @@ export function createIpTableAdapter(
       return callOriginalAdapter(config);
     }
 
-    // Get selected IP for this hostname
-    const selectedIp = getSelectedIpForHost(hostname);
+    // Get selected IP for this hostname (async call)
+    const selectedIp = await getSelectedIpForHost(hostname);
 
     // If no IP mapping found, use original adapter
     if (!selectedIp) {
