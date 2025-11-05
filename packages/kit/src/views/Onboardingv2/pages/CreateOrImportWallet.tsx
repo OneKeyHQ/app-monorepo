@@ -19,6 +19,7 @@ import {
   ensureSensitiveTextEncoded,
   generateMnemonic,
 } from '@onekeyhq/core/src/secret';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes';
 import externalWalletLogoUtils from '@onekeyhq/shared/src/utils/externalWalletLogoUtils';
 
@@ -116,6 +117,13 @@ export default function CreateOrImportWallet() {
 
   const handleAddExistingWallet = () => {
     navigation.push(EOnboardingPagesV2.AddExistingWallet);
+  };
+
+  const handleConnectExternalWallet = () => {
+    navigation.push(EOnboardingPagesV2.ConnectWalletSelectNetworks);
+    defaultLogger.account.wallet.onboard({
+      onboardMethod: 'connect3rdPartyWallet',
+    });
   };
 
   return (
@@ -307,7 +315,9 @@ export default function CreateOrImportWallet() {
                   ))}
                 </XStack>
                 <Card.Title flex={1}>Connect external wallet</Card.Title>
-                <Button size="small">Connect</Button>
+                <Button size="small" onPress={handleConnectExternalWallet}>
+                  Connect
+                </Button>
               </Card.Header>
             </Card>
           </OnboardingLayout.ConstrainedContent>
