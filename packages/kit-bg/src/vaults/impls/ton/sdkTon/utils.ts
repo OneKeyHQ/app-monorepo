@@ -214,7 +214,7 @@ export const getTonSendMode = (max: string | undefined) => {
     : SendMode.PAY_GAS_SEPARATELY + SendMode.IGNORE_ERRORS;
 };
 
-const seeIfBounceable = (address: string) => {
+export const seeIfBounceable = (address: string) => {
   return Address.isFriendly(address)
     ? Address.parseFriendly(address).isBounceable
     : false;
@@ -251,15 +251,21 @@ export async function serializeUnsignedTransaction({
 
     const signingMessage = createWalletTransferV4({
       seqno: encodedTx.sequenceNo || 0,
-      messages: encodedTx.messages.map((message) =>
-        internal({
+      messages: encodedTx.messages.map((message) => {
+        let body: Cell | undefined;
+
+        if (message.payload) {
+          body = Cell.fromBase64(message.payload);
+        }
+
+        return internal({
           to: message.address,
           value: toNano(fromNano(message.amount)),
           bounce: seeIfBounceable(message.address),
-          body: message.payload ? Cell.fromBase64(message.payload) : undefined,
+          body,
           init: toStateInit(message.stateInit),
-        }),
-      ),
+        });
+      }),
       sendMode: SendMode.PAY_GAS_SEPARATELY + SendMode.IGNORE_ERRORS,
       walletId,
     });
