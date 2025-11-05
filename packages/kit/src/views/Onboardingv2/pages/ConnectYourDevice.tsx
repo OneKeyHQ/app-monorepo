@@ -1160,14 +1160,6 @@ function BluetoothConnectionIndicator({
   );
 }
 
-const isSupportedDevice = (deviceType: string) => {
-  return (
-    deviceType === EDeviceType.Pro ||
-    deviceType === EDeviceType.Touch ||
-    deviceType === EDeviceType.Unknown
-  );
-};
-
 function QRWalletConnect() {
   const { gtMd } = useMedia();
   const navigation = useAppNavigation();
@@ -1218,7 +1210,9 @@ function ConnectYourDevicePage({
 
   const intl = useIntl();
   const isSupportedQRCode = useMemo(() => {
-    return deviceTypeItems.every(isSupportedDevice);
+    return deviceTypeItems.every(
+      (deviceType) => deviceType === EDeviceType.Pro,
+    );
   }, [deviceTypeItems]);
   const tabOptions = useMemo(() => {
     return [
