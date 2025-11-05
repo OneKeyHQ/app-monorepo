@@ -1,7 +1,4 @@
-import { useCallback } from 'react';
-
 import {
-  Button,
   Page,
   ScrollView,
   Spinner,
@@ -13,19 +10,16 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { CumulativeRewards } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/CumulativeRewards';
-import { HardwareSalesReward } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/HardwareSalesReward';
+import { CurrentLevelCard } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/CurrentLevelCard';
 import { FAQ } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/FAQ';
+import { HardwareSalesReward } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/HardwareSalesReward';
 import { OnChainReward } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/OnChainReward';
 import { ReferralCodeCard } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/ReferralCodeCard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IInviteSummary } from '@onekeyhq/shared/src/referralCode/type';
-import {
-  ETabReferFriendsRoutes,
-  ETabRoutes,
-} from '@onekeyhq/shared/src/routes';
+import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 function Link() {
@@ -66,11 +60,6 @@ function InviteRewardContent({
     rebateConfig,
     withdrawAddresses,
   } = summaryInfo;
-  const navigation = useAppNavigation();
-
-  const handleViewLevelDetail = useCallback(() => {
-    navigation.push(ETabReferFriendsRoutes.TabReferralLevel);
-  }, [navigation]);
 
   return (
     <>
@@ -93,16 +82,10 @@ function InviteRewardContent({
           <ReferralCodeCard inviteUrl={inviteUrl} inviteCode={inviteCode} />
         </Stack>
       </Stack>
-      <YStack px="$5" py="$4">
-        <Button
-          variant="secondary"
-          size="medium"
-          onPress={handleViewLevelDetail}
-          icon="TrophyOutline"
-        >
-          查看等级详情
-        </Button>
-      </YStack>
+      <CurrentLevelCard
+        rebateConfig={rebateConfig}
+        rebateLevels={rebateLevels}
+      />
       <YStack py="$8" px="$5" gap="$5">
         <HardwareSalesReward
           hardwareSales={HardwareSales}

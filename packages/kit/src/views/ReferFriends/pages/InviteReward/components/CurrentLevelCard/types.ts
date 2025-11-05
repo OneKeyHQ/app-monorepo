@@ -1,9 +1,24 @@
-// eslint-disable-next-line @typescript-eslint/no-empty-interface
+import type { IInviteSummary } from '@onekeyhq/shared/src/referralCode/type';
+
 export interface ICurrentLevelCardProps {
-  // TODO: Add props
+  rebateConfig: IInviteSummary['rebateConfig'];
+  rebateLevels: IInviteSummary['rebateLevels'];
 }
 
-// eslint-disable-next-line @typescript-eslint/no-empty-interface
 export interface IUseCurrentLevelCardReturn {
-  // TODO: Add return values
+  currentLevel: IInviteSummary['rebateConfig'];
+  levelIcon: string;
+  levelLabel: string;
+  commissionRates: {
+    hardwareSales: {
+      you: number;
+      invitee: number;
+      label: string;
+    };
+    defi: {
+      you: number;
+      invitee: number;
+      label: string;
+    };
+  };
 }
