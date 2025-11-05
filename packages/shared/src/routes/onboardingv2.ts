@@ -17,6 +17,9 @@ export enum EOnboardingPagesV2 {
   ConnectQRCode = 'ConnectQRCode',
   CheckAndUpdate = 'CheckAndUpdate',
   ImportPhraseOrPrivateKey = 'ImportPhraseOrPrivateKey',
+  BackupWalletReminder = 'BackupWalletReminder',
+  ShowRecoveryPhrase = 'ShowRecoveryPhrase',
+  VerifyRecoveryPhrase = 'VerifyRecoveryPhrase',
   SelectPrivateKeyNetwork = 'SelectPrivateKeyNetwork',
   ICloudBackup = 'ICloudBackup',
   ICloudBackupDetails = 'ICloudBackupDetails',
@@ -47,6 +50,9 @@ export type IOnboardingParamListV2 = {
     deviceData: IConnectYourDeviceItem;
   };
   [EOnboardingPagesV2.ImportPhraseOrPrivateKey]: undefined;
+  [EOnboardingPagesV2.BackupWalletReminder]: undefined;
+  [EOnboardingPagesV2.ShowRecoveryPhrase]: undefined;
+  [EOnboardingPagesV2.VerifyRecoveryPhrase]: undefined;
   [EOnboardingPagesV2.SelectPrivateKeyNetwork]: {
     privateKey: string;
   };
