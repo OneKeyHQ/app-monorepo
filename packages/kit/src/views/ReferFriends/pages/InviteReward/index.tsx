@@ -5,7 +5,6 @@ import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { CumulativeRewards } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/CumulativeRewards';
 import { CurrentLevelCard } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/CurrentLevelCard';
-import { FAQ } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/FAQ';
 import { InvitationDetailsSection } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/InvitationDetailsSection';
 import { ReferralCodeCard } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/ReferralCodeCard';
 import { RulesButton } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/RulesButton';
@@ -23,7 +22,6 @@ function InviteRewardContent({
   fetchSummaryInfo: () => void;
 }) {
   const {
-    faqs,
     inviteUrl,
     inviteCode,
     enabledNetworks,
@@ -64,7 +62,6 @@ function InviteRewardContent({
       />
 
       <InvitationDetailsSection summaryInfo={summaryInfo} />
-      <FAQ faqs={faqs} />
     </>
   );
 }
