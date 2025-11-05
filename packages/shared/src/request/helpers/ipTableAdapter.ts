@@ -46,12 +46,54 @@ function extractRootDomain(hostname: string): string {
 }
 
 /**
+ * Check if IP Table should be used based on environment and dev settings
+ * @returns true if IP Table should be used, false otherwise
+ */
+async function shouldUseIpTable(): Promise<boolean> {
+  try {
+    const devSettings = await requestHelper.getDevSettingsPersistAtom();
+
+    if (platformEnv.isDev) {
+      // Development environment: need manual enable
+      const enabled = devSettings?.settings?.enableIpTableInDev === true;
+      debugLog(
+        `[IpTableAdapter] Dev environment - IP Table ${
+          enabled ? 'enabled' : 'disabled'
+        }`,
+      );
+      return enabled;
+    }
+
+    // Production environment: enabled by default, can be manually disabled
+    const disabled = devSettings?.settings?.disableIpTableInProd === true;
+    debugLog(
+      `[IpTableAdapter] Prod environment - IP Table ${
+        disabled ? 'disabled' : 'enabled'
+      }`,
+    );
+    return !disabled;
+  } catch (error) {
+    debugWarn('[IpTableAdapter] Failed to check IP Table permission:', error);
+    // On error, fallback based on environment
+    // Dev: disabled by default, Prod: enabled by default
+    return !platformEnv.isDev;
+  }
+}
+
+/**
  * Get selected IP for a given hostname from IP Table configuration
  * Uses dynamic configuration from requestHelper
  * @returns IP address if found and enabled, null otherwise
  */
 async function getSelectedIpForHost(hostname: string): Promise<string | null> {
   try {
+    // Check environment-based permission first
+    const hasPermission = await shouldUseIpTable();
+    if (!hasPermission) {
+      debugLog('[IpTableAdapter] IP Table disabled by dev settings');
+      return null;
+    }
+
     const config = await requestHelper.getIpTableConfig();
 
     // Check global enable flag

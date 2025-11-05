@@ -55,6 +55,12 @@ export interface IDevSettings {
   showPerpsRenderStats?: boolean;
 
   usbCommunicationMode?: 'webusb' | 'bridge';
+
+  // IP Table control for different environments
+  // Development: enable IP Table (default false - disabled)
+  enableIpTableInDev?: boolean;
+  // Production: disable IP Table (default false - means enabled in production)
+  disableIpTableInProd?: boolean;
 }
 
 export type IDevSettingsKeys = keyof IDevSettings;
@@ -89,6 +95,8 @@ export const {
       },
       useLocalTradingViewUrl: false,
       usbCommunicationMode: 'webusb',
+      enableIpTableInDev: false, // Dev: disabled by default (need manual enable)
+      disableIpTableInProd: false, // Prod: enabled by default (can manually disable)
     },
   },
 });
