@@ -99,6 +99,7 @@ import { useFirmwareVerifyDialog } from '../../Onboarding/pages/ConnectHardwareW
 import { useSelectAddWalletTypeDialog } from '../../Onboarding/pages/ConnectHardwareWallet/SelectAddWalletTypeDialog';
 import { OnboardingLayout } from '../components/OnboardingLayout';
 import {
+  getDeviceLabel,
   getForceTransportType,
   getHardwareCommunicationTypeString,
   trackHardwareWalletConnection,
@@ -872,6 +873,10 @@ function USBOrBLEConnectionIndicator({
     };
   }, [isUSB, onConnectWebDevice, startBLEConnection, stopScan]);
 
+  const deviceLabel = useMemo(() => {
+    return getDeviceLabel(deviceTypeItems);
+  }, [deviceTypeItems]);
+
   console.log('devicesData', devicesData);
   return (
     <>
@@ -889,7 +894,7 @@ function USBOrBLEConnectionIndicator({
             </ConnectionIndicator.Animation>
             <ConnectionIndicator.Content gap="$2">
               <ConnectionIndicator.Title>
-                Connect OneKey Pro to your computer via USB
+                Connect {deviceLabel} to your computer via USB
               </ConnectionIndicator.Title>
               {platformEnv.isExtension ? (
                 <>

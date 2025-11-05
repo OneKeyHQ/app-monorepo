@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { StyleSheet } from 'react-native';
 
@@ -15,12 +15,13 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import {
-  ensureSensitiveTextEncoded,
-  generateMnemonic,
-} from '@onekeyhq/core/src/secret';
+import { generateMnemonic } from '@onekeyhq/core/src/secret';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { EModalRoutes, EOnboardingPages, EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes';
+import {
+  EModalRoutes,
+  EOnboardingPages,
+  EOnboardingPagesV2,
+} from '@onekeyhq/shared/src/routes';
 import externalWalletLogoUtils from '@onekeyhq/shared/src/utils/externalWalletLogoUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
