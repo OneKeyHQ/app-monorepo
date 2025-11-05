@@ -1,14 +1,12 @@
 import { Page, ScrollView, Spinner, Stack, XStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
-import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { CumulativeRewards } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/CumulativeRewards';
 import { CurrentLevelCard } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/CurrentLevelCard';
 import { FAQ } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/FAQ';
-import { HardwareSalesReward } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/HardwareSalesReward';
-import { OnChainReward } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/OnChainReward';
+import { InvitationDetailsSection } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/InvitationDetailsSection';
 import { ReferralCodeCard } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/ReferralCodeCard';
 import { RulesButton } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/RulesButton';
 import { SectionHeader } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/SectionHeader';
@@ -16,24 +14,6 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IInviteSummary } from '@onekeyhq/shared/src/referralCode/type';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-
-function Link() {
-  return (
-    <XStack px="$5" mb="$5">
-      <HyperlinkText
-        cursor="pointer"
-        size="$bodyMdMedium"
-        underlineTextProps={{
-          color: '$textInfo',
-        }}
-        style={{
-          textUnderlineOffset: 2,
-        }}
-        translationId={ETranslations.referral_more_questions}
-      />
-    </XStack>
-  );
-}
 
 function InviteRewardContent({
   summaryInfo,
@@ -47,10 +27,7 @@ function InviteRewardContent({
     inviteUrl,
     inviteCode,
     enabledNetworks,
-    Onchain,
-    HardwareSales,
     cumulativeRewards,
-    levelPercent,
     rebateLevels,
     rebateConfig,
     withdrawAddresses,
@@ -86,20 +63,8 @@ function InviteRewardContent({
         rebateLevels={rebateLevels}
       />
 
-      <SectionHeader
-        translationId={ETranslations.referral_invitation_details}
-      />
-      <XStack py="$8" px="$5" gap="$5">
-        <HardwareSalesReward
-          hardwareSales={HardwareSales}
-          levelPercent={Number(levelPercent)}
-          rebateLevels={rebateLevels}
-          rebateConfig={rebateConfig}
-        />
-        <OnChainReward onChain={Onchain} />
-      </XStack>
+      <InvitationDetailsSection summaryInfo={summaryInfo} />
       <FAQ faqs={faqs} />
-      <Link />
     </>
   );
 }
