@@ -333,7 +333,6 @@ function FinalizeWalletSetupPage({
           showLanguageSelector={false}
         />
         <OnboardingLayout.Body constrained={false} scrollable={false}>
-          {' '}
           {currentStepData ? (
             <YStack w="100%" h="100%">
               <YStack
