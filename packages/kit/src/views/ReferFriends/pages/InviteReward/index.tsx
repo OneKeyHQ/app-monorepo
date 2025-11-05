@@ -11,6 +11,7 @@ import { HardwareSalesReward } from '@onekeyhq/kit/src/views/ReferFriends/pages/
 import { OnChainReward } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/OnChainReward';
 import { ReferralCodeCard } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/ReferralCodeCard';
 import { RulesButton } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/RulesButton';
+import { SectionHeader } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/SectionHeader';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IInviteSummary } from '@onekeyhq/shared/src/referralCode/type';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
@@ -60,6 +61,7 @@ function InviteRewardContent({
       <XStack px="$5" pt="$5" jc="flex-end">
         <RulesButton />
       </XStack>
+      <SectionHeader translationId={ETranslations.global_overview} />
       <Stack
         gap="$5"
         flexDirection="row"
@@ -82,6 +84,10 @@ function InviteRewardContent({
       <CurrentLevelCard
         rebateConfig={rebateConfig}
         rebateLevels={rebateLevels}
+      />
+
+      <SectionHeader
+        translationId={ETranslations.referral_invitation_details}
       />
       <XStack py="$8" px="$5" gap="$5">
         <HardwareSalesReward
