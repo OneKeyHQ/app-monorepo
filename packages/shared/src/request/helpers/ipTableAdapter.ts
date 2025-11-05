@@ -4,7 +4,7 @@ import { OneKeyLocalError } from '../../errors';
 
 import { isSniSupported, sniRequest } from './sniRequest';
 
-import type { IIpTableConfig, ISniRequestConfig } from '../types/ipTable';
+import type { IIpTableConfig } from '../types/ipTable';
 import type {
   AxiosAdapter,
   AxiosRequestConfig,
@@ -255,9 +255,17 @@ export function createIpTableAdapter(
 
       // Append query string if exists
       if (config.params) {
-        const searchParams = new URLSearchParams(
-          config.params as Record<string, string>,
+        // Filter out undefined and null values to match axios default behavior
+        const filteredParams: Record<string, string> = {};
+        Object.entries(config.params as Record<string, any>).forEach(
+          ([key, value]) => {
+            if (value !== undefined && value !== null) {
+              filteredParams[key] = String(value);
+            }
+          },
         );
+
+        const searchParams = new URLSearchParams(filteredParams);
         const queryString = searchParams.toString();
         if (queryString) {
           fullPath += `?${queryString}`;
