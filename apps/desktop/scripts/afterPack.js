@@ -1,6 +1,5 @@
 const fs = require('fs');
 const path = require('path');
-const { execSync } = require('child_process');
 const { FuseVersion, FuseV1Options } = require('@electron/fuses');
 
 exports.default = async function fileOperation(context) {
