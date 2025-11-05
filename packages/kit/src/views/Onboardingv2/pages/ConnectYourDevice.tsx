@@ -1302,7 +1302,7 @@ function QRWalletConnect() {
       });
       throw error;
     }
-  }, [createQrWallet, isSoftwareWalletOnlyUser, navigation]);
+  }, [closePopover, createQrWallet, isSoftwareWalletOnlyUser, navigation]);
   return (
     <YStack
       p="$5"

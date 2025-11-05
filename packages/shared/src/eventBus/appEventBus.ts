@@ -25,6 +25,7 @@ import platformEnv from '../platformEnv';
 import { EAppEventBusNames } from './appEventBusNames';
 
 import type { EAccountSelectorSceneName, EHomeTab } from '../../types';
+import type { IFirmwareVerifyResult } from '../../types/device';
 import type { IFeeSelectorItem } from '../../types/fee';
 import type { ESubscriptionType } from '../../types/hyperliquid/types';
 import type { INotificationViewDialogPayload } from '../../types/notification';
@@ -42,7 +43,6 @@ import type { IAccountToken, ITokenFiat } from '../../types/token';
 import type { IOneKeyError } from '../errors/types/errorTypes';
 import type { IWalletConnectSession } from '../walletConnect/types';
 import type { FuseResult } from 'fuse.js';
-import { IFirmwareVerifyResult } from '../../types/device';
 
 // Supported hardware error types for dialog display
 export const HARDWARE_ERROR_DIALOG_TYPES = {
