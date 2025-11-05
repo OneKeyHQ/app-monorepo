@@ -2,11 +2,13 @@ import { useCallback, useMemo, useState } from 'react';
 
 import type { IInviteCodeListItem } from '@onekeyhq/shared/src/referralCode/type';
 
+import { EInviteCodeListTableColumn } from '../const';
+
 export type ISortableColumn =
-  | 'salesOrders'
-  | 'onchainWallets'
-  | 'cumulativeRewardsFiatValue'
-  | 'createdAt';
+  | EInviteCodeListTableColumn.SALES_ORDERS
+  | EInviteCodeListTableColumn.ONCHAIN_WALLETS
+  | EInviteCodeListTableColumn.CUMULATIVE_REWARDS
+  | EInviteCodeListTableColumn.CREATED_AT;
 
 export function useSortableData(items: IInviteCodeListItem[] | undefined) {
   const [sortBy, setSortBy] = useState<ISortableColumn | undefined>(undefined);
@@ -25,13 +27,13 @@ export function useSortableData(items: IInviteCodeListItem[] | undefined) {
       let bValue: string | number = b[sortBy];
 
       // Handle numeric sorting for rewards
-      if (sortBy === 'cumulativeRewardsFiatValue') {
+      if (sortBy === EInviteCodeListTableColumn.CUMULATIVE_REWARDS) {
         aValue = parseFloat(String(aValue)) || 0;
         bValue = parseFloat(String(bValue)) || 0;
       }
 
       // Handle date sorting
-      if (sortBy === 'createdAt') {
+      if (sortBy === EInviteCodeListTableColumn.CREATED_AT) {
         aValue = new Date(String(aValue)).getTime();
         bValue = new Date(String(bValue)).getTime();
       }

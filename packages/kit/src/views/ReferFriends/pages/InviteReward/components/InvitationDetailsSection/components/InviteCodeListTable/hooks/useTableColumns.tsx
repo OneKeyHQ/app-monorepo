@@ -10,6 +10,7 @@ import type { IInviteCodeListItem } from '@onekeyhq/shared/src/referralCode/type
 import { CodeCell } from '../components/CodeCell';
 import { CopyLinkButton } from '../components/CopyLinkButton';
 import { NoteCell } from '../components/NoteCell';
+import { EInviteCodeListTableColumn, SORTABLE_COLUMNS } from '../const';
 
 import type { ISortableColumn } from './useSortableData';
 
@@ -37,7 +38,7 @@ export function useTableColumns(
     () => [
       {
         title: intl.formatMessage({ id: ETranslations.referral_your_code }),
-        dataIndex: 'code',
+        dataIndex: EInviteCodeListTableColumn.CODE,
         columnWidth: 192,
         render: (text: string) => <CodeCell code={text} />,
       },
@@ -45,7 +46,7 @@ export function useTableColumns(
         title: intl.formatMessage({
           id: ETranslations.referral_code_list_note,
         }),
-        dataIndex: 'note',
+        dataIndex: EInviteCodeListTableColumn.NOTE,
         columnWidth: 200,
         render: (_text: string, record: IInviteCodeListItem) => (
           <NoteCell
@@ -59,7 +60,7 @@ export function useTableColumns(
         title: intl.formatMessage({
           id: ETranslations.referral_code_list_sales,
         }),
-        dataIndex: 'salesOrders',
+        dataIndex: EInviteCodeListTableColumn.SALES_ORDERS,
         align: 'left',
         columnWidth: 200,
         render: (value: number) => (
@@ -72,7 +73,7 @@ export function useTableColumns(
         title: intl.formatMessage({
           id: ETranslations.referral_code_list_wallets,
         }),
-        dataIndex: 'onchainWallets',
+        dataIndex: EInviteCodeListTableColumn.ONCHAIN_WALLETS,
         columnWidth: 200,
         render: (value: number) => (
           <SizableText size="$bodyMdMedium" color="$text">
@@ -84,9 +85,9 @@ export function useTableColumns(
         title: intl.formatMessage({
           id: ETranslations.referral_cumulative_rewards,
         }),
-        dataIndex: 'cumulativeRewardsFiatValue',
+        dataIndex: EInviteCodeListTableColumn.CUMULATIVE_REWARDS,
         columnWidth: 200,
-        align: 'right',
+        align: 'left',
         render: (value: string) => (
           <SizableText size="$bodyMdMedium" color="$text">
             ${value}
@@ -95,7 +96,7 @@ export function useTableColumns(
       },
       {
         title: intl.formatMessage({ id: ETranslations.referral_code_list_at }),
-        dataIndex: 'createdAt',
+        dataIndex: EInviteCodeListTableColumn.CREATED_AT,
         columnWidth: 200,
         render: (date: string) => (
           <SizableText size="$bodyMdMedium" color="$text">
@@ -105,7 +106,7 @@ export function useTableColumns(
       },
       {
         title: '',
-        dataIndex: 'inviteUrl',
+        dataIndex: EInviteCodeListTableColumn.INVITE_URL,
         render: (url: string) => <CopyLinkButton url={url} />,
       },
     ],
@@ -115,13 +116,6 @@ export function useTableColumns(
   // Handle header row for sorting
   const handleHeaderRow = useCallback(
     (column: ITableColumn<IInviteCodeListItem>) => {
-      const SORTABLE_COLUMNS: ISortableColumn[] = [
-        'salesOrders',
-        'onchainWallets',
-        'cumulativeRewardsFiatValue',
-        'createdAt',
-      ];
-
       if (SORTABLE_COLUMNS.includes(column.dataIndex as ISortableColumn)) {
         return {
           onSortTypeChange: (order: 'asc' | 'desc' | undefined) => {
