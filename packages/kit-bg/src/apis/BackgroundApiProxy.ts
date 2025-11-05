@@ -20,6 +20,7 @@ import type ServiceAppUpdate from '../services/ServiceAppUpdate';
 import type ServiceBatchCreateAccount from '../services/ServiceBatchCreateAccount';
 import type ServiceBootstrap from '../services/ServiceBootstrap';
 import type ServiceCloudBackup from '../services/ServiceCloudBackup';
+import type ServiceCloudBackupV2 from '../services/ServiceCloudBackupV2';
 import type ServiceContextMenu from '../services/ServiceContextMenu';
 import type ServiceCustomRpc from '../services/ServiceCustomRpc';
 import type ServiceCustomToken from '../services/ServiceCustomToken';
@@ -167,6 +168,10 @@ class BackgroundApiProxy
   serviceCloudBackup = this._createProxyService(
     'serviceCloudBackup',
   ) as ServiceCloudBackup;
+
+  serviceCloudBackupV2 = this._createProxyService(
+    'serviceCloudBackupV2',
+  ) as ServiceCloudBackupV2;
 
   serviceLiteCardMnemonic = this._createProxyService(
     'serviceLiteCardMnemonic',
