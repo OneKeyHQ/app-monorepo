@@ -352,3 +352,7 @@ export interface IInviteCodeListResponse {
   maxCodes: number;
   remainingCodes: number;
 }
+
+export interface IUpdateInviteCodeNoteResponse {
+  success: boolean;
+}

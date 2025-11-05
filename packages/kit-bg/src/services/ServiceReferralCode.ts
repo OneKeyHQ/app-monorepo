@@ -15,6 +15,7 @@ import type {
   IInvitePaidHistory,
   IInvitePostConfig,
   IInviteSummary,
+  IUpdateInviteCodeNoteResponse,
 } from '@onekeyhq/shared/src/referralCode/type';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
@@ -67,6 +68,15 @@ class ServiceReferralCode extends ServiceBase {
     const response = await client.get<{
       data: IInviteCodeListResponse;
     }>('/rebate/v1/invite-codes');
+    return response.data.data;
+  }
+
+  @backgroundMethod()
+  async updateInviteCodeNote(params: { code: string; note: string }) {
+    const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Rebate);
+    const response = await client.put<{
+      data: IUpdateInviteCodeNoteResponse;
+    }>('/rebate/v1/invite-codes/note', params);
     return response.data.data;
   }
 

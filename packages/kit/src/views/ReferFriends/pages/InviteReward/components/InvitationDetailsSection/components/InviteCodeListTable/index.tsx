@@ -12,7 +12,7 @@ export function InviteCodeListTable() {
   const intl = useIntl();
 
   // Fetch invite code list
-  const { codeListData, isLoading } = useInviteCodeList();
+  const { codeListData, isLoading, refetch } = useInviteCodeList();
 
   // Sort data
   const { sortedData, handleSortChange } = useSortableData(
@@ -20,7 +20,10 @@ export function InviteCodeListTable() {
   );
 
   // Define columns
-  const { columns, handleHeaderRow } = useTableColumns(handleSortChange);
+  const { columns, handleHeaderRow } = useTableColumns(
+    handleSortChange,
+    refetch,
+  );
 
   // Loading state
   if (isLoading || !codeListData) {

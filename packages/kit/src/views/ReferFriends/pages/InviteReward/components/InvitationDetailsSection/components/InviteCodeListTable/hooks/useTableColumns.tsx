@@ -18,6 +18,7 @@ export function useTableColumns(
     column: ISortableColumn,
     order: 'asc' | 'desc' | undefined,
   ) => void,
+  onNoteUpdated?: () => void,
 ) {
   const intl = useIntl();
 
@@ -46,7 +47,13 @@ export function useTableColumns(
         }),
         dataIndex: 'note',
         columnWidth: 200,
-        render: (text: string) => <NoteCell note={text} />,
+        render: (_text: string, record: IInviteCodeListItem) => (
+          <NoteCell
+            code={record.code}
+            note={record.note}
+            onNoteUpdated={onNoteUpdated}
+          />
+        ),
       },
       {
         title: intl.formatMessage({
@@ -102,7 +109,7 @@ export function useTableColumns(
         render: (url: string) => <CopyLinkButton url={url} />,
       },
     ],
-    [intl, formatDate],
+    [intl, formatDate, onNoteUpdated],
   );
 
   // Handle header row for sorting
