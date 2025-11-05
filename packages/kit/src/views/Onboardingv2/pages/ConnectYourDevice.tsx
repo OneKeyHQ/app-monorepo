@@ -105,6 +105,7 @@ import {
 } from '../utils';
 
 import type { IDeviceType, SearchDevice } from '@onekeyfe/hd-core';
+import type { ReactVideoSource } from 'react-native-video';
 
 enum EConnectionStatus {
   init = 'init',
@@ -646,12 +647,85 @@ function BluetoothCard() {
   );
 }
 
+function DeviceVideo({
+  themeVariant,
+  deviceTypeItems,
+}: {
+  themeVariant: 'light' | 'dark';
+  deviceTypeItems: EDeviceType[];
+}) {
+  const isPro = useMemo(() => {
+    return deviceTypeItems.every(
+      (deviceType) => deviceType === EDeviceType.Pro,
+    );
+  }, [deviceTypeItems]);
+
+  const isTouch = useMemo(() => {
+    return deviceTypeItems.every(
+      (deviceType) => deviceType === EDeviceType.Touch,
+    );
+  }, [deviceTypeItems]);
+
+  const isClassic = useMemo(() => {
+    return deviceTypeItems.every(
+      (deviceType) =>
+        deviceType === EDeviceType.Classic ||
+        deviceType === EDeviceType.Classic1s,
+    );
+  }, [deviceTypeItems]);
+
+  const isMini = useMemo(() => {
+    return deviceTypeItems.every(
+      (deviceType) => deviceType === EDeviceType.Mini,
+    );
+  }, [deviceTypeItems]);
+
+  const videoSource = useMemo<ReactVideoSource>(() => {
+    if (isMini) {
+      return themeVariant === 'dark'
+        ? (require('@onekeyhq/kit/assets/onboarding/Mini-D.mp4') as ReactVideoSource)
+        : (require('@onekeyhq/kit/assets/onboarding/Mini-L.mp4') as ReactVideoSource);
+    }
+
+    if (isClassic) {
+      return themeVariant === 'dark'
+        ? (require('@onekeyhq/kit/assets/onboarding/Classic1S-D.mp4') as ReactVideoSource)
+        : (require('@onekeyhq/kit/assets/onboarding/Classic1S-L.mp4') as ReactVideoSource);
+    }
+
+    if (isTouch) {
+      return themeVariant === 'dark'
+        ? (require('@onekeyhq/kit/assets/onboarding/Touch-D.mp4') as ReactVideoSource)
+        : (require('@onekeyhq/kit/assets/onboarding/Touch-L.mp4') as ReactVideoSource);
+    }
+
+    return themeVariant === 'dark'
+      ? (require('@onekeyhq/kit/assets/onboarding/ProW-D.mp4') as ReactVideoSource)
+      : (require('@onekeyhq/kit/assets/onboarding/ProW-L.mp4') as ReactVideoSource);
+  }, [isClassic, isMini, isTouch, themeVariant]);
+
+  return (
+    <Video
+      muted
+      autoPlay
+      w="100%"
+      h="100%" // required for native
+      controls={false}
+      playInBackground={false}
+      resizeMode={EVideoResizeMode.COVER}
+      source={videoSource}
+    />
+  );
+}
+
 function USBOrBLEConnectionIndicator({
   tabValue,
   onDeviceConnect,
   onSelectAddWalletType,
+  deviceTypeItems,
 }: {
   tabValue: EConnectDeviceChannel;
+  deviceTypeItems: EDeviceType[];
 } & IDeviceConnectionProps) {
   const themeVariant = useThemeVariant();
   const intl = useIntl();
@@ -809,19 +883,9 @@ function USBOrBLEConnectionIndicator({
         ) : (
           <ConnectionIndicator.Card>
             <ConnectionIndicator.Animation>
-              <Video
-                muted
-                autoPlay
-                w="100%"
-                h="100%" // required for native
-                controls={false}
-                playInBackground={false}
-                resizeMode={EVideoResizeMode.COVER}
-                source={
-                  themeVariant === 'dark'
-                    ? require('@onekeyhq/kit/assets/onboarding/ProW-D.mp4')
-                    : require('@onekeyhq/kit/assets/onboarding/ProW-L.mp4')
-                }
+              <DeviceVideo
+                themeVariant={themeVariant}
+                deviceTypeItems={deviceTypeItems}
               />
             </ConnectionIndicator.Animation>
             <ConnectionIndicator.Content gap="$2">
@@ -1805,6 +1869,7 @@ function ConnectYourDevicePage({
             {tabValue === EConnectDeviceChannel.usbOrBle ? (
               <USBOrBLEConnectionIndicator
                 tabValue={tabValue}
+                deviceTypeItems={deviceTypeItems}
                 onDeviceConnect={handleDeviceConnect}
                 onSelectAddWalletType={selectAddWalletType}
               />
