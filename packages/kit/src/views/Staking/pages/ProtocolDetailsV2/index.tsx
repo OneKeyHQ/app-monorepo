@@ -25,7 +25,6 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import { useEarnActions } from '@onekeyhq/kit/src/states/jotai/contexts/earn';
 import { PeriodSection } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/PeriodSectionV2';
 import { ProtectionSection } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/ProtectionSectionV2';
 import {
@@ -552,37 +551,12 @@ const ProtocolDetailsPage = () => {
     [accountId, indexedAccountId, networkId],
   );
 
-  const actions = useEarnActions();
-
-  const cacheKey = useMemo(
-    () =>
-      actions.current.buildProtocolDetailKey({
-        networkId,
-        symbol,
-        provider,
-        vault,
-      }),
-    [actions, networkId, symbol, provider, vault],
-  );
-
-  const cachedProtocolDetail = useMemo(
-    () => actions.current.getProtocolDetail(cacheKey),
-    [actions, cacheKey],
-  );
-
-  const tokenInfo = cachedProtocolDetail?.tokenInfo;
-  const protocolInfo = cachedProtocolDetail?.protocolInfo;
-
   const {
     result: detailInfo,
     isLoading,
     run,
   } = usePromiseResult(
     async () => {
-      if (cachedProtocolDetail?.detailInfo) {
-        return cachedProtocolDetail.detailInfo;
-      }
-
       const response =
         await backgroundApiProxy.serviceStaking.getProtocolDetailsV2({
           accountId,
@@ -593,78 +567,59 @@ const ProtocolDetailsPage = () => {
           vault,
         });
 
-      const fetchedEarnAccount =
-        await backgroundApiProxy.serviceStaking.getEarnAccount({
-          accountId: accountId ?? '',
-          indexedAccountId,
-          networkId,
-          btcOnlyTaproot: true,
-        });
-
-      let fetchedTokenInfo;
-      if (response?.subscriptionValue?.token) {
-        const balanceBN = new BigNumber(
-          response.subscriptionValue.balance || '0',
-        );
-        const balanceParsed = balanceBN.isNaN() ? '0' : balanceBN.toFixed();
-
-        fetchedTokenInfo = {
-          balanceParsed,
-          token: response.subscriptionValue.token.info,
-          price: response.subscriptionValue.token.price,
-          networkId,
-          provider,
-          vault,
-          accountId: accountId ?? '',
-        };
-      }
-
-      const withdrawAction = response?.actions?.find(
-        (i) => i.type === 'withdraw',
-      ) as IEarnWithdrawActionIcon;
-
-      const fetchedProtocolInfo = response?.protocol
-        ? {
-            ...response.protocol,
-            apyDetail: response.apyDetail,
-            earnAccount: fetchedEarnAccount,
-            activeBalance: withdrawAction?.data?.balance,
-            eventEndTime: response?.countDownAlert?.endTime,
-            stakeTag: buildLocalTxStatusSyncId({
-              providerName: provider,
-              tokenSymbol: symbol,
-            }),
-            overflowBalance: response.nums?.overflow,
-            maxUnstakeAmount: response.nums?.maxUnstakeAmount,
-            minUnstakeAmount: response.nums?.minUnstakeAmount,
-            minTransactionFee: response.nums?.minTransactionFee,
-            remainingCap: response.nums?.remainingCap,
-            claimable: response.nums?.claimable,
-          }
-        : undefined;
-
-      actions.current.updateProtocolDetail(cacheKey, {
-        tokenInfo: fetchedTokenInfo,
-        protocolInfo: fetchedProtocolInfo,
-        detailInfo: response,
-        cachedAt: Date.now(),
-      });
-
       return response;
     },
-    [
-      accountId,
-      networkId,
-      indexedAccountId,
-      symbol,
-      provider,
-      vault,
-      actions,
-      cacheKey,
-      cachedProtocolDetail,
-    ],
+    [accountId, networkId, indexedAccountId, symbol, provider, vault],
     { watchLoading: true, revalidateOnFocus: true },
   );
+
+  const tokenInfo = useMemo(() => {
+    if (detailInfo?.subscriptionValue?.token) {
+      const balanceBN = new BigNumber(
+        detailInfo.subscriptionValue.balance || '0',
+      );
+      const balanceParsed = balanceBN.isNaN() ? '0' : balanceBN.toFixed();
+
+      return {
+        balanceParsed,
+        token: detailInfo.subscriptionValue.token.info,
+        price: detailInfo.subscriptionValue.token.price,
+        networkId,
+        provider,
+        vault,
+        accountId: accountId ?? '',
+      };
+    }
+    return undefined;
+  }, [detailInfo, networkId, provider, vault, accountId]);
+
+  const protocolInfo = useMemo(() => {
+    if (!detailInfo?.protocol || !earnAccount) {
+      return undefined;
+    }
+
+    const withdrawAction = detailInfo?.actions?.find(
+      (i) => i.type === 'withdraw',
+    ) as IEarnWithdrawActionIcon;
+
+    return {
+      ...detailInfo.protocol,
+      apyDetail: detailInfo.apyDetail,
+      earnAccount,
+      activeBalance: withdrawAction?.data?.balance,
+      eventEndTime: detailInfo?.countDownAlert?.endTime,
+      stakeTag: buildLocalTxStatusSyncId({
+        providerName: provider,
+        tokenSymbol: symbol,
+      }),
+      overflowBalance: detailInfo.nums?.overflow,
+      maxUnstakeAmount: detailInfo.nums?.maxUnstakeAmount,
+      minUnstakeAmount: detailInfo.nums?.minUnstakeAmount,
+      minTransactionFee: detailInfo.nums?.minTransactionFee,
+      remainingCap: detailInfo.nums?.remainingCap,
+      claimable: detailInfo.nums?.claimable,
+    };
+  }, [detailInfo, earnAccount, provider, symbol]);
 
   // Handle unsupported protocol
   useUnsupportedProtocol({
