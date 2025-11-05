@@ -436,7 +436,7 @@ function BasicPhaseInput(
   );
 }
 
-export const PhaseInput = forwardRef(BasicPhaseInput);
+const PhaseInput = forwardRef(BasicPhaseInput);
 
 export function PhaseInputArea({
   onConfirm,
