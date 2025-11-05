@@ -104,6 +104,7 @@ export const OnboardingRouterV2: IModalFlowNavigatorConfig<
   {
     name: EOnboardingPagesV2.VerifyRecoveryPhrase,
     component: VerifyRecoveryPhrase,
+    options: hiddenHeaderOptions,
   },
   {
     name: EOnboardingPagesV2.SelectPrivateKeyNetwork,
