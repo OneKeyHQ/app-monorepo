@@ -1,11 +1,4 @@
-import {
-  Page,
-  ScrollView,
-  Spinner,
-  Stack,
-  XStack,
-  YStack,
-} from '@onekeyhq/components';
+import { Page, ScrollView, Spinner, Stack, XStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
@@ -17,6 +10,7 @@ import { FAQ } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/com
 import { HardwareSalesReward } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/HardwareSalesReward';
 import { OnChainReward } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/OnChainReward';
 import { ReferralCodeCard } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/ReferralCodeCard';
+import { RulesButton } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/RulesButton';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IInviteSummary } from '@onekeyhq/shared/src/referralCode/type';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
@@ -63,6 +57,9 @@ function InviteRewardContent({
 
   return (
     <>
+      <XStack px="$5" pt="$5" jc="flex-end">
+        <RulesButton />
+      </XStack>
       <Stack
         gap="$5"
         flexDirection="row"
@@ -86,7 +83,7 @@ function InviteRewardContent({
         rebateConfig={rebateConfig}
         rebateLevels={rebateLevels}
       />
-      <YStack py="$8" px="$5" gap="$5">
+      <XStack py="$8" px="$5" gap="$5">
         <HardwareSalesReward
           hardwareSales={HardwareSales}
           levelPercent={Number(levelPercent)}
@@ -94,7 +91,7 @@ function InviteRewardContent({
           rebateConfig={rebateConfig}
         />
         <OnChainReward onChain={Onchain} />
-      </YStack>
+      </XStack>
       <FAQ faqs={faqs} />
       <Link />
     </>

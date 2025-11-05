@@ -7,7 +7,6 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useCurrentLevelCard } from '../hooks/useCurrentLevelCard';
 
@@ -16,9 +15,7 @@ import { LevelBadge } from './LevelBadge';
 import type { ICurrentLevelCardProps } from '../types';
 
 export function CurrentLevelCardDesktop(props: ICurrentLevelCardProps) {
-  const intl = useIntl();
-  const { levelIcon, levelLabel, commissionRates } =
-    useCurrentLevelCard(props);
+  const { levelIcon, levelLabel, commissionRates } = useCurrentLevelCard(props);
 
   return (
     <YStack px="$5" pt="$6" pb="$5" $platform-native={{ pb: '$8' }}>

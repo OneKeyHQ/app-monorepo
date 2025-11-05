@@ -39,7 +39,8 @@ export function useCurrentLevelCard(
 
     // Get level icon URL and label from API data
     const levelIcon = detailLevel?.icon || '';
-    const levelLabel = detailLevel?.label || basicLevelInfo?.label || currentLevel.label || '';
+    const levelLabel =
+      detailLevel?.label || basicLevelInfo?.label || currentLevel.label || '';
 
     // Get commission rates from detailed level data if available
     let commissionRates = {
@@ -65,12 +66,18 @@ export function useCurrentLevelCard(
           hardwareSales: {
             you: rates.HardwareSales.rebate,
             invitee: rates.HardwareSales.discount,
-            label: rates.HardwareSales.commissionRatesLabel || rates.HardwareSales.label || 'Hardware sales',
+            label:
+              rates.HardwareSales.commissionRatesLabel ||
+              rates.HardwareSales.label ||
+              'Hardware sales',
           },
           defi: {
             you: rates.Onchain.rebate,
             invitee: rates.Onchain.discount,
-            label: rates.Onchain.commissionRatesLabel || rates.Onchain.label || 'DeFi performance fee',
+            label:
+              rates.Onchain.commissionRatesLabel ||
+              rates.Onchain.label ||
+              'DeFi performance fee',
           },
         };
       }
