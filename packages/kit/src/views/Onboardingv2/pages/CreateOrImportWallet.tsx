@@ -20,7 +20,7 @@ import {
   generateMnemonic,
 } from '@onekeyhq/core/src/secret';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes';
+import { EModalRoutes, EOnboardingPages, EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes';
 import externalWalletLogoUtils from '@onekeyhq/shared/src/utils/externalWalletLogoUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -120,7 +120,10 @@ export default function CreateOrImportWallet() {
   };
 
   const handleConnectExternalWallet = () => {
-    navigation.push(EOnboardingPagesV2.ConnectWalletSelectNetworks);
+    // navigation.push(EOnboardingPagesV2.ConnectWalletSelectNetworks);
+    navigation.pushModal(EModalRoutes.OnboardingModal, {
+      screen: EOnboardingPages.ConnectWalletSelectNetworks,
+    });
     defaultLogger.account.wallet.onboard({
       onboardMethod: 'connect3rdPartyWallet',
     });
