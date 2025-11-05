@@ -115,6 +115,7 @@ function ApprovalList() {
           accountId: accounts[0]?.id ?? accountId,
           networkId: searchNetworkId,
           indexedAccountId,
+          networksEnabledOnly: false,
         });
 
       updateApprovalList({ data: resp.contractApprovals });

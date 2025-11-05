@@ -34,7 +34,8 @@ class ServiceApproval extends ServiceBase {
 
   @backgroundMethod()
   public async fetchAccountApprovals(params: IFetchAccountApprovalsParams) {
-    const { accountId, networkId, indexedAccountId } = params;
+    const { accountId, networkId, indexedAccountId, networksEnabledOnly } =
+      params;
 
     let queries: {
       accountAddress: string;
@@ -54,6 +55,7 @@ class ServiceApproval extends ServiceBase {
             indexedAccountId,
             excludeIncompatibleWithWalletAccounts: true,
             withoutAccountId: false,
+            networksEnabledOnly,
           },
         );
       queries = allNetworkAccounts.filter(
