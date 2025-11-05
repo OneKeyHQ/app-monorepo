@@ -1,4 +1,8 @@
-import { openPicker as nativeOpenPicker } from 'react-native-image-crop-picker';
+import {
+  type Image,
+  openCropper as nativeOpenCropper,
+  openPicker as nativeOpenPicker,
+} from 'react-native-image-crop-picker';
 
 import { withStaticProperties } from '@onekeyhq/components/src/shared/tamagui';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -37,6 +41,36 @@ const openPicker: IOpenPickerFunc = async (params) => {
   return response as any;
 };
 
+const openCropImage = async (
+  image: string,
+  width: number,
+  height: number,
+): Promise<IPickerImage> => {
+  const response = await nativeOpenCropper({
+    path: image,
+    mediaType: 'photo',
+    width,
+    height,
+    cropping: true,
+    forceJpg: true,
+    includeBase64: true,
+    sortOrder: 'desc',
+    cropperChooseText: appLocale.intl.formatMessage({
+      id: ETranslations.global_confirm,
+    }),
+    cropperCancelText: appLocale.intl.formatMessage({
+      id: ETranslations.global_cancel,
+    }),
+  });
+
+  if (response.data) {
+    response.data = `${BASE64_PREFIX}${response.data}`;
+  }
+
+  return response;
+};
+
 export const ImageCrop = withStaticProperties(BasicImageCrop, {
   openPicker,
+  openCropImage,
 });

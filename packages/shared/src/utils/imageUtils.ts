@@ -12,6 +12,7 @@ import { canvasRGBA as blurCanvasRGBA } from 'stackblur-canvas';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import appGlobals from '../appGlobals';
+import { defaultLogger } from '../logger/logger';
 import platformEnv from '../platformEnv';
 
 import bufferUtils from './bufferUtils';
@@ -21,7 +22,6 @@ import type {
   ImageResult,
 } from 'expo-image-manipulator';
 import type { ImageSourcePropType } from 'react-native';
-import { defaultLogger } from '../logger/logger';
 
 type ICommonImageLogFn = (...args: string[]) => void;
 
@@ -298,7 +298,9 @@ async function resizeImage(params: {
     // Add a small margin (1.02) ONLY when scaling up to avoid potential precision issues
     // When scaling down, use exact ratio to minimize unnecessary cropping
     const precisionBuffer = scaleRatio > 1 ? 1.02 : 1.0;
-    const actualHeight = Math.ceil(actualOriginH * scaleRatio * precisionBuffer);
+    const actualHeight = Math.ceil(
+      actualOriginH * scaleRatio * precisionBuffer,
+    );
     const actualWidth = Math.ceil(actualOriginW * scaleRatio * precisionBuffer);
 
     defaultLogger.hardware.homescreen.recordImageCompression({

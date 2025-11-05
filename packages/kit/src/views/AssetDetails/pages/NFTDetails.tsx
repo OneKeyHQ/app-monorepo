@@ -143,16 +143,26 @@ export default function NFTDetails() {
           config.size?.width,
           config.size?.height,
         );
-      } catch (error) {
+      } catch (error: any) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        const message = error?.message;
+        const cancelError =
+          typeof message === 'string' && message.includes('User cancelled');
+        if (cancelError) {
+          setIsCollecting(false);
+          return;
+        }
         // ignore error
       }
 
       if (!croppedImage) {
+        setIsCollecting(false);
         Toast.error({
           title: intl.formatMessage({
             id: ETranslations.global_unknown_error,
           }),
         });
+        return;
       }
 
       try {
