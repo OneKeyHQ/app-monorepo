@@ -1,15 +1,22 @@
 /* eslint-disable no-plusplus */
 import {
   downloadAsync as ExpoFSDownloadAsync,
+  getInfoAsync as ExpoFSGetInfoAsync,
+  makeDirectoryAsync as ExpoFSMakeDirectoryAsync,
   readAsStringAsync as ExpoFSReadAsStringAsync,
-  documentDirectory,
+  writeAsStringAsync as ExpoFSWriteAsStringAsync,
+  cacheDirectory,
 } from 'expo-file-system';
 import { SaveFormat, manipulateAsync } from 'expo-image-manipulator';
 import { isArray, isNil, isNumber, isObject, isString } from 'lodash';
 import { Image as RNImage } from 'react-native';
 import { canvasRGBA as blurCanvasRGBA } from 'stackblur-canvas';
 
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  HomeScreenNotSupportFormatError,
+  OneKeyAppError,
+  OneKeyLocalError,
+} from '@onekeyhq/shared/src/errors';
 
 import appGlobals from '../appGlobals';
 import { defaultLogger } from '../logger/logger';
@@ -24,6 +31,11 @@ import type {
 import type { ImageSourcePropType } from 'react-native';
 
 type ICommonImageLogFn = (...args: string[]) => void;
+
+type ILocalImageUri = {
+  base64Uri: string;
+  nativeUri?: string; // only Native .file:/// path
+};
 
 const range = (length: number) => [...Array(length).keys()];
 
@@ -42,6 +54,10 @@ export function getOriginX(
   }
   const originX = Math.ceil(Math.ceil(width / 2) - Math.ceil(scaleW / 2));
   return originX;
+}
+
+function isHttpUri(uri: string): boolean {
+  return /^https?:\/\//.test(uri);
 }
 
 function isBase64Uri(uri: string): boolean {
@@ -132,6 +148,81 @@ function buildHtmlImage(dataUrl: string): Promise<HTMLImageElement> {
     image.onerror = (e) => reject(e);
     image.src = dataUrl;
   });
+}
+
+function htmlImageToCanvas({
+  image,
+  width,
+  height,
+}: {
+  image: HTMLImageElement;
+  width: number;
+  height: number;
+}) {
+  const canvas = document.createElement('canvas');
+  canvas.height = height;
+  canvas.width = width;
+
+  const ctx = canvas.getContext('2d');
+  if (ctx == null) {
+    throw new OneKeyLocalError('2D context is null');
+  }
+
+  ctx.clearRect(0, 0, width, height);
+  ctx.drawImage(image, 0, 0);
+
+  return { canvas, ctx };
+}
+
+/**
+ * Convert SVG to JPEG base64
+ * @param {string} svgUri - SVG URI (can be data URI or http URL)
+ * @returns {Promise<string>} JPEG base64 string with data URI prefix
+ */
+async function convertSvgToJpegBase64(uri: string): Promise<string> {
+  if (!uri) {
+    throw new OneKeyLocalError('SVG URI is required');
+  }
+
+  if (platformEnv.isNative) {
+    throw new HomeScreenNotSupportFormatError({
+      info: {
+        token: 'svg',
+      },
+    });
+  }
+
+  const img = await buildHtmlImage(uri);
+
+  try {
+    const imgWidth = img.naturalWidth || img.width;
+    const imgHeight = img.naturalHeight || img.height;
+
+    if (imgWidth === 0 || imgHeight === 0) {
+      throw new OneKeyLocalError('Invalid SVG dimensions');
+    }
+
+    const canvasWidth = imgWidth;
+    const canvasHeight = imgHeight;
+
+    const { canvas, ctx } = htmlImageToCanvas({
+      image: img,
+      width: canvasWidth,
+      height: canvasHeight,
+    });
+
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+
+    ctx.drawImage(img, 0, 0, canvasWidth, canvasHeight);
+
+    const jpegBase64Uri = canvas.toDataURL('image/jpeg');
+    return jpegBase64Uri;
+  } catch (error) {
+    throw new OneKeyLocalError(
+      `Failed to convert SVG: ${(error as Error).message}`,
+    );
+  }
 }
 
 function drawRoundRectPath(
@@ -364,6 +455,101 @@ async function resizeImage(params: {
   return { ...imageResult, hex };
 }
 
+/**
+ * Detect MIME type from file magic bytes (file signature)
+ */
+function detectMimeTypeFromMagicBytes(base64: string): string | null {
+  if (!base64) return null;
+
+  // Get first few bytes from base64
+  // 32 base64 chars = ~24 bytes, enough for most file signatures
+  const bytes = base64.length > 32 ? base64.substring(0, 32) : base64;
+
+  // Common file signatures (magic bytes)
+  // JPEG: FF D8 FF
+  if (bytes.startsWith('/9j/')) return 'image/jpeg';
+  // PNG: 89 50 4E 47
+  if (bytes.startsWith('iVBORw0KGgo')) return 'image/png';
+  // GIF: 47 49 46 38
+  if (bytes.startsWith('R0lGOD')) return 'image/gif';
+  // WebP: RIFF....WEBP
+  if (bytes.includes('UklGR') && bytes.includes('V0VCUA')) return 'image/webp';
+  // SVG: <?xml, <svg, or whitespace + <svg (common patterns)
+  // PD94bWw = <?xml, PHN2Zw = <svg, CiAgICA8c3Zn = \n    <svg
+  if (
+    bytes.startsWith('PD94bWw') ||
+    bytes.startsWith('PHN2Zw') ||
+    bytes.includes('PHN2Zw') ||
+    bytes.includes('c3ZnI')
+  ) {
+    return 'image/svg+xml';
+  }
+  // BMP: 42 4D
+  if (bytes.startsWith('Qk')) return 'image/bmp';
+
+  // Video formats
+  // MP4: starts with various ftyp boxes
+  if (bytes.includes('ZnR5cA') || bytes.includes('bW9vdg')) return 'video/mp4';
+  // WebM: 1A 45 DF A3
+  if (bytes.startsWith('GkXfo')) return 'video/webm';
+
+  return null;
+}
+
+function getBlacklistByMimetype(mimetype: string) {
+  const mimeTypeMap: Record<string, string> = {
+    'image/webp': 'webp',
+    'image/svg+xml': 'svg',
+    'video/mp4': 'mp4',
+    'video/webm': 'webm',
+    'application/json': 'json',
+    'text/html': 'html',
+  };
+
+  const extension = mimeTypeMap[mimetype];
+  if (extension) {
+    return extension;
+  }
+
+  if (mimetype.startsWith('video/')) {
+    return 'video';
+  }
+
+  return undefined;
+}
+
+/**
+ * Detect file format from URI extension
+ */
+function detectFileFormatFromUri(uri: string): {
+  extension: string;
+  mimeType: string;
+} {
+  // Extract extension from URI (handle query params)
+  const urlPath = uri.split('?')[0];
+  const expectedExtension = urlPath.split('.').pop()?.toLowerCase() || '';
+
+  // MIME type mapping for images
+  const mimeTypeMap: Record<string, string> = {
+    jpg: 'image/jpeg',
+    jpeg: 'image/jpeg',
+    png: 'image/png',
+    gif: 'image/gif',
+    webp: 'image/webp',
+    svg: 'image/svg+xml',
+    bmp: 'image/bmp',
+    mp4: 'video/mp4',
+  };
+
+  const mimeType = mimeTypeMap[expectedExtension];
+  const extension = mimeType ? expectedExtension : 'jpg';
+
+  return {
+    extension,
+    mimeType: mimeType || 'image/jpeg',
+  };
+}
+
 async function getRNLocalImageBase64({
   nativeModuleId: _nativeModuleId,
   uri,
@@ -470,6 +656,87 @@ async function getRNLocalImageBase64({
   return base64;
 }
 
+async function getNativeCacheDirectory() {
+  const tempDir = cacheDirectory || '';
+  if (!tempDir) {
+    throw new OneKeyLocalError('No cache or document directory available');
+  }
+
+  const subDir = `${tempDir}react-native-image-crop-picker/`;
+
+  try {
+    // Ensure subdirectory exists
+    const dirInfo = await ExpoFSGetInfoAsync(subDir);
+    if (!dirInfo.exists) {
+      await ExpoFSMakeDirectoryAsync(subDir, { intermediates: true });
+    }
+  } catch (dirError) {
+    throw new OneKeyLocalError(
+      `Failed to create directory: ${(dirError as Error).message}`,
+    );
+  }
+
+  return subDir;
+}
+
+async function nativeSaveBase64ToCache({
+  savedPath,
+  uri,
+  logFn,
+}: {
+  savedPath: string;
+  uri: string;
+  logFn?: (...args: any[]) => void;
+}) {
+  await ExpoFSWriteAsStringAsync(savedPath, uri, {
+    encoding: 'base64',
+  });
+
+  // Verify file was created
+  const fileInfo = await ExpoFSGetInfoAsync(savedPath);
+  if (!fileInfo.exists) {
+    logFn?.('getBase64FromImageUriNative: file was not created');
+  }
+
+  return fileInfo.uri;
+}
+
+async function nativeSaveBaseUriToCache({
+  ext,
+  uri,
+  logFn,
+}: {
+  ext: string;
+  uri: string;
+  logFn?: (...args: any[]) => void;
+}): Promise<{
+  uri: string;
+  mimetype?: string;
+}> {
+  const timestamp = Date.now();
+  const random = Math.floor(Math.random() * 10_000);
+  const fileName = `temp-image-crop-${timestamp}-${random}.${ext}`;
+
+  const cacheDir = await getNativeCacheDirectory();
+  const savedPath = `${cacheDir}${fileName}`;
+
+  let newUri = uri;
+  let mimetype;
+  if (isHttpUri(uri)) {
+    logFn?.('(native) download remote image', savedPath, uri);
+
+    // eslint-disable-next-line no-param-reassign
+    const result = await ExpoFSDownloadAsync(uri, savedPath);
+    mimetype = result.headers?.['content-type'];
+    newUri = result.uri;
+    logFn?.('(native) download to local uri', uri);
+  } else if (isBase64Uri(uri)) {
+    newUri = await nativeSaveBase64ToCache({ uri, savedPath, logFn });
+  }
+
+  return { uri: newUri, mimetype };
+}
+
 async function getBase64FromImageUriNative({
   nativeModuleId,
   uri,
@@ -478,46 +745,85 @@ async function getBase64FromImageUriNative({
   nativeModuleId?: number;
   uri: string;
   logFn?: ICommonImageLogFn;
-}): Promise<string | undefined> {
+}): Promise<ILocalImageUri | undefined> {
   try {
+    // Try to detect format from URI first
+    const formatInfo = detectFileFormatFromUri(uri);
+
+    let downloadMimeType;
     // remote uri
-    if (uri.startsWith('http://') || uri.startsWith('https://')) {
-      const savedPath = `${documentDirectory || ''}tmp-get-rn-image-base64.jpg`;
-      logFn?.('(native) download remote image', savedPath, uri);
+    if (isHttpUri(uri)) {
+      // Use detected extension, fallback to jpg
+      const ext = formatInfo.extension || 'jpg';
+      const res = await nativeSaveBaseUriToCache({ ext, uri, logFn });
       // eslint-disable-next-line no-param-reassign
-      ({ uri } = await ExpoFSDownloadAsync(uri, savedPath));
-      logFn?.('(native) download to local uri', uri);
+      uri = res.uri;
+      downloadMimeType = res.mimetype;
     }
+
     const base64 = await getRNLocalImageBase64({
       nativeModuleId,
       uri,
       logFn,
     });
-    logFn?.('(native) local uri to base64', uri, base64);
-    return prefixBase64Uri(base64, 'image/jpeg');
+    logFn?.('(native) local uri to base64', uri);
+
+    // Detect actual MIME type from file content (magic bytes)
+    const detectedMimeType = detectMimeTypeFromMagicBytes(base64);
+    const finalMimeType =
+      downloadMimeType || detectedMimeType || formatInfo.mimeType;
+
+    // Check if it's a video format
+    const blockMimetype = getBlacklistByMimetype(finalMimeType);
+
+    if (blockMimetype) {
+      logFn?.(
+        '(native) video format not supported for base64 conversion',
+        blockMimetype,
+      );
+      throw new HomeScreenNotSupportFormatError({
+        info: {
+          token: blockMimetype,
+        },
+      });
+    }
+
+    const base64Uri = prefixBase64Uri(base64, finalMimeType);
+    return {
+      base64Uri,
+      nativeUri: platformEnv.isNative ? uri : undefined,
+    };
   } catch (error) {
     logFn?.(
       '(native) local uri to base64 ERROR',
       uri,
       (error as Error | undefined)?.message || 'unknown error',
     );
+    if (error instanceof OneKeyAppError) {
+      throw error;
+    }
     return undefined;
   }
 }
 
 async function getBase64FromImageUriWeb(
   uri: string,
-): Promise<string | undefined> {
+): Promise<ILocalImageUri | undefined> {
   try {
     const response = await fetch(uri);
     const blob = await response.blob();
     return await new Promise((resolve, reject) => {
       const reader = new FileReader();
       // eslint-disable-next-line spellcheck/spell-checker
-      reader.onloadend = () => {
-        const readerResult = reader.result as string;
+      reader.onloadend = async () => {
+        let readerResult = reader.result as string;
+
+        if (readerResult.includes('image/svg+xml;base64')) {
+          readerResult = await convertSvgToJpegBase64(readerResult);
+        }
+
         // readerResult is base64 string with mime prefix
-        resolve(readerResult);
+        resolve({ base64Uri: readerResult });
       };
       reader.onerror = reject;
       reader.readAsDataURL(blob);
@@ -535,17 +841,21 @@ async function getBase64FromImageUri({
   uri: string | undefined;
   nativeModuleId?: number;
   logFn?: ICommonImageLogFn;
-}): Promise<string | undefined> {
+}): Promise<ILocalImageUri | undefined> {
   if (!uri) {
     return undefined;
   }
 
   if (isBase64Uri(uri)) {
-    return uri;
+    return { base64Uri: uri };
   }
 
   if (platformEnv.isNative) {
-    return getBase64FromImageUriNative({ nativeModuleId, uri, logFn });
+    return getBase64FromImageUriNative({
+      nativeModuleId,
+      uri,
+      logFn,
+    });
   }
   return getBase64FromImageUriWeb(uri);
 }
@@ -606,35 +916,43 @@ async function getBase64FromRequiredImageSource(
 ): Promise<string | undefined> {
   const uri = await getUriFromRequiredImageSource(source, logFn);
   logFn?.('getUriFromRequiredImageSource uri', uri || '');
-  return getBase64FromImageUri({
+  const imageUri = await getBase64FromImageUri({
     nativeModuleId: isNumber(source) ? source : undefined,
     uri,
     logFn,
   });
+
+  if (!imageUri?.base64Uri) {
+    return undefined;
+  }
+  return imageUri.base64Uri;
 }
 
-function htmlImageToCanvas({
-  image,
-  width,
-  height,
-}: {
-  image: HTMLImageElement;
-  width: number;
-  height: number;
-}) {
-  const canvas = document.createElement('canvas');
-  canvas.height = height;
-  canvas.width = width;
+async function prepareImageForCrop(
+  source: ImageSourcePropType | string | undefined,
+  logFn?: ICommonImageLogFn,
+): Promise<string | undefined> {
+  // Get source URI first
+  const uri = await getUriFromRequiredImageSource(source, logFn);
+  logFn?.('prepareImageForCrop uri', uri || '');
 
-  const ctx = canvas.getContext('2d');
-  if (ctx == null) {
-    throw new OneKeyLocalError('2D context is null');
+  // Get full image info (base64 + native URI)
+  const imageUri = await getBase64FromImageUri({
+    nativeModuleId: isNumber(source) ? source : undefined,
+    uri,
+    logFn,
+  });
+
+  if (!imageUri?.base64Uri) {
+    throw new OneKeyLocalError('Failed to process image source');
   }
 
-  ctx.clearRect(0, 0, width, height);
-  ctx.drawImage(image, 0, 0);
+  // Validate platform-specific requirements
+  if (platformEnv.isNative) {
+    return imageUri.nativeUri;
+  }
 
-  return { canvas, ctx };
+  return imageUri.base64Uri;
 }
 
 function canvasImageDataToBitmap({
@@ -818,4 +1136,5 @@ export default {
   buildHtmlImage,
   getBase64ImageFromUrl,
   applyRoundedCorners,
+  prepareImageForCrop,
 };

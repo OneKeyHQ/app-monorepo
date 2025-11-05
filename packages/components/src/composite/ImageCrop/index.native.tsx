@@ -1,10 +1,10 @@
 import {
-  type Image,
   openCropper as nativeOpenCropper,
   openPicker as nativeOpenPicker,
 } from 'react-native-image-crop-picker';
 
 import { withStaticProperties } from '@onekeyhq/components/src/shared/tamagui';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 
@@ -19,6 +19,7 @@ function BasicImageCrop() {
 }
 
 const BASE64_PREFIX = `data:${RESULT_MINE_TYPE};base64,`;
+
 const openPicker: IOpenPickerFunc = async (params) => {
   const response: IPickerImage = await nativeOpenPicker({
     mediaType: 'photo',
@@ -46,6 +47,10 @@ const openCropImage = async (
   width: number,
   height: number,
 ): Promise<IPickerImage> => {
+  if (!image) {
+    throw new OneKeyLocalError('image.nativeUri is empty:');
+  }
+
   const response = await nativeOpenCropper({
     path: image,
     mediaType: 'photo',
