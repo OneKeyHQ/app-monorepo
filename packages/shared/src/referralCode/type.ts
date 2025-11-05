@@ -331,3 +331,24 @@ export interface IInviteCodeItem {
   updatedAt: string;
   __v: number;
 }
+
+export interface IInviteCodeListItem {
+  userId: string;
+  code: string;
+  note: string;
+  isPrimary: boolean;
+  createdAt: string;
+  createdDate: string;
+  salesOrders: number;
+  onchainWallets: number;
+  cumulativeRewards: string;
+  cumulativeRewardsFiatValue: string;
+  inviteUrl: string;
+}
+
+export interface IInviteCodeListResponse {
+  items: IInviteCodeListItem[];
+  total: number;
+  maxCodes: number;
+  remainingCodes: number;
+}

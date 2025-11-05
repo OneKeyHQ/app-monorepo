@@ -15,10 +15,11 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 export function TestInviteCodesButton() {
   const intl = useIntl();
   const [loading, setLoading] = useState(false);
+  const [loadingList, setLoadingList] = useState(false);
   const [result, setResult] = useState<string>('');
   const { copyText } = useClipboard();
 
-  const handlePress = async () => {
+  const handleCreateCode = async () => {
     setLoading(true);
     setResult('');
     try {
@@ -57,14 +58,39 @@ export function TestInviteCodesButton() {
     }
   };
 
+  const handleGetCodeList = async () => {
+    setLoadingList(true);
+    setResult('');
+    try {
+      const data =
+        await backgroundApiProxy.serviceReferralCode.getInviteCodeList();
+      setResult(JSON.stringify(data, null, 2));
+      console.log('Invite Code List Response:', data);
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      setResult(`Error: ${errorMessage}`);
+      console.error('Error fetching invite code list:', error);
+    } finally {
+      setLoadingList(false);
+    }
+  };
+
   return (
     <YStack gap="$4" p="$5">
       <Button
         variant="primary"
-        onPress={() => void handlePress()}
-        disabled={loading}
+        onPress={() => void handleCreateCode()}
+        disabled={loading || loadingList}
       >
-        {loading ? 'Loading...' : 'Test Get Invite Codes'}
+        {loading ? 'Loading...' : 'Create Invite Code (POST)'}
+      </Button>
+      <Button
+        variant="secondary"
+        onPress={() => void handleGetCodeList()}
+        disabled={loading || loadingList}
+      >
+        {loadingList ? 'Loading...' : 'Get Invite Code List (GET)'}
       </Button>
       {result ? (
         <YStack

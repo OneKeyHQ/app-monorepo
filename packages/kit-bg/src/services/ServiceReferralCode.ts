@@ -9,6 +9,7 @@ import type {
   IEarnWalletHistory,
   IHardwareSalesRecord,
   IInviteCodeItem,
+  IInviteCodeListResponse,
   IInviteHistory,
   IInviteLevelDetail,
   IInvitePaidHistory,
@@ -56,6 +57,15 @@ class ServiceReferralCode extends ServiceBase {
     const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Rebate);
     const response = await client.post<{
       data: IInviteCodeItem;
+    }>('/rebate/v1/invite-codes');
+    return response.data.data;
+  }
+
+  @backgroundMethod()
+  async getInviteCodeList() {
+    const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Rebate);
+    const response = await client.get<{
+      data: IInviteCodeListResponse;
     }>('/rebate/v1/invite-codes');
     return response.data.data;
   }
