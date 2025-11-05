@@ -3,6 +3,7 @@ import { memo, useCallback, useEffect } from 'react';
 import { CanceledError } from 'axios';
 
 import { useMedia, useTabIsRefreshingFocused } from '@onekeyhq/components';
+import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
 import {
   POLLING_DEBOUNCE_INTERVAL,
   POLLING_INTERVAL_FOR_APPROVAL,

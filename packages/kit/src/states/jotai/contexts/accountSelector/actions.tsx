@@ -338,9 +338,9 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         );
 
         if (
-          platformEnv.isWebDappMode &&
-          sceneInfo?.sceneName &&
-          ![EAccountSelectorSceneName.swap].includes(sceneInfo?.sceneName)
+          platformEnv.isWebDappMode
+          // sceneInfo?.sceneName &&
+          // ![EAccountSelectorSceneName.swap].includes(sceneInfo?.sceneName)
         ) {
           const oldIsNotAllNetwork =
             oldSelectedAccount.networkId &&

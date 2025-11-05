@@ -46,9 +46,12 @@ export function createWalletTransferV4<T extends IWalletV4BasicSendArgs>(
   }
   signingMessage.storeUint(args.seqno, 32);
   signingMessage.storeUint(0, 8); // Simple order
+
   for (const m of args.messages) {
     signingMessage.storeUint(args.sendMode, 8);
-    signingMessage.storeRef(beginCell().store(storeMessageRelaxed(m)));
+    const msgCell = beginCell().store(storeMessageRelaxed(m)).endCell();
+
+    signingMessage.storeRef(msgCell);
   }
 
   return signingMessage;

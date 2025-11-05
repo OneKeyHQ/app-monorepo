@@ -5,6 +5,7 @@ import { XRPL } from '@onekeyhq/core/src/chains/xrp/sdkXrp';
 import type {
   IDecodedTxExtraXrp,
   IEncodedTxXrp,
+  IXrpMemoField,
 } from '@onekeyhq/core/src/chains/xrp/types';
 import {
   decodeSensitiveTextAsync,
@@ -111,6 +112,7 @@ export default class Vault extends VaultBase {
     let destinationTag: number | undefined = transferInfo.memo
       ? Number(transferInfo.memo)
       : undefined;
+    const memoFields: IXrpMemoField[] | undefined = transferInfo.xrpMemoFields;
     // Slice destination tag from swap address
     if (!XRPL.isValidAddress(to) && to.indexOf('#') > -1) {
       const [address, tag] = to.split('#');
@@ -153,6 +155,7 @@ export default class Vault extends VaultBase {
                   Destination: destination,
                   DestinationTag: destinationTag,
                   LastLedgerSequence: currentLedgerIndex + 50,
+                  Memos: memoFields,
                 },
               ],
             },

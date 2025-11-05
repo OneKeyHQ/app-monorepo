@@ -22,6 +22,7 @@ import type {
   IDeviceVerifyVersionCompareResult,
   IFetchFirmwareVerifyHashParams,
   IFirmwareVerifyInfo,
+  IFirmwareVerifyResult,
   IOneKeyDeviceFeatures,
 } from '@onekeyhq/shared/types/device';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
@@ -97,23 +98,7 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
   async firmwareAuthenticate({
     device,
     skipDeviceCancel,
-  }: IFirmwareAuthenticateParams): Promise<{
-    verified: boolean;
-    device: SearchDevice | IDBDevice;
-    payload: {
-      deviceType: IDeviceType;
-      data: string;
-      cert: string;
-      signature: string;
-    };
-    result:
-      | {
-          message?: string;
-          data?: string;
-          code?: number;
-        }
-      | undefined;
-  }> {
+  }: IFirmwareAuthenticateParams): Promise<IFirmwareVerifyResult> {
     const { connectId, deviceType } = device;
     if (!connectId) {
       throw new OneKeyLocalError(

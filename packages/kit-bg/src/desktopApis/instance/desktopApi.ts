@@ -7,8 +7,10 @@ import { JsBridgeDesktopApiOfMain } from '../base/JsBridgeDesktopApiOfMain';
 import DesktopApiAppUpdate from '../DesktopApiAppUpdate';
 import DesktopApiBluetooth from '../DesktopApiBluetooth';
 import DesktopApiBundleUpdate from '../DesktopApiBundleUpdate';
+import DesktopApiCloudKit from '../DesktopApiCloudKit';
 import DesktopApiDev from '../DesktopApiDev';
 import DesktopApiInAppPurchase from '../DesktopApiInAppPurchase';
+import DesktopApiKeychain from '../DesktopApiKeychain';
 import DesktopApiNotification from '../DesktopApiNotification';
 import DesktopApiSecurity from '../DesktopApiSecurity';
 import DesktopApiStorage from '../DesktopApiStorage';
@@ -59,6 +61,14 @@ class DesktopApi implements IDesktopApi {
   });
 
   bundleUpdate: DesktopApiBundleUpdate = new DesktopApiBundleUpdate({
+    desktopApi: this,
+  });
+
+  cloudKit: DesktopApiCloudKit = new DesktopApiCloudKit({
+    desktopApi: this,
+  });
+
+  keychain: DesktopApiKeychain = new DesktopApiKeychain({
     desktopApi: this,
   });
 }

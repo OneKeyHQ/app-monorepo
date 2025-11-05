@@ -126,7 +126,7 @@ textarea {
 }
 .debug-render-tracker-times-badge-text {
   color: #1f2937;
-  background-color: #facc15; 
+  background-color: #facc15;
   font-size: 12px;
   font-weight: bold;
   line-height: 1;
@@ -250,11 +250,11 @@ body > div.cet-container {
 }
 
 /* Hide title bar icon on Windows/Linux Desktop */
-.onekey-body >.cet-titlebar >.cet-icon {
+.onekey-body > .cet-titlebar > .cet-icon {
   display: none;
 }
 
-.onekey-body >.cet-titlebar >.cet-menubar {
+.onekey-body > .cet-titlebar > .cet-menubar {
   margin-left: 16px;
 }
 
@@ -264,7 +264,7 @@ body > div.cet-container {
 }
 
 .normal-scrollbar::-webkit-scrollbar-track {
-  background: #F9F9F9;
+  background: #f9f9f9;
   border-radius: 100px;
 }
 
@@ -273,6 +273,20 @@ body > div.cet-container {
   border-radius: 100px;
 }
 
-w3m-modal { 
+w3m-modal {
   z-index: 99993173;
+}
+
+.pick-device-clip-path {
+  animation: clip-device 1s forwards cubic-bezier(0.77, 0, 0.175, 1);
+  clip-path: inset(0 0 100% 0);
+}
+
+@keyframes clip-device {
+  0% {
+    clip-path: inset(0 0 100% 0);
+  }
+  100% {
+    clip-path: inset(0 0 0 0);
+  }
 }

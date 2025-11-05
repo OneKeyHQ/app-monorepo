@@ -23,6 +23,7 @@ import type ServiceAppUpdate from '../services/ServiceAppUpdate';
 import type ServiceBatchCreateAccount from '../services/ServiceBatchCreateAccount';
 import type ServiceBootstrap from '../services/ServiceBootstrap';
 import type ServiceCloudBackup from '../services/ServiceCloudBackup';
+import type ServiceCloudBackupV2 from '../services/ServiceCloudBackupV2';
 import type ServiceContextMenu from '../services/ServiceContextMenu';
 import type ServiceCustomRpc from '../services/ServiceCustomRpc';
 import type ServiceCustomToken from '../services/ServiceCustomToken';
@@ -186,6 +187,7 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceOnboarding: ServiceOnboarding;
   serviceScanQRCode: ServiceScanQRCode;
   serviceCloudBackup: ServiceCloudBackup;
+  serviceCloudBackupV2: ServiceCloudBackupV2;
   serviceLiteCardMnemonic: ServiceLiteCardMnemonic;
   serviceAddressBook: ServiceAddressBook;
   serviceAppUpdate: ServiceAppUpdate;

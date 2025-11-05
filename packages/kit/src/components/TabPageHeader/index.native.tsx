@@ -17,6 +17,8 @@ export function TabPageHeader({
   sceneName,
   tabRoute,
   customHeaderRightItems,
+  selectedHeaderTab,
+  onSelectHeaderTab,
   renderCustomHeaderRightItems,
   customHeaderLeftItems,
   hideSearch = false,
@@ -27,6 +29,7 @@ export function TabPageHeader({
     return (
       <HomeTokenListProviderMirror>
         <HeaderRight
+          selectedHeaderTab={selectedHeaderTab}
           sceneName={sceneName}
           tabRoute={tabRoute}
           customHeaderRightItems={customHeaderRightItems}
@@ -35,6 +38,7 @@ export function TabPageHeader({
       </HomeTokenListProviderMirror>
     );
   }, [
+    selectedHeaderTab,
     sceneName,
     tabRoute,
     customHeaderRightItems,
@@ -53,6 +57,8 @@ export function TabPageHeader({
       >
         <View>
           <HeaderLeft
+            selectedHeaderTab={selectedHeaderTab}
+            onSelectHeaderTab={onSelectHeaderTab}
             sceneName={sceneName}
             tabRoute={tabRoute}
             customHeaderLeftItems={customHeaderLeftItems}

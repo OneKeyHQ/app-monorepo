@@ -510,6 +510,12 @@ const PerpGallery = LazyLoadPage(
     ),
 );
 
+const CloudBackupGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/CloudBackupGallery'
+    ),
+);
 const TradingViewGallery = LazyLoadPage(
   () =>
     import(
@@ -657,6 +663,13 @@ const CarouselGallery = LazyLoadPage(
   () =>
     import(
       '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Carousel'
+    ),
+);
+
+const PlaygroundGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/playground/index'
     ),
 );
 
@@ -889,6 +902,10 @@ export const galleryScreenList: {
     component: PerpGallery,
   },
   {
+    name: EGalleryRoutes.ComponentCloudBackup,
+    component: CloudBackupGallery,
+  },
+  {
     name: EGalleryRoutes.ComponentOrderBook,
     component: OrderBookGallery,
   },
@@ -968,5 +985,9 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentCarousel,
     component: CarouselGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentPlayground,
+    component: PlaygroundGallery,
   },
 ];

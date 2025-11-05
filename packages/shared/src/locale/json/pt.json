@@ -2684,8 +2684,8 @@
   "referral.your_referred_wallets_1address": "1 endereço",
   "referral.your_referred_wallets_details": "Detalhes",
   "referral.your_referred_wallets_more_address": "{amount} endereços",
-  "referral_code_tutorial_label": "How to get a referral code?",
-  "referral_promo_title": "Join the OneKey Referral Program",
+  "referral_code_tutorial_label": "Como obter um código de indicação?",
+  "referral_promo_title": "Participe do Programa de Indicação OneKey",
   "remove_account_desc": "Esta conta será removida.",
   "remove_device": "Remover dispositivo",
   "remove_device_desc": "Isso irá desconectar esta carteira de hardware do OneKey App. Você pode reconectá-la ao App sempre que quiser.",
@@ -3646,5 +3646,8 @@
   "wallet_backup.backup_warning": "<strong>Faça backup da sua carteira</strong> — proteja seus ativos contra a perda do dispositivo",
   "wallet_backup.save_recovery_phrase": "Salvar frase de recuperação",
   "wallet_backup.status_not_backed_up": "Não foi feito backup",
+  "wallet_empty_article_deposit": "Como depositar criptomoedas?",
+  "wallet_empty_article_deposit_faq": "O depósito não chegou?",
+  "wallet_empty_article_trade": "Como posso negociar criptomoedas no OneKey?",
   "word": "Palavra"
 }

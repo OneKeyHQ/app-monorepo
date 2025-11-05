@@ -2684,7 +2684,8 @@
   "referral.your_referred_wallets_1address": "1 adresse",
   "referral.your_referred_wallets_details": "Détails",
   "referral.your_referred_wallets_more_address": "{amount} adresses",
-  "referral_promo_title": "Join the OneKey Referral Program",
+  "referral_code_tutorial_label": "Comment obtenir un code de parrainage ?",
+  "referral_promo_title": "Rejoignez le programme de parrainage OneKey",
   "remove_account_desc": "Ce compte sera supprimé.",
   "remove_device": "Supprimer l'appareil",
   "remove_device_desc": "Cela va déconnecter ce portefeuille matériel de l'application OneKey. Vous pouvez le reconnecter à l'application à tout moment.",
@@ -3645,5 +3646,8 @@
   "wallet_backup.backup_warning": "<strong>Sauvegardez votre portefeuille</strong> — protégez vos actifs contre la perte de votre appareil",
   "wallet_backup.save_recovery_phrase": "Enregistrer la phrase de récupération",
   "wallet_backup.status_not_backed_up": "Non sauvegardé",
+  "wallet_empty_article_deposit": "Comment déposer des cryptos ?",
+  "wallet_empty_article_deposit_faq": "Le dépôt n'est pas arrivé ?",
+  "wallet_empty_article_trade": "Comment puis-je échanger des cryptos dans OneKey ?",
   "word": "Mot"
 }

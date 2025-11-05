@@ -10,12 +10,15 @@ import type {
   Features as FeaturesCore,
   IDeviceBLEFirmwareStatus,
   IDeviceType,
+  KnownDevice,
   ReleaseInfoPayload,
   Response,
+  SearchDevice,
   Success,
   Unsuccessful,
 } from '@onekeyfe/hd-core';
 import type { Features as FeaturesTransport } from '@onekeyfe/hd-transport';
+import type { ImageSourcePropType } from 'react-native';
 
 export type IOneKeyDeviceType = IDeviceType;
 
@@ -401,3 +404,30 @@ export enum EHardwareCallContext {
 }
 
 export type IHardwareCallContext = EHardwareCallContext;
+
+export interface IConnectYourDeviceItem {
+  title: string;
+  src: ImageSourcePropType;
+  opacity?: number;
+  device: SearchDevice | KnownDevice | undefined;
+  onFirmwareVerified: () => Promise<void>;
+  onCreateWallet: () => Promise<void>;
+}
+
+export interface IFirmwareVerifyResult {
+  verified: boolean;
+  device: SearchDevice | IDBDevice;
+  payload: {
+    deviceType: IDeviceType;
+    data: string;
+    cert: string;
+    signature: string;
+  };
+  result:
+    | {
+        message?: string;
+        data?: string;
+        code?: number;
+      }
+    | undefined;
+}
