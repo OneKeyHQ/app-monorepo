@@ -50,33 +50,38 @@ function extractRootDomain(hostname: string): string {
  * @returns true if IP Table should be used, false otherwise
  */
 async function shouldUseIpTable(): Promise<boolean> {
+  const defaultEnabled = false;
   try {
     const devSettings = await requestHelper.getDevSettingsPersistAtom();
 
-    if (platformEnv.isDev) {
-      // Development environment: need manual enable
-      const enabled = devSettings?.settings?.enableIpTableInDev === true;
-      debugLog(
-        `[IpTableAdapter] Dev environment - IP Table ${
-          enabled ? 'enabled' : 'disabled'
-        }`,
-      );
-      return enabled;
+    if (!devSettings.enabled) {
+      return defaultEnabled;
     }
 
-    // Production environment: enabled by default, can be manually disabled
-    const disabled = devSettings?.settings?.disableIpTableInProd === true;
-    debugLog(
-      `[IpTableAdapter] Prod environment - IP Table ${
-        disabled ? 'disabled' : 'enabled'
-      }`,
-    );
-    return !disabled;
+    const enabledInDev = !!devSettings.settings?.enableIpTableInDev;
+    if (devSettings.settings?.enableIpTableInDev) {
+      debugLog(
+        `[IpTableAdapter] Dev environment - IP Table ${
+          enabledInDev ? 'enabled' : 'disabled'
+        }`,
+      );
+      return enabledInDev;
+    }
+
+    const disabledInProd = !!devSettings.settings?.disableIpTableInProd;
+    if (disabledInProd) {
+      debugLog(
+        `[IpTableAdapter] Prod environment - IP Table ${
+          disabledInProd ? 'disabled' : 'enabled'
+        }`,
+      );
+      return !disabledInProd;
+    }
+
+    return false;
   } catch (error) {
     debugWarn('[IpTableAdapter] Failed to check IP Table permission:', error);
-    // On error, fallback based on environment
-    // Dev: disabled by default, Prod: enabled by default
-    return !platformEnv.isDev;
+    return defaultEnabled;
   }
 }
 
