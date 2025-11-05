@@ -26,9 +26,13 @@ const ShowRecoveryPhrase = LazyLoadPage(
 const VerifyRecoveryPhrase = LazyLoadPage(
   () => import('../pages/VerifyRecoveryPhrase'),
 );
+const SelectPrivateKeyNetwork = LazyLoadPage(
+  () => import('../pages/SelectPrivateKeyNetwork'),
+);
 const ConnectYourDevice = LazyLoadPage(
   () => import('../pages/ConnectYourDevice'),
 );
+const ConnectQRCode = LazyLoadPage(() => import('../pages/ConnectQRCode'));
 const CheckAndUpdate = LazyLoadPage(() => import('../pages/CheckAndUpdate'));
 const ICloudBackup = LazyLoadPage(() => import('../pages/ICloudBackup'));
 const ICloudBackupDetails = LazyLoadPage(
@@ -73,6 +77,11 @@ export const OnboardingRouterV2: IModalFlowNavigatorConfig<
     options: hiddenHeaderOptions,
   },
   {
+    name: EOnboardingPagesV2.ConnectQRCode,
+    component: ConnectQRCode,
+    options: hiddenHeaderOptions,
+  },
+  {
     name: EOnboardingPagesV2.CheckAndUpdate,
     component: CheckAndUpdate,
     options: hiddenHeaderOptions,
@@ -95,6 +104,10 @@ export const OnboardingRouterV2: IModalFlowNavigatorConfig<
   {
     name: EOnboardingPagesV2.VerifyRecoveryPhrase,
     component: VerifyRecoveryPhrase,
+  },
+  {
+    name: EOnboardingPagesV2.SelectPrivateKeyNetwork,
+    component: SelectPrivateKeyNetwork,
     options: hiddenHeaderOptions,
   },
   {

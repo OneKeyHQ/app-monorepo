@@ -44,7 +44,6 @@ module.exports = {
       { target: 'dmg', arch: ['x64', 'arm64', 'universal'] },
       { target: 'zip', arch: ['x64', 'arm64', 'universal'] },
     ],
-    'provisioningProfile': 'OneKey_Mac_App.provisionprofile',
     'entitlements': getPath('entitlements.mac.plist'),
     'extendInfo': {
       'NSCameraUsageDescription': 'Please allow OneKey to use your camera',
