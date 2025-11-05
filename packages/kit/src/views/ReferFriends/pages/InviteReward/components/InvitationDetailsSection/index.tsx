@@ -9,6 +9,7 @@ import { HardwareSalesReward } from '../HardwareSalesReward';
 import { OnChainReward } from '../OnChainReward';
 import { SectionHeader } from '../SectionHeader';
 
+import { CreateCodeButton } from './components/CreateCodeButton';
 import { InviteCodeListTable } from './components/InviteCodeListTable';
 
 import type { IInvitationDetailsSectionProps } from './types';
@@ -49,6 +50,7 @@ export function InvitationDetailsSection({
   const [selectedTab, setSelectedTab] = useState<'reward' | 'referral'>(
     'reward',
   );
+  const [refreshKey, setRefreshKey] = useState(0);
 
   if (!summaryInfo) {
     return null;
@@ -87,8 +89,11 @@ export function InvitationDetailsSection({
           <OnChainReward onChain={Onchain} />
         </XStack>
       ) : (
-        <YStack px="$5">
-          <InviteCodeListTable />
+        <YStack px="$5" gap="$4">
+          <CreateCodeButton
+            onCodeCreated={() => setRefreshKey((prev) => prev + 1)}
+          />
+          <InviteCodeListTable key={refreshKey} />
         </YStack>
       )}
     </YStack>

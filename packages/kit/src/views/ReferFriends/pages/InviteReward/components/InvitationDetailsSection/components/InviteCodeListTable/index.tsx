@@ -15,9 +15,7 @@ export function InviteCodeListTable() {
   const { codeListData, isLoading, refetch } = useInviteCodeList();
 
   // Sort data
-  const { sortedData, handleSortChange } = useSortableData(
-    codeListData?.items,
-  );
+  const { sortedData, handleSortChange } = useSortableData(codeListData?.items);
 
   // Define columns
   const { columns, handleHeaderRow } = useTableColumns(
