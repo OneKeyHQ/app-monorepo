@@ -1,5 +1,6 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { useFocusEffect } from '@react-navigation/native';
 import { StyleSheet } from 'react-native';
 
 import type { IImageProps, IPageScreenProps } from '@onekeyhq/components';
@@ -17,14 +18,32 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
+import {
+  EHardwareCallContext,
+  type IFirmwareVerifyResult,
+} from '@onekeyhq/shared/types/device';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
+import { useFirmwareUpdateActions } from '../../FirmwareUpdate/hooks/useFirmwareUpdateActions';
 import { OnboardingLayout } from '../components/OnboardingLayout';
 
 import type { KnownDevice, SearchDevice } from '@onekeyfe/hd-core';
+
+enum ECheckAndUpdateStepState {
+  Idle = 'idle',
+  InProgress = 'inProgress',
+  Warning = 'warning',
+  Success = 'success',
+  Error = 'error',
+}
 
 export default function CheckAndUpdate({
   route: routeParams,
@@ -36,14 +55,23 @@ export default function CheckAndUpdate({
   console.log('deviceData', deviceData);
   const themeVariant = useThemeVariant();
   const navigation = useAppNavigation();
+
+  const deviceLabel = useMemo(() => {
+    if ((deviceData.device as KnownDevice)?.label) {
+      return (deviceData.device as KnownDevice).label;
+    }
+    return (deviceData.device as SearchDevice).name;
+  }, [deviceData]);
+
   const [steps, setSteps] = useState<
     {
       image: IImageProps['source'];
       id: string;
       title: string;
       description?: string;
-      state?: 'idle' | 'inProgress' | 'warning' | 'success' | 'error';
+      state?: ECheckAndUpdateStepState;
       neededAction?: boolean;
+      errorMessage?: string;
     }[]
   >([
     {
@@ -53,8 +81,8 @@ export default function CheckAndUpdate({
           ? require('@onekeyhq/kit/assets/onboarding/genuine-check.png')
           : require('@onekeyhq/kit/assets/onboarding/genuine-check-dark.png'),
       title: 'Genuine check',
-      description: 'Make sure your OneKey Pro is authentic',
-      state: 'idle',
+      description: `Make sure your ${deviceLabel} is authentic`,
+      state: ECheckAndUpdateStepState.Idle,
     },
     {
       id: 'firmware-check',
@@ -63,79 +91,161 @@ export default function CheckAndUpdate({
           ? require('@onekeyhq/kit/assets/onboarding/firmware-check.png')
           : require('@onekeyhq/kit/assets/onboarding/firmware-check-dark.png'),
       title: 'Firmware check',
-      description: 'See if your OneKey Pro has the latest software',
-      state: 'idle',
+      description: `See if your ${deviceLabel} has the latest software`,
+      state: ECheckAndUpdateStepState.Idle,
     },
     {
       id: 'setup-on-device',
       image: require('@onekeyhq/shared/src/assets/wallet/avatar/ProBlack.png'),
       title: 'Device setup check',
       description: 'Checking wallet initialization on device',
-      state: 'idle',
+      state: ECheckAndUpdateStepState.Idle,
     },
   ]);
+
+  const actions = useFirmwareUpdateActions();
+  const toFirmwareUpgradePage = useCallback(() => {
+    if (deviceData.device?.connectId) {
+      actions.openChangeLogModal({
+        connectId: deviceData.device?.connectId,
+      });
+    }
+  }, [actions, deviceData.device?.connectId]);
+
+  const skipFirmwareUpgrade = useCallback(() => {
+    setSteps((prev) => {
+      const newSteps = [...prev];
+      newSteps[1] = {
+        ...newSteps[1],
+        state: ECheckAndUpdateStepState.Success,
+      };
+      newSteps[2] = {
+        ...newSteps[2],
+        state: ECheckAndUpdateStepState.InProgress,
+      };
+      return newSteps;
+    });
+
+    // After 2 seconds, set to warning to show setup instructions
+    setTimeout(() => {
+      setSteps((prev) => {
+        const newSteps = [...prev];
+        newSteps[2] = {
+          ...newSteps[2],
+          state: ECheckAndUpdateStepState.Warning,
+        };
+        return newSteps;
+      });
+    }, 2000);
+  }, []);
+
+  const checkFirmwareUpdate = useCallback(async () => {
+    if (!deviceData.device?.connectId) {
+      return;
+    }
+    const compatibleConnectId =
+      await backgroundApiProxy.serviceHardware.getCompatibleConnectId({
+        connectId: deviceData.device.connectId,
+        hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+      });
+    const r =
+      await backgroundApiProxy.serviceFirmwareUpdate.checkAllFirmwareRelease({
+        connectId: compatibleConnectId,
+      });
+    if (r) {
+      if (r.hasUpgrade) {
+        setSteps((prev) => {
+          const newSteps = [...prev];
+          newSteps[1] = {
+            ...newSteps[1],
+            state: r.hasUpgrade
+              ? ECheckAndUpdateStepState.Warning
+              : ECheckAndUpdateStepState.Success,
+          };
+          return newSteps;
+        });
+      } else {
+        skipFirmwareUpgrade();
+      }
+    }
+  }, [deviceData.device?.connectId, skipFirmwareUpgrade]);
+
+  const firmwareStepStateRef = useRef<ECheckAndUpdateStepState>(steps[1].state);
+  firmwareStepStateRef.current = steps[1].state;
+  useFocusEffect(
+    useCallback(() => {
+      if (firmwareStepStateRef.current === ECheckAndUpdateStepState.Warning) {
+        void checkFirmwareUpdate();
+      }
+    }, [checkFirmwareUpdate]),
+  );
+
+  useEffect(() => {
+    const callback = async (result: IFirmwareVerifyResult) => {
+      console.log('EmitFirmwareVerifyResult', result);
+      setSteps((prev) => {
+        const newSteps = [...prev];
+        newSteps[0] = {
+          ...newSteps[0],
+          state: result.verified
+            ? ECheckAndUpdateStepState.Success
+            : ECheckAndUpdateStepState.Error,
+          errorMessage: result.result?.message ?? undefined,
+        };
+        if (result.verified) {
+          newSteps[1] = {
+            ...newSteps[1],
+            state: ECheckAndUpdateStepState.InProgress,
+          };
+        }
+        return newSteps;
+      });
+      if (result.verified) {
+        await checkFirmwareUpdate();
+      }
+    };
+    appEventBus.on(EAppEventBusNames.EmitFirmwareVerifyResult, callback);
+    return () => {
+      appEventBus.off(EAppEventBusNames.EmitFirmwareVerifyResult, callback);
+    };
+  }, [checkFirmwareUpdate]);
 
   const handleCheck = useCallback(async () => {
     // Set first step to inProgress
     setSteps((prev) => {
       const newSteps = [...prev];
-      newSteps[0] = { ...newSteps[0], state: 'inProgress' };
+      newSteps[0] = {
+        ...newSteps[0],
+        state: ECheckAndUpdateStepState.InProgress,
+      };
       return newSteps;
     });
 
-    await deviceData.onPress();
-
-    // Simulate first check completing after 2 seconds
-    // setTimeout(() => {
-    //   setSteps((prev) => {
-    //     const newSteps = [...prev];
-    //     newSteps[0] = {
-    //       ...newSteps[0],
-    //       state: 'error',
-    //     };
-    //     // Start second step
-    //     // newSteps[1] = { ...newSteps[1], state: 'inProgress' };
-    //     return newSteps;
-    //   });
-    // }, 2000);
+    await deviceData.onFirmwareVerified();
   }, [deviceData]);
 
-  const handleRetry = useCallback(() => {
+  const handleRetry = useCallback(async () => {
     // Set first step to inProgress
     setSteps((prev) => {
       const newSteps = [...prev];
-      newSteps[0] = { ...newSteps[0], state: 'inProgress' };
+      newSteps[0] = {
+        ...newSteps[0],
+        state: ECheckAndUpdateStepState.InProgress,
+      };
       return newSteps;
     });
 
-    // After 2 seconds, set first step to success and start second step
-    setTimeout(() => {
-      setSteps((prev) => {
-        const newSteps = [...prev];
-        newSteps[0] = {
-          ...newSteps[0],
-          state: 'success',
-        };
-        newSteps[1] = { ...newSteps[1], state: 'inProgress' };
-        return newSteps;
-      });
-
-      // After another 2 seconds, set firmware check to warning
-      setTimeout(() => {
-        setSteps((prev) => {
-          const newSteps = [...prev];
-          newSteps[1] = { ...newSteps[1], state: 'warning' };
-          return newSteps;
-        });
-      }, 2000);
-    }, 2000);
-  }, []);
+    await handleCheck();
+  }, [handleCheck]);
 
   const handleDeviceSetupDone = useCallback(() => {
     // Set setup-on-device step to inProgress
     setSteps((prev) => {
       const newSteps = [...prev];
-      newSteps[2] = { ...newSteps[2], state: 'inProgress' };
+      newSteps[2] = {
+        ...newSteps[2],
+        state: ECheckAndUpdateStepState.InProgress,
+      };
       return newSteps;
     });
 
@@ -143,16 +253,21 @@ export default function CheckAndUpdate({
     setTimeout(() => {
       setSteps((prev) => {
         const newSteps = [...prev];
-        newSteps[2] = { ...newSteps[2], state: 'success' };
+        newSteps[2] = {
+          ...newSteps[2],
+          state: ECheckAndUpdateStepState.Success,
+        };
         return newSteps;
       });
+
+      void deviceData.onCreateWallet();
 
       // After showing success, wait another 2 seconds before navigating
       setTimeout(() => {
         void navigation.push(EOnboardingPagesV2.FinalizeWalletSetup);
       }, 2000);
     }, 2000);
-  }, [navigation]);
+  }, [deviceData, navigation]);
 
   const handleSkipUpdate = useCallback(() => {
     Dialog.show({
@@ -163,59 +278,38 @@ export default function CheckAndUpdate({
         'Are you sure you want to skip the check? Using up-to-date firmware gives you the best protection.',
       onConfirm: () => {
         // Execute skip logic after confirmation
-        setSteps((prev) => {
-          const newSteps = [...prev];
-          newSteps[1] = {
-            ...newSteps[1],
-            state: 'success',
-          };
-          newSteps[2] = {
-            ...newSteps[2],
-            state: 'inProgress',
-          };
-          return newSteps;
-        });
-
-        // After 2 seconds, set to warning to show setup instructions
-        setTimeout(() => {
-          setSteps((prev) => {
-            const newSteps = [...prev];
-            newSteps[2] = {
-              ...newSteps[2],
-              state: 'warning',
-            };
-            return newSteps;
-          });
-        }, 2000);
+        skipFirmwareUpgrade();
       },
     });
-  }, []);
+  }, [skipFirmwareUpgrade]);
 
-  const DEVICE_SETUP_INSTRUCTIONS = [
-    {
-      title: 'Choose your setup option',
-      details: [
-        'Create New Wallet: If this is your first wallet',
-        'Import Wallet: If you have an existing recovery phrase',
-      ],
-    },
-    {
-      title: 'Setup PIN',
-      details: [
-        'Set a PIN of at least 4 on your device',
-        "Remember this PIN — you'll need it to unlock your device",
-      ],
-    },
-    {
-      title: 'Setup recovery phrase',
-      details: [
-        "If you don't have a recovery phrase yet, write down the one shown on your device",
-        'If you already have one, make sure it matches',
-        'Keep your device charging during the process',
-        'Do not power off or lock the device',
-      ],
-    },
-  ];
+  const DEVICE_SETUP_INSTRUCTIONS = useMemo(() => {
+    return [
+      {
+        title: 'Choose your setup option',
+        details: [
+          'Create New Wallet: If this is your first wallet',
+          'Import Wallet: If you have an existing recovery phrase',
+        ],
+      },
+      {
+        title: 'Setup PIN',
+        details: [
+          'Set a PIN of at least 4 on your device',
+          "Remember this PIN — you'll need it to unlock your device",
+        ],
+      },
+      {
+        title: 'Setup recovery phrase',
+        details: [
+          "If you don't have a recovery phrase yet, write down the one shown on your device",
+          'If you already have one, make sure it matches',
+          'Keep your device charging during the process',
+          'Do not power off or lock the device',
+        ],
+      },
+    ];
+  }, []);
 
   return (
     <Page>
@@ -504,7 +598,12 @@ export default function CheckAndUpdate({
                           Update available
                         </SizableText>
                         <XStack gap="$2">
-                          <Button variant="primary">Update</Button>
+                          <Button
+                            variant="primary"
+                            onPress={toFirmwareUpgradePage}
+                          >
+                            Update
+                          </Button>
                           <Button onPress={handleSkipUpdate}>Skip</Button>
                         </XStack>
                       </XStack>
@@ -526,7 +625,7 @@ export default function CheckAndUpdate({
                           flex={1}
                           textAlign="left"
                         >
-                          Something wrong
+                          {step.errorMessage ?? 'Something wrong'}
                         </SizableText>
                         <XStack gap="$2">
                           <Button
@@ -555,7 +654,7 @@ export default function CheckAndUpdate({
                     scale: 0.97,
                   }}
                 >
-                  Check my {deviceData.title}
+                  Check my {deviceLabel}
                 </Button>
               ) : null}
             </AnimatePresence>
