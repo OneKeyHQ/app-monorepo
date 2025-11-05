@@ -5,6 +5,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import { EConnectDeviceChannel } from '@onekeyhq/shared/types/connectDevice';
+import type { IConnectYourDeviceItem } from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 
@@ -92,6 +93,27 @@ export const getDeviceLabel = (
       }
     })
     .join(separator);
+};
+
+export const sortDevicesData = (
+  devices: IConnectYourDeviceItem[],
+  deviceTypeItems: EDeviceType[],
+) => {
+  const prioritizedDevices: IConnectYourDeviceItem[] = [];
+  const otherDevices: IConnectYourDeviceItem[] = [];
+
+  for (let i = 0; i < devices.length; i += 1) {
+    const device = devices[i];
+    if (
+      device.device?.deviceType &&
+      deviceTypeItems.includes(device.device.deviceType)
+    ) {
+      prioritizedDevices.push(device);
+    } else {
+      otherDevices.push(device);
+    }
+  }
+  return [...prioritizedDevices, ...otherDevices];
 };
 
 export const trackHardwareWalletConnection = async ({
