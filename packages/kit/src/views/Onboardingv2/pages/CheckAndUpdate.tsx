@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { useFocusEffect } from '@react-navigation/native';
+import { get } from 'lodash';
 import { StyleSheet } from 'react-native';
 
 import type { IImageProps, IPageScreenProps } from '@onekeyhq/components';
@@ -15,17 +17,21 @@ import {
   Page,
   SizableText,
   Spinner,
+  Toast,
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { OneKeyHardwareError } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
+import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
+import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import {
   EHardwareCallContext,
+  EOneKeyDeviceMode,
   type IFirmwareVerifyResult,
 } from '@onekeyhq/shared/types/device';
 
@@ -112,7 +118,31 @@ export default function CheckAndUpdate({
     }
   }, [actions, deviceData.device?.connectId]);
 
-  const skipFirmwareUpgrade = useCallback(() => {
+  const connectDevice = useCallback(async (device: SearchDevice) => {
+    try {
+      return await backgroundApiProxy.serviceHardware.connect({
+        device,
+      });
+    } catch (error: any) {
+      if (error instanceof OneKeyHardwareError) {
+        const { code, message } = error;
+        if (
+          code === HardwareErrorCode.CallMethodNeedUpgradeFirmware ||
+          code === HardwareErrorCode.BlePermissionError ||
+          code === HardwareErrorCode.BleLocationError
+        ) {
+          return;
+        }
+        Toast.error({
+          title: message || 'DeviceConnectError',
+        });
+      } else {
+        console.error('connectDevice error:', get(error, 'message', ''));
+      }
+    }
+  }, []);
+
+  const skipFirmwareUpgrade = useCallback(async () => {
     setSteps((prev) => {
       const newSteps = [...prev];
       newSteps[1] = {
@@ -126,18 +156,35 @@ export default function CheckAndUpdate({
       return newSteps;
     });
 
-    // After 2 seconds, set to warning to show setup instructions
-    setTimeout(() => {
-      setSteps((prev) => {
-        const newSteps = [...prev];
-        newSteps[2] = {
-          ...newSteps[2],
-          state: ECheckAndUpdateStepState.Warning,
-        };
-        return newSteps;
+    const features = await connectDevice(deviceData.device as SearchDevice);
+    if (features) {
+      const deviceMode = await deviceUtils.getDeviceModeFromFeatures({
+        features,
       });
-    }, 2000);
-  }, []);
+
+      if (deviceMode === EOneKeyDeviceMode.notInitialized) {
+        setSteps((prev) => {
+          const newSteps = [...prev];
+          newSteps[2] = {
+            ...newSteps[2],
+            state: ECheckAndUpdateStepState.Warning,
+          };
+          return newSteps;
+        });
+      }
+    }
+    setSteps((prev) => {
+      const newSteps = [...prev];
+      newSteps[2] = {
+        ...newSteps[2],
+        state: ECheckAndUpdateStepState.Success,
+      };
+      return newSteps;
+    });
+    setTimeout(() => {
+      void navigation.push(EOnboardingPagesV2.FinalizeWalletSetup);
+    }, 1200);
+  }, [connectDevice, deviceData.device, navigation]);
 
   const checkFirmwareUpdate = useCallback(async () => {
     if (!deviceData.device?.connectId) {
@@ -165,7 +212,7 @@ export default function CheckAndUpdate({
           return newSteps;
         });
       } else {
-        skipFirmwareUpgrade();
+        void skipFirmwareUpgrade();
       }
     }
   }, [deviceData.device?.connectId, skipFirmwareUpgrade]);
@@ -239,35 +286,8 @@ export default function CheckAndUpdate({
   }, [handleCheck]);
 
   const handleDeviceSetupDone = useCallback(() => {
-    // Set setup-on-device step to inProgress
-    setSteps((prev) => {
-      const newSteps = [...prev];
-      newSteps[2] = {
-        ...newSteps[2],
-        state: ECheckAndUpdateStepState.InProgress,
-      };
-      return newSteps;
-    });
-
-    // After 2 seconds, set it to success
-    setTimeout(() => {
-      setSteps((prev) => {
-        const newSteps = [...prev];
-        newSteps[2] = {
-          ...newSteps[2],
-          state: ECheckAndUpdateStepState.Success,
-        };
-        return newSteps;
-      });
-
-      void deviceData.onCreateWallet();
-
-      // After showing success, wait another 2 seconds before navigating
-      setTimeout(() => {
-        void navigation.push(EOnboardingPagesV2.FinalizeWalletSetup);
-      }, 2000);
-    }, 2000);
-  }, [deviceData, navigation]);
+    void skipFirmwareUpgrade();
+  }, [skipFirmwareUpgrade]);
 
   const handleSkipUpdate = useCallback(() => {
     Dialog.show({
@@ -278,7 +298,7 @@ export default function CheckAndUpdate({
         'Are you sure you want to skip the check? Using up-to-date firmware gives you the best protection.',
       onConfirm: () => {
         // Execute skip logic after confirmation
-        skipFirmwareUpgrade();
+        void skipFirmwareUpgrade();
       },
     });
   }, [skipFirmwareUpgrade]);
