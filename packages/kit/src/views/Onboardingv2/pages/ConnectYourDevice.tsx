@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { EDeviceType, HardwareErrorCode } from '@onekeyfe/hd-shared';
-import { useIsFocused, useRoute } from '@react-navigation/core';
+import { useIsFocused } from '@react-navigation/core';
 import { get, isString } from 'lodash';
 import natsort from 'natsort';
 import { useIntl } from 'react-intl';
@@ -28,6 +28,7 @@ import {
   XStack,
   YStack,
   useMedia,
+  usePopoverContext,
 } from '@onekeyhq/components';
 import { usePromptWebDeviceAccess } from '@onekeyhq/kit/src/hooks/usePromptWebDeviceAccess';
 import type { IDBCreateHwWalletParamsBase } from '@onekeyhq/kit-bg/src/dbs/local/types';
@@ -49,6 +50,10 @@ import {
 } from '@onekeyhq/shared/src/errors';
 import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import bleManagerInstance from '@onekeyhq/shared/src/hardware/bleManager';
 import { checkBLEPermissions } from '@onekeyhq/shared/src/hardware/blePermissions';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -62,16 +67,21 @@ import {
   getDeviceAvatarImage,
 } from '@onekeyhq/shared/src/utils/avatarUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   EAccountSelectorSceneName,
   EHardwareTransportType,
 } from '@onekeyhq/shared/types';
 import { EConnectDeviceChannel } from '@onekeyhq/shared/types/connectDevice';
 import { EOneKeyDeviceMode } from '@onekeyhq/shared/types/device';
-import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types/device';
+import type {
+  IConnectYourDeviceItem,
+  IOneKeyDeviceFeatures,
+} from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector/AccountSelectorProvider';
+import { useCreateQrWallet } from '../../../components/AccountSelector/hooks/useCreateQrWallet';
 import { ConnectionTroubleShootingAccordion } from '../../../components/Hardware/ConnectionTroubleShootingAccordion';
 import {
   OpenBleSettingsDialog,
@@ -93,13 +103,6 @@ import { OnboardingLayout } from '../components/OnboardingLayout';
 import type { Features, IDeviceType, SearchDevice } from '@onekeyfe/hd-core';
 import type { ImageSourcePropType } from 'react-native';
 
-type IConnectYourDeviceItem = {
-  title: string;
-  src: ImageSourcePropType;
-  onPress: () => void | Promise<void>;
-  opacity?: number;
-  device: SearchDevice | undefined;
-};
 // Helper function to convert transport type enum to analytics string
 type IHardwareCommunicationType = 'Bluetooth' | 'WebUSB' | 'USB' | 'QRCode';
 // TODO: update this function to use the new transport type
@@ -211,14 +214,22 @@ function BridgeNotInstalledDialogContent(_props: { error: NeedOneKeyBridge }) {
   );
 }
 
+interface IDeviceConnectionProps {
+  onDeviceConnect: (device: SearchDevice) => Promise<void>;
+  onSelectAddWalletType: (params: {
+    device: SearchDevice;
+    isFirmwareVerified: boolean;
+  }) => Promise<void>;
+}
+
 // Common device list and connection logic
 function useDeviceConnection({
   tabValue,
   onDeviceConnect,
+  onSelectAddWalletType,
 }: {
   tabValue: EConnectDeviceChannel;
-  onDeviceConnect: (device: SearchDevice) => Promise<void>;
-}) {
+} & IDeviceConnectionProps) {
   const intl = useIntl();
   const [connectStatus, setConnectStatus] = useState(EConnectionStatus.init);
   const [searchedDevices, setSearchedDevices] = useState<SearchDevice[]>([]);
@@ -421,17 +432,24 @@ function useDeviceConnection({
 
   const devicesData = useMemo<IConnectYourDeviceItem[]>(
     () =>
-      searchedDevices.map((item) => ({
+      searchedDevices.map((item: SearchDevice) => ({
         title: item.name,
         src: HwWalletAvatarImages[getDeviceAvatarImage(item.deviceType)],
         device: item,
-        onPress: async () => {
+        onFirmwareVerified: async () => {
           // Ensure device scanning is completely stopped before connecting
           await ensureStopScan();
           await onDeviceConnect(item);
         },
+        onCreateWallet: async () => {
+          await ensureStopScan();
+          await onSelectAddWalletType({
+            device: item,
+            isFirmwareVerified: true,
+          });
+        },
       })),
-    [searchedDevices, onDeviceConnect, ensureStopScan],
+    [searchedDevices, onSelectAddWalletType, ensureStopScan, onDeviceConnect],
   );
 
   return {
@@ -665,13 +683,62 @@ export const ConnectionIndicator = Object.assign(ConnectionIndicatorRoot, {
   Footer: connectionIndicatorFooter,
 });
 
-function USBConnectionIndicator({
+function BluetoothCard() {
+  return (
+    <ConnectionIndicator.Card>
+      <ConnectionIndicator.Animation>
+        <YStack w="100%" h="100%" alignItems="center" justifyContent="center">
+          <YStack
+            position="absolute"
+            w={420}
+            h={420}
+            left="50%"
+            top="50%"
+            transform={[{ translateX: '-50%' }, { translateY: '-50%' }]}
+            p={60}
+            flex={1}
+            borderWidth={3}
+            borderColor="$neutral1"
+            borderRadius="$full"
+          >
+            <YStack
+              p={50}
+              flex={1}
+              borderWidth={2}
+              borderColor="$neutral2"
+              borderRadius="$full"
+            >
+              <YStack
+                flex={1}
+                borderWidth={1}
+                borderColor="$neutral3"
+                borderRadius="$full"
+              />
+            </YStack>
+          </YStack>
+          <LottieView
+            source={require('@onekeyhq/kit/assets/animations/bluetooth_signal_spreading.json')}
+            width={320}
+            height={320}
+          />
+        </YStack>
+      </ConnectionIndicator.Animation>
+      <ConnectionIndicator.Content>
+        <ConnectionIndicator.Title>
+          Keep your device near the computer to pair
+        </ConnectionIndicator.Title>
+      </ConnectionIndicator.Content>
+    </ConnectionIndicator.Card>
+  );
+}
+
+function USBOrBLEConnectionIndicator({
   tabValue,
   onDeviceConnect,
+  onSelectAddWalletType,
 }: {
   tabValue: EConnectDeviceChannel;
-  onDeviceConnect: (device: SearchDevice) => Promise<void>;
-}) {
+} & IDeviceConnectionProps) {
   const themeVariant = useThemeVariant();
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -682,6 +749,7 @@ function USBConnectionIndicator({
   const deviceConnection = useDeviceConnection({
     tabValue,
     onDeviceConnect,
+    onSelectAddWalletType,
   });
 
   const {
@@ -693,6 +761,14 @@ function USBConnectionIndicator({
     scanDevice,
     stopScan,
   } = deviceConnection;
+
+  const isUSB = useMemo(() => {
+    return hardwareTransportType === EHardwareTransportType.WEBUSB;
+  }, [hardwareTransportType]);
+
+  const isBLE = useMemo(() => {
+    return hardwareTransportType === EHardwareTransportType.BLE;
+  }, [hardwareTransportType]);
 
   // USB/BLE specific logic only
   const checkBLEState = useCallback(async () => {
@@ -796,53 +872,62 @@ function USBConnectionIndicator({
     })();
   }, [listingDevice, hardwareTransportType, tabValue]);
 
-  useEffect(
-    () =>
-      // unmount page stop scan
-      () => {
-        stopScan();
-      },
-    [stopScan],
-  );
+  useEffect(() => {
+    setTimeout(async () => {
+      if (isUSB) {
+        await onConnectWebDevice();
+      } else {
+        await startBLEConnection();
+      }
+    }, 2500);
+    return () => {
+      stopScan();
+    };
+  }, [isUSB, onConnectWebDevice, startBLEConnection, stopScan]);
 
+  console.log('devicesData', devicesData);
   return (
     <>
       <TroubleShootingButton type="usb" />
       <ConnectionIndicator>
-        <ConnectionIndicator.Card>
-          <ConnectionIndicator.Animation>
-            <Video
-              muted
-              autoPlay
-              w="100%"
-              h="100%" // required for native
-              controls={false}
-              playInBackground={false}
-              resizeMode={EVideoResizeMode.COVER}
-              source={
-                themeVariant === 'dark'
-                  ? require('@onekeyhq/kit/assets/onboarding/ProW-D.mp4')
-                  : require('@onekeyhq/kit/assets/onboarding/ProW-L.mp4')
-              }
-            />
-          </ConnectionIndicator.Animation>
-          <ConnectionIndicator.Content gap="$2">
-            <ConnectionIndicator.Title>
-              Connect OneKey Pro to your computer via USB
-            </ConnectionIndicator.Title>
-            {platformEnv.isExtension ? (
-              <>
-                <SizableText color="$textSubdued">
-                  Click the button below then select your device in the popup to
-                  connect
-                </SizableText>
-                <Button variant="primary" onPress={() => {}} mt="$2">
-                  Start connection
-                </Button>
-              </>
-            ) : null}
-          </ConnectionIndicator.Content>
-        </ConnectionIndicator.Card>
+        {isBLE ? (
+          <BluetoothCard />
+        ) : (
+          <ConnectionIndicator.Card>
+            <ConnectionIndicator.Animation>
+              <Video
+                muted
+                autoPlay
+                w="100%"
+                h="100%" // required for native
+                controls={false}
+                playInBackground={false}
+                resizeMode={EVideoResizeMode.COVER}
+                source={
+                  themeVariant === 'dark'
+                    ? require('@onekeyhq/kit/assets/onboarding/ProW-D.mp4')
+                    : require('@onekeyhq/kit/assets/onboarding/ProW-L.mp4')
+                }
+              />
+            </ConnectionIndicator.Animation>
+            <ConnectionIndicator.Content gap="$2">
+              <ConnectionIndicator.Title>
+                Connect OneKey Pro to your computer via USB
+              </ConnectionIndicator.Title>
+              {platformEnv.isExtension ? (
+                <>
+                  <SizableText color="$textSubdued">
+                    Click the button below then select your device in the popup
+                    to connect
+                  </SizableText>
+                  <Button variant="primary" onPress={() => {}} mt="$2">
+                    Start connection
+                  </Button>
+                </>
+              ) : null}
+            </ConnectionIndicator.Content>
+          </ConnectionIndicator.Card>
+        )}
 
         <ConnectionIndicator.Footer>
           <YStack px="$5">
@@ -868,7 +953,7 @@ function USBConnectionIndicator({
                   >
                     <WalletAvatar
                       wallet={undefined}
-                      img={data.device?.deviceType as any}
+                      img={data.device?.deviceType as IDeviceType}
                     />
                     <ListItem.Text primary={data.device?.name} flex={1} />
                   </ListItem>
@@ -882,31 +967,190 @@ function USBConnectionIndicator({
   );
 }
 
-function BluetoothConnectionIndicator() {
+function BluetoothConnectionIndicator({
+  onDeviceConnect,
+  onSelectAddWalletType,
+}: IDeviceConnectionProps) {
   const intl = useIntl();
+  const isFocused = useIsFocused();
   const navigation = useAppNavigation();
-  const [bluetoothStatus, _setBluetoothStatus] = useState<
+  const [bluetoothStatus, setBluetoothStatus] = useState<
     | 'enabled'
     | 'disabledInSystem'
     | 'disabledInApp'
     | 'checking'
     | 'noSystemPermission'
-  >('enabled');
-  const [devices, setDevices] = useState<
-    Array<{ id: string; name: string; type: string }>
-  >([]);
+  >('checking');
 
-  // Simulate loading devices after a delay
-  const handleToggleDevices = useCallback(() => {
-    if (devices.length > 0) {
-      setDevices([]);
-    } else {
-      setDevices([
-        { id: '1', name: 'Pro 062B', type: EDeviceType.Pro },
-        { id: '2', name: 'Classic 1A3F', type: EDeviceType.Classic },
-      ]);
+  const nobleInitializedRef = useRef(false);
+  const isConnectingRef = useRef(false);
+  const pollingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const checkBluetoothStatus = useCallback(async () => {
+    try {
+      // Ensure Noble is initialized before checking status
+      if (!nobleInitializedRef.current) {
+        try {
+          console.log(
+            'onboarding checkBluetoothStatus: noble pre-initialization',
+          );
+          await globalThis?.desktopApi?.nobleBle?.checkAvailability();
+        } catch (error) {
+          console.log(
+            'Noble pre-initialization completed with expected error:',
+            error,
+          );
+        }
+        nobleInitializedRef.current = true;
+      }
+
+      // Desktop platform: check desktop bluetooth availability
+      const enableDesktopBluetoothInApp =
+        await backgroundApiProxy.serviceSetting.getEnableDesktopBluetooth();
+      if (!enableDesktopBluetoothInApp) {
+        console.log('onboarding checkBluetoothStatus: disabledInApp');
+        setBluetoothStatus('disabledInApp');
+        return;
+      }
+
+      const available =
+        await globalThis?.desktopApi?.nobleBle?.checkAvailability();
+      if (available.state === 'unknown') {
+        return;
+      }
+      if (available.state === 'unauthorized') {
+        console.log('onboarding checkBluetoothStatus: noSystemPermission');
+        setBluetoothStatus('noSystemPermission');
+        return;
+      }
+      if (!available?.available) {
+        console.log('onboarding checkBluetoothStatus: disabledInSystem');
+        setBluetoothStatus('disabledInSystem');
+        return;
+      }
+
+      console.log('onboarding checkBluetoothStatus: enabled');
+      await backgroundApiProxy.serviceSetting.setDesktopBluetoothAtom({
+        isRequestedPermission: true,
+      });
+      // All checks passed
+      setBluetoothStatus('enabled');
+    } catch (error) {
+      console.error('Desktop bluetooth check failed:', error);
+      setBluetoothStatus('disabledInSystem');
     }
-  }, [devices.length]);
+  }, []);
+
+  const startBluetoothStatusPolling = useCallback(() => {
+    if (pollingTimerRef.current) {
+      clearInterval(pollingTimerRef.current);
+    }
+
+    pollingTimerRef.current = setInterval(() => {
+      // Don't poll if connecting to a device
+      if (!isConnectingRef.current) {
+        void checkBluetoothStatus();
+      }
+    }, 1500);
+  }, [checkBluetoothStatus]);
+
+  const stopBluetoothStatusPolling = useCallback(() => {
+    if (pollingTimerRef.current) {
+      clearInterval(pollingTimerRef.current);
+      pollingTimerRef.current = null;
+    }
+  }, []);
+
+  // Enhanced device connection wrapper for Bluetooth
+  const handleBluetoothDeviceConnect = useCallback(
+    async (device: SearchDevice) => {
+      // Immediately stop bluetooth polling and scanning when connecting
+      isConnectingRef.current = true;
+      stopBluetoothStatusPolling();
+
+      try {
+        await onDeviceConnect(device);
+      } catch (error) {
+        // Resume polling on error only if still focused
+        if (isFocused) {
+          startBluetoothStatusPolling();
+        }
+        throw error;
+      } finally {
+        isConnectingRef.current = false;
+      }
+    },
+    [
+      onDeviceConnect,
+      stopBluetoothStatusPolling,
+      startBluetoothStatusPolling,
+      isFocused,
+    ],
+  );
+
+  // Use shared device connection logic for Bluetooth
+  const deviceConnection = useDeviceConnection({
+    tabValue: EConnectDeviceChannel.bluetooth,
+    onDeviceConnect: handleBluetoothDeviceConnect,
+    onSelectAddWalletType,
+  });
+
+  const { devicesData, scanDevice, stopScan } = deviceConnection;
+
+  const handleOpenPrivacySettings = useCallback(() => {
+    void globalThis.desktopApiProxy.bluetooth.openPrivacySettings();
+  }, []);
+
+  const handleAppEnableDesktopBluetooth = useCallback(async () => {
+    try {
+      await backgroundApiProxy.serviceSetting.setEnableDesktopBluetooth(true);
+      // Re-check bluetooth status after enabling
+      void checkBluetoothStatus();
+    } catch (error) {
+      console.error('Failed to enable desktop bluetooth:', error);
+    }
+  }, [checkBluetoothStatus]);
+
+  const handleOpenBleSettings = useCallback(() => {
+    void globalThis.desktopApiProxy.bluetooth.openBluetoothSettings();
+  }, []);
+
+  // Check bluetooth status on mount and when focused, start polling
+  useEffect(() => {
+    if (isFocused) {
+      void checkBluetoothStatus();
+      startBluetoothStatusPolling();
+    } else {
+      stopBluetoothStatusPolling();
+    }
+
+    return () => {
+      stopBluetoothStatusPolling();
+    };
+  }, [
+    checkBluetoothStatus,
+    isFocused,
+    startBluetoothStatusPolling,
+    stopBluetoothStatusPolling,
+  ]);
+
+  // Start scanning when bluetooth is enabled and focused
+  useEffect(() => {
+    if (isFocused && bluetoothStatus === 'enabled') {
+      void scanDevice();
+    } else if (!isFocused) {
+      stopScan();
+    }
+  }, [bluetoothStatus, isFocused, scanDevice, stopScan]);
+
+  // Cleanup on unmount
+  useEffect(
+    () => () => {
+      stopScan();
+      stopBluetoothStatusPolling();
+    },
+    [stopScan, stopBluetoothStatusPolling],
+  );
 
   if (bluetoothStatus === 'disabledInApp') {
     return (
@@ -965,84 +1209,32 @@ function BluetoothConnectionIndicator() {
     <>
       <TroubleShootingButton type="bluetooth" />
       <ConnectionIndicator>
-        <ConnectionIndicator.Card>
-          <ConnectionIndicator.Animation>
-            <YStack
-              w="100%"
-              h="100%"
-              alignItems="center"
-              justifyContent="center"
-            >
-              <YStack
-                position="absolute"
-                w={420}
-                h={420}
-                left="50%"
-                top="50%"
-                transform={[{ translateX: '-50%' }, { translateY: '-50%' }]}
-                p={60}
-                flex={1}
-                borderWidth={3}
-                borderColor="$neutral1"
-                borderRadius="$full"
-              >
-                <YStack
-                  p={50}
-                  flex={1}
-                  borderWidth={2}
-                  borderColor="$neutral2"
-                  borderRadius="$full"
-                >
-                  <YStack
-                    flex={1}
-                    borderWidth={1}
-                    borderColor="$neutral3"
-                    borderRadius="$full"
-                  />
-                </YStack>
-              </YStack>
-              <LottieView
-                source={require('@onekeyhq/kit/assets/animations/bluetooth_signal_spreading.json')}
-                width={320}
-                height={320}
-              />
-            </YStack>
-          </ConnectionIndicator.Animation>
-          <ConnectionIndicator.Content>
-            <ConnectionIndicator.Title>
-              Keep your device near the computer to pair
-            </ConnectionIndicator.Title>
-          </ConnectionIndicator.Content>
-        </ConnectionIndicator.Card>
+        <BluetoothCard />
         <ConnectionIndicator.Footer>
           <YStack px="$5">
             <XStack alignItems="center" justifyContent="space-between">
               <SizableText color="$textDisabled">
                 Looking for your device...
               </SizableText>
-              <Button
-                size="small"
-                variant="tertiary"
-                onPress={handleToggleDevices}
-              >
-                {devices.length > 0 ? 'Delete data' : 'Mock data'}
-              </Button>
             </XStack>
           </YStack>
           <HeightTransition initialHeight={0}>
-            {devices.length > 0 ? (
+            {devicesData.length > 0 ? (
               <>
-                {devices.map((device) => (
+                {devicesData.map((device) => (
                   <ListItem
-                    key={device.id}
+                    key={device.device?.connectId}
                     drillIn
                     onPress={() => {
                       navigation.push(EOnboardingPagesV2.CheckAndUpdate);
                     }}
                     userSelect="none"
                   >
-                    <WalletAvatar wallet={undefined} img={device.type as any} />
-                    <ListItem.Text primary={device.name} flex={1} />
+                    <WalletAvatar
+                      wallet={undefined}
+                      img={device.device?.deviceType as IDeviceType}
+                    />
+                    <ListItem.Text primary={device.device?.name} flex={1} />
                   </ListItem>
                 ))}
               </>
@@ -1061,6 +1253,85 @@ const isSupportedDevice = (deviceType: string) => {
     deviceType === EDeviceType.Unknown
   );
 };
+
+function QRWalletConnect() {
+  const { gtMd } = useMedia();
+  const navigation = useAppNavigation();
+  const { createQrWallet } = useCreateQrWallet();
+  const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
+  const intl = useIntl();
+  const { closePopover } = usePopoverContext();
+  const handleCreateQRWallet = useCallback(async () => {
+    await closePopover?.();
+    await timerUtils.wait(100);
+    try {
+      // qrHiddenCreateGuideDialog.showDialog();
+      // return;
+      defaultLogger.account.wallet.addWalletStarted({
+        addMethod: 'ConnectHWWallet',
+        details: {
+          hardwareWalletType: 'Standard',
+          communication: 'QRCode',
+        },
+        isSoftwareWalletOnlyUser,
+      });
+      await createQrWallet({
+        isOnboarding: true,
+        isOnboardingV2: true,
+        onFinalizeWalletSetupError: () => {
+          // only pop when finalizeWalletSetup pushed
+          navigation.pop();
+        },
+      });
+
+      void trackHardwareWalletConnection({
+        status: 'success',
+        deviceType: EDeviceType.Pro,
+        isSoftwareWalletOnlyUser,
+        hardwareTransportType: 'QRCode',
+      });
+    } catch (error) {
+      // Clear force transport type on QR wallet creation error
+      void backgroundApiProxy.serviceHardware.clearForceTransportType();
+      errorToastUtils.toastIfError(error);
+      void trackHardwareWalletConnection({
+        status: 'failure',
+        deviceType: EDeviceType.Pro,
+        isSoftwareWalletOnlyUser,
+        hardwareTransportType: 'QRCode',
+      });
+      throw error;
+    }
+  }, [closePopover, createQrWallet, isSoftwareWalletOnlyUser, navigation]);
+  return (
+    <YStack
+      p="$5"
+      pt="$0"
+      gap="$3"
+      $gtMd={{
+        p: '$3',
+      }}
+    >
+      {gtMd ? <SizableText size="$headingSm">Advanced</SizableText> : null}
+      <SizableText color="$textSubdued">
+        Some crypto assets and hardware features are unavailable in QR Code
+        communication mode.
+      </SizableText>
+      <SizableText color="$textSubdued">
+        This mode is intended only for a small number of users who rarely
+        operate their hardware wallet and is not compatible with other
+        connection methods.
+      </SizableText>
+      <SizableText color="$textSubdued">
+        If you wish to connect your hardware wallet via Bluetooth or USB, please
+        re-add the wallet to switch the communication mode.
+      </SizableText>
+      <Button mt="$3" size="large" onPress={handleCreateQRWallet}>
+        Continue with QR Code
+      </Button>
+    </YStack>
+  );
+}
 
 function ConnectYourDevicePage({
   route: routeParams,
@@ -1402,7 +1673,6 @@ function ConnectYourDevicePage({
       isFirmwareVerified,
     }: {
       device: SearchDevice;
-      features: IOneKeyDeviceFeatures;
       isFirmwareVerified?: boolean;
     }) => {
       setIsChecking(true);
@@ -1587,14 +1857,7 @@ function ConnectYourDevicePage({
               setIsChecking(false);
               if (deviceMode === EOneKeyDeviceMode.notInitialized) {
                 handleNotActivatedDevicePress({ deviceType });
-                return;
               }
-
-              await selectAddWalletType({
-                device,
-                isFirmwareVerified: checked,
-                features,
-              });
             },
             onClose: () => {
               setIsChecking(false);
@@ -1602,13 +1865,28 @@ function ConnectYourDevicePage({
           });
           return;
         }
+        void backgroundApiProxy.serviceHardwareUI.closeHardwareUiStateDialog({
+          connectId: device.connectId ?? '',
+          hardClose: false,
+          skipDelayClose: true,
+          deviceResetToHome: false,
+        });
 
         if (deviceMode === EOneKeyDeviceMode.notInitialized) {
           handleNotActivatedDevicePress({ deviceType });
-          return;
         }
 
-        await selectAddWalletType({ device, features });
+        appEventBus.emit(EAppEventBusNames.EmitFirmwareVerifyResult, {
+          verified: true,
+          device,
+          payload: {
+            deviceType: device.deviceType,
+            data: '',
+            cert: '',
+            signature: '',
+          },
+          result: undefined,
+        });
       } catch (error) {
         // Clear force transport type on device connection error
         void backgroundApiProxy.serviceHardware.clearForceTransportType();
@@ -1626,7 +1904,6 @@ function ConnectYourDevicePage({
       connectDevice,
       showFirmwareVerifyDialog,
       handleNotActivatedDevicePress,
-      selectAddWalletType,
     ],
   );
 
@@ -1637,16 +1914,12 @@ function ConnectYourDevicePage({
         <OnboardingLayout.Body constrained={false}>
           <OnboardingLayout.ConstrainedContent>
             <XStack alignItems="center" gap="$4">
-              {tabOptions.length > 1 ? (
-                <YStack flex={1}>
-                  <SegmentControl
-                    fullWidth
-                    value={tabValue}
-                    onChange={(v) => setTabValue(v as EConnectDeviceChannel)}
-                    options={tabOptions}
-                  />
-                </YStack>
-              ) : null}
+              <SegmentControl
+                fullWidth
+                value={tabValue}
+                onChange={(v) => setTabValue(v as EConnectDeviceChannel)}
+                options={tabOptions}
+              />
               {isSupportedQRCode ? (
                 <YStack ml="auto">
                   <Popover
@@ -1654,59 +1927,23 @@ function ConnectYourDevicePage({
                     renderTrigger={
                       <IconButton variant="tertiary" icon="DotHorOutline" />
                     }
-                    renderContent={({ closePopover }) => (
-                      <YStack
-                        p="$5"
-                        pt="$0"
-                        gap="$3"
-                        $gtMd={{
-                          p: '$3',
-                        }}
-                      >
-                        {gtMd ? (
-                          <SizableText size="$headingSm">Advanced</SizableText>
-                        ) : null}
-                        <SizableText color="$textSubdued">
-                          Some crypto assets and hardware features are
-                          unavailable in QR Code communication mode.
-                        </SizableText>
-                        <SizableText color="$textSubdued">
-                          This mode is intended only for a small number of users
-                          who rarely operate their hardware wallet and is not
-                          compatible with other connection methods.
-                        </SizableText>
-                        <SizableText color="$textSubdued">
-                          If you wish to connect your hardware wallet via
-                          Bluetooth or USB, please re-add the wallet to switch
-                          the communication mode.
-                        </SizableText>
-                        <Button
-                          mt="$3"
-                          size="large"
-                          onPress={() => {
-                            void (
-                              closePopover() as unknown as Promise<void>
-                            ).then(() => {
-                              navigation.push(EOnboardingPagesV2.ConnectQRCode);
-                            });
-                          }}
-                        >
-                          Continue with QR Code
-                        </Button>
-                      </YStack>
-                    )}
+                    renderContent={<QRWalletConnect />}
                   />
                 </YStack>
               ) : null}
             </XStack>
             {tabValue === EConnectDeviceChannel.usbOrBle ? (
-              <USBConnectionIndicator
+              <USBOrBLEConnectionIndicator
                 tabValue={tabValue}
                 onDeviceConnect={handleDeviceConnect}
+                onSelectAddWalletType={selectAddWalletType}
               />
             ) : null}
             {tabValue === EConnectDeviceChannel.bluetooth ? (
-              <BluetoothConnectionIndicator />
+              <BluetoothConnectionIndicator
+                onDeviceConnect={handleDeviceConnect}
+                onSelectAddWalletType={selectAddWalletType}
+              />
             ) : null}
           </OnboardingLayout.ConstrainedContent>
         </OnboardingLayout.Body>

@@ -23,6 +23,9 @@ export enum EOnboardingPagesV2 {
   SelectPrivateKeyNetwork = 'SelectPrivateKeyNetwork',
   ICloudBackup = 'ICloudBackup',
   ICloudBackupDetails = 'ICloudBackupDetails',
+  ConnectWalletSelectNetworks = 'ConnectWalletSelectNetworks',
+  ConnectExternalWallet = 'ConnectExternalWallet',
+  ImportKeyTag = 'ImportKeyTag',
 }
 
 export type IOnboardingParamListV2 = {
@@ -57,4 +60,13 @@ export type IOnboardingParamListV2 = {
   [EOnboardingPagesV2.ICloudBackupDetails]: {
     backupTime: string;
   };
+  [EOnboardingPagesV2.ConnectWalletSelectNetworks]: {
+    impl: string;
+    title: string;
+  };
+  [EOnboardingPagesV2.ConnectExternalWallet]: {
+    impl: string;
+    title: string;
+  };
+  [EOnboardingPagesV2.ImportKeyTag]: undefined;
 };

@@ -105,6 +105,7 @@ function useFirmwareVerifyBase({
           skipDeviceCancel,
         });
       console.log('firmwareAuthenticate >>>> ', authResult);
+      appEventBus.emit(EAppEventBusNames.EmitFirmwareVerifyResult, authResult);
       if (authResult.verified) {
         setResult('official');
         // Set certificate to success first
@@ -945,7 +946,18 @@ export function FirmwareAuthenticationDialogContent({
 
   const handleContinuePress = useCallback(() => {
     onContinue({ checked: false });
-  }, [onContinue]);
+    appEventBus.emit(EAppEventBusNames.EmitFirmwareVerifyResult, {
+      verified: true,
+      device,
+      payload: {
+        deviceType: device.deviceType,
+        data: '',
+        cert: '',
+        signature: '',
+      },
+      result: undefined,
+    });
+  }, [device, onContinue]);
 
   const content = useMemo(() => {
     const propsMap: Record<
