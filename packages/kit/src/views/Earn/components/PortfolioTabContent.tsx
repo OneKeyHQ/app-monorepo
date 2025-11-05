@@ -19,9 +19,14 @@ import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
+import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { ISupportedSymbol } from '@onekeyhq/shared/types/earn';
-import type { IEarnPortfolioInvestment } from '@onekeyhq/shared/types/staking';
+import type {
+  IEarnPortfolioInvestment,
+  IEarnText,
+} from '@onekeyhq/shared/types/staking';
 
+import { useCurrency } from '../../../components/Currency';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { EarnActionIcon } from '../../Staking/components/ProtocolDetails/EarnActionIcon';
 import { EarnText } from '../../Staking/components/ProtocolDetails/EarnText';
@@ -70,9 +75,9 @@ const AssetStatusField = ({
   asset: IEarnPortfolioInvestment['assets'][number];
 }) => {
   return (
-    <XStack gap="$1">
+    <YStack gap="$1">
       {asset.assetsStatus?.map((status, index) => (
-        <>
+        <XStack key={index}>
           <EarnText
             key={index}
             mr="$2"
@@ -87,9 +92,9 @@ const AssetStatusField = ({
             text={status.description}
           />
           <EarnTooltip tooltip={status.tooltip} />
-        </>
+        </XStack>
       ))}
-    </XStack>
+    </YStack>
   );
 };
 
@@ -112,13 +117,13 @@ const ActionField = ({
     });
 
   return (
-    <XStack gap="$2">
+    <YStack gap="$1">
       {isEmpty(asset.rewardAssets) ? (
         <EarnText flex={1} size="$bodyLgMedium" text={{ text: '-' }} />
       ) : null}
       {asset.rewardAssets?.map((reward, index) => (
         <XStack key={index}>
-          <EarnText mr="$2" size="$bodyLgMedium" text={reward.title} />
+          <EarnText mr="$1" size="$bodyLgMedium" text={reward.title} />
           <EarnText
             mr="$2"
             size="$bodyLgMedium"
@@ -130,10 +135,26 @@ const ActionField = ({
             protocolInfo={protocolInfo}
             tokenInfo={tokenInfo}
             token={detailInfo?.subscriptionValue?.token.info}
+            // eslint-disable-next-line react/no-unstable-nested-components
+            trigger={({ onPress, loading, disabled }) => {
+              return (
+                <Button
+                  p="0"
+                  variant="link"
+                  size="small"
+                  onPress={onPress}
+                  cursor="pointer"
+                  loading={loading}
+                  disabled={disabled}
+                >
+                  {(reward.button.text as IEarnText).text}
+                </Button>
+              );
+            }}
           />
         </XStack>
       ))}
-    </XStack>
+    </YStack>
   );
 };
 
@@ -182,6 +203,8 @@ const PortfolioItemComponent = ({
       ];
     }, [portfolioItem]);
 
+  const currencyInfo = useCurrency();
+
   const protocolHeader = useMemo(() => {
     return (
       <YStack>
@@ -194,13 +217,27 @@ const PortfolioItemComponent = ({
           <SizableText size="$bodyLgMedium">
             {portfolioItem.protocol.providerDetail.name}
           </SizableText>
+          <Divider
+            bg="$borderSubdued"
+            vertical
+            mx="$3"
+            height="$5"
+            width="$1"
+          />
           <SizableText size="$bodyLgMedium" color="$textSubdued">
-            Total value {portfolioItem.totalFiatValue}
+            Total value{' '}
+            {numberFormat(portfolioItem.totalFiatValue, {
+              formatter: 'price',
+              formatterOptions: {
+                currency: currencyInfo.symbol,
+              },
+            })}
           </SizableText>
         </XStack>
       </YStack>
     );
   }, [
+    currencyInfo.symbol,
     portfolioItem.totalFiatValue,
     portfolioItem.protocol.providerDetail.logoURI,
     portfolioItem.protocol.providerDetail.name,
