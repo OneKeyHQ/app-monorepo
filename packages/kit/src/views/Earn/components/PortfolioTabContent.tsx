@@ -1,11 +1,14 @@
 import { memo, useCallback, useMemo } from 'react';
 
 import { isEmpty } from 'lodash';
+import { useIntl } from 'react-intl';
 
 import {
   Button,
   Divider,
+  Empty,
   SizableText,
+  Skeleton,
   Stack,
   XStack,
   YStack,
@@ -14,13 +17,125 @@ import type { ITableColumn } from '@onekeyhq/kit/src/components/ListView/TableLi
 import { TableList } from '@onekeyhq/kit/src/components/ListView/TableList';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
+import type { ISupportedSymbol } from '@onekeyhq/shared/types/earn';
 import type { IEarnPortfolioInvestment } from '@onekeyhq/shared/types/staking';
 
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
+import { EarnActionIcon } from '../../Staking/components/ProtocolDetails/EarnActionIcon';
 import { EarnText } from '../../Staking/components/ProtocolDetails/EarnText';
 import { EarnTooltip } from '../../Staking/components/ProtocolDetails/EarnTooltip';
+import { useProtocolDetails } from '../../Staking/pages/ManagePosition/hooks/useProtocolDetails';
 import { useEarnPortfolio } from '../hooks/useEarnPortfolio';
+
+const DepositField = ({
+  asset,
+  portfolio,
+}: {
+  asset: IEarnPortfolioInvestment['assets'][number];
+  portfolio: IEarnPortfolioInvestment;
+}) => {
+  return (
+    <XStack>
+      <Token
+        size="md"
+        borderRadius="$2"
+        tokenImageUri={asset.token.info.logoURI}
+        networkImageUri={portfolio.network.logoURI}
+      />
+      <YStack ml="$3" mr="$2" jc="center">
+        <XStack gap="$1">
+          <EarnText flex={1} size="$bodyLgMedium" text={asset.deposit?.title} />
+          <EarnText
+            flex={1}
+            size="$bodyLgMedium"
+            color="$textSubdued"
+            text={asset.deposit?.description}
+          />
+        </XStack>
+        {asset.requestParams.vaultName ? (
+          <SizableText mt="$0.5" size="$bodySmMedium" color="$textSubdued">
+            {asset.requestParams.vaultName}
+          </SizableText>
+        ) : null}
+      </YStack>
+    </XStack>
+  );
+};
+
+const AssetStatusField = ({
+  asset,
+}: {
+  asset: IEarnPortfolioInvestment['assets'][number];
+}) => {
+  return (
+    <XStack gap="$1">
+      {asset.assetsStatus?.map((status, index) => (
+        <>
+          <EarnText
+            key={index}
+            mr="$2"
+            size="$bodyLgMedium"
+            text={status.title}
+          />
+          <EarnText
+            key={index}
+            mr="$2"
+            size="$bodyLgMedium"
+            color="$textSubdued"
+            text={status.description}
+          />
+          <EarnTooltip tooltip={status.tooltip} />
+        </>
+      ))}
+    </XStack>
+  );
+};
+
+const ActionField = ({
+  asset,
+}: {
+  asset: IEarnPortfolioInvestment['assets'][number];
+}) => {
+  const { activeAccount } = useActiveAccount({ num: 0 });
+  const { account, indexedAccount } = activeAccount;
+
+  const { isLoading, tokenInfo, earnAccount, protocolInfo, detailInfo } =
+    useProtocolDetails({
+      accountId: account?.id || '',
+      networkId: asset.requestParams.networkId,
+      indexedAccountId: indexedAccount?.id,
+      symbol: asset.token.info.symbol as ISupportedSymbol,
+      provider: asset.requestParams.provider,
+      vault: asset.requestParams.vault,
+    });
+
+  return (
+    <XStack gap="$2">
+      {isEmpty(asset.rewardAssets) ? (
+        <EarnText flex={1} size="$bodyLgMedium" text={{ text: '-' }} />
+      ) : null}
+      {asset.rewardAssets?.map((reward, index) => (
+        <XStack key={index}>
+          <EarnText mr="$2" size="$bodyLgMedium" text={reward.title} />
+          <EarnText
+            mr="$2"
+            size="$bodyLgMedium"
+            color="$textSubdued"
+            text={reward.description}
+          />
+          <EarnActionIcon
+            actionIcon={reward.button}
+            protocolInfo={protocolInfo}
+            tokenInfo={tokenInfo}
+            token={detailInfo?.subscriptionValue?.token.info}
+          />
+        </XStack>
+      ))}
+    </XStack>
+  );
+};
 
 const PortfolioItemComponent = ({
   portfolioItem,
@@ -34,42 +149,9 @@ const PortfolioItemComponent = ({
           key: 'deposits',
           label: 'Deposits',
           flex: 1.5,
-          render: (asset) => {
-            return (
-              <XStack>
-                <Token
-                  size="md"
-                  borderRadius="$2"
-                  tokenImageUri={asset.token.info.logoURI}
-                  networkImageUri={portfolioItem.network.logoURI}
-                />
-                <YStack ml="$3" mr="$2" jc="center">
-                  <XStack gap="$1">
-                    <EarnText
-                      flex={1}
-                      size="$bodyLgMedium"
-                      text={asset.deposit?.title}
-                    />
-                    <EarnText
-                      flex={1}
-                      size="$bodyLgMedium"
-                      color="$textSubdued"
-                      text={asset.deposit?.description}
-                    />
-                  </XStack>
-                  {portfolioItem.protocol.vaultName ? (
-                    <SizableText
-                      mt="$0.5"
-                      size="$bodySmMedium"
-                      color="$textSubdued"
-                    >
-                      {portfolioItem.protocol.vaultName}
-                    </SizableText>
-                  ) : null}
-                </YStack>
-              </XStack>
-            );
-          },
+          render: (asset) => (
+            <DepositField asset={asset} portfolio={portfolioItem} />
+          ),
         },
         {
           key: 'Est. 24h earnings',
@@ -89,54 +171,16 @@ const PortfolioItemComponent = ({
           label: 'Asset status',
           flex: 1.5,
           hideInMobile: true,
-          render: (asset) => (
-            <XStack gap="$1">
-              {asset.assetsStatus?.map((status, index) => (
-                <>
-                  <EarnText
-                    key={index}
-                    mr="$2"
-                    size="$bodyLgMedium"
-                    text={status.title}
-                  />
-                  <EarnText
-                    key={index}
-                    mr="$2"
-                    size="$bodyLgMedium"
-                    color="$textSubdued"
-                    text={status.description}
-                  />
-                  <EarnTooltip tooltip={status.tooltip} />
-                </>
-              ))}
-            </XStack>
-          ),
+          render: (asset) => <AssetStatusField asset={asset} />,
         },
         {
           key: 'Claimable',
           label: 'Claimable',
           flex: 1.5,
-          render: (asset) => (
-            <XStack gap="$2">
-              {isEmpty(asset.rewardAssets) ? (
-                <EarnText flex={1} size="$bodyLgMedium" text={{ text: '-' }} />
-              ) : null}
-              {asset.rewardAssets?.map((reward, index) => (
-                <XStack key={index}>
-                  <EarnText mr="$2" size="$bodyLgMedium" text={reward.title} />
-                  <EarnText
-                    mr="$2"
-                    size="$bodyLgMedium"
-                    color="$textSubdued"
-                    text={reward.description}
-                  />
-                </XStack>
-              ))}
-            </XStack>
-          ),
+          render: (asset) => <ActionField asset={asset} />,
         },
       ];
-    }, [portfolioItem.network.logoURI, portfolioItem.protocol.vaultName]);
+    }, [portfolioItem]);
 
   const protocolHeader = useMemo(() => {
     return (
@@ -250,29 +294,85 @@ const PortfolioItemComponent = ({
 
 const PortfolioItem = memo(PortfolioItemComponent);
 
+// Skeleton component for loading state
+const PortfolioSkeletonItem = () => (
+  <YStack gap="$4">
+    <XStack ai="center" gap="$1.5">
+      <Skeleton w="$6" h="$6" borderRadius="$2" />
+      <Skeleton.BodyLg w="$32" />
+      <Skeleton.BodyMd w="$24" />
+    </XStack>
+    <YStack gap="$3">
+      {Array.from({ length: 2 }).map((_, index) => (
+        <XStack key={index} ai="center" gap="$3">
+          <Skeleton w="$10" h="$10" borderRadius="$2" />
+          <YStack flex={1} gap="$2">
+            <Skeleton.BodyLg w="60%" />
+            <Skeleton.BodyMd w="40%" />
+          </YStack>
+          <YStack flex={1} gap="$2">
+            <Skeleton.BodyMd w="50%" />
+          </YStack>
+          <YStack flex={1} gap="$2">
+            <Skeleton.BodyMd w="70%" />
+          </YStack>
+          <Skeleton w="$20" h="$8" borderRadius="$2" />
+        </XStack>
+      ))}
+    </YStack>
+  </YStack>
+);
+
+const PortfolioSkeleton = () => (
+  <YStack gap="$6">
+    <PortfolioSkeletonItem />
+    <Divider />
+    <PortfolioSkeletonItem />
+  </YStack>
+);
+
 export const PortfolioTabContent = () => {
+  const intl = useIntl();
   const { investments, isLoading } = useEarnPortfolio();
 
   const showSkeleton = isLoading && investments.length === 0;
   const showEmpty = !isLoading && investments.length === 0;
 
+  // Show skeleton while loading initial data
+  if (showSkeleton) {
+    return <PortfolioSkeleton />;
+  }
+
+  // Show empty state when no investments
+  if (showEmpty) {
+    return (
+      <Empty
+        icon="ClockTimeHistoryOutline"
+        title={intl.formatMessage({
+          id: ETranslations.earn_no_orders,
+        })}
+        description={intl.formatMessage({
+          id: ETranslations.earn_no_orders_desc,
+        })}
+      />
+    );
+  }
+
   return (
     <YStack>
-      {investments.length > 0
-        ? investments.map((item, index) => {
-            const showDivider = index < investments.length - 1;
-            const key = `${item.protocol.providerDetail.code}_${
-              item.protocol.vaultName || ''
-            }_${item.network.networkId}`;
+      {investments.map((item, index) => {
+        const showDivider = index < investments.length - 1;
+        const key = `${item.protocol.providerDetail.code}_${
+          item.protocol.vaultName || ''
+        }_${item.network.networkId}`;
 
-            return (
-              <>
-                <PortfolioItem key={key} portfolioItem={item} />
-                {showDivider ? <Divider my="$4" /> : null}
-              </>
-            );
-          })
-        : null}
+        return (
+          <>
+            <PortfolioItem key={key} portfolioItem={item} />
+            {showDivider ? <Divider my="$4" /> : null}
+          </>
+        );
+      })}
     </YStack>
   );
 };

@@ -1150,6 +1150,7 @@ export type IEarnPortfolioAsset = IEarnInvestmentItemV2['assets'][number] & {
     provider: string;
     symbol: string;
     vault?: string;
+    vaultName?: string;
     networkId: string;
   };
 };

@@ -3,7 +3,7 @@ import { useCallback } from 'react';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import { EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import type {
   IEarnTokenInfo,
   IProtocolInfo,
@@ -87,13 +87,16 @@ export const useHandleClaim = ({
       }
 
       if (claimType === EClaimType.ClaimOrder) {
-        appNavigation.push(EModalStakingRoutes.ClaimOptions, {
-          accountId,
-          networkId,
-          protocolInfo,
-          tokenInfo,
-          symbol,
-          provider,
+        appNavigation.pushModal(EModalRoutes.StakingModal, {
+          screen: EModalStakingRoutes.ClaimOptions,
+          params: {
+            accountId,
+            networkId,
+            protocolInfo,
+            tokenInfo,
+            symbol,
+            provider,
+          },
         });
         return;
       }
@@ -115,13 +118,16 @@ export const useHandleClaim = ({
       }
 
       if (stakingConfig.claimWithTx) {
-        appNavigation.push(EModalStakingRoutes.ClaimOptions, {
-          accountId,
-          networkId,
-          protocolInfo,
-          tokenInfo,
-          symbol,
-          provider,
+        appNavigation.pushModal(EModalRoutes.StakingModal, {
+          screen: EModalStakingRoutes.ClaimOptions,
+          params: {
+            accountId,
+            networkId,
+            protocolInfo,
+            tokenInfo,
+            symbol,
+            provider,
+          },
         });
         return;
       }

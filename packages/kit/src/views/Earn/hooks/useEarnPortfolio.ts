@@ -1,10 +1,13 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import type { IEarnPortfolioInvestment } from '@onekeyhq/shared/types/staking';
+import type {
+  IEarnInvestmentItemV2,
+  IEarnPortfolioInvestment,
+} from '@onekeyhq/shared/types/staking';
 
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
@@ -17,42 +20,274 @@ interface IRefreshOptions {
   symbol?: string;
 }
 
-export const useEarnPortfolio = () => {
-  const { activeAccount } = useActiveAccount({ num: 0 });
-  const { account, indexedAccount } = activeAccount;
-  const allNetworkId = useAllNetworkId();
+type IInvestmentKey = string;
+type IInvestmentMap = Map<IInvestmentKey, IEarnPortfolioInvestment>;
+
+// Pure utility functions
+const createInvestmentKey = (item: {
+  provider: string;
+  symbol: string;
+  vault?: string;
+  networkId: string;
+}): IInvestmentKey =>
+  `${item.provider}_${item.symbol}_${item.vault || ''}_${item.networkId}`;
+
+const hasPositiveFiatValue = (value: string | undefined): boolean =>
+  new BigNumber(value || '0').gt(0);
+
+const sortByFiatValueDesc = (
+  investments: IEarnPortfolioInvestment[],
+): IEarnPortfolioInvestment[] =>
+  [...investments].sort((a, b) => {
+    const valueA = new BigNumber(a.totalFiatValue || '0');
+    const valueB = new BigNumber(b.totalFiatValue || '0');
+    return valueB.comparedTo(valueA);
+  });
+
+const calculateTotalFiatValue = (
+  investments: IEarnPortfolioInvestment[],
+): BigNumber =>
+  investments.reduce(
+    (sum, inv) => sum.plus(new BigNumber(inv.totalFiatValue || '0')),
+    new BigNumber(0),
+  );
+
+const filterByOptions = (
+  list: Array<{ provider: string; networkId: string; symbol: string }>,
+  options?: IRefreshOptions,
+) => {
+  if (!options) return list;
+
+  return list.filter((item) => {
+    if (options.provider && item.provider !== options.provider) return false;
+    if (options.networkId && item.networkId !== options.networkId) return false;
+    if (options.symbol && item.symbol !== options.symbol) return false;
+    return true;
+  });
+};
+
+const deduplicateByKey = <T extends Record<string, any>>(
+  items: T[],
+  keyFn: (item: T) => string,
+): T[] => {
+  const map = items.reduce((acc, item) => {
+    const key = keyFn(item);
+    if (!acc.has(key)) {
+      acc.set(key, item);
+    }
+    return acc;
+  }, new Map<string, T>());
+
+  return Array.from(map.values());
+};
+
+const enrichAssetWithRequestParams = (
+  asset: IEarnInvestmentItemV2['assets'][number],
+  protocol: IEarnPortfolioInvestment['protocol'],
+  networkId: string,
+): IEarnPortfolioInvestment['assets'][number] => ({
+  ...asset,
+  requestParams: {
+    provider: protocol.providerDetail.code,
+    symbol: asset.token.info.symbol,
+    vault: protocol.vault,
+    vaultName: protocol.vaultName,
+    networkId,
+  },
+});
+
+const mergeInvestments = (
+  existing: IEarnPortfolioInvestment,
+  incoming: IEarnPortfolioInvestment,
+): IEarnPortfolioInvestment => {
+  const existingTotal = new BigNumber(existing.totalFiatValue || '0');
+  const incomingTotal = new BigNumber(incoming.totalFiatValue || '0');
+
+  return {
+    ...existing,
+    assets: [...existing.assets, ...incoming.assets],
+    totalFiatValue: existingTotal.plus(incomingTotal).toFixed(),
+  };
+};
+
+const aggregateByProtocol = (
+  investments: IEarnPortfolioInvestment[],
+): IEarnPortfolioInvestment[] => {
+  const protocolMap = investments.reduce((map, investment) => {
+    const protocolKey = investment.protocol.providerDetail.code;
+    const existing = map.get(protocolKey);
+
+    if (existing) {
+      map.set(protocolKey, mergeInvestments(existing, investment));
+    } else {
+      map.set(protocolKey, { ...investment });
+    }
+
+    return map;
+  }, new Map<string, IEarnPortfolioInvestment>());
+
+  return sortByFiatValueDesc(Array.from(protocolMap.values()));
+};
+
+// Custom hook for managing investment state
+const useInvestmentState = () => {
   const [investments, setInvestments] = useState<IEarnPortfolioInvestment[]>(
     [],
   );
   const [earnTotalFiatValue, setEarnTotalFiatValue] = useState<BigNumber>(
     new BigNumber(0),
   );
-  const [earnings24h, setEarnings24h] = useState<BigNumber>(new BigNumber(0));
-  const [isLoading, setIsLoading] = useState(true);
+  const investmentMapRef = useRef<IInvestmentMap>(new Map());
 
-  // Track previous account to detect account changes
-  const prevAccountRef = useRef<{
-    accountId?: string;
-    indexedAccountId?: string;
-  }>({
+  const updateInvestments = useCallback((newMap: IInvestmentMap) => {
+    // Filter out zero-value investments
+    const validInvestments = Array.from(newMap.values()).filter((inv) =>
+      hasPositiveFiatValue(inv.totalFiatValue),
+    );
+
+    const sorted = sortByFiatValueDesc(validInvestments);
+    setInvestments(sorted);
+    setEarnTotalFiatValue(calculateTotalFiatValue(sorted));
+    investmentMapRef.current = new Map(
+      validInvestments.map((inv) => [
+        createInvestmentKey({
+          provider: inv.protocol.providerDetail.code,
+          symbol: inv.assets[0]?.token.info.symbol || '',
+          vault: inv.protocol.vault,
+          networkId: inv.network.networkId,
+        }),
+        inv,
+      ]),
+    );
+  }, []);
+
+  const clearInvestments = useCallback(() => {
+    investmentMapRef.current.clear();
+    setInvestments([]);
+    setEarnTotalFiatValue(new BigNumber(0));
+  }, []);
+
+  return {
+    investments,
+    earnTotalFiatValue,
+    investmentMapRef,
+    updateInvestments,
+    clearInvestments,
+  };
+};
+
+// Custom hook for managing account state
+const useAccountState = (
+  account?: { id: string } | null,
+  indexedAccount?: { id: string } | null,
+) => {
+  const prevAccountRef = useRef({
     accountId: account?.id,
     indexedAccountId: indexedAccount?.id,
   });
+  const currentRequestIdRef = useRef(0);
 
-  // Use ref to store investment map for incremental updates
-  const investmentMapRef = useRef<Map<string, IEarnPortfolioInvestment>>(
-    new Map(),
+  const accountId = account?.id;
+  const indexedAccountId = indexedAccount?.id;
+
+  const hasAccountChanged = useCallback(() => {
+    return (
+      prevAccountRef.current.accountId !== accountId ||
+      prevAccountRef.current.indexedAccountId !== indexedAccountId
+    );
+  }, [accountId, indexedAccountId]);
+
+  const markAccountChange = useCallback(() => {
+    prevAccountRef.current = { accountId, indexedAccountId };
+    currentRequestIdRef.current += 1;
+  }, [accountId, indexedAccountId]);
+
+  const isRequestStale = useCallback((requestId: number) => {
+    return requestId !== currentRequestIdRef.current;
+  }, []);
+
+  const getCurrentRequestId = useCallback(
+    () => currentRequestIdRef.current,
+    [],
   );
 
-  const getInvestmentKey = useCallback(
-    (item: {
-      provider: string;
-      symbol: string;
-      vault?: string;
-      networkId: string;
-    }) =>
-      `${item.provider}_${item.symbol}_${item.vault || ''}_${item.networkId}`,
-    [],
+  return {
+    hasAccountChanged,
+    markAccountChange,
+    isRequestStale,
+    getCurrentRequestId,
+  };
+};
+
+export const useEarnPortfolio = () => {
+  const { activeAccount } = useActiveAccount({ num: 0 });
+  const { account, indexedAccount } = activeAccount;
+  const allNetworkId = useAllNetworkId();
+  const [earnings24h] = useState<BigNumber>(new BigNumber(0));
+  const [isLoading, setIsLoading] = useState(true);
+
+  const {
+    investments,
+    earnTotalFiatValue,
+    investmentMapRef,
+    updateInvestments,
+    clearInvestments,
+  } = useInvestmentState();
+
+  const {
+    hasAccountChanged,
+    markAccountChange,
+    isRequestStale,
+    getCurrentRequestId,
+  } = useAccountState(account, indexedAccount);
+
+  // Handle account changes
+  useEffect(() => {
+    if (hasAccountChanged()) {
+      clearInvestments();
+      markAccountChange();
+    }
+  }, [hasAccountChanged, markAccountChange, clearInvestments]);
+
+  const fetchInvestmentDetail = useCallback(
+    async (item: any, requestId: number) => {
+      try {
+        const result =
+          await backgroundApiProxy.serviceStaking.fetchInvestmentDetailV2(item);
+
+        if (
+          isRequestStale(requestId) ||
+          !hasPositiveFiatValue(result.totalFiatValue)
+        ) {
+          return null;
+        }
+
+        const key = createInvestmentKey({
+          provider: result.protocol.providerDetail.code,
+          symbol: result.assets?.[0]?.token.info.symbol || '',
+          vault: result.protocol.vault,
+          networkId: result.network.networkId,
+        });
+
+        const enrichedAssets = result.assets.map((asset) =>
+          enrichAssetWithRequestParams(
+            asset,
+            result.protocol,
+            result.network.networkId,
+          ),
+        );
+
+        const investment: IEarnPortfolioInvestment = {
+          ...result,
+          assets: enrichedAssets,
+        };
+
+        return { key, investment };
+      } catch (error) {
+        return null;
+      }
+    },
+    [isRequestStale],
   );
 
   const fetchAndUpdateInvestments = useCallback(
@@ -62,157 +297,110 @@ export const useEarnPortfolio = () => {
         return;
       }
 
-      // Detect account change
-      const accountChanged =
-        prevAccountRef.current.accountId !== account?.id ||
-        prevAccountRef.current.indexedAccountId !== indexedAccount?.id;
-
-      if (accountChanged) {
-        // Clear all data on account change
-        investmentMapRef.current.clear();
-        setInvestments([]);
-        setEarnTotalFiatValue(new BigNumber(0));
-        setEarnings24h(new BigNumber(0));
-        prevAccountRef.current = {
-          accountId: account?.id,
-          indexedAccountId: indexedAccount?.id,
-        };
-      }
-
+      const requestId = getCurrentRequestId();
       setIsLoading(true);
 
-      const assets =
-        await backgroundApiProxy.serviceStaking.getAvailableAssetsV2();
-      const accounts =
-        await backgroundApiProxy.serviceStaking.getEarnAvailableAccountsParams({
+      const [assets, accounts] = await Promise.all([
+        backgroundApiProxy.serviceStaking.getAvailableAssetsV2(),
+        backgroundApiProxy.serviceStaking.getEarnAvailableAccountsParams({
           accountId: account?.id ?? '',
           networkId: allNetworkId,
           indexedAccountId: account?.indexedAccountId || indexedAccount?.id,
-        });
+        }),
+      ]);
 
-      const list = accounts.flatMap((item) => {
-        const accountAssets = assets.filter(
-          (asset) => asset.networkId === item.networkId,
-        );
-        return accountAssets.map((asset) => ({
-          accountAddress: item.accountAddress,
-          networkId: item.networkId,
-          provider: asset.provider,
-          symbol: asset.symbol,
-          ...(asset.vault && { vault: asset.vault }),
-          ...(item.publicKey && { publicKey: item.publicKey }),
-        }));
-      });
-
-      // Filter list based on options for targeted refresh
-      const filteredList = options
-        ? list.filter(
-            (item: { provider: string; networkId: string; symbol: string }) => {
-              if (options.provider && item.provider !== options.provider)
-                return false;
-              if (options.networkId && item.networkId !== options.networkId)
-                return false;
-              if (options.symbol && item.symbol !== options.symbol)
-                return false;
-              return true;
-            },
-          )
-        : list;
-
-      const uniqueList = Array.from(
-        filteredList
-          .reduce((map, item) => {
-            const key = getInvestmentKey(item);
-            if (!map.has(key)) {
-              map.set(key, item);
-            }
-            return map;
-          }, new Map())
-          .values(),
+      const accountAssetPairs = accounts.flatMap((accountItem) =>
+        assets
+          .filter((asset) => asset.networkId === accountItem.networkId)
+          .map((asset) => ({
+            accountAddress: accountItem.accountAddress,
+            networkId: accountItem.networkId,
+            provider: asset.provider,
+            symbol: asset.symbol,
+            ...(asset.vault && { vault: asset.vault }),
+            ...(accountItem.publicKey && { publicKey: accountItem.publicKey }),
+          })),
       );
 
-      const promises = uniqueList.map(async (item) => {
-        try {
-          const result =
-            await backgroundApiProxy.serviceStaking.fetchInvestmentDetailV2(
-              item,
-            );
+      const filteredPairs = filterByOptions(accountAssetPairs, options);
+      const uniquePairs = deduplicateByKey(filteredPairs, createInvestmentKey);
 
-          const key = getInvestmentKey({
-            provider: result.protocol.providerDetail.code,
-            symbol: result.assets?.[0]?.token.info.symbol || '',
-            vault: result.protocol.vault,
-            networkId: result.network.networkId,
-          });
+      // Track which keys we fetched in this round
+      const fetchedKeys = new Set<IInvestmentKey>();
+      // Collect new data in this refresh batch
+      const batchMap = new Map<IInvestmentKey, IEarnPortfolioInvestment>();
 
-          const fiatValue = new BigNumber(result.totalFiatValue || '0');
-
-          // Remove from map if zero value
-          if (fiatValue.lte(0)) {
-            investmentMapRef.current.delete(key);
-          } else {
-            // Add requestParams to each asset
-            const assetsWithParams = result.assets.map((asset) => ({
-              ...asset,
-              requestParams: {
-                provider: result.protocol.providerDetail.code,
-                symbol: result.assets?.[0]?.token.info.symbol || '',
-                vault: result.protocol.vault,
-                networkId: result.network.networkId,
-              },
-            }));
-
-            const existing = investmentMapRef.current.get(key);
-            if (existing) {
-              // Merge assets if the same key already exists
-              existing.assets = [...existing.assets, ...assetsWithParams];
-              const existingTotal = new BigNumber(
-                existing.totalFiatValue || '0',
-              );
-              const newTotal = new BigNumber(result.totalFiatValue || '0');
-              existing.totalFiatValue = existingTotal.plus(newTotal).toFixed();
-            } else {
-              // First time seeing this key, add it
-              investmentMapRef.current.set(key, {
-                ...result,
-                assets: assetsWithParams,
-              });
-            }
-          }
-
-          // Update state with sorted investments
-          const sorted = Array.from(investmentMapRef.current.values()).sort(
-            (a, b) => {
-              const valueA = new BigNumber(a.totalFiatValue || '0');
-              const valueB = new BigNumber(b.totalFiatValue || '0');
-              return valueB.comparedTo(valueA);
-            },
-          );
-          setInvestments(sorted);
-
-          // Recalculate total fiat value from all investments
-          const total = Array.from(investmentMapRef.current.values()).reduce(
-            (sum, inv) => sum.plus(new BigNumber(inv.totalFiatValue || '0')),
-            new BigNumber(0),
-          );
-          setEarnTotalFiatValue(total);
-
-          return result;
-        } catch (error) {
-          return null;
-        }
+      const fetchPromises = uniquePairs.map(async (pair) => {
+        const key = createInvestmentKey(pair);
+        fetchedKeys.add(key);
+        return fetchInvestmentDetail(pair, requestId);
       });
 
-      await Promise.allSettled(promises);
-      setIsLoading(false);
+      // Process results incrementally
+      const processResult = (
+        result: Awaited<ReturnType<typeof fetchInvestmentDetail>>,
+      ) => {
+        if (!result || isRequestStale(requestId)) return;
+
+        const { key, investment } = result;
+        const existingInBatch = batchMap.get(key);
+
+        if (existingInBatch) {
+          // Merge if same key appears multiple times in this batch (normal + airdrop)
+          batchMap.set(key, mergeInvestments(existingInBatch, investment));
+        } else {
+          // Add new data to batch
+          batchMap.set(key, investment);
+        }
+
+        // Apply batch to existing map and update UI
+        const updatedMap = new Map(investmentMapRef.current);
+        batchMap.forEach((value, batchKey) => {
+          updatedMap.set(batchKey, value);
+        });
+        updateInvestments(updatedMap);
+      };
+
+      // Process each result as it arrives
+      for (const promise of fetchPromises) {
+        void promise.then(processResult);
+      }
+
+      await Promise.allSettled(fetchPromises);
+
+      if (!isRequestStale(requestId)) {
+        // After all fetches complete, apply final updates and remove stale keys
+        const finalMap = new Map(investmentMapRef.current);
+
+        // Apply all batch data to final map
+        batchMap.forEach((value, key) => {
+          finalMap.set(key, value);
+        });
+
+        // Only remove stale keys if this is a full refresh (no filter options)
+        // If options are provided, we're doing a partial refresh and shouldn't delete other data
+        if (!options) {
+          Array.from(finalMap.keys()).forEach((key) => {
+            if (!fetchedKeys.has(key)) {
+              finalMap.delete(key);
+            }
+          });
+        }
+
+        updateInvestments(finalMap);
+        setIsLoading(false);
+      }
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [
       account,
       indexedAccount,
       allNetworkId,
-      getInvestmentKey,
-      prevAccountRef,
-      investmentMapRef,
+      getCurrentRequestId,
+      fetchInvestmentDetail,
+      updateInvestments,
+      isRequestStale,
+      // investmentMapRef is a ref, doesn't need to be in deps
     ],
   );
 
@@ -234,31 +422,10 @@ export const useEarnPortfolio = () => {
     [fetchAndUpdateInvestments],
   );
 
-  const aggregatedInvestments = useMemo(() => {
-    const protocolMap = new Map<string, IEarnPortfolioInvestment>();
-
-    investments.forEach((investment) => {
-      // Group by protocol name only
-      const protocolKey = investment.protocol.providerDetail.code;
-
-      const existing = protocolMap.get(protocolKey);
-      if (existing) {
-        existing.assets = [...existing.assets, ...investment.assets];
-        const existingTotal = new BigNumber(existing.totalFiatValue || '0');
-        const newTotal = new BigNumber(investment.totalFiatValue || '0');
-        existing.totalFiatValue = existingTotal.plus(newTotal).toFixed();
-      } else {
-        protocolMap.set(protocolKey, { ...investment });
-      }
-    });
-
-    // Sort by total fiat value descending
-    return Array.from(protocolMap.values()).sort((a, b) => {
-      const valueA = new BigNumber(a.totalFiatValue || '0');
-      const valueB = new BigNumber(b.totalFiatValue || '0');
-      return valueB.comparedTo(valueA);
-    });
-  }, [investments]);
+  const aggregatedInvestments = useMemo(
+    () => aggregateByProtocol(investments),
+    [investments],
+  );
 
   return {
     investments: aggregatedInvestments,
