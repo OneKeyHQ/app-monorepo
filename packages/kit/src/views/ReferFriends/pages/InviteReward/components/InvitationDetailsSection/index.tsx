@@ -9,7 +9,7 @@ import { HardwareSalesReward } from '../HardwareSalesReward';
 import { OnChainReward } from '../OnChainReward';
 import { SectionHeader } from '../SectionHeader';
 
-import { TestInviteCodesButton } from './components/TestInviteCodesButton';
+import { InviteCodeListTable } from './components/InviteCodeListTable';
 
 import type { IInvitationDetailsSectionProps } from './types';
 
@@ -87,8 +87,8 @@ export function InvitationDetailsSection({
           <OnChainReward onChain={Onchain} />
         </XStack>
       ) : (
-        <YStack py="$8" px="$5">
-          <TestInviteCodesButton />
+        <YStack px="$5">
+          <InviteCodeListTable />
         </YStack>
       )}
     </YStack>
