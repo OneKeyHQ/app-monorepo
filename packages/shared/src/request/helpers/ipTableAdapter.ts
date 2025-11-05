@@ -1,6 +1,7 @@
 import axios, { AxiosHeaders } from 'axios';
 
 import { OneKeyLocalError } from '../../errors';
+import platformEnv from '../../platformEnv';
 
 import { isSniSupported, sniRequest } from './sniRequest';
 
@@ -11,6 +12,25 @@ import type {
   AxiosResponse,
   InternalAxiosRequestConfig,
 } from 'axios';
+
+/**
+ * Debug logging helper - only logs in development mode
+ */
+const DEBUG = platformEnv.isDev;
+const debugLog = (...args: any[]) => {
+  if (DEBUG) {
+    console.log(...args);
+  }
+};
+const debugWarn = (...args: any[]) => {
+  if (DEBUG) {
+    console.warn(...args);
+  }
+};
+const debugError = (...args: any[]) => {
+  // Always log errors, even in production
+  console.error(...args);
+};
 
 /**
  * Hard-coded IP Table configuration for Phase 1 validation
@@ -119,7 +139,7 @@ export function createIpTableAdapter(
   // This ensures we capture the platform's native adapters (xhr/http/fetch)
   const originalDefaultAdapters = axios.defaults.adapter;
 
-  console.log(
+  debugLog(
     '[IpTableAdapter] Captured original default adapters:',
     originalDefaultAdapters,
   );
@@ -128,8 +148,8 @@ export function createIpTableAdapter(
   const callOriginalAdapter = async (
     config: InternalAxiosRequestConfig,
   ): Promise<AxiosResponse> => {
-    console.log('[IpTableAdapter] About to call original adapter...');
-    console.log(
+    debugLog('[IpTableAdapter] About to call original adapter...');
+    debugLog(
       '[IpTableAdapter] Original adapter type:',
       typeof originalDefaultAdapters,
     );
@@ -143,7 +163,7 @@ export function createIpTableAdapter(
     // If originalDefaultAdapters is an array (axios 1.x style like ["xhr", "http", "fetch"]),
     // we need to use axios internal adapter resolution
     if (Array.isArray(originalDefaultAdapters)) {
-      console.log(
+      debugLog(
         '[IpTableAdapter] Original adapter is array, using axios.getAdapter()',
       );
 
@@ -151,16 +171,14 @@ export function createIpTableAdapter(
       if (typeof axios.getAdapter === 'function') {
         const resolvedAdapter = axios.getAdapter(originalDefaultAdapters);
         if (typeof resolvedAdapter === 'function') {
-          console.log(
-            '[IpTableAdapter] Successfully resolved adapter function',
-          );
+          debugLog('[IpTableAdapter] Successfully resolved adapter function');
           return resolvedAdapter(config);
         }
       }
 
       // Fallback: Create a new axios instance with the original adapter array
       // This is safe because we're explicitly passing the original adapters
-      console.log(
+      debugLog(
         '[IpTableAdapter] axios.getAdapter not available, creating temp instance',
       );
       const tempAxios = axios.create({
@@ -171,7 +189,7 @@ export function createIpTableAdapter(
     }
 
     // Last resort: throw error to let caller handle it
-    console.error(
+    debugError(
       '[IpTableAdapter] Unable to resolve adapter, type:',
       typeof originalDefaultAdapters,
     );
@@ -184,7 +202,7 @@ export function createIpTableAdapter(
     const sniSupported = isSniSupported();
     // Check if SNI is supported on current platform
     if (!sniSupported) {
-      console.log(
+      debugLog(
         '[IpTableAdapter] SNI not supported, using fallback for:',
         config.url,
       );
@@ -192,10 +210,7 @@ export function createIpTableAdapter(
       try {
         return await callOriginalAdapter(config);
       } catch (fallbackError) {
-        console.error(
-          '[IpTableAdapter] Fallback request failed:',
-          fallbackError,
-        );
+        debugError('[IpTableAdapter] Fallback request failed:', fallbackError);
         throw fallbackError;
       }
     }
@@ -217,13 +232,13 @@ export function createIpTableAdapter(
       }
     } catch (error) {
       // If URL parsing fails, use original adapter
-      console.log('[IpTableAdapter] URL parsing failed, using fallback');
+      debugLog('[IpTableAdapter] URL parsing failed, using fallback');
       return callOriginalAdapter(config);
     }
 
     // If no hostname extracted, use original adapter
     if (!hostname) {
-      console.log('[IpTableAdapter] No hostname extracted, using fallback');
+      debugLog('[IpTableAdapter] No hostname extracted, using fallback');
       return callOriginalAdapter(config);
     }
 
@@ -232,13 +247,13 @@ export function createIpTableAdapter(
 
     // If no IP mapping found, use original adapter
     if (!selectedIp) {
-      console.log(
+      debugLog(
         `[IpTableAdapter] No IP mapping found for hostname: ${hostname}`,
       );
       return callOriginalAdapter(config);
     }
 
-    console.log(
+    debugLog(
       `[IpTableAdapter] Using IP direct connection: ${hostname} -> ${selectedIp}`,
     );
 
@@ -309,13 +324,13 @@ export function createIpTableAdapter(
       requestHeaders['Content-Type'] = 'application/json';
     }
 
-    console.log(
+    debugLog(
       `[IpTableAdapter] Request details - URL: ${url}, BaseURL: ${
         config.baseURL || 'N/A'
       }, FullPath: ${fullPath}, Method: ${config.method || 'GET'}`,
     );
-    console.log('[IpTableAdapter] Request headers:', requestHeaders);
-    console.log(
+    debugLog('[IpTableAdapter] Request headers:', requestHeaders);
+    debugLog(
       '[IpTableAdapter] Request body:',
       requestBody ? requestBody.substring(0, 200) : 'null',
     );
@@ -334,14 +349,12 @@ export function createIpTableAdapter(
 
       // If SNI request fails, use original adapter
       if (!sniResponse) {
-        console.log(
-          '[IpTableAdapter] SNI request returned null, using fallback',
-        );
+        debugLog('[IpTableAdapter] SNI request returned null, using fallback');
         return await callOriginalAdapter(config);
       }
 
       // Convert SNI response to Axios response format
-      console.log(
+      debugLog(
         `[IpTableAdapter] SNI request successful: ${sniResponse.statusCode}`,
       );
 
@@ -356,7 +369,7 @@ export function createIpTableAdapter(
             responseData = sniResponse.body;
           }
         } catch (parseError) {
-          console.warn(
+          debugWarn(
             '[IpTableAdapter] Failed to parse response body:',
             parseError,
           );
@@ -364,7 +377,7 @@ export function createIpTableAdapter(
         }
       }
 
-      console.log('[IpTableAdapter] Response data:', responseData);
+      debugLog('[IpTableAdapter] Response data:', responseData);
 
       return {
         data: responseData,
@@ -376,7 +389,7 @@ export function createIpTableAdapter(
       };
     } catch (error) {
       // If SNI request throws error, use original adapter
-      console.warn(
+      debugWarn(
         '[IpTableAdapter] SNI request failed, falling back to original adapter:',
         error,
       );
