@@ -655,27 +655,26 @@ function DeviceVideo({
   deviceTypeItems: EDeviceType[];
 }) {
   const isPro = useMemo(() => {
-    return deviceTypeItems.every(
-      (deviceType) => deviceType === EDeviceType.Pro,
-    );
+    return deviceTypeItems.find((deviceType) => deviceType === EDeviceType.Pro);
   }, [deviceTypeItems]);
 
   const isTouch = useMemo(() => {
-    return deviceTypeItems.every(
+    return deviceTypeItems.find(
       (deviceType) => deviceType === EDeviceType.Touch,
     );
   }, [deviceTypeItems]);
 
   const isClassic = useMemo(() => {
-    return deviceTypeItems.every(
+    return deviceTypeItems.find(
       (deviceType) =>
         deviceType === EDeviceType.Classic ||
-        deviceType === EDeviceType.Classic1s,
+        deviceType === EDeviceType.Classic1s ||
+        deviceType === EDeviceType.ClassicPure,
     );
   }, [deviceTypeItems]);
 
   const isMini = useMemo(() => {
-    return deviceTypeItems.every(
+    return deviceTypeItems.find(
       (deviceType) => deviceType === EDeviceType.Mini,
     );
   }, [deviceTypeItems]);
