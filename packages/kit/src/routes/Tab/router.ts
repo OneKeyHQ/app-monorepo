@@ -56,7 +56,9 @@ const getDiscoverRouterConfig = (
     exact: true,
     tabBarIcon: (focused?: boolean) =>
       focused ? 'CompassCircleSolid' : 'CompassCircleOutline',
-    translationId: ETranslations.global_browser,
+    translationId: platformEnv.isNative
+      ? ETranslations.global_discover
+      : ETranslations.global_browser,
     freezeOnBlur: Boolean(params?.freezeOnBlur),
     children: discoveryRouters,
     tabBarStyle,
