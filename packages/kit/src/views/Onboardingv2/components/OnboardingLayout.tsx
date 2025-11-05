@@ -57,22 +57,20 @@ function OnboardingLayoutLanguageSelector() {
         placement="bottom-end"
         floatingPanelProps={{ maxHeight: 280 }}
         sheetProps={{ snapPoints: [80], snapPointsMode: 'percent' }}
-        renderTrigger={({ label }) => (
-          <>
-            {gtMd ? (
-              <Button
-                size="small"
-                icon="GlobusOutline"
-                variant="tertiary"
-                ml="auto"
-              >
-                {label}
-              </Button>
-            ) : (
-              <IconButton icon="GlobusOutline" variant="tertiary" ml="auto" />
-            )}
-          </>
-        )}
+        renderTrigger={({ label }) =>
+          gtMd ? (
+            <Button
+              size="small"
+              icon="GlobusOutline"
+              variant="tertiary"
+              ml="auto"
+            >
+              {label}
+            </Button>
+          ) : (
+            <IconButton icon="GlobusOutline" variant="tertiary" ml="auto" />
+          )
+        }
       />
     </YStack>
   );
@@ -117,6 +115,10 @@ const OnboardingLayoutHeader = ({
     borderColor="$neutral4"
     alignItems="center"
     {...rest}
+    style={{
+      ...(rest.style as any),
+      appRegion: 'drag',
+    }}
   >
     {showBackButton ? <OnboardingLayoutBack /> : null}
     {title ? <OnboardingLayoutTitle>{title}</OnboardingLayoutTitle> : null}
@@ -131,14 +133,6 @@ function OnboardingLayoutConstrainedContent({
 }: { children: React.ReactNode } & IYStackProps) {
   return (
     <YStack
-      // $platform-web={{
-      //   animation: 'quick',
-      //   animateOnly: ['opacity', 'transform'],
-      //   enterStyle: {
-      //     opacity: 0,
-      //     x: 24,
-      //   },
-      // }}
       animation="quick"
       animateOnly={['opacity', 'transform']}
       enterStyle={{
@@ -148,7 +142,9 @@ function OnboardingLayoutConstrainedContent({
       w="100%"
       maxWidth={400}
       alignSelf="center"
-      py="$10"
+      $gtMd={{
+        py: '$10',
+      }}
       gap="$5"
       {...rest}
     >
@@ -190,6 +186,7 @@ const OnboardingLayoutBody = ({
     >
       {scrollable ? (
         <ScrollView
+          showsVerticalScrollIndicator={false}
           contentContainerStyle={{
             px: '$5',
             $gtMd: {

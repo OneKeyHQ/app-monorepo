@@ -14,11 +14,18 @@ export enum EOnboardingPagesV2 {
   FinalizeWalletSetup = 'FinalizeWalletSetup',
   PickYourDevice = 'PickYourDevice',
   ConnectYourDevice = 'ConnectYourDevice',
+  ConnectQRCode = 'ConnectQRCode',
   CheckAndUpdate = 'CheckAndUpdate',
   ImportPhraseOrPrivateKey = 'ImportPhraseOrPrivateKey',
+  BackupWalletReminder = 'BackupWalletReminder',
+  ShowRecoveryPhrase = 'ShowRecoveryPhrase',
+  VerifyRecoveryPhrase = 'VerifyRecoveryPhrase',
   SelectPrivateKeyNetwork = 'SelectPrivateKeyNetwork',
   ICloudBackup = 'ICloudBackup',
   ICloudBackupDetails = 'ICloudBackupDetails',
+  ConnectWalletSelectNetworks = 'ConnectWalletSelectNetworks',
+  ConnectExternalWallet = 'ConnectExternalWallet',
+  ImportKeyTag = 'ImportKeyTag',
 }
 
 export type IOnboardingParamListV2 = {
@@ -36,10 +43,16 @@ export type IOnboardingParamListV2 = {
   [EOnboardingPagesV2.ConnectYourDevice]: {
     deviceType: EDeviceType[];
   };
+  [EOnboardingPagesV2.ConnectQRCode]: {
+    deviceType: EDeviceType[];
+  };
   [EOnboardingPagesV2.CheckAndUpdate]: {
     deviceData: IConnectYourDeviceItem;
   };
   [EOnboardingPagesV2.ImportPhraseOrPrivateKey]: undefined;
+  [EOnboardingPagesV2.BackupWalletReminder]: undefined;
+  [EOnboardingPagesV2.ShowRecoveryPhrase]: undefined;
+  [EOnboardingPagesV2.VerifyRecoveryPhrase]: undefined;
   [EOnboardingPagesV2.SelectPrivateKeyNetwork]: {
     privateKey: string;
   };
@@ -47,4 +60,13 @@ export type IOnboardingParamListV2 = {
   [EOnboardingPagesV2.ICloudBackupDetails]: {
     backupTime: string;
   };
+  [EOnboardingPagesV2.ConnectWalletSelectNetworks]: {
+    impl: string;
+    title: string;
+  };
+  [EOnboardingPagesV2.ConnectExternalWallet]: {
+    impl: string;
+    title: string;
+  };
+  [EOnboardingPagesV2.ImportKeyTag]: undefined;
 };
