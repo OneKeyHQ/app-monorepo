@@ -323,8 +323,7 @@ function FinalizeWalletSetupPage({
   }, [goNextStep]);
 
   const currentStepData =
-    STEPS_DATA[currentStep] ||
-    STEPS_DATA[EFinalizeWalletSetupSteps.EncryptingData];
+    STEPS_DATA[currentStep] || STEPS_DATA[EFinalizeWalletSetupSteps.Ready];
 
   return (
     <Page>
