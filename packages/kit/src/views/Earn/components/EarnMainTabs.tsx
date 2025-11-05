@@ -14,8 +14,8 @@ export function EarnMainTabs({
   assetTabData,
   faqList,
   isFaqLoading = false,
-  isPortfolioLoading = false,
-  portfolioInfo,
+  // isPortfolioLoading = false,
+  // portfolioInfo,
   isAccountsLoading,
   refreshEarnAccounts,
   containerProps,
@@ -24,8 +24,8 @@ export function EarnMainTabs({
   assetTabData: Array<{ title: string; type: EAvailableAssetsTypeEnum }>;
   faqList: Array<{ question: string; answer: string }>;
   isFaqLoading?: boolean;
-  isPortfolioLoading?: boolean;
-  portfolioInfo?: IEarnInvestmentItemV2[];
+  // isPortfolioLoading?: boolean;
+  // portfolioInfo?: IEarnInvestmentItemV2[];
   isAccountsLoading?: boolean;
   refreshEarnAccounts?: () => void;
   containerProps?: any;
@@ -65,10 +65,7 @@ export function EarnMainTabs({
       >
         <WrapperComponent>
           <YStack px="$5" pt="$6" gap="$8">
-            <PortfolioTabContent
-              isLoading={isPortfolioLoading}
-              portfolioInfo={portfolioInfo ?? []}
-            />
+            <PortfolioTabContent />
           </YStack>
         </WrapperComponent>
       </Tabs.Tab>

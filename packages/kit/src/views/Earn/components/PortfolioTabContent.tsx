@@ -1,5 +1,7 @@
 import { memo, useCallback, useMemo } from 'react';
 
+import { isEmpty } from 'lodash';
+
 import {
   Button,
   Divider,
@@ -13,18 +15,19 @@ import { TableList } from '@onekeyhq/kit/src/components/ListView/TableList';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
-import type { IEarnInvestmentItemV2 } from '@onekeyhq/shared/types/staking';
+import type { IEarnPortfolioInvestment } from '@onekeyhq/shared/types/staking';
 
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { EarnText } from '../../Staking/components/ProtocolDetails/EarnText';
 import { EarnTooltip } from '../../Staking/components/ProtocolDetails/EarnTooltip';
+import { useEarnPortfolio } from '../hooks/useEarnPortfolio';
 
 const PortfolioItemComponent = ({
   portfolioItem,
 }: {
-  portfolioItem: IEarnInvestmentItemV2;
+  portfolioItem: IEarnPortfolioInvestment;
 }) => {
-  const columns: ITableColumn<IEarnInvestmentItemV2['assets'][number]>[] =
+  const columns: ITableColumn<IEarnPortfolioInvestment['assets'][number]>[] =
     useMemo(() => {
       return [
         {
@@ -77,16 +80,8 @@ const PortfolioItemComponent = ({
             <EarnText
               flex={1}
               size="$bodyLgMedium"
-              // color={asset.earnings24h?.color}
               text={asset.earnings24h?.title}
             />
-            // <SizableText
-            //   mr="$2"
-            //   size="$bodyLgMedium"
-            //   color={asset.earnings24h?.color}
-            // >
-            //   {asset.earnings24h?.text}
-            // </SizableText>
           ),
         },
         {
@@ -113,14 +108,6 @@ const PortfolioItemComponent = ({
                   />
                   <EarnTooltip tooltip={status.tooltip} />
                 </>
-                // <SizableText
-                //   key={index}
-                //   mr="$2"
-                //   size="$bodyLgMedium"
-                //   color={status.text?.color}
-                // >
-                //   {status.text?.text}
-                // </SizableText>
               ))}
             </XStack>
           ),
@@ -131,15 +118,19 @@ const PortfolioItemComponent = ({
           flex: 1.5,
           render: (asset) => (
             <XStack gap="$2">
+              {isEmpty(asset.rewardAssets) ? (
+                <EarnText flex={1} size="$bodyLgMedium" text={{ text: '-' }} />
+              ) : null}
               {asset.rewardAssets?.map((reward, index) => (
-                <SizableText
-                  key={index}
-                  mr="$2"
-                  size="$bodyLgMedium"
-                  color={reward.text?.color}
-                >
-                  {reward.text?.text}
-                </SizableText>
+                <XStack key={index}>
+                  <EarnText mr="$2" size="$bodyLgMedium" text={reward.title} />
+                  <EarnText
+                    mr="$2"
+                    size="$bodyLgMedium"
+                    color="$textSubdued"
+                    text={reward.description}
+                  />
+                </XStack>
               ))}
             </XStack>
           ),
@@ -176,7 +167,7 @@ const PortfolioItemComponent = ({
   const { account, indexedAccount } = activeAccount;
 
   const handleManagePress = useCallback(
-    async (asset: IEarnInvestmentItemV2['assets'][number]) => {
+    async (asset: IEarnPortfolioInvestment['assets'][number]) => {
       const symbol = asset.token.info.symbol;
       if (symbol === 'USDe') {
         appNavigation.pushModal(EModalRoutes.StakingModal, {
@@ -184,10 +175,10 @@ const PortfolioItemComponent = ({
           params: {
             indexedAccountId: indexedAccount?.id,
             accountId: account?.id,
-            networkId: portfolioItem.network.networkId,
+            networkId: asset.requestParams.networkId,
             symbol,
-            provider: portfolioItem.protocol.providerDetail.code,
-            vault: portfolioItem.protocol.vaultName,
+            provider: asset.requestParams.provider,
+            vault: asset.requestParams.vault,
           },
         });
 
@@ -196,30 +187,21 @@ const PortfolioItemComponent = ({
       appNavigation.pushModal(EModalRoutes.StakingModal, {
         screen: EModalStakingRoutes.ManagePosition,
         params: {
-          networkId: portfolioItem.network.networkId,
+          networkId: asset.requestParams.networkId,
           symbol,
-          provider: portfolioItem.protocol.providerDetail.code,
-          // vault: portfolioItem.protocol.providerDetail.,
+          provider: asset.requestParams.provider,
+          vault: asset.requestParams.vault,
         },
       });
     },
-    [
-      appNavigation,
-      portfolioItem.protocol.providerDetail.code,
-      portfolioItem.protocol.vaultName,
-      portfolioItem.network.networkId,
-      account?.id,
-      indexedAccount?.id,
-    ],
+    [appNavigation, account?.id, indexedAccount?.id],
   );
-
-  console.log('portfolioItem.assetsportfolioItem.assets', portfolioItem.assets);
 
   return (
     <YStack>
       {protocolHeader}
-      <TableList<IEarnInvestmentItemV2['assets'][number]>
-        data={portfolioItem.assets}
+      <TableList<IEarnPortfolioInvestment['assets'][number]>
+        data={portfolioItem.assets.filter((asset) => asset.type === 'normal')}
         columns={columns}
         withHeader
         tableLayout
@@ -229,23 +211,32 @@ const PortfolioItemComponent = ({
           render: (asset) => {
             return (
               <Stack gap="$2">
-                {asset.buttons?.map((button, index) => {
-                  return (
-                    <Button
-                      key={index}
-                      size="small"
-                      disabled={button?.disabled}
-                      variant="secondary"
-                      onPress={async () => {
-                        if (button?.type === 'manage') {
-                          await handleManagePress(asset);
-                        }
-                      }}
-                    >
-                      {button.text?.text}
-                    </Button>
-                  );
-                })}
+                {asset.buttons?.map(
+                  (
+                    button: {
+                      type: string;
+                      text: { text: string };
+                      disabled: boolean;
+                    },
+                    index: number,
+                  ) => {
+                    return (
+                      <Button
+                        key={index}
+                        size="small"
+                        disabled={button?.disabled}
+                        variant="secondary"
+                        onPress={async () => {
+                          if (button?.type === 'manage') {
+                            await handleManagePress(asset);
+                          }
+                        }}
+                      >
+                        {button.text?.text}
+                      </Button>
+                    );
+                  },
+                )}
               </Stack>
             );
           },
@@ -259,18 +250,17 @@ const PortfolioItemComponent = ({
 
 const PortfolioItem = memo(PortfolioItemComponent);
 
-export const PortfolioTabContent = ({
-  portfolioInfo,
-  isLoading: _isLoading,
-}: {
-  portfolioInfo: IEarnInvestmentItemV2[];
-  isLoading: boolean;
-}) => {
+export const PortfolioTabContent = () => {
+  const { investments, isLoading } = useEarnPortfolio();
+
+  const showSkeleton = isLoading && investments.length === 0;
+  const showEmpty = !isLoading && investments.length === 0;
+
   return (
     <YStack>
-      {portfolioInfo.length > 0
-        ? portfolioInfo.map((item, index) => {
-            const showDivider = index < portfolioInfo.length - 1;
+      {investments.length > 0
+        ? investments.map((item, index) => {
+            const showDivider = index < investments.length - 1;
             const key = `${item.protocol.providerDetail.code}_${
               item.protocol.vaultName || ''
             }_${item.network.networkId}`;

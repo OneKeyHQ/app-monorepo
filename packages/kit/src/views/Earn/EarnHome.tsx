@@ -41,7 +41,7 @@ import { EarnProviderMirror } from './EarnProviderMirror';
 import { EarnNavigation } from './earnUtils';
 import { useBannerInfo } from './hooks/useBannerInfo';
 import { useBlockRegion } from './hooks/useBlockRegion';
-import { useEarn } from './hooks/useEarn';
+import { useEarnAccounts } from './hooks/useEarnAccounts';
 import { useFAQListInfo } from './hooks/useFAQListInfo';
 
 import type { LayoutChangeEvent } from 'react-native';
@@ -55,12 +55,7 @@ function BasicEarnHome() {
   const { isFetchingBlockResult, refreshBlockResult, blockResult } =
     useBlockRegion();
 
-  const {
-    isFetchingAccounts,
-    isPortfolioLoading,
-    refreshEarnAccounts,
-    investments,
-  } = useEarn();
+  const { isFetchingAccounts, refreshEarnAccounts } = useEarnAccounts();
 
   const { earnBanners, refetchBanners } = useBannerInfo();
   const { faqList, isFaqLoading, refetchFAQ } = useFAQListInfo();
@@ -228,8 +223,6 @@ function BasicEarnHome() {
             assetTabData={assetTabData}
             faqList={faqList || []}
             isFaqLoading={isFaqLoading}
-            portfolioInfo={investments}
-            isPortfolioLoading={isPortfolioLoading}
             isAccountsLoading={isLoading}
             refreshEarnAccounts={refreshEarnAccounts}
             containerProps={{
@@ -315,8 +308,6 @@ function BasicEarnHome() {
           assetTabData={assetTabData}
           faqList={faqList || []}
           isFaqLoading={isFaqLoading}
-          portfolioInfo={investments}
-          isPortfolioLoading={isPortfolioLoading}
           isAccountsLoading={isLoading}
         />
       </YStack>

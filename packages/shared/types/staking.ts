@@ -1095,6 +1095,7 @@ export interface IEarnInvestmentItem {
 export interface IEarnInvestmentItemV2 {
   totalFiatValue: string;
   protocol: {
+    vault?: string;
     vaultName?: string;
     providerDetail: {
       code: string;
@@ -1109,7 +1110,7 @@ export interface IEarnInvestmentItemV2 {
         logoURI: string;
       };
     };
-    type: string; // normal / reward
+    type: 'normal' | 'airdrop';
     deposit: {
       title: IEarnText;
       description: IEarnText;
@@ -1118,7 +1119,7 @@ export interface IEarnInvestmentItemV2 {
       title: IEarnText;
     };
     rewardAssets: {
-      text: IEarnText;
+      title: IEarnText;
       tooltip: IEarnTooltip;
       button: IEarnActionIcon;
       description: IEarnText;
@@ -1142,6 +1143,20 @@ export interface IEarnInvestmentItemV2 {
     logoURI: string;
   };
 }
+
+export type IEarnPortfolioAsset = IEarnInvestmentItemV2['assets'][number] & {
+  // Request parameters for refreshing this specific asset
+  requestParams: {
+    provider: string;
+    symbol: string;
+    vault?: string;
+    networkId: string;
+  };
+};
+
+export type IEarnPortfolioInvestment = Omit<IEarnInvestmentItemV2, 'assets'> & {
+  assets: IEarnPortfolioAsset[];
+};
 
 export interface IEarnFAQListItem {
   question: string;
