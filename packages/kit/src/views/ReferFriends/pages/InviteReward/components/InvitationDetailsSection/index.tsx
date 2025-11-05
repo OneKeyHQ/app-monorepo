@@ -11,6 +11,7 @@ import { SectionHeader } from '../SectionHeader';
 
 import { CreateCodeButton } from './components/CreateCodeButton';
 import { InviteCodeListTable } from './components/InviteCodeListTable';
+import { useInviteCodeList } from './hooks/useInviteCodeList';
 
 import type { IInvitationDetailsSectionProps } from './types';
 
@@ -50,7 +51,9 @@ export function InvitationDetailsSection({
   const [selectedTab, setSelectedTab] = useState<'reward' | 'referral'>(
     'reward',
   );
-  const [refreshKey, setRefreshKey] = useState(0);
+
+  // Fetch invite code list data
+  const { codeListData, isLoading, refetch } = useInviteCodeList();
 
   if (!summaryInfo) {
     return null;
@@ -58,6 +61,11 @@ export function InvitationDetailsSection({
 
   const { HardwareSales, Onchain, levelPercent, rebateLevels, rebateConfig } =
     summaryInfo;
+
+  // Check if user can create more codes
+  const canCreateCode = codeListData
+    ? codeListData.remainingCodes > 0
+    : false;
 
   return (
     <YStack gap="$5">
@@ -90,10 +98,17 @@ export function InvitationDetailsSection({
         </XStack>
       ) : (
         <YStack px="$5" gap="$4">
-          <CreateCodeButton
-            onCodeCreated={() => setRefreshKey((prev) => prev + 1)}
+          {canCreateCode && (
+            <CreateCodeButton
+              total={codeListData?.total}
+              onCodeCreated={refetch}
+            />
+          )}
+          <InviteCodeListTable
+            codeListData={codeListData}
+            isLoading={isLoading ?? false}
+            refetch={refetch}
           />
-          <InviteCodeListTable key={refreshKey} />
         </YStack>
       )}
     </YStack>

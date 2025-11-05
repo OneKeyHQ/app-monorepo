@@ -2,17 +2,26 @@ import { useIntl } from 'react-intl';
 
 import { SizableText, Spinner, Stack, Table } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type { IInviteCodeListItem } from '@onekeyhq/shared/src/referralCode/type';
+import type {
+  IInviteCodeListItem,
+  IInviteCodeListResponse,
+} from '@onekeyhq/shared/src/referralCode/type';
 
-import { useInviteCodeList } from './hooks/useInviteCodeList';
 import { useSortableData } from './hooks/useSortableData';
 import { useTableColumns } from './hooks/useTableColumns';
 
-export function InviteCodeListTable() {
-  const intl = useIntl();
+interface IInviteCodeListTableProps {
+  codeListData: IInviteCodeListResponse | undefined;
+  isLoading: boolean;
+  refetch: () => void;
+}
 
-  // Fetch invite code list
-  const { codeListData, isLoading, refetch } = useInviteCodeList();
+export function InviteCodeListTable({
+  codeListData,
+  isLoading,
+  refetch,
+}: IInviteCodeListTableProps) {
+  const intl = useIntl();
 
   // Sort data
   const { sortedData, handleSortChange } = useSortableData(codeListData?.items);

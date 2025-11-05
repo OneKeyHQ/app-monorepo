@@ -7,10 +7,14 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 interface ICreateCodeButtonProps {
+  total?: number;
   onCodeCreated?: () => void;
 }
 
-export function CreateCodeButton({ onCodeCreated }: ICreateCodeButtonProps) {
+export function CreateCodeButton({
+  total,
+  onCodeCreated,
+}: ICreateCodeButtonProps) {
   const intl = useIntl();
   const [loading, setLoading] = useState(false);
   const { copyText } = useClipboard();
@@ -64,7 +68,8 @@ export function CreateCodeButton({ onCodeCreated }: ICreateCodeButtonProps) {
       disabled={loading}
       loading={loading}
     >
-      {intl.formatMessage({ id: ETranslations.referral_create_code })} (18)
+      {intl.formatMessage({ id: ETranslations.referral_create_code })} (
+      {total ?? 0})
     </Button>
   );
 }
