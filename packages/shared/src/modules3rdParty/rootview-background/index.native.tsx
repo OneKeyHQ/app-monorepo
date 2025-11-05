@@ -3,11 +3,7 @@ import { NativeModules } from 'react-native';
 
 import type { IUpdateRootViewBackgroundColor } from './type';
 
-const { RootViewBackground } = NativeModules as {
-  RootViewBackground: {
-    setBackground: (r: number, g: number, b: number, a: number) => void;
-  };
-};
+const { RootViewBackground } = NativeModules;
 
 export const updateRootViewBackgroundColor: IUpdateRootViewBackgroundColor = (
   color: string,

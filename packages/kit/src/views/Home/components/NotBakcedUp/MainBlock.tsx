@@ -84,7 +84,14 @@ function MainInfoBlock(props: IProps) {
       >
         <Icon color="$iconOnColor" size="$6" {...iconProps} />
       </YStack>
-      <SizableText size="$heading3xl" maxWidth={288} zIndex={1}>
+      <SizableText
+        size="$heading2xl"
+        $gtMd={{
+          size: '$heading3xl',
+        }}
+        maxWidth={288}
+        zIndex={1}
+      >
         {title}
       </SizableText>
       <YStack mt="auto" zIndex={1} alignSelf="stretch">

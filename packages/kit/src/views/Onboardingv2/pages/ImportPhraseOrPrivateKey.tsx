@@ -5,22 +5,35 @@ import {
   HeightTransition,
   Page,
   SegmentControl,
-  SizableText,
   TextAreaInput,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes';
+import type { EMnemonicType } from '@onekeyhq/shared/src/utils/secret';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { OnboardingLayout } from '../components/OnboardingLayout';
+import { PhaseInputArea } from '../components/PhaseInputArea';
 
 export default function ImportPhraseOrPrivateKey() {
   const navigation = useAppNavigation();
   const [selected, setSelected] = useState<'phrase' | 'privateKey'>('phrase');
+  const { gtMd } = useMedia();
 
-  const handleConfirm = () => {
+  const handleConfirm = ({
+    mnemonic,
+    mnemonicType,
+  }: {
+    mnemonic: string;
+    mnemonicType: EMnemonicType;
+  }) => {
     if (selected === 'phrase') {
       console.log('handlePhraseConfirm');
+      navigation.push(EOnboardingPagesV2.FinalizeWalletSetup, {
+        mnemonic,
+        mnemonicType,
+      });
     } else {
       // Navigate to network selection page for private key import
       void navigation.push(EOnboardingPagesV2.SelectPrivateKeyNetwork, {
@@ -34,7 +47,7 @@ export default function ImportPhraseOrPrivateKey() {
       <OnboardingLayout>
         <OnboardingLayout.Header title="Import Phrase or Private Key" />
         <OnboardingLayout.Body constrained={false}>
-          <OnboardingLayout.ConstrainedContent gap="$10">
+          <OnboardingLayout.ConstrainedContent gap="$5">
             <SegmentControl
               value={selected}
               fullWidth
@@ -48,24 +61,7 @@ export default function ImportPhraseOrPrivateKey() {
             />
             <HeightTransition>
               {selected === 'phrase' ? (
-                <>
-                  <YStack
-                    key="phrase"
-                    animation="quick"
-                    animateOnly={['opacity']}
-                    enterStyle={{
-                      opacity: 0,
-                    }}
-                  >
-                    <SizableText>
-                      Amet reprehenderit aute aute exercitation et consectetur
-                      ut sit excepteur. Culpa eiusmod sunt ea proident eiusmod
-                      dolore aliquip pariatur veniam minim incididunt fugiat do
-                      ipsum commodo. Enim velit qui aliquip pariatur dolor Lorem
-                      ipsum adipisicing voluptate ad excepteur.
-                    </SizableText>
-                  </YStack>
-                </>
+                <PhaseInputArea defaultPhrases={[]} onConfirm={handleConfirm} />
               ) : (
                 <YStack
                   key="privateKey"
@@ -74,24 +70,38 @@ export default function ImportPhraseOrPrivateKey() {
                   enterStyle={{
                     opacity: 0,
                   }}
+                  gap="$5"
                 >
                   <TextAreaInput
                     size="large"
                     numberOfLines={5}
+                    $platform-native={{
+                      minHeight: 160,
+                    }}
                     placeholder="Enter your private key"
                   />
                 </YStack>
               )}
             </HeightTransition>
+            {gtMd ? (
+              <Button size="large" variant="primary" onPress={handleConfirm}>
+                Continue
+              </Button>
+            ) : null}
+          </OnboardingLayout.ConstrainedContent>
+        </OnboardingLayout.Body>
+        {!gtMd ? (
+          <OnboardingLayout.Footer>
             <Button
               size="large"
               variant="primary"
-              onPress={() => handleConfirm()}
+              onPress={handleConfirm}
+              w="100%"
             >
               Confirm
             </Button>
-          </OnboardingLayout.ConstrainedContent>
-        </OnboardingLayout.Body>
+          </OnboardingLayout.Footer>
+        ) : null}
       </OnboardingLayout>
     </Page>
   );

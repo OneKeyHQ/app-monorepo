@@ -222,18 +222,6 @@ const TabDeveloper = () => {
               </Button>
             </PartContainer>
 
-            {platformEnv.isNative ? (
-              <PartContainer title="NetworkLogger">
-                <Button
-                  onPress={() => {
-                    navigation.push(ETabDeveloperRoutes.NetworkLogger);
-                  }}
-                >
-                  NetworkLogger
-                </Button>
-              </PartContainer>
-            ) : null}
-
             <PartContainer title="Async Import Test">
               <Button
                 onPress={async () => {

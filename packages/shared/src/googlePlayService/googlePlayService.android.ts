@@ -2,10 +2,14 @@ import { GoogleSignin } from '@react-native-google-signin/google-signin';
 
 import type { IGooglePlayService } from './googlePlayServiceTypes';
 
+let hasPlayServices: boolean | null = null;
 const googlePlayService: IGooglePlayService = {
-  isAvailable: async () => {
+  async isAvailable(): Promise<boolean> {
+    if (hasPlayServices !== null) {
+      return hasPlayServices;
+    }
     try {
-      const hasPlayServices = await GoogleSignin.hasPlayServices({
+      hasPlayServices = await GoogleSignin.hasPlayServices({
         showPlayServicesUpdateDialog: false,
       });
       console.log(

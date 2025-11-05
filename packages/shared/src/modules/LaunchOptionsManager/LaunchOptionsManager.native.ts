@@ -4,9 +4,7 @@ import platformEnv from '../../platformEnv';
 
 import type { ILaunchOptionsManagerInterface } from './type';
 
-const { LaunchOptionsManager } = NativeModules as {
-  LaunchOptionsManager: ILaunchOptionsManagerInterface;
-};
+const { LaunchOptionsManager } = NativeModules;
 
 const getStartupTimeAt = async () => {
   if (LaunchOptionsManager && LaunchOptionsManager.getStartupTime) {

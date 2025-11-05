@@ -15,13 +15,13 @@ import {
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useLanguageSelector } from '../../Setting/hooks';
 
 const OnboardingLayoutBack = () => {
   const navigation = useAppNavigation();
   const reactNavigation = useNavigation();
-  const { gtMd } = useMedia();
 
   const canGoBack = reactNavigation.canGoBack();
   const icon = canGoBack ? 'ArrowLeftOutline' : 'CrossedLargeOutline';
@@ -32,7 +32,7 @@ const OnboardingLayoutBack = () => {
 
   return (
     <IconButton
-      size={gtMd ? 'small' : 'medium'}
+      size="medium"
       icon={icon}
       variant="tertiary"
       onPress={handleBack}
@@ -57,22 +57,20 @@ function OnboardingLayoutLanguageSelector() {
         placement="bottom-end"
         floatingPanelProps={{ maxHeight: 280 }}
         sheetProps={{ snapPoints: [80], snapPointsMode: 'percent' }}
-        renderTrigger={({ label }) => (
-          <>
-            {gtMd ? (
-              <Button
-                size="small"
-                icon="GlobusOutline"
-                variant="tertiary"
-                ml="auto"
-              >
-                {label}
-              </Button>
-            ) : (
-              <IconButton icon="GlobusOutline" variant="tertiary" ml="auto" />
-            )}
-          </>
-        )}
+        renderTrigger={({ label }) =>
+          gtMd ? (
+            <Button
+              size="small"
+              icon="GlobusOutline"
+              variant="tertiary"
+              ml="auto"
+            >
+              {label}
+            </Button>
+          ) : (
+            <IconButton icon="GlobusOutline" variant="tertiary" ml="auto" />
+          )
+        }
       />
     </YStack>
   );
@@ -117,6 +115,10 @@ const OnboardingLayoutHeader = ({
     borderColor="$neutral4"
     alignItems="center"
     {...rest}
+    style={{
+      ...(rest.style as any),
+      appRegion: 'drag',
+    }}
   >
     {showBackButton ? <OnboardingLayoutBack /> : null}
     {title ? <OnboardingLayoutTitle>{title}</OnboardingLayoutTitle> : null}
@@ -131,14 +133,6 @@ function OnboardingLayoutConstrainedContent({
 }: { children: React.ReactNode } & IYStackProps) {
   return (
     <YStack
-      // $platform-web={{
-      //   animation: 'quick',
-      //   animateOnly: ['opacity', 'transform'],
-      //   enterStyle: {
-      //     opacity: 0,
-      //     x: 24,
-      //   },
-      // }}
       animation="quick"
       animateOnly={['opacity', 'transform']}
       enterStyle={{
@@ -148,7 +142,9 @@ function OnboardingLayoutConstrainedContent({
       w="100%"
       maxWidth={400}
       alignSelf="center"
-      py="$10"
+      $gtMd={{
+        py: '$10',
+      }}
       gap="$5"
       {...rest}
     >
@@ -190,6 +186,7 @@ const OnboardingLayoutBody = ({
     >
       {scrollable ? (
         <ScrollView
+          showsVerticalScrollIndicator={false}
           contentContainerStyle={{
             px: '$5',
             $gtMd: {
@@ -248,21 +245,37 @@ function OnboardingLayoutRoot({ children }: { children: React.ReactNode }) {
       alignItems="center"
       justifyContent="center"
       bg="$neutral2"
-      $gt2xl={{
+      $gtMd={{
         p: '$10',
-        pb: '$20',
       }}
     >
+      {/* Draggable area for desktop window */}
+      {platformEnv.isDesktop ? (
+        <YStack
+          position="absolute"
+          top={0}
+          left={0}
+          right={0}
+          h={80}
+          zIndex={9999}
+          style={
+            {
+              WebkitAppRegion: 'drag',
+            } as any
+          }
+        />
+      ) : null}
       <YStack
         h="100%"
         w="100%"
         px="$5"
+        // $gtMd={{
+        //   px: '$10',
+        // }}
+        bg="$bg"
         $gtMd={{
           px: '$10',
-        }}
-        bg="$bg"
-        $gt2xl={{
-          maxWidth: 1600,
+          maxWidth: 1440,
           maxHeight: 1024,
           borderRadius: 40,
           borderCurve: 'continuous',

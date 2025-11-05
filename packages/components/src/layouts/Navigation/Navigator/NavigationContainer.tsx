@@ -1,4 +1,4 @@
-import type { MutableRefObject } from 'react';
+import type { MutableRefObject, RefObject } from 'react';
 import {
   createContext,
   createRef,
@@ -13,12 +13,17 @@ import {
   DefaultTheme,
   NavigationContainer as RNNavigationContainer,
 } from '@react-navigation/native';
+import { useMMKVDevTools } from '@rozenite/mmkv-plugin';
+import { useNetworkActivityDevTools } from '@rozenite/network-activity-plugin';
+import { useReactNavigationDevTools } from '@rozenite/react-navigation-plugin';
 
 import { useTheme } from '@onekeyhq/components/src/shared/tamagui';
 import type { GetProps } from '@onekeyhq/components/src/shared/tamagui';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import { updateRootViewBackgroundColor } from '@onekeyhq/shared/src/modules3rdParty/rootview-background';
 import { navigationIntegration } from '@onekeyhq/shared/src/modules3rdParty/sentry';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import mmkvStorageInstance from '@onekeyhq/shared/src/storage/instance/mmkvStorageInstance';
 
 import { useSettingConfig } from '../../../hocs/Provider/hooks/useProviderValue';
 
@@ -65,6 +70,17 @@ const useUpdateRootViewBackgroundColor = (
   }, [color, theme]);
 };
 
+const useNativeDevTools =
+  platformEnv.isNative && platformEnv.isDev
+    ? ({ ref }: { ref: RefObject<NavigationContainerRef<any>> }) => {
+        useReactNavigationDevTools({ ref });
+        useNetworkActivityDevTools();
+        useMMKVDevTools({
+          storages: [mmkvStorageInstance],
+        });
+      }
+    : () => {};
+
 export function NavigationContainer(props: IBasicNavigationContainerProps) {
   const handleReady = useCallback(() => {
     navigationIntegration.registerNavigationContainer(rootNavigationRef);
@@ -86,6 +102,10 @@ export function NavigationContainer(props: IBasicNavigationContainerProps) {
       },
     };
   }, [theme.bgApp.val, themeName]);
+
+  useNativeDevTools({
+    ref: rootNavigationRef as RefObject<NavigationContainerRef<any>>,
+  });
 
   return (
     <RNNavigationContainer
