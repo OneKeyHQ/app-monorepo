@@ -83,7 +83,7 @@ export const getDeviceLabel = (
         case EDeviceType.Classic1s:
           return 'OneKey Classic 1S';
         case EDeviceType.ClassicPure:
-          return 'OneKey Classic Pure';
+          return '1S Pure';
         case EDeviceType.Mini:
           return 'OneKey Mini';
         case EDeviceType.Touch:
