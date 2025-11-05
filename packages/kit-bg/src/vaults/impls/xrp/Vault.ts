@@ -248,6 +248,11 @@ export default class Vault extends VaultBase {
   override async buildUnsignedTx(
     params: IBuildUnsignedTxParams,
   ): Promise<IUnsignedTxPro> {
+    if (params?.encodedTx) {
+      return {
+        encodedTx: params.encodedTx as IEncodedTxXrp,
+      };
+    }
     const encodedTx = await this.buildEncodedTx(params);
     if (encodedTx) {
       return {
