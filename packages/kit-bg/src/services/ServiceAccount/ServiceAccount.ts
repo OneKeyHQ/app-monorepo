@@ -24,6 +24,7 @@ import type {
   EAddressEncodings,
   ICoreCredentialsInfo,
   ICoreHyperLiquidAgentCredential,
+  ICoreImportedCredential,
   IExportKeyType,
 } from '@onekeyhq/core/src/types';
 import { ECoreApiExportedSecretKeyType } from '@onekeyhq/core/src/types';
@@ -108,6 +109,7 @@ import {
   EHardwareCallContext,
 } from '@onekeyhq/shared/types/device';
 import type { IExternalConnectWalletResult } from '@onekeyhq/shared/types/externalWallet.types';
+import type { IPrimeTransferAccount } from '@onekeyhq/shared/types/prime/primeTransferTypes';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import { EDBAccountType } from '../../dbs/local/consts';
@@ -2378,7 +2380,16 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getAccountCreatedNetworkId({ account }: { account: IDBAccount }) {
+  async getAccountCreatedNetworkId({
+    account,
+  }: {
+    account: {
+      createAtNetwork?: string | undefined;
+      networks?: string[] | undefined;
+      impl: string | undefined;
+      coinType: string | undefined;
+    };
+  }) {
     let networkId = account?.createAtNetwork || account?.networks?.[0];
     if (!networkId && account.impl) {
       const { networkIds } =
@@ -4917,21 +4928,45 @@ class ServiceAccount extends ServiceBase {
     importedAccount,
     encryptedCredential,
     password,
+    credentialDecrypted,
     networkId,
   }: {
-    importedAccount: IDBAccount;
+    importedAccount: IPrimeTransferAccount;
     password: string;
     encryptedCredential: string;
+    credentialDecrypted?: ICoreImportedCredential | undefined;
     networkId: string | undefined;
   }) {
     if (!networkId) {
       throw new OneKeyLocalError('NetworkId is required');
     }
-    const { privateKey } = await decryptImportedCredential({
-      credential: encryptedCredential,
-      password,
-      allowRawPassword: true,
-    });
+    if (!credentialDecrypted) {
+      if (!password) {
+        throw new OneKeyLocalError(
+          'getExportedPrivateKeyOfImportedAccount Error: Password is required',
+        );
+      }
+      if (!encryptedCredential) {
+        throw new OneKeyLocalError(
+          'getExportedPrivateKeyOfImportedAccount Error: Encrypted credential is required',
+        );
+      }
+    }
+    let privateKey: string | undefined;
+    if (credentialDecrypted) {
+      privateKey = credentialDecrypted.privateKey;
+    } else {
+      ({ privateKey } = await decryptImportedCredential({
+        credential: encryptedCredential,
+        password,
+        allowRawPassword: true,
+      }));
+    }
+    if (!privateKey) {
+      throw new OneKeyLocalError(
+        'getExportedPrivateKeyOfImportedAccount Error: Private key is required',
+      );
+    }
     const coreApi = this.backgroundApi.serviceNetwork.getCoreApiByNetwork({
       networkId,
     });
@@ -4954,7 +4989,7 @@ class ServiceAccount extends ServiceBase {
       password,
       credentials,
 
-      account: importedAccount,
+      account: { ...importedAccount, path: importedAccount.path || '' },
 
       keyType:
         importedAccount.type === EDBAccountType.UTXO
@@ -4978,7 +5013,7 @@ class ServiceAccount extends ServiceBase {
     privateKey,
     networkId,
   }: {
-    importedAccount: IDBAccount;
+    importedAccount: IPrimeTransferAccount;
     input: string;
     privateKey: string;
     networkId: string;
@@ -5055,7 +5090,7 @@ class ServiceAccount extends ServiceBase {
     input,
     networkId,
   }: {
-    watchingAccount: IDBAccount;
+    watchingAccount: IPrimeTransferAccount;
     input: string;
     networkId: string;
   }): Promise<{

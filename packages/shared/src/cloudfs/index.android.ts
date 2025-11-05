@@ -60,8 +60,9 @@ export function sync(): Promise<boolean> {
 
 export async function listFiles(target: string) {
   await loginIfNeeded(false);
-  const { files }: { files: Array<{ isFile: boolean; name: string }> } =
-    await RNCloudFs.listFiles({ scope: 'hidden', targetPath: target });
+  const { files } = await RNCloudFs.listFiles({
+    scope: 'hidden',
+  });
   return files.map(({ name }) => name.replace(target, ''));
 }
 
@@ -71,7 +72,6 @@ async function getFileObject(
   const { files }: { files: Array<{ id: string; name: string }> } =
     await RNCloudFs.listFiles({
       scope: 'hidden',
-      targetPath: target,
     });
   return files.find(({ name }) => target === name);
 }
@@ -101,7 +101,6 @@ export async function uploadToCloud(
 ): Promise<void> {
   await loginIfNeeded(false);
   await RNCloudFs.copyToCloud({
-    mimeType: null,
     scope: 'hidden',
     sourcePath: { path: source },
     targetPath: target,

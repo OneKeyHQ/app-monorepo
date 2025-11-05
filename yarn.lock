@@ -6902,6 +6902,17 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@onekeyfe/electron-mac-icloud@npm:1.0.0":
+  version: 1.0.0
+  resolution: "@onekeyfe/electron-mac-icloud@npm:1.0.0"
+  dependencies:
+    bindings: "npm:1.5.0"
+    node-addon-api: "npm:5.0.0"
+    node-gyp: "npm:latest"
+  checksum: 10/d0fd200e432a45a423f35c5a1cf53365ea4847f1347d6c077692bf0818338dd0edaaa016c31383d6e45c1bb7a3a2cb453af8056999a538ed11587c54f803bec2
+  languageName: node
+  linkType: hard
+
 "@onekeyfe/extension-bridge-hosted@npm:2.2.48":
   version: 2.2.48
   resolution: "@onekeyfe/extension-bridge-hosted@npm:2.2.48"
@@ -7773,6 +7784,7 @@ __metadata:
   dependencies:
     "@electron/notarize": "npm:2.3.2"
     "@electron/remote": "npm:^2.0.1"
+    "@onekeyfe/electron-mac-icloud": "npm:1.0.0"
     "@sentry/electron": "npm:5.8.0"
     "@stoprocent/noble": "npm:2.3.4"
     "@types/adm-zip": "npm:^0"
@@ -18805,7 +18817,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"bindings@npm:^1.2.1, bindings@npm:^1.3.0, bindings@npm:^1.5.0":
+"bindings@npm:1.5.0, bindings@npm:^1.2.1, bindings@npm:^1.3.0, bindings@npm:^1.5.0":
   version: 1.5.0
   resolution: "bindings@npm:1.5.0"
   dependencies:
@@ -32001,6 +32013,15 @@ __metadata:
   dependencies:
     semver: "npm:^7.3.5"
   checksum: 10/f9d1d7cc1a088c0c8c9e4606ad594b860c664f3872aecbb2a735ef9ef7395324597c0ef16dc7952cbb747cac658df633588e98b1c97f0c01b18975a43d954f87
+  languageName: node
+  linkType: hard
+
+"node-addon-api@npm:5.0.0":
+  version: 5.0.0
+  resolution: "node-addon-api@npm:5.0.0"
+  dependencies:
+    node-gyp: "npm:latest"
+  checksum: 10/8f6c6af36e545c3c5b4d6d104a62ab9599369ce009fa5f79d78ec3e447e72787cec529d871e610dbe36f64c00e77db05ab23c3db6091823a291deb1b26928929
   languageName: node
   linkType: hard
 
