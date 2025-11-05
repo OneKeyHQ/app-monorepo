@@ -5,22 +5,33 @@ import {
   HeightTransition,
   Page,
   SegmentControl,
-  SizableText,
   TextAreaInput,
   YStack,
 } from '@onekeyhq/components';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes';
+import type { EMnemonicType } from '@onekeyhq/shared/src/utils/secret';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { OnboardingLayout } from '../components/OnboardingLayout';
+import { PhaseInputArea } from '../components/PhaseInputArea';
 
 export default function ImportPhraseOrPrivateKey() {
   const navigation = useAppNavigation();
   const [selected, setSelected] = useState<'phrase' | 'privateKey'>('phrase');
 
-  const handleConfirm = () => {
+  const handleConfirm = ({
+    mnemonic,
+    mnemonicType,
+  }: {
+    mnemonic: string;
+    mnemonicType: EMnemonicType;
+  }) => {
     if (selected === 'phrase') {
       console.log('handlePhraseConfirm');
+      navigation.push(EOnboardingPagesV2.FinalizeWalletSetup, {
+        mnemonic,
+        mnemonicType,
+      });
     } else {
       // Navigate to network selection page for private key import
       void navigation.push(EOnboardingPagesV2.SelectPrivateKeyNetwork, {
@@ -48,24 +59,7 @@ export default function ImportPhraseOrPrivateKey() {
             />
             <HeightTransition>
               {selected === 'phrase' ? (
-                <>
-                  <YStack
-                    key="phrase"
-                    animation="quick"
-                    animateOnly={['opacity']}
-                    enterStyle={{
-                      opacity: 0,
-                    }}
-                  >
-                    <SizableText>
-                      Amet reprehenderit aute aute exercitation et consectetur
-                      ut sit excepteur. Culpa eiusmod sunt ea proident eiusmod
-                      dolore aliquip pariatur veniam minim incididunt fugiat do
-                      ipsum commodo. Enim velit qui aliquip pariatur dolor Lorem
-                      ipsum adipisicing voluptate ad excepteur.
-                    </SizableText>
-                  </YStack>
-                </>
+                <PhaseInputArea defaultPhrases={[]} onConfirm={handleConfirm} />
               ) : (
                 <YStack
                   key="privateKey"
@@ -83,13 +77,6 @@ export default function ImportPhraseOrPrivateKey() {
                 </YStack>
               )}
             </HeightTransition>
-            <Button
-              size="large"
-              variant="primary"
-              onPress={() => handleConfirm()}
-            >
-              Confirm
-            </Button>
           </OnboardingLayout.ConstrainedContent>
         </OnboardingLayout.Body>
       </OnboardingLayout>

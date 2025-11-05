@@ -17,6 +17,15 @@ const PickYourDevice = LazyLoadPage(() => import('../pages/PickYourDevice'));
 const ImportPhraseOrPrivateKey = LazyLoadPage(
   () => import('../pages/ImportPhraseOrPrivateKey'),
 );
+const BackupWalletReminder = LazyLoadPage(
+  () => import('../pages/BackupWalletReminder'),
+);
+const ShowRecoveryPhrase = LazyLoadPage(
+  () => import('../pages/ShowRecoveryPhrase'),
+);
+const VerifyRecoveryPhrase = LazyLoadPage(
+  () => import('../pages/VerifyRecoveryPhrase'),
+);
 const SelectPrivateKeyNetwork = LazyLoadPage(
   () => import('../pages/SelectPrivateKeyNetwork'),
 );
@@ -29,6 +38,13 @@ const ICloudBackup = LazyLoadPage(() => import('../pages/ICloudBackup'));
 const ICloudBackupDetails = LazyLoadPage(
   () => import('../pages/ICloudBackupDetails'),
 );
+const ConnectWalletSelectNetworks = LazyLoadPage(
+  () => import('../pages/ConnectWalletSelectNetworks'),
+);
+const ConnectExternalWallet = LazyLoadPage(
+  () => import('../pages/ConnectExternalWallet'),
+);
+const ImportKeyTag = LazyLoadPage(() => import('../pages/ImportKeyTag'));
 
 const hiddenHeaderOptions = {
   headerShown: false,
@@ -83,6 +99,21 @@ export const OnboardingRouterV2: IModalFlowNavigatorConfig<
     options: hiddenHeaderOptions,
   },
   {
+    name: EOnboardingPagesV2.BackupWalletReminder,
+    component: BackupWalletReminder,
+    options: hiddenHeaderOptions,
+  },
+  {
+    name: EOnboardingPagesV2.ShowRecoveryPhrase,
+    component: ShowRecoveryPhrase,
+    options: hiddenHeaderOptions,
+  },
+  {
+    name: EOnboardingPagesV2.VerifyRecoveryPhrase,
+    component: VerifyRecoveryPhrase,
+    options: hiddenHeaderOptions,
+  },
+  {
     name: EOnboardingPagesV2.SelectPrivateKeyNetwork,
     component: SelectPrivateKeyNetwork,
     options: hiddenHeaderOptions,
@@ -95,6 +126,21 @@ export const OnboardingRouterV2: IModalFlowNavigatorConfig<
   {
     name: EOnboardingPagesV2.ICloudBackupDetails,
     component: ICloudBackupDetails,
+    options: hiddenHeaderOptions,
+  },
+  {
+    name: EOnboardingPagesV2.ConnectWalletSelectNetworks,
+    component: ConnectWalletSelectNetworks,
+    options: hiddenHeaderOptions,
+  },
+  {
+    name: EOnboardingPagesV2.ConnectExternalWallet,
+    component: ConnectExternalWallet,
+    options: hiddenHeaderOptions,
+  },
+  {
+    name: EOnboardingPagesV2.ImportKeyTag,
+    component: ImportKeyTag,
     options: hiddenHeaderOptions,
   },
 ];

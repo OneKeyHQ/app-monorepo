@@ -90,7 +90,7 @@ const SwapPendingHistoryListComponent = ({
             item={item}
             onClickCell={() => {
               navigation.pushModal(EModalRoutes.SwapModal, {
-                screen: EModalSwapRoutes.SwapHistoryList,
+                screen: EModalSwapRoutes.SwapHistoryDetail,
                 params: {
                   txHistoryOrderId: item.swapInfo.orderId,
                   txHistoryList: [...(swapTxHistoryList ?? [])],

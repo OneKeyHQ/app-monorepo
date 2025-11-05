@@ -848,14 +848,23 @@ function getShortXfp({ xfp }: { xfp: string }) {
   return xfp.split('--')[0];
 }
 
-function getHDAccountPathIndex({ account }: { account: IDBAccount }) {
+function getHDAccountPathIndex({
+  account,
+}: {
+  account: {
+    pathIndex: number | undefined;
+    indexedAccountId: string | undefined;
+    template: string | undefined;
+    path: string | undefined;
+  };
+}) {
   let index = account.pathIndex;
   if (isNil(index) && account.indexedAccountId) {
     index = parseIndexedAccountId({
       indexedAccountId: account.indexedAccountId,
     }).index;
   }
-  if (isNil(index) && account.template) {
+  if (isNil(index) && account.template && account.path) {
     index = findIndexFromTemplate({
       template: account.template,
       path: account.path,

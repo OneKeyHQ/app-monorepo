@@ -17,9 +17,15 @@ export enum EOnboardingPagesV2 {
   ConnectQRCode = 'ConnectQRCode',
   CheckAndUpdate = 'CheckAndUpdate',
   ImportPhraseOrPrivateKey = 'ImportPhraseOrPrivateKey',
+  BackupWalletReminder = 'BackupWalletReminder',
+  ShowRecoveryPhrase = 'ShowRecoveryPhrase',
+  VerifyRecoveryPhrase = 'VerifyRecoveryPhrase',
   SelectPrivateKeyNetwork = 'SelectPrivateKeyNetwork',
   ICloudBackup = 'ICloudBackup',
   ICloudBackupDetails = 'ICloudBackupDetails',
+  ConnectWalletSelectNetworks = 'ConnectWalletSelectNetworks',
+  ConnectExternalWallet = 'ConnectExternalWallet',
+  ImportKeyTag = 'ImportKeyTag',
 }
 
 export type IOnboardingParamListV2 = {
@@ -44,11 +50,25 @@ export type IOnboardingParamListV2 = {
     deviceData: IConnectYourDeviceItem;
   };
   [EOnboardingPagesV2.ImportPhraseOrPrivateKey]: undefined;
+  [EOnboardingPagesV2.BackupWalletReminder]: undefined;
+  [EOnboardingPagesV2.ShowRecoveryPhrase]: undefined;
+  [EOnboardingPagesV2.VerifyRecoveryPhrase]: undefined;
   [EOnboardingPagesV2.SelectPrivateKeyNetwork]: {
     privateKey: string;
   };
   [EOnboardingPagesV2.ICloudBackup]: undefined;
   [EOnboardingPagesV2.ICloudBackupDetails]: {
-    backupTime: string;
+    backupTime: number;
+    backupId?: string;
+    actionType: 'backup' | 'restore';
   };
+  [EOnboardingPagesV2.ConnectWalletSelectNetworks]: {
+    impl: string;
+    title: string;
+  };
+  [EOnboardingPagesV2.ConnectExternalWallet]: {
+    impl: string;
+    title: string;
+  };
+  [EOnboardingPagesV2.ImportKeyTag]: undefined;
 };
