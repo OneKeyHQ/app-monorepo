@@ -1788,12 +1788,14 @@ function ConnectYourDevicePage({
         <OnboardingLayout.Body constrained={false}>
           <OnboardingLayout.ConstrainedContent>
             <XStack alignItems="center" gap="$4">
-              <SegmentControl
-                fullWidth
-                value={tabValue}
-                onChange={(v) => setTabValue(v as EConnectDeviceChannel)}
-                options={tabOptions}
-              />
+              {tabOptions.length > 1 ? (
+                <SegmentControl
+                  fullWidth
+                  value={tabValue}
+                  onChange={(v) => setTabValue(v as EConnectDeviceChannel)}
+                  options={tabOptions}
+                />
+              ) : null}
               {isSupportedQRCode ? (
                 <YStack ml="auto">
                   <Popover
