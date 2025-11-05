@@ -10,7 +10,10 @@ import type {
   ISignedTxPro,
   IUnsignedTxPro,
 } from '@onekeyhq/core/src/types';
-import type { IPerpsDepositToken } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  type IPerpsDepositToken,
+  usePerpsDepositOrderAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type {
   IApproveInfo,
   IBuildUnsignedTxParams,
@@ -42,6 +45,7 @@ import { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
 import {
   EProtocolOfExchange,
   ESwapFetchCancelCause,
+  ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
 import type {
   IPerpDepositQuoteRes,
@@ -53,6 +57,77 @@ import type { ISendTxBaseParams } from '@onekeyhq/shared/types/tx';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
+
+export const usePerpDepositOrder = ({
+  accountId,
+  indexedAccountId,
+}: {
+  accountId?: string | null;
+  indexedAccountId?: string | null;
+}) => {
+  const [perpDepositOrder, setPerpDepositOrder] = usePerpsDepositOrderAtom();
+  const intl = useIntl();
+  const handlePerpDepositTxSuccess = useCallback(
+    ({
+      fromAmount,
+      amount,
+      token,
+      fromTxId,
+      isArbUSDCOrder,
+    }: {
+      fromAmount: string;
+      amount: string;
+      token: IPerpsDepositToken;
+      fromTxId: string;
+      isArbUSDCOrder: boolean;
+    }) => {
+      Toast.success({
+        title: intl.formatMessage({
+          id: ETranslations.feedback_transaction_submitted,
+        }),
+        message: intl.formatMessage(
+          {
+            id: ETranslations.perp_toast_deposit_success_msg,
+          },
+          {
+            fromAmount,
+            token: token?.symbol,
+          },
+        ),
+      });
+      const time = Date.now();
+      setPerpDepositOrder((prev) => [
+        ...prev,
+        {
+          isArbUSDCOrder,
+          fromTxId,
+          amount,
+          token,
+          status: ESwapTxHistoryStatus.PENDING,
+          time,
+          accountId,
+          indexedAccountId,
+        },
+      ]);
+    },
+    [accountId, indexedAccountId, intl, setPerpDepositOrder],
+  );
+
+  const filterPerpDepositOrder = useMemo(() => {
+    return perpDepositOrder.filter((item) => {
+      return (
+        ((!item.accountId && !accountId) || item.accountId === accountId) &&
+        ((!item.indexedAccountId && !indexedAccountId) ||
+          item.indexedAccountId === indexedAccountId)
+      );
+    });
+  }, [perpDepositOrder, accountId, indexedAccountId]);
+
+  return {
+    perpDepositOrder: filterPerpDepositOrder,
+    handlePerpDepositTxSuccess,
+  };
+};
 
 const usePerpDeposit = (
   amount: string,
@@ -68,6 +143,10 @@ const usePerpDeposit = (
   const intl = useIntl();
 
   const [perpDepositQuoteLoading, setPerpDepositQuoteLoading] = useState(false);
+  const { handlePerpDepositTxSuccess } = usePerpDepositOrder({
+    accountId: selectedAccountId,
+    indexedAccountId,
+  });
   const isArbitrumUsdcToken = useMemo(() => {
     return equalTokenNoCaseSensitive({
       token1: token,
@@ -945,32 +1024,24 @@ const usePerpDeposit = (
       unsignedTxArr,
     );
     if (res) {
-      Toast.success({
-        title: intl.formatMessage({
-          id: ETranslations.feedback_transaction_submitted,
-        }),
-        message: intl.formatMessage(
-          {
-            id: ETranslations.perp_toast_deposit_success_msg,
-          },
-          {
-            amount,
-            token: token?.symbol,
-          },
-        ),
+      void handlePerpDepositTxSuccess({
+        fromTxId: res.txid,
+        isArbUSDCOrder: false,
+        token,
+        amount: perpDepositQuote.result.toAmount,
+        fromAmount: amount,
       });
     }
   }, [
     amount,
-    token?.symbol,
+    handlePerpDepositTxSuccess,
+    token,
     perpDepositQuote,
     buildQuoteRes,
     getApproveUnSignedTxArr,
     estimateNetworkFee,
-    token?.networkId,
     accountId,
     perpSendTxAction,
-    intl,
   ]);
 
   const shouldSignEveryTime = useMemo(() => {

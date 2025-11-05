@@ -121,6 +121,10 @@ export default class ServiceSwap extends ServiceBase {
 
   private limitOrderStateInterval: ReturnType<typeof setTimeout> | null = null;
 
+  private perpDepositOrderFetchLoopInterval: ReturnType<
+    typeof setTimeout
+  > | null = null;
+
   private historyCurrentStateIntervalIds: string[] = [];
 
   private historyStateIntervalCountMap: Record<string, number> = {};
@@ -2351,6 +2355,29 @@ export default class ServiceSwap extends ServiceBase {
         });
       }
       throw e;
+    }
+  }
+
+  @backgroundMethod()
+  async fetchPerpDepositOrderStatus(params: {
+    networkId: string;
+    txId: string;
+    isArbUSDCToken: boolean;
+    toPerpDepositTokenAddress?: string;
+    receivingAddress: string;
+  }) {
+    // todo
+    return '';
+  }
+
+  @backgroundMethod()
+  async perpDepositOrderFetchLoop(params: {
+    accountId?: string | null;
+    indexedAccoundId?: string | null;
+  }) {
+    if (this.perpDepositOrderFetchLoopInterval) {
+      clearTimeout(this.perpDepositOrderFetchLoopInterval);
+      this.perpDepositOrderFetchLoopInterval = null;
     }
   }
 }

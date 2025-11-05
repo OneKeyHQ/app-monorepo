@@ -68,13 +68,17 @@ import {
   USDC_TOKEN_INFO,
   WITHDRAW_FEE,
 } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
+import { swapDefaultSetTokens } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
   ISwapNativeTokenConfig,
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 import { ESwapSource } from '@onekeyhq/shared/types/swap/types';
+import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
-import usePerpDeposit from '../../../hooks/usePerpDeposit';
+import usePerpDeposit, {
+  usePerpDepositOrder,
+} from '../../../hooks/usePerpDeposit';
 import { PerpsProviderMirror } from '../../../PerpsProviderMirror';
 import { PerpsAccountNumberValue } from '../components/PerpsAccountNumberValue';
 import { InputAccessoryDoneButton } from '../inputs/TradingFormInput';
@@ -906,6 +910,8 @@ function DepositWithdrawContent({
     );
   }, [intl, selectedAction]);
 
+  const { handlePerpDepositTxSuccess } = usePerpDepositOrder();
+
   const handleConfirm = useCallback(async () => {
     if (!isValidAmount || !selectedAccount.accountAddress) return;
 
@@ -921,8 +927,29 @@ function DepositWithdrawContent({
       if (selectedAction === 'deposit') {
         if (isArbitrumUsdcToken) {
           await normalizeTxConfirm({
-            onSuccess: async () => {
+            onSuccess: async (data: ISendTxOnSuccessData[]) => {
               await backgroundApiProxy.serviceHyperliquid.checkPerpsAccountStatus();
+              if (data?.[0]) {
+                const fromTxId = data[0].signedTx.txid;
+                const usdcToken = {
+                  networkId: PERPS_NETWORK_ID,
+                  contractAddress: USDC_TOKEN_INFO.address,
+                  name: USDC_TOKEN_INFO.name,
+                  symbol: USDC_TOKEN_INFO.symbol,
+                  decimals: USDC_TOKEN_INFO.decimals,
+                  networkLogoURI:
+                    swapDefaultSetTokens[PERPS_NETWORK_ID].toToken
+                      ?.networkLogoURI ?? '',
+                };
+                void handlePerpDepositTxSuccess({
+                  token:
+                    currentPerpsDepositSelectedTokenRef.current ?? usdcToken,
+                  fromTxId,
+                  amount,
+                  fromAmount: amount,
+                  isArbUSDCOrder: true,
+                });
+              }
               onClose?.();
             },
             transfersInfo: [
@@ -953,17 +980,18 @@ function DepositWithdrawContent({
       setIsSubmitting(false);
     }
   }, [
-    checkRefreshQuote,
-    perpDepositQuoteAction,
     isValidAmount,
     selectedAccount.accountAddress,
     selectedAccount.accountId,
     validateAmountBeforeSubmit,
+    checkRefreshQuote,
     selectedAction,
+    perpDepositQuoteAction,
     isArbitrumUsdcToken,
-    onClose,
     normalizeTxConfirm,
     amount,
+    handlePerpDepositTxSuccess,
+    onClose,
     buildPerpDepositTx,
     withdraw,
   ]);
