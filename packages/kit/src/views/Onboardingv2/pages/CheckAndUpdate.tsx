@@ -142,7 +142,7 @@ export default function CheckAndUpdate({
     }
   }, []);
 
-  const skipFirmwareUpgrade = useCallback(async () => {
+  const checkDeviceInitialized = useCallback(async () => {
     setSteps((prev) => {
       const newSteps = [...prev];
       newSteps[1] = {
@@ -213,10 +213,10 @@ export default function CheckAndUpdate({
           return newSteps;
         });
       } else {
-        void skipFirmwareUpgrade();
+        void checkDeviceInitialized();
       }
     }
-  }, [deviceData.device?.connectId, skipFirmwareUpgrade]);
+  }, [deviceData.device?.connectId, checkDeviceInitialized]);
 
   const firmwareStepStateRef = useRef<ECheckAndUpdateStepState>(steps[1].state);
   firmwareStepStateRef.current = steps[1].state;
@@ -287,8 +287,8 @@ export default function CheckAndUpdate({
   }, [handleCheck]);
 
   const handleDeviceSetupDone = useCallback(() => {
-    void skipFirmwareUpgrade();
-  }, [skipFirmwareUpgrade]);
+    void checkDeviceInitialized();
+  }, [checkDeviceInitialized]);
 
   const handleSkipUpdate = useCallback(() => {
     Dialog.show({
@@ -299,10 +299,10 @@ export default function CheckAndUpdate({
         'Are you sure you want to skip the check? Using up-to-date firmware gives you the best protection.',
       onConfirm: () => {
         // Execute skip logic after confirmation
-        void skipFirmwareUpgrade();
+        void checkDeviceInitialized();
       },
     });
-  }, [skipFirmwareUpgrade]);
+  }, [checkDeviceInitialized]);
 
   const DEVICE_SETUP_INSTRUCTIONS = useMemo(() => {
     return [
