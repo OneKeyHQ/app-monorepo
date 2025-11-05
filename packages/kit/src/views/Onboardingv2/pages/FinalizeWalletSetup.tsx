@@ -208,7 +208,7 @@ function FinalizeWalletSetupPage({
                 // **** TON mnemonic case
                 // Create TON imported account when mnemonicType is TON
                 await actions.current.createTonImportedWallet({ mnemonic });
-                goNextStep(EFinalizeWalletSetupSteps.CreatingWallet);
+                goNextStep(EFinalizeWalletSetupSteps.Ready);
                 return;
               }
               await actions.current.createHDWallet({
@@ -323,7 +323,8 @@ function FinalizeWalletSetupPage({
   }, [goNextStep]);
 
   const currentStepData =
-    STEPS_DATA[currentStep] || STEPS_DATA[EFinalizeWalletSetupSteps.Ready];
+    STEPS_DATA[currentStep] ||
+    STEPS_DATA[EFinalizeWalletSetupSteps.GeneratingAccounts];
 
   return (
     <Page>
