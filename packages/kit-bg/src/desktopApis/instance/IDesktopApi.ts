@@ -7,6 +7,7 @@ import type DesktopApiInAppPurchase from '../DesktopApiInAppPurchase';
 import type DesktopApiKeychain from '../DesktopApiKeychain';
 import type DesktopApiNotification from '../DesktopApiNotification';
 import type DesktopApiSecurity from '../DesktopApiSecurity';
+import type DesktopApiSniRequest from '../DesktopApiSniRequest';
 import type DesktopApiStorage from '../DesktopApiStorage';
 import type DesktopApiSystem from '../DesktopApiSystem';
 import type DesktopApiWebview from '../DesktopApiWebview';
@@ -24,4 +25,5 @@ export interface IDesktopApi {
   bundleUpdate: DesktopApiBundleUpdate;
   cloudKit: DesktopApiCloudKit;
   keychain: DesktopApiKeychain;
+  sniRequest: DesktopApiSniRequest;
 }
