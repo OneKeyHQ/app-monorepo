@@ -320,3 +320,14 @@ export interface IInviteLevelDetail {
     | IInviteLevelProgressMeta[];
   levels: IInviteLevelItem[];
 }
+
+export interface IInviteCodeItem {
+  userId: string;
+  code: string;
+  note: string;
+  isPrimary: boolean;
+  _id: string;
+  createdAt: string;
+  updatedAt: string;
+  __v: number;
+}

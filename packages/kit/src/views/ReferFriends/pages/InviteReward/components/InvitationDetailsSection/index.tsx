@@ -9,6 +9,8 @@ import { HardwareSalesReward } from '../HardwareSalesReward';
 import { OnChainReward } from '../OnChainReward';
 import { SectionHeader } from '../SectionHeader';
 
+import { TestInviteCodesButton } from './components/TestInviteCodesButton';
+
 import type { IInvitationDetailsSectionProps } from './types';
 
 interface ITabButtonProps {
@@ -85,9 +87,8 @@ export function InvitationDetailsSection({
           <OnChainReward onChain={Onchain} />
         </XStack>
       ) : (
-        <YStack py="$8" px="$5" alignItems="center" justifyContent="center">
-          {/* Placeholder for Referral code content */}
-          {/* TODO: Add actual Referral code component here */}
+        <YStack py="$8" px="$5">
+          <TestInviteCodesButton />
         </YStack>
       )}
     </YStack>
