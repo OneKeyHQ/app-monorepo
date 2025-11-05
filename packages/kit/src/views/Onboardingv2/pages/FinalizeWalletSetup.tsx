@@ -146,6 +146,29 @@ function FinalizeWalletSetupPage({
   const progress = useSharedValue(0);
   const pathLength = 150;
 
+  const goNextStep = useCallback(
+    (step: EFinalizeWalletSetupSteps) => {
+      cancelAnimation(progress);
+      progress.value = 0;
+      progress.value = withTiming(
+        1,
+        {
+          duration: 2000,
+          easing: Easing.inOut(Easing.ease),
+        },
+        (finished) => {
+          if (finished) {
+            runOnJS(setCurrentStep)(step);
+          }
+        },
+      );
+      return () => {
+        cancelAnimation(progress);
+      };
+    },
+    [progress],
+  );
+
   // useEffect(() => {
   //   // Cancel any ongoing animation
   //   cancelAnimation(progress);
@@ -185,7 +208,7 @@ function FinalizeWalletSetupPage({
                 // **** TON mnemonic case
                 // Create TON imported account when mnemonicType is TON
                 await actions.current.createTonImportedWallet({ mnemonic });
-                setCurrentStep(EFinalizeWalletSetupSteps.CreatingWallet);
+                goNextStep(EFinalizeWalletSetupSteps.Ready);
                 return;
               }
               await actions.current.createHDWallet({
@@ -205,7 +228,14 @@ function FinalizeWalletSetupPage({
         throw error;
       }
     })();
-  }, [actions, mnemonic, mnemonicType, isWalletBackedUp, navigation]);
+  }, [
+    actions,
+    mnemonic,
+    mnemonicType,
+    isWalletBackedUp,
+    navigation,
+    goNextStep,
+  ]);
 
   const animatedProps = useAnimatedProps(() => {
     // eslint-disable-next-line spellcheck/spell-checker
@@ -283,16 +313,18 @@ function FinalizeWalletSetupPage({
       event: IAppEventBusPayload[EAppEventBusNames.FinalizeWalletSetupStep],
     ) => {
       console.log('FinalizeWalletSetupStep', event.step);
-      setCurrentStep(event.step);
+      goNextStep(event.step);
     };
 
     appEventBus.on(EAppEventBusNames.FinalizeWalletSetupStep, fn);
     return () => {
       appEventBus.off(EAppEventBusNames.FinalizeWalletSetupStep, fn);
     };
-  }, []);
+  }, [goNextStep]);
 
-  const currentStepData = STEPS_DATA[currentStep];
+  const currentStepData =
+    STEPS_DATA[currentStep] ||
+    STEPS_DATA[EFinalizeWalletSetupSteps.GeneratingAccounts];
 
   return (
     <Page>
@@ -302,140 +334,144 @@ function FinalizeWalletSetupPage({
           showLanguageSelector={false}
         />
         <OnboardingLayout.Body constrained={false} scrollable={false}>
-          <YStack w="100%" h="100%">
-            <YStack
-              position="absolute"
-              left="50%"
-              top="50%"
-              x="-50%"
-              y="-50%"
-              opacity={0.15}
-            >
-              <MatrixBackground />
-              <Svg
-                height="100%"
-                width="100%"
-                style={{
-                  position: 'absolute',
-                  left: 0,
-                  top: 0,
-                  right: 0,
-                  bottom: 0,
-                }}
+          {currentStepData ? (
+            <YStack w="100%" h="100%">
+              <YStack
+                position="absolute"
+                left="50%"
+                top="50%"
+                x="-50%"
+                y="-50%"
+                opacity={0.15}
               >
-                <Defs>
-                  <RadialGradient
-                    id="grad"
-                    cx="50%"
-                    cy="50%"
-                    {...(platformEnv.isNative && {
-                      rx: '60%',
-                      ry: '30%',
-                    })}
-                  >
-                    <Stop offset="0%" stopColor={bgAppColor} stopOpacity="0" />
-                    <Stop
-                      offset="50%"
-                      stopColor={bgAppColor}
-                      stopOpacity="0.5"
-                    />
-                    <Stop
-                      offset="100%"
-                      stopColor={bgAppColor}
-                      stopOpacity="1"
-                    />
-                  </RadialGradient>
-                </Defs>
-                <Rect
-                  x="0"
-                  y="0"
-                  width="100%"
+                <MatrixBackground />
+                <Svg
                   height="100%"
-                  fill="url(#grad)"
-                />
-              </Svg>
-            </YStack>
-            <YStack
-              animation="quick"
-              animateOnly={['opacity']}
-              enterStyle={{
-                opacity: 0,
-              }}
-              flex={1}
-              alignItems="center"
-              justifyContent="center"
-              gap="$6"
-            >
-              <YStack w="$16" h="$16">
-                <Image
-                  position="absolute"
-                  $theme-dark={{
-                    opacity: 0.5,
-                  }}
-                  bottom={0}
-                  left="50%"
-                  x="-50%"
-                  y="50%"
-                  source={require('@onekeyhq/kit/assets/onboarding/tiny-shadow-illus.png')}
-                  w={87}
-                  h={49}
-                />
-                <YStack
-                  w="100%"
-                  h="100%"
-                  bg="$bg"
-                  borderRadius="$2"
-                  borderCurve="continuous"
-                  alignItems="center"
-                  justifyContent="center"
-                  $platform-web={{
-                    boxShadow:
-                      '0 1px 1px 0 rgba(0, 0, 0, 0.05), 0 0 0 2px rgba(0, 0, 0, 0.10), 0 4px 6px 0 rgba(0, 0, 0, 0.04), 0 24px 68px 0 rgba(0, 0, 0, 0.05), 0 2px 3px 0 rgba(0, 0, 0, 0.04)',
-                  }}
-                  $theme-dark={{
-                    borderWidth: StyleSheet.hairlineWidth,
-                    borderColor: '$borderSubdued',
-                  }}
-                  $platform-native={{
-                    borderWidth: StyleSheet.hairlineWidth,
-                    borderColor: '$borderSubdued',
-                  }}
-                  $platform-android={{ elevation: 1 }}
-                  $platform-ios={{
-                    shadowColor: '#000',
-                    shadowOffset: { width: 0, height: 1 },
-                    shadowOpacity: 0.2,
-                    shadowRadius: 1,
+                  width="100%"
+                  style={{
+                    position: 'absolute',
+                    left: 0,
+                    top: 0,
+                    right: 0,
+                    bottom: 0,
                   }}
                 >
-                  <LinearGradient
-                    colors={['$neutral1', '$neutral4']}
-                    start={{ x: 1, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    w="$14"
-                    h="$14"
-                    borderRadius="$1"
+                  <Defs>
+                    <RadialGradient
+                      id="grad"
+                      cx="50%"
+                      cy="50%"
+                      {...(platformEnv.isNative && {
+                        rx: '60%',
+                        ry: '30%',
+                      })}
+                    >
+                      <Stop
+                        offset="0%"
+                        stopColor={bgAppColor}
+                        stopOpacity="0"
+                      />
+                      <Stop
+                        offset="50%"
+                        stopColor={bgAppColor}
+                        stopOpacity="0.5"
+                      />
+                      <Stop
+                        offset="100%"
+                        stopColor={bgAppColor}
+                        stopOpacity="1"
+                      />
+                    </RadialGradient>
+                  </Defs>
+                  <Rect
+                    x="0"
+                    y="0"
+                    width="100%"
+                    height="100%"
+                    fill="url(#grad)"
+                  />
+                </Svg>
+              </YStack>
+              <YStack
+                animation="quick"
+                animateOnly={['opacity']}
+                enterStyle={{
+                  opacity: 0,
+                }}
+                flex={1}
+                alignItems="center"
+                justifyContent="center"
+                gap="$6"
+              >
+                <YStack w="$16" h="$16">
+                  <Image
+                    position="absolute"
+                    $theme-dark={{
+                      opacity: 0.5,
+                    }}
+                    bottom={0}
+                    left="50%"
+                    x="-50%"
+                    y="50%"
+                    source={require('@onekeyhq/kit/assets/onboarding/tiny-shadow-illus.png')}
+                    w={87}
+                    h={49}
+                  />
+                  <YStack
+                    w="100%"
+                    h="100%"
+                    bg="$bg"
+                    borderRadius="$2"
                     borderCurve="continuous"
                     alignItems="center"
                     justifyContent="center"
-                    borderWidth={1}
-                    borderColor="$borderSubdued"
+                    $platform-web={{
+                      boxShadow:
+                        '0 1px 1px 0 rgba(0, 0, 0, 0.05), 0 0 0 2px rgba(0, 0, 0, 0.10), 0 4px 6px 0 rgba(0, 0, 0, 0.04), 0 24px 68px 0 rgba(0, 0, 0, 0.05), 0 2px 3px 0 rgba(0, 0, 0, 0.04)',
+                    }}
+                    $theme-dark={{
+                      borderWidth: StyleSheet.hairlineWidth,
+                      borderColor: '$borderSubdued',
+                    }}
+                    $platform-native={{
+                      borderWidth: StyleSheet.hairlineWidth,
+                      borderColor: '$borderSubdued',
+                    }}
+                    $platform-android={{ elevation: 1 }}
+                    $platform-ios={{
+                      shadowColor: '#000',
+                      shadowOffset: { width: 0, height: 1 },
+                      shadowOpacity: 0.2,
+                      shadowRadius: 1,
+                    }}
                   >
-                    <AnimatePresence exitBeforeEnter initial={false}>
-                      <YStack
-                        key={`icon-${currentStep}`}
-                        animation="quick"
-                        animateOnly={['transform', 'opacity']}
-                        enterStyle={{
-                          y: 4,
-                          opacity: 0,
-                        }}
-                        exitStyle={{
-                          y: -4,
-                          opacity: 0,
-                        }}
-                      >
-                        {currentStepData ? (
+                    <LinearGradient
+                      colors={['$neutral1', '$neutral4']}
+                      start={{ x: 1, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                      w="$14"
+                      h="$14"
+                      borderRadius="$1"
+                      borderCurve="continuous"
+                      alignItems="center"
+                      justifyContent="center"
+                      borderWidth={1}
+                      borderColor="$borderSubdued"
+                    >
+                      <AnimatePresence exitBeforeEnter initial={false}>
+                        <YStack
+                          key={`icon-${currentStep}`}
+                          animation="quick"
+                          animateOnly={['transform', 'opacity']}
+                          enterStyle={{
+                            y: 4,
+                            opacity: 0,
+                          }}
+                          exitStyle={{
+                            y: -4,
+                            opacity: 0,
+                          }}
+                        >
                           <Svg width="48" height="48" viewBox="0 0 48 48">
                             <Path
                               d={currentStepData.pathData}
@@ -454,33 +490,33 @@ function FinalizeWalletSetupPage({
                               animatedProps={animatedProps}
                             />
                           </Svg>
-                        ) : null}
-                      </YStack>
-                    </AnimatePresence>
-                  </LinearGradient>
+                        </YStack>
+                      </AnimatePresence>
+                    </LinearGradient>
+                  </YStack>
                 </YStack>
+                <AnimatePresence exitBeforeEnter initial={false}>
+                  <SizableText
+                    key={`title-${currentStep}`}
+                    size="$heading2xl"
+                    textAlign="center"
+                    animation="quick"
+                    animateOnly={['transform', 'opacity']}
+                    enterStyle={{
+                      y: 8,
+                      opacity: 0,
+                    }}
+                    exitStyle={{
+                      y: -8,
+                      opacity: 0,
+                    }}
+                  >
+                    {currentStepData?.title || ''}
+                  </SizableText>
+                </AnimatePresence>
               </YStack>
-              <AnimatePresence exitBeforeEnter initial={false}>
-                <SizableText
-                  key={`title-${currentStep}`}
-                  size="$heading2xl"
-                  textAlign="center"
-                  animation="quick"
-                  animateOnly={['transform', 'opacity']}
-                  enterStyle={{
-                    y: 8,
-                    opacity: 0,
-                  }}
-                  exitStyle={{
-                    y: -8,
-                    opacity: 0,
-                  }}
-                >
-                  {currentStepData?.title || ''}
-                </SizableText>
-              </AnimatePresence>
             </YStack>
-          </YStack>
+          ) : null}
         </OnboardingLayout.Body>
       </OnboardingLayout>
     </Page>
