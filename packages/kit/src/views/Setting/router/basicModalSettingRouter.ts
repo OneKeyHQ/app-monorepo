@@ -81,6 +81,13 @@ const CryptoGallery = LazyLoadPage(
     ),
 );
 
+const CloudBackupGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/CloudBackupGallery'
+    ),
+);
+
 const ExportCustomNetworkConfig = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Setting/pages/ExportCustomNetworkConfig'),
@@ -187,6 +194,10 @@ export const BasicModalSettingStack: IModalFlowNavigatorConfig<
   {
     name: EModalSettingRoutes.SettingDevCryptoGalleryModal,
     component: CryptoGallery,
+  },
+  {
+    name: EModalSettingRoutes.SettingDevCloudBackupGalleryModal,
+    component: CloudBackupGallery,
   },
   {
     name: EModalSettingRoutes.SettingExportCustomNetworkConfig,
