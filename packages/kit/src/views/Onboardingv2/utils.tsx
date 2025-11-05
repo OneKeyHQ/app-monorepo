@@ -5,6 +5,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import { EConnectDeviceChannel } from '@onekeyhq/shared/types/connectDevice';
+
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 
 import type { IDeviceType } from '@onekeyfe/hd-core';
@@ -75,7 +76,7 @@ export const getDeviceLabel = (
     .map((deviceType) => {
       switch (deviceType) {
         case EDeviceType.Pro:
-          return getDeviceLabel(deviceType);
+          return 'OneKey Pro';
         case EDeviceType.Classic:
           return 'OneKey Classic';
         case EDeviceType.Classic1s:
