@@ -115,6 +115,10 @@ const OnboardingLayoutHeader = ({
     borderColor="$neutral4"
     alignItems="center"
     {...rest}
+    style={{
+      ...(rest.style as any),
+      appRegion: 'drag',
+    }}
   >
     {showBackButton ? <OnboardingLayoutBack /> : null}
     {title ? <OnboardingLayoutTitle>{title}</OnboardingLayoutTitle> : null}
