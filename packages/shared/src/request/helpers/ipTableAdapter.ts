@@ -4,7 +4,7 @@ import { OneKeyLocalError } from '../../errors';
 
 import { isSniSupported, sniRequest } from './sniRequest';
 
-import type { IIpTableConfig } from '../types/ipTable';
+import type { IIpTableConfig, ISniRequestConfig } from '../types/ipTable';
 import type {
   AxiosAdapter,
   AxiosRequestConfig,
@@ -124,9 +124,6 @@ export function createIpTableAdapter(
     originalDefaultAdapters,
   );
 
-  const sniSupported = isSniSupported();
-  console.log('[IpTableAdapter] Adapter created, SNI supported:', sniSupported);
-
   // Helper function to call original adapter and avoid infinite loop
   const callOriginalAdapter = async (
     config: InternalAxiosRequestConfig,
@@ -184,6 +181,7 @@ export function createIpTableAdapter(
   };
 
   return async (config: InternalAxiosRequestConfig) => {
+    const sniSupported = isSniSupported();
     // Check if SNI is supported on current platform
     if (!sniSupported) {
       console.log(
@@ -315,7 +313,6 @@ export function createIpTableAdapter(
     );
 
     try {
-      // Perform SNI request
       const sniResponse = await sniRequest({
         ip: selectedIp,
         hostname,
