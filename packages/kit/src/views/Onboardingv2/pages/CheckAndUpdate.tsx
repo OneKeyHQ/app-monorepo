@@ -183,8 +183,9 @@ export default function CheckAndUpdate({
     });
     setTimeout(() => {
       void navigation.push(EOnboardingPagesV2.FinalizeWalletSetup);
+      void deviceData.onCreateWallet();
     }, 1200);
-  }, [connectDevice, deviceData.device, navigation]);
+  }, [connectDevice, deviceData, navigation]);
 
   const checkFirmwareUpdate = useCallback(async () => {
     if (!deviceData.device?.connectId) {
