@@ -11,19 +11,23 @@ export const updateWindowProgressBar = (
   window: BrowserWindow | undefined,
   progress: number,
 ) => {
-  if (!checkWindowProgressBar(window)) {
-    return;
-  }
-  if (progress > 0 && progress < 1) {
-    window?.setProgressBar(progress);
-  } else {
-    window?.setProgressBar(-1);
-  }
+  setTimeout(() => {
+    if (!checkWindowProgressBar(window)) {
+      return;
+    }
+    if (progress > 0 && progress < 1) {
+      window?.setProgressBar(progress);
+    } else {
+      window?.setProgressBar(-1);
+    }
+  });
 };
 
 export const clearWindowProgressBar = (window: BrowserWindow | undefined) => {
-  if (!checkWindowProgressBar(window)) {
-    return;
-  }
-  window?.setProgressBar(-1);
+  setTimeout(() => {
+    if (!checkWindowProgressBar(window)) {
+      return;
+    }
+    window?.setProgressBar(-1);
+  });
 };
