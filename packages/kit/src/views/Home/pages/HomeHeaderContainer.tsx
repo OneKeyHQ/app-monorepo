@@ -47,7 +47,7 @@ function HomeHeaderContainer() {
           />
         )}
       </Stack>
-      <WalletBanner />
+      {isWalletNotBackedUp ? null : <WalletBanner />}
     </HomeTokenListProviderMirror>
   );
 }
