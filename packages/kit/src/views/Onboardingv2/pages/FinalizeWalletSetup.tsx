@@ -150,91 +150,6 @@ function FinalizeWalletSetupPage({
   const stepQueue = useRef<EFinalizeWalletSetupSteps[]>([]);
   const isProcessing = useRef(false);
 
-  const changeIdProgress = useCallback((value: boolean) => {
-    isProcessing.current = value;
-  }, []);
-
-  const processNextStep = useCallback(() => {
-    if (isProcessing.current || stepQueue.current.length === 0) {
-      return;
-    }
-
-    isProcessing.current = true;
-    const nextStep = stepQueue.current.shift()!;
-
-    cancelAnimation(progress);
-    progress.value = 0;
-    progress.value = withTiming(
-      1,
-      {
-        duration: 2000,
-        easing: Easing.inOut(Easing.ease),
-      },
-      (finished) => {
-        if (finished) {
-          runOnJS(setCurrentStep)(nextStep);
-          runOnJS(changeIdProgress)(false);
-          runOnJS(processNextStep)();
-        }
-      },
-    );
-  }, [changeIdProgress, progress]);
-
-  const goNextStep = useCallback(
-    (step: EFinalizeWalletSetupSteps) => {
-      stepQueue.current.push(step);
-      processNextStep();
-
-      return () => {
-        cancelAnimation(progress);
-      };
-    },
-    [progress, processNextStep],
-  );
-
-  const actions = useAccountSelectorActions();
-
-  useEffect(() => {
-    void (async () => {
-      try {
-        // **** hd wallet case
-        if (mnemonic && !created.current) {
-          await withPromptPasswordVerify({
-            run: async () => {
-              if (mnemonicType === EMnemonicType.TON) {
-                // TODO check TON case
-                // **** TON mnemonic case
-                // Create TON imported account when mnemonicType is TON
-                await actions.current.createTonImportedWallet({ mnemonic });
-                goNextStep(EFinalizeWalletSetupSteps.Ready);
-                return;
-              }
-              await actions.current.createHDWallet({
-                mnemonic,
-                isWalletBackedUp,
-              });
-            },
-          });
-          created.current = true;
-        } else {
-          // **** hardware wallet case
-          // createHWWallet() is called before this page loaded
-        }
-        setShowStep(true);
-      } catch (error) {
-        navigation.pop();
-        throw error;
-      }
-    })();
-  }, [
-    actions,
-    mnemonic,
-    mnemonicType,
-    isWalletBackedUp,
-    navigation,
-    goNextStep,
-  ]);
-
   const animatedProps = useAnimatedProps(() => {
     // eslint-disable-next-line spellcheck/spell-checker
     const strokeDashoffset = pathLength * (1 - progress.value);
@@ -293,18 +208,100 @@ function FinalizeWalletSetupPage({
     { leading: true, trailing: false },
   );
 
+  const changeIdProgress = useCallback((value: boolean) => {
+    isProcessing.current = value;
+  }, []);
+
+  const processNextStep = useCallback(() => {
+    if (isProcessing.current || stepQueue.current.length === 0) {
+      return;
+    }
+
+    isProcessing.current = true;
+    const nextStep = stepQueue.current.shift()!;
+
+    cancelAnimation(progress);
+    progress.value = 0;
+    progress.value = withTiming(
+      1,
+      {
+        duration: 2000,
+        easing: Easing.inOut(Easing.ease),
+      },
+      (finished) => {
+        if (finished) {
+          runOnJS(setCurrentStep)(nextStep);
+          runOnJS(changeIdProgress)(false);
+          if (nextStep === EFinalizeWalletSetupSteps.Ready) {
+            // runOnJS(handleWalletSetupReady)();
+          } else {
+            runOnJS(processNextStep)();
+          }
+        }
+      },
+    );
+  }, [changeIdProgress, handleWalletSetupReady, progress]);
+
+  const goNextStep = useCallback(
+    (step: EFinalizeWalletSetupSteps) => {
+      stepQueue.current.push(step);
+      processNextStep();
+
+      return () => {
+        cancelAnimation(progress);
+      };
+    },
+    [progress, processNextStep],
+  );
+
+  const actions = useAccountSelectorActions();
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        // **** hd wallet case
+        if (mnemonic && !created.current) {
+          await withPromptPasswordVerify({
+            run: async () => {
+              if (mnemonicType === EMnemonicType.TON) {
+                // TODO check TON case
+                // **** TON mnemonic case
+                // Create TON imported account when mnemonicType is TON
+                await actions.current.createTonImportedWallet({ mnemonic });
+                goNextStep(EFinalizeWalletSetupSteps.Ready);
+                return;
+              }
+              await actions.current.createHDWallet({
+                mnemonic,
+                isWalletBackedUp,
+              });
+            },
+          });
+          created.current = true;
+        } else {
+          // **** hardware wallet case
+          // createHWWallet() is called before this page loaded
+        }
+        setShowStep(true);
+      } catch (error) {
+        navigation.pop();
+        throw error;
+      }
+    })();
+  }, [
+    actions,
+    mnemonic,
+    mnemonicType,
+    isWalletBackedUp,
+    navigation,
+    goNextStep,
+  ]);
+
   useEffect(() => {
     if (currentStep === EFinalizeWalletSetupSteps.CreatingWallet) {
       void readIsFirstCreateWallet();
     }
-    if (!showStep) {
-      return;
-    }
-    console.log('currentStep', currentStep);
-    if (currentStep === EFinalizeWalletSetupSteps.Ready) {
-      void handleWalletSetupReady();
-    }
-  }, [currentStep, navigation, showStep, handleWalletSetupReady]);
+  }, [currentStep]);
 
   useEffect(() => {
     const fn = (
