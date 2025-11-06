@@ -99,12 +99,15 @@ import { useFirmwareVerifyDialog } from '../../Onboarding/pages/ConnectHardwareW
 import { useSelectAddWalletTypeDialog } from '../../Onboarding/pages/ConnectHardwareWallet/SelectAddWalletTypeDialog';
 import { OnboardingLayout } from '../components/OnboardingLayout';
 import {
+  getDeviceLabel,
   getForceTransportType,
   getHardwareCommunicationTypeString,
+  sortDevicesData,
   trackHardwareWalletConnection,
 } from '../utils';
 
 import type { IDeviceType, SearchDevice } from '@onekeyfe/hd-core';
+import type { ReactVideoSource } from 'react-native-video';
 
 enum EConnectionStatus {
   init = 'init',
@@ -129,6 +132,7 @@ function BridgeNotInstalledDialogContent(_props: { error: NeedOneKeyBridge }) {
 }
 
 interface IDeviceConnectionProps {
+  deviceTypeItems: EDeviceType[];
   onDeviceConnect: (device: SearchDevice) => Promise<void>;
   onSelectAddWalletType: (params: {
     device: SearchDevice;
@@ -484,6 +488,7 @@ function connectionIndicatorFooter({
 function TroubleShootingButton({ type }: { type: 'usb' | 'bluetooth' }) {
   const [showHelper, setShowHelper] = useState(false);
   const [showTroubleshooting, setShowTroubleshooting] = useState(false);
+  const intl = useIntl();
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -537,7 +542,9 @@ function TroubleShootingButton({ type }: { type: 'usb' | 'bluetooth' }) {
               onPress={() => setShowTroubleshooting(!showTroubleshooting)}
             >
               <SizableText size="$bodyMd" color="$textSubdued" flex={1}>
-                Having trouble connecting your device?
+                {intl.formatMessage({
+                  id: ETranslations.troubleshooting_show_helper_cta_label,
+                })}
               </SizableText>
               <Icon
                 name={
@@ -598,6 +605,7 @@ export const ConnectionIndicator = Object.assign(ConnectionIndicatorRoot, {
 });
 
 function BluetoothCard() {
+  const intl = useIntl();
   return (
     <ConnectionIndicator.Card>
       <ConnectionIndicator.Animation>
@@ -639,10 +647,86 @@ function BluetoothCard() {
       </ConnectionIndicator.Animation>
       <ConnectionIndicator.Content>
         <ConnectionIndicator.Title>
-          Keep your device near the computer to pair
+          {platformEnv.isNative
+            ? intl.formatMessage({
+                id: ETranslations.onboarding_bluetooth_prepare_to_connect,
+              })
+            : intl.formatMessage({
+                id: ETranslations.bluetooth_keep_near,
+              })}
         </ConnectionIndicator.Title>
       </ConnectionIndicator.Content>
     </ConnectionIndicator.Card>
+  );
+}
+
+function DeviceVideo({
+  themeVariant,
+  deviceTypeItems,
+}: {
+  themeVariant: 'light' | 'dark';
+  deviceTypeItems: EDeviceType[];
+}) {
+  const isPro = useMemo(() => {
+    return deviceTypeItems.find((deviceType) => deviceType === EDeviceType.Pro);
+  }, [deviceTypeItems]);
+
+  const isTouch = useMemo(() => {
+    return deviceTypeItems.find(
+      (deviceType) => deviceType === EDeviceType.Touch,
+    );
+  }, [deviceTypeItems]);
+
+  const isClassic = useMemo(() => {
+    return deviceTypeItems.find(
+      (deviceType) =>
+        deviceType === EDeviceType.Classic ||
+        deviceType === EDeviceType.Classic1s ||
+        deviceType === EDeviceType.ClassicPure,
+    );
+  }, [deviceTypeItems]);
+
+  const isMini = useMemo(() => {
+    return deviceTypeItems.find(
+      (deviceType) => deviceType === EDeviceType.Mini,
+    );
+  }, [deviceTypeItems]);
+
+  const videoSource = useMemo<ReactVideoSource>(() => {
+    if (isMini) {
+      return themeVariant === 'dark'
+        ? (require('@onekeyhq/kit/assets/onboarding/Mini-D.mp4') as ReactVideoSource)
+        : (require('@onekeyhq/kit/assets/onboarding/Mini-L.mp4') as ReactVideoSource);
+    }
+
+    if (isClassic) {
+      return themeVariant === 'dark'
+        ? (require('@onekeyhq/kit/assets/onboarding/Classic1S-D.mp4') as ReactVideoSource)
+        : (require('@onekeyhq/kit/assets/onboarding/Classic1S-L.mp4') as ReactVideoSource);
+    }
+
+    if (isTouch) {
+      return themeVariant === 'dark'
+        ? (require('@onekeyhq/kit/assets/onboarding/Touch-D.mp4') as ReactVideoSource)
+        : (require('@onekeyhq/kit/assets/onboarding/Touch-L.mp4') as ReactVideoSource);
+    }
+
+    return themeVariant === 'dark'
+      ? (require('@onekeyhq/kit/assets/onboarding/ProW-D.mp4') as ReactVideoSource)
+      : (require('@onekeyhq/kit/assets/onboarding/ProW-L.mp4') as ReactVideoSource);
+  }, [isClassic, isMini, isTouch, themeVariant]);
+
+  return (
+    <Video
+      muted
+      autoPlay
+      w="100%"
+      h="100%" // required for native
+      controls={false}
+      playInBackground={false}
+      resizeMode={EVideoResizeMode.COVER}
+      source={videoSource}
+    />
   );
 }
 
@@ -650,6 +734,7 @@ function USBOrBLEConnectionIndicator({
   tabValue,
   onDeviceConnect,
   onSelectAddWalletType,
+  deviceTypeItems,
 }: {
   tabValue: EConnectDeviceChannel;
 } & IDeviceConnectionProps) {
@@ -662,6 +747,7 @@ function USBOrBLEConnectionIndicator({
   // Use the shared device connection logic
   const deviceConnection = useDeviceConnection({
     tabValue,
+    deviceTypeItems,
     onDeviceConnect,
     onSelectAddWalletType,
   });
@@ -799,7 +885,15 @@ function USBOrBLEConnectionIndicator({
     };
   }, [isUSB, onConnectWebDevice, startBLEConnection, stopScan]);
 
-  console.log('devicesData', devicesData);
+  const deviceLabel = useMemo(() => {
+    return getDeviceLabel(deviceTypeItems);
+  }, [deviceTypeItems]);
+
+  const sortedDevicesData = useMemo(() => {
+    return sortDevicesData(devicesData, deviceTypeItems);
+  }, [deviceTypeItems, devicesData]);
+
+  console.log('sortedDevicesData', sortedDevicesData);
   return (
     <>
       <TroubleShootingButton type="usb" />
@@ -809,33 +903,31 @@ function USBOrBLEConnectionIndicator({
         ) : (
           <ConnectionIndicator.Card>
             <ConnectionIndicator.Animation>
-              <Video
-                muted
-                autoPlay
-                w="100%"
-                h="100%" // required for native
-                controls={false}
-                playInBackground={false}
-                resizeMode={EVideoResizeMode.COVER}
-                source={
-                  themeVariant === 'dark'
-                    ? require('@onekeyhq/kit/assets/onboarding/ProW-D.mp4')
-                    : require('@onekeyhq/kit/assets/onboarding/ProW-L.mp4')
-                }
+              <DeviceVideo
+                themeVariant={themeVariant}
+                deviceTypeItems={deviceTypeItems}
               />
             </ConnectionIndicator.Animation>
             <ConnectionIndicator.Content gap="$2">
               <ConnectionIndicator.Title>
-                Connect OneKey Pro to your computer via USB
+                {intl.formatMessage(
+                  {
+                    id: ETranslations.connect_device_to_computer_via_usb,
+                  },
+                  { deviceLabel },
+                )}
               </ConnectionIndicator.Title>
               {platformEnv.isExtension ? (
                 <>
                   <SizableText color="$textSubdued">
-                    Click the button below then select your device in the popup
-                    to connect
+                    {intl.formatMessage({
+                      id: ETranslations.device_select_device_popup,
+                    })}
                   </SizableText>
                   <Button variant="primary" onPress={() => {}} mt="$2">
-                    Start connection
+                    {intl.formatMessage({
+                      id: ETranslations.global_start_connection,
+                    })}
                   </Button>
                 </>
               ) : null}
@@ -847,14 +939,17 @@ function USBOrBLEConnectionIndicator({
           <YStack px="$5">
             <XStack alignItems="center" justifyContent="space-between">
               <SizableText color="$textDisabled">
-                Looking for your device...
+                {intl.formatMessage({
+                  id: ETranslations.onboarding_bluetooth_connect_help_text,
+                })}
+                ...
               </SizableText>
             </XStack>
           </YStack>
           <HeightTransition initialHeight={0}>
-            {devicesData.length > 0 ? (
+            {sortedDevicesData.length > 0 ? (
               <>
-                {devicesData.map((data) => (
+                {sortedDevicesData.map((data) => (
                   <ListItem
                     key={data.device?.deviceId}
                     drillIn
@@ -882,6 +977,7 @@ function USBOrBLEConnectionIndicator({
 }
 
 function BluetoothConnectionIndicator({
+  deviceTypeItems,
   onDeviceConnect,
   onSelectAddWalletType,
 }: IDeviceConnectionProps) {
@@ -1005,6 +1101,7 @@ function BluetoothConnectionIndicator({
   // Use shared device connection logic for Bluetooth
   const deviceConnection = useDeviceConnection({
     tabValue: EConnectDeviceChannel.bluetooth,
+    deviceTypeItems,
     onDeviceConnect: handleBluetoothDeviceConnect,
     onSelectAddWalletType,
   });
@@ -1065,6 +1162,10 @@ function BluetoothConnectionIndicator({
     },
     [stopScan, stopBluetoothStatusPolling],
   );
+
+  const sortedDevicesData = useMemo(() => {
+    return sortDevicesData(devicesData, deviceTypeItems);
+  }, [deviceTypeItems, devicesData]);
 
   if (bluetoothStatus === 'disabledInApp') {
     return (
@@ -1128,14 +1229,17 @@ function BluetoothConnectionIndicator({
           <YStack px="$5">
             <XStack alignItems="center" justifyContent="space-between">
               <SizableText color="$textDisabled">
-                Looking for your device...
+                {intl.formatMessage({
+                  id: ETranslations.onboarding_bluetooth_connect_help_text,
+                })}
+                ...
               </SizableText>
             </XStack>
           </YStack>
           <HeightTransition initialHeight={0}>
-            {devicesData.length > 0 ? (
+            {sortedDevicesData.length > 0 ? (
               <>
-                {devicesData.map((device) => (
+                {sortedDevicesData.map((device) => (
                   <ListItem
                     key={device.device?.connectId}
                     drillIn
@@ -1160,16 +1264,9 @@ function BluetoothConnectionIndicator({
   );
 }
 
-const isSupportedDevice = (deviceType: string) => {
-  return (
-    deviceType === EDeviceType.Pro ||
-    deviceType === EDeviceType.Touch ||
-    deviceType === EDeviceType.Unknown
-  );
-};
-
 function QRWalletConnect() {
   const { gtMd } = useMedia();
+  const intl = useIntl();
   const navigation = useAppNavigation();
   const { closePopover } = usePopoverContext();
   const handleCreateQRWallet = useCallback(async () => {
@@ -1177,6 +1274,7 @@ function QRWalletConnect() {
     await timerUtils.wait(100);
     navigation.push(EOnboardingPagesV2.ConnectQRCode);
   }, [closePopover, navigation]);
+
   return (
     <YStack
       p="$5"
@@ -1186,22 +1284,28 @@ function QRWalletConnect() {
         p: '$3',
       }}
     >
-      {gtMd ? <SizableText size="$headingSm">Advanced</SizableText> : null}
+      {gtMd ? (
+        <SizableText size="$headingSm">
+          {intl.formatMessage({
+            id: ETranslations.global_advanced,
+          })}
+        </SizableText>
+      ) : null}
       <SizableText color="$textSubdued">
-        Some crypto assets and hardware features are unavailable in QR Code
-        communication mode.
+        {intl.formatMessage({
+          id: ETranslations.qr_connection_feature_lack,
+        })}
       </SizableText>
       <SizableText color="$textSubdued">
-        This mode is intended only for a small number of users who rarely
-        operate their hardware wallet and is not compatible with other
-        connection methods.
+        {intl.formatMessage({
+          id: ETranslations.qr_connection_only_for_small_amount_users,
+        })}
       </SizableText>
       <SizableText color="$textSubdued">
-        If you wish to connect your hardware wallet via Bluetooth or USB, please
-        re-add the wallet to switch the communication mode.
+        {intl.formatMessage({ id: ETranslations.qr_connection_re_add })}
       </SizableText>
       <Button mt="$3" size="large" onPress={handleCreateQRWallet}>
-        Continue with QR Code
+        {intl.formatMessage({ id: ETranslations.qr_connection_cta })}
       </Button>
     </YStack>
   );
@@ -1218,7 +1322,9 @@ function ConnectYourDevicePage({
 
   const intl = useIntl();
   const isSupportedQRCode = useMemo(() => {
-    return deviceTypeItems.every(isSupportedDevice);
+    return deviceTypeItems.every(
+      (deviceType) => deviceType === EDeviceType.Pro,
+    );
   }, [deviceTypeItems]);
   const tabOptions = useMemo(() => {
     return [
@@ -1784,7 +1890,11 @@ function ConnectYourDevicePage({
   return (
     <Page>
       <OnboardingLayout>
-        <OnboardingLayout.Header title="Connect your device" />
+        <OnboardingLayout.Header
+          title={intl.formatMessage({
+            id: ETranslations.onboarding_connect_your_device,
+          })}
+        />
         <OnboardingLayout.Body constrained={false}>
           <OnboardingLayout.ConstrainedContent>
             <XStack alignItems="center" gap="$4">
@@ -1811,12 +1921,14 @@ function ConnectYourDevicePage({
             {tabValue === EConnectDeviceChannel.usbOrBle ? (
               <USBOrBLEConnectionIndicator
                 tabValue={tabValue}
+                deviceTypeItems={deviceTypeItems}
                 onDeviceConnect={handleDeviceConnect}
                 onSelectAddWalletType={selectAddWalletType}
               />
             ) : null}
             {tabValue === EConnectDeviceChannel.bluetooth ? (
               <BluetoothConnectionIndicator
+                deviceTypeItems={deviceTypeItems}
                 onDeviceConnect={handleDeviceConnect}
                 onSelectAddWalletType={selectAddWalletType}
               />

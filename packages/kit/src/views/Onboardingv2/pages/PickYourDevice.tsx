@@ -58,7 +58,11 @@ export default function PickYourDevice() {
   return (
     <Page>
       <OnboardingLayout>
-        <OnboardingLayout.Header title="Pick your device" />
+        <OnboardingLayout.Header
+          title={intl.formatMessage({
+            id: ETranslations.pick_your_device,
+          })}
+        />
         <OnboardingLayout.Body scrollable={!gtMd} constrained={false}>
           <YStack
             gap="$5"

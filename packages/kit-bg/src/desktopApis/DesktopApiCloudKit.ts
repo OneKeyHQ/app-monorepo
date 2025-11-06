@@ -1,6 +1,7 @@
 import {
   cloudkitDeleteRecord,
   cloudkitFetchRecord,
+  cloudkitGetAccountInfo,
   cloudkitIsAvailable,
   cloudkitQueryRecords,
   cloudkitRecordExists,
@@ -11,6 +12,7 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type {
   IAppleCloudKitAccountInfo,
   IAppleCloudKitStorage,
+  ICloudKitAccountStatusName,
 } from '@onekeyhq/shared/src/storage/AppleCloudKitStorage/types';
 
 import type { IDesktopApi } from './instance/IDesktopApi';
@@ -72,9 +74,13 @@ class DesktopApiCloudKit implements IAppleCloudKitStorage {
 
   async getAccountInfo(): Promise<IAppleCloudKitAccountInfo> {
     this.ensureMacOS();
-    throw new OneKeyLocalError(
-      'CloudKit getAccountInfo is not implemented on macOS',
-    );
+    const accountInfo = await cloudkitGetAccountInfo();
+
+    return {
+      ...accountInfo,
+      statusName: accountInfo.statusName as ICloudKitAccountStatusName,
+      containerUserId: accountInfo.containerUserId ?? null,
+    };
   }
 
   async isAvailable(): Promise<boolean> {
