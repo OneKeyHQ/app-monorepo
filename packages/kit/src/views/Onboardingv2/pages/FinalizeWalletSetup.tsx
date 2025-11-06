@@ -233,7 +233,7 @@ function FinalizeWalletSetupPage({
           runOnJS(setCurrentStep)(nextStep);
           runOnJS(changeIdProgress)(false);
           if (nextStep === EFinalizeWalletSetupSteps.Ready) {
-            runOnJS(handleWalletSetupReady)();
+            // runOnJS(handleWalletSetupReady)();
           } else {
             runOnJS(processNextStep)();
           }
@@ -246,12 +246,8 @@ function FinalizeWalletSetupPage({
     (step: EFinalizeWalletSetupSteps) => {
       stepQueue.current.push(step);
       processNextStep();
-
-      return () => {
-        cancelAnimation(progress);
-      };
     },
-    [progress, processNextStep],
+    [processNextStep],
   );
 
   const actions = useAccountSelectorActions();
