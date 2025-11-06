@@ -5,6 +5,7 @@ import { useDebouncedCallback } from 'use-debounce';
 
 import {
   Alert,
+  Button,
   Divider,
   Empty,
   IconButton,
@@ -13,6 +14,7 @@ import {
   SectionList,
   SizableText,
   Spinner,
+  Toast,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -23,8 +25,14 @@ import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms'
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IHardwareSalesRecord } from '@onekeyhq/shared/src/referralCode/type';
+import {
+  EExportSubject,
+  EExportTimeRange,
+} from '@onekeyhq/shared/src/referralCode/type';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import { formatDate, formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
+
+import { useExportInviteData } from '../../hooks/useExportInviteData';
 
 type ISectionListItem = {
   title?: string;
@@ -67,6 +75,8 @@ export default function HardwareSalesReward() {
   const { tourTimes, tourVisited } = useSpotlight(
     ESpotlightTour.hardwareSalesRewardAlert,
   );
+  const { exportInviteData, isExporting } = useExportInviteData();
+  const intl = useIntl();
 
   const [isLoading, setIsLoading] = useState(false);
   const [sections, setSections] = useState<
@@ -79,6 +89,44 @@ export default function HardwareSalesReward() {
       }
     | undefined
   >();
+
+  const handleExport = useCallback(async () => {
+    try {
+      await exportInviteData({
+        subject: EExportSubject.HardwareSales,
+        timeRange: EExportTimeRange.All,
+        inviteCode: 'FU9UPD',
+      });
+      Toast.success({
+        title: intl.formatMessage({
+          id: ETranslations.global_success,
+        }),
+      });
+    } catch (error) {
+      Toast.error({
+        title: intl.formatMessage({
+          id: ETranslations.global_failed,
+        }),
+      });
+    }
+  }, [exportInviteData, intl]);
+
+  const renderHeaderRight = useCallback(() => {
+    return (
+      <Button
+        size="small"
+        variant="tertiary"
+        icon="ArrowBottomOutline"
+        loading={isExporting}
+        onPress={handleExport}
+      >
+        {intl.formatMessage({
+          id: ETranslations.global_export,
+        })}
+      </Button>
+    );
+  }, [intl, isExporting, handleExport]);
+
   const fetchSales = useCallback((cursor?: string) => {
     return backgroundApiProxy.serviceReferralCode.getHardwareSales(cursor);
   }, []);
@@ -142,7 +190,6 @@ export default function HardwareSalesReward() {
 
   const debounceFetchMore = useDebouncedCallback(fetchMore, 250);
 
-  const intl = useIntl();
   const renderItem = useCallback(
     ({
       item,
@@ -204,6 +251,7 @@ export default function HardwareSalesReward() {
         title={intl.formatMessage({
           id: ETranslations.referral_referred_type_3,
         })}
+        headerRight={renderHeaderRight}
       />
       <Page.Body>
         {amount === undefined ? (

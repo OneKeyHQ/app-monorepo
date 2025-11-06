@@ -7,6 +7,8 @@ import type {
   IEarnPositionsResponse,
   IEarnRewardResponse,
   IEarnWalletHistory,
+  IExportInviteDataParams,
+  IExportInviteDataResponse,
   IHardwareSalesRecord,
   IInviteCodeItem,
   IInviteCodeListResponse,
@@ -78,6 +80,29 @@ class ServiceReferralCode extends ServiceBase {
       data: IUpdateInviteCodeNoteResponse;
     }>('/rebate/v1/invite-codes/note', params);
     return response.data.data;
+  }
+
+  @backgroundMethod()
+  async exportInviteData(params: IExportInviteDataParams) {
+    const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Rebate);
+    const queryParams: {
+      subject: string;
+      timeRange: string;
+      inviteCode?: string;
+    } = {
+      subject: params.subject,
+      timeRange: params.timeRange,
+    };
+    if (params.inviteCode) {
+      queryParams.inviteCode = params.inviteCode;
+    }
+    // API returns CSV string directly, not JSON
+    const response = await client.get<string>('/rebate/v1/invite/export', {
+      params: queryParams,
+      responseType: 'text',
+      autoHandleError: false, // Skip JSON error checking for CSV response
+    } as any);
+    return response.data;
   }
 
   @backgroundMethod()

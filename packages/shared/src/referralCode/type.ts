@@ -356,3 +356,25 @@ export interface IInviteCodeListResponse {
 export interface IUpdateInviteCodeNoteResponse {
   success: boolean;
 }
+
+// Export functionality types
+export enum EExportSubject {
+  HardwareSales = 'HardwareSales',
+  Onchain = 'Onchain',
+}
+
+export enum EExportTimeRange {
+  All = 'all',
+  OneMonth = '1month',
+  ThreeMonths = '3months',
+  SixMonths = '6months',
+}
+
+export interface IExportInviteDataParams {
+  subject: EExportSubject;
+  timeRange: EExportTimeRange;
+  inviteCode?: string;
+}
+
+// API returns CSV string directly
+export type IExportInviteDataResponse = string;
