@@ -168,6 +168,7 @@ const SwapTxHistoryListCell = ({
   ]);
   return (
     <XStack
+      mx="$-2"
       px="$2"
       py="$2.5"
       onPress={onClickCell}
@@ -179,9 +180,9 @@ const SwapTxHistoryListCell = ({
       pressStyle={{
         bg: '$bgActive',
       }}
-      borderRadius="$4"
-      overflow="hidden"
+      borderRadius="$3"
       alignItems="center"
+      cursor="pointer"
     >
       <XStack alignItems="center" gap="$8">
         <SwapTxHistoryAvatar
@@ -220,7 +221,7 @@ const SwapTxHistoryListCell = ({
             {item.baseInfo.toAmount}
           </NumberSizeableText>{' '}
           <SizableText size="$bodyMdMedium" color="$textSuccess">
-            {item.baseInfo?.toToken?.symbol?.toUpperCase() ?? ''}
+            {item.baseInfo?.toToken?.symbol ?? ''}
           </SizableText>
         </SizableText>
         <SizableText size="$bodySm" color="$textSubdued" textAlign="right">
@@ -233,7 +234,7 @@ const SwapTxHistoryListCell = ({
             {fromTokenAmountFinal}
           </NumberSizeableText>{' '}
           <SizableText size="$bodySm" color="$textSubdued">
-            {item.baseInfo?.fromToken?.symbol?.toUpperCase() ?? ''}
+            {item.baseInfo?.fromToken?.symbol ?? ''}
           </SizableText>
         </SizableText>
       </YStack>

@@ -241,7 +241,6 @@ function BasicPhaseInput(
   ref: any,
 ) {
   const inputRef: RefObject<TextInput | null> | null = useRef(null);
-  const media = useMedia();
   const firstButtonRef = useRef<IElement>(null);
   const [tabFocusable, setTabFocusable] = useState(false);
 
@@ -362,7 +361,7 @@ function BasicPhaseInput(
     autoCorrect: false,
     spellCheck: false,
     autoComplete: 'off',
-    size: media.md ? 'large' : 'medium',
+    size: 'large',
     leftAddOnProps: {
       label: `${index + 1}`,
       pr: '$0',
@@ -439,14 +438,23 @@ function BasicPhaseInput(
 
 const PhaseInput = forwardRef(BasicPhaseInput);
 
+export interface IPhaseInputAreaInstance {
+  submit: () => Promise<{
+    mnemonic: string;
+    mnemonicType: EMnemonicType;
+  }>;
+}
+
 export function PhaseInputArea({
   onConfirm,
   FooterComponent,
   showPhraseLengthSelector = true,
   showClearAllButton = true,
   defaultPhrases = [],
+  ref,
 }: {
-  onConfirm: (params: {
+  ref?: RefObject<IPhaseInputAreaInstance>;
+  onConfirm?: (params: {
     mnemonic: string;
     mnemonicType: EMnemonicType;
   }) => void;
@@ -496,7 +504,9 @@ export function PhaseInputArea({
     const { mnemonicType } = await serviceAccount.validateMnemonic(
       mnemonicEncoded,
     );
-    onConfirm({ mnemonic: mnemonicEncoded, mnemonicType });
+    const result = { mnemonic: mnemonicEncoded, mnemonicType }; 
+    onConfirm?.(result);
+    return result;
   }, [form, onConfirm, serviceAccount, servicePassword]);
 
   const {
@@ -557,6 +567,12 @@ export function PhaseInputArea({
   );
 
   useRecoveryPhraseProtected();
+
+  useImperativeHandle(ref, () => ({
+    submit: () => {
+      return handlePageFooterConfirm();
+    },
+  }));
 
   return (
     <>
@@ -659,11 +675,13 @@ export function PhaseInputArea({
         </HeightTransition>
         {FooterComponent}
       </Page.Body>
-      <PageFooter
-        suggestions={suggestions}
-        updateInputValue={updateInputValue}
-        onConfirm={handlePageFooterConfirm}
-      />
+      {onConfirm ? (
+        <PageFooter
+          suggestions={suggestions}
+          updateInputValue={updateInputValue}
+          onConfirm={handlePageFooterConfirm}
+        />
+      ) : null}
     </>
   );
 }

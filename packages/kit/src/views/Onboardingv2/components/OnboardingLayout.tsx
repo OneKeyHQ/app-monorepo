@@ -1,4 +1,3 @@
-import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import type { IXStackProps, IYStackProps } from '@onekeyhq/components';
@@ -15,16 +14,14 @@ import {
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useLanguageSelector } from '../../Setting/hooks';
 
-const OnboardingLayoutBack = () => {
+const OnboardingLayoutBack = ({ exit }: { exit?: boolean }) => {
   const navigation = useAppNavigation();
-  const reactNavigation = useNavigation();
-  const { gtMd } = useMedia();
 
-  const canGoBack = reactNavigation.canGoBack();
-  const icon = canGoBack ? 'ArrowLeftOutline' : 'CrossedLargeOutline';
+  const icon = exit ? 'CrossedLargeOutline' : 'ArrowLeftOutline';
 
   const handleBack = () => {
     navigation.pop();
@@ -32,7 +29,7 @@ const OnboardingLayoutBack = () => {
 
   return (
     <IconButton
-      size={gtMd ? 'small' : 'medium'}
+      size="medium"
       icon={icon}
       variant="tertiary"
       onPress={handleBack}
@@ -115,15 +112,11 @@ const OnboardingLayoutHeader = ({
     borderColor="$neutral4"
     alignItems="center"
     {...rest}
-    style={{
-      ...(rest.style as any),
-      appRegion: 'drag',
-    }}
   >
     {showBackButton ? <OnboardingLayoutBack /> : null}
     {title ? <OnboardingLayoutTitle>{title}</OnboardingLayoutTitle> : null}
-    {showLanguageSelector ? <OnboardingLayoutLanguageSelector /> : null}
     {children}
+    {showLanguageSelector ? <OnboardingLayoutLanguageSelector /> : null}
   </XStack>
 );
 
@@ -245,21 +238,37 @@ function OnboardingLayoutRoot({ children }: { children: React.ReactNode }) {
       alignItems="center"
       justifyContent="center"
       bg="$neutral2"
-      $gt2xl={{
+      $gtMd={{
         p: '$10',
-        pb: '$20',
       }}
     >
+      {/* Draggable area for desktop window */}
+      {platformEnv.isDesktop ? (
+        <YStack
+          position="absolute"
+          top={0}
+          left={0}
+          right={0}
+          h={80}
+          zIndex={9999}
+          style={
+            {
+              WebkitAppRegion: 'drag',
+            } as any
+          }
+        />
+      ) : null}
       <YStack
         h="100%"
         w="100%"
         px="$5"
+        // $gtMd={{
+        //   px: '$10',
+        // }}
+        bg="$bg"
         $gtMd={{
           px: '$10',
-        }}
-        bg="$bg"
-        $gt2xl={{
-          maxWidth: 1600,
+          maxWidth: 1440,
           maxHeight: 1024,
           borderRadius: 40,
           borderCurve: 'continuous',

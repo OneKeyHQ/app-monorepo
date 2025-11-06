@@ -3,16 +3,9 @@ import RNCloudFs from 'react-native-cloud-fs';
 
 // import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
+import { GoogleSignInConfigure } from '../consts/googleSignConsts';
 import googlePlayService from '../googlePlayService/googlePlayService';
 import platformEnv from '../platformEnv';
-
-const GoogleSignInConfigure = {
-  scopes: ['https://www.googleapis.com/auth/drive.file'],
-  webClientId: platformEnv.isDev
-    ? '117481276073-fs7omuqsmvgtg6bci3ja1gvo03g0d984.apps.googleusercontent.com' // Dev
-    : '94391474021-ffaspa4ikjqpqvn5ndplqobvuvhnj8v3.apps.googleusercontent.com', // Pro
-  offlineAccess: true,
-};
 
 export function backupPlatform() {
   return { cloudName: 'Google Drive', platform: 'Google' };
