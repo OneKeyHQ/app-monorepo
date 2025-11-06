@@ -63,9 +63,7 @@ export function InvitationDetailsSection({
     summaryInfo;
 
   // Check if user can create more codes
-  const canCreateCode = codeListData
-    ? codeListData.remainingCodes > 0
-    : false;
+  const canCreateCode = codeListData ? codeListData.remainingCodes > 0 : false;
 
   return (
     <YStack gap="$5">
@@ -88,22 +86,25 @@ export function InvitationDetailsSection({
 
       {selectedTab === 'reward' ? (
         <XStack py="$8" px="$5" gap="$5">
-          <HardwareSalesReward
-            hardwareSales={HardwareSales}
-            levelPercent={Number(levelPercent)}
-            rebateLevels={rebateLevels}
-            rebateConfig={rebateConfig}
-          />
-          <OnChainReward onChain={Onchain} />
-        </XStack>
-      ) : (
-        <YStack px="$5" gap="$4">
-          {canCreateCode && (
+          <XStack gap="$5">
+            <HardwareSalesReward
+              hardwareSales={HardwareSales}
+              levelPercent={Number(levelPercent)}
+              rebateLevels={rebateLevels}
+              rebateConfig={rebateConfig}
+            />
+            <OnChainReward onChain={Onchain} />
+          </XStack>
+
+          {canCreateCode ? (
             <CreateCodeButton
               total={codeListData?.total}
               onCodeCreated={refetch}
             />
-          )}
+          ) : null}
+        </XStack>
+      ) : (
+        <YStack px="$5" gap="$4">
           <InviteCodeListTable
             codeListData={codeListData}
             isLoading={isLoading ?? false}

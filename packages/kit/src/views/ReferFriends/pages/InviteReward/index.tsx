@@ -33,10 +33,11 @@ function InviteRewardContent({
 
   return (
     <>
-      <XStack px="$5" pt="$5" jc="flex-end">
+      <XStack px="$5" pt="$5">
         <RulesButton />
       </XStack>
       <SectionHeader translationId={ETranslations.global_overview} />
+
       <Stack
         gap="$5"
         flexDirection="row"
@@ -44,7 +45,7 @@ function InviteRewardContent({
           flexDirection: 'column',
         }}
       >
-        <Stack flex={1} px="$5" pt="$6">
+        <Stack flex={1} flexBasis={0}>
           <CumulativeRewards
             cumulativeRewards={cumulativeRewards}
             withdrawAddresses={withdrawAddresses}
@@ -52,10 +53,12 @@ function InviteRewardContent({
             fetchSummaryInfo={fetchSummaryInfo}
           />
         </Stack>
-        <Stack flex={1}>
+
+        <Stack flex={1} flexBasis={0}>
           <ReferralCodeCard inviteUrl={inviteUrl} inviteCode={inviteCode} />
         </Stack>
       </Stack>
+
       <CurrentLevelCard
         rebateConfig={rebateConfig}
         rebateLevels={rebateLevels}
