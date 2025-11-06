@@ -152,13 +152,13 @@ export function HeaderLeft({
       );
     }
 
-    if (platformEnv.isNative && tabRoute === ETabRoutes.Discovery) {
-      return (
+    if (tabRoute === ETabRoutes.Discovery) {
+      return platformEnv.isNative ? (
         <DiscoveryHeaderSegment
           selectedHeaderTab={selectedHeaderTab}
           onSelectHeaderTab={onSelectHeaderTab}
         />
-      );
+      ) : null;
     }
 
     if (tabRoute === ETabRoutes.WebviewPerpTrade) {

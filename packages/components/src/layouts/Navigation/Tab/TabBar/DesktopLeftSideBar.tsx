@@ -1,11 +1,11 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { CommonActions } from '@react-navigation/native';
 import { MotiView } from 'moti';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
-import { Tooltip } from '@onekeyhq/components/src/actions';
+import { IconButton, Tooltip } from '@onekeyhq/components/src/actions';
 import type { IActionListSection } from '@onekeyhq/components/src/actions';
 import {
   EPortalContainerConstantName,
@@ -341,6 +341,7 @@ export function DesktopLeftSideBar({
   const { top } = useSafeAreaInsets(); // used for ipad
   const theme = useTheme();
   const [isHovering, setIsHovering] = useState(false);
+  const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const isShowWebTabBar = platformEnv.isDesktop || platformEnv.isNativeIOS;
 
@@ -453,6 +454,23 @@ export function DesktopLeftSideBar({
     navigation,
   ]);
 
+  const handleHoverIn = useCallback(() => {
+    if (hoverTimerRef.current) {
+      clearTimeout(hoverTimerRef.current);
+    }
+    hoverTimerRef.current = setTimeout(() => {
+      setIsHovering(true);
+    }, 200); // 200ms delay to prevent quick hover triggers
+  }, []);
+
+  const handleHoverOut = useCallback(() => {
+    if (hoverTimerRef.current) {
+      clearTimeout(hoverTimerRef.current);
+      hoverTimerRef.current = null;
+    }
+    setIsHovering(false);
+  }, []);
+
   const handleToggleCollapse = useCallback(() => {
     defaultLogger.app.page.navigationToggle();
     setAppSideBarStatus((prev) => ({
@@ -463,6 +481,16 @@ export function DesktopLeftSideBar({
   }, [setAppSideBarStatus, setIsHovering]);
 
   useShortcuts(EShortcutEvents.SideBar, handleToggleCollapse);
+
+  // Cleanup timer on unmount to prevent memory leak
+  useEffect(
+    () => () => {
+      if (hoverTimerRef.current) {
+        clearTimeout(hoverTimerRef.current);
+      }
+    },
+    [],
+  );
 
   return (
     <MotiView
@@ -579,74 +607,62 @@ export function DesktopLeftSideBar({
       <YStack
         testID="Desktop-AppSideBar-Separator"
         position="absolute"
-        onHoverIn={() => {
-          setIsHovering(true);
-        }}
-        onHoverOut={() => {
-          setIsHovering(false);
-        }}
+        onHoverIn={handleHoverIn}
+        onHoverOut={handleHoverOut}
+        onPress={handleToggleCollapse}
+        cursor="pointer"
         zIndex={1000}
         right={-8}
         top={0}
         bottom={0}
         width={16}
-        ai="center"
-        jc="center"
       >
         {isHovering ? (
-          <MotiView
-            from={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={
-              {
-                type: 'timing',
-                duration: 200,
-              } as MotiTransition
-            }
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: '100%',
-              paddingBottom: 96,
-            }}
-          >
-            <Tooltip
-              placement="right"
-              renderTrigger={
-                <YStack
-                  aria-label="Toggle sidebar"
-                  role="button"
-                  height="$20"
-                  width="$5"
-                  ai="center"
-                  jc="center"
-                  cursor={isCollapse ? 'e-resize' : 'w-resize'}
-                  onPress={handleToggleCollapse}
-                >
-                  <YStack
-                    height="$16"
-                    width="$2"
-                    bg="$neutral6"
-                    hoverStyle={{
-                      bg: '$neutral8',
-                    }}
-                    borderRadius="$full"
-                    pointerEvents="none"
-                  />
-                </YStack>
-              }
-              renderContent={
-                <Tooltip.Text shortcutKey={EShortcutEvents.SideBar}>
-                  {intl.formatMessage({
-                    id: isCollapse
-                      ? ETranslations.shortcut_expand_sidebar
-                      : ETranslations.shortcut_collapse_sidebar,
-                  })}
-                </Tooltip.Text>
-              }
+          <>
+            <YStack
+              position="absolute"
+              left={8}
+              top={0}
+              bottom={0}
+              width={1.5}
+              bg="$borderStrong"
+              pointerEvents="none"
+              animation="quick"
+              enterStyle={{
+                opacity: 0,
+              }}
+              opacity={1}
             />
-          </MotiView>
+            <YStack ai="center" jc="center" width="100%" mt="$24">
+              <Tooltip
+                open
+                placement="right"
+                renderTrigger={
+                  <IconButton
+                    aria-label="Toggle sidebar"
+                    icon={
+                      isCollapse
+                        ? 'ChevronRightSmallOutline'
+                        : 'ChevronLeftSmallOutline'
+                    }
+                    cursor="pointer"
+                    size="small"
+                    bg="$bgApp"
+                    elevation={5}
+                  />
+                }
+                renderContent={
+                  <Tooltip.Text shortcutKey={EShortcutEvents.SideBar}>
+                    {intl.formatMessage({
+                      id: isCollapse
+                        ? ETranslations.shortcut_expand_sidebar
+                        : ETranslations.shortcut_collapse_sidebar,
+                    })}
+                  </Tooltip.Text>
+                }
+              />
+            </YStack>
+          </>
         ) : null}
       </YStack>
     </MotiView>
