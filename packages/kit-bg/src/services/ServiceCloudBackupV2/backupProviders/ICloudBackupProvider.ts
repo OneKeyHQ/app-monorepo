@@ -59,7 +59,10 @@ export class ICloudBackupProvider implements IOneKeyBackupProvider {
   async getCloudAccountInfo(): Promise<IBackupProviderAccountInfo> {
     const cloudKitAccountInfo = await appleCloudKitStorage.getAccountInfo();
     const cloudKitAvailable = await appleCloudKitStorage.isAvailable();
-    const cloudFsAvailable = await RNCloudFs.isAvailable();
+    let cloudFsAvailable: boolean | undefined;
+    if (platformEnv.isNativeIOS) {
+      cloudFsAvailable = await RNCloudFs?.isAvailable?.();
+    }
     const keychainCloudSyncEnabled =
       await appleKeyChainStorage.isICloudSyncEnabled();
 
