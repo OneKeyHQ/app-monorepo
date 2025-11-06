@@ -28,7 +28,7 @@ function ReferAFriendPage({ postConfig }: IReferAFriendPageProps) {
 
   return (
     <>
-      <YStack>
+      <YStack maxWidth={1080} mx="auto" flex={1}>
         <AnimatePresence>
           {phaseState === EPhaseState.next ? (
             <ReferAFriendIntroPhase postConfig={postConfig} />

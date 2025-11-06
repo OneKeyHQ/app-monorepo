@@ -5,6 +5,8 @@ import { REFERRAL_HELP_LINK } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
+import { InviteCodeStepImage } from './InviteCodeStepImage';
+
 import type { IReferAFriendIntroPhaseProps } from '../types';
 
 export function ReferAFriendIntroPhase({
@@ -99,6 +101,7 @@ export function ReferAFriendIntroPhase({
                 id: ETranslations.referral_intro_for_your_friend_2,
               })}
             </SizableText>
+
             <SizableText
               size="$bodyMd"
               color="$textInfo"
@@ -116,6 +119,12 @@ export function ReferAFriendIntroPhase({
           </YStack>
         </XStack>
       </YStack>
+
+      {/* Preview image showing how to share invite code */}
+      <YStack ai="center" mt="$2">
+        <InviteCodeStepImage step={1} />
+      </YStack>
+
       <YStack />
     </YStack>
   );
