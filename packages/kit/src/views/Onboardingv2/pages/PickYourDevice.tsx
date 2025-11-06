@@ -13,6 +13,7 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
@@ -23,7 +24,7 @@ export default function PickYourDevice() {
   const navigation = useAppNavigation();
   const { gtMd } = useMedia();
   const DEVICES = useMemo(() => {
-    return [
+    const devices = [
       {
         name: 'OneKey Pro',
         deviceType: [EDeviceType.Pro],
@@ -46,6 +47,13 @@ export default function PickYourDevice() {
         image: require('@onekeyhq/kit/assets/pick-mini.png'),
       },
     ];
+
+    // Mini does not support Bluetooth, so hide it on native platforms
+    if (platformEnv.isNative) {
+      return devices.filter((device) => device.name !== 'OneKey Mini');
+    }
+
+    return devices;
   }, []);
   return (
     <Page>
@@ -72,7 +80,7 @@ export default function PickYourDevice() {
                 borderColor="$borderSubdued"
                 borderRadius="$5"
                 borderCurve="continuous"
-                minHeight="$48"
+                minHeight="$56"
                 $gtMd={{
                   flexGrow: 1,
                   flexBasis: 0,
