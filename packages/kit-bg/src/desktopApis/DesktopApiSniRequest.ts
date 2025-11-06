@@ -9,12 +9,61 @@ import type {
 
 import type { IDesktopApi } from './instance/IDesktopApi';
 
+/**
+ * Create a custom HTTPS agent that uses hostname (server name) instead of IP (host)
+ * for connection pool keys. This enables connection reuse even when switching IPs.
+ */
+function createCustomAgent(): https.Agent {
+  // Create agent with custom getName to use hostname as pool key
+  const agent = new https.Agent({
+    keepAlive: true, // Enable TCP keep-alive
+    keepAliveMsecs: 30_000, // Send keep-alive probes every 30 seconds
+    maxSockets: Infinity, // No limit on concurrent connections per host (browser behavior)
+    maxFreeSockets: 256, // Keep more idle connections for reuse (Chrome default)
+    timeout: 60_000, // Socket timeout (60 seconds)
+    scheduling: 'lifo', // Use most recently used socket first (better for keep-alive)
+  });
+
+  // Store hostname mapping to ensure consistent pool keys
+  const hostnameMap = new Map<string, string>();
+
+  // Override getName to use server name (hostname) instead of host (IP)
+  // @ts-expect-error
+  agent.getName = (options: https.RequestOptions): string => {
+    // Try to get hostname from servername first, then from stored mapping
+    const ip = options.host || '';
+    let hostname = options.servername;
+
+    if (!hostname && ip) {
+      // When looking up existing connections, servername might not be provided
+      // Use our stored mapping to get the hostname for this IP
+      hostname = hostnameMap.get(ip);
+    }
+
+    if (hostname && ip && !hostnameMap.has(ip)) {
+      // Store the IP -> hostname mapping for future lookups
+      hostnameMap.set(ip, hostname);
+    }
+
+    const host = hostname || ip;
+    const port = options.port || 443;
+    const poolKey = `${host}:${port}`;
+
+    return poolKey;
+  };
+  return agent;
+}
+
 class DesktopApiSniRequest {
   constructor({ desktopApi }: { desktopApi: IDesktopApi }) {
     this.desktopApi = desktopApi;
+    this.agent = createCustomAgent();
   }
 
   desktopApi: IDesktopApi;
+
+  // Custom HTTPS agent for connection reuse
+  private agent: https.Agent;
 
   /**
    * Execute SNI request using Electron net module
@@ -39,6 +88,8 @@ class DesktopApiSniRequest {
             Host: config.hostname, // Set Host header to original domain
             ...config.headers,
           },
+          // Use custom agent for connection reuse
+          agent: this.agent,
           // Ensure SSL/TLS validation
           rejectUnauthorized: true,
         };
