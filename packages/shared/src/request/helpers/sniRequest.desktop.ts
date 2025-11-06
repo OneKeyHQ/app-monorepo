@@ -19,7 +19,6 @@ export async function sniRequest(
     const desktopApiProxy = globalThis.desktopApiProxy;
 
     if (!desktopApiProxy?.sniRequest) {
-      console.warn('[SNI Desktop] desktopApiProxy.sniRequest not available');
       return null;
     }
 
@@ -30,13 +29,13 @@ export async function sniRequest(
 
     return response;
   } catch (error) {
+    // Log error and return null to trigger fallback to default adapter
     console.error('[SNI Desktop] Request failed:', {
       hostname: config.hostname,
       ip: config.ip,
       error: error instanceof Error ? error.message : String(error),
     });
 
-    // Return null to trigger fallback to default adapter
     return null;
   }
 }

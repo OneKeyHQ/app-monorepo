@@ -28,14 +28,6 @@ class DesktopApiSniRequest {
       try {
         const port = config.port || 443;
 
-        logger.info('[DesktopApiSniRequest] Initiating SNI request', {
-          hostname: config.hostname,
-          ip: config.ip,
-          port,
-          path: config.path,
-          method: config.method,
-        });
-
         // Build request options for Node.js https module
         const requestOptions: https.RequestOptions = {
           method: config.method,
@@ -51,12 +43,6 @@ class DesktopApiSniRequest {
           rejectUnauthorized: true,
         };
 
-        logger.debug('[DesktopApiSniRequest] Request options', {
-          host: requestOptions.host, // IP address
-          servername: requestOptions.servername, // Original hostname for SNI
-          hostHeader: requestOptions.headers?.Host, // Host header
-        });
-
         // Collect response data
         let responseData = '';
         const responseHeaders: Record<string, string> = {};
@@ -66,12 +52,6 @@ class DesktopApiSniRequest {
         // Create HTTPS request
         const request = https.request(requestOptions, (response) => {
           statusCode = response.statusCode || 0;
-
-          logger.info('[DesktopApiSniRequest] Received response', {
-            hostname: config.hostname,
-            ip: config.ip,
-            statusCode,
-          });
 
           // Collect response headers
           Object.keys(response.headers).forEach((key) => {
@@ -92,16 +72,6 @@ class DesktopApiSniRequest {
             if (timeoutId) {
               clearTimeout(timeoutId);
             }
-
-            logger.info(
-              '[DesktopApiSniRequest] Request completed successfully',
-              {
-                hostname: config.hostname,
-                ip: config.ip,
-                statusCode,
-                bodyLength: responseData.length,
-              },
-            );
 
             resolve({
               statusCode,
@@ -146,14 +116,10 @@ class DesktopApiSniRequest {
 
         // Send request body if present
         if (config.body) {
-          logger.debug('[DesktopApiSniRequest] Sending request body', {
-            bodyLength: config.body.length,
-          });
           request.write(config.body);
         }
 
         // Send request
-        logger.debug('[DesktopApiSniRequest] Sending request');
         request.end();
       } catch (error) {
         logger.error('[DesktopApiSniRequest] Failed to create request', {
