@@ -1,13 +1,16 @@
 declare module 'react-native-cloud-fs' {
   interface IRNCloudFS {
+    /** Android: trigger Google sign-in UI */
+    // requestSignIn(): void; // use GoogleSignin.signIn() instead, this method .requestScopes(new Scope(DriveScopes.DRIVE_FILE)) which is not allowed in the app
+
     loginIfNeeded(): Promise<boolean>;
     logout(): Promise<boolean>;
-    isAvailable(): Promise<boolean>;
+    isAvailable(): Promise<boolean>; // iOS only
     syncCloud(): Promise<boolean>;
 
     /** Android: list files (hidden uses appDataFolder, visible uses user-visible folder) */
     listFiles(options: {
-      scope?: 'hidden' | 'visible';
+      scope: 'hidden'; // 'hidden' | 'visible'; // public drive folder(visible) not allowed in the app
       targetPath?: string; // iOS Only?
     }): Promise<{
       files: Array<{
@@ -24,7 +27,7 @@ declare module 'react-native-cloud-fs' {
     /** Android: upload a file to Drive */
     copyToCloud(options: {
       mimetype?: string | null; // Android only
-      scope?: 'hidden' | 'visible';
+      scope: 'hidden'; // 'hidden' | 'visible'; // public drive folder(visible) not allowed in the app
       sourcePath: { path?: string; uri?: string };
       targetPath: string;
     }): Promise<string>;
@@ -32,8 +35,7 @@ declare module 'react-native-cloud-fs' {
     getIcloudDocument(fileId: string): Promise<string>;
     /** Android */
     getGoogleDriveDocument(fileId: string): Promise<string>;
-    /** Android: trigger Google sign-in UI */
-    requestSignIn(): void;
+
     /** Android: current Google account basic profile, or null if not signed in */
     getCurrentlySignedInUserData(): Promise<{
       email: string;

@@ -63,13 +63,6 @@ export class EmptyBackupProvider implements IOneKeyBackupProvider {
     throw new OneKeyLocalError('Method not implemented.');
   }
 
-  restoreData(params: {
-    recordId: string;
-    password?: string;
-  }): Promise<IPrimeTransferData | null> {
-    throw new OneKeyLocalError('Method not implemented.');
-  }
-
   downloadData(): Promise<IBackupCloudServerDownloadData | null> {
     throw new OneKeyLocalError('Method not implemented.');
   }

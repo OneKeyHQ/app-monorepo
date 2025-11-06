@@ -57,7 +57,7 @@ export class ICloudBackupProvider implements IOneKeyBackupProvider {
   // - getCloudAccountInfo()
 
   async getCloudAccountInfo(): Promise<IBackupProviderAccountInfo> {
-    const accountInfo = await appleCloudKitStorage.getAccountInfo();
+    const cloudKitAccountInfo = await appleCloudKitStorage.getAccountInfo();
     const cloudKitAvailable = await appleCloudKitStorage.isAvailable();
     const cloudFsAvailable = await RNCloudFs.isAvailable();
     const keychainCloudSyncEnabled =
@@ -68,10 +68,11 @@ export class ICloudBackupProvider implements IOneKeyBackupProvider {
     // };
 
     return {
+      userId: cloudKitAccountInfo.containerUserId ?? '',
       iCloud: {
-        cloudKitStatus: accountInfo.status,
-        cloudKitStatusName: accountInfo.statusName,
-        cloudKitContainerUserId: accountInfo.containerUserId,
+        cloudKitStatus: cloudKitAccountInfo.status,
+        cloudKitStatusName: cloudKitAccountInfo.statusName,
+        cloudKitContainerUserId: cloudKitAccountInfo.containerUserId,
         cloudKitAvailable,
         cloudFsAvailable,
         keychainCloudSyncEnabled, // TODO not working as expected
@@ -217,31 +218,6 @@ export class ICloudBackupProvider implements IOneKeyBackupProvider {
       console.error('Failed to download backup data:', error);
       return null;
     }
-  }
-
-  // Note: password parameter not used for iCloud (uses Keychain instead)
-  async restoreData({
-    recordId,
-    password,
-  }: {
-    recordId: string;
-    password: string;
-  }): Promise<IPrimeTransferData | null> {
-    await this.checkAvailability();
-
-    // Fetch backup record from CloudKit
-    const serverData = await this.downloadData({
-      recordId,
-    });
-
-    if (!serverData || !serverData?.payload?.privateDataEncrypted) {
-      throw new OneKeyLocalError('No backup found in CloudKit');
-    }
-
-    return this.decryptBackupData({
-      payload: serverData.payload,
-      password,
-    });
   }
 
   private async decryptBackupData({

@@ -18,7 +18,7 @@ export type IModalApprovalManagementParamList = {
     isSelectMode?: boolean;
     onSelected?: (params: { selectedTokens: Record<string, boolean> }) => void;
     selectedTokens?: Record<string, boolean>;
-    tokenMap?: Record<
+    tokenMap: Record<
       string,
       {
         price: string;
@@ -26,7 +26,7 @@ export type IModalApprovalManagementParamList = {
         info: IToken;
       }
     >;
-    contractMap?: Record<string, IAddressInfo>;
+    contractMap: Record<string, IAddressInfo>;
   };
   [EModalApprovalManagementRoutes.RevokeSuggestion]: {
     accountId: string;
@@ -50,6 +50,16 @@ export type IModalApprovalManagementParamList = {
     networkId: string;
     indexedAccountId?: string;
     isBulkRevokeMode?: boolean;
+    approvals?: IContractApproval[];
+    tokenMap?: Record<
+      string,
+      {
+        price: string;
+        price24h: string;
+        info: IToken;
+      }
+    >;
+    contractMap?: Record<string, IAddressInfo>;
   };
   [EModalApprovalManagementRoutes.BulkRevoke]: {
     unsignedTxs: IUnsignedTxPro[];
