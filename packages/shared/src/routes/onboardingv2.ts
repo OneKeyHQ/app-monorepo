@@ -1,3 +1,4 @@
+import type { EConnectDeviceChannel } from '../../types/connectDevice';
 import type { IConnectYourDeviceItem } from '../../types/device';
 import type { EMnemonicType } from '../utils/secret';
 import type { KnownDevice, SearchDevice } from '@onekeyfe/hd-core';
@@ -48,6 +49,7 @@ export type IOnboardingParamListV2 = {
   };
   [EOnboardingPagesV2.CheckAndUpdate]: {
     deviceData: IConnectYourDeviceItem;
+    tabValue: EConnectDeviceChannel;
   };
   [EOnboardingPagesV2.ImportPhraseOrPrivateKey]: undefined;
   [EOnboardingPagesV2.BackupWalletReminder]: undefined;
