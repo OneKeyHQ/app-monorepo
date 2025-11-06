@@ -6,7 +6,11 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ETabReferFriendsRoutes } from '@onekeyhq/shared/src/routes';
 
-export function BreadcrumbSection() {
+export interface IBreadcrumbSectionProps {
+  secondItemLabel: string;
+}
+
+export function BreadcrumbSection({ secondItemLabel }: IBreadcrumbSectionProps) {
   const intl = useIntl();
   const navigation = useAppNavigation();
 
@@ -18,7 +22,7 @@ export function BreadcrumbSection() {
       },
     },
     {
-      label: intl.formatMessage({ id: ETranslations.referral_referral_level }),
+      label: secondItemLabel,
     },
   ];
 

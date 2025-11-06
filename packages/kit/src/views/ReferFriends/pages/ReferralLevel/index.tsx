@@ -8,20 +8,26 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IInviteLevelDetail } from '@onekeyhq/shared/src/referralCode/type';
 
+import { BreadcrumbSection } from '../../components';
 import { ApiDataButton } from './components/ApiDataButton';
-import { BreadcrumbSection } from './components/BreadcrumbSection';
 import { CurrentLevelSection } from './components/CurrentLevelSection';
 import { LevelListSection } from './components/LevelListSection';
 import { UpgradeProgressTitle } from './components/UpgradeProgressTitle';
 
 function ReferralLevelContent({ data }: { data: IInviteLevelDetail }) {
+  const intl = useIntl();
+
   // Find current level info
   const currentLevelInfo = data.levels.find((level) => level.isCurrent);
 
   return (
     <ScrollView>
       <YStack px="$5" py="$5" gap="$5">
-        <BreadcrumbSection />
+        <BreadcrumbSection
+          secondItemLabel={intl.formatMessage({
+            id: ETranslations.referral_referral_level,
+          })}
+        />
         <UpgradeProgressTitle />
         {currentLevelInfo ? (
           <CurrentLevelSection
