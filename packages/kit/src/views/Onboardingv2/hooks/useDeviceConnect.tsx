@@ -533,7 +533,7 @@ export function useDeviceConnect() {
     ],
   );
 
-  const selectAddWalletType = useCallback(
+  const onSelectAddWalletType = useCallback(
     async ({
       device,
       isFirmwareVerified,
@@ -590,7 +590,8 @@ export function useDeviceConnect() {
     () => ({
       connectDevice,
       onDeviceConnect: handleDeviceConnect,
+      onSelectAddWalletType,
     }),
-    [connectDevice, handleDeviceConnect],
+    [connectDevice, handleDeviceConnect, onSelectAddWalletType],
   );
 }
