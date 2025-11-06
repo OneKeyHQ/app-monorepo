@@ -1,6 +1,9 @@
 import { SizableText, XStack } from '@onekeyhq/components';
 
-import type { IIntroStepLineProps } from '../types';
+interface IIntroStepLineProps {
+  no: number;
+  description: string;
+}
 
 export function IntroStepLine({ no, description }: IIntroStepLineProps) {
   return (

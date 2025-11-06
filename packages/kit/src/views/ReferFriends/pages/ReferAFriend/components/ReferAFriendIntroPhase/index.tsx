@@ -5,12 +5,21 @@ import { REFERRAL_HELP_LINK } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
-import { InviteCodeStepImage } from './InviteCodeStepImage';
+import { InviteCodeStepImage } from '../InviteCodeStepImage';
 
-import type { IReferAFriendIntroPhaseProps } from '../types';
+import { NextButton } from './NextButton';
+
+import type { EPhaseState } from '../../types';
+import type { IInvitePostConfig } from '@onekeyhq/shared/src/referralCode/type';
+
+interface IReferAFriendIntroPhaseProps {
+  postConfig: IInvitePostConfig;
+  setPhaseState: (state: EPhaseState | undefined) => void;
+}
 
 export function ReferAFriendIntroPhase({
   postConfig,
+  setPhaseState,
 }: IReferAFriendIntroPhaseProps) {
   const intl = useIntl();
 
@@ -26,6 +35,11 @@ export function ReferAFriendIntroPhase({
         opacity: 0,
       }}
     >
+      {/* Preview image showing how to share invite code */}
+      <YStack ai="center" mt="$2">
+        <InviteCodeStepImage step={1} />
+      </YStack>
+
       <SizableText size="$heading2xl">
         {intl.formatMessage(
           {
@@ -120,12 +134,9 @@ export function ReferAFriendIntroPhase({
         </XStack>
       </YStack>
 
-      {/* Preview image showing how to share invite code */}
-      <YStack ai="center" mt="$2">
-        <InviteCodeStepImage step={1} />
+      <YStack px="$5" pb="$5">
+        <NextButton setPhaseState={setPhaseState} />
       </YStack>
-
-      <YStack />
     </YStack>
   );
 }

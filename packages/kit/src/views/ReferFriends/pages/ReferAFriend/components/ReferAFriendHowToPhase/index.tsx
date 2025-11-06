@@ -3,10 +3,20 @@ import { useIntl } from 'react-intl';
 import { SizableText, YStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import { IntroStepLine } from './IntroStepLine';
-import { InviteCodeStepImage } from './InviteCodeStepImage';
+import { IntroStepLine } from '../IntroStepLine';
+import { InviteCodeStepImage } from '../InviteCodeStepImage';
 
-export function ReferAFriendHowToPhase() {
+import { JoinButton } from './JoinButton';
+
+import type { EPhaseState } from '../../types';
+
+interface IReferAFriendHowToPhaseProps {
+  setPhaseState: (state: EPhaseState | undefined) => void;
+}
+
+export function ReferAFriendHowToPhase({
+  setPhaseState,
+}: IReferAFriendHowToPhaseProps) {
   const intl = useIntl();
 
   return (
@@ -65,7 +75,7 @@ export function ReferAFriendHowToPhase() {
           })}
         />
       </YStack>
-      <YStack />
+      <JoinButton setPhaseState={setPhaseState} />
     </YStack>
   );
 }
