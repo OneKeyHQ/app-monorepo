@@ -1,12 +1,14 @@
 import { useCallback, useMemo, useState } from 'react';
 
 import { EExportTimeRange } from '@onekeyhq/shared/src/referralCode/type';
-import type { IHardwareSalesRecord } from '@onekeyhq/shared/src/referralCode/type';
 
-export interface IFilterState {
-  timeRange: EExportTimeRange;
+import type { IFilterState } from '../components/FilterButton';
+
+// Extend with reward type specific data
+export type IRewardFilterData<T> = T & {
+  createdAt?: string;
   inviteCode?: string;
-}
+};
 
 const getTimeRangeDays = (timeRange: EExportTimeRange): number | null => {
   switch (timeRange) {
@@ -20,7 +22,9 @@ const getTimeRangeDays = (timeRange: EExportTimeRange): number | null => {
   }
 };
 
-export const useHardwareSalesFilter = (data: IHardwareSalesRecord['items']) => {
+export const useRewardFilter = <T extends Record<string, any>>(
+  data: Array<IRewardFilterData<T>>,
+) => {
   const [filterState, setFilterState] = useState<IFilterState>({
     timeRange: EExportTimeRange.All,
     inviteCode: undefined,
@@ -35,17 +39,22 @@ export const useHardwareSalesFilter = (data: IHardwareSalesRecord['items']) => {
       const cutoffDate = new Date();
       cutoffDate.setDate(cutoffDate.getDate() - days);
       result = result.filter((item) => {
-        const itemDate = new Date(item.createdAt);
-        return itemDate >= cutoffDate;
+        if (item.createdAt) {
+          const itemDate = new Date(item.createdAt);
+          return itemDate >= cutoffDate;
+        }
+        return true; // Keep items without createdAt field
       });
     }
 
-    // Apply invite code filter if needed
-    // Note: Currently the IHardwareSalesRecordItem doesn't have inviteCode field
-    // This logic needs to be implemented when the field is available
-    if (filterState.inviteCode) {
-      // TODO: Filter by invite code when the field is available in the data structure
-      // result = result.filter(item => item.inviteCode === filterState.inviteCode);
+    // Apply invite code filter
+    if (filterState.inviteCode !== undefined) {
+      result = result.filter((item) => {
+        if ('inviteCode' in item) {
+          return item.inviteCode === filterState.inviteCode;
+        }
+        return true; // Keep items without inviteCode field
+      });
     }
 
     return result;

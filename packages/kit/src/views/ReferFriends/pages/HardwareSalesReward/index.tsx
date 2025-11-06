@@ -26,9 +26,8 @@ import type { IHardwareSalesRecord } from '@onekeyhq/shared/src/referralCode/typ
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import { formatDate, formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 
-import { ExportButton } from './components/ExportButton';
-import { FilterButton } from './components/FilterButton';
-import { useHardwareSalesFilter } from './hooks/useHardwareSalesFilter';
+import { ExportButton, FilterButton } from '../../components';
+import { useRewardFilter } from '../../hooks/useRewardFilter';
 
 type ISectionListItem = {
   title?: string;
@@ -88,7 +87,7 @@ export default function HardwareSalesReward() {
   // Use the filter hook with state data
   const [allData, setAllData] = useState<IHardwareSalesRecord['items']>([]);
   const { filterState, filteredData, updateFilter, exportParams } =
-    useHardwareSalesFilter(allData);
+    useRewardFilter(allData);
 
   const renderHeaderRight = useCallback(() => {
     return (

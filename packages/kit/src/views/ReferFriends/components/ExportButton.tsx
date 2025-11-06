@@ -9,7 +9,7 @@ import {
   EExportTimeRange,
 } from '@onekeyhq/shared/src/referralCode/type';
 
-import { useExportInviteData } from '../../../hooks/useExportInviteData';
+import { useExportInviteData } from '../hooks/useExportInviteData';
 
 interface IExportButtonProps {
   subject?: EExportSubject;

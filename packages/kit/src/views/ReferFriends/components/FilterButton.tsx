@@ -8,7 +8,10 @@ import { useInviteCodeList } from '@onekeyhq/kit/src/views/ReferFriends/pages/In
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EExportTimeRange } from '@onekeyhq/shared/src/referralCode/type';
 
-import type { IFilterState } from '../hooks/useHardwareSalesFilter';
+export interface IFilterState {
+  timeRange: EExportTimeRange;
+  inviteCode?: string;
+}
 
 interface IFilterButtonProps {
   filterState: IFilterState;

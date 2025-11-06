@@ -24,6 +24,7 @@ import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import { useSpotlight } from '@onekeyhq/kit/src/components/Spotlight';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EExportSubject } from '@onekeyhq/shared/src/referralCode/type';
 import type {
   IEarnRewardItem,
   IEarnRewardResponse,
@@ -34,6 +35,9 @@ import type {
 } from '@onekeyhq/shared/src/routes';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+
+import { ExportButton, FilterButton } from '../../components';
+import { useRewardFilter } from '../../hooks/useRewardFilter';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -267,6 +271,7 @@ export default function EarnReward() {
   const intl = useIntl();
 
   const [lists, setLists] = useState<(ISectionData[] | undefined)[]>([]);
+  const [allLists, setAllLists] = useState<(ISectionData[] | undefined)[]>([]);
   const [amount, setAmount] = useState<
     | {
         pending: string;
@@ -281,6 +286,76 @@ export default function EarnReward() {
   );
 
   const [vaultAmount, setVaultAmount] = useState<IVaultAmount | undefined>();
+
+  // Flatten the data for filtering
+  const flattenedData = useMemo(() => {
+    const result: Array<
+      IEarnRewardItem & { accountAddress: string; createdAt?: string }
+    > = [];
+    allLists.forEach((list) => {
+      if (list) {
+        list.forEach((section) => {
+          section.items.forEach((item) => {
+            result.push({
+              ...item,
+              accountAddress: section.accountAddress,
+              // Add createdAt if available (you might need to get this from the API)
+              createdAt: undefined,
+            });
+          });
+        });
+      }
+    });
+    return result;
+  }, [allLists]);
+
+  // Use the filter hook
+  const { filterState, filteredData, updateFilter, exportParams } =
+    useRewardFilter(flattenedData);
+
+  // Rebuild sections from filtered data
+  const filteredLists = useMemo(() => {
+    const groupedData = new Map<string, ISectionData>();
+
+    filteredData.forEach((item) => {
+      const key = item.accountAddress;
+      if (!groupedData.has(key)) {
+        groupedData.set(key, {
+          accountAddress: key,
+          fiatValue: '0',
+          items: [],
+        });
+      }
+      const section = groupedData.get(key)!;
+      section.items.push(item);
+      // Update fiatValue
+      section.fiatValue = BigNumber(section.fiatValue)
+        .plus(item.fiatValue || 0)
+        .toFixed(2);
+    });
+
+    return [[...groupedData.values()], undefined];
+  }, [filteredData]);
+
+  // Use filtered lists when filters are applied
+  const displayLists = useMemo(() => {
+    return filterState.timeRange !== 'all' || filterState.inviteCode
+      ? filteredLists
+      : lists;
+  }, [filterState, filteredLists, lists]);
+
+  const renderHeaderRight = useCallback(() => {
+    return (
+      <XStack gap="$2">
+        <FilterButton filterState={filterState} onFilterChange={updateFilter} />
+        <ExportButton
+          subject={EExportSubject.Onchain}
+          timeRange={exportParams.timeRange}
+          inviteCode={exportParams.inviteCode}
+        />
+      </XStack>
+    );
+  }, [filterState, updateFilter, exportParams]);
 
   const fetchSales = useCallback((cursor?: string) => {
     return backgroundApiProxy.serviceReferralCode.getEarnReward(cursor, true);
@@ -358,6 +433,7 @@ export default function EarnReward() {
     setVaultAmount(newVaultAmount);
     setAmount({ pending });
     setLists(listBundles);
+    setAllLists(listBundles); // Store for filtering
     setTimeout(() => {
       setIsLoading(false);
     }, 80);
@@ -397,7 +473,7 @@ export default function EarnReward() {
   }, [amount?.pending, intl, tourTimes, tourVisited]);
 
   const Content = useMemo(() => {
-    if ((lists[0]?.length || 0) + (lists[1]?.length || 0) === 0) {
+    if ((displayLists[0]?.length || 0) + (displayLists[1]?.length || 0) === 0) {
       return (
         <YStack>
           {ListHeaderComponent}
@@ -418,7 +494,7 @@ export default function EarnReward() {
           })}
         >
           <Tabs.ScrollView style={{ paddingBottom: 40 }}>
-            <List listData={lists[0] || []} vaultAmount={vaultAmount} />
+            <List listData={displayLists[0] || []} vaultAmount={vaultAmount} />
           </Tabs.ScrollView>
         </Tabs.Tab>
         <Tabs.Tab
@@ -427,16 +503,16 @@ export default function EarnReward() {
           })}
         >
           <Tabs.ScrollView style={{ paddingBottom: 40 }}>
-            <List listData={lists[1] || []} vaultAmount={vaultAmount} />
+            <List listData={displayLists[1] || []} vaultAmount={vaultAmount} />
           </Tabs.ScrollView>
         </Tabs.Tab>
       </Tabs.Container>
     );
-  }, [ListHeaderComponent, intl, lists, vaultAmount]);
+  }, [ListHeaderComponent, intl, displayLists, vaultAmount]);
 
   return (
     <Page>
-      <Page.Header title={title} />
+      <Page.Header title={title} headerRight={renderHeaderRight} />
       <Page.Body>
         {Content}
         {isLoading || !lists[0] || !lists[1] ? (
