@@ -233,7 +233,7 @@ function FinalizeWalletSetupPage({
           runOnJS(setCurrentStep)(nextStep);
           runOnJS(changeIdProgress)(false);
           if (nextStep === EFinalizeWalletSetupSteps.Ready) {
-            // runOnJS(handleWalletSetupReady)();
+            runOnJS(handleWalletSetupReady)();
           } else {
             runOnJS(processNextStep)();
           }
