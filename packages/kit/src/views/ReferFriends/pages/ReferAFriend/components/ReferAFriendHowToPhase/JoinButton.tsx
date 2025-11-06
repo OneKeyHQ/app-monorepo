@@ -17,7 +17,7 @@ export function JoinButton({ setPhaseState }: IJoinButtonProps) {
   const { toInviteRewardPage } = useReferFriends();
 
   return (
-    <XStack gap="$4" px="$5" pb="$5">
+    <XStack gap="$4" pb="$5">
       <Button
         size="large"
         variant="secondary"

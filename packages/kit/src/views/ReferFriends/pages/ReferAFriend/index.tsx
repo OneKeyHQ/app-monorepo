@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { AnimatePresence, Page, YStack } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
+import type { IInvitePostConfig } from '@onekeyhq/shared/src/referralCode/type';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -10,8 +11,6 @@ import { ReferAFriendHowToPhase } from './components/ReferAFriendHowToPhase';
 import { ReferAFriendIntroPhase } from './components/ReferAFriendIntroPhase';
 import { useReferAFriendData } from './hooks/useReferAFriendData';
 import { EPhaseState } from './types';
-
-import type { IInvitePostConfig } from '@onekeyhq/shared/src/referralCode/type';
 
 interface IReferAFriendPageProps {
   postConfig: IInvitePostConfig;

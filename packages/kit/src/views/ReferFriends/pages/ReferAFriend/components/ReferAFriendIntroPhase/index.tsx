@@ -1,16 +1,15 @@
 import { useIntl } from 'react-intl';
 
-import { Icon, SizableText, XStack, YStack } from '@onekeyhq/components';
-import { REFERRAL_HELP_LINK } from '@onekeyhq/shared/src/config/appConfig';
+import { SizableText, YStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import type { IInvitePostConfig } from '@onekeyhq/shared/src/referralCode/type';
 
 import { InviteCodeStepImage } from '../InviteCodeStepImage';
+import { ReferralBenefitsList } from '../ReferralBenefitsList';
 
 import { NextButton } from './NextButton';
 
 import type { EPhaseState } from '../../types';
-import type { IInvitePostConfig } from '@onekeyhq/shared/src/referralCode/type';
 
 interface IReferAFriendIntroPhaseProps {
   postConfig: IInvitePostConfig;
@@ -22,6 +21,39 @@ export function ReferAFriendIntroPhase({
   setPhaseState,
 }: IReferAFriendIntroPhaseProps) {
   const intl = useIntl();
+
+  const benefits = [
+    {
+      icon: 'DollarOutline' as const,
+      text: intl.formatMessage(
+        {
+          id: ETranslations.referral_intro_for_you_1,
+        },
+        {
+          RebateRate: (
+            <SizableText color="$textSuccess">
+              {`${postConfig.commissionRate.amount}${postConfig.commissionRate.unit}`}
+            </SizableText>
+          ),
+        },
+      ),
+    },
+    {
+      icon: 'GiftOutline' as const,
+      text: intl.formatMessage(
+        {
+          id: ETranslations.referral_intro_for_your_friend_1,
+        },
+        {
+          RebateAmount: (
+            <SizableText color="$textInfo">
+              {`${postConfig.friendDiscount.unit}${postConfig.friendDiscount.amount}`}
+            </SizableText>
+          ),
+        },
+      ),
+    },
+  ];
 
   return (
     <YStack
@@ -40,8 +72,8 @@ export function ReferAFriendIntroPhase({
         <InviteCodeStepImage step={1} />
       </YStack>
 
-      <SizableText size="$heading2xl">
-        {intl.formatMessage(
+      <ReferralBenefitsList
+        title={intl.formatMessage(
           {
             id: ETranslations.referral_intro_title,
           },
@@ -53,86 +85,9 @@ export function ReferAFriendIntroPhase({
             ),
           },
         )}
-      </SizableText>
-      <YStack gap="$5">
-        <XStack gap="$4">
-          <XStack h={42} w={42} p={9} borderRadius={13} bg="$bgSuccess">
-            <Icon name="PeopleOutline" color="$iconSuccess" size={20} />
-          </XStack>
-          <YStack flexShrink={1}>
-            <SizableText size="$headingMd">
-              {intl.formatMessage({
-                id: ETranslations.referral_intro_for_you,
-              })}
-            </SizableText>
-            <SizableText mt="$1" size="$bodyMd" color="$textSubdued">
-              {intl.formatMessage(
-                {
-                  id: ETranslations.referral_intro_for_you_1,
-                },
-                {
-                  RebateRate: (
-                    <SizableText size="$bodyMd" color="$textSuccess">
-                      {`${postConfig.commissionRate.amount}${postConfig.commissionRate.unit}`}
-                    </SizableText>
-                  ),
-                },
-              )}
-            </SizableText>
-            <SizableText mt="$1" size="$bodyMd" color="$textSubdued">
-              {intl.formatMessage({
-                id: ETranslations.referral_intro_for_you_2,
-              })}
-            </SizableText>
-          </YStack>
-        </XStack>
-        <XStack gap="$4">
-          <XStack h={42} w={42} p={9} borderRadius={13} bg="$bgInfo">
-            <Icon name="PeopleLikeOutline" color="$iconInfo" size={20} />
-          </XStack>
-          <YStack flexShrink={1}>
-            <SizableText size="$headingMd">
-              {intl.formatMessage({
-                id: ETranslations.referral_intro_for_your_friend,
-              })}
-            </SizableText>
-            <SizableText mt="$1" size="$bodyMd" color="$textSubdued">
-              {intl.formatMessage(
-                {
-                  id: ETranslations.referral_intro_for_your_friend_1,
-                },
-                {
-                  RebateAmount: (
-                    <SizableText size="$bodyMd" color="$textInfo">
-                      {`${postConfig.friendDiscount.unit}${postConfig.friendDiscount.amount}`}
-                    </SizableText>
-                  ),
-                },
-              )}
-            </SizableText>
-            <SizableText mt="$1" size="$bodyMd" color="$textSubdued">
-              {intl.formatMessage({
-                id: ETranslations.referral_intro_for_your_friend_2,
-              })}
-            </SizableText>
-
-            <SizableText
-              size="$bodyMd"
-              color="$textInfo"
-              pt="$2"
-              textDecorationLine="underline"
-              cursor="pointer"
-              onPress={() => {
-                openUrlExternal(REFERRAL_HELP_LINK);
-              }}
-            >
-              {intl.formatMessage({
-                id: ETranslations.referral_intro_learn_more,
-              })}
-            </SizableText>
-          </YStack>
-        </XStack>
-      </YStack>
+        subtitle=""
+        benefits={benefits}
+      />
 
       <YStack px="$5" pb="$5">
         <NextButton setPhaseState={setPhaseState} />
