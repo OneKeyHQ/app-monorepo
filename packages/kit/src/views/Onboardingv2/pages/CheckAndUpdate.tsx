@@ -40,9 +40,9 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import { useFirmwareUpdateActions } from '../../FirmwareUpdate/hooks/useFirmwareUpdateActions';
 import { OnboardingLayout } from '../components/OnboardingLayout';
+import { useDeviceConnect } from '../hooks/useDeviceConnect';
 
 import type { KnownDevice, SearchDevice } from '@onekeyfe/hd-core';
-import { useDeviceConnect } from '../hooks/useDeviceConnect';
 
 enum ECheckAndUpdateStepState {
   Idle = 'idle',
@@ -58,10 +58,37 @@ export default function CheckAndUpdate({
   IOnboardingParamListV2,
   EOnboardingPagesV2.CheckAndUpdate
 >) {
-  const { deviceData } = routeParams?.params || {};
+  const { deviceData, tabValue } = routeParams?.params || {};
   console.log('deviceData', deviceData);
   const themeVariant = useThemeVariant();
   const navigation = useAppNavigation();
+
+  const deviceScanner = useMemo(
+    () =>
+      deviceUtils.getDeviceScanner({
+        backgroundApi: backgroundApiProxy,
+      }),
+    [],
+  );
+
+  const ensureStopScan = useCallback(async () => {
+    // Force stop scanning and wait for any ongoing search to complete
+    console.log(
+      'ensureStopScan: Stopping device scan and waiting for completion',
+    );
+
+    try {
+      // Use the new stopScanAndWait method that properly waits for ongoing searches
+      await deviceScanner.stopScanAndWait();
+      console.log(
+        'ensureStopScan: Device scan stopped and all ongoing searches completed',
+      );
+    } catch (error) {
+      console.error('ensureStopScan: Error while stopping scan:', error);
+      // Fallback: just stop scan without waiting
+      deviceScanner.stopScan();
+    }
+  }, [deviceScanner]);
 
   const deviceLabel = useMemo(() => {
     if ((deviceData.device as KnownDevice)?.label) {
@@ -70,10 +97,8 @@ export default function CheckAndUpdate({
     return (deviceData.device as SearchDevice).name;
   }, [deviceData]);
 
-  const {
-    onDeviceConnect,
-    connectDevice,
-  } = useDeviceConnect();
+  const { onDeviceConnect, connectDevice, onSelectAddWalletType } =
+    useDeviceConnect();
 
   const [steps, setSteps] = useState<
     {
@@ -163,11 +188,21 @@ export default function CheckAndUpdate({
       };
       return newSteps;
     });
-    setTimeout(() => {
-      void navigation.push(EOnboardingPagesV2.FinalizeWalletSetup);
-      void deviceData.onCreateWallet();
+    setTimeout(async () => {
+      navigation.push(EOnboardingPagesV2.FinalizeWalletSetup);
+      await ensureStopScan();
+      await onSelectAddWalletType({
+        device: deviceData.device as SearchDevice,
+        isFirmwareVerified: true,
+      });
     }, 1200);
-  }, [connectDevice, deviceData, navigation]);
+  }, [
+    connectDevice,
+    deviceData.device,
+    ensureStopScan,
+    navigation,
+    onSelectAddWalletType,
+  ]);
 
   const checkFirmwareUpdate = useCallback(async () => {
     if (!deviceData.device?.connectId) {
@@ -251,8 +286,9 @@ export default function CheckAndUpdate({
       return newSteps;
     });
 
-    await deviceData.onFirmwareVerified();
-  }, [deviceData]);
+    await ensureStopScan();
+    await onDeviceConnect(deviceData.device as SearchDevice, tabValue);
+  }, [ensureStopScan, onDeviceConnect, deviceData.device, tabValue]);
 
   const handleRetry = useCallback(async () => {
     // Set first step to inProgress
