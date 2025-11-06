@@ -36,6 +36,7 @@ import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IStakeProtocolListItem } from '@onekeyhq/shared/types/staking';
 
+import { EarnText } from '../../../Staking/components/ProtocolDetails/EarnText';
 import { AprText } from '../../components/AprText';
 import { EarnPageContainer } from '../../components/EarnPageContainer';
 
@@ -228,10 +229,9 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
         label: 'Tvl',
         flex: 1,
         hideInMobile: true,
-        // TODO: render actual TVL
         render: (item) => (
           <SizableText mr="$2" size="$bodyLgMedium">
-            -
+            <EarnText size="$bodyLg" text={item?.tvl} />
           </SizableText>
         ),
       },

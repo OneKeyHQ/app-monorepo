@@ -1,3 +1,44 @@
+/**
+ * TableList Component
+ *
+ * A flexible table component with support for:
+ * - Responsive column hiding based on priority
+ * - Expandable rows with custom content
+ * - Sorting, actions, and custom rendering
+ *
+ * @example Priority-based responsive hiding
+ * ```tsx
+ * <TableList
+ *   data={items}
+ *   columns={[
+ *     { key: 'name', label: 'Name', priority: 5, render: ... },      // Always visible
+ *     { key: 'email', label: 'Email', priority: 3, render: ... },    // Hidden on mobile
+ *     { key: 'phone', label: 'Phone', priority: 2, render: ... },    // Hidden on mobile & small tablet
+ *     { key: 'address', label: 'Address', priority: 1, render: ... }, // Hidden on mobile & small tablet
+ *   ]}
+ * />
+ * ```
+ *
+ * Priority thresholds:
+ * - Mobile (<640px): priority >= 3
+ * - Small tablet (640px-768px): priority >= 2
+ * - Desktop (>=768px): all priorities visible
+ *
+ * @example Expandable rows
+ * ```tsx
+ * <TableList
+ *   data={items}
+ *   columns={columns}
+ *   expandable={{
+ *     renderExpandedContent: (item, index) => (
+ *       <YStack gap="$2">
+ *         <Text>Extra details for {item.name}</Text>
+ *       </YStack>
+ *     ),
+ *   }}
+ * />
+ * ```
+ */
 import { memo, useCallback, useMemo, useState } from 'react';
 import type { ComponentProps, ReactElement, ReactNode } from 'react';
 
@@ -36,6 +77,9 @@ export interface ITableColumn<T> {
   renderHeader?: () => ReactNode;
   // Responsive
   hideInMobile?: boolean;
+  // Priority for responsive hiding (higher number = higher priority, kept visible longer)
+  // When screen size decreases, columns with lower priority are hidden first
+  priority?: number;
 }
 
 export interface ITableListProps<T> {
@@ -86,12 +130,25 @@ export interface ITableListProps<T> {
   // Row styling
   rowGap?: string;
   enableDrillIn?: boolean;
+  listItemProps?: Omit<
+    ComponentProps<typeof ListItem>,
+    'children' | 'gap' | 'onPress'
+  >;
 
   // Actions column
   actions?: {
     render: (item: T, index: number) => ReactNode;
     width?: number | string; // Fixed width for actions column
     align?: 'flex-start' | 'center' | 'flex-end';
+  };
+
+  // Expandable rows
+  expandable?: {
+    // Render expanded content for a row
+    renderExpandedContent: (item: T, index: number) => ReactNode;
+    // Controlled expanded row index (only one row can be expanded at a time)
+    expandedRowIndex?: number;
+    onExpandedRowChange?: (index: number | undefined) => void;
   };
 }
 
@@ -128,6 +185,37 @@ function parseFlexShorthand(flex: string): {
   }
 
   return {};
+}
+
+/**
+ * Filter columns based on priority and media breakpoints
+ * Columns with lower priority are hidden first on smaller screens
+ */
+function getVisibleColumnsByPriority<T>(
+  columns: ITableColumn<T>[],
+  media: ReturnType<typeof useMedia>,
+): ITableColumn<T>[] {
+  // Define priority thresholds for different breakpoints
+  // gtMd (>= 768px): show all columns
+  // gtSm (>= 640px): hide priority 1, 2
+  // mobile (<640px): hide priority 1, 2, 3, 4
+
+  let minPriority = 0;
+
+  if (!media.gtSm) {
+    // Mobile: only show priority >= 5
+    minPriority = 5;
+  } else if (!media.gtMd) {
+    // Small tablet: only show priority >= 3
+    minPriority = 3;
+  }
+  // gtMd and above: show all columns (minPriority = 0)
+
+  return columns.filter((col) => {
+    // Always show columns without priority defined
+    if (col.priority === undefined) return true;
+    return col.priority >= minPriority;
+  });
 }
 
 /**
@@ -206,6 +294,8 @@ interface ITableListHeaderProps<T> {
   rowGap?: string;
   enableDrillIn?: boolean;
   actions?: ITableListProps<T>['actions'];
+  listItemProps?: ITableListProps<T>['listItemProps'];
+  expandable?: ITableListProps<T>['expandable'];
 }
 
 function TableListHeader<T>({
@@ -216,6 +306,8 @@ function TableListHeader<T>({
   rowGap,
   enableDrillIn,
   actions,
+  listItemProps,
+  expandable,
 }: ITableListHeaderProps<T>) {
   const handleSort = useCallback(
     (columnKey: string) => {
@@ -238,7 +330,8 @@ function TableListHeader<T>({
   );
 
   return (
-    <ListItem gap={rowGap ?? '$3'}>
+    <ListItem gap={rowGap ?? '$3'} {...listItemProps}>
+      {expandable ? <Stack width="$6" flexShrink={0} /> : null}
       {columns.map((column) => {
         let content: ReactNode = null;
         if (column.renderHeader) {
@@ -342,6 +435,10 @@ interface ITableListRowProps<T> {
   rowGap?: string;
   enableDrillIn?: boolean;
   actions?: ITableListProps<T>['actions'];
+  listItemProps?: ITableListProps<T>['listItemProps'];
+  expandable?: ITableListProps<T>['expandable'];
+  isExpanded?: boolean;
+  onToggleExpand?: () => void;
 }
 
 function TableListRow<T>({
@@ -352,37 +449,75 @@ function TableListRow<T>({
   rowGap,
   enableDrillIn,
   actions,
+  listItemProps,
+  expandable,
+  isExpanded,
+  onToggleExpand,
 }: ITableListRowProps<T>) {
+  const media = useMedia();
+
+  const handlePress = useCallback(() => {
+    if (expandable && onToggleExpand) {
+      onToggleExpand();
+    } else if (onPress) {
+      void onPress(item, index);
+    }
+  }, [expandable, onToggleExpand, onPress, item, index]);
+
   return (
-    <ListItem
-      gap={rowGap ?? '$3'}
-      userSelect="none"
-      onPress={onPress ? () => onPress(item, index) : undefined}
-    >
-      {columns.map((column) => (
-        <Stack key={column.key} {...getColumnFlexStyle(column)}>
-          {column.render(item, index)}
-        </Stack>
-      ))}
-      {actions ? (
-        <Stack
-          width={actions.width ?? 'auto'}
-          flexShrink={0}
-          ai={actions.align ?? 'flex-end'}
+    <YStack>
+      <ListItem
+        gap={rowGap ?? '$3'}
+        userSelect="none"
+        onPress={handlePress}
+        {...listItemProps}
+      >
+        {columns.map((column) => (
+          <Stack key={column.key} {...getColumnFlexStyle(column)}>
+            {column.render(item, index)}
+          </Stack>
+        ))}
+        {actions && media.gtSm ? (
+          <Stack
+            width={actions.width ?? 'auto'}
+            flexShrink={0}
+            ai={actions.align ?? 'flex-end'}
+          >
+            {actions.render(item, index)}
+          </Stack>
+        ) : null}
+        {enableDrillIn ? (
+          <Stack flexGrow={1} flexBasis={0} ai="flex-end">
+            <Icon
+              name="ChevronRightSmallOutline"
+              size="$5"
+              color="$iconSubdued"
+            />
+          </Stack>
+        ) : null}
+        {expandable ? (
+          <Stack width="$5" flexShrink={0} ai="center" jc="center">
+            <Icon
+              name="ChevronDownSmallOutline"
+              size="small"
+              color="$iconSubdued"
+              rotation={isExpanded ? 0 : -90}
+            />
+          </Stack>
+        ) : null}
+      </ListItem>
+      {expandable && isExpanded && expandable.renderExpandedContent ? (
+        <YStack
+          px="$5"
+          py="$4"
+          bg="$bgSubdued"
+          borderBottomLeftRadius="$3"
+          borderBottomRightRadius="$3"
         >
-          {actions.render(item, index)}
-        </Stack>
+          {expandable.renderExpandedContent(item, index)}
+        </YStack>
       ) : null}
-      {enableDrillIn ? (
-        <Stack flexGrow={1} flexBasis={0} ai="flex-end">
-          <Icon
-            name="ChevronRightSmallOutline"
-            size="$5"
-            color="$iconSubdued"
-          />
-        </Stack>
-      ) : null}
-    </ListItem>
+    </YStack>
   );
 }
 
@@ -411,8 +546,19 @@ function BasicTableList<T>({
   rowGap,
   enableDrillIn,
   actions,
+  listItemProps,
+  expandable,
 }: ITableListProps<T>) {
   const media = useMedia();
+
+  // Expanded row state (internal, uncontrolled)
+  const [internalExpandedIndex, setInternalExpandedIndex] = useState<
+    number | undefined
+  >(undefined);
+
+  // Use external state if provided, otherwise use internal state
+  const expandedRowIndex =
+    expandable?.expandedRowIndex ?? internalExpandedIndex;
 
   // Internal sorting state (only used when sortKey/sortDirection not provided)
   const [internalSortKey, setInternalSortKey] = useState<string | undefined>(
@@ -445,11 +591,20 @@ function BasicTableList<T>({
     [tableLayoutProp, media.gtSm],
   );
 
-  // Filter columns for mobile
-  const visibleColumns = useMemo(
-    () => (tableLayout ? columns : columns.filter((col) => !col.hideInMobile)),
-    [tableLayout, columns],
-  );
+  // Filter columns based on priority and mobile setting
+  const visibleColumns = useMemo(() => {
+    let filtered = columns;
+
+    // First apply hideInMobile filter for non-table layouts
+    if (!tableLayout) {
+      filtered = filtered.filter((col) => !col.hideInMobile);
+    }
+
+    // Then apply priority-based filtering
+    filtered = getVisibleColumnsByPriority(filtered, media);
+
+    return filtered;
+  }, [tableLayout, columns, media]);
 
   // Sort data based on current sort key and direction
   const sortedData = useMemo(() => {
@@ -481,6 +636,8 @@ function BasicTableList<T>({
           rowGap={rowGap}
           enableDrillIn={enableDrillIn}
           actions={actions}
+          listItemProps={listItemProps}
+          expandable={expandable}
         />
       );
     }
@@ -488,7 +645,6 @@ function BasicTableList<T>({
   }, [
     ListHeaderComponent,
     withHeader,
-    tableLayout,
     visibleColumns,
     sortKey,
     sortDirection,
@@ -496,7 +652,24 @@ function BasicTableList<T>({
     rowGap,
     enableDrillIn,
     actions,
+    listItemProps,
+    expandable,
   ]);
+
+  // Handle expand/collapse toggle
+  const handleToggleExpand = useCallback(
+    (index: number) => {
+      const newExpandedIndex =
+        expandedRowIndex === index ? undefined : index;
+
+      if (expandable?.onExpandedRowChange) {
+        expandable.onExpandedRowChange(newExpandedIndex);
+      } else {
+        setInternalExpandedIndex(newExpandedIndex);
+      }
+    },
+    [expandedRowIndex, expandable],
+  );
 
   // Render item function
   const renderItem = useCallback(
@@ -516,6 +689,10 @@ function BasicTableList<T>({
           rowGap={rowGap}
           enableDrillIn={enableDrillIn}
           actions={actions}
+          listItemProps={listItemProps}
+          expandable={expandable}
+          isExpanded={expandedRowIndex === index}
+          onToggleExpand={() => handleToggleExpand(index)}
         />
       );
     },
@@ -527,6 +704,10 @@ function BasicTableList<T>({
       rowGap,
       enableDrillIn,
       actions,
+      listItemProps,
+      expandable,
+      expandedRowIndex,
+      handleToggleExpand,
     ],
   );
 

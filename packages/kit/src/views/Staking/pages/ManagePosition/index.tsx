@@ -2,7 +2,14 @@ import { useCallback, useMemo, useState } from 'react';
 
 import { useSharedValue } from 'react-native-reanimated';
 
-import { Page, SizableText, Tabs, XStack } from '@onekeyhq/components';
+import {
+  Page,
+  SizableText,
+  Skeleton,
+  Tabs,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
@@ -27,6 +34,53 @@ import { HeaderRight } from './components/HeaderRight';
 import { StakeSection } from './components/StakeSection';
 import { WithdrawSection } from './components/WithdrawSection';
 import { useProtocolDetails } from './hooks/useProtocolDetails';
+
+// Skeleton component for loading state
+const ManagePositionSkeleton = () => (
+  <YStack px="$5" pt="$4" gap="$6">
+    {/* Tabs skeleton */}
+    <XStack gap="$2">
+      <Skeleton w="$20" h="$9" borderRadius="$2" />
+      <Skeleton w="$20" h="$9" borderRadius="$2" />
+    </XStack>
+
+    {/* Input section skeleton */}
+    <YStack gap="$4">
+      <YStack gap="$3" p="$4" bg="$bgSubdued" borderRadius="$3">
+        <XStack jc="space-between" ai="center">
+          <Skeleton.BodyMd w="$20" />
+          <Skeleton.BodySm w="$24" />
+        </XStack>
+        <XStack jc="space-between" ai="center">
+          <Skeleton w="$32" h="$12" />
+          <XStack gap="$2" ai="center">
+            <Skeleton w="$10" h="$10" borderRadius="$full" />
+            <Skeleton.BodyLg w="$16" />
+          </XStack>
+        </XStack>
+      </YStack>
+
+      {/* Info cards skeleton */}
+      <YStack gap="$3">
+        <XStack jc="space-between" ai="center">
+          <Skeleton.BodyMd w="$24" />
+          <Skeleton.BodyMd w="$20" />
+        </XStack>
+        <XStack jc="space-between" ai="center">
+          <Skeleton.BodyMd w="$28" />
+          <Skeleton.BodyMd w="$16" />
+        </XStack>
+        <XStack jc="space-between" ai="center">
+          <Skeleton.BodyMd w="$20" />
+          <Skeleton.BodyMd w="$24" />
+        </XStack>
+      </YStack>
+
+      {/* Button skeleton */}
+      <Skeleton w="100%" h="$11" borderRadius="$3" />
+    </YStack>
+  </YStack>
+);
 
 const ManagePositionPage = () => {
   const route = useAppRoute<
@@ -181,58 +235,63 @@ const ManagePositionPage = () => {
     [focusedTab, tabData],
   );
 
-  if (!tokenInfo || isLoading) {
-    return null;
-  }
-
   return (
     <Page scrollEnabled>
       <Page.Header title={symbol} />
       <Page.Body>
-        <XStack jc="space-between" px="$5">
-          <Tabs.TabBar
-            divider={false}
-            onTabPress={handleTabChange}
-            tabNames={TabNames}
-            focusedTab={focusedTab}
-            renderItem={({ name, isFocused, onPress }) => (
-              <XStack
-                px="$2"
-                py="$1.5"
-                mr="$1"
-                bg={isFocused ? '$bgActive' : '$bg'}
-                borderRadius="$2"
-                borderCurve="continuous"
-                onPress={() => onPress(name)}
-              >
-                <SizableText
-                  size="$bodyMdMedium"
-                  color={isFocused ? '$text' : '$textSubdued'}
-                  letterSpacing={-0.15}
-                >
-                  {name}
-                </SizableText>
-              </XStack>
-            )}
-          />
-          <HeaderRight historyAction={historyAction} onHistory={onHistory} />
-        </XStack>
-        {selectedTabIndex === 0 ? (
-          <StakeSection
-            accountId={earnAccount?.account?.id || ''}
-            networkId={networkId}
-            tokenInfo={tokenInfo}
-            protocolInfo={protocolInfo}
-          />
-        ) : null}
-        {selectedTabIndex === 1 ? (
-          <WithdrawSection
-            accountId={earnAccount?.account?.id || ''}
-            networkId={networkId}
-            tokenInfo={tokenInfo}
-            protocolInfo={protocolInfo}
-          />
-        ) : null}
+        {!tokenInfo || isLoading ? (
+          <ManagePositionSkeleton />
+        ) : (
+          <>
+            <XStack jc="space-between" px="$5">
+              <Tabs.TabBar
+                divider={false}
+                onTabPress={handleTabChange}
+                tabNames={TabNames}
+                focusedTab={focusedTab}
+                renderItem={({ name, isFocused, onPress }) => (
+                  <XStack
+                    px="$2"
+                    py="$1.5"
+                    mr="$1"
+                    bg={isFocused ? '$bgActive' : '$bg'}
+                    borderRadius="$2"
+                    borderCurve="continuous"
+                    onPress={() => onPress(name)}
+                  >
+                    <SizableText
+                      size="$bodyMdMedium"
+                      color={isFocused ? '$text' : '$textSubdued'}
+                      letterSpacing={-0.15}
+                    >
+                      {name}
+                    </SizableText>
+                  </XStack>
+                )}
+              />
+              <HeaderRight
+                historyAction={historyAction}
+                onHistory={onHistory}
+              />
+            </XStack>
+            {selectedTabIndex === 0 ? (
+              <StakeSection
+                accountId={earnAccount?.account?.id || ''}
+                networkId={networkId}
+                tokenInfo={tokenInfo}
+                protocolInfo={protocolInfo}
+              />
+            ) : null}
+            {selectedTabIndex === 1 ? (
+              <WithdrawSection
+                accountId={earnAccount?.account?.id || ''}
+                networkId={networkId}
+                tokenInfo={tokenInfo}
+                protocolInfo={protocolInfo}
+              />
+            ) : null}
+          </>
+        )}
       </Page.Body>
     </Page>
   );

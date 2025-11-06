@@ -52,10 +52,12 @@ const calculateTotalFiatValue = (
     new BigNumber(0),
   );
 
-const filterByOptions = (
-  list: Array<{ provider: string; networkId: string; symbol: string }>,
+const filterByOptions = <
+  T extends { provider: string; networkId: string; symbol: string },
+>(
+  list: Array<T>,
   options?: IRefreshOptions,
-) => {
+): T[] => {
   if (!options) return list;
 
   return list.filter((item) => {
@@ -66,33 +68,14 @@ const filterByOptions = (
   });
 };
 
-const deduplicateByKey = <T extends Record<string, any>>(
-  items: T[],
-  keyFn: (item: T) => string,
-): T[] => {
-  const map = items.reduce((acc, item) => {
-    const key = keyFn(item);
-    if (!acc.has(key)) {
-      acc.set(key, item);
-    }
-    return acc;
-  }, new Map<string, T>());
-
-  return Array.from(map.values());
-};
-
-const enrichAssetWithRequestParams = (
+const enrichAssetWithMetadata = (
   asset: IEarnInvestmentItemV2['assets'][number],
-  protocol: IEarnPortfolioInvestment['protocol'],
-  networkId: string,
+  investment: IEarnInvestmentItemV2,
 ): IEarnPortfolioInvestment['assets'][number] => ({
   ...asset,
-  requestParams: {
-    provider: protocol.providerDetail.code,
-    symbol: asset.token.info.symbol,
-    vault: protocol.vault,
-    vaultName: protocol.vaultName,
-    networkId,
+  metadata: {
+    protocol: investment.protocol,
+    network: investment.network,
   },
 });
 
@@ -106,6 +89,7 @@ const mergeInvestments = (
   return {
     ...existing,
     assets: [...existing.assets, ...incoming.assets],
+    airdropAssets: [...existing.airdropAssets, ...incoming.airdropAssets],
     totalFiatValue: existingTotal.plus(incomingTotal).toFixed(),
   };
 };
@@ -149,15 +133,18 @@ const useInvestmentState = () => {
     setInvestments(sorted);
     setEarnTotalFiatValue(calculateTotalFiatValue(sorted));
     investmentMapRef.current = new Map(
-      validInvestments.map((inv) => [
-        createInvestmentKey({
-          provider: inv.protocol.providerDetail.code,
-          symbol: inv.assets[0]?.token.info.symbol || '',
-          vault: inv.protocol.vault,
-          networkId: inv.network.networkId,
-        }),
-        inv,
-      ]),
+      validInvestments.map((inv) => {
+        const firstAsset = inv.assets[0] || inv.airdropAssets[0];
+        return [
+          createInvestmentKey({
+            provider: inv.protocol.providerDetail.code,
+            symbol: firstAsset?.token.info.symbol || '',
+            vault: inv.protocol.vault,
+            networkId: inv.network.networkId,
+          }),
+          inv,
+        ];
+      }),
     );
   }, []);
 
@@ -223,7 +210,6 @@ export const useEarnPortfolio = () => {
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { account, indexedAccount } = activeAccount;
   const allNetworkId = useAllNetworkId();
-  const [earnings24h] = useState<BigNumber>(new BigNumber(0));
   const [isLoading, setIsLoading] = useState(true);
 
   const {
@@ -250,10 +236,26 @@ export const useEarnPortfolio = () => {
   }, [hasAccountChanged, markAccountChange, clearInvestments]);
 
   const fetchInvestmentDetail = useCallback(
-    async (item: any, requestId: number) => {
+    async (
+      item: {
+        accountAddress: string;
+        networkId: string;
+        provider: string;
+        symbol: string;
+        vault?: string;
+        publicKey?: string;
+      },
+      isAirdrop: boolean,
+      requestId: number,
+    ) => {
       try {
-        const result =
-          await backgroundApiProxy.serviceStaking.fetchInvestmentDetailV2(item);
+        const result = isAirdrop
+          ? await backgroundApiProxy.serviceStaking.fetchAirdropInvestmentDetail(
+              item,
+            )
+          : await backgroundApiProxy.serviceStaking.fetchInvestmentDetailV2(
+              item,
+            );
 
         if (
           isRequestStale(requestId) ||
@@ -270,16 +272,13 @@ export const useEarnPortfolio = () => {
         });
 
         const enrichedAssets = result.assets.map((asset) =>
-          enrichAssetWithRequestParams(
-            asset,
-            result.protocol,
-            result.network.networkId,
-          ),
+          enrichAssetWithMetadata(asset, result),
         );
 
         const investment: IEarnPortfolioInvestment = {
           ...result,
-          assets: enrichedAssets,
+          assets: isAirdrop ? [] : enrichedAssets,
+          airdropAssets: isAirdrop ? enrichedAssets : [],
         };
 
         return { key, investment };
@@ -313,27 +312,44 @@ export const useEarnPortfolio = () => {
         assets
           .filter((asset) => asset.networkId === accountItem.networkId)
           .map((asset) => ({
-            accountAddress: accountItem.accountAddress,
-            networkId: accountItem.networkId,
-            provider: asset.provider,
-            symbol: asset.symbol,
-            ...(asset.vault && { vault: asset.vault }),
-            ...(accountItem.publicKey && { publicKey: accountItem.publicKey }),
+            isAirdrop: asset.type === 'airdrop',
+            params: {
+              accountAddress: accountItem.accountAddress,
+              networkId: accountItem.networkId,
+              provider: asset.provider,
+              symbol: asset.symbol,
+              ...(asset.vault && { vault: asset.vault }),
+              ...(accountItem.publicKey && {
+                publicKey: accountItem.publicKey,
+              }),
+            },
           })),
       );
 
-      const filteredPairs = filterByOptions(accountAssetPairs, options);
-      const uniquePairs = deduplicateByKey(filteredPairs, createInvestmentKey);
+      // Filter pairs directly
+      const pairsWithType = options
+        ? accountAssetPairs.filter((pair) => {
+            const { params } = pair;
+            if (options.provider && params.provider !== options.provider)
+              return false;
+            if (options.networkId && params.networkId !== options.networkId)
+              return false;
+            if (options.symbol && params.symbol !== options.symbol)
+              return false;
+            return true;
+          })
+        : accountAssetPairs;
 
       // Track which keys we fetched in this round
       const fetchedKeys = new Set<IInvestmentKey>();
       // Collect new data in this refresh batch
       const batchMap = new Map<IInvestmentKey, IEarnPortfolioInvestment>();
 
-      const fetchPromises = uniquePairs.map(async (pair) => {
-        const key = createInvestmentKey(pair);
+      // Create fetch promises based on type
+      const fetchPromises = pairsWithType.map(({ params, isAirdrop }) => {
+        const key = createInvestmentKey(params);
         fetchedKeys.add(key);
-        return fetchInvestmentDetail(pair, requestId);
+        return fetchInvestmentDetail(params, isAirdrop, requestId);
       });
 
       // Process results incrementally
@@ -343,13 +359,22 @@ export const useEarnPortfolio = () => {
         if (!result || isRequestStale(requestId)) return;
 
         const { key, investment } = result;
-        const existingInBatch = batchMap.get(key);
 
-        if (existingInBatch) {
-          // Merge if same key appears multiple times in this batch (normal + airdrop)
-          batchMap.set(key, mergeInvestments(existingInBatch, investment));
+        // Merge with existing data for the same key
+        const existing = batchMap.get(key);
+        if (existing) {
+          batchMap.set(key, {
+            ...existing,
+            assets: [...existing.assets, ...investment.assets],
+            airdropAssets: [
+              ...existing.airdropAssets,
+              ...investment.airdropAssets,
+            ],
+            totalFiatValue: new BigNumber(existing.totalFiatValue || '0')
+              .plus(new BigNumber(investment.totalFiatValue || '0'))
+              .toFixed(),
+          });
         } else {
-          // Add new data to batch
           batchMap.set(key, investment);
         }
 
@@ -429,7 +454,6 @@ export const useEarnPortfolio = () => {
 
   return {
     investments: aggregatedInvestments,
-    earnings24h,
     earnTotalFiatValue,
     isLoading,
     refresh,

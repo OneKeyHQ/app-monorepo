@@ -898,6 +898,7 @@ export type IStakeProtocolListItem = {
   };
   isEarning: boolean;
   aprInfo?: IEarnAvailableAssetAprInfo;
+  tvl?: IEarnText;
 };
 
 export type IRewardApys = {
@@ -1148,18 +1149,16 @@ export interface IEarnInvestmentItemV2 {
 }
 
 export type IEarnPortfolioAsset = IEarnInvestmentItemV2['assets'][number] & {
-  // Request parameters for refreshing this specific asset
-  requestParams: {
-    provider: string;
-    symbol: string;
-    vault?: string;
-    vaultName?: string;
-    networkId: string;
+  // Metadata containing protocol and network information for this asset
+  metadata: {
+    protocol: IEarnInvestmentItemV2['protocol'];
+    network: IEarnInvestmentItemV2['network'];
   };
 };
 
 export type IEarnPortfolioInvestment = Omit<IEarnInvestmentItemV2, 'assets'> & {
-  assets: IEarnPortfolioAsset[];
+  assets: IEarnPortfolioAsset[]; // Only normal type assets
+  airdropAssets: IEarnPortfolioAsset[]; // Only airdrop type assets
 };
 
 export interface IEarnFAQListItem {

@@ -12,6 +12,7 @@ import {
   Stack,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
 import type { ITableColumn } from '@onekeyhq/kit/src/components/ListView/TableList';
 import { TableList } from '@onekeyhq/kit/src/components/ListView/TableList';
@@ -24,6 +25,9 @@ import type { ISupportedSymbol } from '@onekeyhq/shared/types/earn';
 import type {
   IEarnPortfolioInvestment,
   IEarnText,
+  IEarnToken,
+  IEarnTokenInfo,
+  IProtocolInfo,
 } from '@onekeyhq/shared/types/staking';
 
 import { useCurrency } from '../../../components/Currency';
@@ -34,12 +38,52 @@ import { EarnTooltip } from '../../Staking/components/ProtocolDetails/EarnToolti
 import { useProtocolDetails } from '../../Staking/pages/ManagePosition/hooks/useProtocolDetails';
 import { useEarnPortfolio } from '../hooks/useEarnPortfolio';
 
+const WrappedActionButton = ({
+  button,
+  protocolInfo,
+  tokenInfo,
+  token,
+  text,
+}: {
+  button: IEarnPortfolioInvestment['assets'][number]['rewardAssets'][number]['button'];
+  protocolInfo?: IProtocolInfo;
+  tokenInfo?: IEarnTokenInfo;
+  token?: {
+    info: IEarnToken;
+    price: string;
+  };
+  text: IEarnText;
+}) => {
+  return (
+    <EarnActionIcon
+      actionIcon={button}
+      protocolInfo={protocolInfo}
+      tokenInfo={tokenInfo}
+      token={token?.info}
+      // eslint-disable-next-line react/no-unstable-nested-components
+      trigger={({ onPress, loading, disabled }) => {
+        return (
+          <Button
+            p="0"
+            variant="link"
+            size="small"
+            onPress={onPress}
+            cursor={disabled ? 'not-allowed' : 'pointer'}
+            loading={loading}
+            disabled={disabled}
+          >
+            {text.text}
+          </Button>
+        );
+      }}
+    />
+  );
+};
+
 const DepositField = ({
   asset,
-  portfolio,
 }: {
   asset: IEarnPortfolioInvestment['assets'][number];
-  portfolio: IEarnPortfolioInvestment;
 }) => {
   return (
     <XStack>
@@ -47,7 +91,7 @@ const DepositField = ({
         size="md"
         borderRadius="$2"
         tokenImageUri={asset.token.info.logoURI}
-        networkImageUri={portfolio.network.logoURI}
+        networkImageUri={asset.metadata.network.logoURI}
       />
       <YStack ml="$3" mr="$2" jc="center">
         <XStack gap="$1">
@@ -59,9 +103,9 @@ const DepositField = ({
             text={asset.deposit?.description}
           />
         </XStack>
-        {asset.requestParams.vaultName ? (
+        {asset.metadata.protocol.vaultName ? (
           <SizableText mt="$0.5" size="$bodySmMedium" color="$textSubdued">
-            {asset.requestParams.vaultName}
+            {asset.metadata.protocol.vaultName}
           </SizableText>
         ) : null}
       </YStack>
@@ -106,15 +150,16 @@ const ActionField = ({
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { account, indexedAccount } = activeAccount;
 
-  const { isLoading, tokenInfo, earnAccount, protocolInfo, detailInfo } =
-    useProtocolDetails({
+  const { isLoading, tokenInfo, protocolInfo, detailInfo } = useProtocolDetails(
+    {
       accountId: account?.id || '',
-      networkId: asset.requestParams.networkId,
+      networkId: asset.metadata.network.networkId,
       indexedAccountId: indexedAccount?.id,
       symbol: asset.token.info.symbol as ISupportedSymbol,
-      provider: asset.requestParams.provider,
-      vault: asset.requestParams.vault,
-    });
+      provider: asset.metadata.protocol.providerDetail.code,
+      vault: asset.metadata.protocol.vault,
+    },
+  );
 
   return (
     <YStack gap="$1">
@@ -130,28 +175,15 @@ const ActionField = ({
             color="$textSubdued"
             text={reward.description}
           />
-          <EarnActionIcon
-            actionIcon={reward.button}
-            protocolInfo={protocolInfo}
-            tokenInfo={tokenInfo}
-            token={detailInfo?.subscriptionValue?.token.info}
-            // eslint-disable-next-line react/no-unstable-nested-components
-            trigger={({ onPress, loading, disabled }) => {
-              return (
-                <Button
-                  p="0"
-                  variant="link"
-                  size="small"
-                  onPress={onPress}
-                  cursor="pointer"
-                  loading={loading}
-                  disabled={disabled}
-                >
-                  {(reward.button.text as IEarnText).text}
-                </Button>
-              );
-            }}
-          />
+          {!isLoading ? (
+            <WrappedActionButton
+              button={reward.button}
+              protocolInfo={protocolInfo}
+              tokenInfo={tokenInfo}
+              token={detailInfo?.subscriptionValue?.token}
+              text={reward.button.text as IEarnText}
+            />
+          ) : null}
         </XStack>
       ))}
     </YStack>
@@ -163,6 +195,8 @@ const PortfolioItemComponent = ({
 }: {
   portfolioItem: IEarnPortfolioInvestment;
 }) => {
+  const media = useMedia();
+
   const columns: ITableColumn<IEarnPortfolioInvestment['assets'][number]>[] =
     useMemo(() => {
       return [
@@ -170,15 +204,14 @@ const PortfolioItemComponent = ({
           key: 'deposits',
           label: 'Deposits',
           flex: 1.5,
-          render: (asset) => (
-            <DepositField asset={asset} portfolio={portfolioItem} />
-          ),
+          priority: 5, // Always visible (mobile, tablet, desktop)
+          render: (asset) => <DepositField asset={asset} />,
         },
         {
           key: 'Est. 24h earnings',
           label: 'Est. 24h earnings',
           flex: 1,
-          hideInMobile: true,
+          priority: 2, // Visible on desktop only
           render: (asset) => (
             <EarnText
               flex={1}
@@ -191,23 +224,24 @@ const PortfolioItemComponent = ({
           key: 'Asset status',
           label: 'Asset status',
           flex: 1.5,
-          hideInMobile: true,
+          priority: 1, // Visible on desktop only
           render: (asset) => <AssetStatusField asset={asset} />,
         },
         {
           key: 'Claimable',
           label: 'Claimable',
           flex: 1.5,
+          priority: 3, // Visible on tablet and desktop
           render: (asset) => <ActionField asset={asset} />,
         },
       ];
-    }, [portfolioItem]);
+    }, []);
 
   const currencyInfo = useCurrency();
 
   const protocolHeader = useMemo(() => {
     return (
-      <YStack>
+      <YStack mb="$3">
         <XStack ai="center" gap="$1.5">
           <Token
             size="xs"
@@ -256,10 +290,10 @@ const PortfolioItemComponent = ({
           params: {
             indexedAccountId: indexedAccount?.id,
             accountId: account?.id,
-            networkId: asset.requestParams.networkId,
+            networkId: asset.metadata.network.networkId,
             symbol,
-            provider: asset.requestParams.provider,
-            vault: asset.requestParams.vault,
+            provider: asset.metadata.protocol.providerDetail.code,
+            vault: asset.metadata.protocol.vault,
           },
         });
 
@@ -268,10 +302,10 @@ const PortfolioItemComponent = ({
       appNavigation.pushModal(EModalRoutes.StakingModal, {
         screen: EModalStakingRoutes.ManagePosition,
         params: {
-          networkId: asset.requestParams.networkId,
+          networkId: asset.metadata.network.networkId,
           symbol,
-          provider: asset.requestParams.provider,
-          vault: asset.requestParams.vault,
+          provider: asset.metadata.protocol.providerDetail.code,
+          vault: asset.metadata.protocol.vault,
         },
       });
     },
@@ -282,12 +316,53 @@ const PortfolioItemComponent = ({
     <YStack>
       {protocolHeader}
       <TableList<IEarnPortfolioInvestment['assets'][number]>
-        data={portfolioItem.assets.filter((asset) => asset.type === 'normal')}
+        data={portfolioItem.assets}
         columns={columns}
         withHeader
         tableLayout
         defaultSortKey="deposits"
         defaultSortDirection="desc"
+        listItemProps={{
+          px: '0',
+          mx: '0',
+          ai: 'flex-start',
+        }}
+        expandable={
+          !media.gtSm
+            ? {
+                renderExpandedContent: (asset) => (
+                  <YStack gap="$4">
+                    {/* Est. 24h earnings */}
+                    <YStack gap="$2">
+                      <SizableText size="$bodyMd" color="$textSubdued">
+                        Est. 24h earnings
+                      </SizableText>
+                      <EarnText
+                        size="$bodyLgMedium"
+                        text={asset.earnings24h?.title}
+                      />
+                    </YStack>
+
+                    {/* Asset status */}
+                    <YStack gap="$2">
+                      <SizableText size="$bodyMd" color="$textSubdued">
+                        Asset status
+                      </SizableText>
+                      <AssetStatusField asset={asset} />
+                    </YStack>
+
+                    {/* Claimable */}
+                    <YStack gap="$2">
+                      <SizableText size="$bodyMd" color="$textSubdued">
+                        Claimable
+                      </SizableText>
+                      <ActionField asset={asset} />
+                    </YStack>
+                  </YStack>
+                ),
+              }
+            : undefined
+        }
         actions={{
           render: (asset) => {
             return (

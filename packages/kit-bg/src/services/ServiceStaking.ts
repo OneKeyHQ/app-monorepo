@@ -118,6 +118,7 @@ interface IAvailableAssetsResponseV2 {
   message?: string;
   data: {
     assets: {
+      type: 'normal' | 'airdrop';
       networkId: string;
       provider: string;
       symbol: string;
@@ -1055,6 +1056,25 @@ class ServiceStaking extends ServiceBase {
 
     const response = await client.get<{ data: IEarnInvestmentItemV2 }>(
       `/earn/v2/investment/detail`,
+      { params },
+    );
+
+    return response.data.data;
+  }
+
+  @backgroundMethod()
+  async fetchAirdropInvestmentDetail(params: {
+    publicKey?: string | undefined;
+    vault?: string | undefined;
+    accountAddress: string;
+    networkId: string;
+    provider: string;
+    symbol: string;
+  }) {
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+
+    const response = await client.get<{ data: IEarnInvestmentItemV2 }>(
+      `/earn/v1/investment/airdrop-detail`,
       { params },
     );
 
