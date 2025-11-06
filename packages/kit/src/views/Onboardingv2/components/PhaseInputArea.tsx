@@ -504,7 +504,7 @@ export function PhaseInputArea({
     const { mnemonicType } = await serviceAccount.validateMnemonic(
       mnemonicEncoded,
     );
-    const result = { mnemonic: mnemonicEncoded, mnemonicType }; 
+    const result = { mnemonic: mnemonicEncoded, mnemonicType };
     onConfirm?.(result);
     return result;
   }, [form, onConfirm, serviceAccount, servicePassword]);
