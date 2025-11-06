@@ -910,7 +910,10 @@ function DepositWithdrawContent({
     );
   }, [intl, selectedAction]);
 
-  const { handlePerpDepositTxSuccess } = usePerpDepositOrder();
+  const { handlePerpDepositTxSuccess } = usePerpDepositOrder({
+    accountId: selectedAccount.accountId,
+    indexedAccountId: selectedAccount.indexedAccountId,
+  });
 
   const handleConfirm = useCallback(async () => {
     if (!isValidAmount || !selectedAccount.accountAddress) return;
