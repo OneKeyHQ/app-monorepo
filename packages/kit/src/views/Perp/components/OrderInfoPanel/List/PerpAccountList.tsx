@@ -35,7 +35,6 @@ function PerpAccountList({
     accountId: currentUser?.accountId,
     indexedAccountId: currentUser?.indexedAccountId,
   });
-  console.log('perp__DepositOrder', perpDepositOrder);
   useEffect(() => {
     noop(currentUser?.accountAddress);
     setCurrentListPage(1);

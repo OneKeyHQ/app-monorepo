@@ -65,53 +65,7 @@ export const usePerpDepositOrder = ({
   accountId?: string | null;
   indexedAccountId?: string | null;
 }) => {
-  const [perpDepositOrder, setPerpDepositOrder] = usePerpsDepositOrderAtom();
-  const intl = useIntl();
-  const handlePerpDepositTxSuccess = useCallback(
-    ({
-      fromAmount,
-      amount,
-      token,
-      fromTxId,
-      isArbUSDCOrder,
-    }: {
-      fromAmount: string;
-      amount: string;
-      token: IPerpsDepositToken;
-      fromTxId: string;
-      isArbUSDCOrder: boolean;
-    }) => {
-      Toast.success({
-        title: intl.formatMessage({
-          id: ETranslations.feedback_transaction_submitted,
-        }),
-        message: intl.formatMessage(
-          {
-            id: ETranslations.perp_toast_deposit_success_msg,
-          },
-          {
-            fromAmount,
-            token: token?.symbol,
-          },
-        ),
-      });
-      const time = Date.now();
-      setPerpDepositOrder((prev) => [
-        ...prev,
-        {
-          isArbUSDCOrder,
-          fromTxId,
-          amount,
-          token,
-          status: ESwapTxHistoryStatus.PENDING,
-          time,
-          accountId,
-          indexedAccountId,
-        },
-      ]);
-    },
-    [accountId, indexedAccountId, intl, setPerpDepositOrder],
-  );
+  const [{ orders: perpDepositOrder }] = usePerpsDepositOrderAtom();
 
   const filterPerpDepositOrder = useMemo(() => {
     return perpDepositOrder.filter((item) => {
@@ -132,7 +86,6 @@ export const usePerpDepositOrder = ({
 
   return {
     perpDepositOrder: filterPerpDepositOrder,
-    handlePerpDepositTxSuccess,
   };
 };
 
@@ -174,33 +127,37 @@ const usePerpDeposit = (
             id: ETranslations.perp_toast_deposit_success_msg,
           },
           {
-            fromAmount,
-            token: token?.symbol,
+            amount: fromAmount,
+            token: fromToken?.symbol,
           },
         ),
       });
       const time = Date.now();
-      setPerpDepositOrder((prev) => [
-        ...prev,
-        {
-          isArbUSDCOrder,
-          fromTxId,
-          amount: toAmount,
-          token: fromToken,
-          status: ESwapTxHistoryStatus.PENDING,
-          time,
+      setPerpDepositOrder((prev) => {
+        return {
+          orders: [
+            ...prev.orders,
+            {
+              isArbUSDCOrder,
+              fromTxId,
+              amount: toAmount,
+              token: fromToken,
+              status: ESwapTxHistoryStatus.PENDING,
+              time,
+              accountId: selectedAccountId,
+              indexedAccountId,
+            },
+          ],
+        };
+      });
+      setTimeout(() => {
+        void backgroundApiProxy.serviceSwap.perpDepositOrderFetchLoop({
           accountId: selectedAccountId,
           indexedAccountId,
-        },
-      ]);
+        });
+      }, 200);
     },
-    [
-      indexedAccountId,
-      intl,
-      selectedAccountId,
-      setPerpDepositOrder,
-      token?.symbol,
-    ],
+    [indexedAccountId, intl, selectedAccountId, setPerpDepositOrder],
   );
   const isArbitrumUsdcToken = useMemo(() => {
     return equalTokenNoCaseSensitive({

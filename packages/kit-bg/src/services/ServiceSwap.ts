@@ -34,7 +34,10 @@ import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
-import { HYPERLIQUID_DEPOSIT_ADDRESS } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
+import {
+  HYPERLIQUID_DEPOSIT_ADDRESS,
+  USDC_TOKEN_INFO,
+} from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 import type { ESigningScheme } from '@onekeyhq/shared/types/message';
 import type {
   ISwapProviderManager,
@@ -2376,16 +2379,24 @@ export default class ServiceSwap extends ServiceBase {
     try {
       const client = await this.getClient(EServiceEndpointEnum.Swap);
 
-      const { data } = await client.post<
+      const { data } = await client.get<
         IFetchResponse<IFetchSwapTxHistoryStatusResponse>
-      >('/swap/v1/perp-deposit-order-status', params);
+      >('/swap/v1/perp-deposit-order-status', {
+        params: {
+          networkId: params.networkId,
+          txId: params.txId,
+          isArbUSDCToken: params.isArbUSDCToken,
+          toPerpDepositTokenAddress: params.toPerpDepositTokenAddress,
+          receivedAddress: params.receivingAddress,
+        },
+      });
       if (data?.data) {
         const perpDepositOrder = await perpsDepositOrderAtom.get();
-        const findTxidOrder = perpDepositOrder.find(
+        const findTxidOrder = perpDepositOrder.orders.find(
           (item) => item.fromTxId === params.txId,
         );
         if (findTxidOrder) {
-          const filteredPerpDepositOrder = perpDepositOrder.filter(
+          const filteredPerpDepositOrder = perpDepositOrder.orders.filter(
             (item) => item.fromTxId !== params.txId,
           );
           if (data?.data.state === ESwapTxHistoryStatus.SUCCESS) {
@@ -2396,13 +2407,22 @@ export default class ServiceSwap extends ServiceBase {
             void this.backgroundApi.serviceApp.showToast({
               method: 'success',
               title: appLocale.intl.formatMessage({
-                id: ETranslations.perp_toast_deposit_success_msg,
+                id: ETranslations.perp_deposit_success_title,
               }),
+              message: appLocale.intl.formatMessage(
+                {
+                  id: ETranslations.perp_deposit_success_msg,
+                },
+                {
+                  num: findTxidOrder.amount,
+                  token: USDC_TOKEN_INFO.symbol,
+                },
+              ),
             });
-            await perpsDepositOrderAtom.set([
-              ...filteredPerpDepositOrder,
-              findTxidOrder,
-            ]);
+            await perpsDepositOrderAtom.set((prev) => ({
+              ...prev,
+              orders: [...filteredPerpDepositOrder, findTxidOrder],
+            }));
           } else if (
             data?.data.state === ESwapTxHistoryStatus.FAILED ||
             data?.data.state === ESwapTxHistoryStatus.CANCELED ||
@@ -2413,13 +2433,22 @@ export default class ServiceSwap extends ServiceBase {
             void this.backgroundApi.serviceApp.showToast({
               method: 'error',
               title: appLocale.intl.formatMessage({
-                id: ETranslations.perp_toast_deposit_success_msg,
+                id: ETranslations.perp_deposit_fail_title,
               }),
+              message: appLocale.intl.formatMessage(
+                {
+                  id: ETranslations.perp_deposit_fail_msg,
+                },
+                {
+                  num: findTxidOrder.amount,
+                  token: USDC_TOKEN_INFO.symbol,
+                },
+              ),
             });
-            await perpsDepositOrderAtom.set([
-              ...filteredPerpDepositOrder,
-              findTxidOrder,
-            ]);
+            await perpsDepositOrderAtom.set((prev) => ({
+              ...prev,
+              orders: [...filteredPerpDepositOrder, findTxidOrder],
+            }));
           }
         }
       }
@@ -2439,7 +2468,7 @@ export default class ServiceSwap extends ServiceBase {
     }
     const { accountId, indexedAccountId } = params;
     const perpDepositOrder = await perpsDepositOrderAtom.get();
-    const filteredPerpDepositOrder = perpDepositOrder.filter((item) => {
+    const filteredPerpDepositOrder = perpDepositOrder.orders.filter((item) => {
       return (
         ((!item.accountId && !accountId) || item.accountId === accountId) &&
         ((!item.indexedAccountId && !indexedAccountId) ||

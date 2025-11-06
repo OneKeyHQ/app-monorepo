@@ -343,10 +343,12 @@ export interface IPerpsDepositOrderAtom {
 }
 
 export const { target: perpsDepositOrderAtom, use: usePerpsDepositOrderAtom } =
-  globalAtom<IPerpsDepositOrderAtom[]>({
+  globalAtom<{ orders: IPerpsDepositOrderAtom[] }>({
     name: EAtomNames.perpsDepositOrderAtom,
     persist: true,
-    initialValue: [],
+    initialValue: {
+      orders: [],
+    },
   });
 
 export interface IPerpsUserConfigPersistAtom {
