@@ -249,13 +249,47 @@ export const useEarnPortfolio = () => {
       requestId: number,
     ) => {
       try {
-        const result = isAirdrop
-          ? await backgroundApiProxy.serviceStaking.fetchAirdropInvestmentDetail(
-              item,
-            )
-          : await backgroundApiProxy.serviceStaking.fetchInvestmentDetailV2(
+        if (isAirdrop) {
+          const result =
+            await backgroundApiProxy.serviceStaking.fetchAirdropInvestmentDetail(
               item,
             );
+
+          if (
+            isRequestStale(requestId) ||
+            !hasPositiveFiatValue(result.totalFiatValue)
+          ) {
+            return null;
+          }
+
+          const key = createInvestmentKey({
+            provider: result.protocol.providerDetail.code,
+            symbol: result.assets?.[0]?.token.info.symbol || '',
+            vault: result.protocol.vault,
+            networkId: result.network.networkId,
+          });
+
+          const enrichedAirdropAssets = result.assets.map((asset) => ({
+            ...asset,
+            metadata: {
+              protocol: result.protocol,
+              network: result.network,
+            },
+          }));
+
+          const investment: IEarnPortfolioInvestment = {
+            totalFiatValue: result.totalFiatValue,
+            protocol: result.protocol,
+            network: result.network,
+            assets: [],
+            airdropAssets: enrichedAirdropAssets,
+          };
+
+          return { key, investment };
+        }
+
+        const result =
+          await backgroundApiProxy.serviceStaking.fetchInvestmentDetailV2(item);
 
         if (
           isRequestStale(requestId) ||
@@ -276,9 +310,11 @@ export const useEarnPortfolio = () => {
         );
 
         const investment: IEarnPortfolioInvestment = {
-          ...result,
-          assets: isAirdrop ? [] : enrichedAssets,
-          airdropAssets: isAirdrop ? enrichedAssets : [],
+          totalFiatValue: result.totalFiatValue,
+          protocol: result.protocol,
+          network: result.network,
+          assets: enrichedAssets,
+          airdropAssets: [],
         };
 
         return { key, investment };

@@ -534,6 +534,7 @@ export enum EClaimType {
   Claim = 'claim',
   ClaimOrder = 'claimOrder',
   ClaimWithKyc = 'claimWithKyc',
+  ClaimAirdrop = 'claimAirdrop',
 }
 
 export interface IEarnClaimActionIcon {
@@ -1148,6 +1149,38 @@ export interface IEarnInvestmentItemV2 {
   };
 }
 
+export interface IEarnAirdropInvestmentItemV2 {
+  totalFiatValue: string;
+  protocol: {
+    vault?: string;
+    vaultName?: string;
+    providerDetail: {
+      code: string;
+      name: string;
+      logoURI: string;
+    };
+  };
+  assets: {
+    token: {
+      info: {
+        symbol: string;
+        logoURI: string;
+      };
+    };
+    airdropAssets: {
+      title: IEarnText;
+      tooltip: IEarnTooltip;
+      button: IEarnClaimActionIcon;
+      description: IEarnText;
+    }[];
+  }[];
+  network: {
+    networkId: string;
+    name: string;
+    logoURI: string;
+  };
+}
+
 export type IEarnPortfolioAsset = IEarnInvestmentItemV2['assets'][number] & {
   // Metadata containing protocol and network information for this asset
   metadata: {
@@ -1156,9 +1189,18 @@ export type IEarnPortfolioAsset = IEarnInvestmentItemV2['assets'][number] & {
   };
 };
 
+export type IEarnPortfolioAirdropAsset =
+  IEarnAirdropInvestmentItemV2['assets'][number] & {
+    // Metadata containing protocol and network information for this airdrop asset
+    metadata: {
+      protocol: IEarnAirdropInvestmentItemV2['protocol'];
+      network: IEarnAirdropInvestmentItemV2['network'];
+    };
+  };
+
 export type IEarnPortfolioInvestment = Omit<IEarnInvestmentItemV2, 'assets'> & {
   assets: IEarnPortfolioAsset[]; // Only normal type assets
-  airdropAssets: IEarnPortfolioAsset[]; // Only airdrop type assets
+  airdropAssets: IEarnPortfolioAirdropAsset[]; // Only airdrop type assets
 };
 
 export interface IEarnFAQListItem {

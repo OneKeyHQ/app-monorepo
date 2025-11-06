@@ -190,6 +190,85 @@ const ActionField = ({
   );
 };
 
+const ProtocolHeader = ({
+  portfolioItem,
+}: {
+  portfolioItem: IEarnPortfolioInvestment;
+}) => {
+  const currencyInfo = useCurrency();
+
+  return (
+    <YStack mb="$1">
+      <XStack ai="center" gap="$1.5">
+        <Token
+          size="xs"
+          borderRadius="$2"
+          tokenImageUri={portfolioItem.protocol.providerDetail.logoURI}
+        />
+        <SizableText size="$bodyLgMedium">
+          {portfolioItem.protocol.providerDetail.name}
+        </SizableText>
+        <Divider bg="$borderSubdued" vertical mx="$3" height="$5" width="$1" />
+        <SizableText size="$bodyLgMedium" color="$textSubdued">
+          Total value{' '}
+          {numberFormat(portfolioItem.totalFiatValue, {
+            formatter: 'price',
+            formatterOptions: {
+              currency: currencyInfo.symbol,
+            },
+          })}
+        </SizableText>
+      </XStack>
+      {isEmpty(portfolioItem.airdropAssets) ? null : (
+        <YStack mb="$2" mt="$5">
+          {portfolioItem.airdropAssets?.map((airdrop, index) => {
+            return (
+              <XStack key={index} ai="center">
+                <Token
+                  size="xs"
+                  borderRadius="$2"
+                  mr="$1.5"
+                  tokenImageUri={airdrop.token.info.logoURI}
+                />
+                {airdrop.airdropAssets.map((reward, rewardIndex) => {
+                  const needDivider =
+                    rewardIndex < airdrop.airdropAssets.length - 1;
+
+                  return (
+                    <XStack key={rewardIndex} ai="center">
+                      <EarnText
+                        mr="$1"
+                        size="$bodyLgMedium"
+                        text={reward.title}
+                      />
+                      <EarnText
+                        mr="$1"
+                        size="$bodyLgMedium"
+                        color="$textSubdued"
+                        text={reward.description}
+                      />
+                      <EarnTooltip tooltip={reward.tooltip} />
+                      {needDivider ? (
+                        <Divider
+                          bg="$borderSubdued"
+                          vertical
+                          mx="$3"
+                          height="$5"
+                          width="$1"
+                        />
+                      ) : null}
+                    </XStack>
+                  );
+                })}
+              </XStack>
+            );
+          })}
+        </YStack>
+      )}
+    </YStack>
+  );
+};
+
 const PortfolioItemComponent = ({
   portfolioItem,
 }: {
@@ -237,46 +316,6 @@ const PortfolioItemComponent = ({
       ];
     }, []);
 
-  const currencyInfo = useCurrency();
-
-  const protocolHeader = useMemo(() => {
-    return (
-      <YStack mb="$3">
-        <XStack ai="center" gap="$1.5">
-          <Token
-            size="xs"
-            borderRadius="$2"
-            tokenImageUri={portfolioItem.protocol.providerDetail.logoURI}
-          />
-          <SizableText size="$bodyLgMedium">
-            {portfolioItem.protocol.providerDetail.name}
-          </SizableText>
-          <Divider
-            bg="$borderSubdued"
-            vertical
-            mx="$3"
-            height="$5"
-            width="$1"
-          />
-          <SizableText size="$bodyLgMedium" color="$textSubdued">
-            Total value{' '}
-            {numberFormat(portfolioItem.totalFiatValue, {
-              formatter: 'price',
-              formatterOptions: {
-                currency: currencyInfo.symbol,
-              },
-            })}
-          </SizableText>
-        </XStack>
-      </YStack>
-    );
-  }, [
-    currencyInfo.symbol,
-    portfolioItem.totalFiatValue,
-    portfolioItem.protocol.providerDetail.logoURI,
-    portfolioItem.protocol.providerDetail.name,
-  ]);
-
   const appNavigation = useAppNavigation();
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { account, indexedAccount } = activeAccount;
@@ -314,7 +353,7 @@ const PortfolioItemComponent = ({
 
   return (
     <YStack>
-      {protocolHeader}
+      <ProtocolHeader portfolioItem={portfolioItem} />
       <TableList<IEarnPortfolioInvestment['assets'][number]>
         data={portfolioItem.assets}
         columns={columns}

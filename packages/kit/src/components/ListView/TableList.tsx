@@ -659,8 +659,7 @@ function BasicTableList<T>({
   // Handle expand/collapse toggle
   const handleToggleExpand = useCallback(
     (index: number) => {
-      const newExpandedIndex =
-        expandedRowIndex === index ? undefined : index;
+      const newExpandedIndex = expandedRowIndex === index ? undefined : index;
 
       if (expandable?.onExpandedRowChange) {
         expandable.onExpandedRowChange(newExpandedIndex);

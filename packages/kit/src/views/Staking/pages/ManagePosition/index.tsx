@@ -99,43 +99,6 @@ const ManagePositionPage = () => {
   }>(() => {
     const routeParams = route.params as any;
 
-    // check if it is the new share link format
-    if ('network' in routeParams) {
-      // new format: /earn/:network/:symbol/:provider
-      const {
-        network,
-        symbol: symbolParam,
-        provider: providerParam,
-        vault,
-      } = routeParams;
-      const networkId = EarnNetworkUtils.getNetworkIdByName(network);
-      const symbol = normalizeToEarnSymbol(symbolParam);
-      const provider = normalizeToEarnProvider(providerParam);
-
-      if (!networkId) {
-        throw new OneKeyLocalError(`Unknown network: ${String(network)}`);
-      }
-      if (!symbol) {
-        throw new OneKeyLocalError(`Unknown symbol: ${String(symbolParam)}`);
-      }
-      if (!provider) {
-        throw new OneKeyLocalError(
-          `Unknown provider: ${String(providerParam)}`,
-        );
-      }
-
-      return {
-        accountId: activeAccount.account?.id || '',
-        indexedAccountId: activeAccount.indexedAccount?.id,
-        networkId,
-        symbol,
-        provider,
-        vault,
-        isFromShareLink: true,
-      };
-    }
-
-    // old format: /defi/staking/v2/:symbol/:provider
     const {
       accountId: routeAccountId,
       indexedAccountId: routeIndexedAccountId,

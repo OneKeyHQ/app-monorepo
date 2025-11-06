@@ -555,6 +555,7 @@ function BasicEarnActionIcon({
         />
       );
     case 'claim':
+    case 'claimAirdrop':
       return (
         <ClaimActionIcon
           protocolInfo={protocolInfo}

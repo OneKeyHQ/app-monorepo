@@ -45,6 +45,7 @@ import type {
   IEarnAccountResponse,
   IEarnAccountToken,
   IEarnAccountTokenResponse,
+  IEarnAirdropInvestmentItemV2,
   IEarnBabylonTrackingItem,
   IEarnEstimateAction,
   IEarnEstimateFeeResp,
@@ -1073,7 +1074,7 @@ class ServiceStaking extends ServiceBase {
   }) {
     const client = await this.getClient(EServiceEndpointEnum.Earn);
 
-    const response = await client.get<{ data: IEarnInvestmentItemV2 }>(
+    const response = await client.get<{ data: IEarnAirdropInvestmentItemV2 }>(
       `/earn/v1/investment/airdrop-detail`,
       { params },
     );
