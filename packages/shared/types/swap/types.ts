@@ -118,6 +118,13 @@ export interface ISwapInitParams {
 
 // token & network
 
+export interface IPopularTradingToken {
+  networkId: string;
+  symbol: string;
+  logoURI: string;
+  address: string;
+}
+
 export interface ISwapNetworkBase {
   networkId: string;
   defaultSelectToken?: { from?: string; to?: string };

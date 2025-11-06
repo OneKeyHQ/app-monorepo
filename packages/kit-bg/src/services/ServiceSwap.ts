@@ -63,6 +63,7 @@ import type {
   IOKXTransactionObject,
   IPerpDepositQuoteRes,
   IPerpDepositQuoteResponse,
+  IPopularTradingToken,
   ISpeedSwapConfig,
   ISwapApproveAllowanceResponse,
   ISwapApproveTransaction,
@@ -208,6 +209,15 @@ export default class ServiceSwap extends ServiceBase {
         delete this._tokenDetailAbortControllerMap[direction];
       }
     }
+  }
+
+  @backgroundMethod()
+  async fetchPopularTrading(): Promise<IPopularTradingToken[]> {
+    const client = await this.getClient(EServiceEndpointEnum.Swap);
+    const { data } = await client.get<IFetchResponse<IPopularTradingToken[]>>(
+      'swap/v1/popular/tokens ',
+    );
+    return data?.data ?? [];
   }
 
   @backgroundMethod()
