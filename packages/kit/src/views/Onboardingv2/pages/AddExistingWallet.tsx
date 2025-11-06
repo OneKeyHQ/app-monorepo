@@ -10,7 +10,11 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { EModalRoutes, EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes';
+import {
+  EModalRoutes,
+  EOnboardingPages,
+  EOnboardingPagesV2,
+} from '@onekeyhq/shared/src/routes';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -101,8 +105,12 @@ export default function AddExistingWallet() {
         {
           title: 'OneKey KeyTag',
           icon: 'OnekeyKeytagOutline' as IKeyOfIcons,
-          onPress: () => {
-            navigation.push(EOnboardingPagesV2.ImportKeyTag);
+          onPress: async () => {
+            await backgroundApiProxy.servicePassword.promptPasswordVerify();
+            defaultLogger.setting.page.keyTagImport();
+            navigation.pushModal(EModalRoutes.OnboardingModal, {
+              screen: EOnboardingPages.ImportKeyTag,
+            });
           },
         },
         platformEnv.isNative

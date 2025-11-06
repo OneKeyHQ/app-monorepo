@@ -19,6 +19,7 @@ import { useThrottledCallback } from 'use-debounce';
 import { useMedia } from '@onekeyhq/components/src/shared/tamagui';
 import type { TamaguiElement } from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { ERootRoutes } from '@onekeyhq/shared/src/routes/root';
 
 import { Portal } from '../../../hocs';
 import { useBackHandler } from '../../../hooks';
@@ -120,6 +121,14 @@ function WebModalNavigator({
       ),
     [rootNavigation, state.routes],
   );
+
+  const hasModalRoute = useMemo(() => {
+    return (
+      rootNavigation
+        ?.getState?.()
+        ?.routes?.some((route) => route.name === ERootRoutes.Modal) ?? false
+    );
+  }, [rootNavigation]);
 
   useEffect(() => {
     if (ROOT_NAVIGATION_INDEX_LISTENER) {
@@ -270,7 +279,7 @@ function WebModalNavigator({
               platformEnv.isNative ? undefined : onPageContainerPressOut
             }
           >
-            {currentRouteIndex <= 1 && !isExistBackdrop ? (
+            {hasModalRoute && !isExistBackdrop ? (
               <YStack
                 testID={backdropId}
                 ref={(ref) => {

@@ -99,12 +99,15 @@ import { useFirmwareVerifyDialog } from '../../Onboarding/pages/ConnectHardwareW
 import { useSelectAddWalletTypeDialog } from '../../Onboarding/pages/ConnectHardwareWallet/SelectAddWalletTypeDialog';
 import { OnboardingLayout } from '../components/OnboardingLayout';
 import {
+  getDeviceLabel,
   getForceTransportType,
   getHardwareCommunicationTypeString,
+  sortDevicesData,
   trackHardwareWalletConnection,
 } from '../utils';
 
 import type { IDeviceType, SearchDevice } from '@onekeyfe/hd-core';
+import type { ReactVideoSource } from 'react-native-video';
 
 enum EConnectionStatus {
   init = 'init',
@@ -129,6 +132,7 @@ function BridgeNotInstalledDialogContent(_props: { error: NeedOneKeyBridge }) {
 }
 
 interface IDeviceConnectionProps {
+  deviceTypeItems: EDeviceType[];
   onDeviceConnect: (device: SearchDevice) => Promise<void>;
   onSelectAddWalletType: (params: {
     device: SearchDevice;
@@ -646,10 +650,81 @@ function BluetoothCard() {
   );
 }
 
+function DeviceVideo({
+  themeVariant,
+  deviceTypeItems,
+}: {
+  themeVariant: 'light' | 'dark';
+  deviceTypeItems: EDeviceType[];
+}) {
+  const isPro = useMemo(() => {
+    return deviceTypeItems.find((deviceType) => deviceType === EDeviceType.Pro);
+  }, [deviceTypeItems]);
+
+  const isTouch = useMemo(() => {
+    return deviceTypeItems.find(
+      (deviceType) => deviceType === EDeviceType.Touch,
+    );
+  }, [deviceTypeItems]);
+
+  const isClassic = useMemo(() => {
+    return deviceTypeItems.find(
+      (deviceType) =>
+        deviceType === EDeviceType.Classic ||
+        deviceType === EDeviceType.Classic1s ||
+        deviceType === EDeviceType.ClassicPure,
+    );
+  }, [deviceTypeItems]);
+
+  const isMini = useMemo(() => {
+    return deviceTypeItems.find(
+      (deviceType) => deviceType === EDeviceType.Mini,
+    );
+  }, [deviceTypeItems]);
+
+  const videoSource = useMemo<ReactVideoSource>(() => {
+    if (isMini) {
+      return themeVariant === 'dark'
+        ? (require('@onekeyhq/kit/assets/onboarding/Mini-D.mp4') as ReactVideoSource)
+        : (require('@onekeyhq/kit/assets/onboarding/Mini-L.mp4') as ReactVideoSource);
+    }
+
+    if (isClassic) {
+      return themeVariant === 'dark'
+        ? (require('@onekeyhq/kit/assets/onboarding/Classic1S-D.mp4') as ReactVideoSource)
+        : (require('@onekeyhq/kit/assets/onboarding/Classic1S-L.mp4') as ReactVideoSource);
+    }
+
+    if (isTouch) {
+      return themeVariant === 'dark'
+        ? (require('@onekeyhq/kit/assets/onboarding/Touch-D.mp4') as ReactVideoSource)
+        : (require('@onekeyhq/kit/assets/onboarding/Touch-L.mp4') as ReactVideoSource);
+    }
+
+    return themeVariant === 'dark'
+      ? (require('@onekeyhq/kit/assets/onboarding/ProW-D.mp4') as ReactVideoSource)
+      : (require('@onekeyhq/kit/assets/onboarding/ProW-L.mp4') as ReactVideoSource);
+  }, [isClassic, isMini, isTouch, themeVariant]);
+
+  return (
+    <Video
+      muted
+      autoPlay
+      w="100%"
+      h="100%" // required for native
+      controls={false}
+      playInBackground={false}
+      resizeMode={EVideoResizeMode.COVER}
+      source={videoSource}
+    />
+  );
+}
+
 function USBOrBLEConnectionIndicator({
   tabValue,
   onDeviceConnect,
   onSelectAddWalletType,
+  deviceTypeItems,
 }: {
   tabValue: EConnectDeviceChannel;
 } & IDeviceConnectionProps) {
@@ -662,6 +737,7 @@ function USBOrBLEConnectionIndicator({
   // Use the shared device connection logic
   const deviceConnection = useDeviceConnection({
     tabValue,
+    deviceTypeItems,
     onDeviceConnect,
     onSelectAddWalletType,
   });
@@ -799,7 +875,15 @@ function USBOrBLEConnectionIndicator({
     };
   }, [isUSB, onConnectWebDevice, startBLEConnection, stopScan]);
 
-  console.log('devicesData', devicesData);
+  const deviceLabel = useMemo(() => {
+    return getDeviceLabel(deviceTypeItems);
+  }, [deviceTypeItems]);
+
+  const sortedDevicesData = useMemo(() => {
+    return sortDevicesData(devicesData, deviceTypeItems);
+  }, [deviceTypeItems, devicesData]);
+
+  console.log('sortedDevicesData', sortedDevicesData);
   return (
     <>
       <TroubleShootingButton type="usb" />
@@ -809,24 +893,14 @@ function USBOrBLEConnectionIndicator({
         ) : (
           <ConnectionIndicator.Card>
             <ConnectionIndicator.Animation>
-              <Video
-                muted
-                autoPlay
-                w="100%"
-                h="100%" // required for native
-                controls={false}
-                playInBackground={false}
-                resizeMode={EVideoResizeMode.COVER}
-                source={
-                  themeVariant === 'dark'
-                    ? require('@onekeyhq/kit/assets/onboarding/ProW-D.mp4')
-                    : require('@onekeyhq/kit/assets/onboarding/ProW-L.mp4')
-                }
+              <DeviceVideo
+                themeVariant={themeVariant}
+                deviceTypeItems={deviceTypeItems}
               />
             </ConnectionIndicator.Animation>
             <ConnectionIndicator.Content gap="$2">
               <ConnectionIndicator.Title>
-                Connect OneKey Pro to your computer via USB
+                Connect {deviceLabel} to your computer via USB
               </ConnectionIndicator.Title>
               {platformEnv.isExtension ? (
                 <>
@@ -852,9 +926,9 @@ function USBOrBLEConnectionIndicator({
             </XStack>
           </YStack>
           <HeightTransition initialHeight={0}>
-            {devicesData.length > 0 ? (
+            {sortedDevicesData.length > 0 ? (
               <>
-                {devicesData.map((data) => (
+                {sortedDevicesData.map((data) => (
                   <ListItem
                     key={data.device?.deviceId}
                     drillIn
@@ -882,6 +956,7 @@ function USBOrBLEConnectionIndicator({
 }
 
 function BluetoothConnectionIndicator({
+  deviceTypeItems,
   onDeviceConnect,
   onSelectAddWalletType,
 }: IDeviceConnectionProps) {
@@ -1005,6 +1080,7 @@ function BluetoothConnectionIndicator({
   // Use shared device connection logic for Bluetooth
   const deviceConnection = useDeviceConnection({
     tabValue: EConnectDeviceChannel.bluetooth,
+    deviceTypeItems,
     onDeviceConnect: handleBluetoothDeviceConnect,
     onSelectAddWalletType,
   });
@@ -1065,6 +1141,10 @@ function BluetoothConnectionIndicator({
     },
     [stopScan, stopBluetoothStatusPolling],
   );
+
+  const sortedDevicesData = useMemo(() => {
+    return sortDevicesData(devicesData, deviceTypeItems);
+  }, [deviceTypeItems, devicesData]);
 
   if (bluetoothStatus === 'disabledInApp') {
     return (
@@ -1133,9 +1213,9 @@ function BluetoothConnectionIndicator({
             </XStack>
           </YStack>
           <HeightTransition initialHeight={0}>
-            {devicesData.length > 0 ? (
+            {sortedDevicesData.length > 0 ? (
               <>
-                {devicesData.map((device) => (
+                {sortedDevicesData.map((device) => (
                   <ListItem
                     key={device.device?.connectId}
                     drillIn
@@ -1159,14 +1239,6 @@ function BluetoothConnectionIndicator({
     </>
   );
 }
-
-const isSupportedDevice = (deviceType: string) => {
-  return (
-    deviceType === EDeviceType.Pro ||
-    deviceType === EDeviceType.Touch ||
-    deviceType === EDeviceType.Unknown
-  );
-};
 
 function QRWalletConnect() {
   const { gtMd } = useMedia();
@@ -1218,7 +1290,9 @@ function ConnectYourDevicePage({
 
   const intl = useIntl();
   const isSupportedQRCode = useMemo(() => {
-    return deviceTypeItems.every(isSupportedDevice);
+    return deviceTypeItems.every(
+      (deviceType) => deviceType === EDeviceType.Pro,
+    );
   }, [deviceTypeItems]);
   const tabOptions = useMemo(() => {
     return [
@@ -1811,12 +1885,14 @@ function ConnectYourDevicePage({
             {tabValue === EConnectDeviceChannel.usbOrBle ? (
               <USBOrBLEConnectionIndicator
                 tabValue={tabValue}
+                deviceTypeItems={deviceTypeItems}
                 onDeviceConnect={handleDeviceConnect}
                 onSelectAddWalletType={selectAddWalletType}
               />
             ) : null}
             {tabValue === EConnectDeviceChannel.bluetooth ? (
               <BluetoothConnectionIndicator
+                deviceTypeItems={deviceTypeItems}
                 onDeviceConnect={handleDeviceConnect}
                 onSelectAddWalletType={selectAddWalletType}
               />
