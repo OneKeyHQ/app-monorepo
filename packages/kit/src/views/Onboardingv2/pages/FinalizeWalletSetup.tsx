@@ -169,31 +169,6 @@ function FinalizeWalletSetupPage({
     [progress],
   );
 
-  // useEffect(() => {
-  //   // Cancel any ongoing animation
-  //   cancelAnimation(progress);
-
-  //   // Reset and start animation
-  //   progress.value = 0;
-  //   progress.value = withTiming(
-  //     1,
-  //     {
-  //       duration: 2000,
-  //       easing: Easing.inOut(Easing.ease),
-  //     },
-  //     (finished) => {
-  //       if (finished) {
-  //         runOnJS(goToNextStep)();
-  //       }
-  //     },
-  //   );
-
-  //   // Cleanup function
-  //   return () => {
-  //     cancelAnimation(progress);
-  //   };
-  //   // eslint-disable-next-line react-hooks/exhaustive-deps
-  // }, [currentStep]);
   const actions = useAccountSelectorActions();
 
   useEffect(() => {
