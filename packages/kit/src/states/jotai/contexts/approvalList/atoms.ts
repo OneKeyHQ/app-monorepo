@@ -69,5 +69,5 @@ export const { atom: searchNetworkAtom, use: useSearchNetworkAtom } =
   contextAtom<{
     networkId: string;
   }>({
-    networkId: getNetworkIdsMap().onekeyall,
+    networkId: '',
   });
