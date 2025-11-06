@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
@@ -15,6 +16,10 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
+  useSwapFromTokenAmountAtom,
+  useSwapTypeSwitchAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import {
   EJotaiContextStoreNames,
   useInAppNotificationAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -23,6 +28,7 @@ import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes';
 import { EModalRoutes, EModalSwapRoutes } from '@onekeyhq/shared/src/routes';
 import {
   EProtocolOfExchange,
+  ESwapTabSwitchType,
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
 
@@ -37,6 +43,8 @@ const SwapPendingHistoryListComponent = ({
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
   const [{ swapHistoryPendingList }] = useInAppNotificationAtom();
+  const [fromTokenAmount] = useSwapFromTokenAmountAtom();
+  const [swapTabSwitchType] = useSwapTypeSwitchAtom();
   const { result: swapTxHistoryList } = usePromiseResult(
     async () => {
       const histories =
@@ -55,7 +63,12 @@ const SwapPendingHistoryListComponent = ({
       ) ?? [];
     return pendingData;
   }, [swapTxHistoryList]);
-  if (listData.length === 0) {
+  const fromTokenAmountBN = new BigNumber(fromTokenAmount.value ?? 0);
+  if (
+    (!fromTokenAmountBN.isZero() && !fromTokenAmountBN.isNaN()) ||
+    listData.length === 0 ||
+    swapTabSwitchType === ESwapTabSwitchType.LIMIT
+  ) {
     return null;
   }
   return (
@@ -90,6 +103,7 @@ const SwapPendingHistoryListComponent = ({
           <SizableText
             size="$bodyMd"
             color="$textSubdued"
+            pointerEvents="none"
             hoverStyle={{
               size: '$bodyMdMedium',
               color: '$text',

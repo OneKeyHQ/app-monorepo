@@ -222,7 +222,13 @@ export function useSwapBuildTx() {
   }, []);
 
   const onBuildTxSuccess = useCallback(
-    async (txId: string, swapInfo: ISwapTxInfo, orderId?: string) => {
+    async (
+      txId: string,
+      swapInfo: ISwapTxInfo,
+      orderId?: string,
+      gasFeeFiatValue?: string,
+      gasFeeInNative?: string,
+    ) => {
       if (swapInfo) {
         clearQuoteData();
         setSwapSteps(
@@ -254,6 +260,8 @@ export function useSwapBuildTx() {
         await generateSwapHistoryItem({
           txId,
           swapTxInfo: swapInfo,
+          gasFeeFiatValue,
+          gasFeeInNative,
         });
         if (
           swapInfo.sender.token.networkId === swapInfo.receiver.token.networkId
@@ -282,8 +290,8 @@ export function useSwapBuildTx() {
       orderId?: string;
       swapInfo: ISwapTxInfo;
     }) => {
-      // clearQuoteData();
       if (swapInfo) {
+        clearQuoteData();
         if (
           accountUtils.isQrAccount({
             accountId: swapFromAddressInfo.accountInfo?.account?.id ?? '',
@@ -315,6 +323,7 @@ export function useSwapBuildTx() {
       }
     },
     [
+      clearQuoteData,
       generateSwapHistoryItem,
       setSwapSteps,
       swapFromAddressInfo.accountInfo?.account?.id,
@@ -763,9 +772,16 @@ export function useSwapBuildTx() {
         const transactionSignedInfo = res[0].signedTx;
         const txId = transactionSignedInfo.txid;
         const { swapInfo } = transactionSignedInfo;
-
+        const transactionDecodedInfo = res[0].decodedTx;
+        const { totalFeeInNative, totalFeeFiatValue } = transactionDecodedInfo;
         if (swapInfo) {
-          void onBuildTxSuccess(txId, swapInfo, orderId);
+          void onBuildTxSuccess(
+            txId,
+            swapInfo,
+            orderId,
+            totalFeeFiatValue,
+            totalFeeInNative,
+          );
         }
       }
     },
