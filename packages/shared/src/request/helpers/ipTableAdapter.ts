@@ -15,7 +15,7 @@ import type {
 /**
  * Debug logging helper - only logs in development mode
  */
-const DEBUG = false;
+const DEBUG = true;
 const debugLog = (...args: any[]) => {
   if (DEBUG) {
     console.log(...args);
@@ -98,23 +98,26 @@ async function getSelectedIpForHost(hostname: string): Promise<string | null> {
       return null;
     }
 
-    const config = await requestHelper.getIpTableConfig();
+    const configWithRuntime = await requestHelper.getIpTableConfig();
 
-    // Check global enable flag
-    if (!config || !config.enabled) {
+    // Check if config exists and is enabled
+    if (!configWithRuntime || !configWithRuntime?.runtime?.enabled) {
       return null;
     }
 
+    const { runtime } = configWithRuntime;
     const rootDomain = extractRootDomain(hostname);
-    const hostConfig = config.hosts[rootDomain];
 
-    // Check if host configuration exists
-    if (!hostConfig) {
-      return null;
+    // First, try to get selected IP from runtime.selections
+    const selectedIp = runtime.selections[rootDomain];
+    if (selectedIp) {
+      debugLog(
+        `[IpTableAdapter] Using selected IP from runtime: ${rootDomain} -> ${selectedIp}`,
+      );
+      return selectedIp;
     }
 
-    // Return currently selected IP for this host
-    return config.currentSelections[rootDomain] || null;
+    return null;
   } catch (error) {
     debugWarn('[IpTableAdapter] Failed to get IP table config:', error);
     return null;

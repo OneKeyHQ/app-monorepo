@@ -3,18 +3,20 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import type { IIpTableConfig } from '@onekeyhq/shared/src/request/types/ipTable';
+import type {
+  IIpTableConfigWithRuntime,
+  IIpTableRemoteConfig,
+} from '@onekeyhq/shared/src/request/types/ipTable';
 
 import ServiceBase from './ServiceBase';
 
 /**
  * IP Table Configuration Service
  *
- * Simplified design:
- * - Only manages configuration (get/set)
- * - No error tracking (use logging/analytics)
- * - No automatic IP switching (fail fast to domain)
- * - Only global enable/disable switch
+ * Responsibilities:
+ * - Fetch CDN config and verify signature
+ * - Manage IP Table configuration storage
+ * - Handle region detection and config refresh
  */
 @backgroundClass()
 class ServiceIpTable extends ServiceBase {
@@ -23,26 +25,24 @@ class ServiceIpTable extends ServiceBase {
   }
 
   /**
-   * Get current IP Table configuration
-   * @returns Current configuration or null if not initialized
+   * Get current IP Table configuration with runtime state
+   * Returns config merged with runtime selections
    */
   @backgroundMethod()
-  async getConfig(): Promise<IIpTableConfig | null> {
+  async getConfig(): Promise<IIpTableConfigWithRuntime> {
     return this.backgroundApi.simpleDb.ipTable.getConfig();
   }
 
   /**
-   * Initialize or update IP Table configuration
-   * @param config - New configuration
+   * Save CDN configuration
    */
   @backgroundMethod()
-  async setConfig(config: IIpTableConfig) {
-    await this.backgroundApi.simpleDb.ipTable.setConfig(config);
+  async saveConfig(config: IIpTableRemoteConfig) {
+    await this.backgroundApi.simpleDb.ipTable.saveConfig(config);
   }
 
   /**
    * Enable/disable IP Table globally
-   * @param enabled - Whether to enable
    */
   @backgroundMethod()
   async setEnabled(enabled: boolean) {
@@ -55,6 +55,14 @@ class ServiceIpTable extends ServiceBase {
   @backgroundMethod()
   async reset() {
     await this.backgroundApi.simpleDb.ipTable.clearAll();
+  }
+
+  /**
+   * Check if CDN config should be refreshed based on TTL
+   */
+  @backgroundMethod()
+  async shouldRefreshConfig(): Promise<boolean> {
+    return this.backgroundApi.simpleDb.ipTable.shouldRefreshConfig();
   }
 }
 
