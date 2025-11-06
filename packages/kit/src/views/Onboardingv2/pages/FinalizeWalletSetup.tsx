@@ -146,27 +146,50 @@ function FinalizeWalletSetupPage({
   const progress = useSharedValue(0);
   const pathLength = 150;
 
+  // 队列管理
+  const stepQueue = useRef<EFinalizeWalletSetupSteps[]>([]);
+  const isProcessing = useRef(false);
+
+  const changeIdProgress = useCallback((value: boolean) => {
+    isProcessing.current = value;
+  }, []);
+
+  const processNextStep = useCallback(() => {
+    if (isProcessing.current || stepQueue.current.length === 0) {
+      return;
+    }
+
+    isProcessing.current = true;
+    const nextStep = stepQueue.current.shift()!;
+
+    cancelAnimation(progress);
+    progress.value = 0;
+    progress.value = withTiming(
+      1,
+      {
+        duration: 2000,
+        easing: Easing.inOut(Easing.ease),
+      },
+      (finished) => {
+        if (finished) {
+          runOnJS(setCurrentStep)(nextStep);
+          runOnJS(changeIdProgress)(false);
+          runOnJS(processNextStep)();
+        }
+      },
+    );
+  }, [changeIdProgress, progress]);
+
   const goNextStep = useCallback(
     (step: EFinalizeWalletSetupSteps) => {
-      cancelAnimation(progress);
-      progress.value = 0;
-      progress.value = withTiming(
-        1,
-        {
-          duration: 2000,
-          easing: Easing.inOut(Easing.ease),
-        },
-        (finished) => {
-          if (finished) {
-            runOnJS(setCurrentStep)(step);
-          }
-        },
-      );
+      stepQueue.current.push(step);
+      processNextStep();
+
       return () => {
         cancelAnimation(progress);
       };
     },
-    [progress],
+    [progress, processNextStep],
   );
 
   const actions = useAccountSelectorActions();
