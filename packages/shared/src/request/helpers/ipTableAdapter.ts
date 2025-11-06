@@ -1,7 +1,6 @@
 import axios, { AxiosHeaders } from 'axios';
 
 import { OneKeyLocalError } from '../../errors';
-import platformEnv from '../../platformEnv';
 import requestHelper from '../requestHelper';
 
 import { isSniSupported, sniRequest } from './sniRequest';
@@ -16,7 +15,7 @@ import type {
 /**
  * Debug logging helper - only logs in development mode
  */
-const DEBUG = platformEnv.isDev;
+const DEBUG = false;
 const debugLog = (...args: any[]) => {
   if (DEBUG) {
     console.log(...args);
