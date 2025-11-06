@@ -215,7 +215,9 @@ export default function GetStarted() {
   return (
     <Page>
       <OnboardingLayout>
-        <OnboardingLayout.Header />
+        <OnboardingLayout.Header showBackButton={false}>
+          <OnboardingLayout.Back exit />
+        </OnboardingLayout.Header>
         <OnboardingLayout.Body scrollable={false} constrained={false}>
           <YStack flex={1} justifyContent="center" alignItems="center">
             <YStack
