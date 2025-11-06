@@ -438,14 +438,23 @@ function BasicPhaseInput(
 
 const PhaseInput = forwardRef(BasicPhaseInput);
 
+export interface IPhaseInputAreaInstance {
+  submit: () => Promise<{
+    mnemonic: string;
+    mnemonicType: EMnemonicType;
+  }>;
+}
+
 export function PhaseInputArea({
   onConfirm,
   FooterComponent,
   showPhraseLengthSelector = true,
   showClearAllButton = true,
   defaultPhrases = [],
+  ref,
 }: {
-  onConfirm: (params: {
+  ref?: RefObject<IPhaseInputAreaInstance>;
+  onConfirm?: (params: {
     mnemonic: string;
     mnemonicType: EMnemonicType;
   }) => void;
@@ -495,7 +504,9 @@ export function PhaseInputArea({
     const { mnemonicType } = await serviceAccount.validateMnemonic(
       mnemonicEncoded,
     );
-    onConfirm({ mnemonic: mnemonicEncoded, mnemonicType });
+    const result = { mnemonic: mnemonicEncoded, mnemonicType }; 
+    onConfirm?.(result);
+    return result;
   }, [form, onConfirm, serviceAccount, servicePassword]);
 
   const {
@@ -556,6 +567,12 @@ export function PhaseInputArea({
   );
 
   useRecoveryPhraseProtected();
+
+  useImperativeHandle(ref, () => ({
+    submit: () => {
+      return handlePageFooterConfirm();
+    },
+  }));
 
   return (
     <>
@@ -658,11 +675,13 @@ export function PhaseInputArea({
         </HeightTransition>
         {FooterComponent}
       </Page.Body>
-      <PageFooter
-        suggestions={suggestions}
-        updateInputValue={updateInputValue}
-        onConfirm={handlePageFooterConfirm}
-      />
+      {onConfirm ? (
+        <PageFooter
+          suggestions={suggestions}
+          updateInputValue={updateInputValue}
+          onConfirm={handlePageFooterConfirm}
+        />
+      ) : null}
     </>
   );
 }
