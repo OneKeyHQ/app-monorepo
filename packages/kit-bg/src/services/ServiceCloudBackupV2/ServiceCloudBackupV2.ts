@@ -72,6 +72,7 @@ class ServiceCloudBackupV2 extends ServiceBase {
   }
 
   @backgroundMethod()
+  @toastIfError()
   async getCloudAccountInfo() {
     return this.getProvider().getCloudAccountInfo();
   }
@@ -187,7 +188,7 @@ class ServiceCloudBackupV2 extends ServiceBase {
       appVersion: data.appVersion,
     });
 
-    const downloadData = await provider.downloadData({
+    const downloadData = await this.download({
       recordId: recordID,
     });
     if (!downloadData?.payload?.publicData?.walletDetails) {

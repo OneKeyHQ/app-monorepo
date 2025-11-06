@@ -114,7 +114,7 @@ export function useCloudBackup() {
           });
           return false;
         }
-        if (!cloudAccountInfo.googleDrive?.email) {
+        if (!cloudAccountInfo.googleDrive?.userInfo?.user?.id) {
           Dialog.confirm({
             icon: 'InfoCircleOutline',
             title: 'Google account is not available',
@@ -122,8 +122,11 @@ export function useCloudBackup() {
             onConfirmText: intl.formatMessage({
               id: ETranslations.global_sign_in_register,
             }),
-            onConfirm: () => {
-              void backgroundApiProxy.serviceCloudBackupV2.loginCloudIfNeed();
+            onConfirm: async () => {
+              await backgroundApiProxy.serviceCloudBackupV2.loginCloudIfNeed();
+              Toast.success({
+                title: 'Signed in successfully',
+              });
             },
           });
           return false;

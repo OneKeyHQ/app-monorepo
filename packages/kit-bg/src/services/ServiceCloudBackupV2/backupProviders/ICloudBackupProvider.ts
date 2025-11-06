@@ -219,31 +219,6 @@ export class ICloudBackupProvider implements IOneKeyBackupProvider {
     }
   }
 
-  // Note: password parameter not used for iCloud (uses Keychain instead)
-  async restoreData({
-    recordId,
-    password,
-  }: {
-    recordId: string;
-    password: string;
-  }): Promise<IPrimeTransferData | null> {
-    await this.checkAvailability();
-
-    // Fetch backup record from CloudKit
-    const serverData = await this.downloadData({
-      recordId,
-    });
-
-    if (!serverData || !serverData?.payload?.privateDataEncrypted) {
-      throw new OneKeyLocalError('No backup found in CloudKit');
-    }
-
-    return this.decryptBackupData({
-      payload: serverData.payload,
-      password,
-    });
-  }
-
   private async decryptBackupData({
     payload,
     password,

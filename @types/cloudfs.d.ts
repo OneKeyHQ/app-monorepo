@@ -2,12 +2,12 @@ declare module 'react-native-cloud-fs' {
   interface IRNCloudFS {
     loginIfNeeded(): Promise<boolean>;
     logout(): Promise<boolean>;
-    isAvailable(): Promise<boolean>;
+    isAvailable(): Promise<boolean>; // iOS only
     syncCloud(): Promise<boolean>;
 
     /** Android: list files (hidden uses appDataFolder, visible uses user-visible folder) */
     listFiles(options: {
-      scope?: 'hidden' | 'visible';
+      scope: 'hidden' | 'visible';
       targetPath?: string; // iOS Only?
     }): Promise<{
       files: Array<{
@@ -24,7 +24,7 @@ declare module 'react-native-cloud-fs' {
     /** Android: upload a file to Drive */
     copyToCloud(options: {
       mimetype?: string | null; // Android only
-      scope?: 'hidden' | 'visible';
+      scope: 'hidden' | 'visible';
       sourcePath: { path?: string; uri?: string };
       targetPath: string;
     }): Promise<string>;
@@ -33,7 +33,7 @@ declare module 'react-native-cloud-fs' {
     /** Android */
     getGoogleDriveDocument(fileId: string): Promise<string>;
     /** Android: trigger Google sign-in UI */
-    requestSignIn(): void;
+    // requestSignIn(): void;
     /** Android: current Google account basic profile, or null if not signed in */
     getCurrentlySignedInUserData(): Promise<{
       email: string;

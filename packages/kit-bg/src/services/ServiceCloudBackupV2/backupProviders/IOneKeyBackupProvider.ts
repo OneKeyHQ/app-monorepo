@@ -1,9 +1,11 @@
 import type {
-  IAppleCloudKitAccountInfo,
   IAppleCloudKitRecord,
   ICloudKitAccountStatusName,
 } from '@onekeyhq/shared/src/storage/AppleCloudKitStorage/types';
-import type { IGoogleDriveFile } from '@onekeyhq/shared/src/storage/GoogleDriveStorage';
+import type {
+  IGoogleDriveFile,
+  IGoogleUserInfo,
+} from '@onekeyhq/shared/src/storage/GoogleDriveStorage';
 import type {
   IPrimeTransferData,
   IPrimeTransferPublicData,
@@ -32,7 +34,9 @@ export type IBackupProviderAccountInfo = {
   };
   googleDrive?: {
     email?: string;
+    userInfo?: IGoogleUserInfo | null;
     googlePlayServiceAvailable: boolean;
+    // cloudFsAvailable?: boolean; // iOS only
   };
 };
 export type IBackupDataEncryptedPayload = Omit<
@@ -46,6 +50,7 @@ export type IBackupDataManifestItem = Omit<
   'walletDetails'
 > & {
   recordID: string;
+  fileName?: string;
 };
 export type IBackupDataManifest = {
   items: IBackupDataManifestItem[];
@@ -99,17 +104,6 @@ export interface IOneKeyBackupProvider {
   backupData(
     payload: IBackupDataEncryptedPayload,
   ): Promise<{ recordID: string; content: string }>;
-
-  /**
-   * Restore backup data from cloud
-   * @param params.recordId Unique identifier for the backup record
-   * @param params.password Optional user password (required for some providers like Google Drive)
-   * @returns Decrypted backup data or null if not found
-   */
-  restoreData(params: {
-    recordId: string;
-    password?: string;
-  }): Promise<IPrimeTransferData | null>;
 
   downloadData(params: {
     recordId: string;
