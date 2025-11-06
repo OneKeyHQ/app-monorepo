@@ -984,13 +984,7 @@ const BaseDevSettingsSection = () => {
           });
         }}
       />
-      <SectionPressItem
-        icon="ChartTrendingOutline"
-        title="PerpGallery"
-        onPress={() => {
-          navigation.push(EModalSettingRoutes.SettingDevPerpGalleryModal);
-        }}
-      />
+
       <SectionFieldItem
         icon="CreditCardOutline"
         name="showPerpsRenderStats"
@@ -1001,12 +995,31 @@ const BaseDevSettingsSection = () => {
       </SectionFieldItem>
 
       <SectionPressItem
+        icon="ChartTrendingOutline"
+        title="PerpGallery"
+        onPress={() => {
+          navigation.push(EModalSettingRoutes.SettingDevPerpGalleryModal);
+        }}
+      />
+
+      <SectionPressItem
         icon="LockOutline"
         title="CryptoGallery"
         onPress={() => {
           navigation.push(EModalSettingRoutes.SettingDevCryptoGalleryModal);
         }}
       />
+
+      <SectionPressItem
+        icon="CloudOutline"
+        title="CloudBackupGallery"
+        onPress={() => {
+          navigation.push(
+            EModalSettingRoutes.SettingDevCloudBackupGalleryModal,
+          );
+        }}
+      />
+
       <AutoJumpSetting />
 
       <SectionPressItem

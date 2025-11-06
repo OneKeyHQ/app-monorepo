@@ -261,6 +261,16 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     return value;
   }
 
+  get serviceCloudBackupV2() {
+    const ServiceCloudBackupV2 =
+      require('../services/ServiceCloudBackupV2') as typeof import('../services/ServiceCloudBackupV2');
+    const value = new ServiceCloudBackupV2.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceCloudBackupV2', { value });
+    return value;
+  }
+
   get serviceLiteCardMnemonic() {
     const ServiceLiteCardMnemonic =
       require('../services/ServiceLiteCardMnemonic') as typeof import('../services/ServiceLiteCardMnemonic');

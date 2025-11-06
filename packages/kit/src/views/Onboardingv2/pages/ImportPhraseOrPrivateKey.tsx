@@ -7,6 +7,7 @@ import {
   SegmentControl,
   TextAreaInput,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes';
 import type { EMnemonicType } from '@onekeyhq/shared/src/utils/secret';
@@ -18,6 +19,7 @@ import { PhaseInputArea } from '../components/PhaseInputArea';
 export default function ImportPhraseOrPrivateKey() {
   const navigation = useAppNavigation();
   const [selected, setSelected] = useState<'phrase' | 'privateKey'>('phrase');
+  const { gtMd } = useMedia();
 
   const handleConfirm = ({
     mnemonic,
@@ -45,7 +47,7 @@ export default function ImportPhraseOrPrivateKey() {
       <OnboardingLayout>
         <OnboardingLayout.Header title="Import Phrase or Private Key" />
         <OnboardingLayout.Body constrained={false}>
-          <OnboardingLayout.ConstrainedContent gap="$10">
+          <OnboardingLayout.ConstrainedContent gap="$5">
             <SegmentControl
               value={selected}
               fullWidth
@@ -68,17 +70,38 @@ export default function ImportPhraseOrPrivateKey() {
                   enterStyle={{
                     opacity: 0,
                   }}
+                  gap="$5"
                 >
                   <TextAreaInput
                     size="large"
                     numberOfLines={5}
+                    $platform-native={{
+                      minHeight: 160,
+                    }}
                     placeholder="Enter your private key"
                   />
                 </YStack>
               )}
             </HeightTransition>
+            {gtMd ? (
+              <Button size="large" variant="primary" onPress={handleConfirm}>
+                Continue
+              </Button>
+            ) : null}
           </OnboardingLayout.ConstrainedContent>
         </OnboardingLayout.Body>
+        {!gtMd ? (
+          <OnboardingLayout.Footer>
+            <Button
+              size="large"
+              variant="primary"
+              onPress={handleConfirm}
+              w="100%"
+            >
+              Confirm
+            </Button>
+          </OnboardingLayout.Footer>
+        ) : null}
       </OnboardingLayout>
     </Page>
   );

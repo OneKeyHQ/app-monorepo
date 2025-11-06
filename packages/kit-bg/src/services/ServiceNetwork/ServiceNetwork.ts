@@ -409,7 +409,11 @@ class ServiceNetwork extends ServiceBase {
     account,
   }: {
     networkId: string;
-    account: IDBAccount;
+    account: {
+      id: string;
+      address: string;
+      template?: string | undefined;
+    };
   }): Promise<{
     deriveType: IAccountDeriveTypes;
     deriveInfo: IAccountDeriveInfo | undefined;

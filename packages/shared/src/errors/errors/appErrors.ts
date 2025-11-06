@@ -82,6 +82,18 @@ export class TransferInvalidCodeError extends OneKeyAppError {
   }
 }
 
+export class PrimeTransferImportCancelledError extends OneKeyAppError {
+  constructor(props?: IOneKeyError | string) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'PrimeTransferImportCancelledError',
+      }),
+    );
+  }
+
+  override className = EOneKeyErrorClassNames.PrimeTransferImportCancelledError;
+}
+
 export class RequestLimitExceededError extends OneKeyAppError {
   constructor(props?: IOneKeyError | string) {
     super(
