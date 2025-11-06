@@ -241,7 +241,6 @@ function BasicPhaseInput(
   ref: any,
 ) {
   const inputRef: RefObject<TextInput | null> | null = useRef(null);
-  const media = useMedia();
   const firstButtonRef = useRef<IElement>(null);
   const [tabFocusable, setTabFocusable] = useState(false);
 
@@ -362,7 +361,7 @@ function BasicPhaseInput(
     autoCorrect: false,
     spellCheck: false,
     autoComplete: 'off',
-    size: media.md ? 'large' : 'medium',
+    size: 'large',
     leftAddOnProps: {
       label: `${index + 1}`,
       pr: '$0',

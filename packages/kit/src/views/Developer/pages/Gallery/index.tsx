@@ -510,6 +510,12 @@ const PerpGallery = LazyLoadPage(
     ),
 );
 
+const CloudBackupGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/CloudBackupGallery'
+    ),
+);
 const TradingViewGallery = LazyLoadPage(
   () =>
     import(
@@ -894,6 +900,10 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentPerp,
     component: PerpGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentCloudBackup,
+    component: CloudBackupGallery,
   },
   {
     name: EGalleryRoutes.ComponentOrderBook,

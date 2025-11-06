@@ -899,6 +899,10 @@ class ServiceBatchCreateAccount extends ServiceBase {
             includingDefaultNetworks: params.includingDefaultNetworks ?? true,
           });
 
+        console.log(
+          'startBatchCreateAccountsFlowForAllNetwork__networksParams',
+          networksParams,
+        );
         const { saveToDb } = params;
         const indexes = await this.buildIndexesByFromAndTo({
           fromIndex: params?.fromIndex,

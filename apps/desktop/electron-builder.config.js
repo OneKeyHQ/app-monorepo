@@ -1,3 +1,4 @@
+/* eslint-disable no-template-curly-in-string */
 const baseElectronBuilderConfig = require('./electron-builder-base.config');
 const DLLs = require('./electron-dll.config');
 const { getPath } = require('./scripts/utils');
@@ -45,6 +46,7 @@ module.exports = {
       { target: 'zip', arch: ['x64', 'arm64', 'universal'] },
     ],
     'entitlements': getPath('entitlements.mac.plist'),
+    // 'entitlementsInherit': getPath('entitlements.mas.inherit.plist'),
     'extendInfo': {
       'NSCameraUsageDescription': 'Please allow OneKey to use your camera',
     },

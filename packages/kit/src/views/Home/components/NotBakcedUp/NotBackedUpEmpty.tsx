@@ -67,7 +67,7 @@ function NotBackedUp() {
   const renderBackupWalletActions = useCallback(() => {
     return (
       <XStack alignItems="center" gap="$4">
-        <Button variant="primary" size="medium" onPress={handleBackupWallet}>
+        <Button variant="primary" size="large" onPress={handleBackupWallet}>
           {backupText}
         </Button>
         <WalletBackupActions
@@ -81,12 +81,7 @@ function NotBackedUp() {
             )
           }
         >
-          <IconButton
-            icon="DotHorOutline"
-            variant="primary"
-            size="medium"
-            onPress={() => {}}
-          />
+          <IconButton icon="DotHorOutline" size="large" onPress={() => {}} />
         </WalletBackupActions>
       </XStack>
     );
