@@ -51,8 +51,35 @@ export function useDeviceConnect() {
   const [{ hardwareTransportType }] = useSettingsPersistAtom();
   const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
   const { showSelectAddWalletTypeDialog } = useSelectAddWalletTypeDialog();
+  const deviceScanner = useMemo(
+    () =>
+      deviceUtils.getDeviceScanner({
+        backgroundApi: backgroundApiProxy,
+      }),
+    [],
+  );
+
+  const ensureStopScan = useCallback(async () => {
+    // Force stop scanning and wait for any ongoing search to complete
+    console.log(
+      'ensureStopScan: Stopping device scan and waiting for completion',
+    );
+
+    try {
+      // Use the new stopScanAndWait method that properly waits for ongoing searches
+      await deviceScanner.stopScanAndWait();
+      console.log(
+        'ensureStopScan: Device scan stopped and all ongoing searches completed',
+      );
+    } catch (error) {
+      console.error('ensureStopScan: Error while stopping scan:', error);
+      // Fallback: just stop scan without waiting
+      deviceScanner.stopScan();
+    }
+  }, [deviceScanner]);
 
   const connectDevice = useCallback(async (device: SearchDevice) => {
+    await ensureStopScan();
     try {
       return await backgroundApiProxy.serviceHardware.connect({
         device,
@@ -76,9 +103,34 @@ export function useDeviceConnect() {
     }
   }, []);
 
+  const emitFirmwareFailedVerifyResult = useCallback(
+    ({
+      device,
+      errorMessage,
+    }: {
+      device: SearchDevice;
+      errorMessage: string;
+    }) => {
+      appEventBus.emit(EAppEventBusNames.EmitFirmwareVerifyResult, {
+        verified: false,
+        device,
+        payload: {
+          deviceType: device.deviceType,
+          data: '',
+          cert: '',
+          signature: '',
+        },
+        result: {
+          code: -1,
+          message: errorMessage,
+        },
+      });
+    },
+    [],
+  );
+
   const fwUpdateActions = useFirmwareUpdateActions();
   const { showFirmwareVerifyDialog } = useFirmwareVerifyDialog();
-  const [isCheckingDeviceLoading, setIsChecking] = useState(false);
 
   const handleRestoreWalletPress = useCallback(
     ({ deviceType }: { deviceType: IDeviceType }) => {
@@ -336,13 +388,17 @@ export function useDeviceConnect() {
             device,
             features,
             onContinue: async ({ checked }: { checked: boolean }) => {
-              setIsChecking(false);
               if (deviceMode === EOneKeyDeviceMode.notInitialized) {
                 handleNotActivatedDevicePress({ deviceType });
               }
             },
             onClose: () => {
-              setIsChecking(false);
+              emitFirmwareFailedVerifyResult({
+                device,
+                errorMessage: intl.formatMessage({
+                  id: ETranslations.hardware_user_cancel_error,
+                }),
+              });
             },
           });
           return;
@@ -374,6 +430,11 @@ export function useDeviceConnect() {
         void backgroundApiProxy.serviceHardware.clearForceTransportType();
         void backgroundApiProxy.serviceHardwareUI.cleanHardwareUiState();
         console.error('handleDeviceConnect error:', error);
+        emitFirmwareFailedVerifyResult({
+          device,
+          errorMessage:
+            (error as { message: string }).message ?? 'Unknown error',
+        });
         throw error;
       }
     },
@@ -381,10 +442,11 @@ export function useDeviceConnect() {
       hardwareTransportType,
       isSoftwareWalletOnlyUser,
       intl,
-      fwUpdateActions,
       connectDevice,
+      fwUpdateActions,
       showFirmwareVerifyDialog,
       handleNotActivatedDevicePress,
+      emitFirmwareFailedVerifyResult,
     ],
   );
   const extractDeviceState = useCallback(
@@ -399,7 +461,6 @@ export function useDeviceConnect() {
 
   const closeDialogAndReturn = useCallback(
     async (device: SearchDevice, options: { skipDelayClose?: boolean }) => {
-      setIsChecking(false);
       void backgroundApiProxy.serviceHardwareUI.closeHardwareUiStateDialog({
         connectId: device.connectId ?? '',
         hardClose: true,
@@ -541,8 +602,6 @@ export function useDeviceConnect() {
       device: SearchDevice;
       isFirmwareVerified?: boolean;
     }) => {
-      setIsChecking(true);
-
       void backgroundApiProxy.serviceHardwareUI.showDeviceProcessLoadingDialog({
         connectId: device.connectId ?? '',
       });
