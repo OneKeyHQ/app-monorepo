@@ -78,30 +78,33 @@ export function useDeviceConnect() {
     }
   }, [deviceScanner]);
 
-  const connectDevice = useCallback(async (device: SearchDevice) => {
-    await ensureStopScan();
-    try {
-      return await backgroundApiProxy.serviceHardware.connect({
-        device,
-      });
-    } catch (error: any) {
-      if (error instanceof OneKeyHardwareError) {
-        const { code, message } = error;
-        if (
-          code === HardwareErrorCode.CallMethodNeedUpgradeFirmware ||
-          code === HardwareErrorCode.BlePermissionError ||
-          code === HardwareErrorCode.BleLocationError
-        ) {
-          return;
-        }
-        Toast.error({
-          title: message || 'DeviceConnectError',
+  const connectDevice = useCallback(
+    async (device: SearchDevice) => {
+      await ensureStopScan();
+      try {
+        return await backgroundApiProxy.serviceHardware.connect({
+          device,
         });
-      } else {
-        console.error('connectDevice error:', get(error, 'message', ''));
+      } catch (error: any) {
+        if (error instanceof OneKeyHardwareError) {
+          const { code, message } = error;
+          if (
+            code === HardwareErrorCode.CallMethodNeedUpgradeFirmware ||
+            code === HardwareErrorCode.BlePermissionError ||
+            code === HardwareErrorCode.BleLocationError
+          ) {
+            return;
+          }
+          Toast.error({
+            title: message || 'DeviceConnectError',
+          });
+        } else {
+          console.error('connectDevice error:', get(error, 'message', ''));
+        }
       }
-    }
-  }, []);
+    },
+    [ensureStopScan],
+  );
 
   const emitFirmwareFailedVerifyResult = useCallback(
     ({
@@ -256,8 +259,9 @@ export function useDeviceConnect() {
   );
 
   // Shared device connection handler
-  const handleDeviceConnect = useCallback(
+  const verifyHardware = useCallback(
     async (device: SearchDevice, tabValue: EConnectDeviceChannel) => {
+      await connectDevice(device);
       // Ensure all scanning and polling activities are stopped before connecting
       console.log('handleDeviceConnect: Starting device connection process');
 
@@ -449,6 +453,7 @@ export function useDeviceConnect() {
       emitFirmwareFailedVerifyResult,
     ],
   );
+
   const extractDeviceState = useCallback(
     (features: IOneKeyDeviceFeatures) => ({
       unlockedAttachPin: features.unlocked_attach_pin,
@@ -602,6 +607,7 @@ export function useDeviceConnect() {
       device: SearchDevice;
       isFirmwareVerified?: boolean;
     }) => {
+      await connectDevice(device);
       void backgroundApiProxy.serviceHardwareUI.showDeviceProcessLoadingDialog({
         connectId: device.connectId ?? '',
       });
@@ -639,6 +645,7 @@ export function useDeviceConnect() {
       );
     },
     [
+      connectDevice,
       extractDeviceState,
       determineWalletCreationStrategy,
       createHwWallet,
@@ -648,9 +655,12 @@ export function useDeviceConnect() {
   return useMemo(
     () => ({
       connectDevice,
-      onDeviceConnect: handleDeviceConnect,
+      ensureStopScan,
+      onDeviceConnect: verifyHardware,
+      verifyHardware,
       onSelectAddWalletType,
+      createHWWallet: onSelectAddWalletType,
     }),
-    [connectDevice, handleDeviceConnect, onSelectAddWalletType],
+    [connectDevice, ensureStopScan, verifyHardware, onSelectAddWalletType],
   );
 }
