@@ -57,7 +57,6 @@ import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes/swap';
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
@@ -76,9 +75,7 @@ import type {
 import { ESwapSource } from '@onekeyhq/shared/types/swap/types';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
-import usePerpDeposit, {
-  usePerpDepositOrder,
-} from '../../../hooks/usePerpDeposit';
+import usePerpDeposit from '../../../hooks/usePerpDeposit';
 import { PerpsProviderMirror } from '../../../PerpsProviderMirror';
 import { PerpsAccountNumberValue } from '../components/PerpsAccountNumberValue';
 import { InputAccessoryDoneButton } from '../inputs/TradingFormInput';
@@ -716,6 +713,7 @@ function DepositWithdrawContent({
     shouldResetApprove,
     checkRefreshQuote,
     perpDepositQuoteAction,
+    handlePerpDepositTxSuccess,
   } = usePerpDeposit(
     amount,
     selectedAction,
@@ -910,11 +908,6 @@ function DepositWithdrawContent({
     );
   }, [intl, selectedAction]);
 
-  const { handlePerpDepositTxSuccess } = usePerpDepositOrder({
-    accountId: selectedAccount.accountId,
-    indexedAccountId: selectedAccount.indexedAccountId,
-  });
-
   const handleConfirm = useCallback(async () => {
     if (!isValidAmount || !selectedAccount.accountAddress) return;
 
@@ -945,10 +938,10 @@ function DepositWithdrawContent({
                       ?.networkLogoURI ?? '',
                 };
                 void handlePerpDepositTxSuccess({
-                  token:
+                  fromToken:
                     currentPerpsDepositSelectedTokenRef.current ?? usdcToken,
                   fromTxId,
-                  amount,
+                  toAmount: amount,
                   fromAmount: amount,
                   isArbUSDCOrder: true,
                 });

@@ -123,6 +123,13 @@ export const usePerpDepositOrder = ({
     });
   }, [perpDepositOrder, accountId, indexedAccountId]);
 
+  useEffect(() => {
+    void backgroundApiProxy.serviceSwap.perpDepositOrderFetchLoop({
+      accountId,
+      indexedAccountId,
+    });
+  }, [accountId, indexedAccountId]);
+
   return {
     perpDepositOrder: filterPerpDepositOrder,
     handlePerpDepositTxSuccess,
@@ -143,10 +150,58 @@ const usePerpDeposit = (
   const intl = useIntl();
 
   const [perpDepositQuoteLoading, setPerpDepositQuoteLoading] = useState(false);
-  const { handlePerpDepositTxSuccess } = usePerpDepositOrder({
-    accountId: selectedAccountId,
-    indexedAccountId,
-  });
+  const [, setPerpDepositOrder] = usePerpsDepositOrderAtom();
+  const handlePerpDepositTxSuccess = useCallback(
+    ({
+      fromAmount,
+      toAmount,
+      fromToken,
+      fromTxId,
+      isArbUSDCOrder,
+    }: {
+      fromAmount: string;
+      toAmount: string;
+      fromToken: IPerpsDepositToken;
+      fromTxId: string;
+      isArbUSDCOrder: boolean;
+    }) => {
+      Toast.success({
+        title: intl.formatMessage({
+          id: ETranslations.feedback_transaction_submitted,
+        }),
+        message: intl.formatMessage(
+          {
+            id: ETranslations.perp_toast_deposit_success_msg,
+          },
+          {
+            fromAmount,
+            token: token?.symbol,
+          },
+        ),
+      });
+      const time = Date.now();
+      setPerpDepositOrder((prev) => [
+        ...prev,
+        {
+          isArbUSDCOrder,
+          fromTxId,
+          amount: toAmount,
+          token: fromToken,
+          status: ESwapTxHistoryStatus.PENDING,
+          time,
+          accountId: selectedAccountId,
+          indexedAccountId,
+        },
+      ]);
+    },
+    [
+      indexedAccountId,
+      intl,
+      selectedAccountId,
+      setPerpDepositOrder,
+      token?.symbol,
+    ],
+  );
   const isArbitrumUsdcToken = useMemo(() => {
     return equalTokenNoCaseSensitive({
       token1: token,
@@ -1027,8 +1082,8 @@ const usePerpDeposit = (
       void handlePerpDepositTxSuccess({
         fromTxId: res.txid,
         isArbUSDCOrder: false,
-        token,
-        amount: perpDepositQuote.result.toAmount,
+        fromToken: token,
+        toAmount: perpDepositQuote.result.toAmount,
         fromAmount: amount,
       });
     }
@@ -1099,6 +1154,7 @@ const usePerpDeposit = (
     isArbitrumUsdcToken,
     checkRefreshQuote,
     perpDepositQuoteAction,
+    handlePerpDepositTxSuccess,
   };
 };
 
