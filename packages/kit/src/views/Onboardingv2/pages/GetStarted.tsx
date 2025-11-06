@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 
 import { EDeviceType } from '@onekeyfe/hd-shared';
 import { MotiView } from 'moti';
+import { useIntl } from 'react-intl';
 import Svg, {
   Defs,
   Line,
@@ -26,6 +27,7 @@ import {
   useThemeValue,
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes';
 import type { HwWalletAvatarImages } from '@onekeyhq/shared/src/utils/avatarUtils';
 
@@ -196,6 +198,7 @@ export default function GetStarted() {
     navigation.push(EOnboardingPagesV2.PickYourDevice);
   };
   const { gtMd } = useMedia();
+  const intl = useIntl();
 
   const handleCreateOrImportWallet = () => {
     navigation.push(EOnboardingPagesV2.CreateOrImportWallet);
@@ -215,7 +218,9 @@ export default function GetStarted() {
   return (
     <Page>
       <OnboardingLayout>
-        <OnboardingLayout.Header />
+        <OnboardingLayout.Header showBackButton={false}>
+          <OnboardingLayout.Back exit />
+        </OnboardingLayout.Header>
         <OnboardingLayout.Body scrollable={false} constrained={false}>
           <YStack flex={1} justifyContent="center" alignItems="center">
             <YStack
@@ -393,7 +398,9 @@ export default function GetStarted() {
                       </MotiView>
                     </YStack>
                     <SizableText size="$bodyLgMedium" color="$textInverse">
-                      Get started
+                      {intl.formatMessage({
+                        id: ETranslations.global_get_started,
+                      })}
                     </SizableText>
                   </XStack>
                 </Button>
@@ -405,7 +412,9 @@ export default function GetStarted() {
                   icon="PlusLargeOutline"
                   onPress={handleCreateOrImportWallet}
                 >
-                  Create or import wallet
+                  {intl.formatMessage({
+                    id: ETranslations.onboarding_create_or_import_wallet,
+                  })}
                 </Button>
               </Stack>
             </YStack>

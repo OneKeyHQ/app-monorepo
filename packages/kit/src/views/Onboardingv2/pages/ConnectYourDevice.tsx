@@ -450,6 +450,7 @@ function connectionIndicatorFooter({
 function TroubleShootingButton({ type }: { type: 'usb' | 'bluetooth' }) {
   const [showHelper, setShowHelper] = useState(false);
   const [showTroubleshooting, setShowTroubleshooting] = useState(false);
+  const intl = useIntl();
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -503,7 +504,9 @@ function TroubleShootingButton({ type }: { type: 'usb' | 'bluetooth' }) {
               onPress={() => setShowTroubleshooting(!showTroubleshooting)}
             >
               <SizableText size="$bodyMd" color="$textSubdued" flex={1}>
-                Having trouble connecting your device?
+                {intl.formatMessage({
+                  id: ETranslations.troubleshooting_show_helper_cta_label,
+                })}
               </SizableText>
               <Icon
                 name={
@@ -564,6 +567,7 @@ export const ConnectionIndicator = Object.assign(ConnectionIndicatorRoot, {
 });
 
 function BluetoothCard() {
+  const intl = useIntl();
   return (
     <ConnectionIndicator.Card>
       <ConnectionIndicator.Animation>
@@ -605,7 +609,13 @@ function BluetoothCard() {
       </ConnectionIndicator.Animation>
       <ConnectionIndicator.Content>
         <ConnectionIndicator.Title>
-          Keep your device near the computer to pair
+          {platformEnv.isNative
+            ? intl.formatMessage({
+                id: ETranslations.onboarding_bluetooth_prepare_to_connect,
+              })
+            : intl.formatMessage({
+                id: ETranslations.bluetooth_keep_near,
+              })}
         </ConnectionIndicator.Title>
       </ConnectionIndicator.Content>
     </ConnectionIndicator.Card>
@@ -856,16 +866,24 @@ function USBOrBLEConnectionIndicator({
             </ConnectionIndicator.Animation>
             <ConnectionIndicator.Content gap="$2">
               <ConnectionIndicator.Title>
-                Connect {deviceLabel} to your computer via USB
+                {intl.formatMessage(
+                  {
+                    id: ETranslations.connect_device_to_computer_via_usb,
+                  },
+                  { deviceLabel },
+                )}
               </ConnectionIndicator.Title>
               {platformEnv.isExtension ? (
                 <>
                   <SizableText color="$textSubdued">
-                    Click the button below then select your device in the popup
-                    to connect
+                    {intl.formatMessage({
+                      id: ETranslations.device_select_device_popup,
+                    })}
                   </SizableText>
                   <Button variant="primary" onPress={() => {}} mt="$2">
-                    Start connection
+                    {intl.formatMessage({
+                      id: ETranslations.global_start_connection,
+                    })}
                   </Button>
                 </>
               ) : null}
@@ -877,7 +895,10 @@ function USBOrBLEConnectionIndicator({
           <YStack px="$5">
             <XStack alignItems="center" justifyContent="space-between">
               <SizableText color="$textDisabled">
-                Looking for your device...
+                {intl.formatMessage({
+                  id: ETranslations.onboarding_bluetooth_connect_help_text,
+                })}
+                ...
               </SizableText>
             </XStack>
           </YStack>
@@ -1162,7 +1183,10 @@ function BluetoothConnectionIndicator({
           <YStack px="$5">
             <XStack alignItems="center" justifyContent="space-between">
               <SizableText color="$textDisabled">
-                Looking for your device...
+                {intl.formatMessage({
+                  id: ETranslations.onboarding_bluetooth_connect_help_text,
+                })}
+                ...
               </SizableText>
             </XStack>
           </YStack>
@@ -1199,6 +1223,7 @@ function BluetoothConnectionIndicator({
 
 function QRWalletConnect() {
   const { gtMd } = useMedia();
+  const intl = useIntl();
   const navigation = useAppNavigation();
   const { closePopover } = usePopoverContext();
   const handleCreateQRWallet = useCallback(async () => {
@@ -1206,6 +1231,7 @@ function QRWalletConnect() {
     await timerUtils.wait(100);
     navigation.push(EOnboardingPagesV2.ConnectQRCode);
   }, [closePopover, navigation]);
+
   return (
     <YStack
       p="$5"
@@ -1215,22 +1241,28 @@ function QRWalletConnect() {
         p: '$3',
       }}
     >
-      {gtMd ? <SizableText size="$headingSm">Advanced</SizableText> : null}
+      {gtMd ? (
+        <SizableText size="$headingSm">
+          {intl.formatMessage({
+            id: ETranslations.global_advanced,
+          })}
+        </SizableText>
+      ) : null}
       <SizableText color="$textSubdued">
-        Some crypto assets and hardware features are unavailable in QR Code
-        communication mode.
+        {intl.formatMessage({
+          id: ETranslations.qr_connection_feature_lack,
+        })}
       </SizableText>
       <SizableText color="$textSubdued">
-        This mode is intended only for a small number of users who rarely
-        operate their hardware wallet and is not compatible with other
-        connection methods.
+        {intl.formatMessage({
+          id: ETranslations.qr_connection_only_for_small_amount_users,
+        })}
       </SizableText>
       <SizableText color="$textSubdued">
-        If you wish to connect your hardware wallet via Bluetooth or USB, please
-        re-add the wallet to switch the communication mode.
+        {intl.formatMessage({ id: ETranslations.qr_connection_re_add })}
       </SizableText>
       <Button mt="$3" size="large" onPress={handleCreateQRWallet}>
-        Continue with QR Code
+        {intl.formatMessage({ id: ETranslations.qr_connection_cta })}
       </Button>
     </YStack>
   );
@@ -1281,7 +1313,11 @@ function ConnectYourDevicePage({
   return (
     <Page>
       <OnboardingLayout>
-        <OnboardingLayout.Header title="Connect your device" />
+        <OnboardingLayout.Header
+          title={intl.formatMessage({
+            id: ETranslations.onboarding_connect_your_device,
+          })}
+        />
         <OnboardingLayout.Body constrained={false}>
           <OnboardingLayout.ConstrainedContent>
             <XStack alignItems="center" gap="$4">
