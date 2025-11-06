@@ -410,8 +410,6 @@ export interface IConnectYourDeviceItem {
   src: ImageSourcePropType;
   opacity?: number;
   device: SearchDevice | KnownDevice | undefined;
-  onFirmwareVerified: () => Promise<void>;
-  onCreateWallet: () => Promise<void>;
 }
 
 export interface IFirmwareVerifyResult {

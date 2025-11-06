@@ -42,6 +42,7 @@ import { useFirmwareUpdateActions } from '../../FirmwareUpdate/hooks/useFirmware
 import { OnboardingLayout } from '../components/OnboardingLayout';
 
 import type { KnownDevice, SearchDevice } from '@onekeyfe/hd-core';
+import { useDeviceConnect } from '../hooks/useDeviceConnect';
 
 enum ECheckAndUpdateStepState {
   Idle = 'idle',
@@ -68,6 +69,11 @@ export default function CheckAndUpdate({
     }
     return (deviceData.device as SearchDevice).name;
   }, [deviceData]);
+
+  const {
+    onDeviceConnect,
+    connectDevice,
+  } = useDeviceConnect();
 
   const [steps, setSteps] = useState<
     {
@@ -117,30 +123,6 @@ export default function CheckAndUpdate({
       });
     }
   }, [actions, deviceData.device?.connectId]);
-
-  const connectDevice = useCallback(async (device: SearchDevice) => {
-    try {
-      return await backgroundApiProxy.serviceHardware.connect({
-        device,
-      });
-    } catch (error: any) {
-      if (error instanceof OneKeyHardwareError) {
-        const { code, message } = error;
-        if (
-          code === HardwareErrorCode.CallMethodNeedUpgradeFirmware ||
-          code === HardwareErrorCode.BlePermissionError ||
-          code === HardwareErrorCode.BleLocationError
-        ) {
-          return;
-        }
-        Toast.error({
-          title: message || 'DeviceConnectError',
-        });
-      } else {
-        console.error('connectDevice error:', get(error, 'message', ''));
-      }
-    }
-  }, []);
 
   const checkDeviceInitialized = useCallback(async () => {
     setSteps((prev) => {
