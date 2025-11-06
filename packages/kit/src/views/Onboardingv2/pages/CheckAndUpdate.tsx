@@ -1,8 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { useFocusEffect } from '@react-navigation/native';
-import { get } from 'lodash';
 import { StyleSheet } from 'react-native';
 
 import type { IImageProps, IPageScreenProps } from '@onekeyhq/components';
@@ -17,11 +15,9 @@ import {
   Page,
   SizableText,
   Spinner,
-  Toast,
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import { OneKeyHardwareError } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -29,6 +25,7 @@ import {
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
 import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import {
   EHardwareCallContext,
   EOneKeyDeviceMode,
@@ -36,6 +33,7 @@ import {
 } from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import { useFirmwareUpdateActions } from '../../FirmwareUpdate/hooks/useFirmwareUpdateActions';
@@ -52,7 +50,7 @@ enum ECheckAndUpdateStepState {
   Error = 'error',
 }
 
-export default function CheckAndUpdate({
+function CheckAndUpdatePage({
   route: routeParams,
 }: IPageScreenProps<
   IOnboardingParamListV2,
@@ -701,5 +699,24 @@ export default function CheckAndUpdate({
         </OnboardingLayout.Body>
       </OnboardingLayout>
     </Page>
+  );
+}
+
+export default function CheckAndUpdate({
+  route,
+  navigation,
+}: IPageScreenProps<
+  IOnboardingParamListV2,
+  EOnboardingPagesV2.CheckAndUpdate
+>) {
+  return (
+    <AccountSelectorProviderMirror
+      enabledNum={[0]}
+      config={{
+        sceneName: EAccountSelectorSceneName.home, // TODO read from router
+      }}
+    >
+      <CheckAndUpdatePage route={route} navigation={navigation} />
+    </AccountSelectorProviderMirror>
   );
 }
