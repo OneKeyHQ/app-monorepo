@@ -80,6 +80,7 @@ import type ServiceUniversalSearch from '../services/ServiceUniversalSearch';
 import type ServiceV4Migration from '../services/ServiceV4Migration';
 import type ServiceValidator from '../services/ServiceValidator';
 import type ServiceWalletBanner from '../services/ServiceWalletBanner';
+import type ServiceWalletStatus from '../services/ServiceWalletStatus';
 import type ServiceWalletConnect from '../services/ServiceWalletConnect';
 import type ServiceWebviewPerp from '../services/ServiceWebviewPerp';
 
@@ -364,6 +365,10 @@ class BackgroundApiProxy
   serviceHyperliquidSubscription = this._createProxyService(
     'serviceHyperliquidSubscription',
   ) as ServiceHyperliquidSubscription;
+
+  serviceWalletStatus = this._createProxyService(
+    'serviceWalletStatus',
+  ) as ServiceWalletStatus;
 }
 
 export default BackgroundApiProxy;

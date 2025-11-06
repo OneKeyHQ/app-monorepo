@@ -485,4 +485,13 @@ export class SimpleDb {
     Object.defineProperty(this, 'btcFreshAddressMeta', { value });
     return value;
   }
+
+  get walletStatus() {
+    const SimpleDbEntityWalletStatus = (
+      require('../entity/SimpleDbEntityWalletStatus') as unknown as typeof import('../entity/SimpleDbEntityWalletStatus')
+    ).SimpleDbEntityWalletStatus;
+    const value = new SimpleDbEntityWalletStatus();
+    Object.defineProperty(this, 'walletStatus', { value });
+    return value;
+  }
 }

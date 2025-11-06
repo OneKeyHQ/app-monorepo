@@ -5,7 +5,13 @@ import type {
   IImageProps,
   IYStackProps,
 } from '@onekeyhq/components';
-import { Icon, Image, SizableText, YStack } from '@onekeyhq/components';
+import {
+  Icon,
+  IconButton,
+  Image,
+  SizableText,
+  YStack,
+} from '@onekeyhq/components';
 
 type IProps = {
   title: string;
@@ -14,6 +20,8 @@ type IProps = {
   iconContainerProps?: IYStackProps;
   iconProps?: IIconProps;
   bgSource?: IImageProps['source'];
+  closable?: boolean;
+  onClose?: () => void;
 };
 
 function MainInfoBlock(props: IProps) {
@@ -24,6 +32,8 @@ function MainInfoBlock(props: IProps) {
     iconProps,
     iconContainerProps,
     bgSource,
+    closable,
+    onClose,
   } = props;
   return (
     <YStack
@@ -68,6 +78,20 @@ function MainInfoBlock(props: IProps) {
           w={600}
           h={380}
           zIndex={0}
+        />
+      ) : null}
+      {closable ? (
+        <IconButton
+          variant="tertiary"
+          position="absolute"
+          top="$2"
+          right="$2"
+          icon="CrossedSmallOutline"
+          size="small"
+          onPress={onClose}
+          iconProps={{
+            color: '$iconSubdued',
+          }}
         />
       ) : null}
       <YStack

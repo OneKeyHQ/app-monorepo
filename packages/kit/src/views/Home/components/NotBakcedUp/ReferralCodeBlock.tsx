@@ -1,4 +1,4 @@
-import { memo, useCallback, useState } from 'react';
+import { memo, useCallback, useEffect, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -32,7 +32,19 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import MainInfoBlock from './MainBlock';
 
-function ReferralCodeBlock({ hideOnBound = false }: { hideOnBound?: boolean }) {
+function ReferralCodeBlock({
+  hideOnBound = false,
+  inTabList,
+  recomputeLayout,
+  closable,
+  onClose,
+}: {
+  hideOnBound?: boolean;
+  inTabList?: boolean;
+  recomputeLayout?: () => void;
+  closable?: boolean;
+  onClose?: () => void;
+}) {
   const intl = useIntl();
   const themeVariant = useThemeVariant();
 
@@ -85,6 +97,21 @@ function ReferralCodeBlock({ hideOnBound = false }: { hideOnBound?: boolean }) {
       if (!isHdOrHwWallet) {
         return false;
       }
+
+      if (inTabList) {
+        const walletStatus =
+          await backgroundApiProxy.serviceWalletStatus.getWalletStatus({
+            walletXfp: wallet?.xfp || '',
+          });
+        if (
+          walletStatus &&
+          (walletStatus.manuallyCloseReferralCodeBlock ||
+            !walletStatus.hasValue)
+        ) {
+          return false;
+        }
+      }
+
       const referralCodeInfo =
         await backgroundApiProxy.serviceReferralCode.getWalletReferralCode({
           walletId: wallet?.id || '',
@@ -97,7 +124,13 @@ function ReferralCodeBlock({ hideOnBound = false }: { hideOnBound?: boolean }) {
       }
       return referralCodeInfo?.walletId && !referralCodeInfo?.isBound;
     },
-    [wallet?.id, getReferralCodeBondStatus, isHdOrHwWallet],
+    [
+      isHdOrHwWallet,
+      inTabList,
+      wallet?.id,
+      wallet?.xfp,
+      getReferralCodeBondStatus,
+    ],
     {
       initResult: undefined,
       watchLoading: true,
@@ -218,42 +251,95 @@ function ReferralCodeBlock({ hideOnBound = false }: { hideOnBound?: boolean }) {
     intl,
   ]);
 
+  const handleClose = useCallback(async () => {
+    if (closable) {
+      await backgroundApiProxy.serviceWalletStatus.updateWalletStatus({
+        walletXfp: wallet?.xfp || '',
+        status: {
+          manuallyCloseReferralCodeBlock: true,
+        },
+      });
+      await refreshDisplayReferralCodeButton();
+      onClose?.();
+      setTimeout(() => {
+        recomputeLayout?.();
+      }, 350);
+    }
+  }, [
+    closable,
+    wallet?.xfp,
+    refreshDisplayReferralCodeButton,
+    onClose,
+    recomputeLayout,
+  ]);
+
+  useEffect(() => {
+    if (inTabList && recomputeLayout && shouldBoundReferralCode) {
+      setTimeout(() => {
+        recomputeLayout();
+      }, 350);
+    }
+  }, [inTabList, recomputeLayout, shouldBoundReferralCode]);
+
+  const renderReferralCodeBlock = useCallback(() => {
+    return (
+      <MainInfoBlock
+        closable={closable}
+        onClose={handleClose}
+        bgSource={
+          themeVariant === 'light'
+            ? require('@onekeyhq/kit/assets/promo-code-bg.png')
+            : require('@onekeyhq/kit/assets/promo-code-bg-dark.png')
+        }
+        title={intl.formatMessage({ id: ETranslations.referral_promo_title })}
+        iconProps={{ name: 'GiftOutline' }}
+        iconContainerProps={{ bg: '$info8' }}
+        containerProps={{
+          bg: '$blue1',
+          $gtMd: { flexBasis: 0, flexShrink: 1, flexGrow: 1 },
+          ...(inTabList && {
+            borderWidth: 0,
+            borderRadius: 0,
+          }),
+        }}
+        actions={
+          <Form form={form}>
+            <YStack gap="$6" alignItems="flex-start">
+              <Anchor
+                href={referralHelpLink}
+                color="$textSubdued"
+                size="$bodyMd"
+                textDecorationLine="underline"
+              >
+                {intl.formatMessage({
+                  id: ETranslations.referral_code_tutorial_label,
+                })}
+              </Anchor>
+              {renderReferralCodeActions()}
+            </YStack>
+          </Form>
+        }
+      />
+    );
+  }, [
+    closable,
+    handleClose,
+    form,
+    intl,
+    referralHelpLink,
+    renderReferralCodeActions,
+    themeVariant,
+    inTabList,
+  ]);
+
   if (!shouldBoundReferralCode && hideOnBound) {
     return null;
   }
 
-  return (
-    <MainInfoBlock
-      bgSource={
-        themeVariant === 'light'
-          ? require('@onekeyhq/kit/assets/promo-code-bg.png')
-          : require('@onekeyhq/kit/assets/promo-code-bg-dark.png')
-      }
-      title={intl.formatMessage({ id: ETranslations.referral_promo_title })}
-      iconProps={{ name: 'GiftOutline' }}
-      iconContainerProps={{ bg: '$info8' }}
-      containerProps={{
-        bg: '$blue1',
-        $gtMd: { flexBasis: 0, flexShrink: 1, flexGrow: 1 },
-      }}
-      actions={
-        <Form form={form}>
-          <YStack gap="$6" alignItems="flex-start">
-            <Anchor
-              href={referralHelpLink}
-              color="$textSubdued"
-              size="$bodyMd"
-              textDecorationLine="underline"
-            >
-              {intl.formatMessage({
-                id: ETranslations.referral_code_tutorial_label,
-              })}
-            </Anchor>
-            {renderReferralCodeActions()}
-          </YStack>
-        </Form>
-      }
-    />
+  return inTabList ? (
+    <Stack height={360}>{renderReferralCodeBlock()}</Stack>
+  ) : (
+    renderReferralCodeBlock()
   );
 }
 

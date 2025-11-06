@@ -17,6 +17,7 @@ import {
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
+import { SHOW_WALLET_FUNCTION_BLOCK_VALUE_THRESHOLD_USD } from '@onekeyhq/shared/src/consts/walletConsts';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -140,6 +141,23 @@ function HomeOverviewContainer() {
       (account.id === accountWorth.accountId ||
         account.indexedAccountId === accountWorth.accountId)
     ) {
+      const allWorth = Object.values(accountWorth.worth).reduce(
+        (acc: string, cur: string) => new BigNumber(acc).plus(cur).toFixed(),
+        '0',
+      );
+
+      if (
+        new BigNumber(allWorth).gt(
+          SHOW_WALLET_FUNCTION_BLOCK_VALUE_THRESHOLD_USD,
+        )
+      ) {
+        void backgroundApiProxy.serviceWalletStatus.updateWalletStatus({
+          walletXfp: wallet?.xfp ?? '',
+          status: {
+            hasValue: true,
+          },
+        });
+      }
       let accountValueId = '';
       if (accountUtils.isOthersAccount({ accountId: account.id })) {
         accountValueId = account.id;

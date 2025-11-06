@@ -1,5 +1,5 @@
 import type { ComponentProps, ReactElement, ReactNode } from 'react';
-import { memo, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 
@@ -69,6 +69,7 @@ type IProps = {
   withNetwork?: boolean;
   withSmallBalanceTokens?: boolean;
   withSwapAction?: boolean;
+  withReferralCode?: boolean;
   inTabList?: boolean;
   onManageToken?: () => void;
   manageTokenEnabled?: boolean;
@@ -141,6 +142,7 @@ function TokenListViewCmp(props: IProps) {
     accountId,
     networkId,
     indexedAccountId,
+    withReferralCode,
   } = props;
 
   const [activeAccountTokenList] = useActiveAccountTokenListAtom();
@@ -427,6 +429,15 @@ function TokenListViewCmp(props: IProps) {
     emptyProps,
   ]);
 
+  const ListComponentRef = useRef<typeof ListComponent>(null);
+
+  const recomputeLayout = useCallback(() => {
+    if (!platformEnv.isNative) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+      (ListComponentRef.current as any)?.recomputeLayout?.();
+    }
+  }, []);
+
   return (
     <ListComponent
       // @ts-ignore
@@ -445,9 +456,11 @@ function TokenListViewCmp(props: IProps) {
             filteredTokens={filteredTokens}
             onManageToken={onManageToken}
             manageTokenEnabled={manageTokenEnabled}
+            recomputeLayout={recomputeLayout}
             {...(tokens.length > 0 && {
               tableLayout,
             })}
+            withReferralCode={withReferralCode}
           />
         ) : null
       }
