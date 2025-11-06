@@ -445,7 +445,7 @@ export function PhaseInputArea({
   showClearAllButton = true,
   defaultPhrases = [],
 }: {
-  onConfirm: (params: {
+  onConfirm?: (params: {
     mnemonic: string;
     mnemonicType: EMnemonicType;
   }) => void;
@@ -495,7 +495,7 @@ export function PhaseInputArea({
     const { mnemonicType } = await serviceAccount.validateMnemonic(
       mnemonicEncoded,
     );
-    onConfirm({ mnemonic: mnemonicEncoded, mnemonicType });
+    onConfirm?.({ mnemonic: mnemonicEncoded, mnemonicType });
   }, [form, onConfirm, serviceAccount, servicePassword]);
 
   const {
@@ -658,11 +658,13 @@ export function PhaseInputArea({
         </HeightTransition>
         {FooterComponent}
       </Page.Body>
-      <PageFooter
-        suggestions={suggestions}
-        updateInputValue={updateInputValue}
-        onConfirm={handlePageFooterConfirm}
-      />
+      {onConfirm ? (
+        <PageFooter
+          suggestions={suggestions}
+          updateInputValue={updateInputValue}
+          onConfirm={handlePageFooterConfirm}
+        />
+      ) : null}
     </>
   );
 }

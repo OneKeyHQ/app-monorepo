@@ -238,7 +238,17 @@ function CheckAndUpdatePage({
   useFocusEffect(
     useCallback(() => {
       if (firmwareStepStateRef.current === ECheckAndUpdateStepState.Warning) {
-        void checkFirmwareUpdate();
+        setSteps((prev) => {
+          const newSteps = [...prev];
+          newSteps[1] = {
+            ...newSteps[1],
+            state: ECheckAndUpdateStepState.InProgress,
+          };
+          return newSteps;
+        });
+        setTimeout(() => {
+          void checkFirmwareUpdate();
+        }, 150);
       }
     }, [checkFirmwareUpdate]),
   );

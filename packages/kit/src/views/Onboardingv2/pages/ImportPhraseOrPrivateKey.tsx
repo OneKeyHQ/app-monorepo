@@ -61,7 +61,7 @@ export default function ImportPhraseOrPrivateKey() {
             />
             <HeightTransition>
               {selected === 'phrase' ? (
-                <PhaseInputArea defaultPhrases={[]} onConfirm={handleConfirm} />
+                <PhaseInputArea defaultPhrases={[]} />
               ) : (
                 <YStack
                   key="privateKey"
