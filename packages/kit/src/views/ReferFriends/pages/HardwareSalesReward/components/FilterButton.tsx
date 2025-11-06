@@ -1,0 +1,155 @@
+import { useCallback, useMemo } from 'react';
+
+import { useIntl } from 'react-intl';
+
+import { ActionList, Badge, Icon, IconButton } from '@onekeyhq/components';
+import type { IActionListItemProps } from '@onekeyhq/components';
+import { useInviteCodeList } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/InvitationDetailsSection/hooks/useInviteCodeList';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EExportTimeRange } from '@onekeyhq/shared/src/referralCode/type';
+
+import type { IFilterState } from '../hooks/useHardwareSalesFilter';
+
+interface IFilterButtonProps {
+  filterState: IFilterState;
+  onFilterChange: (updates: Partial<IFilterState>) => void;
+}
+
+export function FilterButton({
+  filterState,
+  onFilterChange,
+}: IFilterButtonProps) {
+  const intl = useIntl();
+  const { codeListData } = useInviteCodeList();
+
+  const timeRangeOptions = useMemo(
+    () => [
+      {
+        label: intl.formatMessage({
+          id: ETranslations.referral_filter_alltime,
+        }),
+        value: EExportTimeRange.All,
+      },
+      {
+        label: intl.formatMessage({ id: ETranslations.referral_filter_30 }),
+        value: EExportTimeRange.OneMonth,
+      },
+      {
+        label: intl.formatMessage({ id: ETranslations.referral_filter_90 }),
+        value: EExportTimeRange.ThreeMonths,
+      },
+    ],
+    [intl],
+  );
+
+  const inviteCodeOptions = useMemo(() => {
+    const options: Array<{ label: string; value?: string }> = [
+      {
+        label: intl.formatMessage({
+          id: ETranslations.referral_filter_code_all,
+        }),
+        value: undefined,
+      },
+    ];
+
+    if (codeListData?.items) {
+      codeListData.items.forEach((item) => {
+        options.push({
+          label: item.code,
+          value: item.code,
+        });
+      });
+    }
+
+    return options;
+  }, [intl, codeListData]);
+
+  const handleTimeRangeSelect = useCallback(
+    (value: EExportTimeRange) => {
+      onFilterChange({ timeRange: value });
+    },
+    [onFilterChange],
+  );
+
+  const handleInviteCodeSelect = useCallback(
+    (value?: string) => {
+      onFilterChange({ inviteCode: value });
+    },
+    [onFilterChange],
+  );
+
+  const sections = useMemo(() => {
+    return [
+      {
+        title: intl.formatMessage({ id: ETranslations.referral_filter_time }),
+        items: timeRangeOptions.map((option) => ({
+          label: option.label,
+          extra:
+            filterState.timeRange === option.value ? (
+              <Icon name="CheckRadioSolid" size="$5" color="$iconSuccess" />
+            ) : undefined,
+          onPress: () => handleTimeRangeSelect(option.value),
+        })) as IActionListItemProps[],
+      },
+      {
+        title: intl.formatMessage({
+          id: ETranslations.referral_code_list,
+        }),
+        items: inviteCodeOptions.map((option) => ({
+          label: option.label,
+          extra:
+            filterState.inviteCode === option.value ? (
+              <Icon name="CheckRadioSolid" size="$5" color="$iconSuccess" />
+            ) : undefined,
+          onPress: () => handleInviteCodeSelect(option.value),
+        })) as IActionListItemProps[],
+      },
+    ];
+  }, [
+    intl,
+    timeRangeOptions,
+    inviteCodeOptions,
+    filterState,
+    handleTimeRangeSelect,
+    handleInviteCodeSelect,
+  ]);
+
+  // Check if any filters are active (not default values)
+  const hasActiveFilters = useMemo(() => {
+    return (
+      filterState.timeRange !== EExportTimeRange.All ||
+      filterState.inviteCode !== undefined
+    );
+  }, [filterState]);
+
+  // Count active filters
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+    if (filterState.timeRange !== EExportTimeRange.All) {
+      count += 1;
+    }
+    if (filterState.inviteCode !== undefined) {
+      count += 1;
+    }
+    return count;
+  }, [filterState]);
+
+  return (
+    <ActionList
+      title={intl.formatMessage({ id: ETranslations.referral_filter })}
+      renderTrigger={
+        <Badge
+          badgeType="number"
+          badgeValue={activeFilterCount > 0 ? activeFilterCount : undefined}
+        >
+          <IconButton
+            icon="Filter2Outline"
+            variant={hasActiveFilters ? 'primary' : 'tertiary'}
+            title={intl.formatMessage({ id: ETranslations.referral_filter })}
+          />
+        </Badge>
+      }
+      sections={sections}
+    />
+  );
+}

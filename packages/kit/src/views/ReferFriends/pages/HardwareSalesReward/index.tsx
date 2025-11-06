@@ -27,6 +27,8 @@ import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import { formatDate, formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 
 import { ExportButton } from './components/ExportButton';
+import { FilterButton } from './components/FilterButton';
+import { useHardwareSalesFilter } from './hooks/useHardwareSalesFilter';
 
 type ISectionListItem = {
   title?: string;
@@ -83,9 +85,22 @@ export default function HardwareSalesReward() {
     | undefined
   >();
 
+  // Use the filter hook with state data
+  const [allData, setAllData] = useState<IHardwareSalesRecord['items']>([]);
+  const { filterState, filteredData, updateFilter, exportParams } =
+    useHardwareSalesFilter(allData);
+
   const renderHeaderRight = useCallback(() => {
-    return <ExportButton />;
-  }, []);
+    return (
+      <XStack gap="$2">
+        <FilterButton filterState={filterState} onFilterChange={updateFilter} />
+        <ExportButton
+          timeRange={exportParams.timeRange}
+          inviteCode={exportParams.inviteCode}
+        />
+      </XStack>
+    );
+  }, [filterState, updateFilter, exportParams]);
 
   const fetchSales = useCallback((cursor?: string) => {
     return backgroundApiProxy.serviceReferralCode.getHardwareSales(cursor);
@@ -101,8 +116,9 @@ export default function HardwareSalesReward() {
       ([salesResult, summaryResult]) => {
         if (salesResult.status === 'fulfilled') {
           const data = salesResult.value;
-          setSections(formatSections(data.items));
           originalData.current = data.items;
+          setAllData(data.items);
+          // Set sections will be handled by the effect below
         }
 
         if (summaryResult.status === 'fulfilled') {
@@ -120,6 +136,11 @@ export default function HardwareSalesReward() {
   useEffect(() => {
     onRefresh();
   }, [fetchSales, fetchSummaryInfo, onRefresh]);
+
+  // Update sections when filteredData changes
+  useEffect(() => {
+    setSections(formatSections(filteredData));
+  }, [filteredData]);
   const renderSectionHeader = useCallback(
     (item: { section: ISectionListItem }) => {
       if (item.section.title) {
@@ -144,7 +165,8 @@ export default function HardwareSalesReward() {
           ),
       );
       originalData.current.push(...uniqueItems);
-      setSections(formatSections(originalData.current));
+      setAllData([...originalData.current]);
+      // Sections will be updated by the effect watching filteredData
     }
   }, [fetchSales]);
 
