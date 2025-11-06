@@ -80,6 +80,7 @@ export enum EAtomNames {
   perpsCandlesWebviewMountedAtom = 'perpsCandlesWebviewMountedAtom',
   perpsWebSocketDataUpdateTimesAtom = 'perpsWebSocketDataUpdateTimesAtom',
   perpTokenSortConfigPersistAtom = 'perpTokenSortConfigPersistAtom',
+  perpsDepositOrderAtom = 'perpsDepositOrderAtom',
 }
 export type IAtomNameKeys = keyof typeof EAtomNames;
 export const atomsConfig: Partial<

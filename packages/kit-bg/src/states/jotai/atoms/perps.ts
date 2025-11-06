@@ -13,6 +13,7 @@ import type {
   IPerpsUniverse,
 } from '@onekeyhq/shared/types/hyperliquid';
 import { EPerpUserType } from '@onekeyhq/shared/types/hyperliquid';
+import type { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 
 import { EAtomNames } from '../atomNames';
 import { globalAtom, globalAtomComputedR } from '../utils';
@@ -329,6 +330,26 @@ export const {
     tokens: {},
   },
 });
+
+export interface IPerpsDepositOrderAtom {
+  isArbUSDCOrder: boolean;
+  fromTxId: string;
+  toTxId?: string;
+  amount: string;
+  token: IPerpsDepositToken;
+  status: ESwapTxHistoryStatus;
+  accountId?: string | null;
+  indexedAccountId?: string | null;
+}
+
+export const { target: perpsDepositOrderAtom, use: usePerpsDepositOrderAtom } =
+  globalAtom<{ orders: IPerpsDepositOrderAtom[] }>({
+    name: EAtomNames.perpsDepositOrderAtom,
+    persist: true,
+    initialValue: {
+      orders: [],
+    },
+  });
 
 export interface IPerpsUserConfigPersistAtom {
   perpUserConfig: IPerpUserConfig;
