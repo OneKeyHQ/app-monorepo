@@ -1,4 +1,5 @@
 import https from 'https';
+import zlib from 'zlib';
 
 import logger from 'electron-log/main';
 
@@ -8,6 +9,7 @@ import type {
 } from '@onekeyhq/shared/src/request/types/ipTable';
 
 import type { IDesktopApi } from './instance/IDesktopApi';
+import type { Readable } from 'stream';
 
 /**
  * Create a custom HTTPS agent that uses hostname (server name) instead of IP (host)
@@ -95,7 +97,6 @@ class DesktopApiSniRequest {
         };
 
         // Collect response data
-        let responseData = '';
         const responseHeaders: Record<string, string> = {};
         let statusCode = 0;
         let timeoutId: ReturnType<typeof setTimeout> | undefined;
@@ -114,15 +115,31 @@ class DesktopApiSniRequest {
             }
           });
 
-          // Collect response data
-          response.on('data', (chunk: Buffer) => {
-            responseData += chunk.toString('utf8');
+          // Handle response decompression based on content-encoding
+          let responseStream: Readable = response;
+          const encoding = response.headers['content-encoding'];
+
+          if (encoding === 'gzip') {
+            responseStream = response.pipe(zlib.createGunzip());
+          } else if (encoding === 'deflate') {
+            responseStream = response.pipe(zlib.createInflate());
+          } else if (encoding === 'br') {
+            responseStream = response.pipe(zlib.createBrotliDecompress());
+          }
+
+          // Collect decompressed response data as Buffer chunks
+          const chunks: Buffer[] = [];
+          responseStream.on('data', (chunk: Buffer) => {
+            chunks.push(chunk);
           });
 
-          response.on('end', () => {
+          responseStream.on('end', () => {
             if (timeoutId) {
               clearTimeout(timeoutId);
             }
+
+            // Concatenate all chunks and convert to UTF-8 string
+            const responseData = Buffer.concat(chunks).toString('utf8');
 
             resolve({
               statusCode,
@@ -131,16 +148,17 @@ class DesktopApiSniRequest {
             });
           });
 
-          response.on('error', (error: Error) => {
+          responseStream.on('error', (error: Error) => {
             if (timeoutId) {
               clearTimeout(timeoutId);
             }
-            logger.error('[DesktopApiSniRequest] Response error', {
+            logger.error('[DesktopApiSniRequest] Response stream error', {
               hostname: config.hostname,
               ip: config.ip,
+              encoding,
               error: error.message,
             });
-            reject(new Error(`Response error: ${error.message}`));
+            reject(new Error(`Response stream error: ${error.message}`));
           });
         });
 
