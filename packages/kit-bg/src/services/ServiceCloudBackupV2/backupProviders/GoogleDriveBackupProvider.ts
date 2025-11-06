@@ -67,7 +67,7 @@ export class GoogleDriveBackupProvider implements IOneKeyBackupProvider {
     }
 
     return {
-      iCloud: undefined,
+      userId: userInfo?.user?.id || '',
       googleDrive: {
         email,
         userInfo,
@@ -130,11 +130,15 @@ export class GoogleDriveBackupProvider implements IOneKeyBackupProvider {
     );
   }
 
+  buildBackupFileName(): string {
+    return `${GOOGLE_DRIVE_BACKUP_FILE_NAME_PREFIX}${stringUtils.generateUUID()}.json`;
+  }
+
   async backupData(
     payload: IBackupDataEncryptedPayload,
   ): Promise<{ recordID: string; content: string }> {
     await this.checkAvailability();
-    const fileName = `${GOOGLE_DRIVE_BACKUP_FILE_NAME_PREFIX}${stringUtils.generateUUID()}`;
+    const fileName = this.buildBackupFileName();
     const content = stringUtils.stableStringify(payload);
     const result = await googleDriveStorage.uploadFile({ fileName, content });
     await this.appendToManifest({

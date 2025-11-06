@@ -24,6 +24,7 @@ export type IBackupProviderInfo = {
   displayNameI18nKey: string;
 };
 export type IBackupProviderAccountInfo = {
+  userId: string;
   iCloud?: {
     cloudKitStatus: number; // CKContainer.AccountStatus raw value
     cloudKitStatusName: ICloudKitAccountStatusName;

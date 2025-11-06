@@ -127,6 +127,19 @@ class ServiceCloudBackupV2 extends ServiceBase {
     return data;
   }
 
+  async buildBackupEncryptKey(params: { password: string }): Promise<string> {
+    if (!params?.password) {
+      throw new OneKeyLocalError('Password is required for backup');
+    }
+    const cloudAccountInfo = await this.getCloudAccountInfo();
+    if (!cloudAccountInfo?.userId) {
+      throw new OneKeyLocalError(
+        'Cloud account user ID is required for backup',
+      );
+    }
+    return `${cloudAccountInfo.userId}:${params.password}:4A561E9E-E747-4AFF-B835-FE2EF2D61B41`;
+  }
+
   @backgroundMethod()
   @toastIfError()
   async backup(params: {
@@ -139,6 +152,7 @@ class ServiceCloudBackupV2 extends ServiceBase {
     if (!params?.data?.privateData) {
       throw new OneKeyLocalError('Private data is required for backup');
     }
+
     const provider = this.getProvider();
     await provider.checkAvailability();
 
@@ -174,7 +188,7 @@ class ServiceCloudBackupV2 extends ServiceBase {
 
     const privateDataEncryptedBuffer = await encryptAsync({
       data: Buffer.from(privateData, 'utf8'),
-      password: params.password,
+      password: await this.buildBackupEncryptKey({ password: params.password }),
       allowRawPassword: true,
     });
 
@@ -238,7 +252,7 @@ class ServiceCloudBackupV2 extends ServiceBase {
     // Decrypt data
     const privateDataBuffer = await decryptAsync({
       data: privateDataEncrypted,
-      password: params.password,
+      password: await this.buildBackupEncryptKey({ password: params.password }),
       allowRawPassword: true,
     });
 

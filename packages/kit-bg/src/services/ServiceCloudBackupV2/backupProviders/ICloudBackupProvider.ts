@@ -57,7 +57,7 @@ export class ICloudBackupProvider implements IOneKeyBackupProvider {
   // - getCloudAccountInfo()
 
   async getCloudAccountInfo(): Promise<IBackupProviderAccountInfo> {
-    const accountInfo = await appleCloudKitStorage.getAccountInfo();
+    const cloudKitAccountInfo = await appleCloudKitStorage.getAccountInfo();
     const cloudKitAvailable = await appleCloudKitStorage.isAvailable();
     const cloudFsAvailable = await RNCloudFs.isAvailable();
     const keychainCloudSyncEnabled =
@@ -68,10 +68,11 @@ export class ICloudBackupProvider implements IOneKeyBackupProvider {
     // };
 
     return {
+      userId: cloudKitAccountInfo.containerUserId ?? '',
       iCloud: {
-        cloudKitStatus: accountInfo.status,
-        cloudKitStatusName: accountInfo.statusName,
-        cloudKitContainerUserId: accountInfo.containerUserId,
+        cloudKitStatus: cloudKitAccountInfo.status,
+        cloudKitStatusName: cloudKitAccountInfo.statusName,
+        cloudKitContainerUserId: cloudKitAccountInfo.containerUserId,
         cloudKitAvailable,
         cloudFsAvailable,
         keychainCloudSyncEnabled, // TODO not working as expected
