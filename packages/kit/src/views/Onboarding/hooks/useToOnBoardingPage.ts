@@ -76,9 +76,8 @@ export const useToOnBoardingPage = (newOnboarding?: boolean) => {
             window.close();
           }
         } else {
-          if (platformEnv.isNative) {
-            await popToTop(navigation);
-          }
+          await popToTop(navigation);
+          await timerUtils.wait(150);
           navigation.navigate(
             newOnboarding ? ERootRoutes.Onboarding : ERootRoutes.Modal,
             {

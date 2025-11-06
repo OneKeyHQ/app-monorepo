@@ -29,10 +29,10 @@ export default function ImportPhraseOrPrivateKey() {
     mnemonicType: EMnemonicType;
   }) => {
     if (selected === 'phrase') {
-      console.log('handlePhraseConfirm');
       navigation.push(EOnboardingPagesV2.FinalizeWalletSetup, {
         mnemonic,
         mnemonicType,
+        isWalletBackedUp: true,
       });
     } else {
       // Navigate to network selection page for private key import
