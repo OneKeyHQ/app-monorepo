@@ -72,36 +72,36 @@ export function InvitationDetailsSection({
       />
 
       <XStack gap="$2" px="$5" alignItems="center">
-        <TabButton
-          label={intl.formatMessage({ id: ETranslations.earn_rewards })}
-          isActive={selectedTab === 'reward'}
-          onPress={() => setSelectedTab('reward')}
-        />
-        <TabButton
-          label={intl.formatMessage({ id: ETranslations.referral_code_list })}
-          isActive={selectedTab === 'referral'}
-          onPress={() => setSelectedTab('referral')}
-        />
+        <XStack gap="$5">
+          <TabButton
+            label={intl.formatMessage({ id: ETranslations.earn_rewards })}
+            isActive={selectedTab === 'reward'}
+            onPress={() => setSelectedTab('reward')}
+          />
+          <TabButton
+            label={intl.formatMessage({ id: ETranslations.referral_code_list })}
+            isActive={selectedTab === 'referral'}
+            onPress={() => setSelectedTab('referral')}
+          />
+        </XStack>
+
+        {canCreateCode ? (
+          <CreateCodeButton
+            total={codeListData?.total}
+            onCodeCreated={refetch}
+          />
+        ) : null}
       </XStack>
 
       {selectedTab === 'reward' ? (
         <XStack py="$8" px="$5" gap="$5">
-          <XStack gap="$5">
-            <HardwareSalesReward
-              hardwareSales={HardwareSales}
-              levelPercent={Number(levelPercent)}
-              rebateLevels={rebateLevels}
-              rebateConfig={rebateConfig}
-            />
-            <OnChainReward onChain={Onchain} />
-          </XStack>
-
-          {canCreateCode ? (
-            <CreateCodeButton
-              total={codeListData?.total}
-              onCodeCreated={refetch}
-            />
-          ) : null}
+          <HardwareSalesReward
+            hardwareSales={HardwareSales}
+            levelPercent={Number(levelPercent)}
+            rebateLevels={rebateLevels}
+            rebateConfig={rebateConfig}
+          />
+          <OnChainReward onChain={Onchain} />
         </XStack>
       ) : (
         <YStack px="$5" gap="$4">
