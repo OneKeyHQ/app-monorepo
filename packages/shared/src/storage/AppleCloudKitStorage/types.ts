@@ -39,5 +39,5 @@ export type ICloudKitAccountStatusName =
 export interface IAppleCloudKitAccountInfo {
   status: number; // CKContainer.AccountStatus raw value
   statusName: ICloudKitAccountStatusName;
-  containerUserId: string | null | undefined;
+  containerUserId: string | null;
 }

@@ -79,7 +79,7 @@ class DesktopApiCloudKit implements IAppleCloudKitStorage {
     return {
       ...accountInfo,
       statusName: accountInfo.statusName as ICloudKitAccountStatusName,
-      containerUserId: accountInfo.containerUserId ?? undefined,
+      containerUserId: accountInfo.containerUserId ?? null,
     };
   }
 
