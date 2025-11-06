@@ -1,3 +1,9 @@
+import { useCallback } from 'react';
+
+import { EDeviceType } from '@onekeyfe/hd-shared';
+import { useIntl } from 'react-intl';
+
+import type { IPageScreenProps } from '@onekeyhq/components';
 import {
   Anchor,
   Button,
@@ -7,12 +13,29 @@ import {
   Video,
   XStack,
 } from '@onekeyhq/components';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import type {
+  EOnboardingPagesV2,
+  IOnboardingParamListV2,
+} from '@onekeyhq/shared/src/routes/onboardingv2';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { AccountSelectorProviderMirror } from '../../../components/AccountSelector/AccountSelectorProvider';
+import { useCreateQrWallet } from '../../../components/AccountSelector/hooks/useCreateQrWallet';
+import useAppNavigation from '../../../hooks/useAppNavigation';
+import { useUserWalletProfile } from '../../../hooks/useUserWalletProfile';
 import { OnboardingLayout } from '../components/OnboardingLayout';
+import { trackHardwareWalletConnection } from '../utils';
 
 import { ConnectionIndicator } from './ConnectYourDevice';
 
-export default function ConnectQRCode() {
+function ConnectQRCodePage() {
+  const { createQrWallet } = useCreateQrWallet();
+  const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
+  const intl = useIntl();
+  const navigation = useAppNavigation();
   const STEPS = [
     'Select Connect App Wallet on home screen',
     'Tap "•••" button on the top right, then tap continue',
@@ -20,6 +43,47 @@ export default function ConnectQRCode() {
     'Tap show QR code button',
     'Tap below to scan the QR code',
   ];
+
+  const handleScanQRCode = useCallback(async () => {
+    try {
+      // qrHiddenCreateGuideDialog.showDialog();
+      // return;
+      defaultLogger.account.wallet.addWalletStarted({
+        addMethod: 'ConnectHWWallet',
+        details: {
+          hardwareWalletType: 'Standard',
+          communication: 'QRCode',
+        },
+        isSoftwareWalletOnlyUser,
+      });
+      await createQrWallet({
+        isOnboarding: true,
+        isOnboardingV2: true,
+        onFinalizeWalletSetupError: () => {
+          // only pop when finalizeWalletSetup pushed
+          navigation.pop();
+        },
+      });
+
+      void trackHardwareWalletConnection({
+        status: 'success',
+        deviceType: EDeviceType.Pro,
+        isSoftwareWalletOnlyUser,
+        hardwareTransportType: 'QRCode',
+      });
+    } catch (error) {
+      // Clear force transport type on QR wallet creation error
+      void backgroundApiProxy.serviceHardware.clearForceTransportType();
+      errorToastUtils.toastIfError(error);
+      void trackHardwareWalletConnection({
+        status: 'failure',
+        deviceType: EDeviceType.Pro,
+        isSoftwareWalletOnlyUser,
+        hardwareTransportType: 'QRCode',
+      });
+      throw error;
+    }
+  }, [createQrWallet, isSoftwareWalletOnlyUser, navigation]);
 
   return (
     <Page>
@@ -48,7 +112,7 @@ export default function ConnectQRCode() {
                     </SizableText>
                   </XStack>
                 ))}
-                <Button mt="$2" variant="primary" onPress={() => {}}>
+                <Button mt="$2" variant="primary" onPress={handleScanQRCode}>
                   Scan QR code
                 </Button>
               </ConnectionIndicator.Content>
@@ -67,5 +131,18 @@ export default function ConnectQRCode() {
         </OnboardingLayout.Footer>
       </OnboardingLayout>
     </Page>
+  );
+}
+
+export default function ConnectYourDevice() {
+  return (
+    <AccountSelectorProviderMirror
+      enabledNum={[0]}
+      config={{
+        sceneName: EAccountSelectorSceneName.home,
+      }}
+    >
+      <ConnectQRCodePage />
+    </AccountSelectorProviderMirror>
   );
 }

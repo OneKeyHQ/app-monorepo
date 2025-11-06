@@ -37,7 +37,7 @@
     "build:JsBundle": "cross-env NODE_ENV=production BUILD_BUNDLE_UPDATE=true NODE_OPTIONS=--max-old-space-size=8192 webpack build"
   },
   "dependencies": {
-    "@onekeyfe/electron-mac-icloud": "1.0.0",
+    "@onekeyfe/electron-mac-icloud": "1.1.37",
     "@sentry/electron": "5.8.0",
     "@stoprocent/noble": "2.3.4",
     "adm-zip": "^0.5.10",

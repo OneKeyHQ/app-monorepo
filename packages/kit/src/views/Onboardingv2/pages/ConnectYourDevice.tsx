@@ -81,7 +81,6 @@ import type {
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector/AccountSelectorProvider';
-import { useCreateQrWallet } from '../../../components/AccountSelector/hooks/useCreateQrWallet';
 import { ConnectionTroubleShootingAccordion } from '../../../components/Hardware/ConnectionTroubleShootingAccordion';
 import {
   OpenBleSettingsDialog,
@@ -99,98 +98,13 @@ import { useFirmwareUpdateActions } from '../../FirmwareUpdate/hooks/useFirmware
 import { useFirmwareVerifyDialog } from '../../Onboarding/pages/ConnectHardwareWallet/FirmwareVerifyDialog';
 import { useSelectAddWalletTypeDialog } from '../../Onboarding/pages/ConnectHardwareWallet/SelectAddWalletTypeDialog';
 import { OnboardingLayout } from '../components/OnboardingLayout';
+import {
+  getForceTransportType,
+  getHardwareCommunicationTypeString,
+  trackHardwareWalletConnection,
+} from '../utils';
 
-import type { Features, IDeviceType, SearchDevice } from '@onekeyfe/hd-core';
-import type { ImageSourcePropType } from 'react-native';
-
-// Helper function to convert transport type enum to analytics string
-type IHardwareCommunicationType = 'Bluetooth' | 'WebUSB' | 'USB' | 'QRCode';
-// TODO: update this function to use the new transport type
-function getHardwareCommunicationTypeString(
-  hardwareTransportType: EHardwareTransportType | undefined | 'QRCode',
-): IHardwareCommunicationType {
-  if (
-    hardwareTransportType === EHardwareTransportType.BLE ||
-    hardwareTransportType === EHardwareTransportType.DesktopWebBle
-  ) {
-    return 'Bluetooth';
-  }
-  if (hardwareTransportType === EHardwareTransportType.WEBUSB) {
-    return 'WebUSB';
-  }
-  if (hardwareTransportType === 'QRCode') {
-    return 'QRCode';
-  }
-  return platformEnv.isNative ? 'Bluetooth' : 'USB';
-}
-
-// Helper function to map user-selected channel to forced transport type
-async function getForceTransportType(
-  channel: EConnectDeviceChannel,
-): Promise<EHardwareTransportType | undefined> {
-  switch (channel) {
-    case EConnectDeviceChannel.bluetooth:
-      return platformEnv.isSupportDesktopBle
-        ? EHardwareTransportType.DesktopWebBle
-        : EHardwareTransportType.BLE;
-    case EConnectDeviceChannel.usbOrBle: {
-      // For usbOrBle, constrain based on platform
-      if (platformEnv.isNative) return EHardwareTransportType.BLE;
-      if (platformEnv.isDesktop) {
-        const dev = await backgroundApiProxy.serviceDevSetting.getDevSetting();
-        const usbCommunicationMode = dev?.settings?.usbCommunicationMode;
-        if (usbCommunicationMode === 'bridge')
-          return EHardwareTransportType.Bridge;
-        return EHardwareTransportType.WEBUSB;
-      }
-      // For web/extension, use system setting transport type
-      const currentTransportType =
-        await backgroundApiProxy.serviceSetting.getHardwareTransportType();
-      return currentTransportType;
-    }
-    case EConnectDeviceChannel.qr:
-      // QR code doesn't use hardware transport
-      return undefined;
-    default:
-      return undefined;
-  }
-}
-
-const trackHardwareWalletConnection = async ({
-  status,
-  deviceType,
-  isSoftwareWalletOnlyUser,
-  features,
-  hardwareTransportType,
-}: {
-  status: 'success' | 'failure';
-  deviceType: IDeviceType;
-  isSoftwareWalletOnlyUser: boolean;
-  features?: Features;
-  hardwareTransportType: EHardwareTransportType | undefined | 'QRCode';
-}) => {
-  const connectionType: IHardwareCommunicationType =
-    getHardwareCommunicationTypeString(hardwareTransportType);
-
-  const firmwareVersions = features
-    ? await deviceUtils.getDeviceVersion({
-        device: undefined,
-        features,
-      })
-    : undefined;
-
-  defaultLogger.account.wallet.walletAdded({
-    status,
-    addMethod: 'ConnectHWWallet',
-    details: {
-      hardwareWalletType: 'Standard',
-      communication: connectionType,
-      deviceType,
-      ...(firmwareVersions && { firmwareVersions }),
-    },
-    isSoftwareWalletOnlyUser,
-  });
-};
+import type { IDeviceType, SearchDevice } from '@onekeyfe/hd-core';
 
 enum EConnectionStatus {
   init = 'init',
@@ -1257,52 +1171,12 @@ const isSupportedDevice = (deviceType: string) => {
 function QRWalletConnect() {
   const { gtMd } = useMedia();
   const navigation = useAppNavigation();
-  const { createQrWallet } = useCreateQrWallet();
-  const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
-  const intl = useIntl();
   const { closePopover } = usePopoverContext();
   const handleCreateQRWallet = useCallback(async () => {
     await closePopover?.();
     await timerUtils.wait(100);
-    try {
-      // qrHiddenCreateGuideDialog.showDialog();
-      // return;
-      defaultLogger.account.wallet.addWalletStarted({
-        addMethod: 'ConnectHWWallet',
-        details: {
-          hardwareWalletType: 'Standard',
-          communication: 'QRCode',
-        },
-        isSoftwareWalletOnlyUser,
-      });
-      await createQrWallet({
-        isOnboarding: true,
-        isOnboardingV2: true,
-        onFinalizeWalletSetupError: () => {
-          // only pop when finalizeWalletSetup pushed
-          navigation.pop();
-        },
-      });
-
-      void trackHardwareWalletConnection({
-        status: 'success',
-        deviceType: EDeviceType.Pro,
-        isSoftwareWalletOnlyUser,
-        hardwareTransportType: 'QRCode',
-      });
-    } catch (error) {
-      // Clear force transport type on QR wallet creation error
-      void backgroundApiProxy.serviceHardware.clearForceTransportType();
-      errorToastUtils.toastIfError(error);
-      void trackHardwareWalletConnection({
-        status: 'failure',
-        deviceType: EDeviceType.Pro,
-        isSoftwareWalletOnlyUser,
-        hardwareTransportType: 'QRCode',
-      });
-      throw error;
-    }
-  }, [closePopover, createQrWallet, isSoftwareWalletOnlyUser, navigation]);
+    navigation.push(EOnboardingPagesV2.ConnectQRCode);
+  }, [closePopover, navigation]);
   return (
     <YStack
       p="$5"
@@ -1914,12 +1788,14 @@ function ConnectYourDevicePage({
         <OnboardingLayout.Body constrained={false}>
           <OnboardingLayout.ConstrainedContent>
             <XStack alignItems="center" gap="$4">
-              <SegmentControl
-                fullWidth
-                value={tabValue}
-                onChange={(v) => setTabValue(v as EConnectDeviceChannel)}
-                options={tabOptions}
-              />
+              {tabOptions.length > 1 ? (
+                <SegmentControl
+                  fullWidth
+                  value={tabValue}
+                  onChange={(v) => setTabValue(v as EConnectDeviceChannel)}
+                  options={tabOptions}
+                />
+              ) : null}
               {isSupportedQRCode ? (
                 <YStack ml="auto">
                   <Popover

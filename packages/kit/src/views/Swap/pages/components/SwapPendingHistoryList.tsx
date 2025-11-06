@@ -6,6 +6,7 @@ import type { IPageNavigationProp } from '@onekeyhq/components';
 import {
   Button,
   EPageType,
+  Icon,
   SizableText,
   XStack,
   YStack,
@@ -58,15 +59,21 @@ const SwapPendingHistoryListComponent = ({
     return null;
   }
   return (
-    <YStack gap="$2">
-      <XStack justifyContent="space-between" alignItems="center">
+    <YStack gap="$2" flex={1}>
+      <XStack justifyContent="space-between" flex={1} alignItems="center">
         <SizableText size="$bodyMd" color="$textSubdued">
-          Pending Order
+          {intl.formatMessage({
+            id: ETranslations.swap_history_status_pending,
+          })}
         </SizableText>
-        <Button
-          variant="tertiary"
-          size="$bodyMd"
-          color="$textSubdued"
+
+        <XStack
+          justifyContent="flex-end"
+          alignItems="center"
+          gap="$1"
+          cursor="pointer"
+          borderRadius="$3"
+          mr="$-1"
           onPress={() => {
             navigation.pushModal(EModalRoutes.SwapModal, {
               screen: EModalSwapRoutes.SwapHistoryList,
@@ -80,10 +87,24 @@ const SwapPendingHistoryListComponent = ({
             });
           }}
         >
-          {intl.formatMessage({ id: ETranslations.global_view_more })}
-        </Button>
+          <SizableText
+            size="$bodyMd"
+            color="$textSubdued"
+            hoverStyle={{
+              size: '$bodyMdMedium',
+              color: '$text',
+            }}
+            pressStyle={{
+              size: '$bodyMdMedium',
+              color: '$text',
+            }}
+          >
+            {intl.formatMessage({ id: ETranslations.global_view_more })}
+          </SizableText>
+          <Icon name="ChevronRightSolid" size="$3" color="$iconSubdued" />
+        </XStack>
       </XStack>
-      <YStack>
+      <YStack ml="$-1">
         {listData.map((item) => (
           <SwapTxHistoryListCell
             key={item.swapInfo.orderId}
