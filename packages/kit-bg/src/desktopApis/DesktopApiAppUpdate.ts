@@ -22,6 +22,7 @@ import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import type { IDesktopApi } from './base/types';
 import type { UpdateCheckResult } from 'electron-updater';
+import { clearWindowProgressBar, updateWindowProgressBar } from '@onekeyhq/desktop/app/windowProgressBar';
 
 function isNetworkError(errorObject: Error) {
   return (
@@ -213,6 +214,7 @@ class DesktopApiAppUpdate {
         mainWindow.webContents.send(ipcMessageKeys.UPDATE_ERROR, {
           message,
         });
+        clearWindowProgressBar(this.getMainWindow());
       }
     });
 
@@ -233,6 +235,7 @@ class DesktopApiAppUpdate {
           transferred: progressObj.transferred,
         },
       );
+      updateWindowProgressBar(this.getMainWindow(), progressObj.percent);
     });
 
     autoUpdater.on(
@@ -259,6 +262,7 @@ class DesktopApiAppUpdate {
         );
         setTimeout(() => {
           this.isDownloading = false;
+          clearWindowProgressBar(this.getMainWindow());
         }, 2500);
       },
     );
@@ -350,6 +354,7 @@ class DesktopApiAppUpdate {
     if (this.isDownloading) {
       return;
     }
+    clearWindowProgressBar(this.getMainWindow());
     store.setUpdateBuildNumber('');
     logger.info(
       'auto-updater',
