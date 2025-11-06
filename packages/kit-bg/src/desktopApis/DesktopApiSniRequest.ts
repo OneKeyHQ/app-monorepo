@@ -1,4 +1,5 @@
-import { net } from 'electron';
+import https from 'https';
+
 import logger from 'electron-log/main';
 
 import type {
@@ -7,7 +8,6 @@ import type {
 } from '@onekeyhq/shared/src/request/types/ipTable';
 
 import type { IDesktopApi } from './instance/IDesktopApi';
-import type { ClientRequest, IncomingMessage } from 'electron';
 
 class DesktopApiSniRequest {
   constructor({ desktopApi }: { desktopApi: IDesktopApi }) {
@@ -26,10 +26,7 @@ class DesktopApiSniRequest {
   async request(config: ISniRequestConfig): Promise<ISniResponse> {
     return new Promise((resolve, reject) => {
       try {
-        // Build URL using IP address
-        const protocol = 'https:';
         const port = config.port || 443;
-        const url = `${protocol}//${config.ip}:${port}${config.path}`;
 
         logger.info('[DesktopApiSniRequest] Initiating SNI request', {
           hostname: config.hostname,
@@ -37,47 +34,37 @@ class DesktopApiSniRequest {
           port,
           path: config.path,
           method: config.method,
-          url,
         });
 
-        // Create request using Electron net module
-        const request: ClientRequest = net.request({
+        // Build request options for Node.js https module
+        const requestOptions: https.RequestOptions = {
           method: config.method,
-          url,
-          // Use persistent session for connection reuse
-          partition: 'persist:sni-request',
+          host: config.ip, // Use IP for direct connection
+          port,
+          path: config.path,
+          servername: config.hostname, // CRITICAL: SNI must use domain name for TLS handshake
+          headers: {
+            Host: config.hostname, // Set Host header to original domain
+            ...config.headers,
+          },
+          // Ensure SSL/TLS validation
+          rejectUnauthorized: true,
+        };
+
+        logger.debug('[DesktopApiSniRequest] Request options', {
+          host: requestOptions.host, // IP address
+          servername: requestOptions.servername, // Original hostname for SNI
+          hostHeader: requestOptions.headers?.Host, // Host header
         });
-
-        // Set Host header to original domain (critical for SNI)
-        request.setHeader('Host', config.hostname);
-        logger.debug('[DesktopApiSniRequest] Set Host header', {
-          host: config.hostname,
-        });
-
-        // Set additional headers
-        if (config.headers) {
-          Object.entries(config.headers).forEach(([key, value]) => {
-            if (key.toLowerCase() !== 'host' && value != null) {
-              request.setHeader(key, String(value));
-            }
-          });
-        }
-
-        // Set timeout if specified
-        let timeoutId: ReturnType<typeof setTimeout> | undefined;
-        if (config.timeout) {
-          timeoutId = setTimeout(() => {
-            request.abort();
-            reject(new Error(`SNI Request timeout after ${config.timeout}ms`));
-          }, config.timeout);
-        }
 
         // Collect response data
         let responseData = '';
         const responseHeaders: Record<string, string> = {};
         let statusCode = 0;
+        let timeoutId: ReturnType<typeof setTimeout> | undefined;
 
-        request.on('response', (response: IncomingMessage) => {
+        // Create HTTPS request
+        const request = https.request(requestOptions, (response) => {
           statusCode = response.statusCode || 0;
 
           logger.info('[DesktopApiSniRequest] Received response', {
@@ -87,9 +74,8 @@ class DesktopApiSniRequest {
           });
 
           // Collect response headers
-          const { headers } = response;
-          Object.keys(headers).forEach((key) => {
-            const value = headers[key];
+          Object.keys(response.headers).forEach((key) => {
+            const value = response.headers[key];
             if (value) {
               responseHeaders[key] = Array.isArray(value)
                 ? value.join(', ')
@@ -144,12 +130,19 @@ class DesktopApiSniRequest {
           logger.error('[DesktopApiSniRequest] Request failed', {
             hostname: config.hostname,
             ip: config.ip,
-            url,
             error: error.message,
             stack: error.stack,
           });
           reject(error);
         });
+
+        // Set timeout if specified
+        if (config.timeout) {
+          timeoutId = setTimeout(() => {
+            request.destroy();
+            reject(new Error(`SNI Request timeout after ${config.timeout}ms`));
+          }, config.timeout);
+        }
 
         // Send request body if present
         if (config.body) {
