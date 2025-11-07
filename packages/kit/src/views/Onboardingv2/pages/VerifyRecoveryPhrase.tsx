@@ -61,7 +61,8 @@ export default function VerifyRecoveryPhrase() {
       (_, i) => i,
     )
       .sort(() => Math.random() - 0.5)
-      .slice(0, 3).sort((a, b) => a - b);
+      .slice(0, 3)
+      .sort((a, b) => a - b);
 
     return shuffledIndices;
   }, [recoveryPhrase]);
@@ -102,18 +103,19 @@ export default function VerifyRecoveryPhrase() {
 
   const handleWordSelect = useCallback(
     (questionIndex: number, word: string) => {
-      setSelectedWords((prev) => ({
-        ...prev,
-        [questionIndex]: word,
-      }));
+      const newSelectedWords = { ...selectedWords };
+      newSelectedWords[questionIndex] = word;
+      setSelectedWords(newSelectedWords);
 
       setTimeout(async () => {
         const verifyResult = answerIndices.every(
           (recoveryPhraseIndex, index) => {
-            if (selectedWords[index] === null) {
+            if (newSelectedWords[index] === null) {
               return false;
             }
-            return selectedWords[index] === recoveryPhrase[recoveryPhraseIndex];
+            return (
+              newSelectedWords[index] === recoveryPhrase[recoveryPhraseIndex]
+            );
           },
         );
 
