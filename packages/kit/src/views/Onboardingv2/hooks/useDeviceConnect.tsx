@@ -277,6 +277,12 @@ export function useDeviceConnect() {
       });
 
       if (device.deviceType === 'unknown') {
+        emitFirmwareFailedVerifyResult({
+          device,
+          errorMessage: intl.formatMessage({
+            id: ETranslations.hardware_connect_unknown_device_error,
+          }),
+        });
         Toast.error({
           title: intl.formatMessage({
             id: ETranslations.hardware_connect_unknown_device_error,
@@ -367,6 +373,10 @@ export function useDeviceConnect() {
             features,
             hardwareTransportType: forceTransportType || hardwareTransportType,
           });
+          emitFirmwareFailedVerifyResult({
+            device,
+            errorMessage: 'Device is in backup mode',
+          });
           Toast.error({
             title: 'Device is in backup mode',
           });
@@ -414,9 +424,9 @@ export function useDeviceConnect() {
           deviceResetToHome: false,
         });
 
-        if (deviceMode === EOneKeyDeviceMode.notInitialized) {
-          handleNotActivatedDevicePress({ deviceType });
-        }
+        // if (deviceMode === EOneKeyDeviceMode.notInitialized) {
+        //   handleNotActivatedDevicePress({ deviceType });
+        // }
 
         appEventBus.emit(EAppEventBusNames.EmitFirmwareVerifyResult, {
           verified: true,
