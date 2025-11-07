@@ -34,24 +34,35 @@ import { usePortfolioAction } from '../hooks/usePortfolioAction';
 const WrappedActionButton = ({
   asset,
   reward,
+  stakedSymbol,
 }: {
-  asset: IEarnPortfolioInvestment['assets'][number];
-  reward: IEarnPortfolioInvestment['assets'][number]['rewardAssets'][number];
+  asset:
+    | IEarnPortfolioInvestment['assets'][number]
+    | IEarnPortfolioInvestment['airdropAssets'][number];
+  reward:
+    | IEarnPortfolioInvestment['assets'][number]['rewardAssets'][number]
+    | IEarnPortfolioInvestment['airdropAssets'][number]['airdropAssets'][number];
+  stakedSymbol?: string;
 }) => {
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { account, indexedAccount } = activeAccount;
+
+  // For staking config lookup, use:
+  // - stakedSymbol for airdrops (the token that was staked to earn rewards)
+  // - asset.token.info.symbol for normal claims (the staked token itself)
+  const symbolForConfig = stakedSymbol || asset.token.info.symbol;
 
   const { loading, handleAction } = usePortfolioAction({
     accountId: account?.id || '',
     networkId: asset.metadata.network.networkId,
     indexedAccountId: indexedAccount?.id,
-    symbol: asset.token.info.symbol,
+    symbol: symbolForConfig,
     provider: asset.metadata.protocol.providerDetail.code,
     vault: asset.metadata.protocol.vault,
     providerLogoURI: asset.metadata.protocol.providerDetail.logoURI,
     stakeTag: buildLocalTxStatusSyncId({
       providerName: asset.metadata.protocol.providerDetail.code,
-      tokenSymbol: asset.token.info.symbol,
+      tokenSymbol: symbolForConfig,
     }),
   });
 
@@ -66,9 +77,19 @@ const WrappedActionButton = ({
       onPress={() => {
         const buttonData =
           'data' in reward.button ? reward.button.data : undefined;
+
+        // For airdrop assets, also pass the reward token address from asset.token.info.address
+        const rewardTokenAddress =
+          'token' in asset &&
+          'address' in asset.token.info &&
+          asset.token.info.address
+            ? asset.token.info.address
+            : undefined;
+
         handleAction({
           actionIcon: reward.button,
           token: buttonData?.token,
+          rewardTokenAddress,
           indexedAccountId: indexedAccount?.id,
         });
       }}
@@ -197,6 +218,10 @@ const ProtocolHeader = ({
       {isEmpty(portfolioItem.airdropAssets) ? null : (
         <YStack mb="$2" mt="$5">
           {portfolioItem.airdropAssets?.map((airdrop, index) => {
+            // For airdrops, we need the staked token symbol to look up staking config
+            // Use the first staked asset's symbol from the same protocol
+            const stakedSymbol = portfolioItem.assets[0]?.token.info.symbol;
+
             return (
               <XStack key={index} ai="center">
                 <Token
@@ -223,6 +248,13 @@ const ProtocolHeader = ({
                         text={reward.description}
                       />
                       <EarnTooltip tooltip={reward.tooltip} />
+                      {reward.button ? (
+                        <WrappedActionButton
+                          asset={airdrop}
+                          reward={reward}
+                          stakedSymbol={stakedSymbol}
+                        />
+                      ) : null}
                       {needDivider ? (
                         <Divider
                           bg="$borderSubdued"

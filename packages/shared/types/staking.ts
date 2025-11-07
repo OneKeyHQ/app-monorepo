@@ -1214,6 +1214,7 @@ export interface IEarnAirdropInvestmentItemV2 {
   assets: {
     token: {
       info: {
+        address?: string;
         symbol: string;
         logoURI: string;
       };

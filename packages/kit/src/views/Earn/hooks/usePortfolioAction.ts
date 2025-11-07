@@ -76,9 +76,11 @@ export const usePortfolioAction = ({
     async ({
       actionIcon,
       token,
+      rewardTokenAddress,
     }: {
       actionIcon: IEarnClaimActionIcon;
       token?: IEarnToken;
+      rewardTokenAddress?: string;
     }) => {
       setLoading(true);
       setTimeout(() => {
@@ -91,6 +93,11 @@ export const usePortfolioAction = ({
       });
 
       const receiveToken = earnUtils.convertEarnTokenToIToken(token);
+
+      // Use rewardTokenAddress if provided (from airdrop asset), otherwise use token.address
+      // Only pass claimTokenAddress if it's a non-empty string
+      const claimTokenAddress =
+        rewardTokenAddress || token?.address || undefined;
 
       await handleClaim({
         claimType: actionIcon.type,
@@ -119,7 +126,7 @@ export const usePortfolioAction = ({
             }
           : undefined,
         claimAmount,
-        claimTokenAddress: token?.address,
+        claimTokenAddress,
         isMorphoClaim,
         stakingInfo: {
           label: EEarnLabels.Claim,
@@ -222,10 +229,12 @@ export const usePortfolioAction = ({
     ({
       actionIcon,
       token,
+      rewardTokenAddress,
       indexedAccountId: actionIndexedAccountId,
     }: {
       actionIcon: IEarnActionIcon;
       token?: IEarnToken;
+      rewardTokenAddress?: string;
       indexedAccountId?: string;
     }) => {
       switch (actionIcon.type) {
@@ -235,6 +244,7 @@ export const usePortfolioAction = ({
           void handleClaimAction({
             actionIcon,
             token,
+            rewardTokenAddress,
           });
           break;
         case 'claimWithKyc':
