@@ -4,6 +4,8 @@ import type { IIpTableRemoteConfig } from '../types/ipTable';
 
 // ========== IP Table Service Configuration Constants ==========
 
+export const CDN_SIGNER_ADDRESS = '0x3eaf57d1aD767CA3aFeDbF8D82C1De610c6F6519';
+
 /**
  * SNI Failure Threshold
  * Trigger speed test after this many consecutive SNI request failures

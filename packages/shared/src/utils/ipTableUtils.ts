@@ -1,9 +1,14 @@
 import { utils } from 'ethers';
 import stringify from 'fast-json-stable-stringify';
 
+import platformEnv from '../platformEnv';
+import { CDN_SIGNER_ADDRESS } from '../request/constants/ipTableDefaults';
+
 import type { IIpTableRemoteConfig } from '../request/types/ipTable';
 
-const EXPECTED_SIGNER_ADDRESS = '0x3eaf57d1aD767CA3aFeDbF8D82C1De610c6F6519';
+export function isSupportIpTablePlatform() {
+  return platformEnv.isNative || platformEnv.isDesktop;
+}
 
 export function verifyIpTableConfigSignature(
   config: IIpTableRemoteConfig,
@@ -23,13 +28,13 @@ export function verifyIpTableConfigSignature(
     const recoveredAddress = utils.verifyMessage(canonicalString, signature);
 
     const isValid =
-      recoveredAddress.toLowerCase() === EXPECTED_SIGNER_ADDRESS.toLowerCase();
+      recoveredAddress.toLowerCase() === CDN_SIGNER_ADDRESS.toLowerCase();
 
     if (!isValid) {
       console.error(
         '[IpTableUtils] Signature verification failed: Invalid signer',
         '\n  Expected:',
-        EXPECTED_SIGNER_ADDRESS,
+        CDN_SIGNER_ADDRESS,
         '\n  Recovered:',
         recoveredAddress,
       );

@@ -31,6 +31,7 @@ import type {
   IIpTableRemoteConfig,
 } from '@onekeyhq/shared/src/request/types/ipTable';
 import {
+  isSupportIpTablePlatform,
   mergeIpTableConfigs,
   verifyIpTableConfigSignature,
 } from '@onekeyhq/shared/src/utils/ipTableUtils';
@@ -379,6 +380,9 @@ class ServiceIpTable extends ServiceBase {
 
   @backgroundMethod()
   async init(): Promise<void> {
+    if (!isSupportIpTablePlatform()) {
+      return;
+    }
     console.log('[IpTable] Initializing service');
 
     // Register SNI failure callback

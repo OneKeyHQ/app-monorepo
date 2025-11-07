@@ -7,6 +7,7 @@ import { OneKeyError } from '../errors';
 import platformEnv from '../platformEnv';
 import { createIpTableAdapter } from '../request/helpers/ipTableAdapter';
 import { REQUEST_TIMEOUT } from '../request/requestConst';
+import { isSupportIpTablePlatform } from '../utils/ipTableUtils';
 import timerUtils from '../utils/timerUtils';
 
 import type { IEndpointInfo } from '../../types/endpoint';
@@ -83,7 +84,9 @@ const getBasicClient = async ({
           timeout,
         };
 
-  const ipTableAdapter = createIpTableAdapter(baseConfig);
+  const ipTableAdapter = isSupportIpTablePlatform()
+    ? createIpTableAdapter(baseConfig)
+    : undefined;
 
   const options = {
     ...baseConfig,
