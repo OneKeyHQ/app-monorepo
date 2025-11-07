@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 import Animated, {
   Easing,
@@ -14,6 +15,7 @@ import { useThrottledCallback } from 'use-debounce';
 import type { IPageScreenProps } from '@onekeyhq/components';
 import {
   AnimatePresence,
+  Button,
   Image,
   LinearGradient,
   Page,
@@ -48,6 +50,7 @@ import {
 import { withPromptPasswordVerify } from '../../../utils/passwordUtils';
 import { useWalletBoundReferralCode } from '../../ReferFriends/hooks/useWalletBoundReferralCode';
 import { OnboardingLayout } from '../components/OnboardingLayout';
+import { useConnectDeviceError } from '../hooks/useDeviceConnect';
 
 const MatrixBackground = ({
   lineCount = 30,
@@ -134,12 +137,19 @@ function FinalizeWalletSetupPage({
   const {
     activeAccount: { wallet },
   } = useActiveAccount({ num: 0 });
+  const intl = useIntl();
   const navigation = useAppNavigation();
   const [bgAppColor, borderDisabledColor, borderActiveColor] = useThemeValue([
     '$bgApp',
     '$borderDisabled',
     '$borderActive',
   ]);
+  const [setupError, setSetupError] = useState<
+    | {
+        messageId: ETranslations;
+      }
+    | undefined
+  >(undefined);
 
   const created = useRef(false);
   const mnemonic = route?.params?.mnemonic;
@@ -312,6 +322,20 @@ function FinalizeWalletSetupPage({
     };
   }, [goNextStep]);
 
+  useConnectDeviceError(
+    useCallback((errorMessageId) => {
+      setSetupError({
+        messageId: errorMessageId,
+      });
+    }, []),
+  );
+
+  const retrySetup = useCallback(() => {
+    setSetupError(undefined);
+    setCurrentStep(EFinalizeWalletSetupSteps.CreatingWallet);
+    stepQueueIndex.current = 0;
+  }, []);
+
   const currentStepData =
     STEPS_DATA[currentStep] ||
     STEPS_DATA[EFinalizeWalletSetupSteps.EncryptingData];
@@ -324,7 +348,21 @@ function FinalizeWalletSetupPage({
           showLanguageSelector={false}
         />
         <OnboardingLayout.Body constrained={false} scrollable={false}>
-          {currentStepData ? (
+          {setupError ? (
+            <YStack w="100%" h="100%">
+              <SizableText size="$heading2xl" textAlign="center">
+                {intl.formatMessage({
+                  id: setupError.messageId,
+                })}
+              </SizableText>
+              <Button onPress={retrySetup}>
+                {intl.formatMessage({
+                  id: ETranslations.global_retry,
+                })}
+              </Button>
+            </YStack>
+          ) : null}
+          {!setupError && currentStepData ? (
             <YStack w="100%" h="100%">
               <YStack
                 position="absolute"
