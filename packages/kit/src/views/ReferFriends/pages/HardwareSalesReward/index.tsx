@@ -109,10 +109,6 @@ function HardwareSalesRewardPageWrapper() {
     );
   }, [filterState, updateFilter]);
 
-  const fetchSales = useCallback((cursor?: string) => {
-    return backgroundApiProxy.serviceReferralCode.getHardwareSales(cursor);
-  }, []);
-
   const fetchSummaryInfo = useCallback(() => {
     return backgroundApiProxy.serviceReferralCode.getSummaryInfo();
   }, []);
@@ -251,6 +247,8 @@ function HardwareSalesRewardPageWrapper() {
         />
       )}
       <Page.Body>
+        {renderHeaderRight()}
+
         {amount === undefined ? (
           <YStack
             position="absolute"
