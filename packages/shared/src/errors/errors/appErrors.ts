@@ -1113,3 +1113,14 @@ export class BTCFreshAddressCanNotConnectDappError extends OneKeyAppError {
     );
   }
 }
+
+export class HomeScreenNotSupportFormatError extends OneKeyAppError {
+  constructor(props?: IOneKeyError | string) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'HomeScreenNotSupportFormat',
+        defaultKey: ETranslations.homescreen_format_supported,
+      }),
+    );
+  }
+}
