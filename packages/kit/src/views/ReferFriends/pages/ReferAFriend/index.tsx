@@ -2,7 +2,7 @@ import { useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { AnimatePresence, Page, YStack } from '@onekeyhq/components';
+import { AnimatePresence, Page, YStack, useMedia } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -66,11 +66,12 @@ function ReferAFriendPage({ postConfig }: IReferAFriendPageProps) {
 
 function ReferAFriendPageWrapper() {
   const intl = useIntl();
+  const { md } = useMedia();
   const { postConfig } = useReferAFriendData();
 
   return (
     <Page scrollEnabled>
-      {platformEnv.isNative ? (
+      {platformEnv.isNative || md ? (
         <Page.Header
           title={intl.formatMessage({
             id: ETranslations.sidebar_refer_a_friend,

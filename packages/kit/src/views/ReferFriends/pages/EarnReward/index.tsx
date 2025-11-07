@@ -18,6 +18,7 @@ import {
   Tabs,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
@@ -277,6 +278,7 @@ export default function EarnReward() {
 
   const { title } = route.params;
   const intl = useIntl();
+  const { md } = useMedia();
 
   const [lists, setLists] = useState<(ISectionData[] | undefined)[]>([]);
   const [allLists, setAllLists] = useState<(ISectionData[] | undefined)[]>([]);
@@ -520,7 +522,7 @@ export default function EarnReward() {
 
   return (
     <Page>
-      {platformEnv.isNative ? (
+      {platformEnv.isNative || md ? (
         <Page.Header title={title} headerRight={renderHeaderRight} />
       ) : (
         <TabPageHeader

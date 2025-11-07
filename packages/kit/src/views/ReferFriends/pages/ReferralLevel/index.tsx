@@ -1,6 +1,13 @@
 import { useIntl } from 'react-intl';
 
-import { Page, ScrollView, Spinner, Stack, YStack } from '@onekeyhq/components';
+import {
+  Page,
+  ScrollView,
+  Spinner,
+  Stack,
+  YStack,
+  useMedia,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
@@ -48,6 +55,7 @@ function ReferralLevelContent({ data }: { data: IInviteLevelDetail }) {
 
 function ReferralLevelPage() {
   const intl = useIntl();
+  const { md } = useMedia();
   // Redirect to ReferAFriend page if user is not logged in
   useRedirectWhenNotLoggedIn();
 
@@ -61,7 +69,7 @@ function ReferralLevelPage() {
 
   return (
     <Page>
-      {platformEnv.isNative ? (
+      {platformEnv.isNative || md ? (
         <Page.Header
           title={intl.formatMessage({
             id: ETranslations.referral_referral_level,

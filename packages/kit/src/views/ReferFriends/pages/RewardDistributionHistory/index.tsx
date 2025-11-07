@@ -13,6 +13,7 @@ import {
   Spinner,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
@@ -116,6 +117,7 @@ export default function RewardDistributionHistory() {
   // }, [fetchInvitePaidList]);
 
   const intl = useIntl();
+  const { md } = useMedia();
   const renderItem = useCallback(
     ({ item }: { item: IInvitePaidItem; section: ISectionListItem }) => {
       return (
@@ -185,7 +187,7 @@ export default function RewardDistributionHistory() {
   );
   return (
     <Page>
-      {platformEnv.isNative ? (
+      {platformEnv.isNative || md ? (
         <Page.Header
           title={intl.formatMessage({
             id: ETranslations.referral_reward_history,

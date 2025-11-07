@@ -1,6 +1,13 @@
 import { useIntl } from 'react-intl';
 
-import { Page, ScrollView, Spinner, Stack, XStack } from '@onekeyhq/components';
+import {
+  Page,
+  ScrollView,
+  Spinner,
+  Stack,
+  XStack,
+  useMedia,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
@@ -75,6 +82,7 @@ function InviteRewardContent({
 
 function InviteRewardPage() {
   const intl = useIntl();
+  const { md } = useMedia();
   // Redirect to ReferAFriend page if user is not logged in
   useRedirectWhenNotLoggedIn();
 
@@ -100,7 +108,7 @@ function InviteRewardPage() {
 
   return (
     <Page>
-      {platformEnv.isNative ? (
+      {platformEnv.isNative || md ? (
         <Page.Header
           title={intl.formatMessage({
             id: ETranslations.earn_referral_view_rewards,

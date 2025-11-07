@@ -15,6 +15,7 @@ import {
   Spinner,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
@@ -78,6 +79,7 @@ export default function HardwareSalesReward() {
     ESpotlightTour.hardwareSalesRewardAlert,
   );
   const intl = useIntl();
+  const { md } = useMedia();
 
   const [isLoading, setIsLoading] = useState(false);
   const [sections, setSections] = useState<
@@ -235,7 +237,7 @@ export default function HardwareSalesReward() {
 
   return (
     <Page>
-      {platformEnv.isNative ? (
+      {platformEnv.isNative || md ? (
         <Page.Header
           title={intl.formatMessage({
             id: ETranslations.referral_referred_type_3,

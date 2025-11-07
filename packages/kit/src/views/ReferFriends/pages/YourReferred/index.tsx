@@ -8,6 +8,7 @@ import {
   Tabs,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
@@ -187,9 +188,10 @@ export default function YourReferred() {
   useRedirectWhenNotLoggedIn();
 
   const intl = useIntl();
+  const { md } = useMedia();
   return (
     <Page>
-      {platformEnv.isNative ? (
+      {platformEnv.isNative || md ? (
         <Page.Header
           title={intl.formatMessage({
             id: ETranslations.referral_your_referred,

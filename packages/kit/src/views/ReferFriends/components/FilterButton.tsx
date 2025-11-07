@@ -2,7 +2,13 @@ import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { ActionList, Badge, Icon, IconButton } from '@onekeyhq/components';
+import {
+  ActionList,
+  Badge,
+  Icon,
+  IconButton,
+  useMedia,
+} from '@onekeyhq/components';
 import type { IActionListItemProps } from '@onekeyhq/components';
 import { useInviteCodeList } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/InvitationDetailsSection/hooks/useInviteCodeList';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -24,6 +30,7 @@ export function FilterButton({
 }: IFilterButtonProps) {
   const intl = useIntl();
   const { codeListData } = useInviteCodeList();
+  const { gtMd } = useMedia();
 
   const timeRangeOptions = useMemo(
     () => [
@@ -137,22 +144,54 @@ export function FilterButton({
     return count;
   }, [filterState]);
 
+  // Handle mobile click to show ActionList
+  const handleMobileClick = useCallback(() => {
+    ActionList.show({
+      title: intl.formatMessage({ id: ETranslations.referral_filter }),
+      sections,
+    });
+  }, [intl, sections]);
+
+  // Render trigger (shared between desktop and mobile)
+  const renderTrigger = useMemo(
+    () => (
+      <Badge
+        badgeType="number"
+        badgeValue={activeFilterCount > 0 ? activeFilterCount : undefined}
+      >
+        <IconButton
+          icon="Filter2Outline"
+          variant={hasActiveFilters ? 'primary' : 'tertiary'}
+          title={intl.formatMessage({ id: ETranslations.referral_filter })}
+        />
+      </Badge>
+    ),
+    [activeFilterCount, hasActiveFilters, intl],
+  );
+
+  // Desktop: Use component-style ActionList (works correctly)
+  if (gtMd) {
+    return (
+      <ActionList
+        title={intl.formatMessage({ id: ETranslations.referral_filter })}
+        renderTrigger={renderTrigger}
+        sections={sections}
+      />
+    );
+  }
+
+  // Mobile: Use ActionList.show() to avoid Portal nesting issues
   return (
-    <ActionList
-      title={intl.formatMessage({ id: ETranslations.referral_filter })}
-      renderTrigger={
-        <Badge
-          badgeType="number"
-          badgeValue={activeFilterCount > 0 ? activeFilterCount : undefined}
-        >
-          <IconButton
-            icon="Filter2Outline"
-            variant={hasActiveFilters ? 'primary' : 'tertiary'}
-            title={intl.formatMessage({ id: ETranslations.referral_filter })}
-          />
-        </Badge>
-      }
-      sections={sections}
-    />
+    <Badge
+      badgeType="number"
+      badgeValue={activeFilterCount > 0 ? activeFilterCount : undefined}
+    >
+      <IconButton
+        icon="Filter2Outline"
+        variant={hasActiveFilters ? 'primary' : 'tertiary'}
+        title={intl.formatMessage({ id: ETranslations.referral_filter })}
+        onPress={handleMobileClick}
+      />
+    </Badge>
   );
 }

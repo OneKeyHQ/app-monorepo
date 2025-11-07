@@ -3,7 +3,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
-import { ListView, Page, SizableText } from '@onekeyhq/components';
+import { ListView, Page, SizableText, useMedia } from '@onekeyhq/components';
 import { ControlledNetworkSelectorIconTrigger } from '@onekeyhq/kit/src/components/AccountSelector';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
@@ -26,6 +26,7 @@ export default function YourReferredWalletAddresses() {
   useRedirectWhenNotLoggedIn();
 
   const intl = useIntl();
+  const { md } = useMedia();
   const { params } =
     useRoute<
       RouteProp<
@@ -63,7 +64,7 @@ export default function YourReferredWalletAddresses() {
 
   return (
     <Page scrollEnabled>
-      {platformEnv.isNative ? (
+      {platformEnv.isNative || md ? (
         <Page.Header
           title={intl.formatMessage({
             id: ETranslations.referral_referred_address,
