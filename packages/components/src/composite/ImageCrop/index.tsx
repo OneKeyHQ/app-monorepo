@@ -181,13 +181,13 @@ const openPicker: IOpenPickerFunc = ({ width, height }) =>
     input.click();
   });
 
-export const openCropImage = (
+const openCropImage = (
   image: string,
   width: number,
   height: number,
 ): Promise<IPickerImage> =>
   new Promise((resolve, reject) => {
-    Dialog.show({
+    const dialog = Dialog.show({
       title: appLocale.intl.formatMessage({
         id: ETranslations.global_crop_image,
       }),
@@ -202,7 +202,10 @@ export const openCropImage = (
             height,
           }}
           onConfirm={resolve as any}
-          onCancel={reject}
+          onCancel={() => {
+            void dialog?.close();
+            reject(new Error('User cancelled'));
+          }}
         />
       ),
     });
