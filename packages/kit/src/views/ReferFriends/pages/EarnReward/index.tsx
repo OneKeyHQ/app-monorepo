@@ -23,6 +23,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import { useSpotlight } from '@onekeyhq/kit/src/components/Spotlight';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { useRedirectWhenNotLoggedIn } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useRedirectWhenNotLoggedIn';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EExportSubject } from '@onekeyhq/shared/src/referralCode/type';
 import type {
@@ -262,6 +263,9 @@ const buildAccountNetworkKey = (accountAddress: string, networkId: string) =>
   `${accountAddress}-${networkId}`;
 
 export default function EarnReward() {
+  // Redirect to ReferAFriend page if user is not logged in
+  useRedirectWhenNotLoggedIn();
+
   const route =
     useRoute<
       RouteProp<ITabReferFriendsParamList, ETabReferFriendsRoutes.TabEarnReward>

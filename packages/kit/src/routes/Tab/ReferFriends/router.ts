@@ -22,10 +22,6 @@ const HardwareSalesReward = LazyLoadPage(
   () => import('../../../views/ReferFriends/pages/HardwareSalesReward'),
 );
 
-const EditAddress = LazyLoadPage(
-  () => import('../../../views/ReferFriends/pages/EditAddress'),
-);
-
 const EarnReward = LazyLoadPage(
   () => import('../../../views/ReferFriends/pages/EarnReward'),
 );
@@ -71,11 +67,6 @@ export const referFriendsRouters: ITabSubNavigatorConfig<
   {
     name: ETabReferFriendsRoutes.TabHardwareSalesReward,
     component: HardwareSalesReward,
-    headerShown: !platformEnv.isNative,
-  },
-  {
-    name: ETabReferFriendsRoutes.TabEditAddress,
-    component: EditAddress,
     headerShown: !platformEnv.isNative,
   },
   {

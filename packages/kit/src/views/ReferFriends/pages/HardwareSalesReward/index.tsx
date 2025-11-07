@@ -19,6 +19,7 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import { useSpotlight } from '@onekeyhq/kit/src/components/Spotlight';
+import { useRedirectWhenNotLoggedIn } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useRedirectWhenNotLoggedIn';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -65,6 +66,9 @@ const formatSections = (items: IHardwareSalesRecord['items']) => {
 };
 
 export default function HardwareSalesReward() {
+  // Redirect to ReferAFriend page if user is not logged in
+  useRedirectWhenNotLoggedIn();
+
   const [settings] = useSettingsPersistAtom();
   const originalData = useRef<IHardwareSalesRecord['items']>([]);
   const { tourTimes, tourVisited } = useSpotlight(

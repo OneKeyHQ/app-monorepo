@@ -20,7 +20,7 @@ export function ReferAFriendHowToPhase({
   const intl = useIntl();
 
   return (
-    <YStack p="$5" gap="$5">
+    <YStack gap="$5">
       <InviteCodeStepImage step={2} />
 
       <Stack maxWidth={480} mx="auto" gap="$10">

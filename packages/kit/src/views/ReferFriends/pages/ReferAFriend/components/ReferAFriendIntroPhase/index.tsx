@@ -48,7 +48,7 @@ export function ReferAFriendIntroPhase({
   ];
 
   return (
-    <YStack p="$5" gap="$5">
+    <YStack gap="$5">
       {/* Preview image showing how to share invite code */}
       <YStack ai="center" mt="$2">
         <InviteCodeStepImage step={1} />

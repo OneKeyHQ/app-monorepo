@@ -21,7 +21,11 @@ import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accoun
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IInviteSummary } from '@onekeyhq/shared/src/referralCode/type';
-import { ETabReferFriendsRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  EModalReferFriendsRoutes,
+  EModalRoutes,
+  ETabReferFriendsRoutes,
+} from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 function CumulativeRewardsLineItem({
@@ -64,23 +68,26 @@ export function CumulativeRewards({
   const isNewEditWithdrawAddress = withdrawAddresses.length === 0;
 
   const toEditAddressPage = useCallback(() => {
-    navigation.push(ETabReferFriendsRoutes.TabEditAddress, {
-      enabledNetworks,
-      accountId: activeAccount.account?.id ?? '',
-      address: withdrawAddresses[0]?.address,
-      onAddressAdded: async ({ networkId }: { networkId: string }) => {
-        Toast.success({
-          title: intl.formatMessage({
-            id: ETranslations.referral_address_updated,
-          }),
-        });
-        setTimeout(() => {
-          fetchSummaryInfo();
-        }, 50);
-        defaultLogger.referral.page.editReceivingAddress({
-          networkId,
-          editMethod: isNewEditWithdrawAddress ? 'new' : 'edit',
-        });
+    navigation.pushModal(EModalRoutes.ReferFriendsModal, {
+      screen: EModalReferFriendsRoutes.EditAddress,
+      params: {
+        enabledNetworks,
+        accountId: activeAccount.account?.id ?? '',
+        address: withdrawAddresses[0]?.address,
+        onAddressAdded: async ({ networkId }: { networkId: string }) => {
+          Toast.success({
+            title: intl.formatMessage({
+              id: ETranslations.referral_address_updated,
+            }),
+          });
+          setTimeout(() => {
+            fetchSummaryInfo();
+          }, 50);
+          defaultLogger.referral.page.editReceivingAddress({
+            networkId,
+            editMethod: isNewEditWithdrawAddress ? 'new' : 'edit',
+          });
+        },
       },
     });
   }, [

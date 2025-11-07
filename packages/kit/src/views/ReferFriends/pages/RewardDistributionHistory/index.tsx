@@ -17,6 +17,7 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { openTransactionDetailsUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
+import { useRedirectWhenNotLoggedIn } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useRedirectWhenNotLoggedIn';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   IInvitePaidHistory,
@@ -62,6 +63,9 @@ const formatSections = (items: IInvitePaidHistory['items']) => {
 };
 
 export default function RewardDistributionHistory() {
+  // Redirect to ReferAFriend page if user is not logged in
+  useRedirectWhenNotLoggedIn();
+
   const originalData = useRef<IInvitePaidHistory['items']>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [sections, setSections] = useState<
