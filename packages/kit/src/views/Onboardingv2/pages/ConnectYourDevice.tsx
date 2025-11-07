@@ -1296,14 +1296,15 @@ function ConnectYourDevicePage({
           : 'USB',
         value: EConnectDeviceChannel.usbOrBle,
       },
-      platformEnv.isSupportDesktopBle
+      platformEnv.isSupportDesktopBle &&
+      !deviceTypeItems.includes(EDeviceType.Mini)
         ? {
             label: intl.formatMessage({ id: ETranslations.global_bluetooth }),
             value: EConnectDeviceChannel.bluetooth,
           }
         : undefined,
     ].filter(Boolean);
-  }, [intl]);
+  }, [deviceTypeItems, intl]);
   const [tabValue, setTabValue] = useState(tabOptions[0]?.value);
 
   const { onDeviceConnect } = useDeviceConnect();
