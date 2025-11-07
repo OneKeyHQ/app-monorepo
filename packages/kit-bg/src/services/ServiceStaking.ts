@@ -52,6 +52,7 @@ import type {
   IEarnFAQList,
   IEarnInvestmentItem,
   IEarnInvestmentItemV2,
+  IEarnManagePageResponse,
   IEarnPermit2ApproveSignData,
   IEarnRegisterSignMessageResponse,
   IEarnSummary,
@@ -637,6 +638,32 @@ class ServiceStaking extends ServiceBase {
       isV2: true,
     });
     return result as unknown as IStakeEarnDetail;
+  }
+
+  @backgroundMethod()
+  async getManagePage(params: {
+    networkId: string;
+    provider: string;
+    symbol: string;
+    vault?: string;
+    accountAddress: string;
+    publicKey?: string;
+  }) {
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const requestParams = {
+      networkId: params.networkId,
+      provider: params.provider.toLowerCase(),
+      symbol: params.symbol,
+      accountAddress: params.accountAddress,
+      ...(params.vault && { vault: params.vault }),
+      ...(params.publicKey && { publicKey: params.publicKey }),
+    };
+
+    const resp = await client.get<{ data: IEarnManagePageResponse }>(
+      '/earn/v1/manage-page',
+      { params: requestParams },
+    );
+    return resp.data.data;
   }
 
   @backgroundMethod()

@@ -15,25 +15,19 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import type { IModalStakingParamList } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { type ISupportedSymbol } from '@onekeyhq/shared/types/earn';
-import {
-  normalizeToEarnProvider,
-  normalizeToEarnSymbol,
-} from '@onekeyhq/shared/types/earn/earnProvider.constants';
 import { EStakingActionType } from '@onekeyhq/shared/types/staking';
 
 import { DiscoveryBrowserProviderMirror } from '../../../Discovery/components/DiscoveryBrowserProviderMirror';
 import { EarnProviderMirror } from '../../../Earn/EarnProviderMirror';
-import { EarnNetworkUtils } from '../../../Earn/earnUtils';
 
 import { HeaderRight } from './components/HeaderRight';
 import { StakeSection } from './components/StakeSection';
 import { WithdrawSection } from './components/WithdrawSection';
-import { useProtocolDetails } from './hooks/useProtocolDetails';
+import { useManagePage } from './hooks/useManagePage';
 
 // Skeleton component for loading state
 const ManagePositionSkeleton = () => (
@@ -124,8 +118,8 @@ const ManagePositionPage = () => {
   const { account, indexedAccount } = activeAccount;
   const { networkId, symbol, provider, vault } = resolvedParams;
 
-  const { isLoading, tokenInfo, earnAccount, protocolInfo, detailInfo } =
-    useProtocolDetails({
+  const { isLoading, tokenInfo, earnAccount, protocolInfo, managePageData } =
+    useManagePage({
       accountId: account?.id || '',
       networkId,
       indexedAccountId: indexedAccount?.id,
@@ -135,8 +129,8 @@ const ManagePositionPage = () => {
     });
 
   const historyAction = useMemo(() => {
-    return detailInfo?.actions?.find((i) => i.type === 'history');
-  }, [detailInfo?.actions]);
+    return managePageData?.history;
+  }, [managePageData?.history]);
 
   const onHistory = useMemo(() => {
     if (historyAction?.disabled || !earnAccount?.accountId) {

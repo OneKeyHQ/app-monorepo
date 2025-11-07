@@ -555,6 +555,7 @@ function BasicEarnActionIcon({
         />
       );
     case 'claim':
+    case 'claimOrder':
     case 'claimAirdrop':
       return (
         <ClaimActionIcon

@@ -688,8 +688,56 @@ export interface IEarnWithdrawOrderActionIcon {
   type: EStakingActionType;
   disabled: boolean;
   text: IEarnText;
-  data: {
+  data?: {
     text: IEarnText;
+  };
+}
+
+export interface IEarnDepositActionData {
+  type: 'deposit';
+  disabled: boolean;
+  text: IEarnText;
+  data: {
+    balance: string;
+    token: {
+      info: IEarnToken;
+      price: string;
+    };
+  };
+}
+
+export interface IEarnWithdrawActionData {
+  type: 'withdraw' | 'withdrawOrder';
+  disabled: boolean;
+  text: IEarnText;
+  data?: {
+    balance?: string;
+    token?: {
+      info: IEarnToken;
+      price: string;
+    };
+    text?: IEarnText;
+  };
+}
+
+export interface IEarnManagePageResponse {
+  deposit?: IEarnDepositActionData;
+  withdraw?: IEarnWithdrawActionData;
+  receive?: IEarnReceiveActionIcon;
+  trade?: IEarnTradeActionIcon;
+  history?: IEarnHistoryActionIcon;
+  approve?: {
+    allowance: string;
+    approveType: string;
+    approveTarget: string;
+  };
+  nums?: {
+    overflow?: string;
+    minUnstakeAmount?: string;
+    maxUnstakeAmount?: string;
+    minTransactionFee?: string;
+    claimable?: string;
+    remainingCap?: string;
   };
 }
 
@@ -1104,6 +1152,10 @@ export interface IEarnInvestmentItemV2 {
       name: string;
       logoURI: string;
     };
+    approve?: {
+      approveType: EApproveType;
+      approveTarget: string;
+    };
   };
   assets: {
     token: {
@@ -1112,7 +1164,6 @@ export interface IEarnInvestmentItemV2 {
         logoURI: string;
       };
     };
-    type: 'normal' | 'airdrop';
     deposit: {
       title: IEarnText;
       description: IEarnText;

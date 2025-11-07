@@ -163,9 +163,6 @@ const ActionField = ({
 
   return (
     <YStack gap="$1">
-      {isEmpty(asset.rewardAssets) ? (
-        <EarnText flex={1} size="$bodyLgMedium" text={{ text: '-' }} />
-      ) : null}
       {asset.rewardAssets?.map((reward, index) => (
         <XStack key={index}>
           <EarnText mr="$1" size="$bodyLgMedium" text={reward.title} />
@@ -198,7 +195,7 @@ const ProtocolHeader = ({
   const currencyInfo = useCurrency();
 
   return (
-    <YStack mb="$1">
+    <YStack mb="$1" px="$5">
       <XStack ai="center" gap="$1.5">
         <Token
           size="xs"
@@ -311,7 +308,14 @@ const PortfolioItemComponent = ({
           label: 'Claimable',
           flex: 1.5,
           priority: 3, // Visible on tablet and desktop
-          render: (asset) => <ActionField asset={asset} />,
+          render: (asset) => {
+            if (isEmpty(asset.rewardAssets)) {
+              return (
+                <EarnText flex={1} size="$bodyLgMedium" text={{ text: '-' }} />
+              );
+            }
+            return <ActionField asset={asset} />;
+          },
         },
       ];
     }, []);
@@ -362,8 +366,6 @@ const PortfolioItemComponent = ({
         defaultSortKey="deposits"
         defaultSortDirection="desc"
         listItemProps={{
-          px: '0',
-          mx: '0',
           ai: 'flex-start',
         }}
         expandable={

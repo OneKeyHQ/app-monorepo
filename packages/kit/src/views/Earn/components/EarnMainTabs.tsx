@@ -64,7 +64,7 @@ export function EarnMainTabs({
         })}
       >
         <WrapperComponent>
-          <YStack px="$5" pt="$6" gap="$8">
+          <YStack pt="$6" gap="$8">
             <PortfolioTabContent />
           </YStack>
         </WrapperComponent>
