@@ -32,6 +32,13 @@ const ICLOUD_KEYCHAIN_LABEL = 'OneKey Wallet Backup V2 Key (DO NOT DELETE)';
 const ICLOUD_KEYCHAIN_DESCRIPTION =
   'DO NOT DELETE. Required to restore OneKey Wallet backups.';
 
+async function isCloudFsAvailable() {
+  if (platformEnv.isNativeIOS) {
+    return RNCloudFs?.isAvailable?.();
+  }
+  return undefined;
+}
+
 export class ICloudBackupProvider implements IOneKeyBackupProvider {
   constructor(private readonly backgroundApi: IBackgroundApi) {
     this.backgroundApi = backgroundApi;
@@ -59,10 +66,7 @@ export class ICloudBackupProvider implements IOneKeyBackupProvider {
   async getCloudAccountInfo(): Promise<IBackupProviderAccountInfo> {
     const cloudKitAccountInfo = await appleCloudKitStorage.getAccountInfo();
     const cloudKitAvailable = await appleCloudKitStorage.isAvailable();
-    let cloudFsAvailable: boolean | undefined;
-    if (platformEnv.isNativeIOS) {
-      cloudFsAvailable = await RNCloudFs?.isAvailable?.();
-    }
+    const cloudFsAvailable: boolean | undefined = await isCloudFsAvailable();
     const keychainCloudSyncEnabled =
       await appleKeyChainStorage.isICloudSyncEnabled();
 
@@ -85,20 +89,12 @@ export class ICloudBackupProvider implements IOneKeyBackupProvider {
 
   async isAvailable(): Promise<boolean> {
     const a = await appleCloudKitStorage.isAvailable();
-    const b = await RNCloudFs.isAvailable();
-    return a || b;
+    return a;
   }
 
   async checkAvailability(): Promise<void> {
     if (!platformEnv.isNativeIOS && !platformEnv.isDesktopMac) {
       throw new OneKeyLocalError('iCloud backup is only supported on iOS/Mac');
-    }
-
-    const cloudFsAvailable = await RNCloudFs.isAvailable();
-    if (!cloudFsAvailable) {
-      throw new OneKeyLocalError(
-        'CloudFS is not available. Please ensure you are signed in to iCloud.',
-      );
     }
 
     const available = await appleCloudKitStorage.isAvailable();
