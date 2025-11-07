@@ -5,21 +5,26 @@ import { AccountSelectorProviderMirror } from '../../../components/AccountSelect
 import { HomeTokenListProviderMirror } from '../../Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
 import { WalletActionBuy } from '../../Home/components/WalletActions/WalletActionBuy';
 import { WalletActionReceive } from '../../Home/components/WalletActions/WalletActionReceive';
+import { useHelpLink } from '../../../hooks/useHelpLink';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import { useCallback } from 'react';
 
 function ReceiveSelectorContent() {
+  // TODO: replace with the actual help link
+  const receiveFromExchangeHelpLink = useHelpLink({
+    path: 'articles/11461166',
+  });
+  const handleReceiveFromExchange = useCallback(() => {
+    openUrlExternal(receiveFromExchangeHelpLink);
+  }, [receiveFromExchangeHelpLink]);
   return (
     <Page>
       <Page.Header title="Receive Selector" />
       <Page.Body>
         <YStack>
-          <WalletActionReceive
-            source="receiveSelector"
-            renderTrigger={({ onPress, disabled }) => (
-              <Button onPress={onPress} disabled={disabled}>
-                receive from exchange
-              </Button>
-            )}
-          />
+          <Button onPress={handleReceiveFromExchange}>
+            receive from exchange
+          </Button>
           <WalletActionBuy
             onClose={() => {}}
             source="receiveSelector"
