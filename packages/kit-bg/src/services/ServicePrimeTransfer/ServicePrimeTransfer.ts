@@ -1,5 +1,5 @@
 import { Semaphore } from 'async-mutex';
-import { isNaN, isNil } from 'lodash';
+import { debounce, isNaN, isNil } from 'lodash';
 import natsort from 'natsort';
 import { io } from 'socket.io-client';
 
@@ -76,7 +76,10 @@ import { EPrimeTransferServerType } from '@onekeyhq/shared/types/prime/primeTran
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import localDb from '../../dbs/local/localDb';
-import { settingsPersistAtom } from '../../states/jotai/atoms';
+import {
+  perpsActiveAccountRefreshHookAtom,
+  settingsPersistAtom,
+} from '../../states/jotai/atoms';
 import {
   EPrimeTransferStatus,
   primeTransferAtom,
@@ -1559,11 +1562,29 @@ class ServicePrimeTransfer extends ServiceBase {
     }));
   }
 
-  emitAccountUpdateEvent(): void {
-    setTimeout(() => {
+  finallyImportProgress = debounce(
+    async (): Promise<void> => {
+      /*
+      - reset transfer import task
+      - register notification clients
+      - refresh perps active account
+      - call onekey cloud sync
+      */
+      this.currentImportTaskUUID = undefined;
+      void this.backgroundApi.serviceNotification.registerClientWithOverrideAllAccounts();
+      void perpsActiveAccountRefreshHookAtom.set((prev) => ({
+        ...prev,
+        refreshHook: prev.refreshHook + 1,
+      }));
+      await timerUtils.wait(300);
       appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
-    }, 1500);
-  }
+    },
+    1500,
+    {
+      leading: false,
+      trailing: true,
+    },
+  );
 
   @backgroundMethod()
   @toastIfError()
@@ -1573,8 +1594,7 @@ class ServicePrimeTransfer extends ServiceBase {
       ...prev,
       importProgress: undefined,
     }));
-    this.currentImportTaskUUID = undefined;
-    this.emitAccountUpdateEvent();
+    await this.finallyImportProgress();
   }
 
   @backgroundMethod()
@@ -1610,8 +1630,7 @@ class ServicePrimeTransfer extends ServiceBase {
           : undefined,
       };
     });
-    this.currentImportTaskUUID = undefined;
-    this.emitAccountUpdateEvent();
+    await this.finallyImportProgress();
   }
 
   async buildHdWalletAccountsCreateParams({
@@ -1666,10 +1685,9 @@ class ServicePrimeTransfer extends ServiceBase {
     const indexedAccountNames: IPrimeTransferHDWalletIndexedAccountNames = {};
     for (const hdAccount of accounts) {
       if (
-        (taskUUID &&
-          this.currentImportTaskUUID &&
-          this.currentImportTaskUUID !== taskUUID) ||
-        !this.currentImportTaskUUID
+        taskUUID &&
+        this.currentImportTaskUUID &&
+        this.currentImportTaskUUID !== taskUUID
       ) {
         // task cancelled
         // throw new PrimeTransferImportCancelledError();
@@ -1712,10 +1730,16 @@ class ServicePrimeTransfer extends ServiceBase {
           if (!isIncludedInDefaultCustomNetworks || !skipDefaultNetworks) {
             createNetworkParamsMap[pathIndex].customNetworks =
               createNetworkParamsMap[pathIndex].customNetworks || [];
-            createNetworkParamsMap[pathIndex].customNetworks.push({
-              networkId,
-              deriveType: deriveTypeData.deriveType,
-            });
+            if (
+              networkId &&
+              // ignore lightning network as it requires network verification
+              ![presetNetworksMap.lightning.id].includes(networkId)
+            ) {
+              createNetworkParamsMap[pathIndex].customNetworks.push({
+                networkId,
+                deriveType: deriveTypeData.deriveType,
+              });
+            }
           }
         }
       } catch (e) {
@@ -1869,6 +1893,9 @@ class ServicePrimeTransfer extends ServiceBase {
         }
         try {
           if (newWallet) {
+            const customNetworksUsed = customNetworks?.filter(
+              (n) => ![presetNetworksMap.lightning.id].includes(n.networkId),
+            );
             await this.backgroundApi.serviceBatchCreateAccount.startBatchCreateAccountsFlowForAllNetwork(
               {
                 walletId: newWallet.id,
@@ -1879,7 +1906,7 @@ class ServicePrimeTransfer extends ServiceBase {
                 saveToDb: true,
                 showUIProgress: true, // emit EAppEventBusNames.BatchCreateAccount event
                 autoHandleExitError: false,
-                customNetworks,
+                customNetworks: customNetworksUsed,
                 includingDefaultNetworks,
               },
             );
@@ -1953,6 +1980,7 @@ class ServicePrimeTransfer extends ServiceBase {
           input: exportedPrivateKey,
           privateKey,
           networkId,
+          skipEventEmit: true,
         });
       if (addedAccounts?.length && addedAccounts?.[0]?.id) {
         try {
@@ -2028,6 +2056,7 @@ class ServicePrimeTransfer extends ServiceBase {
           watchingAccount,
           input: watchingAccount.pub,
           networkId,
+          skipEventEmit: true,
         });
         addedAccounts = [...addedAccounts, ...(result?.addedAccounts || [])];
       }
@@ -2041,6 +2070,7 @@ class ServicePrimeTransfer extends ServiceBase {
           watchingAccount,
           input: watchingAccountUtxo.xpub,
           networkId,
+          skipEventEmit: true,
         });
         addedAccounts = [...addedAccounts, ...(result?.addedAccounts || [])];
       }
@@ -2054,6 +2084,7 @@ class ServicePrimeTransfer extends ServiceBase {
           watchingAccount,
           input: watchingAccountUtxo.xpubSegwit,
           networkId,
+          skipEventEmit: true,
         });
         addedAccounts = [...addedAccounts, ...(result?.addedAccounts || [])];
       }
@@ -2067,6 +2098,7 @@ class ServicePrimeTransfer extends ServiceBase {
           watchingAccount,
           input: watchingAccount.address,
           networkId,
+          skipEventEmit: true,
         });
         addedAccounts = [...addedAccounts, ...(result?.addedAccounts || [])];
       }

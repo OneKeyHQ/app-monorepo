@@ -1481,6 +1481,7 @@ class ServiceAccount extends ServiceBase {
     fallbackName,
     shouldCheckDuplicateName,
     skipAddIfNotEqualToAddress,
+    skipEventEmit,
   }: {
     name?: string;
     fallbackName?: string;
@@ -1489,6 +1490,7 @@ class ServiceAccount extends ServiceBase {
     networkId: string;
     deriveType: IAccountDeriveTypes | undefined;
     skipAddIfNotEqualToAddress?: string;
+    skipEventEmit?: boolean;
   }): Promise<{
     networkId: string;
     walletId: string;
@@ -1567,6 +1569,7 @@ class ServiceAccount extends ServiceBase {
 
     const { isOverrideAccounts, existsAccounts } =
       await localDb.addAccountsToWallet({
+        skipEventEmit,
         allAccountsBelongToNetworkId: networkId,
         walletId,
         accounts,
@@ -1733,6 +1736,7 @@ class ServiceAccount extends ServiceBase {
     shouldCheckDuplicateName,
     isUrlAccount,
     skipAddIfNotEqualToAddress,
+    skipEventEmit,
   }: {
     input: string;
     networkId: string;
@@ -1742,6 +1746,7 @@ class ServiceAccount extends ServiceBase {
     deriveType?: IAccountDeriveTypes;
     isUrlAccount?: boolean;
     skipAddIfNotEqualToAddress?: string;
+    skipEventEmit?: boolean;
   }): Promise<{
     networkId: string;
     walletId: string;
@@ -1862,6 +1867,7 @@ class ServiceAccount extends ServiceBase {
 
     const { isOverrideAccounts, existsAccounts } =
       await localDb.addAccountsToWallet({
+        skipEventEmit,
         allAccountsBelongToNetworkId: networkId,
         walletId,
         accounts,
@@ -2593,6 +2599,12 @@ class ServiceAccount extends ServiceBase {
     }
 
     if (!account && !indexedAccount) {
+      return;
+    }
+    if (!name) {
+      return;
+    }
+    if (oldName === name) {
       return;
     }
 
@@ -5012,11 +5024,13 @@ class ServiceAccount extends ServiceBase {
     input,
     privateKey,
     networkId,
+    skipEventEmit,
   }: {
     importedAccount: IPrimeTransferAccount;
     input: string;
     privateKey: string;
     networkId: string;
+    skipEventEmit?: boolean;
   }) {
     let addedAccounts: IDBAccount[] = [];
     try {
@@ -5065,6 +5079,7 @@ class ServiceAccount extends ServiceBase {
         try {
           const { accounts } =
             await serviceAccount.addImportedAccountWithCredential({
+              skipEventEmit,
               credential: await servicePassword.encodeSensitiveText({
                 text: privateKey,
               }),
@@ -5089,10 +5104,12 @@ class ServiceAccount extends ServiceBase {
     watchingAccount,
     input,
     networkId,
+    skipEventEmit,
   }: {
     watchingAccount: IPrimeTransferAccount;
     input: string;
     networkId: string;
+    skipEventEmit?: boolean;
   }): Promise<{
     addedAccounts: IDBAccount[];
   }> {
@@ -5142,6 +5159,7 @@ class ServiceAccount extends ServiceBase {
       for (const deriveType of deriveTypes) {
         try {
           const { accounts } = await serviceAccount.addWatchingAccount({
+            skipEventEmit,
             input,
             fallbackName: watchingAccount.name,
             networkId: networkId || '',
