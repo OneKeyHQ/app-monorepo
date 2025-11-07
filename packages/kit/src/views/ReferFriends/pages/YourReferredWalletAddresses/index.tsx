@@ -3,21 +3,18 @@ import { useCallback, useMemo, useState } from 'react';
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
-import { ListView, Page, SizableText, useMedia } from '@onekeyhq/components';
+import { ListView, Page, SizableText } from '@onekeyhq/components';
 import {
   AccountSelectorProviderMirror,
   ControlledNetworkSelectorIconTrigger,
 } from '@onekeyhq/kit/src/components/AccountSelector';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
 import { useRedirectWhenNotLoggedIn } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useRedirectWhenNotLoggedIn';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
-  ETabReferFriendsRoutes,
-  ITabReferFriendsParamList,
+  EModalReferFriendsRoutes,
+  IModalReferFriendsParamList,
 } from '@onekeyhq/shared/src/routes';
-import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -29,12 +26,11 @@ function YourReferredWalletAddressesPageWrapper() {
   useRedirectWhenNotLoggedIn();
 
   const intl = useIntl();
-  const { md } = useMedia();
   const { params } =
     useRoute<
       RouteProp<
-        ITabReferFriendsParamList,
-        ETabReferFriendsRoutes.TabYourReferredWalletAddresses
+        IModalReferFriendsParamList,
+        EModalReferFriendsRoutes.YourReferredWalletAddresses
       >
     >();
 
@@ -67,19 +63,12 @@ function YourReferredWalletAddressesPageWrapper() {
 
   return (
     <Page scrollEnabled>
-      {platformEnv.isNative || md ? (
-        <Page.Header
-          title={intl.formatMessage({
-            id: ETranslations.referral_referred_address,
-          })}
-          headerRight={renderHeaderRight}
-        />
-      ) : (
-        <TabPageHeader
-          sceneName={EAccountSelectorSceneName.home}
-          tabRoute={ETabRoutes.ReferFriends}
-        />
-      )}
+      <Page.Header
+        title={intl.formatMessage({
+          id: ETranslations.referral_referred_address,
+        })}
+        headerRight={renderHeaderRight}
+      />
       <Page.Body>
         <ListView
           contentContainerStyle={{ pb: '$20' }}
