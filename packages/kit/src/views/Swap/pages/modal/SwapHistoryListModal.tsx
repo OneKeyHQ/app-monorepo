@@ -292,7 +292,7 @@ const SwapHistoryListModal = ({
         headerTitle={() => headerSelectType}
       />
       {historyType !== EProtocolOfExchange.LIMIT ? (
-        <ScrollView px="$4" overflow="visible">
+        <YStack px="$4" flex={1}>
           {isLoading ? (
             Array.from({ length: 5 }).map((_, index) => (
               <ListItem key={index}>
@@ -311,7 +311,6 @@ const SwapHistoryListModal = ({
             <SectionList
               renderItem={renderItem}
               sections={sectionData}
-              overflow="visible"
               py="$2"
               renderSectionHeader={({ section: { title, status } }) => (
                 <XStack px="$2" py="$2" gap="$3" alignItems="center">
@@ -346,7 +345,7 @@ const SwapHistoryListModal = ({
               }
             />
           )}
-        </ScrollView>
+        </YStack>
       ) : (
         <LimitOrderListModalWithAllProvider storeName={storeName} />
       )}

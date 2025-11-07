@@ -1,10 +1,4 @@
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-} from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import {
   StackRouter,
@@ -14,7 +8,6 @@ import {
 import { StackView } from '@react-navigation/stack';
 import _ from 'lodash';
 import { useWindowDimensions } from 'react-native';
-import { useThrottledCallback } from 'use-debounce';
 
 import { useMedia } from '@onekeyhq/components/src/shared/tamagui';
 import type { TamaguiElement } from '@onekeyhq/components/src/shared/tamagui';
@@ -26,7 +19,7 @@ import {
   ModalNavigatorContext,
   createPortalId,
 } from '../../../hooks/useModalNavigatorContext';
-import { Stack, XStack, YStack } from '../../../primitives/Stack';
+import { Stack } from '../../../primitives/Stack';
 
 import type {
   IModalNavigationConfig,
@@ -57,7 +50,6 @@ type IProps = DefaultNavigatorOptions<
   StackRouterOptions &
   IModalNavigationConfig;
 
-const backdropId = 'app-modal-stacks-backdrop';
 function OnBoardingModalNavigator({
   initialRouteName,
   children,
@@ -83,25 +75,12 @@ function OnBoardingModalNavigator({
     navigation.goBack();
   }, [navigation]);
 
-  const descriptor = descriptors[state.routes?.[state.index].key];
-
   const handleBackPress = useCallback(() => {
     if (navigation.isFocused()) goBackCall();
     return true;
   }, [navigation, goBackCall]);
 
   useBackHandler(handleBackPress, true, false);
-
-  const handleBackdropClick = useThrottledCallback(() => {
-    if (descriptor.options.dismissOnOverlayPress === false) {
-      return;
-    }
-    if (descriptor.options.shouldPopOnClickBackdrop) {
-      navigation.goBack();
-    } else {
-      navigation?.getParent?.()?.goBack();
-    }
-  }, 350);
 
   const rootNavigation = navigation.getParent()?.getParent?.();
   const currentRouteIndex = useMemo(
@@ -172,16 +151,6 @@ function OnBoardingModalNavigator({
 
   const isPagePressIn = useRef(false);
 
-  const onPageContainerPressIn = useCallback(() => {
-    if (!isPagePressIn.current) {
-      handleBackdropClick();
-    }
-  }, [handleBackdropClick]);
-
-  const onPageContainerPressOut = useCallback(() => {
-    isPagePressIn.current = false;
-  }, []);
-
   const onPagePressIn = useCallback(() => {
     isPagePressIn.current = true;
   }, []);
@@ -212,67 +181,15 @@ function OnBoardingModalNavigator({
     [],
   );
 
-  const isExistBackdrop = useMemo(() => {
-    return (
-      document.querySelectorAll(`[data-testid="${backdropId}"]`).length > 0
-    );
-  }, []);
-
   return (
     <NavigationContent>
       <ModalNavigatorContext.Provider value={contextValue}>
         <>
-          <Stack
-            flex={1}
-            $gtMd={{
-              justifyContent: 'center',
-              alignItems: 'center',
-            }}
-            onPress={platformEnv.isNative ? handleBackdropClick : undefined}
-            onPressIn={
-              platformEnv.isNative ? undefined : onPageContainerPressIn
-            }
-            onPressOut={
-              platformEnv.isNative ? undefined : onPageContainerPressOut
-            }
-          >
-            {currentRouteIndex <= 1 && !isExistBackdrop ? (
-              <YStack
-                testID={backdropId}
-                ref={(ref) => {
-                  if (ref) {
-                    MODAL_ANIMATED_BACKDROP_VIEW_REF = ref;
-                  }
-                }}
-                fullscreen
-                style={{
-                  opacity: 0,
-                  backgroundColor: 'rgba(0, 0, 0, 0.5)',
-                  transition: 'opacity .25s cubic-bezier(0.4, 0, 0.2, 1)',
-                  willChange: 'opacity',
-                }}
-              >
-                {platformEnv.isDesktopMac ? (
-                  <XStack
-                    style={
-                      {
-                        WebkitAppRegion: 'drag',
-                      } as any
-                    }
-                    position="absolute"
-                    top={0}
-                    h={48}
-                    left={0}
-                    right={0}
-                  />
-                ) : null}
-              </YStack>
-            ) : null}
-
+          <Stack flex={1}>
             <Stack
               onPress={platformEnv.isNative ? stopPropagation : undefined}
               onPressIn={platformEnv.isNative ? undefined : onPagePressIn}
-              testID="APP-Modal-Screen"
+              testID="APP-OnBoarding-Screen"
               className="app-region-no-drag"
               bg="$bgApp"
               overflow="hidden"

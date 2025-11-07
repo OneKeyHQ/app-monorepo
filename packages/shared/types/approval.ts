@@ -63,6 +63,7 @@ export type IFetchAccountApprovalsParams = {
   indexedAccountId: string | undefined;
   accountAddress?: string;
   limit?: number;
+  networksEnabledOnly?: boolean;
 };
 
 export type IFetchAccountApprovalsResponse = {

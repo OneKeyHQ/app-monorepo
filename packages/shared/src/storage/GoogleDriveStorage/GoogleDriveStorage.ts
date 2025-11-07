@@ -1,20 +1,19 @@
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 // https://github.com/npomfret/react-native-cloud-fs
+// https://github.com/rainbow-me/react-native-cloud-fs
 // https://github.com/OneKeyHQ/react-native-cloud-fs
 import RNCloudFs from 'react-native-cloud-fs';
 
 import googlePlayService from '@onekeyhq/shared/src/googlePlayService/googlePlayService';
 
+import { GoogleSignInConfigure } from '../../consts/googleSignConsts';
 import { OneKeyLocalError } from '../../errors';
 import RNFS from '../../modules3rdParty/react-native-fs';
 import platformEnv from '../../platformEnv';
 
-import type {
-  IGoogleDriveFile,
-  IGoogleDriveStorage,
-  IGoogleUserInfo,
-} from './types';
+import type { IGoogleDriveFile, IGoogleUserInfo } from './types';
 
+// packages/shared/src/cloudfs/index.android.ts
 // packages/shared/src/cloudfs/index.android.ts
 
 /**
@@ -38,41 +37,13 @@ import type {
  * - Files stored in hidden scope (application private data)
  * - Automatic cleanup of temporary files
  */
-export class GoogleDriveStorage implements IGoogleDriveStorage {
-  private readonly GoogleSignInConfigure = {
-    scopes: ['https://www.googleapis.com/auth/drive.file'],
-    webClientId: platformEnv.isDev
-      ? '117481276073-fs7omuqsmvgtg6bci3ja1gvo03g0d984.apps.googleusercontent.com' // Dev
-      : '94391474021-ffaspa4ikjqpqvn5ndplqobvuvhnj8v3.apps.googleusercontent.com', // Pro
-    offlineAccess: true,
-  };
 
-  /**
-   * Check if iOS platform (not supported)
-   */
-  private checkIOSNotSupported(): void {
-    if (platformEnv.isNativeIOS) {
-      throw new OneKeyLocalError(
-        'Google Drive is not supported on iOS. Please use iCloud instead.',
-      );
-    }
-  }
-
-  /**
-   * Check if Android platform (only supported platform)
-   */
-  private checkAndroidSupported(): void {
-    if (!platformEnv.isNativeAndroid) {
-      throw new OneKeyLocalError(
-        'Google Drive is only supported on Android currently. Desktop and Web support coming soon.',
-      );
-    }
-  }
-
+const APP_PRIVATE_DATA_SCOPE = 'hidden';
+export class GoogleDriveStorage {
   /**
    * Generate temporary file path for Google Drive operations
    */
-  private getTempFilePath(fileName: string): string {
+  private buildTempFilePath(fileName: string): string {
     if (!RNFS) {
       throw new OneKeyLocalError('File system not available');
     }
@@ -94,109 +65,78 @@ export class GoogleDriveStorage implements IGoogleDriveStorage {
   }
 
   async isAvailable(): Promise<boolean> {
-    this.checkIOSNotSupported();
-
-    if (!platformEnv.isNativeAndroid) {
-      return false;
-    }
-
     try {
-      await googlePlayService.isAvailable();
-      await RNCloudFs.isAvailable();
+      const isGooglePlayServiceAvailable =
+        await googlePlayService.isAvailable();
+      if (!isGooglePlayServiceAvailable) {
+        return false;
+      }
       // Check if Google Play Services is available
       const signedIn = await GoogleSignin.isSignedIn();
       if (signedIn) {
+        await RNCloudFs.loginIfNeeded();
         return true;
       }
-      // User not signed in, but Google Sign-In is available
-      return true;
+      return false;
     } catch (error) {
       console.warn('Google Drive availability check failed:', error);
       return false;
     }
   }
 
-  // TODO signInIfNeeded()
-  async signIn(): Promise<IGoogleUserInfo> {
-    this.checkIOSNotSupported();
-    this.checkAndroidSupported();
-
-    console.log('GoogleDriveStorage___signIn >>>>> configure');
-
-    GoogleSignin.configure(this.GoogleSignInConfigure);
-
-    console.log('GoogleDriveStorage___signIn >>>>> configure done');
-
-    try {
-      const userInfo = await GoogleSignin.signIn();
-      console.log('GoogleDriveStorage___signIn >>>>> signIn done');
-
-      // Login to cloud storage
-      await RNCloudFs.loginIfNeeded();
-
-      return {
-        email: userInfo.user.email,
-        userId: userInfo.user.id,
-      };
-    } catch (error) {
-      console.warn('GoogleDriveStorage___signIn >>>>> signIn error:', error);
-      throw error;
+  async loginIfNeeded({
+    showSignInDialog,
+  }: {
+    showSignInDialog: boolean;
+  }): Promise<boolean> {
+    GoogleSignin.configure(GoogleSignInConfigure);
+    const signedIn = await GoogleSignin.isSignedIn();
+    if (!signedIn) {
+      if (showSignInDialog) {
+        await GoogleSignin.signIn();
+      } else {
+        await GoogleSignin.signInSilently();
+      }
     }
+    return RNCloudFs.loginIfNeeded();
   }
 
-  async signOut(): Promise<void> {
-    this.checkIOSNotSupported();
-    this.checkAndroidSupported();
-
+  async logout({
+    revokeAccess = true,
+  }: {
+    revokeAccess?: boolean;
+  } = {}): Promise<void> {
+    if (revokeAccess) {
+      await GoogleSignin.revokeAccess();
+    }
     await GoogleSignin.signOut();
     await RNCloudFs.logout();
   }
 
   async isSignedIn(): Promise<boolean> {
-    this.checkIOSNotSupported();
-
     if (!platformEnv.isNativeAndroid) {
       return false;
     }
-
     return GoogleSignin.isSignedIn();
   }
 
   async getUserInfo(): Promise<IGoogleUserInfo | null> {
-    this.checkIOSNotSupported();
-    this.checkAndroidSupported();
-
-    await this.signIn();
+    await this.loginIfNeeded({ showSignInDialog: false });
 
     const signedIn = await GoogleSignin.isSignedIn();
     if (!signedIn) {
       return null;
     }
 
-    try {
-      const userInfo = await GoogleSignin.getCurrentUser();
-      if (!userInfo) {
-        return null;
-      }
-
-      return {
-        email: userInfo.user.email,
-        userId: userInfo.user.id,
-      };
-    } catch (error) {
-      console.warn('Failed to get user info:', error);
-      return null;
-    }
+    const userInfo: IGoogleUserInfo | null =
+      await GoogleSignin.getCurrentUser();
+    return userInfo;
   }
 
   async uploadFile(params: {
     fileName: string;
     content: string;
-    folderId?: string;
   }): Promise<{ fileId: string }> {
-    this.checkIOSNotSupported();
-    this.checkAndroidSupported();
-
     const { fileName, content } = params;
 
     // Ensure user is signed in
@@ -211,7 +151,7 @@ export class GoogleDriveStorage implements IGoogleDriveStorage {
     await RNCloudFs.loginIfNeeded();
 
     // Create temporary file from base64 content
-    const tempFilePath = this.getTempFilePath(fileName);
+    const tempFilePath = this.buildTempFilePath(fileName);
 
     try {
       // Write base64 content to temporary file
@@ -222,7 +162,7 @@ export class GoogleDriveStorage implements IGoogleDriveStorage {
 
       // Upload to Google Drive (hidden scope)
       const fileId = await RNCloudFs.copyToCloud({
-        scope: 'hidden',
+        scope: APP_PRIVATE_DATA_SCOPE,
         sourcePath: { path: tempFilePath },
         targetPath: fileName,
       });
@@ -236,15 +176,14 @@ export class GoogleDriveStorage implements IGoogleDriveStorage {
     }
   }
 
-  /**
-   * Get file object from Google Drive by name
-   */
-  private async getFileObject(
-    fileName: string,
-  ): Promise<{ id: string; name: string } | undefined> {
+  async getFileObject({
+    fileName,
+  }: {
+    fileName: string;
+  }): Promise<{ id: string; name: string } | undefined> {
     const { files }: { files: Array<{ id: string; name: string }> } =
       await RNCloudFs.listFiles({
-        scope: 'hidden',
+        scope: APP_PRIVATE_DATA_SCOPE,
       });
     return files.find(({ name }) => fileName === name);
   }
@@ -252,9 +191,6 @@ export class GoogleDriveStorage implements IGoogleDriveStorage {
   async downloadFile(params: {
     fileId: string;
   }): Promise<IGoogleDriveFile | null> {
-    this.checkIOSNotSupported();
-    this.checkAndroidSupported();
-
     const { fileId } = params;
 
     // Ensure user is signed in
@@ -268,24 +204,16 @@ export class GoogleDriveStorage implements IGoogleDriveStorage {
     // Login to cloud storage if needed
     await RNCloudFs.loginIfNeeded();
 
-    try {
-      // Download file content as string
-      const content = await RNCloudFs.getGoogleDriveDocument(fileId);
+    // Download file content as string
+    const content = await RNCloudFs.getGoogleDriveDocument(fileId);
 
-      return {
-        id: fileId,
-        content,
-      };
-    } catch (error) {
-      console.warn('Failed to download file:', error);
-      return null;
-    }
+    return {
+      id: fileId,
+      content,
+    };
   }
 
-  async deleteFile(params: { fileId: string }): Promise<void> {
-    this.checkIOSNotSupported();
-    this.checkAndroidSupported();
-
+  async deleteFile(params: { fileId: string }): Promise<boolean> {
     const { fileId } = params;
 
     // Ensure user is signed in
@@ -299,16 +227,10 @@ export class GoogleDriveStorage implements IGoogleDriveStorage {
     // Login to cloud storage if needed
     await RNCloudFs.loginIfNeeded();
 
-    await RNCloudFs.deleteFromCloud({ id: fileId });
+    return RNCloudFs.deleteFromCloud({ id: fileId });
   }
 
-  async listFiles(params: {
-    query?: string;
-    pageSize?: number;
-  }): Promise<{ files: IGoogleDriveFile[] }> {
-    this.checkIOSNotSupported();
-    this.checkAndroidSupported();
-
+  async listFiles(): Promise<{ files: IGoogleDriveFile[] }> {
     // Ensure user is signed in
     const signedIn = await GoogleSignin.isSignedIn();
     if (!signedIn) {
@@ -319,33 +241,19 @@ export class GoogleDriveStorage implements IGoogleDriveStorage {
 
     // Login to cloud storage if needed
     await RNCloudFs.loginIfNeeded();
-
-    const targetPath = params.query || '';
 
     const { files }: { files: Array<{ id: string; name: string }> } =
       await RNCloudFs.listFiles({
-        scope: 'hidden',
+        scope: APP_PRIVATE_DATA_SCOPE,
       });
 
     // Convert to IGoogleDriveFile format (without content)
-    const driveFiles: IGoogleDriveFile[] = files.map((file) => ({
-      id: file.id,
-      name: file.name,
-      content: '', // Content not loaded in list view
-    }));
-
-    // Apply page size limit if specified
-    if (params.pageSize && params.pageSize > 0) {
-      return { files: driveFiles.slice(0, params.pageSize) };
-    }
+    const driveFiles: IGoogleDriveFile[] = files;
 
     return { files: driveFiles };
   }
 
   async fileExists(params: { fileId: string }): Promise<boolean> {
-    this.checkIOSNotSupported();
-    this.checkAndroidSupported();
-
     return RNCloudFs.fileExists({ fileId: params.fileId });
   }
 }

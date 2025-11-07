@@ -22,18 +22,23 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
+import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
+import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import {
   EHardwareCallContext,
+  EOneKeyDeviceMode,
   type IFirmwareVerifyResult,
 } from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import { useFirmwareUpdateActions } from '../../FirmwareUpdate/hooks/useFirmwareUpdateActions';
 import { OnboardingLayout } from '../components/OnboardingLayout';
+import { useDeviceConnect } from '../hooks/useDeviceConnect';
 
 import type { KnownDevice, SearchDevice } from '@onekeyfe/hd-core';
 
@@ -45,16 +50,43 @@ enum ECheckAndUpdateStepState {
   Error = 'error',
 }
 
-export default function CheckAndUpdate({
+function CheckAndUpdatePage({
   route: routeParams,
 }: IPageScreenProps<
   IOnboardingParamListV2,
   EOnboardingPagesV2.CheckAndUpdate
 >) {
-  const { deviceData } = routeParams?.params || {};
+  const { deviceData, tabValue } = routeParams?.params || {};
   console.log('deviceData', deviceData);
   const themeVariant = useThemeVariant();
   const navigation = useAppNavigation();
+
+  const deviceScanner = useMemo(
+    () =>
+      deviceUtils.getDeviceScanner({
+        backgroundApi: backgroundApiProxy,
+      }),
+    [],
+  );
+
+  const ensureStopScan = useCallback(async () => {
+    // Force stop scanning and wait for any ongoing search to complete
+    console.log(
+      'ensureStopScan: Stopping device scan and waiting for completion',
+    );
+
+    try {
+      // Use the new stopScanAndWait method that properly waits for ongoing searches
+      await deviceScanner.stopScanAndWait();
+      console.log(
+        'ensureStopScan: Device scan stopped and all ongoing searches completed',
+      );
+    } catch (error) {
+      console.error('ensureStopScan: Error while stopping scan:', error);
+      // Fallback: just stop scan without waiting
+      deviceScanner.stopScan();
+    }
+  }, [deviceScanner]);
 
   const deviceLabel = useMemo(() => {
     if ((deviceData.device as KnownDevice)?.label) {
@@ -62,6 +94,9 @@ export default function CheckAndUpdate({
     }
     return (deviceData.device as SearchDevice).name;
   }, [deviceData]);
+
+  const { onDeviceConnect, connectDevice, onSelectAddWalletType } =
+    useDeviceConnect();
 
   const [steps, setSteps] = useState<
     {
@@ -112,7 +147,7 @@ export default function CheckAndUpdate({
     }
   }, [actions, deviceData.device?.connectId]);
 
-  const skipFirmwareUpgrade = useCallback(() => {
+  const checkDeviceInitialized = useCallback(async () => {
     setSteps((prev) => {
       const newSteps = [...prev];
       newSteps[1] = {
@@ -126,18 +161,46 @@ export default function CheckAndUpdate({
       return newSteps;
     });
 
-    // After 2 seconds, set to warning to show setup instructions
-    setTimeout(() => {
-      setSteps((prev) => {
-        const newSteps = [...prev];
-        newSteps[2] = {
-          ...newSteps[2],
-          state: ECheckAndUpdateStepState.Warning,
-        };
-        return newSteps;
+    const features = await connectDevice(deviceData.device as SearchDevice);
+    if (features) {
+      const deviceMode = await deviceUtils.getDeviceModeFromFeatures({
+        features,
       });
-    }, 2000);
-  }, []);
+
+      if (deviceMode === EOneKeyDeviceMode.notInitialized) {
+        setSteps((prev) => {
+          const newSteps = [...prev];
+          newSteps[2] = {
+            ...newSteps[2],
+            state: ECheckAndUpdateStepState.Warning,
+          };
+          return newSteps;
+        });
+      }
+    }
+    setSteps((prev) => {
+      const newSteps = [...prev];
+      newSteps[2] = {
+        ...newSteps[2],
+        state: ECheckAndUpdateStepState.Success,
+      };
+      return newSteps;
+    });
+    setTimeout(async () => {
+      navigation.push(EOnboardingPagesV2.FinalizeWalletSetup);
+      await ensureStopScan();
+      await onSelectAddWalletType({
+        device: deviceData.device as SearchDevice,
+        isFirmwareVerified: true,
+      });
+    }, 1200);
+  }, [
+    connectDevice,
+    deviceData.device,
+    ensureStopScan,
+    navigation,
+    onSelectAddWalletType,
+  ]);
 
   const checkFirmwareUpdate = useCallback(async () => {
     if (!deviceData.device?.connectId) {
@@ -165,17 +228,27 @@ export default function CheckAndUpdate({
           return newSteps;
         });
       } else {
-        skipFirmwareUpgrade();
+        void checkDeviceInitialized();
       }
     }
-  }, [deviceData.device?.connectId, skipFirmwareUpgrade]);
+  }, [deviceData.device?.connectId, checkDeviceInitialized]);
 
   const firmwareStepStateRef = useRef<ECheckAndUpdateStepState>(steps[1].state);
   firmwareStepStateRef.current = steps[1].state;
   useFocusEffect(
     useCallback(() => {
       if (firmwareStepStateRef.current === ECheckAndUpdateStepState.Warning) {
-        void checkFirmwareUpdate();
+        setSteps((prev) => {
+          const newSteps = [...prev];
+          newSteps[1] = {
+            ...newSteps[1],
+            state: ECheckAndUpdateStepState.InProgress,
+          };
+          return newSteps;
+        });
+        setTimeout(() => {
+          void checkFirmwareUpdate();
+        }, 150);
       }
     }, [checkFirmwareUpdate]),
   );
@@ -221,8 +294,9 @@ export default function CheckAndUpdate({
       return newSteps;
     });
 
-    await deviceData.onFirmwareVerified();
-  }, [deviceData]);
+    await ensureStopScan();
+    await onDeviceConnect(deviceData.device as SearchDevice, tabValue);
+  }, [ensureStopScan, onDeviceConnect, deviceData.device, tabValue]);
 
   const handleRetry = useCallback(async () => {
     // Set first step to inProgress
@@ -239,35 +313,8 @@ export default function CheckAndUpdate({
   }, [handleCheck]);
 
   const handleDeviceSetupDone = useCallback(() => {
-    // Set setup-on-device step to inProgress
-    setSteps((prev) => {
-      const newSteps = [...prev];
-      newSteps[2] = {
-        ...newSteps[2],
-        state: ECheckAndUpdateStepState.InProgress,
-      };
-      return newSteps;
-    });
-
-    // After 2 seconds, set it to success
-    setTimeout(() => {
-      setSteps((prev) => {
-        const newSteps = [...prev];
-        newSteps[2] = {
-          ...newSteps[2],
-          state: ECheckAndUpdateStepState.Success,
-        };
-        return newSteps;
-      });
-
-      void deviceData.onCreateWallet();
-
-      // After showing success, wait another 2 seconds before navigating
-      setTimeout(() => {
-        void navigation.push(EOnboardingPagesV2.FinalizeWalletSetup);
-      }, 2000);
-    }, 2000);
-  }, [deviceData, navigation]);
+    void checkDeviceInitialized();
+  }, [checkDeviceInitialized]);
 
   const handleSkipUpdate = useCallback(() => {
     Dialog.show({
@@ -278,10 +325,10 @@ export default function CheckAndUpdate({
         'Are you sure you want to skip the check? Using up-to-date firmware gives you the best protection.',
       onConfirm: () => {
         // Execute skip logic after confirmation
-        skipFirmwareUpgrade();
+        void checkDeviceInitialized();
       },
     });
-  }, [skipFirmwareUpgrade]);
+  }, [checkDeviceInitialized]);
 
   const DEVICE_SETUP_INSTRUCTIONS = useMemo(() => {
     return [
@@ -662,5 +709,24 @@ export default function CheckAndUpdate({
         </OnboardingLayout.Body>
       </OnboardingLayout>
     </Page>
+  );
+}
+
+export default function CheckAndUpdate({
+  route,
+  navigation,
+}: IPageScreenProps<
+  IOnboardingParamListV2,
+  EOnboardingPagesV2.CheckAndUpdate
+>) {
+  return (
+    <AccountSelectorProviderMirror
+      enabledNum={[0]}
+      config={{
+        sceneName: EAccountSelectorSceneName.home, // TODO read from router
+      }}
+    >
+      <CheckAndUpdatePage route={route} navigation={navigation} />
+    </AccountSelectorProviderMirror>
   );
 }

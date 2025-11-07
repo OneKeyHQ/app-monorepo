@@ -226,7 +226,9 @@ export function HeaderRight({
           </>
         );
       case ETabRoutes.Discovery:
-        return selectedHeaderTab === ETranslations.global_browser ? (
+        return selectedHeaderTab === ETranslations.global_earn ? (
+          earnItems
+        ) : (
           <>
             <HistoryIconButton />
             {isHorizontal || !platformEnv.isNative ? undefined : (
@@ -235,8 +237,6 @@ export function HeaderRight({
             <WalletConnectionForWeb tabRoute={tabRoute} />
             {fixedItems}
           </>
-        ) : (
-          earnItems
         );
       case ETabRoutes.Earn:
         return earnItems;

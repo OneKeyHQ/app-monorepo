@@ -5,12 +5,16 @@ import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import type { IKeyOfIcons } from '@onekeyhq/components';
-import { Icon, Page, SizableText, YStack } from '@onekeyhq/components';
+import { Dialog, Icon, Page, SizableText, YStack } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { EModalRoutes, EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes';
+import {
+  EModalRoutes,
+  EOnboardingPages,
+  EOnboardingPagesV2,
+} from '@onekeyhq/shared/src/routes';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -101,8 +105,12 @@ export default function AddExistingWallet() {
         {
           title: 'OneKey KeyTag',
           icon: 'OnekeyKeytagOutline' as IKeyOfIcons,
-          onPress: () => {
-            navigation.push(EOnboardingPagesV2.ImportKeyTag);
+          onPress: async () => {
+            await backgroundApiProxy.servicePassword.promptPasswordVerify();
+            defaultLogger.setting.page.keyTagImport();
+            navigation.pushModal(EModalRoutes.OnboardingModal, {
+              screen: EOnboardingPages.ImportKeyTag,
+            });
           },
         },
         platformEnv.isNative
@@ -125,14 +133,41 @@ export default function AddExistingWallet() {
         },
         ...(() => {
           return [
-            supportCloudBackup
-              ? {
-                  title: '===DEBUG===BackUpNow',
-                  icon: 'StorageOutline',
-                  onPress: startBackup,
-                  isLoading: checkLoading,
-                }
-              : null,
+            ...(supportCloudBackup
+              ? [
+                  {
+                    title: '===DEBUG===BackupNow',
+                    icon: 'StorageOutline',
+                    onPress: startBackup,
+                    isLoading: checkLoading,
+                  },
+                  {
+                    title: '===DEBUG===GetCloudAccountInfo',
+                    icon: 'StorageOutline',
+                    onPress: async () => {
+                      const info =
+                        await backgroundApiProxy.serviceCloudBackupV2.getCloudAccountInfo();
+                      Dialog.debugMessage({
+                        debugMessage: info,
+                      });
+                    },
+                  },
+                  {
+                    title: '===DEBUG===LoginCloudIfNeed',
+                    icon: 'StorageOutline',
+                    onPress: async () => {
+                      await backgroundApiProxy.serviceCloudBackupV2.loginCloudIfNeed();
+                    },
+                  },
+                  {
+                    title: '===DEBUG===LogoutCloud',
+                    icon: 'StorageOutline',
+                    onPress: async () => {
+                      await backgroundApiProxy.serviceCloudBackupV2.logoutCloud();
+                    },
+                  },
+                ]
+              : []),
           ].filter(Boolean);
         })(),
       ].filter(Boolean),
