@@ -276,11 +276,23 @@ class ServiceCloudBackupV2 extends ServiceBase {
       selectedTransferData,
     });
 
+    const firstWalletCredential =
+      selectedTransferData?.wallets?.[0]?.credentialDecrypted;
+    const firstImportedAccountCredential =
+      selectedTransferData?.importedAccounts?.[0]?.credentialDecrypted;
+
+    let localPassword = '';
+    if (firstWalletCredential || firstImportedAccountCredential) {
+      const { password } =
+        await this.backgroundApi.servicePassword.promptPasswordVerify();
+      localPassword = password;
+    }
+
     const { success, errorsInfo } =
       await this.backgroundApi.servicePrimeTransfer.startImport({
         selectedTransferData,
         includingDefaultNetworks: true,
-        password: '',
+        password: localPassword,
       });
 
     await this.backgroundApi.servicePrimeTransfer.completeImportProgress({
