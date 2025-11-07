@@ -739,6 +739,7 @@ export interface IEarnManagePageResponse {
     claimable?: string;
     remainingCap?: string;
   };
+  alerts?: IEarnAlert[];
 }
 
 export type IEarnDetailActions =

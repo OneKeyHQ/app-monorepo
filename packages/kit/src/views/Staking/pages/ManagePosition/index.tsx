@@ -23,6 +23,7 @@ import { EStakingActionType } from '@onekeyhq/shared/types/staking';
 
 import { DiscoveryBrowserProviderMirror } from '../../../Discovery/components/DiscoveryBrowserProviderMirror';
 import { EarnProviderMirror } from '../../../Earn/EarnProviderMirror';
+import { EarnAlert } from '../../components/ProtocolDetails/EarnAlert';
 
 import { HeaderRight } from './components/HeaderRight';
 import { StakeSection } from './components/StakeSection';
@@ -126,6 +127,7 @@ const ManagePositionPage = () => {
     managePageData,
     depositDisabled,
     withdrawDisabled,
+    alerts,
   } = useManagePage({
     accountId: account?.id || '',
     networkId,
@@ -256,6 +258,9 @@ const ManagePositionPage = () => {
                 isDisabled={withdrawDisabled}
               />
             ) : null}
+            <YStack px="$5">
+              <EarnAlert alerts={alerts} />
+            </YStack>
           </>
         )}
       </Page.Body>

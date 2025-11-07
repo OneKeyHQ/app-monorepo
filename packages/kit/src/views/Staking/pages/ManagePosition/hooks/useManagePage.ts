@@ -170,6 +170,11 @@ export const useManagePage = ({
     [managePageData?.withdraw?.disabled],
   );
 
+  const alerts = useMemo(
+    () => managePageData?.alerts || [],
+    [managePageData?.alerts],
+  );
+
   return {
     managePageData,
     isLoading,
@@ -180,5 +185,6 @@ export const useManagePage = ({
     protocolInfo,
     depositDisabled,
     withdrawDisabled,
+    alerts,
   };
 };
