@@ -134,73 +134,77 @@ function HomeOverviewContainer() {
   }, []);
 
   useEffect(() => {
-    if (
-      account &&
-      network &&
-      accountWorth.initialized &&
-      (account.id === accountWorth.accountId ||
-        account.indexedAccountId === accountWorth.accountId)
-    ) {
-      const allWorth = Object.values(accountWorth.worth).reduce(
-        (acc: string, cur: string) => new BigNumber(acc).plus(cur).toFixed(),
-        '0',
-      );
-
+    const updateAccountValue = async () => {
       if (
-        new BigNumber(allWorth).gt(
-          SHOW_WALLET_FUNCTION_BLOCK_VALUE_THRESHOLD_USD,
-        )
+        account &&
+        network &&
+        accountWorth.initialized &&
+        (account.id === accountWorth.accountId ||
+          account.indexedAccountId === accountWorth.accountId)
       ) {
-        void backgroundApiProxy.serviceWalletStatus.updateWalletStatus({
-          walletXfp: wallet?.xfp ?? '',
-          status: {
-            hasValue: true,
-          },
-        });
-      }
-      let accountValueId = '';
-      if (accountUtils.isOthersAccount({ accountId: account.id })) {
-        accountValueId = account.id;
+        const allWorth = Object.values(accountWorth.worth).reduce(
+          (acc: string, cur: string) => new BigNumber(acc).plus(cur).toFixed(),
+          '0',
+        );
 
-        if (network.isAllNetworks || account.createAtNetwork === network.id) {
-          void backgroundApiProxy.serviceAccountProfile.updateAccountValue({
-            accountId: accountValueId,
-            value: accountWorth.createAtNetworkWorth,
-            currency: settings.currencyInfo.id,
-            shouldUpdateActiveAccountValue: true,
+        if (
+          new BigNumber(allWorth).gt(
+            SHOW_WALLET_FUNCTION_BLOCK_VALUE_THRESHOLD_USD,
+          )
+        ) {
+          await backgroundApiProxy.serviceWalletStatus.updateWalletStatus({
+            walletXfp: wallet?.xfp ?? '',
+            status: {
+              hasValue: true,
+            },
           });
+          appEventBus.emit(EAppEventBusNames.AccountValueUpdate, undefined);
         }
-      } else {
-        accountValueId = account.indexedAccountId as string;
-      }
+        let accountValueId = '';
+        if (accountUtils.isOthersAccount({ accountId: account.id })) {
+          accountValueId = account.id;
 
-      if (
-        !accountUtils.isOthersAccount({ accountId: account.id }) &&
-        !network.isAllNetworks
-      ) {
-        void backgroundApiProxy.serviceAccountProfile.updateAccountValueForSingleNetwork(
+          if (network.isAllNetworks || account.createAtNetwork === network.id) {
+            void backgroundApiProxy.serviceAccountProfile.updateAccountValue({
+              accountId: accountValueId,
+              value: accountWorth.createAtNetworkWorth,
+              currency: settings.currencyInfo.id,
+              shouldUpdateActiveAccountValue: true,
+            });
+          }
+        } else {
+          accountValueId = account.indexedAccountId as string;
+        }
+
+        if (
+          !accountUtils.isOthersAccount({ accountId: account.id }) &&
+          !network.isAllNetworks
+        ) {
+          void backgroundApiProxy.serviceAccountProfile.updateAccountValueForSingleNetwork(
+            {
+              accountId: accountValueId,
+              value:
+                accountWorth.worth[
+                  accountUtils.buildAccountValueKey({
+                    accountId: account.id,
+                    networkId: network.id,
+                  })
+                ],
+              currency: settings.currencyInfo.id,
+            },
+          );
+        }
+
+        void backgroundApiProxy.serviceAccountProfile.updateAllNetworkAccountValue(
           {
             accountId: accountValueId,
-            value:
-              accountWorth.worth[
-                accountUtils.buildAccountValueKey({
-                  accountId: account.id,
-                  networkId: network.id,
-                })
-              ],
+            value: accountWorth.worth,
             currency: settings.currencyInfo.id,
           },
         );
       }
-
-      void backgroundApiProxy.serviceAccountProfile.updateAllNetworkAccountValue(
-        {
-          accountId: accountValueId,
-          value: accountWorth.worth,
-          currency: settings.currencyInfo.id,
-        },
-      );
-    }
+    };
+    void updateAccountValue();
   }, [
     account,
     accountWorth,

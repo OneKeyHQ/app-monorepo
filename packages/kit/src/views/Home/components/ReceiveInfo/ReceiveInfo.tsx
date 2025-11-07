@@ -4,9 +4,18 @@ import { Button, IconButton, Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import {
+  useAccountOverviewActions,
+  useWalletStatusAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/accountOverview';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EModalReceiveRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { isNil } from 'lodash';
 
 function ReceiveInfo({
   recomputeLayout,
@@ -17,29 +26,35 @@ function ReceiveInfo({
 }) {
   const navigation = useAppNavigation();
 
+  const { updateWalletStatus } = useAccountOverviewActions().current;
+  const [walletStatus] = useWalletStatusAtom();
+
   const {
     activeAccount: { wallet },
   } = useActiveAccount({ num: 0 });
 
-  const { result: shouldShowReceiveInfo, run: refreshShouldShowReceiveInfo } =
-    usePromiseResult(async () => {
-      if (accountUtils.isWatchingWallet({ walletId: wallet?.id ?? '' })) {
-        return false;
-      }
-
-      const walletStatus =
-        await backgroundApiProxy.serviceWalletStatus.getWalletStatus({
+  const { run: refreshShouldShowReceiveInfo } = usePromiseResult(async () => {
+    let shouldShowReceiveInfo = false;
+    if (accountUtils.isWatchingWallet({ walletId: wallet?.id ?? '' })) {
+      shouldShowReceiveInfo = false;
+    } else {
+      const resp = await backgroundApiProxy.serviceWalletStatus.getWalletStatus(
+        {
           walletXfp: wallet?.xfp ?? '',
-        });
+        },
+      );
 
-      if (
-        walletStatus &&
-        (walletStatus?.manuallyCloseReceiveBlock || walletStatus?.hasValue)
-      ) {
-        return false;
+      if (resp && (resp?.manuallyCloseReceiveBlock || resp?.hasValue)) {
+        shouldShowReceiveInfo = false;
+      } else {
+        shouldShowReceiveInfo = true;
       }
-      return true;
-    }, [wallet?.xfp, wallet?.id]);
+    }
+    updateWalletStatus({
+      showReceiveInfo: shouldShowReceiveInfo,
+      receiveInfoInit: true,
+    });
+  }, [wallet?.id, wallet?.xfp, updateWalletStatus]);
 
   const handleAddMoney = useCallback(async () => {
     navigation.pushModal(EModalRoutes.ReceiveModal, {
@@ -56,20 +71,34 @@ function ReceiveInfo({
       },
     });
     await refreshShouldShowReceiveInfo();
-    setTimeout(() => {
-      recomputeLayout();
-    }, 350);
-  }, [closable, recomputeLayout, wallet?.xfp, refreshShouldShowReceiveInfo]);
+  }, [closable, wallet?.xfp, refreshShouldShowReceiveInfo]);
 
   useEffect(() => {
-    if (shouldShowReceiveInfo) {
+    if (!isNil(walletStatus.showReceiveInfo)) {
       setTimeout(() => {
         recomputeLayout();
       }, 350);
     }
-  }, [shouldShowReceiveInfo, recomputeLayout]);
+  }, [
+    walletStatus.showReceiveInfo,
+    walletStatus.receiveInfoInit,
+    recomputeLayout,
+  ]);
 
-  if (!shouldShowReceiveInfo) {
+  useEffect(() => {
+    appEventBus.on(
+      EAppEventBusNames.AccountValueUpdate,
+      refreshShouldShowReceiveInfo,
+    );
+    return () => {
+      appEventBus.off(
+        EAppEventBusNames.AccountValueUpdate,
+        refreshShouldShowReceiveInfo,
+      );
+    };
+  }, [refreshShouldShowReceiveInfo]);
+
+  if (!walletStatus.showReceiveInfo) {
     return null;
   }
 

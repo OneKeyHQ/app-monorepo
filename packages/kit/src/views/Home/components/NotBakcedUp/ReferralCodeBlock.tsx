@@ -1,5 +1,6 @@
 import { memo, useCallback, useEffect, useState } from 'react';
 
+import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
@@ -21,11 +22,19 @@ import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
+import {
+  useAccountOverviewActions,
+  useWalletStatusAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/accountOverview';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   useGetReferralCodeWalletInfo,
   useWalletBoundReferralCode,
 } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useWalletBoundReferralCode';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -33,13 +42,11 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import MainInfoBlock from './MainBlock';
 
 function ReferralCodeBlock({
-  hideOnBound = false,
   inTabList,
   recomputeLayout,
   closable,
   onClose,
 }: {
-  hideOnBound?: boolean;
   inTabList?: boolean;
   recomputeLayout?: () => void;
   closable?: boolean;
@@ -47,6 +54,9 @@ function ReferralCodeBlock({
 }) {
   const intl = useIntl();
   const themeVariant = useThemeVariant();
+
+  const { updateWalletStatus } = useAccountOverviewActions().current;
+  const [walletStatus] = useWalletStatusAtom();
 
   const [isJoiningReferral, setIsJoiningReferral] = useState(false);
 
@@ -99,15 +109,11 @@ function ReferralCodeBlock({
       }
 
       if (inTabList) {
-        const walletStatus =
+        const resp =
           await backgroundApiProxy.serviceWalletStatus.getWalletStatus({
             walletXfp: wallet?.xfp || '',
           });
-        if (
-          walletStatus &&
-          (walletStatus.manuallyCloseReferralCodeBlock ||
-            !walletStatus.hasValue)
-        ) {
+        if (resp && (resp?.manuallyCloseReferralCodeBlock || resp?.hasValue)) {
           return false;
         }
       }
@@ -136,6 +142,32 @@ function ReferralCodeBlock({
       watchLoading: true,
     },
   );
+
+  useEffect(() => {
+    if (!isNil(shouldBoundReferralCode)) {
+      updateWalletStatus({
+        showReferralCodeBlock: !!shouldBoundReferralCode,
+        referralCodeBlockInit: true,
+      });
+    }
+  }, [shouldBoundReferralCode, updateWalletStatus]);
+
+  useEffect(() => {
+    appEventBus.on(
+      EAppEventBusNames.AccountValueUpdate,
+      refreshDisplayReferralCodeButton,
+    );
+    return () => {
+      appEventBus.off(
+        EAppEventBusNames.AccountValueUpdate,
+        refreshDisplayReferralCodeButton,
+      );
+    };
+  }, [
+    refreshDisplayReferralCodeButton,
+    shouldBoundReferralCode,
+    updateWalletStatus,
+  ]);
 
   const referralHelpLink = useHelpLink({ path: 'articles/11461266' });
 
@@ -261,25 +293,20 @@ function ReferralCodeBlock({
       });
       await refreshDisplayReferralCodeButton();
       onClose?.();
-      setTimeout(() => {
-        recomputeLayout?.();
-      }, 350);
     }
-  }, [
-    closable,
-    wallet?.xfp,
-    refreshDisplayReferralCodeButton,
-    onClose,
-    recomputeLayout,
-  ]);
+  }, [closable, wallet?.xfp, refreshDisplayReferralCodeButton, onClose]);
 
   useEffect(() => {
-    if (inTabList && recomputeLayout && shouldBoundReferralCode) {
+    if (
+      inTabList &&
+      recomputeLayout &&
+      !isNil(walletStatus.showReferralCodeBlock)
+    ) {
       setTimeout(() => {
         recomputeLayout();
       }, 350);
     }
-  }, [inTabList, recomputeLayout, shouldBoundReferralCode]);
+  }, [inTabList, recomputeLayout, walletStatus.showReferralCodeBlock]);
 
   const renderReferralCodeBlock = useCallback(() => {
     return (
@@ -332,7 +359,7 @@ function ReferralCodeBlock({
     inTabList,
   ]);
 
-  if (!shouldBoundReferralCode && hideOnBound) {
+  if (!walletStatus.showReferralCodeBlock) {
     return null;
   }
 
