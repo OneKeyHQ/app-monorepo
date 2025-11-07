@@ -30,17 +30,16 @@ export class SimpleDbEntityWalletStatus extends SimpleDbEntityBase<ISimpleDBWall
   ) {
     await this.setRawData((v) => {
       const data = { ...v?.walletStatus };
-
       if (data?.[walletXfp]) {
-        if (!status.manuallyCloseReceiveBlock) {
+        if (!data?.[walletXfp].manuallyCloseReceiveBlock) {
           data[walletXfp].manuallyCloseReceiveBlock =
             status.manuallyCloseReceiveBlock;
         }
-        if (!status.manuallyCloseReferralCodeBlock) {
+        if (!data?.[walletXfp].manuallyCloseReferralCodeBlock) {
           data[walletXfp].manuallyCloseReferralCodeBlock =
             status.manuallyCloseReferralCodeBlock;
         }
-        if (!status.hasValue) {
+        if (!data?.[walletXfp].hasValue) {
           data[walletXfp].hasValue = status.hasValue;
         }
       } else {

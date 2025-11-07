@@ -32,7 +32,10 @@ function ReceiveInfo({
           walletXfp: wallet?.xfp ?? '',
         });
 
-      if (walletStatus?.manuallyCloseReceiveBlock || !walletStatus?.hasValue) {
+      if (
+        walletStatus &&
+        (walletStatus?.manuallyCloseReceiveBlock || walletStatus?.hasValue)
+      ) {
         return false;
       }
       return true;
@@ -49,18 +52,20 @@ function ReceiveInfo({
     await backgroundApiProxy.serviceWalletStatus.updateWalletStatus({
       walletXfp: wallet?.xfp ?? '',
       status: {
-        manuallyCloseReferralCodeBlock: true,
+        manuallyCloseReceiveBlock: true,
       },
     });
     await refreshShouldShowReceiveInfo();
     setTimeout(() => {
       recomputeLayout();
-    }, 1000);
+    }, 350);
   }, [closable, recomputeLayout, wallet?.xfp, refreshShouldShowReceiveInfo]);
 
   useEffect(() => {
     if (shouldShowReceiveInfo) {
-      recomputeLayout();
+      setTimeout(() => {
+        recomputeLayout();
+      }, 350);
     }
   }, [shouldShowReceiveInfo, recomputeLayout]);
 
