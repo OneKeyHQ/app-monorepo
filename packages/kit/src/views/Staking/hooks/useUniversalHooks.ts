@@ -405,16 +405,19 @@ export function useUniversalClaim({
             identity,
             accountAddress: account.address,
           });
-        const tokenFiatValueBN = BigNumber(
-          estimateFeeResp.token.price,
-        ).multipliedBy(amount);
-        if (tokenFiatValueBN.lt(estimateFeeResp.feeFiatValue)) {
-          showClaimEstimateGasAlert({
-            claimTokenFiatValue: tokenFiatValueBN.toFixed(),
-            estFiatValue: estimateFeeResp.feeFiatValue,
-            onConfirm: continueClaim,
-          });
-          return;
+        // Only check gas fee vs claim value if token price is available
+        if (estimateFeeResp.token.price) {
+          const tokenFiatValueBN = BigNumber(
+            estimateFeeResp.token.price,
+          ).multipliedBy(amount);
+          if (tokenFiatValueBN.lt(estimateFeeResp.feeFiatValue)) {
+            showClaimEstimateGasAlert({
+              claimTokenFiatValue: tokenFiatValueBN.toFixed(),
+              estFiatValue: estimateFeeResp.feeFiatValue,
+              onConfirm: continueClaim,
+            });
+            return;
+          }
         }
       }
       await continueClaim();
