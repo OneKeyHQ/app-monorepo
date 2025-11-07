@@ -21,7 +21,7 @@ function ReceiveInfo({
   recomputeLayout,
   closable,
 }: {
-  recomputeLayout: () => void;
+  recomputeLayout?: () => void;
   closable?: boolean;
 }) {
   const navigation = useAppNavigation();
@@ -74,7 +74,7 @@ function ReceiveInfo({
   }, [closable, wallet?.xfp, refreshShouldShowReceiveInfo]);
 
   useEffect(() => {
-    if (!isNil(walletStatus.showReceiveInfo)) {
+    if (!isNil(walletStatus.showReceiveInfo) && recomputeLayout) {
       setTimeout(() => {
         recomputeLayout();
       }, 350);

@@ -99,7 +99,7 @@ function TokenListHeader({
 
   return (
     <YStack>
-      {withReceiveInfo ? (
+      {/* {withReceiveInfo ? (
         <ReceiveInfo recomputeLayout={recomputeLayout} closable />
       ) : null}
       {withReferralCode ? (
@@ -108,7 +108,7 @@ function TokenListHeader({
           recomputeLayout={recomputeLayout}
           closable
         />
-      ) : null}
+      ) : null} */}
       <ListItem testID="Wallet-Token-List-Header">
         <Stack flexGrow={1} flexBasis={0} alignItems="flex-start">
           <SortButton

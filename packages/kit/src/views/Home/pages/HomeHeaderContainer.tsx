@@ -9,6 +9,8 @@ import { WalletActions } from '../components/WalletActions';
 import WalletBanner from '../components/WalletBanner';
 
 import { HomeOverviewContainer } from './HomeOverviewContainer';
+import { ReceiveInfo } from '../components/ReceiveInfo';
+import ReferralCodeBlock from '../components/NotBakcedUp/ReferralCodeBlock';
 
 function HomeHeaderContainer() {
   const {
@@ -48,6 +50,8 @@ function HomeHeaderContainer() {
         )}
       </Stack>
       {isWalletNotBackedUp ? null : <WalletBanner />}
+      <ReceiveInfo closable />
+      <ReferralCodeBlock closable inTabList />
     </HomeTokenListProviderMirror>
   );
 }
