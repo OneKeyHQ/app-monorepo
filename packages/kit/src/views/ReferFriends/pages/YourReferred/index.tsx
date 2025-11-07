@@ -11,10 +11,14 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useRedirectWhenNotLoggedIn } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useRedirectWhenNotLoggedIn';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { useNavigateToWalletAddresses } from '../YourReferredWalletAddresses/hooks/useNavigateToWalletAddresses';
 
@@ -185,9 +189,18 @@ export default function YourReferred() {
   const intl = useIntl();
   return (
     <Page>
-      <Page.Header
-        title={intl.formatMessage({ id: ETranslations.referral_your_referred })}
-      />
+      {platformEnv.isNative ? (
+        <Page.Header
+          title={intl.formatMessage({
+            id: ETranslations.referral_your_referred,
+          })}
+        />
+      ) : (
+        <TabPageHeader
+          sceneName={EAccountSelectorSceneName.home}
+          tabRoute={ETabRoutes.ReferFriends}
+        />
+      )}
       <Page.Body>
         <Tabs.Container>
           <Tabs.Tab

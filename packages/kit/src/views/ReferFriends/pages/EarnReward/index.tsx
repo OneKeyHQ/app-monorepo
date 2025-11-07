@@ -22,9 +22,11 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import { useSpotlight } from '@onekeyhq/kit/src/components/Spotlight';
+import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useRedirectWhenNotLoggedIn } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useRedirectWhenNotLoggedIn';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EExportSubject } from '@onekeyhq/shared/src/referralCode/type';
 import type {
   IEarnRewardItem,
@@ -34,8 +36,10 @@ import type {
   ETabReferFriendsRoutes,
   ITabReferFriendsParamList,
 } from '@onekeyhq/shared/src/routes';
+import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { ExportButton, FilterButton } from '../../components';
 import { useRewardFilter } from '../../hooks/useRewardFilter';
@@ -516,7 +520,14 @@ export default function EarnReward() {
 
   return (
     <Page>
-      <Page.Header title={title} headerRight={renderHeaderRight} />
+      {platformEnv.isNative ? (
+        <Page.Header title={title} headerRight={renderHeaderRight} />
+      ) : (
+        <TabPageHeader
+          sceneName={EAccountSelectorSceneName.home}
+          tabRoute={ETabRoutes.ReferFriends}
+        />
+      )}
       <Page.Body>
         {Content}
         {isLoading || !lists[0] || !lists[1] ? (

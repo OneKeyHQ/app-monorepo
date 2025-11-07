@@ -1,8 +1,12 @@
 import { useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { AnimatePresence, Page, Stack, YStack } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IInvitePostConfig } from '@onekeyhq/shared/src/referralCode/type';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -61,14 +65,23 @@ function ReferAFriendPage({ postConfig }: IReferAFriendPageProps) {
 }
 
 function ReferAFriendPageWrapper() {
+  const intl = useIntl();
   const { postConfig } = useReferAFriendData();
 
   return (
     <Page scrollEnabled>
-      <TabPageHeader
-        sceneName={EAccountSelectorSceneName.home}
-        tabRoute={ETabRoutes.ReferFriends}
-      />
+      {platformEnv.isNative ? (
+        <Page.Header
+          title={intl.formatMessage({
+            id: ETranslations.sidebar_refer_a_friend,
+          })}
+        />
+      ) : (
+        <TabPageHeader
+          sceneName={EAccountSelectorSceneName.home}
+          tabRoute={ETabRoutes.ReferFriends}
+        />
+      )}
       <Page.Body>
         {postConfig ? <ReferAFriendPage postConfig={postConfig} /> : null}
       </Page.Body>

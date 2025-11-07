@@ -1,3 +1,5 @@
+import { useIntl } from 'react-intl';
+
 import { Page, ScrollView, Spinner, Stack, XStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
@@ -11,6 +13,7 @@ import { ReferralCodeCard } from '@onekeyhq/kit/src/views/ReferFriends/pages/Inv
 import { RulesButton } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/RulesButton';
 import { SectionHeader } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/SectionHeader';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IInviteSummary } from '@onekeyhq/shared/src/referralCode/type';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -71,6 +74,7 @@ function InviteRewardContent({
 }
 
 function InviteRewardPage() {
+  const intl = useIntl();
   // Redirect to ReferAFriend page if user is not logged in
   useRedirectWhenNotLoggedIn();
 
@@ -96,10 +100,18 @@ function InviteRewardPage() {
 
   return (
     <Page>
-      <TabPageHeader
-        sceneName={EAccountSelectorSceneName.home}
-        tabRoute={ETabRoutes.ReferFriends}
-      />
+      {platformEnv.isNative ? (
+        <Page.Header
+          title={intl.formatMessage({
+            id: ETranslations.earn_referral_view_rewards,
+          })}
+        />
+      ) : (
+        <TabPageHeader
+          sceneName={EAccountSelectorSceneName.home}
+          tabRoute={ETabRoutes.ReferFriends}
+        />
+      )}
       <Page.Body>
         {(() => {
           if (isFetching) {

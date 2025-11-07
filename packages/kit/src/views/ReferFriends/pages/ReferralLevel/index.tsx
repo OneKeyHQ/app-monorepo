@@ -7,6 +7,7 @@ import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useRedirectWhenNotLoggedIn } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useRedirectWhenNotLoggedIn';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IInviteLevelDetail } from '@onekeyhq/shared/src/referralCode/type';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -46,6 +47,7 @@ function ReferralLevelContent({ data }: { data: IInviteLevelDetail }) {
 }
 
 function ReferralLevelPage() {
+  const intl = useIntl();
   // Redirect to ReferAFriend page if user is not logged in
   useRedirectWhenNotLoggedIn();
 
@@ -59,10 +61,18 @@ function ReferralLevelPage() {
 
   return (
     <Page>
-      <TabPageHeader
-        sceneName={EAccountSelectorSceneName.home}
-        tabRoute={ETabRoutes.ReferFriends}
-      />
+      {platformEnv.isNative ? (
+        <Page.Header
+          title={intl.formatMessage({
+            id: ETranslations.referral_referral_level,
+          })}
+        />
+      ) : (
+        <TabPageHeader
+          sceneName={EAccountSelectorSceneName.home}
+          tabRoute={ETabRoutes.ReferFriends}
+        />
+      )}
       <Page.Body>
         {isLoading || !levelDetail ? (
           <Stack flex={1} ai="center" jc="center">
