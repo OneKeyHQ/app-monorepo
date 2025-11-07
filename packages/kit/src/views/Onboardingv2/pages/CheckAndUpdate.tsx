@@ -1,8 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { useFocusEffect } from '@react-navigation/native';
-import { get } from 'lodash';
 import { StyleSheet } from 'react-native';
 
 import type { IImageProps, IPageScreenProps } from '@onekeyhq/components';
@@ -17,11 +15,9 @@ import {
   Page,
   SizableText,
   Spinner,
-  Toast,
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import { OneKeyHardwareError } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -29,6 +25,7 @@ import {
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
 import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import {
   EHardwareCallContext,
   EOneKeyDeviceMode,
@@ -36,10 +33,12 @@ import {
 } from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import { useFirmwareUpdateActions } from '../../FirmwareUpdate/hooks/useFirmwareUpdateActions';
 import { OnboardingLayout } from '../components/OnboardingLayout';
+import { useDeviceConnect } from '../hooks/useDeviceConnect';
 
 import type { KnownDevice, SearchDevice } from '@onekeyfe/hd-core';
 
@@ -51,13 +50,13 @@ enum ECheckAndUpdateStepState {
   Error = 'error',
 }
 
-export default function CheckAndUpdate({
+function CheckAndUpdatePage({
   route: routeParams,
 }: IPageScreenProps<
   IOnboardingParamListV2,
   EOnboardingPagesV2.CheckAndUpdate
 >) {
-  const { deviceData } = routeParams?.params || {};
+  const { deviceData, tabValue } = routeParams?.params || {};
   console.log('deviceData', deviceData);
   const themeVariant = useThemeVariant();
   const navigation = useAppNavigation();
@@ -68,6 +67,8 @@ export default function CheckAndUpdate({
     }
     return (deviceData.device as SearchDevice).name;
   }, [deviceData]);
+
+  const { verifyHardware, connectDevice, createHWWallet } = useDeviceConnect();
 
   const [steps, setSteps] = useState<
     {
@@ -118,30 +119,6 @@ export default function CheckAndUpdate({
     }
   }, [actions, deviceData.device?.connectId]);
 
-  const connectDevice = useCallback(async (device: SearchDevice) => {
-    try {
-      return await backgroundApiProxy.serviceHardware.connect({
-        device,
-      });
-    } catch (error: any) {
-      if (error instanceof OneKeyHardwareError) {
-        const { code, message } = error;
-        if (
-          code === HardwareErrorCode.CallMethodNeedUpgradeFirmware ||
-          code === HardwareErrorCode.BlePermissionError ||
-          code === HardwareErrorCode.BleLocationError
-        ) {
-          return;
-        }
-        Toast.error({
-          title: message || 'DeviceConnectError',
-        });
-      } else {
-        console.error('connectDevice error:', get(error, 'message', ''));
-      }
-    }
-  }, []);
-
   const checkDeviceInitialized = useCallback(async () => {
     setSteps((prev) => {
       const newSteps = [...prev];
@@ -181,13 +158,17 @@ export default function CheckAndUpdate({
       };
       return newSteps;
     });
-    setTimeout(() => {
-      void navigation.push(EOnboardingPagesV2.FinalizeWalletSetup);
-      void deviceData.onCreateWallet();
+    setTimeout(async () => {
+      navigation.push(EOnboardingPagesV2.FinalizeWalletSetup);
+      await createHWWallet({
+        device: deviceData.device as SearchDevice,
+        isFirmwareVerified: true,
+      });
     }, 1200);
-  }, [connectDevice, deviceData, navigation]);
+  }, [connectDevice, deviceData.device, navigation, createHWWallet]);
 
   const checkFirmwareUpdate = useCallback(async () => {
+    await connectDevice(deviceData.device as SearchDevice);
     if (!deviceData.device?.connectId) {
       return;
     }
@@ -216,14 +197,24 @@ export default function CheckAndUpdate({
         void checkDeviceInitialized();
       }
     }
-  }, [deviceData.device?.connectId, checkDeviceInitialized]);
+  }, [connectDevice, deviceData.device, checkDeviceInitialized]);
 
   const firmwareStepStateRef = useRef<ECheckAndUpdateStepState>(steps[1].state);
   firmwareStepStateRef.current = steps[1].state;
   useFocusEffect(
     useCallback(() => {
       if (firmwareStepStateRef.current === ECheckAndUpdateStepState.Warning) {
-        void checkFirmwareUpdate();
+        setSteps((prev) => {
+          const newSteps = [...prev];
+          newSteps[1] = {
+            ...newSteps[1],
+            state: ECheckAndUpdateStepState.InProgress,
+          };
+          return newSteps;
+        });
+        setTimeout(() => {
+          void checkFirmwareUpdate();
+        }, 150);
       }
     }, [checkFirmwareUpdate]),
   );
@@ -269,8 +260,8 @@ export default function CheckAndUpdate({
       return newSteps;
     });
 
-    await deviceData.onFirmwareVerified();
-  }, [deviceData]);
+    await verifyHardware(deviceData.device as SearchDevice, tabValue);
+  }, [verifyHardware, deviceData.device, tabValue]);
 
   const handleRetry = useCallback(async () => {
     // Set first step to inProgress
@@ -683,5 +674,24 @@ export default function CheckAndUpdate({
         </OnboardingLayout.Body>
       </OnboardingLayout>
     </Page>
+  );
+}
+
+export default function CheckAndUpdate({
+  route,
+  navigation,
+}: IPageScreenProps<
+  IOnboardingParamListV2,
+  EOnboardingPagesV2.CheckAndUpdate
+>) {
+  return (
+    <AccountSelectorProviderMirror
+      enabledNum={[0]}
+      config={{
+        sceneName: EAccountSelectorSceneName.home, // TODO read from router
+      }}
+    >
+      <CheckAndUpdatePage route={route} navigation={navigation} />
+    </AccountSelectorProviderMirror>
   );
 }

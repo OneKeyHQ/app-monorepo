@@ -175,6 +175,6 @@ export function makeOnboardingScreenOptions(): IStackNavigationOptions {
     presentation: 'card',
     gestureEnabled: false,
     gestureDirection: 'horizontal',
-    animation: 'fade',
+    animation: 'slide_from_left',
   };
 }

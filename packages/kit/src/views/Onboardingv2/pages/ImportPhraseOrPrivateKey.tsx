@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import type { RefObject } from 'react';
+import { useRef, useState } from 'react';
 
 import {
   Button,
@@ -16,24 +17,37 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import { OnboardingLayout } from '../components/OnboardingLayout';
 import { PhaseInputArea } from '../components/PhaseInputArea';
 
+import type { IPhaseInputAreaInstance } from '../components/PhaseInputArea';
+
 export default function ImportPhraseOrPrivateKey() {
   const navigation = useAppNavigation();
   const [selected, setSelected] = useState<'phrase' | 'privateKey'>('phrase');
   const { gtMd } = useMedia();
+  const phaseInputAreaRef = useRef<IPhaseInputAreaInstance | null>(null);
+  const [isConfirming, setIsConfirming] = useState(false);
 
-  const handleConfirm = ({
-    mnemonic,
-    mnemonicType,
-  }: {
-    mnemonic: string;
-    mnemonicType: EMnemonicType;
-  }) => {
+  const handleConfirm = async () => {
     if (selected === 'phrase') {
-      navigation.push(EOnboardingPagesV2.FinalizeWalletSetup, {
-        mnemonic,
-        mnemonicType,
-        isWalletBackedUp: true,
-      });
+      const timerId = setTimeout(() => {
+        setIsConfirming(false);
+      }, 500);
+      setIsConfirming(true);
+      if (phaseInputAreaRef.current) {
+        try {
+          const { mnemonic, mnemonicType } =
+            await phaseInputAreaRef.current.submit();
+          navigation.push(EOnboardingPagesV2.FinalizeWalletSetup, {
+            mnemonic,
+            mnemonicType,
+            isWalletBackedUp: true,
+          });
+        } catch (error) {
+          console.error(error);
+        } finally {
+          setIsConfirming(false);
+          clearTimeout(timerId);
+        }
+      }
     } else {
       // Navigate to network selection page for private key import
       void navigation.push(EOnboardingPagesV2.SelectPrivateKeyNetwork, {
@@ -61,7 +75,10 @@ export default function ImportPhraseOrPrivateKey() {
             />
             <HeightTransition>
               {selected === 'phrase' ? (
-                <PhaseInputArea defaultPhrases={[]} onConfirm={handleConfirm} />
+                <PhaseInputArea
+                  ref={phaseInputAreaRef as RefObject<IPhaseInputAreaInstance>}
+                  defaultPhrases={[]}
+                />
               ) : (
                 <YStack
                   key="privateKey"
@@ -96,6 +113,7 @@ export default function ImportPhraseOrPrivateKey() {
               size="large"
               variant="primary"
               onPress={handleConfirm}
+              loading={isConfirming}
               w="100%"
             >
               Confirm
