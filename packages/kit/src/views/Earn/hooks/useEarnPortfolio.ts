@@ -381,7 +381,32 @@ export const useEarnPortfolio = () => {
       // Collect new data in this refresh batch
       const batchMap = new Map<IInvestmentKey, IEarnPortfolioInvestment>();
 
-      // Create fetch promises based on type
+      // RAF throttling for batch updates
+      let rafId: number | null = null;
+      let pendingUpdate = false;
+
+      const scheduleUpdate = () => {
+        if (pendingUpdate) return;
+        pendingUpdate = true;
+
+        if (rafId !== null) {
+          cancelAnimationFrame(rafId);
+        }
+
+        rafId = requestAnimationFrame(() => {
+          if (isRequestStale(requestId)) return;
+
+          const updatedMap = new Map(investmentMapRef.current);
+          batchMap.forEach((value, batchKey) => {
+            updatedMap.set(batchKey, value);
+          });
+          updateInvestments(updatedMap);
+          pendingUpdate = false;
+          rafId = null;
+        });
+      };
+
+      // Create fetch promises
       const fetchPromises = pairsWithType.map(({ params, isAirdrop }) => {
         const key = createInvestmentKey(params);
         fetchedKeys.add(key);
@@ -414,12 +439,8 @@ export const useEarnPortfolio = () => {
           batchMap.set(key, investment);
         }
 
-        // Apply batch to existing map and update UI
-        const updatedMap = new Map(investmentMapRef.current);
-        batchMap.forEach((value, batchKey) => {
-          updatedMap.set(batchKey, value);
-        });
-        updateInvestments(updatedMap);
+        // Schedule batched update via RAF
+        scheduleUpdate();
       };
 
       // Process each result as it arrives
@@ -428,6 +449,12 @@ export const useEarnPortfolio = () => {
       }
 
       await Promise.allSettled(fetchPromises);
+
+      // Cancel any pending RAF before final update
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+        rafId = null;
+      }
 
       if (!isRequestStale(requestId)) {
         // After all fetches complete, apply final updates and remove stale keys

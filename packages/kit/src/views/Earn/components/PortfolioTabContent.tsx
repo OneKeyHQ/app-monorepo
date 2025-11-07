@@ -324,6 +324,24 @@ const PortfolioItemComponent = ({
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { account, indexedAccount } = activeAccount;
 
+  const handleRowPress = useCallback(
+    async (asset: IEarnPortfolioInvestment['assets'][number]) => {
+      const symbol = asset.token.info.symbol;
+      appNavigation.pushModal(EModalRoutes.StakingModal, {
+        screen: EModalStakingRoutes.ProtocolDetailsV2,
+        params: {
+          indexedAccountId: indexedAccount?.id,
+          accountId: account?.id,
+          networkId: asset.metadata.network.networkId,
+          symbol,
+          provider: asset.metadata.protocol.providerDetail.code,
+          vault: asset.metadata.protocol.vault,
+        },
+      });
+    },
+    [appNavigation, account?.id, indexedAccount?.id],
+  );
+
   const handleManagePress = useCallback(
     async (asset: IEarnPortfolioInvestment['assets'][number]) => {
       const symbol = asset.token.info.symbol;
@@ -368,6 +386,7 @@ const PortfolioItemComponent = ({
         listItemProps={{
           ai: 'flex-start',
         }}
+        onPressRow={handleRowPress}
         expandable={
           !media.gtSm
             ? {
@@ -477,7 +496,7 @@ const PortfolioSkeletonItem = () => (
 );
 
 const PortfolioSkeleton = () => (
-  <YStack gap="$6">
+  <YStack gap="$6" mx="$5">
     <PortfolioSkeletonItem />
     <Divider />
     <PortfolioSkeletonItem />
