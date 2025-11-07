@@ -64,30 +64,79 @@ export const IP_TABLE_INITIAL_SPEED_TEST_DELAY_MS =
  * basic functionality even before CDN config is loaded.
  */
 export const DEFAULT_IP_TABLE_CONFIG: IIpTableRemoteConfig = {
-  version: 1,
-  ttl_sec: 86_400, // 24 hours
-  generated_at: '2025-11-06T07:45:53.357Z',
-  signature: '', // Builtin config doesn't need signature verification
-  domains: {
+  'domains': {
     'onekeycn.com': {
-      endpoints: [
+      'endpoints': [
         {
-          ip: '216.19.4.106',
-          provider: 'builtin',
-          region: 'CN',
-          weight: 100,
+          'ip': '104.18.20.233',
+          'provider': 'cloudflare',
+          'region': 'GLOBAL',
+          'weight': 100,
+        },
+        {
+          'ip': '104.18.21.233',
+          'provider': 'cloudflare',
+          'region': 'GLOBAL',
+          'weight': 100,
+        },
+        {
+          'ip': '216.19.3.115',
+          'provider': 'volcengine',
+          'region': 'CN',
+          'weight': 100,
+        },
+        {
+          'ip': '216.19.2.116',
+          'provider': 'volcengine',
+          'region': 'CN',
+          'weight': 100,
+        },
+        {
+          'ip': '216.19.4.106',
+          'provider': 'volcengine',
+          'region': 'CN',
+          'weight': 100,
         },
       ],
     },
     'onekeytest.com': {
-      endpoints: [
+      'endpoints': [
         {
-          ip: '216.19.4.106',
-          provider: 'builtin',
-          region: 'CN',
-          weight: 100,
+          'ip': '104.18.31.39',
+          'provider': 'cloudflare',
+          'region': 'GLOBAL',
+          'weight': 100,
+        },
+        {
+          'ip': '104.18.30.39',
+          'provider': 'cloudflare',
+          'region': 'GLOBAL',
+          'weight': 100,
+        },
+        {
+          'ip': '216.19.3.115',
+          'provider': 'volcengine',
+          'region': 'CN',
+          'weight': 100,
+        },
+        {
+          'ip': '216.19.2.116',
+          'provider': 'volcengine',
+          'region': 'CN',
+          'weight': 100,
+        },
+        {
+          'ip': '216.19.4.106',
+          'provider': 'volcengine',
+          'region': 'CN',
+          'weight': 100,
         },
       ],
     },
   },
+  'generated_at': '2025-11-06T08:30:54.066Z',
+  'signature':
+    '0x68ba1ea09f8775576df53c7d3182b9837e0e752df41d147cc716713aa4b6ded054d26904655d01a0f02c504ac2861ec3eeee3e075ee5f00a4c299bc165ec43331c',
+  'ttl_sec': 86_400,
+  'version': 1,
 };
