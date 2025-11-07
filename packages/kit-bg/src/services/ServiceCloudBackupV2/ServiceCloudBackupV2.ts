@@ -123,7 +123,9 @@ class ServiceCloudBackupV2 extends ServiceBase {
   @toastIfError()
   async buildBackupData() {
     const data =
-      await this.backgroundApi.servicePrimeTransfer.buildTransferData();
+      await this.backgroundApi.servicePrimeTransfer.buildTransferData({
+        isForCloudBackup: true,
+      });
     return data;
   }
 
@@ -272,10 +274,6 @@ class ServiceCloudBackupV2 extends ServiceBase {
         selectedItemMap: 'ALL',
       });
 
-    await this.backgroundApi.servicePrimeTransfer.initImportProgress({
-      selectedTransferData,
-    });
-
     const firstWalletCredential =
       selectedTransferData?.wallets?.[0]?.credentialDecrypted;
     const firstImportedAccountCredential =
@@ -288,29 +286,38 @@ class ServiceCloudBackupV2 extends ServiceBase {
       localPassword = password;
     }
 
-    const { success, errorsInfo } =
-      await this.backgroundApi.servicePrimeTransfer.startImport({
+    try {
+      await this.backgroundApi.servicePrimeTransfer.initImportProgress({
         selectedTransferData,
-        includingDefaultNetworks: true,
-        password: localPassword,
       });
 
-    await this.backgroundApi.servicePrimeTransfer.completeImportProgress({
-      errorsInfo,
-    });
+      const { success, errorsInfo } =
+        await this.backgroundApi.servicePrimeTransfer.startImport({
+          selectedTransferData,
+          includingDefaultNetworks: true,
+          password: localPassword,
+        });
 
-    // TODO: Implement the restore flow similar to ServicePrimeTransfer
-    // This would involve:
-    // 1. Getting the selected transfer data from transferData
-    // 2. Prompting for password if needed (Google Drive)
-    // 3. Calling servicePrimeTransfer.startImport() with the data
-    // For now, just emit an event so the UI can handle it
-    return {
-      success,
-      errorsInfo,
-      transferData,
-      selectedTransferData,
-    };
+      await this.backgroundApi.servicePrimeTransfer.completeImportProgress({
+        errorsInfo,
+      });
+
+      // TODO: Implement the restore flow similar to ServicePrimeTransfer
+      // This would involve:
+      // 1. Getting the selected transfer data from transferData
+      // 2. Prompting for password if needed (Google Drive)
+      // 3. Calling servicePrimeTransfer.startImport() with the data
+      // For now, just emit an event so the UI can handle it
+      return {
+        success,
+        errorsInfo,
+        transferData,
+        selectedTransferData,
+      };
+    } catch (error) {
+      await this.backgroundApi.servicePrimeTransfer.resetImportProgress();
+      throw error;
+    }
   }
 
   @backgroundMethod()
