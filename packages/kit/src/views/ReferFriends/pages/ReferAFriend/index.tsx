@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-import { AnimatePresence, Page, YStack } from '@onekeyhq/components';
+import { AnimatePresence, Page, Stack, YStack } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
 import type { IInvitePostConfig } from '@onekeyhq/shared/src/referralCode/type';
@@ -22,21 +22,43 @@ function ReferAFriendPage({ postConfig }: IReferAFriendPageProps) {
   );
 
   return (
-    <YStack maxWidth={1080} mx="auto" flex={1}>
-      <AnimatePresence>
-        {phaseState === EPhaseState.next ? (
-          <ReferAFriendIntroPhase
-            postConfig={postConfig}
-            setPhaseState={setPhaseState}
-          />
-        ) : null}
-      </AnimatePresence>
-      <AnimatePresence>
-        {phaseState === EPhaseState.join ? (
-          <ReferAFriendHowToPhase setPhaseState={setPhaseState} />
-        ) : null}
-      </AnimatePresence>
-    </YStack>
+    <Stack height="100%" paddingBottom="20vh" alignItems="flex-end">
+      <YStack maxWidth={640} mx="auto" flex={1}>
+        <AnimatePresence exitBeforeEnter>
+          {phaseState === EPhaseState.next ? (
+            <YStack
+              key="intro-phase"
+              animation="quick"
+              enterStyle={{
+                opacity: 0,
+              }}
+              exitStyle={{
+                opacity: 0,
+              }}
+            >
+              <ReferAFriendIntroPhase
+                postConfig={postConfig}
+                setPhaseState={setPhaseState}
+              />
+            </YStack>
+          ) : null}
+          {phaseState === EPhaseState.join ? (
+            <YStack
+              key="howto-phase"
+              animation="quick"
+              enterStyle={{
+                opacity: 0,
+              }}
+              exitStyle={{
+                opacity: 0,
+              }}
+            >
+              <ReferAFriendHowToPhase setPhaseState={setPhaseState} />
+            </YStack>
+          ) : null}
+        </AnimatePresence>
+      </YStack>
+    </Stack>
   );
 }
 

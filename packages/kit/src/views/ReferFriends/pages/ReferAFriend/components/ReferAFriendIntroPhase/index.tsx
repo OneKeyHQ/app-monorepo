@@ -1,6 +1,6 @@
 import { useIntl } from 'react-intl';
 
-import { SizableText, YStack } from '@onekeyhq/components';
+import { SizableText, Stack, YStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IInvitePostConfig } from '@onekeyhq/shared/src/referralCode/type';
 
@@ -30,11 +30,7 @@ export function ReferAFriendIntroPhase({
           id: ETranslations.referral_intro_for_you_1,
         },
         {
-          RebateRate: (
-            <SizableText color="$textSuccess">
-              {`${postConfig.commissionRate.amount}${postConfig.commissionRate.unit}`}
-            </SizableText>
-          ),
+          RebateRate: `${postConfig.commissionRate.amount}${postConfig.commissionRate.unit}`,
         },
       ),
     },
@@ -45,53 +41,39 @@ export function ReferAFriendIntroPhase({
           id: ETranslations.referral_intro_for_your_friend_1,
         },
         {
-          RebateAmount: (
-            <SizableText color="$textInfo">
-              {`${postConfig.friendDiscount.unit}${postConfig.friendDiscount.amount}`}
-            </SizableText>
-          ),
+          RebateAmount: `${postConfig.friendDiscount.unit}${postConfig.friendDiscount.amount}`,
         },
       ),
     },
   ];
 
   return (
-    <YStack
-      p="$5"
-      gap="$5"
-      animation="quick"
-      enterStyle={{
-        opacity: 1,
-      }}
-      exitStyle={{
-        opacity: 0,
-      }}
-    >
+    <YStack p="$5" gap="$5">
       {/* Preview image showing how to share invite code */}
       <YStack ai="center" mt="$2">
         <InviteCodeStepImage step={1} />
       </YStack>
 
-      <ReferralBenefitsList
-        title={intl.formatMessage(
-          {
-            id: ETranslations.referral_intro_title,
-          },
-          {
-            RewardAmount: (
-              <SizableText size="$heading2xl" color="$textSuccess">
-                {`${postConfig.referralReward.unit}${postConfig.referralReward.amount}`}
-              </SizableText>
-            ),
-          },
-        )}
-        subtitle=""
-        benefits={benefits}
-      />
+      <Stack maxWidth={480} mx="auto" gap="$10">
+        <ReferralBenefitsList
+          title={intl.formatMessage(
+            {
+              id: ETranslations.referral_intro_title,
+            },
+            {
+              RewardAmount: (
+                <SizableText size="$heading2xl" color="$textSuccess">
+                  {`${postConfig.referralReward.unit}${postConfig.referralReward.amount}`}
+                </SizableText>
+              ),
+            },
+          )}
+          subtitle=""
+          benefits={benefits}
+        />
 
-      <YStack px="$5" pb="$5">
         <NextButton setPhaseState={setPhaseState} />
-      </YStack>
+      </Stack>
     </YStack>
   );
 }

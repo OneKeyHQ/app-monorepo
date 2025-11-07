@@ -19,7 +19,6 @@ export function JoinButton({ setPhaseState }: IJoinButtonProps) {
   return (
     <XStack gap="$4" pb="$5">
       <Button
-        size="large"
         variant="secondary"
         flex={1}
         onPress={async () => {
@@ -34,7 +33,6 @@ export function JoinButton({ setPhaseState }: IJoinButtonProps) {
         })}
       </Button>
       <Button
-        size="large"
         variant="primary"
         flex={1}
         onPress={async () => {

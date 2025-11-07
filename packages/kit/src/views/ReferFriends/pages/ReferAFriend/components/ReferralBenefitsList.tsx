@@ -38,7 +38,7 @@ export function ReferralBenefitsList({
             gap="$3"
             alignItems={benefit.note ? 'flex-start' : 'center'}
           >
-            <Icon name={benefit.icon} size="$6" />
+            <Icon name={benefit.icon} color="$iconSubdued" size="$6" />
             {benefit.note ? (
               <YStack flex={1} gap="$1">
                 <SizableText size="$bodyLgMedium">{benefit.text}</SizableText>

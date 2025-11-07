@@ -14,7 +14,6 @@ export function NextButton({ setPhaseState }: INextButtonProps) {
 
   return (
     <Button
-      size="large"
       variant="primary"
       onPress={async () => {
         setPhaseState(undefined);
