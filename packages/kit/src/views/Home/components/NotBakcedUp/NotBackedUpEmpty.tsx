@@ -29,33 +29,29 @@ function NotBackedUp() {
   const depositFaqLink = useHelpLink({ path: 'articles/12569147' });
   const swapAndBridgeLink = useHelpLink({ path: 'articles/11461146' });
 
-  const {
-    handleBackUpByiCloud,
-    handleBackUpByGoogleDrive,
-    handleBackUpByPhrase,
-  } = useBackUpWallet({
-    walletId: wallet?.id ?? '',
-  });
+  const { handleBackUpByCloud, handleBackUpByPhrase, supportCloudBackup } =
+    useBackUpWallet({
+      walletId: wallet?.id ?? '',
+    });
 
   const handleBackupWallet = useCallback(() => {
-    if (platformEnv.isNativeIOS || platformEnv.isDesktopMac) {
-      void handleBackUpByiCloud();
-      return;
-    }
-    if (platformEnv.isNativeAndroid || platformEnv.isDesktopWin) {
-      void handleBackUpByGoogleDrive();
+    if (supportCloudBackup) {
+      void handleBackUpByCloud();
       return;
     }
 
     void handleBackUpByPhrase();
-  }, [handleBackUpByiCloud, handleBackUpByGoogleDrive, handleBackUpByPhrase]);
+  }, [handleBackUpByCloud, handleBackUpByPhrase, supportCloudBackup]);
 
   const backupText = useMemo(() => {
-    if (platformEnv.isNativeIOS || platformEnv.isDesktopMac) {
+    if (
+      platformEnv.isNativeIOS ||
+      (platformEnv.isDesktop && platformEnv.isDesktopMac)
+    ) {
       return intl.formatMessage({ id: ETranslations.backup_backup_to_icloud });
     }
 
-    if (platformEnv.isNativeAndroid || platformEnv.isDesktopWin) {
+    if (platformEnv.isNativeAndroid) {
       return intl.formatMessage({
         id: ETranslations.backup_backup_to_google_drive,
       });
@@ -70,22 +66,12 @@ function NotBackedUp() {
         <Button variant="primary" size="large" onPress={handleBackupWallet}>
           {backupText}
         </Button>
-        <WalletBackupActions
-          wallet={wallet}
-          hidePhrase={
-            !(
-              platformEnv.isNativeIOS ||
-              platformEnv.isDesktopMac ||
-              platformEnv.isDesktopWin ||
-              platformEnv.isNativeAndroid
-            )
-          }
-        >
+        <WalletBackupActions wallet={wallet} hidePhrase={!supportCloudBackup}>
           <IconButton icon="DotHorOutline" size="large" onPress={() => {}} />
         </WalletBackupActions>
       </XStack>
     );
-  }, [backupText, handleBackupWallet, wallet]);
+  }, [backupText, handleBackupWallet, supportCloudBackup, wallet]);
 
   return (
     <YStack gap="$5" px="$5" pb="$6">

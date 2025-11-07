@@ -10,9 +10,8 @@ import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { useCallback } from 'react';
 
 function ReceiveSelectorContent() {
-  // TODO: replace with the actual help link
   const receiveFromExchangeHelpLink = useHelpLink({
-    path: 'articles/11461166',
+    path: 'articles/11461136',
   });
   const handleReceiveFromExchange = useCallback(() => {
     openUrlExternal(receiveFromExchangeHelpLink);
