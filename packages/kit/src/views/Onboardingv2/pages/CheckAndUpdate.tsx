@@ -64,33 +64,6 @@ function CheckAndUpdatePage({
   const themeVariant = useThemeVariant();
   const navigation = useAppNavigation();
 
-  const deviceScanner = useMemo(
-    () =>
-      deviceUtils.getDeviceScanner({
-        backgroundApi: backgroundApiProxy,
-      }),
-    [],
-  );
-
-  const ensureStopScan = useCallback(async () => {
-    // Force stop scanning and wait for any ongoing search to complete
-    console.log(
-      'ensureStopScan: Stopping device scan and waiting for completion',
-    );
-
-    try {
-      // Use the new stopScanAndWait method that properly waits for ongoing searches
-      await deviceScanner.stopScanAndWait();
-      console.log(
-        'ensureStopScan: Device scan stopped and all ongoing searches completed',
-      );
-    } catch (error) {
-      console.error('ensureStopScan: Error while stopping scan:', error);
-      // Fallback: just stop scan without waiting
-      deviceScanner.stopScan();
-    }
-  }, [deviceScanner]);
-
   const deviceLabel = useMemo(() => {
     if ((deviceData.device as KnownDevice)?.label) {
       return (deviceData.device as KnownDevice).label;
@@ -98,8 +71,7 @@ function CheckAndUpdatePage({
     return (deviceData.device as SearchDevice).name;
   }, [deviceData]);
 
-  const { onDeviceConnect, connectDevice, onSelectAddWalletType } =
-    useDeviceConnect();
+  const { verifyHardware, connectDevice, createHWWallet } = useDeviceConnect();
 
   const [steps, setSteps] = useState<
     {
@@ -207,21 +179,15 @@ function CheckAndUpdatePage({
     });
     setTimeout(async () => {
       navigation.push(EOnboardingPagesV2.FinalizeWalletSetup);
-      await ensureStopScan();
-      await onSelectAddWalletType({
+      await createHWWallet({
         device: deviceData.device as SearchDevice,
         isFirmwareVerified: true,
       });
     }, 1200);
-  }, [
-    connectDevice,
-    deviceData.device,
-    ensureStopScan,
-    navigation,
-    onSelectAddWalletType,
-  ]);
+  }, [connectDevice, deviceData.device, navigation, createHWWallet]);
 
   const checkFirmwareUpdate = useCallback(async () => {
+    await connectDevice(deviceData.device as SearchDevice);
     if (!deviceData.device?.connectId) {
       return;
     }
@@ -250,7 +216,7 @@ function CheckAndUpdatePage({
         void checkDeviceInitialized();
       }
     }
-  }, [deviceData.device?.connectId, checkDeviceInitialized]);
+  }, [connectDevice, deviceData.device, checkDeviceInitialized]);
 
   const firmwareStepStateRef = useRef<ECheckAndUpdateStepState>(steps[1].state);
   firmwareStepStateRef.current = steps[1].state;
@@ -313,9 +279,8 @@ function CheckAndUpdatePage({
       return newSteps;
     });
 
-    await ensureStopScan();
-    await onDeviceConnect(deviceData.device as SearchDevice, tabValue);
-  }, [ensureStopScan, onDeviceConnect, deviceData.device, tabValue]);
+    await verifyHardware(deviceData.device as SearchDevice, tabValue);
+  }, [verifyHardware, deviceData.device, tabValue]);
 
   const handleRetry = useCallback(async () => {
     // Set first step to inProgress
