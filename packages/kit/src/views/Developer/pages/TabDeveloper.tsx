@@ -223,7 +223,7 @@ const TabDeveloper = () => {
 
               <Button
                 onPress={async () => {
-                  void backgroundApiProxy.serviceIpTable.runFullSpeedTest();
+                  void backgroundApiProxy.serviceIpTable.init();
                 }}
               >
                 IP_TABLE_TEST

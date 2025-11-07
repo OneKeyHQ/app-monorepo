@@ -1,9 +1,13 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return */
+import axios from 'axios';
+
 import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
+  IP_TABLE_CDN_FETCH_TIMEOUT_MS,
+  IP_TABLE_CDN_URL,
   ONEKEY_API_HOST,
   ONEKEY_HEALTH_CHECK_URL,
   ONEKEY_TEST_API_HOST,
@@ -21,10 +25,15 @@ import {
   testDomainSpeed,
   testIpSpeed,
 } from '@onekeyhq/shared/src/request/helpers/ipTableAdapter';
+import { getRequestHeaders } from '@onekeyhq/shared/src/request/Interceptor';
 import type {
   IIpTableConfigWithRuntime,
   IIpTableRemoteConfig,
 } from '@onekeyhq/shared/src/request/types/ipTable';
+import {
+  mergeIpTableConfigs,
+  verifyIpTableConfigSignature,
+} from '@onekeyhq/shared/src/utils/ipTableUtils';
 
 import { devSettingsPersistAtom } from '../states/jotai/atoms';
 
@@ -59,6 +68,97 @@ class ServiceIpTable extends ServiceBase {
   @backgroundMethod()
   async shouldRefreshConfig(): Promise<boolean> {
     return this.backgroundApi.simpleDb.ipTable.shouldRefreshConfig();
+  }
+
+  private async fetchRemoteConfig(): Promise<IIpTableRemoteConfig | null> {
+    try {
+      console.log('[IpTable] Fetching remote config from:', IP_TABLE_CDN_URL);
+
+      const plainAxios = axios.create();
+
+      const headers = await getRequestHeaders();
+
+      const response = await plainAxios.get<IIpTableRemoteConfig>(
+        IP_TABLE_CDN_URL,
+        {
+          timeout: IP_TABLE_CDN_FETCH_TIMEOUT_MS,
+          headers,
+        },
+      );
+
+      const remoteConfig = response.data;
+
+      if (!remoteConfig) {
+        console.error('[IpTable] CDN returned empty config');
+        return null;
+      }
+
+      console.log(
+        '[IpTable] Remote config fetched successfully, version:',
+        remoteConfig.version,
+      );
+      return remoteConfig;
+    } catch (error: any) {
+      if (axios.isAxiosError(error)) {
+        if (error.code === 'ECONNABORTED') {
+          console.error(
+            '[IpTable] CDN fetch timeout after',
+            IP_TABLE_CDN_FETCH_TIMEOUT_MS,
+            'ms',
+          );
+        } else {
+          console.error(
+            '[IpTable] CDN fetch failed:',
+            error.response?.status || error.message,
+          );
+        }
+      } else {
+        console.error('[IpTable] CDN fetch error:', error);
+      }
+      return null;
+    }
+  }
+
+  @backgroundMethod()
+  async fetchAndMergeRemoteConfig(): Promise<boolean> {
+    try {
+      const remoteConfig = await this.fetchRemoteConfig();
+
+      if (!remoteConfig) {
+        console.log('[IpTable] Skipping CDN config update: fetch failed');
+        return false;
+      }
+
+      const isValidSignature = verifyIpTableConfigSignature(remoteConfig);
+
+      if (!isValidSignature) {
+        console.error(
+          '[IpTable] Skipping CDN config update: signature verification failed',
+        );
+        return false;
+      }
+
+      console.log('[IpTable] Remote config signature verified successfully');
+
+      const currentConfig = await this.getConfig();
+      const localConfig = currentConfig.config;
+
+      const mergedConfig = mergeIpTableConfigs(localConfig, remoteConfig);
+
+      console.log(
+        '[IpTable] Merged config has',
+        Object.keys(mergedConfig.domains).length,
+        'domains',
+      );
+
+      await this.saveConfig(mergedConfig);
+
+      console.log('[IpTable] CDN config updated successfully');
+      return true;
+    } catch (error) {
+      console.error('[IpTable] Error in fetchAndMergeRemoteConfig:', error);
+      return false;
+    }
   }
 
   // ========== Speed Test Methods ==========
@@ -261,33 +361,59 @@ class ServiceIpTable extends ServiceBase {
     }
   }
 
+  private scheduleSpeedTest(reason: string): void {
+    console.log(
+      `[IpTable] ${reason}, scheduling speed test in`,
+      IP_TABLE_INITIAL_SPEED_TEST_DELAY_MS / 1000,
+      's',
+    );
+    setTimeout(() => {
+      void this.runFullSpeedTest();
+    }, IP_TABLE_INITIAL_SPEED_TEST_DELAY_MS);
+  }
+
+  private async hasRuntimeSelections(): Promise<boolean> {
+    const configWithRuntime = await this.getConfig();
+    return Object.keys(configWithRuntime.runtime?.selections ?? {}).length > 0;
+  }
+
   @backgroundMethod()
   async init(): Promise<void> {
     console.log('[IpTable] Initializing service');
 
     // Register SNI failure callback
-    setReportSniFailureCallback((domain, ip, error) => {
+    setReportSniFailureCallback((domain, ip) => {
       void this.reportSniFailure(domain, ip);
     });
 
-    // Check if we need to run initial speed test
-    const configWithRuntime = await this.getConfig();
-    const hasSelections =
-      Object.keys(configWithRuntime.runtime?.selections ?? {}).length > 0;
+    // Try to refresh CDN config if needed
+    const shouldRefresh = await this.shouldRefreshConfig();
+    let needSpeedTest = false;
 
-    if (!hasSelections) {
-      // No runtime data, schedule speed test after delay
+    if (shouldRefresh) {
       console.log(
-        `[IpTable] No runtime data, scheduling speed test in ${
-          IP_TABLE_INITIAL_SPEED_TEST_DELAY_MS / 1000
-        }s`,
+        '[IpTable] CDN config refresh needed, fetching remote config',
       );
-      setTimeout(() => {
-        void this.runFullSpeedTest();
-      }, IP_TABLE_INITIAL_SPEED_TEST_DELAY_MS);
+      const configUpdated = await this.fetchAndMergeRemoteConfig();
+
+      needSpeedTest = true;
+      if (configUpdated) {
+        console.log('[IpTable] CDN config updated successfully');
+      } else {
+        console.log(
+          '[IpTable] CDN config update failed, using local/builtin config',
+        );
+      }
     } else {
-      // Runtime data exists, will test on CDN update
-      console.log('[IpTable] Runtime data exists, will test on CDN update');
+      console.log('[IpTable] CDN config is up to date');
+      needSpeedTest = !(await this.hasRuntimeSelections());
+    }
+
+    // Execute speed test if needed
+    if (needSpeedTest) {
+      this.scheduleSpeedTest(
+        shouldRefresh ? 'CDN config refreshed' : 'No runtime data',
+      );
     }
 
     console.log('[IpTable] Service initialized');
