@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useFocusEffect } from '@react-navigation/native';
+import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import type { IImageProps, IPageScreenProps } from '@onekeyhq/components';
@@ -22,6 +23,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
 import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
@@ -56,6 +58,7 @@ function CheckAndUpdatePage({
   IOnboardingParamListV2,
   EOnboardingPagesV2.CheckAndUpdate
 >) {
+  const intl = useIntl();
   const { deviceData, tabValue } = routeParams?.params || {};
   console.log('deviceData', deviceData);
   const themeVariant = useThemeVariant();
@@ -87,8 +90,15 @@ function CheckAndUpdatePage({
         themeVariant === 'light'
           ? require('@onekeyhq/kit/assets/onboarding/genuine-check.png')
           : require('@onekeyhq/kit/assets/onboarding/genuine-check-dark.png'),
-      title: 'Genuine check',
-      description: `Make sure your ${deviceLabel} is authentic`,
+      title: intl.formatMessage({
+        id: ETranslations.device_auth_request_title,
+      }),
+      description: intl.formatMessage(
+        {
+          id: ETranslations.genuine_check_desc,
+        },
+        { deviceLabel },
+      ),
       state: ECheckAndUpdateStepState.Idle,
     },
     {
@@ -97,15 +107,24 @@ function CheckAndUpdatePage({
         themeVariant === 'light'
           ? require('@onekeyhq/kit/assets/onboarding/firmware-check.png')
           : require('@onekeyhq/kit/assets/onboarding/firmware-check-dark.png'),
-      title: 'Firmware check',
-      description: `See if your ${deviceLabel} has the latest software`,
+      title: intl.formatMessage({
+        id: ETranslations.firmware_check,
+      }),
+      description: intl.formatMessage(
+        {
+          id: ETranslations.firmware_check_desc,
+        },
+        { deviceLabel },
+      ),
       state: ECheckAndUpdateStepState.Idle,
     },
     {
       id: 'setup-on-device',
       image: require('@onekeyhq/shared/src/assets/wallet/avatar/ProBlack.png'),
-      title: 'Device setup check',
-      description: 'Checking wallet initialization on device',
+      title: intl.formatMessage({ id: ETranslations.device_setup_check_title }),
+      description: intl.formatMessage({
+        id: ETranslations.device_setup_check_desc,
+      }),
       state: ECheckAndUpdateStepState.Idle,
     },
   ]);
@@ -285,48 +304,77 @@ function CheckAndUpdatePage({
     Dialog.show({
       icon: 'InfoCircleOutline',
       tone: 'warning',
-      title: 'Skip firmware check?',
-      description:
-        'Are you sure you want to skip the check? Using up-to-date firmware gives you the best protection.',
+      title: intl.formatMessage({
+        id: ETranslations.skip_firmware_check_dialog_title,
+      }),
+      description: intl.formatMessage({
+        id: ETranslations.skip_firmware_check_dialog_desc,
+      }),
       onConfirm: () => {
         // Execute skip logic after confirmation
         void checkDeviceInitialized();
       },
     });
-  }, [checkDeviceInitialized]);
+  }, [checkDeviceInitialized, intl]);
 
   const DEVICE_SETUP_INSTRUCTIONS = useMemo(() => {
     return [
       {
-        title: 'Choose your setup option',
+        title: intl.formatMessage({
+          id: ETranslations.setup_choose_option_title,
+        }),
         details: [
-          'Create New Wallet: If this is your first wallet',
-          'Import Wallet: If you have an existing recovery phrase',
+          intl.formatMessage({
+            id: ETranslations.setup_choose_option_create_new_wallet,
+          }),
+          intl.formatMessage({
+            id: ETranslations.setup_choose_option_import_wallet,
+          }),
         ],
       },
       {
-        title: 'Setup PIN',
+        title: intl.formatMessage({
+          id: ETranslations.setup_pin,
+        }),
         details: [
-          'Set a PIN of at least 4 on your device',
-          "Remember this PIN — you'll need it to unlock your device",
+          intl.formatMessage({
+            id: ETranslations.setup_pin_limit,
+          }),
+          intl.formatMessage({
+            id: ETranslations.setup_pin_reminder,
+          }),
         ],
       },
       {
-        title: 'Setup recovery phrase',
+        title: intl.formatMessage({
+          id: ETranslations.setup_recovery_phrase,
+        }),
         details: [
-          "If you don't have a recovery phrase yet, write down the one shown on your device",
-          'If you already have one, make sure it matches',
-          'Keep your device charging during the process',
-          'Do not power off or lock the device',
+          intl.formatMessage({
+            id: ETranslations.setup_recovery_phrase_write_down,
+          }),
+          intl.formatMessage({
+            id: ETranslations.setup_recovery_phrase_matches,
+          }),
+          intl.formatMessage({
+            id: ETranslations.setup_recovery_phrase_charging,
+          }),
+          intl.formatMessage({
+            id: ETranslations.setup_recovery_phrase_do_not_power_off,
+          }),
         ],
       },
     ];
-  }, []);
+  }, [intl]);
 
   return (
     <Page>
       <OnboardingLayout>
-        <OnboardingLayout.Header title="Check & Update" />
+        <OnboardingLayout.Header
+          title={intl.formatMessage({
+            id: ETranslations.check_and_update,
+          })}
+        />
         <OnboardingLayout.Body constrained={false}>
           <OnboardingLayout.ConstrainedContent
             gap="$10"
@@ -529,7 +577,9 @@ function CheckAndUpdatePage({
                     step.state === 'warning' ? (
                       <YStack pt="$8" gap="$5">
                         <SizableText size="$bodyMdMedium" color="$textInfo">
-                          Let's get your device set up.
+                          {intl.formatMessage({
+                            id: ETranslations.setup_device_prompt,
+                          })}
                         </SizableText>
                         {DEVICE_SETUP_INSTRUCTIONS.map((instruction, idx) => (
                           <YStack key={instruction.title} gap="$5">
@@ -585,7 +635,9 @@ function CheckAndUpdatePage({
                           }}
                           onPress={handleDeviceSetupDone}
                         >
-                          Done
+                          {intl.formatMessage({
+                            id: ETranslations.global_done,
+                          })}
                         </Button>
                       </YStack>
                     ) : null}
@@ -607,16 +659,24 @@ function CheckAndUpdatePage({
                           flex={1}
                           textAlign="left"
                         >
-                          Update available
+                          {intl.formatMessage({
+                            id: ETranslations.hardware_status_update_available,
+                          })}
                         </SizableText>
                         <XStack gap="$2">
                           <Button
                             variant="primary"
                             onPress={toFirmwareUpgradePage}
                           >
-                            Update
+                            {intl.formatMessage({
+                              id: ETranslations.update_update_now,
+                            })}
                           </Button>
-                          <Button onPress={handleSkipUpdate}>Skip</Button>
+                          <Button onPress={handleSkipUpdate}>
+                            {intl.formatMessage({
+                              id: ETranslations.global_skip,
+                            })}
+                          </Button>
                         </XStack>
                       </XStack>
                     ) : null}
@@ -637,14 +697,19 @@ function CheckAndUpdatePage({
                           flex={1}
                           textAlign="left"
                         >
-                          {step.errorMessage ?? 'Something wrong'}
+                          {step.errorMessage ??
+                            intl.formatMessage({
+                              id: ETranslations.genuine_check_interrupt,
+                            })}
                         </SizableText>
                         <XStack gap="$2">
                           <Button
                             variant="primary"
                             onPress={() => handleRetry()}
                           >
-                            Retry
+                            {intl.formatMessage({
+                              id: ETranslations.global_retry,
+                            })}
                           </Button>
                         </XStack>
                       </XStack>
@@ -666,7 +731,12 @@ function CheckAndUpdatePage({
                     scale: 0.97,
                   }}
                 >
-                  Check my {deviceLabel}
+                  {intl.formatMessage(
+                    {
+                      id: ETranslations.check_my_deviceLabel,
+                    },
+                    { deviceLabel },
+                  )}
                 </Button>
               ) : null}
             </AnimatePresence>
