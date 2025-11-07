@@ -14,6 +14,7 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type {
   EOnboardingPagesV2,
@@ -37,11 +38,11 @@ function ConnectQRCodePage() {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const STEPS = [
-    'Select Connect App Wallet on home screen',
-    'Tap "•••" button on the top right, then tap continue',
-    'Select OneKey App',
-    'Tap show QR code button',
-    'Tap below to scan the QR code',
+    intl.formatMessage({ id: ETranslations.select_connect_app_on_home }),
+    intl.formatMessage({ id: ETranslations.tap_more_button_on_top_right }),
+    intl.formatMessage({ id: ETranslations.select_onekey_app }),
+    intl.formatMessage({ id: ETranslations.tap_show_qr_code }),
+    intl.formatMessage({ id: ETranslations.tap_below_to_scan }),
   ];
 
   const handleScanQRCode = useCallback(async () => {
@@ -88,7 +89,9 @@ function ConnectQRCodePage() {
   return (
     <Page>
       <OnboardingLayout>
-        <OnboardingLayout.Header title="Connect with QR Code" />
+        <OnboardingLayout.Header
+          title={intl.formatMessage({ id: ETranslations.connect_with_qr_code })}
+        />
         <OnboardingLayout.Body>
           <ConnectionIndicator>
             <ConnectionIndicator.Card>
@@ -113,7 +116,7 @@ function ConnectQRCodePage() {
                   </XStack>
                 ))}
                 <Button mt="$2" variant="primary" onPress={handleScanQRCode}>
-                  Scan QR code
+                  {intl.formatMessage({ id: ETranslations.scan_scan_qr_code })}
                 </Button>
               </ConnectionIndicator.Content>
             </ConnectionIndicator.Card>
@@ -126,7 +129,9 @@ function ConnectQRCodePage() {
             size="$bodySm"
             color="$textSubdued"
           >
-            Learn more about QR-based wallet
+            {intl.formatMessage({
+              id: ETranslations.learn_more_about_qr_code_wallet,
+            })}
           </Anchor>
         </OnboardingLayout.Footer>
       </OnboardingLayout>

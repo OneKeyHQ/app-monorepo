@@ -1,4 +1,3 @@
-import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import type { IXStackProps, IYStackProps } from '@onekeyhq/components';
@@ -19,12 +18,10 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useLanguageSelector } from '../../Setting/hooks';
 
-const OnboardingLayoutBack = () => {
+const OnboardingLayoutBack = ({ exit }: { exit?: boolean }) => {
   const navigation = useAppNavigation();
-  const reactNavigation = useNavigation();
 
-  const canGoBack = reactNavigation.canGoBack();
-  const icon = canGoBack ? 'ArrowLeftOutline' : 'CrossedLargeOutline';
+  const icon = exit ? 'CrossedLargeOutline' : 'ArrowLeftOutline';
 
   const handleBack = () => {
     navigation.pop();
@@ -115,15 +112,11 @@ const OnboardingLayoutHeader = ({
     borderColor="$neutral4"
     alignItems="center"
     {...rest}
-    style={{
-      ...(rest.style as any),
-      appRegion: 'drag',
-    }}
   >
     {showBackButton ? <OnboardingLayoutBack /> : null}
     {title ? <OnboardingLayoutTitle>{title}</OnboardingLayoutTitle> : null}
-    {showLanguageSelector ? <OnboardingLayoutLanguageSelector /> : null}
     {children}
+    {showLanguageSelector ? <OnboardingLayoutLanguageSelector /> : null}
   </XStack>
 );
 

@@ -4940,12 +4940,12 @@ class ServiceAccount extends ServiceBase {
     if (!networkId) {
       throw new OneKeyLocalError('NetworkId is required');
     }
+    if (!password) {
+      throw new OneKeyLocalError(
+        'getExportedPrivateKeyOfImportedAccount Error: Password is required',
+      );
+    }
     if (!credentialDecrypted) {
-      if (!password) {
-        throw new OneKeyLocalError(
-          'getExportedPrivateKeyOfImportedAccount Error: Password is required',
-        );
-      }
       if (!encryptedCredential) {
         throw new OneKeyLocalError(
           'getExportedPrivateKeyOfImportedAccount Error: Encrypted credential is required',

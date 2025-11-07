@@ -29,7 +29,7 @@ export type IBackupProviderAccountInfo = {
     cloudKitStatus: number; // CKContainer.AccountStatus raw value
     cloudKitStatusName: ICloudKitAccountStatusName;
     cloudKitContainerUserId: string | null;
-    cloudFsAvailable: boolean;
+    cloudFsAvailable: boolean | undefined;
     cloudKitAvailable: boolean;
     keychainCloudSyncEnabled: boolean;
   };

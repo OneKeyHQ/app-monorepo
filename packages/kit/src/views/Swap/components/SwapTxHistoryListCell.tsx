@@ -167,77 +167,102 @@ const SwapTxHistoryListCell = ({
     item.swapInfo.otherFeeInfos,
   ]);
   return (
-    <XStack
-      mx="$-2"
-      px="$2"
-      py="$2.5"
-      onPress={onClickCell}
-      userSelect="none"
-      justifyContent="space-between"
-      hoverStyle={{
-        bg: '$bgHover',
-      }}
-      pressStyle={{
-        bg: '$bgActive',
-      }}
-      borderRadius="$3"
-      alignItems="center"
-      cursor="pointer"
-    >
-      <XStack alignItems="center" gap="$8">
-        <SwapTxHistoryAvatar
-          fromUri={item.baseInfo.fromToken.logoURI ?? ''}
-          toUri={item.baseInfo.toToken.logoURI ?? ''}
-        />
-        <YStack>
-          <XStack alignItems="center" gap="$1.5">
-            <SizableText size="$bodyMdMedium" flexShrink={1} numberOfLines={1}>
-              {title}
+    <XStack overflow="visible" flex={1} px="$4">
+      <XStack
+        mx="$-2"
+        px="$2"
+        py="$2.5"
+        flex={1}
+        onPress={onClickCell}
+        userSelect="none"
+        justifyContent="space-between"
+        hoverStyle={{
+          bg: '$bgHover',
+        }}
+        pressStyle={{
+          bg: '$bgActive',
+        }}
+        borderRadius="$3"
+        alignItems="center"
+        cursor="pointer"
+      >
+        <XStack alignItems="center" gap="$8">
+          <SwapTxHistoryAvatar
+            fromUri={item.baseInfo.fromToken.logoURI ?? ''}
+            toUri={item.baseInfo.toToken.logoURI ?? ''}
+          />
+          <YStack>
+            <XStack alignItems="center" gap="$1.5">
+              <SizableText
+                size="$bodyMdMedium"
+                flexShrink={1}
+                numberOfLines={1}
+                pointerEvents="none"
+              >
+                {title}
+              </SizableText>
+              {statusBadge}
+            </XStack>
+            <SizableText
+              size="$bodySm"
+              color="$textSubdued"
+              flexShrink={1}
+              numberOfLines={1}
+              pointerEvents="none"
+            >
+              {subContent}
             </SizableText>
-            {statusBadge}
-          </XStack>
+          </YStack>
+        </XStack>
+        <YStack>
+          <SizableText
+            size="$bodyMdMedium"
+            color="$textSuccess"
+            textAlign="right"
+            pointerEvents="none"
+          >
+            +
+            <NumberSizeableText
+              size="$bodyMdMedium"
+              color="$textSuccess"
+              formatter="balance"
+              pointerEvents="none"
+            >
+              {item.baseInfo.toAmount}
+            </NumberSizeableText>{' '}
+            <SizableText
+              size="$bodyMdMedium"
+              color="$textSuccess"
+              pointerEvents="none"
+            >
+              {item.baseInfo?.toToken?.symbol ?? ''}
+            </SizableText>
+          </SizableText>
           <SizableText
             size="$bodySm"
             color="$textSubdued"
-            flexShrink={1}
-            numberOfLines={1}
+            textAlign="right"
+            pointerEvents="none"
           >
-            {subContent}
+            -
+            <NumberSizeableText
+              size="$bodySm"
+              color="$textSubdued"
+              formatter="balance"
+              pointerEvents="none"
+            >
+              {fromTokenAmountFinal}
+            </NumberSizeableText>{' '}
+            <SizableText
+              size="$bodySm"
+              color="$textSubdued"
+              pointerEvents="none"
+            >
+              {item.baseInfo?.fromToken?.symbol ?? ''}
+            </SizableText>
           </SizableText>
         </YStack>
       </XStack>
-      <YStack>
-        <SizableText
-          size="$bodyMdMedium"
-          color="$textSuccess"
-          textAlign="right"
-        >
-          +
-          <NumberSizeableText
-            size="$bodyMdMedium"
-            color="$textSuccess"
-            formatter="balance"
-          >
-            {item.baseInfo.toAmount}
-          </NumberSizeableText>{' '}
-          <SizableText size="$bodyMdMedium" color="$textSuccess">
-            {item.baseInfo?.toToken?.symbol ?? ''}
-          </SizableText>
-        </SizableText>
-        <SizableText size="$bodySm" color="$textSubdued" textAlign="right">
-          -
-          <NumberSizeableText
-            size="$bodySm"
-            color="$textSubdued"
-            formatter="balance"
-          >
-            {fromTokenAmountFinal}
-          </NumberSizeableText>{' '}
-          <SizableText size="$bodySm" color="$textSubdued">
-            {item.baseInfo?.fromToken?.symbol ?? ''}
-          </SizableText>
-        </SizableText>
-      </YStack>
     </XStack>
   );
 };
