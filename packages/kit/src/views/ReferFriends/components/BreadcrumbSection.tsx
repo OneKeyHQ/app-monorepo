@@ -10,7 +10,9 @@ export interface IBreadcrumbSectionProps {
   secondItemLabel: string;
 }
 
-export function BreadcrumbSection({ secondItemLabel }: IBreadcrumbSectionProps) {
+export function BreadcrumbSection({
+  secondItemLabel,
+}: IBreadcrumbSectionProps) {
   const intl = useIntl();
   const navigation = useAppNavigation();
 

@@ -1,14 +1,17 @@
-import { useCallback } from 'react';
-
 import { useIntl } from 'react-intl';
 
 import { Page, ScrollView, Spinner, Stack, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IInviteLevelDetail } from '@onekeyhq/shared/src/referralCode/type';
+import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { BreadcrumbSection } from '../../components';
+
 import { ApiDataButton } from './components/ApiDataButton';
 import { CurrentLevelSection } from './components/CurrentLevelSection';
 import { LevelListSection } from './components/LevelListSection';
@@ -43,8 +46,6 @@ function ReferralLevelContent({ data }: { data: IInviteLevelDetail }) {
 }
 
 function ReferralLevelPage() {
-  const intl = useIntl();
-
   const { result: levelDetail, isLoading } = usePromiseResult(
     () => backgroundApiProxy.serviceReferralCode.getLevelDetail(),
     [],
@@ -53,18 +54,12 @@ function ReferralLevelPage() {
     },
   );
 
-  const headerRight = useCallback(
-    () => <ApiDataButton data={levelDetail} />,
-    [levelDetail],
-  );
-
   return (
     <Page>
-      <Page.Header
-        title={intl.formatMessage({
-          id: ETranslations.referral_referral_level,
-        })}
-        headerRight={headerRight}
+      <TabPageHeader
+        sceneName={EAccountSelectorSceneName.home}
+        tabRoute={ETabRoutes.ReferFriends}
+        customHeaderRightItems={<ApiDataButton data={levelDetail} />}
       />
       <Page.Body>
         {isLoading || !levelDetail ? (
@@ -79,4 +74,16 @@ function ReferralLevelPage() {
   );
 }
 
-export default ReferralLevelPage;
+export default function ReferralLevel() {
+  return (
+    <AccountSelectorProviderMirror
+      config={{
+        sceneName: EAccountSelectorSceneName.home,
+        sceneUrl: '',
+      }}
+      enabledNum={[0]}
+    >
+      <ReferralLevelPage />
+    </AccountSelectorProviderMirror>
+  );
+}
