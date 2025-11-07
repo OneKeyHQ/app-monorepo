@@ -10,8 +10,8 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
-import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
