@@ -1,13 +1,14 @@
+import { useCallback } from 'react';
+
 import { Button, Page, YStack } from '@onekeyhq/components';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
+import { useHelpLink } from '../../../hooks/useHelpLink';
 import { HomeTokenListProviderMirror } from '../../Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
 import { WalletActionBuy } from '../../Home/components/WalletActions/WalletActionBuy';
 import { WalletActionReceive } from '../../Home/components/WalletActions/WalletActionReceive';
-import { useHelpLink } from '../../../hooks/useHelpLink';
-import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
-import { useCallback } from 'react';
 
 function ReceiveSelectorContent() {
   const receiveFromExchangeHelpLink = useHelpLink({

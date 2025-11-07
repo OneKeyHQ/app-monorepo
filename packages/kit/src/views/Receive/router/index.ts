@@ -43,10 +43,6 @@ export const ModalReceiveStack: IModalFlowNavigatorConfig<
   IModalReceiveParamList
 >[] = [
   {
-    name: EModalReceiveRoutes.ReceiveSelector,
-    component: ReceiveSelector,
-  },
-  {
     name: EModalReceiveRoutes.ReceiveToken,
     component: ReceiveToken,
   },
@@ -73,5 +69,15 @@ export const ModalReceiveStack: IModalFlowNavigatorConfig<
   {
     name: EModalReceiveRoutes.BtcAddresses,
     component: BtcAddresses,
+  },
+];
+
+export const ModalReceiveSelectorStack: IModalFlowNavigatorConfig<
+  EModalReceiveRoutes,
+  IModalReceiveParamList
+>[] = [
+  {
+    name: EModalReceiveRoutes.ReceiveSelector,
+    component: ReceiveSelector,
   },
 ];

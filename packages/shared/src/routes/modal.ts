@@ -76,6 +76,7 @@ export enum EModalRoutes {
   BulkCopyAddressesModal = 'BulkCopyAddressesModal',
   ApprovalManagementModal = 'ApprovalManagementModal',
   SignAndVerifyModal = 'SignAndVerifyModal',
+  ReceiveSelectorModal = 'ReceiveSelectorModal',
 }
 
 export type IModalParamList = {
@@ -118,4 +119,5 @@ export type IModalParamList = {
   [EModalRoutes.ApprovalManagementModal]: IModalApprovalManagementParamList;
   [EModalRoutes.SignAndVerifyModal]: IModalSignAndVerifyParamList;
   [EModalRoutes.PerpModal]: IModalPerpParamList;
+  [EModalRoutes.ReceiveSelectorModal]: IModalReceiveParamList;
 };
