@@ -4,11 +4,10 @@ import { useIntl } from 'react-intl';
 import { Share } from 'react-native';
 
 import { useClipboard } from '@onekeyhq/components';
+import { useNavigateToYourReferred } from '@onekeyhq/kit/src/views/ReferFriends/pages/YourReferred/hooks';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
-import { useNavigateToYourReferred } from '../../../../YourReferred/hooks/useNavigateToYourReferred';
 
 import type {
   IReferralCodeCardProps,

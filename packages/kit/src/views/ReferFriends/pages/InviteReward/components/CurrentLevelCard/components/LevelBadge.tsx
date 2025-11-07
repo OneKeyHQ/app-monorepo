@@ -8,9 +8,8 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { useNavigateToReferralLevel } from '@onekeyhq/kit/src/views/ReferFriends/pages/ReferralLevel/hooks';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-
-import { useNavigateToReferralLevel } from '../../../../ReferralLevel/hooks/useNavigateToReferralLevel';
 
 export interface ILevelBadgeProps {
   levelIcon?: string;

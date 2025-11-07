@@ -2,7 +2,7 @@ import { useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { AnimatePresence, Page, Stack, YStack } from '@onekeyhq/components';
+import { AnimatePresence, Page, YStack } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
