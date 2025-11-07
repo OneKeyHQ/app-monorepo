@@ -25,6 +25,8 @@ import type { IInviteSummary } from '@onekeyhq/shared/src/referralCode/type';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
+import { RewardCardDemo } from './components/RewardCard/Demo';
+
 function InviteRewardContent({
   summaryInfo,
   fetchSummaryInfo,
@@ -76,6 +78,8 @@ function InviteRewardContent({
       />
 
       <InvitationDetailsSection summaryInfo={summaryInfo} />
+
+      <RewardCardDemo />
     </>
   );
 }
