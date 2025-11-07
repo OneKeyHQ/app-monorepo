@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { SizableText, XStack, YStack } from '@onekeyhq/components';
+import { XStack, YStack } from '@onekeyhq/components';
+import { SimpleTabs } from '@onekeyhq/kit/src/views/ReferFriends/components/SimpleTabs';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { HardwareSalesReward } from '../HardwareSalesReward';
@@ -15,35 +16,6 @@ import { useInviteCodeList } from './hooks/useInviteCodeList';
 
 import type { IInvitationDetailsSectionProps } from './types';
 
-interface ITabButtonProps {
-  label: string;
-  isActive: boolean;
-  onPress: () => void;
-}
-
-function TabButton({ label, isActive, onPress }: ITabButtonProps) {
-  return (
-    <XStack
-      px="$2"
-      py="$1"
-      borderRadius="$2"
-      backgroundColor={isActive ? '$bgActive' : '$transparent'}
-      cursor="pointer"
-      onPress={onPress}
-      hoverStyle={{
-        backgroundColor: isActive ? '$bgActive' : '$bgHover',
-      }}
-      pressStyle={{
-        backgroundColor: '$bgActive',
-      }}
-    >
-      <SizableText size="$bodyMdMedium" color="$text" textAlign="center">
-        {label}
-      </SizableText>
-    </XStack>
-  );
-}
-
 export function InvitationDetailsSection({
   summaryInfo,
 }: IInvitationDetailsSectionProps) {
@@ -54,6 +26,20 @@ export function InvitationDetailsSection({
 
   // Fetch invite code list data
   const { codeListData, isLoading, refetch } = useInviteCodeList();
+
+  const tabs = useMemo(
+    () => [
+      {
+        value: 'reward' as const,
+        label: intl.formatMessage({ id: ETranslations.earn_rewards }),
+      },
+      {
+        value: 'referral' as const,
+        label: intl.formatMessage({ id: ETranslations.referral_code_list }),
+      },
+    ],
+    [intl],
+  );
 
   if (!summaryInfo) {
     return null;
@@ -72,18 +58,7 @@ export function InvitationDetailsSection({
       />
 
       <XStack gap="$2" px="$5" alignItems="center">
-        <XStack gap="$5">
-          <TabButton
-            label={intl.formatMessage({ id: ETranslations.earn_rewards })}
-            isActive={selectedTab === 'reward'}
-            onPress={() => setSelectedTab('reward')}
-          />
-          <TabButton
-            label={intl.formatMessage({ id: ETranslations.referral_code_list })}
-            isActive={selectedTab === 'referral'}
-            onPress={() => setSelectedTab('referral')}
-          />
-        </XStack>
+        <SimpleTabs value={selectedTab} onChange={setSelectedTab} tabs={tabs} />
 
         {canCreateCode ? (
           <CreateCodeButton

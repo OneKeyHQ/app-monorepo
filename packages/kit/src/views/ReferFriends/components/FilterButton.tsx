@@ -160,7 +160,7 @@ export function FilterButton({
         badgeValue={activeFilterCount > 0 ? activeFilterCount : undefined}
       >
         <IconButton
-          icon="Filter2Outline"
+          icon="Filter1Outline"
           variant={hasActiveFilters ? 'primary' : 'tertiary'}
           title={intl.formatMessage({ id: ETranslations.referral_filter })}
         />
