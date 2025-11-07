@@ -61,7 +61,7 @@ export default function VerifyRecoveryPhrase() {
       (_, i) => i,
     )
       .sort(() => Math.random() - 0.5)
-      .slice(0, 3);
+      .slice(0, 3).sort((a, b) => a - b);
 
     return shuffledIndices;
   }, [recoveryPhrase]);
