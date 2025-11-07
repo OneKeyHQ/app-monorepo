@@ -11,12 +11,12 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useRedirectWhenNotLoggedIn } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useRedirectWhenNotLoggedIn';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { ETabReferFriendsRoutes } from '@onekeyhq/shared/src/routes';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
+
+import { useNavigateToWalletAddresses } from '../YourReferredWalletAddresses/hooks/useNavigateToWalletAddresses';
 
 function EmptyData() {
   const intl = useIntl();
@@ -104,7 +104,7 @@ function HardwareSales() {
 
 function WalletList() {
   const intl = useIntl();
-  const navigation = useAppNavigation();
+  const navigateToWalletAddresses = useNavigateToWalletAddresses();
   const { result, isLoading } = usePromiseResult(
     () => backgroundApiProxy.serviceReferralCode.getEarnWalletHistory(),
     [],
@@ -154,13 +154,10 @@ function WalletList() {
               key={index}
               title={`Wallet ${index + 1}`}
               onPress={() => {
-                navigation.push(
-                  ETabReferFriendsRoutes.TabYourReferredWalletAddresses,
-                  {
-                    items: item.items,
-                    networks,
-                  },
-                );
+                navigateToWalletAddresses({
+                  items: item.items,
+                  networks,
+                });
               }}
             >
               <SizableText size="$bodyMd" color="$textSubdued">

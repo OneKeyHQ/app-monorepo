@@ -16,17 +16,14 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IInviteSummary } from '@onekeyhq/shared/src/referralCode/type';
-import {
-  EModalReferFriendsRoutes,
-  EModalRoutes,
-  ETabReferFriendsRoutes,
-} from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+
+import { useNavigateToEditAddress } from '../../../EditAddress/hooks/useNavigateToEditAddress';
+import { useNavigateToRewardHistory } from '../../../RewardDistributionHistory/hooks/useNavigateToRewardHistory';
 
 function CumulativeRewardsLineItem({
   bg,
@@ -61,33 +58,31 @@ export function CumulativeRewards({
   enabledNetworks: IInviteSummary['enabledNetworks'];
   fetchSummaryInfo: () => void;
 }) {
-  const navigation = useAppNavigation();
+  const navigateToEditAddress = useNavigateToEditAddress();
+  const toRewardDistributionHistoryPage = useNavigateToRewardHistory();
   const intl = useIntl();
   const { activeAccount } = useActiveAccount({ num: 0 });
 
   const isNewEditWithdrawAddress = withdrawAddresses.length === 0;
 
   const toEditAddressPage = useCallback(() => {
-    navigation.pushModal(EModalRoutes.ReferFriendsModal, {
-      screen: EModalReferFriendsRoutes.EditAddress,
-      params: {
-        enabledNetworks,
-        accountId: activeAccount.account?.id ?? '',
-        address: withdrawAddresses[0]?.address,
-        onAddressAdded: async ({ networkId }: { networkId: string }) => {
-          Toast.success({
-            title: intl.formatMessage({
-              id: ETranslations.referral_address_updated,
-            }),
-          });
-          setTimeout(() => {
-            fetchSummaryInfo();
-          }, 50);
-          defaultLogger.referral.page.editReceivingAddress({
-            networkId,
-            editMethod: isNewEditWithdrawAddress ? 'new' : 'edit',
-          });
-        },
+    navigateToEditAddress({
+      enabledNetworks,
+      accountId: activeAccount.account?.id ?? '',
+      address: withdrawAddresses[0]?.address,
+      onAddressAdded: async ({ networkId }: { networkId: string }) => {
+        Toast.success({
+          title: intl.formatMessage({
+            id: ETranslations.referral_address_updated,
+          }),
+        });
+        setTimeout(() => {
+          fetchSummaryInfo();
+        }, 50);
+        defaultLogger.referral.page.editReceivingAddress({
+          networkId,
+          editMethod: isNewEditWithdrawAddress ? 'new' : 'edit',
+        });
       },
     });
   }, [
@@ -96,13 +91,9 @@ export function CumulativeRewards({
     fetchSummaryInfo,
     intl,
     isNewEditWithdrawAddress,
-    navigation,
+    navigateToEditAddress,
     withdrawAddresses,
   ]);
-
-  const toRewardDistributionHistoryPage = useCallback(() => {
-    navigation.push(ETabReferFriendsRoutes.TabRewardDistributionHistory);
-  }, [navigation]);
 
   return (
     <YStack borderRadius="$3">

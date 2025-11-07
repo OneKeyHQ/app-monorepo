@@ -4,11 +4,11 @@ import { useIntl } from 'react-intl';
 import { Share } from 'react-native';
 
 import { useClipboard } from '@onekeyhq/components';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { ETabReferFriendsRoutes } from '@onekeyhq/shared/src/routes';
+
+import { useNavigateToYourReferred } from '../../../../YourReferred/hooks/useNavigateToYourReferred';
 
 import type {
   IReferralCodeCardProps,
@@ -19,7 +19,7 @@ export function useReferralCodeCard({
   inviteUrl,
   inviteCode,
 }: IReferralCodeCardProps): IUseReferralCodeCardReturn {
-  const navigation = useAppNavigation();
+  const toYourReferredPage = useNavigateToYourReferred();
   const { copyText } = useClipboard();
   const intl = useIntl();
 
@@ -31,10 +31,6 @@ export function useReferralCodeCard({
   const inviteCodeUrl = useMemo(() => {
     return inviteUrl.replace('https://', '');
   }, [inviteUrl]);
-
-  const toYourReferredPage = useCallback(() => {
-    navigation.push(ETabReferFriendsRoutes.TabYourReferred);
-  }, [navigation]);
 
   const sharedUrl = useMemo(() => `https://${inviteCodeUrl}`, [inviteCodeUrl]);
 

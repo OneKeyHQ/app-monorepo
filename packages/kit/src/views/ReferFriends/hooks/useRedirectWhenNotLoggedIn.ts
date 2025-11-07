@@ -1,8 +1,8 @@
 import { useEffect } from 'react';
 
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { ETabReferFriendsRoutes } from '@onekeyhq/shared/src/routes';
+
+import { useReplaceToReferAFriend } from '../pages/ReferAFriend/hooks/useNavigateToReferAFriend';
 
 /**
  * Hook to redirect to ReferAFriend page when user is not logged in
@@ -10,7 +10,7 @@ import { ETabReferFriendsRoutes } from '@onekeyhq/shared/src/routes';
  * - Redirects using replace method to prevent navigation back
  */
 export function useRedirectWhenNotLoggedIn() {
-  const navigation = useAppNavigation();
+  const replaceToReferAFriend = useReplaceToReferAFriend();
   const [primeAtom] = usePrimePersistAtom();
 
   // Monitor login status changes in real-time
@@ -18,7 +18,11 @@ export function useRedirectWhenNotLoggedIn() {
     const isLoggedIn = primeAtom.isLoggedIn && primeAtom.isLoggedInOnServer;
 
     if (!isLoggedIn) {
-      navigation.replace(ETabReferFriendsRoutes.TabReferAFriend);
+      replaceToReferAFriend();
     }
-  }, [primeAtom.isLoggedIn, primeAtom.isLoggedInOnServer, navigation]);
+  }, [
+    primeAtom.isLoggedIn,
+    primeAtom.isLoggedInOnServer,
+    replaceToReferAFriend,
+  ]);
 }

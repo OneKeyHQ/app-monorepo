@@ -1,5 +1,3 @@
-import { useCallback } from 'react';
-
 import { useIntl } from 'react-intl';
 
 import {
@@ -10,9 +8,9 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { ETabReferFriendsRoutes } from '@onekeyhq/shared/src/routes';
+
+import { useNavigateToReferralLevel } from '../../../../ReferralLevel/hooks/useNavigateToReferralLevel';
 
 export interface ILevelBadgeProps {
   levelIcon?: string;
@@ -21,11 +19,7 @@ export interface ILevelBadgeProps {
 
 export function LevelBadge({ levelIcon, levelLabel }: ILevelBadgeProps) {
   const intl = useIntl();
-  const navigation = useAppNavigation();
-
-  const handleViewLevelDetail = useCallback(() => {
-    navigation.push(ETabReferFriendsRoutes.TabReferralLevel);
-  }, [navigation]);
+  const handleViewLevelDetail = useNavigateToReferralLevel();
 
   return (
     <YStack gap="$2">

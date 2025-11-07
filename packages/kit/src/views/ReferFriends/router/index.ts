@@ -17,6 +17,7 @@ const YourReferredWalletAddresses = LazyLoadPage(
 const RewardDistributionHistory = LazyLoadPage(
   () => import('../pages/RewardDistributionHistory'),
 );
+const ReferralLevel = LazyLoadPage(() => import('../pages/ReferralLevel'));
 
 export const ReferFriendsRouter: IModalFlowNavigatorConfig<
   EModalReferFriendsRoutes,
@@ -55,5 +56,9 @@ export const ReferFriendsRouter: IModalFlowNavigatorConfig<
   {
     name: EModalReferFriendsRoutes.RewardDistributionHistory,
     component: RewardDistributionHistory,
+  },
+  {
+    name: EModalReferFriendsRoutes.ReferralLevel,
+    component: ReferralLevel,
   },
 ];

@@ -13,10 +13,9 @@ import {
 } from '@onekeyhq/components';
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import { Token } from '@onekeyhq/kit/src/components/Token';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { ETabReferFriendsRoutes } from '@onekeyhq/shared/src/routes';
 
+import { useNavigateToHardwareSalesReward } from '../../../HardwareSalesReward/hooks/useNavigateToHardwareSalesReward';
 import { FiatValue } from '../shared/FiatValue';
 import { NoRewardYet } from '../shared/NoRewardYet';
 
@@ -28,12 +27,8 @@ export function HardwareSalesReward({
   rebateLevels: _rebateLevels,
   rebateConfig,
 }: IHardwareSalesRewardProps) {
-  const navigation = useAppNavigation();
+  const toHardwareSalesRewardPage = useNavigateToHardwareSalesReward();
   const intl = useIntl();
-
-  const toHardwareSalesRewardPage = useCallback(() => {
-    navigation.push(ETabReferFriendsRoutes.TabHardwareSalesReward);
-  }, [navigation]);
 
   const showHardwareSalesAvailableFiat =
     (hardwareSales.available?.length || 0) > 0;

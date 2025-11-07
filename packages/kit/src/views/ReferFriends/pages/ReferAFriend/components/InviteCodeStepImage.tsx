@@ -1,4 +1,4 @@
-import { Image, Stack, useMedia } from '@onekeyhq/components';
+import { Image, useMedia } from '@onekeyhq/components';
 import step1MobileImg from '@onekeyhq/kit/assets/inviteCode/1-1.png';
 import step1DesktopImg from '@onekeyhq/kit/assets/inviteCode/1-2.png';
 import step2MobileImg from '@onekeyhq/kit/assets/inviteCode/2-1.png';
@@ -40,13 +40,11 @@ export function InviteCodeStepImage({ step }: IInviteCodeStepImageProps) {
 
   // Mobile: 100% width, Desktop: 640x284px
   return (
-    <Stack
+    <Image
+      source={selectedImage}
       w={gtMd ? 640 : '100%'}
       h={gtMd ? 284 : 'auto'}
-      ai="center"
-      jc="center"
-    >
-      <Image source={selectedImage} w="100%" h="100%" resizeMode="contain" />
-    </Stack>
+      resizeMode="contain"
+    />
   );
 }

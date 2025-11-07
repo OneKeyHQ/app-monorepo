@@ -17,13 +17,12 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import { Token } from '@onekeyhq/kit/src/components/Token';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { ETabReferFriendsRoutes } from '@onekeyhq/shared/src/routes';
 
+import { useNavigateToEarnReward } from '../../../EarnReward/hooks/useNavigateToEarnReward';
 import { FiatValue } from '../shared/FiatValue';
 import { NoRewardYet } from '../shared/NoRewardYet';
 
@@ -33,16 +32,14 @@ const DEFAULT_EARN_IMAGE_URL =
   'https://uni.onekey-asset.com/server-service-indexer/evm--42161/tokens/address-0xaf88d065e77c8cc2239327c5edb3a432268e5831-1720669320510.png';
 
 export function OnChainReward({ onChain }: IOnChainRewardProps) {
-  const navigation = useAppNavigation();
+  const navigateToEarnReward = useNavigateToEarnReward();
   const intl = useIntl();
 
   const { activeAccount } = useActiveAccount({ num: 0 });
 
   const toEarnRewardPage = useCallback(() => {
-    navigation.push(ETabReferFriendsRoutes.TabEarnReward, {
-      title: onChain.title || '',
-    });
-  }, [navigation, onChain.title]);
+    navigateToEarnReward(onChain.title || '');
+  }, [navigateToEarnReward, onChain.title]);
 
   const showEarnSalesAvailableFiat = (onChain.available?.length || 0) > 0;
 
