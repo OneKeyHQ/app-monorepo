@@ -27,6 +27,8 @@ import {
   EFinalizeWalletSetupSteps,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   type EOnboardingPagesV2,
@@ -102,17 +104,23 @@ const STEPS_DATA: Record<
   [EFinalizeWalletSetupSteps.CreatingWallet]: {
     pathData:
       'M7 12V35C7 38.3138 9.6863 41 13 41H35C38.3138 41 41 38.3138 41 35V23C41 19.6863 38.3138 17 35 17H33M7 12C7 14.7614 9.23858 17 12 17H33M7 12C7 9.23858 9.23858 7 12 7H28.6666C31.06 7 33 8.9401 33 11.3333V17M35 29C35 31.2091 33.2091 33 31 33C28.7909 33 27 31.2091 27 29C27 26.7909 28.7909 25 31 25C33.2091 25 35 26.7909 35 29Z',
-    title: 'Creating your wallet',
+    title: appLocale.intl.formatMessage({
+      id: ETranslations.onboarding_finalize_creating_wallet,
+    }),
   },
   [EFinalizeWalletSetupSteps.GeneratingAccounts]: {
     pathData:
-      'M43 24C43 34.4934 34.4934 43 24 43C13.5066 43 5 34.4934 5 24C5 13.5066 13.5066 5 24 5C34.4934 5 43 13.5066 43 24Z M22 14.7624C23.2376 14.0479 24.7624 14.0479 26 14.7624L31 17.6491C32.2376 18.3636 33 19.6842 33 21.1133V26.8865C33 28.3155 32.2376 29.6361 31 30.3505L26 33.2373C24.7624 33.9517 23.2376 33.9517 22 33.2373L17 30.3505C15.7624 29.6361 15 28.3155 15 26.8865V21.1133C15 19.6842 15.7624 18.3636 17 17.6491L22 14.7624Z',
-    title: 'Creating addresses',
+      'M31.9971 13C31.9971 17.4183 28.4153 21 23.9971 21C19.5788 21 15.9971 17.4183 15.9971 13C15.9971 8.58172 19.5788 5 23.9971 5C28.4153 5 31.9971 8.58172 31.9971 13ZM23.9974 25C17.3083 25 12.1116 28.9362 9.58956 34.6762C8.17334 37.8996 11.0262 41 14.5469 41H33.4478C36.9686 41 39.8214 37.8996 38.4052 34.6762C35.883 28.9362 30.6864 25 23.9974 25Z',
+    title: appLocale.intl.formatMessage({
+      id: ETranslations.onboarding_finalize_generating_accounts,
+    }),
   },
   [EFinalizeWalletSetupSteps.EncryptingData]: {
     pathData:
       'M31 19V12C31 8.134 27.866 5 24 5C20.134 5 17 8.134 17 12V19M24 28V34M15 43H33C36.3138 43 39 40.3138 39 37V25C39 21.6862 36.3138 19 33 19H15C11.6863 19 9 21.6862 9 25V37C9 40.3138 11.6863 43 15 43Z',
-    title: 'Encrypted your data',
+    title: appLocale.intl.formatMessage({
+      id: ETranslations.onboarding_finalize_encrypting_data,
+    }),
   },
   [EFinalizeWalletSetupSteps.Ready]: null,
 };
@@ -230,7 +238,7 @@ function FinalizeWalletSetupPage({
         1,
         {
           duration: 2000,
-          easing: Easing.inOut(Easing.ease),
+          easing: Easing.linear,
         },
         (finished) => {
           if (finished) {
