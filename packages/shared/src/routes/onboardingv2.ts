@@ -28,6 +28,11 @@ export enum EOnboardingPagesV2 {
   ConnectExternalWallet = 'ConnectExternalWallet',
   ImportKeyTag = 'ImportKeyTag',
 }
+interface IVerifyRecoveryPhraseParams {
+  mnemonic: string;
+  isWalletBackedUp?: boolean;
+  walletId: string;
+}
 
 export type IOnboardingParamListV2 = {
   [EOnboardingPagesV2.GetStarted]: {
@@ -52,9 +57,9 @@ export type IOnboardingParamListV2 = {
     tabValue: EConnectDeviceChannel;
   };
   [EOnboardingPagesV2.ImportPhraseOrPrivateKey]: undefined;
-  [EOnboardingPagesV2.BackupWalletReminder]: undefined;
-  [EOnboardingPagesV2.ShowRecoveryPhrase]: undefined;
-  [EOnboardingPagesV2.VerifyRecoveryPhrase]: undefined;
+  [EOnboardingPagesV2.BackupWalletReminder]: IVerifyRecoveryPhraseParams;
+  [EOnboardingPagesV2.ShowRecoveryPhrase]: IVerifyRecoveryPhraseParams;
+  [EOnboardingPagesV2.VerifyRecoveryPhrase]: IVerifyRecoveryPhraseParams;
   [EOnboardingPagesV2.SelectPrivateKeyNetwork]: {
     privateKey: string;
   };
