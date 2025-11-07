@@ -181,13 +181,12 @@ function CheckAndUpdatePage({
       return newSteps;
     });
     setTimeout(async () => {
-      navigation.push(EOnboardingPagesV2.FinalizeWalletSetup);
-      await createHWWallet({
-        device: deviceData.device as SearchDevice,
+      navigation.push(EOnboardingPagesV2.FinalizeWalletSetup, {
+        deviceData,
         isFirmwareVerified: true,
       });
     }, 1200);
-  }, [connectDevice, deviceData.device, navigation, createHWWallet]);
+  }, [connectDevice, deviceData, navigation]);
 
   const checkFirmwareUpdate = useCallback(async () => {
     await connectDevice(deviceData.device as SearchDevice);

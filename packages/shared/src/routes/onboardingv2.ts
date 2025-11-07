@@ -44,6 +44,8 @@ export type IOnboardingParamListV2 = {
     mnemonic?: string;
     mnemonicType?: EMnemonicType;
     isWalletBackedUp?: boolean;
+    isFirmwareVerified?: boolean;
+    deviceData?: IConnectYourDeviceItem;
   };
   [EOnboardingPagesV2.PickYourDevice]: undefined;
   [EOnboardingPagesV2.ConnectYourDevice]: {

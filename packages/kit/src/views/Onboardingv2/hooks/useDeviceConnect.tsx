@@ -105,6 +105,7 @@ export function useDeviceConnect() {
         } else {
           console.error('connectDevice error:', get(error, 'message', ''));
         }
+        throw error;
       }
     },
     [ensureStopScan],

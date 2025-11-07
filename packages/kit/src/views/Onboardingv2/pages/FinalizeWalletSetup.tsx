@@ -50,7 +50,12 @@ import {
 import { withPromptPasswordVerify } from '../../../utils/passwordUtils';
 import { useWalletBoundReferralCode } from '../../ReferFriends/hooks/useWalletBoundReferralCode';
 import { OnboardingLayout } from '../components/OnboardingLayout';
-import { useConnectDeviceError } from '../hooks/useDeviceConnect';
+import {
+  useConnectDeviceError,
+  useDeviceConnect,
+} from '../hooks/useDeviceConnect';
+
+import type { SearchDevice } from '@onekeyfe/hd-core';
 
 const MatrixBackground = ({
   lineCount = 30,
@@ -154,6 +159,8 @@ function FinalizeWalletSetupPage({
   const created = useRef(false);
   const mnemonic = route?.params?.mnemonic;
   const mnemonicType = route?.params?.mnemonicType;
+  const deviceData = route?.params?.deviceData;
+  const isFirmwareVerified = route?.params?.isFirmwareVerified;
   const isWalletBackedUp = route?.params?.isWalletBackedUp;
 
   const [currentStep, setCurrentStep] = useState<EFinalizeWalletSetupSteps>(
@@ -262,37 +269,55 @@ function FinalizeWalletSetupPage({
     });
   }, [processNextStep]);
 
-  useEffect(() => {
-    void (async () => {
-      try {
-        // **** hd wallet case
-        if (mnemonic && !created.current) {
-          await withPromptPasswordVerify({
-            run: async () => {
-              if (mnemonicType === EMnemonicType.TON) {
-                // TODO check TON case
-                // **** TON mnemonic case
-                // Create TON imported account when mnemonicType is TON
-                await actions.current.createTonImportedWallet({ mnemonic });
-                goNextStep(EFinalizeWalletSetupSteps.Ready);
-                return;
-              }
-              await actions.current.createHDWallet({
-                mnemonic,
-                isWalletBackedUp,
-              });
-            },
-          });
-          created.current = true;
-        } else {
-          // **** hardware wallet case
-          // createHWWallet() is called before this page loaded
-        }
-      } catch (error) {
-        navigation.pop();
-        throw error;
+  const { connectDevice, createHWWallet } = useDeviceConnect();
+  const createWallet = useCallback(async () => {
+    try {
+      // **** hd wallet case
+      if (mnemonic && !created.current) {
+        await withPromptPasswordVerify({
+          run: async () => {
+            if (mnemonicType === EMnemonicType.TON) {
+              // TODO check TON case
+              // **** TON mnemonic case
+              // Create TON imported account when mnemonicType is TON
+              await actions.current.createTonImportedWallet({ mnemonic });
+              goNextStep(EFinalizeWalletSetupSteps.Ready);
+              return;
+            }
+            await actions.current.createHDWallet({
+              mnemonic,
+              isWalletBackedUp,
+            });
+          },
+        });
+        created.current = true;
+      } else if (deviceData && isFirmwareVerified) {
+        await connectDevice(deviceData.device as SearchDevice);
+        await createHWWallet({
+          device: deviceData.device as SearchDevice,
+          isFirmwareVerified,
+        });
       }
-    })();
+    } catch (error) {
+      console.error('createWallet error:', error);
+      setSetupError({
+        messageId: (error as { messageId: ETranslations }).messageId,
+      });
+    }
+  }, [
+    mnemonic,
+    deviceData,
+    isFirmwareVerified,
+    mnemonicType,
+    actions,
+    isWalletBackedUp,
+    goNextStep,
+    connectDevice,
+    createHWWallet,
+  ]);
+
+  useEffect(() => {
+    void createWallet();
   }, [
     actions,
     mnemonic,
@@ -300,6 +325,7 @@ function FinalizeWalletSetupPage({
     isWalletBackedUp,
     navigation,
     goNextStep,
+    createWallet,
   ]);
 
   useEffect(() => {
@@ -334,7 +360,10 @@ function FinalizeWalletSetupPage({
     setSetupError(undefined);
     setCurrentStep(EFinalizeWalletSetupSteps.CreatingWallet);
     stepQueueIndex.current = 0;
-  }, []);
+    setTimeout(() => {
+      void createWallet();
+    });
+  }, [createWallet]);
 
   const currentStepData =
     STEPS_DATA[currentStep] ||
