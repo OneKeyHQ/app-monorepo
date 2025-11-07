@@ -392,9 +392,9 @@ export function useDeviceConnect() {
             device,
             features,
             onContinue: async ({ checked }: { checked: boolean }) => {
-              if (deviceMode === EOneKeyDeviceMode.notInitialized) {
-                handleNotActivatedDevicePress({ deviceType });
-              }
+              // if (deviceMode === EOneKeyDeviceMode.notInitialized) {
+              // handleNotActivatedDevicePress({ deviceType });
+              // }
             },
             onClose: () => {
               emitFirmwareFailedVerifyResult({
