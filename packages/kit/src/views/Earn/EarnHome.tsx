@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useLayoutEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -13,7 +13,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import { ETabDiscoveryRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 import {
   openUrlExternal,
   openUrlInApp,
@@ -46,7 +46,13 @@ import { useFAQListInfo } from './hooks/useFAQListInfo';
 
 import type { LayoutChangeEvent } from 'react-native';
 
-function BasicEarnHome() {
+function BasicEarnHome({
+  showHeader,
+  showContent,
+}: {
+  showHeader?: boolean;
+  showContent?: boolean;
+}) {
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { account, indexedAccount } = activeAccount;
   const media = useMedia();
@@ -204,6 +210,8 @@ function BasicEarnHome() {
   if (!isFetchingBlockResult && blockResult?.blockData) {
     return (
       <EarnBlockedOverview
+        showHeader={showHeader}
+        showContent={showContent}
         refresh={refreshBlockResult}
         refreshing={!!isFetchingBlockResult}
         icon={blockResult.blockData.icon.icon}
@@ -215,62 +223,63 @@ function BasicEarnHome() {
 
   if (platformEnv.isNative && media.md) {
     return (
-      <Page fullPage>
-        <Page.Body>
-          <Stack h={tabPageHeight} />
-          <EarnMainTabs
-            isMobile
-            assetTabData={assetTabData}
-            faqList={faqList || []}
-            isFaqLoading={isFaqLoading}
-            isAccountsLoading={isLoading}
-            refreshEarnAccounts={refreshEarnAccounts}
-            containerProps={{
-              // eslint-disable-next-line spellcheck/spell-checker
-              allowHeaderOverscroll: true,
-              renderHeader: () => (
-                <YStack gap="$4" pt="$6" bg="$bgApp" pointerEvents="box-none">
-                  <YStack gap="$7.5">
-                    <YStack px="$5">
-                      <Overview
-                        onRefresh={refreshEarnAccounts}
-                        isLoading={isLoading}
-                      />
-                    </YStack>
-                    {banners ? (
-                      <YStack
-                        minHeight="$36"
-                        $md={{
-                          minHeight: '$28',
-                        }}
-                        width="100%"
-                      >
-                        {banners}
-                      </YStack>
-                    ) : null}
+      <>
+        {showHeader ? <Stack h={tabPageHeight} /> : null}
+        <EarnMainTabs
+          isMobile
+          assetTabData={assetTabData}
+          faqList={faqList || []}
+          isFaqLoading={isFaqLoading}
+          isAccountsLoading={isLoading}
+          refreshEarnAccounts={refreshEarnAccounts}
+          containerProps={{
+            contentContainerStyle: {
+              display: showContent ? undefined : 'none',
+            },
+            // eslint-disable-next-line spellcheck/spell-checker
+            allowHeaderOverscroll: true,
+            renderHeader: () => (
+              <YStack gap="$4" pt="$6" bg="$bgApp" pointerEvents="box-none">
+                <YStack gap="$7.5">
+                  <YStack px="$5">
+                    <Overview
+                      onRefresh={refreshEarnAccounts}
+                      isLoading={isLoading}
+                    />
                   </YStack>
+                  {banners ? (
+                    <YStack
+                      minHeight="$36"
+                      $md={{
+                        minHeight: '$28',
+                      }}
+                      width="100%"
+                    >
+                      {banners}
+                    </YStack>
+                  ) : null}
                 </YStack>
-              ),
-            }}
-          />
-          {platformEnv.isNative ? (
-            <YStack
-              position="absolute"
-              top={-20}
-              left={0}
-              bg="$bgApp"
-              pt="$5"
-              width="100%"
-              onLayout={handleTabPageLayout}
-            >
-              <TabPageHeader
-                sceneName={EAccountSelectorSceneName.home}
-                tabRoute={ETabRoutes.Earn}
-              />
-            </YStack>
-          ) : null}
-        </Page.Body>
-      </Page>
+              </YStack>
+            ),
+          }}
+        />
+        {showHeader && platformEnv.isNative ? (
+          <YStack
+            position="absolute"
+            top={-20}
+            left={0}
+            bg="$bgApp"
+            pt="$5"
+            width="100%"
+            onLayout={handleTabPageLayout}
+          >
+            <TabPageHeader
+              sceneName={EAccountSelectorSceneName.home}
+              tabRoute={ETabRoutes.Earn}
+            />
+          </YStack>
+        ) : null}
+      </>
     );
   }
 
@@ -315,7 +324,13 @@ function BasicEarnHome() {
   );
 }
 
-export default function EarnHome() {
+export function EarnHomeWithProvider({
+  showHeader = true,
+  showContent = true,
+}: {
+  showHeader?: boolean;
+  showContent?: boolean;
+}) {
   return (
     <AccountSelectorProviderMirror
       config={{
@@ -325,8 +340,44 @@ export default function EarnHome() {
       enabledNum={[0]}
     >
       <EarnProviderMirror storeName={EJotaiContextStoreNames.earn}>
-        <BasicEarnHome />
+        <BasicEarnHome showHeader={showHeader} showContent={showContent} />
       </EarnProviderMirror>
     </AccountSelectorProviderMirror>
+  );
+}
+
+const useNavigateToNativeEarnPage = platformEnv.isNative
+  ? () => {
+      const { md } = useMedia();
+      const navigation = useAppNavigation();
+      useLayoutEffect(() => {
+        if (md) {
+          navigation.navigate(
+            ETabRoutes.Discovery,
+            {
+              screen: ETabDiscoveryRoutes.TabDiscovery,
+              params: {
+                defaultTab: ETranslations.global_earn,
+              },
+            },
+            {
+              pop: true,
+            },
+          );
+        }
+      }, [navigation, md]);
+    }
+  : () => {};
+
+export default function EarnHome() {
+  useNavigateToNativeEarnPage();
+  return platformEnv.isNative ? (
+    <Page fullPage>
+      <Page.Body>
+        <EarnHomeWithProvider />
+      </Page.Body>
+    </Page>
+  ) : (
+    <EarnHomeWithProvider />
   );
 }

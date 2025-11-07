@@ -9,6 +9,8 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { TabPageHeader } from '../../../components/TabPageHeader';
 
 export function EarnBlockedOverview(props: {
+  showHeader?: boolean;
+  showContent?: boolean;
   icon: IKeyOfIcons;
   title: string;
   description: string;
@@ -16,16 +18,27 @@ export function EarnBlockedOverview(props: {
   refreshing: boolean;
 }) {
   const intl = useIntl();
-  const { title, description, icon, refresh, refreshing } = props;
+  const {
+    title,
+    description,
+    icon,
+    refresh,
+    refreshing,
+    showHeader,
+    showContent,
+  } = props;
 
   return (
     <Page fullPage>
-      <TabPageHeader
-        sceneName={EAccountSelectorSceneName.home}
-        tabRoute={ETabRoutes.Earn}
-      />
+      {showHeader ? (
+        <TabPageHeader
+          sceneName={EAccountSelectorSceneName.home}
+          tabRoute={ETabRoutes.Earn}
+        />
+      ) : null}
       <Page.Body>
         <Empty
+          display={showContent ? undefined : 'none'}
           icon={icon}
           title={title}
           description={description}
