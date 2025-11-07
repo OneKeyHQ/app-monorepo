@@ -107,7 +107,7 @@ export default function VerifyRecoveryPhrase() {
         [questionIndex]: word,
       }));
 
-      setTimeout(() => {
+      setTimeout(async () => {
         const verifyResult = answerIndices.every(
           (recoveryPhraseIndex, index) => {
             if (selectedWords[index] === null) {
@@ -118,6 +118,12 @@ export default function VerifyRecoveryPhrase() {
         );
 
         if (verifyResult) {
+          if (route.params?.walletId) {
+            await backgroundApiProxy.serviceAccount.updateWalletBackupStatus({
+              walletId: route.params?.walletId,
+              isBackedUp: true,
+            });
+          }
           Toast.success({
             title: intl.formatMessage({
               id: ETranslations.backup_recovery_phrase_backed_up,
@@ -127,7 +133,14 @@ export default function VerifyRecoveryPhrase() {
         }
       });
     },
-    [answerIndices, intl, navigation, recoveryPhrase, selectedWords],
+    [
+      answerIndices,
+      intl,
+      navigation,
+      recoveryPhrase,
+      route.params?.walletId,
+      selectedWords,
+    ],
   );
 
   return (
