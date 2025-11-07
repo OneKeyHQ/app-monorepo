@@ -23,7 +23,7 @@ export function CreateCodeButton({
     setLoading(true);
     try {
       const data =
-        await backgroundApiProxy.serviceReferralCode.getInviteCodes();
+        await backgroundApiProxy.serviceReferralCode.createInviteCode();
 
       // Show success toast with copy button
       Toast.success({

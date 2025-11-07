@@ -56,7 +56,7 @@ class ServiceReferralCode extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getInviteCodes() {
+  async createInviteCode() {
     const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Rebate);
     const response = await client.post<{
       data: IInviteCodeItem;
