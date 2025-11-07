@@ -98,7 +98,7 @@ function NotBackedUp() {
           }}
           actions={renderBackupWalletActions()}
         />
-        <ReferralCodeBlock />
+        <ReferralCodeBlock closable />
       </YStack>
       <YStack
         gap="$5"

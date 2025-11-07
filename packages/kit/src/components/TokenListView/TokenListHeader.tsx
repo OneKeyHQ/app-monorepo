@@ -105,7 +105,6 @@ function TokenListHeader({
       {withReferralCode ? (
         <ReferralCodeBlock
           inTabList
-          hideOnBound
           recomputeLayout={recomputeLayout}
           closable
         />
