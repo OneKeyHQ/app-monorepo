@@ -282,7 +282,6 @@ function EarnRewardPageWrapper() {
   const { md } = useMedia();
 
   const [lists, setLists] = useState<(ISectionData[] | undefined)[]>([]);
-  const [allLists, setAllLists] = useState<(ISectionData[] | undefined)[]>([]);
   const [amount, setAmount] = useState<
     | {
         pending: string;
@@ -298,62 +297,8 @@ function EarnRewardPageWrapper() {
 
   const [vaultAmount, setVaultAmount] = useState<IVaultAmount | undefined>();
 
-  // Flatten the data for filtering
-  const flattenedData = useMemo(() => {
-    const result: Array<
-      IEarnRewardItem & { accountAddress: string; createdAt?: string }
-    > = [];
-    allLists.forEach((list) => {
-      if (list) {
-        list.forEach((section) => {
-          section.items.forEach((item) => {
-            result.push({
-              ...item,
-              accountAddress: section.accountAddress,
-              // Add createdAt if available (you might need to get this from the API)
-              createdAt: undefined,
-            });
-          });
-        });
-      }
-    });
-    return result;
-  }, [allLists]);
-
-  // Use the filter hook
-  const { filterState, filteredData, updateFilter, exportParams } =
-    useRewardFilter(flattenedData);
-
-  // Rebuild sections from filtered data
-  const filteredLists = useMemo(() => {
-    const groupedData = new Map<string, ISectionData>();
-
-    filteredData.forEach((item) => {
-      const key = item.accountAddress;
-      if (!groupedData.has(key)) {
-        groupedData.set(key, {
-          accountAddress: key,
-          fiatValue: '0',
-          items: [],
-        });
-      }
-      const section = groupedData.get(key)!;
-      section.items.push(item);
-      // Update fiatValue
-      section.fiatValue = BigNumber(section.fiatValue)
-        .plus(item.fiatValue || 0)
-        .toFixed(2);
-    });
-
-    return [[...groupedData.values()], undefined];
-  }, [filteredData]);
-
-  // Use filtered lists when filters are applied
-  const displayLists = useMemo(() => {
-    return filterState.timeRange !== 'all' || filterState.inviteCode
-      ? filteredLists
-      : lists;
-  }, [filterState, filteredLists, lists]);
+  // Use the filter hook for state management only
+  const { filterState, updateFilter } = useRewardFilter();
 
   const renderHeaderRight = useCallback(() => {
     return (
@@ -361,26 +306,28 @@ function EarnRewardPageWrapper() {
         <FilterButton filterState={filterState} onFilterChange={updateFilter} />
         <ExportButton
           subject={EExportSubject.Onchain}
-          timeRange={exportParams.timeRange}
-          inviteCode={exportParams.inviteCode}
+          timeRange={filterState.timeRange}
+          inviteCode={filterState.inviteCode}
         />
       </XStack>
     );
-  }, [filterState, updateFilter, exportParams]);
-
-  const fetchSales = useCallback((cursor?: string) => {
-    return backgroundApiProxy.serviceReferralCode.getEarnReward(cursor, true);
-  }, []);
-
-  const fetchTotalList = useCallback((cursor?: string) => {
-    return backgroundApiProxy.serviceReferralCode.getEarnReward(cursor);
-  }, []);
+  }, [filterState, updateFilter]);
 
   const onRefresh = useCallback(async () => {
     setIsLoading(true);
     const [salesResult, totalResult] = await Promise.allSettled([
-      fetchSales(),
-      fetchTotalList(),
+      backgroundApiProxy.serviceReferralCode.getEarnReward(
+        undefined,
+        true,
+        filterState.timeRange,
+        filterState.inviteCode,
+      ),
+      backgroundApiProxy.serviceReferralCode.getEarnReward(
+        undefined,
+        undefined,
+        filterState.timeRange,
+        filterState.inviteCode,
+      ),
     ]);
     const listBundles = [];
     let pending = '0';
@@ -444,15 +391,14 @@ function EarnRewardPageWrapper() {
     setVaultAmount(newVaultAmount);
     setAmount({ pending });
     setLists(listBundles);
-    setAllLists(listBundles); // Store for filtering
     setTimeout(() => {
       setIsLoading(false);
     }, 80);
-  }, [fetchSales, fetchTotalList]);
+  }, [filterState.timeRange, filterState.inviteCode]);
 
   useEffect(() => {
     void onRefresh();
-  }, [fetchSales, onRefresh]);
+  }, [onRefresh]);
 
   const ListHeaderComponent = useMemo(() => {
     return (
@@ -484,7 +430,7 @@ function EarnRewardPageWrapper() {
   }, [amount?.pending, intl, tourTimes, tourVisited]);
 
   const Content = useMemo(() => {
-    if ((displayLists[0]?.length || 0) + (displayLists[1]?.length || 0) === 0) {
+    if ((lists[0]?.length || 0) + (lists[1]?.length || 0) === 0) {
       return (
         <YStack>
           {ListHeaderComponent}
@@ -505,7 +451,7 @@ function EarnRewardPageWrapper() {
           })}
         >
           <Tabs.ScrollView style={{ paddingBottom: 40 }}>
-            <List listData={displayLists[0] || []} vaultAmount={vaultAmount} />
+            <List listData={lists[0] || []} vaultAmount={vaultAmount} />
           </Tabs.ScrollView>
         </Tabs.Tab>
         <Tabs.Tab
@@ -514,12 +460,12 @@ function EarnRewardPageWrapper() {
           })}
         >
           <Tabs.ScrollView style={{ paddingBottom: 40 }}>
-            <List listData={displayLists[1] || []} vaultAmount={vaultAmount} />
+            <List listData={lists[1] || []} vaultAmount={vaultAmount} />
           </Tabs.ScrollView>
         </Tabs.Tab>
       </Tabs.Container>
     );
-  }, [ListHeaderComponent, intl, displayLists, vaultAmount]);
+  }, [ListHeaderComponent, intl, lists, vaultAmount]);
 
   return (
     <Page>

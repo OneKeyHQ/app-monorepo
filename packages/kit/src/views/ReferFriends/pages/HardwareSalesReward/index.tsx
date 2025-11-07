@@ -94,22 +94,20 @@ function HardwareSalesRewardPageWrapper() {
     | undefined
   >();
 
-  // Use the filter hook with state data
-  const [allData, setAllData] = useState<IHardwareSalesRecord['items']>([]);
-  const { filterState, filteredData, updateFilter, exportParams } =
-    useRewardFilter(allData);
+  // Use the filter hook for state management only
+  const { filterState, updateFilter } = useRewardFilter();
 
   const renderHeaderRight = useCallback(() => {
     return (
       <XStack gap="$2">
         <FilterButton filterState={filterState} onFilterChange={updateFilter} />
         <ExportButton
-          timeRange={exportParams.timeRange}
-          inviteCode={exportParams.inviteCode}
+          timeRange={filterState.timeRange}
+          inviteCode={filterState.inviteCode}
         />
       </XStack>
     );
-  }, [filterState, updateFilter, exportParams]);
+  }, [filterState, updateFilter]);
 
   const fetchSales = useCallback((cursor?: string) => {
     return backgroundApiProxy.serviceReferralCode.getHardwareSales(cursor);
@@ -121,35 +119,35 @@ function HardwareSalesRewardPageWrapper() {
 
   const onRefresh = useCallback(() => {
     setIsLoading(true);
-    void Promise.allSettled([fetchSales(), fetchSummaryInfo()]).then(
-      ([salesResult, summaryResult]) => {
-        if (salesResult.status === 'fulfilled') {
-          const data = salesResult.value;
-          originalData.current = data.items;
-          setAllData(data.items);
-          // Set sections will be handled by the effect below
-        }
+    void Promise.allSettled([
+      backgroundApiProxy.serviceReferralCode.getHardwareSales(
+        undefined,
+        filterState.timeRange,
+        filterState.inviteCode,
+      ),
+      fetchSummaryInfo(),
+    ]).then(([salesResult, summaryResult]) => {
+      if (salesResult.status === 'fulfilled') {
+        const data = salesResult.value;
+        originalData.current = data.items;
+        setSections(formatSections(data.items));
+      }
 
-        if (summaryResult.status === 'fulfilled') {
-          const data = summaryResult.value;
-          setAmount({
-            available: data.HardwareSales.available?.[0]?.fiatValue || '0',
-            pending: data.HardwareSales.pending?.[0]?.fiatValue || '0',
-          });
-        }
-        setIsLoading(false);
-      },
-    );
-  }, [fetchSales, fetchSummaryInfo]);
+      if (summaryResult.status === 'fulfilled') {
+        const data = summaryResult.value;
+        setAmount({
+          available: data.HardwareSales.available?.[0]?.fiatValue || '0',
+          pending: data.HardwareSales.pending?.[0]?.fiatValue || '0',
+        });
+      }
+      setIsLoading(false);
+    });
+  }, [fetchSummaryInfo, filterState.timeRange, filterState.inviteCode]);
 
   useEffect(() => {
     onRefresh();
-  }, [fetchSales, fetchSummaryInfo, onRefresh]);
+  }, [onRefresh]);
 
-  // Update sections when filteredData changes
-  useEffect(() => {
-    setSections(formatSections(filteredData));
-  }, [filteredData]);
   const renderSectionHeader = useCallback(
     (item: { section: ISectionListItem }) => {
       if (item.section.title) {
@@ -163,8 +161,10 @@ function HardwareSalesRewardPageWrapper() {
     if (originalData.current.length < 1) {
       return;
     }
-    const data = await fetchSales(
+    const data = await backgroundApiProxy.serviceReferralCode.getHardwareSales(
       originalData.current[originalData.current.length - 1]._id,
+      filterState.timeRange,
+      filterState.inviteCode,
     );
     if (data.items.length > 0) {
       const uniqueItems = data.items.filter(
@@ -174,10 +174,9 @@ function HardwareSalesRewardPageWrapper() {
           ),
       );
       originalData.current.push(...uniqueItems);
-      setAllData([...originalData.current]);
-      // Sections will be updated by the effect watching filteredData
+      setSections(formatSections(originalData.current));
     }
-  }, [fetchSales]);
+  }, [filterState.timeRange, filterState.inviteCode]);
 
   const debounceFetchMore = useDebouncedCallback(fetchMore, 250);
 

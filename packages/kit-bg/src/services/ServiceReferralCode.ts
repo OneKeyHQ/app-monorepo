@@ -4,11 +4,11 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import type {
+  EExportTimeRange,
   IEarnPositionsResponse,
   IEarnRewardResponse,
   IEarnWalletHistory,
   IExportInviteDataParams,
-  IExportInviteDataResponse,
   IHardwareSalesRecord,
   IInviteCodeItem,
   IInviteCodeListResponse,
@@ -186,16 +186,28 @@ class ServiceReferralCode extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getHardwareSales(cursor?: string) {
+  async getHardwareSales(
+    cursor?: string,
+    timeRange?: EExportTimeRange,
+    inviteCode?: string,
+  ) {
     const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Rebate);
     const params: {
       subject: string;
       cursor?: string;
+      timeRange?: string;
+      inviteCode?: string;
     } = {
       subject: 'HardwareSales',
     };
     if (cursor) {
       params.cursor = cursor;
+    }
+    if (timeRange) {
+      params.timeRange = timeRange;
+    }
+    if (inviteCode) {
+      params.inviteCode = inviteCode;
     }
     const response = await client.get<{
       data: IHardwareSalesRecord;
@@ -215,17 +227,30 @@ class ServiceReferralCode extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getEarnReward(cursor?: string, available?: boolean) {
+  async getEarnReward(
+    cursor?: string,
+    available?: boolean,
+    timeRange?: EExportTimeRange,
+    inviteCode?: string,
+  ) {
     const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Rebate);
     const params: {
       cursor?: string;
       status?: string;
+      timeRange?: string;
+      inviteCode?: string;
     } = {};
     if (cursor) {
       params.cursor = cursor;
     }
     if (available) {
       params.status = 'AVAILABLE';
+    }
+    if (timeRange) {
+      params.timeRange = timeRange;
+    }
+    if (inviteCode) {
+      params.inviteCode = inviteCode;
     }
     const response = await client.get<{
       data: IEarnRewardResponse;
