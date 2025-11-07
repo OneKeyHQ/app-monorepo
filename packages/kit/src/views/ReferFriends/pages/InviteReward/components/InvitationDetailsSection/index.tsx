@@ -57,7 +57,7 @@ export function InvitationDetailsSection({
         translationId={ETranslations.referral_invitation_details}
       />
 
-      <XStack gap="$2" px="$5" alignItems="center">
+      <XStack gap="$2" px="$5" alignItems="center" jc="space-between">
         <SimpleTabs value={selectedTab} onChange={setSelectedTab} tabs={tabs} />
 
         {canCreateCode ? (

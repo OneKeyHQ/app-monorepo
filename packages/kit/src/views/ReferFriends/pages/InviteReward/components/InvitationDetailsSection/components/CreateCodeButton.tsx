@@ -61,8 +61,8 @@ export function CreateCodeButton({
 
   return (
     <Button
-      variant="secondary"
-      size="medium"
+      size="small"
+      variant="tertiary"
       icon="PlusSmallOutline"
       onPress={() => void handleCreateCode()}
       disabled={loading}

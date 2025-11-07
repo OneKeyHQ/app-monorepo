@@ -118,13 +118,19 @@ export function LevelAccordionItem({
                     <YStack key={subject || `${index}`} gap="$1.5">
                       <SizableText size="$bodyMd">{label}</SizableText>
                       <SizableText size="$bodyMd" color="$textSubdued">
-                        Rebate:{' '}
+                        {intl.formatMessage({
+                          id: ETranslations.referral_upgrade_you,
+                        })}
+                        :{' '}
                         <SizableText size="$bodyMdMedium" color="$textSuccess">
                           {rate.rebate}%
                         </SizableText>
                       </SizableText>
                       <SizableText size="$bodyMd" color="$textSubdued">
-                        Discount:{' '}
+                        {intl.formatMessage({
+                          id: ETranslations.referral_upgrade_user,
+                        })}
+                        :{' '}
                         <SizableText size="$bodyMdMedium" color="$textSuccess">
                           {rate.discount}%
                         </SizableText>

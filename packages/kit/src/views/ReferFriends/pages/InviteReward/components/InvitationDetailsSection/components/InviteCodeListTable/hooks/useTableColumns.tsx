@@ -39,7 +39,7 @@ export function useTableColumns(
       {
         title: intl.formatMessage({ id: ETranslations.referral_your_code }),
         dataIndex: EInviteCodeListTableColumn.CODE,
-        columnWidth: 192,
+        columnWidth: 150,
         render: (text: string) => <CodeCell code={text} />,
       },
       {
@@ -47,7 +47,7 @@ export function useTableColumns(
           id: ETranslations.referral_code_list_note,
         }),
         dataIndex: EInviteCodeListTableColumn.NOTE,
-        columnWidth: 200,
+        columnWidth: 150,
         render: (_text: string, record: IInviteCodeListItem) => (
           <NoteCell
             code={record.code}
@@ -62,7 +62,7 @@ export function useTableColumns(
         }),
         dataIndex: EInviteCodeListTableColumn.SALES_ORDERS,
         align: 'left',
-        columnWidth: 200,
+        columnWidth: 150,
         render: (value: number) => (
           <SizableText size="$bodyMdMedium" color="$text">
             {value}
@@ -74,7 +74,7 @@ export function useTableColumns(
           id: ETranslations.referral_code_list_wallets,
         }),
         dataIndex: EInviteCodeListTableColumn.ONCHAIN_WALLETS,
-        columnWidth: 200,
+        columnWidth: 150,
         render: (value: number) => (
           <SizableText size="$bodyMdMedium" color="$text">
             {value}
@@ -86,7 +86,7 @@ export function useTableColumns(
           id: ETranslations.referral_cumulative_rewards,
         }),
         dataIndex: EInviteCodeListTableColumn.CUMULATIVE_REWARDS,
-        columnWidth: 200,
+        columnWidth: 150,
         align: 'left',
         render: (value: string) => (
           <SizableText size="$bodyMdMedium" color="$text">
@@ -97,7 +97,7 @@ export function useTableColumns(
       {
         title: intl.formatMessage({ id: ETranslations.referral_code_list_at }),
         dataIndex: EInviteCodeListTableColumn.CREATED_AT,
-        columnWidth: 200,
+        columnWidth: 150,
         render: (date: string) => (
           <SizableText size="$bodyMdMedium" color="$text">
             {formatDate(date)}
