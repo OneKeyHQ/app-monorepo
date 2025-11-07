@@ -10,6 +10,7 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
+import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
@@ -183,7 +184,7 @@ function WalletList() {
   );
 }
 
-export default function YourReferred() {
+function YourReferredPageWrapper() {
   // Redirect to ReferAFriend page if user is not logged in
   useRedirectWhenNotLoggedIn();
 
@@ -226,5 +227,19 @@ export default function YourReferred() {
         </Tabs.Container>
       </Page.Body>
     </Page>
+  );
+}
+
+export default function YourReferred() {
+  return (
+    <AccountSelectorProviderMirror
+      config={{
+        sceneName: EAccountSelectorSceneName.home,
+        sceneUrl: '',
+      }}
+      enabledNum={[0]}
+    >
+      <YourReferredPageWrapper />
+    </AccountSelectorProviderMirror>
   );
 }

@@ -21,6 +21,7 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import { useSpotlight } from '@onekeyhq/kit/src/components/Spotlight';
 import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
@@ -267,7 +268,7 @@ function List({
 const buildAccountNetworkKey = (accountAddress: string, networkId: string) =>
   `${accountAddress}-${networkId}`;
 
-export default function EarnReward() {
+function EarnRewardPageWrapper() {
   // Redirect to ReferAFriend page if user is not logged in
   useRedirectWhenNotLoggedIn();
 
@@ -549,5 +550,19 @@ export default function EarnReward() {
         ) : null}
       </Page.Body>
     </Page>
+  );
+}
+
+export default function EarnReward() {
+  return (
+    <AccountSelectorProviderMirror
+      config={{
+        sceneName: EAccountSelectorSceneName.home,
+        sceneUrl: '',
+      }}
+      enabledNum={[0]}
+    >
+      <EarnRewardPageWrapper />
+    </AccountSelectorProviderMirror>
   );
 }

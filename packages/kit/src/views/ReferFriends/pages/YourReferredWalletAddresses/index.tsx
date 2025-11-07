@@ -4,7 +4,10 @@ import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import { ListView, Page, SizableText, useMedia } from '@onekeyhq/components';
-import { ControlledNetworkSelectorIconTrigger } from '@onekeyhq/kit/src/components/AccountSelector';
+import {
+  AccountSelectorProviderMirror,
+  ControlledNetworkSelectorIconTrigger,
+} from '@onekeyhq/kit/src/components/AccountSelector';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
 import { useRedirectWhenNotLoggedIn } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useRedirectWhenNotLoggedIn';
@@ -21,7 +24,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import type { RouteProp } from '@react-navigation/core';
 
-export default function YourReferredWalletAddresses() {
+function YourReferredWalletAddressesPageWrapper() {
   // Redirect to ReferAFriend page if user is not logged in
   useRedirectWhenNotLoggedIn();
 
@@ -99,5 +102,19 @@ export default function YourReferredWalletAddresses() {
         />
       </Page.Body>
     </Page>
+  );
+}
+
+export default function YourReferredWalletAddresses() {
+  return (
+    <AccountSelectorProviderMirror
+      config={{
+        sceneName: EAccountSelectorSceneName.home,
+        sceneUrl: '',
+      }}
+      enabledNum={[0]}
+    >
+      <YourReferredWalletAddressesPageWrapper />
+    </AccountSelectorProviderMirror>
   );
 }

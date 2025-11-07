@@ -15,6 +15,7 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
+import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
 import { Token } from '@onekeyhq/kit/src/components/Token';
@@ -67,7 +68,7 @@ const formatSections = (items: IInvitePaidHistory['items']) => {
   });
 };
 
-export default function RewardDistributionHistory() {
+function RewardDistributionHistoryPageWrapper() {
   // Redirect to ReferAFriend page if user is not logged in
   useRedirectWhenNotLoggedIn();
 
@@ -237,5 +238,19 @@ export default function RewardDistributionHistory() {
         )}
       </Page.Body>
     </Page>
+  );
+}
+
+export default function RewardDistributionHistory() {
+  return (
+    <AccountSelectorProviderMirror
+      config={{
+        sceneName: EAccountSelectorSceneName.home,
+        sceneUrl: '',
+      }}
+      enabledNum={[0]}
+    >
+      <RewardDistributionHistoryPageWrapper />
+    </AccountSelectorProviderMirror>
   );
 }

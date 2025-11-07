@@ -17,6 +17,7 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
+import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import { useSpotlight } from '@onekeyhq/kit/src/components/Spotlight';
@@ -69,7 +70,7 @@ const formatSections = (items: IHardwareSalesRecord['items']) => {
   });
 };
 
-export default function HardwareSalesReward() {
+function HardwareSalesRewardPageWrapper() {
   // Redirect to ReferAFriend page if user is not logged in
   useRedirectWhenNotLoggedIn();
 
@@ -368,5 +369,19 @@ export default function HardwareSalesReward() {
         )}
       </Page.Body>
     </Page>
+  );
+}
+
+export default function HardwareSalesReward() {
+  return (
+    <AccountSelectorProviderMirror
+      config={{
+        sceneName: EAccountSelectorSceneName.home,
+        sceneUrl: '',
+      }}
+      enabledNum={[0]}
+    >
+      <HardwareSalesRewardPageWrapper />
+    </AccountSelectorProviderMirror>
   );
 }
