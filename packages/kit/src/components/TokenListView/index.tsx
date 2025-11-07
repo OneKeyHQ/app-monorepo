@@ -442,7 +442,7 @@ function TokenListViewCmp(props: IProps) {
 
   return (
     <ListComponent
-      ref={ListComponentRef}
+      ref={ListComponentRef as any}
       // @ts-ignore
       estimatedItemSize={tableLayout ? undefined : 60}
       refreshControl={

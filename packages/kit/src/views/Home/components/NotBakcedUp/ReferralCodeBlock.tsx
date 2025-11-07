@@ -105,8 +105,7 @@ function ReferralCodeBlock({
           });
         if (
           walletStatus &&
-          (walletStatus.manuallyCloseReferralCodeBlock ||
-            !walletStatus.hasValue)
+          (walletStatus.manuallyCloseReferralCodeBlock || walletStatus.hasValue)
         ) {
           return false;
         }
