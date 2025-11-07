@@ -18,6 +18,7 @@ import {
 import type { IPickerImage } from '@onekeyhq/components/src/composite/ImageCrop/type';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import type { IDBDevice } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import { OneKeyAppError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -138,39 +139,56 @@ export default function NFTDetails() {
 
       let croppedImage: IPickerImage | undefined;
       try {
-        croppedImage = await ImageCrop.openCropImage(
+        const imageUri = await imageUtils.prepareImageForCrop(
           nft.metadata.image,
+        );
+
+        if (!imageUri) {
+          throw new OneKeyAppError({
+            message: intl.formatMessage({
+              id: ETranslations.global_unknown_error,
+            }),
+          });
+        }
+
+        croppedImage = await ImageCrop.openCropImage(
+          imageUri,
           config.size?.width,
           config.size?.height,
         );
-      } catch (error) {
+      } catch (error: any) {
+        if (error instanceof OneKeyAppError) {
+          Toast.error({
+            title: error.message,
+          });
+          setIsCollecting(false);
+          return;
+        }
+
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        const message = error?.message;
+        const cancelError =
+          typeof message === 'string' && message.includes('User cancelled');
+        if (cancelError) {
+          setIsCollecting(false);
+          return;
+        }
         // ignore error
       }
 
-      if (!croppedImage) {
+      if (!croppedImage || !croppedImage?.data) {
+        setIsCollecting(false);
         Toast.error({
           title: intl.formatMessage({
             id: ETranslations.global_unknown_error,
           }),
         });
+        return;
       }
 
       try {
         const name = nft.metadata?.name;
-
-        const imgBase64: string = croppedImage?.data ?? '';
-        const originW = croppedImage?.width ?? 0;
-        const originH = croppedImage?.height ?? 0;
-
-        const img = await imageUtils.resizeImage({
-          uri: imgBase64,
-
-          width: config.size?.width,
-          height: config.size?.height,
-
-          originW,
-          originH,
-        });
+        const imgBase64: string = croppedImage.data;
 
         const {
           screenHex: customScreenHex,
@@ -178,7 +196,7 @@ export default function NFTDetails() {
           blurScreenHex: customBlurScreenHex,
         } = await deviceHomeScreenUtils.buildCustomScreenHex(
           device.id,
-          img.uri,
+          imgBase64,
           device.deviceType,
           true,
           config,
