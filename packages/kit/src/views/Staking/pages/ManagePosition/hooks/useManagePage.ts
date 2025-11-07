@@ -149,6 +149,14 @@ export const useManagePage = ({
       remainingCap: managePageData.nums?.remainingCap,
       // claim
       claimable: managePageData.nums?.claimable,
+      // approve
+      approve: managePageData.approve
+        ? {
+            allowance: managePageData.approve.allowance,
+            approveType: managePageData.approve.approveType as any,
+            approveTarget: managePageData.approve.approveTarget,
+          }
+        : undefined,
     } as IProtocolInfo;
   }, [
     managePageData,

@@ -1153,10 +1153,6 @@ export interface IEarnInvestmentItemV2 {
       name: string;
       logoURI: string;
     };
-    approve?: {
-      approveType: EApproveType;
-      approveTarget: string;
-    };
   };
   assets: {
     token: {
