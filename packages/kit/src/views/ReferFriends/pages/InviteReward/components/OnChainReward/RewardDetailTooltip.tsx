@@ -58,7 +58,10 @@ export function RewardDetailTooltip({
                     </SizableText>
                   </XStack>
                   <YStack ai="flex-end">
-                    <NumberSizeableText formatter="balance" size="$bodyMdMedium">
+                    <NumberSizeableText
+                      formatter="balance"
+                      size="$bodyMdMedium"
+                    >
                       {amount}
                     </NumberSizeableText>
                     <Currency
