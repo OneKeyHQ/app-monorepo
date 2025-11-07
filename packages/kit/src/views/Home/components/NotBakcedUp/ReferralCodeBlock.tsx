@@ -108,14 +108,13 @@ function ReferralCodeBlock({
         return false;
       }
 
-      if (inTabList) {
-        const resp =
-          await backgroundApiProxy.serviceWalletStatus.getWalletStatus({
-            walletXfp: wallet?.xfp || '',
-          });
-        if (resp && (resp?.manuallyCloseReferralCodeBlock || resp?.hasValue)) {
-          return false;
-        }
+      const resp = await backgroundApiProxy.serviceWalletStatus.getWalletStatus(
+        {
+          walletXfp: wallet?.xfp || '',
+        },
+      );
+      if (resp && (resp?.manuallyCloseReferralCodeBlock || resp?.hasValue)) {
+        return false;
       }
 
       const referralCodeInfo =
@@ -130,13 +129,7 @@ function ReferralCodeBlock({
       }
       return referralCodeInfo?.walletId && !referralCodeInfo?.isBound;
     },
-    [
-      isHdOrHwWallet,
-      inTabList,
-      wallet?.id,
-      wallet?.xfp,
-      getReferralCodeBondStatus,
-    ],
+    [isHdOrHwWallet, wallet?.id, wallet?.xfp, getReferralCodeBondStatus],
     {
       initResult: undefined,
       watchLoading: true,
