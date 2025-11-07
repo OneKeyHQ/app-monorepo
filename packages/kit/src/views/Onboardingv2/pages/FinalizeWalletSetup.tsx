@@ -127,7 +127,6 @@ function FinalizeWalletSetupPage({
     activeAccount: { wallet },
   } = useActiveAccount({ num: 0 });
   const navigation = useAppNavigation();
-  const [showStep, setShowStep] = useState(false);
   const [bgAppColor, borderDisabledColor, borderActiveColor] = useThemeValue([
     '$bgApp',
     '$borderDisabled',
@@ -280,7 +279,6 @@ function FinalizeWalletSetupPage({
           // **** hardware wallet case
           // createHWWallet() is called before this page loaded
         }
-        setShowStep(true);
       } catch (error) {
         navigation.pop();
         throw error;
