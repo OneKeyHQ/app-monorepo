@@ -998,4 +998,5 @@ module.exports = [
   'Resizing',
   'OrderBook',
   'orderbook',
+  'Arial',
 ];
