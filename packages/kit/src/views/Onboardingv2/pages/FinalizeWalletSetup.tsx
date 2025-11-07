@@ -184,29 +184,11 @@ function FinalizeWalletSetupPage({
     isFirstCreateWallet.current = !isOnboardingDone;
   };
 
-  const {
-    shouldBondReferralCode,
-    getReferralCodeBondStatus,
-    bindWalletInviteCode,
-  } = useWalletBoundReferralCode({
-    entry: 'tab',
-    mnemonicType,
-  });
   const handleWalletSetupReadyInner = useCallback(async () => {
-    const needBondReferralCode = await getReferralCodeBondStatus({
-      walletId: wallet?.id,
-      skipIfTimeout: true,
-    });
-
-    // if (!needBondReferralCode) {
     setTimeout(() => {
       closePage();
-      if (isFirstCreateWallet.current) {
-        // void useBackupToggleDialog().maybeShow(true);
-      }
     }, 1000);
-    // }
-  }, [getReferralCodeBondStatus, closePage, wallet]);
+  }, [closePage]);
 
   const handleWalletSetupReady = useThrottledCallback(
     handleWalletSetupReadyInner,
