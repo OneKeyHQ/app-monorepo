@@ -153,7 +153,9 @@ function FinalizeWalletSetupPage({
   const pathLength = 150;
 
   // 队列管理
-  const stepQueue = useRef<EFinalizeWalletSetupSteps[]>([]);
+  const stepQueue = useRef<EFinalizeWalletSetupSteps[]>([
+    EFinalizeWalletSetupSteps.CreatingWallet,
+  ]);
   const isProcessing = useRef(false);
 
   const animatedProps = useAnimatedProps(() => {
@@ -200,13 +202,16 @@ function FinalizeWalletSetupPage({
     isProcessing.current = value;
   }, []);
 
+  const stepQueueIndex = useRef<number>(0);
   const processNextStep = useCallback(() => {
     if (isProcessing.current || stepQueue.current.length === 0) {
       return;
     }
-
     isProcessing.current = true;
-    const nextStep = stepQueue.current.shift()!;
+    if (stepQueueIndex.current !== stepQueue.current.length - 1) {
+      stepQueueIndex.current += 1;
+    }
+    const nextStep = stepQueue.current[stepQueueIndex.current];
     if (nextStep === EFinalizeWalletSetupSteps.Ready) {
       setTimeout(() => {
         void handleWalletSetupReady();
@@ -233,15 +238,19 @@ function FinalizeWalletSetupPage({
     });
   }, [changeIdProgress, handleWalletSetupReady, progress]);
 
-  const goNextStep = useCallback(
-    (step: EFinalizeWalletSetupSteps) => {
+  const goNextStep = useCallback((step: EFinalizeWalletSetupSteps) => {
+    if (!stepQueue.current.includes(step)) {
       stepQueue.current.push(step);
-      processNextStep();
-    },
-    [processNextStep],
-  );
+    }
+  }, []);
 
   const actions = useAccountSelectorActions();
+
+  useEffect(() => {
+    setTimeout(() => {
+      processNextStep();
+    });
+  }, [processNextStep]);
 
   useEffect(() => {
     void (async () => {
