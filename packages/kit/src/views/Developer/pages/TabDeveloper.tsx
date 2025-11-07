@@ -220,6 +220,14 @@ const TabDeveloper = () => {
               >
                 Clear All BLE ConnectIds (Test)
               </Button>
+
+              <Button
+                onPress={async () => {
+                  void backgroundApiProxy.serviceIpTable.runFullSpeedTest();
+                }}
+              >
+                IP_TABLE_TEST
+              </Button>
             </PartContainer>
 
             <PartContainer title="Async Import Test">

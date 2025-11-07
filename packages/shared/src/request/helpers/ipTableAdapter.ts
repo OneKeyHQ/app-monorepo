@@ -1,6 +1,7 @@
 import axios, { AxiosHeaders } from 'axios';
 
 import { OneKeyLocalError } from '../../errors';
+import { getRequestHeaders } from '../Interceptor';
 import requestHelper from '../requestHelper';
 
 import { isSniSupported, sniRequest } from './sniRequest';
@@ -15,7 +16,7 @@ import type {
 /**
  * Debug logging helper - only logs in development mode
  */
-const DEBUG = true;
+const DEBUG = false;
 const debugLog = (...args: any[]) => {
   if (DEBUG) {
     console.log(...args);
@@ -30,6 +31,14 @@ const debugError = (...args: any[]) => {
   // Always log errors, even in production
   console.error(...args);
 };
+
+/**
+ * Callback for reporting SNI failures
+ * Declared here to be accessible in createIpTableAdapter
+ */
+let reportSniFailureCallback:
+  | ((domain: string, ip: string, error: string) => void)
+  | null = null;
 
 /**
  * Extract root domain from hostname
@@ -87,7 +96,7 @@ async function shouldUseIpTable(): Promise<boolean> {
 /**
  * Get selected IP for a given hostname from IP Table configuration
  * Uses dynamic configuration from requestHelper
- * @returns IP address if found and enabled, null otherwise
+ * @returns IP address if found and enabled, null otherwise (empty string means use domain directly)
  */
 async function getSelectedIpForHost(hostname: string): Promise<string | null> {
   try {
@@ -110,6 +119,13 @@ async function getSelectedIpForHost(hostname: string): Promise<string | null> {
 
     // First, try to get selected IP from runtime.selections
     const selectedIp = runtime.selections[rootDomain];
+
+    // Empty string means explicitly use domain (not IP)
+    if (selectedIp === '') {
+      debugLog(`[IpTableAdapter] Explicitly using domain for: ${rootDomain}`);
+      return null;
+    }
+
     if (selectedIp) {
       debugLog(
         `[IpTableAdapter] Using selected IP from runtime: ${rootDomain} -> ${selectedIp}`,
@@ -430,6 +446,11 @@ export function createIpTableAdapter(
         request: {},
       };
     } catch (error) {
+      // Report SNI failure if callback is registered
+      if (reportSniFailureCallback) {
+        reportSniFailureCallback(hostname, selectedIp, String(error));
+      }
+
       // If SNI request throws error, use original adapter
       debugWarn(
         '[IpTableAdapter] SNI request failed, falling back to original adapter:',
@@ -450,4 +471,103 @@ export function createAxiosWithIpTable(axiosConfig: AxiosRequestConfig = {}) {
     ...axiosConfig,
     adapter: ipTableAdapter,
   });
+}
+
+// ========== Speed Test Utilities ==========
+
+/**
+ * Test endpoint speed using domain directly (no IP Table)
+ */
+export async function testDomainSpeed(
+  domain: string,
+  path: string,
+  timeout = 3000,
+): Promise<number> {
+  const startTime = Date.now();
+
+  try {
+    // Create a plain axios instance without IP Table adapter
+    const plainAxios = axios.create();
+
+    const headers = await getRequestHeaders();
+
+    // Build full URL: https://wallet.{domain}/wallet/v1/health
+    const fullUrl = `https://wallet.${domain}${path}`;
+
+    await plainAxios.get(fullUrl, {
+      timeout,
+      headers,
+    });
+
+    const latency = Date.now() - startTime;
+    debugLog(`[IpTableAdapter] Domain test: ${fullUrl} -> ${latency}ms`);
+    return latency;
+  } catch (error) {
+    debugWarn(`[IpTableAdapter] Domain test failed for ${domain}:`, error);
+    return Infinity;
+  }
+}
+
+/**
+ * Test endpoint speed using IP with SNI
+ */
+export async function testIpSpeed(
+  ip: string,
+  domain: string,
+  path: string,
+  timeout = 3000,
+): Promise<number> {
+  const startTime = Date.now();
+
+  try {
+    // Check if SNI is supported
+    if (!isSniSupported()) {
+      debugLog('[IpTableAdapter] SNI not supported, cannot test IP speed');
+      return Infinity;
+    }
+
+    // Get OneKey request headers
+    const headers = await getRequestHeaders();
+
+    // SNI hostname should be: wallet.{domain}
+    const sniHostname = `wallet.${domain}`;
+
+    const response = await sniRequest({
+      ip,
+      hostname: sniHostname,
+      path,
+      method: 'GET',
+      timeout,
+      port: 443,
+      headers,
+      body: null,
+    });
+
+    if (!response) {
+      debugWarn(`[IpTableAdapter] IP test returned null for ${ip}`);
+      return Infinity;
+    }
+
+    const latency = Date.now() - startTime;
+    debugLog(
+      `[IpTableAdapter] IP test: ${ip} -> ${sniHostname}${path} -> ${latency}ms`,
+    );
+    return latency;
+  } catch (error) {
+    debugWarn(`[IpTableAdapter] IP test failed for ${ip}:`, error);
+    return Infinity;
+  }
+}
+
+// ========== SNI Failure Reporting ==========
+
+/**
+ * Set callback for SNI failure reporting
+ * Called by ServiceIpTable during initialization
+ */
+export function setReportSniFailureCallback(
+  callback: (domain: string, ip: string, error: string) => void,
+) {
+  reportSniFailureCallback = callback;
+  debugLog('[IpTableAdapter] SNI failure callback registered');
 }
