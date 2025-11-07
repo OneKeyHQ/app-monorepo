@@ -40,7 +40,10 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import { useFirmwareUpdateActions } from '../../FirmwareUpdate/hooks/useFirmwareUpdateActions';
 import { OnboardingLayout } from '../components/OnboardingLayout';
-import { useDeviceConnect } from '../hooks/useDeviceConnect';
+import {
+  useConnectDeviceError,
+  useDeviceConnect,
+} from '../hooks/useDeviceConnect';
 
 import type { KnownDevice, SearchDevice } from '@onekeyfe/hd-core';
 
@@ -317,6 +320,26 @@ function CheckAndUpdatePage({
     });
   }, [checkDeviceInitialized, intl]);
 
+  useConnectDeviceError(
+    useCallback(
+      (errorMessageId: ETranslations) => {
+        setSteps((prev) => {
+          const inProgressStep = prev.find(
+            (step) => step.state === ECheckAndUpdateStepState.InProgress,
+          );
+          if (inProgressStep) {
+            inProgressStep.state = ECheckAndUpdateStepState.Error;
+            inProgressStep.errorMessage = intl.formatMessage({
+              id: errorMessageId,
+            });
+          }
+          return [...prev];
+        });
+      },
+      [intl],
+    ),
+  );
+
   const DEVICE_SETUP_INSTRUCTIONS = useMemo(() => {
     return [
       {
@@ -386,7 +409,7 @@ function CheckAndUpdatePage({
               // Don't show setup-on-device until firmware-check is completed
               if (
                 step.id === 'setup-on-device' &&
-                steps[1].state !== 'success'
+                steps[1].state !== ECheckAndUpdateStepState.Success
               ) {
                 return null;
               }
@@ -396,8 +419,8 @@ function CheckAndUpdatePage({
                   {/* highlight background */}
                   <AnimatePresence>
                     {step.state &&
-                    step.state !== 'success' &&
-                    step.state !== 'idle' ? (
+                    step.state !== ECheckAndUpdateStepState.Success &&
+                    step.state !== ECheckAndUpdateStepState.Idle ? (
                       <YStack
                         animation="quick"
                         animateOnly={['opacity', 'transform']}
@@ -435,7 +458,7 @@ function CheckAndUpdatePage({
                   {index !== steps.length - 1 &&
                   !(
                     steps[index + 1]?.id === 'setup-on-device' &&
-                    steps[1].state !== 'success'
+                    steps[1].state !== ECheckAndUpdateStepState.Success
                   ) ? (
                     <YStack
                       w={2}
@@ -492,7 +515,7 @@ function CheckAndUpdatePage({
                         width={step.id === 'setup-on-device' ? 48 : 64}
                         height={step.id === 'setup-on-device' ? 48 : 64}
                       />
-                      {step.state !== 'idle' ? (
+                      {step.state !== ECheckAndUpdateStepState.Idle ? (
                         <YStack
                           position="absolute"
                           right={-9}
@@ -507,7 +530,8 @@ function CheckAndUpdatePage({
                           justifyContent="center"
                         >
                           <AnimatePresence exitBeforeEnter initial={false}>
-                            {step.state === 'inProgress' ? (
+                            {step.state ===
+                            ECheckAndUpdateStepState.InProgress ? (
                               <Spinner
                                 key="spinner"
                                 size="small"
@@ -517,7 +541,7 @@ function CheckAndUpdatePage({
                                 scale={0.8}
                               />
                             ) : null}
-                            {step.state === 'error' ? (
+                            {step.state === ECheckAndUpdateStepState.Error ? (
                               <YStack
                                 animation="quick"
                                 enterStyle={{ scale: 0.8, opacity: 0 }}
@@ -531,7 +555,7 @@ function CheckAndUpdatePage({
                                 />
                               </YStack>
                             ) : null}
-                            {step.state === 'warning' ? (
+                            {step.state === ECheckAndUpdateStepState.Warning ? (
                               <YStack
                                 animation="quick"
                                 enterStyle={{ scale: 0.8, opacity: 0 }}
@@ -545,7 +569,7 @@ function CheckAndUpdatePage({
                                 />
                               </YStack>
                             ) : null}
-                            {step.state === 'success' ? (
+                            {step.state === ECheckAndUpdateStepState.Success ? (
                               <YStack
                                 animation="quick"
                                 enterStyle={{ scale: 0.8, opacity: 0 }}
@@ -574,7 +598,7 @@ function CheckAndUpdatePage({
                   </XStack>
                   <HeightTransition initialHeight={0}>
                     {step.id === 'setup-on-device' &&
-                    step.state === 'warning' ? (
+                    step.state === ECheckAndUpdateStepState.Warning ? (
                       <YStack pt="$8" gap="$5">
                         <SizableText size="$bodyMdMedium" color="$textInfo">
                           {intl.formatMessage({
@@ -643,7 +667,7 @@ function CheckAndUpdatePage({
                     ) : null}
                     {/* update */}
                     {step.id === 'firmware-check' &&
-                    step.state === 'warning' ? (
+                    step.state === ECheckAndUpdateStepState.Warning ? (
                       <XStack
                         gap="$2"
                         mt="$4"
@@ -681,7 +705,7 @@ function CheckAndUpdatePage({
                       </XStack>
                     ) : null}
                     {/* fallback */}
-                    {step.state === 'error' ? (
+                    {step.state === ECheckAndUpdateStepState.Error ? (
                       <XStack
                         gap="$2"
                         mt="$4"
@@ -719,7 +743,9 @@ function CheckAndUpdatePage({
               );
             })}
             <AnimatePresence initial={false}>
-              {!steps.some((step) => step.state !== 'idle') ? (
+              {!steps.some(
+                (step) => step.state !== ECheckAndUpdateStepState.Idle,
+              ) ? (
                 <Button
                   animation="quick"
                   animateOnly={['opacity', 'transform']}
