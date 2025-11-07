@@ -39,7 +39,6 @@ function ReferralLevelContent({ data }: { data: IInviteLevelDetail }) {
             id: ETranslations.referral_referral_level,
           })}
         />
-        <UpgradeProgressTitle />
         {currentLevelInfo ? (
           <CurrentLevelSection
             currentLevel={data.currentLevel}
@@ -47,6 +46,8 @@ function ReferralLevelContent({ data }: { data: IInviteLevelDetail }) {
             levelLabel={currentLevelInfo.label}
           />
         ) : null}
+        <UpgradeProgressTitle />
+
         <LevelListSection levels={data.levels} />
       </YStack>
     </ScrollView>

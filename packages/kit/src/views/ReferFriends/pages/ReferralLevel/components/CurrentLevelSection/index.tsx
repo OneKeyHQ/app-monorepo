@@ -1,6 +1,7 @@
 import { useIntl } from 'react-intl';
 
 import {
+  Badge,
   Image,
   SizableText,
   Stack,
@@ -22,50 +23,33 @@ export function CurrentLevelSection({
   const intl = useIntl();
 
   return (
-    <YStack
-      gap="$3"
-      p="$4"
-      borderRadius="$3"
-      borderWidth="$0.5"
-      borderColor="$borderSubdued"
-      bg="$bgSubdued"
-    >
-      {/* Header with level icon and name */}
-      <XStack gap="$3" ai="center">
-        <Stack w="$10" h="$10" ai="center" jc="center">
-          <Image w="$10" h="$10" src={levelIcon} />
-        </Stack>
-        <YStack flex={1} gap="$1">
-          <SizableText size="$headingLg" color="$text">
+    <XStack gap="$3" p="$4" borderRadius="$3" bg="$bgSubdued">
+      <Stack w="$14" h="$14" ai="center" jc="center">
+        <Image w="$14" h="$14" src={levelIcon} />
+      </Stack>
+
+      <YStack gap="$1">
+        <XStack gap="$2.5" ai="center">
+          <SizableText size="$headingXl" color="$text">
             {levelLabel}
           </SizableText>
-          <Stack
-            bg="$bgInfo"
-            px="$2"
-            py="$0.5"
-            borderRadius="$1"
-            alignSelf="flex-start"
-          >
-            <SizableText size="$bodySm" color="$textInfo">
-              {intl.formatMessage({ id: ETranslations.global_current })}
-            </SizableText>
-          </Stack>
-        </YStack>
-      </XStack>
+          <Badge badgeSize="lg" alignSelf="flex-start">
+            {intl.formatMessage({ id: ETranslations.global_current })}
+          </Badge>
+        </XStack>
 
-      {/* Description */}
-      <YStack gap="$2">
-        <SizableText size="$bodyMd" color="$textSubdued">
+        {/* Description */}
+        <SizableText size="$bodyMd" color="$textDisabled">
           {intl.formatMessage({
             id: ETranslations.referral_referral_level_desc1,
           })}
         </SizableText>
-        <SizableText size="$bodyMd" color="$textSubdued">
+        <SizableText size="$bodyMd" color="$textDisabled">
           {intl.formatMessage({
             id: ETranslations.referral_referral_level_desc2,
           })}
         </SizableText>
       </YStack>
-    </YStack>
+    </XStack>
   );
 }

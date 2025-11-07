@@ -478,6 +478,7 @@ function EarnRewardPageWrapper() {
         />
       )}
       <Page.Body>
+        {renderHeaderRight()}
         {Content}
         {isLoading || !lists[0] || !lists[1] ? (
           <YStack
