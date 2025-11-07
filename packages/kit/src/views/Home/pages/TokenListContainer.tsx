@@ -1943,6 +1943,7 @@ function TokenListContainer({
       isAllNetworks={network?.isAllNetworks}
       homeDefaultTokenMap={homeDefaultTokenMap}
       withReferralCode
+      withReceiveInfo
       {...(media.gtLg && {
         tableLayout: true,
       })}

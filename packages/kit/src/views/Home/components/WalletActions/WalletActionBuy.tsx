@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react';
 import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -13,12 +14,24 @@ import { useFiatCrypto } from '@onekeyhq/kit/src/views/FiatCrypto/hooks';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import type { IWalletActionBaseParams } from '@onekeyhq/shared/src/logger/scopes/wallet/scenes/walletActions';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
-export function WalletActionBuy({ onClose }: { onClose: () => void }) {
+export function WalletActionBuy({
+  onClose,
+  renderTrigger,
+  source,
+}: {
+  onClose: () => void;
+  renderTrigger?: (props: {
+    onPress: () => void;
+    disabled: boolean;
+  }) => ReactElement;
+  source?: IWalletActionBaseParams['source'];
+}) {
   const {
     activeAccount: { network, account, wallet, vaultSettings, indexedAccount },
   } = useActiveAccount({ num: 0 });
@@ -68,7 +81,7 @@ export function WalletActionBuy({ onClose }: { onClose: () => void }) {
     defaultLogger.wallet.walletActions.actionBuy({
       walletType: wallet?.type ?? '',
       networkId: network?.id ?? '',
-      source: 'homePage',
+      source: source ?? 'homePage',
       isSoftwareWalletOnlyUser,
     });
 
@@ -81,6 +94,7 @@ export function WalletActionBuy({ onClose }: { onClose: () => void }) {
     wallet,
     isSoftwareWalletOnlyUser,
     onClose,
+    source,
   ]);
 
   if (
@@ -133,6 +147,13 @@ export function WalletActionBuy({ onClose }: { onClose: () => void }) {
         doubleConfirm
       />
     );
+  }
+
+  if (renderTrigger) {
+    return renderTrigger({
+      disabled: isBuyDisabled,
+      onPress: handleBuyToken,
+    });
   }
 
   return (

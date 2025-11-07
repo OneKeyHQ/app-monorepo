@@ -70,6 +70,7 @@ type IProps = {
   withSmallBalanceTokens?: boolean;
   withSwapAction?: boolean;
   withReferralCode?: boolean;
+  withReceiveInfo?: boolean;
   inTabList?: boolean;
   onManageToken?: () => void;
   manageTokenEnabled?: boolean;
@@ -143,6 +144,7 @@ function TokenListViewCmp(props: IProps) {
     networkId,
     indexedAccountId,
     withReferralCode,
+    withReceiveInfo,
   } = props;
 
   const [activeAccountTokenList] = useActiveAccountTokenListAtom();
@@ -460,6 +462,7 @@ function TokenListViewCmp(props: IProps) {
             {...(tokens.length > 0 && {
               tableLayout,
             })}
+            withReceiveInfo={withReceiveInfo}
             withReferralCode={withReferralCode}
           />
         ) : null

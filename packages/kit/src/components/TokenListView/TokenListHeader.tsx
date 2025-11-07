@@ -14,12 +14,14 @@ import {
   useTokenListSortAtom,
 } from '../../states/jotai/contexts/tokenList';
 import ReferralCodeBlock from '../../views/Home/components/NotBakcedUp/ReferralCodeBlock';
+import { ReceiveInfo } from '../../views/Home/components/ReceiveInfo';
 
 type IProps = {
   filteredTokens: IAccountToken[];
   tableLayout?: boolean;
   onManageToken?: () => void;
   withReferralCode?: boolean;
+  withReceiveInfo?: boolean;
   manageTokenEnabled?: boolean;
   recomputeLayout: () => void;
 };
@@ -74,6 +76,7 @@ function TokenListHeader({
   tableLayout,
   recomputeLayout,
   withReferralCode,
+  withReceiveInfo,
 }: IProps) {
   const intl = useIntl();
   const [{ sortType, sortDirection }] = useTokenListSortAtom();
@@ -96,6 +99,9 @@ function TokenListHeader({
 
   return (
     <YStack>
+      {withReceiveInfo ? (
+        <ReceiveInfo recomputeLayout={recomputeLayout} closable />
+      ) : null}
       {withReferralCode ? (
         <ReferralCodeBlock
           inTabList

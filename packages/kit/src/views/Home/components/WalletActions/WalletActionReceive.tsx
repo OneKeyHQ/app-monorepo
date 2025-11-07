@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react';
 import { useCallback, useMemo } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -11,6 +12,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import type { IWalletActionBaseParams } from '@onekeyhq/shared/src/logger/scopes/wallet/scenes/walletActions';
 
 import { RawActions } from './RawActions';
 
@@ -18,8 +20,15 @@ import type { IActionCustomization } from './types';
 
 function WalletActionReceive({
   customization,
+  renderTrigger,
+  source,
 }: {
   customization?: IActionCustomization;
+  renderTrigger?: (props: {
+    onPress: () => void;
+    disabled: boolean;
+  }) => ReactElement;
+  source?: IWalletActionBaseParams['source'];
 } = {}) {
   const {
     activeAccount: {
@@ -68,7 +77,7 @@ function WalletActionReceive({
     defaultLogger.wallet.walletActions.actionReceive({
       walletType: wallet?.type ?? '',
       networkId: network?.id ?? '',
-      source: 'homePage',
+      source: source ?? 'homePage',
       isSoftwareWalletOnlyUser,
     });
     if (customization?.onPress) {
@@ -79,12 +88,20 @@ function WalletActionReceive({
   }, [
     wallet?.id,
     wallet?.type,
+    source,
     customization,
     handleOnReceive,
     network?.isAllNetworks,
     network?.id,
     isSoftwareWalletOnlyUser,
   ]);
+
+  if (renderTrigger) {
+    return renderTrigger({
+      disabled: customization?.disabled ?? isReceiveDisabled,
+      onPress: handleReceiveOnPress,
+    });
+  }
 
   return (
     <RawActions.Receive

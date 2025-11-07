@@ -12,6 +12,7 @@ import type { IToken } from '../../types/token';
 
 export enum EModalReceiveRoutes {
   ReceiveToken = 'ReceiveToken',
+  ReceiveSelector = 'ReceiveSelector',
   CreateInvoice = 'CreateInvoice',
   ReceiveInvoice = 'ReceiveInvoice',
   ReceiveSelectToken = 'ReceiveSelectToken',
@@ -21,6 +22,7 @@ export enum EModalReceiveRoutes {
 }
 
 export type IModalReceiveParamList = {
+  [EModalReceiveRoutes.ReceiveSelector]: undefined;
   [EModalReceiveRoutes.CreateInvoice]: {
     accountId: string;
     networkId: string;
