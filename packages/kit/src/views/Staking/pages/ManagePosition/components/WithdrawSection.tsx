@@ -18,11 +18,13 @@ export const WithdrawSection = ({
   networkId,
   tokenInfo,
   protocolInfo,
+  isDisabled,
 }: {
   accountId: string;
   networkId: string;
   tokenInfo?: IEarnTokenInfo;
   protocolInfo?: IProtocolInfo;
+  isDisabled?: boolean;
 }) => {
   const providerName = useMemo(
     () => protocolInfo?.provider ?? '',
@@ -103,6 +105,7 @@ export const WithdrawSection = ({
           : undefined
       }
       protocolVault={protocolInfo?.vault ?? ''}
+      isDisabled={isDisabled}
     />
   );
 };

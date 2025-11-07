@@ -21,62 +21,62 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
-import type { ISupportedSymbol } from '@onekeyhq/shared/types/earn';
-import type {
-  IEarnPortfolioInvestment,
-  IEarnText,
-  IEarnToken,
-  IEarnTokenInfo,
-  IProtocolInfo,
-} from '@onekeyhq/shared/types/staking';
+import type { IEarnPortfolioInvestment } from '@onekeyhq/shared/types/staking';
 
 import { useCurrency } from '../../../components/Currency';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
-import { EarnActionIcon } from '../../Staking/components/ProtocolDetails/EarnActionIcon';
 import { EarnText } from '../../Staking/components/ProtocolDetails/EarnText';
 import { EarnTooltip } from '../../Staking/components/ProtocolDetails/EarnTooltip';
-import { useProtocolDetails } from '../../Staking/pages/ManagePosition/hooks/useProtocolDetails';
+import { buildLocalTxStatusSyncId } from '../../Staking/utils/utils';
 import { useEarnPortfolio } from '../hooks/useEarnPortfolio';
+import { usePortfolioAction } from '../hooks/usePortfolioAction';
 
 const WrappedActionButton = ({
-  button,
-  protocolInfo,
-  tokenInfo,
-  token,
-  text,
+  asset,
+  reward,
 }: {
-  button: IEarnPortfolioInvestment['assets'][number]['rewardAssets'][number]['button'];
-  protocolInfo?: IProtocolInfo;
-  tokenInfo?: IEarnTokenInfo;
-  token?: {
-    info: IEarnToken;
-    price: string;
-  };
-  text: IEarnText;
+  asset: IEarnPortfolioInvestment['assets'][number];
+  reward: IEarnPortfolioInvestment['assets'][number]['rewardAssets'][number];
 }) => {
+  const { activeAccount } = useActiveAccount({ num: 0 });
+  const { account, indexedAccount } = activeAccount;
+
+  const { loading, handleAction } = usePortfolioAction({
+    accountId: account?.id || '',
+    networkId: asset.metadata.network.networkId,
+    indexedAccountId: indexedAccount?.id,
+    symbol: asset.token.info.symbol,
+    provider: asset.metadata.protocol.providerDetail.code,
+    vault: asset.metadata.protocol.vault,
+    providerLogoURI: asset.metadata.protocol.providerDetail.logoURI,
+    stakeTag: buildLocalTxStatusSyncId({
+      providerName: asset.metadata.protocol.providerDetail.code,
+      tokenSymbol: asset.token.info.symbol,
+    }),
+  });
+
   return (
-    <EarnActionIcon
-      actionIcon={button}
-      protocolInfo={protocolInfo}
-      tokenInfo={tokenInfo}
-      token={token?.info}
-      // eslint-disable-next-line react/no-unstable-nested-components
-      trigger={({ onPress, loading, disabled }) => {
-        return (
-          <Button
-            p="0"
-            variant="link"
-            size="small"
-            onPress={onPress}
-            cursor={disabled ? 'not-allowed' : 'pointer'}
-            loading={loading}
-            disabled={disabled}
-          >
-            {text.text}
-          </Button>
-        );
+    <Button
+      p="0"
+      variant="link"
+      size="small"
+      loading={loading}
+      disabled={loading || reward.button.disabled}
+      cursor={reward.button.disabled ? 'not-allowed' : 'pointer'}
+      onPress={() => {
+        const buttonData =
+          'data' in reward.button ? reward.button.data : undefined;
+        handleAction({
+          actionIcon: reward.button,
+          token: buttonData?.token,
+          indexedAccountId: indexedAccount?.id,
+        });
       }}
-    />
+    >
+      {typeof reward.button.text === 'string'
+        ? reward.button.text
+        : reward.button.text?.text}
+    </Button>
   );
 };
 
@@ -147,20 +147,6 @@ const ActionField = ({
 }: {
   asset: IEarnPortfolioInvestment['assets'][number];
 }) => {
-  const { activeAccount } = useActiveAccount({ num: 0 });
-  const { account, indexedAccount } = activeAccount;
-
-  const { isLoading, tokenInfo, protocolInfo, detailInfo } = useProtocolDetails(
-    {
-      accountId: account?.id || '',
-      networkId: asset.metadata.network.networkId,
-      indexedAccountId: indexedAccount?.id,
-      symbol: asset.token.info.symbol as ISupportedSymbol,
-      provider: asset.metadata.protocol.providerDetail.code,
-      vault: asset.metadata.protocol.vault,
-    },
-  );
-
   return (
     <YStack gap="$1">
       {asset.rewardAssets?.map((reward, index) => (
@@ -172,15 +158,7 @@ const ActionField = ({
             color="$textSubdued"
             text={reward.description}
           />
-          {!isLoading ? (
-            <WrappedActionButton
-              button={reward.button}
-              protocolInfo={protocolInfo}
-              tokenInfo={tokenInfo}
-              token={detailInfo?.subscriptionValue?.token}
-              text={reward.button.text as IEarnText}
-            />
-          ) : null}
+          <WrappedActionButton asset={asset} reward={reward} />
         </XStack>
       ))}
     </YStack>

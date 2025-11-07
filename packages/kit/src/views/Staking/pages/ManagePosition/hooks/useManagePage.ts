@@ -160,6 +160,16 @@ export const useManagePage = ({
     earnAccount,
   ]);
 
+  const depositDisabled = useMemo(
+    () => managePageData?.deposit?.disabled ?? false,
+    [managePageData?.deposit?.disabled],
+  );
+
+  const withdrawDisabled = useMemo(
+    () => managePageData?.withdraw?.disabled ?? false,
+    [managePageData?.withdraw?.disabled],
+  );
+
   return {
     managePageData,
     isLoading,
@@ -168,5 +178,7 @@ export const useManagePage = ({
     earnAccount,
     refreshAccount,
     protocolInfo,
+    depositDisabled,
+    withdrawDisabled,
   };
 };

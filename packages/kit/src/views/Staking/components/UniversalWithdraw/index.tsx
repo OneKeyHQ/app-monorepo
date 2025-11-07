@@ -79,6 +79,8 @@ type IUniversalWithdrawProps = {
 
   identity?: string;
 
+  isDisabled?: boolean;
+
   onConfirm?: ({
     amount,
     withdrawAll,
@@ -108,6 +110,7 @@ export function UniversalWithdraw({
   decimals,
   protocolVault,
   identity,
+  isDisabled,
 
   onConfirm,
 }: PropsWithChildren<IUniversalWithdrawProps>) {
@@ -339,12 +342,14 @@ export function UniversalWithdraw({
 
   const isDisable = useMemo<boolean>(
     () =>
+      isDisabled ||
       isNaN(amountValue) ||
       BigNumber(amountValue).isLessThanOrEqualTo(0) ||
       isCheckAmountMessageError ||
       checkAmountAlerts.length > 0 ||
       checkAmountLoading,
     [
+      isDisabled,
       amountValue,
       isCheckAmountMessageError,
       checkAmountAlerts.length,

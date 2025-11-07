@@ -26,11 +26,13 @@ export const StakeSection = ({
   networkId,
   tokenInfo,
   protocolInfo,
+  isDisabled,
 }: {
   accountId: string;
   networkId: string;
   tokenInfo?: IEarnTokenInfo;
   protocolInfo?: IProtocolInfo;
+  isDisabled?: boolean;
 }) => {
   const { result: estimateFeeUTXO } = usePromiseResult(async () => {
     if (!networkUtils.isBTCNetwork(networkId)) {
@@ -228,6 +230,7 @@ export const StakeSection = ({
       onFeeRateChange={onFeeRateChange}
       tokenInfo={tokenInfo}
       protocolInfo={protocolInfo}
+      isDisabled={isDisabled}
       approveTarget={{
         accountId,
         networkId,

@@ -16,7 +16,6 @@ import type {
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import type { IEarnToken } from '@onekeyhq/shared/types/staking';
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 
 import { type IOnSelectOption, OptionList } from '../../components/OptionList';
@@ -34,19 +33,20 @@ const ClaimOptions = () => {
     EModalStakingRoutes.ClaimOptions
   >();
   const appNavigation = useAppNavigation();
-  const { accountId, networkId, protocolInfo, tokenInfo } = appRoute.params;
+  const { accountId, networkId, protocolInfo, tokenInfo, symbol, provider } =
+    appRoute.params;
 
-  const provider = protocolInfo?.provider || '';
-  const symbol = tokenInfo?.token.symbol || '';
+  const finalProvider = provider || protocolInfo?.provider || '';
+  const finalSymbol = symbol || tokenInfo?.token.symbol || '';
   const { result, isLoading, run } = usePromiseResult(
     () =>
       backgroundApiProxy.serviceStaking.getClaimableList({
         networkId,
         accountId,
-        symbol,
-        provider,
+        symbol: finalSymbol,
+        provider: finalProvider,
       }),
-    [accountId, networkId, symbol, provider],
+    [accountId, networkId, finalSymbol, finalProvider],
     { watchLoading: true },
   );
 
@@ -54,23 +54,24 @@ const ClaimOptions = () => {
 
   const onPress = useCallback<IOnSelectOption>(
     async ({ item }) => {
+      const receiveToken = earnUtils.convertEarnTokenToIToken(tokenInfo?.token);
+
       await handleClaim({
         identity: item.id,
         amount: item.amount,
-        symbol,
-        provider,
+        symbol: finalSymbol,
+        provider: finalProvider,
         protocolVault: protocolInfo?.vault || '',
         vault: protocolInfo?.vault || '',
         stakingInfo: {
           label: EEarnLabels.Claim,
           protocol: earnUtils.getEarnProviderName({
-            providerName: provider,
+            providerName: finalProvider,
           }),
           protocolLogoURI: protocolInfo?.providerDetail.logoURI,
-          receive: {
-            token: tokenInfo?.token as IEarnToken,
-            amount: item.amount,
-          },
+          receive: receiveToken
+            ? { token: receiveToken, amount: item.amount }
+            : undefined,
           tags: protocolInfo?.stakeTag ? [protocolInfo.stakeTag] : [],
         },
         onSuccess: async (txs) => {
@@ -88,14 +89,14 @@ const ClaimOptions = () => {
           appNavigation.pop();
           defaultLogger.staking.page.unstaking({
             token: tokenInfo?.token,
-            stakingProtocol: provider,
+            stakingProtocol: finalProvider,
           });
-          if (provider === 'babylon') {
+          if (finalProvider === 'babylon') {
             void backgroundApiProxy.serviceStaking.babylonClaimRecord({
               accountId,
               networkId,
-              provider,
-              symbol,
+              provider: finalProvider,
+              symbol: finalSymbol,
               identity: item.id,
             });
           }
@@ -104,8 +105,8 @@ const ClaimOptions = () => {
     },
     [
       handleClaim,
-      symbol,
-      provider,
+      finalSymbol,
+      finalProvider,
       protocolInfo?.vault,
       protocolInfo?.providerDetail.logoURI,
       protocolInfo?.stakeTag,

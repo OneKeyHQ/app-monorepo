@@ -118,15 +118,22 @@ const ManagePositionPage = () => {
   const { account, indexedAccount } = activeAccount;
   const { networkId, symbol, provider, vault } = resolvedParams;
 
-  const { isLoading, tokenInfo, earnAccount, protocolInfo, managePageData } =
-    useManagePage({
-      accountId: account?.id || '',
-      networkId,
-      indexedAccountId: indexedAccount?.id,
-      symbol,
-      provider,
-      vault,
-    });
+  const {
+    isLoading,
+    tokenInfo,
+    earnAccount,
+    protocolInfo,
+    managePageData,
+    depositDisabled,
+    withdrawDisabled,
+  } = useManagePage({
+    accountId: account?.id || '',
+    networkId,
+    indexedAccountId: indexedAccount?.id,
+    symbol,
+    provider,
+    vault,
+  });
 
   const historyAction = useMemo(() => {
     return managePageData?.history;
@@ -237,6 +244,7 @@ const ManagePositionPage = () => {
                 networkId={networkId}
                 tokenInfo={tokenInfo}
                 protocolInfo={protocolInfo}
+                isDisabled={depositDisabled}
               />
             ) : null}
             {selectedTabIndex === 1 ? (
@@ -245,6 +253,7 @@ const ManagePositionPage = () => {
                 networkId={networkId}
                 tokenInfo={tokenInfo}
                 protocolInfo={protocolInfo}
+                isDisabled={withdrawDisabled}
               />
             ) : null}
           </>

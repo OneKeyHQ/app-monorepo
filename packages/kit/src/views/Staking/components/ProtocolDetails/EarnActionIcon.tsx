@@ -86,6 +86,8 @@ function useHandleClaimAction({
           providerName: tokenInfo?.provider,
         })
       );
+      const receiveToken = earnUtils.convertEarnTokenToIToken(token);
+
       await handleClaim({
         claimType: actionIcon.type,
         symbol: protocolInfo?.symbol || '',
@@ -105,10 +107,9 @@ function useHandleClaimAction({
             providerName: tokenInfo?.provider || '',
           }),
           protocolLogoURI: protocolInfo?.providerDetail.logoURI,
-          receive: {
-            token: token as IEarnToken,
-            amount: claimAmount,
-          },
+          receive: receiveToken
+            ? { token: receiveToken, amount: claimAmount }
+            : undefined,
           tags: protocolInfo?.stakeTag ? [protocolInfo.stakeTag] : [],
         },
       });
