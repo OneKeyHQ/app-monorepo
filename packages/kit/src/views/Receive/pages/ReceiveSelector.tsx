@@ -53,6 +53,7 @@ function ReceiveOptions({
 
 function ReceiveSelectorContent() {
   const intl = useIntl();
+  // eslint-disable-next-line spellcheck/spell-checker
   const binanceHelpLink = useHelpLink({
     path: 'articles/12553421',
   });
@@ -143,16 +144,26 @@ function ReceiveSelectorContent() {
                     <SizableText mb="$2" color="$textSubdued">
                       Learn how to withdraw crypto assets from:
                     </SizableText>
-                    <XStack gap="$5">
+                    <XStack gap="$6">
                       <Button
                         size="small"
                         variant="tertiary"
                         childrenAsText={false}
                         onPress={() => {
+                          // eslint-disable-next-line spellcheck/spell-checker
                           openUrlExternal(binanceHelpLink);
                         }}
                       >
-                        <SizableText>Binance ↗</SizableText>
+                        <XStack alignItems="center" gap="$2">
+                          <YStack p={3} borderRadius="$1" bg="$yellow6">
+                            <Icon
+                              size="$3"
+                              name="BinanceBrand"
+                              color="$yellow11"
+                            />
+                          </YStack>
+                          <SizableText>Binance ↗</SizableText>
+                        </XStack>
                       </Button>
                       <Button
                         size="small"
@@ -162,7 +173,16 @@ function ReceiveSelectorContent() {
                           openUrlExternal(okxHelpLink);
                         }}
                       >
-                        <SizableText>OKX ↗</SizableText>
+                        <XStack alignItems="center" gap="$2">
+                          <YStack p={3} borderRadius="$1" bg="$neutral6">
+                            <Icon
+                              size="$3"
+                              name="OkxBrand"
+                              color="$neutral11"
+                            />
+                          </YStack>
+                          <SizableText>OKX ↗</SizableText>
+                        </XStack>
                       </Button>
                       <Button
                         size="small"
@@ -172,7 +192,16 @@ function ReceiveSelectorContent() {
                           openUrlExternal(coinbaseHelpLink);
                         }}
                       >
-                        <SizableText>Coinbase ↗</SizableText>
+                        <XStack alignItems="center" gap="$2">
+                          <YStack p={3} borderRadius="$1" bg="$blue6">
+                            <Icon
+                              size="$3"
+                              name="CoinbaseBrand"
+                              color="$blue11"
+                            />
+                          </YStack>
+                          <SizableText>Coinbase ↗</SizableText>
+                        </XStack>
                       </Button>
                     </XStack>
                   </Accordion.Content>
