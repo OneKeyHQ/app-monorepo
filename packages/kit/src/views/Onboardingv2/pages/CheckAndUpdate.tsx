@@ -165,6 +165,7 @@ function CheckAndUpdatePage({
         features,
       });
 
+      console.log('deviceMode', deviceMode);
       if (deviceMode === EOneKeyDeviceMode.notInitialized) {
         setSteps((prev) => {
           const newSteps = [...prev];
@@ -174,6 +175,7 @@ function CheckAndUpdatePage({
           };
           return newSteps;
         });
+        return;
       }
     }
     setSteps((prev) => {
