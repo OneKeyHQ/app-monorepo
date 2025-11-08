@@ -43,8 +43,14 @@ import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import { ExportButton, FilterButton } from '../../components';
+import {
+  BreadcrumbSection,
+  ExportButton,
+  FilterButton,
+} from '../../components';
 import { useRewardFilter } from '../../hooks/useRewardFilter';
+
+import { RewardTypeTabs } from './components';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -277,8 +283,10 @@ function EarnRewardPageWrapper() {
       RouteProp<ITabReferFriendsParamList, ETabReferFriendsRoutes.TabEarnReward>
     >();
 
-  const { title } = route.params;
   const intl = useIntl();
+  const title =
+    route.params?.title ||
+    intl.formatMessage({ id: ETranslations.referral_referred_type_2 });
   const { md } = useMedia();
 
   const [lists, setLists] = useState<(ISectionData[] | undefined)[]>([]);
@@ -403,18 +411,6 @@ function EarnRewardPageWrapper() {
   const ListHeaderComponent = useMemo(() => {
     return (
       <YStack bg="$bgApp">
-        {tourTimes === 0 ? (
-          <Alert
-            closable
-            description={intl.formatMessage({
-              id: ETranslations.referral_earn_reward_tips,
-            })}
-            type="info"
-            mx="$5"
-            mb="$2.5"
-            onClose={tourVisited}
-          />
-        ) : null}
         <YStack px="$5" py="$2.5">
           <SizableText size="$bodyLg">
             {intl.formatMessage({
@@ -427,7 +423,7 @@ function EarnRewardPageWrapper() {
         </YStack>
       </YStack>
     );
-  }, [amount?.pending, intl, tourTimes, tourVisited]);
+  }, [amount?.pending, intl]);
 
   const Content = useMemo(() => {
     if ((lists[0]?.length || 0) + (lists[1]?.length || 0) === 0) {
@@ -478,7 +474,45 @@ function EarnRewardPageWrapper() {
         />
       )}
       <Page.Body>
-        {renderHeaderRight()}
+        {!md ? (
+          <YStack p="$5">
+            <BreadcrumbSection secondItemLabel={title} />
+          </YStack>
+        ) : null}
+        {tourTimes === 0 ? (
+          <Alert
+            closable
+            description={intl.formatMessage({
+              id: ETranslations.referral_earn_reward_tips,
+            })}
+            type="info"
+            mx="$5"
+            mb="$2.5"
+            onClose={tourVisited}
+          />
+        ) : null}
+        <YStack position="relative">
+          <RewardTypeTabs />
+          <XStack
+            position="absolute"
+            right="$5"
+            bottom="$2"
+            gap="$2"
+            zIndex={9999}
+            ai="center"
+            jc="center"
+          >
+            <FilterButton
+              filterState={filterState}
+              onFilterChange={updateFilter}
+            />
+            <ExportButton
+              subject={EExportSubject.Onchain}
+              timeRange={filterState.timeRange}
+              inviteCode={filterState.inviteCode}
+            />
+          </XStack>
+        </YStack>
         {Content}
         {isLoading || !lists[0] || !lists[1] ? (
           <YStack

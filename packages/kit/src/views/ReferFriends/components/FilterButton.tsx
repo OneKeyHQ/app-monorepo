@@ -4,7 +4,6 @@ import { useIntl } from 'react-intl';
 
 import {
   ActionList,
-  Badge,
   Icon,
   IconButton,
   useMedia,
@@ -132,18 +131,6 @@ export function FilterButton({
     );
   }, [filterState]);
 
-  // Count active filters
-  const activeFilterCount = useMemo(() => {
-    let count = 0;
-    if (filterState.timeRange !== EExportTimeRange.All) {
-      count += 1;
-    }
-    if (filterState.inviteCode !== undefined) {
-      count += 1;
-    }
-    return count;
-  }, [filterState]);
-
   // Handle mobile click to show ActionList
   const handleMobileClick = useCallback(() => {
     ActionList.show({
@@ -155,18 +142,13 @@ export function FilterButton({
   // Render trigger (shared between desktop and mobile)
   const renderTrigger = useMemo(
     () => (
-      <Badge
-        badgeType="number"
-        badgeValue={activeFilterCount > 0 ? activeFilterCount : undefined}
-      >
-        <IconButton
-          icon="Filter1Outline"
-          variant={hasActiveFilters ? 'primary' : 'tertiary'}
-          title={intl.formatMessage({ id: ETranslations.referral_filter })}
-        />
-      </Badge>
+      <IconButton
+        icon={hasActiveFilters ? 'Filter1Solid' : 'Filter1Outline'}
+        variant="tertiary"
+        title={intl.formatMessage({ id: ETranslations.referral_filter })}
+      />
     ),
-    [activeFilterCount, hasActiveFilters, intl],
+    [hasActiveFilters, intl],
   );
 
   // Desktop: Use component-style ActionList (works correctly)
@@ -182,16 +164,11 @@ export function FilterButton({
 
   // Mobile: Use ActionList.show() to avoid Portal nesting issues
   return (
-    <Badge
-      badgeType="number"
-      badgeValue={activeFilterCount > 0 ? activeFilterCount : undefined}
-    >
-      <IconButton
-        icon="Filter2Outline"
-        variant={hasActiveFilters ? 'primary' : 'tertiary'}
-        title={intl.formatMessage({ id: ETranslations.referral_filter })}
-        onPress={handleMobileClick}
-      />
-    </Badge>
+    <IconButton
+      icon={hasActiveFilters ? 'Filter1Solid' : 'Filter1Outline'}
+      variant="tertiary"
+      title={intl.formatMessage({ id: ETranslations.referral_filter })}
+      onPress={handleMobileClick}
+    />
   );
 }

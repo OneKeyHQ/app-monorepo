@@ -32,7 +32,11 @@ import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import { formatDate, formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import { ExportButton, FilterButton } from '../../components';
+import {
+  BreadcrumbSection,
+  ExportButton,
+  FilterButton,
+} from '../../components';
 import { useRewardFilter } from '../../hooks/useRewardFilter';
 
 type ISectionListItem = {
@@ -281,6 +285,15 @@ function HardwareSalesRewardPageWrapper() {
             }
             ListHeaderComponent={
               <>
+                {!md ? (
+                  <YStack px="$5" pt="$5">
+                    <BreadcrumbSection
+                      secondItemLabel={intl.formatMessage({
+                        id: ETranslations.referral_referred_type_3,
+                      })}
+                    />
+                  </YStack>
+                ) : null}
                 {tourTimes === 0 ? (
                   <Alert
                     closable
