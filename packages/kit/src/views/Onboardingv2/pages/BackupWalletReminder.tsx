@@ -1,3 +1,5 @@
+import { useRoute } from '@react-navigation/core';
+
 import type { IKeyOfIcons } from '@onekeyhq/components';
 import {
   Button,
@@ -9,15 +11,25 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes';
 
 import { OnboardingLayout } from '../components/OnboardingLayout';
 
+import type { RouteProp } from '@react-navigation/core';
+
 export default function BackupWalletReminder() {
   const navigation = useAppNavigation();
-
+  const { mnemonic, isWalletBackedUp, walletId } =
+    useRoute<
+      RouteProp<IOnboardingParamListV2, EOnboardingPagesV2.BackupWalletReminder>
+    >().params;
   const handleContinue = () => {
-    navigation.push(EOnboardingPagesV2.ShowRecoveryPhrase);
+    navigation.push(EOnboardingPagesV2.ShowRecoveryPhrase, {
+      mnemonic,
+      isWalletBackedUp,
+      walletId,
+    });
   };
 
   const TEXTS: { text: string; icon: IKeyOfIcons }[] = [
