@@ -17,6 +17,7 @@ import {
   perpsActiveOrderBookOptionsAtom,
   usePerpsAccountLoadingInfoAtom,
   usePerpsActiveAccountAtom,
+  usePerpsActiveAccountRefreshHookAtom,
   usePerpsActiveAssetAtom,
   usePerpsActiveOrderBookOptionsAtom,
   usePerpsUserConfigPersistAtom,
@@ -301,10 +302,14 @@ function useHyperliquidAccountSelect() {
     };
   }, [refreshGlobalDeriveType]);
 
+  const [{ refreshHook: activeAccountRefreshHook }] =
+    usePerpsActiveAccountRefreshHookAtom();
+
   const selectPerpsAccount = useCallback(async () => {
     if (!globalDeriveType) {
       return;
     }
+    noop(activeAccountRefreshHook);
     noop(activeAccount.account?.address);
     console.log(
       'selectPerpsAccount______555_address',
@@ -323,6 +328,7 @@ function useHyperliquidAccountSelect() {
     activeAccount?.indexedAccount?.id,
     checkPerpsAccountStatus,
     globalDeriveType,
+    activeAccountRefreshHook,
   ]);
 
   const selectPerpsAccountRef = useRef(selectPerpsAccount);
