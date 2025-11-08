@@ -110,6 +110,13 @@ const settings: IVaultSettings = {
       genesisHash:
         '0x9f28c6a68e0fc9646eff64935684f6eeeece527e37bbe1f213d22caa1d9d6bed',
     },
+    'dot--bifrost': {
+      curve: 'ed25519',
+      addressPrefix: '0',
+      nativeTokenAddress: 'BNC',
+      genesisHash:
+        '0x262e1b2ad728475fd6fe88e62d34c200abe6fd693931ddad144059b1eb884e5b',
+    },
     'dot--kusama-assethub': {
       curve: 'ed25519',
       addressPrefix: '2',

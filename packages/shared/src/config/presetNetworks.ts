@@ -2649,6 +2649,27 @@ const bifrost: IServerNetwork = {
   'status': ENetworkStatus.LISTED,
 };
 
+
+const bifrostDot: IServerNetwork = {
+  'chainId': 'dot-bifrost',
+  'code': 'dot-bifrost',
+  'decimals': 12,
+  'id': 'dot--bifrost',
+  'impl': 'dot',
+  'isTestnet': false,
+  'logoURI': 'https://uni.onekey-asset.com/static/chain/bnc.png',
+  'name': 'Bifrost Polkadot',
+  'shortcode': 'dot-bifrost',
+  'shortname': 'BNC',
+  'symbol': 'BNC',
+  'feeMeta': {
+    'decimals': 12,
+    'symbol': 'BNC',
+  },
+  'defaultEnabled': true,
+  'status': ENetworkStatus.LISTED,
+};
+
 const kaspa: IServerNetwork = {
   'chainId': 'kaspa',
   'code': 'kaspa',
@@ -3014,6 +3035,7 @@ export const presetNetworksMap = {
   joystream,
   hydradx,
   bifrost,
+  bifrostDot,
   assethubPolkadot,
   assethubKusama,
 
@@ -3213,6 +3235,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     joystream,
     hydradx,
     bifrost,
+    bifrostDot,
     assethubPolkadot,
     assethubKusama,
 
