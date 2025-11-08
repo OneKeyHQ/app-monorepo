@@ -709,7 +709,7 @@ export enum EBluetoothStatus {
   disabledInApp = 'disabledInApp',
   noSystemPermission = 'noSystemPermission',
 }
-export const useDesktopBluetoothStatusPolling = platformEnv.isDesktop
+export const useDesktopBluetoothStatusPolling = platformEnv.isSupportDesktopBle
   ? (onChangeBluetoothStatus: (status: EBluetoothStatus) => void) => {
       const nobleInitializedRef = useRef(false);
       const isConnectingRef = useRef(false);
