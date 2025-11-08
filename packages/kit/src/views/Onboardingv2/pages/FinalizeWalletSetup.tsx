@@ -300,8 +300,14 @@ function FinalizeWalletSetupPage({
       }
     } catch (error) {
       console.error('createWallet error:', error);
+      const hardwareError = error as {
+        messageId: ETranslations;
+        message: string;
+      };
       setSetupError({
-        messageId: (error as { messageId: ETranslations }).messageId,
+        messageId: hardwareError
+          ? hardwareError.messageId || hardwareError.message
+          : ETranslations.global_unknown_error,
       });
     }
   }, [
@@ -382,6 +388,7 @@ function FinalizeWalletSetupPage({
               <SizableText size="$heading2xl" textAlign="center">
                 {intl.formatMessage({
                   id: setupError.messageId,
+                  defaultMessage: setupError.messageId,
                 })}
               </SizableText>
               <Button onPress={retrySetup}>
