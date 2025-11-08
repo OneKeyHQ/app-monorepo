@@ -332,18 +332,28 @@ function useDeviceConnection({
     [searchedDevices],
   );
 
-  return {
-    connectStatus,
-    setConnectStatus,
-    searchedDevices,
-    devicesData,
-    isCheckingDeviceLoading,
-    setIsChecking,
-    scanDevice,
-    stopScan,
-    ensureStopScan,
-    deviceScanner,
-  };
+  return useMemo(
+    () => ({
+      connectStatus,
+      setConnectStatus,
+      searchedDevices,
+      devicesData,
+      isCheckingDeviceLoading,
+      setIsChecking,
+      scanDevice,
+      stopScan,
+    }),
+    [
+      connectStatus,
+      setConnectStatus,
+      searchedDevices,
+      devicesData,
+      isCheckingDeviceLoading,
+      setIsChecking,
+      scanDevice,
+      stopScan,
+    ],
+  );
 }
 
 function ConnectionIndicatorCard({ children }: { children: React.ReactNode }) {
@@ -566,7 +576,13 @@ export const ConnectionIndicator = Object.assign(ConnectionIndicatorRoot, {
   Footer: connectionIndicatorFooter,
 });
 
-function BluetoothCard() {
+function BluetoothCard({
+  onConnect,
+  connectStatus,
+}: {
+  onConnect?: () => Promise<void>;
+  connectStatus?: EConnectionStatus;
+}) {
   const intl = useIntl();
   return (
     <ConnectionIndicator.Card>
@@ -617,6 +633,20 @@ function BluetoothCard() {
                 id: ETranslations.bluetooth_keep_near,
               })}
         </ConnectionIndicator.Title>
+        {connectStatus === EConnectionStatus.init ? (
+          <>
+            <SizableText color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.device_select_device_popup,
+              })}
+            </SizableText>
+            <Button variant="primary" mt="$2" onPress={onConnect}>
+              {intl.formatMessage({
+                id: ETranslations.global_start_connection,
+              })}
+            </Button>
+          </>
+        ) : null}
       </ConnectionIndicator.Content>
     </ConnectionIndicator.Card>
   );
@@ -843,13 +873,17 @@ function USBOrBLEConnectionIndicator({
     return sortDevicesData(devicesData, deviceTypeItems);
   }, [deviceTypeItems, devicesData]);
 
+  console.log('connectStatus', connectStatus);
   console.log('sortedDevicesData', sortedDevicesData);
   return (
     <>
       <TroubleShootingButton type="usb" />
       <ConnectionIndicator>
         {isBLE ? (
-          <BluetoothCard />
+          <BluetoothCard
+            onConnect={startBLEConnection}
+            connectStatus={connectStatus}
+          />
         ) : (
           <ConnectionIndicator.Card>
             <ConnectionIndicator.Animation>
@@ -877,11 +911,7 @@ function USBOrBLEConnectionIndicator({
                   <Button
                     variant="primary"
                     mt="$2"
-                    onPress={
-                      hardwareTransportType === EHardwareTransportType.WEBUSB
-                        ? onConnectWebDevice
-                        : startBLEConnection
-                    }
+                    onPress={onConnectWebDevice}
                   >
                     {intl.formatMessage({
                       id: ETranslations.global_start_connection,
