@@ -172,13 +172,21 @@ type IDeviceHomeScreenConfig = {
   thumbnailSize?: IDeviceHomeScreenSizeInfo;
 };
 
-async function buildCustomScreenHex(
-  dbDeviceId: string,
-  url: string | undefined,
-  deviceType: IDeviceType,
-  isUserUpload?: boolean,
-  config?: IDeviceHomeScreenConfig,
-) {
+async function buildCustomScreenHex({
+  dbDeviceId,
+  url,
+  deviceType,
+  isUserUpload,
+  config,
+  compress,
+}: {
+  dbDeviceId: string;
+  url: string | undefined;
+  deviceType: IDeviceType;
+  isUserUpload?: boolean;
+  config?: IDeviceHomeScreenConfig;
+  compress?: number;
+}) {
   const base64Uri =
     (await imageUtils.getBase64FromRequiredImageSource(url, (...args) => {
       defaultLogger.hardware.homescreen.getBase64FromRequiredImageSource(
@@ -217,13 +225,14 @@ async function buildCustomScreenHex(
       originW: config.size?.width,
       originH: config.size?.height,
       isMonochrome: false,
+      compress,
       cornerRadius: config.thumbnailSize?.radius ?? config.size?.radius ?? 0,
     });
   }
 
   let screenHex = '';
   let screenBase64 = '';
-  if (!isUserUpload) {
+  if (isUserUpload) {
     const imgScreen = await imageUtils.resizeImage({
       uri: base64Uri,
 
@@ -233,6 +242,7 @@ async function buildCustomScreenHex(
       originW: config.size?.width,
       originH: config.size?.height,
       isMonochrome: false,
+      compress,
       cornerRadius: config.size?.radius ?? 0,
     });
     screenHex = imgScreen.hex;

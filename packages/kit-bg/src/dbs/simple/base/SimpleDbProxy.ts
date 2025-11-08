@@ -32,6 +32,7 @@ import type { SimpleDbEntityEarnOrders } from '../entity/SimpleDbEntityEarnOrder
 import type { SimpleDbEntityFeeInfo } from '../entity/SimpleDbEntityFeeInfo';
 import type { SimpleDbEntityFloatingIconDomainBlockList } from '../entity/SimpleDbEntityFloatingIconDomainBlockList';
 import type { SimpleDbEntityFloatingIconSettings } from '../entity/SimpleDbEntityFloatingIconSettings';
+import type { SimpleDbEntityIpTable } from '../entity/SimpleDbEntityIpTable';
 import type { SimpleDbEntityLegacyWalletNames } from '../entity/SimpleDbEntityLegacyWalletNames';
 import type { SimpleDbEntityLightning } from '../entity/SimpleDbEntityLightning';
 import type { SimpleDbEntityLocalHistory } from '../entity/SimpleDbEntityLocalHistory';
@@ -275,4 +276,6 @@ export class SimpleDbProxy
   walletStatus = this._createProxyService(
     'walletStatus',
   ) as SimpleDbEntityWalletStatus;
+
+  ipTable = this._createProxyService('ipTable') as SimpleDbEntityIpTable;
 }

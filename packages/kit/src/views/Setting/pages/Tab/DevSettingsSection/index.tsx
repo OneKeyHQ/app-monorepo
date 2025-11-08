@@ -994,6 +994,43 @@ const BaseDevSettingsSection = () => {
         <Switch size={ESwitchSize.small} />
       </SectionFieldItem>
 
+      <SectionFieldItem
+        icon="AutoFlashOutline"
+        name="enableIpTableInDev"
+        title="[开发环境] 启用 IP 直连"
+        subtitle={
+          devSettings.settings?.enableIpTableInDev
+            ? '开发环境已启用 IP 直连'
+            : '开发环境默认禁用 (需手动开启)'
+        }
+      >
+        <Switch size={ESwitchSize.small} />
+      </SectionFieldItem>
+      <SectionFieldItem
+        icon="BrokenLinkOutline"
+        name="disableIpTableInProd"
+        title="[生产环境] 禁用 IP 直连"
+        subtitle={
+          devSettings.settings?.disableIpTableInProd
+            ? '生产环境已禁用 IP 直连'
+            : '生产环境默认启用 (可手动禁用)'
+        }
+      >
+        <Switch size={ESwitchSize.small} />
+      </SectionFieldItem>
+      <SectionFieldItem
+        icon="ArrowTopRightIllus"
+        name="forceIpTableStrict"
+        title="强制使用 IP 请求"
+        subtitle={
+          devSettings.settings?.forceIpTableStrict
+            ? '强制使用 IP 请求'
+            : '非强制使用 IP 请求'
+        }
+      >
+        <Switch size={ESwitchSize.small} />
+      </SectionFieldItem>
+
       <SectionPressItem
         icon="ChartTrendingOutline"
         title="PerpGallery"

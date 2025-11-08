@@ -87,5 +87,6 @@ const splitCodePlugin = require('./plugins');
 
 module.exports = withRozenite(splitCodePlugin(config, projectRoot), {
   enabled: process.env.WITH_ROZENITE === 'true',
-  enhanceMetroConfig: (config) => withRozeniteExpoAtlasPlugin(config),
+  // enhanceMetroConfig: (config) => withRozeniteExpoAtlasPlugin(config),
+  enhanceMetroConfig: (config) => config,
 });
