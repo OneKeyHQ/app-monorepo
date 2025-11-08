@@ -17,11 +17,13 @@ export function LevelListSection({
 
   return (
     <Accordion type="single" collapsible defaultValue={defaultValue}>
-      {levels.map((level) => (
+      {levels.map((level, index) => (
         <LevelAccordionItem
           key={level.level}
           level={level}
           isCurrent={level.isCurrent}
+          isFirst={index === 0}
+          isLast={index === levels.length - 1}
         />
       ))}
     </Accordion>

@@ -5,7 +5,6 @@ import { useIntl } from 'react-intl';
 import {
   Accordion,
   Badge,
-  Divider,
   Icon,
   Image,
   SizableText,
@@ -23,9 +22,13 @@ import type {
 export function LevelAccordionItem({
   level,
   isCurrent,
+  isFirst,
+  isLast,
 }: {
   level: IInviteLevelDetail['levels'][0];
   isCurrent: boolean;
+  isFirst: boolean;
+  isLast: boolean;
 }) {
   const intl = useIntl();
   const commissionRateItems = useMemo(() => {
@@ -55,12 +58,24 @@ export function LevelAccordionItem({
     return fallback ?? '';
   };
 
+  const getBorderTopWidth = () => {
+    if (!isFirst) return 0;
+    return isCurrent ? 2 : 1;
+  };
+
   return (
     <Accordion.Item value={`level-${level.level}`}>
       <Accordion.Trigger
-        borderWidth={isCurrent ? 2 : 1}
-        borderColor={isCurrent ? '$borderActive' : '$borderSubdued'}
-        bg={isCurrent ? '$bgActive' : '$bg'}
+        bg={isCurrent ? '$bgSubdued' : '$bg'}
+        borderColor="$borderSubdued"
+        borderLeftWidth={1}
+        borderRightWidth={1}
+        borderBottomWidth={1}
+        borderTopWidth={getBorderTopWidth()}
+        borderTopLeftRadius={isFirst ? '$3' : '$0'}
+        borderTopRightRadius={isFirst ? '$3' : '$0'}
+        borderBottomLeftRadius={isLast ? '$3' : '$0'}
+        borderBottomRightRadius={isLast ? '$3' : '$0'}
       >
         {({ open }: { open: boolean }) => (
           <XStack flex={1} ai="center" jc="space-between">
@@ -71,7 +86,7 @@ export function LevelAccordionItem({
               <XStack gap="$2" ai="center">
                 <SizableText size="$headingLg">{level.label}</SizableText>
                 {isCurrent ? (
-                  <Badge badgeType="success" badgeSize="sm">
+                  <Badge badgeSize="sm">
                     {intl.formatMessage({
                       id: ETranslations.referral_current_level,
                     })}
@@ -91,59 +106,21 @@ export function LevelAccordionItem({
       </Accordion.Trigger>
       <Accordion.HeightAnimator animation="quick">
         <Accordion.Content
+          borderBottomWidth={1}
           unstyled
+          borderRightColor="$borderSubdued"
+          borderLeftColor="$borderSubdued"
+          borderRightWidth={1}
+          borderLeftWidth={1}
           p="$4"
-          borderWidth={isCurrent ? 2 : 1}
+          bg="$bgSubdued"
           borderTopWidth={0}
-          borderColor={isCurrent ? '$borderActive' : '$borderSubdued'}
-          bg={isCurrent ? '$bgActive' : '$bg'}
+          borderBottomLeftRadius={isLast ? '$3' : '$0'}
+          borderBottomRightRadius={isLast ? '$3' : '$0'}
         >
           <YStack gap="$3">
-            <YStack gap="$2">
-              <SizableText size="$bodyMdMedium">
-                {intl.formatMessage({
-                  id: ETranslations.referral_rate,
-                })}
-              </SizableText>
-
-              <YStack gap="$3">
-                {commissionRateItems.map(({ subject, rate }, index) => {
-                  const label = getDisplayLabel(
-                    rate.commissionRatesLabelKey || rate.labelKey,
-                    rate.commissionRatesLabel ??
-                      rate.label ??
-                      getDefaultSubjectLabel(subject),
-                  );
-                  return (
-                    <YStack key={subject || `${index}`} gap="$1.5">
-                      <SizableText size="$bodyMd">{label}</SizableText>
-                      <SizableText size="$bodyMd" color="$textSubdued">
-                        {intl.formatMessage({
-                          id: ETranslations.referral_upgrade_you,
-                        })}
-                        :{' '}
-                        <SizableText size="$bodyMdMedium" color="$textSuccess">
-                          {rate.rebate}%
-                        </SizableText>
-                      </SizableText>
-                      <SizableText size="$bodyMd" color="$textSubdued">
-                        {intl.formatMessage({
-                          id: ETranslations.referral_upgrade_user,
-                        })}
-                        :{' '}
-                        <SizableText size="$bodyMdMedium" color="$textSuccess">
-                          {rate.discount}%
-                        </SizableText>
-                      </SizableText>
-                    </YStack>
-                  );
-                })}
-              </YStack>
-            </YStack>
-
             {level.upgradeConditions.length > 0 ? (
               <>
-                <Divider />
                 <YStack gap="$2">
                   <SizableText size="$bodyMdMedium">
                     {intl.formatMessage({
@@ -168,6 +145,65 @@ export function LevelAccordionItem({
                 </YStack>
               </>
             ) : null}
+
+            <YStack gap="$2">
+              <SizableText size="$bodyMdMedium">
+                {intl.formatMessage({
+                  id: ETranslations.referral_rate,
+                })}
+              </SizableText>
+
+              <XStack gap="$3" $md={{ flexDirection: 'column' }}>
+                {commissionRateItems.map(({ subject, rate }, index) => {
+                  const label = getDisplayLabel(
+                    rate.commissionRatesLabelKey || rate.labelKey,
+                    rate.commissionRatesLabel ??
+                      rate.label ??
+                      getDefaultSubjectLabel(subject),
+                  );
+                  return (
+                    <YStack
+                      key={subject || `${index}`}
+                      gap="$1.5"
+                      flex={1}
+                      borderRadius="$2"
+                      borderWidth={1}
+                      borderColor="$borderSubdued"
+                      px="$4"
+                      py="$3"
+                    >
+                      <SizableText size="$headingSm" color="$text">
+                        {label}
+                      </SizableText>
+
+                      <Stack borderRadius="$2" bg="$bgStrong" py="$1" px="$2">
+                        <SizableText size="$bodyMd" color="$textSubdued">
+                          {intl.formatMessage({
+                            id: ETranslations.referral_upgrade_you,
+                          })}
+                          :{' '}
+                          <SizableText size="$bodyMdMedium" color="$text">
+                            {rate.rebate}%
+                          </SizableText>
+                        </SizableText>
+                      </Stack>
+
+                      <Stack borderRadius="$2" bg="$bgStrong" py="$1" px="$2">
+                        <SizableText size="$bodyMd" color="$textSubdued">
+                          {intl.formatMessage({
+                            id: ETranslations.referral_upgrade_user,
+                          })}
+                          :{' '}
+                          <SizableText size="$bodyMdMedium" color="$text">
+                            {rate.discount}%
+                          </SizableText>
+                        </SizableText>
+                      </Stack>
+                    </YStack>
+                  );
+                })}
+              </XStack>
+            </YStack>
           </YStack>
         </Accordion.Content>
       </Accordion.HeightAnimator>

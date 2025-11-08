@@ -2,12 +2,7 @@ import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  ActionList,
-  Icon,
-  IconButton,
-  useMedia,
-} from '@onekeyhq/components';
+import { ActionList, Icon, IconButton, useMedia } from '@onekeyhq/components';
 import type { IActionListItemProps } from '@onekeyhq/components';
 import { useInviteCodeList } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/InvitationDetailsSection/hooks/useInviteCodeList';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -95,7 +90,7 @@ export function FilterButton({
           label: option.label,
           extra:
             filterState.timeRange === option.value ? (
-              <Icon name="CheckRadioSolid" size="$5" color="$iconSuccess" />
+              <Icon name="CheckRadioSolid" size="$5" color="$icon" />
             ) : undefined,
           onPress: () => handleTimeRangeSelect(option.value),
         })) as IActionListItemProps[],
@@ -108,7 +103,7 @@ export function FilterButton({
           label: option.label,
           extra:
             filterState.inviteCode === option.value ? (
-              <Icon name="CheckRadioSolid" size="$5" color="$iconSuccess" />
+              <Icon name="CheckRadioSolid" size="$5" color="$icon" />
             ) : undefined,
           onPress: () => handleInviteCodeSelect(option.value),
         })) as IActionListItemProps[],
