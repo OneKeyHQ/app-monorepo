@@ -46,10 +46,11 @@ function InviteRewardContent({
 
   return (
     <>
-      <XStack px="$5" pt="$5">
+      <XStack px="$5" pt="$5" jc="space-between">
+        <SectionHeader translationId={ETranslations.global_overview} />
+
         <RulesButton />
       </XStack>
-      <SectionHeader translationId={ETranslations.global_overview} />
 
       <Stack
         gap="$5"
@@ -58,7 +59,7 @@ function InviteRewardContent({
           flexDirection: 'column',
         }}
       >
-        <Stack flex={1} flexBasis={0}>
+        <Stack flex={1} flexBasis={0} p="$5">
           <CumulativeRewards
             cumulativeRewards={cumulativeRewards}
             withdrawAddresses={withdrawAddresses}

@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 
+import { StyleSheet } from 'react-native';
 import { useIntl } from 'react-intl';
 
 import {
@@ -167,7 +168,7 @@ export function LevelAccordionItem({
                       gap="$1.5"
                       flex={1}
                       borderRadius="$2"
-                      borderWidth={1}
+                      borderWidth={StyleSheet.hairlineWidth}
                       borderColor="$borderSubdued"
                       px="$4"
                       py="$3"

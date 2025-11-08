@@ -7,7 +7,6 @@ import { StyleSheet } from 'react-native';
 import type { IStackStyle } from '@onekeyhq/components';
 import {
   Divider,
-  Icon,
   IconButton,
   SizableText,
   Stack,
@@ -23,7 +22,6 @@ import type { IInviteSummary } from '@onekeyhq/shared/src/referralCode/type';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { useNavigateToEditAddress } from '../../../EditAddress/hooks/useNavigateToEditAddress';
-import { useNavigateToRewardHistory } from '../../../RewardDistributionHistory/hooks/useNavigateToRewardHistory';
 
 function CumulativeRewardsLineItem({
   bg,
@@ -35,7 +33,7 @@ function CumulativeRewardsLineItem({
   amount: string;
 }) {
   return (
-    <XStack jc="space-between" h={36} ai="center">
+    <XStack jc="space-between" ai="center">
       <XStack gap="$2" ai="center" jc="center">
         <Stack w="$2" h="$2" borderRadius="$full" bg={bg} />
         <SizableText size="$bodyMd" color="$textSubdued">
@@ -59,7 +57,6 @@ export function CumulativeRewards({
   fetchSummaryInfo: () => void;
 }) {
   const navigateToEditAddress = useNavigateToEditAddress();
-  const toRewardDistributionHistoryPage = useNavigateToRewardHistory();
   const intl = useIntl();
   const { activeAccount } = useActiveAccount({ num: 0 });
 
@@ -98,46 +95,38 @@ export function CumulativeRewards({
   return (
     <YStack borderRadius="$3">
       <YStack
+        position="relative"
         borderWidth={StyleSheet.hairlineWidth}
         borderColor="$borderSubdued"
         borderRadius="$3"
-        overflow="hidden"
+        zIndex={1}
+        bg="$bgApp"
+        p="$4"
+        gap="$4"
       >
-        <YStack>
-          <YStack pt="$4" px="$5">
+        <XStack
+          jc="space-between"
+          ai="center"
+          gap="$4"
+          $md={{ flexDirection: 'column', jc: 'flex-start', ai: 'flex-start' }}
+        >
+          <YStack flex={1}>
             <XStack ai="center" jc="space-between">
               <XStack gap="$1" ai="center">
-                <Icon name="CoinsAddSolid" size="$5" color="$iconSuccess" />
-                <SizableText size="$headingMd">
+                <SizableText size="$bodyMdMedium" color="$textSubdued">
                   {intl.formatMessage({
                     id: ETranslations.referral_cumulative_rewards,
                   })}
                 </SizableText>
               </XStack>
-              <IconButton
-                variant="tertiary"
-                iconColor="$iconSubdued"
-                icon="ClockTimeHistoryOutline"
-                size="small"
-                iconSize="$5"
-                px="$1.5"
-                mr="$-2"
-                onPress={toRewardDistributionHistoryPage}
-              />
             </XStack>
-            <Currency
-              textAlign="center"
-              size="$heading5xl"
-              color="$textSuccessStrong"
-              formatter="value"
-              my="$6"
-            >
+            <Currency size="$heading4xl" color="$text" formatter="value">
               {BigNumber(cumulativeRewards.distributed)
                 .plus(cumulativeRewards.undistributed)
                 .toFixed(2)}
             </Currency>
           </YStack>
-          <YStack px="$5">
+          <YStack flex={1} gap="$3" $md={{ width: '100%' }}>
             <CumulativeRewardsLineItem
               bg="$iconSuccess"
               title={intl.formatMessage({
@@ -153,64 +142,59 @@ export function CumulativeRewards({
               amount={cumulativeRewards.undistributed}
             />
           </YStack>
-          <Divider my="$2" mx="$5" />
-          <XStack py="$1" px="$5" jc="space-between" ai="center">
-            <YStack>
-              <SizableText size="$bodyMdMedium">
-                {intl.formatMessage({
-                  id: ETranslations.referral_reward_received_address,
-                })}
-              </SizableText>
-              <SizableText
-                size="$bodyMd"
-                color="$textSubdued"
-                flexShrink={1}
-                numberOfLines={10}
-              >
-                {withdrawAddresses.length
-                  ? accountUtils.shortenAddress({
-                      address: withdrawAddresses[0].address,
-                    })
-                  : intl.formatMessage({
-                      id: ETranslations.referral_reward_received_address_notset,
-                    })}
-              </SizableText>
-            </YStack>
-            <IconButton
-              title={intl.formatMessage({ id: ETranslations.global_edit })}
-              variant="tertiary"
-              icon="EditOutline"
-              size="small"
-              onPress={toEditAddressPage}
-              iconColor="$iconSubdued"
-            />
-          </XStack>
-        </YStack>
-        <YStack bg="$bgSubdued">
-          <XStack
-            h="$4"
-            bg="$bgApp"
-            mx={-1}
-            borderBottomWidth={StyleSheet.hairlineWidth}
-            borderColor="$borderSubdued"
-            borderRadius="$3"
-            shadowColor="rgba(0,0,0,0.04)"
-            shadowOffset={{
-              width: 0,
-              height: 1,
-            }}
-          />
-          <XStack px="$5" h={36} ai="center" jc="space-between">
-            <SizableText size="$bodyMd" color="$textSubdued">
+        </XStack>
+
+        <Divider />
+
+        <XStack jc="space-between" ai="center">
+          <YStack>
+            <SizableText size="$bodyMdMedium">
               {intl.formatMessage({
-                id: ETranslations.referral_next_distribution,
+                id: ETranslations.referral_reward_received_address,
               })}
             </SizableText>
-            <SizableText size="$bodyMd">
-              {cumulativeRewards.nextDistribution}
+            <SizableText
+              size="$bodyMd"
+              color="$textSubdued"
+              flexShrink={1}
+              numberOfLines={10}
+            >
+              {withdrawAddresses.length
+                ? accountUtils.shortenAddress({
+                    address: withdrawAddresses[0].address,
+                  })
+                : intl.formatMessage({
+                    id: ETranslations.referral_reward_received_address_notset,
+                  })}
             </SizableText>
-          </XStack>
-        </YStack>
+          </YStack>
+          <IconButton
+            title={intl.formatMessage({ id: ETranslations.global_edit })}
+            variant="tertiary"
+            icon="EditOutline"
+            size="small"
+            onPress={toEditAddressPage}
+            iconColor="$iconSubdued"
+          />
+        </XStack>
+      </YStack>
+      <YStack
+        bg="$bgSubdued"
+        borderBottomLeftRadius="$3"
+        borderBottomRightRadius="$3"
+        pt="$2"
+        mt="$-2"
+      >
+        <XStack px="$4" h={36} ai="center" jc="space-between">
+          <SizableText size="$bodyMd" color="$textSubdued">
+            {intl.formatMessage({
+              id: ETranslations.referral_next_distribution,
+            })}
+          </SizableText>
+          <SizableText size="$bodyMd">
+            {cumulativeRewards.nextDistribution}
+          </SizableText>
+        </XStack>
       </YStack>
     </YStack>
   );

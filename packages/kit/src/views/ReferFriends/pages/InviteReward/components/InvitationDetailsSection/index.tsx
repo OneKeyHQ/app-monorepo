@@ -52,7 +52,7 @@ export function InvitationDetailsSection({
   const canCreateCode = codeListData ? codeListData.remainingCodes > 0 : false;
 
   return (
-    <YStack gap="$5">
+    <YStack gap="$5" $md={{ flexDirection: 'column' }}>
       <SectionHeader
         translationId={ETranslations.referral_invitation_details}
       />

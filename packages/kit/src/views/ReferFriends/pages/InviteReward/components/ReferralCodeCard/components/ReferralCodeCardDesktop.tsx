@@ -2,7 +2,6 @@ import { StyleSheet } from 'react-native';
 
 import {
   Button,
-  Divider,
   IconButton,
   SizableText,
   Stack,
@@ -152,7 +151,6 @@ export function ReferralCodeCardDesktop({
           </Stack>
         </YStack>
       </YStack>
-      <Divider mx="$5" />
     </>
   );
 }

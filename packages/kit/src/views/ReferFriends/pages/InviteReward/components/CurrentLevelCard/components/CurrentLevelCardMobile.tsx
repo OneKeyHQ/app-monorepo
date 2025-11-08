@@ -28,12 +28,20 @@ export function CurrentLevelCardMobile(props: ICurrentLevelCardProps) {
 
         {/* Commission rates section */}
         <YStack gap="$3">
-          <SizableText size="$bodyMdMedium" color="$text">
+          <SizableText size="$bodyMd" color="$textSubdued">
             {intl.formatMessage({ id: ETranslations.referral_rate })}
           </SizableText>
 
           {commissionRates.map(({ subject, rate }) => (
-            <XStack key={subject} jc="space-between" ai="center">
+            <XStack
+              key={subject}
+              jc="space-between"
+              ai="center"
+              bg="$bgStrong"
+              py="$1"
+              px="$2"
+              borderRadius="$2"
+            >
               <SizableText size="$bodyMd" color="$textSubdued">
                 {rate.label}
               </SizableText>

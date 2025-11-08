@@ -19,7 +19,7 @@ export function LevelBadge({ levelIcon, levelLabel }: ILevelBadgeProps) {
         {intl.formatMessage({ id: ETranslations.referral_current_level })}
       </SizableText>
       <XStack
-        gap="$1"
+        gap="$"
         ai="center"
         cursor="pointer"
         onPress={handleViewLevelDetail}
@@ -30,7 +30,7 @@ export function LevelBadge({ levelIcon, levelLabel }: ILevelBadgeProps) {
           opacity: 0.6,
         }}
       >
-        <Badge badgeType="default" badgeSize="lg">
+        <Badge badgeType="default" badgeSize="lg" gap="$1">
           {levelIcon ? <Image w="$4.5" h="$4.5" src={levelIcon} /> : null}
           <Badge.Text>{levelLabel}</Badge.Text>
         </Badge>
