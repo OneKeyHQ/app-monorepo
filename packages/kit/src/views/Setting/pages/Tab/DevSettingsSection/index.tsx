@@ -1018,6 +1018,18 @@ const BaseDevSettingsSection = () => {
       >
         <Switch size={ESwitchSize.small} />
       </SectionFieldItem>
+      <SectionFieldItem
+        icon="ArrowTopRightIllus"
+        name="forceIpTableStrict"
+        title="强制使用 IP 请求"
+        subtitle={
+          devSettings.settings?.forceIpTableStrict
+            ? '强制使用 IP 请求'
+            : '非强制使用 IP 请求'
+        }
+      >
+        <Switch size={ESwitchSize.small} />
+      </SectionFieldItem>
 
       <SectionPressItem
         icon="ChartTrendingOutline"

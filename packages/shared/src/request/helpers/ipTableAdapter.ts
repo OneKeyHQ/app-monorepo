@@ -102,7 +102,13 @@ async function shouldUseIpTable(): Promise<boolean> {
 /**
  * Get selected IP for a given hostname from IP Table configuration
  * Uses dynamic configuration from requestHelper
- * @returns IP address if found and enabled, null otherwise (empty string means use domain directly)
+ *
+ * Selection priority:
+ * 1. runtime.selections[domain] - User selected IP or explicit domain choice (empty string)
+ * 2. Strict mode fallback - First IP from config.domains[domain].endpoints (if forceIpTableStrict enabled)
+ * 3. null - Use original axios adapter (domain request)
+ *
+ * @returns IP address if found and enabled, null otherwise (empty string in selections means use domain directly)
  */
 async function getSelectedIpForHost(hostname: string): Promise<string | null> {
   try {
@@ -120,23 +126,37 @@ async function getSelectedIpForHost(hostname: string): Promise<string | null> {
       return null;
     }
 
-    const { runtime } = configWithRuntime;
+    const { config, runtime } = configWithRuntime;
     const rootDomain = extractRootDomain(hostname);
+
+    // Check strict mode first
+    const devSettings = await requestHelper.getDevSettingsPersistAtom();
+    const strictMode = devSettings?.settings?.forceIpTableStrict;
 
     // First, try to get selected IP from runtime.selections
     const selectedIp = runtime.selections[rootDomain];
 
-    // Empty string means explicitly use domain (not IP)
-    if (selectedIp === '') {
-      debugLog(`[IpTableAdapter] Explicitly using domain for: ${rootDomain}`);
-      return null;
-    }
-
+    // If selectedIp exists (not undefined), use it
     if (selectedIp) {
       debugLog(
         `[IpTableAdapter] Using selected IP from runtime: ${rootDomain} -> ${selectedIp}`,
       );
       return selectedIp;
+    }
+
+    // Empty string means explicitly use domain (not IP)
+    // In strict mode, override this and use fallback IP from config
+    if (selectedIp === '' && !strictMode) {
+      return null;
+    }
+
+    // If no selection (or strict mode overriding domain choice), fallback to first available IP from config
+    if (strictMode && config.domains[rootDomain]) {
+      const endpoints = config.domains[rootDomain].endpoints;
+      if (endpoints && endpoints.length > 0) {
+        const fallbackIp = endpoints[0].ip;
+        return fallbackIp;
+      }
     }
 
     return null;

@@ -61,6 +61,9 @@ export interface IDevSettings {
   enableIpTableInDev?: boolean;
   // Production: disable IP Table (default false - means enabled in production)
   disableIpTableInProd?: boolean;
+  // Force IP Table strict mode: always use IP even if runtime.selections is empty
+  // Fallback to first available IP from config when no selection exists
+  forceIpTableStrict?: boolean;
 }
 
 export type IDevSettingsKeys = keyof IDevSettings;
@@ -97,6 +100,7 @@ export const {
       usbCommunicationMode: 'webusb',
       enableIpTableInDev: false, // Dev: disabled by default (need manual enable)
       disableIpTableInProd: false, // Prod: enabled by default (can manually disable)
+      forceIpTableStrict: false, // Strict mode: disabled by default
     },
   },
 });
