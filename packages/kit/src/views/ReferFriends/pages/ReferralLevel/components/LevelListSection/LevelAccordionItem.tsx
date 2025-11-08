@@ -66,7 +66,6 @@ export function LevelAccordionItem({
   return (
     <Accordion.Item value={`level-${level.level}`}>
       <Accordion.Trigger
-        bg={isCurrent ? '$bgSubdued' : '$bg'}
         borderColor="$borderSubdued"
         borderLeftWidth={1}
         borderRightWidth={1}
@@ -110,6 +109,7 @@ export function LevelAccordionItem({
           unstyled
           borderRightColor="$borderSubdued"
           borderLeftColor="$borderSubdued"
+          borderBottomColor="$borderSubdued"
           borderRightWidth={1}
           borderLeftWidth={1}
           p="$4"
@@ -176,29 +176,41 @@ export function LevelAccordionItem({
                         {label}
                       </SizableText>
 
-                      <Stack borderRadius="$2" bg="$bgStrong" py="$1" px="$2">
+                      <XStack
+                        borderRadius="$2"
+                        bg="$bgStrong"
+                        py="$1"
+                        px="$2"
+                        jc="space-between"
+                      >
                         <SizableText size="$bodyMd" color="$textSubdued">
                           {intl.formatMessage({
                             id: ETranslations.referral_upgrade_you,
                           })}
-                          :{' '}
-                          <SizableText size="$bodyMdMedium" color="$text">
-                            {rate.rebate}%
-                          </SizableText>
                         </SizableText>
-                      </Stack>
 
-                      <Stack borderRadius="$2" bg="$bgStrong" py="$1" px="$2">
+                        <SizableText size="$bodyMdMedium" color="$text">
+                          {rate.rebate}%
+                        </SizableText>
+                      </XStack>
+
+                      <XStack
+                        borderRadius="$2"
+                        bg="$bgStrong"
+                        py="$1"
+                        px="$2"
+                        jc="space-between"
+                      >
                         <SizableText size="$bodyMd" color="$textSubdued">
                           {intl.formatMessage({
                             id: ETranslations.referral_upgrade_user,
                           })}
-                          :{' '}
-                          <SizableText size="$bodyMdMedium" color="$text">
-                            {rate.discount}%
-                          </SizableText>
                         </SizableText>
-                      </Stack>
+
+                        <SizableText size="$bodyMdMedium" color="$text">
+                          {rate.discount}%
+                        </SizableText>
+                      </XStack>
                     </YStack>
                   );
                 })}
