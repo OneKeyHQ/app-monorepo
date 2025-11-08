@@ -82,6 +82,7 @@ import type ServiceV4Migration from '../services/ServiceV4Migration';
 import type ServiceValidator from '../services/ServiceValidator';
 import type ServiceWalletBanner from '../services/ServiceWalletBanner';
 import type ServiceWalletConnect from '../services/ServiceWalletConnect';
+import type ServiceWalletStatus from '../services/ServiceWalletStatus';
 import type ServiceWebviewPerp from '../services/ServiceWebviewPerp';
 
 class BackgroundApiProxy
@@ -365,6 +366,10 @@ class BackgroundApiProxy
   serviceHyperliquidSubscription = this._createProxyService(
     'serviceHyperliquidSubscription',
   ) as ServiceHyperliquidSubscription;
+
+  serviceWalletStatus = this._createProxyService(
+    'serviceWalletStatus',
+  ) as ServiceWalletStatus;
 
   serviceIpTable = this._createProxyService('serviceIpTable') as ServiceIpTable;
 }

@@ -84,6 +84,7 @@ import type ServiceV4Migration from '../services/ServiceV4Migration';
 import type ServiceValidator from '../services/ServiceValidator';
 import type ServiceWalletBanner from '../services/ServiceWalletBanner';
 import type ServiceWalletConnect from '../services/ServiceWalletConnect';
+import type ServiceWalletStatus from '../services/ServiceWalletStatus';
 import type ServiceWebviewPerp from '../services/ServiceWebviewPerp';
 import type { EAtomNames } from '../states/jotai/atomNames';
 import type { IWebembedApiKeys } from '../webembeds/instance/IWebembedApi';
@@ -203,6 +204,7 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceReferralCode: ServiceReferralCode;
   serviceDBBackup: ServiceDBBackup;
   serviceWalletBanner: ServiceWalletBanner;
+  serviceWalletStatus: ServiceWalletStatus;
   serviceApproval: ServiceApproval;
   serviceInternalSignAndVerify: ServiceInternalSignAndVerify;
 

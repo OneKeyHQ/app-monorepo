@@ -46,7 +46,7 @@ function OnboardingLayoutLanguageSelector() {
   return (
     <YStack ml="auto">
       <Select
-        offset={{ mainAxis: -4, crossAxis: -10 }}
+        offset={{ mainAxis: 8, crossAxis: 8 }}
         title={intl.formatMessage({ id: ETranslations.global_language })}
         items={options}
         value={value}

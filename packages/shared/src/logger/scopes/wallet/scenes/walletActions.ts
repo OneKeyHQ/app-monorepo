@@ -3,11 +3,12 @@ import type { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 import { BaseScene } from '../../../base/baseScene';
 import { LogToServer } from '../../../base/decorators';
 
-type IWalletActionBaseParams = {
+export type IWalletActionBaseParams = {
   walletType: string;
   networkId: string;
   source:
     | 'homePage'
+    | 'receiveSelector'
     | 'tokenDetails'
     | 'homeTokenList'
     | 'earn'

@@ -7,20 +7,26 @@ import type {
   IAggregateTokenSelectorParams,
   ITokenSelectorParamList,
 } from './assetSelector';
+import type { IModalFiatCryptoParamList } from './fiatCrypto';
 import type { IDeriveTypesAddressParams } from './walletAddress';
 import type { IToken } from '../../types/token';
 
 export enum EModalReceiveRoutes {
   ReceiveToken = 'ReceiveToken',
+  ReceiveSelector = 'ReceiveSelector',
   CreateInvoice = 'CreateInvoice',
   ReceiveInvoice = 'ReceiveInvoice',
   ReceiveSelectToken = 'ReceiveSelectToken',
   ReceiveSelectAggregateToken = 'ReceiveSelectAggregateToken',
   ReceiveSelectDeriveAddress = 'ReceiveSelectDeriveAddress',
   BtcAddresses = 'BtcAddresses',
+  BuyModal = 'Buy',
+  SellModal = 'Sell',
+  DeriveTypesAddress = 'DeriveTypesAddress',
 }
 
 export type IModalReceiveParamList = {
+  [EModalReceiveRoutes.ReceiveSelector]: undefined;
   [EModalReceiveRoutes.CreateInvoice]: {
     accountId: string;
     networkId: string;
@@ -51,4 +57,7 @@ export type IModalReceiveParamList = {
     deriveInfo: IAccountDeriveInfo | undefined;
     walletId: string;
   };
+  [EModalReceiveRoutes.BuyModal]: IModalFiatCryptoParamList;
+  [EModalReceiveRoutes.SellModal]: IModalFiatCryptoParamList;
+  [EModalReceiveRoutes.DeriveTypesAddress]: IDeriveTypesAddressParams;
 };
