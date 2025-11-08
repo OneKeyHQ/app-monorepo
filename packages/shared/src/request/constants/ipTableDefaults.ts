@@ -9,9 +9,12 @@ export const CDN_SIGNER_ADDRESS = '0x3eaf57d1aD767CA3aFeDbF8D82C1De610c6F6519';
 /**
  * SNI Failure Threshold
  * Trigger speed test after this many consecutive SNI request failures
- * @default 3 failures
  */
-export const IP_TABLE_SNI_FAILURE_THRESHOLD = 3;
+export const IP_TABLE_SNI_FAILURE_THRESHOLD = 10;
+
+export const IP_TABLE_SPEED_TEST_COOLDOWN_MS = timerUtils.getTimeDurationMs({
+  minute: 2,
+});
 
 /**
  * Performance Improvement Threshold

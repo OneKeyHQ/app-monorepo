@@ -17,6 +17,7 @@ import {
   IP_TABLE_INITIAL_SPEED_TEST_DELAY_MS,
   IP_TABLE_PERFORMANCE_IMPROVEMENT_THRESHOLD,
   IP_TABLE_SNI_FAILURE_THRESHOLD,
+  IP_TABLE_SPEED_TEST_COOLDOWN_MS,
   IP_TABLE_SPEED_TEST_DELAY_MS,
   IP_TABLE_SPEED_TEST_ITERATIONS,
   IP_TABLE_SPEED_TEST_TIMEOUT_MS,
@@ -46,6 +47,13 @@ class ServiceIpTable extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
   }
+
+  // Simple in-memory failure counter: Map<"domain:ip", count>
+  private failureCounter = new Map<string, number>();
+
+  // Speed test cooldown tracker: Map<"domain", timestamp>
+  // Prevents triggering speed test too frequently for the same domain
+  private speedTestCooldown = new Map<string, number>();
 
   @backgroundMethod()
   async getConfig(): Promise<IIpTableConfigWithRuntime> {
@@ -387,16 +395,46 @@ class ServiceIpTable extends ServiceBase {
 
   @backgroundMethod()
   async reportSniFailure(domain: string, ip: string): Promise<void> {
-    defaultLogger.ipTable.request.info({
-      info: `[IpTable] SNI failure reported: ${domain} (${ip})`,
+    const key = `${domain}:${ip}`;
+    const count = (this.failureCounter.get(key) || 0) + 1;
+    this.failureCounter.set(key, count);
+
+    defaultLogger.ipTable.request.warn({
+      info: `[IpTable] SNI failure #${count} for ${domain} (${ip})`,
     });
 
-    const errorCount = 0;
     // Trigger speed test if threshold reached
-    if (errorCount >= IP_TABLE_SNI_FAILURE_THRESHOLD) {
-      defaultLogger.ipTable.request.info({
-        info: `[IpTable] Failure threshold reached for ${domain}, triggering speed test`,
+    if (count >= IP_TABLE_SNI_FAILURE_THRESHOLD) {
+      // Check cooldown period before triggering speed test
+      const now = Date.now();
+      const lastSpeedTest = this.speedTestCooldown.get(domain) || 0;
+      const timeSinceLastTest = now - lastSpeedTest;
+
+      if (timeSinceLastTest < IP_TABLE_SPEED_TEST_COOLDOWN_MS) {
+        const remainingCooldown = Math.ceil(
+          (IP_TABLE_SPEED_TEST_COOLDOWN_MS - timeSinceLastTest) / 1000,
+        );
+        defaultLogger.ipTable.request.warn({
+          info: `[IpTable] Failure threshold (${IP_TABLE_SNI_FAILURE_THRESHOLD}) reached for ${domain}, but speed test is in cooldown (${remainingCooldown}s remaining)`,
+        });
+        return;
+      }
+
+      defaultLogger.ipTable.request.error({
+        info: `[IpTable] Failure threshold (${IP_TABLE_SNI_FAILURE_THRESHOLD}) reached for ${domain}, triggering speed test and switching IP`,
       });
+
+      // Update cooldown timestamp
+      this.speedTestCooldown.set(domain, now);
+
+      // Clear all failure counters for this domain
+      Array.from(this.failureCounter.keys()).forEach((k) => {
+        if (k.startsWith(`${domain}:`)) {
+          this.failureCounter.delete(k);
+        }
+      });
+
+      // Trigger speed test to find and switch to better IP
       void this.selectBestEndpointForDomain(domain);
     }
   }

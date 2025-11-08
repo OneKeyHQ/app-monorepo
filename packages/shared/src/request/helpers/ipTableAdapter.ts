@@ -358,6 +358,9 @@ export function createIpTableAdapter(
       return callOriginalAdapter(config);
     }
 
+    // Extract root domain for config lookup
+    const rootDomain = extractRootDomain(hostname);
+
     // Get selected IP for this hostname (async call)
     const selectedIp = await getSelectedIpForHost(hostname);
 
@@ -466,6 +469,9 @@ export function createIpTableAdapter(
       // If SNI request fails, use original adapter
       if (!sniResponse) {
         debugLog('[IpTableAdapter] SNI request returned null, using fallback');
+        if (reportSniFailureCallback) {
+          reportSniFailureCallback(rootDomain, selectedIp, 'SNI response null');
+        }
         return await callOriginalAdapter(config);
       }
 
@@ -511,7 +517,7 @@ export function createIpTableAdapter(
     } catch (error) {
       // Report SNI failure if callback is registered
       if (reportSniFailureCallback) {
-        reportSniFailureCallback(hostname, selectedIp, String(error));
+        reportSniFailureCallback(rootDomain, selectedIp, String(error));
       }
 
       // If SNI request throws error, use original adapter
