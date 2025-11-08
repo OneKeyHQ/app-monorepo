@@ -26,6 +26,7 @@ function ReceiveSelectorContent() {
             receive from exchange
           </Button>
           <WalletActionBuy
+            sameModal
             onClose={() => {}}
             source="receiveSelector"
             renderTrigger={({ onPress, disabled }) => (
@@ -35,6 +36,7 @@ function ReceiveSelectorContent() {
             )}
           />
           <WalletActionReceive
+            sameModal
             source="receiveSelector"
             renderTrigger={({ onPress, disabled }) => (
               <Button onPress={onPress} disabled={disabled}>

@@ -1,5 +1,7 @@
 import { memo, useCallback, useEffect } from 'react';
 
+import { isNil } from 'lodash';
+
 import { Button, IconButton, Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -15,7 +17,6 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EModalReceiveRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import { isNil } from 'lodash';
 
 function ReceiveInfo({
   recomputeLayout,
@@ -57,7 +58,7 @@ function ReceiveInfo({
   }, [wallet?.id, wallet?.xfp, updateWalletStatus]);
 
   const handleAddMoney = useCallback(async () => {
-    navigation.pushModal(EModalRoutes.ReceiveSelectorModal, {
+    navigation.pushModal(EModalRoutes.ReceiveModal, {
       screen: EModalReceiveRoutes.ReceiveSelector,
     });
   }, [navigation]);
