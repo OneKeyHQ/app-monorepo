@@ -1365,6 +1365,21 @@ export interface IEarnSummary {
   }[];
 }
 
+export interface IEarnSummaryV2 {
+  title: IEarnText;
+  description: IEarnText;
+  distributed: {
+    title: IEarnText;
+    description: IEarnText;
+    token: IEarnToken;
+  }[];
+  undistributed: {
+    title: IEarnText;
+    description: IEarnText;
+    token: IEarnToken;
+  }[];
+}
+
 export type IStakeBlockRegionResponse =
   | {
       isBlockedRegion: true;

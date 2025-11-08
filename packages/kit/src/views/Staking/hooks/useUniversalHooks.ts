@@ -406,7 +406,7 @@ export function useUniversalClaim({
             accountAddress: account.address,
           });
         // Only check gas fee vs claim value if token price is available
-        if (estimateFeeResp.token.price) {
+        if (estimateFeeResp.token?.price) {
           const tokenFiatValueBN = BigNumber(
             estimateFeeResp.token.price,
           ).multipliedBy(amount);

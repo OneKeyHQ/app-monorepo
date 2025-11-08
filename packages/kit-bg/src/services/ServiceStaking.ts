@@ -56,6 +56,7 @@ import type {
   IEarnPermit2ApproveSignData,
   IEarnRegisterSignMessageResponse,
   IEarnSummary,
+  IEarnSummaryV2,
   IEarnUnbondingDelegationList,
   IGetPortfolioParams,
   IRecommendAsset,
@@ -172,6 +173,26 @@ class ServiceStaking extends ServiceBase {
     const response = await client.get<{
       data: IEarnSummary;
     }>('/earn/v1/rebate', {
+      params: {
+        accountAddress,
+        networkId,
+      },
+    });
+    return response.data.data;
+  }
+
+  @backgroundMethod()
+  async getEarnSummaryV2({
+    accountAddress,
+    networkId,
+  }: {
+    accountAddress: string;
+    networkId: string;
+  }): Promise<IEarnSummaryV2> {
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const response = await client.get<{
+      data: IEarnSummaryV2;
+    }>('/earn/v2/rebate', {
       params: {
         accountAddress,
         networkId,
