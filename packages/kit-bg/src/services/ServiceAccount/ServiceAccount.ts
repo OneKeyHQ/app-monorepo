@@ -805,6 +805,7 @@ class ServiceAccount extends ServiceBase {
     networkId,
     account,
     indexedAccountNames,
+    skipEventEmit,
   }: {
     walletId: string;
     networkId: string;
@@ -812,6 +813,7 @@ class ServiceAccount extends ServiceBase {
     indexedAccountNames?: {
       [index: number]: string;
     };
+    skipEventEmit?: boolean;
   }) {
     const {
       addressDetail: _addressDetail,
@@ -834,6 +836,7 @@ class ServiceAccount extends ServiceBase {
       allAccountsBelongToNetworkId: networkId,
       walletId,
       accounts: [dbAccount],
+      skipEventEmit,
     });
   }
 

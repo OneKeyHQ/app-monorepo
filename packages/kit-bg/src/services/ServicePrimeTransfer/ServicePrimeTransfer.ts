@@ -1,5 +1,5 @@
 import { Semaphore } from 'async-mutex';
-import { debounce, isNaN, isNil } from 'lodash';
+import { debounce, isEmpty, isNaN, isNil } from 'lodash';
 import natsort from 'natsort';
 import { io } from 'socket.io-client';
 
@@ -1656,8 +1656,8 @@ class ServicePrimeTransfer extends ServiceBase {
       | undefined;
   }): Promise<{
     isCancelled?: boolean;
-    createNetworkParams?: IPrimeTransferHDWalletCreateNetworkParams;
-    indexedAccountNames?: IPrimeTransferHDWalletIndexedAccountNames;
+    createNetworkParams: IPrimeTransferHDWalletCreateNetworkParams;
+    indexedAccountNames: IPrimeTransferHDWalletIndexedAccountNames;
   }> {
     const { serviceAccount, serviceNetwork, servicePassword } =
       this.backgroundApi;
@@ -1693,6 +1693,8 @@ class ServicePrimeTransfer extends ServiceBase {
         // throw new PrimeTransferImportCancelledError();
         return {
           isCancelled: true,
+          createNetworkParams: [],
+          indexedAccountNames: {},
         };
       }
 
@@ -1867,7 +1869,7 @@ class ServicePrimeTransfer extends ServiceBase {
       let indexedAccountNames = wallet?.indexedAccountNames;
       let createNetworkParams = wallet?.createNetworkParams;
 
-      if (!indexedAccountNames || !createNetworkParams) {
+      if (isEmpty(indexedAccountNames) || isEmpty(createNetworkParams)) {
         let isCancelled: boolean | undefined;
         ({
           createNetworkParams = [],

@@ -1297,11 +1297,13 @@ class ServiceBatchCreateAccount extends ServiceBase {
       if (saveToDb) {
         if (!accountForCreate.existsInDb) {
           this.checkIfCancelled({ saveToDb, showUIProgress, errorMessage });
+          const shouldEmitEvent = await this.shouldEmitAccountUpdateEvent();
           await this.backgroundApi.serviceAccount.addBatchCreatedHdOrHwAccount({
             walletId,
             networkId,
             account: accountForCreate,
             indexedAccountNames,
+            skipEventEmit: !shouldEmitEvent,
           });
           if (this.progressInfo) {
             this.progressInfo.createdCount += 1;
