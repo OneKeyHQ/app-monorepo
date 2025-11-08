@@ -194,13 +194,13 @@ export default function NFTDetails() {
           screenHex: customScreenHex,
           thumbnailHex: customThumbnailHex,
           blurScreenHex: customBlurScreenHex,
-        } = await deviceHomeScreenUtils.buildCustomScreenHex(
-          device.id,
-          imgBase64,
-          device.deviceType,
-          true,
+        } = await deviceHomeScreenUtils.buildCustomScreenHex({
+          dbDeviceId: device.id,
+          url: imgBase64,
+          deviceType: device.deviceType,
+          isUserUpload: true,
           config,
-        );
+        });
 
         uploadResParams = await generateUploadNFTParams({
           screenHex: customScreenHex,

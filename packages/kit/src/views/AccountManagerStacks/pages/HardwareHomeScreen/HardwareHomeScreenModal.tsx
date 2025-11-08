@@ -812,13 +812,13 @@ export default function HardwareHomeScreenModal({
                   screenHex: customScreenHex,
                   thumbnailHex: customThumbnailHex,
                   blurScreenHex: customBlurScreenHex,
-                } = await deviceHomeScreenUtils.buildCustomScreenHex(
-                  device.id,
-                  selectedItem.uri || selectedItem.url,
-                  device.deviceType,
+                } = await deviceHomeScreenUtils.buildCustomScreenHex({
+                  dbDeviceId: device.id,
+                  url: selectedItem.uri || selectedItem.url,
+                  deviceType: device.deviceType,
                   isUserUpload,
-                  deviceInfo?.config,
-                );
+                  config: deviceInfo?.config,
+                });
 
                 finallyScreenHex = customScreenHex || '';
                 finallyThumbnailHex = customThumbnailHex;
