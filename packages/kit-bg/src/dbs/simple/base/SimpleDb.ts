@@ -485,4 +485,13 @@ export class SimpleDb {
     Object.defineProperty(this, 'btcFreshAddressMeta', { value });
     return value;
   }
+
+  get ipTable() {
+    const SimpleDbEntityIpTable = (
+      require('../entity/SimpleDbEntityIpTable') as unknown as typeof import('../entity/SimpleDbEntityIpTable')
+    ).SimpleDbEntityIpTable;
+    const value = new SimpleDbEntityIpTable();
+    Object.defineProperty(this, 'ipTable', { value });
+    return value;
+  }
 }
