@@ -15,14 +15,14 @@ export function TokenValue({
   showToken = true,
 }: ITokenValueProps) {
   return (
-    <XStack gap="$1" ai="center">
+    <XStack gap="$2" ai="center">
       {showToken && tokenImageUri ? (
         <Token size="xs" tokenImageUri={tokenImageUri} />
       ) : null}
-      <SizableText size="$bodyMd">
+      <SizableText size="$bodyMdMedium">
         <NumberSizeableText
           formatter="value"
-          size="$bodyMd"
+          size="$bodyMdMedium"
           formatterOptions={{
             tokenSymbol: symbol,
           }}

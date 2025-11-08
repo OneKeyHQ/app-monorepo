@@ -18,9 +18,10 @@ export function CardContainer({
   return (
     <YStack
       gap="$4"
-      px="$5"
+      px="$4"
       pt="$4"
       pb="$4"
+      bg="$bgSubdued"
       borderWidth={StyleSheet.hairlineWidth}
       borderColor="$borderSubdued"
       borderRadius="$3"

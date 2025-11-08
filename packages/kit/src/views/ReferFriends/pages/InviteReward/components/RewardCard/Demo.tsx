@@ -9,12 +9,12 @@ export function RewardCardDemo() {
     <YStack gap="$5" p="$5">
       {/* Hardware sale reward card */}
       <Card.Container>
-        <Card.Header
+        <Card.Title
           icon="OnekeyLiteOutline"
           title="Hardware sale reward"
+          description="From who bought hardware with your code"
           onPress={() => console.log('Navigate to hardware sales')}
         />
-        <Card.Description description="From who bought hardware with your code" />
 
         <Card.Item label="Monthly sales" value="$4,501.42" />
 
@@ -49,12 +49,12 @@ export function RewardCardDemo() {
 
       {/* On-chain reward card */}
       <Card.Container>
-        <Card.Header
+        <Card.Title
           icon="CoinsOutline"
           title="On-chain reward"
+          description="From wallets linked to your code"
           onPress={() => console.log('Navigate to on-chain rewards')}
         />
-        <Card.Description description="From wallets linked to your code" />
 
         <Card.Item
           label="DeFi"

@@ -28,7 +28,7 @@ export function DescriptionItem({
       {value ? (
         <XStack ai="center" jc="flex-end" flex={1}>
           {typeof value === 'string' ? (
-            <SizableText size="$bodyMd" textAlign="right">
+            <SizableText size="$bodyMdMedium" textAlign="right">
               {value}
             </SizableText>
           ) : (

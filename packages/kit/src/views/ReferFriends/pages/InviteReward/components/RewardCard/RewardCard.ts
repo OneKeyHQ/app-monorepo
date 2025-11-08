@@ -1,15 +1,13 @@
 import { CardContainer } from './CardContainer';
-import { CardDescription } from './CardDescription';
 import { CardDivider } from './CardDivider';
-import { CardHeader } from './CardHeader';
+import { CardTitle } from './CardTitle';
 import { DescriptionItem } from './DescriptionItem';
 import { InfoIcon } from './InfoIcon';
 import { TokenValue } from './TokenValue';
 
 export const Card = {
   Container: CardContainer,
-  Header: CardHeader,
-  Description: CardDescription,
+  Title: CardTitle,
   Item: DescriptionItem,
   Divider: CardDivider,
   InfoIcon,
