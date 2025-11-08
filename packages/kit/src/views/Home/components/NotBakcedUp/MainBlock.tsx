@@ -15,6 +15,7 @@ import {
 
 type IProps = {
   title: string;
+  subtitle?: string;
   actions: React.ReactNode;
   containerProps?: IYStackProps;
   iconContainerProps?: IYStackProps;
@@ -27,6 +28,7 @@ type IProps = {
 function MainInfoBlock(props: IProps) {
   const {
     title,
+    subtitle,
     actions,
     containerProps,
     iconProps,
@@ -84,11 +86,11 @@ function MainInfoBlock(props: IProps) {
         <IconButton
           variant="tertiary"
           position="absolute"
-          top="$2"
-          right="$2"
-          icon="CrossedSmallOutline"
-          size="small"
+          top="$4"
+          right="$4"
+          icon="CrossedLargeOutline"
           onPress={onClose}
+          size="small"
           iconProps={{
             color: '$iconSubdued',
           }}
@@ -108,16 +110,23 @@ function MainInfoBlock(props: IProps) {
       >
         <Icon color="$iconOnColor" size="$6" {...iconProps} />
       </YStack>
-      <SizableText
-        size="$heading2xl"
-        $gtMd={{
-          size: '$heading3xl',
-        }}
-        maxWidth={288}
-        zIndex={1}
-      >
-        {title}
-      </SizableText>
+      <YStack gap="$1" maxWidth={288}>
+        <SizableText
+          size="$heading2xl"
+          $gtMd={{
+            size: '$heading3xl',
+          }}
+          maxWidth={288}
+          zIndex={1}
+        >
+          {title}
+        </SizableText>
+        {subtitle ? (
+          <SizableText size="$bodyMd" color="$textSubdued">
+            {subtitle}
+          </SizableText>
+        ) : null}
+      </YStack>
       <YStack mt="auto" zIndex={1} alignSelf="stretch">
         {actions}
       </YStack>

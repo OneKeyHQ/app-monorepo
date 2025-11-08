@@ -3,7 +3,13 @@ import { memo, useCallback, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
-import { Button, IconButton, XStack, YStack } from '@onekeyhq/components';
+import {
+  Button,
+  IconButton,
+  Theme,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import { WalletBackupActions } from '@onekeyhq/kit/src/components/WalletBackup';
 import { useBackUpWallet } from '@onekeyhq/kit/src/hooks/useBackUpWallet';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
@@ -67,7 +73,12 @@ function NotBackedUp() {
           {backupText}
         </Button>
         <WalletBackupActions wallet={wallet} hidePhrase={!supportCloudBackup}>
-          <IconButton icon="DotHorOutline" size="large" onPress={() => {}} />
+          <IconButton
+            icon="DotHorOutline"
+            bg="$gray4"
+            size="large"
+            onPress={() => {}}
+          />
         </WalletBackupActions>
       </XStack>
     );
@@ -75,29 +86,29 @@ function NotBackedUp() {
 
   return (
     <YStack gap="$5" px="$5" pb="$6">
-      <YStack $gtMd={{ flexDirection: 'row' }} gap="$5" pt="$0.5">
-        <MainInfoBlock
-          bgSource={
-            themeVariant === 'light'
-              ? require('@onekeyhq/kit/assets/wallet-backup-bg.png')
-              : require('@onekeyhq/kit/assets/wallet-backup-bg-dark.png')
-          }
-          title={intl.formatMessage({
-            id: ETranslations.wallet_backup_prompt,
-          })}
-          iconProps={{ name: 'ShieldCheckDoneOutline' }}
-          iconContainerProps={{ bg: '$brand8' }}
-          containerProps={{
-            bg: '$brand1',
-            $gtMd: { flexBasis: 0, flexShrink: 1, flexGrow: 1 },
-            '$theme-dark': {
+      <YStack $gtMd={{ flexDirection: 'row' }} gap="$5">
+        <Theme inverse>
+          <MainInfoBlock
+            bgSource={
+              themeVariant === 'dark'
+                ? require('@onekeyhq/kit/assets/wallet-backup-bg.png')
+                : require('@onekeyhq/kit/assets/wallet-backup-bg-dark.png')
+            }
+            title={intl.formatMessage({
+              id: ETranslations.wallet_backup_prompt,
+            })}
+            iconProps={{ name: 'ShieldCheckDoneOutline' }}
+            iconContainerProps={{ bg: '$brand8' }}
+            containerProps={{
+              minHeight: 288,
+              bg: '$bgApp',
               borderWidth: StyleSheet.hairlineWidth,
               borderColor: '$borderSubdued',
-              bg: '$brand2',
-            },
-          }}
-          actions={renderBackupWalletActions()}
-        />
+              $gtMd: { flexBasis: 0, flexShrink: 1, flexGrow: 1 },
+            }}
+            actions={renderBackupWalletActions()}
+          />
+        </Theme>
         <ReferralCodeBlock closable />
       </YStack>
       <YStack

@@ -1,9 +1,13 @@
 import { memo, useCallback, useEffect } from 'react';
 
-import { Button, IconButton, Stack } from '@onekeyhq/components';
+import { isNil } from 'lodash';
+import { useIntl } from 'react-intl';
+
+import { Button } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import {
   useAccountOverviewActions,
   useWalletStatusAtom,
@@ -13,9 +17,11 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalReceiveRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import { isNil } from 'lodash';
+
+import MainInfoBlock from '../NotBakcedUp/MainBlock';
 
 function ReceiveInfo({
   recomputeLayout,
@@ -25,9 +31,10 @@ function ReceiveInfo({
   closable?: boolean;
 }) {
   const navigation = useAppNavigation();
-
+  const themeVariant = useThemeVariant();
   const { updateWalletStatus } = useAccountOverviewActions().current;
   const [walletStatus] = useWalletStatusAtom();
+  const intl = useIntl();
 
   const {
     activeAccount: { wallet },
@@ -103,29 +110,37 @@ function ReceiveInfo({
   }
 
   return (
-    <Stack
-      flex={1}
-      height={360}
-      alignItems="center"
-      justifyContent="center"
-      alignContent="center"
-    >
-      <Button onPress={handleAddMoney}>Add Money</Button>
-      {closable ? (
-        <IconButton
-          variant="tertiary"
-          position="absolute"
-          top="$2"
-          right="$2"
-          icon="CrossedSmallOutline"
-          size="small"
-          onPress={handleClose}
-          iconProps={{
-            color: '$iconSubdued',
-          }}
-        />
-      ) : null}
-    </Stack>
+    <MainInfoBlock
+      title={intl.formatMessage({ id: ETranslations.global_add_money })}
+      subtitle={intl.formatMessage({
+        id: ETranslations.add_money_methods_desc,
+      })}
+      iconProps={{ name: 'ArrowBottomCircleOutline' }}
+      iconContainerProps={{ bg: '$brand8' }}
+      bgSource={
+        themeVariant === 'dark'
+          ? require('@onekeyhq/kit/assets/wallet-add-money-bg-dark.png')
+          : require('@onekeyhq/kit/assets/wallet-add-money-bg.png')
+      }
+      closable={closable}
+      onClose={handleClose}
+      actions={
+        <Button
+          alignSelf="start"
+          size="large"
+          variant="primary"
+          onPress={handleAddMoney}
+          minWidth={120}
+        >
+          {intl.formatMessage({ id: ETranslations.global_add_money })}
+        </Button>
+      }
+      containerProps={{
+        minHeight: 288,
+        bg: '$brand1',
+        $gtMd: { flexBasis: 0, flexShrink: 1, flexGrow: 1 },
+      }}
+    />
   );
 }
 

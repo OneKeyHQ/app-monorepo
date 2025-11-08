@@ -1,3 +1,4 @@
+import type { ComponentProps } from 'react';
 import { memo, useCallback, useEffect, useState } from 'react';
 
 import { isNil } from 'lodash';
@@ -46,11 +47,13 @@ function ReferralCodeBlock({
   recomputeLayout,
   closable,
   onClose,
+  containerProps,
 }: {
   inTabList?: boolean;
   recomputeLayout?: () => void;
   closable?: boolean;
   onClose?: () => void;
+  containerProps?: ComponentProps<typeof MainInfoBlock>['containerProps'];
 }) {
   const intl = useIntl();
   const themeVariant = useThemeVariant();
@@ -316,15 +319,13 @@ function ReferralCodeBlock({
         iconContainerProps={{ bg: '$info8' }}
         containerProps={{
           bg: '$blue1',
+          minHeight: 288,
           $gtMd: { flexBasis: 0, flexShrink: 1, flexGrow: 1 },
-          ...(inTabList && {
-            borderWidth: 0,
-            borderRadius: 0,
-          }),
+          ...containerProps,
         }}
         actions={
           <Form form={form}>
-            <YStack gap="$6" alignItems="flex-start">
+            <YStack gap="$2" alignItems="flex-start">
               <Anchor
                 href={referralHelpLink}
                 color="$textSubdued"
@@ -344,12 +345,12 @@ function ReferralCodeBlock({
   }, [
     closable,
     handleClose,
-    form,
+    themeVariant,
     intl,
+    containerProps,
+    form,
     referralHelpLink,
     renderReferralCodeActions,
-    themeVariant,
-    inTabList,
   ]);
 
   if (!walletStatus.showReferralCodeBlock) {

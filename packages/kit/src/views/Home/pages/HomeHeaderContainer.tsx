@@ -1,16 +1,16 @@
 import { useMemo } from 'react';
 
-import { Stack } from '@onekeyhq/components';
+import { Stack, YStack } from '@onekeyhq/components';
 import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
 
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { HomeTokenListProviderMirror } from '../components/HomeTokenListProvider/HomeTokenListProviderMirror';
+import ReferralCodeBlock from '../components/NotBakcedUp/ReferralCodeBlock';
+import { ReceiveInfo } from '../components/ReceiveInfo';
 import { WalletActions } from '../components/WalletActions';
 import WalletBanner from '../components/WalletBanner';
 
 import { HomeOverviewContainer } from './HomeOverviewContainer';
-import { ReceiveInfo } from '../components/ReceiveInfo';
-import ReferralCodeBlock from '../components/NotBakcedUp/ReferralCodeBlock';
 
 function HomeHeaderContainer() {
   const {
@@ -50,8 +50,10 @@ function HomeHeaderContainer() {
         )}
       </Stack>
       {isWalletNotBackedUp ? null : <WalletBanner />}
-      {isWalletNotBackedUp ? null : <ReceiveInfo closable />}
-      {isWalletNotBackedUp ? null : <ReferralCodeBlock closable inTabList />}
+      <YStack $gtMd={{ flexDirection: 'row' }} gap="$5" p="$5">
+        {isWalletNotBackedUp ? null : <ReceiveInfo closable />}
+        {isWalletNotBackedUp ? null : <ReferralCodeBlock closable />}
+      </YStack>
     </HomeTokenListProviderMirror>
   );
 }
