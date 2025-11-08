@@ -1063,16 +1063,22 @@ class ServicePrimeTransfer extends ServiceBase {
           accounts: wallet.accounts || [],
           taskUUID: undefined,
           errorsInfo: undefined,
-          skipDefaultNetworks: !!isForCloudBackup,
+          skipDefaultNetworks: Boolean(isForCloudBackup),
         });
       wallet.createNetworkParams = createNetworkParams;
       wallet.indexedAccountNames = indexedAccountNames;
-      wallet.accounts = undefined;
+      if (isForCloudBackup) {
+        wallet.accounts = undefined;
+      }
       wallet.accountIdsLength = wallet.accountIds?.length || 0;
-      wallet.accountIds = undefined;
+      if (isForCloudBackup) {
+        wallet.accountIds = undefined;
+      }
       wallet.indexedAccountUUIDsLength =
         wallet.indexedAccountUUIDs?.length || 0;
-      wallet.indexedAccountUUIDs = undefined;
+      if (isForCloudBackup) {
+        wallet.indexedAccountUUIDs = undefined;
+      }
     }
 
     return {
@@ -1553,6 +1559,12 @@ class ServicePrimeTransfer extends ServiceBase {
     }));
   }
 
+  emitAccountUpdateEvent(): void {
+    setTimeout(() => {
+      appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
+    }, 1500);
+  }
+
   @backgroundMethod()
   @toastIfError()
   async resetImportProgress(): Promise<void> {
@@ -1561,6 +1573,8 @@ class ServicePrimeTransfer extends ServiceBase {
       ...prev,
       importProgress: undefined,
     }));
+    this.currentImportTaskUUID = undefined;
+    this.emitAccountUpdateEvent();
   }
 
   @backgroundMethod()
@@ -1596,6 +1610,8 @@ class ServicePrimeTransfer extends ServiceBase {
           : undefined,
       };
     });
+    this.currentImportTaskUUID = undefined;
+    this.emitAccountUpdateEvent();
   }
 
   async buildHdWalletAccountsCreateParams({
@@ -1606,6 +1622,7 @@ class ServicePrimeTransfer extends ServiceBase {
     errorsInfo,
   }: {
     walletId: string;
+    // Do not return default networks for cloud backup, which can save storage capacity
     skipDefaultNetworks?: boolean;
     accounts: IPrimeTransferHDAccount[];
     taskUUID: string | undefined;
@@ -1649,9 +1666,10 @@ class ServicePrimeTransfer extends ServiceBase {
     const indexedAccountNames: IPrimeTransferHDWalletIndexedAccountNames = {};
     for (const hdAccount of accounts) {
       if (
-        taskUUID &&
-        this.currentImportTaskUUID &&
-        this.currentImportTaskUUID !== taskUUID
+        (taskUUID &&
+          this.currentImportTaskUUID &&
+          this.currentImportTaskUUID !== taskUUID) ||
+        !this.currentImportTaskUUID
       ) {
         // task cancelled
         // throw new PrimeTransferImportCancelledError();
@@ -1719,6 +1737,11 @@ class ServicePrimeTransfer extends ServiceBase {
       createNetworkParams,
       indexedAccountNames,
     };
+  }
+
+  @backgroundMethod()
+  async isInTransferImportOrBackupRestoreFlow(): Promise<boolean> {
+    return Boolean(this.currentImportTaskUUID);
   }
 
   currentImportTaskUUID: string | undefined;
