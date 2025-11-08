@@ -24,6 +24,12 @@ import { ListItem } from '../../../components/ListItem';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useManageToken } from '../../../hooks/useManageToken';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
+import {
+  useApprovalListAtom,
+  useContractMapAtom,
+  useTokenMapAtom,
+} from '../../../states/jotai/contexts/approvalList';
+import { HomeApprovalListProviderMirror } from '../components/HomeApprovalListProvider/HomeApprovalListProviderMirror';
 
 function TokenListSettings() {
   const intl = useIntl();
@@ -170,8 +176,11 @@ function TxHistorySettings() {
 function ApprovalSettings() {
   const navigation = useAppNavigation();
   const {
-    activeAccount: { wallet, account, network },
+    activeAccount: { wallet, account, network, indexedAccount },
   } = useActiveAccount({ num: 0 });
+  const [{ approvals }] = useApprovalListAtom();
+  const [{ tokenMap }] = useTokenMapAtom();
+  const [{ contractMap }] = useContractMapAtom();
   const handleOnOpenApprovalList = useCallback(() => {
     navigation.pushModal(EModalRoutes.ApprovalManagementModal, {
       screen: EModalApprovalManagementRoutes.ApprovalList,
@@ -179,10 +188,23 @@ function ApprovalSettings() {
         walletId: wallet?.id ?? '',
         accountId: account?.id ?? '',
         networkId: network?.id ?? '',
+        indexedAccountId: indexedAccount?.id,
         isBulkRevokeMode: true,
+        approvals,
+        tokenMap,
+        contractMap,
       },
     });
-  }, [account?.id, navigation, network?.id, wallet?.id]);
+  }, [
+    navigation,
+    wallet?.id,
+    account?.id,
+    network?.id,
+    indexedAccount?.id,
+    approvals,
+    tokenMap,
+    contractMap,
+  ]);
 
   const intl = useIntl();
   return (
@@ -228,7 +250,11 @@ function BasicTabHeaderSettings({ focusedTab }: { focusedTab: string }) {
       case historyName:
         return <TxHistorySettings />;
       case approvalName:
-        return <ApprovalSettings />;
+        return (
+          <HomeApprovalListProviderMirror>
+            <ApprovalSettings />
+          </HomeApprovalListProviderMirror>
+        );
       default:
         return null;
     }

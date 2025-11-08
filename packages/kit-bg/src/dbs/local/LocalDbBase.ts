@@ -3652,6 +3652,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     accounts,
     importedCredential,
     accountNameBuilder,
+    skipEventEmit,
   }: {
     allAccountsBelongToNetworkId?: string; // pass this only if all accounts belong to the same network
     walletId: string;
@@ -3659,6 +3660,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     importedCredential?: ICoreImportedCredentialEncryptHex | undefined;
     // accountNameBuilder for watching, imported, external account
     accountNameBuilder?: (data: { nextAccountId: number }) => string;
+    skipEventEmit?: boolean;
   }): Promise<{ isOverrideAccounts: boolean; existsAccounts: IDBAccount[] }> {
     // eslint-disable-next-line no-param-reassign
     accounts = accounts.map((account) => {
@@ -3907,10 +3909,12 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       }
     }
 
-    appEventBus.emit(EAppEventBusNames.AddDBAccountsToWallet, {
-      walletId,
-      accounts,
-    });
+    if (!skipEventEmit) {
+      appEventBus.emit(EAppEventBusNames.AddDBAccountsToWallet, {
+        walletId,
+        accounts,
+      });
+    }
     return addResults;
   }
 

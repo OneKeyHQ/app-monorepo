@@ -65,6 +65,9 @@ export function TermsAndPrivacy(props?: ITermsAndPrivacyProps) {
       size="$bodySm"
       color="$textDisabled"
       textAlign="center"
+      $md={{
+        maxWidth: '$80',
+      }}
       {...props?.contentContainerProps}
     >
       {intl.formatMessage(

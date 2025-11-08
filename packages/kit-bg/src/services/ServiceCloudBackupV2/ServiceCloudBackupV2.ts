@@ -72,6 +72,7 @@ class ServiceCloudBackupV2 extends ServiceBase {
   }
 
   @backgroundMethod()
+  @toastIfError()
   async getCloudAccountInfo() {
     return this.getProvider().getCloudAccountInfo();
   }
@@ -122,8 +123,23 @@ class ServiceCloudBackupV2 extends ServiceBase {
   @toastIfError()
   async buildBackupData() {
     const data =
-      await this.backgroundApi.servicePrimeTransfer.buildTransferData();
+      await this.backgroundApi.servicePrimeTransfer.buildTransferData({
+        isForCloudBackup: true,
+      });
     return data;
+  }
+
+  async buildBackupEncryptKey(params: { password: string }): Promise<string> {
+    if (!params?.password) {
+      throw new OneKeyLocalError('Password is required for backup');
+    }
+    const cloudAccountInfo = await this.getCloudAccountInfo();
+    if (!cloudAccountInfo?.userId) {
+      throw new OneKeyLocalError(
+        'Cloud account user ID is required for backup',
+      );
+    }
+    return `${cloudAccountInfo.userId}:${params.password}:4A561E9E-E747-4AFF-B835-FE2EF2D61B41`;
   }
 
   @backgroundMethod()
@@ -138,6 +154,7 @@ class ServiceCloudBackupV2 extends ServiceBase {
     if (!params?.data?.privateData) {
       throw new OneKeyLocalError('Private data is required for backup');
     }
+
     const provider = this.getProvider();
     await provider.checkAvailability();
 
@@ -173,7 +190,7 @@ class ServiceCloudBackupV2 extends ServiceBase {
 
     const privateDataEncryptedBuffer = await encryptAsync({
       data: Buffer.from(privateData, 'utf8'),
-      password: params.password,
+      password: await this.buildBackupEncryptKey({ password: params.password }),
       allowRawPassword: true,
     });
 
@@ -187,7 +204,7 @@ class ServiceCloudBackupV2 extends ServiceBase {
       appVersion: data.appVersion,
     });
 
-    const downloadData = await provider.downloadData({
+    const downloadData = await this.download({
       recordId: recordID,
     });
     if (!downloadData?.payload?.publicData?.walletDetails) {
@@ -237,7 +254,7 @@ class ServiceCloudBackupV2 extends ServiceBase {
     // Decrypt data
     const privateDataBuffer = await decryptAsync({
       data: privateDataEncrypted,
-      password: params.password,
+      password: await this.buildBackupEncryptKey({ password: params.password }),
       allowRawPassword: true,
     });
 
@@ -257,33 +274,50 @@ class ServiceCloudBackupV2 extends ServiceBase {
         selectedItemMap: 'ALL',
       });
 
-    await this.backgroundApi.servicePrimeTransfer.initImportProgress({
-      selectedTransferData,
-    });
+    const firstWalletCredential =
+      selectedTransferData?.wallets?.[0]?.credentialDecrypted;
+    const firstImportedAccountCredential =
+      selectedTransferData?.importedAccounts?.[0]?.credentialDecrypted;
 
-    const { success, errorsInfo } =
-      await this.backgroundApi.servicePrimeTransfer.startImport({
+    let localPassword = '';
+    if (firstWalletCredential || firstImportedAccountCredential) {
+      const { password } =
+        await this.backgroundApi.servicePassword.promptPasswordVerify();
+      localPassword = password;
+    }
+
+    try {
+      await this.backgroundApi.servicePrimeTransfer.initImportProgress({
         selectedTransferData,
-        includingDefaultNetworks: true,
-        password: '',
       });
 
-    await this.backgroundApi.servicePrimeTransfer.completeImportProgress({
-      errorsInfo,
-    });
+      const { success, errorsInfo } =
+        await this.backgroundApi.servicePrimeTransfer.startImport({
+          selectedTransferData,
+          includingDefaultNetworks: true,
+          password: localPassword,
+        });
 
-    // TODO: Implement the restore flow similar to ServicePrimeTransfer
-    // This would involve:
-    // 1. Getting the selected transfer data from transferData
-    // 2. Prompting for password if needed (Google Drive)
-    // 3. Calling servicePrimeTransfer.startImport() with the data
-    // For now, just emit an event so the UI can handle it
-    return {
-      success,
-      errorsInfo,
-      transferData,
-      selectedTransferData,
-    };
+      await this.backgroundApi.servicePrimeTransfer.completeImportProgress({
+        errorsInfo,
+      });
+
+      // TODO: Implement the restore flow similar to ServicePrimeTransfer
+      // This would involve:
+      // 1. Getting the selected transfer data from transferData
+      // 2. Prompting for password if needed (Google Drive)
+      // 3. Calling servicePrimeTransfer.startImport() with the data
+      // For now, just emit an event so the UI can handle it
+      return {
+        success,
+        errorsInfo,
+        transferData,
+        selectedTransferData,
+      };
+    } catch (error) {
+      await this.backgroundApi.servicePrimeTransfer.resetImportProgress();
+      throw error;
+    }
   }
 
   @backgroundMethod()

@@ -1077,6 +1077,15 @@ class ServiceBatchCreateAccount extends ServiceBase {
     }
   }
 
+  async shouldEmitAccountUpdateEvent(): Promise<boolean> {
+    const isInTransferImportOrBackupRestoreFlow: boolean =
+      await this.backgroundApi.servicePrimeTransfer.isInTransferImportOrBackupRestoreFlow();
+    if (isInTransferImportOrBackupRestoreFlow) {
+      return false;
+    }
+    return true;
+  }
+
   async emitBatchCreateDoneEvents({
     saveToDb,
     showUIProgress,
@@ -1084,10 +1093,12 @@ class ServiceBatchCreateAccount extends ServiceBase {
     saveToDb?: boolean;
     showUIProgress?: boolean;
   } = {}) {
+    const shouldEmitEvent = await this.shouldEmitAccountUpdateEvent();
+
     if (saveToDb) {
-      appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
-      // TODO auto backup execute twice with EAppEventBusNames.AccountUpdate?
-      void this.backgroundApi.serviceCloudBackup.requestAutoBackup();
+      if (shouldEmitEvent) {
+        appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
+      }
     }
     if (this.progressInfo && showUIProgress) {
       appEventBus.emit(EAppEventBusNames.BatchCreateAccount, {
@@ -1096,6 +1107,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
         progressTotal: this.progressInfo.progressTotal,
         progressCurrent: this.progressInfo.progressTotal,
       });
+
       await timerUtils.wait(600);
     }
   }
@@ -1285,11 +1297,13 @@ class ServiceBatchCreateAccount extends ServiceBase {
       if (saveToDb) {
         if (!accountForCreate.existsInDb) {
           this.checkIfCancelled({ saveToDb, showUIProgress, errorMessage });
+          const shouldEmitEvent = await this.shouldEmitAccountUpdateEvent();
           await this.backgroundApi.serviceAccount.addBatchCreatedHdOrHwAccount({
             walletId,
             networkId,
             account: accountForCreate,
             indexedAccountNames,
+            skipEventEmit: !shouldEmitEvent,
           });
           if (this.progressInfo) {
             this.progressInfo.createdCount += 1;
@@ -1307,6 +1321,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
             networkId,
             deriveType,
           });
+
           await timerUtils.wait(100); // wait for UI refresh
         }
       }
@@ -1446,10 +1461,13 @@ class ServiceBatchCreateAccount extends ServiceBase {
     }
 
     if (saveToDb) {
-      appEventBus.emit(EAppEventBusNames.AddDBAccountsToWallet, {
-        walletId,
-        accounts: accountsForCreate,
-      });
+      const shouldEmitEvent = await this.shouldEmitAccountUpdateEvent();
+      if (shouldEmitEvent) {
+        appEventBus.emit(EAppEventBusNames.AddDBAccountsToWallet, {
+          walletId,
+          accounts: accountsForCreate,
+        });
+      }
     }
     return { accountsForCreate };
   }

@@ -1,8 +1,11 @@
+import { EDeviceType } from '@onekeyfe/hd-shared';
+
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import { EConnectDeviceChannel } from '@onekeyhq/shared/types/connectDevice';
+import type { IConnectYourDeviceItem } from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 
@@ -66,6 +69,53 @@ export async function getForceTransportType(
   }
 }
 
+export const getDeviceLabel = (
+  deviceTypeItems: EDeviceType[],
+  separator = '/',
+) => {
+  return deviceTypeItems
+    .map((deviceType) => {
+      switch (deviceType) {
+        case EDeviceType.Pro:
+          return 'OneKey Pro';
+        case EDeviceType.Classic:
+          return 'OneKey Classic';
+        case EDeviceType.Classic1s:
+          return 'OneKey Classic 1S';
+        case EDeviceType.ClassicPure:
+          return '1S Pure';
+        case EDeviceType.Mini:
+          return 'OneKey Mini';
+        case EDeviceType.Touch:
+          return 'OneKey Touch';
+        default:
+          return deviceType;
+      }
+    })
+    .join(separator);
+};
+
+export const sortDevicesData = (
+  devices: IConnectYourDeviceItem[],
+  deviceTypeItems: EDeviceType[],
+) => {
+  const prioritizedDevices: IConnectYourDeviceItem[] = [];
+  const otherDevices: IConnectYourDeviceItem[] = [];
+
+  for (let i = 0; i < devices.length; i += 1) {
+    const device = devices[i];
+    if (
+      device.device?.deviceType &&
+      deviceTypeItems.includes(device.device.deviceType)
+    ) {
+      prioritizedDevices.push(device);
+    } else {
+      otherDevices.push(device);
+    }
+  }
+  return [...prioritizedDevices, ...otherDevices];
+};
+
 export const trackHardwareWalletConnection = async ({
   status,
   deviceType,
@@ -100,4 +150,13 @@ export const trackHardwareWalletConnection = async ({
     },
     isSoftwareWalletOnlyUser,
   });
+};
+
+export const shuffleWordsIndices = (length: number) => {
+  const indices = Array.from({ length }, (_, i) => i);
+  for (let i = indices.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [indices[i], indices[j]] = [indices[j], indices[i]];
+  }
+  return indices.slice(0, 3).sort((a, b) => a - b);
 };

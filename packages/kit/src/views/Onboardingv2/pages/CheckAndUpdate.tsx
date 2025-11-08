@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useFocusEffect } from '@react-navigation/native';
+import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import type { IImageProps, IPageScreenProps } from '@onekeyhq/components';
@@ -22,18 +23,27 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
+import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
+import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import {
   EHardwareCallContext,
+  EOneKeyDeviceMode,
   type IFirmwareVerifyResult,
 } from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import { useFirmwareUpdateActions } from '../../FirmwareUpdate/hooks/useFirmwareUpdateActions';
 import { OnboardingLayout } from '../components/OnboardingLayout';
+import {
+  useConnectDeviceError,
+  useDeviceConnect,
+} from '../hooks/useDeviceConnect';
 
 import type { KnownDevice, SearchDevice } from '@onekeyfe/hd-core';
 
@@ -45,13 +55,14 @@ enum ECheckAndUpdateStepState {
   Error = 'error',
 }
 
-export default function CheckAndUpdate({
+function CheckAndUpdatePage({
   route: routeParams,
 }: IPageScreenProps<
   IOnboardingParamListV2,
   EOnboardingPagesV2.CheckAndUpdate
 >) {
-  const { deviceData } = routeParams?.params || {};
+  const intl = useIntl();
+  const { deviceData, tabValue } = routeParams?.params || {};
   console.log('deviceData', deviceData);
   const themeVariant = useThemeVariant();
   const navigation = useAppNavigation();
@@ -62,6 +73,8 @@ export default function CheckAndUpdate({
     }
     return (deviceData.device as SearchDevice).name;
   }, [deviceData]);
+
+  const { verifyHardware, connectDevice, createHWWallet } = useDeviceConnect();
 
   const [steps, setSteps] = useState<
     {
@@ -80,8 +93,15 @@ export default function CheckAndUpdate({
         themeVariant === 'light'
           ? require('@onekeyhq/kit/assets/onboarding/genuine-check.png')
           : require('@onekeyhq/kit/assets/onboarding/genuine-check-dark.png'),
-      title: 'Genuine check',
-      description: `Make sure your ${deviceLabel} is authentic`,
+      title: intl.formatMessage({
+        id: ETranslations.device_auth_request_title,
+      }),
+      description: intl.formatMessage(
+        {
+          id: ETranslations.genuine_check_desc,
+        },
+        { deviceLabel },
+      ),
       state: ECheckAndUpdateStepState.Idle,
     },
     {
@@ -90,15 +110,24 @@ export default function CheckAndUpdate({
         themeVariant === 'light'
           ? require('@onekeyhq/kit/assets/onboarding/firmware-check.png')
           : require('@onekeyhq/kit/assets/onboarding/firmware-check-dark.png'),
-      title: 'Firmware check',
-      description: `See if your ${deviceLabel} has the latest software`,
+      title: intl.formatMessage({
+        id: ETranslations.firmware_check,
+      }),
+      description: intl.formatMessage(
+        {
+          id: ETranslations.firmware_check_desc,
+        },
+        { deviceLabel },
+      ),
       state: ECheckAndUpdateStepState.Idle,
     },
     {
       id: 'setup-on-device',
       image: require('@onekeyhq/shared/src/assets/wallet/avatar/ProBlack.png'),
-      title: 'Device setup check',
-      description: 'Checking wallet initialization on device',
+      title: intl.formatMessage({ id: ETranslations.device_setup_check_title }),
+      description: intl.formatMessage({
+        id: ETranslations.device_setup_check_desc,
+      }),
       state: ECheckAndUpdateStepState.Idle,
     },
   ]);
@@ -112,7 +141,7 @@ export default function CheckAndUpdate({
     }
   }, [actions, deviceData.device?.connectId]);
 
-  const skipFirmwareUpgrade = useCallback(() => {
+  const checkDeviceInitialized = useCallback(async () => {
     setSteps((prev) => {
       const newSteps = [...prev];
       newSteps[1] = {
@@ -126,20 +155,41 @@ export default function CheckAndUpdate({
       return newSteps;
     });
 
-    // After 2 seconds, set to warning to show setup instructions
-    setTimeout(() => {
-      setSteps((prev) => {
-        const newSteps = [...prev];
-        newSteps[2] = {
-          ...newSteps[2],
-          state: ECheckAndUpdateStepState.Warning,
-        };
-        return newSteps;
+    const features = await connectDevice(deviceData.device as SearchDevice);
+    if (features) {
+      const deviceMode = await deviceUtils.getDeviceModeFromFeatures({
+        features,
       });
-    }, 2000);
-  }, []);
+
+      if (deviceMode === EOneKeyDeviceMode.notInitialized) {
+        setSteps((prev) => {
+          const newSteps = [...prev];
+          newSteps[2] = {
+            ...newSteps[2],
+            state: ECheckAndUpdateStepState.Warning,
+          };
+          return newSteps;
+        });
+      }
+    }
+    setSteps((prev) => {
+      const newSteps = [...prev];
+      newSteps[2] = {
+        ...newSteps[2],
+        state: ECheckAndUpdateStepState.Success,
+      };
+      return newSteps;
+    });
+    setTimeout(async () => {
+      navigation.push(EOnboardingPagesV2.FinalizeWalletSetup, {
+        deviceData,
+        isFirmwareVerified: true,
+      });
+    }, 1200);
+  }, [connectDevice, deviceData, navigation]);
 
   const checkFirmwareUpdate = useCallback(async () => {
+    await connectDevice(deviceData.device as SearchDevice);
     if (!deviceData.device?.connectId) {
       return;
     }
@@ -165,17 +215,27 @@ export default function CheckAndUpdate({
           return newSteps;
         });
       } else {
-        skipFirmwareUpgrade();
+        void checkDeviceInitialized();
       }
     }
-  }, [deviceData.device?.connectId, skipFirmwareUpgrade]);
+  }, [connectDevice, deviceData.device, checkDeviceInitialized]);
 
   const firmwareStepStateRef = useRef<ECheckAndUpdateStepState>(steps[1].state);
   firmwareStepStateRef.current = steps[1].state;
   useFocusEffect(
     useCallback(() => {
       if (firmwareStepStateRef.current === ECheckAndUpdateStepState.Warning) {
-        void checkFirmwareUpdate();
+        setSteps((prev) => {
+          const newSteps = [...prev];
+          newSteps[1] = {
+            ...newSteps[1],
+            state: ECheckAndUpdateStepState.InProgress,
+          };
+          return newSteps;
+        });
+        setTimeout(() => {
+          void checkFirmwareUpdate();
+        }, 150);
       }
     }, [checkFirmwareUpdate]),
   );
@@ -221,8 +281,8 @@ export default function CheckAndUpdate({
       return newSteps;
     });
 
-    await deviceData.onFirmwareVerified();
-  }, [deviceData]);
+    await verifyHardware(deviceData.device as SearchDevice, tabValue);
+  }, [verifyHardware, deviceData.device, tabValue]);
 
   const handleRetry = useCallback(async () => {
     // Set first step to inProgress
@@ -239,82 +299,104 @@ export default function CheckAndUpdate({
   }, [handleCheck]);
 
   const handleDeviceSetupDone = useCallback(() => {
-    // Set setup-on-device step to inProgress
-    setSteps((prev) => {
-      const newSteps = [...prev];
-      newSteps[2] = {
-        ...newSteps[2],
-        state: ECheckAndUpdateStepState.InProgress,
-      };
-      return newSteps;
-    });
-
-    // After 2 seconds, set it to success
-    setTimeout(() => {
-      setSteps((prev) => {
-        const newSteps = [...prev];
-        newSteps[2] = {
-          ...newSteps[2],
-          state: ECheckAndUpdateStepState.Success,
-        };
-        return newSteps;
-      });
-
-      void deviceData.onCreateWallet();
-
-      // After showing success, wait another 2 seconds before navigating
-      setTimeout(() => {
-        void navigation.push(EOnboardingPagesV2.FinalizeWalletSetup);
-      }, 2000);
-    }, 2000);
-  }, [deviceData, navigation]);
+    void checkDeviceInitialized();
+  }, [checkDeviceInitialized]);
 
   const handleSkipUpdate = useCallback(() => {
     Dialog.show({
       icon: 'InfoCircleOutline',
       tone: 'warning',
-      title: 'Skip firmware check?',
-      description:
-        'Are you sure you want to skip the check? Using up-to-date firmware gives you the best protection.',
+      title: intl.formatMessage({
+        id: ETranslations.skip_firmware_check_dialog_title,
+      }),
+      description: intl.formatMessage({
+        id: ETranslations.skip_firmware_check_dialog_desc,
+      }),
       onConfirm: () => {
         // Execute skip logic after confirmation
-        skipFirmwareUpgrade();
+        void checkDeviceInitialized();
       },
     });
-  }, [skipFirmwareUpgrade]);
+  }, [checkDeviceInitialized, intl]);
+
+  useConnectDeviceError(
+    useCallback(
+      (errorMessageId: ETranslations) => {
+        setSteps((prev) => {
+          const inProgressStep = prev.find(
+            (step) => step.state === ECheckAndUpdateStepState.InProgress,
+          );
+          if (inProgressStep) {
+            inProgressStep.state = ECheckAndUpdateStepState.Error;
+            inProgressStep.errorMessage = intl.formatMessage({
+              id: errorMessageId,
+            });
+          }
+          return [...prev];
+        });
+      },
+      [intl],
+    ),
+  );
 
   const DEVICE_SETUP_INSTRUCTIONS = useMemo(() => {
     return [
       {
-        title: 'Choose your setup option',
+        title: intl.formatMessage({
+          id: ETranslations.setup_choose_option_title,
+        }),
         details: [
-          'Create New Wallet: If this is your first wallet',
-          'Import Wallet: If you have an existing recovery phrase',
+          intl.formatMessage({
+            id: ETranslations.setup_choose_option_create_new_wallet,
+          }),
+          intl.formatMessage({
+            id: ETranslations.setup_choose_option_import_wallet,
+          }),
         ],
       },
       {
-        title: 'Setup PIN',
+        title: intl.formatMessage({
+          id: ETranslations.setup_pin,
+        }),
         details: [
-          'Set a PIN of at least 4 on your device',
-          "Remember this PIN — you'll need it to unlock your device",
+          intl.formatMessage({
+            id: ETranslations.setup_pin_limit,
+          }),
+          intl.formatMessage({
+            id: ETranslations.setup_pin_reminder,
+          }),
         ],
       },
       {
-        title: 'Setup recovery phrase',
+        title: intl.formatMessage({
+          id: ETranslations.setup_recovery_phrase,
+        }),
         details: [
-          "If you don't have a recovery phrase yet, write down the one shown on your device",
-          'If you already have one, make sure it matches',
-          'Keep your device charging during the process',
-          'Do not power off or lock the device',
+          intl.formatMessage({
+            id: ETranslations.setup_recovery_phrase_write_down,
+          }),
+          intl.formatMessage({
+            id: ETranslations.setup_recovery_phrase_matches,
+          }),
+          intl.formatMessage({
+            id: ETranslations.setup_recovery_phrase_charging,
+          }),
+          intl.formatMessage({
+            id: ETranslations.setup_recovery_phrase_do_not_power_off,
+          }),
         ],
       },
     ];
-  }, []);
+  }, [intl]);
 
   return (
     <Page>
       <OnboardingLayout>
-        <OnboardingLayout.Header title="Check & Update" />
+        <OnboardingLayout.Header
+          title={intl.formatMessage({
+            id: ETranslations.check_and_update,
+          })}
+        />
         <OnboardingLayout.Body constrained={false}>
           <OnboardingLayout.ConstrainedContent
             gap="$10"
@@ -326,7 +408,7 @@ export default function CheckAndUpdate({
               // Don't show setup-on-device until firmware-check is completed
               if (
                 step.id === 'setup-on-device' &&
-                steps[1].state !== 'success'
+                steps[1].state !== ECheckAndUpdateStepState.Success
               ) {
                 return null;
               }
@@ -336,8 +418,8 @@ export default function CheckAndUpdate({
                   {/* highlight background */}
                   <AnimatePresence>
                     {step.state &&
-                    step.state !== 'success' &&
-                    step.state !== 'idle' ? (
+                    step.state !== ECheckAndUpdateStepState.Success &&
+                    step.state !== ECheckAndUpdateStepState.Idle ? (
                       <YStack
                         animation="quick"
                         animateOnly={['opacity', 'transform']}
@@ -375,7 +457,7 @@ export default function CheckAndUpdate({
                   {index !== steps.length - 1 &&
                   !(
                     steps[index + 1]?.id === 'setup-on-device' &&
-                    steps[1].state !== 'success'
+                    steps[1].state !== ECheckAndUpdateStepState.Success
                   ) ? (
                     <YStack
                       w={2}
@@ -432,7 +514,7 @@ export default function CheckAndUpdate({
                         width={step.id === 'setup-on-device' ? 48 : 64}
                         height={step.id === 'setup-on-device' ? 48 : 64}
                       />
-                      {step.state !== 'idle' ? (
+                      {step.state !== ECheckAndUpdateStepState.Idle ? (
                         <YStack
                           position="absolute"
                           right={-9}
@@ -447,7 +529,8 @@ export default function CheckAndUpdate({
                           justifyContent="center"
                         >
                           <AnimatePresence exitBeforeEnter initial={false}>
-                            {step.state === 'inProgress' ? (
+                            {step.state ===
+                            ECheckAndUpdateStepState.InProgress ? (
                               <Spinner
                                 key="spinner"
                                 size="small"
@@ -457,7 +540,7 @@ export default function CheckAndUpdate({
                                 scale={0.8}
                               />
                             ) : null}
-                            {step.state === 'error' ? (
+                            {step.state === ECheckAndUpdateStepState.Error ? (
                               <YStack
                                 animation="quick"
                                 enterStyle={{ scale: 0.8, opacity: 0 }}
@@ -471,7 +554,7 @@ export default function CheckAndUpdate({
                                 />
                               </YStack>
                             ) : null}
-                            {step.state === 'warning' ? (
+                            {step.state === ECheckAndUpdateStepState.Warning ? (
                               <YStack
                                 animation="quick"
                                 enterStyle={{ scale: 0.8, opacity: 0 }}
@@ -485,7 +568,7 @@ export default function CheckAndUpdate({
                                 />
                               </YStack>
                             ) : null}
-                            {step.state === 'success' ? (
+                            {step.state === ECheckAndUpdateStepState.Success ? (
                               <YStack
                                 animation="quick"
                                 enterStyle={{ scale: 0.8, opacity: 0 }}
@@ -514,10 +597,12 @@ export default function CheckAndUpdate({
                   </XStack>
                   <HeightTransition initialHeight={0}>
                     {step.id === 'setup-on-device' &&
-                    step.state === 'warning' ? (
+                    step.state === ECheckAndUpdateStepState.Warning ? (
                       <YStack pt="$8" gap="$5">
                         <SizableText size="$bodyMdMedium" color="$textInfo">
-                          Let's get your device set up.
+                          {intl.formatMessage({
+                            id: ETranslations.setup_device_prompt,
+                          })}
                         </SizableText>
                         {DEVICE_SETUP_INSTRUCTIONS.map((instruction, idx) => (
                           <YStack key={instruction.title} gap="$5">
@@ -573,13 +658,15 @@ export default function CheckAndUpdate({
                           }}
                           onPress={handleDeviceSetupDone}
                         >
-                          Done
+                          {intl.formatMessage({
+                            id: ETranslations.global_done,
+                          })}
                         </Button>
                       </YStack>
                     ) : null}
                     {/* update */}
                     {step.id === 'firmware-check' &&
-                    step.state === 'warning' ? (
+                    step.state === ECheckAndUpdateStepState.Warning ? (
                       <XStack
                         gap="$2"
                         mt="$4"
@@ -595,21 +682,29 @@ export default function CheckAndUpdate({
                           flex={1}
                           textAlign="left"
                         >
-                          Update available
+                          {intl.formatMessage({
+                            id: ETranslations.hardware_status_update_available,
+                          })}
                         </SizableText>
                         <XStack gap="$2">
                           <Button
                             variant="primary"
                             onPress={toFirmwareUpgradePage}
                           >
-                            Update
+                            {intl.formatMessage({
+                              id: ETranslations.update_update_now,
+                            })}
                           </Button>
-                          <Button onPress={handleSkipUpdate}>Skip</Button>
+                          <Button onPress={handleSkipUpdate}>
+                            {intl.formatMessage({
+                              id: ETranslations.global_skip,
+                            })}
+                          </Button>
                         </XStack>
                       </XStack>
                     ) : null}
                     {/* fallback */}
-                    {step.state === 'error' ? (
+                    {step.state === ECheckAndUpdateStepState.Error ? (
                       <XStack
                         gap="$2"
                         mt="$4"
@@ -625,14 +720,19 @@ export default function CheckAndUpdate({
                           flex={1}
                           textAlign="left"
                         >
-                          {step.errorMessage ?? 'Something wrong'}
+                          {step.errorMessage ??
+                            intl.formatMessage({
+                              id: ETranslations.genuine_check_interrupt,
+                            })}
                         </SizableText>
                         <XStack gap="$2">
                           <Button
                             variant="primary"
                             onPress={() => handleRetry()}
                           >
-                            Retry
+                            {intl.formatMessage({
+                              id: ETranslations.global_retry,
+                            })}
                           </Button>
                         </XStack>
                       </XStack>
@@ -642,7 +742,9 @@ export default function CheckAndUpdate({
               );
             })}
             <AnimatePresence initial={false}>
-              {!steps.some((step) => step.state !== 'idle') ? (
+              {!steps.some(
+                (step) => step.state !== ECheckAndUpdateStepState.Idle,
+              ) ? (
                 <Button
                   animation="quick"
                   animateOnly={['opacity', 'transform']}
@@ -654,7 +756,12 @@ export default function CheckAndUpdate({
                     scale: 0.97,
                   }}
                 >
-                  Check my {deviceLabel}
+                  {intl.formatMessage(
+                    {
+                      id: ETranslations.check_my_deviceLabel,
+                    },
+                    { deviceLabel },
+                  )}
                 </Button>
               ) : null}
             </AnimatePresence>
@@ -662,5 +769,24 @@ export default function CheckAndUpdate({
         </OnboardingLayout.Body>
       </OnboardingLayout>
     </Page>
+  );
+}
+
+export default function CheckAndUpdate({
+  route,
+  navigation,
+}: IPageScreenProps<
+  IOnboardingParamListV2,
+  EOnboardingPagesV2.CheckAndUpdate
+>) {
+  return (
+    <AccountSelectorProviderMirror
+      enabledNum={[0]}
+      config={{
+        sceneName: EAccountSelectorSceneName.home, // TODO read from router
+      }}
+    >
+      <CheckAndUpdatePage route={route} navigation={navigation} />
+    </AccountSelectorProviderMirror>
   );
 }

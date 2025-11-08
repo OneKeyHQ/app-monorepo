@@ -719,10 +719,12 @@ function EarnHomeContent({
     },
   );
 
+  const isAccountExists = !!account;
+
   const { isLoading: isFetchingAccounts, run: refreshOverViewData } =
     usePromiseResult(
       async () => {
-        if (!account && !indexedAccount) {
+        if (!isAccountExists && !indexedAccount?.id) {
           return;
         }
         const totalFiatMapKey = actions.current.buildEarnAccountsKey({
@@ -732,7 +734,7 @@ function EarnHomeContent({
         });
 
         const fetchAndUpdateOverview = async () => {
-          if (!account && !indexedAccount) {
+          if (!isAccountExists && !indexedAccount?.id) {
             return;
           }
 
@@ -763,7 +765,14 @@ function EarnHomeContent({
         }
         return { loaded: true };
       },
-      [actions, account, allNetworkId, indexedAccount],
+      [
+        account?.id,
+        account?.indexedAccountId,
+        actions,
+        allNetworkId,
+        indexedAccount?.id,
+        isAccountExists,
+      ],
       {
         watchLoading: true,
         pollingInterval: timerUtils.getTimeDurationMs({ minute: 3 }),

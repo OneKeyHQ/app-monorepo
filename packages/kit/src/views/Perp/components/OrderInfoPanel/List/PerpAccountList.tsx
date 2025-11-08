@@ -10,6 +10,7 @@ import { usePerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/ato
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IUserNonFundingLedgerUpdate } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
+import { usePerpDepositOrder } from '../../../hooks/usePerpDeposit';
 import { AccountRow } from '../Components/AccountRow';
 
 import { CommonTableListView, type IColumnConfig } from './CommonTableListView';
@@ -30,7 +31,10 @@ function PerpAccountList({
   const [currentUser] = usePerpsActiveAccountAtom();
   const actions = useHyperliquidActions();
   const [currentListPage, setCurrentListPage] = useState(1);
-
+  const { perpDepositOrder } = usePerpDepositOrder({
+    accountId: currentUser?.accountId,
+    indexedAccountId: currentUser?.indexedAccountId,
+  });
   useEffect(() => {
     noop(currentUser?.accountAddress);
     setCurrentListPage(1);

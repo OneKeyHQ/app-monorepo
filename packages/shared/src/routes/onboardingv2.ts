@@ -1,3 +1,4 @@
+import type { EConnectDeviceChannel } from '../../types/connectDevice';
 import type { IConnectYourDeviceItem } from '../../types/device';
 import type { EMnemonicType } from '../utils/secret';
 import type { KnownDevice, SearchDevice } from '@onekeyfe/hd-core';
@@ -27,6 +28,11 @@ export enum EOnboardingPagesV2 {
   ConnectExternalWallet = 'ConnectExternalWallet',
   ImportKeyTag = 'ImportKeyTag',
 }
+interface IVerifyRecoveryPhraseParams {
+  mnemonic: string;
+  isWalletBackedUp?: boolean;
+  walletId: string;
+}
 
 export type IOnboardingParamListV2 = {
   [EOnboardingPagesV2.GetStarted]: {
@@ -38,6 +44,8 @@ export type IOnboardingParamListV2 = {
     mnemonic?: string;
     mnemonicType?: EMnemonicType;
     isWalletBackedUp?: boolean;
+    isFirmwareVerified?: boolean;
+    deviceData?: IConnectYourDeviceItem;
   };
   [EOnboardingPagesV2.PickYourDevice]: undefined;
   [EOnboardingPagesV2.ConnectYourDevice]: {
@@ -48,11 +56,12 @@ export type IOnboardingParamListV2 = {
   };
   [EOnboardingPagesV2.CheckAndUpdate]: {
     deviceData: IConnectYourDeviceItem;
+    tabValue: EConnectDeviceChannel;
   };
   [EOnboardingPagesV2.ImportPhraseOrPrivateKey]: undefined;
-  [EOnboardingPagesV2.BackupWalletReminder]: undefined;
-  [EOnboardingPagesV2.ShowRecoveryPhrase]: undefined;
-  [EOnboardingPagesV2.VerifyRecoveryPhrase]: undefined;
+  [EOnboardingPagesV2.BackupWalletReminder]: IVerifyRecoveryPhraseParams;
+  [EOnboardingPagesV2.ShowRecoveryPhrase]: IVerifyRecoveryPhraseParams;
+  [EOnboardingPagesV2.VerifyRecoveryPhrase]: IVerifyRecoveryPhraseParams;
   [EOnboardingPagesV2.SelectPrivateKeyNetwork]: {
     privateKey: string;
   };

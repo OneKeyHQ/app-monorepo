@@ -38,6 +38,11 @@ export const rootRouter: IRootStackNavigatorConfig<ERootRoutes, any>[] = [
     initialRoute: true,
   },
   {
+    name: ERootRoutes.Onboarding,
+    component: OnboardingNavigator,
+    type: 'onboarding',
+  },
+  {
     name: ERootRoutes.Modal,
     component: ModalNavigator,
     type: 'modal',
@@ -46,11 +51,6 @@ export const rootRouter: IRootStackNavigatorConfig<ERootRoutes, any>[] = [
     name: ERootRoutes.iOSFullScreen,
     component: iOSFullScreenNavigator,
     type: 'iOSFullScreen',
-  },
-  {
-    name: ERootRoutes.Onboarding,
-    component: OnboardingNavigator,
-    type: 'onboarding',
   },
   ...buildPermissionRouter(),
 ];

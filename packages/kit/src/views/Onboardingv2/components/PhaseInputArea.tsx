@@ -438,14 +438,23 @@ function BasicPhaseInput(
 
 const PhaseInput = forwardRef(BasicPhaseInput);
 
+export interface IPhaseInputAreaInstance {
+  submit: () => Promise<{
+    mnemonic: string;
+    mnemonicType: EMnemonicType;
+  }>;
+}
+
 export function PhaseInputArea({
   onConfirm,
   FooterComponent,
   showPhraseLengthSelector = true,
   showClearAllButton = true,
   defaultPhrases = [],
+  ref,
 }: {
-  onConfirm: (params: {
+  ref?: RefObject<IPhaseInputAreaInstance>;
+  onConfirm?: (params: {
     mnemonic: string;
     mnemonicType: EMnemonicType;
   }) => void;
@@ -495,7 +504,9 @@ export function PhaseInputArea({
     const { mnemonicType } = await serviceAccount.validateMnemonic(
       mnemonicEncoded,
     );
-    onConfirm({ mnemonic: mnemonicEncoded, mnemonicType });
+    const result = { mnemonic: mnemonicEncoded, mnemonicType };
+    onConfirm?.(result);
+    return result;
   }, [form, onConfirm, serviceAccount, servicePassword]);
 
   const {
@@ -557,11 +568,17 @@ export function PhaseInputArea({
 
   useRecoveryPhraseProtected();
 
+  useImperativeHandle(ref, () => ({
+    submit: () => {
+      return handlePageFooterConfirm();
+    },
+  }));
+
   return (
     <>
       <Page.Body>
         {showPhraseLengthSelector || showClearAllButton ? (
-          <XStack px="$5" pb="$2" pt="$2" justifyContent="space-between">
+          <XStack pb="$2" pt="$2" justifyContent="space-between">
             {showPhraseLengthSelector ? (
               <Select
                 title={intl.formatMessage({
@@ -602,16 +619,9 @@ export function PhaseInputArea({
           </XStack>
         ) : null}
         <Form form={form}>
-          <XStack px="$4" flexWrap="wrap">
+          <XStack flexWrap="wrap" m="$-1">
             {Array.from({ length: phraseLengthNumber }).map((_, index) => (
-              <Stack
-                key={index}
-                $md={{
-                  flexBasis: '50%',
-                }}
-                flexBasis="33.33%"
-                p="$1"
-              >
+              <Stack key={index} flexBasis="50%" p="$1">
                 <Form.Field name={`phrase${index + 1}`}>
                   <PhaseInput
                     index={index}
@@ -658,11 +668,13 @@ export function PhaseInputArea({
         </HeightTransition>
         {FooterComponent}
       </Page.Body>
-      <PageFooter
-        suggestions={suggestions}
-        updateInputValue={updateInputValue}
-        onConfirm={handlePageFooterConfirm}
-      />
+      {onConfirm ? (
+        <PageFooter
+          suggestions={suggestions}
+          updateInputValue={updateInputValue}
+          onConfirm={handlePageFooterConfirm}
+        />
+      ) : null}
     </>
   );
 }

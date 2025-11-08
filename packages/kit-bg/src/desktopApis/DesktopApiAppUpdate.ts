@@ -15,6 +15,10 @@ import { ElectronTranslations, i18nText } from '@onekeyhq/desktop/app/i18n';
 import * as store from '@onekeyhq/desktop/app/libs/store';
 import { b2t, toHumanReadable } from '@onekeyhq/desktop/app/libs/utils';
 import type { IInstallUpdateParams } from '@onekeyhq/desktop/app/preload';
+import {
+  clearWindowProgressBar,
+  updateWindowProgressBar,
+} from '@onekeyhq/desktop/app/windowProgressBar';
 import { buildServiceEndpoint } from '@onekeyhq/shared/src/config/appConfig';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IUpdateDownloadedEvent } from '@onekeyhq/shared/src/modules3rdParty/auto-update/type';
@@ -213,6 +217,7 @@ class DesktopApiAppUpdate {
         mainWindow.webContents.send(ipcMessageKeys.UPDATE_ERROR, {
           message,
         });
+        clearWindowProgressBar(this.getMainWindow());
       }
     });
 
@@ -233,6 +238,7 @@ class DesktopApiAppUpdate {
           transferred: progressObj.transferred,
         },
       );
+      updateWindowProgressBar(this.getMainWindow(), progressObj.percent);
     });
 
     autoUpdater.on(
@@ -259,6 +265,7 @@ class DesktopApiAppUpdate {
         );
         setTimeout(() => {
           this.isDownloading = false;
+          clearWindowProgressBar(this.getMainWindow());
         }, 2500);
       },
     );
@@ -350,6 +357,7 @@ class DesktopApiAppUpdate {
     if (this.isDownloading) {
       return;
     }
+    clearWindowProgressBar(this.getMainWindow());
     store.setUpdateBuildNumber('');
     logger.info(
       'auto-updater',
