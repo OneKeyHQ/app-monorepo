@@ -47,7 +47,7 @@ export default function VerifyRecoveryPhrase() {
       });
     }
     return generateMnemonic();
-  }, [route.params.mnemonic]);
+  }, [route.params?.mnemonic]);
   const recoveryPhrase = useMemo(
     () => mnemonic.split(' ').filter(Boolean),
     [mnemonic],
