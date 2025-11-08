@@ -22,6 +22,8 @@ function WalletActionReceive({
   customization,
   renderTrigger,
   source,
+  sameModal,
+  useSelector,
 }: {
   customization?: IActionCustomization;
   renderTrigger?: (props: {
@@ -29,6 +31,8 @@ function WalletActionReceive({
     disabled: boolean;
   }) => ReactElement;
   source?: IWalletActionBaseParams['source'];
+  sameModal?: boolean;
+  useSelector?: boolean;
 } = {}) {
   const {
     activeAccount: {
@@ -83,17 +87,23 @@ function WalletActionReceive({
     if (customization?.onPress) {
       void customization.onPress();
     } else {
-      void handleOnReceive({ withAllAggregateTokens: network?.isAllNetworks });
+      void handleOnReceive({
+        withAllAggregateTokens: network?.isAllNetworks,
+        sameModal,
+        useSelector,
+      });
     }
   }, [
     wallet?.id,
     wallet?.type,
+    network?.id,
+    network?.isAllNetworks,
     source,
+    isSoftwareWalletOnlyUser,
     customization,
     handleOnReceive,
-    network?.isAllNetworks,
-    network?.id,
-    isSoftwareWalletOnlyUser,
+    sameModal,
+    useSelector,
   ]);
 
   if (renderTrigger) {

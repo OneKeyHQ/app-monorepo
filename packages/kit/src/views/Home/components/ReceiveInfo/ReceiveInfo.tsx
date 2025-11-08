@@ -64,7 +64,7 @@ function ReceiveInfo({
   }, [wallet?.id, wallet?.xfp, updateWalletStatus]);
 
   const handleAddMoney = useCallback(async () => {
-    navigation.pushModal(EModalRoutes.ReceiveSelectorModal, {
+    navigation.pushModal(EModalRoutes.ReceiveModal, {
       screen: EModalReceiveRoutes.ReceiveSelector,
     });
   }, [navigation]);

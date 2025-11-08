@@ -5,9 +5,11 @@ import { useIntl } from 'react-intl';
 import type { IKeyOfIcons } from '@onekeyhq/components';
 import {
   Accordion,
+  Button,
   Icon,
   Page,
   SizableText,
+  XStack,
   YStack,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -32,12 +34,13 @@ function ReceiveOptions({
   return (
     <ListItem
       mx="$0"
-      p="$4"
+      p="$5"
       borderWidth={1}
       borderColor="$borderSubdued"
       drillIn
       gap="$4"
       userSelect="none"
+      bg="$bg"
       {...props}
     >
       <YStack bg="$neutral3" p="$2" borderRadius="$full">
@@ -50,12 +53,15 @@ function ReceiveOptions({
 
 function ReceiveSelectorContent() {
   const intl = useIntl();
-  const receiveFromExchangeHelpLink = useHelpLink({
-    path: 'articles/11461136',
+  const binanceHelpLink = useHelpLink({
+    path: 'articles/12553421',
   });
-  const handleReceiveFromExchange = useCallback(() => {
-    openUrlExternal(receiveFromExchangeHelpLink);
-  }, [receiveFromExchangeHelpLink]);
+  const okxHelpLink = useHelpLink({
+    path: 'articles/12553973',
+  });
+  const coinbaseHelpLink = useHelpLink({
+    path: 'articles/12561338',
+  });
   return (
     <Page>
       <Page.Header
@@ -64,6 +70,7 @@ function ReceiveSelectorContent() {
       <Page.Body>
         <YStack gap="$2.5" px="$5">
           <WalletActionBuy
+            sameModal
             onClose={() => {}}
             source="receiveSelector"
             renderTrigger={({ onPress, disabled }) => (
@@ -77,6 +84,7 @@ function ReceiveSelectorContent() {
             )}
           />
           <WalletActionReceive
+            sameModal
             source="receiveSelector"
             renderTrigger={({ onPress, disabled }) => (
               <ReceiveOptions
@@ -88,27 +96,90 @@ function ReceiveSelectorContent() {
               />
             )}
           />
-          <Accordion type="single" collapsible>
-            <Accordion.Item value="exchange">
-              <Accordion.Trigger
-                unstyled
-                borderWidth={0}
-                bg="$transparent"
-                p="$0"
-              >
-                <ReceiveOptions
-                  icon="SwitchHorOutline"
-                  title="Receive from exchange"
-                  subtitle="Binance, OKX, Coinbase, etc."
-                />
-              </Accordion.Trigger>
-              <Accordion.HeightAnimator>
-                <Accordion.Content>
-                  <SizableText>123</SizableText>
-                </Accordion.Content>
-              </Accordion.HeightAnimator>
-            </Accordion.Item>
-          </Accordion>
+          <YStack
+            bg="$neutral2"
+            borderRadius="$3"
+            borderColor="$borderSubdued"
+            borderCurve="continuous"
+          >
+            <Accordion type="single" collapsible>
+              <Accordion.Item value="exchange">
+                <Accordion.Trigger
+                  unstyled
+                  borderWidth={1}
+                  borderColor="$borderSubdued"
+                  borderRadius="$3"
+                  borderCurve="continuous"
+                  p="$5"
+                  bg="$bg"
+                  gap="$4"
+                  alignItems="center"
+                  flexDirection="row"
+                  hoverStyle={{
+                    bg: '$neutral2',
+                  }}
+                >
+                  {({ open }: { open: boolean }) => (
+                    <>
+                      <YStack bg="$neutral3" p="$2" borderRadius="$full">
+                        <Icon name="SwitchHorOutline" />
+                      </YStack>
+                      <ListItem.Text
+                        flex={1}
+                        primary="Receive from exchange"
+                        secondary="Binance, OKX, Coinbase, etc."
+                      />
+                      <YStack
+                        animation="quick"
+                        rotate={open ? '90deg' : '0deg'}
+                      >
+                        <ListItem.DrillIn />
+                      </YStack>
+                    </>
+                  )}
+                </Accordion.Trigger>
+                <Accordion.HeightAnimator animation="quick">
+                  <Accordion.Content unstyled p="$5">
+                    <SizableText mb="$2" color="$textSubdued">
+                      Learn how to withdraw crypto assets from:
+                    </SizableText>
+                    <XStack gap="$5">
+                      <Button
+                        size="small"
+                        variant="tertiary"
+                        childrenAsText={false}
+                        onPress={() => {
+                          openUrlExternal(binanceHelpLink);
+                        }}
+                      >
+                        <SizableText>Binance ↗</SizableText>
+                      </Button>
+                      <Button
+                        size="small"
+                        variant="tertiary"
+                        childrenAsText={false}
+                        onPress={() => {
+                          openUrlExternal(okxHelpLink);
+                        }}
+                      >
+                        <SizableText>OKX ↗</SizableText>
+                      </Button>
+                      <Button
+                        size="small"
+                        variant="tertiary"
+                        childrenAsText={false}
+                        onPress={() => {
+                          openUrlExternal(coinbaseHelpLink);
+                        }}
+                      >
+                        <SizableText>Coinbase ↗</SizableText>
+                      </Button>
+                    </XStack>
+                  </Accordion.Content>
+                </Accordion.HeightAnimator>
+              </Accordion.Item>
+            </Accordion>
+          </YStack>
         </YStack>
       </Page.Body>
     </Page>

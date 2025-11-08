@@ -24,6 +24,7 @@ export function WalletActionBuy({
   onClose,
   renderTrigger,
   source,
+  sameModal,
 }: {
   onClose: () => void;
   renderTrigger?: (props: {
@@ -31,6 +32,7 @@ export function WalletActionBuy({
     disabled: boolean;
   }) => ReactElement;
   source?: IWalletActionBaseParams['source'];
+  sameModal?: boolean;
 }) {
   const {
     activeAccount: { network, account, wallet, vaultSettings, indexedAccount },
@@ -85,7 +87,7 @@ export function WalletActionBuy({
       isSoftwareWalletOnlyUser,
     });
 
-    handleFiatCrypto();
+    handleFiatCrypto({ sameModal });
     onClose();
   }, [
     isBuyDisabled,
@@ -95,6 +97,7 @@ export function WalletActionBuy({
     isSoftwareWalletOnlyUser,
     onClose,
     source,
+    sameModal,
   ]);
 
   if (
