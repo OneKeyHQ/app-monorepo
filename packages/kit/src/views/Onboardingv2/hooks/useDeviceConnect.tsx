@@ -710,7 +710,10 @@ export enum EBluetoothStatus {
   noSystemPermission = 'noSystemPermission',
 }
 export const useDesktopBluetoothStatusPolling = platformEnv.isSupportDesktopBle
-  ? (onChangeBluetoothStatus: (status: EBluetoothStatus) => void) => {
+  ? (
+      tabValue: EConnectDeviceChannel,
+      onChangeBluetoothStatus: (status: EBluetoothStatus) => void,
+    ) => {
       const nobleInitializedRef = useRef(false);
       const isConnectingRef = useRef(false);
       const pollingTimerRef = useRef<ReturnType<typeof setInterval> | null>(
@@ -796,6 +799,9 @@ export const useDesktopBluetoothStatusPolling = platformEnv.isSupportDesktopBle
 
       // Check bluetooth status on mount and when focused, start polling
       useEffect(() => {
+        if (tabValue !== EConnectDeviceChannel.bluetooth) {
+          return;
+        }
         if (isFocused) {
           void checkBluetoothStatus();
           startBluetoothStatusPolling();
@@ -811,6 +817,7 @@ export const useDesktopBluetoothStatusPolling = platformEnv.isSupportDesktopBle
         isFocused,
         startBluetoothStatusPolling,
         stopBluetoothStatusPolling,
+        tabValue,
       ]);
       return useMemo(() => {
         return {

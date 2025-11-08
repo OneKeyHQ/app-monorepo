@@ -81,7 +81,6 @@ import { OnboardingLayout } from '../components/OnboardingLayout';
 import {
   EBluetoothStatus,
   useDesktopBluetoothStatusPolling,
-  useDeviceConnect,
 } from '../hooks/useDeviceConnect';
 import {
   getDeviceLabel,
@@ -992,8 +991,10 @@ function BluetoothConnectionIndicator({
     void globalThis.desktopApiProxy.bluetooth.openPrivacySettings();
   }, []);
 
-  const { checkBluetoothStatus } =
-    useDesktopBluetoothStatusPolling(setBluetoothStatus);
+  const { checkBluetoothStatus } = useDesktopBluetoothStatusPolling(
+    tabValue,
+    setBluetoothStatus,
+  );
   const handleAppEnableDesktopBluetooth = useCallback(async () => {
     try {
       await backgroundApiProxy.serviceSetting.setEnableDesktopBluetooth(true);
