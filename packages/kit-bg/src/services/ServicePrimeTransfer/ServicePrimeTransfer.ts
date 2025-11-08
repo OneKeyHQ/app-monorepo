@@ -1564,6 +1564,9 @@ class ServicePrimeTransfer extends ServiceBase {
 
   finallyImportProgress = debounce(
     async (): Promise<void> => {
+      if (this.currentImportTaskUUID === undefined) {
+        return;
+      }
       /*
       - reset transfer import task
       - register notification clients

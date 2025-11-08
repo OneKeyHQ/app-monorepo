@@ -2607,7 +2607,7 @@ class ServiceAccount extends ServiceBase {
     if (!name) {
       return;
     }
-    if (oldName === name) {
+    if (oldName && name && oldName === name) {
       return;
     }
 
