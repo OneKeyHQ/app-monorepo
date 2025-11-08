@@ -50,8 +50,8 @@ function HomeHeaderContainer() {
         )}
       </Stack>
       {isWalletNotBackedUp ? null : <WalletBanner />}
-      <ReceiveInfo closable />
-      <ReferralCodeBlock closable inTabList />
+      {isWalletNotBackedUp ? null : <ReceiveInfo closable />}
+      {isWalletNotBackedUp ? null : <ReferralCodeBlock closable inTabList />}
     </HomeTokenListProviderMirror>
   );
 }

@@ -1942,8 +1942,6 @@ function TokenListContainer({
       onPressToken={handleOnPressToken}
       isAllNetworks={network?.isAllNetworks}
       homeDefaultTokenMap={homeDefaultTokenMap}
-      withReferralCode
-      withReceiveInfo
       {...(media.gtLg && {
         tableLayout: true,
       })}

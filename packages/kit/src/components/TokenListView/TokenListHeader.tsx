@@ -3,7 +3,7 @@ import { useCallback } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { IKeyOfIcons, IXStackProps } from '@onekeyhq/components';
-import { Icon, SizableText, Stack, XStack, YStack } from '@onekeyhq/components';
+import { Icon, SizableText, Stack, XStack } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
@@ -13,8 +13,6 @@ import {
   useTokenListActions,
   useTokenListSortAtom,
 } from '../../states/jotai/contexts/tokenList';
-import ReferralCodeBlock from '../../views/Home/components/NotBakcedUp/ReferralCodeBlock';
-import { ReceiveInfo } from '../../views/Home/components/ReceiveInfo';
 
 type IProps = {
   filteredTokens: IAccountToken[];
@@ -23,7 +21,6 @@ type IProps = {
   withReferralCode?: boolean;
   withReceiveInfo?: boolean;
   manageTokenEnabled?: boolean;
-  recomputeLayout: () => void;
 };
 
 function SortButton({
@@ -72,12 +69,7 @@ function SortButton({
   );
 }
 
-function TokenListHeader({
-  tableLayout,
-  recomputeLayout,
-  withReferralCode,
-  withReceiveInfo,
-}: IProps) {
+function TokenListHeader({ tableLayout }: IProps) {
   const intl = useIntl();
   const [{ sortType, sortDirection }] = useTokenListSortAtom();
   const { updateTokenListSort } = useTokenListActions().current;
@@ -98,57 +90,45 @@ function TokenListHeader({
   }
 
   return (
-    <YStack>
-      {/* {withReceiveInfo ? (
-        <ReceiveInfo recomputeLayout={recomputeLayout} closable />
-      ) : null}
-      {withReferralCode ? (
-        <ReferralCodeBlock
-          inTabList
-          recomputeLayout={recomputeLayout}
-          closable
+    <ListItem testID="Wallet-Token-List-Header">
+      <Stack flexGrow={1} flexBasis={0} alignItems="flex-start">
+        <SortButton
+          label={intl.formatMessage({ id: ETranslations.global_asset })}
+          iconName={renderSortButton(ETokenListSortType.Name)}
+          onPress={() => {
+            updateTokenListSort({
+              sortType: ETokenListSortType.Name,
+              sortDirection: sortDirection === 'asc' ? 'desc' : 'asc',
+            });
+          }}
         />
-      ) : null} */}
-      <ListItem testID="Wallet-Token-List-Header">
-        <Stack flexGrow={1} flexBasis={0} alignItems="flex-start">
-          <SortButton
-            label={intl.formatMessage({ id: ETranslations.global_asset })}
-            iconName={renderSortButton(ETokenListSortType.Name)}
-            onPress={() => {
-              updateTokenListSort({
-                sortType: ETokenListSortType.Name,
-                sortDirection: sortDirection === 'asc' ? 'desc' : 'asc',
-              });
-            }}
-          />
-        </Stack>
-        <Stack flexGrow={1} flexBasis={0} maxWidth="$36" alignItems="flex-end">
-          <SortButton
-            label={intl.formatMessage({ id: ETranslations.global_balance })}
-            iconName={renderSortButton(ETokenListSortType.Value)}
-            onPress={() => {
-              updateTokenListSort({
-                sortType: ETokenListSortType.Value,
-                sortDirection: sortDirection === 'asc' ? 'desc' : 'asc',
-              });
-            }}
-          />
-        </Stack>
-        <Stack flexGrow={1} flexBasis={0} alignItems="flex-end">
-          <SortButton
-            label={intl.formatMessage({ id: ETranslations.global_price })}
-            iconName={renderSortButton(ETokenListSortType.Price)}
-            onPress={() => {
-              updateTokenListSort({
-                sortType: ETokenListSortType.Price,
-                sortDirection: sortDirection === 'asc' ? 'desc' : 'asc',
-              });
-            }}
-          />
-        </Stack>
-        <Stack flexGrow={1} flexBasis={0} />
-      </ListItem>
-    </YStack>
+      </Stack>
+      <Stack flexGrow={1} flexBasis={0} maxWidth="$36" alignItems="flex-end">
+        <SortButton
+          label={intl.formatMessage({ id: ETranslations.global_balance })}
+          iconName={renderSortButton(ETokenListSortType.Value)}
+          onPress={() => {
+            updateTokenListSort({
+              sortType: ETokenListSortType.Value,
+              sortDirection: sortDirection === 'asc' ? 'desc' : 'asc',
+            });
+          }}
+        />
+      </Stack>
+      <Stack flexGrow={1} flexBasis={0} alignItems="flex-end">
+        <SortButton
+          label={intl.formatMessage({ id: ETranslations.global_price })}
+          iconName={renderSortButton(ETokenListSortType.Price)}
+          onPress={() => {
+            updateTokenListSort({
+              sortType: ETokenListSortType.Price,
+              sortDirection: sortDirection === 'asc' ? 'desc' : 'asc',
+            });
+          }}
+        />
+      </Stack>
+      <Stack flexGrow={1} flexBasis={0} />
+    </ListItem>
   );
 }
 
