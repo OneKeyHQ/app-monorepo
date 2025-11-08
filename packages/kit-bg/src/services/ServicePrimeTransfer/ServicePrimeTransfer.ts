@@ -1869,8 +1869,10 @@ class ServicePrimeTransfer extends ServiceBase {
         });
       }
 
-      let indexedAccountNames = wallet?.indexedAccountNames;
-      let createNetworkParams = wallet?.createNetworkParams;
+      let indexedAccountNames: IPrimeTransferHDWalletIndexedAccountNames =
+        wallet?.indexedAccountNames ?? {};
+      let createNetworkParams: IPrimeTransferHDWalletCreateNetworkParams =
+        wallet?.createNetworkParams ?? [];
 
       if (isEmpty(indexedAccountNames) || isEmpty(createNetworkParams)) {
         let isCancelled: boolean | undefined;
