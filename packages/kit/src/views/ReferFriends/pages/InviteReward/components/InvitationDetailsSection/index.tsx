@@ -74,12 +74,7 @@ export function InvitationDetailsSection({
           <ResponsiveTwoColumnLayout
             p="$0"
             leftColumn={
-              <HardwareSalesReward
-                hardwareSales={HardwareSales}
-                levelPercent={Number(levelPercent)}
-                rebateLevels={rebateLevels}
-                rebateConfig={rebateConfig}
-              />
+              <HardwareSalesReward hardwareSales={HardwareSales} />
             }
             rightColumn={<OnChainReward onChain={Onchain} />}
           />
