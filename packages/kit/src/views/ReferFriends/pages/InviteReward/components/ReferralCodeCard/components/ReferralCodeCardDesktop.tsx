@@ -1,18 +1,59 @@
-import { StyleSheet } from 'react-native';
+import { useIntl } from 'react-intl';
 
-import {
-  Button,
-  IconButton,
-  SizableText,
-  Stack,
-  XStack,
-  YStack,
-} from '@onekeyhq/components';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { IconButton, SizableText, XStack, YStack } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useReferralCodeCard } from '../hooks/useReferralCodeCard';
 
 import type { IReferralCodeCardProps } from '../types';
+
+interface IReferralInputFieldProps {
+  label: string;
+  value: string;
+  onCopy: () => void;
+}
+
+function ReferralInputField({
+  label,
+  value,
+  onCopy,
+}: IReferralInputFieldProps) {
+  return (
+    <XStack
+      bg="$bgStrong"
+      borderRadius="$3"
+      px="$3.5"
+      py="$2.5"
+      ai="center"
+      jc="space-between"
+      w="100%"
+    >
+      {/* Left content area */}
+      <SizableText size="$bodyLg" color="$textPlaceholder">
+        {label}
+      </SizableText>
+
+      <XStack ai="center" jc="flex-end" gap="$2.5" width="75%">
+        <SizableText
+          size="$bodyLgMedium"
+          color="$text"
+          flexShrink={1}
+          numberOfLines={1}
+        >
+          {value}
+        </SizableText>
+
+        {/* Right copy button */}
+        <IconButton
+          icon="Copy3Outline"
+          size="medium"
+          variant="tertiary"
+          onPress={onCopy}
+        />
+      </XStack>
+    </XStack>
+  );
+}
 
 export function ReferralCodeCardDesktop({
   inviteUrl,
@@ -23,134 +64,53 @@ export function ReferralCodeCardDesktop({
     copyLink,
     inviteCodeUrl,
     toYourReferredPage,
-    handleShare,
-    intl,
+    intl: intlStrings,
   } = useReferralCodeCard({ inviteUrl, inviteCode });
+  const intl = useIntl();
 
   return (
-    <>
-      <YStack px="$5" pt="$6" pb="$5" $platform-native={{ pb: '$8' }}>
-        <YStack>
-          <XStack jc="space-between">
-            <SizableText size="$headingMd">{intl.yourCode}</SizableText>
-            <Button
-              onPress={toYourReferredPage}
-              variant="tertiary"
-              iconAfter="ChevronRightOutline"
-              jc="center"
-            >
-              {intl.referred}
-            </Button>
-          </XStack>
-          <XStack pt="$2">
-            <XStack
-              flexShrink={1}
-              onPress={handleCopy}
-              gap="$3"
-              borderRadius="$2"
-              ml="$-2"
-              px="$2"
-              borderCurve="continuous"
-              ai="center"
-              hoverStyle={{ bg: '$bgHover' }}
-              pressStyle={{ bg: '$bgActive' }}
-            >
-              <SizableText size="$heading4xl">{inviteCode}</SizableText>
-              <IconButton
-                title={intl.copy}
-                variant="tertiary"
-                icon="Copy3Outline"
-                size="large"
-                iconColor="$iconSubdued"
-                hoverStyle={undefined}
-                pressStyle={undefined}
-                onPress={handleCopy}
-              />
-            </XStack>
-            <XStack flex={1} />
-          </XStack>
-          <Stack
-            mt="$2.5"
-            ai="center"
-            gap="$2.5"
-            flexDirection="row"
-            $platform-native={{
-              flexDirection: 'column',
-              gap: '$4',
-            }}
-          >
-            <XStack
-              borderColor="rgba(0, 0, 0, 0.13)"
-              bg="$bgDisabled"
-              px="$3"
-              py="$1.5"
-              flex={1}
-              width="100%"
-              borderWidth={StyleSheet.hairlineWidth}
-              jc="space-between"
-              ai="center"
-              onPress={copyLink}
-              borderRadius="$2.5"
-              hoverStyle={{ bg: '$bgActive' }}
-              pressStyle={{ bg: '$bgActive' }}
-            >
-              <SizableText
-                size="$bodyLg"
-                flexShrink={platformEnv.isNative ? undefined : 1}
-                textBreakStrategy={
-                  platformEnv.isNativeAndroid ? 'simple' : undefined
-                }
-              >
-                {inviteCodeUrl}
-              </SizableText>
-              {platformEnv.isNative ? null : (
-                <IconButton
-                  title={intl.copy}
-                  icon="Copy3Outline"
-                  variant="tertiary"
-                  size="medium"
-                  iconColor="$iconSubdued"
-                  onPress={copyLink}
-                  hoverStyle={undefined}
-                  pressStyle={undefined}
-                />
-              )}
-            </XStack>
-            {platformEnv.isNative ? (
-              <XStack
-                ai="center"
-                gap="$2.5"
-                $md={{
-                  width: '100%',
-                }}
-              >
-                <Button
-                  icon="Copy3Outline"
-                  variant={platformEnv.isNative ? undefined : 'primary'}
-                  $md={{
-                    flex: 1,
-                  }}
-                  size="medium"
-                  onPress={copyLink}
-                >
-                  {intl.copy}
-                </Button>
-                <Button
-                  variant="primary"
-                  icon="ShareOutline"
-                  size="medium"
-                  $md={{
-                    flex: 1,
-                  }}
-                  onPress={handleShare}
-                >
-                  {intl.share}
-                </Button>
-              </XStack>
-            ) : null}
-          </Stack>
-        </YStack>
+    <YStack
+      bg="$bg"
+      borderWidth={1}
+      borderColor="$borderSubdued"
+      borderRadius="$4"
+      px="$5"
+      py="$0"
+    >
+      {/* Title area */}
+      <XStack jc="space-between" ai="center" gap="$6" py="$5">
+        <SizableText size="$headingMd" color="$text">
+          {intl.formatMessage({ id: ETranslations.referral_invite_via })}
+        </SizableText>
+        <XStack
+          borderRadius="$2"
+          hoverStyle={{ bg: '$bgHover' }}
+          pressStyle={{ bg: '$bgActive' }}
+          onPress={toYourReferredPage}
+          px="$2"
+          py="$1"
+          mx="$-2"
+          my="$-1"
+        >
+          <SizableText size="$bodyMdMedium" color="$textSubdued">
+            {intl.formatMessage({ id: ETranslations.referral_referral_list })}
+          </SizableText>
+        </XStack>
+      </XStack>
+
+      {/* Input fields container */}
+      <YStack gap="$3" pb="$5">
+        <ReferralInputField
+          label={intlStrings.referralCode}
+          value={inviteCode}
+          onCopy={handleCopy}
+        />
+        <ReferralInputField
+          label={intlStrings.referralLink}
+          value={inviteCodeUrl}
+          onCopy={copyLink}
+        />
       </YStack>
-    </>
+    </YStack>
   );
 }

@@ -67,8 +67,8 @@ export function CurrentLevelCardDesktop(props: ICurrentLevelCardProps) {
 
         {/* Right side - Level icon */}
         {levelIcon ? (
-          <Stack w="$24" h="$24" ai="center" jc="center" ml="$5">
-            <Image w="$24" h="$24" src={levelIcon} />
+          <Stack w="$27" h="$27" ai="center" jc="center" ml="$5">
+            <Image w="$27" h="$27" src={levelIcon} />
           </Stack>
         ) : null}
       </XStack>

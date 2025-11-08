@@ -54,12 +54,22 @@ function InviteRewardContent({
 
       <Stack
         gap="$5"
+        p="$5"
         flexDirection="row"
         $md={{
           flexDirection: 'column',
         }}
       >
-        <Stack flex={1} flexBasis={0} p="$5">
+        <Stack
+          flexGrow={1}
+          flexShrink={1}
+          flexBasis={0}
+          $md={{
+            flexGrow: undefined,
+            flexShrink: undefined,
+            flexBasis: undefined,
+          }}
+        >
           <CumulativeRewards
             cumulativeRewards={cumulativeRewards}
             withdrawAddresses={withdrawAddresses}
@@ -68,7 +78,16 @@ function InviteRewardContent({
           />
         </Stack>
 
-        <Stack flex={1} flexBasis={0}>
+        <Stack
+          flexGrow={1}
+          flexShrink={1}
+          flexBasis={0}
+          $md={{
+            flexGrow: undefined,
+            flexShrink: undefined,
+            flexBasis: undefined,
+          }}
+        >
           <ReferralCodeCard inviteUrl={inviteUrl} inviteCode={inviteCode} />
         </Stack>
       </Stack>

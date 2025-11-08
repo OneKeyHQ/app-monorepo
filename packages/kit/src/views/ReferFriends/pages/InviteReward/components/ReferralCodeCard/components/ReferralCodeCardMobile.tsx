@@ -1,5 +1,6 @@
 import {
   Button,
+  Divider,
   IconButton,
   SizableText,
   XStack,
@@ -20,35 +21,43 @@ export function ReferralCodeCardMobile({
   });
 
   return (
-    <YStack px="$5" py="$5" gap="$5">
+    <YStack bg="$bgSubdued" borderRadius="$3" p="$4" gap="$4">
       {/* Referral code row */}
-      <XStack jc="space-between" ai="center">
-        <YStack flex={1} gap="$1">
-          <SizableText size="$bodyMd" color="$textSubdued">
+      <XStack jc="space-between" ai="center" gap="$6">
+        <YStack flex={1} gap="$0">
+          <SizableText size="$bodySmMedium" color="$textSubdued">
             {intl.referralCode}
           </SizableText>
-          <SizableText size="$heading2xl">{inviteCode}</SizableText>
+          <SizableText size="$headingLg" color="$text">
+            {inviteCode}
+          </SizableText>
         </YStack>
         <Button variant="primary" size="medium" onPress={handleCopy}>
           {intl.copy}
         </Button>
       </XStack>
 
+      {/* Divider */}
+      <Divider />
+
       {/* Referral Link row */}
-      <XStack jc="space-between" ai="center">
-        <YStack flex={1} gap="$1">
-          <SizableText size="$bodyMd" color="$textSubdued">
-            {intl.referralLink}
-          </SizableText>
-          <SizableText size="$bodyMd" numberOfLines={1}>
-            {inviteCodeUrl}
-          </SizableText>
-        </YStack>
+      <XStack gap="$2" ai="center" jc="space-between">
+        <SizableText size="$bodyMd" color="$textSubdued">
+          {intl.referralLink}
+        </SizableText>
+        <SizableText
+          size="$bodyMdMedium"
+          color="$text"
+          flex={1}
+          textAlign="right"
+          numberOfLines={1}
+        >
+          {inviteCodeUrl}
+        </SizableText>
         <IconButton
           icon="Copy3Outline"
           variant="tertiary"
           size="medium"
-          iconColor="$icon"
           onPress={copyLink}
         />
       </XStack>
