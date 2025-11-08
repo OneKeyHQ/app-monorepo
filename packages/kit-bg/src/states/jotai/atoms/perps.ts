@@ -40,6 +40,15 @@ export const {
   },
 });
 
+// perpsActiveAccountRefreshHookAtom
+export const {
+  target: perpsActiveAccountRefreshHookAtom,
+  use: usePerpsActiveAccountRefreshHookAtom,
+} = globalAtom<{ refreshHook: number }>({
+  name: EAtomNames.perpsActiveAccountRefreshHookAtom,
+  initialValue: { refreshHook: 0 },
+});
+
 export type IPerpsActiveAccountSummaryAtom =
   | {
       accountAddress: IHex | undefined;
