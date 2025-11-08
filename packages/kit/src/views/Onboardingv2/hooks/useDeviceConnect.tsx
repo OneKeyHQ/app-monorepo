@@ -1,13 +1,16 @@
 import { useCallback, useMemo, useState } from 'react';
 
 import { HardwareErrorCode } from '@onekeyfe/hd-shared';
-import { get } from 'lodash';
+import { get, throttle } from 'lodash';
 import { useIntl } from 'react-intl';
 import { Linking, StyleSheet } from 'react-native';
 
 import { Button, Dialog, Stack, Toast, XStack } from '@onekeyhq/components';
 import type { IDBCreateHwWalletParamsBase } from '@onekeyhq/kit-bg/src/dbs/local/types';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  EHardwareUiStateAction,
+  useSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   OneKeyHardwareError,
   OneKeyLocalError,
@@ -19,6 +22,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EOnboardingPages } from '@onekeyhq/shared/src/routes/onboarding';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
@@ -51,34 +55,90 @@ export function useDeviceConnect() {
   const [{ hardwareTransportType }] = useSettingsPersistAtom();
   const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
   const { showSelectAddWalletTypeDialog } = useSelectAddWalletTypeDialog();
+  const deviceScanner = useMemo(
+    () =>
+      deviceUtils.getDeviceScanner({
+        backgroundApi: backgroundApiProxy,
+      }),
+    [],
+  );
 
-  const connectDevice = useCallback(async (device: SearchDevice) => {
+  const ensureStopScan = useCallback(async () => {
+    // Force stop scanning and wait for any ongoing search to complete
+    console.log(
+      'ensureStopScan: Stopping device scan and waiting for completion',
+    );
+
     try {
-      return await backgroundApiProxy.serviceHardware.connect({
-        device,
-      });
-    } catch (error: any) {
-      if (error instanceof OneKeyHardwareError) {
-        const { code, message } = error;
-        if (
-          code === HardwareErrorCode.CallMethodNeedUpgradeFirmware ||
-          code === HardwareErrorCode.BlePermissionError ||
-          code === HardwareErrorCode.BleLocationError
-        ) {
-          return;
-        }
-        Toast.error({
-          title: message || 'DeviceConnectError',
-        });
-      } else {
-        console.error('connectDevice error:', get(error, 'message', ''));
-      }
+      // Use the new stopScanAndWait method that properly waits for ongoing searches
+      await deviceScanner.stopScanAndWait();
+      console.log(
+        'ensureStopScan: Device scan stopped and all ongoing searches completed',
+      );
+    } catch (error) {
+      console.error('ensureStopScan: Error while stopping scan:', error);
+      // Fallback: just stop scan without waiting
+      deviceScanner.stopScan();
     }
-  }, []);
+  }, [deviceScanner]);
+
+  const connectDevice = useCallback(
+    async (device: SearchDevice) => {
+      await ensureStopScan();
+      try {
+        return await backgroundApiProxy.serviceHardware.connect({
+          device,
+        });
+      } catch (error: any) {
+        if (error instanceof OneKeyHardwareError) {
+          const { code, message } = error;
+          if (
+            code === HardwareErrorCode.CallMethodNeedUpgradeFirmware ||
+            code === HardwareErrorCode.BlePermissionError ||
+            code === HardwareErrorCode.BleLocationError
+          ) {
+            return;
+          }
+          Toast.error({
+            title: message || 'DeviceConnectError',
+          });
+        } else {
+          console.error('connectDevice error:', get(error, 'message', ''));
+        }
+        throw error;
+      }
+    },
+    [ensureStopScan],
+  );
+
+  const emitFirmwareFailedVerifyResult = useCallback(
+    ({
+      device,
+      errorMessage,
+    }: {
+      device: SearchDevice;
+      errorMessage: string;
+    }) => {
+      appEventBus.emit(EAppEventBusNames.EmitFirmwareVerifyResult, {
+        verified: false,
+        device,
+        payload: {
+          deviceType: device.deviceType,
+          data: '',
+          cert: '',
+          signature: '',
+        },
+        result: {
+          code: -1,
+          message: errorMessage,
+        },
+      });
+    },
+    [],
+  );
 
   const fwUpdateActions = useFirmwareUpdateActions();
   const { showFirmwareVerifyDialog } = useFirmwareVerifyDialog();
-  const [isCheckingDeviceLoading, setIsChecking] = useState(false);
 
   const handleRestoreWalletPress = useCallback(
     ({ deviceType }: { deviceType: IDeviceType }) => {
@@ -204,8 +264,9 @@ export function useDeviceConnect() {
   );
 
   // Shared device connection handler
-  const handleDeviceConnect = useCallback(
+  const verifyHardware = useCallback(
     async (device: SearchDevice, tabValue: EConnectDeviceChannel) => {
+      await connectDevice(device);
       // Ensure all scanning and polling activities are stopped before connecting
       console.log('handleDeviceConnect: Starting device connection process');
 
@@ -221,6 +282,12 @@ export function useDeviceConnect() {
       });
 
       if (device.deviceType === 'unknown') {
+        emitFirmwareFailedVerifyResult({
+          device,
+          errorMessage: intl.formatMessage({
+            id: ETranslations.hardware_connect_unknown_device_error,
+          }),
+        });
         Toast.error({
           title: intl.formatMessage({
             id: ETranslations.hardware_connect_unknown_device_error,
@@ -311,6 +378,10 @@ export function useDeviceConnect() {
             features,
             hardwareTransportType: forceTransportType || hardwareTransportType,
           });
+          emitFirmwareFailedVerifyResult({
+            device,
+            errorMessage: 'Device is in backup mode',
+          });
           Toast.error({
             title: 'Device is in backup mode',
           });
@@ -336,13 +407,17 @@ export function useDeviceConnect() {
             device,
             features,
             onContinue: async ({ checked }: { checked: boolean }) => {
-              setIsChecking(false);
-              if (deviceMode === EOneKeyDeviceMode.notInitialized) {
-                handleNotActivatedDevicePress({ deviceType });
-              }
+              // if (deviceMode === EOneKeyDeviceMode.notInitialized) {
+              // handleNotActivatedDevicePress({ deviceType });
+              // }
             },
             onClose: () => {
-              setIsChecking(false);
+              emitFirmwareFailedVerifyResult({
+                device,
+                errorMessage: intl.formatMessage({
+                  id: ETranslations.hardware_user_cancel_error,
+                }),
+              });
             },
           });
           return;
@@ -354,9 +429,9 @@ export function useDeviceConnect() {
           deviceResetToHome: false,
         });
 
-        if (deviceMode === EOneKeyDeviceMode.notInitialized) {
-          handleNotActivatedDevicePress({ deviceType });
-        }
+        // if (deviceMode === EOneKeyDeviceMode.notInitialized) {
+        //   handleNotActivatedDevicePress({ deviceType });
+        // }
 
         appEventBus.emit(EAppEventBusNames.EmitFirmwareVerifyResult, {
           verified: true,
@@ -374,6 +449,11 @@ export function useDeviceConnect() {
         void backgroundApiProxy.serviceHardware.clearForceTransportType();
         void backgroundApiProxy.serviceHardwareUI.cleanHardwareUiState();
         console.error('handleDeviceConnect error:', error);
+        emitFirmwareFailedVerifyResult({
+          device,
+          errorMessage:
+            (error as { message: string }).message ?? 'Unknown error',
+        });
         throw error;
       }
     },
@@ -381,12 +461,13 @@ export function useDeviceConnect() {
       hardwareTransportType,
       isSoftwareWalletOnlyUser,
       intl,
-      fwUpdateActions,
       connectDevice,
+      fwUpdateActions,
       showFirmwareVerifyDialog,
-      handleNotActivatedDevicePress,
+      emitFirmwareFailedVerifyResult,
     ],
   );
+
   const extractDeviceState = useCallback(
     (features: IOneKeyDeviceFeatures) => ({
       unlockedAttachPin: features.unlocked_attach_pin,
@@ -399,7 +480,6 @@ export function useDeviceConnect() {
 
   const closeDialogAndReturn = useCallback(
     async (device: SearchDevice, options: { skipDelayClose?: boolean }) => {
-      setIsChecking(false);
       void backgroundApiProxy.serviceHardwareUI.closeHardwareUiStateDialog({
         connectId: device.connectId ?? '',
         hardClose: true,
@@ -541,8 +621,7 @@ export function useDeviceConnect() {
       device: SearchDevice;
       isFirmwareVerified?: boolean;
     }) => {
-      setIsChecking(true);
-
+      await connectDevice(device);
       void backgroundApiProxy.serviceHardwareUI.showDeviceProcessLoadingDialog({
         connectId: device.connectId ?? '',
       });
@@ -580,6 +659,7 @@ export function useDeviceConnect() {
       );
     },
     [
+      connectDevice,
       extractDeviceState,
       determineWalletCreationStrategy,
       createHwWallet,
@@ -589,9 +669,46 @@ export function useDeviceConnect() {
   return useMemo(
     () => ({
       connectDevice,
-      onDeviceConnect: handleDeviceConnect,
+      ensureStopScan,
+      onDeviceConnect: verifyHardware,
+      verifyHardware,
       onSelectAddWalletType,
+      createHWWallet: onSelectAddWalletType,
     }),
-    [connectDevice, handleDeviceConnect, onSelectAddWalletType],
+    [connectDevice, ensureStopScan, verifyHardware, onSelectAddWalletType],
   );
 }
+
+export const useConnectDeviceError = (
+  onError: (errorMessageId: ETranslations) => void,
+) => {
+  const uiRequestCallback = throttle(
+    ({ uiRequestType }: { uiRequestType: EHardwareUiStateAction }) => {
+      if (uiRequestType === EHardwareUiStateAction.BLUETOOTH_PERMISSION) {
+        onError(ETranslations.onboarding_enable_bluetooth);
+      } else if (
+        uiRequestType ===
+        EHardwareUiStateAction.BLUETOOTH_CHARACTERISTIC_NOTIFY_CHANGE_FAILURE
+      ) {
+        onError(
+          platformEnv.isNativeIOS
+            ? ETranslations.feedback_try_toggling_bluetooth
+            : ETranslations.feedback_try_repairing_device_in_settings,
+        );
+      } else if (
+        uiRequestType ===
+        EHardwareUiStateAction.WEB_DEVICE_PROMPT_ACCESS_PERMISSION
+      ) {
+        onError(ETranslations.device_not_connected);
+      }
+    },
+    2500,
+  );
+  appEventBus.on(EAppEventBusNames.RequestHardwareUIDialog, uiRequestCallback);
+  return () => {
+    appEventBus.off(
+      EAppEventBusNames.RequestHardwareUIDialog,
+      uiRequestCallback,
+    );
+  };
+};

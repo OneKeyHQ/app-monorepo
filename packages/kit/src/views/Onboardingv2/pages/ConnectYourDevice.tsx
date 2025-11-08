@@ -828,18 +828,12 @@ function USBOrBLEConnectionIndicator({
     })();
   }, [listingDevice, hardwareTransportType, tabValue]);
 
-  useEffect(() => {
-    setTimeout(async () => {
-      if (isUSB) {
-        await onConnectWebDevice();
-      } else {
-        await startBLEConnection();
-      }
-    }, 2500);
-    return () => {
+  useEffect(
+    () => () => {
       stopScan();
-    };
-  }, [isUSB, onConnectWebDevice, startBLEConnection, stopScan]);
+    },
+    [stopScan],
+  );
 
   const deviceLabel = useMemo(() => {
     return getDeviceLabel(deviceTypeItems);
@@ -873,14 +867,22 @@ function USBOrBLEConnectionIndicator({
                   { deviceLabel },
                 )}
               </ConnectionIndicator.Title>
-              {platformEnv.isExtension ? (
+              {connectStatus === EConnectionStatus.init ? (
                 <>
                   <SizableText color="$textSubdued">
                     {intl.formatMessage({
                       id: ETranslations.device_select_device_popup,
                     })}
                   </SizableText>
-                  <Button variant="primary" onPress={() => {}} mt="$2">
+                  <Button
+                    variant="primary"
+                    mt="$2"
+                    onPress={
+                      hardwareTransportType === EHardwareTransportType.WEBUSB
+                        ? onConnectWebDevice
+                        : startBLEConnection
+                    }
+                  >
                     {intl.formatMessage({
                       id: ETranslations.global_start_connection,
                     })}
@@ -1133,6 +1135,7 @@ function BluetoothConnectionIndicator({
           children: intl.formatMessage({
             id: ETranslations.onboarding_enable_bluetooth,
           }),
+          onPress: handleAppEnableDesktopBluetooth,
         }}
       />
     );
@@ -1152,6 +1155,7 @@ function BluetoothConnectionIndicator({
           children: intl.formatMessage({
             id: ETranslations.global_go_to_settings,
           }),
+          onPress: handleOpenPrivacySettings,
         }}
       />
     );
@@ -1169,6 +1173,7 @@ function BluetoothConnectionIndicator({
           children: intl.formatMessage({
             id: ETranslations.onboarding_enable_bluetooth,
           }),
+          onPress: handleOpenBleSettings,
         }}
       />
     );
@@ -1291,14 +1296,15 @@ function ConnectYourDevicePage({
           : 'USB',
         value: EConnectDeviceChannel.usbOrBle,
       },
-      platformEnv.isSupportDesktopBle
+      platformEnv.isSupportDesktopBle &&
+      !deviceTypeItems.includes(EDeviceType.Mini)
         ? {
             label: intl.formatMessage({ id: ETranslations.global_bluetooth }),
             value: EConnectDeviceChannel.bluetooth,
           }
         : undefined,
     ].filter(Boolean);
-  }, [intl]);
+  }, [deviceTypeItems, intl]);
   const [tabValue, setTabValue] = useState(tabOptions[0]?.value);
 
   const { onDeviceConnect } = useDeviceConnect();

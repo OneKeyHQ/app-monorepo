@@ -15,6 +15,10 @@ import { ElectronTranslations, i18nText } from '@onekeyhq/desktop/app/i18n';
 import * as store from '@onekeyhq/desktop/app/libs/store';
 import { b2t, toHumanReadable } from '@onekeyhq/desktop/app/libs/utils';
 import type { IInstallUpdateParams } from '@onekeyhq/desktop/app/preload';
+import {
+  clearWindowProgressBar,
+  updateWindowProgressBar,
+} from '@onekeyhq/desktop/app/windowProgressBar';
 import { buildServiceEndpoint } from '@onekeyhq/shared/src/config/appConfig';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IUpdateDownloadedEvent } from '@onekeyhq/shared/src/modules3rdParty/auto-update/type';
@@ -22,7 +26,6 @@ import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import type { IDesktopApi } from './base/types';
 import type { UpdateCheckResult } from 'electron-updater';
-import { clearWindowProgressBar, updateWindowProgressBar } from '@onekeyhq/desktop/app/windowProgressBar';
 
 function isNetworkError(errorObject: Error) {
   return (
