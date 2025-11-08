@@ -1008,6 +1008,7 @@ export function useFirmwareVerifyDialog() {
     async ({
       device,
       features,
+      onVerified,
       onContinue,
       onClose,
     }: {
@@ -1015,6 +1016,7 @@ export function useFirmwareVerifyDialog() {
       features: IOneKeyDeviceFeatures | undefined;
       onContinue: (params: { checked: boolean }) => Promise<void> | void;
       onClose: () => Promise<void> | void;
+      onVerified?: (params: { checked: boolean }) => Promise<void> | void;
     }) => {
       const onCloseFn = async () => {
         await onClose?.();
@@ -1067,6 +1069,7 @@ export function useFirmwareVerifyDialog() {
             skipDeviceCancel
             device={device}
             onContinue={async ({ checked }) => {
+              await onVerified?.({ checked });
               await firmwareAuthenticationDialog.close();
               await onContinue({ checked });
             }}

@@ -381,7 +381,7 @@ export function useDeviceConnect() {
               void showFirmwareVerifyDialog({
                 device,
                 features,
-                onContinue: async ({ checked }: { checked: boolean }) => {
+                onVerified: ({ checked }: { checked: boolean }) => {
                   isVerified = checked;
                   resolve({
                     verified: checked,
@@ -397,6 +397,7 @@ export function useDeviceConnect() {
                     },
                   });
                 },
+                onContinue: () => {},
                 onClose: () => {
                   if (!isVerified) {
                     reject(
