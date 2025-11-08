@@ -263,7 +263,7 @@ function CheckAndUpdatePage({
     }, [checkFirmwareUpdate]),
   );
 
-  useDesktopBluetoothStatusPolling(noop);
+  useDesktopBluetoothStatusPolling(tabValue, noop);
 
   const handleVerifyHardware = useCallback(async () => {
     setSteps((prev) => {
