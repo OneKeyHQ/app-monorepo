@@ -74,7 +74,7 @@ function CheckAndUpdatePage({
     return (deviceData.device as SearchDevice).name;
   }, [deviceData]);
 
-  const { verifyHardware, connectDevice, createHWWallet } = useDeviceConnect();
+  const { verifyHardware, connectDevice } = useDeviceConnect();
 
   const [steps, setSteps] = useState<
     {
@@ -235,7 +235,7 @@ function CheckAndUpdatePage({
         });
         setTimeout(() => {
           void checkFirmwareUpdate();
-        }, 150);
+        });
       }
     }, [checkFirmwareUpdate]),
   );
@@ -250,7 +250,7 @@ function CheckAndUpdatePage({
           state: result.verified
             ? ECheckAndUpdateStepState.Success
             : ECheckAndUpdateStepState.Error,
-          errorMessage: result.result?.message ?? undefined,
+          errorMessage: result.verified ? undefined : result.result?.message,
         };
         if (result.verified) {
           newSteps[1] = {
@@ -261,7 +261,9 @@ function CheckAndUpdatePage({
         return newSteps;
       });
       if (result.verified) {
-        await checkFirmwareUpdate();
+        setTimeout(() => {
+          void checkFirmwareUpdate();
+        }, 150);
       }
     };
     appEventBus.on(EAppEventBusNames.EmitFirmwareVerifyResult, callback);
