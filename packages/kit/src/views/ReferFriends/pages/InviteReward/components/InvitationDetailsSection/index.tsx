@@ -46,14 +46,7 @@ export function InvitationDetailsSection({
     return null;
   }
 
-  const {
-    HardwareSales,
-    Onchain,
-    cumulativeRewards,
-    levelPercent,
-    rebateLevels,
-    rebateConfig,
-  } = summaryInfo;
+  const { HardwareSales, Onchain, cumulativeRewards } = summaryInfo;
 
   // Check if user can create more codes
   const canCreateCode = codeListData ? codeListData.remainingCodes > 0 : false;

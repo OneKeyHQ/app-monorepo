@@ -24,17 +24,20 @@ export interface IRewardDetailTooltipProps {
     fiatValue: string;
   }>;
   iconSize?: string;
+  placement?: 'top' | 'bottom' | 'left' | 'right';
 }
 
 export function RewardDetailTooltip({
   rewards,
   iconSize = '$5',
+  placement = 'top',
 }: IRewardDetailTooltipProps) {
   const intl = useIntl();
 
   return (
     <Popover.Tooltip
       iconSize={iconSize}
+      placement={placement}
       title={intl.formatMessage({
         id: ETranslations.referral_earn_reward_details,
       })}
