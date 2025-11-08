@@ -1056,6 +1056,28 @@ class ServiceNetwork extends ServiceBase {
   }
 
   @backgroundMethod()
+  async getImplContainsMultipleNetworks() {
+    const presetNetworks = getPresetNetworks();
+
+    const impls: {
+      [impl: string]: IServerNetwork[];
+    } = {};
+    presetNetworks.forEach((o) => {
+      impls[o.impl] = impls[o.impl] || [];
+      impls[o.impl].push(o);
+    });
+    const results: {
+      [impl: string]: IServerNetwork[];
+    } = {};
+    Object.entries(impls).forEach(([impl, networks]) => {
+      if (networks.length > 1) {
+        results[impl] = networks;
+      }
+    });
+    return results;
+  }
+
+  @backgroundMethod()
   async getChainSelectorNetworksCompatibleWithAccountId({
     accountId,
     networkIds,

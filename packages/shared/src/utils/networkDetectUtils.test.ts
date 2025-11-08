@@ -27,7 +27,7 @@ describe('Network Detection by Private Key', () => {
       const result = await networkDetectUtils.detectNetworkByPrivateKey({
         privateKey,
       });
-      expect(result.length).toBeGreaterThan(0);
+      expect(result.networks.length).toBeGreaterThan(0);
       expect(result).toContainEqual({
         networkId: presetNetworksMap.btc.id,
         impl: presetNetworksMap.btc.impl,
@@ -52,7 +52,7 @@ describe('Network Detection by Private Key', () => {
       const result = await networkDetectUtils.detectNetworkByPrivateKey({
         privateKey,
       });
-      expect(result.length).toBeGreaterThan(0);
+      expect(result.networks.length).toBeGreaterThan(0);
       expect(result).toContainEqual({
         networkId: presetNetworksMap.btc.id,
         impl: presetNetworksMap.btc.impl,
@@ -229,7 +229,7 @@ describe('Network Detection by Private Key', () => {
         privateKey,
       });
       // Should detect multiple chains
-      expect(result.length).toBeGreaterThan(0);
+      expect(result.networks.length).toBeGreaterThan(0);
       expect(result).toContainEqual({
         networkId: presetNetworksMap.eth.id,
         impl: presetNetworksMap.eth.impl,
@@ -356,7 +356,7 @@ describe('Network Detection by Private Key', () => {
       const result = await networkDetectUtils.detectNetworkByPrivateKey({
         privateKey,
       });
-      expect(result.length).toBeGreaterThan(0);
+      expect(result.networks.length).toBeGreaterThan(0);
       expect(result).toContainEqual({
         networkId: presetNetworksMap.kaspa.id,
         impl: presetNetworksMap.kaspa.impl,
@@ -515,7 +515,7 @@ describe('Network Detection by Private Key', () => {
       const result = await networkDetectUtils.detectNetworkByPrivateKey({
         privateKey,
       });
-      expect(result.length).toBeGreaterThan(0);
+      expect(result.networks.length).toBeGreaterThan(0);
       expect(result).toContainEqual({
         networkId: presetNetworksMap.eth.id,
         impl: presetNetworksMap.eth.impl,

@@ -14,10 +14,10 @@ import {
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes';
-import type { EMnemonicType } from '@onekeyhq/shared/src/utils/secret';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { fixInputImportSingleChain } from '../../Onboarding/pages/ImportWallet/ImportSingleChainBase';
 import { OnboardingLayout } from '../components/OnboardingLayout';
 import { PhaseInputArea } from '../components/PhaseInputArea';
 
@@ -31,6 +31,7 @@ export default function ImportPhraseOrPrivateKey() {
   const [isConfirming, setIsConfirming] = useState(false);
   const intl = useIntl();
   const [privateKey, setPrivateKey] = useState('');
+  const intl = useIntl();
 
   const handleConfirm = async () => {
     if (selected === 'phrase') {
@@ -57,7 +58,7 @@ export default function ImportPhraseOrPrivateKey() {
     } else {
       const input =
         await backgroundApiProxy.servicePassword.encodeSensitiveText({
-          text: privateKey?.trim?.() || '',
+          text: fixInputImportSingleChain(privateKey || '') || '',
         });
       // Navigate to network selection page for private key import
       void navigation.push(EOnboardingPagesV2.SelectPrivateKeyNetwork, {
@@ -124,7 +125,9 @@ export default function ImportPhraseOrPrivateKey() {
                     $platform-native={{
                       minHeight: 160,
                     }}
-                    placeholder="Enter your private key"
+                    placeholder={intl.formatMessage({
+                      id: ETranslations.form_enter_private_key_placeholder,
+                    })}
                   />
                 </YStack>
               )}

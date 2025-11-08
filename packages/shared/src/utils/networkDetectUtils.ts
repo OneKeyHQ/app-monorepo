@@ -445,7 +445,7 @@ async function detectNetworkByPrivateKeyFn({
       buildResult(presetNetworksMap.sui),
       buildResult(presetNetworksMap.cfx),
       buildResult(presetNetworksMap.benfen),
-      buildResult(presetNetworksMap.ckb),
+      buildResult(presetNetworksMap.ckb), // Nervos
     ];
   }
 
