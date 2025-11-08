@@ -12,6 +12,7 @@ import {
   ONEKEY_HEALTH_CHECK_URL,
   ONEKEY_TEST_API_HOST,
 } from '@onekeyhq/shared/src/config/appConfig';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   IP_TABLE_INITIAL_SPEED_TEST_DELAY_MS,
   IP_TABLE_PERFORMANCE_IMPROVEMENT_THRESHOLD,
@@ -73,7 +74,9 @@ class ServiceIpTable extends ServiceBase {
 
   private async fetchRemoteConfig(): Promise<IIpTableRemoteConfig | null> {
     try {
-      console.log('[IpTable] Fetching remote config from:', IP_TABLE_CDN_URL);
+      defaultLogger.ipTable.request.info({
+        info: `[IpTable] Fetching remote config from: ${IP_TABLE_CDN_URL}`,
+      });
 
       const plainAxios = axios.create();
 
@@ -90,31 +93,35 @@ class ServiceIpTable extends ServiceBase {
       const remoteConfig = response.data;
 
       if (!remoteConfig) {
-        console.error('[IpTable] CDN returned empty config');
+        defaultLogger.ipTable.request.error({
+          info: '[IpTable] CDN returned empty config',
+        });
         return null;
       }
 
-      console.log(
-        '[IpTable] Remote config fetched successfully, version:',
-        remoteConfig.version,
-      );
+      defaultLogger.ipTable.request.info({
+        info: `[IpTable] Remote config fetched successfully, version: ${remoteConfig.version}`,
+      });
       return remoteConfig;
     } catch (error: any) {
       if (axios.isAxiosError(error)) {
         if (error.code === 'ECONNABORTED') {
-          console.error(
-            '[IpTable] CDN fetch timeout after',
-            IP_TABLE_CDN_FETCH_TIMEOUT_MS,
-            'ms',
-          );
+          defaultLogger.ipTable.request.error({
+            info: `[IpTable] CDN fetch timeout after ${IP_TABLE_CDN_FETCH_TIMEOUT_MS} ms`,
+          });
         } else {
-          console.error(
-            '[IpTable] CDN fetch failed:',
-            error.response?.status || error.message,
-          );
+          defaultLogger.ipTable.request.error({
+            info: `[IpTable] CDN fetch failed: ${
+              error.response?.status || error.message
+            }`,
+          });
         }
       } else {
-        console.error('[IpTable] CDN fetch error:', error);
+        defaultLogger.ipTable.request.error({
+          info: `[IpTable] CDN fetch error: ${
+            error instanceof Error ? error.message : 'Unknown error'
+          }`,
+        });
       }
       return null;
     }
@@ -126,38 +133,48 @@ class ServiceIpTable extends ServiceBase {
       const remoteConfig = await this.fetchRemoteConfig();
 
       if (!remoteConfig) {
-        console.log('[IpTable] Skipping CDN config update: fetch failed');
+        defaultLogger.ipTable.request.info({
+          info: '[IpTable] Skipping CDN config update: fetch failed',
+        });
         return false;
       }
 
       const isValidSignature = verifyIpTableConfigSignature(remoteConfig);
 
       if (!isValidSignature) {
-        console.error(
-          '[IpTable] Skipping CDN config update: signature verification failed',
-        );
+        defaultLogger.ipTable.request.error({
+          info: '[IpTable] Skipping CDN config update: signature verification failed',
+        });
         return false;
       }
 
-      console.log('[IpTable] Remote config signature verified successfully');
+      defaultLogger.ipTable.request.info({
+        info: '[IpTable] Remote config signature verified successfully',
+      });
 
       const currentConfig = await this.getConfig();
       const localConfig = currentConfig.config;
 
       const mergedConfig = mergeIpTableConfigs(localConfig, remoteConfig);
 
-      console.log(
-        '[IpTable] Merged config has',
-        Object.keys(mergedConfig.domains).length,
-        'domains',
-      );
+      defaultLogger.ipTable.request.info({
+        info: `[IpTable] Merged config has ${
+          Object.keys(mergedConfig.domains).length
+        } domains`,
+      });
 
       await this.saveConfig(mergedConfig);
 
-      console.log('[IpTable] CDN config updated successfully');
+      defaultLogger.ipTable.request.info({
+        info: '[IpTable] CDN config updated successfully',
+      });
       return true;
     } catch (error) {
-      console.error('[IpTable] Error in fetchAndMergeRemoteConfig:', error);
+      defaultLogger.ipTable.request.error({
+        info: `[IpTable] Error in fetchAndMergeRemoteConfig: ${
+          error instanceof Error ? error.message : 'Unknown error'
+        }`,
+      });
       return false;
     }
   }
@@ -214,19 +231,25 @@ class ServiceIpTable extends ServiceBase {
    */
   @backgroundMethod()
   async selectBestEndpointForDomain(domain: string): Promise<void> {
-    console.log(`[IpTable] Starting speed test for domain: ${domain}`);
+    defaultLogger.ipTable.request.info({
+      info: `[IpTable] Starting speed test for domain: ${domain}`,
+    });
 
     const configWithRuntime = await this.getConfig();
     const domainConfig = configWithRuntime.config.domains[domain];
 
     if (!domainConfig || !domainConfig.endpoints.length) {
-      console.log(`[IpTable] No endpoints configured for domain: ${domain}`);
+      defaultLogger.ipTable.request.info({
+        info: `[IpTable] No endpoints configured for domain: ${domain}`,
+      });
       return;
     }
 
     try {
       // 1. Test domain directly
-      console.log(`[IpTable] Testing domain: ${domain}`);
+      defaultLogger.ipTable.request.info({
+        info: `[IpTable] Testing domain: ${domain}`,
+      });
       const domainLatency = await this.testMultipleTimes(() =>
         testDomainSpeed(
           domain,
@@ -235,15 +258,17 @@ class ServiceIpTable extends ServiceBase {
         ),
       );
 
-      console.log(
-        `[IpTable] Domain test result: ${domain} -> ${domainLatency}ms`,
-      );
+      defaultLogger.ipTable.request.info({
+        info: `[IpTable] Domain test result: ${domain} -> ${domainLatency}ms`,
+      });
 
       // 2. Test all IPs with SNI
       const ipResults = new Map<string, number>();
 
       for (const endpoint of domainConfig.endpoints) {
-        console.log(`[IpTable] Testing IP: ${endpoint.ip} for ${domain}`);
+        defaultLogger.ipTable.request.info({
+          info: `[IpTable] Testing IP: ${endpoint.ip} for ${domain}`,
+        });
 
         const ipLatency = await this.testMultipleTimes(() =>
           testIpSpeed(
@@ -256,9 +281,9 @@ class ServiceIpTable extends ServiceBase {
 
         ipResults.set(endpoint.ip, ipLatency);
 
-        console.log(
-          `[IpTable] IP test result: ${endpoint.ip} -> ${ipLatency}ms`,
-        );
+        defaultLogger.ipTable.request.info({
+          info: `[IpTable] IP test result: ${endpoint.ip} -> ${ipLatency}ms`,
+        });
       }
 
       // 3. Find best IP
@@ -277,23 +302,27 @@ class ServiceIpTable extends ServiceBase {
         // Domain test failed
         if (bestIpLatency !== Infinity) {
           // Use best IP
-          console.log(
-            `[IpTable] Domain failed, using IP: ${domain} -> ${bestIp}`,
-          );
+          defaultLogger.ipTable.request.info({
+            info: `[IpTable] Domain failed, using IP: ${domain} -> ${bestIp}`,
+          });
           await this.backgroundApi.simpleDb.ipTable.updateSelection(
             domain,
             bestIp,
           );
         } else {
           // All tests failed
-          console.log(`[IpTable] All tests failed for ${domain}`);
+          defaultLogger.ipTable.request.info({
+            info: `[IpTable] All tests failed for ${domain}`,
+          });
         }
         return;
       }
 
       if (bestIpLatency === Infinity) {
         // All IP tests failed, use domain
-        console.log(`[IpTable] All IP tests failed, using domain: ${domain}`);
+        defaultLogger.ipTable.request.info({
+          info: `[IpTable] All IP tests failed, using domain: ${domain}`,
+        });
         await this.backgroundApi.simpleDb.ipTable.updateSelection(domain, '');
         return;
       }
@@ -303,26 +332,30 @@ class ServiceIpTable extends ServiceBase {
 
       if (improvement > IP_TABLE_PERFORMANCE_IMPROVEMENT_THRESHOLD) {
         // IP is significantly faster (>30%), use IP
-        console.log(
-          `[IpTable] IP is ${(improvement * 100).toFixed(
+        defaultLogger.ipTable.request.info({
+          info: `[IpTable] IP is ${(improvement * 100).toFixed(
             1,
           )}% faster, using IP: ${domain} -> ${bestIp}`,
-        );
+        });
         await this.backgroundApi.simpleDb.ipTable.updateSelection(
           domain,
           bestIp,
         );
       } else {
         // Domain is competitive, prefer domain for stability
-        console.log(
-          `[IpTable] Domain is competitive (IP only ${(
+        defaultLogger.ipTable.request.info({
+          info: `[IpTable] Domain is competitive (IP only ${(
             improvement * 100
           ).toFixed(1)}% faster), using domain: ${domain}`,
-        );
+        });
         await this.backgroundApi.simpleDb.ipTable.updateSelection(domain, '');
       }
     } catch (error) {
-      console.error(`[IpTable] Speed test failed for domain ${domain}:`, error);
+      defaultLogger.ipTable.request.error({
+        info: `[IpTable] Speed test failed for domain ${domain}: ${
+          error instanceof Error ? error.message : 'Unknown error'
+        }`,
+      });
     }
   }
 
@@ -332,7 +365,9 @@ class ServiceIpTable extends ServiceBase {
    */
   @backgroundMethod()
   async runFullSpeedTest(): Promise<void> {
-    console.log('[IpTable] Starting full speed test');
+    defaultLogger.ipTable.request.info({
+      info: '[IpTable] Starting full speed test',
+    });
     const configWithRuntime = await this.getConfig();
 
     const { enabled: devSettingEnabled, settings } =
@@ -345,29 +380,33 @@ class ServiceIpTable extends ServiceBase {
     if (configWithRuntime.config.domains[domain]) {
       await this.selectBestEndpointForDomain(domain);
     }
-    console.log('[IpTable] Full speed test completed');
+    defaultLogger.ipTable.request.info({
+      info: '[IpTable] Full speed test completed',
+    });
   }
 
   @backgroundMethod()
   async reportSniFailure(domain: string, ip: string): Promise<void> {
-    console.log(`[IpTable] SNI failure reported: ${domain} (${ip})`);
+    defaultLogger.ipTable.request.info({
+      info: `[IpTable] SNI failure reported: ${domain} (${ip})`,
+    });
 
     const errorCount = 0;
     // Trigger speed test if threshold reached
     if (errorCount >= IP_TABLE_SNI_FAILURE_THRESHOLD) {
-      console.log(
-        `[IpTable] Failure threshold reached for ${domain}, triggering speed test`,
-      );
+      defaultLogger.ipTable.request.info({
+        info: `[IpTable] Failure threshold reached for ${domain}, triggering speed test`,
+      });
       void this.selectBestEndpointForDomain(domain);
     }
   }
 
   private scheduleSpeedTest(reason: string): void {
-    console.log(
-      `[IpTable] ${reason}, scheduling speed test in`,
-      IP_TABLE_INITIAL_SPEED_TEST_DELAY_MS / 1000,
-      's',
-    );
+    defaultLogger.ipTable.request.info({
+      info: `[IpTable] ${reason}, scheduling speed test in ${
+        IP_TABLE_INITIAL_SPEED_TEST_DELAY_MS / 1000
+      } s`,
+    });
     setTimeout(() => {
       void this.runFullSpeedTest();
     }, IP_TABLE_INITIAL_SPEED_TEST_DELAY_MS);
@@ -383,7 +422,9 @@ class ServiceIpTable extends ServiceBase {
     if (!isSupportIpTablePlatform()) {
       return;
     }
-    console.log('[IpTable] Initializing service');
+    defaultLogger.ipTable.request.info({
+      info: '[IpTable] Initializing service',
+    });
 
     // Register SNI failure callback
     setReportSniFailureCallback((domain, ip) => {
@@ -395,21 +436,25 @@ class ServiceIpTable extends ServiceBase {
     let needSpeedTest = false;
 
     if (shouldRefresh) {
-      console.log(
-        '[IpTable] CDN config refresh needed, fetching remote config',
-      );
+      defaultLogger.ipTable.request.info({
+        info: '[IpTable] CDN config refresh needed, fetching remote config',
+      });
       const configUpdated = await this.fetchAndMergeRemoteConfig();
 
       needSpeedTest = true;
       if (configUpdated) {
-        console.log('[IpTable] CDN config updated successfully');
+        defaultLogger.ipTable.request.info({
+          info: '[IpTable] CDN config updated successfully',
+        });
       } else {
-        console.log(
-          '[IpTable] CDN config update failed, using local/builtin config',
-        );
+        defaultLogger.ipTable.request.info({
+          info: '[IpTable] CDN config update failed, using local/builtin config',
+        });
       }
     } else {
-      console.log('[IpTable] CDN config is up to date');
+      defaultLogger.ipTable.request.info({
+        info: '[IpTable] CDN config is up to date',
+      });
       needSpeedTest = !(await this.hasRuntimeSelections());
     }
 
@@ -420,7 +465,9 @@ class ServiceIpTable extends ServiceBase {
       );
     }
 
-    console.log('[IpTable] Service initialized');
+    defaultLogger.ipTable.request.info({
+      info: '[IpTable] Service initialized',
+    });
   }
 }
 

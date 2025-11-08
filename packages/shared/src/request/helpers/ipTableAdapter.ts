@@ -1,6 +1,7 @@
 import axios, { AxiosHeaders } from 'axios';
 
 import { OneKeyLocalError } from '../../errors';
+import { defaultLogger } from '../../logger/logger';
 import { getRequestHeaders } from '../Interceptor';
 import requestHelper from '../requestHelper';
 
@@ -89,6 +90,11 @@ async function shouldUseIpTable(): Promise<boolean> {
     return false;
   } catch (error) {
     debugWarn('[IpTableAdapter] Failed to check IP Table permission:', error);
+    defaultLogger.ipTable.request.warn({
+      info: `[IpTableAdapter] Failed to check IP Table permission: ${
+        error instanceof Error ? error.message : 'Unknown error'
+      }`,
+    });
     return defaultEnabled;
   }
 }
@@ -136,6 +142,11 @@ async function getSelectedIpForHost(hostname: string): Promise<string | null> {
     return null;
   } catch (error) {
     debugWarn('[IpTableAdapter] Failed to get IP table config:', error);
+    defaultLogger.ipTable.request.warn({
+      info: `[IpTableAdapter] Failed to get IP table config: ${
+        error instanceof Error ? error.message : 'Unknown error'
+      }`,
+    });
     return null;
   }
 }
@@ -251,6 +262,9 @@ export function createIpTableAdapter(
       '[IpTableAdapter] Unable to resolve adapter, type:',
       typeof originalDefaultAdapters,
     );
+    defaultLogger.ipTable.request.error({
+      info: `[IpTableAdapter] Unable to resolve adapter, type: ${typeof originalDefaultAdapters}`,
+    });
     throw new OneKeyLocalError(
       'IP Table Adapter: Unable to perform fallback request on this platform',
     );
@@ -269,6 +283,13 @@ export function createIpTableAdapter(
         return await callOriginalAdapter(config);
       } catch (fallbackError) {
         debugError('[IpTableAdapter] Fallback request failed:', fallbackError);
+        defaultLogger.ipTable.request.error({
+          info: `[IpTableAdapter] Fallback request failed: ${
+            fallbackError instanceof Error
+              ? fallbackError.message
+              : 'Unknown error'
+          }`,
+        });
         throw fallbackError;
       }
     }
@@ -431,6 +452,11 @@ export function createIpTableAdapter(
             '[IpTableAdapter] Failed to parse response body:',
             parseError,
           );
+          defaultLogger.ipTable.request.warn({
+            info: `[IpTableAdapter] Failed to parse response body: ${
+              parseError instanceof Error ? parseError.message : 'Unknown error'
+            }`,
+          });
           responseData = sniResponse.body;
         }
       }
@@ -456,6 +482,11 @@ export function createIpTableAdapter(
         '[IpTableAdapter] SNI request failed, falling back to original adapter:',
         error,
       );
+      defaultLogger.ipTable.request.error({
+        info: `[IpTableAdapter] SNI request failed for ${hostname} (${selectedIp}), falling back: ${
+          error instanceof Error ? error.message : 'Unknown error'
+        }`,
+      });
       return callOriginalAdapter(config);
     }
   };
@@ -501,9 +532,17 @@ export async function testDomainSpeed(
 
     const latency = Date.now() - startTime;
     debugLog(`[IpTableAdapter] Domain test: ${fullUrl} -> ${latency}ms`);
+    defaultLogger.ipTable.request.info({
+      info: `[IpTable] Domain speed test successful: ${fullUrl} : ${latency} ms`,
+    });
     return latency;
   } catch (error) {
     debugWarn(`[IpTableAdapter] Domain test failed for ${domain}:`, error);
+    defaultLogger.ipTable.request.warn({
+      info: `[IpTable] Domain speed test failed for ${domain}: ${
+        error instanceof Error ? error.message : 'Unknown error'
+      }`,
+    });
     return Infinity;
   }
 }
@@ -545,6 +584,9 @@ export async function testIpSpeed(
 
     if (!response) {
       debugWarn(`[IpTableAdapter] IP test returned null for ${ip}`);
+      defaultLogger.ipTable.request.warn({
+        info: `[IpTable] IP speed test returned null for ${ip}`,
+      });
       return Infinity;
     }
 
@@ -552,9 +594,17 @@ export async function testIpSpeed(
     debugLog(
       `[IpTableAdapter] IP test: ${ip} -> ${sniHostname}${path} -> ${latency}ms`,
     );
+    defaultLogger.ipTable.request.info({
+      info: `[IpTable] IP speed test successful: ${ip} -> ${sniHostname}${path} : ${latency} ms`,
+    });
     return latency;
   } catch (error) {
     debugWarn(`[IpTableAdapter] IP test failed for ${ip}:`, error);
+    defaultLogger.ipTable.request.warn({
+      info: `[IpTable] IP speed test failed for ${ip}: ${
+        error instanceof Error ? error.message : 'Unknown error'
+      }`,
+    });
     return Infinity;
   }
 }
