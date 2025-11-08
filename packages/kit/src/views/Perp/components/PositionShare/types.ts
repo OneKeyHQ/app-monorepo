@@ -29,6 +29,7 @@ export interface ICanvasConfig {
     textPrimary: string;
     textSecondary: string;
     textTertiary: string;
+    referralBackground: string;
   };
   fonts: {
     coin: number;
@@ -46,7 +47,10 @@ export interface ICanvasConfig {
     tokenOffsetX: number;
     tokenOffsetY: number;
     sideOffsetY: number;
+    pnlY: number;
     pnlYOffset: number;
+    markPriceY: number;
+    entryPriceY: number;
     priceSpacingY: number;
     priceValueOffsetX: number;
     stickerSize: number;
