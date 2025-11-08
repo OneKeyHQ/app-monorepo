@@ -241,6 +241,7 @@ export interface IAppEventBusPayload {
     networkId: string;
   };
   [EAppEventBusNames.AccountDataUpdate]: undefined;
+  [EAppEventBusNames.AccountValueUpdate]: undefined;
   [EAppEventBusNames.onDragBeginInListView]: undefined;
   [EAppEventBusNames.onDragEndInListView]: undefined;
   [EAppEventBusNames.SidePanel_BgToUI]: {
