@@ -238,10 +238,6 @@ describe('Network Detection by Private Key', () => {
         networkId: presetNetworksMap.kaspa.id,
         impl: presetNetworksMap.kaspa.impl,
       });
-      expect(result).toContainEqual({
-        networkId: presetNetworksMap.polkadot.id,
-        impl: presetNetworksMap.polkadot.impl,
-      });
     });
 
     test('detects Cosmos family (0x-prefixed)', async () => {
@@ -316,17 +312,17 @@ describe('Network Detection by Private Key', () => {
       });
     });
 
-    test('detects Polkadot (0x-prefixed)', async () => {
-      const privateKey =
-        '0xc052cb9ba86a213302c9518890420f9493f3a00fde54c74582bcb46ad30ce846';
-      const result = await networkDetectUtils.detectNetworkByPrivateKey({
-        privateKey,
-      });
-      expect(result).toContainEqual({
-        networkId: presetNetworksMap.polkadot.id,
-        impl: presetNetworksMap.polkadot.impl,
-      });
-    });
+    // test('detects Polkadot (0x-prefixed)', async () => {
+    //   const privateKey =
+    //     '0xc052cb9ba86a213302c9518890420f9493f3a00fde54c74582bcb46ad30ce846';
+    //   const result = await networkDetectUtils.detectNetworkByPrivateKey({
+    //     privateKey,
+    //   });
+    //   expect(result).toContainEqual({
+    //     networkId: presetNetworksMap.polkadot.id,
+    //     impl: presetNetworksMap.polkadot.impl,
+    //   });
+    // });
   });
 
   describe('64 hex without 0x prefix - Multi-chain Detection', () => {
