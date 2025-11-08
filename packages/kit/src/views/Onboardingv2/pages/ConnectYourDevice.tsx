@@ -836,14 +836,17 @@ function USBOrBLEConnectionIndicator({
             deviceSerialNumberFromUI: device.serialNumber,
           });
         if (connectedDevice.device) {
-          void onDeviceConnect(connectedDevice.device as SearchDevice);
+          navigation.push(EOnboardingPagesV2.CheckAndUpdate, {
+            deviceData: connectedDevice,
+            tabValue,
+          });
         }
       }
     } catch (error) {
       console.error('onConnectWebDevice error:', error);
       setIsChecking(false);
     }
-  }, [onDeviceConnect, promptWebUsbDeviceAccess, tabValue, setIsChecking]);
+  }, [setIsChecking, tabValue, promptWebUsbDeviceAccess, navigation]);
 
   useEffect(() => {
     if (
