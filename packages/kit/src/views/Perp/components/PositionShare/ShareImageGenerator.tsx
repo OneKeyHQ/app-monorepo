@@ -114,7 +114,7 @@ export const ShareImageGenerator = forwardRef<
 
       const tokenY = layout.tokenY;
       if (tokenImg) {
-        const imgCenterY = tokenY; // 与文字相同的中心线
+        const imgCenterY = tokenY; // Same center line as text
 
         ctx.drawImage(
           tokenImg,
@@ -140,36 +140,30 @@ export const ShareImageGenerator = forwardRef<
       }
 
       if (display.showSideAndLeverage) {
-        // 计算位置
+        // Calculate position
         const coinNameWidth = ctx.measureText(token).width;
-        const spacing = 40;
         const textX =
           padding +
           layout.tokenSize +
           layout.tokenOffsetX +
           coinNameWidth +
-          spacing;
+          layout.tokenSpacing;
         const textY = tokenY;
 
-        // 测量文字
+        // Measure text
         ctx.font = toCanvasFont(fonts.side, 600);
         const sideText = `${side.toUpperCase()} ${leverage}X`;
         const textWidth = ctx.measureText(sideText).width;
 
-        // 背景配置
-        const bgPaddingX = 20;
-        const bgPaddingY = 18;
-        const borderRadius = 58;
+        // Background rectangle size
+        const bgWidth = textWidth + layout.badgePaddingX * 2;
+        const bgHeight = fonts.side + layout.badgePaddingY * 2;
 
-        // 背景矩形尺寸
-        const bgWidth = textWidth + bgPaddingX * 2;
-        const bgHeight = fonts.side + bgPaddingY * 2;
+        // Align background center with text
+        const bgX = textX - layout.badgePaddingX;
+        const bgY = textY - bgHeight / 2;
 
-        // 关键：背景的中心点与文字对齐
-        const bgX = textX - bgPaddingX;
-        const bgY = textY - bgHeight / 2; // 改为以文字Y坐标为中心
-
-        // 绘制背景
+        // Draw background
         ctx.fillStyle =
           side === 'long'
             ? colors.sideLongBackground
@@ -177,18 +171,18 @@ export const ShareImageGenerator = forwardRef<
 
         ctx.beginPath();
         if (ctx.roundRect) {
-          ctx.roundRect(bgX, bgY, bgWidth, bgHeight, borderRadius);
+          ctx.roundRect(bgX, bgY, bgWidth, bgHeight, layout.badgeRadius);
         } else {
           ctx.rect(bgX, bgY, bgWidth, bgHeight);
         }
         ctx.fill();
 
-        // 设置文字垂直居中绘制
-        ctx.textBaseline = 'middle'; // 🔑 关键：让文字基线为中间
+        // Set text vertical center alignment
+        ctx.textBaseline = 'middle';
         ctx.fillStyle = side === 'long' ? colors.long : colors.short;
         ctx.fillText(sideText, textX, textY);
 
-        // 恢复默认基线（避免影响后续文字）
+        // Restore default baseline
         ctx.textBaseline = 'alphabetic';
       }
       if (display.showPnl) {
@@ -203,7 +197,7 @@ export const ShareImageGenerator = forwardRef<
           const entryPriceY = layout.entryPriceY;
           ctx.fillStyle = colors.textSecondary;
           ctx.font = toCanvasFont(fonts.priceLabel);
-          ctx.globalAlpha = 0.5;
+          ctx.globalAlpha = layout.labelOpacity;
           ctx.fillText('Entry Price', padding, entryPriceY);
           ctx.globalAlpha = 1;
           ctx.fillStyle = colors.textPrimary;
@@ -215,7 +209,7 @@ export const ShareImageGenerator = forwardRef<
           const markPriceY = layout.markPriceY;
           ctx.fillStyle = colors.textSecondary;
           ctx.font = toCanvasFont(fonts.priceLabel);
-          ctx.globalAlpha = 0.5;
+          ctx.globalAlpha = layout.labelOpacity;
           ctx.fillText('Mark Price', padding, markPriceY);
           ctx.globalAlpha = 1;
           ctx.fillStyle = colors.textPrimary;
@@ -229,12 +223,9 @@ export const ShareImageGenerator = forwardRef<
       }
 
       if (SHOW_REFERRAL_CODE) {
-        // 1. 定义底部矩形的尺寸和位置
-        const rectHeight = 216; // 矩形高度
-
-        // 矩形位置：贴近底部
-        const rectY = size - rectHeight; // 从底部向上 padding 距离
-
+        // Define bottom rectangle size and position
+        const rectHeight = layout.referralHeight;
+        const rectY = size - rectHeight;
         const rectWidth = size;
 
         ctx.fillStyle = colors.referralBackground;
@@ -244,11 +235,19 @@ export const ShareImageGenerator = forwardRef<
         ctx.fillStyle = colors.textTertiary;
         ctx.textBaseline = 'middle';
         ctx.font = toCanvasFont(fonts.priceLabel);
-        ctx.globalAlpha = 0.5;
-        ctx.fillText('Referral Code', padding, rectY + rectHeight / 2 - 20);
+        ctx.globalAlpha = layout.labelOpacity;
+        ctx.fillText(
+          'Referral Code',
+          padding,
+          rectY + rectHeight / 2 - layout.referralOffset,
+        );
         ctx.globalAlpha = 1;
         ctx.font = toCanvasFont(fonts.priceValue);
-        ctx.fillText(REFERRAL_CODE, padding, rectY + rectHeight / 2 + 20);
+        ctx.fillText(
+          REFERRAL_CODE,
+          padding,
+          rectY + rectHeight / 2 + layout.referralOffset,
+        );
         ctx.textBaseline = 'alphabetic';
       }
 

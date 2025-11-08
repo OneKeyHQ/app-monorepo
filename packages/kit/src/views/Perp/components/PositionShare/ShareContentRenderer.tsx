@@ -63,16 +63,10 @@ export function ShareContentRenderer({
     pnl: fonts.pnl * scale,
     priceLabel: fonts.priceLabel * scale,
     priceValue: fonts.priceValue * scale,
-    referral: fonts.referral * scale,
-    customText: fonts.customText * scale,
   };
   const scaledLayout = {
-    logoSize: layout.logoSize * scale,
     tokenSize: layout.tokenSize * scale,
-    tokenY: layout.tokenY * scale,
     stickerSize: layout.stickerSize * scale,
-    customTextMaxWidth: layout.customTextMaxWidth * scale,
-    pnlY: layout.pnlY * scale,
   };
   const tokenY = layout.tokenY * scale;
 
@@ -101,8 +95,8 @@ export function ShareContentRenderer({
         position="relative"
       >
         <YStack
-          position="absolute" // 改为绝对定位
-          top={tokenY - scaledLayout.tokenSize / 2} // Y 坐标
+          position="absolute"
+          top={tokenY - scaledLayout.tokenSize / 2}
           left={scaledPadding}
         >
           <XStack alignItems="center" gap="$2">
@@ -125,7 +119,7 @@ export function ShareContentRenderer({
             {display.showCoinName ? (
               <SizableText
                 fontSize={scaledFonts.coin}
-                lineHeight={scaledFonts.coin * 1.2}
+                lineHeight={scaledFonts.coin * layout.lineHeight}
                 fontWeight="600"
                 color={colors.textPrimary}
               >
@@ -135,8 +129,8 @@ export function ShareContentRenderer({
 
             {display.showSideAndLeverage ? (
               <XStack
-                py={18 * scale} // 应用 scale
-                px={20 * scale}
+                py={layout.badgePaddingY * scale}
+                px={layout.badgePaddingX * scale}
                 borderRadius="$3"
                 bg={
                   side === 'long'
@@ -146,7 +140,7 @@ export function ShareContentRenderer({
               >
                 <SizableText
                   fontSize={scaledFonts.side}
-                  lineHeight={scaledFonts.side * 1.2}
+                  lineHeight={scaledFonts.side * layout.lineHeight}
                   fontWeight="600"
                   color={sideColor}
                 >
@@ -160,12 +154,14 @@ export function ShareContentRenderer({
         {display.showPnl ? (
           <Stack
             position="absolute"
-            top={layout.pnlY * scale - (scaledFonts.pnl * 1.2) / 2}
+            top={
+              layout.pnlY * scale - (scaledFonts.pnl * layout.lineHeight) / 2
+            }
             left={scaledPadding}
           >
             <SizableText
               fontSize={scaledFonts.pnl}
-              lineHeight={scaledFonts.pnl * 1.2}
+              lineHeight={scaledFonts.pnl * layout.lineHeight}
               fontWeight="600"
               color={pnlColor}
             >
@@ -178,17 +174,18 @@ export function ShareContentRenderer({
           <YStack
             position="absolute"
             top={
-              layout.entryPriceY * scale - (scaledFonts.priceLabel * 1.2) / 2
+              layout.entryPriceY * scale -
+              (scaledFonts.priceLabel * layout.lineHeight) / 2
             }
             left={scaledPadding}
-            gap={1.5}
+            gap={layout.priceGap}
           >
             <SizableText
               fontSize={scaledFonts.priceLabel}
               fontWeight="600"
               color={colors.textSecondary}
-              opacity={0.5}
-              lineHeight={scaledFonts.priceLabel * 1.2}
+              opacity={layout.labelOpacity}
+              lineHeight={scaledFonts.priceLabel * layout.lineHeight}
             >
               Entry Price
             </SizableText>
@@ -196,7 +193,7 @@ export function ShareContentRenderer({
               fontSize={scaledFonts.priceValue}
               fontWeight="600"
               color={colors.textPrimary}
-              lineHeight={scaledFonts.priceValue * 1.2}
+              lineHeight={scaledFonts.priceValue * layout.lineHeight}
             >
               {entryPrice}
             </SizableText>
@@ -206,16 +203,19 @@ export function ShareContentRenderer({
         {display.showMarkPrice ? (
           <YStack
             position="absolute"
-            top={layout.markPriceY * scale - (scaledFonts.priceLabel * 1.2) / 2}
+            top={
+              layout.markPriceY * scale -
+              (scaledFonts.priceLabel * layout.lineHeight) / 2
+            }
             left={scaledPadding}
-            gap={1.5}
+            gap={layout.priceGap}
           >
             <SizableText
               fontSize={scaledFonts.priceLabel}
               fontWeight="600"
               color={colors.textSecondary}
-              opacity={0.5}
-              lineHeight={scaledFonts.priceLabel * 1.2}
+              opacity={layout.labelOpacity}
+              lineHeight={scaledFonts.priceLabel * layout.lineHeight}
             >
               Mark Price
             </SizableText>
@@ -223,7 +223,7 @@ export function ShareContentRenderer({
               fontSize={scaledFonts.priceValue}
               fontWeight="600"
               color={colors.textPrimary}
-              lineHeight={scaledFonts.priceValue * 1.2}
+              lineHeight={scaledFonts.priceValue * layout.lineHeight}
             >
               {markPrice}
             </SizableText>
@@ -236,7 +236,7 @@ export function ShareContentRenderer({
             right={scaledPadding}
             bottom={scaledPadding}
             fontSize={scaledLayout.stickerSize}
-            lineHeight={scaledLayout.stickerSize * 1.2}
+            lineHeight={scaledLayout.stickerSize * layout.lineHeight}
           >
             {selectedSticker}
           </SizableText>
@@ -247,18 +247,18 @@ export function ShareContentRenderer({
             bottom={0}
             left={0}
             right={0}
-            height={216 * scale}
+            height={layout.referralHeight * scale}
             backgroundColor={colors.referralBackground}
             justifyContent="center"
             paddingLeft={scaledPadding}
           >
-            <YStack gap={1.5}>
+            <YStack gap={layout.priceGap}>
               <SizableText
                 fontSize={scaledFonts.priceLabel}
                 fontWeight="600"
                 color={colors.textTertiary}
-                opacity={0.5}
-                lineHeight={scaledFonts.priceLabel * 1.2}
+                opacity={layout.labelOpacity}
+                lineHeight={scaledFonts.priceLabel * layout.lineHeight}
               >
                 Referral Code
               </SizableText>
@@ -266,7 +266,7 @@ export function ShareContentRenderer({
                 fontSize={scaledFonts.priceValue}
                 fontWeight="600"
                 color={colors.textTertiary}
-                lineHeight={scaledFonts.priceValue * 1.2}
+                lineHeight={scaledFonts.priceValue * layout.lineHeight}
               >
                 {REFERRAL_CODE}
               </SizableText>

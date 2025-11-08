@@ -41,7 +41,7 @@ export const CANVAS_CONFIG: ICanvasConfig = {
     textPrimary: '#ffffff',
     textSecondary: '#FFFFFF',
     textTertiary: '#ffffff',
-    referralBackground: '#00000080',
+    referralBackground: '#00000098',
     sideLongBackground: '#0C5300',
     sideShortBackground: '#630A0A',
   },
@@ -52,28 +52,30 @@ export const CANVAS_CONFIG: ICanvasConfig = {
     pnl: 180,
     priceLabel: 25,
     priceValue: 25,
-    referral: 28,
-    customText: 36,
   },
 
   layout: {
-    logoSize: 80,
+    // Size
     tokenSize: 67.5,
+    stickerSize: 200,
+    referralHeight: 216,
+    // Position
     tokenY: 250,
     tokenOffsetX: 13.5,
-    tokenOffsetY: 20,
-    sideOffsetY: 80,
     pnlY: 426,
-    pnlYOffset: 0,
-    markPriceY: 700,
     entryPriceY: 580,
+    markPriceY: 700,
     priceSpacingY: 40,
-    priceValueOffsetX: 200,
-    stickerSize: 200,
-    customTextMaxWidth: 850,
-    customTextTopOffset: 40,
-    customTextLineHeight: 50,
-    referralBottomOffset: 40,
+    // Spacing
+    badgePaddingX: 20,
+    badgePaddingY: 18,
+    tokenSpacing: 40,
+    priceGap: 1.5,
+    referralOffset: 20,
+    // Style
+    lineHeight: 1.2,
+    badgeRadius: 58,
+    labelOpacity: 0.5,
   },
 
   display: {
