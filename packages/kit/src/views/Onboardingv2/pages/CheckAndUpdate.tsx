@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { useFocusEffect } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
@@ -20,10 +20,6 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
 import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
@@ -32,7 +28,6 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import {
   EHardwareCallContext,
   EOneKeyDeviceMode,
-  type IFirmwareVerifyResult,
 } from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
