@@ -71,19 +71,19 @@ const PasswordSetup = ({
   const [secureEntry, setSecureEntry] = useState(true);
   const [secureReentry, setSecureReentry] = useState(true);
   const [passCodeConfirmClear, setPassCodeConfirmClear] = useState(false);
-  const passCodeFirstStep = useMemo(
-    () => currentPasswordMode === EPasswordMode.PASSCODE && !passCodeConfirm,
-    [currentPasswordMode, passCodeConfirm],
-  );
+  // const passCodeFirstStep = useMemo(
+  //   () => currentPasswordMode === EPasswordMode.PASSCODE && !passCodeConfirm,
+  //   [currentPasswordMode, passCodeConfirm],
+  // );
   const confirmBtnTextMemo = useMemo(() => {
-    if (passCodeFirstStep) {
-      return intl.formatMessage({ id: ETranslations.global_next });
-    }
+    // if (passCodeFirstStep) {
+    //   return intl.formatMessage({ id: ETranslations.global_next });
+    // }
     return (
       confirmBtnText ??
       intl.formatMessage({ id: ETranslations.auth_set_passcode })
     );
-  }, [confirmBtnText, intl, passCodeFirstStep]);
+  }, [confirmBtnText, intl]);
   const onPassCodeNext = () => {
     setPassCodeConfirm(true);
     setTimeout(() => {
