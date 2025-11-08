@@ -1,7 +1,8 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { HardwareErrorCode } from '@onekeyfe/hd-shared';
-import { get, throttle } from 'lodash';
+import { useIsFocused } from '@react-navigation/core';
+import { get, noop, throttle } from 'lodash';
 import { useIntl } from 'react-intl';
 import { Linking, StyleSheet } from 'react-native';
 
@@ -700,3 +701,127 @@ export const useConnectDeviceError = (
     );
   };
 };
+
+export enum EBluetoothStatus {
+  checking = 'checking',
+  enabled = 'enabled',
+  disabledInSystem = 'disabledInSystem',
+  disabledInApp = 'disabledInApp',
+  noSystemPermission = 'noSystemPermission',
+}
+export const useDesktopBluetoothStatusPolling = platformEnv.isDesktop
+  ? (onChangeBluetoothStatus: (status: EBluetoothStatus) => void) => {
+      const nobleInitializedRef = useRef(false);
+      const isConnectingRef = useRef(false);
+      const pollingTimerRef = useRef<ReturnType<typeof setInterval> | null>(
+        null,
+      );
+
+      const checkBluetoothStatus = useCallback(async () => {
+        try {
+          // Ensure Noble is initialized before checking status
+          if (!nobleInitializedRef.current) {
+            try {
+              console.log(
+                'onboarding checkBluetoothStatus: noble pre-initialization',
+              );
+              await globalThis?.desktopApi?.nobleBle?.checkAvailability();
+            } catch (error) {
+              console.log(
+                'Noble pre-initialization completed with expected error:',
+                error,
+              );
+            }
+            nobleInitializedRef.current = true;
+          }
+
+          // Desktop platform: check desktop bluetooth availability
+          const enableDesktopBluetoothInApp =
+            await backgroundApiProxy.serviceSetting.getEnableDesktopBluetooth();
+          if (!enableDesktopBluetoothInApp) {
+            console.log('onboarding checkBluetoothStatus: disabledInApp');
+            onChangeBluetoothStatus(EBluetoothStatus.disabledInApp);
+            return;
+          }
+
+          const available =
+            await globalThis?.desktopApi?.nobleBle?.checkAvailability();
+          if (available.state === 'unknown') {
+            return;
+          }
+          if (available.state === 'unauthorized') {
+            console.log('onboarding checkBluetoothStatus: noSystemPermission');
+            onChangeBluetoothStatus(EBluetoothStatus.noSystemPermission);
+            return;
+          }
+          if (!available?.available) {
+            console.log('onboarding checkBluetoothStatus: disabledInSystem');
+            onChangeBluetoothStatus(EBluetoothStatus.disabledInSystem);
+            return;
+          }
+
+          console.log('onboarding checkBluetoothStatus: enabled');
+          await backgroundApiProxy.serviceSetting.setDesktopBluetoothAtom({
+            isRequestedPermission: true,
+          });
+          // All checks passed
+          onChangeBluetoothStatus(EBluetoothStatus.enabled);
+        } catch (error) {
+          console.error('Desktop bluetooth check failed:', error);
+          onChangeBluetoothStatus(EBluetoothStatus.disabledInSystem);
+        }
+      }, [onChangeBluetoothStatus]);
+
+      const startBluetoothStatusPolling = useCallback(() => {
+        if (pollingTimerRef.current) {
+          clearInterval(pollingTimerRef.current);
+        }
+
+        pollingTimerRef.current = setInterval(() => {
+          // Don't poll if connecting to a device
+          if (!isConnectingRef.current) {
+            void checkBluetoothStatus();
+          }
+        }, 1500);
+      }, [checkBluetoothStatus]);
+
+      const stopBluetoothStatusPolling = useCallback(() => {
+        if (pollingTimerRef.current) {
+          clearInterval(pollingTimerRef.current);
+          pollingTimerRef.current = null;
+        }
+      }, []);
+
+      const isFocused = useIsFocused();
+
+      // Check bluetooth status on mount and when focused, start polling
+      useEffect(() => {
+        if (isFocused) {
+          void checkBluetoothStatus();
+          startBluetoothStatusPolling();
+        } else {
+          stopBluetoothStatusPolling();
+        }
+
+        return () => {
+          stopBluetoothStatusPolling();
+        };
+      }, [
+        checkBluetoothStatus,
+        isFocused,
+        startBluetoothStatusPolling,
+        stopBluetoothStatusPolling,
+      ]);
+      return useMemo(() => {
+        return {
+          checkBluetoothStatus,
+        };
+      }, [checkBluetoothStatus]);
+    }
+  : () => {
+      return useMemo(() => {
+        return {
+          checkBluetoothStatus: noop,
+        };
+      }, []);
+    };
