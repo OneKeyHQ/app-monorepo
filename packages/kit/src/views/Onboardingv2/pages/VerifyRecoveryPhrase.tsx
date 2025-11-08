@@ -29,6 +29,7 @@ import { OnboardingLayout } from '../components/OnboardingLayout';
 
 import type { RouteProp } from '@react-navigation/core';
 import { shuffleWordsIndices } from '../utils';
+import { shuffle } from 'lodash';
 
 export default function VerifyRecoveryPhrase() {
   const intl = useIntl();
@@ -85,9 +86,7 @@ export default function VerifyRecoveryPhrase() {
     }
     return answerWords.map((word, index) => {
       return {
-        words: [word, ...confuseWords.slice(index * 2, index * 2 + 2)].sort(
-          () => Math.random() - 0.5,
-        ),
+        words: shuffle([word, ...confuseWords.slice(index * 2, index * 2 + 2)]),
         index: answerIndices[index],
       };
     });
