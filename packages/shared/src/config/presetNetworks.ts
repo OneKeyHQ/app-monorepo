@@ -2489,26 +2489,6 @@ const sol: IServerNetwork = {
   'status': ENetworkStatus.LISTED,
 };
 
-const polkadot: IServerNetwork = {
-  'chainId': 'polkadot',
-  'code': 'dot',
-  'decimals': 10,
-  'id': 'dot--polkadot',
-  'impl': 'dot',
-  'isTestnet': false,
-  'logoURI': 'https://uni.onekey-asset.com/static/chain/polkadot.png',
-  'name': 'Polkadot',
-  'shortcode': 'dot',
-  'shortname': 'DOT',
-  'symbol': 'DOT',
-  'feeMeta': {
-    'decimals': 10,
-    'symbol': 'DOT',
-  },
-  'defaultEnabled': true,
-  'status': ENetworkStatus.LISTED,
-};
-
 const astar: IServerNetwork = {
   'chainId': 'astar',
   'code': 'astar',
@@ -2648,7 +2628,6 @@ const bifrost: IServerNetwork = {
   'defaultEnabled': true,
   'status': ENetworkStatus.LISTED,
 };
-
 
 const bifrostDot: IServerNetwork = {
   'chainId': 'dot-bifrost',
@@ -3029,7 +3008,6 @@ export const presetNetworksMap = {
   noble,
 
   // polkadot
-  polkadot,
   astar,
   manta,
   joystream,
@@ -3229,7 +3207,6 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     noble,
 
     // polkadot
-    polkadot,
     astar,
     manta,
     joystream,
