@@ -1,26 +1,31 @@
+import type { ReactNode } from 'react';
+
 import { useIntl } from 'react-intl';
 
-import { Dialog, Switch, YStack } from '@onekeyhq/components';
+import { ESwitchSize, Popover, Switch, YStack } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { usePerpsCustomSettingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 
 import { PerpsProviderMirror } from '../PerpsProviderMirror';
 
-interface IPerpSettingsDialogContentProps {
-  close: () => void;
+interface IPerpSettingsPopoverContentProps {
+  closePopover: () => void;
 }
 
-function PerpSettingsDialogContent(_: IPerpSettingsDialogContentProps) {
+function PerpSettingsPopoverContent({
+  closePopover: _closePopover,
+}: IPerpSettingsPopoverContentProps) {
   const [perpsCustomSettings, setPerpsCustomSettings] =
     usePerpsCustomSettingsAtom();
   const intl = useIntl();
   return (
-    <YStack gap="$5">
+    <YStack py="$3" px="$4">
       <ListItem
         mx="$0"
         p="$0"
+        titleProps={{ size: '$bodyMdMedium' }}
+        subtitleProps={{ size: '$bodySm' }}
         title={intl.formatMessage({
           id: ETranslations.perp_setting_title,
         })}
@@ -29,6 +34,7 @@ function PerpSettingsDialogContent(_: IPerpSettingsDialogContentProps) {
         })}
       >
         <Switch
+          size={ESwitchSize.small}
           value={perpsCustomSettings.skipOrderConfirm}
           onChange={(value) => {
             setPerpsCustomSettings((prev) => ({
@@ -42,24 +48,27 @@ function PerpSettingsDialogContent(_: IPerpSettingsDialogContentProps) {
   );
 }
 
-export function showPerpSettingsDialog() {
-  const dialog = Dialog.show({
-    title: appLocale.intl.formatMessage({ id: ETranslations.global_settings }),
-    renderContent: (
-      <PerpsProviderMirror>
-        <PerpSettingsDialogContent
-          close={() => {
-            void dialog.close();
-          }}
-        />
-      </PerpsProviderMirror>
-    ),
-    showFooter: true,
-    showCancelButton: false,
-    onConfirmText: appLocale.intl.formatMessage({
-      id: ETranslations.global_confirm,
-    }),
-  });
+export interface IPerpSettingsPopoverProps {
+  renderTrigger: ReactNode;
+}
 
-  return dialog;
+export function PerpSettingsPopover({
+  renderTrigger,
+}: IPerpSettingsPopoverProps) {
+  const intl = useIntl();
+
+  return (
+    <PerpsProviderMirror>
+      <Popover
+        title={intl.formatMessage({ id: ETranslations.global_settings })}
+        renderTrigger={renderTrigger}
+        renderContent={({ closePopover }) => (
+          <PerpSettingsPopoverContent closePopover={closePopover} />
+        )}
+        floatingPanelProps={{
+          width: 360,
+        }}
+      />
+    </PerpsProviderMirror>
+  );
 }
