@@ -34,11 +34,7 @@ export function CardTitle({
           <Icon size="$4.5" color="$iconSubdued" name="ChevronRightOutline" />
         ) : null}
       </XStack>
-      <SizableText
-        size="$bodyMd"
-        color="$textSubdued"
-        letterSpacing={-0.15}
-      >
+      <SizableText size="$bodyMd" color="$textSubdued" letterSpacing={-0.15}>
         {description}
       </SizableText>
     </YStack>
