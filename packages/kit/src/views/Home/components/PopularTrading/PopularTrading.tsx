@@ -1,37 +1,57 @@
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { memo } from 'react';
-import { ListView, Stack } from '@onekeyhq/components';
-import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import { Token } from '@onekeyhq/kit/src/components/Token';
+import { memo, useCallback } from 'react';
+
+import {
+  usePopularTradingAtom,
+  usePopularTradingStateAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/walletHome';
+import { ListLoading } from '@onekeyhq/kit/src/components/Loading';
+import { useMedia, YStack } from '@onekeyhq/components';
+import { StyleSheet } from 'react-native';
+import type { IPopularTradingToken } from '@onekeyhq/shared/types/swap/types';
+import { PopularTradingItem } from './PopularTradingItem';
 
 function PopularTrading() {
-  const { result: popularTradingTokens, isLoading } = usePromiseResult(
-    async () => backgroundApiProxy.serviceSwap.fetchPopularTrading(),
+  const [popularTradingState] = usePopularTradingStateAtom();
+  const [{ popularTradingTokens }] = usePopularTradingAtom();
+  const media = useMedia();
+
+  const handlePressPopularTradingToken = useCallback(
+    (token: IPopularTradingToken) => {
+      console.log('token', token);
+    },
     [],
-    { watchLoading: true, initResult: [] },
   );
 
-  console.log('popularTradingTokens', popularTradingTokens);
+  const renderPopularTradingTokens = useCallback(() => {
+    if (!popularTradingState.isInitialized && !popularTradingState.isLoading) {
+      return <ListLoading isTokenSelectorView={false} />;
+    }
+    return popularTradingTokens.map((token) => (
+      <PopularTradingItem
+        key={`${token.networkId}-${token.tokenDetail.info.address}`}
+        token={token}
+        onPress={handlePressPopularTradingToken}
+        tableLayout={media.gtMd}
+      />
+    ));
+  }, [
+    handlePressPopularTradingToken,
+    media.gtMd,
+    popularTradingState.isInitialized,
+    popularTradingState.isLoading,
+    popularTradingTokens,
+  ]);
 
   return (
-    <ListView
-      data={popularTradingTokens}
-      keyExtractor={(item) => `${item.networkId}-${item.symbol}`}
-      renderItem={({ item }) => (
-        <ListItem
-          renderAvatar={
-            <Token
-              size="lg"
-              tokenImageUri={item.logoURI}
-              networkId={item.networkId}
-              showNetworkIcon
-            />
-          }
-          title={item.symbol}
-        />
-      )}
-    />
+    <YStack
+      px="$4"
+      py="$3"
+      borderRadius="$5"
+      borderWidth={StyleSheet.hairlineWidth}
+      borderColor="$borderBorder"
+    >
+      {renderPopularTradingTokens()}
+    </YStack>
   );
 }
 

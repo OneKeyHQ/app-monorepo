@@ -54,7 +54,6 @@ import { TabHeaderSettings } from './TabHeaderSettings';
 import { TokenListContainerWithProvider } from './TokenListContainer';
 import { TxHistoryListContainerWithProvider } from './TxHistoryContainer';
 import WalletContentWithAuth from './WalletContentWithAuth';
-import { PopularTrading } from '../components/PopularTrading';
 
 const networksSupportBulkRevokeApproval =
   getNetworksSupportBulkRevokeApproval();
@@ -513,7 +512,6 @@ export function HomePageView({
               <TabPageHeader sceneName={sceneName} tabRoute={ETabRoutes.Home} />
             </YStack>
           ) : null}
-          <PopularTrading />
         </Page.Body>
       </>
     );

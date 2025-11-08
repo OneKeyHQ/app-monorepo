@@ -15,6 +15,7 @@ import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/Acco
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { ProviderJotaiContextAccountOverview } from '@onekeyhq/kit/src/states/jotai/contexts/accountOverview';
+import { ProviderJotaiContextWalletHome } from '@onekeyhq/kit/src/states/jotai/contexts/walletHome';
 import {
   useAccountSelectorActions,
   useSelectedAccount,
@@ -257,17 +258,19 @@ export function UrlAccountPageContainer() {
     name: 'URLAccountMount:  UrlAccountPageContainer',
   });
   return (
-    <ProviderJotaiContextAccountOverview>
-      <AccountSelectorProviderMirror
-        config={{
-          sceneName,
-          sceneUrl: '',
-        }}
-        enabledNum={[0]}
-      >
-        <UrlAccountAutoCreate />
-      </AccountSelectorProviderMirror>
-    </ProviderJotaiContextAccountOverview>
+    <ProviderJotaiContextWalletHome>
+      <ProviderJotaiContextAccountOverview>
+        <AccountSelectorProviderMirror
+          config={{
+            sceneName,
+            sceneUrl: '',
+          }}
+          enabledNum={[0]}
+        >
+          <UrlAccountAutoCreate />
+        </AccountSelectorProviderMirror>
+      </ProviderJotaiContextAccountOverview>
+    </ProviderJotaiContextWalletHome>
   );
 }
 
@@ -276,16 +279,18 @@ export function UrlAccountLanding() {
     name: 'URLAccountMount:  UrlAccountLanding',
   });
   return (
-    <ProviderJotaiContextAccountOverview>
-      <AccountSelectorProviderMirror
-        config={{
-          sceneName,
-          sceneUrl: '',
-        }}
-        enabledNum={[0]}
-      >
-        <UrlAccountAutoCreate redirectMode />
-      </AccountSelectorProviderMirror>
-    </ProviderJotaiContextAccountOverview>
+    <ProviderJotaiContextWalletHome>
+      <ProviderJotaiContextAccountOverview>
+        <AccountSelectorProviderMirror
+          config={{
+            sceneName,
+            sceneUrl: '',
+          }}
+          enabledNum={[0]}
+        >
+          <UrlAccountAutoCreate redirectMode />
+        </AccountSelectorProviderMirror>
+      </ProviderJotaiContextAccountOverview>
+    </ProviderJotaiContextWalletHome>
   );
 }

@@ -32,6 +32,7 @@ import type {
 import type { EMessageTypesEth } from '../message';
 import type { IDecodedTxActionTokenApprove } from '../tx';
 import type { NormalizedOrder, TypedDataDomain } from '@cowprotocol/contracts';
+import { IToken } from '../token';
 
 export enum EWrappedType {
   DEPOSIT = 'deposit',
@@ -120,9 +121,12 @@ export interface ISwapInitParams {
 
 export interface IPopularTradingToken {
   networkId: string;
-  symbol: string;
-  logoURI: string;
-  address: string;
+  tokenDetail: {
+    price: string;
+    price24h: string;
+    marketCap: string;
+    info: IToken;
+  };
 }
 
 export interface ISwapNetworkBase {

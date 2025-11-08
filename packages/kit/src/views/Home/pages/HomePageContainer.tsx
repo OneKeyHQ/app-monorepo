@@ -8,7 +8,8 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
-import { withAccountOverviewProvider } from '../../../states/jotai/contexts/accountOverview';
+import { ProviderJotaiContextAccountOverview } from '../../../states/jotai/contexts/accountOverview';
+import { ProviderJotaiContextWalletHome } from '../../../states/jotai/contexts/walletHome';
 import {
   useActiveAccount,
   useSelectedAccount,
@@ -76,27 +77,31 @@ function HomePageContainer() {
       }}
       enabledNum={[0]}
     >
-      <HomePageView
-        key={sceneName}
-        sceneName={sceneName}
-        onPressHide={() => setIsHide((v) => !v)}
-      />
-      <DAppConnectExtensionFloatingTrigger />
-      <OnboardingOnMount />
-      <NotificationRegisterDaily />
-      <BTCFreshAddressProvider />
-      {/* <UrlAccountAutoReplaceHistory num={0} /> */}
+      <ProviderJotaiContextWalletHome>
+        <ProviderJotaiContextAccountOverview>
+          <HomePageView
+            key={sceneName}
+            sceneName={sceneName}
+            onPressHide={() => setIsHide((v) => !v)}
+          />
+          <DAppConnectExtensionFloatingTrigger />
+          <OnboardingOnMount />
+          <NotificationRegisterDaily />
+          <BTCFreshAddressProvider />
+          {/* <UrlAccountAutoReplaceHistory num={0} /> */}
 
-      {process.env.NODE_ENV !== 'production' ? (
-        <>
-          <SelectedAccountsMapTest />
-          <SelectedAccountTest />
-          <ActiveAccountTest />
-          <EmptyRenderTest />
-        </>
-      ) : null}
+          {process.env.NODE_ENV !== 'production' ? (
+            <>
+              <SelectedAccountsMapTest />
+              <SelectedAccountTest />
+              <ActiveAccountTest />
+              <EmptyRenderTest />
+            </>
+          ) : null}
+        </ProviderJotaiContextAccountOverview>
+      </ProviderJotaiContextWalletHome>
     </AccountSelectorProviderMirror>
   );
 }
 
-export default withAccountOverviewProvider(HomePageContainer);
+export default HomePageContainer;
