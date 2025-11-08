@@ -276,10 +276,12 @@ function CheckAndUpdatePage({
     });
 
     try {
-      const result = await verifyHardware(
-        deviceData.device as SearchDevice,
-        tabValue,
-      );
+      const [result] = await Promise.all([
+        verifyHardware(deviceData.device as SearchDevice, tabValue),
+        new Promise<void>((resolve) => {
+          setTimeout(resolve, 1200);
+        }),
+      ]);
       console.log('EmitFirmwareVerifyResult', result);
       if (!result) {
         throw new OneKeyLocalError(
@@ -318,7 +320,7 @@ function CheckAndUpdatePage({
         return newSteps;
       });
     }
-  }, [verifyHardware, deviceData.device, tabValue, checkFirmwareUpdate]);
+  }, [verifyHardware, deviceData.device, tabValue, intl, checkFirmwareUpdate]);
 
   const handleRetry = useCallback(async () => {
     await handleVerifyHardware();
