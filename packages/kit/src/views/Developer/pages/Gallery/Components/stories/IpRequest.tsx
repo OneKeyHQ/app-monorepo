@@ -1,21 +1,17 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable @typescript-eslint/restrict-template-expressions */
 import { useCallback, useEffect, useState } from 'react';
 
-import {
-  request as sniRequest,
-  subscribeToLogs,
-} from '@onekeyfe/react-native-sni-connect';
-
 import { Button, SizableText, Stack, TextArea } from '@onekeyhq/components';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  sniRequest,
+  subscribeToLogs,
+} from '@onekeyhq/shared/src/request/helpers/sniRequest';
+import { isSupportIpTablePlatform } from '@onekeyhq/shared/src/utils/ipTableUtils';
 
 import { Layout } from './utils/Layout';
 
-import type {
-  SniConnectRequest,
-  SniConnectResponse,
-} from '@onekeyfe/react-native-sni-connect';
-
-const HARD_CODED_REQUEST: SniConnectRequest = {
+const HARD_CODED_REQUEST = {
   ip: '216.19.4.106',
   hostname: 'wallet.onekeytest.com',
   path: '/wallet/v1/account/validate-address?networkId=btc--0&accountAddress=bc1qezh467l5gwkk72v2dx6yj488hlpad8d34u6z2j',
@@ -40,7 +36,7 @@ const HARD_CODED_REQUEST: SniConnectRequest = {
 
 const IpRequestGallery = () => {
   const [loading, setLoading] = useState(false);
-  const [response, setResponse] = useState<SniConnectResponse | null>(null);
+  const [response, setResponse] = useState<any | null>(null);
   const [error, setError] = useState<string>();
 
   useEffect(() => {
@@ -57,9 +53,9 @@ const IpRequestGallery = () => {
   }, []);
 
   const handleSend = useCallback(async () => {
-    if (!platformEnv.isNative) {
+    if (!isSupportIpTablePlatform()) {
       setError(
-        'This demo only works on native clients because @originalix/react-native-sni-connect is a native module.',
+        'This demo only works on native clients because @onekeyfe/react-native-sni-connect is a native module.',
       );
       return;
     }
@@ -80,7 +76,7 @@ const IpRequestGallery = () => {
     <Layout
       getFilePath={() => __CURRENT_FILE_PATH__}
       componentName="IP Request"
-      description="Send HTTP requests directly to an IP while preserving the SNI hostname. Useful for validating @originalix/react-native-sni-connect integration."
+      description="Send HTTP requests directly to an IP while preserving the SNI hostname. Useful for validating @onekeyfe/react-native-sni-connect integration."
       elements={[
         {
           title: 'Direct IP Request (Native Only)',

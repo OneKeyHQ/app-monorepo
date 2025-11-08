@@ -53,3 +53,8 @@ export function isSniSupported(): boolean {
   const desktopApiProxy = globalThis.desktopApiProxy;
   return !!desktopApiProxy?.sniRequest;
 }
+
+export function subscribeToLogs(_callback: (log: any) => void): () => void {
+  // No-op for Desktop platforms
+  return () => {};
+}

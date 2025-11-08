@@ -108,11 +108,6 @@ const basePlugins = [
   new webpack.ProvidePlugin({
     Buffer: ['buffer', 'Buffer'],
   }),
-  // Ignore react-native-specific modules that are not compatible with web/desktop
-  // These modules are only used in mobile platforms via platform-specific files (.native.ts)
-  new webpack.IgnorePlugin({
-    resourceRegExp: /@originalix\/react-native-sni-connect/,
-  }),
   isDev && new BuildDoneNotifyPlugin(),
 ].filter(Boolean);
 
