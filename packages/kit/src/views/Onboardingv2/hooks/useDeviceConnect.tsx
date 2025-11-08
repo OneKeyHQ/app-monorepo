@@ -1,13 +1,16 @@
 import { useCallback, useMemo, useState } from 'react';
 
 import { HardwareErrorCode } from '@onekeyfe/hd-shared';
-import { get } from 'lodash';
+import { get, throttle } from 'lodash';
 import { useIntl } from 'react-intl';
 import { Linking, StyleSheet } from 'react-native';
 
 import { Button, Dialog, Stack, Toast, XStack } from '@onekeyhq/components';
 import type { IDBCreateHwWalletParamsBase } from '@onekeyhq/kit-bg/src/dbs/local/types';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  EHardwareUiStateAction,
+  useSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   OneKeyHardwareError,
   OneKeyLocalError,
@@ -19,6 +22,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EOnboardingPages } from '@onekeyhq/shared/src/routes/onboarding';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
@@ -101,6 +105,7 @@ export function useDeviceConnect() {
         } else {
           console.error('connectDevice error:', get(error, 'message', ''));
         }
+        throw error;
       }
     },
     [ensureStopScan],
@@ -277,6 +282,12 @@ export function useDeviceConnect() {
       });
 
       if (device.deviceType === 'unknown') {
+        emitFirmwareFailedVerifyResult({
+          device,
+          errorMessage: intl.formatMessage({
+            id: ETranslations.hardware_connect_unknown_device_error,
+          }),
+        });
         Toast.error({
           title: intl.formatMessage({
             id: ETranslations.hardware_connect_unknown_device_error,
@@ -367,6 +378,10 @@ export function useDeviceConnect() {
             features,
             hardwareTransportType: forceTransportType || hardwareTransportType,
           });
+          emitFirmwareFailedVerifyResult({
+            device,
+            errorMessage: 'Device is in backup mode',
+          });
           Toast.error({
             title: 'Device is in backup mode',
           });
@@ -392,9 +407,9 @@ export function useDeviceConnect() {
             device,
             features,
             onContinue: async ({ checked }: { checked: boolean }) => {
-              if (deviceMode === EOneKeyDeviceMode.notInitialized) {
-                handleNotActivatedDevicePress({ deviceType });
-              }
+              // if (deviceMode === EOneKeyDeviceMode.notInitialized) {
+              // handleNotActivatedDevicePress({ deviceType });
+              // }
             },
             onClose: () => {
               emitFirmwareFailedVerifyResult({
@@ -414,9 +429,9 @@ export function useDeviceConnect() {
           deviceResetToHome: false,
         });
 
-        if (deviceMode === EOneKeyDeviceMode.notInitialized) {
-          handleNotActivatedDevicePress({ deviceType });
-        }
+        // if (deviceMode === EOneKeyDeviceMode.notInitialized) {
+        //   handleNotActivatedDevicePress({ deviceType });
+        // }
 
         appEventBus.emit(EAppEventBusNames.EmitFirmwareVerifyResult, {
           verified: true,
@@ -449,7 +464,6 @@ export function useDeviceConnect() {
       connectDevice,
       fwUpdateActions,
       showFirmwareVerifyDialog,
-      handleNotActivatedDevicePress,
       emitFirmwareFailedVerifyResult,
     ],
   );
@@ -664,3 +678,37 @@ export function useDeviceConnect() {
     [connectDevice, ensureStopScan, verifyHardware, onSelectAddWalletType],
   );
 }
+
+export const useConnectDeviceError = (
+  onError: (errorMessageId: ETranslations) => void,
+) => {
+  const uiRequestCallback = throttle(
+    ({ uiRequestType }: { uiRequestType: EHardwareUiStateAction }) => {
+      if (uiRequestType === EHardwareUiStateAction.BLUETOOTH_PERMISSION) {
+        onError(ETranslations.onboarding_enable_bluetooth);
+      } else if (
+        uiRequestType ===
+        EHardwareUiStateAction.BLUETOOTH_CHARACTERISTIC_NOTIFY_CHANGE_FAILURE
+      ) {
+        onError(
+          platformEnv.isNativeIOS
+            ? ETranslations.feedback_try_toggling_bluetooth
+            : ETranslations.feedback_try_repairing_device_in_settings,
+        );
+      } else if (
+        uiRequestType ===
+        EHardwareUiStateAction.WEB_DEVICE_PROMPT_ACCESS_PERMISSION
+      ) {
+        onError(ETranslations.device_not_connected);
+      }
+    },
+    2500,
+  );
+  appEventBus.on(EAppEventBusNames.RequestHardwareUIDialog, uiRequestCallback);
+  return () => {
+    appEventBus.off(
+      EAppEventBusNames.RequestHardwareUIDialog,
+      uiRequestCallback,
+    );
+  };
+};

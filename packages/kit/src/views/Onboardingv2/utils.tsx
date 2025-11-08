@@ -151,3 +151,12 @@ export const trackHardwareWalletConnection = async ({
     isSoftwareWalletOnlyUser,
   });
 };
+
+export const shuffleWordsIndices = (length: number) => {
+  const indices = Array.from({ length }, (_, i) => i);
+  for (let i = indices.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [indices[i], indices[j]] = [indices[j], indices[i]];
+  }
+  return indices.slice(0, 3).sort((a, b) => a - b);
+};

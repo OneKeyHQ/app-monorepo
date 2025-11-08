@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 import Animated, {
   Easing,
@@ -14,6 +15,7 @@ import { useThrottledCallback } from 'use-debounce';
 import type { IPageScreenProps } from '@onekeyhq/components';
 import {
   AnimatePresence,
+  Button,
   Image,
   LinearGradient,
   Page,
@@ -48,6 +50,12 @@ import {
 import { withPromptPasswordVerify } from '../../../utils/passwordUtils';
 import { useWalletBoundReferralCode } from '../../ReferFriends/hooks/useWalletBoundReferralCode';
 import { OnboardingLayout } from '../components/OnboardingLayout';
+import {
+  useConnectDeviceError,
+  useDeviceConnect,
+} from '../hooks/useDeviceConnect';
+
+import type { SearchDevice } from '@onekeyfe/hd-core';
 
 const MatrixBackground = ({
   lineCount = 30,
@@ -134,16 +142,25 @@ function FinalizeWalletSetupPage({
   const {
     activeAccount: { wallet },
   } = useActiveAccount({ num: 0 });
+  const intl = useIntl();
   const navigation = useAppNavigation();
   const [bgAppColor, borderDisabledColor, borderActiveColor] = useThemeValue([
     '$bgApp',
     '$borderDisabled',
     '$borderActive',
   ]);
+  const [setupError, setSetupError] = useState<
+    | {
+        messageId: ETranslations;
+      }
+    | undefined
+  >(undefined);
 
   const created = useRef(false);
   const mnemonic = route?.params?.mnemonic;
   const mnemonicType = route?.params?.mnemonicType;
+  const deviceData = route?.params?.deviceData;
+  const isFirmwareVerified = route?.params?.isFirmwareVerified;
   const isWalletBackedUp = route?.params?.isWalletBackedUp;
 
   const [currentStep, setCurrentStep] = useState<EFinalizeWalletSetupSteps>(
@@ -153,7 +170,9 @@ function FinalizeWalletSetupPage({
   const pathLength = 150;
 
   // 队列管理
-  const stepQueue = useRef<EFinalizeWalletSetupSteps[]>([]);
+  const stepQueue = useRef<EFinalizeWalletSetupSteps[]>([
+    EFinalizeWalletSetupSteps.CreatingWallet,
+  ]);
   const isProcessing = useRef(false);
 
   const animatedProps = useAnimatedProps(() => {
@@ -184,29 +203,11 @@ function FinalizeWalletSetupPage({
     isFirstCreateWallet.current = !isOnboardingDone;
   };
 
-  const {
-    shouldBondReferralCode,
-    getReferralCodeBondStatus,
-    bindWalletInviteCode,
-  } = useWalletBoundReferralCode({
-    entry: 'tab',
-    mnemonicType,
-  });
   const handleWalletSetupReadyInner = useCallback(async () => {
-    const needBondReferralCode = await getReferralCodeBondStatus({
-      walletId: wallet?.id,
-      skipIfTimeout: true,
-    });
-
-    // if (!needBondReferralCode) {
     setTimeout(() => {
       closePage();
-      if (isFirstCreateWallet.current) {
-        // void useBackupToggleDialog().maybeShow(true);
-      }
     }, 1000);
-    // }
-  }, [getReferralCodeBondStatus, closePage, wallet]);
+  }, [closePage]);
 
   const handleWalletSetupReady = useThrottledCallback(
     handleWalletSetupReadyInner,
@@ -218,13 +219,16 @@ function FinalizeWalletSetupPage({
     isProcessing.current = value;
   }, []);
 
+  const stepQueueIndex = useRef<number>(0);
   const processNextStep = useCallback(() => {
     if (isProcessing.current || stepQueue.current.length === 0) {
       return;
     }
-
     isProcessing.current = true;
-    const nextStep = stepQueue.current.shift()!;
+    if (stepQueueIndex.current !== stepQueue.current.length - 1) {
+      stepQueueIndex.current += 1;
+    }
+    const nextStep = stepQueue.current[stepQueueIndex.current];
     if (nextStep === EFinalizeWalletSetupSteps.Ready) {
       setTimeout(() => {
         void handleWalletSetupReady();
@@ -251,47 +255,69 @@ function FinalizeWalletSetupPage({
     });
   }, [changeIdProgress, handleWalletSetupReady, progress]);
 
-  const goNextStep = useCallback(
-    (step: EFinalizeWalletSetupSteps) => {
+  const goNextStep = useCallback((step: EFinalizeWalletSetupSteps) => {
+    if (!stepQueue.current.includes(step)) {
       stepQueue.current.push(step);
-      processNextStep();
-    },
-    [processNextStep],
-  );
+    }
+  }, []);
 
   const actions = useAccountSelectorActions();
 
   useEffect(() => {
-    void (async () => {
-      try {
-        // **** hd wallet case
-        if (mnemonic && !created.current) {
-          await withPromptPasswordVerify({
-            run: async () => {
-              if (mnemonicType === EMnemonicType.TON) {
-                // TODO check TON case
-                // **** TON mnemonic case
-                // Create TON imported account when mnemonicType is TON
-                await actions.current.createTonImportedWallet({ mnemonic });
-                goNextStep(EFinalizeWalletSetupSteps.Ready);
-                return;
-              }
-              await actions.current.createHDWallet({
-                mnemonic,
-                isWalletBackedUp,
-              });
-            },
-          });
-          created.current = true;
-        } else {
-          // **** hardware wallet case
-          // createHWWallet() is called before this page loaded
-        }
-      } catch (error) {
-        navigation.pop();
-        throw error;
+    setTimeout(() => {
+      processNextStep();
+    });
+  }, [processNextStep]);
+
+  const { connectDevice, createHWWallet } = useDeviceConnect();
+  const createWallet = useCallback(async () => {
+    try {
+      // **** hd wallet case
+      if (mnemonic && !created.current) {
+        await withPromptPasswordVerify({
+          run: async () => {
+            if (mnemonicType === EMnemonicType.TON) {
+              // TODO check TON case
+              // **** TON mnemonic case
+              // Create TON imported account when mnemonicType is TON
+              await actions.current.createTonImportedWallet({ mnemonic });
+              goNextStep(EFinalizeWalletSetupSteps.Ready);
+              return;
+            }
+            await actions.current.createHDWallet({
+              mnemonic,
+              isWalletBackedUp,
+            });
+          },
+        });
+        created.current = true;
+      } else if (deviceData && isFirmwareVerified) {
+        await connectDevice(deviceData.device as SearchDevice);
+        await createHWWallet({
+          device: deviceData.device as SearchDevice,
+          isFirmwareVerified,
+        });
       }
-    })();
+    } catch (error) {
+      console.error('createWallet error:', error);
+      setSetupError({
+        messageId: (error as { messageId: ETranslations }).messageId,
+      });
+    }
+  }, [
+    mnemonic,
+    deviceData,
+    isFirmwareVerified,
+    mnemonicType,
+    actions,
+    isWalletBackedUp,
+    goNextStep,
+    connectDevice,
+    createHWWallet,
+  ]);
+
+  useEffect(() => {
+    void createWallet();
   }, [
     actions,
     mnemonic,
@@ -299,6 +325,7 @@ function FinalizeWalletSetupPage({
     isWalletBackedUp,
     navigation,
     goNextStep,
+    createWallet,
   ]);
 
   useEffect(() => {
@@ -321,6 +348,23 @@ function FinalizeWalletSetupPage({
     };
   }, [goNextStep]);
 
+  useConnectDeviceError(
+    useCallback((errorMessageId) => {
+      setSetupError({
+        messageId: errorMessageId,
+      });
+    }, []),
+  );
+
+  const retrySetup = useCallback(() => {
+    setSetupError(undefined);
+    setCurrentStep(EFinalizeWalletSetupSteps.CreatingWallet);
+    stepQueueIndex.current = 0;
+    setTimeout(() => {
+      void createWallet();
+    });
+  }, [createWallet]);
+
   const currentStepData =
     STEPS_DATA[currentStep] ||
     STEPS_DATA[EFinalizeWalletSetupSteps.EncryptingData];
@@ -333,7 +377,21 @@ function FinalizeWalletSetupPage({
           showLanguageSelector={false}
         />
         <OnboardingLayout.Body constrained={false} scrollable={false}>
-          {currentStepData ? (
+          {setupError ? (
+            <YStack w="100%" h="100%">
+              <SizableText size="$heading2xl" textAlign="center">
+                {intl.formatMessage({
+                  id: setupError.messageId,
+                })}
+              </SizableText>
+              <Button onPress={retrySetup}>
+                {intl.formatMessage({
+                  id: ETranslations.global_retry,
+                })}
+              </Button>
+            </YStack>
+          ) : null}
+          {!setupError && currentStepData ? (
             <YStack w="100%" h="100%">
               <YStack
                 position="absolute"
