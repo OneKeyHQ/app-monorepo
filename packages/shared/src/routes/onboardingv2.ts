@@ -63,7 +63,7 @@ export type IOnboardingParamListV2 = {
   [EOnboardingPagesV2.ShowRecoveryPhrase]: IVerifyRecoveryPhraseParams;
   [EOnboardingPagesV2.VerifyRecoveryPhrase]: IVerifyRecoveryPhraseParams;
   [EOnboardingPagesV2.SelectPrivateKeyNetwork]: {
-    privateKey: string;
+    input: string;
   };
   [EOnboardingPagesV2.ICloudBackup]: undefined;
   [EOnboardingPagesV2.ICloudBackupDetails]: {

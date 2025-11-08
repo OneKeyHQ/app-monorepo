@@ -16,6 +16,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes';
 import type { EMnemonicType } from '@onekeyhq/shared/src/utils/secret';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { OnboardingLayout } from '../components/OnboardingLayout';
 import { PhaseInputArea } from '../components/PhaseInputArea';
@@ -29,6 +30,7 @@ export default function ImportPhraseOrPrivateKey() {
   const phaseInputAreaRef = useRef<IPhaseInputAreaInstance | null>(null);
   const [isConfirming, setIsConfirming] = useState(false);
   const intl = useIntl();
+  const [privateKey, setPrivateKey] = useState('');
 
   const handleConfirm = async () => {
     if (selected === 'phrase') {
@@ -53,9 +55,13 @@ export default function ImportPhraseOrPrivateKey() {
         }
       }
     } else {
+      const input =
+        await backgroundApiProxy.servicePassword.encodeSensitiveText({
+          text: privateKey?.trim?.() || '',
+        });
       // Navigate to network selection page for private key import
       void navigation.push(EOnboardingPagesV2.SelectPrivateKeyNetwork, {
-        privateKey: '',
+        input,
       });
     }
   };
@@ -108,8 +114,13 @@ export default function ImportPhraseOrPrivateKey() {
                   gap="$5"
                 >
                   <TextAreaInput
+                    allowPaste
+                    allowClear
+                    allowSecureTextEye
                     size="large"
                     numberOfLines={5}
+                    value={privateKey}
+                    onChangeText={setPrivateKey}
                     $platform-native={{
                       minHeight: 160,
                     }}
