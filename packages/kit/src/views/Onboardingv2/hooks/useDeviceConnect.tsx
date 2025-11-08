@@ -27,7 +27,10 @@ import { EOnboardingPages } from '@onekeyhq/shared/src/routes/onboarding';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import { EConnectDeviceChannel } from '@onekeyhq/shared/types/connectDevice';
-import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types/device';
+import type {
+  IFirmwareVerifyResult,
+  IOneKeyDeviceFeatures,
+} from '@onekeyhq/shared/types/device';
 import { EOneKeyDeviceMode } from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -110,32 +113,6 @@ export function useDeviceConnect() {
       }
     },
     [ensureStopScan],
-  );
-
-  const emitFirmwareFailedVerifyResult = useCallback(
-    ({
-      device,
-      errorMessage,
-    }: {
-      device: SearchDevice;
-      errorMessage: string;
-    }) => {
-      appEventBus.emit(EAppEventBusNames.EmitFirmwareVerifyResult, {
-        verified: false,
-        device,
-        payload: {
-          deviceType: device.deviceType,
-          data: '',
-          cert: '',
-          signature: '',
-        },
-        result: {
-          code: -1,
-          message: errorMessage,
-        },
-      });
-    },
-    [],
   );
 
   const fwUpdateActions = useFirmwareUpdateActions();
@@ -283,18 +260,16 @@ export function useDeviceConnect() {
       });
 
       if (device.deviceType === 'unknown') {
-        emitFirmwareFailedVerifyResult({
-          device,
-          errorMessage: intl.formatMessage({
-            id: ETranslations.hardware_connect_unknown_device_error,
-          }),
-        });
         Toast.error({
           title: intl.formatMessage({
             id: ETranslations.hardware_connect_unknown_device_error,
           }),
         });
-        return;
+        throw new OneKeyLocalError(
+          intl.formatMessage({
+            id: ETranslations.hardware_connect_unknown_device_error,
+          }),
+        );
       }
 
       try {
@@ -379,14 +354,10 @@ export function useDeviceConnect() {
             features,
             hardwareTransportType: forceTransportType || hardwareTransportType,
           });
-          emitFirmwareFailedVerifyResult({
-            device,
-            errorMessage: 'Device is in backup mode',
-          });
           Toast.error({
             title: 'Device is in backup mode',
           });
-          return;
+          throw new OneKeyLocalError('Device is in backup mode');
         }
 
         const shouldAuthenticateFirmware =
@@ -404,24 +375,43 @@ export function useDeviceConnect() {
             skipDelayClose: true,
             deviceResetToHome: false,
           });
-          await showFirmwareVerifyDialog({
-            device,
-            features,
-            onContinue: async ({ checked }: { checked: boolean }) => {
-              // if (deviceMode === EOneKeyDeviceMode.notInitialized) {
-              // handleNotActivatedDevicePress({ deviceType });
-              // }
-            },
-            onClose: () => {
-              emitFirmwareFailedVerifyResult({
+          let isVerified = false;
+          const result = await new Promise<IFirmwareVerifyResult>(
+            (resolve, reject) => {
+              void showFirmwareVerifyDialog({
                 device,
-                errorMessage: intl.formatMessage({
-                  id: ETranslations.hardware_user_cancel_error,
-                }),
+                features,
+                onContinue: async ({ checked }: { checked: boolean }) => {
+                  isVerified = checked;
+                  resolve({
+                    verified: checked,
+                    device,
+                    payload: {
+                      deviceType: device.deviceType,
+                      data: '',
+                      cert: '',
+                      signature: '',
+                    },
+                    result: {
+                      message: '',
+                    },
+                  });
+                },
+                onClose: () => {
+                  if (!isVerified) {
+                    reject(
+                      new OneKeyLocalError(
+                        intl.formatMessage({
+                          id: ETranslations.hardware_user_cancel_error,
+                        }),
+                      ),
+                    );
+                  }
+                },
               });
             },
-          });
-          return;
+          );
+          return result;
         }
         void backgroundApiProxy.serviceHardwareUI.closeHardwareUiStateDialog({
           connectId: device.connectId ?? '',
@@ -434,7 +424,7 @@ export function useDeviceConnect() {
         //   handleNotActivatedDevicePress({ deviceType });
         // }
 
-        appEventBus.emit(EAppEventBusNames.EmitFirmwareVerifyResult, {
+        return {
           verified: true,
           device,
           payload: {
@@ -443,18 +433,15 @@ export function useDeviceConnect() {
             cert: '',
             signature: '',
           },
-          result: undefined,
-        });
+          result: {
+            message: '',
+          },
+        };
       } catch (error) {
         // Clear force transport type on device connection error
         void backgroundApiProxy.serviceHardware.clearForceTransportType();
         void backgroundApiProxy.serviceHardwareUI.cleanHardwareUiState();
         console.error('handleDeviceConnect error:', error);
-        emitFirmwareFailedVerifyResult({
-          device,
-          errorMessage:
-            (error as { message: string }).message ?? 'Unknown error',
-        });
         throw error;
       }
     },
@@ -465,7 +452,6 @@ export function useDeviceConnect() {
       connectDevice,
       fwUpdateActions,
       showFirmwareVerifyDialog,
-      emitFirmwareFailedVerifyResult,
     ],
   );
 

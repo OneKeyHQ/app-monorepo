@@ -19,6 +19,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -264,9 +265,27 @@ function CheckAndUpdatePage({
     }, [checkFirmwareUpdate]),
   );
 
-  useEffect(() => {
-    const callback = async (result: IFirmwareVerifyResult) => {
+  const handleVerifyHardware = useCallback(async () => {
+    setSteps((prev) => {
+      const newSteps = [...prev];
+      newSteps[0] = {
+        ...newSteps[0],
+        state: ECheckAndUpdateStepState.InProgress,
+      };
+      return newSteps;
+    });
+
+    try {
+      const result = await verifyHardware(
+        deviceData.device as SearchDevice,
+        tabValue,
+      );
       console.log('EmitFirmwareVerifyResult', result);
+      if (!result) {
+        throw new OneKeyLocalError(
+          intl.formatMessage({ id: ETranslations.global_unknown_error }),
+        );
+      }
       setSteps((prev) => {
         const newSteps = [...prev];
         newSteps[0] = {
@@ -277,10 +296,6 @@ function CheckAndUpdatePage({
           errorMessage: result.verified ? undefined : result.result?.message,
         };
         if (result.verified) {
-          newSteps[0] = {
-            ...newSteps[0],
-            state: ECheckAndUpdateStepState.Success,
-          };
           newSteps[1] = {
             ...newSteps[1],
             state: ECheckAndUpdateStepState.InProgress,
@@ -293,40 +308,21 @@ function CheckAndUpdatePage({
           void checkFirmwareUpdate();
         }, 150);
       }
-    };
-    appEventBus.on(EAppEventBusNames.EmitFirmwareVerifyResult, callback);
-    return () => {
-      appEventBus.off(EAppEventBusNames.EmitFirmwareVerifyResult, callback);
-    };
-  }, [checkFirmwareUpdate]);
-
-  const handleCheck = useCallback(async () => {
-    // Set first step to inProgress
-    setSteps((prev) => {
-      const newSteps = [...prev];
-      newSteps[0] = {
-        ...newSteps[0],
-        state: ECheckAndUpdateStepState.InProgress,
-      };
-      return newSteps;
-    });
-
-    await verifyHardware(deviceData.device as SearchDevice, tabValue);
-  }, [verifyHardware, deviceData.device, tabValue]);
+    } catch (error) {
+      setSteps((prev) => {
+        const newSteps = [...prev];
+        newSteps[0] = {
+          ...newSteps[0],
+          state: ECheckAndUpdateStepState.Error,
+        };
+        return newSteps;
+      });
+    }
+  }, [verifyHardware, deviceData.device, tabValue, checkFirmwareUpdate]);
 
   const handleRetry = useCallback(async () => {
-    // Set first step to inProgress
-    setSteps((prev) => {
-      const newSteps = [...prev];
-      newSteps[0] = {
-        ...newSteps[0],
-        state: ECheckAndUpdateStepState.InProgress,
-      };
-      return newSteps;
-    });
-
-    await handleCheck();
-  }, [handleCheck]);
+    await handleVerifyHardware();
+  }, [handleVerifyHardware]);
 
   const handleDeviceSetupDone = useCallback(() => {
     void checkDeviceInitialized();
@@ -780,7 +776,7 @@ function CheckAndUpdatePage({
                   animateOnly={['opacity', 'transform']}
                   variant="primary"
                   size="large"
-                  onPress={handleCheck}
+                  onPress={handleVerifyHardware}
                   exitStyle={{
                     opacity: 0,
                     scale: 0.97,
