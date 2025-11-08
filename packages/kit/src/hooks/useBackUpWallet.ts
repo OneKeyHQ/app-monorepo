@@ -1,19 +1,27 @@
 import { useCallback } from 'react';
 
+import { rootNavigationRef } from '@onekeyhq/components';
 import { ensureSensitiveTextEncoded } from '@onekeyhq/core/src/secret';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   EModalKeyTagRoutes,
   EModalRoutes,
   EOnboardingPages,
+  EOnboardingPagesV2,
+  EOnboardingV2Routes,
+  ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
+import { useBackupEntryStatus } from '../views/CloudBackup/components/useBackupEntryStatus';
 import useLiteCard from '../views/LiteCard/hooks/useLiteCard';
+import { useCloudBackup } from '../views/Onboardingv2/hooks/useCloudBackup';
 
 import { useAccountData } from './useAccountData';
 import useAppNavigation from './useAppNavigation';
+import { useUserWalletProfile } from './useUserWalletProfile';
 
 function useBackUpWallet({ walletId }: { walletId: string }) {
   const { wallet } = useAccountData({ walletId });
@@ -21,6 +29,8 @@ function useBackUpWallet({ walletId }: { walletId: string }) {
   const navigation = useAppNavigation();
 
   const liteCard = useLiteCard();
+
+  const { supportCloudBackup, startBackup } = useCloudBackup();
 
   const handleBackUpByPhrase = useCallback(async () => {
     if (!wallet?.id) {
@@ -32,18 +42,28 @@ function useBackUpWallet({ walletId }: { walletId: string }) {
         reason: EReasonForNeedPassword.Security,
       });
     if (mnemonic) ensureSensitiveTextEncoded(mnemonic);
-    navigation.pushModal(EModalRoutes.OnboardingModal, {
-      screen: EOnboardingPages.BeforeShowRecoveryPhrase,
-      params: {
-        mnemonic,
-        isBackup: true,
-        isWalletBackedUp: wallet.backuped,
-        walletId: wallet.id,
-      },
-    });
 
+    const state = rootNavigationRef.current?.getRootState();
+    if (state && state.routes.length > 0) {
+      const currentRoute = state.routes[state.index];
+      if (currentRoute.name === ERootRoutes.Modal) {
+        navigation.popStack();
+      }
+      await timerUtils.wait(250);
+      navigation.navigate(ERootRoutes.Onboarding, {
+        screen: EOnboardingV2Routes.OnboardingV2,
+        params: {
+          screen: EOnboardingPagesV2.BackupWalletReminder,
+          params: {
+            mnemonic,
+            isWalletBackedUp: wallet.backuped,
+            walletId: wallet.id,
+          },
+        },
+      });
+    }
     defaultLogger.account.wallet.backupWallet('manualBackup');
-  }, [navigation, wallet?.id, wallet?.backuped]);
+  }, [navigation, wallet?.backuped, wallet?.id]);
 
   const handleBackUpByLiteCard = useCallback(async () => {
     await liteCard.backupWallet(wallet?.id);
@@ -71,20 +91,17 @@ function useBackUpWallet({ walletId }: { walletId: string }) {
     }
   }, [navigation, wallet]);
 
-  const handleBackUpByiCloud = useCallback(async () => {
-    // TODO: Implement iCloud backup
-  }, []);
-
-  const handleBackUpByGoogleDrive = useCallback(async () => {
-    // TODO: Implement Google Drive backup
-  }, []);
+  const handleBackUpByCloud = useCallback(async () => {
+    await startBackup();
+    defaultLogger.account.wallet.backupWallet('cloud');
+  }, [startBackup]);
 
   return {
     handleBackUpByPhrase,
     handleBackUpByLiteCard,
     handleBackUpByKeyTag,
-    handleBackUpByiCloud,
-    handleBackUpByGoogleDrive,
+    handleBackUpByCloud,
+    supportCloudBackup,
   };
 }
 

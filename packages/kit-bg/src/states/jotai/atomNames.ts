@@ -60,6 +60,7 @@ export enum EAtomNames {
   hardwareForceTransportAtom = 'hardwareForceTransportAtom',
   // perps
   perpsActiveAccountAtom = 'perpsActiveAccountAtom',
+  perpsActiveAccountRefreshHookAtom = 'perpsActiveAccountRefreshHookAtom',
   perpsActiveAccountSummaryAtom = 'perpsActiveAccountSummaryAtom',
   perpsActiveAccountStatusInfoAtom = 'perpsActiveAccountStatusInfoAtom',
   perpsAccountLoadingInfoAtom = 'perpsAccountLoadingInfoAtom',

@@ -1,6 +1,8 @@
 export { default as Apple } from './Apple';
 export { default as ArtifactNews } from './ArtifactNews';
+export { default as Binance } from './Binance';
 export { default as Chrome } from './Chrome';
+export { default as Coinbase } from './Coinbase';
 export { default as Copilot } from './Copilot';
 export { default as Discord } from './Discord';
 export { default as Facebook } from './Facebook';
@@ -11,6 +13,7 @@ export { default as GooglePlay } from './GooglePlay';
 export { default as Instagram } from './Instagram';
 export { default as Linkedin } from './Linkedin';
 export { default as Medium } from './Medium';
+export { default as Okx } from './Okx';
 export { default as Onekey } from './Onekey';
 export { default as OpenaiChatgpt } from './OpenaiChatgpt';
 export { default as Patreon } from './Patreon';

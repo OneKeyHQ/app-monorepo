@@ -50,6 +50,10 @@ export const ONEKEY_BLOCK_EXPLORER_TEST_URL = 'https://tx.onekeytest.com';
 export const ONEKEY_API_HOST = 'onekeycn.com';
 export const ONEKEY_TEST_API_HOST = 'onekeytest.com';
 
+// IP Table CDN Configuration
+export const IP_TABLE_CDN_URL = 'https://config.onekeycn.com/data.json';
+export const IP_TABLE_CDN_FETCH_TIMEOUT_MS = 5000; // 5 seconds timeout for CDN fetch
+
 export const WEB_APP_URL = 'https://app.onekey.so';
 export const WEB_APP_URL_SHORT = 'https://1key.so';
 export const WEB_APP_URL_DEV = 'https://app.onekeytest.com';
