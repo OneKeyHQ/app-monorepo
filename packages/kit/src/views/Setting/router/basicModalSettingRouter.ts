@@ -115,10 +115,6 @@ const CustomTransactionModal = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Setting/pages/CustomTransaction'),
 );
 
-const PerpUserConfigModal = LazyLoadPage(
-  () => import('@onekeyhq/kit/src/views/Setting/pages/PerpUserConfig'),
-);
-
 const DevAppUpdateModalSettingModal = LazyLoadPage(
   () =>
     import(
@@ -222,10 +218,6 @@ export const BasicModalSettingStack: IModalFlowNavigatorConfig<
   {
     name: EModalSettingRoutes.SettingFloatingIconModal,
     component: FloatingIconModal,
-  },
-  {
-    name: EModalSettingRoutes.SettingPerpUserConfig,
-    component: PerpUserConfigModal,
   },
   ...(ModalAddressBookRouter as IModalFlowNavigatorConfig<
     EModalSettingRoutes | EModalAddressBookRoutes,

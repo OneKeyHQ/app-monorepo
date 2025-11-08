@@ -379,19 +379,6 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
             },
           ],
           [
-            !perpConfigCommon.disablePerp && !perpConfigCommon.usePerpWeb
-              ? {
-                  icon: 'BrowserOutline',
-                  title: intl.formatMessage({
-                    id: ETranslations.perp_setting_interface,
-                  }),
-                  onPress: (navigation) => {
-                    navigation?.push(EModalSettingRoutes.SettingPerpUserConfig);
-                  },
-                }
-              : null,
-          ],
-          [
             {
               icon: 'FlashCardsOutline',
               title: intl.formatMessage({

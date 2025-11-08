@@ -18,7 +18,7 @@ export function PerpSettingsButton({
 
   const content = (
     <IconButton
-      icon="SettingsOutline"
+      icon="DotHorOutline"
       size={size}
       variant={variant}
       iconColor="$iconSubdued"
