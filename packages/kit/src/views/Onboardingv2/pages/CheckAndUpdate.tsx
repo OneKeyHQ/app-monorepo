@@ -142,6 +142,16 @@ function CheckAndUpdatePage({
   }, [actions, deviceData.device?.connectId]);
 
   const checkDeviceInitialized = useCallback(async () => {
+    const setWarningStep = () => {
+      setSteps((prev) => {
+        const newSteps = [...prev];
+        newSteps[2] = {
+          ...newSteps[2],
+          state: ECheckAndUpdateStepState.Warning,
+        };
+        return newSteps;
+      });
+    };
     setSteps((prev) => {
       const newSteps = [...prev];
       newSteps[0] = {
@@ -158,38 +168,39 @@ function CheckAndUpdatePage({
       };
       return newSteps;
     });
-    setTimeout(async () => {
-      const features = await connectDevice(deviceData.device as SearchDevice);
+    try {
+      const [features] = await Promise.all([
+        connectDevice(deviceData.device as SearchDevice),
+        new Promise<void>((resolve) => {
+          setTimeout(resolve, 1200);
+        }),
+      ]);
       if (features) {
         const deviceMode = await deviceUtils.getDeviceModeFromFeatures({
           features,
         });
         if (deviceMode === EOneKeyDeviceMode.notInitialized) {
-          setSteps((prev) => {
-            const newSteps = [...prev];
-            newSteps[2] = {
-              ...newSteps[2],
-              state: ECheckAndUpdateStepState.Warning,
-            };
-            return newSteps;
-          });
+          setWarningStep();
           return;
         }
       }
-      setSteps((prev) => {
-        const newSteps = [...prev];
-        newSteps[2] = {
-          ...newSteps[2],
-          state: ECheckAndUpdateStepState.Success,
-        };
-        return newSteps;
+    } catch (error) {
+      setWarningStep();
+      throw error;
+    }
+    setSteps((prev) => {
+      const newSteps = [...prev];
+      newSteps[2] = {
+        ...newSteps[2],
+        state: ECheckAndUpdateStepState.Success,
+      };
+      return newSteps;
+    });
+    setTimeout(async () => {
+      navigation.push(EOnboardingPagesV2.FinalizeWalletSetup, {
+        deviceData,
+        isFirmwareVerified: true,
       });
-      setTimeout(async () => {
-        navigation.push(EOnboardingPagesV2.FinalizeWalletSetup, {
-          deviceData,
-          isFirmwareVerified: true,
-        });
-      }, 1200);
     }, 1200);
   }, [connectDevice, deviceData, navigation]);
 
