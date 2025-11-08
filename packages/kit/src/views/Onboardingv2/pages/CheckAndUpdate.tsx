@@ -158,39 +158,38 @@ function CheckAndUpdatePage({
       };
       return newSteps;
     });
-
-    const features = await connectDevice(deviceData.device as SearchDevice);
-    if (features) {
-      const deviceMode = await deviceUtils.getDeviceModeFromFeatures({
-        features,
-      });
-
-      console.log('deviceMode', deviceMode);
-      if (deviceMode === EOneKeyDeviceMode.notInitialized) {
-        setSteps((prev) => {
-          const newSteps = [...prev];
-          newSteps[2] = {
-            ...newSteps[2],
-            state: ECheckAndUpdateStepState.Warning,
-          };
-          return newSteps;
-        });
-        return;
-      }
-    }
-    setSteps((prev) => {
-      const newSteps = [...prev];
-      newSteps[2] = {
-        ...newSteps[2],
-        state: ECheckAndUpdateStepState.Success,
-      };
-      return newSteps;
-    });
     setTimeout(async () => {
-      navigation.push(EOnboardingPagesV2.FinalizeWalletSetup, {
-        deviceData,
-        isFirmwareVerified: true,
+      const features = await connectDevice(deviceData.device as SearchDevice);
+      if (features) {
+        const deviceMode = await deviceUtils.getDeviceModeFromFeatures({
+          features,
+        });
+        if (deviceMode === EOneKeyDeviceMode.notInitialized) {
+          setSteps((prev) => {
+            const newSteps = [...prev];
+            newSteps[2] = {
+              ...newSteps[2],
+              state: ECheckAndUpdateStepState.Warning,
+            };
+            return newSteps;
+          });
+          return;
+        }
+      }
+      setSteps((prev) => {
+        const newSteps = [...prev];
+        newSteps[2] = {
+          ...newSteps[2],
+          state: ECheckAndUpdateStepState.Success,
+        };
+        return newSteps;
       });
+      setTimeout(async () => {
+        navigation.push(EOnboardingPagesV2.FinalizeWalletSetup, {
+          deviceData,
+          isFirmwareVerified: true,
+        });
+      }, 1200);
     }, 1200);
   }, [connectDevice, deviceData, navigation]);
 
