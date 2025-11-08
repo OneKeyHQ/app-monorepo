@@ -31,6 +31,7 @@ export enum EGalleryRoutes {
   ComponentImage = 'component-Image',
   ComponentImageCropGallery = 'component-ImageCrop',
   ComponentInput = 'component-Input',
+  ComponentIpRequest = 'component-IpRequest',
   ComponentJotaiContext = 'component-JotaiContext',
   ComponentJotaiGlobal = 'component-JotaiGlobal',
   ComponentLinearGradientGallery = 'component-LinearGradient',
