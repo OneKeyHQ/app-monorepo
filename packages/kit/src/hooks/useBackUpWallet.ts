@@ -10,13 +10,13 @@ import {
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
+import { useBackupEntryStatus } from '../views/CloudBackup/components/useBackupEntryStatus';
 import useLiteCard from '../views/LiteCard/hooks/useLiteCard';
+import { useCloudBackup } from '../views/Onboardingv2/hooks/useCloudBackup';
 
 import { useAccountData } from './useAccountData';
 import useAppNavigation from './useAppNavigation';
-import { useBackupEntryStatus } from '../views/CloudBackup/components/useBackupEntryStatus';
 import { useUserWalletProfile } from './useUserWalletProfile';
-import { useCloudBackup } from '../views/Onboardingv2/hooks/useCloudBackup';
 
 function useBackUpWallet({ walletId }: { walletId: string }) {
   const { wallet } = useAccountData({ walletId });
