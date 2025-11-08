@@ -79,6 +79,7 @@ export function useDeviceConnect() {
       console.error('ensureStopScan: Error while stopping scan:', error);
       // Fallback: just stop scan without waiting
       deviceScanner.stopScan();
+      throw new OneKeyLocalError('Error while stopping scan');
     }
   }, [deviceScanner]);
 
@@ -635,7 +636,7 @@ export function useDeviceConnect() {
           });
       } catch (error) {
         await closeDialogAndReturn(device, { skipDelayClose: true });
-        return;
+        throw error;
       }
 
       const deviceState = extractDeviceState(features);
@@ -647,7 +648,7 @@ export function useDeviceConnect() {
       console.log('Current hardware wallet State', deviceState, strategy);
       if (!strategy) {
         await closeDialogAndReturn(device, { skipDelayClose: true });
-        return;
+        throw new OneKeyLocalError('No wallet creation strategy');
       }
 
       await createHwWallet(
