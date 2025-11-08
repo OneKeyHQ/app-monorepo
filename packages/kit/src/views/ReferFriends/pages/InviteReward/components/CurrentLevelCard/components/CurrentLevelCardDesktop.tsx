@@ -7,6 +7,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useCurrentLevelCard } from '../hooks/useCurrentLevelCard';
 
@@ -15,6 +16,7 @@ import { LevelBadge } from './LevelBadge';
 import type { ICurrentLevelCardProps } from '../types';
 
 export function CurrentLevelCardDesktop(props: ICurrentLevelCardProps) {
+  const intl = useIntl();
   const { levelIcon, levelLabel, commissionRates } = useCurrentLevelCard(props);
 
   return (
@@ -23,7 +25,6 @@ export function CurrentLevelCardDesktop(props: ICurrentLevelCardProps) {
         borderRadius="$3"
         borderWidth="$px"
         borderColor="$borderSubdued"
-        bg="$bgSubdued"
         p="$5"
         ai="center"
         jc="space-between"
@@ -36,46 +37,30 @@ export function CurrentLevelCardDesktop(props: ICurrentLevelCardProps) {
           {/* Commission rates */}
           <YStack gap="$2">
             <SizableText size="$bodyMdMedium" color="$text">
-              Rate - You/Invitee
+              {intl.formatMessage({ id: ETranslations.referral_rate })}
             </SizableText>
 
             {/* Rates grid */}
             <XStack gap="$8">
-              {/* Hardware sales */}
-              <YStack gap="$1">
-                <SizableText size="$bodyMd" color="$textSubdued">
-                  {commissionRates.hardwareSales.label}
-                </SizableText>
-                <XStack gap="$1" ai="center">
-                  <SizableText size="$bodyMdMedium" color="$text">
-                    {commissionRates.hardwareSales.you}%
-                  </SizableText>
-                  <SizableText size="$bodyMd" color="$textSubdued">
-                    /
-                  </SizableText>
-                  <SizableText size="$bodyMdMedium" color="$text">
-                    {commissionRates.hardwareSales.invitee}%
-                  </SizableText>
-                </XStack>
-              </YStack>
+              {commissionRates.map(({ subject, rate }) => (
+                <YStack key={subject} gap="$1">
+                  <XStack gap="$1" ai="center">
+                    <SizableText size="$bodyMdMedium" color="$text">
+                      {rate.you}%
+                    </SizableText>
+                    <SizableText size="$bodyMd" color="$textSubdued">
+                      /
+                    </SizableText>
+                    <SizableText size="$bodyMdMedium" color="$text">
+                      {rate.invitee}%
+                    </SizableText>
+                  </XStack>
 
-              {/* DeFi performance fee */}
-              <YStack gap="$1">
-                <SizableText size="$bodyMd" color="$textSubdued">
-                  {commissionRates.defi.label}
-                </SizableText>
-                <XStack gap="$1" ai="center">
-                  <SizableText size="$bodyMdMedium" color="$text">
-                    {commissionRates.defi.you}%
-                  </SizableText>
                   <SizableText size="$bodyMd" color="$textSubdued">
-                    /
+                    {rate.label}
                   </SizableText>
-                  <SizableText size="$bodyMdMedium" color="$text">
-                    {commissionRates.defi.invitee}%
-                  </SizableText>
-                </XStack>
-              </YStack>
+                </YStack>
+              ))}
             </XStack>
           </YStack>
         </YStack>

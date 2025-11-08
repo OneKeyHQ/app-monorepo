@@ -1,6 +1,7 @@
 import { useIntl } from 'react-intl';
 
 import { SizableText, XStack, YStack } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useCurrentLevelCard } from '../hooks/useCurrentLevelCard';
 
@@ -28,44 +29,27 @@ export function CurrentLevelCardMobile(props: ICurrentLevelCardProps) {
         {/* Commission rates section */}
         <YStack gap="$3">
           <SizableText size="$bodyMdMedium" color="$text">
-            Rate - You/Invitee
+            {intl.formatMessage({ id: ETranslations.referral_rate })}
           </SizableText>
 
-          {/* Hardware sales rate */}
-          <XStack jc="space-between" ai="center">
-            <SizableText size="$bodyMd" color="$textSubdued">
-              {commissionRates.hardwareSales.label}
-            </SizableText>
-            <XStack gap="$1" ai="center">
-              <SizableText size="$bodyMdMedium" color="$text">
-                {commissionRates.hardwareSales.you}%
-              </SizableText>
+          {commissionRates.map(({ subject, rate }) => (
+            <XStack key={subject} jc="space-between" ai="center">
               <SizableText size="$bodyMd" color="$textSubdued">
-                /
+                {rate.label}
               </SizableText>
-              <SizableText size="$bodyMdMedium" color="$text">
-                {commissionRates.hardwareSales.invitee}%
-              </SizableText>
+              <XStack gap="$1" ai="center">
+                <SizableText size="$bodyMdMedium" color="$text">
+                  {rate.you}%
+                </SizableText>
+                <SizableText size="$bodyMd" color="$textSubdued">
+                  /
+                </SizableText>
+                <SizableText size="$bodyMdMedium" color="$text">
+                  {rate.invitee}%
+                </SizableText>
+              </XStack>
             </XStack>
-          </XStack>
-
-          {/* DeFi performance fee rate */}
-          <XStack jc="space-between" ai="center">
-            <SizableText size="$bodyMd" color="$textSubdued">
-              {commissionRates.defi.label}
-            </SizableText>
-            <XStack gap="$1" ai="center">
-              <SizableText size="$bodyMdMedium" color="$text">
-                {commissionRates.defi.you}%
-              </SizableText>
-              <SizableText size="$bodyMd" color="$textSubdued">
-                /
-              </SizableText>
-              <SizableText size="$bodyMdMedium" color="$text">
-                {commissionRates.defi.invitee}%
-              </SizableText>
-            </XStack>
-          </XStack>
+          ))}
         </YStack>
       </YStack>
     </YStack>

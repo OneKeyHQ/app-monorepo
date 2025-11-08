@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import type { IInviteLevelCommissionRate } from '@onekeyhq/shared/src/referralCode/type';
 
 import type {
   ICurrentLevelCardProps,
@@ -43,44 +44,62 @@ export function useCurrentLevelCard(
       detailLevel?.label || basicLevelInfo?.label || currentLevel.label || '';
 
     // Get commission rates from detailed level data if available
-    let commissionRates = {
-      hardwareSales: {
-        you: currentLevel.rebate || 5,
-        invitee: currentLevel.discount || 5,
-        label: 'Hardware sales',
-      },
-      defi: {
-        you: currentLevel.rebate || 10,
-        invitee: currentLevel.discount || 10,
-        label: 'DeFi performance fee',
-      },
-    };
+    // Convert to array format for easier iteration in components
+    let commissionRates: Array<{
+      subject: string;
+      rate: {
+        you: number;
+        invitee: number;
+        label: string;
+      };
+    }> = [];
 
     // Use more detailed commission rates if available
     if (detailLevel?.commissionRates) {
       const rates = detailLevel.commissionRates;
 
-      // Check if rates is an object with HardwareSales and Onchain properties
-      if ('HardwareSales' in rates && 'Onchain' in rates) {
-        commissionRates = {
-          hardwareSales: {
-            you: rates.HardwareSales.rebate,
-            invitee: rates.HardwareSales.discount,
+      // Convert rates to array format (similar to LevelAccordionItem)
+      if (Array.isArray(rates)) {
+        commissionRates = rates.map((rate, index) => ({
+          subject: rate.labelKey ?? `${index}`,
+          rate: {
+            you: rate.rebate,
+            invitee: rate.discount,
             label:
-              rates.HardwareSales.commissionRatesLabel ||
-              rates.HardwareSales.label ||
-              'Hardware sales',
+              rate.commissionRatesLabel || rate.label || `Rate ${index + 1}`,
           },
-          defi: {
-            you: rates.Onchain.rebate,
-            invitee: rates.Onchain.discount,
-            label:
-              rates.Onchain.commissionRatesLabel ||
-              rates.Onchain.label ||
-              'DeFi performance fee',
+        }));
+      } else {
+        // Handle Record<string, IInviteLevelCommissionRate> format
+        commissionRates = Object.entries(rates).map(([subject, rate]) => ({
+          subject,
+          rate: {
+            you: rate.rebate,
+            invitee: rate.discount,
+            label: rate.commissionRatesLabel || rate.label || subject,
           },
-        };
+        }));
       }
+    } else {
+      // Fallback to default values if no detailed data available
+      commissionRates = [
+        {
+          subject: 'HardwareSales',
+          rate: {
+            you: currentLevel.rebate || 5,
+            invitee: currentLevel.discount || 5,
+            label: 'Hardware sales',
+          },
+        },
+        {
+          subject: 'Onchain',
+          rate: {
+            you: currentLevel.rebate || 10,
+            invitee: currentLevel.discount || 10,
+            label: 'DeFi performance fee',
+          },
+        },
+      ];
     }
 
     return {

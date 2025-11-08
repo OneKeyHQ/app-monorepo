@@ -9,16 +9,12 @@ export interface IUseCurrentLevelCardReturn {
   currentLevel: IInviteSummary['rebateConfig'];
   levelIcon: string;
   levelLabel: string;
-  commissionRates: {
-    hardwareSales: {
+  commissionRates: Array<{
+    subject: string;
+    rate: {
       you: number;
       invitee: number;
       label: string;
     };
-    defi: {
-      you: number;
-      invitee: number;
-      label: string;
-    };
-  };
+  }>;
 }
