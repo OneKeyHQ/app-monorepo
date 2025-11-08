@@ -133,6 +133,11 @@ function AccountSelectorEffectsCmp({ num }: { num: number }) {
           if (!isReady) {
             return;
           }
+          const isInTransferImportOrBackupRestoreFlow: boolean =
+            await backgroundApiProxy.servicePrimeTransfer.isInTransferImportOrBackupRestoreFlow();
+          if (isInTransferImportOrBackupRestoreFlow) {
+            return;
+          }
           const activeAccount = await actions.current.reloadActiveAccountInfo({
             num,
             selectedAccount: selectedAccountRef.current,

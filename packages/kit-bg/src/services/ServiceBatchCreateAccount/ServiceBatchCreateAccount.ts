@@ -1084,18 +1084,26 @@ class ServiceBatchCreateAccount extends ServiceBase {
     saveToDb?: boolean;
     showUIProgress?: boolean;
   } = {}) {
+    const isInTransferImportOrBackupRestoreFlow: boolean =
+      await this.backgroundApi.servicePrimeTransfer.isInTransferImportOrBackupRestoreFlow();
+    let shouldEmitEvent = true;
+    if (isInTransferImportOrBackupRestoreFlow) {
+      shouldEmitEvent = false;
+    }
     if (saveToDb) {
-      appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
-      // TODO auto backup execute twice with EAppEventBusNames.AccountUpdate?
-      void this.backgroundApi.serviceCloudBackup.requestAutoBackup();
+      if (shouldEmitEvent) {
+        appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
+      }
     }
     if (this.progressInfo && showUIProgress) {
-      appEventBus.emit(EAppEventBusNames.BatchCreateAccount, {
-        totalCount: this.progressInfo.totalCount,
-        createdCount: this.progressInfo.createdCount,
-        progressTotal: this.progressInfo.progressTotal,
-        progressCurrent: this.progressInfo.progressTotal,
-      });
+      if (shouldEmitEvent) {
+        appEventBus.emit(EAppEventBusNames.BatchCreateAccount, {
+          totalCount: this.progressInfo.totalCount,
+          createdCount: this.progressInfo.createdCount,
+          progressTotal: this.progressInfo.progressTotal,
+          progressCurrent: this.progressInfo.progressTotal,
+        });
+      }
       await timerUtils.wait(600);
     }
   }
