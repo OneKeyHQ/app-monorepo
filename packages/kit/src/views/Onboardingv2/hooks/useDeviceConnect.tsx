@@ -464,7 +464,6 @@ export function useDeviceConnect() {
       connectDevice,
       fwUpdateActions,
       showFirmwareVerifyDialog,
-      handleNotActivatedDevicePress,
       emitFirmwareFailedVerifyResult,
     ],
   );
