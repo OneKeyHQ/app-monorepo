@@ -330,14 +330,66 @@ function SelectPrivateKeyNetworkView() {
     });
   }, [handleSelectGroupItem, openChainSelector]);
 
-  const onConfirm = useCallback(
-    (form: UseFormReturn<IFormValues, any, undefined>) => {
-      console.log(form);
-    },
-    [],
-  );
-  // const isValidating = useRef<boolean>(false);
+  const isValidatingRef = useRef<boolean>(false);
   const [isValidating, setIsValidating] = useState<boolean>(false);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+
+  const actions = useAccountSelectorActions();
+  const navigation = useAppNavigation();
+  const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
+
+  const handleConfirm = useCallback(
+    async (form: UseFormReturn<IFormValues, any, undefined>) => {
+      try {
+        if (isValidatingRef.current) {
+          return;
+        }
+        if (!selectedNetworkId) {
+          return;
+        }
+        setIsSubmitting(true);
+        await timerUtils.wait(300);
+        const values = form.getValues();
+        const r = await backgroundApiProxy.serviceAccount.addImportedAccount({
+          input,
+          deriveType: values.deriveType,
+          networkId: selectedNetworkId,
+          name: values.accountName,
+          shouldCheckDuplicateName: true,
+        });
+        console.log(r, values);
+        // global.success
+
+        const accountId = r?.accounts?.[0]?.id;
+
+        toastSuccessWhenImportAddressOrPrivateKey({
+          isOverrideAccounts: r?.isOverrideAccounts,
+          accountId,
+        });
+
+        void actions.current.updateSelectedAccountForSingletonAccount({
+          num: 0,
+          networkId: selectedNetworkId,
+          walletId: WALLET_TYPE_IMPORTED,
+          othersWalletAccountId: accountId,
+        });
+        navigation.popStack();
+        defaultLogger.account.wallet.walletAdded({
+          status: 'success',
+          addMethod: 'ImportWallet',
+          details: {
+            importType: 'privateKey',
+          },
+          isSoftwareWalletOnlyUser,
+        });
+      } finally {
+        await timerUtils.wait(300);
+        setIsSubmitting(false);
+      }
+    },
+    [actions, input, isSoftwareWalletOnlyUser, navigation, selectedNetworkId],
+  );
+
   const formOptions = useMemo(
     () => ({
       values: {
@@ -346,9 +398,9 @@ function SelectPrivateKeyNetworkView() {
       },
       mode: 'onChange' as IFormMode,
       reValidateMode: 'onBlur' as IReValidateMode,
-      onSubmit: onConfirm,
+      onSubmit: handleConfirm,
     }),
-    [onConfirm],
+    [handleConfirm],
   );
   const form = useForm<IFormValues>(formOptions);
   const accountName = useFormWatch({
@@ -414,21 +466,35 @@ function SelectPrivateKeyNetworkView() {
   useEffect(() => {
     void (async () => {
       try {
-        // isValidating.current = true;
+        isValidatingRef.current = true;
         setIsValidating(true);
         await timerUtils.wait(300);
         await validateFn();
       } finally {
         await timerUtils.wait(300);
-        // isValidating.current = false;
         setIsValidating(false);
+        isValidatingRef.current = false;
       }
     })();
   }, [validateFn]);
 
   const submitButtonLoading = useMemo(() => {
-    return isDetectingNetworks || isValidating;
-  }, [isDetectingNetworks, isValidating]);
+    return (
+      isSubmitting ||
+      isDetectingNetworks ||
+      isValidating ||
+      form?.formState?.isSubmitting ||
+      form?.formState?.isLoading ||
+      form?.formState?.isValidating
+    );
+  }, [
+    isSubmitting,
+    isDetectingNetworks,
+    isValidating,
+    form?.formState?.isSubmitting,
+    form?.formState?.isLoading,
+    form?.formState?.isValidating,
+  ]);
 
   const submitButtonDisabled = useMemo(() => {
     return (
@@ -442,55 +508,6 @@ function SelectPrivateKeyNetworkView() {
     selectedNetworkId,
     validateResult?.isValid,
     form.formState.errors,
-  ]);
-  const actions = useAccountSelectorActions();
-  const navigation = useAppNavigation();
-  const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
-
-  const handleConfirm = useCallback(async () => {
-    if (!selectedNetworkId) {
-      return;
-    }
-    const values = form.getValues();
-    const r = await backgroundApiProxy.serviceAccount.addImportedAccount({
-      input,
-      deriveType: values.deriveType,
-      networkId: selectedNetworkId,
-      name: values.accountName,
-      shouldCheckDuplicateName: true,
-    });
-    console.log(r, values);
-    // global.success
-
-    const accountId = r?.accounts?.[0]?.id;
-
-    toastSuccessWhenImportAddressOrPrivateKey({
-      isOverrideAccounts: r?.isOverrideAccounts,
-      accountId,
-    });
-
-    void actions.current.updateSelectedAccountForSingletonAccount({
-      num: 0,
-      networkId: selectedNetworkId,
-      walletId: WALLET_TYPE_IMPORTED,
-      othersWalletAccountId: accountId,
-    });
-    navigation.popStack();
-    defaultLogger.account.wallet.walletAdded({
-      status: 'success',
-      addMethod: 'ImportWallet',
-      details: {
-        importType: 'privateKey',
-      },
-      isSoftwareWalletOnlyUser,
-    });
-  }, [
-    actions,
-    form,
-    input,
-    isSoftwareWalletOnlyUser,
-    navigation,
-    selectedNetworkId,
   ]);
 
   return (
@@ -614,7 +631,7 @@ function SelectPrivateKeyNetworkView() {
               //     selectedNetworkId,
               //   },
               // });
-              await handleConfirm();
+              await form?.submit?.();
             }}
           >
             Confirm
