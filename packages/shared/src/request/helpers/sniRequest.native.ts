@@ -1,4 +1,4 @@
-import { request as nativeSniRequest } from '@originalix/react-native-sni-connect';
+import { request as nativeSniRequest } from '@onekeyfe/react-native-sni-connect';
 
 import type { ISniRequestConfig, ISniResponse } from '../types/ipTable';
 

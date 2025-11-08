@@ -7465,6 +7465,16 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@onekeyfe/react-native-sni-connect@npm:1.0.0":
+  version: 1.0.0
+  resolution: "@onekeyfe/react-native-sni-connect@npm:1.0.0"
+  peerDependencies:
+    react: "*"
+    react-native: "*"
+  checksum: 10/a92112022d195d6db55a0e1cbd8ba13734179a732fa35b7a6e522ca453f9f7c4185f14d27cb4d8693b55e48a02f50ece5db180825f86be54086bd09d3f50ef3f
+  languageName: node
+  linkType: hard
+
 "@onekeyfe/react-native-text-input@npm:0.2.9":
   version: 0.2.9
   resolution: "@onekeyfe/react-native-text-input@npm:0.2.9"
@@ -7877,11 +7887,11 @@ __metadata:
     "@onekeyfe/react-native-animated-charts": "npm:1.0.0"
     "@onekeyfe/react-native-ble-utils": "npm:0.1.4"
     "@onekeyfe/react-native-lite-card": "npm:1.0.14"
+    "@onekeyfe/react-native-sni-connect": "npm:1.0.0"
     "@onekeyfe/react-native-text-input": "npm:0.2.9"
     "@onekeyhq/components": "npm:*"
     "@onekeyhq/kit": "npm:*"
     "@onekeyhq/shared": "npm:*"
-    "@originalix/react-native-sni-connect": "npm:0.1.5"
     "@privy-io/expo": "npm:0.49.1"
     "@privy-io/expo-native-extensions": "npm:0.0.4"
     "@react-native-async-storage/async-storage": "npm:2.2.0"
@@ -8507,16 +8517,6 @@ __metadata:
   peerDependencies:
     "@opentelemetry/api": ^1.1.0
   checksum: 10/f887b4135be56c9ef6e29f040c9f75f34709e38c11897d59d284d7e73175a2dd2c6267c18061144e81a0045fc461b7813769db2e49c42a8d6becc58b1456d55c
-  languageName: node
-  linkType: hard
-
-"@originalix/react-native-sni-connect@npm:0.1.5":
-  version: 0.1.5
-  resolution: "@originalix/react-native-sni-connect@npm:0.1.5"
-  peerDependencies:
-    react: "*"
-    react-native: "*"
-  checksum: 10/9a499e815c9de5e601f90e089146b7f4d9a834ec6502aeb9b207e7526955ccbe84ee3bf0aac8c46df3a6fd43d314e764259f59fcde5727f71b977f56b76ebd7f
   languageName: node
   linkType: hard
 

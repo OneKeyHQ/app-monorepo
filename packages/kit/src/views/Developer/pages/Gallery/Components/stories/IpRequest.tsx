@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   request as sniRequest,
   subscribeToLogs,
-} from '@originalix/react-native-sni-connect';
+} from '@onekeyfe/react-native-sni-connect';
 
 import { Button, SizableText, Stack, TextArea } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -13,7 +13,7 @@ import { Layout } from './utils/Layout';
 import type {
   SniConnectRequest,
   SniConnectResponse,
-} from '@originalix/react-native-sni-connect';
+} from '@onekeyfe/react-native-sni-connect';
 
 const HARD_CODED_REQUEST: SniConnectRequest = {
   ip: '216.19.4.106',
