@@ -2,6 +2,7 @@ import axios, { AxiosHeaders } from 'axios';
 
 import { OneKeyLocalError } from '../../errors';
 import { defaultLogger } from '../../logger/logger';
+import { memoizee } from '../../utils/cacheUtils';
 import { getRequestHeaders } from '../Interceptor';
 import requestHelper from '../requestHelper';
 
@@ -100,8 +101,8 @@ async function shouldUseIpTable(): Promise<boolean> {
 }
 
 /**
- * Get selected IP for a given hostname from IP Table configuration
- * Uses dynamic configuration from requestHelper
+ * Internal implementation of IP selection logic
+ * This function is memoized for performance optimization
  *
  * Selection priority:
  * 1. runtime.selections[domain] - User selected IP or explicit domain choice (empty string)
@@ -110,7 +111,9 @@ async function shouldUseIpTable(): Promise<boolean> {
  *
  * @returns IP address if found and enabled, null otherwise (empty string in selections means use domain directly)
  */
-async function getSelectedIpForHost(hostname: string): Promise<string | null> {
+async function getSelectedIpForHostInternal(
+  hostname: string,
+): Promise<string | null> {
   try {
     // Check environment-based permission first
     const hasPermission = await shouldUseIpTable();
@@ -146,8 +149,15 @@ async function getSelectedIpForHost(hostname: string): Promise<string | null> {
 
     // Empty string means explicitly use domain (not IP)
     // In strict mode, override this and use fallback IP from config
-    if (selectedIp === '' && !strictMode) {
-      return null;
+    if (selectedIp === '') {
+      if (!strictMode) {
+        debugLog(`[IpTableAdapter] Explicitly using domain for: ${rootDomain}`);
+        return null;
+      }
+      debugLog(
+        `[IpTableAdapter] Strict mode: overriding domain choice for ${rootDomain}`,
+      );
+      // Fall through to strict mode fallback logic below
     }
 
     // If no selection (or strict mode overriding domain choice), fallback to first available IP from config
@@ -170,6 +180,13 @@ async function getSelectedIpForHost(hostname: string): Promise<string | null> {
     return null;
   }
 }
+
+const getSelectedIpForHost = memoizee(getSelectedIpForHostInternal, {
+  promise: true,
+  maxAge: 5000, // 5 seconds cache
+  max: 100, // Max 100 hostname cached
+  primitive: true, // hostname is a string primitive, use simple equality check
+});
 
 /**
  * Convert AxiosHeaders to plain object
