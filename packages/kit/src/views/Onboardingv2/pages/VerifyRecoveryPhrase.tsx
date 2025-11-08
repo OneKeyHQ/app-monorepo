@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import bip39Wordlists from 'bip39/src/wordlists/english.json';
+import { shuffle } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
@@ -26,10 +27,9 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { OnboardingLayout } from '../components/OnboardingLayout';
+import { shuffleWordsIndices } from '../utils';
 
 import type { RouteProp } from '@react-navigation/core';
-import { shuffleWordsIndices } from '../utils';
-import { shuffle } from 'lodash';
 
 export default function VerifyRecoveryPhrase() {
   const intl = useIntl();
