@@ -30,9 +30,19 @@ export function getDefaultShareText(side: string, coin: string): string {
   return `Check out my ${side.toUpperCase()} position on ${coin}! 🚀`;
 }
 
+// Base configuration at 1080px
+const BASE_SIZE = 1080;
+const CURRENT_SIZE = 900;
+
+// Helper function to scale values
+const scale = (value: number, round = false) =>
+  round
+    ? Math.round(value * (CURRENT_SIZE / BASE_SIZE))
+    : value * (CURRENT_SIZE / BASE_SIZE);
+
 export const CANVAS_CONFIG: ICanvasConfig = {
-  size: 1080,
-  padding: 60,
+  size: CURRENT_SIZE,
+  padding: scale(60, true),
 
   colors: {
     background: ['#1a1a1a', '#0a0a0a', '#1a1a1a'],
@@ -47,34 +57,30 @@ export const CANVAS_CONFIG: ICanvasConfig = {
   },
 
   fonts: {
-    coin: 67.5,
-    side: 24,
-    pnl: 180,
-    priceLabel: 25,
-    priceValue: 25,
+    coin: scale(67.5),
+    side: scale(24),
+    pnl: scale(180),
+    priceLabel: scale(25),
+    priceValue: scale(25),
   },
 
   layout: {
-    // Size
-    tokenSize: 67.5,
-    stickerSize: 200,
-    referralHeight: 216,
-    // Position
-    tokenY: 250,
-    tokenOffsetX: 13.5,
-    pnlY: 426,
-    entryPriceY: 580,
-    markPriceY: 700,
-    priceSpacingY: 40,
-    // Spacing
-    badgePaddingX: 20,
-    badgePaddingY: 18,
-    tokenSpacing: 40,
-    priceGap: 1.5,
-    referralOffset: 20,
-    // Style
+    tokenSize: scale(67.5),
+    stickerSize: scale(200, true),
+    referralHeight: scale(216, true),
+    tokenY: scale(250, true),
+    tokenOffsetX: scale(13.5),
+    pnlY: scale(426, true),
+    entryPriceY: scale(580, true),
+    markPriceY: scale(700, true),
+    priceSpacingY: scale(40, true),
+    badgePaddingX: scale(20, true),
+    badgePaddingY: scale(18, true),
+    tokenSpacing: scale(40, true),
+    priceGap: scale(1.5),
+    referralOffset: scale(20, true),
     lineHeight: 1.2,
-    badgeRadius: 58,
+    badgeRadius: scale(58, true),
     labelOpacity: 0.5,
   },
 

@@ -95,15 +95,9 @@ function ShareContent({ data, onClose, isMobile }: IShareContentProps) {
   }, [shareToX, config.customText, onClose]);
 
   const desktopLayout = (
-    <XStack width="100%" minHeight={600}>
+    <XStack width="100%" minHeight={500}>
       <ShareImageGenerator ref={generatorRef} data={data} config={config} />
-      <Stack
-        flex={1.2}
-        justifyContent="center"
-        alignItems="center"
-        backgroundColor="$bgSubdued"
-        padding="$6"
-      >
+      <Stack flex={1.2} justifyContent="center" alignItems="center">
         <ShareView
           data={data}
           config={config}
@@ -185,7 +179,7 @@ export function showPositionShareDialog(
     floatingPanelProps: platformEnv.isNative
       ? undefined
       : {
-          width: 1200,
+          width: 1000,
         },
     renderContent: (
       <PerpsProviderMirror>
