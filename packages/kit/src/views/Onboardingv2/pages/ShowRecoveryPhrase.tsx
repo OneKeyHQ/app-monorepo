@@ -1,3 +1,7 @@
+import { useMemo } from 'react';
+
+import { useRoute } from '@react-navigation/core';
+
 import {
   Button,
   Page,
@@ -5,32 +9,43 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import {
+  ensureSensitiveTextEncoded,
+  generateMnemonic,
+} from '@onekeyhq/core/src/secret';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes';
+import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { OnboardingLayout } from '../components/OnboardingLayout';
+
+import type { RouteProp } from '@react-navigation/core';
 
 export default function ShowRecoveryPhrase() {
   const navigation = useAppNavigation();
+  const route =
+    useRoute<
+      RouteProp<IOnboardingParamListV2, EOnboardingPagesV2.ShowRecoveryPhrase>
+    >();
 
-  // Placeholder recovery phrase - user will add real data
-  const recoveryPhrase = [
-    'word1',
-    'word2',
-    'word3',
-    'word4',
-    'word5',
-    'word6',
-    'word7',
-    'word8',
-    'word9',
-    'word10',
-    'word11',
-    'word12',
-  ];
-
+  const { result: mnemonic = '' } = usePromiseResult(async () => {
+    const routeMnemonic = route.params?.mnemonic;
+    if (routeMnemonic) {
+      ensureSensitiveTextEncoded(routeMnemonic);
+      return backgroundApiProxy.servicePassword.decodeSensitiveText({
+        encodedText: routeMnemonic,
+      });
+    }
+    return generateMnemonic();
+  }, [route.params.mnemonic]);
+  const recoveryPhrase = useMemo(
+    () => mnemonic.split(' ').filter(Boolean),
+    [mnemonic],
+  );
   const handleContinue = () => {
-    navigation.push(EOnboardingPagesV2.VerifyRecoveryPhrase);
+    navigation.push(EOnboardingPagesV2.VerifyRecoveryPhrase, route.params);
   };
 
   return (
