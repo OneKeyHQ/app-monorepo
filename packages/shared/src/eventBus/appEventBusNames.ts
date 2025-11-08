@@ -62,6 +62,7 @@ export enum EAppEventBusNames {
   RefreshBookmarkList = 'RefreshBookmarkList',
   RefreshApprovalList = 'RefreshApprovalList',
   AccountDataUpdate = 'AccountDataUpdate',
+  AccountValueUpdate = 'AccountValueUpdate',
   onDragBeginInListView = 'onDragBeginInListView',
   onDragEndInListView = 'onDragEndInListView',
   SidePanel_BgToUI = 'SidePanel_BgToUI',

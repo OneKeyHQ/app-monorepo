@@ -61,13 +61,6 @@ const settings: IVaultSettings = {
       addressPrefix: '0',
       nativeTokenAddress: 'DOT',
     },
-    'dot--polkadot': {
-      curve: 'ed25519',
-      addressPrefix: '0',
-      nativeTokenAddress: 'DOT',
-      genesisHash:
-        '0x91b171bb158e2d3848fa23a9f1c25182fb8e20313b2c1eb49219da7a70ce90c3',
-    },
     'dot--astar': {
       curve: 'ed25519',
       addressPrefix: '5',
@@ -109,6 +102,13 @@ const settings: IVaultSettings = {
       nativeTokenAddress: 'BNC',
       genesisHash:
         '0x9f28c6a68e0fc9646eff64935684f6eeeece527e37bbe1f213d22caa1d9d6bed',
+    },
+    'dot--bifrost': {
+      curve: 'ed25519',
+      addressPrefix: '0',
+      nativeTokenAddress: 'BNC',
+      genesisHash:
+        '0x262e1b2ad728475fd6fe88e62d34c200abe6fd693931ddad144059b1eb884e5b',
     },
     'dot--kusama-assethub': {
       curve: 'ed25519',

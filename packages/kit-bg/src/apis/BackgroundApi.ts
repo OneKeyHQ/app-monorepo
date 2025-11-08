@@ -711,6 +711,16 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     return value;
   }
 
+  get serviceWalletStatus() {
+    const ServiceWalletStatus =
+      require('../services/ServiceWalletStatus') as typeof import('../services/ServiceWalletStatus');
+    const value = new ServiceWalletStatus.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceWalletStatus', { value });
+    return value;
+  }
+
   get serviceApproval() {
     const ServiceApproval =
       require('../services/ServiceApproval') as typeof import('../services/ServiceApproval');
@@ -768,6 +778,16 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
       backgroundApi: this,
     });
     Object.defineProperty(this, 'serviceHyperliquidSubscription', { value });
+    return value;
+  }
+
+  get serviceIpTable() {
+    const ServiceIpTable =
+      require('../services/ServiceIpTable') as typeof import('../services/ServiceIpTable');
+    const value = new ServiceIpTable.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceIpTable', { value });
     return value;
   }
 }

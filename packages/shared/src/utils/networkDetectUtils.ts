@@ -469,10 +469,6 @@ async function detectNetworkByPrivateKey({
         impl: presetNetworksMap.kaspa.impl,
       },
       {
-        networkId: presetNetworksMap.polkadot.id,
-        impl: presetNetworksMap.polkadot.impl,
-      },
-      {
         networkId: presetNetworksMap.cosmoshub.id,
         impl: presetNetworksMap.cosmoshub.impl,
       },

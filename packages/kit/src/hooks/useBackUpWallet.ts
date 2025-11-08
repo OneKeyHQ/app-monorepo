@@ -15,10 +15,13 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
+import { useBackupEntryStatus } from '../views/CloudBackup/components/useBackupEntryStatus';
 import useLiteCard from '../views/LiteCard/hooks/useLiteCard';
+import { useCloudBackup } from '../views/Onboardingv2/hooks/useCloudBackup';
 
 import { useAccountData } from './useAccountData';
 import useAppNavigation from './useAppNavigation';
+import { useUserWalletProfile } from './useUserWalletProfile';
 
 function useBackUpWallet({ walletId }: { walletId: string }) {
   const { wallet } = useAccountData({ walletId });
@@ -26,6 +29,8 @@ function useBackUpWallet({ walletId }: { walletId: string }) {
   const navigation = useAppNavigation();
 
   const liteCard = useLiteCard();
+
+  const { supportCloudBackup, startBackup } = useCloudBackup();
 
   const handleBackUpByPhrase = useCallback(async () => {
     if (!wallet?.id) {
@@ -86,20 +91,17 @@ function useBackUpWallet({ walletId }: { walletId: string }) {
     }
   }, [navigation, wallet]);
 
-  const handleBackUpByiCloud = useCallback(async () => {
-    // TODO: Implement iCloud backup
-  }, []);
-
-  const handleBackUpByGoogleDrive = useCallback(async () => {
-    // TODO: Implement Google Drive backup
-  }, []);
+  const handleBackUpByCloud = useCallback(async () => {
+    await startBackup();
+    defaultLogger.account.wallet.backupWallet('cloud');
+  }, [startBackup]);
 
   return {
     handleBackUpByPhrase,
     handleBackUpByLiteCard,
     handleBackUpByKeyTag,
-    handleBackUpByiCloud,
-    handleBackUpByGoogleDrive,
+    handleBackUpByCloud,
+    supportCloudBackup,
   };
 }
 
