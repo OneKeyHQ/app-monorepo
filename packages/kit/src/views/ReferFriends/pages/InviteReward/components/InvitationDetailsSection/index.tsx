@@ -46,8 +46,14 @@ export function InvitationDetailsSection({
     return null;
   }
 
-  const { HardwareSales, Onchain, levelPercent, rebateLevels, rebateConfig } =
-    summaryInfo;
+  const {
+    HardwareSales,
+    Onchain,
+    cumulativeRewards,
+    levelPercent,
+    rebateLevels,
+    rebateConfig,
+  } = summaryInfo;
 
   // Check if user can create more codes
   const canCreateCode = codeListData ? codeListData.remainingCodes > 0 : false;
@@ -74,7 +80,10 @@ export function InvitationDetailsSection({
           <ResponsiveTwoColumnLayout
             p="$0"
             leftColumn={
-              <HardwareSalesReward hardwareSales={HardwareSales} />
+              <HardwareSalesReward
+                hardwareSales={HardwareSales}
+                nextDistribution={cumulativeRewards.nextDistribution}
+              />
             }
             rightColumn={<OnChainReward onChain={Onchain} />}
           />

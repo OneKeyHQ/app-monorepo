@@ -11,6 +11,7 @@ import type { IHardwareSalesRewardProps } from './types';
 
 export function HardwareSalesReward({
   hardwareSales,
+  nextDistribution,
 }: IHardwareSalesRewardProps) {
   const toHardwareSalesRewardPage = useNavigateToHardwareSalesReward();
   const intl = useIntl();
@@ -55,9 +56,10 @@ export function HardwareSalesReward({
                 id: ETranslations.referral_undistributed,
               })}
               showInfoIcon
-              infoTooltip={intl.formatMessage({
-                id: ETranslations.referral_hw_undistributed_pop,
-              })}
+              infoTooltip={intl.formatMessage(
+                { id: ETranslations.referral_hw_undistributed_pop },
+                { date: nextDistribution },
+              )}
               value={
                 <Card.TokenValue
                   tokenImageUri={hardwareSales.available?.[0]?.token?.logoURI}
