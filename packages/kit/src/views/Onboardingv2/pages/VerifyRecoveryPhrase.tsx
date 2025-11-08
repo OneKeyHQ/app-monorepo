@@ -38,7 +38,6 @@ export default function VerifyRecoveryPhrase() {
     >();
 
   const { result: mnemonic = '' } = usePromiseResult(async () => {
-    console.log('RecoveryPhrase generateMnemonic');
     const routeMnemonic = route.params?.mnemonic;
     if (routeMnemonic) {
       ensureSensitiveTextEncoded(routeMnemonic);
