@@ -65,9 +65,9 @@ function InviteRewardContent({
           flexShrink={1}
           flexBasis={0}
           $md={{
-            flexGrow: undefined,
-            flexShrink: undefined,
-            flexBasis: undefined,
+            flexGrow: 0,
+            flexShrink: 1,
+            flexBasis: 'auto',
           }}
         >
           <CumulativeRewards
@@ -83,9 +83,9 @@ function InviteRewardContent({
           flexShrink={1}
           flexBasis={0}
           $md={{
-            flexGrow: undefined,
-            flexShrink: undefined,
-            flexBasis: undefined,
+            flexGrow: 0,
+            flexShrink: 1,
+            flexBasis: 'auto',
           }}
         >
           <ReferralCodeCard inviteUrl={inviteUrl} inviteCode={inviteCode} />
