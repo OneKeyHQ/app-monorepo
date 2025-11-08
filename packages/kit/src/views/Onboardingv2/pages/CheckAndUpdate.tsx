@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { useFocusEffect } from '@react-navigation/native';
+import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
@@ -38,6 +39,7 @@ import { useFirmwareUpdateActions } from '../../FirmwareUpdate/hooks/useFirmware
 import { OnboardingLayout } from '../components/OnboardingLayout';
 import {
   useConnectDeviceError,
+  useDesktopBluetoothStatusPolling,
   useDeviceConnect,
 } from '../hooks/useDeviceConnect';
 
@@ -260,6 +262,8 @@ function CheckAndUpdatePage({
       }
     }, [checkFirmwareUpdate]),
   );
+
+  useDesktopBluetoothStatusPolling(noop);
 
   const handleVerifyHardware = useCallback(async () => {
     setSteps((prev) => {
