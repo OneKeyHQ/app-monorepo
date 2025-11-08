@@ -9,6 +9,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { HardwareSalesReward } from '../HardwareSalesReward';
 import { OnChainReward } from '../OnChainReward';
 import { SectionHeader } from '../SectionHeader';
+import { ResponsiveTwoColumnLayout } from '../shared';
 
 import { CreateCodeButton } from './components/CreateCodeButton';
 import { InviteCodeListTable } from './components/InviteCodeListTable';
@@ -69,15 +70,20 @@ export function InvitationDetailsSection({
       </XStack>
 
       {selectedTab === 'reward' ? (
-        <XStack py="$8" px="$5" gap="$5">
-          <HardwareSalesReward
-            hardwareSales={HardwareSales}
-            levelPercent={Number(levelPercent)}
-            rebateLevels={rebateLevels}
-            rebateConfig={rebateConfig}
+        <YStack py="$8" px="$5">
+          <ResponsiveTwoColumnLayout
+            p="$0"
+            leftColumn={
+              <HardwareSalesReward
+                hardwareSales={HardwareSales}
+                levelPercent={Number(levelPercent)}
+                rebateLevels={rebateLevels}
+                rebateConfig={rebateConfig}
+              />
+            }
+            rightColumn={<OnChainReward onChain={Onchain} />}
           />
-          <OnChainReward onChain={Onchain} />
-        </XStack>
+        </YStack>
       ) : (
         <YStack px="$5" gap="$4">
           <InviteCodeListTable

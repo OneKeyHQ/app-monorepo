@@ -19,6 +19,7 @@ import { InvitationDetailsSection } from '@onekeyhq/kit/src/views/ReferFriends/p
 import { ReferralCodeCard } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/ReferralCodeCard';
 import { RulesButton } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/RulesButton';
 import { SectionHeader } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/SectionHeader';
+import { ResponsiveTwoColumnLayout } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/shared';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IInviteSummary } from '@onekeyhq/shared/src/referralCode/type';
@@ -52,45 +53,19 @@ function InviteRewardContent({
         <RulesButton />
       </XStack>
 
-      <Stack
-        gap="$5"
-        p="$5"
-        flexDirection="row"
-        $md={{
-          flexDirection: 'column',
-        }}
-      >
-        <Stack
-          flexGrow={1}
-          flexShrink={1}
-          flexBasis={0}
-          $md={{
-            flexGrow: 0,
-            flexShrink: 1,
-            flexBasis: 'auto',
-          }}
-        >
+      <ResponsiveTwoColumnLayout
+        leftColumn={
           <CumulativeRewards
             cumulativeRewards={cumulativeRewards}
             withdrawAddresses={withdrawAddresses}
             enabledNetworks={enabledNetworks}
             fetchSummaryInfo={fetchSummaryInfo}
           />
-        </Stack>
-
-        <Stack
-          flexGrow={1}
-          flexShrink={1}
-          flexBasis={0}
-          $md={{
-            flexGrow: 0,
-            flexShrink: 1,
-            flexBasis: 'auto',
-          }}
-        >
+        }
+        rightColumn={
           <ReferralCodeCard inviteUrl={inviteUrl} inviteCode={inviteCode} />
-        </Stack>
-      </Stack>
+        }
+      />
 
       <CurrentLevelCard
         rebateConfig={rebateConfig}
