@@ -1,5 +1,6 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useState } from 'react';
 
+import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import type { ISizableTextProps, IYStackProps } from '@onekeyhq/components';
@@ -16,6 +17,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { generateMnemonic } from '@onekeyhq/core/src/secret';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   EModalRoutes,
@@ -63,7 +65,11 @@ function CardBody({
   );
 }
 
-function CardRoot({ children }: { children: React.ReactNode }) {
+function CardRoot({
+  children,
+  onPress,
+  ...rest
+}: { children: React.ReactNode } & IYStackProps & { onPress?: () => void }) {
   return (
     <YStack
       $theme-dark={{
@@ -80,7 +86,23 @@ function CardRoot({ children }: { children: React.ReactNode }) {
         boxShadow:
           '0 0.5px 0.5px 0 rgba(255, 255, 255, 0.1) inset, 0 0 0 1px rgba(0, 0, 0, 0.04), 0 0 2px 0 rgba(0, 0, 0, 0.08), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
       }}
+      hoverStyle={{
+        bg: '$neutral2',
+      }}
+      pressStyle={{
+        bg: '$neutral3',
+      }}
+      focusable
+      focusVisibleStyle={{
+        outlineColor: '$focusRing',
+        outlineStyle: 'solid',
+        outlineWidth: 2,
+        outlineOffset: -2,
+      }}
+      userSelect="none"
       overflow="hidden"
+      onPress={onPress}
+      {...rest}
     >
       {children}
     </YStack>
@@ -94,6 +116,7 @@ const Card = Object.assign(CardRoot, {
 });
 
 export default function CreateOrImportWallet() {
+  const intl = useIntl();
   const [expanded, setExpanded] = useState(false);
 
   const walletKeys = ['metamask', 'okx', 'rainbow', 'tokenpocket'] as const;
@@ -133,10 +156,14 @@ export default function CreateOrImportWallet() {
   return (
     <Page>
       <OnboardingLayout>
-        <OnboardingLayout.Header title="Create or Import Wallet" />
+        <OnboardingLayout.Header
+          title={intl.formatMessage({
+            id: ETranslations.onboarding_create_or_import_wallet,
+          })}
+        />
         <OnboardingLayout.Body constrained={false}>
           <OnboardingLayout.ConstrainedContent>
-            <Card>
+            <Card onPress={handleCreateNewWallet}>
               <Card.Header>
                 <YStack
                   w={38}
@@ -152,7 +179,11 @@ export default function CreateOrImportWallet() {
                   <Icon name="PlusLargeOutline" color="$iconOnColor" />
                 </YStack>
                 <YStack gap="$0.5" flex={1} alignItems="flex-start">
-                  <Card.Title>Create new wallet</Card.Title>
+                  <Card.Title>
+                    {intl.formatMessage({
+                      id: ETranslations.onboarding_create_new_wallet,
+                    })}
+                  </Card.Title>
                   <Button
                     px="$1"
                     py="$0.5"
@@ -167,7 +198,9 @@ export default function CreateOrImportWallet() {
                   >
                     <XStack alignItems="center">
                       <SizableText size="$bodySm" color="$textSubdued">
-                        Learn more
+                        {intl.formatMessage({
+                          id: ETranslations.global_learn_more,
+                        })}
                       </SizableText>
                       <YStack
                         animation="quick"
@@ -183,29 +216,28 @@ export default function CreateOrImportWallet() {
                     </XStack>
                   </Button>
                 </YStack>
-                <Button
-                  size="small"
-                  minWidth="$20"
-                  onPress={handleCreateNewWallet}
-                >
-                  Create
-                </Button>
+                <Icon name="ChevronRightSmallOutline" color="$iconSubdued" />
               </Card.Header>
               <Card.Body>
                 <XStack gap="$2" flexWrap="wrap">
                   {[
-                    'Most used',
-                    'Recovery phrase consists of 12 words',
-                    'Recovery phrase is like a “password”',
-                    'Need to keep it safe yourself',
-                    'Handwritten backup',
-                    'Supports hundreds of networks',
+                    {
+                      id: ETranslations.create_new_wallet_badge_most_used,
+                      badge: 'success' as const,
+                    },
+                    { id: ETranslations.create_new_wallet_badge_consists },
+                    { id: ETranslations.create_new_wallet_badge_metaphor },
+                    { id: ETranslations.create_new_wallet_badge_keep },
+                    { id: ETranslations.create_new_wallet_badge_handwritten },
+                    { id: ETranslations.create_new_wallet_badge_supports },
                   ].map((item, index) => (
                     <Badge
                       key={index}
-                      {...(index === 0 && { badgeType: 'success' })}
+                      {...(item.badge && { badgeType: item.badge })}
                     >
-                      <Badge.Text size="$bodySm">{item}</Badge.Text>
+                      <Badge.Text size="$bodySm">
+                        {intl.formatMessage({ id: item.id })}
+                      </Badge.Text>
                     </Badge>
                   ))}
                 </XStack>
@@ -224,11 +256,9 @@ export default function CreateOrImportWallet() {
                         }}
                       >
                         <SizableText size="$bodySm" color="$textSubdued">
-                          The recovery phrase is the core of your wallet’s
-                          security. It’s made up of 12 common English words used
-                          to create and restore your private key and wallet
-                          address. Write it down by hand and store it safely —
-                          only you have access to your assets.
+                          {intl.formatMessage({
+                            id: ETranslations.create_new_wallet_learn_more,
+                          })}
                         </SizableText>
                       </YStack>
                     ) : null}
@@ -236,7 +266,7 @@ export default function CreateOrImportWallet() {
                 </HeightTransition>
               </Card.Body>
             </Card>
-            <Card>
+            <Card onPress={handleAddExistingWallet}>
               <Card.Header>
                 <YStack
                   w={38}
@@ -252,31 +282,37 @@ export default function CreateOrImportWallet() {
                   <Icon name="ArrowBottomOutline" color="$iconOnColor" />
                 </YStack>
                 <YStack gap="$0.5" flex={1} alignItems="flex-start">
-                  <Card.Title>Add existing wallet</Card.Title>
+                  <Card.Title>
+                    {intl.formatMessage({
+                      id: ETranslations.add_existing_wallet_title,
+                    })}
+                  </Card.Title>
                   <SizableText size="$bodySm" color="$textSubdued">
-                    Transfer, restore or import
+                    {intl.formatMessage({
+                      id: ETranslations.add_existing_wallet_desc,
+                    })}
                   </SizableText>
                 </YStack>
-                <Button
-                  size="small"
-                  minWidth="$20"
-                  onPress={handleAddExistingWallet}
-                >
-                  Add
-                </Button>
+                <Icon name="ChevronRightSmallOutline" color="$iconSubdued" />
               </Card.Header>
               <Card.Body>
                 <XStack gap="$2" flexWrap="wrap">
                   {[
-                    'Supports 12–24 word recovery  phrases',
-                    'Supports hundreds of networks',
-                  ].map((item, index) => (
+                    ETranslations.add_existing_wallet_badge_phrases_length,
+                    ETranslations.create_new_wallet_badge_supports,
+                  ].map((id, index) => (
                     <Badge key={index}>
-                      <Badge.Text size="$bodySm">{item}</Badge.Text>
+                      <Badge.Text size="$bodySm">
+                        {intl.formatMessage({ id })}
+                      </Badge.Text>
                     </Badge>
                   ))}
                   <Badge>
-                    <Badge.Text size="$bodySm">Supports</Badge.Text>
+                    <Badge.Text size="$bodySm">
+                      {intl.formatMessage({
+                        id: ETranslations.global_supports,
+                      })}
+                    </Badge.Text>
                     <XStack gap="$1" ml="$1">
                       {walletKeys.map((key) => (
                         <Image
@@ -292,7 +328,7 @@ export default function CreateOrImportWallet() {
                 </XStack>
               </Card.Body>
             </Card>
-            <Card>
+            <Card onPress={handleConnectExternalWallet}>
               <Card.Header>
                 <XStack
                   w={38}
@@ -318,10 +354,12 @@ export default function CreateOrImportWallet() {
                     />
                   ))}
                 </XStack>
-                <Card.Title flex={1}>Connect external wallet</Card.Title>
-                <Button size="small" onPress={handleConnectExternalWallet}>
-                  Connect
-                </Button>
+                <Card.Title flex={1}>
+                  {intl.formatMessage({
+                    id: ETranslations.onboarding_connect_external_wallet,
+                  })}
+                </Card.Title>
+                <Icon name="ChevronRightSmallOutline" color="$iconSubdued" />
               </Card.Header>
             </Card>
           </OnboardingLayout.ConstrainedContent>

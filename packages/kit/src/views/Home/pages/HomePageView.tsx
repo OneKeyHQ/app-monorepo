@@ -263,10 +263,7 @@ export function HomePageView({
   const tabs = useMemo(() => {
     if (isWalletNotBackedUp) {
       return (
-        <ScrollView
-          h="100%"
-          contentContainerStyle={{ justifyContent: 'center', flexGrow: 1 }}
-        >
+        <ScrollView h="100%">
           {renderHeader()}
           <NotBackedUpEmpty />
         </ScrollView>

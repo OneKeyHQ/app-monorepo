@@ -1,6 +1,8 @@
 import type { RefObject } from 'react';
 import { useRef, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   Button,
   HeightTransition,
@@ -10,6 +12,7 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes';
 import type { EMnemonicType } from '@onekeyhq/shared/src/utils/secret';
 
@@ -25,6 +28,7 @@ export default function ImportPhraseOrPrivateKey() {
   const { gtMd } = useMedia();
   const phaseInputAreaRef = useRef<IPhaseInputAreaInstance | null>(null);
   const [isConfirming, setIsConfirming] = useState(false);
+  const intl = useIntl();
 
   const handleConfirm = async () => {
     if (selected === 'phrase') {
@@ -59,15 +63,29 @@ export default function ImportPhraseOrPrivateKey() {
   return (
     <Page>
       <OnboardingLayout>
-        <OnboardingLayout.Header title="Import Phrase or Private Key" />
+        <OnboardingLayout.Header
+          title={intl.formatMessage({
+            id: ETranslations.import_phrase_or_private_key,
+          })}
+        />
         <OnboardingLayout.Body constrained={false}>
           <OnboardingLayout.ConstrainedContent gap="$5">
             <SegmentControl
               value={selected}
               fullWidth
               options={[
-                { label: 'Recovery phrase', value: 'phrase' },
-                { label: 'Private Key', value: 'privateKey' },
+                {
+                  label: intl.formatMessage({
+                    id: ETranslations.global_recovery_phrase,
+                  }),
+                  value: 'phrase',
+                },
+                {
+                  label: intl.formatMessage({
+                    id: ETranslations.global_private_key,
+                  }),
+                  value: 'privateKey',
+                },
               ]}
               onChange={(value) =>
                 setSelected(value as 'phrase' | 'privateKey')
@@ -102,7 +120,7 @@ export default function ImportPhraseOrPrivateKey() {
             </HeightTransition>
             {gtMd ? (
               <Button size="large" variant="primary" onPress={handleConfirm}>
-                Continue
+                {intl.formatMessage({ id: ETranslations.global_confirm })}
               </Button>
             ) : null}
           </OnboardingLayout.ConstrainedContent>
@@ -116,7 +134,7 @@ export default function ImportPhraseOrPrivateKey() {
               loading={isConfirming}
               w="100%"
             >
-              Confirm
+              {intl.formatMessage({ id: ETranslations.global_confirm })}
             </Button>
           </OnboardingLayout.Footer>
         ) : null}
