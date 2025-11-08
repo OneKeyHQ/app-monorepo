@@ -170,7 +170,10 @@ export const ShareImageGenerator = forwardRef<
         const bgY = textY - bgHeight / 2; // 改为以文字Y坐标为中心
 
         // 绘制背景
-        ctx.fillStyle = side === 'long' ? '#0C5300' : '#630A0A';
+        ctx.fillStyle =
+          side === 'long'
+            ? colors.sideLongBackground
+            : colors.sideShortBackground;
 
         ctx.beginPath();
         if (ctx.roundRect) {

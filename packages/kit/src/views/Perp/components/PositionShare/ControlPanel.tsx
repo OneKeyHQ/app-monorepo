@@ -78,17 +78,6 @@ export function ControlPanel({
       flex={isMobile ? undefined : 1}
     >
       <YStack gap="$2">
-        <SizableText size="$bodyLgMedium">Customize Text</SizableText>
-        <Input
-          placeholder="Enter your message..."
-          value={config.customText}
-          onChangeText={handleTextChange}
-          multiline
-          numberOfLines={3}
-        />
-      </YStack>
-
-      <YStack gap="$2">
         <SizableText size="$bodyLgMedium">Background</SizableText>
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           <XStack gap="$3">

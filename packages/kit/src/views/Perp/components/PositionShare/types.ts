@@ -30,6 +30,8 @@ export interface ICanvasConfig {
     textSecondary: string;
     textTertiary: string;
     referralBackground: string;
+    sideLongBackground: string;
+    sideShortBackground: string;
   };
   fonts: {
     coin: number;

@@ -72,7 +72,9 @@ export function ShareContentRenderer({
     tokenY: layout.tokenY * scale,
     stickerSize: layout.stickerSize * scale,
     customTextMaxWidth: layout.customTextMaxWidth * scale,
+    pnlY: layout.pnlY * scale,
   };
+  const tokenY = layout.tokenY * scale;
 
   return (
     <YStack
@@ -97,31 +99,51 @@ export function ShareContentRenderer({
         height={scaledSize}
         padding={scaledPadding}
         position="relative"
-        gap="$0"
       >
-        <YStack marginTop={scaledLayout.tokenY - scaledLayout.tokenSize / 2}>
-          <XStack alignItems="center" gap="$3">
+        <YStack
+          position="absolute" // 改为绝对定位
+          top={tokenY - scaledLayout.tokenSize / 2} // Y 坐标
+          left={scaledPadding}
+        >
+          <XStack alignItems="center" gap="$2">
             {display.showTokenIcon ? (
-              <Image
-                source={{ uri: tokenImage }}
+              <Stack
                 width={scaledLayout.tokenSize}
                 height={scaledLayout.tokenSize}
-              />
+                borderRadius="$full"
+                overflow="hidden"
+                backgroundColor="$bgSubdued"
+              >
+                <Image
+                  source={{ uri: tokenImage }}
+                  width={scaledLayout.tokenSize}
+                  height={scaledLayout.tokenSize}
+                />
+              </Stack>
             ) : null}
 
-            <YStack gap="$1">
-              {display.showCoinName ? (
-                <SizableText
-                  fontSize={scaledFonts.coin}
-                  lineHeight={scaledFonts.coin * 1.2}
-                  fontWeight="bold"
-                  color={colors.textPrimary}
-                >
-                  {token}
-                </SizableText>
-              ) : null}
+            {display.showCoinName ? (
+              <SizableText
+                fontSize={scaledFonts.coin}
+                lineHeight={scaledFonts.coin * 1.2}
+                fontWeight="600"
+                color={colors.textPrimary}
+              >
+                {token}
+              </SizableText>
+            ) : null}
 
-              {display.showSideAndLeverage ? (
+            {display.showSideAndLeverage ? (
+              <XStack
+                py={18 * scale} // 应用 scale
+                px={20 * scale}
+                borderRadius="$3"
+                bg={
+                  side === 'long'
+                    ? colors.sideLongBackground
+                    : colors.sideShortBackground
+                }
+              >
                 <SizableText
                   fontSize={scaledFonts.side}
                   lineHeight={scaledFonts.side * 1.2}
@@ -130,61 +152,83 @@ export function ShareContentRenderer({
                 >
                   {`${side.toUpperCase()} ${leverage}X`}
                 </SizableText>
-              ) : null}
-            </YStack>
+              </XStack>
+            ) : null}
           </XStack>
         </YStack>
 
-        <YStack flex={1} justifyContent="center" gap="$4">
-          {display.showPnl ? (
+        {display.showPnl ? (
+          <Stack
+            position="absolute"
+            top={layout.pnlY * scale - (scaledFonts.pnl * 1.2) / 2}
+            left={scaledPadding}
+          >
             <SizableText
               fontSize={scaledFonts.pnl}
               lineHeight={scaledFonts.pnl * 1.2}
-              fontWeight="bold"
+              fontWeight="600"
               color={pnlColor}
             >
               {`${pnlSign}${pnlPercent}%`}
             </SizableText>
-          ) : null}
+          </Stack>
+        ) : null}
 
-          <YStack gap="$2">
-            {display.showEntryPrice ? (
-              <XStack gap="$2">
-                <SizableText
-                  fontSize={scaledFonts.priceLabel}
-                  color={colors.textSecondary}
-                >
-                  Entry Price
-                </SizableText>
-                <SizableText
-                  fontSize={scaledFonts.priceValue}
-                  fontWeight="600"
-                  color={colors.textPrimary}
-                >
-                  {entryPrice}
-                </SizableText>
-              </XStack>
-            ) : null}
-
-            {display.showMarkPrice ? (
-              <XStack gap="$2">
-                <SizableText
-                  fontSize={scaledFonts.priceLabel}
-                  color={colors.textSecondary}
-                >
-                  Mark Price
-                </SizableText>
-                <SizableText
-                  fontSize={scaledFonts.priceValue}
-                  fontWeight="600"
-                  color={colors.textPrimary}
-                >
-                  {markPrice}
-                </SizableText>
-              </XStack>
-            ) : null}
+        {display.showEntryPrice ? (
+          <YStack
+            position="absolute"
+            top={
+              layout.entryPriceY * scale - (scaledFonts.priceLabel * 1.2) / 2
+            }
+            left={scaledPadding}
+            gap={1.5}
+          >
+            <SizableText
+              fontSize={scaledFonts.priceLabel}
+              fontWeight="600"
+              color={colors.textSecondary}
+              opacity={0.5}
+              lineHeight={scaledFonts.priceLabel * 1.2}
+            >
+              Entry Price
+            </SizableText>
+            <SizableText
+              fontSize={scaledFonts.priceValue}
+              fontWeight="600"
+              color={colors.textPrimary}
+              lineHeight={scaledFonts.priceValue * 1.2}
+            >
+              {entryPrice}
+            </SizableText>
           </YStack>
-        </YStack>
+        ) : null}
+
+        {display.showMarkPrice ? (
+          <YStack
+            position="absolute"
+            top={layout.markPriceY * scale - (scaledFonts.priceLabel * 1.2) / 2}
+            left={scaledPadding}
+            gap={1.5}
+          >
+            <SizableText
+              fontSize={scaledFonts.priceLabel}
+              fontWeight="600"
+              color={colors.textSecondary}
+              opacity={0.5}
+              lineHeight={scaledFonts.priceLabel * 1.2}
+            >
+              Mark Price
+            </SizableText>
+            <SizableText
+              fontSize={scaledFonts.priceValue}
+              fontWeight="600"
+              color={colors.textPrimary}
+              lineHeight={scaledFonts.priceValue * 1.2}
+            >
+              {markPrice}
+            </SizableText>
+          </YStack>
+        ) : null}
 
         {selectedSticker ? (
           <SizableText
@@ -197,19 +241,36 @@ export function ShareContentRenderer({
             {selectedSticker}
           </SizableText>
         ) : null}
-
         {SHOW_REFERRAL_CODE ? (
           <Stack
             position="absolute"
-            bottom={scaledPadding}
-            left={scaledPadding}
+            bottom={0}
+            left={0}
+            right={0}
+            height={216 * scale}
+            backgroundColor={colors.referralBackground}
+            justifyContent="center"
+            paddingLeft={scaledPadding}
           >
-            <SizableText
-              fontSize={scaledFonts.referral}
-              color={colors.textTertiary}
-            >
-              {REFERRAL_CODE}
-            </SizableText>
+            <YStack gap={1.5}>
+              <SizableText
+                fontSize={scaledFonts.priceLabel}
+                fontWeight="600"
+                color={colors.textTertiary}
+                opacity={0.5}
+                lineHeight={scaledFonts.priceLabel * 1.2}
+              >
+                Referral Code
+              </SizableText>
+              <SizableText
+                fontSize={scaledFonts.priceValue}
+                fontWeight="600"
+                color={colors.textTertiary}
+                lineHeight={scaledFonts.priceValue * 1.2}
+              >
+                {REFERRAL_CODE}
+              </SizableText>
+            </YStack>
           </Stack>
         ) : null}
       </YStack>
