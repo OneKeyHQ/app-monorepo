@@ -102,9 +102,11 @@ const PasswordSetupContainer = ({ onSetupRes }: IPasswordSetupProps) => {
             encodePassword,
             mode,
           );
-        onSetupRes(setUpPasswordRes);
         Toast.success({
           title: intl.formatMessage({ id: ETranslations.auth_passcode_set }),
+        });
+        setTimeout(() => {
+          onSetupRes(setUpPasswordRes);
         });
         // Dialog.show({
         //   title: intl.formatMessage({
