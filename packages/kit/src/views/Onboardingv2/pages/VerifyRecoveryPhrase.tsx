@@ -28,6 +28,7 @@ import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { OnboardingLayout } from '../components/OnboardingLayout';
 
 import type { RouteProp } from '@react-navigation/core';
+import { shuffleWordsIndices } from '../utils';
 
 export default function VerifyRecoveryPhrase() {
   const intl = useIntl();
@@ -54,17 +55,9 @@ export default function VerifyRecoveryPhrase() {
 
   const answerIndices = useMemo(() => {
     if (recoveryPhrase.length === 0) return [];
-
-    const shuffledIndices = Array.from(
-      { length: recoveryPhrase.length },
-      (_, i) => i,
-    )
-      .sort(() => Math.random() - 0.5)
-      .slice(0, 3)
-      .sort((a, b) => a - b);
-
-    return shuffledIndices;
+    return shuffleWordsIndices(recoveryPhrase.length);
   }, [recoveryPhrase]);
+
   const [selectedWords, setSelectedWords] = useState<{
     [key: number]: string | null;
   }>({
