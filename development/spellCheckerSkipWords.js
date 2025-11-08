@@ -998,4 +998,10 @@ module.exports = [
   'Resizing',
   'OrderBook',
   'orderbook',
+  'servername',
+  'keepAliveMsecs',
+  'Msecs',
+  'zlib',
+  'Gunzip',
+  'Brotli',
 ];

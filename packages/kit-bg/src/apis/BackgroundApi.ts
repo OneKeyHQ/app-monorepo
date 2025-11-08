@@ -770,5 +770,15 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     Object.defineProperty(this, 'serviceHyperliquidSubscription', { value });
     return value;
   }
+
+  get serviceIpTable() {
+    const ServiceIpTable =
+      require('../services/ServiceIpTable') as typeof import('../services/ServiceIpTable');
+    const value = new ServiceIpTable.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceIpTable', { value });
+    return value;
+  }
 }
 export default BackgroundApi;
