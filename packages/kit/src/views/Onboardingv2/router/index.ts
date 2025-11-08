@@ -57,7 +57,7 @@ export const OnboardingRouterV2: IModalFlowNavigatorConfig<
     name: EOnboardingPagesV2.GetStarted,
     component: GetStarted,
     options: hiddenHeaderOptions,
-    rewrite: 'get-started',
+    rewrite: '/get-started',
   },
   {
     name: EOnboardingPagesV2.AddExistingWallet,
