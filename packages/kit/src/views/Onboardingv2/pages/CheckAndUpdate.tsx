@@ -144,6 +144,10 @@ function CheckAndUpdatePage({
   const checkDeviceInitialized = useCallback(async () => {
     setSteps((prev) => {
       const newSteps = [...prev];
+      newSteps[0] = {
+        ...newSteps[0],
+        state: ECheckAndUpdateStepState.Success,
+      };
       newSteps[1] = {
         ...newSteps[1],
         state: ECheckAndUpdateStepState.Success,
@@ -206,6 +210,10 @@ function CheckAndUpdatePage({
       if (r.hasUpgrade) {
         setSteps((prev) => {
           const newSteps = [...prev];
+          newSteps[0] = {
+            ...newSteps[0],
+            state: ECheckAndUpdateStepState.Success,
+          };
           newSteps[1] = {
             ...newSteps[1],
             state: r.hasUpgrade
@@ -227,6 +235,10 @@ function CheckAndUpdatePage({
       if (firmwareStepStateRef.current === ECheckAndUpdateStepState.Warning) {
         setSteps((prev) => {
           const newSteps = [...prev];
+          newSteps[0] = {
+            ...newSteps[0],
+            state: ECheckAndUpdateStepState.Success,
+          };
           newSteps[1] = {
             ...newSteps[1],
             state: ECheckAndUpdateStepState.InProgress,
@@ -253,6 +265,10 @@ function CheckAndUpdatePage({
           errorMessage: result.verified ? undefined : result.result?.message,
         };
         if (result.verified) {
+          newSteps[0] = {
+            ...newSteps[0],
+            state: ECheckAndUpdateStepState.Success,
+          };
           newSteps[1] = {
             ...newSteps[1],
             state: ECheckAndUpdateStepState.InProgress,
