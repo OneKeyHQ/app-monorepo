@@ -83,7 +83,7 @@ const PasswordSetup = ({
       confirmBtnText ??
       intl.formatMessage({ id: ETranslations.auth_set_passcode })
     );
-  }, [confirmBtnText, intl]);
+  }, [confirmBtnText, intl, passCodeFirstStep]);
   const onPassCodeNext = () => {
     setPassCodeConfirm(true);
     setTimeout(() => {
