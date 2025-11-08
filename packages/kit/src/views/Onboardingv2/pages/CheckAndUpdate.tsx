@@ -180,6 +180,7 @@ function CheckAndUpdatePage({
         const deviceMode = await deviceUtils.getDeviceModeFromFeatures({
           features,
         });
+        console.log('deviceMode', deviceMode);
         if (deviceMode === EOneKeyDeviceMode.notInitialized) {
           setWarningStep();
           return;
