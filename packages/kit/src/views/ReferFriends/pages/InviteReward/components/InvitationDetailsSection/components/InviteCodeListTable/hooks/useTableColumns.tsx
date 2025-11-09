@@ -99,7 +99,7 @@ export function useTableColumns(
       {
         title: '',
         dataIndex: EInviteCodeListTableColumn.INVITE_URL,
-        ...(gtMd ? { columnProps: { flex: 1 } } : { columnWidth: 100 }),
+        columnWidth: 100,
         render: (url: string) => <CopyLinkButton url={url} />,
       },
     ],

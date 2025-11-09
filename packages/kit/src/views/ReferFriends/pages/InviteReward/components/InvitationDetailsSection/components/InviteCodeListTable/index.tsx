@@ -70,6 +70,7 @@ export function InviteCodeListTable({
         keyExtractor={(item) => item.code}
         onHeaderRow={handleHeaderRow}
         estimatedItemSize={50}
+        rowProps={{ px: '$2', minHeight: '$10' }}
       />
     </Stack>
   ) : (
@@ -88,6 +89,7 @@ export function InviteCodeListTable({
           keyExtractor={(item) => item.code}
           onHeaderRow={handleHeaderRow}
           estimatedItemSize={50}
+          rowProps={{ px: '$2', minHeight: '$10' }}
         />
       </Stack>
     </ScrollView>
