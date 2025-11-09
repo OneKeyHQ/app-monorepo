@@ -45,7 +45,7 @@ export function InvitationDetailsSection({
       },
       {
         value: EInvitationDetailsTab.REFERRAL,
-        label: intl.formatMessage({ id: ETranslations.referral_code_list }),
+        label: intl.formatMessage({ id: ETranslations.referral_your_code }),
       },
     ],
     [intl],
@@ -62,9 +62,11 @@ export function InvitationDetailsSection({
 
   return (
     <YStack gap="$5" $md={{ flexDirection: 'column' }}>
-      <SectionHeader
-        translationId={ETranslations.referral_invitation_details}
-      />
+      <XStack px="$5">
+        <SectionHeader
+          translationId={ETranslations.referral_invitation_details}
+        />
+      </XStack>
 
       <XStack gap="$2" px="$5" alignItems="center" jc="space-between">
         <SimpleTabs value={selectedTab} onChange={setSelectedTab} tabs={tabs} />

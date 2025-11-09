@@ -1,32 +1,24 @@
-import { Icon, SizableText, XStack } from '@onekeyhq/components';
+import { Button } from '@onekeyhq/components';
 import { REFERRAL_HELP_LINK } from '@onekeyhq/shared/src/config/appConfig';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
+import { useIntl } from 'react-intl';
+
 export function RulesButton() {
+  const intl = useIntl();
+
   const handlePress = () => {
     void openUrlExternal(REFERRAL_HELP_LINK);
   };
 
   return (
-    <XStack
-      ai="center"
-      gap="$2"
-      px="$2"
-      py="$1"
-      borderRadius="$2"
-      cursor="pointer"
-      hoverStyle={{
-        bg: '$bgHover',
-      }}
-      pressStyle={{
-        bg: '$bgActive',
-      }}
+    <Button
+      variant="tertiary"
+      icon="QuestionmarkOutline"
       onPress={handlePress}
     >
-      <Icon name="QuestionmarkOutline" size="$4" color="$iconSubdued" />
-      <SizableText size="$bodyLgMedium" color="$textSubdued">
-        Rules
-      </SizableText>
-    </XStack>
+      {intl.formatMessage({ id: ETranslations.global_details })}
+    </Button>
   );
 }

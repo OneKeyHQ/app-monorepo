@@ -4,7 +4,6 @@ import { useIntl } from 'react-intl';
 import { Share } from 'react-native';
 
 import { useClipboard } from '@onekeyhq/components';
-import { useNavigateToYourReferred } from '@onekeyhq/kit/src/views/ReferFriends/pages/YourReferred/hooks';
 import { formatInviteUrlForDisplay } from '@onekeyhq/kit/src/views/ReferFriends/utils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -19,7 +18,6 @@ export function useReferralCodeCard({
   inviteUrl,
   inviteCode,
 }: IReferralCodeCardProps): IUseReferralCodeCardReturn {
-  const toYourReferredPage = useNavigateToYourReferred();
   const { copyText } = useClipboard();
   const intl = useIntl();
 
@@ -56,7 +54,6 @@ export function useReferralCodeCard({
     handleCopy,
     copyLink,
     inviteCodeUrl,
-    toYourReferredPage,
     handleShare,
     intl: {
       yourCode: intl.formatMessage({ id: ETranslations.referral_your_code }),

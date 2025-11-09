@@ -15,6 +15,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
+import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -147,26 +148,42 @@ export function CumulativeRewards({
         <Divider />
 
         <XStack jc="space-between" ai="center">
-          <YStack>
+          <YStack gap="$1.5">
             <SizableText size="$bodyMdMedium">
               {intl.formatMessage({
                 id: ETranslations.referral_reward_received_address,
               })}
             </SizableText>
-            <SizableText
-              size="$bodyMd"
-              color="$textSubdued"
-              flexShrink={1}
-              numberOfLines={10}
-            >
-              {withdrawAddresses.length
-                ? accountUtils.shortenAddress({
+
+            {withdrawAddresses.length ? (
+              <XStack gap="$1" ai="center">
+                <NetworkAvatar
+                  networkId={withdrawAddresses[0].networkId}
+                  size="$4"
+                />
+                <SizableText
+                  size="$bodyMd"
+                  color="$textSubdued"
+                  flexShrink={1}
+                  numberOfLines={10}
+                >
+                  {accountUtils.shortenAddress({
                     address: withdrawAddresses[0].address,
-                  })
-                : intl.formatMessage({
-                    id: ETranslations.referral_reward_received_address_notset,
                   })}
-            </SizableText>
+                </SizableText>
+              </XStack>
+            ) : (
+              <SizableText
+                size="$bodyMd"
+                color="$textSubdued"
+                flexShrink={1}
+                numberOfLines={10}
+              >
+                {intl.formatMessage({
+                  id: ETranslations.referral_reward_received_address_notset,
+                })}
+              </SizableText>
+            )}
           </YStack>
           <IconButton
             title={intl.formatMessage({ id: ETranslations.global_edit })}

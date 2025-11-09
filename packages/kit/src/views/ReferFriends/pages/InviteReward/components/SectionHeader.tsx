@@ -1,6 +1,6 @@
 import { useIntl } from 'react-intl';
 
-import { SizableText, Stack } from '@onekeyhq/components';
+import { SizableText } from '@onekeyhq/components';
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
 
 export function SectionHeader({
@@ -10,10 +10,8 @@ export function SectionHeader({
 }) {
   const intl = useIntl();
   return (
-    <Stack px="$5" pt="$5">
-      <SizableText size="$headingLg">
-        {intl.formatMessage({ id: translationId })}
-      </SizableText>
-    </Stack>
+    <SizableText size="$headingLg">
+      {intl.formatMessage({ id: translationId })}
+    </SizableText>
   );
 }

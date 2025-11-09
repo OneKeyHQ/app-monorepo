@@ -3,6 +3,7 @@ import { useIntl } from 'react-intl';
 import { IconButton, SizableText, XStack, YStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { ReferralListButton } from '../../ReferralListButton';
 import { useReferralCodeCard } from '../hooks/useReferralCodeCard';
 
 import type { IReferralCodeCardProps } from '../types';
@@ -63,7 +64,6 @@ export function ReferralCodeCardDesktop({
     handleCopy,
     copyLink,
     inviteCodeUrl,
-    toYourReferredPage,
     intl: intlStrings,
   } = useReferralCodeCard({ inviteUrl, inviteCode });
   const intl = useIntl();
@@ -82,20 +82,7 @@ export function ReferralCodeCardDesktop({
         <SizableText size="$headingMd" color="$text">
           {intl.formatMessage({ id: ETranslations.referral_invite_via })}
         </SizableText>
-        <XStack
-          borderRadius="$2"
-          hoverStyle={{ bg: '$bgHover' }}
-          pressStyle={{ bg: '$bgActive' }}
-          onPress={toYourReferredPage}
-          px="$2"
-          py="$1"
-          mx="$-2"
-          my="$-1"
-        >
-          <SizableText size="$bodyMdMedium" color="$textSubdued">
-            {intl.formatMessage({ id: ETranslations.referral_referral_list })}
-          </SizableText>
-        </XStack>
+        <ReferralListButton />
       </XStack>
 
       {/* Input fields container */}

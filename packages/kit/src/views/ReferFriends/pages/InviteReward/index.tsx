@@ -52,6 +52,7 @@ function InviteRewardContent({
       </XStack>
 
       <ResponsiveTwoColumnLayout
+        reverseOnMobile
         leftColumn={
           <CumulativeRewards
             cumulativeRewards={cumulativeRewards}
