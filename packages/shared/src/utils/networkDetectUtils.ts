@@ -347,6 +347,15 @@ async function _detectNetworkByAddress({
   return [];
 }
 
+function buildDetectedNetwork(network: IServerNetwork): IDetectedNetwork {
+  return {
+    networkId: network.id,
+    name: network.name,
+    shortname: network.shortname,
+    impl: network.impl,
+  };
+}
+
 async function detectNetworkByPrivateKeyFn({
   privateKey,
 }: {
@@ -360,53 +369,45 @@ async function detectNetworkByPrivateKeyFn({
   }>
 > {
   const pk = privateKey.trim();
-  const buildResult = (network: IServerNetwork) => {
-    return {
-      networkId: network.id,
-      name: network.name,
-      shortname: network.shortname,
-      impl: network.impl,
-    };
-  };
 
   const buildSameImplResults = (network: IServerNetwork) => {
     const results = getPresetNetworks()
       .filter((n) => n.impl === network.impl)
       .sort((a) => (a.name === network.name ? -1 : 0))
-      .map((n) => buildResult(n));
+      .map((n) => buildDetectedNetwork(n));
     return results;
   };
 
   // algorand ALGO
   if (pk.includes(' ') && pk.split(' ').length >= 12) {
-    return [buildResult(presetNetworksMap.algo)];
+    return [buildDetectedNetwork(presetNetworksMap.algo)];
   }
 
   // BTC Nested SegWit
   if (/^yprv[0-9A-Za-z]{107,}$/.test(pk)) {
-    return [buildResult(presetNetworksMap.btc)];
+    return [buildDetectedNetwork(presetNetworksMap.btc)];
   }
 
   // BTC Legacy / BTC Taproot / BCH
   if (/^xprv[0-9A-Za-z]{107,149}$/.test(pk)) {
     return [
-      buildResult(presetNetworksMap.btc),
-      buildResult(presetNetworksMap.bch),
-      buildResult(presetNetworksMap.neurai),
+      buildDetectedNetwork(presetNetworksMap.btc),
+      buildDetectedNetwork(presetNetworksMap.bch),
+      buildDetectedNetwork(presetNetworksMap.neurai),
     ];
   }
 
   // Cardano ADA (xprv1...)
   if (/^xprv1[0-9a-z]{150,}$/.test(pk)) {
-    return [buildResult(presetNetworksMap.cardano)];
+    return [buildDetectedNetwork(presetNetworksMap.cardano)];
   }
 
   // BTC Native SegWit
   // LTC Native SegWit
   if (/^zprv[0-9A-Za-z]{107,}$/.test(pk)) {
     return [
-      buildResult(presetNetworksMap.btc),
-      buildResult(presetNetworksMap.ltc),
+      buildDetectedNetwork(presetNetworksMap.btc),
+      buildDetectedNetwork(presetNetworksMap.ltc),
     ];
   }
 
@@ -416,7 +417,7 @@ async function detectNetworkByPrivateKeyFn({
     /^vprv[0-9A-Za-z]{107,}$/.test(pk) || // TBTC Native SegWit
     /^uprv[0-9A-Za-z]{107,}$/.test(pk) // TBTC Nested SegWit
   ) {
-    return [buildResult(presetNetworksMap.tbtc)];
+    return [buildDetectedNetwork(presetNetworksMap.tbtc)];
   }
 
   // LTC
@@ -424,12 +425,12 @@ async function detectNetworkByPrivateKeyFn({
     /^Ltpv[0-9A-Za-z]{107,}$/.test(pk) || // LTC Legacy
     /^Mtpv[0-9A-Za-z]{107,}$/.test(pk) // LTC Nested SegWit
   ) {
-    return [buildResult(presetNetworksMap.ltc)];
+    return [buildDetectedNetwork(presetNetworksMap.ltc)];
   }
 
   // DOGE
   if (/^dgpv[0-9A-Za-z]{107,}$/.test(pk)) {
-    return [buildResult(presetNetworksMap.doge)];
+    return [buildDetectedNetwork(presetNetworksMap.doge)];
   }
 
   // 0x + 64 hex chars (MANY chains use this format)
@@ -440,43 +441,43 @@ async function detectNetworkByPrivateKeyFn({
       ...buildSameImplResults(presetNetworksMap.eth),
       ...buildSameImplResults(presetNetworksMap.cosmoshub),
       ...buildSameImplResults(presetNetworksMap.assethubPolkadot),
-      buildResult(presetNetworksMap.kaspa),
-      buildResult(presetNetworksMap.aptos),
-      buildResult(presetNetworksMap.sui),
-      buildResult(presetNetworksMap.cfx),
-      buildResult(presetNetworksMap.benfen),
-      buildResult(presetNetworksMap.ckb), // Nervos
+      buildDetectedNetwork(presetNetworksMap.kaspa),
+      buildDetectedNetwork(presetNetworksMap.aptos),
+      buildDetectedNetwork(presetNetworksMap.sui),
+      buildDetectedNetwork(presetNetworksMap.cfx),
+      buildDetectedNetwork(presetNetworksMap.benfen),
+      buildDetectedNetwork(presetNetworksMap.ckb), // Nervos
     ];
   }
 
   // 64 hex chars without 0x (could be: Ton, Tron, Kaspa, Nexa, etc.)
   if (/^[0-9a-fA-F]{64}$/.test(pk)) {
     return [
-      buildResult(presetNetworksMap.ton),
-      buildResult(presetNetworksMap.tron),
-      buildResult(presetNetworksMap.kaspa),
-      buildResult(presetNetworksMap.nexa),
+      buildDetectedNetwork(presetNetworksMap.ton),
+      buildDetectedNetwork(presetNetworksMap.tron),
+      buildDetectedNetwork(presetNetworksMap.kaspa),
+      buildDetectedNetwork(presetNetworksMap.nexa),
     ];
   }
 
   // Solana Base58 (typically 87-88 chars)
   if (/^[1-9A-HJ-NP-Za-km-z]{87,88}$/.test(pk)) {
-    return [buildResult(presetNetworksMap.sol)];
+    return [buildDetectedNetwork(presetNetworksMap.sol)];
   }
 
   // Filecoin (long hex JSON string)
   if (/^[0-9a-fA-F]{150,}$/.test(pk)) {
-    return [buildResult(presetNetworksMap.fil)];
+    return [buildDetectedNetwork(presetNetworksMap.fil)];
   }
 
   // Near (ed25519:...)
   if (/^ed25519:[0-9A-Za-z]{87,}$/.test(pk)) {
-    return [buildResult(presetNetworksMap.near)];
+    return [buildDetectedNetwork(presetNetworksMap.near)];
   }
 
   // Ripple (66 hex chars, uppercase, no 0x)
   if (/^[0-9A-F]{66}$/.test(pk)) {
-    return [buildResult(presetNetworksMap.ripple)];
+    return [buildDetectedNetwork(presetNetworksMap.ripple)];
   }
 
   return [];
@@ -523,4 +524,5 @@ async function detectNetworkByPrivateKey({
 
 export default {
   detectNetworkByPrivateKey,
+  buildDetectedNetwork,
 };
