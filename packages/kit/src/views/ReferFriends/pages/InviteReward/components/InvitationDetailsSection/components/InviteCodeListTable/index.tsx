@@ -1,6 +1,13 @@
 import { useIntl } from 'react-intl';
 
-import { SizableText, Spinner, Stack, Table } from '@onekeyhq/components';
+import {
+  ScrollView,
+  SizableText,
+  Spinner,
+  Stack,
+  Table,
+  useMedia,
+} from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   IInviteCodeListItem,
@@ -22,6 +29,7 @@ export function InviteCodeListTable({
   refetch,
 }: IInviteCodeListTableProps) {
   const intl = useIntl();
+  const { gtMd } = useMedia();
 
   // Sort data
   const { sortedData, handleSortChange } = useSortableData(codeListData?.items);
@@ -53,14 +61,27 @@ export function InviteCodeListTable({
   }
 
   // Table with horizontal scroll support
-  return (
-    <Stack
-      flex={1}
-      style={{
-        overflowX: 'auto',
+  return gtMd ? (
+    // Desktop: simple table
+    <Stack flex={1}>
+      <Table<IInviteCodeListItem>
+        dataSource={sortedData}
+        columns={columns}
+        keyExtractor={(item) => item.code}
+        onHeaderRow={handleHeaderRow}
+        estimatedItemSize={50}
+      />
+    </Stack>
+  ) : (
+    // Mobile: horizontal scroll view
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator
+      contentContainerStyle={{
+        flexGrow: 1,
       }}
     >
-      <Stack flex={1} minHeight={400}>
+      <Stack flex={1} minHeight={400} width={1000}>
         <Table<IInviteCodeListItem>
           dataSource={sortedData}
           columns={columns}
@@ -69,6 +90,6 @@ export function InviteCodeListTable({
           estimatedItemSize={50}
         />
       </Stack>
-    </Stack>
+    </ScrollView>
   );
 }
