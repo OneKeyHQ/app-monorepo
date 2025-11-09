@@ -14,6 +14,7 @@ import { ResponsiveTwoColumnLayout } from '../shared';
 import { CreateCodeButton } from './components/CreateCodeButton';
 import { InviteCodeListTable } from './components/InviteCodeListTable';
 import { useInviteCodeList } from './hooks/useInviteCodeList';
+import { EInvitationDetailsTab } from './types';
 
 import type { IInvitationDetailsSectionProps } from './types';
 
@@ -21,21 +22,29 @@ export function InvitationDetailsSection({
   summaryInfo,
 }: IInvitationDetailsSectionProps) {
   const intl = useIntl();
-  const [selectedTab, setSelectedTab] = useState<'reward' | 'referral'>(
-    'reward',
+  const [selectedTab, setSelectedTab] = useState<EInvitationDetailsTab>(
+    EInvitationDetailsTab.REWARD,
   );
 
   // Fetch invite code list data
   const { codeListData, isLoading, refetch } = useInviteCodeList();
 
+  // Handle code creation: refresh list and switch to table tab if on reward tab
+  const handleCodeCreated = () => {
+    refetch();
+    if (selectedTab === EInvitationDetailsTab.REWARD) {
+      setSelectedTab(EInvitationDetailsTab.REFERRAL);
+    }
+  };
+
   const tabs = useMemo(
     () => [
       {
-        value: 'reward' as const,
+        value: EInvitationDetailsTab.REWARD,
         label: intl.formatMessage({ id: ETranslations.earn_rewards }),
       },
       {
-        value: 'referral' as const,
+        value: EInvitationDetailsTab.REFERRAL,
         label: intl.formatMessage({ id: ETranslations.referral_code_list }),
       },
     ],
@@ -63,24 +72,21 @@ export function InvitationDetailsSection({
         {canCreateCode ? (
           <CreateCodeButton
             total={codeListData?.total}
-            onCodeCreated={refetch}
+            onCodeCreated={handleCodeCreated}
           />
         ) : null}
       </XStack>
 
-      {selectedTab === 'reward' ? (
-        <YStack py="$8" px="$5">
-          <ResponsiveTwoColumnLayout
-            p="$0"
-            leftColumn={
-              <HardwareSalesReward
-                hardwareSales={HardwareSales}
-                nextDistribution={cumulativeRewards.nextDistribution}
-              />
-            }
-            rightColumn={<OnChainReward onChain={Onchain} />}
-          />
-        </YStack>
+      {selectedTab === EInvitationDetailsTab.REWARD ? (
+        <ResponsiveTwoColumnLayout
+          leftColumn={
+            <HardwareSalesReward
+              hardwareSales={HardwareSales}
+              nextDistribution={cumulativeRewards.nextDistribution}
+            />
+          }
+          rightColumn={<OnChainReward onChain={Onchain} />}
+        />
       ) : (
         <YStack px="$5" gap="$4">
           <InviteCodeListTable
