@@ -5,6 +5,7 @@ import { Share } from 'react-native';
 
 import { useClipboard } from '@onekeyhq/components';
 import { useNavigateToYourReferred } from '@onekeyhq/kit/src/views/ReferFriends/pages/YourReferred/hooks';
+import { formatInviteUrlForDisplay } from '@onekeyhq/kit/src/views/ReferFriends/utils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -28,37 +29,34 @@ export function useReferralCodeCard({
   }, [copyText, inviteCode]);
 
   const inviteCodeUrl = useMemo(() => {
-    return inviteUrl.replace('https://', '');
+    return formatInviteUrlForDisplay(inviteUrl);
   }, [inviteUrl]);
 
-  const sharedUrl = useMemo(() => `https://${inviteCodeUrl}`, [inviteCodeUrl]);
-
   const copyLink = useCallback(() => {
-    copyText(sharedUrl);
+    copyText(inviteUrl);
     defaultLogger.referral.page.shareReferralLink('copy');
-  }, [copyText, sharedUrl]);
+  }, [copyText, inviteUrl]);
 
   const handleShare = useCallback(() => {
     setTimeout(() => {
       void Share.share(
         platformEnv.isNativeIOS
           ? {
-              url: sharedUrl,
+              url: inviteUrl,
             }
           : {
-              message: sharedUrl,
+              message: inviteUrl,
             },
       );
     }, 300);
     defaultLogger.referral.page.shareReferralLink('share');
-  }, [sharedUrl]);
+  }, [inviteUrl]);
 
   return {
     handleCopy,
     copyLink,
     inviteCodeUrl,
     toYourReferredPage,
-    sharedUrl,
     handleShare,
     intl: {
       yourCode: intl.formatMessage({ id: ETranslations.referral_your_code }),

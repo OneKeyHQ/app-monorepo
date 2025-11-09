@@ -55,7 +55,7 @@ export function InvitationDetailsSection({
     return null;
   }
 
-  const { HardwareSales, Onchain, cumulativeRewards } = summaryInfo;
+  const { HardwareSales, Onchain, cumulativeRewards, inviteUrl } = summaryInfo;
 
   // Check if user can create more codes
   const canCreateCode = codeListData ? codeListData.remainingCodes > 0 : false;
@@ -73,6 +73,7 @@ export function InvitationDetailsSection({
           <CreateCodeButton
             total={codeListData?.total}
             onCodeCreated={handleCodeCreated}
+            inviteUrlTemplate={inviteUrl}
           />
         ) : null}
       </XStack>

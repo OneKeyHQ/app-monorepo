@@ -8,7 +8,6 @@ export interface IUseReferralCodeCardReturn {
   copyLink: () => void;
   inviteCodeUrl: string;
   toYourReferredPage: () => void;
-  sharedUrl: string;
   handleShare: () => void;
   intl: {
     yourCode: string;

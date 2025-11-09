@@ -4,16 +4,19 @@ import { useIntl } from 'react-intl';
 
 import { Button, Toast, useClipboard } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { generateInviteUrlFromTemplate } from '@onekeyhq/kit/src/views/ReferFriends/utils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 interface ICreateCodeButtonProps {
   total?: number;
   onCodeCreated?: () => void;
+  inviteUrlTemplate: string;
 }
 
 export function CreateCodeButton({
   total,
   onCodeCreated,
+  inviteUrlTemplate,
 }: ICreateCodeButtonProps) {
   const intl = useIntl();
   const [loading, setLoading] = useState(false);
@@ -24,6 +27,12 @@ export function CreateCodeButton({
     try {
       const data =
         await backgroundApiProxy.serviceReferralCode.createInviteCode();
+
+      // Generate invite URL for the new code
+      const inviteUrl = generateInviteUrlFromTemplate(
+        inviteUrlTemplate,
+        data.code,
+      );
 
       // Show success toast with copy button
       Toast.success({
@@ -38,7 +47,7 @@ export function CreateCodeButton({
             variant="primary"
             size="small"
             onPress={() => {
-              void copyText(data.code);
+              void copyText(inviteUrl);
             }}
           >
             {intl.formatMessage({ id: ETranslations.global_copy })}
