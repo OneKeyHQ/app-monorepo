@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 
-import { useMedia } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalReferFriendsRoutes,
   EModalRoutes,
@@ -10,17 +10,16 @@ import {
 
 export function useNavigateToYourReferred() {
   const navigation = useAppNavigation();
-  const { gtMd } = useMedia();
 
   return useCallback(() => {
-    if (gtMd) {
-      // Wide screen: use Tab navigation
-      navigation.push(ETabReferFriendsRoutes.TabYourReferred);
-    } else {
-      // Narrow screen: use Modal navigation
+    if (platformEnv.isNative) {
+      // Native platform: use Modal navigation
       navigation.pushModal(EModalRoutes.ReferFriendsModal, {
         screen: EModalReferFriendsRoutes.YourReferred,
       });
+    } else {
+      // Web/Desktop/Extension: use Tab navigation
+      navigation.push(ETabReferFriendsRoutes.TabYourReferred);
     }
-  }, [navigation, gtMd]);
+  }, [navigation]);
 }

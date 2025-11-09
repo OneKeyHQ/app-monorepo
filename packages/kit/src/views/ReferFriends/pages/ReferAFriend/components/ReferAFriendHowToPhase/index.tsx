@@ -23,7 +23,7 @@ export function ReferAFriendHowToPhase({
     <YStack gap="$5">
       <InviteCodeStepImage step={2} />
 
-      <Stack maxWidth={480} mx="auto" gap="$10">
+      <Stack maxWidth={480} mx="auto" gap="$10" px="$5">
         <ReferralBenefitsList
           title={intl.formatMessage({
             id: ETranslations.referral_intro_title_p2,
@@ -45,6 +45,9 @@ export function ReferAFriendHowToPhase({
               }),
             },
           ]}
+          bottomNote={intl.formatMessage({
+            id: ETranslations.referral_intro_p2_note,
+          })}
         />
 
         <JoinButton setPhaseState={setPhaseState} />

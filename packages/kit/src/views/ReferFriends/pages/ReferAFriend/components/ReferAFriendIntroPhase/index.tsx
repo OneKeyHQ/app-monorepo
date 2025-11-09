@@ -27,10 +27,10 @@ export function ReferAFriendIntroPhase({
       icon: 'DollarOutline' as const,
       text: intl.formatMessage(
         {
-          id: ETranslations.referral_intro_for_you_1,
+          id: ETranslations.referral_intro_p1_desc_bullet1,
         },
         {
-          RebateRate: `${postConfig.commissionRate.amount}${postConfig.commissionRate.unit}`,
+          amount: `${postConfig.commissionRate.amount}${postConfig.commissionRate.unit}`,
         },
       ),
     },
@@ -38,10 +38,10 @@ export function ReferAFriendIntroPhase({
       icon: 'GiftOutline' as const,
       text: intl.formatMessage(
         {
-          id: ETranslations.referral_intro_for_your_friend_1,
+          id: ETranslations.referral_intro_p1_desc_bullet2,
         },
         {
-          RebateAmount: `${postConfig.friendDiscount.unit}${postConfig.friendDiscount.amount}`,
+          amount: `${postConfig.friendDiscount.unit}${postConfig.friendDiscount.amount}`,
         },
       ),
     },
@@ -49,19 +49,16 @@ export function ReferAFriendIntroPhase({
 
   return (
     <YStack gap="$5">
-      {/* Preview image showing how to share invite code */}
-      <YStack ai="center" mt="$2">
-        <InviteCodeStepImage step={1} />
-      </YStack>
+      <InviteCodeStepImage step={1} />
 
-      <Stack maxWidth={480} mx="auto" gap="$10">
+      <Stack maxWidth={480} mx="auto" gap="$10" px="$5">
         <ReferralBenefitsList
           title={intl.formatMessage(
             {
-              id: ETranslations.referral_intro_title,
+              id: ETranslations.referral_intro_p1_title,
             },
             {
-              RewardAmount: (
+              amount: (
                 <SizableText size="$heading2xl" color="$textSuccess">
                   {`${postConfig.referralReward.unit}${postConfig.referralReward.amount}`}
                 </SizableText>
@@ -70,6 +67,9 @@ export function ReferAFriendIntroPhase({
           )}
           subtitle=""
           benefits={benefits}
+          bottomNote={intl.formatMessage({
+            id: ETranslations.referral_intro_p1_note,
+          })}
         />
 
         <NextButton setPhaseState={setPhaseState} />

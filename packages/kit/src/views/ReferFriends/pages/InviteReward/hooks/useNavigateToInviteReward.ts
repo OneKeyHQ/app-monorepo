@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 
-import { useMedia } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalReferFriendsRoutes,
   EModalRoutes,
@@ -10,32 +10,30 @@ import {
 
 export function useNavigateToInviteReward() {
   const navigation = useAppNavigation();
-  const { gtMd } = useMedia();
 
   return useCallback(() => {
-    if (gtMd) {
-      // Wide screen: use Tab navigation
-      navigation.push(ETabReferFriendsRoutes.TabInviteReward);
-    } else {
-      // Narrow screen: use Modal navigation
+    if (platformEnv.isNative) {
+      // Native platform: use Modal navigation
       navigation.pushModal(EModalRoutes.ReferFriendsModal, {
         screen: EModalReferFriendsRoutes.InviteReward,
       });
+    } else {
+      // Web/Desktop/Extension: use Tab navigation
+      navigation.push(ETabReferFriendsRoutes.TabInviteReward);
     }
-  }, [navigation, gtMd]);
+  }, [navigation]);
 }
 
 export function useReplaceToInviteReward() {
   const navigation = useAppNavigation();
-  const { gtMd } = useMedia();
 
   return useCallback(() => {
-    if (gtMd) {
-      // Wide screen: use Tab navigation
-      navigation.replace(ETabReferFriendsRoutes.TabInviteReward);
-    } else {
-      // Narrow screen: use Modal navigation
+    if (platformEnv.isNative) {
+      // Native platform: use Modal navigation
       navigation.replace(EModalReferFriendsRoutes.InviteReward);
+    } else {
+      // Web/Desktop/Extension: use Tab navigation
+      navigation.replace(ETabReferFriendsRoutes.TabInviteReward);
     }
-  }, [navigation, gtMd]);
+  }, [navigation]);
 }

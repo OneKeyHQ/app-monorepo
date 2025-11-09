@@ -20,7 +20,7 @@ export function ResponsiveTwoColumnLayout({
   return (
     <Stack
       gap={gap}
-      p={p}
+      px={p}
       flexDirection="row"
       $md={{
         flexDirection: reverseOnMobile ? 'column-reverse' : 'column',

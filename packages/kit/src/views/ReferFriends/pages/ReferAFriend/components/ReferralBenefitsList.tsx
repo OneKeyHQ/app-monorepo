@@ -13,12 +13,14 @@ interface IReferralBenefitsListProps {
   title: ReactNode;
   subtitle: ReactNode;
   benefits: IBenefitItem[];
+  bottomNote?: ReactNode;
 }
 
 export function ReferralBenefitsList({
   title,
   subtitle,
   benefits,
+  bottomNote,
 }: IReferralBenefitsListProps) {
   return (
     <YStack gap="$6">
@@ -53,6 +55,11 @@ export function ReferralBenefitsList({
             )}
           </XStack>
         ))}
+        {bottomNote ? (
+          <SizableText size="$bodySm" color="$textSubdued">
+            {bottomNote}
+          </SizableText>
+        ) : null}
       </YStack>
     </YStack>
   );

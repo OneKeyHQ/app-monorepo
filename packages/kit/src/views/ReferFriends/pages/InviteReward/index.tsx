@@ -45,7 +45,7 @@ function InviteRewardContent({
 
   return (
     <>
-      <XStack px="$5" pt="$5" jc="space-between">
+      <XStack px="$5" py="$5" jc="space-between">
         <SectionHeader translationId={ETranslations.global_overview} />
 
         <RulesButton />

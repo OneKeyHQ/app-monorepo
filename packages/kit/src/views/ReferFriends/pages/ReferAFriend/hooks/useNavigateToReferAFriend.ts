@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 
-import { useMedia } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalReferFriendsRoutes,
   EModalRoutes,
@@ -10,39 +10,37 @@ import {
 
 export function useNavigateToReferAFriend() {
   const navigation = useAppNavigation();
-  const { gtMd } = useMedia();
 
   return useCallback(
     (params?: { utmSource?: string; code?: string }) => {
-      if (gtMd) {
-        // Wide screen: use Tab navigation
-        navigation.push(ETabReferFriendsRoutes.TabReferAFriend, params);
-      } else {
-        // Narrow screen: use Modal navigation
+      if (platformEnv.isNative) {
+        // Native platform: use Modal navigation
         navigation.pushModal(EModalRoutes.ReferFriendsModal, {
           screen: EModalReferFriendsRoutes.ReferAFriend,
           params,
         });
+      } else {
+        // Web/Desktop/Extension: use Tab navigation
+        navigation.push(ETabReferFriendsRoutes.TabReferAFriend, params);
       }
     },
-    [navigation, gtMd],
+    [navigation],
   );
 }
 
 export function useReplaceToReferAFriend() {
   const navigation = useAppNavigation();
-  const { gtMd } = useMedia();
 
   return useCallback(
     (params?: { utmSource?: string; code?: string }) => {
-      if (gtMd) {
-        // Wide screen: use Tab navigation
-        navigation.replace(ETabReferFriendsRoutes.TabReferAFriend, params);
-      } else {
-        // Narrow screen: use Modal navigation
+      if (platformEnv.isNative) {
+        // Native platform: use Modal navigation
         navigation.replace(EModalReferFriendsRoutes.ReferAFriend, params);
+      } else {
+        // Web/Desktop/Extension: use Tab navigation
+        navigation.replace(ETabReferFriendsRoutes.TabReferAFriend, params);
       }
     },
-    [navigation, gtMd],
+    [navigation],
   );
 }
