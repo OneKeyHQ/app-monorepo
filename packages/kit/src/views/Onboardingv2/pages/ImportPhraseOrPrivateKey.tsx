@@ -31,7 +31,6 @@ export default function ImportPhraseOrPrivateKey() {
   const [isConfirming, setIsConfirming] = useState(false);
   const intl = useIntl();
   const [privateKey, setPrivateKey] = useState('');
-  const intl = useIntl();
 
   const handleConfirm = async () => {
     if (selected === 'phrase') {
