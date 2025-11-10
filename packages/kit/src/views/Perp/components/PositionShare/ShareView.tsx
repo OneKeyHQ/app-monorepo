@@ -33,10 +33,9 @@ export function ShareView({
     const timer = setTimeout(() => {
       void (async () => {
         try {
-          const generator: IShareImageGeneratorRef | null =
-            generatorRef.current;
+          const generator = generatorRef.current;
           if (!generator) return;
-          const base64: string = await generator.generate();
+          const base64 = await generator.generate();
           if (base64) {
             setPreviewImage(base64);
             setIsFirstLoad(false);
@@ -48,7 +47,8 @@ export function ShareView({
     }, 50);
 
     return () => clearTimeout(timer);
-  }, [generatorRef, data, config]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, config]);
 
   if (isFirstLoad && !previewImage) {
     return (

@@ -1,4 +1,4 @@
-import { useIntl } from 'react-intl';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import {
   Image,
@@ -8,6 +8,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { getHyperliquidTokenImageUrl } from '@onekeyhq/shared/src/utils/perpsUtils';
 
@@ -17,6 +18,7 @@ import {
   REFERRAL_CODE,
   SHOW_REFERRAL_CODE,
   STICKERS,
+  getPnlDisplayInfo,
 } from './constants';
 
 import type { IShareConfig, IShareData } from './types';
@@ -25,6 +27,7 @@ interface IShareContentRendererProps {
   data: IShareData;
   config: IShareConfig;
   scale?: number;
+  onImagesReady?: () => void;
 }
 
 const { size, padding, colors, fonts, layout, display } = CANVAS_CONFIG;
@@ -33,46 +36,71 @@ export function ShareContentRenderer({
   data,
   config,
   scale = 1,
+  onImagesReady,
 }: IShareContentRendererProps) {
-  const intl = useIntl();
-  const {
-    side,
-    token,
-    tokenImageUrl,
-    pnl,
-    pnlPercent,
-    leverage,
-    entryPrice,
-    markPrice,
-  } = data;
+  const { side, token, tokenImageUrl, pnl, leverage, entryPrice, markPrice } =
+    data;
   const pnlNum = parseFloat(pnl);
-  const pnlPercentNum = parseFloat(pnlPercent);
-  const pnlColor = pnlNum >= 0 ? colors.long : colors.short;
-  const pnlSign = pnlPercentNum >= 0 ? '+' : '';
+  const isProfit = pnlNum >= 0;
+  const pnlColor = isProfit ? colors.long : colors.short;
   const sideColor = side === 'long' ? colors.long : colors.short;
   const tokenImage = tokenImageUrl || getHyperliquidTokenImageUrl(token);
   const selectedSticker =
     config.stickerIndex !== null ? STICKERS[config.stickerIndex] : null;
+  const pnlDisplayMode = config.pnlDisplayMode;
 
-  const isProfit = pnlNum >= 0;
-  const availableBackgrounds = isProfit ? BACKGROUNDS.profit : BACKGROUNDS.loss;
-  const allBackgrounds = [...BACKGROUNDS.neutral, ...availableBackgrounds];
-  const selectedBackground = allBackgrounds[config.backgroundIndex] ?? null;
+  const selectedBackground = isProfit
+    ? BACKGROUNDS.profit[0]
+    : BACKGROUNDS.loss[1];
 
   const scaledSize = size * scale;
   const scaledPadding = padding * scale;
-  const scaledFonts = {
-    coin: fonts.coin * scale,
-    side: fonts.side * scale,
-    pnl: fonts.pnl * scale,
-    priceLabel: fonts.priceLabel * scale,
-    priceValue: fonts.priceValue * scale,
-  };
-  const scaledLayout = {
-    tokenSize: layout.tokenSize * scale,
-    stickerSize: layout.stickerSize * scale,
-  };
+  const scaledFonts = useMemo(
+    () => ({
+      coin: fonts.coin * scale,
+      side: fonts.side * scale,
+      pnl: fonts.pnl * scale,
+      priceLabel: fonts.priceLabel * scale,
+      priceValue: fonts.priceValue * scale,
+    }),
+    [scale],
+  );
+  const scaledLayout = useMemo(
+    () => ({
+      tokenSize: layout.tokenSize * scale,
+      stickerSize: layout.stickerSize * scale,
+    }),
+    [scale],
+  );
   const tokenY = layout.tokenY * scale;
+  const pnlDisplayText = getPnlDisplayInfo(data, pnlDisplayMode);
+  const pnlFontSize =
+    pnlDisplayText.length > 8
+      ? scaledFonts.pnl * (1 - (pnlDisplayText.length - 8) * 0.05)
+      : scaledFonts.pnl;
+
+  const imageLoadCountRef = useRef(0);
+  const expectedImageCount = useRef(0);
+
+  const handleImageLoad = useCallback(() => {
+    imageLoadCountRef.current += 1;
+    if (
+      onImagesReady &&
+      imageLoadCountRef.current >= expectedImageCount.current
+    ) {
+      onImagesReady();
+    }
+  }, [onImagesReady]);
+
+  useEffect(() => {
+    imageLoadCountRef.current = 0;
+    expectedImageCount.current = 0;
+    if (selectedBackground) expectedImageCount.current += 1;
+    if (display.showTokenIcon) expectedImageCount.current += 1;
+    if (expectedImageCount.current === 0 && onImagesReady) {
+      onImagesReady();
+    }
+  }, [selectedBackground, onImagesReady]);
 
   return (
     <YStack
@@ -83,12 +111,14 @@ export function ShareContentRenderer({
     >
       {selectedBackground ? (
         <Image
-          source={selectedBackground}
+          source={{ uri: selectedBackground }}
           width={scaledSize}
           height={scaledSize}
           position="absolute"
           top={0}
           left={0}
+          onLoad={handleImageLoad}
+          onError={handleImageLoad}
         />
       ) : null}
 
@@ -116,6 +146,8 @@ export function ShareContentRenderer({
                   source={{ uri: tokenImage }}
                   width={scaledLayout.tokenSize}
                   height={scaledLayout.tokenSize}
+                  onLoad={handleImageLoad}
+                  onError={handleImageLoad}
                 />
               </Stack>
             ) : null}
@@ -148,7 +180,7 @@ export function ShareContentRenderer({
                   fontWeight="600"
                   color={sideColor}
                 >
-                  {`${intl.formatMessage({
+                  {`${appLocale.intl.formatMessage({
                     id:
                       side === 'long'
                         ? ETranslations.perp_long
@@ -163,18 +195,16 @@ export function ShareContentRenderer({
         {display.showPnl ? (
           <Stack
             position="absolute"
-            top={
-              layout.pnlY * scale - (scaledFonts.pnl * layout.lineHeight) / 2
-            }
+            top={layout.pnlY * scale - (pnlFontSize * layout.lineHeight) / 2}
             left={scaledPadding}
           >
             <SizableText
-              fontSize={scaledFonts.pnl}
-              lineHeight={scaledFonts.pnl * layout.lineHeight}
+              fontSize={pnlFontSize}
+              lineHeight={pnlFontSize * layout.lineHeight}
               fontWeight="600"
               color={pnlColor}
             >
-              {`${pnlSign}${pnlPercent}%`}
+              {pnlDisplayText}
             </SizableText>
           </Stack>
         ) : null}
@@ -196,7 +226,7 @@ export function ShareContentRenderer({
               opacity={layout.labelOpacity}
               lineHeight={scaledFonts.priceLabel * layout.lineHeight}
             >
-              {intl.formatMessage({
+              {appLocale.intl.formatMessage({
                 id: ETranslations.perp_position_entry_price,
               })}
             </SizableText>
@@ -228,7 +258,7 @@ export function ShareContentRenderer({
               opacity={layout.labelOpacity}
               lineHeight={scaledFonts.priceLabel * layout.lineHeight}
             >
-              {intl.formatMessage({
+              {appLocale.intl.formatMessage({
                 id: ETranslations.perp_position_mark_price,
               })}
             </SizableText>
@@ -273,7 +303,7 @@ export function ShareContentRenderer({
                 opacity={layout.labelOpacity}
                 lineHeight={scaledFonts.priceLabel * layout.lineHeight}
               >
-                {intl.formatMessage({
+                {appLocale.intl.formatMessage({
                   id: ETranslations.referral_referral_link,
                 })}
               </SizableText>

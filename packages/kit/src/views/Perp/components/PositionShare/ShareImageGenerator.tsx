@@ -11,6 +11,7 @@ import {
   SHOW_REFERRAL_CODE,
   STICKERS,
   getCanvasConfig,
+  getPnlDisplayInfo,
 } from './constants';
 
 import type {
@@ -24,26 +25,27 @@ interface IShareImageGeneratorProps {
   config: IShareConfig;
 }
 
+const MAX_CACHE_SIZE = 20;
 const imageCache = new Map<string, HTMLImageElement>();
+
 function toCanvasFont(size: number, weight: string | number = 'bold'): string {
   return `${weight} ${size}px MiSans`;
 }
 
-function loadImage(src: string | number): Promise<HTMLImageElement | null> {
-  const srcStr = typeof src === 'number' ? String(src) : src;
-  if (imageCache.has(srcStr)) {
-    return Promise.resolve(imageCache.get(srcStr) ?? null);
+function loadImage(src: string): Promise<HTMLImageElement | null> {
+  if (imageCache.has(src)) {
+    return Promise.resolve(imageCache.get(src) ?? null);
   }
 
   return new Promise((resolve) => {
     const img = new Image();
     img.crossOrigin = 'anonymous';
     img.onload = () => {
-      imageCache.set(srcStr, img);
+      imageCache.set(src, img);
       resolve(img);
     };
     img.onerror = () => resolve(null);
-    img.src = srcStr;
+    img.src = src;
   });
 }
 
@@ -64,41 +66,27 @@ export const ShareImageGenerator = forwardRef<
     canvas.width = size;
     canvas.height = size;
 
-    const {
-      side,
-      token,
-      tokenImageUrl,
-      pnl,
-      pnlPercent,
-      leverage,
-      entryPrice,
-      markPrice,
-    } = data;
+    const { side, token, tokenImageUrl, pnl, leverage, entryPrice, markPrice } =
+      data;
     const pnlNum = parseFloat(pnl);
-    const pnlPercentNum = parseFloat(pnlPercent);
-    const pnlColor = pnlNum >= 0 ? colors.long : colors.short;
-    const pnlSign = pnlPercentNum >= 0 ? '+' : '';
-    const tokenImage = tokenImageUrl || getHyperliquidTokenImageUrl(token);
-
     const isProfit = pnlNum >= 0;
-    const availableBackgrounds = isProfit
-      ? BACKGROUNDS.profit
-      : BACKGROUNDS.loss;
-    const allBackgrounds = [...BACKGROUNDS.neutral, ...availableBackgrounds];
-    const selectedBackground = allBackgrounds[config.backgroundIndex];
+    const pnlColor = isProfit ? colors.long : colors.short;
+    const tokenImage = tokenImageUrl || getHyperliquidTokenImageUrl(token);
+    const pnlDisplayText = getPnlDisplayInfo(data, config.pnlDisplayMode);
+    const pnlFontSize =
+      pnlDisplayText.length > 8
+        ? fonts.pnl * (1 - (pnlDisplayText.length - 8) * 0.05)
+        : fonts.pnl;
 
+    const selectedBackground = isProfit
+      ? BACKGROUNDS.profit[0]
+      : BACKGROUNDS.loss[1];
     try {
       const selectedSticker =
         config.stickerIndex !== null ? STICKERS[config.stickerIndex] : null;
 
       const [bgImg, tokenImg] = await Promise.all([
-        selectedBackground
-          ? loadImage(
-              typeof selectedBackground === 'number'
-                ? selectedBackground
-                : String(selectedBackground),
-            )
-          : null,
+        selectedBackground ? loadImage(selectedBackground) : null,
         display.showTokenIcon ? loadImage(tokenImage) : null,
       ]);
 
@@ -195,9 +183,9 @@ export const ShareImageGenerator = forwardRef<
       if (display.showPnl) {
         const pnlY = layout.pnlY;
         ctx.fillStyle = pnlColor;
-        ctx.font = toCanvasFont(fonts.pnl, 'bold');
+        ctx.font = toCanvasFont(pnlFontSize, 'bold');
         ctx.textBaseline = 'middle';
-        ctx.fillText(`${pnlSign}${pnlPercent}%`, padding, pnlY);
+        ctx.fillText(pnlDisplayText, padding, pnlY);
         ctx.textBaseline = 'alphabetic';
 
         if (display.showEntryPrice) {
@@ -273,7 +261,7 @@ export const ShareImageGenerator = forwardRef<
       }
 
       if (selectedSticker) {
-        ctx.font = `${layout.stickerSize}px system-ui, -apple-system, sans-serif`;
+        ctx.font = toCanvasFont(layout.stickerSize);
         ctx.textBaseline = 'bottom';
         ctx.fillText(
           selectedSticker,
@@ -287,7 +275,8 @@ export const ShareImageGenerator = forwardRef<
       console.error('Failed to generate image:', error);
       return '';
     }
-  }, [data, config, CANVAS_CONFIG]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, config]);
 
   useImperativeHandle(ref, () => ({ generate }));
 

@@ -1,7 +1,10 @@
+export type IPnlDisplayMode = 'roe' | 'pnl';
+
 export interface IShareConfig {
   customText: string;
   stickerIndex: number | null;
   backgroundIndex: number;
+  pnlDisplayMode: IPnlDisplayMode;
 }
 
 export interface IShareData {

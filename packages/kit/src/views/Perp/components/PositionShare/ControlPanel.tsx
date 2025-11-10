@@ -5,7 +5,6 @@ import { useIntl } from 'react-intl';
 import {
   Button,
   Image,
-  Input,
   ScrollView,
   SizableText,
   Stack,
@@ -14,9 +13,9 @@ import {
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import { BACKGROUNDS, STICKERS } from './constants';
+import { BACKGROUNDS } from './constants';
 
-import type { IShareConfig, IShareData } from './types';
+import type { IPnlDisplayMode, IShareConfig, IShareData } from './types';
 
 interface IControlPanelProps {
   config: IShareConfig;
@@ -46,32 +45,22 @@ export function ControlPanel({
     return pnlNum >= 0;
   }, [data.pnl]);
 
-  const availableBackgrounds = useMemo(() => {
-    const specific = isProfit ? BACKGROUNDS.profit : BACKGROUNDS.loss;
-    return [...BACKGROUNDS.neutral, ...specific];
-  }, [isProfit]);
+  // const availableBackgrounds = useMemo(() => {
+  //   const specific = isProfit ? BACKGROUNDS.profit : BACKGROUNDS.loss;
+  //   return [...BACKGROUNDS.neutral, ...specific];
+  // }, [isProfit]);
 
-  const handleTextChange = useCallback(
-    (text: string) => {
-      onChange({ ...config, customText: text });
-    },
-    [config, onChange],
-  );
+  // const handleBackgroundChange = useCallback(
+  //   (index: number) => {
+  //     onChange({ ...config, backgroundIndex: index });
+  //   },
+  //   [config, onChange],
+  // );
 
-  const handleBackgroundChange = useCallback(
-    (index: number) => {
-      onChange({ ...config, backgroundIndex: index });
-    },
-    [config, onChange],
-  );
-
-  const handleStickerChange = useCallback(
-    (index: number) => {
-      if (config.stickerIndex === index) {
-        onChange({ ...config, stickerIndex: null });
-      } else {
-        onChange({ ...config, stickerIndex: index });
-      }
+  const handlePnlDisplayModeChange = useCallback(
+    (mode: IPnlDisplayMode) => {
+      if (config.pnlDisplayMode === mode) return;
+      onChange({ ...config, pnlDisplayMode: mode });
     },
     [config, onChange],
   );
@@ -79,7 +68,7 @@ export function ControlPanel({
   return (
     <YStack flex={1} px={isMobile ? '$4' : undefined}>
       <YStack flex={1} gap="$6">
-        <YStack gap="$2">
+        {/* <YStack gap="$2">
           <SizableText size="$headingXs">
             {intl.formatMessage({
               id: ETranslations.perps_share_position_background,
@@ -107,11 +96,41 @@ export function ControlPanel({
                   pressStyle={{ opacity: 0.8 }}
                   onPress={() => handleBackgroundChange(index)}
                 >
-                  <Image source={bgSource} width={72} height={72} />
+                  <Image source={{ uri: bgSource }} width={72} height={72} />
                 </Stack>
               ))}
             </XStack>
           </ScrollView>
+        </YStack> */}
+
+        <YStack gap="$2">
+          <SizableText size="$headingXs">
+            {`${intl.formatMessage({
+              id: ETranslations.perp_position_pnl,
+            })} / ROE`}
+          </SizableText>
+          <XStack gap="$3">
+            {(['pnl', 'roe'] as IPnlDisplayMode[]).map((mode) => {
+              const isActive = config.pnlDisplayMode === mode;
+              const label =
+                mode === 'roe'
+                  ? 'ROE'
+                  : intl.formatMessage({
+                      id: ETranslations.perp_position_pnl,
+                    });
+              return (
+                <Button
+                  key={mode}
+                  flexGrow={1}
+                  variant={isActive ? 'primary' : 'tertiary'}
+                  onPress={() => handlePnlDisplayModeChange(mode)}
+                  disabled={isLoading}
+                >
+                  {label}
+                </Button>
+              );
+            })}
+          </XStack>
         </YStack>
       </YStack>
 

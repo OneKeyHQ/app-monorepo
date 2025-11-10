@@ -1,30 +1,93 @@
-import bgLossGreen from '@onekeyhq/kit/assets/perps/share_bg_loss_green.png';
-import bgLossRed from '@onekeyhq/kit/assets/perps/share_bg_loss_red.png';
-import bgNeutral from '@onekeyhq/kit/assets/perps/share_bg_neutral.png';
-import bgNeutralGreen from '@onekeyhq/kit/assets/perps/share_bg_neutral_green.png';
-import bgNeutralRed from '@onekeyhq/kit/assets/perps/share_bg_neutral_red.png';
-import bgProfitGreen from '@onekeyhq/kit/assets/perps/share_bg_profit_green.png';
-import bgProfitRed from '@onekeyhq/kit/assets/perps/share_bg_profit_red.png';
-import bgProfitYellow from '@onekeyhq/kit/assets/perps/share_bg_profit_yellow.png';
+import BigNumber from 'bignumber.js';
 
-import type { ICanvasConfig } from './types';
-import type { ImageSourcePropType } from 'react-native';
+import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
+import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
+
+import type { ICanvasConfig, IPnlDisplayMode, IShareData } from './types';
 
 export const REFERRAL_CODE = 'https://app.onekey.so/perps/ONEKEY';
 
 export const SHOW_REFERRAL_CODE = true;
 
+const CDN_BASE_URL = 'https://uni.onekey-asset.com/static/perps';
+
+const BACKGROUND_FILE_NAMES = {
+  neutral: [
+    'share_bg_neutral.png',
+    'share_bg_neutral_green.png',
+    'share_bg_neutral_red.png',
+  ],
+  profit: [
+    'share_bg_profit_green.png',
+    'share_bg_profit_yellow.png',
+    'share_bg_profit_red.png',
+  ],
+  loss: ['share_bg_loss_green.png', 'share_bg_loss_red.png'],
+} as const;
+
+function getBackgroundUrl(filename: string): string {
+  return `${CDN_BASE_URL}/${filename}`;
+}
+
 export const BACKGROUNDS: {
-  neutral: ImageSourcePropType[];
-  profit: ImageSourcePropType[];
-  loss: ImageSourcePropType[];
+  neutral: string[];
+  profit: string[];
+  loss: string[];
 } = {
-  neutral: [bgNeutral, bgNeutralGreen, bgNeutralRed],
-  profit: [bgProfitGreen, bgProfitYellow, bgProfitRed],
-  loss: [bgLossGreen, bgLossRed],
+  neutral: BACKGROUND_FILE_NAMES.neutral.map(getBackgroundUrl),
+  profit: BACKGROUND_FILE_NAMES.profit.map(getBackgroundUrl),
+  loss: BACKGROUND_FILE_NAMES.loss.map(getBackgroundUrl),
 };
 
+export function getBackgroundUrlByIndex(
+  type: 'neutral' | 'profit' | 'loss',
+  index: number,
+): string {
+  const fileNames = BACKGROUND_FILE_NAMES[type];
+  if (index < 0 || index >= fileNames.length) {
+    return getBackgroundUrl(fileNames[0]);
+  }
+  return getBackgroundUrl(fileNames[index]);
+}
+
+export function getAllBackgroundUrls(): string[] {
+  return [
+    ...BACKGROUND_FILE_NAMES.neutral.map(getBackgroundUrl),
+    ...BACKGROUND_FILE_NAMES.profit.map(getBackgroundUrl),
+    ...BACKGROUND_FILE_NAMES.loss.map(getBackgroundUrl),
+  ];
+}
+
 export const STICKERS = ['🤑', '😎', '😭', '💀', '🤔'];
+
+export const DEFAULT_PNL_DISPLAY_MODE: IPnlDisplayMode = 'roe';
+
+const PNL_VALUE_FORMATTER: INumberFormatProps = {
+  formatter: 'value',
+  formatterOptions: {
+    currency: '$',
+  },
+};
+
+export function getPnlDisplayInfo(
+  data: IShareData,
+  mode: IPnlDisplayMode,
+): string {
+  if (mode === 'pnl') {
+    const pnlBn = new BigNumber(data.pnl || '0');
+    const pnlAbsFormatted = numberFormat(
+      pnlBn.abs().toFixed(),
+      PNL_VALUE_FORMATTER,
+    );
+    const pnlSign = pnlBn.lt(0) ? '-' : '+';
+    return `${pnlSign}${pnlAbsFormatted}`;
+  }
+
+  const pnlPercentBn = new BigNumber(data.pnlPercent || '0');
+  const pnlPercentText = pnlPercentBn.abs().toFixed(2);
+  const pnlPercentSign = pnlPercentBn.gte(0) ? '+' : '';
+  return `${pnlPercentSign}${pnlPercentText}%`;
+}
 
 export function getDefaultShareText(side: string, coin: string): string {
   return `Check out my ${side.toUpperCase()} position on ${coin}! 🚀`;

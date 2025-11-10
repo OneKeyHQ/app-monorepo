@@ -12,11 +12,12 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
 
-import { getDefaultShareText } from './constants';
+import { DEFAULT_PNL_DISPLAY_MODE, getDefaultShareText } from './constants';
 import { ControlPanel } from './ControlPanel';
 import { ShareImageGenerator } from './ShareImageGenerator';
 import { ShareView } from './ShareView';
@@ -42,6 +43,7 @@ function ShareContent({ data, onClose, isMobile }: IShareContentProps) {
     customText: getDefaultShareText(side, token),
     stickerIndex: null,
     backgroundIndex: 0,
+    pnlDisplayMode: DEFAULT_PNL_DISPLAY_MODE,
   });
 
   const { saveImage, copyLink, shareToX } = useShareActions();
