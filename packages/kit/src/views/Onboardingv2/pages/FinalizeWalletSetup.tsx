@@ -311,7 +311,9 @@ function FinalizeWalletSetupPage({
       };
       setSetupError({
         messageId: hardwareError
-          ? hardwareError.messageId || hardwareError.message
+          ? hardwareError.messageId ||
+            hardwareError.message ||
+            ETranslations.global_unknown_error
           : ETranslations.global_unknown_error,
       });
     }
