@@ -308,7 +308,7 @@ function EarnRewardPageWrapper() {
   // Use the filter hook for state management only
   const { filterState, updateFilter } = useRewardFilter();
 
-  const renderHeaderRight = useCallback(() => {
+  const tools = useCallback(() => {
     return (
       <XStack gap="$2">
         <FilterButton filterState={filterState} onFilterChange={updateFilter} />
@@ -466,7 +466,7 @@ function EarnRewardPageWrapper() {
   return (
     <Page>
       {platformEnv.isNative || md ? (
-        <Page.Header title={title} headerRight={renderHeaderRight} />
+        <Page.Header title={title} headerRight={tools} />
       ) : (
         <TabPageHeader
           sceneName={EAccountSelectorSceneName.home}
@@ -493,25 +493,20 @@ function EarnRewardPageWrapper() {
         ) : null}
         <YStack position="relative">
           <RewardTypeTabs />
-          <XStack
-            position="absolute"
-            right="$5"
-            bottom="$2"
-            gap="$2"
-            zIndex={9999}
-            ai="center"
-            jc="center"
-          >
-            <FilterButton
-              filterState={filterState}
-              onFilterChange={updateFilter}
-            />
-            <ExportButton
-              subject={EExportSubject.Onchain}
-              timeRange={filterState.timeRange}
-              inviteCode={filterState.inviteCode}
-            />
-          </XStack>
+
+          {!platformEnv.isNative && !md ? (
+            <XStack
+              position="absolute"
+              right="$5"
+              bottom="$2"
+              gap="$2"
+              zIndex={9999}
+              ai="center"
+              jc="center"
+            >
+              {tools()}
+            </XStack>
+          ) : null}
         </YStack>
         {Content}
         {isLoading || !lists[0] || !lists[1] ? (

@@ -8,7 +8,6 @@ import step1DesktopImg from '@onekeyhq/kit/assets/inviteCode/1-2.png';
 import step2MobileImg from '@onekeyhq/kit/assets/inviteCode/2-1.png';
 import step2DesktopImg from '@onekeyhq/kit/assets/inviteCode/2-2.png';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 interface IInviteCodeStepImageProps {
   /** Step number (1 or 2) */

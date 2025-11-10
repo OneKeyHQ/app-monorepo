@@ -251,8 +251,6 @@ function HardwareSalesRewardPageWrapper() {
         />
       )}
       <Page.Body>
-        {renderHeaderRight()}
-
         {amount === undefined ? (
           <YStack
             position="absolute"
@@ -285,14 +283,15 @@ function HardwareSalesRewardPageWrapper() {
             }
             ListHeaderComponent={
               <>
-                {!md ? (
-                  <YStack px="$5" pt="$5">
+                {!platformEnv.isNative && !md ? (
+                  <XStack px="$5" py="$5" jc="space-between" ai="center">
                     <BreadcrumbSection
                       secondItemLabel={intl.formatMessage({
                         id: ETranslations.referral_referred_type_3,
                       })}
                     />
-                  </YStack>
+                    {renderHeaderRight()}
+                  </XStack>
                 ) : null}
                 {tourTimes === 0 ? (
                   <Alert
