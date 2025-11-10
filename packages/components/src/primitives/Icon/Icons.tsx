@@ -47,6 +47,7 @@ const icons = {
   AkashIllus: () => import("./react/illus/Akash"),
   AlgorandIllus: () => import("./react/illus/Algorand"),
   AllNetworksIllus: () => import("./react/illus/AllNetworks"),
+  ApplePayIllus: () => import("./react/illus/ApplePay"),
   AptosIllus: () => import("./react/illus/Aptos"),
   ArbCircleIllus: () => import("./react/illus/ArbCircle"),
   ArbitrumIllus: () => import("./react/illus/Arbitrum"),
@@ -83,6 +84,7 @@ const icons = {
   FilecoinIllus: () => import("./react/illus/Filecoin"),
   GasIllus: () => import("./react/illus/Gas"),
   GnosisChainIllus: () => import("./react/illus/GnosisChain"),
+  GooglePayIllus: () => import("./react/illus/GooglePay"),
   HandDrawRightDownArrowIllus: () =>
     import("./react/illus/HandDrawRightDownArrow"),
   HardwareAboutDeviceBgIllus: () =>
@@ -137,6 +139,7 @@ const icons = {
     import("./react/illus/TxStatusSuccessCircle"),
   TxStatusWarningCircleIllus: () =>
     import("./react/illus/TxStatusWarningCircle"),
+  VisaIllus: () => import("./react/illus/Visa"),
   WalletconnectLogoIllus: () => import("./react/illus/WalletconnectLogo"),
   ZksyncEraMainnetIllus: () => import("./react/illus/ZksyncEraMainnet"),
   AccessibilityOutline: () => import("./react/outline/Accessibility"),
