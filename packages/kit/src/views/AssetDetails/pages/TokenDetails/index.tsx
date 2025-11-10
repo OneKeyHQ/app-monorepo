@@ -746,7 +746,7 @@ function TokenDetailsView() {
   ]);
 
   useEffect(() => {
-    if (tokens?.length > 0 && tokenMap) {
+    if (tokens?.length > 1 && tokenMap) {
       const details = tokens
         .map((token) => {
           const tokenFiat = tokenMap[token.$key];
