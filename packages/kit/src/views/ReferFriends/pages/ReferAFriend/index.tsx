@@ -26,7 +26,7 @@ function ReferAFriendPage({ postConfig }: IReferAFriendPageProps) {
   );
 
   return (
-    <YStack pb="$5" maxWidth={640} mx="auto" flex={1}>
+    <YStack $gtMd={{ py: '$5' }} pb="$5" maxWidth={640} mx="auto" flex={1}>
       <AnimatePresence exitBeforeEnter>
         {phaseState === EPhaseState.next ? (
           <YStack

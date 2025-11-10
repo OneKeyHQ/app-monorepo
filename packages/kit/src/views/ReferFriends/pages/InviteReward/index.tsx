@@ -6,6 +6,7 @@ import {
   Spinner,
   Stack,
   XStack,
+  YStack,
   useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -66,10 +67,12 @@ function InviteRewardContent({
         }
       />
 
-      <CurrentLevelCard
-        rebateConfig={rebateConfig}
-        rebateLevels={rebateLevels}
-      />
+      <YStack py="$5">
+        <CurrentLevelCard
+          rebateConfig={rebateConfig}
+          rebateLevels={rebateLevels}
+        />
+      </YStack>
 
       <InvitationDetailsSection summaryInfo={summaryInfo} />
     </>

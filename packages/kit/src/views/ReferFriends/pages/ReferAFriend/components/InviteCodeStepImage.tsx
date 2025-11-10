@@ -23,7 +23,7 @@ interface IInviteCodeStepImageProps {
  * - Desktop: 640x284px
  */
 export function InviteCodeStepImage({ step }: IInviteCodeStepImageProps) {
-  const { gtMd } = useMedia();
+  const { gtSm } = useMedia();
   const themeVariant = useThemeVariant();
   const { width: screenWidth } = useWindowDimensions();
 
@@ -40,21 +40,19 @@ export function InviteCodeStepImage({ step }: IInviteCodeStepImageProps) {
   };
 
   // Select image based on step and screen size
-  const selectedImage = imageMap[step]?.[gtMd ? 'desktop' : 'mobile'];
+  const selectedImage = imageMap[step]?.[gtSm ? 'desktop' : 'mobile'];
 
   // Calculate image width based on platform and screen size
   const imageWidth = useMemo(() => {
-    if (gtMd) return 640; // Desktop: fixed width
-    if (platformEnv.isNative) return screenWidth; // Native: screen width minus padding
-    return '100%'; // Web mobile: 100% width
-  }, [gtMd, screenWidth]);
+    if (gtSm) return 640; // Desktop: fixed width
+    return screenWidth; // Native: screen width minus padding
+  }, [gtSm, screenWidth]);
 
   // Calculate image height based on platform
   const imageHeight = useMemo(() => {
-    if (gtMd) return 284; // Desktop: fixed height
-    if (platformEnv.isNative) return screenWidth; // Native: use aspectRatio instead
-    return 'auto'; // Web mobile: auto height
-  }, [gtMd, screenWidth]);
+    if (gtSm) return 284; // Desktop: fixed height
+    return screenWidth; // Native: use aspectRatio instead
+  }, [gtSm, screenWidth]);
 
   return (
     <Image
