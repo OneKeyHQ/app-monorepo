@@ -266,6 +266,8 @@ export const onboardingRouterV2Config: IModalRootNavigatorConfig<EOnboardingV2Ro
         await backgroundApiProxy.serviceV4Migration.clearV4MigrationPayload();
       },
       name: EOnboardingV2Routes.OnboardingV2,
+      rewrite: '/onboarding',
+      exact: true,
       children: OnboardingRouterV2,
     },
   ];

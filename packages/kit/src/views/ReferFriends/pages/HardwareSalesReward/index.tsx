@@ -15,16 +15,29 @@ import {
   Spinner,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import { useSpotlight } from '@onekeyhq/kit/src/components/Spotlight';
+import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
+import { useRedirectWhenNotLoggedIn } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useRedirectWhenNotLoggedIn';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IHardwareSalesRecord } from '@onekeyhq/shared/src/referralCode/type';
+import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import { formatDate, formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+
+import {
+  BreadcrumbSection,
+  ExportButton,
+  FilterButton,
+} from '../../components';
+import { useRewardFilter } from '../../hooks/useRewardFilter';
 
 type ISectionListItem = {
   title?: string;
@@ -61,12 +74,17 @@ const formatSections = (items: IHardwareSalesRecord['items']) => {
   });
 };
 
-export default function HardwareSalesReward() {
+function HardwareSalesRewardPageWrapper() {
+  // Redirect to ReferAFriend page if user is not logged in
+  useRedirectWhenNotLoggedIn();
+
   const [settings] = useSettingsPersistAtom();
   const originalData = useRef<IHardwareSalesRecord['items']>([]);
   const { tourTimes, tourVisited } = useSpotlight(
     ESpotlightTour.hardwareSalesRewardAlert,
   );
+  const intl = useIntl();
+  const { md } = useMedia();
 
   const [isLoading, setIsLoading] = useState(false);
   const [sections, setSections] = useState<
@@ -79,9 +97,21 @@ export default function HardwareSalesReward() {
       }
     | undefined
   >();
-  const fetchSales = useCallback((cursor?: string) => {
-    return backgroundApiProxy.serviceReferralCode.getHardwareSales(cursor);
-  }, []);
+
+  // Use the filter hook for state management only
+  const { filterState, updateFilter } = useRewardFilter();
+
+  const renderHeaderRight = useCallback(() => {
+    return (
+      <XStack gap="$2">
+        <FilterButton filterState={filterState} onFilterChange={updateFilter} />
+        <ExportButton
+          timeRange={filterState.timeRange}
+          inviteCode={filterState.inviteCode}
+        />
+      </XStack>
+    );
+  }, [filterState, updateFilter]);
 
   const fetchSummaryInfo = useCallback(() => {
     return backgroundApiProxy.serviceReferralCode.getSummaryInfo();
@@ -89,29 +119,35 @@ export default function HardwareSalesReward() {
 
   const onRefresh = useCallback(() => {
     setIsLoading(true);
-    void Promise.allSettled([fetchSales(), fetchSummaryInfo()]).then(
-      ([salesResult, summaryResult]) => {
-        if (salesResult.status === 'fulfilled') {
-          const data = salesResult.value;
-          setSections(formatSections(data.items));
-          originalData.current = data.items;
-        }
+    void Promise.allSettled([
+      backgroundApiProxy.serviceReferralCode.getHardwareSales(
+        undefined,
+        filterState.timeRange,
+        filterState.inviteCode,
+      ),
+      fetchSummaryInfo(),
+    ]).then(([salesResult, summaryResult]) => {
+      if (salesResult.status === 'fulfilled') {
+        const data = salesResult.value;
+        originalData.current = data.items;
+        setSections(formatSections(data.items));
+      }
 
-        if (summaryResult.status === 'fulfilled') {
-          const data = summaryResult.value;
-          setAmount({
-            available: data.HardwareSales.available?.[0]?.fiatValue || '0',
-            pending: data.HardwareSales.pending?.[0]?.fiatValue || '0',
-          });
-        }
-        setIsLoading(false);
-      },
-    );
-  }, [fetchSales, fetchSummaryInfo]);
+      if (summaryResult.status === 'fulfilled') {
+        const data = summaryResult.value;
+        setAmount({
+          available: data.HardwareSales.available?.[0]?.fiatValue || '0',
+          pending: data.HardwareSales.pending?.[0]?.fiatValue || '0',
+        });
+      }
+      setIsLoading(false);
+    });
+  }, [fetchSummaryInfo, filterState.timeRange, filterState.inviteCode]);
 
   useEffect(() => {
     onRefresh();
-  }, [fetchSales, fetchSummaryInfo, onRefresh]);
+  }, [onRefresh]);
+
   const renderSectionHeader = useCallback(
     (item: { section: ISectionListItem }) => {
       if (item.section.title) {
@@ -125,8 +161,10 @@ export default function HardwareSalesReward() {
     if (originalData.current.length < 1) {
       return;
     }
-    const data = await fetchSales(
+    const data = await backgroundApiProxy.serviceReferralCode.getHardwareSales(
       originalData.current[originalData.current.length - 1]._id,
+      filterState.timeRange,
+      filterState.inviteCode,
     );
     if (data.items.length > 0) {
       const uniqueItems = data.items.filter(
@@ -138,11 +176,10 @@ export default function HardwareSalesReward() {
       originalData.current.push(...uniqueItems);
       setSections(formatSections(originalData.current));
     }
-  }, [fetchSales]);
+  }, [filterState.timeRange, filterState.inviteCode]);
 
   const debounceFetchMore = useDebouncedCallback(fetchMore, 250);
 
-  const intl = useIntl();
   const renderItem = useCallback(
     ({
       item,
@@ -200,11 +237,19 @@ export default function HardwareSalesReward() {
 
   return (
     <Page>
-      <Page.Header
-        title={intl.formatMessage({
-          id: ETranslations.referral_referred_type_3,
-        })}
-      />
+      {platformEnv.isNative || md ? (
+        <Page.Header
+          title={intl.formatMessage({
+            id: ETranslations.referral_referred_type_3,
+          })}
+          headerRight={renderHeaderRight}
+        />
+      ) : (
+        <TabPageHeader
+          sceneName={EAccountSelectorSceneName.home}
+          tabRoute={ETabRoutes.ReferFriends}
+        />
+      )}
       <Page.Body>
         {amount === undefined ? (
           <YStack
@@ -238,6 +283,16 @@ export default function HardwareSalesReward() {
             }
             ListHeaderComponent={
               <>
+                {!platformEnv.isNative && !md ? (
+                  <XStack px="$5" py="$5" jc="space-between" ai="center">
+                    <BreadcrumbSection
+                      secondItemLabel={intl.formatMessage({
+                        id: ETranslations.referral_referred_type_3,
+                      })}
+                    />
+                    {renderHeaderRight()}
+                  </XStack>
+                ) : null}
                 {tourTimes === 0 ? (
                   <Alert
                     closable
@@ -323,5 +378,19 @@ export default function HardwareSalesReward() {
         )}
       </Page.Body>
     </Page>
+  );
+}
+
+export default function HardwareSalesReward() {
+  return (
+    <AccountSelectorProviderMirror
+      config={{
+        sceneName: EAccountSelectorSceneName.home,
+        sceneUrl: '',
+      }}
+      enabledNum={[0]}
+    >
+      <HardwareSalesRewardPageWrapper />
+    </AccountSelectorProviderMirror>
   );
 }

@@ -4,14 +4,20 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import type {
+  EExportTimeRange,
   IEarnPositionsResponse,
   IEarnRewardResponse,
   IEarnWalletHistory,
+  IExportInviteDataParams,
   IHardwareSalesRecord,
+  IInviteCodeItem,
+  IInviteCodeListResponse,
   IInviteHistory,
+  IInviteLevelDetail,
   IInvitePaidHistory,
   IInvitePostConfig,
   IInviteSummary,
+  IUpdateInviteCodeNoteResponse,
 } from '@onekeyhq/shared/src/referralCode/type';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
@@ -38,6 +44,65 @@ class ServiceReferralCode extends ServiceBase {
       );
     }
     return summary.data.data;
+  }
+
+  @backgroundMethod()
+  async getLevelDetail() {
+    const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Rebate);
+    const response = await client.get<{
+      data: IInviteLevelDetail;
+    }>('/rebate/v1/invite/level-detail');
+    return response.data.data;
+  }
+
+  @backgroundMethod()
+  async createInviteCode() {
+    const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Rebate);
+    const response = await client.post<{
+      data: IInviteCodeItem;
+    }>('/rebate/v1/invite-codes');
+    return response.data.data;
+  }
+
+  @backgroundMethod()
+  async getInviteCodeList() {
+    const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Rebate);
+    const response = await client.get<{
+      data: IInviteCodeListResponse;
+    }>('/rebate/v1/invite-codes');
+    return response.data.data;
+  }
+
+  @backgroundMethod()
+  async updateInviteCodeNote(params: { code: string; note: string }) {
+    const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Rebate);
+    const response = await client.put<{
+      data: IUpdateInviteCodeNoteResponse;
+    }>('/rebate/v1/invite-codes/note', params);
+    return response.data.data;
+  }
+
+  @backgroundMethod()
+  async exportInviteData(params: IExportInviteDataParams) {
+    const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Rebate);
+    const queryParams: {
+      subject: string;
+      timeRange: string;
+      inviteCode?: string;
+    } = {
+      subject: params.subject,
+      timeRange: params.timeRange,
+    };
+    if (params.inviteCode) {
+      queryParams.inviteCode = params.inviteCode;
+    }
+    // API returns CSV string directly, not JSON
+    const response = await client.get<string>('/rebate/v1/invite/export', {
+      params: queryParams,
+      responseType: 'text',
+      autoHandleError: false, // Skip JSON error checking for CSV response
+    } as any);
+    return response.data;
   }
 
   @backgroundMethod()
@@ -121,16 +186,28 @@ class ServiceReferralCode extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getHardwareSales(cursor?: string) {
+  async getHardwareSales(
+    cursor?: string,
+    timeRange?: EExportTimeRange,
+    inviteCode?: string,
+  ) {
     const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Rebate);
     const params: {
       subject: string;
       cursor?: string;
+      timeRange?: string;
+      inviteCode?: string;
     } = {
       subject: 'HardwareSales',
     };
     if (cursor) {
       params.cursor = cursor;
+    }
+    if (timeRange) {
+      params.timeRange = timeRange;
+    }
+    if (inviteCode) {
+      params.inviteCode = inviteCode;
     }
     const response = await client.get<{
       data: IHardwareSalesRecord;
@@ -150,17 +227,30 @@ class ServiceReferralCode extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getEarnReward(cursor?: string, available?: boolean) {
+  async getEarnReward(
+    cursor?: string,
+    available?: boolean,
+    timeRange?: EExportTimeRange,
+    inviteCode?: string,
+  ) {
     const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Rebate);
     const params: {
       cursor?: string;
       status?: string;
+      timeRange?: string;
+      inviteCode?: string;
     } = {};
     if (cursor) {
       params.cursor = cursor;
     }
     if (available) {
       params.status = 'AVAILABLE';
+    }
+    if (timeRange) {
+      params.timeRange = timeRange;
+    }
+    if (inviteCode) {
+      params.inviteCode = inviteCode;
     }
     const response = await client.get<{
       data: IEarnRewardResponse;

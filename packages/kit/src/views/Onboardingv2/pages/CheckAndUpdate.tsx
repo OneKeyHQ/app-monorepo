@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { useFocusEffect } from '@react-navigation/native';
+import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
@@ -19,10 +20,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
 import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
@@ -31,7 +29,6 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import {
   EHardwareCallContext,
   EOneKeyDeviceMode,
-  type IFirmwareVerifyResult,
 } from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -42,6 +39,7 @@ import { useFirmwareUpdateActions } from '../../FirmwareUpdate/hooks/useFirmware
 import { OnboardingLayout } from '../components/OnboardingLayout';
 import {
   useConnectDeviceError,
+  useDesktopBluetoothStatusPolling,
   useDeviceConnect,
 } from '../hooks/useDeviceConnect';
 
@@ -74,7 +72,7 @@ function CheckAndUpdatePage({
     return (deviceData.device as SearchDevice).name;
   }, [deviceData]);
 
-  const { verifyHardware, connectDevice, createHWWallet } = useDeviceConnect();
+  const { verifyHardware, connectDevice } = useDeviceConnect();
 
   const [steps, setSteps] = useState<
     {
@@ -142,8 +140,22 @@ function CheckAndUpdatePage({
   }, [actions, deviceData.device?.connectId]);
 
   const checkDeviceInitialized = useCallback(async () => {
+    const setWarningStep = () => {
+      setSteps((prev) => {
+        const newSteps = [...prev];
+        newSteps[2] = {
+          ...newSteps[2],
+          state: ECheckAndUpdateStepState.Warning,
+        };
+        return newSteps;
+      });
+    };
     setSteps((prev) => {
       const newSteps = [...prev];
+      newSteps[0] = {
+        ...newSteps[0],
+        state: ECheckAndUpdateStepState.Success,
+      };
       newSteps[1] = {
         ...newSteps[1],
         state: ECheckAndUpdateStepState.Success,
@@ -154,23 +166,26 @@ function CheckAndUpdatePage({
       };
       return newSteps;
     });
-
-    const features = await connectDevice(deviceData.device as SearchDevice);
-    if (features) {
-      const deviceMode = await deviceUtils.getDeviceModeFromFeatures({
-        features,
-      });
-
-      if (deviceMode === EOneKeyDeviceMode.notInitialized) {
-        setSteps((prev) => {
-          const newSteps = [...prev];
-          newSteps[2] = {
-            ...newSteps[2],
-            state: ECheckAndUpdateStepState.Warning,
-          };
-          return newSteps;
+    try {
+      const [features] = await Promise.all([
+        connectDevice(deviceData.device as SearchDevice),
+        new Promise<void>((resolve) => {
+          setTimeout(resolve, 1200);
+        }),
+      ]);
+      if (features) {
+        const deviceMode = await deviceUtils.getDeviceModeFromFeatures({
+          features,
         });
+        console.log('deviceMode', deviceMode);
+        if (deviceMode === EOneKeyDeviceMode.notInitialized) {
+          setWarningStep();
+          return;
+        }
       }
+    } catch (error) {
+      setWarningStep();
+      throw error;
     }
     setSteps((prev) => {
       const newSteps = [...prev];
@@ -206,6 +221,10 @@ function CheckAndUpdatePage({
       if (r.hasUpgrade) {
         setSteps((prev) => {
           const newSteps = [...prev];
+          newSteps[0] = {
+            ...newSteps[0],
+            state: ECheckAndUpdateStepState.Success,
+          };
           newSteps[1] = {
             ...newSteps[1],
             state: r.hasUpgrade
@@ -227,6 +246,10 @@ function CheckAndUpdatePage({
       if (firmwareStepStateRef.current === ECheckAndUpdateStepState.Warning) {
         setSteps((prev) => {
           const newSteps = [...prev];
+          newSteps[0] = {
+            ...newSteps[0],
+            state: ECheckAndUpdateStepState.Success,
+          };
           newSteps[1] = {
             ...newSteps[1],
             state: ECheckAndUpdateStepState.InProgress,
@@ -235,14 +258,36 @@ function CheckAndUpdatePage({
         });
         setTimeout(() => {
           void checkFirmwareUpdate();
-        }, 150);
+        });
       }
     }, [checkFirmwareUpdate]),
   );
 
-  useEffect(() => {
-    const callback = async (result: IFirmwareVerifyResult) => {
-      console.log('EmitFirmwareVerifyResult', result);
+  useDesktopBluetoothStatusPolling(tabValue, noop);
+
+  const handleVerifyHardware = useCallback(async () => {
+    setSteps((prev) => {
+      const newSteps = [...prev];
+      newSteps[0] = {
+        ...newSteps[0],
+        state: ECheckAndUpdateStepState.InProgress,
+      };
+      return newSteps;
+    });
+
+    try {
+      const [result] = await Promise.all([
+        verifyHardware(deviceData.device as SearchDevice, tabValue),
+        new Promise<void>((resolve) => {
+          setTimeout(resolve, 1200);
+        }),
+      ]);
+      console.log('verifyHardware', result);
+      if (!result) {
+        throw new OneKeyLocalError(
+          intl.formatMessage({ id: ETranslations.global_unknown_error }),
+        );
+      }
       setSteps((prev) => {
         const newSteps = [...prev];
         newSteps[0] = {
@@ -250,7 +295,7 @@ function CheckAndUpdatePage({
           state: result.verified
             ? ECheckAndUpdateStepState.Success
             : ECheckAndUpdateStepState.Error,
-          errorMessage: result.result?.message ?? undefined,
+          errorMessage: result.verified ? undefined : result.result?.message,
         };
         if (result.verified) {
           newSteps[1] = {
@@ -261,42 +306,25 @@ function CheckAndUpdatePage({
         return newSteps;
       });
       if (result.verified) {
-        await checkFirmwareUpdate();
+        setTimeout(() => {
+          void checkFirmwareUpdate();
+        }, 150);
       }
-    };
-    appEventBus.on(EAppEventBusNames.EmitFirmwareVerifyResult, callback);
-    return () => {
-      appEventBus.off(EAppEventBusNames.EmitFirmwareVerifyResult, callback);
-    };
-  }, [checkFirmwareUpdate]);
-
-  const handleCheck = useCallback(async () => {
-    // Set first step to inProgress
-    setSteps((prev) => {
-      const newSteps = [...prev];
-      newSteps[0] = {
-        ...newSteps[0],
-        state: ECheckAndUpdateStepState.InProgress,
-      };
-      return newSteps;
-    });
-
-    await verifyHardware(deviceData.device as SearchDevice, tabValue);
-  }, [verifyHardware, deviceData.device, tabValue]);
+    } catch (error) {
+      setSteps((prev) => {
+        const newSteps = [...prev];
+        newSteps[0] = {
+          ...newSteps[0],
+          state: ECheckAndUpdateStepState.Error,
+        };
+        return newSteps;
+      });
+    }
+  }, [verifyHardware, deviceData.device, tabValue, intl, checkFirmwareUpdate]);
 
   const handleRetry = useCallback(async () => {
-    // Set first step to inProgress
-    setSteps((prev) => {
-      const newSteps = [...prev];
-      newSteps[0] = {
-        ...newSteps[0],
-        state: ECheckAndUpdateStepState.InProgress,
-      };
-      return newSteps;
-    });
-
-    await handleCheck();
-  }, [handleCheck]);
+    await handleVerifyHardware();
+  }, [handleVerifyHardware]);
 
   const handleDeviceSetupDone = useCallback(() => {
     void checkDeviceInitialized();
@@ -750,7 +778,7 @@ function CheckAndUpdatePage({
                   animateOnly={['opacity', 'transform']}
                   variant="primary"
                   size="large"
-                  onPress={handleCheck}
+                  onPress={handleVerifyHardware}
                   exitStyle={{
                     opacity: 0,
                     scale: 0.97,

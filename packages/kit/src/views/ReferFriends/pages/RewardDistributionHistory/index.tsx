@@ -13,17 +13,24 @@ import {
   Spinner,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { openTransactionDetailsUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
+import { useRedirectWhenNotLoggedIn } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useRedirectWhenNotLoggedIn';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   IInvitePaidHistory,
   IInvitePaidItem,
 } from '@onekeyhq/shared/src/referralCode/type';
+import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 type ISectionListItem = {
   title?: string;
@@ -61,7 +68,10 @@ const formatSections = (items: IInvitePaidHistory['items']) => {
   });
 };
 
-export default function RewardDistributionHistory() {
+function RewardDistributionHistoryPageWrapper() {
+  // Redirect to ReferAFriend page if user is not logged in
+  useRedirectWhenNotLoggedIn();
+
   const originalData = useRef<IInvitePaidHistory['items']>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [sections, setSections] = useState<
@@ -108,6 +118,7 @@ export default function RewardDistributionHistory() {
   // }, [fetchInvitePaidList]);
 
   const intl = useIntl();
+  const { md } = useMedia();
   const renderItem = useCallback(
     ({ item }: { item: IInvitePaidItem; section: ISectionListItem }) => {
       return (
@@ -177,11 +188,18 @@ export default function RewardDistributionHistory() {
   );
   return (
     <Page>
-      <Page.Header
-        title={intl.formatMessage({
-          id: ETranslations.referral_reward_history,
-        })}
-      />
+      {platformEnv.isNative || md ? (
+        <Page.Header
+          title={intl.formatMessage({
+            id: ETranslations.referral_reward_history,
+          })}
+        />
+      ) : (
+        <TabPageHeader
+          sceneName={EAccountSelectorSceneName.home}
+          tabRoute={ETabRoutes.ReferFriends}
+        />
+      )}
       <Page.Body>
         {sections === undefined ? (
           <YStack
@@ -220,5 +238,19 @@ export default function RewardDistributionHistory() {
         )}
       </Page.Body>
     </Page>
+  );
+}
+
+export default function RewardDistributionHistory() {
+  return (
+    <AccountSelectorProviderMirror
+      config={{
+        sceneName: EAccountSelectorSceneName.home,
+        sceneUrl: '',
+      }}
+      enabledNum={[0]}
+    >
+      <RewardDistributionHistoryPageWrapper />
+    </AccountSelectorProviderMirror>
   );
 }

@@ -78,7 +78,10 @@ import { WalletAvatar } from '../../../components/WalletAvatar';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import { OnboardingLayout } from '../components/OnboardingLayout';
-import { useDeviceConnect } from '../hooks/useDeviceConnect';
+import {
+  EBluetoothStatus,
+  useDesktopBluetoothStatusPolling,
+} from '../hooks/useDeviceConnect';
 import {
   getDeviceLabel,
   getForceTransportType,
@@ -113,7 +116,6 @@ function BridgeNotInstalledDialogContent(_props: { error: NeedOneKeyBridge }) {
 interface IDeviceConnectionProps {
   tabValue: EConnectDeviceChannel;
   deviceTypeItems: EDeviceType[];
-  onDeviceConnect: (device: SearchDevice) => Promise<void>;
 }
 
 // Common device list and connection logic
@@ -332,18 +334,28 @@ function useDeviceConnection({
     [searchedDevices],
   );
 
-  return {
-    connectStatus,
-    setConnectStatus,
-    searchedDevices,
-    devicesData,
-    isCheckingDeviceLoading,
-    setIsChecking,
-    scanDevice,
-    stopScan,
-    ensureStopScan,
-    deviceScanner,
-  };
+  return useMemo(
+    () => ({
+      connectStatus,
+      setConnectStatus,
+      searchedDevices,
+      devicesData,
+      isCheckingDeviceLoading,
+      setIsChecking,
+      scanDevice,
+      stopScan,
+    }),
+    [
+      connectStatus,
+      setConnectStatus,
+      searchedDevices,
+      devicesData,
+      isCheckingDeviceLoading,
+      setIsChecking,
+      scanDevice,
+      stopScan,
+    ],
+  );
 }
 
 function ConnectionIndicatorCard({ children }: { children: React.ReactNode }) {
@@ -566,7 +578,13 @@ export const ConnectionIndicator = Object.assign(ConnectionIndicatorRoot, {
   Footer: connectionIndicatorFooter,
 });
 
-function BluetoothCard() {
+function BluetoothCard({
+  onConnect,
+  connectStatus,
+}: {
+  onConnect?: () => Promise<void>;
+  connectStatus?: EConnectionStatus;
+}) {
   const intl = useIntl();
   return (
     <ConnectionIndicator.Card>
@@ -617,6 +635,20 @@ function BluetoothCard() {
                 id: ETranslations.bluetooth_keep_near,
               })}
         </ConnectionIndicator.Title>
+        {connectStatus === EConnectionStatus.init ? (
+          <>
+            <SizableText color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.device_select_device_popup,
+              })}
+            </SizableText>
+            <Button variant="primary" mt="$2" onPress={onConnect}>
+              {intl.formatMessage({
+                id: ETranslations.global_start_connection,
+              })}
+            </Button>
+          </>
+        ) : null}
       </ConnectionIndicator.Content>
     </ConnectionIndicator.Card>
   );
@@ -694,7 +726,6 @@ function DeviceVideo({
 
 function USBOrBLEConnectionIndicator({
   tabValue,
-  onDeviceConnect,
   deviceTypeItems,
 }: IDeviceConnectionProps) {
   const themeVariant = useThemeVariant();
@@ -806,14 +837,17 @@ function USBOrBLEConnectionIndicator({
             deviceSerialNumberFromUI: device.serialNumber,
           });
         if (connectedDevice.device) {
-          void onDeviceConnect(connectedDevice.device as SearchDevice);
+          navigation.push(EOnboardingPagesV2.CheckAndUpdate, {
+            deviceData: connectedDevice,
+            tabValue,
+          });
         }
       }
     } catch (error) {
       console.error('onConnectWebDevice error:', error);
       setIsChecking(false);
     }
-  }, [onDeviceConnect, promptWebUsbDeviceAccess, tabValue, setIsChecking]);
+  }, [setIsChecking, tabValue, promptWebUsbDeviceAccess, navigation]);
 
   useEffect(() => {
     if (
@@ -843,13 +877,17 @@ function USBOrBLEConnectionIndicator({
     return sortDevicesData(devicesData, deviceTypeItems);
   }, [deviceTypeItems, devicesData]);
 
+  console.log('connectStatus', connectStatus);
   console.log('sortedDevicesData', sortedDevicesData);
   return (
     <>
       <TroubleShootingButton type="usb" />
       <ConnectionIndicator>
         {isBLE ? (
-          <BluetoothCard />
+          <BluetoothCard
+            onConnect={startBLEConnection}
+            connectStatus={connectStatus}
+          />
         ) : (
           <ConnectionIndicator.Card>
             <ConnectionIndicator.Animation>
@@ -877,11 +915,7 @@ function USBOrBLEConnectionIndicator({
                   <Button
                     variant="primary"
                     mt="$2"
-                    onPress={
-                      hardwareTransportType === EHardwareTransportType.WEBUSB
-                        ? onConnectWebDevice
-                        : startBLEConnection
-                    }
+                    onPress={onConnectWebDevice}
                   >
                     {intl.formatMessage({
                       id: ETranslations.global_start_connection,
@@ -937,124 +971,13 @@ function USBOrBLEConnectionIndicator({
 
 function BluetoothConnectionIndicator({
   deviceTypeItems,
-  onDeviceConnect,
   tabValue,
 }: IDeviceConnectionProps) {
   const intl = useIntl();
   const isFocused = useIsFocused();
   const navigation = useAppNavigation();
-  const [bluetoothStatus, setBluetoothStatus] = useState<
-    | 'enabled'
-    | 'disabledInSystem'
-    | 'disabledInApp'
-    | 'checking'
-    | 'noSystemPermission'
-  >('checking');
-
-  const nobleInitializedRef = useRef(false);
-  const isConnectingRef = useRef(false);
-  const pollingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  const checkBluetoothStatus = useCallback(async () => {
-    try {
-      // Ensure Noble is initialized before checking status
-      if (!nobleInitializedRef.current) {
-        try {
-          console.log(
-            'onboarding checkBluetoothStatus: noble pre-initialization',
-          );
-          await globalThis?.desktopApi?.nobleBle?.checkAvailability();
-        } catch (error) {
-          console.log(
-            'Noble pre-initialization completed with expected error:',
-            error,
-          );
-        }
-        nobleInitializedRef.current = true;
-      }
-
-      // Desktop platform: check desktop bluetooth availability
-      const enableDesktopBluetoothInApp =
-        await backgroundApiProxy.serviceSetting.getEnableDesktopBluetooth();
-      if (!enableDesktopBluetoothInApp) {
-        console.log('onboarding checkBluetoothStatus: disabledInApp');
-        setBluetoothStatus('disabledInApp');
-        return;
-      }
-
-      const available =
-        await globalThis?.desktopApi?.nobleBle?.checkAvailability();
-      if (available.state === 'unknown') {
-        return;
-      }
-      if (available.state === 'unauthorized') {
-        console.log('onboarding checkBluetoothStatus: noSystemPermission');
-        setBluetoothStatus('noSystemPermission');
-        return;
-      }
-      if (!available?.available) {
-        console.log('onboarding checkBluetoothStatus: disabledInSystem');
-        setBluetoothStatus('disabledInSystem');
-        return;
-      }
-
-      console.log('onboarding checkBluetoothStatus: enabled');
-      await backgroundApiProxy.serviceSetting.setDesktopBluetoothAtom({
-        isRequestedPermission: true,
-      });
-      // All checks passed
-      setBluetoothStatus('enabled');
-    } catch (error) {
-      console.error('Desktop bluetooth check failed:', error);
-      setBluetoothStatus('disabledInSystem');
-    }
-  }, []);
-
-  const startBluetoothStatusPolling = useCallback(() => {
-    if (pollingTimerRef.current) {
-      clearInterval(pollingTimerRef.current);
-    }
-
-    pollingTimerRef.current = setInterval(() => {
-      // Don't poll if connecting to a device
-      if (!isConnectingRef.current) {
-        void checkBluetoothStatus();
-      }
-    }, 1500);
-  }, [checkBluetoothStatus]);
-
-  const stopBluetoothStatusPolling = useCallback(() => {
-    if (pollingTimerRef.current) {
-      clearInterval(pollingTimerRef.current);
-      pollingTimerRef.current = null;
-    }
-  }, []);
-
-  // Enhanced device connection wrapper for Bluetooth
-  const handleBluetoothDeviceConnect = useCallback(
-    async (device: SearchDevice) => {
-      // Immediately stop bluetooth polling and scanning when connecting
-      isConnectingRef.current = true;
-      stopBluetoothStatusPolling();
-
-      try {
-        await onDeviceConnect(device);
-      } catch (error) {
-        // Resume polling on error only if still focused
-        if (isFocused) {
-          startBluetoothStatusPolling();
-        }
-        throw error;
-      } finally {
-        isConnectingRef.current = false;
-      }
-    },
-    [
-      onDeviceConnect,
-      stopBluetoothStatusPolling,
-      startBluetoothStatusPolling,
-      isFocused,
-    ],
+  const [bluetoothStatus, setBluetoothStatus] = useState<EBluetoothStatus>(
+    EBluetoothStatus.checking,
   );
 
   // Use shared device connection logic for Bluetooth
@@ -1068,6 +991,10 @@ function BluetoothConnectionIndicator({
     void globalThis.desktopApiProxy.bluetooth.openPrivacySettings();
   }, []);
 
+  const { checkBluetoothStatus } = useDesktopBluetoothStatusPolling(
+    tabValue,
+    setBluetoothStatus,
+  );
   const handleAppEnableDesktopBluetooth = useCallback(async () => {
     try {
       await backgroundApiProxy.serviceSetting.setEnableDesktopBluetooth(true);
@@ -1082,28 +1009,9 @@ function BluetoothConnectionIndicator({
     void globalThis.desktopApiProxy.bluetooth.openBluetoothSettings();
   }, []);
 
-  // Check bluetooth status on mount and when focused, start polling
-  useEffect(() => {
-    if (isFocused) {
-      void checkBluetoothStatus();
-      startBluetoothStatusPolling();
-    } else {
-      stopBluetoothStatusPolling();
-    }
-
-    return () => {
-      stopBluetoothStatusPolling();
-    };
-  }, [
-    checkBluetoothStatus,
-    isFocused,
-    startBluetoothStatusPolling,
-    stopBluetoothStatusPolling,
-  ]);
-
   // Start scanning when bluetooth is enabled and focused
   useEffect(() => {
-    if (isFocused && bluetoothStatus === 'enabled') {
+    if (isFocused && bluetoothStatus === EBluetoothStatus.enabled) {
       void scanDevice();
     } else if (!isFocused) {
       stopScan();
@@ -1114,16 +1022,15 @@ function BluetoothConnectionIndicator({
   useEffect(
     () => () => {
       stopScan();
-      stopBluetoothStatusPolling();
     },
-    [stopScan, stopBluetoothStatusPolling],
+    [stopScan],
   );
 
   const sortedDevicesData = useMemo(() => {
     return sortDevicesData(devicesData, deviceTypeItems);
   }, [deviceTypeItems, devicesData]);
 
-  if (bluetoothStatus === 'disabledInApp') {
+  if (bluetoothStatus === EBluetoothStatus.disabledInApp) {
     return (
       <Empty
         title={intl.formatMessage({ id: ETranslations.bluetooth_disabled })}
@@ -1141,7 +1048,7 @@ function BluetoothConnectionIndicator({
     );
   }
 
-  if (bluetoothStatus === 'noSystemPermission') {
+  if (bluetoothStatus === EBluetoothStatus.noSystemPermission) {
     return (
       <Empty
         title={intl.formatMessage({
@@ -1161,7 +1068,7 @@ function BluetoothConnectionIndicator({
     );
   }
 
-  if (bluetoothStatus === 'disabledInSystem') {
+  if (bluetoothStatus === EBluetoothStatus.disabledInSystem) {
     return (
       <Empty
         title={intl.formatMessage({ id: ETranslations.bluetooth_disabled })}
@@ -1307,15 +1214,6 @@ function ConnectYourDevicePage({
   }, [deviceTypeItems, intl]);
   const [tabValue, setTabValue] = useState(tabOptions[0]?.value);
 
-  const { onDeviceConnect } = useDeviceConnect();
-
-  const handleDeviceConnect = useCallback(
-    async (device: SearchDevice) => {
-      await onDeviceConnect(device, tabValue);
-    },
-    [onDeviceConnect, tabValue],
-  );
-
   return (
     <Page>
       <OnboardingLayout>
@@ -1351,14 +1249,12 @@ function ConnectYourDevicePage({
               <USBOrBLEConnectionIndicator
                 tabValue={tabValue}
                 deviceTypeItems={deviceTypeItems}
-                onDeviceConnect={handleDeviceConnect}
               />
             ) : null}
             {tabValue === EConnectDeviceChannel.bluetooth ? (
               <BluetoothConnectionIndicator
                 tabValue={tabValue}
                 deviceTypeItems={deviceTypeItems}
-                onDeviceConnect={handleDeviceConnect}
               />
             ) : null}
           </OnboardingLayout.ConstrainedContent>
