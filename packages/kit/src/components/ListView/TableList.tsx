@@ -498,23 +498,30 @@ function TableListRow<T>({
           </Stack>
         ) : null}
         {expandable ? (
-          <Stack width="$5" flexShrink={0} ai="center" jc="center">
+          <Stack
+            width="$5"
+            flexShrink={0}
+            ai="center"
+            jc="center"
+            animation="quick"
+            rotate={isExpanded ? '0deg' : '180deg'}
+          >
             <Icon
               name="ChevronDownSmallOutline"
               size="small"
               color="$iconSubdued"
-              rotation={isExpanded ? 0 : -90}
             />
           </Stack>
         ) : null}
       </ListItem>
-      {expandable && isExpanded && expandable.renderExpandedContent ? (
+      {expandable && expandable.renderExpandedContent ? (
         <YStack
           px="$5"
-          py="$4"
-          bg="$bgSubdued"
-          borderBottomLeftRadius="$3"
-          borderBottomRightRadius="$3"
+          py={isExpanded ? '$4' : '$0'}
+          animation="quick"
+          opacity={isExpanded ? 1 : 0}
+          maxHeight={isExpanded ? 1000 : 0}
+          overflow="hidden"
         >
           {expandable.renderExpandedContent(item, index)}
         </YStack>

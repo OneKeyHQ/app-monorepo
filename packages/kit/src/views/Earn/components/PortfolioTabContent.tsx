@@ -69,8 +69,9 @@ const WrappedActionButton = ({
   return (
     <Button
       p="0"
+      ai="center"
       variant="link"
-      size="small"
+      size="medium"
       loading={loading}
       disabled={loading || reward.button.disabled}
       cursor={reward.button.disabled ? 'not-allowed' : 'pointer'}
@@ -107,7 +108,7 @@ const DepositField = ({
   asset: IEarnPortfolioInvestment['assets'][number];
 }) => {
   return (
-    <XStack>
+    <XStack ai="center">
       <Token
         size="md"
         borderRadius="$2"
@@ -142,7 +143,7 @@ const AssetStatusField = ({
   return (
     <YStack gap="$1">
       {asset.assetsStatus?.map((status, index) => (
-        <XStack key={index}>
+        <XStack key={index} ai="center">
           <EarnText
             key={index}
             mr="$2"
@@ -171,7 +172,7 @@ const ActionField = ({
   return (
     <YStack gap="$1">
       {asset.rewardAssets?.map((reward, index) => (
-        <XStack key={index}>
+        <XStack key={index} ai="center">
           <EarnText mr="$1" size="$bodyLgMedium" text={reward.title} />
           <EarnText
             mr="$2"
@@ -192,6 +193,7 @@ const ProtocolHeader = ({
   portfolioItem: IEarnPortfolioInvestment;
 }) => {
   const currencyInfo = useCurrency();
+  const media = useMedia();
 
   return (
     <YStack mb="$1" px="$5">
@@ -221,21 +223,40 @@ const ProtocolHeader = ({
             // For airdrops, we need the staked token symbol to look up staking config
             // Use the first staked asset's symbol from the same protocol
             const stakedSymbol = portfolioItem.assets[0]?.token.info.symbol;
+            const Wrapper = media.gtSm ? XStack : YStack;
 
             return (
-              <XStack key={index} ai="center">
-                <Token
-                  size="xs"
-                  borderRadius="$2"
-                  mr="$1.5"
-                  tokenImageUri={airdrop.token.info.logoURI}
-                />
+              <Wrapper
+                key={index}
+                ai="flex-start"
+                gap="$1.5"
+                $gtMd={{
+                  ai: 'center',
+                  minHeight: '$9',
+                  gap: '$2.5',
+                }}
+              >
+                {media.gtMd ? (
+                  <Token
+                    size="xs"
+                    borderRadius="$2"
+                    mr="$1.5"
+                    tokenImageUri={airdrop.token.info.logoURI}
+                  />
+                ) : null}
                 {airdrop.airdropAssets.map((reward, rewardIndex) => {
                   const needDivider =
-                    rewardIndex < airdrop.airdropAssets.length - 1;
+                    rewardIndex < airdrop.airdropAssets.length - 1 &&
+                    media.gtMd;
 
                   return (
-                    <XStack key={rewardIndex} ai="center">
+                    <XStack
+                      key={rewardIndex}
+                      ai="center"
+                      $gtMd={{
+                        h: '$9',
+                      }}
+                    >
                       <EarnText
                         mr="$1"
                         size="$bodyLgMedium"
@@ -267,7 +288,7 @@ const ProtocolHeader = ({
                     </XStack>
                   );
                 })}
-              </XStack>
+              </Wrapper>
             );
           })}
         </YStack>
@@ -389,7 +410,7 @@ const PortfolioItemComponent = ({
       <TableList<IEarnPortfolioInvestment['assets'][number]>
         data={portfolioItem.assets}
         columns={columns}
-        withHeader
+        withHeader={media.gtSm}
         tableLayout
         defaultSortKey="deposits"
         defaultSortDirection="desc"
@@ -401,33 +422,71 @@ const PortfolioItemComponent = ({
           !media.gtSm
             ? {
                 renderExpandedContent: (asset) => (
-                  <YStack gap="$4">
+                  <YStack gap="$5">
                     {/* Est. 24h earnings */}
-                    <YStack gap="$2">
-                      <SizableText size="$bodyMd" color="$textSubdued">
-                        Est. 24h earnings
-                      </SizableText>
+                    <XStack ai="center" gap="$1">
                       <EarnText
                         size="$bodyLgMedium"
                         text={asset.earnings24h?.title}
                       />
-                    </YStack>
-
-                    {/* Asset status */}
-                    <YStack gap="$2">
                       <SizableText size="$bodyMd" color="$textSubdued">
-                        Asset status
+                        Est. 24h earning
                       </SizableText>
-                      <AssetStatusField asset={asset} />
-                    </YStack>
+                    </XStack>
 
-                    {/* Claimable */}
-                    <YStack gap="$2">
-                      <SizableText size="$bodyMd" color="$textSubdued">
-                        Claimable
-                      </SizableText>
-                      <ActionField asset={asset} />
-                    </YStack>
+                    {/* Asset status list */}
+                    {asset.assetsStatus?.map((status, index) => (
+                      <XStack key={index} ai="center">
+                        <EarnText size="$bodyLgMedium" text={status.title} />
+                        <EarnText
+                          ml="$2"
+                          size="$bodyLgMedium"
+                          color="$textSubdued"
+                          text={status.description}
+                        />
+                        <EarnTooltip tooltip={status.tooltip} />
+                      </XStack>
+                    ))}
+
+                    {/* Reward assets (claimable rewards) */}
+                    {asset.rewardAssets?.map((reward, index) => (
+                      <XStack key={index} ai="center" jc="space-between">
+                        <XStack ai="center" gap="$2">
+                          <EarnText size="$bodyLgMedium" text={reward.title} />
+                          <EarnText
+                            size="$bodyLgMedium"
+                            color="$textSubdued"
+                            text={reward.description}
+                          />
+                          <EarnTooltip tooltip={reward.tooltip} />
+                        </XStack>
+                        <WrappedActionButton asset={asset} reward={reward} />
+                      </XStack>
+                    ))}
+
+                    {/* Buttons */}
+                    <XStack gap="$3">
+                      <Button
+                        flex={1}
+                        size="medium"
+                        variant="secondary"
+                        onPress={async () => {
+                          await handleManagePress(asset);
+                        }}
+                      >
+                        Manage
+                      </Button>
+                      <Button
+                        flex={1}
+                        size="medium"
+                        variant="secondary"
+                        onPress={async () => {
+                          await handleRowPress(asset);
+                        }}
+                      >
+                        View details
+                      </Button>
+                    </XStack>
                   </YStack>
                 ),
               }
