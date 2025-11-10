@@ -24,6 +24,7 @@ import {
   useSwapQuoteCurrentSelectAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
+  useSwapSelectTokenNetworkAtom,
   useSwapToAnotherAccountAddressAtom,
 } from '../../../states/jotai/contexts/swap';
 
@@ -191,6 +192,7 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
   const [{ swapToAnotherAccountSwitchOn }] = useSettingsAtom();
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
+  const [currentSelectNetwork] = useSwapSelectTokenNetworkAtom();
   const [accountForAllNet, setAccountForAllNet] = useState<
     INetworkAccount | undefined
   >(undefined);
@@ -203,13 +205,21 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
 
   const tokenNetworkId = useMemo(() => {
     return type === ESwapDirectionType.FROM
-      ? fromToken?.networkId
-      : toToken?.networkId;
-  }, [type, fromToken?.networkId, toToken?.networkId]);
+      ? currentSelectNetwork?.networkId ?? fromToken?.networkId ?? ''
+      : currentSelectNetwork?.networkId ?? toToken?.networkId ?? '';
+  }, [
+    type,
+    fromToken?.networkId,
+    toToken?.networkId,
+    currentSelectNetwork?.networkId,
+  ]);
   useEffect(() => {
     void (async () => {
       if (isAllNetwork) {
-        if (fromToken?.networkId && type === ESwapDirectionType.FROM) {
+        if (
+          (fromToken?.networkId || currentSelectNetwork?.networkId) &&
+          type === ESwapDirectionType.FROM
+        ) {
           const fromTokenAccount =
             await backgroundApiProxy.serviceAccount.getNetworkAccount({
               deriveType: activeAccount.deriveType || 'default',
@@ -218,11 +228,15 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
                 ? undefined
                 : activeAccount.account?.id,
               dbAccount: activeAccount.dbAccount,
-              networkId: fromToken?.networkId,
+              networkId:
+                currentSelectNetwork?.networkId ?? fromToken?.networkId ?? '',
             });
           setAccountForAllNet(fromTokenAccount);
         }
-        if (toToken?.networkId && type === ESwapDirectionType.TO) {
+        if (
+          (toToken?.networkId || currentSelectNetwork?.networkId) &&
+          type === ESwapDirectionType.TO
+        ) {
           const toTokenAccount =
             await backgroundApiProxy.serviceAccount.getNetworkAccount({
               deriveType: activeAccount.deriveType || 'default',
@@ -231,7 +245,8 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
                 ? undefined
                 : activeAccount.account?.id,
               dbAccount: activeAccount.dbAccount,
-              networkId: toToken?.networkId,
+              networkId:
+                currentSelectNetwork?.networkId ?? toToken?.networkId ?? '',
             });
           setAccountForAllNet(toTokenAccount);
         }
@@ -239,14 +254,15 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
     })();
   }, [
     fromToken?.networkId,
-    activeAccount.network?.id,
-    activeAccount.indexedAccount?.id,
-    activeAccount.account?.id,
-    activeAccount.deriveType,
-    activeAccount.dbAccount,
+    activeAccount?.network?.id,
+    activeAccount?.indexedAccount?.id,
+    activeAccount?.account?.id,
+    activeAccount?.deriveType,
+    activeAccount?.dbAccount,
     type,
     toToken?.networkId,
     isAllNetwork,
+    currentSelectNetwork?.networkId,
   ]);
   const [swapToAnotherAccountAddressAtom] =
     useSwapToAnotherAccountAddressAtom();
@@ -297,6 +313,13 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
         activeAccount: { ...activeAccount },
       };
     }
+    if (isAllNetwork && accountForAllNet?.networks?.includes(tokenNetworkId)) {
+      return {
+        ...res,
+        address: accountForAllNet?.addressDetail?.address,
+        networkId: tokenNetworkId,
+      };
+    }
     return res;
   }, [
     type,
@@ -306,6 +329,7 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
     swapToAnotherAccountAddressAtom.accountInfo,
     activeAccount,
     isAllNetwork,
+    accountForAllNet?.networks,
     accountForAllNet?.addressDetail?.address,
     tokenNetworkId,
   ]);
