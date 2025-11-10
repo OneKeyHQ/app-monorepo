@@ -161,7 +161,7 @@ const TAB_TITLE_TRANSLATION_MAP: Record<ETabRoutes, ETranslations | null> = {
   [ETabRoutes.MultiTabBrowser]: ETranslations.global_browser,
   [ETabRoutes.Developer]: ETranslations.global_homescreen,
   [ETabRoutes.DeviceManagement]: ETranslations.global_homescreen,
-  [ETabRoutes.ReferFriends]: ETranslations.global_homescreen,
+  [ETabRoutes.ReferFriends]: ETranslations.sidebar_refer_a_friend,
 };
 
 export const useRouterConfig = () => {

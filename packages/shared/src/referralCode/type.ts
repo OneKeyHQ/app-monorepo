@@ -256,3 +256,125 @@ export interface IInvitePostConfig {
     };
   };
 }
+
+export interface IInviteLevelProgressMeta {
+  current: string;
+  currentFiatValue: string;
+  threshold: string;
+  thresholdFiatValue: string;
+  progress: string;
+  labelKey?: string;
+  label?: string;
+  commissionRatesLabelKey?: string;
+  commissionRatesLabel?: string;
+  levelUpLabelKey?: string;
+  levelUpLabel?: string;
+}
+
+export interface IInviteLevelUpgradeCondition {
+  subject: string;
+  current: string;
+  currentFiatValue: string;
+  threshold: string;
+  thresholdFiatValue: string;
+  progress: string;
+  labelKey?: string;
+  label?: string;
+  commissionRatesLabelKey?: string;
+  commissionRatesLabel?: string;
+  levelUpLabelKey?: string;
+  levelUpLabel?: string;
+}
+
+export interface IInviteLevelCommissionRate {
+  rebate: number;
+  discount: number;
+  enabled: boolean;
+  hasThreshold: boolean;
+  threshold?: number;
+  labelKey?: string;
+  label?: string;
+  commissionRatesLabelKey?: string;
+  commissionRatesLabel?: string;
+  levelUpLabelKey?: string;
+  levelUpLabel?: string;
+}
+
+export interface IInviteLevelItem {
+  level: number;
+  icon: string;
+  emoji: string;
+  labelKey: string;
+  label: string;
+  isCurrent: boolean;
+  upgradeConditions: IInviteLevelUpgradeCondition[];
+  commissionRates:
+    | Record<string, IInviteLevelCommissionRate>
+    | IInviteLevelCommissionRate[];
+}
+
+export interface IInviteLevelDetail {
+  currentLevel: number;
+  levelProgress:
+    | Record<string, IInviteLevelProgressMeta>
+    | IInviteLevelProgressMeta[];
+  levels: IInviteLevelItem[];
+}
+
+export interface IInviteCodeItem {
+  userId: string;
+  code: string;
+  note: string;
+  isPrimary: boolean;
+  _id: string;
+  createdAt: string;
+  updatedAt: string;
+  __v: number;
+}
+
+export interface IInviteCodeListItem {
+  userId: string;
+  code: string;
+  note: string;
+  isPrimary: boolean;
+  createdAt: string;
+  createdDate: string;
+  salesOrders: number;
+  onchainWallets: number;
+  cumulativeRewards: string;
+  cumulativeRewardsFiatValue: string;
+  inviteUrl: string;
+}
+
+export interface IInviteCodeListResponse {
+  items: IInviteCodeListItem[];
+  total: number;
+  maxCodes: number;
+  remainingCodes: number;
+}
+
+export interface IUpdateInviteCodeNoteResponse {
+  success: boolean;
+}
+
+// Export functionality types
+export enum EExportSubject {
+  HardwareSales = 'HardwareSales',
+  Onchain = 'Onchain',
+}
+
+export enum EExportTimeRange {
+  All = 'all',
+  OneMonth = '1month',
+  ThreeMonths = '3months',
+  SixMonths = '6months',
+}
+
+export interface IExportInviteDataParams {
+  subject: EExportSubject;
+  timeRange: EExportTimeRange;
+  inviteCode?: string;
+}
+
+// API returns CSV string directly
+export type IExportInviteDataResponse = string;
