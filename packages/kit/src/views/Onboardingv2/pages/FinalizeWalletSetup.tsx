@@ -226,10 +226,14 @@ function FinalizeWalletSetupPage({
       return;
     }
     isProcessing.current = true;
-    if (stepQueueIndex.current !== stepQueue.current.length - 1) {
-      stepQueueIndex.current += 1;
-    }
     const nextStep = stepQueue.current[stepQueueIndex.current];
+    if (!nextStep) {
+      setTimeout(() => {
+        isProcessing.current = false;
+        void processNextStep();
+      }, 250);
+      return;
+    }
     if (nextStep === EFinalizeWalletSetupSteps.Ready) {
       setTimeout(() => {
         void handleWalletSetupReady();
@@ -238,6 +242,7 @@ function FinalizeWalletSetupPage({
     }
     progress.value = 0;
     setCurrentStep(nextStep);
+    stepQueueIndex.current += 1;
     setTimeout(() => {
       progress.value = withTiming(
         1,
@@ -263,12 +268,6 @@ function FinalizeWalletSetupPage({
   }, []);
 
   const actions = useAccountSelectorActions();
-
-  useEffect(() => {
-    setTimeout(() => {
-      processNextStep();
-    });
-  }, [processNextStep]);
 
   const { connectDevice, createHWWallet } = useDeviceConnect();
   const createWallet = useCallback(async () => {
@@ -330,6 +329,7 @@ function FinalizeWalletSetupPage({
   ]);
 
   useEffect(() => {
+    processNextStep();
     void createWallet();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
