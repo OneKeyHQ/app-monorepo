@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 
+import { EFirmwareType } from '@onekeyfe/hd-shared';
 import { useIntl } from 'react-intl';
 
 import type { IBadgeType, IIconProps, IKeyOfIcons } from '@onekeyhq/components';
@@ -24,7 +25,7 @@ function DeviceBasicInfoSection({
   data: IHwQrWalletWithDevice;
   onPressHomescreen: () => void;
   onPressAuthRequest: () => void;
-  onPressCheckForUpdates: () => void;
+  onPressCheckForUpdates: (firmwareType?: EFirmwareType) => void;
   onPressTroubleshooting: () => void;
   authRequestLoading: boolean;
 }) {
@@ -35,6 +36,7 @@ function DeviceBasicInfoSection({
   const defaultInfo = useMemo(
     () => ({
       firmwareVersion: '-',
+      isBtcOnlyFirmware: false,
       walletAvatarBadge: undefined,
       verifiedBadgeType: 'default' as IBadgeType,
       verifiedBadgeText: '-',
@@ -45,6 +47,11 @@ function DeviceBasicInfoSection({
     }),
     [],
   );
+
+  console.log('========>>>>>>> DeviceBasicInfoSection change:', {
+    device,
+    defaultInfo,
+  });
 
   const { result: deviceInfo } = usePromiseResult(
     async () => {
@@ -77,12 +84,17 @@ function DeviceBasicInfoSection({
         },
       };
 
+      const isBtcOnlyFirmware = await deviceUtils.isBtcOnlyFirmware({
+        features: device.featuresInfo,
+      });
+
       const status = isVerified
         ? verificationStatus.success
         : verificationStatus.critical;
 
       return {
         firmwareVersion: versions?.firmwareVersion ?? '-',
+        isBtcOnlyFirmware,
         walletAvatarBadge: undefined,
         verifiedBadgeType: status.type,
         verifiedBadgeIconName: status.icon,
@@ -159,7 +171,22 @@ function DeviceBasicInfoSection({
               id: ETranslations.global_check_for_updates,
             })}
             drillIn
-            onPress={onPressCheckForUpdates}
+            onPress={() => onPressCheckForUpdates()}
+          />
+          <ListItem
+            title={
+              deviceInfo.isBtcOnlyFirmware
+                ? 'Swiatch to Universal'
+                : 'Switch to Bitcoin-only'
+            }
+            drillIn
+            onPress={() =>
+              onPressCheckForUpdates(
+                deviceInfo.isBtcOnlyFirmware
+                  ? EFirmwareType.Universal
+                  : EFirmwareType.BitcoinOnly,
+              )
+            }
           />
           <ListItem
             title={intl.formatMessage({

@@ -17,6 +17,7 @@ import type {
   Success,
   Unsuccessful,
 } from '@onekeyfe/hd-core';
+import type { EFirmwareType } from '@onekeyfe/hd-shared';
 import type { Features as FeaturesTransport } from '@onekeyfe/hd-transport';
 import type { ImageSourcePropType } from 'react-native';
 
@@ -83,7 +84,9 @@ type IFirmwareUpdateInfoBase<T> = {
   hasUpgradeForce: boolean;
   firmwareType: IDeviceFirmwareType;
   fromVersion: string;
+  fromFirmwareType: EFirmwareType | undefined;
   toVersion: string;
+  toFirmwareType: EFirmwareType | undefined;
   changelog: IFirmwareChangeLog | undefined;
   releasePayload: T;
   githubReleaseUrl?: string;
@@ -393,6 +396,7 @@ export type IFirmwareUpdateV3VersionParams = {
   bleVersion: string | undefined;
   firmwareVersion: string | undefined;
   bootloaderVersion: string | undefined;
+  firmwareType: EFirmwareType | undefined;
 };
 
 export enum EHardwareCallContext {

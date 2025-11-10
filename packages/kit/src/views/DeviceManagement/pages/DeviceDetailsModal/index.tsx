@@ -37,6 +37,7 @@ import DeviceBasicInfoSection from './DeviceBasicInfoSection';
 import DeviceQrInfoSection from './DeviceQrInfoSection';
 import DeviceSpecsSection from './DeviceSpecsSection';
 
+import type { EFirmwareType } from '@onekeyfe/hd-shared';
 import type { RouteProp } from '@react-navigation/native';
 
 function DeviceDetailsModalCmp() {
@@ -125,11 +126,15 @@ function DeviceDetailsModalCmp() {
   }, [result?.device, showFirmwareVerifyDialog]);
 
   const actions = useFirmwareUpdateActions();
-  const onPressCheckForUpdates = useCallback(() => {
-    actions.openChangeLogModal({
-      connectId: result?.device?.connectId,
-    });
-  }, [result?.device?.connectId, actions]);
+  const onPressCheckForUpdates = useCallback(
+    (firmwareType?: EFirmwareType) => {
+      actions.openChangeLogModal({
+        connectId: result?.device?.connectId,
+        firmwareType,
+      });
+    },
+    [result?.device?.connectId, actions],
+  );
 
   const onPressTroubleshooting = useCallback(() => {
     navigation.push(EModalDeviceManagementRoutes.HardwareTroubleshootingModal, {
@@ -197,6 +202,10 @@ function DeviceDetailsModalCmp() {
     };
   }, [result?.device?.connectId, detectStatus]);
 
+  const openChangeLogModalCallback = useCallback(() => {
+    actions.openChangeLogModal({ connectId: result?.device?.connectId });
+  }, [actions, result?.device?.connectId]);
+
   const renderUpdateAlert = useCallback(() => {
     if (isQrWallet) return null;
     if (!detectResult?.shouldUpdate) return null;
@@ -227,12 +236,10 @@ function DeviceDetailsModalCmp() {
           borderRadius: '$3',
         }}
         message={message}
-        onPress={() => {
-          actions.openChangeLogModal({ connectId: result?.device?.connectId });
-        }}
+        onPress={openChangeLogModalCallback}
       />
     );
-  }, [intl, actions, result?.device?.connectId, detectResult, isQrWallet]);
+  }, [intl, openChangeLogModalCallback, detectResult, isQrWallet]);
 
   const renderContent = useCallback(() => {
     if (isLoading || !result) {

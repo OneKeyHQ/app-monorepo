@@ -1,4 +1,4 @@
-import { EDeviceType } from '@onekeyfe/hd-shared';
+import { EDeviceType, EFirmwareType } from '@onekeyfe/hd-shared';
 import { useIntl } from 'react-intl';
 
 import type { IStackProps } from '@onekeyhq/components';
@@ -16,6 +16,22 @@ export function FirmwareUpdatePageHeaderTitle(props: {
   if (!result) {
     return null;
   }
+
+  let title;
+  if (
+    result.updateInfos.firmware?.fromFirmwareType !== undefined &&
+    result.updateInfos.firmware?.toFirmwareType !== undefined &&
+    result.updateInfos.firmware?.fromFirmwareType !==
+      result.updateInfos.firmware?.toFirmwareType
+  ) {
+    title = `Switch firmware to ${
+      result.updateInfos.firmware?.toFirmwareType === EFirmwareType.BitcoinOnly
+        ? 'Bitcoin-only'
+        : 'Universal'
+    }`;
+  } else {
+    title = result.deviceName;
+  }
   return (
     <XStack ai="center" gap={6}>
       <DeviceAvatarWithColor
@@ -23,7 +39,7 @@ export function FirmwareUpdatePageHeaderTitle(props: {
         deviceType={result.deviceType || EDeviceType.Unknown}
         features={result.features}
       />
-      <SizableText size="$headingMd">{result.deviceName}</SizableText>
+      <SizableText size="$headingMd">{title}</SizableText>
       <SizableText size="$bodyLg" color="$textSubdued">
         {result.deviceBleName}
       </SizableText>

@@ -554,6 +554,18 @@ function getDefaultHardwareTransportType(): EHardwareTransportType {
   return EHardwareTransportType.Bridge;
 }
 
+async function getFirmwareType({
+  features,
+}: {
+  features: IOneKeyDeviceFeatures | undefined;
+}) {
+  if (!features) {
+    return EFirmwareType.Universal;
+  }
+  const { getFirmwareType: sdkGetFirmwareType } = await CoreSDKLoader();
+  return sdkGetFirmwareType(features);
+}
+
 async function isBtcOnlyFirmware({
   features,
 }: {
@@ -562,8 +574,7 @@ async function isBtcOnlyFirmware({
   if (!features) {
     return false;
   }
-  const { getFirmwareType } = await CoreSDKLoader();
-  const firmwareType = getFirmwareType(features);
+  const firmwareType = await getFirmwareType({ features });
   return firmwareType === EFirmwareType.BitcoinOnly;
 }
 
@@ -607,6 +618,7 @@ export default {
   getDeviceConnectId,
   getDefaultHardwareTransportType,
   isBtcOnlyFirmware,
+  getFirmwareType,
   isTouchDevice,
   buildDeviceUSBConnectId,
 };

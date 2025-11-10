@@ -1,4 +1,4 @@
-import { EDeviceType } from '@onekeyfe/hd-shared';
+import { EDeviceType, EFirmwareType } from '@onekeyfe/hd-shared';
 import { Semaphore } from 'async-mutex';
 import { uniq } from 'lodash';
 import semver from 'semver';
@@ -1222,6 +1222,62 @@ class ServiceHardware extends ServiceBase {
     });
   }
 
+  private fixHardwareBitcoinOnlyState(params: IUpdateFirmwareWorkflowParams) {
+    let bitcoinOnlyFlag:
+      | {
+          fw_vendor: string | undefined;
+          capabilities: number[] | undefined;
+        }
+      | undefined;
+    const capabilityBitcoinLike = 2;
+    const bitcoinOnlyFwVendor = 'OneKey Bitcoin-only';
+    try {
+      if (
+        params?.releaseResult?.updateInfos?.firmware?.fromFirmwareType ===
+          EFirmwareType.Universal &&
+        params?.releaseResult?.updateInfos?.firmware?.toFirmwareType ===
+          EFirmwareType.BitcoinOnly
+      ) {
+        const originalCapabilities =
+          (params?.releaseResult?.features
+            ?.capabilities as unknown as number[]) || [];
+        const newCapabilities = originalCapabilities.filter(
+          (item) => item !== capabilityBitcoinLike,
+        );
+
+        bitcoinOnlyFlag = {
+          fw_vendor: bitcoinOnlyFwVendor,
+          capabilities: newCapabilities,
+        };
+      } else if (
+        params?.releaseResult?.updateInfos?.firmware?.fromFirmwareType ===
+          EFirmwareType.BitcoinOnly &&
+        params?.releaseResult?.updateInfos?.firmware?.toFirmwareType ===
+          EFirmwareType.Universal
+      ) {
+        const originalCapabilities =
+          (params?.releaseResult?.features
+            ?.capabilities as unknown as number[]) || [];
+        const capabilities = [...originalCapabilities];
+
+        const hasExists = capabilities.find(
+          (item) => item === capabilityBitcoinLike,
+        );
+        if (!hasExists) {
+          capabilities.push(capabilityBitcoinLike);
+        }
+
+        bitcoinOnlyFlag = {
+          fw_vendor: undefined,
+          capabilities,
+        };
+      }
+    } catch (error) {
+      // ignore
+    }
+    return bitcoinOnlyFlag;
+  }
+
   @backgroundMethod()
   async updateDeviceVersionAfterFirmwareUpdate(
     params: IUpdateFirmwareWorkflowParams,
@@ -1262,9 +1318,12 @@ class ServiceHardware extends ServiceBase {
       }
     });
 
+    const bitcoinOnlyFlag = this.fixHardwareBitcoinOnlyState(params);
+
     await localDb.updateDeviceVersionInfo({
       dbDeviceId: dbDevice.id,
       versionCacheInfo: filteredVersionInfo as IDeviceVersionCacheInfo,
+      bitcoinOnlyFlag,
     });
   }
 

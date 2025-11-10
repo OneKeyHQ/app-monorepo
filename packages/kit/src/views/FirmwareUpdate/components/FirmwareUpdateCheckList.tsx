@@ -155,6 +155,7 @@ export function FirmwareUpdateCheckList({
                       },
                     );
                   }
+
                   defaultLogger.update.firmware.firmwareUpdateResult({
                     deviceType: result?.deviceType,
                     transportType: hardwareTransportType,
