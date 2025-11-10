@@ -57,6 +57,7 @@ import type { SimpleDbEntitySwapNetworksSort } from '../entity/SimpleDbEntitySwa
 import type { SimpleDbEntityUniversalSearch } from '../entity/SimpleDbEntityUniversalSearch';
 import type { SimpleDbEntityV4MigrationResult } from '../entity/SimpleDbEntityV4MigrationResult';
 import type { SimpleDbEntityWalletBanner } from '../entity/SimpleDbEntityWalletBanner';
+import type { SimpleDbEntityWalletStatus } from '../entity/SimpleDbEntityWalletStatus';
 
 export class SimpleDbProxy
   extends BackgroundServiceProxyBase
@@ -271,6 +272,10 @@ export class SimpleDbProxy
   btcFreshAddressMeta = this._createProxyService(
     'btcFreshAddressMeta',
   ) as SimpleDbEntityBTCFreshAddressMeta;
+
+  walletStatus = this._createProxyService(
+    'walletStatus',
+  ) as SimpleDbEntityWalletStatus;
 
   ipTable = this._createProxyService('ipTable') as SimpleDbEntityIpTable;
 }

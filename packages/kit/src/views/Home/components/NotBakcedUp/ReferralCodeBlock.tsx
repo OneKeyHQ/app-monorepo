@@ -1,5 +1,7 @@
-import { memo, useCallback, useState } from 'react';
+import type { ComponentProps } from 'react';
+import { memo, useCallback, useEffect, useState } from 'react';
 
+import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
@@ -21,20 +23,43 @@ import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
+import {
+  useAccountOverviewActions,
+  useWalletStatusAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/accountOverview';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   useGetReferralCodeWalletInfo,
   useWalletBoundReferralCode,
 } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useWalletBoundReferralCode';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import MainInfoBlock from './MainBlock';
 
-function ReferralCodeBlock({ hideOnBound = false }: { hideOnBound?: boolean }) {
+function ReferralCodeBlock({
+  inTabList,
+  recomputeLayout,
+  closable,
+  onClose,
+  containerProps,
+}: {
+  inTabList?: boolean;
+  recomputeLayout?: () => void;
+  closable?: boolean;
+  onClose?: () => void;
+  containerProps?: ComponentProps<typeof MainInfoBlock>['containerProps'];
+}) {
   const intl = useIntl();
   const themeVariant = useThemeVariant();
+
+  const { updateWalletStatus } = useAccountOverviewActions().current;
+  const [walletStatus] = useWalletStatusAtom();
 
   const [isJoiningReferral, setIsJoiningReferral] = useState(false);
 
@@ -85,6 +110,16 @@ function ReferralCodeBlock({ hideOnBound = false }: { hideOnBound?: boolean }) {
       if (!isHdOrHwWallet) {
         return false;
       }
+
+      const resp = await backgroundApiProxy.serviceWalletStatus.getWalletStatus(
+        {
+          walletXfp: wallet?.xfp || '',
+        },
+      );
+      if (resp && (resp?.manuallyCloseReferralCodeBlock || resp?.hasValue)) {
+        return false;
+      }
+
       const referralCodeInfo =
         await backgroundApiProxy.serviceReferralCode.getWalletReferralCode({
           walletId: wallet?.id || '',
@@ -97,12 +132,38 @@ function ReferralCodeBlock({ hideOnBound = false }: { hideOnBound?: boolean }) {
       }
       return referralCodeInfo?.walletId && !referralCodeInfo?.isBound;
     },
-    [wallet?.id, getReferralCodeBondStatus, isHdOrHwWallet],
+    [isHdOrHwWallet, wallet?.id, wallet?.xfp, getReferralCodeBondStatus],
     {
       initResult: undefined,
       watchLoading: true,
     },
   );
+
+  useEffect(() => {
+    if (!isNil(shouldBoundReferralCode)) {
+      updateWalletStatus({
+        showReferralCodeBlock: !!shouldBoundReferralCode,
+        referralCodeBlockInit: true,
+      });
+    }
+  }, [shouldBoundReferralCode, updateWalletStatus]);
+
+  useEffect(() => {
+    appEventBus.on(
+      EAppEventBusNames.AccountValueUpdate,
+      refreshDisplayReferralCodeButton,
+    );
+    return () => {
+      appEventBus.off(
+        EAppEventBusNames.AccountValueUpdate,
+        refreshDisplayReferralCodeButton,
+      );
+    };
+  }, [
+    refreshDisplayReferralCodeButton,
+    shouldBoundReferralCode,
+    updateWalletStatus,
+  ]);
 
   const referralHelpLink = useHelpLink({ path: 'articles/11461266' });
 
@@ -218,42 +279,88 @@ function ReferralCodeBlock({ hideOnBound = false }: { hideOnBound?: boolean }) {
     intl,
   ]);
 
-  if (!shouldBoundReferralCode && hideOnBound) {
+  const handleClose = useCallback(async () => {
+    if (closable) {
+      await backgroundApiProxy.serviceWalletStatus.updateWalletStatus({
+        walletXfp: wallet?.xfp || '',
+        status: {
+          manuallyCloseReferralCodeBlock: true,
+        },
+      });
+      await refreshDisplayReferralCodeButton();
+      onClose?.();
+    }
+  }, [closable, wallet?.xfp, refreshDisplayReferralCodeButton, onClose]);
+
+  useEffect(() => {
+    if (
+      inTabList &&
+      recomputeLayout &&
+      !isNil(walletStatus.showReferralCodeBlock)
+    ) {
+      setTimeout(() => {
+        recomputeLayout();
+      }, 350);
+    }
+  }, [inTabList, recomputeLayout, walletStatus.showReferralCodeBlock]);
+
+  const renderReferralCodeBlock = useCallback(() => {
+    return (
+      <MainInfoBlock
+        closable={closable}
+        onClose={handleClose}
+        bgSource={
+          themeVariant === 'light'
+            ? require('@onekeyhq/kit/assets/promo-code-bg.png')
+            : require('@onekeyhq/kit/assets/promo-code-bg-dark.png')
+        }
+        title={intl.formatMessage({ id: ETranslations.referral_promo_title })}
+        iconProps={{ name: 'GiftOutline' }}
+        iconContainerProps={{ bg: '$info8' }}
+        containerProps={{
+          bg: '$blue1',
+          minHeight: 288,
+          $gtMd: { flexBasis: 0, flexShrink: 1, flexGrow: 1 },
+          ...containerProps,
+        }}
+        actions={
+          <Form form={form}>
+            <YStack gap="$2" alignItems="flex-start">
+              <Anchor
+                href={referralHelpLink}
+                color="$textSubdued"
+                size="$bodyMd"
+                textDecorationLine="underline"
+              >
+                {intl.formatMessage({
+                  id: ETranslations.referral_code_tutorial_label,
+                })}
+              </Anchor>
+              {renderReferralCodeActions()}
+            </YStack>
+          </Form>
+        }
+      />
+    );
+  }, [
+    closable,
+    handleClose,
+    themeVariant,
+    intl,
+    containerProps,
+    form,
+    referralHelpLink,
+    renderReferralCodeActions,
+  ]);
+
+  if (!walletStatus.showReferralCodeBlock) {
     return null;
   }
 
-  return (
-    <MainInfoBlock
-      bgSource={
-        themeVariant === 'light'
-          ? require('@onekeyhq/kit/assets/promo-code-bg.png')
-          : require('@onekeyhq/kit/assets/promo-code-bg-dark.png')
-      }
-      title={intl.formatMessage({ id: ETranslations.referral_promo_title })}
-      iconProps={{ name: 'GiftOutline' }}
-      iconContainerProps={{ bg: '$info8' }}
-      containerProps={{
-        bg: '$blue1',
-        $gtMd: { flexBasis: 0, flexShrink: 1, flexGrow: 1 },
-      }}
-      actions={
-        <Form form={form}>
-          <YStack gap="$6" alignItems="flex-start">
-            <Anchor
-              href={referralHelpLink}
-              color="$textSubdued"
-              size="$bodyMd"
-              textDecorationLine="underline"
-            >
-              {intl.formatMessage({
-                id: ETranslations.referral_code_tutorial_label,
-              })}
-            </Anchor>
-            {renderReferralCodeActions()}
-          </YStack>
-        </Form>
-      }
-    />
+  return inTabList ? (
+    <Stack height={360}>{renderReferralCodeBlock()}</Stack>
+  ) : (
+    renderReferralCodeBlock()
   );
 }
 
