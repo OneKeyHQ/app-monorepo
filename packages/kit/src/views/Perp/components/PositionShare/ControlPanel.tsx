@@ -77,7 +77,7 @@ export function ControlPanel({
   );
 
   return (
-    <YStack px="$5" flex={1}>
+    <YStack flex={1} px={isMobile ? '$4' : undefined}>
       <YStack flex={1} gap="$6">
         <YStack gap="$2">
           <SizableText size="$headingXs">
@@ -118,7 +118,7 @@ export function ControlPanel({
       <YStack gap="$3" mb={isMobile ? '$4' : undefined}>
         <XStack gap="$3">
           <Button
-            flex={1}
+            flexGrow={1}
             icon="DownloadOutline"
             onPress={onSaveImage}
             disabled={isLoading}
@@ -128,8 +128,8 @@ export function ControlPanel({
             })}
           </Button>
           <Button
-            flex={1}
-            icon="CopyOutline"
+            flexGrow={1}
+            icon="Copy3Outline"
             onPress={onCopyLink}
             disabled={isLoading}
           >
@@ -140,7 +140,7 @@ export function ControlPanel({
         </XStack>
         <Button
           variant="primary"
-          icon="XBrand"
+          icon="Xbrand"
           onPress={onShareToX}
           disabled={isLoading}
         >
