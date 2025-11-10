@@ -1,7 +1,11 @@
 /* eslint-disable spellcheck/spell-checker */
 // Utilities for detecting whether an address belongs to a given network.
 
-import { presetNetworksMap } from '../config/presetNetworks';
+import { getPresetNetworks, presetNetworksMap } from '../config/presetNetworks';
+
+import { generateUUID } from './miscUtils';
+
+import type { IServerNetwork } from '../../types';
 
 // 助记词	网络	派生规则	私钥1	公钥1	地址1
 // 12	Akash	N/A	0x3ac84c5b051d55098e207e8bc120fa650d8be6692944e6518c6d67d1abd90b04	N/A	akash1l65dl2stwxk4w9gf0vt2mnxhst48ygyse55t6g
@@ -343,78 +347,67 @@ async function _detectNetworkByAddress({
   return [];
 }
 
-async function detectNetworkByPrivateKey({
+function buildDetectedNetwork(network: IServerNetwork): IDetectedNetwork {
+  return {
+    networkId: network.id,
+    name: network.name,
+    shortname: network.shortname,
+    impl: network.impl,
+  };
+}
+
+async function detectNetworkByPrivateKeyFn({
   privateKey,
 }: {
   privateKey: string;
 }): Promise<
   Array<{
     networkId: string;
+    name: string;
+    shortname: string;
     impl: string;
   }>
 > {
   const pk = privateKey.trim();
 
+  const buildSameImplResults = (network: IServerNetwork) => {
+    const results = getPresetNetworks()
+      .filter((n) => n.impl === network.impl)
+      .sort((a) => (a.name === network.name ? -1 : 0))
+      .map((n) => buildDetectedNetwork(n));
+    return results;
+  };
+
   // algorand ALGO
   if (pk.includes(' ') && pk.split(' ').length >= 12) {
-    return [
-      {
-        networkId: presetNetworksMap.algo.id,
-        impl: presetNetworksMap.algo.impl,
-      },
-    ];
+    return [buildDetectedNetwork(presetNetworksMap.algo)];
   }
 
   // BTC Nested SegWit
   if (/^yprv[0-9A-Za-z]{107,}$/.test(pk)) {
-    return [
-      {
-        networkId: presetNetworksMap.btc.id,
-        impl: presetNetworksMap.btc.impl,
-      },
-    ];
+    return [buildDetectedNetwork(presetNetworksMap.btc)];
   }
 
   // BTC Legacy / BTC Taproot / BCH
   if (/^xprv[0-9A-Za-z]{107,149}$/.test(pk)) {
     return [
-      {
-        networkId: presetNetworksMap.btc.id,
-        impl: presetNetworksMap.btc.impl,
-      },
-      {
-        networkId: presetNetworksMap.bch.id,
-        impl: presetNetworksMap.bch.impl,
-      },
-      {
-        networkId: presetNetworksMap.neurai.id,
-        impl: presetNetworksMap.neurai.impl,
-      },
+      buildDetectedNetwork(presetNetworksMap.btc),
+      buildDetectedNetwork(presetNetworksMap.bch),
+      buildDetectedNetwork(presetNetworksMap.neurai),
     ];
   }
 
   // Cardano ADA (xprv1...)
   if (/^xprv1[0-9a-z]{150,}$/.test(pk)) {
-    return [
-      {
-        networkId: presetNetworksMap.cardano.id,
-        impl: presetNetworksMap.cardano.impl,
-      },
-    ];
+    return [buildDetectedNetwork(presetNetworksMap.cardano)];
   }
 
   // BTC Native SegWit
   // LTC Native SegWit
   if (/^zprv[0-9A-Za-z]{107,}$/.test(pk)) {
     return [
-      {
-        networkId: presetNetworksMap.btc.id,
-        impl: presetNetworksMap.btc.impl,
-      },
-      {
-        networkId: presetNetworksMap.ltc.id,
-        impl: presetNetworksMap.ltc.impl,
-      },
+      buildDetectedNetwork(presetNetworksMap.btc),
+      buildDetectedNetwork(presetNetworksMap.ltc),
     ];
   }
 
@@ -424,12 +417,7 @@ async function detectNetworkByPrivateKey({
     /^vprv[0-9A-Za-z]{107,}$/.test(pk) || // TBTC Native SegWit
     /^uprv[0-9A-Za-z]{107,}$/.test(pk) // TBTC Nested SegWit
   ) {
-    return [
-      {
-        networkId: presetNetworksMap.tbtc.id,
-        impl: presetNetworksMap.tbtc.impl,
-      },
-    ];
+    return [buildDetectedNetwork(presetNetworksMap.tbtc)];
   }
 
   // LTC
@@ -437,22 +425,12 @@ async function detectNetworkByPrivateKey({
     /^Ltpv[0-9A-Za-z]{107,}$/.test(pk) || // LTC Legacy
     /^Mtpv[0-9A-Za-z]{107,}$/.test(pk) // LTC Nested SegWit
   ) {
-    return [
-      {
-        networkId: presetNetworksMap.ltc.id,
-        impl: presetNetworksMap.ltc.impl,
-      },
-    ];
+    return [buildDetectedNetwork(presetNetworksMap.ltc)];
   }
 
   // DOGE
   if (/^dgpv[0-9A-Za-z]{107,}$/.test(pk)) {
-    return [
-      {
-        networkId: presetNetworksMap.doge.id,
-        impl: presetNetworksMap.doge.impl,
-      },
-    ];
+    return [buildDetectedNetwork(presetNetworksMap.doge)];
   }
 
   // 0x + 64 hex chars (MANY chains use this format)
@@ -460,106 +438,89 @@ async function detectNetworkByPrivateKey({
   // Conflux, BenFen, Nervos, and many others
   if (/^0x[0-9a-fA-F]{64}$/.test(pk)) {
     return [
-      {
-        networkId: presetNetworksMap.eth.id,
-        impl: presetNetworksMap.eth.impl,
-      },
-      {
-        networkId: presetNetworksMap.kaspa.id,
-        impl: presetNetworksMap.kaspa.impl,
-      },
-      {
-        networkId: presetNetworksMap.cosmoshub.id,
-        impl: presetNetworksMap.cosmoshub.impl,
-      },
-      {
-        networkId: presetNetworksMap.aptos.id,
-        impl: presetNetworksMap.aptos.impl,
-      },
-      {
-        networkId: presetNetworksMap.sui.id,
-        impl: presetNetworksMap.sui.impl,
-      },
-      {
-        networkId: presetNetworksMap.cfx.id,
-        impl: presetNetworksMap.cfx.impl,
-      },
-      {
-        networkId: presetNetworksMap.benfen.id,
-        impl: presetNetworksMap.benfen.impl,
-      },
-      {
-        networkId: presetNetworksMap.ckb.id,
-        impl: presetNetworksMap.ckb.impl,
-      },
+      ...buildSameImplResults(presetNetworksMap.eth),
+      ...buildSameImplResults(presetNetworksMap.cosmoshub),
+      ...buildSameImplResults(presetNetworksMap.assethubPolkadot),
+      buildDetectedNetwork(presetNetworksMap.kaspa),
+      buildDetectedNetwork(presetNetworksMap.aptos),
+      buildDetectedNetwork(presetNetworksMap.sui),
+      buildDetectedNetwork(presetNetworksMap.cfx),
+      buildDetectedNetwork(presetNetworksMap.benfen),
+      buildDetectedNetwork(presetNetworksMap.ckb), // Nervos
     ];
   }
 
   // 64 hex chars without 0x (could be: Ton, Tron, Kaspa, Nexa, etc.)
   if (/^[0-9a-fA-F]{64}$/.test(pk)) {
     return [
-      {
-        networkId: presetNetworksMap.ton.id,
-        impl: presetNetworksMap.ton.impl,
-      },
-      {
-        networkId: presetNetworksMap.tron.id,
-        impl: presetNetworksMap.tron.impl,
-      },
-      {
-        networkId: presetNetworksMap.kaspa.id,
-        impl: presetNetworksMap.kaspa.impl,
-      },
-      {
-        networkId: presetNetworksMap.nexa.id,
-        impl: presetNetworksMap.nexa.impl,
-      },
+      buildDetectedNetwork(presetNetworksMap.ton),
+      buildDetectedNetwork(presetNetworksMap.tron),
+      buildDetectedNetwork(presetNetworksMap.kaspa),
+      buildDetectedNetwork(presetNetworksMap.nexa),
     ];
   }
 
   // Solana Base58 (typically 87-88 chars)
   if (/^[1-9A-HJ-NP-Za-km-z]{87,88}$/.test(pk)) {
-    return [
-      {
-        networkId: presetNetworksMap.sol.id,
-        impl: presetNetworksMap.sol.impl,
-      },
-    ];
+    return [buildDetectedNetwork(presetNetworksMap.sol)];
   }
 
   // Filecoin (long hex JSON string)
   if (/^[0-9a-fA-F]{150,}$/.test(pk)) {
-    return [
-      {
-        networkId: presetNetworksMap.fil.id,
-        impl: presetNetworksMap.fil.impl,
-      },
-    ];
+    return [buildDetectedNetwork(presetNetworksMap.fil)];
   }
 
   // Near (ed25519:...)
   if (/^ed25519:[0-9A-Za-z]{87,}$/.test(pk)) {
-    return [
-      {
-        networkId: presetNetworksMap.near.id,
-        impl: presetNetworksMap.near.impl,
-      },
-    ];
+    return [buildDetectedNetwork(presetNetworksMap.near)];
   }
 
   // Ripple (66 hex chars, uppercase, no 0x)
   if (/^[0-9A-F]{66}$/.test(pk)) {
-    return [
-      {
-        networkId: presetNetworksMap.ripple.id,
-        impl: presetNetworksMap.ripple.impl,
-      },
-    ];
+    return [buildDetectedNetwork(presetNetworksMap.ripple)];
   }
 
   return [];
 }
+export type IDetectedNetwork = {
+  networkId: string;
+  name: string;
+  shortname: string;
+  impl: string;
+};
+export type IDetectedNetworkGroupItem = {
+  uuid: string;
+  impl: string;
+  networks: Array<IDetectedNetwork>;
+};
+export type IDetectedNetworkGroup = {
+  [impl: string]: IDetectedNetworkGroupItem;
+};
+async function detectNetworkByPrivateKey({
+  privateKey,
+}: {
+  privateKey: string;
+}): Promise<{
+  networks: Array<IDetectedNetwork>;
+  groupedByImpl: IDetectedNetworkGroup;
+}> {
+  const networks = await detectNetworkByPrivateKeyFn({ privateKey });
+  const groupedByImpl: IDetectedNetworkGroup = {};
+  networks.forEach((network) => {
+    if (!groupedByImpl[network.impl]) {
+      groupedByImpl[network.impl] = {
+        networks: [],
+        uuid: generateUUID(),
+        impl: network.impl,
+      };
+    }
+    groupedByImpl[network.impl].networks.push(network);
+  });
+
+  return { networks, groupedByImpl };
+}
 
 export default {
   detectNetworkByPrivateKey,
+  buildDetectedNetwork,
 };
