@@ -127,6 +127,10 @@ export function TradingViewPerpsV2(
     },
   });
 
+  useEffect(() => {
+    initialSymbolRef.current = symbol;
+  }, [symbol]);
+
   // Optimization: Dynamic symbol parameter sync mechanism
   useSymbolSync({
     webRef,
