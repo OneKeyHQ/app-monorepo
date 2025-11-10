@@ -112,6 +112,7 @@ function useHandleClaimAction({
             : undefined,
           tags: protocolInfo?.stakeTag ? [protocolInfo.stakeTag] : [],
         },
+        portfolioSymbol: token?.symbol,
       });
       setLoading(false);
     },

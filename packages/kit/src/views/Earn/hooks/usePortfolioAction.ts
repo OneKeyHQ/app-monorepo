@@ -137,6 +137,7 @@ export const usePortfolioAction = ({
             : undefined,
           tags: stakeTag ? [stakeTag] : [],
         },
+        portfolioSymbol: token?.symbol,
       });
       setLoading(false);
     },

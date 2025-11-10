@@ -258,10 +258,7 @@ export const useEarnPortfolio = () => {
               item,
             );
 
-          if (
-            isRequestStale(requestId) ||
-            !hasPositiveFiatValue(result.totalFiatValue)
-          ) {
+          if (isRequestStale(requestId)) {
             return null;
           }
 

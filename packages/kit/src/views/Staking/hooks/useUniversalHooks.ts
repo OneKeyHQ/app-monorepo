@@ -65,17 +65,20 @@ const emitEarnPortfolioRefresh = ({
   provider,
   symbol,
   networkId,
+  targetSymbol,
 }: {
   provider?: string;
   symbol?: string;
   networkId: string;
+  targetSymbol?: string;
 }) => {
-  if (!provider || !symbol) {
+  const finalSymbol = targetSymbol || symbol;
+  if (!provider || !finalSymbol) {
     return;
   }
   appEventBus.emit(EAppEventBusNames.RefreshEarnPortfolioItem, {
     provider,
-    symbol,
+    symbol: finalSymbol,
     networkId,
   });
 };
@@ -365,6 +368,7 @@ export function useUniversalClaim({
       stakingInfo,
       onSuccess,
       onFail,
+      portfolioSymbol,
     }: {
       identity?: string;
       amount: string;
@@ -376,6 +380,7 @@ export function useUniversalClaim({
       vault: string;
       onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
       onFail?: IModalSendParamList['SendConfirm']['onFail'];
+      portfolioSymbol?: string;
     }) => {
       const continueClaim = async () => {
         const stakeTx =
@@ -425,6 +430,7 @@ export function useUniversalClaim({
               provider,
               symbol,
               networkId,
+              targetSymbol: portfolioSymbol,
             });
           },
           onFail,
