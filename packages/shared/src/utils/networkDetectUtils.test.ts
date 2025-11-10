@@ -15,10 +15,9 @@ describe('Network Detection by Private Key', () => {
       const result = await networkDetectUtils.detectNetworkByPrivateKey({
         privateKey,
       });
-      expect(result).toContainEqual({
-        networkId: presetNetworksMap.btc.id,
-        impl: presetNetworksMap.btc.impl,
-      });
+      expect(result.networks).toContainEqual(
+        networkDetectUtils.buildDetectedNetwork(presetNetworksMap.btc),
+      );
     });
 
     test('detects BTC Native SegWit (zprv)', async () => {
@@ -27,11 +26,10 @@ describe('Network Detection by Private Key', () => {
       const result = await networkDetectUtils.detectNetworkByPrivateKey({
         privateKey,
       });
-      expect(result.length).toBeGreaterThan(0);
-      expect(result).toContainEqual({
-        networkId: presetNetworksMap.btc.id,
-        impl: presetNetworksMap.btc.impl,
-      });
+      expect(result.networks.length).toBeGreaterThan(0);
+      expect(result.networks).toContainEqual(
+        networkDetectUtils.buildDetectedNetwork(presetNetworksMap.btc),
+      );
     });
 
     test('detects BTC Nested SegWit (yprv)', async () => {
@@ -40,10 +38,9 @@ describe('Network Detection by Private Key', () => {
       const result = await networkDetectUtils.detectNetworkByPrivateKey({
         privateKey,
       });
-      expect(result).toContainEqual({
-        networkId: presetNetworksMap.btc.id,
-        impl: presetNetworksMap.btc.impl,
-      });
+      expect(result.networks).toContainEqual(
+        networkDetectUtils.buildDetectedNetwork(presetNetworksMap.btc),
+      );
     });
 
     test('detects BTC Taproot (xprv)', async () => {
@@ -52,11 +49,10 @@ describe('Network Detection by Private Key', () => {
       const result = await networkDetectUtils.detectNetworkByPrivateKey({
         privateKey,
       });
-      expect(result.length).toBeGreaterThan(0);
-      expect(result).toContainEqual({
-        networkId: presetNetworksMap.btc.id,
-        impl: presetNetworksMap.btc.impl,
-      });
+      expect(result.networks.length).toBeGreaterThan(0);
+      expect(result.networks).toContainEqual(
+        networkDetectUtils.buildDetectedNetwork(presetNetworksMap.btc),
+      );
     });
 
     test('detects BCH (xprv)', async () => {
@@ -65,10 +61,9 @@ describe('Network Detection by Private Key', () => {
       const result = await networkDetectUtils.detectNetworkByPrivateKey({
         privateKey,
       });
-      expect(result).toContainEqual({
-        networkId: presetNetworksMap.bch.id,
-        impl: presetNetworksMap.bch.impl,
-      });
+      expect(result.networks).toContainEqual(
+        networkDetectUtils.buildDetectedNetwork(presetNetworksMap.bch),
+      );
     });
 
     test('detects Neurai (xprv)', async () => {
@@ -77,10 +72,9 @@ describe('Network Detection by Private Key', () => {
       const result = await networkDetectUtils.detectNetworkByPrivateKey({
         privateKey,
       });
-      expect(result).toContainEqual({
-        networkId: presetNetworksMap.neurai.id,
-        impl: presetNetworksMap.neurai.impl,
-      });
+      expect(result.networks).toContainEqual(
+        networkDetectUtils.buildDetectedNetwork(presetNetworksMap.neurai),
+      );
     });
   });
 
@@ -91,12 +85,9 @@ describe('Network Detection by Private Key', () => {
       const result = await networkDetectUtils.detectNetworkByPrivateKey({
         privateKey,
       });
-      expect(result).toEqual([
-        {
-          networkId: presetNetworksMap.tbtc.id,
-          impl: presetNetworksMap.tbtc.impl,
-        },
-      ]);
+      expect(result.networks).toContainEqual(
+        networkDetectUtils.buildDetectedNetwork(presetNetworksMap.tbtc),
+      );
     });
 
     test('detects TBTC Native SegWit (vprv)', async () => {
@@ -105,12 +96,9 @@ describe('Network Detection by Private Key', () => {
       const result = await networkDetectUtils.detectNetworkByPrivateKey({
         privateKey,
       });
-      expect(result).toEqual([
-        {
-          networkId: presetNetworksMap.tbtc.id,
-          impl: presetNetworksMap.tbtc.impl,
-        },
-      ]);
+      expect(result.networks).toContainEqual(
+        networkDetectUtils.buildDetectedNetwork(presetNetworksMap.tbtc),
+      );
     });
 
     test('detects TBTC Nested SegWit (uprv)', async () => {
@@ -119,12 +107,9 @@ describe('Network Detection by Private Key', () => {
       const result = await networkDetectUtils.detectNetworkByPrivateKey({
         privateKey,
       });
-      expect(result).toEqual([
-        {
-          networkId: presetNetworksMap.tbtc.id,
-          impl: presetNetworksMap.tbtc.impl,
-        },
-      ]);
+      expect(result.networks).toContainEqual(
+        networkDetectUtils.buildDetectedNetwork(presetNetworksMap.tbtc),
+      );
     });
 
     test('detects TBTC Taproot (tprv)', async () => {
@@ -133,12 +118,9 @@ describe('Network Detection by Private Key', () => {
       const result = await networkDetectUtils.detectNetworkByPrivateKey({
         privateKey,
       });
-      expect(result).toEqual([
-        {
-          networkId: presetNetworksMap.tbtc.id,
-          impl: presetNetworksMap.tbtc.impl,
-        },
-      ]);
+      expect(result.networks).toContainEqual(
+        networkDetectUtils.buildDetectedNetwork(presetNetworksMap.tbtc),
+      );
     });
   });
 
@@ -149,12 +131,9 @@ describe('Network Detection by Private Key', () => {
       const result = await networkDetectUtils.detectNetworkByPrivateKey({
         privateKey,
       });
-      expect(result).toEqual([
-        {
-          networkId: presetNetworksMap.ltc.id,
-          impl: presetNetworksMap.ltc.impl,
-        },
-      ]);
+      expect(result.networks).toContainEqual(
+        networkDetectUtils.buildDetectedNetwork(presetNetworksMap.ltc),
+      );
     });
 
     test('detects LTC Native SegWit (zprv) - shared with BTC', async () => {
@@ -164,14 +143,12 @@ describe('Network Detection by Private Key', () => {
         privateKey,
       });
       // Should detect both BTC and LTC
-      expect(result).toContainEqual({
-        networkId: presetNetworksMap.btc.id,
-        impl: presetNetworksMap.btc.impl,
-      });
-      expect(result).toContainEqual({
-        networkId: presetNetworksMap.ltc.id,
-        impl: presetNetworksMap.ltc.impl,
-      });
+      expect(result.networks).toContainEqual(
+        networkDetectUtils.buildDetectedNetwork(presetNetworksMap.btc),
+      );
+      expect(result.networks).toContainEqual(
+        networkDetectUtils.buildDetectedNetwork(presetNetworksMap.ltc),
+      );
     });
 
     test('detects LTC Nested SegWit (Mtpv)', async () => {
@@ -180,12 +157,9 @@ describe('Network Detection by Private Key', () => {
       const result = await networkDetectUtils.detectNetworkByPrivateKey({
         privateKey,
       });
-      expect(result).toEqual([
-        {
-          networkId: presetNetworksMap.ltc.id,
-          impl: presetNetworksMap.ltc.impl,
-        },
-      ]);
+      expect(result.networks).toContainEqual(
+        networkDetectUtils.buildDetectedNetwork(presetNetworksMap.ltc),
+      );
     });
   });
 
@@ -196,12 +170,9 @@ describe('Network Detection by Private Key', () => {
       const result = await networkDetectUtils.detectNetworkByPrivateKey({
         privateKey,
       });
-      expect(result).toEqual([
-        {
-          networkId: presetNetworksMap.doge.id,
-          impl: presetNetworksMap.doge.impl,
-        },
-      ]);
+      expect(result.networks).toContainEqual(
+        networkDetectUtils.buildDetectedNetwork(presetNetworksMap.doge),
+      );
     });
   });
 
@@ -212,12 +183,9 @@ describe('Network Detection by Private Key', () => {
       const result = await networkDetectUtils.detectNetworkByPrivateKey({
         privateKey,
       });
-      expect(result).toEqual([
-        {
-          networkId: presetNetworksMap.cardano.id,
-          impl: presetNetworksMap.cardano.impl,
-        },
-      ]);
+      expect(result.networks).toContainEqual(
+        networkDetectUtils.buildDetectedNetwork(presetNetworksMap.cardano),
+      );
     });
   });
 
@@ -229,15 +197,19 @@ describe('Network Detection by Private Key', () => {
         privateKey,
       });
       // Should detect multiple chains
-      expect(result.length).toBeGreaterThan(0);
-      expect(result).toContainEqual({
-        networkId: presetNetworksMap.eth.id,
-        impl: presetNetworksMap.eth.impl,
-      });
-      expect(result).toContainEqual({
-        networkId: presetNetworksMap.kaspa.id,
-        impl: presetNetworksMap.kaspa.impl,
-      });
+      expect(result.networks.length).toBeGreaterThan(0);
+
+      expect(result.networks).toContainEqual(
+        networkDetectUtils.buildDetectedNetwork(presetNetworksMap.eth),
+      );
+      expect(result.networks).toContainEqual(
+        networkDetectUtils.buildDetectedNetwork(presetNetworksMap.kaspa),
+      );
+      expect(result.networks).toContainEqual(
+        networkDetectUtils.buildDetectedNetwork(
+          presetNetworksMap.assethubPolkadot,
+        ),
+      );
     });
 
     test('detects Cosmos family (0x-prefixed)', async () => {
@@ -246,10 +218,9 @@ describe('Network Detection by Private Key', () => {
       const result = await networkDetectUtils.detectNetworkByPrivateKey({
         privateKey,
       });
-      expect(result).toContainEqual({
-        networkId: presetNetworksMap.cosmoshub.id,
-        impl: presetNetworksMap.cosmoshub.impl,
-      });
+      expect(result.networks).toContainEqual(
+        networkDetectUtils.buildDetectedNetwork(presetNetworksMap.cosmoshub),
+      );
     });
 
     test('detects Aptos (0x-prefixed)', async () => {
@@ -258,10 +229,9 @@ describe('Network Detection by Private Key', () => {
       const result = await networkDetectUtils.detectNetworkByPrivateKey({
         privateKey,
       });
-      expect(result).toContainEqual({
-        networkId: presetNetworksMap.aptos.id,
-        impl: presetNetworksMap.aptos.impl,
-      });
+      expect(result.networks).toContainEqual(
+        networkDetectUtils.buildDetectedNetwork(presetNetworksMap.aptos),
+      );
     });
 
     test('detects Sui (0x-prefixed)', async () => {
@@ -270,10 +240,9 @@ describe('Network Detection by Private Key', () => {
       const result = await networkDetectUtils.detectNetworkByPrivateKey({
         privateKey,
       });
-      expect(result).toContainEqual({
-        networkId: presetNetworksMap.sui.id,
-        impl: presetNetworksMap.sui.impl,
-      });
+      expect(result.networks).toContainEqual(
+        networkDetectUtils.buildDetectedNetwork(presetNetworksMap.sui),
+      );
     });
 
     test('detects Conflux (0x-prefixed)', async () => {
@@ -282,10 +251,9 @@ describe('Network Detection by Private Key', () => {
       const result = await networkDetectUtils.detectNetworkByPrivateKey({
         privateKey,
       });
-      expect(result).toContainEqual({
-        networkId: presetNetworksMap.cfx.id,
-        impl: presetNetworksMap.cfx.impl,
-      });
+      expect(result.networks).toContainEqual(
+        networkDetectUtils.buildDetectedNetwork(presetNetworksMap.cfx),
+      );
     });
 
     test('detects BenFen (0x-prefixed)', async () => {
@@ -294,10 +262,9 @@ describe('Network Detection by Private Key', () => {
       const result = await networkDetectUtils.detectNetworkByPrivateKey({
         privateKey,
       });
-      expect(result).toContainEqual({
-        networkId: presetNetworksMap.benfen.id,
-        impl: presetNetworksMap.benfen.impl,
-      });
+      expect(result.networks).toContainEqual(
+        networkDetectUtils.buildDetectedNetwork(presetNetworksMap.benfen),
+      );
     });
 
     test('detects Nervos/CKB (0x-prefixed)', async () => {
@@ -306,23 +273,23 @@ describe('Network Detection by Private Key', () => {
       const result = await networkDetectUtils.detectNetworkByPrivateKey({
         privateKey,
       });
-      expect(result).toContainEqual({
-        networkId: presetNetworksMap.ckb.id,
-        impl: presetNetworksMap.ckb.impl,
-      });
+      expect(result.networks).toContainEqual(
+        networkDetectUtils.buildDetectedNetwork(presetNetworksMap.ckb),
+      );
     });
 
-    // test('detects Polkadot (0x-prefixed)', async () => {
-    //   const privateKey =
-    //     '0xc052cb9ba86a213302c9518890420f9493f3a00fde54c74582bcb46ad30ce846';
-    //   const result = await networkDetectUtils.detectNetworkByPrivateKey({
-    //     privateKey,
-    //   });
-    //   expect(result).toContainEqual({
-    //     networkId: presetNetworksMap.polkadot.id,
-    //     impl: presetNetworksMap.polkadot.impl,
-    //   });
-    // });
+    test('detects Polkadot (0x-prefixed)', async () => {
+      const privateKey =
+        '0xc052cb9ba86a213302c9518890420f9493f3a00fde54c74582bcb46ad30ce846';
+      const result = await networkDetectUtils.detectNetworkByPrivateKey({
+        privateKey,
+      });
+      expect(result.networks).toContainEqual(
+        networkDetectUtils.buildDetectedNetwork(
+          presetNetworksMap.assethubPolkadot,
+        ),
+      );
+    });
   });
 
   describe('64 hex without 0x prefix - Multi-chain Detection', () => {
@@ -332,10 +299,9 @@ describe('Network Detection by Private Key', () => {
       const result = await networkDetectUtils.detectNetworkByPrivateKey({
         privateKey,
       });
-      expect(result).toContainEqual({
-        networkId: presetNetworksMap.ton.id,
-        impl: presetNetworksMap.ton.impl,
-      });
+      expect(result.networks).toContainEqual(
+        networkDetectUtils.buildDetectedNetwork(presetNetworksMap.ton),
+      );
     });
 
     test('detects TRON (64 hex no prefix)', async () => {
@@ -344,10 +310,9 @@ describe('Network Detection by Private Key', () => {
       const result = await networkDetectUtils.detectNetworkByPrivateKey({
         privateKey,
       });
-      expect(result).toContainEqual({
-        networkId: presetNetworksMap.tron.id,
-        impl: presetNetworksMap.tron.impl,
-      });
+      expect(result.networks).toContainEqual(
+        networkDetectUtils.buildDetectedNetwork(presetNetworksMap.tron),
+      );
     });
 
     test('detects Kaspa (64 hex no prefix)', async () => {
@@ -356,11 +321,10 @@ describe('Network Detection by Private Key', () => {
       const result = await networkDetectUtils.detectNetworkByPrivateKey({
         privateKey,
       });
-      expect(result.length).toBeGreaterThan(0);
-      expect(result).toContainEqual({
-        networkId: presetNetworksMap.kaspa.id,
-        impl: presetNetworksMap.kaspa.impl,
-      });
+      expect(result.networks.length).toBeGreaterThan(0);
+      expect(result.networks).toContainEqual(
+        networkDetectUtils.buildDetectedNetwork(presetNetworksMap.kaspa),
+      );
     });
 
     test('detects Nexa (64 hex no prefix)', async () => {
@@ -369,10 +333,9 @@ describe('Network Detection by Private Key', () => {
       const result = await networkDetectUtils.detectNetworkByPrivateKey({
         privateKey,
       });
-      expect(result).toContainEqual({
-        networkId: presetNetworksMap.nexa.id,
-        impl: presetNetworksMap.nexa.impl,
-      });
+      expect(result.networks).toContainEqual(
+        networkDetectUtils.buildDetectedNetwork(presetNetworksMap.nexa),
+      );
     });
   });
 
@@ -383,12 +346,9 @@ describe('Network Detection by Private Key', () => {
       const result = await networkDetectUtils.detectNetworkByPrivateKey({
         privateKey,
       });
-      expect(result).toEqual([
-        {
-          networkId: presetNetworksMap.sol.id,
-          impl: presetNetworksMap.sol.impl,
-        },
-      ]);
+      expect(result.networks).toContainEqual(
+        networkDetectUtils.buildDetectedNetwork(presetNetworksMap.sol),
+      );
     });
 
     test('detects Solana ledger live (Base58 87-88 chars)', async () => {
@@ -397,12 +357,9 @@ describe('Network Detection by Private Key', () => {
       const result = await networkDetectUtils.detectNetworkByPrivateKey({
         privateKey,
       });
-      expect(result).toEqual([
-        {
-          networkId: presetNetworksMap.sol.id,
-          impl: presetNetworksMap.sol.impl,
-        },
-      ]);
+      expect(result.networks).toContainEqual(
+        networkDetectUtils.buildDetectedNetwork(presetNetworksMap.sol),
+      );
     });
   });
 
@@ -413,12 +370,9 @@ describe('Network Detection by Private Key', () => {
       const result = await networkDetectUtils.detectNetworkByPrivateKey({
         privateKey,
       });
-      expect(result).toEqual([
-        {
-          networkId: presetNetworksMap.algo.id,
-          impl: presetNetworksMap.algo.impl,
-        },
-      ]);
+      expect(result.networks).toContainEqual(
+        networkDetectUtils.buildDetectedNetwork(presetNetworksMap.algo),
+      );
     });
   });
 
@@ -429,12 +383,9 @@ describe('Network Detection by Private Key', () => {
       const result = await networkDetectUtils.detectNetworkByPrivateKey({
         privateKey,
       });
-      expect(result).toEqual([
-        {
-          networkId: presetNetworksMap.fil.id,
-          impl: presetNetworksMap.fil.impl,
-        },
-      ]);
+      expect(result.networks).toContainEqual(
+        networkDetectUtils.buildDetectedNetwork(presetNetworksMap.fil),
+      );
     });
   });
 
@@ -445,12 +396,9 @@ describe('Network Detection by Private Key', () => {
       const result = await networkDetectUtils.detectNetworkByPrivateKey({
         privateKey,
       });
-      expect(result).toEqual([
-        {
-          networkId: presetNetworksMap.near.id,
-          impl: presetNetworksMap.near.impl,
-        },
-      ]);
+      expect(result.networks).toContainEqual(
+        networkDetectUtils.buildDetectedNetwork(presetNetworksMap.near),
+      );
     });
   });
 
@@ -461,12 +409,9 @@ describe('Network Detection by Private Key', () => {
       const result = await networkDetectUtils.detectNetworkByPrivateKey({
         privateKey,
       });
-      expect(result).toEqual([
-        {
-          networkId: presetNetworksMap.ripple.id,
-          impl: presetNetworksMap.ripple.impl,
-        },
-      ]);
+      expect(result.networks).toContainEqual(
+        networkDetectUtils.buildDetectedNetwork(presetNetworksMap.ripple),
+      );
     });
   });
 
@@ -476,7 +421,7 @@ describe('Network Detection by Private Key', () => {
       const result = await networkDetectUtils.detectNetworkByPrivateKey({
         privateKey,
       });
-      expect(result).toEqual([]);
+      expect(result.networks).toEqual([]);
     });
 
     test('returns empty array for invalid format', async () => {
@@ -484,7 +429,7 @@ describe('Network Detection by Private Key', () => {
       const result = await networkDetectUtils.detectNetworkByPrivateKey({
         privateKey,
       });
-      expect(result).toEqual([]);
+      expect(result.networks).toEqual([]);
     });
 
     test('trims whitespace before detection', async () => {
@@ -493,12 +438,9 @@ describe('Network Detection by Private Key', () => {
       const result = await networkDetectUtils.detectNetworkByPrivateKey({
         privateKey,
       });
-      expect(result).toEqual([
-        {
-          networkId: presetNetworksMap.doge.id,
-          impl: presetNetworksMap.doge.impl,
-        },
-      ]);
+      expect(result.networks).toContainEqual(
+        networkDetectUtils.buildDetectedNetwork(presetNetworksMap.doge),
+      );
     });
 
     test('returns empty array for short random string', async () => {
@@ -506,7 +448,7 @@ describe('Network Detection by Private Key', () => {
       const result = await networkDetectUtils.detectNetworkByPrivateKey({
         privateKey,
       });
-      expect(result).toEqual([]);
+      expect(result.networks).toEqual([]);
     });
 
     test('handles mixed case hex with 0x prefix', async () => {
@@ -515,11 +457,10 @@ describe('Network Detection by Private Key', () => {
       const result = await networkDetectUtils.detectNetworkByPrivateKey({
         privateKey,
       });
-      expect(result.length).toBeGreaterThan(0);
-      expect(result).toContainEqual({
-        networkId: presetNetworksMap.eth.id,
-        impl: presetNetworksMap.eth.impl,
-      });
+      expect(result.networks.length).toBeGreaterThan(0);
+      expect(result.networks).toContainEqual(
+        networkDetectUtils.buildDetectedNetwork(presetNetworksMap.eth),
+      );
     });
   });
 });

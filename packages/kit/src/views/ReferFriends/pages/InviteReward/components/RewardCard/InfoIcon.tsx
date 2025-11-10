@@ -10,9 +10,7 @@ export function InfoIcon({ onPress, size = '$5', tooltip }: IInfoIconProps) {
   const icon = <Icon name="InfoCircleOutline" size={size} onPress={onPress} />;
 
   if (tooltip) {
-    return (
-      <Tooltip renderTrigger={icon} renderContent={tooltip} />
-    );
+    return <Tooltip renderTrigger={icon} renderContent={tooltip} />;
   }
 
   return icon;
