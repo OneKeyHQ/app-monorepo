@@ -22,24 +22,16 @@ const HardwareSalesReward = LazyLoadPage(
   () => import('../../../views/ReferFriends/pages/HardwareSalesReward'),
 );
 
-const OneKeyId = LazyLoadPage(
-  () => import('../../../views/ReferFriends/pages/OneKeyId'),
-);
-
-const EditAddress = LazyLoadPage(
-  () => import('../../../views/ReferFriends/pages/EditAddress'),
-);
-
 const EarnReward = LazyLoadPage(
   () => import('../../../views/ReferFriends/pages/EarnReward'),
 );
 
-const YourReferredWalletAddresses = LazyLoadPage(
-  () => import('../../../views/ReferFriends/pages/YourReferredWalletAddresses'),
-);
-
 const RewardDistributionHistory = LazyLoadPage(
   () => import('../../../views/ReferFriends/pages/RewardDistributionHistory'),
+);
+
+const ReferralLevel = LazyLoadPage(
+  () => import('../../../views/ReferFriends/pages/ReferralLevel'),
 );
 
 export const referFriendsRouters: ITabSubNavigatorConfig<
@@ -60,38 +52,32 @@ export const referFriendsRouters: ITabSubNavigatorConfig<
   },
   {
     name: ETabReferFriendsRoutes.TabYourReferred,
+    rewrite: '/your-referred',
     component: YourReferred,
     headerShown: !platformEnv.isNative,
   },
   {
-    name: ETabReferFriendsRoutes.TabYourReferredWalletAddresses,
-    component: YourReferredWalletAddresses,
-    headerShown: !platformEnv.isNative,
-  },
-  {
     name: ETabReferFriendsRoutes.TabHardwareSalesReward,
+    rewrite: '/hardware-sales-reward',
     component: HardwareSalesReward,
     headerShown: !platformEnv.isNative,
   },
   {
-    name: ETabReferFriendsRoutes.TabOneKeyId,
-    rewrite: '/onekey-id',
-    component: OneKeyId,
-    headerShown: !platformEnv.isNative,
-  },
-  {
-    name: ETabReferFriendsRoutes.TabEditAddress,
-    component: EditAddress,
-    headerShown: !platformEnv.isNative,
-  },
-  {
     name: ETabReferFriendsRoutes.TabEarnReward,
+    rewrite: '/earn-reward',
     component: EarnReward,
     headerShown: !platformEnv.isNative,
   },
   {
     name: ETabReferFriendsRoutes.TabRewardDistributionHistory,
+    rewrite: '/reward-distribution-history',
     component: RewardDistributionHistory,
+    headerShown: !platformEnv.isNative,
+  },
+  {
+    name: ETabReferFriendsRoutes.TabReferralLevel,
+    rewrite: '/referral-level',
+    component: ReferralLevel,
     headerShown: !platformEnv.isNative,
   },
 ];

@@ -73,7 +73,7 @@ export const useReferFriends = () => {
         screen: ETabReferFriendsRoutes.TabInviteReward,
       });
     } else {
-      void loginOneKeyId({ toOneKeyIdPageOnLoginSuccess: true });
+      void loginOneKeyId({ toOneKeyIdPageOnLoginSuccess: false });
     }
   }, [loginOneKeyId, navigation]);
 
@@ -113,7 +113,7 @@ export const useReferFriends = () => {
             },
           );
         } else {
-          void loginOneKeyId({ toOneKeyIdPageOnLoginSuccess: true });
+          void loginOneKeyId({ toOneKeyIdPageOnLoginSuccess: false });
         }
       };
       const dialog = Dialog.show({

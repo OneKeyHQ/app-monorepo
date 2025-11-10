@@ -35,8 +35,8 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { EPrimeEmailOTPScene } from '@onekeyhq/shared/src/consts/primeConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
-  ETabReferFriendsRoutes,
-  ITabReferFriendsParamList,
+  EModalReferFriendsRoutes,
+  IModalReferFriendsParamList,
 } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -51,8 +51,8 @@ function BasicEditAddress() {
   const route =
     useRoute<
       RouteProp<
-        ITabReferFriendsParamList,
-        ETabReferFriendsRoutes.TabEditAddress
+        IModalReferFriendsParamList,
+        EModalReferFriendsRoutes.EditAddress
       >
     >();
   const onAddressAdded = route.params?.onAddressAdded;
@@ -277,8 +277,8 @@ function EditAddress() {
   const route =
     useRoute<
       RouteProp<
-        ITabReferFriendsParamList,
-        ETabReferFriendsRoutes.TabEditAddress
+        IModalReferFriendsParamList,
+        EModalReferFriendsRoutes.EditAddress
       >
     >();
   const enabledNetworks = useMemo(
