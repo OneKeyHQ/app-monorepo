@@ -72,79 +72,41 @@ export function ControlPanel({
   );
 
   return (
-    <YStack
-      padding={isMobile ? '$4' : '$6'}
-      gap="$6"
-      flex={isMobile ? undefined : 1}
-    >
-      <YStack gap="$2">
-        <SizableText size="$bodyLgMedium">Background</SizableText>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          <XStack gap="$3">
-            {availableBackgrounds.map((bgSource, index) => (
-              <Stack
-                key={index}
-                width={isMobile ? 72 : 80}
-                height={isMobile ? 72 : 80}
-                borderRadius="$3"
-                borderWidth="$0.5"
-                borderColor={
-                  config.backgroundIndex === index
-                    ? '$borderActive'
-                    : '$borderSubdued'
-                }
-                justifyContent="center"
-                alignItems="center"
-                overflow="hidden"
-                cursor="pointer"
-                hoverStyle={{ borderColor: '$borderHover' }}
-                pressStyle={{ opacity: 0.8 }}
-                onPress={() => handleBackgroundChange(index)}
-              >
-                <Image
-                  source={bgSource}
-                  width={isMobile ? 72 : 80}
-                  height={isMobile ? 72 : 80}
-                />
-              </Stack>
-            ))}
-          </XStack>
-        </ScrollView>
+    <YStack px="$5" flex={1}>
+      <YStack flex={1} gap="$6">
+        <YStack gap="$2">
+          <SizableText size="$headingXs">Background</SizableText>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <XStack gap="$3">
+              {availableBackgrounds.map((bgSource, index) => (
+                <Stack
+                  key={index}
+                  width={72}
+                  height={72}
+                  borderRadius="$3"
+                  borderWidth="$0.5"
+                  borderColor={
+                    config.backgroundIndex === index
+                      ? '$borderActive'
+                      : '$borderSubdued'
+                  }
+                  justifyContent="center"
+                  alignItems="center"
+                  overflow="hidden"
+                  cursor="pointer"
+                  hoverStyle={{ borderColor: '$borderHover' }}
+                  pressStyle={{ opacity: 0.8 }}
+                  onPress={() => handleBackgroundChange(index)}
+                >
+                  <Image source={bgSource} width={72} height={72} />
+                </Stack>
+              ))}
+            </XStack>
+          </ScrollView>
+        </YStack>
       </YStack>
 
-      <YStack gap="$2">
-        <SizableText size="$bodyLgMedium">Sticker</SizableText>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          <XStack gap="$3">
-            {STICKERS.map((emoji, index) => (
-              <Stack
-                key={index}
-                width={isMobile ? 72 : 80}
-                height={isMobile ? 72 : 80}
-                borderRadius="$3"
-                borderWidth="$0.5"
-                borderColor={
-                  config.stickerIndex === index
-                    ? '$borderActive'
-                    : '$borderSubdued'
-                }
-                justifyContent="center"
-                alignItems="center"
-                cursor="pointer"
-                hoverStyle={{ borderColor: '$borderHover' }}
-                pressStyle={{ opacity: 0.8 }}
-                onPress={() => handleStickerChange(index)}
-              >
-                <SizableText size={isMobile ? '$heading3xl' : '$heading4xl'}>
-                  {emoji}
-                </SizableText>
-              </Stack>
-            ))}
-          </XStack>
-        </ScrollView>
-      </YStack>
-
-      <YStack gap="$3" marginTop={isMobile ? '$6' : 'auto'}>
+      <YStack gap="$3" mb={isMobile ? '$6' : undefined}>
         <XStack gap="$3">
           <Button
             flex={1}

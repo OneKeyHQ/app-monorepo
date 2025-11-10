@@ -30,66 +30,67 @@ export function getDefaultShareText(side: string, coin: string): string {
   return `Check out my ${side.toUpperCase()} position on ${coin}! 🚀`;
 }
 
-// Base configuration at 1080px
 const BASE_SIZE = 1080;
-const CURRENT_SIZE = 900;
 
-// Helper function to scale values
-const scale = (value: number, round = false) =>
+const scale = (value: number, currentSize: number, round = false) =>
   round
-    ? Math.round(value * (CURRENT_SIZE / BASE_SIZE))
-    : value * (CURRENT_SIZE / BASE_SIZE);
+    ? Math.round(value * (currentSize / BASE_SIZE))
+    : value * (currentSize / BASE_SIZE);
 
-export const CANVAS_CONFIG: ICanvasConfig = {
-  size: CURRENT_SIZE,
-  padding: scale(60, true),
+export function getCanvasConfig(currentSize = 1080): ICanvasConfig {
+  return {
+    size: currentSize,
+    padding: scale(60, currentSize, true),
 
-  colors: {
-    background: ['#1a1a1a', '#0a0a0a', '#1a1a1a'],
-    long: '#24FF00',
-    short: '#FF0000',
-    textPrimary: '#ffffff',
-    textSecondary: '#FFFFFF',
-    textTertiary: '#ffffff',
-    referralBackground: '#00000098',
-    sideLongBackground: '#0C5300',
-    sideShortBackground: '#630A0A',
-  },
+    colors: {
+      background: ['#1a1a1a', '#0a0a0a', '#1a1a1a'],
+      long: '#24FF00',
+      short: '#FF0000',
+      textPrimary: '#ffffff',
+      textSecondary: '#FFFFFF',
+      textTertiary: '#ffffff',
+      referralBackground: '#00000098',
+      sideLongBackground: '#0C5300',
+      sideShortBackground: '#630A0A',
+    },
 
-  fonts: {
-    coin: scale(67.5),
-    side: scale(24),
-    pnl: scale(180),
-    priceLabel: scale(25),
-    priceValue: scale(25),
-  },
+    fonts: {
+      coin: scale(67.5, currentSize),
+      side: scale(24, currentSize),
+      pnl: scale(180, currentSize),
+      priceLabel: scale(25, currentSize),
+      priceValue: scale(25, currentSize),
+    },
 
-  layout: {
-    tokenSize: scale(67.5),
-    stickerSize: scale(200, true),
-    referralHeight: scale(216, true),
-    tokenY: scale(250, true),
-    tokenOffsetX: scale(13.5),
-    pnlY: scale(426, true),
-    entryPriceY: scale(580, true),
-    markPriceY: scale(700, true),
-    priceSpacingY: scale(40, true),
-    badgePaddingX: scale(20, true),
-    badgePaddingY: scale(18, true),
-    tokenSpacing: scale(40, true),
-    priceGap: scale(1.5),
-    referralOffset: scale(20, true),
-    lineHeight: 1.2,
-    badgeRadius: scale(58, true),
-    labelOpacity: 0.5,
-  },
+    layout: {
+      tokenSize: scale(67.5, currentSize),
+      stickerSize: scale(200, currentSize, true),
+      referralHeight: scale(216, currentSize, true),
+      tokenY: scale(250, currentSize, true),
+      tokenOffsetX: scale(13.5, currentSize),
+      pnlY: scale(426, currentSize, true),
+      entryPriceY: scale(580, currentSize, true),
+      markPriceY: scale(700, currentSize, true),
+      priceSpacingY: scale(40, currentSize, true),
+      badgePaddingX: scale(20, currentSize, true),
+      badgePaddingY: scale(18, currentSize, true),
+      tokenSpacing: scale(40, currentSize, true),
+      priceGap: scale(1.5, currentSize),
+      referralOffset: scale(20, currentSize, true),
+      lineHeight: 1.2,
+      badgeRadius: scale(58, currentSize, true),
+      labelOpacity: 0.5,
+    },
 
-  display: {
-    showTokenIcon: true,
-    showCoinName: true,
-    showSideAndLeverage: true,
-    showPnl: true,
-    showEntryPrice: true,
-    showMarkPrice: true,
-  },
-};
+    display: {
+      showTokenIcon: true,
+      showCoinName: true,
+      showSideAndLeverage: true,
+      showPnl: true,
+      showEntryPrice: true,
+      showMarkPrice: true,
+    },
+  };
+}
+
+export const CANVAS_CONFIG = getCanvasConfig();

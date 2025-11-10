@@ -5,10 +5,10 @@ import { getHyperliquidTokenImageUrl } from '@onekeyhq/shared/src/utils/perpsUti
 
 import {
   BACKGROUNDS,
-  CANVAS_CONFIG,
   REFERRAL_CODE,
   SHOW_REFERRAL_CODE,
   STICKERS,
+  getCanvasConfig,
 } from './constants';
 
 import type {
@@ -23,7 +23,6 @@ interface IShareImageGeneratorProps {
 }
 
 const imageCache = new Map<string, HTMLImageElement>();
-
 function toCanvasFont(size: number, weight: string | number = 'bold'): string {
   return `${weight} ${size}px MiSans`;
 }
@@ -50,8 +49,8 @@ export const ShareImageGenerator = forwardRef<
   IShareImageGeneratorRef,
   IShareImageGeneratorProps
 >(({ data, config }, ref) => {
+  const CANVAS_CONFIG = getCanvasConfig(900);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-
   const generate = useCallback(async (): Promise<string> => {
     const canvas = canvasRef.current;
     if (!canvas) return '';
@@ -266,7 +265,7 @@ export const ShareImageGenerator = forwardRef<
       console.error('Failed to generate image:', error);
       return '';
     }
-  }, [data, config]);
+  }, [data, config, CANVAS_CONFIG]);
 
   useImperativeHandle(ref, () => ({ generate }));
 

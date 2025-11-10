@@ -95,7 +95,7 @@ function ShareContent({ data, onClose, isMobile }: IShareContentProps) {
   }, [shareToX, config.customText, onClose]);
 
   const desktopLayout = (
-    <XStack width="100%" minHeight={500}>
+    <XStack>
       <ShareImageGenerator ref={generatorRef} data={data} config={config} />
       <Stack flex={1.2} justifyContent="center" alignItems="center">
         <ShareView
@@ -105,7 +105,7 @@ function ShareContent({ data, onClose, isMobile }: IShareContentProps) {
           generatorRef={generatorRef}
         />
       </Stack>
-      <Stack flex={0.8} borderLeftWidth={1} borderColor="$borderSubdued">
+      <Stack flex={0.8}>
         <ControlPanel
           config={config}
           data={data}
@@ -122,19 +122,21 @@ function ShareContent({ data, onClose, isMobile }: IShareContentProps) {
   const mobileLayout = (
     <YStack width="100%" flex={1}>
       <ShareImageGenerator ref={generatorRef} data={data} config={config} />
-      <Stack justifyContent="center" alignItems="center">
+      <Stack justifyContent="center" alignItems="center" mb="$6">
         <ShareView data={data} config={config} generatorRef={generatorRef} />
       </Stack>
-      <ControlPanel
-        config={config}
-        data={data}
-        onChange={setConfig}
-        onSaveImage={handleSaveImage}
-        onCopyLink={copyLink}
-        onShareToX={handleShareToX}
-        isLoading={isActionLoading}
-        isMobile
-      />
+      <YStack flex={1}>
+        <ControlPanel
+          config={config}
+          data={data}
+          onChange={setConfig}
+          onSaveImage={handleSaveImage}
+          onCopyLink={copyLink}
+          onShareToX={handleShareToX}
+          isLoading={isActionLoading}
+          isMobile
+        />
+      </YStack>
     </YStack>
   );
 
@@ -154,11 +156,11 @@ function MobilePositionShareModal({
   }, [navigation]);
 
   return (
-    <Page scrollEnabled>
+    <Page>
       <Page.Header title="Share Position" />
       <Page.Body>
         <PerpsProviderMirror>
-          <YStack px="$4" flex={1}>
+          <YStack px="$2" flex={1}>
             <ShareContent data={data} onClose={handleClose} isMobile />
           </YStack>
         </PerpsProviderMirror>
@@ -181,6 +183,9 @@ export function showPositionShareDialog(
       : {
           width: 1000,
         },
+    contentContainerProps: {
+      pb: '$10',
+    },
     renderContent: (
       <PerpsProviderMirror>
         <ShareContent
