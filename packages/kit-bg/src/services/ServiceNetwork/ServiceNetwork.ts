@@ -10,6 +10,7 @@ import {
 import {
   backgroundClass,
   backgroundMethod,
+  toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
@@ -855,6 +856,7 @@ class ServiceNetwork extends ServiceBase {
   }
 
   @backgroundMethod()
+  @toastIfError()
   async detectNetworksByAddress({ address }: { address: string }): Promise<{
     detectedNetworks: IDetectedNetworkGroupItem[];
   }> {
@@ -906,10 +908,67 @@ class ServiceNetwork extends ServiceBase {
     };
   }
 
-  // @backgroundMethod()
-  // async detectNetworksByPublicKey
+  @backgroundMethod()
+  @toastIfError()
+  async detectNetworksByPublicKey({
+    publicKey,
+  }: {
+    publicKey: string;
+  }): Promise<{
+    detectedNetworks: IDetectedNetworkGroupItem[];
+  }> {
+    // eslint-disable-next-line no-param-reassign
+    publicKey = publicKey?.trim?.() || '';
+    if (!publicKey) {
+      return {
+        detectedNetworks: [],
+      };
+    }
+    const availableNetworks: IServerNetwork[] =
+      await this.getPublicKeyExportEnabledNetworks();
+    const detectedNetworks: IDetectedNetworkGroupItem[] = [];
+    const detectedNetworksMap: Record<string, IDetectedNetwork[]> = {};
+    for (const network of availableNetworks) {
+      try {
+        const result =
+          await this.backgroundApi.serviceAccount.validateGeneralInputOfImporting(
+            {
+              input: publicKey,
+              networkId: network.id,
+              validateXpub: true,
+            },
+          );
+        if (result?.isValid) {
+          if (!detectedNetworksMap[network.impl]) {
+            detectedNetworksMap[network.impl] = [];
+          }
+          detectedNetworksMap[network.impl].push({
+            networkId: network.id,
+            name: network.name,
+            shortname: network.shortname,
+            impl: network.impl,
+          });
+        }
+      } catch (error) {
+        console.error('detectNetworksByPublicKey error', network.id, error);
+      }
+    }
+    Object.entries(detectedNetworksMap).forEach(([impl, networks]) => {
+      if (networks.length > 0) {
+        detectedNetworks.push({
+          uuid: stringUtils.generateUUID(),
+          impl,
+          networks,
+        });
+      }
+    });
+    return {
+      detectedNetworks,
+    };
+  }
 
   @backgroundMethod()
+  @toastIfError()
   async detectNetworksByPrivateKey({
     privateKey,
   }: {

@@ -65,14 +65,25 @@ export default function ImportWatchedAccountV2() {
           params,
         );
       } else {
+        const publicKeyTrimmed = publicKey?.trim?.() || '';
         const input =
           await backgroundApiProxy.servicePassword.encodeSensitiveText({
-            text: fixInputImportSingleChain(publicKey || '') || '',
+            text: publicKeyTrimmed,
           });
-        // Navigate to network selection page for private key import
-        void navigation.push(EOnboardingPagesV2.SelectPrivateKeyNetwork, {
-          input,
-        });
+        const results =
+          await backgroundApiProxy.serviceNetwork.detectNetworksByPublicKey({
+            publicKey: input,
+          });
+        const params: IOnboardingParamListV2[EOnboardingPagesV2.SelectPrivateKeyNetwork] =
+          {
+            input,
+            detectedNetworks: results.detectedNetworks,
+            importType: 'publicKey',
+          };
+        void navigation.push(
+          EOnboardingPagesV2.SelectPrivateKeyNetwork,
+          params,
+        );
       }
     } finally {
       setIsConfirming(false);

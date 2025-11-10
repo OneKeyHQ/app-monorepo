@@ -353,6 +353,17 @@ function SelectPrivateKeyNetworkView() {
           accountId = r?.accounts?.[0]?.id;
           isOverrideAccounts = r?.isOverrideAccounts;
         }
+        if (importType === 'publicKey') {
+          const r = await backgroundApiProxy.serviceAccount.addWatchingAccount({
+            input,
+            deriveType: values.deriveType,
+            networkId: selectedNetworkId,
+            name: values.accountName,
+            shouldCheckDuplicateName: true,
+          });
+          accountId = r?.accounts?.[0]?.id;
+          isOverrideAccounts = r?.isOverrideAccounts;
+        }
 
         if (accountId) {
           toastSuccessWhenImportAddressOrPrivateKey({
@@ -440,16 +451,22 @@ function SelectPrivateKeyNetworkView() {
 
     form.setValue('deriveType', undefined);
     if (input && selectedNetworkId) {
-      if (importType === 'privateKey') {
+      if (importType === 'privateKey' || importType === 'publicKey') {
         try {
           const result =
             await backgroundApiProxy.serviceAccount.validateGeneralInputOfImporting(
-              {
-                validatePrivateKey: true,
-                validateXprvt: true,
-                input,
-                networkId: selectedNetworkId,
-              },
+              importType === 'privateKey'
+                ? {
+                    validateXprvt: true,
+                    validatePrivateKey: true,
+                    input,
+                    networkId: selectedNetworkId,
+                  }
+                : {
+                    validateXpub: true,
+                    input,
+                    networkId: selectedNetworkId,
+                  },
             );
           setValidateResult(result);
           console.log('validateGeneralInputOfImporting result', result);
