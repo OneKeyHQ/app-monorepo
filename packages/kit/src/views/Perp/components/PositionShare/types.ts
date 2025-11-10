@@ -29,6 +29,9 @@ export interface ICanvasConfig {
     textPrimary: string;
     textSecondary: string;
     textTertiary: string;
+    referralBackground: string;
+    sideLongBackground: string;
+    sideShortBackground: string;
   };
   fonts: {
     coin: number;
@@ -36,24 +39,25 @@ export interface ICanvasConfig {
     pnl: number;
     priceLabel: number;
     priceValue: number;
-    referral: number;
-    customText: number;
   };
   layout: {
-    logoSize: number;
     tokenSize: number;
+    stickerSize: number;
+    referralHeight: number;
     tokenY: number;
     tokenOffsetX: number;
-    tokenOffsetY: number;
-    sideOffsetY: number;
-    pnlYOffset: number;
+    pnlY: number;
+    entryPriceY: number;
+    markPriceY: number;
     priceSpacingY: number;
-    priceValueOffsetX: number;
-    stickerSize: number;
-    customTextMaxWidth: number;
-    customTextTopOffset: number;
-    customTextLineHeight: number;
-    referralBottomOffset: number;
+    badgePaddingX: number;
+    badgePaddingY: number;
+    tokenSpacing: number;
+    priceGap: number;
+    referralOffset: number;
+    lineHeight: number;
+    badgeRadius: number;
+    labelOpacity: number;
   };
   display: {
     showTokenIcon: boolean;

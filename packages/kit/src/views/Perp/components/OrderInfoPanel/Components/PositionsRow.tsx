@@ -363,7 +363,7 @@ const PositionRowDesktopPnL = memo(() => {
           {...getColumnStyle(columnConfigs[5])}
           justifyContent={calcCellAlign(columnConfigs[5].align)}
           alignItems="center"
-          gap="$2"
+          gap="$1"
         >
           <SizableText
             size="$bodySm"
@@ -377,7 +377,7 @@ const PositionRowDesktopPnL = memo(() => {
             variant="tertiary"
             size="small"
             icon="ShareOutline"
-            iconSize="$3"
+            iconSize="$4"
             onPress={onShare}
             cursor="pointer"
           />
@@ -683,7 +683,7 @@ PositionRowDesktop.displayName = 'PositionRowDesktop';
 
 const PositionRowMobileHeader = memo(() => {
   const intl = useIntl();
-  const { side, assetInfo, onChangeAsset } = usePositionRowContext();
+  const { side, assetInfo, onChangeAsset, onShare } = usePositionRowContext();
 
   const content = useMemo(
     () => (
@@ -691,46 +691,57 @@ const PositionRowMobileHeader = memo(() => {
         position="bottom-right"
         name="PositionRowMobileHeader"
       >
-        <XStack
-          gap="$2"
-          alignItems="center"
-          cursor="pointer"
-          onPress={onChangeAsset}
-        >
+        <XStack justifyContent="space-between" flex={1}>
           <XStack
-            w="$4"
-            h="$4"
-            justifyContent="center"
+            flex={1}
+            gap="$2"
             alignItems="center"
-            borderRadius={2}
-            backgroundColor={assetInfo.assetColor}
+            cursor="pointer"
+            onPress={onChangeAsset}
           >
-            <SizableText size="$bodySmMedium" color="$textOnColor">
-              {side === 'long'
-                ? intl.formatMessage({
-                    id: ETranslations.perp_position_b,
-                  })
-                : intl.formatMessage({
-                    id: ETranslations.perp_position_s,
-                  })}
+            <XStack
+              w="$4"
+              h="$4"
+              justifyContent="center"
+              alignItems="center"
+              borderRadius={2}
+              backgroundColor={assetInfo.assetColor}
+            >
+              <SizableText size="$bodySmMedium" color="$textOnColor">
+                {side === 'long'
+                  ? intl.formatMessage({
+                      id: ETranslations.perp_position_b,
+                    })
+                  : intl.formatMessage({
+                      id: ETranslations.perp_position_s,
+                    })}
+              </SizableText>
+            </XStack>
+            <SizableText size="$bodyMdMedium" color="$text">
+              {assetInfo.assetSymbol}
+            </SizableText>
+            <SizableText
+              bg="$bgSubdued"
+              borderRadius={2}
+              px="$1"
+              color="$textSubdued"
+              fontSize={10}
+            >
+              {assetInfo.leverageType} {assetInfo.leverage}x
             </SizableText>
           </XStack>
-          <SizableText size="$bodyMdMedium" color="$text">
-            {assetInfo.assetSymbol}
-          </SizableText>
-          <SizableText
-            bg="$bgSubdued"
-            borderRadius={2}
-            px="$1"
-            color="$textSubdued"
-            fontSize={10}
-          >
-            {assetInfo.leverageType} {assetInfo.leverage}x
-          </SizableText>
+          <IconButton
+            variant="tertiary"
+            size="small"
+            icon="ShareOutline"
+            iconSize="$4"
+            onPress={onShare}
+            cursor="pointer"
+          />
         </XStack>
       </DebugRenderTracker>
     ),
-    [side, assetInfo, onChangeAsset, intl],
+    [side, assetInfo, onChangeAsset, intl, onShare],
   );
   return content;
 });
@@ -739,7 +750,7 @@ PositionRowMobileHeader.displayName = 'PositionRowMobileHeader';
 
 const PositionRowMobilePnLAndROE = memo(() => {
   const intl = useIntl();
-  const { otherInfo, onShare } = usePositionRowContext();
+  const { otherInfo } = usePositionRowContext();
 
   const content = useMemo(
     () => (
@@ -766,18 +777,10 @@ const PositionRowMobilePnLAndROE = memo(() => {
               {`${otherInfo.pnlPlusOrMinus}${otherInfo.roiPercent}%`}
             </SizableText>
           </YStack>
-          <IconButton
-            variant="tertiary"
-            size="small"
-            icon="ShareOutline"
-            iconSize="$4"
-            onPress={onShare}
-            cursor="pointer"
-          />
         </XStack>
       </DebugRenderTracker>
     ),
-    [otherInfo, intl, onShare],
+    [otherInfo, intl],
   );
   return content;
 });

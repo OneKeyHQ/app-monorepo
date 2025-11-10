@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 
 import { Image, Spinner, Stack } from '@onekeyhq/components';
 
-import { CANVAS_CONFIG } from './constants';
+import { getCanvasConfig } from './constants';
 
 import type {
   IShareConfig,
@@ -23,6 +23,8 @@ export function ShareView({
   scale = 0.5,
   generatorRef,
 }: IShareViewProps) {
+  const CANVAS_CONFIG = getCanvasConfig(900);
+
   const displaySize = CANVAS_CONFIG.size * scale;
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [isFirstLoad, setIsFirstLoad] = useState(true);

@@ -1,3 +1,5 @@
+import { useIntl } from 'react-intl';
+
 import {
   Image,
   SizableText,
@@ -5,6 +7,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { getHyperliquidTokenImageUrl } from '@onekeyhq/shared/src/utils/perpsUtils';
 
@@ -31,6 +34,7 @@ export function ShareContentRenderer({
   config,
   scale = 1,
 }: IShareContentRendererProps) {
+  const intl = useIntl();
   const {
     side,
     token,
@@ -63,16 +67,12 @@ export function ShareContentRenderer({
     pnl: fonts.pnl * scale,
     priceLabel: fonts.priceLabel * scale,
     priceValue: fonts.priceValue * scale,
-    referral: fonts.referral * scale,
-    customText: fonts.customText * scale,
   };
   const scaledLayout = {
-    logoSize: layout.logoSize * scale,
     tokenSize: layout.tokenSize * scale,
-    tokenY: layout.tokenY * scale,
     stickerSize: layout.stickerSize * scale,
-    customTextMaxWidth: layout.customTextMaxWidth * scale,
   };
+  const tokenY = layout.tokenY * scale;
 
   return (
     <YStack
@@ -97,94 +97,151 @@ export function ShareContentRenderer({
         height={scaledSize}
         padding={scaledPadding}
         position="relative"
-        gap="$0"
       >
-        <YStack marginTop={scaledLayout.tokenY - scaledLayout.tokenSize / 2}>
-          <XStack alignItems="center" gap="$3">
+        <YStack
+          position="absolute"
+          top={tokenY - scaledLayout.tokenSize / 2}
+          left={scaledPadding}
+        >
+          <XStack alignItems="center" gap="$2">
             {display.showTokenIcon ? (
-              <Image
-                source={{ uri: tokenImage }}
+              <Stack
                 width={scaledLayout.tokenSize}
                 height={scaledLayout.tokenSize}
-              />
+                borderRadius="$full"
+                overflow="hidden"
+                backgroundColor="$bgSubdued"
+              >
+                <Image
+                  source={{ uri: tokenImage }}
+                  width={scaledLayout.tokenSize}
+                  height={scaledLayout.tokenSize}
+                />
+              </Stack>
             ) : null}
 
-            <YStack gap="$1">
-              {display.showCoinName ? (
-                <SizableText
-                  fontSize={scaledFonts.coin}
-                  lineHeight={scaledFonts.coin * 1.2}
-                  fontWeight="bold"
-                  color={colors.textPrimary}
-                >
-                  {token}
-                </SizableText>
-              ) : null}
+            {display.showCoinName ? (
+              <SizableText
+                fontSize={scaledFonts.coin}
+                lineHeight={scaledFonts.coin * layout.lineHeight}
+                fontWeight="600"
+                color={colors.textPrimary}
+              >
+                {token}
+              </SizableText>
+            ) : null}
 
-              {display.showSideAndLeverage ? (
+            {display.showSideAndLeverage ? (
+              <XStack
+                py={layout.badgePaddingY * scale}
+                px={layout.badgePaddingX * scale}
+                borderRadius="$3"
+                bg={
+                  side === 'long'
+                    ? colors.sideLongBackground
+                    : colors.sideShortBackground
+                }
+              >
                 <SizableText
                   fontSize={scaledFonts.side}
-                  lineHeight={scaledFonts.side * 1.2}
+                  lineHeight={scaledFonts.side * layout.lineHeight}
                   fontWeight="600"
                   color={sideColor}
                 >
-                  {`${side.toUpperCase()} ${leverage}X`}
+                  {`${intl.formatMessage({
+                    id:
+                      side === 'long'
+                        ? ETranslations.perp_long
+                        : ETranslations.perp_short,
+                  })} ${leverage}X`}
                 </SizableText>
-              ) : null}
-            </YStack>
+              </XStack>
+            ) : null}
           </XStack>
         </YStack>
 
-        <YStack flex={1} justifyContent="center" gap="$4">
-          {display.showPnl ? (
+        {display.showPnl ? (
+          <Stack
+            position="absolute"
+            top={
+              layout.pnlY * scale - (scaledFonts.pnl * layout.lineHeight) / 2
+            }
+            left={scaledPadding}
+          >
             <SizableText
               fontSize={scaledFonts.pnl}
-              lineHeight={scaledFonts.pnl * 1.2}
-              fontWeight="bold"
+              lineHeight={scaledFonts.pnl * layout.lineHeight}
+              fontWeight="600"
               color={pnlColor}
             >
               {`${pnlSign}${pnlPercent}%`}
             </SizableText>
-          ) : null}
+          </Stack>
+        ) : null}
 
-          <YStack gap="$2">
-            {display.showEntryPrice ? (
-              <XStack gap="$2">
-                <SizableText
-                  fontSize={scaledFonts.priceLabel}
-                  color={colors.textSecondary}
-                >
-                  Entry Price
-                </SizableText>
-                <SizableText
-                  fontSize={scaledFonts.priceValue}
-                  fontWeight="600"
-                  color={colors.textPrimary}
-                >
-                  {entryPrice}
-                </SizableText>
-              </XStack>
-            ) : null}
-
-            {display.showMarkPrice ? (
-              <XStack gap="$2">
-                <SizableText
-                  fontSize={scaledFonts.priceLabel}
-                  color={colors.textSecondary}
-                >
-                  Mark Price
-                </SizableText>
-                <SizableText
-                  fontSize={scaledFonts.priceValue}
-                  fontWeight="600"
-                  color={colors.textPrimary}
-                >
-                  {markPrice}
-                </SizableText>
-              </XStack>
-            ) : null}
+        {display.showEntryPrice ? (
+          <YStack
+            position="absolute"
+            top={
+              layout.entryPriceY * scale -
+              (scaledFonts.priceLabel * layout.lineHeight) / 2
+            }
+            left={scaledPadding}
+            gap={layout.priceGap}
+          >
+            <SizableText
+              fontSize={scaledFonts.priceLabel}
+              fontWeight="600"
+              color={colors.textSecondary}
+              opacity={layout.labelOpacity}
+              lineHeight={scaledFonts.priceLabel * layout.lineHeight}
+            >
+              {intl.formatMessage({
+                id: ETranslations.perp_position_entry_price,
+              })}
+            </SizableText>
+            <SizableText
+              fontSize={scaledFonts.priceValue}
+              fontWeight="600"
+              color={colors.textPrimary}
+              lineHeight={scaledFonts.priceValue * layout.lineHeight}
+            >
+              {entryPrice}
+            </SizableText>
           </YStack>
-        </YStack>
+        ) : null}
+
+        {display.showMarkPrice ? (
+          <YStack
+            position="absolute"
+            top={
+              layout.markPriceY * scale -
+              (scaledFonts.priceLabel * layout.lineHeight) / 2
+            }
+            left={scaledPadding}
+            gap={layout.priceGap}
+          >
+            <SizableText
+              fontSize={scaledFonts.priceLabel}
+              fontWeight="600"
+              color={colors.textSecondary}
+              opacity={layout.labelOpacity}
+              lineHeight={scaledFonts.priceLabel * layout.lineHeight}
+            >
+              {intl.formatMessage({
+                id: ETranslations.perp_position_mark_price,
+              })}
+            </SizableText>
+            <SizableText
+              fontSize={scaledFonts.priceValue}
+              fontWeight="600"
+              color={colors.textPrimary}
+              lineHeight={scaledFonts.priceValue * layout.lineHeight}
+            >
+              {markPrice}
+            </SizableText>
+          </YStack>
+        ) : null}
 
         {selectedSticker ? (
           <SizableText
@@ -192,24 +249,43 @@ export function ShareContentRenderer({
             right={scaledPadding}
             bottom={scaledPadding}
             fontSize={scaledLayout.stickerSize}
-            lineHeight={scaledLayout.stickerSize * 1.2}
+            lineHeight={scaledLayout.stickerSize * layout.lineHeight}
           >
             {selectedSticker}
           </SizableText>
         ) : null}
-
         {SHOW_REFERRAL_CODE ? (
           <Stack
             position="absolute"
-            bottom={scaledPadding}
-            left={scaledPadding}
+            bottom={0}
+            left={0}
+            right={0}
+            height={layout.referralHeight * scale}
+            backgroundColor={colors.referralBackground}
+            justifyContent="center"
+            paddingLeft={scaledPadding}
           >
-            <SizableText
-              fontSize={scaledFonts.referral}
-              color={colors.textTertiary}
-            >
-              {REFERRAL_CODE}
-            </SizableText>
+            <YStack gap={layout.priceGap}>
+              <SizableText
+                fontSize={scaledFonts.priceLabel}
+                fontWeight="600"
+                color={colors.textTertiary}
+                opacity={layout.labelOpacity}
+                lineHeight={scaledFonts.priceLabel * layout.lineHeight}
+              >
+                {intl.formatMessage({
+                  id: ETranslations.referral_referral_link,
+                })}
+              </SizableText>
+              <SizableText
+                fontSize={scaledFonts.priceValue}
+                fontWeight="600"
+                color={colors.textTertiary}
+                lineHeight={scaledFonts.priceValue * layout.lineHeight}
+              >
+                {REFERRAL_CODE}
+              </SizableText>
+            </YStack>
           </Stack>
         ) : null}
       </YStack>

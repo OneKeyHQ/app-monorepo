@@ -1,14 +1,16 @@
 import { forwardRef, useCallback, useImperativeHandle, useRef } from 'react';
 
 import { Stack } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { getHyperliquidTokenImageUrl } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import {
   BACKGROUNDS,
-  CANVAS_CONFIG,
   REFERRAL_CODE,
   SHOW_REFERRAL_CODE,
   STICKERS,
+  getCanvasConfig,
 } from './constants';
 
 import type {
@@ -23,12 +25,8 @@ interface IShareImageGeneratorProps {
 }
 
 const imageCache = new Map<string, HTMLImageElement>();
-
-function toCanvasFont(
-  size: number,
-  weight: 'normal' | 'bold' = 'normal',
-): string {
-  return `${weight} ${size}px Inter`;
+function toCanvasFont(size: number, weight: string | number = 'bold'): string {
+  return `${weight} ${size}px MiSans`;
 }
 
 function loadImage(src: string | number): Promise<HTMLImageElement | null> {
@@ -53,8 +51,8 @@ export const ShareImageGenerator = forwardRef<
   IShareImageGeneratorRef,
   IShareImageGeneratorProps
 >(({ data, config }, ref) => {
+  const CANVAS_CONFIG = getCanvasConfig(900);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-
   const generate = useCallback(async (): Promise<string> => {
     const canvas = canvasRef.current;
     if (!canvas) return '';
@@ -115,12 +113,14 @@ export const ShareImageGenerator = forwardRef<
         ctx.fillRect(0, 0, size, size);
       }
 
-      const tokenY = padding + layout.tokenY;
+      const tokenY = layout.tokenY;
       if (tokenImg) {
+        const imgCenterY = tokenY; // Same center line as text
+
         ctx.drawImage(
           tokenImg,
           padding,
-          tokenY - layout.tokenSize / 2,
+          imgCenterY - layout.tokenSize / 2,
           layout.tokenSize,
           layout.tokenSize,
         );
@@ -128,65 +128,148 @@ export const ShareImageGenerator = forwardRef<
 
       if (display.showCoinName) {
         ctx.fillStyle = colors.textPrimary;
-        ctx.font = toCanvasFont(fonts.coin, 'bold');
+        ctx.font = toCanvasFont(fonts.coin, 600);
+        ctx.textBaseline = 'middle';
+
         ctx.fillText(
           token,
           padding + layout.tokenSize + layout.tokenOffsetX,
-          tokenY + layout.tokenOffsetY,
+          tokenY,
         );
+
+        ctx.textBaseline = 'alphabetic';
       }
 
       if (display.showSideAndLeverage) {
-        ctx.fillStyle = side === 'long' ? colors.long : colors.short;
-        ctx.font = toCanvasFont(fonts.side, 'bold');
-        ctx.fillText(
-          `${side.toUpperCase()} ${leverage}X`,
-          padding + layout.tokenSize + layout.tokenOffsetX,
-          tokenY + layout.sideOffsetY,
-        );
-      }
+        // Calculate position
+        const coinNameWidth = ctx.measureText(token).width;
+        const textX =
+          padding +
+          layout.tokenSize +
+          layout.tokenOffsetX +
+          coinNameWidth +
+          layout.tokenSpacing;
+        const textY = tokenY;
 
+        // Measure text
+        ctx.font = toCanvasFont(fonts.side, 600);
+        const sideTranslation = appLocale.intl.formatMessage({
+          id:
+            side === 'long'
+              ? ETranslations.perp_long
+              : ETranslations.perp_short,
+        });
+        const sideText = `${sideTranslation} ${leverage}X`;
+        const textWidth = ctx.measureText(sideText).width;
+
+        // Background rectangle size
+        const bgWidth = textWidth + layout.badgePaddingX * 2;
+        const bgHeight = fonts.side + layout.badgePaddingY * 2;
+
+        // Align background center with text
+        const bgX = textX - layout.badgePaddingX;
+        const bgY = textY - bgHeight / 2;
+
+        // Draw background
+        ctx.fillStyle =
+          side === 'long'
+            ? colors.sideLongBackground
+            : colors.sideShortBackground;
+
+        ctx.beginPath();
+        if (ctx.roundRect) {
+          ctx.roundRect(bgX, bgY, bgWidth, bgHeight, layout.badgeRadius);
+        } else {
+          ctx.rect(bgX, bgY, bgWidth, bgHeight);
+        }
+        ctx.fill();
+
+        // Set text vertical center alignment
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = side === 'long' ? colors.long : colors.short;
+        ctx.fillText(sideText, textX, textY);
+
+        // Restore default baseline
+        ctx.textBaseline = 'alphabetic';
+      }
       if (display.showPnl) {
-        const pnlY = size / 2 + layout.pnlYOffset;
+        const pnlY = layout.pnlY;
         ctx.fillStyle = pnlColor;
         ctx.font = toCanvasFont(fonts.pnl, 'bold');
+        ctx.textBaseline = 'middle';
         ctx.fillText(`${pnlSign}${pnlPercent}%`, padding, pnlY);
+        ctx.textBaseline = 'alphabetic';
 
         if (display.showEntryPrice) {
+          const entryPriceY = layout.entryPriceY;
           ctx.fillStyle = colors.textSecondary;
           ctx.font = toCanvasFont(fonts.priceLabel);
-          ctx.fillText('Entry Price', padding, pnlY + layout.priceSpacingY);
+          ctx.globalAlpha = layout.labelOpacity;
+          ctx.fillText(
+            appLocale.intl.formatMessage({
+              id: ETranslations.perp_position_entry_price,
+            }),
+            padding,
+            entryPriceY,
+          );
+          ctx.globalAlpha = 1;
           ctx.fillStyle = colors.textPrimary;
           ctx.font = toCanvasFont(fonts.priceValue, 'bold');
-          ctx.fillText(
-            entryPrice,
-            padding + layout.priceValueOffsetX,
-            pnlY + layout.priceSpacingY,
-          );
+          ctx.fillText(entryPrice, padding, entryPriceY + layout.priceSpacingY);
         }
 
         if (display.showMarkPrice) {
+          const markPriceY = layout.markPriceY;
           ctx.fillStyle = colors.textSecondary;
           ctx.font = toCanvasFont(fonts.priceLabel);
-          ctx.fillText('Mark Price', padding, pnlY + layout.priceSpacingY + 80);
+          ctx.globalAlpha = layout.labelOpacity;
+          ctx.fillText(
+            appLocale.intl.formatMessage({
+              id: ETranslations.perp_position_mark_price,
+            }),
+            padding,
+            markPriceY,
+          );
+          ctx.globalAlpha = 1;
           ctx.fillStyle = colors.textPrimary;
           ctx.font = toCanvasFont(fonts.priceValue, 'bold');
           ctx.fillText(
             markPrice || '0',
-            padding + layout.priceValueOffsetX,
-            pnlY + layout.priceSpacingY + 80,
+            padding,
+            markPriceY + layout.priceSpacingY,
           );
         }
       }
 
       if (SHOW_REFERRAL_CODE) {
+        // Define bottom rectangle size and position
+        const rectHeight = layout.referralHeight;
+        const rectY = size - rectHeight;
+        const rectWidth = size;
+
+        ctx.fillStyle = colors.referralBackground;
+        ctx.fillRect(0, rectY, rectWidth, rectHeight);
+        ctx.filter = 'none';
+
         ctx.fillStyle = colors.textTertiary;
-        ctx.font = toCanvasFont(fonts.referral);
+        ctx.textBaseline = 'middle';
+        ctx.font = toCanvasFont(fonts.priceLabel);
+        ctx.globalAlpha = layout.labelOpacity;
+        ctx.fillText(
+          appLocale.intl.formatMessage({
+            id: ETranslations.referral_referral_link,
+          }),
+          padding,
+          rectY + rectHeight / 2 - layout.referralOffset,
+        );
+        ctx.globalAlpha = 1;
+        ctx.font = toCanvasFont(fonts.priceValue);
         ctx.fillText(
           REFERRAL_CODE,
           padding,
-          size - padding - layout.referralBottomOffset,
+          rectY + rectHeight / 2 + layout.referralOffset,
         );
+        ctx.textBaseline = 'alphabetic';
       }
 
       if (selectedSticker) {
@@ -204,7 +287,7 @@ export const ShareImageGenerator = forwardRef<
       console.error('Failed to generate image:', error);
       return '';
     }
-  }, [data, config]);
+  }, [data, config, CANVAS_CONFIG]);
 
   useImperativeHandle(ref, () => ({ generate }));
 

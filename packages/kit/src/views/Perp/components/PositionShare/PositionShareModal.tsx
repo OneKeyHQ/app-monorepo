@@ -11,8 +11,9 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
 
 import { getDefaultShareText } from './constants';
@@ -95,15 +96,9 @@ function ShareContent({ data, onClose, isMobile }: IShareContentProps) {
   }, [shareToX, config.customText, onClose]);
 
   const desktopLayout = (
-    <XStack width="100%" minHeight={600}>
+    <XStack gap="$5">
       <ShareImageGenerator ref={generatorRef} data={data} config={config} />
-      <Stack
-        flex={1.2}
-        justifyContent="center"
-        alignItems="center"
-        backgroundColor="$bgSubdued"
-        padding="$6"
-      >
+      <Stack justifyContent="center" alignItems="center">
         <ShareView
           data={data}
           config={config}
@@ -111,7 +106,7 @@ function ShareContent({ data, onClose, isMobile }: IShareContentProps) {
           generatorRef={generatorRef}
         />
       </Stack>
-      <Stack flex={0.8} borderLeftWidth={1} borderColor="$borderSubdued">
+      <Stack maxWidth={380}>
         <ControlPanel
           config={config}
           data={data}
@@ -128,19 +123,21 @@ function ShareContent({ data, onClose, isMobile }: IShareContentProps) {
   const mobileLayout = (
     <YStack width="100%" flex={1}>
       <ShareImageGenerator ref={generatorRef} data={data} config={config} />
-      <Stack justifyContent="center" alignItems="center">
+      <Stack justifyContent="center" alignItems="center" mb="$6">
         <ShareView data={data} config={config} generatorRef={generatorRef} />
       </Stack>
-      <ControlPanel
-        config={config}
-        data={data}
-        onChange={setConfig}
-        onSaveImage={handleSaveImage}
-        onCopyLink={copyLink}
-        onShareToX={handleShareToX}
-        isLoading={isActionLoading}
-        isMobile
-      />
+      <YStack flex={1}>
+        <ControlPanel
+          config={config}
+          data={data}
+          onChange={setConfig}
+          onSaveImage={handleSaveImage}
+          onCopyLink={copyLink}
+          onShareToX={handleShareToX}
+          isLoading={isActionLoading}
+          isMobile
+        />
+      </YStack>
     </YStack>
   );
 
@@ -154,17 +151,20 @@ function MobilePositionShareModal({
 }) {
   const navigation = useNavigation();
   const { data } = route.params;
-
   const handleClose = useCallback(() => {
     navigation.goBack();
   }, [navigation]);
 
   return (
-    <Page scrollEnabled>
-      <Page.Header title="Share Position" />
+    <Page>
+      <Page.Header
+        title={appLocale.intl.formatMessage({
+          id: ETranslations.perps_share_position_title,
+        })}
+      />
       <Page.Body>
         <PerpsProviderMirror>
-          <YStack px="$4" flex={1}>
+          <YStack px="$2" flex={1}>
             <ShareContent data={data} onClose={handleClose} isMobile />
           </YStack>
         </PerpsProviderMirror>
@@ -180,13 +180,20 @@ export function showPositionShareDialog(
   dialog?: ReturnType<typeof useInPageDialog>,
 ) {
   const DialogInstance = dialog || Dialog;
+
   const dialogInstance = DialogInstance.show({
-    title: 'Share Position',
+    title: appLocale.intl.formatMessage({
+      id: ETranslations.perps_share_position_title,
+    }),
     floatingPanelProps: platformEnv.isNative
       ? undefined
       : {
-          width: 1200,
+          width: 'autoWidth',
         },
+    contentContainerProps: {
+      px: '$5',
+      pb: '$6',
+    },
     renderContent: (
       <PerpsProviderMirror>
         <ShareContent

@@ -1,5 +1,7 @@
 import { useCallback, useMemo } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   Button,
   Image,
@@ -10,6 +12,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { BACKGROUNDS, STICKERS } from './constants';
 
@@ -36,6 +39,8 @@ export function ControlPanel({
   isLoading,
   isMobile,
 }: IControlPanelProps) {
+  const intl = useIntl();
+
   const isProfit = useMemo(() => {
     const pnlNum = parseFloat(data.pnl);
     return pnlNum >= 0;
@@ -72,115 +77,76 @@ export function ControlPanel({
   );
 
   return (
-    <YStack
-      padding={isMobile ? '$4' : '$6'}
-      gap="$6"
-      flex={isMobile ? undefined : 1}
-    >
-      <YStack gap="$2">
-        <SizableText size="$bodyLgMedium">Customize Text</SizableText>
-        <Input
-          placeholder="Enter your message..."
-          value={config.customText}
-          onChangeText={handleTextChange}
-          multiline
-          numberOfLines={3}
-        />
+    <YStack flex={1} px={isMobile ? '$4' : undefined}>
+      <YStack flex={1} gap="$6">
+        <YStack gap="$2">
+          <SizableText size="$headingXs">
+            {intl.formatMessage({
+              id: ETranslations.perps_share_position_background,
+            })}
+          </SizableText>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <XStack gap="$3">
+              {availableBackgrounds.map((bgSource, index) => (
+                <Stack
+                  key={index}
+                  width={72}
+                  height={72}
+                  borderRadius="$3"
+                  borderWidth="$0.5"
+                  borderColor={
+                    config.backgroundIndex === index
+                      ? '$borderActive'
+                      : '$borderSubdued'
+                  }
+                  justifyContent="center"
+                  alignItems="center"
+                  overflow="hidden"
+                  cursor="pointer"
+                  hoverStyle={{ borderColor: '$borderHover' }}
+                  pressStyle={{ opacity: 0.8 }}
+                  onPress={() => handleBackgroundChange(index)}
+                >
+                  <Image source={bgSource} width={72} height={72} />
+                </Stack>
+              ))}
+            </XStack>
+          </ScrollView>
+        </YStack>
       </YStack>
 
-      <YStack gap="$2">
-        <SizableText size="$bodyLgMedium">Background</SizableText>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          <XStack gap="$3">
-            {availableBackgrounds.map((bgSource, index) => (
-              <Stack
-                key={index}
-                width={isMobile ? 72 : 80}
-                height={isMobile ? 72 : 80}
-                borderRadius="$3"
-                borderWidth="$0.5"
-                borderColor={
-                  config.backgroundIndex === index
-                    ? '$borderActive'
-                    : '$borderSubdued'
-                }
-                justifyContent="center"
-                alignItems="center"
-                overflow="hidden"
-                cursor="pointer"
-                hoverStyle={{ borderColor: '$borderHover' }}
-                pressStyle={{ opacity: 0.8 }}
-                onPress={() => handleBackgroundChange(index)}
-              >
-                <Image
-                  source={bgSource}
-                  width={isMobile ? 72 : 80}
-                  height={isMobile ? 72 : 80}
-                />
-              </Stack>
-            ))}
-          </XStack>
-        </ScrollView>
-      </YStack>
-
-      <YStack gap="$2">
-        <SizableText size="$bodyLgMedium">Sticker</SizableText>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          <XStack gap="$3">
-            {STICKERS.map((emoji, index) => (
-              <Stack
-                key={index}
-                width={isMobile ? 72 : 80}
-                height={isMobile ? 72 : 80}
-                borderRadius="$3"
-                borderWidth="$0.5"
-                borderColor={
-                  config.stickerIndex === index
-                    ? '$borderActive'
-                    : '$borderSubdued'
-                }
-                justifyContent="center"
-                alignItems="center"
-                cursor="pointer"
-                hoverStyle={{ borderColor: '$borderHover' }}
-                pressStyle={{ opacity: 0.8 }}
-                onPress={() => handleStickerChange(index)}
-              >
-                <SizableText size={isMobile ? '$heading3xl' : '$heading4xl'}>
-                  {emoji}
-                </SizableText>
-              </Stack>
-            ))}
-          </XStack>
-        </ScrollView>
-      </YStack>
-
-      <YStack gap="$3" marginTop={isMobile ? '$6' : 'auto'}>
+      <YStack gap="$3" mb={isMobile ? '$4' : undefined}>
         <XStack gap="$3">
           <Button
-            flex={1}
+            flexGrow={1}
             icon="DownloadOutline"
             onPress={onSaveImage}
             disabled={isLoading}
           >
-            Save Image
+            {intl.formatMessage({
+              id: ETranslations.perps_share_position_btn_save_img,
+            })}
           </Button>
           <Button
-            flex={1}
-            icon="CopyOutline"
+            flexGrow={1}
+            icon="Copy3Outline"
             onPress={onCopyLink}
             disabled={isLoading}
           >
-            Copy Link
+            {intl.formatMessage({
+              id: ETranslations.perps_share_position_btn_copy_link,
+            })}
           </Button>
         </XStack>
         <Button
           variant="primary"
-          icon="XBrand"
+          icon="Xbrand"
           onPress={onShareToX}
           disabled={isLoading}
         >
-          Share on X
+          {intl.formatMessage({
+            id: ETranslations.perps_share_position_btn_Share_on_x,
+          })}
         </Button>
       </YStack>
     </YStack>
