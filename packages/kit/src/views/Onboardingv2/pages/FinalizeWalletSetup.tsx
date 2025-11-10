@@ -237,13 +237,13 @@ function FinalizeWalletSetupPage({
     if (nextStep === EFinalizeWalletSetupSteps.Ready) {
       setTimeout(() => {
         void handleWalletSetupReady();
-      });
+      }, 150);
       return;
     }
-    progress.value = 0;
     setCurrentStep(nextStep);
-    stepQueueIndex.current += 1;
     setTimeout(() => {
+      stepQueueIndex.current += 1;
+      progress.value = 0;
       progress.value = withTiming(
         1,
         {
@@ -258,7 +258,7 @@ function FinalizeWalletSetupPage({
           }
         },
       );
-    });
+    }, 150);
   }, [changeIdProgress, handleWalletSetupReady, progress]);
 
   const goNextStep = useCallback((step: EFinalizeWalletSetupSteps) => {
