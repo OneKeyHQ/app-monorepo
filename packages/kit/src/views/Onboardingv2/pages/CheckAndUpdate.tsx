@@ -282,7 +282,7 @@ function CheckAndUpdatePage({
           setTimeout(resolve, 1200);
         }),
       ]);
-      console.log('EmitFirmwareVerifyResult', result);
+      console.log('verifyHardware', result);
       if (!result) {
         throw new OneKeyLocalError(
           intl.formatMessage({ id: ETranslations.global_unknown_error }),
