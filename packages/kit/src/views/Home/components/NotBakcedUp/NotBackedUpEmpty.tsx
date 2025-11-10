@@ -100,7 +100,7 @@ function NotBackedUp() {
             iconProps={{ name: 'ShieldCheckDoneOutline' }}
             iconContainerProps={{ bg: '$brand8' }}
             containerProps={{
-              minHeight: 288,
+              minHeight: 256,
               bg: '$bgApp',
               borderWidth: StyleSheet.hairlineWidth,
               borderColor: '$borderSubdued',
