@@ -6,6 +6,10 @@ import type { IEncodedTxBtc } from '@onekeyhq/core/src/chains/btc/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { type IModalSendParamList } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
@@ -55,6 +59,25 @@ const handleStakeSuccess = async ({
     });
   }
   onSuccess?.(data);
+};
+
+const emitEarnPortfolioRefresh = ({
+  provider,
+  symbol,
+  networkId,
+}: {
+  provider?: string;
+  symbol?: string;
+  networkId: string;
+}) => {
+  if (!provider || !symbol) {
+    return;
+  }
+  appEventBus.emit(EAppEventBusNames.RefreshEarnPortfolioItem, {
+    provider,
+    symbol,
+    networkId,
+  });
 };
 
 export function useUniversalStake({
@@ -140,6 +163,11 @@ export function useUniversalStake({
             stakeInfo: stakeInfoWithOrderId,
             networkId,
             onSuccess,
+          });
+          emitEarnPortfolioRefresh({
+            provider,
+            symbol,
+            networkId,
           });
         },
         onFail,
@@ -281,6 +309,11 @@ export function useUniversalWithdraw({
               networkId,
               onSuccess,
             });
+            emitEarnPortfolioRefresh({
+              provider,
+              symbol,
+              networkId,
+            });
           } else {
             const psbtHex = data[0].signedTx.finalizedPsbtHex;
             if (psbtHex && identity) {
@@ -293,6 +326,11 @@ export function useUniversalWithdraw({
                 unstakeTxHex: psbtHex,
               });
               onSuccess?.(data);
+              emitEarnPortfolioRefresh({
+                provider,
+                symbol,
+                networkId,
+              });
             }
           }
         },
@@ -382,6 +420,11 @@ export function useUniversalClaim({
               stakeInfo: stakeInfoWithOrderId,
               networkId,
               onSuccess,
+            });
+            emitEarnPortfolioRefresh({
+              provider,
+              symbol,
+              networkId,
             });
           },
           onFail,

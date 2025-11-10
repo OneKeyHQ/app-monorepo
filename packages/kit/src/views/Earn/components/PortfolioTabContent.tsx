@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useCallback, useEffect, useMemo } from 'react';
 
 import { isEmpty } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -18,6 +18,10 @@ import type { ITableColumn } from '@onekeyhq/kit/src/components/ListView/TableLi
 import { TableList } from '@onekeyhq/kit/src/components/ListView/TableList';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
@@ -574,7 +578,37 @@ const PortfolioSkeleton = () => (
 
 export const PortfolioTabContent = () => {
   const intl = useIntl();
-  const { investments, isLoading } = useEarnPortfolio();
+  const { investments, isLoading, refresh } = useEarnPortfolio();
+
+  const refreshPortfolioRow = useCallback<
+    (payload: { provider: string; symbol: string; networkId: string }) => void
+  >(
+    (payload) => {
+      if (!payload?.provider || !payload?.symbol || !payload?.networkId) {
+        return;
+      }
+      void refresh({
+        provider: payload.provider,
+        symbol: payload.symbol,
+        networkId: payload.networkId,
+      });
+    },
+    [refresh],
+  );
+
+  useEffect(() => {
+    const handler = (payload: {
+      provider: string;
+      symbol: string;
+      networkId: string;
+    }) => {
+      refreshPortfolioRow(payload);
+    };
+    appEventBus.on(EAppEventBusNames.RefreshEarnPortfolioItem, handler);
+    return () => {
+      appEventBus.off(EAppEventBusNames.RefreshEarnPortfolioItem, handler);
+    };
+  }, [refreshPortfolioRow]);
 
   const showSkeleton = isLoading && investments.length === 0;
   const showEmpty = !isLoading && investments.length === 0;
