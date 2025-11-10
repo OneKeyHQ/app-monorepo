@@ -297,7 +297,10 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
       swapToAnotherAccountSwitchOn &&
       swapToAnotherAccountAddressAtom.address &&
       swapToAnotherAccountAddressAtom.networkId &&
+      swapToAnotherAccountAddressAtom.accountInfo &&
+      swapToAnotherAccountAddressAtom.accountInfo.account &&
       activeAccount &&
+      activeAccount.account &&
       activeAccount.network?.id === swapToAnotherAccountAddressAtom.networkId
     ) {
       return {
@@ -312,22 +315,24 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
         accountInfo: {
           ...swapToAnotherAccountAddressAtom.accountInfo,
           account: {
-            ...(swapToAnotherAccountAddressAtom.accountInfo?.account ?? {}),
+            ...swapToAnotherAccountAddressAtom.accountInfo.account,
             id: isAllNetwork
-              ? accountForAllNet?.id
-              : swapToAnotherAccountAddressAtom.accountInfo?.account?.id,
+              ? accountForAllNet?.id ?? ''
+              : swapToAnotherAccountAddressAtom.accountInfo?.account?.id ?? '',
           },
         },
         activeAccount: {
           ...activeAccount,
           account: {
-            ...(activeAccount?.account ?? {}),
-            id: isAllNetwork ? accountForAllNet?.id : activeAccount.account?.id,
+            ...activeAccount.account,
+            id: isAllNetwork
+              ? accountForAllNet?.id ?? ''
+              : activeAccount.account?.id ?? '',
           },
         },
       };
     }
-    if (activeAccount) {
+    if (activeAccount && activeAccount.account) {
       return {
         ...res,
         address: isAllNetwork
@@ -337,18 +342,22 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
           isAllNetwork && tokenNetworkId
             ? tokenNetworkId
             : activeAccount.network?.id,
-        accountInfo: {
-          ...activeAccount,
-          account: {
-            ...(activeAccount.account ?? {}),
-            id: isAllNetwork ? accountForAllNet?.id : activeAccount.account?.id,
-          },
-        },
         activeAccount: {
           ...activeAccount,
           account: {
-            ...(activeAccount?.account ?? {}),
-            id: isAllNetwork ? accountForAllNet?.id : activeAccount.account?.id,
+            ...activeAccount.account,
+            id: isAllNetwork
+              ? accountForAllNet?.id ?? ''
+              : activeAccount.account?.id ?? '',
+          },
+        },
+        accountInfo: {
+          ...activeAccount,
+          account: {
+            ...activeAccount.account,
+            id: isAllNetwork
+              ? accountForAllNet?.id ?? ''
+              : activeAccount.account?.id ?? '',
           },
         },
       };
