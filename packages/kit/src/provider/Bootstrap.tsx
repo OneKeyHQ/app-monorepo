@@ -636,7 +636,7 @@ export function Bootstrap() {
         navigation.navigate(ERootRoutes.Onboarding, {
           screen: EOnboardingV2Routes.OnboardingV2,
           params: {
-            screen: EOnboardingPagesV2.ImportPhraseOrPrivateKey,
+            screen: EOnboardingPagesV2.ImportWatchedAccount,
           },
         });
       }, 1000);

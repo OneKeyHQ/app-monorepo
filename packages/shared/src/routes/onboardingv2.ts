@@ -18,6 +18,7 @@ export enum EOnboardingPagesV2 {
   ConnectQRCode = 'ConnectQRCode',
   CheckAndUpdate = 'CheckAndUpdate',
   ImportPhraseOrPrivateKey = 'ImportPhraseOrPrivateKey',
+  ImportWatchedAccount = 'ImportWatchedAccount',
   BackupWalletReminder = 'BackupWalletReminder',
   ShowRecoveryPhrase = 'ShowRecoveryPhrase',
   VerifyRecoveryPhrase = 'VerifyRecoveryPhrase',
@@ -59,6 +60,7 @@ export type IOnboardingParamListV2 = {
     tabValue: EConnectDeviceChannel;
   };
   [EOnboardingPagesV2.ImportPhraseOrPrivateKey]: undefined;
+  [EOnboardingPagesV2.ImportWatchedAccount]: undefined;
   [EOnboardingPagesV2.BackupWalletReminder]: IVerifyRecoveryPhraseParams;
   [EOnboardingPagesV2.ShowRecoveryPhrase]: IVerifyRecoveryPhraseParams;
   [EOnboardingPagesV2.VerifyRecoveryPhrase]: IVerifyRecoveryPhraseParams;
