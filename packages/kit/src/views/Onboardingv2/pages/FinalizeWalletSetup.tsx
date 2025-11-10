@@ -398,11 +398,18 @@ function FinalizeWalletSetupPage({
                   defaultMessage: setupError.messageId,
                 })}
               </SizableText>
-              <Button onPress={retrySetup}>
-                {intl.formatMessage({
-                  id: ETranslations.global_retry,
-                })}
-              </Button>
+              <YStack>
+                <Button onPress={retrySetup}>
+                  {intl.formatMessage({
+                    id: ETranslations.global_retry,
+                  })}
+                </Button>
+                <Button onPress={closePage}>
+                  {intl.formatMessage({
+                    id: ETranslations.global_close,
+                  })}
+                </Button>
+              </YStack>
             </YStack>
           ) : null}
           {!setupError && currentStepData ? (
