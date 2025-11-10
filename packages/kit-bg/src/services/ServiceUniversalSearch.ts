@@ -624,7 +624,7 @@ class ServiceUniversalSearch extends ServiceBase {
   }: {
     input: string;
     networkId?: string;
-    batchValidateResult: { networkIds: string[]; isValid: boolean };
+    batchValidateResult: { networkIds: string[] };
   }): Promise<IUniversalSearchSingleResult> {
     const { serviceNetwork, serviceValidator } = this.backgroundApi;
     const items: IUniversalSearchResultItem[] = [];
