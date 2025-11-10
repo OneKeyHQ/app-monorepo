@@ -232,7 +232,18 @@ async function buildCustomScreenHex({
 
   let screenHex = '';
   let screenBase64 = '';
-  if (isUserUpload) {
+
+  // check image type error in background service
+  const errorType = ['data:image/png;', 'data:image/gif;'];
+  let hasConvertType = false;
+  for (const type of errorType) {
+    if (base64Uri.startsWith(type)) {
+      hasConvertType = true;
+      break;
+    }
+  }
+
+  if (!isUserUpload && hasConvertType) {
     const imgScreen = await imageUtils.resizeImage({
       uri: base64Uri,
 
