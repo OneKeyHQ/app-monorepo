@@ -4,7 +4,9 @@ import { I18nManager } from "react-native";
 const icons = {
   AppleBrand: () => import("./react/brand/Apple"),
   ArtifactNewsBrand: () => import("./react/brand/ArtifactNews"),
+  BinanceBrand: () => import("./react/brand/Binance"),
   ChromeBrand: () => import("./react/brand/Chrome"),
+  CoinbaseBrand: () => import("./react/brand/Coinbase"),
   CopilotBrand: () => import("./react/brand/Copilot"),
   DiscordBrand: () => import("./react/brand/Discord"),
   FacebookBrand: () => import("./react/brand/Facebook"),
@@ -15,6 +17,7 @@ const icons = {
   InstagramBrand: () => import("./react/brand/Instagram"),
   LinkedinBrand: () => import("./react/brand/Linkedin"),
   MediumBrand: () => import("./react/brand/Medium"),
+  OkxBrand: () => import("./react/brand/Okx"),
   OnekeyBrand: () => import("./react/brand/Onekey"),
   OpenaiChatgptBrand: () => import("./react/brand/OpenaiChatgpt"),
   PatreonBrand: () => import("./react/brand/Patreon"),

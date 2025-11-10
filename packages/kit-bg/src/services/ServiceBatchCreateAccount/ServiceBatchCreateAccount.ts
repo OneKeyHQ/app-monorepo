@@ -1077,6 +1077,15 @@ class ServiceBatchCreateAccount extends ServiceBase {
     }
   }
 
+  async shouldEmitAccountUpdateEvent(): Promise<boolean> {
+    const isInTransferImportOrBackupRestoreFlow: boolean =
+      await this.backgroundApi.servicePrimeTransfer.isInTransferImportOrBackupRestoreFlow();
+    if (isInTransferImportOrBackupRestoreFlow) {
+      return false;
+    }
+    return true;
+  }
+
   async emitBatchCreateDoneEvents({
     saveToDb,
     showUIProgress,
@@ -1084,26 +1093,21 @@ class ServiceBatchCreateAccount extends ServiceBase {
     saveToDb?: boolean;
     showUIProgress?: boolean;
   } = {}) {
-    const isInTransferImportOrBackupRestoreFlow: boolean =
-      await this.backgroundApi.servicePrimeTransfer.isInTransferImportOrBackupRestoreFlow();
-    let shouldEmitEvent = true;
-    if (isInTransferImportOrBackupRestoreFlow) {
-      shouldEmitEvent = false;
-    }
+    const shouldEmitEvent = await this.shouldEmitAccountUpdateEvent();
+
     if (saveToDb) {
       if (shouldEmitEvent) {
         appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
       }
     }
     if (this.progressInfo && showUIProgress) {
-      if (shouldEmitEvent) {
-        appEventBus.emit(EAppEventBusNames.BatchCreateAccount, {
-          totalCount: this.progressInfo.totalCount,
-          createdCount: this.progressInfo.createdCount,
-          progressTotal: this.progressInfo.progressTotal,
-          progressCurrent: this.progressInfo.progressTotal,
-        });
-      }
+      appEventBus.emit(EAppEventBusNames.BatchCreateAccount, {
+        totalCount: this.progressInfo.totalCount,
+        createdCount: this.progressInfo.createdCount,
+        progressTotal: this.progressInfo.progressTotal,
+        progressCurrent: this.progressInfo.progressTotal,
+      });
+
       await timerUtils.wait(600);
     }
   }
@@ -1293,11 +1297,13 @@ class ServiceBatchCreateAccount extends ServiceBase {
       if (saveToDb) {
         if (!accountForCreate.existsInDb) {
           this.checkIfCancelled({ saveToDb, showUIProgress, errorMessage });
+          const shouldEmitEvent = await this.shouldEmitAccountUpdateEvent();
           await this.backgroundApi.serviceAccount.addBatchCreatedHdOrHwAccount({
             walletId,
             networkId,
             account: accountForCreate,
             indexedAccountNames,
+            skipEventEmit: !shouldEmitEvent,
           });
           if (this.progressInfo) {
             this.progressInfo.createdCount += 1;
@@ -1315,6 +1321,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
             networkId,
             deriveType,
           });
+
           await timerUtils.wait(100); // wait for UI refresh
         }
       }
@@ -1454,10 +1461,13 @@ class ServiceBatchCreateAccount extends ServiceBase {
     }
 
     if (saveToDb) {
-      appEventBus.emit(EAppEventBusNames.AddDBAccountsToWallet, {
-        walletId,
-        accounts: accountsForCreate,
-      });
+      const shouldEmitEvent = await this.shouldEmitAccountUpdateEvent();
+      if (shouldEmitEvent) {
+        appEventBus.emit(EAppEventBusNames.AddDBAccountsToWallet, {
+          walletId,
+          accounts: accountsForCreate,
+        });
+      }
     }
     return { accountsForCreate };
   }

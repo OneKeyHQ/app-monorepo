@@ -8,6 +8,7 @@ import type { IKeyOfIcons } from '@onekeyhq/components';
 import { Dialog, Icon, Page, SizableText, YStack } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -79,9 +80,11 @@ export default function AddExistingWallet() {
     () =>
       [
         {
-          title: 'Transfer',
+          title: intl.formatMessage({ id: ETranslations.global_transfer }),
           icon: 'MultipleDevicesOutline' as IKeyOfIcons,
-          description: 'Safely transfer wallets between devices',
+          description: intl.formatMessage({
+            id: ETranslations.prime_transfer_desc,
+          }),
           onPress: () => {
             navigation?.pushModal(EModalRoutes.PrimeModal, {
               screen: EPrimePages.PrimeTransfer,
@@ -96,7 +99,9 @@ export default function AddExistingWallet() {
           },
         },
         {
-          title: 'Import phrase or private key',
+          title: intl.formatMessage({
+            id: ETranslations.import_phrase_or_private_key,
+          }),
           icon: 'SecretPhraseOutline' as IKeyOfIcons,
           onPress: () => {
             navigation.push(EOnboardingPagesV2.ImportPhraseOrPrivateKey);
@@ -124,11 +129,17 @@ export default function AddExistingWallet() {
           : undefined,
         cloudBackupOptionWithLoading,
         {
-          title: 'Watch-only address',
+          title: intl.formatMessage({
+            id: ETranslations.global_watch_only_address,
+          }),
           icon: 'EyeOutline' as IKeyOfIcons,
           description: [
-            "👀 Watch other's transactions. ",
-            '🙅 You cannot manage the wallet.',
+            `👀 ${intl.formatMessage({
+              id: ETranslations.watch_only_desc_transactions,
+            })}`,
+            `🙅 ${intl.formatMessage({
+              id: ETranslations.watch_only_desc_manage,
+            })}`,
           ],
         },
         ...(() => {
@@ -172,20 +183,25 @@ export default function AddExistingWallet() {
         })(),
       ].filter(Boolean),
     [
+      intl,
       cloudBackupOptionWithLoading,
       navigation,
       isSoftwareWalletOnlyUser,
       liteCard,
-      checkLoading,
-      startBackup,
       supportCloudBackup,
+      startBackup,
+      checkLoading,
     ],
   );
 
   return (
     <Page>
       <OnboardingLayout>
-        <OnboardingLayout.Header title="Add Existing Wallet" />
+        <OnboardingLayout.Header
+          title={intl.formatMessage({
+            id: ETranslations.add_existing_wallet_title,
+          })}
+        />
         <OnboardingLayout.Body>
           {DATA.map(({ title, icon, description, onPress, isLoading }) => (
             <ListItem

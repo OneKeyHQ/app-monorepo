@@ -5,25 +5,37 @@ import type {
   IImageProps,
   IYStackProps,
 } from '@onekeyhq/components';
-import { Icon, Image, SizableText, YStack } from '@onekeyhq/components';
+import {
+  Icon,
+  IconButton,
+  Image,
+  SizableText,
+  YStack,
+} from '@onekeyhq/components';
 
 type IProps = {
   title: string;
+  subtitle?: string;
   actions: React.ReactNode;
   containerProps?: IYStackProps;
   iconContainerProps?: IYStackProps;
   iconProps?: IIconProps;
   bgSource?: IImageProps['source'];
+  closable?: boolean;
+  onClose?: () => void;
 };
 
 function MainInfoBlock(props: IProps) {
   const {
     title,
+    subtitle,
     actions,
     containerProps,
     iconProps,
     iconContainerProps,
     bgSource,
+    closable,
+    onClose,
   } = props;
   return (
     <YStack
@@ -70,6 +82,20 @@ function MainInfoBlock(props: IProps) {
           zIndex={0}
         />
       ) : null}
+      {closable ? (
+        <IconButton
+          variant="tertiary"
+          position="absolute"
+          top="$4"
+          right="$4"
+          icon="CrossedLargeOutline"
+          onPress={onClose}
+          size="small"
+          iconProps={{
+            color: '$iconSubdued',
+          }}
+        />
+      ) : null}
       <YStack
         borderWidth={1}
         borderColor="$borderSubdued"
@@ -84,16 +110,23 @@ function MainInfoBlock(props: IProps) {
       >
         <Icon color="$iconOnColor" size="$6" {...iconProps} />
       </YStack>
-      <SizableText
-        size="$heading2xl"
-        $gtMd={{
-          size: '$heading3xl',
-        }}
-        maxWidth={288}
-        zIndex={1}
-      >
-        {title}
-      </SizableText>
+      <YStack gap="$1" maxWidth={288}>
+        <SizableText
+          size="$heading2xl"
+          $gtMd={{
+            size: '$heading3xl',
+          }}
+          maxWidth={288}
+          zIndex={1}
+        >
+          {title}
+        </SizableText>
+        {subtitle ? (
+          <SizableText size="$bodyMd" color="$textSubdued">
+            {subtitle}
+          </SizableText>
+        ) : null}
+      </YStack>
       <YStack mt="auto" zIndex={1} alignSelf="stretch">
         {actions}
       </YStack>

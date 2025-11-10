@@ -13,6 +13,7 @@ import DesktopApiInAppPurchase from '../DesktopApiInAppPurchase';
 import DesktopApiKeychain from '../DesktopApiKeychain';
 import DesktopApiNotification from '../DesktopApiNotification';
 import DesktopApiSecurity from '../DesktopApiSecurity';
+import DesktopApiSniRequest from '../DesktopApiSniRequest';
 import DesktopApiStorage from '../DesktopApiStorage';
 import DesktopApiSystem from '../DesktopApiSystem';
 import DesktopApiWebview from '../DesktopApiWebview';
@@ -69,6 +70,10 @@ class DesktopApi implements IDesktopApi {
   });
 
   keychain: DesktopApiKeychain = new DesktopApiKeychain({
+    desktopApi: this,
+  });
+
+  sniRequest: DesktopApiSniRequest = new DesktopApiSniRequest({
     desktopApi: this,
   });
 }
