@@ -241,10 +241,10 @@ export function AccountSelectorActiveAccountHome({
         deriveInfo: deriveInfoItems.find(
           (item) => item.value === defaultDeriveType,
         )?.item,
-        networkName: network?.shortname,
+        networkName: network?.name,
       });
     } else {
-      let networkName = network?.shortname;
+      let networkName = network?.name;
       if (
         network?.isAllNetworks &&
         accountUtils.isOthersWallet({ walletId: wallet?.id ?? '' }) &&
