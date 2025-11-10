@@ -1,3 +1,5 @@
+import { useIntl } from 'react-intl';
+
 import {
   Image,
   SizableText,
@@ -5,6 +7,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { getHyperliquidTokenImageUrl } from '@onekeyhq/shared/src/utils/perpsUtils';
 
@@ -31,6 +34,7 @@ export function ShareContentRenderer({
   config,
   scale = 1,
 }: IShareContentRendererProps) {
+  const intl = useIntl();
   const {
     side,
     token,
@@ -144,7 +148,12 @@ export function ShareContentRenderer({
                   fontWeight="600"
                   color={sideColor}
                 >
-                  {`${side.toUpperCase()} ${leverage}X`}
+                  {`${intl.formatMessage({
+                    id:
+                      side === 'long'
+                        ? ETranslations.perp_long
+                        : ETranslations.perp_short,
+                  })} ${leverage}X`}
                 </SizableText>
               </XStack>
             ) : null}
@@ -187,7 +196,9 @@ export function ShareContentRenderer({
               opacity={layout.labelOpacity}
               lineHeight={scaledFonts.priceLabel * layout.lineHeight}
             >
-              Entry Price
+              {intl.formatMessage({
+                id: ETranslations.perp_position_entry_price,
+              })}
             </SizableText>
             <SizableText
               fontSize={scaledFonts.priceValue}
@@ -217,7 +228,9 @@ export function ShareContentRenderer({
               opacity={layout.labelOpacity}
               lineHeight={scaledFonts.priceLabel * layout.lineHeight}
             >
-              Mark Price
+              {intl.formatMessage({
+                id: ETranslations.perp_position_mark_price,
+              })}
             </SizableText>
             <SizableText
               fontSize={scaledFonts.priceValue}
@@ -260,7 +273,9 @@ export function ShareContentRenderer({
                 opacity={layout.labelOpacity}
                 lineHeight={scaledFonts.priceLabel * layout.lineHeight}
               >
-                Referral Code
+                {intl.formatMessage({
+                  id: ETranslations.referral_referral_link,
+                })}
               </SizableText>
               <SizableText
                 fontSize={scaledFonts.priceValue}

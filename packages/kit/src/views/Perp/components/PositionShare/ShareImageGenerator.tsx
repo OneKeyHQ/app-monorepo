@@ -1,6 +1,8 @@
 import { forwardRef, useCallback, useImperativeHandle, useRef } from 'react';
 
 import { Stack } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { getHyperliquidTokenImageUrl } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import {
@@ -151,7 +153,13 @@ export const ShareImageGenerator = forwardRef<
 
         // Measure text
         ctx.font = toCanvasFont(fonts.side, 600);
-        const sideText = `${side.toUpperCase()} ${leverage}X`;
+        const sideTranslation = appLocale.intl.formatMessage({
+          id:
+            side === 'long'
+              ? ETranslations.perp_long
+              : ETranslations.perp_short,
+        });
+        const sideText = `${sideTranslation} ${leverage}X`;
         const textWidth = ctx.measureText(sideText).width;
 
         // Background rectangle size
@@ -197,7 +205,13 @@ export const ShareImageGenerator = forwardRef<
           ctx.fillStyle = colors.textSecondary;
           ctx.font = toCanvasFont(fonts.priceLabel);
           ctx.globalAlpha = layout.labelOpacity;
-          ctx.fillText('Entry Price', padding, entryPriceY);
+          ctx.fillText(
+            appLocale.intl.formatMessage({
+              id: ETranslations.perp_position_entry_price,
+            }),
+            padding,
+            entryPriceY,
+          );
           ctx.globalAlpha = 1;
           ctx.fillStyle = colors.textPrimary;
           ctx.font = toCanvasFont(fonts.priceValue, 'bold');
@@ -209,7 +223,13 @@ export const ShareImageGenerator = forwardRef<
           ctx.fillStyle = colors.textSecondary;
           ctx.font = toCanvasFont(fonts.priceLabel);
           ctx.globalAlpha = layout.labelOpacity;
-          ctx.fillText('Mark Price', padding, markPriceY);
+          ctx.fillText(
+            appLocale.intl.formatMessage({
+              id: ETranslations.perp_position_mark_price,
+            }),
+            padding,
+            markPriceY,
+          );
           ctx.globalAlpha = 1;
           ctx.fillStyle = colors.textPrimary;
           ctx.font = toCanvasFont(fonts.priceValue, 'bold');
@@ -236,7 +256,9 @@ export const ShareImageGenerator = forwardRef<
         ctx.font = toCanvasFont(fonts.priceLabel);
         ctx.globalAlpha = layout.labelOpacity;
         ctx.fillText(
-          'Referral Code',
+          appLocale.intl.formatMessage({
+            id: ETranslations.referral_referral_link,
+          }),
           padding,
           rectY + rectHeight / 2 - layout.referralOffset,
         );

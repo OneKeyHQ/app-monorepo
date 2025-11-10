@@ -1,5 +1,7 @@
 import { useCallback, useMemo } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   Button,
   Image,
@@ -10,6 +12,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { BACKGROUNDS, STICKERS } from './constants';
 
@@ -36,6 +39,8 @@ export function ControlPanel({
   isLoading,
   isMobile,
 }: IControlPanelProps) {
+  const intl = useIntl();
+
   const isProfit = useMemo(() => {
     const pnlNum = parseFloat(data.pnl);
     return pnlNum >= 0;
@@ -75,7 +80,11 @@ export function ControlPanel({
     <YStack px="$5" flex={1}>
       <YStack flex={1} gap="$6">
         <YStack gap="$2">
-          <SizableText size="$headingXs">Background</SizableText>
+          <SizableText size="$headingXs">
+            {intl.formatMessage({
+              id: ETranslations.perps_share_position_background,
+            })}
+          </SizableText>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             <XStack gap="$3">
               {availableBackgrounds.map((bgSource, index) => (
@@ -106,7 +115,7 @@ export function ControlPanel({
         </YStack>
       </YStack>
 
-      <YStack gap="$3" mb={isMobile ? '$6' : undefined}>
+      <YStack gap="$3" mb={isMobile ? '$4' : undefined}>
         <XStack gap="$3">
           <Button
             flex={1}
@@ -114,7 +123,9 @@ export function ControlPanel({
             onPress={onSaveImage}
             disabled={isLoading}
           >
-            Save Image
+            {intl.formatMessage({
+              id: ETranslations.perps_share_position_btn_save_img,
+            })}
           </Button>
           <Button
             flex={1}
@@ -122,7 +133,9 @@ export function ControlPanel({
             onPress={onCopyLink}
             disabled={isLoading}
           >
-            Copy Link
+            {intl.formatMessage({
+              id: ETranslations.perps_share_position_btn_copy_link,
+            })}
           </Button>
         </XStack>
         <Button
@@ -131,7 +144,9 @@ export function ControlPanel({
           onPress={onShareToX}
           disabled={isLoading}
         >
-          Share on X
+          {intl.formatMessage({
+            id: ETranslations.perps_share_position_btn_Share_on_x,
+          })}
         </Button>
       </YStack>
     </YStack>

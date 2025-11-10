@@ -11,8 +11,9 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
 
 import { getDefaultShareText } from './constants';
@@ -150,14 +151,17 @@ function MobilePositionShareModal({
 }) {
   const navigation = useNavigation();
   const { data } = route.params;
-
   const handleClose = useCallback(() => {
     navigation.goBack();
   }, [navigation]);
 
   return (
     <Page>
-      <Page.Header title="Share Position" />
+      <Page.Header
+        title={appLocale.intl.formatMessage({
+          id: ETranslations.perps_share_position_title,
+        })}
+      />
       <Page.Body>
         <PerpsProviderMirror>
           <YStack px="$2" flex={1}>
@@ -176,8 +180,11 @@ export function showPositionShareDialog(
   dialog?: ReturnType<typeof useInPageDialog>,
 ) {
   const DialogInstance = dialog || Dialog;
+
   const dialogInstance = DialogInstance.show({
-    title: 'Share Position',
+    title: appLocale.intl.formatMessage({
+      id: ETranslations.perps_share_position_title,
+    }),
     floatingPanelProps: platformEnv.isNative
       ? undefined
       : {
