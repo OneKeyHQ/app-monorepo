@@ -226,19 +226,24 @@ function FinalizeWalletSetupPage({
       return;
     }
     isProcessing.current = true;
-    if (stepQueueIndex.current !== stepQueue.current.length - 1) {
-      stepQueueIndex.current += 1;
-    }
     const nextStep = stepQueue.current[stepQueueIndex.current];
+    if (!nextStep) {
+      setTimeout(() => {
+        isProcessing.current = false;
+        void processNextStep();
+      }, 250);
+      return;
+    }
     if (nextStep === EFinalizeWalletSetupSteps.Ready) {
       setTimeout(() => {
         void handleWalletSetupReady();
-      });
+      }, 150);
       return;
     }
-    progress.value = 0;
     setCurrentStep(nextStep);
     setTimeout(() => {
+      stepQueueIndex.current += 1;
+      progress.value = 0;
       progress.value = withTiming(
         1,
         {
@@ -253,7 +258,7 @@ function FinalizeWalletSetupPage({
           }
         },
       );
-    });
+    }, 150);
   }, [changeIdProgress, handleWalletSetupReady, progress]);
 
   const goNextStep = useCallback((step: EFinalizeWalletSetupSteps) => {
@@ -263,12 +268,6 @@ function FinalizeWalletSetupPage({
   }, []);
 
   const actions = useAccountSelectorActions();
-
-  useEffect(() => {
-    setTimeout(() => {
-      processNextStep();
-    });
-  }, [processNextStep]);
 
   const { connectDevice, createHWWallet } = useDeviceConnect();
   const createWallet = useCallback(async () => {
@@ -311,7 +310,9 @@ function FinalizeWalletSetupPage({
       };
       setSetupError({
         messageId: hardwareError
-          ? hardwareError.messageId || hardwareError.message
+          ? hardwareError.messageId ||
+            hardwareError.message ||
+            ETranslations.global_unknown_error
           : ETranslations.global_unknown_error,
       });
     }
@@ -328,16 +329,10 @@ function FinalizeWalletSetupPage({
   ]);
 
   useEffect(() => {
+    processNextStep();
     void createWallet();
-  }, [
-    actions,
-    mnemonic,
-    mnemonicType,
-    isWalletBackedUp,
-    navigation,
-    goNextStep,
-    createWallet,
-  ]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (currentStep === EFinalizeWalletSetupSteps.CreatingWallet) {
@@ -396,11 +391,18 @@ function FinalizeWalletSetupPage({
                   defaultMessage: setupError.messageId,
                 })}
               </SizableText>
-              <Button onPress={retrySetup}>
-                {intl.formatMessage({
-                  id: ETranslations.global_retry,
-                })}
-              </Button>
+              <YStack>
+                <Button onPress={retrySetup}>
+                  {intl.formatMessage({
+                    id: ETranslations.global_retry,
+                  })}
+                </Button>
+                <Button onPress={closePage}>
+                  {intl.formatMessage({
+                    id: ETranslations.global_close,
+                  })}
+                </Button>
+              </YStack>
             </YStack>
           ) : null}
           {!setupError && currentStepData ? (
