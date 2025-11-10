@@ -1370,8 +1370,8 @@ export interface IEarnSummaryV2 {
   description: IEarnText;
   distributed: {
     title: IEarnText;
-    description: IEarnText;
     token: IEarnToken;
+    button: IEarnHistoryActionIcon;
   }[];
   undistributed: {
     title: IEarnText;

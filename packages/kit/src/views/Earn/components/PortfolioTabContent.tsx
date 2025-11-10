@@ -290,14 +290,14 @@ const PortfolioItemComponent = ({
           key: 'deposits',
           label: 'Deposits',
           flex: 1.5,
-          priority: 5, // Always visible (mobile, tablet, desktop)
+          priority: 5,
           render: (asset) => <DepositField asset={asset} />,
         },
         {
           key: 'Est. 24h earnings',
           label: 'Est. 24h earnings',
           flex: 1,
-          priority: 2, // Visible on desktop only
+          priority: 1,
           render: (asset) => (
             <EarnText
               flex={1}
@@ -310,14 +310,14 @@ const PortfolioItemComponent = ({
           key: 'Asset status',
           label: 'Asset status',
           flex: 1.5,
-          priority: 1, // Visible on desktop only
+          priority: 3,
           render: (asset) => <AssetStatusField asset={asset} />,
         },
         {
           key: 'Claimable',
           label: 'Claimable',
           flex: 1.5,
-          priority: 3, // Visible on tablet and desktop
+          priority: 3,
           render: (asset) => {
             if (isEmpty(asset.rewardAssets)) {
               return (

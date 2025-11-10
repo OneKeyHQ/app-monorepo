@@ -208,6 +208,8 @@ function getVisibleColumnsByPriority<T>(
   } else if (!media.gtMd) {
     // Small tablet: only show priority >= 3
     minPriority = 3;
+  } else if (!media.gtLg) {
+    minPriority = 2;
   }
   // gtMd and above: show all columns (minPriority = 0)
 
