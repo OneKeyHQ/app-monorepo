@@ -1,5 +1,6 @@
 import type { EConnectDeviceChannel } from '../../types/connectDevice';
 import type { IConnectYourDeviceItem } from '../../types/device';
+import type { IDetectedNetworkGroupItem } from '../utils/networkDetectUtils';
 import type { EMnemonicType } from '../utils/secret';
 import type { KnownDevice, SearchDevice } from '@onekeyfe/hd-core';
 import type { EDeviceType } from '@onekeyfe/hd-shared';
@@ -66,6 +67,8 @@ export type IOnboardingParamListV2 = {
   [EOnboardingPagesV2.VerifyRecoveryPhrase]: IVerifyRecoveryPhraseParams;
   [EOnboardingPagesV2.SelectPrivateKeyNetwork]: {
     input: string;
+    detectedNetworks: IDetectedNetworkGroupItem[];
+    importType: 'privateKey' | 'address' | 'publicKey';
   };
   [EOnboardingPagesV2.ICloudBackup]: undefined;
   [EOnboardingPagesV2.ICloudBackupDetails]: {

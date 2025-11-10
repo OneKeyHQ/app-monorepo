@@ -490,7 +490,6 @@ export type IDetectedNetwork = {
 };
 export type IDetectedNetworkGroupItem = {
   uuid: string;
-  name: string;
   impl: string;
   networks: Array<IDetectedNetwork>;
 };
@@ -513,7 +512,6 @@ async function detectNetworkByPrivateKey({
         networks: [],
         uuid: generateUUID(),
         impl: network.impl,
-        name: network.name,
       };
     }
     groupedByImpl[network.impl].networks.push(network);

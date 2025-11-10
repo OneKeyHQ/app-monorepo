@@ -36,7 +36,10 @@ import type {
   IAccountDeriveTypes,
   IValidateGeneralInputParams,
 } from '@onekeyhq/kit-bg/src/vaults/types';
-import { WALLET_TYPE_IMPORTED } from '@onekeyhq/shared/src/consts/dbConsts';
+import {
+  WALLET_TYPE_IMPORTED,
+  WALLET_TYPE_WATCHING,
+} from '@onekeyhq/shared/src/consts/dbConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type {
@@ -244,6 +247,12 @@ function SelectPrivateKeyNetworkView() {
     EOnboardingPagesV2.SelectPrivateKeyNetwork
   >().params;
   const input = routeParams?.input;
+  const detectedNetworks = useMemo(
+    () => routeParams?.detectedNetworks || [],
+    [routeParams?.detectedNetworks],
+  );
+  const isDetectingNetworks = false;
+  const importType = routeParams?.importType;
 
   const intl = useIntl();
 
@@ -264,47 +273,12 @@ function SelectPrivateKeyNetworkView() {
     [],
   );
 
-  const { result: detectedNetworks, isLoading: isDetectingNetworks } =
-    usePromiseResult(
-      async () => {
-        if (!input) {
-          return [];
-        }
-        const availableNetworkIds = (
-          await backgroundApiProxy.serviceNetwork.getImportedAccountEnabledNetworks()
-        ).map((network) => network.id);
-        const privateKey =
-          await backgroundApiProxy.servicePassword.decodeSensitiveText({
-            encodedText: input || '',
-          });
-        const { groupedByImpl } =
-          await networkDetectUtils.detectNetworkByPrivateKey({
-            privateKey,
-          });
-        let results = Object.values(groupedByImpl);
-        results = results
-          .map((item) => {
-            item.networks = item.networks.filter((network) =>
-              availableNetworkIds.includes(network.networkId),
-            );
-            if (item.networks?.length === 0) {
-              // return item;
-              return undefined;
-            }
-            return item;
-          })
-          .filter(Boolean);
-        handleSelectGroupItem({
-          uuid: results?.[0]?.uuid,
-          networkId: results?.[0]?.networks?.[0]?.networkId,
-        });
-        return results;
-      },
-      [handleSelectGroupItem, input],
-      {
-        watchLoading: true,
-      },
+  useEffect(() => {
+    setSelectedUUID(detectedNetworks?.[0]?.uuid || '');
+    setSelectedNetworkId(
+      detectedNetworks?.[0]?.networks?.[0]?.networkId || undefined,
     );
+  }, [detectedNetworks]);
 
   const handleShowMoreNetworks = useCallback(() => {
     openChainSelector({
@@ -313,7 +287,6 @@ function SelectPrivateKeyNetworkView() {
       onSelect: (network) => {
         const item: IDetectedNetworkGroupItem = {
           uuid: network.id,
-          name: network.name,
           impl: network.impl,
           networks: [
             {
@@ -338,6 +311,12 @@ function SelectPrivateKeyNetworkView() {
   const navigation = useAppNavigation();
   const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
 
+  const walletId = useMemo(() => {
+    return importType === 'privateKey'
+      ? WALLET_TYPE_IMPORTED
+      : WALLET_TYPE_WATCHING;
+  }, [importType]);
+
   const handleConfirm = useCallback(
     async (form: UseFormReturn<IFormValues, any, undefined>) => {
       try {
@@ -350,44 +329,70 @@ function SelectPrivateKeyNetworkView() {
         setIsSubmitting(true);
         await timerUtils.wait(300);
         const values = form.getValues();
-        const r = await backgroundApiProxy.serviceAccount.addImportedAccount({
-          input,
-          deriveType: values.deriveType,
-          networkId: selectedNetworkId,
-          name: values.accountName,
-          shouldCheckDuplicateName: true,
-        });
-        console.log(r, values);
-        // global.success
+        let accountId = '';
+        let isOverrideAccounts = false;
+        if (importType === 'privateKey') {
+          const r = await backgroundApiProxy.serviceAccount.addImportedAccount({
+            input,
+            deriveType: values.deriveType,
+            networkId: selectedNetworkId,
+            name: values.accountName,
+            shouldCheckDuplicateName: true,
+          });
+          accountId = r?.accounts?.[0]?.id;
+          isOverrideAccounts = r?.isOverrideAccounts;
+        }
+        if (importType === 'address') {
+          const r = await backgroundApiProxy.serviceAccount.addWatchingAccount({
+            input,
+            // deriveType: values.deriveType,
+            networkId: selectedNetworkId,
+            name: values.accountName,
+            shouldCheckDuplicateName: true,
+          });
+          accountId = r?.accounts?.[0]?.id;
+          isOverrideAccounts = r?.isOverrideAccounts;
+        }
 
-        const accountId = r?.accounts?.[0]?.id;
+        if (accountId) {
+          toastSuccessWhenImportAddressOrPrivateKey({
+            isOverrideAccounts,
+            accountId,
+          });
 
-        toastSuccessWhenImportAddressOrPrivateKey({
-          isOverrideAccounts: r?.isOverrideAccounts,
-          accountId,
-        });
+          void actions.current.updateSelectedAccountForSingletonAccount({
+            num: 0,
+            networkId: selectedNetworkId,
+            walletId,
+            othersWalletAccountId: accountId,
+          });
+          navigation.popStack();
 
-        void actions.current.updateSelectedAccountForSingletonAccount({
-          num: 0,
-          networkId: selectedNetworkId,
-          walletId: WALLET_TYPE_IMPORTED,
-          othersWalletAccountId: accountId,
-        });
-        navigation.popStack();
-        defaultLogger.account.wallet.walletAdded({
-          status: 'success',
-          addMethod: 'ImportWallet',
-          details: {
-            importType: 'privateKey',
-          },
-          isSoftwareWalletOnlyUser,
-        });
+          if (importType === 'privateKey') {
+            defaultLogger.account.wallet.walletAdded({
+              status: 'success',
+              addMethod: 'ImportWallet',
+              details: {
+                importType: 'privateKey',
+              },
+              isSoftwareWalletOnlyUser,
+            });
+          }
+        }
       } finally {
         await timerUtils.wait(300);
         setIsSubmitting(false);
       }
     },
-    [actions, input, isSoftwareWalletOnlyUser, navigation, selectedNetworkId],
+    [
+      actions,
+      input,
+      isSoftwareWalletOnlyUser,
+      navigation,
+      selectedNetworkId,
+      walletId,
+      importType,
+    ],
   );
 
   const formOptions = useMemo(
@@ -422,12 +427,13 @@ function SelectPrivateKeyNetworkView() {
   const [validateResult, setValidateResult] = useState<
     IGeneralInputValidation | undefined
   >();
+
   const validateFn = useCallback(async () => {
     if (accountNameDebounced) {
       try {
         await backgroundApiProxy.serviceAccount.ensureAccountNameNotDuplicate({
           name: accountNameDebounced,
-          walletId: WALLET_TYPE_IMPORTED,
+          walletId,
         });
         form.clearErrors('accountName');
       } catch (error) {
@@ -441,27 +447,41 @@ function SelectPrivateKeyNetworkView() {
 
     form.setValue('deriveType', undefined);
     if (input && selectedNetworkId) {
-      try {
-        const result =
-          await backgroundApiProxy.serviceAccount.validateGeneralInputOfImporting(
-            {
-              ...validationParams,
-              input,
-              networkId: selectedNetworkId,
-            },
-          );
-        setValidateResult(result);
-        console.log('validateGeneralInputOfImporting result', result);
-        // TODO: need to replaced by https://github.com/mattermost/react-native-paste-input
-      } catch (error) {
+      if (importType === 'privateKey') {
+        try {
+          const result =
+            await backgroundApiProxy.serviceAccount.validateGeneralInputOfImporting(
+              {
+                ...validationParams,
+                input,
+                networkId: selectedNetworkId,
+              },
+            );
+          setValidateResult(result);
+          console.log('validateGeneralInputOfImporting result', result);
+          // TODO: need to replaced by https://github.com/mattermost/react-native-paste-input
+        } catch (error) {
+          setValidateResult({
+            isValid: false,
+          });
+        }
+      } else {
         setValidateResult({
-          isValid: false,
+          isValid: true,
         });
       }
     } else {
       setValidateResult(undefined);
     }
-  }, [accountNameDebounced, form, input, selectedNetworkId, validationParams]);
+  }, [
+    accountNameDebounced,
+    form,
+    importType,
+    input,
+    selectedNetworkId,
+    validationParams,
+    walletId,
+  ]);
 
   useEffect(() => {
     void (async () => {

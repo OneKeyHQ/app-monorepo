@@ -1,5 +1,5 @@
 import type { RefObject } from 'react';
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -13,6 +13,7 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -22,47 +23,59 @@ import { OnboardingLayout } from '../components/OnboardingLayout';
 import { PhaseInputArea } from '../components/PhaseInputArea';
 
 import type { IPhaseInputAreaInstance } from '../components/PhaseInputArea';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
-export default function ImportWatchedAccount() {
+export default function ImportWatchedAccountV2() {
   const navigation = useAppNavigation();
-  const [selected, setSelected] = useState<'phrase' | 'privateKey'>('phrase');
+  const [selected, setSelected] = useState<'address' | 'publicKey'>('address');
   const { gtMd } = useMedia();
   const phaseInputAreaRef = useRef<IPhaseInputAreaInstance | null>(null);
   const [isConfirming, setIsConfirming] = useState(false);
   const intl = useIntl();
-  const [privateKey, setPrivateKey] = useState('');
+  const [address, setAddress] = useState('');
+  const [publicKey, setPublicKey] = useState('');
+  const isConfirmDisabled = useMemo(() => {
+    if (selected === 'address' && !address?.trim()) {
+      return true;
+    }
+    if (selected === 'publicKey' && !publicKey?.trim()) {
+      return true;
+    }
+    return false;
+  }, [address, publicKey, selected]);
 
   const handleConfirm = async () => {
-    if (selected === 'phrase') {
-      const timerId = setTimeout(() => {
-        setIsConfirming(false);
-      }, 500);
+    try {
       setIsConfirming(true);
-      if (phaseInputAreaRef.current) {
-        try {
-          const { mnemonic, mnemonicType } =
-            await phaseInputAreaRef.current.submit();
-          navigation.push(EOnboardingPagesV2.FinalizeWalletSetup, {
-            mnemonic,
-            mnemonicType,
-            isWalletBackedUp: true,
+      await timerUtils.wait(600);
+      if (selected === 'address') {
+        const input = address?.trim() || '';
+        const results =
+          await backgroundApiProxy.serviceNetwork.detectNetworksByAddress({
+            address: input,
           });
-        } catch (error) {
-          console.error(error);
-        } finally {
-          setIsConfirming(false);
-          clearTimeout(timerId);
-        }
-      }
-    } else {
-      const input =
-        await backgroundApiProxy.servicePassword.encodeSensitiveText({
-          text: fixInputImportSingleChain(privateKey || '') || '',
+        const params: IOnboardingParamListV2[EOnboardingPagesV2.SelectPrivateKeyNetwork] =
+          {
+            input,
+            detectedNetworks: results.detectedNetworks,
+            importType: 'address',
+          };
+        void navigation.push(
+          EOnboardingPagesV2.SelectPrivateKeyNetwork,
+          params,
+        );
+      } else {
+        const input =
+          await backgroundApiProxy.servicePassword.encodeSensitiveText({
+            text: fixInputImportSingleChain(publicKey || '') || '',
+          });
+        // Navigate to network selection page for private key import
+        void navigation.push(EOnboardingPagesV2.SelectPrivateKeyNetwork, {
+          input,
         });
-      // Navigate to network selection page for private key import
-      void navigation.push(EOnboardingPagesV2.SelectPrivateKeyNetwork, {
-        input,
-      });
+      }
+    } finally {
+      setIsConfirming(false);
     }
   };
 
@@ -71,7 +84,7 @@ export default function ImportWatchedAccount() {
       <OnboardingLayout>
         <OnboardingLayout.Header
           title={intl.formatMessage({
-            id: ETranslations.import_phrase_or_private_key,
+            id: ETranslations.global_import_address,
           })}
         />
         <OnboardingLayout.Body constrained={false}>
@@ -82,25 +95,25 @@ export default function ImportWatchedAccount() {
               options={[
                 {
                   label: intl.formatMessage({
-                    id: ETranslations.global_recovery_phrase,
+                    id: ETranslations.global_address,
                   }),
-                  value: 'phrase',
+                  value: 'address',
                 },
                 {
                   label: intl.formatMessage({
-                    id: ETranslations.global_private_key,
+                    id: ETranslations.global_public_key,
                   }),
-                  value: 'privateKey',
+                  value: 'publicKey',
                 },
               ]}
               onChange={(value) =>
-                setSelected(value as 'phrase' | 'privateKey')
+                setSelected(value as 'address' | 'publicKey')
               }
             />
             <HeightTransition>
-              {selected === 'phrase' ? (
+              {selected === 'address' ? (
                 <YStack
-                  key="privateKey"
+                  key="address"
                   animation="quick"
                   animateOnly={['opacity']}
                   enterStyle={{
@@ -114,19 +127,19 @@ export default function ImportWatchedAccount() {
                     allowSecureTextEye
                     size="large"
                     numberOfLines={5}
-                    value={privateKey}
-                    onChangeText={setPrivateKey}
+                    value={address}
+                    onChangeText={setAddress}
                     $platform-native={{
                       minHeight: 160,
                     }}
                     placeholder={intl.formatMessage({
-                      id: ETranslations.form_enter_private_key_placeholder,
+                      id: ETranslations.form_address_placeholder,
                     })}
                   />
                 </YStack>
               ) : (
                 <YStack
-                  key="privateKey"
+                  key="publicKey"
                   animation="quick"
                   animateOnly={['opacity']}
                   enterStyle={{
@@ -140,20 +153,26 @@ export default function ImportWatchedAccount() {
                     allowSecureTextEye
                     size="large"
                     numberOfLines={5}
-                    value={privateKey}
-                    onChangeText={setPrivateKey}
+                    value={publicKey}
+                    onChangeText={setPublicKey}
                     $platform-native={{
                       minHeight: 160,
                     }}
                     placeholder={intl.formatMessage({
-                      id: ETranslations.form_enter_private_key_placeholder,
+                      id: ETranslations.form_public_key_placeholder,
                     })}
                   />
                 </YStack>
               )}
             </HeightTransition>
             {gtMd ? (
-              <Button size="large" variant="primary" onPress={handleConfirm}>
+              <Button
+                disabled={isConfirmDisabled}
+                size="large"
+                variant="primary"
+                onPress={handleConfirm}
+                loading={isConfirming}
+              >
                 {intl.formatMessage({ id: ETranslations.global_confirm })}
               </Button>
             ) : null}
@@ -162,6 +181,7 @@ export default function ImportWatchedAccount() {
         {!gtMd ? (
           <OnboardingLayout.Footer>
             <Button
+              disabled={isConfirmDisabled}
               size="large"
               variant="primary"
               onPress={handleConfirm}

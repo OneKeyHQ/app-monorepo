@@ -13,6 +13,7 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -55,14 +56,21 @@ export default function ImportPhraseOrPrivateKey() {
         }
       }
     } else {
-      const input =
-        await backgroundApiProxy.servicePassword.encodeSensitiveText({
-          text: fixInputImportSingleChain(privateKey || '') || '',
-        });
-      // Navigate to network selection page for private key import
-      void navigation.push(EOnboardingPagesV2.SelectPrivateKeyNetwork, {
-        input,
+      let input = fixInputImportSingleChain(privateKey || '') || '';
+      input = await backgroundApiProxy.servicePassword.encodeSensitiveText({
+        text: input || '',
       });
+      const results =
+        await backgroundApiProxy.serviceNetwork.detectNetworksByPrivateKey({
+          privateKey: input || '',
+        });
+      const params: IOnboardingParamListV2[EOnboardingPagesV2.SelectPrivateKeyNetwork] =
+        {
+          input,
+          detectedNetworks: results.detectedNetworks,
+          importType: 'privateKey',
+        };
+      void navigation.push(EOnboardingPagesV2.SelectPrivateKeyNetwork, params);
     }
   };
 

@@ -18,7 +18,7 @@ const ImportPhraseOrPrivateKey = LazyLoadPage(
   () => import('../pages/ImportPhraseOrPrivateKey'),
 );
 const ImportWatchedAccount = LazyLoadPage(
-  () => import('../pages/ImportWatchedAccount'),
+  () => import('../pages/ImportWatchedAccountV2'),
 );
 const BackupWalletReminder = LazyLoadPage(
   () => import('../pages/BackupWalletReminder'),

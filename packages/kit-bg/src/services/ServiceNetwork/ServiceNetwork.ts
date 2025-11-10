@@ -29,7 +29,13 @@ import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import perfUtils, {
   EPerformanceTimerLogNames,
 } from '@onekeyhq/shared/src/utils/debug/perfUtils';
+import type {
+  IDetectedNetwork,
+  IDetectedNetworkGroupItem,
+} from '@onekeyhq/shared/src/utils/networkDetectUtils';
+import networkDetectUtils from '@onekeyhq/shared/src/utils/networkDetectUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import { vaultFactory } from '../../vaults/factory';
@@ -846,6 +852,100 @@ class ServiceNetwork extends ServiceBase {
         publicKeyExportEnabled: o.vaultSetting.publicKeyExportEnabled,
         watchingAccountEnabled: o.vaultSetting.watchingAccountEnabled,
       }));
+  }
+
+  @backgroundMethod()
+  async detectNetworksByAddress({ address }: { address: string }): Promise<{
+    detectedNetworks: IDetectedNetworkGroupItem[];
+  }> {
+    // eslint-disable-next-line no-param-reassign
+    address = address?.trim?.() || '';
+    if (!address) {
+      return {
+        detectedNetworks: [],
+      };
+    }
+    const availableNetworks: IServerNetwork[] =
+      await this.getWatchingAccountEnabledNetworks();
+    const detectedNetworks: IDetectedNetworkGroupItem[] = [];
+    const detectedNetworksMap: Record<string, IDetectedNetwork[]> = {};
+
+    for (const network of availableNetworks) {
+      try {
+        const localValidateResult =
+          await this.backgroundApi.serviceValidator.localValidateAddress({
+            networkId: network.id,
+            address,
+          });
+        if (localValidateResult?.isValid) {
+          if (!detectedNetworksMap[network.impl]) {
+            detectedNetworksMap[network.impl] = [];
+          }
+          detectedNetworksMap[network.impl].push({
+            networkId: network.id,
+            name: network.name,
+            shortname: network.shortname,
+            impl: network.impl,
+          });
+        }
+      } catch (error) {
+        console.error('detectNetworksByAddress error', network.id, error);
+      }
+    }
+    Object.entries(detectedNetworksMap).forEach(([impl, networks]) => {
+      if (networks.length > 0) {
+        detectedNetworks.push({
+          uuid: stringUtils.generateUUID(),
+          impl,
+          networks,
+        });
+      }
+    });
+    return {
+      detectedNetworks,
+    };
+  }
+
+  @backgroundMethod()
+  async detectNetworksByPrivateKey({
+    privateKey,
+  }: {
+    privateKey: string;
+  }): Promise<{
+    detectedNetworks: IDetectedNetworkGroupItem[];
+  }> {
+    if (!privateKey?.trim()) {
+      return {
+        detectedNetworks: [],
+      };
+    }
+    const availableNetworkIds: string[] = (
+      await this.getImportedAccountEnabledNetworks()
+    ).map((network) => network.id);
+    // eslint-disable-next-line no-param-reassign
+    privateKey = await this.backgroundApi.servicePassword.decodeSensitiveText({
+      encodedText: privateKey || '',
+    });
+    const { groupedByImpl } =
+      await networkDetectUtils.detectNetworkByPrivateKey({
+        privateKey,
+      });
+    let results = Object.values(groupedByImpl);
+    results = results
+      .map((item) => {
+        item.networks = item.networks.filter((network) =>
+          availableNetworkIds.includes(network.networkId),
+        );
+        if (item.networks?.length === 0) {
+          // return item;
+          return undefined;
+        }
+        return item;
+      })
+      .filter(Boolean);
+    return {
+      detectedNetworks: results,
+    };
   }
 
   @backgroundMethod()
