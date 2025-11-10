@@ -1577,6 +1577,7 @@ const icons = {
   FlagSolid: () => import("./react/solid/Flag"),
   Flag2Solid: () => import("./react/solid/Flag2"),
   FlashSolid: () => import("./react/solid/Flash"),
+  FlashCardSolid: () => import("./react/solid/FlashCard"),
   FocusSolid: () => import("./react/solid/Focus"),
   FocusFlowerSolid: () => import("./react/solid/FocusFlower"),
   FolderSolid: () => import("./react/solid/Folder"),
