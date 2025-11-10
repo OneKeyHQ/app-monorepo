@@ -331,15 +331,8 @@ function FinalizeWalletSetupPage({
 
   useEffect(() => {
     void createWallet();
-  }, [
-    actions,
-    mnemonic,
-    mnemonicType,
-    isWalletBackedUp,
-    navigation,
-    goNextStep,
-    createWallet,
-  ]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (currentStep === EFinalizeWalletSetupSteps.CreatingWallet) {
