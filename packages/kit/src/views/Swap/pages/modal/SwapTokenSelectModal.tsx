@@ -1,6 +1,13 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
-import { useRoute } from '@react-navigation/core';
+import { useFocusEffect, useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
@@ -160,7 +167,8 @@ const SwapTokenSelectPage = () => {
     return () => {
       setCurrentSelectNetwork(undefined);
     };
-  }, [syncDefaultNetworkSelect, setCurrentSelectNetwork]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [setCurrentSelectNetwork]);
 
   useEffect(() => {
     const accountNet =

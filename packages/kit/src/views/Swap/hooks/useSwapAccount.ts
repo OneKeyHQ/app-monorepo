@@ -220,8 +220,8 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
           (fromToken?.networkId || currentSelectNetwork?.networkId) &&
           type === ESwapDirectionType.FROM
         ) {
-          const fromTokenAccount =
-            await backgroundApiProxy.serviceAccount.getNetworkAccount({
+          try {
+            const accountParams = {
               deriveType: activeAccount.deriveType || 'default',
               indexedAccountId: activeAccount.indexedAccount?.id,
               accountId: activeAccount.indexedAccount?.id
@@ -230,15 +230,22 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
               dbAccount: activeAccount.dbAccount,
               networkId:
                 currentSelectNetwork?.networkId ?? fromToken?.networkId ?? '',
-            });
-          setAccountForAllNet(fromTokenAccount);
+            };
+            const fromTokenAccount =
+              await backgroundApiProxy.serviceAccount.getNetworkAccount({
+                ...accountParams,
+              });
+            setAccountForAllNet(fromTokenAccount);
+          } catch (e) {
+            setAccountForAllNet(undefined);
+          }
         }
         if (
           (toToken?.networkId || currentSelectNetwork?.networkId) &&
           type === ESwapDirectionType.TO
         ) {
-          const toTokenAccount =
-            await backgroundApiProxy.serviceAccount.getNetworkAccount({
+          try {
+            const accountParams = {
               deriveType: activeAccount.deriveType || 'default',
               indexedAccountId: activeAccount.indexedAccount?.id,
               accountId: activeAccount.indexedAccount?.id
@@ -247,8 +254,15 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
               dbAccount: activeAccount.dbAccount,
               networkId:
                 currentSelectNetwork?.networkId ?? toToken?.networkId ?? '',
-            });
-          setAccountForAllNet(toTokenAccount);
+            };
+            const toTokenAccount =
+              await backgroundApiProxy.serviceAccount.getNetworkAccount({
+                ...accountParams,
+              });
+            setAccountForAllNet(toTokenAccount);
+          } catch (e) {
+            setAccountForAllNet(undefined);
+          }
         }
       }
     })();
@@ -295,8 +309,22 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
           isAllNetwork && tokenNetworkId
             ? tokenNetworkId
             : swapToAnotherAccountAddressAtom.networkId,
-        accountInfo: swapToAnotherAccountAddressAtom.accountInfo,
-        activeAccount: { ...activeAccount },
+        accountInfo: {
+          ...swapToAnotherAccountAddressAtom.accountInfo,
+          account: {
+            ...(swapToAnotherAccountAddressAtom.accountInfo?.account ?? {}),
+            id: isAllNetwork
+              ? accountForAllNet?.id
+              : swapToAnotherAccountAddressAtom.accountInfo?.account?.id,
+          },
+        },
+        activeAccount: {
+          ...activeAccount,
+          account: {
+            ...(activeAccount?.account ?? {}),
+            id: isAllNetwork ? accountForAllNet?.id : activeAccount.account?.id,
+          },
+        },
       };
     }
     if (activeAccount) {
@@ -309,8 +337,20 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
           isAllNetwork && tokenNetworkId
             ? tokenNetworkId
             : activeAccount.network?.id,
-        accountInfo: { ...activeAccount },
-        activeAccount: { ...activeAccount },
+        accountInfo: {
+          ...activeAccount,
+          account: {
+            ...(activeAccount.account ?? {}),
+            id: isAllNetwork ? accountForAllNet?.id : activeAccount.account?.id,
+          },
+        },
+        activeAccount: {
+          ...activeAccount,
+          account: {
+            ...(activeAccount?.account ?? {}),
+            id: isAllNetwork ? accountForAllNet?.id : activeAccount.account?.id,
+          },
+        },
       };
     }
     if (isAllNetwork && accountForAllNet?.networks?.includes(tokenNetworkId)) {
@@ -321,6 +361,7 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
       };
     }
     return res;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     type,
     swapToAnotherAccountSwitchOn,
@@ -332,6 +373,7 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
     accountForAllNet?.networks,
     accountForAllNet?.addressDetail?.address,
     tokenNetworkId,
+    currentSelectNetwork?.networkId,
   ]);
   return addressInfo;
 }
