@@ -30,7 +30,11 @@ function ReceiveOptions({
   title,
   subtitle,
   ...props
-}: { icon: IKeyOfIcons; title: string; subtitle: string } & IListItemProps) {
+}: {
+  icon: IKeyOfIcons;
+  title: string;
+  subtitle: IListItemProps['subtitle'];
+} & IListItemProps) {
   return (
     <ListItem
       mx="$0"
@@ -44,7 +48,7 @@ function ReceiveOptions({
       {...props}
     >
       <YStack bg="$neutral3" p="$2" borderRadius="$full">
-        <Icon name={icon} />
+        <Icon name={icon} color="$iconActive" />
       </YStack>
       <ListItem.Text flex={1} primary={title} secondary={subtitle} />
     </ListItem>
@@ -69,7 +73,7 @@ function ReceiveSelectorContent() {
         title={intl.formatMessage({ id: ETranslations.global_receive })}
       />
       <Page.Body>
-        <YStack gap="$2.5" px="$5">
+        <YStack gap="$5" px="$5">
           <WalletActionBuy
             sameModal
             onClose={() => {}}
@@ -77,8 +81,68 @@ function ReceiveSelectorContent() {
             renderTrigger={({ onPress, disabled }) => (
               <ReceiveOptions
                 icon="CreditCardOutline"
-                title="Buy crypto"
-                subtitle="Credit/Debit card, Apple Pay, Google Pay, etc."
+                title={intl.formatMessage({
+                  id: ETranslations.global_buy_crypto,
+                })}
+                subtitle={
+                  <XStack mt="$1" gap="$1">
+                    <YStack
+                      h="$5"
+                      px="$1.5"
+                      borderRadius="$1"
+                      borderCurve="continuous"
+                      justifyContent="center"
+                      alignItems="center"
+                      borderWidth={1}
+                      borderColor="$borderSubdued"
+                    >
+                      <Icon name="ApplePayIllus" h="$3" w="$8" color="$icon" />
+                    </YStack>
+                    <YStack
+                      h="$5"
+                      px="$1.5"
+                      borderRadius="$1"
+                      borderCurve="continuous"
+                      justifyContent="center"
+                      alignItems="center"
+                      borderWidth={1}
+                      borderColor="$borderSubdued"
+                    >
+                      <Icon name="GooglePayIllus" h="$3" w="$8" color="$icon" />
+                    </YStack>
+                    <YStack
+                      h="$5"
+                      px="$0.5"
+                      borderRadius="$1"
+                      borderCurve="continuous"
+                      justifyContent="center"
+                      alignItems="center"
+                      borderWidth={1}
+                      borderColor="$borderSubdued"
+                    >
+                      <Icon name="VisaIllus" h="$3" w="$8" color="$icon" />
+                    </YStack>
+                    <XStack
+                      alignItems="center"
+                      px="$1"
+                      gap="$0.5"
+                      borderWidth={1}
+                      borderColor="$borderSubdued"
+                      borderRadius="$1"
+                      borderCurve="continuous"
+                    >
+                      {Array.from({ length: 3 }).map((_, index) => (
+                        <YStack
+                          key={index}
+                          borderRadius="$full"
+                          w={3}
+                          h={3}
+                          bg="$iconSubdued"
+                        />
+                      ))}
+                    </XStack>
+                  </XStack>
+                }
                 onPress={onPress}
                 disabled={disabled}
               />
@@ -90,8 +154,12 @@ function ReceiveSelectorContent() {
             renderTrigger={({ onPress, disabled }) => (
               <ReceiveOptions
                 icon="QrCodeOutline"
-                title="Receive from another wallet"
-                subtitle="Receive using your wallet address"
+                title={intl.formatMessage({
+                  id: ETranslations.receive_from_another_wallet,
+                })}
+                subtitle={intl.formatMessage({
+                  id: ETranslations.receive_from_another_wallet_desc,
+                })}
                 onPress={onPress}
                 disabled={disabled}
               />
@@ -127,8 +195,78 @@ function ReceiveSelectorContent() {
                       </YStack>
                       <ListItem.Text
                         flex={1}
-                        primary="Receive from exchange"
-                        secondary="Binance, OKX, Coinbase, etc."
+                        primary={intl.formatMessage({
+                          id: ETranslations.receive_from_exchange,
+                        })}
+                        gap="$1"
+                        secondary={
+                          <XStack gap="$1">
+                            <YStack
+                              w="$5"
+                              h="$5"
+                              justifyContent="center"
+                              alignItems="center"
+                              borderRadius="$1"
+                              borderCurve="continuous"
+                              bg="$yellow6"
+                            >
+                              <Icon
+                                size="$3"
+                                name="BinanceBrand"
+                                color="$yellow11"
+                              />
+                            </YStack>
+                            <YStack
+                              w="$5"
+                              h="$5"
+                              justifyContent="center"
+                              alignItems="center"
+                              borderRadius="$1"
+                              borderCurve="continuous"
+                              bg="$neutral6"
+                            >
+                              <Icon
+                                size="$3"
+                                name="OkxBrand"
+                                color="$neutral11"
+                              />
+                            </YStack>
+                            <YStack
+                              w="$5"
+                              h="$5"
+                              justifyContent="center"
+                              alignItems="center"
+                              borderRadius="$1"
+                              borderCurve="continuous"
+                              bg="$blue6"
+                            >
+                              <Icon
+                                size="$3"
+                                name="CoinbaseBrand"
+                                color="$blue11"
+                              />
+                            </YStack>
+                            <XStack
+                              alignItems="center"
+                              px="$1"
+                              gap="$0.5"
+                              borderWidth={1}
+                              borderColor="$borderSubdued"
+                              borderRadius="$1"
+                              borderCurve="continuous"
+                            >
+                              {Array.from({ length: 3 }).map((_, index) => (
+                                <YStack
+                                  key={index}
+                                  borderRadius="$full"
+                                  w={3}
+                                  h={3}
+                                  bg="$iconSubdued"
+                                />
+                              ))}
+                            </XStack>
+                          </XStack>
+                        }
                       />
                       <YStack
                         animation="quick"
@@ -140,7 +278,13 @@ function ReceiveSelectorContent() {
                   )}
                 </Accordion.Trigger>
                 <Accordion.HeightAnimator animation="quick">
-                  <Accordion.Content unstyled p="$5">
+                  <Accordion.Content
+                    unstyled
+                    p="$5"
+                    animation="quick"
+                    enterStyle={{ opacity: 0, filter: 'blur(4px)' }}
+                    exitStyle={{ opacity: 0, filter: 'blur(4px)' }}
+                  >
                     <SizableText mb="$2" color="$textSubdued">
                       Learn how to withdraw crypto assets from:
                     </SizableText>
@@ -155,7 +299,12 @@ function ReceiveSelectorContent() {
                         }}
                       >
                         <XStack alignItems="center" gap="$2">
-                          <YStack p={3} borderRadius="$1" bg="$yellow6">
+                          <YStack
+                            p={2}
+                            borderRadius="$1"
+                            borderCurve="continuous"
+                            bg="$yellow6"
+                          >
                             <Icon
                               size="$3"
                               name="BinanceBrand"
@@ -174,7 +323,12 @@ function ReceiveSelectorContent() {
                         }}
                       >
                         <XStack alignItems="center" gap="$2">
-                          <YStack p={3} borderRadius="$1" bg="$neutral6">
+                          <YStack
+                            p={2}
+                            borderRadius="$1"
+                            borderCurve="continuous"
+                            bg="$neutral6"
+                          >
                             <Icon
                               size="$3"
                               name="OkxBrand"
@@ -193,7 +347,12 @@ function ReceiveSelectorContent() {
                         }}
                       >
                         <XStack alignItems="center" gap="$2">
-                          <YStack p={3} borderRadius="$1" bg="$blue6">
+                          <YStack
+                            p={2}
+                            borderRadius="$1"
+                            borderCurve="continuous"
+                            bg="$blue6"
+                          >
                             <Icon
                               size="$3"
                               name="CoinbaseBrand"
