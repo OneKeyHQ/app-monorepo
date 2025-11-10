@@ -44,6 +44,8 @@ import {
   EModalSettingRoutes,
   EMultiTabBrowserRoutes,
   EOnboardingPages,
+  EOnboardingPagesV2,
+  EOnboardingV2Routes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { ERootRoutes } from '@onekeyhq/shared/src/routes/root';
@@ -618,13 +620,24 @@ export function Bootstrap() {
       autoNavigation?.selectedTab &&
       Object.values(ETabRoutes).includes(autoNavigation.selectedTab)
     ) {
+      /*
+        Auto Jump on Launch
+        Jump to Page
+        Choose which page to open when launching the app
+      */
       const timer = setTimeout(() => {
         navigation.switchTab(autoNavigation.selectedTab as ETabRoutes);
         // navigation.pushModal(EModalRoutes.PrimeModal, {
         //   screen: EPrimePages.PrimeTransfer,
         // });
-        navigation.pushModal(EModalRoutes.OnboardingModal, {
-          screen: EOnboardingPages.ConnectWallet,
+        // navigation.pushModal(EModalRoutes.OnboardingModal, {
+        //   screen: EOnboardingPages.ConnectWallet,
+        // });
+        navigation.navigate(ERootRoutes.Onboarding, {
+          screen: EOnboardingV2Routes.OnboardingV2,
+          params: {
+            screen: EOnboardingPagesV2.ImportWatchedAccount,
+          },
         });
       }, 1000);
 

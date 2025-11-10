@@ -13,10 +13,12 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes';
-import type { EMnemonicType } from '@onekeyhq/shared/src/utils/secret';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { fixInputImportSingleChain } from '../../Onboarding/pages/ImportWallet/ImportSingleChainBase';
 import { OnboardingLayout } from '../components/OnboardingLayout';
 import { PhaseInputArea } from '../components/PhaseInputArea';
 
@@ -29,6 +31,7 @@ export default function ImportPhraseOrPrivateKey() {
   const phaseInputAreaRef = useRef<IPhaseInputAreaInstance | null>(null);
   const [isConfirming, setIsConfirming] = useState(false);
   const intl = useIntl();
+  const [privateKey, setPrivateKey] = useState('');
 
   const handleConfirm = async () => {
     if (selected === 'phrase') {
@@ -53,10 +56,21 @@ export default function ImportPhraseOrPrivateKey() {
         }
       }
     } else {
-      // Navigate to network selection page for private key import
-      void navigation.push(EOnboardingPagesV2.SelectPrivateKeyNetwork, {
-        privateKey: '',
+      let input = fixInputImportSingleChain(privateKey || '') || '';
+      input = await backgroundApiProxy.servicePassword.encodeSensitiveText({
+        text: input || '',
       });
+      const results =
+        await backgroundApiProxy.serviceNetwork.detectNetworksByPrivateKey({
+          privateKey: input || '',
+        });
+      const params: IOnboardingParamListV2[EOnboardingPagesV2.SelectPrivateKeyNetwork] =
+        {
+          input,
+          detectedNetworks: results.detectedNetworks,
+          importType: 'privateKey',
+        };
+      void navigation.push(EOnboardingPagesV2.SelectPrivateKeyNetwork, params);
     }
   };
 
@@ -108,12 +122,19 @@ export default function ImportPhraseOrPrivateKey() {
                   gap="$5"
                 >
                   <TextAreaInput
+                    allowPaste
+                    allowClear
+                    allowSecureTextEye
                     size="large"
                     numberOfLines={5}
+                    value={privateKey}
+                    onChangeText={setPrivateKey}
                     $platform-native={{
                       minHeight: 160,
                     }}
-                    placeholder="Enter your private key"
+                    placeholder={intl.formatMessage({
+                      id: ETranslations.form_enter_private_key_placeholder,
+                    })}
                   />
                 </YStack>
               )}

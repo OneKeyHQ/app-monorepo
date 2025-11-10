@@ -17,6 +17,9 @@ const PickYourDevice = LazyLoadPage(() => import('../pages/PickYourDevice'));
 const ImportPhraseOrPrivateKey = LazyLoadPage(
   () => import('../pages/ImportPhraseOrPrivateKey'),
 );
+const ImportWatchedAccount = LazyLoadPage(
+  () => import('../pages/ImportWatchedAccountV2'),
+);
 const BackupWalletReminder = LazyLoadPage(
   () => import('../pages/BackupWalletReminder'),
 );
@@ -97,6 +100,11 @@ export const OnboardingRouterV2: IModalFlowNavigatorConfig<
   {
     name: EOnboardingPagesV2.ImportPhraseOrPrivateKey,
     component: ImportPhraseOrPrivateKey,
+    options: hiddenHeaderOptions,
+  },
+  {
+    name: EOnboardingPagesV2.ImportWatchedAccount,
+    component: ImportWatchedAccount,
     options: hiddenHeaderOptions,
   },
   {
