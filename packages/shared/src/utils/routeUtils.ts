@@ -7,6 +7,8 @@ import {
   EModalRoutes,
   EModalSignatureConfirmRoutes,
   EModalStakingRoutes,
+  EOnboardingPagesV2,
+  EOnboardingV2Routes,
   ERootRoutes,
   ETabDeveloperRoutes,
   ETabMarketRoutes,
@@ -185,6 +187,11 @@ export const buildAllowList = (
         showParams: true,
       },
 
+    [pagePath`${ERootRoutes.Onboarding}${EOnboardingV2Routes.OnboardingV2}${EOnboardingPagesV2.GetStarted}`]:
+      {
+        showUrl: true,
+        showParams: true,
+      },
     // Discovery Pages
     // [pagePath`${ERootRoutes.Main}${ETabRoutes.Discovery}${ETabDiscoveryRoutes.TabDiscovery}`]:
     //   {

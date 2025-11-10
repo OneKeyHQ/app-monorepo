@@ -2,7 +2,6 @@ import { EPageType } from '@onekeyhq/components';
 import { RootModalNavigator } from '@onekeyhq/components/src/layouts/Navigation/Navigator';
 import type {
   EModalRoutes,
-  EOnboardingPagesV2,
   EOnboardingV2Routes,
 } from '@onekeyhq/shared/src/routes';
 
