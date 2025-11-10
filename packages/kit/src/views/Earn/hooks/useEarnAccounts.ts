@@ -12,6 +12,7 @@ export const useEarnAccounts = () => {
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { account, indexedAccount } = activeAccount;
   const allNetworkId = useAllNetworkId();
+  const isAccountExists = !!account;
 
   const {
     result,
@@ -19,7 +20,7 @@ export const useEarnAccounts = () => {
     run: refreshEarnAccounts,
   } = usePromiseResult(
     async () => {
-      if (!account && !indexedAccount) {
+      if (!isAccountExists && !indexedAccount?.id) {
         return;
       }
       const totalFiatMapKey = actions.current.buildEarnAccountsKey({
@@ -29,7 +30,7 @@ export const useEarnAccounts = () => {
       });
 
       const fetchAndUpdateOverview = async () => {
-        if (!account && !indexedAccount) {
+        if (!isAccountExists && !indexedAccount?.id) {
           return;
         }
 
@@ -67,7 +68,14 @@ export const useEarnAccounts = () => {
       }
       return { loaded: true };
     },
-    [actions, account, allNetworkId, indexedAccount],
+    [
+      account?.id,
+      account?.indexedAccountId,
+      actions,
+      allNetworkId,
+      indexedAccount?.id,
+      isAccountExists,
+    ],
     {
       watchLoading: true,
       pollingInterval: timerUtils.getTimeDurationMs({ minute: 3 }),
