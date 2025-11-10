@@ -47,8 +47,7 @@ export function usePortfolioData({
   }, [fetchPortfolio]);
 
   return {
-    portfolioData: (portfolioData?.list ||
-      []) as IMarketAccountPortfolioItem[],
+    portfolioData: portfolioData?.list || [],
     fetchPortfolio,
     isRefreshing,
     onRefresh,

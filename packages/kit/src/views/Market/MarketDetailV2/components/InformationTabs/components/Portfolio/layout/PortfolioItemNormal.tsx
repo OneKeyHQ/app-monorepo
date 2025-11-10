@@ -9,9 +9,7 @@ interface IPortfolioItemNormalProps {
   index: number;
 }
 
-function PortfolioItemNormalBase({
-  item,
-}: IPortfolioItemNormalProps) {
+function PortfolioItemNormalBase({ item }: IPortfolioItemNormalProps) {
   const [settingsPersistAtom] = useSettingsPersistAtom();
 
   return (
