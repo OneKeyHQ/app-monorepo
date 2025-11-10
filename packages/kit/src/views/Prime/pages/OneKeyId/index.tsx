@@ -29,9 +29,9 @@ import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import { usePrimeAuthV2 } from '../../../Prime/hooks/usePrimeAuthV2';
-import { usePrimeAvailable } from '../../../Prime/hooks/usePrimeAvailable';
-import { PrimeUserInfo } from '../../../Prime/pages/PrimeDashboard/PrimeUserInfo';
+import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
+import { usePrimeAvailable } from '../../hooks/usePrimeAvailable';
+import { PrimeUserInfo } from '../PrimeDashboard/PrimeUserInfo';
 
 function OneKeyIdPage() {
   const intl = useIntl();

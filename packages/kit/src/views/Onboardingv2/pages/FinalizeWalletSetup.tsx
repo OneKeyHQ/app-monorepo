@@ -38,6 +38,7 @@ import {
   type IOnboardingParamListV2,
 } from '@onekeyhq/shared/src/routes';
 import { EMnemonicType } from '@onekeyhq/shared/src/utils/secret';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -281,6 +282,10 @@ function FinalizeWalletSetupPage({
               // **** TON mnemonic case
               // Create TON imported account when mnemonicType is TON
               await actions.current.createTonImportedWallet({ mnemonic });
+              goNextStep(EFinalizeWalletSetupSteps.EncryptingData);
+              await timerUtils.wait(2200);
+              goNextStep(EFinalizeWalletSetupSteps.GeneratingAccounts);
+              await timerUtils.wait(2200);
               goNextStep(EFinalizeWalletSetupSteps.Ready);
               return;
             }
@@ -300,8 +305,14 @@ function FinalizeWalletSetupPage({
       }
     } catch (error) {
       console.error('createWallet error:', error);
+      const hardwareError = error as {
+        messageId: ETranslations;
+        message: string;
+      };
       setSetupError({
-        messageId: (error as { messageId: ETranslations }).messageId,
+        messageId: hardwareError
+          ? hardwareError.messageId || hardwareError.message
+          : ETranslations.global_unknown_error,
       });
     }
   }, [
@@ -382,6 +393,7 @@ function FinalizeWalletSetupPage({
               <SizableText size="$heading2xl" textAlign="center">
                 {intl.formatMessage({
                   id: setupError.messageId,
+                  defaultMessage: setupError.messageId,
                 })}
               </SizableText>
               <Button onPress={retrySetup}>
