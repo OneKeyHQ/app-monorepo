@@ -100,7 +100,9 @@ export function SearchBar({
   const handleCompositionEnd = useCallback(
     (e: CompositionEvent) => {
       compositionLockRef.current = false;
-      handleChange(`${searchTextRef.current}${e.data || ''}`);
+      // Use the target value directly to handle text selection replacement correctly
+      const target = e.target as HTMLInputElement;
+      handleChange(target?.value || '');
     },
     [handleChange],
   );
