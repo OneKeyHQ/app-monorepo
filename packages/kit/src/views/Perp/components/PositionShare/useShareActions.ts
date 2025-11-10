@@ -80,7 +80,7 @@ export function useShareActions() {
   const shareToX = useCallback(async (base64Image: string, text: string) => {
     try {
       const tweetText = `${text}\n\n${REFERRAL_CODE}`;
-      const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(
+      const twitterUrl = `https://x.com/intent/tweet?text=${encodeURIComponent(
         tweetText,
       )}`;
 

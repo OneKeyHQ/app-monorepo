@@ -1,5 +1,6 @@
 import { useCallback, useMemo } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
@@ -41,8 +42,8 @@ export function ControlPanel({
   const intl = useIntl();
 
   const isProfit = useMemo(() => {
-    const pnlNum = parseFloat(data.pnl);
-    return pnlNum >= 0;
+    const pnlBn = new BigNumber(data.pnl || '0');
+    return pnlBn.isGreaterThan(0);
   }, [data.pnl]);
 
   // const availableBackgrounds = useMemo(() => {

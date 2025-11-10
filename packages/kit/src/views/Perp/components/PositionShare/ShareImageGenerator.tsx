@@ -1,5 +1,7 @@
 import { forwardRef, useCallback, useImperativeHandle, useRef } from 'react';
 
+import BigNumber from 'bignumber.js';
+
 import { Stack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
@@ -68,8 +70,8 @@ export const ShareImageGenerator = forwardRef<
 
     const { side, token, tokenImageUrl, pnl, leverage, entryPrice, markPrice } =
       data;
-    const pnlNum = parseFloat(pnl);
-    const isProfit = pnlNum >= 0;
+    const pnlBn = new BigNumber(pnl || '0');
+    const isProfit = pnlBn.isGreaterThan(0);
     const pnlColor = isProfit ? colors.long : colors.short;
     const tokenImage = tokenImageUrl || getHyperliquidTokenImageUrl(token);
     const pnlDisplayText = getPnlDisplayInfo(data, config.pnlDisplayMode);

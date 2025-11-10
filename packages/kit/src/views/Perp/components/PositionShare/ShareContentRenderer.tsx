@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
+import BigNumber from 'bignumber.js';
+
 import {
   Image,
   SizableText,
@@ -40,8 +42,8 @@ export function ShareContentRenderer({
 }: IShareContentRendererProps) {
   const { side, token, tokenImageUrl, pnl, leverage, entryPrice, markPrice } =
     data;
-  const pnlNum = parseFloat(pnl);
-  const isProfit = pnlNum >= 0;
+  const pnlBn = new BigNumber(pnl || '0');
+  const isProfit = pnlBn.isGreaterThan(0);
   const pnlColor = isProfit ? colors.long : colors.short;
   const sideColor = side === 'long' ? colors.long : colors.short;
   const tokenImage = tokenImageUrl || getHyperliquidTokenImageUrl(token);
