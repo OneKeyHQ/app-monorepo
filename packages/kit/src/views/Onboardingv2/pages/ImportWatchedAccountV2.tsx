@@ -15,6 +15,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
@@ -23,7 +24,6 @@ import { OnboardingLayout } from '../components/OnboardingLayout';
 import { PhaseInputArea } from '../components/PhaseInputArea';
 
 import type { IPhaseInputAreaInstance } from '../components/PhaseInputArea';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 export default function ImportWatchedAccountV2() {
   const navigation = useAppNavigation();

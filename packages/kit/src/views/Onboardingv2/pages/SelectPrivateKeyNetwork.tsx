@@ -416,13 +416,6 @@ function SelectPrivateKeyNetworkView() {
   const invalidMessage = intl.formatMessage({
     id: ETranslations.form_private_key_error_invalid,
   });
-  const validationParams: IValidateGeneralInputParams = useMemo(() => {
-    return {
-      input,
-      validatePrivateKey: true,
-      validateXprvt: true,
-    };
-  }, [input]);
 
   const [validateResult, setValidateResult] = useState<
     IGeneralInputValidation | undefined
@@ -452,7 +445,8 @@ function SelectPrivateKeyNetworkView() {
           const result =
             await backgroundApiProxy.serviceAccount.validateGeneralInputOfImporting(
               {
-                ...validationParams,
+                validatePrivateKey: true,
+                validateXprvt: true,
                 input,
                 networkId: selectedNetworkId,
               },
@@ -479,7 +473,6 @@ function SelectPrivateKeyNetworkView() {
     importType,
     input,
     selectedNetworkId,
-    validationParams,
     walletId,
   ]);
 

@@ -906,6 +906,9 @@ class ServiceNetwork extends ServiceBase {
     };
   }
 
+  // @backgroundMethod()
+  // async detectNetworksByPublicKey
+
   @backgroundMethod()
   async detectNetworksByPrivateKey({
     privateKey,
@@ -914,18 +917,27 @@ class ServiceNetwork extends ServiceBase {
   }): Promise<{
     detectedNetworks: IDetectedNetworkGroupItem[];
   }> {
-    if (!privateKey?.trim()) {
+    // eslint-disable-next-line no-param-reassign
+    privateKey = privateKey?.trim?.() || '';
+    if (!privateKey) {
       return {
         detectedNetworks: [],
       };
     }
-    const availableNetworkIds: string[] = (
-      await this.getImportedAccountEnabledNetworks()
-    ).map((network) => network.id);
     // eslint-disable-next-line no-param-reassign
     privateKey = await this.backgroundApi.servicePassword.decodeSensitiveText({
       encodedText: privateKey || '',
     });
+    if (!privateKey) {
+      return {
+        detectedNetworks: [],
+      };
+    }
+
+    const availableNetworkIds: string[] = (
+      await this.getImportedAccountEnabledNetworks()
+    ).map((network) => network.id);
+
     const { groupedByImpl } =
       await networkDetectUtils.detectNetworkByPrivateKey({
         privateKey,
