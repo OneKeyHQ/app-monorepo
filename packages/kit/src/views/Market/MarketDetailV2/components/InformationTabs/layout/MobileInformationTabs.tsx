@@ -12,6 +12,7 @@ import {
 
 import { useTokenDetail } from '../../../hooks/useTokenDetail';
 import { Holders } from '../components/Holders';
+import { Portfolio } from '../components/Portfolio';
 import { TransactionsHistory } from '../components/TransactionsHistory';
 import { useBottomTabAnalytics } from '../hooks/useBottomTabAnalytics';
 
@@ -76,6 +77,14 @@ export function MobileInformationTabs({
           networkId={networkId}
           onScrollEnd={onScrollEnd}
         />
+      </Tabs.Tab>,
+      <Tabs.Tab
+        key="portfolio"
+        name={intl.formatMessage({
+          id: ETranslations.dexmarket_details_myposition,
+        })}
+      >
+        <Portfolio tokenAddress={tokenAddress} networkId={networkId} />
       </Tabs.Tab>,
       shouldShowHoldersTab && (
         <Tabs.Tab key="holders" name={holdersTabName}>
