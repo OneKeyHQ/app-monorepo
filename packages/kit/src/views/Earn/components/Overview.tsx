@@ -264,8 +264,15 @@ export const Overview = ({
     [evmAccount, isRebateLoading, rebateData],
   );
 
-  const handleHistoryPress = useCallback(() => {
-    if (!evmAccount) return;
+  const handleHistoryPress = useCallback(async () => {
+    if (!evmAccount || !account?.id) return;
+    const currentEarnAccount =
+      await backgroundApiProxy.serviceStaking.getEarnAccount({
+        accountId: account.id,
+        indexedAccountId: indexedAccount?.id || '',
+        networkId: evmNetworkId,
+        btcOnlyTaproot: true,
+      });
     navigation.pushModal(EModalRoutes.StakingModal, {
       screen: EModalStakingRoutes.HistoryList,
       params: {
@@ -281,12 +288,19 @@ export const Overview = ({
             }),
           } as IEarnAlert,
         ],
-        accountId: account?.id ?? '',
+        accountId: currentEarnAccount?.account.id || '',
         networkId: evmNetworkId,
         filterType: 'rebate',
       },
     });
-  }, [navigation, evmAccount, account?.id, evmNetworkId, intl]);
+  }, [
+    navigation,
+    evmAccount,
+    account?.id,
+    indexedAccount?.id,
+    evmNetworkId,
+    intl,
+  ]);
 
   const handleRefresh = useCallback(() => {
     onRefresh();
