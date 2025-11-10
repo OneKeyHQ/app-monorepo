@@ -7,6 +7,8 @@ import {
   EModalRoutes,
   EModalSignatureConfirmRoutes,
   EModalStakingRoutes,
+  EOnboardingPagesV2,
+  EOnboardingV2Routes,
   ERootRoutes,
   ETabDeveloperRoutes,
   ETabMarketRoutes,
@@ -126,8 +128,7 @@ export const buildAllowList = (
     return fullPath;
   }
 
-  const { TabReferAFriend, TabInviteReward, TabOneKeyId } =
-    ETabReferFriendsRoutes;
+  const { TabReferAFriend, TabInviteReward } = ETabReferFriendsRoutes;
 
   // fill in the route name as the key according to the route stacks order
   // Page: /main/tab-Home/TabHomeStack1
@@ -157,10 +158,6 @@ export const buildAllowList = (
       { showUrl: true, showParams: false },
     [pagePath`${ERootRoutes.Main}${ETabRoutes.ReferFriends}${TabInviteReward}`]:
       { showUrl: true, showParams: false },
-    [pagePath`${ERootRoutes.Main}${ETabRoutes.ReferFriends}${TabOneKeyId}`]: {
-      showUrl: true,
-      showParams: false,
-    },
     [pagePath`${ERootRoutes.Main}${ETabRoutes.Earn}`]: {
       showUrl: true,
       showParams: true,
@@ -195,6 +192,11 @@ export const buildAllowList = (
         showParams: true,
       },
 
+    [pagePath`${ERootRoutes.Onboarding}${EOnboardingV2Routes.OnboardingV2}${EOnboardingPagesV2.GetStarted}`]:
+      {
+        showUrl: true,
+        showParams: true,
+      },
     // Discovery Pages
     // [pagePath`${ERootRoutes.Main}${ETabRoutes.Discovery}${ETabDiscoveryRoutes.TabDiscovery}`]:
     //   {

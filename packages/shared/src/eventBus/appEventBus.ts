@@ -25,7 +25,6 @@ import platformEnv from '../platformEnv';
 import { EAppEventBusNames } from './appEventBusNames';
 
 import type { EAccountSelectorSceneName, EHomeTab } from '../../types';
-import type { IFirmwareVerifyResult } from '../../types/device';
 import type { IFeeSelectorItem } from '../../types/fee';
 import type { ESubscriptionType } from '../../types/hyperliquid/types';
 import type { INotificationViewDialogPayload } from '../../types/notification';
@@ -395,7 +394,6 @@ export interface IAppEventBusPayload {
     retry?: number;
     message?: string;
   };
-  [EAppEventBusNames.EmitFirmwareVerifyResult]: IFirmwareVerifyResult;
 }
 
 export enum EEventBusBroadcastMethodNames {

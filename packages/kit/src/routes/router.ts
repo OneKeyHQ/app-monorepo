@@ -10,7 +10,11 @@ import {
   OnboardingNavigator,
   iOSFullScreenNavigator,
 } from './Modal/Navigator';
-import { fullModalRouter, modalRouter } from './Modal/router';
+import {
+  fullModalRouter,
+  modalRouter,
+  onboardingRouterV2Config,
+} from './Modal/router';
 import { TabNavigator } from './Tab/Navigator';
 import { useTabRouterConfig } from './Tab/router';
 
@@ -70,6 +74,10 @@ export const useRootRouter = () => {
       {
         name: ERootRoutes.Main,
         children: tabRouter,
+      },
+      {
+        name: ERootRoutes.Onboarding,
+        children: onboardingRouterV2Config,
       },
       {
         name: ERootRoutes.Modal,
