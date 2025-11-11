@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 
 import { useRoute } from '@react-navigation/core';
+import { useIntl } from 'react-intl';
 
 import {
   Button,
@@ -8,12 +9,14 @@ import {
   SizableText,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
 import {
   ensureSensitiveTextEncoded,
   generateMnemonic,
 } from '@onekeyhq/core/src/secret';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes';
 import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes';
 
@@ -25,6 +28,8 @@ import type { RouteProp } from '@react-navigation/core';
 
 export default function ShowRecoveryPhrase() {
   const navigation = useAppNavigation();
+  const intl = useIntl();
+  const { gtMd } = useMedia();
   const route =
     useRoute<
       RouteProp<IOnboardingParamListV2, EOnboardingPagesV2.ShowRecoveryPhrase>
@@ -56,13 +61,15 @@ export default function ShowRecoveryPhrase() {
           <YStack gap="$5">
             <YStack gap="$3">
               <SizableText size="$heading2xl">
-                Note down phrase in order and keep them safe.
+                {intl.formatMessage({
+                  id: ETranslations.onboarding_backup_recovery_phrase_help_text,
+                })}
               </SizableText>
             </YStack>
 
             <XStack mx="$-1" py="$5" flexWrap="wrap">
               {recoveryPhrase.map((phrase, index) => (
-                <YStack key={index} p="$1" flex={1} w="50%">
+                <YStack key={index} p="$1" flex={1} flexBasis="50%">
                   <XStack
                     py="$2"
                     px="$1"
@@ -86,11 +93,29 @@ export default function ShowRecoveryPhrase() {
               ))}
             </XStack>
 
-            <Button size="large" variant="primary" onPress={handleContinue}>
-              I've saved the phrases
-            </Button>
+            {gtMd ? (
+              <Button size="large" variant="primary" onPress={handleContinue}>
+                {intl.formatMessage({
+                  id: ETranslations.global_saved_the_phrases,
+                })}
+              </Button>
+            ) : null}
           </YStack>
         </OnboardingLayout.Body>
+        {!gtMd ? (
+          <OnboardingLayout.Footer>
+            <Button
+              w="100%"
+              size="large"
+              variant="primary"
+              onPress={handleContinue}
+            >
+              {intl.formatMessage({
+                id: ETranslations.global_saved_the_phrases,
+              })}
+            </Button>
+          </OnboardingLayout.Footer>
+        ) : null}
       </OnboardingLayout>
     </Page>
   );

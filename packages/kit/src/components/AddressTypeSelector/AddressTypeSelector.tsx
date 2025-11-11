@@ -82,6 +82,7 @@ type IProps = {
   placement?: PopoverProps['placement'];
   confirmText?: string;
   offset?: PopoverProps['offset'];
+  refreshOnOpen?: boolean;
 };
 
 const StrongText = (chunks: (string | ReactElement)[]) => (
@@ -122,6 +123,7 @@ function AddressTypeSelectorContent(
     closePopover,
     doubleConfirm,
     confirmText,
+    refreshOnOpen,
   } = props;
 
   const intl = useIntl();
@@ -428,6 +430,7 @@ function AddressTypeSelector(props: IProps) {
     placement,
     doubleConfirm,
     offset,
+    refreshOnOpen = false,
   } = props;
 
   const { network } = useAccountData({
@@ -539,45 +542,52 @@ function AddressTypeSelector(props: IProps) {
     }
   }, [activeDeriveTypeProp, networkId]);
 
+  const fetchTokenMap = useCallback(async () => {
+    const networkAccountsWithAccountId = networkAccounts.filter(
+      (item) => item.account?.id,
+    );
+
+    if (networkAccountsWithAccountId.length === 0) {
+      return;
+    }
+
+    setIsFetchingTokenMap(true);
+
+    const resp = await Promise.all(
+      networkAccountsWithAccountId.map((networkAccount) =>
+        backgroundApiProxy.serviceToken.fetchAccountTokens({
+          accountId: networkAccount.account?.id ?? '',
+          mergeTokens: true,
+          networkId,
+          flag: 'address-type-selector',
+          indexedAccountId,
+        }),
+      ),
+    );
+
+    const { tokenListMap } = getMergedDeriveTokenData({
+      data: resp,
+      mergeDeriveAssetsEnabled: true,
+    });
+    setTokenMap(tokenListMap);
+
+    setIsFetchingTokenMap(false);
+  }, [networkAccounts, networkId, indexedAccountId]);
+
   useEffect(() => {
-    const fetchTokenMap = async () => {
-      const networkAccountsWithAccountId = networkAccounts.filter(
-        (item) => item.account?.id,
-      );
-
-      if (networkAccountsWithAccountId.length === 0) {
-        return;
-      }
-
-      setIsFetchingTokenMap(true);
-
-      const resp = await Promise.all(
-        networkAccountsWithAccountId.map((networkAccount) =>
-          backgroundApiProxy.serviceToken.fetchAccountTokens({
-            accountId: networkAccount.account?.id ?? '',
-            mergeTokens: true,
-            networkId,
-            flag: 'address-type-selector',
-            indexedAccountId,
-          }),
-        ),
-      );
-
-      const { tokenListMap } = getMergedDeriveTokenData({
-        data: resp,
-        mergeDeriveAssetsEnabled: true,
-      });
-      setTokenMap(tokenListMap);
-
-      setIsFetchingTokenMap(false);
-    };
-
-    if (!tokenMapProp) {
+    if (!tokenMapProp && !refreshOnOpen) {
       void fetchTokenMap();
     } else {
       setTokenMap(tokenMapProp);
     }
-  }, [tokenMapProp, networkAccounts, networkId, indexedAccountId]);
+  }, [
+    tokenMapProp,
+    networkAccounts,
+    networkId,
+    indexedAccountId,
+    fetchTokenMap,
+    refreshOnOpen,
+  ]);
 
   useEffect(() => {
     const fn = () => {
@@ -662,6 +672,9 @@ function AddressTypeSelector(props: IProps) {
       }
       renderContent={renderContent}
       onOpenChange={(open) => {
+        if (open && refreshOnOpen) {
+          void fetchTokenMap();
+        }
         if (!open && doubleConfirm) {
           void backgroundApiProxy.serviceNetwork
             .getGlobalDeriveTypeOfNetwork({

@@ -1,7 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { useFocusEffect } from '@react-navigation/native';
-import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
@@ -39,9 +38,9 @@ import { useFirmwareUpdateActions } from '../../FirmwareUpdate/hooks/useFirmware
 import { OnboardingLayout } from '../components/OnboardingLayout';
 import {
   useConnectDeviceError,
-  useDesktopBluetoothStatusPolling,
   useDeviceConnect,
 } from '../hooks/useDeviceConnect';
+import { getForceTransportType } from '../utils';
 
 import type { KnownDevice, SearchDevice } from '@onekeyfe/hd-core';
 
@@ -72,7 +71,23 @@ function CheckAndUpdatePage({
     return (deviceData.device as SearchDevice).name;
   }, [deviceData]);
 
-  const { verifyHardware, connectDevice } = useDeviceConnect();
+  const { verifyHardware, ensureActiveConnection, getActiveDevice } =
+    useDeviceConnect();
+  const [currentDevice, setCurrentDevice] = useState<SearchDevice | undefined>(
+    deviceData.device as SearchDevice | undefined,
+  );
+  const ensureTransportType = useCallback(async () => {
+    if (!tabValue) {
+      return;
+    }
+    const forceTransportType = await getForceTransportType(tabValue);
+    if (forceTransportType) {
+      await backgroundApiProxy.serviceHardware.setForceTransportType({
+        forceTransportType,
+      });
+    }
+  }, [tabValue]);
+
 
   const [steps, setSteps] = useState<
     {
@@ -167,12 +182,24 @@ function CheckAndUpdatePage({
       return newSteps;
     });
     try {
+      await ensureTransportType();
+      const baseDevice =
+        (getActiveDevice() as SearchDevice | undefined) ??
+        currentDevice ??
+        (deviceData.device as SearchDevice | undefined);
+      if (!baseDevice) {
+        setWarningStep();
+        return;
+      }
       const [features] = await Promise.all([
-        connectDevice(deviceData.device as SearchDevice),
+        ensureActiveConnection(baseDevice),
         new Promise<void>((resolve) => {
           setTimeout(resolve, 1200);
         }),
       ]);
+      const latestDevice =
+        (getActiveDevice() as SearchDevice | undefined) ?? baseDevice;
+      setCurrentDevice(latestDevice);
       if (features) {
         const deviceMode = await deviceUtils.getDeviceModeFromFeatures({
           features,
@@ -182,6 +209,9 @@ function CheckAndUpdatePage({
           setWarningStep();
           return;
         }
+      } else {
+        setWarningStep();
+        return;
       }
     } catch (error) {
       setWarningStep();
@@ -195,22 +225,47 @@ function CheckAndUpdatePage({
       };
       return newSteps;
     });
+    const deviceForFinalize =
+      (getActiveDevice() as SearchDevice | undefined) ??
+      currentDevice ??
+      (deviceData.device as SearchDevice | undefined);
     setTimeout(async () => {
       navigation.push(EOnboardingPagesV2.FinalizeWalletSetup, {
-        deviceData,
+        deviceData: {
+          ...deviceData,
+          device: (deviceForFinalize ?? deviceData.device) as SearchDevice,
+        },
         isFirmwareVerified: true,
       });
     }, 1200);
-  }, [connectDevice, deviceData, navigation]);
+  }, [
+    currentDevice,
+    deviceData,
+    ensureActiveConnection,
+    ensureTransportType,
+    getActiveDevice,
+    navigation,
+  ]);
 
   const checkFirmwareUpdate = useCallback(async () => {
-    await connectDevice(deviceData.device as SearchDevice);
-    if (!deviceData.device?.connectId) {
+    await ensureTransportType();
+    const baseDevice =
+      (getActiveDevice() as SearchDevice | undefined) ??
+      currentDevice ??
+      (deviceData.device as SearchDevice | undefined);
+    if (!baseDevice?.connectId) {
+      return;
+    }
+    await ensureActiveConnection(baseDevice);
+    const latestDevice =
+      (getActiveDevice() as SearchDevice | undefined) ?? baseDevice;
+    setCurrentDevice(latestDevice);
+    if (!latestDevice?.connectId) {
       return;
     }
     const compatibleConnectId =
       await backgroundApiProxy.serviceHardware.getCompatibleConnectId({
-        connectId: deviceData.device.connectId,
+        connectId: latestDevice.connectId,
         hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
       });
     const r =
@@ -237,7 +292,14 @@ function CheckAndUpdatePage({
         void checkDeviceInitialized();
       }
     }
-  }, [connectDevice, deviceData.device, checkDeviceInitialized]);
+  }, [
+    checkDeviceInitialized,
+    currentDevice,
+    deviceData.device,
+    ensureActiveConnection,
+    ensureTransportType,
+    getActiveDevice,
+  ]);
 
   const firmwareStepStateRef = useRef<ECheckAndUpdateStepState>(steps[1].state);
   firmwareStepStateRef.current = steps[1].state;
@@ -263,8 +325,6 @@ function CheckAndUpdatePage({
     }, [checkFirmwareUpdate]),
   );
 
-  useDesktopBluetoothStatusPolling(tabValue, noop);
-
   const handleVerifyHardware = useCallback(async () => {
     setSteps((prev) => {
       const newSteps = [...prev];
@@ -282,6 +342,11 @@ function CheckAndUpdatePage({
           setTimeout(resolve, 1200);
         }),
       ]);
+      const latestDevice =
+        (getActiveDevice() as SearchDevice | undefined) ??
+        currentDevice ??
+        (deviceData.device as SearchDevice | undefined);
+      setCurrentDevice(latestDevice);
       console.log('verifyHardware', result);
       if (!result) {
         throw new OneKeyLocalError(
@@ -320,7 +385,15 @@ function CheckAndUpdatePage({
         return newSteps;
       });
     }
-  }, [verifyHardware, deviceData.device, tabValue, intl, checkFirmwareUpdate]);
+  }, [
+    verifyHardware,
+    deviceData.device,
+    tabValue,
+    intl,
+    checkFirmwareUpdate,
+    getActiveDevice,
+    currentDevice,
+  ]);
 
   const handleRetry = useCallback(async () => {
     await handleVerifyHardware();

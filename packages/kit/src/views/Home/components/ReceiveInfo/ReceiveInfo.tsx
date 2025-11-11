@@ -3,7 +3,7 @@ import { memo, useCallback, useEffect } from 'react';
 import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import { Button } from '@onekeyhq/components';
+import { Button, Icon, XStack, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -112,9 +112,9 @@ function ReceiveInfo({
   return (
     <MainInfoBlock
       title={intl.formatMessage({ id: ETranslations.global_add_money })}
-      subtitle={intl.formatMessage({
-        id: ETranslations.add_money_methods_desc,
-      })}
+      // subtitle={intl.formatMessage({
+      //   id: ETranslations.add_money_methods_desc,
+      // })}
       iconProps={{ name: 'ArrowBottomCircleOutline' }}
       iconContainerProps={{ bg: '$brand8' }}
       bgSource={
@@ -125,19 +125,114 @@ function ReceiveInfo({
       closable={closable}
       onClose={handleClose}
       actions={
-        <Button
-          alignSelf="start"
-          size="large"
-          variant="primary"
-          onPress={handleAddMoney}
-          minWidth={120}
-        >
-          {intl.formatMessage({ id: ETranslations.global_add_money })}
-        </Button>
+        <YStack gap="$4">
+          <XStack mt="$1" gap="$1" alignItems="center">
+            <YStack
+              h="$5"
+              px="$1.5"
+              borderRadius="$1"
+              borderCurve="continuous"
+              justifyContent="center"
+              alignItems="center"
+              borderWidth={1}
+              borderColor="$borderSubdued"
+              $theme-dark={{
+                bg: '$neutral4',
+              }}
+            >
+              <Icon name="ApplePayIllus" h="$3" w="$8" color="$icon" />
+            </YStack>
+            <YStack
+              h="$5"
+              px="$1.5"
+              borderRadius="$1"
+              borderCurve="continuous"
+              justifyContent="center"
+              alignItems="center"
+              borderWidth={1}
+              borderColor="$borderSubdued"
+              $theme-dark={{
+                bg: '$neutral4',
+              }}
+            >
+              <Icon name="GooglePayIllus" h="$3" w="$8" color="$icon" />
+            </YStack>
+            <YStack
+              h="$5"
+              px="$0.5"
+              borderRadius="$1"
+              borderCurve="continuous"
+              justifyContent="center"
+              alignItems="center"
+              borderWidth={1}
+              borderColor="$borderSubdued"
+              $theme-dark={{
+                bg: '$neutral4',
+              }}
+            >
+              <Icon name="VisaIllus" h="$3" w="$8" color="$icon" />
+            </YStack>
+            <YStack
+              borderRadius="$full"
+              w={3}
+              h={3}
+              bg="$iconSubdued"
+              mx="$1"
+            />
+            <YStack
+              w="$5"
+              h="$5"
+              justifyContent="center"
+              alignItems="center"
+              borderRadius="$1"
+              borderCurve="continuous"
+              bg="$yellow6"
+              borderWidth={1}
+              borderColor="$borderSubdued"
+            >
+              <Icon size="$3" name="BinanceBrand" color="$yellow11" />
+            </YStack>
+            <YStack
+              w="$5"
+              h="$5"
+              justifyContent="center"
+              alignItems="center"
+              borderRadius="$1"
+              borderCurve="continuous"
+              bg="$neutral6"
+              borderWidth={1}
+              borderColor="$borderSubdued"
+            >
+              <Icon size="$3" name="OkxBrand" color="$neutral11" />
+            </YStack>
+            <YStack
+              w="$5"
+              h="$5"
+              justifyContent="center"
+              alignItems="center"
+              borderRadius="$1"
+              borderCurve="continuous"
+              bg="$blue6"
+              borderWidth={1}
+              borderColor="$borderSubdued"
+            >
+              <Icon size="$3" name="CoinbaseBrand" color="$blue11" />
+            </YStack>
+          </XStack>
+          <Button
+            alignSelf="start"
+            size="large"
+            variant="primary"
+            onPress={handleAddMoney}
+            minWidth={120}
+          >
+            {intl.formatMessage({ id: ETranslations.global_add_money })}
+          </Button>
+        </YStack>
       }
       containerProps={{
-        minHeight: 288,
-        bg: '$brand1',
+        minHeight: 256,
+        bg: '$green1',
         $gtMd: { flexBasis: 0, flexShrink: 1, flexGrow: 1 },
       }}
     />

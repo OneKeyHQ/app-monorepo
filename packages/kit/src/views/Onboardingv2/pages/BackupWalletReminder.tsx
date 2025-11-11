@@ -1,4 +1,5 @@
 import { useRoute } from '@react-navigation/core';
+import { useIntl } from 'react-intl';
 
 import type { IKeyOfIcons } from '@onekeyhq/components';
 import {
@@ -9,8 +10,10 @@ import {
   SizableText,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes';
 
@@ -20,6 +23,8 @@ import type { RouteProp } from '@react-navigation/core';
 
 export default function BackupWalletReminder() {
   const navigation = useAppNavigation();
+  const intl = useIntl();
+  const { gtMd } = useMedia();
   const { mnemonic, isWalletBackedUp, walletId } =
     useRoute<
       RouteProp<IOnboardingParamListV2, EOnboardingPagesV2.BackupWalletReminder>
@@ -34,19 +39,27 @@ export default function BackupWalletReminder() {
 
   const TEXTS: { text: string; icon: IKeyOfIcons }[] = [
     {
-      text: 'Your recovery phrase gives full access to your wallet',
+      text: intl.formatMessage({
+        id: ETranslations.onboarding_bullet_recovery_phrase_full_access,
+      }),
       icon: 'LockSolid',
     },
     {
-      text: 'Use it to restore your wallet if you forget your passcode',
+      text: intl.formatMessage({
+        id: ETranslations.onboarding_bullet_forgot_passcode_use_recovery,
+      }),
       icon: 'InputSolid',
     },
     {
-      text: 'Never share it or enter it anywhere',
+      text: intl.formatMessage({
+        id: ETranslations.onboarding_bullet_never_share_recovery_phrase,
+      }),
       icon: 'EyeOffSolid',
     },
     {
-      text: 'OneKey Support will never ask for it',
+      text: intl.formatMessage({
+        id: ETranslations.onboarding_bullet_onekey_support_no_recovery_phrase,
+      }),
       icon: 'Shield2CheckSolid',
     },
   ];
@@ -63,7 +76,9 @@ export default function BackupWalletReminder() {
             h={162}
           />
           <SizableText size="$heading2xl">
-            Read the following, then save the phrase securely
+            {intl.formatMessage({
+              id: ETranslations.onboarding_save_phrase_securely_instruction,
+            })}
           </SizableText>
           <YStack gap="$4" py="$5">
             {TEXTS.map(({ text, icon }) => (
@@ -80,10 +95,28 @@ export default function BackupWalletReminder() {
               </XStack>
             ))}
           </YStack>
-          <Button size="large" variant="primary" onPress={handleContinue}>
-            Show recovery phrase
-          </Button>
+          {gtMd ? (
+            <Button size="large" variant="primary" onPress={handleContinue}>
+              {intl.formatMessage({
+                id: ETranslations.global_show_recovery_phrase,
+              })}
+            </Button>
+          ) : null}
         </OnboardingLayout.Body>
+        {!gtMd ? (
+          <OnboardingLayout.Footer>
+            <Button
+              w="100%"
+              size="large"
+              variant="primary"
+              onPress={handleContinue}
+            >
+              {intl.formatMessage({
+                id: ETranslations.global_show_recovery_phrase,
+              })}
+            </Button>
+          </OnboardingLayout.Footer>
+        ) : null}
       </OnboardingLayout>
     </Page>
   );
