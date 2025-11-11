@@ -277,14 +277,12 @@ function CheckAndUpdatePage({
         const newSteps = [...prev];
         newSteps[0] = {
           ...newSteps[0],
-          state: result.verified
-            ? ECheckAndUpdateStepState.Success
-            : ECheckAndUpdateStepState.Error,
+          state:
+            result.verified || result.skipVerification
+              ? ECheckAndUpdateStepState.Success
+              : ECheckAndUpdateStepState.Error,
           errorMessage: result.verified ? undefined : result.result?.message,
         };
-        if (result.skipVerification) {
-          newSteps[0].state = ECheckAndUpdateStepState.Skipped;
-        }
         if (result.verified || result.skipVerification) {
           newSteps[1] = {
             ...newSteps[1],
