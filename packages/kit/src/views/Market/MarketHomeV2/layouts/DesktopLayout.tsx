@@ -6,9 +6,8 @@ import {
   YStack,
   useTabContainerWidth,
 } from '@onekeyhq/components';
+import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { useRouteIsFocused} from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
-
 
 import { MarketFilterBar } from '../components/MarketFilterBar';
 import { MarketNormalTokenList } from '../components/MarketTokenList/MarketNormalTokenList';

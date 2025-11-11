@@ -1,3 +1,4 @@
+import { request } from '@alephium/web3';
 import { useIntl } from 'react-intl';
 
 import { Button, useClipboard } from '@onekeyhq/components';
@@ -17,6 +18,7 @@ function ContactSupportButton({ requestId }: { requestId: string }) {
 
   return (
     <Button
+      icon="HelpSupportOutline"
       size="small"
       onPress={() => {
         void showIntercom({ requestId });
@@ -69,13 +71,11 @@ export function getErrorAction({
   }
 
   // Default: show contact support + copy diagnostic info buttons
-  if (diagnosticText) {
+  if (diagnosticText && requestId) {
     return [
-      requestId ? (
-        <ContactSupportButton key="contact" requestId={requestId} />
-      ) : null,
+      <ContactSupportButton key="contact" requestId={requestId} />,
       <CopyDiagnosticButton key="copy" diagnosticText={diagnosticText} />,
-    ].filter(Boolean);
+    ];
   }
 
   return undefined;
