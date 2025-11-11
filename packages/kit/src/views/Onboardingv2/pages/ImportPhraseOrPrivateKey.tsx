@@ -82,7 +82,7 @@ export default function ImportPhraseOrPrivateKey() {
     }
   };
 
-  const { height, progress } = useReanimatedKeyboardAnimation();
+  const { height } = useReanimatedKeyboardAnimation();
   const keyboardHeight = useSharedValue<number>(0);
 
   useAnimatedReaction(
@@ -92,8 +92,6 @@ export default function ImportPhraseOrPrivateKey() {
       keyboardHeight.value = v;
     },
   );
-
-  console.log('useReanimatedKeyboardAnimation', height.get(), progress.get());
 
   return (
     <Page>
