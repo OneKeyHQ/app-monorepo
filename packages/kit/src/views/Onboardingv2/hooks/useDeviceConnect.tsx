@@ -398,7 +398,22 @@ export function useDeviceConnect() {
                     },
                   });
                 },
-                onContinue: () => {},
+                onContinue: ({ checked }: { checked: boolean }) => {
+                  isVerified = checked;
+                  resolve({
+                    verified: checked,
+                    device,
+                    payload: {
+                      deviceType: device.deviceType,
+                      data: '',
+                      cert: '',
+                      signature: '',
+                    },
+                    result: {
+                      message: '',
+                    },
+                  });
+                },
                 onClose: () => {
                   if (!isVerified) {
                     reject(
