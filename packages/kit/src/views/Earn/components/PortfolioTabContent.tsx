@@ -25,6 +25,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IEarnPortfolioInvestment } from '@onekeyhq/shared/types/staking';
 
 import { useCurrency } from '../../../components/Currency';
@@ -590,10 +591,13 @@ export const PortfolioTabContent = () => {
       if (!payload?.provider || !payload?.symbol || !payload?.networkId) {
         return;
       }
-      void refresh({
-        provider: payload.provider,
-        symbol: payload.symbol,
-        networkId: payload.networkId,
+      // Add delay to allow backend data to update after order success
+      void timerUtils.wait(350).then(() => {
+        void refresh({
+          provider: payload.provider,
+          symbol: payload.symbol,
+          networkId: payload.networkId,
+        });
       });
     },
     [refresh],
@@ -607,11 +611,19 @@ export const PortfolioTabContent = () => {
     }) => {
       refreshPortfolioRow(payload);
     };
+    const fullRefreshHandler = () => {
+      void refresh();
+    };
     appEventBus.on(EAppEventBusNames.RefreshEarnPortfolioItem, handler);
+    appEventBus.on(EAppEventBusNames.RefreshEarnPortfolio, fullRefreshHandler);
     return () => {
       appEventBus.off(EAppEventBusNames.RefreshEarnPortfolioItem, handler);
+      appEventBus.off(
+        EAppEventBusNames.RefreshEarnPortfolio,
+        fullRefreshHandler,
+      );
     };
-  }, [refreshPortfolioRow]);
+  }, [refreshPortfolioRow, refresh]);
 
   const showSkeleton = isLoading && investments.length === 0;
   const showEmpty = !isLoading && investments.length === 0;

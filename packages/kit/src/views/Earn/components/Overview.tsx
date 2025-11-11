@@ -19,6 +19,10 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
@@ -306,6 +310,8 @@ export const Overview = ({
     onRefresh();
     void backgroundApiProxy.serviceStaking.clearAvailableAssetsCache();
     actions.current.triggerRefresh();
+    // Trigger Portfolio refresh as well
+    appEventBus.emit(EAppEventBusNames.RefreshEarnPortfolio, undefined);
   }, [onRefresh, actions]);
 
   return (

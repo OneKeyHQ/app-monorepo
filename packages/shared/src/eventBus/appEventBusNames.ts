@@ -62,6 +62,7 @@ export enum EAppEventBusNames {
   RefreshBookmarkList = 'RefreshBookmarkList',
   RefreshApprovalList = 'RefreshApprovalList',
   RefreshEarnPortfolioItem = 'RefreshEarnPortfolioItem',
+  RefreshEarnPortfolio = 'RefreshEarnPortfolio',
   AccountDataUpdate = 'AccountDataUpdate',
   AccountValueUpdate = 'AccountValueUpdate',
   onDragBeginInListView = 'onDragBeginInListView',

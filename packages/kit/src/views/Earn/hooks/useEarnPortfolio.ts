@@ -497,7 +497,6 @@ export const useEarnPortfolio = () => {
     [account, allNetworkId, indexedAccount, fetchAndUpdateInvestments],
     {
       watchLoading: true,
-      pollingInterval: timerUtils.getTimeDurationMs({ minute: 3 }),
       revalidateOnReconnect: true,
       alwaysSetState: true,
     },
