@@ -388,6 +388,7 @@ export { default as Fire2 } from './Fire2';
 export { default as FistBump } from './FistBump';
 export { default as Flag } from './Flag';
 export { default as Flag2 } from './Flag2';
+export { default as FlashCard } from './FlashCard';
 export { default as Flash } from './Flash';
 export { default as FocusFlower } from './FocusFlower';
 export { default as Focus } from './Focus';

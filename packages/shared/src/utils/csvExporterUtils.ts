@@ -32,16 +32,24 @@ function convertToCSV(data: any[]) {
   return csvContent;
 }
 
-async function exportCSVExpo(data: any[], filename = 'export.csv') {
+async function exportCSVExpo(
+  data: any[] | string,
+  filename = 'export.csv',
+  skipConversion = false,
+) {
   try {
-    if (!data || data.length === 0) {
+    // Get CSV string
+    const csvString =
+      skipConversion && typeof data === 'string'
+        ? data
+        : convertToCSV(data as any[]);
+
+    if (!csvString) {
       console.error('no data to export');
       return;
     }
 
-    const csvString = convertToCSV(data);
     const fileUri = `${FileSystem.cacheDirectory ?? ''}${filename}`;
-
     await FileSystem.writeAsStringAsync(fileUri, csvString);
 
     if (await Sharing.isAvailableAsync()) {
@@ -54,14 +62,23 @@ async function exportCSVExpo(data: any[], filename = 'export.csv') {
   }
 }
 
-function exportCSVWeb(data: any[], filename = 'export.csv') {
+function exportCSVWeb(
+  data: any[] | string,
+  filename = 'export.csv',
+  skipConversion = false,
+) {
   try {
-    if (!data || data.length === 0) {
+    // Get CSV string
+    const csvString =
+      skipConversion && typeof data === 'string'
+        ? data
+        : convertToCSV(data as any[]);
+
+    if (!csvString) {
       console.error('no data to export');
       return;
     }
 
-    const csvString = convertToCSV(data);
     const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
 
@@ -76,11 +93,15 @@ function exportCSVWeb(data: any[], filename = 'export.csv') {
   }
 }
 
-async function exportCSV(data: any[], filename = 'export.csv') {
+async function exportCSV(
+  data: any[] | string,
+  filename = 'export.csv',
+  skipConversion = false,
+) {
   if (platformEnv.isNative) {
-    await exportCSVExpo(data, filename);
+    await exportCSVExpo(data, filename, skipConversion);
   } else {
-    exportCSVWeb(data, filename);
+    exportCSVWeb(data, filename, skipConversion);
   }
 }
 

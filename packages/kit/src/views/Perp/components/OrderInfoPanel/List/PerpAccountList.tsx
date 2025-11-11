@@ -7,8 +7,13 @@ import type { IDebugRenderTrackerProps } from '@onekeyhq/components';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { usePerpsLedgerUpdatesAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import { usePerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type { IPerpsDepositOrderAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type { IUserNonFundingLedgerUpdate } from '@onekeyhq/shared/types/hyperliquid/sdk';
+import type {
+  IDepositPending,
+  IUserNonFundingLedgerUpdate,
+} from '@onekeyhq/shared/types/hyperliquid/sdk';
+import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 
 import { usePerpDepositOrder } from '../../../hooks/usePerpDeposit';
 import { AccountRow } from '../Components/AccountRow';
@@ -89,6 +94,37 @@ function PerpAccountList({
       ),
     [columnsConfig],
   );
+  const mergedData = useMemo(() => {
+    const depositUpdates: IUserNonFundingLedgerUpdate[] = perpDepositOrder
+      .map((order: IPerpsDepositOrderAtom) => {
+        const delta: IDepositPending = {
+          type: 'deposit',
+          usdc: order.amount,
+          status: order.status,
+        };
+        return {
+          time: order.time ?? Date.now(),
+          hash: order.toTxId || order.fromTxId,
+          delta,
+        };
+      })
+      .filter((update) => update.delta.status === ESwapTxHistoryStatus.PENDING);
+
+    const allUpdates = [...updates, ...depositUpdates];
+    const sortedUpdates = allUpdates.sort((a, b) => b.time - a.time);
+
+    const seenHashes = new Set<string>();
+    return sortedUpdates.filter((update) => {
+      if (!update.hash) {
+        return true;
+      }
+      if (seenHashes.has(update.hash)) {
+        return false;
+      }
+      seenHashes.add(update.hash);
+      return true;
+    });
+  }, [updates, perpDepositOrder]);
 
   const renderAccountRow = (
     item: IUserNonFundingLedgerUpdate,
@@ -125,7 +161,7 @@ function PerpAccountList({
       paginationToBottom={isMobile}
       columns={columnsConfig}
       minTableWidth={totalMinWidth}
-      data={updates}
+      data={mergedData}
       isMobile={isMobile}
       renderRow={renderAccountRow}
       listLoading={!isSubscribed}

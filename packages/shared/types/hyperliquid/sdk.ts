@@ -17,24 +17,10 @@ export type IHyperliquidEventTarget = EventTarget; // HL.HyperliquidEventTarget;
 export type IWsNotification = HL.WsNotification;
 export type IWsTrade = HL.WsTrade;
 
-// Custom Send type (not in SDK)
-export interface ISendUpdate {
-  type: 'send';
-  user: string;
-  amount: string;
-  destination: string;
-  destinationDex: string;
-  fee: string;
-  feeToken: string;
-  nativeTokenFee: string;
-  nonce: number;
-  sourceDex: string;
-  token: string;
-  usdcValue: string;
+export interface IDepositPending extends HL.DepositUpdate {
+  status: string;
 }
-
-// Extend delta types to include custom send type
-type IExtendedDelta = HL.UserNonFundingLedgerUpdate['delta'] | ISendUpdate;
+type IExtendedDelta = HL.UserNonFundingLedgerUpdate['delta'] | IDepositPending;
 
 export type IUserNonFundingLedgerUpdate = {
   time: number;

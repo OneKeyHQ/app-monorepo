@@ -299,18 +299,23 @@ export default class ServiceSwap extends ServiceBase {
     }
     const client = await this.getClient(EServiceEndpointEnum.Swap);
     if (accountId && accountAddress && networkId) {
-      const accountAddressForAccountId =
-        await this.backgroundApi.serviceAccount.getAccountAddressForApi({
-          accountId,
-          networkId,
-        });
-      if (accountAddressForAccountId === accountAddress) {
-        params.accountXpub =
-          await this.backgroundApi.serviceAccount.getAccountXpub({
+      try {
+        const accountAddressForAccountId =
+          await this.backgroundApi.serviceAccount.getAccountAddressForApi({
             accountId,
             networkId,
           });
+        if (accountAddressForAccountId === accountAddress) {
+          params.accountXpub =
+            await this.backgroundApi.serviceAccount.getAccountXpub({
+              accountId,
+              networkId,
+            });
+        }
+      } catch (e) {
+        console.error(e);
       }
+
       const inscriptionProtection =
         await this.backgroundApi.serviceSetting.getInscriptionProtection();
       const checkInscriptionProtectionEnabled =
@@ -383,7 +388,6 @@ export default class ServiceSwap extends ServiceBase {
               )
             ).id
           : otherWalletTypeAccountId ?? '';
-        console.log('getSupportSwapAllAccounts');
         // const accountsInfo: IAllNetworkAccountInfo[] = [];
         const { accountsInfo } =
           await this.backgroundApi.serviceAllNetwork.getAllNetworkAccounts({
@@ -477,16 +481,21 @@ export default class ServiceSwap extends ServiceBase {
       }
       const client = await this.getClient(EServiceEndpointEnum.Swap);
       if (accountId && accountAddress && networkId) {
-        const accountAddressForAccountId =
-          await this.backgroundApi.serviceAccount.getAccountAddressForApi({
-            accountId,
-            networkId,
-          });
-        if (accountAddressForAccountId === accountAddress) {
-          params.xpub = await this.backgroundApi.serviceAccount.getAccountXpub({
-            accountId,
-            networkId,
-          });
+        try {
+          const accountAddressForAccountId =
+            await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+              accountId,
+              networkId,
+            });
+          if (accountAddressForAccountId === accountAddress) {
+            params.xpub =
+              await this.backgroundApi.serviceAccount.getAccountXpub({
+                accountId,
+                networkId,
+              });
+          }
+        } catch (e) {
+          console.error(e);
         }
         const inscriptionProtection =
           await this.backgroundApi.serviceSetting.getInscriptionProtection();

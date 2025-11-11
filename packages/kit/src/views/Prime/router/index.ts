@@ -23,6 +23,7 @@ const PrimeTransfer = LazyLoadPage(() => import('../pages/PagePrimeTransfer'));
 const PrimeTransferPreview = LazyLoadPage(
   () => import('../pages/PagePrimeTransfer/PagePrimeTransferPreview'),
 );
+const OneKeyId = LazyLoadPage(() => import('../pages/OneKeyId'));
 
 export const PrimeRouter: IModalFlowNavigatorConfig<
   EPrimePages,
@@ -69,5 +70,12 @@ export const PrimeRouter: IModalFlowNavigatorConfig<
   {
     name: EPrimePages.PrimeTransferPreview,
     component: PrimeTransferPreview,
+  },
+  {
+    name: EPrimePages.OneKeyId,
+    component: OneKeyId,
+    options: {
+      headerShown: false,
+    },
   },
 ];

@@ -21,6 +21,7 @@ export enum EPrimePages {
   PrimeDeleteAccount = 'PrimeDeleteAccount',
   PrimeTransfer = 'PrimeTransfer',
   PrimeTransferPreview = 'PrimeTransferPreview',
+  OneKeyId = 'OneKeyId',
 }
 
 export enum EPrimeFeatures {
@@ -63,4 +64,5 @@ export type IPrimeParamList = {
       | undefined;
     transferData: IPrimeTransferData;
   };
+  [EPrimePages.OneKeyId]: undefined;
 };

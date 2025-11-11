@@ -18,8 +18,6 @@ type IProps = {
   filteredTokens: IAccountToken[];
   tableLayout?: boolean;
   onManageToken?: () => void;
-  withReferralCode?: boolean;
-  withReceiveInfo?: boolean;
   manageTokenEnabled?: boolean;
 };
 

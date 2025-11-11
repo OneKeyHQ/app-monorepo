@@ -117,14 +117,21 @@ export function WalletActionBuy({
         networkId={network?.id ?? ''}
         indexedAccountId={indexedAccount?.id ?? ''}
         renderSelectorTrigger={
-          <ActionList.Item
-            trackID="wallet-buy"
-            icon="PlusLargeOutline"
-            label={intl.formatMessage({ id: ETranslations.global_buy })}
-            disabled={isBuyDisabled}
-            onClose={() => {}}
-            onPress={() => {}}
-          />
+          renderTrigger ? (
+            renderTrigger({
+              disabled: isBuyDisabled,
+              onPress: () => {},
+            })
+          ) : (
+            <ActionList.Item
+              trackID="wallet-buy"
+              icon="PlusLargeOutline"
+              label={intl.formatMessage({ id: ETranslations.global_buy })}
+              disabled={isBuyDisabled}
+              onClose={() => {}}
+              onPress={() => {}}
+            />
+          )
         }
         tokenMap={map}
         onSelect={async ({
