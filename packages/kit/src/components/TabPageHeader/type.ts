@@ -17,6 +17,7 @@ export interface ITabPageHeaderProp {
   customHeaderRightItems?: ReactNode;
   customHeaderLeftItems?: ReactNode;
   hideSearch?: boolean;
+  hideHeaderLeft?: boolean;
   onSelectHeaderTab?: (tab: ETranslations) => void;
 }
 

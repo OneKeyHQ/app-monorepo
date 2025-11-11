@@ -202,6 +202,7 @@ function YourReferredPageWrapper() {
         <TabPageHeader
           sceneName={EAccountSelectorSceneName.home}
           tabRoute={ETabRoutes.ReferFriends}
+          hideHeaderLeft={platformEnv.isDesktop}
         />
       )}
       <Page.Body>
