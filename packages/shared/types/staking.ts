@@ -1400,3 +1400,14 @@ export type IStakeBlockRegionResponse =
       isBlockedRegion: false;
       countryCode: string;
     };
+
+export interface IApyHistoryItem {
+  apy: string;
+  timestamp: number;
+}
+
+export interface IApyHistoryResponse {
+  code: number;
+  message: string;
+  data: IApyHistoryItem[];
+}

@@ -35,6 +35,7 @@ import type {
   ECheckAmountActionType,
   EInternalDappEnum,
   IAllowanceOverview,
+  IApyHistoryResponse,
   IAvailableAsset,
   IBabylonPortfolioItem,
   IBuildPermit2ApproveSignDataParams,
@@ -1821,6 +1822,39 @@ class ServiceStaking extends ServiceBase {
     } catch (error) {
       return null;
     }
+  }
+
+  @backgroundMethod()
+  async getApyHistory(params: {
+    networkId: string;
+    provider: string;
+    symbol: string;
+    vault?: string;
+  }) {
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const requestParams: {
+      networkId: string;
+      provider: string;
+      symbol: string;
+      vault?: string;
+    } = {
+      networkId: params.networkId,
+      provider: params.provider.toLowerCase(),
+      symbol: params.symbol,
+    };
+
+    if (params.vault) {
+      requestParams.vault = params.vault;
+    }
+
+    const response = await client.get<IApyHistoryResponse>(
+      '/earn/v1/apy/history',
+      {
+        params: requestParams,
+      },
+    );
+
+    return response.data.data;
   }
 }
 
