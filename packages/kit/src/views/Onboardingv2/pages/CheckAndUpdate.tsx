@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 
+import { EDeviceType } from '@onekeyfe/hd-shared';
 import { useFocusEffect } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
@@ -23,6 +24,7 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
 import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
+import { HwWalletAvatarImages } from '@onekeyhq/shared/src/utils/avatarUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import {
@@ -48,6 +50,7 @@ enum ECheckAndUpdateStepState {
   Idle = 'idle',
   InProgress = 'inProgress',
   Warning = 'warning',
+  Skipped = 'skipped',
   Success = 'success',
   Error = 'error',
 }
@@ -88,6 +91,11 @@ function CheckAndUpdatePage({
     }
   }, [tabValue]);
 
+  const deviceImage = useMemo(() => {
+    const device = deviceData.device as SearchDevice;
+    const deviceType = device?.deviceType || EDeviceType.Pro;
+    return HwWalletAvatarImages[deviceType];
+  }, [deviceData]);
 
   const [steps, setSteps] = useState<
     {
@@ -99,7 +107,7 @@ function CheckAndUpdatePage({
       neededAction?: boolean;
       errorMessage?: string;
     }[]
-  >([
+  >(() => [
     {
       id: 'genuine-check',
       image:
@@ -136,7 +144,7 @@ function CheckAndUpdatePage({
     },
     {
       id: 'setup-on-device',
-      image: require('@onekeyhq/shared/src/assets/wallet/avatar/ProBlack.png'),
+      image: deviceImage,
       title: intl.formatMessage({ id: ETranslations.device_setup_check_title }),
       description: intl.formatMessage({
         id: ETranslations.device_setup_check_desc,
@@ -167,14 +175,6 @@ function CheckAndUpdatePage({
     };
     setSteps((prev) => {
       const newSteps = [...prev];
-      newSteps[0] = {
-        ...newSteps[0],
-        state: ECheckAndUpdateStepState.Success,
-      };
-      newSteps[1] = {
-        ...newSteps[1],
-        state: ECheckAndUpdateStepState.Success,
-      };
       newSteps[2] = {
         ...newSteps[2],
         state: ECheckAndUpdateStepState.InProgress,
@@ -184,7 +184,7 @@ function CheckAndUpdatePage({
     try {
       await ensureTransportType();
       const baseDevice =
-        (getActiveDevice() as SearchDevice | undefined) ??
+        getActiveDevice() ??
         currentDevice ??
         (deviceData.device as SearchDevice | undefined);
       if (!baseDevice) {
@@ -197,8 +197,7 @@ function CheckAndUpdatePage({
           setTimeout(resolve, 1200);
         }),
       ]);
-      const latestDevice =
-        (getActiveDevice() as SearchDevice | undefined) ?? baseDevice;
+      const latestDevice = getActiveDevice() ?? baseDevice;
       setCurrentDevice(latestDevice);
       if (features) {
         const deviceMode = await deviceUtils.getDeviceModeFromFeatures({
@@ -226,7 +225,7 @@ function CheckAndUpdatePage({
       return newSteps;
     });
     const deviceForFinalize =
-      (getActiveDevice() as SearchDevice | undefined) ??
+      getActiveDevice() ??
       currentDevice ??
       (deviceData.device as SearchDevice | undefined);
     setTimeout(async () => {
@@ -249,17 +248,13 @@ function CheckAndUpdatePage({
 
   const checkFirmwareUpdate = useCallback(async () => {
     await ensureTransportType();
-    const baseDevice =
-      (getActiveDevice() as SearchDevice | undefined) ??
-      currentDevice ??
-      (deviceData.device as SearchDevice | undefined);
+    const baseDevice = getActiveDevice() ?? currentDevice ?? deviceData.device;
     if (!baseDevice?.connectId) {
       return;
     }
-    await ensureActiveConnection(baseDevice);
-    const latestDevice =
-      (getActiveDevice() as SearchDevice | undefined) ?? baseDevice;
-    setCurrentDevice(latestDevice);
+    await ensureActiveConnection(baseDevice as SearchDevice);
+    const latestDevice = getActiveDevice() ?? baseDevice;
+    setCurrentDevice(latestDevice as SearchDevice);
     if (!latestDevice?.connectId) {
       return;
     }
@@ -293,12 +288,12 @@ function CheckAndUpdatePage({
       }
     }
   }, [
-    checkDeviceInitialized,
+    ensureTransportType,
+    getActiveDevice,
     currentDevice,
     deviceData.device,
     ensureActiveConnection,
-    ensureTransportType,
-    getActiveDevice,
+    checkDeviceInitialized,
   ]);
 
   const firmwareStepStateRef = useRef<ECheckAndUpdateStepState>(steps[1].state);
@@ -308,10 +303,6 @@ function CheckAndUpdatePage({
       if (firmwareStepStateRef.current === ECheckAndUpdateStepState.Warning) {
         setSteps((prev) => {
           const newSteps = [...prev];
-          newSteps[0] = {
-            ...newSteps[0],
-            state: ECheckAndUpdateStepState.Success,
-          };
           newSteps[1] = {
             ...newSteps[1],
             state: ECheckAndUpdateStepState.InProgress,
@@ -343,7 +334,7 @@ function CheckAndUpdatePage({
         }),
       ]);
       const latestDevice =
-        (getActiveDevice() as SearchDevice | undefined) ??
+        getActiveDevice() ??
         currentDevice ??
         (deviceData.device as SearchDevice | undefined);
       setCurrentDevice(latestDevice);
@@ -357,12 +348,13 @@ function CheckAndUpdatePage({
         const newSteps = [...prev];
         newSteps[0] = {
           ...newSteps[0],
-          state: result.verified
-            ? ECheckAndUpdateStepState.Success
-            : ECheckAndUpdateStepState.Error,
+          state:
+            result.verified || result.skipVerification
+              ? ECheckAndUpdateStepState.Success
+              : ECheckAndUpdateStepState.Error,
           errorMessage: result.verified ? undefined : result.result?.message,
         };
-        if (result.verified) {
+        if (result.verified || result.skipVerification) {
           newSteps[1] = {
             ...newSteps[1],
             state: ECheckAndUpdateStepState.InProgress,
@@ -370,7 +362,7 @@ function CheckAndUpdatePage({
         }
         return newSteps;
       });
-      if (result.verified) {
+      if (result.verified || result.skipVerification) {
         setTimeout(() => {
           void checkFirmwareUpdate();
         }, 150);
@@ -414,7 +406,14 @@ function CheckAndUpdatePage({
         id: ETranslations.skip_firmware_check_dialog_desc,
       }),
       onConfirm: () => {
-        // Execute skip logic after confirmation
+        setSteps((prev) => {
+          const newSteps = [...prev];
+          newSteps[1] = {
+            ...newSteps[1],
+            state: ECheckAndUpdateStepState.Success,
+          };
+          return newSteps;
+        });
         void checkDeviceInitialized();
       },
     });
@@ -441,54 +440,68 @@ function CheckAndUpdatePage({
   );
 
   const DEVICE_SETUP_INSTRUCTIONS = useMemo(() => {
-    return [
-      {
-        title: intl.formatMessage({
-          id: ETranslations.setup_choose_option_title,
+    const deviceType = (deviceData.device as SearchDevice)?.deviceType;
+    const isClassicOrMini =
+      deviceType === EDeviceType.Classic ||
+      deviceType === EDeviceType.Classic1s ||
+      deviceType === EDeviceType.ClassicPure ||
+      deviceType === EDeviceType.Mini;
+
+    const chooseOptionStep = {
+      title: intl.formatMessage({
+        id: ETranslations.setup_choose_option_title,
+      }),
+      details: [
+        intl.formatMessage({
+          id: ETranslations.setup_choose_option_create_new_wallet,
         }),
-        details: [
-          intl.formatMessage({
-            id: ETranslations.setup_choose_option_create_new_wallet,
-          }),
-          intl.formatMessage({
-            id: ETranslations.setup_choose_option_import_wallet,
-          }),
-        ],
-      },
-      {
-        title: intl.formatMessage({
-          id: ETranslations.setup_pin,
+        intl.formatMessage({
+          id: ETranslations.setup_choose_option_import_wallet,
         }),
-        details: [
-          intl.formatMessage({
-            id: ETranslations.setup_pin_limit,
-          }),
-          intl.formatMessage({
-            id: ETranslations.setup_pin_reminder,
-          }),
-        ],
-      },
-      {
-        title: intl.formatMessage({
-          id: ETranslations.setup_recovery_phrase,
+      ],
+    };
+
+    const pinStep = {
+      title: intl.formatMessage({
+        id: ETranslations.setup_pin,
+      }),
+      details: [
+        intl.formatMessage({
+          id: ETranslations.setup_pin_limit,
         }),
-        details: [
-          intl.formatMessage({
-            id: ETranslations.setup_recovery_phrase_write_down,
-          }),
-          intl.formatMessage({
-            id: ETranslations.setup_recovery_phrase_matches,
-          }),
-          intl.formatMessage({
-            id: ETranslations.setup_recovery_phrase_charging,
-          }),
-          intl.formatMessage({
-            id: ETranslations.setup_recovery_phrase_do_not_power_off,
-          }),
-        ],
-      },
-    ];
-  }, [intl]);
+        intl.formatMessage({
+          id: ETranslations.setup_pin_reminder,
+        }),
+      ],
+    };
+
+    const recoveryPhraseStep = {
+      title: intl.formatMessage({
+        id: ETranslations.setup_recovery_phrase,
+      }),
+      details: [
+        intl.formatMessage({
+          id: ETranslations.setup_recovery_phrase_write_down,
+        }),
+        intl.formatMessage({
+          id: ETranslations.setup_recovery_phrase_matches,
+        }),
+        intl.formatMessage({
+          id: ETranslations.setup_recovery_phrase_charging,
+        }),
+        intl.formatMessage({
+          id: ETranslations.setup_recovery_phrase_do_not_power_off,
+        }),
+      ],
+    };
+
+    // For Classic or Mini devices, swap the order of PIN and recovery phrase
+    if (isClassicOrMini) {
+      return [chooseOptionStep, recoveryPhraseStep, pinStep];
+    }
+
+    return [chooseOptionStep, pinStep, recoveryPhraseStep];
+  }, [intl, deviceData]);
 
   return (
     <Page>
@@ -527,10 +540,12 @@ function CheckAndUpdatePage({
                         enterStyle={{
                           opacity: 0,
                           scale: 0.97,
+                          filter: 'blur(4px)',
                         }}
                         exitStyle={{
                           opacity: 0,
                           scale: 0.97,
+                          filter: 'blur(4px)',
                         }}
                         position="absolute"
                         left={-10}
@@ -655,7 +670,8 @@ function CheckAndUpdatePage({
                                 />
                               </YStack>
                             ) : null}
-                            {step.state === ECheckAndUpdateStepState.Warning ? (
+                            {step.state === ECheckAndUpdateStepState.Warning ||
+                            step.state === ECheckAndUpdateStepState.Skipped ? (
                               <YStack
                                 animation="quick"
                                 enterStyle={{ scale: 0.8, opacity: 0 }}

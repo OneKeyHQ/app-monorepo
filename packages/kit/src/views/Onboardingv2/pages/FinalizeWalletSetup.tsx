@@ -20,6 +20,7 @@ import {
   LinearGradient,
   Page,
   SizableText,
+  XStack,
   YStack,
   useThemeValue,
 } from '@onekeyhq/components';
@@ -391,25 +392,43 @@ function FinalizeWalletSetupPage({
         />
         <OnboardingLayout.Body constrained={false} scrollable={false}>
           {setupError ? (
-            <YStack w="100%" h="100%">
-              <SizableText size="$heading2xl" textAlign="center">
+            <YStack
+              gap="$4"
+              alignSelf="center"
+              w="100%"
+              maxWidth="$96"
+              h="100%"
+              justifyContent="center"
+            >
+              <SizableText size="$heading2xl">
+                🤔{' '}
+                {intl.formatMessage({
+                  id: ETranslations.failed_to_create_wallet,
+                })}
+              </SizableText>
+              <SizableText size="$bodyLg">
                 {intl.formatMessage({
                   id: setupError.messageId,
                   defaultMessage: setupError.messageId,
                 })}
               </SizableText>
-              <YStack>
-                <Button onPress={retrySetup}>
+              <XStack gap="$2.5" mt="$4">
+                <Button
+                  flex={1}
+                  variant="primary"
+                  size="large"
+                  onPress={retrySetup}
+                >
                   {intl.formatMessage({
                     id: ETranslations.global_retry,
                   })}
                 </Button>
-                <Button onPress={closePage}>
+                <Button flex={1} size="large" onPress={closePage}>
                   {intl.formatMessage({
-                    id: ETranslations.global_close,
+                    id: ETranslations.global_exit,
                   })}
                 </Button>
-              </YStack>
+              </XStack>
             </YStack>
           ) : null}
           {!setupError && currentStepData ? (
