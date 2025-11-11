@@ -1221,9 +1221,9 @@ export default class ServiceNotification extends ServiceBase {
       }>
     >('/notification/v1/message/read-all');
 
-    if (result?.data?.data?.updated > 0) {
+    setTimeout(() => {
       void this.clearBadge();
-    }
+    });
     // await timerUtils.wait(5000);
     return result?.data?.data;
   }
