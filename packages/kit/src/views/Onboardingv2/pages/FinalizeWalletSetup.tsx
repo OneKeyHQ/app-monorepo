@@ -96,7 +96,14 @@ const MatrixBackground = ({
   return (
     <YStack>
       {lines.map((line, idx) => (
-        <SizableText fontFamily="$monoRegular" letterSpacing={2} key={idx}>
+        <SizableText
+          textAlign="center"
+          fontFamily="$monoRegular"
+          letterSpacing={2}
+          key={idx}
+          numberOfLines={1}
+          ellipsizeMode="clip"
+        >
           {line}
         </SizableText>
       ))}
@@ -415,7 +422,9 @@ function FinalizeWalletSetupPage({
                 y="-50%"
                 opacity={0.15}
               >
-                <MatrixBackground />
+                <MatrixBackground
+                  {...(platformEnv.isNative && { lineCount: 60 })}
+                />
                 <Svg
                   height="100%"
                   width="100%"

@@ -6,7 +6,6 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   EModalKeyTagRoutes,
   EModalRoutes,
-  EOnboardingPages,
   EOnboardingPagesV2,
   EOnboardingV2Routes,
   ERootRoutes,
@@ -15,13 +14,11 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
-import { useBackupEntryStatus } from '../views/CloudBackup/components/useBackupEntryStatus';
 import useLiteCard from '../views/LiteCard/hooks/useLiteCard';
 import { useCloudBackup } from '../views/Onboardingv2/hooks/useCloudBackup';
 
 import { useAccountData } from './useAccountData';
 import useAppNavigation from './useAppNavigation';
-import { useUserWalletProfile } from './useUserWalletProfile';
 
 function useBackUpWallet({ walletId }: { walletId: string }) {
   const { wallet } = useAccountData({ walletId });

@@ -76,7 +76,10 @@ function HomeOverviewContainer() {
 
   useEffect(() => {
     if (account?.id && network?.id && wallet?.id) {
-      if (network.isAllNetworks) {
+      if (
+        network.isAllNetworks ||
+        (wallet.type === WALLET_TYPE_HD && !wallet.backuped)
+      ) {
         updateAccountWorth({
           accountId: account.id,
           worth: {},
@@ -90,7 +93,9 @@ function HomeOverviewContainer() {
     network?.isAllNetworks,
     updateAccountOverviewState,
     updateAccountWorth,
+    wallet?.backuped,
     wallet?.id,
+    wallet?.type,
   ]);
 
   useEffect(() => {
