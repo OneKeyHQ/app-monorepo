@@ -14,6 +14,7 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
+import { NumberSizeableText } from '@onekeyhq/components/src/content/NumberSizeableText';
 import type { ITableColumn } from '@onekeyhq/kit/src/components/ListView/TableList';
 import { TableList } from '@onekeyhq/kit/src/components/ListView/TableList';
 import { Token } from '@onekeyhq/kit/src/components/Token';
@@ -24,7 +25,6 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
-import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { IEarnPortfolioInvestment } from '@onekeyhq/shared/types/staking';
 
 import { useCurrency } from '../../../components/Currency';
@@ -112,18 +112,17 @@ const DepositField = ({
   asset: IEarnPortfolioInvestment['assets'][number];
 }) => {
   return (
-    <XStack ai="center">
+    <XStack ai="center" flex={1}>
       <Token
         size="md"
         borderRadius="$2"
         tokenImageUri={asset.token.info.logoURI}
         networkImageUri={asset.metadata.network.logoURI}
       />
-      <YStack ml="$3" mr="$2" jc="center">
+      <YStack ml="$3" mr="$2" jc="center" flex={1}>
         <XStack gap="$1">
-          <EarnText flex={1} size="$bodyLgMedium" text={asset.deposit?.title} />
+          <EarnText size="$bodyLgMedium" text={asset.deposit?.title} />
           <EarnText
-            flex={1}
             size="$bodyLgMedium"
             color="$textSubdued"
             text={asset.deposit?.description}
@@ -211,15 +210,19 @@ const ProtocolHeader = ({
           {portfolioItem.protocol.providerDetail.name}
         </SizableText>
         <Divider bg="$borderSubdued" vertical mx="$3" height="$5" width="$1" />
-        <SizableText size="$bodyLgMedium" color="$textSubdued">
-          Total value{' '}
-          {numberFormat(portfolioItem.totalFiatValue, {
-            formatter: 'price',
-            formatterOptions: {
-              currency: currencyInfo.symbol,
-            },
-          })}
-        </SizableText>
+        <XStack ai="center" gap="$1">
+          <SizableText size="$bodyLgMedium" color="$textSubdued">
+            Total value
+          </SizableText>
+          <NumberSizeableText
+            size="$bodyLgMedium"
+            color="$textSubdued"
+            formatter="marketCap"
+            formatterOptions={{ currency: currencyInfo.symbol }}
+          >
+            {portfolioItem.totalFiatValue}
+          </NumberSizeableText>
+        </XStack>
       </XStack>
       {isEmpty(portfolioItem.airdropAssets) ? null : (
         <YStack mb="$2" mt="$5">

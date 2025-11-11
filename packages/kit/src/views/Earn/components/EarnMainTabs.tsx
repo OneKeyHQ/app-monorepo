@@ -40,8 +40,6 @@ export function EarnMainTabs({
       />
     ) : undefined;
 
-  const WrapperComponent = isMobile ? Tabs.ScrollView : YStack;
-
   return (
     <Tabs.Container
       renderTabBar={(props) => <Tabs.TabBar {...props} />}
@@ -52,29 +50,53 @@ export function EarnMainTabs({
           id: ETranslations.earn_available_assets,
         })}
       >
-        <WrapperComponent>
-          <YStack pt="$6" gap="$8">
-            <ProtocolsTabContent />
+        {isMobile ? (
+          <Tabs.ScrollView refreshControl={refreshControl}>
+            <YStack pt="$6" gap="$8">
+              <ProtocolsTabContent />
+            </YStack>
+          </Tabs.ScrollView>
+        ) : (
+          <YStack>
+            <YStack pt="$6" gap="$8">
+              <ProtocolsTabContent />
+            </YStack>
           </YStack>
-        </WrapperComponent>
+        )}
       </Tabs.Tab>
       <Tabs.Tab
         name={intl.formatMessage({
           id: ETranslations.earn_portfolio,
         })}
       >
-        <WrapperComponent>
-          <YStack pt="$6" gap="$8">
-            <PortfolioTabContent />
+        {isMobile ? (
+          <Tabs.ScrollView refreshControl={refreshControl}>
+            <YStack pt="$6" gap="$8">
+              <PortfolioTabContent />
+            </YStack>
+          </Tabs.ScrollView>
+        ) : (
+          <YStack>
+            <YStack pt="$6" gap="$8">
+              <PortfolioTabContent />
+            </YStack>
           </YStack>
-        </WrapperComponent>
+        )}
       </Tabs.Tab>
       <Tabs.Tab name={intl.formatMessage({ id: ETranslations.global_faqs })}>
-        <WrapperComponent>
-          <YStack px="$5" pt="$6" gap="$8">
-            <FAQContent faqList={faqList} isLoading={isFaqLoading} />
+        {isMobile ? (
+          <Tabs.ScrollView refreshControl={refreshControl}>
+            <YStack px="$5" pt="$6" gap="$8">
+              <FAQContent faqList={faqList} isLoading={isFaqLoading} />
+            </YStack>
+          </Tabs.ScrollView>
+        ) : (
+          <YStack>
+            <YStack px="$5" pt="$6" gap="$8">
+              <FAQContent faqList={faqList} isLoading={isFaqLoading} />
+            </YStack>
           </YStack>
-        </WrapperComponent>
+        )}
       </Tabs.Tab>
     </Tabs.Container>
   );
