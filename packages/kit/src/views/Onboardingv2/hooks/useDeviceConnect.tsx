@@ -376,32 +376,38 @@ export function useDeviceConnect() {
             skipDelayClose: true,
             deviceResetToHome: false,
           });
-          let isVerified = false;
+          let isVerified: boolean | undefined;
           const result = await new Promise<IFirmwareVerifyResult>(
             (resolve, reject) => {
               void showFirmwareVerifyDialog({
                 device,
                 features,
                 onVerified: ({ checked }: { checked: boolean }) => {
-                  isVerified = checked;
-                  resolve({
-                    verified: checked,
-                    device,
-                    payload: {
-                      deviceType: device.deviceType,
-                      data: '',
-                      cert: '',
-                      signature: '',
-                    },
-                    result: {
-                      message: '',
-                    },
-                  });
+                  if (isVerified) {
+                    isVerified = checked;
+                    resolve({
+                      verified: checked,
+                      device,
+                      payload: {
+                        deviceType: device.deviceType,
+                        data: '',
+                        cert: '',
+                        signature: '',
+                      },
+                      result: {
+                        message: '',
+                      },
+                    });
+                  }
                 },
                 onContinue: ({ checked }: { checked: boolean }) => {
+                  if (isVerified) {
+                    return;
+                  }
                   isVerified = checked;
                   resolve({
                     verified: checked,
+                    skipVerification: checked === false,
                     device,
                     payload: {
                       deviceType: device.deviceType,
@@ -415,7 +421,7 @@ export function useDeviceConnect() {
                   });
                 },
                 onClose: () => {
-                  if (!isVerified) {
+                  if (isVerified === undefined) {
                     reject(
                       new OneKeyLocalError(
                         intl.formatMessage({

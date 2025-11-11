@@ -50,6 +50,7 @@ enum ECheckAndUpdateStepState {
   Idle = 'idle',
   InProgress = 'inProgress',
   Warning = 'warning',
+  Skipped = 'skipped',
   Success = 'success',
   Error = 'error',
 }
@@ -298,6 +299,9 @@ function CheckAndUpdatePage({
             : ECheckAndUpdateStepState.Error,
           errorMessage: result.verified ? undefined : result.result?.message,
         };
+        if (result.skipVerification) {
+          newSteps[0].state = ECheckAndUpdateStepState.Skipped;
+        }
         if (result.verified) {
           newSteps[1] = {
             ...newSteps[1],
@@ -597,7 +601,8 @@ function CheckAndUpdatePage({
                                 />
                               </YStack>
                             ) : null}
-                            {step.state === ECheckAndUpdateStepState.Warning ? (
+                            {step.state === ECheckAndUpdateStepState.Warning ||
+                            step.state === ECheckAndUpdateStepState.Skipped ? (
                               <YStack
                                 animation="quick"
                                 enterStyle={{ scale: 0.8, opacity: 0 }}
