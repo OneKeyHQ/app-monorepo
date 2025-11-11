@@ -94,12 +94,7 @@ function PerpAccountList({
       ),
     [columnsConfig],
   );
-  console.log('perpDepositOrder', perpDepositOrder);
   const mergedData = useMemo(() => {
-    // const pendingDepositOrders = perpDepositOrder.filter(
-    //   (order) => order.status === ESwapTxHistoryStatus.PENDING,
-    // );
-
     const depositUpdates: IUserNonFundingLedgerUpdate[] = perpDepositOrder
       .map((order: IPerpsDepositOrderAtom) => {
         const delta: IDepositPending = {
