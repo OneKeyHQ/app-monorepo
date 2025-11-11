@@ -8,13 +8,13 @@ import { generateInviteUrlFromTemplate } from '@onekeyhq/kit/src/views/ReferFrie
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 interface ICreateCodeButtonProps {
-  total?: number;
+  remainingCodes?: number;
   onCodeCreated?: () => void;
   inviteUrlTemplate: string;
 }
 
 export function CreateCodeButton({
-  total,
+  remainingCodes,
   onCodeCreated,
   inviteUrlTemplate,
 }: ICreateCodeButtonProps) {
@@ -78,7 +78,7 @@ export function CreateCodeButton({
       loading={loading}
     >
       {intl.formatMessage({ id: ETranslations.referral_create_code })} (
-      {total ?? 0})
+      {remainingCodes ?? 0})
     </Button>
   );
 }

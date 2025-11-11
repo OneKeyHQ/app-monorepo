@@ -71,9 +71,9 @@ export function InvitationDetailsSection({
       <XStack gap="$2" px="$5" alignItems="center" jc="space-between">
         <SimpleTabs value={selectedTab} onChange={setSelectedTab} tabs={tabs} />
 
-        {canCreateCode ? (
+        {canCreateCode && selectedTab === EInvitationDetailsTab.REFERRAL ? (
           <CreateCodeButton
-            total={codeListData?.total}
+            remainingCodes={codeListData?.remainingCodes}
             onCodeCreated={handleCodeCreated}
             inviteUrlTemplate={inviteUrl}
           />
