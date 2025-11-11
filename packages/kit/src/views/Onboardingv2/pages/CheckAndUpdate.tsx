@@ -90,7 +90,6 @@ function CheckAndUpdatePage({
     }
   }, [tabValue]);
 
-
   const [steps, setSteps] = useState<
     {
       image: IImageProps['source'];
@@ -266,22 +265,34 @@ function CheckAndUpdatePage({
       await backgroundApiProxy.serviceFirmwareUpdate.checkAllFirmwareRelease({
         connectId: compatibleConnectId,
       });
-    setSteps((prev) => {
-      const newSteps = [...prev];
-      newSteps[1] = {
-        ...newSteps[1],
-        state:
-          r && r.hasUpgrade
-            ? ECheckAndUpdateStepState.Warning
-            : ECheckAndUpdateStepState.Success,
-      };
-      return newSteps;
-    });
-
-    setTimeout(() => {
-      void checkDeviceInitialized();
-    }, 150);
-  }, [connectDevice, deviceData.device, checkDeviceInitialized]);
+    if (r) {
+      if (r.hasUpgrade) {
+        setSteps((prev) => {
+          const newSteps = [...prev];
+          newSteps[0] = {
+            ...newSteps[0],
+            state: ECheckAndUpdateStepState.Success,
+          };
+          newSteps[1] = {
+            ...newSteps[1],
+            state: r.hasUpgrade
+              ? ECheckAndUpdateStepState.Warning
+              : ECheckAndUpdateStepState.Success,
+          };
+          return newSteps;
+        });
+      } else {
+        void checkDeviceInitialized();
+      }
+    }
+  }, [
+    ensureTransportType,
+    getActiveDevice,
+    currentDevice,
+    deviceData.device,
+    ensureActiveConnection,
+    checkDeviceInitialized,
+  ]);
 
   const firmwareStepStateRef = useRef<ECheckAndUpdateStepState>(steps[1].state);
   firmwareStepStateRef.current = steps[1].state;
