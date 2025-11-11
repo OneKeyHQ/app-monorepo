@@ -74,7 +74,7 @@ export function CreateCodeButton({
       variant="tertiary"
       icon="PlusSmallOutline"
       onPress={() => void handleCreateCode()}
-      disabled={loading}
+      disabled={loading || remainingCodes <= 0}
       loading={loading}
     >
       {intl.formatMessage({ id: ETranslations.referral_create_code })} (
