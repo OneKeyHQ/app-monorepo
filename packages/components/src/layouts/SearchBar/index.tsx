@@ -43,17 +43,8 @@ export function SearchBar({
       } else {
         // on Web
         if (compositionLockRef.current) {
-          if (!searchTextRef.current) {
-            onSearchTextChange?.(text.replaceAll(' ', ''));
-          } else {
-            onSearchTextChange?.(
-              `${searchTextRef.current}${
-                text
-                  ?.slice(searchTextRef.current.length)
-                  ?.replaceAll(' ', '') || ''
-              }`,
-            );
-          }
+          // During composition, skip search callback to avoid multiple triggers
+          // The final value will be handled in compositionEnd
           return;
         }
         searchTextRef.current = text;
@@ -100,9 +91,14 @@ export function SearchBar({
   const handleCompositionEnd = useCallback(
     (e: CompositionEvent) => {
       compositionLockRef.current = false;
-      handleChange(`${searchTextRef.current}${e.data || ''}`);
+      const target = e.target as HTMLInputElement;
+      const finalValue = target?.value || '';
+      // Update ref to maintain state consistency
+      searchTextRef.current = finalValue;
+      onSearchTextChange?.(finalValue);
+      onChangeText?.(finalValue);
     },
-    [handleChange],
+    [onSearchTextChange, onChangeText],
   );
   const intl = useIntl();
   return (

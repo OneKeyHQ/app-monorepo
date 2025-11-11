@@ -121,8 +121,10 @@ interface IDeviceConnectionProps {
 // Common device list and connection logic
 function useDeviceConnection({
   tabValue,
+  onDeviceSelect,
 }: {
   tabValue: EConnectDeviceChannel;
+  onDeviceSelect?: (item: IConnectYourDeviceItem) => Promise<void> | void;
 }) {
   const intl = useIntl();
   const [connectStatus, setConnectStatus] = useState(EConnectionStatus.init);
@@ -334,6 +336,19 @@ function useDeviceConnection({
     [searchedDevices],
   );
 
+  const handleDeviceSelect = useCallback(
+    async (item: IConnectYourDeviceItem) => {
+      if (!item.device) {
+        return;
+      }
+      await ensureStopScan();
+      if (onDeviceSelect) {
+        await onDeviceSelect(item);
+      }
+    },
+    [ensureStopScan, onDeviceSelect],
+  );
+
   return useMemo(
     () => ({
       connectStatus,
@@ -344,6 +359,8 @@ function useDeviceConnection({
       setIsChecking,
       scanDevice,
       stopScan,
+      ensureStopScan,
+      handleDeviceSelect,
     }),
     [
       connectStatus,
@@ -354,6 +371,8 @@ function useDeviceConnection({
       setIsChecking,
       scanDevice,
       stopScan,
+      ensureStopScan,
+      handleDeviceSelect,
     ],
   );
 }
@@ -737,6 +756,12 @@ function USBOrBLEConnectionIndicator({
   // Use the shared device connection logic
   const deviceConnection = useDeviceConnection({
     tabValue,
+    onDeviceSelect: async (item) => {
+      navigation.push(EOnboardingPagesV2.CheckAndUpdate, {
+        deviceData: item,
+        tabValue,
+      });
+    },
   });
 
   const {
@@ -747,6 +772,7 @@ function USBOrBLEConnectionIndicator({
     setIsChecking,
     scanDevice,
     stopScan,
+    handleDeviceSelect,
   } = deviceConnection;
 
   const isUSB = useMemo(() => {
@@ -945,11 +971,8 @@ function USBOrBLEConnectionIndicator({
                   <ListItem
                     key={data.device?.deviceId}
                     drillIn
-                    onPress={() => {
-                      navigation.push(EOnboardingPagesV2.CheckAndUpdate, {
-                        deviceData: data,
-                        tabValue,
-                      });
+                    onPress={async () => {
+                      await handleDeviceSelect(data);
                     }}
                     userSelect="none"
                   >
@@ -983,18 +1006,26 @@ function BluetoothConnectionIndicator({
   // Use shared device connection logic for Bluetooth
   const deviceConnection = useDeviceConnection({
     tabValue,
+    onDeviceSelect: async (item) => {
+      navigation.push(EOnboardingPagesV2.CheckAndUpdate, {
+        deviceData: item,
+        tabValue,
+      });
+    },
   });
 
-  const { devicesData, scanDevice, stopScan } = deviceConnection;
+  const { devicesData, scanDevice, stopScan, handleDeviceSelect } =
+    deviceConnection;
 
   const handleOpenPrivacySettings = useCallback(() => {
     void globalThis.desktopApiProxy.bluetooth.openPrivacySettings();
   }, []);
 
-  const { checkBluetoothStatus } = useDesktopBluetoothStatusPolling(
+  const { checkBluetoothStatus, setIsConnecting: setBluetoothConnecting } =
+    useDesktopBluetoothStatusPolling(
     tabValue,
     setBluetoothStatus,
-  );
+    );
   const handleAppEnableDesktopBluetooth = useCallback(async () => {
     try {
       await backgroundApiProxy.serviceSetting.setEnableDesktopBluetooth(true);
@@ -1109,11 +1140,16 @@ function BluetoothConnectionIndicator({
                   <ListItem
                     key={device.device?.connectId}
                     drillIn
-                    onPress={() => {
-                      navigation.push(EOnboardingPagesV2.CheckAndUpdate, {
-                        deviceData: device,
-                        tabValue,
-                      });
+                    onPress={async () => {
+                      if (!device.device) {
+                        return;
+                      }
+                      setBluetoothConnecting(true);
+                      try {
+                        await handleDeviceSelect(device);
+                      } finally {
+                        setBluetoothConnecting(false);
+                      }
                     }}
                     userSelect="none"
                   >
