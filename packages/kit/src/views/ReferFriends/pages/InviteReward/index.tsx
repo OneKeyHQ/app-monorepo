@@ -1,3 +1,5 @@
+import { useState } from 'react';
+
 import { useIntl } from 'react-intl';
 
 import {
@@ -25,6 +27,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IInviteSummary } from '@onekeyhq/shared/src/referralCode/type';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 function InviteRewardContent({
@@ -85,6 +88,8 @@ function InviteRewardPage() {
   // Redirect to ReferAFriend page if user is not logged in
   useRedirectWhenNotLoggedIn();
 
+  const [isFirstLoading, setIsFirstLoading] = useState(true);
+
   const {
     result: summaryInfo,
     run: fetchSummaryInfo,
@@ -96,14 +101,21 @@ function InviteRewardPage() {
     [],
     {
       initResult: undefined,
+      pollingInterval: timerUtils.getTimeDurationMs({ minute: 1 }), // Auto refresh every 1 minute
       revalidateOnFocus: true,
       revalidateOnReconnect: true,
       undefinedResultIfError: true,
-      watchLoading: true,
+      watchLoading: false, // Disable auto loading state for silent refresh
+      onIsLoadingChange: (loading) => {
+        // Only show loading on first fetch
+        if (!loading && isFirstLoading) {
+          setIsFirstLoading(false);
+        }
+      },
     },
   );
 
-  const isFetching = isLoading ?? summaryInfo === undefined;
+  const isFetching = isFirstLoading && (isLoading ?? summaryInfo === undefined);
 
   return (
     <Page>
@@ -117,6 +129,7 @@ function InviteRewardPage() {
         <TabPageHeader
           sceneName={EAccountSelectorSceneName.home}
           tabRoute={ETabRoutes.ReferFriends}
+          hideHeaderLeft={platformEnv.isDesktop}
         />
       )}
       <Page.Body>

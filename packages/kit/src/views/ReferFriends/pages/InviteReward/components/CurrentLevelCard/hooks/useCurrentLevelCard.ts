@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import type { IInviteLevelCommissionRate } from '@onekeyhq/shared/src/referralCode/type';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import type {
   ICurrentLevelCardProps,
@@ -20,6 +20,7 @@ export function useCurrentLevelCard(
     [],
     {
       initResult: undefined,
+      pollingInterval: timerUtils.getTimeDurationMs({ minute: 1 }), // Auto refresh every 1 minute
     },
   );
 
