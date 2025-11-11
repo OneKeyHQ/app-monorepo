@@ -3,10 +3,31 @@ import { useIntl } from 'react-intl';
 import { Button, useClipboard } from '@onekeyhq/components';
 import { ECustomOneKeyHardwareError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { isRequestIdMessage } from '@onekeyhq/shared/src/request/utils';
+import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
-function CopyButton({ message }: { message: string }) {
+interface IErrorActionParams {
+  errorCode?: number;
+  requestId?: string;
+  diagnosticText?: string;
+}
+
+function ContactSupportButton({ requestId }: { requestId: string }) {
+  const intl = useIntl();
+
+  return (
+    <Button
+      size="small"
+      onPress={() => {
+        void showIntercom({ requestId });
+      }}
+    >
+      {intl.formatMessage({ id: ETranslations.global_contact_us })}
+    </Button>
+  );
+}
+
+function CopyDiagnosticButton({ diagnosticText }: { diagnosticText: string }) {
   const intl = useIntl();
   const { copyText } = useClipboard();
 
@@ -14,9 +35,7 @@ function CopyButton({ message }: { message: string }) {
     <Button
       size="small"
       onPress={() => {
-        if (message) {
-          copyText(message);
-        }
+        void copyText(diagnosticText);
       }}
     >
       {intl.formatMessage({ id: ETranslations.global_copy })}
@@ -39,13 +58,24 @@ function NeedFirmwareUpgradeFromWebButton() {
   );
 }
 
-export function getErrorAction(code: number | undefined, message: string) {
-  if (message && isRequestIdMessage(message)) {
-    return <CopyButton message={message} />;
+export function getErrorAction({
+  errorCode,
+  requestId,
+  diagnosticText,
+}: IErrorActionParams) {
+  // Special case: firmware upgrade button
+  if (errorCode === ECustomOneKeyHardwareError.NeedFirmwareUpgradeFromWeb) {
+    return <NeedFirmwareUpgradeFromWebButton />;
   }
 
-  if (code === ECustomOneKeyHardwareError.NeedFirmwareUpgradeFromWeb) {
-    return <NeedFirmwareUpgradeFromWebButton />;
+  // Default: show contact support + copy diagnostic info buttons
+  if (diagnosticText) {
+    return [
+      requestId ? (
+        <ContactSupportButton key="contact" requestId={requestId} />
+      ) : null,
+      <CopyDiagnosticButton key="copy" diagnosticText={diagnosticText} />,
+    ].filter(Boolean);
   }
 
   return undefined;

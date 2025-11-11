@@ -7,6 +7,23 @@ import type { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EAppEventBusNames, appEventBus } from '../../eventBus/appEventBus';
 import { EOneKeyErrorClassNames, type IOneKeyError } from '../types/errorTypes';
 
+function buildDiagnosticText(err: IOneKeyError): string {
+  const parts: string[] = [];
+
+  if (err?.requestId) {
+    parts.push(`RequestId: ${err.requestId}`);
+  }
+  if (err?.code) {
+    parts.push(`Error Code: ${err.code}`);
+  }
+  if (err?.message) {
+    parts.push(`Message: ${err.message}`);
+  }
+  parts.push(`Timestamp: ${new Date().toISOString()}`);
+
+  return parts.join('\n');
+}
+
 function fixAxiosAbortCancelError(error: unknown) {
   if (error && axios.isCancel(error)) {
     (error as IOneKeyError).className =
@@ -68,7 +85,8 @@ function showToastOfError(error: IOneKeyError | unknown | undefined) {
       errorCode: err?.code,
       method: 'error',
       title: err?.message ?? 'Error',
-      message: err?.requestId,
+      requestId: err?.requestId,
+      diagnosticText: buildDiagnosticText(err),
       i18nKey: err?.key as ETranslations | undefined,
     });
   }
