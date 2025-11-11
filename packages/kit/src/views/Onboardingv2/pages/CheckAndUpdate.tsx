@@ -242,7 +242,6 @@ function CheckAndUpdatePage({
   }, [
     currentDevice,
     deviceData,
-    ensureActiveConnection,
     ensureTransportType,
     getActiveDevice,
     navigation,
