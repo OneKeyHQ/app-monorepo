@@ -67,6 +67,7 @@ export enum ERouter {
 
 export enum ETabSelect {
   Transactions = 'Transactions',
+  Portfolio = 'Portfolio',
   Holders = 'Holders',
 }
 
