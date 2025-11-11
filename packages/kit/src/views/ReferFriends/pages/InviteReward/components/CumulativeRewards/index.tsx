@@ -196,7 +196,7 @@ export function CumulativeRewards({
         </XStack>
       </YStack>
       <YStack
-        bg="$bgSubdued"
+        bg="$bgStrong"
         borderBottomLeftRadius="$3"
         borderBottomRightRadius="$3"
         pt="$2"

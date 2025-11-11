@@ -21,7 +21,7 @@ export function HardwareSalesReward({
   const showHardwarePendingFiat = (hardwareSales.pending?.length || 0) > 0;
 
   return (
-    <Card.Container>
+    <Card.Container flex={1}>
       <Card.Title
         icon="OnekeyLiteOutline"
         title={hardwareSales.title}

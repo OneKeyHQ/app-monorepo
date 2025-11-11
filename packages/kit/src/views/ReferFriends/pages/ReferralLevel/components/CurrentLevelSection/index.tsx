@@ -24,16 +24,16 @@ export function CurrentLevelSection({
 
   return (
     <XStack gap="$3" p="$4" borderRadius="$3" bg="$bgSubdued">
-      <Stack w="$14" h="$14" ai="center" jc="center">
-        <Image w="$14" h="$14" src={levelIcon} />
+      <Stack w="$12" h="$12" ai="center" jc="center">
+        <Image w="$12" h="$12" src={levelIcon} />
       </Stack>
 
-      <YStack gap="$1">
+      <YStack flex={1} gap="$1">
         <XStack gap="$2.5" ai="center">
           <SizableText size="$headingXl" color="$text">
             {levelLabel}
           </SizableText>
-          <Badge badgeSize="lg" alignSelf="flex-start">
+          <Badge badgeSize="lg">
             {intl.formatMessage({ id: ETranslations.global_current })}
           </Badge>
         </XStack>
