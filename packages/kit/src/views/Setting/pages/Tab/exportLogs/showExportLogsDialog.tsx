@@ -17,6 +17,7 @@ import {
   useClipboard,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -90,6 +91,11 @@ function UploadLogsDialogContent() {
     };
   }, []);
 
+  const generateFileBaseName = useCallback(() => {
+    const timestamp = new Date().toISOString().replace(/[-:.]/g, '');
+    return `OneKeyLogs-${timestamp}`;
+  }, []);
+
   const resolveError = useCallback((err: unknown): Error => {
     const candidate = err as { originalError?: unknown; message?: unknown };
     if (candidate?.originalError) {
@@ -103,6 +109,24 @@ function UploadLogsDialogContent() {
     }
     return new Error(String(err));
   }, []);
+
+  const handleManualExport = useCallback(async () => {
+    const fileBaseName = generateFileBaseName();
+    try {
+      await exportLogs(fileBaseName);
+      Toast.success({
+        title: intl.formatMessage({
+          id: ETranslations.settings_log_file_exported_successfully,
+        }),
+      });
+    } catch (error) {
+      Toast.error({
+        title: intl.formatMessage({
+          id: ETranslations.settings_export_logs_failed_title,
+        }),
+      });
+    }
+  }, [generateFileBaseName, intl]);
 
   const handleUpload = useCallback(
     async ({ preventClose }: { preventClose: () => void }) => {
@@ -121,8 +145,7 @@ function UploadLogsDialogContent() {
       setInstanceId(undefined);
       setInstanceIdCopied(false);
 
-      const timestamp = new Date().toISOString().replace(/[-:.]/g, '');
-      const fileBaseName = `OneKeyLogs-${timestamp}`;
+      const fileBaseName = generateFileBaseName();
       fileBaseNameRef.current = fileBaseName;
 
       const attemptUpload = async () => {
@@ -201,7 +224,7 @@ function UploadLogsDialogContent() {
         isActiveRef.current = false;
       }
     },
-    [dialogStage, resolveError, intl],
+    [dialogStage, resolveError, intl, generateFileBaseName],
   );
 
   const handleConfirmAction = useCallback(
@@ -217,11 +240,14 @@ function UploadLogsDialogContent() {
       case 'idle':
         return (
           <Stack>
-            <SizableText size="$bodyLg" color="$textSubdued">
-              {intl.formatMessage({
-                id: ETranslations.settings_logs_do_not_include_sensitive_data,
-              })}
-            </SizableText>
+            <HyperlinkText
+              size="$bodyLg"
+              color="$textSubdued"
+              translationId={
+                ETranslations.settings_logs_do_not_include_sensitive_data
+              }
+              onAction={handleManualExport}
+            />
           </Stack>
         );
 
