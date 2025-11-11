@@ -1,6 +1,7 @@
 import type { RefObject } from 'react';
 import { useRef, useState } from 'react';
 
+import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
 import { useReanimatedKeyboardAnimation } from 'react-native-keyboard-controller';
 import Animated, {
@@ -12,6 +13,7 @@ import {
   Button,
   HeightTransition,
   Page,
+  Portal,
   SegmentControl,
   TextAreaInput,
   XStack,
@@ -86,7 +88,8 @@ export default function ImportPhraseOrPrivateKey() {
   useAnimatedReaction(
     () => height.get(),
     (value) => {
-      keyboardHeight.value = Math.abs(value);
+      const v = Math.abs(value);
+      keyboardHeight.value = v;
     },
   );
 
@@ -172,24 +175,37 @@ export default function ImportPhraseOrPrivateKey() {
         </OnboardingLayout.Body>
         {!gtMd ? (
           <OnboardingLayout.Footer>
-            <Animated.View style={{ transform: [{ translateY: height }] }}>
-              <XStack
-                bg="$bgApp"
-                alignItems="center"
-                justifyContent="center"
-                pt="$5"
-              >
-                <Button
-                  size="large"
-                  variant="primary"
-                  onPress={handleConfirm}
-                  loading={isConfirming}
-                  w="100%"
-                >
-                  {intl.formatMessage({ id: ETranslations.global_confirm })}
-                </Button>
-              </XStack>
-            </Animated.View>
+            <YStack>
+              <Animated.View style={{ transform: [{ translateY: height }] }}>
+                <YStack>
+                  <XStack
+                    bg="$bgApp"
+                    alignItems="center"
+                    justifyContent="center"
+                    pt="$5"
+                  >
+                    <YStack w="100%">
+                      <XStack onPress={noop}>
+                        <Portal.Container
+                          name={Portal.Constant.SUGGESTION_LIST}
+                        />
+                      </XStack>
+                      <Button
+                        size="large"
+                        variant="primary"
+                        onPress={handleConfirm}
+                        loading={isConfirming}
+                        w="100%"
+                      >
+                        {intl.formatMessage({
+                          id: ETranslations.global_confirm,
+                        })}
+                      </Button>
+                    </YStack>
+                  </XStack>
+                </YStack>
+              </Animated.View>
+            </YStack>
           </OnboardingLayout.Footer>
         ) : null}
       </OnboardingLayout>

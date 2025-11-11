@@ -16,6 +16,7 @@ import {
 import { compact, range } from 'lodash';
 import { useIntl } from 'react-intl';
 import { View } from 'react-native';
+import { useKeyboardState } from 'react-native-keyboard-controller';
 
 import type {
   IButtonProps,
@@ -33,6 +34,7 @@ import {
   Icon,
   Input,
   Popover,
+  Portal,
   ScrollView,
   Select,
   SizableText,
@@ -572,6 +574,8 @@ export function PhaseInputArea({
     },
   }));
 
+  const { isVisible } = useKeyboardState();
+
   return (
     <>
       {showPhraseLengthSelector || showClearAllButton ? (
@@ -664,6 +668,16 @@ export function PhaseInputArea({
         ) : null}
       </HeightTransition>
       {FooterComponent}
+      {isVisible ? (
+        <Portal.Body container={Portal.Constant.SUGGESTION_LIST}>
+          {isVisible ? (
+            <SuggestionList
+              suggestions={suggestions}
+              onPressItem={updateInputValue}
+            />
+          ) : null}
+        </Portal.Body>
+      ) : null}
       {onConfirm ? (
         <PageFooter
           suggestions={suggestions}
