@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 
+import { EDeviceType } from '@onekeyfe/hd-shared';
 import { useFocusEffect } from '@react-navigation/native';
 import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -368,54 +369,68 @@ function CheckAndUpdatePage({
   );
 
   const DEVICE_SETUP_INSTRUCTIONS = useMemo(() => {
-    return [
-      {
-        title: intl.formatMessage({
-          id: ETranslations.setup_choose_option_title,
+    const deviceType = (deviceData.device as SearchDevice)?.deviceType;
+    const isClassicOrMini =
+      deviceType === EDeviceType.Classic ||
+      deviceType === EDeviceType.Classic1s ||
+      deviceType === EDeviceType.ClassicPure ||
+      deviceType === EDeviceType.Mini;
+
+    const chooseOptionStep = {
+      title: intl.formatMessage({
+        id: ETranslations.setup_choose_option_title,
+      }),
+      details: [
+        intl.formatMessage({
+          id: ETranslations.setup_choose_option_create_new_wallet,
         }),
-        details: [
-          intl.formatMessage({
-            id: ETranslations.setup_choose_option_create_new_wallet,
-          }),
-          intl.formatMessage({
-            id: ETranslations.setup_choose_option_import_wallet,
-          }),
-        ],
-      },
-      {
-        title: intl.formatMessage({
-          id: ETranslations.setup_pin,
+        intl.formatMessage({
+          id: ETranslations.setup_choose_option_import_wallet,
         }),
-        details: [
-          intl.formatMessage({
-            id: ETranslations.setup_pin_limit,
-          }),
-          intl.formatMessage({
-            id: ETranslations.setup_pin_reminder,
-          }),
-        ],
-      },
-      {
-        title: intl.formatMessage({
-          id: ETranslations.setup_recovery_phrase,
+      ],
+    };
+
+    const pinStep = {
+      title: intl.formatMessage({
+        id: ETranslations.setup_pin,
+      }),
+      details: [
+        intl.formatMessage({
+          id: ETranslations.setup_pin_limit,
         }),
-        details: [
-          intl.formatMessage({
-            id: ETranslations.setup_recovery_phrase_write_down,
-          }),
-          intl.formatMessage({
-            id: ETranslations.setup_recovery_phrase_matches,
-          }),
-          intl.formatMessage({
-            id: ETranslations.setup_recovery_phrase_charging,
-          }),
-          intl.formatMessage({
-            id: ETranslations.setup_recovery_phrase_do_not_power_off,
-          }),
-        ],
-      },
-    ];
-  }, [intl]);
+        intl.formatMessage({
+          id: ETranslations.setup_pin_reminder,
+        }),
+      ],
+    };
+
+    const recoveryPhraseStep = {
+      title: intl.formatMessage({
+        id: ETranslations.setup_recovery_phrase,
+      }),
+      details: [
+        intl.formatMessage({
+          id: ETranslations.setup_recovery_phrase_write_down,
+        }),
+        intl.formatMessage({
+          id: ETranslations.setup_recovery_phrase_matches,
+        }),
+        intl.formatMessage({
+          id: ETranslations.setup_recovery_phrase_charging,
+        }),
+        intl.formatMessage({
+          id: ETranslations.setup_recovery_phrase_do_not_power_off,
+        }),
+      ],
+    };
+
+    // For Classic or Mini devices, swap the order of PIN and recovery phrase
+    if (isClassicOrMini) {
+      return [chooseOptionStep, recoveryPhraseStep, pinStep];
+    }
+
+    return [chooseOptionStep, pinStep, recoveryPhraseStep];
+  }, [intl, deviceData]);
 
   return (
     <Page>

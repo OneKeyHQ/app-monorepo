@@ -916,6 +916,7 @@
   "explore.unsupported_chain": "Ancora non supportato",
   "extension.disk_full": "Spazio su disco insufficiente",
   "extension.disk_full_desc": "Alcune funzionalità dell'app sono state disattivate a causa dello spazio su disco insufficiente. Non potrai firmare transazioni, gestire portafogli e account, né svolgere altre operazioni. Libera spazio e riavvia l'app per ripristinare tutte le funzionalità.",
+  "failed_to_create_wallet": "Impossibile creare il wallet",
   "faq.private_key": "Cos'è una chiave privata?",
   "faq.private_key_desc": "Un codice alfanumerico unico per controllare i tuoi beni.",
   "faq.private_key_keep": "Mantieni al sicuro la tua chiave privata",

@@ -916,6 +916,7 @@
   "explore.unsupported_chain": "Aún no compatible",
   "extension.disk_full": "Espacio en disco bajo",
   "extension.disk_full_desc": "Algunas funciones de la aplicación se han desactivado debido al poco espacio en disco. No podrás firmar transacciones, gestionar billeteras y cuentas, ni realizar otras tareas. Por favor, libera espacio y reinicia la aplicación para restaurar la funcionalidad completa.",
+  "failed_to_create_wallet": "No se pudo crear la billetera",
   "faq.private_key": "¿Qué es una clave privada?",
   "faq.private_key_desc": "Un código alfanumérico único para controlar tus activos.",
   "faq.private_key_keep": "Mantén tu clave privada a salvo",

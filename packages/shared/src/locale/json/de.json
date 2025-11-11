@@ -916,6 +916,7 @@
   "explore.unsupported_chain": "Noch nicht unterstützt",
   "extension.disk_full": "Wenig Speicherplatz",
   "extension.disk_full_desc": "Einige App-Funktionen wurden aufgrund von geringem Speicherplatz deaktiviert. Sie können keine Transaktionen signieren, keine Wallets und Konten verwalten und keine weiteren Aufgaben ausführen. Bitte schaffen Sie Speicherplatz und starten Sie die App neu, um die volle Funktionalität wiederherzustellen.",
+  "failed_to_create_wallet": "Wallet konnte nicht erstellt werden",
   "faq.private_key": "Was ist ein privater Schlüssel?",
   "faq.private_key_desc": "Ein eindeutiger alphanumerischer Code zur Kontrolle Ihrer Vermögenswerte.",
   "faq.private_key_keep": "Bewahren Sie Ihren privaten Schlüssel sicher auf",

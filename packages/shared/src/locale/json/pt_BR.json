@@ -916,6 +916,7 @@
   "explore.unsupported_chain": "Ainda não suportado",
   "extension.disk_full": "Pouco espaço em disco",
   "extension.disk_full_desc": "Alguns recursos do aplicativo foram desativados devido ao pouco espaço em disco. Você não poderá assinar transações, gerenciar carteiras e contas, e realizar outras tarefas. Por favor, libere espaço e reinicie o aplicativo para restaurar a funcionalidade completa.",
+  "failed_to_create_wallet": "Falha ao criar carteira",
   "faq.private_key": "O que é uma chave privada?",
   "faq.private_key_desc": "Um código alfanumérico único para controlar seus ativos.",
   "faq.private_key_keep": "Mantenha sua chave privada em segurança",

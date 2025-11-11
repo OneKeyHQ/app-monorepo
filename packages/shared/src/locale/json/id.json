@@ -916,6 +916,7 @@
   "explore.unsupported_chain": "Belum didukung",
   "extension.disk_full": "Ruang disk hampir habis",
   "extension.disk_full_desc": "Beberapa fitur aplikasi telah dinonaktifkan karena ruang disk yang rendah. Anda tidak akan dapat menandatangani transaksi, mengelola dompet dan akun, serta melakukan tugas lainnya. Silakan kosongkan ruang dan mulai ulang aplikasi untuk memulihkan fungsionalitas penuh.",
+  "failed_to_create_wallet": "Gagal membuat dompet",
   "faq.private_key": "Apa itu kunci privat?",
   "faq.private_key_desc": "Kode alfanumerik unik untuk mengontrol aset Anda.",
   "faq.private_key_keep": "Jaga kunci privat Anda dengan aman",

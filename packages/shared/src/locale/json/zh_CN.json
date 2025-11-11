@@ -916,6 +916,7 @@
   "explore.unsupported_chain": "尚未支持",
   "extension.disk_full": "磁盘空间不足",
   "extension.disk_full_desc": "磁盘空间不足导致 App 部分功能已被停用，您暂时无法签署交易、管理钱包与账户等操作。请清理磁盘空间后重启 App，以恢复正常使用。",
+  "failed_to_create_wallet": "创建钱包失败",
   "faq.private_key": "什么是私钥？",
   "faq.private_key_desc": "一段独特的字母数字代码用于管理您的资产。",
   "faq.private_key_keep": "保管好你的私钥",

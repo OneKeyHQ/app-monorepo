@@ -916,6 +916,7 @@
   "explore.unsupported_chain": "아직 지원되지 않음",
   "extension.disk_full": "디스크 공간 부족",
   "extension.disk_full_desc": "일부 앱 기능이 디스크 공간 부족으로 인해 비활성화되었습니다. 거래 서명, 지갑 및 계정 관리, 기타 작업을 수행할 수 없습니다. 공간을 확보한 후 앱을 다시 시작하여 모든 기능을 복원해 주세요.",
+  "failed_to_create_wallet": "지갑 생성에 실패했습니다",
   "faq.private_key": "개인키란 무엇인가요?",
   "faq.private_key_desc": "자산을 관리하기 위한 고유한 알파벳과 숫자의 코드입니다.",
   "faq.private_key_keep": "개인키를 안전하게 보관하세요",

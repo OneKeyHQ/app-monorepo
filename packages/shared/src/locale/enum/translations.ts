@@ -921,6 +921,7 @@
   explore_unsupported_chain = 'explore.unsupported_chain',
   extension_disk_full = 'extension.disk_full',
   extension_disk_full_desc = 'extension.disk_full_desc',
+  failed_to_create_wallet = 'failed_to_create_wallet',
   faq_private_key = 'faq.private_key',
   faq_private_key_desc = 'faq.private_key_desc',
   faq_private_key_keep = 'faq.private_key_keep',
