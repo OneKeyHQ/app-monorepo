@@ -8,7 +8,6 @@ const YourReferred = LazyLoadPage(() => import('../pages/YourReferred'));
 const HardwareSalesReward = LazyLoadPage(
   () => import('../pages/HardwareSalesReward'),
 );
-const OneKeyId = LazyLoadPage(() => import('../pages/OneKeyId'));
 const InviteReward = LazyLoadPage(() => import('../pages/InviteReward'));
 const EditAddress = LazyLoadPage(() => import('../pages/EditAddress'));
 const EarnReward = LazyLoadPage(() => import('../pages/EarnReward'));
@@ -18,6 +17,7 @@ const YourReferredWalletAddresses = LazyLoadPage(
 const RewardDistributionHistory = LazyLoadPage(
   () => import('../pages/RewardDistributionHistory'),
 );
+const ReferralLevel = LazyLoadPage(() => import('../pages/ReferralLevel'));
 
 export const ReferFriendsRouter: IModalFlowNavigatorConfig<
   EModalReferFriendsRoutes,
@@ -42,10 +42,6 @@ export const ReferFriendsRouter: IModalFlowNavigatorConfig<
     component: HardwareSalesReward,
   },
   {
-    name: EModalReferFriendsRoutes.OneKeyId,
-    component: OneKeyId,
-  },
-  {
     name: EModalReferFriendsRoutes.InviteReward,
     component: InviteReward,
   },
@@ -60,5 +56,9 @@ export const ReferFriendsRouter: IModalFlowNavigatorConfig<
   {
     name: EModalReferFriendsRoutes.RewardDistributionHistory,
     component: RewardDistributionHistory,
+  },
+  {
+    name: EModalReferFriendsRoutes.ReferralLevel,
+    component: ReferralLevel,
   },
 ];

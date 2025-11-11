@@ -105,7 +105,6 @@ function useFirmwareVerifyBase({
           skipDeviceCancel,
         });
       console.log('firmwareAuthenticate >>>> ', authResult);
-      appEventBus.emit(EAppEventBusNames.EmitFirmwareVerifyResult, authResult);
       if (authResult.verified) {
         setResult('official');
         // Set certificate to success first
@@ -946,18 +945,7 @@ export function FirmwareAuthenticationDialogContent({
 
   const handleContinuePress = useCallback(() => {
     onContinue({ checked: false });
-    appEventBus.emit(EAppEventBusNames.EmitFirmwareVerifyResult, {
-      verified: true,
-      device,
-      payload: {
-        deviceType: device.deviceType,
-        data: '',
-        cert: '',
-        signature: '',
-      },
-      result: undefined,
-    });
-  }, [device, onContinue]);
+  }, [onContinue]);
 
   const content = useMemo(() => {
     const propsMap: Record<
@@ -1020,6 +1008,7 @@ export function useFirmwareVerifyDialog() {
     async ({
       device,
       features,
+      onVerified,
       onContinue,
       onClose,
     }: {
@@ -1027,6 +1016,7 @@ export function useFirmwareVerifyDialog() {
       features: IOneKeyDeviceFeatures | undefined;
       onContinue: (params: { checked: boolean }) => Promise<void> | void;
       onClose: () => Promise<void> | void;
+      onVerified?: (params: { checked: boolean }) => Promise<void> | void;
     }) => {
       const onCloseFn = async () => {
         await onClose?.();
@@ -1079,6 +1069,7 @@ export function useFirmwareVerifyDialog() {
             skipDeviceCancel
             device={device}
             onContinue={async ({ checked }) => {
+              await onVerified?.({ checked });
               await firmwareAuthenticationDialog.close();
               await onContinue({ checked });
             }}

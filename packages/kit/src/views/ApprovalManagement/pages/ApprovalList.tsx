@@ -109,6 +109,8 @@ function ApprovalList() {
         deriveType: globalDeriveType,
       });
 
+    await backgroundApiProxy.serviceApproval.abortFetchAccountApprovals();
+
     try {
       const resp =
         await backgroundApiProxy.serviceApproval.fetchAccountApprovals({

@@ -22,6 +22,7 @@ export function TabPageHeader({
   customHeaderRightItems,
   customHeaderLeftItems,
   hideSearch = false,
+  hideHeaderLeft = false,
 }: ITabPageHeaderProp) {
   const renderHeaderLeft = useCallback(
     () => (
@@ -78,7 +79,7 @@ export function TabPageHeader({
     <>
       <Page.Header
         headerTitle={renderHeaderTitle}
-        headerLeft={renderHeaderLeft}
+        headerLeft={hideHeaderLeft ? undefined : renderHeaderLeft}
         headerRight={renderHeaderRight}
       />
 

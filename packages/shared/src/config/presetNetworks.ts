@@ -2636,7 +2636,7 @@ const bifrostDot: IServerNetwork = {
   'id': 'dot--bifrost',
   'impl': 'dot',
   'isTestnet': false,
-  'logoURI': 'https://uni.onekey-asset.com/static/chain/bnc.png',
+  'logoURI': 'https://uni.onekey-asset.com/static/chain/bifrost.png',
   'name': 'Bifrost Polkadot',
   'shortcode': 'dot-bifrost',
   'shortname': 'BNC',

@@ -380,7 +380,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
           ],
           [
             {
-              icon: 'FlashCardsOutline',
+              icon: 'FlashCardSolid',
               title: intl.formatMessage({
                 id: ETranslations.settings_btc_multiple_addresses,
               }),

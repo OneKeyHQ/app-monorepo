@@ -1756,6 +1756,13 @@ class ServiceAccount extends ServiceBase {
     accounts: IDBAccount[];
     isOverrideAccounts: boolean;
   }> {
+    // eslint-disable-next-line no-param-reassign
+    input = await this.backgroundApi.servicePassword.decodeSensitiveText({
+      encodedText: input,
+    });
+    if (!input) {
+      throw new OneKeyLocalError('addWatchingAccount ERROR: input not valid');
+    }
     if (networkUtils.isAllNetwork({ networkId })) {
       throw new OneKeyLocalError(
         'addWatchingAccount ERROR: networkId should not be all networks',

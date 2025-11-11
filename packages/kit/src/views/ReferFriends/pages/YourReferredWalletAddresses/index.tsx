@@ -4,25 +4,33 @@ import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import { ListView, Page, SizableText } from '@onekeyhq/components';
-import { ControlledNetworkSelectorIconTrigger } from '@onekeyhq/kit/src/components/AccountSelector';
+import {
+  AccountSelectorProviderMirror,
+  ControlledNetworkSelectorIconTrigger,
+} from '@onekeyhq/kit/src/components/AccountSelector';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { useRedirectWhenNotLoggedIn } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useRedirectWhenNotLoggedIn';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import type {
-  ETabReferFriendsRoutes,
-  ITabReferFriendsParamList,
+  EModalReferFriendsRoutes,
+  IModalReferFriendsParamList,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import type { RouteProp } from '@react-navigation/core';
 
-export default function YourReferredWalletAddresses() {
+function YourReferredWalletAddressesPageWrapper() {
+  // Redirect to ReferAFriend page if user is not logged in
+  useRedirectWhenNotLoggedIn();
+
   const intl = useIntl();
   const { params } =
     useRoute<
       RouteProp<
-        ITabReferFriendsParamList,
-        ETabReferFriendsRoutes.TabYourReferredWalletAddresses
+        IModalReferFriendsParamList,
+        EModalReferFriendsRoutes.YourReferredWalletAddresses
       >
     >();
 
@@ -83,5 +91,19 @@ export default function YourReferredWalletAddresses() {
         />
       </Page.Body>
     </Page>
+  );
+}
+
+export default function YourReferredWalletAddresses() {
+  return (
+    <AccountSelectorProviderMirror
+      config={{
+        sceneName: EAccountSelectorSceneName.home,
+        sceneUrl: '',
+      }}
+      enabledNum={[0]}
+    >
+      <YourReferredWalletAddressesPageWrapper />
+    </AccountSelectorProviderMirror>
   );
 }
