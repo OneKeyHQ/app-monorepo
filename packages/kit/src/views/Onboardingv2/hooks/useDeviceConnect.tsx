@@ -383,10 +383,11 @@ export function useDeviceConnect() {
                 device,
                 features,
                 onVerified: ({ checked }: { checked: boolean }) => {
-                  if (isVerified) {
-                    isVerified = checked;
+                  isVerified = checked;
+                  setTimeout(() => {
                     resolve({
                       verified: checked,
+                      skipVerification: checked === false,
                       device,
                       payload: {
                         deviceType: device.deviceType,
@@ -398,28 +399,9 @@ export function useDeviceConnect() {
                         message: '',
                       },
                     });
-                  }
+                  }, 150);
                 },
-                onContinue: ({ checked }: { checked: boolean }) => {
-                  if (isVerified) {
-                    return;
-                  }
-                  isVerified = checked;
-                  resolve({
-                    verified: checked,
-                    skipVerification: checked === false,
-                    device,
-                    payload: {
-                      deviceType: device.deviceType,
-                      data: '',
-                      cert: '',
-                      signature: '',
-                    },
-                    result: {
-                      message: '',
-                    },
-                  });
-                },
+                onContinue: () => {},
                 onClose: () => {
                   if (isVerified === undefined) {
                     reject(

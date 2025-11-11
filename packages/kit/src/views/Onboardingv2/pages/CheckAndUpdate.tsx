@@ -154,14 +154,6 @@ function CheckAndUpdatePage({
     };
     setSteps((prev) => {
       const newSteps = [...prev];
-      newSteps[0] = {
-        ...newSteps[0],
-        state: ECheckAndUpdateStepState.Success,
-      };
-      newSteps[1] = {
-        ...newSteps[1],
-        state: ECheckAndUpdateStepState.Success,
-      };
       newSteps[2] = {
         ...newSteps[2],
         state: ECheckAndUpdateStepState.InProgress,
@@ -219,26 +211,21 @@ function CheckAndUpdatePage({
       await backgroundApiProxy.serviceFirmwareUpdate.checkAllFirmwareRelease({
         connectId: compatibleConnectId,
       });
-    if (r) {
-      if (r.hasUpgrade) {
-        setSteps((prev) => {
-          const newSteps = [...prev];
-          newSteps[0] = {
-            ...newSteps[0],
-            state: ECheckAndUpdateStepState.Success,
-          };
-          newSteps[1] = {
-            ...newSteps[1],
-            state: r.hasUpgrade
-              ? ECheckAndUpdateStepState.Warning
-              : ECheckAndUpdateStepState.Success,
-          };
-          return newSteps;
-        });
-      } else {
-        void checkDeviceInitialized();
-      }
-    }
+    setSteps((prev) => {
+      const newSteps = [...prev];
+      newSteps[1] = {
+        ...newSteps[1],
+        state:
+          r && r.hasUpgrade
+            ? ECheckAndUpdateStepState.Warning
+            : ECheckAndUpdateStepState.Success,
+      };
+      return newSteps;
+    });
+
+    setTimeout(() => {
+      void checkDeviceInitialized();
+    }, 150);
   }, [connectDevice, deviceData.device, checkDeviceInitialized]);
 
   const firmwareStepStateRef = useRef<ECheckAndUpdateStepState>(steps[1].state);
@@ -248,10 +235,6 @@ function CheckAndUpdatePage({
       if (firmwareStepStateRef.current === ECheckAndUpdateStepState.Warning) {
         setSteps((prev) => {
           const newSteps = [...prev];
-          newSteps[0] = {
-            ...newSteps[0],
-            state: ECheckAndUpdateStepState.Success,
-          };
           newSteps[1] = {
             ...newSteps[1],
             state: ECheckAndUpdateStepState.InProgress,
@@ -302,7 +285,7 @@ function CheckAndUpdatePage({
         if (result.skipVerification) {
           newSteps[0].state = ECheckAndUpdateStepState.Skipped;
         }
-        if (result.verified) {
+        if (result.verified || result.skipVerification) {
           newSteps[1] = {
             ...newSteps[1],
             state: ECheckAndUpdateStepState.InProgress,
@@ -310,7 +293,7 @@ function CheckAndUpdatePage({
         }
         return newSteps;
       });
-      if (result.verified) {
+      if (result.verified || result.skipVerification) {
         setTimeout(() => {
           void checkFirmwareUpdate();
         }, 150);
