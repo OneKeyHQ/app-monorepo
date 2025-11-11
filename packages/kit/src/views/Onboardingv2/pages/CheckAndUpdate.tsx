@@ -184,7 +184,7 @@ function CheckAndUpdatePage({
     try {
       await ensureTransportType();
       const baseDevice =
-        (getActiveDevice() as SearchDevice | undefined) ??
+        getActiveDevice() ??
         currentDevice ??
         (deviceData.device as SearchDevice | undefined);
       if (!baseDevice) {
@@ -197,8 +197,7 @@ function CheckAndUpdatePage({
           setTimeout(resolve, 1200);
         }),
       ]);
-      const latestDevice =
-        (getActiveDevice() as SearchDevice | undefined) ?? baseDevice;
+      const latestDevice = getActiveDevice() ?? baseDevice;
       setCurrentDevice(latestDevice);
       if (features) {
         const deviceMode = await deviceUtils.getDeviceModeFromFeatures({
@@ -226,7 +225,7 @@ function CheckAndUpdatePage({
       return newSteps;
     });
     const deviceForFinalize =
-      (getActiveDevice() as SearchDevice | undefined) ??
+      getActiveDevice() ??
       currentDevice ??
       (deviceData.device as SearchDevice | undefined);
     setTimeout(async () => {
@@ -249,17 +248,13 @@ function CheckAndUpdatePage({
 
   const checkFirmwareUpdate = useCallback(async () => {
     await ensureTransportType();
-    const baseDevice =
-      (getActiveDevice() as SearchDevice | undefined) ??
-      currentDevice ??
-      (deviceData.device as SearchDevice | undefined);
+    const baseDevice = getActiveDevice() ?? currentDevice ?? deviceData.device;
     if (!baseDevice?.connectId) {
       return;
     }
-    await ensureActiveConnection(baseDevice);
-    const latestDevice =
-      (getActiveDevice() as SearchDevice | undefined) ?? baseDevice;
-    setCurrentDevice(latestDevice);
+    await ensureActiveConnection(baseDevice as SearchDevice);
+    const latestDevice = getActiveDevice() ?? baseDevice;
+    setCurrentDevice(latestDevice as SearchDevice);
     if (!latestDevice?.connectId) {
       return;
     }
@@ -339,7 +334,7 @@ function CheckAndUpdatePage({
         }),
       ]);
       const latestDevice =
-        (getActiveDevice() as SearchDevice | undefined) ??
+        getActiveDevice() ??
         currentDevice ??
         (deviceData.device as SearchDevice | undefined);
       setCurrentDevice(latestDevice);
