@@ -1,9 +1,7 @@
-import { useCallback } from 'react';
-
 import { DebugRenderTracker, IconButton } from '@onekeyhq/components';
 import type { IIconButtonProps } from '@onekeyhq/components/src/actions/IconButton';
 
-import { showPerpSettingsDialog } from './PerpSettingsDialog';
+import { PerpSettingsPopover } from './PerpSettingsDialog';
 
 type IPerpSettingsButtonProps = Omit<IIconButtonProps, 'icon' | 'onPress'>;
 
@@ -12,18 +10,18 @@ export function PerpSettingsButton({
   variant = 'tertiary',
   ...rest
 }: IPerpSettingsButtonProps) {
-  const handlePress = useCallback(() => {
-    showPerpSettingsDialog();
-  }, []);
-
   const content = (
-    <IconButton
-      icon="SettingsOutline"
-      size={size}
-      variant={variant}
-      iconColor="$iconSubdued"
-      onPress={handlePress}
-      {...rest}
+    <PerpSettingsPopover
+      renderTrigger={
+        <IconButton
+          icon="DotHorOutline"
+          size={size}
+          variant={variant}
+          iconColor="$iconSubdued"
+          cursor="pointer"
+          {...rest}
+        />
+      }
     />
   );
   return (

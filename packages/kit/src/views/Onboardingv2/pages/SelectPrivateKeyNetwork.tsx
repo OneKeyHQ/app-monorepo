@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { uniqBy } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import type {
@@ -10,11 +9,14 @@ import type {
   UseFormReturn,
 } from '@onekeyhq/components';
 import {
+  AnimatePresence,
   Button,
   Dialog,
   Form,
+  HeightTransition,
   Icon,
   Input,
+  Label,
   Page,
   Popover,
   ScrollView,
@@ -40,6 +42,11 @@ import {
   WALLET_TYPE_IMPORTED,
   WALLET_TYPE_WATCHING,
 } from '@onekeyhq/shared/src/consts/dbConsts';
+import {
+  IMPL_COSMOS,
+  IMPL_DOT,
+  IMPL_EVM,
+} from '@onekeyhq/shared/src/engine/engineConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type {
@@ -76,31 +83,27 @@ type IFormValues = {
 
 function NetworkAvatars({
   networks,
-  selectedNetwork,
   showMore,
   ...rest
 }: {
   networks: IDetectedNetwork[];
-  selectedNetwork: IDetectedNetwork;
   showMore?: boolean;
 } & IXStackProps) {
   return (
     <XStack {...rest}>
-      {uniqBy([selectedNetwork, ...networks], (item) => item.networkId)
-        .slice(0, 3)
-        .map((item, index) => (
-          <YStack
-            key={item.networkId}
-            {...(index !== 0 && {
-              ml: '$-2',
-            })}
-            borderWidth={2}
-            borderColor="$bgApp"
-            borderRadius="$full"
-          >
-            <NetworkAvatar networkId={item.networkId} size="$8" />
-          </YStack>
-        ))}
+      {networks.slice(0, 3).map((item, index) => (
+        <YStack
+          key={item.networkId}
+          {...(index !== 0 && {
+            ml: '$-2',
+          })}
+          borderWidth={2}
+          borderColor="$bgApp"
+          borderRadius="$full"
+        >
+          <NetworkAvatar networkId={item.networkId} size="$8" />
+        </YStack>
+      ))}
       {showMore ? (
         <YStack
           ml="$-2"
@@ -129,6 +132,7 @@ function NetworkGroupItem({
   onSelect: (params: { uuid: string; networkId?: string }) => void;
   item: IDetectedNetworkGroupItem;
 }) {
+  const intl = useIntl();
   const media = useMedia();
   const [selectedNetworkId, setSelectedNetworkId] = useState<
     string | undefined
@@ -142,102 +146,225 @@ function NetworkGroupItem({
       ) || item?.networks?.[0]
     );
   }, [item.networks, selectedNetworkId]);
-  return (
-    <ListItem
-      key={item.uuid}
-      gap="$3"
-      bg="$bg"
-      borderWidth={1}
-      borderColor="$borderSubdued"
-      borderRadius="$5"
-      borderCurve="continuous"
-      p="$3"
-      pl="$5"
-      m="$0"
-      userSelect="none"
-      pressStyle={undefined}
-      onPress={() => {
-        onSelect({ uuid: item.uuid, networkId: selectedNetworkIdRef.current });
-      }}
-      {...(selectedUUID === item.uuid && {
-        borderColor: '$borderActive',
-        hoverStyle: undefined,
-      })}
-    >
-      <ListItem.Text primary={selectedNetwork?.name} flex={1} />
-      {item.networks.length > 1 ? (
-        <Popover
-          title={`Supported ${item.networks.length} networks`}
-          placement="bottom"
-          renderTrigger={
-            <NetworkAvatars
-              networks={item.networks}
-              selectedNetwork={selectedNetwork}
-              showMore
-              p="$1"
-              m="$-1"
-              hoverStyle={{
-                bg: '$bgHover',
-              }}
-              borderRadius="$full"
-            />
-          }
-          renderContent={({ closePopover }) => {
-            return (
-              <ScrollView
-                contentContainerStyle={{
-                  gap: '$2',
-                  p: '$3',
-                  maxHeight: '400px',
-                }}
-              >
-                {media.gtMd ? (
-                  <SizableText size="$bodyMd" color="$textSubdued" pb="$2">
-                    Supported {item.networks.length} networks
-                  </SizableText>
-                ) : null}
-                <XStack flexWrap="wrap" w="100%" mb="$-4">
-                  {item.networks.map((network) => (
-                    <YStack
-                      key={network.networkId}
-                      w="25%"
-                      gap="$2"
-                      alignItems="center"
-                      px="$2"
-                      pb="$6"
-                      onPress={() => {
-                        setSelectedNetworkId(network.networkId);
-                        selectedNetworkIdRef.current = network.networkId;
-                        onSelect({
-                          uuid: item.uuid,
-                          networkId: network.networkId,
-                        });
-                        closePopover();
-                      }}
-                    >
-                      <NetworkAvatar networkId={network.networkId} size="$8" />
-                      <SizableText
-                        size="$bodySm"
-                        textAlign="center"
-                        color="$textSubdued"
-                        numberOfLines={1}
-                      >
-                        {network.name}
-                      </SizableText>
-                    </YStack>
-                  ))}
-                </XStack>
-              </ScrollView>
-            );
+
+  const displayName = useMemo(() => {
+    // For multi-network groups, display "{impl}-compatible networks"
+    if (item.networks.length > 1) {
+      let implName = '';
+      switch (item.impl) {
+        case IMPL_EVM:
+          implName = 'EVM';
+          break;
+        case IMPL_COSMOS:
+          implName = 'Cosmos';
+          break;
+        case IMPL_DOT:
+          implName = 'Polkadot';
+          break;
+        default:
+          // For other impls, use the first network name
+          return selectedNetwork?.name;
+      }
+      return intl.formatMessage(
+        { id: ETranslations.str_compatible_networks },
+        { name: implName },
+      );
+    }
+    return selectedNetwork?.name;
+  }, [item.impl, item.networks.length, selectedNetwork?.name, intl]);
+
+  // Render network selection popover content
+  const renderNetworkPopoverContent = useCallback(
+    ({
+      closePopover,
+      interactive = false,
+    }: {
+      closePopover?: () => void;
+      interactive?: boolean;
+    }) => {
+      return (
+        <ScrollView
+          contentContainerStyle={{
+            gap: '$2',
+            p: '$3',
+            maxHeight: '400px',
           }}
-        />
-      ) : (
-        <NetworkAvatars
-          networks={item.networks}
-          selectedNetwork={selectedNetwork}
-        />
-      )}
-    </ListItem>
+        >
+          {media.gtMd ? (
+            <SizableText size="$bodyMd" color="$textSubdued" pb="$2">
+              {intl.formatMessage(
+                { id: ETranslations.supported_count_networks },
+                { count: item.networks.length },
+              )}
+            </SizableText>
+          ) : null}
+          <XStack flexWrap="wrap" w="100%" mb="$-4">
+            {item.networks.map((network) => (
+              <YStack
+                key={network.networkId}
+                w="25%"
+                gap="$2"
+                alignItems="center"
+                px="$2"
+                py="$3"
+                {...(interactive && {
+                  onPress: () => {
+                    setSelectedNetworkId(network.networkId);
+                    selectedNetworkIdRef.current = network.networkId;
+                    onSelect({
+                      uuid: item.uuid,
+                      networkId: network.networkId,
+                    });
+                    closePopover?.();
+                  },
+                  hoverStyle: {
+                    bg: '$bgHover',
+                  },
+                  pressStyle: {
+                    bg: '$bgActive',
+                  },
+                  borderRadius: '$2',
+                  borderCurve: 'continuous',
+                  userSelect: 'none',
+                })}
+              >
+                <NetworkAvatar networkId={network.networkId} size="$8" />
+                <SizableText
+                  size="$bodySm"
+                  textAlign="center"
+                  color="$textSubdued"
+                  numberOfLines={1}
+                >
+                  {network.name}
+                </SizableText>
+              </YStack>
+            ))}
+          </XStack>
+        </ScrollView>
+      );
+    },
+    [item.networks, item.uuid, media.gtMd, intl, onSelect],
+  );
+
+  return (
+    <YStack borderRadius="$5" borderCurve="continuous" bg="$neutral3">
+      <ListItem
+        key={item.uuid}
+        gap="$3"
+        bg="$bg"
+        borderWidth={1}
+        borderColor="$borderSubdued"
+        borderRadius="$5"
+        borderCurve="continuous"
+        p="$3"
+        pl="$5"
+        m="$0"
+        userSelect="none"
+        pressStyle={undefined}
+        onPress={() => {
+          onSelect({
+            uuid: item.uuid,
+            networkId: selectedNetworkIdRef.current,
+          });
+        }}
+        {...(selectedUUID === item.uuid && {
+          borderColor: '$borderActive',
+          hoverStyle: undefined,
+        })}
+      >
+        <ListItem.Text primary={displayName} flex={1} />
+        {item.networks.length > 1 ? (
+          <Popover
+            title={intl.formatMessage(
+              { id: ETranslations.supported_count_networks },
+              { count: item.networks.length },
+            )}
+            placement="bottom"
+            renderTrigger={
+              <NetworkAvatars
+                networks={item.networks}
+                showMore
+                p="$1"
+                m="$-1"
+                hoverStyle={{
+                  bg: '$bgHover',
+                }}
+                borderRadius="$full"
+              />
+            }
+            renderContent={() =>
+              renderNetworkPopoverContent({ interactive: false })
+            }
+          />
+        ) : (
+          <NetworkAvatars networks={item.networks} />
+        )}
+      </ListItem>
+      <HeightTransition initialHeight={0}>
+        <AnimatePresence>
+          {selectedUUID === item.uuid ? (
+            <YStack
+              animation="quick"
+              enterStyle={{
+                opacity: 0,
+                filter: 'blur(4px)',
+              }}
+              exitStyle={{
+                opacity: 0,
+                filter: 'blur(4px)',
+              }}
+              p="$5"
+              gap="$1"
+            >
+              <Label>
+                {intl.formatMessage({ id: ETranslations.selected_network })}
+              </Label>
+              <Popover
+                title={intl.formatMessage(
+                  { id: ETranslations.supported_count_networks },
+                  { count: item.networks.length },
+                )}
+                placement="bottom"
+                renderTrigger={
+                  <XStack
+                    gap="$2"
+                    alignItems="center"
+                    p="$3"
+                    py="$2.5"
+                    bg="$bg"
+                    borderWidth={1}
+                    borderColor="$borderStrong"
+                    borderRadius="$3"
+                    borderCurve="continuous"
+                    hoverStyle={{
+                      bg: '$bgHover',
+                    }}
+                    userSelect="none"
+                  >
+                    <NetworkAvatar
+                      networkId={selectedNetwork?.networkId}
+                      size="$5"
+                    />
+                    <SizableText flex={1}>{selectedNetwork?.name}</SizableText>
+                    <Icon
+                      name="ChevronDownSmallOutline"
+                      color="$iconSubdued"
+                      size="$5"
+                    />
+                  </XStack>
+                }
+                renderContent={({ closePopover }) =>
+                  renderNetworkPopoverContent({
+                    closePopover,
+                    interactive: true,
+                  })
+                }
+              />
+            </YStack>
+          ) : null}
+        </AnimatePresence>
+      </HeightTransition>
+    </YStack>
   );
 }
 
@@ -282,7 +409,7 @@ function SelectPrivateKeyNetworkView() {
 
   const handleShowMoreNetworks = useCallback(() => {
     openChainSelector({
-      title: 'Select Network',
+      title: intl.formatMessage({ id: ETranslations.global_select_network }),
       excludeAllNetworkItem: true,
       onSelect: (network) => {
         const item: IDetectedNetworkGroupItem = {
@@ -301,7 +428,7 @@ function SelectPrivateKeyNetworkView() {
         handleSelectGroupItem({ uuid: item.uuid, networkId: network.id });
       },
     });
-  }, [handleSelectGroupItem, openChainSelector]);
+  }, [handleSelectGroupItem, intl, openChainSelector]);
 
   const isValidatingRef = useRef<boolean>(false);
   const [isValidating, setIsValidating] = useState<boolean>(false);
@@ -543,82 +670,91 @@ function SelectPrivateKeyNetworkView() {
   return (
     <Page>
       <OnboardingLayout>
-        <OnboardingLayout.Header title="Select Network" />
-        <OnboardingLayout.Body>
-          <YStack gap="$2.5">
-            {detectedNetworks && detectedNetworks.length === 0 ? (
-              <SizableText textAlign="center" color="$textSubdued">
-                We couldn't detect any networks. Please try again with a
-                different private key, or use the "Show more networks" button to
-                select a network manually.
-              </SizableText>
-            ) : null}
-            {detectedNetworks?.map((network) => (
-              <NetworkGroupItem
-                key={network.uuid}
-                selectedUUID={selectedUUID}
-                onSelect={handleSelectGroupItem}
-                item={network}
-              />
-            ))}
-            {manualSelectedNetwork ? (
-              <NetworkGroupItem
-                key={manualSelectedNetwork.uuid}
-                selectedUUID={selectedUUID}
-                onSelect={handleSelectGroupItem}
-                item={manualSelectedNetwork}
-              />
-            ) : null}
-
-            <Form form={form}>
-              {validateResult?.deriveInfoItems ? (
-                <Form.Field
-                  label={intl.formatMessage({
-                    id: ETranslations.derivation_path,
-                  })}
-                  name="deriveType"
-                >
-                  <DeriveTypeSelectorFormInput
-                    networkId={selectedNetworkId || ''}
-                    enabledItems={validateResult?.deriveInfoItems || []}
-                    undefinedResultIfReRun={false}
-                    renderTrigger={({ label, onPress }) => (
-                      <Stack
-                        testID="wallet-derivation-path-selector-trigger"
-                        userSelect="none"
-                        flexDirection="row"
-                        px="$3.5"
-                        py="$2.5"
-                        borderWidth={1}
-                        borderColor="$borderStrong"
-                        borderRadius="$3"
-                        $gtMd={{
-                          px: '$3',
-                          py: '$1.5',
-                          borderRadius: '$2',
-                        }}
-                        borderCurve="continuous"
-                        hoverStyle={{
-                          bg: '$bgHover',
-                        }}
-                        pressStyle={{
-                          bg: '$bgActive',
-                        }}
-                        onPress={onPress}
-                      >
-                        <SizableText flex={1}>{label}</SizableText>
-                        <Icon
-                          name="ChevronDownSmallOutline"
-                          color="$iconSubdued"
-                          mr="$-0.5"
-                        />
-                      </Stack>
-                    )}
-                  />
-                </Form.Field>
+        <OnboardingLayout.Header
+          title={intl.formatMessage({
+            id: ETranslations.global_select_network,
+          })}
+        />
+        <OnboardingLayout.Body constrained={false}>
+          <OnboardingLayout.ConstrainedContent
+            $gtMd={{
+              py: '$6',
+            }}
+          >
+            <YStack gap="$2.5">
+              {detectedNetworks && detectedNetworks.length === 0 ? (
+                <SizableText textAlign="center" color="$textSubdued">
+                  We couldn't detect any networks. Please try again with a
+                  different private key, or use the "Show more networks" button
+                  to select a network manually.
+                </SizableText>
+              ) : null}
+              {detectedNetworks?.map((network) => (
+                <NetworkGroupItem
+                  key={network.uuid}
+                  selectedUUID={selectedUUID}
+                  onSelect={handleSelectGroupItem}
+                  item={network}
+                />
+              ))}
+              {manualSelectedNetwork ? (
+                <NetworkGroupItem
+                  key={manualSelectedNetwork.uuid}
+                  selectedUUID={selectedUUID}
+                  onSelect={handleSelectGroupItem}
+                  item={manualSelectedNetwork}
+                />
               ) : null}
 
-              {selectedNetworkId && validateResult?.isValid ? (
+              <Form form={form}>
+                {validateResult?.deriveInfoItems ? (
+                  <Form.Field
+                    label={intl.formatMessage({
+                      id: ETranslations.derivation_path,
+                    })}
+                    name="deriveType"
+                  >
+                    <DeriveTypeSelectorFormInput
+                      networkId={selectedNetworkId || ''}
+                      enabledItems={validateResult?.deriveInfoItems || []}
+                      undefinedResultIfReRun={false}
+                      renderTrigger={({ label, onPress }) => (
+                        <Stack
+                          testID="wallet-derivation-path-selector-trigger"
+                          userSelect="none"
+                          flexDirection="row"
+                          px="$3.5"
+                          py="$2.5"
+                          borderWidth={1}
+                          borderColor="$borderStrong"
+                          borderRadius="$3"
+                          $gtMd={{
+                            px: '$3',
+                            py: '$1.5',
+                            borderRadius: '$2',
+                          }}
+                          borderCurve="continuous"
+                          hoverStyle={{
+                            bg: '$bgHover',
+                          }}
+                          pressStyle={{
+                            bg: '$bgActive',
+                          }}
+                          onPress={onPress}
+                        >
+                          <SizableText flex={1}>{label}</SizableText>
+                          <Icon
+                            name="ChevronDownSmallOutline"
+                            color="$iconSubdued"
+                            mr="$-0.5"
+                          />
+                        </Stack>
+                      )}
+                    />
+                  </Form.Field>
+                ) : null}
+
+                {/* {selectedNetworkId && validateResult?.isValid ? (
                 <Form.Field
                   label={intl.formatMessage({
                     id: ETranslations.form_enter_account_name,
@@ -632,26 +768,59 @@ function SelectPrivateKeyNetworkView() {
                     })}
                   />
                 </Form.Field>
-              ) : null}
-            </Form>
+              ) : null} */}
+              </Form>
 
-            <XStack gap="$2.5" pt="$5" justifyContent="center">
-              <SizableText size="$bodyMd" color="$textSubdued">
-                Can't find your network?
+              <XStack gap="$1" pt="$5" justifyContent="center">
+                <SizableText size="$bodyMd" color="$textSubdued">
+                  {intl.formatMessage({
+                    id: ETranslations.cant_find_network_question,
+                  })}
+                </SizableText>
+                <Button
+                  variant="tertiary"
+                  size="small"
+                  onPress={handleShowMoreNetworks}
+                >
+                  {intl.formatMessage({
+                    id: ETranslations.show_more_networks,
+                  })}
+                </Button>
+              </XStack>
+            </YStack>
+            {validateResult && !validateResult?.isValid && input ? (
+              <SizableText size="$bodyMd" color="$textCritical">
+                {invalidMessage}
               </SizableText>
-              <Button
-                variant="tertiary"
-                size="small"
-                onPress={handleShowMoreNetworks}
-              >
-                Show more networks
-              </Button>
-            </XStack>
-          </YStack>
+            ) : null}
+
+            <SizableText>{selectedNetworkId}</SizableText>
+            <Button
+              size="small"
+              onPress={() => {
+                Dialog.debugMessage({
+                  debugMessage: {
+                    submitButtonDisabled,
+                    selectedNetworkId,
+                    validateResult,
+                    isValid: !validateResult?.isValid,
+                    // form,
+                    errors: form.formState.errors,
+                    // !!Object.values(form.formState.errors).length
+                  },
+                });
+              }}
+            >
+              debugMessage
+            </Button>
+          </OnboardingLayout.ConstrainedContent>
+        </OnboardingLayout.Body>
+        <OnboardingLayout.Footer>
           <Button
+            w="100%"
+            maxWidth={400}
             disabled={submitButtonDisabled}
             loading={submitButtonLoading}
-            mt="$5"
             size="large"
             variant="primary"
             onPress={async () => {
@@ -664,34 +833,9 @@ function SelectPrivateKeyNetworkView() {
               await form?.submit?.();
             }}
           >
-            Confirm
+            {intl.formatMessage({ id: ETranslations.global_confirm })}
           </Button>
-          {validateResult && !validateResult?.isValid && input ? (
-            <SizableText size="$bodyMd" color="$textCritical">
-              {invalidMessage}
-            </SizableText>
-          ) : null}
-
-          <SizableText>{selectedNetworkId}</SizableText>
-          <Button
-            size="small"
-            onPress={() => {
-              Dialog.debugMessage({
-                debugMessage: {
-                  submitButtonDisabled,
-                  selectedNetworkId,
-                  validateResult,
-                  isValid: !validateResult?.isValid,
-                  // form,
-                  errors: form.formState.errors,
-                  // !!Object.values(form.formState.errors).length
-                },
-              });
-            }}
-          >
-            debugMessage
-          </Button>
-        </OnboardingLayout.Body>
+        </OnboardingLayout.Footer>
       </OnboardingLayout>
     </Page>
   );
