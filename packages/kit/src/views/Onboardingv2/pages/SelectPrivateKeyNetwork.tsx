@@ -282,7 +282,7 @@ function SelectPrivateKeyNetworkView() {
 
   const handleShowMoreNetworks = useCallback(() => {
     openChainSelector({
-      title: 'Select Network',
+      title: intl.formatMessage({ id: ETranslations.global_select_network }),
       excludeAllNetworkItem: true,
       onSelect: (network) => {
         const item: IDetectedNetworkGroupItem = {
@@ -301,7 +301,7 @@ function SelectPrivateKeyNetworkView() {
         handleSelectGroupItem({ uuid: item.uuid, networkId: network.id });
       },
     });
-  }, [handleSelectGroupItem, openChainSelector]);
+  }, [handleSelectGroupItem, intl, openChainSelector]);
 
   const isValidatingRef = useRef<boolean>(false);
   const [isValidating, setIsValidating] = useState<boolean>(false);
@@ -543,7 +543,11 @@ function SelectPrivateKeyNetworkView() {
   return (
     <Page>
       <OnboardingLayout>
-        <OnboardingLayout.Header title="Select Network" />
+        <OnboardingLayout.Header
+          title={intl.formatMessage({
+            id: ETranslations.global_select_network,
+          })}
+        />
         <OnboardingLayout.Body>
           <YStack gap="$2.5">
             {detectedNetworks && detectedNetworks.length === 0 ? (

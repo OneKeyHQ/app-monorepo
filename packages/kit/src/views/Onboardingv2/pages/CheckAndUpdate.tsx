@@ -24,6 +24,7 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
 import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
+import { HwWalletAvatarImages } from '@onekeyhq/shared/src/utils/avatarUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import {
@@ -90,6 +91,12 @@ function CheckAndUpdatePage({
     }
   }, [tabValue]);
 
+  const deviceImage = useMemo(() => {
+    const device = deviceData.device as SearchDevice;
+    const deviceType = device?.deviceType || EDeviceType.Pro;
+    return HwWalletAvatarImages[deviceType];
+  }, [deviceData]);
+
   const [steps, setSteps] = useState<
     {
       image: IImageProps['source'];
@@ -100,7 +107,7 @@ function CheckAndUpdatePage({
       neededAction?: boolean;
       errorMessage?: string;
     }[]
-  >([
+  >(() => [
     {
       id: 'genuine-check',
       image:
@@ -137,7 +144,7 @@ function CheckAndUpdatePage({
     },
     {
       id: 'setup-on-device',
-      image: require('@onekeyhq/shared/src/assets/wallet/avatar/ProBlack.png'),
+      image: deviceImage,
       title: intl.formatMessage({ id: ETranslations.device_setup_check_title }),
       description: intl.formatMessage({
         id: ETranslations.device_setup_check_desc,
@@ -531,10 +538,12 @@ function CheckAndUpdatePage({
                         enterStyle={{
                           opacity: 0,
                           scale: 0.97,
+                          filter: 'blur(4px)',
                         }}
                         exitStyle={{
                           opacity: 0,
                           scale: 0.97,
+                          filter: 'blur(4px)',
                         }}
                         position="absolute"
                         left={-10}
