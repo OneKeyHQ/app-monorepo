@@ -138,9 +138,14 @@ export function LevelAccordionItem({
                             getDefaultSubjectLabel(condition.subject),
                         )}
                       </SizableText>
-                      <Currency size="$bodyMd" formatter="value">
-                        {condition.thresholdFiatValue}
-                      </Currency>
+                      <XStack gap="$1" ai="center" jc="flex-end">
+                        <SizableText size="$bodyMdMedium" color="$text">
+                          {`${condition.current} / ${condition.thresholdFiatValue}`}
+                        </SizableText>
+                        <SizableText size="$bodyMd" color="$textSubdued">
+                          USD
+                        </SizableText>
+                      </XStack>
                     </XStack>
                   ))}
                 </YStack>
