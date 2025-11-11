@@ -188,7 +188,20 @@ export default function NFTDetails() {
 
       try {
         const name = nft.metadata?.name;
-        const imgBase64: string = croppedImage.data;
+
+        const imgBase64: string = croppedImage?.data ?? '';
+        const originW = croppedImage?.width ?? 0;
+        const originH = croppedImage?.height ?? 0;
+
+        const img = await imageUtils.resizeImage({
+          uri: imgBase64,
+
+          width: config.size?.width,
+          height: config.size?.height,
+
+          originW,
+          originH,
+        });
 
         const {
           screenHex: customScreenHex,
@@ -196,7 +209,7 @@ export default function NFTDetails() {
           blurScreenHex: customBlurScreenHex,
         } = await deviceHomeScreenUtils.buildCustomScreenHex({
           dbDeviceId: device.id,
-          url: imgBase64,
+          url: img.uri,
           deviceType: device.deviceType,
           isUserUpload: true,
           config,
