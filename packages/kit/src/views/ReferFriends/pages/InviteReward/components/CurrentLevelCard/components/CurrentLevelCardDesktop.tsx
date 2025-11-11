@@ -20,7 +20,7 @@ export function CurrentLevelCardDesktop(props: ICurrentLevelCardProps) {
   const { levelIcon, levelLabel, commissionRates } = useCurrentLevelCard(props);
 
   return (
-    <YStack px="$5" pt="$6" pb="$5" $platform-native={{ pb: '$8' }}>
+    <YStack px="$5" pb="$5" $platform-native={{ pb: '$8' }}>
       <XStack
         borderRadius="$3"
         borderWidth="$px"
@@ -35,20 +35,20 @@ export function CurrentLevelCardDesktop(props: ICurrentLevelCardProps) {
           <LevelBadge levelIcon={levelIcon} levelLabel={levelLabel} />
 
           {/* Commission rates */}
-          <YStack gap="$2">
-            <SizableText size="$bodyMdMedium" color="$text">
+          <YStack gap="$3">
+            <SizableText size="$bodyMdMedium" color="$textSubdued" pt="$2">
               {intl.formatMessage({ id: ETranslations.referral_rate })}
             </SizableText>
 
             {/* Rates grid */}
             <XStack gap="$8">
               {commissionRates.map(({ subject, rate }) => (
-                <YStack key={subject} gap="$1">
+                <YStack key={subject} gap="$0.5">
                   <XStack gap="$1" ai="center">
                     <SizableText size="$bodyMdMedium" color="$text">
                       {rate.you}%
                     </SizableText>
-                    <SizableText size="$bodyMd" color="$textSubdued">
+                    <SizableText size="$bodyMd" color="$neutral7">
                       /
                     </SizableText>
                     <SizableText size="$bodyMdMedium" color="$text">
@@ -67,8 +67,8 @@ export function CurrentLevelCardDesktop(props: ICurrentLevelCardProps) {
 
         {/* Right side - Level icon */}
         {levelIcon ? (
-          <Stack w={108} h={108} ai="center" jc="center" ml="$5">
-            <Image w={108} h={108} src={levelIcon} />
+          <Stack w={88} h={88} ai="center" jc="center" ml="$5" pt="$3">
+            <Image w={88} h={88} src={levelIcon} />
           </Stack>
         ) : null}
       </XStack>

@@ -9,6 +9,7 @@ import type {
   UseFormReturn,
 } from '@onekeyhq/components';
 import {
+  Alert,
   AnimatePresence,
   Button,
   Dialog,
@@ -552,7 +553,7 @@ function SelectPrivateKeyNetworkView() {
   });
   const accountNameDebounced = useDebounce(accountName?.trim() || '', 600);
   const invalidMessage = intl.formatMessage({
-    id: ETranslations.form_private_key_error_invalid,
+    id: ETranslations.network_does_not_match_the_private_key,
   });
 
   const [validateResult, setValidateResult] = useState<
@@ -683,11 +684,58 @@ function SelectPrivateKeyNetworkView() {
           >
             <YStack gap="$2.5">
               {detectedNetworks && detectedNetworks.length === 0 ? (
-                <SizableText textAlign="center" color="$textSubdued">
-                  We couldn't detect any networks. Please try again with a
-                  different private key, or use the "Show more networks" button
-                  to select a network manually.
-                </SizableText>
+                <YStack gap="$5">
+                  <SizableText size="$bodyLg">
+                    {intl.formatMessage({
+                      id: ETranslations.havent_found_network_desc,
+                    })}
+                  </SizableText>
+                  <ListItem
+                    onPress={handleShowMoreNetworks}
+                    gap="$3"
+                    bg="$bg"
+                    borderWidth={1}
+                    borderColor="$borderSubdued"
+                    borderCurve="continuous"
+                    p="$3"
+                    pr="$5"
+                    m="$0"
+                    userSelect="none"
+                  >
+                    {manualSelectedNetwork ? (
+                      <NetworkAvatar
+                        networkId={manualSelectedNetwork.networks[0]?.networkId}
+                        size="$10"
+                      />
+                    ) : (
+                      <YStack p="$2" borderRadius="$full" bg="$bgStrong">
+                        <Icon name="PlusLargeOutline" />
+                      </YStack>
+                    )}
+                    <ListItem.Text
+                      flex={1}
+                      primary={
+                        manualSelectedNetwork
+                          ? manualSelectedNetwork.networks[0]?.name
+                          : intl.formatMessage({
+                              id: ETranslations.global_select_network,
+                            })
+                      }
+                    />
+                    <Icon
+                      name="ChevronDownSmallSolid"
+                      color="$iconSubdued"
+                      size="$5"
+                    />
+                  </ListItem>
+                  {validateResult && !validateResult?.isValid && input ? (
+                    <Alert
+                      icon="ErrorOutline"
+                      title={invalidMessage}
+                      type="danger"
+                    />
+                  ) : null}
+                </YStack>
               ) : null}
               {detectedNetworks?.map((network) => (
                 <NetworkGroupItem
@@ -697,14 +745,6 @@ function SelectPrivateKeyNetworkView() {
                   item={network}
                 />
               ))}
-              {manualSelectedNetwork ? (
-                <NetworkGroupItem
-                  key={manualSelectedNetwork.uuid}
-                  selectedUUID={selectedUUID}
-                  onSelect={handleSelectGroupItem}
-                  item={manualSelectedNetwork}
-                />
-              ) : null}
 
               <Form form={form}>
                 {validateResult?.deriveInfoItems ? (
@@ -770,31 +810,27 @@ function SelectPrivateKeyNetworkView() {
                 </Form.Field>
               ) : null} */}
               </Form>
-
-              <XStack gap="$1" pt="$5" justifyContent="center">
-                <SizableText size="$bodyMd" color="$textSubdued">
-                  {intl.formatMessage({
-                    id: ETranslations.cant_find_network_question,
-                  })}
-                </SizableText>
-                <Button
-                  variant="tertiary"
-                  size="small"
-                  onPress={handleShowMoreNetworks}
-                >
-                  {intl.formatMessage({
-                    id: ETranslations.show_more_networks,
-                  })}
-                </Button>
-              </XStack>
+              {detectedNetworks && detectedNetworks.length > 0 ? (
+                <XStack gap="$1" pt="$5" justifyContent="center">
+                  <SizableText size="$bodyMd" color="$textSubdued">
+                    {intl.formatMessage({
+                      id: ETranslations.cant_find_network_question,
+                    })}
+                  </SizableText>
+                  <Button
+                    variant="tertiary"
+                    size="small"
+                    onPress={handleShowMoreNetworks}
+                  >
+                    {intl.formatMessage({
+                      id: ETranslations.show_more_networks,
+                    })}
+                  </Button>
+                </XStack>
+              ) : null}
             </YStack>
-            {validateResult && !validateResult?.isValid && input ? (
-              <SizableText size="$bodyMd" color="$textCritical">
-                {invalidMessage}
-              </SizableText>
-            ) : null}
 
-            <SizableText>{selectedNetworkId}</SizableText>
+            {/* <SizableText>{selectedNetworkId}</SizableText> */}
             <Button
               size="small"
               onPress={() => {
