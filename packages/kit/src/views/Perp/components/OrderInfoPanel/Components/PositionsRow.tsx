@@ -38,13 +38,14 @@ import { getValidPriceDecimals } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import { usePerpsMidPrice } from '../../../hooks/usePerpsMidPrice';
 import { usePerpsOpenOrdersOfAsset } from '../../../hooks/usePerpsOpenOrdersOfAsset';
+import { useShowPositionShare } from '../../../hooks/useShowPositionShare';
 import { showAdjustPositionMarginDialog } from '../AdjustPositionMarginModal';
 import { showClosePositionDialog } from '../ClosePositionModal';
 import { showSetTpslDialog } from '../SetTpslModal';
 import { calcCellAlign, getColumnStyle } from '../utils';
 
 import type { IColumnConfig } from '../List/CommonTableListView';
-import type { AssetPosition, FrontendOrder } from '@nktkas/hyperliquid';
+import type { AssetPosition } from '@nktkas/hyperliquid';
 
 interface IPositionRowProps {
   mockedPosition: {
@@ -66,6 +67,10 @@ interface IPositionRowContextValue {
   coin: string;
   decimals: number;
   side: 'long' | 'short';
+  markPrice: {
+    mid: string | undefined;
+    midFormattedByDecimals: string | undefined;
+  };
   assetInfo: {
     assetSymbol: string;
     leverage: number | string;
@@ -108,6 +113,7 @@ interface IPositionRowContextValue {
   onAdjustMargin: () => void;
   onViewTpslOrders: () => void;
   onSizeViewChange: () => void;
+  onShare: () => void;
 }
 
 const PositionRowContext = createContext<IPositionRowContextValue | null>(null);
@@ -133,6 +139,21 @@ function PositionRowProvider({
   );
 }
 
+function MarkPriceFromContext() {
+  const { markPrice } = usePositionRowContext();
+
+  return useMemo(
+    () => (
+      <DebugRenderTracker position="bottom-right" name="MarkPrice" offsetY={10}>
+        <SizableText numberOfLines={1} ellipsizeMode="tail" size="$bodySm">
+          {markPrice.midFormattedByDecimals}
+        </SizableText>
+      </DebugRenderTracker>
+    ),
+    [markPrice.midFormattedByDecimals],
+  );
+}
+
 function MarkPrice({ coin }: { coin: string }) {
   const { midFormattedByDecimals } = usePerpsMidPrice({
     coin,
@@ -150,7 +171,7 @@ function MarkPrice({ coin }: { coin: string }) {
   );
 }
 
-function useCurrentPositionFromMocked(mockedPosition: { index: number }): {
+function _useCurrentPositionFromMocked(mockedPosition: { index: number }): {
   position: AssetPosition['position'];
 } {
   const [positions] = usePerpsActivePositionAtom();
@@ -284,7 +305,7 @@ const PositionRowDesktopEntryPrice = memo(() => {
 PositionRowDesktopEntryPrice.displayName = 'PositionRowDesktopEntryPrice';
 
 const PositionRowDesktopMarkPrice = memo(() => {
-  const { columnConfigs, coin } = usePositionRowContext();
+  const { columnConfigs } = usePositionRowContext();
 
   const content = useMemo(
     () => (
@@ -293,10 +314,10 @@ const PositionRowDesktopMarkPrice = memo(() => {
         justifyContent={calcCellAlign(columnConfigs[3].align)}
         alignItems="center"
       >
-        <MarkPrice coin={coin} />
+        <MarkPriceFromContext />
       </XStack>
     ),
-    [columnConfigs, coin],
+    [columnConfigs],
   );
   return content;
 });
@@ -333,7 +354,7 @@ const PositionRowDesktopLiqPrice = memo(() => {
 PositionRowDesktopLiqPrice.displayName = 'PositionRowDesktopLiqPrice';
 
 const PositionRowDesktopPnL = memo(() => {
-  const { columnConfigs, otherInfo } = usePositionRowContext();
+  const { columnConfigs, otherInfo, onShare } = usePositionRowContext();
 
   const content = useMemo(
     () => (
@@ -342,6 +363,7 @@ const PositionRowDesktopPnL = memo(() => {
           {...getColumnStyle(columnConfigs[5])}
           justifyContent={calcCellAlign(columnConfigs[5].align)}
           alignItems="center"
+          gap="$1"
         >
           <SizableText
             size="$bodySm"
@@ -351,10 +373,18 @@ const PositionRowDesktopPnL = memo(() => {
           >
             {`${otherInfo.pnlPlusOrMinus}${otherInfo.unrealizedPnl}(${otherInfo.pnlPlusOrMinus}${otherInfo.roiPercent}%)`}
           </SizableText>
+          <IconButton
+            variant="tertiary"
+            size="small"
+            icon="ShareOutline"
+            iconSize="$4"
+            onPress={onShare}
+            cursor="pointer"
+          />
         </XStack>
       </DebugRenderTracker>
     ),
-    [columnConfigs, otherInfo],
+    [columnConfigs, otherInfo, onShare],
   );
   return content;
 });
@@ -653,7 +683,7 @@ PositionRowDesktop.displayName = 'PositionRowDesktop';
 
 const PositionRowMobileHeader = memo(() => {
   const intl = useIntl();
-  const { side, assetInfo, onChangeAsset } = usePositionRowContext();
+  const { side, assetInfo, onChangeAsset, onShare } = usePositionRowContext();
 
   const content = useMemo(
     () => (
@@ -661,46 +691,57 @@ const PositionRowMobileHeader = memo(() => {
         position="bottom-right"
         name="PositionRowMobileHeader"
       >
-        <XStack
-          gap="$2"
-          alignItems="center"
-          cursor="pointer"
-          onPress={onChangeAsset}
-        >
+        <XStack justifyContent="space-between" flex={1}>
           <XStack
-            w="$4"
-            h="$4"
-            justifyContent="center"
+            flex={1}
+            gap="$2"
             alignItems="center"
-            borderRadius={2}
-            backgroundColor={assetInfo.assetColor}
+            cursor="pointer"
+            onPress={onChangeAsset}
           >
-            <SizableText size="$bodySmMedium" color="$textOnColor">
-              {side === 'long'
-                ? intl.formatMessage({
-                    id: ETranslations.perp_position_b,
-                  })
-                : intl.formatMessage({
-                    id: ETranslations.perp_position_s,
-                  })}
+            <XStack
+              w="$4"
+              h="$4"
+              justifyContent="center"
+              alignItems="center"
+              borderRadius={2}
+              backgroundColor={assetInfo.assetColor}
+            >
+              <SizableText size="$bodySmMedium" color="$textOnColor">
+                {side === 'long'
+                  ? intl.formatMessage({
+                      id: ETranslations.perp_position_b,
+                    })
+                  : intl.formatMessage({
+                      id: ETranslations.perp_position_s,
+                    })}
+              </SizableText>
+            </XStack>
+            <SizableText size="$bodyMdMedium" color="$text">
+              {assetInfo.assetSymbol}
+            </SizableText>
+            <SizableText
+              bg="$bgSubdued"
+              borderRadius={2}
+              px="$1"
+              color="$textSubdued"
+              fontSize={10}
+            >
+              {assetInfo.leverageType} {assetInfo.leverage}x
             </SizableText>
           </XStack>
-          <SizableText size="$bodyMdMedium" color="$text">
-            {assetInfo.assetSymbol}
-          </SizableText>
-          <SizableText
-            bg="$bgSubdued"
-            borderRadius={2}
-            px="$1"
-            color="$textSubdued"
-            fontSize={10}
-          >
-            {assetInfo.leverageType} {assetInfo.leverage}x
-          </SizableText>
+          <IconButton
+            variant="tertiary"
+            size="small"
+            icon="ShareOutline"
+            iconSize="$4"
+            onPress={onShare}
+            cursor="pointer"
+          />
         </XStack>
       </DebugRenderTracker>
     ),
-    [side, assetInfo, onChangeAsset, intl],
+    [side, assetInfo, onChangeAsset, intl, onShare],
   );
   return content;
 });
@@ -1194,6 +1235,11 @@ const PositionRow = memo(
       () => getValidPriceDecimals(pos.entryPx || '0'),
       [pos.entryPx],
     );
+
+    const markPrice = usePerpsMidPrice({
+      coin,
+    });
+
     const priceInfo = useMemo(() => {
       const entryPrice = new BigNumber(pos.entryPx || '0').toFixed(decimals);
 
@@ -1371,6 +1417,30 @@ const PositionRow = memo(
       [pos],
     );
 
+    const { showPositionShare } = useShowPositionShare();
+
+    const handleShare = useCallback(() => {
+      const markPriceFormatted = markPrice.midFormattedByDecimals
+        ? new BigNumber(markPrice.midFormattedByDecimals).toFixed(decimals)
+        : '0';
+
+      const pnlBn = new BigNumber(pos.unrealizedPnl || '0');
+      const marginUsedBN = new BigNumber(pos.marginUsed || '0');
+      const pnlPercent = marginUsedBN.gt(0)
+        ? pnlBn.div(marginUsedBN).times(100).toFixed(2)
+        : '0';
+
+      showPositionShare({
+        side: parseFloat(pos.szi) >= 0 ? 'long' : 'short',
+        token: pos.coin,
+        pnl: pos.unrealizedPnl,
+        pnlPercent,
+        leverage: pos.leverage?.value || 0,
+        entryPrice: pos.entryPx,
+        markPrice: markPriceFormatted,
+      });
+    }, [showPositionShare, pos, markPrice.midFormattedByDecimals, decimals]);
+
     const contextValue: IPositionRowContextValue = {
       mockedPosition,
       cellMinWidth,
@@ -1378,6 +1448,7 @@ const PositionRow = memo(
       coin,
       decimals,
       side,
+      markPrice,
       assetInfo,
       sizeInfo,
       priceInfo,
@@ -1391,6 +1462,7 @@ const PositionRow = memo(
       onAdjustMargin: handleAdjustMargin,
       onViewTpslOrders: handleViewTpslOrders,
       onSizeViewChange: handleSizeViewChange,
+      onShare: handleShare,
     };
 
     return (

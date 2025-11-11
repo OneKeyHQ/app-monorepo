@@ -11,6 +11,7 @@ import {
   LazyLoadRootTabPage,
 } from '../../../components/LazyLoadPage';
 import PerpTradersHistoryList from '../components/OrderInfoPanel/PerpTradersHistoryListModal';
+import MobilePositionShareModal from '../components/PositionShare/PositionShareModal';
 
 const PagePerp = LazyLoadRootTabPage(() => import('../pages/Perp'));
 const MobilePerpMarketPage = LazyLoadPage(
@@ -77,5 +78,9 @@ export const ModalPerpStack: IModalFlowNavigatorConfig<
   {
     name: EModalPerpRoutes.MobileDepositWithdrawModal,
     component: MobileDepositWithdrawModal,
+  },
+  {
+    name: EModalPerpRoutes.PositionShare,
+    component: MobilePositionShareModal,
   },
 ];
