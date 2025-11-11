@@ -14,7 +14,7 @@ interface ICreateCodeButtonProps {
 }
 
 export function CreateCodeButton({
-  remainingCodes,
+  remainingCodes = 0,
   onCodeCreated,
   inviteUrlTemplate,
 }: ICreateCodeButtonProps) {
