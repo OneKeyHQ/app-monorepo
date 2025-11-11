@@ -311,3 +311,16 @@ export interface IMarketTokenDetailResponse {
   message: string;
   data: IMarketTokenDetailData;
 }
+
+export interface IMarketAccountPortfolioItem {
+  accountAddress: string;
+  tokenAddress: string;
+  amount: string;
+  symbol: string;
+  tokenPrice: string;
+  totalPrice: string;
+}
+
+export interface IMarketAccountPortfolioResponse {
+  list: IMarketAccountPortfolioItem[];
+}
