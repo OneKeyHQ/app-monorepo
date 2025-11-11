@@ -406,7 +406,14 @@ function CheckAndUpdatePage({
         id: ETranslations.skip_firmware_check_dialog_desc,
       }),
       onConfirm: () => {
-        // Execute skip logic after confirmation
+        setSteps((prev) => {
+          const newSteps = [...prev];
+          newSteps[1] = {
+            ...newSteps[1],
+            state: ECheckAndUpdateStepState.Success,
+          };
+          return newSteps;
+        });
         void checkDeviceInitialized();
       },
     });
