@@ -41,8 +41,8 @@ export function ReferralCodeCardMobile({
       <Divider />
 
       {/* Referral Link row */}
-      <XStack gap="$2" ai="center" jc="space-between">
-        <SizableText size="$bodyMd" color="$textSubdued">
+      <XStack gap="$5" ai="center" jc="space-between">
+        <SizableText size="$bodyMd" color="$textSubdued" flexShrink={0}>
           {intl.referralLink}
         </SizableText>
         <SizableText
