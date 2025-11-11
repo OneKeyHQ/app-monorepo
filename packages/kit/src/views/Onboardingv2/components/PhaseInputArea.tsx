@@ -32,7 +32,6 @@ import {
   HeightTransition,
   Icon,
   Input,
-  Page,
   Popover,
   ScrollView,
   Select,
@@ -40,7 +39,6 @@ import {
   Stack,
   XStack,
   useForm,
-  useIsKeyboardShown,
   useKeyboardEvent,
   useMedia,
 } from '@onekeyhq/components';
@@ -576,98 +574,96 @@ export function PhaseInputArea({
 
   return (
     <>
-      <Page.Body>
-        {showPhraseLengthSelector || showClearAllButton ? (
-          <XStack pb="$2" pt="$2" justifyContent="space-between">
-            {showPhraseLengthSelector ? (
-              <Select
-                title={intl.formatMessage({
-                  id: ETranslations.select_recovery_phrase_length,
-                })}
-                placement="bottom-start"
-                items={phraseLengthOptions}
-                value={phraseLength}
-                onChange={handleChangePhraseLength}
-                renderTrigger={({ value }) => (
-                  <Button
-                    iconAfter="ChevronDownSmallOutline"
-                    size="small"
-                    variant="tertiary"
-                    testID="phrase-length"
-                  >
-                    {intl.formatMessage(
-                      { id: ETranslations.count_words },
-                      {
-                        length: value,
-                      },
-                    )}
-                  </Button>
-                )}
-              />
-            ) : null}
-            {showClearAllButton ? (
-              <Button
-                icon="BroomOutline"
-                size="small"
-                variant="tertiary"
-                onPress={handleClear}
-                testID="clear-all"
-              >
-                {intl.formatMessage({ id: ETranslations.global_clear })}
-              </Button>
-            ) : null}
+      {showPhraseLengthSelector || showClearAllButton ? (
+        <XStack pb="$2" pt="$2" justifyContent="space-between">
+          {showPhraseLengthSelector ? (
+            <Select
+              title={intl.formatMessage({
+                id: ETranslations.select_recovery_phrase_length,
+              })}
+              placement="bottom-start"
+              items={phraseLengthOptions}
+              value={phraseLength}
+              onChange={handleChangePhraseLength}
+              renderTrigger={({ value }) => (
+                <Button
+                  iconAfter="ChevronDownSmallOutline"
+                  size="small"
+                  variant="tertiary"
+                  testID="phrase-length"
+                >
+                  {intl.formatMessage(
+                    { id: ETranslations.count_words },
+                    {
+                      length: value,
+                    },
+                  )}
+                </Button>
+              )}
+            />
+          ) : null}
+          {showClearAllButton ? (
+            <Button
+              icon="BroomOutline"
+              size="small"
+              variant="tertiary"
+              onPress={handleClear}
+              testID="clear-all"
+            >
+              {intl.formatMessage({ id: ETranslations.global_clear })}
+            </Button>
+          ) : null}
+        </XStack>
+      ) : null}
+      <Form form={form}>
+        <XStack flexWrap="wrap" m="$-1">
+          {Array.from({ length: phraseLengthNumber }).map((_, index) => (
+            <Stack key={index} flexBasis="50%" p="$1">
+              <Form.Field name={`phrase${index + 1}`}>
+                <PhaseInput
+                  index={index}
+                  isShowError={isShowErrors[index]}
+                  onInputBlur={onInputBlur}
+                  phraseLength={phraseLengthNumber}
+                  onInputChange={onInputChange}
+                  onInputFocus={onInputFocus}
+                  onPasteMnemonic={onPasteMnemonic}
+                  suggestionsRef={suggestionsRef}
+                  updateInputValue={updateInputValue}
+                  openStatusRef={openStatusRef}
+                  selectInputIndex={selectInputIndex}
+                  closePopover={closePopover}
+                  onReturnKeyPressed={handleReturnKeyPressed}
+                  getReturnKeyLabel={getReturnKeyLabel}
+                  testID={`phrase-input-index${index}`}
+                />
+              </Form.Field>
+            </Stack>
+          ))}
+        </XStack>
+      </Form>
+
+      <HeightTransition>
+        {invalidWordsLength > 0 ? (
+          <XStack pt="$1.5" px="$5" key="invalidWord">
+            <Icon name="XCircleOutline" size="$5" color="$iconCritical" />
+            <SizableText size="$bodyMd" color="$textCritical" pl="$2">
+              {invalidWordsMessage(invalidWordsLength)}
+            </SizableText>
           </XStack>
         ) : null}
-        <Form form={form}>
-          <XStack flexWrap="wrap" m="$-1">
-            {Array.from({ length: phraseLengthNumber }).map((_, index) => (
-              <Stack key={index} flexBasis="50%" p="$1">
-                <Form.Field name={`phrase${index + 1}`}>
-                  <PhaseInput
-                    index={index}
-                    isShowError={isShowErrors[index]}
-                    onInputBlur={onInputBlur}
-                    phraseLength={phraseLengthNumber}
-                    onInputChange={onInputChange}
-                    onInputFocus={onInputFocus}
-                    onPasteMnemonic={onPasteMnemonic}
-                    suggestionsRef={suggestionsRef}
-                    updateInputValue={updateInputValue}
-                    openStatusRef={openStatusRef}
-                    selectInputIndex={selectInputIndex}
-                    closePopover={closePopover}
-                    onReturnKeyPressed={handleReturnKeyPressed}
-                    getReturnKeyLabel={getReturnKeyLabel}
-                    testID={`phrase-input-index${index}`}
-                  />
-                </Form.Field>
-              </Stack>
-            ))}
+        {invalidPhrase ? (
+          <XStack pt="$1.5" px="$5" key="invalidPhrase">
+            <Icon name="XCircleOutline" size="$5" color="$iconCritical" />
+            <SizableText size="$bodyMd" color="$textCritical" pl="$2">
+              {intl.formatMessage({
+                id: ETranslations.feedback_invalid_phrases,
+              })}
+            </SizableText>
           </XStack>
-        </Form>
-
-        <HeightTransition>
-          {invalidWordsLength > 0 ? (
-            <XStack pt="$1.5" px="$5" key="invalidWord">
-              <Icon name="XCircleOutline" size="$5" color="$iconCritical" />
-              <SizableText size="$bodyMd" color="$textCritical" pl="$2">
-                {invalidWordsMessage(invalidWordsLength)}
-              </SizableText>
-            </XStack>
-          ) : null}
-          {invalidPhrase ? (
-            <XStack pt="$1.5" px="$5" key="invalidPhrase">
-              <Icon name="XCircleOutline" size="$5" color="$iconCritical" />
-              <SizableText size="$bodyMd" color="$textCritical" pl="$2">
-                {intl.formatMessage({
-                  id: ETranslations.feedback_invalid_phrases,
-                })}
-              </SizableText>
-            </XStack>
-          ) : null}
-        </HeightTransition>
-        {FooterComponent}
-      </Page.Body>
+        ) : null}
+      </HeightTransition>
+      {FooterComponent}
       {onConfirm ? (
         <PageFooter
           suggestions={suggestions}
