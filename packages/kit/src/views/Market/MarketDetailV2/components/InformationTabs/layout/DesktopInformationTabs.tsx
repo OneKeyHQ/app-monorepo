@@ -12,8 +12,10 @@ import {
 
 import { useTokenDetail } from '../../../hooks/useTokenDetail';
 import { Holders } from '../components/Holders';
+import { Portfolio } from '../components/Portfolio';
 import { TransactionsHistory } from '../components/TransactionsHistory';
 import { useBottomTabAnalytics } from '../hooks/useBottomTabAnalytics';
+import { useNetworkAccountAddress } from '../hooks/useNetworkAccountAddress';
 
 import { StickyHeader } from './StickyHeader';
 
@@ -42,6 +44,7 @@ export function DesktopInformationTabs() {
   const intl = useIntl();
   const { tokenAddress, networkId, tokenDetail } = useTokenDetail();
   const { handleTabChange } = useBottomTabAnalytics();
+  const { accountAddress } = useNetworkAccountAddress(networkId);
 
   const holdersTabName = useMemo(() => {
     const baseTitle = intl.formatMessage({
@@ -60,6 +63,8 @@ export function DesktopInformationTabs() {
   const tabs = useMemo(() => {
     // Check if current network supports holders tab
     const shouldShowHoldersTab = isHoldersTabSupported(networkId);
+    // Check if there's an account address available
+    const shouldShowPortfolioTab = !!accountAddress;
 
     const items = [
       <Tabs.Tab
@@ -73,6 +78,20 @@ export function DesktopInformationTabs() {
           networkId={networkId}
         />
       </Tabs.Tab>,
+      shouldShowPortfolioTab && (
+        <Tabs.Tab
+          key="portfolio"
+          name={intl.formatMessage({
+            id: ETranslations.dexmarket_details_myposition,
+          })}
+        >
+          <Portfolio
+            tokenAddress={tokenAddress}
+            networkId={networkId}
+            accountAddress={accountAddress}
+          />
+        </Tabs.Tab>
+      ),
       shouldShowHoldersTab && (
         <Tabs.Tab key="holders" name={holdersTabName}>
           <Holders tokenAddress={tokenAddress} networkId={networkId} />
@@ -80,7 +99,7 @@ export function DesktopInformationTabs() {
       ),
     ].filter(Boolean);
     return items;
-  }, [intl, tokenAddress, networkId, holdersTabName]);
+  }, [intl, tokenAddress, networkId, holdersTabName, accountAddress]);
 
   const renderTabBar = useCallback(({ ...props }: any) => {
     return <DesktopInformationTabsHeader {...props} />;
