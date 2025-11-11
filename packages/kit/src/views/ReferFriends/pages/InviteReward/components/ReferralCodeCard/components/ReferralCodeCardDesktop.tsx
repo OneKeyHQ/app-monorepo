@@ -1,6 +1,12 @@
 import { useIntl } from 'react-intl';
 
-import { IconButton, SizableText, XStack, YStack } from '@onekeyhq/components';
+import {
+  ButtonFrame,
+  Icon,
+  SizableText,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { ReferralListButton } from '../../ReferralListButton';
@@ -20,7 +26,8 @@ function ReferralInputField({
   onCopy,
 }: IReferralInputFieldProps) {
   return (
-    <XStack
+    <ButtonFrame
+      flexDirection="row"
       bg="$bgStrong"
       borderRadius="$3"
       px="$3.5"
@@ -28,6 +35,15 @@ function ReferralInputField({
       ai="center"
       jc="space-between"
       w="100%"
+      borderWidth={0}
+      onPress={onCopy}
+      userSelect="none"
+      hoverStyle={{
+        bg: '$bgHover',
+      }}
+      pressStyle={{
+        bg: '$bgActive',
+      }}
     >
       {/* Left content area */}
       <SizableText size="$bodyLg" color="$textPlaceholder">
@@ -44,15 +60,15 @@ function ReferralInputField({
           {value}
         </SizableText>
 
-        {/* Right copy button */}
-        <IconButton
-          icon="Copy3Outline"
-          size="medium"
-          variant="tertiary"
-          onPress={onCopy}
+        {/* Right copy icon */}
+        <Icon
+          name="Copy3Outline"
+          size="$6"
+          color="$iconSubdued"
+          flexShrink={0}
         />
       </XStack>
-    </XStack>
+    </ButtonFrame>
   );
 }
 
