@@ -401,6 +401,25 @@ export function useDeviceConnect() {
                     });
                   }, 150);
                 },
+                onDevSkipVerificationPress: () => {
+                  isVerified = false;
+                  setTimeout(() => {
+                    resolve({
+                      verified: false,
+                      skipVerification: true,
+                      device,
+                      payload: {
+                        deviceType: device.deviceType,
+                        data: '',
+                        cert: '',
+                        signature: '',
+                      },
+                      result: {
+                        message: '',
+                      },
+                    });
+                  }, 150);
+                },
                 onContinue: () => {},
                 onClose: () => {
                   if (isVerified === undefined) {
