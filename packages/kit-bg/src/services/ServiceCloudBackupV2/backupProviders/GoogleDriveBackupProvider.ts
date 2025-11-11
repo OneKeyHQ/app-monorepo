@@ -34,6 +34,26 @@ export class GoogleDriveBackupProvider implements IOneKeyBackupProvider {
     this.backgroundApi = backgroundApi;
   }
 
+  setBackupPassword(params?: {
+    password?: string;
+  }): Promise<{ recordID: string }> {
+    throw new OneKeyLocalError(
+      'GoogleDriveBackupProvider: setBackupPassword: Method not implemented.',
+    );
+  }
+
+  verifyBackupPassword(params?: { password?: string }): Promise<boolean> {
+    throw new OneKeyLocalError(
+      'GoogleDriveBackupProvider: verifyBackupPassword: Method not implemented.',
+    );
+  }
+
+  isBackupPasswordSet(): Promise<boolean> {
+    throw new OneKeyLocalError(
+      'GoogleDriveBackupProvider: isBackupPasswordSet: Method not implemented.',
+    );
+  }
+
   async getBackupProviderInfo(): Promise<IBackupProviderInfo> {
     return {
       displayName: '',

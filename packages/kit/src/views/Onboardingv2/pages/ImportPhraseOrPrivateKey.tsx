@@ -11,12 +11,14 @@ import Animated, {
 import {
   Button,
   HeightTransition,
+  Input,
   Page,
   Portal,
   SegmentControl,
   TextAreaInput,
   XStack,
   YStack,
+  useClipboard,
   useMedia,
   useReanimatedKeyboardAnimation,
 } from '@onekeyhq/components';
@@ -78,7 +80,8 @@ export default function ImportPhraseOrPrivateKey() {
           detectedNetworks: results.detectedNetworks,
           importType: 'privateKey',
         };
-      void navigation.push(EOnboardingPagesV2.SelectPrivateKeyNetwork, params);
+      navigation.push(EOnboardingPagesV2.SelectPrivateKeyNetwork, params);
+      setPrivateKey('');
     }
   };
 
@@ -141,10 +144,12 @@ export default function ImportPhraseOrPrivateKey() {
                   }}
                   gap="$5"
                 >
-                  <TextAreaInput
+                  <Input
                     allowPaste
                     allowClear
-                    allowSecureTextEye
+                    allowScan
+                    allowSecureTextEye // TextAreaInput not support allowSecureTextEye
+                    clearClipboardOnPaste
                     size="large"
                     numberOfLines={5}
                     value={privateKey}

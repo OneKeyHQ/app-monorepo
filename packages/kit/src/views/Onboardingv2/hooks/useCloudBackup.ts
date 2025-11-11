@@ -191,7 +191,11 @@ export function useCloudBackup() {
                 password,
                 data,
               });
+            Dialog.debugMessage({
+              debugMessage: (_result as unknown as { meta: string })?.meta,
+            });
             Toast.success({
+              // TODO: franco
               title: 'Backup done!',
             });
             navigation.pop();

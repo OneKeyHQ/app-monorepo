@@ -18,6 +18,8 @@ module.exports = [
   '0xxxxxxx',
   'Provideri',
   'franco',
+  'assethub',
+  'polkadot',
   'synchronizable',
   'keychain',
   'cloudfs',

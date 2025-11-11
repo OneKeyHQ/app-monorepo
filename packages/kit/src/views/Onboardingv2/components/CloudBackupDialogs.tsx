@@ -95,9 +95,11 @@ function ConfirmPasswordField() {
 
 export const showCloudBackupPasswordDialog = ({
   onSubmit,
+  showConfirmPasswordField,
   ...dialogProps
 }: IDialogShowProps & {
   onSubmit: (input: string) => Promise<void>;
+  showConfirmPasswordField?: boolean;
 }) => {
   // appLocale.intl.formatMessage
   const title = 'Enter your backup password';
@@ -106,7 +108,7 @@ export const showCloudBackupPasswordDialog = ({
     renderContent: (
       <Dialog.Form formProps={{ values: { password: '', confirm: '' } }}>
         <PasswordField />
-        <ConfirmPasswordField />
+        {showConfirmPasswordField ? <ConfirmPasswordField /> : null}
       </Dialog.Form>
     ),
     onConfirm: async ({ getForm, close }) => {

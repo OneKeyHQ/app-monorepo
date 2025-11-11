@@ -191,6 +191,98 @@ function NetworkGroupItem({
             $gtMd: {
               maxHeight: '400px',
             },
+            // maxHeight: '400px',
+            // #region  TODO: zz
+            //   return (
+            //     <ListItem
+            //       key={item.uuid}
+            //       gap="$3"
+            //       bg="$bg"
+            //       borderWidth={1}
+            //       borderColor="$borderSubdued"
+            //       borderRadius="$5"
+            //       borderCurve="continuous"
+            //       p="$3"
+            //       pl="$5"
+            //       m="$0"
+            //       userSelect="none"
+            //       pressStyle={undefined}
+            //       onPress={() => {
+            //         onSelect({ uuid: item.uuid, networkId: selectedNetworkIdRef.current });
+            //       }}
+            //       {...(selectedUUID === item.uuid && {
+            //         borderColor: '$borderActive',
+            //         hoverStyle: undefined,
+            //       })}
+            //     >
+            //       <ListItem.Text primary={selectedNetwork?.name} flex={1} />
+            //       {item.networks.length > 1 ? (
+            //         <Popover
+            //           title={`Supported ${item.networks.length} networks`}
+            //           placement="bottom"
+            //           renderTrigger={
+            //             // TODO: franco 如何确保点击网络头像时，不会触发上层的 ListItem 的 onPress 事件？
+            //             <NetworkAvatars
+            //               networks={item.networks}
+            //               selectedNetwork={selectedNetwork}
+            //               showMore
+            //               p="$1"
+            //               m="$-1"
+            //               hoverStyle={{
+            //                 bg: '$bgHover',
+            //               }}
+            //               borderRadius="$full"
+            //             />
+            //           }
+            //           renderContent={({ closePopover }) => {
+            //             return (
+            //               <ScrollView
+            //                 contentContainerStyle={{
+            //                   gap: '$2',
+            //                   p: '$3',
+            //                   maxHeight: '400px',
+            //                 }}
+            //               >
+            //                 {media.gtMd ? (
+            //                   <SizableText size="$bodyMd" color="$textSubdued" pb="$2">
+            //                     Supported {item.networks.length} networks
+            //                   </SizableText>
+            //                 ) : null}
+            //                 <XStack flexWrap="wrap" w="100%" mb="$-4">
+            //                   {item.networks.map((network) => (
+            //                     <YStack
+            //                       key={network.networkId}
+            //                       w="25%"
+            //                       gap="$2"
+            //                       alignItems="center"
+            //                       px="$2"
+            //                       pb="$6"
+            //                       onPress={() => {
+            //                         setSelectedNetworkId(network.networkId);
+            //                         selectedNetworkIdRef.current = network.networkId;
+            //                         onSelect({
+            //                           uuid: item.uuid,
+            //                           networkId: network.networkId,
+            //                         });
+            //                         closePopover();
+            //                       }}
+            //                     >
+            //                       <NetworkAvatar networkId={network.networkId} size="$8" />
+            //                       <SizableText
+            //                         size="$bodySm"
+            //                         textAlign="center"
+            //                         color="$textSubdued"
+            //                         numberOfLines={1}
+            //                       >
+            //                         {network.name}
+            //                       </SizableText>
+            //                     </YStack>
+            //                   ))}
+            //                 </XStack>
+            //               </ScrollView>
+            //             );
+            // >>>>>>> d985770a1b (fix: cloud backup password)
+            // #endregion
           }}
         >
           {media.gtMd ? (
@@ -755,6 +847,91 @@ function SelectPrivateKeyNetworkView() {
                   item={network}
                 />
               ))}
+              {manualSelectedNetwork ? (
+                <NetworkGroupItem
+                  key={manualSelectedNetwork.uuid}
+                  selectedUUID={selectedUUID}
+                  onSelect={handleSelectGroupItem}
+                  item={manualSelectedNetwork}
+                />
+              ) : // #region  TODO: zz
+              //         <OnboardingLayout.Header title="Select Network" />
+              //         <OnboardingLayout.Body>
+              //           <YStack gap="$2.5">
+              //             {detectedNetworks && detectedNetworks.length === 0 ? (
+              //               // TODO: franco 如果无法检测到任何网络，提示无法检测到网络，提示用户返回上一页重新输入私钥，或者自选网络
+              //               <SizableText textAlign="center" color="$textSubdued">
+              //                 We couldn't detect any networks. Please try again with a
+              //                 different private key, or use the "Show more networks" button to
+              //                 select a network manually.
+              //               </SizableText>
+              //             ) : null}
+              //             {detectedNetworks?.map((network) => (
+              //               <NetworkGroupItem
+              //                 key={network.uuid}
+              //                 selectedUUID={selectedUUID}
+              //                 onSelect={handleSelectGroupItem}
+              //                 item={network}
+              //               />
+              //             ))}
+              //             {manualSelectedNetwork ? (
+              //               <NetworkGroupItem
+              //                 key={manualSelectedNetwork.uuid}
+              //                 selectedUUID={selectedUUID}
+              //                 onSelect={handleSelectGroupItem}
+              //                 item={manualSelectedNetwork}
+              //               />
+              //             ) : null}
+
+              //             <Form form={form}>
+              //               {validateResult?.deriveInfoItems ? (
+              //                 <Form.Field
+              //                   label={intl.formatMessage({
+              //                     id: ETranslations.derivation_path,
+              //                   })}
+              //                   name="deriveType"
+              //                 >
+              //                   <DeriveTypeSelectorFormInput
+              //                     networkId={selectedNetworkId || ''}
+              //                     enabledItems={validateResult?.deriveInfoItems || []}
+              //                     undefinedResultIfReRun={false}
+              //                     renderTrigger={({ label, onPress }) => (
+              //                       <Stack
+              //                         testID="wallet-derivation-path-selector-trigger"
+              //                         userSelect="none"
+              //                         flexDirection="row"
+              //                         px="$3.5"
+              //                         py="$2.5"
+              //                         borderWidth={1}
+              //                         borderColor="$borderStrong"
+              //                         borderRadius="$3"
+              //                         $gtMd={{
+              //                           px: '$3',
+              //                           py: '$1.5',
+              //                           borderRadius: '$2',
+              //                         }}
+              //                         borderCurve="continuous"
+              //                         hoverStyle={{
+              //                           bg: '$bgHover',
+              //                         }}
+              //                         pressStyle={{
+              //                           bg: '$bgActive',
+              //                         }}
+              //                         onPress={onPress}
+              //                       >
+              //                         <SizableText flex={1}>{label}</SizableText>
+              //                         <Icon
+              //                           name="ChevronDownSmallOutline"
+              //                           color="$iconSubdued"
+              //                           mr="$-0.5"
+              //                         />
+              //                       </Stack>
+              //                     )}
+              //                   />
+              //                 </Form.Field>
+              // >>>>>>> d985770a1b (fix: cloud backup password)
+              // #endregion
+              null}
 
               <Form form={form}>
                 {validateResult?.deriveInfoItems ? (
@@ -839,6 +1016,13 @@ function SelectPrivateKeyNetworkView() {
                 </XStack>
               ) : null}
             </YStack>
+            {validateResult && !validateResult?.isValid && input ? (
+              <SizableText size="$bodyMd" color="$textCritical">
+                {intl.formatMessage({
+                  id: ETranslations.form_private_key_error_invalid,
+                })}
+              </SizableText>
+            ) : null}
 
             {/* <SizableText>{selectedNetworkId}</SizableText> */}
             <Button
@@ -882,6 +1066,20 @@ function SelectPrivateKeyNetworkView() {
             {intl.formatMessage({ id: ETranslations.global_confirm })}
           </Button>
         </OnboardingLayout.Footer>
+        {/* 
+#region  TODO: zz
+          {validateResult && !validateResult?.isValid && input ? (
+            // TODO: franco 如果自选网络和输入的私钥不匹配，提示私钥错误，需要返回上一页重新输入
+            <SizableText size="$bodyMd" color="$textCritical">
+              {intl.formatMessage({
+                id: ETranslations.form_private_key_error_invalid,
+              })}
+            </SizableText>
+          ) : null}
+        </OnboardingLayout.Body>
+>>>>>>> d985770a1b (fix: cloud backup password)
+ #endregion
+  */}
       </OnboardingLayout>
     </Page>
   );
