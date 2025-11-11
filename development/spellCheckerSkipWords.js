@@ -1005,4 +1005,5 @@ module.exports = [
   'zlib',
   'Gunzip',
   'Brotli',
+  'Arial',
 ];

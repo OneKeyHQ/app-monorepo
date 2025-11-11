@@ -88,7 +88,7 @@ function PerpPositionsList({
         title: intl.formatMessage({
           id: ETranslations.perp_position_pnl,
         }),
-        minWidth: 160,
+        minWidth: 180,
         align: 'left',
         flex: 1,
       },
