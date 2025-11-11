@@ -32,6 +32,7 @@ import {
   MAX_DECIMALS_PERP,
   formatPriceToSignificantDigits,
   getValidPriceDecimals,
+  parseSignatureToRSV,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type {
   IApiErrorResponse,
@@ -55,6 +56,7 @@ import type {
   IUpdateIsolatedMarginRequest,
   IWithdrawParams,
 } from '@onekeyhq/shared/types/hyperliquid/types';
+import type { IHyperLiquidSignatureRSV } from '@onekeyhq/shared/types/hyperliquid/webview';
 
 import {
   perpsActiveAccountAtom,
@@ -334,6 +336,16 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     const context = await this._buildLogContext();
     try {
       const response = await this.exchangeClient.approveBuilderFee(params);
+      try {
+        const signatureInfo = await this.extractBuilderFeeSignature();
+        if (signatureInfo) {
+          void this.backgroundApi.serviceHyperliquid.reportBuilderFeeApprovalToBackend(
+            signatureInfo,
+          );
+        }
+      } catch (error) {
+        console.error('Failed to extract builder fee signature:', error);
+      }
       defaultLogger.perp.hyperliquid.approveBuilderFee({
         ...context,
         request: params,
@@ -353,6 +365,50 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
         `Failed to approve builder fee: ${String(error)}`,
       );
     }
+  }
+
+  @backgroundMethod()
+  async extractBuilderFeeSignature(): Promise<{
+    action: {
+      type: string;
+      signatureChainId: string;
+      hyperliquidChain: string;
+      maxFeeRate: string;
+      builder: string;
+      nonce: number;
+    };
+    signature: IHyperLiquidSignatureRSV;
+    nonce: number;
+    signerAddress: string;
+  } | null> {
+    const wallet = this.exchangeClient?.wallet;
+
+    const signedData = (
+      wallet as WalletHyperliquidOnekey
+    )?.getTempSignatureAndClear();
+    if (
+      !signedData?.value ||
+      typeof signedData.signatureHex !== 'string' ||
+      !signedData.signerAddress
+    ) {
+      return null;
+    }
+
+    const { value, signatureHex, signerAddress } = signedData;
+
+    return {
+      action: {
+        type: value.type as string,
+        signatureChainId: value.signatureChainId as string,
+        hyperliquidChain: value.hyperliquidChain as string,
+        maxFeeRate: value.maxFeeRate as string,
+        builder: value.builder as string,
+        nonce: value.nonce as number,
+      },
+      signature: parseSignatureToRSV(signatureHex),
+      nonce: value.nonce as number,
+      signerAddress,
+    };
   }
 
   @backgroundMethod()
