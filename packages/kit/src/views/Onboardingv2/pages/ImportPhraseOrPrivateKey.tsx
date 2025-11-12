@@ -11,12 +11,14 @@ import Animated, {
 import {
   Button,
   HeightTransition,
+  Input,
   Page,
   Portal,
   SegmentControl,
   TextAreaInput,
   XStack,
   YStack,
+  useClipboard,
   useMedia,
   useReanimatedKeyboardAnimation,
 } from '@onekeyhq/components';
@@ -27,6 +29,7 @@ import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { fixInputImportSingleChain } from '../../Onboarding/pages/ImportWallet/ImportSingleChainBase';
+import useScanQrCode from '../../ScanQrCode/hooks/useScanQrCode';
 import { OnboardingLayout } from '../components/OnboardingLayout';
 import { PhaseInputArea } from '../components/PhaseInputArea';
 
@@ -78,11 +81,12 @@ export default function ImportPhraseOrPrivateKey() {
           detectedNetworks: results.detectedNetworks,
           importType: 'privateKey',
         };
-      void navigation.push(EOnboardingPagesV2.SelectPrivateKeyNetwork, params);
+      navigation.push(EOnboardingPagesV2.SelectPrivateKeyNetwork, params);
+      setPrivateKey('');
     }
   };
 
-  const { height } = useReanimatedKeyboardAnimation();
+  const { height } = useReanimatedKeyboardAnimation?.() || { height: 0 };
   const keyboardHeight = useSharedValue<number>(0);
 
   useAnimatedReaction(
@@ -92,6 +96,8 @@ export default function ImportPhraseOrPrivateKey() {
       keyboardHeight.value = v;
     },
   );
+
+  const { start: startScanQrCode } = useScanQrCode();
 
   return (
     <Page>
@@ -141,10 +147,13 @@ export default function ImportPhraseOrPrivateKey() {
                   }}
                   gap="$5"
                 >
-                  <TextAreaInput
+                  <Input
                     allowPaste
                     allowClear
-                    allowSecureTextEye
+                    allowScan
+                    allowSecureTextEye // TextAreaInput not support allowSecureTextEye
+                    clearClipboardOnPaste
+                    startScanQrCode={startScanQrCode}
                     size="large"
                     numberOfLines={5}
                     value={privateKey}
