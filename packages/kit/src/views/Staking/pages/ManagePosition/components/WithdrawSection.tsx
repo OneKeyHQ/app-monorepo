@@ -26,12 +26,16 @@ export const WithdrawSection = ({
   protocolInfo?: IProtocolInfo;
   isDisabled?: boolean;
 }) => {
+  // Early return if no tokenInfo or protocolInfo
+  // This happens when there's no account or no address
+  const hasRequiredData = tokenInfo && protocolInfo;
+
   const providerName = useMemo(
     () => protocolInfo?.provider ?? '',
     [protocolInfo?.provider],
   );
   const token = useMemo(() => tokenInfo?.token as IToken, [tokenInfo]);
-  const symbol = useMemo(() => token.symbol || '', [token]);
+  const symbol = useMemo(() => token?.symbol || '', [token]);
   const vault = useMemo(() => protocolInfo?.vault || '', [protocolInfo?.vault]);
   const handleWithdraw = useUniversalWithdraw({ accountId, networkId });
   const appNavigation = useAppNavigation();
@@ -44,6 +48,8 @@ export const WithdrawSection = ({
       amount: string;
       withdrawAll: boolean;
     }) => {
+      if (!hasRequiredData) return;
+
       await handleWithdraw({
         amount,
         // identity,
@@ -74,6 +80,7 @@ export const WithdrawSection = ({
       });
     },
     [
+      hasRequiredData,
       handleWithdraw,
       // identity,
       providerName,
@@ -86,6 +93,24 @@ export const WithdrawSection = ({
     ],
   );
 
+  // If no required data, render placeholder to maintain layout
+  if (!hasRequiredData) {
+    return (
+      <UniversalWithdraw
+        accountAddress=""
+        price="0"
+        balance="0"
+        accountId={accountId}
+        networkId={networkId}
+        tokenSymbol=""
+        providerName=""
+        onConfirm={async () => {}}
+        protocolVault=""
+        isDisabled
+      />
+    );
+  }
+
   return (
     <UniversalWithdraw
       accountAddress={protocolInfo?.earnAccount?.accountAddress || ''}
@@ -95,7 +120,7 @@ export const WithdrawSection = ({
       accountId={accountId}
       networkId={networkId}
       tokenSymbol={symbol || ''}
-      tokenImageUri={token.logoURI}
+      tokenImageUri={token?.logoURI}
       providerLogo={protocolInfo?.providerDetail.logoURI}
       providerName={providerName}
       onConfirm={onConfirm}

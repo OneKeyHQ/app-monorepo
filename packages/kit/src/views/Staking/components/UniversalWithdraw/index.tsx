@@ -234,6 +234,9 @@ export function UniversalWithdraw({
   >();
   const fetchTransactionConfirmation = useCallback(
     async (amount: string) => {
+      if (isDisabled) {
+        return undefined;
+      }
       const resp =
         await backgroundApiProxy.serviceStaking.getTransactionConfirmation({
           networkId: networkId || '',
@@ -250,7 +253,14 @@ export function UniversalWithdraw({
         });
       return resp;
     },
-    [accountAddress, protocolVault, networkId, providerName, tokenSymbol],
+    [
+      isDisabled,
+      accountAddress,
+      protocolVault,
+      networkId,
+      providerName,
+      tokenSymbol,
+    ],
   );
 
   const debouncedFetchTransactionConfirmation = useDebouncedCallback(
@@ -485,174 +495,178 @@ export function UniversalWithdraw({
           ))}
         </>
       ) : null}
-      <YStack
-        p="$3.5"
-        pt="$5"
-        borderRadius="$3"
-        borderWidth={StyleSheet.hairlineWidth}
-        borderColor="$borderSubdued"
-      >
-        <YStack gap="$2">
-          <XStack ai="center" gap="$1">
-            <EarnText
-              text={transactionConfirmation?.title}
-              color="$textSubdued"
-              size="$bodyMd"
-            />
-            {transactionConfirmation?.tooltip ? (
-              <Popover
-                placement="top"
-                title={transactionConfirmation?.title?.text}
-                renderTrigger={
-                  <IconButton
-                    iconColor="$iconSubdued"
-                    size="small"
-                    icon="InfoCircleOutline"
-                    variant="tertiary"
-                  />
-                }
-                renderContent={
-                  <Stack p="$5">
-                    <EarnText
-                      text={
-                        transactionConfirmation?.tooltip?.type === 'text'
-                          ? transactionConfirmation.tooltip.data
-                          : undefined
-                      }
-                      size="$bodyMd"
-                    />
-                  </Stack>
-                }
+      {!isDisabled ? (
+        <YStack
+          p="$3.5"
+          pt="$5"
+          borderRadius="$3"
+          borderWidth={StyleSheet.hairlineWidth}
+          borderColor="$borderSubdued"
+        >
+          <YStack gap="$2">
+            <XStack ai="center" gap="$1">
+              <EarnText
+                text={transactionConfirmation?.title}
+                color="$textSubdued"
+                size="$bodyMd"
               />
-            ) : null}
-          </XStack>
-          {transactionConfirmation?.rewards.map((reward) => {
-            const hasTooltip = reward.tooltip?.type === 'text';
-            let descriptionTextSize = (
-              hasTooltip ? '$bodyMd' : '$bodyLgMedium'
-            ) as FontSizeTokens;
-            if (reward.description.size) {
-              descriptionTextSize = reward.description.size;
-            }
-            return (
-              <XStack
-                key={reward.title.text}
-                gap="$1"
-                ai="flex-start"
-                mt="$1.5"
-                flexWrap="wrap"
-              >
-                <XStack gap="$1" flex={1} flexWrap="wrap" ai="center">
-                  <EarnText
-                    text={reward.title}
-                    color={reward.title.color}
-                    size={reward.title.size}
-                  />
+              {transactionConfirmation?.tooltip ? (
+                <Popover
+                  placement="top"
+                  title={transactionConfirmation?.title?.text}
+                  renderTrigger={
+                    <IconButton
+                      iconColor="$iconSubdued"
+                      size="small"
+                      icon="InfoCircleOutline"
+                      variant="tertiary"
+                    />
+                  }
+                  renderContent={
+                    <Stack p="$5">
+                      <EarnText
+                        text={
+                          transactionConfirmation?.tooltip?.type === 'text'
+                            ? transactionConfirmation.tooltip.data
+                            : undefined
+                        }
+                        size="$bodyMd"
+                      />
+                    </Stack>
+                  }
+                />
+              ) : null}
+            </XStack>
+            {transactionConfirmation?.rewards.map((reward) => {
+              const hasTooltip = reward.tooltip?.type === 'text';
+              let descriptionTextSize = (
+                hasTooltip ? '$bodyMd' : '$bodyLgMedium'
+              ) as FontSizeTokens;
+              if (reward.description.size) {
+                descriptionTextSize = reward.description.size;
+              }
+              return (
+                <XStack
+                  key={reward.title.text}
+                  gap="$1"
+                  ai="flex-start"
+                  mt="$1.5"
+                  flexWrap="wrap"
+                >
                   <XStack gap="$1" flex={1} flexWrap="wrap" ai="center">
                     <EarnText
-                      text={reward.description}
-                      size={descriptionTextSize}
-                      color={reward.description.color ?? '$textSubdued'}
-                      flexShrink={1}
+                      text={reward.title}
+                      color={reward.title.color}
+                      size={reward.title.size}
                     />
-                    {hasTooltip ? (
-                      <Popover.Tooltip
-                        iconSize="$5"
-                        title={reward.title.text}
-                        tooltip={
-                          (reward.tooltip as IEarnTextTooltip)?.data.text
-                        }
-                        placement="top"
+                    <XStack gap="$1" flex={1} flexWrap="wrap" ai="center">
+                      <EarnText
+                        text={reward.description}
+                        size={descriptionTextSize}
+                        color={reward.description.color ?? '$textSubdued'}
+                        flexShrink={1}
                       />
-                    ) : null}
+                      {hasTooltip ? (
+                        <Popover.Tooltip
+                          iconSize="$5"
+                          title={reward.title.text}
+                          tooltip={
+                            (reward.tooltip as IEarnTextTooltip)?.data.text
+                          }
+                          placement="top"
+                        />
+                      ) : null}
+                    </XStack>
                   </XStack>
                 </XStack>
-              </XStack>
-            );
-          })}
-        </YStack>
-        <Divider my="$5" />
-        <Accordion
-          overflow="hidden"
-          width="100%"
-          type="single"
-          collapsible
-          defaultValue={WITHDRAW_ACCORDION_KEY}
-        >
-          <Accordion.Item value={WITHDRAW_ACCORDION_KEY}>
-            <Accordion.Trigger
-              unstyled
-              flexDirection="row"
-              alignItems="center"
-              alignSelf="flex-start"
-              px="$1"
-              mx="$-1"
-              width="100%"
-              justifyContent="space-between"
-              borderWidth={0}
-              bg="$transparent"
-              userSelect="none"
-              borderRadius="$1"
-              cursor={isAccordionTriggerDisabled ? 'not-allowed' : 'pointer'}
-              disabled={isAccordionTriggerDisabled}
-            >
-              {({ open }: { open: boolean }) => (
-                <>
-                  <XStack gap="$1.5" alignItems="center">
-                    <Image
-                      width="$5"
-                      height="$5"
-                      src={providerLogo}
-                      borderRadius="$2"
-                    />
-                    <SizableText size="$bodyMd">
-                      {capitalizeString(providerName || '')}
-                    </SizableText>
-                  </XStack>
-                  <XStack>
-                    {isAccordionTriggerDisabled ? undefined : (
-                      <SizableText color="$textSubdued" size="$bodyMd">
-                        {intl.formatMessage({
-                          id: ETranslations.global_details,
-                        })}
-                      </SizableText>
-                    )}
-                    <YStack
-                      animation="quick"
-                      rotate={
-                        open && !isAccordionTriggerDisabled ? '180deg' : '0deg'
-                      }
-                      left="$2"
-                    >
-                      <Icon
-                        name="ChevronDownSmallOutline"
-                        color={
-                          isAccordionTriggerDisabled
-                            ? '$iconDisabled'
-                            : '$iconSubdued'
-                        }
-                        size="$5"
-                      />
-                    </YStack>
-                  </XStack>
-                </>
-              )}
-            </Accordion.Trigger>
-            <Accordion.HeightAnimator animation="quick">
-              <Accordion.Content
-                animation="quick"
-                exitStyle={{ opacity: 0 }}
-                px={0}
-                pb={0}
-                pt="$3.5"
-                gap="$2.5"
+              );
+            })}
+          </YStack>
+          <Divider my="$5" />
+          <Accordion
+            overflow="hidden"
+            width="100%"
+            type="single"
+            collapsible
+            defaultValue={WITHDRAW_ACCORDION_KEY}
+          >
+            <Accordion.Item value={WITHDRAW_ACCORDION_KEY}>
+              <Accordion.Trigger
+                unstyled
+                flexDirection="row"
+                alignItems="center"
+                alignSelf="flex-start"
+                px="$1"
+                mx="$-1"
+                width="100%"
+                justifyContent="space-between"
+                borderWidth={0}
+                bg="$transparent"
+                userSelect="none"
+                borderRadius="$1"
+                cursor={isAccordionTriggerDisabled ? 'not-allowed' : 'pointer'}
+                disabled={isAccordionTriggerDisabled}
               >
-                {accordionContent}
-              </Accordion.Content>
-            </Accordion.HeightAnimator>
-          </Accordion.Item>
-        </Accordion>
-      </YStack>
+                {({ open }: { open: boolean }) => (
+                  <>
+                    <XStack gap="$1.5" alignItems="center">
+                      <Image
+                        width="$5"
+                        height="$5"
+                        src={providerLogo}
+                        borderRadius="$2"
+                      />
+                      <SizableText size="$bodyMd">
+                        {capitalizeString(providerName || '')}
+                      </SizableText>
+                    </XStack>
+                    <XStack>
+                      {isAccordionTriggerDisabled ? undefined : (
+                        <SizableText color="$textSubdued" size="$bodyMd">
+                          {intl.formatMessage({
+                            id: ETranslations.global_details,
+                          })}
+                        </SizableText>
+                      )}
+                      <YStack
+                        animation="quick"
+                        rotate={
+                          open && !isAccordionTriggerDisabled
+                            ? '180deg'
+                            : '0deg'
+                        }
+                        left="$2"
+                      >
+                        <Icon
+                          name="ChevronDownSmallOutline"
+                          color={
+                            isAccordionTriggerDisabled
+                              ? '$iconDisabled'
+                              : '$iconSubdued'
+                          }
+                          size="$5"
+                        />
+                      </YStack>
+                    </XStack>
+                  </>
+                )}
+              </Accordion.Trigger>
+              <Accordion.HeightAnimator animation="quick">
+                <Accordion.Content
+                  animation="quick"
+                  exitStyle={{ opacity: 0 }}
+                  px={0}
+                  pb={0}
+                  pt="$3.5"
+                  gap="$2.5"
+                >
+                  {accordionContent}
+                </Accordion.Content>
+              </Accordion.HeightAnimator>
+            </Accordion.Item>
+          </Accordion>
+        </YStack>
+      ) : null}
       <Page.Footer
         onConfirmText={intl.formatMessage({
           id: ETranslations.global_withdraw,

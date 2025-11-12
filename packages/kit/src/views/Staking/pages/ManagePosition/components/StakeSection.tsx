@@ -34,8 +34,12 @@ export const StakeSection = ({
   protocolInfo?: IProtocolInfo;
   isDisabled?: boolean;
 }) => {
+  // Early return if no tokenInfo or protocolInfo
+  // This happens when there's no account or no address
+  const hasRequiredData = tokenInfo && protocolInfo;
+
   const { result: estimateFeeUTXO } = usePromiseResult(async () => {
-    if (!networkUtils.isBTCNetwork(networkId)) {
+    if (!hasRequiredData || !networkUtils.isBTCNetwork(networkId)) {
       return;
     }
     const account = await backgroundApiProxy.serviceAccount.getAccount({
@@ -51,7 +55,7 @@ export const StakeSection = ({
     return result.feeUTXO?.filter(
       (o): o is Required<Pick<IFeeUTXO, 'feeRate'>> => o.feeRate !== undefined,
     );
-  }, [accountId, networkId]);
+  }, [accountId, networkId, hasRequiredData]);
 
   const [btcFeeRate, setBtcFeeRate] = useState<string | undefined>();
   const btcFeeRateInit = useRef<boolean>(false);
@@ -80,6 +84,9 @@ export const StakeSection = ({
 
   const { result, isLoading } = usePromiseResult(
     async () => {
+      if (!hasRequiredData || !protocolInfo?.approve?.approveTarget) {
+        return undefined;
+      }
       if (protocolInfo?.approve?.approveTarget) {
         // For vault-based providers, check allowance against vault address
         const isVaultBased = earnUtils.isVaultBasedProvider({
@@ -108,6 +115,7 @@ export const StakeSection = ({
       return undefined;
     },
     [
+      hasRequiredData,
       accountId,
       networkId,
       protocolInfo?.approve?.approveTarget,
@@ -130,6 +138,8 @@ export const StakeSection = ({
       approveType,
       permitSignature,
     }: IApproveConfirmFnParams) => {
+      if (!hasRequiredData) return;
+
       const providerName = protocolInfo?.provider ?? '';
       const token = tokenInfo?.token as IToken;
       const symbol = tokenInfo?.token.symbol || '';
@@ -193,6 +203,7 @@ export const StakeSection = ({
       });
     },
     [
+      hasRequiredData,
       tokenInfo?.token,
       handleStake,
       protocolInfo?.providerDetail.logoURI,
@@ -210,6 +221,23 @@ export const StakeSection = ({
   if (isLoading) {
     // FIXME: ...
     return null;
+  }
+
+  // If no required data, render placeholder to maintain layout
+  if (!hasRequiredData) {
+    return (
+      <UniversalStake
+        accountId={accountId}
+        networkId={networkId}
+        balance="0"
+        isDisabled
+        approveTarget={{
+          accountId,
+          networkId,
+          spenderAddress: '',
+        }}
+      />
+    );
   }
 
   return (

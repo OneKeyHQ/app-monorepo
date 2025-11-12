@@ -319,7 +319,11 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
         items: [
           {
             label: intl.formatMessage({ id: ETranslations.global_earn }),
-            onClick: () => navigation.pop(),
+            onClick: () => {
+              navigation.switchTab(ETabRoutes.Earn, {
+                screen: ETabEarnRoutes.EarnHome,
+              });
+            },
           },
           {
             label:

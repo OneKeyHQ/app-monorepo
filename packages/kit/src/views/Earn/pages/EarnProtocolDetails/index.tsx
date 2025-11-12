@@ -25,13 +25,11 @@ import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accoun
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type {
-  ETabEarnRoutes,
-  ITabEarnParamList,
-} from '@onekeyhq/shared/src/routes';
+import type { ITabEarnParamList } from '@onekeyhq/shared/src/routes';
 import {
   EModalRoutes,
   EModalStakingRoutes,
+  ETabEarnRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -58,6 +56,7 @@ import { EarnAlert } from '../../../Staking/components/ProtocolDetails/EarnAlert
 import { EarnIcon } from '../../../Staking/components/ProtocolDetails/EarnIcon';
 import { EarnText } from '../../../Staking/components/ProtocolDetails/EarnText';
 import { GridItem } from '../../../Staking/components/ProtocolDetails/GridItemV2';
+import { NoAddressWarning } from '../../../Staking/components/ProtocolDetails/NoAddressWarning';
 import { PeriodSection } from '../../../Staking/components/ProtocolDetails/PeriodSectionV2';
 import { ProtectionSection } from '../../../Staking/components/ProtocolDetails/ProtectionSectionV2';
 import { OverviewSkeleton } from '../../../Staking/components/StakingSkeleton';
@@ -434,10 +433,14 @@ const ManagePositionPart = ({
     [focusedTab, tabData],
   );
 
+  const hasNoAccount = !account?.id && !indexedAccount?.id;
+  const hasNoAddress = !earnAccount?.accountAddress;
+  const shouldShowSkeleton = isLoading && !hasNoAccount;
+
   return (
     <YStack flex={4}>
-      {!tokenInfo || isLoading ? (
-        <YStack gap="$6">
+      {shouldShowSkeleton ? (
+        <YStack gap="$6" px="$5">
           <XStack gap="$2">
             <Skeleton w="$20" h="$9" borderRadius="$2" />
             <Skeleton w="$20" h="$9" borderRadius="$2" />
@@ -503,8 +506,18 @@ const ManagePositionPart = ({
                 networkId={networkId}
                 tokenInfo={tokenInfo}
                 protocolInfo={protocolInfo}
-                isDisabled={depositDisabled}
+                isDisabled={depositDisabled || hasNoAccount || hasNoAddress}
               />
+              {hasNoAccount || hasNoAddress ? (
+                <Stack px="$5">
+                  <NoAddressWarning
+                    accountId={account?.id || ''}
+                    networkId={networkId}
+                    indexedAccountId={indexedAccount?.id}
+                    onCreateAddress={() => {}}
+                  />
+                </Stack>
+              ) : null}
             </YStack>
             <YStack
               display={selectedTabIndex === 1 ? 'flex' : 'none'}
@@ -518,8 +531,18 @@ const ManagePositionPart = ({
                 networkId={networkId}
                 tokenInfo={tokenInfo}
                 protocolInfo={protocolInfo}
-                isDisabled={withdrawDisabled}
+                isDisabled={withdrawDisabled || hasNoAccount || hasNoAddress}
               />
+              {hasNoAccount || hasNoAddress ? (
+                <Stack px="$5">
+                  <NoAddressWarning
+                    accountId={account?.id || ''}
+                    networkId={networkId}
+                    indexedAccountId={indexedAccount?.id}
+                    onCreateAddress={() => {}}
+                  />
+                </Stack>
+              ) : null}
             </YStack>
           </YStack>
           <EarnAlert alerts={alerts} />
@@ -651,11 +674,18 @@ const EarnProtocolDetailsPage = () => {
   const breadcrumbProps = useMemo(
     () => ({
       items: [
-        { label: intl.formatMessage({ id: ETranslations.global_earn }) },
+        {
+          label: intl.formatMessage({ id: ETranslations.global_earn }),
+          onClick: () => {
+            appNavigation.switchTab(ETabRoutes.Earn, {
+              screen: ETabEarnRoutes.EarnHome,
+            });
+          },
+        },
         { label: symbol },
       ],
     }),
-    [intl, symbol],
+    [intl, symbol, appNavigation],
   );
 
   const pageTitle = useMemo(
