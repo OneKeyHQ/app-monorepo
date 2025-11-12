@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import {
   Carousel,
@@ -7,6 +7,8 @@ import {
   useTabContainerWidth,
 } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { useRouteIsFocused} from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
+
 
 import { MarketFilterBar } from '../components/MarketFilterBar';
 import { MarketNormalTokenList } from '../components/MarketTokenList/MarketNormalTokenList';
@@ -28,6 +30,21 @@ interface IDesktopLayoutProps {
   onTabChange: (tabId: IMarketHomeTabValue) => void;
 }
 
+const useIsFirstFocus = () => {
+  const isFirstFocusRef = useRef(false);
+  const [isFirstFocus, setIsFirstFocus] = useState(false);
+  const isFocused = useRouteIsFocused();
+  useEffect(() => {
+    if (isFirstFocusRef.current) {
+      return;
+    }
+    if (isFocused) {
+      isFirstFocusRef.current = true;
+      setIsFirstFocus(true);
+    }
+  }, [isFocused]);
+  return isFirstFocus;
+};
 export function DesktopLayout({
   filterBarProps,
   selectedNetworkId,
@@ -67,6 +84,10 @@ export function DesktopLayout({
     [filterBarProps, height, selectedNetworkId, watchlistTabName],
   );
 
+  const isFocused = useIsFirstFocus();
+  if (!isFocused) {
+    return null;
+  }
   return (
     <YStack>
       <Tabs.TabBar

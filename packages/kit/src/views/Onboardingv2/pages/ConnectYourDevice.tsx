@@ -1022,10 +1022,7 @@ function BluetoothConnectionIndicator({
   }, []);
 
   const { checkBluetoothStatus, setIsConnecting: setBluetoothConnecting } =
-    useDesktopBluetoothStatusPolling(
-    tabValue,
-    setBluetoothStatus,
-    );
+    useDesktopBluetoothStatusPolling(tabValue, setBluetoothStatus);
   const handleAppEnableDesktopBluetooth = useCallback(async () => {
     try {
       await backgroundApiProxy.serviceSetting.setEnableDesktopBluetooth(true);

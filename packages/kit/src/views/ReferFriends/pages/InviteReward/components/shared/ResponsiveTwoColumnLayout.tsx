@@ -22,6 +22,7 @@ export function ResponsiveTwoColumnLayout({
       gap={gap}
       px={p}
       flexDirection="row"
+      alignItems="stretch"
       $md={{
         flexDirection: reverseOnMobile ? 'column-reverse' : 'column',
       }}
