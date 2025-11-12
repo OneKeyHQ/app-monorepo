@@ -58,7 +58,7 @@ enum ECheckAndUpdateStepState {
 enum ECheckAndUpdateStepId {
   GenuineCheck = 'genuine-check',
   FirmwareCheck = 'firmware-check',
-  SetupOnDevice = ECheckAndUpdateStepId.SetupOnDevice,
+  SetupOnDevice = 'setup-on-device',
 }
 
 function CheckAndUpdatePage({
