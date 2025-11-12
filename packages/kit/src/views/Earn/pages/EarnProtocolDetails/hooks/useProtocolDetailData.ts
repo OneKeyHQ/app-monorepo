@@ -27,7 +27,11 @@ export function useProtocolDetailData({
   provider: string;
   vault: string | undefined;
 }) {
-  const { result: earnAccount, run: refreshAccount } = usePromiseResult(
+  const {
+    result: earnAccount,
+    run: refreshAccount,
+    isLoading: isAccountLoading,
+  } = usePromiseResult(
     async () =>
       backgroundApiProxy.serviceStaking.getEarnAccount({
         accountId,
@@ -36,11 +40,12 @@ export function useProtocolDetailData({
         btcOnlyTaproot: true,
       }),
     [accountId, indexedAccountId, networkId],
+    { watchLoading: true },
   );
 
   const {
     result: detailInfo,
-    isLoading,
+    isLoading: isDetailLoading,
     run,
   } = usePromiseResult(
     async () => {
@@ -113,7 +118,7 @@ export function useProtocolDetailData({
     detailInfo,
     tokenInfo,
     protocolInfo,
-    isLoading,
+    isLoading: isAccountLoading || isDetailLoading,
     refreshData: run,
     refreshAccount,
   };

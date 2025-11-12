@@ -16,6 +16,7 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
+import type backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { CountDownCalendarAlert } from '@onekeyhq/kit/src/components/CountDownCalendarAlert';
 import { Token } from '@onekeyhq/kit/src/components/Token';
@@ -27,6 +28,7 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { ITabEarnParamList } from '@onekeyhq/shared/src/routes';
 import {
+  EModalReceiveRoutes,
   EModalRoutes,
   EModalStakingRoutes,
   ETabEarnRoutes,
@@ -61,6 +63,7 @@ import { PeriodSection } from '../../../Staking/components/ProtocolDetails/Perio
 import { ProtectionSection } from '../../../Staking/components/ProtocolDetails/ProtectionSectionV2';
 import { OverviewSkeleton } from '../../../Staking/components/StakingSkeleton';
 import { useCheckEthenaKycStatus } from '../../../Staking/hooks/useCheckEthenaKycStatus';
+import { useHandleSwap } from '../../../Staking/hooks/useHandleSwap';
 import { useUnsupportedProtocol } from '../../../Staking/hooks/useUnsupportedProtocol';
 import { HeaderRight } from '../../../Staking/pages/ManagePosition/components/HeaderRight';
 import { StakeSection } from '../../../Staking/pages/ManagePosition/components/StakeSection';
@@ -343,18 +346,148 @@ const DetailsPart = ({
   );
 };
 
+const UsDeHoldingsPartSkeleton = () => (
+  <YStack flex={4} px="$5">
+    <YStack gap="$8">
+      <YStack gap="$4">
+        <Skeleton.BodyLg w="$24" />
+        <XStack jc="space-between" ai="flex-end">
+          <Skeleton w="$48" h="$12" />
+          <XStack gap="$2">
+            <Skeleton w="$20" h="$9" borderRadius="$2" />
+            <Skeleton w="$20" h="$9" borderRadius="$2" />
+          </XStack>
+        </XStack>
+        <Skeleton.BodyLg w="$32" />
+      </YStack>
+    </YStack>
+  </YStack>
+);
+
+const UsDeHoldingsPart = ({
+  networkId,
+  subscriptionValue,
+  detailInfo,
+  earnAccount,
+  isLoading,
+}: {
+  networkId: string;
+  subscriptionValue: IStakeEarnDetail['subscriptionValue'];
+  detailInfo: IStakeEarnDetail | undefined;
+  earnAccount:
+    | Awaited<
+        ReturnType<typeof backgroundApiProxy.serviceStaking.getEarnAccount>
+      >
+    | undefined;
+  isLoading?: boolean;
+}) => {
+  const intl = useIntl();
+  const appNavigation = useAppNavigation();
+  const { handleSwap } = useHandleSwap();
+  const { gtMd } = useMedia();
+
+  const handleReceive = useCallback(() => {
+    if (!subscriptionValue?.token?.info || !earnAccount) return;
+    appNavigation.pushModal(EModalRoutes.ReceiveModal, {
+      screen: EModalReceiveRoutes.ReceiveToken,
+      params: {
+        networkId,
+        accountId: earnAccount.accountId,
+        walletId: earnAccount.walletId,
+        token: subscriptionValue.token.info,
+      },
+    });
+  }, [appNavigation, networkId, earnAccount, subscriptionValue?.token?.info]);
+
+  const handleTrade = useCallback(async () => {
+    if (!subscriptionValue?.token?.info) return;
+    await handleSwap({
+      token: subscriptionValue.token.info,
+      networkId,
+    });
+  }, [handleSwap, networkId, subscriptionValue?.token?.info]);
+
+  const receiveAction = useMemo(
+    () =>
+      detailInfo?.actions?.find((a) => a.type === EStakingActionType.Receive),
+    [detailInfo?.actions],
+  );
+  const tradeAction = useMemo(
+    () => detailInfo?.actions?.find((a) => a.type === EStakingActionType.Trade),
+    [detailInfo?.actions],
+  );
+
+  const renderActionButtons = useCallback(() => {
+    if (!gtMd) {
+      return null;
+    }
+    return (
+      <XStack gap="$2">
+        {receiveAction ? (
+          <Button onPress={handleReceive}>
+            {intl.formatMessage({ id: ETranslations.global_receive })}
+          </Button>
+        ) : null}
+        {tradeAction ? (
+          <Button variant="primary" onPress={handleTrade}>
+            {intl.formatMessage({ id: ETranslations.global_trade })}
+          </Button>
+        ) : null}
+      </XStack>
+    );
+  }, [gtMd, receiveAction, tradeAction, handleReceive, handleTrade, intl]);
+
+  if (isLoading) {
+    return <UsDeHoldingsPartSkeleton />;
+  }
+
+  if (!subscriptionValue) {
+    return null;
+  }
+
+  return (
+    <YStack flex={4} px="$5">
+      <YStack gap="$8">
+        <YStack>
+          <XStack ai="center" gap="$2" pt="$2">
+            <EarnText text={subscriptionValue.title} size="$headingLg" />
+          </XStack>
+          <XStack gap="$2" pt="$2" pb="$1" jc="space-between">
+            <EarnText
+              text={{ text: subscriptionValue.fiatValue }}
+              size="$heading4xl"
+            />
+            {renderActionButtons()}
+          </XStack>
+          <EarnText
+            text={{
+              text: `${subscriptionValue.formattedValue || 0} ${
+                subscriptionValue?.token?.info?.symbol || ''
+              }`,
+            }}
+            size="$bodyLgMedium"
+            color="$textSubdued"
+          />
+        </YStack>
+      </YStack>
+    </YStack>
+  );
+};
+
 const ManagePositionPart = ({
   networkId,
   symbol,
   provider,
   vault,
   managers,
+  onCreateAddress,
 }: {
   networkId: string;
   symbol: string;
   provider: string;
   vault?: string;
   managers: IStakeEarnDetail['managers'] | undefined;
+  onCreateAddress?: () => void;
 }) => {
   const intl = useIntl();
   const appNavigation = useAppNavigation();
@@ -370,6 +503,8 @@ const ManagePositionPart = ({
     depositDisabled,
     withdrawDisabled,
     alerts,
+    refreshAccount: refreshManageAccount,
+    run: refreshManageData,
   } = useManagePage({
     accountId: account?.id || '',
     networkId,
@@ -378,6 +513,14 @@ const ManagePositionPart = ({
     provider,
     vault,
   });
+
+  const handleCreateAddress = useCallback(async () => {
+    if (onCreateAddress) {
+      await onCreateAddress();
+    }
+    await refreshManageAccount();
+    await refreshManageData();
+  }, [onCreateAddress, refreshManageAccount, refreshManageData]);
 
   const historyAction = useMemo(
     () => managePageData?.history,
@@ -521,7 +664,7 @@ const ManagePositionPart = ({
                     accountId={account?.id || ''}
                     networkId={networkId}
                     indexedAccountId={indexedAccount?.id}
-                    onCreateAddress={() => {}}
+                    onCreateAddress={handleCreateAddress}
                   />
                 </Stack>
               ) : null}
@@ -546,7 +689,7 @@ const ManagePositionPart = ({
                     accountId={account?.id || ''}
                     networkId={networkId}
                     indexedAccountId={indexedAccount?.id}
-                    onCreateAddress={() => {}}
+                    onCreateAddress={handleCreateAddress}
                   />
                 </Stack>
               ) : null}
@@ -675,7 +818,7 @@ const EarnProtocolDetailsPage = () => {
 
   const onCreateAddress = useCallback(async () => {
     await refreshAccount();
-    void refreshData();
+    await refreshData();
   }, [refreshAccount, refreshData]);
 
   const breadcrumbProps = useMemo(
@@ -718,10 +861,77 @@ const EarnProtocolDetailsPage = () => {
     });
   }, [appNavigation, networkId, symbol, provider, vault]);
 
+  const { handleSwap } = useHandleSwap();
+
+  const handleReceiveUSDe = useCallback(() => {
+    if (!detailInfo?.subscriptionValue?.token?.info || !earnAccount) return;
+    appNavigation.pushModal(EModalRoutes.ReceiveModal, {
+      screen: EModalReceiveRoutes.ReceiveToken,
+      params: {
+        networkId,
+        accountId: earnAccount.accountId,
+        walletId: earnAccount.walletId,
+        token: detailInfo.subscriptionValue.token.info,
+      },
+    });
+  }, [
+    appNavigation,
+    networkId,
+    earnAccount,
+    detailInfo?.subscriptionValue?.token?.info,
+  ]);
+
+  const handleTradeUSDe = useCallback(async () => {
+    if (!detailInfo?.subscriptionValue?.token?.info) return;
+    await handleSwap({
+      token: detailInfo.subscriptionValue.token.info,
+      networkId,
+    });
+  }, [handleSwap, networkId, detailInfo?.subscriptionValue?.token?.info]);
+
   const pageFooter = useMemo(() => {
     if (gtMd) {
       return null;
     }
+
+    // USDe: show Receive/Trade buttons
+    if (symbol === 'USDe') {
+      const receiveAction = detailInfo?.actions?.find(
+        (a) => a.type === EStakingActionType.Receive,
+      );
+      const tradeAction = detailInfo?.actions?.find(
+        (a) => a.type === EStakingActionType.Trade,
+      );
+
+      if (!receiveAction && !tradeAction) {
+        return null;
+      }
+
+      return (
+        <Page.Footer
+          onCancelText={
+            receiveAction
+              ? intl.formatMessage({ id: ETranslations.global_receive })
+              : undefined
+          }
+          cancelButtonProps={
+            receiveAction ? { onPress: handleReceiveUSDe } : undefined
+          }
+          onConfirmText={
+            tradeAction
+              ? intl.formatMessage({ id: ETranslations.global_trade })
+              : undefined
+          }
+          confirmButtonProps={
+            tradeAction
+              ? { variant: 'primary', onPress: handleTradeUSDe }
+              : undefined
+          }
+        />
+      );
+    }
+
+    // Normal assets: show Deposit/Withdraw buttons
     return (
       <Page.Footer
         onCancelText={intl.formatMessage({ id: ETranslations.global_withdraw })}
@@ -735,7 +945,15 @@ const EarnProtocolDetailsPage = () => {
         }}
       />
     );
-  }, [gtMd, intl, handleNavigateToManagePosition]);
+  }, [
+    gtMd,
+    intl,
+    handleNavigateToManagePosition,
+    symbol,
+    detailInfo?.actions,
+    handleReceiveUSDe,
+    handleTradeUSDe,
+  ]);
 
   return (
     <EarnPageContainer
@@ -762,13 +980,24 @@ const EarnProtocolDetailsPage = () => {
         </Stack>
         {gtMd ? (
           <Stack $gtMd={{ width: '35%' }}>
-            <ManagePositionPart
-              networkId={networkId}
-              symbol={symbol}
-              provider={provider}
-              vault={vault}
-              managers={detailInfo?.managers}
-            />
+            {symbol === 'USDe' ? (
+              <UsDeHoldingsPart
+                networkId={networkId}
+                subscriptionValue={detailInfo?.subscriptionValue}
+                detailInfo={detailInfo}
+                earnAccount={earnAccount}
+                isLoading={isLoading ?? false}
+              />
+            ) : (
+              <ManagePositionPart
+                networkId={networkId}
+                symbol={symbol}
+                provider={provider}
+                vault={vault}
+                managers={detailInfo?.managers}
+                onCreateAddress={onCreateAddress}
+              />
+            )}
           </Stack>
         ) : null}
       </XStack>

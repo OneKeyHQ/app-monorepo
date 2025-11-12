@@ -506,7 +506,9 @@ const PortfolioItemComponent = ({
                           await handleManagePress(asset);
                         }}
                       >
-                        Manage
+                        {intl.formatMessage({
+                          id: ETranslations.global_manage,
+                        })}
                       </Button>
                       <Button
                         flex={1}
@@ -516,7 +518,9 @@ const PortfolioItemComponent = ({
                           await handleRowPress(asset);
                         }}
                       >
-                        View details
+                        {intl.formatMessage({
+                          id: ETranslations.global_details,
+                        })}
                       </Button>
                     </XStack>
                   </YStack>
@@ -568,33 +572,41 @@ const PortfolioItemComponent = ({
 const PortfolioItem = memo(PortfolioItemComponent);
 
 // Skeleton component for loading state
-const PortfolioSkeletonItem = () => (
-  <YStack gap="$4">
-    <XStack ai="center" gap="$1.5">
-      <Skeleton w="$6" h="$6" borderRadius="$2" />
-      <Skeleton.BodyLg w="$32" />
-      <Skeleton.BodyMd w="$24" />
-    </XStack>
-    <YStack gap="$3">
-      {Array.from({ length: 2 }).map((_, index) => (
-        <XStack key={index} ai="center" gap="$3">
-          <Skeleton w="$10" h="$10" borderRadius="$2" />
-          <YStack flex={1} gap="$2">
-            <Skeleton.BodyLg w="60%" />
-            <Skeleton.BodyMd w="40%" />
-          </YStack>
-          <YStack flex={1} gap="$2">
-            <Skeleton.BodyMd w="50%" />
-          </YStack>
-          <YStack flex={1} gap="$2">
-            <Skeleton.BodyMd w="70%" />
-          </YStack>
-          <Skeleton w="$20" h="$8" borderRadius="$2" />
-        </XStack>
-      ))}
+const PortfolioSkeletonItem = () => {
+  const media = useMedia();
+
+  return (
+    <YStack gap="$4">
+      <XStack ai="center" gap="$1.5">
+        <Skeleton w="$6" h="$6" borderRadius="$2" />
+        <Skeleton.BodyLg w="$32" />
+        <Skeleton.BodyMd w="$24" />
+      </XStack>
+      <YStack gap="$3">
+        {Array.from({ length: 2 }).map((_, index) => (
+          <XStack key={index} ai="center" gap="$3">
+            <Skeleton w="$10" h="$10" borderRadius="$2" />
+            <YStack flex={1} gap="$2">
+              <Skeleton.BodyLg w="60%" />
+              <Skeleton.BodyMd w="40%" />
+            </YStack>
+            {media.gtSm ? (
+              <>
+                <YStack flex={1} gap="$2">
+                  <Skeleton.BodyMd w="50%" />
+                </YStack>
+                <YStack flex={1} gap="$2">
+                  <Skeleton.BodyMd w="70%" />
+                </YStack>
+                <Skeleton w="$20" h="$8" borderRadius="$2" />
+              </>
+            ) : null}
+          </XStack>
+        ))}
+      </YStack>
     </YStack>
-  </YStack>
-);
+  );
+};
 
 const PortfolioSkeleton = () => (
   <YStack gap="$6" mx="$5">
