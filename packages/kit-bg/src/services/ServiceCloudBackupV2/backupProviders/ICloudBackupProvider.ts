@@ -1,32 +1,36 @@
 import RNCloudFs from 'react-native-cloud-fs';
 
-import { decryptAsync, encryptAsync } from '@onekeyhq/core/src/secret';
+import {
+  decryptStringAsync,
+  encryptStringAsync,
+} from '@onekeyhq/core/src/secret';
 import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { appleCloudKitStorage } from '@onekeyhq/shared/src/storage/AppleCloudKitStorage';
-import type {
-  IAppleCloudKitAccountInfo,
-  IAppleCloudKitRecord,
-} from '@onekeyhq/shared/src/storage/AppleCloudKitStorage/types';
 import { appleKeyChainStorage } from '@onekeyhq/shared/src/storage/AppleKeyChainStorage';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
-import type { IPrimeTransferData } from '@onekeyhq/shared/types/prime/primeTransferTypes';
+import type { IPrimeTransferPublicData } from '@onekeyhq/shared/types/prime/primeTransferTypes';
 
-import type {
-  IBackupCloudServerData,
-  IBackupCloudServerDownloadData,
-  IBackupDataEncryptedPayload,
-  IBackupDataManifest,
-  IBackupDataManifestItem,
-  IBackupProviderAccountInfo,
-  IBackupProviderInfo,
-  IOneKeyBackupProvider,
+import {
+  CLOUD_BACKUP_PASSWORD_SALT,
+  CLOUD_BACKUP_PASSWORD_VERIFY_TEXT,
+  type IBackupCloudServerDownloadData,
+  type IBackupDataEncryptedPayload,
+  type IBackupDataManifest,
+  type IBackupDataManifestItem,
+  type IBackupDataPasswordVerify,
+  type IBackupProviderAccountInfo,
+  type IBackupProviderInfo,
+  type IOneKeyBackupProvider,
 } from './IOneKeyBackupProvider';
 
 const CLOUDKIT_RECORD_TYPE = 'OneKeyBackupV2';
 const CLOUDKIT_RECORD_ID_PREFIX = 'onekey_backup_v2_item';
+const CLOUDKIT_BACKUP_PASSWORD_VERIFY_RECORD_ID =
+  'onekey_backup_v2____backup_password_verify';
+
 const ICLOUD_KEYCHAIN_KEY = 'com.onekey.backup_v2.encryption.key';
 const ICLOUD_KEYCHAIN_LABEL = 'OneKey Wallet Backup V2 Key (DO NOT DELETE)';
 const ICLOUD_KEYCHAIN_DESCRIPTION =
@@ -172,19 +176,84 @@ export class ICloudBackupProvider implements IOneKeyBackupProvider {
     return encryptionKey;
   }
 
+  async setBackupPassword(params?: {
+    password?: string;
+  }): Promise<{ recordID: string }> {
+    if (!params?.password) {
+      throw new OneKeyLocalError('Password is required for backup setPassword');
+    }
+
+    const content: IBackupDataPasswordVerify = {
+      content: await encryptStringAsync({
+        allowRawPassword: true,
+        password: params.password + CLOUD_BACKUP_PASSWORD_SALT,
+        data: CLOUD_BACKUP_PASSWORD_VERIFY_TEXT,
+        dataEncoding: 'utf8',
+      }),
+    };
+    const result = await appleCloudKitStorage.saveRecord({
+      recordType: CLOUDKIT_RECORD_TYPE,
+      recordID: CLOUDKIT_BACKUP_PASSWORD_VERIFY_RECORD_ID,
+      data: stringUtils.stableStringify(content),
+      meta: '',
+    });
+    return {
+      recordID: result.recordID,
+    };
+  }
+
+  async isBackupPasswordSet(): Promise<boolean> {
+    const record = await appleCloudKitStorage.fetchRecord({
+      recordID: CLOUDKIT_BACKUP_PASSWORD_VERIFY_RECORD_ID,
+      recordType: CLOUDKIT_RECORD_TYPE,
+    });
+    return !!record?.data;
+  }
+
+  async verifyBackupPassword(params?: { password?: string }): Promise<boolean> {
+    if (!params?.password) {
+      throw new OneKeyLocalError(
+        'Password is required for backup verifyPassword',
+      );
+    }
+    const record = await appleCloudKitStorage.fetchRecord({
+      recordID: CLOUDKIT_BACKUP_PASSWORD_VERIFY_RECORD_ID,
+      recordType: CLOUDKIT_RECORD_TYPE,
+    });
+    if (!record?.data) {
+      throw new OneKeyLocalError('backup password not set before backup');
+    }
+    const content = JSON.parse(record.data) as IBackupDataPasswordVerify;
+    const decryptedContent = await decryptStringAsync({
+      allowRawPassword: true,
+      password: params.password + CLOUD_BACKUP_PASSWORD_SALT,
+      data: content.content,
+      dataEncoding: 'hex',
+      resultEncoding: 'utf8',
+    });
+    if (decryptedContent !== CLOUD_BACKUP_PASSWORD_VERIFY_TEXT) {
+      return false;
+    }
+    return true;
+  }
+
   // Note: password parameter not used for iCloud (uses Keychain instead)
   async backupData(
     payload: IBackupDataEncryptedPayload,
-  ): Promise<{ recordID: string; content: string }> {
+  ): Promise<{ recordID: string; content: string; meta: string }> {
     // await this.checkAvailability();
     const recordID = `${CLOUDKIT_RECORD_ID_PREFIX}-${stringUtils.generateUUID()}`;
 
     const content = stringUtils.stableStringify(payload);
+    const meta = stringUtils.stableStringify(payload.publicData);
+
+    console.log('backupData__saveCloudKit___meta', meta);
     // Save to CloudKit
     const result = await appleCloudKitStorage.saveRecord({
       recordType: CLOUDKIT_RECORD_TYPE,
       recordID,
       data: content,
+      meta,
     });
 
     console.log('backupData__savedRecordId: result', result);
@@ -192,6 +261,7 @@ export class ICloudBackupProvider implements IOneKeyBackupProvider {
     return {
       recordID,
       content,
+      meta: meta || '',
     };
   }
 
@@ -219,55 +289,33 @@ export class ICloudBackupProvider implements IOneKeyBackupProvider {
     }
   }
 
-  private async decryptBackupData({
-    payload,
-    password,
-  }: {
-    payload: IBackupDataEncryptedPayload;
-    password: string;
-  }): Promise<IPrimeTransferData | null> {
-    try {
-      if (!payload || !payload.privateDataEncrypted) {
-        return null;
-      }
-      // Decode and decrypt data
-      const encryptedData: Buffer = Buffer.from(
-        payload.privateDataEncrypted,
-        'base64',
-      );
-
-      // Decrypt data
-      const decryptedData = await decryptAsync({
-        data: encryptedData,
-        password,
-        allowRawPassword: true,
-      });
-
-      // Parse and return data
-      const dataJson = decryptedData.toString('utf8');
-      return JSON.parse(dataJson) as IPrimeTransferData;
-    } catch (error) {
-      console.error('Failed to decrypt backup data:', error);
-      return null;
-    }
+  async queryAllRecords() {
+    const result = await appleCloudKitStorage.queryRecords({
+      recordType: CLOUDKIT_RECORD_TYPE, // TODO pagination
+    });
+    return result;
   }
 
   async getAllBackups(): Promise<IBackupDataManifest> {
     await this.checkAvailability();
 
-    const result = await appleCloudKitStorage.queryRecords({
-      recordType: CLOUDKIT_RECORD_TYPE, // TODO pagination
-    });
+    const result = await this.queryAllRecords();
     const items: IBackupDataManifestItem[] = (
       await Promise.all(
         result.records.map(async (record) => {
+          if (!record.recordID.startsWith(CLOUDKIT_RECORD_ID_PREFIX)) {
+            return null;
+          }
           try {
-            const data = JSON.parse(record.data) as IBackupDataEncryptedPayload;
+            // Prefer lightweight meta (publicData) when available; fallback to full data
+            const publicData = JSON.parse(
+              record.meta,
+            ) as IPrimeTransferPublicData;
             const d: IBackupDataManifestItem = {
               recordID: record.recordID,
-              dataTime: data.publicData?.dataTime ?? 0,
-              totalWalletsCount: data.publicData?.totalWalletsCount ?? 0,
-              totalAccountsCount: data.publicData?.totalAccountsCount ?? 0,
+              dataTime: publicData?.dataTime ?? 0,
+              totalWalletsCount: publicData?.totalWalletsCount ?? 0,
+              totalAccountsCount: publicData?.totalAccountsCount ?? 0,
             };
             return d;
           } catch (e) {

@@ -42,6 +42,7 @@ import type {
   IWsActiveAssetCtx,
   IWsWebData2,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
+import type { IHyperLiquidSignatureRSV } from '@onekeyhq/shared/types/hyperliquid/webview';
 
 import localDb from '../../dbs/local/localDb';
 import {
@@ -1011,6 +1012,58 @@ export default class ServiceHyperliquid extends ServiceBase {
       promise: true,
     },
   );
+
+  async reportAgentApprovalToBackend(signatureInfo: {
+    action: {
+      type: string;
+      signatureChainId: string;
+      hyperliquidChain: string;
+      agentAddress: string;
+      agentName: string;
+      nonce: number;
+    };
+    signature: IHyperLiquidSignatureRSV;
+    nonce: number;
+    signerAddress: string;
+  }) {
+    try {
+      // Check if wallet is already bound to referral code
+      const isAlreadyBound =
+        await this.backgroundApi.serviceReferralCode.checkWalletIsBoundReferralCode(
+          {
+            address: signatureInfo.signerAddress,
+            networkId: 'evm--1',
+          },
+        );
+
+      if (isAlreadyBound) {
+        console.log(
+          '[reportAgentApprovalToBackend] Wallet already bound, skipping',
+        );
+        return;
+      }
+      const myReferralCode =
+        await this.backgroundApi.serviceReferralCode.getMyReferralCode();
+
+      if (!myReferralCode) {
+        console.log(
+          '[reportAgentApprovalToBackend] No referral code, skipping',
+        );
+        return;
+      }
+
+      await this.backgroundApi.serviceReferralCode.bindPerpsWallet({
+        action: signatureInfo.action,
+        nonce: signatureInfo.nonce,
+        signature: signatureInfo.signature,
+        inviteCode: myReferralCode,
+        referenceAddress: signatureInfo.signerAddress,
+        signerAddress: signatureInfo.signerAddress,
+      });
+    } catch (error) {
+      console.error('[reportAgentApprovalToBackend] Error:', error);
+    }
+  }
 
   async getBuilderFeeConfig() {
     void this.updatePerpsConfigByServerWithCache();
