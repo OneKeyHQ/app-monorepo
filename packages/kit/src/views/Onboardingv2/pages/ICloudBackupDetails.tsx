@@ -219,7 +219,7 @@ export default function ICloudBackupDetails({
             {actionType === 'backup' ? (
               <>
                 <Button
-                  isLoading={checkLoading}
+                  loading={checkLoading}
                   disabled={isButtonDisabled}
                   flex={1}
                   variant="primary"

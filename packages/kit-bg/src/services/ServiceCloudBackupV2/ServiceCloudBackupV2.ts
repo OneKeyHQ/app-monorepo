@@ -190,11 +190,13 @@ class ServiceCloudBackupV2 extends ServiceBase {
       throw new OneKeyLocalError('Private data is required for backup');
     }
     const backupPassword = params?.password;
+    const data: IPrimeTransferData = params.data;
+    if (data?.publicData) {
+      data.publicData.dataTime = Date.now();
+    }
 
     const provider = this.getProvider();
     await provider.checkAvailability();
-
-    const data: IPrimeTransferData = params.data;
 
     if (!data?.privateData?.decryptedCredentials) {
       const { password: localPassword } =
