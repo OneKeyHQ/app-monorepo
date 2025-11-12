@@ -118,6 +118,7 @@ export default function ImportPhraseOrPrivateKey() {
                   animateOnly={['opacity']}
                   enterStyle={{
                     opacity: 0,
+                    filter: 'blur(4px)',
                   }}
                   gap="$5"
                 >
