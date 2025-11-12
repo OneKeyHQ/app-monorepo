@@ -1,6 +1,10 @@
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { omit } from 'lodash';
 
+import {
+  decryptStringAsync,
+  encryptStringAsync,
+} from '@onekeyhq/core/src/secret';
 import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
 import { GoogleSignInConfigure } from '@onekeyhq/shared/src/consts/googleSignConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
@@ -11,13 +15,16 @@ import { googleDriveStorage } from '@onekeyhq/shared/src/storage/GoogleDriveStor
 import type { IGoogleUserInfo } from '@onekeyhq/shared/src/storage/GoogleDriveStorage/types';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
-import type {
-  IBackupCloudServerDownloadData,
-  IBackupDataEncryptedPayload,
-  IBackupDataManifest,
-  IBackupProviderAccountInfo,
-  IBackupProviderInfo,
-  IOneKeyBackupProvider,
+import {
+  CLOUD_BACKUP_PASSWORD_SALT,
+  CLOUD_BACKUP_PASSWORD_VERIFY_TEXT,
+  type IBackupCloudServerDownloadData,
+  type IBackupDataEncryptedPayload,
+  type IBackupDataManifest,
+  type IBackupDataPasswordVerify,
+  type IBackupProviderAccountInfo,
+  type IBackupProviderInfo,
+  type IOneKeyBackupProvider,
 } from './IOneKeyBackupProvider';
 
 // File naming constants
@@ -34,24 +41,60 @@ export class GoogleDriveBackupProvider implements IOneKeyBackupProvider {
     this.backgroundApi = backgroundApi;
   }
 
-  setBackupPassword(params?: {
+  async setBackupPassword(params?: {
     password?: string;
   }): Promise<{ recordID: string }> {
-    throw new OneKeyLocalError(
-      'GoogleDriveBackupProvider: setBackupPassword: Method not implemented.',
-    );
+    if (!params?.password) {
+      throw new OneKeyLocalError('Password is required for backup setPassword');
+    }
+    const manifest = await this.getManifest();
+    const content: IBackupDataPasswordVerify = {
+      content: await encryptStringAsync({
+        allowRawPassword: true,
+        password: params.password + CLOUD_BACKUP_PASSWORD_SALT,
+        data: CLOUD_BACKUP_PASSWORD_VERIFY_TEXT,
+        dataEncoding: 'utf8',
+      }),
+    };
+    manifest.backupPasswordVerify = content;
+    await this.saveManifest(manifest);
+    const fileObj = await googleDriveStorage.getFileObject({
+      fileName: GOOGLE_DRIVE_BACKUP_MANIFEST_FILE_NAME,
+    });
+    const fileId: string | undefined = fileObj?.id;
+    if (!fileId) {
+      throw new OneKeyLocalError('GoogleDriveBackup Manifest fileId not found');
+    }
+    return { recordID: fileId };
   }
 
-  verifyBackupPassword(params?: { password?: string }): Promise<boolean> {
-    throw new OneKeyLocalError(
-      'GoogleDriveBackupProvider: verifyBackupPassword: Method not implemented.',
-    );
+  async verifyBackupPassword(params?: { password?: string }): Promise<boolean> {
+    if (!params?.password) {
+      throw new OneKeyLocalError(
+        'Password is required for backup verifyPassword',
+      );
+    }
+    const manifest = await this.getManifest();
+    const verify = manifest.backupPasswordVerify;
+    if (!verify?.content) {
+      throw new OneKeyLocalError('backup password not set before backup');
+    }
+    const decryptedContent = await decryptStringAsync({
+      allowRawPassword: true,
+      password: params.password + CLOUD_BACKUP_PASSWORD_SALT,
+      data: verify.content,
+      dataEncoding: 'hex',
+      resultEncoding: 'utf8',
+    });
+    if (decryptedContent !== CLOUD_BACKUP_PASSWORD_VERIFY_TEXT) {
+      return false;
+    }
+    return true;
   }
 
-  isBackupPasswordSet(): Promise<boolean> {
-    throw new OneKeyLocalError(
-      'GoogleDriveBackupProvider: isBackupPasswordSet: Method not implemented.',
-    );
+  async isBackupPasswordSet(): Promise<boolean> {
+    const manifest = await this.getManifest();
+    return !!manifest?.backupPasswordVerify?.content;
   }
 
   async getBackupProviderInfo(): Promise<IBackupProviderInfo> {
