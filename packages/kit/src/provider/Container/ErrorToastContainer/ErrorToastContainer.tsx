@@ -18,19 +18,23 @@ export function ErrorToastContainer() {
       if (!p.title) {
         return;
       }
-      const message = p.message;
       const toastIdByErrorCode = isFilterErrorCode(p.errorCode)
         ? String(p.errorCode)
         : undefined;
-      // Because the request error automatically toast will take the requestId as the message, when a large number of requests are reported at the same time, using the message as the toastId will toast frequently, so the title is prioritized as the toastId
-      const toastId =
-        p.toastId || toastIdByErrorCode || (p.title ? p.title : message);
-      const actions = getErrorAction(p.errorCode, message ?? '');
+      // Use requestId or title as toastId for de-duplication
+      const toastId = p.toastId || toastIdByErrorCode || p.requestId || p.title;
+
+      const actions = getErrorAction({
+        errorCode: p.errorCode,
+        requestId: p.requestId,
+        diagnosticText: p.diagnosticText,
+      });
 
       Toast[p.method]({
-        ...p,
+        title: p.title,
         toastId,
         actions,
+        duration: p.duration,
       });
     };
     appEventBus.on(EAppEventBusNames.ShowToast, fn);

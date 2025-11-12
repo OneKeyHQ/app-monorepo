@@ -16,6 +16,7 @@ import perfUtils, {
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
+  filterAccountTokenListByLimit,
   getEmptyTokenData,
   getMergedTokenData,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
@@ -97,6 +98,7 @@ class ServiceToken extends ServiceBase {
       allNetworksAccountId,
       allNetworksNetworkId,
       saveToLocal,
+      saveToLocalLimit = 50,
       customTokensRawData,
       blockedTokensRawData,
       unblockedTokensRawData,
@@ -338,40 +340,50 @@ class ServiceToken extends ServiceBase {
         .plus(resp.data.data.tokens.fiatValue ?? '0')
         .plus(resp.data.data.smallBalanceTokens.fiatValue ?? '0');
 
+      const {
+        filteredTokenList,
+        filteredSmallBalanceTokenList,
+        filteredRiskyTokenList,
+        filteredTokenListMap,
+      } = filterAccountTokenListByLimit({
+        tokenList: resp.data.data.tokens.data,
+        smallBalanceTokenList: resp.data.data.smallBalanceTokens.data,
+        riskyTokenList: resp.data.data.riskTokens.data,
+        limit: saveToLocalLimit,
+        tokenListMap: {
+          ...resp.data.data.tokens.map,
+          ...resp.data.data.smallBalanceTokens.map,
+          ...resp.data.data.riskTokens.map,
+        },
+      });
+
       if (isAllNetworks) {
         const key = accountUtils.buildAccountLocalAssetsKey({
           networkId,
           accountAddress,
           xpub,
         });
-        this.localAccountTokensCache.tokenList[key] =
-          resp.data.data.tokens.data;
+
+        this.localAccountTokensCache.tokenList[key] = filteredTokenList;
         this.localAccountTokensCache.smallBalanceTokenList[key] =
-          resp.data.data.smallBalanceTokens.data;
+          filteredSmallBalanceTokenList;
         this.localAccountTokensCache.riskyTokenList[key] =
-          resp.data.data.riskTokens.data;
+          filteredRiskyTokenList;
         this.localAccountTokensCache.tokenListValue[key] =
           tokenListValue.toFixed();
-        this.localAccountTokensCache.tokenListMap[key] = {
-          ...resp.data.data.tokens.map,
-          ...resp.data.data.smallBalanceTokens.map,
-          ...resp.data.data.riskTokens.map,
-        };
+        this.localAccountTokensCache.tokenListMap[key] = filteredTokenListMap;
+
         await this._updateAccountLocalTokensDebounced();
       } else {
         await this.updateAccountLocalTokens({
           dbAccount,
           accountId,
           networkId,
-          tokenList: resp.data.data.tokens.data,
-          smallBalanceTokenList: resp.data.data.smallBalanceTokens.data,
-          riskyTokenList: resp.data.data.riskTokens.data,
+          tokenList: filteredTokenList,
+          smallBalanceTokenList: filteredSmallBalanceTokenList,
+          riskyTokenList: filteredRiskyTokenList,
           tokenListValue: tokenListValue.toFixed(),
-          tokenListMap: {
-            ...resp.data.data.tokens.map,
-            ...resp.data.data.smallBalanceTokens.map,
-            ...resp.data.data.riskTokens.map,
-          },
+          tokenListMap: filteredTokenListMap,
         });
       }
     }

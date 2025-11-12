@@ -131,6 +131,7 @@ function OnboardingLayoutConstrainedContent({
       enterStyle={{
         opacity: 0,
         x: 24,
+        filter: 'blur(4px)',
       }}
       w="100%"
       maxWidth={400}
