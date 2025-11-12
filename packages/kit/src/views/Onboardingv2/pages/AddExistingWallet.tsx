@@ -5,7 +5,15 @@ import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import type { IKeyOfIcons } from '@onekeyhq/components';
-import { Button, Dialog, Icon, Page, SizableText, Stack, YStack } from '@onekeyhq/components';
+import {
+  Button,
+  Dialog,
+  Icon,
+  Page,
+  SizableText,
+  Stack,
+  YStack,
+} from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -236,6 +244,7 @@ export default function AddExistingWallet() {
       cloudBackupOptionWithLoading,
       navigation,
       isSoftwareWalletOnlyUser,
+      handleConnectHardwareWalletPress,
       liteCard,
       supportCloudBackup,
       startBackup,

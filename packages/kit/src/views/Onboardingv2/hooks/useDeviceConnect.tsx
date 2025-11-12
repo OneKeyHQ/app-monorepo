@@ -677,8 +677,7 @@ export function useDeviceConnect() {
       isFirmwareVerified?: boolean;
     }) => {
       await ensureActiveConnection(device);
-      const currentDevice =
-        (getActiveDevice() as SearchDevice | undefined) ?? device;
+      const currentDevice = getActiveDevice() ?? device;
       void backgroundApiProxy.serviceHardwareUI.showDeviceProcessLoadingDialog({
         connectId: currentDevice.connectId ?? '',
       });
