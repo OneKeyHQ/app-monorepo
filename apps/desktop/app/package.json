@@ -9,6 +9,6 @@
     "@stoprocent/noble": "2.3.4",
     "electron-check-biometric-auth-changed": "0.0.6",
     "passport-desktop": "0.1.2",
-    "@onekeyfe/electron-mac-icloud": "1.1.37"
+    "@onekeyfe/electron-mac-icloud": "1.2.1"
   }
 }

@@ -256,6 +256,7 @@ function CheckAndUpdatePage({
     await ensureActiveConnection(baseDevice as SearchDevice);
     const latestDevice = getActiveDevice() ?? baseDevice;
     setCurrentDevice(latestDevice as SearchDevice);
+
     if (!latestDevice?.connectId) {
       return;
     }

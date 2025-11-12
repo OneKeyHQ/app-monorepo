@@ -56,7 +56,17 @@ export type IBackupDataManifestItem = Omit<
 export type IBackupDataManifest = {
   items: IBackupDataManifestItem[];
   total: number;
+  backupPasswordVerify?: IBackupDataPasswordVerify;
 };
+export type IBackupDataPasswordVerify = {
+  content: string; // encryptStringAsync(CLOUD_BACKUP_PASSWORD_VERIFY_TEXT, password)
+};
+
+export const CLOUD_BACKUP_PASSWORD_VERIFY_TEXT =
+  'backup_password_verify/130B1659-2648-4034-A089-78BE7002E777';
+export const CLOUD_BACKUP_PASSWORD_SALT =
+  '96AC44BC-DBA1-4782-A9A0-B683E72F5FD3';
+
 /**
  * Common interface for all cloud backup providers (iCloud, Google Drive, etc.)
  *
@@ -96,6 +106,14 @@ export interface IOneKeyBackupProvider {
   recoverEncryptionKey(params?: { password?: string }): Promise<string | null>;
 
   // TODO requestSync()
+
+  setBackupPassword(params?: {
+    password?: string;
+  }): Promise<{ recordID: string }>;
+
+  verifyBackupPassword(params?: { password?: string }): Promise<boolean>;
+
+  isBackupPasswordSet(): Promise<boolean>;
 
   /**
    * Perform full backup with automatic key management

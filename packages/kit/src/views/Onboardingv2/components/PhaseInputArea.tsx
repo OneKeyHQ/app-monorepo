@@ -574,7 +574,7 @@ export function PhaseInputArea({
     },
   }));
 
-  const { isVisible } = useKeyboardState();
+  const { isVisible } = useKeyboardState?.() || { isVisible: true };
 
   return (
     <>
