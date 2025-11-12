@@ -1,8 +1,13 @@
-import Intercom, { show, update } from '@intercom/messenger-js-sdk';
+import Intercom, {
+  onShow,
+  show,
+  trackEvent,
+  update,
+} from '@intercom/messenger-js-sdk';
 
 import platformEnv from '../../platformEnv';
 
-import { getCustomerJWT } from './utils';
+import { getCustomerJWT, getInstanceId } from './utils';
 
 import type { InitType } from '@intercom/messenger-js-sdk/dist/types';
 
@@ -17,16 +22,31 @@ export const initIntercom = async (settings?: Partial<InitType>) => {
     vertical_padding: 55,
     ...settings,
   });
+
+  onShow(async () => {
+    const instanceIdValue = await getInstanceId();
+
+    trackEvent('client info', {
+      instanceId: instanceIdValue,
+    });
+
+    const customerJWT = await getCustomerJWT();
+
+    if (customerJWT) {
+      update({
+        intercom_user_jwt: customerJWT,
+      });
+    }
+  });
 };
 
-export const showIntercom = async () => {
-  const customerJWT = await getCustomerJWT();
+export const showIntercom = async (params?: { requestId?: string }) => {
+  const instanceIdValue = await getInstanceId();
 
-  if (customerJWT) {
-    update({
-      intercom_user_jwt: customerJWT,
-    });
-  }
+  trackEvent('client info', {
+    instanceId: instanceIdValue,
+    requestId: params?.requestId,
+  });
 
   show();
 };
