@@ -27,7 +27,7 @@ export function CurrentLevelCardMobile(props: ICurrentLevelCardProps) {
         <LevelBadge levelIcon={levelIcon} levelLabel={levelLabel} />
 
         {/* Commission rates section */}
-        <YStack gap="$3">
+        <YStack gap="$2">
           <SizableText size="$bodyMd" color="$textSubdued">
             {intl.formatMessage({ id: ETranslations.referral_rate })}
           </SizableText>

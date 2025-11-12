@@ -100,6 +100,8 @@ function ConnectQRCodePage() {
                   w="100%"
                   h="100%"
                   repeat
+                  muted
+                  autoPlay
                   resizeMode={EVideoResizeMode.COVER}
                   controls={false}
                   playInBackground={false}
