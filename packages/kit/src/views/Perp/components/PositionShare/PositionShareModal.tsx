@@ -98,7 +98,7 @@ function ShareContent({ data, onClose, isMobile }: IShareContentProps) {
   }, [shareToX, config.customText, onClose]);
 
   const desktopLayout = (
-    <XStack gap="$5">
+    <YStack gap="$5">
       <ShareImageGenerator ref={generatorRef} data={data} config={config} />
       <Stack justifyContent="center" alignItems="center">
         <ShareView
@@ -119,7 +119,7 @@ function ShareContent({ data, onClose, isMobile }: IShareContentProps) {
           isLoading={isActionLoading}
         />
       </Stack>
-    </XStack>
+    </YStack>
   );
 
   const mobileLayout = (
