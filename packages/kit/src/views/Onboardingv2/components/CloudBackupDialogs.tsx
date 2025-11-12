@@ -3,6 +3,8 @@ import { useFormContext } from 'react-hook-form';
 import { Dialog, Form, Input, Stack, Toast } from '@onekeyhq/components';
 import type { IDialogShowProps } from '@onekeyhq/components/src/composite/Dialog/type';
 import { onboardingCloudBackupListRefreshAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
@@ -130,14 +132,21 @@ export const showCloudBackupDeleteDialog = ({
   Dialog.show({
     icon: 'DeleteOutline',
     tone: 'destructive',
-    title: 'Delete this backup?',
-    description:
-      "This file will be permanently deleted from iCloud. Make sure you have written down the Recovery phrases as you won't be able to restore the wallets otherwise.",
-    onConfirmText: 'Delete',
+    title: appLocale.intl.formatMessage({
+      id: ETranslations.backup_delete_this_backup,
+    }),
+    description: appLocale.intl.formatMessage({
+      id: ETranslations.backup_file_permanently_deleted,
+    }),
+    onConfirmText: appLocale.intl.formatMessage({
+      id: ETranslations.global_delete,
+    }),
     confirmButtonProps: {
       variant: 'destructive',
     },
-    onCancelText: 'Cancel',
+    onCancelText: appLocale.intl.formatMessage({
+      id: ETranslations.global_cancel,
+    }),
     onConfirm: async () => {
       await backgroundApiProxy.serviceCloudBackupV2.delete({
         recordId: recordID,

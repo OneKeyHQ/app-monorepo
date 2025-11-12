@@ -1,23 +1,23 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback } from 'react';
 
-import { useFocusEffect } from '@react-navigation/core';
 import { noop } from 'lodash';
+import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import {
   Button,
   Dialog,
-  Empty,
   Icon,
   Page,
   SizableText,
-  Skeleton,
   YStack,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import type { IBackupDataManifestItem } from '@onekeyhq/kit-bg/src/services/ServiceCloudBackupV2/backupProviders/IOneKeyBackupProvider';
 import { useOnboardingCloudBackupListRefreshAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
@@ -32,6 +32,7 @@ import { OnboardingLayout } from '../components/OnboardingLayout';
 export default function ICloudBackup() {
   const navigation = useAppNavigation();
   const [refreshHook] = useOnboardingCloudBackupListRefreshAtom();
+  const intl = useIntl();
 
   const { result: allBackups, isLoading } = usePromiseResult(
     async () => {
@@ -94,24 +95,42 @@ export default function ICloudBackup() {
             userSelect="none"
           >
             <YStack gap={2} flex={1}>
-              <SizableText size="$bodyMdMedium">
+              <SizableText
+                size="$bodyMdMedium"
+                $platform-native={{
+                  size: '$bodyLgMedium',
+                }}
+              >
                 {item.dataTime
                   ? formatDate(new Date(item.dataTime), { hideSeconds: true })
                   : 'ERROR: Invalid Backup'}
               </SizableText>
-              <SizableText size="$bodySm" color="$textSubdued">
-                {item.totalWalletsCount} wallets, {item.totalAccountsCount}{' '}
-                accounts
+              <SizableText
+                size="$bodySm"
+                color="$textSubdued"
+                $platform-native={{
+                  size: '$bodyMd',
+                }}
+              >
+                {intl.formatMessage(
+                  { id: ETranslations.global_count_wallets },
+                  { count: item.totalWalletsCount },
+                )}
+                {', '}
+                {intl.formatMessage(
+                  { id: ETranslations.global_count_accounts },
+                  { count: item.totalAccountsCount },
+                )}
               </SizableText>
             </YStack>
             <Icon name="ChevronRightSmallOutline" color="$iconDisabled" />
           </ListItem>
         ))}
-        <SizableText size="$bodySm" color="$textSubdued" px="$3">
-          We'll securely store your most recent 30 daily backups plus the last
-          monthly backup for each of the past 24 months, ready for restoration
-          at any time.
-        </SizableText>
+        {/* <SizableText size="$bodySm" color="$textSubdued" px="$3">
+          {intl.formatMessage({
+            id: ETranslations.backup_securely_store_recent_backups,
+          })}
+        </SizableText> */}
         <Button
           onPress={() => Dialog.debugMessage({ debugMessage: allBackups })}
         >
@@ -124,7 +143,15 @@ export default function ICloudBackup() {
   return (
     <Page>
       <OnboardingLayout>
-        <OnboardingLayout.Header title="iCloud Backup" />
+        <OnboardingLayout.Header
+          title={
+            platformEnv.isNativeIOS
+              ? intl.formatMessage({ id: ETranslations.settings_icloud_backup })
+              : intl.formatMessage({
+                  id: ETranslations.settings_google_drive_backup,
+                })
+          }
+        />
         <OnboardingLayout.Body>{renderContent()}</OnboardingLayout.Body>
       </OnboardingLayout>
     </Page>
