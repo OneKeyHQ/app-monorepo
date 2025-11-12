@@ -1146,13 +1146,6 @@ const BaseDevSettingsSection = () => {
           }}
         />
       ) : null}
-      <SectionPressItem
-        icon="FolderOutline"
-        title="Export Logs"
-        onPress={() => {
-          void exportLogs('onekey_logs');
-        }}
-      />
     </Section>
   );
 };

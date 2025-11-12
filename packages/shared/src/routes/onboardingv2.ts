@@ -53,9 +53,7 @@ export type IOnboardingParamListV2 = {
   [EOnboardingPagesV2.ConnectYourDevice]: {
     deviceType: EDeviceType[];
   };
-  [EOnboardingPagesV2.ConnectQRCode]: {
-    deviceType: EDeviceType[];
-  };
+  [EOnboardingPagesV2.ConnectQRCode]: undefined;
   [EOnboardingPagesV2.CheckAndUpdate]: {
     deviceData: IConnectYourDeviceItem;
     tabValue: EConnectDeviceChannel;
