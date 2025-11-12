@@ -883,15 +883,12 @@ function USBOrBLEConnectionIndicator({
       return;
     }
 
-    setTimeout(() => {
-      if (platformEnv.isNative) {
-        setTimeout(() => {
-          void startBLEConnection();
-        }, 120);
-      } else {
-        void listingDevice();
-      }
-    });
+    setTimeout(
+      () => {
+        void (platformEnv.isNative ? startBLEConnection() : listingDevice());
+      },
+      platformEnv.isNative ? 120 : 0,
+    );
   }, [listingDevice, hardwareTransportType, tabValue, startBLEConnection]);
 
   useEffect(
