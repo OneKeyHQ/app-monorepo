@@ -576,6 +576,10 @@ export default class ServiceSwap extends ServiceBase {
       fromToken.networkId,
       toToken.networkId,
     );
+    const walletDevice =
+      await this.backgroundApi.serviceAccount.getAccountDeviceSafe({
+        accountId: accountId ?? '',
+      });
     const params: IFetchQuotesParams = {
       fromTokenAddress: fromToken.contractAddress,
       toTokenAddress: toToken.contractAddress,
@@ -598,6 +602,7 @@ export default class ServiceSwap extends ServiceBase {
       userMarketPriceRate,
       denyCrossChainProvider,
       denySingleSwapProvider,
+      walletDeviceType: walletDevice?.deviceType,
     };
     this._quoteAbortController = new AbortController();
     const client = await this.getClient(EServiceEndpointEnum.Swap);
@@ -682,6 +687,10 @@ export default class ServiceSwap extends ServiceBase {
       fromToken.networkId,
       toToken.networkId,
     );
+    const walletDevice =
+      await this.backgroundApi.serviceAccount.getAccountDeviceSafe({
+        accountId: accountId ?? '',
+      });
     const params: IFetchQuotesParams = {
       fromTokenAddress: fromToken.contractAddress,
       toTokenAddress: toToken.contractAddress,
@@ -704,6 +713,7 @@ export default class ServiceSwap extends ServiceBase {
       userMarketPriceRate,
       denyCrossChainProvider,
       denySingleSwapProvider,
+      walletDeviceType: walletDevice?.deviceType,
     };
     const swapEventUrl = (
       await this.getClient(EServiceEndpointEnum.Swap)
