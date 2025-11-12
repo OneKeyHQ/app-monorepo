@@ -352,7 +352,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
     const currentTransportType =
       await this.backgroundApi.serviceSetting.getHardwareTransportType();
     const isBleTransport =
-      currentTransportType === EHardwareTransportType.ble;
+      currentTransportType === EHardwareTransportType.BLE;
 
     const sdk = await this.getSDKInstance({
       connectId: originalConnectId,
