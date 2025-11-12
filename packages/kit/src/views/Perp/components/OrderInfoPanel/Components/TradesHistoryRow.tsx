@@ -156,20 +156,25 @@ const TradesHistoryRow = memo(
                     id: ETranslations.perp_trades_close_pnl,
                   })}
                 </SizableText>
-                <SizableText size="$bodySm" color={closePnlInfo.closePnlColor}>
-                  {`${closePnlInfo.closePnlPlusOrMinus}${closePnlInfo.closePnlFormatted}`}
-                </SizableText>
+                <XStack gap="$1" alignItems="center">
+                  <SizableText
+                    size="$bodySm"
+                    color={closePnlInfo.closePnlColor}
+                  >
+                    {`${closePnlInfo.closePnlPlusOrMinus}${closePnlInfo.closePnlFormatted}`}
+                  </SizableText>
+                  {canShare ? (
+                    <IconButton
+                      variant="tertiary"
+                      size="small"
+                      icon="ShareOutline"
+                      iconSize="$4"
+                      onPress={() => onShare?.(fill)}
+                      cursor="pointer"
+                    />
+                  ) : null}
+                </XStack>
               </YStack>
-              {canShare ? (
-                <IconButton
-                  variant="tertiary"
-                  size="small"
-                  icon="ShareOutline"
-                  iconSize="$4"
-                  onPress={() => onShare?.(fill)}
-                  cursor="pointer"
-                />
-              ) : null}
             </XStack>
           </XStack>
           <Divider width="100%" borderColor="$borderSubdued" />
