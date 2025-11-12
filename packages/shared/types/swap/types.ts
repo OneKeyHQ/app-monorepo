@@ -32,6 +32,7 @@ import type {
 import type { EMessageTypesEth } from '../message';
 import type { IDecodedTxActionTokenApprove } from '../tx';
 import type { NormalizedOrder, TypedDataDomain } from '@cowprotocol/contracts';
+import type { IDeviceType } from '@onekeyfe/hd-core';
 
 export enum EWrappedType {
   DEPOSIT = 'deposit',
@@ -290,6 +291,7 @@ export interface IFetchQuotesParams extends IFetchSwapQuoteBaseParams {
   userMarketPriceRate?: string;
   denyCrossChainProvider?: string;
   denySingleSwapProvider?: string;
+  walletDeviceType?: IDeviceType;
 }
 interface ISocketAsset {
   address: string;
