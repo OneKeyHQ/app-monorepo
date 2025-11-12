@@ -288,8 +288,8 @@ function OnboardingLayoutRoot({ children }: { children: React.ReactNode }) {
           borderStyle="dashed"
           borderColor="$neutral4"
           $platform-native={{
-            pt: top,
-            pb: bottom,
+            pt: top + 10,
+            pb: bottom + 10,
           }}
         >
           <YStack
