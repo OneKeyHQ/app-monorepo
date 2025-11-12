@@ -81,6 +81,7 @@ export type IFetchAccountTokensParams = {
   allNetworksAccountId?: string;
   allNetworksNetworkId?: string;
   saveToLocal?: boolean;
+  saveToLocalLimit?: number;
   customTokensRawData?: ICustomTokenDBStruct;
   blockedTokensRawData?: IRiskTokenManagementDBStruct['blockedTokens'];
   unblockedTokensRawData?: IRiskTokenManagementDBStruct['unblockedTokens'];
