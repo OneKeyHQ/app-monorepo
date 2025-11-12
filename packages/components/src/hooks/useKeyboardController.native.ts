@@ -1,4 +1,4 @@
 export {
   useReanimatedKeyboardAnimation,
   useKeyboardState,
-} from './useKeyboardController';
+} from 'react-native-keyboard-controller';
