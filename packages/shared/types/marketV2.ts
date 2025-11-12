@@ -282,12 +282,30 @@ export interface IMarketBasicConfigToken {
   logo?: string;
 }
 
+export interface IMarketBasicConfigNetworkFeature {
+  actionBar?: boolean;
+  [key: string]: unknown;
+}
+
+export interface IMarketBasicConfigFeature {
+  marketWebsocket?: {
+    transactions?: boolean;
+    price?: boolean;
+  };
+  [key: string]: unknown;
+}
+
 export interface IMarketBasicConfigData {
+  tradingViewUrl: string;
   networkList: IMarketBasicConfigNetwork[];
   recommendTokens: IMarketBasicConfigToken[];
   searchRecommendTokens: IMarketBasicConfigToken[];
   refreshInterval: number;
   minLiquidity: number;
+  networkFeature?: {
+    [networkId: string]: IMarketBasicConfigNetworkFeature;
+  };
+  feature?: IMarketBasicConfigFeature;
 }
 
 export interface IMarketBasicConfigResponse {
