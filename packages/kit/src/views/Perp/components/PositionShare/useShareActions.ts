@@ -33,10 +33,10 @@ export function useShareActions() {
           ? `file://${filepath}`
           : filepath;
 
-        await ExpoSharing.shareAsync(shareFilePath, {
-          mimeType: 'image/png',
-          UTI: 'public.png',
-        });
+          await ExpoSharing.shareAsync(shareFilePath, {
+            mimeType: 'image/png',
+            UTI: 'public.png',
+          });
 
         Toast.success({ title: 'Image saved' });
       } else {
@@ -78,23 +78,23 @@ export function useShareActions() {
   }, [copyText]);
 
   const shareToX = useCallback(async (base64Image: string, text: string) => {
-    try {
-      const tweetText = `${text}\n\n${REFERRAL_CODE}`;
+      try {
+        const tweetText = `${text}\n\n${REFERRAL_CODE}`;
       const twitterUrl = `https://x.com/intent/tweet?text=${encodeURIComponent(
-        tweetText,
-      )}`;
+          tweetText,
+        )}`;
 
-      if (platformEnv.isNative) {
-        void Linking.openURL(twitterUrl);
-      } else {
-        window.open(twitterUrl, '_blank');
+        if (platformEnv.isNative) {
+            void Linking.openURL(twitterUrl);
+        } else {
+          window.open(twitterUrl, '_blank');
+        }
+      } catch (error) {
+        Toast.error({
+          title: 'Failed to share',
+          message: error instanceof Error ? error.message : undefined,
+        });
       }
-    } catch (error) {
-      Toast.error({
-        title: 'Failed to share',
-        message: error instanceof Error ? error.message : undefined,
-      });
-    }
   }, []);
 
   return {

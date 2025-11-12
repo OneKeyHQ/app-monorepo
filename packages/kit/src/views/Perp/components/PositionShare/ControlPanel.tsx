@@ -75,33 +75,33 @@ export function ControlPanel({
               id: ETranslations.perps_share_position_background,
             })}
           </SizableText>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <XStack gap="$3">
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          <XStack gap="$3">
               {availableBackgrounds.map((bgSource, index) => (
-                <Stack
+              <Stack
                   key={index}
                   width={72}
                   height={72}
-                  borderRadius="$3"
+                borderRadius="$3"
                   borderWidth="$0.5"
-                  borderColor={
+                borderColor={
                     config.backgroundIndex === index
-                      ? '$borderActive'
-                      : '$borderSubdued'
-                  }
-                  justifyContent="center"
-                  alignItems="center"
+                    ? '$borderActive'
+                    : '$borderSubdued'
+                }
+                justifyContent="center"
+                alignItems="center"
                   overflow="hidden"
-                  cursor="pointer"
-                  hoverStyle={{ borderColor: '$borderHover' }}
-                  pressStyle={{ opacity: 0.8 }}
+                cursor="pointer"
+                hoverStyle={{ borderColor: '$borderHover' }}
+                pressStyle={{ opacity: 0.8 }}
                   onPress={() => handleBackgroundChange(index)}
-                >
+              >
                   <Image source={{ uri: bgSource }} width={72} height={72} />
-                </Stack>
-              ))}
-            </XStack>
-          </ScrollView>
+              </Stack>
+            ))}
+          </XStack>
+        </ScrollView>
         </YStack> */}
 
         <YStack gap="$2">
