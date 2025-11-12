@@ -44,9 +44,9 @@ import {
   EModalSettingRoutes,
   EMultiTabBrowserRoutes,
   EOnboardingPages,
-  ETabEarnRoutes,
   EOnboardingPagesV2,
   EOnboardingV2Routes,
+  ETabEarnRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { ERootRoutes } from '@onekeyhq/shared/src/routes/root';

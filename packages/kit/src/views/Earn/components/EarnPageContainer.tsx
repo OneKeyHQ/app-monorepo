@@ -27,6 +27,7 @@ interface IEarnPageContainerProps {
   tabRoute: ETabRoutes;
   refreshControl?: React.ReactElement<RefreshControlProps>;
   showBackButton?: boolean;
+  footer?: React.ReactNode;
 }
 
 export function EarnPageContainer({
@@ -37,6 +38,7 @@ export function EarnPageContainer({
   tabRoute,
   refreshControl,
   showBackButton = false,
+  footer,
 }: IEarnPageContainerProps) {
   const media = useMedia();
   const navigation = useAppNavigation();
@@ -83,6 +85,7 @@ export function EarnPageContainer({
           </YStack>
         </ScrollView>
       </Page.Body>
+      {footer}
     </Page>
   );
 }

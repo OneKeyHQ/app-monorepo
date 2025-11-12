@@ -1,20 +1,21 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import {
   IconButton,
+  Popover,
   SizableText,
   Skeleton,
+  Stack,
   XStack,
   YStack,
+  useMedia,
   useShare,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import ChartView from '@onekeyhq/kit/src/views/Market/components/Chart/ChartView';
 import { EarnActionIcon } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnActionIcon';
 import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnText';
-import { EarnTooltip } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnTooltip';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type {
   IEarnTokenInfo,
@@ -22,6 +23,8 @@ import type {
 } from '@onekeyhq/shared/types/staking';
 
 import { EarnNavigation } from '../../../earnUtils';
+
+import EarnChartView from './EarnChartView';
 
 import type { UTCTimestamp } from 'lightweight-charts';
 
@@ -43,6 +46,7 @@ export function ApyChart({
   tokenInfo,
 }: IApyChartProps) {
   const { shareText } = useShare();
+  const { gtMd } = useMedia();
   const [devSettings] = useDevSettingsPersistAtom();
 
   // Generate share URL
@@ -62,6 +66,37 @@ export function ApyChart({
     if (!shareUrl) return;
     void shareText(shareUrl);
   }, [shareUrl, shareText]);
+
+  // Hover state for popover
+  const [hoverData, setHoverData] = useState<{
+    time?: number;
+    apy?: number;
+  } | null>(null);
+
+  const handleHover = useCallback(
+    ({ time, price }: { time?: any; price?: number | string }) => {
+      if (time && price) {
+        setHoverData({
+          time: typeof time === 'number' ? time : Number(time),
+          apy: typeof price === 'number' ? price : Number(price),
+        });
+      } else {
+        setHoverData(null);
+      }
+    },
+    [],
+  );
+
+  // Format date for popover
+  const formatPopoverDate = useCallback((timestamp: number) => {
+    const date = new Date(timestamp * 1000);
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: '2-digit',
+      year: 'numeric',
+    });
+  }, []);
+
   const { result: chartData, isLoading } = usePromiseResult(
     async () => {
       const apyHistory = await backgroundApiProxy.serviceStaking.getApyHistory({
@@ -81,9 +116,10 @@ export function ApyChart({
       const low = Math.min(...apyValues);
 
       // Convert to chart format
+      // timestamp is in milliseconds, need to convert to seconds for UTCTimestamp
       const formattedData = apyHistory
         .map((item) => ({
-          time: Math.floor(item.timestamp) as UTCTimestamp,
+          time: Math.floor(item.timestamp / 1000) as UTCTimestamp,
           value: Number(item.apy),
         }))
         .sort((a, b) => a.time - b.time);
@@ -162,7 +198,7 @@ export function ApyChart({
             </SizableText>
           </XStack>
           {/* APY value with buttons */}
-          <XStack gap="$1" ai="center" pt="$2.5">
+          <XStack gap="$2" ai="center" pt="$2.5">
             <EarnText text={apyDetail.description} size="$heading3xl" />
             <EarnActionIcon
               title={apyDetail.title.text}
@@ -178,32 +214,63 @@ export function ApyChart({
             />
           </XStack>
           {/* High and Low values */}
-          <XStack gap="$4" pt="$6">
-            <YStack>
-              <SizableText size="$bodySm" color="$textSubdued">
-                High
-              </SizableText>
-              <SizableText size="$bodyMd" color="$text">
-                {chartData.high.toFixed(2)}%
-              </SizableText>
-            </YStack>
-            <YStack>
-              <SizableText size="$bodySm" color="$textSubdued">
-                Low
-              </SizableText>
-              <SizableText size="$bodyMd" color="$text">
-                {chartData.low.toFixed(2)}%
-              </SizableText>
-            </YStack>
-          </XStack>
+          {gtMd ? (
+            <XStack gap="$4" pt="$6">
+              <YStack>
+                <SizableText size="$bodySm" color="$textSubdued">
+                  High
+                </SizableText>
+                <SizableText size="$bodyMd" color="$text">
+                  {chartData.high.toFixed(2)}%
+                </SizableText>
+              </YStack>
+              <YStack>
+                <SizableText size="$bodySm" color="$textSubdued">
+                  Low
+                </SizableText>
+                <SizableText size="$bodyMd" color="$text">
+                  {chartData.low.toFixed(2)}%
+                </SizableText>
+              </YStack>
+            </XStack>
+          ) : null}
         </YStack>
       ) : null}
-      <ChartView
-        data={chartData.marketChartData}
-        height={200}
-        isFetching={false}
-        onHover={() => {}}
-      />
+      <Stack position="relative">
+        <EarnChartView
+          data={chartData.marketChartData}
+          height={200}
+          isFetching={false}
+          onHover={handleHover}
+        />
+        {/* Popover for hover data */}
+        {hoverData?.apy && hoverData?.time ? (
+          <Stack
+            position="absolute"
+            top="$2"
+            left="$2"
+            bg="$bg"
+            borderRadius="$2"
+            borderWidth={1}
+            borderColor="$borderSubdued"
+            px="$3"
+            py="$2"
+            shadowColor="$shadowDefault"
+            shadowOffset={{ width: 0, height: 2 }}
+            shadowOpacity={0.1}
+            shadowRadius={8}
+          >
+            <YStack gap="$1">
+              <SizableText size="$bodyMdMedium" color="$text">
+                {hoverData.apy.toFixed(2)}%
+              </SizableText>
+              <SizableText size="$bodySm" color="$textSubdued">
+                {formatPopoverDate(hoverData.time)}
+              </SizableText>
+            </YStack>
+          </Stack>
+        ) : null}
+      </Stack>
       <XStack jc="space-between" px="$2">
         <SizableText size="$bodySm" color="$textSubdued">
           {chartData.firstTime ? formatDate(chartData.firstTime) : ''}

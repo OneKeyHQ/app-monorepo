@@ -4,14 +4,17 @@ import { useIntl } from 'react-intl';
 import { useSharedValue } from 'react-native-reanimated';
 
 import {
+  Button,
   Divider,
   Image,
+  Page,
   SizableText,
   Skeleton,
   Stack,
   Tabs,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { CountDownCalendarAlert } from '@onekeyhq/kit/src/components/CountDownCalendarAlert';
@@ -74,11 +77,13 @@ import { useProtocolDetailData } from './hooks/useProtocolDetailData';
 
 function ManagersSection({
   managers,
+  noPadding,
 }: {
   managers: IStakeEarnDetail['managers'] | undefined;
+  noPadding?: boolean;
 }) {
   return managers?.items?.length ? (
-    <XStack gap="$1" alignItems="center" px="$5">
+    <XStack gap="$1" alignItems="center" px={noPadding ? '$0' : '$5'}>
       {managers.items.map((item, index) => (
         <Fragment key={index}>
           <XStack gap="$1" alignItems="center">
@@ -134,7 +139,7 @@ function IntroSection({ intro }: { intro?: IStakeEarnDetail['intro'] }) {
       {intro.items?.length ? (
         <YStack gap="$6">
           <EarnText text={intro.title} size="$headingLg" />
-          <XStack flexWrap="wrap" gap="$3">
+          <XStack flexWrap="wrap" m="$-5" p="$2">
             {intro.items.map((cell) => (
               <GridItem
                 key={cell.title.text}
@@ -284,6 +289,7 @@ const DetailsPart = ({
   vault?: string;
 }) => {
   const now = useMemo(() => Date.now(), []);
+  const { gtMd } = useMedia();
 
   return (
     <YStack flex={6} gap="$5" px="$5">
@@ -298,6 +304,9 @@ const DetailsPart = ({
       >
         {detailInfo ? (
           <YStack gap="$8">
+            {!gtMd ? (
+              <ManagersSection managers={detailInfo.managers} noPadding />
+            ) : null}
             <ChartSection
               networkId={networkId}
               symbol={symbol}
@@ -527,6 +536,7 @@ const EarnProtocolDetailsPage = () => {
   >();
   const intl = useIntl();
   const appNavigation = useAppNavigation();
+  const { gtMd } = useMedia();
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { account, indexedAccount } = activeAccount;
   const [stakeLoading, setStakeLoading] = useState(false);
@@ -659,6 +669,37 @@ const EarnProtocolDetailsPage = () => {
     [symbol],
   );
 
+  const handleNavigateToManagePosition = useCallback(() => {
+    appNavigation.pushModal(EModalRoutes.StakingModal, {
+      screen: EModalStakingRoutes.ManagePosition,
+      params: {
+        networkId,
+        symbol,
+        provider,
+        vault,
+      },
+    });
+  }, [appNavigation, networkId, symbol, provider, vault]);
+
+  const pageFooter = useMemo(() => {
+    if (gtMd) {
+      return null;
+    }
+    return (
+      <Page.Footer
+        onCancelText={intl.formatMessage({ id: ETranslations.global_withdraw })}
+        cancelButtonProps={{
+          onPress: handleNavigateToManagePosition,
+        }}
+        onConfirmText={intl.formatMessage({ id: ETranslations.earn_deposit })}
+        confirmButtonProps={{
+          variant: 'primary',
+          onPress: handleNavigateToManagePosition,
+        }}
+      />
+    );
+  }, [gtMd, intl, handleNavigateToManagePosition]);
+
   return (
     <EarnPageContainer
       pageTitle={pageTitle}
@@ -666,9 +707,10 @@ const EarnProtocolDetailsPage = () => {
       sceneName={EAccountSelectorSceneName.home}
       tabRoute={ETabRoutes.Earn}
       showBackButton
+      footer={pageFooter}
     >
       <XStack $gtMd={{ flexDirection: 'row' }} flexDirection="column">
-        <Stack w="65%">
+        <Stack w="100%" $gtMd={{ width: '65%' }}>
           <DetailsPart
             detailInfo={detailInfo}
             tokenInfo={tokenInfo}
@@ -681,15 +723,17 @@ const EarnProtocolDetailsPage = () => {
             vault={vault}
           />
         </Stack>
-        <Stack w="35%">
-          <ManagePositionPart
-            networkId={networkId}
-            symbol={symbol}
-            provider={provider}
-            vault={vault}
-            managers={detailInfo?.managers}
-          />
-        </Stack>
+        {gtMd ? (
+          <Stack $gtMd={{ width: '35%' }}>
+            <ManagePositionPart
+              networkId={networkId}
+              symbol={symbol}
+              provider={provider}
+              vault={vault}
+              managers={detailInfo?.managers}
+            />
+          </Stack>
+        ) : null}
       </XStack>
     </EarnPageContainer>
   );

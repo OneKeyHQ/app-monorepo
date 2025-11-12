@@ -27,7 +27,9 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EModalRoutes,
   EModalStakingRoutes,
+  ERootRoutes,
   ETabEarnRoutes,
+  ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IEarnPortfolioInvestment } from '@onekeyhq/shared/types/staking';
@@ -370,13 +372,19 @@ const PortfolioItemComponent = ({
   const handleRowPress = useCallback(
     async (asset: IEarnPortfolioInvestment['assets'][number]) => {
       const symbol = asset.token.info.symbol;
-      appNavigation.push(ETabEarnRoutes.EarnProtocolDetails, {
-        indexedAccountId: indexedAccount?.id,
-        accountId: account?.id,
-        networkId: asset.metadata.network.networkId,
-        symbol,
-        provider: asset.metadata.protocol.providerDetail.code,
-        vault: asset.metadata.protocol.vault,
+      appNavigation.navigate(ERootRoutes.Main, {
+        screen: ETabRoutes.Earn,
+        params: {
+          screen: ETabEarnRoutes.EarnProtocolDetails,
+          params: {
+            indexedAccountId: indexedAccount?.id,
+            accountId: account?.id,
+            networkId: asset.metadata.network.networkId,
+            symbol,
+            provider: asset.metadata.protocol.providerDetail.code,
+            vault: asset.metadata.protocol.vault,
+          },
+        },
       });
     },
     [appNavigation, account?.id, indexedAccount?.id],
@@ -386,13 +394,19 @@ const PortfolioItemComponent = ({
     async (asset: IEarnPortfolioInvestment['assets'][number]) => {
       const symbol = asset.token.info.symbol;
       if (symbol === 'USDe') {
-        appNavigation.push(ETabEarnRoutes.EarnProtocolDetails, {
-          indexedAccountId: indexedAccount?.id,
-          accountId: account?.id,
-          networkId: asset.metadata.network.networkId,
-          symbol,
-          provider: asset.metadata.protocol.providerDetail.code,
-          vault: asset.metadata.protocol.vault,
+        appNavigation.navigate(ERootRoutes.Main, {
+          screen: ETabRoutes.Earn,
+          params: {
+            screen: ETabEarnRoutes.EarnProtocolDetails,
+            params: {
+              indexedAccountId: indexedAccount?.id,
+              accountId: account?.id,
+              networkId: asset.metadata.network.networkId,
+              symbol,
+              provider: asset.metadata.protocol.providerDetail.code,
+              vault: asset.metadata.protocol.vault,
+            },
+          },
         });
 
         return;

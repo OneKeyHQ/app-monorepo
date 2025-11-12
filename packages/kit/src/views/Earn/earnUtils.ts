@@ -76,14 +76,20 @@ export const EarnNavigation = {
       indexedAccountId,
       networkId,
     });
-    navigation.push(ETabEarnRoutes.EarnProtocolDetails, {
-      accountId: earnAccount?.accountId || accountId || '',
-      networkId,
-      indexedAccountId:
-        earnAccount?.account.indexedAccountId || indexedAccountId,
-      symbol,
-      provider,
-      vault,
+    navigation.navigate(ERootRoutes.Main, {
+      screen: ETabRoutes.Earn,
+      params: {
+        screen: ETabEarnRoutes.EarnProtocolDetails,
+        params: {
+          accountId: earnAccount?.accountId || accountId || '',
+          networkId,
+          indexedAccountId:
+            earnAccount?.account.indexedAccountId || indexedAccountId,
+          symbol,
+          provider,
+          vault,
+        },
+      },
     });
   },
 
@@ -213,14 +219,20 @@ export const EarnNavigation = {
           networkId,
         });
       const protocol = protocols[0];
-      navigation.push(ETabEarnRoutes.EarnProtocolDetails, {
-        networkId: protocol.networkId,
-        accountId: earnAccount?.accountId || accountId,
-        indexedAccountId:
-          earnAccount?.account.indexedAccountId || indexedAccountId,
-        symbol,
-        provider: protocol.provider,
-        vault: protocol.vault,
+      navigation.navigate(ERootRoutes.Main, {
+        screen: ETabRoutes.Earn,
+        params: {
+          screen: ETabEarnRoutes.EarnProtocolDetails,
+          params: {
+            networkId: protocol.networkId,
+            accountId: earnAccount?.accountId || accountId,
+            indexedAccountId:
+              earnAccount?.account.indexedAccountId || indexedAccountId,
+            symbol,
+            provider: protocol.provider,
+            vault: protocol.vault,
+          },
+        },
       });
       return;
     }
