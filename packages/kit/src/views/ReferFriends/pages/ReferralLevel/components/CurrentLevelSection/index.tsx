@@ -42,7 +42,7 @@ export function CurrentLevelSection({
         <SizableText
           size="$bodyMd"
           color="$textDisabled"
-          wordBreak="break-word"
+          style={{ wordBreak: 'break-word' }}
         >
           {intl.formatMessage({
             id: ETranslations.referral_referral_level_desc1,
@@ -51,7 +51,7 @@ export function CurrentLevelSection({
         <SizableText
           size="$bodyMd"
           color="$textDisabled"
-          wordBreak="break-word"
+          style={{ wordBreak: 'break-word' }}
         >
           {intl.formatMessage({
             id: ETranslations.referral_referral_level_desc2,
