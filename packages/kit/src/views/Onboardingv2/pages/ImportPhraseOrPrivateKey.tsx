@@ -192,7 +192,7 @@ export default function ImportPhraseOrPrivateKey() {
                     pt="$5"
                   >
                     <YStack w="100%">
-                      <XStack onPress={noop}>
+                      <XStack onPress={noop} ml={-12}>
                         <Portal.Container
                           name={Portal.Constant.SUGGESTION_LIST}
                         />

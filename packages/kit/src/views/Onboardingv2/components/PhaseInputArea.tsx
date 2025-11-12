@@ -151,9 +151,6 @@ function SuggestionList({
         horizontal
         keyboardDismissMode="none"
         keyboardShouldPersistTaps="always"
-        contentContainerStyle={{
-          p: '$1.5',
-        }}
         showsHorizontalScrollIndicator={false}
       >
         {wordItems}
