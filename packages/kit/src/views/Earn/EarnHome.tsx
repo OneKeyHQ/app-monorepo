@@ -224,7 +224,7 @@ function BasicEarnHome({
   if (platformEnv.isNative && media.md) {
     return (
       <>
-        {showHeader ? <Stack h={tabPageHeight} /> : null}
+        {showHeader && showContent ? <Stack h={tabPageHeight} /> : null}
         <EarnMainTabs
           isMobile
           assetTabData={assetTabData}
@@ -263,7 +263,7 @@ function BasicEarnHome({
             ),
           }}
         />
-        {showHeader && platformEnv.isNative ? (
+        {showHeader && showContent && platformEnv.isNative ? (
           <YStack
             position="absolute"
             top={-20}

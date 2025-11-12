@@ -377,10 +377,17 @@ function MobileBrowser() {
             </Animated.View>
           </Freeze>
         </Stack>
-        <EarnHomeWithProvider
-          showHeader={false}
-          showContent={selectedHeaderTab === ETranslations.global_earn}
-        />
+        <Stack
+          flex={1}
+          display={
+            selectedHeaderTab === ETranslations.global_earn ? undefined : 'none'
+          }
+        >
+          <EarnHomeWithProvider
+            showHeader={false}
+            showContent={selectedHeaderTab === ETranslations.global_earn}
+          />
+        </Stack>
       </Page.Body>
       {displayHomePage ? (
         <YStack

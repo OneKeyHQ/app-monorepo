@@ -7,10 +7,9 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
-import { showProtocolListDialog } from '@onekeyhq/kit/src/views/Earn/components/showProtocolListDialog';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { ETabEarnRoutes } from '@onekeyhq/shared/src/routes';
+import { ETabEarnRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 
 import { RawActions } from './RawActions';
 
@@ -92,7 +91,6 @@ export function WalletActionEarn(props: {
       isSoftwareWalletOnlyUser,
     });
 
-    // Convert protocol list to the format expected by showProtocolListDialog
     const protocols = protocolList.map((protocol) => ({
       provider: protocol.provider.name,
       networkId: protocol.network.networkId,
@@ -101,25 +99,26 @@ export function WalletActionEarn(props: {
 
     if (protocols.length === 1) {
       const protocol = protocolList[0];
-      navigation.push(ETabEarnRoutes.EarnProtocolDetails, {
-        networkId,
-        accountId,
-        indexedAccountId,
-        symbol,
-        provider: protocol.provider.name,
-        vault: protocol.provider.vault,
+      navigation.switchTab(ETabRoutes.Earn, {
+        screen: ETabEarnRoutes.EarnProtocolDetails,
+        params: {
+          networkId,
+          accountId,
+          indexedAccountId,
+          symbol,
+          provider: protocol.provider.name,
+          vault: protocol.provider.vault,
+        },
       });
       return;
     }
 
-    // Use dialog for multiple protocols
-    showProtocolListDialog({
-      symbol,
-      accountId,
-      indexedAccountId,
-      filterNetworkId: networkId,
-      onProtocolSelect: async (params) => {
-        navigation.push(ETabEarnRoutes.EarnProtocolDetails, params);
+    // Navigate to protocols list page for multiple protocols
+    navigation.switchTab(ETabRoutes.Earn, {
+      screen: ETabEarnRoutes.EarnProtocols,
+      params: {
+        symbol,
+        filterNetworkId: networkId,
       },
     });
   }, [

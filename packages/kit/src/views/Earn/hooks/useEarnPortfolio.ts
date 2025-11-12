@@ -499,6 +499,7 @@ export const useEarnPortfolio = () => {
       watchLoading: true,
       revalidateOnReconnect: true,
       alwaysSetState: true,
+      revalidateOnFocus: true,
     },
   );
 
