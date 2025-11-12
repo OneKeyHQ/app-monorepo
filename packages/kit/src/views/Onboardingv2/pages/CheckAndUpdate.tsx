@@ -277,10 +277,25 @@ function CheckAndUpdatePage({
   ]);
 
   const checkFirmwareUpdate = useCallback(async () => {
+    const setDeviceNotFoundErrorMessageStep = () => {
+      setSteps((prev) => {
+        const newSteps = [...prev];
+        newSteps[1] = {
+          ...newSteps[1],
+          state: ECheckAndUpdateStepState.Error,
+          errorMessage: intl.formatMessage({
+            id: ETranslations.device_not_connected,
+          }),
+        };
+        return newSteps;
+      });
+    };
     const cancelTimeout = createStepTimeout();
     await ensureTransportType();
     const baseDevice = getActiveDevice() ?? currentDevice ?? deviceData.device;
     if (!baseDevice?.connectId) {
+      cancelTimeout();
+      setDeviceNotFoundErrorMessageStep();
       return;
     }
     await ensureActiveConnection(baseDevice as SearchDevice);
@@ -288,6 +303,8 @@ function CheckAndUpdatePage({
     setCurrentDevice(latestDevice as SearchDevice);
 
     if (!latestDevice?.connectId) {
+      cancelTimeout();
+      setDeviceNotFoundErrorMessageStep();
       return;
     }
     const compatibleConnectId =
@@ -299,8 +316,8 @@ function CheckAndUpdatePage({
       await backgroundApiProxy.serviceFirmwareUpdate.checkAllFirmwareRelease({
         connectId: compatibleConnectId,
       });
+    cancelTimeout();
     if (r) {
-      cancelTimeout();
       if (r.hasUpgrade) {
         setSteps((prev) => {
           const newSteps = [...prev];
@@ -331,6 +348,18 @@ function CheckAndUpdatePage({
         });
         void checkDeviceInitialized();
       }
+    } else {
+      setSteps((prev) => {
+        const newSteps = [...prev];
+        newSteps[1] = {
+          ...newSteps[1],
+          state: ECheckAndUpdateStepState.Error,
+          errorMessage: intl.formatMessage({
+            id: ETranslations.hardware_hardware_device_not_find_error,
+          }),
+        };
+        return newSteps;
+      });
     }
   }, [
     createStepTimeout,
@@ -339,6 +368,7 @@ function CheckAndUpdatePage({
     currentDevice,
     deviceData.device,
     ensureActiveConnection,
+    intl,
     checkDeviceInitialized,
   ]);
 
