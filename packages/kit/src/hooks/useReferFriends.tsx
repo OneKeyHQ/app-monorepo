@@ -46,8 +46,6 @@ export function useToReferFriendsModalByRootNavigation() {
   }, []);
 }
 
-
-
 export const useReferFriends = () => {
   const intl = useIntl();
   const navigation = useAppNavigation();

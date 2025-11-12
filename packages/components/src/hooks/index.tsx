@@ -5,6 +5,7 @@ export * from './useDeepCompareEffect';
 export * from './useDeferredPromise';
 export * from './useForm';
 export * from './useKeyboard';
+export * from './useKeyboardController';
 export * from './useLayout';
 export * from './useModalNavigatorContext';
 export * from './useNetInfo';
