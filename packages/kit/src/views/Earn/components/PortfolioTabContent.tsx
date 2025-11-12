@@ -103,6 +103,7 @@ const WrappedActionButton = ({
           token: buttonData?.token,
           rewardTokenAddress,
           indexedAccountId: indexedAccount?.id,
+          stakedSymbol,
         });
       }}
     >
@@ -231,9 +232,17 @@ const ProtocolHeader = ({
           </NumberSizeableText>
         </XStack>
       </XStack>
-      {isEmpty(portfolioItem.airdropAssets) ? null : (
+      {isEmpty(portfolioItem.airdropAssets) ||
+      portfolioItem.airdropAssets?.every((airdrop) =>
+        isEmpty(airdrop.airdropAssets),
+      ) ? null : (
         <YStack mb="$2" mt="$5">
           {portfolioItem.airdropAssets?.map((airdrop, index) => {
+            // Skip if this airdrop has no airdropAssets
+            if (isEmpty(airdrop.airdropAssets)) {
+              return null;
+            }
+
             // For airdrops, we need the staked token symbol to look up staking config
             // Use the first staked asset's symbol from the same protocol
             const stakedSymbol = portfolioItem.assets[0]?.token.info.symbol;

@@ -77,10 +77,12 @@ export const usePortfolioAction = ({
       actionIcon,
       token,
       rewardTokenAddress,
+      stakedSymbol,
     }: {
       actionIcon: IEarnClaimActionIcon;
       token?: IEarnToken;
       rewardTokenAddress?: string;
+      stakedSymbol?: string;
     }) => {
       setLoading(true);
       setTimeout(() => {
@@ -137,7 +139,9 @@ export const usePortfolioAction = ({
             : undefined,
           tags: stakeTag ? [stakeTag] : [],
         },
-        portfolioSymbol: token?.symbol,
+        // For airdrops, use stakedSymbol to refresh the correct portfolio item
+        // For normal claims, use token?.symbol
+        portfolioSymbol: stakedSymbol || token?.symbol,
       });
       setLoading(false);
     },
@@ -232,11 +236,13 @@ export const usePortfolioAction = ({
       token,
       rewardTokenAddress,
       indexedAccountId: actionIndexedAccountId,
+      stakedSymbol,
     }: {
       actionIcon: IEarnActionIcon;
       token?: IEarnToken;
       rewardTokenAddress?: string;
       indexedAccountId?: string;
+      stakedSymbol?: string;
     }) => {
       switch (actionIcon.type) {
         case 'claim':
@@ -246,6 +252,7 @@ export const usePortfolioAction = ({
             actionIcon,
             token,
             rewardTokenAddress,
+            stakedSymbol,
           });
           break;
         case 'claimWithKyc':
