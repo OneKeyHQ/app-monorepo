@@ -3,7 +3,6 @@ import { useCallback } from 'react';
 import { EDeviceType } from '@onekeyfe/hd-shared';
 import { useIntl } from 'react-intl';
 
-import type { IPageScreenProps } from '@onekeyhq/components';
 import {
   Anchor,
   Button,
@@ -16,10 +15,6 @@ import {
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import type {
-  EOnboardingPagesV2,
-  IOnboardingParamListV2,
-} from '@onekeyhq/shared/src/routes/onboardingv2';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -141,7 +136,7 @@ function ConnectQRCodePage() {
   );
 }
 
-export default function ConnectYourDevice() {
+export default function ConnectQRCode() {
   return (
     <AccountSelectorProviderMirror
       enabledNum={[0]}

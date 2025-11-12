@@ -1,14 +1,22 @@
 import type { RefObject } from 'react';
 import { useRef, useState } from 'react';
 
+import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
+import { useReanimatedKeyboardAnimation } from 'react-native-keyboard-controller';
+import Animated, {
+  useAnimatedReaction,
+  useSharedValue,
+} from 'react-native-reanimated';
 
 import {
   Button,
   HeightTransition,
   Page,
+  Portal,
   SegmentControl,
   TextAreaInput,
+  XStack,
   YStack,
   useMedia,
 } from '@onekeyhq/components';
@@ -73,6 +81,17 @@ export default function ImportPhraseOrPrivateKey() {
       void navigation.push(EOnboardingPagesV2.SelectPrivateKeyNetwork, params);
     }
   };
+
+  const { height } = useReanimatedKeyboardAnimation();
+  const keyboardHeight = useSharedValue<number>(0);
+
+  useAnimatedReaction(
+    () => height.get(),
+    (value) => {
+      const v = Math.abs(value);
+      keyboardHeight.value = v;
+    },
+  );
 
   return (
     <Page>
@@ -140,6 +159,11 @@ export default function ImportPhraseOrPrivateKey() {
                 </YStack>
               )}
             </HeightTransition>
+            <Animated.View
+              style={{
+                height: keyboardHeight,
+              }}
+            />
             {gtMd ? (
               <Button size="large" variant="primary" onPress={handleConfirm}>
                 {intl.formatMessage({ id: ETranslations.global_confirm })}
@@ -149,15 +173,37 @@ export default function ImportPhraseOrPrivateKey() {
         </OnboardingLayout.Body>
         {!gtMd ? (
           <OnboardingLayout.Footer>
-            <Button
-              size="large"
-              variant="primary"
-              onPress={handleConfirm}
-              loading={isConfirming}
-              w="100%"
-            >
-              {intl.formatMessage({ id: ETranslations.global_confirm })}
-            </Button>
+            <YStack>
+              <Animated.View style={{ transform: [{ translateY: height }] }}>
+                <YStack>
+                  <XStack
+                    bg="$bgApp"
+                    alignItems="center"
+                    justifyContent="center"
+                    pt="$5"
+                  >
+                    <YStack w="100%">
+                      <XStack onPress={noop}>
+                        <Portal.Container
+                          name={Portal.Constant.SUGGESTION_LIST}
+                        />
+                      </XStack>
+                      <Button
+                        size="large"
+                        variant="primary"
+                        onPress={handleConfirm}
+                        loading={isConfirming}
+                        w="100%"
+                      >
+                        {intl.formatMessage({
+                          id: ETranslations.global_confirm,
+                        })}
+                      </Button>
+                    </YStack>
+                  </XStack>
+                </YStack>
+              </Animated.View>
+            </YStack>
           </OnboardingLayout.Footer>
         ) : null}
       </OnboardingLayout>
