@@ -16,6 +16,7 @@ export class HardwareAllNetworkGetAddressResponse {
     const promiseTarget = this.getOrCreateItemPromiseTarget({
       path: item.path,
       hwSdkNetwork: item.network,
+      useTweak: item.useTweak,
     });
     // reject by convertDeviceResponse();
     if (item.success) {
@@ -65,11 +66,17 @@ export class HardwareAllNetworkGetAddressResponse {
   getOrCreateItemPromiseTarget({
     path,
     hwSdkNetwork,
+    useTweak,
   }: {
     path: string;
     hwSdkNetwork: IHwSdkNetwork;
+    useTweak?: boolean;
   }) {
-    const key = this.buildItemPromiseTargetKey({ path, hwSdkNetwork });
+    const key = this.buildItemPromiseTargetKey({
+      path,
+      hwSdkNetwork,
+      useTweak,
+    });
     console.log(
       'HardwareAllNetworkGetAddressResponse__getOrCreateItemPromiseTarget',
       {
@@ -94,9 +101,11 @@ export class HardwareAllNetworkGetAddressResponse {
   buildItemPromiseTargetKey({
     path,
     hwSdkNetwork,
+    useTweak,
   }: {
     path: string;
     hwSdkNetwork: IHwSdkNetwork;
+    useTweak?: boolean;
   }) {
     /*
         const account = hwAllNetworkPrepareAccountsResponse?.find(
@@ -104,6 +113,10 @@ export class HardwareAllNetworkGetAddressResponse {
         item.network && item.path === path && item.network === hwSdkNetwork,
         );        
         */
+
+    if (useTweak) {
+      return `PromiseItem__${hwSdkNetwork}-${path}-useTweak`;
+    }
     return `PromiseItem__${hwSdkNetwork}-${path}`;
   }
 
@@ -120,13 +133,16 @@ export class HardwareAllNetworkGetAddressResponse {
   async getItem({
     path,
     hwSdkNetwork,
+    useTweak,
   }: {
     path: string;
     hwSdkNetwork: IHwSdkNetwork;
+    useTweak?: boolean;
   }): Promise<IHwAllNetworkPrepareAccountsItem> {
     const promiseTarget = this.getOrCreateItemPromiseTarget({
       path,
       hwSdkNetwork,
+      useTweak,
     });
     return promiseTarget.ready;
   }

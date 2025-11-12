@@ -1,23 +1,13 @@
-import windowsSecurityCredentialsUiModule, {
-  UserConsentVerificationResult,
-  UserConsentVerifierAvailability,
-} from 'electron-windows-security';
+import { Passport, VerificationResult } from 'passport-desktop';
 
 import { EWindowHelloEventType } from './enum';
 
 function checkWindowsHelloAvailability(callback: (result: boolean) => void) {
   try {
-    windowsSecurityCredentialsUiModule.UserConsentVerifier.checkAvailabilityAsync(
-      (error, status) => {
-        if (error) {
-          callback(false);
-        } else {
-          callback(status === UserConsentVerifierAvailability.available);
-        }
-      },
-    );
+    const isAvailable = Passport.available();
+    callback(isAvailable);
   } catch (error) {
-    return false;
+    callback(false);
   }
 }
 
@@ -25,21 +15,18 @@ function requestVerificationAsync(
   message: string,
   callback: (params: { success: boolean; error?: string }) => void,
 ) {
-  windowsSecurityCredentialsUiModule.UserConsentVerifier.requestVerificationAsync(
-    message,
-    (error, status) => {
-      if (error) {
-        callback({
-          success: false,
-          error: error.message,
-        });
-      } else {
-        callback({
-          success: status === UserConsentVerificationResult.verified,
-        });
-      }
-    },
-  );
+  void Passport.requestVerification(message).then((verification) => {
+    if (verification === VerificationResult.Verified) {
+      callback({
+        success: true,
+      });
+    } else {
+      callback({
+        error: '',
+        success: false,
+      });
+    }
+  });
 }
 
 // Child process

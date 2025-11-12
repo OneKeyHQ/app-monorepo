@@ -72,25 +72,53 @@ export function useAccountData<T extends IUseAccountDataResult>({
       ]);
 
       if (account && networkId) {
-        const [addressTypeResp, deriveResp] = await Promise.all([
-          serviceAccount.getAccountAddressType({
-            accountId: account.id,
-            networkId,
-            address: account.address,
-          }),
-          serviceNetwork.getDeriveTypeByTemplate({
-            networkId,
-            template: account.template,
-            accountId: account.id,
-          }),
-        ]);
+        const accountAddress =
+          account.address || account.addressDetail?.address;
 
-        addressType = addressTypeResp.typeKey
-          ? intl.formatMessage({ id: addressTypeResp.typeKey })
-          : addressTypeResp.type ?? '';
+        if (account.template) {
+          const [addressTypeResp, deriveResp] = await Promise.all([
+            serviceAccount.getAccountAddressType({
+              accountId: account.id,
+              networkId,
+              address: account.address,
+            }),
+            serviceNetwork.getDeriveTypeByTemplate({
+              networkId,
+              template: account.template,
+              accountId: account.id,
+            }),
+          ]);
+          addressType = addressTypeResp.typeKey
+            ? intl.formatMessage({ id: addressTypeResp.typeKey })
+            : addressTypeResp.type ?? '';
 
-        deriveType = deriveResp.deriveType;
-        deriveInfo = deriveResp.deriveInfo;
+          deriveType = deriveResp.deriveType;
+          deriveInfo = deriveResp.deriveInfo;
+        } else {
+          const [addressTypeResp, deriveTypeResp, deriveInfoResp] =
+            await Promise.all([
+              serviceAccount.getAccountAddressType({
+                accountId: account.id,
+                networkId,
+                address: accountAddress,
+              }),
+              serviceNetwork.getDeriveTypeByAddress({
+                networkId,
+                address: accountAddress,
+              }),
+              serviceNetwork.getDeriveInfoByAddress({
+                networkId,
+                address: accountAddress,
+              }),
+            ]);
+
+          addressType = addressTypeResp.typeKey
+            ? intl.formatMessage({ id: addressTypeResp.typeKey })
+            : addressTypeResp.type ?? '';
+
+          deriveType = deriveTypeResp;
+          deriveInfo = deriveInfoResp?.item;
+        }
       }
 
       const obj: IUseAccountDataResult = {

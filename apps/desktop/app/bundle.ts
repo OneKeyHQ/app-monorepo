@@ -11,8 +11,8 @@ import semver from 'semver';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { PUBLIC_KEY } from './constant/gpg';
-import { ETranslations } from './i18n';
-import { getNativeVersion } from './libs/store';
+import { ElectronTranslations } from './i18n';
+import { clearUpdateBundleData, getNativeVersion } from './libs/store';
 
 const readMetadataFileSha256 = async (signature: string) => {
   try {
@@ -41,7 +41,7 @@ const readMetadataFileSha256 = async (signature: string) => {
       return sha256;
     }
     throw new OneKeyLocalError(
-      ETranslations.update_signature_verification_failed_alert_text,
+      ElectronTranslations.update_signature_verification_failed_alert_text,
     );
   } catch (error) {
     logger.error(
@@ -58,17 +58,31 @@ const readMetadataFileSha256 = async (signature: string) => {
       lowerCaseMessage.includes('ascii armor integrity check failed');
     throw new OneKeyLocalError(
       isInValid
-        ? ETranslations.update_signature_verification_failed_alert_text
-        : ETranslations.update_installation_package_possibly_compromised,
+        ? ElectronTranslations.update_signature_verification_failed_alert_text
+        : ElectronTranslations.update_installation_package_possibly_compromised,
     );
   }
 };
 
-export const verifySha256 = (filePath: string, sha256: string) => {
+export const calculateSHA256 = (filePath: string) => {
+  if (!filePath) {
+    return '';
+  }
   const hashSum = crypto.createHash('sha256');
   const fileBuffer = fs.readFileSync(filePath);
   hashSum.update(fileBuffer);
   const fileSha256 = hashSum.digest('hex');
+  return fileSha256;
+};
+
+export const verifySha256 = (filePath: string, sha256: string) => {
+  if (!filePath || !sha256) {
+    return false;
+  }
+  const fileSha256 = calculateSHA256(filePath);
+  if (!fileSha256) {
+    return false;
+  }
   logger.info('bundle-download-verifySha256', sha256, fileSha256);
   return fileSha256 === sha256;
 };
@@ -114,6 +128,7 @@ export const getBundleIndexHtmlPath = ({
     prevNativeVersion,
   );
   if (!semver.eq(currentAppVersion, prevNativeVersion)) {
+    clearUpdateBundleData();
     return undefined;
   }
   const extractDir = getBundleExtractDir({
@@ -271,10 +286,21 @@ export const checkFileHash = ({
   let key = replacedKey || 'index.html';
   // Handle Windows path separators
   if (isWin) {
-    key = key.replace(driveLetter, '').replace('C:/', '');
+    key = key
+      .replace(/\\/g, '/')
+      .replace(bundleDirPath.replace(/\\/g, '/'), '')
+      .replace(driveLetter, '')
+      .replace('C:/', '');
+
+    // Remove leading slash if present
+    if (key.startsWith('/')) {
+      key = key.replace(/^\/+/, '').trim();
+    }
   }
   if (!metadata[key]) {
-    logger.info(`${key}: File ${url} not found in metadata.json`);
+    logger.info(
+      `${key}: File ${url} ${bundleDirPath} not found in metadata.json`,
+    );
     key = 'index.html';
   }
   const sha512 = metadata[key];

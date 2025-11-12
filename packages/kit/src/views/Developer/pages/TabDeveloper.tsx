@@ -220,19 +220,15 @@ const TabDeveloper = () => {
               >
                 Clear All BLE ConnectIds (Test)
               </Button>
-            </PartContainer>
 
-            {platformEnv.isNative ? (
-              <PartContainer title="NetworkLogger">
-                <Button
-                  onPress={() => {
-                    navigation.push(ETabDeveloperRoutes.NetworkLogger);
-                  }}
-                >
-                  NetworkLogger
-                </Button>
-              </PartContainer>
-            ) : null}
+              <Button
+                onPress={async () => {
+                  void backgroundApiProxy.serviceIpTable.init();
+                }}
+              >
+                IP_TABLE_TEST
+              </Button>
+            </PartContainer>
 
             <PartContainer title="Async Import Test">
               <Button

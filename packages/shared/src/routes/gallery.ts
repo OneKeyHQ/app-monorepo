@@ -31,6 +31,7 @@ export enum EGalleryRoutes {
   ComponentImage = 'component-Image',
   ComponentImageCropGallery = 'component-ImageCrop',
   ComponentInput = 'component-Input',
+  ComponentIpRequest = 'component-IpRequest',
   ComponentJotaiContext = 'component-JotaiContext',
   ComponentJotaiGlobal = 'component-JotaiGlobal',
   ComponentLinearGradientGallery = 'component-LinearGradient',
@@ -49,6 +50,7 @@ export enum EGalleryRoutes {
   ComponentPasswordDemo = 'component-PasswordDemo',
   ComponentPasswordKeyboardGallery = 'component-PasswordKeyboard',
   ComponentPerp = 'component-Perp',
+  ComponentCloudBackup = 'component-CloudBackup',
   ComponentPopover = 'component-Popover',
   ComponentPortal = 'component-Portal',
   ComponentProgress = 'component-Progress',
@@ -102,4 +104,5 @@ export enum EGalleryRoutes {
   ComponentRestart = 'component-Restart',
   ComponentUnOrderedList = 'component-UnOrderedList',
   FontGallery = 'component-Font',
+  ComponentPlayground = 'component-Playground',
 }

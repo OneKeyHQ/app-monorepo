@@ -13,6 +13,10 @@ import {
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -87,7 +91,7 @@ export function PrimeBenefitsList({
   const { ensureOneKeyIDLoggedIn } = usePrimeRequirements();
   const { isPrimeSubscriptionActive } = usePrimeAuthV2();
   const {
-    activeAccount: { wallet, account, network },
+    activeAccount: { wallet, account, network, indexedAccount },
   } = useActiveAccount({ num: 0 });
 
   return (
@@ -193,6 +197,7 @@ export function PrimeBenefitsList({
                 walletId: wallet?.id ?? '',
                 accountId: account?.id ?? '',
                 networkId: network?.id ?? '',
+                indexedAccountId: indexedAccount?.id ?? '',
               },
             });
           } else {

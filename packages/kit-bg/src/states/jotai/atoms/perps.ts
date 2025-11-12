@@ -13,6 +13,7 @@ import type {
   IPerpsUniverse,
 } from '@onekeyhq/shared/types/hyperliquid';
 import { EPerpUserType } from '@onekeyhq/shared/types/hyperliquid';
+import type { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 
 import { EAtomNames } from '../atomNames';
 import { globalAtom, globalAtomComputedR } from '../utils';
@@ -37,6 +38,15 @@ export const {
     accountAddress: null,
     deriveType: 'default',
   },
+});
+
+// perpsActiveAccountRefreshHookAtom
+export const {
+  target: perpsActiveAccountRefreshHookAtom,
+  use: usePerpsActiveAccountRefreshHookAtom,
+} = globalAtom<{ refreshHook: number }>({
+  name: EAtomNames.perpsActiveAccountRefreshHookAtom,
+  initialValue: { refreshHook: 0 },
 });
 
 export type IPerpsActiveAccountSummaryAtom =
@@ -233,14 +243,16 @@ export const {
 });
 
 // Token Selector Sort Config (Persisted)
-// null means no sorting applied, preserving default order from API
 export const {
   target: perpTokenSortConfigPersistAtom,
   use: usePerpTokenSortConfigPersistAtom,
 } = globalAtom<IPerpTokenSortConfig | null>({
   name: EAtomNames.perpTokenSortConfigPersistAtom,
   persist: true,
-  initialValue: null,
+  initialValue: {
+    field: 'volume24h',
+    direction: 'desc',
+  },
 });
 
 export type IPerpsActiveOrderBookOptionsAtom =
@@ -315,7 +327,7 @@ export interface IPerpsDepositToken {
 }
 
 export interface IPerpsDepositTokensAtom {
-  tokens: Map<string, IPerpsDepositToken[]>;
+  tokens: Record<string, IPerpsDepositToken[]>;
   currentPerpsDepositSelectedToken?: IPerpsDepositToken;
 }
 export const {
@@ -324,9 +336,30 @@ export const {
 } = globalAtom<IPerpsDepositTokensAtom>({
   name: EAtomNames.perpsDepositTokensAtom,
   initialValue: {
-    tokens: new Map(),
+    tokens: {},
   },
 });
+
+export interface IPerpsDepositOrderAtom {
+  isArbUSDCOrder: boolean;
+  fromTxId: string;
+  toTxId?: string;
+  amount: string;
+  token: IPerpsDepositToken;
+  status: ESwapTxHistoryStatus;
+  accountId?: string | null;
+  indexedAccountId?: string | null;
+  time?: number;
+}
+
+export const { target: perpsDepositOrderAtom, use: usePerpsDepositOrderAtom } =
+  globalAtom<{ orders: IPerpsDepositOrderAtom[] }>({
+    name: EAtomNames.perpsDepositOrderAtom,
+    persist: true,
+    initialValue: {
+      orders: [],
+    },
+  });
 
 export interface IPerpsUserConfigPersistAtom {
   perpUserConfig: IPerpUserConfig;

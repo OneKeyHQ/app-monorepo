@@ -1,9 +1,13 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type { IDebugRenderTrackerProps } from '@onekeyhq/components';
+import {
+  type IDebugRenderTrackerProps,
+  useUpdateEffect,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IFill } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
@@ -122,6 +126,14 @@ function PerpTradesHistoryList({
       />
     );
   };
+  const [isLocked] = useAppIsLockedAtom();
+
+  useUpdateEffect(() => {
+    if (!isLocked) {
+      void backgroundApiProxy.serviceHyperliquidSubscription.updateSubscriptionForUserFills();
+    }
+  }, [isLocked]);
+
   return (
     <CommonTableListView
       onPullToRefresh={async () => {

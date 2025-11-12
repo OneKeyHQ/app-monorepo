@@ -10,6 +10,12 @@ import ServiceBase from '../ServiceBase';
 
 import { EChannel, EOperation } from './const';
 import { MarketSubscriptionTracker } from './MarketSubscriptionTracker';
+import { EMessageType } from './types/messageType';
+import {
+  convertOkxPriceDataToWsPriceData,
+  isOkxPriceData,
+} from './types/okxPriceData';
+import { convertOkxTxsDataToWsTxsData, isOkxTxsData } from './types/okxTxsData';
 
 import type { ISubscriptionType } from './MarketSubscriptionTracker';
 import type { IWsPriceData, IWsTxsData } from './types';
@@ -20,7 +26,8 @@ type IMarketSubscription = {
   networkId: string;
   tokenAddress: string;
   chartType?: string;
-  currency?: string;
+  currencyCode?: string;
+  dataSource?: string;
 };
 
 type IMarketMessage = {
@@ -65,6 +72,7 @@ class ServiceMarketWS extends ServiceBase {
     // Register market data listener only once
     if (!this.isMarketListenerRegistered) {
       this.socket.on(EAppSocketEventNames.market, (data: unknown) => {
+        console.log('handleMarketMessage', data);
         this.handleMarketMessage(data);
       });
       this.isMarketListenerRegistered = true;
@@ -89,9 +97,11 @@ class ServiceMarketWS extends ServiceBase {
   async subscribeTokenTxs({
     networkId,
     tokenAddress,
+    currency = 'usd',
   }: {
     networkId: string;
     tokenAddress: string;
+    currency?: string;
   }) {
     // Check if already subscribed
     if (
@@ -104,19 +114,22 @@ class ServiceMarketWS extends ServiceBase {
         address: tokenAddress,
         type: EChannel.tokenTxs,
         networkId,
+        currency,
       });
       return;
     }
 
+    const subscriptionArgs: IMarketSubscription = {
+      channel: EChannel.tokenTxs,
+      networkId,
+      tokenAddress,
+      currencyCode: currency,
+      dataSource: 'okx',
+    };
+
     const message: IMarketMessage = {
       operation: EOperation.subscribe,
-      args: [
-        {
-          channel: EChannel.tokenTxs,
-          networkId,
-          tokenAddress,
-        },
-      ],
+      args: [subscriptionArgs],
     };
 
     if (!this.socket?.connected) {
@@ -129,6 +142,7 @@ class ServiceMarketWS extends ServiceBase {
       address: tokenAddress,
       type: EChannel.tokenTxs,
       networkId,
+      currency,
     });
   }
 
@@ -165,15 +179,10 @@ class ServiceMarketWS extends ServiceBase {
       channel: EChannel.ohlcv,
       networkId,
       tokenAddress,
+      chartType,
+      currencyCode: currency,
+      dataSource: 'okx',
     };
-
-    // Add optional parameters if provided
-    if (chartType) {
-      subscriptionArgs.chartType = chartType;
-    }
-    if (currency) {
-      subscriptionArgs.currency = currency;
-    }
 
     const message: IMarketMessage = {
       operation: EOperation.subscribe,
@@ -212,15 +221,10 @@ class ServiceMarketWS extends ServiceBase {
       channel,
       networkId,
       tokenAddress,
+      chartType,
+      currencyCode: currency,
+      dataSource: 'okx',
     };
-
-    // Add optional parameters if provided
-    if (chartType) {
-      subscriptionArgs.chartType = chartType;
-    }
-    if (currency) {
-      subscriptionArgs.currency = currency;
-    }
 
     const message: IMarketMessage = {
       operation: EOperation.unsubscribe,
@@ -238,14 +242,17 @@ class ServiceMarketWS extends ServiceBase {
   async unsubscribeTokenTxs({
     networkId,
     tokenAddress,
+    currency = 'usd',
   }: {
     networkId: string;
     tokenAddress: string;
+    currency?: string;
   }) {
     this.subscriptionTracker.removeSubscription({
       address: tokenAddress,
       type: EChannel.tokenTxs,
       networkId,
+      currency,
     });
 
     // Only unsubscribe from WebSocket if no more connections
@@ -259,6 +266,7 @@ class ServiceMarketWS extends ServiceBase {
         channel: EChannel.tokenTxs,
         networkId,
         tokenAddress,
+        currency,
       });
     }
   }
@@ -315,14 +323,47 @@ class ServiceMarketWS extends ServiceBase {
     let messageType: string | undefined;
     let processedData: any;
 
+    console.log('messageData', messageData);
+
     if ('type' in messageData && 'data' in messageData) {
       messageType = messageData.type as string;
-      processedData = messageData.data as Record<string, any>;
+      const rawData = messageData.data as Record<string, any>;
+
+      if (messageType === EMessageType.TXS_DATA && Array.isArray(rawData)) {
+        const normalizedItem = rawData.find((item) => isOkxTxsData(item));
+        if (!normalizedItem) {
+          return;
+        }
+
+        processedData = convertOkxTxsDataToWsTxsData(normalizedItem);
+      } else if (
+        messageType === EMessageType.TXS_DATA &&
+        isOkxTxsData(rawData)
+      ) {
+        processedData = convertOkxTxsDataToWsTxsData(rawData);
+      } else if (
+        messageType === EMessageType.PRICE_DATA &&
+        Array.isArray(rawData)
+      ) {
+        const normalizedItem = rawData.find((item) => isOkxPriceData(item));
+        if (!normalizedItem) {
+          return;
+        }
+
+        processedData = convertOkxPriceDataToWsPriceData(normalizedItem);
+      } else if (
+        messageType === EMessageType.PRICE_DATA &&
+        isOkxPriceData(rawData)
+      ) {
+        processedData = convertOkxPriceDataToWsPriceData(rawData);
+      } else {
+        processedData = rawData;
+      }
     } else {
       return;
     }
 
-    if (messageType === 'TXS_DATA') {
+    if (messageType === EMessageType.TXS_DATA) {
       channel = EChannel.tokenTxs;
       const txsData = processedData as IWsTxsData;
 
@@ -364,7 +405,7 @@ class ServiceMarketWS extends ServiceBase {
       if (!hasSubscription) {
         return;
       }
-    } else if (messageType === 'PRICE_DATA') {
+    } else if (messageType === EMessageType.PRICE_DATA) {
       channel = EChannel.ohlcv;
       const priceData = processedData as IWsPriceData;
       tokenAddress = priceData.address;
@@ -414,6 +455,7 @@ class ServiceMarketWS extends ServiceBase {
           void this.unsubscribeTokenTxs({
             networkId: subscription.networkId,
             tokenAddress: subscription.address,
+            currency: subscription.currency,
           });
         } else if (channel === EChannel.ohlcv) {
           void this.unsubscribeOHLCV({

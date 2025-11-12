@@ -10,6 +10,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
 import type {
+  IMarketAccountPortfolioResponse,
   IMarketBasicConfigResponse,
   IMarketChainsResponse,
   IMarketTokenBatchListResponse,
@@ -168,12 +169,12 @@ class ServiceMarketV2 extends ServiceBase {
   async fetchMarketTokenTransactions({
     tokenAddress,
     networkId,
-    offset,
+    cursor,
     limit,
   }: {
     tokenAddress: string;
     networkId: string;
-    offset?: number;
+    cursor?: string;
     limit?: number;
   }) {
     const client = await this.getClient(EServiceEndpointEnum.Utility);
@@ -181,11 +182,11 @@ class ServiceMarketV2 extends ServiceBase {
       code: number;
       message: string;
       data: IMarketTokenTransactionsResponse;
-    }>('/utility/v2/market/token/transactions', {
+    }>('/utility/v3/market/token/transactions', {
       params: {
         tokenAddress,
         networkId,
-        ...(offset !== undefined && { offset }),
+        ...(cursor !== undefined && { cursor }),
         ...(limit !== undefined && { limit }),
       },
     });
@@ -427,6 +428,43 @@ class ServiceMarketV2 extends ServiceBase {
       item.contractAddress,
       item.chainId,
     );
+  }
+
+  @backgroundMethod()
+  async fetchMarketAccountPortfolio({
+    accountAddress,
+    networkId,
+    tokenAddress,
+  }: {
+    accountAddress: string;
+    networkId: string;
+    tokenAddress: string;
+  }) {
+    try {
+      const client = await this.getClient(EServiceEndpointEnum.Utility);
+
+      const response = await client.get<{
+        code: number;
+        message: string;
+        data: IMarketAccountPortfolioResponse;
+      }>('/utility/v2/market/account/portfolio', {
+        params: {
+          networkId,
+          accountAddress,
+          tokenAddress,
+        },
+      });
+
+      const { data } = response.data;
+      return data;
+    } catch (error) {
+      console.error(
+        '[ServiceMarketV2] fetchMarketAccountPortfolio error:',
+        error,
+      );
+      // Return empty list on error instead of throwing
+      return { list: [] };
+    }
   }
 }
 

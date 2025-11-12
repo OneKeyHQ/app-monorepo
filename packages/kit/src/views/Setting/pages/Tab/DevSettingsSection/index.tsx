@@ -8,6 +8,7 @@ import {
   Dialog,
   ESwitchSize,
   Input,
+  Select,
   Switch,
   TextAreaInput,
   Toast,
@@ -60,6 +61,8 @@ import {
 import { stableStringify } from '@onekeyhq/shared/src/utils/stringUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EMessageTypesBtc } from '@onekeyhq/shared/types/message';
+
+import { exportLogs } from '../exportLogs';
 
 import { AddressBookDevSetting } from './AddressBookDevSetting';
 import { AsyncStorageDevSettings } from './AsyncStorageDevSettings';
@@ -257,6 +260,20 @@ const BaseDevSettingsSection = () => {
               });
             }}
           />
+          <SectionFieldItem
+            icon="UsbOutline"
+            name="usbCommunicationMode"
+            title="USB 通信方式"
+          >
+            <Select
+              title="USB 通信方式"
+              items={[
+                { label: 'WebUSB', value: 'webusb' },
+                { label: 'Bridge', value: 'bridge' },
+              ]}
+              placement="bottom-end"
+            />
+          </SectionFieldItem>
         </>
       ) : null}
       <SectionPressItem
@@ -967,13 +984,7 @@ const BaseDevSettingsSection = () => {
           });
         }}
       />
-      <SectionPressItem
-        icon="ChartTrendingOutline"
-        title="PerpGallery"
-        onPress={() => {
-          navigation.push(EModalSettingRoutes.SettingDevPerpGalleryModal);
-        }}
-      />
+
       <SectionFieldItem
         icon="CreditCardOutline"
         name="showPerpsRenderStats"
@@ -983,6 +994,51 @@ const BaseDevSettingsSection = () => {
         <Switch size={ESwitchSize.small} />
       </SectionFieldItem>
 
+      <SectionFieldItem
+        icon="AutoFlashOutline"
+        name="enableIpTableInDev"
+        title="[开发环境] 启用 IP 直连"
+        subtitle={
+          devSettings.settings?.enableIpTableInDev
+            ? '开发环境已启用 IP 直连'
+            : '开发环境默认禁用 (需手动开启)'
+        }
+      >
+        <Switch size={ESwitchSize.small} />
+      </SectionFieldItem>
+      <SectionFieldItem
+        icon="BrokenLinkOutline"
+        name="disableIpTableInProd"
+        title="[生产环境] 禁用 IP 直连"
+        subtitle={
+          devSettings.settings?.disableIpTableInProd
+            ? '生产环境已禁用 IP 直连'
+            : '生产环境默认启用 (可手动禁用)'
+        }
+      >
+        <Switch size={ESwitchSize.small} />
+      </SectionFieldItem>
+      <SectionFieldItem
+        icon="ArrowTopRightIllus"
+        name="forceIpTableStrict"
+        title="强制使用 IP 请求"
+        subtitle={
+          devSettings.settings?.forceIpTableStrict
+            ? '强制使用 IP 请求'
+            : '非强制使用 IP 请求'
+        }
+      >
+        <Switch size={ESwitchSize.small} />
+      </SectionFieldItem>
+
+      <SectionPressItem
+        icon="ChartTrendingOutline"
+        title="PerpGallery"
+        onPress={() => {
+          navigation.push(EModalSettingRoutes.SettingDevPerpGalleryModal);
+        }}
+      />
+
       <SectionPressItem
         icon="LockOutline"
         title="CryptoGallery"
@@ -990,6 +1046,17 @@ const BaseDevSettingsSection = () => {
           navigation.push(EModalSettingRoutes.SettingDevCryptoGalleryModal);
         }}
       />
+
+      <SectionPressItem
+        icon="CloudOutline"
+        title="CloudBackupGallery"
+        onPress={() => {
+          navigation.push(
+            EModalSettingRoutes.SettingDevCloudBackupGalleryModal,
+          );
+        }}
+      />
+
       <AutoJumpSetting />
 
       <SectionPressItem

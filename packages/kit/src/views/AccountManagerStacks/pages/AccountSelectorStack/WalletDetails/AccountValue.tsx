@@ -5,11 +5,15 @@ import { isNil, map } from 'lodash';
 
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
+import { useEnabledNetworksCompatibleWithWalletIdInAllNetworks } from '@onekeyhq/kit/src/hooks/useAllNetwork';
 import { useActiveAccountValueAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
+import { SEPERATOR } from '@onekeyhq/shared/src/engine/engineConsts';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 function AccountValue(accountValue: {
+  walletId: string;
   accountId: string;
   currency: string;
   value: Record<string, string> | string;
@@ -28,6 +32,8 @@ function AccountValue(accountValue: {
     linkedNetworkId,
     mergeDeriveAssetsEnabled,
     isSingleAddress,
+    walletId,
+    indexedAccountId,
   } = accountValue;
 
   const { currency, value } = useMemo(() => {
@@ -36,6 +42,14 @@ function AccountValue(accountValue: {
     }
     return accountValue;
   }, [accountValue, activeAccountValue, isActiveAccount]);
+
+  const { enabledNetworksCompatibleWithWalletId, networkInfoMap } =
+    useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
+      walletId,
+      networkId: linkedNetworkId,
+      indexedAccountId,
+      withNetworksInfo: true,
+    });
 
   const accountValueString = useMemo(() => {
     if (typeof value === 'string') {
@@ -82,16 +96,36 @@ function AccountValue(accountValue: {
       ];
     }
 
-    return Object.values(value).reduce(
-      (acc, v) => new BigNumber(acc ?? '0').plus(v ?? '0').toFixed(),
-      '0',
-    );
+    return Object.entries(value).reduce((acc, [k, v]) => {
+      const keyArray = k.split('_');
+      const networkId = keyArray.pop() as string;
+      const accountId = keyArray.join('_');
+      const [_walletId, _path, _deriveType] = accountId.split(SEPERATOR) as [
+        string,
+        string,
+        string,
+      ];
+      const deriveType: IAccountDeriveTypes =
+        (_deriveType as IAccountDeriveTypes) || 'default';
+      if (
+        enabledNetworksCompatibleWithWalletId.some((n) => n.id === networkId) &&
+        networkInfoMap[networkId] &&
+        (networkInfoMap[networkId].mergeDeriveAssetsEnabled ||
+          networkInfoMap[networkId].deriveType.toLowerCase() ===
+            deriveType.toLowerCase())
+      ) {
+        return new BigNumber(acc ?? '0').plus(v ?? '0').toFixed();
+      }
+      return acc;
+    }, '0');
   }, [
     value,
-    linkedAccountId,
     linkedNetworkId,
     mergeDeriveAssetsEnabled,
     isSingleAddress,
+    linkedAccountId,
+    enabledNetworksCompatibleWithWalletId,
+    networkInfoMap,
   ]);
 
   return accountValueString ? (
@@ -118,6 +152,7 @@ function AccountValue(accountValue: {
 }
 
 function AccountValueWithSpotlight({
+  walletId,
   accountValue,
   linkedAccountId,
   linkedNetworkId,
@@ -139,9 +174,11 @@ function AccountValueWithSpotlight({
   indexedAccountId?: string;
   mergeDeriveAssetsEnabled?: boolean;
   isSingleAddress?: boolean;
+  walletId: string;
 }) {
   return accountValue && accountValue.currency ? (
     <AccountValue
+      walletId={walletId}
       accountId={accountValue.accountId}
       currency={accountValue.currency}
       value={accountValue.value ?? ''}

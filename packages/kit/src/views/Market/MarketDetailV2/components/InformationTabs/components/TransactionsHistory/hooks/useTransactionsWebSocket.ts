@@ -8,12 +8,14 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
 import type { IMarketTokenTransaction } from '@onekeyhq/shared/types/marketV2';
 
 interface IUseTransactionsWebSocketProps {
   networkId: string;
   tokenAddress: string;
   enabled?: boolean;
+  currency?: string;
   onNewTransaction?: (transaction: IMarketTokenTransaction) => void;
 }
 
@@ -21,6 +23,7 @@ export function useTransactionsWebSocket({
   networkId,
   tokenAddress,
   enabled = true,
+  currency = 'usd',
   onNewTransaction,
 }: IUseTransactionsWebSocketProps) {
   // Subscribe to token transactions using existing WebSocket connection
@@ -37,6 +40,7 @@ export function useTransactionsWebSocket({
         await backgroundApiProxy.serviceMarketWS.subscribeTokenTxs({
           networkId,
           tokenAddress,
+          currency,
         });
       } catch (error) {
         console.error('Failed to subscribe to token transactions:', error);
@@ -52,6 +56,7 @@ export function useTransactionsWebSocket({
           await backgroundApiProxy.serviceMarketWS.unsubscribeTokenTxs({
             networkId,
             tokenAddress,
+            currency,
           });
         } catch (error) {
           console.error(
@@ -63,7 +68,7 @@ export function useTransactionsWebSocket({
 
       void cleanup();
     };
-  }, [networkId, tokenAddress, enabled]);
+  }, [networkId, tokenAddress, enabled, currency]);
 
   // Listen for transaction data updates via the app event bus
   useEffect(() => {
@@ -82,11 +87,17 @@ export function useTransactionsWebSocket({
         // Convert the received data to IMarketTokenTransaction format
         const transactionData = payload.data as IWsTxsData;
 
-        if (
-          transactionData.from?.address !== tokenAddress &&
-          transactionData.to?.address !== tokenAddress
-        ) {
-          return;
+        // Filter transactions: only show if one of the tokens matches current token
+        // Skip filtering if addresses are empty (will be determined by other means)
+        const txFromAddress = transactionData.from?.address;
+        const txToAddress = transactionData.to?.address;
+        if (txFromAddress && txToAddress) {
+          // Both addresses present, check if at least one matches
+          const fromMatches = equalsIgnoreCase(txFromAddress, tokenAddress);
+          const toMatches = equalsIgnoreCase(txToAddress, tokenAddress);
+          if (!fromMatches && !toMatches) {
+            return;
+          }
         }
 
         if (transactionData && typeof transactionData === 'object') {
@@ -99,13 +110,15 @@ export function useTransactionsWebSocket({
             hash: transactionData.txHash || '',
             owner: transactionData.owner || '',
             type: (() => {
-              if (transactionData.side === 'swap') {
-                return fromData?.address === tokenAddress ? 'sell' : 'buy';
-              }
-              return 'buy';
+              // OKX provides the correct transaction type from current token's perspective
+              // Use OKX side directly as it's already calculated correctly
+              const side = transactionData.side;
+              return side === 'sell' ? 'sell' : 'buy';
             })(),
             timestamp: transactionData.blockUnixTime || Date.now() / 1000,
             url: '', // URL not provided in data, could be constructed from txHash
+            poolLogoUrl: transactionData.poolLogoUrl,
+            volumeUSD: transactionData.volumeUSD,
             from: {
               symbol: fromData?.symbol || '',
               amount: BigNumber(fromData?.amount || '0')

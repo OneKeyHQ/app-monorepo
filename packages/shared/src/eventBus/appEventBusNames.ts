@@ -62,6 +62,7 @@ export enum EAppEventBusNames {
   RefreshBookmarkList = 'RefreshBookmarkList',
   RefreshApprovalList = 'RefreshApprovalList',
   AccountDataUpdate = 'AccountDataUpdate',
+  AccountValueUpdate = 'AccountValueUpdate',
   onDragBeginInListView = 'onDragBeginInListView',
   onDragEndInListView = 'onDragEndInListView',
   SidePanel_BgToUI = 'SidePanel_BgToUI',
@@ -118,4 +119,5 @@ export enum EAppEventBusNames {
   HyperliquidConnectionChange = 'HyperliquidConnectionChange',
   BtcFreshAddressUpdated = 'BtcFreshAddressUpdated',
   BtcFreshAddressConnectDappRejected = 'BtcFreshAddressConnectDappRejected',
+  ClientLogUploadProgress = 'ClientLogUploadProgress',
 }

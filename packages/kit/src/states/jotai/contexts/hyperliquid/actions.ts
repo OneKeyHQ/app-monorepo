@@ -18,6 +18,7 @@ import {
   perpsActiveAssetDataAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
+import { PERPS_FILTERED_LEDGER_TYPES } from '@onekeyhq/shared/src/consts/perp';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
@@ -29,11 +30,7 @@ import {
   resolveTradingSize,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import type {
-  IMarginTable,
-  IPerpsAssetPosition,
-  IPerpsUniverse,
-} from '@onekeyhq/shared/types/hyperliquid';
+import type { IPerpsAssetPosition } from '@onekeyhq/shared/types/hyperliquid';
 import type * as HL from '@onekeyhq/shared/types/hyperliquid/sdk';
 import {
   EPerpsSizeInputMode,
@@ -51,6 +48,7 @@ import {
   perpsAllAssetCtxsAtom,
   perpsAllAssetsFilteredAtom,
   perpsAllMidsAtom,
+  perpsLedgerUpdatesAtom,
   subscriptionActiveAtom,
   tradingFormAtom,
   tradingLoadingAtom,
@@ -166,6 +164,60 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     }
   });
 
+  updateLedgerUpdates = contextAtomMethod(
+    async (get, set, data: HL.IWsUserNonFundingLedgerUpdates) => {
+      const activeAccount = await perpsActiveAccountAtom.get();
+      const dataUser = data?.user?.toLowerCase();
+      const activeAccountAddress = activeAccount?.accountAddress?.toLowerCase();
+
+      if (!activeAccountAddress || !dataUser) {
+        return;
+      }
+
+      if (activeAccountAddress === dataUser) {
+        const isSnapshot = data?.isSnapshot === true;
+        const incomingUpdates = (data?.nonFundingLedgerUpdates || []).filter(
+          (update) =>
+            !PERPS_FILTERED_LEDGER_TYPES.has(update.delta.type as string),
+        );
+
+        if (isSnapshot) {
+          const sortedUpdates = [...incomingUpdates].sort(
+            (a, b) => b.time - a.time,
+          );
+          set(perpsLedgerUpdatesAtom(), {
+            accountAddress: activeAccountAddress,
+            updates: sortedUpdates,
+            isSubscribed: true,
+          });
+        } else {
+          const current = get(perpsLedgerUpdatesAtom());
+          const existingUpdates = current.updates || [];
+          const existingHashes = new Set(
+            existingUpdates.map((update) => update.hash),
+          );
+          const newUpdates = incomingUpdates.filter(
+            (update) => !existingHashes.has(update.hash),
+          );
+          const mergedUpdates = [...newUpdates, ...existingUpdates];
+          const sortedUpdates = mergedUpdates.sort((a, b) => b.time - a.time);
+
+          set(perpsLedgerUpdatesAtom(), {
+            accountAddress: activeAccountAddress,
+            updates: sortedUpdates,
+            isSubscribed: true,
+          });
+        }
+      } else {
+        set(perpsLedgerUpdatesAtom(), {
+          accountAddress: undefined,
+          updates: [],
+          isSubscribed: true,
+        });
+      }
+    },
+  );
+
   updateL2Book = contextAtomMethod(async (get, set, data: HL.IBook) => {
     const activeAsset = await perpsActiveAssetAtom.get();
     if (activeAsset?.coin === data.coin) {
@@ -183,6 +235,10 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     try {
       const stored =
         await backgroundApiProxy.simpleDb.perp.getOrderBookTickOptions();
+      console.log(
+        'orderBookTickOptionsAtom__ensureOrderBookTickOptionsLoaded',
+        stored,
+      );
       set(orderBookTickOptionsAtom(), stored);
     } catch (error) {
       console.error('Failed to load order book tick options:', error);
@@ -230,6 +286,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         next[symbol] = option;
       }
 
+      console.log('orderBookTickOptionsAtom__setOrderBookTickOption', next);
       set(orderBookTickOptionsAtom(), next);
 
       try {
@@ -405,6 +462,12 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       accountAddress: undefined,
       openOrders: [],
     });
+    const current = get(perpsLedgerUpdatesAtom());
+    set(perpsLedgerUpdatesAtom(), {
+      accountAddress: undefined,
+      updates: [],
+      isSubscribed: current.isSubscribed,
+    });
     await perpsActiveAccountSummaryAtom.set(undefined);
     await perpsActiveAccountStatusInfoAtom.set(undefined);
     await perpsActiveAssetDataAtom.set(undefined);
@@ -422,6 +485,11 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       isConnected: false,
       lastConnected: null,
       reconnectCount: 0,
+    });
+    set(perpsLedgerUpdatesAtom(), {
+      accountAddress: undefined,
+      updates: [],
+      isSubscribed: false,
     });
     await this.changeActiveAsset.call(set, { coin: 'ETH', force: true });
   });
@@ -980,6 +1048,7 @@ export function useHyperliquidActions() {
 
   const updateAllMids = actions.updateAllMids.use();
   const updateWebData2 = actions.updateWebData2.use();
+  const updateLedgerUpdates = actions.updateLedgerUpdates.use();
   const markAllAssetCtxsRequired = actions.markAllAssetCtxsRequired.use();
   const markAllAssetCtxsNotRequired = actions.markAllAssetCtxsNotRequired.use();
   const updateL2Book = actions.updateL2Book.use();
@@ -1026,6 +1095,7 @@ export function useHyperliquidActions() {
     markAllAssetCtxsRequired,
     markAllAssetCtxsNotRequired,
     updateWebData2,
+    updateLedgerUpdates,
     updateL2Book,
     updateConnectionState,
     changeActiveAsset,

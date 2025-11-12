@@ -1,4 +1,6 @@
 import type { IKeyOfIcons } from '@onekeyhq/components';
+import type { IEncodedTxTron } from '@onekeyhq/core/src/chains/tron/types';
+import type { IEncodedTxXrp } from '@onekeyhq/core/src/chains/xrp/types';
 import type { EAddressEncodings, IEncodedTx } from '@onekeyhq/core/src/types';
 import type { useSwapAddressInfo } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapAccount';
 import type { IDBWalletId } from '@onekeyhq/kit-bg/src/dbs/local/types';
@@ -30,6 +32,7 @@ import type {
 import type { EMessageTypesEth } from '../message';
 import type { IDecodedTxActionTokenApprove } from '../tx';
 import type { NormalizedOrder, TypedDataDomain } from '@cowprotocol/contracts';
+import type { IDeviceType } from '@onekeyfe/hd-core';
 
 export enum EWrappedType {
   DEPOSIT = 'deposit',
@@ -288,6 +291,7 @@ export interface IFetchQuotesParams extends IFetchSwapQuoteBaseParams {
   userMarketPriceRate?: string;
   denyCrossChainProvider?: string;
   denySingleSwapProvider?: string;
+  walletDeviceType?: IDeviceType;
 }
 interface ISocketAsset {
   address: string;
@@ -752,6 +756,8 @@ export interface IFetchBuildTxResponse {
   changellyOrder?: IFetchBuildTxChangellyOrderResponse;
   OKXTxObject?: IOKXTransactionObject;
   ctx?: any;
+  tronTxData?: IEncodedTxTron;
+  xrpTxData?: IEncodedTxXrp;
   socketBridgeScanUrl?: string;
   orderId?: string;
   btcData?: {

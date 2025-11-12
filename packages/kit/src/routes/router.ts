@@ -5,8 +5,16 @@ import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ERootRoutes } from '@onekeyhq/shared/src/routes';
 
-import { ModalNavigator, iOSFullScreenNavigator } from './Modal/Navigator';
-import { fullModalRouter, modalRouter } from './Modal/router';
+import {
+  ModalNavigator,
+  OnboardingNavigator,
+  iOSFullScreenNavigator,
+} from './Modal/Navigator';
+import {
+  fullModalRouter,
+  modalRouter,
+  onboardingRouterV2Config,
+} from './Modal/router';
 import { TabNavigator } from './Tab/Navigator';
 import { useTabRouterConfig } from './Tab/router';
 
@@ -32,6 +40,11 @@ export const rootRouter: IRootStackNavigatorConfig<ERootRoutes, any>[] = [
     name: ERootRoutes.Main,
     component: TabNavigator,
     initialRoute: true,
+  },
+  {
+    name: ERootRoutes.Onboarding,
+    component: OnboardingNavigator,
+    type: 'onboarding',
   },
   {
     name: ERootRoutes.Modal,
@@ -61,6 +74,10 @@ export const useRootRouter = () => {
       {
         name: ERootRoutes.Main,
         children: tabRouter,
+      },
+      {
+        name: ERootRoutes.Onboarding,
+        children: onboardingRouterV2Config,
       },
       {
         name: ERootRoutes.Modal,

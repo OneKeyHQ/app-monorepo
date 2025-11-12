@@ -1,9 +1,8 @@
 import type { PropsWithChildren } from 'react';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useLayoutEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
-import { useThrottledCallback } from 'use-debounce';
 
 import type {
   IKeyOfIcons,
@@ -44,6 +43,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalRoutes,
   EModalStakingRoutes,
+  ETabDiscoveryRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
 import {
@@ -52,12 +52,9 @@ import {
 } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import type {
-  IEarnAvailableAsset,
-  IEarnAvailableAssetProtocol,
-} from '@onekeyhq/shared/types/earn';
+import type { IEarnAvailableAssetProtocol } from '@onekeyhq/shared/types/earn';
 import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
-import type { IEarnRewardUnit } from '@onekeyhq/shared/types/staking';
+import type { IRecommendAsset } from '@onekeyhq/shared/types/staking';
 
 import { AccountSelectorProviderMirror } from '../../components/AccountSelector';
 import { TabPageHeader } from '../../components/TabPageHeader';
@@ -70,6 +67,7 @@ import {
 } from '../../states/jotai/contexts/accountSelector';
 import { useEarnActions, useEarnAtom } from '../../states/jotai/contexts/earn';
 
+import { AprText } from './components/AprText';
 import {
   AvailableAssetsTabViewList,
   AvailableAssetsTabViewListMobile,
@@ -87,7 +85,6 @@ const BANNER_TITLE_OFFSET = {
   mobile: '$10',
 };
 
-const buildAprText = (apr: string, unit: IEarnRewardUnit) => `${apr} ${unit}`;
 const useAllNetworkId = () => useMemo(() => getNetworkIdsMap().onekeyall, []);
 const getNumberColor = (
   value: string | number,
@@ -181,22 +178,19 @@ function RecommendedSkeletonItem({ ...rest }: IYStackProps) {
 function RecommendedItem({
   token,
   ...rest
-}: { token?: IEarnAvailableAsset } & IYStackProps) {
+}: { token?: IRecommendAsset } & IYStackProps) {
   const accountInfo = useActiveAccount({ num: 0 });
   const navigation = useAppNavigation();
+  const {
+    activeAccount: { account, indexedAccount },
+  } = accountInfo;
 
-  // if you want to use the primary color, you can uncomment the following code
-  // useEffect(() => {
-  //   const url = token?.logoURI;
-  //   if (url) {
-  //     void getPrimaryColor(url, '$bgSubdued').then(setDecorationColor);
-  //   }
-  // }, [token?.logoURI]);
+  const noWalletConnected = useMemo(
+    () => !account && !indexedAccount,
+    [account, indexedAccount],
+  );
 
   const onPress = useCallback(async () => {
-    const {
-      activeAccount: { account, indexedAccount },
-    } = accountInfo;
     if (token) {
       const earnAccount =
         await backgroundApiProxy.serviceStaking.getEarnAccount({
@@ -213,7 +207,7 @@ function RecommendedItem({
         protocols: token.protocols,
       });
     }
-  }, [accountInfo, navigation, token]);
+  }, [account?.id, indexedAccount?.id, navigation, token]);
 
   if (!token) {
     return <YStack width="$40" flexGrow={1} />;
@@ -223,8 +217,7 @@ function RecommendedItem({
     <YStack
       role="button"
       flex={1}
-      px="$5"
-      py="$3.5"
+      p="$4"
       borderRadius="$3"
       borderCurve="continuous"
       bg={token.bgColor}
@@ -243,33 +236,48 @@ function RecommendedItem({
       overflow="hidden"
       {...rest}
     >
-      <YStack alignItems="flex-start">
-        <XStack gap="$3" ai="center" width="100%">
+      <YStack alignItems="flex-start" width="100%">
+        <XStack gap="$2" ai="center" width="100%">
           <YStack>
             <Image
-              size="$8"
+              size="$6"
               source={{ uri: token.logoURI }}
               fallback={
                 <Image.Fallback
-                  w="$8"
-                  h="$8"
+                  w="$6"
+                  h="$6"
                   alignItems="center"
                   justifyContent="center"
                   bg="$bgStrong"
                 >
-                  <Icon size="$5" name="CoinOutline" color="$iconDisabled" />
+                  <Icon size="$6" name="CoinOutline" color="$iconDisabled" />
                 </Image.Fallback>
               }
             />
           </YStack>
           <SizableText size="$bodyLgMedium">{token.symbol}</SizableText>
         </XStack>
-        <SizableText size="$headingXl" pt="$4" pb="$1">
-          {buildAprText(
-            token.aprWithoutFee,
-            token.rewardUnit as IEarnRewardUnit,
-          )}
-        </SizableText>
+        <YStack alignItems="flex-start" width="100%">
+          <SizableText size="$headingXl" pt="$3.5">
+            <AprText
+              asset={{
+                aprWithoutFee: token?.aprWithoutFee ?? '',
+                aprInfo: token?.aprInfo,
+              }}
+            />
+          </SizableText>
+          {!noWalletConnected ? (
+            <SizableText
+              pt="$1"
+              size="$bodyMd"
+              color={token.available.color ?? '$textSubdued'}
+              numberOfLines={1}
+              ellipsizeMode="tail"
+            >
+              {token?.available?.text}
+            </SizableText>
+          ) : null}
+        </YStack>
       </YStack>
     </YStack>
   );
@@ -312,55 +320,36 @@ function RecommendedContainer({ children }: PropsWithChildren) {
 }
 
 function Recommended() {
-  const actions = useEarnActions();
   const { md } = useMedia();
-  const [{ availableAssetsByType = {}, refreshTrigger = 0 }] = useEarnAtom();
+  const allNetworkId = useAllNetworkId();
+  const {
+    activeAccount: { account, indexedAccount },
+  } = useActiveAccount({ num: 0 });
+  const [{ refreshTrigger = 0 }] = useEarnAtom();
 
-  // Throttled function to fetch recommended assets
-  const fetchRecommendedAssets = useThrottledCallback(
+  const { result: tokens } = usePromiseResult(
     async () => {
-      const loadingKey = `availableAssets-${EAvailableAssetsTypeEnum.Recommend}`;
-      actions.current.setLoadingState(loadingKey, true);
-
-      try {
-        const recommendedAssets =
-          await backgroundApiProxy.serviceStaking.getAvailableAssets({
-            type: EAvailableAssetsTypeEnum.Recommend,
-          });
-
-        // Update the corresponding data in atom
-        actions.current.updateAvailableAssetsByType(
-          EAvailableAssetsTypeEnum.Recommend,
-          recommendedAssets,
-        );
-        return recommendedAssets;
-      } finally {
-        actions.current.setLoadingState(loadingKey, false);
-      }
-    },
-    timerUtils.getTimeDurationMs({ seconds: 2 }),
-    { leading: true, trailing: false },
-  );
-
-  // Get recommended assets
-  usePromiseResult(
-    async () => {
-      const result = await fetchRecommendedAssets();
-      return result || [];
+      const recommendedAssets =
+        await backgroundApiProxy.serviceStaking.fetchAllNetworkAssetsV2({
+          accountId: account?.id ?? '',
+          networkId: allNetworkId,
+          indexedAccountId: account?.indexedAccountId || indexedAccount?.id,
+        });
+      return recommendedAssets?.tokens || [];
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [refreshTrigger, fetchRecommendedAssets], // Add refreshTrigger as dependency
+    [
+      account?.id,
+      allNetworkId,
+      account?.indexedAccountId,
+      indexedAccount?.id,
+      refreshTrigger,
+    ],
     {
       watchLoading: true,
       initResult: [],
     },
   );
-
-  const tokens = useMemo(() => {
-    const recommendAssets =
-      availableAssetsByType[EAvailableAssetsTypeEnum.Recommend] || [];
-    return recommendAssets;
-  }, [availableAssetsByType]);
 
   // Render skeleton when loading and no data
   const shouldShowSkeleton = tokens.length === 0;
@@ -422,7 +411,7 @@ function Recommended() {
           >
             <XStack gap="$3">
               {tokens.map((token) => (
-                <YStack key={token.symbol} width="$40">
+                <YStack key={token.symbol} minWidth="$52">
                   <RecommendedItem token={token} />
                 </YStack>
               ))}
@@ -649,6 +638,8 @@ function Overview({
 }
 
 function EarnBlockedOverview(props: {
+  showHeader?: boolean;
+  showContent?: boolean;
   icon: IKeyOfIcons;
   title: string;
   description: string;
@@ -656,16 +647,27 @@ function EarnBlockedOverview(props: {
   refreshing: boolean;
 }) {
   const intl = useIntl();
-  const { title, description, icon, refresh, refreshing } = props;
+  const {
+    title,
+    description,
+    icon,
+    refresh,
+    refreshing,
+    showHeader,
+    showContent,
+  } = props;
 
   return (
     <Page fullPage>
-      <TabPageHeader
-        sceneName={EAccountSelectorSceneName.home}
-        tabRoute={ETabRoutes.Earn}
-      />
+      {showHeader ? (
+        <TabPageHeader
+          sceneName={EAccountSelectorSceneName.home}
+          tabRoute={ETabRoutes.Earn}
+        />
+      ) : null}
       <Page.Body>
         <Empty
+          display={showContent ? undefined : 'none'}
           icon={icon}
           title={title}
           description={description}
@@ -688,7 +690,13 @@ function EarnBlockedOverview(props: {
   );
 }
 
-function BasicEarnHome() {
+function EarnHomeContent({
+  showHeader,
+  showContent,
+}: {
+  showHeader?: boolean;
+  showContent?: boolean;
+}) {
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { account, indexedAccount } = activeAccount;
   const media = useMedia();
@@ -711,10 +719,12 @@ function BasicEarnHome() {
     },
   );
 
+  const isAccountExists = !!account;
+
   const { isLoading: isFetchingAccounts, run: refreshOverViewData } =
     usePromiseResult(
       async () => {
-        if (!account && !indexedAccount) {
+        if (!isAccountExists && !indexedAccount?.id) {
           return;
         }
         const totalFiatMapKey = actions.current.buildEarnAccountsKey({
@@ -724,7 +734,7 @@ function BasicEarnHome() {
         });
 
         const fetchAndUpdateOverview = async () => {
-          if (!account && !indexedAccount) {
+          if (!isAccountExists && !indexedAccount?.id) {
             return;
           }
 
@@ -755,7 +765,14 @@ function BasicEarnHome() {
         }
         return { loaded: true };
       },
-      [actions, account, allNetworkId, indexedAccount],
+      [
+        account?.id,
+        account?.indexedAccountId,
+        actions,
+        allNetworkId,
+        indexedAccount?.id,
+        isAccountExists,
+      ],
       {
         watchLoading: true,
         pollingInterval: timerUtils.getTimeDurationMs({ minute: 3 }),
@@ -815,13 +832,12 @@ function BasicEarnHome() {
       (isFocus, isHideByModal) => {
         if (isFocus && !isHideByModal) {
           // Check and refetch incomplete data when tab becomes focused
-          const recommendKey = `availableAssets-${EAvailableAssetsTypeEnum.Recommend}`;
           const allKey = `availableAssets-${EAvailableAssetsTypeEnum.All}`;
           const stableKey = `availableAssets-${EAvailableAssetsTypeEnum.StableCoins}`;
           const nativeKey = `availableAssets-${EAvailableAssetsTypeEnum.NativeTokens}`;
 
           // Check loading states and data for each key
-          const keys = [recommendKey, allKey, stableKey, nativeKey];
+          const keys = [allKey, stableKey, nativeKey];
 
           // Check if any data is incomplete and trigger refresh
           const hasIncompleteData = keys.some((key) =>
@@ -1035,6 +1051,8 @@ function BasicEarnHome() {
   if (!isFetchingBlockResult && blockResult?.blockData) {
     return (
       <EarnBlockedOverview
+        showHeader={showHeader}
+        showContent={showContent}
         refresh={refreshBlockResult}
         refreshing={!!isFetchingBlockResult}
         icon={blockResult.blockData.icon.icon}
@@ -1046,137 +1064,132 @@ function BasicEarnHome() {
 
   if (platformEnv.isNative && media.md) {
     return (
-      <Page fullPage>
-        <Page.Body>
-          <Stack h={tabPageHeight} />
-          <Tabs.Container
-            allowHeaderOverscroll
-            renderHeader={() => (
-              <YStack
-                flex={1}
-                gap="$4"
-                pt="$5"
-                bg="$bgApp"
+      <>
+        {showHeader ? <Stack h={tabPageHeight} /> : null}
+        <Tabs.Container
+          containerStyle={{
+            display: showContent ? undefined : 'none',
+          }}
+          allowHeaderOverscroll
+          renderHeader={() => (
+            <YStack
+              flex={1}
+              gap="$4"
+              pt="$5"
+              bg="$bgApp"
+              pointerEvents="box-none"
+            >
+              {/* overview and banner */}
+              <YStack gap="$8">
+                <Overview
+                  onRefresh={refreshOverViewData}
+                  isLoading={isLoading}
+                />
+                {banners ? (
+                  <YStack
+                    px="$5"
+                    minHeight="$36"
+                    $md={{
+                      minHeight: '$28',
+                    }}
+                    borderRadius="$3"
+                    width="100%"
+                    borderCurve="continuous"
+                  >
+                    {banners}
+                  </YStack>
+                ) : null}
+              </YStack>
+              {/* Recommended, available assets and introduction */}
+              <YStack px="$5" gap="$8">
+                <YStack pt="$3.5" gap="$8">
+                  <Recommended />
+                </YStack>
+                {/* FAQ Panel */}
+                {banners ? gtLgFaqPanel : null}
+              </YStack>
+              <SizableText
+                mx="$5"
+                pb="$4"
+                size="$headingLg"
                 pointerEvents="box-none"
               >
-                {/* overview and banner */}
-                <YStack gap="$8">
-                  <Overview
-                    onRefresh={refreshOverViewData}
-                    isLoading={isLoading}
-                  />
-                  {banners ? (
-                    <YStack
-                      px="$5"
-                      minHeight="$36"
-                      $md={{
-                        minHeight: '$28',
-                      }}
-                      borderRadius="$3"
-                      width="100%"
-                      borderCurve="continuous"
-                    >
-                      {banners}
-                    </YStack>
-                  ) : null}
-                </YStack>
-                {/* Recommended, available assets and introduction */}
-                <YStack px="$5" gap="$8">
-                  <YStack pt="$3.5" gap="$8">
-                    <Recommended />
-                  </YStack>
-                  {/* FAQ Panel */}
-                  {banners ? gtLgFaqPanel : null}
-                </YStack>
-                <SizableText
-                  mx="$5"
-                  pb="$4"
-                  size="$headingLg"
-                  pointerEvents="box-none"
-                >
-                  {intl.formatMessage({
-                    id: ETranslations.earn_available_assets,
-                  })}
-                </SizableText>
-              </YStack>
-            )}
-            renderTabBar={(props) => (
-              <Tabs.TabBar
-                {...props}
-                containerStyle={{
-                  px: '$5',
-                }}
-                divider={false}
-                renderItem={({ name, isFocused, onPress }) => (
-                  <XStack
-                    px="$2"
-                    py="$1.5"
-                    mr="$1"
-                    bg={isFocused ? '$bgActive' : '$bg'}
-                    borderRadius="$2"
-                    borderCurve="continuous"
-                    onPress={() => onPress(name)}
-                  >
-                    <SizableText
-                      size="$bodyMdMedium"
-                      color={isFocused ? '$text' : '$textSubdued'}
-                      letterSpacing={-0.15}
-                    >
-                      {name}
-                    </SizableText>
-                  </XStack>
-                )}
-              />
-            )}
-          >
-            {tabData.map((item) => (
-              <Tabs.Tab name={item.title} key={item.type}>
-                <Tabs.ScrollView
-                  refreshControl={
-                    <RefreshControl
-                      refreshing={isLoading}
-                      onRefresh={refreshOverViewData}
-                    />
-                  }
-                >
-                  <AvailableAssetsTabViewListMobile
-                    onTokenPress={handleTokenPress}
-                    assetType={item.type}
-                    faqList={faqList}
-                  />
-                </Tabs.ScrollView>
-              </Tabs.Tab>
-            ))}
-          </Tabs.Container>
-          {platformEnv.isNative ? (
-            <YStack
-              position="absolute"
-              top={-20}
-              left={0}
-              bg="$bgApp"
-              pt="$5"
-              width="100%"
-              onLayout={handleTabPageLayout}
-            >
-              <TabPageHeader
-                sceneName={EAccountSelectorSceneName.home}
-                tabRoute={ETabRoutes.Earn}
-              />
+                {intl.formatMessage({
+                  id: ETranslations.earn_available_assets,
+                })}
+              </SizableText>
             </YStack>
-          ) : null}
-        </Page.Body>
-      </Page>
+          )}
+          renderTabBar={(props) => (
+            <Tabs.TabBar
+              {...props}
+              containerStyle={{
+                px: '$5',
+              }}
+              divider={false}
+              renderItem={({ name, isFocused, onPress }) => (
+                <XStack
+                  px="$2"
+                  py="$1.5"
+                  mr="$1"
+                  bg={isFocused ? '$bgActive' : '$bg'}
+                  borderRadius="$2"
+                  borderCurve="continuous"
+                  onPress={() => onPress(name)}
+                >
+                  <SizableText
+                    size="$bodyMdMedium"
+                    color={isFocused ? '$text' : '$textSubdued'}
+                    letterSpacing={-0.15}
+                  >
+                    {name}
+                  </SizableText>
+                </XStack>
+              )}
+            />
+          )}
+        >
+          {tabData.map((item) => (
+            <Tabs.Tab name={item.title} key={item.type}>
+              <Tabs.ScrollView
+                refreshControl={
+                  <RefreshControl
+                    refreshing={isLoading}
+                    onRefresh={refreshOverViewData}
+                  />
+                }
+              >
+                <AvailableAssetsTabViewListMobile
+                  onTokenPress={handleTokenPress}
+                  assetType={item.type}
+                  faqList={faqList}
+                />
+              </Tabs.ScrollView>
+            </Tabs.Tab>
+          ))}
+        </Tabs.Container>
+        {showHeader && platformEnv.isNative ? (
+          <YStack
+            position="absolute"
+            top={-20}
+            left={0}
+            bg="$bgApp"
+            pt="$5"
+            width="100%"
+            onLayout={handleTabPageLayout}
+          >
+            <TabPageHeader
+              sceneName={EAccountSelectorSceneName.home}
+              tabRoute={ETabRoutes.Earn}
+            />
+          </YStack>
+        ) : null}
+      </>
     );
   }
 
   return (
     <Page fullPage>
-      <TabPageHeader
-        sceneName={EAccountSelectorSceneName.home}
-        tabRoute={ETabRoutes.Earn}
-      >
-        {/* {headerRight} */}
-      </TabPageHeader>
       <Page.Body>
         <ScrollView
           contentContainerStyle={{ py: '$5' }}
@@ -1265,7 +1278,13 @@ function BasicEarnHome() {
   );
 }
 
-export default function EarnHome() {
+export function EarnHomeWithProvider({
+  showHeader = true,
+  showContent = true,
+}: {
+  showHeader?: boolean;
+  showContent?: boolean;
+}) {
   return (
     <AccountSelectorProviderMirror
       config={{
@@ -1275,8 +1294,42 @@ export default function EarnHome() {
       enabledNum={[0]}
     >
       <EarnProviderMirror storeName={EJotaiContextStoreNames.earn}>
-        <BasicEarnHome />
+        <EarnHomeContent showHeader={showHeader} showContent={showContent} />
       </EarnProviderMirror>
     </AccountSelectorProviderMirror>
+  );
+}
+
+const useNavigateToNativeEarnPage = platformEnv.isNative
+  ? () => {
+      const { md } = useMedia();
+      const navigation = useAppNavigation();
+      useLayoutEffect(() => {
+        if (md) {
+          navigation.navigate(
+            ETabRoutes.Discovery,
+            {
+              screen: ETabDiscoveryRoutes.TabDiscovery,
+              params: {
+                defaultTab: ETranslations.global_earn,
+              },
+            },
+            {
+              pop: true,
+            },
+          );
+        }
+      }, [navigation, md]);
+    }
+  : () => {};
+
+export default function EarnHome() {
+  useNavigateToNativeEarnPage();
+  return (
+    <Page fullPage>
+      <Page.Body>
+        <EarnHomeWithProvider />
+      </Page.Body>
+    </Page>
   );
 }

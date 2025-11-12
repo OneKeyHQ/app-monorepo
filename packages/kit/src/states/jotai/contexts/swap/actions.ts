@@ -822,7 +822,12 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     const netInfo = swapSupportAllNetworks.find(
       (net) => net.networkId === fromToken.networkId,
     );
-    const networkId = addressInfo.accountInfo?.network?.id;
+    const isAllNetwork = networkUtils.isAllNetwork({
+      networkId: addressInfo.accountInfo?.network?.id,
+    });
+    const networkId = isAllNetwork
+      ? fromToken.networkId
+      : addressInfo.accountInfo?.network?.id;
     const walletId = addressInfo.accountInfo?.wallet?.id;
     const indexedAccountId = addressInfo.accountInfo?.indexedAccount?.id;
     const deriveType = addressInfo.accountInfo?.deriveType;
@@ -924,7 +929,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         });
         return;
       }
-
       if (
         fromToken &&
         !swapFromAddressInfo.address &&
@@ -932,6 +936,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           walletId: swapFromAddressInfo.accountInfo?.wallet?.id,
         }) &&
         !accountUtils.isHwWallet({
+          walletId: swapFromAddressInfo.accountInfo?.wallet?.id,
+        }) &&
+        !accountUtils.isQrWallet({
           walletId: swapFromAddressInfo.accountInfo?.wallet?.id,
         })
       ) {

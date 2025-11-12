@@ -3,10 +3,9 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import { clamp } from 'lodash';
 
 import { TMSlider } from '@onekeyhq/components/src/shared/tamagui';
-import type { GestureReponderEvent } from '@onekeyhq/components/src/shared/tamagui';
 
 import { XStack, YStack } from '../../primitives';
-import { NATIVE_HIT_SLOP } from '../../utils';
+import { NATIVE_HIT_SLOP } from '../../utils/getFontSize';
 
 import type { IBaseSliderProps } from './type';
 // spell mistake in tamagui components.
@@ -62,7 +61,7 @@ export const Slider = ({
   const handleSlideMove = useCallback(
     // spell mistake in tamagui components.
     // eslint-disable-next-line spellcheck/spell-checker
-    (_: GestureReponderEvent, v: number) => {
+    (_: unknown, v: number) => {
       if (!isSlidingRef.current) {
         onSlideStart?.();
         isSlidingRef.current = true;

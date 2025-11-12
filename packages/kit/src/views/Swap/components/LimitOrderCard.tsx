@@ -107,7 +107,7 @@ const LimitOrderCard = ({
       -(toTokenInfo?.decimals ?? 0),
     );
     return (
-      <XStack gap="$2" alignItems="center">
+      <XStack gap="$8" alignItems="center">
         <SwapTxHistoryAvatar
           fromUri={fromTokenInfo?.logoURI ?? ''}
           toUri={toTokenInfo?.logoURI ?? ''}

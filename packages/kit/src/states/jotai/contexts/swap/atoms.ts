@@ -682,6 +682,11 @@ export const {
   networkFeeLevel: ESwapNetworkFeeLevel.MEDIUM,
 });
 
+export const {
+  atom: swapSelectTokenNetworkAtom,
+  use: useSwapSelectTokenNetworkAtom,
+} = contextAtom<ISwapNetwork | undefined>(undefined);
+
 // swap tips
 export const { atom: swapTipsAtom, use: useSwapTipsAtom } = contextAtom<
   ISwapTips | undefined

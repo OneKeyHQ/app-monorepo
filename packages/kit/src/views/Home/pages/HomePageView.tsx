@@ -16,6 +16,7 @@ import {
 import type { ITabBarItemProps } from '@onekeyhq/components/src/composite/Tabs/TabBar';
 import { TabBarItem } from '@onekeyhq/components/src/composite/Tabs/TabBar';
 import { getNetworksSupportBulkRevokeApproval } from '@onekeyhq/shared/src/config/presetNetworks';
+import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
 import { getEnabledNFTNetworkIds } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   EAppEventBusNames,
@@ -23,11 +24,9 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { EModalRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
-import { EModalApprovalManagementRoutes } from '@onekeyhq/shared/src/routes/approvalManagement';
+import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EHomeWalletTab } from '@onekeyhq/shared/types/wallet';
 
@@ -35,9 +34,7 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { EmptyAccount, EmptyWallet } from '../../../components/Empty';
 import { NetworkAlert } from '../../../components/NetworkAlert';
 import { TabPageHeader } from '../../../components/TabPageHeader';
-import { WalletBackupAlert } from '../../../components/WalletBackup';
 import { WebDappEmptyView } from '../../../components/WebDapp/WebDappEmptyView';
-import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import {
   useAccountOverviewActions,
@@ -45,6 +42,7 @@ import {
 } from '../../../states/jotai/contexts/accountOverview';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { HomeSupportedWallet } from '../components/HomeSupportedWallet';
+import { NotBackedUpEmpty } from '../components/NotBakcedUp';
 
 import { ApprovalListContainerWithProvider } from './ApprovalListContainer';
 import { HomeHeaderContainer } from './HomeHeaderContainer';
@@ -78,8 +76,6 @@ export function HomePageView({
       indexedAccount,
     },
   } = useActiveAccount({ num: 0 });
-
-  const navigation = useAppNavigation();
 
   const [{ hasRiskApprovals }] = useApprovalsInfoAtom();
   const { updateApprovalsInfo } = useAccountOverviewActions().current;
@@ -131,71 +127,25 @@ export function HomePageView({
       const riskApprovals = resp.contractApprovals.filter(
         (item) => item.isRiskContract,
       );
-      const inactiveApprovals = resp.contractApprovals.filter(
-        (item) => item.isInactiveApproval,
-      );
 
       updateApprovalsInfo({
         hasRiskApprovals: !!(riskApprovals && riskApprovals.length > 0),
       });
-
-      if (
-        !accountUtils.isWatchingWallet({ walletId: wallet?.id }) &&
-        (riskApprovals.length > 0 || inactiveApprovals.length > 0)
-      ) {
-        const [
-          shouldShowRiskApprovalsRevokeSuggestion,
-          shouldShowInactiveApprovalsRevokeSuggestion,
-        ] = await Promise.all([
-          backgroundApiProxy.serviceApproval.shouldShowRiskApprovalsRevokeSuggestion(
-            {
-              accountId: account.id,
-              indexedAccountId: indexedAccount?.id,
-            },
-          ),
-          backgroundApiProxy.serviceApproval.shouldShowInactiveApprovalsRevokeSuggestion(
-            {
-              accountId: account.id,
-              indexedAccountId: indexedAccount?.id,
-            },
-          ),
-        ]);
-        if (
-          (shouldShowRiskApprovalsRevokeSuggestion &&
-            riskApprovals.length > 0) ||
-          (shouldShowInactiveApprovalsRevokeSuggestion &&
-            inactiveApprovals.length > 0)
-        ) {
-          await timerUtils.wait(2000);
-          navigation.pushModal(EModalRoutes.ApprovalManagementModal, {
-            screen: EModalApprovalManagementRoutes.RevokeSuggestion,
-            params: {
-              approvals: [...riskApprovals, ...inactiveApprovals],
-              contractMap: resp.contractMap,
-              tokenMap: resp.tokenMap,
-              accountId: account.id,
-              networkId: network.id,
-              indexedAccountId: indexedAccount?.id,
-              autoShow: true,
-            },
-          });
-        }
-      }
     }
-  }, [
-    network?.id,
-    indexedAccount?.id,
-    navigation,
-    account,
-    updateApprovalsInfo,
-    wallet?.id,
-  ]);
+  }, [network?.id, indexedAccount?.id, account, updateApprovalsInfo]);
 
   const { vaultSettings, networkAccounts } = result.result ?? {};
 
   const isNFTEnabled =
     vaultSettings?.NFTEnabled &&
     getEnabledNFTNetworkIds().includes(network?.id ?? '');
+
+  const isWalletNotBackedUp = useMemo(() => {
+    if (wallet && wallet.type === WALLET_TYPE_HD && !wallet.backuped) {
+      return true;
+    }
+    return false;
+  }, [wallet]);
 
   const isBulkRevokeApprovalEnabled = useMemo(() => {
     if (network?.isAllNetworks) {
@@ -311,6 +261,14 @@ export function HomePageView({
   );
 
   const tabs = useMemo(() => {
+    if (isWalletNotBackedUp) {
+      return (
+        <ScrollView h="100%">
+          {renderHeader()}
+          <NotBackedUpEmpty />
+        </ScrollView>
+      );
+    }
     const key = `${account?.id ?? ''}-${account?.indexedAccountId ?? ''}-${
       network?.id ?? ''
     }-${isNFTEnabled ? '1' : '0'}-${isBulkRevokeApprovalEnabled ? '1' : '0'}`;
@@ -343,6 +301,7 @@ export function HomePageView({
     handleRenderItem,
     isBulkRevokeApprovalEnabled,
     isNFTEnabled,
+    isWalletNotBackedUp,
     network?.id,
     renderHeader,
     tabConfigs,
@@ -479,7 +438,6 @@ export function HomePageView({
             ) : null
           } */}
           {content}
-          <WalletBackupAlert />
           {platformEnv.isNative ? (
             <YStack
               position="absolute"

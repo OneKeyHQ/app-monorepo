@@ -24,6 +24,7 @@ import type {
   EAddressEncodings,
   ICoreCredentialsInfo,
   ICoreHyperLiquidAgentCredential,
+  ICoreImportedCredential,
   IExportKeyType,
 } from '@onekeyhq/core/src/types';
 import { ECoreApiExportedSecretKeyType } from '@onekeyhq/core/src/types';
@@ -108,6 +109,7 @@ import {
   EHardwareCallContext,
 } from '@onekeyhq/shared/types/device';
 import type { IExternalConnectWalletResult } from '@onekeyhq/shared/types/externalWallet.types';
+import type { IPrimeTransferAccount } from '@onekeyhq/shared/types/prime/primeTransferTypes';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import { EDBAccountType } from '../../dbs/local/consts';
@@ -610,6 +612,7 @@ class ServiceAccount extends ServiceBase {
     confirmOnDevice,
     hwAllNetworkPrepareAccountsResponse,
     isVerifyAddressAction,
+    customReceiveAddressPath,
   }: {
     walletId: string | undefined;
     networkId: string | undefined;
@@ -620,6 +623,7 @@ class ServiceAccount extends ServiceBase {
     confirmOnDevice?: EConfirmOnDeviceType;
     hwAllNetworkPrepareAccountsResponse?: IHwAllNetworkPrepareAccountsResponse;
     isVerifyAddressAction?: boolean;
+    customReceiveAddressPath?: string;
   }) {
     if (!walletId) {
       throw new OneKeyLocalError('walletId is required');
@@ -671,6 +675,7 @@ class ServiceAccount extends ServiceBase {
       networkId,
       indexedAccountId,
       deriveType,
+      customReceiveAddressPath,
     });
 
     let prepareParams:
@@ -800,6 +805,7 @@ class ServiceAccount extends ServiceBase {
     networkId,
     account,
     indexedAccountNames,
+    skipEventEmit,
   }: {
     walletId: string;
     networkId: string;
@@ -807,6 +813,7 @@ class ServiceAccount extends ServiceBase {
     indexedAccountNames?: {
       [index: number]: string;
     };
+    skipEventEmit?: boolean;
   }) {
     const {
       addressDetail: _addressDetail,
@@ -829,6 +836,7 @@ class ServiceAccount extends ServiceBase {
       allAccountsBelongToNetworkId: networkId,
       walletId,
       accounts: [dbAccount],
+      skipEventEmit,
     });
   }
 
@@ -1476,6 +1484,7 @@ class ServiceAccount extends ServiceBase {
     fallbackName,
     shouldCheckDuplicateName,
     skipAddIfNotEqualToAddress,
+    skipEventEmit,
   }: {
     name?: string;
     fallbackName?: string;
@@ -1484,6 +1493,7 @@ class ServiceAccount extends ServiceBase {
     networkId: string;
     deriveType: IAccountDeriveTypes | undefined;
     skipAddIfNotEqualToAddress?: string;
+    skipEventEmit?: boolean;
   }): Promise<{
     networkId: string;
     walletId: string;
@@ -1562,6 +1572,7 @@ class ServiceAccount extends ServiceBase {
 
     const { isOverrideAccounts, existsAccounts } =
       await localDb.addAccountsToWallet({
+        skipEventEmit,
         allAccountsBelongToNetworkId: networkId,
         walletId,
         accounts,
@@ -1573,6 +1584,13 @@ class ServiceAccount extends ServiceBase {
           return accountUtils.buildBaseAccountName({ nextAccountId });
         },
       });
+
+    void this.fixAccountName({
+      account: existsAccounts?.[0],
+      name,
+      fallbackName,
+    });
+
     appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
 
     if (isOverrideAccounts && existsAccounts.length) {
@@ -1689,6 +1707,27 @@ class ServiceAccount extends ServiceBase {
     };
   }
 
+  async fixAccountName({
+    account,
+    name,
+    fallbackName,
+  }: {
+    account: IDBAccount | undefined;
+    name?: string;
+    fallbackName?: string;
+  }) {
+    if (!account) {
+      return;
+    }
+    const newName = name || fallbackName;
+    if (newName && account.name !== newName) {
+      await this.setAccountName({
+        accountId: account.id,
+        name: newName,
+      });
+    }
+  }
+
   @backgroundMethod()
   @toastIfError()
   async addWatchingAccount({
@@ -1700,6 +1739,7 @@ class ServiceAccount extends ServiceBase {
     shouldCheckDuplicateName,
     isUrlAccount,
     skipAddIfNotEqualToAddress,
+    skipEventEmit,
   }: {
     input: string;
     networkId: string;
@@ -1709,12 +1749,20 @@ class ServiceAccount extends ServiceBase {
     deriveType?: IAccountDeriveTypes;
     isUrlAccount?: boolean;
     skipAddIfNotEqualToAddress?: string;
+    skipEventEmit?: boolean;
   }): Promise<{
     networkId: string;
     walletId: string;
     accounts: IDBAccount[];
     isOverrideAccounts: boolean;
   }> {
+    // eslint-disable-next-line no-param-reassign
+    input = await this.backgroundApi.servicePassword.decodeSensitiveText({
+      encodedText: input,
+    });
+    if (!input) {
+      throw new OneKeyLocalError('addWatchingAccount ERROR: input not valid');
+    }
     if (networkUtils.isAllNetwork({ networkId })) {
       throw new OneKeyLocalError(
         'addWatchingAccount ERROR: networkId should not be all networks',
@@ -1829,6 +1877,7 @@ class ServiceAccount extends ServiceBase {
 
     const { isOverrideAccounts, existsAccounts } =
       await localDb.addAccountsToWallet({
+        skipEventEmit,
         allAccountsBelongToNetworkId: networkId,
         walletId,
         accounts,
@@ -1842,6 +1891,13 @@ class ServiceAccount extends ServiceBase {
           return accountUtils.buildBaseAccountName({ nextAccountId });
         },
       });
+
+    void this.fixAccountName({
+      account: existsAccounts?.[0],
+      name,
+      fallbackName,
+    });
+
     appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
 
     if (isOverrideAccounts && existsAccounts.length) {
@@ -2340,7 +2396,16 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getAccountCreatedNetworkId({ account }: { account: IDBAccount }) {
+  async getAccountCreatedNetworkId({
+    account,
+  }: {
+    account: {
+      createAtNetwork?: string | undefined;
+      networks?: string[] | undefined;
+      impl: string | undefined;
+      coinType: string | undefined;
+    };
+  }) {
     let networkId = account?.createAtNetwork || account?.networks?.[0];
     if (!networkId && account.impl) {
       const { networkIds } =
@@ -2544,6 +2609,12 @@ class ServiceAccount extends ServiceBase {
     }
 
     if (!account && !indexedAccount) {
+      return;
+    }
+    if (!name) {
+      return;
+    }
+    if (oldName && name && oldName === name) {
       return;
     }
 
@@ -3536,6 +3607,7 @@ class ServiceAccount extends ServiceBase {
     indexedAccountId: string | undefined;
     deriveType: IAccountDeriveTypes;
     confirmOnDevice?: EConfirmOnDeviceType;
+    customReceiveAddressPath?: string;
   }): Promise<string[]> {
     const { prepareParams, deviceParams, networkId, walletId } =
       await this.getPrepareHDOrHWAccountsParams(params);
@@ -4878,21 +4950,45 @@ class ServiceAccount extends ServiceBase {
     importedAccount,
     encryptedCredential,
     password,
+    credentialDecrypted,
     networkId,
   }: {
-    importedAccount: IDBAccount;
+    importedAccount: IPrimeTransferAccount;
     password: string;
     encryptedCredential: string;
+    credentialDecrypted?: ICoreImportedCredential | undefined;
     networkId: string | undefined;
   }) {
     if (!networkId) {
       throw new OneKeyLocalError('NetworkId is required');
     }
-    const { privateKey } = await decryptImportedCredential({
-      credential: encryptedCredential,
-      password,
-      allowRawPassword: true,
-    });
+    if (!password) {
+      throw new OneKeyLocalError(
+        'getExportedPrivateKeyOfImportedAccount Error: Password is required',
+      );
+    }
+    if (!credentialDecrypted) {
+      if (!encryptedCredential) {
+        throw new OneKeyLocalError(
+          'getExportedPrivateKeyOfImportedAccount Error: Encrypted credential is required',
+        );
+      }
+    }
+    let privateKey: string | undefined;
+    if (credentialDecrypted) {
+      privateKey = credentialDecrypted.privateKey;
+    } else {
+      ({ privateKey } = await decryptImportedCredential({
+        credential: encryptedCredential,
+        password,
+        allowRawPassword: true,
+      }));
+    }
+    if (!privateKey) {
+      throw new OneKeyLocalError(
+        'getExportedPrivateKeyOfImportedAccount Error: Private key is required',
+      );
+    }
     const coreApi = this.backgroundApi.serviceNetwork.getCoreApiByNetwork({
       networkId,
     });
@@ -4915,7 +5011,7 @@ class ServiceAccount extends ServiceBase {
       password,
       credentials,
 
-      account: importedAccount,
+      account: { ...importedAccount, path: importedAccount.path || '' },
 
       keyType:
         importedAccount.type === EDBAccountType.UTXO
@@ -4938,11 +5034,13 @@ class ServiceAccount extends ServiceBase {
     input,
     privateKey,
     networkId,
+    skipEventEmit,
   }: {
-    importedAccount: IDBAccount;
+    importedAccount: IPrimeTransferAccount;
     input: string;
     privateKey: string;
     networkId: string;
+    skipEventEmit?: boolean;
   }) {
     let addedAccounts: IDBAccount[] = [];
     try {
@@ -4991,6 +5089,7 @@ class ServiceAccount extends ServiceBase {
         try {
           const { accounts } =
             await serviceAccount.addImportedAccountWithCredential({
+              skipEventEmit,
               credential: await servicePassword.encodeSensitiveText({
                 text: privateKey,
               }),
@@ -5015,10 +5114,12 @@ class ServiceAccount extends ServiceBase {
     watchingAccount,
     input,
     networkId,
+    skipEventEmit,
   }: {
-    watchingAccount: IDBAccount;
+    watchingAccount: IPrimeTransferAccount;
     input: string;
     networkId: string;
+    skipEventEmit?: boolean;
   }): Promise<{
     addedAccounts: IDBAccount[];
   }> {
@@ -5068,6 +5169,7 @@ class ServiceAccount extends ServiceBase {
       for (const deriveType of deriveTypes) {
         try {
           const { accounts } = await serviceAccount.addWatchingAccount({
+            skipEventEmit,
             input,
             fallbackName: watchingAccount.name,
             networkId: networkId || '',
@@ -5133,13 +5235,18 @@ class ServiceAccount extends ServiceBase {
     networkId,
     indexedAccountId,
     deriveType,
+    customReceiveAddressPath,
   }: {
     networkId: string;
     indexedAccountId: string | undefined;
     deriveType: IAccountDeriveTypes;
+    customReceiveAddressPath: string | undefined;
   }): Promise<IPrepareHDOrHWAccountChainExtraParams | undefined> {
     if (!networkUtils.isBTCNetwork(networkId)) {
       return undefined;
+    }
+    if (customReceiveAddressPath) {
+      return { receiveAddressPath: customReceiveAddressPath };
     }
     if (!indexedAccountId) {
       return undefined;

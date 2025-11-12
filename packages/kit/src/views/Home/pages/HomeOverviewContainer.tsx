@@ -16,6 +16,8 @@ import {
   settingsValuePersistAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
+import { SHOW_WALLET_FUNCTION_BLOCK_VALUE_THRESHOLD_USD } from '@onekeyhq/shared/src/consts/walletConsts';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -65,9 +67,19 @@ function HomeOverviewContainer() {
 
   const [settings] = useSettingsPersistAtom();
 
+  const isWalletNotBackedUp = useMemo(() => {
+    if (wallet && wallet.type === WALLET_TYPE_HD && !wallet.backuped) {
+      return true;
+    }
+    return false;
+  }, [wallet]);
+
   useEffect(() => {
     if (account?.id && network?.id && wallet?.id) {
-      if (network.isAllNetworks) {
+      if (
+        network.isAllNetworks ||
+        (wallet.type === WALLET_TYPE_HD && !wallet.backuped)
+      ) {
         updateAccountWorth({
           accountId: account.id,
           worth: {},
@@ -81,7 +93,9 @@ function HomeOverviewContainer() {
     network?.isAllNetworks,
     updateAccountOverviewState,
     updateAccountWorth,
+    wallet?.backuped,
     wallet?.id,
+    wallet?.type,
   ]);
 
   useEffect(() => {
@@ -125,28 +139,52 @@ function HomeOverviewContainer() {
   }, []);
 
   useEffect(() => {
-    if (
-      account &&
-      network &&
-      accountWorth.initialized &&
-      (account.id === accountWorth.accountId ||
-        account.indexedAccountId === accountWorth.accountId)
-    ) {
-      if (accountUtils.isOthersAccount({ accountId: account.id })) {
-        if (!network.isAllNetworks && account.createAtNetwork !== network.id)
-          return;
+    const updateAccountValue = async () => {
+      if (
+        account &&
+        network &&
+        accountWorth.initialized &&
+        (account.id === accountWorth.accountId ||
+          account.indexedAccountId === accountWorth.accountId)
+      ) {
+        const allWorth = Object.values(accountWorth.worth).reduce(
+          (acc: string, cur: string) => new BigNumber(acc).plus(cur).toFixed(),
+          '0',
+        );
 
-        const accountValueId = account.id;
+        if (
+          new BigNumber(allWorth).gt(
+            SHOW_WALLET_FUNCTION_BLOCK_VALUE_THRESHOLD_USD,
+          )
+        ) {
+          await backgroundApiProxy.serviceWalletStatus.updateWalletStatus({
+            walletXfp: wallet?.xfp ?? '',
+            status: {
+              hasValue: true,
+            },
+          });
+          appEventBus.emit(EAppEventBusNames.AccountValueUpdate, undefined);
+        }
+        let accountValueId = '';
+        if (accountUtils.isOthersAccount({ accountId: account.id })) {
+          accountValueId = account.id;
 
-        void backgroundApiProxy.serviceAccountProfile.updateAccountValue({
-          accountId: accountValueId,
-          value: accountWorth.createAtNetworkWorth,
-          currency: settings.currencyInfo.id,
-          shouldUpdateActiveAccountValue: true,
-        });
-      } else {
-        const accountValueId = account.indexedAccountId as string;
-        if (!network.isAllNetworks) {
+          if (network.isAllNetworks || account.createAtNetwork === network.id) {
+            void backgroundApiProxy.serviceAccountProfile.updateAccountValue({
+              accountId: accountValueId,
+              value: accountWorth.createAtNetworkWorth,
+              currency: settings.currencyInfo.id,
+              shouldUpdateActiveAccountValue: true,
+            });
+          }
+        } else {
+          accountValueId = account.indexedAccountId as string;
+        }
+
+        if (
+          !accountUtils.isOthersAccount({ accountId: account.id }) &&
+          !network.isAllNetworks
+        ) {
           void backgroundApiProxy.serviceAccountProfile.updateAccountValueForSingleNetwork(
             {
               accountId: accountValueId,
@@ -167,13 +205,14 @@ function HomeOverviewContainer() {
             accountId: accountValueId,
             value: accountWorth.worth,
             currency: settings.currencyInfo.id,
-            updateAll: accountWorth.updateAll,
           },
         );
       }
-    }
+    };
+    void updateAccountValue();
   }, [
     account,
+    accountWorth,
     accountWorth.accountId,
     accountWorth.createAtNetworkWorth,
     accountWorth.initialized,
@@ -203,7 +242,7 @@ function HomeOverviewContainer() {
     isRefreshingApprovalList;
 
   const refreshButton = useMemo(() => {
-    return platformEnv.isNative ? undefined : (
+    return platformEnv.isNative || isWalletNotBackedUp ? undefined : (
       <IconButton
         icon="RefreshCcwOutline"
         variant="tertiary"
@@ -212,7 +251,7 @@ function HomeOverviewContainer() {
         trackID="wallet-refresh-manually"
       />
     );
-  }, [handleRefreshWorth, isLoading]);
+  }, [handleRefreshWorth, isLoading, isWalletNotBackedUp]);
 
   const handleBalanceOnPress = useCallback(async () => {
     const settingsValue = await settingsValuePersistAtom.get();

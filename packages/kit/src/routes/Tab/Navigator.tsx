@@ -3,6 +3,7 @@ import { useContext, useEffect, useMemo, useRef } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import { noop } from 'lodash';
 
+import type { ITabNavigatorConfig } from '@onekeyhq/components';
 import {
   EPortalContainerConstantName,
   Portal,
@@ -11,13 +12,13 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import {
   ERootRoutes,
   ETabDiscoveryRoutes,
   ETabEarnRoutes,
   ETabHomeRoutes,
   ETabMarketRoutes,
-  ETabRoutes,
   ETabSwapRoutes,
 } from '@onekeyhq/shared/src/routes';
 
@@ -39,74 +40,6 @@ const useIsIOSTabNavigatorFocused =
       }
     : () => true;
 
-const preloadTab = (
-  navigation: NavigationProp<any>,
-  route: string,
-  screen: string,
-  timeout: number,
-) => {
-  setTimeout(() => {
-    navigation.preload(ERootRoutes.Main, {
-      screen: route,
-      params: {
-        screen,
-      },
-    });
-  }, timeout);
-};
-
-const preloadTabs = (navigation: NavigationProp<any>) => {
-  let timeout = 100;
-  const gap = 150;
-  preloadTab(
-    navigation,
-    ETabRoutes.Market,
-    ETabMarketRoutes.TabMarket,
-    timeout,
-  );
-  preloadTab(
-    navigation,
-    ETabRoutes.Earn,
-    ETabEarnRoutes.EarnHome,
-    (timeout += gap),
-  );
-  preloadTab(
-    navigation,
-    ETabRoutes.Swap,
-    ETabSwapRoutes.TabSwap,
-    (timeout += gap),
-  );
-  preloadTab(navigation, ETabRoutes.Perp, ETabRoutes.Perp, (timeout += gap));
-  preloadTab(
-    navigation,
-    ETabRoutes.Discovery,
-    ETabDiscoveryRoutes.TabDiscovery,
-    (timeout += gap),
-  );
-  preloadTab(
-    navigation,
-    ETabRoutes.Home,
-    ETabHomeRoutes.TabHome,
-    (timeout += 2500),
-  );
-};
-
-const usePreloadTabs =
-  platformEnv.isDev || platformEnv.isNative
-    ? () => {}
-    : () => {
-        const navigation = useNavigation();
-        useEffect(() => {
-          setTimeout(async () => {
-            await Promise.race([
-              new Promise<void>((resolve) => setTimeout(resolve, 1200)),
-              whenAppUnlocked(),
-            ]);
-            preloadTabs(navigation as NavigationProp<any>);
-          });
-        }, [navigation]);
-      };
-
 // When using navigation.preload, the web layer will re-render the interface with sidebar,
 // which may cause duplicate Portal rendering. Use isRendered to prevent duplicate Portal rendering.
 let isRendered = false;
@@ -123,6 +56,26 @@ function InPageTabContainer() {
   );
 }
 
+const useCheckTabsChangedInDev = platformEnv.isDev
+  ? (config: ITabNavigatorConfig<ETabRoutes>[]) => {
+      const previousConfig = useRef(config.map((item) => item.name));
+      useEffect(() => {
+        const keys = config.map((item) => item.name);
+        if (
+          keys.length !== previousConfig.current.length ||
+          keys.every((item) => !previousConfig.current.includes(item))
+        ) {
+          // @react-navigation/core/src/useNavigationBuilder.tsx 532L
+          // eslint-disable-next-line no-restricted-syntax
+          throw new Error(
+            'tabs changed, please check the config. This may cause infinite rendering loops in react navigation tab navigator',
+          );
+        }
+        previousConfig.current = keys;
+      }, [config]);
+    }
+  : () => {};
+
 export function TabNavigator() {
   const { freezeOnBlur } = useContext(TabFreezeOnBlurContext);
   const routerConfigParams = useMemo(() => ({ freezeOnBlur }), [freezeOnBlur]);
@@ -131,7 +84,7 @@ export function TabNavigator() {
   const isFocused = useIsIOSTabNavigatorFocused();
   const { gtMd } = useMedia();
 
-  usePreloadTabs();
+  useCheckTabsChangedInDev(config);
 
   return (
     <>
@@ -139,7 +92,7 @@ export function TabNavigator() {
         config={config}
         extraConfig={isShowWebTabBar ? tabExtraConfig : undefined}
       />
-      {platformEnv.isWeb && gtMd ? <Footer /> : null}
+      {platformEnv.isWebDappMode && gtMd ? <Footer /> : null}
       <InPageTabContainer />
       {!isFocused ? (
         <Stack

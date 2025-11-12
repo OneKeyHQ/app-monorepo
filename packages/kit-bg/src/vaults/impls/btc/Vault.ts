@@ -50,6 +50,7 @@ import {
 } from '@onekeyhq/core/src/utils/coinSelectUtils';
 import { BTC_TX_PLACEHOLDER_VSIZE } from '@onekeyhq/shared/src/consts/chainConsts';
 import {
+  BTCFreshAddressCanNotConnectDappError,
   InsufficientBalance,
   OneKeyInternalError,
   OneKeyLocalError,
@@ -76,9 +77,10 @@ import type {
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import type { IVerifyMessageParams } from '@onekeyhq/shared/types/message';
-import type {
-  IInternalDappTxParams,
-  IStakeTxBtcBabylon,
+import {
+  EInternalDappEnum,
+  type IInternalDappTxParams,
+  type IStakeTxBtcBabylon,
 } from '@onekeyhq/shared/types/staking';
 import type { IDecodedTx, IDecodedTxAction } from '@onekeyhq/shared/types/tx';
 import {
@@ -1471,6 +1473,11 @@ export default class VaultBtc extends VaultBase {
   override async buildInternalDappEncodedTx(
     params: IInternalDappTxParams,
   ): Promise<IEncodedTxBtc> {
+    if (params.internalDappType === EInternalDappEnum.Staking) {
+      if (await this.isEnabledBtcFreshAddress()) {
+        throw new BTCFreshAddressCanNotConnectDappError();
+      }
+    }
     const { psbtHex } = params.internalDappTx as IStakeTxBtcBabylon;
     const network = await this.getNetwork();
     const formattedPsbtHex = formatPsbtHex(psbtHex);
@@ -1653,7 +1660,13 @@ export default class VaultBtc extends VaultBase {
     }
 
     const { enableBTCFreshAddress } = await settingsPersistAtom.get();
-    if (!enableBTCFreshAddress) {
+    if (
+      !accountUtils.isEnabledBtcFreshAddress({
+        networkId,
+        walletId: this.walletId,
+        enableBTCFreshAddress,
+      })
+    ) {
       return fallback;
     }
 
@@ -1757,6 +1770,57 @@ export default class VaultBtc extends VaultBase {
     };
   }
 
+  public async deriveAddressesByPaths({
+    dbAccount,
+    paths,
+  }: {
+    dbAccount: IDBUtxoAccount;
+    paths: string[];
+  }): Promise<Record<string, string>> {
+    if (!paths.length) {
+      return {};
+    }
+
+    const deriveXpub = dbAccount.xpub;
+    if (!deriveXpub) {
+      throw new OneKeyInternalError('Account xpub not found');
+    }
+
+    const uniquePaths = Array.from(new Set(paths.filter(Boolean)));
+    if (!uniquePaths.length) {
+      return {};
+    }
+
+    const { encoding } = await this.validateAddress(dbAccount.address);
+    const result: Record<string, string> = {};
+
+    // Sequentially derive addresses to reuse memoized cache and surface errors deterministically.
+    for (const path of uniquePaths) {
+      const derivationPath = checkIfValidPath(path);
+      const pathSegments = derivationPath.split('/');
+      if (pathSegments.length < 6) {
+        throw new OneKeyInternalError(
+          'Receive address path invalid, please contact support.',
+        );
+      }
+
+      const relativePath = `${pathSegments[4]}/${pathSegments[5]}`;
+      // reuse memoized helper to benefit from caching across calls
+      const derivedAddress = await this.memoizedDeriveReceiveAddress({
+        deriveXpub,
+        fullPath: derivationPath,
+        relativePath,
+        addressEncoding: encoding,
+        networkId: this.networkId,
+        accountAddress: dbAccount.address,
+      });
+
+      result[path] = derivedAddress;
+    }
+
+    return result;
+  }
+
   private async getChangeAddress({ dbAccount }: { dbAccount: IDBUtxoAccount }) {
     const fallbackAddress =
       (dbAccount as INetworkAccount).addressDetail.masterAddress ||
@@ -1766,12 +1830,14 @@ export default class VaultBtc extends VaultBase {
       path: checkIfValidPath(getBIP44Path(dbAccount, fallbackAddress)),
     };
 
-    const isHwOrHdWallet =
-      accountUtils.isHwWallet({ walletId: this.walletId }) ||
-      accountUtils.isHdWallet({ walletId: this.walletId });
     const isEnabledBtcFreshAddress = await this.isEnabledBtcFreshAddress();
-    const isBTCNetwork = networkUtils.isBTCNetwork(this.networkId);
-    if (!isHwOrHdWallet || !isEnabledBtcFreshAddress || !isBTCNetwork) {
+    if (
+      !accountUtils.isEnabledBtcFreshAddress({
+        enableBTCFreshAddress: isEnabledBtcFreshAddress,
+        networkId: this.networkId,
+        walletId: this.walletId,
+      })
+    ) {
       return fallback;
     }
 

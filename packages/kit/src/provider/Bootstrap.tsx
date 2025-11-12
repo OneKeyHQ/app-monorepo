@@ -11,6 +11,7 @@ import {
   getDialogInstances,
   getFormInstances,
   rootNavigationRef,
+  useMedia,
   useShortcuts,
 } from '@onekeyhq/components';
 import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
@@ -31,7 +32,10 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { electronUpdateListeners } from '@onekeyhq/shared/src/modules3rdParty/auto-update/electronUpdateListeners';
-import { initIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
+import {
+  initIntercom,
+  update,
+} from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import performance from '@onekeyhq/shared/src/performance';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -39,7 +43,8 @@ import {
   EModalRoutes,
   EModalSettingRoutes,
   EMultiTabBrowserRoutes,
-  EOnboardingPages,
+  EOnboardingPagesV2,
+  EOnboardingV2Routes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { ERootRoutes } from '@onekeyhq/shared/src/routes/root';
@@ -50,10 +55,6 @@ import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import { useAppUpdateInfo } from '../components/UpdateReminder/hooks';
 import useAppNavigation from '../hooks/useAppNavigation';
 import { useOnLock } from '../hooks/useOnLock';
-import {
-  isOpenedReferFriendsPage,
-  useReferFriends,
-} from '../hooks/useReferFriends';
 import {
   isOpenedMyOneKeyModal,
   useToMyOneKeyModal,
@@ -79,7 +80,6 @@ const useDesktopEvents = platformEnv.isDesktop
       const useOnLockRef = useRef(onLock);
       useOnLockRef.current = onLock;
 
-      const { toReferFriendsPage } = useReferFriends();
       const toMyOneKeyModal = useToMyOneKeyModal();
 
       const { checkForUpdates, onUpdateAction } = useAppUpdateInfoCallback(
@@ -283,13 +283,9 @@ const useDesktopEvents = platformEnv.isDesktop
             });
             break;
           case EShortcutEvents.TabReferAFriend:
-            if (!isOpenedReferFriendsPage()) {
-              ensureModalClosedAndNavigate(() => {
-                void toReferFriendsPage();
-              });
-            } else {
-              ensureModalClosedAndNavigate();
-            }
+            ensureModalClosedAndNavigate(() => {
+              navigation.switchTab(ETabRoutes.ReferFriends);
+            });
             break;
           case EShortcutEvents.TabMyOneKey:
             if (!isOpenedMyOneKeyModal()) {
@@ -456,10 +452,21 @@ const launchFloatingIconEvent = async (intl: IntlShape) => {
 };
 
 export const useIntercomInit = () => {
+  const { md } = useMedia();
+  const isInitializedRef = useRef(false);
+
   useEffect(() => {
-    // 初始化 Intercom
-    void initIntercom();
-  }, []);
+    const shouldHideLauncher = md || !platformEnv.isWebDappMode;
+
+    if (!isInitializedRef.current) {
+      // Initialize Intercom on first render, hide launcher on small screens
+      void initIntercom({ hide_default_launcher: shouldHideLauncher });
+      isInitializedRef.current = true;
+    } else {
+      // Update launcher visibility when screen size changes
+      update({ hide_default_launcher: shouldHideLauncher });
+    }
+  }, [md]);
 };
 
 export const useLaunchEvents = (): void => {
@@ -603,13 +610,24 @@ export function Bootstrap() {
       autoNavigation?.selectedTab &&
       Object.values(ETabRoutes).includes(autoNavigation.selectedTab)
     ) {
+      /*
+        Auto Jump on Launch
+        Jump to Page
+        Choose which page to open when launching the app
+      */
       const timer = setTimeout(() => {
         navigation.switchTab(autoNavigation.selectedTab as ETabRoutes);
         // navigation.pushModal(EModalRoutes.PrimeModal, {
         //   screen: EPrimePages.PrimeTransfer,
         // });
-        navigation.pushModal(EModalRoutes.OnboardingModal, {
-          screen: EOnboardingPages.ConnectWallet,
+        // navigation.pushModal(EModalRoutes.OnboardingModal, {
+        //   screen: EOnboardingPages.ConnectWallet,
+        // });
+        navigation.navigate(ERootRoutes.Onboarding, {
+          screen: EOnboardingV2Routes.OnboardingV2,
+          params: {
+            screen: EOnboardingPagesV2.ImportWatchedAccount,
+          },
         });
       }, 1000);
 

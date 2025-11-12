@@ -9,6 +9,7 @@ import {
   useCurrencyPersistAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
 import {
   HISTORY_PAGE_SIZE,
   POLLING_DEBOUNCE_INTERVAL,
@@ -398,6 +399,7 @@ function TxHistoryListContainer() {
 
   return (
     <TxHistoryListView
+      isTabFocused={isFocused}
       showIcon
       inTabList
       hideValue

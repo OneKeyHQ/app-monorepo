@@ -815,6 +815,14 @@ function buildAccountValueKey({
   return `${accountId}_${networkId}`;
 }
 
+function parseAccountValueKey({ key }: { key: string }) {
+  const [accountId, networkId] = key.split('_');
+  return {
+    accountId,
+    networkId,
+  };
+}
+
 function isAllNetworkMockAddress({ address }: { address?: string }) {
   return address === ALL_NETWORK_ACCOUNT_MOCK_ADDRESS;
 }
@@ -840,14 +848,23 @@ function getShortXfp({ xfp }: { xfp: string }) {
   return xfp.split('--')[0];
 }
 
-function getHDAccountPathIndex({ account }: { account: IDBAccount }) {
+function getHDAccountPathIndex({
+  account,
+}: {
+  account: {
+    pathIndex: number | undefined;
+    indexedAccountId: string | undefined;
+    template: string | undefined;
+    path: string | undefined;
+  };
+}) {
   let index = account.pathIndex;
   if (isNil(index) && account.indexedAccountId) {
     index = parseIndexedAccountId({
       indexedAccountId: account.indexedAccountId,
     }).index;
   }
-  if (isNil(index) && account.template) {
+  if (isNil(index) && account.template && account.path) {
     index = findIndexFromTemplate({
       template: account.template,
       path: account.path,
@@ -869,9 +886,36 @@ function getBTCFreshAddressKey({
   return `${networkId}__${xpubSegwit}`;
 }
 
+function isEnabledBtcFreshAddress({
+  accountId,
+  walletId,
+  networkId,
+  enableBTCFreshAddress,
+}: {
+  accountId?: string | undefined;
+  walletId?: string | undefined;
+  networkId?: string | undefined;
+  enableBTCFreshAddress?: boolean | undefined;
+}) {
+  if (!networkUtils.isBTCNetwork(networkId)) {
+    return false;
+  }
+  if (!enableBTCFreshAddress) {
+    return false;
+  }
+  if (accountId) {
+    return isHdAccount({ accountId }) || isHwAccount({ accountId });
+  }
+  if (walletId) {
+    return isHdWallet({ walletId }) || isHwWallet({ walletId });
+  }
+  return false;
+}
+
 export default {
   URL_ACCOUNT_ID,
   buildAccountValueKey,
+  parseAccountValueKey,
   buildUtxoAddressRelPath,
   buildBaseAccountName,
   buildHDAccountName,
@@ -938,4 +982,5 @@ export default {
   buildFullXfp,
   getShortXfp,
   getBTCFreshAddressKey,
+  isEnabledBtcFreshAddress,
 };

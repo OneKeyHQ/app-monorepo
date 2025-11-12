@@ -755,7 +755,9 @@ export default function HardwareHomeScreenModal({
 
   return (
     <Page scrollEnabled safeAreaEnabled>
-      <Page.Header title="HomeScreen" />
+      <Page.Header
+        title={intl.formatMessage({ id: ETranslations.global_wallpaper })}
+      />
       <Page.Body px="$4">
         <YStack gap="$2" py="$2">
           <WallpaperCustomCategorySection
@@ -810,13 +812,13 @@ export default function HardwareHomeScreenModal({
                   screenHex: customScreenHex,
                   thumbnailHex: customThumbnailHex,
                   blurScreenHex: customBlurScreenHex,
-                } = await deviceHomeScreenUtils.buildCustomScreenHex(
-                  device.id,
-                  selectedItem.uri || selectedItem.url,
-                  device.deviceType,
+                } = await deviceHomeScreenUtils.buildCustomScreenHex({
+                  dbDeviceId: device.id,
+                  url: selectedItem.uri || selectedItem.url,
+                  deviceType: device.deviceType,
                   isUserUpload,
-                  deviceInfo?.config,
-                );
+                  config: deviceInfo?.config,
+                });
 
                 finallyScreenHex = customScreenHex || '';
                 finallyThumbnailHex = customThumbnailHex;
@@ -843,23 +845,26 @@ export default function HardwareHomeScreenModal({
               isUserUpload,
             });
 
-            await backgroundApiProxy.serviceHardware.setDeviceHomeScreen({
-              dbDeviceId: device?.id,
-              screenItem: {
-                ...selectedItem,
-                screenHex: finallyScreenHex,
-                thumbnailHex: finallyThumbnailHex,
-                blurScreenHex: finallyBlurScreenHex,
-              },
-            });
+            const response =
+              await backgroundApiProxy.serviceHardware.setDeviceHomeScreen({
+                dbDeviceId: device?.id,
+                screenItem: {
+                  ...selectedItem,
+                  screenHex: finallyScreenHex,
+                  thumbnailHex: finallyThumbnailHex,
+                  blurScreenHex: finallyBlurScreenHex,
+                },
+              });
             // setSelectedItem(undefined);
             Toast.success({
               title: appLocale.intl.formatMessage({
                 id: ETranslations.hardware_wallpaper_add_success,
               }),
-              message: appLocale.intl.formatMessage({
-                id: ETranslations.hardware_wallpaper_add_success_information,
-              }),
+              message: response.applyScreen
+                ? undefined
+                : appLocale.intl.formatMessage({
+                    id: ETranslations.hardware_wallpaper_add_success_information,
+                  }),
             });
             // Do not close the current page, let the user switch wallpapers and preview them on the device
             // close();
