@@ -10,7 +10,7 @@ import type {
 export function getDefaultNetworkId(
   basicConfig?: IMarketBasicConfigData,
 ): string {
-  return basicConfig?.networkList?.[0]?.networkId || 'sol--101';
+  return basicConfig?.networkList?.[0]?.networkId;
 }
 
 /**

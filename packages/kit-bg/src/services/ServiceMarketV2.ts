@@ -75,6 +75,11 @@ class ServiceMarketV2 extends ServiceBase {
       const client = await this.getClient(EServiceEndpointEnum.Utility);
       const response = await client.get<IMarketBasicConfigResponse>(
         '/utility/v2/market/basic-config',
+        {
+          params: {
+            configVersion: 2,
+          },
+        },
       );
       return response.data;
     },
