@@ -2,6 +2,7 @@ export interface IAppleCloudKitRecord {
   recordID: string;
   recordType: string;
   data: string; // JSON parsed IBackupDataEncryptedPayload
+  meta: string; // lightweight public metadata for manifest rendering
   createdAt?: number;
   modifiedAt?: number;
 }
@@ -13,6 +14,7 @@ export interface IAppleCloudKitNativeModule {
     recordType: string;
     recordID: string;
     data: string;
+    meta: string;
   }): Promise<{ recordID: string; createdAt: number }>;
   fetchRecord(params: {
     recordID: string;
