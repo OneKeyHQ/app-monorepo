@@ -2,11 +2,15 @@ import type { EConnectDeviceChannel } from '../../types/connectDevice';
 import type { IConnectYourDeviceItem } from '../../types/device';
 import type { IDetectedNetworkGroupItem } from '../utils/networkDetectUtils';
 import type { EMnemonicType } from '../utils/secret';
-import type { KnownDevice, SearchDevice } from '@onekeyfe/hd-core';
 import type { EDeviceType } from '@onekeyfe/hd-shared';
 
 export enum EOnboardingV2Routes {
   OnboardingV2 = 'OnboardingV2',
+}
+
+export enum EOnboardingV2ImportPhraseOrPrivateKeyTab {
+  Phrase = 'phrase',
+  PrivateKey = 'privateKey',
 }
 
 export enum EOnboardingPagesV2 {
@@ -58,7 +62,9 @@ export type IOnboardingParamListV2 = {
     deviceData: IConnectYourDeviceItem;
     tabValue: EConnectDeviceChannel;
   };
-  [EOnboardingPagesV2.ImportPhraseOrPrivateKey]: undefined;
+  [EOnboardingPagesV2.ImportPhraseOrPrivateKey]: {
+    tab: EOnboardingV2ImportPhraseOrPrivateKeyTab;
+  };
   [EOnboardingPagesV2.ImportWatchedAccount]: undefined;
   [EOnboardingPagesV2.BackupWalletReminder]: IVerifyRecoveryPhraseParams;
   [EOnboardingPagesV2.ShowRecoveryPhrase]: IVerifyRecoveryPhraseParams;

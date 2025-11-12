@@ -1,6 +1,7 @@
 import type { RefObject } from 'react';
 import { useRef, useState } from 'react';
 
+import { useRoute } from '@react-navigation/core';
 import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
 import Animated, {
@@ -18,14 +19,16 @@ import {
   TextAreaInput,
   XStack,
   YStack,
-  useClipboard,
   useMedia,
   useReanimatedKeyboardAnimation,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes';
-import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes';
+import {
+  EOnboardingPagesV2,
+  EOnboardingV2ImportPhraseOrPrivateKeyTab,
+} from '@onekeyhq/shared/src/routes';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
@@ -35,10 +38,21 @@ import { OnboardingLayout } from '../components/OnboardingLayout';
 import { PhaseInputArea } from '../components/PhaseInputArea';
 
 import type { IPhaseInputAreaInstance } from '../components/PhaseInputArea';
+import type { RouteProp } from '@react-navigation/core';
 
 export default function ImportPhraseOrPrivateKey() {
   const navigation = useAppNavigation();
-  const [selected, setSelected] = useState<'phrase' | 'privateKey'>('phrase');
+  const routeParams =
+    useRoute<
+      RouteProp<
+        IOnboardingParamListV2,
+        EOnboardingPagesV2.ImportPhraseOrPrivateKey
+      >
+    >();
+  const { tab: defaultTab = EOnboardingV2ImportPhraseOrPrivateKeyTab.Phrase } =
+    routeParams.params || {};
+  const [selected, setSelected] =
+    useState<EOnboardingV2ImportPhraseOrPrivateKeyTab>(defaultTab);
   const { gtMd } = useMedia();
   const phaseInputAreaRef = useRef<IPhaseInputAreaInstance | null>(null);
   const [isConfirming, setIsConfirming] = useState(false);
@@ -46,7 +60,7 @@ export default function ImportPhraseOrPrivateKey() {
   const [privateKey, setPrivateKey] = useState('');
 
   const handleConfirm = async () => {
-    if (selected === 'phrase') {
+    if (selected === EOnboardingV2ImportPhraseOrPrivateKeyTab.Phrase) {
       const timerId = setTimeout(() => {
         setIsConfirming(false);
       }, 500);
@@ -80,7 +94,7 @@ export default function ImportPhraseOrPrivateKey() {
         {
           input,
           detectedNetworks: results.detectedNetworks,
-          importType: 'privateKey',
+          importType: EOnboardingV2ImportPhraseOrPrivateKeyTab.PrivateKey,
         };
       navigation.push(EOnboardingPagesV2.SelectPrivateKeyNetwork, params);
       setPrivateKey('');
@@ -118,21 +132,21 @@ export default function ImportPhraseOrPrivateKey() {
                   label: intl.formatMessage({
                     id: ETranslations.global_recovery_phrase,
                   }),
-                  value: 'phrase',
+                  value: EOnboardingV2ImportPhraseOrPrivateKeyTab.Phrase,
                 },
                 {
                   label: intl.formatMessage({
                     id: ETranslations.global_private_key,
                   }),
-                  value: 'privateKey',
+                  value: EOnboardingV2ImportPhraseOrPrivateKeyTab.PrivateKey,
                 },
               ]}
               onChange={(value) =>
-                setSelected(value as 'phrase' | 'privateKey')
+                setSelected(value as EOnboardingV2ImportPhraseOrPrivateKeyTab)
               }
             />
             <HeightTransition>
-              {selected === 'phrase' ? (
+              {selected === EOnboardingV2ImportPhraseOrPrivateKeyTab.Phrase ? (
                 <PhaseInputArea
                   ref={phaseInputAreaRef as RefObject<IPhaseInputAreaInstance>}
                   defaultPhrases={[]}
