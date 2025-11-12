@@ -23,8 +23,8 @@ import {
   useProps,
   useThemeName,
 } from '@onekeyhq/components/src/shared/tamagui';
-// eslint-disable-next-line @typescript-eslint/no-restricted-imports
-import useScanQrCode from '@onekeyhq/kit/src/views/ScanQrCode/hooks/useScanQrCode';
+import type { IQRCodeHandlerParseOutsideOptions } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
@@ -78,6 +78,9 @@ export type IInputProps = {
   allowClear?: boolean; // add clear button when controlled value is not empty
   allowPaste?: boolean; // add paste button
   allowScan?: boolean; // add scan button
+  startScanQrCode?: (
+    params: IQRCodeHandlerParseOutsideOptions,
+  ) => Promise<{ raw?: string }>; // const { start: startScanQrCode } = useScanQrCode();
   clearClipboardOnPaste?: boolean; // clear clipboard on paste
   autoFocusDelayMs?: number;
   /**
@@ -248,6 +251,7 @@ function BaseInput(
     allowPaste,
     allowScan,
     allowSecureTextEye,
+    startScanQrCode,
     clearClipboardOnPaste,
     disabled,
     editable,
@@ -270,7 +274,6 @@ function BaseInput(
     ...props
   } = useProps(inputProps) as IInputProps;
   const { paddingLeftWithIcon, height, iconLeftPosition } = SIZE_MAPPINGS[size];
-  const { start: startScan } = useScanQrCode();
 
   const sharedStyles = getSharedInputStyles({
     disabled,
@@ -319,7 +322,17 @@ function BaseInput(
       allAddOns.push({
         iconName: 'ScanOutline',
         onPress: async () => {
-          const result = await startScan({
+          /*
+          const result = await start({
+            handlers: [],
+            autoHandleResult: false,
+          });
+          form.setValue('input', result.raw);
+          */
+          if (!startScanQrCode) {
+            throw new OneKeyLocalError('props startScanQrCode is required');
+          }
+          const result = await startScanQrCode?.({
             handlers: [],
             autoHandleResult: false,
           });
@@ -361,7 +374,7 @@ function BaseInput(
     supportPaste,
     allowSecureTextEye,
     onChangeText,
-    startScan,
+    startScanQrCode,
     getClipboard,
     clearClipboardOnPaste,
     clearText,

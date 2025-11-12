@@ -128,10 +128,14 @@ function NetworkGroupItem({
   selectedUUID,
   onSelect,
   item,
+  formView,
+  invalidAlertView,
 }: {
   selectedUUID: string;
   onSelect: (params: { uuid: string; networkId?: string }) => void;
   item: IDetectedNetworkGroupItem;
+  formView: React.ReactNode;
+  invalidAlertView: React.ReactNode;
 }) {
   const intl = useIntl();
   const media = useMedia();
@@ -191,98 +195,6 @@ function NetworkGroupItem({
             $gtMd: {
               maxHeight: '400px',
             },
-            // maxHeight: '400px',
-            // #region  TODO: zz
-            //   return (
-            //     <ListItem
-            //       key={item.uuid}
-            //       gap="$3"
-            //       bg="$bg"
-            //       borderWidth={1}
-            //       borderColor="$borderSubdued"
-            //       borderRadius="$5"
-            //       borderCurve="continuous"
-            //       p="$3"
-            //       pl="$5"
-            //       m="$0"
-            //       userSelect="none"
-            //       pressStyle={undefined}
-            //       onPress={() => {
-            //         onSelect({ uuid: item.uuid, networkId: selectedNetworkIdRef.current });
-            //       }}
-            //       {...(selectedUUID === item.uuid && {
-            //         borderColor: '$borderActive',
-            //         hoverStyle: undefined,
-            //       })}
-            //     >
-            //       <ListItem.Text primary={selectedNetwork?.name} flex={1} />
-            //       {item.networks.length > 1 ? (
-            //         <Popover
-            //           title={`Supported ${item.networks.length} networks`}
-            //           placement="bottom"
-            //           renderTrigger={
-            //             // TODO: franco 如何确保点击网络头像时，不会触发上层的 ListItem 的 onPress 事件？
-            //             <NetworkAvatars
-            //               networks={item.networks}
-            //               selectedNetwork={selectedNetwork}
-            //               showMore
-            //               p="$1"
-            //               m="$-1"
-            //               hoverStyle={{
-            //                 bg: '$bgHover',
-            //               }}
-            //               borderRadius="$full"
-            //             />
-            //           }
-            //           renderContent={({ closePopover }) => {
-            //             return (
-            //               <ScrollView
-            //                 contentContainerStyle={{
-            //                   gap: '$2',
-            //                   p: '$3',
-            //                   maxHeight: '400px',
-            //                 }}
-            //               >
-            //                 {media.gtMd ? (
-            //                   <SizableText size="$bodyMd" color="$textSubdued" pb="$2">
-            //                     Supported {item.networks.length} networks
-            //                   </SizableText>
-            //                 ) : null}
-            //                 <XStack flexWrap="wrap" w="100%" mb="$-4">
-            //                   {item.networks.map((network) => (
-            //                     <YStack
-            //                       key={network.networkId}
-            //                       w="25%"
-            //                       gap="$2"
-            //                       alignItems="center"
-            //                       px="$2"
-            //                       pb="$6"
-            //                       onPress={() => {
-            //                         setSelectedNetworkId(network.networkId);
-            //                         selectedNetworkIdRef.current = network.networkId;
-            //                         onSelect({
-            //                           uuid: item.uuid,
-            //                           networkId: network.networkId,
-            //                         });
-            //                         closePopover();
-            //                       }}
-            //                     >
-            //                       <NetworkAvatar networkId={network.networkId} size="$8" />
-            //                       <SizableText
-            //                         size="$bodySm"
-            //                         textAlign="center"
-            //                         color="$textSubdued"
-            //                         numberOfLines={1}
-            //                       >
-            //                         {network.name}
-            //                       </SizableText>
-            //                     </YStack>
-            //                   ))}
-            //                 </XStack>
-            //               </ScrollView>
-            //             );
-            // >>>>>>> d985770a1b (fix: cloud backup password)
-            // #endregion
           }}
         >
           {media.gtMd ? (
@@ -341,6 +253,86 @@ function NetworkGroupItem({
     [item.networks, item.uuid, media.gtMd, intl, onSelect],
   );
 
+  const shouldShowExtraPanel = useMemo(() => {
+    if (selectedUUID === item.uuid) {
+      if (formView || invalidAlertView) {
+        return true;
+      }
+      if (item.networks.length > 1 && item.impl !== IMPL_EVM) {
+        return true;
+      }
+    }
+    return false;
+  }, [
+    selectedUUID,
+    item.uuid,
+    item.networks.length,
+    item.impl,
+    formView,
+    invalidAlertView,
+  ]);
+
+  const subNetworkSelectorView = useMemo(() => {
+    if (!item.networks.length || item.networks.length <= 1) {
+      return null;
+    }
+    return (
+      <>
+        <Label>
+          {intl.formatMessage({ id: ETranslations.selected_network })}
+        </Label>
+        <Popover
+          sheetProps={{
+            snapPoints: [80],
+            snapPointsMode: 'percent',
+          }}
+          title={intl.formatMessage(
+            { id: ETranslations.supported_count_networks },
+            { count: item.networks.length },
+          )}
+          placement="bottom"
+          renderTrigger={
+            <XStack
+              gap="$2"
+              alignItems="center"
+              p="$3"
+              py="$2.5"
+              bg="$bg"
+              borderWidth={1}
+              borderColor="$borderStrong"
+              borderRadius="$3"
+              borderCurve="continuous"
+              hoverStyle={{
+                bg: '$bgHover',
+              }}
+              userSelect="none"
+            >
+              <NetworkAvatar networkId={selectedNetwork?.networkId} size="$5" />
+              <SizableText flex={1}>{selectedNetwork?.name}</SizableText>
+              <Icon
+                name="ChevronDownSmallOutline"
+                color="$iconSubdued"
+                size="$5"
+              />
+            </XStack>
+          }
+          renderContent={({ closePopover }) =>
+            renderNetworkPopoverContent({
+              closePopover,
+              interactive: true,
+            })
+          }
+        />
+      </>
+    );
+  }, [
+    intl,
+    item.networks.length,
+    renderNetworkPopoverContent,
+    selectedNetwork?.name,
+    selectedNetwork?.networkId,
+  ]);
+
   return (
     <YStack borderRadius="$5" borderCurve="continuous" bg="$neutral3">
       <ListItem
@@ -391,8 +383,8 @@ function NetworkGroupItem({
                 borderRadius="$full"
               />
             }
-            renderContent={() =>
-              renderNetworkPopoverContent({ interactive: false })
+            renderContent={({ closePopover }) =>
+              renderNetworkPopoverContent({ interactive: false, closePopover })
             }
           />
         ) : (
@@ -401,7 +393,7 @@ function NetworkGroupItem({
       </ListItem>
       <HeightTransition initialHeight={0}>
         <AnimatePresence>
-          {selectedUUID === item.uuid ? (
+          {shouldShowExtraPanel ? (
             <YStack
               animation="quick"
               enterStyle={{
@@ -415,54 +407,9 @@ function NetworkGroupItem({
               p="$5"
               gap="$1"
             >
-              <Label>
-                {intl.formatMessage({ id: ETranslations.selected_network })}
-              </Label>
-              <Popover
-                sheetProps={{
-                  snapPoints: [80],
-                  snapPointsMode: 'percent',
-                }}
-                title={intl.formatMessage(
-                  { id: ETranslations.supported_count_networks },
-                  { count: item.networks.length },
-                )}
-                placement="bottom"
-                renderTrigger={
-                  <XStack
-                    gap="$2"
-                    alignItems="center"
-                    p="$3"
-                    py="$2.5"
-                    bg="$bg"
-                    borderWidth={1}
-                    borderColor="$borderStrong"
-                    borderRadius="$3"
-                    borderCurve="continuous"
-                    hoverStyle={{
-                      bg: '$bgHover',
-                    }}
-                    userSelect="none"
-                  >
-                    <NetworkAvatar
-                      networkId={selectedNetwork?.networkId}
-                      size="$5"
-                    />
-                    <SizableText flex={1}>{selectedNetwork?.name}</SizableText>
-                    <Icon
-                      name="ChevronDownSmallOutline"
-                      color="$iconSubdued"
-                      size="$5"
-                    />
-                  </XStack>
-                }
-                renderContent={({ closePopover }) =>
-                  renderNetworkPopoverContent({
-                    closePopover,
-                    interactive: true,
-                  })
-                }
-              />
+              {subNetworkSelectorView}
+              {formView}
+              {invalidAlertView}
             </YStack>
           ) : null}
         </AnimatePresence>
@@ -662,6 +609,12 @@ function SelectPrivateKeyNetworkView() {
     IGeneralInputValidation | undefined
   >();
 
+  const invalidAlertView = useMemo(() => {
+    return validateResult && !validateResult?.isValid && input ? (
+      <Alert icon="ErrorOutline" title={invalidMessage} type="danger" />
+    ) : null;
+  }, [input, invalidMessage, validateResult]);
+
   const validateFn = useCallback(async () => {
     if (accountNameDebounced) {
       try {
@@ -770,6 +723,86 @@ function SelectPrivateKeyNetworkView() {
     form.formState.errors,
   ]);
 
+  const formView = useMemo(() => {
+    const shouldShowDeriveTypeSelector =
+      validateResult?.deriveInfoItems &&
+      validateResult?.deriveInfoItems.length > 0;
+
+    // const shouldShowAccountNameInput = selectedNetworkId && validateResult?.isValid;
+    const shouldShowAccountNameInput = false;
+
+    if (!shouldShowDeriveTypeSelector && !shouldShowAccountNameInput) {
+      return null;
+    }
+
+    return (
+      <Form form={form}>
+        {shouldShowDeriveTypeSelector ? (
+          <Form.Field
+            label={intl.formatMessage({
+              id: ETranslations.derivation_path,
+            })}
+            name="deriveType"
+          >
+            <DeriveTypeSelectorFormInput
+              networkId={selectedNetworkId || ''}
+              enabledItems={validateResult?.deriveInfoItems || []}
+              undefinedResultIfReRun={false}
+              renderTrigger={({ label, onPress }) => (
+                <Stack
+                  testID="wallet-derivation-path-selector-trigger"
+                  userSelect="none"
+                  flexDirection="row"
+                  px="$3.5"
+                  py="$2.5"
+                  borderWidth={1}
+                  borderColor="$borderStrong"
+                  borderRadius="$3"
+                  $gtMd={{
+                    px: '$3',
+                    py: '$1.5',
+                    borderRadius: '$2',
+                  }}
+                  borderCurve="continuous"
+                  hoverStyle={{
+                    bg: '$bgHover',
+                  }}
+                  pressStyle={{
+                    bg: '$bgActive',
+                  }}
+                  onPress={onPress}
+                >
+                  <SizableText flex={1}>{label}</SizableText>
+                  <Icon
+                    name="ChevronDownSmallOutline"
+                    color="$iconSubdued"
+                    mr="$-0.5"
+                  />
+                </Stack>
+              )}
+            />
+          </Form.Field>
+        ) : null}
+
+        {shouldShowAccountNameInput ? (
+          <Form.Field
+            label={intl.formatMessage({
+              id: ETranslations.form_enter_account_name,
+            })}
+            name="accountName"
+          >
+            <Input
+              maxLength={MAX_LENGTH_ACCOUNT_NAME}
+              placeholder={intl.formatMessage({
+                id: ETranslations.form_enter_account_name_placeholder,
+              })}
+            />
+          </Form.Field>
+        ) : null}
+      </Form>
+    );
+  }, [form, intl, selectedNetworkId, validateResult?.deriveInfoItems]);
+
   return (
     <Page>
       <OnboardingLayout>
@@ -830,219 +863,52 @@ function SelectPrivateKeyNetworkView() {
                       size="$5"
                     />
                   </ListItem>
-                  {validateResult && !validateResult?.isValid && input ? (
-                    <Alert
-                      icon="ErrorOutline"
-                      title={invalidMessage}
-                      type="danger"
+                  {invalidAlertView}
+                  {formView}
+                </YStack>
+              ) : (
+                <>
+                  {detectedNetworks?.map((network) => (
+                    <NetworkGroupItem
+                      key={network.uuid}
+                      selectedUUID={selectedUUID}
+                      onSelect={handleSelectGroupItem}
+                      item={network}
+                      formView={formView}
+                      invalidAlertView={invalidAlertView}
+                    />
+                  ))}
+                  {manualSelectedNetwork ? (
+                    <NetworkGroupItem
+                      key={manualSelectedNetwork.uuid}
+                      selectedUUID={selectedUUID}
+                      onSelect={handleSelectGroupItem}
+                      item={manualSelectedNetwork}
+                      formView={formView}
+                      invalidAlertView={invalidAlertView}
                     />
                   ) : null}
-                </YStack>
-              ) : null}
-              {detectedNetworks?.map((network) => (
-                <NetworkGroupItem
-                  key={network.uuid}
-                  selectedUUID={selectedUUID}
-                  onSelect={handleSelectGroupItem}
-                  item={network}
-                />
-              ))}
-              {manualSelectedNetwork ? (
-                <NetworkGroupItem
-                  key={manualSelectedNetwork.uuid}
-                  selectedUUID={selectedUUID}
-                  onSelect={handleSelectGroupItem}
-                  item={manualSelectedNetwork}
-                />
-              ) : // #region  TODO: zz
-              //         <OnboardingLayout.Header title="Select Network" />
-              //         <OnboardingLayout.Body>
-              //           <YStack gap="$2.5">
-              //             {detectedNetworks && detectedNetworks.length === 0 ? (
-              //               // TODO: franco 如果无法检测到任何网络，提示无法检测到网络，提示用户返回上一页重新输入私钥，或者自选网络
-              //               <SizableText textAlign="center" color="$textSubdued">
-              //                 We couldn't detect any networks. Please try again with a
-              //                 different private key, or use the "Show more networks" button to
-              //                 select a network manually.
-              //               </SizableText>
-              //             ) : null}
-              //             {detectedNetworks?.map((network) => (
-              //               <NetworkGroupItem
-              //                 key={network.uuid}
-              //                 selectedUUID={selectedUUID}
-              //                 onSelect={handleSelectGroupItem}
-              //                 item={network}
-              //               />
-              //             ))}
-              //             {manualSelectedNetwork ? (
-              //               <NetworkGroupItem
-              //                 key={manualSelectedNetwork.uuid}
-              //                 selectedUUID={selectedUUID}
-              //                 onSelect={handleSelectGroupItem}
-              //                 item={manualSelectedNetwork}
-              //               />
-              //             ) : null}
-
-              //             <Form form={form}>
-              //               {validateResult?.deriveInfoItems ? (
-              //                 <Form.Field
-              //                   label={intl.formatMessage({
-              //                     id: ETranslations.derivation_path,
-              //                   })}
-              //                   name="deriveType"
-              //                 >
-              //                   <DeriveTypeSelectorFormInput
-              //                     networkId={selectedNetworkId || ''}
-              //                     enabledItems={validateResult?.deriveInfoItems || []}
-              //                     undefinedResultIfReRun={false}
-              //                     renderTrigger={({ label, onPress }) => (
-              //                       <Stack
-              //                         testID="wallet-derivation-path-selector-trigger"
-              //                         userSelect="none"
-              //                         flexDirection="row"
-              //                         px="$3.5"
-              //                         py="$2.5"
-              //                         borderWidth={1}
-              //                         borderColor="$borderStrong"
-              //                         borderRadius="$3"
-              //                         $gtMd={{
-              //                           px: '$3',
-              //                           py: '$1.5',
-              //                           borderRadius: '$2',
-              //                         }}
-              //                         borderCurve="continuous"
-              //                         hoverStyle={{
-              //                           bg: '$bgHover',
-              //                         }}
-              //                         pressStyle={{
-              //                           bg: '$bgActive',
-              //                         }}
-              //                         onPress={onPress}
-              //                       >
-              //                         <SizableText flex={1}>{label}</SizableText>
-              //                         <Icon
-              //                           name="ChevronDownSmallOutline"
-              //                           color="$iconSubdued"
-              //                           mr="$-0.5"
-              //                         />
-              //                       </Stack>
-              //                     )}
-              //                   />
-              //                 </Form.Field>
-              // >>>>>>> d985770a1b (fix: cloud backup password)
-              // #endregion
-              null}
-
-              <Form form={form}>
-                {validateResult?.deriveInfoItems ? (
-                  <Form.Field
-                    label={intl.formatMessage({
-                      id: ETranslations.derivation_path,
-                    })}
-                    name="deriveType"
-                  >
-                    <DeriveTypeSelectorFormInput
-                      networkId={selectedNetworkId || ''}
-                      enabledItems={validateResult?.deriveInfoItems || []}
-                      undefinedResultIfReRun={false}
-                      renderTrigger={({ label, onPress }) => (
-                        <Stack
-                          testID="wallet-derivation-path-selector-trigger"
-                          userSelect="none"
-                          flexDirection="row"
-                          px="$3.5"
-                          py="$2.5"
-                          borderWidth={1}
-                          borderColor="$borderStrong"
-                          borderRadius="$3"
-                          $gtMd={{
-                            px: '$3',
-                            py: '$1.5',
-                            borderRadius: '$2',
-                          }}
-                          borderCurve="continuous"
-                          hoverStyle={{
-                            bg: '$bgHover',
-                          }}
-                          pressStyle={{
-                            bg: '$bgActive',
-                          }}
-                          onPress={onPress}
-                        >
-                          <SizableText flex={1}>{label}</SizableText>
-                          <Icon
-                            name="ChevronDownSmallOutline"
-                            color="$iconSubdued"
-                            mr="$-0.5"
-                          />
-                        </Stack>
-                      )}
-                    />
-                  </Form.Field>
-                ) : null}
-
-                {/* {selectedNetworkId && validateResult?.isValid ? (
-                <Form.Field
-                  label={intl.formatMessage({
-                    id: ETranslations.form_enter_account_name,
-                  })}
-                  name="accountName"
-                >
-                  <Input
-                    maxLength={MAX_LENGTH_ACCOUNT_NAME}
-                    placeholder={intl.formatMessage({
-                      id: ETranslations.form_enter_account_name_placeholder,
-                    })}
-                  />
-                </Form.Field>
-              ) : null} */}
-              </Form>
-              {detectedNetworks && detectedNetworks.length > 0 ? (
-                <XStack gap="$1" pt="$5" justifyContent="center">
-                  <SizableText size="$bodyMd" color="$textSubdued">
-                    {intl.formatMessage({
-                      id: ETranslations.cant_find_network_question,
-                    })}
-                  </SizableText>
-                  <Button
-                    variant="tertiary"
-                    size="small"
-                    onPress={handleShowMoreNetworks}
-                  >
-                    {intl.formatMessage({
-                      id: ETranslations.show_more_networks,
-                    })}
-                  </Button>
-                </XStack>
-              ) : null}
+                  {detectedNetworks && detectedNetworks.length > 0 ? (
+                    <XStack gap="$1" pt="$5" justifyContent="center">
+                      <SizableText size="$bodyMd" color="$textSubdued">
+                        {intl.formatMessage({
+                          id: ETranslations.cant_find_network_question,
+                        })}
+                      </SizableText>
+                      <Button
+                        variant="tertiary"
+                        size="small"
+                        onPress={handleShowMoreNetworks}
+                      >
+                        {intl.formatMessage({
+                          id: ETranslations.show_more_networks,
+                        })}
+                      </Button>
+                    </XStack>
+                  ) : null}
+                </>
+              )}
             </YStack>
-            {validateResult && !validateResult?.isValid && input ? (
-              <SizableText size="$bodyMd" color="$textCritical">
-                {intl.formatMessage({
-                  id: ETranslations.form_private_key_error_invalid,
-                })}
-              </SizableText>
-            ) : null}
-
-            {/* <SizableText>{selectedNetworkId}</SizableText> */}
-            <Button
-              size="small"
-              onPress={() => {
-                Dialog.debugMessage({
-                  debugMessage: {
-                    submitButtonDisabled,
-                    selectedNetworkId,
-                    validateResult,
-                    isValid: !validateResult?.isValid,
-                    // form,
-                    errors: form.formState.errors,
-                    // !!Object.values(form.formState.errors).length
-                  },
-                });
-              }}
-            >
-              debugMessage
-            </Button>
           </OnboardingLayout.ConstrainedContent>
         </OnboardingLayout.Body>
         <OnboardingLayout.Footer>
@@ -1066,20 +932,6 @@ function SelectPrivateKeyNetworkView() {
             {intl.formatMessage({ id: ETranslations.global_confirm })}
           </Button>
         </OnboardingLayout.Footer>
-        {/* 
-#region  TODO: zz
-          {validateResult && !validateResult?.isValid && input ? (
-            // TODO: franco 如果自选网络和输入的私钥不匹配，提示私钥错误，需要返回上一页重新输入
-            <SizableText size="$bodyMd" color="$textCritical">
-              {intl.formatMessage({
-                id: ETranslations.form_private_key_error_invalid,
-              })}
-            </SizableText>
-          ) : null}
-        </OnboardingLayout.Body>
->>>>>>> d985770a1b (fix: cloud backup password)
- #endregion
-  */}
       </OnboardingLayout>
     </Page>
   );
