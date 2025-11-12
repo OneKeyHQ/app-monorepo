@@ -407,6 +407,17 @@ export const {
   },
 });
 
+export type IPerpsLastUsedLeverageAtom = Record<string, number>;
+
+export const {
+  target: perpsLastUsedLeverageAtom,
+  use: usePerpsLastUsedLeverageAtom,
+} = globalAtom<IPerpsLastUsedLeverageAtom>({
+  name: EAtomNames.perpsLastUsedLeverageAtom,
+  persist: true,
+  initialValue: {},
+});
+
 // #endregion
 
 export interface IPerpsNetworkStatus {
