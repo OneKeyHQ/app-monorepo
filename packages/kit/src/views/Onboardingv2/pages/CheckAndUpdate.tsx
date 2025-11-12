@@ -424,9 +424,14 @@ function CheckAndUpdatePage({
     } else if (currentErrorStep.id === ECheckAndUpdateStepId.FirmwareCheck) {
       await checkFirmwareUpdate();
     } else if (currentErrorStep.id === ECheckAndUpdateStepId.SetupOnDevice) {
-      handleDeviceSetupDone();
+      await checkDeviceInitialized();
     }
-  }, [checkFirmwareUpdate, handleDeviceSetupDone, handleVerifyHardware, steps]);
+  }, [
+    checkFirmwareUpdate,
+    checkDeviceInitialized,
+    handleVerifyHardware,
+    steps,
+  ]);
 
   const handleSkipUpdate = useCallback(() => {
     Dialog.show({
@@ -555,11 +560,11 @@ function CheckAndUpdatePage({
     });
     setTimeout(() => {
       if (currentStepId === ECheckAndUpdateStepId.FirmwareCheck) {
-        void checkFirmwareUpdate();
-      } else if (currentStepId === ECheckAndUpdateStepId.GenuineCheck) {
-        void handleVerifyHardware();
-      } else if (currentStepId === ECheckAndUpdateStepId.SetupOnDevice) {
         void handleDeviceSetupDone();
+      } else if (currentStepId === ECheckAndUpdateStepId.GenuineCheck) {
+        void checkFirmwareUpdate();
+      } else {
+        void handleVerifyHardware();
       }
     }, 150);
   }, [checkFirmwareUpdate, handleDeviceSetupDone, handleVerifyHardware]);
