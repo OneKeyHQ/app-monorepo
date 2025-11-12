@@ -10,28 +10,37 @@ export function MultipleClickStack({
   children,
   onPress,
   showDevBgColor = false,
-  triggerAt = 10,
+  triggerAt = platformEnv.isDev ? 3 : 10,
+  debugComponent,
   ...others
 }: {
   showDevBgColor?: boolean;
   triggerAt?: number;
   onPress?: ((event: GestureResponderEvent) => void) | null | undefined;
   children?: ReactNode;
+  debugComponent?: ReactNode;
 } & ComponentProps<typeof Stack>) {
   const [clickCount, setClickCount] = useState(0);
+  const [debugComponentVisible, setDebugComponentVisible] = useState(false);
 
   return (
-    <Stack
-      bg={showDevBgColor && platformEnv.isDev ? '$bgCritical' : undefined}
-      {...others}
-      onPress={(event) => {
-        if (clickCount > triggerAt) {
-          onPress?.(event);
-        }
-        setClickCount((prev) => prev + 1);
-      }}
-    >
-      {children}
-    </Stack>
+    <>
+      <Stack
+        bg={showDevBgColor && platformEnv.isDev ? '$bgCritical' : undefined}
+        {...others}
+        onPress={(event) => {
+          if (clickCount > triggerAt) {
+            onPress?.(event);
+            if (debugComponent) {
+              setDebugComponentVisible(true);
+            }
+          }
+          setClickCount((prev) => prev + 1);
+        }}
+      >
+        {children}
+      </Stack>
+      {debugComponentVisible ? debugComponent : null}
+    </>
   );
 }

@@ -196,7 +196,13 @@ export default function AddExistingWallet() {
             })}`,
           ],
           onPress: () => {
-            navigation.push(EOnboardingPagesV2.ImportWatchedAccount);
+            // V1 import address or public key
+            navigation.pushModal(EModalRoutes.OnboardingModal, {
+              screen: EOnboardingPages.ImportAddress,
+            });
+
+            // V2 import address or public key
+            // navigation.push(EOnboardingPagesV2.ImportWatchedAccount);
           },
         },
         ...(() => {

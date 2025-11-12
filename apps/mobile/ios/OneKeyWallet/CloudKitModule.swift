@@ -19,6 +19,7 @@ class CloudKitModule: NSObject {
   fileprivate static let paramRecordType = "recordType"
   fileprivate static let paramRecordID = "recordID"
   fileprivate static let paramData = "data"
+  fileprivate static let paramMeta = "meta"
 
   // MARK: - Properties
 
@@ -164,12 +165,14 @@ extension SaveRecordParams {
   init?(from dict: NSDictionary) {
     guard let recordType = dict[CloudKitModule.paramRecordType] as? String,
           let recordID = dict[CloudKitModule.paramRecordID] as? String,
-          let data = dict[CloudKitModule.paramData] as? String else {
+          let data = dict[CloudKitModule.paramData] as? String,
+          let meta = dict[CloudKitModule.paramMeta] as? String else {
       return nil
     }
     self.recordType = recordType
     self.recordID = recordID
     self.data = data
+    self.meta = meta
   }
 }
 
@@ -232,6 +235,7 @@ extension RecordResult {
       "recordID": recordID,
       "recordType": recordType,
       "data": data,
+      "meta": meta,
       "createdAt": createdAt,
       "modifiedAt": modifiedAt
     ]
