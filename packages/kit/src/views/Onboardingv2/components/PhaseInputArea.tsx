@@ -16,7 +16,6 @@ import {
 import { compact, range } from 'lodash';
 import { useIntl } from 'react-intl';
 import { View } from 'react-native';
-import { useKeyboardState } from 'react-native-keyboard-controller';
 
 import type {
   IButtonProps,
