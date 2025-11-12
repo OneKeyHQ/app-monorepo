@@ -86,6 +86,7 @@ export function ReferralCodeCardDesktop({
 
   return (
     <YStack
+      flex={1}
       bg="$bg"
       borderWidth={1}
       borderColor="$borderSubdued"
