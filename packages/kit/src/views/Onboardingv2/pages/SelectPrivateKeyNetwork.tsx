@@ -50,9 +50,10 @@ import {
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import type {
-  EOnboardingPagesV2,
-  IOnboardingParamListV2,
+import {
+  type EOnboardingPagesV2,
+  ERootRoutes,
+  type IOnboardingParamListV2,
 } from '@onekeyhq/shared/src/routes';
 import type {
   IDetectedNetwork,
@@ -554,7 +555,11 @@ function SelectPrivateKeyNetworkView() {
             walletId,
             othersWalletAccountId: accountId,
           });
-          navigation.popStack();
+
+          // navigation.popStack();
+          navigation.navigate(ERootRoutes.Main, undefined, {
+            pop: true,
+          });
 
           if (importType === 'privateKey') {
             defaultLogger.account.wallet.walletAdded({
