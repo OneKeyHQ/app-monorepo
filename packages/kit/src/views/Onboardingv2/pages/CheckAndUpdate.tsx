@@ -269,7 +269,6 @@ function CheckAndUpdatePage({
       });
     }, 1200);
   }, [
-    createStepTimeout,
     currentDevice,
     deviceData,
     ensureTransportType,
