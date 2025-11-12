@@ -947,9 +947,7 @@ function USBOrBLEConnectionIndicator({
                   <Button
                     variant="primary"
                     mt="$2"
-                    onPress={() => {
-                      alert('onPress');
-                    }}
+                    onPress={onConnectWebDevice}
                   >
                     {intl.formatMessage({
                       id: ETranslations.global_start_connection,
