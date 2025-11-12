@@ -10,7 +10,7 @@ import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfi
 import { showProtocolListDialog } from '@onekeyhq/kit/src/views/Earn/components/showProtocolListDialog';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
+import { ETabEarnRoutes } from '@onekeyhq/shared/src/routes';
 
 import { RawActions } from './RawActions';
 
@@ -101,16 +101,13 @@ export function WalletActionEarn(props: {
 
     if (protocols.length === 1) {
       const protocol = protocolList[0];
-      navigation.pushModal(EModalRoutes.StakingModal, {
-        screen: EModalStakingRoutes.ProtocolDetailsV2,
-        params: {
-          networkId,
-          accountId,
-          indexedAccountId,
-          symbol,
-          provider: protocol.provider.name,
-          vault: protocol.provider.vault,
-        },
+      navigation.push(ETabEarnRoutes.EarnProtocolDetails, {
+        networkId,
+        accountId,
+        indexedAccountId,
+        symbol,
+        provider: protocol.provider.name,
+        vault: protocol.provider.vault,
       });
       return;
     }
@@ -122,10 +119,7 @@ export function WalletActionEarn(props: {
       indexedAccountId,
       filterNetworkId: networkId,
       onProtocolSelect: async (params) => {
-        navigation.pushModal(EModalRoutes.StakingModal, {
-          screen: EModalStakingRoutes.ProtocolDetailsV2,
-          params,
-        });
+        navigation.push(ETabEarnRoutes.EarnProtocolDetails, params);
       },
     });
   }, [

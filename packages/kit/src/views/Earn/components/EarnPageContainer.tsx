@@ -1,16 +1,17 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import type { IBreadcrumbProps } from '@onekeyhq/components';
 import {
   Breadcrumb,
+  NavBackButton,
   Page,
   ScrollView,
-  Stack,
   XStack,
   YStack,
   useMedia,
 } from '@onekeyhq/components';
 import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import type { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -25,6 +26,7 @@ interface IEarnPageContainerProps {
   sceneName: EAccountSelectorSceneName;
   tabRoute: ETabRoutes;
   refreshControl?: React.ReactElement<RefreshControlProps>;
+  showBackButton?: boolean;
 }
 
 export function EarnPageContainer({
@@ -34,22 +36,38 @@ export function EarnPageContainer({
   sceneName,
   tabRoute,
   refreshControl,
+  showBackButton = false,
 }: IEarnPageContainerProps) {
   const media = useMedia();
+  const navigation = useAppNavigation();
 
-  const customHeaderLeft = useMemo(
-    () =>
-      pageTitle ? (
+  const handleBack = useCallback(() => {
+    navigation.pop();
+  }, [navigation]);
+
+  const customHeaderLeft = useMemo(() => {
+    if (showBackButton) {
+      return (
         <XStack gap="$3" ai="center">
+          <NavBackButton onPress={handleBack} />
           {pageTitle}
         </XStack>
-      ) : null,
-    [pageTitle],
-  );
+      );
+    }
+    return pageTitle ? (
+      <XStack gap="$3" ai="center">
+        {pageTitle}
+      </XStack>
+    ) : null;
+  }, [pageTitle, showBackButton, handleBack]);
 
   return (
     <Page>
-      <TabPageHeader sceneName={sceneName} tabRoute={tabRoute} />
+      <TabPageHeader
+        sceneName={sceneName}
+        tabRoute={tabRoute}
+        customHeaderLeftItems={customHeaderLeft}
+      />
       <Page.Body>
         <ScrollView
           contentContainerStyle={{ py: '$6' }}
@@ -60,7 +78,6 @@ export function EarnPageContainer({
               {breadcrumbProps && media.gtSm ? (
                 <Breadcrumb {...breadcrumbProps} />
               ) : null}
-              {customHeaderLeft}
             </YStack>
             {children}
           </YStack>

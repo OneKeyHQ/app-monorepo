@@ -76,17 +76,14 @@ export const EarnNavigation = {
       indexedAccountId,
       networkId,
     });
-    navigation.pushModal(EModalRoutes.StakingModal, {
-      screen: EModalStakingRoutes.ProtocolDetailsV2,
-      params: {
-        accountId: earnAccount?.accountId || accountId || '',
-        networkId,
-        indexedAccountId:
-          earnAccount?.account.indexedAccountId || indexedAccountId,
-        symbol,
-        provider,
-        vault,
-      },
+    navigation.push(ETabEarnRoutes.EarnProtocolDetails, {
+      accountId: earnAccount?.accountId || accountId || '',
+      networkId,
+      indexedAccountId:
+        earnAccount?.account.indexedAccountId || indexedAccountId,
+      symbol,
+      provider,
+      vault,
     });
   },
 
@@ -180,17 +177,14 @@ export const EarnNavigation = {
           networkId,
         });
       const protocol = protocols[0];
-      navigation.pushModal(EModalRoutes.StakingModal, {
-        screen: EModalStakingRoutes.ProtocolDetailsV2,
-        params: {
-          networkId: protocol.networkId,
-          accountId: earnAccount?.accountId || accountId,
-          indexedAccountId:
-            earnAccount?.account.indexedAccountId || indexedAccountId,
-          symbol,
-          provider: protocol.provider,
-          vault: protocol.vault,
-        },
+      navigation.push(ETabEarnRoutes.EarnProtocolDetails, {
+        networkId: protocol.networkId,
+        accountId: earnAccount?.accountId || accountId,
+        indexedAccountId:
+          earnAccount?.account.indexedAccountId || indexedAccountId,
+        symbol,
+        provider: protocol.provider,
+        vault: protocol.vault,
       });
       return;
     }

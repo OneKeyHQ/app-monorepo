@@ -23,15 +23,8 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import {
-  EModalRoutes,
-  EModalStakingRoutes,
-  ETabRoutes,
-} from '@onekeyhq/shared/src/routes';
-import type {
-  ETabEarnRoutes,
-  ITabEarnParamList,
-} from '@onekeyhq/shared/src/routes';
+import { ETabEarnRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
+import type { ITabEarnParamList } from '@onekeyhq/shared/src/routes';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IStakeProtocolListItem } from '@onekeyhq/shared/types/staking';
@@ -137,22 +130,19 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
             networkId: protocol.network.networkId,
           });
 
-        navigation.pushModal(EModalRoutes.StakingModal, {
-          screen: EModalStakingRoutes.ProtocolDetailsV2,
-          params: {
-            networkId: protocol.network.networkId,
-            accountId: earnAccount?.accountId || activeAccount.account.id,
-            indexedAccountId:
-              earnAccount?.account.indexedAccountId ||
-              activeAccount.indexedAccount?.id,
-            symbol,
-            provider: protocol.provider.name,
-            vault: earnUtils.isVaultBasedProvider({
-              providerName: protocol.provider.name,
-            })
-              ? protocol.provider.vault
-              : undefined,
-          },
+        navigation.push(ETabEarnRoutes.EarnProtocolDetails, {
+          networkId: protocol.network.networkId,
+          accountId: earnAccount?.accountId || activeAccount.account.id,
+          indexedAccountId:
+            earnAccount?.account.indexedAccountId ||
+            activeAccount.indexedAccount?.id,
+          symbol,
+          provider: protocol.provider.name,
+          vault: earnUtils.isVaultBasedProvider({
+            providerName: protocol.provider.name,
+          })
+            ? protocol.provider.vault
+            : undefined,
         });
       } catch (error) {
         console.error('Failed to select protocol:', error);
@@ -340,6 +330,7 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
           },
         ],
       }}
+      showBackButton
     >
       {content}
     </EarnPageContainer>

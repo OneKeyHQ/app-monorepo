@@ -7,7 +7,7 @@ import { Dialog, SizableText } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
-  EModalStakingRoutes,
+  ETabEarnRoutes,
   type IModalSwapParamList,
 } from '@onekeyhq/shared/src/routes';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes/modal';
@@ -261,10 +261,7 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
       accountId: networkAccount.id,
       indexedAccountId: networkAccount.indexedAccountId,
       onProtocolSelect: async (params) => {
-        navigation.pushModal(EModalRoutes.StakingModal, {
-          screen: EModalStakingRoutes.ProtocolDetailsV2,
-          params,
-        });
+        navigation.push(ETabEarnRoutes.EarnProtocolDetails, params);
       },
     });
   }, [createAccountIfNotExists, navigation, networkId, symbol]);

@@ -625,6 +625,10 @@ interface IEarnGridItem {
   description: IEarnText;
   button?: IEarnActionIcon;
   tooltip?: IEarnTooltip;
+  items?: {
+    title: IEarnText;
+    logoURI: string;
+  }[];
   type?: 'default' | 'info';
 }
 
@@ -771,12 +775,6 @@ export interface IStakeEarnDetail {
       icon: IEarnIcon;
     }[];
   };
-  apyDetail?: {
-    type: 'default';
-    title: IEarnText;
-    description: IEarnText;
-    button: IEarnActionIcon;
-  };
   actions?: IEarnDetailActions[];
   subscriptionValue?: ISubscriptionValue;
   tags?: IStakeBadgeTag[];
@@ -785,6 +783,28 @@ export interface IStakeEarnDetail {
     description: IEarnText;
     startTime: number;
     endTime: number;
+  };
+  apyDetail?: {
+    type: 'default';
+    token: {
+      info: IEarnToken;
+      price: string;
+    };
+    fiatValue: string;
+    formattedValue: string;
+    title: IEarnText;
+    description?: IEarnText;
+    badge: IEarnBadge;
+    tooltip?: IEarnTooltip;
+    button?: IEarnActionIcon;
+  };
+  intro?: {
+    title: IEarnText;
+    items: IEarnGridItem[];
+  };
+  performance?: {
+    title: IEarnText;
+    items: IEarnGridItem[];
   };
   portfolios?: {
     title: IEarnText;
