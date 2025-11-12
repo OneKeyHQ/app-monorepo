@@ -122,7 +122,7 @@ function InviteRewardPage() {
       {platformEnv.isNative || md ? (
         <Page.Header
           title={intl.formatMessage({
-            id: ETranslations.earn_referral_view_rewards,
+            id: ETranslations.referral_title,
           })}
         />
       ) : (
