@@ -325,6 +325,7 @@ const PortfolioItemComponent = ({
 }: {
   portfolioItem: IEarnPortfolioInvestment;
 }) => {
+  const intl = useIntl();
   const media = useMedia();
 
   const columns: ITableColumn<IEarnPortfolioInvestment['assets'][number]>[] =
@@ -332,14 +333,14 @@ const PortfolioItemComponent = ({
       return [
         {
           key: 'deposits',
-          label: 'Deposits',
+          label: intl.formatMessage({ id: ETranslations.earn_deposited }),
           flex: 1.5,
           priority: 5,
           render: (asset) => <DepositField asset={asset} />,
         },
         {
           key: 'Est. 24h earnings',
-          label: 'Est. 24h earnings',
+          label: intl.formatMessage({ id: ETranslations.earn_24h_earnings }),
           flex: 1,
           priority: 1,
           render: (asset) => (
@@ -359,7 +360,7 @@ const PortfolioItemComponent = ({
         },
         {
           key: 'Claimable',
-          label: 'Claimable',
+          label: intl.formatMessage({ id: ETranslations.earn_claimable }),
           flex: 1.5,
           priority: 3,
           render: (asset) => {
@@ -372,7 +373,7 @@ const PortfolioItemComponent = ({
           },
         },
       ];
-    }, []);
+    }, [intl]);
 
   const appNavigation = useAppNavigation();
   const { activeAccount } = useActiveAccount({ num: 0 });
@@ -459,7 +460,9 @@ const PortfolioItemComponent = ({
                         text={asset.earnings24h?.title}
                       />
                       <SizableText size="$bodyMd" color="$textSubdued">
-                        Est. 24h earning
+                        {intl.formatMessage({
+                          id: ETranslations.earn_24h_earnings,
+                        })}
                       </SizableText>
                     </XStack>
 

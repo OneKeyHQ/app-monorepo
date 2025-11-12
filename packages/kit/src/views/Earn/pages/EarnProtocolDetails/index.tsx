@@ -356,6 +356,7 @@ const ManagePositionPart = ({
   vault?: string;
   managers: IStakeEarnDetail['managers'] | undefined;
 }) => {
+  const intl = useIntl();
   const appNavigation = useAppNavigation();
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { account, indexedAccount } = activeAccount;
@@ -413,10 +414,16 @@ const ManagePositionPart = ({
   const [selectedTabIndex, setSelectedTabIndex] = useState(0);
   const tabData = useMemo(
     () => [
-      { title: 'Deposit', type: EStakingActionType.Deposit },
-      { title: 'Withdraw', type: EStakingActionType.Withdraw },
+      {
+        title: intl.formatMessage({ id: ETranslations.earn_deposit }),
+        type: EStakingActionType.Deposit,
+      },
+      {
+        title: intl.formatMessage({ id: ETranslations.global_withdraw }),
+        type: EStakingActionType.Withdraw,
+      },
     ],
-    [],
+    [intl],
   );
 
   const TabNames = useMemo(() => tabData.map((item) => item.title), [tabData]);

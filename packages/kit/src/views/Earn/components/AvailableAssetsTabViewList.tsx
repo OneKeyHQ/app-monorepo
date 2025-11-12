@@ -161,7 +161,7 @@ export function AvailableAssetsTabViewList() {
       },
       {
         key: 'network',
-        label: 'Network',
+        label: intl.formatMessage({ id: ETranslations.global_network }),
         flex: 1,
         hideInMobile: true,
         render: (asset) => (
@@ -177,7 +177,7 @@ export function AvailableAssetsTabViewList() {
       },
       {
         key: 'yield',
-        label: 'Yield',
+        label: intl.formatMessage({ id: ETranslations.global_apr }),
         flex: 1,
         align: 'flex-end',
         sortable: true,

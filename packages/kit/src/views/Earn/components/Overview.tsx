@@ -125,7 +125,7 @@ const Rebate = ({
           <YStack mt="$2.5" overflow="hidden" borderRadius="$3">
             {isEmpty(rebateData?.distributed) ? null : (
               <SizableText mx="$5" size="$bodyMdMedium" color="$textSubdued">
-                Distributed
+                {intl.formatMessage({ id: ETranslations.referral_distributed })}
               </SizableText>
             )}
             {rebateData?.distributed.map((item, index) => {
@@ -160,7 +160,7 @@ const Rebate = ({
             })}
             {isEmpty(rebateData?.undistributed) ? null : (
               <SizableText mx="$5" size="$bodyMdMedium" color="$textSubdued">
-                Undistributed
+                {intl.formatMessage({ id: ETranslations.referral_undistributed })}
               </SizableText>
             )}
             {rebateData?.undistributed.map((item, index) => {

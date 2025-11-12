@@ -205,13 +205,11 @@ export const usePortfolioAction = ({
             token: actionIcon.data?.token,
           });
         } else {
-          console.warn('No claimWithKyc or claim action found in updated data');
           showClaimWithKycDialog({
             actionData: actionIcon,
           });
         }
       } catch (error) {
-        console.error('Failed to fetch latest claimWithKyc data:', error);
         showClaimWithKycDialog({
           actionData: actionIcon,
         });
@@ -265,7 +263,7 @@ export const usePortfolioAction = ({
           void handleListaCheckAction(token);
           break;
         default:
-          console.warn(`Unsupported action type: ${actionIcon.type}`);
+          break;
       }
     },
     [handleClaimAction, handleClaimWithKycAction, handleListaCheckAction],

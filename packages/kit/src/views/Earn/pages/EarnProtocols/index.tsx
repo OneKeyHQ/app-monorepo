@@ -95,7 +95,6 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
       // const groupedData = groupProtocolsByGroup(intl, data);
       setProtocolData(data);
     } catch (error) {
-      console.error('Failed to fetch protocol data:', error);
       setProtocolData([]);
     } finally {
       setIsLoading(false);
@@ -145,7 +144,7 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
             : undefined,
         });
       } catch (error) {
-        console.error('Failed to select protocol:', error);
+        // Handle error silently
       }
     },
     [
@@ -160,7 +159,7 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
     return [
       {
         key: 'protocol',
-        label: 'Protocol',
+        label: intl.formatMessage({ id: ETranslations.global_protocol }),
         flex: 2.5,
         render: (item) => {
           return (
@@ -202,7 +201,7 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
       },
       {
         key: 'network',
-        label: 'Network',
+        label: intl.formatMessage({ id: ETranslations.global_network }),
         flex: 1,
         hideInMobile: true,
         render: (item) => (
@@ -216,7 +215,7 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
       },
       {
         key: 'tvl',
-        label: 'Tvl',
+        label: intl.formatMessage({ id: ETranslations.earn_tvl }),
         flex: 1,
         hideInMobile: true,
         render: (item) => (
@@ -227,7 +226,7 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
       },
       {
         key: 'yield',
-        label: 'Yield',
+        label: intl.formatMessage({ id: ETranslations.global_apr }),
         flex: 1,
         render: (item) => (
           <AprText
@@ -239,7 +238,7 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
         ),
       },
     ];
-  }, []);
+  }, [intl]);
 
   const content = useMemo(() => {
     if (isLoading) {
