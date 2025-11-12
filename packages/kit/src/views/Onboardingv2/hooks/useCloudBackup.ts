@@ -236,9 +236,8 @@ export function useCloudBackup() {
                 );
               if (result === true) {
                 await verifyPasswordDialog.close();
-                setTimeout(() => {
-                  void backupFn(password);
-                }, 120);
+                await timerUtils.wait(1200);
+                await backupFn(password);
               }
             },
             onPressForgotPassword: () => {
