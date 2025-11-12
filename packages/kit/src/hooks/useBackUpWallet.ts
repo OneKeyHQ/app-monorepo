@@ -20,11 +20,24 @@ import { useCloudBackup } from '../views/Onboardingv2/hooks/useCloudBackup';
 import { useAccountData } from './useAccountData';
 import useAppNavigation from './useAppNavigation';
 
+const closeModalPage = async () => {
+  const state = rootNavigationRef.current?.getRootState();
+  if (state) {
+    const currentRoute = state.routes[state.index];
+    if (currentRoute.name === ERootRoutes.Modal) {
+      if (rootNavigationRef.current?.canGoBack?.()) {
+        rootNavigationRef.current?.goBack();
+        await timerUtils.wait(150);
+        await closeModalPage();
+      }
+    }
+  }
+};
+
 function useBackUpWallet({ walletId }: { walletId: string }) {
   const { wallet } = useAccountData({ walletId });
 
   const navigation = useAppNavigation();
-
   const liteCard = useLiteCard();
 
   const { supportCloudBackup, startBackup } = useCloudBackup();
@@ -40,27 +53,21 @@ function useBackUpWallet({ walletId }: { walletId: string }) {
       });
     if (mnemonic) ensureSensitiveTextEncoded(mnemonic);
 
-    const state = rootNavigationRef.current?.getRootState();
-    if (state && state.routes.length > 0) {
-      const currentRoute = state.routes[state.index];
-      if (currentRoute.name === ERootRoutes.Modal) {
-        navigation.popStack();
-      }
-      await timerUtils.wait(250);
-      navigation.navigate(ERootRoutes.Onboarding, {
-        screen: EOnboardingV2Routes.OnboardingV2,
+    await closeModalPage();
+    await timerUtils.wait(250);
+    rootNavigationRef.current?.navigate(ERootRoutes.Onboarding, {
+      screen: EOnboardingV2Routes.OnboardingV2,
+      params: {
+        screen: EOnboardingPagesV2.BackupWalletReminder,
         params: {
-          screen: EOnboardingPagesV2.BackupWalletReminder,
-          params: {
-            mnemonic,
-            isWalletBackedUp: wallet.backuped,
-            walletId: wallet.id,
-          },
+          mnemonic,
+          isWalletBackedUp: wallet.backuped,
+          walletId: wallet.id,
         },
-      });
-    }
+      },
+    });
     defaultLogger.account.wallet.backupWallet('manualBackup');
-  }, [navigation, wallet?.backuped, wallet?.id]);
+  }, [wallet?.backuped, wallet?.id]);
 
   const handleBackUpByLiteCard = useCallback(async () => {
     await liteCard.backupWallet(wallet?.id);
