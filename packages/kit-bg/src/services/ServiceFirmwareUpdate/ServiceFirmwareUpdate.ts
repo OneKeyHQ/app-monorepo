@@ -349,6 +349,11 @@ class ServiceFirmwareUpdate extends ServiceBase {
     await firmwareUpdateRetryAtom.set(undefined);
     serviceHardwareUtils.hardwareLog('checkAllFirmwareRelease');
 
+    const currentTransportType =
+      await this.backgroundApi.serviceSetting.getHardwareTransportType();
+    const isBleTransport =
+      currentTransportType === EHardwareTransportType.ble;
+
     const sdk = await this.getSDKInstance({
       connectId: originalConnectId,
     });
@@ -358,10 +363,9 @@ class ServiceFirmwareUpdate extends ServiceBase {
       //
     }
 
-    await timerUtils.wait(1000);
-
-    const currentTransportType =
-      await this.backgroundApi.serviceSetting.getHardwareTransportType();
+    if (isBleTransport) {
+      await timerUtils.wait(timerUtils.getTimeDurationMs({ seconds: 1 }));
+    }
     const updatingConnectId = deviceUtils.getUpdatingConnectId({
       connectId: originalConnectId,
       currentTransportType,
@@ -377,6 +381,9 @@ class ServiceFirmwareUpdate extends ServiceBase {
       connectId: originalConnectId,
     });
 
+    if (isBleTransport) {
+      await timerUtils.wait(0.3 * 1000);
+    }
     // use originalConnectId getFeatures() make sure sdk throw DeviceNotFound if connected device not matched with originalConnectId
     const features =
       await this.backgroundApi.serviceHardware.getFeaturesWithoutCache({
@@ -386,6 +393,10 @@ class ServiceFirmwareUpdate extends ServiceBase {
         },
       });
 
+
+    if (isBleTransport) {
+      await timerUtils.wait(0.3 * 1000);
+    }
     const releaseInfo = await this.baseCheckAllFirmwareRelease({
       connectId: originalConnectId,
     });
@@ -565,7 +576,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
     const hardwareSDK = await this.getSDKInstance({
       connectId,
     });
-    const checkBridgeRelease = await this._hasUseBridge();
+    // const checkBridgeRelease = await this._hasUseBridge();
     const currentTransportType =
       await this.backgroundApi.serviceSetting.getHardwareTransportType();
     const result = await convertDeviceResponse(() =>
@@ -573,7 +584,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
       hardwareSDK.checkAllFirmwareRelease(
         deviceUtils.getUpdatingConnectId({ connectId, currentTransportType }),
         {
-          checkBridgeRelease,
+          // checkBridgeRelease,
         },
       ),
     );
