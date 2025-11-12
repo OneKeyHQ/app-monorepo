@@ -14,6 +14,7 @@ import type {
   ITabStackParamList,
 } from '@onekeyhq/shared/src/routes';
 import { EModalRoutes, ERootRoutes } from '@onekeyhq/shared/src/routes';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 const getModalRoute = () => {
   const state = rootNavigationRef.current?.getState();
@@ -308,5 +309,19 @@ function useAppNavigation<
     ],
   );
 }
+
+export const closeModalPages = async () => {
+  const state = rootNavigationRef.current?.getRootState();
+  if (state) {
+    const currentRoute = state.routes[state.index];
+    if (currentRoute.name === ERootRoutes.Modal) {
+      if (rootNavigationRef.current?.canGoBack?.()) {
+        rootNavigationRef.current?.goBack();
+        await timerUtils.wait(150);
+        await closeModalPages();
+      }
+    }
+  }
+};
 
 export default useAppNavigation;

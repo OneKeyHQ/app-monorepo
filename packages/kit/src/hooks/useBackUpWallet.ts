@@ -18,21 +18,7 @@ import useLiteCard from '../views/LiteCard/hooks/useLiteCard';
 import { useCloudBackup } from '../views/Onboardingv2/hooks/useCloudBackup';
 
 import { useAccountData } from './useAccountData';
-import useAppNavigation from './useAppNavigation';
-
-const closeModalPage = async () => {
-  const state = rootNavigationRef.current?.getRootState();
-  if (state) {
-    const currentRoute = state.routes[state.index];
-    if (currentRoute.name === ERootRoutes.Modal) {
-      if (rootNavigationRef.current?.canGoBack?.()) {
-        rootNavigationRef.current?.goBack();
-        await timerUtils.wait(150);
-        await closeModalPage();
-      }
-    }
-  }
-};
+import useAppNavigation, { closeModalPages } from './useAppNavigation';
 
 function useBackUpWallet({ walletId }: { walletId: string }) {
   const { wallet } = useAccountData({ walletId });
@@ -53,7 +39,7 @@ function useBackUpWallet({ walletId }: { walletId: string }) {
       });
     if (mnemonic) ensureSensitiveTextEncoded(mnemonic);
 
-    await closeModalPage();
+    await closeModalPages();
     await timerUtils.wait(250);
     rootNavigationRef.current?.navigate(ERootRoutes.Onboarding, {
       screen: EOnboardingV2Routes.OnboardingV2,
