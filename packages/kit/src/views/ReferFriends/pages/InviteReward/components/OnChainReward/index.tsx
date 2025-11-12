@@ -16,7 +16,7 @@ export function OnChainReward({ onChain }: IOnChainRewardProps) {
     useOnChainReward({ onChain });
 
   return (
-    <Card.Container>
+    <Card.Container flex={1}>
       <Card.Title
         icon="CoinsOutline"
         title={onChain.title}
