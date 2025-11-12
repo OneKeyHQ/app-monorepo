@@ -28,6 +28,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { MultipleClickStack } from '../../../components/MultipleClickStack';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
+import { CloudAccountBar } from '../components/CloudAccountBar';
 import { showCloudBackupPasswordDialog } from '../components/CloudBackupDialogs';
 import { CloudBackupListEmptyView } from '../components/CloudBackupEmptyView';
 import { CloudBackupLoadingSkeleton } from '../components/CloudBackupLoadingSkeleton';
@@ -244,6 +245,7 @@ export default function ICloudBackup() {
       <OnboardingLayout>
         <OnboardingLayout.Header title="iCloud Backup" />
         <OnboardingLayout.Body>
+          <CloudAccountBar />
           {renderContent()}
           <MultipleClickStack
             h="$10"
