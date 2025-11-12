@@ -168,6 +168,29 @@ function CheckAndUpdatePage({
     }
   }, [actions, deviceData.device?.connectId]);
 
+  const createStepTimeout = useCallback(() => {
+    const timeout = setTimeout(() => {
+      setSteps((prev) => {
+        const newSteps = [...prev];
+        const inProgressStep = newSteps.find(
+          (step) => step.state === ECheckAndUpdateStepState.InProgress,
+        );
+        if (inProgressStep) {
+          if (inProgressStep.id === ECheckAndUpdateStepId.SetupOnDevice) {
+            inProgressStep.state = ECheckAndUpdateStepState.Warning;
+          } else {
+            inProgressStep.state = ECheckAndUpdateStepState.Error;
+            inProgressStep.errorMessage = intl.formatMessage({
+              id: ETranslations.swap_history_status_discard,
+            });
+          }
+        }
+        return newSteps;
+      });
+    }, 30 * 1000);
+    return () => clearTimeout(timeout);
+  }, [intl]);
+
   const checkDeviceInitialized = useCallback(async () => {
     const setWarningStep = () => {
       setSteps((prev) => {
@@ -187,6 +210,7 @@ function CheckAndUpdatePage({
       };
       return newSteps;
     });
+    const cancelTimeout = createStepTimeout();
     try {
       await ensureTransportType();
       const baseDevice =
@@ -224,6 +248,7 @@ function CheckAndUpdatePage({
       setWarningStep();
       throw error;
     }
+    cancelTimeout();
     setSteps((prev) => {
       const newSteps = [...prev];
       newSteps[2] = {
@@ -246,6 +271,7 @@ function CheckAndUpdatePage({
       });
     }, 1200);
   }, [
+    createStepTimeout,
     currentDevice,
     deviceData,
     ensureTransportType,
@@ -254,6 +280,7 @@ function CheckAndUpdatePage({
   ]);
 
   const checkFirmwareUpdate = useCallback(async () => {
+    const cancelTimeout = createStepTimeout();
     await ensureTransportType();
     const baseDevice = getActiveDevice() ?? currentDevice ?? deviceData.device;
     if (!baseDevice?.connectId) {
@@ -276,6 +303,7 @@ function CheckAndUpdatePage({
         connectId: compatibleConnectId,
       });
     if (r) {
+      cancelTimeout();
       if (r.hasUpgrade) {
         setSteps((prev) => {
           const newSteps = [...prev];
@@ -308,6 +336,7 @@ function CheckAndUpdatePage({
       }
     }
   }, [
+    createStepTimeout,
     ensureTransportType,
     getActiveDevice,
     currentDevice,
