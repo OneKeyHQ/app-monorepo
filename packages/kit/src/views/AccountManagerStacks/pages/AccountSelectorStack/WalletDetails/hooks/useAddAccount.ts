@@ -83,7 +83,7 @@ export function useAddAccount({
             params: {
               screen: EOnboardingPagesV2.ImportPhraseOrPrivateKey,
               params: {
-                tab: EOnboardingV2ImportPhraseOrPrivateKeyTab.PrivateKey,
+                defaultTab: EOnboardingV2ImportPhraseOrPrivateKeyTab.PrivateKey,
               },
             },
           });

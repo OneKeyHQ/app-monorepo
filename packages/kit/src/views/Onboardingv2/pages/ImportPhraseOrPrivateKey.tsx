@@ -32,6 +32,7 @@ import {
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { useAppRoute } from '../../../hooks/useAppRoute';
 import { fixInputImportSingleChain } from '../../Onboarding/pages/ImportWallet/ImportSingleChainBase';
 import useScanQrCode from '../../ScanQrCode/hooks/useScanQrCode';
 import { OnboardingLayout } from '../components/OnboardingLayout';
@@ -49,7 +50,7 @@ export default function ImportPhraseOrPrivateKey() {
         EOnboardingPagesV2.ImportPhraseOrPrivateKey
       >
     >();
-  const { tab: defaultTab = EOnboardingV2ImportPhraseOrPrivateKeyTab.Phrase } =
+  const { defaultTab = EOnboardingV2ImportPhraseOrPrivateKeyTab.Phrase } =
     routeParams.params || {};
   const [selected, setSelected] =
     useState<EOnboardingV2ImportPhraseOrPrivateKeyTab>(defaultTab);

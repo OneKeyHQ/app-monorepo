@@ -117,13 +117,13 @@ export function useCloudBackup() {
         if (!cloudAccountInfo.googleDrive?.userInfo?.user?.id) {
           Dialog.confirm({
             icon: 'InfoCircleOutline',
+            // TODO: franco 未登录时，引导用户登录 Google 账户
             title: 'Google account is not available',
             description: 'Please sign in to your Google account',
-            onConfirmText: intl.formatMessage({
-              id: ETranslations.global_sign_in_register,
-            }),
+            onConfirmText: 'Sign in',
             onConfirm: async () => {
               await backgroundApiProxy.serviceCloudBackupV2.loginCloudIfNeed();
+              // error: Sign in action cancelled
               Toast.success({
                 title: 'Signed in successfully',
               });
