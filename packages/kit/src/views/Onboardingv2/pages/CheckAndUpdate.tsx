@@ -407,13 +407,26 @@ function CheckAndUpdatePage({
     currentDevice,
   ]);
 
-  const handleRetry = useCallback(async () => {
-    await handleVerifyHardware();
-  }, [handleVerifyHardware]);
-
   const handleDeviceSetupDone = useCallback(() => {
     void checkDeviceInitialized();
   }, [checkDeviceInitialized]);
+
+  const handleRetry = useCallback(async () => {
+    const currentErrorStep = steps.find(
+      (step) => step.state === ECheckAndUpdateStepState.Error,
+    );
+    if (!currentErrorStep) {
+      await handleVerifyHardware();
+      return;
+    }
+    if (currentErrorStep.id === ECheckAndUpdateStepId.GenuineCheck) {
+      await handleVerifyHardware();
+    } else if (currentErrorStep.id === ECheckAndUpdateStepId.FirmwareCheck) {
+      await checkFirmwareUpdate();
+    } else if (currentErrorStep.id === ECheckAndUpdateStepId.SetupOnDevice) {
+      handleDeviceSetupDone();
+    }
+  }, [checkFirmwareUpdate, handleDeviceSetupDone, handleVerifyHardware, steps]);
 
   const handleSkipUpdate = useCallback(() => {
     Dialog.show({
@@ -529,6 +542,9 @@ function CheckAndUpdatePage({
       const index = prev.findIndex(
         (step) => step.state === ECheckAndUpdateStepState.Error,
       );
+      if (index === -1) {
+        return prev;
+      }
       currentStepId = prev[index].id;
       const newSteps = [...prev];
       newSteps[index] = {
@@ -897,10 +913,7 @@ function CheckAndUpdatePage({
                             })}
                         </SizableText>
                         <XStack gap="$2">
-                          <Button
-                            variant="primary"
-                            onPress={() => handleRetry()}
-                          >
+                          <Button variant="primary" onPress={handleRetry}>
                             {intl.formatMessage({
                               id: ETranslations.global_retry,
                             })}
