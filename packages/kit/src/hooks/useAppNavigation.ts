@@ -14,7 +14,6 @@ import type {
   ITabStackParamList,
 } from '@onekeyhq/shared/src/routes';
 import { EModalRoutes, ERootRoutes } from '@onekeyhq/shared/src/routes';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 const getModalRoute = () => {
   const state = rootNavigationRef.current?.getState();
