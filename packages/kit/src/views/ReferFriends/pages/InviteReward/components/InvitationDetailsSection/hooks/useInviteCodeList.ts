@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import type { IInviteCodeListResponse } from '@onekeyhq/shared/src/referralCode/type';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 export function useInviteCodeList() {
@@ -13,7 +14,23 @@ export function useInviteCodeList() {
     async () => {
       const data =
         await backgroundApiProxy.serviceReferralCode.getInviteCodeList();
-      return data;
+
+      if (!data) {
+        return data;
+      }
+
+      const sortedItems = [...(data.items ?? [])].sort((a, b) => {
+        const aTime = new Date(a.createdAt).getTime() || 0;
+        const bTime = new Date(b.createdAt).getTime() || 0;
+        return aTime - bTime;
+      });
+
+      const sortedData: IInviteCodeListResponse = {
+        ...data,
+        items: sortedItems,
+      };
+
+      return sortedData;
     },
     [],
     {

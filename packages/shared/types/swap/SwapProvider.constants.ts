@@ -1543,7 +1543,7 @@ export const swapPopularTokens: Record<string, ISwapToken[]> = {
       'decimals': 8,
       'isPopular': true,
       'logoURI':
-        'https://uni-test.onekey-asset.com/server-service-onchain/aptos--1/tokens/0x1::aptos_coin::AptosCoin.png',
+        'https://uni-test.onekey-asset.com/dashboard/logo/upload_1762841036401.0.9828413421109685.0.png',
       'isNative': true,
       'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/apt.png',
     },
