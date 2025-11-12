@@ -1,7 +1,6 @@
 import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
-import { StyleSheet } from 'react-native';
 
 import {
   Accordion,
@@ -20,10 +19,11 @@ import type {
   IInviteLevelDetail,
 } from '@onekeyhq/shared/src/referralCode/type';
 
+import { CommissionRateCard } from './CommissionRateCard';
+
 export function LevelAccordionItem({
   level,
   isCurrent,
-  isFirst,
   isLast,
 }: {
   level: IInviteLevelDetail['levels'][0];
@@ -152,7 +152,7 @@ export function LevelAccordionItem({
                 })}
               </SizableText>
 
-              <XStack gap="$3" $md={{ flexDirection: 'column' }}>
+              <XStack gap="$3" $md={{ flexDirection: 'column', gap: '$2' }}>
                 {commissionRateItems.map(({ subject, rate }, index) => {
                   const label = getDisplayLabel(
                     rate.commissionRatesLabelKey || rate.labelKey,
@@ -161,56 +161,11 @@ export function LevelAccordionItem({
                       getDefaultSubjectLabel(subject),
                   );
                   return (
-                    <YStack
+                    <CommissionRateCard
                       key={subject || `${index}`}
-                      gap="$1.5"
-                      flex={1}
-                      borderRadius="$3"
-                      borderWidth={StyleSheet.hairlineWidth}
-                      borderColor="$neutral3"
-                      px="$4"
-                      py="$3"
-                    >
-                      <SizableText size="$headingSm" color="$text">
-                        {label}
-                      </SizableText>
-
-                      <XStack
-                        borderRadius="$2"
-                        bg="$bgStrong"
-                        py="$1"
-                        px="$2"
-                        jc="space-between"
-                      >
-                        <SizableText size="$bodyMd" color="$textSubdued">
-                          {intl.formatMessage({
-                            id: ETranslations.referral_upgrade_you,
-                          })}
-                        </SizableText>
-
-                        <SizableText size="$bodyMdMedium" color="$text">
-                          {rate.rebate}%
-                        </SizableText>
-                      </XStack>
-
-                      <XStack
-                        borderRadius="$2"
-                        bg="$bgStrong"
-                        py="$1"
-                        px="$2"
-                        jc="space-between"
-                      >
-                        <SizableText size="$bodyMd" color="$textSubdued">
-                          {intl.formatMessage({
-                            id: ETranslations.referral_upgrade_user,
-                          })}
-                        </SizableText>
-
-                        <SizableText size="$bodyMdMedium" color="$text">
-                          {rate.discount}%
-                        </SizableText>
-                      </XStack>
-                    </YStack>
+                      label={label}
+                      rate={rate}
+                    />
                   );
                 })}
               </XStack>
