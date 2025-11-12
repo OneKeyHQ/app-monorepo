@@ -105,7 +105,19 @@ export const ShareImageGenerator = forwardRef<
 
       const tokenY = layout.tokenY;
       if (tokenImg) {
-        const imgCenterY = tokenY; // Same center line as text
+        const imgCenterX = padding + layout.tokenSize / 2;
+        const imgCenterY = tokenY;
+        const radius = layout.tokenSize / 2;
+
+        ctx.save();
+        ctx.fillStyle = '#f8f8f8';
+        ctx.beginPath();
+        ctx.arc(imgCenterX, imgCenterY, radius, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.arc(imgCenterX, imgCenterY, radius, 0, Math.PI * 2);
+        ctx.clip();
 
         ctx.drawImage(
           tokenImg,
@@ -114,6 +126,8 @@ export const ShareImageGenerator = forwardRef<
           layout.tokenSize,
           layout.tokenSize,
         );
+
+        ctx.restore();
       }
 
       if (display.showCoinName) {

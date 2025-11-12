@@ -129,16 +129,16 @@ export function ControlPanel({
                   onPress={() => handlePnlDisplayModeChange(mode)}
                   disabled={isLoading}
                   borderRadius="$2"
-                  width={80}
                   borderWidth={1}
                   borderColor={isActive ? '$borderActive' : '$borderSubdued'}
-                  px="$2"
+                  px="$7"
                   py="$2"
                   alignItems="center"
                   cursor="pointer"
                   bg="$bgApp"
+                  justifyContent="center"
                 >
-                  <Badge.Text size="$bodySmMedium" color="$textSubdued">
+                  <Badge.Text size="$bodySmMedium" color="$text">
                     {label}
                   </Badge.Text>
                 </Badge>

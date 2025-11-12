@@ -106,7 +106,7 @@ export function getCanvasConfig(currentSize = 1080): ICanvasConfig {
       textPrimary: '#ffffff',
       textSecondary: '#FFFFFF',
       textTertiary: '#ffffff',
-      referralBackground: '#00000098',
+      referralBackground: '#00000080',
       sideLongBackground: '#0C5300',
       sideShortBackground: '#630A0A',
     },
