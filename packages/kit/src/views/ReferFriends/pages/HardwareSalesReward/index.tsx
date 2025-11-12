@@ -92,8 +92,8 @@ function HardwareSalesRewardPageWrapper() {
   >([]);
   const [amount, setAmount] = useState<
     | {
-        available: string;
-        pending: string;
+        undistributed: string;
+        distributed: string;
       }
     | undefined
   >();
@@ -113,39 +113,38 @@ function HardwareSalesRewardPageWrapper() {
     );
   }, [filterState, updateFilter]);
 
-  const fetchSummaryInfo = useCallback(() => {
-    return backgroundApiProxy.serviceReferralCode.getSummaryInfo();
-  }, []);
-
-  const onRefresh = useCallback(() => {
+  const onRefresh = useCallback(async () => {
     setIsLoading(true);
-    void Promise.allSettled([
+    const [salesResult, cumulativeRewardsResult] = await Promise.allSettled([
       backgroundApiProxy.serviceReferralCode.getHardwareSales(
         undefined,
         filterState.timeRange,
         filterState.inviteCode,
       ),
-      fetchSummaryInfo(),
-    ]).then(([salesResult, summaryResult]) => {
-      if (salesResult.status === 'fulfilled') {
-        const data = salesResult.value;
-        originalData.current = data.items;
-        setSections(formatSections(data.items));
-      }
+      backgroundApiProxy.serviceReferralCode.getHardwareCumulativeRewards(
+        filterState.inviteCode,
+        filterState.timeRange,
+      ),
+    ]);
 
-      if (summaryResult.status === 'fulfilled') {
-        const data = summaryResult.value;
-        setAmount({
-          available: data.HardwareSales.available?.[0]?.fiatValue || '0',
-          pending: data.HardwareSales.pending?.[0]?.fiatValue || '0',
-        });
-      }
-      setIsLoading(false);
-    });
-  }, [fetchSummaryInfo, filterState.timeRange, filterState.inviteCode]);
+    if (salesResult.status === 'fulfilled') {
+      const data = salesResult.value;
+      originalData.current = data.items;
+      setSections(formatSections(data.items));
+    }
+
+    if (cumulativeRewardsResult.status === 'fulfilled') {
+      const data = cumulativeRewardsResult.value;
+      setAmount({
+        undistributed: data.undistributed || '0',
+        distributed: data.distributed || '0',
+      });
+    }
+    setIsLoading(false);
+  }, [filterState.timeRange, filterState.inviteCode]);
 
   useEffect(() => {
-    onRefresh();
+    void onRefresh();
   }, [onRefresh]);
 
   const renderSectionHeader = useCallback(
@@ -313,9 +312,9 @@ function HardwareSalesRewardPageWrapper() {
                     })}
                   </SizableText>
                   <XStack gap="$2" ai="center">
-                    {Number(amount.available) > 0 ? (
+                    {Number(amount.undistributed) > 0 ? (
                       <Currency formatter="value" size="$heading5xl" pr="$0.5">
-                        {amount.available}
+                        {amount.undistributed}
                       </Currency>
                     ) : (
                       <SizableText size="$heading5xl">0</SizableText>
@@ -332,7 +331,7 @@ function HardwareSalesRewardPageWrapper() {
                     </YStack>
                   </XStack>
 
-                  {Number(amount.pending) > 0 ? (
+                  {Number(amount.distributed) > 0 ? (
                     <XStack gap="$1">
                       <Currency
                         formatter="value"
@@ -342,7 +341,7 @@ function HardwareSalesRewardPageWrapper() {
                         }}
                         size="$bodyMdMedium"
                       >
-                        {amount.pending}
+                        {amount.distributed}
                       </Currency>
                       <SizableText size="$bodyMd" color="t$extSubdued">
                         {intl.formatMessage({
