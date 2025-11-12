@@ -199,6 +199,9 @@ export default function AddExistingWallet() {
             // V1 import address or public key
             navigation.pushModal(EModalRoutes.OnboardingModal, {
               screen: EOnboardingPages.ImportAddress,
+              params: {
+                isFromOnboardingV2: true,
+              },
             });
 
             // V2 import address or public key
