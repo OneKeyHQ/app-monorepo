@@ -191,15 +191,17 @@ function CheckAndUpdatePage({
         setWarningStep();
         return;
       }
-      const [features] = await Promise.all([
-        ensureActiveConnection(baseDevice),
-        new Promise<void>((resolve) => {
-          setTimeout(resolve, 1200);
-        }),
-      ]);
       const latestDevice = getActiveDevice() ?? baseDevice;
       setCurrentDevice(latestDevice);
-      if (features) {
+      if (latestDevice.connectId) {
+        const [features] = await Promise.all([
+          backgroundApiProxy.serviceHardware.getFeaturesWithoutCache({
+            connectId: latestDevice.connectId,
+          }),
+          new Promise<void>((resolve) => {
+            setTimeout(resolve, 1200);
+          }),
+        ]);
         const deviceMode = await deviceUtils.getDeviceModeFromFeatures({
           features,
         });
@@ -240,7 +242,6 @@ function CheckAndUpdatePage({
   }, [
     currentDevice,
     deviceData,
-    ensureActiveConnection,
     ensureTransportType,
     getActiveDevice,
     navigation,
@@ -255,6 +256,7 @@ function CheckAndUpdatePage({
     await ensureActiveConnection(baseDevice as SearchDevice);
     const latestDevice = getActiveDevice() ?? baseDevice;
     setCurrentDevice(latestDevice as SearchDevice);
+
     if (!latestDevice?.connectId) {
       return;
     }
@@ -284,6 +286,18 @@ function CheckAndUpdatePage({
           return newSteps;
         });
       } else {
+        setSteps((prev) => {
+          const newSteps = [...prev];
+          newSteps[0] = {
+            ...newSteps[0],
+            state: ECheckAndUpdateStepState.Success,
+          };
+          newSteps[1] = {
+            ...newSteps[1],
+            state: ECheckAndUpdateStepState.Success,
+          };
+          return newSteps;
+        });
         void checkDeviceInitialized();
       }
     }

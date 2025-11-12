@@ -22,6 +22,7 @@ import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
+import { BreadcrumbSection } from '../../components';
 import { useNavigateToWalletAddresses } from '../YourReferredWalletAddresses/hooks/useNavigateToWalletAddresses';
 
 function EmptyData() {
@@ -190,14 +191,14 @@ function YourReferredPageWrapper() {
 
   const intl = useIntl();
   const { md } = useMedia();
+  const title = intl.formatMessage({
+    id: ETranslations.referral_your_referred,
+  });
+
   return (
     <Page>
       {platformEnv.isNative || md ? (
-        <Page.Header
-          title={intl.formatMessage({
-            id: ETranslations.referral_your_referred,
-          })}
-        />
+        <Page.Header title={title} />
       ) : (
         <TabPageHeader
           sceneName={EAccountSelectorSceneName.home}
@@ -206,6 +207,11 @@ function YourReferredPageWrapper() {
         />
       )}
       <Page.Body>
+        {!md ? (
+          <YStack p="$5">
+            <BreadcrumbSection secondItemLabel={title} />
+          </YStack>
+        ) : null}
         <Tabs.Container>
           <Tabs.Tab
             name={intl.formatMessage({

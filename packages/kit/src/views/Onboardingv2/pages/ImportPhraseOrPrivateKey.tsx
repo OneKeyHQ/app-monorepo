@@ -1,16 +1,26 @@
 import type { RefObject } from 'react';
 import { useRef, useState } from 'react';
 
+import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
+import Animated, {
+  useAnimatedReaction,
+  useSharedValue,
+} from 'react-native-reanimated';
 
 import {
   Button,
   HeightTransition,
+  Input,
   Page,
+  Portal,
   SegmentControl,
   TextAreaInput,
+  XStack,
   YStack,
+  useClipboard,
   useMedia,
+  useReanimatedKeyboardAnimation,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes';
@@ -19,6 +29,7 @@ import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { fixInputImportSingleChain } from '../../Onboarding/pages/ImportWallet/ImportSingleChainBase';
+import useScanQrCode from '../../ScanQrCode/hooks/useScanQrCode';
 import { OnboardingLayout } from '../components/OnboardingLayout';
 import { PhaseInputArea } from '../components/PhaseInputArea';
 
@@ -70,9 +81,23 @@ export default function ImportPhraseOrPrivateKey() {
           detectedNetworks: results.detectedNetworks,
           importType: 'privateKey',
         };
-      void navigation.push(EOnboardingPagesV2.SelectPrivateKeyNetwork, params);
+      navigation.push(EOnboardingPagesV2.SelectPrivateKeyNetwork, params);
+      setPrivateKey('');
     }
   };
+
+  const { height } = useReanimatedKeyboardAnimation?.() || { height: 0 };
+  const keyboardHeight = useSharedValue<number>(0);
+
+  useAnimatedReaction(
+    () => height.get(),
+    (value) => {
+      const v = Math.abs(value);
+      keyboardHeight.value = v;
+    },
+  );
+
+  const { start: startScanQrCode } = useScanQrCode();
 
   return (
     <Page>
@@ -122,10 +147,13 @@ export default function ImportPhraseOrPrivateKey() {
                   }}
                   gap="$5"
                 >
-                  <TextAreaInput
+                  <Input
                     allowPaste
                     allowClear
-                    allowSecureTextEye
+                    allowScan
+                    allowSecureTextEye // TextAreaInput not support allowSecureTextEye
+                    clearClipboardOnPaste
+                    startScanQrCode={startScanQrCode}
                     size="large"
                     numberOfLines={5}
                     value={privateKey}
@@ -140,6 +168,11 @@ export default function ImportPhraseOrPrivateKey() {
                 </YStack>
               )}
             </HeightTransition>
+            <Animated.View
+              style={{
+                height: keyboardHeight,
+              }}
+            />
             {gtMd ? (
               <Button size="large" variant="primary" onPress={handleConfirm}>
                 {intl.formatMessage({ id: ETranslations.global_confirm })}
@@ -149,15 +182,37 @@ export default function ImportPhraseOrPrivateKey() {
         </OnboardingLayout.Body>
         {!gtMd ? (
           <OnboardingLayout.Footer>
-            <Button
-              size="large"
-              variant="primary"
-              onPress={handleConfirm}
-              loading={isConfirming}
-              w="100%"
-            >
-              {intl.formatMessage({ id: ETranslations.global_confirm })}
-            </Button>
+            <YStack>
+              <Animated.View style={{ transform: [{ translateY: height }] }}>
+                <YStack>
+                  <XStack
+                    bg="$bgApp"
+                    alignItems="center"
+                    justifyContent="center"
+                    pt="$5"
+                  >
+                    <YStack w="100%">
+                      <XStack onPress={noop}>
+                        <Portal.Container
+                          name={Portal.Constant.SUGGESTION_LIST}
+                        />
+                      </XStack>
+                      <Button
+                        size="large"
+                        variant="primary"
+                        onPress={handleConfirm}
+                        loading={isConfirming}
+                        w="100%"
+                      >
+                        {intl.formatMessage({
+                          id: ETranslations.global_confirm,
+                        })}
+                      </Button>
+                    </YStack>
+                  </XStack>
+                </YStack>
+              </Animated.View>
+            </YStack>
           </OnboardingLayout.Footer>
         ) : null}
       </OnboardingLayout>
