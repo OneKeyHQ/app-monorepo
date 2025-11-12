@@ -1197,6 +1197,19 @@ export function sortPerpsAssetIndices({
   return indicesWithData.map((item) => item.index);
 }
 
+export function parseSignatureToRSV(signatureHex: string): {
+  r: string;
+  s: string;
+  v: number;
+} {
+  const cleanSig = signatureHex.replace(/^0x/, '');
+  return {
+    r: `0x${cleanSig.slice(0, 64)}`,
+    s: `0x${cleanSig.slice(64, 128)}`,
+    v: parseInt(cleanSig.slice(128, 130), 16),
+  };
+}
+
 export {
   formatAssetCtx,
   formatLargeNumber,
@@ -1255,5 +1268,6 @@ export default {
   computeMaxTradeSize,
   resolveTradingSize,
   resolveTradingSizeBN,
+  parseSignatureToRSV,
   getHyperliquidTokenImageUrl,
 };
