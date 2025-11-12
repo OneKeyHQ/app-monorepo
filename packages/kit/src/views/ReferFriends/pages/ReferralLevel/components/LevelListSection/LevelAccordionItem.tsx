@@ -13,7 +13,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import { Currency } from '@onekeyhq/kit/src/components/Currency';
+import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   IInviteLevelCommissionRate,
@@ -32,6 +32,7 @@ export function LevelAccordionItem({
   isLast: boolean;
 }) {
   const intl = useIntl();
+  const currencyInfo = useCurrency();
   const commissionRateItems = useMemo(() => {
     const rates = level.commissionRates;
     if (!rates) {
@@ -143,7 +144,7 @@ export function LevelAccordionItem({
                           {`${condition.current} / ${condition.thresholdFiatValue}`}
                         </SizableText>
                         <SizableText size="$bodyMd" color="$textSubdued">
-                          USD
+                          {currencyInfo.id.toUpperCase()}
                         </SizableText>
                       </XStack>
                     </XStack>
