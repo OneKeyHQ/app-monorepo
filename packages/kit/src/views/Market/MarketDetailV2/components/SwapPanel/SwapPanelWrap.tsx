@@ -69,7 +69,10 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
       const { impl: networkImpl } = networkUtils.parseNetworkId({
         networkId: networkId ?? '',
       });
-      return impl === networkImpl;
+      const isAllNetwork = networkUtils.isAllNetwork({
+        networkId: activeAccount?.network?.id ?? '',
+      });
+      return isAllNetwork || impl === networkImpl;
     }
     return true;
   }, [activeAccount?.account?.id, activeAccount?.network?.id, networkId]);
@@ -79,7 +82,6 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
     const tokenSwapEnabled = tokenDetail?.supportSwap?.enable !== false;
     const isEnabled =
       speedSwapEnabled && tokenSwapEnabled && checkAccountNetworkSupport();
-
     let warningMessage = !tokenSwapEnabled
       ? tokenDetail?.supportSwap?.warningMessage
       : undefined;

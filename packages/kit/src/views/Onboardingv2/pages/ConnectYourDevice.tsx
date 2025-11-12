@@ -1166,16 +1166,18 @@ function BluetoothConnectionIndicator({
   );
 }
 
-function QRWalletConnect() {
+function QRWalletConnect({
+  navigateToCreateQRWallet,
+}: {
+  navigateToCreateQRWallet: () => Promise<void>;
+}) {
   const { gtMd } = useMedia();
   const intl = useIntl();
-  const navigation = useAppNavigation();
   const { closePopover } = usePopoverContext();
   const handleCreateQRWallet = useCallback(async () => {
     await closePopover?.();
-    await timerUtils.wait(100);
-    navigation.push(EOnboardingPagesV2.ConnectQRCode);
-  }, [closePopover, navigation]);
+    await navigateToCreateQRWallet();
+  }, [closePopover, navigateToCreateQRWallet]);
 
   return (
     <YStack
@@ -1221,13 +1223,18 @@ function ConnectYourDevicePage({
 >) {
   const { deviceType: deviceTypeItems } = routeParams?.params || {};
   console.log('deviceTypeItems', deviceTypeItems);
-
+  const navigation = useAppNavigation();
   const intl = useIntl();
   const isSupportedQRCode = useMemo(() => {
     return deviceTypeItems.every(
       (deviceType) => deviceType === EDeviceType.Pro,
     );
   }, [deviceTypeItems]);
+  const navigateToCreateQRWallet = useCallback(async () => {
+    await timerUtils.wait(100);
+    navigation.push(EOnboardingPagesV2.ConnectQRCode);
+  }, [navigation]);
+
   const tabOptions = useMemo(() => {
     return [
       {
@@ -1269,11 +1276,17 @@ function ConnectYourDevicePage({
               {isSupportedQRCode ? (
                 <YStack ml="auto">
                   <Popover
-                    title="Advanced"
+                    title={intl.formatMessage({
+                      id: ETranslations.global_advanced,
+                    })}
                     renderTrigger={
                       <IconButton variant="tertiary" icon="DotHorOutline" />
                     }
-                    renderContent={<QRWalletConnect />}
+                    renderContent={
+                      <QRWalletConnect
+                        navigateToCreateQRWallet={navigateToCreateQRWallet}
+                      />
+                    }
                   />
                 </YStack>
               ) : null}

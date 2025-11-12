@@ -720,7 +720,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               onPress: () => {
                 showExportLogsDialog({
                   title: intl.formatMessage({
-                    id: ETranslations.settings_export_state_logs,
+                    id: ETranslations.settings_upload_state_logs,
                   }),
                 });
               },
