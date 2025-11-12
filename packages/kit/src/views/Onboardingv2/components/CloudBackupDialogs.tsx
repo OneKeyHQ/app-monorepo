@@ -1,6 +1,13 @@
 import { useFormContext } from 'react-hook-form';
 
-import { Dialog, Form, Input, Stack, Toast } from '@onekeyhq/components';
+import {
+  Button,
+  Dialog,
+  Form,
+  Input,
+  Stack,
+  Toast,
+} from '@onekeyhq/components';
 import type { IDialogShowProps } from '@onekeyhq/components/src/composite/Dialog/type';
 import { onboardingCloudBackupListRefreshAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
@@ -93,21 +100,60 @@ function ConfirmPasswordField() {
   );
 }
 
+function ForgotPasswordButton({
+  onPressForgotPassword,
+}: {
+  onPressForgotPassword?: () => void;
+}) {
+  return (
+    <Button size="small" onPress={onPressForgotPassword}>
+      Forgot password
+    </Button>
+  );
+}
+
+function CloudBackupPasswordDialogContent({
+  showConfirmPasswordField,
+  showForgotPasswordButton,
+  onPressForgotPassword,
+}: {
+  showConfirmPasswordField: boolean | undefined;
+  showForgotPasswordButton: boolean | undefined;
+  onPressForgotPassword?: () => void;
+}) {
+  return (
+    <Dialog.Form formProps={{ values: { password: '', confirm: '' } }}>
+      <PasswordField />
+      {showConfirmPasswordField ? <ConfirmPasswordField /> : null}
+      {showForgotPasswordButton ? (
+        <ForgotPasswordButton onPressForgotPassword={onPressForgotPassword} />
+      ) : null}
+    </Dialog.Form>
+  );
+}
+
 export const showCloudBackupPasswordDialog = ({
   onSubmit,
+  showConfirmPasswordField,
+  showForgotPasswordButton,
+  onPressForgotPassword,
   ...dialogProps
 }: IDialogShowProps & {
   onSubmit: (input: string) => Promise<void>;
+  showConfirmPasswordField?: boolean;
+  showForgotPasswordButton?: boolean;
+  onPressForgotPassword?: () => void;
 }) => {
   // appLocale.intl.formatMessage
   const title = 'Enter your backup password';
-  Dialog.show({
+  return Dialog.show({
     title,
     renderContent: (
-      <Dialog.Form formProps={{ values: { password: '', confirm: '' } }}>
-        <PasswordField />
-        <ConfirmPasswordField />
-      </Dialog.Form>
+      <CloudBackupPasswordDialogContent
+        showConfirmPasswordField={showConfirmPasswordField}
+        showForgotPasswordButton={showForgotPasswordButton}
+        onPressForgotPassword={onPressForgotPassword}
+      />
     ),
     onConfirm: async ({ getForm, close }) => {
       const form = getForm();

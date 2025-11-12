@@ -21,6 +21,7 @@ export type ICloudKitRecord = {
   recordID: string;
   recordType: string;
   data: string;
+  meta: string;
   createdAt: number;
   modifiedAt: number;
 };
@@ -29,6 +30,7 @@ export type ICloudKitSaveRecordParams = {
   recordType: string;
   recordID: string;
   data: string;
+  meta: string;
 };
 
 export type ICloudKitSaveRecordResult = {
