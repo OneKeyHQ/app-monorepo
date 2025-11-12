@@ -1,18 +1,22 @@
 import openUrlUtils from '../../utils/openUrlUtils';
 
-import { getCustomerJWT } from './utils';
+import { buildIntercomUrl, getCustomerJWT, getInstanceId } from './utils';
 
 export const initIntercom = async () => {
   console.log('initIntercom');
 };
 
-export const showIntercom = async () => {
+export const showIntercom = async (params?: { requestId?: string }) => {
   const token = await getCustomerJWT();
+  const instanceId = await getInstanceId();
+
   const supportUrl = 'https://intercom.onekey.so/';
 
-  const url = token
-    ? `${supportUrl}?intercom_user_jwt=${encodeURIComponent(token)}`
-    : supportUrl;
+  const url = buildIntercomUrl(supportUrl, {
+    token,
+    instanceId,
+    requestId: params?.requestId,
+  });
 
   openUrlUtils.openUrlInApp(url, 'Support');
 };

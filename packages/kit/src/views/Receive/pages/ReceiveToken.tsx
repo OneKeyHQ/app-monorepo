@@ -245,19 +245,19 @@ function ReceiveToken() {
       copyAddressWithDeriveType({
         address: displayAddress,
         deriveInfo: currentDeriveInfo,
-        networkName: network?.shortname,
+        networkName: network?.name,
       });
     } else {
       copyAddressWithDeriveType({
         address: displayAddress,
-        networkName: network?.shortname,
+        networkName: network?.name,
       });
     }
   }, [
     copyAddressWithDeriveType,
     currentDeriveInfo,
     displayAddress,
-    network?.shortname,
+    network?.name,
     vaultSettings?.mergeDeriveAssetsEnabled,
   ]);
 

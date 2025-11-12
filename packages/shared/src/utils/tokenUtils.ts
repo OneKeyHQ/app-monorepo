@@ -949,3 +949,76 @@ export function checkIsOnlyOneTokenHasBalance({
     tokenHasBalanceCount,
   };
 }
+
+export function filterAccountTokenListByLimit({
+  tokenList,
+  smallBalanceTokenList,
+  riskyTokenList,
+  limit,
+  tokenListMap,
+}: {
+  tokenList: IAccountToken[];
+  smallBalanceTokenList: IAccountToken[];
+  riskyTokenList: IAccountToken[];
+  limit: number;
+  tokenListMap: Record<string, ITokenFiat>;
+}) {
+  let filteredTokenList = tokenList;
+  let filteredSmallBalanceTokenList = smallBalanceTokenList;
+  let filteredRiskyTokenList = riskyTokenList;
+  let filteredTokenListMap: Record<string, ITokenFiat> = {};
+
+  const totalTokens =
+    tokenList.length + smallBalanceTokenList.length + riskyTokenList.length;
+  if (totalTokens > limit) {
+    const trimList = (
+      list: IAccountToken[],
+      removeCount: number,
+    ): [IAccountToken[], number] => {
+      if (removeCount <= 0 || list.length === 0) {
+        return [list, 0];
+      }
+      const remainingLength = Math.max(list.length - removeCount, 0);
+      const trimmedList = list.slice(0, remainingLength);
+      return [trimmedList, list.length - trimmedList.length];
+    };
+
+    let tokensToRemove = totalTokens - limit;
+    let removedCount = 0;
+
+    [filteredRiskyTokenList, removedCount] = trimList(
+      filteredRiskyTokenList,
+      tokensToRemove,
+    );
+    tokensToRemove -= removedCount;
+
+    [filteredSmallBalanceTokenList, removedCount] = trimList(
+      filteredSmallBalanceTokenList,
+      tokensToRemove,
+    );
+    tokensToRemove -= removedCount;
+
+    [filteredTokenList, removedCount] = trimList(
+      filteredTokenList,
+      tokensToRemove,
+    );
+
+    filteredTokenListMap = {};
+    const retainedTokens = [
+      ...filteredTokenList,
+      ...filteredSmallBalanceTokenList,
+      ...filteredRiskyTokenList,
+    ];
+    for (const token of retainedTokens) {
+      filteredTokenListMap[token.$key] = tokenListMap[token.$key] ?? {};
+    }
+  } else {
+    filteredTokenListMap = tokenListMap;
+  }
+  return {
+    filteredTokenList,
+    filteredSmallBalanceTokenList,
+    filteredRiskyTokenList,
+    filteredTokenListMap,
+  };
+}

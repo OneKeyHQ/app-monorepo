@@ -66,6 +66,29 @@ export function useDeviceConnect() {
       }),
     [],
   );
+  const activeDeviceRef = useRef<SearchDevice | null>(null);
+  const activeFeaturesRef = useRef<IOneKeyDeviceFeatures | null>(null);
+
+  const isSameHardware = useCallback(
+    (target: SearchDevice, current: SearchDevice | null) => {
+      if (!current) {
+        return false;
+      }
+      if (target.connectId && current.connectId) {
+        return target.connectId === current.connectId;
+      }
+      if (target.deviceId && current.deviceId) {
+        return target.deviceId === current.deviceId;
+      }
+      const targetUuid = (target as { uuid?: string }).uuid;
+      const currentUuid = (current as { uuid?: string }).uuid;
+      if (targetUuid && currentUuid) {
+        return targetUuid === currentUuid;
+      }
+      return false;
+    },
+    [],
+  );
 
   const ensureStopScan = useCallback(async () => {
     // Force stop scanning and wait for any ongoing search to complete
@@ -91,9 +114,12 @@ export function useDeviceConnect() {
     async (device: SearchDevice) => {
       await ensureStopScan();
       try {
-        return await backgroundApiProxy.serviceHardware.connect({
+        const features = await backgroundApiProxy.serviceHardware.connect({
           device,
         });
+        activeDeviceRef.current = { ...device };
+        activeFeaturesRef.current = features ?? null;
+        return features;
       } catch (error: any) {
         if (error instanceof OneKeyHardwareError) {
           const { code, message } = error;
@@ -115,6 +141,25 @@ export function useDeviceConnect() {
     },
     [ensureStopScan],
   );
+
+  const ensureActiveConnection = useCallback(
+    async (device: SearchDevice) => {
+      if (isSameHardware(device, activeDeviceRef.current)) {
+        return activeFeaturesRef.current ?? undefined;
+      }
+      const features = await connectDevice(device);
+      return features;
+    },
+    [connectDevice, isSameHardware],
+  );
+
+  const getActiveDevice = useCallback(() => {
+    return activeDeviceRef.current ?? undefined;
+  }, []);
+
+  const getActiveDeviceFeatures = useCallback(() => {
+    return activeFeaturesRef.current ?? undefined;
+  }, []);
 
   const fwUpdateActions = useFirmwareUpdateActions();
   const { showFirmwareVerifyDialog } = useFirmwareVerifyDialog();
@@ -245,7 +290,6 @@ export function useDeviceConnect() {
   // Shared device connection handler
   const verifyHardware = useCallback(
     async (device: SearchDevice, tabValue: EConnectDeviceChannel) => {
-      await connectDevice(device);
       // Ensure all scanning and polling activities are stopped before connecting
       console.log('handleDeviceConnect: Starting device connection process');
 
@@ -313,7 +357,7 @@ export function useDeviceConnect() {
           });
         }
 
-        const features = await connectDevice(device);
+        const features = await ensureActiveConnection(device);
 
         if (!features) {
           await trackHardwareWalletConnection({
@@ -376,7 +420,7 @@ export function useDeviceConnect() {
             skipDelayClose: true,
             deviceResetToHome: false,
           });
-          let isVerified = false;
+          let isVerified: boolean | undefined;
           const result = await new Promise<IFirmwareVerifyResult>(
             (resolve, reject) => {
               void showFirmwareVerifyDialog({
@@ -384,23 +428,45 @@ export function useDeviceConnect() {
                 features,
                 onVerified: ({ checked }: { checked: boolean }) => {
                   isVerified = checked;
-                  resolve({
-                    verified: checked,
-                    device,
-                    payload: {
-                      deviceType: device.deviceType,
-                      data: '',
-                      cert: '',
-                      signature: '',
-                    },
-                    result: {
-                      message: '',
-                    },
-                  });
+                  setTimeout(() => {
+                    resolve({
+                      verified: checked,
+                      skipVerification: checked === false,
+                      device,
+                      payload: {
+                        deviceType: device.deviceType,
+                        data: '',
+                        cert: '',
+                        signature: '',
+                      },
+                      result: {
+                        message: '',
+                      },
+                    });
+                  }, 150);
+                },
+                onDevSkipVerificationPress: () => {
+                  isVerified = false;
+                  setTimeout(() => {
+                    resolve({
+                      verified: false,
+                      skipVerification: true,
+                      device,
+                      payload: {
+                        deviceType: device.deviceType,
+                        data: '',
+                        cert: '',
+                        signature: '',
+                      },
+                      result: {
+                        message: '',
+                      },
+                    });
+                  }, 150);
                 },
                 onContinue: () => {},
                 onClose: () => {
-                  if (!isVerified) {
+                  if (isVerified === undefined) {
                     reject(
                       new OneKeyLocalError(
                         intl.formatMessage({
@@ -451,7 +517,7 @@ export function useDeviceConnect() {
       hardwareTransportType,
       isSoftwareWalletOnlyUser,
       intl,
-      connectDevice,
+      ensureActiveConnection,
       fwUpdateActions,
       showFirmwareVerifyDialog,
     ],
@@ -610,9 +676,10 @@ export function useDeviceConnect() {
       device: SearchDevice;
       isFirmwareVerified?: boolean;
     }) => {
-      await connectDevice(device);
+      await ensureActiveConnection(device);
+      const currentDevice = getActiveDevice() ?? device;
       void backgroundApiProxy.serviceHardwareUI.showDeviceProcessLoadingDialog({
-        connectId: device.connectId ?? '',
+        connectId: currentDevice.connectId ?? '',
       });
 
       let features: IOneKeyDeviceFeatures | undefined;
@@ -620,7 +687,7 @@ export function useDeviceConnect() {
       try {
         features =
           await backgroundApiProxy.serviceHardware.getFeaturesWithUnlock({
-            connectId: device.connectId ?? '',
+            connectId: currentDevice.connectId ?? '',
           });
       } catch (error) {
         await closeDialogAndReturn(device, { skipDelayClose: true });
@@ -630,7 +697,7 @@ export function useDeviceConnect() {
       const deviceState = extractDeviceState(features);
       const strategy = await determineWalletCreationStrategy(
         deviceState,
-        device,
+        currentDevice,
       );
 
       console.log('Current hardware wallet State', deviceState, strategy);
@@ -640,7 +707,7 @@ export function useDeviceConnect() {
       }
 
       await createHwWallet(
-        device,
+        currentDevice,
         strategy,
         features,
         isFirmwareVerified,
@@ -648,7 +715,8 @@ export function useDeviceConnect() {
       );
     },
     [
-      connectDevice,
+      ensureActiveConnection,
+      getActiveDevice,
       extractDeviceState,
       determineWalletCreationStrategy,
       createHwWallet,
@@ -663,8 +731,19 @@ export function useDeviceConnect() {
       verifyHardware,
       onSelectAddWalletType,
       createHWWallet: onSelectAddWalletType,
+      ensureActiveConnection,
+      getActiveDevice,
+      getActiveDeviceFeatures,
     }),
-    [connectDevice, ensureStopScan, verifyHardware, onSelectAddWalletType],
+    [
+      connectDevice,
+      ensureStopScan,
+      verifyHardware,
+      onSelectAddWalletType,
+      ensureActiveConnection,
+      getActiveDevice,
+      getActiveDeviceFeatures,
+    ],
   );
 }
 
@@ -795,6 +874,10 @@ export const useDesktopBluetoothStatusPolling = platformEnv.isSupportDesktopBle
         }
       }, []);
 
+      const setIsConnecting = useCallback((isConnecting: boolean) => {
+        isConnectingRef.current = isConnecting;
+      }, []);
+
       const isFocused = useIsFocused();
 
       // Check bluetooth status on mount and when focused, start polling
@@ -822,13 +905,15 @@ export const useDesktopBluetoothStatusPolling = platformEnv.isSupportDesktopBle
       return useMemo(() => {
         return {
           checkBluetoothStatus,
+          setIsConnecting,
         };
-      }, [checkBluetoothStatus]);
+      }, [checkBluetoothStatus, setIsConnecting]);
     }
   : () => {
       return useMemo(() => {
         return {
           checkBluetoothStatus: noop,
+          setIsConnecting: noop,
         };
       }, []);
     };

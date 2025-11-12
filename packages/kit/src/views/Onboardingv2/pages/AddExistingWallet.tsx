@@ -141,6 +141,9 @@ export default function AddExistingWallet() {
               id: ETranslations.watch_only_desc_manage,
             })}`,
           ],
+          onPress: () => {
+            navigation.push(EOnboardingPagesV2.ImportWatchedAccount);
+          },
         },
         ...(() => {
           return [

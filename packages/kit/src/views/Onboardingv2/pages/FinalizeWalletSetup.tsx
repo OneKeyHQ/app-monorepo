@@ -20,6 +20,7 @@ import {
   LinearGradient,
   Page,
   SizableText,
+  XStack,
   YStack,
   useThemeValue,
 } from '@onekeyhq/components';
@@ -96,7 +97,14 @@ const MatrixBackground = ({
   return (
     <YStack>
       {lines.map((line, idx) => (
-        <SizableText fontFamily="$monoRegular" letterSpacing={2} key={idx}>
+        <SizableText
+          textAlign="center"
+          fontFamily="$monoRegular"
+          letterSpacing={2}
+          key={idx}
+          numberOfLines={1}
+          ellipsizeMode="clip"
+        >
           {line}
         </SizableText>
       ))}
@@ -226,19 +234,24 @@ function FinalizeWalletSetupPage({
       return;
     }
     isProcessing.current = true;
-    if (stepQueueIndex.current !== stepQueue.current.length - 1) {
-      stepQueueIndex.current += 1;
-    }
     const nextStep = stepQueue.current[stepQueueIndex.current];
+    if (!nextStep) {
+      setTimeout(() => {
+        isProcessing.current = false;
+        void processNextStep();
+      }, 250);
+      return;
+    }
     if (nextStep === EFinalizeWalletSetupSteps.Ready) {
       setTimeout(() => {
         void handleWalletSetupReady();
-      });
+      }, 150);
       return;
     }
-    progress.value = 0;
     setCurrentStep(nextStep);
     setTimeout(() => {
+      stepQueueIndex.current += 1;
+      progress.value = 0;
       progress.value = withTiming(
         1,
         {
@@ -253,7 +266,7 @@ function FinalizeWalletSetupPage({
           }
         },
       );
-    });
+    }, 150);
   }, [changeIdProgress, handleWalletSetupReady, progress]);
 
   const goNextStep = useCallback((step: EFinalizeWalletSetupSteps) => {
@@ -263,12 +276,6 @@ function FinalizeWalletSetupPage({
   }, []);
 
   const actions = useAccountSelectorActions();
-
-  useEffect(() => {
-    setTimeout(() => {
-      processNextStep();
-    });
-  }, [processNextStep]);
 
   const { connectDevice, createHWWallet } = useDeviceConnect();
   const createWallet = useCallback(async () => {
@@ -311,7 +318,9 @@ function FinalizeWalletSetupPage({
       };
       setSetupError({
         messageId: hardwareError
-          ? hardwareError.messageId || hardwareError.message
+          ? hardwareError.messageId ||
+            hardwareError.message ||
+            ETranslations.global_unknown_error
           : ETranslations.global_unknown_error,
       });
     }
@@ -328,16 +337,10 @@ function FinalizeWalletSetupPage({
   ]);
 
   useEffect(() => {
+    processNextStep();
     void createWallet();
-  }, [
-    actions,
-    mnemonic,
-    mnemonicType,
-    isWalletBackedUp,
-    navigation,
-    goNextStep,
-    createWallet,
-  ]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (currentStep === EFinalizeWalletSetupSteps.CreatingWallet) {
@@ -389,18 +392,43 @@ function FinalizeWalletSetupPage({
         />
         <OnboardingLayout.Body constrained={false} scrollable={false}>
           {setupError ? (
-            <YStack w="100%" h="100%">
-              <SizableText size="$heading2xl" textAlign="center">
+            <YStack
+              gap="$4"
+              alignSelf="center"
+              w="100%"
+              maxWidth="$96"
+              h="100%"
+              justifyContent="center"
+            >
+              <SizableText size="$heading2xl">
+                🤔{' '}
+                {intl.formatMessage({
+                  id: ETranslations.failed_to_create_wallet,
+                })}
+              </SizableText>
+              <SizableText size="$bodyLg">
                 {intl.formatMessage({
                   id: setupError.messageId,
                   defaultMessage: setupError.messageId,
                 })}
               </SizableText>
-              <Button onPress={retrySetup}>
-                {intl.formatMessage({
-                  id: ETranslations.global_retry,
-                })}
-              </Button>
+              <XStack gap="$2.5" mt="$4">
+                <Button
+                  flex={1}
+                  variant="primary"
+                  size="large"
+                  onPress={retrySetup}
+                >
+                  {intl.formatMessage({
+                    id: ETranslations.global_retry,
+                  })}
+                </Button>
+                <Button flex={1} size="large" onPress={closePage}>
+                  {intl.formatMessage({
+                    id: ETranslations.global_exit,
+                  })}
+                </Button>
+              </XStack>
             </YStack>
           ) : null}
           {!setupError && currentStepData ? (
@@ -413,7 +441,9 @@ function FinalizeWalletSetupPage({
                 y="-50%"
                 opacity={0.15}
               >
-                <MatrixBackground />
+                <MatrixBackground
+                  {...(platformEnv.isNative && { lineCount: 60 })}
+                />
                 <Svg
                   height="100%"
                   width="100%"

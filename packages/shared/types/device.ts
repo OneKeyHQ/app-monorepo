@@ -414,6 +414,7 @@ export interface IConnectYourDeviceItem {
 
 export interface IFirmwareVerifyResult {
   verified: boolean;
+  skipVerification?: boolean;
   device: SearchDevice | IDBDevice;
   payload: {
     deviceType: IDeviceType;
