@@ -49,7 +49,7 @@ export function NoteDialogContent({
     <Stack gap="$5" py="$2">
       <Input
         placeholder={intl.formatMessage({
-          id: ETranslations.earn_referral_enter_invite_code_note,
+          id: ETranslations.referral_code_created_placeholder,
         })}
         value={noteValue}
         onChangeText={setNoteValue}
