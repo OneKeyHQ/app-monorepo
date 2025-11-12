@@ -191,15 +191,25 @@ export class ICloudBackupProvider implements IOneKeyBackupProvider {
         dataEncoding: 'utf8',
       }),
     };
-    const result = await appleCloudKitStorage.saveRecord({
-      recordType: CLOUDKIT_RECORD_TYPE,
-      recordID: CLOUDKIT_BACKUP_PASSWORD_VERIFY_RECORD_ID,
-      data: stringUtils.stableStringify(content),
-      meta: '',
-    });
-    return {
-      recordID: result.recordID,
-    };
+    try {
+      const result = await appleCloudKitStorage.saveRecord({
+        recordType: CLOUDKIT_RECORD_TYPE,
+        recordID: CLOUDKIT_BACKUP_PASSWORD_VERIFY_RECORD_ID,
+        data: stringUtils.stableStringify(content),
+        meta: '',
+      });
+      return {
+        recordID: result.recordID,
+      };
+    } catch (error) {
+      const e = error as Error | undefined;
+      if (e?.message.includes('client oplock error updating record')) {
+        throw new OneKeyLocalError(
+          'iCloud server is busy. Please try again later.',
+        );
+      }
+      throw error;
+    }
   }
 
   async isBackupPasswordSet(): Promise<boolean> {

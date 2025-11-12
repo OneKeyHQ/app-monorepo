@@ -51,8 +51,8 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
-  ERootRoutes,
   type EOnboardingPagesV2,
+  ERootRoutes,
   type IOnboardingParamListV2,
 } from '@onekeyhq/shared/src/routes';
 import type {
