@@ -61,7 +61,7 @@ export function LevelAccordionItem({
 
   const getBorderTopWidth = () => {
     if (!isFirst) return 0;
-    return isCurrent ? 2 : 1;
+    return 1;
   };
 
   return (
@@ -78,10 +78,10 @@ export function LevelAccordionItem({
         borderBottomRightRadius={isLast ? '$3' : '$0'}
       >
         {({ open }: { open: boolean }) => (
-          <XStack flex={1} ai="center" jc="space-between">
+          <XStack flex={1} ai="center" jc="space-between" py="$1" px="$2">
             <XStack flex={1} gap="$3" ai="center">
-              <Stack borderRadius="$2" w="$10" h="$10" ai="center" jc="center">
-                <Image w="$10" h="$10" src={level.icon} />
+              <Stack borderRadius="$2" w="$6" h="$6" ai="center" jc="center">
+                <Image w="$6" h="$6" src={level.icon} />
               </Stack>
               <XStack gap="$2" ai="center">
                 <SizableText size="$headingLg">{level.label}</SizableText>
@@ -172,9 +172,9 @@ export function LevelAccordionItem({
                       key={subject || `${index}`}
                       gap="$1.5"
                       flex={1}
-                      borderRadius="$2"
+                      borderRadius="$3"
                       borderWidth={StyleSheet.hairlineWidth}
-                      borderColor="$borderSubdued"
+                      borderColor="$neutral3"
                       px="$4"
                       py="$3"
                     >
