@@ -39,6 +39,7 @@ export class AppleCloudKitStorage implements IAppleCloudKitStorage {
     recordType: string;
     recordID: string;
     data: string;
+    meta: string;
   }) {
     const cloudKitModule = this.getCloudKitModule();
     const result = await cloudKitModule.saveRecord(params);

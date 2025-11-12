@@ -25,6 +25,7 @@ import ServiceBase from '../ServiceBase';
 
 import { OneKeyBackupProvider } from './backupProviders/OneKeyBackupProvider';
 
+import type { ICloudBackupProvider } from './backupProviders/ICloudBackupProvider';
 import type {
   IBackupCloudServerData,
   IBackupCloudServerDownloadData,
@@ -129,7 +130,7 @@ class ServiceCloudBackupV2 extends ServiceBase {
     return data;
   }
 
-  async buildBackupEncryptKey(params: { password: string }): Promise<string> {
+  async buildFullBackupPassword(params: { password: string }): Promise<string> {
     if (!params?.password) {
       throw new OneKeyLocalError('Password is required for backup');
     }
@@ -139,7 +140,41 @@ class ServiceCloudBackupV2 extends ServiceBase {
         'Cloud account user ID is required for backup',
       );
     }
-    return `${cloudAccountInfo.userId}:${params.password}:4A561E9E-E747-4AFF-B835-FE2EF2D61B41`;
+    return `${cloudAccountInfo.userId}:${params?.password}:4A561E9E-E747-4AFF-B835-FE2EF2D61B41`;
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async setBackupPassword(params: {
+    password: string;
+  }): Promise<{ recordID: string }> {
+    const provider = this.getProvider();
+    await provider.checkAvailability();
+    return provider.setBackupPassword({
+      password: await this.buildFullBackupPassword({
+        password: params.password,
+      }),
+    });
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async verifyBackupPassword(params: { password: string }): Promise<boolean> {
+    const provider = this.getProvider();
+    await provider.checkAvailability();
+    return provider.verifyBackupPassword({
+      password: await this.buildFullBackupPassword({
+        password: params.password,
+      }),
+    });
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async isBackupPasswordSet(): Promise<boolean> {
+    const provider = this.getProvider();
+    await provider.checkAvailability();
+    return provider.isBackupPasswordSet();
   }
 
   @backgroundMethod()
@@ -154,11 +189,14 @@ class ServiceCloudBackupV2 extends ServiceBase {
     if (!params?.data?.privateData) {
       throw new OneKeyLocalError('Private data is required for backup');
     }
+    const backupPassword = params?.password;
+    const data: IPrimeTransferData = params.data;
+    if (data?.publicData) {
+      data.publicData.dataTime = Date.now();
+    }
 
     const provider = this.getProvider();
     await provider.checkAvailability();
-
-    const data: IPrimeTransferData = params.data;
 
     if (!data?.privateData?.decryptedCredentials) {
       const { password: localPassword } =
@@ -190,13 +228,15 @@ class ServiceCloudBackupV2 extends ServiceBase {
 
     const privateDataEncryptedBuffer = await encryptAsync({
       data: Buffer.from(privateData, 'utf8'),
-      password: await this.buildBackupEncryptKey({ password: params.password }),
+      password: await this.buildFullBackupPassword({
+        password: backupPassword,
+      }),
       allowRawPassword: true,
     });
 
     const privateDataEncrypted = privateDataEncryptedBuffer.toString('base64');
 
-    const { recordID, content } = await provider.backupData({
+    const result = await provider.backupData({
       privateDataEncrypted,
       publicData: data.publicData,
       isEmptyData: data.isEmptyData,
@@ -204,6 +244,7 @@ class ServiceCloudBackupV2 extends ServiceBase {
       appVersion: data.appVersion,
     });
 
+    const { recordID, content } = result;
     const downloadData = await this.download({
       recordId: recordID,
     });
@@ -219,7 +260,7 @@ class ServiceCloudBackupV2 extends ServiceBase {
     if (downloadData?.content !== content) {
       throw new OneKeyLocalError('Failed to backup data: content mismatch');
     }
-    return { recordID, content };
+    return result;
   }
 
   @backgroundMethod()
@@ -244,6 +285,7 @@ class ServiceCloudBackupV2 extends ServiceBase {
     if (!params?.payload) {
       throw new OneKeyLocalError('Payload is required for restore');
     }
+    const backupPassword = params?.password;
 
     // Decode and decrypt data
     const privateDataEncrypted: Buffer = Buffer.from(
@@ -254,7 +296,9 @@ class ServiceCloudBackupV2 extends ServiceBase {
     // Decrypt data
     const privateDataBuffer = await decryptAsync({
       data: privateDataEncrypted,
-      password: await this.buildBackupEncryptKey({ password: params.password }),
+      password: await this.buildFullBackupPassword({
+        password: backupPassword,
+      }),
       allowRawPassword: true,
     });
 
@@ -334,6 +378,13 @@ class ServiceCloudBackupV2 extends ServiceBase {
   async getAllBackups() {
     const provider = this.getProvider();
     return provider.getAllBackups();
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async iOSQueryAllRecords() {
+    const provider = this.getProvider();
+    return (provider as ICloudBackupProvider).queryAllRecords();
   }
 
   @backgroundMethod()

@@ -21,6 +21,7 @@ import type {
 } from '@onekeyhq/shared/src/referralCode/type';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
+import type { IHyperLiquidSignatureRSV } from '@onekeyhq/shared/types/hyperliquid/webview';
 
 import ServiceBase from './ServiceBase';
 
@@ -447,6 +448,43 @@ class ServiceReferralCode extends ServiceBase {
       accountId,
     });
     return result;
+  }
+
+  @backgroundMethod()
+  async bindPerpsWallet({
+    action,
+    nonce,
+    signature,
+    inviteCode,
+    referenceAddress,
+    signerAddress,
+  }: {
+    action: {
+      type: string;
+      signatureChainId: string;
+      hyperliquidChain: string;
+      agentAddress: string;
+      agentName: string;
+      nonce: number;
+    };
+    nonce: number;
+    signature: IHyperLiquidSignatureRSV;
+    inviteCode: string;
+    referenceAddress?: string;
+    signerAddress: string;
+  }): Promise<{ success: boolean }> {
+    const client = await this.getClient(EServiceEndpointEnum.Rebate);
+    const response = await client.post<{
+      data: { success: boolean };
+    }>('/rebate/v1/wallet/perps/bind-wallet', {
+      action,
+      nonce,
+      signature,
+      inviteCode,
+      referenceAddress,
+      signerAddress,
+    });
+    return response.data.data;
   }
 }
 

@@ -22,6 +22,20 @@ export class EmptyBackupProvider implements IOneKeyBackupProvider {
     this.backgroundApi = backgroundApi;
   }
 
+  setBackupPassword(params?: {
+    password?: string;
+  }): Promise<{ recordID: string }> {
+    throw new OneKeyLocalError('Method not implemented.');
+  }
+
+  verifyBackupPassword(params?: { password?: string }): Promise<boolean> {
+    throw new OneKeyLocalError('Method not implemented.');
+  }
+
+  isBackupPasswordSet(): Promise<boolean> {
+    throw new OneKeyLocalError('Method not implemented.');
+  }
+
   async loginCloudIfNeed(): Promise<void> {
     // do nothing
   }
