@@ -188,7 +188,9 @@ function NetworkGroupItem({
           contentContainerStyle={{
             gap: '$2',
             p: '$3',
-            maxHeight: '400px',
+            $gtMd: {
+              maxHeight: '400px',
+            },
           }}
         >
           {media.gtMd ? (
@@ -280,6 +282,10 @@ function NetworkGroupItem({
               { id: ETranslations.supported_count_networks },
               { count: item.networks.length },
             )}
+            sheetProps={{
+              snapPoints: [80],
+              snapPointsMode: 'percent',
+            }}
             placement="bottom"
             renderTrigger={
               <NetworkAvatars
@@ -321,6 +327,10 @@ function NetworkGroupItem({
                 {intl.formatMessage({ id: ETranslations.selected_network })}
               </Label>
               <Popover
+                sheetProps={{
+                  snapPoints: [80],
+                  snapPointsMode: 'percent',
+                }}
                 title={intl.formatMessage(
                   { id: ETranslations.supported_count_networks },
                   { count: item.networks.length },
