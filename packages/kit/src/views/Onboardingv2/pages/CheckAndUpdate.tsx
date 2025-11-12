@@ -210,7 +210,6 @@ function CheckAndUpdatePage({
       };
       return newSteps;
     });
-    const cancelTimeout = createStepTimeout();
     try {
       await ensureTransportType();
       const baseDevice =
@@ -248,7 +247,6 @@ function CheckAndUpdatePage({
       setWarningStep();
       throw error;
     }
-    cancelTimeout();
     setSteps((prev) => {
       const newSteps = [...prev];
       newSteps[2] = {
