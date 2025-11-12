@@ -31,43 +31,11 @@ import type { IPrimeTransferData } from '@onekeyhq/shared/types/prime/primeTrans
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { MultipleClickStack } from '../../../components/MultipleClickStack';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
+import { CloudAccountBar } from '../components/CloudAccountBar';
 import { CloudBackupDetailsEmptyView } from '../components/CloudBackupEmptyView';
 import { CloudBackupLoadingSkeleton } from '../components/CloudBackupLoadingSkeleton';
 import { OnboardingLayout } from '../components/OnboardingLayout';
 import { useCloudBackup } from '../hooks/useCloudBackup';
-
-// Mock data for wallets
-const MOCK_WALLET_DATA: {
-  name: string;
-  accountCount: number;
-  avatarImg: IAllWalletAvatarImageNames;
-}[] = [
-  {
-    name: 'Wallet 1',
-    accountCount: 5,
-    avatarImg: 'bear',
-  },
-  {
-    name: 'Wallet 2',
-    accountCount: 3,
-    avatarImg: 'cat',
-  },
-  {
-    name: 'My Trading Wallet',
-    accountCount: 8,
-    avatarImg: 'panda',
-  },
-  {
-    name: 'Private Key',
-    accountCount: 4,
-    avatarImg: 'othersImported',
-  },
-  {
-    name: 'Watch-only Accounts',
-    accountCount: 2,
-    avatarImg: 'othersWatching',
-  },
-];
 
 export default function ICloudBackupDetails({
   route,
@@ -194,6 +162,7 @@ export default function ICloudBackupDetails({
         <OnboardingLayout.Header title={formattedDate} />
         <OnboardingLayout.Body>
           <YStack gap="$3">
+            <CloudAccountBar />
             {renderContent()}
             <MultipleClickStack
               h="$10"

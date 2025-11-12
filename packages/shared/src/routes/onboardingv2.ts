@@ -58,7 +58,9 @@ export type IOnboardingParamListV2 = {
     deviceData: IConnectYourDeviceItem;
     tabValue: EConnectDeviceChannel;
   };
-  [EOnboardingPagesV2.ImportPhraseOrPrivateKey]: undefined;
+  [EOnboardingPagesV2.ImportPhraseOrPrivateKey]: {
+    defaultTab?: 'phrase' | 'privateKey';
+  };
   [EOnboardingPagesV2.ImportWatchedAccount]: undefined;
   [EOnboardingPagesV2.BackupWalletReminder]: IVerifyRecoveryPhraseParams;
   [EOnboardingPagesV2.ShowRecoveryPhrase]: IVerifyRecoveryPhraseParams;

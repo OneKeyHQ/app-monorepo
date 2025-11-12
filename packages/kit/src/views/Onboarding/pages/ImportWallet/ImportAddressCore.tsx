@@ -106,6 +106,7 @@ interface IImportAddressCoreProps {
   inputTextDebounced: string;
   networkIdText?: string;
   deriveTypeValue?: any;
+  isFromOnboardingV2?: boolean;
 }
 
 function ImportAddressCore({
@@ -119,6 +120,7 @@ function ImportAddressCore({
   inputTextDebounced,
   networkIdText,
   deriveTypeValue,
+  isFromOnboardingV2,
 }: IImportAddressCoreProps) {
   const intl = useIntl();
   const media = useMedia();

@@ -28,6 +28,7 @@ import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { useAppRoute } from '../../../hooks/useAppRoute';
 import { fixInputImportSingleChain } from '../../Onboarding/pages/ImportWallet/ImportSingleChainBase';
 import useScanQrCode from '../../ScanQrCode/hooks/useScanQrCode';
 import { OnboardingLayout } from '../components/OnboardingLayout';
@@ -37,7 +38,13 @@ import type { IPhaseInputAreaInstance } from '../components/PhaseInputArea';
 
 export default function ImportPhraseOrPrivateKey() {
   const navigation = useAppNavigation();
-  const [selected, setSelected] = useState<'phrase' | 'privateKey'>('phrase');
+  const route = useAppRoute<
+    IOnboardingParamListV2,
+    EOnboardingPagesV2.ImportPhraseOrPrivateKey
+  >();
+  const [selected, setSelected] = useState<'phrase' | 'privateKey'>(
+    route?.params?.defaultTab || 'phrase',
+  );
   const { gtMd } = useMedia();
   const phaseInputAreaRef = useRef<IPhaseInputAreaInstance | null>(null);
   const [isConfirming, setIsConfirming] = useState(false);

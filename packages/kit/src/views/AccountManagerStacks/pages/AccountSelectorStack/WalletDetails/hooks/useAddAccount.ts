@@ -25,7 +25,13 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { EModalRoutes, EOnboardingPages } from '@onekeyhq/shared/src/routes';
+import {
+  EModalRoutes,
+  EOnboardingPages,
+  EOnboardingPagesV2,
+  EOnboardingV2Routes,
+  ERootRoutes,
+} from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
@@ -70,8 +76,18 @@ export function useAddAccount({
             screen: EOnboardingPages.ImportAddress,
           });
         } else if (walletId === WALLET_TYPE_IMPORTED) {
-          navigation.pushModal(EModalRoutes.OnboardingModal, {
-            screen: EOnboardingPages.ImportPrivateKey,
+          // navigation.pushModal(EModalRoutes.OnboardingModal, {
+          //   screen: EOnboardingPages.ImportPrivateKey,
+          // });
+
+          navigation.navigate(ERootRoutes.Onboarding, {
+            screen: EOnboardingV2Routes.OnboardingV2,
+            params: {
+              screen: EOnboardingPagesV2.ImportPhraseOrPrivateKey,
+              params: {
+                defaultTab: 'privateKey',
+              },
+            },
           });
         } else if (walletId === WALLET_TYPE_EXTERNAL) {
           navigation.pushModal(EModalRoutes.OnboardingModal, {
