@@ -69,7 +69,7 @@ export function ControlPanel({
   );
 
   return (
-    <YStack flex={1} px={isMobile ? '$4' : undefined} gap="$5">
+    <YStack flex={1} px={isMobile ? 10 : undefined} gap="$5">
       <YStack flex={1} gap="$11">
         {/* <YStack gap="$2">
           <SizableText size="$headingXs">
