@@ -463,8 +463,8 @@ class ServiceReferralCode extends ServiceBase {
       type: string;
       signatureChainId: string;
       hyperliquidChain: string;
-      maxFeeRate: string;
-      builder: string;
+      agentAddress: string;
+      agentName: string;
       nonce: number;
     };
     nonce: number;

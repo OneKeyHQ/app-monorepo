@@ -336,16 +336,6 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     const context = await this._buildLogContext();
     try {
       const response = await this.exchangeClient.approveBuilderFee(params);
-      try {
-        const signatureInfo = await this.extractBuilderFeeSignature();
-        if (signatureInfo) {
-          void this.backgroundApi.serviceHyperliquid.reportBuilderFeeApprovalToBackend(
-            signatureInfo,
-          );
-        }
-      } catch (error) {
-        console.error('Failed to extract builder fee signature:', error);
-      }
       defaultLogger.perp.hyperliquid.approveBuilderFee({
         ...context,
         request: params,
@@ -368,13 +358,13 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   }
 
   @backgroundMethod()
-  async extractBuilderFeeSignature(): Promise<{
+  async extractAgentSignature(): Promise<{
     action: {
       type: string;
       signatureChainId: string;
       hyperliquidChain: string;
-      maxFeeRate: string;
-      builder: string;
+      agentAddress: string;
+      agentName: string;
       nonce: number;
     };
     signature: IHyperLiquidSignatureRSV;
@@ -396,13 +386,14 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
 
     const { value, signatureHex, signerAddress } = signedData;
 
+    // Only extract approveAgent signatures
     return {
       action: {
         type: value.type as string,
         signatureChainId: value.signatureChainId as string,
         hyperliquidChain: value.hyperliquidChain as string,
-        maxFeeRate: value.maxFeeRate as string,
-        builder: value.builder as string,
+        agentAddress: value.agentAddress as string,
+        agentName: value.agentName as string,
         nonce: value.nonce as number,
       },
       signature: parseSignatureToRSV(signatureHex),
@@ -432,6 +423,25 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
           operation: params.authorize ? 'authorize' : 'revoke',
         },
       });
+
+      // Extract signature and report to backend after successful approval
+      if (
+        params.authorize &&
+        response.status === 'ok' &&
+        response.response.type === 'default'
+      ) {
+        try {
+          const signatureInfo = await this.extractAgentSignature();
+          if (signatureInfo) {
+            void this.backgroundApi.serviceHyperliquid.reportAgentApprovalToBackend(
+              signatureInfo,
+            );
+          }
+        } catch (error) {
+          console.error('Failed to extract agent signature:', error);
+        }
+      }
+
       return response;
     } catch (error) {
       defaultLogger.perp.hyperliquid.approveAgent({

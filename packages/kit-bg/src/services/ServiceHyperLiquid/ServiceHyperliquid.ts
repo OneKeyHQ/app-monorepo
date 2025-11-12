@@ -1013,13 +1013,13 @@ export default class ServiceHyperliquid extends ServiceBase {
     },
   );
 
-  async reportBuilderFeeApprovalToBackend(signatureInfo: {
+  async reportAgentApprovalToBackend(signatureInfo: {
     action: {
       type: string;
       signatureChainId: string;
       hyperliquidChain: string;
-      maxFeeRate: string;
-      builder: string;
+      agentAddress: string;
+      agentName: string;
       nonce: number;
     };
     signature: IHyperLiquidSignatureRSV;
@@ -1027,12 +1027,27 @@ export default class ServiceHyperliquid extends ServiceBase {
     signerAddress: string;
   }) {
     try {
+      // Check if wallet is already bound to referral code
+      const isAlreadyBound =
+        await this.backgroundApi.serviceReferralCode.checkWalletIsBoundReferralCode(
+          {
+            address: signatureInfo.signerAddress,
+            networkId: 'evm--1',
+          },
+        );
+
+      if (isAlreadyBound) {
+        console.log(
+          '[reportAgentApprovalToBackend] Wallet already bound, skipping',
+        );
+        return;
+      }
       const myReferralCode =
         await this.backgroundApi.serviceReferralCode.getMyReferralCode();
 
       if (!myReferralCode) {
         console.log(
-          '[reportBuilderFeeApprovalToBackend] No referral code, skipping',
+          '[reportAgentApprovalToBackend] No referral code, skipping',
         );
         return;
       }
@@ -1046,7 +1061,7 @@ export default class ServiceHyperliquid extends ServiceBase {
         signerAddress: signatureInfo.signerAddress,
       });
     } catch (error) {
-      console.error('[reportBuilderFeeApprovalToBackend] Error:', error);
+      console.error('[reportAgentApprovalToBackend] Error:', error);
     }
   }
 
