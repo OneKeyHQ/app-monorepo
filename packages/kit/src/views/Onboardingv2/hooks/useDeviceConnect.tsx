@@ -750,7 +750,9 @@ export function useDeviceConnect() {
 export const useConnectDeviceError = (
   onError: (errorMessageId: ETranslations) => void,
 ) => {
-  const uiRequestCallback = throttle(
+  const uiRequestCallback = useMemo(
+    () =>
+      throttle(
     ({ uiRequestType }: { uiRequestType: EHardwareUiStateAction }) => {
       if (uiRequestType === EHardwareUiStateAction.BLUETOOTH_PERMISSION) {
         onError(ETranslations.onboarding_enable_bluetooth);
@@ -770,15 +772,20 @@ export const useConnectDeviceError = (
         onError(ETranslations.device_not_connected);
       }
     },
-    2500,
+        2500,
+      ),
+    [onError],
   );
-  appEventBus.on(EAppEventBusNames.RequestHardwareUIDialog, uiRequestCallback);
-  return () => {
-    appEventBus.off(
-      EAppEventBusNames.RequestHardwareUIDialog,
-      uiRequestCallback,
-    );
-  };
+
+  useEffect(() => {
+    appEventBus.on(EAppEventBusNames.RequestHardwareUIDialog, uiRequestCallback);
+    return () => {
+      appEventBus.off(
+        EAppEventBusNames.RequestHardwareUIDialog,
+        uiRequestCallback,
+      );
+    };
+  }, [uiRequestCallback]);
 };
 
 export enum EBluetoothStatus {
