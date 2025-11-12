@@ -113,7 +113,7 @@ export const EarnNavigation = {
     });
   },
 
-  // generate share link
+  // generate share link (for modal)
   generateShareLink({
     networkId,
     symbol,
@@ -137,6 +137,42 @@ export const EarnNavigation = {
 
     const networkName = EarnNetworkUtils.getShareNetworkParam(networkId);
     const baseUrl = `/defi/${networkName}/${symbol.toLowerCase()}/${provider.toLowerCase()}`;
+    const queryParams = new URLSearchParams();
+
+    if (vault) {
+      queryParams.append('vault', vault);
+    }
+
+    const queryString = queryParams.toString();
+    return queryString
+      ? `${origin}${baseUrl}?${queryString}`
+      : `${origin}${baseUrl}`;
+  },
+
+  // generate earn share link (for EarnProtocolDetails page)
+  generateEarnShareLink({
+    networkId,
+    symbol,
+    provider,
+    vault,
+    isDevMode = false,
+  }: {
+    networkId: string;
+    symbol: string;
+    provider: string;
+    vault?: string;
+    isDevMode?: boolean;
+  }): string {
+    let origin = WEB_APP_URL;
+    if (platformEnv.isWeb) {
+      origin = globalThis.location.origin;
+    }
+    if (!platformEnv.isWeb && isDevMode) {
+      origin = WEB_APP_URL_DEV;
+    }
+
+    const networkName = EarnNetworkUtils.getShareNetworkParam(networkId);
+    const baseUrl = `/earn/${networkName}/${symbol.toLowerCase()}/${provider.toLowerCase()}`;
     const queryParams = new URLSearchParams();
 
     if (vault) {

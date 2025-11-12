@@ -33,4 +33,11 @@ export const earnRouters: ITabSubNavigatorConfig<any, any>[] = [
     component: EarnProtocolDetails,
     headerShown: !platformEnv.isNative,
   },
+  {
+    name: ETabEarnRoutes.EarnProtocolDetailsShare,
+    component: EarnProtocolDetails,
+    exact: true,
+    rewrite: '/earn/:network/:symbol/:provider',
+    headerShown: !platformEnv.isNative,
+  },
 ];

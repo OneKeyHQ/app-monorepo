@@ -20,6 +20,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   ETabEarnRoutes,
@@ -32,6 +33,10 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { ISupportedSymbol } from '@onekeyhq/shared/types/earn';
+import {
+  normalizeToEarnProvider,
+  normalizeToEarnSymbol,
+} from '@onekeyhq/shared/types/earn/earnProvider.constants';
 import { EStakingActionType } from '@onekeyhq/shared/types/staking';
 import type {
   IEarnAlert,
@@ -62,6 +67,7 @@ import { useManagePage } from '../../../Staking/pages/ManagePosition/hooks/useMa
 import { FAQSection } from '../../../Staking/pages/ProtocolDetailsV2/FAQSection';
 import { EarnPageContainer } from '../../components/EarnPageContainer';
 import { EarnProviderMirror } from '../../EarnProviderMirror';
+import { EarnNetworkUtils } from '../../earnUtils';
 
 import { ApyChart } from './components/ApyChart';
 import { useProtocolDetailData } from './hooks/useProtocolDetailData';
@@ -97,12 +103,14 @@ function ChartSection({
   provider,
   vault,
   apyDetail,
+  tokenInfo,
 }: {
   networkId: string;
   symbol: string;
   provider: string;
   vault?: string;
   apyDetail: IStakeEarnDetail['apyDetail'];
+  tokenInfo?: IEarnTokenInfo;
 }) {
   return (
     <ApyChart
@@ -111,6 +119,7 @@ function ChartSection({
       provider={provider}
       vault={vault}
       apyDetail={apyDetail}
+      tokenInfo={tokenInfo}
     />
   );
 }
@@ -133,7 +142,7 @@ function IntroSection({ intro }: { intro?: IStakeEarnDetail['intro'] }) {
                 description={cell.description}
                 descriptionComponent={
                   cell?.items ? (
-                    <YStack>
+                    <YStack gap="$2">
                       {(cell?.items ?? []).map((item) => (
                         <XStack key={item.title.text}>
                           <Token
@@ -295,6 +304,7 @@ const DetailsPart = ({
               provider={provider}
               vault={vault}
               apyDetail={detailInfo.apyDetail}
+              tokenInfo={tokenInfo}
             />
             <IntroSection intro={detailInfo.intro} />
             {detailInfo?.countDownAlert?.startTime &&
@@ -513,17 +523,87 @@ const ManagePositionPart = ({
 const EarnProtocolDetailsPage = () => {
   const route = useAppRoute<
     ITabEarnParamList,
-    ETabEarnRoutes.EarnProtocolDetails
+    ETabEarnRoutes.EarnProtocolDetails | ETabEarnRoutes.EarnProtocolDetailsShare
   >();
   const intl = useIntl();
   const appNavigation = useAppNavigation();
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { account, indexedAccount } = activeAccount;
-  const { networkId, symbol, provider, vault } = route.params;
   const [stakeLoading, setStakeLoading] = useState(false);
   const [keepSkeletonVisible, setKeepSkeletonVisible] = useState(false);
 
-  const accountId = account?.id || '';
+  // Parse route params, support both normal and share link routes
+  const resolvedParams = useMemo<{
+    accountId: string;
+    indexedAccountId: string | undefined;
+    networkId: string;
+    symbol: ISupportedSymbol;
+    provider: string;
+    vault: string | undefined;
+    isFromShareLink: boolean;
+  }>(() => {
+    const routeParams = route.params as any;
+
+    // Check if it is the new share link format
+    if ('network' in routeParams) {
+      // New format: /earn/:network/:symbol/:provider
+      const {
+        network,
+        symbol: symbolParam,
+        provider: providerParam,
+        vault,
+      } = routeParams;
+      const networkId = EarnNetworkUtils.getNetworkIdByName(network);
+      const symbol = normalizeToEarnSymbol(symbolParam);
+      const provider = normalizeToEarnProvider(providerParam);
+
+      if (!networkId) {
+        throw new OneKeyLocalError(`Unknown network: ${String(network)}`);
+      }
+      if (!symbol) {
+        throw new OneKeyLocalError(`Unknown symbol: ${String(symbolParam)}`);
+      }
+      if (!provider) {
+        throw new OneKeyLocalError(
+          `Unknown provider: ${String(providerParam)}`,
+        );
+      }
+
+      return {
+        accountId: activeAccount.account?.id || '',
+        indexedAccountId: activeAccount.indexedAccount?.id,
+        networkId,
+        symbol,
+        provider,
+        vault,
+        isFromShareLink: true,
+      };
+    }
+
+    // Old format: normal navigation
+    const {
+      accountId: routeAccountId,
+      indexedAccountId: routeIndexedAccountId,
+      networkId,
+      symbol,
+      provider,
+      vault,
+    } = routeParams;
+
+    return {
+      accountId: routeAccountId || activeAccount.account?.id || '',
+      indexedAccountId:
+        routeIndexedAccountId || activeAccount.indexedAccount?.id,
+      networkId,
+      symbol,
+      provider,
+      vault,
+      isFromShareLink: false,
+    };
+  }, [route.params, activeAccount]);
+
+  const { accountId, networkId, indexedAccountId, symbol, provider, vault } =
+    resolvedParams;
 
   const {
     earnAccount,
@@ -537,7 +617,7 @@ const EarnProtocolDetailsPage = () => {
     accountId,
     networkId,
     indexedAccountId: indexedAccount?.id,
-    symbol: symbol as ISupportedSymbol,
+    symbol,
     provider,
     vault,
   });

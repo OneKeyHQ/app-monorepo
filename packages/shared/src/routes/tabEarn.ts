@@ -2,6 +2,7 @@ export enum ETabEarnRoutes {
   EarnHome = 'EarnHome',
   EarnProtocols = 'EarnProtocols',
   EarnProtocolDetails = 'EarnProtocolDetails',
+  EarnProtocolDetailsShare = 'EarnProtocolDetailsShare',
 }
 
 export type ITabEarnParamList = {
@@ -15,6 +16,12 @@ export type ITabEarnParamList = {
     networkId: string;
     accountId: string;
     indexedAccountId?: string;
+    symbol: string;
+    provider: string;
+    vault?: string;
+  };
+  [ETabEarnRoutes.EarnProtocolDetailsShare]: {
+    network: string; // network name, like 'ethereum', 'bitcoin'
     symbol: string;
     provider: string;
     vault?: string;
