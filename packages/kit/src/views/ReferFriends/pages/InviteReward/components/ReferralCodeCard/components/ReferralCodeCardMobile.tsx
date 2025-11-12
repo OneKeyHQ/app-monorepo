@@ -1,7 +1,8 @@
 import {
   Button,
+  ButtonFrame,
   Divider,
-  IconButton,
+  Icon,
   SizableText,
   XStack,
   YStack,
@@ -41,8 +42,26 @@ export function ReferralCodeCardMobile({
       <Divider />
 
       {/* Referral Link row */}
-      <XStack gap="$5" ai="center" jc="space-between">
-        <SizableText size="$bodyMd" color="$textSubdued" flexShrink={0}>
+      <ButtonFrame
+        flexDirection="row"
+        gap="$2"
+        ai="center"
+        jc="space-between"
+        borderWidth={0}
+        onPress={copyLink}
+        borderRadius="$2"
+        p="$2"
+        mx="$-2"
+        userSelect="none"
+        hoverStyle={{
+          bg: '$bgHover',
+        }}
+        pressStyle={{
+          bg: '$bgActive',
+        }}
+        bg="$transparent"
+      >
+        <SizableText flexShrink={0} size="$bodyMd" color="$textSubdued">
           {intl.referralLink}
         </SizableText>
         <SizableText
@@ -54,13 +73,13 @@ export function ReferralCodeCardMobile({
         >
           {inviteCodeUrl}
         </SizableText>
-        <IconButton
-          icon="Copy3Outline"
-          variant="tertiary"
-          size="medium"
-          onPress={copyLink}
+        <Icon
+          name="Copy3Outline"
+          size="$6"
+          color="$iconSubdued"
+          flexShrink={0}
         />
-      </XStack>
+      </ButtonFrame>
     </YStack>
   );
 }

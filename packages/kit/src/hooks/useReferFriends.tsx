@@ -46,20 +46,7 @@ export function useToReferFriendsModalByRootNavigation() {
   }, []);
 }
 
-export const isOpenedReferFriendsPage = () => {
-  const routeState = rootNavigationRef.current?.getRootState();
-  if (routeState?.routes) {
-    const mainRoute = routeState.routes.find(
-      (route) => route.name === ERootRoutes.Main,
-    );
-    if (mainRoute?.state?.routes) {
-      return mainRoute.state.routes.find(
-        (route) => route.name === ETabRoutes.ReferFriends,
-      );
-    }
-  }
-  return false;
-};
+
 
 export const useReferFriends = () => {
   const intl = useIntl();
