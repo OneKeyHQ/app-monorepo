@@ -49,8 +49,8 @@ function SegmentText({
   }, [setSelectedTab, translationId]);
   return (
     <SizableText
-      size="$headingLg"
-      color={selected ? '$text' : '$textDisabled'}
+      size="$headingXl"
+      color={selected ? '$text' : '$textSubdued'}
       onPress={handlePress}
     >
       {intl.formatMessage({ id: translationId })}
@@ -66,7 +66,7 @@ function DiscoveryHeaderSegment({
   onSelectHeaderTab?: (tab: ETranslations) => void;
 }) {
   return (
-    <XStack gap="$5">
+    <XStack gap="$4">
       {discoveryTabs.map((tab) => (
         <SegmentText
           key={tab}
