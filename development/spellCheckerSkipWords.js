@@ -1008,4 +1008,5 @@ module.exports = [
   'Gunzip',
   'Brotli',
   'Arial',
+  'ip',
 ];
