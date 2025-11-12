@@ -335,6 +335,24 @@ class ServiceIpTable extends ServiceBase {
         return;
       }
 
+      // Check if forceIpTableStrict mode is enabled
+      const { enabled: devSettingEnabled, settings } =
+        await devSettingsPersistAtom.get();
+      const forceIpTableStrict =
+        devSettingEnabled && settings?.forceIpTableStrict;
+      // In strict mode, always use IP if available (regardless of domain speed)
+      if (forceIpTableStrict) {
+        defaultLogger.ipTable.request.info({
+          info: `[IpTable] [STRICT MODE] Using best IP: ${domain} -> ${bestIp} (${bestIpLatency}ms)`,
+        });
+        await this.backgroundApi.simpleDb.ipTable.updateSelection(
+          domain,
+          bestIp,
+        );
+        return;
+      }
+
+      // Normal mode: use threshold-based decision
       // Calculate performance improvement
       const improvement = (domainLatency - bestIpLatency) / domainLatency;
 
