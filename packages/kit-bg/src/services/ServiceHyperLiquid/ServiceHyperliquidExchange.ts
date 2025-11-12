@@ -32,6 +32,7 @@ import {
   MAX_DECIMALS_PERP,
   formatPriceToSignificantDigits,
   getValidPriceDecimals,
+  parseSignatureToRSV,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type {
   IApiErrorResponse,
@@ -55,6 +56,7 @@ import type {
   IUpdateIsolatedMarginRequest,
   IWithdrawParams,
 } from '@onekeyhq/shared/types/hyperliquid/types';
+import type { IHyperLiquidSignatureRSV } from '@onekeyhq/shared/types/hyperliquid/webview';
 
 import {
   perpsActiveAccountAtom,
@@ -356,6 +358,51 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   }
 
   @backgroundMethod()
+  async extractAgentSignature(): Promise<{
+    action: {
+      type: string;
+      signatureChainId: string;
+      hyperliquidChain: string;
+      agentAddress: string;
+      agentName: string;
+      nonce: number;
+    };
+    signature: IHyperLiquidSignatureRSV;
+    nonce: number;
+    signerAddress: string;
+  } | null> {
+    const wallet = this.exchangeClient?.wallet;
+
+    const signedData = (
+      wallet as WalletHyperliquidOnekey
+    )?.getTempSignatureAndClear();
+    if (
+      !signedData?.value ||
+      typeof signedData.signatureHex !== 'string' ||
+      !signedData.signerAddress
+    ) {
+      return null;
+    }
+
+    const { value, signatureHex, signerAddress } = signedData;
+
+    // Only extract approveAgent signatures
+    return {
+      action: {
+        type: value.type as string,
+        signatureChainId: value.signatureChainId as string,
+        hyperliquidChain: value.hyperliquidChain as string,
+        agentAddress: value.agentAddress as string,
+        agentName: value.agentName as string,
+        nonce: value.nonce as number,
+      },
+      signature: parseSignatureToRSV(signatureHex),
+      nonce: value.nonce as number,
+      signerAddress,
+    };
+  }
+
+  @backgroundMethod()
   async approveAgent(params: IAgentApprovalRequest) {
     await this.checkAccountCanTrade();
     const requestPayload = {
@@ -376,6 +423,25 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
           operation: params.authorize ? 'authorize' : 'revoke',
         },
       });
+
+      // Extract signature and report to backend after successful approval
+      if (
+        params.authorize &&
+        response.status === 'ok' &&
+        response.response.type === 'default'
+      ) {
+        try {
+          const signatureInfo = await this.extractAgentSignature();
+          if (signatureInfo) {
+            void this.backgroundApi.serviceHyperliquid.reportAgentApprovalToBackend(
+              signatureInfo,
+            );
+          }
+        } catch (error) {
+          console.error('Failed to extract agent signature:', error);
+        }
+      }
+
       return response;
     } catch (error) {
       defaultLogger.perp.hyperliquid.approveAgent({
