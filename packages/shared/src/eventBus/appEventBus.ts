@@ -74,6 +74,8 @@ export type IEventBusPayloadShowToast = {
   errorCode?: number;
   toastId?: string;
   i18nKey?: ETranslations;
+  requestId?: string;
+  diagnosticText?: string;
 };
 export interface IAppEventBusPayload {
   [EAppEventBusNames.ConfirmAccountSelected]: undefined;

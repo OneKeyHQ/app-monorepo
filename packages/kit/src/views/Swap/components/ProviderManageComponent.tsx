@@ -123,27 +123,33 @@ const NetworkSwitch = ({
 }: INetworkSwitchProps) => {
   return (
     <Badge
-      bg={enable ? '$bgSubdued' : '$bgApp'}
+      bg={enable && !serviceDisable ? '$bgSubdued' : '$bgApp'}
       borderRadius="$2.5"
       h="$6"
       borderWidth={1}
       borderCurve="continuous"
-      borderColor={enable ? '$borderActive' : '$borderSubdued'}
+      borderColor={
+        enable && !serviceDisable ? '$borderActive' : '$borderSubdued'
+      }
       disabled={serviceDisable}
       onPress={() => {
         onNetworkSwitch(networkId, !enable);
       }}
-      hoverStyle={{
-        bg: '$bgStrongHover',
-      }}
-      pressStyle={{
-        bg: '$bgStrongActive',
-      }}
       cursor="pointer"
+      {...(!serviceDisable
+        ? {
+            hoverStyle: {
+              bg: '$bgStrongHover',
+            },
+            pressStyle: {
+              bg: '$bgStrongActive',
+            },
+          }
+        : {})}
     >
       <SizableText
-        size={enable ? '$bodySmMedium' : '$bodySm'}
-        color={enable ? '$text' : '$textSubdued'}
+        size={enable && !serviceDisable ? '$bodySmMedium' : '$bodySm'}
+        color={enable && !serviceDisable ? '$text' : '$textSubdued'}
       >
         {networkName}
       </SizableText>
