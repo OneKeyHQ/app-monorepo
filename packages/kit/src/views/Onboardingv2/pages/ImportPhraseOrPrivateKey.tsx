@@ -101,7 +101,7 @@ export default function ImportPhraseOrPrivateKey() {
     }
   };
 
-  const { height } = useReanimatedKeyboardAnimation?.() || { height: 0 };
+  const { height } = useReanimatedKeyboardAnimation();
   const keyboardHeight = useSharedValue<number>(0);
 
   useAnimatedReaction(
