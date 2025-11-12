@@ -171,6 +171,8 @@ const TradesHistoryRow = memo(
                       iconSize="$4"
                       onPress={() => onShare?.(fill)}
                       cursor="pointer"
+                      hoverStyle={null}
+                      pressStyle={null}
                     />
                   ) : null}
                 </XStack>
@@ -367,6 +369,8 @@ const TradesHistoryRow = memo(
               iconSize="$4"
               onPress={() => onShare?.(fill)}
               cursor="pointer"
+              hoverStyle={null}
+              pressStyle={null}
             />
           ) : null}
         </XStack>
