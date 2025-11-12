@@ -14,7 +14,7 @@ export function RulesButton() {
 
   return (
     <Button variant="tertiary" icon="QuestionmarkOutline" onPress={handlePress}>
-      {intl.formatMessage({ id: ETranslations.global_details })}
+      {intl.formatMessage({ id: ETranslations.referral_global_rules })}
     </Button>
   );
 }
