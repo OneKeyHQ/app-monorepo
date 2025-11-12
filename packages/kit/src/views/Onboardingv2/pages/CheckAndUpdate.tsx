@@ -55,6 +55,12 @@ enum ECheckAndUpdateStepState {
   Error = 'error',
 }
 
+enum ECheckAndUpdateStepId {
+  GenuineCheck = 'genuine-check',
+  FirmwareCheck = 'firmware-check',
+  SetupOnDevice = ECheckAndUpdateStepId.SetupOnDevice,
+}
+
 function CheckAndUpdatePage({
   route: routeParams,
 }: IPageScreenProps<
@@ -100,7 +106,7 @@ function CheckAndUpdatePage({
   const [steps, setSteps] = useState<
     {
       image: IImageProps['source'];
-      id: string;
+      id: ECheckAndUpdateStepId;
       title: string;
       description?: string;
       state?: ECheckAndUpdateStepState;
@@ -109,7 +115,7 @@ function CheckAndUpdatePage({
     }[]
   >(() => [
     {
-      id: 'genuine-check',
+      id: ECheckAndUpdateStepId.GenuineCheck,
       image:
         themeVariant === 'light'
           ? require('@onekeyhq/kit/assets/onboarding/genuine-check.png')
@@ -126,7 +132,7 @@ function CheckAndUpdatePage({
       state: ECheckAndUpdateStepState.Idle,
     },
     {
-      id: 'firmware-check',
+      id: ECheckAndUpdateStepId.FirmwareCheck,
       image:
         themeVariant === 'light'
           ? require('@onekeyhq/kit/assets/onboarding/firmware-check.png')
@@ -143,7 +149,7 @@ function CheckAndUpdatePage({
       state: ECheckAndUpdateStepState.Idle,
     },
     {
-      id: 'setup-on-device',
+      id: ECheckAndUpdateStepId.SetupOnDevice,
       image: deviceImage,
       title: intl.formatMessage({ id: ETranslations.device_setup_check_title }),
       description: intl.formatMessage({
@@ -517,6 +523,31 @@ function CheckAndUpdatePage({
     return [chooseOptionStep, pinStep, recoveryPhraseStep];
   }, [intl, deviceData]);
 
+  const handleSkipCurrentStep = useCallback(() => {
+    let currentStepId: ECheckAndUpdateStepId | undefined;
+    setSteps((prev) => {
+      const index = prev.findIndex(
+        (step) => step.state === ECheckAndUpdateStepState.Error,
+      );
+      currentStepId = prev[index].id;
+      const newSteps = [...prev];
+      newSteps[index] = {
+        ...newSteps[index],
+        state: ECheckAndUpdateStepState.Success,
+      };
+      return newSteps;
+    });
+    setTimeout(() => {
+      if (currentStepId === ECheckAndUpdateStepId.FirmwareCheck) {
+        void checkFirmwareUpdate();
+      } else if (currentStepId === ECheckAndUpdateStepId.GenuineCheck) {
+        void handleVerifyHardware();
+      } else if (currentStepId === ECheckAndUpdateStepId.SetupOnDevice) {
+        void handleDeviceSetupDone();
+      }
+    }, 150);
+  }, [checkFirmwareUpdate, handleDeviceSetupDone, handleVerifyHardware]);
+
   return (
     <Page>
       <OnboardingLayout>
@@ -535,7 +566,7 @@ function CheckAndUpdatePage({
             {steps.map((step, index) => {
               // Don't show setup-on-device until firmware-check is completed
               if (
-                step.id === 'setup-on-device' &&
+                step.id === ECheckAndUpdateStepId.SetupOnDevice &&
                 steps[1].state !== ECheckAndUpdateStepState.Success
               ) {
                 return null;
@@ -586,7 +617,8 @@ function CheckAndUpdatePage({
                   {/* connected line */}
                   {index !== steps.length - 1 &&
                   !(
-                    steps[index + 1]?.id === 'setup-on-device' &&
+                    steps[index + 1]?.id ===
+                      ECheckAndUpdateStepId.SetupOnDevice &&
                     steps[1].state !== ECheckAndUpdateStepState.Success
                   ) ? (
                     <YStack
@@ -641,8 +673,16 @@ function CheckAndUpdatePage({
                     >
                       <Image
                         source={step.image}
-                        width={step.id === 'setup-on-device' ? 48 : 64}
-                        height={step.id === 'setup-on-device' ? 48 : 64}
+                        width={
+                          step.id === ECheckAndUpdateStepId.SetupOnDevice
+                            ? 48
+                            : 64
+                        }
+                        height={
+                          step.id === ECheckAndUpdateStepId.SetupOnDevice
+                            ? 48
+                            : 64
+                        }
                       />
                       {step.state !== ECheckAndUpdateStepState.Idle ? (
                         <YStack
@@ -727,7 +767,7 @@ function CheckAndUpdatePage({
                     </YStack>
                   </XStack>
                   <HeightTransition initialHeight={0}>
-                    {step.id === 'setup-on-device' &&
+                    {step.id === ECheckAndUpdateStepId.SetupOnDevice &&
                     step.state === ECheckAndUpdateStepState.Warning ? (
                       <YStack pt="$8" gap="$5">
                         <SizableText size="$bodyMdMedium" color="$textInfo">
@@ -796,7 +836,7 @@ function CheckAndUpdatePage({
                       </YStack>
                     ) : null}
                     {/* update */}
-                    {step.id === 'firmware-check' &&
+                    {step.id === ECheckAndUpdateStepId.FirmwareCheck &&
                     step.state === ECheckAndUpdateStepState.Warning ? (
                       <XStack
                         gap="$2"
@@ -863,6 +903,11 @@ function CheckAndUpdatePage({
                           >
                             {intl.formatMessage({
                               id: ETranslations.global_retry,
+                            })}
+                          </Button>
+                          <Button onPress={handleSkipCurrentStep}>
+                            {intl.formatMessage({
+                              id: ETranslations.global_skip,
                             })}
                           </Button>
                         </XStack>
