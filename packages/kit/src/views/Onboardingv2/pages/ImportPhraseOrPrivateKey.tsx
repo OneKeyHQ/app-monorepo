@@ -23,6 +23,7 @@ import {
   useReanimatedKeyboardAnimation,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes';
 
@@ -192,11 +193,13 @@ export default function ImportPhraseOrPrivateKey() {
                     pt="$5"
                   >
                     <YStack w="100%">
-                      <XStack onPress={noop} ml={-12}>
-                        <Portal.Container
-                          name={Portal.Constant.SUGGESTION_LIST}
-                        />
-                      </XStack>
+                      {platformEnv.isNative ? (
+                        <XStack onPress={noop}>
+                          <Portal.Container
+                            name={Portal.Constant.SUGGESTION_LIST}
+                          />
+                        </XStack>
+                      ) : null}
                       <Button
                         size="large"
                         variant="primary"
