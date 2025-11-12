@@ -877,16 +877,22 @@ function USBOrBLEConnectionIndicator({
 
   useEffect(() => {
     if (
-      platformEnv.isNative ||
-      (hardwareTransportType === EHardwareTransportType.WEBUSB &&
-        !platformEnv.isDesktop)
+      hardwareTransportType === EHardwareTransportType.WEBUSB &&
+      !platformEnv.isDesktop
     ) {
       return;
     }
-    void (async () => {
-      void listingDevice();
-    })();
-  }, [listingDevice, hardwareTransportType, tabValue]);
+
+    setTimeout(() => {
+      if (platformEnv.isNative) {
+        setTimeout(() => {
+          void startBLEConnection();
+        }, 120);
+      } else {
+        void listingDevice();
+      }
+    });
+  }, [listingDevice, hardwareTransportType, tabValue, startBLEConnection]);
 
   useEffect(
     () => () => {
@@ -941,7 +947,9 @@ function USBOrBLEConnectionIndicator({
                   <Button
                     variant="primary"
                     mt="$2"
-                    onPress={onConnectWebDevice}
+                    onPress={() => {
+                      alert('onPress');
+                    }}
                   >
                     {intl.formatMessage({
                       id: ETranslations.global_start_connection,
