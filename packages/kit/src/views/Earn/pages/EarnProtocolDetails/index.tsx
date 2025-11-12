@@ -816,6 +816,9 @@ const EarnProtocolDetailsPage = () => {
     refreshEarnDetailData: refreshData,
   });
 
+  const hasNoAccount = !account?.id && !indexedAccount?.id;
+  const hasNoAddress = !earnAccount?.accountAddress;
+
   const onCreateAddress = useCallback(async () => {
     await refreshAccount();
     await refreshData();
@@ -894,6 +897,8 @@ const EarnProtocolDetailsPage = () => {
       return null;
     }
 
+    const shouldDisableButtons = isLoading || hasNoAccount || hasNoAddress;
+
     // USDe: show Receive/Trade buttons
     if (symbol === 'USDe') {
       const receiveAction = detailInfo?.actions?.find(
@@ -915,7 +920,12 @@ const EarnProtocolDetailsPage = () => {
               : undefined
           }
           cancelButtonProps={
-            receiveAction ? { onPress: handleReceiveUSDe } : undefined
+            receiveAction
+              ? {
+                  onPress: handleReceiveUSDe,
+                  disabled: shouldDisableButtons || receiveAction.disabled,
+                }
+              : undefined
           }
           onConfirmText={
             tradeAction
@@ -924,7 +934,11 @@ const EarnProtocolDetailsPage = () => {
           }
           confirmButtonProps={
             tradeAction
-              ? { variant: 'primary', onPress: handleTradeUSDe }
+              ? {
+                  variant: 'primary',
+                  onPress: handleTradeUSDe,
+                  disabled: shouldDisableButtons || tradeAction.disabled,
+                }
               : undefined
           }
         />
@@ -937,11 +951,13 @@ const EarnProtocolDetailsPage = () => {
         onCancelText={intl.formatMessage({ id: ETranslations.global_withdraw })}
         cancelButtonProps={{
           onPress: handleNavigateToManagePosition,
+          disabled: shouldDisableButtons,
         }}
         onConfirmText={intl.formatMessage({ id: ETranslations.earn_deposit })}
         confirmButtonProps={{
           variant: 'primary',
           onPress: handleNavigateToManagePosition,
+          disabled: shouldDisableButtons,
         }}
       />
     );
@@ -953,6 +969,9 @@ const EarnProtocolDetailsPage = () => {
     detailInfo?.actions,
     handleReceiveUSDe,
     handleTradeUSDe,
+    hasNoAccount,
+    hasNoAddress,
+    isLoading,
   ]);
 
   return (
@@ -977,6 +996,16 @@ const EarnProtocolDetailsPage = () => {
             provider={provider}
             vault={vault}
           />
+          {!gtMd && (hasNoAccount || hasNoAddress) && !isLoading ? (
+            <Stack px="$5" pt="$5">
+              <NoAddressWarning
+                accountId={account?.id || ''}
+                networkId={networkId}
+                indexedAccountId={indexedAccount?.id}
+                onCreateAddress={onCreateAddress}
+              />
+            </Stack>
+          ) : null}
         </Stack>
         {gtMd ? (
           <Stack $gtMd={{ width: '35%' }}>
