@@ -80,8 +80,12 @@ function CheckAndUpdatePage({
     return (deviceData.device as SearchDevice).name;
   }, [deviceData]);
 
-  const { verifyHardware, ensureActiveConnection, getActiveDevice } =
-    useDeviceConnect();
+  const {
+    verifyHardware,
+    ensureActiveConnection,
+    getActiveDevice,
+    ensureStopScan,
+  } = useDeviceConnect();
   const [currentDevice, setCurrentDevice] = useState<SearchDevice | undefined>(
     deviceData.device as SearchDevice | undefined,
   );
@@ -393,6 +397,9 @@ function CheckAndUpdatePage({
   );
 
   const handleVerifyHardware = useCallback(async () => {
+    // Double-check: ensure device scanning is fully stopped before starting verification
+    await ensureStopScan();
+
     setSteps((prev) => {
       const newSteps = [...prev];
       newSteps[0] = {
@@ -454,6 +461,7 @@ function CheckAndUpdatePage({
       });
     }
   }, [
+    ensureStopScan,
     verifyHardware,
     deviceData.device,
     tabValue,
