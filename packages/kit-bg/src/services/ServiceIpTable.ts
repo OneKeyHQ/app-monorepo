@@ -23,7 +23,7 @@ import {
   IP_TABLE_SPEED_TEST_TIMEOUT_MS,
 } from '@onekeyhq/shared/src/request/constants/ipTableDefaults';
 import {
-  setReportSniFailureCallback,
+  setReportRequestFailureCallback,
   testDomainSpeed,
   testIpSpeed,
 } from '@onekeyhq/shared/src/request/helpers/ipTableAdapter';
@@ -42,18 +42,124 @@ import { devSettingsPersistAtom } from '../states/jotai/atoms';
 
 import ServiceBase from './ServiceBase';
 
+/**
+ * Endpoint health statistics
+ */
+interface IEndpointHealth {
+  /** Total failure count */
+  failureCount: number;
+  /** Consecutive failure count (resets on success) */
+  consecutiveFailures: number;
+  /** Timestamp of last failure */
+  lastFailureTime: number;
+}
+
+/**
+ * Domain health statistics
+ * Tracks both IP endpoints and direct domain connection health
+ */
+interface IDomainHealthStats {
+  /** Health stats for each IP endpoint */
+  ipEndpoints: Map<string, IEndpointHealth>;
+  /** Health stats for direct domain connection */
+  domainDirect: IEndpointHealth;
+  /** Timestamp of last speed test */
+  lastSpeedTestTime: number;
+}
+
 @backgroundClass()
 class ServiceIpTable extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
   }
 
-  // Simple in-memory failure counter: Map<"domain:ip", count>
-  private failureCounter = new Map<string, number>();
+  // Domain health tracker: Map<"domain", IDomainHealthStats>
+  // Tracks failures for both IP endpoints and direct domain connections
+  private domainHealthMap = new Map<string, IDomainHealthStats>();
 
-  // Speed test cooldown tracker: Map<"domain", timestamp>
-  // Prevents triggering speed test too frequently for the same domain
-  private speedTestCooldown = new Map<string, number>();
+  /**
+   * Get or initialize domain health stats
+   */
+  private getDomainHealth(domain: string): IDomainHealthStats {
+    let stats = this.domainHealthMap.get(domain);
+    if (!stats) {
+      stats = {
+        ipEndpoints: new Map(),
+        domainDirect: {
+          failureCount: 0,
+          consecutiveFailures: 0,
+          lastFailureTime: 0,
+        },
+        lastSpeedTestTime: 0,
+      };
+      this.domainHealthMap.set(domain, stats);
+    }
+    return stats;
+  }
+
+  /**
+   * Get or initialize endpoint health
+   */
+  private getEndpointHealth(
+    stats: IDomainHealthStats,
+    requestType: 'ip' | 'domain',
+    target: string,
+  ): IEndpointHealth {
+    if (requestType === 'domain') {
+      return stats.domainDirect;
+    }
+
+    let endpointHealth = stats.ipEndpoints.get(target);
+    if (!endpointHealth) {
+      endpointHealth = {
+        failureCount: 0,
+        consecutiveFailures: 0,
+        lastFailureTime: 0,
+      };
+      stats.ipEndpoints.set(target, endpointHealth);
+    }
+    return endpointHealth;
+  }
+
+  /**
+   * Check if speed test should be triggered based on health stats
+   * Returns true only when current endpoint is failing AND cooldown period has passed
+   */
+  private async shouldTriggerSpeedTest(
+    domain: string,
+    stats: IDomainHealthStats,
+  ): Promise<boolean> {
+    const now = Date.now();
+    const timeSinceLastTest = now - stats.lastSpeedTestTime;
+
+    // Check cooldown period (5 minutes)
+    if (timeSinceLastTest < IP_TABLE_SPEED_TEST_COOLDOWN_MS) {
+      return false;
+    }
+
+    // Get current selection to determine which endpoint is active
+    const configWithRuntime = await this.getConfig();
+    const currentSelection = configWithRuntime.runtime?.selections?.[domain];
+
+    // Check if current active endpoint is failing
+    if (currentSelection === undefined) {
+      // No selection yet, don't trigger
+      return false;
+    }
+
+    if (currentSelection === '') {
+      // Using domain directly
+      return (
+        stats.domainDirect.consecutiveFailures >= IP_TABLE_SNI_FAILURE_THRESHOLD
+      );
+    }
+
+    // Using specific IP
+    const ipHealth = stats.ipEndpoints.get(currentSelection);
+    return (
+      (ipHealth?.consecutiveFailures ?? 0) >= IP_TABLE_SNI_FAILURE_THRESHOLD
+    );
+  }
 
   @backgroundMethod()
   async getConfig(): Promise<IIpTableConfigWithRuntime> {
@@ -233,6 +339,49 @@ class ServiceIpTable extends ServiceBase {
   }
 
   /**
+   * Clean up health statistics after speed test
+   * Removes health data for IPs that are no longer selected (memory optimization)
+   * Keeps health data for the currently selected endpoint for continued monitoring
+   */
+  private async cleanupHealthStatsAfterSpeedTest(
+    domain: string,
+  ): Promise<void> {
+    const stats = this.getDomainHealth(domain);
+    const configWithRuntime = await this.getConfig();
+    const currentSelection = configWithRuntime.runtime?.selections?.[domain];
+
+    // If using domain directly, clean up all IP health stats
+    if (!currentSelection || currentSelection === '') {
+      if (stats.ipEndpoints.size > 0) {
+        defaultLogger.ipTable.request.info({
+          info: `[IpTable] Cleanup: Removing health stats for ${stats.ipEndpoints.size} unused IPs (using domain)`,
+        });
+        stats.ipEndpoints.clear();
+      }
+      return;
+    }
+
+    // If using specific IP, keep only that IP's health stats
+    const currentIp = currentSelection;
+    const ipsToRemove: string[] = [];
+
+    stats.ipEndpoints.forEach((_health, ip) => {
+      if (ip !== currentIp) {
+        ipsToRemove.push(ip);
+      }
+    });
+
+    if (ipsToRemove.length > 0) {
+      defaultLogger.ipTable.request.info({
+        info: `[IpTable] Cleanup: Removing health stats for ${ipsToRemove.length} unused IPs (keeping ${currentIp})`,
+      });
+      ipsToRemove.forEach((ip) => {
+        stats.ipEndpoints.delete(ip);
+      });
+    }
+  }
+
+  /**
    * Select best endpoint for a domain
    * Compares domain direct connection vs all IPs with SNI
    * Prefers domain if IP is not significantly faster (30% threshold)
@@ -335,6 +484,24 @@ class ServiceIpTable extends ServiceBase {
         return;
       }
 
+      // Check if forceIpTableStrict mode is enabled
+      const { enabled: devSettingEnabled, settings } =
+        await devSettingsPersistAtom.get();
+      const forceIpTableStrict =
+        devSettingEnabled && settings?.forceIpTableStrict;
+      // In strict mode, always use IP if available (regardless of domain speed)
+      if (forceIpTableStrict) {
+        defaultLogger.ipTable.request.info({
+          info: `[IpTable] [STRICT MODE] Using best IP: ${domain} -> ${bestIp} (${bestIpLatency}ms)`,
+        });
+        await this.backgroundApi.simpleDb.ipTable.updateSelection(
+          domain,
+          bestIp,
+        );
+        return;
+      }
+
+      // Normal mode: use threshold-based decision
       // Calculate performance improvement
       const improvement = (domainLatency - bestIpLatency) / domainLatency;
 
@@ -358,6 +525,9 @@ class ServiceIpTable extends ServiceBase {
         });
         await this.backgroundApi.simpleDb.ipTable.updateSelection(domain, '');
       }
+
+      // Clean up health stats for unused endpoints after speed test
+      await this.cleanupHealthStatsAfterSpeedTest(domain);
     } catch (error) {
       defaultLogger.ipTable.request.error({
         info: `[IpTable] Speed test failed for domain ${domain}: ${
@@ -393,50 +563,73 @@ class ServiceIpTable extends ServiceBase {
     });
   }
 
+  /**
+   * Report request failure (IP or domain)
+   * Tracks failures with separate statistics and triggers speed test when appropriate
+   */
   @backgroundMethod()
-  async reportSniFailure(domain: string, ip: string): Promise<void> {
-    const key = `${domain}:${ip}`;
-    const count = (this.failureCounter.get(key) || 0) + 1;
-    this.failureCounter.set(key, count);
+  async reportRequestFailure(
+    domain: string,
+    requestType: 'ip' | 'domain',
+    target: string,
+  ): Promise<void> {
+    const now = Date.now();
+
+    // Get or initialize domain health stats
+    const stats = this.getDomainHealth(domain);
+
+    // Get or initialize endpoint health
+    const endpointHealth = this.getEndpointHealth(stats, requestType, target);
+
+    // Update failure statistics
+    endpointHealth.failureCount += 1;
+    endpointHealth.consecutiveFailures += 1;
+    endpointHealth.lastFailureTime = now;
 
     defaultLogger.ipTable.request.warn({
-      info: `[IpTable] SNI failure #${count} for ${domain} (${ip})`,
+      info: `[IpTable] ${requestType === 'ip' ? 'IP' : 'Domain'} failure #${
+        endpointHealth.failureCount
+      } (consecutive: ${
+        endpointHealth.consecutiveFailures
+      }) for ${domain} (${target})`,
     });
 
-    // Trigger speed test if threshold reached
-    if (count >= IP_TABLE_SNI_FAILURE_THRESHOLD) {
-      // Check cooldown period before triggering speed test
-      const now = Date.now();
-      const lastSpeedTest = this.speedTestCooldown.get(domain) || 0;
-      const timeSinceLastTest = now - lastSpeedTest;
+    // Check if speed test should be triggered
+    const shouldTrigger = await this.shouldTriggerSpeedTest(domain, stats);
 
+    if (!shouldTrigger) {
+      // Log reason for not triggering
+      const timeSinceLastTest = now - stats.lastSpeedTestTime;
       if (timeSinceLastTest < IP_TABLE_SPEED_TEST_COOLDOWN_MS) {
         const remainingCooldown = Math.ceil(
           (IP_TABLE_SPEED_TEST_COOLDOWN_MS - timeSinceLastTest) / 1000,
         );
-        defaultLogger.ipTable.request.warn({
-          info: `[IpTable] Failure threshold (${IP_TABLE_SNI_FAILURE_THRESHOLD}) reached for ${domain}, but speed test is in cooldown (${remainingCooldown}s remaining)`,
+        defaultLogger.ipTable.request.info({
+          info: `[IpTable] Speed test not triggered: cooldown period (${remainingCooldown}s remaining)`,
         });
-        return;
+      } else {
+        defaultLogger.ipTable.request.info({
+          info: `[IpTable] Speed test not triggered: current endpoint not failing or threshold not reached`,
+        });
       }
-
-      defaultLogger.ipTable.request.error({
-        info: `[IpTable] Failure threshold (${IP_TABLE_SNI_FAILURE_THRESHOLD}) reached for ${domain}, triggering speed test and switching IP`,
-      });
-
-      // Update cooldown timestamp
-      this.speedTestCooldown.set(domain, now);
-
-      // Clear all failure counters for this domain
-      Array.from(this.failureCounter.keys()).forEach((k) => {
-        if (k.startsWith(`${domain}:`)) {
-          this.failureCounter.delete(k);
-        }
-      });
-
-      // Trigger speed test to find and switch to better IP
-      void this.selectBestEndpointForDomain(domain);
+      return;
     }
+
+    defaultLogger.ipTable.request.error({
+      info: `[IpTable] Current endpoint failure threshold reached for ${domain}, triggering speed test`,
+    });
+
+    // Update last speed test timestamp
+    stats.lastSpeedTestTime = now;
+
+    // Reset all consecutive failure counters for this domain (they'll be recounted after speed test)
+    stats.domainDirect.consecutiveFailures = 0;
+    stats.ipEndpoints.forEach((health) => {
+      health.consecutiveFailures = 0;
+    });
+
+    // Trigger speed test to find and switch to better endpoint
+    void this.selectBestEndpointForDomain(domain);
   }
 
   private scheduleSpeedTest(reason: string): void {
@@ -464,9 +657,9 @@ class ServiceIpTable extends ServiceBase {
       info: '[IpTable] Initializing service',
     });
 
-    // Register SNI failure callback
-    setReportSniFailureCallback((domain, ip) => {
-      void this.reportSniFailure(domain, ip);
+    // Register request failure callback (handles both IP and domain failures)
+    setReportRequestFailureCallback(({ domain, requestType, target }) => {
+      void this.reportRequestFailure(domain, requestType, target);
     });
 
     // Try to refresh CDN config if needed

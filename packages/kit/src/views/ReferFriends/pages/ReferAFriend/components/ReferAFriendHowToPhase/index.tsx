@@ -26,22 +26,22 @@ export function ReferAFriendHowToPhase({
       <Stack maxWidth={480} mx="auto" gap="$10" px="$5">
         <ReferralBenefitsList
           title={intl.formatMessage({
-            id: ETranslations.referral_intro_title_p2,
+            id: ETranslations.referral_intro_p2_title,
           })}
           subtitle={intl.formatMessage({
-            id: ETranslations.referral_intro_desc_p2,
+            id: ETranslations.referral_intro_p2_desc,
           })}
           benefits={[
             {
               icon: 'DollarOutline',
               text: intl.formatMessage({
-                id: ETranslations.referral_intro_desc_bullet1_p2,
+                id: ETranslations.referral_intro_p2_desc_bullet1,
               }),
             },
             {
               icon: 'GiftOutline',
               text: intl.formatMessage({
-                id: ETranslations.referral_intro_desc_bullet2_p2,
+                id: ETranslations.referral_intro_p2_desc_bullet2,
               }),
             },
           ]}

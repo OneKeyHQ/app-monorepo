@@ -9,6 +9,7 @@ import type {
   IEarnRewardResponse,
   IEarnWalletHistory,
   IExportInviteDataParams,
+  IHardwareCumulativeRewards,
   IHardwareSalesRecord,
   IInviteCodeItem,
   IInviteCodeListResponse,
@@ -21,6 +22,7 @@ import type {
 } from '@onekeyhq/shared/src/referralCode/type';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
+import type { IHyperLiquidSignatureRSV } from '@onekeyhq/shared/types/hyperliquid/webview';
 
 import ServiceBase from './ServiceBase';
 
@@ -212,6 +214,29 @@ class ServiceReferralCode extends ServiceBase {
     const response = await client.get<{
       data: IHardwareSalesRecord;
     }>('/rebate/v1/invite/records', { params });
+    return response.data.data;
+  }
+
+  @backgroundMethod()
+  async getHardwareCumulativeRewards(
+    inviteCode?: string,
+    timeRange?: EExportTimeRange,
+  ): Promise<IHardwareCumulativeRewards> {
+    const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Rebate);
+    const params: {
+      inviteCode?: string;
+      timeRange?: string;
+    } = {};
+    if (inviteCode) {
+      params.inviteCode = inviteCode;
+    }
+    if (timeRange) {
+      params.timeRange = timeRange;
+    }
+    const response = await client.get<{
+      data: IHardwareCumulativeRewards;
+    }>('/rebate/v1/invite/hardware-cumulative-rewards', { params });
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     return response.data.data;
   }
 
@@ -447,6 +472,43 @@ class ServiceReferralCode extends ServiceBase {
       accountId,
     });
     return result;
+  }
+
+  @backgroundMethod()
+  async bindPerpsWallet({
+    action,
+    nonce,
+    signature,
+    inviteCode,
+    referenceAddress,
+    signerAddress,
+  }: {
+    action: {
+      type: string;
+      signatureChainId: string;
+      hyperliquidChain: string;
+      agentAddress: string;
+      agentName: string;
+      nonce: number;
+    };
+    nonce: number;
+    signature: IHyperLiquidSignatureRSV;
+    inviteCode: string;
+    referenceAddress?: string;
+    signerAddress: string;
+  }): Promise<{ success: boolean }> {
+    const client = await this.getClient(EServiceEndpointEnum.Rebate);
+    const response = await client.post<{
+      data: { success: boolean };
+    }>('/rebate/v1/wallet/perps/bind-wallet', {
+      action,
+      nonce,
+      signature,
+      inviteCode,
+      referenceAddress,
+      signerAddress,
+    });
+    return response.data.data;
   }
 }
 

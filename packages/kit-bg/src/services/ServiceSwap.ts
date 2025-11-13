@@ -133,7 +133,7 @@ export default class ServiceSwap extends ServiceBase {
     typeof setTimeout
   > | null = null;
 
-  private perpDepositOrderFetchLoopIntervalTimeout = 2000;
+  private perpDepositOrderFetchLoopIntervalTimeout = 1000;
 
   private historyCurrentStateIntervalIds: string[] = [];
 
@@ -2440,7 +2440,7 @@ export default class ServiceSwap extends ServiceBase {
             });
             await perpsDepositOrderAtom.set((prev) => ({
               ...prev,
-              orders: [...filteredPerpDepositOrder, findTxidOrder],
+              orders: [...filteredPerpDepositOrder],
             }));
           } else if (
             data?.data.state === ESwapTxHistoryStatus.FAILED ||
@@ -2466,7 +2466,7 @@ export default class ServiceSwap extends ServiceBase {
             });
             await perpsDepositOrderAtom.set((prev) => ({
               ...prev,
-              orders: [...filteredPerpDepositOrder, findTxidOrder],
+              orders: [...filteredPerpDepositOrder],
             }));
           }
         }

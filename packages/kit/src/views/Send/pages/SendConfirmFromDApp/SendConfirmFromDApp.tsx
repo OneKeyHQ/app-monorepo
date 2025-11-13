@@ -62,7 +62,7 @@ function SendConfirmFromDApp() {
       isNavigateNewPageRef.current = true;
       const timerId = setTimeout(() => {
         dappApprove.reject();
-      }, 1200);
+      }, 5000);
       appEventBus.once(
         EAppEventBusNames.SignatureConfirmContainerMounted,
         () => {

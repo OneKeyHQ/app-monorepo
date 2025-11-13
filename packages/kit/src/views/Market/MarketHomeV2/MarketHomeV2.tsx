@@ -32,9 +32,10 @@ function MarketHome() {
   const { handleTabChange } = useTabAnalytics();
   const { handleNetworkChange } = useNetworkAnalytics(selectedNetworkId);
 
-  // Update selectedNetworkId when config loads and it's still the default
+  // Initialize with the default network from API config (only when not yet initialized)
   useEffect(() => {
-    if (defaultNetworkId && selectedNetworkId === 'sol--101') {
+    // Only initialize if selectedNetworkId is empty (not yet set)
+    if (defaultNetworkId && !selectedNetworkId) {
       setSelectedNetworkId(defaultNetworkId);
     }
   }, [defaultNetworkId, selectedNetworkId, setSelectedNetworkId]);
