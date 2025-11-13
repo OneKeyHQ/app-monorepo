@@ -1791,6 +1791,7 @@
   id_refer_a_friend = 'id.refer_a_friend',
   id_refer_a_friend_desc = 'id.refer_a_friend_desc',
   identical_name_asset_alert = 'identical_name_asset_alert',
+  import_hardware_phrases_warning = 'import_hardware_phrases_warning',
   import_phrase_or_private_key = 'import_phrase_or_private_key',
   insufficient_fee_append_desc = 'insufficient_fee_append_desc',
   interact_with_contract = 'interact_with_contract',
