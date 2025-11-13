@@ -45,6 +45,7 @@ function TabHeader({
         borderBottomWidth={activeTab === 'Trades' ? '$0.5' : '$0'}
         borderBottomColor="$borderActive"
         onPress={() => onTabChange('Trades')}
+        mb={-2}
       >
         <SizableText size="$headingXs">
           {intl.formatMessage({ id: ETranslations.perp_trades_history_title })}
@@ -56,6 +57,7 @@ function TabHeader({
         borderBottomWidth={activeTab === 'Account' ? '$0.5' : '$0'}
         borderBottomColor="$borderActive"
         onPress={() => onTabChange('Account')}
+        mb={-2}
       >
         <SizableText size="$headingXs">
           {intl.formatMessage({ id: ETranslations.perp_account_history })}

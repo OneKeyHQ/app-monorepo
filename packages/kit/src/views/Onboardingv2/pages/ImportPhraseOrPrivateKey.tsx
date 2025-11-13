@@ -1,8 +1,10 @@
-import type { RefObject } from 'react';
-import { useRef, useState } from 'react';
+import type { ReactNode, RefObject } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
+import { useRoute } from '@react-navigation/core';
 import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 import Animated, {
   useAnimatedReaction,
   useSharedValue,
@@ -11,20 +13,25 @@ import Animated, {
 import {
   Button,
   HeightTransition,
+  Icon,
   Input,
   Page,
   Portal,
   SegmentControl,
+  SizableText,
   TextAreaInput,
   XStack,
   YStack,
-  useClipboard,
   useMedia,
   useReanimatedKeyboardAnimation,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes';
-import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes';
+import {
+  EOnboardingPagesV2,
+  EOnboardingV2ImportPhraseOrPrivateKeyTab,
+} from '@onekeyhq/shared/src/routes';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
@@ -35,16 +42,21 @@ import { OnboardingLayout } from '../components/OnboardingLayout';
 import { PhaseInputArea } from '../components/PhaseInputArea';
 
 import type { IPhaseInputAreaInstance } from '../components/PhaseInputArea';
+import type { RouteProp } from '@react-navigation/core';
 
 export default function ImportPhraseOrPrivateKey() {
   const navigation = useAppNavigation();
-  const route = useAppRoute<
-    IOnboardingParamListV2,
-    EOnboardingPagesV2.ImportPhraseOrPrivateKey
-  >();
-  const [selected, setSelected] = useState<'phrase' | 'privateKey'>(
-    route?.params?.defaultTab || 'phrase',
-  );
+  const routeParams =
+    useRoute<
+      RouteProp<
+        IOnboardingParamListV2,
+        EOnboardingPagesV2.ImportPhraseOrPrivateKey
+      >
+    >();
+  const { defaultTab = EOnboardingV2ImportPhraseOrPrivateKeyTab.Phrase } =
+    routeParams.params || {};
+  const [selected, setSelected] =
+    useState<EOnboardingV2ImportPhraseOrPrivateKeyTab>(defaultTab);
   const { gtMd } = useMedia();
   const phaseInputAreaRef = useRef<IPhaseInputAreaInstance | null>(null);
   const [isConfirming, setIsConfirming] = useState(false);
@@ -52,7 +64,7 @@ export default function ImportPhraseOrPrivateKey() {
   const [privateKey, setPrivateKey] = useState('');
 
   const handleConfirm = async () => {
-    if (selected === 'phrase') {
+    if (selected === EOnboardingV2ImportPhraseOrPrivateKeyTab.Phrase) {
       const timerId = setTimeout(() => {
         setIsConfirming(false);
       }, 500);
@@ -86,14 +98,14 @@ export default function ImportPhraseOrPrivateKey() {
         {
           input,
           detectedNetworks: results.detectedNetworks,
-          importType: 'privateKey',
+          importType: EOnboardingV2ImportPhraseOrPrivateKeyTab.PrivateKey,
         };
       navigation.push(EOnboardingPagesV2.SelectPrivateKeyNetwork, params);
       setPrivateKey('');
     }
   };
 
-  const { height } = useReanimatedKeyboardAnimation?.() || { height: 0 };
+  const { height } = useReanimatedKeyboardAnimation();
   const keyboardHeight = useSharedValue<number>(0);
 
   useAnimatedReaction(
@@ -102,6 +114,29 @@ export default function ImportPhraseOrPrivateKey() {
       const v = Math.abs(value);
       keyboardHeight.value = v;
     },
+  );
+
+  const renderHardwarePhrasesWarningTag = useCallback(
+    (chunks: ReactNode[]) => (
+      <SizableText
+        onPress={() => navigation.push(EOnboardingPagesV2.PickYourDevice)}
+        color="$textCautionStrong"
+        size="$bodyMdMedium"
+        hitSlop={{
+          top: 8,
+          left: 8,
+          right: 8,
+          bottom: 8,
+        }}
+        cursor="default"
+        hoverStyle={{
+          color: '$textCaution',
+        }}
+      >
+        {chunks}
+      </SizableText>
+    ),
+    [navigation],
   );
 
   const { start: startScanQrCode } = useScanQrCode();
@@ -124,25 +159,57 @@ export default function ImportPhraseOrPrivateKey() {
                   label: intl.formatMessage({
                     id: ETranslations.global_recovery_phrase,
                   }),
-                  value: 'phrase',
+                  value: EOnboardingV2ImportPhraseOrPrivateKeyTab.Phrase,
                 },
                 {
                   label: intl.formatMessage({
                     id: ETranslations.global_private_key,
                   }),
-                  value: 'privateKey',
+                  value: EOnboardingV2ImportPhraseOrPrivateKeyTab.PrivateKey,
                 },
               ]}
               onChange={(value) =>
-                setSelected(value as 'phrase' | 'privateKey')
+                setSelected(value as EOnboardingV2ImportPhraseOrPrivateKeyTab)
               }
             />
             <HeightTransition>
-              {selected === 'phrase' ? (
-                <PhaseInputArea
-                  ref={phaseInputAreaRef as RefObject<IPhaseInputAreaInstance>}
-                  defaultPhrases={[]}
-                />
+              {selected === EOnboardingV2ImportPhraseOrPrivateKeyTab.Phrase ? (
+                <YStack gap="$3">
+                  <XStack
+                    px="$2"
+                    py="$1"
+                    borderWidth={StyleSheet.hairlineWidth}
+                    borderColor="$borderCautionSubdued"
+                    borderRadius="$3"
+                    borderCurve="continuous"
+                    bg="$bgCautionSubdued"
+                    gap="$2"
+                  >
+                    <YStack flexShrink={0} py={2}>
+                      <Icon
+                        name="ErrorOutline"
+                        size="$4"
+                        color="$iconCaution"
+                      />
+                    </YStack>
+                    <SizableText color="$textCaution" flex={1}>
+                      {intl.formatMessage(
+                        {
+                          id: ETranslations.import_hardware_phrases_warning,
+                        },
+                        {
+                          tag: renderHardwarePhrasesWarningTag,
+                        },
+                      )}
+                    </SizableText>
+                  </XStack>
+                  <PhaseInputArea
+                    ref={
+                      phaseInputAreaRef as RefObject<IPhaseInputAreaInstance>
+                    }
+                    defaultPhrases={[]}
+                  />
+                </YStack>
               ) : (
                 <YStack
                   key="privateKey"
@@ -199,11 +266,13 @@ export default function ImportPhraseOrPrivateKey() {
                     pt="$5"
                   >
                     <YStack w="100%">
-                      <XStack onPress={noop}>
-                        <Portal.Container
-                          name={Portal.Constant.SUGGESTION_LIST}
-                        />
-                      </XStack>
+                      {platformEnv.isNative ? (
+                        <XStack onPress={noop}>
+                          <Portal.Container
+                            name={Portal.Constant.SUGGESTION_LIST}
+                          />
+                        </XStack>
+                      ) : null}
                       <Button
                         size="large"
                         variant="primary"

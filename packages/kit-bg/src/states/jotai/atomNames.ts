@@ -82,6 +82,8 @@ export enum EAtomNames {
   perpsWebSocketDataUpdateTimesAtom = 'perpsWebSocketDataUpdateTimesAtom',
   perpTokenSortConfigPersistAtom = 'perpTokenSortConfigPersistAtom',
   perpsDepositOrderAtom = 'perpsDepositOrderAtom',
+  perpsLastUsedLeverageAtom = 'perpsLastUsedLeverageAtom',
+  perpsUserFillsCacheAtom = 'perpsUserFillsCacheAtom',
 }
 export type IAtomNameKeys = keyof typeof EAtomNames;
 export const atomsConfig: Partial<

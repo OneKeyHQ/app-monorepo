@@ -1,16 +1,8 @@
 import { useCallback } from 'react';
 
-import { rootNavigationRef } from '@onekeyhq/components';
 import { ensureSensitiveTextEncoded } from '@onekeyhq/core/src/secret';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import {
-  EModalKeyTagRoutes,
-  EModalRoutes,
-  EOnboardingPagesV2,
-  EOnboardingV2Routes,
-  ERootRoutes,
-} from '@onekeyhq/shared/src/routes';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { EModalKeyTagRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
@@ -19,12 +11,12 @@ import { useCloudBackup } from '../views/Onboardingv2/hooks/useCloudBackup';
 
 import { useAccountData } from './useAccountData';
 import useAppNavigation from './useAppNavigation';
+import { navigateToBackupWalletReminderPage } from './usePageNavigation';
 
 function useBackUpWallet({ walletId }: { walletId: string }) {
   const { wallet } = useAccountData({ walletId });
 
   const navigation = useAppNavigation();
-
   const liteCard = useLiteCard();
 
   const { supportCloudBackup, startBackup } = useCloudBackup();
@@ -40,27 +32,13 @@ function useBackUpWallet({ walletId }: { walletId: string }) {
       });
     if (mnemonic) ensureSensitiveTextEncoded(mnemonic);
 
-    const state = rootNavigationRef.current?.getRootState();
-    if (state && state.routes.length > 0) {
-      const currentRoute = state.routes[state.index];
-      if (currentRoute.name === ERootRoutes.Modal) {
-        navigation.popStack();
-      }
-      await timerUtils.wait(250);
-      navigation.navigate(ERootRoutes.Onboarding, {
-        screen: EOnboardingV2Routes.OnboardingV2,
-        params: {
-          screen: EOnboardingPagesV2.BackupWalletReminder,
-          params: {
-            mnemonic,
-            isWalletBackedUp: wallet.backuped,
-            walletId: wallet.id,
-          },
-        },
-      });
-    }
+    await navigateToBackupWalletReminderPage({
+      walletId: wallet?.id ?? '',
+      isWalletBackedUp: wallet?.backuped ?? false,
+      mnemonic,
+    });
     defaultLogger.account.wallet.backupWallet('manualBackup');
-  }, [navigation, wallet?.backuped, wallet?.id]);
+  }, [wallet?.backuped, wallet?.id]);
 
   const handleBackUpByLiteCard = useCallback(async () => {
     await liteCard.backupWallet(wallet?.id);

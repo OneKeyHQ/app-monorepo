@@ -341,7 +341,7 @@ function useDeviceConnection({
       if (!item.device) {
         return;
       }
-      await ensureStopScan();
+      void ensureStopScan();
       if (onDeviceSelect) {
         await onDeviceSelect(item);
       }
@@ -680,10 +680,6 @@ function DeviceVideo({
   themeVariant: 'light' | 'dark';
   deviceTypeItems: EDeviceType[];
 }) {
-  const isPro = useMemo(() => {
-    return deviceTypeItems.find((deviceType) => deviceType === EDeviceType.Pro);
-  }, [deviceTypeItems]);
-
   const isTouch = useMemo(() => {
     return deviceTypeItems.find(
       (deviceType) => deviceType === EDeviceType.Touch,
@@ -768,16 +764,11 @@ function USBOrBLEConnectionIndicator({
     connectStatus,
     setConnectStatus,
     devicesData,
-    isCheckingDeviceLoading,
     setIsChecking,
     scanDevice,
     stopScan,
     handleDeviceSelect,
   } = deviceConnection;
-
-  const isUSB = useMemo(() => {
-    return hardwareTransportType === EHardwareTransportType.WEBUSB;
-  }, [hardwareTransportType]);
 
   const isBLE = useMemo(() => {
     return hardwareTransportType === EHardwareTransportType.BLE;
@@ -877,16 +868,20 @@ function USBOrBLEConnectionIndicator({
 
   useEffect(() => {
     if (
-      platformEnv.isNative ||
-      (hardwareTransportType === EHardwareTransportType.WEBUSB &&
-        !platformEnv.isDesktop)
+      hardwareTransportType === EHardwareTransportType.WEBUSB &&
+      !platformEnv.isDesktop
     ) {
       return;
     }
-    void (async () => {
-      void listingDevice();
-    })();
-  }, [listingDevice, hardwareTransportType, tabValue]);
+
+    const timeoutId = setTimeout(
+      () => {
+        void (platformEnv.isNative ? startBLEConnection() : listingDevice());
+      },
+      platformEnv.isNative ? 120 : 0,
+    );
+    return () => clearTimeout(timeoutId);
+  }, [listingDevice, hardwareTransportType, tabValue, startBLEConnection]);
 
   useEffect(
     () => () => {

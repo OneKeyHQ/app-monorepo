@@ -50,7 +50,13 @@ function HomeHeaderContainer() {
         )}
       </Stack>
       {isWalletNotBackedUp ? null : <WalletBanner />}
-      <YStack $gtMd={{ flexDirection: 'row' }} gap="$5" p="$5" bg="$bgApp">
+      <YStack
+        $gtMd={{ flexDirection: 'row' }}
+        gap="$5"
+        p="$5"
+        bg="$bgApp"
+        pointerEvents="box-none"
+      >
         {isWalletNotBackedUp ? null : <ReceiveInfo closable />}
         {isWalletNotBackedUp ? null : <ReferralCodeBlock closable />}
       </YStack>

@@ -321,6 +321,7 @@ function ReferralCodeBlock({
           bg: '$blue1',
           minHeight: 256,
           $gtMd: { flexBasis: 0, flexShrink: 1, flexGrow: 1 },
+          pointerEvents: 'box-none',
           ...containerProps,
         }}
         actions={
