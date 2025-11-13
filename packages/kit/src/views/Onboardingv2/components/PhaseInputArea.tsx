@@ -14,6 +14,7 @@ import {
 } from 'react';
 
 import { compact, range } from 'lodash';
+import { useWatch } from 'react-hook-form';
 import { useIntl } from 'react-intl';
 import { View } from 'react-native';
 
@@ -573,10 +574,10 @@ export function PhaseInputArea({
 
   const { isVisible } = useKeyboardState?.() || { isVisible: true };
 
-  const formValues = form.watch();
+  const watched = useWatch({ control: form.control });
   const hasFilledPhrases = useMemo(
-    () => compact(Object.values(formValues)).length > 0,
-    [formValues],
+    () => compact(Object.values(watched)).length > 0,
+    [watched],
   );
 
   return (
