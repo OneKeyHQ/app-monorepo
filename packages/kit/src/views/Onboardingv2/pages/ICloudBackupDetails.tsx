@@ -104,7 +104,9 @@ export default function ICloudBackupDetails({
   }, [backupData?.publicData?.dataTime]);
 
   const handleImport = useCallback(async () => {
-    doRestoreBackup({ payload: backupData as IBackupDataEncryptedPayload });
+    await doRestoreBackup({
+      payload: backupData as IBackupDataEncryptedPayload,
+    });
   }, [backupData, doRestoreBackup]);
 
   const handleBackup = useCallback(async () => {
@@ -216,7 +218,7 @@ export default function ICloudBackupDetails({
                   {intl.formatMessage({ id: ETranslations.backup_backup_now })}
                 </Button>
                 <Button
-                  isLoading={checkLoading}
+                  loading={checkLoading}
                   size="large"
                   onPress={async () => {
                     await goToPageBackupList();
@@ -231,7 +233,7 @@ export default function ICloudBackupDetails({
             {actionType === 'restore' ? (
               <>
                 <Button
-                  isLoading={checkLoading}
+                  loading={checkLoading}
                   disabled={isButtonDisabled}
                   flex={1}
                   variant="primary"
@@ -241,7 +243,7 @@ export default function ICloudBackupDetails({
                   {intl.formatMessage({ id: ETranslations.global_import })}
                 </Button>
                 <Button
-                  isLoading={checkLoading}
+                  loading={checkLoading}
                   disabled={!route.params?.backupId}
                   size="large"
                   onPress={async () => {
