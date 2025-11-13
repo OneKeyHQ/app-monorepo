@@ -818,6 +818,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     swapSupportAllNetworks: ISwapNetwork[],
     fromToken: ISwapToken,
     addressInfo: ReturnType<typeof useSwapAddressInfo>,
+    directionType: ESwapDirectionType,
   ) => {
     const netInfo = swapSupportAllNetworks.find(
       (net) => net.networkId === fromToken.networkId,
@@ -858,6 +859,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         actionLabel: appLocale.intl.formatMessage({
           id: ETranslations.global_create,
         }),
+        directionType,
         actionData: {
           num: 0,
           key,
@@ -971,6 +973,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           swapSupportAllNetworks,
           fromToken,
           swapFromAddressInfo,
+          ESwapDirectionType.FROM,
         );
         alertsRes = [...alertsRes, alertAction];
       }
@@ -993,6 +996,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
             swapSupportAllNetworks,
             toToken,
             swapToAddressInfo,
+            ESwapDirectionType.TO,
           );
           alertsRes = [...alertsRes, alertAction];
         }
@@ -1298,15 +1302,19 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           !networkUtils.isAllNetwork({ networkId: token?.networkId })
         ) {
           const toAccountInfos =
-            await backgroundApiProxy.serviceStaking.getEarnAccount({
-              accountId: swapAddressInfo.accountInfo?.account?.id ?? '',
-              networkId: token.networkId,
+            await backgroundApiProxy.serviceAccount.getNetworkAccount({
+              deriveType: swapAddressInfo.accountInfo?.deriveType ?? 'default',
               indexedAccountId: swapAddressInfo.accountInfo?.indexedAccount?.id,
+              accountId: swapAddressInfo.accountInfo?.indexedAccount?.id
+                ? undefined
+                : swapAddressInfo.accountInfo?.account?.id ?? '',
+              dbAccount: swapAddressInfo.accountInfo?.dbAccount,
+              networkId: token.networkId,
             });
           if (toAccountInfos) {
-            accountAddress = toAccountInfos.accountAddress;
-            accountNetworkId = toAccountInfos.networkId;
-            accountId = toAccountInfos.accountId;
+            accountAddress = toAccountInfos.addressDetail?.address;
+            accountNetworkId = toAccountInfos.addressDetail?.networkId;
+            accountId = toAccountInfos.id;
           }
         }
       } else {

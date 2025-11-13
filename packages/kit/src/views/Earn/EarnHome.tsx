@@ -666,25 +666,26 @@ function EarnBlockedOverview(props: {
         />
       ) : null}
       <Page.Body>
-        <Empty
-          display={showContent ? undefined : 'none'}
-          icon={icon}
-          title={title}
-          description={description}
-          button={
-            <Button
-              mt="$6"
-              size="medium"
-              variant="primary"
-              onPress={refresh}
-              loading={refreshing}
-            >
-              {intl.formatMessage({
-                id: ETranslations.global_refresh,
-              })}
-            </Button>
-          }
-        />
+        {showContent ? (
+          <Empty
+            icon={icon}
+            title={title}
+            description={description}
+            button={
+              <Button
+                mt="$6"
+                size="medium"
+                variant="primary"
+                onPress={refresh}
+                loading={refreshing}
+              >
+                {intl.formatMessage({
+                  id: ETranslations.global_refresh,
+                })}
+              </Button>
+            }
+          />
+        ) : null}
       </Page.Body>
     </Page>
   );

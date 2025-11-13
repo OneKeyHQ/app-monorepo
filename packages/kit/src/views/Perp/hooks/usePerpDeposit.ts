@@ -97,6 +97,7 @@ const usePerpDeposit = (
   selectedAccountId?: string,
   token?: IPerpsDepositToken,
   checkFromTokenFiatValue?: boolean,
+  isAvailableBalance?: boolean,
 ) => {
   const [perpDepositQuote, setPerpDepositQuote] = useState<
     IPerpDepositQuoteResponse | undefined
@@ -112,27 +113,31 @@ const usePerpDeposit = (
       fromToken,
       fromTxId,
       isArbUSDCOrder,
+      skipToast,
     }: {
       fromAmount: string;
       toAmount: string;
       fromToken: IPerpsDepositToken;
       fromTxId: string;
       isArbUSDCOrder: boolean;
+      skipToast?: boolean;
     }) => {
-      Toast.success({
-        title: intl.formatMessage({
-          id: ETranslations.feedback_transaction_submitted,
-        }),
-        message: intl.formatMessage(
-          {
-            id: ETranslations.perp_toast_deposit_success_msg,
-          },
-          {
-            amount: fromAmount,
-            token: fromToken?.symbol,
-          },
-        ),
-      });
+      if (!skipToast) {
+        Toast.success({
+          title: intl.formatMessage({
+            id: ETranslations.feedback_transaction_submitted,
+          }),
+          message: intl.formatMessage(
+            {
+              id: ETranslations.perp_toast_deposit_success_msg,
+            },
+            {
+              amount: fromAmount,
+              token: fromToken?.symbol,
+            },
+          ),
+        });
+      }
       const time = Date.now();
       setPerpDepositOrder((prev) => {
         return {
@@ -280,8 +285,14 @@ const usePerpDeposit = (
   ]);
 
   useEffect(() => {
-    void perpDepositQuoteAction();
-  }, [perpDepositQuoteAction]);
+    if (isAvailableBalance) {
+      void backgroundApiProxy.serviceSwap.cancelFetchPerpDepositQuote();
+      setPerpDepositQuoteLoading(false);
+      setPerpDepositQuote(undefined);
+    } else {
+      void perpDepositQuoteAction();
+    }
+  }, [perpDepositQuoteAction, isAvailableBalance]);
 
   const buildQuoteRes = useCallback(
     async (buildSwapResponse: IPerpDepositQuoteResponse) => {
