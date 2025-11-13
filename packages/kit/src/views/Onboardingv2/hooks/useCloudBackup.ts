@@ -181,23 +181,72 @@ export function useCloudBackup() {
 
   const doBackup = useCallback(
     async ({ data }: { data: IPrimeTransferData }) => {
-      showCloudBackupPasswordDialog({
-        onSubmit: async (password: string) => {
-          const isAvailable = await checkIsAvailable();
-          await timerUtils.wait(1000);
-          if (isAvailable) {
-            const _result =
-              await backgroundApiProxy.serviceCloudBackupV2.backup({
-                password,
-                data,
-              });
-            Toast.success({
-              title: 'Backup done!',
-            });
-            navigation.pop();
-          }
-        },
-      });
+      const isAvailable = await checkIsAvailable();
+      if (!isAvailable) {
+        return;
+      }
+      const backupFn = async (password: string) => {
+        const result = await backgroundApiProxy.serviceCloudBackupV2.backup({
+          password,
+          data,
+        });
+        // Dialog.debugMessage({
+        //   debugMessage: (_result as unknown as { meta: string })?.meta,
+        // });
+        if (result?.recordID) {
+          Toast.success({
+            // TODO: franco
+            title: 'Backup done!',
+          });
+          navigation.pop();
+        }
+      };
+      try {
+        setCheckLoading(true);
+        const isPasswordSet =
+          await backgroundApiProxy.serviceCloudBackupV2.isBackupPasswordSet();
+        const resetPasswordAndBackup = async () => {
+          showCloudBackupPasswordDialog({
+            showConfirmPasswordField: true,
+            onSubmit: async (password: string) => {
+              const result =
+                await backgroundApiProxy.serviceCloudBackupV2.setBackupPassword(
+                  {
+                    password,
+                  },
+                );
+              if (result?.recordID) {
+                await backupFn(password);
+              }
+            },
+          });
+        };
+        if (!isPasswordSet) {
+          await resetPasswordAndBackup();
+        } else {
+          const verifyPasswordDialog = showCloudBackupPasswordDialog({
+            showConfirmPasswordField: false,
+            showForgotPasswordButton: true,
+            onSubmit: async (password: string) => {
+              const result =
+                await backgroundApiProxy.serviceCloudBackupV2.verifyBackupPassword(
+                  {
+                    password,
+                  },
+                );
+              if (result === true) {
+                await backupFn(password);
+              }
+            },
+            onPressForgotPassword: async () => {
+              await verifyPasswordDialog.close();
+              void resetPasswordAndBackup();
+            },
+          });
+        }
+      } finally {
+        setCheckLoading(false);
+      }
     },
     [checkIsAvailable, navigation],
   );

@@ -10,12 +10,16 @@ import {
   Icon,
   Page,
   SizableText,
+  Toast,
   YStack,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import type { IBackupDataManifestItem } from '@onekeyhq/kit-bg/src/services/ServiceCloudBackupV2/backupProviders/IOneKeyBackupProvider';
-import { useOnboardingCloudBackupListRefreshAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  onboardingCloudBackupListRefreshAtom,
+  useOnboardingCloudBackupListRefreshAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes';
@@ -24,10 +28,131 @@ import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { MultipleClickStack } from '../../../components/MultipleClickStack';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
-import CloudBackupEmptyView from '../components/CloudBackupEmptyView';
+import { showCloudBackupPasswordDialog } from '../components/CloudBackupDialogs';
+import { CloudBackupListEmptyView } from '../components/CloudBackupEmptyView';
 import { CloudBackupLoadingSkeleton } from '../components/CloudBackupLoadingSkeleton';
 import { OnboardingLayout } from '../components/OnboardingLayout';
+
+function DebugPanel() {
+  return (
+    <YStack gap="$2">
+      <Button
+        onPress={async () =>
+          Dialog.debugMessage({
+            debugMessage:
+              await backgroundApiProxy.serviceCloudBackupV2.isBackupPasswordSet(),
+          })
+        }
+      >
+        isBackupPasswordSet
+      </Button>
+      <Button
+        onPress={async () =>
+          showCloudBackupPasswordDialog({
+            onSubmit: async (password) => {
+              const result =
+                await backgroundApiProxy.serviceCloudBackupV2.verifyBackupPassword(
+                  {
+                    password,
+                  },
+                );
+              Dialog.debugMessage({
+                debugMessage: result,
+              });
+            },
+          })
+        }
+      >
+        verifyBackupPassword
+      </Button>
+      <Button
+        onPress={async () => {
+          showCloudBackupPasswordDialog({
+            onSubmit: async (password) => {
+              const result =
+                await backgroundApiProxy.serviceCloudBackupV2.setBackupPassword(
+                  {
+                    password,
+                  },
+                );
+              Dialog.debugMessage({
+                debugMessage: result,
+              });
+            },
+          });
+        }}
+      >
+        setBackupPassword
+      </Button>
+
+      <Button
+        onPress={async () =>
+          Dialog.debugMessage({
+            debugMessage:
+              await backgroundApiProxy.serviceCloudBackupV2.getAllBackups(),
+          })
+        }
+      >
+        getAllBackups
+      </Button>
+      <Button
+        onPress={async () =>
+          Dialog.debugMessage({
+            debugMessage:
+              await backgroundApiProxy.serviceCloudBackupV2.iOSQueryAllRecords(),
+          })
+        }
+      >
+        iOSQueryAllRecords
+      </Button>
+      <Button
+        variant="destructive"
+        onPress={async () => {
+          const data =
+            await backgroundApiProxy.serviceCloudBackupV2.getAllBackups();
+          const items = data?.items ?? [];
+          if (!items.length) {
+            Toast.success({
+              title: 'No backups to delete',
+            });
+            return;
+          }
+          Dialog.show({
+            icon: 'DeleteOutline',
+            tone: 'destructive',
+            title: 'Delete all backups?',
+            description:
+              "This will permanently delete all backups from iCloud. Make sure you've saved Recovery phrases, otherwise you won't be able to restore the wallets.",
+            onConfirmText: 'Delete',
+            confirmButtonProps: {
+              variant: 'destructive',
+            },
+            onCancelText: 'Cancel',
+            onConfirm: async () => {
+              for (const item of items) {
+                try {
+                  await backgroundApiProxy.serviceCloudBackupV2.delete({
+                    recordId: item.recordID,
+                  });
+                } catch (e) {
+                  // continue deleting other items; errors are already toasted by @toastIfError
+                }
+              }
+              await onboardingCloudBackupListRefreshAtom.set((v) => v + 1);
+              Toast.success({
+                title: 'All backups deleted',
+              });
+            },
+          });
+        }}
+      >
+        Remove All Backups
+      </Button>
+    </YStack>
+  );
+}
 
 export default function ICloudBackup() {
   const navigation = useAppNavigation();
@@ -65,7 +190,7 @@ export default function ICloudBackup() {
     }
 
     if (allBackups?.items?.length === 0) {
-      return <CloudBackupEmptyView />;
+      return <CloudBackupListEmptyView />;
     }
 
     return (
@@ -126,16 +251,11 @@ export default function ICloudBackup() {
             <Icon name="ChevronRightSmallOutline" color="$iconDisabled" />
           </ListItem>
         ))}
-        {/* <SizableText size="$bodySm" color="$textSubdued" px="$3">
-          {intl.formatMessage({
-            id: ETranslations.backup_securely_store_recent_backups,
-          })}
-        </SizableText> */}
-        <Button
-          onPress={() => Dialog.debugMessage({ debugMessage: allBackups })}
-        >
-          ShowDebugMessage
-        </Button>
+        <SizableText size="$bodySm" color="$textSubdued" px="$3">
+          We'll securely store your most recent 30 daily backups plus the last
+          monthly backup for each of the past 24 months, ready for restoration
+          at any time.
+        </SizableText>
       </>
     );
   };
@@ -152,7 +272,14 @@ export default function ICloudBackup() {
                 })
           }
         />
-        <OnboardingLayout.Body>{renderContent()}</OnboardingLayout.Body>
+        <OnboardingLayout.Body>
+          {renderContent()}
+          <MultipleClickStack
+            h="$10"
+            showDevBgColor
+            debugComponent={<DebugPanel />}
+          />
+        </OnboardingLayout.Body>
       </OnboardingLayout>
     </Page>
   );

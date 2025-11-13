@@ -10,6 +10,7 @@ import {
   Icon,
   Page,
   SizableText,
+  Stack,
   Toast,
   XStack,
   YStack,
@@ -30,8 +31,9 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IPrimeTransferData } from '@onekeyhq/shared/types/prime/primeTransferTypes';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { MultipleClickStack } from '../../../components/MultipleClickStack';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
-import CloudBackupEmptyView from '../components/CloudBackupEmptyView';
+import { CloudBackupDetailsEmptyView } from '../components/CloudBackupEmptyView';
 import { CloudBackupLoadingSkeleton } from '../components/CloudBackupLoadingSkeleton';
 import { OnboardingLayout } from '../components/OnboardingLayout';
 import { useCloudBackup } from '../hooks/useCloudBackup';
@@ -78,8 +80,13 @@ export default function ICloudBackupDetails({
   const backupTime = route.params?.backupTime;
   const actionType = route.params?.actionType;
   const navigation = useAppNavigation();
-  const { doBackup, doDeleteBackup, doRestoreBackup, checkLoading } =
-    useCloudBackup();
+  const {
+    doBackup,
+    doDeleteBackup,
+    doRestoreBackup,
+    checkLoading,
+    goToPageBackupList,
+  } = useCloudBackup();
 
   const { result: backupData, isLoading: fetchLoading } = usePromiseResult<
     IPrimeTransferData | IBackupDataEncryptedPayload | undefined
@@ -143,7 +150,7 @@ export default function ICloudBackupDetails({
       return <CloudBackupLoadingSkeleton />;
     }
     if (walletData.length === 0) {
-      return <CloudBackupEmptyView />;
+      return <CloudBackupDetailsEmptyView />;
     }
     return walletData.map((item, index) => (
       <ListItem
@@ -203,35 +210,51 @@ export default function ICloudBackupDetails({
       <OnboardingLayout>
         <OnboardingLayout.Header title={formattedDate} />
         <OnboardingLayout.Body>
-          <YStack gap="$3">{renderContent()}</YStack>
+          <YStack gap="$3">
+            {renderContent()}
+            <MultipleClickStack
+              h="$10"
+              showDevBgColor
+              debugComponent={
+                <Stack>
+                  <Button
+                    onPress={async () => {
+                      Dialog.debugMessage({
+                        debugMessage: backupData,
+                      });
+                    }}
+                  >
+                    backupData
+                  </Button>
+                </Stack>
+              }
+            />
+          </YStack>
         </OnboardingLayout.Body>
         <OnboardingLayout.Footer>
           <XStack gap="$3" w="100%" py="$3">
             {actionType === 'backup' ? (
               <>
                 <Button
-                  isLoading={checkLoading}
+                  loading={checkLoading}
                   disabled={isButtonDisabled}
                   flex={1}
                   variant="primary"
                   size="large"
                   onPress={handleBackup}
                 >
-                  {intl.formatMessage({ id: ETranslations.global_backup })}
+                  {intl.formatMessage({ id: ETranslations.backup_backup_now })}
                 </Button>
+                {/* TODO: franco 提供备份列表页面，用于备份失败时（例如云盘空间不足），用户可以手动删除备份释放空间 */}
                 <Button
                   isLoading={checkLoading}
                   size="large"
                   onPress={async () => {
-                    const data =
-                      await backgroundApiProxy.serviceCloudBackupV2.getAllBackups();
-                    Dialog.debugMessage({
-                      debugMessage: data,
-                    });
+                    await goToPageBackupList();
                   }}
                   childrenAsText={false}
                 >
-                  <Icon name="MenuOutline" />
+                  <Icon name="SettingsOutline" />
                 </Button>
               </>
             ) : null}

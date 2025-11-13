@@ -16,6 +16,7 @@ import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
   dangerAggregateTokenNetworkRepresent,
   getPresetNetworks,
+  presetNetworksMap,
 } from '@onekeyhq/shared/src/config/presetNetworks';
 import {
   AGGREGATE_TOKEN_MOCK_NETWORK_ID,
@@ -1004,9 +1005,20 @@ class ServiceNetwork extends ServiceBase {
     let results = Object.values(groupedByImpl);
     results = results
       .map((item) => {
-        item.networks = item.networks.filter((network) =>
-          availableNetworkIds.includes(network.networkId),
-        );
+        item.networks = item.networks
+          .filter((network) => availableNetworkIds.includes(network.networkId))
+          .sort((a, b) => {
+            if (
+              [
+                presetNetworksMap.eth.id,
+                presetNetworksMap.cosmoshub.id,
+                presetNetworksMap.assethubPolkadot.id,
+              ].includes(a.networkId)
+            ) {
+              return -1;
+            }
+            return 0;
+          });
         if (item.networks?.length === 0) {
           // return item;
           return undefined;
