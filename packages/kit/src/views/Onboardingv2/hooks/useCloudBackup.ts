@@ -35,6 +35,23 @@ export function useCloudBackup() {
     return backgroundApiProxy.serviceCloudBackupV2.supportCloudBackup();
   }, []);
 
+  const { result: cloudBackupFeatureInfo } = usePromiseResult(async () => {
+    if (!supportCloudBackup) {
+      return null;
+    }
+    const info =
+      await backgroundApiProxy.serviceCloudBackupV2.getBackupProviderInfo();
+    return {
+      supportCloudBackup,
+      icon: 'CloudOutline',
+      title: info.displayNameI18nKey
+        ? intl.formatMessage({
+            id: info.displayNameI18nKey as any,
+          })
+        : info.displayName,
+    };
+  }, [intl, supportCloudBackup]);
+
   const checkIsAvailable = useCallback(async (): Promise<boolean> => {
     try {
       setCheckLoading(true);
@@ -313,6 +330,7 @@ export function useCloudBackup() {
   return useMemo(
     () => ({
       supportCloudBackup,
+      cloudBackupFeatureInfo,
       startBackup,
       goToPageBackupList,
       checkLoading,
@@ -322,6 +340,7 @@ export function useCloudBackup() {
     }),
     [
       supportCloudBackup,
+      cloudBackupFeatureInfo,
       startBackup,
       goToPageBackupList,
       checkLoading,

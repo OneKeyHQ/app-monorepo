@@ -239,7 +239,7 @@ class ServiceCloudBackup extends ServiceBase {
   }
 
   @backgroundMethod()
-  async backupNow(isManualBackup = true) {
+  async backupNowLegacy(isManualBackup = true) {
     const cloudBackupValueList = await cloudBackupPersistAtom.get();
     const { isEnabled } = cloudBackupValueList;
     if (!isEnabled) {
@@ -324,6 +324,11 @@ class ServiceCloudBackup extends ServiceBase {
   }
 
   @backgroundMethod()
+  async backupNow(isManualBackup = true) {
+    console.log('backupNow', isManualBackup);
+  }
+
+  @backgroundMethod()
   async checkCloudBackupStatus() {
     await CloudFs.sync();
     const cloudBackupValueList = await cloudBackupPersistAtom.get();
@@ -345,7 +350,8 @@ class ServiceCloudBackup extends ServiceBase {
     return CloudFs.isAvailable();
   }
 
-  async getMetaDataFromCloud() {
+  @backgroundMethod()
+  async getMetaDataFromCloud(): Promise<IMetaDataObject[]> {
     if (!(await this.getCloudAvailable())) {
       return [];
     }
@@ -747,19 +753,21 @@ class ServiceCloudBackup extends ServiceBase {
 
   @backgroundMethod()
   async requestAutoBackup() {
-    void this.requestAutoBackupDebounce();
+    console.log('requestAutoBackup');
+    // void this.requestAutoBackupDebounce();
   }
 
   async autoCreateAndRemoveBackup() {
-    await this.backupNow(false);
-    const metaData = await this.getMetaDataFromCloud();
-    if (metaData.length <= 0) {
-      return;
-    }
-    const willRemoveList = filterWillRemoveBackupList(metaData);
-    for (const willRemoveBackup of willRemoveList) {
-      await this.removeBackup(willRemoveBackup.filename);
-    }
+    console.log('autoCreateAndRemoveBackup');
+    // await this.backupNow(false);
+    // const metaData = await this.getMetaDataFromCloud();
+    // if (metaData.length <= 0) {
+    //   return;
+    // }
+    // const willRemoveList = filterWillRemoveBackupList(metaData);
+    // for (const willRemoveBackup of willRemoveList) {
+    //   await this.removeBackup(willRemoveBackup.filename);
+    // }
   }
 
   @backgroundMethod()
