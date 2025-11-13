@@ -273,13 +273,10 @@ class ServiceCloudBackupV2 extends ServiceBase {
     );
     if (!matchedBackup) {
       void this.delete({ recordId: recordID });
-      // 当多个客户端同时发起备份时，云端可能存在并发写入失败的情况，此时需要用户重新尝试
-      // TODO: franco 云端写入备份数据失败，请重新尝试
-      // appLocale.intl.formatMessage({
-      //   id: ETranslations.backup_write_to_cloud_failed,
-      // });
       throw new OneKeyLocalError(
-        'Write backup data to cloud failed, please try again',
+        appLocale.intl.formatMessage({
+          id: ETranslations.backup_write_to_cloud_failed,
+        }),
       );
     }
 

@@ -300,7 +300,9 @@ function ReceiveSelectorContent() {
                     exitStyle={{ opacity: 0, filter: 'blur(4px)' }}
                   >
                     <SizableText mb="$2" color="$textSubdued">
-                      Learn how to withdraw crypto assets from:
+                      {intl.formatMessage({
+                        id: ETranslations.learn_how_to_withdraw_crypto_from_exchange,
+                      })}
                     </SizableText>
                     <XStack gap="$6">
                       <Button
