@@ -273,13 +273,10 @@ class ServiceCloudBackupV2 extends ServiceBase {
     );
     if (!matchedBackup) {
       void this.delete({ recordId: recordID });
-      // 当多个客户端同时发起备份时，云端可能存在并发写入失败的情况，此时需要用户重新尝试
-      // TODO: franco 云端写入备份数据失败，请重新尝试
-      // appLocale.intl.formatMessage({
-      //   id: ETranslations.backup_write_to_cloud_failed,
-      // });
       throw new OneKeyLocalError(
-        'Write backup data to cloud failed, please try again',
+        appLocale.intl.formatMessage({
+          id: ETranslations.backup_write_to_cloud_failed,
+        }),
       );
     }
 
@@ -303,7 +300,7 @@ class ServiceCloudBackupV2 extends ServiceBase {
 
   @backgroundMethod()
   @toastIfError()
-  async restore(params: {
+  async restorePreparePrivateData(params: {
     payload: IBackupDataEncryptedPayload | undefined;
     password: string;
   }) {
@@ -335,6 +332,22 @@ class ServiceCloudBackupV2 extends ServiceBase {
     const privateData = JSON.parse(
       privateDataJSON,
     ) as IPrimeTransferPrivateData;
+    return privateData;
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async restore(params: {
+    payload: IBackupDataEncryptedPayload | undefined;
+    password: string;
+  }) {
+    if (!params?.payload) {
+      throw new OneKeyLocalError('Payload is required for restore');
+    }
+    const privateData = await this.restorePreparePrivateData({
+      password: params.password,
+      payload: params.payload,
+    });
 
     const transferData: IPrimeTransferData = {
       ...params.payload,
@@ -361,6 +374,7 @@ class ServiceCloudBackupV2 extends ServiceBase {
     try {
       await this.backgroundApi.servicePrimeTransfer.initImportProgress({
         selectedTransferData,
+        isFromCloudBackupRestore: true,
       });
 
       const { success, errorsInfo } =

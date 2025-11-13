@@ -16,7 +16,16 @@ export function LevelListSection({
   }, [levels]);
 
   return (
-    <Accordion type="single" collapsible defaultValue={defaultValue}>
+    <Accordion
+      type="single"
+      collapsible
+      defaultValue={defaultValue}
+      borderWidth={1}
+      borderColor="$borderSubdued"
+      borderRadius="$3"
+      borderCurve="continuous"
+      overflow="hidden"
+    >
       {levels.map((level, index) => (
         <LevelAccordionItem
           key={level.level}

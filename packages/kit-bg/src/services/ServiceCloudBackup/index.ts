@@ -239,7 +239,7 @@ class ServiceCloudBackup extends ServiceBase {
   }
 
   @backgroundMethod()
-  async backupNow(isManualBackup = true) {
+  async backupNowLegacy(isManualBackup = true) {
     const cloudBackupValueList = await cloudBackupPersistAtom.get();
     const { isEnabled } = cloudBackupValueList;
     if (!isEnabled) {
@@ -324,6 +324,11 @@ class ServiceCloudBackup extends ServiceBase {
   }
 
   @backgroundMethod()
+  async backupNow(isManualBackup = true) {
+    console.log('backupNow', isManualBackup);
+  }
+
+  @backgroundMethod()
   async checkCloudBackupStatus() {
     await CloudFs.sync();
     const cloudBackupValueList = await cloudBackupPersistAtom.get();
@@ -345,17 +350,23 @@ class ServiceCloudBackup extends ServiceBase {
     return CloudFs.isAvailable();
   }
 
-  async getMetaDataFromCloud() {
-    if (!(await this.getCloudAvailable())) {
-      return [];
-    }
-    const metaString = await this.getDataFromCloud(CLOUD_METADATA_FILE_NAME);
-    if (metaString.length <= 0) {
-      return [];
-    }
+  @backgroundMethod()
+  async getMetaDataFromCloud(): Promise<IMetaDataObject[]> {
     try {
-      const metaData = JSON.parse(metaString) as IMetaDataObject[];
-      return metaData;
+      if (!(await this.getCloudAvailable())) {
+        return [];
+      }
+      const metaString = await this.getDataFromCloud(CLOUD_METADATA_FILE_NAME);
+      if (metaString.length <= 0) {
+        return [];
+      }
+      try {
+        const metaData = JSON.parse(metaString) as IMetaDataObject[];
+        return metaData;
+      } catch (e) {
+        console.error(e);
+        return [];
+      }
     } catch (e) {
       console.error(e);
       return [];
@@ -747,19 +758,21 @@ class ServiceCloudBackup extends ServiceBase {
 
   @backgroundMethod()
   async requestAutoBackup() {
-    void this.requestAutoBackupDebounce();
+    console.log('requestAutoBackup');
+    // void this.requestAutoBackupDebounce();
   }
 
   async autoCreateAndRemoveBackup() {
-    await this.backupNow(false);
-    const metaData = await this.getMetaDataFromCloud();
-    if (metaData.length <= 0) {
-      return;
-    }
-    const willRemoveList = filterWillRemoveBackupList(metaData);
-    for (const willRemoveBackup of willRemoveList) {
-      await this.removeBackup(willRemoveBackup.filename);
-    }
+    console.log('autoCreateAndRemoveBackup');
+    // await this.backupNow(false);
+    // const metaData = await this.getMetaDataFromCloud();
+    // if (metaData.length <= 0) {
+    //   return;
+    // }
+    // const willRemoveList = filterWillRemoveBackupList(metaData);
+    // for (const willRemoveBackup of willRemoveList) {
+    //   await this.removeBackup(willRemoveBackup.filename);
+    // }
   }
 
   @backgroundMethod()

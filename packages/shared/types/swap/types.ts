@@ -681,6 +681,7 @@ export interface ISwapAlertState {
     actionType: ESwapAlertActionType;
     actionLabel?: string;
     actionData?: ISwapAlertActionData;
+    directionType?: ESwapDirectionType;
   };
 }
 

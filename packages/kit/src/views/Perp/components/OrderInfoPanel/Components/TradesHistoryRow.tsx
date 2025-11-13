@@ -3,7 +3,13 @@ import { memo, useMemo } from 'react';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import { Divider, SizableText, XStack, YStack } from '@onekeyhq/components';
+import {
+  Divider,
+  IconButton,
+  SizableText,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -29,6 +35,7 @@ export type ITradesHistoryRowProps = {
   columnConfigs: IColumnConfig[];
   isMobile?: boolean;
   index: number;
+  onShare?: (fill: IFill) => void;
 };
 
 const TradesHistoryRow = memo(
@@ -38,7 +45,13 @@ const TradesHistoryRow = memo(
     columnConfigs,
     isMobile,
     index,
+    onShare,
   }: ITradesHistoryRowProps) => {
+    const canShare = useMemo(() => {
+      return (
+        fill.closedPnl && !new BigNumber(fill.closedPnl).isZero() && onShare
+      );
+    }, [fill.closedPnl, onShare]);
     const actions = useHyperliquidActions();
     const intl = useIntl();
     const assetSymbol = useMemo(() => fill.coin ?? '-', [fill.coin]);
@@ -136,16 +149,35 @@ const TradesHistoryRow = memo(
                 {dateInfo.date} {dateInfo.time}
               </SizableText>
             </YStack>
-            <YStack gap="$1" alignItems="flex-end">
-              <SizableText size="$bodySm" color="$textSubdued">
-                {intl.formatMessage({
-                  id: ETranslations.perp_trades_close_pnl,
-                })}
-              </SizableText>
-              <SizableText size="$bodySm" color={closePnlInfo.closePnlColor}>
-                {`${closePnlInfo.closePnlPlusOrMinus}${closePnlInfo.closePnlFormatted}`}
-              </SizableText>
-            </YStack>
+            <XStack gap="$2" alignItems="center">
+              <YStack gap="$1" alignItems="flex-end">
+                <SizableText size="$bodySm" color="$textSubdued">
+                  {intl.formatMessage({
+                    id: ETranslations.perp_trades_close_pnl,
+                  })}
+                </SizableText>
+                <XStack gap="$1" alignItems="center">
+                  <SizableText
+                    size="$bodySm"
+                    color={closePnlInfo.closePnlColor}
+                  >
+                    {`${closePnlInfo.closePnlPlusOrMinus}${closePnlInfo.closePnlFormatted}`}
+                  </SizableText>
+                  {canShare ? (
+                    <IconButton
+                      variant="tertiary"
+                      size="small"
+                      icon="ShareOutline"
+                      iconSize="$4"
+                      onPress={() => onShare?.(fill)}
+                      cursor="pointer"
+                      hoverStyle={null}
+                      pressStyle={null}
+                    />
+                  ) : null}
+                </XStack>
+              </YStack>
+            </XStack>
           </XStack>
           <Divider width="100%" borderColor="$borderSubdued" />
           <XStack
@@ -319,6 +351,7 @@ const TradesHistoryRow = memo(
           {...getColumnStyle(columnConfigs[7])}
           justifyContent={calcCellAlign(columnConfigs[7].align)}
           alignItems="center"
+          gap="$1"
         >
           <SizableText
             numberOfLines={1}
@@ -328,6 +361,18 @@ const TradesHistoryRow = memo(
           >
             {`${closePnlInfo.closePnlPlusOrMinus}${closePnlInfo.closePnlFormatted}`}
           </SizableText>
+          {canShare ? (
+            <IconButton
+              variant="tertiary"
+              size="small"
+              icon="ShareOutline"
+              iconSize="$4"
+              onPress={() => onShare?.(fill)}
+              cursor="pointer"
+              hoverStyle={null}
+              pressStyle={null}
+            />
+          ) : null}
         </XStack>
       </XStack>
     );
