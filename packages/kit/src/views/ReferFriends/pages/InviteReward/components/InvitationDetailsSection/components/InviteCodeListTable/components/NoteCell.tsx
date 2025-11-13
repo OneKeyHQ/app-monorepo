@@ -64,6 +64,7 @@ export function NoteCell({ code, note, onNoteUpdated }: INoteCellProps) {
           color="$text"
           numberOfLines={1}
           ellipsizeMode="tail"
+          width={100}
         >
           {note}
         </SizableText>

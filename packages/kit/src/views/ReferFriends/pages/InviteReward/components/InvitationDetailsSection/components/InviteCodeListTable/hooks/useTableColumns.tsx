@@ -31,7 +31,7 @@ export function useTableColumns(
       {
         title: intl.formatMessage({ id: ETranslations.referral_your_code }),
         dataIndex: EInviteCodeListTableColumn.CODE,
-        ...(gtMd ? { columnProps: { flex: 1 } } : { columnWidth: 130 }),
+        ...(gtMd ? { columnProps: { flex: 1 } } : { columnWidth: 115 }),
         render: (text: string) => <CodeCell code={text} />,
       },
       {
@@ -39,7 +39,7 @@ export function useTableColumns(
           id: ETranslations.referral_code_list_note,
         }),
         dataIndex: EInviteCodeListTableColumn.NOTE,
-        ...(gtMd ? { columnProps: { flex: 1 } } : { columnWidth: 130 }),
+        ...(gtMd ? { columnProps: { flex: 1 } } : { columnWidth: 145 }),
         render: (_text: string, record: IInviteCodeListItem) => (
           <NoteCell
             code={record.code}
