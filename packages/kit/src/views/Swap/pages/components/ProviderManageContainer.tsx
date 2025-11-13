@@ -57,39 +57,33 @@ const ProviderManageContainer = ({
       setProviderManageNewData(
         providerManageNewData.map((item) => {
           if (item.providerInfo.provider === provider) {
+            const disNetsEnable = networkId.startsWith('evm')
+              ? item.supportNetworks?.filter(
+                  (net) =>
+                    net.networkId.split('--')[0] === networkId.split('--')[0],
+                )
+              : item.supportNetworks?.filter(
+                  (net) => net.networkId === networkId,
+                );
             if (enable) {
-              const disNetsEnable = item.supportNetworks?.filter(
-                (net) =>
-                  net.networkId.split('--')[0] === networkId.split('--')[0],
-              );
               if (disNetsEnable?.length) {
                 return {
                   ...item,
                   enable: true,
                   disableNetworks: (item.disableNetworks ?? []).filter(
                     (net) =>
-                      !disNetsEnable.find(
-                        (n) =>
-                          n.networkId.split('--')[0] ===
-                          net.networkId.split('--')[0],
-                      ),
+                      !disNetsEnable.find((n) => net.networkId === n.networkId),
                   ),
                 };
               }
-            } else {
-              const disNets = item.supportNetworks?.filter(
-                (net) =>
-                  net.networkId.split('--')[0] === networkId.split('--')[0],
-              );
-              if (disNets?.length) {
-                return {
-                  ...item,
-                  disableNetworks: [
-                    ...(item.disableNetworks ?? []),
-                    ...disNets,
-                  ],
-                };
-              }
+            } else if (disNetsEnable?.length) {
+              return {
+                ...item,
+                disableNetworks: [
+                  ...(item.disableNetworks ?? []),
+                  ...disNetsEnable,
+                ],
+              };
             }
           }
           return item;

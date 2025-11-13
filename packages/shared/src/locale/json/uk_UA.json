@@ -1786,6 +1786,7 @@
   "id.refer_a_friend": "Запросити друга",
   "id.refer_a_friend_desc": "Запросіть друзів, щоб заробити винагороди",
   "identical_name_asset_alert": "Ми виявили активи з подібними назвами у вашому гаманці. Будьте обережні.",
+  "import_hardware_phrases_warning": "Не імпортуйте фразу відновлення вашого апаратного гаманця. <tag>Підключити апаратний гаманець ↗</tag> натомість",
   "import_phrase_or_private_key": "Імпортувати фразу або приватний ключ",
   "insufficient_fee_append_desc": "на основі макс. оціненої комісії: {amount} {symbol}",
   "interact_with_contract": "Взаємодіяти з (До)",

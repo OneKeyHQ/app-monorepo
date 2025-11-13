@@ -14,6 +14,7 @@ import {
 } from 'react';
 
 import { compact, range } from 'lodash';
+import { useWatch } from 'react-hook-form';
 import { useIntl } from 'react-intl';
 import { View } from 'react-native';
 
@@ -573,10 +574,16 @@ export function PhaseInputArea({
 
   const { isVisible } = useKeyboardState?.() || { isVisible: true };
 
+  const watched = useWatch({ control: form.control });
+  const hasFilledPhrases = useMemo(
+    () => compact(Object.values(watched)).length > 0,
+    [watched],
+  );
+
   return (
     <>
       {showPhraseLengthSelector || showClearAllButton ? (
-        <XStack pb="$2" pt="$2" justifyContent="space-between">
+        <XStack pt="$2" justifyContent="space-between">
           {showPhraseLengthSelector ? (
             <Select
               title={intl.formatMessage({
@@ -603,9 +610,8 @@ export function PhaseInputArea({
               )}
             />
           ) : null}
-          {showClearAllButton ? (
+          {showClearAllButton && hasFilledPhrases ? (
             <Button
-              icon="BroomOutline"
               size="small"
               variant="tertiary"
               onPress={handleClear}
