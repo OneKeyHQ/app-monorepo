@@ -300,7 +300,7 @@ class ServiceCloudBackupV2 extends ServiceBase {
 
   @backgroundMethod()
   @toastIfError()
-  async restore(params: {
+  async restorePreparePrivateData(params: {
     payload: IBackupDataEncryptedPayload | undefined;
     password: string;
   }) {
@@ -332,6 +332,22 @@ class ServiceCloudBackupV2 extends ServiceBase {
     const privateData = JSON.parse(
       privateDataJSON,
     ) as IPrimeTransferPrivateData;
+    return privateData;
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async restore(params: {
+    payload: IBackupDataEncryptedPayload | undefined;
+    password: string;
+  }) {
+    if (!params?.payload) {
+      throw new OneKeyLocalError('Payload is required for restore');
+    }
+    const privateData = await this.restorePreparePrivateData({
+      password: params.password,
+      payload: params.payload,
+    });
 
     const transferData: IPrimeTransferData = {
       ...params.payload,
@@ -358,6 +374,7 @@ class ServiceCloudBackupV2 extends ServiceBase {
     try {
       await this.backgroundApi.servicePrimeTransfer.initImportProgress({
         selectedTransferData,
+        isFromCloudBackupRestore: true,
       });
 
       const { success, errorsInfo } =
