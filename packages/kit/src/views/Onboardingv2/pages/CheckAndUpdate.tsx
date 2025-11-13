@@ -72,6 +72,9 @@ function CheckAndUpdatePage({
   console.log('deviceData', deviceData);
   const themeVariant = useThemeVariant();
   const navigation = useAppNavigation();
+  const [isFirmwareVerified, setIsFirmwareVerified] = useState<
+    boolean | undefined
+  >(undefined);
 
   const deviceLabel = useMemo(() => {
     if ((deviceData.device as KnownDevice)?.label) {
@@ -269,7 +272,7 @@ function CheckAndUpdatePage({
           ...deviceData,
           device: (deviceForFinalize ?? deviceData.device) as SearchDevice,
         },
-        isFirmwareVerified: true,
+        isFirmwareVerified,
       });
     }, 1200);
   }, [
@@ -277,6 +280,7 @@ function CheckAndUpdatePage({
     deviceData,
     ensureTransportType,
     getActiveDevice,
+    isFirmwareVerified,
     navigation,
   ]);
 
@@ -451,6 +455,7 @@ function CheckAndUpdatePage({
           void checkFirmwareUpdate();
         }, 150);
       }
+      setIsFirmwareVerified(!!result.verified);
     } catch (error) {
       setSteps((prev) => {
         const newSteps = [...prev];
