@@ -1440,11 +1440,11 @@ class ServiceStaking extends ServiceBase {
   }
 
   @backgroundMethod()
-  fetchEarnHomePageData() {
-    return this._fetchEarnHomePageData();
+  fetchEarnHomePageBannerList() {
+    return this._fetchEarnHomePageBannerList();
   }
 
-  _fetchEarnHomePageData = memoizee(
+  _fetchEarnHomePageBannerList = memoizee(
     async () => {
       const client = await this.getClient(EServiceEndpointEnum.Utility);
       const res = await client.get<{ data: IDiscoveryBanner[] }>(

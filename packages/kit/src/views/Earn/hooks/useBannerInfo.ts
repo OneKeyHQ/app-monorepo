@@ -11,7 +11,7 @@ export const useBannerInfo = () => {
 
   const refetchBanners = useCallback(async () => {
     const bannerResult =
-      await backgroundApiProxy.serviceStaking.fetchEarnHomePageData();
+      await backgroundApiProxy.serviceStaking.fetchEarnHomePageBannerList();
     const transformedBanners =
       bannerResult?.map((i) => ({
         ...i,
