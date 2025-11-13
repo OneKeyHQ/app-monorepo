@@ -2,13 +2,7 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  Button,
-  Dialog,
-  Icon,
-  SizableText,
-  XStack,
-} from '@onekeyhq/components';
+import { Button, Dialog, SizableText, useMedia } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { NoteDialogContent } from './NoteDialogContent';
@@ -22,6 +16,7 @@ interface INoteCellProps {
 // Note cell with add/edit note functionality
 export function NoteCell({ code, note, onNoteUpdated }: INoteCellProps) {
   const intl = useIntl();
+  const { gtMd } = useMedia();
 
   const handleOpenDialog = useCallback(() => {
     const dialogTitle = note
@@ -47,28 +42,24 @@ export function NoteCell({ code, note, onNoteUpdated }: INoteCellProps) {
 
   if (note) {
     return (
-      <XStack
-        gap="$2"
-        ai="center"
-        cursor="pointer"
+      <Button
+        variant="tertiary"
+        size="small"
+        icon="PencilOutline"
         onPress={handleOpenDialog}
-        p="$1"
-        borderRadius="$2"
-        hoverStyle={{
-          backgroundColor: '$bgHover',
-        }}
+        justifyContent="flex-start"
       >
-        <Icon name="PencilOutline" size="$3.5" color="$iconSubdued" />
         <SizableText
           size="$bodyMdMedium"
           color="$text"
           numberOfLines={1}
           ellipsizeMode="tail"
-          width={100}
+          width={gtMd ? '10vw' : 100}
+          display="block"
         >
           {note}
         </SizableText>
-      </XStack>
+      </Button>
     );
   }
 
