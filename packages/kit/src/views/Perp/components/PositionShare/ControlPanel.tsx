@@ -4,7 +4,9 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
+  Badge,
   Button,
+  IconButton,
   Image,
   ScrollView,
   SizableText,
@@ -67,108 +69,154 @@ export function ControlPanel({
   );
 
   return (
-    <YStack flex={1} px={isMobile ? '$4' : undefined}>
-      <YStack flex={1} gap="$6">
+    <YStack flex={1} px={isMobile ? 10 : undefined} gap="$5">
+      <YStack flex={1} gap="$11">
         {/* <YStack gap="$2">
           <SizableText size="$headingXs">
             {intl.formatMessage({
               id: ETranslations.perps_share_position_background,
             })}
           </SizableText>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <XStack gap="$3">
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          <XStack gap="$3">
               {availableBackgrounds.map((bgSource, index) => (
-                <Stack
+              <Stack
                   key={index}
                   width={72}
                   height={72}
-                  borderRadius="$3"
+                borderRadius="$3"
                   borderWidth="$0.5"
-                  borderColor={
+                borderColor={
                     config.backgroundIndex === index
-                      ? '$borderActive'
-                      : '$borderSubdued'
-                  }
-                  justifyContent="center"
-                  alignItems="center"
+                    ? '$borderActive'
+                    : '$borderSubdued'
+                }
+                justifyContent="center"
+                alignItems="center"
                   overflow="hidden"
-                  cursor="pointer"
-                  hoverStyle={{ borderColor: '$borderHover' }}
-                  pressStyle={{ opacity: 0.8 }}
+                cursor="pointer"
+                hoverStyle={{ borderColor: '$borderHover' }}
+                pressStyle={{ opacity: 0.8 }}
                   onPress={() => handleBackgroundChange(index)}
-                >
+              >
                   <Image source={{ uri: bgSource }} width={72} height={72} />
-                </Stack>
-              ))}
-            </XStack>
-          </ScrollView>
+              </Stack>
+            ))}
+          </XStack>
+        </ScrollView>
         </YStack> */}
 
         <YStack gap="$2">
-          <SizableText size="$headingXs">
-            {`${intl.formatMessage({
-              id: ETranslations.perp_position_pnl,
-            })} / ROE`}
+          <SizableText size="$headingXs" color="$textSubdued">
+            {intl.formatMessage({
+              id: ETranslations.perp_share_select_information,
+            })}
           </SizableText>
-          <XStack gap="$3">
+          <XStack gap="$5">
             {(['pnl', 'roe'] as IPnlDisplayMode[]).map((mode) => {
               const isActive = config.pnlDisplayMode === mode;
               const label =
                 mode === 'roe'
-                  ? 'ROE'
+                  ? intl.formatMessage({
+                      id: ETranslations.perp_share_roe,
+                    })
                   : intl.formatMessage({
-                      id: ETranslations.perp_position_pnl,
+                      id: ETranslations.perp_share_pnl,
                     });
               return (
-                <Button
+                <Badge
                   key={mode}
-                  flexGrow={1}
-                  variant={isActive ? 'primary' : 'tertiary'}
                   onPress={() => handlePnlDisplayModeChange(mode)}
                   disabled={isLoading}
+                  borderRadius="$2"
+                  borderWidth={1}
+                  borderColor={isActive ? '$borderActive' : '$borderSubdued'}
+                  px="$7"
+                  py="$2"
+                  alignItems="center"
+                  cursor="pointer"
+                  bg="$bgApp"
+                  justifyContent="center"
                 >
-                  {label}
-                </Button>
+                  <Badge.Text size="$bodySmMedium" color="$text">
+                    {label}
+                  </Badge.Text>
+                </Badge>
               );
             })}
           </XStack>
         </YStack>
       </YStack>
 
-      <YStack gap="$3" mb={isMobile ? '$4' : undefined}>
-        <XStack gap="$3">
-          <Button
-            flexGrow={1}
-            icon="DownloadOutline"
-            onPress={onSaveImage}
-            disabled={isLoading}
-          >
-            {intl.formatMessage({
+      <XStack gap="$6" mb={isMobile ? '$4' : undefined} alignItems="center">
+        <YStack gap="$1" alignItems="center">
+          <IconButton
+            title={intl.formatMessage({
               id: ETranslations.perps_share_position_btn_save_img,
             })}
-          </Button>
-          <Button
-            flexGrow={1}
-            icon="Copy3Outline"
-            onPress={onCopyLink}
+            cursor="pointer"
+            icon="DownloadOutline"
+            size="large"
+            onPress={onSaveImage}
             disabled={isLoading}
-          >
+            iconSize="$6"
+            borderRadius="$4"
+            borderWidth={1}
+            borderColor="$borderSubdued"
+            hoverStyle={{ borderColor: '$borderHover' }}
+            bg="$bgApp"
+          />
+          <SizableText size="$bodySm" color="$text">
             {intl.formatMessage({
+              id: ETranslations.action_save,
+            })}
+          </SizableText>
+        </YStack>
+        <YStack gap="$1" alignItems="center">
+          <IconButton
+            title={intl.formatMessage({
               id: ETranslations.perps_share_position_btn_copy_link,
             })}
-          </Button>
-        </XStack>
-        <Button
-          variant="primary"
-          icon="Xbrand"
-          onPress={onShareToX}
-          disabled={isLoading}
-        >
-          {intl.formatMessage({
-            id: ETranslations.perps_share_position_btn_Share_on_x,
-          })}
-        </Button>
-      </YStack>
+            cursor="pointer"
+            icon="LinkOutline"
+            size="large"
+            onPress={onCopyLink}
+            disabled={isLoading}
+            iconSize="$6"
+            borderRadius="$4"
+            borderWidth={1}
+            borderColor="$borderSubdued"
+            hoverStyle={{ borderColor: '$borderHover' }}
+            bg="$bgApp"
+          />
+          <SizableText size="$bodySm" color="$text">
+            {intl.formatMessage({
+              id: ETranslations.address_book_menu_copy,
+            })}
+          </SizableText>
+        </YStack>
+        <YStack gap="$1" alignItems="center">
+          <IconButton
+            title={intl.formatMessage({
+              id: ETranslations.perps_share_position_btn_Share_on_x,
+            })}
+            size="large"
+            cursor="pointer"
+            icon="Xbrand"
+            onPress={onShareToX}
+            disabled={isLoading}
+            iconSize="$6"
+            borderRadius="$4"
+            borderWidth={1}
+            borderColor="$borderSubdued"
+            hoverStyle={{ borderColor: '$borderHover' }}
+            bg="$bgApp"
+          />
+          <SizableText size="$bodySm" color="$text">
+            X
+          </SizableText>
+        </YStack>
+      </XStack>
     </YStack>
   );
 }
