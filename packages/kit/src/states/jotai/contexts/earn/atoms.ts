@@ -21,6 +21,7 @@ export const { atom: basicEarnAtom, useContextAtom } =
   contextAtom<IEarnAtomData>({
     earnAccount: {},
     availableAssetsByType: {},
+    recommendedTokens: [],
     refreshTrigger: 0,
   });
 
@@ -34,13 +35,14 @@ export const earnAtom = memoizee(() =>
       ...get(basicEarnAtom()),
       isMounted: get(earnStorageReadyAtom()),
     }),
-    (get, set, arg: any) => {
+    (get, set, arg: typeof INIT | IEarnAtomData) => {
       if (arg === INIT) {
         void backgroundApiProxy.simpleDb.earn.getEarnData().then((data) => {
           set(basicEarnAtom(), {
             ...data,
             earnAccount: data.earnAccount || {},
             availableAssetsByType: data.availableAssetsByType || {},
+            recommendedTokens: data.recommendedTokens || [],
             refreshTrigger: data.refreshTrigger || 0,
           });
           set(earnStorageReadyAtom(), true);

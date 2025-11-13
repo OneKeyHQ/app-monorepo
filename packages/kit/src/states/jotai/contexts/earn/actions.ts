@@ -13,6 +13,7 @@ import type {
   IAvailableAsset,
   IEarnAccountTokenResponse,
   IEarnAtomData,
+  IRecommendAsset,
 } from '@onekeyhq/shared/types/staking';
 
 import {
@@ -174,6 +175,19 @@ class ContextJotaiActionsEarn extends ContextJotaiActionsBase {
     const loadingStates = get(earnLoadingStatesAtom());
     return loadingStates[key] || false;
   });
+
+  getRecommendedTokens = contextAtomMethod((get, set) => {
+    const { recommendedTokens } = get(earnAtom());
+    return recommendedTokens || [];
+  });
+
+  updateRecommendedTokens = contextAtomMethod(
+    (get, set, tokens: IRecommendAsset[]) => {
+      this.syncToDb.call(set, {
+        recommendedTokens: tokens,
+      });
+    },
+  );
 }
 
 const createActions = memoFn(() => new ContextJotaiActionsEarn());
@@ -205,6 +219,9 @@ export function useEarnActions() {
     [],
   );
 
+  const getRecommendedTokens = actions.getRecommendedTokens.use();
+  const updateRecommendedTokens = actions.updateRecommendedTokens.use();
+
   return useRef({
     getAvailableAssetsByType,
     updateAvailableAssetsByType,
@@ -218,5 +235,7 @@ export function useEarnActions() {
     setLoadingState,
     getLoadingState,
     isDataIncomplete,
+    getRecommendedTokens,
+    updateRecommendedTokens,
   });
 }

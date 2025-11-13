@@ -23,7 +23,10 @@ import type { IRecommendAsset } from '@onekeyhq/shared/types/staking';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
-import { useEarnAtom } from '../../../states/jotai/contexts/earn';
+import {
+  useEarnActions,
+  useEarnAtom,
+} from '../../../states/jotai/contexts/earn';
 import { useAllNetworkId } from '../hooks/useAllNetworkId';
 import { useToTokenProviderListPage } from '../hooks/useToTokenProviderListPage';
 
@@ -209,9 +212,11 @@ export function Recommended() {
   const {
     activeAccount: { account, indexedAccount },
   } = useActiveAccount({ num: 0 });
-  const [{ refreshTrigger = 0 }] = useEarnAtom();
+  const [{ refreshTrigger = 0, recommendedTokens = [] }] = useEarnAtom();
+  const actions = useEarnActions();
 
-  const { result: tokens } = usePromiseResult(
+  // Fetch new tokens in background and update cache
+  usePromiseResult(
     async () => {
       const recommendedAssets =
         await backgroundApiProxy.serviceStaking.fetchAllNetworkAssetsV2({
@@ -219,7 +224,13 @@ export function Recommended() {
           networkId: allNetworkId,
           indexedAccountId: account?.indexedAccountId || indexedAccount?.id,
         });
-      return recommendedAssets?.tokens || [];
+
+      const newTokens = recommendedAssets?.tokens || [];
+
+      // Update cache with new tokens
+      actions.current.updateRecommendedTokens(newTokens);
+
+      return newTokens;
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [
@@ -231,12 +242,11 @@ export function Recommended() {
     ],
     {
       watchLoading: true,
-      initResult: [],
     },
   );
 
   // Render skeleton when loading and no data
-  const shouldShowSkeleton = tokens.length === 0;
+  const shouldShowSkeleton = recommendedTokens.length === 0;
   if (shouldShowSkeleton) {
     return (
       <RecommendedContainer>
@@ -281,7 +291,7 @@ export function Recommended() {
   }
 
   // Render actual tokens
-  if (tokens.length) {
+  if (recommendedTokens.length) {
     return (
       <RecommendedContainer>
         {platformEnv.isNative ? (
@@ -294,7 +304,7 @@ export function Recommended() {
             }}
           >
             <XStack gap="$3">
-              {tokens.map((token) => (
+              {recommendedTokens.map((token) => (
                 <YStack key={token.symbol} minWidth="$52">
                   <RecommendedItem token={token} />
                 </YStack>
@@ -304,7 +314,7 @@ export function Recommended() {
         ) : (
           // Desktop/Extension: grid layout
           <XStack m="$-5" p="$3.5" flexWrap="wrap">
-            {tokens.map((token) => (
+            {recommendedTokens.map((token) => (
               <YStack
                 key={token.symbol}
                 p="$1.5"

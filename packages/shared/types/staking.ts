@@ -1110,6 +1110,7 @@ export type IRecommendAsset = {
 export interface IEarnAtomData {
   earnAccount?: Record<string, IEarnAccountTokenResponse>;
   availableAssetsByType?: Record<string, IAvailableAsset[]>;
+  recommendedTokens?: IRecommendAsset[];
   refreshTrigger?: number;
 }
 
