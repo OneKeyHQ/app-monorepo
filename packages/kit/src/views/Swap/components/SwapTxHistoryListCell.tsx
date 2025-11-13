@@ -119,13 +119,7 @@ const SwapTxHistoryListCell = ({
       ? `${fromNetworkName} to ${toNetworkName}`
       : fromNetworkName;
 
-    return (
-      <XStack gap="$2" alignItems="center">
-        <SizableText size="$bodySm" color="$textSubdued">
-          {chainDisplay}
-        </SizableText>
-      </XStack>
-    );
+    return chainDisplay;
   }, [
     item.baseInfo.fromNetwork?.networkId,
     item.baseInfo.fromNetwork?.name,
