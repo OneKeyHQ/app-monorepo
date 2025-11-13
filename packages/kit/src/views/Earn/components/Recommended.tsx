@@ -1,5 +1,5 @@
 import type { PropsWithChildren } from 'react';
-import { useCallback, useMemo } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
@@ -21,7 +21,6 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IRecommendAsset } from '@onekeyhq/shared/types/staking';
 
-import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import {
@@ -59,116 +58,117 @@ function RecommendedSkeletonItem({ ...rest }: IYStackProps) {
   );
 }
 
-function RecommendedItem({
-  token,
-  ...rest
-}: { token?: IRecommendAsset } & IYStackProps) {
-  const accountInfo = useActiveAccount({ num: 0 });
-  const navigation = useAppNavigation();
-  const {
-    activeAccount: { account, indexedAccount },
-  } = accountInfo;
+const RecommendedItem = memo(
+  ({
+    token,
+    accountId,
+    indexedAccountId,
+    noWalletConnected,
+    ...rest
+  }: {
+    token?: IRecommendAsset;
+    accountId?: string;
+    indexedAccountId?: string;
+    noWalletConnected: boolean;
+  } & IYStackProps) => {
+    const toTokenProviderListPage = useToTokenProviderListPage();
 
-  const noWalletConnected = useMemo(
-    () => !account && !indexedAccount,
-    [account, indexedAccount],
-  );
-
-  const toTokenProviderListPage = useToTokenProviderListPage();
-
-  const onPress = useCallback(async () => {
-    if (token) {
-      const earnAccount =
-        await backgroundApiProxy.serviceStaking.getEarnAccount({
-          indexedAccountId: indexedAccount?.id,
-          accountId: account?.id ?? '',
+    const onPress = useCallback(async () => {
+      if (token) {
+        const earnAccount =
+          await backgroundApiProxy.serviceStaking.getEarnAccount({
+            indexedAccountId,
+            accountId: accountId ?? '',
+            networkId: token.protocols[0]?.networkId,
+          });
+        await toTokenProviderListPage({
+          indexedAccountId:
+            earnAccount?.account.indexedAccountId || indexedAccountId,
+          accountId: earnAccount?.accountId || accountId || '',
           networkId: token.protocols[0]?.networkId,
+          symbol: token.symbol,
+          protocols: token.protocols,
+          logoURI: token.logoURI,
         });
-      await toTokenProviderListPage({
-        indexedAccountId:
-          earnAccount?.account.indexedAccountId || indexedAccount?.id,
-        accountId: earnAccount?.accountId || account?.id || '',
-        networkId: token.protocols[0]?.networkId,
-        symbol: token.symbol,
-        protocols: token.protocols,
-        logoURI: token.logoURI,
-      });
+      }
+    }, [accountId, indexedAccountId, toTokenProviderListPage, token]);
+
+    if (!token) {
+      return <YStack width="$40" flexGrow={1} />;
     }
-  }, [account?.id, indexedAccount?.id, toTokenProviderListPage, token]);
 
-  if (!token) {
-    return <YStack width="$40" flexGrow={1} />;
-  }
-
-  return (
-    <YStack
-      role="button"
-      flex={1}
-      p="$4"
-      borderRadius="$3"
-      borderCurve="continuous"
-      bg={token.bgColor}
-      borderWidth={StyleSheet.hairlineWidth}
-      borderColor="$borderSubdued"
-      animation="quick"
-      hoverStyle={{
-        scale: 1.05,
-      }}
-      pressStyle={{
-        scale: 0.95,
-      }}
-      onPress={onPress}
-      userSelect="none"
-      alignItems="flex-start"
-      overflow="hidden"
-      {...rest}
-    >
-      <YStack alignItems="flex-start" width="100%">
-        <XStack gap="$2" ai="center" width="100%">
-          <YStack>
-            <Image
-              size="$6"
-              source={{ uri: token.logoURI }}
-              fallback={
-                <Image.Fallback
-                  w="$6"
-                  h="$6"
-                  alignItems="center"
-                  justifyContent="center"
-                  bg="$bgStrong"
-                >
-                  <Icon size="$6" name="CoinOutline" color="$iconDisabled" />
-                </Image.Fallback>
-              }
-            />
-          </YStack>
-          <SizableText size="$bodyLgMedium">{token.symbol}</SizableText>
-        </XStack>
+    return (
+      <YStack
+        role="button"
+        flex={1}
+        p="$4"
+        borderRadius="$3"
+        borderCurve="continuous"
+        bg={token.bgColor}
+        borderWidth={StyleSheet.hairlineWidth}
+        borderColor="$borderSubdued"
+        animation="quick"
+        hoverStyle={{
+          scale: 1.05,
+        }}
+        pressStyle={{
+          scale: 0.95,
+        }}
+        onPress={onPress}
+        userSelect="none"
+        alignItems="flex-start"
+        overflow="hidden"
+        {...rest}
+      >
         <YStack alignItems="flex-start" width="100%">
-          <SizableText size="$headingXl" pt="$3.5">
-            <AprText
-              asset={{
-                aprWithoutFee: token?.aprWithoutFee ?? '',
-                aprInfo: token?.aprInfo,
-              }}
-            />
-          </SizableText>
-          {!noWalletConnected ? (
-            <SizableText
-              pt="$1"
-              size="$bodyMd"
-              color={token.available.color ?? '$textSubdued'}
-              numberOfLines={1}
-              ellipsizeMode="tail"
-            >
-              {token?.available?.text}
+          <XStack gap="$2" ai="center" width="100%">
+            <YStack>
+              <Image
+                size="$6"
+                source={{ uri: token.logoURI }}
+                fallback={
+                  <Image.Fallback
+                    w="$6"
+                    h="$6"
+                    alignItems="center"
+                    justifyContent="center"
+                    bg="$bgStrong"
+                  >
+                    <Icon size="$6" name="CoinOutline" color="$iconDisabled" />
+                  </Image.Fallback>
+                }
+              />
+            </YStack>
+            <SizableText size="$bodyLgMedium">{token.symbol}</SizableText>
+          </XStack>
+          <YStack alignItems="flex-start" width="100%">
+            <SizableText size="$headingXl" pt="$3.5">
+              <AprText
+                asset={{
+                  aprWithoutFee: token?.aprWithoutFee ?? '',
+                  aprInfo: token?.aprInfo,
+                }}
+              />
             </SizableText>
-          ) : null}
+            {!noWalletConnected ? (
+              <SizableText
+                pt="$1"
+                size="$bodyMd"
+                color={token.available.color ?? '$textSubdued'}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+              >
+                {token?.available?.text}
+              </SizableText>
+            ) : null}
+          </YStack>
         </YStack>
       </YStack>
-    </YStack>
-  );
-}
+    );
+  },
+);
+
+RecommendedItem.displayName = 'RecommendedItem';
 
 function RecommendedContainer({ children }: PropsWithChildren) {
   const intl = useIntl();
@@ -214,6 +214,11 @@ export function Recommended() {
   } = useActiveAccount({ num: 0 });
   const [{ refreshTrigger = 0, recommendedTokens = [] }] = useEarnAtom();
   const actions = useEarnActions();
+
+  const noWalletConnected = useMemo(
+    () => !account && !indexedAccount,
+    [account, indexedAccount],
+  );
 
   // Fetch new tokens in background and update cache
   usePromiseResult(
@@ -306,7 +311,12 @@ export function Recommended() {
             <XStack gap="$3">
               {recommendedTokens.map((token) => (
                 <YStack key={token.symbol} minWidth="$52">
-                  <RecommendedItem token={token} />
+                  <RecommendedItem
+                    token={token}
+                    accountId={account?.id}
+                    indexedAccountId={indexedAccount?.id}
+                    noWalletConnected={noWalletConnected}
+                  />
                 </YStack>
               ))}
             </XStack>
@@ -324,7 +334,12 @@ export function Recommended() {
                     : '25%' // Desktop: 4 per row
                 }
               >
-                <RecommendedItem token={token} />
+                <RecommendedItem
+                  token={token}
+                  accountId={account?.id}
+                  indexedAccountId={indexedAccount?.id}
+                  noWalletConnected={noWalletConnected}
+                />
               </YStack>
             ))}
           </XStack>
