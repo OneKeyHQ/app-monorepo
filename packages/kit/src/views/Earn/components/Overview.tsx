@@ -42,7 +42,6 @@ import {
 } from '../../../states/jotai/contexts/earn';
 import { EarnActionIcon } from '../../Staking/components/ProtocolDetails/EarnActionIcon';
 import { EarnText } from '../../Staking/components/ProtocolDetails/EarnText';
-import { useAllNetworkId } from '../hooks/useAllNetworkId';
 import { getNumberColor } from '../utils/getNumberColor';
 
 const Rebate = ({
@@ -225,7 +224,7 @@ export const Overview = ({
     activeAccount: { account, indexedAccount },
   } = useActiveAccount({ num: 0 });
   const actions = useEarnActions();
-  const allNetworkId = useAllNetworkId();
+  const allNetworkId = getNetworkIdsMap().onekeyall;
   const totalFiatMapKey = useMemo(
     () =>
       actions.current.buildEarnAccountsKey({

@@ -16,6 +16,7 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IRecommendAsset } from '@onekeyhq/shared/types/staking';
@@ -27,7 +28,6 @@ import {
   useEarnActions,
   useEarnAtom,
 } from '../../../states/jotai/contexts/earn';
-import { useAllNetworkId } from '../hooks/useAllNetworkId';
 import { useToTokenProviderListPage } from '../hooks/useToTokenProviderListPage';
 
 import { AprText } from './AprText';
@@ -208,7 +208,7 @@ function RecommendedContainer({ children }: PropsWithChildren) {
 
 export function Recommended() {
   const { md } = useMedia();
-  const allNetworkId = useAllNetworkId();
+  const allNetworkId = getNetworkIdsMap().onekeyall;
   const {
     activeAccount: { account, indexedAccount },
   } = useActiveAccount({ num: 0 });

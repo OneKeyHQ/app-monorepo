@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import BigNumber from 'bignumber.js';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import type {
   IEarnInvestmentItemV2,
   IEarnPortfolioInvestment,
@@ -11,8 +11,6 @@ import type {
 
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
-
-import { useAllNetworkId } from './useAllNetworkId';
 
 interface IRefreshOptions {
   provider?: string;
@@ -212,7 +210,7 @@ const useAccountState = (
 export const useEarnPortfolio = () => {
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { account, indexedAccount } = activeAccount;
-  const allNetworkId = useAllNetworkId();
+  const allNetworkId = getNetworkIdsMap().onekeyall;
   const [isLoading, setIsLoading] = useState(true);
 
   const {

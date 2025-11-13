@@ -1,17 +1,16 @@
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { useEarnActions } from '../../../states/jotai/contexts/earn';
 
-import { useAllNetworkId } from './useAllNetworkId';
-
 export const useEarnAccounts = () => {
   const actions = useEarnActions();
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { account, indexedAccount } = activeAccount;
-  const allNetworkId = useAllNetworkId();
+  const allNetworkId = getNetworkIdsMap().onekeyall;
   const isAccountExists = !!account;
 
   const {
