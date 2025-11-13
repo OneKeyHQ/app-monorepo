@@ -1,5 +1,3 @@
-import { useCallback } from 'react';
-
 import { useIntl } from 'react-intl';
 
 import type { IKeyOfIcons } from '@onekeyhq/components';
@@ -24,6 +22,7 @@ import { WalletActionBuy } from '../../Home/components/WalletActions/WalletActio
 import { WalletActionReceive } from '../../Home/components/WalletActions/WalletActionReceive';
 
 import type { IListItemProps } from '../../../components/ListItem';
+import { useReviewControl } from '../../../components/ReviewControl';
 
 function ReceiveOptions({
   icon,
@@ -67,6 +66,9 @@ function ReceiveSelectorContent() {
   const coinbaseHelpLink = useHelpLink({
     path: 'articles/12561338',
   });
+
+  const showBuyAction = useReviewControl();
+
   return (
     <Page>
       <Page.Header
@@ -74,80 +76,92 @@ function ReceiveSelectorContent() {
       />
       <Page.Body>
         <YStack gap="$5" px="$5">
-          <WalletActionBuy
-            sameModal
-            onClose={() => {}}
-            source="receiveSelector"
-            renderTrigger={({ onPress, disabled }) => (
-              <ReceiveOptions
-                icon="CreditCardOutline"
-                title={intl.formatMessage({
-                  id: ETranslations.global_buy_crypto,
-                })}
-                subtitle={
-                  <XStack mt="$1" gap="$1">
-                    <YStack
-                      h="$5"
-                      px="$1.5"
-                      borderRadius="$1"
-                      borderCurve="continuous"
-                      justifyContent="center"
-                      alignItems="center"
-                      borderWidth={1}
-                      borderColor="$borderSubdued"
-                    >
-                      <Icon name="ApplePayIllus" h="$3" w="$8" color="$icon" />
-                    </YStack>
-                    <YStack
-                      h="$5"
-                      px="$1.5"
-                      borderRadius="$1"
-                      borderCurve="continuous"
-                      justifyContent="center"
-                      alignItems="center"
-                      borderWidth={1}
-                      borderColor="$borderSubdued"
-                    >
-                      <Icon name="GooglePayIllus" h="$3" w="$8" color="$icon" />
-                    </YStack>
-                    <YStack
-                      h="$5"
-                      px="$0.5"
-                      borderRadius="$1"
-                      borderCurve="continuous"
-                      justifyContent="center"
-                      alignItems="center"
-                      borderWidth={1}
-                      borderColor="$borderSubdued"
-                    >
-                      <Icon name="VisaIllus" h="$3" w="$8" color="$icon" />
-                    </YStack>
-                    <XStack
-                      alignItems="center"
-                      px="$1"
-                      gap="$0.5"
-                      borderWidth={1}
-                      borderColor="$borderSubdued"
-                      borderRadius="$1"
-                      borderCurve="continuous"
-                    >
-                      {Array.from({ length: 3 }).map((_, index) => (
-                        <YStack
-                          key={index}
-                          borderRadius="$full"
-                          w={3}
-                          h={3}
-                          bg="$iconSubdued"
+          {showBuyAction ? (
+            <WalletActionBuy
+              sameModal
+              onClose={() => {}}
+              source="receiveSelector"
+              renderTrigger={({ onPress, disabled }) => (
+                <ReceiveOptions
+                  icon="CreditCardOutline"
+                  title={intl.formatMessage({
+                    id: ETranslations.global_buy_crypto,
+                  })}
+                  subtitle={
+                    <XStack mt="$1" gap="$1">
+                      <YStack
+                        h="$5"
+                        px="$1.5"
+                        borderRadius="$1"
+                        borderCurve="continuous"
+                        justifyContent="center"
+                        alignItems="center"
+                        borderWidth={1}
+                        borderColor="$borderSubdued"
+                      >
+                        <Icon
+                          name="ApplePayIllus"
+                          h="$3"
+                          w="$8"
+                          color="$icon"
                         />
-                      ))}
+                      </YStack>
+                      <YStack
+                        h="$5"
+                        px="$1.5"
+                        borderRadius="$1"
+                        borderCurve="continuous"
+                        justifyContent="center"
+                        alignItems="center"
+                        borderWidth={1}
+                        borderColor="$borderSubdued"
+                      >
+                        <Icon
+                          name="GooglePayIllus"
+                          h="$3"
+                          w="$8"
+                          color="$icon"
+                        />
+                      </YStack>
+                      <YStack
+                        h="$5"
+                        px="$0.5"
+                        borderRadius="$1"
+                        borderCurve="continuous"
+                        justifyContent="center"
+                        alignItems="center"
+                        borderWidth={1}
+                        borderColor="$borderSubdued"
+                      >
+                        <Icon name="VisaIllus" h="$3" w="$8" color="$icon" />
+                      </YStack>
+                      <XStack
+                        alignItems="center"
+                        px="$1"
+                        gap="$0.5"
+                        borderWidth={1}
+                        borderColor="$borderSubdued"
+                        borderRadius="$1"
+                        borderCurve="continuous"
+                      >
+                        {Array.from({ length: 3 }).map((_, index) => (
+                          <YStack
+                            key={index}
+                            borderRadius="$full"
+                            w={3}
+                            h={3}
+                            bg="$iconSubdued"
+                          />
+                        ))}
+                      </XStack>
                     </XStack>
-                  </XStack>
-                }
-                onPress={onPress}
-                disabled={disabled}
-              />
-            )}
-          />
+                  }
+                  onPress={onPress}
+                  disabled={disabled}
+                />
+              )}
+            />
+          ) : null}
           <WalletActionReceive
             sameModal
             source="receiveSelector"
