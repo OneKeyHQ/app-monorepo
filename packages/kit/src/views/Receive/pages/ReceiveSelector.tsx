@@ -16,13 +16,13 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { ListItem } from '../../../components/ListItem';
+import { useReviewControl } from '../../../components/ReviewControl';
 import { useHelpLink } from '../../../hooks/useHelpLink';
 import { HomeTokenListProviderMirror } from '../../Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
 import { WalletActionBuy } from '../../Home/components/WalletActions/WalletActionBuy';
 import { WalletActionReceive } from '../../Home/components/WalletActions/WalletActionReceive';
 
 import type { IListItemProps } from '../../../components/ListItem';
-import { useReviewControl } from '../../../components/ReviewControl';
 
 function ReceiveOptions({
   icon,
