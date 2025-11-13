@@ -131,6 +131,10 @@ export function FilterButton({
     ActionList.show({
       title: intl.formatMessage({ id: ETranslations.referral_filter }),
       sections,
+      sheetProps: {
+        snapPointsMode: 'percent',
+        snapPoints: [70],
+      },
     });
   }, [intl, sections]);
 
