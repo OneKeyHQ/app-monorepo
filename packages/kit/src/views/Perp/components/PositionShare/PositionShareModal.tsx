@@ -1,16 +1,7 @@
 import { useCallback, useRef, useState } from 'react';
 
-import { useNavigation } from '@react-navigation/native';
-
 import type { useInPageDialog } from '@onekeyhq/components';
-import {
-  Dialog,
-  Page,
-  Stack,
-  Toast,
-  XStack,
-  YStack,
-} from '@onekeyhq/components';
+import { Dialog, Stack, Toast, YStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -98,7 +89,7 @@ function ShareContent({ data, onClose, isMobile }: IShareContentProps) {
   }, [shareToX, config.customText, onClose]);
 
   const desktopLayout = (
-    <XStack gap="$5">
+    <YStack gap="$5">
       <ShareImageGenerator ref={generatorRef} data={data} config={config} />
       <Stack justifyContent="center" alignItems="center">
         <ShareView
@@ -119,63 +110,30 @@ function ShareContent({ data, onClose, isMobile }: IShareContentProps) {
           isLoading={isActionLoading}
         />
       </Stack>
-    </XStack>
+    </YStack>
   );
 
   const mobileLayout = (
-    <YStack width="100%" flex={1}>
+    <YStack flex={1}>
       <ShareImageGenerator ref={generatorRef} data={data} config={config} />
       <Stack justifyContent="center" alignItems="center" mb="$6">
         <ShareView data={data} config={config} generatorRef={generatorRef} />
       </Stack>
-      <YStack flex={1}>
-        <ControlPanel
-          config={config}
-          data={data}
-          onChange={setConfig}
-          onSaveImage={handleSaveImage}
-          onCopyLink={copyLink}
-          onShareToX={handleShareToX}
-          isLoading={isActionLoading}
-          isMobile
-        />
-      </YStack>
+      <ControlPanel
+        config={config}
+        data={data}
+        onChange={setConfig}
+        onSaveImage={handleSaveImage}
+        onCopyLink={copyLink}
+        onShareToX={handleShareToX}
+        isLoading={isActionLoading}
+        isMobile
+      />
     </YStack>
   );
 
   return isMobile ? mobileLayout : desktopLayout;
 }
-
-function MobilePositionShareModal({
-  route,
-}: {
-  route: { params: { data: IShareData } };
-}) {
-  const navigation = useNavigation();
-  const { data } = route.params;
-  const handleClose = useCallback(() => {
-    navigation.goBack();
-  }, [navigation]);
-
-  return (
-    <Page>
-      <Page.Header
-        title={appLocale.intl.formatMessage({
-          id: ETranslations.perps_share_position_title,
-        })}
-      />
-      <Page.Body>
-        <PerpsProviderMirror>
-          <YStack px="$2" flex={1}>
-            <ShareContent data={data} onClose={handleClose} isMobile />
-          </YStack>
-        </PerpsProviderMirror>
-      </Page.Body>
-    </Page>
-  );
-}
-
-export default MobilePositionShareModal;
 
 export function showPositionShareDialog(
   data: IShareData,
@@ -192,10 +150,7 @@ export function showPositionShareDialog(
       : {
           width: 'autoWidth',
         },
-    contentContainerProps: {
-      px: '$5',
-      pb: '$6',
-    },
+
     renderContent: (
       <PerpsProviderMirror>
         <ShareContent
@@ -203,6 +158,7 @@ export function showPositionShareDialog(
           onClose={() => {
             void dialogInstance.close();
           }}
+          isMobile={platformEnv.isNative}
         />
       </PerpsProviderMirror>
     ),

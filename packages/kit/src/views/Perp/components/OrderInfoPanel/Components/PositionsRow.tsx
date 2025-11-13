@@ -1438,6 +1438,7 @@ const PositionRow = memo(
         leverage: pos.leverage?.value || 0,
         entryPrice: pos.entryPx,
         markPrice: markPriceFormatted,
+        priceType: 'mark',
       });
     }, [showPositionShare, pos, markPrice.midFormattedByDecimals, decimals]);
 
