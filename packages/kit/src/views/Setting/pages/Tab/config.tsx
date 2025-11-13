@@ -53,6 +53,7 @@ import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
+import { useCloudBackup } from '../../../Onboardingv2/hooks/useCloudBackup';
 import { usePrimeAuthV2 } from '../../../Prime/hooks/usePrimeAuthV2';
 import { usePrimeAvailable } from '../../../Prime/hooks/usePrimeAvailable';
 import { showApiEndpointDialog } from '../../components/ApiEndpointDialog';
@@ -144,6 +145,9 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
   const { isLoggedIn } = usePrimeAuthV2();
   const [{ perpConfigCommon }] = usePerpsCommonConfigPersistAtom();
   const [settings] = useSettingsPersistAtom();
+
+  const { cloudBackupFeatureInfo, goToPageBackupList } = useCloudBackup();
+
   return useMemo(
     () => [
       {
@@ -152,18 +156,16 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
         title: intl.formatMessage({ id: ETranslations.global_backup }),
         configs: [
           [
-            platformEnv.isNative
+            cloudBackupFeatureInfo?.supportCloudBackup
               ? {
-                  icon: 'RepeatOutline',
-                  title: intl.formatMessage({
-                    id: platformEnv.isNativeAndroid
-                      ? ETranslations.settings_google_drive_backup
-                      : ETranslations.settings_icloud_backup,
-                  }),
+                  icon: cloudBackupFeatureInfo?.icon,
+                  title: cloudBackupFeatureInfo?.title,
                   onPress: (navigation) => {
-                    navigation?.pushModal(EModalRoutes.CloudBackupModal, {
-                      screen: ECloudBackupRoutes.CloudBackupHome,
-                    });
+                    navigation?.popStack();
+                    void goToPageBackupList();
+                    // navigation?.pushModal(EModalRoutes.CloudBackupModal, {
+                    //   screen: ECloudBackupRoutes.CloudBackupHome,
+                    // });
                   },
                 }
               : null,
@@ -777,6 +779,9 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
     ],
     [
       intl,
+      cloudBackupFeatureInfo?.supportCloudBackup,
+      cloudBackupFeatureInfo?.icon,
+      cloudBackupFeatureInfo?.title,
       isPrimeAvailable,
       perpConfigCommon.disablePerp,
       perpConfigCommon.usePerpWeb,
@@ -790,6 +795,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
       isShowAppUpdateUI,
       appUpdateInfo.isNeedUpdate,
       devSettings.enabled,
+      goToPageBackupList,
       onPressAddressBook,
       helpCenterUrl,
       userAgreementUrl,

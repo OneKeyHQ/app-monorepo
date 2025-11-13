@@ -26,7 +26,11 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes';
-import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes';
+import {
+  ECloudBackupRoutes,
+  EModalRoutes,
+  EOnboardingPagesV2,
+} from '@onekeyhq/shared/src/routes';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
@@ -43,6 +47,14 @@ export default function ICloudBackup() {
   const navigation = useAppNavigation();
   const [refreshHook] = useOnboardingCloudBackupListRefreshAtom();
   const intl = useIntl();
+
+
+  const { result: legacyBackups } = usePromiseResult(async () => {
+    if (platformEnv.isNative) {
+      return backgroundApiProxy.serviceCloudBackup.getMetaDataFromCloud();
+    }
+    return null;
+  }, []);
 
   const { result: allBackupsFromCloud, isLoading } = usePromiseResult(
     async () => {
@@ -162,6 +174,22 @@ export default function ICloudBackup() {
         <OnboardingLayout.Body>
           <CloudAccountBar />
           {renderContent()}
+          {legacyBackups?.length ? (
+            <Button
+              // TODO: franco
+              onPress={async () => {
+                // Dialog.debugMessage({
+                //   debugMessage: legacyBackups,
+                // });
+                navigation?.pushModal(EModalRoutes.CloudBackupModal, {
+                  screen: ECloudBackupRoutes.CloudBackupHome,
+                });
+              }}
+            >
+              查看以前的备份
+            </Button>
+          ) : null}
+
           <MultipleClickStack
             h="$10"
             showDevBgColor

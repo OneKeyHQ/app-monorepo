@@ -39,12 +39,20 @@ export function CurrentLevelSection({
         </XStack>
 
         {/* Description */}
-        <SizableText size="$bodyMd" color="$textDisabled">
+        <SizableText
+          size="$bodyMd"
+          color="$textDisabled"
+          style={{ wordBreak: 'break-word' }}
+        >
           {intl.formatMessage({
             id: ETranslations.referral_referral_level_desc1,
           })}
         </SizableText>
-        <SizableText size="$bodyMd" color="$textDisabled">
+        <SizableText
+          size="$bodyMd"
+          color="$textDisabled"
+          style={{ wordBreak: 'break-word' }}
+        >
           {intl.formatMessage({
             id: ETranslations.referral_referral_level_desc2,
           })}
