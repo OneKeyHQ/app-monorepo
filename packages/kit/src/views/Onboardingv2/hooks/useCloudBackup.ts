@@ -254,7 +254,7 @@ export function useCloudBackup() {
         setCheckLoading(false);
       }
     },
-    [checkIsAvailable, navigation],
+    [checkIsAvailable, intl, navigation],
   );
 
   const doDeleteBackup = useCallback(
