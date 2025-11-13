@@ -877,16 +877,20 @@ function USBOrBLEConnectionIndicator({
 
   useEffect(() => {
     if (
-      platformEnv.isNative ||
-      (hardwareTransportType === EHardwareTransportType.WEBUSB &&
-        !platformEnv.isDesktop)
+      hardwareTransportType === EHardwareTransportType.WEBUSB &&
+      !platformEnv.isDesktop
     ) {
       return;
     }
-    void (async () => {
-      void listingDevice();
-    })();
-  }, [listingDevice, hardwareTransportType, tabValue]);
+
+    const timeoutId = setTimeout(
+      () => {
+        void (platformEnv.isNative ? startBLEConnection() : listingDevice());
+      },
+      platformEnv.isNative ? 120 : 0,
+    );
+    return () => clearTimeout(timeoutId);
+  }, [listingDevice, hardwareTransportType, tabValue, startBLEConnection]);
 
   useEffect(
     () => () => {

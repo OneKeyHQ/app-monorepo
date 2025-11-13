@@ -45,6 +45,15 @@ export default function ShowRecoveryPhrase() {
     }
     return generateMnemonic();
   }, [route.params.mnemonic]);
+  const { result: walletName } = usePromiseResult<string>(async () => {
+    if (!route.params.walletId) {
+      return '';
+    }
+    const wallet = await backgroundApiProxy.serviceAccount.getWallet({
+      walletId: route.params.walletId,
+    });
+    return wallet.name;
+  }, [route.params.walletId]);
   const recoveryPhrase = useMemo(
     () => mnemonic.split(' ').filter(Boolean),
     [mnemonic],
@@ -56,7 +65,7 @@ export default function ShowRecoveryPhrase() {
   return (
     <Page>
       <OnboardingLayout>
-        <OnboardingLayout.Header title="Wallet #1" />
+        <OnboardingLayout.Header title={walletName} />
         <OnboardingLayout.Body>
           <YStack gap="$5">
             <YStack gap="$3">

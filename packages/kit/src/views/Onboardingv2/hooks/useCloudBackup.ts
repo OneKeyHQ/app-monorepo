@@ -235,6 +235,8 @@ export function useCloudBackup() {
                   },
                 );
               if (result === true) {
+                await verifyPasswordDialog.close();
+                await timerUtils.wait(350);
                 await backupFn(password);
               }
             },

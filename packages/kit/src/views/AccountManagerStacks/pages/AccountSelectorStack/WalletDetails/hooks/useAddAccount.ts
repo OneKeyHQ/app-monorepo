@@ -1,10 +1,10 @@
-import { useCallback } from 'react';
-
 import { useDebouncedCallback } from 'use-debounce';
 
+import { rootNavigationRef } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useCreateQrWallet } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useCreateQrWallet';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { closeModalPages } from '@onekeyhq/kit/src/hooks/usePageNavigation';
 import {
   useAccountSelectorActions,
   useActiveAccount,
@@ -29,6 +29,7 @@ import {
   EModalRoutes,
   EOnboardingPages,
   EOnboardingPagesV2,
+  EOnboardingV2ImportPhraseOrPrivateKeyTab,
   EOnboardingV2Routes,
   ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
@@ -76,16 +77,13 @@ export function useAddAccount({
             screen: EOnboardingPages.ImportAddress,
           });
         } else if (walletId === WALLET_TYPE_IMPORTED) {
-          // navigation.pushModal(EModalRoutes.OnboardingModal, {
-          //   screen: EOnboardingPages.ImportPrivateKey,
-          // });
-
-          navigation.navigate(ERootRoutes.Onboarding, {
+          await closeModalPages();
+          rootNavigationRef.current?.navigate(ERootRoutes.Onboarding, {
             screen: EOnboardingV2Routes.OnboardingV2,
             params: {
               screen: EOnboardingPagesV2.ImportPhraseOrPrivateKey,
               params: {
-                defaultTab: 'privateKey',
+                defaultTab: EOnboardingV2ImportPhraseOrPrivateKeyTab.PrivateKey,
               },
             },
           });
