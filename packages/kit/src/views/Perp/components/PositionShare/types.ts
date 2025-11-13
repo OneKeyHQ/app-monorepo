@@ -16,6 +16,7 @@ export interface IShareData {
   leverage: number;
   entryPrice: string;
   markPrice: string;
+  priceType?: 'mark' | 'exit';
 }
 
 export interface IShareImageGeneratorRef {
@@ -61,6 +62,8 @@ export interface ICanvasConfig {
     lineHeight: number;
     badgeRadius: number;
     labelOpacity: number;
+    qrCodeSize: number;
+    qrCodeSpacing: number;
   };
   display: {
     showTokenIcon: boolean;

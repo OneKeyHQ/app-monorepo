@@ -30,7 +30,6 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useUserWalletProfile } from '../../../hooks/useUserWalletProfile';
 import useLiteCard from '../../LiteCard/hooks/useLiteCard';
-import { showPrimeTransferImportProcessingDialog } from '../../Prime/pages/PagePrimeTransfer/components/PrimeTransferImportProcessingDialog';
 import { OnboardingLayout } from '../components/OnboardingLayout';
 import { useCloudBackup } from '../hooks/useCloudBackup';
 
@@ -306,7 +305,14 @@ export default function AddExistingWallet() {
                 <Icon name={icon} />
               </YStack>
               <YStack gap={2} flex={1}>
-                <SizableText size="$bodyMdMedium">{title}</SizableText>
+                <SizableText
+                  size="$bodyMdMedium"
+                  $platform-native={{
+                    size: '$bodyLgMedium',
+                  }}
+                >
+                  {title}
+                </SizableText>
                 {description ? (
                   <SizableText size="$bodySm" color="$textSubdued">
                     {Array.isArray(description)

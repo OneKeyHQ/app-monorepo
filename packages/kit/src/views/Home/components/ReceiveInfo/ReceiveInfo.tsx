@@ -234,6 +234,7 @@ function ReceiveInfo({
         minHeight: 256,
         bg: '$green1',
         $gtMd: { flexBasis: 0, flexShrink: 1, flexGrow: 1 },
+        pointerEvents: 'box-none',
       }}
     />
   );
