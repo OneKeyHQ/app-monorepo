@@ -11,11 +11,14 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import googlePlayService from '@onekeyhq/shared/src/googlePlayService/googlePlayService';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IAppleCloudKitRecord } from '@onekeyhq/shared/src/storage/AppleCloudKitStorage/types';
 import type { IGoogleDriveFile } from '@onekeyhq/shared/src/storage/GoogleDriveStorage/types';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
   IPrimeTransferData,
   IPrimeTransferPrivateData,
@@ -258,8 +261,33 @@ class ServiceCloudBackupV2 extends ServiceBase {
       throw new OneKeyLocalError('Failed to backup data: no data downloaded');
     }
     if (downloadData?.content !== content) {
+      void this.delete({ recordId: recordID });
       throw new OneKeyLocalError('Failed to backup data: content mismatch');
     }
+
+    await timerUtils.wait(2000);
+
+    const allBackups = await this.getAllBackups();
+    const matchedBackup = allBackups?.items?.find(
+      (item) => item.recordID === recordID,
+    );
+    if (!matchedBackup) {
+      void this.delete({ recordId: recordID });
+      // 当多个客户端同时发起备份时，云端可能存在并发写入失败的情况，此时需要用户重新尝试
+      // TODO: franco 云端写入备份数据失败，请重新尝试
+      // appLocale.intl.formatMessage({
+      //   id: ETranslations.backup_write_to_cloud_failed,
+      // });
+      throw new OneKeyLocalError(
+        'Write backup data to cloud failed, please try again',
+      );
+    }
+
+    await this.backgroundApi.serviceAccount.updateHdWalletsBackedUpStatusForCloudBackup(
+      {
+        publicData: data.publicData,
+      },
+    );
     return result;
   }
 

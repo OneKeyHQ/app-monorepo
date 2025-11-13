@@ -67,6 +67,7 @@ import type {
   IPrimeTransferHDWalletIndexedAccountNames,
   IPrimeTransferPrivateData,
   IPrimeTransferPublicData,
+  IPrimeTransferPublicDataWalletDetail,
   IPrimeTransferSelectedData,
   IPrimeTransferSelectedDataItem,
   IPrimeTransferSelectedItemMap,
@@ -939,7 +940,7 @@ class ServicePrimeTransfer extends ServiceBase {
               id: walletId,
               name: wallet.name,
               type: wallet.type,
-              backuped: wallet.backuped,
+              backuped: isForCloudBackup ? true : wallet.backuped,
               accounts: [],
               accountIds: [],
               accountIdsLength: 0,
@@ -949,6 +950,7 @@ class ServicePrimeTransfer extends ServiceBase {
               walletOrder: wallet.walletOrder,
               avatarInfo: wallet.avatarInfo,
               version: HDWALLET_BACKUP_VERSION,
+              xfp: wallet.xfp || undefined,
             };
           }
           const HDAccountUUID = account.id;
@@ -997,11 +999,7 @@ class ServicePrimeTransfer extends ServiceBase {
       publicData.totalWalletsCount = hdWallets.length;
       publicData.totalAccountsCount =
         totalHdAccounts + importedAccountsCount + watchingAccountsCount;
-      const walletDetails: Array<{
-        name: string;
-        avatar: IAllWalletAvatarImageNamesWithoutDividers;
-        accountsCount: number;
-      }> = [
+      const walletDetails: Array<IPrimeTransferPublicDataWalletDetail> = [
         ...sortedHdWallets.map((w) => {
           let avatarInfo: IAvatarInfo | undefined;
           try {
@@ -1021,34 +1019,29 @@ class ServicePrimeTransfer extends ServiceBase {
             name: w.name,
             avatar,
             accountsCount: w.indexedAccountUUIDs?.length || 0,
+            walletXfp: w.xfp,
           };
         }),
       ].filter(Boolean);
       if (importedAccountsCount > 0) {
-        const data: {
-          name: string;
-          avatar: IOthersWalletAvatarImageNames;
-          accountsCount: number;
-        } = {
+        const data: IPrimeTransferPublicDataWalletDetail = {
           name: appLocale.intl.formatMessage({
             id: ETranslations.wallet_label_private_key,
           }),
           avatar: 'othersImported',
           accountsCount: importedAccountsCount,
+          walletXfp: undefined,
         };
         walletDetails.push(data);
       }
       if (watchingAccountsCount > 0) {
-        const data: {
-          name: string;
-          avatar: IOthersWalletAvatarImageNames;
-          accountsCount: number;
-        } = {
+        const data: IPrimeTransferPublicDataWalletDetail = {
           name: appLocale.intl.formatMessage({
             id: ETranslations.wallet_label_watch_only,
           }),
           avatar: 'othersWatching',
           accountsCount: watchingAccountsCount,
+          walletXfp: undefined,
         };
         walletDetails.push(data);
       }

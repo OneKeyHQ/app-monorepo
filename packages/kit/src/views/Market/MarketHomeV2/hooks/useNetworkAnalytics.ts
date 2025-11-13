@@ -29,8 +29,6 @@ export function useNetworkAnalytics(selectedNetworkId: string) {
       // Update the selected network state
       setSelectedNetworkId(networkId);
 
-      console.log('handleNetworkChange', networkId);
-
       // Track network selection
       defaultLogger.dex.list.dexNetwork({
         network: networkId,

@@ -9,6 +9,7 @@ import type {
   IEarnRewardResponse,
   IEarnWalletHistory,
   IExportInviteDataParams,
+  IHardwareCumulativeRewards,
   IHardwareSalesRecord,
   IInviteCodeItem,
   IInviteCodeListResponse,
@@ -213,6 +214,29 @@ class ServiceReferralCode extends ServiceBase {
     const response = await client.get<{
       data: IHardwareSalesRecord;
     }>('/rebate/v1/invite/records', { params });
+    return response.data.data;
+  }
+
+  @backgroundMethod()
+  async getHardwareCumulativeRewards(
+    inviteCode?: string,
+    timeRange?: EExportTimeRange,
+  ): Promise<IHardwareCumulativeRewards> {
+    const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Rebate);
+    const params: {
+      inviteCode?: string;
+      timeRange?: string;
+    } = {};
+    if (inviteCode) {
+      params.inviteCode = inviteCode;
+    }
+    if (timeRange) {
+      params.timeRange = timeRange;
+    }
+    const response = await client.get<{
+      data: IHardwareCumulativeRewards;
+    }>('/rebate/v1/invite/hardware-cumulative-rewards', { params });
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     return response.data.data;
   }
 

@@ -378,3 +378,17 @@ export interface IExportInviteDataParams {
 
 // API returns CSV string directly
 export type IExportInviteDataResponse = string;
+
+// Hardware cumulative rewards response
+export interface IHardwareCumulativeRewards {
+  distributed: string;
+  undistributed: string;
+  nextDistribution: string;
+  token: {
+    networkId: string;
+    address: string;
+    logoURI: string;
+    name: string;
+    symbol: string;
+  };
+}
