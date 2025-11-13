@@ -352,16 +352,21 @@ class ServiceCloudBackup extends ServiceBase {
 
   @backgroundMethod()
   async getMetaDataFromCloud(): Promise<IMetaDataObject[]> {
-    if (!(await this.getCloudAvailable())) {
-      return [];
-    }
-    const metaString = await this.getDataFromCloud(CLOUD_METADATA_FILE_NAME);
-    if (metaString.length <= 0) {
-      return [];
-    }
     try {
-      const metaData = JSON.parse(metaString) as IMetaDataObject[];
-      return metaData;
+      if (!(await this.getCloudAvailable())) {
+        return [];
+      }
+      const metaString = await this.getDataFromCloud(CLOUD_METADATA_FILE_NAME);
+      if (metaString.length <= 0) {
+        return [];
+      }
+      try {
+        const metaData = JSON.parse(metaString) as IMetaDataObject[];
+        return metaData;
+      } catch (e) {
+        console.error(e);
+        return [];
+      }
     } catch (e) {
       console.error(e);
       return [];
