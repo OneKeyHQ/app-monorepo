@@ -2,6 +2,7 @@
 import BigNumber from 'bignumber.js';
 
 import type {
+  IFill,
   IHex,
   IL2BookOptions,
   IMarginTable,
@@ -407,6 +408,17 @@ export const {
   },
 });
 
+export type IPerpsLastUsedLeverageAtom = Record<string, number>;
+
+export const {
+  target: perpsLastUsedLeverageAtom,
+  use: usePerpsLastUsedLeverageAtom,
+} = globalAtom<IPerpsLastUsedLeverageAtom>({
+  name: EAtomNames.perpsLastUsedLeverageAtom,
+  persist: true,
+  initialValue: {},
+});
+
 // #endregion
 
 export interface IPerpsNetworkStatus {
@@ -476,4 +488,22 @@ export const {
 }>({
   name: EAtomNames.perpsWebSocketDataUpdateTimesAtom,
   initialValue: { wsDataReceiveTimes: 0, wsDataUpdateTimes: 0 },
+});
+
+export type IPerpsUserFillsCacheAtom = {
+  userAddress: IHex | null;
+  fills: IFill[];
+  timestamp: number;
+};
+
+export const {
+  target: perpsUserFillsCacheAtom,
+  use: usePerpsUserFillsCacheAtom,
+} = globalAtom<IPerpsUserFillsCacheAtom>({
+  name: EAtomNames.perpsUserFillsCacheAtom,
+  initialValue: {
+    userAddress: null,
+    fills: [],
+    timestamp: 0,
+  },
 });

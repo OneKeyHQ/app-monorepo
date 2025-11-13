@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import BigNumber from 'bignumber.js';
+import QRCodeUtil from 'qrcode';
+import Svg, { G, Path } from 'react-native-svg';
 
 import {
   Image,
@@ -19,7 +21,6 @@ import {
   CANVAS_CONFIG,
   REFERRAL_CODE,
   SHOW_REFERRAL_CODE,
-  STICKERS,
   getPnlDisplayInfo,
 } from './constants';
 
@@ -34,21 +35,102 @@ interface IShareContentRendererProps {
 
 const { size, padding, colors, fonts, layout, display } = CANVAS_CONFIG;
 
+function generateQRCodeMatrix(
+  value: string,
+  errorCorrectionLevel: 'L' | 'M' | 'Q' | 'H' = 'H',
+): number[][] {
+  const arr: number[] = Array.prototype.slice.call(
+    QRCodeUtil.create(value, { errorCorrectionLevel }).modules.data,
+    0,
+  );
+  const sqrt = Math.sqrt(arr.length);
+  return arr.reduce((rows: number[][], key, index) => {
+    if (index % sqrt === 0) {
+      rows.push([key]);
+    } else {
+      rows[rows.length - 1].push(key);
+    }
+    return rows;
+  }, []);
+}
+
+function transformMatrixIntoPath(matrix: number[][], qrSize: number) {
+  const cellSize = qrSize / matrix.length;
+  let path = '';
+  matrix.forEach((row, i) => {
+    let needDraw = false;
+    row.forEach((column, j) => {
+      if (column) {
+        if (!needDraw) {
+          path += `M${cellSize * j} ${cellSize / 2 + cellSize * i} `;
+          needDraw = true;
+        }
+        if (needDraw && j === matrix.length - 1) {
+          path += `L${cellSize * (j + 1)} ${cellSize / 2 + cellSize * i} `;
+        }
+      } else if (needDraw) {
+        path += `L${cellSize * j} ${cellSize / 2 + cellSize * i} `;
+        needDraw = false;
+      }
+    });
+  });
+  return {
+    cellSize,
+    path,
+  };
+}
+
+function QRCodeRenderer({
+  value,
+  size: qrSize,
+}: {
+  value: string;
+  size: number;
+}) {
+  const matrix = useMemo(() => generateQRCodeMatrix(value, 'H'), [value]);
+  const { path, cellSize } = useMemo(
+    () => transformMatrixIntoPath(matrix, qrSize),
+    [matrix, qrSize],
+  );
+
+  return (
+    <Svg height={qrSize} width={qrSize}>
+      <G>
+        <Path
+          d={path}
+          strokeLinecap="butt"
+          stroke="#FFFFFF"
+          strokeWidth={cellSize}
+        />
+      </G>
+    </Svg>
+  );
+}
+
 export function ShareContentRenderer({
   data,
   config,
   scale = 1,
   onImagesReady,
 }: IShareContentRendererProps) {
-  const { side, token, tokenImageUrl, pnl, leverage, entryPrice, markPrice } =
-    data;
+  const {
+    side,
+    token,
+    tokenImageUrl,
+    pnl,
+    leverage,
+    entryPrice,
+    markPrice,
+    priceType = 'mark',
+  } = data;
   const pnlBn = new BigNumber(pnl || '0');
   const isProfit = pnlBn.isGreaterThan(0);
   const pnlColor = isProfit ? colors.long : colors.short;
   const sideColor = side === 'long' ? colors.long : colors.short;
   const tokenImage = tokenImageUrl || getHyperliquidTokenImageUrl(token);
-  const selectedSticker =
-    config.stickerIndex !== null ? STICKERS[config.stickerIndex] : null;
+  // Sticker temporarily disabled
+  // const selectedSticker =
+  //   config.stickerIndex !== null ? STICKERS[config.stickerIndex] : null;
   const pnlDisplayMode = config.pnlDisplayMode;
 
   const selectedBackground = isProfit
@@ -260,9 +342,11 @@ export function ShareContentRenderer({
               opacity={layout.labelOpacity}
               lineHeight={scaledFonts.priceLabel * layout.lineHeight}
             >
-              {appLocale.intl.formatMessage({
-                id: ETranslations.perp_position_mark_price,
-              })}
+              {priceType === 'exit'
+                ? 'Exit Price'
+                : appLocale.intl.formatMessage({
+                    id: ETranslations.perp_position_mark_price,
+                  })}
             </SizableText>
             <SizableText
               fontSize={scaledFonts.priceValue}
@@ -275,7 +359,8 @@ export function ShareContentRenderer({
           </YStack>
         ) : null}
 
-        {selectedSticker ? (
+        {/* Sticker temporarily disabled */}
+        {/* {selectedSticker ? (
           <SizableText
             position="absolute"
             right={scaledPadding}
@@ -285,7 +370,7 @@ export function ShareContentRenderer({
           >
             {selectedSticker}
           </SizableText>
-        ) : null}
+        ) : null} */}
         {SHOW_REFERRAL_CODE ? (
           <Stack
             position="absolute"
@@ -296,28 +381,39 @@ export function ShareContentRenderer({
             backgroundColor={colors.referralBackground}
             justifyContent="center"
             paddingLeft={scaledPadding}
+            paddingRight={scaledPadding}
           >
-            <YStack gap={layout.priceGap}>
-              <SizableText
-                fontSize={scaledFonts.priceLabel}
-                fontWeight="600"
-                color={colors.textTertiary}
-                opacity={layout.labelOpacity}
-                lineHeight={scaledFonts.priceLabel * layout.lineHeight}
-              >
-                {appLocale.intl.formatMessage({
-                  id: ETranslations.referral_referral_link,
-                })}
-              </SizableText>
-              <SizableText
-                fontSize={scaledFonts.priceValue}
-                fontWeight="600"
-                color={colors.textTertiary}
-                lineHeight={scaledFonts.priceValue * layout.lineHeight}
-              >
-                {REFERRAL_CODE}
-              </SizableText>
-            </YStack>
+            <XStack
+              alignItems="center"
+              justifyContent="space-between"
+              width="100%"
+            >
+              <YStack gap={layout.priceGap}>
+                {/* <SizableText
+                  fontSize={scaledFonts.priceLabel}
+                  fontWeight="600"
+                  color={colors.textTertiary}
+                  opacity={layout.labelOpacity}
+                  lineHeight={scaledFonts.priceLabel * layout.lineHeight}
+                >
+                  {appLocale.intl.formatMessage({
+                    id: ETranslations.referral_referral_link,
+                  })}
+                </SizableText> */}
+                <SizableText
+                  fontSize={scaledFonts.priceValue}
+                  fontWeight="600"
+                  color={colors.textTertiary}
+                  lineHeight={scaledFonts.priceValue * layout.lineHeight}
+                >
+                  {REFERRAL_CODE}
+                </SizableText>
+              </YStack>
+              <QRCodeRenderer
+                value={REFERRAL_CODE}
+                size={layout.qrCodeSize * scale}
+              />
+            </XStack>
           </Stack>
         ) : null}
       </YStack>

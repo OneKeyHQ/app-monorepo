@@ -8,7 +8,10 @@ import { noop } from 'lodash';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
-import { usePerpsTradesHistoryRefreshHookAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/perps';
+import {
+  perpsUserFillsCacheAtom,
+  usePerpsTradesHistoryRefreshHookAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms/perps';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -114,7 +117,12 @@ export function usePerpsTradingViewMessageHandler({
           },
         );
 
-      // Filter trades by target symbol and format to TradingView marks
+      await perpsUserFillsCacheAtom.set({
+        userAddress: targetUserAddress,
+        fills: historyTrades,
+        timestamp: Date.now(),
+      });
+
       const filteredTrades = historyTrades.filter(
         (trade: IFill) => trade.coin === targetSymbol,
       );

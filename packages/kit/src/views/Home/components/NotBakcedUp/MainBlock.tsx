@@ -80,6 +80,7 @@ function MainInfoBlock(props: IProps) {
           w={600}
           h={380}
           zIndex={0}
+          pointerEvents="box-none"
         />
       ) : null}
       {closable ? (
