@@ -395,6 +395,7 @@ function AssetsNFT(props: IAssetsNFTProps) {
       label={component.label}
       amount={component.amount}
       name={component.nft.metadata?.name || component.nft.collectionName || ''}
+      symbol={component.nft.collectionSymbol || ''}
       type="nft"
       tokenProps={{
         isNFT: true,
