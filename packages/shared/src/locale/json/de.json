@@ -1786,6 +1786,7 @@
   "id.refer_a_friend": "Einen Freund empfehlen",
   "id.refer_a_friend_desc": "Laden Sie Freunde ein, um Belohnungen zu verdienen",
   "identical_name_asset_alert": "Wir haben Vermögenswerte mit ähnlichen Namen in deiner Wallet erkannt. Bitte sei vorsichtig.",
+  "import_hardware_phrases_warning": "Importiere nicht die Wiederherstellungsphrase deiner Hardware-Wallet. <tag>Hardware-Wallet verbinden ↗</tag> stattdessen",
   "import_phrase_or_private_key": "Phrase oder privaten Schlüssel importieren",
   "insufficient_fee_append_desc": "basierend auf der maximal geschätzten Gebühr: {amount} {symbol}",
   "interact_with_contract": "Interagieren mit (An)",

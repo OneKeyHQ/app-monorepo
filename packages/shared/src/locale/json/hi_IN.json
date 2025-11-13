@@ -1786,6 +1786,7 @@
   "id.refer_a_friend": "एक मित्र को संदर्भित करें",
   "id.refer_a_friend_desc": "दोस्तों को आमंत्रित करें और पुरस्कार प्राप्त करें",
   "identical_name_asset_alert": "हमने आपके वॉलेट में समान नाम वाले एसेट्स का पता लगाया है। सावधानी से आगे बढ़ें।",
+  "import_hardware_phrases_warning": "अपने हार्डवेयर वॉलेट का रिकवरी फ़्रेज आयात न करें। <tag>हार्डवेयर वॉलेट कनेक्ट करें ↗</tag>",
   "import_phrase_or_private_key": "वाक्यांश या निजी कुंजी आयात करें",
   "insufficient_fee_append_desc": "अधिकतम अनुमानित शुल्क के आधार पर: {amount} {symbol}",
   "interact_with_contract": "(से) संवाद करें",

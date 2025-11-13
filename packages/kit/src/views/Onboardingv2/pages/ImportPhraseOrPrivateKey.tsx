@@ -1,9 +1,10 @@
-import type { RefObject } from 'react';
-import { useRef, useState } from 'react';
+import type { ReactNode, RefObject } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 import Animated, {
   useAnimatedReaction,
   useSharedValue,
@@ -12,10 +13,12 @@ import Animated, {
 import {
   Button,
   HeightTransition,
+  Icon,
   Input,
   Page,
   Portal,
   SegmentControl,
+  SizableText,
   TextAreaInput,
   XStack,
   YStack,
@@ -113,6 +116,29 @@ export default function ImportPhraseOrPrivateKey() {
     },
   );
 
+  const renderHardwarePhrasesWarningTag = useCallback(
+    (chunks: ReactNode[]) => (
+      <SizableText
+        onPress={() => navigation.push(EOnboardingPagesV2.PickYourDevice)}
+        color="$textCautionStrong"
+        size="$bodyMdMedium"
+        hitSlop={{
+          top: 8,
+          left: 8,
+          right: 8,
+          bottom: 8,
+        }}
+        cursor="default"
+        hoverStyle={{
+          color: '$textCaution',
+        }}
+      >
+        {chunks}
+      </SizableText>
+    ),
+    [navigation],
+  );
+
   const { start: startScanQrCode } = useScanQrCode();
 
   return (
@@ -148,10 +174,42 @@ export default function ImportPhraseOrPrivateKey() {
             />
             <HeightTransition>
               {selected === EOnboardingV2ImportPhraseOrPrivateKeyTab.Phrase ? (
-                <PhaseInputArea
-                  ref={phaseInputAreaRef as RefObject<IPhaseInputAreaInstance>}
-                  defaultPhrases={[]}
-                />
+                <YStack gap="$3">
+                  <XStack
+                    px="$2"
+                    py="$1"
+                    borderWidth={StyleSheet.hairlineWidth}
+                    borderColor="$borderCautionSubdued"
+                    borderRadius="$3"
+                    borderCurve="continuous"
+                    bg="$bgCautionSubdued"
+                    gap="$2"
+                  >
+                    <YStack flexShrink={0} py={2}>
+                      <Icon
+                        name="ErrorOutline"
+                        size="$4"
+                        color="$iconCaution"
+                      />
+                    </YStack>
+                    <SizableText color="$textCaution" flex={1}>
+                      {intl.formatMessage(
+                        {
+                          id: ETranslations.import_hardware_phrases_warning,
+                        },
+                        {
+                          tag: renderHardwarePhrasesWarningTag,
+                        },
+                      )}
+                    </SizableText>
+                  </XStack>
+                  <PhaseInputArea
+                    ref={
+                      phaseInputAreaRef as RefObject<IPhaseInputAreaInstance>
+                    }
+                    defaultPhrases={[]}
+                  />
+                </YStack>
               ) : (
                 <YStack
                   key="privateKey"

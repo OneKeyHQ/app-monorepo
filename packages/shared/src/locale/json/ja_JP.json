@@ -1786,6 +1786,7 @@
   "id.refer_a_friend": "友達を紹介する",
   "id.refer_a_friend_desc": "友達を招待して報酬を獲得しましょう",
   "identical_name_asset_alert": "ウォレット内で似た名前の資産を検出しました。慎重に進めてください。",
+  "import_hardware_phrases_warning": "ハードウェアウォレットのリカバリーフレーズをインポートしないでください。 <tag>ハードウェアウォレットを接続 ↗</tag> を使用してください",
   "import_phrase_or_private_key": "フレーズまたは秘密鍵をインポート",
   "insufficient_fee_append_desc": "最大推定手数料に基づく: {amount} {symbol}",
   "interact_with_contract": "(に)交流する",
