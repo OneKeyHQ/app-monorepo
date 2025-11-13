@@ -78,7 +78,7 @@ export function NoteDialogContent({
           })}
           value={noteValue}
           onChangeText={handleInputChange}
-          maxLength={20}
+          maxLength={100}
           autoFocus
           error={showError}
         />

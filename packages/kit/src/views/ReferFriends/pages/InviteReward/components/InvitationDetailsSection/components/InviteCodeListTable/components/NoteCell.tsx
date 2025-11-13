@@ -16,7 +16,7 @@ interface INoteCellProps {
 // Note cell with add/edit note functionality
 export function NoteCell({ code, note, onNoteUpdated }: INoteCellProps) {
   const intl = useIntl();
-  const { gtMd } = useMedia();
+  const { gtMd, md } = useMedia();
 
   const handleOpenDialog = useCallback(() => {
     const dialogTitle = note
@@ -43,19 +43,20 @@ export function NoteCell({ code, note, onNoteUpdated }: INoteCellProps) {
   if (note) {
     return (
       <Button
+        childrenAsText={false}
         variant="tertiary"
         size="small"
         icon="PencilOutline"
         onPress={handleOpenDialog}
-        justifyContent="flex-start"
       >
         <SizableText
           size="$bodyMdMedium"
           color="$text"
           numberOfLines={1}
+          width={md ? 90 : 120}
           ellipsizeMode="tail"
-          width={gtMd ? '10vw' : 100}
           display="block"
+          overflow="hidden"
         >
           {note}
         </SizableText>
