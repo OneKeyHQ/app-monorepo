@@ -12,11 +12,13 @@ import type { IDesktopApi } from './instance/IDesktopApi';
 import type { Readable } from 'stream';
 
 /**
- * Create a custom HTTPS agent that uses hostname (server name) instead of IP (host)
- * for connection pool keys. This enables connection reuse even when switching IPs.
+ * Create a custom HTTPS agent that uses hostname+IP combination as connection pool keys.
+ * This ensures:
+ * - Different IPs for the same hostname are isolated (accurate speed testing)
+ * - Same hostname+IP combination can reuse connections (performance optimization)
  */
 function createCustomAgent(): https.Agent {
-  // Create agent with custom getName to use hostname as pool key
+  // Create agent with custom getName to use hostname+IP as pool key
   const agent = new https.Agent({
     keepAlive: true, // Enable TCP keep-alive
     keepAliveMsecs: 30_000, // Send keep-alive probes every 30 seconds
@@ -26,30 +28,19 @@ function createCustomAgent(): https.Agent {
     scheduling: 'lifo', // Use most recently used socket first (better for keep-alive)
   });
 
-  // Store hostname mapping to ensure consistent pool keys
-  const hostnameMap = new Map<string, string>();
-
-  // Override getName to use server name (hostname) instead of host (IP)
+  // Override getName to use both hostname and IP as pool key
+  // This ensures that:
+  // 1. Different IPs are isolated (accurate speed testing)
+  // 2. Same hostname+IP combination can reuse connections (performance optimization)
   // @ts-expect-error
   agent.getName = (options: https.RequestOptions): string => {
-    // Try to get hostname from servername first, then from stored mapping
     const ip = options.host || '';
-    let hostname = options.servername;
-
-    if (!hostname && ip) {
-      // When looking up existing connections, servername might not be provided
-      // Use our stored mapping to get the hostname for this IP
-      hostname = hostnameMap.get(ip);
-    }
-
-    if (hostname && ip && !hostnameMap.has(ip)) {
-      // Store the IP -> hostname mapping for future lookups
-      hostnameMap.set(ip, hostname);
-    }
-
-    const host = hostname || ip;
+    const hostname = options.servername || '';
     const port = options.port || 443;
-    const poolKey = `${host}:${port}`;
+
+    // Use hostname:IP:port as the connection pool key
+    // This prevents connection reuse across different IPs for the same hostname
+    const poolKey = `${hostname}:${ip}:${port}`;
 
     return poolKey;
   };
