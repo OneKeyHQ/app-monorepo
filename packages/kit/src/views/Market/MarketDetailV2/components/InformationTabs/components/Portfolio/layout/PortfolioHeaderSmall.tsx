@@ -11,13 +11,13 @@ function PortfolioHeaderSmallBase() {
   const intl = useIntl();
 
   return (
-    <XStack px="$4" py="$3" alignItems="center" justifyContent="space-between">
-      <SizableText {...commonTextProps} flex={1}>
+    <XStack px="$4" py="$3" alignItems="center">
+      <SizableText {...commonTextProps} width="50%">
         {intl.formatMessage({
           id: ETranslations.dexmarket_details_history_amount,
         })}
       </SizableText>
-      <SizableText {...commonTextProps} flex={1} textAlign="right">
+      <SizableText {...commonTextProps}>
         {intl.formatMessage({
           id: ETranslations.dexmarket_details_history_value,
         })}
