@@ -122,12 +122,10 @@ const useInvestmentState = () => {
   const investmentMapRef = useRef<IInvestmentMap>(new Map());
 
   const updateInvestments = useCallback((newMap: IInvestmentMap) => {
-    // Filter out zero-value investments
-    // BUT keep airdrop investments even if their value is 0
+    // Filter out zero-value investments (including airdrops)
     const validInvestments = Array.from(newMap.values()).filter((inv) => {
-      const hasAirdrop = inv.airdropAssets && inv.airdropAssets.length > 0;
-      const hasNormalAssets = hasPositiveFiatValue(inv.totalFiatValue);
-      return hasAirdrop || hasNormalAssets;
+      // Only keep investments with positive fiat value
+      return hasPositiveFiatValue(inv.totalFiatValue);
     });
 
     const sorted = sortByFiatValueDesc(validInvestments);
