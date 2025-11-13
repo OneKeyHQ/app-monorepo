@@ -4,6 +4,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { ContextJotaiActionsBase } from '@onekeyhq/kit/src/states/jotai/utils/ContextJotaiActionsBase';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
+import type { IDiscoveryBanner } from '@onekeyhq/shared/types/discovery';
 import type {
   EAvailableAssetsTypeEnum,
   IEarnPermitCache,
@@ -44,7 +45,7 @@ class ContextJotaiActionsEarn extends ContextJotaiActionsBase {
     if (!get(atom).isMounted) {
       return;
     }
-    set(atom, () => payload);
+    set(atom, payload);
   });
 
   getAvailableAssetsByType = contextAtomMethod(
@@ -188,6 +189,17 @@ class ContextJotaiActionsEarn extends ContextJotaiActionsBase {
       });
     },
   );
+
+  getBanners = contextAtomMethod((get, set) => {
+    const { banners } = get(earnAtom());
+    return banners || [];
+  });
+
+  updateBanners = contextAtomMethod((get, set, banners: IDiscoveryBanner[]) => {
+    this.syncToDb.call(set, {
+      banners,
+    });
+  });
 }
 
 const createActions = memoFn(() => new ContextJotaiActionsEarn());
@@ -221,6 +233,8 @@ export function useEarnActions() {
 
   const getRecommendedTokens = actions.getRecommendedTokens.use();
   const updateRecommendedTokens = actions.updateRecommendedTokens.use();
+  const getBanners = actions.getBanners.use();
+  const updateBanners = actions.updateBanners.use();
 
   return useRef({
     getAvailableAssetsByType,
@@ -237,5 +251,7 @@ export function useEarnActions() {
     isDataIncomplete,
     getRecommendedTokens,
     updateRecommendedTokens,
+    getBanners,
+    updateBanners,
   });
 }

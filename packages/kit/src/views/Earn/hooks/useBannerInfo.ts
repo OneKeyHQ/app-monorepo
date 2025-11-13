@@ -1,29 +1,29 @@
+import { useCallback } from 'react';
+
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 
-import { usePromiseResult } from '../../../hooks/usePromiseResult';
+import { useEarnActions } from '../../../states/jotai/contexts/earn';
+import { useEarnAtom } from '../../../states/jotai/contexts/earn/atoms';
 
 export const useBannerInfo = () => {
-  const { result: earnBanners, run: refetchBanners } = usePromiseResult(
-    async () => {
-      const bannerResult =
-        await backgroundApiProxy.serviceStaking.fetchEarnHomePageData();
-      return (
-        bannerResult?.map((i) => ({
-          ...i,
-          imgUrl: i.src,
-          title: i.title || '',
-          titleTextProps: {
-            size: '$headingMd',
-          },
-        })) || []
-      );
-    },
-    [],
-    {
-      revalidateOnReconnect: true,
-      revalidateOnFocus: true,
-    },
-  );
+  const actions = useEarnActions();
+  const [earnData] = useEarnAtom();
 
-  return { earnBanners, refetchBanners };
+  const refetchBanners = useCallback(async () => {
+    const bannerResult =
+      await backgroundApiProxy.serviceStaking.fetchEarnHomePageData();
+    const transformedBanners =
+      bannerResult?.map((i) => ({
+        ...i,
+        imgUrl: i.src,
+        title: i.title || '',
+        titleTextProps: {
+          size: '$headingMd',
+        },
+      })) || [];
+
+    actions.current.updateBanners(transformedBanners);
+  }, [actions]);
+
+  return { earnBanners: earnData.banners, refetchBanners };
 };

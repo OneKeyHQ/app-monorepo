@@ -160,7 +160,9 @@ const Rebate = ({
             })}
             {isEmpty(rebateData?.undistributed) ? null : (
               <SizableText mx="$5" size="$bodyMdMedium" color="$textSubdued">
-                {intl.formatMessage({ id: ETranslations.referral_undistributed })}
+                {intl.formatMessage({
+                  id: ETranslations.referral_undistributed,
+                })}
               </SizableText>
             )}
             {rebateData?.undistributed.map((item, index) => {

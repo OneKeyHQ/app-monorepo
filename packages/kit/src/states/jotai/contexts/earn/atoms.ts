@@ -22,6 +22,7 @@ export const { atom: basicEarnAtom, useContextAtom } =
     earnAccount: {},
     availableAssetsByType: {},
     recommendedTokens: [],
+    banners: [],
     refreshTrigger: 0,
   });
 
@@ -43,6 +44,7 @@ export const earnAtom = memoizee(() =>
             earnAccount: data.earnAccount || {},
             availableAssetsByType: data.availableAssetsByType || {},
             recommendedTokens: data.recommendedTokens || [],
+            banners: data.banners || [],
             refreshTrigger: data.refreshTrigger || 0,
           });
           set(earnStorageReadyAtom(), true);

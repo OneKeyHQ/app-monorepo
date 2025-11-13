@@ -8,6 +8,7 @@ import type {
 import type { IDialogProps } from '@onekeyhq/components/src/composite/Dialog/type';
 
 import type { INetworkAccount } from './account';
+import type { IDiscoveryBanner } from './discovery';
 import type { IEarnAvailableAssetAprInfo } from './earn';
 import type { IFetchTokenDetailItem, IToken } from './token';
 import type { ESpotlightTour } from '../src/spotlight';
@@ -1111,6 +1112,7 @@ export interface IEarnAtomData {
   earnAccount?: Record<string, IEarnAccountTokenResponse>;
   availableAssetsByType?: Record<string, IAvailableAsset[]>;
   recommendedTokens?: IRecommendAsset[];
+  banners?: IDiscoveryBanner[];
   refreshTrigger?: number;
 }
 
