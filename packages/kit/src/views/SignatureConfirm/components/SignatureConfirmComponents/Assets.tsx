@@ -390,13 +390,12 @@ function AssetsTokenApproval(props: IAssetsApproveProps) {
 
 function AssetsNFT(props: IAssetsNFTProps) {
   const { component, ...rest } = props;
+  console.log('component', component);
   return (
     <SignatureAssetDetailItem
       label={component.label}
       amount={component.amount}
-      symbol={
-        component.nft.metadata?.name || component.nft.collectionName || ''
-      }
+      name={component.nft.metadata?.name || component.nft.collectionName || ''}
       type="nft"
       tokenProps={{
         isNFT: true,
