@@ -10,8 +10,10 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   useAppIsLockedAtom,
+  usePerpsActiveAccountAtom,
   usePerpsActiveAssetAtom,
   usePerpsLastUsedLeverageAtom,
+  usePerpsUserFillsCacheAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { getValidPriceDecimals } from '@onekeyhq/shared/src/utils/perpsUtils';
@@ -41,6 +43,8 @@ function PerpTradesHistoryList({
   const { onViewAllUrl } = usePerpTradesHistoryViewAllUrl();
   const [activeAsset] = usePerpsActiveAssetAtom();
   const [lastUsedLeverage] = usePerpsLastUsedLeverageAtom();
+  const [currentAccount] = usePerpsActiveAccountAtom();
+  const [userFillsCache] = usePerpsUserFillsCacheAtom();
   const { showPositionShare } = useShowPositionShare();
 
   const getLeverage = useCallback(
@@ -65,8 +69,9 @@ function PerpTradesHistoryList({
   const calculateEntryPrice = useCallback(
     (fill: IFill, fillIndex: number): BigNumber | null => {
       const openFills: IFill[] = [];
+      let foundStartPositionZero = false;
 
-      for (let i = fillIndex; i < trades.length; i += 1) {
+      for (let i = fillIndex; i >= 0; i -= 1) {
         const currentFill = trades[i];
         if (
           currentFill?.coin === fill.coin &&
@@ -77,7 +82,43 @@ function PerpTradesHistoryList({
             currentFill.startPosition &&
             new BigNumber(currentFill.startPosition).isZero()
           ) {
+            foundStartPositionZero = true;
             break;
+          }
+        }
+      }
+
+      if (
+        !foundStartPositionZero &&
+        userFillsCache.userAddress &&
+        userFillsCache.userAddress.toLowerCase() ===
+          currentAccount?.accountAddress?.toLowerCase() &&
+        userFillsCache.fills.length > 0
+      ) {
+        const cacheIndex = userFillsCache.fills.findIndex(
+          (f) => f.oid === fill.oid && f.time === fill.time,
+        );
+
+        if (cacheIndex !== -1) {
+          for (
+            let i = cacheIndex + 1;
+            i < userFillsCache.fills.length;
+            i += 1
+          ) {
+            const currentFill = userFillsCache.fills[i];
+            if (
+              currentFill.coin === fill.coin &&
+              currentFill.dir.includes('Open')
+            ) {
+              openFills.push(currentFill);
+              if (
+                currentFill.startPosition &&
+                new BigNumber(currentFill.startPosition).isZero()
+              ) {
+                foundStartPositionZero = true;
+                break;
+              }
+            }
           }
         }
       }
@@ -97,7 +138,7 @@ function PerpTradesHistoryList({
 
       return totalSize.gt(0) ? totalValue.dividedBy(totalSize) : null;
     },
-    [trades],
+    [currentAccount, trades, userFillsCache],
   );
 
   const handleShare = useCallback(
@@ -106,7 +147,6 @@ function PerpTradesHistoryList({
       if (closedPnlBN.isZero()) {
         return;
       }
-
       const fillIndex = trades.findIndex(
         (t) => t.oid === fill.oid && t.time === fill.time,
       );
@@ -140,6 +180,7 @@ function PerpTradesHistoryList({
         leverage,
         entryPrice,
         markPrice: fill.px,
+        priceType: 'exit',
       });
     },
     [calculateEntryPrice, getLeverage, showPositionShare, trades],

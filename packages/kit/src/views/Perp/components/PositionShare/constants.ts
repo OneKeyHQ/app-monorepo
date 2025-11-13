@@ -2,7 +2,7 @@ import BigNumber from 'bignumber.js';
 
 import type { ICanvasConfig, IPnlDisplayMode, IShareData } from './types';
 
-export const REFERRAL_CODE = 'https://app.onekey.so/perps/ONEKEY';
+export const REFERRAL_CODE = 'https://app.onekey.so/perps';
 
 export const SHOW_REFERRAL_CODE = true;
 
@@ -79,7 +79,7 @@ export function getPnlDisplayInfo(
 
   const pnlPercentBn = new BigNumber(data.pnlPercent || '0');
   const pnlPercentText = pnlPercentBn.abs().toFixed(2);
-  const pnlPercentSign = pnlPercentBn.gte(0) ? '+' : '';
+  const pnlPercentSign = pnlPercentBn.gte(0) ? '+' : '-';
   return `${pnlPercentSign}${pnlPercentText}%`;
 }
 
@@ -137,6 +137,8 @@ export function getCanvasConfig(currentSize = 1080): ICanvasConfig {
       lineHeight: 1.2,
       badgeRadius: scale(58, currentSize, true),
       labelOpacity: 0.5,
+      qrCodeSize: scale(120, currentSize, true),
+      qrCodeSpacing: scale(20, currentSize, true),
     },
 
     display: {
