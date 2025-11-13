@@ -71,13 +71,7 @@ export const ProviderSwitch = ({
             {providerInfo.providerName}
           </SizableText>
           {serviceDisable ? (
-            <Badge
-              bg="$bgSubdued"
-              borderRadius="$2.5"
-              h="$6"
-              borderWidth={1}
-              borderColor="$borderCritical"
-            >
+            <Badge badgeType="critical" badgeSize="lg" borderRadius="$4">
               <SizableText size="$bodySm" color="$textCritical">
                 {intl.formatMessage({
                   id: ETranslations.provider_unavailable,
