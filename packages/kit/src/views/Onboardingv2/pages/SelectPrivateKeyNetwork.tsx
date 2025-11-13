@@ -39,6 +39,7 @@ import type {
   IAccountDeriveTypes,
   IValidateGeneralInputParams,
 } from '@onekeyhq/kit-bg/src/vaults/types';
+import { presetNetworksMap } from '@onekeyhq/shared/src/config/presetNetworks';
 import {
   WALLET_TYPE_IMPORTED,
   WALLET_TYPE_WATCHING,
@@ -443,8 +444,13 @@ function SelectPrivateKeyNetworkView() {
     string | undefined
   >(undefined);
 
+  const isValidatingRef = useRef<boolean>(false);
+  const [isValidating, setIsValidating] = useState<boolean>(false);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+
   const handleSelectGroupItem = useCallback(
     (params: { uuid: string; networkId?: string } | undefined) => {
+      setIsValidating(true);
       setSelectedUUID(params?.uuid || '');
       setSelectedNetworkId(params?.networkId || undefined);
     },
@@ -458,10 +464,17 @@ function SelectPrivateKeyNetworkView() {
     );
   }, [detectedNetworks]);
 
-  const handleShowMoreNetworks = useCallback(() => {
+  const { result: availableNetworkIds } = usePromiseResult(async () => {
+    return (
+      await backgroundApiProxy.serviceNetwork.getImportedAccountEnabledNetworks()
+    ).map((network) => network.id);
+  }, []);
+
+  const handleShowMoreNetworks = useCallback(async () => {
     openChainSelector({
       title: intl.formatMessage({ id: ETranslations.global_select_network }),
       excludeAllNetworkItem: true,
+      networkIds: availableNetworkIds?.length ? availableNetworkIds : undefined,
       onSelect: (network) => {
         const item: IDetectedNetworkGroupItem = {
           uuid: network.id,
@@ -479,11 +492,7 @@ function SelectPrivateKeyNetworkView() {
         handleSelectGroupItem({ uuid: item.uuid, networkId: network.id });
       },
     });
-  }, [handleSelectGroupItem, intl, openChainSelector]);
-
-  const isValidatingRef = useRef<boolean>(false);
-  const [isValidating, setIsValidating] = useState<boolean>(false);
-  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  }, [handleSelectGroupItem, intl, openChainSelector, availableNetworkIds]);
 
   const actions = useAccountSelectorActions();
   const navigation = useAppNavigation();
@@ -615,10 +624,13 @@ function SelectPrivateKeyNetworkView() {
   >();
 
   const invalidAlertView = useMemo(() => {
+    if (isValidating) {
+      return null;
+    }
     return validateResult && !validateResult?.isValid && input ? (
       <Alert icon="ErrorOutline" title={invalidMessage} type="danger" />
     ) : null;
-  }, [input, invalidMessage, validateResult]);
+  }, [input, invalidMessage, validateResult, isValidating]);
 
   const validateFn = useCallback(async () => {
     if (accountNameDebounced) {
@@ -686,10 +698,10 @@ function SelectPrivateKeyNetworkView() {
       try {
         isValidatingRef.current = true;
         setIsValidating(true);
-        await timerUtils.wait(300);
+        await timerUtils.wait(100);
         await validateFn();
       } finally {
-        await timerUtils.wait(300);
+        await timerUtils.wait(100);
         setIsValidating(false);
         isValidatingRef.current = false;
       }
@@ -729,6 +741,9 @@ function SelectPrivateKeyNetworkView() {
   ]);
 
   const formView = useMemo(() => {
+    if (isValidating) {
+      return null;
+    }
     const shouldShowDeriveTypeSelector =
       validateResult?.deriveInfoItems &&
       validateResult?.deriveInfoItems.length > 0;
@@ -806,7 +821,13 @@ function SelectPrivateKeyNetworkView() {
         ) : null}
       </Form>
     );
-  }, [form, intl, selectedNetworkId, validateResult?.deriveInfoItems]);
+  }, [
+    form,
+    intl,
+    selectedNetworkId,
+    validateResult?.deriveInfoItems,
+    isValidating,
+  ]);
 
   return (
     <Page>

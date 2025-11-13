@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -15,7 +15,10 @@ import {
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import type { IBackupDataManifestItem } from '@onekeyhq/kit-bg/src/services/ServiceCloudBackupV2/backupProviders/IOneKeyBackupProvider';
+import type {
+  IBackupDataManifest,
+  IBackupDataManifestItem,
+} from '@onekeyhq/kit-bg/src/services/ServiceCloudBackupV2/backupProviders/IOneKeyBackupProvider';
 import {
   onboardingCloudBackupListRefreshAtom,
   useOnboardingCloudBackupListRefreshAtom,
@@ -36,131 +39,12 @@ import { CloudBackupListEmptyView } from '../components/CloudBackupEmptyView';
 import { CloudBackupLoadingSkeleton } from '../components/CloudBackupLoadingSkeleton';
 import { OnboardingLayout } from '../components/OnboardingLayout';
 
-function DebugPanel() {
-  return (
-    <YStack gap="$2">
-      <Button
-        onPress={async () =>
-          Dialog.debugMessage({
-            debugMessage:
-              await backgroundApiProxy.serviceCloudBackupV2.isBackupPasswordSet(),
-          })
-        }
-      >
-        isBackupPasswordSet
-      </Button>
-      <Button
-        onPress={async () =>
-          showCloudBackupPasswordDialog({
-            onSubmit: async (password) => {
-              const result =
-                await backgroundApiProxy.serviceCloudBackupV2.verifyBackupPassword(
-                  {
-                    password,
-                  },
-                );
-              Dialog.debugMessage({
-                debugMessage: result,
-              });
-            },
-          })
-        }
-      >
-        verifyBackupPassword
-      </Button>
-      <Button
-        onPress={async () => {
-          showCloudBackupPasswordDialog({
-            onSubmit: async (password) => {
-              const result =
-                await backgroundApiProxy.serviceCloudBackupV2.setBackupPassword(
-                  {
-                    password,
-                  },
-                );
-              Dialog.debugMessage({
-                debugMessage: result,
-              });
-            },
-          });
-        }}
-      >
-        setBackupPassword
-      </Button>
-
-      <Button
-        onPress={async () =>
-          Dialog.debugMessage({
-            debugMessage:
-              await backgroundApiProxy.serviceCloudBackupV2.getAllBackups(),
-          })
-        }
-      >
-        getAllBackups
-      </Button>
-      <Button
-        onPress={async () =>
-          Dialog.debugMessage({
-            debugMessage:
-              await backgroundApiProxy.serviceCloudBackupV2.iOSQueryAllRecords(),
-          })
-        }
-      >
-        iOSQueryAllRecords
-      </Button>
-      <Button
-        variant="destructive"
-        onPress={async () => {
-          const data =
-            await backgroundApiProxy.serviceCloudBackupV2.getAllBackups();
-          const items = data?.items ?? [];
-          if (!items.length) {
-            Toast.success({
-              title: 'No backups to delete',
-            });
-            return;
-          }
-          Dialog.show({
-            icon: 'DeleteOutline',
-            tone: 'destructive',
-            title: 'Delete all backups?',
-            description:
-              "This will permanently delete all backups from iCloud. Make sure you've saved Recovery phrases, otherwise you won't be able to restore the wallets.",
-            onConfirmText: 'Delete',
-            confirmButtonProps: {
-              variant: 'destructive',
-            },
-            onCancelText: 'Cancel',
-            onConfirm: async () => {
-              for (const item of items) {
-                try {
-                  await backgroundApiProxy.serviceCloudBackupV2.delete({
-                    recordId: item.recordID,
-                  });
-                } catch (e) {
-                  // continue deleting other items; errors are already toasted by @toastIfError
-                }
-              }
-              await onboardingCloudBackupListRefreshAtom.set((v) => v + 1);
-              Toast.success({
-                title: 'All backups deleted',
-              });
-            },
-          });
-        }}
-      >
-        Remove All Backups
-      </Button>
-    </YStack>
-  );
-}
-
 export default function ICloudBackup() {
   const navigation = useAppNavigation();
   const [refreshHook] = useOnboardingCloudBackupListRefreshAtom();
   const intl = useIntl();
 
-  const { result: allBackups, isLoading } = usePromiseResult(
+  const { result: allBackupsFromCloud, isLoading } = usePromiseResult(
     async () => {
       await timerUtils.wait(1000);
       noop(refreshHook);
@@ -171,6 +55,13 @@ export default function ICloudBackup() {
       watchLoading: true,
     },
   );
+  const [allBackupsMocked, setAllBackupsMocked] = useState<
+    IBackupDataManifest | undefined
+  >(undefined);
+
+  const allBackups = useMemo(() => {
+    return allBackupsMocked ?? allBackupsFromCloud;
+  }, [allBackupsMocked, allBackupsFromCloud]);
 
   const handleBackupPress = useCallback(
     (item: IBackupDataManifestItem) => {
@@ -274,7 +165,137 @@ export default function ICloudBackup() {
           <MultipleClickStack
             h="$10"
             showDevBgColor
-            debugComponent={<DebugPanel />}
+            debugComponent={
+              <YStack gap="$2">
+                <Button
+                  onPress={async () => {
+                    setAllBackupsMocked({
+                      items: [],
+                      total: 0,
+                      backupPasswordVerify: undefined,
+                    });
+                  }}
+                >
+                  Mock Empty Backups
+                </Button>
+                <Button
+                  onPress={async () =>
+                    Dialog.debugMessage({
+                      debugMessage:
+                        await backgroundApiProxy.serviceCloudBackupV2.isBackupPasswordSet(),
+                    })
+                  }
+                >
+                  isBackupPasswordSet
+                </Button>
+                <Button
+                  onPress={async () =>
+                    showCloudBackupPasswordDialog({
+                      onSubmit: async (password) => {
+                        const result =
+                          await backgroundApiProxy.serviceCloudBackupV2.verifyBackupPassword(
+                            {
+                              password,
+                            },
+                          );
+                        Dialog.debugMessage({
+                          debugMessage: result,
+                        });
+                      },
+                    })
+                  }
+                >
+                  verifyBackupPassword
+                </Button>
+                <Button
+                  onPress={async () => {
+                    showCloudBackupPasswordDialog({
+                      onSubmit: async (password) => {
+                        const result =
+                          await backgroundApiProxy.serviceCloudBackupV2.setBackupPassword(
+                            {
+                              password,
+                            },
+                          );
+                        Dialog.debugMessage({
+                          debugMessage: result,
+                        });
+                      },
+                    });
+                  }}
+                >
+                  setBackupPassword
+                </Button>
+
+                <Button
+                  onPress={async () =>
+                    Dialog.debugMessage({
+                      debugMessage:
+                        await backgroundApiProxy.serviceCloudBackupV2.getAllBackups(),
+                    })
+                  }
+                >
+                  getAllBackups
+                </Button>
+                <Button
+                  onPress={async () =>
+                    Dialog.debugMessage({
+                      debugMessage:
+                        await backgroundApiProxy.serviceCloudBackupV2.iOSQueryAllRecords(),
+                    })
+                  }
+                >
+                  iOSQueryAllRecords
+                </Button>
+                <Button
+                  variant="destructive"
+                  onPress={async () => {
+                    const data =
+                      await backgroundApiProxy.serviceCloudBackupV2.getAllBackups();
+                    const items = data?.items ?? [];
+                    if (!items.length) {
+                      Toast.success({
+                        title: 'No backups to delete',
+                      });
+                      return;
+                    }
+                    Dialog.show({
+                      icon: 'DeleteOutline',
+                      tone: 'destructive',
+                      title: 'Delete all backups?',
+                      description:
+                        "This will permanently delete all backups from iCloud. Make sure you've saved Recovery phrases, otherwise you won't be able to restore the wallets.",
+                      onConfirmText: 'Delete',
+                      confirmButtonProps: {
+                        variant: 'destructive',
+                      },
+                      onCancelText: 'Cancel',
+                      onConfirm: async () => {
+                        for (const item of items) {
+                          try {
+                            await backgroundApiProxy.serviceCloudBackupV2.delete(
+                              {
+                                recordId: item.recordID,
+                              },
+                            );
+                          } catch (e) {
+                            // continue deleting other items; errors are already toasted by @toastIfError
+                          }
+                        }
+                        await onboardingCloudBackupListRefreshAtom.set(
+                          (v) => v + 1,
+                        );
+                        Toast.success({
+                          title: 'All backups deleted',
+                        });
+                      },
+                    });
+                  }}
+                >
+                  Remove All Backups
+                </Button>
+              </YStack>
+            }
           />
         </OnboardingLayout.Body>
       </OnboardingLayout>

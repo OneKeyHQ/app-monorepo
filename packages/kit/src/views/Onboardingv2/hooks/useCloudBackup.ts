@@ -1,7 +1,9 @@
 import { useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
+import { useThrottledCallback } from 'use-debounce';
 
+import type { IDialogInstance } from '@onekeyhq/components';
 import { Dialog, Toast } from '@onekeyhq/components';
 import type { IBackupDataEncryptedPayload } from '@onekeyhq/kit-bg/src/services/ServiceCloudBackupV2/backupProviders/IOneKeyBackupProvider';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -105,6 +107,7 @@ export function useCloudBackup() {
           Dialog.confirm({
             icon: 'InfoCircleOutline',
             title: 'Google Play Services is not available',
+            // TODO: franco
             description:
               'Please install Google Play Services and sign in to your Google account',
             onConfirmText: intl.formatMessage({
@@ -172,37 +175,50 @@ export function useCloudBackup() {
     [checkIsAvailable, navigation],
   );
 
-  const startBackup = useCallback(async () => {
-    const isAvailable = await checkIsAvailable();
-    if (isAvailable) {
-      await goToPageBackupDetail({
-        actionType: 'backup',
-        backupTime: Date.now(),
-      });
-    }
-  }, [checkIsAvailable, goToPageBackupDetail]);
-
-  const doBackup = useCallback(
+  const doBackup = useThrottledCallback(
     async ({ data }: { data: IPrimeTransferData }) => {
       const isAvailable = await checkIsAvailable();
       if (!isAvailable) {
         return;
       }
+      let verifyPasswordDialog: IDialogInstance | null = null;
+      let resetPasswordDialog: IDialogInstance | null = null;
+      let loadingDialog: IDialogInstance | null = null;
+
       const backupFn = async (password: string) => {
-        const result = await backgroundApiProxy.serviceCloudBackupV2.backup({
-          password,
-          data,
-        });
-        // Dialog.debugMessage({
-        //   debugMessage: (_result as unknown as { meta: string })?.meta,
-        // });
-        if (result?.recordID) {
-          Toast.success({
-            title: intl.formatMessage({
-              id: ETranslations.backup_success_toast_title,
-            }),
+        await verifyPasswordDialog?.close?.();
+        await resetPasswordDialog?.close?.();
+        await loadingDialog?.close?.();
+        setCheckLoading(true);
+        await timerUtils.wait(350);
+        try {
+          loadingDialog = Dialog.loading({
+            // TODO: franco
+            title: 'Backuping...',
+            description:
+              'Please do not close this window until the backup is complete',
           });
-          navigation.pop();
+          const result = await backgroundApiProxy.serviceCloudBackupV2.backup({
+            password,
+            data,
+          });
+          // Dialog.debugMessage({
+          //   debugMessage: (_result as unknown as { meta: string })?.meta,
+          // });
+          if (result?.recordID) {
+            Toast.success({
+              title: intl.formatMessage({
+                id: ETranslations.backup_success_toast_title,
+              }),
+            });
+            navigation.pop();
+            navigation.navigate(ERootRoutes.Main, undefined, {
+              pop: true,
+            });
+          }
+        } finally {
+          void loadingDialog?.close?.();
+          setCheckLoading(false);
         }
       };
       try {
@@ -210,7 +226,8 @@ export function useCloudBackup() {
         const isPasswordSet =
           await backgroundApiProxy.serviceCloudBackupV2.isBackupPasswordSet();
         const resetPasswordAndBackup = async () => {
-          showCloudBackupPasswordDialog({
+          await verifyPasswordDialog?.close?.();
+          resetPasswordDialog = showCloudBackupPasswordDialog({
             showConfirmPasswordField: true,
             onSubmit: async (password: string) => {
               const result =
@@ -221,6 +238,10 @@ export function useCloudBackup() {
                 );
               if (result?.recordID) {
                 await backupFn(password);
+              } else {
+                Toast.error({
+                  title: 'Failed to set backup password',
+                });
               }
             },
           });
@@ -228,7 +249,7 @@ export function useCloudBackup() {
         if (!isPasswordSet) {
           await resetPasswordAndBackup();
         } else {
-          const verifyPasswordDialog = showCloudBackupPasswordDialog({
+          verifyPasswordDialog = showCloudBackupPasswordDialog({
             showConfirmPasswordField: false,
             showForgotPasswordButton: true,
             onSubmit: async (password: string) => {
@@ -239,13 +260,14 @@ export function useCloudBackup() {
                   },
                 );
               if (result === true) {
-                await verifyPasswordDialog.close();
-                await timerUtils.wait(350);
                 await backupFn(password);
+              } else {
+                Toast.error({
+                  title: 'Failed to verify backup password',
+                });
               }
             },
             onPressForgotPassword: async () => {
-              await verifyPasswordDialog.close();
               void resetPasswordAndBackup();
             },
           });
@@ -254,61 +276,114 @@ export function useCloudBackup() {
         setCheckLoading(false);
       }
     },
-    [checkIsAvailable, intl, navigation],
+    350,
+    {
+      leading: true,
+      trailing: false,
+    },
   );
 
-  const doDeleteBackup = useCallback(
+  const doDeleteBackup = useThrottledCallback(
     ({ recordID }: { recordID: string }) => {
       showCloudBackupDeleteDialog({ recordID, navigation });
     },
-    [navigation],
+    350,
+    {
+      leading: true,
+      trailing: false,
+    },
   );
 
-  const doRestoreBackup = useCallback(
-    ({
+  const doRestoreBackup = useThrottledCallback(
+    async ({
       payload,
     }: {
       // recordID: string;
       payload: IBackupDataEncryptedPayload | undefined;
     }) => {
-      showCloudBackupPasswordDialog({
+      const isAvailable = await checkIsAvailable();
+      if (!isAvailable) {
+        return;
+      }
+      let importProcessingDialog: IDialogInstance | null = null;
+      const verifyPasswordDialog = showCloudBackupPasswordDialog({
+        isRestoreAction: true,
         onSubmit: async (password: string) => {
-          const isAvailable = await checkIsAvailable();
-          await timerUtils.wait(1000);
-          if (isAvailable) {
-            // Show progress dialog
-            const dialog = showPrimeTransferImportProcessingDialog({
+          // Show progress dialog
+          try {
+            setCheckLoading(true);
+            await backgroundApiProxy.serviceCloudBackupV2.restorePreparePrivateData(
+              {
+                password,
+                payload,
+              },
+            );
+            await verifyPasswordDialog?.close?.();
+            importProcessingDialog = showPrimeTransferImportProcessingDialog({
               navigation,
             });
-            try {
-              const result =
-                await backgroundApiProxy.serviceCloudBackupV2.restore({
-                  password,
-                  payload,
-                });
-              // Dialog.debugMessage({
-              //   debugMessage: result,
-              // });
-              if (result?.success) {
-                Toast.success({
-                  title: 'Backup restored!',
-                });
-                navigation.pop();
-              }
-              // eslint-disable-next-line no-useless-catch
-            } catch (error) {
-              // password error
-              void dialog.close();
-              throw error;
-            } finally {
-              // void dialog.close();
+            const result =
+              await backgroundApiProxy.serviceCloudBackupV2.restore({
+                password,
+                payload,
+              });
+            // Dialog.debugMessage({
+            //   debugMessage: result,
+            // });
+            if (result?.success) {
+              Toast.success({
+                // TODO: franco
+                title: 'Backup restored!',
+              });
+              navigation.pop();
+              navigation.navigate(ERootRoutes.Main, undefined, {
+                pop: true,
+              });
             }
+            // eslint-disable-next-line no-useless-catch
+          } catch (error) {
+            // password error
+            void importProcessingDialog?.close?.();
+            throw error;
+          } finally {
+            setCheckLoading(false);
+            // void dialog.close();
           }
         },
       });
     },
-    [checkIsAvailable, navigation],
+    350,
+    {
+      leading: true,
+      trailing: false,
+    },
   );
+
+  const startBackup = useCallback(async () => {
+    const isAvailable = await checkIsAvailable();
+    let loadingDialog: IDialogInstance | null = null;
+    if (isAvailable) {
+      if (platformEnv.isNativeAndroid) {
+        await goToPageBackupDetail({
+          actionType: 'backup',
+          backupTime: Date.now(),
+        });
+      } else {
+        loadingDialog = Dialog.loading({
+          // TODO: franco
+          title: 'Preparing backup...',
+          description: 'Please wait...',
+        });
+        try {
+          const data =
+            await backgroundApiProxy.serviceCloudBackupV2.buildBackupData();
+          await doBackup({ data });
+        } finally {
+          void loadingDialog?.close?.();
+        }
+      }
+    }
+  }, [checkIsAvailable, doBackup, goToPageBackupDetail]);
 
   return useMemo(
     () => ({
