@@ -444,8 +444,13 @@ function SelectPrivateKeyNetworkView() {
     string | undefined
   >(undefined);
 
+  const isValidatingRef = useRef<boolean>(false);
+  const [isValidating, setIsValidating] = useState<boolean>(false);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+
   const handleSelectGroupItem = useCallback(
     (params: { uuid: string; networkId?: string } | undefined) => {
+      setIsValidating(true);
       setSelectedUUID(params?.uuid || '');
       setSelectedNetworkId(params?.networkId || undefined);
     },
@@ -488,10 +493,6 @@ function SelectPrivateKeyNetworkView() {
       },
     });
   }, [handleSelectGroupItem, intl, openChainSelector, availableNetworkIds]);
-
-  const isValidatingRef = useRef<boolean>(false);
-  const [isValidating, setIsValidating] = useState<boolean>(false);
-  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
   const actions = useAccountSelectorActions();
   const navigation = useAppNavigation();
@@ -623,10 +624,13 @@ function SelectPrivateKeyNetworkView() {
   >();
 
   const invalidAlertView = useMemo(() => {
+    if (isValidating) {
+      return null;
+    }
     return validateResult && !validateResult?.isValid && input ? (
       <Alert icon="ErrorOutline" title={invalidMessage} type="danger" />
     ) : null;
-  }, [input, invalidMessage, validateResult]);
+  }, [input, invalidMessage, validateResult, isValidating]);
 
   const validateFn = useCallback(async () => {
     if (accountNameDebounced) {
@@ -694,10 +698,10 @@ function SelectPrivateKeyNetworkView() {
       try {
         isValidatingRef.current = true;
         setIsValidating(true);
-        await timerUtils.wait(300);
+        await timerUtils.wait(100);
         await validateFn();
       } finally {
-        await timerUtils.wait(300);
+        await timerUtils.wait(100);
         setIsValidating(false);
         isValidatingRef.current = false;
       }
@@ -737,6 +741,9 @@ function SelectPrivateKeyNetworkView() {
   ]);
 
   const formView = useMemo(() => {
+    if (isValidating) {
+      return null;
+    }
     const shouldShowDeriveTypeSelector =
       validateResult?.deriveInfoItems &&
       validateResult?.deriveInfoItems.length > 0;
@@ -814,7 +821,13 @@ function SelectPrivateKeyNetworkView() {
         ) : null}
       </Form>
     );
-  }, [form, intl, selectedNetworkId, validateResult?.deriveInfoItems]);
+  }, [
+    form,
+    intl,
+    selectedNetworkId,
+    validateResult?.deriveInfoItems,
+    isValidating,
+  ]);
 
   return (
     <Page>
