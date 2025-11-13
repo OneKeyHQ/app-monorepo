@@ -133,7 +133,7 @@ export default function PickYourDevice() {
                     opacity: 0,
                     y: 16,
                   }}
-                  w="50%"
+                  left="50%"
                   top={0}
                   right={0}
                   bottom={0}

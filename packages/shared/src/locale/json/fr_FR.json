@@ -1786,6 +1786,7 @@
   "id.refer_a_friend": "Parrainer un ami",
   "id.refer_a_friend_desc": "Invitez des amis pour gagner des récompenses",
   "identical_name_asset_alert": "Nous avons détecté des actifs avec des noms similaires dans votre portefeuille. Procédez avec prudence.",
+  "import_hardware_phrases_warning": "N'importez pas la phrase de récupération de votre portefeuille matériel. <tag>Connecter un portefeuille matériel ↗</tag> à la place",
   "import_phrase_or_private_key": "Importer une phrase ou une clé privée",
   "insufficient_fee_append_desc": "basé sur les frais max estimés : {amount} {symbol}",
   "interact_with_contract": "Interagir avec (À)",
