@@ -16,7 +16,7 @@ interface INoteCellProps {
 // Note cell with add/edit note functionality
 export function NoteCell({ code, note, onNoteUpdated }: INoteCellProps) {
   const intl = useIntl();
-  const { gtMd, md } = useMedia();
+  const { md } = useMedia();
 
   const handleOpenDialog = useCallback(() => {
     const dialogTitle = note

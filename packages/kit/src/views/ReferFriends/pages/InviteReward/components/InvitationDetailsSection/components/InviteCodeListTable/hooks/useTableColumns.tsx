@@ -92,7 +92,7 @@ export function useTableColumns(
         ...(gtMd ? { columnProps: { flex: 1 } } : { columnWidth: 130 }),
         render: (date: string) => (
           <SizableText size="$bodyMdMedium" color="$text">
-            {formatDate(date, { hideTimeForever: true })}
+            {formatDate(date, { hideSeconds: true })}
           </SizableText>
         ),
       },
