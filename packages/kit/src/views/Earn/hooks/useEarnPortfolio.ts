@@ -50,22 +50,6 @@ const calculateTotalFiatValue = (
     new BigNumber(0),
   );
 
-const filterByOptions = <
-  T extends { provider: string; networkId: string; symbol: string },
->(
-  list: Array<T>,
-  options?: IRefreshOptions,
-): T[] => {
-  if (!options) return list;
-
-  return list.filter((item) => {
-    if (options.provider && item.provider !== options.provider) return false;
-    if (options.networkId && item.networkId !== options.networkId) return false;
-    if (options.symbol && item.symbol !== options.symbol) return false;
-    return true;
-  });
-};
-
 const enrichAssetWithMetadata = (
   asset: IEarnInvestmentItemV2['assets'][number],
   investment: IEarnInvestmentItemV2,

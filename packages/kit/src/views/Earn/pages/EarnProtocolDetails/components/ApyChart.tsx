@@ -2,7 +2,6 @@ import { useCallback, useMemo, useState } from 'react';
 
 import {
   IconButton,
-  Popover,
   SizableText,
   Skeleton,
   Stack,
@@ -71,6 +70,8 @@ export function ApyChart({
   const [hoverData, setHoverData] = useState<{
     time?: number;
     apy?: number;
+    x?: number;
+    y?: number;
   } | null>(null);
 
   const handleHover = useCallback(
@@ -85,6 +86,57 @@ export function ApyChart({
       }
     },
     [],
+  );
+
+  // Track mouse position for popover
+  const handleMouseMove = useCallback(
+    (event: React.MouseEvent<HTMLDivElement>) => {
+      if (hoverData) {
+        const rect = event.currentTarget.getBoundingClientRect();
+        const mouseX = event.clientX - rect.left;
+        const mouseY = event.clientY - rect.top;
+
+        // Popover dimensions (approximate)
+        const popoverWidth = 120;
+        const popoverHeight = 60;
+        const offset = 10;
+
+        // Calculate position with boundary detection
+        let x = mouseX + offset;
+        let y = mouseY - popoverHeight - offset;
+
+        // Adjust if popover would go off right edge
+        if (x + popoverWidth > rect.width) {
+          x = mouseX - popoverWidth - offset;
+        }
+
+        // Adjust if popover would go off top edge
+        if (y < 0) {
+          y = mouseY + offset;
+        }
+
+        // Adjust if popover would go off bottom edge
+        if (y + popoverHeight > rect.height) {
+          y = rect.height - popoverHeight - offset;
+        }
+
+        // Adjust if popover would go off left edge
+        if (x < 0) {
+          x = offset;
+        }
+
+        setHoverData((prev) =>
+          prev
+            ? {
+                ...prev,
+                x,
+                y,
+              }
+            : null,
+        );
+      }
+    },
+    [hoverData],
   );
 
   // Format date for popover
@@ -129,15 +181,10 @@ export function ApyChart({
         (item) => [item.time, item.value] as [UTCTimestamp, number],
       );
 
-      const firstTime = formattedData[0]?.time;
-      const lastTime = formattedData[formattedData.length - 1]?.time;
-
       return {
         high,
         low,
         marketChartData,
-        firstTime,
-        lastTime,
       };
     },
     [networkId, symbol, provider, vault],
@@ -176,15 +223,6 @@ export function ApyChart({
   if (!chartData) {
     return null;
   }
-
-  // Format timestamp to readable date
-  const formatDate = (timestamp: number) => {
-    const date = new Date(timestamp * 1000);
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: '2-digit',
-    });
-  };
 
   return (
     <YStack gap="$3">
@@ -236,7 +274,7 @@ export function ApyChart({
           ) : null}
         </YStack>
       ) : null}
-      <Stack position="relative">
+      <Stack position="relative" {...({ onMouseMove: handleMouseMove } as any)}>
         <EarnChartView
           data={chartData.marketChartData}
           height={200}
@@ -244,11 +282,14 @@ export function ApyChart({
           onHover={handleHover}
         />
         {/* Popover for hover data */}
-        {hoverData?.apy && hoverData?.time ? (
+        {hoverData?.apy &&
+        hoverData?.time &&
+        hoverData?.x !== undefined &&
+        hoverData?.y !== undefined ? (
           <Stack
             position="absolute"
-            top="$2"
-            left="$2"
+            top={hoverData.y}
+            left={hoverData.x}
             bg="$bg"
             borderRadius="$2"
             borderWidth={1}
@@ -259,6 +300,8 @@ export function ApyChart({
             shadowOffset={{ width: 0, height: 2 }}
             shadowOpacity={0.1}
             shadowRadius={8}
+            zIndex={9999}
+            pointerEvents="none"
           >
             <YStack gap="$1">
               <SizableText size="$bodyMdMedium" color="$text">
@@ -271,14 +314,6 @@ export function ApyChart({
           </Stack>
         ) : null}
       </Stack>
-      <XStack jc="space-between" px="$2">
-        <SizableText size="$bodySm" color="$textSubdued">
-          {chartData.firstTime ? formatDate(chartData.firstTime) : ''}
-        </SizableText>
-        <SizableText size="$bodySm" color="$textSubdued">
-          {chartData.lastTime ? formatDate(chartData.lastTime) : ''}
-        </SizableText>
-      </XStack>
     </YStack>
   );
 }
