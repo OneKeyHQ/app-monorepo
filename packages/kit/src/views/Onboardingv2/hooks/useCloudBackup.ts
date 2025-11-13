@@ -116,16 +116,19 @@ export function useCloudBackup() {
         }
         if (!cloudAccountInfo.googleDrive?.userInfo?.user?.id) {
           Dialog.confirm({
-            icon: 'InfoCircleOutline',
-            // TODO: franco 未登录时，引导用户登录 Google 账户
-            title: 'Google account is not available',
-            description: 'Please sign in to your Google account',
-            onConfirmText: 'Sign in',
+            icon: 'PeopleOutline',
+            title: intl.formatMessage({
+              id: ETranslations.google_account_not_signed_in,
+            }),
+            onConfirmText: intl.formatMessage({
+              id: ETranslations.global_sign_in,
+            }),
             onConfirm: async () => {
               await backgroundApiProxy.serviceCloudBackupV2.loginCloudIfNeed();
-              // error: Sign in action cancelled
               Toast.success({
-                title: 'Signed in successfully',
+                title: intl.formatMessage({
+                  id: ETranslations.signed_in_feedback,
+                }),
               });
             },
           });
@@ -195,8 +198,9 @@ export function useCloudBackup() {
         // });
         if (result?.recordID) {
           Toast.success({
-            // TODO: franco
-            title: 'Backup done!',
+            title: intl.formatMessage({
+              id: ETranslations.backup_success_toast_title,
+            }),
           });
           navigation.pop();
         }
@@ -240,17 +244,9 @@ export function useCloudBackup() {
                 await backupFn(password);
               }
             },
-            onPressForgotPassword: () => {
-              Dialog.confirm({
-                title: 'Forgot password',
-                description:
-                  'If you forget your password, you can reset a new password. The new password is only valid for subsequent backups. The previous backups still need the original password to decrypt.',
-                onConfirmText: 'Reset password',
-                onConfirm: async () => {
-                  await verifyPasswordDialog.close();
-                  void resetPasswordAndBackup();
-                },
-              });
+            onPressForgotPassword: async () => {
+              await verifyPasswordDialog.close();
+              void resetPasswordAndBackup();
             },
           });
         }
@@ -258,7 +254,7 @@ export function useCloudBackup() {
         setCheckLoading(false);
       }
     },
-    [checkIsAvailable, navigation],
+    [checkIsAvailable, intl, navigation],
   );
 
   const doDeleteBackup = useCallback(
