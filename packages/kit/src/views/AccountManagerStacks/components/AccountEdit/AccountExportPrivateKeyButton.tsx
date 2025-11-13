@@ -4,6 +4,7 @@ import { ensureSensitiveTextEncoded } from '@onekeyhq/core/src/secret/encryptors
 import type { IExportKeyType } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { navigateToBackupWalletReminderPage } from '@onekeyhq/kit/src/hooks/usePageNavigation';
 import type {
   IDBAccount,
   IDBIndexedAccount,
@@ -12,7 +13,6 @@ import type {
 import {
   EAccountManagerStacksRoutes,
   EModalRoutes,
-  EOnboardingPages,
 } from '@onekeyhq/shared/src/routes';
 
 export function AccountExportPrivateKeyButton({
@@ -63,13 +63,10 @@ export function AccountExportPrivateKeyButton({
               },
             );
           if (mnemonic) ensureSensitiveTextEncoded(mnemonic);
-          navigation.pushModal(EModalRoutes.OnboardingModal, {
-            screen: EOnboardingPages.BeforeShowRecoveryPhrase,
-            params: {
-              mnemonic,
-              isBackup: true,
-              isWalletBackedUp: wallet?.backuped,
-            },
+          await navigateToBackupWalletReminderPage({
+            walletId: wallet?.id ?? '',
+            isWalletBackedUp: wallet?.backuped ?? false,
+            mnemonic,
           });
           return;
         }
