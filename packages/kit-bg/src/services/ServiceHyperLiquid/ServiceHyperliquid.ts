@@ -58,6 +58,7 @@ import {
   perpsCustomSettingsAtom,
   perpsDepositNetworksAtom,
   perpsDepositTokensAtom,
+  perpsLastUsedLeverageAtom,
 } from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
 
@@ -402,6 +403,14 @@ export default class ServiceHyperliquid extends ServiceBase {
           assetId: activeAsset?.assetId,
         }),
       );
+
+      if (data.coin && data.leverage?.value) {
+        const lastUsedLeverage = await perpsLastUsedLeverageAtom.get();
+        await perpsLastUsedLeverageAtom.set({
+          ...lastUsedLeverage,
+          [data.coin]: data.leverage.value,
+        });
+      }
     } else {
       const activeAssetData = await perpsActiveAssetDataAtom.get();
       if (

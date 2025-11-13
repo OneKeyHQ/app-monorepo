@@ -1,6 +1,7 @@
 import { forwardRef, useCallback, useImperativeHandle, useRef } from 'react';
 
 import BigNumber from 'bignumber.js';
+import QRCodeUtil from 'qrcode';
 
 import { Stack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -11,7 +12,6 @@ import {
   BACKGROUNDS,
   REFERRAL_CODE,
   SHOW_REFERRAL_CODE,
-  STICKERS,
   getCanvasConfig,
   getPnlDisplayInfo,
 } from './constants';
@@ -27,7 +27,6 @@ interface IShareImageGeneratorProps {
   config: IShareConfig;
 }
 
-const MAX_CACHE_SIZE = 20;
 const imageCache = new Map<string, HTMLImageElement>();
 
 function toCanvasFont(size: number, weight: string | number = 'bold'): string {
@@ -68,8 +67,16 @@ export const ShareImageGenerator = forwardRef<
     canvas.width = size;
     canvas.height = size;
 
-    const { side, token, tokenImageUrl, pnl, leverage, entryPrice, markPrice } =
-      data;
+    const {
+      side,
+      token,
+      tokenImageUrl,
+      pnl,
+      leverage,
+      entryPrice,
+      markPrice,
+      priceType = 'mark',
+    } = data;
     const pnlBn = new BigNumber(pnl || '0');
     const isProfit = pnlBn.isGreaterThan(0);
     const pnlColor = isProfit ? colors.long : colors.short;
@@ -84,8 +91,9 @@ export const ShareImageGenerator = forwardRef<
       ? BACKGROUNDS.profit[0]
       : BACKGROUNDS.loss[1];
     try {
-      const selectedSticker =
-        config.stickerIndex !== null ? STICKERS[config.stickerIndex] : null;
+      // Sticker temporarily disabled
+      // const selectedSticker =
+      //   config.stickerIndex !== null ? STICKERS[config.stickerIndex] : null;
 
       const [bgImg, tokenImg] = await Promise.all([
         selectedBackground ? loadImage(selectedBackground) : null,
@@ -105,7 +113,19 @@ export const ShareImageGenerator = forwardRef<
 
       const tokenY = layout.tokenY;
       if (tokenImg) {
-        const imgCenterY = tokenY; // Same center line as text
+        const imgCenterX = padding + layout.tokenSize / 2;
+        const imgCenterY = tokenY;
+        const radius = layout.tokenSize / 2;
+
+        ctx.save();
+        ctx.fillStyle = '#f8f8f8';
+        ctx.beginPath();
+        ctx.arc(imgCenterX, imgCenterY, radius, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.arc(imgCenterX, imgCenterY, radius, 0, Math.PI * 2);
+        ctx.clip();
 
         ctx.drawImage(
           tokenImg,
@@ -114,6 +134,8 @@ export const ShareImageGenerator = forwardRef<
           layout.tokenSize,
           layout.tokenSize,
         );
+
+        ctx.restore();
       }
 
       if (display.showCoinName) {
@@ -214,9 +236,11 @@ export const ShareImageGenerator = forwardRef<
           ctx.font = toCanvasFont(fonts.priceLabel);
           ctx.globalAlpha = layout.labelOpacity;
           ctx.fillText(
-            appLocale.intl.formatMessage({
-              id: ETranslations.perp_position_mark_price,
-            }),
+            priceType === 'exit'
+              ? 'Exit Price'
+              : appLocale.intl.formatMessage({
+                  id: ETranslations.perp_position_mark_price,
+                }),
             padding,
             markPriceY,
           );
@@ -241,36 +265,62 @@ export const ShareImageGenerator = forwardRef<
         ctx.fillRect(0, rectY, rectWidth, rectHeight);
         ctx.filter = 'none';
 
+        // Generate QR code (positioned at bottom right)
+        const qrCodeSize = layout.qrCodeSize;
+        const qrCodeY = rectY + (rectHeight - qrCodeSize) / 2;
+        const qrCodeX = size - padding - qrCodeSize;
+
+        try {
+          const qrCodeDataUrl = await QRCodeUtil.toDataURL(REFERRAL_CODE, {
+            width: qrCodeSize,
+            margin: 1,
+            color: {
+              dark: '#FFFFFF',
+              light: '#00000000',
+            },
+          });
+
+          const qrCodeImg = await loadImage(qrCodeDataUrl);
+          if (qrCodeImg) {
+            ctx.drawImage(qrCodeImg, qrCodeX, qrCodeY, qrCodeSize, qrCodeSize);
+          }
+        } catch (error) {
+          console.error('Failed to generate QR code:', error);
+        }
+
+        // Draw referral code text (positioned at bottom left, next to QR code)
         ctx.fillStyle = colors.textTertiary;
         ctx.textBaseline = 'middle';
         ctx.font = toCanvasFont(fonts.priceLabel);
         ctx.globalAlpha = layout.labelOpacity;
-        ctx.fillText(
-          appLocale.intl.formatMessage({
-            id: ETranslations.referral_referral_link,
-          }),
-          padding,
-          rectY + rectHeight / 2 - layout.referralOffset,
-        );
+        // ctx.fillText(
+        //   appLocale.intl.formatMessage({
+        //     id: ETranslations.referral_referral_link,
+        //   }),
+        //   padding,
+        //   rectY + rectHeight / 2 - layout.referralOffset,
+        // );
         ctx.globalAlpha = 1;
         ctx.font = toCanvasFont(fonts.priceValue);
+        const referralTextX = padding;
         ctx.fillText(
           REFERRAL_CODE,
-          padding,
+          referralTextX,
           rectY + rectHeight / 2 + layout.referralOffset,
         );
         ctx.textBaseline = 'alphabetic';
       }
 
-      if (selectedSticker) {
-        ctx.font = toCanvasFont(layout.stickerSize);
-        ctx.textBaseline = 'bottom';
-        ctx.fillText(
-          selectedSticker,
-          size - padding - layout.stickerSize,
-          size - padding,
-        );
-      }
+      // Sticker temporarily disabled
+      // if (selectedSticker) {
+      //   ctx.font = toCanvasFont(layout.stickerSize);
+      //   ctx.textBaseline = 'bottom';
+      //   ctx.fillText(
+      //     selectedSticker,
+      //     size - padding - layout.stickerSize,
+      //     size - padding,
+      //   );
+      // }
 
       return canvas.toDataURL('image/png', 1.0);
     } catch (error) {

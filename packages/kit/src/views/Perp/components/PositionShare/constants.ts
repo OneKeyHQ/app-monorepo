@@ -1,11 +1,8 @@
 import BigNumber from 'bignumber.js';
 
-import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
-import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
-
 import type { ICanvasConfig, IPnlDisplayMode, IShareData } from './types';
 
-export const REFERRAL_CODE = 'https://app.onekey.so/perps/ONEKEY';
+export const REFERRAL_CODE = 'https://app.onekey.so/perps';
 
 export const SHOW_REFERRAL_CODE = true;
 
@@ -62,30 +59,27 @@ export const STICKERS = ['🤑', '😎', '😭', '💀', '🤔'];
 
 export const DEFAULT_PNL_DISPLAY_MODE: IPnlDisplayMode = 'roe';
 
-const PNL_VALUE_FORMATTER: INumberFormatProps = {
-  formatter: 'value',
-  formatterOptions: {
-    currency: '$',
-  },
-};
-
 export function getPnlDisplayInfo(
   data: IShareData,
   mode: IPnlDisplayMode,
 ): string {
   if (mode === 'pnl') {
     const pnlBn = new BigNumber(data.pnl || '0');
-    const pnlAbsFormatted = numberFormat(
-      pnlBn.abs().toFixed(),
-      PNL_VALUE_FORMATTER,
-    );
-    const pnlSign = pnlBn.lt(0) ? '-' : '+';
-    return `${pnlSign}${pnlAbsFormatted}`;
+    const pnlAbs = pnlBn.abs();
+    const pnlStr = pnlAbs.toFixed();
+    const decimalIndex = pnlStr.indexOf('.');
+
+    const pnlFormatted =
+      decimalIndex !== -1 && pnlStr.length - decimalIndex - 1 > 2
+        ? pnlAbs.toFixed(2, BigNumber.ROUND_DOWN)
+        : pnlStr;
+
+    return `${pnlBn.lt(0) ? '-' : '+'}$${pnlFormatted}`;
   }
 
   const pnlPercentBn = new BigNumber(data.pnlPercent || '0');
   const pnlPercentText = pnlPercentBn.abs().toFixed(2);
-  const pnlPercentSign = pnlPercentBn.gte(0) ? '+' : '';
+  const pnlPercentSign = pnlPercentBn.gte(0) ? '+' : '-';
   return `${pnlPercentSign}${pnlPercentText}%`;
 }
 
@@ -112,7 +106,7 @@ export function getCanvasConfig(currentSize = 1080): ICanvasConfig {
       textPrimary: '#ffffff',
       textSecondary: '#FFFFFF',
       textTertiary: '#ffffff',
-      referralBackground: '#00000098',
+      referralBackground: '#00000080',
       sideLongBackground: '#0C5300',
       sideShortBackground: '#630A0A',
     },
@@ -143,6 +137,8 @@ export function getCanvasConfig(currentSize = 1080): ICanvasConfig {
       lineHeight: 1.2,
       badgeRadius: scale(58, currentSize, true),
       labelOpacity: 0.5,
+      qrCodeSize: scale(120, currentSize, true),
+      qrCodeSpacing: scale(20, currentSize, true),
     },
 
     display: {
