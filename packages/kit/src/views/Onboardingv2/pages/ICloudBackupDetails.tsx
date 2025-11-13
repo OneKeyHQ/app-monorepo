@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
@@ -28,7 +28,10 @@ import type {
 import type { IAllWalletAvatarImageNames } from '@onekeyhq/shared/src/utils/avatarUtils';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import type { IPrimeTransferData } from '@onekeyhq/shared/types/prime/primeTransferTypes';
+import type {
+  IPrimeTransferData,
+  IPrimeTransferPublicDataWalletDetail,
+} from '@onekeyhq/shared/types/prime/primeTransferTypes';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { MultipleClickStack } from '../../../components/MultipleClickStack';
@@ -85,9 +88,16 @@ export default function ICloudBackupDetails({
     },
   );
 
-  const walletData = useMemo(() => {
+  const walletDataFromBackup = useMemo(() => {
     return backupData?.publicData?.walletDetails ?? [];
   }, [backupData]);
+
+  const [walletDataMocked, setWalletDataMocked] = useState<
+    IPrimeTransferPublicDataWalletDetail[] | undefined
+  >(undefined);
+  const walletData = useMemo(() => {
+    return walletDataMocked ?? walletDataFromBackup;
+  }, [walletDataMocked, walletDataFromBackup]);
 
   const formattedDate = useMemo(() => {
     let dateTime: number | undefined;
@@ -188,7 +198,7 @@ export default function ICloudBackupDetails({
               h="$10"
               showDevBgColor
               debugComponent={
-                <Stack>
+                <YStack gap="$2">
                   <Button
                     onPress={async () => {
                       Dialog.debugMessage({
@@ -198,7 +208,14 @@ export default function ICloudBackupDetails({
                   >
                     backupData
                   </Button>
-                </Stack>
+                  <Button
+                    onPress={async () => {
+                      setWalletDataMocked([]);
+                    }}
+                  >
+                    Mock Empty Wallets
+                  </Button>
+                </YStack>
               }
             />
           </YStack>

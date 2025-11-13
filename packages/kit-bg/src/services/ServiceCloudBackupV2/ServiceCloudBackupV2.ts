@@ -374,6 +374,7 @@ class ServiceCloudBackupV2 extends ServiceBase {
     try {
       await this.backgroundApi.servicePrimeTransfer.initImportProgress({
         selectedTransferData,
+        isFromCloudBackupRestore: true,
       });
 
       const { success, errorsInfo } =

@@ -175,16 +175,6 @@ export function useCloudBackup() {
     [checkIsAvailable, navigation],
   );
 
-  const startBackup = useCallback(async () => {
-    const isAvailable = await checkIsAvailable();
-    if (isAvailable) {
-      await goToPageBackupDetail({
-        actionType: 'backup',
-        backupTime: Date.now(),
-      });
-    }
-  }, [checkIsAvailable, goToPageBackupDetail]);
-
   const doBackup = useThrottledCallback(
     async ({ data }: { data: IPrimeTransferData }) => {
       const isAvailable = await checkIsAvailable();
@@ -368,6 +358,32 @@ export function useCloudBackup() {
       trailing: false,
     },
   );
+
+  const startBackup = useCallback(async () => {
+    const isAvailable = await checkIsAvailable();
+    let loadingDialog: IDialogInstance | null = null;
+    if (isAvailable) {
+      if (platformEnv.isNativeAndroid) {
+        await goToPageBackupDetail({
+          actionType: 'backup',
+          backupTime: Date.now(),
+        });
+      } else {
+        loadingDialog = Dialog.loading({
+          // TODO: franco
+          title: 'Preparing backup...',
+          description: 'Please wait...',
+        });
+        try {
+          const data =
+            await backgroundApiProxy.serviceCloudBackupV2.buildBackupData();
+          await doBackup({ data });
+        } finally {
+          void loadingDialog?.close?.();
+        }
+      }
+    }
+  }, [checkIsAvailable, doBackup, goToPageBackupDetail]);
 
   return useMemo(
     () => ({

@@ -39,6 +39,7 @@ import type {
   IAccountDeriveTypes,
   IValidateGeneralInputParams,
 } from '@onekeyhq/kit-bg/src/vaults/types';
+import { presetNetworksMap } from '@onekeyhq/shared/src/config/presetNetworks';
 import {
   WALLET_TYPE_IMPORTED,
   WALLET_TYPE_WATCHING,
@@ -458,10 +459,17 @@ function SelectPrivateKeyNetworkView() {
     );
   }, [detectedNetworks]);
 
-  const handleShowMoreNetworks = useCallback(() => {
+  const { result: availableNetworkIds } = usePromiseResult(async () => {
+    return (
+      await backgroundApiProxy.serviceNetwork.getImportedAccountEnabledNetworks()
+    ).map((network) => network.id);
+  }, []);
+
+  const handleShowMoreNetworks = useCallback(async () => {
     openChainSelector({
       title: intl.formatMessage({ id: ETranslations.global_select_network }),
       excludeAllNetworkItem: true,
+      networkIds: availableNetworkIds?.length ? availableNetworkIds : undefined,
       onSelect: (network) => {
         const item: IDetectedNetworkGroupItem = {
           uuid: network.id,
@@ -479,7 +487,7 @@ function SelectPrivateKeyNetworkView() {
         handleSelectGroupItem({ uuid: item.uuid, networkId: network.id });
       },
     });
-  }, [handleSelectGroupItem, intl, openChainSelector]);
+  }, [handleSelectGroupItem, intl, openChainSelector, availableNetworkIds]);
 
   const isValidatingRef = useRef<boolean>(false);
   const [isValidating, setIsValidating] = useState<boolean>(false);

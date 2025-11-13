@@ -5,7 +5,10 @@ import {
   encryptStringAsync,
 } from '@onekeyhq/core/src/secret';
 import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
-import { IncorrectPassword, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  IncorrectPassword,
+  OneKeyLocalError,
+} from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { appleCloudKitStorage } from '@onekeyhq/shared/src/storage/AppleCloudKitStorage';
