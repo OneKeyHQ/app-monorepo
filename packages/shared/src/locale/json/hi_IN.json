@@ -209,6 +209,7 @@
   "backup.verify_apple_account_and_icloud_drive_enabled": "कृपया अपने एप्पल खाते की लॉगिन की पुष्टि करें और सुनिश्चित करें कि iCloud Drive सक्षम है और OneKey के लिए अधिकृत है।",
   "backup.verify_google_account_and_google_drive_enabled": "कृपया अपने Google खाते की लॉगिन की पुष्टि करें और सुनिश्चित करें कि Google Drive सक्षम है और OneKey के लिए अधिकृत है।",
   "backup_success_toast_title": "सब तैयार! आपका बैकअप पूरा हो गया है",
+  "backup_write_to_cloud_failed": "उफ़! इस बार बैकअप असफल रहा। कृपया फिर से प्रयास करें",
   "balance_detail.button_acknowledge": "स्वीकार करें",
   "balance_detail.button_balance": "बैलेंस विवरण",
   "balance_detail.button_cancel": "रद्द करें",

@@ -209,6 +209,7 @@
   "backup.verify_apple_account_and_icloud_drive_enabled": "Please verify your Apple account login and ensure iCloud Drive is enabled and authorized for OneKey.",
   "backup.verify_google_account_and_google_drive_enabled": "Please verify your Google account login and ensure Google Drive is enabled and authorized for OneKey.",
   "backup_success_toast_title": "All set! Your backup is complete",
+  "backup_write_to_cloud_failed": "Oops! Backup failed this time. Please try again",
   "balance_detail.button_acknowledge": "Acknowledge",
   "balance_detail.button_balance": "Balance Details",
   "balance_detail.button_cancel": "Cancel",

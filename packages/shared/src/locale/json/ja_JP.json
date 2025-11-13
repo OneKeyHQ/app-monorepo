@@ -209,6 +209,7 @@
   "backup.verify_apple_account_and_icloud_drive_enabled": "Appleアカウントのログインを確認し、iCloud Driveが有効でOneKeyに対して認証されていることを確認してください。",
   "backup.verify_google_account_and_google_drive_enabled": "Googleアカウントのログインを確認し、Google Driveが有効でOneKeyに対して認証されていることを確認してください。",
   "backup_success_toast_title": "準備完了！バックアップが完了しました",
+  "backup_write_to_cloud_failed": "おっと！今回はバックアップに失敗しました。もう一度お試しください",
   "balance_detail.button_acknowledge": "認知する",
   "balance_detail.button_balance": "残高詳細",
   "balance_detail.button_cancel": "キャンセル",

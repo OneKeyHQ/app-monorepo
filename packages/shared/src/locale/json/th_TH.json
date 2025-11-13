@@ -209,6 +209,7 @@
   "backup.verify_apple_account_and_icloud_drive_enabled": "โปรดตรวจสอบการเข้าสู่ระบบบัญชี Apple ของคุณและตรวจสอบว่าได้เปิดใช้งานและได้รับอนุญาตให้ใช้ iCloud Drive สำหรับ OneKey แล้ว",
   "backup.verify_google_account_and_google_drive_enabled": "โปรดตรวจสอบการเข้าสู่ระบบบัญชี Google ของคุณและตรวจสอบว่าได้เปิดใช้งานและได้รับอนุญาตให้ใช้ Google Drive สำหรับ OneKey แล้วหรือไม่",
   "backup_success_toast_title": "เรียบร้อยแล้ว! การสำรองข้อมูลของคุณเสร็จสมบูรณ์",
+  "backup_write_to_cloud_failed": "อุ๊ย! การสำรองข้อมูลล้มเหลวครั้งนี้ โปรดลองอีกครั้ง",
   "balance_detail.button_acknowledge": "ยอมรับ",
   "balance_detail.button_balance": "รายละเอียดยอดคงเหลือ",
   "balance_detail.button_cancel": "ยกเลิก",

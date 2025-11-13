@@ -30,7 +30,6 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useUserWalletProfile } from '../../../hooks/useUserWalletProfile';
 import useLiteCard from '../../LiteCard/hooks/useLiteCard';
-import { showPrimeTransferImportProcessingDialog } from '../../Prime/pages/PagePrimeTransfer/components/PrimeTransferImportProcessingDialog';
 import { OnboardingLayout } from '../components/OnboardingLayout';
 import { useCloudBackup } from '../hooks/useCloudBackup';
 
@@ -116,53 +115,50 @@ export default function AddExistingWallet() {
           }),
           icon: 'SecretPhraseOutline' as IKeyOfIcons,
           onPress: () => {
-            navigation.push(EOnboardingPagesV2.ImportPhraseOrPrivateKey);
+            const dialog = Dialog.show({
+              tone: 'warning',
+              icon: 'ErrorOutline',
+              title: intl.formatMessage({
+                id: ETranslations.onboarding_import_recovery_phrase_warning,
+              }),
+              description: intl.formatMessage({
+                id: ETranslations.onboarding_import_recovery_phrase_warning_help_text,
+              }),
+              renderContent: (
+                <Stack>
+                  <Button
+                    variant="secondary"
+                    onPress={async () => {
+                      await dialog.close();
+                      navigation.push(
+                        EOnboardingPagesV2.ImportPhraseOrPrivateKey,
+                      );
+                    }}
+                    testID="acknowledged"
+                  >
+                    {intl.formatMessage({
+                      id: ETranslations.global_ok,
+                    })}
+                  </Button>
+                  <Button
+                    variant="tertiary"
+                    m="0"
+                    mt="$2.5"
+                    onPress={async () => {
+                      await dialog.close();
+                      await handleConnectHardwareWalletPress();
+                    }}
+                    testID="hardware-wallet"
+                  >
+                    {intl.formatMessage({
+                      id: ETranslations.global_connect_hardware_wallet,
+                    })}
+                  </Button>
+                </Stack>
+              ),
+              showFooter: false,
+            });
           },
-          // onPress: () => {
-          //   const dialog = Dialog.show({
-          //     tone: 'warning',
-          //     icon: 'ErrorOutline',
-          //     title: intl.formatMessage({
-          //       id: ETranslations.onboarding_import_recovery_phrase_warning,
-          //     }),
-          //     description: intl.formatMessage({
-          //       id: ETranslations.onboarding_import_recovery_phrase_warning_help_text,
-          //     }),
-          //     renderContent: (
-          //       <Stack>
-          //         <Button
-          //           variant="secondary"
-          //           onPress={async () => {
-          //             await dialog.close();
-          //             navigation.push(
-          //               EOnboardingPagesV2.ImportPhraseOrPrivateKey,
-          //             );
-          //           }}
-          //           testID="acknowledged"
-          //         >
-          //           {intl.formatMessage({
-          //             id: ETranslations.global_ok,
-          //           })}
-          //         </Button>
-          //         <Button
-          //           variant="tertiary"
-          //           m="0"
-          //           mt="$2.5"
-          //           onPress={async () => {
-          //             await dialog.close();
-          //             await handleConnectHardwareWalletPress();
-          //           }}
-          //           testID="hardware-wallet"
-          //         >
-          //           {intl.formatMessage({
-          //             id: ETranslations.global_connect_hardware_wallet,
-          //           })}
-          //         </Button>
-          //       </Stack>
-          //     ),
-          //     showFooter: false,
-          //   });
-          // },
         },
         {
           title: 'OneKey KeyTag',
@@ -309,7 +305,14 @@ export default function AddExistingWallet() {
                 <Icon name={icon} />
               </YStack>
               <YStack gap={2} flex={1}>
-                <SizableText size="$bodyMdMedium">{title}</SizableText>
+                <SizableText
+                  size="$bodyMdMedium"
+                  $platform-native={{
+                    size: '$bodyLgMedium',
+                  }}
+                >
+                  {title}
+                </SizableText>
                 {description ? (
                   <SizableText size="$bodySm" color="$textSubdued">
                     {Array.isArray(description)

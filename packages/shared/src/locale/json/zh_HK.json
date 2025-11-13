@@ -209,6 +209,7 @@
   "backup.verify_apple_account_and_icloud_drive_enabled": "請驗證您的 Apple 賬戶登錄，並確保已在 iCloud Drive 中授權給 OneKey 必要的權限",
   "backup.verify_google_account_and_google_drive_enabled": "請驗證您的 Google 賬戶登錄，並確保已在 Google Drive 中授權給 OneKey 必要的權限",
   "backup_success_toast_title": "備份已完成",
+  "backup_write_to_cloud_failed": "備份失敗。請再試一次",
   "balance_detail.button_acknowledge": "確認",
   "balance_detail.button_balance": "餘額詳情",
   "balance_detail.button_cancel": "取消",

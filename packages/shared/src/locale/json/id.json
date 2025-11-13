@@ -209,6 +209,7 @@
   "backup.verify_apple_account_and_icloud_drive_enabled": "Silakan verifikasi login akun Apple Anda dan pastikan iCloud Drive diaktifkan dan diotorisasi untuk OneKey.",
   "backup.verify_google_account_and_google_drive_enabled": "Silakan verifikasi login akun Google Anda dan pastikan Google Drive diaktifkan dan diotorisasi untuk OneKey.",
   "backup_success_toast_title": "Semua siap! Cadangan Anda sudah selesai",
+  "backup_write_to_cloud_failed": "Ups! Pencadangan gagal kali ini. Silakan coba lagi",
   "balance_detail.button_acknowledge": "Mengakui",
   "balance_detail.button_balance": "Rincian Saldo",
   "balance_detail.button_cancel": "Batalkan",

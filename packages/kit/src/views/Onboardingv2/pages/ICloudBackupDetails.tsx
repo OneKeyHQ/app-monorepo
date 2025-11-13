@@ -215,7 +215,6 @@ export default function ICloudBackupDetails({
                 >
                   {intl.formatMessage({ id: ETranslations.backup_backup_now })}
                 </Button>
-                {/* TODO: franco 提供备份列表页面，用于备份失败时（例如云盘空间不足），用户可以手动删除备份释放空间 */}
                 <Button
                   isLoading={checkLoading}
                   size="large"

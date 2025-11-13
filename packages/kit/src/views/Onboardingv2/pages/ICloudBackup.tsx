@@ -252,11 +252,6 @@ export default function ICloudBackup() {
             <Icon name="ChevronRightSmallOutline" color="$iconDisabled" />
           </ListItem>
         ))}
-        <SizableText size="$bodySm" color="$textSubdued" px="$3">
-          We'll securely store your most recent 30 daily backups plus the last
-          monthly backup for each of the past 24 months, ready for restoration
-          at any time.
-        </SizableText>
       </>
     );
   };

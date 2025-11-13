@@ -209,6 +209,7 @@
   "backup.verify_apple_account_and_icloud_drive_enabled": "Vui lòng xác minh đăng nhập tài khoản Apple của bạn và đảm bảo iCloud Drive được kích hoạt và ủy quyền cho OneKey.",
   "backup.verify_google_account_and_google_drive_enabled": "Vui lòng xác minh đăng nhập tài khoản Google của bạn và đảm bảo Google Drive được kích hoạt và ủy quyền cho OneKey.",
   "backup_success_toast_title": "Mọi thứ đã sẵn sàng! Sao lưu của bạn đã hoàn tất",
+  "backup_write_to_cloud_failed": "Rất tiếc! Sao lưu đã thất bại lần này. Vui lòng thử lại",
   "balance_detail.button_acknowledge": "Xác nhận",
   "balance_detail.button_balance": "Chi tiết Số dư",
   "balance_detail.button_cancel": "Hủy",

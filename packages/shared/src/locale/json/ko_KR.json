@@ -209,6 +209,7 @@
   "backup.verify_apple_account_and_icloud_drive_enabled": "Apple 계정 로그인을 확인하고 iCloud Drive가 활성화되어 있으며 OneKey에 대한 권한이 부여되었는지 확인하십시오.",
   "backup.verify_google_account_and_google_drive_enabled": "Google 계정 로그인을 확인하고 Google Drive가 OneKey에 대해 활성화되고 인증되었는지 확인하십시오.",
   "backup_success_toast_title": "준비 완료! 백업이 완료되었습니다",
+  "backup_write_to_cloud_failed": "이런! 이번에는 백업에 실패했어요. 다시 시도해 주세요",
   "balance_detail.button_acknowledge": "인정하다",
   "balance_detail.button_balance": "잔액 상세",
   "balance_detail.button_cancel": "취소",

@@ -209,6 +209,7 @@
   "backup.verify_apple_account_and_icloud_drive_enabled": "Будь ласка, перевірте вхід у свій обліковий запис Apple та переконайтеся, що iCloud Drive включено та авторизовано для OneKey.",
   "backup.verify_google_account_and_google_drive_enabled": "Будь ласка, перевірте вхід у свій акаунт Google та переконайтеся, що Google Drive включено та авторизовано для OneKey.",
   "backup_success_toast_title": "Готово! Резервне копіювання завершено",
+  "backup_write_to_cloud_failed": "Ой! Резервне копіювання не вдалося. Будь ласка, спробуйте ще раз",
   "balance_detail.button_acknowledge": "Підтвердити",
   "balance_detail.button_balance": "Деталі балансу",
   "balance_detail.button_cancel": "Скасувати",

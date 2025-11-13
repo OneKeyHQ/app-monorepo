@@ -214,6 +214,7 @@
   backup_verify_apple_account_and_icloud_drive_enabled = 'backup.verify_apple_account_and_icloud_drive_enabled',
   backup_verify_google_account_and_google_drive_enabled = 'backup.verify_google_account_and_google_drive_enabled',
   backup_success_toast_title = 'backup_success_toast_title',
+  backup_write_to_cloud_failed = 'backup_write_to_cloud_failed',
   balance_detail_button_acknowledge = 'balance_detail.button_acknowledge',
   balance_detail_button_balance = 'balance_detail.button_balance',
   balance_detail_button_cancel = 'balance_detail.button_cancel',
