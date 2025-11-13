@@ -1786,6 +1786,7 @@
   "id.refer_a_friend": "Giới thiệu bạn bè",
   "id.refer_a_friend_desc": "Mời bạn bè để nhận phần thưởng",
   "identical_name_asset_alert": "Chúng tôi đã phát hiện thấy tài sản có tên tương tự trong ví của bạn. Hãy tiếp tục một cách thận trọng.",
+  "import_hardware_phrases_warning": "Đừng nhập cụm từ khôi phục của ví phần cứng. <tag>Kết nối ví phần cứng ↗</tag> thay vào đó",
   "import_phrase_or_private_key": "Nhập cụm từ hoặc khóa riêng tư",
   "insufficient_fee_append_desc": "dựa trên phí ước tính tối đa: {amount} {symbol}",
   "interact_with_contract": "Tương tác với (Đến)",

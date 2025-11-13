@@ -68,7 +68,7 @@ function MainInfoBlock(props: IProps) {
       {...containerProps}
     >
       {bgSource ? (
-        <Image
+        <YStack
           position="absolute"
           top="50%"
           y="-50%"
@@ -76,12 +76,15 @@ function MainInfoBlock(props: IProps) {
           $gtMd={{
             right: -176,
           }}
-          source={bgSource}
-          w={600}
-          h={380}
-          zIndex={0}
-          pointerEvents="box-none"
-        />
+        >
+          <Image
+            source={bgSource}
+            w={600}
+            h={380}
+            zIndex={0}
+            pointerEvents="box-none"
+          />
+        </YStack>
       ) : null}
       {closable ? (
         <IconButton

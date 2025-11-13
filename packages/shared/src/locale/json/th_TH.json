@@ -1786,6 +1786,7 @@
   "id.refer_a_friend": "แนะนำเพื่อน",
   "id.refer_a_friend_desc": "เชิญเพื่อนเพื่อรับรางวัล",
   "identical_name_asset_alert": "เราตรวจพบทรัพย์สินที่มีชื่อคล้ายกันในกระเป๋าเงินของคุณ โปรดดำเนินการด้วยความระมัดระวัง",
+  "import_hardware_phrases_warning": "อย่านำเข้าวลีการกู้คืนของฮาร์ดแวร์วอลเล็ตของคุณ <tag>เชื่อมต่อฮาร์ดแวร์วอลเล็ต ↗</tag> แทน",
   "import_phrase_or_private_key": "นำเข้าวลีหรือกุญแจส่วนตัว",
   "insufficient_fee_append_desc": "ตามค่าธรรมเนียมสูงสุดที่ประมาณ: {amount} {symbol}",
   "interact_with_contract": "ติดต่อกับ (ถึง)",

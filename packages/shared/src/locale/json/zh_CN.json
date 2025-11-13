@@ -1786,6 +1786,7 @@
   "id.refer_a_friend": "推荐奖励",
   "id.refer_a_friend_desc": "邀请朋友赚取奖励",
   "identical_name_asset_alert": "检测到钱包中存在相同或相似名称的资产，请谨慎操作，避免损失。",
+  "import_hardware_phrases_warning": "不要导入硬件钱包的助记词，请使用<tag>连接硬件钱包 ↗</tag>",
   "import_phrase_or_private_key": "导入助记词或私钥",
   "insufficient_fee_append_desc": "基于最大預估费用：{amount} {symbol}",
   "interact_with_contract": "交互地址 (至)",

@@ -1786,6 +1786,7 @@
   "id.refer_a_friend": "친구 추천",
   "id.refer_a_friend_desc": "친구를 초대하여 보상을 받으세요",
   "identical_name_asset_alert": "지갑에서 이름이 비슷한 자산을 감지했습니다. 주의해서 진행하세요.",
+  "import_hardware_phrases_warning": "하드웨어 지갑의 복구 구문을 가져오지 마세요. <tag>하드웨어 지갑 연결 ↗</tag>을(를) 대신 사용하세요",
   "import_phrase_or_private_key": "구문 또는 개인 키 가져오기",
   "insufficient_fee_append_desc": "최대 예상 수수료 기준: {amount} {symbol}",
   "interact_with_contract": "(~와) 상호 작용하기",

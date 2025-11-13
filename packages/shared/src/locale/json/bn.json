@@ -1786,6 +1786,7 @@
   "id.refer_a_friend": "একজন বন্ধুকে উল্লেখ করুন",
   "id.refer_a_friend_desc": "বন্ধুদের আমন্ত্রণ জানান পুরস্কার অর্জনের জন্য",
   "identical_name_asset_alert": "আমরা আপনার ওয়ালেটে একই রকম নামের সম্পদ সনাক্ত করেছি। সতর্কতার সাথে এগিয়ে যান।",
+  "import_hardware_phrases_warning": "আপনার হার্ডওয়্যার ওয়ালেটের রিকভারি ফ্রেজ ইম্পোর্ট করবেন না। <tag>হার্ডওয়্যার ওয়ালেট সংযুক্ত করুন ↗</tag> বরং করুন",
   "import_phrase_or_private_key": "ফ্রেজ বা প্রাইভেট কী ইমপোর্ট করুন",
   "insufficient_fee_append_desc": "সর্বাধিক আনুমানিক ফি ভিত্তিক: {amount} {symbol}",
   "interact_with_contract": "(এর সাথে) যোগাযোগ করুন (প্রতি)",

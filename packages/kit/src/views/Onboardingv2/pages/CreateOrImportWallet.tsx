@@ -43,7 +43,13 @@ function CardTitle({
   ...rest
 }: { children: React.ReactNode } & ISizableTextProps) {
   return (
-    <SizableText size="$bodyMdMedium" {...rest}>
+    <SizableText
+      size="$bodyMdMedium"
+      $platform-native={{
+        size: '$bodyLgMedium',
+      }}
+      {...rest}
+    >
       {children}
     </SizableText>
   );

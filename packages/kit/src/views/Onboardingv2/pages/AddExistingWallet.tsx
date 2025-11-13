@@ -1,19 +1,11 @@
-import { useCallback, useMemo } from 'react';
+import { useMemo } from 'react';
 
 import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import type { IKeyOfIcons } from '@onekeyhq/components';
-import {
-  Button,
-  Dialog,
-  Icon,
-  Page,
-  SizableText,
-  Stack,
-  YStack,
-} from '@onekeyhq/components';
+import { Dialog, Icon, Page, SizableText, YStack } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -47,10 +39,6 @@ export default function AddExistingWallet() {
 
   const { checkLoading, supportCloudBackup, goToPageBackupList, startBackup } =
     useCloudBackup();
-
-  const handleConnectHardwareWalletPress = useCallback(async () => {
-    navigation.push(EOnboardingPagesV2.PickYourDevice);
-  }, [navigation]);
 
   const { result: cloudBackupOption = null } =
     usePromiseResult<IAddExistingWalletOption | null>(async () => {
@@ -115,49 +103,7 @@ export default function AddExistingWallet() {
           }),
           icon: 'SecretPhraseOutline' as IKeyOfIcons,
           onPress: () => {
-            const dialog = Dialog.show({
-              tone: 'warning',
-              icon: 'ErrorOutline',
-              title: intl.formatMessage({
-                id: ETranslations.onboarding_import_recovery_phrase_warning,
-              }),
-              description: intl.formatMessage({
-                id: ETranslations.onboarding_import_recovery_phrase_warning_help_text,
-              }),
-              renderContent: (
-                <Stack>
-                  <Button
-                    variant="secondary"
-                    onPress={async () => {
-                      await dialog.close();
-                      navigation.push(
-                        EOnboardingPagesV2.ImportPhraseOrPrivateKey,
-                      );
-                    }}
-                    testID="acknowledged"
-                  >
-                    {intl.formatMessage({
-                      id: ETranslations.global_ok,
-                    })}
-                  </Button>
-                  <Button
-                    variant="tertiary"
-                    m="0"
-                    mt="$2.5"
-                    onPress={async () => {
-                      await dialog.close();
-                      await handleConnectHardwareWalletPress();
-                    }}
-                    testID="hardware-wallet"
-                  >
-                    {intl.formatMessage({
-                      id: ETranslations.global_connect_hardware_wallet,
-                    })}
-                  </Button>
-                </Stack>
-              ),
-              showFooter: false,
-            });
+            navigation.push(EOnboardingPagesV2.ImportPhraseOrPrivateKey);
           },
         },
         {
@@ -252,7 +198,6 @@ export default function AddExistingWallet() {
       cloudBackupOptionWithLoading,
       navigation,
       isSoftwareWalletOnlyUser,
-      handleConnectHardwareWalletPress,
       liteCard,
       supportCloudBackup,
       startBackup,
