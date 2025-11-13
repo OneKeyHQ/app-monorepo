@@ -979,11 +979,13 @@ function CheckAndUpdatePage({
                               id: ETranslations.global_retry,
                             })}
                           </Button>
-                          <Button onPress={handleSkipCurrentStep}>
-                            {intl.formatMessage({
-                              id: ETranslations.global_skip,
-                            })}
-                          </Button>
+                          {step.id !== ECheckAndUpdateStepId.GenuineCheck ? (
+                            <Button onPress={handleSkipCurrentStep}>
+                              {intl.formatMessage({
+                                id: ETranslations.global_skip,
+                              })}
+                            </Button>
+                          ) : null}
                         </XStack>
                       </XStack>
                     ) : null}
