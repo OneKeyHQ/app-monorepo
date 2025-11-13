@@ -6,6 +6,7 @@ import {
   Button,
   Divider,
   Page,
+  SizableText,
   Stack,
   Switch,
   Toast,
@@ -33,7 +34,8 @@ export default function Home() {
     await backupToggleDialog.maybeShow(true);
     setSubmitError('');
     try {
-      await backgroundApiProxy.serviceCloudBackup.backupNow();
+      console.log('backupNowOnPress');
+      // await backgroundApiProxy.serviceCloudBackup.backupNow();
     } catch (e) {
       setSubmitError('Sync failed, please retry.');
       Toast.error({
@@ -91,57 +93,8 @@ export default function Home() {
         })}
       />
       <Page.Body>
-        <BackupDeviceList
-          ListHeaderComponent={
-            <>
-              <ListItem
-                title={intl.formatMessage({
-                  id: platformEnv.isNativeAndroid
-                    ? ETranslations.backup_backup_to_google_drive
-                    : ETranslations.backup_backup_to_icloud,
-                })}
-              >
-                <Stack
-                  pointerEvents="box-only"
-                  onPress={async () => {
-                    await backupToggleDialog.maybeShow(!isEnabled);
-                    if (!isEnabled) {
-                      await backupNowOnPress();
-                    } else if (platformEnv.isNativeAndroid) {
-                      navigation.pop();
-                    }
-                  }}
-                >
-                  <Switch value={isEnabled} />
-                </Stack>
-              </ListItem>
-              {isEnabled ? (
-                <ListItem
-                  pt="$3"
-                  title={intl.formatMessage({
-                    id: platformEnv.isNativeAndroid
-                      ? ETranslations.backup_google_drive_status
-                      : ETranslations.backup_icloud_status,
-                  })}
-                >
-                  {renderBackupStatus()}
-                </ListItem>
-              ) : null}
-              <Divider pt="$6" />
-            </>
-          }
-        />
-        <Stack m="$5">
-          <Button
-            mt="$4"
-            borderRadius="$3"
-            py="$3"
-            disabled={isInProgress}
-            onPress={backupNowOnPress}
-          >
-            {intl.formatMessage({ id: ETranslations.backup_backup_now })}
-          </Button>
-        </Stack>
+        <BackupDeviceList />
+      
       </Page.Body>
     </Page>
   );

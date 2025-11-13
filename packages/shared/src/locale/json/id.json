@@ -1786,6 +1786,7 @@
   "id.refer_a_friend": "Ajak Teman",
   "id.refer_a_friend_desc": "Undang teman untuk mendapatkan hadiah",
   "identical_name_asset_alert": "Kami mendeteksi aset dengan nama yang mirip di dompet Anda. Harap lanjutkan dengan hati-hati.",
+  "import_hardware_phrases_warning": "Jangan impor frasa pemulihan dompet perangkat keras Anda. <tag>Sambungkan Dompet Perangkat Keras ↗</tag> sebagai gantinya",
   "import_phrase_or_private_key": "Impor frasa atau kunci privat",
   "insufficient_fee_append_desc": "berdasarkan perkiraan biaya maksimum: {amount} {symbol}",
   "interact_with_contract": "Berinteraksi dengan (Kepada)",

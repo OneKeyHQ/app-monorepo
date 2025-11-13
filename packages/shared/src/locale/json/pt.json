@@ -1786,6 +1786,7 @@
   "id.refer_a_friend": "Indique um Amigo",
   "id.refer_a_friend_desc": "Convide amigos para ganhar recompensas",
   "identical_name_asset_alert": "Detectamos ativos com nomes similares na sua carteira. Proceda com cautela.",
+  "import_hardware_phrases_warning": "Não importe a frase de recuperação da sua carteira de hardware. <tag>Conectar Carteira de Hardware ↗</tag> em vez disso",
   "import_phrase_or_private_key": "Importar frase ou chave privada",
   "insufficient_fee_append_desc": "com base na taxa máxima estimada: {amount} {symbol}",
   "interact_with_contract": "Interagir com (Para)",
