@@ -51,7 +51,7 @@ const SwapToAnotherAddressPage = () => {
       RouteProp<IModalSwapParamList, EModalSwapRoutes.SwapToAnotherAddress>
     >();
   const paramAddress = route.params?.address;
-  const { accountInfo, address, activeAccount } = useSwapAddressInfo(
+  const { accountInfo, address, activeAccount, networkId } = useSwapAddressInfo(
     ESwapDirectionType.TO,
   );
 
@@ -99,13 +99,14 @@ const SwapToAnotherAddressPage = () => {
       setSwapToAddress((v) => ({
         ...v,
         address: finallyAddress,
-        networkId: activeAccount?.network?.id,
+        networkId,
         accountInfo: activeAccount,
       }));
       setSwapManualSelectQuote(selectedQuote);
       navigation.pop();
     },
     [
+      networkId,
       activeAccount,
       navigation,
       selectedQuote,
@@ -131,7 +132,7 @@ const SwapToAnotherAddressPage = () => {
     [handleOnOpenAccountSelector],
   );
 
-  return accountInfo && accountInfo?.network?.id ? (
+  return accountInfo && networkId ? (
     <Page scrollEnabled>
       <Page.Header
         title={intl.formatMessage({
@@ -143,7 +144,7 @@ const SwapToAnotherAddressPage = () => {
         <Form form={form}>
           <AddressInputField
             name="address"
-            networkId={accountInfo?.network?.id}
+            networkId={networkId}
             enableAddressBook
             enableWalletName
             // enableVerifySendFundToSelf
