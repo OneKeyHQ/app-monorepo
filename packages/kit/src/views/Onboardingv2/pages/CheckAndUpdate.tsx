@@ -319,6 +319,7 @@ function CheckAndUpdatePage({
     const r =
       await backgroundApiProxy.serviceFirmwareUpdate.checkAllFirmwareRelease({
         connectId: compatibleConnectId,
+        skipCancel: true,
       });
     cancelTimeout();
     if (r) {
