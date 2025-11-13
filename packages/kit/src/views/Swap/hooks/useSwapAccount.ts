@@ -213,71 +213,71 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
     toToken?.networkId,
     currentSelectNetwork?.networkId,
   ]);
-  useEffect(() => {
-    void (async () => {
-      if (isAllNetwork) {
-        if (
-          (fromToken?.networkId || currentSelectNetwork?.networkId) &&
-          type === ESwapDirectionType.FROM
-        ) {
-          try {
-            const accountParams = {
-              deriveType: activeAccount.deriveType || 'default',
-              indexedAccountId: activeAccount.indexedAccount?.id,
-              accountId: activeAccount.indexedAccount?.id
-                ? undefined
-                : activeAccount.account?.id,
-              dbAccount: activeAccount.dbAccount,
-              networkId:
-                currentSelectNetwork?.networkId ?? fromToken?.networkId ?? '',
-            };
-            const fromTokenAccount =
-              await backgroundApiProxy.serviceAccount.getNetworkAccount({
-                ...accountParams,
-              });
-            setAccountForAllNet(fromTokenAccount);
-          } catch (e) {
-            setAccountForAllNet(undefined);
-          }
-        }
-        if (
-          (toToken?.networkId || currentSelectNetwork?.networkId) &&
-          type === ESwapDirectionType.TO
-        ) {
-          try {
-            const accountParams = {
-              deriveType: activeAccount.deriveType || 'default',
-              indexedAccountId: activeAccount.indexedAccount?.id,
-              accountId: activeAccount.indexedAccount?.id
-                ? undefined
-                : activeAccount.account?.id,
-              dbAccount: activeAccount.dbAccount,
-              networkId:
-                currentSelectNetwork?.networkId ?? toToken?.networkId ?? '',
-            };
-            const toTokenAccount =
-              await backgroundApiProxy.serviceAccount.getNetworkAccount({
-                ...accountParams,
-              });
-            setAccountForAllNet(toTokenAccount);
-          } catch (e) {
-            setAccountForAllNet(undefined);
-          }
+
+  const checkAllNetworkAccount = useCallback(async () => {
+    if (isAllNetwork) {
+      if (
+        (fromToken?.networkId || currentSelectNetwork?.networkId) &&
+        type === ESwapDirectionType.FROM
+      ) {
+        try {
+          const accountParams = {
+            deriveType: activeAccount.deriveType || 'default',
+            indexedAccountId: activeAccount.indexedAccount?.id,
+            accountId: activeAccount.indexedAccount?.id
+              ? undefined
+              : activeAccount.account?.id,
+            dbAccount: activeAccount.dbAccount,
+            networkId:
+              currentSelectNetwork?.networkId ?? fromToken?.networkId ?? '',
+          };
+          const fromTokenAccount =
+            await backgroundApiProxy.serviceAccount.getNetworkAccount({
+              ...accountParams,
+            });
+          setAccountForAllNet(fromTokenAccount);
+        } catch (e) {
+          setAccountForAllNet(undefined);
         }
       }
-    })();
+      if (
+        (toToken?.networkId || currentSelectNetwork?.networkId) &&
+        type === ESwapDirectionType.TO
+      ) {
+        try {
+          const accountParams = {
+            deriveType: activeAccount.deriveType || 'default',
+            indexedAccountId: activeAccount.indexedAccount?.id,
+            accountId: activeAccount.indexedAccount?.id
+              ? undefined
+              : activeAccount.account?.id,
+            dbAccount: activeAccount.dbAccount,
+            networkId:
+              currentSelectNetwork?.networkId ?? toToken?.networkId ?? '',
+          };
+          const toTokenAccount =
+            await backgroundApiProxy.serviceAccount.getNetworkAccount({
+              ...accountParams,
+            });
+          setAccountForAllNet(toTokenAccount);
+        } catch (e) {
+          setAccountForAllNet(undefined);
+        }
+      }
+    }
   }, [
-    fromToken?.networkId,
-    activeAccount?.network?.id,
-    activeAccount?.indexedAccount?.id,
-    activeAccount?.account?.id,
-    activeAccount?.deriveType,
-    activeAccount?.dbAccount,
     type,
-    toToken?.networkId,
     isAllNetwork,
+    fromToken?.networkId,
     currentSelectNetwork?.networkId,
+    toToken?.networkId,
+    activeAccount,
   ]);
+
+  useEffect(() => {
+    void checkAllNetworkAccount();
+  }, [checkAllNetworkAccount]);
+
   const [swapToAnotherAccountAddressAtom] =
     useSwapToAnotherAccountAddressAtom();
   const addressInfo = useMemo(() => {
