@@ -39,7 +39,6 @@ export default function BackupDeviceList<T>({
   | 'getItemType'
 > & { ListEmptyComponent?: ReactElement }) {
   const intl = useIntl();
-  const [{ isEnabled, isInProgress }] = useCloudBackupPersistAtom();
   const navigation = useAppNavigation();
   const iconList: Record<string, string> = useMemo(
     () => ({
@@ -52,34 +51,29 @@ export default function BackupDeviceList<T>({
   const { result: data, run } = usePromiseResult(async () => {
     const backupDeviceList =
       await backgroundApiProxy.serviceCloudBackup.getBackupDeviceList();
-    return !ListEmptyComponent && !isEnabled
-      ? []
-      : backupDeviceList.map((item) => ({
-          deviceName: item.deviceInfo.deviceName,
-          osName: item.deviceInfo.osName,
-          detail: intl.formatMessage(
-            { id: ETranslations.backup_updated_time },
-            { time: formatDate(new Date(item.backupTime)) },
-          ),
-          icon:
-            item.deviceInfo.osName in iconList
-              ? iconList[item.deviceInfo.osName]
-              : 'SuqarePlaceholderOutline',
-          isCurrentDevice:
-            item.deviceInfo.deviceName === deviceName &&
-            item.deviceInfo.osName === osName,
-        }));
-  }, [intl, iconList, ListEmptyComponent, isEnabled]);
+    return backupDeviceList.map((item) => ({
+      deviceName: item.deviceInfo.deviceName,
+      osName: item.deviceInfo.osName,
+      detail: intl.formatMessage(
+        { id: ETranslations.backup_updated_time },
+        { time: formatDate(new Date(item.backupTime)) },
+      ),
+      icon:
+        item.deviceInfo.osName in iconList
+          ? iconList[item.deviceInfo.osName]
+          : 'SuqarePlaceholderOutline',
+      isCurrentDevice:
+        item.deviceInfo.deviceName === deviceName &&
+        item.deviceInfo.osName === osName,
+    }));
+  }, [intl, iconList]);
   const hasData = (data?.length ?? 0) > 0;
   const isFocused = useIsFocused();
   useEffect(() => {
-    if (isInProgress) {
-      return;
-    }
     if (isFocused) {
       void run();
     }
-  }, [isInProgress, isFocused, run, isEnabled]);
+  }, [isFocused, run]);
   if (!data) {
     return <BackupListLoading />;
   }
@@ -94,14 +88,12 @@ export default function BackupDeviceList<T>({
             ]
           : []
       }
-      renderSectionHeader={() =>
-        !ListEmptyComponent && !isEnabled ? null : (
-          <SectionList.SectionHeader
-            mt="$5"
-            title={intl.formatMessage({ id: ETranslations.backup_all_devices })}
-          />
-        )
-      }
+      renderSectionHeader={() => (
+        <SectionList.SectionHeader
+          mt="$5"
+          title={intl.formatMessage({ id: ETranslations.backup_all_devices })}
+        />
+      )}
       renderItem={({
         item,
       }: {
@@ -164,11 +156,24 @@ export default function BackupDeviceList<T>({
       estimatedItemSize="$16"
       ListFooterComponent={
         !hasData && ListEmptyComponent ? null : (
-          <SizableText size="$bodySm" color="$textSubdued" px="$5" pt="$3">
-            {intl.formatMessage({
-              id: ETranslations.backup_onekey_doesnt_back_up_hardware_wallets,
-            })}
-          </SizableText>
+          <>
+            <SizableText size="$bodySm" color="$textSubdued" px="$5" pt="$3">
+              {intl.formatMessage({
+                id: ETranslations.backup_onekey_doesnt_back_up_hardware_wallets,
+              })}
+            </SizableText>
+            <SizableText
+              size="$bodySm"
+              color="$textSubdued"
+              px="$5"
+              pt="$3"
+              // TODO: franco
+            >
+              这里保留 5.17
+              之前版本的备份，并且自动备份功能将下线，地址薄备份已经升级为
+              OneKey Cloud 云端同步。
+            </SizableText>
+          </>
         )
       }
       ListEmptyComponent={ListEmptyComponent}
