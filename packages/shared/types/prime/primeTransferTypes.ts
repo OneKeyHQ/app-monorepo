@@ -88,16 +88,18 @@ export type IPrimeTransferAccount = {
   xpubSegwit: string | undefined;
 } & IHasVersion;
 
+export type IPrimeTransferPublicDataWalletDetail = {
+  name: string;
+  avatar: IAllWalletAvatarImageNamesWithoutDividers;
+  accountsCount: number;
+  walletXfp: string | undefined;
+};
 export type IPrimeTransferPublicData = {
   dataTime: number;
   dataVersion?: number;
   totalWalletsCount: number;
   totalAccountsCount: number;
-  walletDetails: Array<{
-    name: string;
-    avatar: IAllWalletAvatarImageNamesWithoutDividers;
-    accountsCount: number;
-  }>;
+  walletDetails: Array<IPrimeTransferPublicDataWalletDetail>;
 };
 
 export type IPrimeTransferPrivateData = {

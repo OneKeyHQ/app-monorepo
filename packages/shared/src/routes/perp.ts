@@ -1,5 +1,4 @@
 import type { ISetTpslParams } from '@onekeyhq/kit/src/views/Perp/components/OrderInfoPanel/SetTpslModal';
-import type { IShareData } from '@onekeyhq/kit/src/views/Perp/components/PositionShare/types';
 
 export enum EModalPerpRoutes {
   PerpTradersHistoryList = 'PerpTradersHistoryList',
@@ -7,7 +6,6 @@ export enum EModalPerpRoutes {
   MobileTokenSelector = 'MobileTokenSelector',
   MobileSetTpsl = 'MobileSetTpsl',
   MobileDepositWithdrawModal = 'MobileDepositWithdrawModal',
-  PositionShare = 'PositionShare',
 }
 
 export type IModalPerpParamList = {
@@ -16,5 +14,4 @@ export type IModalPerpParamList = {
   [EModalPerpRoutes.MobileTokenSelector]: undefined;
   [EModalPerpRoutes.MobileSetTpsl]: ISetTpslParams;
   [EModalPerpRoutes.MobileDepositWithdrawModal]: undefined;
-  [EModalPerpRoutes.PositionShare]: { data: IShareData };
 };

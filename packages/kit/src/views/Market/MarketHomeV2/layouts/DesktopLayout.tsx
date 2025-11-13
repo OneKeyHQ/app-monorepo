@@ -59,8 +59,15 @@ export function DesktopLayout({
     handlePageChanged,
   } = useMarketTabsLogic(onTabChange);
 
-  const height = useMemo(() => {
-    return platformEnv.isNative ? undefined : 'calc(100vh - 96px)';
+  const { height, containerStyle } = useMemo(() => {
+    const computedHeight = platformEnv.isNative
+      ? undefined
+      : 'calc(100vh - 96px)';
+    const style: Record<string, any> = { height: computedHeight };
+    if (platformEnv.isWebDappMode) {
+      style.paddingBottom = 60;
+    }
+    return { height: computedHeight, containerStyle: style };
   }, []);
 
   const pageWidth = useTabContainerWidth();
@@ -100,7 +107,7 @@ export function DesktopLayout({
         defaultIndex={defaultIndex}
         onPageChanged={handlePageChanged}
         disableAnimation
-        containerStyle={{ height }}
+        containerStyle={containerStyle}
         ref={carouselRef as any}
         loop={false}
         showPagination={false}

@@ -29,7 +29,7 @@ export function JoinButton({ setPhaseState }: IJoinButtonProps) {
         }}
       >
         {intl.formatMessage({
-          id: ETranslations.global_cancel,
+          id: ETranslations.perp_term_previous,
         })}
       </Button>
       <Button

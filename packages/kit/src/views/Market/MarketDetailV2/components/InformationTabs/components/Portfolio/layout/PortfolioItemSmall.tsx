@@ -18,11 +18,15 @@ function PortfolioItemSmallBase({ item }: IPortfolioItemSmallProps) {
       py="$3"
       borderBottomWidth={1}
       borderColor="$borderSubdued"
-      justifyContent="space-between"
       alignItems="center"
     >
       {/* Amount */}
-      <NumberSizeableText size="$bodyMd" color="$text" formatter="balance">
+      <NumberSizeableText
+        size="$bodyMd"
+        color="$text"
+        autoFormatter="price-marketCap"
+        width="50%"
+      >
         {item.amount}
       </NumberSizeableText>
 
@@ -30,7 +34,7 @@ function PortfolioItemSmallBase({ item }: IPortfolioItemSmallProps) {
       <NumberSizeableText
         size="$bodyMd"
         color="$text"
-        formatter="value"
+        autoFormatter="price-marketCap"
         formatterOptions={{
           currency: settingsPersistAtom.currencyInfo.symbol,
         }}

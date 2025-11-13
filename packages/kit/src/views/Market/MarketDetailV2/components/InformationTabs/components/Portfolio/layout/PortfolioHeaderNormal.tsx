@@ -21,14 +21,13 @@ function PortfolioHeaderNormalBase() {
       borderBottomWidth="$px"
       borderBottomColor="$transparent"
       backgroundColor="$bgApp"
-      justifyContent="space-between"
     >
-      <SizableText {...commonTextProps} flex={1}>
+      <SizableText {...commonTextProps} width="50%">
         {intl.formatMessage({
           id: ETranslations.dexmarket_details_history_amount,
         })}
       </SizableText>
-      <SizableText {...commonTextProps} flex={1} textAlign="right">
+      <SizableText {...commonTextProps}>
         {intl.formatMessage({
           id: ETranslations.dexmarket_details_history_value,
         })}
