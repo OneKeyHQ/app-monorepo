@@ -728,6 +728,7 @@ export function useDeviceConnect() {
       determineWalletCreationStrategy,
       createHwWallet,
       closeDialogAndReturn,
+      intl,
     ],
   );
   return useMemo(
