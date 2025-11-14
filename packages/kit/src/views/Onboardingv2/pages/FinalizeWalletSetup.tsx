@@ -303,7 +303,7 @@ function FinalizeWalletSetupPage({
           },
         });
         created.current = true;
-      } else if (deviceData && isFirmwareVerified) {
+      } else if (deviceData && isFirmwareVerified !== undefined) {
         await connectDevice(deviceData.device as SearchDevice);
         await createHWWallet({
           device: deviceData.device as SearchDevice,
