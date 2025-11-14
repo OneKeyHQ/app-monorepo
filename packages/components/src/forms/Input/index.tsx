@@ -92,6 +92,7 @@ export type IInputProps = {
   containerProps?: IGroupProps;
   onPaste?: (event: IPasteEventParams) => void;
   onChangeText?: ((text: string) => string | void) | undefined;
+  onSecureTextEntryChange?: (secureTextEntry: boolean) => void;
 } & Omit<ITMInputProps, 'size' | 'onChangeText' | 'onPaste' | 'readOnly'> & {
     /** Web only */
     onCompositionStart?: CompositionEventHandler<any>;
@@ -271,6 +272,7 @@ function BaseInput(
     autoFocusDelayMs,
     autoScrollTopDelayMs,
     secureTextEntry,
+    onSecureTextEntryChange,
     ...props
   } = useProps(inputProps) as IInputProps;
   const { paddingLeftWithIcon, height, iconLeftPosition } = SIZE_MAPPINGS[size];
@@ -360,6 +362,7 @@ function BaseInput(
       allAddOns.push({
         iconName: secureEntryState ? 'EyeOffOutline' : 'EyeOutline',
         onPress: () => {
+          onSecureTextEntryChange?.(!secureEntryState);
           setSecureEntryState(!secureEntryState);
         },
       });
@@ -379,6 +382,7 @@ function BaseInput(
     clearClipboardOnPaste,
     clearText,
     secureEntryState,
+    onSecureTextEntryChange,
   ]);
 
   useOnWebPaste(inputRef, onPaste);
