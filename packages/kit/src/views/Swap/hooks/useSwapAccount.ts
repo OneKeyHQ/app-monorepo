@@ -301,34 +301,19 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
       swapToAnotherAccountAddressAtom.accountInfo.account &&
       activeAccount &&
       activeAccount.account &&
-      activeAccount.network?.id === swapToAnotherAccountAddressAtom.networkId
+      (activeAccount.network?.id ===
+        swapToAnotherAccountAddressAtom.networkId ||
+        isAllNetwork)
     ) {
       return {
         ...res,
-        address: isAllNetwork
-          ? accountForAllNet?.addressDetail?.address
-          : swapToAnotherAccountAddressAtom.address,
-        networkId:
-          isAllNetwork && tokenNetworkId
-            ? tokenNetworkId
-            : swapToAnotherAccountAddressAtom.networkId,
+        address: swapToAnotherAccountAddressAtom.address ?? '',
+        networkId: swapToAnotherAccountAddressAtom.networkId ?? '',
         accountInfo: {
           ...swapToAnotherAccountAddressAtom.accountInfo,
-          account: {
-            ...swapToAnotherAccountAddressAtom.accountInfo.account,
-            id: isAllNetwork
-              ? accountForAllNet?.id ?? ''
-              : swapToAnotherAccountAddressAtom.accountInfo?.account?.id ?? '',
-          },
         },
         activeAccount: {
           ...activeAccount,
-          account: {
-            ...activeAccount.account,
-            id: isAllNetwork
-              ? accountForAllNet?.id ?? ''
-              : activeAccount.account?.id ?? '',
-          },
         },
       };
     }
