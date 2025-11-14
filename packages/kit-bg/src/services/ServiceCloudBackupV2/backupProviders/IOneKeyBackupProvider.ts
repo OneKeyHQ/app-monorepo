@@ -138,5 +138,8 @@ export interface IOneKeyBackupProvider {
    * Delete a backup from cloud
    * @param params.recordId Unique identifier for the backup record
    */
-  deleteBackup(params: { recordId: string }): Promise<void>;
+  deleteBackup(params: {
+    recordId: string;
+    skipManifestUpdate?: boolean;
+  }): Promise<void>;
 }

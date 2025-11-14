@@ -303,11 +303,17 @@ export class GoogleDriveBackupProvider implements IOneKeyBackupProvider {
     return this.getManifest();
   }
 
-  async deleteBackup({ recordId }: { recordId: string }): Promise<void> {
+  async deleteBackup({
+    recordId,
+    skipManifestUpdate,
+  }: {
+    recordId: string;
+    skipManifestUpdate?: boolean;
+  }): Promise<void> {
     await this.checkAvailability();
 
     const result = await googleDriveStorage.deleteFile({ fileId: recordId });
-    if (result) {
+    if (result && !skipManifestUpdate) {
       await this.deleteFromManifest({
         fileId: recordId,
       });

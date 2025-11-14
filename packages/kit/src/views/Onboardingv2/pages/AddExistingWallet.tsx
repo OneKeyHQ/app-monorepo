@@ -153,45 +153,6 @@ export default function AddExistingWallet() {
             // navigation.push(EOnboardingPagesV2.ImportWatchedAccount);
           },
         },
-        ...(() => {
-          return [
-            ...(supportCloudBackup
-              ? [
-                  {
-                    title: '===DEBUG===BackupNow',
-                    icon: 'StorageOutline',
-                    onPress: startBackup,
-                    isLoading: checkLoading,
-                  },
-                  {
-                    title: '===DEBUG===GetCloudAccountInfo',
-                    icon: 'StorageOutline',
-                    onPress: async () => {
-                      const info =
-                        await backgroundApiProxy.serviceCloudBackupV2.getCloudAccountInfo();
-                      Dialog.debugMessage({
-                        debugMessage: info,
-                      });
-                    },
-                  },
-                  {
-                    title: '===DEBUG===LoginCloudIfNeed',
-                    icon: 'StorageOutline',
-                    onPress: async () => {
-                      await backgroundApiProxy.serviceCloudBackupV2.loginCloudIfNeed();
-                    },
-                  },
-                  {
-                    title: '===DEBUG===LogoutCloud',
-                    icon: 'StorageOutline',
-                    onPress: async () => {
-                      await backgroundApiProxy.serviceCloudBackupV2.logoutCloud();
-                    },
-                  },
-                ]
-              : []),
-          ].filter(Boolean);
-        })(),
       ].filter(Boolean),
     [
       intl,
@@ -199,9 +160,6 @@ export default function AddExistingWallet() {
       navigation,
       isSoftwareWalletOnlyUser,
       liteCard,
-      supportCloudBackup,
-      startBackup,
-      checkLoading,
     ],
   );
 

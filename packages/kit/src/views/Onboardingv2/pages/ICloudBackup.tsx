@@ -36,17 +36,26 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { MultipleClickStack } from '../../../components/MultipleClickStack';
+import { useAppRoute } from '../../../hooks/useAppRoute';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { CloudAccountBar } from '../components/CloudAccountBar';
 import { showCloudBackupPasswordDialog } from '../components/CloudBackupDialogs';
 import { CloudBackupListEmptyView } from '../components/CloudBackupEmptyView';
 import { CloudBackupLoadingSkeleton } from '../components/CloudBackupLoadingSkeleton';
 import { OnboardingLayout } from '../components/OnboardingLayout';
+import { useCloudBackup } from '../hooks/useCloudBackup';
+import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 export default function ICloudBackup() {
   const navigation = useAppNavigation();
   const [refreshHook] = useOnboardingCloudBackupListRefreshAtom();
   const intl = useIntl();
+  const route = useAppRoute<
+    IOnboardingParamListV2,
+    EOnboardingPagesV2.ICloudBackup
+  >();
+  const hideRestoreButton = route?.params?.hideRestoreButton;
+  const { startBackup } = useCloudBackup();
 
   const { result: legacyBackups } = usePromiseResult(async () => {
     if (platformEnv.isNative) {
@@ -81,10 +90,11 @@ export default function ICloudBackup() {
           backupTime: item.dataTime,
           backupId: item.recordID,
           actionType: 'restore',
+          hideRestoreButton,
         };
       navigation.push(EOnboardingPagesV2.ICloudBackupDetails, params);
     },
-    [navigation],
+    [navigation, hideRestoreButton],
   );
 
   const renderContent = () => {
@@ -173,7 +183,7 @@ export default function ICloudBackup() {
         <OnboardingLayout.Body>
           <CloudAccountBar />
           {renderContent()}
-          {legacyBackups?.length ? (
+          {legacyBackups?.length && !hideRestoreButton ? (
             <Button
               onPress={async () => {
                 // Dialog.debugMessage({
@@ -274,6 +284,33 @@ export default function ICloudBackup() {
                   iOSQueryAllRecords
                 </Button>
                 <Button
+                  onPress={async () => {
+                    await startBackup({
+                      alwaysGoToBackupDetail: true,
+                    });
+                  }}
+                >
+                  BackupNow(ToDetailPage)
+                </Button>
+                <Button
+                  onPress={async () => {
+                    await startBackup();
+                  }}
+                >
+                  BackupNow
+                </Button>
+                <Button
+                  onPress={async () => {
+                    const info =
+                      await backgroundApiProxy.serviceCloudBackupV2.getCloudAccountInfo();
+                    Dialog.debugMessage({
+                      debugMessage: info,
+                    });
+                  }}
+                >
+                  GetCloudAccountInfo
+                </Button>
+                <Button
                   variant="destructive"
                   onPress={async () => {
                     const data =
@@ -297,11 +334,17 @@ export default function ICloudBackup() {
                       },
                       onCancelText: 'Cancel',
                       onConfirm: async () => {
+                        await backgroundApiProxy.servicePassword.promptPasswordVerify(
+                          {
+                            reason: EReasonForNeedPassword.Security,
+                          },
+                        );
                         for (const item of items) {
                           try {
-                            await backgroundApiProxy.serviceCloudBackupV2.delete(
+                            await backgroundApiProxy.serviceCloudBackupV2.deleteSilently(
                               {
                                 recordId: item.recordID,
+                                skipManifestUpdate: false,
                               },
                             );
                           } catch (e) {

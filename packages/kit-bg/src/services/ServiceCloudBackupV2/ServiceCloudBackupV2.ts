@@ -23,6 +23,7 @@ import type {
   IPrimeTransferData,
   IPrimeTransferPrivateData,
 } from '@onekeyhq/shared/types/prime/primeTransferTypes';
+import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import ServiceBase from '../ServiceBase';
 
@@ -261,7 +262,10 @@ class ServiceCloudBackupV2 extends ServiceBase {
       throw new OneKeyLocalError('Failed to backup data: no data downloaded');
     }
     if (downloadData?.content !== content) {
-      void this.delete({ recordId: recordID });
+      void this.deleteSilently({
+        recordId: recordID,
+        skipManifestUpdate: true,
+      });
       throw new OneKeyLocalError('Failed to backup data: content mismatch');
     }
 
@@ -272,7 +276,10 @@ class ServiceCloudBackupV2 extends ServiceBase {
       (item) => item.recordID === recordID,
     );
     if (!matchedBackup) {
-      void this.delete({ recordId: recordID });
+      void this.deleteSilently({
+        recordId: recordID,
+        skipManifestUpdate: true,
+      });
       throw new OneKeyLocalError(
         appLocale.intl.formatMessage({
           id: ETranslations.backup_write_to_cloud_failed,
@@ -408,10 +415,31 @@ class ServiceCloudBackupV2 extends ServiceBase {
 
   @backgroundMethod()
   @toastIfError()
-  async delete(params: { recordId: string }): Promise<void> {
+  async delete(params: {
+    recordId: string;
+    skipPasswordVerify?: boolean;
+    skipManifestUpdate?: boolean;
+  }): Promise<void> {
     const provider = this.getProvider();
+    if (!params?.skipPasswordVerify) {
+      await this.backgroundApi.servicePassword.promptPasswordVerify({
+        reason: EReasonForNeedPassword.Security,
+      });
+    }
     await provider.deleteBackup({
       recordId: params.recordId,
+      skipManifestUpdate: params?.skipManifestUpdate,
+    });
+  }
+
+  async deleteSilently(params: {
+    recordId: string;
+    skipManifestUpdate: boolean | undefined;
+  }): Promise<void> {
+    return this.delete({
+      recordId: params.recordId,
+      skipPasswordVerify: true,
+      skipManifestUpdate: params?.skipManifestUpdate,
     });
   }
 

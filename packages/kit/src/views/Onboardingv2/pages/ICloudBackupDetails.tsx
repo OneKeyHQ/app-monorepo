@@ -51,6 +51,7 @@ export default function ICloudBackupDetails({
   const intl = useIntl();
   const backupTime = route.params?.backupTime;
   const actionType = route.params?.actionType;
+  const hideRestoreButton = route.params?.hideRestoreButton;
   const navigation = useAppNavigation();
   const {
     doBackup,
@@ -245,7 +246,9 @@ export default function ICloudBackupDetails({
                   loading={checkLoading}
                   size="large"
                   onPress={async () => {
-                    await goToPageBackupList();
+                    await goToPageBackupList({
+                      hideRestoreButton: true,
+                    });
                   }}
                   childrenAsText={false}
                 >
@@ -256,20 +259,23 @@ export default function ICloudBackupDetails({
 
             {actionType === 'restore' ? (
               <>
-                <Button
-                  loading={checkLoading}
-                  disabled={isButtonDisabled}
-                  flex={1}
-                  variant="primary"
-                  size="large"
-                  onPress={handleImport}
-                >
-                  {intl.formatMessage({ id: ETranslations.global_import })}
-                </Button>
+                {!hideRestoreButton ? (
+                  <Button
+                    loading={checkLoading}
+                    disabled={isButtonDisabled}
+                    flex={1}
+                    variant="primary"
+                    size="large"
+                    onPress={handleImport}
+                  >
+                    {intl.formatMessage({ id: ETranslations.global_import })}
+                  </Button>
+                ) : null}
                 <Button
                   loading={checkLoading}
                   disabled={!route.params?.backupId}
                   size="large"
+                  flex={hideRestoreButton ? 1 : undefined}
                   onPress={async () => {
                     doDeleteBackup({
                       recordID: route.params?.backupId ?? '',
