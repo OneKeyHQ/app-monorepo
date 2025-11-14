@@ -134,7 +134,7 @@ function MobileBrowser() {
     useRoute<
       RouteProp<ITabDiscoveryParamList, ETabDiscoveryRoutes.TabDiscovery>
     >();
-  const { defaultTab } = route?.params || {};
+  const { defaultTab, earnTab } = route?.params || {};
   const [settings] = useSettingsPersistAtom();
   const [selectedHeaderTab, setSelectedHeaderTab] = useState<ETranslations>(
     defaultTab || settings.selectedBrowserTab || ETranslations.global_browser,
@@ -386,6 +386,7 @@ function MobileBrowser() {
           <EarnHomeWithProvider
             showHeader={false}
             showContent={selectedHeaderTab === ETranslations.global_earn}
+            defaultTab={earnTab}
           />
         </Stack>
       </Page.Body>

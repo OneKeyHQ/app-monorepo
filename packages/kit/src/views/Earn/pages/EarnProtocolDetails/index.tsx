@@ -889,17 +889,21 @@ const EarnProtocolDetailsPage = () => {
     [symbol],
   );
 
-  const handleNavigateToManagePosition = useCallback(() => {
-    appNavigation.pushModal(EModalRoutes.StakingModal, {
-      screen: EModalStakingRoutes.ManagePosition,
-      params: {
-        networkId,
-        symbol,
-        provider,
-        vault,
-      },
-    });
-  }, [appNavigation, networkId, symbol, provider, vault]);
+  const handleNavigateToManagePosition = useCallback(
+    (tab?: 'deposit' | 'withdraw') => {
+      appNavigation.pushModal(EModalRoutes.StakingModal, {
+        screen: EModalStakingRoutes.ManagePosition,
+        params: {
+          networkId,
+          symbol,
+          provider,
+          vault,
+          tab,
+        },
+      });
+    },
+    [appNavigation, networkId, symbol, provider, vault],
+  );
 
   const { handleSwap } = useHandleSwap();
 
@@ -987,13 +991,13 @@ const EarnProtocolDetailsPage = () => {
       <Page.Footer
         onCancelText={intl.formatMessage({ id: ETranslations.global_withdraw })}
         cancelButtonProps={{
-          onPress: handleNavigateToManagePosition,
+          onPress: () => handleNavigateToManagePosition('withdraw'),
           disabled: shouldDisableButtons,
         }}
         onConfirmText={intl.formatMessage({ id: ETranslations.earn_deposit })}
         confirmButtonProps={{
           variant: 'primary',
-          onPress: handleNavigateToManagePosition,
+          onPress: () => handleNavigateToManagePosition('deposit'),
           disabled: shouldDisableButtons,
         }}
       />
@@ -1023,6 +1027,7 @@ const EarnProtocolDetailsPage = () => {
           <ManagersSection managers={detailInfo?.managers} noPadding />
         </XStack>
       }
+      footer={pageFooter}
     >
       <XStack $gtMd={{ flexDirection: 'row' }} flexDirection="column">
         <Stack w="100%" $gtMd={{ width: '65%' }}>

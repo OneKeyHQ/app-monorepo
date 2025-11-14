@@ -61,6 +61,7 @@ export type IModalStakingParamList = {
     provider: string;
     details?: IStakeProtocolDetails;
     vault?: string;
+    tab?: 'deposit' | 'withdraw';
   };
   [EModalStakingRoutes.Stake]: IDetailPageInfoParams & {
     currentAllowance: string;

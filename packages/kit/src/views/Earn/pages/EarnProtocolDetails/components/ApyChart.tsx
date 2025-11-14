@@ -3,6 +3,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
+  Icon,
   IconButton,
   SizableText,
   Skeleton,
@@ -14,10 +15,13 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { LightweightChart } from '@onekeyhq/kit/src/components/LightweightChart';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { EarnActionIcon } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnActionIcon';
 import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnText';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { ETabEarnRoutes } from '@onekeyhq/shared/src/routes';
 import type {
   IEarnTokenInfo,
   IStakeEarnDetail,
@@ -48,6 +52,7 @@ export function ApyChart({
   const { shareText } = useShare();
   const { gtMd } = useMedia();
   const [devSettings] = useDevSettingsPersistAtom();
+  const navigation = useAppNavigation();
 
   // Generate share URL
   const shareUrl = useMemo(() => {
@@ -66,6 +71,10 @@ export function ApyChart({
     if (!shareUrl) return;
     void shareText(shareUrl);
   }, [shareUrl, shareText]);
+
+  const handleMyPortfolio = useCallback(() => {
+    navigation.navigate(ETabEarnRoutes.EarnHome, { tab: 'portfolio' });
+  }, [navigation]);
 
   // Hover state for popover
   const [hoverData, setHoverData] = useState<{
@@ -193,12 +202,24 @@ export function ApyChart({
     <YStack gap="$3">
       {apyDetail ? (
         <YStack>
-          {/* Token icon and name */}
-          <XStack gap="$2" ai="center">
-            <Token size="xs" tokenImageUri={tokenInfo?.token.logoURI} />
-            <SizableText size="$bodyLgMedium">
-              {tokenInfo?.token.symbol || symbol}
-            </SizableText>
+          {/* Token icon and name with My Portfolio button */}
+          <XStack jc="space-between" ai="center">
+            <XStack gap="$2" ai="center">
+              <Token size="xs" tokenImageUri={tokenInfo?.token.logoURI} />
+              <SizableText size="$bodyLgMedium">
+                {tokenInfo?.token.symbol || symbol}
+              </SizableText>
+            </XStack>
+            <XStack cursor="pointer" ai="center" onPress={handleMyPortfolio}>
+              <SizableText size="$bodySmMedium" color="$textSubdued">
+                {intl.formatMessage({ id: ETranslations.earn_portfolio })}
+              </SizableText>
+              <Icon
+                size="$bodySmMedium"
+                name="ChevronRightSmallOutline"
+                color="$iconSubdued"
+              />
+            </XStack>
           </XStack>
           {/* APY value with buttons */}
           <XStack gap="$2" ai="center" pt="$2.5">

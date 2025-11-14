@@ -13,7 +13,12 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { ETabDiscoveryRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
+import type { ITabEarnParamList } from '@onekeyhq/shared/src/routes';
+import {
+  ETabDiscoveryRoutes,
+  ETabEarnRoutes,
+  ETabRoutes,
+} from '@onekeyhq/shared/src/routes';
 import {
   openUrlExternal,
   openUrlInApp,
@@ -25,6 +30,7 @@ import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
 import { AccountSelectorProviderMirror } from '../../components/AccountSelector';
 import { TabPageHeader } from '../../components/TabPageHeader';
 import useAppNavigation from '../../hooks/useAppNavigation';
+import { useAppRoute } from '../../hooks/useAppRoute';
 import useListenTabFocusState from '../../hooks/useListenTabFocusState';
 import {
   useAccountSelectorActions,
@@ -49,10 +55,13 @@ import type { LayoutChangeEvent } from 'react-native';
 function BasicEarnHome({
   showHeader,
   showContent,
+  overrideDefaultTab,
 }: {
   showHeader?: boolean;
   showContent?: boolean;
+  overrideDefaultTab?: 'assets' | 'portfolio' | 'faqs';
 }) {
+  const route = useAppRoute<ITabEarnParamList, ETabEarnRoutes.EarnHome>();
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { account, indexedAccount } = activeAccount;
   const media = useMedia();
@@ -67,6 +76,17 @@ function BasicEarnHome({
   const { faqList, isFaqLoading, refetchFAQ } = useFAQListInfo();
 
   const navigation = useAppNavigation();
+
+  // Get tab from route params or override (for Discovery tab embedding)
+  const defaultTab = overrideDefaultTab || route.params?.tab;
+
+  // Handle tab change - update route params
+  const handleTabChange = useCallback(
+    (tab: 'assets' | 'portfolio' | 'faqs') => {
+      navigation.navigate(ETabEarnRoutes.EarnHome, { tab });
+    },
+    [navigation],
+  );
 
   const accountSelectorActions = useAccountSelectorActions();
 
@@ -179,25 +199,6 @@ function BasicEarnHome({
   const isLoading = !!isFetchingAccounts;
   const intl = useIntl();
 
-  const assetTabData = useMemo(
-    () => [
-      {
-        title: intl.formatMessage({ id: ETranslations.global_all }),
-        type: EAvailableAssetsTypeEnum.All,
-      },
-      {
-        // eslint-disable-next-line spellcheck/spell-checker
-        title: intl.formatMessage({ id: ETranslations.earn_stablecoins }),
-        type: EAvailableAssetsTypeEnum.StableCoins,
-      },
-      {
-        title: intl.formatMessage({ id: ETranslations.earn_native_tokens }),
-        type: EAvailableAssetsTypeEnum.NativeTokens,
-      },
-    ],
-    [intl],
-  );
-
   const [tabPageHeight, setTabPageHeight] = useState(
     platformEnv.isNativeIOS ? 143 : 92,
   );
@@ -227,11 +228,12 @@ function BasicEarnHome({
         {showHeader && showContent ? <Stack h={tabPageHeight} /> : null}
         <EarnMainTabs
           isMobile
-          assetTabData={assetTabData}
           faqList={faqList || []}
           isFaqLoading={isFaqLoading}
           isAccountsLoading={isLoading}
           refreshEarnAccounts={refreshEarnAccounts}
+          defaultTab={defaultTab}
+          onTabChange={handleTabChange}
           containerProps={{
             contentContainerStyle: {
               display: showContent ? undefined : 'none',
@@ -314,10 +316,11 @@ function BasicEarnHome({
         </YStack>
         <EarnMainTabs
           isMobile={false}
-          assetTabData={assetTabData}
           faqList={faqList || []}
           isFaqLoading={isFaqLoading}
           isAccountsLoading={isLoading}
+          defaultTab={defaultTab}
+          onTabChange={handleTabChange}
         />
       </YStack>
     </EarnPageContainer>
@@ -327,9 +330,11 @@ function BasicEarnHome({
 export function EarnHomeWithProvider({
   showHeader = true,
   showContent = true,
+  defaultTab,
 }: {
   showHeader?: boolean;
   showContent?: boolean;
+  defaultTab?: 'assets' | 'portfolio' | 'faqs';
 }) {
   return (
     <AccountSelectorProviderMirror
@@ -340,7 +345,11 @@ export function EarnHomeWithProvider({
       enabledNum={[0]}
     >
       <EarnProviderMirror storeName={EJotaiContextStoreNames.earn}>
-        <BasicEarnHome showHeader={showHeader} showContent={showContent} />
+        <BasicEarnHome
+          showHeader={showHeader}
+          showContent={showContent}
+          overrideDefaultTab={defaultTab}
+        />
       </EarnProviderMirror>
     </AccountSelectorProviderMirror>
   );
@@ -350,6 +359,9 @@ const useNavigateToNativeEarnPage = platformEnv.isNative
   ? () => {
       const { md } = useMedia();
       const navigation = useAppNavigation();
+      const route = useAppRoute<ITabEarnParamList, ETabEarnRoutes.EarnHome>();
+      const tabParam = route.params?.tab;
+
       useLayoutEffect(() => {
         if (md) {
           navigation.navigate(
@@ -358,6 +370,7 @@ const useNavigateToNativeEarnPage = platformEnv.isNative
               screen: ETabDiscoveryRoutes.TabDiscovery,
               params: {
                 defaultTab: ETranslations.global_earn,
+                earnTab: tabParam, // Pass the tab parameter
               },
             },
             {
@@ -365,7 +378,7 @@ const useNavigateToNativeEarnPage = platformEnv.isNative
             },
           );
         }
-      }, [navigation, md]);
+      }, [navigation, md, tabParam]);
     }
   : () => {};
 

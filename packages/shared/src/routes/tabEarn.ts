@@ -6,7 +6,11 @@ export enum ETabEarnRoutes {
 }
 
 export type ITabEarnParamList = {
-  [ETabEarnRoutes.EarnHome]: undefined;
+  [ETabEarnRoutes.EarnHome]:
+    | undefined
+    | {
+        tab?: 'assets' | 'portfolio' | 'faqs';
+      };
   [ETabEarnRoutes.EarnProtocols]: {
     symbol: string;
     filterNetworkId?: string;

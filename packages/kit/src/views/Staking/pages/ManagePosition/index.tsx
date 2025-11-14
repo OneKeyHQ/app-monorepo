@@ -1,5 +1,6 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { useNavigation } from '@react-navigation/native';
 import { useSharedValue } from 'react-native-reanimated';
 
 import {
@@ -116,8 +117,12 @@ const ManagePositionPage = () => {
   }, [route.params, activeAccount]);
 
   const appNavigation = useAppNavigation();
+  const navigation = useNavigation();
   const { account, indexedAccount } = activeAccount;
   const { networkId, symbol, provider, vault } = resolvedParams;
+
+  // Get tab from route params
+  const defaultTab = route.params?.tab;
 
   const {
     isLoading,
@@ -168,7 +173,20 @@ const ManagePositionPage = () => {
     vault,
   ]);
 
-  const [selectedTabIndex, setSelectedTabIndex] = useState(0);
+  // Initialize selectedTabIndex based on defaultTab
+  const [selectedTabIndex, setSelectedTabIndex] = useState(() => {
+    if (defaultTab === 'withdraw') return 1;
+    return 0;
+  });
+
+  // Update selectedTabIndex when defaultTab changes from route
+  useEffect(() => {
+    if (defaultTab === 'withdraw') {
+      setSelectedTabIndex(1);
+    } else if (defaultTab === 'deposit') {
+      setSelectedTabIndex(0);
+    }
+  }, [defaultTab]);
 
   const tabData = useMemo(
     () => [
@@ -188,7 +206,13 @@ const ManagePositionPage = () => {
     return tabData.map((item) => item.title);
   }, [tabData]);
 
-  const focusedTab = useSharedValue(TabNames[0]);
+  // Initialize focusedTab based on defaultTab
+  const initialTabName = useMemo(() => {
+    if (defaultTab === 'withdraw') return TabNames[1];
+    return TabNames[0];
+  }, [defaultTab, TabNames]);
+
+  const focusedTab = useSharedValue(initialTabName);
 
   const handleTabChange = useCallback(
     (name: string) => {
@@ -196,9 +220,15 @@ const ManagePositionPage = () => {
       if (index !== -1) {
         focusedTab.value = name;
         setSelectedTabIndex(index);
+
+        // Update route params to reflect current tab using setParams for better performance
+        const newTab = index === 0 ? 'deposit' : 'withdraw';
+        navigation.setParams({
+          tab: newTab,
+        } as any);
       }
     },
-    [focusedTab, tabData],
+    [focusedTab, tabData, navigation],
   );
 
   return (
