@@ -31,35 +31,12 @@ export const ShareImageGenerator = forwardRef<
   IShareImageGeneratorProps
 >(({ data, config }, ref) => {
   const viewShotRef = useRef<ViewShot>(null);
-  const imagesReadyPromiseRef = useRef<{
-    resolve: () => void;
-    reject: () => void;
-  } | null>(null);
-
-  const handleImagesReady = useCallback(() => {
-    if (imagesReadyPromiseRef.current) {
-      imagesReadyPromiseRef.current.resolve();
-      imagesReadyPromiseRef.current = null;
-    }
-  }, []);
 
   const generate = useCallback(async (): Promise<string> => {
     const viewShot = viewShotRef.current;
     if (!viewShot) return '';
 
     try {
-      const waitPromise = new Promise<void>((resolve, reject) => {
-        imagesReadyPromiseRef.current = { resolve, reject };
-        setTimeout(() => {
-          if (imagesReadyPromiseRef.current) {
-            imagesReadyPromiseRef.current.reject();
-            imagesReadyPromiseRef.current = null;
-          }
-        }, 5000);
-      });
-
-      await waitPromise;
-
       const fileUri = await viewShot.capture?.();
       if (!fileUri) return '';
       const base64 = await fileUriToBase64(fileUri);
@@ -78,11 +55,7 @@ export const ShareImageGenerator = forwardRef<
         options={{ format: 'png', quality: 1.0 }}
         style={{ width: CANVAS_CONFIG.size, height: CANVAS_CONFIG.size }}
       >
-        <ShareContentRenderer
-          data={data}
-          config={config}
-          onImagesReady={handleImagesReady}
-        />
+        <ShareContentRenderer data={data} config={config} />
       </ViewShot>
     </Stack>
   );
