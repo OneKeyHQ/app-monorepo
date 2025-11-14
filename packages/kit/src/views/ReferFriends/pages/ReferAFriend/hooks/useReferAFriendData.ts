@@ -32,26 +32,34 @@ export function useReferAFriendData() {
           .then(setPostConfig);
       });
 
-    // Handle web-specific URL parameters for deep linking
-    if (
-      platformEnv.isWeb &&
-      (globalThis?.location.href.includes('utm_source=web_share') ||
-        globalThis?.location.href.includes('app=1'))
-    ) {
-      const parsedURL = new URL(globalThis?.location.href);
-      const code = parsedURL.searchParams.get('code');
-      const utmSource = parsedURL.searchParams.get('utm_source');
-      const url = uriUtils.buildDeepLinkUrl({
-        path: EOneKeyDeepLinkPath.invite_share,
-        query: {
-          utm_source: utmSource || '',
-          code: code || '',
-        },
-      });
-      defaultLogger.referral.page.enterReferralGuide(code, utmSource);
-      globalThis.location.href = url;
-    }
-  }, []);
+    // Check login status and handle redirects
+    void backgroundApiProxy.servicePrime.isLoggedIn().then((isLogin) => {
+      if (isLogin) {
+        void replaceToReferFriends();
+        return;
+      }
+
+      // Handle web-specific URL parameters
+      if (
+        platformEnv.isWeb &&
+        (globalThis?.location.href.includes('utm_source=web_share') ||
+          globalThis?.location.href.includes('app=1'))
+      ) {
+        const parsedURL = new URL(globalThis?.location.href);
+        const code = parsedURL.searchParams.get('code');
+        const utmSource = parsedURL.searchParams.get('utm_source');
+        const url = uriUtils.buildDeepLinkUrl({
+          path: EOneKeyDeepLinkPath.invite_share,
+          query: {
+            utm_source: utmSource || '',
+            code: code || '',
+          },
+        });
+        defaultLogger.referral.page.enterReferralGuide(code, utmSource);
+        globalThis.location.href = url;
+      }
+    });
+  }, [replaceToReferFriends]);
 
   return {
     postConfig,
