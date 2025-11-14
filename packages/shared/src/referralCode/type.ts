@@ -383,6 +383,7 @@ export type IExportInviteDataResponse = string;
 export interface IHardwareCumulativeRewards {
   distributed: string;
   undistributed: string;
+  pending: string;
   nextDistribution: string;
   token: {
     networkId: string;

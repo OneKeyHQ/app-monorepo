@@ -68,16 +68,17 @@ function PerpTradesHistoryList({
 
   const calculateEntryPrice = useCallback(
     (fill: IFill, fillIndex: number): BigNumber | null => {
-      const openFills: IFill[] = [];
+      let openFills: IFill[] = [];
       let foundStartPositionZero = false;
 
-      for (let i = fillIndex; i >= 0; i -= 1) {
+      for (let i = fillIndex + 1; i < trades.length; i += 1) {
         const currentFill = trades[i];
         if (
           currentFill?.coin === fill.coin &&
-          currentFill.dir.includes('Open')
+          (currentFill.dir.includes('Open') ||
+            currentFill.dir.includes('Close'))
         ) {
-          openFills.push(currentFill);
+          openFills.unshift(currentFill);
           if (
             currentFill.startPosition &&
             new BigNumber(currentFill.startPosition).isZero()
@@ -95,6 +96,7 @@ function PerpTradesHistoryList({
           currentAccount?.accountAddress?.toLowerCase() &&
         userFillsCache.fills.length > 0
       ) {
+        openFills = [];
         const cacheIndex = userFillsCache.fills.findIndex(
           (f) => f.oid === fill.oid && f.time === fill.time,
         );
@@ -108,9 +110,10 @@ function PerpTradesHistoryList({
             const currentFill = userFillsCache.fills[i];
             if (
               currentFill.coin === fill.coin &&
-              currentFill.dir.includes('Open')
+              (currentFill.dir.includes('Open') ||
+                currentFill.dir.includes('Close'))
             ) {
-              openFills.push(currentFill);
+              openFills.unshift(currentFill);
               if (
                 currentFill.startPosition &&
                 new BigNumber(currentFill.startPosition).isZero()
@@ -132,8 +135,13 @@ function PerpTradesHistoryList({
       for (const openFill of openFills) {
         const size = new BigNumber(openFill.sz);
         const price = new BigNumber(openFill.px);
-        totalValue = totalValue.plus(price.multipliedBy(size));
-        totalSize = totalSize.plus(size);
+        const side = openFill.side;
+        if (side !== fill.side) {
+          totalValue = totalValue.plus(price.multipliedBy(size));
+          totalSize = totalSize.plus(size);
+        } else {
+          totalSize = totalSize.minus(size);
+        }
       }
 
       return totalSize.gt(0) ? totalValue.dividedBy(totalSize) : null;
@@ -143,7 +151,9 @@ function PerpTradesHistoryList({
 
   const handleShare = useCallback(
     async (fill: IFill) => {
-      const closedPnlBN = new BigNumber(fill.closedPnl || '0');
+      const closedPnlBN = new BigNumber(fill.closedPnl).minus(
+        new BigNumber(fill.fee),
+      );
       if (closedPnlBN.isZero()) {
         return;
       }
@@ -157,25 +167,30 @@ function PerpTradesHistoryList({
       const leverage = await getLeverage(fill.coin);
       const entryPriceBN = calculateEntryPrice(fill, fillIndex);
 
-      const exitPriceBN = new BigNumber(fill.px);
-      const isLong = fill.side === 'B';
+      const isLong = fill.side === 'A';
       let pnlPercent = '0';
       let entryPrice = '0';
 
       if (entryPriceBN?.gt(0)) {
-        const priceChangePercent = isLong
-          ? exitPriceBN.minus(entryPriceBN).dividedBy(entryPriceBN).times(100)
-          : entryPriceBN.minus(exitPriceBN).dividedBy(entryPriceBN).times(100);
-        pnlPercent = priceChangePercent.multipliedBy(leverage).toFixed(2);
-
         const decimals = getValidPriceDecimals(entryPriceBN.toFixed());
         entryPrice = entryPriceBN.toFixed(decimals);
-      }
 
+        const positionSize = new BigNumber(fill.sz);
+        const investedCapital = positionSize
+          .multipliedBy(entryPriceBN)
+          .dividedBy(leverage);
+
+        if (investedCapital.gt(0)) {
+          pnlPercent = closedPnlBN
+            .dividedBy(investedCapital)
+            .times(100)
+            .toFixed(2);
+        }
+      }
       showPositionShare({
         side: isLong ? 'long' : 'short',
         token: fill.coin,
-        pnl: fill.closedPnl || '0',
+        pnl: closedPnlBN.toFixed(2),
         pnlPercent,
         leverage,
         entryPrice,

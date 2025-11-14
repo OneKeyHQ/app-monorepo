@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { CommonActions } from '@react-navigation/native';
 
@@ -15,12 +15,12 @@ import {
   useIsGtMdNonNative,
   useToMyOneKeyModalByRootNavigation,
 } from '@onekeyhq/kit/src/views/DeviceManagement/hooks/useToMyOneKeyModal';
+import { useToReferFriendsModalByRootNavigation } from '../../hooks/useReferFriends';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabMarketRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 
 import { usePerpTabConfig } from '../../hooks/usePerpTabConfig';
-import { useToReferFriendsModalByRootNavigation } from '../../hooks/useReferFriends';
 import { developerRouters } from '../../views/Developer/router';
 import { homeRouters } from '../../views/Home/router';
 import { perpRouters } from '../../views/Perp/router';
@@ -109,6 +109,10 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
     };
   }, []);
 
+  const handleReferFriendsEntry = useCallback(() => {
+    void toReferFriendsPage();
+  }, [toReferFriendsPage]);
+
   const referFriendsTabConfig = useMemo(() => {
     return {
       name: ETabRoutes.ReferFriends,
@@ -119,8 +123,9 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
       children: referFriendsRouters,
       trackId: 'global-referral',
       freezeOnBlur: Boolean(params?.freezeOnBlur),
+      tabbarOnPress: handleReferFriendsEntry,
     };
-  }, [params?.freezeOnBlur]);
+  }, [handleReferFriendsEntry, params?.freezeOnBlur]);
 
   return useMemo(() => {
     const tabs = [

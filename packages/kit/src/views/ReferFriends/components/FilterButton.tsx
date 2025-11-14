@@ -131,6 +131,10 @@ export function FilterButton({
     ActionList.show({
       title: intl.formatMessage({ id: ETranslations.referral_filter }),
       sections,
+      sheetProps: {
+        snapPointsMode: 'percent',
+        snapPoints: [70],
+      },
     });
   }, [intl, sections]);
 
@@ -153,6 +157,10 @@ export function FilterButton({
         title={intl.formatMessage({ id: ETranslations.referral_filter })}
         renderTrigger={renderTrigger}
         sections={sections}
+        floatingPanelProps={{
+          width: '$56',
+          maxHeight: '$96',
+        }}
       />
     );
   }

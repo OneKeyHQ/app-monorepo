@@ -2,10 +2,11 @@ import { StyleSheet } from 'react-native';
 
 import { Skeleton, YStack } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export function CloudBackupLoadingSkeleton() {
   return (
-    <YStack gap="$3">
+    <YStack gap="$5">
       {[...Array(3)].map((_, index) => (
         <ListItem
           key={index}
@@ -30,8 +31,17 @@ export function CloudBackupLoadingSkeleton() {
           userSelect="none"
         >
           <YStack gap={2} flex={1}>
-            <Skeleton.BodyMd />
-            <Skeleton.BodySm />
+            {platformEnv.isNative ? (
+              <>
+                <Skeleton.BodyLg />
+                <Skeleton.BodyMd />
+              </>
+            ) : (
+              <>
+                <Skeleton.BodyMd />
+                <Skeleton.BodySm />
+              </>
+            )}
           </YStack>
         </ListItem>
       ))}

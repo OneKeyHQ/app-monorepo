@@ -304,7 +304,7 @@ function ReceiveSelectorContent() {
                         id: ETranslations.learn_how_to_withdraw_crypto_from_exchange,
                       })}
                     </SizableText>
-                    <XStack gap="$6">
+                    <XStack gap="$5" flexWrap="wrap">
                       <Button
                         size="small"
                         variant="tertiary"

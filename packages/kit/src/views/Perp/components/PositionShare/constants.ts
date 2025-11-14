@@ -15,11 +15,16 @@ const BACKGROUND_FILE_NAMES = {
     'share_bg_neutral_red.png',
   ],
   profit: [
+    'perp_referral_profit.png',
     'share_bg_profit_green.png',
     'share_bg_profit_yellow.png',
     'share_bg_profit_red.png',
   ],
-  loss: ['share_bg_loss_green.png', 'share_bg_loss_red.png'],
+  loss: [
+    'perp_referral_loss.png',
+    'share_bg_loss_green.png',
+    'share_bg_loss_red.png',
+  ],
 } as const;
 
 function getBackgroundUrl(filename: string): string {
