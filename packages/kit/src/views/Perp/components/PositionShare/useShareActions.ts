@@ -40,7 +40,7 @@ export function useShareActions() {
             mimeType: 'image/png',
             UTI: 'public.png',
           });
-
+          // TODO: The text needs to be changed to the 'image generated successfully'
           Toast.success({
             title: intl.formatMessage({
               id: ETranslations.perp_share_image_saved,
