@@ -2583,6 +2583,7 @@
   "provider.ios_popover.onekey_fee_content_sub": "Por favor, note que as taxas de ponte, deslizamento e taxas flutuantes podem afetar o valor final recebido. Se você tiver alguma dúvida sobre a taxa, entre em contato conosco.",
   "provider.ios_popover.order_info_title": "Informações do Pedido",
   "provider.ios_popover.title": "Informação",
+  "provider.ios_popover.wallet_fee": "Taxa da carteira",
   "provider.label_anti_mev": "Anti-MEV",
   "provider.label_approved": "Aprovado",
   "provider.label_fastest": "Mais rápido",

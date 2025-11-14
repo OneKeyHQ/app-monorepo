@@ -219,7 +219,7 @@ const PreSwapInfoGroup = ({
       ) : null}
       <PreSwapInfoItem
         title={intl.formatMessage({
-          id: ETranslations.provider_ios_popover_onekey_fee,
+          id: ETranslations.provider_ios_popover_wallet_fee,
         })}
         value={fee}
         popoverContent={

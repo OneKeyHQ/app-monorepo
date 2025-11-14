@@ -2588,6 +2588,7 @@
   provider_ios_popover_onekey_fee_content_sub = 'provider.ios_popover.onekey_fee_content_sub',
   provider_ios_popover_order_info_title = 'provider.ios_popover.order_info_title',
   provider_ios_popover_title = 'provider.ios_popover.title',
+  provider_ios_popover_wallet_fee = 'provider.ios_popover.wallet_fee',
   provider_label_anti_mev = 'provider.label_anti_mev',
   provider_label_approved = 'provider.label_approved',
   provider_label_fastest = 'provider.label_fastest',

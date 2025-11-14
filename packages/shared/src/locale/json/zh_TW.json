@@ -2583,6 +2583,7 @@
   "provider.ios_popover.onekey_fee_content_sub": "請注意，橋樑費用、滑點和浮動匯率可能會影響最終收到的金額。如果您對費用有任何疑慮，請聯繫我們。",
   "provider.ios_popover.order_info_title": "訂單資訊",
   "provider.ios_popover.title": "提示",
+  "provider.ios_popover.wallet_fee": "錢包費用",
   "provider.label_anti_mev": "防MEV",
   "provider.label_approved": "已授權",
   "provider.label_fastest": "最快的",
