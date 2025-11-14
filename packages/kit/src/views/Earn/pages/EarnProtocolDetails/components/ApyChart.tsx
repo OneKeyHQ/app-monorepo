@@ -242,7 +242,7 @@ export function ApyChart({
             <XStack gap="$4" pt="$6">
               <YStack>
                 <SizableText size="$bodySm" color="$textSubdued">
-                  High
+                  {intl.formatMessage({ id: ETranslations.market_high })}
                 </SizableText>
                 <SizableText size="$bodyMd" color="$text">
                   {chartData.high.toFixed(2)}%
@@ -250,7 +250,7 @@ export function ApyChart({
               </YStack>
               <YStack>
                 <SizableText size="$bodySm" color="$textSubdued">
-                  Low
+                  {intl.formatMessage({ id: ETranslations.market_low })}
                 </SizableText>
                 <SizableText size="$bodyMd" color="$text">
                   {chartData.low.toFixed(2)}%

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { useIntl } from 'react-intl';
 import { useNavigation } from '@react-navigation/native';
 import { useSharedValue } from 'react-native-reanimated';
 
@@ -16,6 +17,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import type { IModalStakingParamList } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -79,6 +81,7 @@ const ManagePositionSkeleton = () => (
 );
 
 const ManagePositionPage = () => {
+  const intl = useIntl();
   const route = useAppRoute<
     IModalStakingParamList,
     EModalStakingRoutes.ManagePosition
@@ -191,15 +194,15 @@ const ManagePositionPage = () => {
   const tabData = useMemo(
     () => [
       {
-        title: 'Deposit',
+        title: intl.formatMessage({ id: ETranslations.earn_deposit }),
         type: EStakingActionType.Deposit,
       },
       {
-        title: 'Withdraw',
+        title: intl.formatMessage({ id: ETranslations.global_withdraw }),
         type: EStakingActionType.Withdraw,
       },
     ],
-    [],
+    [intl],
   );
 
   const TabNames = useMemo(() => {

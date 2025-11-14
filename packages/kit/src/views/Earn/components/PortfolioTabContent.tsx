@@ -203,6 +203,7 @@ const ProtocolHeader = ({
 }: {
   portfolioItem: IEarnPortfolioInvestment;
 }) => {
+  const intl = useIntl();
   const currencyInfo = useCurrency();
   const media = useMedia();
 
@@ -220,7 +221,7 @@ const ProtocolHeader = ({
         <Divider bg="$borderSubdued" vertical mx="$3" height="$5" width="$1" />
         <XStack ai="center" gap="$1">
           <SizableText size="$bodyLgMedium" color="$textSubdued">
-            Total value
+            {intl.formatMessage({ id: ETranslations.earn_total_staked_value })}
           </SizableText>
           <NumberSizeableText
             size="$bodyLgMedium"
@@ -353,7 +354,7 @@ const PortfolioItemComponent = ({
         },
         {
           key: 'Asset status',
-          label: 'Asset status',
+          label: intl.formatMessage({ id: ETranslations.global_status }),
           flex: 1.5,
           priority: 3,
           render: (asset) => <AssetStatusField asset={asset} />,
@@ -685,7 +686,7 @@ export const PortfolioTabContent = () => {
       <Empty
         icon="ClockTimeHistoryOutline"
         title={intl.formatMessage({
-          id: ETranslations.earn_no_orders,
+          id: ETranslations.earn_no_assets_deposited,
         })}
         description={intl.formatMessage({
           id: ETranslations.earn_no_orders_desc,
