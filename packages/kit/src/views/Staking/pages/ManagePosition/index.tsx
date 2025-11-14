@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { useIntl } from 'react-intl';
 import { useNavigation } from '@react-navigation/native';
+import { useIntl } from 'react-intl';
 import { useSharedValue } from 'react-native-reanimated';
 
 import {
@@ -221,6 +221,24 @@ const ManagePositionPage = () => {
     (name: string) => {
       const index = tabData.findIndex((item) => item.title === name);
       if (index !== -1) {
+        // Check if clicking Withdraw tab and it's a withdrawOrder type
+        if (
+          index === 1 &&
+          protocolInfo?.withdrawAction?.type ===
+            EStakingActionType.WithdrawOrder
+        ) {
+          // Directly open WithdrawOptions modal instead of switching tab
+          appNavigation.push(EModalStakingRoutes.WithdrawOptions, {
+            accountId: account?.id || '',
+            networkId,
+            protocolInfo,
+            tokenInfo,
+            symbol,
+            provider,
+          });
+          return;
+        }
+
         focusedTab.value = name;
         setSelectedTabIndex(index);
 
@@ -231,7 +249,18 @@ const ManagePositionPage = () => {
         } as any);
       }
     },
-    [focusedTab, tabData, navigation],
+    [
+      focusedTab,
+      tabData,
+      navigation,
+      protocolInfo,
+      appNavigation,
+      account,
+      networkId,
+      tokenInfo,
+      symbol,
+      provider,
+    ],
   );
 
   return (
@@ -248,7 +277,7 @@ const ManagePositionPage = () => {
                 onTabPress={handleTabChange}
                 tabNames={TabNames}
                 focusedTab={focusedTab}
-                renderItem={({ name, isFocused, onPress }) => (
+                renderItem={({ name, isFocused }) => (
                   <XStack
                     px="$2"
                     py="$1.5"
@@ -256,7 +285,7 @@ const ManagePositionPage = () => {
                     bg={isFocused ? '$bgActive' : '$bg'}
                     borderRadius="$2"
                     borderCurve="continuous"
-                    onPress={() => onPress(name)}
+                    onPress={() => handleTabChange(name)}
                   >
                     <SizableText
                       size="$bodyMdMedium"

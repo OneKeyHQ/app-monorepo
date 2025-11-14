@@ -313,7 +313,11 @@ export const useEarnPortfolio = () => {
       }
 
       const requestId = getCurrentRequestId();
-      setIsLoading(true);
+      // Only set loading state for full refresh, not for partial refresh
+      const isPartialRefresh = Boolean(options);
+      if (!isPartialRefresh) {
+        setIsLoading(true);
+      }
 
       const [assets, accounts] = await Promise.all([
         backgroundApiProxy.serviceStaking.getAvailableAssetsV2(),
@@ -456,7 +460,10 @@ export const useEarnPortfolio = () => {
         }
 
         updateInvestments(finalMap);
-        setIsLoading(false);
+        // Only clear loading state for full refresh
+        if (!isPartialRefresh) {
+          setIsLoading(false);
+        }
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps

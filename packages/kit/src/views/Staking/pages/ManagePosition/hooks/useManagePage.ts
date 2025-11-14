@@ -8,6 +8,7 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { ISupportedSymbol } from '@onekeyhq/shared/types/earn';
 import type {
   IEarnTokenInfo,
+  IEarnWithdrawActionIcon,
   IProtocolInfo,
   IStakeProtocolListItem,
 } from '@onekeyhq/shared/types/staking';
@@ -125,6 +126,11 @@ export const useManagePage = ({
         (!vault || item.provider.vault === vault),
     );
 
+    // Get withdraw action from managePageData
+    const withdrawAction = managePageData.withdraw as
+      | IEarnWithdrawActionIcon
+      | undefined;
+
     return {
       symbol,
       provider,
@@ -141,6 +147,7 @@ export const useManagePage = ({
         logoURI: matchingProtocol?.provider.logoURI || '',
       },
       // withdraw
+      withdrawAction,
       overflowBalance: managePageData.nums?.overflow,
       maxUnstakeAmount: managePageData.nums?.maxUnstakeAmount,
       minUnstakeAmount: managePageData.nums?.minUnstakeAmount,

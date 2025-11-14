@@ -364,6 +364,7 @@ export type IProtocolInfo = {
   minUnstakeAmount?: string;
   claimable?: string;
   remainingCap?: string;
+  withdrawAction?: IEarnWithdrawActionIcon;
 };
 
 export interface IEarnToken {

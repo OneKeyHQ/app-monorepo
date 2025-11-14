@@ -88,7 +88,7 @@ export const useProtocolDetails = ({
 
   const protocolInfo: IProtocolInfo | undefined = useMemo(() => {
     const withdrawAction = detailInfo?.actions?.find(
-      (i) => i.type === 'withdraw',
+      (i) => i.type === 'withdraw' || i.type === 'withdrawOrder',
     ) as IEarnWithdrawActionIcon;
     return detailInfo?.protocol
       ? {
@@ -103,6 +103,7 @@ export const useProtocolDetails = ({
           }),
 
           // withdraw
+          withdrawAction,
           overflowBalance: detailInfo.nums?.overflow,
           maxUnstakeAmount: detailInfo.nums?.maxUnstakeAmount,
           minUnstakeAmount: detailInfo.nums?.minUnstakeAmount,
