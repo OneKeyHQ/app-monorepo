@@ -58,6 +58,8 @@ function GridItem({
   blur?: boolean;
   scale?: number;
 }) {
+  const themeVariant = useThemeVariant();
+
   // Calculate the pixel size of one unit
   // unitSize=2, gridSize=40 => 2 * 40 = 80px (2x2 cells = 4 cells total)
   const unitPixelSize = gridSize * unitSize;
@@ -87,7 +89,6 @@ function GridItem({
       alignItems="center"
       justifyContent="center"
       pointerEvents="none"
-      opacity={0.5}
     >
       <YStack
         animation="quick"
@@ -114,8 +115,11 @@ function GridItem({
           shadowRadius: 0.5,
         }}
         $platform-web={{
-          boxShadow:
-            '0 1px 1px 0 rgba(0, 0, 0, 0.05), 0 0 0 1px rgba(0, 0, 0, 0.05), 0 2px 4px 0 rgba(0, 0, 0, 0.04), 0 12px 34px 0 rgba(0, 0, 0, 0.05), 0 1px 2px 0 rgba(0, 0, 0, 0.04)',
+          boxShadow: `0 1px 1px 0 rgba(0, 0, 0, 0.05), 0 0 0 1px ${
+            themeVariant === 'light'
+              ? 'rgba(0, 0, 0, 0.05)'
+              : 'rgba(255, 255, 255, 0.05)'
+          }, 0 2px 4px 0 rgba(0, 0, 0, 0.04), 0 12px 34px 0 rgba(0, 0, 0, 0.05), 0 1px 2px 0 rgba(0, 0, 0, 0.04)`,
         }}
         hoverStyle={{
           scale: 0.9,
@@ -124,7 +128,12 @@ function GridItem({
         {children}
       </YStack>
       {blur ? (
-        <BlurView position="absolute" inset={0} intensity={10} tint="light" />
+        <BlurView
+          position="absolute"
+          inset={0}
+          intensity={10}
+          tint={themeVariant === 'light' ? 'light' : 'dark'}
+        />
       ) : null}
     </YStack>
   );
@@ -257,17 +266,17 @@ export default function GetStarted() {
                   >
                     <Stop
                       offset="0%"
-                      stopColor={useThemeValue('$bgApp')}
+                      stopColor={useThemeValue('$bg')}
                       stopOpacity="0"
                     />
                     <Stop
                       offset="50%"
-                      stopColor={useThemeValue('$bgApp')}
+                      stopColor={useThemeValue('$bg')}
                       stopOpacity="0.5"
                     />
                     <Stop
                       offset="100%"
-                      stopColor={useThemeValue('$bgApp')}
+                      stopColor={useThemeValue('$bg')}
                       stopOpacity="1"
                     />
                   </RadialGradient>
@@ -285,6 +294,7 @@ export default function GetStarted() {
                 inset={0}
                 animation="quick"
                 animateOnly={['opacity']}
+                opacity={0.5}
                 enterStyle={{
                   opacity: 0,
                 }}

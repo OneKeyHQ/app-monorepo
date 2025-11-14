@@ -221,7 +221,14 @@ export default function ICloudBackupDetails({
           </YStack>
         </OnboardingLayout.Body>
         <OnboardingLayout.Footer>
-          <XStack gap="$3" w="100%" py="$3">
+          <XStack
+            gap="$3"
+            w="100%"
+            $gtMd={{
+              maxWidth: 400,
+            }}
+            py="$3"
+          >
             {actionType === 'backup' ? (
               <>
                 <Button
