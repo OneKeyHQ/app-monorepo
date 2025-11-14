@@ -144,8 +144,11 @@ export function useDeviceConnect() {
 
   const ensureActiveConnection = useCallback(
     async (device: SearchDevice) => {
-      if (isSameHardware(device, activeDeviceRef.current)) {
-        return activeFeaturesRef.current ?? undefined;
+      if (
+        isSameHardware(device, activeDeviceRef.current) &&
+        activeFeaturesRef.current
+      ) {
+        return activeFeaturesRef.current;
       }
       const features = await connectDevice(device);
       return features;
