@@ -21,6 +21,7 @@ import type { RefreshControlProps } from 'react-native';
 
 interface IEarnPageContainerProps {
   pageTitle?: React.ReactNode;
+  header?: React.ReactNode;
   children: React.ReactNode;
   breadcrumbProps?: IBreadcrumbProps;
   sceneName: EAccountSelectorSceneName;
@@ -39,6 +40,7 @@ export function EarnPageContainer({
   refreshControl,
   showBackButton = false,
   footer,
+  header,
 }: IEarnPageContainerProps) {
   const media = useMedia();
   const navigation = useAppNavigation();
@@ -76,11 +78,12 @@ export function EarnPageContainer({
           refreshControl={refreshControl}
         >
           <YStack w="100%" maxWidth={EARN_PAGE_MAX_WIDTH} mx="auto">
-            <YStack px="$5" pb="$5" gap="$5">
+            <XStack px="$5" pb="$5" gap="$5" ai="center">
               {breadcrumbProps && media.gtSm ? (
                 <Breadcrumb {...breadcrumbProps} />
               ) : null}
-            </YStack>
+              {header ? <>{header}</> : null}
+            </XStack>
             {children}
           </YStack>
         </ScrollView>

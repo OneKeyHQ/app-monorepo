@@ -997,6 +997,39 @@ export function UniversalStake({
     tokenInfo?.token.symbol,
   ]);
 
+  const footerContent = (
+    <YStack bg="$bgApp" gap="$5">
+      {isShowStakeProgress ? (
+        <Stack pl="$5">
+          <StakeProgress
+            approveType={approveType}
+            currentStep={
+              isDisable || shouldApprove
+                ? EStakeProgressStep.approve
+                : EStakeProgressStep.deposit
+            }
+          />
+        </Stack>
+      ) : null}
+      <Page.FooterActions
+        p={0}
+        onConfirmText={onConfirmText}
+        buttonContainerProps={{
+          $gtMd: {
+            ml: '0',
+          },
+          w: '100%',
+        }}
+        confirmButtonProps={{
+          onPress: shouldApprove ? onApprove : onSubmit,
+          loading: loadingAllowance || approving || checkAmountLoading,
+          disabled: isDisable,
+          w: '100%',
+        }}
+      />
+    </YStack>
+  );
+
   return (
     <StakingFormWrapper>
       <Stack position="relative" opacity={amountInputDisabled ? 0.7 : 1}>
@@ -1268,42 +1301,17 @@ export function UniversalStake({
           />
         </YStack>
       ) : null}
-      <Page.Footer>
-        <Stack
-          bg="$bgApp"
-          flexDirection="column"
-          $gtMd={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            jc: 'space-between',
-          }}
-        >
-          <Stack pl="$5" $md={{ pt: '$5' }}>
-            {isShowStakeProgress ? (
-              <StakeProgress
-                approveType={approveType}
-                currentStep={
-                  isDisable || shouldApprove
-                    ? EStakeProgressStep.approve
-                    : EStakeProgressStep.deposit
-                }
-              />
-            ) : null}
-          </Stack>
-
-          <Page.FooterActions
-            onConfirmText={onConfirmText}
-            confirmButtonProps={{
-              onPress: shouldApprove ? onApprove : onSubmit,
-              loading: loadingAllowance || approving || checkAmountLoading,
-              disabled: isDisable,
-            }}
+      {/* Desktop: Render footer content inline */}
+      {gtMd ? <YStack>{footerContent}</YStack> : null}
+      {/* Mobile: Render footer content in Page.Footer */}
+      {!gtMd ? (
+        <Page.Footer>
+          {footerContent}
+          <PercentageStageOnKeyboard
+            onSelectPercentageStage={onSelectPercentageStage}
           />
-        </Stack>
-        <PercentageStageOnKeyboard
-          onSelectPercentageStage={onSelectPercentageStage}
-        />
-      </Page.Footer>
+        </Page.Footer>
+      ) : null}
     </StakingFormWrapper>
   );
 }

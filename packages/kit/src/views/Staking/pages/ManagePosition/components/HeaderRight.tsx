@@ -20,7 +20,7 @@ export const HeaderRight = ({
           mr="unset"
           variant="tertiary"
           icon="ClockTimeHistoryOutline"
-          size="medium"
+          size="small"
           disabled={historyAction.disabled}
           onPress={onHistory}
         >

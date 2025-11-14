@@ -356,9 +356,6 @@ const DetailsPart = ({
       >
         {detailInfo ? (
           <YStack gap="$8">
-            {!gtMd ? (
-              <ManagersSection managers={detailInfo.managers} noPadding />
-            ) : null}
             <ChartSection
               networkId={networkId}
               symbol={symbol}
@@ -664,8 +661,7 @@ const ManagePositionPart = ({
           </YStack>
         </YStack>
       ) : (
-        <YStack gap="$5" flex={1}>
-          <ManagersSection managers={managers} />
+        <YStack gap="$1.5" flex={1}>
           <XStack jc="space-between" px="$5">
             <Tabs.TabBar
               divider={false}
@@ -694,14 +690,8 @@ const ManagePositionPart = ({
             />
             <HeaderRight historyAction={historyAction} onHistory={onHistory} />
           </XStack>
-          <YStack flex={1} position="relative">
-            <YStack
-              display={selectedTabIndex === 0 ? 'flex' : 'none'}
-              position="absolute"
-              top={0}
-              left={0}
-              right={0}
-            >
+          {selectedTabIndex === 0 ? (
+            <YStack>
               <StakeSection
                 accountId={earnAccount?.account?.id || ''}
                 networkId={networkId}
@@ -720,13 +710,9 @@ const ManagePositionPart = ({
                 </Stack>
               ) : null}
             </YStack>
-            <YStack
-              display={selectedTabIndex === 1 ? 'flex' : 'none'}
-              position="absolute"
-              top={0}
-              left={0}
-              right={0}
-            >
+          ) : null}
+          {selectedTabIndex === 1 ? (
+            <YStack>
               <WithdrawSection
                 accountId={earnAccount?.account?.id || ''}
                 networkId={networkId}
@@ -745,7 +731,7 @@ const ManagePositionPart = ({
                 </Stack>
               ) : null}
             </YStack>
-          </YStack>
+          ) : null}
           <EarnAlert alerts={alerts} />
         </YStack>
       )}
@@ -1032,7 +1018,11 @@ const EarnProtocolDetailsPage = () => {
       sceneName={EAccountSelectorSceneName.home}
       tabRoute={ETabRoutes.Earn}
       showBackButton
-      footer={pageFooter}
+      header={
+        <XStack ml={gtMd ? 'auto' : '0'}>
+          <ManagersSection managers={detailInfo?.managers} noPadding />
+        </XStack>
+      }
     >
       <XStack $gtMd={{ flexDirection: 'row' }} flexDirection="column">
         <Stack w="100%" $gtMd={{ width: '65%' }}>

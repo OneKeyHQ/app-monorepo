@@ -27,6 +27,7 @@ import { ETabEarnRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 import type { ITabEarnParamList } from '@onekeyhq/shared/src/routes';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import { normalizeToEarnProvider } from '@onekeyhq/shared/types/earn/earnProvider.constants';
 import type { IStakeProtocolListItem } from '@onekeyhq/shared/types/staking';
 
 import { EarnText } from '../../../Staking/components/ProtocolDetails/EarnText';
@@ -172,9 +173,21 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
                 tokenImageUri={item.provider.logoURI}
               />
               <YStack mr="$2" jc="center">
-                <SizableText size="$bodyLgMedium">
-                  {item.provider.name}
-                </SizableText>
+                <XStack ai="center" gap="$2">
+                  <SizableText size="$bodyLgMedium">
+                    {normalizeToEarnProvider(item.provider.name)}
+                  </SizableText>
+                  {item.provider.badges?.map((badge) => (
+                    <Badge
+                      my="auto"
+                      key={badge.tag}
+                      badgeType={badge.badgeType}
+                      badgeSize="sm"
+                    >
+                      <Badge.Text>{badge.tag}</Badge.Text>
+                    </Badge>
+                  ))}
+                </XStack>
                 {item?.provider?.description ? (
                   <SizableText
                     mt="$0.5"
@@ -185,16 +198,6 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
                   </SizableText>
                 ) : null}
               </YStack>
-              {item.provider.badges?.map((badge) => (
-                <Badge
-                  my="auto"
-                  key={badge.tag}
-                  badgeType={badge.badgeType}
-                  badgeSize="sm"
-                >
-                  <Badge.Text>{badge.tag}</Badge.Text>
-                </Badge>
-              ))}
             </XStack>
           );
         },

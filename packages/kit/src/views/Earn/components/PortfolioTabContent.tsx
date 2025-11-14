@@ -434,137 +434,147 @@ const PortfolioItemComponent = ({
     [appNavigation, account?.id, indexedAccount?.id],
   );
 
+  const showTable = useMemo(
+    () => !isEmpty(portfolioItem.assets),
+    [portfolioItem.assets],
+  );
+
   return (
     <YStack>
       <ProtocolHeader portfolioItem={portfolioItem} />
-      <TableList<IEarnPortfolioInvestment['assets'][number]>
-        data={portfolioItem.assets}
-        columns={columns}
-        withHeader={media.gtSm}
-        tableLayout
-        defaultSortKey="deposits"
-        defaultSortDirection="desc"
-        listItemProps={{
-          ai: 'flex-start',
-        }}
-        onPressRow={handleRowPress}
-        expandable={
-          !media.gtSm
-            ? {
-                renderExpandedContent: (asset) => (
-                  <YStack gap="$5">
-                    {/* Est. 24h earnings */}
-                    <XStack ai="center" gap="$1">
-                      <EarnText
-                        size="$bodyLgMedium"
-                        text={asset.earnings24h?.title}
-                      />
-                      <SizableText size="$bodyMd" color="$textSubdued">
-                        {intl.formatMessage({
-                          id: ETranslations.earn_24h_earnings,
-                        })}
-                      </SizableText>
-                    </XStack>
-
-                    {/* Asset status list */}
-                    {asset.assetsStatus?.map((status, index) => (
-                      <XStack key={index} ai="center">
-                        <EarnText size="$bodyLgMedium" text={status.title} />
+      {showTable ? (
+        <TableList<IEarnPortfolioInvestment['assets'][number]>
+          data={portfolioItem.assets}
+          columns={columns}
+          withHeader={media.gtSm}
+          tableLayout
+          defaultSortKey="deposits"
+          defaultSortDirection="desc"
+          listItemProps={{
+            ai: 'flex-start',
+          }}
+          onPressRow={handleRowPress}
+          expandable={
+            !media.gtSm
+              ? {
+                  renderExpandedContent: (asset) => (
+                    <YStack gap="$5">
+                      {/* Est. 24h earnings */}
+                      <XStack ai="center" gap="$1">
                         <EarnText
-                          ml="$2"
                           size="$bodyLgMedium"
-                          color="$textSubdued"
-                          text={status.description}
+                          text={asset.earnings24h?.title}
                         />
-                        <EarnTooltip tooltip={status.tooltip} />
+                        <SizableText size="$bodyMd" color="$textSubdued">
+                          {intl.formatMessage({
+                            id: ETranslations.earn_24h_earnings,
+                          })}
+                        </SizableText>
                       </XStack>
-                    ))}
 
-                    {/* Reward assets (claimable rewards) */}
-                    {asset.rewardAssets?.map((reward, index) => (
-                      <XStack key={index} ai="center" jc="space-between">
-                        <XStack ai="center" gap="$2">
-                          <EarnText size="$bodyLgMedium" text={reward.title} />
+                      {/* Asset status list */}
+                      {asset.assetsStatus?.map((status, index) => (
+                        <XStack key={index} ai="center">
+                          <EarnText size="$bodyLgMedium" text={status.title} />
                           <EarnText
+                            ml="$2"
                             size="$bodyLgMedium"
                             color="$textSubdued"
-                            text={reward.description}
+                            text={status.description}
                           />
-                          <EarnTooltip tooltip={reward.tooltip} />
+                          <EarnTooltip tooltip={status.tooltip} />
                         </XStack>
-                        <WrappedActionButton asset={asset} reward={reward} />
-                      </XStack>
-                    ))}
+                      ))}
 
-                    {/* Buttons */}
-                    <XStack gap="$3">
-                      <Button
-                        flex={1}
-                        size="medium"
-                        variant="secondary"
-                        onPress={async () => {
-                          await handleManagePress(asset);
-                        }}
-                      >
-                        {intl.formatMessage({
-                          id: ETranslations.global_manage,
-                        })}
-                      </Button>
-                      <Button
-                        flex={1}
-                        size="medium"
-                        variant="secondary"
-                        onPress={async () => {
-                          await handleRowPress(asset);
-                        }}
-                      >
-                        {intl.formatMessage({
-                          id: ETranslations.global_details,
-                        })}
-                      </Button>
-                    </XStack>
-                  </YStack>
-                ),
-              }
-            : undefined
-        }
-        actions={{
-          render: (asset) => {
-            return (
-              <Stack gap="$2">
-                {asset.buttons?.map(
-                  (
-                    button: {
-                      type: string;
-                      text: { text: string };
-                      disabled: boolean;
-                    },
-                    index: number,
-                  ) => {
-                    return (
-                      <Button
-                        key={index}
-                        size="small"
-                        disabled={button?.disabled}
-                        variant="secondary"
-                        onPress={async () => {
-                          if (button?.type === 'manage') {
+                      {/* Reward assets (claimable rewards) */}
+                      {asset.rewardAssets?.map((reward, index) => (
+                        <XStack key={index} ai="center" jc="space-between">
+                          <XStack ai="center" gap="$2">
+                            <EarnText
+                              size="$bodyLgMedium"
+                              text={reward.title}
+                            />
+                            <EarnText
+                              size="$bodyLgMedium"
+                              color="$textSubdued"
+                              text={reward.description}
+                            />
+                            <EarnTooltip tooltip={reward.tooltip} />
+                          </XStack>
+                          <WrappedActionButton asset={asset} reward={reward} />
+                        </XStack>
+                      ))}
+
+                      {/* Buttons */}
+                      <XStack gap="$3">
+                        <Button
+                          flex={1}
+                          size="medium"
+                          variant="secondary"
+                          onPress={async () => {
                             await handleManagePress(asset);
-                          }
-                        }}
-                      >
-                        {button.text?.text}
-                      </Button>
-                    );
-                  },
-                )}
-              </Stack>
-            );
-          },
-          width: 100,
-          align: 'flex-end',
-        }}
-      />
+                          }}
+                        >
+                          {intl.formatMessage({
+                            id: ETranslations.global_manage,
+                          })}
+                        </Button>
+                        <Button
+                          flex={1}
+                          size="medium"
+                          variant="secondary"
+                          onPress={async () => {
+                            await handleRowPress(asset);
+                          }}
+                        >
+                          {intl.formatMessage({
+                            id: ETranslations.global_details,
+                          })}
+                        </Button>
+                      </XStack>
+                    </YStack>
+                  ),
+                }
+              : undefined
+          }
+          actions={{
+            render: (asset) => {
+              return (
+                <Stack gap="$2">
+                  {asset.buttons?.map(
+                    (
+                      button: {
+                        type: string;
+                        text: { text: string };
+                        disabled: boolean;
+                      },
+                      index: number,
+                    ) => {
+                      return (
+                        <Button
+                          key={index}
+                          size="small"
+                          disabled={button?.disabled}
+                          variant="secondary"
+                          onPress={async () => {
+                            if (button?.type === 'manage') {
+                              await handleManagePress(asset);
+                            }
+                          }}
+                        >
+                          {button.text?.text}
+                        </Button>
+                      );
+                    },
+                  )}
+                </Stack>
+              );
+            },
+            width: 100,
+            align: 'flex-end',
+          }}
+        />
+      ) : null}
     </YStack>
   );
 };

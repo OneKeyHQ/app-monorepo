@@ -667,32 +667,47 @@ export function UniversalWithdraw({
           </Accordion>
         </YStack>
       ) : null}
-      <Page.Footer
-        onConfirmText={intl.formatMessage({
-          id: ETranslations.global_withdraw,
-        })}
-        confirmButtonProps={{
-          onPress,
-          loading: loading || checkAmountLoading,
-          disabled: isDisable,
-        }}
-      />
-
-      <Page.Footer>
-        <Page.FooterActions
-          onConfirmText={intl.formatMessage({
-            id: ETranslations.global_withdraw,
-          })}
-          confirmButtonProps={{
-            onPress,
-            loading,
-            disabled: isDisable,
-          }}
-        />
-        <PercentageStageOnKeyboard
-          onSelectPercentageStage={onSelectPercentageStage}
-        />
-      </Page.Footer>
+      {/* Desktop: Render footer content inline */}
+      {gtMd ? (
+        <YStack>
+          <Page.FooterActions
+            p={0}
+            onConfirmText={intl.formatMessage({
+              id: ETranslations.global_withdraw,
+            })}
+            buttonContainerProps={{
+              $gtMd: {
+                ml: '0',
+              },
+              w: '100%',
+            }}
+            confirmButtonProps={{
+              onPress,
+              loading: loading || checkAmountLoading,
+              disabled: isDisable,
+              w: '100%',
+            }}
+          />
+        </YStack>
+      ) : null}
+      {/* Mobile: Render footer content in Page.Footer */}
+      {!gtMd ? (
+        <Page.Footer>
+          <Page.FooterActions
+            onConfirmText={intl.formatMessage({
+              id: ETranslations.global_withdraw,
+            })}
+            confirmButtonProps={{
+              onPress,
+              loading: loading || checkAmountLoading,
+              disabled: isDisable,
+            }}
+          />
+          <PercentageStageOnKeyboard
+            onSelectPercentageStage={onSelectPercentageStage}
+          />
+        </Page.Footer>
+      ) : null}
     </StakingFormWrapper>
   );
 }
