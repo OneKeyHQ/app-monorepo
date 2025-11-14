@@ -1,16 +1,18 @@
 import { useCallback, useMemo, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   IconButton,
   SizableText,
   Skeleton,
-  Stack,
   XStack,
   YStack,
   useMedia,
   useShare,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { LightweightChart } from '@onekeyhq/kit/src/components/LightweightChart';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { EarnActionIcon } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnActionIcon';
@@ -22,8 +24,6 @@ import type {
 } from '@onekeyhq/shared/types/staking';
 
 import { EarnNavigation } from '../../../earnUtils';
-
-import EarnChartView from './EarnChartView';
 
 import type { UTCTimestamp } from 'lightweight-charts';
 
@@ -44,6 +44,7 @@ export function ApyChart({
   apyDetail,
   tokenInfo,
 }: IApyChartProps) {
+  const intl = useIntl();
   const { shareText } = useShare();
   const { gtMd } = useMedia();
   const [devSettings] = useDevSettingsPersistAtom();
@@ -68,18 +69,30 @@ export function ApyChart({
 
   // Hover state for popover
   const [hoverData, setHoverData] = useState<{
-    time?: number;
-    apy?: number;
-    x?: number;
-    y?: number;
+    time: number;
+    apy: number;
+    x: number;
+    y: number;
   } | null>(null);
 
   const handleHover = useCallback(
-    ({ time, price }: { time?: any; price?: number | string }) => {
-      if (time && price) {
+    ({
+      time,
+      price,
+      x,
+      y,
+    }: {
+      time?: number;
+      price?: number;
+      x?: number;
+      y?: number;
+    }) => {
+      if (time && price && x !== undefined && y !== undefined) {
         setHoverData({
-          time: typeof time === 'number' ? time : Number(time),
-          apy: typeof price === 'number' ? price : Number(price),
+          time,
+          apy: price,
+          x,
+          y,
         });
       } else {
         setHoverData(null);
@@ -88,66 +101,18 @@ export function ApyChart({
     [],
   );
 
-  // Track mouse position for popover
-  const handleMouseMove = useCallback(
-    (event: React.MouseEvent<HTMLDivElement>) => {
-      if (hoverData) {
-        const rect = event.currentTarget.getBoundingClientRect();
-        const mouseX = event.clientX - rect.left;
-        const mouseY = event.clientY - rect.top;
-
-        // Popover dimensions (approximate)
-        const popoverWidth = 120;
-        const popoverHeight = 60;
-        const offset = 10;
-
-        // Calculate position with boundary detection
-        let x = mouseX + offset;
-        let y = mouseY - popoverHeight - offset;
-
-        // Adjust if popover would go off right edge
-        if (x + popoverWidth > rect.width) {
-          x = mouseX - popoverWidth - offset;
-        }
-
-        // Adjust if popover would go off top edge
-        if (y < 0) {
-          y = mouseY + offset;
-        }
-
-        // Adjust if popover would go off bottom edge
-        if (y + popoverHeight > rect.height) {
-          y = rect.height - popoverHeight - offset;
-        }
-
-        // Adjust if popover would go off left edge
-        if (x < 0) {
-          x = offset;
-        }
-
-        setHoverData((prev) =>
-          prev
-            ? {
-                ...prev,
-                x,
-                y,
-              }
-            : null,
-        );
-      }
+  // Format date for popover with i18n
+  const formatPopoverDate = useCallback(
+    (timestamp: number) => {
+      const date = new Date(timestamp * 1000);
+      return intl.formatDate(date, {
+        month: 'short',
+        day: '2-digit',
+        year: 'numeric',
+      });
     },
-    [hoverData],
+    [intl],
   );
-
-  // Format date for popover
-  const formatPopoverDate = useCallback((timestamp: number) => {
-    const date = new Date(timestamp * 1000);
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: '2-digit',
-      year: 'numeric',
-    });
-  }, []);
 
   const { result: chartData, isLoading } = usePromiseResult(
     async () => {
@@ -274,22 +239,14 @@ export function ApyChart({
           ) : null}
         </YStack>
       ) : null}
-      <Stack position="relative" {...({ onMouseMove: handleMouseMove } as any)}>
-        <EarnChartView
-          data={chartData.marketChartData}
-          height={200}
-          isFetching={false}
-          onHover={handleHover}
-        />
-        {/* Popover for hover data */}
-        {hoverData?.apy &&
-        hoverData?.time &&
-        hoverData?.x !== undefined &&
-        hoverData?.y !== undefined ? (
-          <Stack
+      <YStack position="relative">
+        {/* Hover Popover - follows cursor/touch position */}
+        {hoverData ? (
+          <YStack
             position="absolute"
-            top={hoverData.y}
+            top={Math.max(10, hoverData.y - 70)}
             left={hoverData.x}
+            transform={[{ translateX: '-50%' }]}
             bg="$bg"
             borderRadius="$2"
             borderWidth={1}
@@ -303,7 +260,7 @@ export function ApyChart({
             zIndex={9999}
             pointerEvents="none"
           >
-            <YStack gap="$1">
+            <YStack gap="$1" ai="center">
               <SizableText size="$bodyMdMedium" color="$text">
                 {hoverData.apy.toFixed(2)}%
               </SizableText>
@@ -311,9 +268,14 @@ export function ApyChart({
                 {formatPopoverDate(hoverData.time)}
               </SizableText>
             </YStack>
-          </Stack>
+          </YStack>
         ) : null}
-      </Stack>
+        <LightweightChart
+          data={chartData.marketChartData}
+          height={200}
+          onHover={handleHover}
+        />
+      </YStack>
     </YStack>
   );
 }
