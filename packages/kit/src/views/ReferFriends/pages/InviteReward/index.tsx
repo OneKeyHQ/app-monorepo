@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -30,6 +30,8 @@ import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
+import { ReferralListButton } from './components/ReferralListButton';
+
 function InviteRewardContent({
   summaryInfo,
   fetchSummaryInfo,
@@ -49,10 +51,16 @@ function InviteRewardContent({
 
   return (
     <>
-      <XStack px="$5" pt="$5" pb="$4" jc="space-between">
+      <XStack px="$5" pt="$5" pb="$4" jc="space-between" ai="center">
         <SectionHeader translationId={ETranslations.global_overview} />
 
-        <RulesButton />
+        <XStack $md={{ display: 'none' }}>
+          <RulesButton />
+        </XStack>
+
+        <XStack $gtMd={{ display: 'none' }} $md={{ display: 'flex' }}>
+          <ReferralListButton />
+        </XStack>
       </XStack>
 
       <ResponsiveTwoColumnLayout
@@ -90,6 +98,8 @@ function InviteRewardPage() {
 
   const [isFirstLoading, setIsFirstLoading] = useState(true);
 
+  const renderHeaderRight = useCallback(() => <RulesButton />, []);
+
   const {
     result: summaryInfo,
     run: fetchSummaryInfo,
@@ -124,6 +134,7 @@ function InviteRewardPage() {
           title={intl.formatMessage({
             id: ETranslations.referral_title,
           })}
+          headerRight={renderHeaderRight}
         />
       ) : (
         <TabPageHeader

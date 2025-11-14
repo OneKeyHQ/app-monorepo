@@ -53,7 +53,7 @@ export function NoteCell({ code, note, onNoteUpdated }: INoteCellProps) {
           size="$bodyMdMedium"
           color="$text"
           numberOfLines={1}
-          width={md ? 90 : 120}
+          maxWidth={md ? 90 : 120}
           ellipsizeMode="tail"
           display="block"
           overflow="hidden"
