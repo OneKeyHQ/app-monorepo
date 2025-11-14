@@ -78,6 +78,7 @@ export function InviteCodeListTable({
     <ScrollView
       horizontal
       showsHorizontalScrollIndicator
+      bounces={false}
       contentContainerStyle={{
         flexGrow: 1,
       }}
@@ -90,6 +91,7 @@ export function InviteCodeListTable({
           onHeaderRow={handleHeaderRow}
           estimatedItemSize={50}
           rowProps={{ px: '$2', minHeight: '$10' }}
+          scrollEnabled={false}
         />
       </Stack>
     </ScrollView>

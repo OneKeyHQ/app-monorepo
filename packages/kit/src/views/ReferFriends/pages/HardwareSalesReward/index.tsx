@@ -93,7 +93,7 @@ function HardwareSalesRewardPageWrapper() {
   const [amount, setAmount] = useState<
     | {
         undistributed: string;
-        distributed: string;
+        pending: string;
       }
     | undefined
   >();
@@ -137,7 +137,7 @@ function HardwareSalesRewardPageWrapper() {
       const data = cumulativeRewardsResult.value;
       setAmount({
         undistributed: data.undistributed || '0',
-        distributed: data.distributed || '0',
+        pending: data.pending || '0',
       });
     }
     setIsLoading(false);
@@ -331,7 +331,7 @@ function HardwareSalesRewardPageWrapper() {
                     </YStack>
                   </XStack>
 
-                  {Number(amount.distributed) > 0 ? (
+                  {Number(amount.pending) > 0 ? (
                     <XStack gap="$1">
                       <Currency
                         formatter="value"
@@ -341,7 +341,7 @@ function HardwareSalesRewardPageWrapper() {
                         }}
                         size="$bodyMdMedium"
                       >
-                        {amount.distributed}
+                        {amount.pending}
                       </Currency>
                       <SizableText size="$bodyMd" color="t$extSubdued">
                         {intl.formatMessage({

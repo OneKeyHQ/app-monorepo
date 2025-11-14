@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import { SizableText, useMedia } from '@onekeyhq/components';
 import type { ITableColumn } from '@onekeyhq/components';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IInviteCodeListItem } from '@onekeyhq/shared/src/referralCode/type';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
@@ -24,6 +25,8 @@ export function useTableColumns(
 ) {
   const intl = useIntl();
   const { gtMd } = useMedia();
+  const [{ currencyInfo }] = useSettingsPersistAtom();
+  const currencySymbol = currencyInfo?.symbol ?? '';
 
   // Define columns
   const columns: ITableColumn<IInviteCodeListItem>[] = useMemo(
@@ -31,7 +34,7 @@ export function useTableColumns(
       {
         title: intl.formatMessage({ id: ETranslations.referral_your_code }),
         dataIndex: EInviteCodeListTableColumn.CODE,
-        ...(gtMd ? { columnProps: { flex: 1 } } : { columnWidth: 130 }),
+        ...(gtMd ? { columnProps: { flex: 1 } } : { columnWidth: 115 }),
         render: (text: string) => <CodeCell code={text} />,
       },
       {
@@ -39,7 +42,7 @@ export function useTableColumns(
           id: ETranslations.referral_code_list_note,
         }),
         dataIndex: EInviteCodeListTableColumn.NOTE,
-        ...(gtMd ? { columnProps: { flex: 1 } } : { columnWidth: 130 }),
+        ...(gtMd ? { columnProps: { flex: 1 } } : { columnWidth: 145 }),
         render: (_text: string, record: IInviteCodeListItem) => (
           <NoteCell
             code={record.code}
@@ -82,7 +85,7 @@ export function useTableColumns(
         align: 'left',
         render: (value: string) => (
           <SizableText size="$bodyMdMedium" color="$text">
-            ${value}
+            {currencySymbol ? `${currencySymbol}${value}` : value}
           </SizableText>
         ),
       },
@@ -92,7 +95,7 @@ export function useTableColumns(
         ...(gtMd ? { columnProps: { flex: 1 } } : { columnWidth: 130 }),
         render: (date: string) => (
           <SizableText size="$bodyMdMedium" color="$text">
-            {formatDate(date, { hideTimeForever: true })}
+            {formatDate(date, { hideSeconds: true })}
           </SizableText>
         ),
       },
@@ -103,7 +106,7 @@ export function useTableColumns(
         render: (url: string) => <CopyLinkButton url={url} />,
       },
     ],
-    [intl, gtMd, onNoteUpdated],
+    [currencySymbol, intl, gtMd, onNoteUpdated],
   );
 
   // Handle header row for sorting
