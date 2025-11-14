@@ -75,6 +75,7 @@ import { EarnProviderMirror } from '../../EarnProviderMirror';
 import { EarnNetworkUtils } from '../../earnUtils';
 
 import { ApyChart } from './components/ApyChart';
+import { useProtocolDetailBreadcrumb } from './hooks/useProtocolDetailBreadcrumb';
 import { useProtocolDetailData } from './hooks/useProtocolDetailData';
 
 function ManagersSection({
@@ -151,9 +152,9 @@ function IntroSection({ intro }: { intro?: IStakeEarnDetail['intro'] }) {
                   cell?.items ? (
                     <YStack gap="$2">
                       {(cell?.items ?? []).map((item) => (
-                        <XStack key={item.title.text}>
+                        <XStack key={item.title.text} ai="center" gap="$1.5">
                           <Token
-                            size="sm"
+                            size="xs"
                             borderRadius="$2"
                             mr="$0.5"
                             tokenImageUri={item.logoURI}
@@ -861,22 +862,14 @@ const EarnProtocolDetailsPage = () => {
     await refreshData();
   }, [refreshAccount, refreshData]);
 
-  const breadcrumbProps = useMemo(
-    () => ({
-      items: [
-        {
-          label: intl.formatMessage({ id: ETranslations.global_earn }),
-          onClick: () => {
-            appNavigation.switchTab(ETabRoutes.Earn, {
-              screen: ETabEarnRoutes.EarnHome,
-            });
-          },
-        },
-        { label: symbol },
-      ],
-    }),
-    [intl, symbol, appNavigation],
-  );
+  // Use custom hook for breadcrumb management
+  const { breadcrumbProps } = useProtocolDetailBreadcrumb({
+    accountId: account?.id,
+    indexedAccountId: indexedAccount?.id,
+    symbol,
+    provider,
+    tokenInfo,
+  });
 
   const pageTitle = useMemo(
     () => (
