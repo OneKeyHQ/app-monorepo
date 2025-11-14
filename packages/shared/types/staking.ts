@@ -753,6 +753,7 @@ export type IEarnDetailActions =
   | IEarnWithdrawActionIcon
   | IEarnHistoryActionIcon
   | IEarnWithdrawOrderActionIcon
+  | IEarnClaimWithKycActionIcon
   | IEarnActivateActionIcon;
 
 export interface IEarnAlert {
