@@ -706,7 +706,11 @@ export function useDeviceConnect() {
       console.log('Current hardware wallet State', deviceState, strategy);
       if (!strategy) {
         await closeDialogAndReturn(device, { skipDelayClose: true });
-        throw new OneKeyLocalError('No wallet creation strategy');
+        throw new OneKeyLocalError({
+          message: intl.formatMessage({
+            id: ETranslations.hardware_user_cancel_error,
+          }),
+        });
       }
 
       await createHwWallet(
@@ -724,6 +728,7 @@ export function useDeviceConnect() {
       determineWalletCreationStrategy,
       createHwWallet,
       closeDialogAndReturn,
+      intl,
     ],
   );
   return useMemo(
