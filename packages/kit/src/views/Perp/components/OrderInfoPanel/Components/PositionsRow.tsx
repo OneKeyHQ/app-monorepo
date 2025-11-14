@@ -377,7 +377,7 @@ const PositionRowDesktopPnL = memo(() => {
             variant="tertiary"
             size="small"
             icon="ShareOutline"
-            iconSize="$4"
+            iconSize="$3.5"
             onPress={onShare}
             cursor="pointer"
           />
@@ -734,7 +734,7 @@ const PositionRowMobileHeader = memo(() => {
             variant="tertiary"
             size="small"
             icon="ShareOutline"
-            iconSize="$4"
+            iconSize="$3.5"
             onPress={onShare}
             cursor="pointer"
           />
