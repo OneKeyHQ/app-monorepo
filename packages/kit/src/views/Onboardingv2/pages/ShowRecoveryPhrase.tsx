@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -58,9 +58,20 @@ export default function ShowRecoveryPhrase() {
     () => mnemonic.split(' ').filter(Boolean),
     [mnemonic],
   );
-  const handleContinue = () => {
-    navigation.push(EOnboardingPagesV2.VerifyRecoveryPhrase, route.params);
-  };
+  const handleContinue = useCallback(async () => {
+    let isNotBackedUp = true;
+    if (route.params.walletId) {
+      const wallet = await backgroundApiProxy.serviceAccount.getWallet({
+        walletId: route.params.walletId,
+      });
+      isNotBackedUp = !wallet?.backuped;
+    }
+    if (isNotBackedUp) {
+      navigation.push(EOnboardingPagesV2.VerifyRecoveryPhrase, route.params);
+    } else {
+      navigation.popStack();
+    }
+  }, [navigation, route.params]);
 
   return (
     <Page>
