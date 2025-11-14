@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 
 import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
-import { useReplaceToReferFriends } from './useNavigateToReferFriends';
+import { useReplaceToReferFriends } from '@onekeyhq/kit/src/hooks/useReferFriends';
 
 /**
  * Hook to redirect to appropriate ReferFriends page when user is not logged in

@@ -2,9 +2,8 @@ import { useIntl } from 'react-intl';
 
 import { Breadcrumb } from '@onekeyhq/components';
 import type { IBreadcrumbItem } from '@onekeyhq/components/src/content/Breadcrumb';
+import { useReplaceToReferFriends } from '@onekeyhq/kit/src/hooks/useReferFriends';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-
-import { useReplaceToReferFriends } from '../hooks/useNavigateToReferFriends';
 
 export interface IBreadcrumbSectionProps {
   secondItemLabel: string;

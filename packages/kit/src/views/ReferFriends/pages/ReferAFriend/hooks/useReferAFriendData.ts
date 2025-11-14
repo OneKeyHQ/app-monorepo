@@ -7,7 +7,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IInvitePostConfig } from '@onekeyhq/shared/src/referralCode/type';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 
-import { useReplaceToReferFriends } from '../../../hooks/useNavigateToReferFriends';
+import { useReplaceToReferFriends } from '@onekeyhq/kit/src/hooks/useReferFriends';
 
 import { useLoginStatusChange } from './useLoginStatusChange';
 
