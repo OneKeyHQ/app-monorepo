@@ -6,6 +6,7 @@ import {
   Page,
   RefreshControl,
   Stack,
+  XStack,
   YStack,
   useMedia,
 } from '@onekeyhq/components';
@@ -299,7 +300,9 @@ function BasicEarnHome({
       <YStack flex={1} gap="$4">
         {/* overview and banner */}
         <YStack gap="$8">
-          <Overview onRefresh={refreshEarnAccounts} isLoading={isLoading} />
+          <XStack px="$5">
+            <Overview onRefresh={refreshEarnAccounts} isLoading={isLoading} />
+          </XStack>
           {banners ? (
             <YStack
               minHeight="$36"

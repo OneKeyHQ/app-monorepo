@@ -319,9 +319,6 @@ export const Overview = ({
     <YStack
       gap="$1"
       px="$0"
-      $gtSm={{
-        px: '$5',
-      }}
       $gtLg={{
         flexDirection: 'row',
         alignItems: 'center',
