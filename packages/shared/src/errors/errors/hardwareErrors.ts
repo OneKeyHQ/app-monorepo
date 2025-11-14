@@ -464,6 +464,19 @@ export class ForbiddenKeyPathError extends OneKeyHardwareError {
   override code = HardwareErrorCode.RuntimeError;
 }
 
+export class FirmwareDowngradeNotAllowedError extends OneKeyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'FirmwareDowngradeNotAllowed',
+        defaultKey: ETranslations.downgrade_warning_title,
+      }),
+    );
+  }
+
+  override code = HardwareErrorCode.FirmwareDowngradeNotAllowed;
+}
+
 export class BTCPsbtTooManyUtxos extends OneKeyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps) {
     super(

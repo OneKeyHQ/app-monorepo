@@ -41,11 +41,6 @@ function PageFirmwareUpdateChangeLog() {
   const connectId = route?.params?.connectId;
   const firmwareType = route?.params?.firmwareType;
 
-  console.log('========>>>>>>>> PageFirmwareUpdateChangeLog Route,', {
-    connectId,
-    firmwareType,
-  });
-
   const [stepInfo, setStepInfo] = useFirmwareUpdateStepInfoAtom();
 
   const confirmUpdateResult = useRef<ICheckAllFirmwareReleaseResult>(undefined);
@@ -71,11 +66,6 @@ function PageFirmwareUpdateChangeLog() {
             connectId,
             hardwareCallContext: EHardwareCallContext.UPDATE_FIRMWARE,
           });
-
-        console.log('=========>>>>>> checkAllFirmwareRelease:', {
-          compatibleConnectId,
-          firmwareType,
-        });
 
         const r =
           await backgroundApiProxy.serviceFirmwareUpdate.checkAllFirmwareRelease(

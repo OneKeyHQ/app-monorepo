@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 
+import { EFirmwareType } from '@onekeyfe/hd-shared';
 import { useIntl } from 'react-intl';
 
 import type {
@@ -17,15 +18,19 @@ import {
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAllNetworkCopyAddressHandler } from '@onekeyhq/kit/src/views/WalletAddress/hooks/useAllNetworkCopyAddressHandler';
 import { ALL_NETWORK_ACCOUNT_MOCK_ADDRESS } from '@onekeyhq/shared/src/consts/addresses';
+import { IMPL_BTC } from '@onekeyhq/shared/src/engine/engineConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IModalReceiveParamList } from '@onekeyhq/shared/src/routes';
 import { EModalReceiveRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useCopyAddressWithDeriveType } from '../../hooks/useCopyAccountAddress';
+import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { useShortcutsOnRouteFocused } from '../../hooks/useShortcutsOnRouteFocused';
 import {
   useActiveAccount,
@@ -179,6 +184,27 @@ export function AccountSelectorActiveAccountHome({
     });
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalReceiveParamList>>();
+
+  const { result: isBtcOnlyFirmwareUnsupported } = usePromiseResult(
+    async () => {
+      if (!accountUtils.isHwWallet({ walletId: wallet?.id })) {
+        return false;
+      }
+      const isBtcOnlyFirmware =
+        await backgroundApiProxy.serviceAccount.isBtcOnlyFirmwareByWalletId({
+          walletId: wallet?.id || '',
+        });
+      if (isBtcOnlyFirmware) {
+        const { impl: networkImpl } = networkUtils.parseNetworkId({
+          networkId: network?.id ?? '',
+        });
+        return networkImpl !== IMPL_BTC;
+      }
+      return false;
+    },
+    [wallet?.id, network?.id],
+    { initResult: false },
+  );
 
   const logActiveAccount = useCallback(() => {
     console.log({
@@ -359,6 +385,19 @@ export function AccountSelectorActiveAccountHome({
   // show nothing if account exists, but has not an address
   if (account) {
     return null;
+  }
+
+  if (
+    accountUtils.isHwWallet({ walletId: wallet?.id }) &&
+    isBtcOnlyFirmwareUnsupported
+  ) {
+    return (
+      <XStack onPress={() => logActiveAccount()}>
+        <SizableText size="$bodyMd" color="$textCaution">
+          {intl.formatMessage({ id: ETranslations.global_network_not_matched })}
+        </SizableText>
+      </XStack>
+    );
   }
 
   if (activeAccount.canCreateAddress && showCreateAddressButton) {

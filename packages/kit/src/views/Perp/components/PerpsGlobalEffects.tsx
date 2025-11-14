@@ -318,6 +318,7 @@ function useHyperliquidAccountSelect() {
     const _account = await actions.current.changeActivePerpsAccount({
       indexedAccountId: activeAccount?.indexedAccount?.id || null,
       accountId: activeAccount?.account?.id || null,
+      walletId: activeAccount?.wallet?.id || null,
       deriveType: globalDeriveType,
     });
     await checkPerpsAccountStatus();
@@ -325,6 +326,7 @@ function useHyperliquidAccountSelect() {
     actions,
     activeAccount.account?.address,
     activeAccount.account?.id,
+    activeAccount?.wallet?.id,
     activeAccount?.indexedAccount?.id,
     checkPerpsAccountStatus,
     globalDeriveType,

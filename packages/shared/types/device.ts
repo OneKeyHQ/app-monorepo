@@ -47,6 +47,7 @@ export type IFirmwareUpdatesDetectStatus = Partial<{
     connectId: string;
     hasUpgrade: boolean;
     toVersion: string | undefined;
+    toFirmwareType: EFirmwareType | undefined;
     toVersionBle: string | undefined;
     // hasUpgradeForce: boolean;
   };
@@ -339,6 +340,7 @@ export interface IFetchFirmwareVerifyHashParams {
   firmwareVersion: string;
   bluetoothVersion: string;
   bootloaderVersion: string;
+  firmwareType: EFirmwareType | undefined;
 }
 
 export interface IDeviceVerifyRawVersions {

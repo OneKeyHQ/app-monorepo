@@ -397,6 +397,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       set,
       params: {
         accountId: string | null;
+        walletId: string | null;
         indexedAccountId: string | null;
         deriveType: IAccountDeriveTypes;
       },

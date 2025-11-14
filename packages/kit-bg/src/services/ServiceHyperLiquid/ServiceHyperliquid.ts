@@ -1,3 +1,4 @@
+import { EFirmwareType } from '@onekeyfe/hd-shared';
 import BigNumber from 'bignumber.js';
 import { ethers } from 'ethersV6';
 import { isEqual, isNil, omit } from 'lodash';
@@ -25,6 +26,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
 import perfUtils from '@onekeyhq/shared/src/utils/debug/perfUtils';
+import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { hyperLiquidErrorResolver } from '@onekeyhq/shared/src/utils/hyperLiquidErrorResolver';
 import perpsUtils from '@onekeyhq/shared/src/utils/perpsUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -472,6 +474,7 @@ export default class ServiceHyperliquid extends ServiceBase {
   @backgroundMethod()
   async changeActivePerpsAccount(params: {
     accountId: string | null;
+    walletId: string | null;
     indexedAccountId: string | null;
     deriveType: IAccountDeriveTypes;
   }) {
@@ -493,33 +496,43 @@ export default class ServiceHyperliquid extends ServiceBase {
         }),
       );
 
-      console.log('selectPerpsAccount______111', indexedAccountId, accountId);
       if (indexedAccountId || accountId) {
-        const ethNetworkId = PERPS_NETWORK_ID;
-        const getNetworkAccountParams = {
-          indexedAccountId: indexedAccountId ?? undefined,
-          accountId: indexedAccountId ? undefined : accountId ?? undefined,
-          networkId: ethNetworkId,
-          deriveType: deriveType || 'default',
-        };
-        console.log('selectPerpsAccount______222', getNetworkAccountParams);
-        const account =
-          await this.backgroundApi.serviceAccount.getNetworkAccount(
-            getNetworkAccountParams,
-          );
-        console.log('selectPerpsAccount______333', account);
-        perpsAccount.accountAddress =
-          (account.address?.toLowerCase() as IHex) || null;
-        if (perpsAccount.accountAddress) {
-          perpsAccount.accountId = account.id || null;
+        // Check if Bitcoin Only firmware for hardware wallets
+        // Perp trading requires EVM support, so Bitcoin Only firmware is not supported
+        const isBtcOnlyFirmware =
+          await this.backgroundApi.serviceAccount.isBtcOnlyFirmwareByWalletId({
+            walletId: params.walletId || '',
+          });
+
+        // If Bitcoin Only firmware, mark account as unsupported by clearing indexedAccountId
+        if (isBtcOnlyFirmware) {
+          perpsAccount.indexedAccountId = null;
+          perpsAccount.accountId = null;
+          perpsAccount.accountAddress = null;
+        } else {
+          const ethNetworkId = PERPS_NETWORK_ID;
+          const getNetworkAccountParams = {
+            indexedAccountId: indexedAccountId ?? undefined,
+            accountId: indexedAccountId ? undefined : accountId ?? undefined,
+            networkId: ethNetworkId,
+            deriveType: deriveType || 'default',
+          };
+          const account =
+            await this.backgroundApi.serviceAccount.getNetworkAccount(
+              getNetworkAccountParams,
+            );
+          perpsAccount.accountAddress =
+            (account.address?.toLowerCase() as IHex) || null;
+          if (perpsAccount.accountAddress) {
+            perpsAccount.accountId = account.id || null;
+          }
+          void this.backgroundApi.serviceAccount.saveAccountAddresses({
+            account,
+            networkId: ethNetworkId,
+          });
         }
-        void this.backgroundApi.serviceAccount.saveAccountAddresses({
-          account,
-          networkId: ethNetworkId,
-        });
       }
     } catch (error) {
-      console.log('selectPerpsAccount______444_error', error);
       console.error(error);
     } finally {
       clearTimeout(this.hideSelectAccountLoadingTimer);

@@ -242,32 +242,25 @@ export function FirmwareChangeFirmwareWarn({
 
   const tips: { content: string; type?: IAlertType }[] = [];
 
-  if (
-    result?.updateInfos?.firmware?.toFirmwareType === EFirmwareType.BitcoinOnly
-  ) {
+  if (firmwareInfo?.toFirmwareType === EFirmwareType.BitcoinOnly) {
     tips.push({
-      // content: intl.formatMessage({
-      //   id: ETranslations.update_keep_bluetooth_connected_and_app_active,
-      // }),
-      content:
-        '“比特币专用“固件仅支持比特币交易。若您希望访问并管理所有币种，可随时使用您的钱包备份将设备固件切换回“通用“。',
+      content: intl.formatMessage({
+        id: ETranslations.device_change_to_btc_only_banner,
+      }),
       type: 'info',
     });
   }
 
   tips.push({
-    // content: intl.formatMessage({
-    //   id: ETranslations.update_keep_bluetooth_connected_and_app_active,
-    // }),
-    content: '此操作将清除设备上的所有数据，包括钱包、密钥和账户',
+    content: intl.formatMessage({
+      id: ETranslations.device_wipe_data_bannner,
+    }),
     type: 'danger',
   });
   tips.push({
-    // content: intl.formatMessage({
-    //   id: ETranslations.update_keep_bluetooth_connected_and_app_active,
-    // }),
-    content:
-      '要重新访问您的资产，您必须使用钱包备份来恢复钱包。请确保您的钱包备份可访问且清晰可读',
+    content: intl.formatMessage({
+      id: ETranslations.device_recover_data_banner,
+    }),
     type: 'danger',
   });
 
@@ -322,11 +315,12 @@ export function FirmwareChangeLogView({
     onConfirmClick?.();
   }, [result, showCheckList, onConfirmClick, setStepInfo, intl]);
 
+  const updateFirmwareInfo = result?.updateInfos?.firmware;
+
   const showUpdateIntroduction =
-    result?.updateInfos?.firmware?.fromFirmwareType !== undefined &&
-    result?.updateInfos?.firmware?.toFirmwareType !== undefined &&
-    result?.updateInfos?.firmware?.fromFirmwareType !==
-      result?.updateInfos?.firmware?.toFirmwareType;
+    updateFirmwareInfo?.fromFirmwareType !== undefined &&
+    updateFirmwareInfo?.toFirmwareType !== undefined &&
+    updateFirmwareInfo?.fromFirmwareType !== updateFirmwareInfo?.toFirmwareType;
 
   return (
     <>

@@ -413,17 +413,10 @@ class ServiceFirmwareUpdate extends ServiceBase {
         });
     }
 
-    console.log(
-      '========>>>>>>>> releaseInfo check all firmware:',
-      firmwareType,
-    );
-
     const releaseInfo = await this.baseCheckAllFirmwareRelease({
       connectId: originalConnectId,
       firmwareType,
     });
-
-    console.log('========>>>>>>>> releaseInfo:', releaseInfo);
 
     const firmware = await this.checkFirmwareRelease({
       connectId: updatingConnectId,
@@ -512,6 +505,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
           bootloaderVersion: bootloader?.hasUpgrade
             ? bootloader.toVersion
             : defaultVersion,
+          firmwareType,
         },
       );
     if (Array.isArray(versionInfosFromBackend)) {
@@ -1163,16 +1157,6 @@ class ServiceFirmwareUpdate extends ServiceBase {
       const currentTransportType =
         await this.backgroundApi.serviceSetting.getHardwareTransportType();
 
-      console.log('========>>>>>>> updatingFirmware V2:', {
-        updateType: firmwareType as any,
-        // update res is always enabled when firmware version changed
-        // forcedUpdateRes for TEST only, means always update res even if firmware version is same (re-flash the same firmware)
-        forcedUpdateRes: forceUpdateResEvenIfSameVersion === true,
-        version: versionArr,
-        platform: platformEnv.symbol ?? 'web',
-        skipWebDevicePrompt: platformEnv.isDesktop,
-        firmwareType: updateInfo.toFirmwareType,
-      });
       const result = await convertDeviceResponse(async () =>
         hardwareSDK.firmwareUpdateV2(
           deviceUtils.getUpdatingConnectId({ connectId, currentTransportType }),
@@ -1826,15 +1810,6 @@ class ServiceFirmwareUpdate extends ServiceBase {
       const toBootloaderVersion = convertVersion(params.bootloaderVersion);
       const versionMismatches: string[] = [];
 
-      console.log('========>>>>>>> updatingFirmware V3:', {
-        platform: platformEnv.symbol ?? 'web',
-        bleVersion: toBleVersion,
-        firmwareVersion: toFirmwareVersion,
-        bootloaderVersion: toBootloaderVersion,
-        skipWebDevicePrompt: platformEnv.isDesktop,
-        firmwareType: params.firmwareType,
-      });
-
       try {
         const currentTransportType =
           await this.backgroundApi.serviceSetting.getHardwareTransportType();
@@ -1981,10 +1956,18 @@ class ServiceFirmwareUpdate extends ServiceBase {
       minVersion: minVersionMap?.[deviceType || 'unknown']?.ble,
     });
 
-    checkFn({
-      updateInfo: params.releaseResult?.updateInfos?.bootloader,
-      minVersion: minVersionMap?.[deviceType || 'unknown']?.bootloader,
-    });
+    const updateDevDeviceBootloaderOnAppAllowed =
+      await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
+        'updateDevDeviceBootloaderOnAppAllowed',
+      );
+
+    if (updateDevDeviceBootloaderOnAppAllowed !== true) {
+      checkFn({
+        updateInfo: params.releaseResult?.updateInfos?.bootloader,
+        minVersion:
+          minVersionMap?.[deviceType || 'unknown']?.bootloader || '2.0.0',
+      });
+    }
   }
 
   async validateMnemonicBackuped(params: IUpdateFirmwareWorkflowParams) {

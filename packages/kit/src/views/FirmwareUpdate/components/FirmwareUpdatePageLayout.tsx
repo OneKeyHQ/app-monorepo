@@ -12,23 +12,30 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 export function FirmwareUpdatePageHeaderTitle(props: {
   result: ICheckAllFirmwareReleaseResult | undefined;
 }) {
+  const intl = useIntl();
   const { result } = props;
   if (!result) {
     return null;
   }
 
   let title;
+  const updateFirmwareInfo = result?.updateInfos?.firmware;
   if (
-    result.updateInfos.firmware?.fromFirmwareType !== undefined &&
-    result.updateInfos.firmware?.toFirmwareType !== undefined &&
-    result.updateInfos.firmware?.fromFirmwareType !==
-      result.updateInfos.firmware?.toFirmwareType
+    updateFirmwareInfo?.fromFirmwareType !== undefined &&
+    updateFirmwareInfo?.toFirmwareType !== undefined &&
+    updateFirmwareInfo?.fromFirmwareType !== updateFirmwareInfo?.toFirmwareType
   ) {
-    title = `Switch firmware to ${
-      result.updateInfos.firmware?.toFirmwareType === EFirmwareType.BitcoinOnly
-        ? 'Bitcoin-only'
-        : 'Universal'
-    }`;
+    title = intl.formatMessage(
+      {
+        id: ETranslations.device_settings_switch_firmware_type,
+      },
+      {
+        type:
+          updateFirmwareInfo?.toFirmwareType === EFirmwareType.BitcoinOnly
+            ? 'Bitcoin-only'
+            : 'Universal',
+      },
+    );
   } else {
     title = result.deviceName;
   }

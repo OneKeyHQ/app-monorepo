@@ -29,6 +29,7 @@ import {
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IHwQrWalletWithDevice } from '@onekeyhq/shared/types/account';
 
@@ -212,10 +213,15 @@ function DeviceDetailsModalCmp() {
 
     let message = 'New firmware is available';
     if (detectResult?.detectInfo?.toVersion) {
+      const firmwareTypeLabel = deviceUtils.getFirmwareTypeLabelByFirmwareType({
+        firmwareType: detectResult.detectInfo.toFirmwareType,
+        displayFormat: 'withSpace',
+      });
+      const version = `${firmwareTypeLabel}${detectResult.detectInfo.toVersion}`;
       message = intl.formatMessage(
         { id: ETranslations.update_firmware_version_available },
         {
-          version: detectResult.detectInfo.toVersion,
+          version,
         },
       );
     } else if (detectResult?.detectInfo?.toVersionBle) {

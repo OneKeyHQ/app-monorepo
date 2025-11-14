@@ -209,16 +209,39 @@ export function useFirmwareUpdateActions() {
     ({ result }: { result: ICheckAllFirmwareReleaseResult | undefined }) => {
       let title;
 
+      const updateFirmwareInfo = result?.updateInfos?.firmware;
       if (
-        result?.updateInfos?.firmware?.toFirmwareType ===
-        EFirmwareType.BitcoinOnly
+        updateFirmwareInfo &&
+        updateFirmwareInfo?.fromFirmwareType &&
+        updateFirmwareInfo?.toFirmwareType &&
+        updateFirmwareInfo.toFirmwareType !==
+          updateFirmwareInfo.fromFirmwareType &&
+        updateFirmwareInfo.toFirmwareType === EFirmwareType.BitcoinOnly
       ) {
-        title = "Ready to switch to BTC-Only? let’s check you're all set 📝";
+        title = intl.formatMessage(
+          {
+            id: ETranslations.device_checklist_switch_firmware_type,
+          },
+          {
+            type: 'Bitcoin-only',
+          },
+        );
       } else if (
-        result?.updateInfos?.firmware?.toFirmwareType ===
-        EFirmwareType.Universal
+        updateFirmwareInfo &&
+        updateFirmwareInfo?.fromFirmwareType &&
+        updateFirmwareInfo?.toFirmwareType &&
+        updateFirmwareInfo.toFirmwareType !==
+          updateFirmwareInfo.fromFirmwareType &&
+        updateFirmwareInfo.toFirmwareType === EFirmwareType.Universal
       ) {
-        title = "Ready to switch to Universal? let’s check you're all set 📝";
+        title = intl.formatMessage(
+          {
+            id: ETranslations.device_checklist_switch_firmware_type,
+          },
+          {
+            type: 'Universal',
+          },
+        );
       } else {
         title = intl.formatMessage({
           id: ETranslations.update_ready_to_upgrade_checklist,
