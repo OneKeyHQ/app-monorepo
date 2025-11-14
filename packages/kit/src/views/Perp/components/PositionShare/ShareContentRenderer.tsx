@@ -1,11 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import BigNumber from 'bignumber.js';
-import QRCodeUtil from 'qrcode';
-import Svg, { G, Path } from 'react-native-svg';
 
 import {
   Image,
+  QRCode,
   SizableText,
   Stack,
   XStack,
@@ -35,78 +34,6 @@ interface IShareContentRendererProps {
 
 const { size, padding, colors, fonts, layout, display } = CANVAS_CONFIG;
 
-function generateQRCodeMatrix(
-  value: string,
-  errorCorrectionLevel: 'L' | 'M' | 'Q' | 'H' = 'H',
-): number[][] {
-  const arr: number[] = Array.prototype.slice.call(
-    QRCodeUtil.create(value, { errorCorrectionLevel }).modules.data,
-    0,
-  );
-  const sqrt = Math.sqrt(arr.length);
-  return arr.reduce((rows: number[][], key, index) => {
-    if (index % sqrt === 0) {
-      rows.push([key]);
-    } else {
-      rows[rows.length - 1].push(key);
-    }
-    return rows;
-  }, []);
-}
-
-function transformMatrixIntoPath(matrix: number[][], qrSize: number) {
-  const cellSize = qrSize / matrix.length;
-  let path = '';
-  matrix.forEach((row, i) => {
-    let needDraw = false;
-    row.forEach((column, j) => {
-      if (column) {
-        if (!needDraw) {
-          path += `M${cellSize * j} ${cellSize / 2 + cellSize * i} `;
-          needDraw = true;
-        }
-        if (needDraw && j === matrix.length - 1) {
-          path += `L${cellSize * (j + 1)} ${cellSize / 2 + cellSize * i} `;
-        }
-      } else if (needDraw) {
-        path += `L${cellSize * j} ${cellSize / 2 + cellSize * i} `;
-        needDraw = false;
-      }
-    });
-  });
-  return {
-    cellSize,
-    path,
-  };
-}
-
-function QRCodeRenderer({
-  value,
-  size: qrSize,
-}: {
-  value: string;
-  size: number;
-}) {
-  const matrix = useMemo(() => generateQRCodeMatrix(value, 'H'), [value]);
-  const { path, cellSize } = useMemo(
-    () => transformMatrixIntoPath(matrix, qrSize),
-    [matrix, qrSize],
-  );
-
-  return (
-    <Svg height={qrSize} width={qrSize}>
-      <G>
-        <Path
-          d={path}
-          strokeLinecap="butt"
-          stroke="#FFFFFF"
-          strokeWidth={cellSize}
-        />
-      </G>
-    </Svg>
-  );
-}
-
 export function ShareContentRenderer({
   data,
   config,
@@ -135,7 +62,7 @@ export function ShareContentRenderer({
 
   const selectedBackground = isProfit
     ? BACKGROUNDS.profit[0]
-    : BACKGROUNDS.loss[1];
+    : BACKGROUNDS.loss[0];
 
   const scaledSize = size * scale;
   const scaledPadding = padding * scale;
@@ -159,8 +86,8 @@ export function ShareContentRenderer({
   const tokenY = layout.tokenY * scale;
   const pnlDisplayText = getPnlDisplayInfo(data, pnlDisplayMode);
   const pnlFontSize =
-    pnlDisplayText.length > 8
-      ? scaledFonts.pnl * (1 - (pnlDisplayText.length - 8) * 0.05)
+    pnlDisplayText.length > 6
+      ? scaledFonts.pnl * (1 - (pnlDisplayText.length - 6) * 0.055)
       : scaledFonts.pnl;
 
   const imageLoadCountRef = useRef(0);
@@ -409,9 +336,10 @@ export function ShareContentRenderer({
                   {REFERRAL_CODE}
                 </SizableText>
               </YStack>
-              <QRCodeRenderer
+              <QRCode
                 value={REFERRAL_CODE}
-                size={layout.qrCodeSize * scale}
+                size={layout.qrCodeSize * scale - 5}
+                padding={5}
               />
             </XStack>
           </Stack>

@@ -83,13 +83,14 @@ export const ShareImageGenerator = forwardRef<
     const tokenImage = tokenImageUrl || getHyperliquidTokenImageUrl(token);
     const pnlDisplayText = getPnlDisplayInfo(data, config.pnlDisplayMode);
     const pnlFontSize =
-      pnlDisplayText.length > 8
-        ? fonts.pnl * (1 - (pnlDisplayText.length - 8) * 0.05)
+      pnlDisplayText.length > 6
+        ? fonts.pnl * (1 - (pnlDisplayText.length - 6) * 0.045)
         : fonts.pnl;
 
     const selectedBackground = isProfit
       ? BACKGROUNDS.profit[0]
-      : BACKGROUNDS.loss[1];
+      : BACKGROUNDS.loss[0];
+    console.log('selectedBackground', selectedBackground);
     try {
       // Sticker temporarily disabled
       // const selectedSticker =
@@ -265,24 +266,37 @@ export const ShareImageGenerator = forwardRef<
         ctx.fillRect(0, rectY, rectWidth, rectHeight);
         ctx.filter = 'none';
 
-        // Generate QR code (positioned at bottom right)
-        const qrCodeSize = layout.qrCodeSize;
-        const qrCodeY = rectY + (rectHeight - qrCodeSize) / 2;
-        const qrCodeX = size - padding - qrCodeSize;
+        // Generate QR code (positioned at bottom right with white background and padding)
+        const qrCodePadding = 5;
+        const qrCodeOuterSize = layout.qrCodeSize;
+        const qrCodeInnerSize = qrCodeOuterSize - qrCodePadding * 2;
+        const qrCodeY = rectY + (rectHeight - qrCodeOuterSize) / 2;
+        const qrCodeX = size - padding - qrCodeOuterSize;
+
+        // Draw white background rectangle
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(qrCodeX, qrCodeY, qrCodeOuterSize, qrCodeOuterSize);
 
         try {
           const qrCodeDataUrl = await QRCodeUtil.toDataURL(REFERRAL_CODE, {
-            width: qrCodeSize,
-            margin: 1,
+            width: qrCodeInnerSize,
+            margin: 0,
             color: {
-              dark: '#FFFFFF',
-              light: '#00000000',
+              dark: '#000000',
+              light: '#FFFFFF',
             },
           });
 
           const qrCodeImg = await loadImage(qrCodeDataUrl);
           if (qrCodeImg) {
-            ctx.drawImage(qrCodeImg, qrCodeX, qrCodeY, qrCodeSize, qrCodeSize);
+            // Draw QR code centered in the white background
+            ctx.drawImage(
+              qrCodeImg,
+              qrCodeX + qrCodePadding,
+              qrCodeY + qrCodePadding,
+              qrCodeInnerSize,
+              qrCodeInnerSize,
+            );
           }
         } catch (error) {
           console.error('Failed to generate QR code:', error);
