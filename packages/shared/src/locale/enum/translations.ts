@@ -2243,6 +2243,7 @@
   perp_position_empty = 'perp.position_empty',
   perp_position_empty_desc = 'perp.position_empty_desc',
   perp_position_entry_price = 'perp.position_entry_price',
+  perp_position_exit_price = 'perp.position_exit_price',
   perp_position_funding = 'perp.position_funding',
   perp_position_funding_2 = 'perp.position_funding_2',
   perp_position_funding_all_time = 'perp.position_funding_all_time',

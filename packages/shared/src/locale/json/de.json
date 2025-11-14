@@ -2238,6 +2238,7 @@
   "perp.position_empty": "Keine offenen Positionen",
   "perp.position_empty_desc": "Ihre Positionen werden hier angezeigt, nachdem Sie Trades eröffnet haben",
   "perp.position_entry_price": "Einstiegspreis",
+  "perp.position_exit_price": "Ausstiegspreis",
   "perp.position_funding": "Finanzierung",
   "perp.position_funding_2": "Finanzierung",
   "perp.position_funding_all_time": "{token} alle Zeiten",

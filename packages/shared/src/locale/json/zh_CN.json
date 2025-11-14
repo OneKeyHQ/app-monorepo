@@ -2238,6 +2238,7 @@
   "perp.position_empty": "暂无持仓",
   "perp.position_empty_desc": "您的持仓将在开仓交易后显示在此处",
   "perp.position_entry_price": "开仓价格",
+  "perp.position_exit_price": "退出价格",
   "perp.position_funding": "资金费率",
   "perp.position_funding_2": "资金费",
   "perp.position_funding_all_time": "{token} 总计资金费",

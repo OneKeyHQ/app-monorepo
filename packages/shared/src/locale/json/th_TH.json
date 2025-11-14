@@ -2238,6 +2238,7 @@
   "perp.position_empty": "ไม่มีสถานะที่เปิดอยู่",
   "perp.position_empty_desc": "สถานะของคุณจะแสดงที่นี่หลังจากเปิดการซื้อขาย",
   "perp.position_entry_price": "ราคาเข้า",
+  "perp.position_exit_price": "ราคาออก",
   "perp.position_funding": "ค่าธรรมเนียมฟันดิ้ง",
   "perp.position_funding_2": "การระดมทุน",
   "perp.position_funding_all_time": "{token} ตลอดเวลา",

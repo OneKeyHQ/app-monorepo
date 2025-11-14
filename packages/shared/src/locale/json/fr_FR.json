@@ -2238,6 +2238,7 @@
   "perp.position_empty": "Aucune position ouverte",
   "perp.position_empty_desc": "Vos positions apparaîtront ici après l'ouverture de transactions",
   "perp.position_entry_price": "Prix d'entrée",
+  "perp.position_exit_price": "Prix de sortie",
   "perp.position_funding": "Financement",
   "perp.position_funding_2": "Financement",
   "perp.position_funding_all_time": "{token} de tous les temps",

@@ -2238,6 +2238,7 @@
   "perp.position_empty": "未決済ポジションなし",
   "perp.position_empty_desc": "取引を開始すると、ここにポジションが表示されます",
   "perp.position_entry_price": "エントリー価格",
+  "perp.position_exit_price": "出口価格",
   "perp.position_funding": "資金調達",
   "perp.position_funding_2": "資金調達",
   "perp.position_funding_all_time": "{token} 史上",

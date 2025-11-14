@@ -2238,6 +2238,7 @@
   "perp.position_empty": "कोई खुली पोजीशन नहीं है",
   "perp.position_empty_desc": "आपकी पोज़िशन यहाँ दिखाई देंगी जब आप ट्रेड खोलेंगे",
   "perp.position_entry_price": "प्रवेश मूल्य",
+  "perp.position_exit_price": "निकास मूल्य",
   "perp.position_funding": "फंडिंग",
   "perp.position_funding_2": "वित्तपोषण",
   "perp.position_funding_all_time": "{token} हर समय",

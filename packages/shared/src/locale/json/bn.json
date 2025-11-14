@@ -2238,6 +2238,7 @@
   "perp.position_empty": "কোনো খোলা পজিশন নেই",
   "perp.position_empty_desc": "আপনার পজিশনগুলো এখানে প্রদর্শিত হবে ট্রেড ওপেন করার পর",
   "perp.position_entry_price": "প্রবেশ মূল্য",
+  "perp.position_exit_price": "প্রস্থান মূল্য",
   "perp.position_funding": "ফান্ডিং",
   "perp.position_funding_2": "তহবিল",
   "perp.position_funding_all_time": "{token} সর্বকালের",

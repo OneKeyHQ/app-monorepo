@@ -2238,6 +2238,7 @@
   "perp.position_empty": "Немає відкритих позицій",
   "perp.position_empty_desc": "Ваші позиції з'являться тут після відкриття угод",
   "perp.position_entry_price": "Ціна входу",
+  "perp.position_exit_price": "Ціна виходу",
   "perp.position_funding": "Фінансування",
   "perp.position_funding_2": "Фінансування",
   "perp.position_funding_all_time": "{token} за весь час",

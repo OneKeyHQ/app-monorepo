@@ -2238,6 +2238,7 @@
   "perp.position_empty": "Không có vị thế mở",
   "perp.position_empty_desc": "Vị thế của bạn sẽ xuất hiện ở đây sau khi mở giao dịch",
   "perp.position_entry_price": "Giá vào lệnh",
+  "perp.position_exit_price": "Giá thoát",
   "perp.position_funding": "Phí tài trợ",
   "perp.position_funding_2": "Tài trợ",
   "perp.position_funding_all_time": "{token} mọi lúc",

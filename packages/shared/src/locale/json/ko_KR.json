@@ -2238,6 +2238,7 @@
   "perp.position_empty": "오픈된 포지션 없음",
   "perp.position_empty_desc": "거래를 시작하면 포지션이 여기에 표시됩니다.",
   "perp.position_entry_price": "진입가",
+  "perp.position_exit_price": "출구 가격",
   "perp.position_funding": "펀딩",
   "perp.position_funding_2": "자금 조달",
   "perp.position_funding_all_time": "{token} 역대",

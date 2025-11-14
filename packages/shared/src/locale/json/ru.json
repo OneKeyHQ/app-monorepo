@@ -2238,6 +2238,7 @@
   "perp.position_empty": "Нет открытых позиций",
   "perp.position_empty_desc": "Ваши позиции появятся здесь после открытия сделок",
   "perp.position_entry_price": "Цена входа",
+  "perp.position_exit_price": "Цена выхода",
   "perp.position_funding": "Фандинг",
   "perp.position_funding_2": "Финансирование",
   "perp.position_funding_all_time": "{token} за всё время",

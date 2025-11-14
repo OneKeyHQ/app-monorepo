@@ -2238,6 +2238,7 @@
   "perp.position_empty": "Tidak ada posisi terbuka",
   "perp.position_empty_desc": "Posisi Anda akan muncul di sini setelah membuka perdagangan",
   "perp.position_entry_price": "Harga Masuk",
+  "perp.position_exit_price": "Harga Keluar",
   "perp.position_funding": "Pendanaan",
   "perp.position_funding_2": "Pendanaan",
   "perp.position_funding_all_time": "{token} sepanjang masa",
