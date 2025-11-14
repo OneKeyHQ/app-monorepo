@@ -22,10 +22,10 @@ export function NoteCell({ code, note, onNoteUpdated }: INoteCellProps) {
     const dialogTitle = note
       ? `${intl.formatMessage({
           id: ETranslations.global_edit,
-        })} ${intl.formatMessage({ id: ETranslations.global_Note })}`
+        })}${intl.formatMessage({ id: ETranslations.global_Note })}`
       : `${intl.formatMessage({
           id: ETranslations.global_add,
-        })} ${intl.formatMessage({ id: ETranslations.global_Note })}`;
+        })}${intl.formatMessage({ id: ETranslations.global_Note })}`;
 
     Dialog.show({
       title: dialogTitle,
