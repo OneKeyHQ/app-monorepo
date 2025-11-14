@@ -136,7 +136,7 @@ export function getCanvasConfig(currentSize = 1080): ICanvasConfig {
       priceSpacingY: scale(50, currentSize, true),
       badgePaddingX: scale(20, currentSize, true),
       badgePaddingY: scale(18, currentSize, true),
-      tokenSpacing: scale(40, currentSize, true),
+      tokenSpacing: scale(48, currentSize, true),
       priceGap: scale(8, currentSize),
       referralOffset: scale(25, currentSize, true),
       lineHeight: 1.2,
