@@ -133,7 +133,7 @@ export function LevelAccordionItem({
                       </SizableText>
                       <XStack gap="$1" ai="center" jc="flex-end">
                         <SizableText size="$bodyMdMedium" color="$text">
-                          {`${condition.current} / ${condition.thresholdFiatValue}`}
+                          {`${condition.currentFiatValue} / ${condition.thresholdFiatValue}`}
                         </SizableText>
                         <SizableText size="$bodyMd" color="$textSubdued">
                           {currencyInfo.id.toUpperCase()}

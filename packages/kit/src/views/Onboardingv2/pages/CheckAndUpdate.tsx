@@ -72,6 +72,7 @@ function CheckAndUpdatePage({
   console.log('deviceData', deviceData);
   const themeVariant = useThemeVariant();
   const navigation = useAppNavigation();
+  const isFirmwareVerifiedRef = useRef<boolean | undefined>(undefined);
 
   const deviceLabel = useMemo(() => {
     if ((deviceData.device as KnownDevice)?.label) {
@@ -269,7 +270,7 @@ function CheckAndUpdatePage({
           ...deviceData,
           device: (deviceForFinalize ?? deviceData.device) as SearchDevice,
         },
-        isFirmwareVerified: true,
+        isFirmwareVerified: isFirmwareVerifiedRef.current,
       });
     }, 1200);
   }, [
@@ -451,6 +452,7 @@ function CheckAndUpdatePage({
           void checkFirmwareUpdate();
         }, 150);
       }
+      isFirmwareVerifiedRef.current = !!result.verified;
     } catch (error) {
       setSteps((prev) => {
         const newSteps = [...prev];
@@ -988,11 +990,13 @@ function CheckAndUpdatePage({
                               id: ETranslations.global_retry,
                             })}
                           </Button>
-                          <Button onPress={handleSkipCurrentStep}>
-                            {intl.formatMessage({
-                              id: ETranslations.global_skip,
-                            })}
-                          </Button>
+                          {step.id !== ECheckAndUpdateStepId.GenuineCheck ? (
+                            <Button onPress={handleSkipCurrentStep}>
+                              {intl.formatMessage({
+                                id: ETranslations.global_skip,
+                              })}
+                            </Button>
+                          ) : null}
                         </XStack>
                       </XStack>
                     ) : null}

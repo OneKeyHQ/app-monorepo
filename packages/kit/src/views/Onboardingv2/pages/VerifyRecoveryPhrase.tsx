@@ -99,30 +99,43 @@ export default function VerifyRecoveryPhrase() {
       setSelectedWords(newSelectedWords);
 
       setTimeout(async () => {
-        const verifyResult = answerIndices.every(
-          (recoveryPhraseIndex, index) => {
-            if (newSelectedWords[index] === null) {
-              return false;
-            }
-            return (
-              newSelectedWords[index] === recoveryPhrase[recoveryPhraseIndex]
-            );
-          },
-        );
+        if (Object.values(newSelectedWords).every((w) => w !== null)) {
+          const verifyResult = answerIndices.every(
+            (recoveryPhraseIndex, index) => {
+              if (newSelectedWords[index] === null) {
+                return false;
+              }
+              return (
+                newSelectedWords[index] === recoveryPhrase[recoveryPhraseIndex]
+              );
+            },
+          );
 
-        if (verifyResult) {
-          if (route.params?.walletId) {
-            await backgroundApiProxy.serviceAccount.updateWalletBackupStatus({
-              walletId: route.params?.walletId,
-              isBackedUp: true,
+          if (verifyResult) {
+            if (route.params?.walletId) {
+              await backgroundApiProxy.serviceAccount.updateWalletBackupStatus({
+                walletId: route.params?.walletId,
+                isBackedUp: true,
+              });
+            }
+            Toast.success({
+              title: intl.formatMessage({
+                id: ETranslations.backup_recovery_phrase_backed_up,
+              }),
+            });
+            navigation.popStack();
+          } else {
+            setSelectedWords({
+              0: null,
+              1: null,
+              2: null,
+            });
+            Toast.error({
+              title: intl.formatMessage({
+                id: ETranslations.feedback_passphrase_not_matched,
+              }),
             });
           }
-          Toast.success({
-            title: intl.formatMessage({
-              id: ETranslations.backup_recovery_phrase_backed_up,
-            }),
-          });
-          navigation.popStack();
         }
       });
     },
@@ -139,28 +152,38 @@ export default function VerifyRecoveryPhrase() {
   return (
     <Page>
       <OnboardingLayout>
-        <OnboardingLayout.Header title="Verify your recovery phrase" />
+        <OnboardingLayout.Header
+          title={intl.formatMessage({
+            id: ETranslations.onboarding_verify_recovery_phrase_title,
+          })}
+        />
         <OnboardingLayout.Body>
           {shuffleWords.map((question, questionIndex) => (
             <YStack key={questionIndex} gap="$2">
               <SizableText size="$bodyMd">
                 Word #{question.index + 1}
               </SizableText>
-              <XStack gap="$2">
+              <XStack
+                gap="$2"
+                justifyContent="space-evenly"
+                alignItems="center"
+              >
                 {question.words.map((word, wordIndex) => (
-                  <Button
-                    key={wordIndex}
-                    size="large"
-                    flex={1}
-                    variant={
-                      selectedWords[questionIndex] === word
-                        ? 'primary'
-                        : 'secondary'
-                    }
-                    onPress={() => handleWordSelect(questionIndex, word)}
-                  >
-                    {word}
-                  </Button>
+                  <XStack key={wordIndex} flex={1}>
+                    <Button
+                      key={wordIndex}
+                      size="large"
+                      width="100%"
+                      variant={
+                        selectedWords[questionIndex] === word
+                          ? 'primary'
+                          : 'secondary'
+                      }
+                      onPress={() => handleWordSelect(questionIndex, word)}
+                    >
+                      {word}
+                    </Button>
+                  </XStack>
                 ))}
               </XStack>
             </YStack>

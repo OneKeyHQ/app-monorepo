@@ -56,6 +56,7 @@ function BasicEditAddress() {
       >
     >();
   const onAddressAdded = route.params?.onAddressAdded;
+  const hideAddressBook = route.params?.hideAddressBook ?? false;
   const intl = useIntl();
   const navigation = useAppNavigation();
   const enabledNetworks = useMemo(
@@ -137,20 +138,24 @@ function BasicEditAddress() {
 
   const { result: addressBookEnabledNetworkIds } = usePromiseResult(
     async () => {
+      if (hideAddressBook) {
+        return [];
+      }
       const networks =
         await backgroundApiProxy.serviceNetwork.getAddressBookEnabledNetworks();
       return networks.map((o) => o.id);
     },
-    [],
+    [hideAddressBook],
     { initResult: [] },
   );
 
   const addressInputAccountSelectorArgs = useMemo<{ num: number } | undefined>(
     () =>
+      !hideAddressBook &&
       addressBookEnabledNetworkIds.includes(networkIdValue)
         ? { num: 0, clearNotMatch: true }
         : undefined,
-    [addressBookEnabledNetworkIds, networkIdValue],
+    [addressBookEnabledNetworkIds, hideAddressBook, networkIdValue],
   );
 
   onSubmitRef.current = useCallback(
@@ -230,7 +235,7 @@ function BasicEditAddress() {
               }}
             >
               <AddressInput
-                enableAddressBook
+                enableAddressBook={!hideAddressBook}
                 enableWalletName
                 enableVerifySendFundToSelf
                 enableAddressInteractionStatus
@@ -239,7 +244,10 @@ function BasicEditAddress() {
                 accountSelector={addressInputAccountSelectorArgs}
                 // accountId={accountId}
                 networkId={networkIdValue}
-                contacts={addressBookEnabledNetworkIds.includes(networkIdValue)}
+                contacts={
+                  !hideAddressBook &&
+                  addressBookEnabledNetworkIds.includes(networkIdValue)
+                }
                 enableNameResolve
                 placeholder={intl.formatMessage({
                   id: ETranslations.form_address_placeholder,

@@ -1,5 +1,5 @@
 import type { ReactNode, RefObject } from 'react';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { noop } from 'lodash';
@@ -10,6 +10,7 @@ import Animated, {
   useSharedValue,
 } from 'react-native-reanimated';
 
+import type { IInputRef, ITextAreaInputProps } from '@onekeyhq/components';
 import {
   Button,
   HeightTransition,
@@ -35,7 +36,6 @@ import {
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
-import { useAppRoute } from '../../../hooks/useAppRoute';
 import { fixInputImportSingleChain } from '../../Onboarding/pages/ImportWallet/ImportSingleChainBase';
 import useScanQrCode from '../../ScanQrCode/hooks/useScanQrCode';
 import { OnboardingLayout } from '../components/OnboardingLayout';
@@ -43,6 +43,127 @@ import { PhaseInputArea } from '../components/PhaseInputArea';
 
 import type { IPhaseInputAreaInstance } from '../components/PhaseInputArea';
 import type { RouteProp } from '@react-navigation/core';
+import type {
+  NativeSyntheticEvent,
+  TextInput,
+  TextInputSelectionChangeEventData,
+} from 'react-native';
+
+function PrivateKeyInput({ value = '', onChangeText }: ITextAreaInputProps) {
+  const intl = useIntl();
+  const [privateKey, setPrivateKey] = useState(value);
+  const { start: startScanQrCode } = useScanQrCode();
+  const [encrypted, setEncrypted] = useState(true);
+  const inputRef = useRef<IInputRef>(null);
+
+  const privateKeyRef = useRef(privateKey);
+  privateKeyRef.current = privateKey;
+  const selectionRef = useRef({ start: 0, end: 0 });
+
+  const handleSelectionChange = useCallback(
+    (e: NativeSyntheticEvent<TextInputSelectionChangeEventData>) => {
+      const selection = e.nativeEvent.selection;
+      console.log('handleSelectionChange', selection);
+      selectionRef.current = selection;
+    },
+    [],
+  );
+
+  const formattedValue = useMemo(() => {
+    if (encrypted) {
+      return '•'.repeat(privateKey.length);
+    }
+    return privateKey;
+  }, [encrypted, privateKey]);
+
+  const updatePrivateKey = useCallback(
+    (text: string) => {
+      setPrivateKey(text);
+      onChangeText?.(text);
+    },
+    [onChangeText],
+  );
+
+  const handleChangeText = useCallback(
+    (text: string) => {
+      if (encrypted) {
+        // Find non-asterisk characters in text and merge with actual privateKey
+        const selection = selectionRef.current;
+        let newPrivateKey = privateKeyRef.current;
+
+        // Calculate the difference between old and new text
+        const oldLength = privateKeyRef.current.length;
+        const newLength = text.length;
+
+        const selectionRange = selection.end - selection.start;
+
+        if (selectionRange > 0) {
+          // Text was selected and replaced - replace selected characters with new text
+          const selectedText = text
+            .slice(selection.start, selection.end)
+            .replace(/•/g, '');
+          newPrivateKey =
+            privateKeyRef.current.slice(0, selection.start) +
+            selectedText +
+            privateKeyRef.current.slice(selection.end);
+        } else if (newLength > oldLength) {
+          // Text was added - insert new characters at selection position
+          const addedText = text.slice(
+            selection.start,
+            selection.start + (newLength - oldLength),
+          );
+          newPrivateKey =
+            privateKeyRef.current.slice(0, selection.start) +
+            addedText +
+            privateKeyRef.current.slice(selection.start);
+        } else if (newLength < oldLength) {
+          // Text was removed - remove characters from selection position
+          const removedCount = oldLength - newLength;
+          const selectionStart = selection.start - 1;
+          newPrivateKey =
+            privateKeyRef.current.slice(0, selectionStart) +
+            privateKeyRef.current.slice(selectionStart + removedCount);
+        } else {
+          // Text was replaced - replace characters at selection position
+          const replacedText = text.slice(selection.start, selection.end);
+          newPrivateKey =
+            privateKeyRef.current.slice(0, selection.start) +
+            replacedText +
+            privateKeyRef.current.slice(selection.end);
+        }
+
+        updatePrivateKey(newPrivateKey);
+      } else {
+        updatePrivateKey(text);
+      }
+    },
+    [encrypted, updatePrivateKey],
+  );
+
+  return (
+    <TextAreaInput
+      ref={inputRef as RefObject<TextInput>}
+      allowPaste
+      allowClear
+      allowScan
+      allowSecureTextEye // TextAreaInput not support allowSecureTextEye
+      onSelectionChange={handleSelectionChange}
+      clearClipboardOnPaste
+      onSecureTextEntryChange={setEncrypted}
+      startScanQrCode={startScanQrCode}
+      size="large"
+      numberOfLines={5}
+      value={formattedValue}
+      onChangeText={handleChangeText}
+      $platform-native={{
+        minHeight: 160,
+      }}
+      placeholder={intl.formatMessage({
+        id: ETranslations.form_enter_private_key_placeholder,
+      })}
+    />
+  );
+}
 
 export default function ImportPhraseOrPrivateKey() {
   const navigation = useAppNavigation();
@@ -221,23 +342,9 @@ export default function ImportPhraseOrPrivateKey() {
                   }}
                   gap="$5"
                 >
-                  <Input
-                    allowPaste
-                    allowClear
-                    allowScan
-                    allowSecureTextEye // TextAreaInput not support allowSecureTextEye
-                    clearClipboardOnPaste
-                    startScanQrCode={startScanQrCode}
-                    size="large"
-                    numberOfLines={5}
+                  <PrivateKeyInput
                     value={privateKey}
                     onChangeText={setPrivateKey}
-                    $platform-native={{
-                      minHeight: 160,
-                    }}
-                    placeholder={intl.formatMessage({
-                      id: ETranslations.form_enter_private_key_placeholder,
-                    })}
                   />
                 </YStack>
               )}

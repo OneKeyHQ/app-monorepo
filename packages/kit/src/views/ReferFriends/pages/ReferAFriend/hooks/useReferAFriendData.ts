@@ -1,29 +1,24 @@
 import { useEffect, useState } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useReplaceToReferFriends } from '@onekeyhq/kit/src/hooks/useReferFriends';
 import { EOneKeyDeepLinkPath } from '@onekeyhq/shared/src/consts/deeplinkConsts';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IInvitePostConfig } from '@onekeyhq/shared/src/referralCode/type';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 
-import {
-  useNavigateToInviteReward,
-  useReplaceToInviteReward,
-} from '../../InviteReward/hooks/useNavigateToInviteReward';
-
 import { useLoginStatusChange } from './useLoginStatusChange';
 
 export function useReferAFriendData() {
-  const navigateToInviteReward = useNavigateToInviteReward();
-  const replaceToInviteReward = useReplaceToInviteReward();
+  const replaceToReferFriends = useReplaceToReferFriends();
   const [postConfig, setPostConfig] = useState<IInvitePostConfig | undefined>(
     undefined,
   );
 
   // Monitor login status changes and auto-navigate when user logs in
   useLoginStatusChange(() => {
-    replaceToInviteReward();
+    void replaceToReferFriends();
   });
 
   useEffect(() => {
@@ -40,7 +35,7 @@ export function useReferAFriendData() {
     // Check login status and handle redirects
     void backgroundApiProxy.servicePrime.isLoggedIn().then((isLogin) => {
       if (isLogin) {
-        navigateToInviteReward();
+        void replaceToReferFriends();
         return;
       }
 
@@ -64,7 +59,7 @@ export function useReferAFriendData() {
         globalThis.location.href = url;
       }
     });
-  }, [navigateToInviteReward]);
+  }, [replaceToReferFriends]);
 
   return {
     postConfig,

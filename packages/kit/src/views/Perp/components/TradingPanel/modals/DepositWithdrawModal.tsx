@@ -637,12 +637,15 @@ function DepositWithdrawContent({
         value: true,
       };
     }
-    const minFromTokenAmountFormatted = minFromTokenAmount
-      .decimalPlaces(
-        currentPerpsDepositSelectedToken?.decimals ?? 0,
-        BigNumber.ROUND_UP,
-      )
-      .toFixed();
+    const minFromTokenAmountFormatted = numberFormat(
+      minFromTokenAmount
+        .decimalPlaces(
+          currentPerpsDepositSelectedToken?.decimals ?? 0,
+          BigNumber.ROUND_UP,
+        )
+        .toFixed(),
+      { formatter: 'balance' },
+    );
     return {
       value: false,
       minFromTokenAmount: minFromTokenAmountFormatted,

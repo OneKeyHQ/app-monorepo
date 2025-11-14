@@ -57,7 +57,6 @@ function ShareContent({ data, onClose, isMobile }: IShareContentProps) {
       if (platformEnv.isNative && onClose) {
         onClose();
       }
-
       await saveImage(base64);
     } finally {
       setIsActionLoading(false);

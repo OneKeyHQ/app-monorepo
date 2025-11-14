@@ -2,13 +2,7 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  Button,
-  Dialog,
-  Icon,
-  SizableText,
-  XStack,
-} from '@onekeyhq/components';
+import { Button, Dialog, SizableText, useMedia } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { NoteDialogContent } from './NoteDialogContent';
@@ -22,15 +16,16 @@ interface INoteCellProps {
 // Note cell with add/edit note functionality
 export function NoteCell({ code, note, onNoteUpdated }: INoteCellProps) {
   const intl = useIntl();
+  const { md } = useMedia();
 
   const handleOpenDialog = useCallback(() => {
     const dialogTitle = note
       ? `${intl.formatMessage({
           id: ETranslations.global_edit,
-        })} ${intl.formatMessage({ id: ETranslations.global_Note })}`
+        })}${intl.formatMessage({ id: ETranslations.global_Note })}`
       : `${intl.formatMessage({
           id: ETranslations.global_add,
-        })} ${intl.formatMessage({ id: ETranslations.global_Note })}`;
+        })}${intl.formatMessage({ id: ETranslations.global_Note })}`;
 
     Dialog.show({
       title: dialogTitle,
@@ -47,27 +42,25 @@ export function NoteCell({ code, note, onNoteUpdated }: INoteCellProps) {
 
   if (note) {
     return (
-      <XStack
-        gap="$2"
-        ai="center"
-        cursor="pointer"
+      <Button
+        childrenAsText={false}
+        variant="tertiary"
+        size="small"
+        icon="PencilOutline"
         onPress={handleOpenDialog}
-        p="$1"
-        borderRadius="$2"
-        hoverStyle={{
-          backgroundColor: '$bgHover',
-        }}
       >
-        <Icon name="PencilOutline" size="$3.5" color="$iconSubdued" />
         <SizableText
           size="$bodyMdMedium"
           color="$text"
           numberOfLines={1}
-          maxWidth={160}
+          maxWidth={md ? 90 : 120}
+          ellipsizeMode="tail"
+          display="block"
+          overflow="hidden"
         >
           {note}
         </SizableText>
-      </XStack>
+      </Button>
     );
   }
 
