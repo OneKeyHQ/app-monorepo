@@ -5,6 +5,8 @@ import { deviceName, osName } from 'expo-device';
 import { useIntl } from 'react-intl';
 
 import {
+  Alert,
+  Divider,
   Icon,
   SectionList,
   SizableText,
@@ -89,10 +91,24 @@ export default function BackupDeviceList<T>({
           : []
       }
       renderSectionHeader={() => (
-        <SectionList.SectionHeader
-          mt="$5"
-          title={intl.formatMessage({ id: ETranslations.backup_all_devices })}
-        />
+        <>
+          <Alert
+            type="info"
+            mx="$5"
+            description={intl.formatMessage(
+              {
+                id: ETranslations.older_backups_description,
+              },
+              {
+                version: '5.17.0',
+              },
+            )}
+          />
+          <SectionList.SectionHeader
+            mt="$5"
+            title={intl.formatMessage({ id: ETranslations.backup_all_devices })}
+          />
+        </>
       )}
       renderItem={({
         item,
@@ -154,28 +170,17 @@ export default function BackupDeviceList<T>({
         />
       )}
       estimatedItemSize="$16"
-      ListFooterComponent={
-        !hasData && ListEmptyComponent ? null : (
-          <>
-            <SizableText size="$bodySm" color="$textSubdued" px="$5" pt="$3">
-              {intl.formatMessage({
-                id: ETranslations.backup_onekey_doesnt_back_up_hardware_wallets,
-              })}
-            </SizableText>
-            <SizableText
-              size="$bodySm"
-              color="$textSubdued"
-              px="$5"
-              pt="$3"
-              // TODO: franco
-            >
-              这里保留 5.17
-              之前版本的备份，并且自动备份功能将下线，地址薄备份已经升级为
-              OneKey Cloud 云端同步。
-            </SizableText>
-          </>
-        )
-      }
+      // ListFooterComponent={
+      //   !hasData && ListEmptyComponent ? null : (
+      //     <>
+      //       <SizableText size="$bodySm" color="$textSubdued" px="$5" pt="$3">
+      //         {intl.formatMessage({
+      //           id: ETranslations.backup_onekey_doesnt_back_up_hardware_wallets,
+      //         })}
+      //       </SizableText>
+      //     </>
+      //   )
+      // }
       ListEmptyComponent={ListEmptyComponent}
       {...(restProps as any)}
     />

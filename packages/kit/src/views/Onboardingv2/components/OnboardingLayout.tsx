@@ -126,20 +126,22 @@ function OnboardingLayoutConstrainedContent({
 }: { children: React.ReactNode } & IYStackProps) {
   return (
     <YStack
-      animation="quick"
-      animateOnly={['opacity', 'transform']}
-      enterStyle={{
-        opacity: 0,
-        x: 24,
-        filter: 'blur(4px)',
-      }}
       w="100%"
-      maxWidth={400}
       alignSelf="center"
       $gtMd={{
         py: '$10',
+        maxWidth: 400,
       }}
       gap="$5"
+      {...(!platformEnv.isNativeIOS && {
+        animation: 'quick',
+        animateOnly: ['opacity', 'transform'],
+        enterStyle: {
+          opacity: 0,
+          x: 24,
+          filter: 'blur(4px)',
+        },
+      })}
       {...rest}
     >
       {children}
@@ -230,6 +232,7 @@ function OnboardingLayoutFooter({ children }: { children?: React.ReactNode }) {
 
 function OnboardingLayoutRoot({ children }: { children: React.ReactNode }) {
   const { top, bottom } = useSafeAreaInsets();
+
   return (
     <YStack
       h="100%"
@@ -267,6 +270,11 @@ function OnboardingLayoutRoot({ children }: { children: React.ReactNode }) {
         //   px: '$10',
         // }}
         bg="$bg"
+        $theme-dark={{
+          outlineWidth: 1,
+          outlineColor: '$neutral2',
+          outlineStyle: 'solid',
+        }}
         $gtMd={{
           px: '$10',
           maxWidth: 1440,
