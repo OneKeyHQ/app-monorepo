@@ -48,7 +48,6 @@ export default function ICloudBackup() {
   const [refreshHook] = useOnboardingCloudBackupListRefreshAtom();
   const intl = useIntl();
 
-
   const { result: legacyBackups } = usePromiseResult(async () => {
     if (platformEnv.isNative) {
       return backgroundApiProxy.serviceCloudBackup.getMetaDataFromCloud();
@@ -176,7 +175,6 @@ export default function ICloudBackup() {
           {renderContent()}
           {legacyBackups?.length ? (
             <Button
-              // TODO: franco
               onPress={async () => {
                 // Dialog.debugMessage({
                 //   debugMessage: legacyBackups,
@@ -186,7 +184,7 @@ export default function ICloudBackup() {
                 });
               }}
             >
-              查看以前的备份
+              {intl.formatMessage({ id: ETranslations.view_older_backups })}
             </Button>
           ) : null}
 

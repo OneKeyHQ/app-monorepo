@@ -123,10 +123,12 @@ export function useCloudBackup() {
         if (!cloudAccountInfo.googleDrive?.googlePlayServiceAvailable) {
           Dialog.confirm({
             icon: 'InfoCircleOutline',
-            title: 'Google Play Services is not available',
-            // TODO: franco
-            description:
-              'Please install Google Play Services and sign in to your Google account',
+            title: intl.formatMessage({
+              id: ETranslations.google_play_services_not_available_title,
+            }),
+            description: intl.formatMessage({
+              id: ETranslations.google_play_services_not_available_desc,
+            }),
             onConfirmText: intl.formatMessage({
               id: ETranslations.global_got_it,
             }),
@@ -210,10 +212,10 @@ export function useCloudBackup() {
         await timerUtils.wait(350);
         try {
           loadingDialog = Dialog.loading({
-            // TODO: franco
-            title: 'Backuping...',
-            description:
-              'Please do not close this window until the backup is complete',
+            title: intl.formatMessage({ id: ETranslations.backing_up_title }),
+            description: intl.formatMessage({
+              id: ETranslations.backing_up_desc,
+            }),
           });
           const result = await backgroundApiProxy.serviceCloudBackupV2.backup({
             password,
@@ -349,8 +351,9 @@ export function useCloudBackup() {
             // });
             if (result?.success) {
               Toast.success({
-                // TODO: franco
-                title: 'Backup restored!',
+                title: intl.formatMessage({
+                  id: ETranslations.backup_restored,
+                }),
               });
               navigation.pop();
               navigation.navigate(ERootRoutes.Main, undefined, {
@@ -387,9 +390,12 @@ export function useCloudBackup() {
         });
       } else {
         loadingDialog = Dialog.loading({
-          // TODO: franco
-          title: 'Preparing backup...',
-          description: 'Please wait...',
+          title: intl.formatMessage({
+            id: ETranslations.preparing_backup_title,
+          }),
+          description: intl.formatMessage({
+            id: ETranslations.preparing_backup_desc,
+          }),
         });
         try {
           const data =
@@ -400,7 +406,7 @@ export function useCloudBackup() {
         }
       }
     }
-  }, [checkIsAvailable, doBackup, goToPageBackupDetail]);
+  }, [checkIsAvailable, doBackup, goToPageBackupDetail, intl]);
 
   return useMemo(
     () => ({
