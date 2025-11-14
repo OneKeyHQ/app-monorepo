@@ -32,6 +32,8 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
+import { ReferFriendsPageContainer } from '../../components';
+
 type ISectionListItem = {
   title?: string;
   data: number[];
@@ -202,41 +204,44 @@ function RewardDistributionHistoryPageWrapper() {
         />
       )}
       <Page.Body>
-        {sections === undefined ? (
-          <YStack
-            position="absolute"
-            top={0}
-            left={0}
-            right={0}
-            bottom={0}
-            ai="center"
-            jc="center"
-            flex={1}
-          >
-            <Spinner size="large" />
-          </YStack>
-        ) : (
-          <SectionList
-            refreshControl={
-              <RefreshControl refreshing={isLoading} onRefresh={onRefresh} />
-            }
-            contentContainerStyle={{ pb: '$10' }}
-            ListEmptyComponent={
-              <Empty
-                mt={34}
-                icon="SearchOutline"
-                title={intl.formatMessage({
-                  id: ETranslations.global_no_data,
-                })}
-              />
-            }
-            sections={sections}
-            renderSectionHeader={renderSectionHeader}
-            estimatedItemSize={60}
-            renderItem={renderItem}
-            // onEndReached={fetchMore}
-          />
-        )}
+        <ReferFriendsPageContainer flex={1} position="relative">
+          {sections === undefined ? (
+            <YStack
+              position="absolute"
+              top={0}
+              left={0}
+              right={0}
+              bottom={0}
+              ai="center"
+              jc="center"
+              flex={1}
+            >
+              <Spinner size="large" />
+            </YStack>
+          ) : (
+            <SectionList
+              flex={1}
+              refreshControl={
+                <RefreshControl refreshing={isLoading} onRefresh={onRefresh} />
+              }
+              contentContainerStyle={{ pb: '$10' }}
+              ListEmptyComponent={
+                <Empty
+                  mt={34}
+                  icon="SearchOutline"
+                  title={intl.formatMessage({
+                    id: ETranslations.global_no_data,
+                  })}
+                />
+              }
+              sections={sections}
+              renderSectionHeader={renderSectionHeader}
+              estimatedItemSize={60}
+              renderItem={renderItem}
+              // onEndReached={fetchMore}
+            />
+          )}
+        </ReferFriendsPageContainer>
       </Page.Body>
     </Page>
   );
