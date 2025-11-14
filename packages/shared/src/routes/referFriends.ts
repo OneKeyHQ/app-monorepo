@@ -31,6 +31,7 @@ export type IModalReferFriendsParamList = {
     enabledNetworks: string[];
     accountId: string;
     address?: string;
+    hideAddressBook?: boolean;
     onAddressAdded: ({
       address,
       networkId,
