@@ -25,6 +25,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { useSettingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   EModalSwapRoutes,
   IModalSwapParamList,
@@ -152,8 +153,7 @@ const SwapToAnotherAddressPage = () => {
             enableAddressContract
             enableAllowListValidation
             accountId={accountInfo?.account?.id}
-            contacts
-            accountSelector={accountSelector}
+            {...(!platformEnv.isWeb ? { contacts: true, accountSelector } : {})}
           />
         </Form>
         <Stack gap="$4">
