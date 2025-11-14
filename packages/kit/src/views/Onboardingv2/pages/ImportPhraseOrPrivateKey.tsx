@@ -71,10 +71,18 @@ function PrivateKeyInput({ value = '', onChangeText }: ITextAreaInputProps) {
 
   const formattedValue = useMemo(() => {
     if (encrypted) {
-      return '*'.repeat(privateKey.length);
+      return '•'.repeat(privateKey.length);
     }
     return privateKey;
   }, [encrypted, privateKey]);
+
+  const updatePrivateKey = useCallback(
+    (text: string) => {
+      setPrivateKey(text);
+      onChangeText?.(text);
+    },
+    [onChangeText],
+  );
 
   const handleChangeText = useCallback(
     (text: string) => {
@@ -87,7 +95,18 @@ function PrivateKeyInput({ value = '', onChangeText }: ITextAreaInputProps) {
         const oldLength = privateKeyRef.current.length;
         const newLength = text.length;
 
-        if (newLength > oldLength) {
+        const selectionRange = selection.end - selection.start;
+
+        if (selectionRange > 0) {
+          // Text was selected and replaced - replace selected characters with new text
+          const selectedText = text
+            .slice(selection.start, selection.end)
+            .replace(/•/g, '');
+          newPrivateKey =
+            privateKeyRef.current.slice(0, selection.start) +
+            selectedText +
+            privateKeyRef.current.slice(selection.end);
+        } else if (newLength > oldLength) {
           // Text was added - insert new characters at selection position
           const addedText = text.slice(
             selection.start,
@@ -100,9 +119,10 @@ function PrivateKeyInput({ value = '', onChangeText }: ITextAreaInputProps) {
         } else if (newLength < oldLength) {
           // Text was removed - remove characters from selection position
           const removedCount = oldLength - newLength;
+          const selectionStart = selection.start - 1;
           newPrivateKey =
-            privateKeyRef.current.slice(0, selection.start) +
-            privateKeyRef.current.slice(selection.start + removedCount);
+            privateKeyRef.current.slice(0, selectionStart) +
+            privateKeyRef.current.slice(selectionStart + removedCount);
         } else {
           // Text was replaced - replace characters at selection position
           const replacedText = text.slice(selection.start, selection.end);
@@ -112,13 +132,12 @@ function PrivateKeyInput({ value = '', onChangeText }: ITextAreaInputProps) {
             privateKeyRef.current.slice(selection.end);
         }
 
-        setPrivateKey(newPrivateKey);
-        onChangeText?.(newPrivateKey);
+        updatePrivateKey(newPrivateKey);
       } else {
-        onChangeText?.(text);
+        updatePrivateKey(text);
       }
     },
-    [encrypted, onChangeText],
+    [encrypted, updatePrivateKey],
   );
 
   return (
