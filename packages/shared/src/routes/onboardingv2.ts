@@ -38,6 +38,7 @@ interface IVerifyRecoveryPhraseParams {
   mnemonic: string;
   isWalletBackedUp?: boolean;
   walletId: string;
+  accountName?: string;
 }
 
 export type IOnboardingParamListV2 = {
