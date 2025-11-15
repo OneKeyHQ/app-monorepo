@@ -16,6 +16,7 @@ interface IRefreshOptions {
   provider?: string;
   networkId?: string;
   symbol?: string;
+  rewardSymbol?: string;
 }
 
 type IInvestmentKey = string;
@@ -312,6 +313,12 @@ export const useEarnPortfolio = () => {
         return;
       }
 
+      // Check if account changed and update requestId BEFORE getting current requestId
+      // This ensures the new fetch uses the updated requestId
+      if (hasAccountChanged()) {
+        markAccountChange();
+      }
+
       const requestId = getCurrentRequestId();
       // Only set loading state for full refresh, not for partial refresh
       const isPartialRefresh = Boolean(options);
@@ -349,13 +356,30 @@ export const useEarnPortfolio = () => {
       // Filter pairs directly
       const pairsWithType = options
         ? accountAssetPairs.filter((pair) => {
-            const { params } = pair;
+            const { params, isAirdrop } = pair;
             if (options.provider && params.provider !== options.provider)
               return false;
             if (options.networkId && params.networkId !== options.networkId)
               return false;
-            if (options.symbol && params.symbol !== options.symbol)
-              return false;
+            // For symbol filtering:
+            // - Normal assets: match against options.symbol (staked token symbol)
+            // - Airdrop assets: match against options.rewardSymbol (reward token symbol)
+            if (options.symbol) {
+              if (isAirdrop) {
+                // For airdrop, check if rewardSymbol is provided and matches
+                if (
+                  options.rewardSymbol &&
+                  params.symbol !== options.rewardSymbol
+                ) {
+                  return false;
+                }
+                // If no rewardSymbol provided, skip symbol check for airdrops
+                // This allows refreshing all airdrops for the provider
+              } else if (params.symbol !== options.symbol) {
+                // For normal assets, match symbol directly
+                return false;
+              }
+            }
             return true;
           })
         : accountAssetPairs;
@@ -475,6 +499,8 @@ export const useEarnPortfolio = () => {
       fetchInvestmentDetail,
       updateInvestments,
       isRequestStale,
+      hasAccountChanged,
+      markAccountChange,
       // investmentMapRef is a ref, doesn't need to be in deps
     ],
   );

@@ -46,6 +46,7 @@ const WrappedActionButton = ({
   asset,
   reward,
   stakedSymbol,
+  rewardSymbol,
 }: {
   asset:
     | IEarnPortfolioInvestment['assets'][number]
@@ -54,6 +55,7 @@ const WrappedActionButton = ({
     | IEarnPortfolioInvestment['assets'][number]['rewardAssets'][number]
     | IEarnPortfolioInvestment['airdropAssets'][number]['airdropAssets'][number];
   stakedSymbol?: string;
+  rewardSymbol?: string;
 }) => {
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { account, indexedAccount } = activeAccount;
@@ -104,6 +106,7 @@ const WrappedActionButton = ({
           rewardTokenAddress,
           indexedAccountId: indexedAccount?.id,
           stakedSymbol,
+          rewardSymbol,
         });
       }}
     >
@@ -298,6 +301,7 @@ const ProtocolHeader = ({
                           asset={airdrop}
                           reward={reward}
                           stakedSymbol={stakedSymbol}
+                          rewardSymbol={airdrop.token.info.symbol}
                         />
                       ) : null}
                       {needDivider ? (
@@ -632,7 +636,12 @@ export const PortfolioTabContent = () => {
   const { investments, isLoading, refresh } = useEarnPortfolio();
 
   const refreshPortfolioRow = useCallback<
-    (payload: { provider: string; symbol: string; networkId: string }) => void
+    (payload: {
+      provider: string;
+      symbol: string;
+      networkId: string;
+      rewardSymbol?: string;
+    }) => void
   >(
     (payload) => {
       if (!payload?.provider || !payload?.symbol || !payload?.networkId) {
@@ -644,6 +653,7 @@ export const PortfolioTabContent = () => {
           provider: payload.provider,
           symbol: payload.symbol,
           networkId: payload.networkId,
+          rewardSymbol: payload.rewardSymbol,
         });
       });
     },
@@ -655,6 +665,7 @@ export const PortfolioTabContent = () => {
       provider: string;
       symbol: string;
       networkId: string;
+      rewardSymbol?: string;
     }) => {
       refreshPortfolioRow(payload);
     };

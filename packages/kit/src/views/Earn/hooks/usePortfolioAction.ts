@@ -78,11 +78,13 @@ export const usePortfolioAction = ({
       token,
       rewardTokenAddress,
       stakedSymbol,
+      rewardSymbol,
     }: {
       actionIcon: IEarnClaimActionIcon;
       token?: IEarnToken;
       rewardTokenAddress?: string;
       stakedSymbol?: string;
+      rewardSymbol?: string;
     }) => {
       setLoading(true);
       setTimeout(() => {
@@ -142,6 +144,8 @@ export const usePortfolioAction = ({
         // For airdrops, use stakedSymbol to refresh the correct portfolio item
         // For normal claims, use token?.symbol
         portfolioSymbol: stakedSymbol || token?.symbol,
+        // For airdrops, also pass rewardSymbol to filter the correct airdrop asset
+        portfolioRewardSymbol: rewardSymbol,
       });
       setLoading(false);
     },

@@ -37,6 +37,7 @@ export const useHandleClaim = ({
       stakingInfo,
       onSuccess,
       portfolioSymbol,
+      portfolioRewardSymbol,
     }: {
       claimType: EClaimType;
       protocolInfo?: IProtocolInfo;
@@ -49,6 +50,7 @@ export const useHandleClaim = ({
       stakingInfo?: IStakingInfo;
       onSuccess?: () => void;
       portfolioSymbol?: string;
+      portfolioRewardSymbol?: string;
     }) => {
       if (!accountId) return;
       const provider = protocolInfo?.provider || '';
@@ -71,6 +73,7 @@ export const useHandleClaim = ({
           claimTokenAddress,
           portfolioSymbol:
             portfolioSymbol || tokenInfo?.token?.symbol || undefined,
+          portfolioRewardSymbol,
           vault,
         });
         return;
@@ -119,6 +122,7 @@ export const useHandleClaim = ({
           vault,
           portfolioSymbol:
             portfolioSymbol || tokenInfo?.token?.symbol || undefined,
+          portfolioRewardSymbol,
         });
         return;
       }
@@ -147,6 +151,7 @@ export const useHandleClaim = ({
         vault,
         portfolioSymbol:
           portfolioSymbol || tokenInfo?.token?.symbol || undefined,
+        portfolioRewardSymbol,
       });
     },
     [accountId, networkId, handleUniversalClaim, appNavigation],
