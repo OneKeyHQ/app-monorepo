@@ -4,7 +4,7 @@
  * Demonstrates various usage scenarios
  */
 
-import { DiagnosticIssueType, runNetworkDoctor } from './index.native';
+import { EDiagnosticIssueType, runNetworkDoctor } from './index.native';
 
 // ==================== Example 1: Basic Usage ====================
 
@@ -71,7 +71,7 @@ export async function example3DetectSniBlocking() {
 
   // Detect SNI blocking
   const sniBlockingIssue = report.summary.issues.find(
-    (issue) => issue.type === DiagnosticIssueType.SELECTIVE_BLOCKING,
+    (issue) => issue.type === EDiagnosticIssueType.SELECTIVE_BLOCKING,
   );
 
   if (sniBlockingIssue) {
