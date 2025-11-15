@@ -70,6 +70,7 @@ export function CumulativeRewards({
       accountId: activeAccount.account?.id ?? '',
       address: withdrawAddresses[0]?.address,
       hideAddressBook: !!platformEnv.isWebDappMode,
+      enableAllowListValidation: false,
       onAddressAdded: async ({ networkId }: { networkId: string }) => {
         Toast.success({
           title: intl.formatMessage({

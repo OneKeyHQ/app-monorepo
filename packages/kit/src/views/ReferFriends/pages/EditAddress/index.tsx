@@ -59,6 +59,8 @@ function BasicEditAddress() {
     >();
   const onAddressAdded = route.params?.onAddressAdded;
   const hideAddressBook = route.params?.hideAddressBook ?? false;
+  const enableAllowListValidation =
+    route.params?.enableAllowListValidation ?? true;
   const intl = useIntl();
   const navigation = useAppNavigation();
   const enabledNetworks = useMemo(
@@ -209,7 +211,11 @@ function BasicEditAddress() {
         title={intl.formatMessage({
           id: ETranslations.address_book_edit_address_title,
         })}
-        headerRight={renderAddressSecurityHeaderRightButton}
+        headerRight={
+          enableAllowListValidation
+            ? renderAddressSecurityHeaderRightButton
+            : undefined
+        }
       />
       <Page.Body px="$5">
         <ReferFriendsPageContainer>
@@ -242,7 +248,7 @@ function BasicEditAddress() {
                   enableVerifySendFundToSelf
                   enableAddressInteractionStatus
                   enableAddressContract
-                  enableAllowListValidation
+                  enableAllowListValidation={enableAllowListValidation}
                   accountSelector={addressInputAccountSelectorArgs}
                   // accountId={accountId}
                   networkId={networkIdValue}
