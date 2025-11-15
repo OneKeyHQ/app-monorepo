@@ -127,6 +127,7 @@ export function CumulativeRewards({
                 <IconButton
                   icon="ClockTimeHistoryOutline"
                   variant="tertiary"
+                  iconColor="$iconSubdued"
                   size="small"
                   onPress={navigateToRewardHistory}
                 />
