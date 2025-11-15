@@ -153,8 +153,7 @@ function BasicEditAddress() {
 
   const addressInputAccountSelectorArgs = useMemo<{ num: number } | undefined>(
     () =>
-      !hideAddressBook &&
-      addressBookEnabledNetworkIds.includes(networkIdValue)
+      !hideAddressBook && addressBookEnabledNetworkIds.includes(networkIdValue)
         ? { num: 0, clearNotMatch: true }
         : undefined,
     [addressBookEnabledNetworkIds, hideAddressBook, networkIdValue],
@@ -235,44 +234,45 @@ function BasicEditAddress() {
                       id: ETranslations.form_address_error_invalid,
                     }),
                   }),
-                }}
-              >
-                <AddressInput
-                  enableAddressBook={!hideAddressBook}
-                  enableWalletName
-                  enableVerifySendFundToSelf
-                  enableAddressInteractionStatus
-                  enableAddressContract
-                  enableAllowListValidation
-                  accountSelector={addressInputAccountSelectorArgs}
-                  // accountId={accountId}
-                  networkId={networkIdValue}
-                  contacts={
-                    !hideAddressBook &&
-                    addressBookEnabledNetworkIds.includes(networkIdValue)
-                  }
-                  enableNameResolve
-                  placeholder={intl.formatMessage({
-                    id: ETranslations.form_address_placeholder,
-                  })}
-                  testID="refer-friends-edit-address-input"
-                />
-              </Form.Field>
-            </Form>
-          </AddressInputContext.Provider>
-          <YStack gap="$5" mt="$1.5">
-            <SizableText color="$textSubdued" size="$bodyMd">
-              {intl.formatMessage({
-                id: ETranslations.referral_reward_edit_address_desc_1,
-              })}
-            </SizableText>
-            <SizableText color="$textSubdued" size="$bodyMd">
-              {intl.formatMessage({
-                id: ETranslations.referral_reward_edit_address_desc_2,
-              })}
-            </SizableText>
-          </YStack>
-        </ReferFriendsPageContainer>
+                }),
+              }}
+            >
+              <AddressInput
+                enableAddressBook={!hideAddressBook}
+                enableWalletName
+                enableVerifySendFundToSelf
+                enableAddressInteractionStatus
+                enableAddressContract
+                enableAllowListValidation
+                accountSelector={addressInputAccountSelectorArgs}
+                // accountId={accountId}
+                networkId={networkIdValue}
+                contacts={
+                  !hideAddressBook
+                    ? addressBookEnabledNetworkIds.includes(networkIdValue)
+                    : undefined
+                }
+                enableNameResolve
+                placeholder={intl.formatMessage({
+                  id: ETranslations.form_address_placeholder,
+                })}
+                testID="refer-friends-edit-address-input"
+              />
+            </Form.Field>
+          </Form>
+        </AddressInputContext.Provider>
+        <YStack gap="$5" mt="$1.5">
+          <SizableText color="$textSubdued" size="$bodyMd">
+            {intl.formatMessage({
+              id: ETranslations.referral_reward_edit_address_desc_1,
+            })}
+          </SizableText>
+          <SizableText color="$textSubdued" size="$bodyMd">
+            {intl.formatMessage({
+              id: ETranslations.referral_reward_edit_address_desc_2,
+            })}
+          </SizableText>
+        </YStack>
       </Page.Body>
       <Page.Footer
         confirmButtonProps={{

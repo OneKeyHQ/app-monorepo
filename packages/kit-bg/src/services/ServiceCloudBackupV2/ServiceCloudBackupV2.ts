@@ -23,11 +23,15 @@ import type {
   IPrimeTransferData,
   IPrimeTransferPrivateData,
 } from '@onekeyhq/shared/types/prime/primeTransferTypes';
+import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
+import { EAtomNames } from '../../states/jotai/atomNames';
+import { cloudBackupStatusAtom } from '../../states/jotai/atoms/cloudBackup';
 import ServiceBase from '../ServiceBase';
 
 import { OneKeyBackupProvider } from './backupProviders/OneKeyBackupProvider';
 
+import type { GoogleDriveBackupProvider } from './backupProviders/GoogleDriveBackupProvider';
 import type { ICloudBackupProvider } from './backupProviders/ICloudBackupProvider';
 import type {
   IBackupCloudServerData,
@@ -36,6 +40,7 @@ import type {
   IBackupProviderInfo,
   IOneKeyBackupProvider,
 } from './backupProviders/IOneKeyBackupProvider';
+import type { ICloudBackupStatusAtom } from '../../states/jotai/atoms/cloudBackup';
 
 export type IBackupStatus = {
   isAvailable: boolean;
@@ -48,6 +53,32 @@ export type IBackupStatus = {
 class ServiceCloudBackupV2 extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
+    void this.init();
+  }
+
+  @backgroundMethod()
+  async init(): Promise<void> {
+    void this.initCloudBackupStatusAtom();
+  }
+
+  async initCloudBackupStatusAtom(): Promise<void> {
+    const supportCloudBackup = await this.supportCloudBackup();
+    if (supportCloudBackup) {
+      const cloudBackupProviderInfo = await this.getBackupProviderInfo();
+      const title = cloudBackupProviderInfo.displayNameI18nKey
+        ? appLocale.intl.formatMessage({
+            id: cloudBackupProviderInfo.displayNameI18nKey as any,
+          })
+        : cloudBackupProviderInfo.displayName;
+      await cloudBackupStatusAtom.set(
+        (): ICloudBackupStatusAtom => ({
+          supportCloudBackup,
+          cloudBackupProviderName: title,
+          cloudBackupProviderIcon: 'CloudOutline',
+          cloudBackupProviderInfo,
+        }),
+      );
+    }
   }
 
   _backupProvider: IOneKeyBackupProvider | null = null;
@@ -84,15 +115,6 @@ class ServiceCloudBackupV2 extends ServiceBase {
   @backgroundMethod()
   async getBackupProviderInfo(): Promise<IBackupProviderInfo> {
     return this.getProvider().getBackupProviderInfo();
-  }
-
-  @backgroundMethod()
-  async init(): Promise<void> {
-    // Initialize backup service
-    // Check if iCloud is available and set up listeners if needed
-    if (platformEnv.isNativeIOS) {
-      // await this.iCloudProvider.getBackupStatus();
-    }
   }
 
   @backgroundMethod()
@@ -144,6 +166,14 @@ class ServiceCloudBackupV2 extends ServiceBase {
       );
     }
     return `${cloudAccountInfo.userId}:${params?.password}:4A561E9E-E747-4AFF-B835-FE2EF2D61B41`;
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async clearBackupPassword(): Promise<void> {
+    const provider = this.getProvider();
+    await provider.checkAvailability();
+    await provider.clearBackupPassword();
   }
 
   @backgroundMethod()
@@ -261,7 +291,10 @@ class ServiceCloudBackupV2 extends ServiceBase {
       throw new OneKeyLocalError('Failed to backup data: no data downloaded');
     }
     if (downloadData?.content !== content) {
-      void this.delete({ recordId: recordID });
+      void this.deleteSilently({
+        recordId: recordID,
+        skipManifestUpdate: true,
+      });
       throw new OneKeyLocalError('Failed to backup data: content mismatch');
     }
 
@@ -272,7 +305,10 @@ class ServiceCloudBackupV2 extends ServiceBase {
       (item) => item.recordID === recordID,
     );
     if (!matchedBackup) {
-      void this.delete({ recordId: recordID });
+      void this.deleteSilently({
+        recordId: recordID,
+        skipManifestUpdate: true,
+      });
       throw new OneKeyLocalError(
         appLocale.intl.formatMessage({
           id: ETranslations.backup_write_to_cloud_failed,
@@ -408,10 +444,31 @@ class ServiceCloudBackupV2 extends ServiceBase {
 
   @backgroundMethod()
   @toastIfError()
-  async delete(params: { recordId: string }): Promise<void> {
+  async delete(params: {
+    recordId: string;
+    skipPasswordVerify?: boolean;
+    skipManifestUpdate?: boolean;
+  }): Promise<void> {
     const provider = this.getProvider();
+    if (!params?.skipPasswordVerify) {
+      await this.backgroundApi.servicePassword.promptPasswordVerify({
+        reason: EReasonForNeedPassword.Security,
+      });
+    }
     await provider.deleteBackup({
       recordId: params.recordId,
+      skipManifestUpdate: params?.skipManifestUpdate,
+    });
+  }
+
+  async deleteSilently(params: {
+    recordId: string;
+    skipManifestUpdate: boolean | undefined;
+  }): Promise<void> {
+    return this.delete({
+      recordId: params.recordId,
+      skipPasswordVerify: true,
+      skipManifestUpdate: params?.skipManifestUpdate,
     });
   }
 
@@ -427,6 +484,27 @@ class ServiceCloudBackupV2 extends ServiceBase {
   async iOSQueryAllRecords() {
     const provider = this.getProvider();
     return (provider as ICloudBackupProvider).queryAllRecords();
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async androidListAllFiles() {
+    const provider = this.getProvider();
+    return (provider as GoogleDriveBackupProvider).listAllFiles();
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async androidGetManifestFileObject() {
+    const provider = this.getProvider();
+    return (provider as GoogleDriveBackupProvider).getManifestFileObject();
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async androidRemoveManifestFile() {
+    const provider = this.getProvider();
+    return (provider as GoogleDriveBackupProvider).removeManifestFile();
   }
 
   @backgroundMethod()

@@ -1,6 +1,8 @@
 import { EAtomNames } from '../atomNames';
 import { globalAtom } from '../utils';
 
+import type { IBackupProviderInfo } from '../../../services/ServiceCloudBackupV2/backupProviders/IOneKeyBackupProvider';
+
 export type ICloudBackupPersistAtom = {
   isEnabled: boolean;
   isInProgress: boolean;
@@ -20,3 +22,20 @@ export const {
     isFirstDisabled: true,
   },
 });
+
+export type ICloudBackupStatusAtom = {
+  supportCloudBackup: boolean;
+  cloudBackupProviderName: string;
+  cloudBackupProviderIcon: string;
+  cloudBackupProviderInfo: IBackupProviderInfo | undefined;
+};
+export const { target: cloudBackupStatusAtom, use: useCloudBackupStatusAtom } =
+  globalAtom<ICloudBackupStatusAtom>({
+    name: EAtomNames.cloudBackupStatusAtom,
+    initialValue: {
+      supportCloudBackup: false,
+      cloudBackupProviderName: 'CloudDrive',
+      cloudBackupProviderIcon: 'CloudOutline',
+      cloudBackupProviderInfo: undefined,
+    },
+  });
