@@ -229,7 +229,7 @@ const ManagePositionPage = () => {
         ) {
           // Directly open WithdrawOptions modal instead of switching tab
           appNavigation.push(EModalStakingRoutes.WithdrawOptions, {
-            accountId: account?.id || '',
+            accountId: earnAccount?.account?.id || '',
             networkId,
             protocolInfo,
             tokenInfo,
@@ -250,12 +250,12 @@ const ManagePositionPage = () => {
       }
     },
     [
+      earnAccount?.account?.id,
       focusedTab,
       tabData,
       navigation,
       protocolInfo,
       appNavigation,
-      account,
       networkId,
       tokenInfo,
       symbol,

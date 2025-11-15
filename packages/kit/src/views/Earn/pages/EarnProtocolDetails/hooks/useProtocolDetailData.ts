@@ -62,7 +62,7 @@ export function useProtocolDetailData({
       return response;
     },
     [accountId, networkId, indexedAccountId, symbol, provider, vault],
-    { watchLoading: true, revalidateOnFocus: true },
+    { watchLoading: true },
   );
 
   const tokenInfo = useMemo<IEarnTokenInfo | undefined>(() => {
