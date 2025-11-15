@@ -186,7 +186,7 @@ export function ManagePositionContent({
     if (historyAction?.disabled || !earnAccount?.accountId) return undefined;
     return (params?: { filterType?: string }) => {
       const { filterType } = params || {};
-      appNavigation.navigate(EModalStakingRoutes.HistoryList, {
+      const historyParams = {
         accountId: earnAccount?.accountId,
         networkId,
         symbol,
@@ -194,7 +194,33 @@ export function ManagePositionContent({
         stakeTag: protocolInfo?.stakeTag || '',
         protocolVault: vault,
         filterType,
-      });
+      };
+
+      // Check if we're in a modal navigation context by checking the current route
+      // If navigation.getState() returns a route with modal-related info, use push
+      // Otherwise, use pushModal
+      try {
+        const state = navigation.getState?.();
+        const currentRoute = state?.routes?.[state.index];
+        const isInModal = currentRoute?.name?.includes('Modal');
+
+        if (isInModal) {
+          // We're already in a modal, use push to navigate within the modal stack
+          appNavigation.push(EModalStakingRoutes.HistoryList, historyParams);
+        } else {
+          // We're in a regular page (like EarnProtocolDetails), use pushModal
+          appNavigation.pushModal(EModalRoutes.StakingModal, {
+            screen: EModalStakingRoutes.HistoryList,
+            params: historyParams,
+          });
+        }
+      } catch {
+        // Fallback: if we can't determine context, use pushModal
+        appNavigation.pushModal(EModalRoutes.StakingModal, {
+          screen: EModalStakingRoutes.HistoryList,
+          params: historyParams,
+        });
+      }
     };
   }, [
     historyAction?.disabled,
@@ -205,6 +231,7 @@ export function ManagePositionContent({
     provider,
     symbol,
     vault,
+    navigation,
   ]);
 
   // Initialize selectedTabIndex based on defaultTab
