@@ -85,7 +85,7 @@ const NetworkDoctorGallery = () => {
             {summary.allCriticalChecksPassed ? '✅' : '🔍'} Status
           </Heading>
           <Badge badgeType="default" badgeSize="sm">
-            {summary.assessment.toUpperCase()}
+            <Badge.Text>{summary.assessment.toUpperCase()}</Badge.Text>
           </Badge>
         </XStack>
 
@@ -331,7 +331,7 @@ const NetworkDoctorGallery = () => {
                       {progress.phase.replace(/_/g, ' ')}
                     </SizableText>
                     <Badge badgeType="default" badgeSize="sm">
-                      {progress.percentage}%
+                      <Badge.Text>{progress.percentage}%</Badge.Text>
                     </Badge>
                   </XStack>
                   <YStack position="relative">

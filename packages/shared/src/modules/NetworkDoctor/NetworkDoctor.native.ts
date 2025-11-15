@@ -798,7 +798,11 @@ export class NetworkDoctor {
         defaultLogger.networkDoctor.log.info({
           info: `[NetworkLogger][${index + 1}/${logs.length}] ${statusIcon} ${
             log.method
-          } ${log.url} [${statusText}] [${durationText}]`,
+          } ${
+            log.url
+          } [${statusText}] [${durationText}] - Full request data: ${JSON.stringify(
+            log,
+          )}`,
         });
       });
 
