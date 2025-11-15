@@ -245,6 +245,7 @@ export interface IAppEventBusPayload {
     provider: string;
     symbol: string;
     networkId: string;
+    rewardSymbol?: string;
   };
   [EAppEventBusNames.RefreshEarnPortfolio]: undefined;
   [EAppEventBusNames.AccountDataUpdate]: undefined;

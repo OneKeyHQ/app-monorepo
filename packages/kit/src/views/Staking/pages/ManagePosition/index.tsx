@@ -33,23 +33,13 @@ const ManagePositionPage = () => {
     provider: string;
     vault: string | undefined;
   }>(() => {
-    const routeParams = route.params as any;
-
-    const {
-      accountId: routeAccountId,
-      indexedAccountId: routeIndexedAccountId,
-      networkId,
-      symbol,
-      provider,
-      vault,
-    } = routeParams;
+    const { networkId, symbol, provider, vault } = route.params;
 
     return {
-      accountId: routeAccountId || activeAccount.account?.id || '',
-      indexedAccountId:
-        routeIndexedAccountId || activeAccount.indexedAccount?.id,
+      accountId: activeAccount.account?.id || '',
+      indexedAccountId: activeAccount.indexedAccount?.id,
       networkId,
-      symbol,
+      symbol: symbol as ISupportedSymbol,
       provider,
       vault,
     };

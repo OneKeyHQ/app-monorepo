@@ -747,6 +747,30 @@ export interface IEarnManagePageResponse {
   };
   alertsStake?: IEarnAlert[];
   alertsWithdraw?: IEarnAlert[];
+  holdings?: {
+    tags: IStakeBadgeTag[];
+    title: IEarnText;
+    description: IEarnText;
+    token: {
+      address: string;
+      name: string;
+      symbol: string;
+      decimals: number;
+      logoURI: string;
+      networkId: string;
+    };
+    network: {
+      networkId: string;
+      network: string;
+      name: string;
+      logoURI: string;
+      symbol: string;
+      decimals: number;
+      indexerSupported: boolean;
+      fallbackSupported: boolean;
+      nativeTokenAddress: string;
+    };
+  };
 }
 
 export type IEarnDetailActions =
@@ -1193,6 +1217,10 @@ export interface IEarnInvestmentItemV2 {
     };
     earnings24h: {
       title: IEarnText;
+    };
+    totalReward?: {
+      title: IEarnText;
+      description: IEarnText;
     };
     rewardAssets: {
       title: IEarnText;

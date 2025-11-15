@@ -278,7 +278,7 @@ const SortButton = memo(
       {iconName ? (
         <Icon name={iconName} color="$iconSubdued" size="$4.5" />
       ) : null}
-      <SizableText size="$bodyMdMedium" color="$textSubdued">
+      <SizableText size="$bodySmMedium" color="$textSubdued">
         {label}
       </SizableText>
     </XStack>
@@ -350,7 +350,7 @@ function TableListHeader<T>({
             );
           } else {
             content = (
-              <SizableText size="$bodyMdMedium" color="$textSubdued">
+              <SizableText size="$bodySmMedium" color="$textSubdued">
                 {column.label}
               </SizableText>
             );

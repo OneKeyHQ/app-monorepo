@@ -1,40 +1,19 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
-import { useIntl } from 'react-intl';
-import { useSharedValue } from 'react-native-reanimated';
 
-import {
-  Button,
-  SizableText,
-  Skeleton,
-  Stack,
-  Tabs,
-  XStack,
-  YStack,
-} from '@onekeyhq/components';
-import { useMedia } from '@onekeyhq/components/src/hooks';
+import { Skeleton, Stack, XStack, YStack } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
-import {
-  EModalReceiveRoutes,
-  EModalRoutes,
-  EModalStakingRoutes,
-} from '@onekeyhq/shared/src/routes';
+import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import type { ISupportedSymbol } from '@onekeyhq/shared/types/earn';
 import { EStakingActionType } from '@onekeyhq/shared/types/staking';
 
 import { EarnAlert } from '../../../components/ProtocolDetails/EarnAlert';
-import { EarnText } from '../../../components/ProtocolDetails/EarnText';
 import { NoAddressWarning } from '../../../components/ProtocolDetails/NoAddressWarning';
-import { useHandleSwap } from '../../../hooks/useHandleSwap';
 import { useManagePage } from '../hooks/useManagePage';
 
-import { HeaderRight } from './HeaderRight';
-import { buildCustomContent } from './protocolConfigs';
-import { StakeSection } from './StakeSection';
-import { WithdrawSection } from './WithdrawSection';
+import { NormalManageContent } from './NormalManageContent';
+import { USDEManageContent } from './USDEManageContent';
 
 export interface IManagePositionContentProps {
   // Essential params
@@ -66,14 +45,8 @@ export function ManagePositionContent({
   onCreateAddress,
   onStakeWithdrawSuccess,
 }: IManagePositionContentProps) {
-  const intl = useIntl();
   const appNavigation = useAppNavigation();
   const navigation = useNavigation();
-  const { gtMd } = useMedia();
-  const { activeAccount } = useActiveAccount({ num: 0 });
-  const { handleSwap } = useHandleSwap();
-
-  const { account, indexedAccount: activeIndexedAccount } = activeAccount;
 
   // Use managePage hook to fetch all data
   const {
@@ -86,8 +59,6 @@ export function ManagePositionContent({
     withdrawDisabled,
     alertsStake,
     alertsWithdraw,
-    subscriptionValue,
-    detailActions,
     refreshAccount: refreshManageAccount,
     run: refreshManageData,
   } = useManagePage({
@@ -110,53 +81,6 @@ export function ManagePositionContent({
 
   const hasNoAccount = !accountId && !indexedAccountId;
   const hasNoAddress = !earnAccount?.accountAddress;
-
-  // USDe handlers
-  const handleReceive = useCallback(() => {
-    if (!subscriptionValue?.token?.info || !earnAccount) return;
-    appNavigation.pushModal(EModalRoutes.ReceiveModal, {
-      screen: EModalReceiveRoutes.ReceiveToken,
-      params: {
-        networkId,
-        accountId: earnAccount.accountId,
-        walletId: earnAccount.walletId,
-        token: subscriptionValue.token.info,
-      },
-    });
-  }, [appNavigation, networkId, earnAccount, subscriptionValue?.token?.info]);
-
-  const handleTrade = useCallback(async () => {
-    if (!subscriptionValue?.token?.info) return;
-    await handleSwap({
-      token: subscriptionValue.token.info,
-      networkId,
-    });
-  }, [handleSwap, networkId, subscriptionValue?.token?.info]);
-
-  // Build custom content
-  const customContent = useMemo(
-    () =>
-      buildCustomContent(
-        { symbol, provider, vault },
-        {
-          subscriptionValue,
-          detailActions,
-          handlers: {
-            onReceive: handleReceive,
-            onTrade: handleTrade,
-          },
-        },
-      ),
-    [
-      symbol,
-      provider,
-      vault,
-      subscriptionValue,
-      detailActions,
-      handleReceive,
-      handleTrade,
-    ],
-  );
 
   const renderNoAddressWarning = useCallback(
     () =>
@@ -233,47 +157,6 @@ export function ManagePositionContent({
     isInModalContext,
   ]);
 
-  // Initialize selectedTabIndex based on defaultTab
-  const [selectedTabIndex, setSelectedTabIndex] = useState(() => {
-    if (defaultTab === 'withdraw') return 1;
-    return 0;
-  });
-
-  // Update selectedTabIndex when defaultTab changes from route
-  useEffect(() => {
-    if (defaultTab === 'withdraw') {
-      setSelectedTabIndex(1);
-    } else if (defaultTab === 'deposit') {
-      setSelectedTabIndex(0);
-    }
-  }, [defaultTab]);
-
-  const tabData = useMemo(
-    () => [
-      {
-        title: intl.formatMessage({ id: ETranslations.earn_deposit }),
-        type: EStakingActionType.Deposit,
-      },
-      {
-        title: intl.formatMessage({ id: ETranslations.global_withdraw }),
-        type: EStakingActionType.Withdraw,
-      },
-    ],
-    [intl],
-  );
-
-  const TabNames = useMemo(() => {
-    return tabData.map((item) => item.title);
-  }, [tabData]);
-
-  // Initialize focusedTab based on defaultTab
-  const initialTabName = useMemo(() => {
-    if (defaultTab === 'withdraw') return TabNames[1];
-    return TabNames[0];
-  }, [defaultTab, TabNames]);
-
-  const focusedTab = useSharedValue(initialTabName);
-
   const handleStakeWithdrawSuccess = useCallback(() => {
     if (isInModalContext) {
       appNavigation.pop();
@@ -283,117 +166,35 @@ export function ManagePositionContent({
     onStakeWithdrawSuccess?.();
   }, [isInModalContext, appNavigation, onStakeWithdrawSuccess]);
 
-  const handleTabChange = useCallback(
-    (name: string) => {
-      const index = tabData.findIndex((item) => item.title === name);
-      if (index !== -1) {
-        // Check if clicking Withdraw tab and it's a withdrawOrder type
-        if (
-          index === 1 &&
-          protocolInfo?.withdrawAction?.type ===
-            EStakingActionType.WithdrawOrder
-        ) {
-          // Directly open WithdrawOptions modal instead of switching tab
-          const withdrawParams = {
-            accountId: earnAccount?.accountId || '',
-            networkId,
-            protocolInfo,
-            tokenInfo,
-            symbol,
-            provider,
-          };
-
-          // Check navigation context to use appropriate navigation method
-          if (isInModalContext) {
-            appNavigation.push(
-              EModalStakingRoutes.WithdrawOptions,
-              withdrawParams,
-            );
-          } else {
-            appNavigation.pushModal(EModalRoutes.StakingModal, {
-              screen: EModalStakingRoutes.WithdrawOptions,
-              params: withdrawParams,
-            });
-          }
-          return;
-        }
-
-        focusedTab.value = name;
-        setSelectedTabIndex(index);
-
-        // Notify parent component if callback provided
-        const newTab = index === 0 ? 'deposit' : 'withdraw';
-        onTabChange?.(newTab);
-
-        // Update route params if navigation is available
-        if (navigation.setParams) {
-          navigation.setParams({
-            tab: newTab,
-          } as any);
-        }
-      }
-    },
-    [
-      earnAccount?.accountId,
-      focusedTab,
-      tabData,
-      navigation,
-      protocolInfo,
-      appNavigation,
-      networkId,
-      tokenInfo,
-      symbol,
-      provider,
-      onTabChange,
-      isInModalContext,
-    ],
-  );
-
-  // Custom content rendering for special protocols
-  const customActions = useMemo(() => {
-    if (!customContent?.actions) return [];
-    return customContent.actions;
-  }, [customContent?.actions]);
-
-  const renderCustomActionButtons = useCallback(() => {
-    if (!gtMd || !customActions.length || !customContent?.handlers) {
+  // Create beforeFooter content for stake section
+  const stakeBeforeFooter = useMemo(() => {
+    if (hasNoAccount || hasNoAddress) {
       return null;
     }
+    if (alertsStake && alertsStake.length > 0) {
+      return (
+        <YStack px="$5">
+          <EarnAlert alerts={alertsStake} />
+        </YStack>
+      );
+    }
+    return null;
+  }, [hasNoAccount, hasNoAddress, alertsStake]);
 
-    return (
-      <XStack gap="$2">
-        {customActions.map((action) => {
-          const handlerKey = `on${action.type
-            .charAt(0)
-            .toUpperCase()}${action.type.slice(1)}`;
-          const handler = customContent.handlers?.[handlerKey];
-
-          if (!handler || action.disabled) return null;
-
-          const isReceive = action.type === EStakingActionType.Receive;
-          const isTrade = action.type === EStakingActionType.Trade;
-
-          // Determine translation key
-          let translationKey = ETranslations.global_continue;
-          if (isReceive) {
-            translationKey = ETranslations.global_receive;
-          } else if (isTrade) {
-            translationKey = ETranslations.global_trade;
-          }
-
-          return (
-            <Button
-              key={action.type}
-              variant={isTrade ? 'primary' : undefined}
-              onPress={handler}
-            >
-              {intl.formatMessage({ id: translationKey })}
-            </Button>
-          );
-        })}
-      </XStack>
-    );
-  }, [gtMd, customActions, customContent?.handlers, intl]);
+  // Create beforeFooter content for withdraw section
+  const withdrawBeforeFooter = useMemo(() => {
+    if (hasNoAccount || hasNoAddress) {
+      return null;
+    }
+    if (alertsWithdraw && alertsWithdraw.length > 0) {
+      return (
+        <YStack px="$5">
+          <EarnAlert alerts={alertsWithdraw} />
+        </YStack>
+      );
+    }
+    return null;
+  }, [hasNoAccount, hasNoAddress, alertsWithdraw]);
 
   // Show loading skeleton
   if (isLoading && !hasNoAccount) {
@@ -449,100 +250,44 @@ export function ManagePositionContent({
     return <>{renderNoAddressWarning()}</>;
   }
 
-  // Custom content rendering (e.g., USDe or other special protocols)
-  if (customContent?.data) {
-    const data = customContent.data;
+  // USDe special rendering
+  if (symbol.toLowerCase() === 'usde') {
+    if (!managePageData?.holdings) {
+      return null;
+    }
+
     return (
-      <>
-        <YStack px="$5">
-          <YStack gap="$8">
-            <YStack>
-              <XStack ai="center" gap="$2" pt="$2">
-                <EarnText text={data.title} size="$headingLg" />
-              </XStack>
-              <XStack gap="$2" pt="$2" pb="$1" jc="space-between">
-                <EarnText text={{ text: data.fiatValue }} size="$heading4xl" />
-                {renderCustomActionButtons()}
-              </XStack>
-              <EarnText
-                text={{
-                  text: `${data.formattedValue || 0} ${
-                    data?.token?.info?.symbol || ''
-                  }`,
-                }}
-                size="$bodyLgMedium"
-                color="$textSubdued"
-              />
-            </YStack>
-          </YStack>
-        </YStack>
-      </>
+      <USDEManageContent
+        managePageData={managePageData}
+        networkId={networkId}
+        alertsStake={alertsStake}
+        onHistory={onHistory}
+        earnAccount={earnAccount}
+      />
     );
   }
 
   // Normal deposit/withdraw rendering
-  // If no tokenInfo, return null (loading state should have been handled above)
-  if (!tokenInfo) {
-    return null;
-  }
-
   return (
-    <>
-      <XStack jc="space-between" px="$5">
-        <Tabs.TabBar
-          divider={false}
-          onTabPress={handleTabChange}
-          tabNames={TabNames}
-          focusedTab={focusedTab}
-          renderItem={({ name, isFocused }) => (
-            <XStack
-              px="$2"
-              py="$1.5"
-              mr="$1"
-              bg={isFocused ? '$bgActive' : '$bg'}
-              borderRadius="$2"
-              borderCurve="continuous"
-              onPress={() => handleTabChange(name)}
-            >
-              <SizableText
-                size="$bodyMdMedium"
-                color={isFocused ? '$text' : '$textSubdued'}
-                letterSpacing={-0.15}
-              >
-                {name}
-              </SizableText>
-            </XStack>
-          )}
-        />
-        <HeaderRight historyAction={historyAction} onHistory={onHistory} />
-      </XStack>
-      {selectedTabIndex === 0 ? (
-        <>
-          <StakeSection
-            accountId={earnAccount?.accountId || ''}
-            networkId={networkId}
-            tokenInfo={tokenInfo}
-            protocolInfo={protocolInfo}
-            isDisabled={depositDisabled}
-            onSuccess={handleStakeWithdrawSuccess}
-            beforeFooter={<EarnAlert alerts={alertsStake} />}
-          />
-        </>
-      ) : null}
-      {selectedTabIndex === 1 ? (
-        <>
-          <WithdrawSection
-            accountId={earnAccount?.accountId || ''}
-            networkId={networkId}
-            tokenInfo={tokenInfo}
-            protocolInfo={protocolInfo}
-            isDisabled={withdrawDisabled || hasNoAccount || hasNoAddress}
-            onSuccess={handleStakeWithdrawSuccess}
-            beforeFooter={<EarnAlert alerts={alertsWithdraw} />}
-          />
-          {renderNoAddressWarning()}
-        </>
-      ) : null}
-    </>
+    <NormalManageContent
+      networkId={networkId}
+      symbol={symbol}
+      provider={provider}
+      vault={vault}
+      tokenInfo={tokenInfo}
+      protocolInfo={protocolInfo}
+      earnAccount={earnAccount}
+      depositDisabled={depositDisabled}
+      withdrawDisabled={withdrawDisabled}
+      stakeBeforeFooter={stakeBeforeFooter}
+      withdrawBeforeFooter={withdrawBeforeFooter}
+      historyAction={historyAction}
+      onHistory={onHistory}
+      onSuccess={handleStakeWithdrawSuccess}
+      defaultTab={defaultTab}
+      onTabChange={onTabChange}
+      isInModalContext={isInModalContext}
+      appNavigation={appNavigation}
+    />
   );
 }

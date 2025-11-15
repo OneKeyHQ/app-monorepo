@@ -32,7 +32,10 @@ import {
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import type { IEarnPortfolioInvestment } from '@onekeyhq/shared/types/staking';
+import type {
+  IEarnPortfolioInvestment,
+  IEarnText,
+} from '@onekeyhq/shared/types/staking';
 
 import { useCurrency } from '../../../components/Currency';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
@@ -84,7 +87,7 @@ const WrappedActionButton = ({
       p="0"
       ai="center"
       variant="link"
-      size="medium"
+      size="small"
       loading={loading}
       disabled={loading || reward.button.disabled}
       cursor={reward.button.disabled ? 'not-allowed' : 'pointer'}
@@ -110,9 +113,11 @@ const WrappedActionButton = ({
         });
       }}
     >
-      {typeof reward.button.text === 'string'
-        ? reward.button.text
-        : reward.button.text?.text}
+      <EarnText
+        size="$bodyMdMedium"
+        color="$textInfo"
+        text={reward.button.text as IEarnText}
+      />
     </Button>
   );
 };
@@ -132,15 +137,15 @@ const DepositField = ({
       />
       <YStack ml="$3" mr="$2" jc="center" flex={1}>
         <XStack gap="$1">
-          <EarnText size="$bodyLgMedium" text={asset.deposit?.title} />
+          <EarnText size="$bodyMdMedium" text={asset.deposit?.title} />
           <EarnText
-            size="$bodyLgMedium"
+            size="$bodyMdMedium"
             color="$textSubdued"
             text={asset.deposit?.description}
           />
         </XStack>
         {asset.metadata.protocol.vaultName ? (
-          <SizableText mt="$0.5" size="$bodySmMedium" color="$textSubdued">
+          <SizableText mt="$0.5" size="$bodySm" color="$textSubdued">
             {asset.metadata.protocol.vaultName}
           </SizableText>
         ) : null}
@@ -149,29 +154,64 @@ const DepositField = ({
   );
 };
 
-const AssetStatusField = ({
+const EarningsField = ({
   asset,
 }: {
   asset: IEarnPortfolioInvestment['assets'][number];
 }) => {
   return (
     <YStack gap="$1">
-      {asset.assetsStatus?.map((status, index) => (
-        <XStack key={index} ai="center">
+      <YStack ml="$3" mr="$2" jc="center" flex={1}>
+        <EarnText
+          flex={1}
+          size="$bodyMdMedium"
+          text={asset.earnings24h?.title}
+        />
+        <XStack gap="$1">
           <EarnText
-            key={index}
-            mr="$2"
-            size="$bodyLgMedium"
-            text={status.title}
-          />
-          <EarnText
-            key={index}
-            mr="$2"
-            size="$bodyLgMedium"
+            size="$bodySm"
             color="$textSubdued"
-            text={status.description}
+            text={asset?.totalReward?.title}
           />
-          <EarnTooltip tooltip={status.tooltip} />
+          <EarnText
+            size="$bodySm"
+            color="$textSubdued"
+            text={asset?.totalReward?.description}
+          />
+        </XStack>
+      </YStack>
+    </YStack>
+  );
+};
+
+const AssetStatusField = ({
+  asset,
+}: {
+  asset: IEarnPortfolioInvestment['assets'][number];
+}) => {
+  if (isEmpty(asset.assetsStatus)) {
+    return <EarnText flex={1} size="$bodyMdMedium" text={{ text: '-' }} />;
+  }
+
+  return (
+    <YStack gap="$1">
+      {asset.assetsStatus?.map((status, index) => (
+        <XStack key={index} ai="center" maxWidth={200} flexWrap="wrap">
+          <EarnText
+            mr="$2"
+            size="$bodyMdMedium"
+            text={status.title}
+            width="100%"
+          />
+          <XStack ai="center">
+            <EarnText
+              mr="$2"
+              size="$bodyMd"
+              color="$textSubdued"
+              text={status.description}
+            />
+            <EarnTooltip tooltip={status.tooltip} />
+          </XStack>
         </XStack>
       ))}
     </YStack>
@@ -187,10 +227,10 @@ const ActionField = ({
     <YStack gap="$1">
       {asset.rewardAssets?.map((reward, index) => (
         <XStack key={index} ai="center">
-          <EarnText mr="$1" size="$bodyLgMedium" text={reward.title} />
+          <EarnText mr="$1" size="$bodyMdMedium" text={reward.title} />
           <EarnText
             mr="$2"
-            size="$bodyLgMedium"
+            size="$bodyMd"
             color="$textSubdued"
             text={reward.description}
           />
@@ -218,16 +258,16 @@ const ProtocolHeader = ({
           borderRadius="$2"
           tokenImageUri={portfolioItem.protocol.providerDetail.logoURI}
         />
-        <SizableText size="$bodyLgMedium">
+        <SizableText size="$headingSm">
           {portfolioItem.protocol.providerDetail.name}
         </SizableText>
-        <Divider bg="$borderSubdued" vertical mx="$3" height="$5" width="$1" />
+        <Divider bg="$headingSm" vertical mx="$3" height="$5" width="$1" />
         <XStack ai="center" gap="$1">
-          <SizableText size="$bodyLgMedium" color="$textSubdued">
+          <SizableText size="$bodyMd" color="$textSubdued">
             {intl.formatMessage({ id: ETranslations.earn_total_staked_value })}
           </SizableText>
           <NumberSizeableText
-            size="$bodyLgMedium"
+            size="$bodyMd"
             color="$textSubdued"
             formatter="marketCap"
             formatterOptions={{ currency: currencyInfo.symbol }}
@@ -267,7 +307,6 @@ const ProtocolHeader = ({
                   <Token
                     size="xs"
                     borderRadius="$2"
-                    mr="$1.5"
                     tokenImageUri={airdrop.token.info.logoURI}
                   />
                 ) : null}
@@ -286,12 +325,12 @@ const ProtocolHeader = ({
                     >
                       <EarnText
                         mr="$1"
-                        size="$bodyLgMedium"
+                        size="$bodyMdMedium"
                         text={reward.title}
                       />
                       <EarnText
                         mr="$1"
-                        size="$bodyLgMedium"
+                        size="$bodyMd"
                         color="$textSubdued"
                         text={reward.description}
                       />
@@ -340,6 +379,7 @@ const PortfolioItemComponent = ({
           key: 'deposits',
           label: intl.formatMessage({ id: ETranslations.earn_deposited }),
           flex: 1.5,
+          maxWidth: 200,
           priority: 5,
           render: (asset) => <DepositField asset={asset} />,
         },
@@ -347,14 +387,9 @@ const PortfolioItemComponent = ({
           key: 'Est. 24h earnings',
           label: intl.formatMessage({ id: ETranslations.earn_24h_earnings }),
           flex: 1,
+          maxWidth: 136,
           priority: 1,
-          render: (asset) => (
-            <EarnText
-              flex={1}
-              size="$bodyLgMedium"
-              text={asset.earnings24h?.title}
-            />
-          ),
+          render: (asset) => <EarningsField asset={asset} />,
         },
         {
           key: 'Asset status',
@@ -371,7 +406,7 @@ const PortfolioItemComponent = ({
           render: (asset) => {
             if (isEmpty(asset.rewardAssets)) {
               return (
-                <EarnText flex={1} size="$bodyLgMedium" text={{ text: '-' }} />
+                <EarnText flex={1} size="$bodyMdMedium" text={{ text: '-' }} />
               );
             }
             return <ActionField asset={asset} />;
@@ -408,24 +443,7 @@ const PortfolioItemComponent = ({
   const handleManagePress = useCallback(
     async (asset: IEarnPortfolioInvestment['assets'][number]) => {
       const symbol = asset.token.info.symbol;
-      // if (symbol === 'USDe') {
-      //   appNavigation.navigate(ERootRoutes.Main, {
-      //     screen: ETabRoutes.Earn,
-      //     params: {
-      //       screen: ETabEarnRoutes.EarnProtocolDetails,
-      //       params: {
-      //         indexedAccountId: indexedAccount?.id,
-      //         accountId: account?.id,
-      //         networkId: asset.metadata.network.networkId,
-      //         symbol,
-      //         provider: asset.metadata.protocol.providerDetail.code,
-      //         vault: asset.metadata.protocol.vault,
-      //       },
-      //     },
-      //   });
 
-      //   return;
-      // }
       appNavigation.pushModal(EModalRoutes.StakingModal, {
         screen: EModalStakingRoutes.ManagePosition,
         params: {

@@ -239,12 +239,14 @@ export const usePortfolioAction = ({
       rewardTokenAddress,
       indexedAccountId: actionIndexedAccountId,
       stakedSymbol,
+      rewardSymbol,
     }: {
       actionIcon: IEarnActionIcon;
       token?: IEarnToken;
       rewardTokenAddress?: string;
       indexedAccountId?: string;
       stakedSymbol?: string;
+      rewardSymbol?: string;
     }) => {
       switch (actionIcon.type) {
         case 'claim':
@@ -255,6 +257,7 @@ export const usePortfolioAction = ({
             token,
             rewardTokenAddress,
             stakedSymbol,
+            rewardSymbol,
           });
           break;
         case 'claimWithKyc':
