@@ -1128,7 +1128,7 @@ export function UniversalStake({
               />
             </XStack>
           ) : null}
-          <YStack pt="$3.5" gap="$2">
+          <YStack gap="$2">
             <XStack ai="center" gap="$1">
               <EarnText
                 text={transactionConfirmation?.title}
@@ -1250,13 +1250,6 @@ export function UniversalStake({
                       </SizableText>
                     </XStack>
                     <XStack>
-                      {isAccordionTriggerDisabled ? undefined : (
-                        <SizableText color="$textSubdued" size="$bodyMd">
-                          {intl.formatMessage({
-                            id: ETranslations.global_details,
-                          })}
-                        </SizableText>
-                      )}
                       <YStack
                         animation="quick"
                         rotate={

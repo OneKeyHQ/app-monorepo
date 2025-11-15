@@ -622,13 +622,6 @@ export function UniversalWithdraw({
                     </SizableText>
                   </XStack>
                   <XStack>
-                    {isAccordionTriggerDisabled ? undefined : (
-                      <SizableText color="$textSubdued" size="$bodyMd">
-                        {intl.formatMessage({
-                          id: ETranslations.global_details,
-                        })}
-                      </SizableText>
-                    )}
                     <YStack
                       animation="quick"
                       rotate={
