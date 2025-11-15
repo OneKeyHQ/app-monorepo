@@ -94,7 +94,6 @@ export default function Home() {
       />
       <Page.Body>
         <BackupDeviceList />
-      
       </Page.Body>
     </Page>
   );

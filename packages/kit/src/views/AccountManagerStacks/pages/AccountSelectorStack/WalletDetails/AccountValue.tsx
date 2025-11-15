@@ -5,12 +5,12 @@ import { isNil, map } from 'lodash';
 
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
-import { useEnabledNetworksCompatibleWithWalletIdInAllNetworks } from '@onekeyhq/kit/src/hooks/useAllNetwork';
 import { useActiveAccountValueAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { SEPERATOR } from '@onekeyhq/shared/src/engine/engineConsts';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 function AccountValue(accountValue: {
   walletId: string;
@@ -22,6 +22,14 @@ function AccountValue(accountValue: {
   indexedAccountId?: string;
   mergeDeriveAssetsEnabled?: boolean;
   isSingleAddress?: boolean;
+  enabledNetworksCompatibleWithWalletId: IServerNetwork[];
+  networkInfoMap: Record<
+    string,
+    {
+      deriveType: IAccountDeriveTypes;
+      mergeDeriveAssetsEnabled: boolean;
+    }
+  >;
 }) {
   const [activeAccountValue] = useActiveAccountValueAtom();
   const isActiveAccount =
@@ -32,8 +40,8 @@ function AccountValue(accountValue: {
     linkedNetworkId,
     mergeDeriveAssetsEnabled,
     isSingleAddress,
-    walletId,
-    indexedAccountId,
+    enabledNetworksCompatibleWithWalletId,
+    networkInfoMap,
   } = accountValue;
 
   const { currency, value } = useMemo(() => {
@@ -42,14 +50,6 @@ function AccountValue(accountValue: {
     }
     return accountValue;
   }, [accountValue, activeAccountValue, isActiveAccount]);
-
-  const { enabledNetworksCompatibleWithWalletId, networkInfoMap } =
-    useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
-      walletId,
-      networkId: linkedNetworkId,
-      indexedAccountId,
-      withNetworksInfo: true,
-    });
 
   const accountValueString = useMemo(() => {
     if (typeof value === 'string') {
@@ -159,6 +159,8 @@ function AccountValueWithSpotlight({
   indexedAccountId,
   mergeDeriveAssetsEnabled,
   isSingleAddress,
+  enabledNetworksCompatibleWithWalletId,
+  networkInfoMap,
 }: {
   accountValue:
     | {
@@ -175,6 +177,14 @@ function AccountValueWithSpotlight({
   mergeDeriveAssetsEnabled?: boolean;
   isSingleAddress?: boolean;
   walletId: string;
+  enabledNetworksCompatibleWithWalletId: IServerNetwork[];
+  networkInfoMap: Record<
+    string,
+    {
+      deriveType: IAccountDeriveTypes;
+      mergeDeriveAssetsEnabled: boolean;
+    }
+  >;
 }) {
   return accountValue && accountValue.currency ? (
     <AccountValue
@@ -187,6 +197,10 @@ function AccountValueWithSpotlight({
       indexedAccountId={indexedAccountId}
       mergeDeriveAssetsEnabled={mergeDeriveAssetsEnabled}
       isSingleAddress={isSingleAddress}
+      enabledNetworksCompatibleWithWalletId={
+        enabledNetworksCompatibleWithWalletId
+      }
+      networkInfoMap={networkInfoMap}
     />
   ) : (
     <NumberSizeableTextWrapper

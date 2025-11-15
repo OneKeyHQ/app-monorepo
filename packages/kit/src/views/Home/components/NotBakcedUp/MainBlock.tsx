@@ -65,6 +65,7 @@ function MainInfoBlock(props: IProps) {
       gap="$6"
       alignItems="flex-start"
       overflow="hidden"
+      pointerEvents="box-none"
       {...containerProps}
     >
       {bgSource ? (
@@ -76,13 +77,14 @@ function MainInfoBlock(props: IProps) {
           $gtMd={{
             right: -176,
           }}
+          pointerEvents="box-none"
         >
           <Image
+            pointerEvents="box-none"
             source={bgSource}
             w={600}
             h={380}
             zIndex={0}
-            pointerEvents="box-none"
           />
         </YStack>
       ) : null}
@@ -110,9 +112,15 @@ function MainInfoBlock(props: IProps) {
           boxShadow:
             '0 1px 1px 0 rgba(0, 0, 0, 0.05), 0 0 0 1px rgba(0, 0, 0, 0.05), 0 4px 6px 0 rgba(0, 0, 0, 0.04), 0 24px 68px 0 rgba(0, 0, 0, 0.05), 0 2px 3px 0 rgba(0, 0, 0, 0.04)',
         }}
+        pointerEvents="box-none"
         {...iconContainerProps}
       >
-        <Icon color="$iconOnColor" size="$6" {...iconProps} />
+        <Icon
+          pointerEvents="box-none"
+          color="$iconOnColor"
+          size="$6"
+          {...iconProps}
+        />
       </YStack>
       <YStack gap="$1" maxWidth={288}>
         <SizableText
@@ -122,16 +130,21 @@ function MainInfoBlock(props: IProps) {
           }}
           maxWidth={288}
           zIndex={1}
+          pointerEvents="box-none"
         >
           {title}
         </SizableText>
         {subtitle ? (
-          <SizableText size="$bodyMd" color="$textSubdued">
+          <SizableText
+            size="$bodyMd"
+            color="$textSubdued"
+            pointerEvents="box-none"
+          >
             {subtitle}
           </SizableText>
         ) : null}
       </YStack>
-      <YStack mt="auto" zIndex={1} alignSelf="stretch">
+      <YStack mt="auto" zIndex={1} alignSelf="stretch" pointerEvents="box-none">
         {actions}
       </YStack>
     </YStack>

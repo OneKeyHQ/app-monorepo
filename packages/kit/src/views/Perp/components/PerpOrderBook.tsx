@@ -90,7 +90,7 @@ function MobileHeader() {
           </DashText>
 
           {showSkeleton ? (
-            <Skeleton width={120} height={16} />
+            <Skeleton width={180} height={14} radius="round" />
           ) : (
             <XStack alignItems="center" gap={6}>
               <SizableText size="$bodySmMedium" color={fundingColor}>
