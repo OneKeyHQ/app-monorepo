@@ -41,6 +41,12 @@ export class GoogleDriveBackupProvider implements IOneKeyBackupProvider {
     this.backgroundApi = backgroundApi;
   }
 
+  async clearBackupPassword(): Promise<void> {
+    const manifest = await this.getManifest();
+    manifest.backupPasswordVerify = undefined;
+    await this.saveManifest(manifest);
+  }
+
   async setBackupPassword(params?: {
     password?: string;
   }): Promise<{ recordID: string }> {

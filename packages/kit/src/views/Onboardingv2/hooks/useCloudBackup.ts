@@ -201,7 +201,13 @@ export function useCloudBackup() {
   );
 
   const doBackup = useThrottledCallback(
-    async ({ data }: { data: IPrimeTransferData }) => {
+    async ({
+      data,
+      backupTimes,
+    }: {
+      data: IPrimeTransferData;
+      backupTimes?: number;
+    }) => {
       const isAvailable = await checkIsAvailable();
       if (!isAvailable) {
         return;
@@ -227,6 +233,17 @@ export function useCloudBackup() {
             password,
             data,
           });
+          if (backupTimes && backupTimes > 2) {
+            for (let i = 0; i < backupTimes; i += 1) {
+              Toast.success({
+                title: `Backup ${i + 1} of ${backupTimes}`,
+              });
+              await backgroundApiProxy.serviceCloudBackupV2.backup({
+                password,
+                data,
+              });
+            }
+          }
           // Dialog.debugMessage({
           //   debugMessage: (_result as unknown as { meta: string })?.meta,
           // });

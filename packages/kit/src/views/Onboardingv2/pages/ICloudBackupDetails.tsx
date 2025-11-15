@@ -207,7 +207,7 @@ export default function ICloudBackupDetails({
                       });
                     }}
                   >
-                    backupData
+                    showBackupData
                   </Button>
                   <Button
                     onPress={async () => {
@@ -215,6 +215,19 @@ export default function ICloudBackupDetails({
                     }}
                   >
                     Mock Empty Wallets
+                  </Button>
+                  <Button
+                    loading={checkLoading}
+                    disabled={isButtonDisabled}
+                    flex={1}
+                    onPress={async () => {
+                      await doBackup({
+                        data: backupData as IPrimeTransferData,
+                        backupTimes: 30,
+                      });
+                    }}
+                  >
+                    备份 30 份
                   </Button>
                 </YStack>
               }

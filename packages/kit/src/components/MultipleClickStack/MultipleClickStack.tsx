@@ -2,10 +2,10 @@ import type { ComponentProps, ReactNode } from 'react';
 import { useState } from 'react';
 
 import { Stack } from '@onekeyhq/components';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { GestureResponderEvent } from 'react-native';
-import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 export function MultipleClickStack({
   children,

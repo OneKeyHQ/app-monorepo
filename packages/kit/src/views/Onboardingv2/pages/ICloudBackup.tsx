@@ -33,6 +33,7 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { MultipleClickStack } from '../../../components/MultipleClickStack';
@@ -44,7 +45,6 @@ import { CloudBackupListEmptyView } from '../components/CloudBackupEmptyView';
 import { CloudBackupLoadingSkeleton } from '../components/CloudBackupLoadingSkeleton';
 import { OnboardingLayout } from '../components/OnboardingLayout';
 import { useCloudBackup } from '../hooks/useCloudBackup';
-import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 export default function ICloudBackup() {
   const navigation = useAppNavigation();
@@ -203,6 +203,7 @@ export default function ICloudBackup() {
             showDevBgColor
             debugComponent={
               <YStack gap="$2">
+                <SizableText>备份数：{allBackups?.items?.length}</SizableText>
                 <Button
                   onPress={async () => {
                     setAllBackupsMocked({
@@ -213,6 +214,21 @@ export default function ICloudBackup() {
                   }}
                 >
                   Mock Empty Backups
+                </Button>
+                <Button
+                  variant="destructive"
+                  onPress={async () => {
+                    Dialog.show({
+                      title: 'Clear Backup Password',
+                      description:
+                        'This will permanently delete the backup password from the cloud.',
+                      onConfirm: async () => {
+                        await backgroundApiProxy.serviceCloudBackupV2.clearBackupPassword();
+                      },
+                    });
+                  }}
+                >
+                  clearBackupPassword
                 </Button>
                 <Button
                   onPress={async () =>

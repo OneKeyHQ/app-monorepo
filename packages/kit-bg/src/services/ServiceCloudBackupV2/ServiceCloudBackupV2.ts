@@ -149,6 +149,14 @@ class ServiceCloudBackupV2 extends ServiceBase {
 
   @backgroundMethod()
   @toastIfError()
+  async clearBackupPassword(): Promise<void> {
+    const provider = this.getProvider();
+    await provider.checkAvailability();
+    await provider.clearBackupPassword();
+  }
+
+  @backgroundMethod()
+  @toastIfError()
   async setBackupPassword(params: {
     password: string;
   }): Promise<{ recordID: string }> {

@@ -115,6 +115,8 @@ export interface IOneKeyBackupProvider {
 
   isBackupPasswordSet(): Promise<boolean>;
 
+  clearBackupPassword(): Promise<void>;
+
   /**
    * Perform full backup with automatic key management
    * @param password Optional user password (required for some providers like Google Drive)

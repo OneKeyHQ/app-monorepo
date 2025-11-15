@@ -179,6 +179,13 @@ export class ICloudBackupProvider implements IOneKeyBackupProvider {
     return encryptionKey;
   }
 
+  async clearBackupPassword(): Promise<void> {
+    await appleCloudKitStorage.deleteRecord({
+      recordID: CLOUDKIT_BACKUP_PASSWORD_VERIFY_RECORD_ID,
+      recordType: CLOUDKIT_RECORD_TYPE,
+    });
+  }
+
   async setBackupPassword(params?: {
     password?: string;
   }): Promise<{ recordID: string }> {
