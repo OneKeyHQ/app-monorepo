@@ -10,10 +10,6 @@
  * Doctor Configuration
  */
 export interface IDoctorConfig {
-  targetDomain: string;
-
-  healthCheckPath?: string;
-
   /**
    * Timeout configuration (optional, milliseconds)
    */
@@ -235,7 +231,6 @@ export interface INetworkCheckup {
  * Default Configuration
  */
 export interface IDefaultConfig {
-  healthCheckPath: string;
   timeouts: Required<NonNullable<IDoctorConfig['timeouts']>>;
   extraPingTargets: string[];
   extraHttpProbes: Array<{ label: string; url: string }>;

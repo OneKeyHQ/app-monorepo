@@ -34,11 +34,15 @@ All dependencies are already installed in the OneKey monorepo:
 ### Basic Usage
 
 ```typescript
-import { runNetworkDoctor } from '@onekeyhq/shared/src/modules/NetworkDoctor';
+import { NetworkDoctor } from '@onekeyhq/shared/src/modules/NetworkDoctor';
+import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
-const report = await runNetworkDoctor({
-  targetDomain: 'wallet.onekeytest.com',
+// Uses appApiClient and getEndpointByServiceName internally
+const doctor = new NetworkDoctor({
+  serviceName: EServiceEndpointEnum.Wallet, // Service to diagnose
 });
+
+const report = await doctor.run();
 
 console.log('Network Status:', report.summary.assessment);
 // Output: "healthy" | "degraded" | "blocked"
@@ -47,23 +51,12 @@ console.log('Network Status:', report.summary.assessment);
 ### Full Configuration
 
 ```typescript
-import { runNetworkDoctor } from '@onekeyhq/shared/src/modules/NetworkDoctor';
-import { myLogger } from './logger';
+import { NetworkDoctor } from '@onekeyhq/shared/src/modules/NetworkDoctor';
+import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
-const report = await runNetworkDoctor({
-  // Required: target domain
-  targetDomain: 'wallet.onekeytest.com',
-
-  // Optional: health check path (default '/health')
-  healthCheckPath: '/wallet/v1/health',
-
-  // Optional: custom logger
-  logger: {
-    debug: (msg, data) => myLogger.debug(msg, data),
-    info: (msg, data) => myLogger.info(msg, data),
-    warn: (msg, data) => myLogger.warn(msg, data),
-    error: (msg, data) => myLogger.error(msg, data),
-  },
+const doctor = new NetworkDoctor({
+  // Required: service name (e.g., Wallet, Swap, Utility)
+  serviceName: EServiceEndpointEnum.Wallet,
 
   // Optional: timeout configuration (milliseconds)
   timeouts: {
@@ -88,6 +81,8 @@ const report = await runNetworkDoctor({
   // Optional: maximum network logs (default 1000)
   maxNetworkLogs: 500,
 });
+
+const report = await doctor.run();
 ```
 
 ## Platform Support
@@ -97,11 +92,14 @@ const report = await runNetworkDoctor({
 Full functionality available:
 
 ```typescript
-import { runNetworkDoctor } from '@onekeyhq/shared/src/modules/NetworkDoctor';
+import { NetworkDoctor } from '@onekeyhq/shared/src/modules/NetworkDoctor';
+import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
-const report = await runNetworkDoctor({
-  targetDomain: 'wallet.onekeytest.com',
+const doctor = new NetworkDoctor({
+  serviceName: EServiceEndpointEnum.Wallet,
 });
+
+const report = await doctor.run();
 ```
 
 ### Non-Native Platforms (Web/Desktop/Extension) ⚠️
@@ -117,23 +115,27 @@ import type { NetworkCheckup, DoctorConfig } from '@onekeyhq/shared/src/modules/
 
 ## API Reference
 
-### `runNetworkDoctor(config)`
+### `new NetworkDoctor(config)`
 
-Run complete network diagnostics and return a detailed report.
+Create a NetworkDoctor instance and run diagnostics.
 
 **Parameters:**
 
 ```typescript
-interface DoctorConfig {
-  targetDomain: string;                   // Required: target domain
-  healthCheckPath?: string;               // Optional: health check path
-  logger?: DoctorLogger;                  // Optional: custom logger
+interface IDoctorConfig {
+  serviceName: string;                    // Required: service name (e.g., EServiceEndpointEnum.Wallet)
   timeouts?: { ... };                     // Optional: timeout configuration
   extraPingTargets?: string[];            // Optional: extra ping targets
   extraHttpProbes?: Array<{...}>;         // Optional: extra HTTP probes
   enableNetworkLogger?: boolean;          // Optional: enable network logging
   maxNetworkLogs?: number;                // Optional: log count limit
 }
+```
+
+**Methods:**
+
+```typescript
+async run(): Promise<INetworkCheckup>
 ```
 
 **Return Value:**
@@ -182,16 +184,18 @@ interface NetworkCheckup {
 ### Scenario 1: Diagnose SNI Blocking for Japanese Users
 
 ```typescript
-import { runNetworkDoctor, DiagnosticIssueType } from '@onekeyhq/shared/src/modules/NetworkDoctor';
+import { NetworkDoctor, EDiagnosticIssueType } from '@onekeyhq/shared/src/modules/NetworkDoctor';
+import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
-const report = await runNetworkDoctor({
-  targetDomain: 'wallet.onekeytest.com',
-  healthCheckPath: '/wallet/v1/health',
+const doctor = new NetworkDoctor({
+  serviceName: EServiceEndpointEnum.Wallet,
 });
+
+const report = await doctor.run();
 
 if (report.summary.assessment === 'blocked') {
   const sniIssue = report.summary.issues.find(
-    (issue) => issue.type === DiagnosticIssueType.SELECTIVE_BLOCKING
+    (issue) => issue.type === EDiagnosticIssueType.SELECTIVE_BLOCKING
   );
 
   if (sniIssue) {
@@ -208,15 +212,18 @@ if (report.summary.assessment === 'blocked') {
 ### Scenario 2: Auto-diagnose on App Start
 
 ```typescript
-import { runNetworkDoctor } from '@onekeyhq/shared/src/modules/NetworkDoctor';
+import { NetworkDoctor } from '@onekeyhq/shared/src/modules/NetworkDoctor';
+import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import { uploadToServer } from './analytics';
 
 // Run on app startup
 useEffect(() => {
   async function checkNetwork() {
-    const report = await runNetworkDoctor({
-      targetDomain: 'wallet.onekeytest.com',
+    const doctor = new NetworkDoctor({
+      serviceName: EServiceEndpointEnum.Wallet,
     });
+
+    const report = await doctor.run();
 
     // Upload diagnostic data to server
     await uploadToServer({
@@ -288,8 +295,11 @@ summary: {
 ### 1. Set Reasonable Timeouts
 
 ```typescript
-const report = await runNetworkDoctor({
-  targetDomain: 'wallet.onekeytest.com',
+import { NetworkDoctor } from '@onekeyhq/shared/src/modules/NetworkDoctor';
+import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
+
+const doctor = new NetworkDoctor({
+  serviceName: EServiceEndpointEnum.Wallet,
   timeouts: {
     dns: 5000,    // DNS is usually fast
     tcp: 8000,    // TCP handshake
@@ -298,23 +308,22 @@ const report = await runNetworkDoctor({
     ping: 3000,   // Ping should be quick
   },
 });
+
+const report = await doctor.run();
 ```
 
-### 2. Use Headers Generator for Dynamic Authentication
+### 2. Error Handling
 
 ```typescript
-const report = await runNetworkDoctor({
-  targetDomain: 'wallet.onekeytest.com',
-});
-```
+import { NetworkDoctor } from '@onekeyhq/shared/src/modules/NetworkDoctor';
+import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
-### 3. Error Handling
-
-```typescript
 try {
-  const report = await runNetworkDoctor({
-    targetDomain: 'wallet.onekeytest.com',
+  const doctor = new NetworkDoctor({
+    serviceName: EServiceEndpointEnum.Wallet,
   });
+
+  const report = await doctor.run();
 
   // Handle report
   handleReport(report);
@@ -327,19 +336,33 @@ try {
 }
 ```
 
+### 3. Automatic Endpoint Management
+
+The NetworkDoctor automatically manages endpoints based on your service configuration:
+
+- Uses `appApiClient.getClient()` for consistent API access
+- Respects dev settings for test/prod environments
+- Follows the same patterns as `systemTimeUtils` for reliability
+
 ## Architecture
 
 ```
 packages/shared/src/modules/NetworkDoctor/
-├── types.ts                    # Type definitions (no imports)
+├── types.ts                    # Type definitions
 ├── config.ts                   # Configuration management
 ├── NetworkDoctor.native.ts     # Core diagnostic class (native modules)
-├── doctor.native.ts            # Functional API
-├── examples.native.ts          # Usage examples
+├── doctor.native.ts            # Functional API (deprecated)
 ├── index.ts                    # Universal entry (types only)
 ├── index.native.ts             # Native entry (full functionality)
 └── README.md                   # This file
 ```
+
+**Key Design Principles:**
+
+- Uses `appApiClient` and `getEndpointByServiceName` for endpoint management
+- Automatically respects dev/prod environment configurations
+- Integrates with OneKey's IP table and failover mechanisms
+- Follows the same patterns as `systemTimeUtils` for consistency
 
 ## Common Questions
 

@@ -10,7 +10,6 @@ import type { IDefaultConfig, IDoctorConfig } from './types';
  * Default Configuration
  */
 export const DEFAULT_CONFIG: IDefaultConfig = {
-  healthCheckPath: '/health',
   timeouts: {
     dns: 10_000,
     tcp: 10_000,
@@ -38,9 +37,6 @@ export function mergeConfig(
   userConfig: IDoctorConfig,
 ): Required<IDoctorConfig> {
   return {
-    targetDomain: userConfig.targetDomain,
-    healthCheckPath:
-      userConfig.healthCheckPath ?? DEFAULT_CONFIG.healthCheckPath,
     timeouts: {
       ...DEFAULT_CONFIG.timeouts,
       ...userConfig.timeouts,
@@ -53,16 +49,4 @@ export function mergeConfig(
       userConfig.enableNetworkLogger ?? DEFAULT_CONFIG.enableNetworkLogger,
     maxNetworkLogs: userConfig.maxNetworkLogs ?? DEFAULT_CONFIG.maxNetworkLogs,
   };
-}
-
-/**
- * Build health check URL
- */
-export function buildHealthCheckUrl(domain: string, path: string): string {
-  // Ensure domain has no protocol prefix
-  const cleanDomain = domain.replace(/^https?:\/\//, '');
-  // Ensure path starts with /
-  const cleanPath = path.startsWith('/') ? path : `/${path}`;
-
-  return `https://${cleanDomain}${cleanPath}`;
 }

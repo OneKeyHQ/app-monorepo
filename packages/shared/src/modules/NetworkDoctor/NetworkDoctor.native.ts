@@ -22,7 +22,13 @@ import {
 import Ping from 'react-native-ping';
 import TcpSocket from 'react-native-tcp-socket';
 
-import { buildHealthCheckUrl, mergeConfig } from './config';
+import { appApiClient } from '@onekeyhq/shared/src/appApiClient/appApiClient';
+import { ONEKEY_HEALTH_CHECK_URL } from '@onekeyhq/shared/src/config/appConfig';
+import { getEndpointByServiceName } from '@onekeyhq/shared/src/config/endpointsMap';
+import { OneKeyError } from '@onekeyhq/shared/src/errors';
+import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
+
+import { mergeConfig } from './config';
 import { EDiagnosticIssueType } from './types';
 
 import type {
@@ -43,21 +49,61 @@ import type {
 export class NetworkDoctor {
   private config: Required<IDoctorConfig>;
 
-  private healthCheckUrl: string;
+  private endpoint: string | null = null;
+
+  private client: any = null;
+
+  private healthCheckUrl: string | null = null;
+
+  private targetDomain: string | null = null;
 
   private startTime = 0;
 
   constructor(userConfig: IDoctorConfig) {
     this.config = mergeConfig(userConfig);
-    this.healthCheckUrl = buildHealthCheckUrl(
-      this.config.targetDomain,
-      this.config.healthCheckPath,
-    );
 
-    console.log('🩺 [NetworkDoctor] Initialized', {
-      targetDomain: this.config.targetDomain,
-      healthCheckUrl: this.healthCheckUrl,
-    });
+    console.log('🩺 [NetworkDoctor] Initialized');
+  }
+
+  /**
+   * Initialize endpoint, client and health check URL from service configuration
+   */
+  private async initialize(): Promise<void> {
+    if (this.endpoint && this.client) {
+      return; // Already initialized
+    }
+
+    try {
+      // Get endpoint from service configuration
+      this.endpoint = await getEndpointByServiceName(
+        EServiceEndpointEnum.Wallet,
+      );
+
+      // Create API client
+      this.client = await appApiClient.getClient({
+        endpoint: this.endpoint,
+        name: EServiceEndpointEnum.Wallet,
+      });
+
+      // Build health check URL
+      this.healthCheckUrl = `${this.endpoint}${ONEKEY_HEALTH_CHECK_URL}`;
+
+      // Extract domain from endpoint URL
+      const url = new URL(this.endpoint);
+      this.targetDomain = url.hostname;
+
+      console.log('🩺 [NetworkDoctor] Initialized endpoint and client', {
+        endpoint: this.endpoint,
+        healthCheckUrl: this.healthCheckUrl,
+        targetDomain: this.targetDomain,
+      });
+    } catch (error: any) {
+      console.error(
+        '[NetworkDoctor] Failed to initialize endpoint and client',
+        error?.message,
+      );
+      throw error;
+    }
   }
 
   /**
@@ -66,6 +112,18 @@ export class NetworkDoctor {
   async run(): Promise<INetworkCheckup> {
     this.startTime = Date.now();
     console.log('🩺 ===== NETWORK DOCTOR: CHECKUP START =====');
+
+    // Initialize endpoint, client and health check URL
+    await this.initialize();
+
+    if (
+      !this.endpoint ||
+      !this.client ||
+      !this.healthCheckUrl ||
+      !this.targetDomain
+    ) {
+      throw new OneKeyError('Failed to initialize NetworkDoctor');
+    }
 
     // Initialize network logging
     if (this.config.enableNetworkLogger) {
@@ -97,7 +155,7 @@ export class NetworkDoctor {
 
       // ========== Phase 4: Ping Tests ==========
       console.log('[DR] Phase 4: Ping Tests');
-      const pingDomain = await this.testPing(this.config.targetDomain);
+      const pingDomain = await this.testPing(this.targetDomain ?? '');
       const pingIp =
         dns.ips.length > 0 ? await this.testPing(dns.ips[0]) : undefined;
       const extraPings = await this.testExtraPings();
@@ -182,14 +240,15 @@ export class NetworkDoctor {
 
   private async testDns(): Promise<IDnsResult> {
     const startTime = Date.now();
+    const hostname = this.targetDomain ?? '';
     try {
       const { getIpAddressesForHostname } = await import(
         'react-native-dns-lookup'
       );
-      const ips = await getIpAddressesForHostname(this.config.targetDomain);
+      const ips = await getIpAddressesForHostname(hostname);
 
       const result = {
-        hostname: this.config.targetDomain,
+        hostname,
         ips: Array.from(ips),
         durationMs: Date.now() - startTime,
       };
@@ -197,7 +256,7 @@ export class NetworkDoctor {
       return result;
     } catch (error: any) {
       const result = {
-        hostname: this.config.targetDomain,
+        hostname,
         ips: [],
         error: error?.message || String(error),
         durationMs: Date.now() - startTime,
@@ -307,8 +366,14 @@ export class NetworkDoctor {
   private async testTcpConnectivity(
     apiIp?: string,
   ): Promise<IConnectivityComparison> {
-    const targetHost = apiIp || this.config.targetDomain;
+    const targetHost = apiIp;
     const timeout = this.config.timeouts.tcp || 10_000;
+
+    if (!targetHost) {
+      throw new OneKeyError(
+        'No target host specified for TCP connectivity test',
+      );
+    }
 
     console.log(
       `[TCP] Starting connectivity comparison (target: ${targetHost})`,
@@ -328,7 +393,7 @@ export class NetworkDoctor {
     const result = {
       yourApi: {
         ...yourApi,
-        host: this.config.targetDomain,
+        host: this.targetDomain ?? '',
       },
       google,
       cloudflare,
@@ -347,14 +412,16 @@ export class NetworkDoctor {
   private async testTlsHandshake(): Promise<ITlsHandshakeResult> {
     const startTime = Date.now();
     const timeout = this.config.timeouts.tls;
+    const url = this.healthCheckUrl ?? '';
 
     try {
-      const response = await axios.get(this.healthCheckUrl, {
+      // Use the initialized client
+      const response = await this.client.get(ONEKEY_HEALTH_CHECK_URL, {
         timeout,
       });
 
       const result = {
-        url: this.healthCheckUrl,
+        url,
         success: true,
         tlsHandshakeTime: Date.now() - startTime,
         statusCode: response.status,
@@ -384,7 +451,7 @@ export class NetworkDoctor {
         errorType = 'CONNECTION_RESET';
 
       const result = {
-        url: this.healthCheckUrl,
+        url,
         success: false,
         tlsHandshakeTime: Date.now() - startTime,
         error: error.message || String(error),
@@ -444,9 +511,15 @@ export class NetworkDoctor {
   private async testHealthCheck(): Promise<IHttpProbeResult> {
     const startTime = Date.now();
     const timeout = this.config.timeouts.http;
+    const url = this.healthCheckUrl ?? '';
 
     try {
-      const response = await axios.get(this.healthCheckUrl, {
+      // Use the initialized client
+      const response = await this.client.get(ONEKEY_HEALTH_CHECK_URL, {
+        params: {
+          _: 'network_doctor_health',
+          timestamp: Date.now(),
+        },
         timeout,
       });
 
@@ -456,7 +529,7 @@ export class NetworkDoctor {
           : JSON.stringify(response.data).slice(0, 200);
 
       const result = {
-        url: this.healthCheckUrl,
+        url,
         success: true,
         status: response.status,
         dataPreview: preview,
@@ -469,7 +542,7 @@ export class NetworkDoctor {
       return result;
     } catch (error: any) {
       const result = {
-        url: this.healthCheckUrl,
+        url,
         success: false,
         status: error?.response?.status,
         error: error?.message || String(error),
@@ -595,8 +668,8 @@ export class NetworkDoctor {
     return {
       timestamp: new Date().toISOString(),
       config: {
-        targetDomain: this.config.targetDomain,
-        healthCheckUrl: this.healthCheckUrl,
+        targetDomain: this.targetDomain ?? '',
+        healthCheckUrl: this.healthCheckUrl ?? '',
       },
       summary: {
         allCriticalChecksPassed:

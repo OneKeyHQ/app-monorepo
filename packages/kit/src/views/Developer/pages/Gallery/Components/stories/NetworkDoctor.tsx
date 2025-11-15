@@ -11,7 +11,8 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import type { INetworkCheckup } from '@onekeyhq/shared/src/modules/NetworkDoctor';
-import { runNetworkDoctor } from '@onekeyhq/shared/src/modules/NetworkDoctor';
+import { NetworkDoctor } from '@onekeyhq/shared/src/modules/NetworkDoctor';
+import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import { Layout } from './utils/Layout';
 
@@ -26,10 +27,11 @@ const NetworkDoctorGallery = () => {
     setResult(null);
 
     try {
-      const report = await runNetworkDoctor({
-        targetDomain: 'wallet.onekeytest.com',
-        healthCheckPath: '/wallet/v1/health',
+      const doctor = new NetworkDoctor({
+        serviceName: EServiceEndpointEnum.Wallet,
       });
+
+      const report = await doctor.run();
 
       setResult(report);
       console.log('🩺 Network Doctor Report:', report);
