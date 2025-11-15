@@ -21,9 +21,11 @@ import type {
   IAccountSelectorSelectedAccount,
 } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import { useIndexedAccountAddressCreationStateAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import { AccountEditButton } from '../../../components/AccountEdit';
 import { useAccountSelectorAvatarNetwork } from '../../../hooks/useAccountSelectorAvatarNetwork';
@@ -61,6 +63,8 @@ export function AccountSelectorAccountListItem({
   focusedWalletInfo,
   mergeDeriveAssetsEnabled,
   hideAddress,
+  enabledNetworksCompatibleWithWalletId,
+  networkInfoMap,
 }: {
   num: number;
   linkedNetworkId: string | undefined;
@@ -86,6 +90,14 @@ export function AccountSelectorAccountListItem({
     | undefined;
   mergeDeriveAssetsEnabled: boolean | undefined;
   hideAddress?: boolean;
+  enabledNetworksCompatibleWithWalletId: IServerNetwork[];
+  networkInfoMap: Record<
+    string,
+    {
+      deriveType: IAccountDeriveTypes;
+      mergeDeriveAssetsEnabled: boolean;
+    }
+  >;
 }) {
   const actions = useAccountSelectorActions();
   const navigation = useAppNavigation();
@@ -273,13 +285,21 @@ export function AccountSelectorAccountListItem({
   );
 
   const renderAccountValue = useCallback(() => {
-    if (platformEnv.isE2E || (linkNetwork && !subTitleInfo.address))
+    if (
+      platformEnv.isWebDappMode ||
+      platformEnv.isE2E ||
+      (linkNetwork && !subTitleInfo.address)
+    )
       return null;
 
     return (
       <>
         <AccountValueWithSpotlight
           walletId={focusedWalletInfo?.wallet?.id ?? ''}
+          enabledNetworksCompatibleWithWalletId={
+            enabledNetworksCompatibleWithWalletId
+          }
+          networkInfoMap={networkInfoMap}
           isOthersUniversal={isOthersUniversal}
           index={index}
           accountValue={accountValue}
@@ -293,6 +313,8 @@ export function AccountSelectorAccountListItem({
   }, [
     linkNetwork,
     subTitleInfo.address,
+    enabledNetworksCompatibleWithWalletId,
+    networkInfoMap,
     focusedWalletInfo?.wallet?.id,
     isOthersUniversal,
     index,
@@ -317,6 +339,7 @@ export function AccountSelectorAccountListItem({
         })}
         isEmptyAddress={subTitleInfo.isEmptyAddress}
         hideAddress={subTitleInfo.hideAddress}
+        showSplitter={!(platformEnv.isWebDappMode || platformEnv.isE2E)}
       />
     );
   }, [
