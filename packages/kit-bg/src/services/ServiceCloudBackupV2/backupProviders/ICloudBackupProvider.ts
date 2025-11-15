@@ -63,6 +63,7 @@ export class ICloudBackupProvider implements IOneKeyBackupProvider {
     return {
       displayName: '',
       displayNameI18nKey: ETranslations.global_icloud,
+      // id: ETranslations.backup_backup_to_icloud,
     };
   }
 

@@ -246,7 +246,7 @@ function BasicEditAddress() {
                 contacts={
                   !hideAddressBook
                     ? addressBookEnabledNetworkIds.includes(networkIdValue)
-                    : null
+                    : undefined
                 }
                 enableNameResolve
                 placeholder={intl.formatMessage({

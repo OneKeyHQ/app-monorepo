@@ -110,6 +110,7 @@ export class GoogleDriveBackupProvider implements IOneKeyBackupProvider {
     return {
       displayName: '',
       displayNameI18nKey: ETranslations.global_google_drive,
+      // id: ETranslations.backup_backup_to_google_drive,
     };
   }
 
@@ -323,6 +324,20 @@ export class GoogleDriveBackupProvider implements IOneKeyBackupProvider {
       fileName: GOOGLE_DRIVE_BACKUP_MANIFEST_FILE_NAME,
     });
     return fileObj;
+  }
+
+  async removeManifestFile(): Promise<void> {
+    const fileObj = await this.getManifestFileObject();
+    if (!fileObj) {
+      throw new OneKeyLocalError('GoogleDriveBackup Manifest file not found');
+    }
+    const fileId: string | undefined = fileObj?.id;
+    if (!fileId) {
+      throw new OneKeyLocalError('GoogleDriveBackup Manifest fileId not found');
+    }
+    await googleDriveStorage.deleteFile({
+      fileId,
+    });
   }
 
   async deleteBackup({

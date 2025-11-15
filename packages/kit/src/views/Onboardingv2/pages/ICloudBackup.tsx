@@ -320,6 +320,16 @@ export default function ICloudBackup() {
                   androidGetManifestFileObject
                 </Button>
                 <Button
+                  onPress={async () =>
+                    Dialog.debugMessage({
+                      debugMessage:
+                        await backgroundApiProxy.serviceCloudBackupV2.androidRemoveManifestFile(),
+                    })
+                  }
+                >
+                  androidRemoveManifestFile
+                </Button>
+                <Button
                   onPress={async () => {
                     await startBackup({
                       alwaysGoToBackupDetail: true,

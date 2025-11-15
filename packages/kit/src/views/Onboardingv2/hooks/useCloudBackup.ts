@@ -6,6 +6,7 @@ import { useThrottledCallback } from 'use-debounce';
 import type { IDialogInstance } from '@onekeyhq/components';
 import { Dialog, Toast } from '@onekeyhq/components';
 import type { IBackupDataEncryptedPayload } from '@onekeyhq/kit-bg/src/services/ServiceCloudBackupV2/backupProviders/IOneKeyBackupProvider';
+import { useCloudBackupStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes';
@@ -33,16 +34,18 @@ export function useCloudBackup() {
   const navigation = useAppNavigation();
   const [checkLoading, setCheckLoading] = useState(false);
 
-  const { result: supportCloudBackup = false } = usePromiseResult(async () => {
-    return backgroundApiProxy.serviceCloudBackupV2.supportCloudBackup();
-  }, []);
+  const [cloudBackupStatus] = useCloudBackupStatusAtom();
 
-  const { result: cloudBackupFeatureInfo } = usePromiseResult(async () => {
+  const supportCloudBackup = cloudBackupStatus.supportCloudBackup;
+
+  const cloudBackupFeatureInfo = useMemo(() => {
     if (!supportCloudBackup) {
       return null;
     }
-    const info =
-      await backgroundApiProxy.serviceCloudBackupV2.getBackupProviderInfo();
+    const info = cloudBackupStatus.cloudBackupProviderInfo;
+    if (!info) {
+      return null;
+    }
     return {
       supportCloudBackup,
       icon: 'CloudOutline',
@@ -52,7 +55,7 @@ export function useCloudBackup() {
           })
         : info.displayName,
     };
-  }, [intl, supportCloudBackup]);
+  }, [cloudBackupStatus.cloudBackupProviderInfo, intl, supportCloudBackup]);
 
   const checkIsAvailable = useCallback(async (): Promise<boolean> => {
     try {

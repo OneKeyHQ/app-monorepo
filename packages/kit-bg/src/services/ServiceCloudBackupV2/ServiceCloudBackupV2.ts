@@ -25,6 +25,8 @@ import type {
 } from '@onekeyhq/shared/types/prime/primeTransferTypes';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
+import { EAtomNames } from '../../states/jotai/atomNames';
+import { cloudBackupStatusAtom } from '../../states/jotai/atoms/cloudBackup';
 import ServiceBase from '../ServiceBase';
 
 import { OneKeyBackupProvider } from './backupProviders/OneKeyBackupProvider';
@@ -38,6 +40,7 @@ import type {
   IBackupProviderInfo,
   IOneKeyBackupProvider,
 } from './backupProviders/IOneKeyBackupProvider';
+import type { ICloudBackupStatusAtom } from '../../states/jotai/atoms/cloudBackup';
 
 export type IBackupStatus = {
   isAvailable: boolean;
@@ -50,6 +53,32 @@ export type IBackupStatus = {
 class ServiceCloudBackupV2 extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
+    void this.init();
+  }
+
+  @backgroundMethod()
+  async init(): Promise<void> {
+    void this.initCloudBackupStatusAtom();
+  }
+
+  async initCloudBackupStatusAtom(): Promise<void> {
+    const supportCloudBackup = await this.supportCloudBackup();
+    if (supportCloudBackup) {
+      const cloudBackupProviderInfo = await this.getBackupProviderInfo();
+      const title = cloudBackupProviderInfo.displayNameI18nKey
+        ? appLocale.intl.formatMessage({
+            id: cloudBackupProviderInfo.displayNameI18nKey as any,
+          })
+        : cloudBackupProviderInfo.displayName;
+      await cloudBackupStatusAtom.set(
+        (): ICloudBackupStatusAtom => ({
+          supportCloudBackup,
+          cloudBackupProviderName: title,
+          cloudBackupProviderIcon: 'CloudOutline',
+          cloudBackupProviderInfo,
+        }),
+      );
+    }
   }
 
   _backupProvider: IOneKeyBackupProvider | null = null;
@@ -86,15 +115,6 @@ class ServiceCloudBackupV2 extends ServiceBase {
   @backgroundMethod()
   async getBackupProviderInfo(): Promise<IBackupProviderInfo> {
     return this.getProvider().getBackupProviderInfo();
-  }
-
-  @backgroundMethod()
-  async init(): Promise<void> {
-    // Initialize backup service
-    // Check if iCloud is available and set up listeners if needed
-    if (platformEnv.isNativeIOS) {
-      // await this.iCloudProvider.getBackupStatus();
-    }
   }
 
   @backgroundMethod()
@@ -478,6 +498,13 @@ class ServiceCloudBackupV2 extends ServiceBase {
   async androidGetManifestFileObject() {
     const provider = this.getProvider();
     return (provider as GoogleDriveBackupProvider).getManifestFileObject();
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async androidRemoveManifestFile() {
+    const provider = this.getProvider();
+    return (provider as GoogleDriveBackupProvider).removeManifestFile();
   }
 
   @backgroundMethod()

@@ -37,30 +37,34 @@ export default function AddExistingWallet() {
   const navigation = useAppNavigation();
   const intl = useIntl();
 
-  const { checkLoading, supportCloudBackup, goToPageBackupList, startBackup } =
-    useCloudBackup();
+  const {
+    checkLoading,
+    supportCloudBackup,
+    goToPageBackupList,
+    startBackup,
+    cloudBackupFeatureInfo,
+  } = useCloudBackup();
 
   const { result: cloudBackupOption = null } =
     usePromiseResult<IAddExistingWalletOption | null>(async () => {
-      if (!supportCloudBackup) {
+      if (!supportCloudBackup || !cloudBackupFeatureInfo) {
         return null;
       }
       noop(navigation);
-      const info =
-        await backgroundApiProxy.serviceCloudBackupV2.getBackupProviderInfo();
 
       const option: IAddExistingWalletOption = {
-        icon: 'CloudOutline',
-        title: info.displayNameI18nKey
-          ? intl.formatMessage({
-              id: info.displayNameI18nKey as any,
-            })
-          : info.displayName,
+        icon: cloudBackupFeatureInfo?.icon as IKeyOfIcons,
+        title: cloudBackupFeatureInfo?.title,
         onPress: goToPageBackupList,
         // onPress: () => navigation.push(EOnboardingPagesV2.ICloudBackup),
       };
       return option;
-    }, [goToPageBackupList, intl, navigation, supportCloudBackup]);
+    }, [
+      cloudBackupFeatureInfo,
+      goToPageBackupList,
+      navigation,
+      supportCloudBackup,
+    ]);
   const cloudBackupOptionWithLoading =
     useMemo<IAddExistingWalletOption | null>(() => {
       if (!cloudBackupOption) {
