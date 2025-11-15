@@ -74,11 +74,14 @@ export type IOnboardingParamListV2 = {
     detectedNetworks: IDetectedNetworkGroupItem[];
     importType: 'privateKey' | 'address' | 'publicKey';
   };
-  [EOnboardingPagesV2.ICloudBackup]: undefined;
+  [EOnboardingPagesV2.ICloudBackup]: {
+    hideRestoreButton?: boolean;
+  };
   [EOnboardingPagesV2.ICloudBackupDetails]: {
     backupTime: number;
     backupId?: string;
     actionType: 'backup' | 'restore';
+    hideRestoreButton?: boolean;
   };
   [EOnboardingPagesV2.ConnectWalletSelectNetworks]: {
     impl: string;
