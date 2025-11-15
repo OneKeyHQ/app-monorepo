@@ -837,7 +837,7 @@ const ProtocolDetailsPage = () => {
   const depositActionProps = useMemo(() => {
     const item = detailInfo?.actions?.find((i) => i.type === 'deposit');
     return {
-      text: item?.text.text,
+      text: typeof item?.text === 'string' ? item.text : item?.text?.text,
       buttonProps: {
         disabled: !earnAccount?.accountAddress || item?.disabled,
         variant: 'primary',
