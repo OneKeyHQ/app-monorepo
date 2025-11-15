@@ -158,7 +158,7 @@ function BtcAddresses() {
           copyAddressWithDeriveType({
             address: row.address,
             deriveInfo: effectiveDeriveInfo,
-            networkName: network?.shortname,
+            networkName: network?.name,
           });
           return;
         }
@@ -177,7 +177,7 @@ function BtcAddresses() {
       copyAddressWithDeriveType({
         address: row.address,
         deriveInfo: effectiveDeriveInfo,
-        networkName: network?.shortname,
+        networkName: network?.name,
       });
     },
     [
@@ -188,7 +188,7 @@ function BtcAddresses() {
       effectiveWalletId,
       isHardwareAccount,
       navigation,
-      network?.shortname,
+      network?.name,
       networkId,
     ],
   );

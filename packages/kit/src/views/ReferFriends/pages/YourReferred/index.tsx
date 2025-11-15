@@ -8,14 +8,22 @@ import {
   Tabs,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useRedirectWhenNotLoggedIn } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useRedirectWhenNotLoggedIn';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { ETabReferFriendsRoutes } from '@onekeyhq/shared/src/routes';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+
+import { BreadcrumbSection } from '../../components';
+import { useNavigateToWalletAddresses } from '../YourReferredWalletAddresses/hooks/useNavigateToWalletAddresses';
 
 function EmptyData() {
   const intl = useIntl();
@@ -103,7 +111,7 @@ function HardwareSales() {
 
 function WalletList() {
   const intl = useIntl();
-  const navigation = useAppNavigation();
+  const navigateToWalletAddresses = useNavigateToWalletAddresses();
   const { result, isLoading } = usePromiseResult(
     () => backgroundApiProxy.serviceReferralCode.getEarnWalletHistory(),
     [],
@@ -153,13 +161,10 @@ function WalletList() {
               key={index}
               title={`Wallet ${index + 1}`}
               onPress={() => {
-                navigation.push(
-                  ETabReferFriendsRoutes.TabYourReferredWalletAddresses,
-                  {
-                    items: item.items,
-                    networks,
-                  },
-                );
+                navigateToWalletAddresses({
+                  items: item.items,
+                  networks,
+                });
               }}
             >
               <SizableText size="$bodyMd" color="$textSubdued">
@@ -180,14 +185,33 @@ function WalletList() {
   );
 }
 
-export default function YourReferred() {
+function YourReferredPageWrapper() {
+  // Redirect to ReferAFriend page if user is not logged in
+  useRedirectWhenNotLoggedIn();
+
   const intl = useIntl();
+  const { md } = useMedia();
+  const title = intl.formatMessage({
+    id: ETranslations.referral_your_referred,
+  });
+
   return (
     <Page>
-      <Page.Header
-        title={intl.formatMessage({ id: ETranslations.referral_your_referred })}
-      />
+      {platformEnv.isNative || md ? (
+        <Page.Header title={title} />
+      ) : (
+        <TabPageHeader
+          sceneName={EAccountSelectorSceneName.home}
+          tabRoute={ETabRoutes.ReferFriends}
+          hideHeaderLeft={platformEnv.isDesktop}
+        />
+      )}
       <Page.Body>
+        {!md ? (
+          <YStack p="$5">
+            <BreadcrumbSection secondItemLabel={title} />
+          </YStack>
+        ) : null}
         <Tabs.Container>
           <Tabs.Tab
             name={intl.formatMessage({
@@ -210,5 +234,19 @@ export default function YourReferred() {
         </Tabs.Container>
       </Page.Body>
     </Page>
+  );
+}
+
+export default function YourReferred() {
+  return (
+    <AccountSelectorProviderMirror
+      config={{
+        sceneName: EAccountSelectorSceneName.home,
+        sceneUrl: '',
+      }}
+      enabledNum={[0]}
+    >
+      <YourReferredPageWrapper />
+    </AccountSelectorProviderMirror>
   );
 }

@@ -25,7 +25,6 @@ import platformEnv from '../platformEnv';
 import { EAppEventBusNames } from './appEventBusNames';
 
 import type { EAccountSelectorSceneName, EHomeTab } from '../../types';
-import type { IFirmwareVerifyResult } from '../../types/device';
 import type { IFeeSelectorItem } from '../../types/fee';
 import type { ESubscriptionType } from '../../types/hyperliquid/types';
 import type { INotificationViewDialogPayload } from '../../types/notification';
@@ -75,6 +74,8 @@ export type IEventBusPayloadShowToast = {
   errorCode?: number;
   toastId?: string;
   i18nKey?: ETranslations;
+  requestId?: string;
+  diagnosticText?: string;
 };
 export interface IAppEventBusPayload {
   [EAppEventBusNames.ConfirmAccountSelected]: undefined;
@@ -241,6 +242,7 @@ export interface IAppEventBusPayload {
     networkId: string;
   };
   [EAppEventBusNames.AccountDataUpdate]: undefined;
+  [EAppEventBusNames.AccountValueUpdate]: undefined;
   [EAppEventBusNames.onDragBeginInListView]: undefined;
   [EAppEventBusNames.onDragEndInListView]: undefined;
   [EAppEventBusNames.SidePanel_BgToUI]: {
@@ -394,7 +396,6 @@ export interface IAppEventBusPayload {
     retry?: number;
     message?: string;
   };
-  [EAppEventBusNames.EmitFirmwareVerifyResult]: IFirmwareVerifyResult;
 }
 
 export enum EEventBusBroadcastMethodNames {

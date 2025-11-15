@@ -1,5 +1,5 @@
 import { Semaphore } from 'async-mutex';
-import { debounce, isEmpty, isNaN, isNil } from 'lodash';
+import { debounce, isEmpty, isNaN, isNil, uniqBy } from 'lodash';
 import natsort from 'natsort';
 import { io } from 'socket.io-client';
 
@@ -34,7 +34,6 @@ import {
 import { IMPL_TON } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   OneKeyLocalError,
-  PrimeTransferImportCancelledError,
   TransferInvalidCodeError,
 } from '@onekeyhq/shared/src/errors';
 import {
@@ -46,10 +45,7 @@ import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { headerPlatform } from '@onekeyhq/shared/src/request/InterceptorConsts';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import type {
-  IAllWalletAvatarImageNamesWithoutDividers,
-  IOthersWalletAvatarImageNames,
-} from '@onekeyhq/shared/src/utils/avatarUtils';
+import type { IAllWalletAvatarImageNamesWithoutDividers } from '@onekeyhq/shared/src/utils/avatarUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -67,6 +63,7 @@ import type {
   IPrimeTransferHDWalletIndexedAccountNames,
   IPrimeTransferPrivateData,
   IPrimeTransferPublicData,
+  IPrimeTransferPublicDataWalletDetail,
   IPrimeTransferSelectedData,
   IPrimeTransferSelectedDataItem,
   IPrimeTransferSelectedItemMap,
@@ -939,7 +936,7 @@ class ServicePrimeTransfer extends ServiceBase {
               id: walletId,
               name: wallet.name,
               type: wallet.type,
-              backuped: wallet.backuped,
+              backuped: isForCloudBackup ? true : wallet.backuped,
               accounts: [],
               accountIds: [],
               accountIdsLength: 0,
@@ -949,6 +946,7 @@ class ServicePrimeTransfer extends ServiceBase {
               walletOrder: wallet.walletOrder,
               avatarInfo: wallet.avatarInfo,
               version: HDWALLET_BACKUP_VERSION,
+              xfp: wallet.xfp || undefined,
             };
           }
           const HDAccountUUID = account.id;
@@ -997,11 +995,7 @@ class ServicePrimeTransfer extends ServiceBase {
       publicData.totalWalletsCount = hdWallets.length;
       publicData.totalAccountsCount =
         totalHdAccounts + importedAccountsCount + watchingAccountsCount;
-      const walletDetails: Array<{
-        name: string;
-        avatar: IAllWalletAvatarImageNamesWithoutDividers;
-        accountsCount: number;
-      }> = [
+      const walletDetails: Array<IPrimeTransferPublicDataWalletDetail> = [
         ...sortedHdWallets.map((w) => {
           let avatarInfo: IAvatarInfo | undefined;
           try {
@@ -1021,34 +1015,29 @@ class ServicePrimeTransfer extends ServiceBase {
             name: w.name,
             avatar,
             accountsCount: w.indexedAccountUUIDs?.length || 0,
+            walletXfp: w.xfp,
           };
         }),
       ].filter(Boolean);
       if (importedAccountsCount > 0) {
-        const data: {
-          name: string;
-          avatar: IOthersWalletAvatarImageNames;
-          accountsCount: number;
-        } = {
+        const data: IPrimeTransferPublicDataWalletDetail = {
           name: appLocale.intl.formatMessage({
             id: ETranslations.wallet_label_private_key,
           }),
           avatar: 'othersImported',
           accountsCount: importedAccountsCount,
+          walletXfp: undefined,
         };
         walletDetails.push(data);
       }
       if (watchingAccountsCount > 0) {
-        const data: {
-          name: string;
-          avatar: IOthersWalletAvatarImageNames;
-          accountsCount: number;
-        } = {
+        const data: IPrimeTransferPublicDataWalletDetail = {
           name: appLocale.intl.formatMessage({
             id: ETranslations.wallet_label_watch_only,
           }),
           avatar: 'othersWatching',
           accountsCount: watchingAccountsCount,
+          walletXfp: undefined,
         };
         walletDetails.push(data);
       }
@@ -1537,14 +1526,47 @@ class ServicePrimeTransfer extends ServiceBase {
   @toastIfError()
   async initImportProgress({
     selectedTransferData,
+    isFromCloudBackupRestore,
   }: {
     selectedTransferData: IPrimeTransferSelectedData;
+    isFromCloudBackupRestore?: boolean;
   }): Promise<void> {
     let totalProgressCount = 0;
+
+    let backupRestoreDefaultNetworks: {
+      networkId: string;
+      deriveType: IAccountDeriveTypes;
+    }[] = [];
+    if (isFromCloudBackupRestore) {
+      const networks =
+        await this.backgroundApi.serviceBatchCreateAccount.buildDefaultNetworksForBatchCreate(
+          {
+            walletId: '',
+          },
+        );
+      backupRestoreDefaultNetworks = networks;
+    }
     // Count wallets and their indexed accounts
     selectedTransferData.wallets?.forEach((wallet) => {
-      totalProgressCount +=
+      const count =
         wallet?.item?.accounts?.length || wallet?.item?.accountIdsLength || 0;
+      if (isFromCloudBackupRestore) {
+        let customNetworks: {
+          networkId: string;
+          deriveType: IAccountDeriveTypes;
+        }[] = [];
+        wallet?.item?.createNetworkParams?.forEach((item) => {
+          customNetworks.push(...(item.customNetworks || []));
+        });
+        customNetworks.push(...backupRestoreDefaultNetworks);
+        customNetworks = uniqBy(
+          customNetworks,
+          (item) => `${item.networkId}_${item.deriveType}`,
+        );
+        totalProgressCount += Math.max(count, customNetworks.length);
+      } else {
+        totalProgressCount += count;
+      }
     });
     // this.backgroundApi.serviceBatchCreateAccount.addDefaultNetworkAccounts
     // Count imported accounts

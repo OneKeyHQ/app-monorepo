@@ -17,28 +17,24 @@ import {
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useReferFriends } from '@onekeyhq/kit/src/hooks/useReferFriends';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import {
-  EModalRoutes,
-  ETabReferFriendsRoutes,
-} from '@onekeyhq/shared/src/routes';
+import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import { usePrimeAuthV2 } from '../../../Prime/hooks/usePrimeAuthV2';
-import { usePrimeAvailable } from '../../../Prime/hooks/usePrimeAvailable';
-import { PrimeUserInfo } from '../../../Prime/pages/PrimeDashboard/PrimeUserInfo';
+import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
+import { usePrimeAvailable } from '../../hooks/usePrimeAvailable';
+import { PrimeUserInfo } from '../PrimeDashboard/PrimeUserInfo';
 
 function OneKeyIdPage() {
   const intl = useIntl();
   const navigation = useAppNavigation();
-  const toInviteRewardPage = useCallback(() => {
-    navigation.push(ETabReferFriendsRoutes.TabInviteReward);
-  }, [navigation]);
+  const { toInviteRewardPage } = useReferFriends();
   const { isPrimeAvailable } = usePrimeAvailable();
   const { isLoggedIn, logout } = usePrimeAuthV2();
   const logoutRef = useRef<() => Promise<void>>(logout);

@@ -35,8 +35,8 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { EPrimeEmailOTPScene } from '@onekeyhq/shared/src/consts/primeConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
-  ETabReferFriendsRoutes,
-  ITabReferFriendsParamList,
+  EModalReferFriendsRoutes,
+  IModalReferFriendsParamList,
 } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -51,11 +51,12 @@ function BasicEditAddress() {
   const route =
     useRoute<
       RouteProp<
-        ITabReferFriendsParamList,
-        ETabReferFriendsRoutes.TabEditAddress
+        IModalReferFriendsParamList,
+        EModalReferFriendsRoutes.EditAddress
       >
     >();
   const onAddressAdded = route.params?.onAddressAdded;
+  const hideAddressBook = route.params?.hideAddressBook ?? false;
   const intl = useIntl();
   const navigation = useAppNavigation();
   const enabledNetworks = useMemo(
@@ -137,20 +138,23 @@ function BasicEditAddress() {
 
   const { result: addressBookEnabledNetworkIds } = usePromiseResult(
     async () => {
+      if (hideAddressBook) {
+        return [];
+      }
       const networks =
         await backgroundApiProxy.serviceNetwork.getAddressBookEnabledNetworks();
       return networks.map((o) => o.id);
     },
-    [],
+    [hideAddressBook],
     { initResult: [] },
   );
 
   const addressInputAccountSelectorArgs = useMemo<{ num: number } | undefined>(
     () =>
-      addressBookEnabledNetworkIds.includes(networkIdValue)
+      !hideAddressBook && addressBookEnabledNetworkIds.includes(networkIdValue)
         ? { num: 0, clearNotMatch: true }
         : undefined,
-    [addressBookEnabledNetworkIds, networkIdValue],
+    [addressBookEnabledNetworkIds, hideAddressBook, networkIdValue],
   );
 
   onSubmitRef.current = useCallback(
@@ -230,7 +234,7 @@ function BasicEditAddress() {
               }}
             >
               <AddressInput
-                enableAddressBook
+                enableAddressBook={!hideAddressBook}
                 enableWalletName
                 enableVerifySendFundToSelf
                 enableAddressInteractionStatus
@@ -239,7 +243,11 @@ function BasicEditAddress() {
                 accountSelector={addressInputAccountSelectorArgs}
                 // accountId={accountId}
                 networkId={networkIdValue}
-                contacts={addressBookEnabledNetworkIds.includes(networkIdValue)}
+                contacts={
+                  !hideAddressBook
+                    ? addressBookEnabledNetworkIds.includes(networkIdValue)
+                    : undefined
+                }
                 enableNameResolve
                 placeholder={intl.formatMessage({
                   id: ETranslations.form_address_placeholder,
@@ -277,8 +285,8 @@ function EditAddress() {
   const route =
     useRoute<
       RouteProp<
-        ITabReferFriendsParamList,
-        ETabReferFriendsRoutes.TabEditAddress
+        IModalReferFriendsParamList,
+        EModalReferFriendsRoutes.EditAddress
       >
     >();
   const enabledNetworks = useMemo(

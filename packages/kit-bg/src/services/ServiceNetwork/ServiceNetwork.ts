@@ -10,11 +10,13 @@ import {
 import {
   backgroundClass,
   backgroundMethod,
+  toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
   dangerAggregateTokenNetworkRepresent,
   getPresetNetworks,
+  presetNetworksMap,
 } from '@onekeyhq/shared/src/config/presetNetworks';
 import {
   AGGREGATE_TOKEN_MOCK_NETWORK_ID,
@@ -29,7 +31,13 @@ import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import perfUtils, {
   EPerformanceTimerLogNames,
 } from '@onekeyhq/shared/src/utils/debug/perfUtils';
+import type {
+  IDetectedNetwork,
+  IDetectedNetworkGroupItem,
+} from '@onekeyhq/shared/src/utils/networkDetectUtils';
+import networkDetectUtils from '@onekeyhq/shared/src/utils/networkDetectUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import { vaultFactory } from '../../vaults/factory';
@@ -849,6 +857,181 @@ class ServiceNetwork extends ServiceBase {
   }
 
   @backgroundMethod()
+  @toastIfError()
+  async detectNetworksByAddress({ address }: { address: string }): Promise<{
+    detectedNetworks: IDetectedNetworkGroupItem[];
+  }> {
+    // eslint-disable-next-line no-param-reassign
+    address = address?.trim?.() || '';
+    if (!address) {
+      return {
+        detectedNetworks: [],
+      };
+    }
+    const availableNetworks: IServerNetwork[] =
+      await this.getWatchingAccountEnabledNetworks();
+    const detectedNetworks: IDetectedNetworkGroupItem[] = [];
+    const detectedNetworksMap: Record<string, IDetectedNetwork[]> = {};
+
+    for (const network of availableNetworks) {
+      try {
+        const localValidateResult =
+          await this.backgroundApi.serviceValidator.localValidateAddress({
+            networkId: network.id,
+            address,
+          });
+        if (localValidateResult?.isValid) {
+          if (!detectedNetworksMap[network.impl]) {
+            detectedNetworksMap[network.impl] = [];
+          }
+          detectedNetworksMap[network.impl].push({
+            networkId: network.id,
+            name: network.name,
+            shortname: network.shortname,
+            impl: network.impl,
+          });
+        }
+      } catch (error) {
+        console.error('detectNetworksByAddress error', network.id, error);
+      }
+    }
+    Object.entries(detectedNetworksMap).forEach(([impl, networks]) => {
+      if (networks.length > 0) {
+        detectedNetworks.push({
+          uuid: stringUtils.generateUUID(),
+          impl,
+          networks,
+        });
+      }
+    });
+    return {
+      detectedNetworks,
+    };
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async detectNetworksByPublicKey({
+    publicKey,
+  }: {
+    publicKey: string;
+  }): Promise<{
+    detectedNetworks: IDetectedNetworkGroupItem[];
+  }> {
+    // eslint-disable-next-line no-param-reassign
+    publicKey = publicKey?.trim?.() || '';
+    if (!publicKey) {
+      return {
+        detectedNetworks: [],
+      };
+    }
+    const availableNetworks: IServerNetwork[] =
+      await this.getPublicKeyExportEnabledNetworks();
+    const detectedNetworks: IDetectedNetworkGroupItem[] = [];
+    const detectedNetworksMap: Record<string, IDetectedNetwork[]> = {};
+    for (const network of availableNetworks) {
+      try {
+        const result =
+          await this.backgroundApi.serviceAccount.validateGeneralInputOfImporting(
+            {
+              input: publicKey,
+              networkId: network.id,
+              validateXpub: true,
+            },
+          );
+        if (result?.isValid) {
+          if (!detectedNetworksMap[network.impl]) {
+            detectedNetworksMap[network.impl] = [];
+          }
+          detectedNetworksMap[network.impl].push({
+            networkId: network.id,
+            name: network.name,
+            shortname: network.shortname,
+            impl: network.impl,
+          });
+        }
+      } catch (error) {
+        console.error('detectNetworksByPublicKey error', network.id, error);
+      }
+    }
+    Object.entries(detectedNetworksMap).forEach(([impl, networks]) => {
+      if (networks.length > 0) {
+        detectedNetworks.push({
+          uuid: stringUtils.generateUUID(),
+          impl,
+          networks,
+        });
+      }
+    });
+    return {
+      detectedNetworks,
+    };
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async detectNetworksByPrivateKey({
+    privateKey,
+  }: {
+    privateKey: string;
+  }): Promise<{
+    detectedNetworks: IDetectedNetworkGroupItem[];
+  }> {
+    // eslint-disable-next-line no-param-reassign
+    privateKey = privateKey?.trim?.() || '';
+    if (!privateKey) {
+      return {
+        detectedNetworks: [],
+      };
+    }
+    // eslint-disable-next-line no-param-reassign
+    privateKey = await this.backgroundApi.servicePassword.decodeSensitiveText({
+      encodedText: privateKey || '',
+    });
+    if (!privateKey) {
+      return {
+        detectedNetworks: [],
+      };
+    }
+
+    const availableNetworkIds: string[] = (
+      await this.getImportedAccountEnabledNetworks()
+    ).map((network) => network.id);
+
+    const { groupedByImpl } =
+      await networkDetectUtils.detectNetworkByPrivateKey({
+        privateKey,
+      });
+    let results = Object.values(groupedByImpl);
+    results = results
+      .map((item) => {
+        item.networks = item.networks
+          .filter((network) => availableNetworkIds.includes(network.networkId))
+          .sort((a, b) => {
+            if (
+              [
+                presetNetworksMap.eth.id,
+                presetNetworksMap.cosmoshub.id,
+                presetNetworksMap.assethubPolkadot.id,
+              ].includes(a.networkId)
+            ) {
+              return -1;
+            }
+            return 0;
+          });
+        if (item.networks?.length === 0) {
+          // return item;
+          return undefined;
+        }
+        return item;
+      })
+      .filter(Boolean);
+    return {
+      detectedNetworks: results,
+    };
+  }
+
+  @backgroundMethod()
   async getSupportExportAccountKeyNetworks({
     exportType,
   }: {
@@ -1053,6 +1236,28 @@ class ServiceNetwork extends ServiceBase {
         .map((o) => o.network.id)
         .filter((networkId) => !networkIdsIncompatible.includes(networkId)),
     };
+  }
+
+  @backgroundMethod()
+  async getImplContainsMultipleNetworks() {
+    const presetNetworks = getPresetNetworks();
+
+    const impls: {
+      [impl: string]: IServerNetwork[];
+    } = {};
+    presetNetworks.forEach((o) => {
+      impls[o.impl] = impls[o.impl] || [];
+      impls[o.impl].push(o);
+    });
+    const results: {
+      [impl: string]: IServerNetwork[];
+    } = {};
+    Object.entries(impls).forEach(([impl, networks]) => {
+      if (networks.length > 1) {
+        results[impl] = networks;
+      }
+    });
+    return results;
   }
 
   @backgroundMethod()

@@ -1,6 +1,10 @@
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { omit } from 'lodash';
 
+import {
+  decryptStringAsync,
+  encryptStringAsync,
+} from '@onekeyhq/core/src/secret';
 import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
 import { GoogleSignInConfigure } from '@onekeyhq/shared/src/consts/googleSignConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
@@ -8,16 +12,22 @@ import googlePlayService from '@onekeyhq/shared/src/googlePlayService/googlePlay
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { googleDriveStorage } from '@onekeyhq/shared/src/storage/GoogleDriveStorage';
-import type { IGoogleUserInfo } from '@onekeyhq/shared/src/storage/GoogleDriveStorage/types';
+import type {
+  IGoogleDriveFile,
+  IGoogleUserInfo,
+} from '@onekeyhq/shared/src/storage/GoogleDriveStorage/types';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
-import type {
-  IBackupCloudServerDownloadData,
-  IBackupDataEncryptedPayload,
-  IBackupDataManifest,
-  IBackupProviderAccountInfo,
-  IBackupProviderInfo,
-  IOneKeyBackupProvider,
+import {
+  CLOUD_BACKUP_PASSWORD_SALT,
+  CLOUD_BACKUP_PASSWORD_VERIFY_TEXT,
+  type IBackupCloudServerDownloadData,
+  type IBackupDataEncryptedPayload,
+  type IBackupDataManifest,
+  type IBackupDataPasswordVerify,
+  type IBackupProviderAccountInfo,
+  type IBackupProviderInfo,
+  type IOneKeyBackupProvider,
 } from './IOneKeyBackupProvider';
 
 // File naming constants
@@ -34,10 +44,73 @@ export class GoogleDriveBackupProvider implements IOneKeyBackupProvider {
     this.backgroundApi = backgroundApi;
   }
 
+  async clearBackupPassword(): Promise<void> {
+    const manifest = await this.getManifest();
+    manifest.backupPasswordVerify = undefined;
+    await this.saveManifest(manifest);
+  }
+
+  async setBackupPassword(params?: {
+    password?: string;
+  }): Promise<{ recordID: string }> {
+    if (!params?.password) {
+      throw new OneKeyLocalError('Password is required for backup setPassword');
+    }
+    const manifest = await this.getManifest();
+    const content: IBackupDataPasswordVerify = {
+      content: await encryptStringAsync({
+        allowRawPassword: true,
+        password: params.password + CLOUD_BACKUP_PASSWORD_SALT,
+        data: CLOUD_BACKUP_PASSWORD_VERIFY_TEXT,
+        dataEncoding: 'utf8',
+      }),
+    };
+    manifest.backupPasswordVerify = content;
+    await this.saveManifest(manifest);
+    const fileObj = await googleDriveStorage.getFileObject({
+      fileName: GOOGLE_DRIVE_BACKUP_MANIFEST_FILE_NAME,
+    });
+    const fileId: string | undefined = fileObj?.id;
+    if (!fileId) {
+      throw new OneKeyLocalError('GoogleDriveBackup Manifest fileId not found');
+    }
+    return { recordID: fileId };
+  }
+
+  async verifyBackupPassword(params?: { password?: string }): Promise<boolean> {
+    if (!params?.password) {
+      throw new OneKeyLocalError(
+        'Password is required for backup verifyPassword',
+      );
+    }
+    const manifest = await this.getManifest();
+    const verify = manifest.backupPasswordVerify;
+    if (!verify?.content) {
+      throw new OneKeyLocalError('backup password not set before backup');
+    }
+    const decryptedContent = await decryptStringAsync({
+      allowRawPassword: true,
+      password: params.password + CLOUD_BACKUP_PASSWORD_SALT,
+      data: verify.content,
+      dataEncoding: 'hex',
+      resultEncoding: 'utf8',
+    });
+    if (decryptedContent !== CLOUD_BACKUP_PASSWORD_VERIFY_TEXT) {
+      return false;
+    }
+    return true;
+  }
+
+  async isBackupPasswordSet(): Promise<boolean> {
+    const manifest = await this.getManifest();
+    return !!manifest?.backupPasswordVerify?.content;
+  }
+
   async getBackupProviderInfo(): Promise<IBackupProviderInfo> {
     return {
       displayName: '',
       displayNameI18nKey: ETranslations.global_google_drive,
+      // id: ETranslations.backup_backup_to_google_drive,
     };
   }
 
@@ -150,6 +223,7 @@ export class GoogleDriveBackupProvider implements IOneKeyBackupProvider {
   }
 
   async getManifest() {
+    // await googleDriveStorage.fileExists({ fileId: '' });
     const fileObj = await googleDriveStorage.getFileObject({
       fileName: GOOGLE_DRIVE_BACKUP_MANIFEST_FILE_NAME,
     });
@@ -240,11 +314,43 @@ export class GoogleDriveBackupProvider implements IOneKeyBackupProvider {
     return this.getManifest();
   }
 
-  async deleteBackup({ recordId }: { recordId: string }): Promise<void> {
+  async listAllFiles(): Promise<{ files: IGoogleDriveFile[] }> {
+    const files = await googleDriveStorage.listFiles();
+    return files;
+  }
+
+  async getManifestFileObject() {
+    const fileObj = await googleDriveStorage.getFileObject({
+      fileName: GOOGLE_DRIVE_BACKUP_MANIFEST_FILE_NAME,
+    });
+    return fileObj;
+  }
+
+  async removeManifestFile(): Promise<void> {
+    const fileObj = await this.getManifestFileObject();
+    if (!fileObj) {
+      throw new OneKeyLocalError('GoogleDriveBackup Manifest file not found');
+    }
+    const fileId: string | undefined = fileObj?.id;
+    if (!fileId) {
+      throw new OneKeyLocalError('GoogleDriveBackup Manifest fileId not found');
+    }
+    await googleDriveStorage.deleteFile({
+      fileId,
+    });
+  }
+
+  async deleteBackup({
+    recordId,
+    skipManifestUpdate,
+  }: {
+    recordId: string;
+    skipManifestUpdate?: boolean;
+  }): Promise<void> {
     await this.checkAvailability();
 
     const result = await googleDriveStorage.deleteFile({ fileId: recordId });
-    if (result) {
+    if (result && !skipManifestUpdate) {
       await this.deleteFromManifest({
         fileId: recordId,
       });

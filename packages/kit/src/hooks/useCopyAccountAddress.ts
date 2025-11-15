@@ -73,7 +73,7 @@ export const useCopyAccountAddress = () => {
                 id: ETranslations.address_copied_with_type_toast_title,
               },
               {
-                network: network?.shortname ?? '',
+                network: network?.name ?? '',
                 addressType: deriveInfo.labelKey
                   ? intl.formatMessage({
                       id: deriveInfo.labelKey,
@@ -91,7 +91,7 @@ export const useCopyAccountAddress = () => {
                 id: ETranslations.address_copied_toast_title,
               },
               {
-                network: network?.shortname ?? '',
+                network: network?.name ?? '',
               },
             ),
             message: account.address,

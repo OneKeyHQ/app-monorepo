@@ -57,21 +57,25 @@ export const useToOnBoardingPage = (newOnboarding?: boolean) => {
           platformEnv.isExtensionUiPopup ||
           platformEnv.isExtensionUiSidePanel
         ) {
-          await backgroundApiProxy.serviceApp.openExtensionExpandTab({
-            routes: [
-              newOnboarding ? ERootRoutes.Onboarding : ERootRoutes.Modal,
-              newOnboarding
-                ? EOnboardingV2Routes.OnboardingV2
-                : EModalRoutes.OnboardingModal,
-              newOnboarding
-                ? EOnboardingPagesV2.GetStarted
-                : EOnboardingPages.GetStarted,
-            ],
-            params: {
-              ...params,
-              fromExt: true,
-            },
-          });
+          const newParams = {
+            ...params,
+            fromExt: true,
+          };
+          if (newOnboarding) {
+            await backgroundApiProxy.serviceApp.openExtensionExpandTab({
+              path: `/onboarding/get-started`,
+              params: newParams,
+            });
+          } else {
+            await backgroundApiProxy.serviceApp.openExtensionExpandTab({
+              routes: [
+                ERootRoutes.Modal,
+                EModalRoutes.OnboardingModal,
+                EOnboardingPages.GetStarted,
+              ],
+              params: newParams,
+            });
+          }
           if (platformEnv.isExtensionUiSidePanel) {
             window.close();
           }

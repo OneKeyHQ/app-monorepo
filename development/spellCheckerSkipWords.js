@@ -17,6 +17,9 @@ module.exports = [
   'getters',
   '0xxxxxxx',
   'Provideri',
+  'franco',
+  'assethub',
+  'polkadot',
   'synchronizable',
   'keychain',
   'cloudfs',
@@ -1004,4 +1007,6 @@ module.exports = [
   'zlib',
   'Gunzip',
   'Brotli',
+  'Arial',
+  'ip',
 ];

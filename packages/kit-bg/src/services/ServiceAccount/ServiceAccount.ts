@@ -109,7 +109,11 @@ import {
   EHardwareCallContext,
 } from '@onekeyhq/shared/types/device';
 import type { IExternalConnectWalletResult } from '@onekeyhq/shared/types/externalWallet.types';
-import type { IPrimeTransferAccount } from '@onekeyhq/shared/types/prime/primeTransferTypes';
+import type {
+  IPrimeTransferAccount,
+  IPrimeTransferPublicData,
+  IPrimeTransferPublicDataWalletDetail,
+} from '@onekeyhq/shared/types/prime/primeTransferTypes';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import { EDBAccountType } from '../../dbs/local/consts';
@@ -1756,6 +1760,13 @@ class ServiceAccount extends ServiceBase {
     accounts: IDBAccount[];
     isOverrideAccounts: boolean;
   }> {
+    // eslint-disable-next-line no-param-reassign
+    input = await this.backgroundApi.servicePassword.decodeSensitiveText({
+      encodedText: input,
+    });
+    if (!input) {
+      throw new OneKeyLocalError('addWatchingAccount ERROR: input not valid');
+    }
     if (networkUtils.isAllNetwork({ networkId })) {
       throw new OneKeyLocalError(
         'addWatchingAccount ERROR: networkId should not be all networks',
@@ -4849,6 +4860,44 @@ class ServiceAccount extends ServiceBase {
       },
     });
     appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async updateHdWalletsBackedUpStatusForCloudBackup({
+    publicData,
+  }: {
+    publicData: IPrimeTransferPublicData | undefined;
+  }) {
+    const cloudBackupedWallets: IPrimeTransferPublicDataWalletDetail[] =
+      Object.values(publicData?.walletDetails || {});
+    if (!cloudBackupedWallets?.length) {
+      return;
+    }
+
+    const { wallets } = await localDb.getWallets();
+    const walletsBackedUpStatusMap: {
+      [walletId: string]: {
+        isBackedUp: boolean;
+      };
+    } = {};
+
+    for (const wallet of wallets) {
+      if (wallet.type === WALLET_TYPE_HD && !wallet.backuped && wallet.xfp) {
+        if (
+          cloudBackupedWallets.find((item) => item.walletXfp === wallet.xfp)
+        ) {
+          walletsBackedUpStatusMap[wallet.id] = {
+            isBackedUp: true,
+          };
+        }
+      }
+    }
+    await localDb.updateWalletsBackupStatus(walletsBackedUpStatusMap);
+
+    if (Object.keys(walletsBackedUpStatusMap).length > 0) {
+      appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
+    }
   }
 
   @backgroundMethod()

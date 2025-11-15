@@ -51,6 +51,7 @@ import {
 import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes/swap';
@@ -72,7 +73,10 @@ import type {
   ISwapNativeTokenConfig,
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
-import { ESwapSource } from '@onekeyhq/shared/types/swap/types';
+import {
+  ESwapSource,
+  ESwapTxHistoryStatus,
+} from '@onekeyhq/shared/types/swap/types';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
 import usePerpDeposit from '../../../hooks/usePerpDeposit';
@@ -174,11 +178,13 @@ function PerpsAccountAvatar({
 PerpsAccountAvatar.displayName = 'PerpsAccountAvatar';
 
 function SelectTokenPopoverContent({
+  selectedAccountAddress,
   symbol,
   depositTokensWithPrice,
   handleSwitchToTradePress,
   handleMaxPress,
 }: {
+  selectedAccountAddress: string;
   depositTokensWithPrice: IPerpsDepositToken[];
   symbol: string;
   handleSwitchToTradePress: () => void;
@@ -228,6 +234,10 @@ function SelectTokenPopoverContent({
               decimals: item.decimals,
             });
             void closePopover?.();
+            defaultLogger.perp.deposit.perpUserSelectDepositToken({
+              userAddress: selectedAccountAddress,
+              depositToken: item,
+            });
           }}
         >
           <XStack gap="$2" alignItems="center">
@@ -269,7 +279,14 @@ function SelectTokenPopoverContent({
         </ListItem>
       );
     },
-    [symbol, setPerpsDepositTokensAtom, closePopover, handleMaxPress, intl],
+    [
+      symbol,
+      intl,
+      setPerpsDepositTokensAtom,
+      handleMaxPress,
+      closePopover,
+      selectedAccountAddress,
+    ],
   );
   return (
     <YStack>
@@ -620,12 +637,15 @@ function DepositWithdrawContent({
         value: true,
       };
     }
-    const minFromTokenAmountFormatted = minFromTokenAmount
-      .decimalPlaces(
-        currentPerpsDepositSelectedToken?.decimals ?? 0,
-        BigNumber.ROUND_UP,
-      )
-      .toFixed();
+    const minFromTokenAmountFormatted = numberFormat(
+      minFromTokenAmount
+        .decimalPlaces(
+          currentPerpsDepositSelectedToken?.decimals ?? 0,
+          BigNumber.ROUND_UP,
+        )
+        .toFixed(),
+      { formatter: 'balance' },
+    );
     return {
       value: false,
       minFromTokenAmount: minFromTokenAmountFormatted,
@@ -703,6 +723,10 @@ function DepositWithdrawContent({
     currentPerpsDepositSelectedToken?.symbol,
   ]);
 
+  const isInsufficientBalance = useMemo(() => {
+    return amountBN.gt(availableBalanceBN) && amountBN.gt(0);
+  }, [amountBN, availableBalanceBN]);
+
   const {
     perpDepositQuote,
     perpDepositQuoteLoading,
@@ -721,6 +745,7 @@ function DepositWithdrawContent({
     selectedAccount.accountId ?? '',
     currentPerpsDepositSelectedToken,
     checkFromTokenFiatValue.value,
+    isInsufficientBalance,
   );
 
   const handleAmountChange = useCallback(
@@ -925,18 +950,19 @@ function DepositWithdrawContent({
           await normalizeTxConfirm({
             onSuccess: async (data: ISendTxOnSuccessData[]) => {
               await backgroundApiProxy.serviceHyperliquid.checkPerpsAccountStatus();
+              const usdcToken = {
+                networkId: PERPS_NETWORK_ID,
+                contractAddress: USDC_TOKEN_INFO.address,
+                name: USDC_TOKEN_INFO.name,
+                symbol: USDC_TOKEN_INFO.symbol,
+                decimals: USDC_TOKEN_INFO.decimals,
+                networkLogoURI:
+                  swapDefaultSetTokens[PERPS_NETWORK_ID].toToken
+                    ?.networkLogoURI ?? '',
+              };
               if (data?.[0]) {
                 const fromTxId = data[0].signedTx.txid;
-                const usdcToken = {
-                  networkId: PERPS_NETWORK_ID,
-                  contractAddress: USDC_TOKEN_INFO.address,
-                  name: USDC_TOKEN_INFO.name,
-                  symbol: USDC_TOKEN_INFO.symbol,
-                  decimals: USDC_TOKEN_INFO.decimals,
-                  networkLogoURI:
-                    swapDefaultSetTokens[PERPS_NETWORK_ID].toToken
-                      ?.networkLogoURI ?? '',
-                };
+
                 void handlePerpDepositTxSuccess({
                   fromToken:
                     currentPerpsDepositSelectedTokenRef.current ?? usdcToken,
@@ -944,9 +970,52 @@ function DepositWithdrawContent({
                   toAmount: amount,
                   fromAmount: amount,
                   isArbUSDCOrder: true,
+                  skipToast: true,
+                });
+                defaultLogger.perp.deposit.perpDepositInitiate({
+                  userAddress: selectedAccount.accountAddress ?? '',
+                  receiverAddress: selectedAccount.accountAddress ?? '',
+                  token:
+                    currentPerpsDepositSelectedTokenRef.current ?? usdcToken,
+                  amount,
+                  toAmount: amount,
+                  status: ESwapTxHistoryStatus.SUCCESS,
+                  txId: fromTxId,
+                });
+              } else {
+                defaultLogger.perp.deposit.perpDepositInitiate({
+                  userAddress: selectedAccount.accountAddress ?? '',
+                  receiverAddress: selectedAccount.accountAddress ?? '',
+                  token:
+                    currentPerpsDepositSelectedTokenRef.current ?? usdcToken,
+                  amount,
+                  toAmount: amount,
+                  status: ESwapTxHistoryStatus.FAILED,
+                  errorMessage: 'no tx id found',
                 });
               }
               onClose?.();
+            },
+            onFail(error) {
+              const usdcToken = {
+                networkId: PERPS_NETWORK_ID,
+                contractAddress: USDC_TOKEN_INFO.address,
+                name: USDC_TOKEN_INFO.name,
+                symbol: USDC_TOKEN_INFO.symbol,
+                decimals: USDC_TOKEN_INFO.decimals,
+                networkLogoURI:
+                  swapDefaultSetTokens[PERPS_NETWORK_ID].toToken
+                    ?.networkLogoURI ?? '',
+              };
+              defaultLogger.perp.deposit.perpDepositInitiate({
+                userAddress: selectedAccount.accountAddress ?? '',
+                receiverAddress: selectedAccount.accountAddress ?? '',
+                token: currentPerpsDepositSelectedTokenRef.current ?? usdcToken,
+                amount,
+                toAmount: amount,
+                status: ESwapTxHistoryStatus.FAILED,
+                errorMessage: error?.message ?? '',
+              });
             },
             transfersInfo: [
               {
@@ -995,10 +1064,6 @@ function DepositWithdrawContent({
   const nativeInputProps = platformEnv.isNativeIOS
     ? { inputAccessoryViewID: DEPOSIT_WITHDRAW_INPUT_ACCESSORY_VIEW_ID }
     : {};
-
-  const isInsufficientBalance = useMemo(() => {
-    return amountBN.gt(availableBalanceBN) && amountBN.gt(0);
-  }, [amountBN, availableBalanceBN]);
 
   const accountTypeInfo = useMemo(() => {
     const isHwWallet = accountUtils.isHwAccount({
@@ -1136,6 +1201,7 @@ function DepositWithdrawContent({
         }
         renderContent={
           <SelectTokenPopoverContent
+            selectedAccountAddress={selectedAccount.accountAddress ?? ''}
             symbol={settingsPersistAtom.currencyInfo?.symbol}
             depositTokensWithPrice={depositTokensWithPrice}
             handleSwitchToTradePress={handleSwitchToTradePress}
@@ -1145,14 +1211,15 @@ function DepositWithdrawContent({
       />
     );
   }, [
-    handleMaxPress,
-    handleSwitchToTradePress,
     balanceLoading,
+    checkAccountSupport,
+    depositTokensWithPrice,
     intl,
     currentPerpsDepositSelectedToken?.symbol,
+    selectedAccount.accountAddress,
     settingsPersistAtom.currencyInfo?.symbol,
-    depositTokensWithPrice,
-    checkAccountSupport,
+    handleSwitchToTradePress,
+    handleMaxPress,
   ]);
 
   const depositToAmount = useMemo(() => {

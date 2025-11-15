@@ -95,7 +95,9 @@ export type IOnboardingParamList = {
   [EOnboardingPages.ImportWalletOptions]: undefined;
   [EOnboardingPages.ImportRecoveryPhrase]: undefined;
   [EOnboardingPages.ImportPrivateKey]: undefined;
-  [EOnboardingPages.ImportAddress]: undefined;
+  [EOnboardingPages.ImportAddress]: {
+    isFromOnboardingV2?: boolean;
+  };
   [EOnboardingPages.ImportCloudBackup]: undefined;
   [EOnboardingPages.ImportKeyTag]: undefined;
 

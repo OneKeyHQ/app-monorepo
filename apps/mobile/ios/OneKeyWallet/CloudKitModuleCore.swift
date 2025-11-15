@@ -13,6 +13,7 @@ import CloudKit
 
 struct CloudKitConstants {
   static let recordDataField = "data"
+  static let recordMetaField = "meta"
 }
 
 // MARK: - Parameter Models
@@ -21,6 +22,7 @@ struct SaveRecordParams: Codable {
   let recordType: String
   let recordID: String
   let data: String
+  let meta: String
 }
 
 struct FetchRecordParams: Codable {
@@ -53,6 +55,7 @@ struct RecordResult: Codable {
   let recordID: String
   let recordType: String
   let data: String
+  let meta: String
   let createdAt: Int64
   let modifiedAt: Int64
 }
@@ -125,12 +128,20 @@ class CloudKitModuleCore {
 
   func saveRecord(params: SaveRecordParams) async throws -> SaveRecordResult {
     let ckRecordID = CKRecord.ID(recordName: params.recordID)
-    let record = CKRecord(recordType: params.recordType, recordID: ckRecordID)
-    record[CloudKitConstants.recordDataField] = params.data as CKRecordValue
-
-    let savedRecord = try await database.save(record)
+    let recordToSave: CKRecord
+    do {
+      // Update existing record if found
+      let record = try await database.record(for: ckRecordID)
+      recordToSave = record
+    } catch let error as CKError where error.code == .unknownItem {
+      // Create new record when not found
+      let record = CKRecord(recordType: params.recordType, recordID: ckRecordID)
+      recordToSave = record
+    }
+    recordToSave[CloudKitConstants.recordDataField] = params.data as CKRecordValue
+    recordToSave[CloudKitConstants.recordMetaField] = params.meta as CKRecordValue
+    let savedRecord = try await database.save(recordToSave)
     let createdAt = Int64((savedRecord.creationDate?.timeIntervalSince1970 ?? 0) * 1000)
-
     return SaveRecordResult(
       recordID: savedRecord.recordID.recordName,
       createdAt: createdAt
@@ -146,6 +157,7 @@ class CloudKitModuleCore {
       let record = try await database.record(for: ckRecordID)
 
       let data = record[CloudKitConstants.recordDataField] as? String ?? ""
+      let meta = record[CloudKitConstants.recordMetaField] as? String ?? ""
       let createdAt = Int64((record.creationDate?.timeIntervalSince1970 ?? 0) * 1000)
       let modifiedAt = Int64((record.modificationDate?.timeIntervalSince1970 ?? 0) * 1000)
 
@@ -153,6 +165,7 @@ class CloudKitModuleCore {
         recordID: record.recordID.recordName,
         recordType: record.recordType,
         data: data,
+        meta: meta,
         createdAt: createdAt,
         modifiedAt: modifiedAt
       )
@@ -193,32 +206,45 @@ class CloudKitModuleCore {
     let predicate = NSPredicate(value: true)
     let query = CKQuery(recordType: params.recordType, predicate: predicate)
 
-    // Note: Sort by creation date is commented out to avoid queryable field issues
-    // query.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
+    // Use CKQueryOperation with desiredKeys to fetch only meta (exclude large data field)
+    return try await withCheckedThrowingContinuation { continuation in
+      var results: [RecordResult] = []
+      let operation = CKQueryOperation(query: query)
+      operation.desiredKeys = [CloudKitConstants.recordMetaField]
+      // operation.resultsLimit = 500 // Optional: tune as needed
 
-    let (matchResults, _) = try await database.records(matching: query)
-
-    var records: [RecordResult] = []
-    for (_, result) in matchResults {
-      switch result {
-      case .success(let record):
-        let data = record[CloudKitConstants.recordDataField] as? String ?? ""
-        let createdAt = Int64((record.creationDate?.timeIntervalSince1970 ?? 0) * 1000)
-        let modifiedAt = Int64((record.modificationDate?.timeIntervalSince1970 ?? 0) * 1000)
-
-        let recordResult = RecordResult(
-          recordID: record.recordID.recordName,
-          recordType: record.recordType,
-          data: data,
-          createdAt: createdAt,
-          modifiedAt: modifiedAt
-        )
-        records.append(recordResult)
-      case .failure:
-        continue
+      operation.recordMatchedBlock = { _, result in
+        switch result {
+        case .success(let record):
+          let meta = record[CloudKitConstants.recordMetaField] as? String ?? ""
+          let createdAt = Int64((record.creationDate?.timeIntervalSince1970 ?? 0) * 1000)
+          let modifiedAt = Int64((record.modificationDate?.timeIntervalSince1970 ?? 0) * 1000)
+          let rr = RecordResult(
+            recordID: record.recordID.recordName,
+            recordType: record.recordType,
+            data: "",
+            meta: meta,
+            createdAt: createdAt,
+            modifiedAt: modifiedAt
+          )
+          results.append(rr)
+        case .failure:
+          break
+        }
       }
-    }
 
-    return QueryRecordsResult(records: records)
+      operation.queryResultBlock = { result in
+        switch result {
+        case .success:
+          // Sort by modification time descending to return latest first
+          let sorted = results.sorted { $0.modifiedAt > $1.modifiedAt }
+          continuation.resume(returning: QueryRecordsResult(records: sorted))
+        case .failure(let error):
+          continuation.resume(throwing: error)
+        }
+      }
+
+      self.database.add(operation)
+    }
   }
 }

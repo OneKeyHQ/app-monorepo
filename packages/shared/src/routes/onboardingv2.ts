@@ -1,11 +1,16 @@
 import type { EConnectDeviceChannel } from '../../types/connectDevice';
 import type { IConnectYourDeviceItem } from '../../types/device';
+import type { IDetectedNetworkGroupItem } from '../utils/networkDetectUtils';
 import type { EMnemonicType } from '../utils/secret';
-import type { KnownDevice, SearchDevice } from '@onekeyfe/hd-core';
 import type { EDeviceType } from '@onekeyfe/hd-shared';
 
 export enum EOnboardingV2Routes {
   OnboardingV2 = 'OnboardingV2',
+}
+
+export enum EOnboardingV2ImportPhraseOrPrivateKeyTab {
+  Phrase = 'phrase',
+  PrivateKey = 'privateKey',
 }
 
 export enum EOnboardingPagesV2 {
@@ -18,6 +23,7 @@ export enum EOnboardingPagesV2 {
   ConnectQRCode = 'ConnectQRCode',
   CheckAndUpdate = 'CheckAndUpdate',
   ImportPhraseOrPrivateKey = 'ImportPhraseOrPrivateKey',
+  ImportWatchedAccount = 'ImportWatchedAccount',
   BackupWalletReminder = 'BackupWalletReminder',
   ShowRecoveryPhrase = 'ShowRecoveryPhrase',
   VerifyRecoveryPhrase = 'VerifyRecoveryPhrase',
@@ -51,25 +57,31 @@ export type IOnboardingParamListV2 = {
   [EOnboardingPagesV2.ConnectYourDevice]: {
     deviceType: EDeviceType[];
   };
-  [EOnboardingPagesV2.ConnectQRCode]: {
-    deviceType: EDeviceType[];
-  };
+  [EOnboardingPagesV2.ConnectQRCode]: undefined;
   [EOnboardingPagesV2.CheckAndUpdate]: {
     deviceData: IConnectYourDeviceItem;
     tabValue: EConnectDeviceChannel;
   };
-  [EOnboardingPagesV2.ImportPhraseOrPrivateKey]: undefined;
+  [EOnboardingPagesV2.ImportPhraseOrPrivateKey]: {
+    defaultTab: EOnboardingV2ImportPhraseOrPrivateKeyTab;
+  };
+  [EOnboardingPagesV2.ImportWatchedAccount]: undefined;
   [EOnboardingPagesV2.BackupWalletReminder]: IVerifyRecoveryPhraseParams;
   [EOnboardingPagesV2.ShowRecoveryPhrase]: IVerifyRecoveryPhraseParams;
   [EOnboardingPagesV2.VerifyRecoveryPhrase]: IVerifyRecoveryPhraseParams;
   [EOnboardingPagesV2.SelectPrivateKeyNetwork]: {
-    privateKey: string;
+    input: string;
+    detectedNetworks: IDetectedNetworkGroupItem[];
+    importType: 'privateKey' | 'address' | 'publicKey';
   };
-  [EOnboardingPagesV2.ICloudBackup]: undefined;
+  [EOnboardingPagesV2.ICloudBackup]: {
+    hideRestoreButton?: boolean;
+  };
   [EOnboardingPagesV2.ICloudBackupDetails]: {
     backupTime: number;
     backupId?: string;
     actionType: 'backup' | 'restore';
+    hideRestoreButton?: boolean;
   };
   [EOnboardingPagesV2.ConnectWalletSelectNetworks]: {
     impl: string;

@@ -1,14 +1,43 @@
-import {
-  Button,
-  Dialog,
-  Empty,
-  Icon,
-  Page,
-  SizableText,
-  Skeleton,
-  YStack,
-} from '@onekeyhq/components';
+import { useIntl } from 'react-intl';
 
-export default function CloudBackupEmptyView() {
-  return <Empty title="No Backups Found" />;
+import { Empty } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+export function CloudBackupListEmptyView() {
+  const intl = useIntl();
+
+  if (platformEnv.isNativeIOS || platformEnv.isDesktopMac) {
+    return (
+      <Empty
+        title={intl.formatMessage({ id: ETranslations.no_backups_found })}
+        description={intl.formatMessage({
+          id: ETranslations.no_backup_found_icloud_desc,
+        })}
+      />
+    );
+  }
+  return (
+    <Empty
+      title={intl.formatMessage({ id: ETranslations.no_backups_found })}
+      description={intl.formatMessage({
+        id: ETranslations.no_backup_found_google_desc,
+      })}
+    />
+  );
+}
+
+export function CloudBackupDetailsEmptyView() {
+  const intl = useIntl();
+
+  return (
+    <Empty
+      title={intl.formatMessage({
+        id: ETranslations.no_backup_found_no_wallet,
+      })}
+      description={intl.formatMessage({
+        id: ETranslations.no_backup_found_no_wallet_desc,
+      })}
+    />
+  );
 }

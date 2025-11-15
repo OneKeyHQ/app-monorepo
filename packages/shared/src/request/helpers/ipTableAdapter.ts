@@ -35,11 +35,21 @@ const debugError = (...args: any[]) => {
 };
 
 /**
- * Callback for reporting SNI failures
- * Declared here to be accessible in createIpTableAdapter
+ * Request failure callback parameters
  */
-let reportSniFailureCallback:
-  | ((domain: string, ip: string, error: string) => void)
+interface IRequestFailureParams {
+  /** Root domain (e.g., "onekey.so") */
+  domain: string;
+  /** 'ip' for SNI request failure, 'domain' for direct domain request failure */
+  requestType: 'ip' | 'domain';
+  /** IP address for SNI request, or hostname for domain request */
+  target: string;
+  /** Error message */
+  error: string;
+}
+
+let reportRequestFailureCallback:
+  | ((params: IRequestFailureParams) => void)
   | null = null;
 
 /**
@@ -251,60 +261,99 @@ export function createIpTableAdapter(
   );
 
   // Helper function to call original adapter and avoid infinite loop
-  const callOriginalAdapter = async (
-    config: InternalAxiosRequestConfig,
-  ): Promise<AxiosResponse> => {
+  /**
+   * Call the original axios adapter (bypassing IP Table logic)
+   *
+   * @param options.config - Axios request config
+   * @param options.isFallback - If true, this is a fallback request after SNI failure (won't count as domain failure)
+   * @param options.hostname - Hostname for failure reporting (optional)
+   * @param options.rootDomain - Root domain for failure reporting (optional)
+   */
+  const callOriginalAdapter = async (options: {
+    config: InternalAxiosRequestConfig;
+    isFallback?: boolean;
+    hostname?: string;
+    rootDomain?: string;
+  }): Promise<AxiosResponse> => {
+    const { config, isFallback = false, hostname, rootDomain } = options;
     debugLog('[IpTableAdapter] About to call original adapter...');
     debugLog(
       '[IpTableAdapter] Original adapter type:',
       typeof originalDefaultAdapters,
     );
 
-    // If originalDefaultAdapters is a function, call it directly
-    if (typeof originalDefaultAdapters === 'function') {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return
-      return originalDefaultAdapters(config);
-    }
+    try {
+      let response: AxiosResponse;
 
-    // If originalDefaultAdapters is an array (axios 1.x style like ["xhr", "http", "fetch"]),
-    // we need to use axios internal adapter resolution
-    if (Array.isArray(originalDefaultAdapters)) {
-      debugLog(
-        '[IpTableAdapter] Original adapter is array, using axios.getAdapter()',
-      );
+      // If originalDefaultAdapters is a function, call it directly
+      if (typeof originalDefaultAdapters === 'function') {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+        response = await originalDefaultAdapters(config);
+      }
+      // If originalDefaultAdapters is an array (axios 1.x style like ["xhr", "http", "fetch"]),
+      // we need to use axios internal adapter resolution
+      else if (Array.isArray(originalDefaultAdapters)) {
+        debugLog(
+          '[IpTableAdapter] Original adapter is array, using axios.getAdapter()',
+        );
 
-      // Try to use axios.getAdapter() to resolve the adapter array
-      if (typeof axios.getAdapter === 'function') {
-        const resolvedAdapter = axios.getAdapter(originalDefaultAdapters);
-        if (typeof resolvedAdapter === 'function') {
-          debugLog('[IpTableAdapter] Successfully resolved adapter function');
-          return resolvedAdapter(config);
+        // Try to use axios.getAdapter() to resolve the adapter array
+        if (typeof axios.getAdapter === 'function') {
+          const resolvedAdapter = axios.getAdapter(originalDefaultAdapters);
+          if (typeof resolvedAdapter === 'function') {
+            debugLog('[IpTableAdapter] Successfully resolved adapter function');
+            response = await resolvedAdapter(config);
+          } else {
+            throw new OneKeyLocalError('Unable to resolve adapter function');
+          }
+        } else {
+          // Fallback: Create a new axios instance with the original adapter array
+          // This is safe because we're explicitly passing the original adapters
+          debugLog(
+            '[IpTableAdapter] axios.getAdapter not available, creating temp instance',
+          );
+          const tempAxios = axios.create({
+            adapter: originalDefaultAdapters,
+          });
+
+          response = await tempAxios.request(config);
         }
+      } else {
+        // Last resort: throw error to let caller handle it
+        debugError(
+          '[IpTableAdapter] Unable to resolve adapter, type:',
+          typeof originalDefaultAdapters,
+        );
+        defaultLogger.ipTable.request.error({
+          info: `[IpTableAdapter] Unable to resolve adapter, type: ${typeof originalDefaultAdapters}`,
+        });
+        throw new OneKeyLocalError(
+          'IP Table Adapter: Unable to perform fallback request on this platform',
+        );
       }
 
-      // Fallback: Create a new axios instance with the original adapter array
-      // This is safe because we're explicitly passing the original adapters
-      debugLog(
-        '[IpTableAdapter] axios.getAdapter not available, creating temp instance',
-      );
-      const tempAxios = axios.create({
-        adapter: originalDefaultAdapters,
-      });
+      return response;
+    } catch (error) {
+      // Only report domain failures if this is NOT a fallback request
+      if (
+        !isFallback &&
+        hostname &&
+        rootDomain &&
+        reportRequestFailureCallback
+      ) {
+        debugLog(
+          `[IpTableAdapter] Domain request failed (not fallback): ${hostname}`,
+        );
+        reportRequestFailureCallback({
+          domain: rootDomain,
+          requestType: 'domain',
+          target: hostname,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
 
-      return tempAxios.request(config);
+      throw error;
     }
-
-    // Last resort: throw error to let caller handle it
-    debugError(
-      '[IpTableAdapter] Unable to resolve adapter, type:',
-      typeof originalDefaultAdapters,
-    );
-    defaultLogger.ipTable.request.error({
-      info: `[IpTableAdapter] Unable to resolve adapter, type: ${typeof originalDefaultAdapters}`,
-    });
-    throw new OneKeyLocalError(
-      'IP Table Adapter: Unable to perform fallback request on this platform',
-    );
   };
 
   return async (config: InternalAxiosRequestConfig) => {
@@ -316,19 +365,28 @@ export function createIpTableAdapter(
         config.url,
       );
 
+      // This is a direct domain request (not a fallback from SNI failure)
+      // We need to extract hostname for failure reporting
+      const url = config.url || '';
+      let hostname: string | null = null;
       try {
-        return await callOriginalAdapter(config);
-      } catch (fallbackError) {
-        debugError('[IpTableAdapter] Fallback request failed:', fallbackError);
-        defaultLogger.ipTable.request.error({
-          info: `[IpTableAdapter] Fallback request failed: ${
-            fallbackError instanceof Error
-              ? fallbackError.message
-              : 'Unknown error'
-          }`,
-        });
-        throw fallbackError;
+        if (url.startsWith('http://') || url.startsWith('https://')) {
+          hostname = new URL(url).hostname;
+        } else if (config.baseURL) {
+          hostname = new URL(config.baseURL).hostname;
+        }
+      } catch {
+        // Ignore parsing errors for reporting
       }
+
+      const rootDomain = hostname ? extractRootDomain(hostname) : undefined;
+
+      return callOriginalAdapter({
+        config,
+        isFallback: false,
+        hostname: hostname || undefined,
+        rootDomain,
+      });
     }
 
     // Parse URL to extract hostname
@@ -347,15 +405,15 @@ export function createIpTableAdapter(
         hostname = baseUrlObj.hostname;
       }
     } catch (error) {
-      // If URL parsing fails, use original adapter
+      // If URL parsing fails, use original adapter (direct request, not fallback)
       debugLog('[IpTableAdapter] URL parsing failed, using fallback');
-      return callOriginalAdapter(config);
+      return callOriginalAdapter({ config, isFallback: false });
     }
 
-    // If no hostname extracted, use original adapter
+    // If no hostname extracted, use original adapter (direct request, not fallback)
     if (!hostname) {
       debugLog('[IpTableAdapter] No hostname extracted, using fallback');
-      return callOriginalAdapter(config);
+      return callOriginalAdapter({ config, isFallback: false });
     }
 
     // Extract root domain for config lookup
@@ -364,12 +422,17 @@ export function createIpTableAdapter(
     // Get selected IP for this hostname (async call)
     const selectedIp = await getSelectedIpForHost(hostname);
 
-    // If no IP mapping found, use original adapter
+    // If no IP mapping found, use original adapter (direct domain request, not fallback)
     if (!selectedIp) {
       debugLog(
         `[IpTableAdapter] No IP mapping found for hostname: ${hostname}`,
       );
-      return callOriginalAdapter(config);
+      return callOriginalAdapter({
+        config,
+        isFallback: false,
+        hostname,
+        rootDomain,
+      });
     }
 
     debugLog(
@@ -469,10 +532,22 @@ export function createIpTableAdapter(
       // If SNI request fails, use original adapter
       if (!sniResponse) {
         debugLog('[IpTableAdapter] SNI request returned null, using fallback');
-        if (reportSniFailureCallback) {
-          reportSniFailureCallback(rootDomain, selectedIp, 'SNI response null');
+        // Report IP failure
+        if (reportRequestFailureCallback) {
+          reportRequestFailureCallback({
+            domain: rootDomain,
+            requestType: 'ip',
+            target: selectedIp,
+            error: 'SNI response null',
+          });
         }
-        return await callOriginalAdapter(config);
+        // Fallback to domain (isFallback = true, so domain failure won't be counted)
+        return await callOriginalAdapter({
+          config,
+          isFallback: true,
+          hostname,
+          rootDomain,
+        });
       }
 
       // Convert SNI response to Axios response format
@@ -515,9 +590,14 @@ export function createIpTableAdapter(
         request: {},
       };
     } catch (error) {
-      // Report SNI failure if callback is registered
-      if (reportSniFailureCallback) {
-        reportSniFailureCallback(rootDomain, selectedIp, String(error));
+      // Report IP failure if callback is registered
+      if (reportRequestFailureCallback) {
+        reportRequestFailureCallback({
+          domain: rootDomain,
+          requestType: 'ip',
+          target: selectedIp,
+          error: error instanceof Error ? error.message : String(error),
+        });
       }
 
       // If SNI request throws error, use original adapter
@@ -530,7 +610,13 @@ export function createIpTableAdapter(
           error instanceof Error ? error.message : 'Unknown error'
         }`,
       });
-      return callOriginalAdapter(config);
+      // Fallback to domain (isFallback = true, so domain failure won't be counted)
+      return callOriginalAdapter({
+        config,
+        isFallback: true,
+        hostname,
+        rootDomain,
+      });
     }
   };
 }
@@ -652,15 +738,10 @@ export async function testIpSpeed(
   }
 }
 
-// ========== SNI Failure Reporting ==========
-
-/**
- * Set callback for SNI failure reporting
- * Called by ServiceIpTable during initialization
- */
-export function setReportSniFailureCallback(
-  callback: (domain: string, ip: string, error: string) => void,
+// ========== Request Failure Reporting ==========
+export function setReportRequestFailureCallback(
+  callback: (params: IRequestFailureParams) => void,
 ) {
-  reportSniFailureCallback = callback;
-  debugLog('[IpTableAdapter] SNI failure callback registered');
+  reportRequestFailureCallback = callback;
+  debugLog('[IpTableAdapter] Request failure callback registered');
 }

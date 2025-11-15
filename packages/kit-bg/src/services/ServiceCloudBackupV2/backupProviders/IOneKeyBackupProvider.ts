@@ -56,7 +56,17 @@ export type IBackupDataManifestItem = Omit<
 export type IBackupDataManifest = {
   items: IBackupDataManifestItem[];
   total: number;
+  backupPasswordVerify?: IBackupDataPasswordVerify;
 };
+export type IBackupDataPasswordVerify = {
+  content: string; // encryptStringAsync(CLOUD_BACKUP_PASSWORD_VERIFY_TEXT, password)
+};
+
+export const CLOUD_BACKUP_PASSWORD_VERIFY_TEXT =
+  'backup_password_verify/130B1659-2648-4034-A089-78BE7002E777';
+export const CLOUD_BACKUP_PASSWORD_SALT =
+  '96AC44BC-DBA1-4782-A9A0-B683E72F5FD3';
+
 /**
  * Common interface for all cloud backup providers (iCloud, Google Drive, etc.)
  *
@@ -97,6 +107,16 @@ export interface IOneKeyBackupProvider {
 
   // TODO requestSync()
 
+  setBackupPassword(params?: {
+    password?: string;
+  }): Promise<{ recordID: string }>;
+
+  verifyBackupPassword(params?: { password?: string }): Promise<boolean>;
+
+  isBackupPasswordSet(): Promise<boolean>;
+
+  clearBackupPassword(): Promise<void>;
+
   /**
    * Perform full backup with automatic key management
    * @param password Optional user password (required for some providers like Google Drive)
@@ -120,5 +140,8 @@ export interface IOneKeyBackupProvider {
    * Delete a backup from cloud
    * @param params.recordId Unique identifier for the backup record
    */
-  deleteBackup(params: { recordId: string }): Promise<void>;
+  deleteBackup(params: {
+    recordId: string;
+    skipManifestUpdate?: boolean;
+  }): Promise<void>;
 }

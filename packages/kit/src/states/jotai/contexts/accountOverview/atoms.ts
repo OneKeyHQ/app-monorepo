@@ -13,6 +13,19 @@ export {
   withAccountOverviewProvider,
 };
 
+export const { atom: walletStatusAtom, use: useWalletStatusAtom } =
+  contextAtom<{
+    showReceiveInfo: boolean;
+    receiveInfoInit: boolean;
+    showReferralCodeBlock: boolean;
+    referralCodeBlockInit: boolean;
+  }>({
+    showReceiveInfo: false,
+    receiveInfoInit: false,
+    showReferralCodeBlock: false,
+    referralCodeBlockInit: false,
+  });
+
 export const { atom: accountWorthAtom, use: useAccountWorthAtom } =
   contextAtom<{
     worth: Record<string, string>;

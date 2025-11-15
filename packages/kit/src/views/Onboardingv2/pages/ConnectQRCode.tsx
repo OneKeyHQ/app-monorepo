@@ -3,7 +3,6 @@ import { useCallback } from 'react';
 import { EDeviceType } from '@onekeyfe/hd-shared';
 import { useIntl } from 'react-intl';
 
-import type { IPageScreenProps } from '@onekeyhq/components';
 import {
   Anchor,
   Button,
@@ -16,16 +15,13 @@ import {
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import type {
-  EOnboardingPagesV2,
-  IOnboardingParamListV2,
-} from '@onekeyhq/shared/src/routes/onboardingv2';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector/AccountSelectorProvider';
 import { useCreateQrWallet } from '../../../components/AccountSelector/hooks/useCreateQrWallet';
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import { useUserWalletProfile } from '../../../hooks/useUserWalletProfile';
 import { OnboardingLayout } from '../components/OnboardingLayout';
 import { trackHardwareWalletConnection } from '../utils';
@@ -35,6 +31,7 @@ import { ConnectionIndicator } from './ConnectYourDevice';
 function ConnectQRCodePage() {
   const { createQrWallet } = useCreateQrWallet();
   const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
+  const themeVariant = useThemeVariant();
   const intl = useIntl();
   const navigation = useAppNavigation();
   const STEPS = [
@@ -100,10 +97,16 @@ function ConnectQRCodePage() {
                   w="100%"
                   h="100%"
                   repeat
+                  muted
+                  autoPlay
                   resizeMode={EVideoResizeMode.COVER}
                   controls={false}
                   playInBackground={false}
-                  source={require('@onekeyhq/kit/assets/onboarding/onBoarding-QR.mp4')}
+                  source={
+                    themeVariant === 'light'
+                      ? require('@onekeyhq/kit/assets/onboarding/onBoarding-QR.mp4')
+                      : require('@onekeyhq/kit/assets/onboarding/onBoarding-QR-D.mp4')
+                  }
                 />
               </ConnectionIndicator.Animation>
               <ConnectionIndicator.Content gap="$4">
@@ -139,7 +142,7 @@ function ConnectQRCodePage() {
   );
 }
 
-export default function ConnectYourDevice() {
+export default function ConnectQRCode() {
   return (
     <AccountSelectorProviderMirror
       enabledNum={[0]}

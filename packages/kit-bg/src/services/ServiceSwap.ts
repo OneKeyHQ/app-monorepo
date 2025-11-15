@@ -134,7 +134,7 @@ export default class ServiceSwap extends ServiceBase {
     typeof setTimeout
   > | null = null;
 
-  private perpDepositOrderFetchLoopIntervalTimeout = 2000;
+  private perpDepositOrderFetchLoopIntervalTimeout = 1000;
 
   private historyCurrentStateIntervalIds: string[] = [];
 
@@ -309,18 +309,23 @@ export default class ServiceSwap extends ServiceBase {
     }
     const client = await this.getClient(EServiceEndpointEnum.Swap);
     if (accountId && accountAddress && networkId) {
-      const accountAddressForAccountId =
-        await this.backgroundApi.serviceAccount.getAccountAddressForApi({
-          accountId,
-          networkId,
-        });
-      if (accountAddressForAccountId === accountAddress) {
-        params.accountXpub =
-          await this.backgroundApi.serviceAccount.getAccountXpub({
+      try {
+        const accountAddressForAccountId =
+          await this.backgroundApi.serviceAccount.getAccountAddressForApi({
             accountId,
             networkId,
           });
+        if (accountAddressForAccountId === accountAddress) {
+          params.accountXpub =
+            await this.backgroundApi.serviceAccount.getAccountXpub({
+              accountId,
+              networkId,
+            });
+        }
+      } catch (e) {
+        console.error(e);
       }
+
       const inscriptionProtection =
         await this.backgroundApi.serviceSetting.getInscriptionProtection();
       const checkInscriptionProtectionEnabled =
@@ -393,7 +398,6 @@ export default class ServiceSwap extends ServiceBase {
               )
             ).id
           : otherWalletTypeAccountId ?? '';
-        console.log('getSupportSwapAllAccounts');
         // const accountsInfo: IAllNetworkAccountInfo[] = [];
         const { accountsInfo } =
           await this.backgroundApi.serviceAllNetwork.getAllNetworkAccounts({
@@ -487,16 +491,21 @@ export default class ServiceSwap extends ServiceBase {
       }
       const client = await this.getClient(EServiceEndpointEnum.Swap);
       if (accountId && accountAddress && networkId) {
-        const accountAddressForAccountId =
-          await this.backgroundApi.serviceAccount.getAccountAddressForApi({
-            accountId,
-            networkId,
-          });
-        if (accountAddressForAccountId === accountAddress) {
-          params.xpub = await this.backgroundApi.serviceAccount.getAccountXpub({
-            accountId,
-            networkId,
-          });
+        try {
+          const accountAddressForAccountId =
+            await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+              accountId,
+              networkId,
+            });
+          if (accountAddressForAccountId === accountAddress) {
+            params.xpub =
+              await this.backgroundApi.serviceAccount.getAccountXpub({
+                accountId,
+                networkId,
+              });
+          }
+        } catch (e) {
+          console.error(e);
         }
         const inscriptionProtection =
           await this.backgroundApi.serviceSetting.getInscriptionProtection();
@@ -577,6 +586,10 @@ export default class ServiceSwap extends ServiceBase {
       fromToken.networkId,
       toToken.networkId,
     );
+    const walletDevice =
+      await this.backgroundApi.serviceAccount.getAccountDeviceSafe({
+        accountId: accountId ?? '',
+      });
     const params: IFetchQuotesParams = {
       fromTokenAddress: fromToken.contractAddress,
       toTokenAddress: toToken.contractAddress,
@@ -599,6 +612,7 @@ export default class ServiceSwap extends ServiceBase {
       userMarketPriceRate,
       denyCrossChainProvider,
       denySingleSwapProvider,
+      walletDeviceType: walletDevice?.deviceType,
     };
     this._quoteAbortController = new AbortController();
     const client = await this.getClient(EServiceEndpointEnum.Swap);
@@ -683,6 +697,10 @@ export default class ServiceSwap extends ServiceBase {
       fromToken.networkId,
       toToken.networkId,
     );
+    const walletDevice =
+      await this.backgroundApi.serviceAccount.getAccountDeviceSafe({
+        accountId: accountId ?? '',
+      });
     const params: IFetchQuotesParams = {
       fromTokenAddress: fromToken.contractAddress,
       toTokenAddress: toToken.contractAddress,
@@ -705,6 +723,7 @@ export default class ServiceSwap extends ServiceBase {
       userMarketPriceRate,
       denyCrossChainProvider,
       denySingleSwapProvider,
+      walletDeviceType: walletDevice?.deviceType,
     };
     const swapEventUrl = (
       await this.getClient(EServiceEndpointEnum.Swap)
@@ -2431,7 +2450,7 @@ export default class ServiceSwap extends ServiceBase {
             });
             await perpsDepositOrderAtom.set((prev) => ({
               ...prev,
-              orders: [...filteredPerpDepositOrder, findTxidOrder],
+              orders: [...filteredPerpDepositOrder],
             }));
           } else if (
             data?.data.state === ESwapTxHistoryStatus.FAILED ||
@@ -2457,7 +2476,7 @@ export default class ServiceSwap extends ServiceBase {
             });
             await perpsDepositOrderAtom.set((prev) => ({
               ...prev,
-              orders: [...filteredPerpDepositOrder, findTxidOrder],
+              orders: [...filteredPerpDepositOrder],
             }));
           }
         }

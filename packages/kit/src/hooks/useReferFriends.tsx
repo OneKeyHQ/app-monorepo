@@ -46,20 +46,21 @@ export function useToReferFriendsModalByRootNavigation() {
   }, []);
 }
 
-export const isOpenedReferFriendsPage = () => {
-  const routeState = rootNavigationRef.current?.getRootState();
-  if (routeState?.routes) {
-    const mainRoute = routeState.routes.find(
-      (route) => route.name === ERootRoutes.Main,
-    );
-    if (mainRoute?.state?.routes) {
-      return mainRoute.state.routes.find(
-        (route) => route.name === ETabRoutes.ReferFriends,
-      );
-    }
-  }
-  return false;
-};
+export function useReplaceToReferFriends() {
+  const navigation = useAppNavigation();
+
+  return useCallback(
+    async (params?: { utmSource?: string; code?: string }) => {
+      const isLogin = await backgroundApiProxy.servicePrime.isLoggedIn();
+      const screen = isLogin
+        ? ETabReferFriendsRoutes.TabInviteReward
+        : ETabReferFriendsRoutes.TabReferAFriend;
+
+      navigation.replace(screen, params);
+    },
+    [navigation],
+  );
+}
 
 export const useReferFriends = () => {
   const intl = useIntl();
@@ -73,7 +74,7 @@ export const useReferFriends = () => {
         screen: ETabReferFriendsRoutes.TabInviteReward,
       });
     } else {
-      void loginOneKeyId({ toOneKeyIdPageOnLoginSuccess: true });
+      void loginOneKeyId({ toOneKeyIdPageOnLoginSuccess: false });
     }
   }, [loginOneKeyId, navigation]);
 
@@ -113,7 +114,7 @@ export const useReferFriends = () => {
             },
           );
         } else {
-          void loginOneKeyId({ toOneKeyIdPageOnLoginSuccess: true });
+          void loginOneKeyId({ toOneKeyIdPageOnLoginSuccess: false });
         }
       };
       const dialog = Dialog.show({

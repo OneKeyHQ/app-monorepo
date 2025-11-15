@@ -272,6 +272,7 @@ class ServiceSetting extends ServiceBase {
     }
     if (values.appUpdateCache) {
       await this.backgroundApi.serviceAppUpdate.clearCache();
+      await this.backgroundApi.simpleDb.ipTable.clearRawData();
     }
     if (values.browserHistory) {
       // clear Browser History, Bookmarks, Pins

@@ -72,7 +72,7 @@ const SwapPendingHistoryListComponent = ({
     return null;
   }
   return (
-    <YStack gap="$2" flex={1}>
+    <YStack gap="$2" flex={1} overflow="visible">
       <XStack justifyContent="space-between" flex={1} alignItems="center">
         <SizableText size="$bodyMd" color="$textSubdued">
           {intl.formatMessage({
@@ -86,7 +86,7 @@ const SwapPendingHistoryListComponent = ({
           gap="$1"
           cursor="pointer"
           borderRadius="$3"
-          mr="$-1"
+          mr="$-2"
           onPress={() => {
             navigation.pushModal(EModalRoutes.SwapModal, {
               screen: EModalSwapRoutes.SwapHistoryList,
@@ -118,7 +118,7 @@ const SwapPendingHistoryListComponent = ({
           <Icon name="ChevronRightSolid" size="$3" color="$iconSubdued" />
         </XStack>
       </XStack>
-      <YStack ml="$-1">
+      <YStack mx="$-6" overflow="visible">
         {listData.map((item) => (
           <SwapTxHistoryListCell
             key={item.swapInfo.orderId}

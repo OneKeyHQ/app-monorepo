@@ -11,20 +11,28 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import googlePlayService from '@onekeyhq/shared/src/googlePlayService/googlePlayService';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IAppleCloudKitRecord } from '@onekeyhq/shared/src/storage/AppleCloudKitStorage/types';
 import type { IGoogleDriveFile } from '@onekeyhq/shared/src/storage/GoogleDriveStorage/types';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
   IPrimeTransferData,
   IPrimeTransferPrivateData,
 } from '@onekeyhq/shared/types/prime/primeTransferTypes';
+import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
+import { EAtomNames } from '../../states/jotai/atomNames';
+import { cloudBackupStatusAtom } from '../../states/jotai/atoms/cloudBackup';
 import ServiceBase from '../ServiceBase';
 
 import { OneKeyBackupProvider } from './backupProviders/OneKeyBackupProvider';
 
+import type { GoogleDriveBackupProvider } from './backupProviders/GoogleDriveBackupProvider';
+import type { ICloudBackupProvider } from './backupProviders/ICloudBackupProvider';
 import type {
   IBackupCloudServerData,
   IBackupCloudServerDownloadData,
@@ -32,6 +40,7 @@ import type {
   IBackupProviderInfo,
   IOneKeyBackupProvider,
 } from './backupProviders/IOneKeyBackupProvider';
+import type { ICloudBackupStatusAtom } from '../../states/jotai/atoms/cloudBackup';
 
 export type IBackupStatus = {
   isAvailable: boolean;
@@ -44,6 +53,32 @@ export type IBackupStatus = {
 class ServiceCloudBackupV2 extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
+    void this.init();
+  }
+
+  @backgroundMethod()
+  async init(): Promise<void> {
+    void this.initCloudBackupStatusAtom();
+  }
+
+  async initCloudBackupStatusAtom(): Promise<void> {
+    const supportCloudBackup = await this.supportCloudBackup();
+    if (supportCloudBackup) {
+      const cloudBackupProviderInfo = await this.getBackupProviderInfo();
+      const title = cloudBackupProviderInfo.displayNameI18nKey
+        ? appLocale.intl.formatMessage({
+            id: cloudBackupProviderInfo.displayNameI18nKey as any,
+          })
+        : cloudBackupProviderInfo.displayName;
+      await cloudBackupStatusAtom.set(
+        (): ICloudBackupStatusAtom => ({
+          supportCloudBackup,
+          cloudBackupProviderName: title,
+          cloudBackupProviderIcon: 'CloudOutline',
+          cloudBackupProviderInfo,
+        }),
+      );
+    }
   }
 
   _backupProvider: IOneKeyBackupProvider | null = null;
@@ -80,15 +115,6 @@ class ServiceCloudBackupV2 extends ServiceBase {
   @backgroundMethod()
   async getBackupProviderInfo(): Promise<IBackupProviderInfo> {
     return this.getProvider().getBackupProviderInfo();
-  }
-
-  @backgroundMethod()
-  async init(): Promise<void> {
-    // Initialize backup service
-    // Check if iCloud is available and set up listeners if needed
-    if (platformEnv.isNativeIOS) {
-      // await this.iCloudProvider.getBackupStatus();
-    }
   }
 
   @backgroundMethod()
@@ -129,7 +155,7 @@ class ServiceCloudBackupV2 extends ServiceBase {
     return data;
   }
 
-  async buildBackupEncryptKey(params: { password: string }): Promise<string> {
+  async buildFullBackupPassword(params: { password: string }): Promise<string> {
     if (!params?.password) {
       throw new OneKeyLocalError('Password is required for backup');
     }
@@ -139,7 +165,49 @@ class ServiceCloudBackupV2 extends ServiceBase {
         'Cloud account user ID is required for backup',
       );
     }
-    return `${cloudAccountInfo.userId}:${params.password}:4A561E9E-E747-4AFF-B835-FE2EF2D61B41`;
+    return `${cloudAccountInfo.userId}:${params?.password}:4A561E9E-E747-4AFF-B835-FE2EF2D61B41`;
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async clearBackupPassword(): Promise<void> {
+    const provider = this.getProvider();
+    await provider.checkAvailability();
+    await provider.clearBackupPassword();
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async setBackupPassword(params: {
+    password: string;
+  }): Promise<{ recordID: string }> {
+    const provider = this.getProvider();
+    await provider.checkAvailability();
+    return provider.setBackupPassword({
+      password: await this.buildFullBackupPassword({
+        password: params.password,
+      }),
+    });
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async verifyBackupPassword(params: { password: string }): Promise<boolean> {
+    const provider = this.getProvider();
+    await provider.checkAvailability();
+    return provider.verifyBackupPassword({
+      password: await this.buildFullBackupPassword({
+        password: params.password,
+      }),
+    });
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async isBackupPasswordSet(): Promise<boolean> {
+    const provider = this.getProvider();
+    await provider.checkAvailability();
+    return provider.isBackupPasswordSet();
   }
 
   @backgroundMethod()
@@ -154,11 +222,14 @@ class ServiceCloudBackupV2 extends ServiceBase {
     if (!params?.data?.privateData) {
       throw new OneKeyLocalError('Private data is required for backup');
     }
+    const backupPassword = params?.password;
+    const data: IPrimeTransferData = params.data;
+    if (data?.publicData) {
+      data.publicData.dataTime = Date.now();
+    }
 
     const provider = this.getProvider();
     await provider.checkAvailability();
-
-    const data: IPrimeTransferData = params.data;
 
     if (!data?.privateData?.decryptedCredentials) {
       const { password: localPassword } =
@@ -190,13 +261,15 @@ class ServiceCloudBackupV2 extends ServiceBase {
 
     const privateDataEncryptedBuffer = await encryptAsync({
       data: Buffer.from(privateData, 'utf8'),
-      password: await this.buildBackupEncryptKey({ password: params.password }),
+      password: await this.buildFullBackupPassword({
+        password: backupPassword,
+      }),
       allowRawPassword: true,
     });
 
     const privateDataEncrypted = privateDataEncryptedBuffer.toString('base64');
 
-    const { recordID, content } = await provider.backupData({
+    const result = await provider.backupData({
       privateDataEncrypted,
       publicData: data.publicData,
       isEmptyData: data.isEmptyData,
@@ -204,6 +277,7 @@ class ServiceCloudBackupV2 extends ServiceBase {
       appVersion: data.appVersion,
     });
 
+    const { recordID, content } = result;
     const downloadData = await this.download({
       recordId: recordID,
     });
@@ -217,9 +291,37 @@ class ServiceCloudBackupV2 extends ServiceBase {
       throw new OneKeyLocalError('Failed to backup data: no data downloaded');
     }
     if (downloadData?.content !== content) {
+      void this.deleteSilently({
+        recordId: recordID,
+        skipManifestUpdate: true,
+      });
       throw new OneKeyLocalError('Failed to backup data: content mismatch');
     }
-    return { recordID, content };
+
+    await timerUtils.wait(2000);
+
+    const allBackups = await this.getAllBackups();
+    const matchedBackup = allBackups?.items?.find(
+      (item) => item.recordID === recordID,
+    );
+    if (!matchedBackup) {
+      void this.deleteSilently({
+        recordId: recordID,
+        skipManifestUpdate: true,
+      });
+      throw new OneKeyLocalError(
+        appLocale.intl.formatMessage({
+          id: ETranslations.backup_write_to_cloud_failed,
+        }),
+      );
+    }
+
+    await this.backgroundApi.serviceAccount.updateHdWalletsBackedUpStatusForCloudBackup(
+      {
+        publicData: data.publicData,
+      },
+    );
+    return result;
   }
 
   @backgroundMethod()
@@ -234,7 +336,7 @@ class ServiceCloudBackupV2 extends ServiceBase {
 
   @backgroundMethod()
   @toastIfError()
-  async restore(params: {
+  async restorePreparePrivateData(params: {
     payload: IBackupDataEncryptedPayload | undefined;
     password: string;
   }) {
@@ -244,6 +346,7 @@ class ServiceCloudBackupV2 extends ServiceBase {
     if (!params?.payload) {
       throw new OneKeyLocalError('Payload is required for restore');
     }
+    const backupPassword = params?.password;
 
     // Decode and decrypt data
     const privateDataEncrypted: Buffer = Buffer.from(
@@ -254,7 +357,9 @@ class ServiceCloudBackupV2 extends ServiceBase {
     // Decrypt data
     const privateDataBuffer = await decryptAsync({
       data: privateDataEncrypted,
-      password: await this.buildBackupEncryptKey({ password: params.password }),
+      password: await this.buildFullBackupPassword({
+        password: backupPassword,
+      }),
       allowRawPassword: true,
     });
 
@@ -263,6 +368,22 @@ class ServiceCloudBackupV2 extends ServiceBase {
     const privateData = JSON.parse(
       privateDataJSON,
     ) as IPrimeTransferPrivateData;
+    return privateData;
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async restore(params: {
+    payload: IBackupDataEncryptedPayload | undefined;
+    password: string;
+  }) {
+    if (!params?.payload) {
+      throw new OneKeyLocalError('Payload is required for restore');
+    }
+    const privateData = await this.restorePreparePrivateData({
+      password: params.password,
+      payload: params.payload,
+    });
 
     const transferData: IPrimeTransferData = {
       ...params.payload,
@@ -289,6 +410,7 @@ class ServiceCloudBackupV2 extends ServiceBase {
     try {
       await this.backgroundApi.servicePrimeTransfer.initImportProgress({
         selectedTransferData,
+        isFromCloudBackupRestore: true,
       });
 
       const { success, errorsInfo } =
@@ -322,10 +444,31 @@ class ServiceCloudBackupV2 extends ServiceBase {
 
   @backgroundMethod()
   @toastIfError()
-  async delete(params: { recordId: string }): Promise<void> {
+  async delete(params: {
+    recordId: string;
+    skipPasswordVerify?: boolean;
+    skipManifestUpdate?: boolean;
+  }): Promise<void> {
     const provider = this.getProvider();
+    if (!params?.skipPasswordVerify) {
+      await this.backgroundApi.servicePassword.promptPasswordVerify({
+        reason: EReasonForNeedPassword.Security,
+      });
+    }
     await provider.deleteBackup({
       recordId: params.recordId,
+      skipManifestUpdate: params?.skipManifestUpdate,
+    });
+  }
+
+  async deleteSilently(params: {
+    recordId: string;
+    skipManifestUpdate: boolean | undefined;
+  }): Promise<void> {
+    return this.delete({
+      recordId: params.recordId,
+      skipPasswordVerify: true,
+      skipManifestUpdate: params?.skipManifestUpdate,
     });
   }
 
@@ -334,6 +477,34 @@ class ServiceCloudBackupV2 extends ServiceBase {
   async getAllBackups() {
     const provider = this.getProvider();
     return provider.getAllBackups();
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async iOSQueryAllRecords() {
+    const provider = this.getProvider();
+    return (provider as ICloudBackupProvider).queryAllRecords();
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async androidListAllFiles() {
+    const provider = this.getProvider();
+    return (provider as GoogleDriveBackupProvider).listAllFiles();
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async androidGetManifestFileObject() {
+    const provider = this.getProvider();
+    return (provider as GoogleDriveBackupProvider).getManifestFileObject();
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async androidRemoveManifestFile() {
+    const provider = this.getProvider();
+    return (provider as GoogleDriveBackupProvider).removeManifestFile();
   }
 
   @backgroundMethod()

@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
+import { EDeviceType } from '@onekeyfe/hd-shared';
 import { useFocusEffect } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
@@ -19,19 +20,16 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
 import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
+import { HwWalletAvatarImages } from '@onekeyhq/shared/src/utils/avatarUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import {
   EHardwareCallContext,
   EOneKeyDeviceMode,
-  type IFirmwareVerifyResult,
 } from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -44,6 +42,7 @@ import {
   useConnectDeviceError,
   useDeviceConnect,
 } from '../hooks/useDeviceConnect';
+import { getForceTransportType } from '../utils';
 
 import type { KnownDevice, SearchDevice } from '@onekeyfe/hd-core';
 
@@ -51,8 +50,15 @@ enum ECheckAndUpdateStepState {
   Idle = 'idle',
   InProgress = 'inProgress',
   Warning = 'warning',
+  Skipped = 'skipped',
   Success = 'success',
   Error = 'error',
+}
+
+enum ECheckAndUpdateStepId {
+  GenuineCheck = 'genuine-check',
+  FirmwareCheck = 'firmware-check',
+  SetupOnDevice = 'setup-on-device',
 }
 
 function CheckAndUpdatePage({
@@ -66,6 +72,7 @@ function CheckAndUpdatePage({
   console.log('deviceData', deviceData);
   const themeVariant = useThemeVariant();
   const navigation = useAppNavigation();
+  const isFirmwareVerifiedRef = useRef<boolean | undefined>(undefined);
 
   const deviceLabel = useMemo(() => {
     if ((deviceData.device as KnownDevice)?.label) {
@@ -74,21 +81,46 @@ function CheckAndUpdatePage({
     return (deviceData.device as SearchDevice).name;
   }, [deviceData]);
 
-  const { verifyHardware, connectDevice, createHWWallet } = useDeviceConnect();
+  const {
+    verifyHardware,
+    ensureActiveConnection,
+    getActiveDevice,
+    ensureStopScan,
+  } = useDeviceConnect();
+  const [currentDevice, setCurrentDevice] = useState<SearchDevice | undefined>(
+    deviceData.device as SearchDevice | undefined,
+  );
+  const ensureTransportType = useCallback(async () => {
+    if (!tabValue) {
+      return;
+    }
+    const forceTransportType = await getForceTransportType(tabValue);
+    if (forceTransportType) {
+      await backgroundApiProxy.serviceHardware.setForceTransportType({
+        forceTransportType,
+      });
+    }
+  }, [tabValue]);
+
+  const deviceImage = useMemo(() => {
+    const device = deviceData.device as SearchDevice;
+    const deviceType = device?.deviceType || EDeviceType.Pro;
+    return HwWalletAvatarImages[deviceType];
+  }, [deviceData]);
 
   const [steps, setSteps] = useState<
     {
       image: IImageProps['source'];
-      id: string;
+      id: ECheckAndUpdateStepId;
       title: string;
       description?: string;
       state?: ECheckAndUpdateStepState;
       neededAction?: boolean;
       errorMessage?: string;
     }[]
-  >([
+  >(() => [
     {
-      id: 'genuine-check',
+      id: ECheckAndUpdateStepId.GenuineCheck,
       image:
         themeVariant === 'light'
           ? require('@onekeyhq/kit/assets/onboarding/genuine-check.png')
@@ -105,7 +137,7 @@ function CheckAndUpdatePage({
       state: ECheckAndUpdateStepState.Idle,
     },
     {
-      id: 'firmware-check',
+      id: ECheckAndUpdateStepId.FirmwareCheck,
       image:
         themeVariant === 'light'
           ? require('@onekeyhq/kit/assets/onboarding/firmware-check.png')
@@ -122,8 +154,8 @@ function CheckAndUpdatePage({
       state: ECheckAndUpdateStepState.Idle,
     },
     {
-      id: 'setup-on-device',
-      image: require('@onekeyhq/shared/src/assets/wallet/avatar/ProBlack.png'),
+      id: ECheckAndUpdateStepId.SetupOnDevice,
+      image: deviceImage,
       title: intl.formatMessage({ id: ETranslations.device_setup_check_title }),
       description: intl.formatMessage({
         id: ETranslations.device_setup_check_desc,
@@ -141,36 +173,84 @@ function CheckAndUpdatePage({
     }
   }, [actions, deviceData.device?.connectId]);
 
+  const createStepTimeout = useCallback(() => {
+    const timeout = setTimeout(() => {
+      setSteps((prev) => {
+        const newSteps = [...prev];
+        const inProgressStep = newSteps.find(
+          (step) => step.state === ECheckAndUpdateStepState.InProgress,
+        );
+        if (inProgressStep) {
+          if (inProgressStep.id === ECheckAndUpdateStepId.SetupOnDevice) {
+            inProgressStep.state = ECheckAndUpdateStepState.Warning;
+          } else {
+            inProgressStep.state = ECheckAndUpdateStepState.Error;
+            inProgressStep.errorMessage = intl.formatMessage({
+              id: ETranslations.swap_history_status_discard,
+            });
+          }
+        }
+        return newSteps;
+      });
+    }, 30 * 1000);
+    return () => clearTimeout(timeout);
+  }, [intl]);
+
   const checkDeviceInitialized = useCallback(async () => {
+    const setWarningStep = () => {
+      setSteps((prev) => {
+        const newSteps = [...prev];
+        newSteps[2] = {
+          ...newSteps[2],
+          state: ECheckAndUpdateStepState.Warning,
+        };
+        return newSteps;
+      });
+    };
     setSteps((prev) => {
       const newSteps = [...prev];
-      newSteps[1] = {
-        ...newSteps[1],
-        state: ECheckAndUpdateStepState.Success,
-      };
       newSteps[2] = {
         ...newSteps[2],
         state: ECheckAndUpdateStepState.InProgress,
       };
       return newSteps;
     });
-
-    const features = await connectDevice(deviceData.device as SearchDevice);
-    if (features) {
-      const deviceMode = await deviceUtils.getDeviceModeFromFeatures({
-        features,
-      });
-
-      if (deviceMode === EOneKeyDeviceMode.notInitialized) {
-        setSteps((prev) => {
-          const newSteps = [...prev];
-          newSteps[2] = {
-            ...newSteps[2],
-            state: ECheckAndUpdateStepState.Warning,
-          };
-          return newSteps;
-        });
+    try {
+      await ensureTransportType();
+      const baseDevice =
+        getActiveDevice() ??
+        currentDevice ??
+        (deviceData.device as SearchDevice | undefined);
+      if (!baseDevice) {
+        setWarningStep();
+        return;
       }
+      const latestDevice = getActiveDevice() ?? baseDevice;
+      setCurrentDevice(latestDevice);
+      if (latestDevice.connectId) {
+        const [features] = await Promise.all([
+          backgroundApiProxy.serviceHardware.getFeaturesWithoutCache({
+            connectId: latestDevice.connectId,
+          }),
+          new Promise<void>((resolve) => {
+            setTimeout(resolve, 1200);
+          }),
+        ]);
+        const deviceMode = await deviceUtils.getDeviceModeFromFeatures({
+          features,
+        });
+        console.log('deviceMode', deviceMode);
+        if (deviceMode === EOneKeyDeviceMode.notInitialized) {
+          setWarningStep();
+          return;
+        }
+      } else {
+        setWarningStep();
+        return;
+      }
+    } catch (error) {
+      setWarningStep();
+      throw error;
     }
     setSteps((prev) => {
       const newSteps = [...prev];
@@ -180,32 +260,77 @@ function CheckAndUpdatePage({
       };
       return newSteps;
     });
+    const deviceForFinalize =
+      getActiveDevice() ??
+      currentDevice ??
+      (deviceData.device as SearchDevice | undefined);
     setTimeout(async () => {
       navigation.push(EOnboardingPagesV2.FinalizeWalletSetup, {
-        deviceData,
-        isFirmwareVerified: true,
+        deviceData: {
+          ...deviceData,
+          device: (deviceForFinalize ?? deviceData.device) as SearchDevice,
+        },
+        isFirmwareVerified: isFirmwareVerifiedRef.current,
       });
     }, 1200);
-  }, [connectDevice, deviceData, navigation]);
+  }, [
+    currentDevice,
+    deviceData,
+    ensureTransportType,
+    getActiveDevice,
+    navigation,
+  ]);
 
   const checkFirmwareUpdate = useCallback(async () => {
-    await connectDevice(deviceData.device as SearchDevice);
-    if (!deviceData.device?.connectId) {
+    const setDeviceNotFoundErrorMessageStep = () => {
+      setSteps((prev) => {
+        const newSteps = [...prev];
+        newSteps[1] = {
+          ...newSteps[1],
+          state: ECheckAndUpdateStepState.Error,
+          errorMessage: intl.formatMessage({
+            id: ETranslations.device_not_connected,
+          }),
+        };
+        return newSteps;
+      });
+    };
+    const cancelTimeout = createStepTimeout();
+    await ensureTransportType();
+    const baseDevice = getActiveDevice() ?? currentDevice ?? deviceData.device;
+    if (!baseDevice?.connectId) {
+      cancelTimeout();
+      setDeviceNotFoundErrorMessageStep();
+      return;
+    }
+    await ensureActiveConnection(baseDevice as SearchDevice);
+    const latestDevice = getActiveDevice() ?? baseDevice;
+    setCurrentDevice(latestDevice as SearchDevice);
+
+    if (!latestDevice?.connectId) {
+      cancelTimeout();
+      setDeviceNotFoundErrorMessageStep();
       return;
     }
     const compatibleConnectId =
       await backgroundApiProxy.serviceHardware.getCompatibleConnectId({
-        connectId: deviceData.device.connectId,
+        connectId: latestDevice.connectId,
         hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
       });
     const r =
       await backgroundApiProxy.serviceFirmwareUpdate.checkAllFirmwareRelease({
         connectId: compatibleConnectId,
+        skipCancel: true,
       });
+    cancelTimeout();
     if (r) {
       if (r.hasUpgrade) {
         setSteps((prev) => {
           const newSteps = [...prev];
+          newSteps[0] = {
+            ...newSteps[0],
+            state: ECheckAndUpdateStepState.Success,
+          };
           newSteps[1] = {
             ...newSteps[1],
             state: r.hasUpgrade
@@ -215,10 +340,43 @@ function CheckAndUpdatePage({
           return newSteps;
         });
       } else {
+        setSteps((prev) => {
+          const newSteps = [...prev];
+          newSteps[0] = {
+            ...newSteps[0],
+            state: ECheckAndUpdateStepState.Success,
+          };
+          newSteps[1] = {
+            ...newSteps[1],
+            state: ECheckAndUpdateStepState.Success,
+          };
+          return newSteps;
+        });
         void checkDeviceInitialized();
       }
+    } else {
+      setSteps((prev) => {
+        const newSteps = [...prev];
+        newSteps[1] = {
+          ...newSteps[1],
+          state: ECheckAndUpdateStepState.Error,
+          errorMessage: intl.formatMessage({
+            id: ETranslations.hardware_hardware_device_not_find_error,
+          }),
+        };
+        return newSteps;
+      });
     }
-  }, [connectDevice, deviceData.device, checkDeviceInitialized]);
+  }, [
+    createStepTimeout,
+    ensureTransportType,
+    getActiveDevice,
+    currentDevice,
+    deviceData.device,
+    ensureActiveConnection,
+    intl,
+    checkDeviceInitialized,
+  ]);
 
   const firmwareStepStateRef = useRef<ECheckAndUpdateStepState>(steps[1].state);
   firmwareStepStateRef.current = steps[1].state;
@@ -235,24 +393,53 @@ function CheckAndUpdatePage({
         });
         setTimeout(() => {
           void checkFirmwareUpdate();
-        }, 150);
+        });
       }
     }, [checkFirmwareUpdate]),
   );
 
-  useEffect(() => {
-    const callback = async (result: IFirmwareVerifyResult) => {
-      console.log('EmitFirmwareVerifyResult', result);
+  const handleVerifyHardware = useCallback(async () => {
+    // Double-check: ensure device scanning is fully stopped before starting verification
+    await ensureStopScan();
+
+    setSteps((prev) => {
+      const newSteps = [...prev];
+      newSteps[0] = {
+        ...newSteps[0],
+        state: ECheckAndUpdateStepState.InProgress,
+      };
+      return newSteps;
+    });
+
+    try {
+      const [result] = await Promise.all([
+        verifyHardware(deviceData.device as SearchDevice, tabValue),
+        new Promise<void>((resolve) => {
+          setTimeout(resolve, 1200);
+        }),
+      ]);
+      const latestDevice =
+        getActiveDevice() ??
+        currentDevice ??
+        (deviceData.device as SearchDevice | undefined);
+      setCurrentDevice(latestDevice);
+      console.log('verifyHardware', result);
+      if (!result) {
+        throw new OneKeyLocalError(
+          intl.formatMessage({ id: ETranslations.global_unknown_error }),
+        );
+      }
       setSteps((prev) => {
         const newSteps = [...prev];
         newSteps[0] = {
           ...newSteps[0],
-          state: result.verified
-            ? ECheckAndUpdateStepState.Success
-            : ECheckAndUpdateStepState.Error,
-          errorMessage: result.result?.message ?? undefined,
+          state:
+            result.verified || result.skipVerification
+              ? ECheckAndUpdateStepState.Success
+              : ECheckAndUpdateStepState.Error,
+          errorMessage: result.verified ? undefined : result.result?.message,
         };
-        if (result.verified) {
+        if (result.verified || result.skipVerification) {
           newSteps[1] = {
             ...newSteps[1],
             state: ECheckAndUpdateStepState.InProgress,
@@ -260,47 +447,58 @@ function CheckAndUpdatePage({
         }
         return newSteps;
       });
-      if (result.verified) {
-        await checkFirmwareUpdate();
+      if (result.verified || result.skipVerification) {
+        setTimeout(() => {
+          void checkFirmwareUpdate();
+        }, 150);
       }
-    };
-    appEventBus.on(EAppEventBusNames.EmitFirmwareVerifyResult, callback);
-    return () => {
-      appEventBus.off(EAppEventBusNames.EmitFirmwareVerifyResult, callback);
-    };
-  }, [checkFirmwareUpdate]);
-
-  const handleCheck = useCallback(async () => {
-    // Set first step to inProgress
-    setSteps((prev) => {
-      const newSteps = [...prev];
-      newSteps[0] = {
-        ...newSteps[0],
-        state: ECheckAndUpdateStepState.InProgress,
-      };
-      return newSteps;
-    });
-
-    await verifyHardware(deviceData.device as SearchDevice, tabValue);
-  }, [verifyHardware, deviceData.device, tabValue]);
-
-  const handleRetry = useCallback(async () => {
-    // Set first step to inProgress
-    setSteps((prev) => {
-      const newSteps = [...prev];
-      newSteps[0] = {
-        ...newSteps[0],
-        state: ECheckAndUpdateStepState.InProgress,
-      };
-      return newSteps;
-    });
-
-    await handleCheck();
-  }, [handleCheck]);
+      isFirmwareVerifiedRef.current = !!result.verified;
+    } catch (error) {
+      setSteps((prev) => {
+        const newSteps = [...prev];
+        newSteps[0] = {
+          ...newSteps[0],
+          state: ECheckAndUpdateStepState.Error,
+        };
+        return newSteps;
+      });
+    }
+  }, [
+    ensureStopScan,
+    verifyHardware,
+    deviceData.device,
+    tabValue,
+    intl,
+    checkFirmwareUpdate,
+    getActiveDevice,
+    currentDevice,
+  ]);
 
   const handleDeviceSetupDone = useCallback(() => {
     void checkDeviceInitialized();
   }, [checkDeviceInitialized]);
+
+  const handleRetry = useCallback(async () => {
+    const currentErrorStep = steps.find(
+      (step) => step.state === ECheckAndUpdateStepState.Error,
+    );
+    if (!currentErrorStep) {
+      await handleVerifyHardware();
+      return;
+    }
+    if (currentErrorStep.id === ECheckAndUpdateStepId.GenuineCheck) {
+      await handleVerifyHardware();
+    } else if (currentErrorStep.id === ECheckAndUpdateStepId.FirmwareCheck) {
+      await checkFirmwareUpdate();
+    } else if (currentErrorStep.id === ECheckAndUpdateStepId.SetupOnDevice) {
+      await checkDeviceInitialized();
+    }
+  }, [
+    checkFirmwareUpdate,
+    checkDeviceInitialized,
+    handleVerifyHardware,
+    steps,
+  ]);
 
   const handleSkipUpdate = useCallback(() => {
     Dialog.show({
@@ -313,7 +511,14 @@ function CheckAndUpdatePage({
         id: ETranslations.skip_firmware_check_dialog_desc,
       }),
       onConfirm: () => {
-        // Execute skip logic after confirmation
+        setSteps((prev) => {
+          const newSteps = [...prev];
+          newSteps[1] = {
+            ...newSteps[1],
+            state: ECheckAndUpdateStepState.Success,
+          };
+          return newSteps;
+        });
         void checkDeviceInitialized();
       },
     });
@@ -340,54 +545,96 @@ function CheckAndUpdatePage({
   );
 
   const DEVICE_SETUP_INSTRUCTIONS = useMemo(() => {
-    return [
-      {
-        title: intl.formatMessage({
-          id: ETranslations.setup_choose_option_title,
+    const deviceType = (deviceData.device as SearchDevice)?.deviceType;
+    const isClassicOrMini =
+      deviceType === EDeviceType.Classic ||
+      deviceType === EDeviceType.Classic1s ||
+      deviceType === EDeviceType.ClassicPure ||
+      deviceType === EDeviceType.Mini;
+
+    const chooseOptionStep = {
+      title: intl.formatMessage({
+        id: ETranslations.setup_choose_option_title,
+      }),
+      details: [
+        intl.formatMessage({
+          id: ETranslations.setup_choose_option_create_new_wallet,
         }),
-        details: [
-          intl.formatMessage({
-            id: ETranslations.setup_choose_option_create_new_wallet,
-          }),
-          intl.formatMessage({
-            id: ETranslations.setup_choose_option_import_wallet,
-          }),
-        ],
-      },
-      {
-        title: intl.formatMessage({
-          id: ETranslations.setup_pin,
+        intl.formatMessage({
+          id: ETranslations.setup_choose_option_import_wallet,
         }),
-        details: [
-          intl.formatMessage({
-            id: ETranslations.setup_pin_limit,
-          }),
-          intl.formatMessage({
-            id: ETranslations.setup_pin_reminder,
-          }),
-        ],
-      },
-      {
-        title: intl.formatMessage({
-          id: ETranslations.setup_recovery_phrase,
+      ],
+    };
+
+    const pinStep = {
+      title: intl.formatMessage({
+        id: ETranslations.setup_pin,
+      }),
+      details: [
+        intl.formatMessage({
+          id: ETranslations.setup_pin_limit,
         }),
-        details: [
-          intl.formatMessage({
-            id: ETranslations.setup_recovery_phrase_write_down,
-          }),
-          intl.formatMessage({
-            id: ETranslations.setup_recovery_phrase_matches,
-          }),
-          intl.formatMessage({
-            id: ETranslations.setup_recovery_phrase_charging,
-          }),
-          intl.formatMessage({
-            id: ETranslations.setup_recovery_phrase_do_not_power_off,
-          }),
-        ],
-      },
-    ];
-  }, [intl]);
+        intl.formatMessage({
+          id: ETranslations.setup_pin_reminder,
+        }),
+      ],
+    };
+
+    const recoveryPhraseStep = {
+      title: intl.formatMessage({
+        id: ETranslations.setup_recovery_phrase,
+      }),
+      details: [
+        intl.formatMessage({
+          id: ETranslations.setup_recovery_phrase_write_down,
+        }),
+        intl.formatMessage({
+          id: ETranslations.setup_recovery_phrase_matches,
+        }),
+        intl.formatMessage({
+          id: ETranslations.setup_recovery_phrase_charging,
+        }),
+        intl.formatMessage({
+          id: ETranslations.setup_recovery_phrase_do_not_power_off,
+        }),
+      ],
+    };
+
+    // For Classic or Mini devices, swap the order of PIN and recovery phrase
+    if (isClassicOrMini) {
+      return [chooseOptionStep, recoveryPhraseStep, pinStep];
+    }
+
+    return [chooseOptionStep, pinStep, recoveryPhraseStep];
+  }, [intl, deviceData]);
+
+  const handleSkipCurrentStep = useCallback(() => {
+    let currentStepId: ECheckAndUpdateStepId | undefined;
+    setSteps((prev) => {
+      const index = prev.findIndex(
+        (step) => step.state === ECheckAndUpdateStepState.Error,
+      );
+      if (index === -1) {
+        return prev;
+      }
+      currentStepId = prev[index].id;
+      const newSteps = [...prev];
+      newSteps[index] = {
+        ...newSteps[index],
+        state: ECheckAndUpdateStepState.Success,
+      };
+      return newSteps;
+    });
+    setTimeout(() => {
+      if (currentStepId === ECheckAndUpdateStepId.FirmwareCheck) {
+        void handleDeviceSetupDone();
+      } else if (currentStepId === ECheckAndUpdateStepId.GenuineCheck) {
+        void checkFirmwareUpdate();
+      } else {
+        void handleVerifyHardware();
+      }
+    }, 150);
+  }, [checkFirmwareUpdate, handleDeviceSetupDone, handleVerifyHardware]);
 
   return (
     <Page>
@@ -407,7 +654,7 @@ function CheckAndUpdatePage({
             {steps.map((step, index) => {
               // Don't show setup-on-device until firmware-check is completed
               if (
-                step.id === 'setup-on-device' &&
+                step.id === ECheckAndUpdateStepId.SetupOnDevice &&
                 steps[1].state !== ECheckAndUpdateStepState.Success
               ) {
                 return null;
@@ -426,10 +673,12 @@ function CheckAndUpdatePage({
                         enterStyle={{
                           opacity: 0,
                           scale: 0.97,
+                          filter: 'blur(4px)',
                         }}
                         exitStyle={{
                           opacity: 0,
                           scale: 0.97,
+                          filter: 'blur(4px)',
                         }}
                         position="absolute"
                         left={-10}
@@ -456,7 +705,8 @@ function CheckAndUpdatePage({
                   {/* connected line */}
                   {index !== steps.length - 1 &&
                   !(
-                    steps[index + 1]?.id === 'setup-on-device' &&
+                    steps[index + 1]?.id ===
+                      ECheckAndUpdateStepId.SetupOnDevice &&
                     steps[1].state !== ECheckAndUpdateStepState.Success
                   ) ? (
                     <YStack
@@ -511,8 +761,16 @@ function CheckAndUpdatePage({
                     >
                       <Image
                         source={step.image}
-                        width={step.id === 'setup-on-device' ? 48 : 64}
-                        height={step.id === 'setup-on-device' ? 48 : 64}
+                        width={
+                          step.id === ECheckAndUpdateStepId.SetupOnDevice
+                            ? 48
+                            : 64
+                        }
+                        height={
+                          step.id === ECheckAndUpdateStepId.SetupOnDevice
+                            ? 48
+                            : 64
+                        }
                       />
                       {step.state !== ECheckAndUpdateStepState.Idle ? (
                         <YStack
@@ -554,7 +812,8 @@ function CheckAndUpdatePage({
                                 />
                               </YStack>
                             ) : null}
-                            {step.state === ECheckAndUpdateStepState.Warning ? (
+                            {step.state === ECheckAndUpdateStepState.Warning ||
+                            step.state === ECheckAndUpdateStepState.Skipped ? (
                               <YStack
                                 animation="quick"
                                 enterStyle={{ scale: 0.8, opacity: 0 }}
@@ -596,7 +855,7 @@ function CheckAndUpdatePage({
                     </YStack>
                   </XStack>
                   <HeightTransition initialHeight={0}>
-                    {step.id === 'setup-on-device' &&
+                    {step.id === ECheckAndUpdateStepId.SetupOnDevice &&
                     step.state === ECheckAndUpdateStepState.Warning ? (
                       <YStack pt="$8" gap="$5">
                         <SizableText size="$bodyMdMedium" color="$textInfo">
@@ -665,7 +924,7 @@ function CheckAndUpdatePage({
                       </YStack>
                     ) : null}
                     {/* update */}
-                    {step.id === 'firmware-check' &&
+                    {step.id === ECheckAndUpdateStepId.FirmwareCheck &&
                     step.state === ECheckAndUpdateStepState.Warning ? (
                       <XStack
                         gap="$2"
@@ -726,14 +985,18 @@ function CheckAndUpdatePage({
                             })}
                         </SizableText>
                         <XStack gap="$2">
-                          <Button
-                            variant="primary"
-                            onPress={() => handleRetry()}
-                          >
+                          <Button variant="primary" onPress={handleRetry}>
                             {intl.formatMessage({
                               id: ETranslations.global_retry,
                             })}
                           </Button>
+                          {step.id !== ECheckAndUpdateStepId.GenuineCheck ? (
+                            <Button onPress={handleSkipCurrentStep}>
+                              {intl.formatMessage({
+                                id: ETranslations.global_skip,
+                              })}
+                            </Button>
+                          ) : null}
                         </XStack>
                       </XStack>
                     ) : null}
@@ -750,7 +1013,7 @@ function CheckAndUpdatePage({
                   animateOnly={['opacity', 'transform']}
                   variant="primary"
                   size="large"
-                  onPress={handleCheck}
+                  onPress={handleVerifyHardware}
                   exitStyle={{
                     opacity: 0,
                     scale: 0.97,

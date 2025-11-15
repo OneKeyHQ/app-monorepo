@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { CommonActions } from '@react-navigation/native';
 
@@ -109,6 +109,10 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
     };
   }, []);
 
+  const handleReferFriendsEntry = useCallback(() => {
+    void toReferFriendsPage();
+  }, [toReferFriendsPage]);
+
   const referFriendsTabConfig = useMemo(() => {
     return {
       name: ETabRoutes.ReferFriends,
@@ -119,8 +123,9 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
       children: referFriendsRouters,
       trackId: 'global-referral',
       freezeOnBlur: Boolean(params?.freezeOnBlur),
+      tabbarOnPress: handleReferFriendsEntry,
     };
-  }, [params?.freezeOnBlur]);
+  }, [handleReferFriendsEntry, params?.freezeOnBlur]);
 
   return useMemo(() => {
     const tabs = [
@@ -172,7 +177,7 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
           focused ? 'TradingViewCandlesSolid' : 'TradingViewCandlesOutline',
         translationId: ETranslations.global_perp,
         freezeOnBlur: Boolean(params?.freezeOnBlur),
-        rewrite: perpTabShowWeb ? '/perp' : undefined,
+        rewrite: perpTabShowWeb ? '/perps' : undefined,
         exact: true,
         children: perpWebviewRouters,
         trackId: 'global-perp',
@@ -185,7 +190,7 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
         translationId: ETranslations.global_perp,
         freezeOnBlur: Boolean(params?.freezeOnBlur),
         children: perpRouters,
-        rewrite: perpTabShowWeb ? undefined : '/perp',
+        rewrite: perpTabShowWeb ? undefined : '/perps',
         exact: true,
         // tabbarOnPress,
         hideOnTabBar: perpTabShowWeb,

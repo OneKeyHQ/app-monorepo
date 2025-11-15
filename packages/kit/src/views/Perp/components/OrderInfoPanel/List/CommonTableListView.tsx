@@ -18,6 +18,7 @@ import {
   ScrollView,
   SizableText,
   Skeleton,
+  Spinner,
   Stack,
   Tabs,
   Tooltip,
@@ -558,38 +559,11 @@ export function CommonTableListView({
                 listLoading ? (
                   <YStack
                     flex={1}
-                    justifyContent="flex-start"
-                    alignItems="flex-start"
-                    p="$5"
-                    gap="$3"
+                    justifyContent="center"
+                    alignItems="center"
+                    p="$20"
                   >
-                    {[...Array(5)].map((_, index) => (
-                      <XStack
-                        key={index}
-                        flex={1}
-                        py="$1.5"
-                        px="$3"
-                        alignItems="center"
-                        minWidth={minTableWidth}
-                        {...(index % 2 === 1 && {
-                          backgroundColor: '$bgSubdued',
-                        })}
-                      >
-                        {columns.map((column, colIndex) => (
-                          <XStack
-                            key={column.key}
-                            {...getColumnStyle(column)}
-                            justifyContent={calcCellAlign(column.align) as any}
-                            alignItems="center"
-                            {...(colIndex === 0 && {
-                              pl: '$2',
-                            })}
-                          >
-                            <Skeleton h="$3" w="$16" />
-                          </XStack>
-                        ))}
-                      </XStack>
-                    ))}
+                    <Spinner size="large" />
                   </YStack>
                 ) : (
                   <YStack
