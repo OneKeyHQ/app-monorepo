@@ -87,7 +87,7 @@ export function ShareContentRenderer({
   const pnlDisplayText = getPnlDisplayInfo(data, pnlDisplayMode);
   const pnlFontSize =
     pnlDisplayText.length > 6
-      ? scaledFonts.pnl * (1 - (pnlDisplayText.length - 6) * 0.055)
+      ? scaledFonts.pnl * (1 - (pnlDisplayText.length - 6) * 0.06)
       : scaledFonts.pnl;
 
   const imageLoadCountRef = useRef(0);
@@ -228,7 +228,7 @@ export function ShareContentRenderer({
               (scaledFonts.priceLabel * layout.lineHeight) / 2
             }
             left={scaledPadding}
-            gap={layout.priceGap}
+            gap={layout.priceGap * scale}
           >
             <SizableText
               fontSize={scaledFonts.priceLabel}
@@ -260,7 +260,7 @@ export function ShareContentRenderer({
               (scaledFonts.priceLabel * layout.lineHeight) / 2
             }
             left={scaledPadding}
-            gap={layout.priceGap}
+            gap={layout.priceGap * scale}
           >
             <SizableText
               fontSize={scaledFonts.priceLabel}
@@ -270,7 +270,9 @@ export function ShareContentRenderer({
               lineHeight={scaledFonts.priceLabel * layout.lineHeight}
             >
               {priceType === 'exit'
-                ? 'Exit Price'
+                ? appLocale.intl.formatMessage({
+                    id: ETranslations.perp_position_exit_price,
+                  })
                 : appLocale.intl.formatMessage({
                     id: ETranslations.perp_position_mark_price,
                   })}
@@ -315,8 +317,8 @@ export function ShareContentRenderer({
               justifyContent="space-between"
               width="100%"
             >
-              <YStack gap={layout.priceGap}>
-                {/* <SizableText
+              <YStack gap={layout.priceGap * scale}>
+                <SizableText
                   fontSize={scaledFonts.priceLabel}
                   fontWeight="600"
                   color={colors.textTertiary}
@@ -326,7 +328,7 @@ export function ShareContentRenderer({
                   {appLocale.intl.formatMessage({
                     id: ETranslations.referral_referral_link,
                   })}
-                </SizableText> */}
+                </SizableText>
                 <SizableText
                   fontSize={scaledFonts.priceValue}
                   fontWeight="600"
