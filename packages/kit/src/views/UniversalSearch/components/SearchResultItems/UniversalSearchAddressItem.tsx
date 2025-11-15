@@ -1,15 +1,17 @@
 import { useCallback } from 'react';
 
-import { SizableText, Stack, XStack } from '@onekeyhq/components';
+import { SizableText, XStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
+import { useEnabledNetworksCompatibleWithWalletIdInAllNetworks } from '@onekeyhq/kit/src/hooks/useAllNetwork';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useUniversalSearchActions } from '@onekeyhq/kit/src/states/jotai/contexts/universalSearch';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IUniversalSearchAddress } from '@onekeyhq/shared/types/search';
@@ -17,7 +19,6 @@ import type { IUniversalSearchAddress } from '@onekeyhq/shared/types/search';
 import { AccountAddress } from '../../../AccountManagerStacks/pages/AccountSelectorStack/WalletDetails/AccountAddress';
 import { AccountValueWithSpotlight } from '../../../AccountManagerStacks/pages/AccountSelectorStack/WalletDetails/AccountValue';
 import { urlAccountNavigation } from '../../../Home/pages/urlAccount/urlAccountUtils';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 interface IUniversalSearchAddressItemProps {
   item: IUniversalSearchAddress;
@@ -35,6 +36,13 @@ export function UniversalSearchAddressItem({
   const { vaultSettings } = useAccountData({
     networkId: item.payload.network?.id ?? contextNetworkId,
   });
+
+  const { enabledNetworksCompatibleWithWalletId, networkInfoMap } =
+    useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
+      walletId: item.payload.wallet?.id ?? '',
+      networkId: item.payload.network?.id ?? contextNetworkId,
+      withNetworksInfo: true,
+    });
 
   const { result: networkAccounts } = usePromiseResult(
     async () => {
@@ -188,6 +196,10 @@ export function UniversalSearchAddressItem({
         indexedAccountId={item.payload.indexedAccount?.id}
         mergeDeriveAssetsEnabled={vaultSettings?.mergeDeriveAssetsEnabled}
         isSingleAddress={!!item.payload.addressInfo?.displayAddress}
+        enabledNetworksCompatibleWithWalletId={
+          enabledNetworksCompatibleWithWalletId
+        }
+        networkInfoMap={networkInfoMap}
       />
     );
   }, [
@@ -195,6 +207,8 @@ export function UniversalSearchAddressItem({
     item,
     networkAccounts,
     vaultSettings?.mergeDeriveAssetsEnabled,
+    enabledNetworksCompatibleWithWalletId,
+    networkInfoMap,
   ]);
 
   if (item.payload.account || item.payload.isSearchedByAccountName) {
