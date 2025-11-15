@@ -19,12 +19,14 @@ export const WithdrawSection = ({
   tokenInfo,
   protocolInfo,
   isDisabled,
+  onSuccess,
 }: {
   accountId: string;
   networkId: string;
   tokenInfo?: IEarnTokenInfo;
   protocolInfo?: IProtocolInfo;
   isDisabled?: boolean;
+  onSuccess?: () => void;
 }) => {
   // Early return if no tokenInfo or protocolInfo
   // This happens when there's no account or no address
@@ -70,12 +72,11 @@ export const WithdrawSection = ({
         },
         withdrawAll,
         onSuccess: () => {
-          appNavigation.pop();
+          onSuccess?.();
           defaultLogger.staking.page.unstaking({
             token,
             stakingProtocol: providerName,
           });
-          // onSuccess?.();
         },
       });
     },
@@ -86,7 +87,7 @@ export const WithdrawSection = ({
       providerName,
       vault,
       protocolInfo?.providerDetail.logoURI,
-      appNavigation,
+      onSuccess,
       token,
       protocolInfo?.stakeTag,
       symbol,

@@ -182,6 +182,17 @@ export function ManagePositionContent({
     [managePageData?.history],
   );
 
+  // Determine if we're in a modal context
+  const isInModalContext = useMemo(() => {
+    try {
+      const state = navigation.getState?.();
+      const currentRoute = state?.routes?.[state.index];
+      return currentRoute?.name?.includes('Modal') ?? false;
+    } catch {
+      return false;
+    }
+  }, [navigation]);
+
   const onHistory = useMemo(() => {
     if (historyAction?.disabled || !earnAccount?.accountId) return undefined;
     return (params?: { filterType?: string }) => {
@@ -196,26 +207,11 @@ export function ManagePositionContent({
         filterType,
       };
 
-      // Check if we're in a modal navigation context by checking the current route
-      // If navigation.getState() returns a route with modal-related info, use push
-      // Otherwise, use pushModal
-      try {
-        const state = navigation.getState?.();
-        const currentRoute = state?.routes?.[state.index];
-        const isInModal = currentRoute?.name?.includes('Modal');
-
-        if (isInModal) {
-          // We're already in a modal, use push to navigate within the modal stack
-          appNavigation.push(EModalStakingRoutes.HistoryList, historyParams);
-        } else {
-          // We're in a regular page (like EarnProtocolDetails), use pushModal
-          appNavigation.pushModal(EModalRoutes.StakingModal, {
-            screen: EModalStakingRoutes.HistoryList,
-            params: historyParams,
-          });
-        }
-      } catch {
-        // Fallback: if we can't determine context, use pushModal
+      if (isInModalContext) {
+        // We're already in a modal, use push to navigate within the modal stack
+        appNavigation.push(EModalStakingRoutes.HistoryList, historyParams);
+      } else {
+        // We're in a regular page (like EarnProtocolDetails), use pushModal
         appNavigation.pushModal(EModalRoutes.StakingModal, {
           screen: EModalStakingRoutes.HistoryList,
           params: historyParams,
@@ -231,7 +227,7 @@ export function ManagePositionContent({
     provider,
     symbol,
     vault,
-    navigation,
+    isInModalContext,
   ]);
 
   // Initialize selectedTabIndex based on defaultTab
@@ -275,6 +271,13 @@ export function ManagePositionContent({
 
   const focusedTab = useSharedValue(initialTabName);
 
+  const handleStakeWithdrawSuccess = useCallback(() => {
+    if (isInModalContext) {
+      appNavigation.pop();
+    }
+    // If not in modal, don't navigate (stay on current page)
+  }, [isInModalContext, appNavigation]);
+
   const handleTabChange = useCallback(
     (name: string) => {
       const index = tabData.findIndex((item) => item.title === name);
@@ -296,23 +299,12 @@ export function ManagePositionContent({
           };
 
           // Check navigation context to use appropriate navigation method
-          try {
-            const state = navigation.getState?.();
-            const currentRoute = state?.routes?.[state.index];
-            const isInModal = currentRoute?.name?.includes('Modal');
-
-            if (isInModal) {
-              appNavigation.push(
-                EModalStakingRoutes.WithdrawOptions,
-                withdrawParams,
-              );
-            } else {
-              appNavigation.pushModal(EModalRoutes.StakingModal, {
-                screen: EModalStakingRoutes.WithdrawOptions,
-                params: withdrawParams,
-              });
-            }
-          } catch {
+          if (isInModalContext) {
+            appNavigation.push(
+              EModalStakingRoutes.WithdrawOptions,
+              withdrawParams,
+            );
+          } else {
             appNavigation.pushModal(EModalRoutes.StakingModal, {
               screen: EModalStakingRoutes.WithdrawOptions,
               params: withdrawParams,
@@ -348,6 +340,7 @@ export function ManagePositionContent({
       symbol,
       provider,
       onTabChange,
+      isInModalContext,
     ],
   );
 
@@ -529,6 +522,7 @@ export function ManagePositionContent({
             tokenInfo={tokenInfo}
             protocolInfo={protocolInfo}
             isDisabled={depositDisabled}
+            onSuccess={handleStakeWithdrawSuccess}
           />
         </>
       ) : null}
@@ -540,6 +534,7 @@ export function ManagePositionContent({
             tokenInfo={tokenInfo}
             protocolInfo={protocolInfo}
             isDisabled={withdrawDisabled || hasNoAccount || hasNoAddress}
+            onSuccess={handleStakeWithdrawSuccess}
           />
           {renderNoAddressWarning()}
         </>

@@ -27,12 +27,14 @@ export const StakeSection = ({
   tokenInfo,
   protocolInfo,
   isDisabled,
+  onSuccess,
 }: {
   accountId: string;
   networkId: string;
   tokenInfo?: IEarnTokenInfo;
   protocolInfo?: IProtocolInfo;
   isDisabled?: boolean;
+  onSuccess?: () => void;
 }) => {
   // Early return if no tokenInfo or protocolInfo
   // This happens when there's no account or no address
@@ -168,7 +170,7 @@ export const StakeSection = ({
           ? protocolInfo?.vault
           : undefined,
         onSuccess: async (txs) => {
-          appNavigation.pop();
+          onSuccess?.();
           defaultLogger.staking.page.staking({
             token,
             stakingProtocol: providerName,
@@ -198,7 +200,6 @@ export const StakeSection = ({
               minStakeTerm: undefined,
             });
           }
-          // onSuccess?.();
         },
       });
     },
@@ -209,7 +210,7 @@ export const StakeSection = ({
       protocolInfo?.providerDetail.logoURI,
       protocolInfo?.vault,
       btcFeeRate,
-      appNavigation,
+      onSuccess,
       removePermitCache,
       accountId,
       networkId,
