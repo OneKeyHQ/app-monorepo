@@ -12,7 +12,6 @@ import {
   Alert,
   AnimatePresence,
   Button,
-  Dialog,
   Form,
   HeightTransition,
   Icon,
@@ -35,11 +34,7 @@ import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import useConfigurableChainSelector from '@onekeyhq/kit/src/views/ChainSelector/hooks/useChainSelector';
-import type {
-  IAccountDeriveTypes,
-  IValidateGeneralInputParams,
-} from '@onekeyhq/kit-bg/src/vaults/types';
-import { presetNetworksMap } from '@onekeyhq/shared/src/config/presetNetworks';
+import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import {
   WALLET_TYPE_IMPORTED,
   WALLET_TYPE_WATCHING,
@@ -769,27 +764,20 @@ function SelectPrivateKeyNetworkView() {
               enabledItems={validateResult?.deriveInfoItems || []}
               undefinedResultIfReRun={false}
               renderTrigger={({ label, onPress }) => (
-                <Stack
+                <XStack
                   testID="wallet-derivation-path-selector-trigger"
-                  userSelect="none"
-                  flexDirection="row"
-                  px="$3.5"
+                  alignItems="center"
+                  p="$3"
                   py="$2.5"
+                  bg="$bg"
                   borderWidth={1}
                   borderColor="$borderStrong"
                   borderRadius="$3"
-                  $gtMd={{
-                    px: '$3',
-                    py: '$1.5',
-                    borderRadius: '$2',
-                  }}
                   borderCurve="continuous"
                   hoverStyle={{
                     bg: '$bgHover',
                   }}
-                  pressStyle={{
-                    bg: '$bgActive',
-                  }}
+                  userSelect="none"
                   onPress={onPress}
                 >
                   <SizableText flex={1}>{label}</SizableText>
@@ -798,7 +786,7 @@ function SelectPrivateKeyNetworkView() {
                     color="$iconSubdued"
                     mr="$-0.5"
                   />
-                </Stack>
+                </XStack>
               )}
             />
           </Form.Field>
@@ -838,11 +826,7 @@ function SelectPrivateKeyNetworkView() {
           })}
         />
         <OnboardingLayout.Body constrained={false}>
-          <OnboardingLayout.ConstrainedContent
-            $gtMd={{
-              py: '$6',
-            }}
-          >
+          <OnboardingLayout.ConstrainedContent>
             <YStack gap="$2.5">
               {detectedNetworks && detectedNetworks.length === 0 ? (
                 <YStack gap="$5">

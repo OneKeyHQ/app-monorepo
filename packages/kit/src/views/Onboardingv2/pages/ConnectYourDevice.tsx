@@ -386,7 +386,7 @@ function ConnectionIndicatorCard({ children }: { children: React.ReactNode }) {
       $platform-web={{
         boxShadow: '0 1px 1px 0 rgba(0, 0, 0, 0.20)',
       }}
-      $platform-android={{ elevation: 0.5 }}
+      // $platform-android={{ elevation: 0.1 }}
       $platform-ios={{
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 0.5 },
