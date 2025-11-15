@@ -7,6 +7,7 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { ISupportedSymbol } from '@onekeyhq/shared/types/earn';
 import type {
+  EApproveType,
   IEarnTokenInfo,
   IEarnWithdrawActionIcon,
   IProtocolInfo,
@@ -160,7 +161,8 @@ export const useManagePage = ({
       approve: managePageData.approve
         ? {
             allowance: managePageData.approve.allowance,
-            approveType: managePageData.approve.approveType as any,
+            approveType: managePageData.approve
+              .approveType as unknown as EApproveType,
             approveTarget: managePageData.approve.approveTarget,
           }
         : undefined,
@@ -185,9 +187,13 @@ export const useManagePage = ({
     [managePageData?.withdraw?.disabled],
   );
 
-  const alerts = useMemo(
-    () => managePageData?.alerts || [],
-    [managePageData?.alerts],
+  const alertsStake = useMemo(
+    () => managePageData?.alertsStake || [],
+    [managePageData?.alertsStake],
+  );
+  const alertsWithdraw = useMemo(
+    () => managePageData?.alertsWithdraw || [],
+    [managePageData?.alertsWithdraw],
   );
 
   // Fetch USDe data if symbol is USDe
@@ -234,7 +240,8 @@ export const useManagePage = ({
     protocolInfo,
     depositDisabled,
     withdrawDisabled,
-    alerts,
+    alertsStake,
+    alertsWithdraw,
     subscriptionValue,
     detailActions,
   };

@@ -114,6 +114,7 @@ type IUniversalStakeProps = {
     spenderAddress: string;
     token?: IToken;
   };
+  beforeFooter?: ReactElement | null;
 };
 
 export function UniversalStake({
@@ -135,6 +136,7 @@ export function UniversalStake({
   approveType,
   approveTarget,
   currentAllowance,
+  beforeFooter,
 }: PropsWithChildren<IUniversalStakeProps>) {
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -1294,6 +1296,7 @@ export function UniversalStake({
           />
         </YStack>
       ) : null}
+      {beforeFooter}
       {/* Desktop: Render footer content inline */}
       {gtMd ? <YStack>{footerContent}</YStack> : null}
       {/* Mobile: Render footer content in Page.Footer */}

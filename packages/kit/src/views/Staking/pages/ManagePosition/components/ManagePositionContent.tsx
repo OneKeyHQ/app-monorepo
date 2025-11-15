@@ -51,6 +51,7 @@ export interface IManagePositionContentProps {
 
   // Optional callbacks
   onCreateAddress?: () => Promise<void>;
+  onStakeWithdrawSuccess?: () => void;
 }
 
 export function ManagePositionContent({
@@ -63,6 +64,7 @@ export function ManagePositionContent({
   defaultTab,
   onTabChange,
   onCreateAddress,
+  onStakeWithdrawSuccess,
 }: IManagePositionContentProps) {
   const intl = useIntl();
   const appNavigation = useAppNavigation();
@@ -82,7 +84,8 @@ export function ManagePositionContent({
     managePageData,
     depositDisabled,
     withdrawDisabled,
-    alerts,
+    alertsStake,
+    alertsWithdraw,
     subscriptionValue,
     detailActions,
     refreshAccount: refreshManageAccount,
@@ -276,7 +279,9 @@ export function ManagePositionContent({
       appNavigation.pop();
     }
     // If not in modal, don't navigate (stay on current page)
-  }, [isInModalContext, appNavigation]);
+    // Call parent refresh callback to update data
+    onStakeWithdrawSuccess?.();
+  }, [isInModalContext, appNavigation, onStakeWithdrawSuccess]);
 
   const handleTabChange = useCallback(
     (name: string) => {
@@ -471,9 +476,6 @@ export function ManagePositionContent({
             </YStack>
           </YStack>
         </YStack>
-        <YStack px="$5">
-          <EarnAlert alerts={alerts} />
-        </YStack>
       </>
     );
   }
@@ -523,6 +525,7 @@ export function ManagePositionContent({
             protocolInfo={protocolInfo}
             isDisabled={depositDisabled}
             onSuccess={handleStakeWithdrawSuccess}
+            beforeFooter={<EarnAlert alerts={alertsStake} />}
           />
         </>
       ) : null}
@@ -535,13 +538,11 @@ export function ManagePositionContent({
             protocolInfo={protocolInfo}
             isDisabled={withdrawDisabled || hasNoAccount || hasNoAddress}
             onSuccess={handleStakeWithdrawSuccess}
+            beforeFooter={<EarnAlert alerts={alertsWithdraw} />}
           />
           {renderNoAddressWarning()}
         </>
       ) : null}
-      <YStack px="$5">
-        <EarnAlert alerts={alerts} />
-      </YStack>
     </>
   );
 }

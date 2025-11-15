@@ -381,7 +381,6 @@ const DetailsPart = ({
                 />
               </YStack>
             ) : null}
-            <AlertSection alerts={detailInfo.alertsV2} />
             <PeriodSection timeline={detailInfo.timeline} />
             <ProtectionSection protection={detailInfo.protection} />
             <PerformanceSection performance={detailInfo.performance} />
@@ -400,12 +399,14 @@ const ManagePositionPart = ({
   provider,
   vault,
   onCreateAddress,
+  onStakeWithdrawSuccess,
 }: {
   networkId: string;
   symbol: string;
   provider: string;
   vault?: string;
   onCreateAddress?: () => Promise<void>;
+  onStakeWithdrawSuccess?: () => void;
 }) => {
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { account, indexedAccount } = activeAccount;
@@ -421,6 +422,7 @@ const ManagePositionPart = ({
           accountId={account?.id || ''}
           indexedAccountId={indexedAccount?.id}
           onCreateAddress={onCreateAddress}
+          onStakeWithdrawSuccess={onStakeWithdrawSuccess}
         />
       </YStack>
     </YStack>
@@ -548,6 +550,10 @@ const EarnProtocolDetailsPage = () => {
     await refreshAccount();
     await refreshData();
   }, [refreshAccount, refreshData]);
+
+  const handleStakeWithdrawSuccess = useCallback(() => {
+    void refreshData();
+  }, [refreshData]);
 
   // Use custom hook for breadcrumb management
   const { breadcrumbProps } = useProtocolDetailBreadcrumb({
@@ -741,6 +747,7 @@ const EarnProtocolDetailsPage = () => {
               provider={provider}
               vault={vault}
               onCreateAddress={onCreateAddress}
+              onStakeWithdrawSuccess={handleStakeWithdrawSuccess}
             />
           </Stack>
         ) : null}

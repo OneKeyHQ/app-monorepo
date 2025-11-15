@@ -88,6 +88,7 @@ type IUniversalWithdrawProps = {
     amount: string;
     withdrawAll: boolean;
   }) => Promise<void>;
+  beforeFooter?: ReactElement | null;
 };
 
 const isNaN = (num: string) =>
@@ -113,6 +114,7 @@ export function UniversalWithdraw({
   isDisabled,
 
   onConfirm,
+  beforeFooter,
 }: PropsWithChildren<IUniversalWithdrawProps>) {
   const navigation = useAppNavigation();
   const { gtMd } = useMedia();
@@ -658,6 +660,7 @@ export function UniversalWithdraw({
           </Accordion.Item>
         </Accordion>
       </YStack>
+      {beforeFooter}
       {/* Desktop: Render footer content inline */}
       {gtMd ? (
         <YStack>

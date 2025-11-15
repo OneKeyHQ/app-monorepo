@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -28,6 +29,7 @@ export const StakeSection = ({
   protocolInfo,
   isDisabled,
   onSuccess,
+  beforeFooter,
 }: {
   accountId: string;
   networkId: string;
@@ -35,6 +37,7 @@ export const StakeSection = ({
   protocolInfo?: IProtocolInfo;
   isDisabled?: boolean;
   onSuccess?: () => void;
+  beforeFooter?: ReactElement | null;
 }) => {
   // Early return if no tokenInfo or protocolInfo
   // This happens when there's no account or no address
@@ -270,6 +273,7 @@ export const StakeSection = ({
           : protocolInfo?.approve?.approveTarget ?? '',
         token: tokenInfo?.token,
       }}
+      beforeFooter={beforeFooter}
     />
   );
 };

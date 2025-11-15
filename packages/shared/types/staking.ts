@@ -745,7 +745,8 @@ export interface IEarnManagePageResponse {
     claimable?: string;
     remainingCap?: string;
   };
-  alerts?: IEarnAlert[];
+  alertsStake?: IEarnAlert[];
+  alertsWithdraw?: IEarnAlert[];
 }
 
 export type IEarnDetailActions =

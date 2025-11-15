@@ -215,9 +215,8 @@ export const useEarnPortfolio = () => {
   useEffect(() => {
     if (hasAccountChanged()) {
       clearInvestments();
-      markAccountChange();
     }
-  }, [hasAccountChanged, markAccountChange, clearInvestments]);
+  }, [hasAccountChanged, clearInvestments]);
 
   const fetchInvestmentDetail = useCallback(
     async (

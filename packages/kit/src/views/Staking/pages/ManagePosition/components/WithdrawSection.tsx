@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react';
 import { useCallback, useMemo } from 'react';
 
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -20,6 +21,7 @@ export const WithdrawSection = ({
   protocolInfo,
   isDisabled,
   onSuccess,
+  beforeFooter,
 }: {
   accountId: string;
   networkId: string;
@@ -27,6 +29,7 @@ export const WithdrawSection = ({
   protocolInfo?: IProtocolInfo;
   isDisabled?: boolean;
   onSuccess?: () => void;
+  beforeFooter?: ReactElement | null;
 }) => {
   // Early return if no tokenInfo or protocolInfo
   // This happens when there's no account or no address
@@ -132,6 +135,7 @@ export const WithdrawSection = ({
       }
       protocolVault={protocolInfo?.vault ?? ''}
       isDisabled={isDisabled}
+      beforeFooter={beforeFooter}
     />
   );
 };
