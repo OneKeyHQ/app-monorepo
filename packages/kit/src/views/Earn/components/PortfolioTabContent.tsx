@@ -404,24 +404,24 @@ const PortfolioItemComponent = ({
   const handleManagePress = useCallback(
     async (asset: IEarnPortfolioInvestment['assets'][number]) => {
       const symbol = asset.token.info.symbol;
-      if (symbol === 'USDe') {
-        appNavigation.navigate(ERootRoutes.Main, {
-          screen: ETabRoutes.Earn,
-          params: {
-            screen: ETabEarnRoutes.EarnProtocolDetails,
-            params: {
-              indexedAccountId: indexedAccount?.id,
-              accountId: account?.id,
-              networkId: asset.metadata.network.networkId,
-              symbol,
-              provider: asset.metadata.protocol.providerDetail.code,
-              vault: asset.metadata.protocol.vault,
-            },
-          },
-        });
+      // if (symbol === 'USDe') {
+      //   appNavigation.navigate(ERootRoutes.Main, {
+      //     screen: ETabRoutes.Earn,
+      //     params: {
+      //       screen: ETabEarnRoutes.EarnProtocolDetails,
+      //       params: {
+      //         indexedAccountId: indexedAccount?.id,
+      //         accountId: account?.id,
+      //         networkId: asset.metadata.network.networkId,
+      //         symbol,
+      //         provider: asset.metadata.protocol.providerDetail.code,
+      //         vault: asset.metadata.protocol.vault,
+      //       },
+      //     },
+      //   });
 
-        return;
-      }
+      //   return;
+      // }
       appNavigation.pushModal(EModalRoutes.StakingModal, {
         screen: EModalStakingRoutes.ManagePosition,
         params: {
@@ -432,7 +432,7 @@ const PortfolioItemComponent = ({
         },
       });
     },
-    [appNavigation, account?.id, indexedAccount?.id],
+    [appNavigation],
   );
 
   const showTable = useMemo(

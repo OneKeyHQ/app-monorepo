@@ -1,19 +1,24 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
-import { Page, Skeleton, XStack, YStack } from '@onekeyhq/components';
+import { Page, Skeleton, Stack, XStack, YStack } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import type {
-  EModalStakingRoutes,
-  IModalStakingParamList,
+import {
+  EModalReceiveRoutes,
+  EModalRoutes,
+  type EModalStakingRoutes,
+  type IModalStakingParamList,
 } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { type ISupportedSymbol } from '@onekeyhq/shared/types/earn';
 
 import { DiscoveryBrowserProviderMirror } from '../../../Discovery/components/DiscoveryBrowserProviderMirror';
 import { EarnProviderMirror } from '../../../Earn/EarnProviderMirror';
+import { NoAddressWarning } from '../../components/ProtocolDetails/NoAddressWarning';
+import { useHandleSwap } from '../../hooks/useHandleSwap';
 
 import { ManagePositionContent } from './components/ManagePositionContent';
 import { useManagePage } from './hooks/useManagePage';
@@ -71,6 +76,8 @@ const ManagePositionPage = () => {
     EModalStakingRoutes.ManagePosition
   >();
   const { activeAccount } = useActiveAccount({ num: 0 });
+  const appNavigation = useAppNavigation();
+  const { handleSwap } = useHandleSwap();
 
   // parse route params, support two types of routes
   const resolvedParams = useMemo<{
@@ -121,6 +128,10 @@ const ManagePositionPage = () => {
     depositDisabled,
     withdrawDisabled,
     alerts,
+    subscriptionValue,
+    detailActions,
+    refreshAccount: refreshManageAccount,
+    run: refreshManageData,
   } = useManagePage({
     accountId: account?.id || '',
     networkId,
@@ -130,11 +141,70 @@ const ManagePositionPage = () => {
     vault,
   });
 
+  const handleCreateAddress = useCallback(async () => {
+    await refreshManageAccount();
+    await refreshManageData();
+  }, [refreshManageAccount, refreshManageData]);
+
+  const hasNoAccount = !account?.id && !indexedAccount?.id;
+  const hasNoAddress = !earnAccount?.accountAddress;
+
+  // USDe handlers
+  const handleReceive = useCallback(() => {
+    if (!subscriptionValue?.token?.info || !earnAccount) return;
+    appNavigation.pushModal(EModalRoutes.ReceiveModal, {
+      screen: EModalReceiveRoutes.ReceiveToken,
+      params: {
+        networkId,
+        accountId: earnAccount.accountId,
+        walletId: earnAccount.walletId,
+        token: subscriptionValue.token.info,
+      },
+    });
+  }, [appNavigation, networkId, earnAccount, subscriptionValue?.token?.info]);
+
+  const handleTrade = useCallback(async () => {
+    if (!subscriptionValue?.token?.info) return;
+    await handleSwap({
+      token: subscriptionValue.token.info,
+      networkId,
+    });
+  }, [handleSwap, networkId, subscriptionValue?.token?.info]);
+
+  const renderNoAddressWarning = useCallback(
+    () =>
+      hasNoAccount || hasNoAddress ? (
+        <Stack px="$5">
+          <NoAddressWarning
+            accountId={account?.id || ''}
+            networkId={networkId}
+            indexedAccountId={indexedAccount?.id}
+            onCreateAddress={handleCreateAddress}
+          />
+        </Stack>
+      ) : null,
+    [
+      hasNoAccount,
+      hasNoAddress,
+      account?.id,
+      networkId,
+      indexedAccount?.id,
+      handleCreateAddress,
+    ],
+  );
+
+  const shouldShowSkeleton = isLoading && !hasNoAccount;
+
+  // For USDe, we don't have tokenInfo from managePageData, but we should still render
+  // once loading is done. ManagePositionContent will handle USDe rendering internally.
+  const shouldShowContent =
+    symbol === 'USDe' ? !isLoading : !isLoading && tokenInfo;
+
   return (
     <Page scrollEnabled>
       <Page.Header title={symbol} />
       <Page.Body>
-        {!tokenInfo || isLoading ? (
+        {shouldShowSkeleton ? (
           <ManagePositionSkeleton />
         ) : (
           <ManagePositionContent
@@ -148,11 +218,17 @@ const ManagePositionPage = () => {
             tokenInfo={tokenInfo}
             protocolInfo={protocolInfo}
             managePageData={managePageData}
-            depositDisabled={depositDisabled}
-            withdrawDisabled={withdrawDisabled}
+            depositDisabled={depositDisabled || hasNoAccount || hasNoAddress}
+            withdrawDisabled={withdrawDisabled || hasNoAccount || hasNoAddress}
             alerts={alerts}
             isLoading={isLoading}
             defaultTab={defaultTab}
+            subscriptionValue={subscriptionValue}
+            detailActions={detailActions}
+            onReceive={handleReceive}
+            onTrade={handleTrade}
+            renderAfterDeposit={renderNoAddressWarning}
+            renderAfterWithdraw={renderNoAddressWarning}
           />
         )}
       </Page.Body>

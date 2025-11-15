@@ -46,6 +46,7 @@ import { EStakingActionType } from '@onekeyhq/shared/types/staking';
 import type {
   IEarnAlert,
   IEarnTokenInfo,
+  IProtocolInfo,
   IStakeEarnDetail,
 } from '@onekeyhq/shared/types/staking';
 
@@ -395,134 +396,6 @@ const DetailsPart = ({
   );
 };
 
-const UsDeHoldingsPartSkeleton = () => (
-  <YStack flex={4} px="$5">
-    <YStack gap="$8">
-      <YStack gap="$4">
-        <Skeleton.BodyLg w="$24" />
-        <XStack jc="space-between" ai="flex-end">
-          <Skeleton w="$48" h="$12" />
-          <XStack gap="$2">
-            <Skeleton w="$20" h="$9" borderRadius="$2" />
-            <Skeleton w="$20" h="$9" borderRadius="$2" />
-          </XStack>
-        </XStack>
-        <Skeleton.BodyLg w="$32" />
-      </YStack>
-    </YStack>
-  </YStack>
-);
-
-const UsDeHoldingsPart = ({
-  networkId,
-  subscriptionValue,
-  detailInfo,
-  earnAccount,
-  isLoading,
-}: {
-  networkId: string;
-  subscriptionValue: IStakeEarnDetail['subscriptionValue'];
-  detailInfo: IStakeEarnDetail | undefined;
-  earnAccount:
-    | Awaited<
-        ReturnType<typeof backgroundApiProxy.serviceStaking.getEarnAccount>
-      >
-    | undefined;
-  isLoading?: boolean;
-}) => {
-  const intl = useIntl();
-  const appNavigation = useAppNavigation();
-  const { handleSwap } = useHandleSwap();
-  const { gtMd } = useMedia();
-
-  const handleReceive = useCallback(() => {
-    if (!subscriptionValue?.token?.info || !earnAccount) return;
-    appNavigation.pushModal(EModalRoutes.ReceiveModal, {
-      screen: EModalReceiveRoutes.ReceiveToken,
-      params: {
-        networkId,
-        accountId: earnAccount.accountId,
-        walletId: earnAccount.walletId,
-        token: subscriptionValue.token.info,
-      },
-    });
-  }, [appNavigation, networkId, earnAccount, subscriptionValue?.token?.info]);
-
-  const handleTrade = useCallback(async () => {
-    if (!subscriptionValue?.token?.info) return;
-    await handleSwap({
-      token: subscriptionValue.token.info,
-      networkId,
-    });
-  }, [handleSwap, networkId, subscriptionValue?.token?.info]);
-
-  const receiveAction = useMemo(
-    () =>
-      detailInfo?.actions?.find((a) => a.type === EStakingActionType.Receive),
-    [detailInfo?.actions],
-  );
-  const tradeAction = useMemo(
-    () => detailInfo?.actions?.find((a) => a.type === EStakingActionType.Trade),
-    [detailInfo?.actions],
-  );
-
-  const renderActionButtons = useCallback(() => {
-    if (!gtMd) {
-      return null;
-    }
-    return (
-      <XStack gap="$2">
-        {receiveAction ? (
-          <Button onPress={handleReceive}>
-            {intl.formatMessage({ id: ETranslations.global_receive })}
-          </Button>
-        ) : null}
-        {tradeAction ? (
-          <Button variant="primary" onPress={handleTrade}>
-            {intl.formatMessage({ id: ETranslations.global_trade })}
-          </Button>
-        ) : null}
-      </XStack>
-    );
-  }, [gtMd, receiveAction, tradeAction, handleReceive, handleTrade, intl]);
-
-  if (isLoading) {
-    return <UsDeHoldingsPartSkeleton />;
-  }
-
-  if (!subscriptionValue) {
-    return null;
-  }
-
-  return (
-    <YStack flex={4} px="$5">
-      <YStack gap="$8">
-        <YStack>
-          <XStack ai="center" gap="$2" pt="$2">
-            <EarnText text={subscriptionValue.title} size="$headingLg" />
-          </XStack>
-          <XStack gap="$2" pt="$2" pb="$1" jc="space-between">
-            <EarnText
-              text={{ text: subscriptionValue.fiatValue }}
-              size="$heading4xl"
-            />
-            {renderActionButtons()}
-          </XStack>
-          <EarnText
-            text={{
-              text: `${subscriptionValue.formattedValue || 0} ${
-                subscriptionValue?.token?.info?.symbol || ''
-              }`,
-            }}
-            size="$bodyLgMedium"
-            color="$textSubdued"
-          />
-        </YStack>
-      </YStack>
-    </YStack>
-  );
-};
-
 const ManagePositionPart = ({
   networkId,
   symbol,
@@ -530,6 +403,8 @@ const ManagePositionPart = ({
   vault,
   managers,
   onCreateAddress,
+  subscriptionValue,
+  detailActions,
 }: {
   networkId: string;
   symbol: string;
@@ -537,10 +412,13 @@ const ManagePositionPart = ({
   vault?: string;
   managers: IStakeEarnDetail['managers'] | undefined;
   onCreateAddress?: () => Promise<void>;
+  subscriptionValue?: IStakeEarnDetail['subscriptionValue'];
+  detailActions?: IStakeEarnDetail['actions'];
 }) => {
   const appNavigation = useAppNavigation();
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { account, indexedAccount } = activeAccount;
+  const { handleSwap } = useHandleSwap();
 
   const {
     isLoading,
@@ -600,8 +478,8 @@ const ManagePositionPart = ({
     (params: {
       accountId: string;
       networkId: string;
-      protocolInfo: any;
-      tokenInfo: any;
+      protocolInfo: IProtocolInfo | undefined;
+      tokenInfo: IEarnTokenInfo | undefined;
       symbol: string;
       provider: string;
     }) => {
@@ -612,6 +490,28 @@ const ManagePositionPart = ({
     },
     [appNavigation],
   );
+
+  // USDe handlers
+  const handleReceive = useCallback(() => {
+    if (!subscriptionValue?.token?.info || !earnAccount) return;
+    appNavigation.pushModal(EModalRoutes.ReceiveModal, {
+      screen: EModalReceiveRoutes.ReceiveToken,
+      params: {
+        networkId,
+        accountId: earnAccount.accountId,
+        walletId: earnAccount.walletId,
+        token: subscriptionValue.token.info,
+      },
+    });
+  }, [appNavigation, networkId, earnAccount, subscriptionValue?.token?.info]);
+
+  const handleTrade = useCallback(async () => {
+    if (!subscriptionValue?.token?.info) return;
+    await handleSwap({
+      token: subscriptionValue.token.info,
+      networkId,
+    });
+  }, [handleSwap, networkId, subscriptionValue?.token?.info]);
 
   return (
     <YStack flex={4}>
@@ -658,6 +558,10 @@ const ManagePositionPart = ({
             renderAfterDeposit={renderNoAddressWarning}
             renderAfterWithdraw={renderNoAddressWarning}
             onNavigateToWithdrawOptions={handleNavigateToWithdrawOptions}
+            subscriptionValue={subscriptionValue}
+            detailActions={detailActions}
+            onReceive={handleReceive}
+            onTrade={handleTrade}
           />
         </YStack>
       )}
@@ -973,24 +877,16 @@ const EarnProtocolDetailsPage = () => {
         </Stack>
         {gtMd ? (
           <Stack $gtMd={{ width: '35%' }}>
-            {symbol === 'USDe' ? (
-              <UsDeHoldingsPart
-                networkId={networkId}
-                subscriptionValue={detailInfo?.subscriptionValue}
-                detailInfo={detailInfo}
-                earnAccount={earnAccount}
-                isLoading={isLoading ?? false}
-              />
-            ) : (
-              <ManagePositionPart
-                networkId={networkId}
-                symbol={symbol}
-                provider={provider}
-                vault={vault}
-                managers={detailInfo?.managers}
-                onCreateAddress={onCreateAddress}
-              />
-            )}
+            <ManagePositionPart
+              networkId={networkId}
+              symbol={symbol}
+              provider={provider}
+              vault={vault}
+              managers={detailInfo?.managers}
+              onCreateAddress={onCreateAddress}
+              subscriptionValue={detailInfo?.subscriptionValue}
+              detailActions={detailInfo?.actions}
+            />
           </Stack>
         ) : null}
       </XStack>

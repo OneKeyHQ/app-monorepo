@@ -4,7 +4,14 @@ import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 import { useSharedValue } from 'react-native-reanimated';
 
-import { SizableText, Tabs, XStack, YStack } from '@onekeyhq/components';
+import {
+  Button,
+  SizableText,
+  Tabs,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
+import { useMedia } from '@onekeyhq/components/src/hooks';
 import type backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -14,10 +21,12 @@ import type {
   IEarnManagePageResponse,
   IEarnTokenInfo,
   IProtocolInfo,
+  IStakeEarnDetail,
 } from '@onekeyhq/shared/types/staking';
 import { EStakingActionType } from '@onekeyhq/shared/types/staking';
 
 import { EarnAlert } from '../../../components/ProtocolDetails/EarnAlert';
+import { EarnText } from '../../../components/ProtocolDetails/EarnText';
 
 import { HeaderRight } from './HeaderRight';
 import { StakeSection } from './StakeSection';
@@ -65,6 +74,12 @@ export interface IManagePositionContentProps {
     symbol: string;
     provider: string;
   }) => void;
+
+  // USDe-specific props
+  subscriptionValue?: IStakeEarnDetail['subscriptionValue'];
+  detailActions?: IStakeEarnDetail['actions'];
+  onReceive?: () => void;
+  onTrade?: () => void;
 }
 
 export function ManagePositionContent({
@@ -87,10 +102,15 @@ export function ManagePositionContent({
   renderAfterDeposit,
   renderAfterWithdraw,
   onNavigateToWithdrawOptions,
+  subscriptionValue,
+  detailActions,
+  onReceive,
+  onTrade,
 }: IManagePositionContentProps) {
   const intl = useIntl();
   const appNavigation = useAppNavigation();
   const navigation = useNavigation();
+  const { gtMd } = useMedia();
 
   const historyAction = useMemo(
     () => managePageData?.history,
@@ -228,8 +248,81 @@ export function ManagePositionContent({
     ],
   );
 
-  if (!tokenInfo || isLoading) {
+  // USDe-specific data
+  const receiveAction = useMemo(
+    () => detailActions?.find((a) => a.type === EStakingActionType.Receive),
+    [detailActions],
+  );
+  const tradeAction = useMemo(
+    () => detailActions?.find((a) => a.type === EStakingActionType.Trade),
+    [detailActions],
+  );
+
+  const renderUSDActionButtons = useCallback(() => {
+    if (!gtMd) {
+      return null;
+    }
+    return (
+      <XStack gap="$2">
+        {receiveAction && onReceive ? (
+          <Button onPress={onReceive}>
+            {intl.formatMessage({ id: ETranslations.global_receive })}
+          </Button>
+        ) : null}
+        {tradeAction && onTrade ? (
+          <Button variant="primary" onPress={onTrade}>
+            {intl.formatMessage({ id: ETranslations.global_trade })}
+          </Button>
+        ) : null}
+      </XStack>
+    );
+  }, [gtMd, receiveAction, tradeAction, onReceive, onTrade, intl]);
+
+  // For USDe, we don't need tokenInfo, but we need subscriptionValue
+  if (isLoading) {
     return null; // Parent should handle loading state
+  }
+
+  // USDe rendering
+  if (symbol === 'USDe' && subscriptionValue) {
+    return (
+      <>
+        <YStack px="$5">
+          <YStack gap="$8">
+            <YStack>
+              <XStack ai="center" gap="$2" pt="$2">
+                <EarnText text={subscriptionValue.title} size="$headingLg" />
+              </XStack>
+              <XStack gap="$2" pt="$2" pb="$1" jc="space-between">
+                <EarnText
+                  text={{ text: subscriptionValue.fiatValue }}
+                  size="$heading4xl"
+                />
+                {renderUSDActionButtons()}
+              </XStack>
+              <EarnText
+                text={{
+                  text: `${subscriptionValue.formattedValue || 0} ${
+                    subscriptionValue?.token?.info?.symbol || ''
+                  }`,
+                }}
+                size="$bodyLgMedium"
+                color="$textSubdued"
+              />
+            </YStack>
+          </YStack>
+        </YStack>
+        <YStack px="$5">
+          <EarnAlert alerts={alerts} />
+        </YStack>
+      </>
+    );
+  }
+
+  // Normal deposit/withdraw rendering
+  // If no tokenInfo but we have renderAfterDeposit (for NoAddressWarning), show it
+  if (!tokenInfo) {
+    return <>{renderAfterDeposit?.()}</>;
   }
 
   return (
