@@ -286,14 +286,38 @@ export function ManagePositionContent({
             EStakingActionType.WithdrawOrder
         ) {
           // Directly open WithdrawOptions modal instead of switching tab
-          appNavigation.push(EModalStakingRoutes.WithdrawOptions, {
+          const withdrawParams = {
             accountId: earnAccount?.accountId || '',
             networkId,
             protocolInfo,
             tokenInfo,
             symbol,
             provider,
-          });
+          };
+
+          // Check navigation context to use appropriate navigation method
+          try {
+            const state = navigation.getState?.();
+            const currentRoute = state?.routes?.[state.index];
+            const isInModal = currentRoute?.name?.includes('Modal');
+
+            if (isInModal) {
+              appNavigation.push(
+                EModalStakingRoutes.WithdrawOptions,
+                withdrawParams,
+              );
+            } else {
+              appNavigation.pushModal(EModalRoutes.StakingModal, {
+                screen: EModalStakingRoutes.WithdrawOptions,
+                params: withdrawParams,
+              });
+            }
+          } catch {
+            appNavigation.pushModal(EModalRoutes.StakingModal, {
+              screen: EModalStakingRoutes.WithdrawOptions,
+              params: withdrawParams,
+            });
+          }
           return;
         }
 
