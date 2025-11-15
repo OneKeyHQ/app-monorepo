@@ -319,11 +319,11 @@ export const Overview = ({
     <YStack
       gap="$1"
       px="$0"
+      flex={1}
       $gtLg={{
         flexDirection: 'row',
         alignItems: 'center',
         flexWrap: 'wrap',
-        flex: 1,
         gap: '$8',
       }}
     >
