@@ -706,6 +706,67 @@ class ServiceIpTable extends ServiceBase {
 
   // ========== Network Doctor Methods ==========
 
+  // Progress smoother state
+  private progressSmoother: {
+    targetProgress: number;
+    currentProgress: number;
+    intervalId?: ReturnType<typeof setInterval>;
+    latestProgressData?: any;
+  } = {
+    targetProgress: 0,
+    currentProgress: 0,
+  };
+
+  /**
+   * Smoothly interpolate progress from current to target
+   */
+  private startProgressSmoother(): void {
+    // Clear existing interval
+    if (this.progressSmoother.intervalId) {
+      clearInterval(this.progressSmoother.intervalId);
+    }
+
+    // Update progress every 50ms for smooth animation
+    this.progressSmoother.intervalId = setInterval(() => {
+      const { currentProgress, targetProgress, latestProgressData } =
+        this.progressSmoother;
+
+      if (!latestProgressData) return;
+
+      // Linear interpolation step (increment by 2% each tick for smooth transition)
+      const step = 2;
+
+      if (currentProgress < targetProgress) {
+        const nextProgress = Math.min(currentProgress + step, targetProgress);
+        this.progressSmoother.currentProgress = nextProgress;
+
+        // Update atom with interpolated progress
+        void networkDoctorStateAtom.set({
+          status: 'running',
+          progress: {
+            ...latestProgressData,
+            percentage: nextProgress,
+          },
+          result: null,
+          error: null,
+        });
+      }
+    }, 50); // 50ms = 20fps, smooth enough for progress bar
+  }
+
+  /**
+   * Stop progress smoother
+   */
+  private stopProgressSmoother(): void {
+    if (this.progressSmoother.intervalId) {
+      clearInterval(this.progressSmoother.intervalId);
+      this.progressSmoother.intervalId = undefined;
+    }
+    this.progressSmoother.currentProgress = 0;
+    this.progressSmoother.targetProgress = 0;
+    this.progressSmoother.latestProgressData = undefined;
+  }
+
   /**
    * Run network diagnostics with singleton pattern
    * Returns true if diagnostics started, false if already running
@@ -731,21 +792,24 @@ class ServiceIpTable extends ServiceBase {
       error: null,
     });
 
+    // Start progress smoother
+    this.startProgressSmoother();
+
     try {
       // Create new NetworkDoctor instance with progress callback
       const doctor = new NetworkDoctor({
         onProgress: (progress: any) => {
-          void networkDoctorStateAtom.set({
-            status: 'running',
-            progress,
-            result: null,
-            error: null,
-          });
+          // Update target progress for smoother
+          this.progressSmoother.targetProgress = progress.percentage;
+          this.progressSmoother.latestProgressData = progress;
         },
       });
 
       // Run diagnostics
       const result = await doctor.run();
+
+      // Stop progress smoother
+      this.stopProgressSmoother();
 
       // Update state with result
       await networkDoctorStateAtom.set({
@@ -757,6 +821,9 @@ class ServiceIpTable extends ServiceBase {
 
       return true;
     } catch (error: any) {
+      // Stop progress smoother on error
+      this.stopProgressSmoother();
+
       // Update state with error
       await networkDoctorStateAtom.set({
         status: 'failed',
@@ -774,6 +841,9 @@ class ServiceIpTable extends ServiceBase {
    */
   @backgroundMethod()
   async resetNetworkDiagnostics(): Promise<void> {
+    // Stop progress smoother
+    this.stopProgressSmoother();
+
     await networkDoctorStateAtom.set({
       status: 'idle',
       progress: null,
