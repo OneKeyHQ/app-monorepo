@@ -26,10 +26,11 @@ import { appApiClient } from '@onekeyhq/shared/src/appApiClient/appApiClient';
 import { ONEKEY_HEALTH_CHECK_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { getEndpointByServiceName } from '@onekeyhq/shared/src/config/endpointsMap';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import { mergeConfig } from './config';
-import { EDiagnosticIssueType } from './types';
+import { EDiagnosticIssueType, EDiagnosticPhase } from './types';
 
 import type {
   IConnectivityComparison,
@@ -37,6 +38,7 @@ import type {
   IDnsResult,
   IDoctorConfig,
   IHttpProbeResult,
+  IMergedConfig,
   INetInfoSnapshot,
   INetworkCheckup,
   INetworkEnvironment,
@@ -47,7 +49,7 @@ import type {
 } from './types';
 
 export class NetworkDoctor {
-  private config: Required<IDoctorConfig>;
+  private config: IMergedConfig;
 
   private endpoint: string | null = null;
 
@@ -62,7 +64,9 @@ export class NetworkDoctor {
   constructor(userConfig: IDoctorConfig) {
     this.config = mergeConfig(userConfig);
 
-    console.log('🩺 [NetworkDoctor] Initialized');
+    defaultLogger.networkDoctor.log.info({
+      info: '🩺 [NetworkDoctor] Initialized',
+    });
   }
 
   /**
@@ -92,17 +96,40 @@ export class NetworkDoctor {
       const url = new URL(this.endpoint);
       this.targetDomain = url.hostname;
 
-      console.log('🩺 [NetworkDoctor] Initialized endpoint and client', {
-        endpoint: this.endpoint,
-        healthCheckUrl: this.healthCheckUrl,
-        targetDomain: this.targetDomain,
+      defaultLogger.networkDoctor.log.info({
+        info: `🩺 [NetworkDoctor] Initialized endpoint and client - endpoint: ${this.endpoint}, healthCheckUrl: ${this.healthCheckUrl}, targetDomain: ${this.targetDomain}`,
       });
     } catch (error: any) {
-      console.error(
-        '[NetworkDoctor] Failed to initialize endpoint and client',
-        error?.message,
-      );
+      defaultLogger.networkDoctor.log.error({
+        info: `[NetworkDoctor] Failed to initialize endpoint and client - ${error?.message}`,
+      });
       throw error;
+    }
+  }
+
+  /**
+   * Emit progress update to callback
+   */
+  private emitProgress(
+    phase: EDiagnosticPhase,
+    phaseIndex: number,
+    message: string,
+  ): void {
+    const totalPhases = 8; // Total number of diagnostic phases (excluding INITIALIZING and COMPLETED)
+    const percentage = Math.round((phaseIndex / totalPhases) * 100);
+
+    if (this.config.onProgress) {
+      this.config.onProgress({
+        phase,
+        phaseIndex,
+        totalPhases,
+        percentage,
+        message,
+      });
+
+      defaultLogger.networkDoctor.log.info({
+        info: `[Progress] ${percentage}% - ${phase}: ${message}`,
+      });
     }
   }
 
@@ -130,10 +157,8 @@ export class NetworkDoctor {
             : JSON.stringify(response.data).slice(0, 500),
         durationMs: Date.now() - startTime,
       };
-      console.log(`[CDN-TRACE] ✓ Trace successful`, {
-        status: result.status,
-        time: result.durationMs,
-        preview: result.dataPreview,
+      defaultLogger.networkDoctor.log.info({
+        info: `[CDN-TRACE] ✓ Trace successful - status: ${result.status}, time: ${result.durationMs}ms, preview: ${result.dataPreview}`,
       });
       return result;
     } catch (error: any) {
@@ -145,9 +170,8 @@ export class NetworkDoctor {
         error: error?.message || String(error),
         durationMs: Date.now() - startTime,
       };
-      console.warn(`[CDN-TRACE] ✗ Trace failed`, {
-        error: result.error,
-        status: result.status,
+      defaultLogger.networkDoctor.log.warn({
+        info: `[CDN-TRACE] ✗ Trace failed - error: ${result.error}, status: ${result.status}`,
       });
       return result;
     }
@@ -158,7 +182,16 @@ export class NetworkDoctor {
    */
   async run(): Promise<INetworkCheckup> {
     this.startTime = Date.now();
-    console.log('🩺 ===== NETWORK DOCTOR: CHECKUP START =====');
+    defaultLogger.networkDoctor.log.info({
+      info: '🩺 ===== NETWORK DOCTOR: CHECKUP START =====',
+    });
+
+    // ========== Phase 0: Initializing ==========
+    this.emitProgress(
+      EDiagnosticPhase.INITIALIZING,
+      0,
+      'Initializing network diagnostics',
+    );
 
     // Initialize endpoint, client and health check URL
     await this.initialize();
@@ -185,39 +218,86 @@ export class NetworkDoctor {
 
     try {
       // ========== Phase 1: Basic Network Info ==========
-      console.log('[DR] Phase 1: Basic Network Info');
+      this.emitProgress(
+        EDiagnosticPhase.BASIC_NETWORK_INFO,
+        1,
+        'Gathering basic network information',
+      );
+      defaultLogger.networkDoctor.log.info({
+        info: '[DR] Phase 1: Basic Network Info',
+      });
       const netInfo = await this.testNetInfo();
       const networkEnv = await this.testNetworkEnv();
 
       // ========== Phase 2: DNS Resolution ==========
-      console.log('[DR] Phase 2: DNS Resolution');
+      this.emitProgress(
+        EDiagnosticPhase.DNS_RESOLUTION,
+        2,
+        'Resolving DNS for target domain',
+      );
+      defaultLogger.networkDoctor.log.info({
+        info: '[DR] Phase 2: DNS Resolution',
+      });
       const dns = await this.testDns();
 
       // ========== Phase 3: TCP + TLS Tests (Parallel) ==========
-      console.log('[DR] Phase 3: TCP & TLS Tests');
+      this.emitProgress(
+        EDiagnosticPhase.TCP_TLS_TESTS,
+        3,
+        'Testing TCP connections and TLS handshake',
+      );
+      defaultLogger.networkDoctor.log.info({
+        info: '[DR] Phase 3: TCP & TLS Tests',
+      });
       const [tcpTests, tlsTest] = await Promise.all([
         this.testTcpConnectivity(dns.ips[0]),
         this.testTlsHandshake(),
       ]);
 
       // ========== Phase 4: Ping Tests ==========
-      console.log('[DR] Phase 4: Ping Tests');
+      this.emitProgress(
+        EDiagnosticPhase.PING_TESTS,
+        4,
+        'Running ping tests to target and reference servers',
+      );
+      defaultLogger.networkDoctor.log.info({
+        info: '[DR] Phase 4: Ping Tests',
+      });
       const pingDomain = await this.testPing(this.targetDomain ?? '');
       const pingIp =
         dns.ips.length > 0 ? await this.testPing(dns.ips[0]) : undefined;
       const extraPings = await this.testExtraPings();
 
       // ========== Phase 5: HTTP Tests ==========
-      console.log('[DR] Phase 5: HTTP Tests');
+      this.emitProgress(
+        EDiagnosticPhase.HTTP_TESTS,
+        5,
+        'Testing HTTP endpoints and health checks',
+      );
+      defaultLogger.networkDoctor.log.info({
+        info: '[DR] Phase 5: HTTP Tests',
+      });
       const healthCheck = await this.testHealthCheck();
       const cdnTrace = await this.testCdnTrace();
       const publicHttpChecks = await this.testPublicHttpProbes();
 
       // ========== Phase 6: Collect Network Logs ==========
-      console.log('[DR] Phase 6: Collecting Network Logs');
+      this.emitProgress(
+        EDiagnosticPhase.NETWORK_LOGS,
+        6,
+        'Collecting network request logs',
+      );
+      defaultLogger.networkDoctor.log.info({
+        info: '[DR] Phase 6: Collecting Network Logs',
+      });
       const networkLogs = this.collectNetworkLogs();
 
-      // ========== Generate Report ==========
+      // ========== Phase 7: Generate Report ==========
+      this.emitProgress(
+        EDiagnosticPhase.GENERATING_REPORT,
+        7,
+        'Analyzing results and generating diagnostic report',
+      );
       const report = this.generateReport({
         netInfo,
         networkEnv,
@@ -233,10 +313,15 @@ export class NetworkDoctor {
         networkLogs,
       });
 
-      console.log('🩺 ===== CHECKUP COMPLETED =====', {
-        totalDuration: report.metrics.totalDurationMs,
-        assessment: report.summary.assessment,
-        issuesCount: report.summary.issues.length,
+      // ========== Phase 8: Completed ==========
+      this.emitProgress(
+        EDiagnosticPhase.COMPLETED,
+        8,
+        'Network diagnostics completed',
+      );
+
+      defaultLogger.networkDoctor.log.info({
+        info: `🩺 ===== CHECKUP COMPLETED ===== - totalDuration: ${report.metrics.totalDurationMs}ms, assessment: ${report.summary.assessment}, issuesCount: ${report.summary.issues.length}`,
       });
 
       return report;
@@ -257,7 +342,9 @@ export class NetworkDoctor {
       isInternetReachable: state.isInternetReachable,
       details: state.details,
     };
-    console.log('[NetInfo]', snapshot);
+    defaultLogger.networkDoctor.log.info({
+      info: `[NetInfo] type: ${snapshot.type}, isConnected: ${snapshot.isConnected}, isInternetReachable: ${snapshot.isInternetReachable}`,
+    });
     return snapshot;
   }
 
@@ -271,13 +358,14 @@ export class NetworkDoctor {
       ]);
 
       const env = { ipAddress, gateway, subnet, broadcast };
-      console.log('[NetworkEnv]', env);
+      defaultLogger.networkDoctor.log.info({
+        info: `[NetworkEnv] ipAddress: ${ipAddress}, gateway: ${gateway}, subnet: ${subnet}, broadcast: ${broadcast}`,
+      });
       return env;
     } catch (error: any) {
-      console.error(
-        '[NetworkEnv] Failed to get network environment',
-        error?.message,
-      );
+      defaultLogger.networkDoctor.log.error({
+        info: `[NetworkEnv] Failed to get network environment - ${error?.message}`,
+      });
       return {
         ipAddress: null,
         gateway: null,
@@ -301,7 +389,11 @@ export class NetworkDoctor {
         ips: Array.from(ips),
         durationMs: Date.now() - startTime,
       };
-      console.log('[DNS] Resolved', result);
+      defaultLogger.networkDoctor.log.info({
+        info: `[DNS] Resolved - hostname: ${
+          result.hostname
+        }, ips: ${result.ips.join(', ')}, durationMs: ${result.durationMs}ms`,
+      });
       return result;
     } catch (error: any) {
       const result = {
@@ -310,7 +402,9 @@ export class NetworkDoctor {
         error: error?.message || String(error),
         durationMs: Date.now() - startTime,
       };
-      console.error('[DNS] Failed', result);
+      defaultLogger.networkDoctor.log.error({
+        info: `[DNS] Failed - hostname: ${result.hostname}, error: ${result.error}, durationMs: ${result.durationMs}ms`,
+      });
       return result;
     }
   }
@@ -320,7 +414,9 @@ export class NetworkDoctor {
     port: number,
     timeout: number,
   ): Promise<ITcpConnectionResult> {
-    console.log(`[TCP] Testing connection to ${host}:${port}...`);
+    defaultLogger.networkDoctor.log.info({
+      info: `[TCP] Testing connection to ${host}:${port}...`,
+    });
 
     return new Promise((resolve) => {
       const startTime = Date.now();
@@ -345,8 +441,10 @@ export class NetworkDoctor {
           }ms) - likely a library bug on iOS`,
           errorCode: 'LIBRARY_TIMEOUT',
         };
-        console.warn(`[TCP] ⏱ Forced timeout for ${host}:${port}`, {
-          timeout: timeout + 1000,
+        defaultLogger.networkDoctor.log.warn({
+          info: `[TCP] ⏱ Forced timeout for ${host}:${port} - timeout: ${
+            timeout + 1000
+          }ms`,
         });
         resolve(result);
       }, timeout + 1000); // 1 second more than configured timeout
@@ -365,8 +463,8 @@ export class NetworkDoctor {
             success: true,
             tcpHandshakeTime: Date.now() - startTime,
           };
-          console.log(`[TCP] ✓ Connected to ${host}:${port}`, {
-            time: result.tcpHandshakeTime,
+          defaultLogger.networkDoctor.log.info({
+            info: `[TCP] ✓ Connected to ${host}:${port} - time: ${result.tcpHandshakeTime}ms`,
           });
           resolve(result);
         },
@@ -384,9 +482,8 @@ export class NetworkDoctor {
           error: err.message || String(err),
           errorCode: err?.code || err?.errno,
         };
-        console.error(`[TCP] ✗ Failed to connect ${host}:${port}`, {
-          error: result.error,
-          code: result.errorCode,
+        defaultLogger.networkDoctor.log.error({
+          info: `[TCP] ✗ Failed to connect ${host}:${port} - error: ${result.error}, code: ${result.errorCode}`,
         });
         resolve(result);
       });
@@ -404,8 +501,8 @@ export class NetworkDoctor {
           error: `Connection timeout after ${timeout}ms`,
           errorCode: 'ETIMEDOUT',
         };
-        console.warn(`[TCP] ⏱ Timeout connecting to ${host}:${port}`, {
-          timeout,
+        defaultLogger.networkDoctor.log.warn({
+          info: `[TCP] ⏱ Timeout connecting to ${host}:${port} - timeout: ${timeout}ms`,
         });
         resolve(result);
       });
@@ -424,9 +521,9 @@ export class NetworkDoctor {
       );
     }
 
-    console.log(
-      `[TCP] Starting connectivity comparison (target: ${targetHost})`,
-    );
+    defaultLogger.networkDoctor.log.info({
+      info: `[TCP] Starting connectivity comparison (target: ${targetHost})`,
+    });
 
     const [yourApi, google, cloudflare] = await Promise.all([
       this.testTcpConnection(targetHost, 443, timeout),
@@ -434,7 +531,9 @@ export class NetworkDoctor {
       this.testTcpConnection('1.1.1.1', 443, timeout),
     ]);
 
-    console.log('[TCP] All connectivity tests completed');
+    defaultLogger.networkDoctor.log.info({
+      info: '[TCP] All connectivity tests completed',
+    });
 
     const isSelectiveBlocking =
       !yourApi.success && (google.success || cloudflare.success);
@@ -450,9 +549,9 @@ export class NetworkDoctor {
     };
 
     if (isSelectiveBlocking) {
-      console.warn(
-        '[TCP] 🚨 Selective blocking detected! Your API blocked but others work',
-      );
+      defaultLogger.networkDoctor.log.warn({
+        info: '[TCP] 🚨 Selective blocking detected! Your API blocked but others work',
+      });
     }
 
     return result;
@@ -475,9 +574,8 @@ export class NetworkDoctor {
         tlsHandshakeTime: Date.now() - startTime,
         statusCode: response.status,
       };
-      console.log(`[TLS] ✓ Handshake successful`, {
-        time: result.tlsHandshakeTime,
-        status: result.statusCode,
+      defaultLogger.networkDoctor.log.info({
+        info: `[TLS] ✓ Handshake successful - time: ${result.tlsHandshakeTime}ms, status: ${result.statusCode}`,
       });
       return result;
     } catch (error: any) {
@@ -510,15 +608,12 @@ export class NetworkDoctor {
       };
 
       if (isCertificateError) {
-        console.warn(`[TLS] ⚠️ Certificate error`, {
-          error: result.error,
-          type: errorType,
+        defaultLogger.networkDoctor.log.warn({
+          info: `[TLS] ⚠️ Certificate error - error: ${result.error}, type: ${errorType}`,
         });
       } else {
-        console.error(`[TLS] ✗ Handshake failed`, {
-          error: result.error,
-          type: errorType,
-          code: result.errorCode,
+        defaultLogger.networkDoctor.log.error({
+          info: `[TLS] ✗ Handshake failed - error: ${result.error}, type: ${errorType}, code: ${result.errorCode}`,
         });
       }
 
@@ -535,7 +630,9 @@ export class NetworkDoctor {
         interval: 1000,
       } as any);
       const result = { target, success: true, timeMs };
-      console.log(`[PING] ✓ ${target}`, { time: timeMs });
+      defaultLogger.networkDoctor.log.info({
+        info: `[PING] ✓ ${target} - time: ${timeMs}ms`,
+      });
       return result;
     } catch (error: any) {
       const result = {
@@ -544,7 +641,9 @@ export class NetworkDoctor {
         error: error?.message || String(error),
         code: error?.code ?? error?.nativeErrorCode ?? error?.status,
       };
-      console.warn(`[PING] ✗ ${target}`, { error: result.error });
+      defaultLogger.networkDoctor.log.warn({
+        info: `[PING] ✗ ${target} - error: ${result.error}`,
+      });
       return result;
     }
   }
@@ -584,9 +683,8 @@ export class NetworkDoctor {
         dataPreview: preview,
         durationMs: Date.now() - startTime,
       };
-      console.log(`[HTTP] ✓ Health check passed`, {
-        status: result.status,
-        time: result.durationMs,
+      defaultLogger.networkDoctor.log.info({
+        info: `[HTTP] ✓ Health check passed - status: ${result.status}, time: ${result.durationMs}ms`,
       });
       return result;
     } catch (error: any) {
@@ -597,9 +695,8 @@ export class NetworkDoctor {
         error: error?.message || String(error),
         durationMs: Date.now() - startTime,
       };
-      console.error(`[HTTP] ✗ Health check failed`, {
-        error: result.error,
-        status: result.status,
+      defaultLogger.networkDoctor.log.error({
+        info: `[HTTP] ✗ Health check failed - error: ${result.error}, status: ${result.status}`,
       });
       return result;
     }
@@ -626,9 +723,8 @@ export class NetworkDoctor {
           dataPreview: preview,
           durationMs: Date.now() - startTime,
         };
-        console.log(`[HTTP] ✓ ${probe.label}`, {
-          status: result.status,
-          time: result.durationMs,
+        defaultLogger.networkDoctor.log.info({
+          info: `[HTTP] ✓ ${probe.label} - status: ${result.status}, time: ${result.durationMs}ms`,
         });
         results.push(result);
       } catch (error: any) {
@@ -640,7 +736,9 @@ export class NetworkDoctor {
           error: error?.message || String(error),
           durationMs: Date.now() - startTime,
         };
-        console.warn(`[HTTP] ✗ ${probe.label}`, { error: result.error });
+        defaultLogger.networkDoctor.log.warn({
+          info: `[HTTP] ✗ ${probe.label} - error: ${result.error}`,
+        });
         results.push(result);
       }
     }
@@ -650,7 +748,9 @@ export class NetworkDoctor {
 
   private collectNetworkLogs(): INetworkRequestLog[] {
     if (!this.config.enableNetworkLogger) {
-      console.log('[NetworkLogger] Disabled, skipping log collection');
+      defaultLogger.networkDoctor.log.info({
+        info: '[NetworkLogger] Disabled, skipping log collection',
+      });
       return [];
     }
 
@@ -679,7 +779,9 @@ export class NetworkDoctor {
         hasResponseBody: !!req.response,
       }));
 
-      console.log(`[NetworkLogger] Collected ${logs.length} network requests`);
+      defaultLogger.networkDoctor.log.info({
+        info: `[NetworkLogger] Collected ${logs.length} network requests`,
+      });
 
       // Output detailed information for each request
       logs.forEach((log, index) => {
@@ -693,17 +795,20 @@ export class NetworkDoctor {
         const statusText = log.status ? `${log.status}` : 'NO_STATUS';
         const durationText = log.duration ? `${log.duration}ms` : 'N/A';
 
-        console.log(
-          `[NetworkLogger][${index + 1}/${logs.length}] ${statusIcon} ${
+        defaultLogger.networkDoctor.log.info({
+          info: `[NetworkLogger][${index + 1}/${logs.length}] ${statusIcon} ${
             log.method
           } ${log.url} [${statusText}] [${durationText}]`,
-          log,
-        );
+        });
       });
 
       return logs;
     } catch (error) {
-      console.error('[NetworkLogger] Failed to collect network logs', error);
+      defaultLogger.networkDoctor.log.error({
+        info: `[NetworkLogger] Failed to collect network logs - ${String(
+          error,
+        )}`,
+      });
       return [];
     }
   }

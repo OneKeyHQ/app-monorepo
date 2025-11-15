@@ -4,7 +4,7 @@
  * Default configuration and configuration merging logic
  */
 
-import type { IDefaultConfig, IDoctorConfig } from './types';
+import type { IDefaultConfig, IDoctorConfig, IMergedConfig } from './types';
 
 /**
  * Default Configuration
@@ -33,9 +33,7 @@ export const DEFAULT_CONFIG: IDefaultConfig = {
 /**
  * Merge user configuration with default configuration
  */
-export function mergeConfig(
-  userConfig: IDoctorConfig,
-): Required<IDoctorConfig> {
+export function mergeConfig(userConfig: IDoctorConfig): IMergedConfig {
   return {
     timeouts: {
       ...DEFAULT_CONFIG.timeouts,
@@ -48,5 +46,6 @@ export function mergeConfig(
     enableNetworkLogger:
       userConfig.enableNetworkLogger ?? DEFAULT_CONFIG.enableNetworkLogger,
     maxNetworkLogs: userConfig.maxNetworkLogs ?? DEFAULT_CONFIG.maxNetworkLogs,
+    onProgress: userConfig.onProgress,
   };
 }

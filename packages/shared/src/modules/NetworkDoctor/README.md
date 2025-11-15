@@ -52,12 +52,8 @@ console.log('Network Status:', report.summary.assessment);
 
 ```typescript
 import { NetworkDoctor } from '@onekeyhq/shared/src/modules/NetworkDoctor';
-import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 const doctor = new NetworkDoctor({
-  // Required: service name (e.g., Wallet, Swap, Utility)
-  serviceName: EServiceEndpointEnum.Wallet,
-
   // Optional: timeout configuration (milliseconds)
   timeouts: {
     dns: 10000,
@@ -80,6 +76,11 @@ const doctor = new NetworkDoctor({
 
   // Optional: maximum network logs (default 1000)
   maxNetworkLogs: 500,
+
+  // Optional: progress callback
+  onProgress: (progress) => {
+    console.log(`[${progress.percentage}%] ${progress.phase}: ${progress.message}`);
+  },
 });
 
 const report = await doctor.run();
@@ -123,12 +124,43 @@ Create a NetworkDoctor instance and run diagnostics.
 
 ```typescript
 interface IDoctorConfig {
-  serviceName: string;                    // Required: service name (e.g., EServiceEndpointEnum.Wallet)
-  timeouts?: { ... };                     // Optional: timeout configuration
+  timeouts?: {                            // Optional: timeout configuration (milliseconds)
+    dns?: number;
+    tcp?: number;
+    tls?: number;
+    http?: number;
+    ping?: number;
+  };
   extraPingTargets?: string[];            // Optional: extra ping targets
-  extraHttpProbes?: Array<{...}>;         // Optional: extra HTTP probes
-  enableNetworkLogger?: boolean;          // Optional: enable network logging
-  maxNetworkLogs?: number;                // Optional: log count limit
+  extraHttpProbes?: Array<{               // Optional: extra HTTP probes
+    label: string;
+    url: string;
+  }>;
+  enableNetworkLogger?: boolean;          // Optional: enable network logging (default: true)
+  maxNetworkLogs?: number;                // Optional: log count limit (default: 1000)
+  onProgress?: (progress: IDiagnosticProgress) => void;  // Optional: progress callback
+}
+
+// Progress callback data structure
+interface IDiagnosticProgress {
+  phase: EDiagnosticPhase;                // Current diagnostic phase
+  phaseIndex: number;                     // Phase index (0-8)
+  totalPhases: number;                    // Total number of phases (8)
+  percentage: number;                     // Progress percentage (0-100)
+  message: string;                        // Human-readable progress message
+}
+
+// Diagnostic phases
+enum EDiagnosticPhase {
+  INITIALIZING = 'INITIALIZING',
+  BASIC_NETWORK_INFO = 'BASIC_NETWORK_INFO',
+  DNS_RESOLUTION = 'DNS_RESOLUTION',
+  TCP_TLS_TESTS = 'TCP_TLS_TESTS',
+  PING_TESTS = 'PING_TESTS',
+  HTTP_TESTS = 'HTTP_TESTS',
+  NETWORK_LOGS = 'NETWORK_LOGS',
+  GENERATING_REPORT = 'GENERATING_REPORT',
+  COMPLETED = 'COMPLETED',
 }
 ```
 
@@ -213,15 +245,12 @@ if (report.summary.assessment === 'blocked') {
 
 ```typescript
 import { NetworkDoctor } from '@onekeyhq/shared/src/modules/NetworkDoctor';
-import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import { uploadToServer } from './analytics';
 
 // Run on app startup
 useEffect(() => {
   async function checkNetwork() {
-    const doctor = new NetworkDoctor({
-      serviceName: EServiceEndpointEnum.Wallet,
-    });
+    const doctor = new NetworkDoctor({});
 
     const report = await doctor.run();
 
@@ -245,6 +274,42 @@ useEffect(() => {
 
   void checkNetwork();
 }, []);
+```
+
+### Scenario 3: Real-time Progress Tracking
+
+```typescript
+import { NetworkDoctor } from '@onekeyhq/shared/src/modules/NetworkDoctor';
+import type { IDiagnosticProgress } from '@onekeyhq/shared/src/modules/NetworkDoctor';
+
+function NetworkDiagnosticScreen() {
+  const [progress, setProgress] = useState<IDiagnosticProgress | null>(null);
+  const [report, setReport] = useState(null);
+
+  const runDiagnostics = async () => {
+    const doctor = new NetworkDoctor({
+      onProgress: (progressData) => {
+        setProgress(progressData);
+        console.log(`${progressData.percentage}% - ${progressData.message}`);
+      },
+    });
+
+    const result = await doctor.run();
+    setReport(result);
+  };
+
+  return (
+    <View>
+      {progress && (
+        <ProgressBar
+          value={progress.percentage}
+          label={progress.message}
+        />
+      )}
+      <Button onPress={runDiagnostics} title="Run Diagnostics" />
+    </View>
+  );
+}
 ```
 
 ## Report Interpretation

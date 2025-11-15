@@ -7,6 +7,37 @@
 // ==================== Configuration Types ====================
 
 /**
+ * Diagnostic Phase
+ */
+export enum EDiagnosticPhase {
+  INITIALIZING = 'INITIALIZING',
+  BASIC_NETWORK_INFO = 'BASIC_NETWORK_INFO',
+  DNS_RESOLUTION = 'DNS_RESOLUTION',
+  TCP_TLS_TESTS = 'TCP_TLS_TESTS',
+  PING_TESTS = 'PING_TESTS',
+  HTTP_TESTS = 'HTTP_TESTS',
+  NETWORK_LOGS = 'NETWORK_LOGS',
+  GENERATING_REPORT = 'GENERATING_REPORT',
+  COMPLETED = 'COMPLETED',
+}
+
+/**
+ * Progress callback data
+ */
+export interface IDiagnosticProgress {
+  phase: EDiagnosticPhase;
+  phaseIndex: number;
+  totalPhases: number;
+  percentage: number;
+  message: string;
+}
+
+/**
+ * Progress callback function
+ */
+export type IProgressCallback = (progress: IDiagnosticProgress) => void;
+
+/**
  * Doctor Configuration
  */
 export interface IDoctorConfig {
@@ -40,6 +71,11 @@ export interface IDoctorConfig {
    * Maximum network logs (optional, default 1000)
    */
   maxNetworkLogs?: number;
+
+  /**
+   * Progress callback (optional)
+   */
+  onProgress?: IProgressCallback;
 }
 
 // ==================== Test Result Types ====================
@@ -237,4 +273,17 @@ export interface IDefaultConfig {
   extraHttpProbes: Array<{ label: string; url: string }>;
   enableNetworkLogger: boolean;
   maxNetworkLogs: number;
+}
+
+/**
+ * Merged Configuration (after mergeConfig)
+ * onProgress remains optional as it's a callback
+ */
+export interface IMergedConfig {
+  timeouts: Required<NonNullable<IDoctorConfig['timeouts']>>;
+  extraPingTargets: string[];
+  extraHttpProbes: Array<{ label: string; url: string }>;
+  enableNetworkLogger: boolean;
+  maxNetworkLogs: number;
+  onProgress?: IProgressCallback;
 }

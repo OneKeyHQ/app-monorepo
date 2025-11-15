@@ -5,12 +5,16 @@ import {
   Badge,
   Button,
   Heading,
+  Progress,
   SizableText,
   Spinner,
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import type { INetworkCheckup } from '@onekeyhq/shared/src/modules/NetworkDoctor';
+import type {
+  IDiagnosticProgress,
+  INetworkCheckup,
+} from '@onekeyhq/shared/src/modules/NetworkDoctor';
 import { NetworkDoctor } from '@onekeyhq/shared/src/modules/NetworkDoctor';
 
 import { Layout } from './utils/Layout';
@@ -19,14 +23,23 @@ const NetworkDoctorGallery = () => {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<INetworkCheckup | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [progress, setProgress] = useState<IDiagnosticProgress | null>(null);
 
   const handleRunDiagnostics = useCallback(async () => {
     setLoading(true);
     setError(null);
     setResult(null);
+    setProgress(null);
 
     try {
-      const doctor = new NetworkDoctor({});
+      const doctor = new NetworkDoctor({
+        onProgress: (progressData) => {
+          setProgress(progressData);
+          console.log(
+            `[${progressData.percentage}%] ${progressData.phase}: ${progressData.message}`,
+          );
+        },
+      });
 
       const report = await doctor.run();
 
@@ -303,6 +316,54 @@ const NetworkDoctorGallery = () => {
                     : 'Run Network Diagnostics'}
                 </Button>
               </YStack>
+
+              {loading && progress ? (
+                <YStack
+                  gap="$2"
+                  bg="$bgSubdued"
+                  p="$3"
+                  borderRadius="$3"
+                  borderWidth={1}
+                  borderColor="$borderSubdued"
+                >
+                  <XStack justifyContent="space-between" alignItems="center">
+                    <SizableText size="$bodySm" fontWeight="600">
+                      {progress.phase.replace(/_/g, ' ')}
+                    </SizableText>
+                    <Badge badgeType="default" badgeSize="sm">
+                      {progress.percentage}%
+                    </Badge>
+                  </XStack>
+                  <YStack position="relative">
+                    <Progress value={progress.percentage} w="100%" />
+                    <XStack
+                      position="absolute"
+                      top={0}
+                      left={0}
+                      right={0}
+                      bottom={0}
+                      justifyContent="center"
+                      alignItems="center"
+                      pointerEvents="none"
+                    >
+                      <SizableText
+                        size="$bodyXs"
+                        fontWeight="700"
+                        color="$text"
+                      >
+                        {progress.percentage}%
+                      </SizableText>
+                    </XStack>
+                  </YStack>
+                  <SizableText size="$bodyXs" color="$textSubdued">
+                    {progress.message}
+                  </SizableText>
+                  <SizableText size="$bodyXs" color="$textSubdued">
+                    Phase {progress.phaseIndex} of {progress.totalPhases} -{' '}
+                    {progress.percentage}%
+                  </SizableText>
+                </YStack>
+              ) : null}
 
               {error ? (
                 <YStack gap="$2" bg="$bgCritical" p="$3" borderRadius="$3">
