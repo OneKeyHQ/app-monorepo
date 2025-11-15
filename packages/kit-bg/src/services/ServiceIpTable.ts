@@ -38,7 +38,10 @@ import {
   verifyIpTableConfigSignature,
 } from '@onekeyhq/shared/src/utils/ipTableUtils';
 
-import { devSettingsPersistAtom } from '../states/jotai/atoms';
+import {
+  devSettingsPersistAtom,
+  networkDoctorStateAtom,
+} from '../states/jotai/atoms';
 
 import ServiceBase from './ServiceBase';
 
@@ -699,6 +702,93 @@ class ServiceIpTable extends ServiceBase {
     defaultLogger.ipTable.request.info({
       info: '[IpTable] Service initialized',
     });
+  }
+
+  // ========== Network Doctor Methods ==========
+
+  /**
+   * Run network diagnostics with singleton pattern
+   * Returns true if diagnostics started, false if already running
+   */
+  @backgroundMethod()
+  async runNetworkDiagnostics(): Promise<boolean> {
+    const { NetworkDoctor } = await import(
+      '@onekeyhq/shared/src/modules/NetworkDoctor'
+    );
+
+    const currentState = await networkDoctorStateAtom.get();
+
+    // Singleton check: only allow one instance to run at a time
+    if (currentState.status === 'running') {
+      return false;
+    }
+
+    // Reset state and start running
+    await networkDoctorStateAtom.set({
+      status: 'running',
+      progress: null,
+      result: null,
+      error: null,
+    });
+
+    try {
+      // Create new NetworkDoctor instance with progress callback
+      const doctor = new NetworkDoctor({
+        onProgress: (progress: any) => {
+          void networkDoctorStateAtom.set({
+            status: 'running',
+            progress,
+            result: null,
+            error: null,
+          });
+        },
+      });
+
+      // Run diagnostics
+      const result = await doctor.run();
+
+      // Update state with result
+      await networkDoctorStateAtom.set({
+        status: 'completed',
+        progress: null,
+        result,
+        error: null,
+      });
+
+      return true;
+    } catch (error: any) {
+      // Update state with error
+      await networkDoctorStateAtom.set({
+        status: 'failed',
+        progress: null,
+        result: null,
+        error: error?.message || String(error),
+      });
+
+      return true;
+    }
+  }
+
+  /**
+   * Reset network doctor state to idle
+   */
+  @backgroundMethod()
+  async resetNetworkDiagnostics(): Promise<void> {
+    await networkDoctorStateAtom.set({
+      status: 'idle',
+      progress: null,
+      result: null,
+      error: null,
+    });
+  }
+
+  /**
+   * Check if network diagnostics are currently running
+   */
+  @backgroundMethod()
+  async isNetworkDiagnosticsRunning(): Promise<boolean> {
+    const state = await networkDoctorStateAtom.get();
+    return state.status === 'running';
   }
 }
 
