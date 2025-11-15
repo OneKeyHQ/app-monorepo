@@ -136,7 +136,7 @@ const DepositField = ({
         networkImageUri={asset.metadata.network.logoURI}
       />
       <YStack ml="$3" mr="$2" jc="center" flex={1}>
-        <XStack gap="$1">
+        <XStack gap="$1" maxWidth={200} flexWrap="wrap">
           <EarnText size="$bodyMdMedium" text={asset.deposit?.title} />
           <EarnText
             size="$bodyMdMedium"
