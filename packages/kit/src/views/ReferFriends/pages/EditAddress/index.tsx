@@ -151,8 +151,7 @@ function BasicEditAddress() {
 
   const addressInputAccountSelectorArgs = useMemo<{ num: number } | undefined>(
     () =>
-      !hideAddressBook &&
-      addressBookEnabledNetworkIds.includes(networkIdValue)
+      !hideAddressBook && addressBookEnabledNetworkIds.includes(networkIdValue)
         ? { num: 0, clearNotMatch: true }
         : undefined,
     [addressBookEnabledNetworkIds, hideAddressBook, networkIdValue],
@@ -245,8 +244,9 @@ function BasicEditAddress() {
                 // accountId={accountId}
                 networkId={networkIdValue}
                 contacts={
-                  !hideAddressBook &&
-                  addressBookEnabledNetworkIds.includes(networkIdValue)
+                  !hideAddressBook
+                    ? addressBookEnabledNetworkIds.includes(networkIdValue)
+                    : undefined
                 }
                 enableNameResolve
                 placeholder={intl.formatMessage({

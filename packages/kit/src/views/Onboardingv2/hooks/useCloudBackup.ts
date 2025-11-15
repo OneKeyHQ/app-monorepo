@@ -6,6 +6,7 @@ import { useThrottledCallback } from 'use-debounce';
 import type { IDialogInstance } from '@onekeyhq/components';
 import { Dialog, Toast } from '@onekeyhq/components';
 import type { IBackupDataEncryptedPayload } from '@onekeyhq/kit-bg/src/services/ServiceCloudBackupV2/backupProviders/IOneKeyBackupProvider';
+import { useCloudBackupStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes';
@@ -33,16 +34,18 @@ export function useCloudBackup() {
   const navigation = useAppNavigation();
   const [checkLoading, setCheckLoading] = useState(false);
 
-  const { result: supportCloudBackup = false } = usePromiseResult(async () => {
-    return backgroundApiProxy.serviceCloudBackupV2.supportCloudBackup();
-  }, []);
+  const [cloudBackupStatus] = useCloudBackupStatusAtom();
 
-  const { result: cloudBackupFeatureInfo } = usePromiseResult(async () => {
+  const supportCloudBackup = cloudBackupStatus.supportCloudBackup;
+
+  const cloudBackupFeatureInfo = useMemo(() => {
     if (!supportCloudBackup) {
       return null;
     }
-    const info =
-      await backgroundApiProxy.serviceCloudBackupV2.getBackupProviderInfo();
+    const info = cloudBackupStatus.cloudBackupProviderInfo;
+    if (!info) {
+      return null;
+    }
     return {
       supportCloudBackup,
       icon: 'CloudOutline',
@@ -52,7 +55,7 @@ export function useCloudBackup() {
           })
         : info.displayName,
     };
-  }, [intl, supportCloudBackup]);
+  }, [cloudBackupStatus.cloudBackupProviderInfo, intl, supportCloudBackup]);
 
   const checkIsAvailable = useCallback(async (): Promise<boolean> => {
     try {
@@ -164,17 +167,23 @@ export function useCloudBackup() {
     }
   }, [intl, supportCloudBackup]);
 
-  const goToPageBackupList = useCallback(async () => {
-    const isAvailable = await checkIsAvailable();
-    if (isAvailable) {
-      navigation.navigate(ERootRoutes.Onboarding, {
-        screen: EOnboardingV2Routes.OnboardingV2,
-        params: {
-          screen: EOnboardingPagesV2.ICloudBackup,
-        },
-      });
-    }
-  }, [checkIsAvailable, navigation]);
+  const goToPageBackupList = useCallback(
+    async ({ hideRestoreButton }: { hideRestoreButton?: boolean } = {}) => {
+      const isAvailable = await checkIsAvailable();
+      if (isAvailable) {
+        navigation.navigate(ERootRoutes.Onboarding, {
+          screen: EOnboardingV2Routes.OnboardingV2,
+          params: {
+            screen: EOnboardingPagesV2.ICloudBackup,
+            params: {
+              hideRestoreButton,
+            },
+          },
+        });
+      }
+    },
+    [checkIsAvailable, navigation],
+  );
 
   const goToPageBackupDetail = useCallback(
     async (
@@ -195,7 +204,13 @@ export function useCloudBackup() {
   );
 
   const doBackup = useThrottledCallback(
-    async ({ data }: { data: IPrimeTransferData }) => {
+    async ({
+      data,
+      backupTimes,
+    }: {
+      data: IPrimeTransferData;
+      backupTimes?: number;
+    }) => {
       const isAvailable = await checkIsAvailable();
       if (!isAvailable) {
         return;
@@ -221,6 +236,17 @@ export function useCloudBackup() {
             password,
             data,
           });
+          if (backupTimes && backupTimes > 2) {
+            for (let i = 0; i < backupTimes; i += 1) {
+              Toast.success({
+                title: `Backup ${i + 1} of ${backupTimes}`,
+              });
+              await backgroundApiProxy.serviceCloudBackupV2.backup({
+                password,
+                data,
+              });
+            }
+          }
           // Dialog.debugMessage({
           //   debugMessage: (_result as unknown as { meta: string })?.meta,
           // });
@@ -295,7 +321,7 @@ export function useCloudBackup() {
         setCheckLoading(false);
       }
     },
-    350,
+    600,
     {
       leading: true,
       trailing: false,
@@ -306,7 +332,7 @@ export function useCloudBackup() {
     ({ recordID }: { recordID: string }) => {
       showCloudBackupDeleteDialog({ recordID, navigation });
     },
-    350,
+    600,
     {
       leading: true,
       trailing: false,
@@ -372,41 +398,51 @@ export function useCloudBackup() {
         },
       });
     },
-    350,
+    600,
     {
       leading: true,
       trailing: false,
     },
   );
 
-  const startBackup = useCallback(async () => {
-    const isAvailable = await checkIsAvailable();
-    let loadingDialog: IDialogInstance | null = null;
-    if (isAvailable) {
-      if (platformEnv.isNativeAndroid) {
-        await goToPageBackupDetail({
-          actionType: 'backup',
-          backupTime: Date.now(),
-        });
-      } else {
-        loadingDialog = Dialog.loading({
-          title: intl.formatMessage({
-            id: ETranslations.preparing_backup_title,
-          }),
-          description: intl.formatMessage({
-            id: ETranslations.preparing_backup_desc,
-          }),
-        });
-        try {
-          const data =
-            await backgroundApiProxy.serviceCloudBackupV2.buildBackupData();
-          await doBackup({ data });
-        } finally {
-          void loadingDialog?.close?.();
+  const startBackup = useThrottledCallback(
+    async ({
+      alwaysGoToBackupDetail,
+    }: { alwaysGoToBackupDetail?: boolean } = {}) => {
+      const isAvailable = await checkIsAvailable();
+      let loadingDialog: IDialogInstance | null = null;
+      if (isAvailable) {
+        if (platformEnv.isNativeAndroid || alwaysGoToBackupDetail) {
+          await goToPageBackupDetail({
+            actionType: 'backup',
+            backupTime: Date.now(),
+          });
+        } else {
+          loadingDialog = Dialog.loading({
+            title: intl.formatMessage({
+              id: ETranslations.preparing_backup_title,
+            }),
+            description: intl.formatMessage({
+              id: ETranslations.preparing_backup_desc,
+            }),
+          });
+          try {
+            await timerUtils.wait(1000);
+            const data =
+              await backgroundApiProxy.serviceCloudBackupV2.buildBackupData();
+            await doBackup({ data });
+          } finally {
+            void loadingDialog?.close?.();
+          }
         }
       }
-    }
-  }, [checkIsAvailable, doBackup, goToPageBackupDetail, intl]);
+    },
+    600,
+    {
+      leading: true,
+      trailing: false,
+    },
+  );
 
   return useMemo(
     () => ({
