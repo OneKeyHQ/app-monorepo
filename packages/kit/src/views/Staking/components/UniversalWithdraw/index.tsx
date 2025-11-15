@@ -632,9 +632,7 @@ export function UniversalWithdraw({
                     <YStack
                       animation="quick"
                       rotate={
-                        open && !isAccordionTriggerDisabled
-                          ? '180deg'
-                          : '0deg'
+                        open && !isAccordionTriggerDisabled ? '180deg' : '0deg'
                       }
                       left="$2"
                     >

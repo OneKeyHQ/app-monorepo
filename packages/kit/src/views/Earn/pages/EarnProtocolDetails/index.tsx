@@ -67,9 +67,7 @@ import { OverviewSkeleton } from '../../../Staking/components/StakingSkeleton';
 import { useCheckEthenaKycStatus } from '../../../Staking/hooks/useCheckEthenaKycStatus';
 import { useHandleSwap } from '../../../Staking/hooks/useHandleSwap';
 import { useUnsupportedProtocol } from '../../../Staking/hooks/useUnsupportedProtocol';
-import { HeaderRight } from '../../../Staking/pages/ManagePosition/components/HeaderRight';
-import { StakeSection } from '../../../Staking/pages/ManagePosition/components/StakeSection';
-import { WithdrawSection } from '../../../Staking/pages/ManagePosition/components/WithdrawSection';
+import { ManagePositionContent } from '../../../Staking/pages/ManagePosition/components/ManagePositionContent';
 import { useManagePage } from '../../../Staking/pages/ManagePosition/hooks/useManagePage';
 import { FAQSection } from '../../../Staking/pages/ProtocolDetailsV2/FAQSection';
 import { EarnPageContainer } from '../../components/EarnPageContainer';
@@ -540,7 +538,6 @@ const ManagePositionPart = ({
   managers: IStakeEarnDetail['managers'] | undefined;
   onCreateAddress?: () => Promise<void>;
 }) => {
-  const intl = useIntl();
   const appNavigation = useAppNavigation();
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { account, indexedAccount } = activeAccount;
@@ -573,70 +570,48 @@ const ManagePositionPart = ({
     await refreshManageData();
   }, [onCreateAddress, refreshManageAccount, refreshManageData]);
 
-  const historyAction = useMemo(
-    () => managePageData?.history,
-    [managePageData?.history],
-  );
-
-  const onHistory = useMemo(() => {
-    if (historyAction?.disabled || !earnAccount?.accountId) return undefined;
-    return (params?: { filterType?: string }) => {
-      appNavigation.pushModal(EModalRoutes.StakingModal, {
-        screen: EModalStakingRoutes.HistoryList,
-        params: {
-          accountId: earnAccount?.accountId,
-          networkId,
-          symbol,
-          provider,
-          stakeTag: protocolInfo?.stakeTag || '',
-          protocolVault: vault,
-          filterType: params?.filterType,
-        },
-      });
-    };
-  }, [
-    historyAction?.disabled,
-    appNavigation,
-    earnAccount?.accountId,
-    networkId,
-    protocolInfo?.stakeTag,
-    provider,
-    symbol,
-    vault,
-  ]);
-
-  const [selectedTabIndex, setSelectedTabIndex] = useState(0);
-  const tabData = useMemo(
-    () => [
-      {
-        title: intl.formatMessage({ id: ETranslations.earn_deposit }),
-        type: EStakingActionType.Deposit,
-      },
-      {
-        title: intl.formatMessage({ id: ETranslations.global_withdraw }),
-        type: EStakingActionType.Withdraw,
-      },
-    ],
-    [intl],
-  );
-
-  const TabNames = useMemo(() => tabData.map((item) => item.title), [tabData]);
-  const focusedTab = useSharedValue(TabNames[0]);
-
-  const handleTabChange = useCallback(
-    (name: string) => {
-      const index = tabData.findIndex((item) => item.title === name);
-      if (index !== -1) {
-        focusedTab.value = name;
-        setSelectedTabIndex(index);
-      }
-    },
-    [focusedTab, tabData],
-  );
-
   const hasNoAccount = !account?.id && !indexedAccount?.id;
   const hasNoAddress = !earnAccount?.accountAddress;
   const shouldShowSkeleton = isLoading && !hasNoAccount;
+
+  const renderNoAddressWarning = useCallback(
+    () =>
+      hasNoAccount || hasNoAddress ? (
+        <Stack px="$5">
+          <NoAddressWarning
+            accountId={account?.id || ''}
+            networkId={networkId}
+            indexedAccountId={indexedAccount?.id}
+            onCreateAddress={handleCreateAddress}
+          />
+        </Stack>
+      ) : null,
+    [
+      hasNoAccount,
+      hasNoAddress,
+      account?.id,
+      networkId,
+      indexedAccount?.id,
+      handleCreateAddress,
+    ],
+  );
+
+  const handleNavigateToWithdrawOptions = useCallback(
+    (params: {
+      accountId: string;
+      networkId: string;
+      protocolInfo: any;
+      tokenInfo: any;
+      symbol: string;
+      provider: string;
+    }) => {
+      appNavigation.pushModal(EModalRoutes.StakingModal, {
+        screen: EModalStakingRoutes.WithdrawOptions,
+        params,
+      });
+    },
+    [appNavigation],
+  );
 
   return (
     <YStack flex={4}>
@@ -665,77 +640,25 @@ const ManagePositionPart = ({
         </YStack>
       ) : (
         <YStack gap="$1.5" flex={1}>
-          <XStack jc="space-between" px="$5">
-            <Tabs.TabBar
-              divider={false}
-              onTabPress={handleTabChange}
-              tabNames={TabNames}
-              focusedTab={focusedTab}
-              renderItem={({ name, isFocused, onPress }) => (
-                <XStack
-                  px="$2"
-                  py="$1.5"
-                  mr="$1"
-                  bg={isFocused ? '$bgActive' : '$bg'}
-                  borderRadius="$2"
-                  borderCurve="continuous"
-                  onPress={() => onPress(name)}
-                >
-                  <SizableText
-                    size="$bodyMdMedium"
-                    color={isFocused ? '$text' : '$textSubdued'}
-                    letterSpacing={-0.15}
-                  >
-                    {name}
-                  </SizableText>
-                </XStack>
-              )}
-            />
-            <HeaderRight historyAction={historyAction} onHistory={onHistory} />
-          </XStack>
-          {selectedTabIndex === 0 ? (
-            <YStack>
-              <StakeSection
-                accountId={earnAccount?.accountId || ''}
-                networkId={networkId}
-                tokenInfo={tokenInfo}
-                protocolInfo={protocolInfo}
-                isDisabled={depositDisabled || hasNoAccount || hasNoAddress}
-              />
-              {hasNoAccount || hasNoAddress ? (
-                <Stack px="$5">
-                  <NoAddressWarning
-                    accountId={account?.id || ''}
-                    networkId={networkId}
-                    indexedAccountId={indexedAccount?.id}
-                    onCreateAddress={handleCreateAddress}
-                  />
-                </Stack>
-              ) : null}
-            </YStack>
-          ) : null}
-          {selectedTabIndex === 1 ? (
-            <YStack>
-              <WithdrawSection
-                accountId={earnAccount?.accountId || ''}
-                networkId={networkId}
-                tokenInfo={tokenInfo}
-                protocolInfo={protocolInfo}
-                isDisabled={withdrawDisabled || hasNoAccount || hasNoAddress}
-              />
-              {hasNoAccount || hasNoAddress ? (
-                <Stack px="$5">
-                  <NoAddressWarning
-                    accountId={account?.id || ''}
-                    networkId={networkId}
-                    indexedAccountId={indexedAccount?.id}
-                    onCreateAddress={handleCreateAddress}
-                  />
-                </Stack>
-              ) : null}
-            </YStack>
-          ) : null}
-          <EarnAlert alerts={alerts} />
+          <ManagePositionContent
+            networkId={networkId}
+            symbol={symbol}
+            provider={provider}
+            vault={vault}
+            account={account}
+            indexedAccount={indexedAccount}
+            earnAccount={earnAccount}
+            tokenInfo={tokenInfo}
+            protocolInfo={protocolInfo}
+            managePageData={managePageData}
+            depositDisabled={depositDisabled || hasNoAccount || hasNoAddress}
+            withdrawDisabled={withdrawDisabled || hasNoAccount || hasNoAddress}
+            alerts={alerts}
+            isLoading={isLoading}
+            renderAfterDeposit={renderNoAddressWarning}
+            renderAfterWithdraw={renderNoAddressWarning}
+            onNavigateToWithdrawOptions={handleNavigateToWithdrawOptions}
+          />
         </YStack>
       )}
     </YStack>

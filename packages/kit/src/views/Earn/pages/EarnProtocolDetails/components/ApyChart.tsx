@@ -211,118 +211,118 @@ export function ApyChart({
     );
   }
 
-  if (!chartData) {
-    return null;
-  }
-
   return (
     <YStack gap="$3">
-      {apyDetail ? (
-        <YStack>
-          {/* Token icon and name with My Portfolio button */}
-          <XStack jc="space-between" ai="center">
-            <XStack gap="$2" ai="center">
-              <Token size="xs" tokenImageUri={tokenInfo?.token.logoURI} />
-              <SizableText size="$bodyLgMedium">
-                {tokenInfo?.token.symbol || symbol}
-              </SizableText>
-            </XStack>
-            <XStack cursor="pointer" ai="center" onPress={handleMyPortfolio}>
-              <SizableText size="$bodySmMedium" color="$textSubdued">
-                {intl.formatMessage({ id: ETranslations.earn_portfolio })}
-              </SizableText>
-              <Icon
-                size="$bodySmMedium"
-                name="ChevronRightSmallOutline"
-                color="$iconSubdued"
+      <YStack>
+        {/* Token icon and name with My Portfolio button - always show */}
+        <XStack jc="space-between" ai="center">
+          <XStack gap="$2" ai="center">
+            <Token size="xs" tokenImageUri={tokenInfo?.token.logoURI} />
+            <SizableText size="$bodyLgMedium">
+              {tokenInfo?.token.symbol || symbol}
+            </SizableText>
+          </XStack>
+          <XStack cursor="pointer" ai="center" onPress={handleMyPortfolio}>
+            <SizableText size="$bodySmMedium" color="$textSubdued">
+              {intl.formatMessage({ id: ETranslations.earn_portfolio })}
+            </SizableText>
+            <Icon
+              size="$bodySmMedium"
+              name="ChevronRightSmallOutline"
+              color="$iconSubdued"
+            />
+          </XStack>
+        </XStack>
+        {/* APY value with buttons - only show if apyDetail exists */}
+        {apyDetail ? (
+          <>
+            <XStack gap="$2" ai="center" pt="$2.5">
+              <EarnText text={apyDetail.description} size="$heading3xl" />
+              <EarnActionIcon
+                title={apyDetail.title.text}
+                actionIcon={apyDetail.button}
+              />
+              <IconButton
+                icon="ShareOutline"
+                size="small"
+                variant="tertiary"
+                iconColor="$iconSubdued"
+                onPress={handleShare}
+                disabled={!shareUrl}
               />
             </XStack>
-          </XStack>
-          {/* APY value with buttons */}
-          <XStack gap="$2" ai="center" pt="$2.5">
-            <EarnText text={apyDetail.description} size="$heading3xl" />
-            <EarnActionIcon
-              title={apyDetail.title.text}
-              actionIcon={apyDetail.button}
-            />
-            <IconButton
-              icon="ShareOutline"
-              size="small"
-              variant="tertiary"
-              iconColor="$iconSubdued"
-              onPress={handleShare}
-              disabled={!shareUrl}
-            />
-          </XStack>
-          {/* High and Low values */}
-          {gtMd ? (
-            <XStack gap="$4" pt="$6">
-              <YStack>
-                <SizableText size="$bodySm" color="$textSubdued">
-                  {intl.formatMessage({ id: ETranslations.market_high })}
+            {/* High and Low values */}
+            {gtMd && chartData ? (
+              <XStack gap="$4" pt="$6">
+                <YStack>
+                  <SizableText size="$bodySm" color="$textSubdued">
+                    {intl.formatMessage({ id: ETranslations.market_high })}
+                  </SizableText>
+                  <SizableText size="$bodyMd" color="$text">
+                    {chartData.high.toFixed(2)}%
+                  </SizableText>
+                </YStack>
+                <YStack>
+                  <SizableText size="$bodySm" color="$textSubdued">
+                    {intl.formatMessage({ id: ETranslations.market_low })}
+                  </SizableText>
+                  <SizableText size="$bodyMd" color="$text">
+                    {chartData.low.toFixed(2)}%
+                  </SizableText>
+                </YStack>
+              </XStack>
+            ) : null}
+          </>
+        ) : null}
+      </YStack>
+      {chartData ? (
+        <YStack
+          position="relative"
+          onLayout={(e) => {
+            const width = e.nativeEvent.layout.width;
+            if (width !== containerWidth) {
+              setContainerWidth(width);
+            }
+          }}
+        >
+          {/* Hover Popover - follows cursor/touch position with boundary detection */}
+          {hoverData && popoverPosition ? (
+            <YStack
+              position="absolute"
+              top={popoverPosition.top}
+              left={popoverPosition.left}
+              transform={[{ translateX: popoverPosition.translateXValue }]}
+              bg="$bg"
+              borderRadius="$2"
+              borderWidth={1}
+              borderColor="$borderSubdued"
+              px="$3"
+              py="$2"
+              shadowColor="$shadowDefault"
+              shadowOffset={{ width: 0, height: 2 }}
+              shadowOpacity={0.1}
+              shadowRadius={8}
+              zIndex={9999}
+              pointerEvents="none"
+              minWidth={120}
+            >
+              <YStack gap="$1" ai="center">
+                <SizableText size="$bodyMdMedium" color="$text">
+                  {hoverData.apy.toFixed(2)}%
                 </SizableText>
-                <SizableText size="$bodyMd" color="$text">
-                  {chartData.high.toFixed(2)}%
+                <SizableText size="$bodySm" color="$textSubdued">
+                  {formatPopoverDate(hoverData.time)}
                 </SizableText>
               </YStack>
-              <YStack>
-                <SizableText size="$bodySm" color="$textSubdued">
-                  {intl.formatMessage({ id: ETranslations.market_low })}
-                </SizableText>
-                <SizableText size="$bodyMd" color="$text">
-                  {chartData.low.toFixed(2)}%
-                </SizableText>
-              </YStack>
-            </XStack>
+            </YStack>
           ) : null}
+          <LightweightChart
+            data={chartData.marketChartData}
+            height={200}
+            onHover={handleHover}
+          />
         </YStack>
       ) : null}
-      <YStack
-        position="relative"
-        onLayout={(e) => {
-          const width = e.nativeEvent.layout.width;
-          if (width !== containerWidth) {
-            setContainerWidth(width);
-          }
-        }}
-      >
-        {/* Hover Popover - follows cursor/touch position with boundary detection */}
-        {hoverData && popoverPosition ? (
-          <YStack
-            position="absolute"
-            top={popoverPosition.top}
-            left={popoverPosition.left}
-            transform={[{ translateX: popoverPosition.translateXValue }]}
-            bg="$bg"
-            borderRadius="$2"
-            borderWidth={1}
-            borderColor="$borderSubdued"
-            px="$3"
-            py="$2"
-            shadowColor="$shadowDefault"
-            shadowOffset={{ width: 0, height: 2 }}
-            shadowOpacity={0.1}
-            shadowRadius={8}
-            zIndex={9999}
-            pointerEvents="none"
-            minWidth={120}
-          >
-            <YStack gap="$1" ai="center">
-              <SizableText size="$bodyMdMedium" color="$text">
-                {hoverData.apy.toFixed(2)}%
-              </SizableText>
-              <SizableText size="$bodySm" color="$textSubdued">
-                {formatPopoverDate(hoverData.time)}
-              </SizableText>
-            </YStack>
-          </YStack>
-        ) : null}
-        <LightweightChart
-          data={chartData.marketChartData}
-          height={200}
-          onHover={handleHover}
-        />
-      </YStack>
     </YStack>
   );
 }
