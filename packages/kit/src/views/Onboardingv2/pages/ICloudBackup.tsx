@@ -300,6 +300,26 @@ export default function ICloudBackup() {
                   iOSQueryAllRecords
                 </Button>
                 <Button
+                  onPress={async () =>
+                    Dialog.debugMessage({
+                      debugMessage:
+                        await backgroundApiProxy.serviceCloudBackupV2.androidListAllFiles(),
+                    })
+                  }
+                >
+                  androidListAllFiles
+                </Button>
+                <Button
+                  onPress={async () =>
+                    Dialog.debugMessage({
+                      debugMessage:
+                        await backgroundApiProxy.serviceCloudBackupV2.androidGetManifestFileObject(),
+                    })
+                  }
+                >
+                  androidGetManifestFileObject
+                </Button>
+                <Button
                   onPress={async () => {
                     await startBackup({
                       alwaysGoToBackupDetail: true,

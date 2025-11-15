@@ -29,6 +29,7 @@ import ServiceBase from '../ServiceBase';
 
 import { OneKeyBackupProvider } from './backupProviders/OneKeyBackupProvider';
 
+import type { GoogleDriveBackupProvider } from './backupProviders/GoogleDriveBackupProvider';
 import type { ICloudBackupProvider } from './backupProviders/ICloudBackupProvider';
 import type {
   IBackupCloudServerData,
@@ -463,6 +464,20 @@ class ServiceCloudBackupV2 extends ServiceBase {
   async iOSQueryAllRecords() {
     const provider = this.getProvider();
     return (provider as ICloudBackupProvider).queryAllRecords();
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async androidListAllFiles() {
+    const provider = this.getProvider();
+    return (provider as GoogleDriveBackupProvider).listAllFiles();
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async androidGetManifestFileObject() {
+    const provider = this.getProvider();
+    return (provider as GoogleDriveBackupProvider).getManifestFileObject();
   }
 
   @backgroundMethod()
