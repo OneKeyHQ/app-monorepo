@@ -17,17 +17,14 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
-import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { openTransactionDetailsUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
 import { useRedirectWhenNotLoggedIn } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useRedirectWhenNotLoggedIn';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   IInvitePaidHistory,
   IInvitePaidItem,
 } from '@onekeyhq/shared/src/referralCode/type';
-import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -190,19 +187,11 @@ function RewardDistributionHistoryPageWrapper() {
   );
   return (
     <Page>
-      {platformEnv.isNative || md ? (
-        <Page.Header
-          title={intl.formatMessage({
-            id: ETranslations.referral_reward_history,
-          })}
-        />
-      ) : (
-        <TabPageHeader
-          sceneName={EAccountSelectorSceneName.home}
-          tabRoute={ETabRoutes.ReferFriends}
-          hideHeaderLeft={platformEnv.isDesktop}
-        />
-      )}
+      <Page.Header
+        title={intl.formatMessage({
+          id: ETranslations.referral_reward_history,
+        })}
+      />
       <Page.Body>
         <ReferFriendsPageContainer flex={1} position="relative">
           {sections === undefined ? (
