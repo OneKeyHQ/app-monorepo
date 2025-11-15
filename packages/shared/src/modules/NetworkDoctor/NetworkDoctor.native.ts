@@ -349,13 +349,8 @@ export class NetworkDoctor {
     const timeout = this.config.timeouts.tls;
 
     try {
-      // Get dynamic headers
-      const headers = await this.config.headersGenerator();
-
-      const response = await axios.head(this.healthCheckUrl, {
+      const response = await axios.get(this.healthCheckUrl, {
         timeout,
-        headers,
-        validateStatus: () => true,
       });
 
       const result = {
@@ -451,11 +446,8 @@ export class NetworkDoctor {
     const timeout = this.config.timeouts.http;
 
     try {
-      const headers = await this.config.headersGenerator();
-
       const response = await axios.get(this.healthCheckUrl, {
         timeout,
-        headers,
       });
 
       const preview =

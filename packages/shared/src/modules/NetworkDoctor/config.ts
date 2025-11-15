@@ -41,7 +41,6 @@ export function mergeConfig(
     targetDomain: userConfig.targetDomain,
     healthCheckPath:
       userConfig.healthCheckPath ?? DEFAULT_CONFIG.healthCheckPath,
-    headersGenerator: userConfig.headersGenerator ?? (async () => ({})),
     timeouts: {
       ...DEFAULT_CONFIG.timeouts,
       ...userConfig.timeouts,

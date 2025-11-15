@@ -57,13 +57,6 @@ const report = await runNetworkDoctor({
   // Optional: health check path (default '/health')
   healthCheckPath: '/wallet/v1/health',
 
-  // Optional: dynamic headers generator
-  headersGenerator: async () => ({
-    'Authorization': `Bearer ${await getToken()}`,
-    'X-Request-ID': generateRequestId(),
-    'X-Device-ID': getDeviceId(),
-  }),
-
   // Optional: custom logger
   logger: {
     debug: (msg, data) => myLogger.debug(msg, data),
@@ -134,7 +127,6 @@ Run complete network diagnostics and return a detailed report.
 interface DoctorConfig {
   targetDomain: string;                   // Required: target domain
   healthCheckPath?: string;               // Optional: health check path
-  headersGenerator?: HeadersGenerator;    // Optional: headers generator
   logger?: DoctorLogger;                  // Optional: custom logger
   timeouts?: { ... };                     // Optional: timeout configuration
   extraPingTargets?: string[];            // Optional: extra ping targets
@@ -224,10 +216,6 @@ useEffect(() => {
   async function checkNetwork() {
     const report = await runNetworkDoctor({
       targetDomain: 'wallet.onekeytest.com',
-      headersGenerator: async () => ({
-        'X-User-ID': userId,
-        'X-Country': userCountry,
-      }),
     });
 
     // Upload diagnostic data to server
@@ -317,16 +305,6 @@ const report = await runNetworkDoctor({
 ```typescript
 const report = await runNetworkDoctor({
   targetDomain: 'wallet.onekeytest.com',
-  headersGenerator: async () => {
-    // Dynamically get the latest token for each request
-    const token = await getLatestToken();
-
-    return {
-      'Authorization': `Bearer ${token}`,
-      'X-Request-ID': uuid.v4(),
-      'X-Timestamp': Date.now().toString(),
-    };
-  },
 });
 ```
 

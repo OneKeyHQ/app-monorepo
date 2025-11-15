@@ -7,26 +7,12 @@
 // ==================== Configuration Types ====================
 
 /**
- * Request Header Generator
- * Dynamically generate headers for each request
- */
-export type IHeadersGenerator = () =>
-  | Promise<Record<string, string>>
-  | Record<string, string>;
-
-/**
  * Doctor Configuration
  */
 export interface IDoctorConfig {
   targetDomain: string;
 
   healthCheckPath?: string;
-
-  /**
-   * Request headers generator (optional)
-   * If provided, this function will be called for each HTTP request to get the latest headers
-   */
-  headersGenerator?: IHeadersGenerator;
 
   /**
    * Timeout configuration (optional, milliseconds)
