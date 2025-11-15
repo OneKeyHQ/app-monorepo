@@ -234,9 +234,8 @@ function BasicEditAddress() {
                       id: ETranslations.form_address_error_invalid,
                     }),
                   }),
-                }),
-              }}
-            >
+                }}
+              >
               <AddressInput
                 enableAddressBook={!hideAddressBook}
                 enableWalletName
