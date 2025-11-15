@@ -84,6 +84,8 @@ export function ApyChart({
     y: number;
   } | null>(null);
 
+  const [containerWidth, setContainerWidth] = useState<number>(0);
+
   const handleHover = useCallback(
     ({
       time,
@@ -109,6 +111,21 @@ export function ApyChart({
     },
     [],
   );
+
+  // Calculate popover position - switch side at midpoint
+  const popoverPosition = useMemo(() => {
+    if (!hoverData || !containerWidth) return null;
+
+    const POPOVER_WIDTH = 120;
+    const OFFSET = 10; // Distance from cursor
+    const isLeftHalf = hoverData.x < containerWidth / 2;
+
+    return {
+      left: isLeftHalf ? hoverData.x + OFFSET : hoverData.x - OFFSET,
+      translateXValue: isLeftHalf ? 0 : -POPOVER_WIDTH, // Left align or right align
+      top: Math.max(10, hoverData.y - 70),
+    };
+  }, [hoverData, containerWidth]);
 
   // Format date for popover with i18n
   const formatPopoverDate = useCallback(
@@ -260,14 +277,22 @@ export function ApyChart({
           ) : null}
         </YStack>
       ) : null}
-      <YStack position="relative">
-        {/* Hover Popover - follows cursor/touch position */}
-        {hoverData ? (
+      <YStack
+        position="relative"
+        onLayout={(e) => {
+          const width = e.nativeEvent.layout.width;
+          if (width !== containerWidth) {
+            setContainerWidth(width);
+          }
+        }}
+      >
+        {/* Hover Popover - follows cursor/touch position with boundary detection */}
+        {hoverData && popoverPosition ? (
           <YStack
             position="absolute"
-            top={Math.max(10, hoverData.y - 70)}
-            left={hoverData.x}
-            transform={[{ translateX: '-50%' }]}
+            top={popoverPosition.top}
+            left={popoverPosition.left}
+            transform={[{ translateX: popoverPosition.translateXValue }]}
             bg="$bg"
             borderRadius="$2"
             borderWidth={1}
@@ -280,6 +305,7 @@ export function ApyChart({
             shadowRadius={8}
             zIndex={9999}
             pointerEvents="none"
+            minWidth={120}
           >
             <YStack gap="$1" ai="center">
               <SizableText size="$bodyMdMedium" color="$text">

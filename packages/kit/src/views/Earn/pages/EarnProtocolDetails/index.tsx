@@ -696,7 +696,7 @@ const ManagePositionPart = ({
           {selectedTabIndex === 0 ? (
             <YStack>
               <StakeSection
-                accountId={earnAccount?.account?.id || ''}
+                accountId={earnAccount?.accountId || ''}
                 networkId={networkId}
                 tokenInfo={tokenInfo}
                 protocolInfo={protocolInfo}
@@ -717,7 +717,7 @@ const ManagePositionPart = ({
           {selectedTabIndex === 1 ? (
             <YStack>
               <WithdrawSection
-                accountId={earnAccount?.account?.id || ''}
+                accountId={earnAccount?.accountId || ''}
                 networkId={networkId}
                 tokenInfo={tokenInfo}
                 protocolInfo={protocolInfo}

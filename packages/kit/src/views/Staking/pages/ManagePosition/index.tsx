@@ -229,7 +229,7 @@ const ManagePositionPage = () => {
         ) {
           // Directly open WithdrawOptions modal instead of switching tab
           appNavigation.push(EModalStakingRoutes.WithdrawOptions, {
-            accountId: earnAccount?.account?.id || '',
+            accountId: earnAccount?.accountId || '',
             networkId,
             protocolInfo,
             tokenInfo,
@@ -250,7 +250,7 @@ const ManagePositionPage = () => {
       }
     },
     [
-      earnAccount?.account?.id,
+      earnAccount?.accountId,
       focusedTab,
       tabData,
       navigation,
@@ -304,7 +304,7 @@ const ManagePositionPage = () => {
             </XStack>
             {selectedTabIndex === 0 ? (
               <StakeSection
-                accountId={earnAccount?.account?.id || ''}
+                accountId={earnAccount?.accountId || ''}
                 networkId={networkId}
                 tokenInfo={tokenInfo}
                 protocolInfo={protocolInfo}
@@ -313,7 +313,7 @@ const ManagePositionPage = () => {
             ) : null}
             {selectedTabIndex === 1 ? (
               <WithdrawSection
-                accountId={earnAccount?.account?.id || ''}
+                accountId={earnAccount?.accountId || ''}
                 networkId={networkId}
                 tokenInfo={tokenInfo}
                 protocolInfo={protocolInfo}
