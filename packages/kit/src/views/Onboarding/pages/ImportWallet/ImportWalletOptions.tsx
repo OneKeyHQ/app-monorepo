@@ -3,7 +3,11 @@ import { useCallback, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 import { Keyboard } from 'react-native';
 
-import type { IIconProps, IPropsWithTestId } from '@onekeyhq/components';
+import type {
+  IIconProps,
+  IKeyOfIcons,
+  IPropsWithTestId,
+} from '@onekeyhq/components';
 import {
   Button,
   Dialog,
@@ -166,25 +170,21 @@ export function ImportWalletOptions() {
     });
   }, [navigation, isSoftwareWalletOnlyUser]);
 
-  const { supportCloudBackup } = useCloudBackup();
+  const { supportCloudBackup, cloudBackupFeatureInfo } = useCloudBackup();
   const { result: cloudBackupOption = null } = usePromiseResult(async () => {
     if (!supportCloudBackup) {
       return null;
     }
-    const info =
-      await backgroundApiProxy.serviceCloudBackupV2.getBackupProviderInfo();
-
+    if (!cloudBackupFeatureInfo) {
+      return null;
+    }
     const option: IOptionItem = {
-      icon: 'CloudOutline',
-      title: info.displayNameI18nKey
-        ? intl.formatMessage({
-            id: info.displayNameI18nKey as any,
-          })
-        : info.displayName,
+      icon: cloudBackupFeatureInfo?.icon as IKeyOfIcons,
+      title: cloudBackupFeatureInfo?.title,
       onPress: handleImportFromCloud,
     };
     return option;
-  }, [handleImportFromCloud, intl, supportCloudBackup]);
+  }, [cloudBackupFeatureInfo, handleImportFromCloud, supportCloudBackup]);
 
   const options: IOptionSection[] = useMemo(() => {
     return [
