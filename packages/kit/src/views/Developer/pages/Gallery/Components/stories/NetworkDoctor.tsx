@@ -1,7 +1,10 @@
 import { useCallback, useState } from 'react';
 
 import { Button, SizableText, YStack } from '@onekeyhq/components';
-import { runNetworkDoctor } from '@onekeyhq/shared/src/modules/NetworkDoctor';
+import type {
+  DoctorConfig,
+  NetworkCheckup,
+} from '@onekeyhq/shared/src/modules/NetworkDoctor';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Layout } from './utils/Layout';
@@ -19,7 +22,23 @@ const NetworkDoctorGallery = () => {
 
     setLoading(true);
     try {
-      await runNetworkDoctor();
+      // Dynamic import for native platforms only
+      const module = await import('@onekeyhq/shared/src/modules/NetworkDoctor');
+      const { runNetworkDoctor } = module as unknown as {
+        runNetworkDoctor: (config: DoctorConfig) => Promise<NetworkCheckup>;
+      };
+
+      const report = await runNetworkDoctor({
+        targetDomain: 'wallet.onekeytest.com',
+        healthCheckPath: '/wallet/v1/health',
+      });
+
+      console.log('🩺 Network Doctor Report:', report);
+      console.log('Assessment:', report.summary.assessment);
+      console.log('Issues:', report.summary.issues);
+      console.log('Metrics:', report.metrics);
+    } catch (error) {
+      console.error('Network diagnostics failed:', error);
     } finally {
       setLoading(false);
     }

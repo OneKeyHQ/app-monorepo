@@ -1765,6 +1765,8 @@ PODS:
     - Yoga
   - react-native-netinfo (11.4.1):
     - React-Core
+  - react-native-network-info (5.2.2):
+    - React
   - react-native-pager-view (7.0.0):
     - DoubleConversion
     - glog
@@ -3025,6 +3027,7 @@ DEPENDENCIES:
   - "react-native-lite-card (from `../../../node_modules/@onekeyfe/react-native-lite-card`)"
   - react-native-mmkv (from `../../../node_modules/react-native-mmkv`)
   - "react-native-netinfo (from `../../../node_modules/@react-native-community/netinfo`)"
+  - react-native-network-info (from `../../../node_modules/react-native-network-info`)
   - react-native-pager-view (from `../../../node_modules/react-native-pager-view`)
   - react-native-performance-stats (from `../../../node_modules/react-native-performance-stats`)
   - react-native-ping (from `../../../node_modules/react-native-ping`)
@@ -3290,6 +3293,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/react-native-mmkv"
   react-native-netinfo:
     :path: "../../../node_modules/@react-native-community/netinfo"
+  react-native-network-info:
+    :path: "../../../node_modules/react-native-network-info"
   react-native-pager-view:
     :path: "../../../node_modules/react-native-pager-view"
   react-native-performance-stats:
@@ -3511,6 +3516,7 @@ SPEC CHECKSUMS:
   react-native-lite-card: 6553be9f9b5bfcfa935c6e5d55bc6d5fe41efff5
   react-native-mmkv: f3eccec36dea25bf57cb3b789db5ac9113d6391a
   react-native-netinfo: f0a9899081c185db1de5bb2fdc1c88c202a059ac
+  react-native-network-info: 253a54a48dc8f9ef5abb7a8effdfdef8abd7d875
   react-native-pager-view: 48af7f02db38bd6677a21f62a1a911a6d54739c7
   react-native-performance-stats: a073faa67064bf33d60968fbfc029e94a8d96239
   react-native-ping: e9f64f02087c3cd2a0bc771ad0cf4a88edaa3072

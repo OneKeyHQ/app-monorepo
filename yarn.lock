@@ -7967,6 +7967,7 @@ __metadata:
     react-native-level-fs: "npm:3.0.1"
     react-native-mmkv: "npm:3.3.0"
     react-native-modal: "npm:^13.0.1"
+    react-native-network-info: "npm:5.2.2"
     react-native-network-logger: "npm:2.0.1"
     react-native-pager-view: "npm:7.0.0"
     react-native-passkeys: "npm:0.3.3"
@@ -35367,6 +35368,15 @@ __metadata:
     react: "*"
     react-native: ">=0.65.0"
   checksum: 10/7b9096127f5195e28bf8016bed5e8760e060e533358ba41f829605233b7f0e9e7e94941884c9fdb0d14d288c02a2944b516754477af24b0173c57777f2aa5018
+  languageName: node
+  linkType: hard
+
+"react-native-network-info@npm:5.2.2":
+  version: 5.2.2
+  resolution: "react-native-network-info@npm:5.2.2"
+  peerDependencies:
+    react-native: ">=0.47"
+  checksum: 10/9c468539ab7eda3ff3bf4f6370f7b59795d5e61e0110f43b9b6019382ed744fdaa6ec2ce76bd386ba49cbef973fd8949c0666648eefe950064b4b33b9a5ca7a7
   languageName: node
   linkType: hard
 
