@@ -490,7 +490,12 @@ class ServiceCloudBackupV2 extends ServiceBase {
   @toastIfError()
   async androidListAllFiles() {
     const provider = this.getProvider();
-    return (provider as GoogleDriveBackupProvider).listAllFiles();
+    const result = await (provider as GoogleDriveBackupProvider).listAllFiles();
+
+    return {
+      result,
+      count: result?.files?.length ?? 0,
+    };
   }
 
   @backgroundMethod()

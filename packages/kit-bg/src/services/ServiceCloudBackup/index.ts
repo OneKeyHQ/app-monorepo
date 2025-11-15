@@ -238,6 +238,27 @@ class ServiceCloudBackup extends ServiceBase {
     };
   }
 
+  async touchLegacyMetaDataFile() {
+    if (!RNFS) return;
+    const filename = generateUUID();
+    const localTempFilePath = this.getTempFilePath(filename);
+    if (localTempFilePath) {
+      const existMetaData = await this.getMetaDataFromCloud();
+      if (existMetaData?.length) {
+        const newMetaData = JSON.stringify(existMetaData);
+        await RNFS.writeFile(localTempFilePath, newMetaData, 'utf8');
+
+        await CloudFs.uploadToCloud(
+          localTempFilePath,
+          this.getBackupPath(CLOUD_METADATA_FILE_NAME),
+        );
+        await RNFS.unlink(localTempFilePath);
+        this.metaDataCache = newMetaData;
+        await this.getDataFromCloud.delete(CLOUD_METADATA_FILE_NAME);
+      }
+    }
+  }
+
   @backgroundMethod()
   async backupNowLegacy(isManualBackup = true) {
     const cloudBackupValueList = await cloudBackupPersistAtom.get();

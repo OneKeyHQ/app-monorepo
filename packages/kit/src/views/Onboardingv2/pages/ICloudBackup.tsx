@@ -102,7 +102,7 @@ export default function ICloudBackup() {
       return <CloudBackupLoadingSkeleton />;
     }
 
-    if (allBackups?.items?.length === 0) {
+    if (!allBackups?.items?.length) {
       return <CloudBackupListEmptyView />;
     }
 
@@ -320,12 +320,20 @@ export default function ICloudBackup() {
                   androidGetManifestFileObject
                 </Button>
                 <Button
-                  onPress={async () =>
-                    Dialog.debugMessage({
-                      debugMessage:
-                        await backgroundApiProxy.serviceCloudBackupV2.androidRemoveManifestFile(),
-                    })
-                  }
+                  variant="destructive"
+                  onPress={async () => {
+                    Dialog.show({
+                      title: 'remove manifest file',
+                      description:
+                        'This will permanently delete the manifest file from the cloud.',
+                      onConfirm: async () => {
+                        Dialog.debugMessage({
+                          debugMessage:
+                            await backgroundApiProxy.serviceCloudBackupV2.androidRemoveManifestFile(),
+                        });
+                      },
+                    });
+                  }}
                 >
                   androidRemoveManifestFile
                 </Button>
