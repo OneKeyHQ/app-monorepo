@@ -273,7 +273,11 @@ export function AccountSelectorAccountListItem({
   );
 
   const renderAccountValue = useCallback(() => {
-    if (platformEnv.isE2E || (linkNetwork && !subTitleInfo.address))
+    if (
+      platformEnv.isWebDappMode ||
+      platformEnv.isE2E ||
+      (linkNetwork && !subTitleInfo.address)
+    )
       return null;
 
     return (
@@ -317,6 +321,7 @@ export function AccountSelectorAccountListItem({
         })}
         isEmptyAddress={subTitleInfo.isEmptyAddress}
         hideAddress={subTitleInfo.hideAddress}
+        showSplitter={!(platformEnv.isWebDappMode || platformEnv.isE2E)}
       />
     );
   }, [

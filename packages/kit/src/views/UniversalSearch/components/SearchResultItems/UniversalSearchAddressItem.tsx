@@ -17,6 +17,7 @@ import type { IUniversalSearchAddress } from '@onekeyhq/shared/types/search';
 import { AccountAddress } from '../../../AccountManagerStacks/pages/AccountSelectorStack/WalletDetails/AccountAddress';
 import { AccountValueWithSpotlight } from '../../../AccountManagerStacks/pages/AccountSelectorStack/WalletDetails/AccountValue';
 import { urlAccountNavigation } from '../../../Home/pages/urlAccount/urlAccountUtils';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 interface IUniversalSearchAddressItemProps {
   item: IUniversalSearchAddress;
@@ -158,6 +159,8 @@ export function UniversalSearchAddressItem({
   ]);
 
   const renderAccountValue = useCallback(() => {
+    if (platformEnv.isWebDappMode || platformEnv.isE2E) return null;
+
     let linkedAccountId = item.payload.account?.id;
     const linkedNetworkId = item.payload.network?.id ?? contextNetworkId;
 
@@ -173,30 +176,19 @@ export function UniversalSearchAddressItem({
     }
 
     return (
-      <>
-        <AccountValueWithSpotlight
-          walletId={item.payload.wallet?.id ?? ''}
-          isOthersUniversal={accountUtils.isOthersAccount({
-            accountId: item.payload.account?.id,
-          })}
-          index={0}
-          accountValue={item.payload.accountsValue}
-          linkedAccountId={linkedAccountId}
-          linkedNetworkId={linkedNetworkId}
-          indexedAccountId={item.payload.indexedAccount?.id}
-          mergeDeriveAssetsEnabled={vaultSettings?.mergeDeriveAssetsEnabled}
-          isSingleAddress={!!item.payload.addressInfo?.displayAddress}
-        />
-        {item.payload.addressInfo?.displayAddress ? (
-          <Stack
-            mx="$1.5"
-            w="$1"
-            h="$1"
-            bg="$iconSubdued"
-            borderRadius="$full"
-          />
-        ) : null}
-      </>
+      <AccountValueWithSpotlight
+        walletId={item.payload.wallet?.id ?? ''}
+        isOthersUniversal={accountUtils.isOthersAccount({
+          accountId: item.payload.account?.id,
+        })}
+        index={0}
+        accountValue={item.payload.accountsValue}
+        linkedAccountId={linkedAccountId}
+        linkedNetworkId={linkedNetworkId}
+        indexedAccountId={item.payload.indexedAccount?.id}
+        mergeDeriveAssetsEnabled={vaultSettings?.mergeDeriveAssetsEnabled}
+        isSingleAddress={!!item.payload.addressInfo?.displayAddress}
+      />
     );
   }, [
     contextNetworkId,
@@ -238,6 +230,9 @@ export function UniversalSearchAddressItem({
                     address: item.payload.addressInfo?.displayAddress,
                   })}
                   isEmptyAddress={false}
+                  showSplitter={
+                    !(platformEnv.isWebDappMode || platformEnv.isE2E)
+                  }
                 />
               </XStack>
             }
