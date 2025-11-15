@@ -46,7 +46,6 @@ import { EStakingActionType } from '@onekeyhq/shared/types/staking';
 import type {
   IEarnAlert,
   IEarnTokenInfo,
-  IProtocolInfo,
   IStakeEarnDetail,
 } from '@onekeyhq/shared/types/staking';
 
@@ -69,7 +68,6 @@ import { useCheckEthenaKycStatus } from '../../../Staking/hooks/useCheckEthenaKy
 import { useHandleSwap } from '../../../Staking/hooks/useHandleSwap';
 import { useUnsupportedProtocol } from '../../../Staking/hooks/useUnsupportedProtocol';
 import { ManagePositionContent } from '../../../Staking/pages/ManagePosition/components/ManagePositionContent';
-import { useManagePage } from '../../../Staking/pages/ManagePosition/hooks/useManagePage';
 import { FAQSection } from '../../../Staking/pages/ProtocolDetailsV2/FAQSection';
 import { EarnPageContainer } from '../../components/EarnPageContainer';
 import { EarnProviderMirror } from '../../EarnProviderMirror';
@@ -401,170 +399,30 @@ const ManagePositionPart = ({
   symbol,
   provider,
   vault,
-  managers,
   onCreateAddress,
-  subscriptionValue,
-  detailActions,
 }: {
   networkId: string;
   symbol: string;
   provider: string;
   vault?: string;
-  managers: IStakeEarnDetail['managers'] | undefined;
   onCreateAddress?: () => Promise<void>;
-  subscriptionValue?: IStakeEarnDetail['subscriptionValue'];
-  detailActions?: IStakeEarnDetail['actions'];
 }) => {
-  const appNavigation = useAppNavigation();
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { account, indexedAccount } = activeAccount;
-  const { handleSwap } = useHandleSwap();
-
-  const {
-    isLoading,
-    tokenInfo,
-    earnAccount,
-    protocolInfo,
-    managePageData,
-    depositDisabled,
-    withdrawDisabled,
-    alerts,
-    refreshAccount: refreshManageAccount,
-    run: refreshManageData,
-  } = useManagePage({
-    accountId: account?.id || '',
-    networkId,
-    indexedAccountId: indexedAccount?.id,
-    symbol: symbol as ISupportedSymbol,
-    provider,
-    vault,
-  });
-
-  const handleCreateAddress = useCallback(async () => {
-    if (onCreateAddress) {
-      await onCreateAddress();
-    }
-    await refreshManageAccount();
-    await refreshManageData();
-  }, [onCreateAddress, refreshManageAccount, refreshManageData]);
-
-  const hasNoAccount = !account?.id && !indexedAccount?.id;
-  const hasNoAddress = !earnAccount?.accountAddress;
-  const shouldShowSkeleton = isLoading && !hasNoAccount;
-
-  const renderNoAddressWarning = useCallback(
-    () =>
-      hasNoAccount || hasNoAddress ? (
-        <Stack px="$5">
-          <NoAddressWarning
-            accountId={account?.id || ''}
-            networkId={networkId}
-            indexedAccountId={indexedAccount?.id}
-            onCreateAddress={handleCreateAddress}
-          />
-        </Stack>
-      ) : null,
-    [
-      hasNoAccount,
-      hasNoAddress,
-      account?.id,
-      networkId,
-      indexedAccount?.id,
-      handleCreateAddress,
-    ],
-  );
-
-  const handleNavigateToWithdrawOptions = useCallback(
-    (params: {
-      accountId: string;
-      networkId: string;
-      protocolInfo: IProtocolInfo | undefined;
-      tokenInfo: IEarnTokenInfo | undefined;
-      symbol: string;
-      provider: string;
-    }) => {
-      appNavigation.pushModal(EModalRoutes.StakingModal, {
-        screen: EModalStakingRoutes.WithdrawOptions,
-        params,
-      });
-    },
-    [appNavigation],
-  );
-
-  // USDe handlers
-  const handleReceive = useCallback(() => {
-    if (!subscriptionValue?.token?.info || !earnAccount) return;
-    appNavigation.pushModal(EModalRoutes.ReceiveModal, {
-      screen: EModalReceiveRoutes.ReceiveToken,
-      params: {
-        networkId,
-        accountId: earnAccount.accountId,
-        walletId: earnAccount.walletId,
-        token: subscriptionValue.token.info,
-      },
-    });
-  }, [appNavigation, networkId, earnAccount, subscriptionValue?.token?.info]);
-
-  const handleTrade = useCallback(async () => {
-    if (!subscriptionValue?.token?.info) return;
-    await handleSwap({
-      token: subscriptionValue.token.info,
-      networkId,
-    });
-  }, [handleSwap, networkId, subscriptionValue?.token?.info]);
 
   return (
     <YStack flex={4}>
-      {shouldShowSkeleton ? (
-        <YStack gap="$6" px="$5">
-          <XStack gap="$2">
-            <Skeleton w="$20" h="$9" borderRadius="$2" />
-            <Skeleton w="$20" h="$9" borderRadius="$2" />
-          </XStack>
-          <YStack gap="$4">
-            <YStack gap="$3" p="$4" bg="$bgSubdued" borderRadius="$3">
-              <XStack jc="space-between" ai="center">
-                <Skeleton.BodyMd w="$20" />
-                <Skeleton.BodySm w="$24" />
-              </XStack>
-              <XStack jc="space-between" ai="center">
-                <Skeleton w="$32" h="$12" />
-                <XStack gap="$2" ai="center">
-                  <Skeleton w="$10" h="$10" borderRadius="$full" />
-                  <Skeleton.BodyLg w="$16" />
-                </XStack>
-              </XStack>
-            </YStack>
-            <Skeleton w="100%" h="$11" borderRadius="$3" />
-          </YStack>
-        </YStack>
-      ) : (
-        <YStack gap="$1.5" flex={1}>
-          <ManagePositionContent
-            networkId={networkId}
-            symbol={symbol}
-            provider={provider}
-            vault={vault}
-            account={account}
-            indexedAccount={indexedAccount}
-            earnAccount={earnAccount}
-            tokenInfo={tokenInfo}
-            protocolInfo={protocolInfo}
-            managePageData={managePageData}
-            depositDisabled={depositDisabled || hasNoAccount || hasNoAddress}
-            withdrawDisabled={withdrawDisabled || hasNoAccount || hasNoAddress}
-            alerts={alerts}
-            isLoading={isLoading}
-            renderAfterDeposit={renderNoAddressWarning}
-            renderAfterWithdraw={renderNoAddressWarning}
-            onNavigateToWithdrawOptions={handleNavigateToWithdrawOptions}
-            subscriptionValue={subscriptionValue}
-            detailActions={detailActions}
-            onReceive={handleReceive}
-            onTrade={handleTrade}
-          />
-        </YStack>
-      )}
+      <YStack gap="$1.5" flex={1}>
+        <ManagePositionContent
+          networkId={networkId}
+          symbol={symbol}
+          provider={provider}
+          vault={vault}
+          accountId={account?.id || ''}
+          indexedAccountId={indexedAccount?.id}
+          onCreateAddress={onCreateAddress}
+        />
+      </YStack>
     </YStack>
   );
 };
@@ -882,10 +740,7 @@ const EarnProtocolDetailsPage = () => {
               symbol={symbol}
               provider={provider}
               vault={vault}
-              managers={detailInfo?.managers}
               onCreateAddress={onCreateAddress}
-              subscriptionValue={detailInfo?.subscriptionValue}
-              detailActions={detailInfo?.actions}
             />
           </Stack>
         ) : null}
