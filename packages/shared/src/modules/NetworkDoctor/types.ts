@@ -209,6 +209,7 @@ export interface INetworkCheckup {
     pingIp?: IPingResult;
     extraPings: IPingResult[];
     healthCheck: IHttpProbeResult;
+    cdnTrace: IHttpProbeResult;
     publicHttpChecks: IHttpProbeResult[];
     networkLogs: INetworkRequestLog[];
   };

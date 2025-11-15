@@ -12,7 +12,6 @@ import {
 } from '@onekeyhq/components';
 import type { INetworkCheckup } from '@onekeyhq/shared/src/modules/NetworkDoctor';
 import { NetworkDoctor } from '@onekeyhq/shared/src/modules/NetworkDoctor';
-import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import { Layout } from './utils/Layout';
 
@@ -27,9 +26,7 @@ const NetworkDoctorGallery = () => {
     setResult(null);
 
     try {
-      const doctor = new NetworkDoctor({
-        serviceName: EServiceEndpointEnum.Wallet,
-      });
+      const doctor = new NetworkDoctor({});
 
       const report = await doctor.run();
 

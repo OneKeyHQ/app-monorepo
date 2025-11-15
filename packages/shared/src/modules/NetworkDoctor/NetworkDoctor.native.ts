@@ -107,6 +107,53 @@ export class NetworkDoctor {
   }
 
   /**
+   * Test Cloudflare CDN trace endpoint (fixed URL)
+   */
+  private async testCdnTrace(): Promise<IHttpProbeResult> {
+    const startTime = Date.now();
+    const timeout = this.config.timeouts.http;
+    const cdnTraceUrl = 'https://wallet.onekeycn.com/cdn-cgi/trace';
+
+    try {
+      const response = await axios.get(cdnTraceUrl, {
+        timeout,
+      });
+
+      const result = {
+        url: cdnTraceUrl,
+        label: 'cdn_trace',
+        success: true,
+        status: response.status,
+        dataPreview:
+          typeof response.data === 'string'
+            ? response.data.slice(0, 500)
+            : JSON.stringify(response.data).slice(0, 500),
+        durationMs: Date.now() - startTime,
+      };
+      console.log(`[CDN-TRACE] ✓ Trace successful`, {
+        status: result.status,
+        time: result.durationMs,
+        preview: result.dataPreview,
+      });
+      return result;
+    } catch (error: any) {
+      const result = {
+        url: cdnTraceUrl,
+        label: 'cdn_trace',
+        success: false,
+        status: error?.response?.status,
+        error: error?.message || String(error),
+        durationMs: Date.now() - startTime,
+      };
+      console.warn(`[CDN-TRACE] ✗ Trace failed`, {
+        error: result.error,
+        status: result.status,
+      });
+      return result;
+    }
+  }
+
+  /**
    * Run complete network diagnostics
    */
   async run(): Promise<INetworkCheckup> {
@@ -163,10 +210,11 @@ export class NetworkDoctor {
       // ========== Phase 5: HTTP Tests ==========
       console.log('[DR] Phase 5: HTTP Tests');
       const healthCheck = await this.testHealthCheck();
+      const cdnTrace = await this.testCdnTrace();
       const publicHttpChecks = await this.testPublicHttpProbes();
 
       // ========== Phase 6: Collect Network Logs ==========
-      console.log('Phase 6: Collecting Network Logs');
+      console.log('[DR] Phase 6: Collecting Network Logs');
       const networkLogs = this.collectNetworkLogs();
 
       // ========== Generate Report ==========
@@ -180,6 +228,7 @@ export class NetworkDoctor {
         pingIp,
         extraPings,
         healthCheck,
+        cdnTrace,
         publicHttpChecks,
         networkLogs,
       });
