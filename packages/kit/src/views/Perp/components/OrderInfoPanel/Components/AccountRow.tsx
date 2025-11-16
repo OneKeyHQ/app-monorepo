@@ -150,17 +150,10 @@ const TYPE_CONFIG_DATA = new Map<string, ITypeConfigRaw>([
     },
   ],
   [
-    'sendIn',
+    'send',
     {
-      translationId: ETranslations.global_receive,
+      translationId: ETranslations.perp_account_action_tranfer,
       isIncrease: true,
-    },
-  ],
-  [
-    'sendOut',
-    {
-      translationId: ETranslations.global_send,
-      isIncrease: false,
     },
   ],
   [
