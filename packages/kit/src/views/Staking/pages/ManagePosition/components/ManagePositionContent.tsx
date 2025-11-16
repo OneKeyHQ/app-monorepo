@@ -58,6 +58,7 @@ export function ManagePositionContent({
     depositDisabled,
     withdrawDisabled,
     alerts,
+    alertsHolding,
     alertsStake,
     alertsWithdraw,
     refreshAccount: refreshManageAccount,
@@ -263,7 +264,10 @@ export function ManagePositionContent({
       <USDEManageContent
         managePageData={managePageData}
         networkId={networkId}
-        alertsStake={alertsStake}
+        symbol={symbol as ISupportedSymbol}
+        provider={provider}
+        vault={vault}
+        alertsHolding={alertsHolding}
         onHistory={onHistory}
         earnAccount={earnAccount}
       />

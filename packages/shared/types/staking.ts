@@ -732,6 +732,7 @@ export interface IEarnManagePageResponse {
   receive?: IEarnReceiveActionIcon;
   trade?: IEarnTradeActionIcon;
   history?: IEarnHistoryActionIcon;
+  activate?: IEarnActivateActionIcon;
   approve?: {
     allowance: string;
     approveType: string;
@@ -748,6 +749,7 @@ export interface IEarnManagePageResponse {
   alerts?: IEarnAlert[];
   alertsStake?: IEarnAlert[];
   alertsWithdraw?: IEarnAlert[];
+  alertsHolding?: IEarnAlert[];
   holdings?: {
     tags: IStakeBadgeTag[];
     title: IEarnText;

@@ -1,7 +1,7 @@
 import { EEarnProviderEnum } from '../../types/earn';
 
 import type { IEarnPermitCacheKey } from '../../types/earn';
-import type { IEarnToken } from '../../types/staking';
+import type { IEarnText, IEarnToken } from '../../types/staking';
 import type { IToken } from '../../types/token';
 
 function getEarnProviderEnumKey(
@@ -103,6 +103,13 @@ function convertEarnTokenToIToken(earnToken?: IEarnToken): IToken | undefined {
   };
 }
 
+function extractAmountFromText(text?: IEarnText): string {
+  if (!text?.text) return '0';
+
+  const match = text.text.match(/[\d,.]+/);
+  return match ? match[0].replace(/,/g, '') : '0';
+}
+
 export default {
   getEarnProviderEnumKey,
   isMorphoProvider,
@@ -120,4 +127,5 @@ export default {
   isVaultBasedProvider,
   isValidatorProvider,
   convertEarnTokenToIToken,
+  extractAmountFromText,
 };
