@@ -1827,7 +1827,18 @@ export default class VaultBtc extends VaultBase {
       dbAccount.address;
     const fallback = {
       address: fallbackAddress,
-      path: checkIfValidPath(getBIP44Path(dbAccount, fallbackAddress)),
+      path: getBIP44Path(
+        dbAccount,
+        fallbackAddress,
+        !(
+          accountUtils.isImportedAccount({
+            accountId: dbAccount.id,
+          }) ||
+          accountUtils.isWatchingAccount({
+            accountId: dbAccount.id,
+          })
+        ),
+      ),
     };
 
     const isEnabledBtcFreshAddress = await this.isEnabledBtcFreshAddress();
