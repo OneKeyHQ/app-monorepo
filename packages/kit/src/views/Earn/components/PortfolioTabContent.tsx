@@ -496,14 +496,16 @@ const PortfolioItemComponent = ({
                       {/* Asset status list */}
                       {asset.assetsStatus?.map((status, index) => (
                         <XStack key={index} ai="center">
-                          <EarnText size="$bodyLgMedium" text={status.title} />
-                          <EarnText
-                            ml="$2"
-                            size="$bodyLgMedium"
-                            color="$textSubdued"
-                            text={status.description}
-                          />
-                          <EarnTooltip tooltip={status.tooltip} />
+                          <EarnText size="$bodyMdMedium" text={status.title} />
+                          <XStack gap="$1.5">
+                            <EarnText
+                              ml="$2"
+                              size="$bodyMd"
+                              color="$textSubdued"
+                              text={status.description}
+                            />
+                            <EarnTooltip tooltip={status.tooltip} />
+                          </XStack>
                         </XStack>
                       ))}
 
@@ -512,11 +514,11 @@ const PortfolioItemComponent = ({
                         <XStack key={index} ai="center" jc="space-between">
                           <XStack ai="center" gap="$2">
                             <EarnText
-                              size="$bodyLgMedium"
+                              size="$bodyMdMedium"
                               text={reward.title}
                             />
                             <EarnText
-                              size="$bodyLgMedium"
+                              size="$bodyMd"
                               color="$textSubdued"
                               text={reward.description}
                             />

@@ -65,6 +65,12 @@ export function EarnPageContainer({
     ) : null;
   }, [pageTitle, showBackButton, handleBack]);
 
+  const showBreadcrumb = useMemo(
+    () => breadcrumbProps && media.gtSm,
+    [breadcrumbProps, media],
+  );
+  const showHeader = useMemo(() => header, [header]);
+
   return (
     <Page>
       <TabPageHeader
@@ -78,12 +84,12 @@ export function EarnPageContainer({
           refreshControl={refreshControl}
         >
           <YStack w="100%" maxWidth={EARN_PAGE_MAX_WIDTH} mx="auto">
-            <XStack px="$5" pb="$5" gap="$5" ai="center">
-              {breadcrumbProps && media.gtSm ? (
-                <Breadcrumb {...breadcrumbProps} />
-              ) : null}
-              {header ? <>{header}</> : null}
-            </XStack>
+            {showBreadcrumb || showHeader ? (
+              <XStack px="$5" pb="$5" gap="$5" ai="center">
+                {showBreadcrumb ? <Breadcrumb {...breadcrumbProps} /> : null}
+                {showHeader ? <>{header}</> : null}
+              </XStack>
+            ) : null}
             {children}
           </YStack>
         </ScrollView>
