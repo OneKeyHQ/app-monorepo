@@ -30,6 +30,7 @@ export const StakeSection = ({
   isDisabled,
   onSuccess,
   beforeFooter,
+  showApyDetail,
 }: {
   accountId: string;
   networkId: string;
@@ -38,6 +39,7 @@ export const StakeSection = ({
   isDisabled?: boolean;
   onSuccess?: () => void;
   beforeFooter?: ReactElement | null;
+  showApyDetail?: boolean;
 }) => {
   // Early return if no tokenInfo or protocolInfo
   // This happens when there's no account or no address
@@ -274,6 +276,7 @@ export const StakeSection = ({
         token: tokenInfo?.token,
       }}
       beforeFooter={beforeFooter}
+      showApyDetail={showApyDetail}
     />
   );
 };

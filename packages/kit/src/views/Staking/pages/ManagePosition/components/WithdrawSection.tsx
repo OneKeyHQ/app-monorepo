@@ -22,6 +22,7 @@ export const WithdrawSection = ({
   isDisabled,
   onSuccess,
   beforeFooter,
+  showApyDetail,
 }: {
   accountId: string;
   networkId: string;
@@ -30,6 +31,7 @@ export const WithdrawSection = ({
   isDisabled?: boolean;
   onSuccess?: () => void;
   beforeFooter?: ReactElement | null;
+  showApyDetail?: boolean;
 }) => {
   // Early return if no tokenInfo or protocolInfo
   // This happens when there's no account or no address
@@ -136,6 +138,7 @@ export const WithdrawSection = ({
       protocolVault={protocolInfo?.vault ?? ''}
       isDisabled={isDisabled}
       beforeFooter={beforeFooter}
+      showApyDetail={showApyDetail}
     />
   );
 };

@@ -39,6 +39,7 @@ interface INormalManageContentProps {
   onTabChange?: (tab: 'deposit' | 'withdraw') => void;
   isInModalContext: boolean;
   appNavigation: IAppNavigation;
+  showApyDetail?: boolean;
 }
 
 export function NormalManageContent({
@@ -60,6 +61,7 @@ export function NormalManageContent({
   onTabChange,
   isInModalContext,
   appNavigation,
+  showApyDetail,
 }: INormalManageContentProps) {
   const intl = useIntl();
 
@@ -192,6 +194,7 @@ export function NormalManageContent({
           isDisabled={depositDisabled}
           onSuccess={onSuccess}
           beforeFooter={stakeBeforeFooter}
+          showApyDetail={showApyDetail}
         />
       ) : null}
       {selectedTabIndex === 1 ? (
@@ -203,6 +206,7 @@ export function NormalManageContent({
           isDisabled={withdrawDisabled}
           onSuccess={onSuccess}
           beforeFooter={withdrawBeforeFooter}
+          showApyDetail={showApyDetail}
         />
       ) : null}
     </>

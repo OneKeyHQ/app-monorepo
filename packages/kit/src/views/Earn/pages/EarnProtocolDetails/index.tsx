@@ -420,6 +420,7 @@ const ManagePositionPart = ({
     <YStack flex={4}>
       <YStack gap="$1.5" flex={1}>
         <ManagePositionContent
+          showApyDetail={false}
           networkId={networkId}
           symbol={symbol}
           provider={provider}

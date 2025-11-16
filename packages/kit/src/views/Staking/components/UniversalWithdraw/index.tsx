@@ -45,6 +45,7 @@ import type {
 import { capitalizeString, countDecimalPlaces } from '../../utils/utils';
 import { CalculationListItem } from '../CalculationList';
 import { EstimateNetworkFee } from '../EstimateNetworkFee';
+import { EarnActionIcon } from '../ProtocolDetails/EarnActionIcon';
 import { EarnText } from '../ProtocolDetails/EarnText';
 import {
   StakingAmountInput,
@@ -89,6 +90,7 @@ type IUniversalWithdrawProps = {
     withdrawAll: boolean;
   }) => Promise<void>;
   beforeFooter?: ReactElement | null;
+  showApyDetail?: boolean;
 };
 
 const isNaN = (num: string) =>
@@ -115,6 +117,7 @@ export function UniversalWithdraw({
 
   onConfirm,
   beforeFooter,
+  showApyDetail = false,
 }: PropsWithChildren<IUniversalWithdrawProps>) {
   const navigation = useAppNavigation();
   const { gtMd } = useMedia();
@@ -506,6 +509,19 @@ export function UniversalWithdraw({
         borderWidth={StyleSheet.hairlineWidth}
         borderColor="$borderSubdued"
       >
+        {showApyDetail && transactionConfirmation?.apyDetail ? (
+          <XStack gap="$1" ai="center" mb="$3.5">
+            <EarnText
+              text={transactionConfirmation.apyDetail.description}
+              size="$headingLg"
+              color="$textSuccess"
+            />
+            <EarnActionIcon
+              title={transactionConfirmation.apyDetail.title.text}
+              actionIcon={transactionConfirmation.apyDetail.button}
+            />
+          </XStack>
+        ) : null}
         <YStack gap="$2">
           <XStack ai="center" gap="$1">
             <EarnText

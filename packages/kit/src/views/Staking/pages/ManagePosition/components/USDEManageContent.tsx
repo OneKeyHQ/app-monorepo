@@ -28,6 +28,7 @@ import {
   type IEarnManagePageResponse,
 } from '@onekeyhq/shared/types/staking';
 
+import { EarnActionIcon } from '../../../components/ProtocolDetails/EarnActionIcon';
 import { EarnAlert } from '../../../components/ProtocolDetails/EarnAlert';
 import { EarnText } from '../../../components/ProtocolDetails/EarnText';
 import { EarnTooltip } from '../../../components/ProtocolDetails/EarnTooltip';
@@ -42,6 +43,7 @@ interface IUSDEManageContentProps {
   vault?: string;
   alertsHolding: IEarnAlert[];
   onHistory?: () => void;
+  showApyDetail?: boolean;
   earnAccount?: {
     walletId: string;
     accountId: string;
@@ -59,6 +61,7 @@ export function USDEManageContent({
   vault,
   alertsHolding,
   onHistory,
+  showApyDetail = false,
   earnAccount,
 }: IUSDEManageContentProps) {
   const appNavigation = useAppNavigation();
@@ -239,6 +242,21 @@ export function USDEManageContent({
             />
           </XStack>
         </YStack>
+
+        {/* APY Detail Section */}
+        {showApyDetail && transactionConfirmation?.apyDetail ? (
+          <XStack gap="$1" ai="center" mb="$3.5">
+            <EarnText
+              text={transactionConfirmation.apyDetail.description}
+              size="$headingLg"
+              color="$textSuccess"
+            />
+            <EarnActionIcon
+              title={transactionConfirmation.apyDetail.title.text}
+              actionIcon={transactionConfirmation.apyDetail.button}
+            />
+          </XStack>
+        ) : null}
 
         {/* Rewards Section */}
         {!isEmpty(transactionConfirmation?.rewards) ? (

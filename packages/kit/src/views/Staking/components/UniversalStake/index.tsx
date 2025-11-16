@@ -115,6 +115,7 @@ type IUniversalStakeProps = {
     token?: IToken;
   };
   beforeFooter?: ReactElement | null;
+  showApyDetail?: boolean;
 };
 
 export function UniversalStake({
@@ -137,6 +138,7 @@ export function UniversalStake({
   approveTarget,
   currentAllowance,
   beforeFooter,
+  showApyDetail = false,
 }: PropsWithChildren<IUniversalStakeProps>) {
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -1117,16 +1119,16 @@ export function UniversalStake({
           borderWidth={StyleSheet.hairlineWidth}
           borderColor="$borderSubdued"
         >
-          {protocolInfo?.apyDetail ? (
-            <XStack gap="$1" ai="center">
+          {showApyDetail && transactionConfirmation?.apyDetail ? (
+            <XStack gap="$1" ai="center" mb="$3.5">
               <EarnText
-                text={protocolInfo.apyDetail.description}
+                text={transactionConfirmation.apyDetail.description}
                 size="$headingLg"
                 color="$textSuccess"
               />
               <EarnActionIcon
-                title={protocolInfo.apyDetail.title.text}
-                actionIcon={protocolInfo.apyDetail.button}
+                title={transactionConfirmation.apyDetail.title.text}
+                actionIcon={transactionConfirmation.apyDetail.button}
               />
             </XStack>
           ) : null}

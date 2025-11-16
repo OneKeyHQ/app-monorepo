@@ -56,6 +56,7 @@ const ManagePositionPage = () => {
       <Page.Header title={symbol} />
       <Page.Body>
         <ManagePositionContent
+          showApyDetail
           networkId={networkId}
           symbol={symbol}
           provider={provider}

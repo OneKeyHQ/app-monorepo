@@ -919,6 +919,7 @@ export interface IEarnProvider {
 export interface IStakeTransactionConfirmation {
   title: IEarnText;
   tooltip?: IEarnTooltip;
+  apyDetail?: IStakeEarnDetail['apyDetail'];
   rewards: Array<{
     title: IEarnText;
     description: IEarnText;

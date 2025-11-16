@@ -27,6 +27,7 @@ export interface IManagePositionContentProps {
   // Optional configurations
   defaultTab?: 'deposit' | 'withdraw';
   onTabChange?: (tab: 'deposit' | 'withdraw') => void;
+  showApyDetail?: boolean;
 
   // Optional callbacks
   onCreateAddress?: () => Promise<void>;
@@ -42,6 +43,7 @@ export function ManagePositionContent({
   indexedAccountId,
   defaultTab,
   onTabChange,
+  showApyDetail = false,
   onCreateAddress,
   onStakeWithdrawSuccess,
 }: IManagePositionContentProps) {
@@ -270,6 +272,7 @@ export function ManagePositionContent({
         alertsHolding={alertsHolding}
         onHistory={onHistory}
         earnAccount={earnAccount}
+        showApyDetail={showApyDetail}
       />
     );
   }
@@ -295,6 +298,7 @@ export function ManagePositionContent({
       onTabChange={onTabChange}
       isInModalContext={isInModalContext}
       appNavigation={appNavigation}
+      showApyDetail={showApyDetail}
     />
   );
 }
