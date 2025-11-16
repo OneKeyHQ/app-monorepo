@@ -9,6 +9,7 @@ import { Linking, StyleSheet } from 'react-native';
 
 import type { IPageScreenProps, IYStackProps } from '@onekeyhq/components';
 import {
+  Accordion,
   Button,
   Dialog,
   EVideoResizeMode,
@@ -385,7 +386,7 @@ function ConnectionIndicatorCard({ children }: { children: React.ReactNode }) {
       $platform-web={{
         boxShadow: '0 1px 1px 0 rgba(0, 0, 0, 0.20)',
       }}
-      $platform-android={{ elevation: 0.5 }}
+      // $platform-android={{ elevation: 0.1 }}
       $platform-ios={{
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 0.5 },
@@ -480,7 +481,6 @@ function connectionIndicatorFooter({
 
 function TroubleShootingButton({ type }: { type: 'usb' | 'bluetooth' }) {
   const [showHelper, setShowHelper] = useState(false);
-  const [showTroubleshooting, setShowTroubleshooting] = useState(false);
   const intl = useIntl();
 
   useEffect(() => {
@@ -513,44 +513,58 @@ function TroubleShootingButton({ type }: { type: 'usb' | 'bluetooth' }) {
           borderCurve="continuous"
           overflow="hidden"
         >
-          <HeightTransition initialHeight={0}>
-            <XStack
-              animation="quick"
-              animateOnly={['opacity']}
-              enterStyle={{ opacity: 0 }}
-              m="0"
-              px="$5"
-              py="$2"
-              hoverStyle={{
-                bg: '$bgHover',
-              }}
-              focusable
-              focusVisibleStyle={{
-                outlineColor: '$focusRing',
-                outlineStyle: 'solid',
-                outlineWidth: 2,
-                outlineOffset: 2,
-              }}
-              userSelect="none"
-              onPress={() => setShowTroubleshooting(!showTroubleshooting)}
-            >
-              <SizableText size="$bodyMd" color="$textSubdued" flex={1}>
-                {intl.formatMessage({
-                  id: ETranslations.troubleshooting_show_helper_cta_label,
-                })}
-              </SizableText>
-              <Icon
-                name={
-                  showTroubleshooting ? 'MinusSmallOutline' : 'PlusSmallOutline'
-                }
-                size="$5"
-                color="$iconSubdued"
-              />
-            </XStack>
-          </HeightTransition>
-          {showTroubleshooting ? (
-            <ConnectionTroubleShootingAccordion connectionType={type} />
-          ) : null}
+          <Accordion type="single" collapsible>
+            <Accordion.Item value="0">
+              <Accordion.Trigger
+                unstyled
+                flexDirection="row"
+                alignItems="center"
+                borderWidth={0}
+                m="0"
+                px="$5"
+                py="$2"
+                hoverStyle={{
+                  bg: '$bgHover',
+                }}
+                focusVisibleStyle={{
+                  outlineColor: '$focusRing',
+                  outlineStyle: 'solid',
+                  outlineWidth: 2,
+                  outlineOffset: 2,
+                }}
+              >
+                {({ open }: { open: boolean }) => (
+                  <>
+                    <SizableText
+                      size="$bodyMd"
+                      color="$textSubdued"
+                      flex={1}
+                      textAlign="left"
+                    >
+                      {intl.formatMessage({
+                        id: ETranslations.troubleshooting_show_helper_cta_label,
+                      })}
+                    </SizableText>
+                    <Icon
+                      name={open ? 'MinusSmallOutline' : 'PlusSmallOutline'}
+                      size="$5"
+                      color="$iconSubdued"
+                    />
+                  </>
+                )}
+              </Accordion.Trigger>
+              <Accordion.HeightAnimator animation="quick">
+                <Accordion.Content
+                  unstyled
+                  animation="quick"
+                  enterStyle={{ opacity: 0, filter: 'blur(4px)' }}
+                  exitStyle={{ opacity: 0, filter: 'blur(4px)' }}
+                >
+                  <ConnectionTroubleShootingAccordion connectionType={type} />
+                </Accordion.Content>
+              </Accordion.HeightAnimator>
+            </Accordion.Item>
+          </Accordion>
         </YStack>
       ) : null}
     </>
@@ -902,7 +916,6 @@ function USBOrBLEConnectionIndicator({
   console.log('sortedDevicesData', sortedDevicesData);
   return (
     <>
-      <TroubleShootingButton type="usb" />
       <ConnectionIndicator>
         {isBLE ? (
           <BluetoothCard
@@ -983,6 +996,7 @@ function USBOrBLEConnectionIndicator({
           </HeightTransition>
         </ConnectionIndicator.Footer>
       </ConnectionIndicator>
+      <TroubleShootingButton type="usb" />
     </>
   );
 }
@@ -1111,7 +1125,6 @@ function BluetoothConnectionIndicator({
 
   return (
     <>
-      <TroubleShootingButton type="bluetooth" />
       <ConnectionIndicator>
         <BluetoothCard />
         <ConnectionIndicator.Footer>
@@ -1157,6 +1170,7 @@ function BluetoothConnectionIndicator({
           </HeightTransition>
         </ConnectionIndicator.Footer>
       </ConnectionIndicator>
+      <TroubleShootingButton type="bluetooth" />
     </>
   );
 }

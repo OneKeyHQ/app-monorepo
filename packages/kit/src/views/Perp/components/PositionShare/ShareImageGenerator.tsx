@@ -84,7 +84,7 @@ export const ShareImageGenerator = forwardRef<
     const pnlDisplayText = getPnlDisplayInfo(data, config.pnlDisplayMode);
     const pnlFontSize =
       pnlDisplayText.length > 6
-        ? fonts.pnl * (1 - (pnlDisplayText.length - 6) * 0.045)
+        ? fonts.pnl * (1 - (pnlDisplayText.length - 6) * 0.06)
         : fonts.pnl;
 
     const selectedBackground = isProfit
@@ -238,7 +238,9 @@ export const ShareImageGenerator = forwardRef<
           ctx.globalAlpha = layout.labelOpacity;
           ctx.fillText(
             priceType === 'exit'
-              ? 'Exit Price'
+              ? appLocale.intl.formatMessage({
+                  id: ETranslations.perp_position_exit_price,
+                })
               : appLocale.intl.formatMessage({
                   id: ETranslations.perp_position_mark_price,
                 }),
@@ -289,7 +291,6 @@ export const ShareImageGenerator = forwardRef<
 
           const qrCodeImg = await loadImage(qrCodeDataUrl);
           if (qrCodeImg) {
-            // Draw QR code centered in the white background
             ctx.drawImage(
               qrCodeImg,
               qrCodeX + qrCodePadding,
@@ -307,13 +308,13 @@ export const ShareImageGenerator = forwardRef<
         ctx.textBaseline = 'middle';
         ctx.font = toCanvasFont(fonts.priceLabel);
         ctx.globalAlpha = layout.labelOpacity;
-        // ctx.fillText(
-        //   appLocale.intl.formatMessage({
-        //     id: ETranslations.referral_referral_link,
-        //   }),
-        //   padding,
-        //   rectY + rectHeight / 2 - layout.referralOffset,
-        // );
+        ctx.fillText(
+          appLocale.intl.formatMessage({
+            id: ETranslations.referral_referral_link,
+          }),
+          padding,
+          rectY + rectHeight / 2 - layout.referralOffset,
+        );
         ctx.globalAlpha = 1;
         ctx.font = toCanvasFont(fonts.priceValue);
         const referralTextX = padding;
