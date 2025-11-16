@@ -58,17 +58,12 @@ const NetworkDoctorGallery = () => {
     if (!result) return null;
 
     const { summary } = result;
+    const { conclusion } = summary;
 
-    const getSeverityBg = (severity: string) => {
-      if (severity === 'critical') return '$bgCritical';
-      if (severity === 'warning') return '$bgCaution';
+    const getBg = (assessment: string) => {
+      if (assessment === 'blocked') return '$bgCritical';
+      if (assessment === 'degraded') return '$bgCaution';
       return '$bgInfo';
-    };
-
-    const getSeverityIcon = (severity: string) => {
-      if (severity === 'critical') return '🚨';
-      if (severity === 'warning') return '⚠️';
-      return 'ℹ️';
     };
 
     return (
@@ -90,41 +85,51 @@ const NetworkDoctorGallery = () => {
         </XStack>
 
         {summary.allCriticalChecksPassed ? (
-          <SizableText size="$bodyMd" color="$textSuccess">
-            All critical checks passed!
-          </SizableText>
+          <YStack gap="$1">
+            <SizableText size="$bodyMd" color="$textSuccess" fontWeight="600">
+              {conclusion.summary}
+            </SizableText>
+            {conclusion.intermediateIssues &&
+            conclusion.intermediateIssues.length > 0 ? (
+              <YStack gap="$1" mt="$2" p="$2" bg="$bgSubdued" borderRadius="$2">
+                <SizableText size="$bodyXs" color="$textSubdued">
+                  ⚙️ Debug Info:
+                </SizableText>
+                {conclusion.intermediateIssues.map((issue, idx) => (
+                  <SizableText key={idx} size="$bodyXs" color="$textDisabled">
+                    • {issue}
+                  </SizableText>
+                ))}
+              </YStack>
+            ) : null}
+          </YStack>
         ) : (
           <YStack gap="$2">
-            {summary.issues.map((issue, idx) => (
-              <YStack
-                key={idx}
-                gap="$1"
-                p="$2"
-                bg={getSeverityBg(issue.severity)}
-                borderRadius="$2"
-              >
-                <SizableText size="$bodySm" fontWeight="600">
-                  {getSeverityIcon(issue.severity)} {issue.message}
-                </SizableText>
-                {issue.suggestedSolutions &&
-                issue.suggestedSolutions.length > 0 ? (
-                  <YStack gap="$1" pl="$3">
-                    <SizableText size="$bodyXs" color="$textSubdued">
-                      💡 Solutions:
+            <YStack
+              gap="$1"
+              p="$2"
+              bg={getBg(conclusion.assessment)}
+              borderRadius="$2"
+            >
+              <SizableText size="$bodySm" fontWeight="600">
+                {conclusion.connectivityLevel.replace(/_/g, ' ')}
+              </SizableText>
+              <SizableText size="$bodySm" color="$textSubdued">
+                {conclusion.summary}
+              </SizableText>
+              {conclusion.suggestedActions.length > 0 ? (
+                <YStack gap="$1" pl="$3" mt="$1">
+                  <SizableText size="$bodyXs" color="$textSubdued">
+                    💡 Suggested Actions:
+                  </SizableText>
+                  {conclusion.suggestedActions.map((action, idx) => (
+                    <SizableText key={idx} size="$bodyXs" color="$textSubdued">
+                      {idx + 1}. {action}
                     </SizableText>
-                    {issue.suggestedSolutions.map((solution, sIdx) => (
-                      <SizableText
-                        key={sIdx}
-                        size="$bodyXs"
-                        color="$textSubdued"
-                      >
-                        {sIdx + 1}. {solution}
-                      </SizableText>
-                    ))}
-                  </YStack>
-                ) : null}
-              </YStack>
-            ))}
+                  ))}
+                </YStack>
+              ) : null}
+            </YStack>
           </YStack>
         )}
       </YStack>

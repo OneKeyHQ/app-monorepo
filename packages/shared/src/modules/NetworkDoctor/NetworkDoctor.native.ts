@@ -30,17 +30,21 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import { mergeConfig } from './config';
-import { EDiagnosticIssueType, EDiagnosticPhase } from './types';
+import {
+  EDiagnosticPhase,
+  ENetworkConnectivityLevel,
+  EOneKeyFailureReason,
+} from './types';
 
 import type {
   IConnectivityComparison,
-  IDiagnosticIssue,
   IDnsResult,
   IDoctorConfig,
   IHttpProbeResult,
   IMergedConfig,
   INetInfoSnapshot,
   INetworkCheckup,
+  INetworkDiagnosisConclusion,
   INetworkEnvironment,
   INetworkRequestLog,
   IPingResult,
@@ -321,7 +325,7 @@ export class NetworkDoctor {
       );
 
       defaultLogger.networkDoctor.log.info({
-        info: `🩺 ===== CHECKUP COMPLETED ===== - totalDuration: ${report.metrics.totalDurationMs}ms, assessment: ${report.summary.assessment}, issuesCount: ${report.summary.issues.length}`,
+        info: `🩺 ===== CHECKUP COMPLETED ===== - totalDuration: ${report.metrics.totalDurationMs}ms, assessment: ${report.summary.assessment}, connectivityLevel: ${report.summary.conclusion.connectivityLevel}`,
       });
 
       return report;
@@ -820,8 +824,8 @@ export class NetworkDoctor {
   // ==================== Report Generation ====================
 
   private generateReport(results: any): INetworkCheckup {
-    const issues = this.analyzeIssues(results);
-    const assessment = this.determineAssessment(issues, results);
+    // New layered diagnosis conclusion
+    const conclusion = this.analyzeDiagnosisConclusion(results);
 
     return {
       timestamp: new Date().toISOString(),
@@ -831,9 +835,9 @@ export class NetworkDoctor {
       },
       summary: {
         allCriticalChecksPassed:
-          issues.filter((i) => i.severity === 'critical').length === 0,
-        issues,
-        assessment,
+          conclusion.connectivityLevel === ENetworkConnectivityLevel.HEALTHY,
+        assessment: conclusion.assessment,
+        conclusion,
       },
       results,
       metrics: {
@@ -846,97 +850,231 @@ export class NetworkDoctor {
     };
   }
 
-  private analyzeIssues(results: any): IDiagnosticIssue[] {
-    const issues: IDiagnosticIssue[] = [];
+  /**
+   * NEW: Layered diagnosis conclusion analysis
+   * Priority: Health Check success is the ultimate truth
+   */
+  private analyzeDiagnosisConclusion(
+    results: any,
+  ): INetworkDiagnosisConclusion {
+    // ===== Step 1: OneKey Health Check is the ultimate truth =====
+    const isOneKeyHealthy = results.healthCheck.success;
 
-    // Cross-validation: real blocking
-    const isRealBlocking =
-      results.tcpTests.isSelectiveBlocking &&
-      !results.tlsTest.success &&
-      !results.healthCheck.success;
+    if (isOneKeyHealthy) {
+      const intermediateIssues = this.detectIntermediateIssues(results);
 
-    if (isRealBlocking) {
-      issues.push({
-        type: EDiagnosticIssueType.SELECTIVE_BLOCKING,
-        severity: 'critical',
-        message:
-          'Selective blocking detected - Your API is blocked but other services work',
-        details: [
-          'Your API TCP connection failed',
-          'Google and Cloudflare are accessible',
-          'TLS and HTTP requests failed',
+      const issuesSummary =
+        intermediateIssues.length > 0 ? intermediateIssues.join('; ') : 'none';
+      defaultLogger.networkDoctor.log.info({
+        info: `[Diagnosis] ✅ HEALTHY - Health check succeeded, intermediateIssues: ${issuesSummary}`,
+      });
+
+      return {
+        connectivityLevel: ENetworkConnectivityLevel.HEALTHY,
+        oneKeyFailureReason: EOneKeyFailureReason.NONE,
+        failureLayer: null,
+        summary: 'Network is healthy - OneKey service accessible',
+        suggestedActions: [],
+        assessment: 'healthy',
+        intermediateIssues:
+          intermediateIssues.length > 0 ? intermediateIssues : undefined,
+      };
+    }
+
+    // ===== Step 2: OneKey unhealthy, determine network environment =====
+    const referenceServices = {
+      google: results.tcpTests.google.success,
+      cloudflare: results.tcpTests.cloudflare.success,
+      baidu:
+        results.extraPings.find((p: any) => p.target.includes('baidu'))
+          ?.success ?? false,
+    };
+
+    const refServiceStatus = `Google: ${referenceServices.google}, CF: ${referenceServices.cloudflare}, Baidu: ${referenceServices.baidu}`;
+    defaultLogger.networkDoctor.log.info({
+      info: `[Diagnosis] Reference services - ${refServiceStatus}`,
+    });
+
+    // 2.1 Network completely down (all reference services failed)
+    if (
+      !referenceServices.google &&
+      !referenceServices.cloudflare &&
+      !referenceServices.baidu
+    ) {
+      defaultLogger.networkDoctor.log.error({
+        info: '[Diagnosis] 🚨 COMPLETELY_DOWN - All services unreachable',
+      });
+
+      return {
+        connectivityLevel: ENetworkConnectivityLevel.COMPLETELY_DOWN,
+        oneKeyFailureReason: EOneKeyFailureReason.NONE,
+        failureLayer: null,
+        summary: 'No network connectivity - All services unreachable',
+        suggestedActions: [
+          'Check WiFi/cellular connection',
+          'Restart device',
+          'Check airplane mode',
         ],
-        suggestedSolutions: [
+        assessment: 'blocked',
+      };
+    }
+
+    // 2.2 International network restricted (Baidu works, Google fails)
+    if (referenceServices.baidu && !referenceServices.google) {
+      defaultLogger.networkDoctor.log.warn({
+        info: '[Diagnosis] 🚨 INTERNATIONAL_RESTRICTED - Mainland China detected',
+      });
+
+      return {
+        connectivityLevel: ENetworkConnectivityLevel.INTERNATIONAL_RESTRICTED,
+        oneKeyFailureReason: EOneKeyFailureReason.NONE,
+        failureLayer: null,
+        summary:
+          'International network restricted - Mainland China network environment detected',
+        suggestedActions: [
+          'Enable VPN to access international services',
+          'This is typical for users in mainland China',
+        ],
+        assessment: 'blocked',
+      };
+    }
+
+    // 2.3 Other networks normal, OneKey has selective issues
+    if (referenceServices.google || referenceServices.cloudflare) {
+      // ===== Step 3: Analyze OneKey specific failure layer =====
+      const failureAnalysis = this.analyzeOneKeyFailureLayer(results);
+
+      const diagnosisType = failureAnalysis.isBlocking
+        ? '🚨 ONEKEY_BLOCKED'
+        : '⚠️ ONEKEY_SERVICE_ERROR';
+      const diagnosisDetail = `Layer: ${failureAnalysis.layer}, Reason: ${failureAnalysis.reason}`;
+      defaultLogger.networkDoctor.log.warn({
+        info: `[Diagnosis] ${diagnosisType} - ${diagnosisDetail}`,
+      });
+
+      return {
+        connectivityLevel: failureAnalysis.isBlocking
+          ? ENetworkConnectivityLevel.ONEKEY_BLOCKED
+          : ENetworkConnectivityLevel.ONEKEY_SERVICE_ERROR,
+        oneKeyFailureReason: failureAnalysis.reason,
+        failureLayer: failureAnalysis.layer,
+        summary: failureAnalysis.summary,
+        suggestedActions: failureAnalysis.suggestedActions,
+        assessment: failureAnalysis.isBlocking ? 'blocked' : 'degraded',
+      };
+    }
+
+    // Fallback case
+    defaultLogger.networkDoctor.log.error({
+      info: '[Diagnosis] ⚠️ ONEKEY_SERVICE_ERROR - Unknown network condition',
+    });
+
+    return {
+      connectivityLevel: ENetworkConnectivityLevel.ONEKEY_SERVICE_ERROR,
+      oneKeyFailureReason: EOneKeyFailureReason.HTTP_REQUEST_FAILED,
+      failureLayer: 'http',
+      summary: 'OneKey service error - Unknown network condition',
+      suggestedActions: ['Contact support with diagnostic report'],
+      assessment: 'degraded',
+    };
+  }
+
+  /**
+   * Analyze OneKey specific failure layer
+   * Precondition: Health Check failed && other networks normal
+   */
+  private analyzeOneKeyFailureLayer(results: any): {
+    isBlocking: boolean;
+    reason: EOneKeyFailureReason;
+    layer: 'dns' | 'tcp' | 'tls' | 'http';
+    summary: string;
+    suggestedActions: string[];
+  } {
+    // DNS layer failure
+    if (results.dns.error) {
+      return {
+        isBlocking: true,
+        reason: EOneKeyFailureReason.DNS_RESOLUTION_FAILED,
+        layer: 'dns',
+        summary: 'DNS resolution blocked for OneKey domain',
+        suggestedActions: [
+          'DNS poisoning detected',
+          'Try using encrypted DNS (DoH/DoT)',
+          'Enable VPN',
+        ],
+      };
+    }
+
+    // TCP layer failure (and not a false positive)
+    const isTcpRealFailure =
+      !results.tcpTests.yourApi.success && !results.tlsTest.success;
+    if (isTcpRealFailure) {
+      return {
+        isBlocking: true,
+        reason: EOneKeyFailureReason.TCP_HANDSHAKE_FAILED,
+        layer: 'tcp',
+        summary: 'TCP connection blocked for OneKey',
+        suggestedActions: [
+          'Selective blocking detected',
           'Use domain fronting',
           'Enable ECH (Encrypted Client Hello)',
-          'Try a different domain or subdomain',
+          'Try VPN',
         ],
-      });
-    } else if (
-      results.tcpTests.isSelectiveBlocking &&
-      results.tlsTest.success
-    ) {
-      issues.push({
-        type: EDiagnosticIssueType.TCP_FAILURE,
-        severity: 'info',
-        message: 'TCP test failed but TLS/HTTP succeeded - false positive',
-        details: [
-          'This is likely a react-native-tcp-socket bug',
-          'Your network is WORKING',
-        ],
-      });
+      };
     }
 
-    // DNS issues
-    if (results.dns.error) {
-      issues.push({
-        type: EDiagnosticIssueType.DNS_FAILURE,
-        severity: 'critical',
-        message: `DNS resolution failed: ${results.dns.error}`,
-      });
-    }
-
-    // TLS certificate issues
-    if (
-      results.tlsTest &&
-      !results.tlsTest.success &&
-      results.tlsTest.isCertificateError
-    ) {
-      issues.push({
-        type: EDiagnosticIssueType.CERTIFICATE_ERROR,
-        severity: 'warning',
-        message: 'TLS certificate error (non-critical)',
-        details: [
-          'This may indicate a test/staging environment',
-          'If TCP connection succeeded, this is NOT a blocking issue',
+    // TLS layer failure
+    if (!results.tlsTest.success && results.tlsTest.isCertificateError) {
+      return {
+        isBlocking: false,
+        reason: EOneKeyFailureReason.TLS_HANDSHAKE_FAILED,
+        layer: 'tls',
+        summary: 'TLS certificate error - Likely service configuration issue',
+        suggestedActions: [
+          'This may be a test/staging environment',
+          'Check system date/time settings',
+          'Contact support if this persists',
         ],
-      });
+      };
     }
 
-    // Ping blocked (normal)
+    // HTTP layer failure
+    return {
+      isBlocking: false,
+      reason: EOneKeyFailureReason.HTTP_REQUEST_FAILED,
+      layer: 'http',
+      summary: 'HTTP request failed - Service may be down',
+      suggestedActions: [
+        'OneKey service may be temporarily unavailable',
+        'Check status page',
+        'Try again in a few minutes',
+      ],
+    };
+  }
+
+  /**
+   * Detect intermediate issues (for debugging, e.g., TCP false positive)
+   */
+  private detectIntermediateIssues(results: any): string[] {
+    const issues: string[] = [];
+
+    // TCP false positive (TCP failed but TLS/HTTP succeeded)
+    if (!results.tcpTests.yourApi.success && results.tlsTest.success) {
+      issues.push(
+        'TCP test failed but TLS/HTTP succeeded (react-native-tcp-socket bug)',
+      );
+    }
+
+    // Ping blocked (normal behavior)
     if (!results.pingDomain.success && results.healthCheck.success) {
-      issues.push({
-        type: EDiagnosticIssueType.PING_BLOCKED,
-        severity: 'info',
-        message: 'Ping blocked but HTTPS works - this is normal',
-        details: [
-          'Many CDNs (like CloudFlare) block ICMP ping for DDoS protection',
-        ],
-      });
+      issues.push('Ping blocked but HTTPS works (normal CDN behavior)');
+    }
+
+    // DNS slow but successful
+    if (results.dns.durationMs > 3000 && !results.dns.error) {
+      issues.push(`DNS resolution slow (${results.dns.durationMs}ms)`);
     }
 
     return issues;
-  }
-
-  private determineAssessment(
-    issues: IDiagnosticIssue[],
-    results: any,
-  ): 'healthy' | 'degraded' | 'blocked' {
-    const hasCritical = issues.some((i) => i.severity === 'critical');
-    const hasWarning = issues.some((i) => i.severity === 'warning');
-
-    if (hasCritical) return 'blocked';
-    if (hasWarning) return 'degraded';
-    return 'healthy';
   }
 }

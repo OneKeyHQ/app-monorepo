@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import {
   Badge,
@@ -13,7 +13,6 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { useNetworkDoctorStateAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
 
@@ -22,21 +21,6 @@ function NetworkDoctorResult() {
   const [doctorState] = useNetworkDoctorStateAtom();
 
   const { status, progress, result, error } = doctorState;
-
-  // Auto-close on native platforms when diagnosis completes
-  useEffect(() => {
-    if (
-      platformEnv.isNative &&
-      (status === 'completed' || status === 'failed')
-    ) {
-      // Auto-close after 2 seconds on completion
-      const timer = setTimeout(() => {
-        navigation.pop();
-      }, 2000);
-
-      return () => clearTimeout(timer);
-    }
-  }, [status, navigation]);
 
   const handleContactSupport = useCallback(() => {
     // TODO: Navigate to support page or open support dialog
@@ -110,6 +94,7 @@ function NetworkDoctorResult() {
     if (!result) return null;
 
     const { summary } = result;
+    const { conclusion } = summary;
     const isHealthy = summary.allCriticalChecksPassed;
 
     return (
@@ -126,44 +111,47 @@ function NetworkDoctorResult() {
           </Heading>
 
           <SizableText size="$bodyLg" color="$textSubdued" textAlign="center">
-            {isHealthy
-              ? 'Your network connection is working normally.'
-              : 'We detected some issues with your network connection.'}
+            {conclusion.summary}
           </SizableText>
         </YStack>
 
-        {/* Issues List */}
-        {!isHealthy && summary.issues.length > 0 ? (
+        {/* Diagnosis Details */}
+        {!isHealthy && conclusion.suggestedActions.length > 0 ? (
           <YStack gap="$3" mt="$4">
-            <Heading size="$headingMd">Issues</Heading>
-            {summary.issues.map((issue, idx) => (
-              <YStack
-                key={idx}
-                p="$3"
-                bg={
-                  issue.severity === 'critical' ? '$bgCritical' : '$bgCaution'
-                }
-                borderRadius="$3"
-                gap="$2"
-              >
-                <SizableText size="$bodyMd">
-                  {issue.severity === 'critical' ? '🚨' : '⚠️'} {issue.message}
-                </SizableText>
-                {issue.suggestedSolutions &&
-                issue.suggestedSolutions.length > 0 ? (
-                  <YStack gap="$1" pl="$3">
-                    {issue.suggestedSolutions.map((solution, sIdx) => (
-                      <SizableText
-                        key={sIdx}
-                        size="$bodySm"
-                        color="$textSubdued"
-                      >
-                        {sIdx + 1}. {solution}
-                      </SizableText>
-                    ))}
-                  </YStack>
-                ) : null}
+            <Heading size="$headingMd">Suggested Actions</Heading>
+            <YStack
+              p="$3"
+              bg={
+                conclusion.assessment === 'blocked'
+                  ? '$bgCritical'
+                  : '$bgCaution'
+              }
+              borderRadius="$3"
+              gap="$2"
+            >
+              <SizableText size="$bodyMd" fontWeight="600">
+                {conclusion.connectivityLevel.replace(/_/g, ' ')}
+              </SizableText>
+              <YStack gap="$1" pl="$3" mt="$2">
+                {conclusion.suggestedActions.map((action, idx) => (
+                  <SizableText key={idx} size="$bodySm" color="$textSubdued">
+                    {idx + 1}. {action}
+                  </SizableText>
+                ))}
               </YStack>
+            </YStack>
+          </YStack>
+        ) : null}
+
+        {/* Intermediate Issues (Debug Info) */}
+        {conclusion.intermediateIssues &&
+        conclusion.intermediateIssues.length > 0 ? (
+          <YStack gap="$2" mt="$2">
+            <Heading size="$headingSm">Debug Info</Heading>
+            {conclusion.intermediateIssues.map((issue, idx) => (
+              <SizableText key={idx} size="$bodyXs" color="$textDisabled">
+                • {issue}
+              </SizableText>
             ))}
           </YStack>
         ) : null}

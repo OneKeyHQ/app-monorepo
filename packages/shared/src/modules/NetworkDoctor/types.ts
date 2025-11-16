@@ -172,27 +172,61 @@ export interface INetworkRequestLog {
 // ==================== Diagnostic Report Types ====================
 
 /**
- * Diagnostic Issue Types
+ * Network Connectivity Level (First Layer)
  */
-export enum EDiagnosticIssueType {
-  SELECTIVE_BLOCKING = 'SELECTIVE_BLOCKING',
-  DNS_FAILURE = 'DNS_FAILURE',
-  TCP_FAILURE = 'TCP_FAILURE',
-  TLS_FAILURE = 'TLS_FAILURE',
-  HTTP_FAILURE = 'HTTP_FAILURE',
-  CERTIFICATE_ERROR = 'CERTIFICATE_ERROR',
-  PING_BLOCKED = 'PING_BLOCKED',
+export enum ENetworkConnectivityLevel {
+  /** Network completely down - all services unreachable */
+  COMPLETELY_DOWN = 'COMPLETELY_DOWN',
+  /** International network restricted (typical mainland China) */
+  INTERNATIONAL_RESTRICTED = 'INTERNATIONAL_RESTRICTED',
+  /** OneKey selectively blocked */
+  ONEKEY_BLOCKED = 'ONEKEY_BLOCKED',
+  /** OneKey service error (non-blocking) */
+  ONEKEY_SERVICE_ERROR = 'ONEKEY_SERVICE_ERROR',
+  /** Network healthy */
+  HEALTHY = 'HEALTHY',
 }
 
 /**
- * Diagnostic Issue Details
+ * OneKey Failure Reason (Second Layer)
  */
-export interface IDiagnosticIssue {
-  type: EDiagnosticIssueType;
-  severity: 'critical' | 'warning' | 'info';
-  message: string;
-  details?: string[];
-  suggestedSolutions?: string[];
+export enum EOneKeyFailureReason {
+  /** DNS resolution failed */
+  DNS_RESOLUTION_FAILED = 'DNS_RESOLUTION_FAILED',
+  /** TCP handshake failed */
+  TCP_HANDSHAKE_FAILED = 'TCP_HANDSHAKE_FAILED',
+  /** TLS handshake failed */
+  TLS_HANDSHAKE_FAILED = 'TLS_HANDSHAKE_FAILED',
+  /** HTTP request failed */
+  HTTP_REQUEST_FAILED = 'HTTP_REQUEST_FAILED',
+  /** No failure */
+  NONE = 'NONE',
+}
+
+/**
+ * Network Diagnosis Conclusion (Layered approach)
+ */
+export interface INetworkDiagnosisConclusion {
+  /** First layer: Network connectivity level */
+  connectivityLevel: ENetworkConnectivityLevel;
+
+  /** Second layer: OneKey specific failure reason (only when OneKey has issues) */
+  oneKeyFailureReason: EOneKeyFailureReason;
+
+  /** Third layer: Failure layer localization */
+  failureLayer: 'dns' | 'tcp' | 'tls' | 'http' | null;
+
+  /** Human-readable diagnostic summary */
+  summary: string;
+
+  /** Suggested actions for the user */
+  suggestedActions: string[];
+
+  /** Overall assessment */
+  assessment: 'healthy' | 'degraded' | 'blocked';
+
+  /** Intermediate issues detected (for debugging, e.g., TCP false positive) */
+  intermediateIssues?: string[];
 }
 
 /**
@@ -222,14 +256,14 @@ export interface INetworkCheckup {
     allCriticalChecksPassed: boolean;
 
     /**
-     * Detected issues list
-     */
-    issues: IDiagnosticIssue[];
-
-    /**
      * Overall assessment
      */
     assessment: 'healthy' | 'degraded' | 'blocked';
+
+    /**
+     * Layered diagnostic conclusion
+     */
+    conclusion: INetworkDiagnosisConclusion;
   };
 
   /**
