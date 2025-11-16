@@ -1,12 +1,12 @@
 import { useCallback, useMemo } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
+import { isEmpty } from 'lodash';
 
 import { Skeleton, Stack, XStack, YStack } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import type { ISupportedSymbol } from '@onekeyhq/shared/types/earn';
-import { EStakingActionType } from '@onekeyhq/shared/types/staking';
 
 import { EarnAlert } from '../../../components/ProtocolDetails/EarnAlert';
 import { NoAddressWarning } from '../../../components/ProtocolDetails/NoAddressWarning';
@@ -57,6 +57,7 @@ export function ManagePositionContent({
     managePageData,
     depositDisabled,
     withdrawDisabled,
+    alerts,
     alertsStake,
     alertsWithdraw,
     refreshAccount: refreshManageAccount,
@@ -171,30 +172,32 @@ export function ManagePositionContent({
     if (hasNoAccount || hasNoAddress) {
       return null;
     }
-    if (alertsStake && alertsStake.length > 0) {
+    if (!isEmpty(alertsStake) || !isEmpty(alerts)) {
       return (
-        <YStack px="$5">
+        <YStack>
+          <EarnAlert alerts={alerts} />
           <EarnAlert alerts={alertsStake} />
         </YStack>
       );
     }
     return null;
-  }, [hasNoAccount, hasNoAddress, alertsStake]);
+  }, [hasNoAccount, hasNoAddress, alertsStake, alerts]);
 
   // Create beforeFooter content for withdraw section
   const withdrawBeforeFooter = useMemo(() => {
     if (hasNoAccount || hasNoAddress) {
       return null;
     }
-    if (alertsWithdraw && alertsWithdraw.length > 0) {
+    if (!isEmpty(alertsWithdraw) || !isEmpty(alerts)) {
       return (
-        <YStack px="$5">
+        <YStack>
+          <EarnAlert alerts={alerts} />
           <EarnAlert alerts={alertsWithdraw} />
         </YStack>
       );
     }
     return null;
-  }, [hasNoAccount, hasNoAddress, alertsWithdraw]);
+  }, [hasNoAccount, hasNoAddress, alertsWithdraw, alerts]);
 
   // Show loading skeleton
   if (isLoading && !hasNoAccount) {

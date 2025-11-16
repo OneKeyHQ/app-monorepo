@@ -187,6 +187,10 @@ export const useManagePage = ({
     [managePageData?.withdraw?.disabled],
   );
 
+  const alerts = useMemo(
+    () => managePageData?.alerts || [],
+    [managePageData?.alerts],
+  );
   const alertsStake = useMemo(
     () => managePageData?.alertsStake || [],
     [managePageData?.alertsStake],
@@ -240,6 +244,7 @@ export const useManagePage = ({
     protocolInfo,
     depositDisabled,
     withdrawDisabled,
+    alerts,
     alertsStake,
     alertsWithdraw,
     subscriptionValue,
