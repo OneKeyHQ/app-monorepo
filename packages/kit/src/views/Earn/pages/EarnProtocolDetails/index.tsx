@@ -1,29 +1,29 @@
 import { Fragment, useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
-import { useSharedValue } from 'react-native-reanimated';
 
 import {
-  Button,
   Divider,
+  IconButton,
   Image,
   Page,
   SizableText,
-  Skeleton,
   Stack,
-  Tabs,
   XStack,
   YStack,
   useMedia,
+  useShare,
 } from '@onekeyhq/components';
-import type backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { CountDownCalendarAlert } from '@onekeyhq/kit/src/components/CountDownCalendarAlert';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  EJotaiContextStoreNames,
+  useDevSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
@@ -71,7 +71,7 @@ import { ManagePositionContent } from '../../../Staking/pages/ManagePosition/com
 import { FAQSection } from '../../../Staking/pages/ProtocolDetailsV2/FAQSection';
 import { EarnPageContainer } from '../../components/EarnPageContainer';
 import { EarnProviderMirror } from '../../EarnProviderMirror';
-import { EarnNetworkUtils } from '../../earnUtils';
+import { EarnNavigation, EarnNetworkUtils } from '../../earnUtils';
 
 import { ApyChart } from './components/ApyChart';
 import { useProtocolDetailBreadcrumb } from './hooks/useProtocolDetailBreadcrumb';
@@ -111,6 +111,7 @@ function ChartSection({
   vault,
   apyDetail,
   tokenInfo,
+  onShare,
 }: {
   networkId: string;
   symbol: string;
@@ -118,6 +119,7 @@ function ChartSection({
   vault?: string;
   apyDetail: IStakeEarnDetail['apyDetail'];
   tokenInfo?: IEarnTokenInfo;
+  onShare?: () => void;
 }) {
   return (
     <ApyChart
@@ -127,6 +129,7 @@ function ChartSection({
       vault={vault}
       apyDetail={apyDetail}
       tokenInfo={tokenInfo}
+      onShare={onShare}
     />
   );
 }
@@ -329,6 +332,7 @@ const DetailsPart = ({
   symbol,
   provider,
   vault,
+  onShare,
 }: {
   detailInfo: IStakeEarnDetail | undefined;
   tokenInfo?: IEarnTokenInfo;
@@ -339,9 +343,9 @@ const DetailsPart = ({
   symbol: string;
   provider: string;
   vault?: string;
+  onShare?: () => void;
 }) => {
   const now = useMemo(() => Date.now(), []);
-  const { gtMd } = useMedia();
 
   return (
     <YStack flex={6} gap="$5" px="$5">
@@ -363,6 +367,7 @@ const DetailsPart = ({
               vault={vault}
               apyDetail={detailInfo.apyDetail}
               tokenInfo={tokenInfo}
+              onShare={onShare}
             />
             <Divider />
             <IntroSection intro={detailInfo.intro} />
@@ -437,9 +442,10 @@ const EarnProtocolDetailsPage = () => {
   const intl = useIntl();
   const appNavigation = useAppNavigation();
   const { gtMd } = useMedia();
+  const { shareText } = useShare();
+  const [devSettings] = useDevSettingsPersistAtom();
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { account, indexedAccount } = activeAccount;
-  const [stakeLoading, setStakeLoading] = useState(false);
   const [keepSkeletonVisible, setKeepSkeletonVisible] = useState(false);
 
   // Parse route params, support both normal and share link routes
@@ -567,12 +573,13 @@ const EarnProtocolDetailsPage = () => {
   const pageTitle = useMemo(
     () => (
       <XStack gap="$3" ai="center">
+        <Token size="md" source={tokenInfo?.token?.logoURI} />
         <SizableText size="$headingXl" numberOfLines={1} flexShrink={1}>
           {symbol}
         </SizableText>
       </XStack>
     ),
-    [symbol],
+    [symbol, tokenInfo?.token?.logoURI],
   );
 
   const handleNavigateToManagePosition = useCallback(
@@ -618,6 +625,36 @@ const EarnProtocolDetailsPage = () => {
       networkId,
     });
   }, [handleSwap, networkId, detailInfo?.subscriptionValue?.token?.info]);
+
+  // Generate share URL
+  const shareUrl = useMemo(() => {
+    if (!symbol || !provider || !networkId) return undefined;
+    const shareLink = EarnNavigation.generateEarnShareLink({
+      networkId,
+      symbol,
+      provider,
+      vault,
+      isDevMode: devSettings.enabled,
+    });
+    return shareLink;
+  }, [symbol, provider, networkId, vault, devSettings.enabled]);
+
+  const handleShare = useCallback(() => {
+    if (!shareUrl) return;
+    void shareText(shareUrl);
+  }, [shareUrl, shareText]);
+
+  // Header right - show share button only on mobile
+  const headerRight = useMemo(() => {
+    if (gtMd || !shareUrl) return null;
+    return (
+      <IconButton
+        icon="ShareOutline"
+        variant="tertiary"
+        onPress={handleShare}
+      />
+    );
+  }, [gtMd, shareUrl, handleShare]);
 
   const pageFooter = useMemo(() => {
     if (gtMd) {
@@ -713,6 +750,7 @@ const EarnProtocolDetailsPage = () => {
           <ManagersSection managers={detailInfo?.managers} noPadding />
         </XStack>
       }
+      customHeaderRightItems={headerRight}
       footer={pageFooter}
     >
       <XStack $gtMd={{ flexDirection: 'row' }} flexDirection="column">
@@ -727,6 +765,7 @@ const EarnProtocolDetailsPage = () => {
             symbol={symbol}
             provider={provider}
             vault={vault}
+            onShare={gtMd ? handleShare : undefined}
           />
           {!gtMd && (hasNoAccount || hasNoAddress) && !isLoading ? (
             <Stack px="$5" pt="$5">

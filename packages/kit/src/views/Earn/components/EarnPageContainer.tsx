@@ -29,6 +29,7 @@ interface IEarnPageContainerProps {
   refreshControl?: React.ReactElement<RefreshControlProps>;
   showBackButton?: boolean;
   footer?: React.ReactNode;
+  customHeaderRightItems?: React.ReactNode;
 }
 
 export function EarnPageContainer({
@@ -41,6 +42,7 @@ export function EarnPageContainer({
   showBackButton = false,
   footer,
   header,
+  customHeaderRightItems,
 }: IEarnPageContainerProps) {
   const media = useMedia();
   const navigation = useAppNavigation();
@@ -77,6 +79,7 @@ export function EarnPageContainer({
         sceneName={sceneName}
         tabRoute={tabRoute}
         customHeaderLeftItems={customHeaderLeft}
+        customHeaderRightItems={customHeaderRightItems}
       />
       <Page.Body>
         <ScrollView

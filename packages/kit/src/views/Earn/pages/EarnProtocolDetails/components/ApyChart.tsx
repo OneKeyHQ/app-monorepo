@@ -10,7 +10,6 @@ import {
   XStack,
   YStack,
   useMedia,
-  useShare,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { LightweightChart } from '@onekeyhq/kit/src/components/LightweightChart';
@@ -19,15 +18,12 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { EarnActionIcon } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnActionIcon';
 import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnText';
-import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ETabEarnRoutes } from '@onekeyhq/shared/src/routes';
 import type {
   IEarnTokenInfo,
   IStakeEarnDetail,
 } from '@onekeyhq/shared/types/staking';
-
-import { EarnNavigation } from '../../../earnUtils';
 
 import type { UTCTimestamp } from 'lightweight-charts';
 
@@ -38,6 +34,7 @@ interface IApyChartProps {
   vault?: string;
   apyDetail: IStakeEarnDetail['apyDetail'];
   tokenInfo?: IEarnTokenInfo;
+  onShare?: () => void;
 }
 
 export function ApyChart({
@@ -47,30 +44,11 @@ export function ApyChart({
   vault,
   apyDetail,
   tokenInfo,
+  onShare,
 }: IApyChartProps) {
   const intl = useIntl();
-  const { shareText } = useShare();
   const { gtMd } = useMedia();
-  const [devSettings] = useDevSettingsPersistAtom();
   const navigation = useAppNavigation();
-
-  // Generate share URL
-  const shareUrl = useMemo(() => {
-    if (!symbol || !provider || !networkId) return undefined;
-    const shareLink = EarnNavigation.generateEarnShareLink({
-      networkId,
-      symbol,
-      provider,
-      vault,
-      isDevMode: devSettings.enabled,
-    });
-    return shareLink;
-  }, [symbol, provider, networkId, vault, devSettings.enabled]);
-
-  const handleShare = useCallback(() => {
-    if (!shareUrl) return;
-    void shareText(shareUrl);
-  }, [shareUrl, shareText]);
 
   const handleMyPortfolio = useCallback(() => {
     navigation.navigate(ETabEarnRoutes.EarnHome, { tab: 'portfolio' });
@@ -242,14 +220,15 @@ export function ApyChart({
                 title={apyDetail.title.text}
                 actionIcon={apyDetail.button}
               />
-              <IconButton
-                icon="ShareOutline"
-                size="small"
-                variant="tertiary"
-                iconColor="$iconSubdued"
-                onPress={handleShare}
-                disabled={!shareUrl}
-              />
+              {onShare ? (
+                <IconButton
+                  icon="ShareOutline"
+                  size="small"
+                  variant="tertiary"
+                  iconColor="$iconSubdued"
+                  onPress={onShare}
+                />
+              ) : null}
             </XStack>
             {/* High and Low values */}
             {gtMd && chartData ? (
