@@ -26,8 +26,7 @@ function BasicNetworkAlert() {
       screen: EModalNetworkDoctorPages.NetworkDoctorResult,
     });
 
-    // Start diagnostics (singleton pattern ensures only one runs at a time)
-    await backgroundApiProxy.serviceIpTable.runNetworkDiagnostics();
+    await backgroundApiProxy.serviceNetworkDoctor.runNetworkDiagnostics();
   }, [navigation]);
 
   // Calculate action button text based on diagnostics state
