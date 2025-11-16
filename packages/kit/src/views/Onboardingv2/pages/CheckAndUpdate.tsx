@@ -72,6 +72,7 @@ function CheckAndUpdatePage({
   console.log('deviceData', deviceData);
   const themeVariant = useThemeVariant();
   const navigation = useAppNavigation();
+  const isFirmwareVerifiedRef = useRef<boolean | undefined>(undefined);
 
   const deviceLabel = useMemo(() => {
     if ((deviceData.device as KnownDevice)?.label) {
@@ -80,8 +81,12 @@ function CheckAndUpdatePage({
     return (deviceData.device as SearchDevice).name;
   }, [deviceData]);
 
-  const { verifyHardware, ensureActiveConnection, getActiveDevice } =
-    useDeviceConnect();
+  const {
+    verifyHardware,
+    ensureActiveConnection,
+    getActiveDevice,
+    ensureStopScan,
+  } = useDeviceConnect();
   const [currentDevice, setCurrentDevice] = useState<SearchDevice | undefined>(
     deviceData.device as SearchDevice | undefined,
   );
@@ -265,7 +270,7 @@ function CheckAndUpdatePage({
           ...deviceData,
           device: (deviceForFinalize ?? deviceData.device) as SearchDevice,
         },
-        isFirmwareVerified: true,
+        isFirmwareVerified: isFirmwareVerifiedRef.current,
       });
     }, 1200);
   }, [
@@ -315,6 +320,7 @@ function CheckAndUpdatePage({
     const r =
       await backgroundApiProxy.serviceFirmwareUpdate.checkAllFirmwareRelease({
         connectId: compatibleConnectId,
+        skipCancel: true,
       });
     cancelTimeout();
     if (r) {
@@ -393,6 +399,9 @@ function CheckAndUpdatePage({
   );
 
   const handleVerifyHardware = useCallback(async () => {
+    // Double-check: ensure device scanning is fully stopped before starting verification
+    await ensureStopScan();
+
     setSteps((prev) => {
       const newSteps = [...prev];
       newSteps[0] = {
@@ -443,6 +452,7 @@ function CheckAndUpdatePage({
           void checkFirmwareUpdate();
         }, 150);
       }
+      isFirmwareVerifiedRef.current = !!result.verified;
     } catch (error) {
       setSteps((prev) => {
         const newSteps = [...prev];
@@ -454,6 +464,7 @@ function CheckAndUpdatePage({
       });
     }
   }, [
+    ensureStopScan,
     verifyHardware,
     deviceData.device,
     tabValue,
@@ -979,11 +990,13 @@ function CheckAndUpdatePage({
                               id: ETranslations.global_retry,
                             })}
                           </Button>
-                          <Button onPress={handleSkipCurrentStep}>
-                            {intl.formatMessage({
-                              id: ETranslations.global_skip,
-                            })}
-                          </Button>
+                          {step.id !== ECheckAndUpdateStepId.GenuineCheck ? (
+                            <Button onPress={handleSkipCurrentStep}>
+                              {intl.formatMessage({
+                                id: ETranslations.global_skip,
+                              })}
+                            </Button>
+                          ) : null}
                         </XStack>
                       </XStack>
                     ) : null}

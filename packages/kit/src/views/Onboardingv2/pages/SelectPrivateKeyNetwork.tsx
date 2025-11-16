@@ -12,7 +12,6 @@ import {
   Alert,
   AnimatePresence,
   Button,
-  Dialog,
   Form,
   HeightTransition,
   Icon,
@@ -35,10 +34,7 @@ import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import useConfigurableChainSelector from '@onekeyhq/kit/src/views/ChainSelector/hooks/useChainSelector';
-import type {
-  IAccountDeriveTypes,
-  IValidateGeneralInputParams,
-} from '@onekeyhq/kit-bg/src/vaults/types';
+import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import {
   WALLET_TYPE_IMPORTED,
   WALLET_TYPE_WATCHING,
@@ -443,8 +439,13 @@ function SelectPrivateKeyNetworkView() {
     string | undefined
   >(undefined);
 
+  const isValidatingRef = useRef<boolean>(false);
+  const [isValidating, setIsValidating] = useState<boolean>(false);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+
   const handleSelectGroupItem = useCallback(
     (params: { uuid: string; networkId?: string } | undefined) => {
+      setIsValidating(true);
       setSelectedUUID(params?.uuid || '');
       setSelectedNetworkId(params?.networkId || undefined);
     },
@@ -458,10 +459,17 @@ function SelectPrivateKeyNetworkView() {
     );
   }, [detectedNetworks]);
 
-  const handleShowMoreNetworks = useCallback(() => {
+  const { result: availableNetworkIds } = usePromiseResult(async () => {
+    return (
+      await backgroundApiProxy.serviceNetwork.getImportedAccountEnabledNetworks()
+    ).map((network) => network.id);
+  }, []);
+
+  const handleShowMoreNetworks = useCallback(async () => {
     openChainSelector({
       title: intl.formatMessage({ id: ETranslations.global_select_network }),
       excludeAllNetworkItem: true,
+      networkIds: availableNetworkIds?.length ? availableNetworkIds : undefined,
       onSelect: (network) => {
         const item: IDetectedNetworkGroupItem = {
           uuid: network.id,
@@ -479,11 +487,7 @@ function SelectPrivateKeyNetworkView() {
         handleSelectGroupItem({ uuid: item.uuid, networkId: network.id });
       },
     });
-  }, [handleSelectGroupItem, intl, openChainSelector]);
-
-  const isValidatingRef = useRef<boolean>(false);
-  const [isValidating, setIsValidating] = useState<boolean>(false);
-  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  }, [handleSelectGroupItem, intl, openChainSelector, availableNetworkIds]);
 
   const actions = useAccountSelectorActions();
   const navigation = useAppNavigation();
@@ -615,10 +619,13 @@ function SelectPrivateKeyNetworkView() {
   >();
 
   const invalidAlertView = useMemo(() => {
+    if (isValidating) {
+      return null;
+    }
     return validateResult && !validateResult?.isValid && input ? (
       <Alert icon="ErrorOutline" title={invalidMessage} type="danger" />
     ) : null;
-  }, [input, invalidMessage, validateResult]);
+  }, [input, invalidMessage, validateResult, isValidating]);
 
   const validateFn = useCallback(async () => {
     if (accountNameDebounced) {
@@ -686,10 +693,10 @@ function SelectPrivateKeyNetworkView() {
       try {
         isValidatingRef.current = true;
         setIsValidating(true);
-        await timerUtils.wait(300);
+        await timerUtils.wait(100);
         await validateFn();
       } finally {
-        await timerUtils.wait(300);
+        await timerUtils.wait(100);
         setIsValidating(false);
         isValidatingRef.current = false;
       }
@@ -729,6 +736,9 @@ function SelectPrivateKeyNetworkView() {
   ]);
 
   const formView = useMemo(() => {
+    if (isValidating) {
+      return null;
+    }
     const shouldShowDeriveTypeSelector =
       validateResult?.deriveInfoItems &&
       validateResult?.deriveInfoItems.length > 0;
@@ -754,27 +764,20 @@ function SelectPrivateKeyNetworkView() {
               enabledItems={validateResult?.deriveInfoItems || []}
               undefinedResultIfReRun={false}
               renderTrigger={({ label, onPress }) => (
-                <Stack
+                <XStack
                   testID="wallet-derivation-path-selector-trigger"
-                  userSelect="none"
-                  flexDirection="row"
-                  px="$3.5"
+                  alignItems="center"
+                  p="$3"
                   py="$2.5"
+                  bg="$bg"
                   borderWidth={1}
                   borderColor="$borderStrong"
                   borderRadius="$3"
-                  $gtMd={{
-                    px: '$3',
-                    py: '$1.5',
-                    borderRadius: '$2',
-                  }}
                   borderCurve="continuous"
                   hoverStyle={{
                     bg: '$bgHover',
                   }}
-                  pressStyle={{
-                    bg: '$bgActive',
-                  }}
+                  userSelect="none"
                   onPress={onPress}
                 >
                   <SizableText flex={1}>{label}</SizableText>
@@ -783,7 +786,7 @@ function SelectPrivateKeyNetworkView() {
                     color="$iconSubdued"
                     mr="$-0.5"
                   />
-                </Stack>
+                </XStack>
               )}
             />
           </Form.Field>
@@ -806,7 +809,13 @@ function SelectPrivateKeyNetworkView() {
         ) : null}
       </Form>
     );
-  }, [form, intl, selectedNetworkId, validateResult?.deriveInfoItems]);
+  }, [
+    form,
+    intl,
+    selectedNetworkId,
+    validateResult?.deriveInfoItems,
+    isValidating,
+  ]);
 
   return (
     <Page>
@@ -817,11 +826,7 @@ function SelectPrivateKeyNetworkView() {
           })}
         />
         <OnboardingLayout.Body constrained={false}>
-          <OnboardingLayout.ConstrainedContent
-            $gtMd={{
-              py: '$6',
-            }}
-          >
+          <OnboardingLayout.ConstrainedContent>
             <YStack gap="$2.5">
               {detectedNetworks && detectedNetworks.length === 0 ? (
                 <YStack gap="$5">

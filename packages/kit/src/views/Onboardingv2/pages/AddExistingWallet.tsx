@@ -1,19 +1,11 @@
-import { useCallback, useMemo } from 'react';
+import { useMemo } from 'react';
 
 import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import type { IKeyOfIcons } from '@onekeyhq/components';
-import {
-  Button,
-  Dialog,
-  Icon,
-  Page,
-  SizableText,
-  Stack,
-  YStack,
-} from '@onekeyhq/components';
+import { Dialog, Icon, Page, SizableText, YStack } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -30,7 +22,6 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useUserWalletProfile } from '../../../hooks/useUserWalletProfile';
 import useLiteCard from '../../LiteCard/hooks/useLiteCard';
-import { showPrimeTransferImportProcessingDialog } from '../../Prime/pages/PagePrimeTransfer/components/PrimeTransferImportProcessingDialog';
 import { OnboardingLayout } from '../components/OnboardingLayout';
 import { useCloudBackup } from '../hooks/useCloudBackup';
 
@@ -46,34 +37,34 @@ export default function AddExistingWallet() {
   const navigation = useAppNavigation();
   const intl = useIntl();
 
-  const { checkLoading, supportCloudBackup, goToPageBackupList, startBackup } =
-    useCloudBackup();
-
-  const handleConnectHardwareWalletPress = useCallback(async () => {
-    navigation.push(EOnboardingPagesV2.PickYourDevice);
-  }, [navigation]);
+  const {
+    checkLoading,
+    supportCloudBackup,
+    goToPageBackupList,
+    startBackup,
+    cloudBackupFeatureInfo,
+  } = useCloudBackup();
 
   const { result: cloudBackupOption = null } =
     usePromiseResult<IAddExistingWalletOption | null>(async () => {
-      if (!supportCloudBackup) {
+      if (!supportCloudBackup || !cloudBackupFeatureInfo) {
         return null;
       }
       noop(navigation);
-      const info =
-        await backgroundApiProxy.serviceCloudBackupV2.getBackupProviderInfo();
 
       const option: IAddExistingWalletOption = {
-        icon: 'CloudOutline',
-        title: info.displayNameI18nKey
-          ? intl.formatMessage({
-              id: info.displayNameI18nKey as any,
-            })
-          : info.displayName,
+        icon: cloudBackupFeatureInfo?.icon as IKeyOfIcons,
+        title: cloudBackupFeatureInfo?.title,
         onPress: goToPageBackupList,
         // onPress: () => navigation.push(EOnboardingPagesV2.ICloudBackup),
       };
       return option;
-    }, [goToPageBackupList, intl, navigation, supportCloudBackup]);
+    }, [
+      cloudBackupFeatureInfo,
+      goToPageBackupList,
+      navigation,
+      supportCloudBackup,
+    ]);
   const cloudBackupOptionWithLoading =
     useMemo<IAddExistingWalletOption | null>(() => {
       if (!cloudBackupOption) {
@@ -116,49 +107,7 @@ export default function AddExistingWallet() {
           }),
           icon: 'SecretPhraseOutline' as IKeyOfIcons,
           onPress: () => {
-            const dialog = Dialog.show({
-              tone: 'warning',
-              icon: 'ErrorOutline',
-              title: intl.formatMessage({
-                id: ETranslations.onboarding_import_recovery_phrase_warning,
-              }),
-              description: intl.formatMessage({
-                id: ETranslations.onboarding_import_recovery_phrase_warning_help_text,
-              }),
-              renderContent: (
-                <Stack>
-                  <Button
-                    variant="secondary"
-                    onPress={async () => {
-                      await dialog.close();
-                      navigation.push(
-                        EOnboardingPagesV2.ImportPhraseOrPrivateKey,
-                      );
-                    }}
-                    testID="acknowledged"
-                  >
-                    {intl.formatMessage({
-                      id: ETranslations.global_ok,
-                    })}
-                  </Button>
-                  <Button
-                    variant="tertiary"
-                    m="0"
-                    mt="$2.5"
-                    onPress={async () => {
-                      await dialog.close();
-                      await handleConnectHardwareWalletPress();
-                    }}
-                    testID="hardware-wallet"
-                  >
-                    {intl.formatMessage({
-                      id: ETranslations.global_connect_hardware_wallet,
-                    })}
-                  </Button>
-                </Stack>
-              ),
-              showFooter: false,
-            });
+            navigation.push(EOnboardingPagesV2.ImportPhraseOrPrivateKey);
           },
         },
         {
@@ -208,56 +157,13 @@ export default function AddExistingWallet() {
             // navigation.push(EOnboardingPagesV2.ImportWatchedAccount);
           },
         },
-        ...(() => {
-          return [
-            ...(supportCloudBackup
-              ? [
-                  {
-                    title: '===DEBUG===BackupNow',
-                    icon: 'StorageOutline',
-                    onPress: startBackup,
-                    isLoading: checkLoading,
-                  },
-                  {
-                    title: '===DEBUG===GetCloudAccountInfo',
-                    icon: 'StorageOutline',
-                    onPress: async () => {
-                      const info =
-                        await backgroundApiProxy.serviceCloudBackupV2.getCloudAccountInfo();
-                      Dialog.debugMessage({
-                        debugMessage: info,
-                      });
-                    },
-                  },
-                  {
-                    title: '===DEBUG===LoginCloudIfNeed',
-                    icon: 'StorageOutline',
-                    onPress: async () => {
-                      await backgroundApiProxy.serviceCloudBackupV2.loginCloudIfNeed();
-                    },
-                  },
-                  {
-                    title: '===DEBUG===LogoutCloud',
-                    icon: 'StorageOutline',
-                    onPress: async () => {
-                      await backgroundApiProxy.serviceCloudBackupV2.logoutCloud();
-                    },
-                  },
-                ]
-              : []),
-          ].filter(Boolean);
-        })(),
       ].filter(Boolean),
     [
       intl,
       cloudBackupOptionWithLoading,
       navigation,
       isSoftwareWalletOnlyUser,
-      handleConnectHardwareWalletPress,
       liteCard,
-      supportCloudBackup,
-      startBackup,
-      checkLoading,
     ],
   );
 
@@ -306,7 +212,14 @@ export default function AddExistingWallet() {
                 <Icon name={icon} />
               </YStack>
               <YStack gap={2} flex={1}>
-                <SizableText size="$bodyMdMedium">{title}</SizableText>
+                <SizableText
+                  size="$bodyMdMedium"
+                  $platform-native={{
+                    size: '$bodyLgMedium',
+                  }}
+                >
+                  {title}
+                </SizableText>
                 {description ? (
                   <SizableText size="$bodySm" color="$textSubdued">
                     {Array.isArray(description)

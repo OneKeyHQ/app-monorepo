@@ -90,7 +90,7 @@ import type {
   IDeviceType,
   IVersionArray,
 } from '@onekeyfe/hd-core';
-import type { Success } from '@onekeyfe/hd-transport';
+import type { Features, Success } from '@onekeyfe/hd-transport';
 
 export type IAutoUpdateFirmwareParams = {
   connectId: string | undefined;
@@ -329,8 +329,10 @@ class ServiceFirmwareUpdate extends ServiceBase {
   @toastIfError()
   async checkAllFirmwareRelease({
     connectId,
+    skipCancel,
   }: {
     connectId: string | undefined;
+    skipCancel?: boolean;
   }): Promise<ICheckAllFirmwareReleaseResult> {
     const { getDeviceUUID } = await CoreSDKLoader();
 
@@ -353,12 +355,16 @@ class ServiceFirmwareUpdate extends ServiceBase {
       connectId: originalConnectId,
     });
     try {
-      sdk.cancel(originalConnectId);
+      if (!skipCancel) {
+        sdk.cancel(originalConnectId);
+      }
     } catch (error) {
       //
     }
 
-    await timerUtils.wait(1000);
+    if (!skipCancel) {
+      await timerUtils.wait(1000);
+    }
 
     const currentTransportType =
       await this.backgroundApi.serviceSetting.getHardwareTransportType();
@@ -368,23 +374,29 @@ class ServiceFirmwareUpdate extends ServiceBase {
     });
 
     try {
-      sdk.cancel(updatingConnectId);
+      if (!skipCancel) {
+        sdk.cancel(updatingConnectId);
+      }
     } catch (error) {
       //
     }
 
-    const { isBootloaderMode } = await this.checkDeviceIsBootloaderMode({
-      connectId: originalConnectId,
-    });
+    const { isBootloaderMode, features: initialFeatures } =
+      await this.checkDeviceIsBootloaderMode({
+        connectId: originalConnectId,
+      });
+    let features: Features = initialFeatures as Features;
 
     // use originalConnectId getFeatures() make sure sdk throw DeviceNotFound if connected device not matched with originalConnectId
-    const features =
-      await this.backgroundApi.serviceHardware.getFeaturesWithoutCache({
-        connectId: isBootloaderMode ? updatingConnectId : originalConnectId,
-        params: {
-          allowEmptyConnectId: true,
-        },
-      });
+    if (isBootloaderMode) {
+      features =
+        await this.backgroundApi.serviceHardware.getFeaturesWithoutCache({
+          connectId: isBootloaderMode ? updatingConnectId : originalConnectId,
+          params: {
+            allowEmptyConnectId: true,
+          },
+        });
+    }
 
     const releaseInfo = await this.baseCheckAllFirmwareRelease({
       connectId: originalConnectId,

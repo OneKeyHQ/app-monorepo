@@ -684,6 +684,7 @@ export function DialogLoadingView({
 
 export type IDialogLoadingProps = {
   title?: string;
+  description?: string;
   showExitButton?: boolean;
 };
 function dialogLoading(props: IDialogLoadingProps) {

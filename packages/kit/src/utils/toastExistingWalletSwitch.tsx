@@ -32,7 +32,10 @@ export function toastSuccessWhenImportAddressOrPrivateKey({
     } else {
       Toast.success({
         title: appLocale.intl.formatMessage({
-          id: ETranslations.global_success,
+          id: ETranslations.private_key_imported_feedback_title,
+        }),
+        message: appLocale.intl.formatMessage({
+          id: ETranslations.private_key_imported_feedback_desc,
         }),
       });
     }

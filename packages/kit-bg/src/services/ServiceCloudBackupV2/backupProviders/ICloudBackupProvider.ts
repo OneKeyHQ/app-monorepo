@@ -5,7 +5,10 @@ import {
   encryptStringAsync,
 } from '@onekeyhq/core/src/secret';
 import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  IncorrectPassword,
+  OneKeyLocalError,
+} from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { appleCloudKitStorage } from '@onekeyhq/shared/src/storage/AppleCloudKitStorage';
@@ -60,6 +63,7 @@ export class ICloudBackupProvider implements IOneKeyBackupProvider {
     return {
       displayName: '',
       displayNameI18nKey: ETranslations.global_icloud,
+      // id: ETranslations.backup_backup_to_icloud,
     };
   }
 
@@ -176,6 +180,13 @@ export class ICloudBackupProvider implements IOneKeyBackupProvider {
     return encryptionKey;
   }
 
+  async clearBackupPassword(): Promise<void> {
+    await appleCloudKitStorage.deleteRecord({
+      recordID: CLOUDKIT_BACKUP_PASSWORD_VERIFY_RECORD_ID,
+      recordType: CLOUDKIT_RECORD_TYPE,
+    });
+  }
+
   async setBackupPassword(params?: {
     password?: string;
   }): Promise<{ recordID: string }> {
@@ -242,7 +253,7 @@ export class ICloudBackupProvider implements IOneKeyBackupProvider {
       resultEncoding: 'utf8',
     });
     if (decryptedContent !== CLOUD_BACKUP_PASSWORD_VERIFY_TEXT) {
-      return false;
+      throw new IncorrectPassword();
     }
     return true;
   }

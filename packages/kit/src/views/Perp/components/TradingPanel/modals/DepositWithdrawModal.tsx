@@ -637,12 +637,15 @@ function DepositWithdrawContent({
         value: true,
       };
     }
-    const minFromTokenAmountFormatted = minFromTokenAmount
-      .decimalPlaces(
-        currentPerpsDepositSelectedToken?.decimals ?? 0,
-        BigNumber.ROUND_UP,
-      )
-      .toFixed();
+    const minFromTokenAmountFormatted = numberFormat(
+      minFromTokenAmount
+        .decimalPlaces(
+          currentPerpsDepositSelectedToken?.decimals ?? 0,
+          BigNumber.ROUND_UP,
+        )
+        .toFixed(),
+      { formatter: 'balance' },
+    );
     return {
       value: false,
       minFromTokenAmount: minFromTokenAmountFormatted,
@@ -720,6 +723,10 @@ function DepositWithdrawContent({
     currentPerpsDepositSelectedToken?.symbol,
   ]);
 
+  const isInsufficientBalance = useMemo(() => {
+    return amountBN.gt(availableBalanceBN) && amountBN.gt(0);
+  }, [amountBN, availableBalanceBN]);
+
   const {
     perpDepositQuote,
     perpDepositQuoteLoading,
@@ -738,6 +745,7 @@ function DepositWithdrawContent({
     selectedAccount.accountId ?? '',
     currentPerpsDepositSelectedToken,
     checkFromTokenFiatValue.value,
+    isInsufficientBalance,
   );
 
   const handleAmountChange = useCallback(
@@ -962,6 +970,7 @@ function DepositWithdrawContent({
                   toAmount: amount,
                   fromAmount: amount,
                   isArbUSDCOrder: true,
+                  skipToast: true,
                 });
                 defaultLogger.perp.deposit.perpDepositInitiate({
                   userAddress: selectedAccount.accountAddress ?? '',
@@ -1055,10 +1064,6 @@ function DepositWithdrawContent({
   const nativeInputProps = platformEnv.isNativeIOS
     ? { inputAccessoryViewID: DEPOSIT_WITHDRAW_INPUT_ACCESSORY_VIEW_ID }
     : {};
-
-  const isInsufficientBalance = useMemo(() => {
-    return amountBN.gt(availableBalanceBN) && amountBN.gt(0);
-  }, [amountBN, availableBalanceBN]);
 
   const accountTypeInfo = useMemo(() => {
     const isHwWallet = accountUtils.isHwAccount({

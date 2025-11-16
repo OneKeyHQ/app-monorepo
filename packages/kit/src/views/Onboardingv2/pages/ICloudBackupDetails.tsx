@@ -1,5 +1,6 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
+import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
@@ -19,6 +20,7 @@ import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import type { IBackupDataEncryptedPayload } from '@onekeyhq/kit-bg/src/services/ServiceCloudBackupV2/backupProviders/IOneKeyBackupProvider';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import type {
   EOnboardingPagesV2,
   IOnboardingParamListV2,
@@ -26,7 +28,10 @@ import type {
 import type { IAllWalletAvatarImageNames } from '@onekeyhq/shared/src/utils/avatarUtils';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import type { IPrimeTransferData } from '@onekeyhq/shared/types/prime/primeTransferTypes';
+import type {
+  IPrimeTransferData,
+  IPrimeTransferPublicDataWalletDetail,
+} from '@onekeyhq/shared/types/prime/primeTransferTypes';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { MultipleClickStack } from '../../../components/MultipleClickStack';
@@ -43,8 +48,10 @@ export default function ICloudBackupDetails({
   IOnboardingParamListV2,
   EOnboardingPagesV2.ICloudBackupDetails
 >) {
+  const intl = useIntl();
   const backupTime = route.params?.backupTime;
   const actionType = route.params?.actionType;
+  const hideRestoreButton = route.params?.hideRestoreButton;
   const navigation = useAppNavigation();
   const {
     doBackup,
@@ -82,9 +89,16 @@ export default function ICloudBackupDetails({
     },
   );
 
-  const walletData = useMemo(() => {
+  const walletDataFromBackup = useMemo(() => {
     return backupData?.publicData?.walletDetails ?? [];
   }, [backupData]);
+
+  const [walletDataMocked, setWalletDataMocked] = useState<
+    IPrimeTransferPublicDataWalletDetail[] | undefined
+  >(undefined);
+  const walletData = useMemo(() => {
+    return walletDataMocked ?? walletDataFromBackup;
+  }, [walletDataMocked, walletDataFromBackup]);
 
   const formattedDate = useMemo(() => {
     let dateTime: number | undefined;
@@ -101,7 +115,9 @@ export default function ICloudBackupDetails({
   }, [backupData?.publicData?.dataTime]);
 
   const handleImport = useCallback(async () => {
-    doRestoreBackup({ payload: backupData as IBackupDataEncryptedPayload });
+    await doRestoreBackup({
+      payload: backupData as IBackupDataEncryptedPayload,
+    });
   }, [backupData, doRestoreBackup]);
 
   const handleBackup = useCallback(async () => {
@@ -143,10 +159,25 @@ export default function ICloudBackupDetails({
       >
         <WalletAvatar img={item.avatar} wallet={undefined} />
         <YStack gap={2} flex={1}>
-          <SizableText size="$bodyMdMedium">{item.name}</SizableText>
-          <SizableText size="$bodySm" color="$textSubdued">
-            {item.accountsCount}{' '}
-            {item.accountsCount === 1 ? 'account' : 'accounts'}
+          <SizableText
+            size="$bodyMdMedium"
+            $platform-native={{
+              size: '$bodyLgMedium',
+            }}
+          >
+            {item.name}
+          </SizableText>
+          <SizableText
+            size="$bodySm"
+            color="$textSubdued"
+            $platform-native={{
+              size: '$bodyMd',
+            }}
+          >
+            {intl.formatMessage(
+              { id: ETranslations.global_number_accounts },
+              { number: item.accountsCount },
+            )}
           </SizableText>
         </YStack>
       </ListItem>
@@ -168,7 +199,7 @@ export default function ICloudBackupDetails({
               h="$10"
               showDevBgColor
               debugComponent={
-                <Stack>
+                <YStack gap="$2">
                   <Button
                     onPress={async () => {
                       Dialog.debugMessage({
@@ -176,15 +207,42 @@ export default function ICloudBackupDetails({
                       });
                     }}
                   >
-                    backupData
+                    showBackupData
                   </Button>
-                </Stack>
+                  <Button
+                    onPress={async () => {
+                      setWalletDataMocked([]);
+                    }}
+                  >
+                    Mock Empty Wallets
+                  </Button>
+                  <Button
+                    loading={checkLoading}
+                    disabled={isButtonDisabled}
+                    flex={1}
+                    onPress={async () => {
+                      await doBackup({
+                        data: backupData as IPrimeTransferData,
+                        backupTimes: 30,
+                      });
+                    }}
+                  >
+                    备份 30 份
+                  </Button>
+                </YStack>
               }
             />
           </YStack>
         </OnboardingLayout.Body>
         <OnboardingLayout.Footer>
-          <XStack gap="$3" w="100%" py="$3">
+          <XStack
+            gap="$3"
+            w="100%"
+            $gtMd={{
+              maxWidth: 400,
+            }}
+            py="$3"
+          >
             {actionType === 'backup' ? (
               <>
                 <Button
@@ -195,38 +253,42 @@ export default function ICloudBackupDetails({
                   size="large"
                   onPress={handleBackup}
                 >
-                  Backup Now
+                  {intl.formatMessage({ id: ETranslations.backup_backup_now })}
                 </Button>
-                {/* TODO: franco 提供备份列表页面，用于备份失败时（例如云盘空间不足），用户可以手动删除备份释放空间 */}
                 <Button
-                  isLoading={checkLoading}
+                  loading={checkLoading}
                   size="large"
                   onPress={async () => {
-                    await goToPageBackupList();
+                    await goToPageBackupList({
+                      hideRestoreButton: true,
+                    });
                   }}
                   childrenAsText={false}
                 >
-                  <Icon name="MenuOutline" />
+                  <Icon name="SettingsOutline" />
                 </Button>
               </>
             ) : null}
 
             {actionType === 'restore' ? (
               <>
+                {!hideRestoreButton ? (
+                  <Button
+                    loading={checkLoading}
+                    disabled={isButtonDisabled}
+                    flex={1}
+                    variant="primary"
+                    size="large"
+                    onPress={handleImport}
+                  >
+                    {intl.formatMessage({ id: ETranslations.global_import })}
+                  </Button>
+                ) : null}
                 <Button
-                  isLoading={checkLoading}
-                  disabled={isButtonDisabled}
-                  flex={1}
-                  variant="primary"
-                  size="large"
-                  onPress={handleImport}
-                >
-                  Import
-                </Button>
-                <Button
-                  isLoading={checkLoading}
+                  loading={checkLoading}
                   disabled={!route.params?.backupId}
                   size="large"
+                  flex={hideRestoreButton ? 1 : undefined}
                   onPress={async () => {
                     doDeleteBackup({
                       recordID: route.params?.backupId ?? '',

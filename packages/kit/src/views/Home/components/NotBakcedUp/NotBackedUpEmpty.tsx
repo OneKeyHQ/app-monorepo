@@ -50,21 +50,25 @@ function NotBackedUp() {
   }, [handleBackUpByCloud, handleBackUpByPhrase, supportCloudBackup]);
 
   const backupText = useMemo(() => {
-    if (
-      platformEnv.isNativeIOS ||
-      (platformEnv.isDesktop && platformEnv.isDesktopMac)
-    ) {
-      return intl.formatMessage({ id: ETranslations.backup_backup_to_icloud });
-    }
+    if (supportCloudBackup) {
+      if (
+        platformEnv.isNativeIOS ||
+        (platformEnv.isDesktop && platformEnv.isDesktopMac)
+      ) {
+        return intl.formatMessage({
+          id: ETranslations.backup_backup_to_icloud,
+        });
+      }
 
-    if (platformEnv.isNativeAndroid) {
-      return intl.formatMessage({
-        id: ETranslations.backup_backup_to_google_drive,
-      });
+      if (platformEnv.isNativeAndroid) {
+        return intl.formatMessage({
+          id: ETranslations.backup_backup_to_google_drive,
+        });
+      }
     }
 
     return intl.formatMessage({ id: ETranslations.backup_backup_now });
-  }, [intl]);
+  }, [intl, supportCloudBackup]);
 
   const renderBackupWalletActions = useCallback(() => {
     return (
