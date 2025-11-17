@@ -136,6 +136,14 @@ class ServiceFirmwareUpdate extends ServiceBase {
     return hardwareSDK;
   }
 
+  async clearOnceUpdateDevSettings() {
+    await this.backgroundApi.serviceDevSetting.updateFirmwareUpdateDevSettings({
+      forceUpdateOnceFirmware: false,
+      forceUpdateOnceBle: false,
+      forceUpdateOnceBootloader: false,
+    });
+  }
+
   @backgroundMethod()
   async rebootToBootloader(connectId: string): Promise<boolean> {
     const hardwareSDK = await this.getSDKInstance({
@@ -747,21 +755,39 @@ class ServiceFirmwareUpdate extends ServiceBase {
       await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
         'forceUpdateFirmware',
       );
+    const mockUpdateOnceFirmware =
+      await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
+        'forceUpdateOnceFirmware',
+      );
     const mockUpdateBle =
       await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
         'forceUpdateBle',
+      );
+    const mockUpdateOnceBle =
+      await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
+        'forceUpdateOnceBle',
       );
     const mockUpdateBootloader =
       await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
         'forceUpdateBootloader',
       );
-    if (firmwareType === 'firmware' && mockUpdateFirmware) {
+    const mockUpdateOnceBootloader =
+      await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
+        'forceUpdateOnceBootloader',
+      );
+    if (
+      firmwareType === 'firmware' &&
+      (mockUpdateFirmware || mockUpdateOnceFirmware)
+    ) {
       hasUpgrade = true;
     }
-    if (firmwareType === 'ble' && mockUpdateBle) {
+    if (firmwareType === 'ble' && (mockUpdateBle || mockUpdateOnceBle)) {
       hasUpgrade = true;
     }
-    if (firmwareType === 'bootloader' && mockUpdateBootloader) {
+    if (
+      firmwareType === 'bootloader' &&
+      (mockUpdateBootloader || mockUpdateOnceBootloader)
+    ) {
       hasUpgrade = true;
     }
 
@@ -1397,6 +1423,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
           await this.backgroundApi.serviceHardware.updateDeviceVersionAfterFirmwareUpdate(
             params,
           );
+          await this.clearOnceUpdateDevSettings();
           appEventBus.emit(EAppEventBusNames.FinishFirmwareUpdate, undefined);
         }
       },
@@ -1473,6 +1500,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
           await this.backgroundApi.serviceHardware.updateDeviceVersionAfterFirmwareUpdate(
             params,
           );
+          await this.clearOnceUpdateDevSettings();
           appEventBus.emit(EAppEventBusNames.FinishFirmwareUpdate, undefined);
         }
         // wait verify
