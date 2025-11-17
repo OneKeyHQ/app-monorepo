@@ -244,7 +244,9 @@ class ServiceCloudBackup extends ServiceBase {
     const localTempFilePath = this.getTempFilePath(filename);
     if (localTempFilePath) {
       const existMetaData = await this.getMetaDataFromCloud();
-      if (existMetaData?.length) {
+      if (existMetaData?.length && existMetaData?.[0]) {
+        // @ts-ignore
+        existMetaData[0].refreshTime = Date.now();
         const newMetaData = JSON.stringify(existMetaData);
         await RNFS.writeFile(localTempFilePath, newMetaData, 'utf8');
 

@@ -417,6 +417,18 @@ export default function ICloudBackup() {
                 >
                   Remove All Backups
                 </Button>
+                <Button
+                  onPress={async () => {
+                    // Dialog.debugMessage({
+                    //   debugMessage: legacyBackups,
+                    // });
+                    navigation?.pushModal(EModalRoutes.CloudBackupModal, {
+                      screen: ECloudBackupRoutes.CloudBackupHome,
+                    });
+                  }}
+                >
+                  {intl.formatMessage({ id: ETranslations.view_older_backups })}
+                </Button>
               </YStack>
             }
           />
