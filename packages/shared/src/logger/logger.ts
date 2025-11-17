@@ -14,6 +14,7 @@ import { FiatCryptoScope } from './scopes/fiatCrypto';
 import { HardwareScope } from './scopes/hardware';
 import { IpTableScope } from './scopes/ipTable';
 import { MarketScope } from './scopes/market';
+import { NetworkDoctorScope } from './scopes/networkDoctor';
 import { NotificationScope } from './scopes/notification/notification';
 import { PerpScope } from './scopes/perp';
 import { PrimeScope } from './scopes/prime';
@@ -66,6 +67,8 @@ export class DefaultLogger {
   hardware = new HardwareScope();
 
   ipTable = new IpTableScope();
+
+  networkDoctor = new NetworkDoctorScope();
 
   fiatCrypto = new FiatCryptoScope();
 

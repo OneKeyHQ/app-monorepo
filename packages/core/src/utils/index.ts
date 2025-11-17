@@ -30,7 +30,11 @@ export function checkIfValidPath(path: string) {
   return path;
 }
 
-export function getBIP44Path(account: IDBUtxoAccount, address: string) {
+export function getBIP44Path(
+  account: IDBUtxoAccount,
+  address: string,
+  checkPath?: boolean,
+) {
   let realPath = '';
   for (const [key, value] of Object.entries(account.addresses)) {
     if (value === address) {
@@ -39,6 +43,9 @@ export function getBIP44Path(account: IDBUtxoAccount, address: string) {
     }
   }
   const path = `${account.path}/${realPath}`;
+  if (!checkPath) {
+    return path;
+  }
   return checkIfValidPath(path);
 }
 

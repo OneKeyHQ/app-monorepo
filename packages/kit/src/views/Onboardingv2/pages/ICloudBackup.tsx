@@ -102,7 +102,7 @@ export default function ICloudBackup() {
       return <CloudBackupLoadingSkeleton />;
     }
 
-    if (allBackups?.items?.length === 0) {
+    if (!allBackups?.items?.length) {
       return <CloudBackupListEmptyView />;
     }
 
@@ -313,6 +313,26 @@ export default function ICloudBackup() {
                   onPress={async () =>
                     Dialog.debugMessage({
                       debugMessage:
+                        await backgroundApiProxy.serviceCloudBackupV2.androidGetManifest(),
+                    })
+                  }
+                >
+                  androidGetManifest
+                </Button>
+                <Button
+                  onPress={async () =>
+                    Dialog.debugMessage({
+                      debugMessage:
+                        await backgroundApiProxy.serviceCloudBackupV2.androidGetLegacyMetaData(),
+                    })
+                  }
+                >
+                  androidGetLegacyMetaData
+                </Button>
+                <Button
+                  onPress={async () =>
+                    Dialog.debugMessage({
+                      debugMessage:
                         await backgroundApiProxy.serviceCloudBackupV2.androidGetManifestFileObject(),
                     })
                   }
@@ -320,12 +340,20 @@ export default function ICloudBackup() {
                   androidGetManifestFileObject
                 </Button>
                 <Button
-                  onPress={async () =>
-                    Dialog.debugMessage({
-                      debugMessage:
-                        await backgroundApiProxy.serviceCloudBackupV2.androidRemoveManifestFile(),
-                    })
-                  }
+                  variant="destructive"
+                  onPress={async () => {
+                    Dialog.show({
+                      title: 'remove manifest file',
+                      description:
+                        'This will permanently delete the manifest file from the cloud.',
+                      onConfirm: async () => {
+                        Dialog.debugMessage({
+                          debugMessage:
+                            await backgroundApiProxy.serviceCloudBackupV2.androidRemoveManifestFile(),
+                        });
+                      },
+                    });
+                  }}
                 >
                   androidRemoveManifestFile
                 </Button>
@@ -408,6 +436,18 @@ export default function ICloudBackup() {
                   }}
                 >
                   Remove All Backups
+                </Button>
+                <Button
+                  onPress={async () => {
+                    // Dialog.debugMessage({
+                    //   debugMessage: legacyBackups,
+                    // });
+                    navigation?.pushModal(EModalRoutes.CloudBackupModal, {
+                      screen: ECloudBackupRoutes.CloudBackupHome,
+                    });
+                  }}
+                >
+                  {intl.formatMessage({ id: ETranslations.view_older_backups })}
                 </Button>
               </YStack>
             }

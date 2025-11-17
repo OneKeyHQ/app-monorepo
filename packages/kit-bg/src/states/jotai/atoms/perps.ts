@@ -2,7 +2,6 @@
 import BigNumber from 'bignumber.js';
 
 import type {
-  IFill,
   IHex,
   IL2BookOptions,
   IMarginTable,
@@ -488,22 +487,4 @@ export const {
 }>({
   name: EAtomNames.perpsWebSocketDataUpdateTimesAtom,
   initialValue: { wsDataReceiveTimes: 0, wsDataUpdateTimes: 0 },
-});
-
-export type IPerpsUserFillsCacheAtom = {
-  userAddress: IHex | null;
-  fills: IFill[];
-  timestamp: number;
-};
-
-export const {
-  target: perpsUserFillsCacheAtom,
-  use: usePerpsUserFillsCacheAtom,
-} = globalAtom<IPerpsUserFillsCacheAtom>({
-  name: EAtomNames.perpsUserFillsCacheAtom,
-  initialValue: {
-    userAddress: null,
-    fills: [],
-    timestamp: 0,
-  },
 });

@@ -104,14 +104,32 @@ export function FirmwareUpdateDevSettings() {
         <Switch size={ESwitchSize.small} />
       </FirmwareUpdateSectionFieldItem>
       <FirmwareUpdateSectionFieldItem
+        name="forceUpdateOnceFirmware"
+        title="Force update firmware (once)"
+      >
+        <Switch size={ESwitchSize.small} />
+      </FirmwareUpdateSectionFieldItem>
+      <FirmwareUpdateSectionFieldItem
         name="forceUpdateBle"
         title="Force update bluetooth"
       >
         <Switch size={ESwitchSize.small} />
       </FirmwareUpdateSectionFieldItem>
       <FirmwareUpdateSectionFieldItem
+        name="forceUpdateOnceBle"
+        title="Force update bluetooth (once)"
+      >
+        <Switch size={ESwitchSize.small} />
+      </FirmwareUpdateSectionFieldItem>
+      <FirmwareUpdateSectionFieldItem
         name="forceUpdateBootloader"
         title="Force update bootloader"
+      >
+        <Switch size={ESwitchSize.small} />
+      </FirmwareUpdateSectionFieldItem>
+      <FirmwareUpdateSectionFieldItem
+        name="forceUpdateOnceBootloader"
+        title="Force update bootloader (once)"
       >
         <Switch size={ESwitchSize.small} />
       </FirmwareUpdateSectionFieldItem>

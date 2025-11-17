@@ -30,6 +30,7 @@ import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import RNFS from '@onekeyhq/shared/src/modules3rdParty/react-native-fs';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { googleDriveStorage } from '@onekeyhq/shared/src/storage/GoogleDriveStorage';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import {
@@ -236,6 +237,29 @@ class ServiceCloudBackup extends ServiceBase {
       publicData: publicBackupData,
       appVersion: version ?? '',
     };
+  }
+
+  async touchLegacyMetaDataFile() {
+    if (!RNFS) return;
+    const filename = generateUUID();
+    const localTempFilePath = this.getTempFilePath(filename);
+    if (localTempFilePath) {
+      const existMetaData = await this.getMetaDataFromCloud();
+      if (existMetaData?.length && existMetaData?.[0]) {
+        // @ts-ignore
+        existMetaData[0].refreshTime = Date.now();
+        const newMetaData = JSON.stringify(existMetaData);
+        await RNFS.writeFile(localTempFilePath, newMetaData, 'utf8');
+
+        await CloudFs.uploadToCloud(
+          localTempFilePath,
+          this.getBackupPath(CLOUD_METADATA_FILE_NAME),
+        );
+        await RNFS.unlink(localTempFilePath);
+        this.metaDataCache = newMetaData;
+        await this.getDataFromCloud.delete(CLOUD_METADATA_FILE_NAME);
+      }
+    }
   }
 
   @backgroundMethod()
@@ -811,14 +835,51 @@ class ServiceCloudBackup extends ServiceBase {
     return CloudFs.logoutFromGoogleDrive(revokeAccess);
   }
 
+  getGoogleDriveMetadataFileObject() {
+    return googleDriveStorage.getFileObject({
+      fileName: this.getBackupPath(CLOUD_METADATA_FILE_NAME),
+    });
+  }
+
+  async downloadMetadataFile() {
+    const getMetaDataFromManifestV2 = async () => {
+      const manifest =
+        await this.backgroundApi.serviceCloudBackupV2.androidGetManifest();
+      if (manifest?.googleDriveLegacyMetaDataFileId) {
+        const file = await googleDriveStorage.downloadFile({
+          fileId: manifest.googleDriveLegacyMetaDataFileId,
+        });
+        return file?.content;
+      }
+    };
+
+    try {
+      const filename = CLOUD_METADATA_FILE_NAME;
+      const content = await CloudFs.downloadFromCloud(
+        platformEnv.isNativeIOS ? filename : this.getBackupPath(filename),
+      );
+      if (content) {
+        return content;
+      }
+    } catch (e) {
+      console.error('downloadMetadataFile', e);
+    }
+    return getMetaDataFromManifestV2();
+  }
+
   private metaDataCache = '';
 
   private getDataFromCloud = memoizee(
     async (filename: string) => {
       try {
-        const content = await CloudFs.downloadFromCloud(
-          platformEnv.isNativeIOS ? filename : this.getBackupPath(filename),
-        );
+        let content = '[]';
+        if (filename === CLOUD_METADATA_FILE_NAME) {
+          content = (await this.downloadMetadataFile()) ?? '[]';
+        } else {
+          content = await CloudFs.downloadFromCloud(
+            platformEnv.isNativeIOS ? filename : this.getBackupPath(filename),
+          );
+        }
         if (
           filename === CLOUD_METADATA_FILE_NAME &&
           (content?.length ?? 0) <= 0 &&
