@@ -66,6 +66,18 @@ export class GoogleDriveBackupProvider implements IOneKeyBackupProvider {
       }),
     };
     manifest.backupPasswordVerify = content;
+    if (!manifest?.googleDriveLegacyMetaDataFileId) {
+      try {
+        const fileObj =
+          await this.backgroundApi.serviceCloudBackup.getGoogleDriveMetadataFileObject();
+        manifest.googleDriveLegacyMetaDataFileId = fileObj?.id;
+      } catch (error) {
+        console.error(
+          'Failed to get GoogleDriveBackup Legacy MetaData file:',
+          error,
+        );
+      }
+    }
     await this.saveManifest(manifest);
     const fileObj = await googleDriveStorage.getFileObject({
       fileName: GOOGLE_DRIVE_BACKUP_MANIFEST_FILE_NAME,
