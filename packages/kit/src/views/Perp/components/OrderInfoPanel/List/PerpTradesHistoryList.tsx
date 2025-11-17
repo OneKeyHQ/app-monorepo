@@ -229,14 +229,14 @@ function PerpTradesHistoryList({
 
   useUpdateEffect(() => {
     if (!isLocked) {
-      void backgroundApiProxy.serviceHyperliquidSubscription.updateSubscriptionForUserFills();
+      void backgroundApiProxy.serviceHyperliquidSubscription.refreshSubscriptionForUserFills();
     }
   }, [isLocked]);
 
   return (
     <CommonTableListView
       onPullToRefresh={async () => {
-        await backgroundApiProxy.serviceHyperliquidSubscription.updateSubscriptionForUserFills();
+        await backgroundApiProxy.serviceHyperliquidSubscription.refreshSubscriptionForUserFills();
       }}
       listViewDebugRenderTrackerProps={useMemo(
         (): IDebugRenderTrackerProps => ({
