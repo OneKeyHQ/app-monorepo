@@ -747,6 +747,7 @@ function CheckAndUpdatePage({
       title: intl.formatMessage({
         id: ETranslations.setup_recovery_phrase_follow_instructions,
       }),
+      details: [],
     };
 
     // For Classic or Mini devices, swap the order of PIN and recovery phrase
