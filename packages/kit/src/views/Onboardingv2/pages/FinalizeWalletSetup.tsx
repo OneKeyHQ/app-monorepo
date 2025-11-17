@@ -329,7 +329,7 @@ function FinalizeWalletSetupPage({
                 hardwareError.message ||
                 ETranslations.global_unknown_error
             : ETranslations.global_unknown_error,
-        ),
+        ) as ETranslations,
       });
     }
   }, [
