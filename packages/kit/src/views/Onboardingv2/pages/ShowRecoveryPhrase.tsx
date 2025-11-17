@@ -118,6 +118,9 @@ export default function ShowRecoveryPhrase() {
                   </XStack>
                 </YStack>
               ))}
+              {recoveryPhrase.length % 2 === 1 ? (
+                <YStack p="$1" flex={1} flexBasis="50%" />
+              ) : null}
             </XStack>
 
             {gtMd ? (
