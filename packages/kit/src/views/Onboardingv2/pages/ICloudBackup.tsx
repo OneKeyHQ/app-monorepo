@@ -313,6 +313,26 @@ export default function ICloudBackup() {
                   onPress={async () =>
                     Dialog.debugMessage({
                       debugMessage:
+                        await backgroundApiProxy.serviceCloudBackupV2.androidGetManifest(),
+                    })
+                  }
+                >
+                  androidGetManifest
+                </Button>
+                <Button
+                  onPress={async () =>
+                    Dialog.debugMessage({
+                      debugMessage:
+                        await backgroundApiProxy.serviceCloudBackupV2.androidGetLegacyMetaData(),
+                    })
+                  }
+                >
+                  androidGetLegacyMetaData
+                </Button>
+                <Button
+                  onPress={async () =>
+                    Dialog.debugMessage({
+                      debugMessage:
                         await backgroundApiProxy.serviceCloudBackupV2.androidGetManifestFileObject(),
                     })
                   }

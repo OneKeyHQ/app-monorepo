@@ -514,6 +514,12 @@ class ServiceCloudBackupV2 extends ServiceBase {
 
   @backgroundMethod()
   @toastIfError()
+  async androidGetLegacyMetaData() {
+    return this.backgroundApi.serviceCloudBackup.downloadMetadataFile();
+  }
+
+  @backgroundMethod()
+  @toastIfError()
   async androidRemoveManifestFile() {
     const provider = this.getProvider();
     return (provider as GoogleDriveBackupProvider).removeManifestFile();
