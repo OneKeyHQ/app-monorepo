@@ -790,5 +790,15 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     Object.defineProperty(this, 'serviceIpTable', { value });
     return value;
   }
+
+  get serviceNetworkDoctor() {
+    const ServiceNetworkDoctor =
+      require('../services/ServiceNetworkDoctor') as typeof import('../services/ServiceNetworkDoctor');
+    const value = new ServiceNetworkDoctor.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceNetworkDoctor', { value });
+    return value;
+  }
 }
 export default BackgroundApi;

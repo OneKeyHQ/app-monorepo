@@ -18,6 +18,7 @@ import type { IModalFirmwareUpdateParamList } from './firmwareUpdate';
 import type { IModalKeyTagParamList } from './keyTag';
 import type { ILiteCardParamList } from './liteCard';
 import type { IManualBackupParamList } from './manualBackup';
+import type { IModalNetworkDoctorParamList } from './networkDoctor';
 import type { IModalNotificationsParamList } from './notifications';
 import type { IOnboardingParamList } from './onboarding';
 import type { IModalPerpParamList } from './perp';
@@ -76,6 +77,7 @@ export enum EModalRoutes {
   BulkCopyAddressesModal = 'BulkCopyAddressesModal',
   ApprovalManagementModal = 'ApprovalManagementModal',
   SignAndVerifyModal = 'SignAndVerifyModal',
+  NetworkDoctorModal = 'NetworkDoctorModal',
 }
 
 export type IModalParamList = {
@@ -118,4 +120,5 @@ export type IModalParamList = {
   [EModalRoutes.ApprovalManagementModal]: IModalApprovalManagementParamList;
   [EModalRoutes.SignAndVerifyModal]: IModalSignAndVerifyParamList;
   [EModalRoutes.PerpModal]: IModalPerpParamList;
+  [EModalRoutes.NetworkDoctorModal]: IModalNetworkDoctorParamList;
 };
