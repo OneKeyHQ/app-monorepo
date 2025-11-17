@@ -89,6 +89,8 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
   );
 
   const { perpDisabled, perpTabShowWeb } = usePerpTabConfig();
+  const perpWebTabHiddenIcon = perpDisabled || !perpTabShowWeb;
+  const perpNativeTabHiddenIcon = perpDisabled || !!perpTabShowWeb;
   // Custom Market tab press handler - only for non-mobile platforms
   const handleMarketTabPress = useMemo(() => {
     return () => {
@@ -171,7 +173,7 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
         children: swapRouters,
         trackId: 'global-trade',
       },
-      !perpDisabled && {
+      {
         name: ETabRoutes.WebviewPerpTrade,
         tabBarIcon: (focused?: boolean) =>
           focused ? 'TradingViewCandlesSolid' : 'TradingViewCandlesOutline',
@@ -181,9 +183,10 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
         exact: true,
         children: perpWebviewRouters,
         trackId: 'global-perp',
-        hideOnTabBar: !perpTabShowWeb,
+        hideOnTabBar: !perpTabShowWeb || perpDisabled,
+        hiddenIcon: perpWebTabHiddenIcon,
       },
-      !perpDisabled && {
+      {
         name: ETabRoutes.Perp,
         tabBarIcon: (focused?: boolean) =>
           focused ? 'TradingViewCandlesSolid' : 'TradingViewCandlesOutline',
@@ -193,7 +196,8 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
         rewrite: perpTabShowWeb ? undefined : '/perps',
         exact: true,
         // tabbarOnPress,
-        hideOnTabBar: perpTabShowWeb,
+        hideOnTabBar: Boolean(perpTabShowWeb) || perpDisabled,
+        hiddenIcon: perpNativeTabHiddenIcon,
       },
       {
         name: ETabRoutes.Earn,
@@ -271,13 +275,15 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
 
     return tabs;
   }, [
-    isWebDappMode,
-    referFriendsTabConfig,
     params,
+    isWebDappMode,
     shouldShowMarketTab,
     handleMarketTabPress,
-    perpDisabled,
     perpTabShowWeb,
+    perpDisabled,
+    perpWebTabHiddenIcon,
+    perpNativeTabHiddenIcon,
+    referFriendsTabConfig,
     isGtMdNonNative,
     toMyOneKeyModal,
     isShowMDDiscover,
