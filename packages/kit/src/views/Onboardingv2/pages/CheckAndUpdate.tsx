@@ -170,13 +170,33 @@ function CheckAndUpdatePage({
   ]);
 
   const actions = useFirmwareUpdateActions();
-  const toFirmwareUpgradePage = useCallback(() => {
+  const toFirmwareUpgradePage = useCallback(async () => {
+    // Check if USB device is available
+    const isUSBDeviceAvailable =
+      await backgroundApiProxy.serviceHardware.detectUSBDeviceAvailability();
+    if (!isUSBDeviceAvailable) {
+      Dialog.show({
+        icon: 'TypeCoutline',
+        title: intl.formatMessage({
+          id: ETranslations.upgrade_use_usb,
+        }),
+        description: intl.formatMessage({
+          id: ETranslations.upgrade_recommend_usb,
+        }),
+        onConfirmText: intl.formatMessage({
+          id: ETranslations.global_got_it,
+        }),
+        showCancelButton: false,
+      });
+      return;
+    }
+
     if (deviceData.device?.connectId) {
       actions.openChangeLogModal({
         connectId: deviceData.device?.connectId,
       });
     }
-  }, [actions, deviceData.device?.connectId]);
+  }, [actions, deviceData.device?.connectId, intl]);
 
   const createStepTimeout = useCallback(() => {
     const timeout = setTimeout(() => {
