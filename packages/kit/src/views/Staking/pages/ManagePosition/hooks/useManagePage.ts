@@ -204,43 +204,9 @@ export const useManagePage = ({
     [managePageData?.alertsWithdraw],
   );
 
-  // Fetch USDe data if symbol is USDe
-  const { result: usdeDetailInfo, isLoading: isLoadingUsdeDetail } =
-    usePromiseResult(
-      async () => {
-        if (symbol !== 'USDe' || !accountId) {
-          return undefined;
-        }
-
-        const response =
-          await backgroundApiProxy.serviceStaking.getProtocolDetailsV2({
-            accountId,
-            networkId,
-            indexedAccountId,
-            symbol,
-            provider,
-            vault,
-          });
-
-        return response;
-      },
-      [symbol, accountId, networkId, indexedAccountId, provider, vault],
-      { watchLoading: true },
-    );
-
-  const subscriptionValue = useMemo(
-    () => usdeDetailInfo?.subscriptionValue,
-    [usdeDetailInfo?.subscriptionValue],
-  );
-
-  const detailActions = useMemo(
-    () => usdeDetailInfo?.actions,
-    [usdeDetailInfo?.actions],
-  );
-
   return {
     managePageData,
-    isLoading: isLoading || isLoadingUsdeDetail,
+    isLoading,
     run,
     tokenInfo,
     earnAccount,
@@ -252,7 +218,5 @@ export const useManagePage = ({
     alertsHolding,
     alertsStake,
     alertsWithdraw,
-    subscriptionValue,
-    detailActions,
   };
 };

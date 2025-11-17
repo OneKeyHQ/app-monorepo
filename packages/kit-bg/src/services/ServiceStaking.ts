@@ -605,30 +605,34 @@ class ServiceStaking extends ServiceBase {
       vault?: string;
       kycAccountAddress?: string;
     } = { networkId, ...rest };
-    const account = await this.getEarnAccount({
-      accountId: accountId ?? '',
-      networkId,
-      indexedAccountId,
-      btcOnlyTaproot: true,
-    });
-    if (account?.accountAddress) {
-      requestParams.accountAddress = account.accountAddress;
-    }
-    if (account?.account?.pub) {
-      requestParams.publicKey = account?.account?.pub;
+
+    const isNoAccount = !accountId && !indexedAccountId;
+    if (!isNoAccount) {
+      const account = await this.getEarnAccount({
+        accountId: accountId ?? '',
+        networkId,
+        indexedAccountId,
+        btcOnlyTaproot: true,
+      });
+      if (account?.accountAddress) {
+        requestParams.accountAddress = account.accountAddress;
+      }
+      if (account?.account?.pub) {
+        requestParams.publicKey = account?.account?.pub;
+      }
+      if (
+        earnUtils.isEthenaProvider({ providerName: requestParams.provider }) &&
+        params.symbol?.toUpperCase() === 'USDE'
+      ) {
+        const ethenaKycAddress =
+          await this.backgroundApi.serviceStaking.getEthenaKycAddress();
+        if (ethenaKycAddress) {
+          requestParams.kycAccountAddress = ethenaKycAddress;
+        }
+      }
     }
     if (requestParams.provider) {
       requestParams.provider = requestParams.provider.toLowerCase();
-    }
-    if (
-      earnUtils.isEthenaProvider({ providerName: requestParams.provider }) &&
-      params.symbol?.toUpperCase() === 'USDE'
-    ) {
-      const ethenaKycAddress =
-        await this.backgroundApi.serviceStaking.getEthenaKycAddress();
-      if (ethenaKycAddress) {
-        requestParams.kycAccountAddress = ethenaKycAddress;
-      }
     }
     const resp = await client.get<{ data: IStakeProtocolDetails }>(
       isV2

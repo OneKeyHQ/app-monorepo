@@ -506,7 +506,7 @@ export const useEarnPortfolio = () => {
 
   usePromiseResult(
     fetchAndUpdateInvestments,
-    [account, allNetworkId, indexedAccount, fetchAndUpdateInvestments],
+    [account?.id, indexedAccount?.id, allNetworkId, fetchAndUpdateInvestments],
     {
       watchLoading: true,
       revalidateOnReconnect: true,

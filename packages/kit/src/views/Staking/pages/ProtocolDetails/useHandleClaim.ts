@@ -4,6 +4,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
+import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import type {
   IEarnTokenInfo,
   IProtocolInfo,
@@ -79,16 +80,19 @@ export const useHandleClaim = ({
         return;
       }
       if (
-        provider.toLowerCase() === 'everstake' &&
+        earnUtils.isEverstakeProvider({ providerName: provider }) &&
         symbol.toLowerCase() === 'apt'
       ) {
-        appNavigation.push(EModalStakingRoutes.Claim, {
-          accountId,
-          networkId,
-          protocolInfo,
-          tokenInfo,
-          onSuccess,
-          amount: stakingConfig.claimWithAmount ? claimAmount : undefined,
+        appNavigation.pushModal(EModalRoutes.StakingModal, {
+          screen: EModalStakingRoutes.Claim,
+          params: {
+            accountId,
+            networkId,
+            protocolInfo,
+            tokenInfo,
+            onSuccess,
+            amount: stakingConfig.claimWithAmount ? claimAmount : undefined,
+          },
         });
         return;
       }

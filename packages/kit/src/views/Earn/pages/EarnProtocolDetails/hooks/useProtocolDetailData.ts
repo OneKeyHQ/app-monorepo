@@ -51,9 +51,7 @@ export function useProtocolDetailData({
     async () => {
       const response =
         await backgroundApiProxy.serviceStaking.getProtocolDetailsV2({
-          accountId,
           networkId,
-          indexedAccountId,
           symbol,
           provider,
           vault,
@@ -61,7 +59,7 @@ export function useProtocolDetailData({
 
       return response;
     },
-    [accountId, networkId, indexedAccountId, symbol, provider, vault],
+    [networkId, symbol, provider, vault],
     { watchLoading: true },
   );
 
