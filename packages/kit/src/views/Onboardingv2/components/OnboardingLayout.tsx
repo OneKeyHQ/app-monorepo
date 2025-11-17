@@ -40,7 +40,7 @@ const OnboardingLayoutBack = ({ exit }: { exit?: boolean }) => {
 
 function OnboardingLayoutLanguageSelector() {
   const intl = useIntl();
-  const { options, value, onChange } = useLanguageSelector();
+  const { options, value, onChange } = useLanguageSelector(false);
   const { gtMd } = useMedia();
 
   return (
