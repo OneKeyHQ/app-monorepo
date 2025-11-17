@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { useFocusEffect, useIsFocused } from '@react-navigation/native';
+import { useIsFocused } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import {
@@ -34,6 +34,7 @@ import { MultipleClickStack } from '../../../components/MultipleClickStack';
 import { TabPageHeader } from '../../../components/TabPageHeader';
 import { WebViewWithFeatures } from '../../../components/WebView/WebViewWithFeatures';
 import { useShortcutsRouteStatus } from '../../../hooks/useListenTabFocusState';
+import { usePerpFeatureGuard } from '../../../hooks/usePerpFeatureGuard';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { SingleAccountAndNetworkSelectorTrigger } from '../../Discovery/components/HeaderRightToolBar';
 import { ExtPerp, shouldOpenExpandExtPerp } from '../../Perp/pages/ExtPerp';
@@ -316,9 +317,12 @@ function PageWebviewPerpTradeView() {
 
 const PageWebviewPerpTrade = () => {
   useDebugComponentRemountLog({ name: 'PageWebviewPerpTrade' });
-  useFocusEffect(() => {
-    void backgroundApiProxy.serviceHyperliquid.updatePerpsConfigByServer();
-  });
+  const canRenderPerp = usePerpFeatureGuard();
+
+  if (!canRenderPerp) {
+    return null;
+  }
+
   return (
     <AccountSelectorProviderMirror
       config={{
