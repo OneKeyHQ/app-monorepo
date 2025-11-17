@@ -820,74 +820,82 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   ]);
 
   return (
-    <ScrollView
-      keyboardShouldPersistTaps="handled"
-      keyboardDismissMode="on-drag"
+    // <ScrollView
+    //   keyboardShouldPersistTaps="handled"
+    //   keyboardDismissMode="on-drag"
+    // >
+    <YStack
+      testID="swap-content-container"
+      flex={1}
+      marginHorizontal="auto"
+      width="100%"
+      maxWidth={pageType === EPageType.modal ? '100%' : 500}
     >
+      <SwapTipsContainer />
+      <SwapHeaderContainer
+        pageType={pageType}
+        defaultSwapType={swapInitParams?.swapTabSwitchType}
+      />
       <YStack
-        testID="swap-content-container"
+        pt="$2.5"
+        px="$5"
+        pb="$5"
+        gap="$5"
         flex={1}
-        marginHorizontal="auto"
-        width="100%"
-        maxWidth={pageType === EPageType.modal ? '100%' : 500}
+        $gtMd={{
+          flex: 'unset',
+          pt: pageType === EPageType.modal ? '$2.5' : '$5',
+        }}
       >
-        <YStack
-          pt="$2.5"
-          px="$5"
-          pb="$5"
-          gap="$5"
-          flex={1}
-          $gtMd={{
-            flex: 'unset',
-            pt: pageType === EPageType.modal ? '$2.5' : '$5',
-          }}
-        >
-          <SwapTipsContainer />
+        {/* <SwapTipsContainer />
           <SwapHeaderContainer
             pageType={pageType}
             defaultSwapType={swapInitParams?.swapTabSwitchType}
-          />
-          {showSwapPro && swapTypeSwitch === ESwapTabSwitchType.LIMIT ? (
-            <SwapProContainer />
-          ) : (
-            <>
-              <LimitOrderOpenItem storeName={storeName} />
-              <SwapQuoteInput
-                onSelectToken={onSelectToken}
-                selectLoading={fetchLoading}
-                onSelectPercentageStage={onSelectPercentageStage}
-              />
-              {swapTypeSwitch === ESwapTabSwitchType.LIMIT && !isWrapped ? (
-                <LimitInfoContainer />
-              ) : null}
-              <SwapActionsState
-                onPreSwap={onPreSwap}
-                onOpenRecipientAddress={onToAnotherAddressModal}
-                onSelectPercentageStage={onSelectPercentageStage}
-              />
-              <SwapQuoteResult
-                refreshAction={refreshAction}
-                onOpenProviderList={onOpenProviderList}
-                quoteResult={quoteResult}
-                onOpenRecipient={onToAnotherAddressModal}
-              />
-              {alerts.states.length > 0 &&
-              !quoteLoading &&
-              !quoteEventFetching &&
-              alerts?.quoteId === (quoteResult?.quoteId ?? '') ? (
-                <SwapAlertContainer alerts={alerts.states} />
-              ) : null}
-              <SwapRecentTokenPairsGroup
-                onSelectTokenPairs={onSelectRecentTokenPairs}
-                tokenPairs={swapRecentTokenPairs}
-                fromTokenAmount={fromTokenAmount.value}
-              />
-              <SwapPendingHistoryListComponent pageType={pageType} />
-            </>
-          )}
-        </YStack>
+          /> */}
+        {showSwapPro && swapTypeSwitch === ESwapTabSwitchType.LIMIT ? (
+          <SwapProContainer />
+        ) : (
+          <ScrollView
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+          >
+            <LimitOrderOpenItem storeName={storeName} />
+            <SwapQuoteInput
+              onSelectToken={onSelectToken}
+              selectLoading={fetchLoading}
+              onSelectPercentageStage={onSelectPercentageStage}
+            />
+            {swapTypeSwitch === ESwapTabSwitchType.LIMIT && !isWrapped ? (
+              <LimitInfoContainer />
+            ) : null}
+            <SwapActionsState
+              onPreSwap={onPreSwap}
+              onOpenRecipientAddress={onToAnotherAddressModal}
+              onSelectPercentageStage={onSelectPercentageStage}
+            />
+            <SwapQuoteResult
+              refreshAction={refreshAction}
+              onOpenProviderList={onOpenProviderList}
+              quoteResult={quoteResult}
+              onOpenRecipient={onToAnotherAddressModal}
+            />
+            {alerts.states.length > 0 &&
+            !quoteLoading &&
+            !quoteEventFetching &&
+            alerts?.quoteId === (quoteResult?.quoteId ?? '') ? (
+              <SwapAlertContainer alerts={alerts.states} />
+            ) : null}
+            <SwapRecentTokenPairsGroup
+              onSelectTokenPairs={onSelectRecentTokenPairs}
+              tokenPairs={swapRecentTokenPairs}
+              fromTokenAmount={fromTokenAmount.value}
+            />
+            <SwapPendingHistoryListComponent pageType={pageType} />
+          </ScrollView>
+        )}
       </YStack>
-    </ScrollView>
+    </YStack>
+    // </ScrollView>
   );
 };
 
