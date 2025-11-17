@@ -46,7 +46,7 @@ export default function ShowRecoveryPhrase() {
     }
     return generateMnemonic();
   }, [route.params.mnemonic]);
-  const { result: walletName } = usePromiseResult<string>(async () => {
+  const { result: displayName } = usePromiseResult<string>(async () => {
     if (!route.params.walletId) {
       return '';
     }
@@ -57,7 +57,7 @@ export default function ShowRecoveryPhrase() {
       route.params.accountName &&
       accountUtils.isOthersWallet({ walletId: wallet.id })
     ) {
-      return `${wallet.name}/${route.params.accountName}`;
+      return route.params.accountName;
     }
     return wallet.name;
   }, [route.params.accountName, route.params.walletId]);
@@ -83,7 +83,7 @@ export default function ShowRecoveryPhrase() {
   return (
     <Page>
       <OnboardingLayout>
-        <OnboardingLayout.Header title={walletName} />
+        <OnboardingLayout.Header title={displayName} />
         <OnboardingLayout.Body>
           <YStack gap="$5">
             <YStack gap="$3">
