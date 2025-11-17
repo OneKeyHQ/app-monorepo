@@ -585,6 +585,32 @@ const EarnProtocolDetailsPage = () => {
 
   const handleNavigateToManagePosition = useCallback(
     (tab?: 'deposit' | 'withdraw') => {
+      // Check if withdraw is WithdrawOrder type
+      if (tab === 'withdraw') {
+        const withdrawAction = detailInfo?.actions?.find(
+          (a) =>
+            a.type === EStakingActionType.Withdraw ||
+            a.type === EStakingActionType.WithdrawOrder,
+        );
+
+        if (withdrawAction?.type === EStakingActionType.WithdrawOrder) {
+          // Directly open WithdrawOptions modal
+          appNavigation.pushModal(EModalRoutes.StakingModal, {
+            screen: EModalStakingRoutes.WithdrawOptions,
+            params: {
+              accountId: earnAccount?.accountId || '',
+              networkId,
+              protocolInfo,
+              tokenInfo,
+              symbol,
+              provider,
+            },
+          });
+          return;
+        }
+      }
+
+      // Default: open ManagePosition
       appNavigation.pushModal(EModalRoutes.StakingModal, {
         screen: EModalStakingRoutes.ManagePosition,
         params: {
@@ -596,7 +622,17 @@ const EarnProtocolDetailsPage = () => {
         },
       });
     },
-    [appNavigation, networkId, symbol, provider, vault],
+    [
+      appNavigation,
+      networkId,
+      symbol,
+      provider,
+      vault,
+      detailInfo,
+      earnAccount,
+      protocolInfo,
+      tokenInfo,
+    ],
   );
 
   const { handleSwap } = useHandleSwap();
