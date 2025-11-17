@@ -29,7 +29,7 @@ import { PerpTips } from '../components/PerpTips';
 import { PerpTickerBar } from '../components/TickerBar/PerpTickerBar';
 import { PerpTradingPanel } from '../components/TradingPanel/PerpTradingPanel';
 
-enum ETabName {
+export enum ETabName {
   Positions = 'Positions',
   OpenOrders = 'OpenOrders',
 }

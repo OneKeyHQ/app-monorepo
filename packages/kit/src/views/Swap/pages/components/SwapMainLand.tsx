@@ -16,6 +16,7 @@ import {
   YStack,
   useInModalDialog,
   useInTabDialog,
+  useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
@@ -44,6 +45,7 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import {
   EModalSwapRoutes,
@@ -97,6 +99,7 @@ import SwapActionsState from './SwapActionsState';
 import SwapAlertContainer from './SwapAlertContainer';
 import SwapHeaderContainer from './SwapHeaderContainer';
 import SwapPendingHistoryListComponent from './SwapPendingHistoryList';
+import SwapProContainer from './SwapProContainer';
 import SwapQuoteInput from './SwapQuoteInput';
 import SwapQuoteResult from './SwapQuoteResult';
 import SwapTipsContainer from './SwapTipsContainer';
@@ -140,6 +143,8 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   const [fromAmount] = useSwapFromTokenAmountAtom();
   const [swapStepData] = useSwapStepsAtom();
   const swapSlippageRef = useRef(slippageItem);
+  const { gtMd } = useMedia();
+  const showSwapPro = useMemo(() => platformEnv.isNative && !gtMd, [gtMd]);
   if (swapSlippageRef.current !== slippageItem) {
     swapSlippageRef.current = slippageItem;
   }
@@ -842,38 +847,44 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
             pageType={pageType}
             defaultSwapType={swapInitParams?.swapTabSwitchType}
           />
-          <LimitOrderOpenItem storeName={storeName} />
-          <SwapQuoteInput
-            onSelectToken={onSelectToken}
-            selectLoading={fetchLoading}
-            onSelectPercentageStage={onSelectPercentageStage}
-          />
-          {swapTypeSwitch === ESwapTabSwitchType.LIMIT && !isWrapped ? (
-            <LimitInfoContainer />
-          ) : null}
-          <SwapActionsState
-            onPreSwap={onPreSwap}
-            onOpenRecipientAddress={onToAnotherAddressModal}
-            onSelectPercentageStage={onSelectPercentageStage}
-          />
-          <SwapQuoteResult
-            refreshAction={refreshAction}
-            onOpenProviderList={onOpenProviderList}
-            quoteResult={quoteResult}
-            onOpenRecipient={onToAnotherAddressModal}
-          />
-          {alerts.states.length > 0 &&
-          !quoteLoading &&
-          !quoteEventFetching &&
-          alerts?.quoteId === (quoteResult?.quoteId ?? '') ? (
-            <SwapAlertContainer alerts={alerts.states} />
-          ) : null}
-          <SwapRecentTokenPairsGroup
-            onSelectTokenPairs={onSelectRecentTokenPairs}
-            tokenPairs={swapRecentTokenPairs}
-            fromTokenAmount={fromTokenAmount.value}
-          />
-          <SwapPendingHistoryListComponent pageType={pageType} />
+          {showSwapPro && swapTypeSwitch === ESwapTabSwitchType.LIMIT ? (
+            <SwapProContainer />
+          ) : (
+            <>
+              <LimitOrderOpenItem storeName={storeName} />
+              <SwapQuoteInput
+                onSelectToken={onSelectToken}
+                selectLoading={fetchLoading}
+                onSelectPercentageStage={onSelectPercentageStage}
+              />
+              {swapTypeSwitch === ESwapTabSwitchType.LIMIT && !isWrapped ? (
+                <LimitInfoContainer />
+              ) : null}
+              <SwapActionsState
+                onPreSwap={onPreSwap}
+                onOpenRecipientAddress={onToAnotherAddressModal}
+                onSelectPercentageStage={onSelectPercentageStage}
+              />
+              <SwapQuoteResult
+                refreshAction={refreshAction}
+                onOpenProviderList={onOpenProviderList}
+                quoteResult={quoteResult}
+                onOpenRecipient={onToAnotherAddressModal}
+              />
+              {alerts.states.length > 0 &&
+              !quoteLoading &&
+              !quoteEventFetching &&
+              alerts?.quoteId === (quoteResult?.quoteId ?? '') ? (
+                <SwapAlertContainer alerts={alerts.states} />
+              ) : null}
+              <SwapRecentTokenPairsGroup
+                onSelectTokenPairs={onSelectRecentTokenPairs}
+                tokenPairs={swapRecentTokenPairs}
+                fromTokenAmount={fromTokenAmount.value}
+              />
+              <SwapPendingHistoryListComponent pageType={pageType} />
+            </>
+          )}
         </YStack>
       </YStack>
     </ScrollView>

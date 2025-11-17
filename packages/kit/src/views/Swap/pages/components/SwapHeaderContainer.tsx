@@ -73,11 +73,13 @@ function CustomTabItem({
 interface ISwapHeaderContainerProps {
   pageType?: EPageType;
   defaultSwapType?: ESwapTabSwitchType;
+  showSwapPro?: boolean;
 }
 
 const SwapHeaderContainer = ({
   pageType,
   defaultSwapType,
+  showSwapPro,
 }: ISwapHeaderContainerProps) => {
   const intl = useIntl();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
@@ -137,7 +139,11 @@ const SwapHeaderContainer = ({
             }
           }}
         >
-          {intl.formatMessage({ id: ETranslations.swap_page_limit })}
+          {intl.formatMessage({
+            id: showSwapPro
+              ? ETranslations.swap_page_limit
+              : ETranslations.swap_page_limit,
+          })}
         </CustomTabItem>
       </XStack>
       <SwapHeaderRightActionContainer pageType={pageType} />
