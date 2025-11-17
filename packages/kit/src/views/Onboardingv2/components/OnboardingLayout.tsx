@@ -158,7 +158,7 @@ const OnboardingLayoutBody = ({
   constrained = true,
   ...rest
 }: {
-  children: React.ReactNode;
+  children?: React.ReactNode;
   scrollable?: boolean;
   constrained?: boolean;
 } & IYStackProps) => {
@@ -341,6 +341,18 @@ function OnboardingLayoutRoot({ children }: { children: React.ReactNode }) {
     </YStack>
   );
 }
+
+export const OnboardingLayoutFallback = () => {
+  return (
+    <OnboardingLayoutRoot>
+      <OnboardingLayoutHeader
+        showBackButton={false}
+        showLanguageSelector={false}
+      />
+      <OnboardingLayoutBody />
+    </OnboardingLayoutRoot>
+  );
+};
 
 export const OnboardingLayout = Object.assign(OnboardingLayoutRoot, {
   Header: OnboardingLayoutHeader,
