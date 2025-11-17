@@ -92,9 +92,6 @@ const WrappedActionButton = ({
       disabled={loading || reward.button.disabled}
       cursor={reward.button.disabled ? 'not-allowed' : 'pointer'}
       onPress={() => {
-        const buttonData =
-          'data' in reward.button ? reward.button.data : undefined;
-
         // For airdrop assets, also pass the reward token address from asset.token.info.address
         const rewardTokenAddress =
           'token' in asset &&
@@ -105,7 +102,6 @@ const WrappedActionButton = ({
 
         handleAction({
           actionIcon: reward.button,
-          token: buttonData?.token,
           rewardTokenAddress,
           indexedAccountId: indexedAccount?.id,
           stakedSymbol,

@@ -46,10 +46,20 @@ const sortByFiatValueDesc = (
 const calculateTotalFiatValue = (
   investments: IEarnPortfolioInvestment[],
 ): BigNumber =>
-  investments.reduce(
-    (sum, inv) => sum.plus(new BigNumber(inv.totalFiatValue || '0')),
-    new BigNumber(0),
-  );
+  investments.reduce((sum, inv) => {
+    // Skip airdrop-only investments (investments with only airdropAssets and no normal assets)
+    if (inv.assets.length === 0 && inv.airdropAssets.length > 0) {
+      return sum;
+    }
+    return sum.plus(new BigNumber(inv.totalFiatValue || '0'));
+  }, new BigNumber(0));
+
+const hasListaCheckAction = (investment: IEarnPortfolioInvestment): boolean =>
+  investment.airdropAssets?.some((airdrop) =>
+    (airdrop.airdropAssets || []).some(
+      (reward) => reward.button?.type === 'listaCheck',
+    ),
+  ) ?? false;
 
 const enrichAssetWithMetadata = (
   asset: IEarnInvestmentItemV2['assets'][number],
@@ -109,6 +119,10 @@ const useInvestmentState = () => {
   const updateInvestments = useCallback((newMap: IInvestmentMap) => {
     // Filter out zero-value investments (including airdrops)
     const validInvestments = Array.from(newMap.values()).filter((inv) => {
+      // Always keep investments that surface listaCheck actions even if fiat value is 0
+      if (hasListaCheckAction(inv)) {
+        return true;
+      }
       // Only keep investments with positive fiat value
       return hasPositiveFiatValue(inv.totalFiatValue);
     });

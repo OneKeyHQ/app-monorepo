@@ -545,7 +545,10 @@ export interface IEarnClaimActionIcon {
   disabled: boolean;
   data?: {
     balance: string;
-    token: IEarnToken;
+    token: {
+      price: string;
+      info: IEarnToken;
+    };
   };
 }
 
@@ -1277,7 +1280,7 @@ export interface IEarnAirdropInvestmentItemV2 {
     airdropAssets: {
       title: IEarnText;
       tooltip: IEarnTooltip;
-      button: IEarnClaimActionIcon;
+      button: IEarnClaimActionIcon | IEarnListaCheckActionIcon;
       description: IEarnText;
     }[];
   }[];

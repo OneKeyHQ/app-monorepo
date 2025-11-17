@@ -747,18 +747,27 @@ const EarnProtocolDetailsPage = () => {
     }
 
     // Normal assets: show Deposit/Withdraw buttons
+    const depositAction = detailInfo?.actions?.find(
+      (a) => a.type === EStakingActionType.Deposit,
+    );
+    const withdrawAction = detailInfo?.actions?.find(
+      (a) =>
+        a.type === EStakingActionType.Withdraw ||
+        a.type === EStakingActionType.WithdrawOrder,
+    );
+
     return (
       <Page.Footer
         onCancelText={intl.formatMessage({ id: ETranslations.global_withdraw })}
         cancelButtonProps={{
           onPress: () => handleNavigateToManagePosition('withdraw'),
-          disabled: shouldDisableButtons,
+          disabled: shouldDisableButtons || withdrawAction?.disabled,
         }}
         onConfirmText={intl.formatMessage({ id: ETranslations.earn_deposit })}
         confirmButtonProps={{
           variant: 'primary',
           onPress: () => handleNavigateToManagePosition('deposit'),
-          disabled: shouldDisableButtons,
+          disabled: shouldDisableButtons || depositAction?.disabled,
         }}
       />
     );

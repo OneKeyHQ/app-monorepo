@@ -2,6 +2,10 @@ import { useCallback, useMemo, useState } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 import type {
@@ -59,17 +63,37 @@ export const usePortfolioAction = ({
   const signMessage = useEarnSignMessage();
 
   const handleListaCheckAction = useCallback(
-    async (token?: IEarnToken) => {
+    async ({
+      stakedSymbol: actionStakedSymbol,
+      rewardSymbol: actionRewardSymbol,
+    }: {
+      stakedSymbol?: string;
+      rewardSymbol?: string;
+    } = {}) => {
       setLoading(true);
-      await signMessage({
-        accountId: earnAccountId,
-        networkId,
-        provider,
-        symbol: token?.symbol,
-        request: { origin: 'https://lista.org/', scope: 'ethereum' },
-      }).finally(() => setLoading(false));
+      try {
+        await signMessage({
+          accountId: earnAccountId,
+          networkId,
+          provider,
+          symbol,
+          request: { origin: 'https://lista.org/', scope: 'ethereum' },
+        });
+
+        const symbolForRefresh = actionStakedSymbol || symbol;
+        if (symbolForRefresh) {
+          appEventBus.emit(EAppEventBusNames.RefreshEarnPortfolioItem, {
+            provider,
+            symbol: symbolForRefresh,
+            networkId,
+            rewardSymbol: actionRewardSymbol,
+          });
+        }
+      } finally {
+        setLoading(false);
+      }
     },
-    [signMessage, earnAccountId, networkId, provider],
+    [signMessage, earnAccountId, networkId, provider, symbol],
   );
 
   const handleClaimAction = useCallback(
@@ -235,14 +259,12 @@ export const usePortfolioAction = ({
   const handleAction = useCallback(
     ({
       actionIcon,
-      token,
       rewardTokenAddress,
       indexedAccountId: actionIndexedAccountId,
       stakedSymbol,
       rewardSymbol,
     }: {
-      actionIcon: IEarnActionIcon;
-      token?: IEarnToken;
+      actionIcon: IEarnActionIcon | IEarnClaimWithKycActionIcon;
       rewardTokenAddress?: string;
       indexedAccountId?: string;
       stakedSymbol?: string;
@@ -253,8 +275,8 @@ export const usePortfolioAction = ({
         case 'claimOrder':
         case 'claimAirdrop':
           void handleClaimAction({
-            actionIcon,
-            token,
+            actionIcon: actionIcon as IEarnClaimActionIcon,
+            token: (actionIcon as IEarnClaimActionIcon).data?.token.info,
             rewardTokenAddress,
             stakedSymbol,
             rewardSymbol,
@@ -267,7 +289,10 @@ export const usePortfolioAction = ({
           });
           break;
         case 'listaCheck':
-          void handleListaCheckAction(token);
+          void handleListaCheckAction({
+            stakedSymbol: stakedSymbol || symbol,
+            rewardSymbol,
+          });
           break;
         default:
           break;
