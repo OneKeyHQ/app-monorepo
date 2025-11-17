@@ -12,6 +12,7 @@ export interface IGoogleDriveFile {
 
 /**
  * Google user information
+ * import type { User } from '@react-native-google-signin/google-signin';
  */
 export type IGoogleUserInfo = {
   user: {

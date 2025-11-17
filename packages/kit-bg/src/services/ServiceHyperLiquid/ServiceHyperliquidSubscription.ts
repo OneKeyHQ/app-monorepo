@@ -185,7 +185,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         ...requiredSubInfo.requiredSubSpecsMap,
       };
       if (isEmpty(this.allSubSpecsMap)) {
-        debugger;
+        // debugger;
       }
       this.pendingSubSpecsMap = {
         ...requiredSubInfo.requiredSubSpecsMap,
