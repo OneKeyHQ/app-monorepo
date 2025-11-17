@@ -386,6 +386,7 @@ const DetailsPart = ({
                 />
               </YStack>
             ) : null}
+            <AlertSection alerts={detailInfo.alertsV2} />
             <PeriodSection timeline={detailInfo.timeline} />
             <PerformanceSection performance={detailInfo.performance} />
             <ProtectionSection protection={detailInfo.protection} />
