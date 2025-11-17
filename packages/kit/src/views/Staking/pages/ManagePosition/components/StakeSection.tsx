@@ -31,6 +31,7 @@ export const StakeSection = ({
   onSuccess,
   beforeFooter,
   showApyDetail,
+  isInModalContext,
 }: {
   accountId: string;
   networkId: string;
@@ -40,6 +41,7 @@ export const StakeSection = ({
   onSuccess?: () => void;
   beforeFooter?: ReactElement | null;
   showApyDetail?: boolean;
+  isInModalContext?: boolean;
 }) => {
   // Early return if no tokenInfo or protocolInfo
   // This happens when there's no account or no address
@@ -242,6 +244,7 @@ export const StakeSection = ({
           networkId,
           spenderAddress: '',
         }}
+        isInModalContext={isInModalContext}
       />
     );
   }
@@ -277,6 +280,7 @@ export const StakeSection = ({
       }}
       beforeFooter={beforeFooter}
       showApyDetail={showApyDetail}
+      isInModalContext={isInModalContext}
     />
   );
 };

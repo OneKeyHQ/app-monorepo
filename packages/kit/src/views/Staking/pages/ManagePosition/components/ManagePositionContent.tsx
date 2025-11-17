@@ -23,6 +23,7 @@ export interface IManagePositionContentProps {
   vault?: string;
   accountId: string;
   indexedAccountId?: string;
+  isInModalContext?: boolean;
 
   // Optional configurations
   defaultTab?: 'deposit' | 'withdraw';
@@ -46,9 +47,9 @@ export function ManagePositionContent({
   showApyDetail = false,
   onCreateAddress,
   onStakeWithdrawSuccess,
+  isInModalContext = false,
 }: IManagePositionContentProps) {
   const appNavigation = useAppNavigation();
-  const navigation = useNavigation();
 
   // Use managePage hook to fetch all data
   const {
@@ -112,17 +113,6 @@ export function ManagePositionContent({
     () => managePageData?.history,
     [managePageData?.history],
   );
-
-  // Determine if we're in a modal context
-  const isInModalContext = useMemo(() => {
-    try {
-      const state = navigation.getState?.();
-      const currentRoute = state?.routes?.[state.index];
-      return currentRoute?.name?.includes('Modal') ?? false;
-    } catch {
-      return false;
-    }
-  }, [navigation]);
 
   const onHistory = useMemo(() => {
     if (historyAction?.disabled || !earnAccount?.accountId) return undefined;

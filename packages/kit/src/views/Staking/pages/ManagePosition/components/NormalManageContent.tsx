@@ -201,6 +201,7 @@ export function NormalManageContent({
           onSuccess={onSuccess}
           beforeFooter={stakeBeforeFooter}
           showApyDetail={showApyDetail}
+          isInModalContext={isInModalContext}
         />
       ) : null}
       {selectedTabIndex === 1 ? (
@@ -213,6 +214,7 @@ export function NormalManageContent({
           onSuccess={onSuccess}
           beforeFooter={withdrawBeforeFooter}
           showApyDetail={showApyDetail}
+          isInModalContext={isInModalContext}
         />
       ) : null}
     </>

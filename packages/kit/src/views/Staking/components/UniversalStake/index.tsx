@@ -116,6 +116,7 @@ type IUniversalStakeProps = {
   };
   beforeFooter?: ReactElement | null;
   showApyDetail?: boolean;
+  isInModalContext?: boolean;
 };
 
 export function UniversalStake({
@@ -139,6 +140,7 @@ export function UniversalStake({
   currentAllowance,
   beforeFooter,
   showApyDetail = false,
+  isInModalContext = false,
 }: PropsWithChildren<IUniversalStakeProps>) {
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -1004,7 +1006,7 @@ export function UniversalStake({
   const footerContent = (
     <YStack bg="$bgApp" gap="$5">
       {isShowStakeProgress ? (
-        <Stack pl="$5">
+        <Stack>
           <StakeProgress
             approveType={approveType}
             currentStep={
@@ -1299,17 +1301,46 @@ export function UniversalStake({
         </YStack>
       ) : null}
       {beforeFooter}
-      {/* Desktop: Render footer content inline */}
-      {gtMd ? <YStack>{footerContent}</YStack> : null}
-      {/* Mobile: Render footer content in Page.Footer */}
-      {!gtMd ? (
+      {isInModalContext ? (
         <Page.Footer>
-          {footerContent}
+          <Stack
+            bg="$bgApp"
+            flexDirection="column"
+            $gtMd={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              jc: 'space-between',
+            }}
+          >
+            <Stack pl="$5" $md={{ pt: '$5' }}>
+              {isShowStakeProgress ? (
+                <StakeProgress
+                  approveType={approveType}
+                  currentStep={
+                    isDisable || shouldApprove
+                      ? EStakeProgressStep.approve
+                      : EStakeProgressStep.deposit
+                  }
+                />
+              ) : null}
+            </Stack>
+
+            <Page.FooterActions
+              onConfirmText={onConfirmText}
+              confirmButtonProps={{
+                onPress: shouldApprove ? onApprove : onSubmit,
+                loading: loadingAllowance || approving || checkAmountLoading,
+                disabled: isDisable,
+              }}
+            />
+          </Stack>
           <PercentageStageOnKeyboard
             onSelectPercentageStage={onSelectPercentageStage}
           />
         </Page.Footer>
-      ) : null}
+      ) : (
+        <YStack>{footerContent}</YStack>
+      )}
     </StakingFormWrapper>
   );
 }

@@ -91,6 +91,7 @@ type IUniversalWithdrawProps = {
   }) => Promise<void>;
   beforeFooter?: ReactElement | null;
   showApyDetail?: boolean;
+  isInModalContext?: boolean;
 };
 
 const isNaN = (num: string) =>
@@ -118,6 +119,7 @@ export function UniversalWithdraw({
   onConfirm,
   beforeFooter,
   showApyDetail = false,
+  isInModalContext = false,
 }: PropsWithChildren<IUniversalWithdrawProps>) {
   const navigation = useAppNavigation();
   const { gtMd } = useMedia();
@@ -677,8 +679,23 @@ export function UniversalWithdraw({
         </Accordion>
       </YStack>
       {beforeFooter}
-      {/* Desktop: Render footer content inline */}
-      {gtMd ? (
+      {isInModalContext ? (
+        <Page.Footer>
+          <Page.FooterActions
+            onConfirmText={intl.formatMessage({
+              id: ETranslations.global_withdraw,
+            })}
+            confirmButtonProps={{
+              onPress,
+              loading: loading || checkAmountLoading,
+              disabled: isDisable,
+            }}
+          />
+          <PercentageStageOnKeyboard
+            onSelectPercentageStage={onSelectPercentageStage}
+          />
+        </Page.Footer>
+      ) : (
         <YStack>
           <Page.FooterActions
             p={0}
@@ -699,25 +716,7 @@ export function UniversalWithdraw({
             }}
           />
         </YStack>
-      ) : null}
-      {/* Mobile: Render footer content in Page.Footer */}
-      {!gtMd ? (
-        <Page.Footer>
-          <Page.FooterActions
-            onConfirmText={intl.formatMessage({
-              id: ETranslations.global_withdraw,
-            })}
-            confirmButtonProps={{
-              onPress,
-              loading: loading || checkAmountLoading,
-              disabled: isDisable,
-            }}
-          />
-          <PercentageStageOnKeyboard
-            onSelectPercentageStage={onSelectPercentageStage}
-          />
-        </Page.Footer>
-      ) : null}
+      )}
     </StakingFormWrapper>
   );
 }

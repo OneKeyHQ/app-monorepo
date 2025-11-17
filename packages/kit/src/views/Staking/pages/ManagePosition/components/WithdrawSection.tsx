@@ -23,6 +23,7 @@ export const WithdrawSection = ({
   onSuccess,
   beforeFooter,
   showApyDetail,
+  isInModalContext,
 }: {
   accountId: string;
   networkId: string;
@@ -32,6 +33,7 @@ export const WithdrawSection = ({
   onSuccess?: () => void;
   beforeFooter?: ReactElement | null;
   showApyDetail?: boolean;
+  isInModalContext?: boolean;
 }) => {
   // Early return if no tokenInfo or protocolInfo
   // This happens when there's no account or no address
@@ -113,6 +115,7 @@ export const WithdrawSection = ({
         onConfirm={async () => {}}
         protocolVault=""
         isDisabled
+        isInModalContext={isInModalContext}
       />
     );
   }
@@ -139,6 +142,7 @@ export const WithdrawSection = ({
       isDisabled={isDisabled}
       beforeFooter={beforeFooter}
       showApyDetail={showApyDetail}
+      isInModalContext={isInModalContext}
     />
   );
 };

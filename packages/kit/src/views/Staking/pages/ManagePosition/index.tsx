@@ -57,6 +57,7 @@ const ManagePositionPage = () => {
       <Page.Body>
         <ManagePositionContent
           showApyDetail
+          isInModalContext
           networkId={networkId}
           symbol={symbol}
           provider={provider}
