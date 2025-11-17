@@ -387,8 +387,8 @@ const DetailsPart = ({
               </YStack>
             ) : null}
             <PeriodSection timeline={detailInfo.timeline} />
-            <ProtectionSection protection={detailInfo.protection} />
             <PerformanceSection performance={detailInfo.performance} />
+            <ProtectionSection protection={detailInfo.protection} />
             <RiskSection risk={detailInfo.risk} />
             <FAQSection faqs={detailInfo.faqs} tokenInfo={tokenInfo} />
           </YStack>
