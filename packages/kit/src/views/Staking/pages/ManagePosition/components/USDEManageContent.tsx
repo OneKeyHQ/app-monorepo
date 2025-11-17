@@ -8,6 +8,7 @@ import {
   Button,
   Divider,
   IconButton,
+  Page,
   SizableText,
   Toast,
   XStack,
@@ -44,6 +45,7 @@ interface IUSDEManageContentProps {
   alertsHolding: IEarnAlert[];
   onHistory?: () => void;
   showApyDetail?: boolean;
+  isInModalContext?: boolean;
   earnAccount?: {
     walletId: string;
     accountId: string;
@@ -62,6 +64,7 @@ export function USDEManageContent({
   alertsHolding,
   onHistory,
   showApyDetail = false,
+  isInModalContext = false,
   earnAccount,
 }: IUSDEManageContentProps) {
   const appNavigation = useAppNavigation();
@@ -296,8 +299,13 @@ export function USDEManageContent({
           </>
         ) : null}
 
-        {/* Activate Button */}
-        {activateAction ? (
+        {/* Alerts */}
+        {alertsHolding && alertsHolding.length > 0 ? (
+          <EarnAlert alerts={alertsHolding} />
+        ) : null}
+
+        {/* Activate Button - not in modal */}
+        {!isInModalContext && activateAction ? (
           <Button
             variant="primary"
             onPress={handleActivate}
@@ -311,13 +319,8 @@ export function USDEManageContent({
           </Button>
         ) : null}
 
-        {/* Alerts */}
-        {alertsHolding && alertsHolding.length > 0 ? (
-          <EarnAlert alerts={alertsHolding} />
-        ) : null}
-
-        {/* Action Buttons */}
-        {!activateAction ? (
+        {/* Action Buttons - not in modal */}
+        {!isInModalContext && !activateAction ? (
           <XStack gap="$3">
             {receiveAction ? (
               <YStack flex={1}>
@@ -343,6 +346,37 @@ export function USDEManageContent({
           </XStack>
         ) : null}
       </YStack>
+
+      {/* Footer - in modal */}
+      {isInModalContext ? (
+        <Page.Footer>
+          {activateAction ? (
+            <Page.FooterActions
+              onConfirmText={activateAction.text?.text || ''}
+              confirmButtonProps={{
+                onPress: handleActivate,
+                disabled:
+                  !earnAccount?.accountAddress ||
+                  activateAction.disabled ||
+                  isWatchingAccount,
+              }}
+            />
+          ) : (
+            <Page.FooterActions
+              onCancelText={receiveAction?.text?.text || ''}
+              onConfirmText={tradeAction?.text?.text || ''}
+              cancelButtonProps={{
+                onPress: handleReceive,
+                disabled: receiveAction?.disabled,
+              }}
+              confirmButtonProps={{
+                onPress: () => void handleTrade(),
+                disabled: tradeAction?.disabled,
+              }}
+            />
+          )}
+        </Page.Footer>
+      ) : null}
     </>
   );
 }

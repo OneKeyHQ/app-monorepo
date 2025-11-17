@@ -263,6 +263,7 @@ export function ManagePositionContent({
         onHistory={onHistory}
         earnAccount={earnAccount}
         showApyDetail={showApyDetail}
+        isInModalContext={isInModalContext}
       />
     );
   }
