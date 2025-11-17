@@ -84,7 +84,6 @@ export enum EAtomNames {
   perpTokenSortConfigPersistAtom = 'perpTokenSortConfigPersistAtom',
   perpsDepositOrderAtom = 'perpsDepositOrderAtom',
   perpsLastUsedLeverageAtom = 'perpsLastUsedLeverageAtom',
-  perpsUserFillsCacheAtom = 'perpsUserFillsCacheAtom',
   // network doctor
   networkDoctorStateAtom = 'networkDoctorStateAtom',
 }
