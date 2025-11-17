@@ -1,6 +1,5 @@
 import { useMemo } from 'react';
 
-import { rootNavigationRef } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -14,6 +13,8 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
+import { closeModalPages } from '../../../hooks/usePageNavigation';
+
 export const isOnboardingFromExtensionUrl = () => {
   // eslint-disable-next-line unicorn/prefer-global-this
   if (platformEnv.isExtension && typeof window !== 'undefined') {
@@ -22,20 +23,7 @@ export const isOnboardingFromExtensionUrl = () => {
   return false;
 };
 
-async function popToTop(navigation: ReturnType<typeof useAppNavigation>) {
-  const state = rootNavigationRef.current?.getState();
-  if (state?.routes?.length && state.routes.length > 1) {
-    navigation.pop();
-    await timerUtils.wait(350);
-    const newState = rootNavigationRef.current?.getState();
-    if (newState?.routes?.length && newState.routes.length > 1) {
-      await popToTop(navigation);
-    }
-  }
-  await timerUtils.wait(350);
-}
-
-export const useToOnBoardingPage = (newOnboarding?: boolean) => {
+export const useToOnBoardingPage = () => {
   const navigation = useAppNavigation();
 
   return useMemo(
@@ -61,45 +49,27 @@ export const useToOnBoardingPage = (newOnboarding?: boolean) => {
             ...params,
             fromExt: true,
           };
-          if (newOnboarding) {
-            await backgroundApiProxy.serviceApp.openExtensionExpandTab({
-              path: `/onboarding/get-started`,
-              params: newParams,
-            });
-          } else {
-            await backgroundApiProxy.serviceApp.openExtensionExpandTab({
-              routes: [
-                ERootRoutes.Modal,
-                EModalRoutes.OnboardingModal,
-                EOnboardingPages.GetStarted,
-              ],
-              params: newParams,
-            });
-          }
+          await backgroundApiProxy.serviceApp.openExtensionExpandTab({
+            path: `/onboarding/get-started`,
+            params: newParams,
+          });
           if (platformEnv.isExtensionUiSidePanel) {
             window.close();
           }
         } else {
-          await popToTop(navigation);
+          await closeModalPages();
           await timerUtils.wait(150);
-          navigation.navigate(
-            newOnboarding ? ERootRoutes.Onboarding : ERootRoutes.Modal,
-            {
-              screen: newOnboarding
-                ? EOnboardingV2Routes.OnboardingV2
-                : EModalRoutes.OnboardingModal,
+          navigation.navigate(ERootRoutes.Onboarding, {
+            screen: EOnboardingV2Routes.OnboardingV2,
+            params: {
+              screen: EOnboardingPagesV2.GetStarted,
               params: {
-                screen: newOnboarding
-                  ? EOnboardingPagesV2.GetStarted
-                  : EOnboardingPages.GetStarted,
-                params: {
-                  ...params,
-                },
+                ...params,
               },
             },
-          );
+          });
         }
       },
-    [navigation, newOnboarding],
+    [navigation],
   );
 };
