@@ -1,3 +1,5 @@
+import { useCallback } from 'react';
+
 import { useIntl } from 'react-intl';
 
 import type { IXStackProps, IYStackProps } from '@onekeyhq/components';
@@ -43,6 +45,15 @@ function OnboardingLayoutLanguageSelector() {
   const { options, value, onChange } = useLanguageSelector(false);
   const { gtMd } = useMedia();
 
+  const handleLanguageChange = useCallback(
+    (v: string) => {
+      setTimeout(() => {
+        void onChange(v);
+      }, 350);
+    },
+    [onChange],
+  );
+
   return (
     <YStack ml="auto">
       <Select
@@ -50,7 +61,7 @@ function OnboardingLayoutLanguageSelector() {
         title={intl.formatMessage({ id: ETranslations.global_language })}
         items={options}
         value={value}
-        onChange={onChange}
+        onChange={handleLanguageChange}
         placement="bottom-end"
         floatingPanelProps={{ maxHeight: 280 }}
         sheetProps={{ snapPoints: [80], snapPointsMode: 'percent' }}
