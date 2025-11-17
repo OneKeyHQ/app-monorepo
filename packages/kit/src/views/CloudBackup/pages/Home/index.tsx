@@ -4,12 +4,14 @@ import { useIntl } from 'react-intl';
 
 import {
   Button,
+  Dialog,
   Divider,
   Page,
   SizableText,
   Stack,
   Switch,
   Toast,
+  YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
@@ -19,6 +21,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickStack';
 import BackupDeviceList from '../../components/BackupDeviceList';
 import { useBackupToggleDialog } from '../../components/useBackupToggleDialog';
 
@@ -94,6 +97,25 @@ export default function Home() {
       />
       <Page.Body>
         <BackupDeviceList />
+        <MultipleClickStack
+          height="$10"
+          showDevBgColor
+          debugComponent={
+            <YStack gap="$2">
+              <Button
+                onPress={async () => {
+                  const metaData =
+                    await backgroundApiProxy.serviceCloudBackup.getMetaDataFromCloud();
+                  Dialog.debugMessage({
+                    debugMessage: metaData,
+                  });
+                }}
+              >
+                getMetaDataFromCloud
+              </Button>
+            </YStack>
+          }
+        />
       </Page.Body>
     </Page>
   );

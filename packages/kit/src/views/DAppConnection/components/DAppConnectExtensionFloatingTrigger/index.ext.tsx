@@ -221,6 +221,7 @@ function DAppConnectExtensionFloatingTrigger() {
       bg="$bgApp"
       borderTopWidth="$px"
       borderColor="$borderSubdued"
+      zIndex={999}
     >
       {renderSyncDappAccountToHomeProvider}
       <HeightTransition>

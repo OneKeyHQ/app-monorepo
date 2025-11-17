@@ -66,6 +66,18 @@ export class GoogleDriveBackupProvider implements IOneKeyBackupProvider {
       }),
     };
     manifest.backupPasswordVerify = content;
+    if (!manifest?.googleDriveLegacyMetaDataFileId) {
+      try {
+        const fileObj =
+          await this.backgroundApi.serviceCloudBackup.getGoogleDriveMetadataFileObject();
+        manifest.googleDriveLegacyMetaDataFileId = fileObj?.id;
+      } catch (error) {
+        console.error(
+          'Failed to get GoogleDriveBackup Legacy MetaData file:',
+          error,
+        );
+      }
+    }
     await this.saveManifest(manifest);
     const fileObj = await googleDriveStorage.getFileObject({
       fileName: GOOGLE_DRIVE_BACKUP_MANIFEST_FILE_NAME,
@@ -219,6 +231,7 @@ export class GoogleDriveBackupProvider implements IOneKeyBackupProvider {
       fileID: result.fileId,
       fileName,
     });
+    void this.backgroundApi.serviceCloudBackup.touchLegacyMetaDataFile();
     return { recordID: result.fileId, content };
   }
 
@@ -228,11 +241,19 @@ export class GoogleDriveBackupProvider implements IOneKeyBackupProvider {
       fileName: GOOGLE_DRIVE_BACKUP_MANIFEST_FILE_NAME,
     });
     if (!fileObj) {
-      const manifest: IBackupDataManifest = {
-        items: [],
-        total: 0,
-      };
-      return manifest;
+      const files = await googleDriveStorage.listFiles();
+      if (files?.files?.length >= 0) {
+        const manifestFileObj = await googleDriveStorage.getFileObject({
+          fileName: GOOGLE_DRIVE_BACKUP_MANIFEST_FILE_NAME,
+        });
+        if (!manifestFileObj) {
+          const manifest: IBackupDataManifest = {
+            items: [],
+            total: 0,
+          };
+          return manifest;
+        }
+      }
     }
     const fileId: string | undefined = fileObj?.id;
     if (!fileId) {

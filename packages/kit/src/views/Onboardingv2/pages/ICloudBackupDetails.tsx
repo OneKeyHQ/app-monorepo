@@ -131,7 +131,7 @@ export default function ICloudBackupDetails({
     if (fetchLoading) {
       return <CloudBackupLoadingSkeleton />;
     }
-    if (walletData.length === 0) {
+    if (!walletData?.length) {
       return <CloudBackupDetailsEmptyView />;
     }
     return walletData.map((item, index) => (
