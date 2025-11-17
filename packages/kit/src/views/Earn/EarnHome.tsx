@@ -78,12 +78,13 @@ function BasicEarnHome({
   const { earnBanners, refetchBanners } = useBannerInfo();
   const { faqList, isFaqLoading, refetchFAQ } = useFAQListInfo();
   const portfolioData = useEarnPortfolio();
-  const { isLoading: portfolioLoading } = portfolioData;
+  const { refresh: refreshEarnDataRaw, isLoading: portfolioLoading } =
+    portfolioData;
   const refreshEarnData = useCallback(async () => {
     await backgroundApiProxy.serviceStaking.clearAvailableAssetsCache();
     actions.current.triggerRefresh();
-    // await refreshEarnDataRaw();
-  }, [actions]);
+    await refreshEarnDataRaw();
+  }, [actions, refreshEarnDataRaw]);
 
   const navigation = useAppNavigation();
 
