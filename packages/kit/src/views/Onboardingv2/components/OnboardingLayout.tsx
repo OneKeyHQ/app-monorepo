@@ -104,12 +104,15 @@ const OnboardingLayoutHeader = ({
     px="$5"
     $gtMd={{
       px: 56,
+      borderWidth: 0,
+      borderTopWidth: 1,
+      borderBottomWidth: 1,
+      borderStyle: 'solid',
+      borderColor: '$neutral4',
+      '$platform-web': {
+        borderStyle: 'dashed',
+      },
     }}
-    borderWidth={0}
-    borderTopWidth={1}
-    borderBottomWidth={1}
-    borderStyle="dashed"
-    borderColor="$neutral4"
     alignItems="center"
     {...rest}
   >
@@ -171,13 +174,21 @@ const OnboardingLayoutBody = ({
     <YStack
       flex={1}
       minHeight={0}
-      borderWidth={0}
-      borderTopWidth={1}
-      borderBottomWidth={1}
-      borderStyle="dashed"
-      borderColor="$neutral4"
       overflow="hidden"
-      {...(!scrollable ? { px: '$5', $gtMd: { px: '$10' } } : {})}
+      $gtMd={{
+        borderWidth: 0,
+        borderTopWidth: 1,
+        borderBottomWidth: 1,
+        borderStyle: 'solid',
+        borderColor: '$neutral4',
+        '$platform-web': {
+          borderStyle: 'dashed',
+        },
+        ...(!scrollable && {
+          px: '$10',
+        }),
+      }}
+      {...(!scrollable ? { px: '$5' } : {})}
       {...rest}
     >
       {scrollable ? (
@@ -215,13 +226,16 @@ function OnboardingLayoutFooter({ children }: { children?: React.ReactNode }) {
       px="$5"
       $gtMd={{
         px: '$10',
+        borderWidth: 0,
+        borderTopWidth: 1,
+        borderBottomWidth: 1,
+        borderStyle: 'solid',
+        borderColor: '$neutral4',
+        '$platform-web': {
+          borderStyle: 'dashed',
+        },
       }}
       minHeight="$6"
-      borderWidth={0}
-      borderTopWidth={1}
-      borderBottomWidth={1}
-      borderStyle="dashed"
-      borderColor="$neutral4"
       justifyContent="center"
       alignItems="center"
     >
@@ -285,16 +299,27 @@ function OnboardingLayoutRoot({ children }: { children: React.ReactNode }) {
             boxShadow:
               '0 0 0 1px rgba(0, 0, 0, 0.04), 0 0 2px 0 rgba(0, 0, 0, 0.08), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
           },
+          '$platform-ios': {
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 1 },
+            shadowOpacity: 0.1,
+            shadowRadius: 1,
+          },
         }}
       >
         <YStack
           py="$10"
           h="100%"
-          borderWidth={0}
-          borderLeftWidth={1}
-          borderRightWidth={1}
-          borderStyle="dashed"
-          borderColor="$neutral4"
+          $gtMd={{
+            borderWidth: 0,
+            borderLeftWidth: 1,
+            borderRightWidth: 1,
+            borderStyle: 'solid',
+            borderColor: '$neutral4',
+            '$platform-web': {
+              borderStyle: 'dashed',
+            },
+          }}
           $platform-native={{
             pt: top + 10,
             pb: bottom + 10,
