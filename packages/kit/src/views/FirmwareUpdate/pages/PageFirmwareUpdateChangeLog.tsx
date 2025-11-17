@@ -63,7 +63,7 @@ function PageFirmwareUpdateChangeLog() {
         const compatibleConnectId =
           await backgroundApiProxy.serviceHardware.getCompatibleConnectId({
             connectId,
-            hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+            hardwareCallContext: EHardwareCallContext.UPDATE_FIRMWARE,
           });
         const r =
           await backgroundApiProxy.serviceFirmwareUpdate.checkAllFirmwareRelease(

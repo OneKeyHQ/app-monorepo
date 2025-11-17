@@ -154,7 +154,7 @@ function FinalizeWalletSetupPage({
   const intl = useIntl();
   const navigation = useAppNavigation();
   const [bgAppColor, borderDisabledColor, borderActiveColor] = useThemeValue([
-    '$bgApp',
+    '$bg',
     '$borderDisabled',
     '$borderActive',
   ]);
