@@ -19,6 +19,8 @@ import {
   useSelectedAccount,
 } from '../../states/jotai/contexts/accountSelector';
 import useAppNavigation from '../useAppNavigation';
+import { closeOnboardingPages } from '../usePageNavigation';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 export function useConnectExternalWallet() {
   const [jotaiLoading, setJotaiLoading] =
@@ -143,6 +145,8 @@ export function useConnectExternalWallet() {
           othersWalletAccountId: account.id,
         });
         navigation.popStack();
+        await timerUtils.wait(150);
+        await closeOnboardingPages();
         await dialogRef.current?.close();
 
         let finalConnectionInfo: IExternalConnectionInfo;
