@@ -22,6 +22,7 @@ import { KeyTagModalRouter } from '../../views/KeyTag/router';
 import { LiteCardPages } from '../../views/LiteCard/router';
 import { ManualBackupRouter } from '../../views/ManualBackup/router';
 import { ModalMarketStack } from '../../views/Market/router';
+import { NetworkDoctorModalRouter } from '../../views/NetworkDoctor/router';
 import { ModalNotificationsRouter } from '../../views/Notifications/router';
 import { OnboardingRouter } from '../../views/Onboarding/router';
 import { OnboardingRouterV2 } from '../../views/Onboardingv2/router';
@@ -214,6 +215,10 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
   {
     name: EModalRoutes.SignAndVerifyModal,
     children: ModalSignAndVerifyRouter,
+  },
+  {
+    name: EModalRoutes.NetworkDoctorModal,
+    children: NetworkDoctorModalRouter,
   },
 ];
 
