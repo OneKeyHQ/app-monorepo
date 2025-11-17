@@ -470,31 +470,6 @@ export const useEarnPortfolio = (): IUseEarnPortfolioReturn => {
       // Collect new data in this refresh batch
       const batchMap = new Map<IInvestmentKey, IEarnPortfolioInvestment>();
 
-      // RAF throttling for batch updates
-      let rafId: number | null = null;
-      let pendingUpdate = false;
-
-      const scheduleUpdate = () => {
-        if (pendingUpdate) return;
-        pendingUpdate = true;
-
-        if (rafId !== null) {
-          cancelAnimationFrame(rafId);
-        }
-
-        rafId = requestAnimationFrame(() => {
-          if (isRequestStale(requestId)) return;
-
-          const updatedMap = new Map(investmentMapRef.current);
-          batchMap.forEach((value, batchKey) => {
-            updatedMap.set(batchKey, value);
-          });
-          updateInvestments(updatedMap);
-          pendingUpdate = false;
-          rafId = null;
-        });
-      };
-
       // Create fetch promises
       const fetchPromises = pairsWithType.map(({ params, isAirdrop }) => {
         const key = createInvestmentKey(params);
@@ -502,50 +477,35 @@ export const useEarnPortfolio = (): IUseEarnPortfolioReturn => {
         return fetchInvestmentDetail(params, isAirdrop, requestId);
       });
 
-      // Process results incrementally
-      const processResult = (
-        result: Awaited<ReturnType<typeof fetchInvestmentDetail>>,
-      ) => {
-        if (!result || isRequestStale(requestId)) return;
+      // Wait for all promises to complete and collect results
+      const results = await Promise.allSettled(fetchPromises);
 
-        const { key, investment } = result;
-
-        // Merge with existing data for the same key
-        const existing = batchMap.get(key);
-        if (existing) {
-          batchMap.set(key, {
-            ...existing,
-            assets: [...existing.assets, ...investment.assets],
-            airdropAssets: [
-              ...existing.airdropAssets,
-              ...investment.airdropAssets,
-            ],
-            totalFiatValue: new BigNumber(existing.totalFiatValue || '0')
-              .plus(new BigNumber(investment.totalFiatValue || '0'))
-              .toFixed(),
-          });
-        } else {
-          batchMap.set(key, investment);
-        }
-
-        // Schedule batched update via RAF
-        scheduleUpdate();
-      };
-
-      // Process each result as it arrives
-      for (const promise of fetchPromises) {
-        void promise.then(processResult);
-      }
-
-      await Promise.allSettled(fetchPromises);
-
-      // Cancel any pending RAF before final update
-      if (rafId !== null) {
-        cancelAnimationFrame(rafId);
-        rafId = null;
-      }
-
+      // Process all results at once after all fetches complete
       if (!isRequestStale(requestId)) {
+        results.forEach((result) => {
+          if (result.status !== 'fulfilled' || !result.value) return;
+
+          const { key, investment } = result.value;
+
+          // Merge with existing data for the same key
+          const existing = batchMap.get(key);
+          if (existing) {
+            batchMap.set(key, {
+              ...existing,
+              assets: [...existing.assets, ...investment.assets],
+              airdropAssets: [
+                ...existing.airdropAssets,
+                ...investment.airdropAssets,
+              ],
+              totalFiatValue: new BigNumber(existing.totalFiatValue || '0')
+                .plus(new BigNumber(investment.totalFiatValue || '0'))
+                .toFixed(),
+            });
+          } else {
+            batchMap.set(key, investment);
+          }
+        });
+
         // After all fetches complete, apply final updates and remove stale keys
         const finalMap = new Map(investmentMapRef.current);
 
@@ -564,6 +524,7 @@ export const useEarnPortfolio = (): IUseEarnPortfolioReturn => {
           });
         }
 
+        // Single update after all data is collected
         updateInvestments(finalMap);
         // Only clear loading state for full refresh
         if (!isPartialRefresh) {
