@@ -89,8 +89,6 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
   );
 
   const { perpDisabled, perpTabShowWeb } = usePerpTabConfig();
-  const perpWebTabHiddenIcon = perpDisabled || !perpTabShowWeb;
-  const perpNativeTabHiddenIcon = perpDisabled || !!perpTabShowWeb;
   // Custom Market tab press handler - only for non-mobile platforms
   const handleMarketTabPress = useMemo(() => {
     return () => {
@@ -183,8 +181,7 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
         exact: true,
         children: perpWebviewRouters,
         trackId: 'global-perp',
-        hideOnTabBar: !perpTabShowWeb || perpDisabled,
-        hiddenIcon: perpWebTabHiddenIcon,
+        hiddenIcon: perpDisabled || !perpTabShowWeb,
       },
       {
         name: ETabRoutes.Perp,
@@ -195,9 +192,7 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
         children: perpRouters,
         rewrite: perpTabShowWeb ? undefined : '/perps',
         exact: true,
-        // tabbarOnPress,
-        hideOnTabBar: Boolean(perpTabShowWeb) || perpDisabled,
-        hiddenIcon: perpNativeTabHiddenIcon,
+        hiddenIcon: perpDisabled || perpTabShowWeb,
       },
       {
         name: ETabRoutes.Earn,
@@ -281,8 +276,6 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
     handleMarketTabPress,
     perpTabShowWeb,
     perpDisabled,
-    perpWebTabHiddenIcon,
-    perpNativeTabHiddenIcon,
     referFriendsTabConfig,
     isGtMdNonNative,
     toMyOneKeyModal,
