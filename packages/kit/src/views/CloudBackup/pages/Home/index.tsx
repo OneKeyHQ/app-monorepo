@@ -21,7 +21,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { MultipleClickStack } from '../../../../components/MultipleClickStack';
+import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickStack';
 import BackupDeviceList from '../../components/BackupDeviceList';
 import { useBackupToggleDialog } from '../../components/useBackupToggleDialog';
 
