@@ -7,9 +7,7 @@ import {
 
 import appGlobals from '../appGlobals';
 import platformEnv from '../platformEnv';
-import { createIpTableAdapter } from '../request/helpers/ipTableAdapter';
 import { headerPlatform } from '../request/InterceptorConsts';
-import { isSupportIpTablePlatform } from '../utils/ipTableUtils';
 
 import { getDeviceInfo } from './deviceInfo';
 
@@ -66,17 +64,29 @@ export class Analytics {
     }
   }
 
-  private lazyAxios() {
+  private async lazyAxios() {
     if (!this.request) {
       const baseConfig = {
         baseURL: this.baseURL,
         timeout: 30 * 1000,
       };
 
-      // Create IP Table adapter for supported platforms
-      const ipTableAdapter = isSupportIpTablePlatform()
-        ? createIpTableAdapter(baseConfig)
-        : undefined;
+      // Lazy load IP Table adapter to avoid circular dependencies in tests
+      let ipTableAdapter;
+      try {
+        const { isSupportIpTablePlatform } = await import(
+          '../utils/ipTableUtils'
+        );
+        if (isSupportIpTablePlatform()) {
+          const { createIpTableAdapter } = await import(
+            '../request/helpers/ipTableAdapter'
+          );
+          ipTableAdapter = createIpTableAdapter(baseConfig);
+        }
+      } catch (error) {
+        // Ignore errors in test environment or when modules are not available
+        console.warn('[Analytics] Failed to load IP Table adapter:', error);
+      }
 
       this.request = Axios.create({
         ...baseConfig,
@@ -143,7 +153,7 @@ export class Analytics {
     ) {
       event.currentUrl = globalThis.location.href;
     }
-    const axios = this.lazyAxios();
+    const axios = await this.lazyAxios();
     await axios.post(TRACK_EVENT_PATH, {
       eventName,
       eventProps: event,
@@ -157,7 +167,7 @@ export class Analytics {
     ) {
       return;
     }
-    const axios = this.lazyAxios();
+    const axios = await this.lazyAxios();
     await axios.post(TRACK_ATTRIBUTES_PATH, {
       distinctId: this.instanceId,
       attributes: {
