@@ -101,15 +101,19 @@ export function NormalManageContent({
 
   const focusedTab = useSharedValue(initialTabName);
 
+  const isWithdrawOrder = useMemo(() => {
+    return (
+      protocolInfo?.withdrawAction?.type === EStakingActionType.WithdrawOrder
+    );
+  }, [protocolInfo?.withdrawAction?.type]);
+
   const handleTabChange = useCallback(
     (name: string) => {
       const index = tabData.findIndex((item) => item.title === name);
       if (index !== -1) {
-        if (
-          index === 1 &&
-          protocolInfo?.withdrawAction?.type ===
-            EStakingActionType.WithdrawOrder
-        ) {
+        if (withdrawDisabled && isWithdrawOrder) return;
+
+        if (index === 1 && isWithdrawOrder) {
           const withdrawParams = {
             accountId: earnAccount?.accountId || '',
             networkId,
@@ -141,6 +145,8 @@ export function NormalManageContent({
       }
     },
     [
+      withdrawDisabled,
+      isWithdrawOrder,
       earnAccount?.accountId,
       focusedTab,
       tabData,
