@@ -221,8 +221,9 @@ export const showCloudBackupPasswordDialog = ({
         id: ETranslations.verify_backup_password_desc,
       });
   if (isRestoreAction) {
-    // TODO: franco
-    description = 'Please enter the backup password for this backup';
+    description = appLocale.intl.formatMessage({
+      id: ETranslations.import_backup_password_desc,
+    });
   }
 
   return Dialog.show({

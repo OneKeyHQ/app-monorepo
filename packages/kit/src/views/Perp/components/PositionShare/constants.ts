@@ -15,11 +15,16 @@ const BACKGROUND_FILE_NAMES = {
     'share_bg_neutral_red.png',
   ],
   profit: [
+    'perp_referral_profit.png',
     'share_bg_profit_green.png',
     'share_bg_profit_yellow.png',
     'share_bg_profit_red.png',
   ],
-  loss: ['share_bg_loss_green.png', 'share_bg_loss_red.png'],
+  loss: [
+    'perp_referral_loss.png',
+    'share_bg_loss_green.png',
+    'share_bg_loss_red.png',
+  ],
 } as const;
 
 function getBackgroundUrl(filename: string): string {
@@ -66,6 +71,9 @@ export function getPnlDisplayInfo(
   if (mode === 'pnl') {
     const pnlBn = new BigNumber(data.pnl || '0');
     const pnlAbs = pnlBn.abs();
+    if (pnlAbs.lt(0.01)) {
+      return `${pnlBn.lt(0) ? '-' : '+'}< $0.01`;
+    }
     const pnlStr = pnlAbs.toFixed();
     const decimalIndex = pnlStr.indexOf('.');
 
@@ -101,22 +109,22 @@ export function getCanvasConfig(currentSize = 1080): ICanvasConfig {
 
     colors: {
       background: ['#1a1a1a', '#0a0a0a', '#1a1a1a'],
-      long: '#24FF00',
+      long: '#44D62C',
       short: '#FF0000',
       textPrimary: '#ffffff',
       textSecondary: '#FFFFFF',
       textTertiary: '#ffffff',
-      referralBackground: '#00000080',
-      sideLongBackground: '#0C5300',
-      sideShortBackground: '#630A0A',
+      referralBackground: '#000000B3',
+      sideLongBackground: '#073100',
+      sideShortBackground: '#3F0000',
     },
 
     fonts: {
       coin: scale(67.5, currentSize),
-      side: scale(24, currentSize),
+      side: scale(28, currentSize),
       pnl: scale(180, currentSize),
-      priceLabel: scale(25, currentSize),
-      priceValue: scale(25, currentSize),
+      priceLabel: scale(28, currentSize),
+      priceValue: scale(28, currentSize),
     },
 
     layout: {
@@ -128,12 +136,12 @@ export function getCanvasConfig(currentSize = 1080): ICanvasConfig {
       pnlY: scale(426, currentSize, true),
       entryPriceY: scale(580, currentSize, true),
       markPriceY: scale(700, currentSize, true),
-      priceSpacingY: scale(40, currentSize, true),
+      priceSpacingY: scale(50, currentSize, true),
       badgePaddingX: scale(20, currentSize, true),
       badgePaddingY: scale(18, currentSize, true),
-      tokenSpacing: scale(40, currentSize, true),
-      priceGap: scale(1.5, currentSize),
-      referralOffset: scale(20, currentSize, true),
+      tokenSpacing: scale(48, currentSize, true),
+      priceGap: scale(8, currentSize),
+      referralOffset: scale(25, currentSize, true),
       lineHeight: 1.2,
       badgeRadius: scale(58, currentSize, true),
       labelOpacity: 0.5,

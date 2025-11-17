@@ -57,9 +57,6 @@ export function InvitationDetailsSection({
 
   const { HardwareSales, Onchain, cumulativeRewards, inviteUrl } = summaryInfo;
 
-  // Check if user can create more codes
-  const canCreateCode = codeListData ? codeListData.remainingCodes > 0 : false;
-
   return (
     <YStack gap="$4" pb="$6" $md={{ flexDirection: 'column' }}>
       <XStack px="$5" pb="$1">
@@ -71,7 +68,7 @@ export function InvitationDetailsSection({
       <XStack gap="$2" px="$5" alignItems="center" jc="space-between">
         <SimpleTabs value={selectedTab} onChange={setSelectedTab} tabs={tabs} />
 
-        {canCreateCode && selectedTab === EInvitationDetailsTab.REFERRAL ? (
+        {selectedTab === EInvitationDetailsTab.REFERRAL ? (
           <CreateCodeButton
             remainingCodes={codeListData?.remainingCodes}
             onCodeCreated={handleCodeCreated}

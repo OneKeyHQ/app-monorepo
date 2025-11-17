@@ -37,30 +37,34 @@ export default function AddExistingWallet() {
   const navigation = useAppNavigation();
   const intl = useIntl();
 
-  const { checkLoading, supportCloudBackup, goToPageBackupList, startBackup } =
-    useCloudBackup();
+  const {
+    checkLoading,
+    supportCloudBackup,
+    goToPageBackupList,
+    startBackup,
+    cloudBackupFeatureInfo,
+  } = useCloudBackup();
 
   const { result: cloudBackupOption = null } =
     usePromiseResult<IAddExistingWalletOption | null>(async () => {
-      if (!supportCloudBackup) {
+      if (!supportCloudBackup || !cloudBackupFeatureInfo) {
         return null;
       }
       noop(navigation);
-      const info =
-        await backgroundApiProxy.serviceCloudBackupV2.getBackupProviderInfo();
 
       const option: IAddExistingWalletOption = {
-        icon: 'CloudOutline',
-        title: info.displayNameI18nKey
-          ? intl.formatMessage({
-              id: info.displayNameI18nKey as any,
-            })
-          : info.displayName,
+        icon: cloudBackupFeatureInfo?.icon as IKeyOfIcons,
+        title: cloudBackupFeatureInfo?.title,
         onPress: goToPageBackupList,
         // onPress: () => navigation.push(EOnboardingPagesV2.ICloudBackup),
       };
       return option;
-    }, [goToPageBackupList, intl, navigation, supportCloudBackup]);
+    }, [
+      cloudBackupFeatureInfo,
+      goToPageBackupList,
+      navigation,
+      supportCloudBackup,
+    ]);
   const cloudBackupOptionWithLoading =
     useMemo<IAddExistingWalletOption | null>(() => {
       if (!cloudBackupOption) {
@@ -153,45 +157,6 @@ export default function AddExistingWallet() {
             // navigation.push(EOnboardingPagesV2.ImportWatchedAccount);
           },
         },
-        ...(() => {
-          return [
-            ...(supportCloudBackup
-              ? [
-                  {
-                    title: '===DEBUG===BackupNow',
-                    icon: 'StorageOutline',
-                    onPress: startBackup,
-                    isLoading: checkLoading,
-                  },
-                  {
-                    title: '===DEBUG===GetCloudAccountInfo',
-                    icon: 'StorageOutline',
-                    onPress: async () => {
-                      const info =
-                        await backgroundApiProxy.serviceCloudBackupV2.getCloudAccountInfo();
-                      Dialog.debugMessage({
-                        debugMessage: info,
-                      });
-                    },
-                  },
-                  {
-                    title: '===DEBUG===LoginCloudIfNeed',
-                    icon: 'StorageOutline',
-                    onPress: async () => {
-                      await backgroundApiProxy.serviceCloudBackupV2.loginCloudIfNeed();
-                    },
-                  },
-                  {
-                    title: '===DEBUG===LogoutCloud',
-                    icon: 'StorageOutline',
-                    onPress: async () => {
-                      await backgroundApiProxy.serviceCloudBackupV2.logoutCloud();
-                    },
-                  },
-                ]
-              : []),
-          ].filter(Boolean);
-        })(),
       ].filter(Boolean),
     [
       intl,
@@ -199,9 +164,6 @@ export default function AddExistingWallet() {
       navigation,
       isSoftwareWalletOnlyUser,
       liteCard,
-      supportCloudBackup,
-      startBackup,
-      checkLoading,
     ],
   );
 

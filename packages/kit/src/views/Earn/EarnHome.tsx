@@ -1191,6 +1191,12 @@ function EarnHomeContent({
 
   return (
     <Page fullPage>
+      {showHeader ? (
+        <TabPageHeader
+          sceneName={EAccountSelectorSceneName.home}
+          tabRoute={ETabRoutes.Earn}
+        />
+      ) : null}
       <Page.Body>
         <ScrollView
           contentContainerStyle={{ py: '$5' }}

@@ -22,6 +22,10 @@ export class EmptyBackupProvider implements IOneKeyBackupProvider {
     this.backgroundApi = backgroundApi;
   }
 
+  clearBackupPassword(): Promise<void> {
+    throw new OneKeyLocalError('Method not implemented.');
+  }
+
   setBackupPassword(params?: {
     password?: string;
   }): Promise<{ recordID: string }> {

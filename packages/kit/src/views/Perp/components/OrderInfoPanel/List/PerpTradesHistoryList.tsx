@@ -10,10 +10,8 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   useAppIsLockedAtom,
-  usePerpsActiveAccountAtom,
   usePerpsActiveAssetAtom,
   usePerpsLastUsedLeverageAtom,
-  usePerpsUserFillsCacheAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { getValidPriceDecimals } from '@onekeyhq/shared/src/utils/perpsUtils';
@@ -43,8 +41,6 @@ function PerpTradesHistoryList({
   const { onViewAllUrl } = usePerpTradesHistoryViewAllUrl();
   const [activeAsset] = usePerpsActiveAssetAtom();
   const [lastUsedLeverage] = usePerpsLastUsedLeverageAtom();
-  const [currentAccount] = usePerpsActiveAccountAtom();
-  const [userFillsCache] = usePerpsUserFillsCacheAtom();
   const { showPositionShare } = useShowPositionShare();
 
   const getLeverage = useCallback(
@@ -66,116 +62,62 @@ function PerpTradesHistoryList({
     [activeAsset, lastUsedLeverage],
   );
 
-  const calculateEntryPrice = useCallback(
-    (fill: IFill, fillIndex: number): BigNumber | null => {
-      const openFills: IFill[] = [];
-      let foundStartPositionZero = false;
+  const calculateEntryPrice = useCallback((fill: IFill): BigNumber | null => {
+    const sizeBN = new BigNumber(fill.sz);
+    if (sizeBN.isZero()) {
+      return null;
+    }
 
-      for (let i = fillIndex; i >= 0; i -= 1) {
-        const currentFill = trades[i];
-        if (
-          currentFill?.coin === fill.coin &&
-          currentFill.dir.includes('Open')
-        ) {
-          openFills.push(currentFill);
-          if (
-            currentFill.startPosition &&
-            new BigNumber(currentFill.startPosition).isZero()
-          ) {
-            foundStartPositionZero = true;
-            break;
-          }
-        }
-      }
+    const exitPriceBN = new BigNumber(fill.px);
+    const pnlPerUnit = new BigNumber(fill.closedPnl).dividedBy(sizeBN);
+    const normalizedDir = fill.dir.toLowerCase();
 
-      if (
-        !foundStartPositionZero &&
-        userFillsCache.userAddress &&
-        userFillsCache.userAddress.toLowerCase() ===
-          currentAccount?.accountAddress?.toLowerCase() &&
-        userFillsCache.fills.length > 0
-      ) {
-        const cacheIndex = userFillsCache.fills.findIndex(
-          (f) => f.oid === fill.oid && f.time === fill.time,
-        );
+    if (normalizedDir.includes('close long')) {
+      return exitPriceBN.minus(pnlPerUnit);
+    }
 
-        if (cacheIndex !== -1) {
-          for (
-            let i = cacheIndex + 1;
-            i < userFillsCache.fills.length;
-            i += 1
-          ) {
-            const currentFill = userFillsCache.fills[i];
-            if (
-              currentFill.coin === fill.coin &&
-              currentFill.dir.includes('Open')
-            ) {
-              openFills.push(currentFill);
-              if (
-                currentFill.startPosition &&
-                new BigNumber(currentFill.startPosition).isZero()
-              ) {
-                foundStartPositionZero = true;
-                break;
-              }
-            }
-          }
-        }
-      }
+    if (normalizedDir.includes('close short')) {
+      return exitPriceBN.plus(pnlPerUnit);
+    }
 
-      if (openFills.length === 0) {
-        return null;
-      }
-
-      let totalValue = new BigNumber(0);
-      let totalSize = new BigNumber(0);
-      for (const openFill of openFills) {
-        const size = new BigNumber(openFill.sz);
-        const price = new BigNumber(openFill.px);
-        totalValue = totalValue.plus(price.multipliedBy(size));
-        totalSize = totalSize.plus(size);
-      }
-
-      return totalSize.gt(0) ? totalValue.dividedBy(totalSize) : null;
-    },
-    [currentAccount, trades, userFillsCache],
-  );
+    return null;
+  }, []);
 
   const handleShare = useCallback(
     async (fill: IFill) => {
-      const closedPnlBN = new BigNumber(fill.closedPnl || '0');
+      const closedPnlBN = new BigNumber(fill.closedPnl).minus(
+        new BigNumber(fill.fee),
+      );
       if (closedPnlBN.isZero()) {
         return;
       }
-      const fillIndex = trades.findIndex(
-        (t) => t.oid === fill.oid && t.time === fill.time,
-      );
-      if (fillIndex === -1) {
-        return;
-      }
-
       const leverage = await getLeverage(fill.coin);
-      const entryPriceBN = calculateEntryPrice(fill, fillIndex);
+      const entryPriceBN = calculateEntryPrice(fill);
 
-      const exitPriceBN = new BigNumber(fill.px);
-      const isLong = fill.side === 'B';
+      const isLong = fill.side === 'A';
       let pnlPercent = '0';
       let entryPrice = '0';
 
       if (entryPriceBN?.gt(0)) {
-        const priceChangePercent = isLong
-          ? exitPriceBN.minus(entryPriceBN).dividedBy(entryPriceBN).times(100)
-          : entryPriceBN.minus(exitPriceBN).dividedBy(entryPriceBN).times(100);
-        pnlPercent = priceChangePercent.multipliedBy(leverage).toFixed(2);
-
         const decimals = getValidPriceDecimals(entryPriceBN.toFixed());
         entryPrice = entryPriceBN.toFixed(decimals);
-      }
 
+        const positionSize = new BigNumber(fill.sz);
+        const investedCapital = positionSize
+          .multipliedBy(entryPriceBN)
+          .dividedBy(leverage);
+
+        if (investedCapital.gt(0)) {
+          pnlPercent = closedPnlBN
+            .dividedBy(investedCapital)
+            .times(100)
+            .toFixed(2);
+        }
+      }
       showPositionShare({
         side: isLong ? 'long' : 'short',
         token: fill.coin,
-        pnl: fill.closedPnl || '0',
+        pnl: String(closedPnlBN),
         pnlPercent,
         leverage,
         entryPrice,
@@ -183,7 +125,7 @@ function PerpTradesHistoryList({
         priceType: 'exit',
       });
     },
-    [calculateEntryPrice, getLeverage, showPositionShare, trades],
+    [calculateEntryPrice, getLeverage, showPositionShare],
   );
   const columnsConfig: IColumnConfig[] = useMemo(
     () => [

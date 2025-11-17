@@ -46,6 +46,22 @@ export function useToReferFriendsModalByRootNavigation() {
   }, []);
 }
 
+export function useReplaceToReferFriends() {
+  const navigation = useAppNavigation();
+
+  return useCallback(
+    async (params?: { utmSource?: string; code?: string }) => {
+      const isLogin = await backgroundApiProxy.servicePrime.isLoggedIn();
+      const screen = isLogin
+        ? EModalReferFriendsRoutes.InviteReward
+        : EModalReferFriendsRoutes.ReferAFriend;
+
+      navigation.replace(screen, params);
+    },
+    [navigation],
+  );
+}
+
 export const useReferFriends = () => {
   const intl = useIntl();
   const navigation = useAppNavigation();

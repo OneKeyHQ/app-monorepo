@@ -10,6 +10,7 @@ export enum EAtomNames {
   currencyPersistAtom = 'currencyPersistAtom',
   settingsLastActivityAtom = 'settingsLastActivityAtom',
   cloudBackupPersistAtom = 'cloudBackupPersistAtom',
+  cloudBackupStatusAtom = 'cloudBackupStatusAtom',
   passwordAtom = 'passwordAtom',
   passwordPromptPromiseTriggerAtom = 'passwordPromptPromiseTriggerAtom',
   passwordPersistAtom = 'passwordPersistAtom',
@@ -83,7 +84,8 @@ export enum EAtomNames {
   perpTokenSortConfigPersistAtom = 'perpTokenSortConfigPersistAtom',
   perpsDepositOrderAtom = 'perpsDepositOrderAtom',
   perpsLastUsedLeverageAtom = 'perpsLastUsedLeverageAtom',
-  perpsUserFillsCacheAtom = 'perpsUserFillsCacheAtom',
+  // network doctor
+  networkDoctorStateAtom = 'networkDoctorStateAtom',
 }
 export type IAtomNameKeys = keyof typeof EAtomNames;
 export const atomsConfig: Partial<

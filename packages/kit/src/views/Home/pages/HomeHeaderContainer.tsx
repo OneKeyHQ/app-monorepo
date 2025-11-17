@@ -37,6 +37,7 @@ function HomeHeaderContainer() {
           flexDirection: 'row',
           justifyContent: 'space-between',
         }}
+        pointerEvents="box-none"
       >
         <Stack gap="$2.5" flex={1}>
           <HomeOverviewContainer />

@@ -1763,6 +1763,10 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - Yoga
+  - react-native-netinfo (11.4.1):
+    - React-Core
+  - react-native-network-info (5.2.2):
+    - React
   - react-native-pager-view (7.0.0):
     - DoubleConversion
     - glog
@@ -1812,6 +1816,8 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - Yoga
+  - react-native-ping (1.2.8):
+    - React
   - react-native-safe-area-context (5.4.1):
     - DoubleConversion
     - glog
@@ -2486,6 +2492,8 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - Yoga
+  - RNDnsLookup (1.0.6):
+    - React
   - RNFileLogger (0.7.1):
     - CocoaLumberjack (~> 3)
     - DoubleConversion
@@ -3018,8 +3026,11 @@ DEPENDENCIES:
   - react-native-keyboard-controller (from `../../../node_modules/react-native-keyboard-controller`)
   - "react-native-lite-card (from `../../../node_modules/@onekeyfe/react-native-lite-card`)"
   - react-native-mmkv (from `../../../node_modules/react-native-mmkv`)
+  - "react-native-netinfo (from `../../../node_modules/@react-native-community/netinfo`)"
+  - react-native-network-info (from `../../../node_modules/react-native-network-info`)
   - react-native-pager-view (from `../../../node_modules/react-native-pager-view`)
   - react-native-performance-stats (from `../../../node_modules/react-native-performance-stats`)
+  - react-native-ping (from `../../../node_modules/react-native-ping`)
   - react-native-safe-area-context (from `../../../node_modules/react-native-safe-area-context`)
   - "react-native-slider (from `../../../node_modules/@react-native-community/slider`)"
   - react-native-tcp-socket (from `../../../node_modules/react-native-tcp-socket`)
@@ -3064,6 +3075,7 @@ DEPENDENCIES:
   - RealmJS (from `../../../node_modules/realm`)
   - RestartNewArch (from `../../../node_modules/react-native-restart`)
   - "RNCAsyncStorage (from `../../../node_modules/@react-native-async-storage/async-storage`)"
+  - RNDnsLookup (from `../../../node_modules/react-native-dns-lookup`)
   - RNFileLogger (from `../../../node_modules/react-native-file-logger`)
   - RNGestureHandler (from `../../../node_modules/react-native-gesture-handler`)
   - RNImageCropPicker (from `../../../node_modules/react-native-image-crop-picker`)
@@ -3279,10 +3291,16 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/@onekeyfe/react-native-lite-card"
   react-native-mmkv:
     :path: "../../../node_modules/react-native-mmkv"
+  react-native-netinfo:
+    :path: "../../../node_modules/@react-native-community/netinfo"
+  react-native-network-info:
+    :path: "../../../node_modules/react-native-network-info"
   react-native-pager-view:
     :path: "../../../node_modules/react-native-pager-view"
   react-native-performance-stats:
     :path: "../../../node_modules/react-native-performance-stats"
+  react-native-ping:
+    :path: "../../../node_modules/react-native-ping"
   react-native-safe-area-context:
     :path: "../../../node_modules/react-native-safe-area-context"
   react-native-slider:
@@ -3371,6 +3389,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/react-native-restart"
   RNCAsyncStorage:
     :path: "../../../node_modules/@react-native-async-storage/async-storage"
+  RNDnsLookup:
+    :path: "../../../node_modules/react-native-dns-lookup"
   RNFileLogger:
     :path: "../../../node_modules/react-native-file-logger"
   RNGestureHandler:
@@ -3495,8 +3515,11 @@ SPEC CHECKSUMS:
   react-native-keyboard-controller: 627042ee5608096bdeb0e1187e25eac026512b5d
   react-native-lite-card: 6553be9f9b5bfcfa935c6e5d55bc6d5fe41efff5
   react-native-mmkv: f3eccec36dea25bf57cb3b789db5ac9113d6391a
+  react-native-netinfo: f0a9899081c185db1de5bb2fdc1c88c202a059ac
+  react-native-network-info: 253a54a48dc8f9ef5abb7a8effdfdef8abd7d875
   react-native-pager-view: 48af7f02db38bd6677a21f62a1a911a6d54739c7
   react-native-performance-stats: a073faa67064bf33d60968fbfc029e94a8d96239
+  react-native-ping: e9f64f02087c3cd2a0bc771ad0cf4a88edaa3072
   react-native-safe-area-context: f2e97b088ae5f3078f1ad03f51a44bd84f479053
   react-native-slider: e0db19e14df7112e0e1af4e6d505902b8d36e38a
   react-native-tcp-socket: feb47ef87c6f598ec2a85b7534a279282ce6f925
@@ -3542,6 +3565,7 @@ SPEC CHECKSUMS:
   RestartNewArch: 1aefb27829fc8ce5c2d1b39cf81ef5e53cc03dee
   RevenueCat: 7e1d0768fb287c9983173c9b28e39ccbeeb828a9
   RNCAsyncStorage: faf86846c58994b6b8aab074a4914eb1796c2a9f
+  RNDnsLookup: 1afbfef1d1f9f9ba427b4afdd81c12c4790de3ff
   RNFileLogger: 40ec4255437f9521e2fbb4745d39df53becb286f
   RNGestureHandler: 557517e4f3f540dfbe136b8d8b43f48c7e785f35
   RNImageCropPicker: db08aaf57d322fb9fe75e4ecc7706b6302b7fdb5

@@ -12,6 +12,7 @@ import {
   Select,
   SizableText,
   Skeleton,
+  Stack,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -25,6 +26,7 @@ import {
 import { useSwapStepNetFeeLevelAtom } from '../../../states/jotai/contexts/swap';
 
 import PreSwapInfoItem from './PreSwapInfoItem';
+import { ProtocolFeeComparisonList } from './ProtocolFeeComparisonList';
 
 interface IPreSwapInfoGroupProps {
   preSwapData: ISwapPreSwapData;
@@ -38,6 +40,8 @@ const PreSwapInfoGroup = ({
   const intl = useIntl();
   const [settings] = useSettingsPersistAtom();
   const [swapStepNetFeeLevel] = useSwapStepNetFeeLevelAtom();
+
+  const serviceFee = Number(preSwapData?.fee?.percentageFee ?? 0.3);
   const networkFeeLevelArray = useMemo(() => {
     const feeArray = [
       ESwapNetworkFeeLevel.LOW,
@@ -215,15 +219,32 @@ const PreSwapInfoGroup = ({
       ) : null}
       <PreSwapInfoItem
         title={intl.formatMessage({
-          id: ETranslations.provider_ios_popover_onekey_fee,
+          id: ETranslations.provider_ios_popover_wallet_fee,
         })}
         value={fee}
-        popoverContent={intl.formatMessage(
-          {
-            id: ETranslations.provider_ios_popover_onekey_fee_content,
-          },
-          { num: `${preSwapData?.fee?.percentageFee ?? '0'}%` },
-        )}
+        popoverContent={
+          <Stack gap="$4">
+            <Stack gap="$1">
+              <SizableText size="$bodyMd" color="$textSubdued">
+                {intl.formatMessage(
+                  {
+                    id: ETranslations.provider_ios_popover_onekey_fee_content,
+                  },
+                  { num: `${serviceFee}%` },
+                )}
+              </SizableText>
+              <SizableText size="$bodyMd" color="$textSubdued">
+                {intl.formatMessage(
+                  {
+                    id: ETranslations.provider_ios_popover_onekey_fee_content_2,
+                  },
+                  { num: `${serviceFee}%` },
+                )}
+              </SizableText>
+            </Stack>
+            <ProtocolFeeComparisonList serviceFee={serviceFee} />
+          </Stack>
+        }
       />
       {preSwapData.supportNetworkFeeLevel ? (
         <PreSwapInfoItem

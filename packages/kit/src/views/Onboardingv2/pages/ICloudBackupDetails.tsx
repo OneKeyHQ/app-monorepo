@@ -51,6 +51,7 @@ export default function ICloudBackupDetails({
   const intl = useIntl();
   const backupTime = route.params?.backupTime;
   const actionType = route.params?.actionType;
+  const hideRestoreButton = route.params?.hideRestoreButton;
   const navigation = useAppNavigation();
   const {
     doBackup,
@@ -130,7 +131,7 @@ export default function ICloudBackupDetails({
     if (fetchLoading) {
       return <CloudBackupLoadingSkeleton />;
     }
-    if (walletData.length === 0) {
+    if (!walletData?.length) {
       return <CloudBackupDetailsEmptyView />;
     }
     return walletData.map((item, index) => (
@@ -206,7 +207,7 @@ export default function ICloudBackupDetails({
                       });
                     }}
                   >
-                    backupData
+                    showBackupData
                   </Button>
                   <Button
                     onPress={async () => {
@@ -215,13 +216,33 @@ export default function ICloudBackupDetails({
                   >
                     Mock Empty Wallets
                   </Button>
+                  <Button
+                    loading={checkLoading}
+                    disabled={isButtonDisabled}
+                    flex={1}
+                    onPress={async () => {
+                      await doBackup({
+                        data: backupData as IPrimeTransferData,
+                        backupTimes: 30,
+                      });
+                    }}
+                  >
+                    备份 30 份
+                  </Button>
                 </YStack>
               }
             />
           </YStack>
         </OnboardingLayout.Body>
         <OnboardingLayout.Footer>
-          <XStack gap="$3" w="100%" py="$3">
+          <XStack
+            gap="$3"
+            w="100%"
+            $gtMd={{
+              maxWidth: 400,
+            }}
+            py="$3"
+          >
             {actionType === 'backup' ? (
               <>
                 <Button
@@ -238,7 +259,9 @@ export default function ICloudBackupDetails({
                   loading={checkLoading}
                   size="large"
                   onPress={async () => {
-                    await goToPageBackupList();
+                    await goToPageBackupList({
+                      hideRestoreButton: true,
+                    });
                   }}
                   childrenAsText={false}
                 >
@@ -249,20 +272,23 @@ export default function ICloudBackupDetails({
 
             {actionType === 'restore' ? (
               <>
-                <Button
-                  loading={checkLoading}
-                  disabled={isButtonDisabled}
-                  flex={1}
-                  variant="primary"
-                  size="large"
-                  onPress={handleImport}
-                >
-                  {intl.formatMessage({ id: ETranslations.global_import })}
-                </Button>
+                {!hideRestoreButton ? (
+                  <Button
+                    loading={checkLoading}
+                    disabled={isButtonDisabled}
+                    flex={1}
+                    variant="primary"
+                    size="large"
+                    onPress={handleImport}
+                  >
+                    {intl.formatMessage({ id: ETranslations.global_import })}
+                  </Button>
+                ) : null}
                 <Button
                   loading={checkLoading}
                   disabled={!route.params?.backupId}
                   size="large"
+                  flex={hideRestoreButton ? 1 : undefined}
                   onPress={async () => {
                     doDeleteBackup({
                       recordID: route.params?.backupId ?? '',

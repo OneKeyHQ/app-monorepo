@@ -12,7 +12,10 @@ import googlePlayService from '@onekeyhq/shared/src/googlePlayService/googlePlay
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { googleDriveStorage } from '@onekeyhq/shared/src/storage/GoogleDriveStorage';
-import type { IGoogleUserInfo } from '@onekeyhq/shared/src/storage/GoogleDriveStorage/types';
+import type {
+  IGoogleDriveFile,
+  IGoogleUserInfo,
+} from '@onekeyhq/shared/src/storage/GoogleDriveStorage/types';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
 import {
@@ -41,6 +44,12 @@ export class GoogleDriveBackupProvider implements IOneKeyBackupProvider {
     this.backgroundApi = backgroundApi;
   }
 
+  async clearBackupPassword(): Promise<void> {
+    const manifest = await this.getManifest();
+    manifest.backupPasswordVerify = undefined;
+    await this.saveManifest(manifest);
+  }
+
   async setBackupPassword(params?: {
     password?: string;
   }): Promise<{ recordID: string }> {
@@ -57,6 +66,18 @@ export class GoogleDriveBackupProvider implements IOneKeyBackupProvider {
       }),
     };
     manifest.backupPasswordVerify = content;
+    if (!manifest?.googleDriveLegacyMetaDataFileId) {
+      try {
+        const fileObj =
+          await this.backgroundApi.serviceCloudBackup.getGoogleDriveMetadataFileObject();
+        manifest.googleDriveLegacyMetaDataFileId = fileObj?.id;
+      } catch (error) {
+        console.error(
+          'Failed to get GoogleDriveBackup Legacy MetaData file:',
+          error,
+        );
+      }
+    }
     await this.saveManifest(manifest);
     const fileObj = await googleDriveStorage.getFileObject({
       fileName: GOOGLE_DRIVE_BACKUP_MANIFEST_FILE_NAME,
@@ -101,6 +122,7 @@ export class GoogleDriveBackupProvider implements IOneKeyBackupProvider {
     return {
       displayName: '',
       displayNameI18nKey: ETranslations.global_google_drive,
+      // id: ETranslations.backup_backup_to_google_drive,
     };
   }
 
@@ -209,19 +231,29 @@ export class GoogleDriveBackupProvider implements IOneKeyBackupProvider {
       fileID: result.fileId,
       fileName,
     });
+    void this.backgroundApi.serviceCloudBackup.touchLegacyMetaDataFile();
     return { recordID: result.fileId, content };
   }
 
   async getManifest() {
+    // await googleDriveStorage.fileExists({ fileId: '' });
     const fileObj = await googleDriveStorage.getFileObject({
       fileName: GOOGLE_DRIVE_BACKUP_MANIFEST_FILE_NAME,
     });
     if (!fileObj) {
-      const manifest: IBackupDataManifest = {
-        items: [],
-        total: 0,
-      };
-      return manifest;
+      const files = await googleDriveStorage.listFiles();
+      if (files?.files?.length >= 0) {
+        const manifestFileObj = await googleDriveStorage.getFileObject({
+          fileName: GOOGLE_DRIVE_BACKUP_MANIFEST_FILE_NAME,
+        });
+        if (!manifestFileObj) {
+          const manifest: IBackupDataManifest = {
+            items: [],
+            total: 0,
+          };
+          return manifest;
+        }
+      }
     }
     const fileId: string | undefined = fileObj?.id;
     if (!fileId) {
@@ -303,11 +335,43 @@ export class GoogleDriveBackupProvider implements IOneKeyBackupProvider {
     return this.getManifest();
   }
 
-  async deleteBackup({ recordId }: { recordId: string }): Promise<void> {
+  async listAllFiles(): Promise<{ files: IGoogleDriveFile[] }> {
+    const files = await googleDriveStorage.listFiles();
+    return files;
+  }
+
+  async getManifestFileObject() {
+    const fileObj = await googleDriveStorage.getFileObject({
+      fileName: GOOGLE_DRIVE_BACKUP_MANIFEST_FILE_NAME,
+    });
+    return fileObj;
+  }
+
+  async removeManifestFile(): Promise<void> {
+    const fileObj = await this.getManifestFileObject();
+    if (!fileObj) {
+      throw new OneKeyLocalError('GoogleDriveBackup Manifest file not found');
+    }
+    const fileId: string | undefined = fileObj?.id;
+    if (!fileId) {
+      throw new OneKeyLocalError('GoogleDriveBackup Manifest fileId not found');
+    }
+    await googleDriveStorage.deleteFile({
+      fileId,
+    });
+  }
+
+  async deleteBackup({
+    recordId,
+    skipManifestUpdate,
+  }: {
+    recordId: string;
+    skipManifestUpdate?: boolean;
+  }): Promise<void> {
     await this.checkAvailability();
 
     const result = await googleDriveStorage.deleteFile({ fileId: recordId });
-    if (result) {
+    if (result && !skipManifestUpdate) {
       await this.deleteFromManifest({
         fileId: recordId,
       });

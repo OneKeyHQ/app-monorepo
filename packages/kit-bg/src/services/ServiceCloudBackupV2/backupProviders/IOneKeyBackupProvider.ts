@@ -57,6 +57,7 @@ export type IBackupDataManifest = {
   items: IBackupDataManifestItem[];
   total: number;
   backupPasswordVerify?: IBackupDataPasswordVerify;
+  googleDriveLegacyMetaDataFileId?: string;
 };
 export type IBackupDataPasswordVerify = {
   content: string; // encryptStringAsync(CLOUD_BACKUP_PASSWORD_VERIFY_TEXT, password)
@@ -115,6 +116,8 @@ export interface IOneKeyBackupProvider {
 
   isBackupPasswordSet(): Promise<boolean>;
 
+  clearBackupPassword(): Promise<void>;
+
   /**
    * Perform full backup with automatic key management
    * @param password Optional user password (required for some providers like Google Drive)
@@ -138,5 +141,8 @@ export interface IOneKeyBackupProvider {
    * Delete a backup from cloud
    * @param params.recordId Unique identifier for the backup record
    */
-  deleteBackup(params: { recordId: string }): Promise<void>;
+  deleteBackup(params: {
+    recordId: string;
+    skipManifestUpdate?: boolean;
+  }): Promise<void>;
 }

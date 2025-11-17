@@ -22,10 +22,12 @@ export const closeModalPages = async () => {
 
 export const navigateToBackupWalletReminderPage = async ({
   walletId,
+  accountName,
   isWalletBackedUp,
   mnemonic,
 }: {
   walletId: string;
+  accountName?: string;
   isWalletBackedUp: boolean;
   mnemonic: string;
 }) => {
@@ -39,6 +41,7 @@ export const navigateToBackupWalletReminderPage = async ({
         mnemonic,
         isWalletBackedUp,
         walletId,
+        accountName,
       },
     },
   });

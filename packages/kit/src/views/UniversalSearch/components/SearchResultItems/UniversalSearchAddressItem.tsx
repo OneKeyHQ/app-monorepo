@@ -1,15 +1,17 @@
 import { useCallback } from 'react';
 
-import { SizableText, Stack, XStack } from '@onekeyhq/components';
+import { SizableText, XStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
+import { useEnabledNetworksCompatibleWithWalletIdInAllNetworks } from '@onekeyhq/kit/src/hooks/useAllNetwork';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useUniversalSearchActions } from '@onekeyhq/kit/src/states/jotai/contexts/universalSearch';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IUniversalSearchAddress } from '@onekeyhq/shared/types/search';
@@ -34,6 +36,13 @@ export function UniversalSearchAddressItem({
   const { vaultSettings } = useAccountData({
     networkId: item.payload.network?.id ?? contextNetworkId,
   });
+
+  const { enabledNetworksCompatibleWithWalletId, networkInfoMap } =
+    useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
+      walletId: item.payload.wallet?.id ?? '',
+      networkId: item.payload.network?.id ?? contextNetworkId,
+      withNetworksInfo: true,
+    });
 
   const { result: networkAccounts } = usePromiseResult(
     async () => {
@@ -158,6 +167,8 @@ export function UniversalSearchAddressItem({
   ]);
 
   const renderAccountValue = useCallback(() => {
+    if (platformEnv.isWebDappMode || platformEnv.isE2E) return null;
+
     let linkedAccountId = item.payload.account?.id;
     const linkedNetworkId = item.payload.network?.id ?? contextNetworkId;
 
@@ -173,36 +184,31 @@ export function UniversalSearchAddressItem({
     }
 
     return (
-      <>
-        <AccountValueWithSpotlight
-          walletId={item.payload.wallet?.id ?? ''}
-          isOthersUniversal={accountUtils.isOthersAccount({
-            accountId: item.payload.account?.id,
-          })}
-          index={0}
-          accountValue={item.payload.accountsValue}
-          linkedAccountId={linkedAccountId}
-          linkedNetworkId={linkedNetworkId}
-          indexedAccountId={item.payload.indexedAccount?.id}
-          mergeDeriveAssetsEnabled={vaultSettings?.mergeDeriveAssetsEnabled}
-          isSingleAddress={!!item.payload.addressInfo?.displayAddress}
-        />
-        {item.payload.addressInfo?.displayAddress ? (
-          <Stack
-            mx="$1.5"
-            w="$1"
-            h="$1"
-            bg="$iconSubdued"
-            borderRadius="$full"
-          />
-        ) : null}
-      </>
+      <AccountValueWithSpotlight
+        walletId={item.payload.wallet?.id ?? ''}
+        isOthersUniversal={accountUtils.isOthersAccount({
+          accountId: item.payload.account?.id,
+        })}
+        index={0}
+        accountValue={item.payload.accountsValue}
+        linkedAccountId={linkedAccountId}
+        linkedNetworkId={linkedNetworkId}
+        indexedAccountId={item.payload.indexedAccount?.id}
+        mergeDeriveAssetsEnabled={vaultSettings?.mergeDeriveAssetsEnabled}
+        isSingleAddress={!!item.payload.addressInfo?.displayAddress}
+        enabledNetworksCompatibleWithWalletId={
+          enabledNetworksCompatibleWithWalletId
+        }
+        networkInfoMap={networkInfoMap}
+      />
     );
   }, [
     contextNetworkId,
     item,
     networkAccounts,
     vaultSettings?.mergeDeriveAssetsEnabled,
+    enabledNetworksCompatibleWithWalletId,
+    networkInfoMap,
   ]);
 
   if (item.payload.account || item.payload.isSearchedByAccountName) {
@@ -238,6 +244,9 @@ export function UniversalSearchAddressItem({
                     address: item.payload.addressInfo?.displayAddress,
                   })}
                   isEmptyAddress={false}
+                  showSplitter={
+                    !(platformEnv.isWebDappMode || platformEnv.isE2E)
+                  }
                 />
               </XStack>
             }

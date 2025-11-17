@@ -21,6 +21,7 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector/AccountSelectorProvider';
 import { useCreateQrWallet } from '../../../components/AccountSelector/hooks/useCreateQrWallet';
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import { useUserWalletProfile } from '../../../hooks/useUserWalletProfile';
 import { OnboardingLayout } from '../components/OnboardingLayout';
 import { trackHardwareWalletConnection } from '../utils';
@@ -30,6 +31,7 @@ import { ConnectionIndicator } from './ConnectYourDevice';
 function ConnectQRCodePage() {
   const { createQrWallet } = useCreateQrWallet();
   const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
+  const themeVariant = useThemeVariant();
   const intl = useIntl();
   const navigation = useAppNavigation();
   const STEPS = [
@@ -100,7 +102,11 @@ function ConnectQRCodePage() {
                   resizeMode={EVideoResizeMode.COVER}
                   controls={false}
                   playInBackground={false}
-                  source={require('@onekeyhq/kit/assets/onboarding/onBoarding-QR.mp4')}
+                  source={
+                    themeVariant === 'light'
+                      ? require('@onekeyhq/kit/assets/onboarding/onBoarding-QR.mp4')
+                      : require('@onekeyhq/kit/assets/onboarding/onBoarding-QR-D.mp4')
+                  }
                 />
               </ConnectionIndicator.Animation>
               <ConnectionIndicator.Content gap="$4">

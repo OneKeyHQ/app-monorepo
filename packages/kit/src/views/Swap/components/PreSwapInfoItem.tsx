@@ -7,7 +7,7 @@ import {
 } from '@onekeyhq/components';
 
 interface IPreSwapInfoItemProps {
-  popoverContent?: string;
+  popoverContent?: string | React.ReactNode;
   title: string;
   value: string | React.ReactNode;
 }
@@ -37,9 +37,13 @@ const PreSwapInfoItem = ({
             renderContent={() => {
               return (
                 <Stack p="$4">
-                  <SizableText size="$bodyMd" color="$text">
-                    {popoverContent}
-                  </SizableText>
+                  {typeof popoverContent === 'string' ? (
+                    <SizableText size="$bodyMd" color="$text">
+                      {popoverContent}
+                    </SizableText>
+                  ) : (
+                    popoverContent
+                  )}
                 </Stack>
               );
             }}
