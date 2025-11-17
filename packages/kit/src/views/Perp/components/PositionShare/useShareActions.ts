@@ -24,7 +24,9 @@ export function useShareActions() {
           }
 
           const filename = `onekey-position-${Date.now()}.png`;
-          const filepath = `${RNFS.DocumentDirectoryPath}/${filename}`;
+          const filepath = platformEnv.isNativeAndroid
+            ? `${RNFS.CachesDirectoryPath}/${filename}`
+            : `${RNFS.DocumentDirectoryPath}/${filename}`;
 
           await RNFS.writeFile(
             filepath,
@@ -39,12 +41,6 @@ export function useShareActions() {
           await ExpoSharing.shareAsync(shareFilePath, {
             mimeType: 'image/png',
             UTI: 'public.png',
-          });
-          // TODO: The text needs to be changed to the 'image generated successfully'
-          Toast.success({
-            title: intl.formatMessage({
-              id: ETranslations.perp_share_image_saved,
-            }),
           });
         } else {
           const byteString = atob(base64Image.split(',')[1]);
