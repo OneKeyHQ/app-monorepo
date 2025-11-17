@@ -23,6 +23,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
+import { useRecoveryPhraseProtected } from '../../../hooks/useRecoveryPhraseProtected/useRecoveryPhraseProtected';
 import { OnboardingLayout } from '../components/OnboardingLayout';
 
 import type { RouteProp } from '@react-navigation/core';
@@ -79,6 +80,8 @@ export default function ShowRecoveryPhrase() {
       navigation.popStack();
     }
   }, [navigation, route.params]);
+
+  useRecoveryPhraseProtected();
 
   return (
     <Page>
