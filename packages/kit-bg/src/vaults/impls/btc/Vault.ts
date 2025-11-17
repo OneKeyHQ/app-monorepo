@@ -1475,9 +1475,7 @@ export default class VaultBtc extends VaultBase {
   ): Promise<IEncodedTxBtc> {
     if (params.internalDappType === EInternalDappEnum.Staking) {
       if (await this.isEnabledBtcFreshAddress()) {
-        throw new BTCFreshAddressCanNotConnectDappError({
-          autoToast: true,
-        });
+        throw new BTCFreshAddressCanNotConnectDappError();
       }
     }
     const { psbtHex } = params.internalDappTx as IStakeTxBtcBabylon;

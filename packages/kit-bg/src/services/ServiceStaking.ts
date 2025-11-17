@@ -6,6 +6,7 @@ import type { IAxiosResponse } from '@onekeyhq/shared/src/appApiClient/appApiCli
 import {
   backgroundClass,
   backgroundMethod,
+  toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { OneKeyServerApiError } from '@onekeyhq/shared/src/errors/errors/baseErrors';
@@ -1521,6 +1522,7 @@ class ServiceStaking extends ServiceBase {
     return resp.data.data.list;
   }
 
+  @toastIfError()
   @backgroundMethod()
   async buildInternalDappTx({
     accountId,
