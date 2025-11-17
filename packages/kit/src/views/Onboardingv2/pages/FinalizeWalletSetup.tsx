@@ -142,6 +142,12 @@ const STEPS_DATA: Record<
   [EFinalizeWalletSetupSteps.Ready]: null,
 };
 
+const fixErrorString = (errorMessage: string) => {
+  if (errorMessage.toLowerCase() === 'no wallet creation strategy') {
+    return ETranslations.hardware_user_cancel_error;
+  }
+  return errorMessage;
+};
 function FinalizeWalletSetupPage({
   route,
 }: IPageScreenProps<
@@ -317,11 +323,13 @@ function FinalizeWalletSetupPage({
         message: string;
       };
       setSetupError({
-        messageId: hardwareError
-          ? hardwareError.messageId ||
-            hardwareError.message ||
-            ETranslations.global_unknown_error
-          : ETranslations.global_unknown_error,
+        messageId: fixErrorString(
+          hardwareError
+            ? hardwareError.messageId ||
+                hardwareError.message ||
+                ETranslations.global_unknown_error
+            : ETranslations.global_unknown_error,
+        ),
       });
     }
   }, [
