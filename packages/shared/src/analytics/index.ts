@@ -7,7 +7,9 @@ import {
 
 import appGlobals from '../appGlobals';
 import platformEnv from '../platformEnv';
+import { createIpTableAdapter } from '../request/helpers/ipTableAdapter';
 import { headerPlatform } from '../request/InterceptorConsts';
+import { isSupportIpTablePlatform } from '../utils/ipTableUtils';
 
 import { getDeviceInfo } from './deviceInfo';
 
@@ -66,9 +68,19 @@ export class Analytics {
 
   private lazyAxios() {
     if (!this.request) {
-      this.request = Axios.create({
+      const baseConfig = {
         baseURL: this.baseURL,
         timeout: 30 * 1000,
+      };
+
+      // Create IP Table adapter for supported platforms
+      const ipTableAdapter = isSupportIpTablePlatform()
+        ? createIpTableAdapter(baseConfig)
+        : undefined;
+
+      this.request = Axios.create({
+        ...baseConfig,
+        adapter: ipTableAdapter,
       });
     }
     return this.request;
