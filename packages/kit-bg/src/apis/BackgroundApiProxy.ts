@@ -55,6 +55,7 @@ import type ServiceMarketWS from '../services/ServiceMarketWS';
 import type ServiceMasterPassword from '../services/ServiceMasterPassword';
 import type ServiceNameResolver from '../services/ServiceNameResolver';
 import type ServiceNetwork from '../services/ServiceNetwork';
+import type ServiceNetworkDoctor from '../services/ServiceNetworkDoctor';
 import type ServiceNFT from '../services/ServiceNFT';
 import type ServiceNostr from '../services/ServiceNostr';
 import type ServiceNotification from '../services/ServiceNotification';
@@ -372,6 +373,10 @@ class BackgroundApiProxy
   ) as ServiceWalletStatus;
 
   serviceIpTable = this._createProxyService('serviceIpTable') as ServiceIpTable;
+
+  serviceNetworkDoctor = this._createProxyService(
+    'serviceNetworkDoctor',
+  ) as ServiceNetworkDoctor;
 }
 
 export default BackgroundApiProxy;
