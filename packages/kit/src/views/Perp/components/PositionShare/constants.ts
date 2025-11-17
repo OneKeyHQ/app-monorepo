@@ -71,6 +71,9 @@ export function getPnlDisplayInfo(
   if (mode === 'pnl') {
     const pnlBn = new BigNumber(data.pnl || '0');
     const pnlAbs = pnlBn.abs();
+    if (pnlAbs.lt(0.01)) {
+      return `${pnlBn.lt(0) ? '-' : '+'}< $0.01`;
+    }
     const pnlStr = pnlAbs.toFixed();
     const decimalIndex = pnlStr.indexOf('.');
 
