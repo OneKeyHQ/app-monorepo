@@ -16,6 +16,7 @@ export * from './keyTag';
 export * from './liteCard';
 export * from './modal';
 export * from './modalUrlAccount';
+export * from './networkDoctor';
 export * from './onboarding';
 export * from './onboardingv2';
 export * from './receive';
