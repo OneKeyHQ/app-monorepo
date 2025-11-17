@@ -4,5 +4,5 @@ function backgroundApiInit() {
   const backgroundApi = new BackgroundApi();
   return backgroundApi;
 }
-
+globalThis.$onekeyIsInBackground = true;
 export default backgroundApiInit;

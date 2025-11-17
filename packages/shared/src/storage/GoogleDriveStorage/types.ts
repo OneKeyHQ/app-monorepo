@@ -1,5 +1,3 @@
-import type { User } from '@react-native-google-signin/google-signin';
-
 /**
  * Google Drive file representation
  */
@@ -15,4 +13,20 @@ export interface IGoogleDriveFile {
 /**
  * Google user information
  */
-export type IGoogleUserInfo = User;
+export type IGoogleUserInfo = {
+  user: {
+    id: string;
+    name: string | null;
+    email: string;
+    photo: string | null;
+    familyName: string | null;
+    givenName: string | null;
+  };
+  scopes?: string[];
+  idToken: string | null;
+  /**
+   * Not null only if a valid webClientId and offlineAccess: true was
+   * specified in configure().
+   */
+  serverAuthCode: string | null;
+};
