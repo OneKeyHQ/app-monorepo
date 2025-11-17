@@ -490,7 +490,12 @@ class ServiceCloudBackupV2 extends ServiceBase {
   @toastIfError()
   async androidListAllFiles() {
     const provider = this.getProvider();
-    return (provider as GoogleDriveBackupProvider).listAllFiles();
+    const result = await (provider as GoogleDriveBackupProvider).listAllFiles();
+
+    return {
+      result,
+      count: result?.files?.length ?? 0,
+    };
   }
 
   @backgroundMethod()
@@ -498,6 +503,19 @@ class ServiceCloudBackupV2 extends ServiceBase {
   async androidGetManifestFileObject() {
     const provider = this.getProvider();
     return (provider as GoogleDriveBackupProvider).getManifestFileObject();
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async androidGetManifest() {
+    const provider = this.getProvider();
+    return (provider as GoogleDriveBackupProvider).getManifest();
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async androidGetLegacyMetaData() {
+    return this.backgroundApi.serviceCloudBackup.downloadMetadataFile();
   }
 
   @backgroundMethod()

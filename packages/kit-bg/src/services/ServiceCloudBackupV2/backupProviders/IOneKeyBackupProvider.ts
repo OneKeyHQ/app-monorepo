@@ -57,6 +57,7 @@ export type IBackupDataManifest = {
   items: IBackupDataManifestItem[];
   total: number;
   backupPasswordVerify?: IBackupDataPasswordVerify;
+  googleDriveLegacyMetaDataFileId?: string;
 };
 export type IBackupDataPasswordVerify = {
   content: string; // encryptStringAsync(CLOUD_BACKUP_PASSWORD_VERIFY_TEXT, password)
