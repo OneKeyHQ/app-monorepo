@@ -107,7 +107,7 @@ function GridItem({
           borderWidth: 1,
           borderColor: '$neutral3',
         }}
-        $platform-android={{ elevation: 0.5 }}
+        // $platform-android={{ elevation: 0.5 }}
         $platform-ios={{
           shadowColor: '#000',
           shadowOffset: { width: 0, height: 0.5 },

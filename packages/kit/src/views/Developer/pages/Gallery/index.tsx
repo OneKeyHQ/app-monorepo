@@ -155,6 +155,12 @@ const IpRequestGallery = LazyLoadPage(
       '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/IpRequest'
     ),
 );
+const NetworkDoctorGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/NetworkDoctor'
+    ),
+);
 const JotaiContextGallery = LazyLoadPage(
   () =>
     import(
@@ -715,6 +721,10 @@ export const galleryScreenList: {
   { name: EGalleryRoutes.ComponentBreadcrumb, component: BreadcrumbGallery },
   { name: EGalleryRoutes.ComponentInput, component: InputGallery },
   { name: EGalleryRoutes.ComponentIpRequest, component: IpRequestGallery },
+  {
+    name: EGalleryRoutes.ComponentNetworkDoctor,
+    component: NetworkDoctorGallery,
+  },
   { name: EGalleryRoutes.ComponentDialog, component: DialogGallery },
   { name: EGalleryRoutes.ComponentEmpty, component: EmptyGallery },
   { name: EGalleryRoutes.ComponentSend, component: SendGallery },

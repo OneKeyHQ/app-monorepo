@@ -449,15 +449,12 @@ function FinalizeWalletSetupPage({
                   width="100%"
                   style={{
                     position: 'absolute',
-                    left: 0,
-                    top: 0,
-                    right: 0,
-                    bottom: 0,
+                    inset: 0,
                   }}
                 >
                   <Defs>
                     <RadialGradient
-                      id="grad"
+                      id="finalize-grad"
                       cx="50%"
                       cy="50%"
                       {...(platformEnv.isNative && {
@@ -487,7 +484,7 @@ function FinalizeWalletSetupPage({
                     y="0"
                     width="100%"
                     height="100%"
-                    fill="url(#grad)"
+                    fill="url(#finalize-grad)"
                   />
                 </Svg>
               </YStack>
