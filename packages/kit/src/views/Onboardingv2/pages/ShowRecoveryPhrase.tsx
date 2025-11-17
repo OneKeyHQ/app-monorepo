@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -19,6 +19,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes';
 import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
@@ -52,15 +53,32 @@ export default function ShowRecoveryPhrase() {
     const wallet = await backgroundApiProxy.serviceAccount.getWallet({
       walletId: route.params.walletId,
     });
+    if (
+      route.params.accountName &&
+      accountUtils.isOthersWallet({ walletId: wallet.id })
+    ) {
+      return `${wallet.name}/${route.params.accountName}`;
+    }
     return wallet.name;
-  }, [route.params.walletId]);
+  }, [route.params.accountName, route.params.walletId]);
   const recoveryPhrase = useMemo(
     () => mnemonic.split(' ').filter(Boolean),
     [mnemonic],
   );
-  const handleContinue = () => {
-    navigation.push(EOnboardingPagesV2.VerifyRecoveryPhrase, route.params);
-  };
+  const handleContinue = useCallback(async () => {
+    let isNotBackedUp = true;
+    if (route.params.walletId) {
+      const wallet = await backgroundApiProxy.serviceAccount.getWallet({
+        walletId: route.params.walletId,
+      });
+      isNotBackedUp = !wallet?.backuped;
+    }
+    if (isNotBackedUp) {
+      navigation.push(EOnboardingPagesV2.VerifyRecoveryPhrase, route.params);
+    } else {
+      navigation.popStack();
+    }
+  }, [navigation, route.params]);
 
   return (
     <Page>

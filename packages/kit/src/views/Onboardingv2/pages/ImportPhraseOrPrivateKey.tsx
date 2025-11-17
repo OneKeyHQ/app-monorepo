@@ -15,7 +15,6 @@ import {
   Button,
   HeightTransition,
   Icon,
-  Input,
   Page,
   Portal,
   SegmentControl,
@@ -144,7 +143,7 @@ function PrivateKeyInput({ value = '', onChangeText }: ITextAreaInputProps) {
     <TextAreaInput
       ref={inputRef as RefObject<TextInput>}
       allowPaste
-      allowClear
+      // allowClear
       allowScan
       allowSecureTextEye // TextAreaInput not support allowSecureTextEye
       onSelectionChange={handleSelectionChange}
