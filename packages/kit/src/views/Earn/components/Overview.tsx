@@ -218,8 +218,6 @@ export const Overview = ({
   isLoading: boolean;
   onRefresh: () => void;
 }) => {
-  const media = useMedia();
-
   const {
     activeAccount: { account, indexedAccount },
   } = useActiveAccount({ num: 0 });

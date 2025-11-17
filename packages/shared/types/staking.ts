@@ -545,10 +545,12 @@ export interface IEarnClaimActionIcon {
   disabled: boolean;
   data?: {
     balance: string;
-    token: {
-      price: string;
-      info: IEarnToken;
-    };
+    token:
+      | IEarnToken
+      | {
+          price: string;
+          info: IEarnToken;
+        };
   };
 }
 
@@ -1202,6 +1204,7 @@ export interface IEarnInvestmentItem {
 
 export interface IEarnInvestmentItemV2 {
   totalFiatValue: string;
+  earnings24hFiatValue: string;
   protocol: {
     vault?: string;
     vaultName?: string;

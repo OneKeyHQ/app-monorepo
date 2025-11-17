@@ -111,67 +111,66 @@ export const usePortfolioAction = ({
       rewardSymbol?: string;
     }) => {
       setLoading(true);
-      setTimeout(() => {
-        setLoading(false);
-      }, 10 * 1000);
+      try {
+        const claimAmount = actionIcon.data?.balance || '0';
+        const isMorphoClaim = earnUtils.isMorphoProvider({
+          providerName: provider,
+        });
 
-      const claimAmount = actionIcon.data?.balance || '0';
-      const isMorphoClaim = earnUtils.isMorphoProvider({
-        providerName: provider,
-      });
+        const receiveToken = earnUtils.convertEarnTokenToIToken(token);
 
-      const receiveToken = earnUtils.convertEarnTokenToIToken(token);
+        // Use rewardTokenAddress if provided (from airdrop asset), otherwise use token.address
+        // Only pass claimTokenAddress if it's a non-empty string
+        const claimTokenAddress =
+          rewardTokenAddress || token?.address || undefined;
 
-      // Use rewardTokenAddress if provided (from airdrop asset), otherwise use token.address
-      // Only pass claimTokenAddress if it's a non-empty string
-      const claimTokenAddress =
-        rewardTokenAddress || token?.address || undefined;
-
-      await handleClaim({
-        claimType: actionIcon.type,
-        symbol,
-        protocolInfo: {
+        await handleClaim({
+          claimType: actionIcon.type,
           symbol,
-          provider,
-          vault: vault || '',
-          networkId,
-          stakeTag: stakeTag || '',
-          providerDetail: {
-            name: provider,
-            logoURI: providerLogoURI || '',
+          protocolInfo: {
+            symbol,
+            provider,
+            vault: vault || '',
+            networkId,
+            stakeTag: stakeTag || '',
+            providerDetail: {
+              name: provider,
+              logoURI: providerLogoURI || '',
+            },
+            claimable: claimAmount,
           },
-          claimable: claimAmount,
-        },
-        tokenInfo: token
-          ? {
-              balanceParsed: '0',
-              token,
-              price: '0',
-              networkId,
-              provider,
-              vault,
-              accountId,
-            }
-          : undefined,
-        claimAmount,
-        claimTokenAddress,
-        isMorphoClaim,
-        stakingInfo: {
-          label: EEarnLabels.Claim,
-          protocol: earnUtils.getEarnProviderName({ providerName: provider }),
-          protocolLogoURI: providerLogoURI || '',
-          receive: receiveToken
-            ? { token: receiveToken, amount: claimAmount }
+          tokenInfo: token
+            ? {
+                balanceParsed: '0',
+                token,
+                price: '0',
+                networkId,
+                provider,
+                vault,
+                accountId,
+              }
             : undefined,
-          tags: stakeTag ? [stakeTag] : [],
-        },
-        // For airdrops, use stakedSymbol to refresh the correct portfolio item
-        // For normal claims, use token?.symbol
-        portfolioSymbol: stakedSymbol || token?.symbol,
-        // For airdrops, also pass rewardSymbol to filter the correct airdrop asset
-        portfolioRewardSymbol: rewardSymbol,
-      });
-      setLoading(false);
+          claimAmount,
+          claimTokenAddress,
+          isMorphoClaim,
+          stakingInfo: {
+            label: EEarnLabels.Claim,
+            protocol: earnUtils.getEarnProviderName({ providerName: provider }),
+            protocolLogoURI: providerLogoURI || '',
+            receive: receiveToken
+              ? { token: receiveToken, amount: claimAmount }
+              : undefined,
+            tags: stakeTag ? [stakeTag] : [],
+          },
+          // For airdrops, use stakedSymbol to refresh the correct portfolio item
+          // For normal claims, use token?.symbol
+          portfolioSymbol: stakedSymbol || token?.symbol,
+          // For airdrops, also pass rewardSymbol to filter the correct airdrop asset
+          portfolioRewardSymbol: rewardSymbol,
+        });
+      } finally {
+        setLoading(false);
+      }
     },
     [
       handleClaim,
@@ -259,12 +258,14 @@ export const usePortfolioAction = ({
   const handleAction = useCallback(
     ({
       actionIcon,
+      token,
       rewardTokenAddress,
       indexedAccountId: actionIndexedAccountId,
       stakedSymbol,
       rewardSymbol,
     }: {
       actionIcon: IEarnActionIcon | IEarnClaimWithKycActionIcon;
+      token?: IEarnToken;
       rewardTokenAddress?: string;
       indexedAccountId?: string;
       stakedSymbol?: string;
@@ -276,7 +277,7 @@ export const usePortfolioAction = ({
         case 'claimAirdrop':
           void handleClaimAction({
             actionIcon: actionIcon as IEarnClaimActionIcon,
-            token: (actionIcon as IEarnClaimActionIcon).data?.token.info,
+            token,
             rewardTokenAddress,
             stakedSymbol,
             rewardSymbol,
@@ -298,7 +299,12 @@ export const usePortfolioAction = ({
           break;
       }
     },
-    [handleClaimAction, handleClaimWithKycAction, handleListaCheckAction],
+    [
+      handleClaimAction,
+      handleClaimWithKycAction,
+      handleListaCheckAction,
+      symbol,
+    ],
   );
 
   return {

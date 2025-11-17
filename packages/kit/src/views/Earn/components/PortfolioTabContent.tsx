@@ -35,6 +35,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
   IEarnPortfolioInvestment,
   IEarnText,
+  IEarnToken,
 } from '@onekeyhq/shared/types/staking';
 
 import { useCurrency } from '../../../components/Currency';
@@ -92,6 +93,9 @@ const WrappedActionButton = ({
       disabled={loading || reward.button.disabled}
       cursor={reward.button.disabled ? 'not-allowed' : 'pointer'}
       onPress={() => {
+        const buttonData =
+          'data' in reward.button ? reward.button.data : undefined;
+
         // For airdrop assets, also pass the reward token address from asset.token.info.address
         const rewardTokenAddress =
           'token' in asset &&
@@ -102,6 +106,10 @@ const WrappedActionButton = ({
 
         handleAction({
           actionIcon: reward.button,
+          token:
+            'info' in (buttonData?.token || {})
+              ? (buttonData?.token as { info: IEarnToken }).info
+              : (buttonData?.token as IEarnToken),
           rewardTokenAddress,
           indexedAccountId: indexedAccount?.id,
           stakedSymbol,
