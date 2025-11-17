@@ -1,7 +1,8 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { EDeviceType } from '@onekeyfe/hd-shared';
 import { useFocusEffect } from '@react-navigation/native';
+import pRetry from 'p-retry';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
@@ -21,6 +22,10 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
 import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
@@ -281,120 +286,238 @@ function CheckAndUpdatePage({
     navigation,
   ]);
 
-  const checkFirmwareUpdate = useCallback(async () => {
-    const setDeviceNotFoundErrorMessageStep = () => {
-      setSteps((prev) => {
-        const newSteps = [...prev];
-        newSteps[1] = {
-          ...newSteps[1],
-          state: ECheckAndUpdateStepState.Error,
-          errorMessage: intl.formatMessage({
-            id: ETranslations.device_not_connected,
-          }),
-        };
-        return newSteps;
-      });
-    };
-    const cancelTimeout = createStepTimeout();
-    await ensureTransportType();
-    const baseDevice = getActiveDevice() ?? currentDevice ?? deviceData.device;
-    if (!baseDevice?.connectId) {
-      cancelTimeout();
-      setDeviceNotFoundErrorMessageStep();
-      return;
-    }
-    await ensureActiveConnection(baseDevice as SearchDevice);
-    const latestDevice = getActiveDevice() ?? baseDevice;
-    setCurrentDevice(latestDevice as SearchDevice);
+  // Retry connecting to device after firmware update
+  const retryDeviceConnectionAfterUpdate = useCallback(
+    async (connectId: string) => {
+      try {
+        await pRetry(
+          async (attemptCount) => {
+            console.log(
+              `Attempting to connect to device after firmware update (attempt ${attemptCount}/5)...`,
+            );
 
-    if (!latestDevice?.connectId) {
-      cancelTimeout();
-      setDeviceNotFoundErrorMessageStep();
-      return;
-    }
-    const compatibleConnectId =
-      await backgroundApiProxy.serviceHardware.getCompatibleConnectId({
-        connectId: latestDevice.connectId,
-        hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
-      });
-    const r =
-      await backgroundApiProxy.serviceFirmwareUpdate.checkAllFirmwareRelease({
-        connectId: compatibleConnectId,
-        skipCancel: true,
-      });
-    cancelTimeout();
-    if (r) {
-      if (r.hasUpgrade) {
+            await backgroundApiProxy.serviceHardware.getFeaturesWithoutCache({
+              connectId,
+              params: {
+                retryCount: 1,
+                skipWebDevicePrompt: true,
+              },
+            });
+
+            console.log('Device connection successful after firmware update');
+          },
+          {
+            retries: 10,
+            factor: 2,
+            minTimeout: 1000,
+            maxTimeout: 8000,
+            onFailedAttempt: (error) => {
+              console.warn(
+                `Device connection attempt ${error.attemptNumber} failed:`,
+                error.message,
+              );
+              if (
+                error.attemptNumber <
+                error.retriesLeft + error.attemptNumber
+              ) {
+                console.log(`Retrying... (${error.retriesLeft} attempts left)`);
+              }
+            },
+          },
+        );
+      } catch (error) {
+        // If all retries failed, set error state and throw
+        console.error(
+          'Failed to connect to device after firmware update, all retries exhausted',
+          error,
+        );
+
         setSteps((prev) => {
           const newSteps = [...prev];
-          newSteps[0] = {
-            ...newSteps[0],
-            state: ECheckAndUpdateStepState.Success,
-          };
           newSteps[1] = {
             ...newSteps[1],
-            state: r.hasUpgrade
-              ? ECheckAndUpdateStepState.Warning
-              : ECheckAndUpdateStepState.Success,
+            state: ECheckAndUpdateStepState.Error,
+            errorMessage: intl.formatMessage({
+              id: ETranslations.hardware_device_not_find_error,
+            }),
           };
           return newSteps;
         });
+
+        throw new OneKeyLocalError(
+          intl.formatMessage({
+            id: ETranslations.hardware_device_not_find_error,
+          }),
+        );
+      }
+    },
+    [intl],
+  );
+
+  const checkFirmwareUpdate = useCallback(
+    async (params?: { checkAfterUpdate: boolean }) => {
+      const setDeviceNotFoundErrorMessageStep = () => {
+        setSteps((prev) => {
+          const newSteps = [...prev];
+          newSteps[1] = {
+            ...newSteps[1],
+            state: ECheckAndUpdateStepState.Error,
+            errorMessage: intl.formatMessage({
+              id: ETranslations.device_not_connected,
+            }),
+          };
+          return newSteps;
+        });
+      };
+      const cancelTimeout = createStepTimeout();
+      await ensureTransportType();
+      const baseDevice =
+        getActiveDevice() ?? currentDevice ?? deviceData.device;
+      if (!baseDevice?.connectId) {
+        cancelTimeout();
+        setDeviceNotFoundErrorMessageStep();
+        return;
+      }
+      await ensureActiveConnection(baseDevice as SearchDevice);
+      const latestDevice = getActiveDevice() ?? baseDevice;
+      setCurrentDevice(latestDevice as SearchDevice);
+
+      if (!latestDevice?.connectId) {
+        cancelTimeout();
+        setDeviceNotFoundErrorMessageStep();
+        return;
+      }
+      const compatibleConnectId =
+        await backgroundApiProxy.serviceHardware.getCompatibleConnectId({
+          connectId: latestDevice.connectId,
+          hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+        });
+
+      // Wait for hardware to restart after firmware update
+      if (params?.checkAfterUpdate) {
+        await retryDeviceConnectionAfterUpdate(compatibleConnectId);
+      }
+
+      const r =
+        await backgroundApiProxy.serviceFirmwareUpdate.checkAllFirmwareRelease({
+          connectId: compatibleConnectId,
+          skipCancel: true,
+        });
+      cancelTimeout();
+      if (r) {
+        if (r.hasUpgrade) {
+          setSteps((prev) => {
+            const newSteps = [...prev];
+            newSteps[0] = {
+              ...newSteps[0],
+              state: ECheckAndUpdateStepState.Success,
+            };
+            newSteps[1] = {
+              ...newSteps[1],
+              state: r.hasUpgrade
+                ? ECheckAndUpdateStepState.Warning
+                : ECheckAndUpdateStepState.Success,
+            };
+            return newSteps;
+          });
+        } else {
+          setSteps((prev) => {
+            const newSteps = [...prev];
+            newSteps[0] = {
+              ...newSteps[0],
+              state: ECheckAndUpdateStepState.Success,
+            };
+            newSteps[1] = {
+              ...newSteps[1],
+              state: ECheckAndUpdateStepState.Success,
+            };
+            return newSteps;
+          });
+          void checkDeviceInitialized();
+        }
       } else {
         setSteps((prev) => {
           const newSteps = [...prev];
-          newSteps[0] = {
-            ...newSteps[0],
-            state: ECheckAndUpdateStepState.Success,
-          };
           newSteps[1] = {
             ...newSteps[1],
-            state: ECheckAndUpdateStepState.Success,
+            state: ECheckAndUpdateStepState.Error,
+            errorMessage: intl.formatMessage({
+              id: ETranslations.hardware_hardware_device_not_find_error,
+            }),
           };
           return newSteps;
         });
-        void checkDeviceInitialized();
       }
-    } else {
+    },
+    [
+      createStepTimeout,
+      ensureTransportType,
+      getActiveDevice,
+      currentDevice,
+      deviceData.device,
+      ensureActiveConnection,
+      intl,
+      checkDeviceInitialized,
+      retryDeviceConnectionAfterUpdate,
+    ],
+  );
+
+  // Track firmware update completion time
+  const firmwareUpdateFinishTimeRef = useRef<number | null>(null);
+  const FIRMWARE_RECHECK_DELAY = 10_000; // 10 seconds
+
+  // Listen to firmware update completion event and record timestamp
+  useEffect(() => {
+    const handleFirmwareUpdateFinish = () => {
+      console.log('Firmware update finished, recording timestamp...');
+      firmwareUpdateFinishTimeRef.current = Date.now();
+    };
+
+    appEventBus.on(
+      EAppEventBusNames.FinishFirmwareUpdate,
+      handleFirmwareUpdateFinish,
+    );
+
+    return () => {
+      appEventBus.off(
+        EAppEventBusNames.FinishFirmwareUpdate,
+        handleFirmwareUpdateFinish,
+      );
+    };
+  }, []);
+
+  // When page regains focus, check if firmware was updated and recheck if needed
+  useFocusEffect(
+    useCallback(() => {
+      const finishTime = firmwareUpdateFinishTimeRef.current;
+      if (!finishTime) {
+        return;
+      }
+
+      const elapsed = Date.now() - finishTime;
+      const remainingDelay = Math.max(0, FIRMWARE_RECHECK_DELAY - elapsed);
+
       setSteps((prev) => {
         const newSteps = [...prev];
         newSteps[1] = {
           ...newSteps[1],
-          state: ECheckAndUpdateStepState.Error,
-          errorMessage: intl.formatMessage({
-            id: ETranslations.hardware_hardware_device_not_find_error,
-          }),
+          state: ECheckAndUpdateStepState.InProgress,
         };
         return newSteps;
       });
-    }
-  }, [
-    createStepTimeout,
-    ensureTransportType,
-    getActiveDevice,
-    currentDevice,
-    deviceData.device,
-    ensureActiveConnection,
-    intl,
-    checkDeviceInitialized,
-  ]);
 
-  const firmwareStepStateRef = useRef<ECheckAndUpdateStepState>(steps[1].state);
-  firmwareStepStateRef.current = steps[1].state;
-  useFocusEffect(
-    useCallback(() => {
-      if (firmwareStepStateRef.current === ECheckAndUpdateStepState.Warning) {
-        setSteps((prev) => {
-          const newSteps = [...prev];
-          newSteps[1] = {
-            ...newSteps[1],
-            state: ECheckAndUpdateStepState.InProgress,
-          };
-          return newSteps;
+      // Wait for remaining delay (0 if already >= 10s), then recheck firmware
+      const timeoutId = setTimeout(() => {
+        void checkFirmwareUpdate({
+          checkAfterUpdate: true,
         });
-        setTimeout(() => {
-          void checkFirmwareUpdate();
-        });
-      }
+        // Clear the timestamp after rechecking
+        firmwareUpdateFinishTimeRef.current = null;
+      }, remainingDelay);
+
+      return () => {
+        clearTimeout(timeoutId);
+      };
     }, [checkFirmwareUpdate]),
   );
 
