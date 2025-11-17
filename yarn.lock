@@ -7895,6 +7895,7 @@ __metadata:
     "@privy-io/expo": "npm:0.49.1"
     "@privy-io/expo-native-extensions": "npm:0.0.4"
     "@react-native-async-storage/async-storage": "npm:2.2.0"
+    "@react-native-community/netinfo": "npm:11.4.1"
     "@react-native-community/slider": "npm:5.0.1"
     "@react-native-google-signin/google-signin": "npm:^9.1.0"
     "@reown/appkit-ethers5-react-native": "npm:1.3.1"
@@ -7954,6 +7955,7 @@ __metadata:
     react-native-cloud-fs: "npm:@onekeyfe/react-native-cloud-fs@2.6.3"
     react-native-collapsible-tab-view: "npm:8.0.1"
     react-native-crypto: "npm:^2.2.0"
+    react-native-dns-lookup: "npm:1.0.6"
     react-native-fast-pbkdf2: "npm:^0.3.1"
     react-native-file-logger: "npm:0.7.1"
     react-native-fs: "npm:@dr.pogodin/react-native-fs@2.34.0"
@@ -7965,10 +7967,13 @@ __metadata:
     react-native-level-fs: "npm:3.0.1"
     react-native-mmkv: "npm:3.3.0"
     react-native-modal: "npm:^13.0.1"
+    react-native-network-info: "npm:5.2.2"
+    react-native-network-logger: "npm:2.0.1"
     react-native-pager-view: "npm:7.0.0"
     react-native-passkeys: "npm:0.3.3"
     react-native-performance-stats: "npm:0.2.3"
     react-native-permissions: "npm:5.4.2"
+    react-native-ping: "npm:1.2.8"
     react-native-purchases: "npm:8.11.9"
     react-native-qrcode-styled: "npm:0.4.0"
     react-native-reanimated: "npm:3.18.0"
@@ -10577,6 +10582,15 @@ __metadata:
   bin:
     rnc-cli: build/bin.js
   checksum: 10/f4f08cf81378ed4cf590256a32c645f2c027bb0562d72207addc034b9486b48d09ad1d7156c95d6b8db3f3dfdfa7a4b67732eedecea219c1fc69f55f6b2e3df6
+  languageName: node
+  linkType: hard
+
+"@react-native-community/netinfo@npm:11.4.1":
+  version: 11.4.1
+  resolution: "@react-native-community/netinfo@npm:11.4.1"
+  peerDependencies:
+    react-native: ">=0.59"
+  checksum: 10/47f0d61072ca04a545784daaa44a5b1927eb788a3521dce5462184855733485c3b58c52d2a9b790b5c784e806fb342c83bc14e348cc7e55263b63d31e1862f9d
   languageName: node
   linkType: hard
 
@@ -35108,6 +35122,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"react-native-dns-lookup@npm:1.0.6":
+  version: 1.0.6
+  resolution: "react-native-dns-lookup@npm:1.0.6"
+  peerDependencies:
+    react-native: "*"
+  checksum: 10/46ce7be986a5da25e65ac99629aa9d928ce0c3493295600b0403c91f955eed0f8f3e4dd725c2fbcba118ee834fabc0446599f6602650c96f4713b2dfe315d3bc
+  languageName: node
+  linkType: hard
+
 "react-native-draggable-flatlist@npm:4.0.3":
   version: 4.0.3
   resolution: "react-native-draggable-flatlist@npm:4.0.3"
@@ -35348,6 +35371,25 @@ __metadata:
   languageName: node
   linkType: hard
 
+"react-native-network-info@npm:5.2.2":
+  version: 5.2.2
+  resolution: "react-native-network-info@npm:5.2.2"
+  peerDependencies:
+    react-native: ">=0.47"
+  checksum: 10/9c468539ab7eda3ff3bf4f6370f7b59795d5e61e0110f43b9b6019382ed744fdaa6ec2ce76bd386ba49cbef973fd8949c0666648eefe950064b4b33b9a5ca7a7
+  languageName: node
+  linkType: hard
+
+"react-native-network-logger@npm:2.0.1":
+  version: 2.0.1
+  resolution: "react-native-network-logger@npm:2.0.1"
+  peerDependencies:
+    react: "*"
+    react-native: "*"
+  checksum: 10/a4c231ad58c9e9221e752558de1b723fcf374ef7749806df48b1997ebeae5e015a598f05b964ec8c60b8a3004254166625bb927a905cc6a6997ded99ccf64de1
+  languageName: node
+  linkType: hard
+
 "react-native-pager-view@npm:7.0.0":
   version: 7.0.0
   resolution: "react-native-pager-view@npm:7.0.0"
@@ -35390,6 +35432,15 @@ __metadata:
     react-native-windows:
       optional: true
   checksum: 10/b58250476b4fc3affe08f7c28454fe42267ceef8097499c96da773b5c8e2cb8e18940ca586f28194615342890bf30ae298e9cf647682b30478cc9b867d2e0d90
+  languageName: node
+  linkType: hard
+
+"react-native-ping@npm:1.2.8":
+  version: 1.2.8
+  resolution: "react-native-ping@npm:1.2.8"
+  peerDependencies:
+    react-native: ^0.41.2 || ^0.57.0 || ^0.68.0 || ^0.70.0
+  checksum: 10/4783294c7155d5c4beaa895c8b20c63c9442dda6f30f4d0fb9137723a406e9c971e97d7fe5383d68af319aeec35dc9713d9e0725978c325c65a599f24a1e0c2b
   languageName: node
   linkType: hard
 
