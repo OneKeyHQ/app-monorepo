@@ -50,7 +50,6 @@ import {
   useActiveAccount,
 } from '../../../states/jotai/contexts/accountSelector';
 import { withPromptPasswordVerify } from '../../../utils/passwordUtils';
-import { useWalletBoundReferralCode } from '../../ReferFriends/hooks/useWalletBoundReferralCode';
 import { OnboardingLayout } from '../components/OnboardingLayout';
 import {
   useConnectDeviceError,
