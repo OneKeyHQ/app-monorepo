@@ -12,6 +12,10 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { ITabEarnParamList } from '@onekeyhq/shared/src/routes';
@@ -48,7 +52,7 @@ import { EarnProviderMirror } from './EarnProviderMirror';
 import { EarnNavigation } from './earnUtils';
 import { useBannerInfo } from './hooks/useBannerInfo';
 import { useBlockRegion } from './hooks/useBlockRegion';
-import { useEarnAccounts } from './hooks/useEarnAccounts';
+import { useEarnPortfolio } from './hooks/useEarnPortfolio';
 import { useFAQListInfo } from './hooks/useFAQListInfo';
 
 import type { LayoutChangeEvent } from 'react-native';
@@ -71,10 +75,15 @@ function BasicEarnHome({
   const { isFetchingBlockResult, refreshBlockResult, blockResult } =
     useBlockRegion();
 
-  const { isFetchingAccounts, refreshEarnAccounts } = useEarnAccounts();
-
   const { earnBanners, refetchBanners } = useBannerInfo();
   const { faqList, isFaqLoading, refetchFAQ } = useFAQListInfo();
+  const portfolioData = useEarnPortfolio();
+  const { isLoading: portfolioLoading } = portfolioData;
+  const refreshEarnData = useCallback(async () => {
+    await backgroundApiProxy.serviceStaking.clearAvailableAssetsCache();
+    actions.current.triggerRefresh();
+    // await refreshEarnDataRaw();
+  }, [actions]);
 
   const navigation = useAppNavigation();
 
@@ -197,7 +206,7 @@ function BasicEarnHome({
     [earnBanners, onBannerPress],
   );
 
-  const isLoading = !!isFetchingAccounts;
+  const isLoading = !!portfolioLoading;
   const intl = useIntl();
 
   const [tabPageHeight, setTabPageHeight] = useState(
@@ -232,9 +241,10 @@ function BasicEarnHome({
           faqList={faqList || []}
           isFaqLoading={isFaqLoading}
           isAccountsLoading={isLoading}
-          refreshEarnAccounts={refreshEarnAccounts}
+          refreshEarnAccounts={refreshEarnData}
           defaultTab={defaultTab}
           onTabChange={handleTabChange}
+          portfolioData={portfolioData}
           containerProps={{
             contentContainerStyle: {
               display: showContent ? undefined : 'none',
@@ -246,7 +256,7 @@ function BasicEarnHome({
                 <YStack gap="$7.5">
                   <YStack px="$5">
                     <Overview
-                      onRefresh={refreshEarnAccounts}
+                      onRefresh={refreshEarnData}
                       isLoading={isLoading}
                     />
                   </YStack>
@@ -291,17 +301,14 @@ function BasicEarnHome({
       sceneName={EAccountSelectorSceneName.home}
       tabRoute={ETabRoutes.Earn}
       refreshControl={
-        <RefreshControl
-          refreshing={isLoading}
-          onRefresh={refreshEarnAccounts}
-        />
+        <RefreshControl refreshing={isLoading} onRefresh={refreshEarnData} />
       }
     >
       <YStack flex={1} gap="$4">
         {/* overview and banner */}
         <YStack gap="$8">
           <XStack px="$5">
-            <Overview onRefresh={refreshEarnAccounts} isLoading={isLoading} />
+            <Overview onRefresh={refreshEarnData} isLoading={isLoading} />
           </XStack>
           {banners ? (
             <YStack
@@ -324,6 +331,8 @@ function BasicEarnHome({
           isAccountsLoading={isLoading}
           defaultTab={defaultTab}
           onTabChange={handleTabChange}
+          portfolioData={portfolioData}
+          refreshEarnAccounts={refreshEarnData}
         />
       </YStack>
     </EarnPageContainer>

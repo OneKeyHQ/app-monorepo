@@ -5,11 +5,12 @@ import { useIntl } from 'react-intl';
 import type { ITabContainerRef } from '@onekeyhq/components';
 import { RefreshControl, Tabs, YStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
 
 import { FAQContent } from './FAQContent';
 import { PortfolioTabContent } from './PortfolioTabContent';
 import { ProtocolsTabContent } from './ProtocolsTabContent';
+
+import type { IUseEarnPortfolioReturn } from '../hooks/useEarnPortfolio';
 
 export function EarnMainTabs({
   isMobile,
@@ -20,6 +21,7 @@ export function EarnMainTabs({
   containerProps,
   defaultTab,
   onTabChange,
+  portfolioData,
 }: {
   isMobile: boolean;
   faqList: Array<{ question: string; answer: string }>;
@@ -29,6 +31,7 @@ export function EarnMainTabs({
   containerProps?: any;
   defaultTab?: 'assets' | 'portfolio' | 'faqs';
   onTabChange?: (tab: 'assets' | 'portfolio' | 'faqs') => void;
+  portfolioData: IUseEarnPortfolioReturn;
 }) {
   const intl = useIntl();
   const tabsRef = useRef<ITabContainerRef>(null);
@@ -111,13 +114,13 @@ export function EarnMainTabs({
         {isMobile ? (
           <Tabs.ScrollView refreshControl={refreshControl}>
             <YStack pt="$6" gap="$8">
-              <PortfolioTabContent />
+              <PortfolioTabContent portfolioData={portfolioData} />
             </YStack>
           </Tabs.ScrollView>
         ) : (
           <YStack>
             <YStack pt="$6" gap="$8">
-              <PortfolioTabContent />
+              <PortfolioTabContent portfolioData={portfolioData} />
             </YStack>
           </YStack>
         )}

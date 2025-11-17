@@ -307,11 +307,7 @@ export const Overview = ({
 
   const handleRefresh = useCallback(() => {
     onRefresh();
-    void backgroundApiProxy.serviceStaking.clearAvailableAssetsCache();
-    actions.current.triggerRefresh();
-    // Trigger Portfolio refresh as well
-    appEventBus.emit(EAppEventBusNames.RefreshEarnPortfolio, undefined);
-  }, [onRefresh, actions]);
+  }, [onRefresh]);
 
   return (
     <YStack

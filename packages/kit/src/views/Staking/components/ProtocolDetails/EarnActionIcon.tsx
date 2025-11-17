@@ -568,15 +568,17 @@ function BasicEarnActionIcon({
           trigger={trigger}
         />
       );
-    case 'claimWithKyc':
+    case 'claimWithKyc': {
+      const claimWithKycAction = actionIcon as IEarnClaimWithKycActionIcon;
       return (
         <ClaimWithKycActionIcon
-          actionIcon={actionIcon}
+          actionIcon={claimWithKycAction}
           protocolInfo={protocolInfo}
           tokenInfo={tokenInfo}
           trigger={trigger}
         />
       );
+    }
     case 'popup':
       return actionIcon.data.icon ? (
         <Popover

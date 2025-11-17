@@ -4,6 +4,7 @@ import BigNumber from 'bignumber.js';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
   IEarnInvestmentItemV2,
   IEarnPortfolioInvestment,
@@ -11,6 +12,10 @@ import type {
 
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
+import {
+  useEarnActions,
+  useEarnAtom,
+} from '../../../states/jotai/contexts/earn';
 
 interface IRefreshOptions {
   provider?: string;
@@ -52,6 +57,16 @@ const calculateTotalFiatValue = (
       return sum;
     }
     return sum.plus(new BigNumber(inv.totalFiatValue || '0'));
+  }, new BigNumber(0));
+
+const calculateTotalEarnings24hValue = (
+  investments: IEarnPortfolioInvestment[],
+): BigNumber =>
+  investments.reduce((sum, inv) => {
+    if (inv.assets.length === 0 && inv.airdropAssets.length > 0) {
+      return sum;
+    }
+    return sum.plus(new BigNumber(inv.earnings24hFiatValue || '0'));
   }, new BigNumber(0));
 
 const hasListaCheckAction = (investment: IEarnPortfolioInvestment): boolean =>
@@ -114,6 +129,8 @@ const useInvestmentState = () => {
   const [earnTotalFiatValue, setEarnTotalFiatValue] = useState<BigNumber>(
     new BigNumber(0),
   );
+  const [earnTotalEarnings24hFiatValue, setEarnTotalEarnings24hFiatValue] =
+    useState<BigNumber>(new BigNumber(0));
   const investmentMapRef = useRef<IInvestmentMap>(new Map());
 
   const updateInvestments = useCallback((newMap: IInvestmentMap) => {
@@ -130,6 +147,7 @@ const useInvestmentState = () => {
     const sorted = sortByFiatValueDesc(validInvestments);
     setInvestments(sorted);
     setEarnTotalFiatValue(calculateTotalFiatValue(sorted));
+    setEarnTotalEarnings24hFiatValue(calculateTotalEarnings24hValue(sorted));
     investmentMapRef.current = new Map(
       validInvestments.map((inv) => {
         const firstAsset = inv.assets[0] || inv.airdropAssets[0];
@@ -150,11 +168,13 @@ const useInvestmentState = () => {
     investmentMapRef.current.clear();
     setInvestments([]);
     setEarnTotalFiatValue(new BigNumber(0));
+    setEarnTotalEarnings24hFiatValue(new BigNumber(0));
   }, []);
 
   return {
     investments,
     earnTotalFiatValue,
+    earnTotalEarnings24hFiatValue,
     investmentMapRef,
     updateInvestments,
     clearInvestments,
@@ -204,15 +224,26 @@ const useAccountState = (
   };
 };
 
-export const useEarnPortfolio = () => {
+export interface IUseEarnPortfolioReturn {
+  investments: IEarnPortfolioInvestment[];
+  earnTotalFiatValue: BigNumber;
+  earnTotalEarnings24hFiatValue: BigNumber;
+  isLoading: boolean;
+  refresh: (options?: IRefreshOptions) => Promise<void>;
+}
+
+export const useEarnPortfolio = (): IUseEarnPortfolioReturn => {
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { account, indexedAccount } = activeAccount;
   const allNetworkId = getNetworkIdsMap().onekeyall;
   const [isLoading, setIsLoading] = useState(true);
+  const actions = useEarnActions();
+  const [{ earnAccount }] = useEarnAtom();
 
   const {
     investments,
     earnTotalFiatValue,
+    earnTotalEarnings24hFiatValue,
     investmentMapRef,
     updateInvestments,
     clearInvestments,
@@ -224,6 +255,22 @@ export const useEarnPortfolio = () => {
     isRequestStale,
     getCurrentRequestId,
   } = useAccountState(account, indexedAccount);
+
+  const earnAccountKey = useMemo(
+    () =>
+      actions.current.buildEarnAccountsKey({
+        accountId: account?.id,
+        indexAccountId: account?.indexedAccountId || indexedAccount?.id,
+        networkId: allNetworkId,
+      }),
+    [
+      actions,
+      account?.id,
+      account?.indexedAccountId,
+      indexedAccount?.id,
+      allNetworkId,
+    ],
+  );
 
   // Handle account changes
   useEffect(() => {
@@ -273,6 +320,7 @@ export const useEarnPortfolio = () => {
 
           const investment: IEarnPortfolioInvestment = {
             totalFiatValue: result.totalFiatValue,
+            earnings24hFiatValue: '0',
             protocol: result.protocol,
             network: result.network,
             assets: [],
@@ -305,6 +353,7 @@ export const useEarnPortfolio = () => {
 
         const investment: IEarnPortfolioInvestment = {
           totalFiatValue: result.totalFiatValue,
+          earnings24hFiatValue: result.earnings24hFiatValue,
           protocol: result.protocol,
           network: result.network,
           assets: enrichedAssets,
@@ -347,6 +396,25 @@ export const useEarnPortfolio = () => {
           indexedAccountId: account?.indexedAccountId || indexedAccount?.id,
         }),
       ]);
+
+      if (earnAccountKey) {
+        const normalizedAccounts = accounts.map((accountItem) => ({
+          tokens: [],
+          networkId: accountItem.networkId,
+          accountAddress: accountItem.accountAddress,
+          publicKey: accountItem.publicKey,
+        }));
+        const previousAccountData =
+          actions.current.getEarnAccount(earnAccountKey) || {};
+        actions.current.updateEarnAccounts({
+          key: earnAccountKey,
+          earnAccount: {
+            ...previousAccountData,
+            accounts: normalizedAccounts,
+            isOverviewLoaded: true,
+          },
+        });
+      }
 
       const accountAssetPairs = accounts.flatMap((accountItem) =>
         assets
@@ -514,6 +582,8 @@ export const useEarnPortfolio = () => {
       isRequestStale,
       hasAccountChanged,
       markAccountChange,
+      earnAccountKey,
+      actions,
       // investmentMapRef is a ref, doesn't need to be in deps
     ],
   );
@@ -524,6 +594,8 @@ export const useEarnPortfolio = () => {
     {
       watchLoading: true,
       revalidateOnReconnect: true,
+      revalidateOnFocus: true,
+      pollingInterval: timerUtils.getTimeDurationMs({ minute: 3 }),
       alwaysSetState: true,
     },
   );
@@ -540,9 +612,43 @@ export const useEarnPortfolio = () => {
     [investments],
   );
 
+  useEffect(() => {
+    if (!earnAccountKey) return;
+    const currentAccount = earnAccount?.[earnAccountKey];
+    if (!currentAccount) return;
+
+    const totalFiatValueStr = earnTotalFiatValue.toFixed();
+    const earnings24hStr = earnTotalEarnings24hFiatValue.toFixed();
+
+    // Only update if values actually changed to prevent infinite loops
+    if (
+      currentAccount.totalFiatValue === totalFiatValueStr &&
+      currentAccount.earnings24h === earnings24hStr
+    ) {
+      return;
+    }
+
+    actions.current.updateEarnAccounts({
+      key: earnAccountKey,
+      earnAccount: {
+        ...currentAccount,
+        totalFiatValue: totalFiatValueStr,
+        earnings24h: earnings24hStr,
+      },
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    earnAccountKey,
+    earnTotalFiatValue,
+    earnTotalEarnings24hFiatValue,
+    // Do NOT include earnAccount or actions to prevent infinite loops
+    // earnAccount will trigger updates when we call updateEarnAccounts
+  ]);
+
   return {
     investments: aggregatedInvestments,
     earnTotalFiatValue,
+    earnTotalEarnings24hFiatValue,
     isLoading,
     refresh,
   };

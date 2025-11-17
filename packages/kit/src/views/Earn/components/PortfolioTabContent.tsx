@@ -46,6 +46,8 @@ import { buildLocalTxStatusSyncId } from '../../Staking/utils/utils';
 import { useEarnPortfolio } from '../hooks/useEarnPortfolio';
 import { usePortfolioAction } from '../hooks/usePortfolioAction';
 
+import type { IUseEarnPortfolioReturn } from '../hooks/useEarnPortfolio';
+
 const WrappedActionButton = ({
   asset,
   reward,
@@ -653,9 +655,13 @@ const PortfolioSkeleton = () => (
   </YStack>
 );
 
-export const PortfolioTabContent = () => {
+export const PortfolioTabContent = ({
+  portfolioData,
+}: {
+  portfolioData: IUseEarnPortfolioReturn;
+}) => {
   const intl = useIntl();
-  const { investments, isLoading, refresh } = useEarnPortfolio();
+  const { investments, isLoading, refresh } = portfolioData;
 
   const refreshPortfolioRow = useCallback<
     (payload: {
