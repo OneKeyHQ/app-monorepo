@@ -743,12 +743,29 @@ function CheckAndUpdatePage({
       ],
     };
 
+    const finishOnboardingOnDevice = {
+      title: intl.formatMessage({
+        id: ETranslations.setup_recovery_phrase_follow_instructions,
+      }),
+      details: [],
+    };
+
     // For Classic or Mini devices, swap the order of PIN and recovery phrase
     if (isClassicOrMini) {
-      return [chooseOptionStep, recoveryPhraseStep, pinStep];
+      return [
+        chooseOptionStep,
+        recoveryPhraseStep,
+        pinStep,
+        finishOnboardingOnDevice,
+      ];
     }
 
-    return [chooseOptionStep, pinStep, recoveryPhraseStep];
+    return [
+      chooseOptionStep,
+      pinStep,
+      recoveryPhraseStep,
+      finishOnboardingOnDevice,
+    ];
   }, [intl, deviceData]);
 
   const handleSkipCurrentStep = useCallback(() => {
