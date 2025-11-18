@@ -164,15 +164,14 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
         flex: 2.5,
         render: (item) => {
           return (
-            <XStack>
+            <XStack jc="center" ai="center">
               <Token
                 size="md"
                 borderRadius="$2"
                 mr="$3"
-                my="$3"
                 tokenImageUri={item.provider.logoURI}
               />
-              <YStack mr="$2" jc="center">
+              <YStack mr="$2">
                 <XStack ai="center" gap="$2">
                   <SizableText size="$bodyLgMedium">
                     {normalizeToEarnProvider(item.provider.name)}
@@ -189,11 +188,7 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
                   ))}
                 </XStack>
                 {item?.provider?.description ? (
-                  <SizableText
-                    mt="$0.5"
-                    size="$bodySmMedium"
-                    color="$textSubdued"
-                  >
+                  <SizableText size="$bodySmMedium" color="$textSubdued">
                     {item.provider.description}
                   </SizableText>
                 ) : null}
@@ -207,6 +202,7 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
         label: intl.formatMessage({ id: ETranslations.global_network }),
         flex: 1,
         hideInMobile: true,
+        align: 'flex-end',
         render: (item) => (
           <NetworkAvatarGroup
             networkIds={[item.network.networkId]}
@@ -219,10 +215,11 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
       {
         key: 'tvl',
         label: intl.formatMessage({ id: ETranslations.earn_tvl }),
-        flex: 1,
+        flex: 2,
         hideInMobile: true,
+        align: 'flex-end',
         render: (item) => (
-          <SizableText mr="$2" size="$bodyLgMedium">
+          <SizableText size="$bodyLgMedium">
             <EarnText size="$bodyLg" text={item?.tvl} />
           </SizableText>
         ),
@@ -230,7 +227,8 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
       {
         key: 'yield',
         label: intl.formatMessage({ id: ETranslations.global_apr }),
-        flex: 1,
+        flex: 2,
+        align: 'flex-end',
         render: (item) => (
           <AprText
             asset={{

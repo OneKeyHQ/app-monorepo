@@ -128,6 +128,17 @@ const WrappedActionButton = ({
   );
 };
 
+const FieldWrapper = ({
+  children,
+  ...rest
+}: { children: React.ReactNode } & React.ComponentProps<typeof YStack>) => {
+  return (
+    <YStack gap="$1" minHeight="$8" {...rest}>
+      {children}
+    </YStack>
+  );
+};
+
 const DepositField = ({
   asset,
 }: {
@@ -141,7 +152,7 @@ const DepositField = ({
         tokenImageUri={asset.token.info.logoURI}
         networkImageUri={asset.metadata.network.logoURI}
       />
-      <YStack ml="$3" mr="$2" jc="center" flex={1}>
+      <FieldWrapper ml="$3" mr="$2" jc="center" flex={1}>
         <XStack gap="$1" maxWidth={200} flexWrap="wrap">
           <EarnText size="$bodyMdMedium" text={asset.deposit?.title} />
           <EarnText
@@ -151,11 +162,11 @@ const DepositField = ({
           />
         </XStack>
         {asset.metadata.protocol.vaultName ? (
-          <SizableText mt="$0.5" size="$bodySm" color="$textSubdued">
+          <SizableText size="$bodySm" color="$textSubdued">
             {asset.metadata.protocol.vaultName}
           </SizableText>
         ) : null}
-      </YStack>
+      </FieldWrapper>
     </XStack>
   );
 };
@@ -166,13 +177,9 @@ const EarningsField = ({
   asset: IEarnPortfolioInvestment['assets'][number];
 }) => {
   return (
-    <YStack gap="$1">
+    <FieldWrapper>
       <YStack ml="$3" mr="$2" jc="center" flex={1}>
-        <EarnText
-          flex={1}
-          size="$bodyMdMedium"
-          text={asset.earnings24h?.title}
-        />
+        <EarnText size="$bodyMdMedium" text={asset.earnings24h?.title} />
         <XStack gap="$1">
           <EarnText
             size="$bodySm"
@@ -186,7 +193,7 @@ const EarningsField = ({
           />
         </XStack>
       </YStack>
-    </YStack>
+    </FieldWrapper>
   );
 };
 
@@ -195,21 +202,12 @@ const AssetStatusField = ({
 }: {
   asset: IEarnPortfolioInvestment['assets'][number];
 }) => {
-  if (isEmpty(asset.assetsStatus)) {
-    return <EarnText flex={1} size="$bodyMdMedium" text={{ text: '-' }} />;
-  }
-
   return (
-    <YStack gap="$1">
+    <FieldWrapper jc="center">
       {asset.assetsStatus?.map((status, index) => (
         <XStack key={index} ai="center" maxWidth={200} flexWrap="wrap">
-          <EarnText
-            mr="$2"
-            size="$bodyMdMedium"
-            text={status.title}
-            width="100%"
-          />
-          <XStack ai="center">
+          <EarnText mr="$2" size="$bodyMdMedium" text={status.title} />
+          <XStack>
             <EarnText
               mr="$2"
               size="$bodyMd"
@@ -220,7 +218,7 @@ const AssetStatusField = ({
           </XStack>
         </XStack>
       ))}
-    </YStack>
+    </FieldWrapper>
   );
 };
 
@@ -229,8 +227,18 @@ const ActionField = ({
 }: {
   asset: IEarnPortfolioInvestment['assets'][number];
 }) => {
+  if (isEmpty(asset.rewardAssets)) {
+    return (
+      <FieldWrapper jc="center">
+        <Stack flexDirection="row" ai="center" flexWrap="wrap" maxWidth="100%">
+          <EarnText mr="$1" size="$bodyMdMedium" text={{ text: '-' }} />
+        </Stack>
+      </FieldWrapper>
+    );
+  }
+
   return (
-    <YStack gap="$1" maxWidth="100%">
+    <FieldWrapper jc="center">
       {asset.rewardAssets?.map((reward, index) => (
         <Stack
           key={index}
@@ -239,7 +247,11 @@ const ActionField = ({
           flexWrap="wrap"
           maxWidth="100%"
         >
-          <EarnText mr="$1" size="$bodyMdMedium" text={reward.title} />
+          <EarnText
+            mr="$1"
+            size="$bodyMdMedium"
+            text={reward.title ?? { text: '-' }}
+          />
           <EarnText
             mr="$2"
             size="$bodyMd"
@@ -249,7 +261,7 @@ const ActionField = ({
           <WrappedActionButton asset={asset} reward={reward} />
         </Stack>
       ))}
-    </YStack>
+    </FieldWrapper>
   );
 };
 
@@ -273,7 +285,14 @@ const ProtocolHeader = ({
         <SizableText size="$headingSm">
           {portfolioItem.protocol.providerDetail.name}
         </SizableText>
-        <Divider bg="$headingSm" vertical mx="$3" height="$5" width="$1" />
+        <Divider
+          bg="$headingSm"
+          vertical
+          ml="$3"
+          mr="$1.5"
+          height="$5"
+          width="$1"
+        />
         <XStack ai="center" gap="$1">
           <SizableText size="$bodyMd" color="$textSubdued">
             {intl.formatMessage({ id: ETranslations.earn_total_staked_value })}
@@ -331,30 +350,35 @@ const ProtocolHeader = ({
                     <XStack
                       key={rewardIndex}
                       ai="center"
+                      w="100%"
                       $gtMd={{
                         h: '$9',
                       }}
                     >
-                      <EarnText
-                        mr="$1"
-                        size="$bodyMdMedium"
-                        text={reward.title}
-                      />
-                      <EarnText
-                        mr="$1"
-                        size="$bodyMd"
-                        color="$textSubdued"
-                        text={reward.description}
-                      />
-                      <EarnTooltip tooltip={reward.tooltip} />
-                      {reward.button ? (
-                        <WrappedActionButton
-                          asset={airdrop}
-                          reward={reward}
-                          stakedSymbol={stakedSymbol}
-                          rewardSymbol={airdrop.token.info.symbol}
+                      <XStack>
+                        <EarnText
+                          mr="$1"
+                          size="$bodyMdMedium"
+                          text={reward.title}
                         />
-                      ) : null}
+                        <EarnText
+                          mr="$1"
+                          size="$bodyMd"
+                          color="$textSubdued"
+                          text={reward.description}
+                        />
+                        <EarnTooltip tooltip={reward.tooltip} />
+                      </XStack>
+                      <XStack ml="auto" $gtMd={{ ml: 0 }}>
+                        {reward.button ? (
+                          <WrappedActionButton
+                            asset={airdrop}
+                            reward={reward}
+                            stakedSymbol={stakedSymbol}
+                            rewardSymbol={airdrop.token.info.symbol}
+                          />
+                        ) : null}
+                      </XStack>
                       {needDivider ? (
                         <Divider
                           bg="$borderSubdued"
@@ -413,14 +437,7 @@ const PortfolioItemComponent = ({
           label: intl.formatMessage({ id: ETranslations.earn_claimable }),
           flex: 1.5,
           priority: 3,
-          render: (asset) => {
-            if (isEmpty(asset.rewardAssets)) {
-              return (
-                <EarnText flex={1} size="$bodyMdMedium" text={{ text: '-' }} />
-              );
-            }
-            return <ActionField asset={asset} />;
-          },
+          render: (asset) => <ActionField asset={asset} />,
         },
       ];
     }, [intl]);
