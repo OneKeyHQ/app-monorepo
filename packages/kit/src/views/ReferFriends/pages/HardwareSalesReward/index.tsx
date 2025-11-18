@@ -36,6 +36,7 @@ import {
   BreadcrumbSection,
   ExportButton,
   FilterButton,
+  ReferFriendsPageContainer,
 } from '../../components';
 import { useRewardFilter } from '../../hooks/useRewardFilter';
 
@@ -251,131 +252,138 @@ function HardwareSalesRewardPageWrapper() {
         />
       )}
       <Page.Body>
-        {amount === undefined ? (
-          <YStack
-            position="absolute"
-            top={0}
-            left={0}
-            right={0}
-            bottom={0}
-            ai="center"
-            jc="center"
-            flex={1}
-          >
-            <Spinner size="large" />
-          </YStack>
-        ) : (
-          <SectionList
-            refreshControl={
-              <RefreshControl refreshing={isLoading} onRefresh={onRefresh} />
-            }
-            contentContainerStyle={{ pb: '$5' }}
-            ListEmptyComponent={
-              <Empty
-                icon="GiftOutline"
-                title={intl.formatMessage({
-                  id: ETranslations.referral_referred_empty,
-                })}
-                description={intl.formatMessage({
-                  id: ETranslations.referral_referred_empty_desc,
-                })}
-              />
-            }
-            ListHeaderComponent={
-              <>
-                {!platformEnv.isNative && !md ? (
-                  <XStack px="$5" py="$5" jc="space-between" ai="center">
-                    <BreadcrumbSection
-                      secondItemLabel={intl.formatMessage({
-                        id: ETranslations.referral_referred_type_3,
+        <ReferFriendsPageContainer flex={1} position="relative">
+          {amount === undefined ? (
+            <YStack
+              position="absolute"
+              top={0}
+              left={0}
+              right={0}
+              bottom={0}
+              ai="center"
+              jc="center"
+              flex={1}
+            >
+              <Spinner size="large" />
+            </YStack>
+          ) : (
+            <SectionList
+              flex={1}
+              refreshControl={
+                <RefreshControl refreshing={isLoading} onRefresh={onRefresh} />
+              }
+              contentContainerStyle={{ pb: '$5' }}
+              ListEmptyComponent={
+                <Empty
+                  icon="GiftOutline"
+                  title={intl.formatMessage({
+                    id: ETranslations.referral_referred_empty,
+                  })}
+                  description={intl.formatMessage({
+                    id: ETranslations.referral_referred_empty_desc,
+                  })}
+                />
+              }
+              ListHeaderComponent={
+                <>
+                  {!platformEnv.isNative && !md ? (
+                    <XStack px="$5" py="$5" jc="space-between" ai="center">
+                      <BreadcrumbSection
+                        secondItemLabel={intl.formatMessage({
+                          id: ETranslations.referral_referred_type_3,
+                        })}
+                      />
+                      {renderHeaderRight()}
+                    </XStack>
+                  ) : null}
+                  {tourTimes === 0 ? (
+                    <Alert
+                      closable
+                      description={intl.formatMessage({
+                        id: ETranslations.referral_sales_reward_tips,
                       })}
+                      type="info"
+                      mx="$5"
+                      mb="$2.5"
+                      onClose={tourVisited}
                     />
-                    {renderHeaderRight()}
-                  </XStack>
-                ) : null}
-                {tourTimes === 0 ? (
-                  <Alert
-                    closable
-                    description={intl.formatMessage({
-                      id: ETranslations.referral_sales_reward_tips,
-                    })}
-                    type="info"
-                    mx="$5"
-                    mb="$2.5"
-                    onClose={tourVisited}
-                  />
-                ) : null}
-                <YStack px="$5">
-                  <SizableText size="$bodyLg">
-                    {intl.formatMessage({
-                      id: ETranslations.referral_reward_undistributed,
-                    })}
-                  </SizableText>
-                  <XStack gap="$2" ai="center">
-                    {Number(amount.undistributed) > 0 ? (
-                      <Currency formatter="value" size="$heading5xl" pr="$0.5">
-                        {amount.undistributed}
-                      </Currency>
-                    ) : (
-                      <SizableText size="$heading5xl">0</SizableText>
-                    )}
-                    <YStack>
-                      {platformEnv.isNative ? null : (
-                        <IconButton
-                          icon="RefreshCcwOutline"
-                          variant="tertiary"
-                          loading={isLoading}
-                          onPress={onRefresh}
-                        />
+                  ) : null}
+                  <YStack px="$5">
+                    <SizableText size="$bodyLg">
+                      {intl.formatMessage({
+                        id: ETranslations.referral_reward_undistributed,
+                      })}
+                    </SizableText>
+                    <XStack gap="$2" ai="center">
+                      {Number(amount.undistributed) > 0 ? (
+                        <Currency
+                          formatter="value"
+                          size="$heading5xl"
+                          pr="$0.5"
+                        >
+                          {amount.undistributed}
+                        </Currency>
+                      ) : (
+                        <SizableText size="$heading5xl">0</SizableText>
                       )}
-                    </YStack>
-                  </XStack>
+                      <YStack>
+                        {platformEnv.isNative ? null : (
+                          <IconButton
+                            icon="RefreshCcwOutline"
+                            variant="tertiary"
+                            loading={isLoading}
+                            onPress={onRefresh}
+                          />
+                        )}
+                      </YStack>
+                    </XStack>
 
-                  {Number(amount.pending) > 0 ? (
-                    <XStack gap="$1">
-                      <Currency
-                        formatter="value"
-                        formatterOptions={{
-                          currency: settings.currencyInfo.symbol,
-                          showPlusMinusSigns: true,
-                        }}
-                        size="$bodyMdMedium"
-                      >
-                        {amount.pending}
-                      </Currency>
-                      <SizableText size="$bodyMd" color="t$extSubdued">
-                        {intl.formatMessage({
-                          id: ETranslations.referral_reward_undistributed_pending,
-                        })}
-                      </SizableText>
-                    </XStack>
-                  ) : null}
-                  <Divider mt="$5" />
-                  {sections.length ? (
-                    <XStack jc="space-between" h={38} ai="center">
-                      <SizableText size="$bodyMd" color="$textSubdued">
-                        {intl.formatMessage({
-                          id: ETranslations.referral_order_info,
-                        })}
-                      </SizableText>
-                      <SizableText size="$bodyMd" color="$textSubdued">
-                        {intl.formatMessage({
-                          id: ETranslations.earn_rewards,
-                        })}
-                      </SizableText>
-                    </XStack>
-                  ) : null}
-                </YStack>
-              </>
-            }
-            sections={sections}
-            renderSectionHeader={renderSectionHeader}
-            estimatedItemSize={60}
-            renderItem={renderItem}
-            onEndReached={debounceFetchMore}
-            keyExtractor={keyExtractor}
-          />
-        )}
+                    {Number(amount.pending) > 0 ? (
+                      <XStack gap="$1">
+                        <Currency
+                          formatter="value"
+                          formatterOptions={{
+                            currency: settings.currencyInfo.symbol,
+                            showPlusMinusSigns: true,
+                          }}
+                          size="$bodyMdMedium"
+                        >
+                          {amount.pending}
+                        </Currency>
+                        <SizableText size="$bodyMd" color="t$extSubdued">
+                          {intl.formatMessage({
+                            id: ETranslations.referral_reward_undistributed_pending,
+                          })}
+                        </SizableText>
+                      </XStack>
+                    ) : null}
+                    <Divider mt="$5" />
+                    {sections.length ? (
+                      <XStack jc="space-between" h={38} ai="center">
+                        <SizableText size="$bodyMd" color="$textSubdued">
+                          {intl.formatMessage({
+                            id: ETranslations.referral_order_info,
+                          })}
+                        </SizableText>
+                        <SizableText size="$bodyMd" color="$textSubdued">
+                          {intl.formatMessage({
+                            id: ETranslations.earn_rewards,
+                          })}
+                        </SizableText>
+                      </XStack>
+                    ) : null}
+                  </YStack>
+                </>
+              }
+              sections={sections}
+              renderSectionHeader={renderSectionHeader}
+              estimatedItemSize={60}
+              renderItem={renderItem}
+              onEndReached={debounceFetchMore}
+              keyExtractor={keyExtractor}
+            />
+          )}
+        </ReferFriendsPageContainer>
       </Page.Body>
     </Page>
   );

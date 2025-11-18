@@ -47,7 +47,11 @@ export function FilterButton({
   );
 
   const inviteCodeOptions = useMemo(() => {
-    const options: Array<{ label: string; value?: string }> = [
+    const options: Array<{
+      label: string;
+      value?: string;
+      description?: string;
+    }> = [
       {
         label: intl.formatMessage({
           id: ETranslations.referral_filter_code_all,
@@ -58,9 +62,11 @@ export function FilterButton({
 
     if (codeListData?.items) {
       codeListData.items.forEach((item) => {
+        const note = item.note?.trim();
         options.push({
           label: item.code,
           value: item.code,
+          description: note || undefined,
         });
       });
     }
@@ -101,6 +107,7 @@ export function FilterButton({
         }),
         items: inviteCodeOptions.map((option) => ({
           label: option.label,
+          description: option.description,
           extra:
             filterState.inviteCode === option.value ? (
               <Icon name="CheckRadioSolid" size="$5" color="$icon" />
