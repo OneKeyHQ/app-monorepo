@@ -19,6 +19,8 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
+import { ReferFriendsPageContainer } from '../../components';
+
 import type { RouteProp } from '@react-navigation/core';
 
 function YourReferredWalletAddressesPageWrapper() {
@@ -70,25 +72,27 @@ function YourReferredWalletAddressesPageWrapper() {
         headerRight={renderHeaderRight}
       />
       <Page.Body>
-        <ListView
-          contentContainerStyle={{ pb: '$20' }}
-          estimatedItemSize={48}
-          data={items.filter((i) => i.networkId === networkId)}
-          renderItem={({ item }) => (
-            <ListItem
-              my="$1"
-              title={accountUtils.shortenAddress({
-                address: item.address,
-                leadingLength: 6,
-                trailingLength: 4,
-              })}
-            >
-              <SizableText size="$bodyMd" color="$textSubdued">
-                {item.createdAt ? formatDate(item.createdAt) : ''}
-              </SizableText>
-            </ListItem>
-          )}
-        />
+        <ReferFriendsPageContainer>
+          <ListView
+            contentContainerStyle={{ pb: '$20' }}
+            estimatedItemSize={48}
+            data={items.filter((i) => i.networkId === networkId)}
+            renderItem={({ item }) => (
+              <ListItem
+                my="$1"
+                title={accountUtils.shortenAddress({
+                  address: item.address,
+                  leadingLength: 6,
+                  trailingLength: 4,
+                })}
+              >
+                <SizableText size="$bodyMd" color="$textSubdued">
+                  {item.createdAt ? formatDate(item.createdAt) : ''}
+                </SizableText>
+              </ListItem>
+            )}
+          />
+        </ReferFriendsPageContainer>
       </Page.Body>
     </Page>
   );

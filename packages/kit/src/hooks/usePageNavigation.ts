@@ -20,6 +20,20 @@ export const closeModalPages = async () => {
   }
 };
 
+export const closeOnboardingPages = async () => {
+  const state = rootNavigationRef.current?.getRootState();
+  if (state) {
+    const currentRoute = state.routes[state.index];
+    if (currentRoute.name === ERootRoutes.Onboarding) {
+      if (rootNavigationRef.current?.canGoBack?.()) {
+        rootNavigationRef.current?.goBack();
+        await timerUtils.wait(150);
+        await closeOnboardingPages();
+      }
+    }
+  }
+};
+
 export const navigateToBackupWalletReminderPage = async ({
   walletId,
   accountName,

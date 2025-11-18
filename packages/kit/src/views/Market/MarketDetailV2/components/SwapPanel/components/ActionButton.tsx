@@ -3,16 +3,21 @@ import { useCallback, useMemo, useState } from 'react';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import { Button, useMedia } from '@onekeyhq/components';
+import { Button, rootNavigationRef, useMedia } from '@onekeyhq/components';
 import type { IButtonProps } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useAccountSelectorCreateAddress } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorCreateAddress';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { closeModalPages } from '@onekeyhq/kit/src/hooks/usePageNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { EModalRoutes, EOnboardingPages } from '@onekeyhq/shared/src/routes';
+import {
+  EOnboardingPagesV2,
+  EOnboardingV2Routes,
+  ERootRoutes,
+} from '@onekeyhq/shared/src/routes';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 
@@ -238,8 +243,12 @@ export function ActionButton({
         return;
       }
       if (noAccount) {
-        navigation.pushModal(EModalRoutes.OnboardingModal, {
-          screen: EOnboardingPages.GetStarted,
+        await closeModalPages();
+        rootNavigationRef.current?.navigate(ERootRoutes.Onboarding, {
+          screen: EOnboardingV2Routes.OnboardingV2,
+          params: {
+            screen: EOnboardingPagesV2.GetStarted,
+          },
         });
         return;
       }
@@ -280,7 +289,6 @@ export function ActionButton({
       noAccount,
       shouldCreateAddress?.result,
       onPress,
-      navigation,
       createAddress,
       activeAccount?.wallet?.id,
       activeAccount?.indexedAccount?.id,
