@@ -89,14 +89,13 @@ const showRecoveryPhraseProtectedDialog = (intl: IntlShape) => {
   });
 };
 
-const debouncedShowRecoveryPhraseProtectedDialog = debounce(
-  showRecoveryPhraseProtectedDialog,
-  350,
-);
-
 export const useRecoveryPhraseProtected = () => {
   const intl = useIntl();
   useEffect(() => {
+    const debouncedShow = debounce(
+      () => showRecoveryPhraseProtectedDialog(intl),
+      350,
+    );
     void CaptureProtection.prevent();
     const listener = CaptureProtection.addListener(
       (eventType: CaptureEventType) => {
@@ -105,7 +104,7 @@ export const useRecoveryPhraseProtected = () => {
           eventType === CaptureEventType.RECORDING
         ) {
           setTimeout(() => {
-            debouncedShowRecoveryPhraseProtectedDialog(intl);
+            debouncedShow();
           }, 350);
         }
       },
