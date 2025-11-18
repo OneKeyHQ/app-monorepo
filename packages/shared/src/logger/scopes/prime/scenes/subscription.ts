@@ -88,6 +88,7 @@ export class PrimeSubscriptionScene extends BaseScene {
   // }
 
   @LogToLocal()
+  @LogToServer()
   public onekeyIdLogout({ reason }: { reason: string }) {
     return {
       reason,
@@ -95,6 +96,7 @@ export class PrimeSubscriptionScene extends BaseScene {
   }
 
   @LogToLocal()
+  @LogToServer()
   public onekeyIdInvalidToken({
     url,
     errorCode,
