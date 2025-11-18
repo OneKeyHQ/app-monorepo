@@ -18,6 +18,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
@@ -218,6 +219,12 @@ class ServicePrime extends ServiceBase {
       await this.setPrimePersistAtomNotLoggedIn();
       const localUserInfo = await primePersistAtom.get();
 
+      defaultLogger.prime.subscription.onekeyIdInvalidToken({
+        url: '',
+        errorCode: -1759,
+        errorMessage:
+          'servicePrime.apiFetchPrimeUserInfo: simpleDb.prime.getAuthToken() No auth token',
+      });
       // clear privy login token cache
       appEventBus.emit(EAppEventBusNames.PrimeLoginInvalidToken, undefined);
 

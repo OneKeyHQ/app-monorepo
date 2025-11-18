@@ -118,7 +118,10 @@ axios.interceptors.response.use(
           data?.message ||
           'OneKeyServer Unknown Error',
         code: data.code,
-        data,
+        data: {
+          ...data,
+          requestUrl: url,
+        },
         requestId: config.headers[requestIdKey] as string,
       });
     }

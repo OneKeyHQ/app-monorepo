@@ -93,4 +93,21 @@ export class PrimeSubscriptionScene extends BaseScene {
       reason,
     };
   }
+
+  @LogToLocal()
+  public onekeyIdInvalidToken({
+    url,
+    errorCode,
+    errorMessage,
+  }: {
+    url: string;
+    errorCode: number;
+    errorMessage: string;
+  }) {
+    return {
+      url,
+      errorCode,
+      errorMessage,
+    };
+  }
 }

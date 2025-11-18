@@ -15,6 +15,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
@@ -73,7 +74,13 @@ export default class ServiceBase {
         },
         (error) => {
           const errorData = error as {
-            data: { code: number; message: string };
+            requestId?: string;
+            data: {
+              code: number;
+              message: string;
+              messageId?: string;
+              requestUrl?: string;
+            };
           };
           const errorMessage: string | undefined = errorData?.data?.message;
           // check invalid token and logout
@@ -81,6 +88,11 @@ export default class ServiceBase {
           // TODO 90_002 sdk refresh token required
           // TODO 90_003 user login required
           if ([90_002, 90_003].includes(errorCode)) {
+            defaultLogger.prime.subscription.onekeyIdInvalidToken({
+              url: errorData?.data?.requestUrl || '',
+              errorCode,
+              errorMessage: errorMessage || '',
+            });
             appEventBus.emit(
               EAppEventBusNames.PrimeLoginInvalidToken,
               undefined,
