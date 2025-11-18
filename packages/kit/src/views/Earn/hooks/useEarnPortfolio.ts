@@ -236,6 +236,9 @@ export const useEarnPortfolio = (): IUseEarnPortfolioReturn => {
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { account, indexedAccount } = activeAccount;
   const allNetworkId = getNetworkIdsMap().onekeyall;
+  const accountIdValue = account?.id ?? '';
+  const indexedAccountIdValue = indexedAccount?.id ?? '';
+  const accountIndexedAccountIdValue = account?.indexedAccountId;
   const [isLoading, setIsLoading] = useState(true);
   const actions = useEarnActions();
   const [{ earnAccount }] = useEarnAtom();
@@ -259,15 +262,16 @@ export const useEarnPortfolio = (): IUseEarnPortfolioReturn => {
   const earnAccountKey = useMemo(
     () =>
       actions.current.buildEarnAccountsKey({
-        accountId: account?.id,
-        indexAccountId: account?.indexedAccountId || indexedAccount?.id,
+        accountId: accountIdValue || undefined,
+        indexAccountId:
+          accountIndexedAccountIdValue || indexedAccountIdValue || undefined,
         networkId: allNetworkId,
       }),
     [
       actions,
-      account?.id,
-      account?.indexedAccountId,
-      indexedAccount?.id,
+      accountIdValue,
+      accountIndexedAccountIdValue,
+      indexedAccountIdValue,
       allNetworkId,
     ],
   );
@@ -370,7 +374,7 @@ export const useEarnPortfolio = (): IUseEarnPortfolioReturn => {
 
   const fetchAndUpdateInvestments = useCallback(
     async (options?: IRefreshOptions) => {
-      if (!account && !indexedAccount) {
+      if (!accountIdValue && !indexedAccountIdValue) {
         setIsLoading(false);
         return;
       }
@@ -391,9 +395,10 @@ export const useEarnPortfolio = (): IUseEarnPortfolioReturn => {
       const [assets, accounts] = await Promise.all([
         backgroundApiProxy.serviceStaking.getAvailableAssetsV2(),
         backgroundApiProxy.serviceStaking.getEarnAvailableAccountsParams({
-          accountId: account?.id ?? '',
+          accountId: accountIdValue,
           networkId: allNetworkId,
-          indexedAccountId: account?.indexedAccountId || indexedAccount?.id,
+          indexedAccountId:
+            accountIndexedAccountIdValue || indexedAccountIdValue,
         }),
       ]);
 
@@ -534,8 +539,9 @@ export const useEarnPortfolio = (): IUseEarnPortfolioReturn => {
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [
-      account,
-      indexedAccount,
+      accountIdValue,
+      indexedAccountIdValue,
+      accountIndexedAccountIdValue,
       allNetworkId,
       getCurrentRequestId,
       fetchInvestmentDetail,
@@ -551,7 +557,12 @@ export const useEarnPortfolio = (): IUseEarnPortfolioReturn => {
 
   usePromiseResult(
     fetchAndUpdateInvestments,
-    [account?.id, indexedAccount?.id, allNetworkId, fetchAndUpdateInvestments],
+    [
+      accountIdValue,
+      indexedAccountIdValue,
+      allNetworkId,
+      fetchAndUpdateInvestments,
+    ],
     {
       watchLoading: true,
       revalidateOnReconnect: true,
