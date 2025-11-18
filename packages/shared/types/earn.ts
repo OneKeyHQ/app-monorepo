@@ -27,6 +27,7 @@ export type ISupportedSymbol =
   | 'BTC'
   | 'SBTC'
   | 'USDf'
+  | 'MORPHO'
   | 'USDe';
 
 export interface IStakingFlowConfig {
