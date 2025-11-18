@@ -41,7 +41,9 @@ export function InvitationDetailsSection({
     () => [
       {
         value: EInvitationDetailsTab.REWARD,
-        label: intl.formatMessage({ id: ETranslations.earn_rewards }),
+        label: intl.formatMessage({
+          id: ETranslations.referral_reward_history_reward_title,
+        }),
       },
       {
         value: EInvitationDetailsTab.REFERRAL,
