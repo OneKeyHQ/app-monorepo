@@ -80,6 +80,14 @@ export class PrimeSubscriptionScene extends BaseScene {
     };
   }
 
+  @LogToLocal()
+  @LogToServer()
+  public fetchPackagesFailed({ errorMessage }: { errorMessage: string }) {
+    return {
+      errorMessage,
+    };
+  }
+
   // @LogToLocal()
   // public onekeyIdLogin({ reason }: { reason: string }) {
   //   return {
