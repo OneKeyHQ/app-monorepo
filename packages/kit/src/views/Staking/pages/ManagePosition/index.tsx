@@ -32,8 +32,9 @@ const ManagePositionPage = () => {
     symbol: ISupportedSymbol;
     provider: string;
     vault: string | undefined;
+    tokenImageUri: string | undefined;
   }>(() => {
-    const { networkId, symbol, provider, vault } = route.params;
+    const { networkId, symbol, provider, vault, tokenImageUri } = route.params;
 
     return {
       accountId: activeAccount.account?.id || '',
@@ -42,11 +43,19 @@ const ManagePositionPage = () => {
       symbol: symbol as ISupportedSymbol,
       provider,
       vault,
+      tokenImageUri,
     };
   }, [route.params, activeAccount]);
 
-  const { accountId, indexedAccountId, networkId, symbol, provider, vault } =
-    resolvedParams;
+  const {
+    accountId,
+    indexedAccountId,
+    networkId,
+    symbol,
+    provider,
+    vault,
+    tokenImageUri,
+  } = resolvedParams;
 
   // Get tab from route params
   const defaultTab = route.params?.tab;
@@ -64,6 +73,7 @@ const ManagePositionPage = () => {
           vault={vault}
           accountId={accountId}
           indexedAccountId={indexedAccountId}
+          fallbackTokenImageUri={tokenImageUri}
           defaultTab={defaultTab}
         />
       </Page.Body>

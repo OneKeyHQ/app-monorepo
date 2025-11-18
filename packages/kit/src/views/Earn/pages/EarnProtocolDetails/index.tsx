@@ -58,14 +58,12 @@ import { EarnAlert } from '../../../Staking/components/ProtocolDetails/EarnAlert
 import { EarnIcon } from '../../../Staking/components/ProtocolDetails/EarnIcon';
 import { EarnText } from '../../../Staking/components/ProtocolDetails/EarnText';
 import { GridItem } from '../../../Staking/components/ProtocolDetails/GridItemV2';
-import { NoAddressWarning } from '../../../Staking/components/ProtocolDetails/NoAddressWarning';
 import { PeriodSection } from '../../../Staking/components/ProtocolDetails/PeriodSectionV2';
 import { ProtectionSection } from '../../../Staking/components/ProtocolDetails/ProtectionSectionV2';
 import { OverviewSkeleton } from '../../../Staking/components/StakingSkeleton';
 import { useCheckEthenaKycStatus } from '../../../Staking/hooks/useCheckEthenaKycStatus';
 import { useUnsupportedProtocol } from '../../../Staking/hooks/useUnsupportedProtocol';
 import { ManagePositionContent } from '../../../Staking/pages/ManagePosition/components/ManagePositionContent';
-import { shouldUseCustomContent } from '../../../Staking/pages/ManagePosition/components/protocolConfigs';
 import { FAQSection } from '../../../Staking/pages/ProtocolDetailsV2/FAQSection';
 import { EarnPageContainer } from '../../components/EarnPageContainer';
 import { EarnProviderMirror } from '../../EarnProviderMirror';
@@ -402,6 +400,7 @@ const ManagePositionPart = ({
   symbol,
   provider,
   vault,
+  tokenImageUri,
   onCreateAddress,
   onStakeWithdrawSuccess,
 }: {
@@ -409,6 +408,7 @@ const ManagePositionPart = ({
   symbol: string;
   provider: string;
   vault?: string;
+  tokenImageUri?: string;
   onCreateAddress?: () => Promise<void>;
   onStakeWithdrawSuccess?: () => void;
 }) => {
@@ -426,6 +426,7 @@ const ManagePositionPart = ({
           vault={vault}
           accountId={account?.id || ''}
           indexedAccountId={indexedAccount?.id}
+          fallbackTokenImageUri={tokenImageUri}
           onCreateAddress={onCreateAddress}
           onStakeWithdrawSuccess={onStakeWithdrawSuccess}
         />
@@ -548,9 +549,6 @@ const EarnProtocolDetailsPage = () => {
     refreshEarnDetailData: refreshData,
   });
 
-  const hasNoAccount = !account?.id && !indexedAccount?.id;
-  const hasNoAddress = !earnAccount?.accountAddress;
-
   const onCreateAddress = useCallback(async () => {
     await refreshAccount();
     await refreshData();
@@ -591,10 +589,11 @@ const EarnProtocolDetailsPage = () => {
           provider,
           vault,
           tab,
+          tokenImageUri: tokenInfo?.token?.logoURI,
         },
       });
     },
-    [appNavigation, networkId, symbol, provider, vault],
+    [appNavigation, networkId, symbol, provider, vault, tokenInfo?.token?.logoURI],
   );
 
   // Generate share URL
@@ -627,15 +626,13 @@ const EarnProtocolDetailsPage = () => {
     );
   }, [gtMd, shareUrl, handleShare]);
 
-  const isCustomProtocol = useMemo(
-    () =>
-      shouldUseCustomContent({
-        symbol,
-        provider,
-        vault,
-      }),
-    [symbol, provider, vault],
-  );
+  const isCustomProtocol = useMemo(() => {
+    if (symbol.toUpperCase() === 'USDE') {
+      return true;
+    }
+
+    return false;
+  }, [symbol]);
 
   const pageFooter = useMemo(() => {
     if (gtMd) {
@@ -690,16 +687,6 @@ const EarnProtocolDetailsPage = () => {
             vault={vault}
             onShare={gtMd ? handleShare : undefined}
           />
-          {!gtMd && (hasNoAccount || hasNoAddress) && !isLoading ? (
-            <Stack px="$5" pt="$5">
-              <NoAddressWarning
-                accountId={account?.id || ''}
-                networkId={networkId}
-                indexedAccountId={indexedAccount?.id}
-                onCreateAddress={onCreateAddress}
-              />
-            </Stack>
-          ) : null}
         </Stack>
         {gtMd ? (
           <Stack $gtMd={{ width: '35%' }}>
@@ -708,6 +695,7 @@ const EarnProtocolDetailsPage = () => {
               symbol={symbol}
               provider={provider}
               vault={vault}
+              tokenImageUri={tokenInfo?.token?.logoURI}
               onCreateAddress={onCreateAddress}
               onStakeWithdrawSuccess={handleStakeWithdrawSuccess}
             />

@@ -40,6 +40,7 @@ interface INormalManageContentProps {
   isInModalContext: boolean;
   appNavigation: IAppNavigation;
   showApyDetail?: boolean;
+  fallbackTokenImageUri?: string;
 }
 
 export function NormalManageContent({
@@ -62,6 +63,7 @@ export function NormalManageContent({
   isInModalContext,
   appNavigation,
   showApyDetail,
+  fallbackTokenImageUri,
 }: INormalManageContentProps) {
   const intl = useIntl();
 
@@ -202,6 +204,7 @@ export function NormalManageContent({
           beforeFooter={stakeBeforeFooter}
           showApyDetail={showApyDetail}
           isInModalContext={isInModalContext}
+          fallbackTokenImageUri={fallbackTokenImageUri}
         />
       ) : null}
       {selectedTabIndex === 1 ? (
@@ -215,6 +218,7 @@ export function NormalManageContent({
           beforeFooter={withdrawBeforeFooter}
           showApyDetail={showApyDetail}
           isInModalContext={isInModalContext}
+          fallbackTokenImageUri={fallbackTokenImageUri}
         />
       ) : null}
     </>

@@ -1,6 +1,8 @@
 import type { ReactElement } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { Skeleton, XStack, YStack } from '@onekeyhq/components';
+
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -22,6 +24,37 @@ import type { IToken } from '@onekeyhq/shared/types/token';
 import { UniversalStake } from '../../../components/UniversalStake';
 import { useUniversalStake } from '../../../hooks/useUniversalHooks';
 
+const StakeSectionSkeleton = () => (
+  <YStack px="$5" py="$2.5" gap="$4">
+    <YStack gap="$3" p="$4" bg="$bgSubdued" borderRadius="$3">
+      <XStack jc="space-between" ai="center">
+        <Skeleton.BodyMd w="$28" />
+        <Skeleton.BodySm w="$20" />
+      </XStack>
+      <Skeleton w="100%" h="$12" borderRadius="$3" />
+      <XStack gap="$2" ai="center">
+        <Skeleton w="$10" h="$10" borderRadius="$full" />
+        <Skeleton.BodyMd w="$16" />
+      </XStack>
+    </YStack>
+    <YStack gap="$2">
+      <XStack jc="space-between" ai="center">
+        <Skeleton.BodySm w="$24" />
+        <Skeleton.BodySm w="$18" />
+      </XStack>
+      <XStack jc="space-between" ai="center">
+        <Skeleton.BodySm w="$20" />
+        <Skeleton.BodySm w="$14" />
+      </XStack>
+      <XStack jc="space-between" ai="center">
+        <Skeleton.BodySm w="$16" />
+        <Skeleton.BodySm w="$12" />
+      </XStack>
+    </YStack>
+    <Skeleton w="100%" h="$11" borderRadius="$3" />
+  </YStack>
+);
+
 export const StakeSection = ({
   accountId,
   networkId,
@@ -32,6 +65,7 @@ export const StakeSection = ({
   beforeFooter,
   showApyDetail,
   isInModalContext,
+  fallbackTokenImageUri,
 }: {
   accountId: string;
   networkId: string;
@@ -42,6 +76,7 @@ export const StakeSection = ({
   beforeFooter?: ReactElement | null;
   showApyDetail?: boolean;
   isInModalContext?: boolean;
+  fallbackTokenImageUri?: string;
 }) => {
   // Early return if no tokenInfo or protocolInfo
   // This happens when there's no account or no address
@@ -227,8 +262,7 @@ export const StakeSection = ({
   );
 
   if (isLoading) {
-    // FIXME: ...
-    return null;
+    return <StakeSectionSkeleton />;
   }
 
   // If no required data, render placeholder to maintain layout
@@ -238,6 +272,7 @@ export const StakeSection = ({
         accountId={accountId}
         networkId={networkId}
         balance="0"
+        tokenImageUri={fallbackTokenImageUri}
         isDisabled
         approveTarget={{
           accountId,
@@ -245,6 +280,7 @@ export const StakeSection = ({
           spenderAddress: '',
         }}
         isInModalContext={isInModalContext}
+        beforeFooter={beforeFooter}
       />
     );
   }
@@ -255,7 +291,7 @@ export const StakeSection = ({
       networkId={networkId}
       decimals={tokenInfo?.token?.decimals}
       balance={tokenInfo?.balanceParsed ?? ''}
-      tokenImageUri={tokenInfo?.token.logoURI}
+      tokenImageUri={tokenInfo?.token.logoURI || fallbackTokenImageUri}
       tokenSymbol={tokenInfo?.token.symbol}
       providerLogo={protocolInfo?.providerDetail.logoURI}
       providerName={protocolInfo?.provider}

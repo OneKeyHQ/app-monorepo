@@ -24,6 +24,7 @@ export const WithdrawSection = ({
   beforeFooter,
   showApyDetail,
   isInModalContext,
+  fallbackTokenImageUri,
 }: {
   accountId: string;
   networkId: string;
@@ -34,6 +35,7 @@ export const WithdrawSection = ({
   beforeFooter?: ReactElement | null;
   showApyDetail?: boolean;
   isInModalContext?: boolean;
+  fallbackTokenImageUri?: string;
 }) => {
   // Early return if no tokenInfo or protocolInfo
   // This happens when there's no account or no address
@@ -116,6 +118,8 @@ export const WithdrawSection = ({
         protocolVault=""
         isDisabled
         isInModalContext={isInModalContext}
+        beforeFooter={beforeFooter}
+        tokenImageUri={fallbackTokenImageUri}
       />
     );
   }
@@ -129,7 +133,7 @@ export const WithdrawSection = ({
       accountId={accountId}
       networkId={networkId}
       tokenSymbol={symbol || ''}
-      tokenImageUri={token?.logoURI}
+      tokenImageUri={token?.logoURI || fallbackTokenImageUri}
       providerLogo={protocolInfo?.providerDetail.logoURI}
       providerName={providerName}
       onConfirm={onConfirm}

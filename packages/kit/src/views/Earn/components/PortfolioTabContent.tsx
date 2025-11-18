@@ -461,6 +461,7 @@ const PortfolioItemComponent = ({
           symbol,
           provider: asset.metadata.protocol.providerDetail.code,
           vault: asset.metadata.protocol.vault,
+          tokenImageUri: asset.token.info.logoURI,
         },
       });
     },

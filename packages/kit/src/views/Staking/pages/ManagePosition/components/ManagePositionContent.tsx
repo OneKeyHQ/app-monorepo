@@ -1,9 +1,8 @@
 import { useCallback, useMemo } from 'react';
 
-import { useNavigation } from '@react-navigation/native';
 import { isEmpty } from 'lodash';
 
-import { Skeleton, Stack, XStack, YStack } from '@onekeyhq/components';
+import { Skeleton, XStack, YStack } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import type { ISupportedSymbol } from '@onekeyhq/shared/types/earn';
@@ -29,6 +28,7 @@ export interface IManagePositionContentProps {
   defaultTab?: 'deposit' | 'withdraw';
   onTabChange?: (tab: 'deposit' | 'withdraw') => void;
   showApyDetail?: boolean;
+  fallbackTokenImageUri?: string;
 
   // Optional callbacks
   onCreateAddress?: () => Promise<void>;
@@ -45,6 +45,7 @@ export function ManagePositionContent({
   defaultTab,
   onTabChange,
   showApyDetail = false,
+  fallbackTokenImageUri,
   onCreateAddress,
   onStakeWithdrawSuccess,
   isInModalContext = false,
@@ -84,24 +85,25 @@ export function ManagePositionContent({
     await refreshManageData();
   }, [onCreateAddress, refreshManageAccount, refreshManageData]);
 
-  const hasNoAccount = !accountId && !indexedAccountId;
-  const hasNoAddress = !earnAccount?.accountAddress;
+  const noAddressOrAccount = useMemo(
+    () => (!accountId && !indexedAccountId) || !earnAccount?.accountAddress,
+    [accountId, indexedAccountId, earnAccount?.accountAddress],
+  );
+  const resolvedTokenImageUri =
+    tokenInfo?.token?.logoURI || fallbackTokenImageUri;
 
-  const renderNoAddressWarning = useCallback(
+  const noAddressWarningElement = useMemo(
     () =>
-      hasNoAccount || hasNoAddress ? (
-        <Stack px="$5">
-          <NoAddressWarning
-            accountId={accountId || ''}
-            networkId={networkId}
-            indexedAccountId={indexedAccountId}
-            onCreateAddress={handleCreateAddress}
-          />
-        </Stack>
+      noAddressOrAccount ? (
+        <NoAddressWarning
+          accountId={accountId || ''}
+          networkId={networkId}
+          indexedAccountId={indexedAccountId}
+          onCreateAddress={handleCreateAddress}
+        />
       ) : null,
     [
-      hasNoAccount,
-      hasNoAddress,
+      noAddressOrAccount,
       accountId,
       networkId,
       indexedAccountId,
@@ -162,8 +164,8 @@ export function ManagePositionContent({
 
   // Create beforeFooter content for stake section
   const stakeBeforeFooter = useMemo(() => {
-    if (hasNoAccount || hasNoAddress) {
-      return null;
+    if (noAddressOrAccount) {
+      return noAddressWarningElement;
     }
     if (!isEmpty(alertsStake) || !isEmpty(alerts)) {
       return (
@@ -174,12 +176,12 @@ export function ManagePositionContent({
       );
     }
     return null;
-  }, [hasNoAccount, hasNoAddress, alertsStake, alerts]);
+  }, [noAddressOrAccount, alertsStake, alerts, noAddressWarningElement]);
 
   // Create beforeFooter content for withdraw section
   const withdrawBeforeFooter = useMemo(() => {
-    if (hasNoAccount || hasNoAddress) {
-      return null;
+    if (noAddressOrAccount) {
+      return noAddressWarningElement;
     }
     if (!isEmpty(alertsWithdraw) || !isEmpty(alerts)) {
       return (
@@ -190,10 +192,10 @@ export function ManagePositionContent({
       );
     }
     return null;
-  }, [hasNoAccount, hasNoAddress, alertsWithdraw, alerts]);
+  }, [noAddressOrAccount, alertsWithdraw, alerts, noAddressWarningElement]);
 
   // Show loading skeleton
-  if (isLoading && !hasNoAccount) {
+  if (isLoading && !noAddressOrAccount) {
     return (
       <YStack px="$5" pt="$4" gap="$6">
         {/* Tabs skeleton */}
@@ -241,13 +243,11 @@ export function ManagePositionContent({
     );
   }
 
-  if (hasNoAccount || hasNoAddress) {
-    // Show NoAddressWarning instead of content
-    return <>{renderNoAddressWarning()}</>;
-  }
-
   // USDe special rendering
   if (symbol.toLowerCase() === 'usde') {
+    if (noAddressWarningElement) {
+      return <YStack px="$5">{noAddressWarningElement}</YStack>;
+    }
     if (!managePageData?.holdings) {
       return null;
     }
@@ -276,8 +276,9 @@ export function ManagePositionContent({
       provider={provider}
       vault={vault}
       tokenInfo={tokenInfo}
+      fallbackTokenImageUri={resolvedTokenImageUri}
       protocolInfo={protocolInfo}
-      earnAccount={earnAccount}
+      earnAccount={earnAccount ?? undefined}
       depositDisabled={depositDisabled}
       withdrawDisabled={withdrawDisabled}
       stakeBeforeFooter={stakeBeforeFooter}
