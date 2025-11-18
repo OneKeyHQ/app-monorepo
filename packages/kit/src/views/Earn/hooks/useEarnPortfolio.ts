@@ -134,10 +134,9 @@ const useInvestmentState = () => {
   const investmentMapRef = useRef<IInvestmentMap>(new Map());
 
   const updateInvestments = useCallback((newMap: IInvestmentMap) => {
-    // Filter out zero-value investments (including airdrops)
+    // Filter out zero-value investments
     const validInvestments = Array.from(newMap.values()).filter((inv) => {
-      // Always keep investments that surface listaCheck actions even if fiat value is 0
-      if (hasListaCheckAction(inv)) {
+      if (inv.airdropAssets.length > 0) {
         return true;
       }
       // Only keep investments with positive fiat value

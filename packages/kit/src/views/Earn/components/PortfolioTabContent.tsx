@@ -353,6 +353,7 @@ const ProtocolHeader = ({
                       w="100%"
                       $gtMd={{
                         h: '$9',
+                        w: 'auto',
                       }}
                     >
                       <XStack>
@@ -383,7 +384,8 @@ const ProtocolHeader = ({
                         <Divider
                           bg="$borderSubdued"
                           vertical
-                          mx="$3"
+                          ml="$3"
+                          mr="$0.5"
                           height="$5"
                           width="$1"
                         />
