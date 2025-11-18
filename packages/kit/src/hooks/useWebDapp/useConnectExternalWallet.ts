@@ -10,6 +10,7 @@ import { WALLET_TYPE_EXTERNAL } from '@onekeyhq/shared/src/consts/dbConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IConnectExternalWalletPayload } from '@onekeyhq/shared/types/analytics/onboarding';
 import type { IExternalConnectionInfo } from '@onekeyhq/shared/types/externalWallet.types';
 
@@ -20,7 +21,6 @@ import {
 } from '../../states/jotai/contexts/accountSelector';
 import useAppNavigation from '../useAppNavigation';
 import { closeOnboardingPages } from '../usePageNavigation';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 export function useConnectExternalWallet() {
   const [jotaiLoading, setJotaiLoading] =
