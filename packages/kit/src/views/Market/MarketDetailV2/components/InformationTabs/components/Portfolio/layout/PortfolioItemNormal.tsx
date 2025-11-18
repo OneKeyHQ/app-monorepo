@@ -18,8 +18,8 @@ function PortfolioItemNormalBase({ item }: IPortfolioItemNormalProps) {
       <NumberSizeableText
         size="$bodyMd"
         color="$text"
-        formatter="balance"
         autoFormatter="price-marketCap"
+        autoFormatterThreshold={1000}
         width="50%"
       >
         {item.amount}
@@ -30,6 +30,7 @@ function PortfolioItemNormalBase({ item }: IPortfolioItemNormalProps) {
         size="$bodyMd"
         color="$text"
         autoFormatter="price-marketCap"
+        autoFormatterThreshold={1000}
         formatterOptions={{
           currency: settingsPersistAtom.currencyInfo.symbol,
         }}

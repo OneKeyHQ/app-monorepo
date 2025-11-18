@@ -4,6 +4,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useMarketBasicConfig } from '@onekeyhq/kit/src/views/Market/hooks';
 import { useNetworkLoadingAnalytics } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/hooks/useNetworkLoadingAnalytics';
+import type { IMarketTokenListResponse } from '@onekeyhq/shared/types/marketV2';
 
 import {
   getNetworkLogoUri,
@@ -46,13 +47,17 @@ export function useMarketTokenList({
     () => getNetworkLogoUri(networkId),
     [networkId],
   );
+  const hasNetworkId = Boolean(networkId);
 
   const {
     result: apiResult,
     isLoading,
     run: fetchMarketTokenList,
-  } = usePromiseResult(
+  } = usePromiseResult<IMarketTokenListResponse | undefined>(
     async () => {
+      if (!hasNetworkId) {
+        return undefined;
+      }
       const response =
         await backgroundApiProxy.serviceMarketV2.fetchMarketTokenList({
           networkId,
@@ -68,16 +73,17 @@ export function useMarketTokenList({
         total: response.total,
       };
     },
-    [networkId, sortBy, sortType, pageSize, minLiquidity],
+    [hasNetworkId, networkId, sortBy, sortType, pageSize, minLiquidity],
     {
-      watchLoading: true,
+      watchLoading: hasNetworkId,
       revalidateOnFocus: true,
       revalidateOnReconnect: true,
     },
   );
+  const effectiveIsLoading = hasNetworkId ? isLoading : false;
 
   useEffect(() => {
-    if (!apiResult || !apiResult.list) {
+    if (!hasNetworkId || !apiResult || !apiResult.list) {
       return;
     }
 
@@ -96,7 +102,7 @@ export function useMarketTokenList({
 
     // Reset network switching state when new data arrives
     setIsNetworkSwitching(false);
-  }, [apiResult, networkId, networkLogoUri, trackNetworkLoading]);
+  }, [apiResult, hasNetworkId, networkId, networkLogoUri, trackNetworkLoading]);
 
   // Reset pagination when networkId, sortBy, or sortType changes
   useEffect(() => {
@@ -109,8 +115,12 @@ export function useMarketTokenList({
 
   // Handle network switching - separate effect to track networkId changes specifically
   useEffect(() => {
+    if (!hasNetworkId) {
+      setIsNetworkSwitching(false);
+      return;
+    }
     setIsNetworkSwitching(true);
-  }, [networkId]);
+  }, [hasNetworkId, networkId]);
 
   const totalCount = apiResult?.total || 0;
 
@@ -128,7 +138,8 @@ export function useMarketTokenList({
     if (
       isLoadingMore ||
       currentPage >= maxPages ||
-      isLoading ||
+      !hasNetworkId ||
+      effectiveIsLoading ||
       hasReachedEnd
     ) {
       return;
@@ -177,8 +188,9 @@ export function useMarketTokenList({
   }, [
     isLoadingMore,
     currentPage,
-    isLoading,
+    effectiveIsLoading,
     hasReachedEnd,
+    hasNetworkId,
     networkId,
     sortBy,
     sortType,
@@ -189,11 +201,15 @@ export function useMarketTokenList({
   ]);
 
   const canLoadMore =
-    currentPage < maxPages && !isLoading && !isLoadingMore && !hasReachedEnd;
+    hasNetworkId &&
+    currentPage < maxPages &&
+    !effectiveIsLoading &&
+    !isLoadingMore &&
+    !hasReachedEnd;
 
   return {
     data: transformedData,
-    isLoading,
+    isLoading: effectiveIsLoading,
     isLoadingMore,
     isNetworkSwitching,
     initialSortBy,
