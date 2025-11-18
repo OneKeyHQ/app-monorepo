@@ -41,6 +41,7 @@ declare global {
   };
 
   var $$appGlobals: IAppGlobals;
+  var $onekeyIsInBackground: boolean | undefined;
   var $onekeySystemDiskIsFull: boolean | undefined;
   var $indexedDBIsMigratedToBucket:
     | ICheckCurrentDBIsMigratedToBucketResult
