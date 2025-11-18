@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-assignment */
 import { SubscriptionClient, WebSocketTransport } from '@nktkas/hyperliquid';
-import { cloneDeep, debounce } from 'lodash';
+import { cloneDeep, debounce, isEmpty } from 'lodash';
 
 import {
   backgroundClass,
@@ -184,6 +184,9 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         ...this.allSubSpecsMap,
         ...requiredSubInfo.requiredSubSpecsMap,
       };
+      if (isEmpty(this.allSubSpecsMap)) {
+        // debugger;
+      }
       this.pendingSubSpecsMap = {
         ...requiredSubInfo.requiredSubSpecsMap,
       };
@@ -192,9 +195,12 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
       this._applyStateUpdates(newState, requiredSubInfo.params);
 
-      console.log('updateSubscriptions', requiredSubInfo.requiredSubSpecsMap, {
+      console.log('updateSubscriptions____state', {
+        requiredSubSpecsMap: requiredSubInfo.requiredSubSpecsMap,
+        requiredParams: requiredSubInfo.params,
+        allSubSpecsMap: this.allSubSpecsMap,
+        pendingSubSpecsMap: this.pendingSubSpecsMap,
         newState,
-        params: requiredSubInfo.params,
       });
 
       this._emitConnectionStatus();
@@ -215,7 +221,14 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   }
 
   @backgroundMethod()
-  async updateSubscriptionForUserFills(): Promise<void> {
+  async refreshSubscriptionForUserFills(): Promise<void> {
+    const now = Date.now();
+    if (
+      this.lastRefreshAllPerpsDataAt &&
+      now - this.lastRefreshAllPerpsDataAt < 1000
+    ) {
+      return;
+    }
     const requiredSubInfo = await this.buildRequiredSubscriptionsMap();
     if (!requiredSubInfo) {
       return;
@@ -224,11 +237,14 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       if (spec.type === ESubscriptionType.USER_FILLS) {
         void (async () => {
           await this._destroySubscription(spec);
+          await timerUtils.wait(50);
           await this._createSubscription(spec);
         })();
       }
     });
   }
+
+  lastRefreshAllPerpsDataAt: number | null = null;
 
   @backgroundMethod()
   async refreshAllPerpsData(): Promise<void> {
@@ -238,6 +254,8 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       await this.getWebSocketClient();
     } else {
       await this._cleanupAllSubscriptions();
+      await timerUtils.wait(50);
+      console.log('updateSubscriptions__by__refreshAllPerpsData');
       await this.updateSubscriptions();
     }
     this.backgroundApi.serviceHyperliquid._getUserFillsByTimeMemo.clear();
@@ -247,6 +265,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     await perpsCandlesWebviewReloadHookAtom.set({
       reloadHook: Date.now(),
     });
+    this.lastRefreshAllPerpsDataAt = Date.now();
     await timerUtils.wait(3000);
   }
 
@@ -282,6 +301,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   @backgroundMethod()
   async resumeSubscriptions(): Promise<void> {
     await this.enableSubscriptionsHandler();
+    console.log('updateSubscriptions__by__resumeSubscriptions');
     await this.updateSubscriptions();
     const hookInfo = await perpsCandlesWebviewReloadHookAtom.get();
     if (hookInfo.reloadHook <= -1) {
@@ -330,6 +350,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       return;
     }
     this._currentState.enableLedgerUpdates = true;
+    console.log('updateSubscriptions__by__enableLedgerUpdatesSubscription');
     await this.updateSubscriptions();
   }
 
@@ -439,6 +460,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     await timerUtils.wait(600); // wait network status atom update
     const { connected } = await perpsNetworkStatusAtom.get();
     if (connected === false) {
+      console.log('updateSubscriptions__by__socketOpen');
       // resubscribe when reconnecting
       await this.updateSubscriptions();
     }
@@ -630,23 +652,42 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   }
 
   destroyUnusedSubscriptions(): void {
+    const toDestroySubscriptions: ISubscriptionSpec<ESubscriptionType>[] = [];
     Object.values(this.allSubSpecsMap).forEach((spec) => {
       if (!this.pendingSubSpecsMap[spec.key]) {
-        console.log('destroyUnusedSubscriptions', spec.key);
-        void this._destroySubscription(spec);
+        toDestroySubscriptions.push(spec);
       }
+    });
+    if (toDestroySubscriptions.length) {
+      console.log('toDestroySubscriptions__info', toDestroySubscriptions);
+    } else {
+      console.log(
+        'toDestroySubscriptions__info__no_to_destroy',
+        toDestroySubscriptions,
+      );
+    }
+    toDestroySubscriptions.forEach((spec) => {
+      console.log('destroyUnusedSubscriptions__destroy___2222', spec.key);
+      void this._destroySubscription(spec);
     });
   }
 
   private _executeSubscriptionChanges(): void {
-    this.destroyUnusedSubscriptions();
+    console.log('_executeSubscriptionChanges___start');
 
+    const toCreateSubscriptions: ISubscriptionSpec<ESubscriptionType>[] = [];
     Object.values(this.pendingSubSpecsMap).forEach((spec) => {
       if (!this._activeSubscriptions.has(spec.key)) {
-        void this._createSubscription(spec);
+        toCreateSubscriptions.push(spec);
       }
     });
 
+    this.destroyUnusedSubscriptions();
+
+    toCreateSubscriptions.forEach((spec) => {
+      console.log('destroyUnusedSubscriptions__create', spec.key);
+      void this._createSubscription(spec);
+    });
     // this.destroyUnusedSubscriptions();
   }
 
@@ -659,7 +700,17 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       // debugger;
     }
 
+    const addSubCache = () => {
+      if (!this.allSubSpecsMap[spec.key]) {
+        this.allSubSpecsMap[spec.key] = spec;
+      }
+      if (!this.pendingSubSpecsMap[spec.key]) {
+        this.pendingSubSpecsMap[spec.key] = spec;
+      }
+    };
+
     if (this._activeSubscriptions.has(spec.key)) {
+      addSubCache();
       console.warn(
         `[ServiceHyperliquidSubscription.createSubscription] Subscription already exists: ${spec.key}`,
       );
@@ -691,6 +742,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       );
     } finally {
       // this.destroyUnusedSubscriptions();
+      addSubCache();
     }
   }
 

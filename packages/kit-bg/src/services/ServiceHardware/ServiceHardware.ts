@@ -1619,6 +1619,16 @@ class ServiceHardware extends ServiceBase {
     featuresDeviceId?: string | undefined | null; // rawDeviceId
     features?: IOneKeyDeviceFeatures;
   }) {
+    // Allow connectId to be null in the following EHardwareCallContext cases
+    if (
+      EHardwareCallContext.UPDATE_FIRMWARE === hardwareCallContext &&
+      !connectId &&
+      !featuresDeviceId &&
+      !features
+    ) {
+      return '';
+    }
+
     if (!connectId) {
       throw new OneKeyLocalError('connectId is required');
     }
