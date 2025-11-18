@@ -167,8 +167,10 @@ class ServiceFirmwareUpdate extends ServiceBase {
 
   async checkDeviceIsBootloaderMode({
     connectId,
+    allowEmptyConnectId,
   }: {
     connectId: string | undefined;
+    allowEmptyConnectId?: boolean | undefined;
   }) {
     let features: IOneKeyDeviceFeatures | undefined;
     let error: IOneKeyError | undefined;
@@ -184,6 +186,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
             detectBootloaderDevice: true,
             // do not prompt web device permission
             skipWebDevicePrompt: true,
+            allowEmptyConnectId,
           },
           silentMode: true,
         });
@@ -392,6 +395,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
     const { isBootloaderMode, features: initialFeatures } =
       await this.checkDeviceIsBootloaderMode({
         connectId: originalConnectId,
+        allowEmptyConnectId: true,
       });
     let features: Features = initialFeatures as Features;
 

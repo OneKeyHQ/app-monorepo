@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { useFocusEffect, useIsFocused } from '@react-navigation/native';
+import { useIsFocused } from '@react-navigation/native';
 
 import { Page, Stack, YStack, useMedia } from '@onekeyhq/components';
 import { FLOAT_NAV_BAR_Z_INDEX } from '@onekeyhq/shared/src/consts/zIndexConsts';
@@ -8,8 +8,8 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { TabPageHeader } from '../../../components/TabPageHeader';
+import { usePerpFeatureGuard } from '../../../hooks/usePerpFeatureGuard';
 import { HyperliquidTermsOverlay } from '../components/HyperliquidTerms';
 import { PerpContentFooter } from '../components/PerpContentFooter';
 import { PerpsGlobalEffects } from '../components/PerpsGlobalEffects';
@@ -117,9 +117,10 @@ export function PerpView() {
 }
 
 export default function Perp() {
-  useFocusEffect(() => {
-    void backgroundApiProxy.serviceHyperliquid.updatePerpsConfigByServer();
-  });
+  const canRenderPerp = usePerpFeatureGuard();
+  if (!canRenderPerp) {
+    return null;
+  }
 
   return (
     <PerpsAccountSelectorProviderMirror>
