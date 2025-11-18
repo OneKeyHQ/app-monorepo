@@ -67,7 +67,7 @@ function WebModalNavigator({
 }: IProps) {
   const screenHeight = useWindowDimensions().height;
   const media = useMedia();
-  const { state, descriptors, navigation, NavigationContent } =
+  const { state, descriptors, navigation, NavigationContent, describe } =
     useNavigationBuilder<
       StackNavigationState<ParamListBase>,
       StackRouterOptions,
@@ -349,6 +349,7 @@ function WebModalNavigator({
                 // @ts-expect-error
                 descriptors={descriptors}
                 navigation={navigation}
+                describe={describe as any}
               />
             </Stack>
           </Stack>
