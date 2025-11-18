@@ -179,10 +179,17 @@ export function NormalManageContent({
               bg={isFocused ? '$bgActive' : '$bg'}
               borderRadius="$2"
               borderCurve="continuous"
+              hoverStyle={
+                !isFocused
+                  ? {
+                      bg: '$bgHover',
+                    }
+                  : null
+              }
               onPress={() => handleTabChange(name)}
             >
               <SizableText
-                size="$bodyMdMedium"
+                size="$headingMd"
                 color={isFocused ? '$text' : '$textSubdued'}
                 letterSpacing={-0.15}
               >

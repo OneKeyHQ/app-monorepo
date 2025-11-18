@@ -1,10 +1,5 @@
-import { Image, SizableText, Stack, useMedia } from '@onekeyhq/components';
+import { Image, SizableText, Stack } from '@onekeyhq/components';
 import type { IDiscoveryBanner } from '@onekeyhq/shared/types/discovery';
-
-const BANNER_TITLE_OFFSET = {
-  desktop: '$5',
-  mobile: '$10',
-};
 
 export function BannerItemV2({
   item,
@@ -13,8 +8,6 @@ export function BannerItemV2({
   item: IDiscoveryBanner & { imgUrl?: string; titleTextProps?: any };
   onPress: (item: IDiscoveryBanner) => void;
 }) {
-  const media = useMedia();
-
   return (
     <Stack
       height={88}

@@ -838,6 +838,10 @@ export interface IStakeEarnDetail {
     title: IEarnText;
     items: IEarnGridItem[];
   };
+  rules?: {
+    title: IEarnText;
+    items: IEarnGridItem[];
+  };
   performance?: {
     title: IEarnText;
     items: IEarnGridItem[];

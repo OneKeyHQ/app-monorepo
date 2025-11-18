@@ -261,17 +261,7 @@ function BasicEarnHome({
                       isLoading={isLoading}
                     />
                   </YStack>
-                  {banners ? (
-                    <YStack
-                      minHeight="$36"
-                      $md={{
-                        minHeight: '$28',
-                      }}
-                      width="100%"
-                    >
-                      {banners}
-                    </YStack>
-                  ) : null}
+                  {banners ? <YStack width="100%">{banners}</YStack> : null}
                 </YStack>
               </YStack>
             ),
@@ -305,22 +295,14 @@ function BasicEarnHome({
         <RefreshControl refreshing={isLoading} onRefresh={refreshEarnData} />
       }
     >
-      <YStack flex={1} gap="$4">
+      <YStack flex={1}>
         {/* overview and banner */}
-        <YStack gap="$8">
+        <YStack>
           <XStack px="$5">
             <Overview onRefresh={refreshEarnData} isLoading={isLoading} />
           </XStack>
           {banners ? (
-            <YStack
-              minHeight="$36"
-              $md={{
-                minHeight: '$28',
-              }}
-              borderRadius="$3"
-              width="100%"
-              borderCurve="continuous"
-            >
+            <YStack borderRadius="$3" width="100%" borderCurve="continuous">
               {banners}
             </YStack>
           ) : null}

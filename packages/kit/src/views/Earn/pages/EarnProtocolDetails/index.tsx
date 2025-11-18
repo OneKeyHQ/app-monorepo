@@ -130,18 +130,25 @@ function ChartSection({
   );
 }
 
-function IntroSection({ intro }: { intro?: IStakeEarnDetail['intro'] }) {
-  if (!intro) {
+function GridSection({
+  data,
+}: {
+  data?:
+    | IStakeEarnDetail['intro']
+    | IStakeEarnDetail['rules']
+    | IStakeEarnDetail['performance'];
+}) {
+  if (!data) {
     return null;
   }
 
   return (
     <>
-      {intro.items?.length ? (
+      {data.items?.length ? (
         <YStack gap="$6">
-          <EarnText text={intro.title} size="$headingLg" />
+          <EarnText text={data.title} size="$headingLg" />
           <XStack flexWrap="wrap" m="$-5" p="$2">
-            {intro.items.map((cell) => (
+            {data.items.map((cell) => (
               <GridItem
                 key={cell.title.text}
                 title={cell.title}
@@ -205,56 +212,6 @@ function ProviderSection({
       <Divider />
     </>
   ) : null;
-}
-
-function PerformanceSection({
-  performance,
-}: {
-  performance?: IStakeEarnDetail['intro'];
-}) {
-  if (!performance) {
-    return null;
-  }
-
-  return (
-    <>
-      {performance.items?.length ? (
-        <YStack gap="$6">
-          <EarnText text={performance.title} size="$headingLg" />
-          <XStack flexWrap="wrap" m="$-5" p="$2">
-            {performance.items.map((cell) => (
-              <GridItem
-                key={cell.title.text}
-                title={cell.title}
-                description={cell.description}
-                descriptionComponent={
-                  cell?.items ? (
-                    <YStack gap="$2">
-                      {(cell?.items ?? []).map((item) => (
-                        <XStack key={item.title.text}>
-                          <Token
-                            size="sm"
-                            borderRadius="$2"
-                            mr="$0.5"
-                            tokenImageUri={item.logoURI}
-                          />
-                          <EarnText text={item.title} size="$bodyLgMedium" />
-                        </XStack>
-                      ))}
-                    </YStack>
-                  ) : null
-                }
-                actionIcon={cell.button}
-                tooltip={cell.tooltip}
-                type={cell.type}
-              />
-            ))}
-          </XStack>
-        </YStack>
-      ) : null}
-      <Divider />
-    </>
-  );
 }
 
 function RiskSection({ risk }: { risk?: IStakeEarnDetail['risk'] }) {
@@ -366,7 +323,8 @@ const DetailsPart = ({
               onShare={onShare}
             />
             <Divider />
-            <IntroSection intro={detailInfo.intro} />
+            <GridSection data={detailInfo.intro} />
+            <GridSection data={detailInfo.rules} />
             {detailInfo?.countDownAlert?.startTime &&
             detailInfo?.countDownAlert?.endTime &&
             now > detailInfo.countDownAlert.startTime &&
@@ -384,7 +342,7 @@ const DetailsPart = ({
             ) : null}
             <AlertSection alerts={detailInfo.alertsV2} />
             <PeriodSection timeline={detailInfo.timeline} />
-            <PerformanceSection performance={detailInfo.performance} />
+            <GridSection data={detailInfo.performance} />
             <ProtectionSection protection={detailInfo.protection} />
             <RiskSection risk={detailInfo.risk} />
             <FAQSection faqs={detailInfo.faqs} tokenInfo={tokenInfo} />
@@ -593,7 +551,14 @@ const EarnProtocolDetailsPage = () => {
         },
       });
     },
-    [appNavigation, networkId, symbol, provider, vault, tokenInfo?.token?.logoURI],
+    [
+      appNavigation,
+      networkId,
+      symbol,
+      provider,
+      vault,
+      tokenInfo?.token?.logoURI,
+    ],
   );
 
   // Generate share URL

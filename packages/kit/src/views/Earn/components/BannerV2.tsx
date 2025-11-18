@@ -19,7 +19,7 @@ export function BannerV2({ data, onBannerPress }: IBannerV2Props) {
       return (
         <Stack py="$5">
           <Skeleton
-            height={88}
+            height={130}
             width={440}
             $md={{
               width: '100%',
@@ -35,7 +35,7 @@ export function BannerV2({ data, onBannerPress }: IBannerV2Props) {
           data={data}
           maxPageWidth={440}
           containerStyle={{
-            height: 140,
+            height: 130,
             paddingTop: 30,
           }}
           renderItem={({ item }) => {

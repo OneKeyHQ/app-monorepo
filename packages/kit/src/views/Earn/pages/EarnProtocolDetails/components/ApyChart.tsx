@@ -193,22 +193,12 @@ export function ApyChart({
     <YStack gap="$3">
       <YStack>
         {/* Token icon and name with My Portfolio button - always show */}
-        <XStack jc="space-between" ai="center">
+        <XStack jc="space-between" ai="center" h="$9">
           <XStack gap="$2" ai="center">
             <Token size="xs" tokenImageUri={tokenInfo?.token.logoURI} />
             <SizableText size="$bodyLgMedium">
               {tokenInfo?.token.symbol || symbol}
             </SizableText>
-          </XStack>
-          <XStack cursor="pointer" ai="center" onPress={handleMyPortfolio}>
-            <SizableText size="$bodySmMedium" color="$textSubdued">
-              {intl.formatMessage({ id: ETranslations.earn_portfolio })}
-            </SizableText>
-            <Icon
-              size="$bodySmMedium"
-              name="ChevronRightSmallOutline"
-              color="$iconSubdued"
-            />
           </XStack>
         </XStack>
         {/* APY value with buttons - only show if apyDetail exists */}
@@ -229,6 +219,21 @@ export function ApyChart({
                   onPress={onShare}
                 />
               ) : null}
+              <XStack
+                ml="auto"
+                cursor="pointer"
+                ai="center"
+                onPress={handleMyPortfolio}
+              >
+                <SizableText size="$bodyMdMedium" color="$textSubdued">
+                  {intl.formatMessage({ id: ETranslations.earn_portfolio })}
+                </SizableText>
+                <Icon
+                  size="$bodySmMedium"
+                  name="ChevronRightSmallOutline"
+                  color="$iconSubdued"
+                />
+              </XStack>
             </XStack>
             {/* High and Low values */}
             {gtMd && chartData ? (

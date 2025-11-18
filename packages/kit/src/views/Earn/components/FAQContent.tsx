@@ -1,5 +1,3 @@
-import { useIntl } from 'react-intl';
-
 import {
   Accordion,
   Icon,
@@ -7,6 +5,7 @@ import {
   Skeleton,
   Stack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
 
 function FAQPanelSkeleton() {
@@ -31,7 +30,7 @@ export function FAQContent({
   faqList?: Array<{ question: string; answer: string }>;
   isLoading?: boolean;
 }) {
-  const intl = useIntl();
+  const media = useMedia();
 
   if (isLoading) {
     return <FAQPanelSkeleton />;
@@ -41,8 +40,18 @@ export function FAQContent({
     return null;
   }
 
+  // On large screens (desktop), expand all items by default
+  const defaultValue = media.gtMd
+    ? faqList.map((_, index) => String(index))
+    : undefined;
+
   return (
-    <Accordion type="multiple" gap="$2">
+    <Accordion
+      type="multiple"
+      gap="$2"
+      maxWidth={960}
+      defaultValue={defaultValue}
+    >
       {faqList.map(({ question, answer }, index) => (
         <Accordion.Item value={String(index)} key={String(index)}>
           <Accordion.Trigger
@@ -68,7 +77,7 @@ export function FAQContent({
                 <SizableText
                   textAlign="left"
                   flex={1}
-                  size="$headingSm"
+                  size="$headingMd"
                   color={open ? '$text' : '$textSubdued'}
                 >
                   {question}
