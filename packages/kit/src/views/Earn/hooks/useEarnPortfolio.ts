@@ -472,52 +472,60 @@ export const useEarnPortfolio = (): IUseEarnPortfolioReturn => {
 
       // Track which keys we fetched in this round
       const fetchedKeys = new Set<IInvestmentKey>();
-      // Collect new data in this refresh batch
+      // Collect new data in this refresh batch for deduplication
       const batchMap = new Map<IInvestmentKey, IEarnPortfolioInvestment>();
 
-      // Create fetch promises
-      const fetchPromises = pairsWithType.map(({ params, isAirdrop }) => {
+      // Create fetch promises with streaming updates
+      const fetchPromises = pairsWithType.map(async ({ params, isAirdrop }) => {
         const key = createInvestmentKey(params);
         fetchedKeys.add(key);
-        return fetchInvestmentDetail(params, isAirdrop, requestId);
+
+        const result = await fetchInvestmentDetail(
+          params,
+          isAirdrop,
+          requestId,
+        );
+
+        // Streaming update: update UI immediately after each fetch completes
+        if (!isRequestStale(requestId) && result) {
+          const { key: resultKey, investment } = result;
+
+          // Check if we already have data for this key in current batch
+          const existingInBatch = batchMap.get(resultKey);
+          const mergedInvestment = existingInBatch
+            ? {
+                ...existingInBatch,
+                assets: [...existingInBatch.assets, ...investment.assets],
+                airdropAssets: [
+                  ...existingInBatch.airdropAssets,
+                  ...investment.airdropAssets,
+                ],
+                totalFiatValue: new BigNumber(
+                  existingInBatch.totalFiatValue || '0',
+                )
+                  .plus(new BigNumber(investment.totalFiatValue || '0'))
+                  .toFixed(),
+              }
+            : investment;
+
+          // Update batch map
+          batchMap.set(resultKey, mergedInvestment);
+
+          // Immediately update the UI with current data
+          const streamingMap = new Map(investmentMapRef.current);
+          streamingMap.set(resultKey, mergedInvestment);
+          updateInvestments(streamingMap);
+        }
+
+        return result;
       });
 
-      // Wait for all promises to complete and collect results
-      const results = await Promise.allSettled(fetchPromises);
+      // Wait for all promises to complete
+      await Promise.allSettled(fetchPromises);
 
-      // Process all results at once after all fetches complete
+      // Final cleanup: remove stale keys if this is a full refresh
       if (!isRequestStale(requestId)) {
-        results.forEach((result) => {
-          if (result.status !== 'fulfilled' || !result.value) return;
-
-          const { key, investment } = result.value;
-
-          // Merge with existing data for the same key
-          const existing = batchMap.get(key);
-          if (existing) {
-            batchMap.set(key, {
-              ...existing,
-              assets: [...existing.assets, ...investment.assets],
-              airdropAssets: [
-                ...existing.airdropAssets,
-                ...investment.airdropAssets,
-              ],
-              totalFiatValue: new BigNumber(existing.totalFiatValue || '0')
-                .plus(new BigNumber(investment.totalFiatValue || '0'))
-                .toFixed(),
-            });
-          } else {
-            batchMap.set(key, investment);
-          }
-        });
-
-        // After all fetches complete, apply final updates and remove stale keys
         const finalMap = new Map(investmentMapRef.current);
-
-        // Apply all batch data to final map
-        batchMap.forEach((value, key) => {
-          finalMap.set(key, value);
-        });
 
         // Only remove stale keys if this is a full refresh (no filter options)
         // If options are provided, we're doing a partial refresh and shouldn't delete other data
@@ -527,10 +535,11 @@ export const useEarnPortfolio = (): IUseEarnPortfolioReturn => {
               finalMap.delete(key);
             }
           });
+
+          // Apply final cleanup
+          updateInvestments(finalMap);
         }
 
-        // Single update after all data is collected
-        updateInvestments(finalMap);
         // Only clear loading state for full refresh
         if (!isPartialRefresh) {
           setIsLoading(false);
@@ -565,10 +574,7 @@ export const useEarnPortfolio = (): IUseEarnPortfolioReturn => {
     ],
     {
       watchLoading: true,
-      revalidateOnReconnect: true,
-      revalidateOnFocus: true,
       pollingInterval: timerUtils.getTimeDurationMs({ minute: 3 }),
-      alwaysSetState: true,
     },
   );
 
