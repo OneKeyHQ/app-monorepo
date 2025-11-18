@@ -520,8 +520,7 @@ const EarnProtocolDetailsPage = () => {
     };
   }, [route.params, activeAccount]);
 
-  const { accountId, networkId, indexedAccountId, symbol, provider, vault } =
-    resolvedParams;
+  const { accountId, networkId, symbol, provider, vault } = resolvedParams;
 
   const {
     earnAccount,
@@ -538,6 +537,7 @@ const EarnProtocolDetailsPage = () => {
     symbol,
     provider,
     vault,
+    includeAccountInfo: !gtMd,
   });
 
   useUnsupportedProtocol({
