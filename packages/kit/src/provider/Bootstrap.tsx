@@ -139,7 +139,10 @@ const useDesktopEvents = platformEnv.isDesktop
                 (route.params as { screen: string })?.screen ===
                   EModalRoutes.SettingModal
               ) {
-                if (route.name === ERootRoutes.Modal) {
+                if (
+                  route.name === ERootRoutes.Modal ||
+                  route.name === ERootRoutes.iOSFullScreen
+                ) {
                   const routeLength =
                     route.state?.routes?.[0]?.state?.routes.length || 1;
                   for (let i = 0; i < routeLength; i += 1)
