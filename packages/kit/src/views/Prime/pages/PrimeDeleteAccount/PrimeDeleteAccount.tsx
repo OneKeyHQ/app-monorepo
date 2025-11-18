@@ -100,6 +100,9 @@ export default function PrimeDeleteAccount() {
           console.error('logout error', error);
         }
 
+        defaultLogger.prime.subscription.onekeyIdAtomNotLoggedIn({
+          reason: 'PrimeDeleteAccount',
+        });
         //  logout atom states
         await backgroundApiProxy.servicePrime.setPrimePersistAtomNotLoggedIn();
 

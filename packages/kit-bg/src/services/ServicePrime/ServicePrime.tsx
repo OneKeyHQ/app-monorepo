@@ -124,6 +124,9 @@ class ServicePrime extends ServiceBase {
   async apiLogout() {
     const authToken = await this.backgroundApi.simpleDb.prime.getAuthToken();
     if (!authToken) {
+      defaultLogger.prime.subscription.onekeyIdAtomNotLoggedIn({
+        reason: 'ServicePrime.apiLogout: simpleDb.prime.getAuthToken() is null',
+      });
       await this.setPrimePersistAtomNotLoggedIn();
       return;
     }
@@ -216,6 +219,10 @@ class ServicePrime extends ServiceBase {
     await this.loginMutex.waitForUnlock();
     const authToken = await this.backgroundApi.simpleDb.prime.getAuthToken();
     if (!authToken) {
+      defaultLogger.prime.subscription.onekeyIdAtomNotLoggedIn({
+        reason:
+          'ServicePrime.apiFetchPrimeUserInfo: simpleDb.prime.getAuthToken() is null',
+      });
       await this.setPrimePersistAtomNotLoggedIn();
       const localUserInfo = await primePersistAtom.get();
 

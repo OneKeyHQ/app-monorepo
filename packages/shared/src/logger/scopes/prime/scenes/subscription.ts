@@ -97,6 +97,14 @@ export class PrimeSubscriptionScene extends BaseScene {
 
   @LogToLocal()
   @LogToServer()
+  public onekeyIdAtomNotLoggedIn({ reason }: { reason: string }) {
+    return {
+      reason,
+    };
+  }
+
+  @LogToLocal()
+  @LogToServer()
   public onekeyIdInvalidToken({
     url,
     errorCode,
