@@ -277,6 +277,11 @@ w3m-modal {
   z-index: 99993173;
 }
 
+/* Keep Intercom floating UI behind toast notifications (z-index 1e6) */
+#intercom-container *, .intercom-lightweight-app {
+  z-index: 1 !important;
+}
+
 .pick-device-clip-path {
   animation: clip-device 1s forwards cubic-bezier(0.77, 0, 0.175, 1);
   clip-path: inset(0 0 100% 0);
