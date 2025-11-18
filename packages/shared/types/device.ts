@@ -401,6 +401,7 @@ export enum EHardwareCallContext {
   BACKGROUND_TASK = 'background_task',
   SDK_INITIALIZATION = 'sdk_initialization',
   SILENT_CALL = 'silent_call',
+  UPDATE_FIRMWARE = 'update_firmware',
 }
 
 export type IHardwareCallContext = EHardwareCallContext;
