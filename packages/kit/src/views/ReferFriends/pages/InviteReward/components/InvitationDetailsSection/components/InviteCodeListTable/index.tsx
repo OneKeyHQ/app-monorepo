@@ -30,6 +30,8 @@ export function InviteCodeListTable({
 }: IInviteCodeListTableProps) {
   const intl = useIntl();
   const { gtMd } = useMedia();
+  const hasCodeListData = Boolean(codeListData);
+  const isInitialLoading = !hasCodeListData && (isLoading ?? true);
 
   // Sort data
   const { sortedData, handleSortChange } = useSortableData(codeListData?.items);
@@ -41,7 +43,7 @@ export function InviteCodeListTable({
   );
 
   // Loading state
-  if (isLoading || !codeListData) {
+  if (isInitialLoading) {
     return (
       <Stack alignItems="center" justifyContent="center" py="$10">
         <Spinner size="large" />

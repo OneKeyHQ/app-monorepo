@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { isEqual, noop } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import type {
@@ -443,12 +444,24 @@ function SelectPrivateKeyNetworkView() {
   const isValidatingRef = useRef<boolean>(false);
   const [isValidating, setIsValidating] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
-
+  const hideValidatingLoadingTimer = useRef<
+    ReturnType<typeof setTimeout> | undefined
+  >(undefined);
+  const prevSelectParams = useRef<
+    { uuid: string; networkId?: string } | undefined
+  >(undefined);
   const handleSelectGroupItem = useCallback(
     (params: { uuid: string; networkId?: string } | undefined) => {
+      if (isEqual(params, prevSelectParams.current)) {
+        return;
+      }
+      prevSelectParams.current = params;
       setIsValidating(true);
       setSelectedUUID(params?.uuid || '');
       setSelectedNetworkId(params?.networkId || undefined);
+      hideValidatingLoadingTimer.current = setTimeout(() => {
+        setIsValidating(false);
+      }, 600);
     },
     [],
   );
@@ -690,6 +703,7 @@ function SelectPrivateKeyNetworkView() {
   ]);
 
   useEffect(() => {
+    clearTimeout(hideValidatingLoadingTimer.current);
     void (async () => {
       try {
         isValidatingRef.current = true;

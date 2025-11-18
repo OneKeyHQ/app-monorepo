@@ -19,13 +19,11 @@ export function NoteCell({ code, note, onNoteUpdated }: INoteCellProps) {
   const { md } = useMedia();
 
   const handleOpenDialog = useCallback(() => {
-    const dialogTitle = note
-      ? `${intl.formatMessage({
-          id: ETranslations.global_edit,
-        })}${intl.formatMessage({ id: ETranslations.global_Note })}`
-      : `${intl.formatMessage({
-          id: ETranslations.global_add,
-        })}${intl.formatMessage({ id: ETranslations.global_Note })}`;
+    const dialogTitle = intl.formatMessage({
+      id: note
+        ? ETranslations.referral_code_list_edit_note
+        : ETranslations.referral_code_list_add_note,
+    });
 
     Dialog.show({
       title: dialogTitle,
@@ -71,9 +69,7 @@ export function NoteCell({ code, note, onNoteUpdated }: INoteCellProps) {
       icon="PlusSmallOutline"
       onPress={handleOpenDialog}
     >
-      {`${intl.formatMessage({ id: ETranslations.global_add })} ${intl
-        .formatMessage({ id: ETranslations.global_Note })
-        .toLowerCase()}`}
+      {intl.formatMessage({ id: ETranslations.referral_code_list_add_note })}
     </Button>
   );
 }

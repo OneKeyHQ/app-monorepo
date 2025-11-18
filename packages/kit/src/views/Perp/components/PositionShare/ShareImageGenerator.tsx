@@ -310,7 +310,7 @@ export const ShareImageGenerator = forwardRef<
         ctx.globalAlpha = layout.labelOpacity;
         ctx.fillText(
           appLocale.intl.formatMessage({
-            id: ETranslations.referral_referral_link,
+            id: ETranslations.perp_share_referral_desc,
           }),
           padding,
           rectY + rectHeight / 2 - layout.referralOffset,

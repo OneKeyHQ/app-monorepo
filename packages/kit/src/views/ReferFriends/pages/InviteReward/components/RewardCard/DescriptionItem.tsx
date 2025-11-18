@@ -7,15 +7,13 @@ import { InfoIcon } from './InfoIcon';
 export interface IDescriptionItemProps {
   label: string;
   value?: ReactNode;
-  showInfoIcon?: boolean;
   onInfoPress?: () => void;
-  infoTooltip?: string;
+  infoTooltip?: string | { title?: string; content: string };
 }
 
 export function DescriptionItem({
   label,
   value,
-  showInfoIcon = false,
   onInfoPress,
   infoTooltip,
 }: IDescriptionItemProps) {
@@ -25,7 +23,7 @@ export function DescriptionItem({
         <SizableText size="$bodyMd" color="$textSubdued">
           {label}
         </SizableText>
-        {showInfoIcon ? (
+        {infoTooltip ? (
           <InfoIcon onPress={onInfoPress} tooltip={infoTooltip} />
         ) : null}
       </XStack>

@@ -40,6 +40,8 @@ import type {
 } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
+import { ReferFriendsPageContainer } from '../../components';
+
 import type { RouteProp } from '@react-navigation/native';
 
 type IFormValues = {
@@ -57,6 +59,8 @@ function BasicEditAddress() {
     >();
   const onAddressAdded = route.params?.onAddressAdded;
   const hideAddressBook = route.params?.hideAddressBook ?? false;
+  const enableAllowListValidation =
+    route.params?.enableAllowListValidation ?? true;
   const intl = useIntl();
   const navigation = useAppNavigation();
   const enabledNetworks = useMemo(
@@ -207,68 +211,74 @@ function BasicEditAddress() {
         title={intl.formatMessage({
           id: ETranslations.address_book_edit_address_title,
         })}
-        headerRight={renderAddressSecurityHeaderRightButton}
+        headerRight={
+          enableAllowListValidation
+            ? renderAddressSecurityHeaderRightButton
+            : undefined
+        }
       />
       <Page.Body px="$5">
-        <AddressInputContext.Provider value={contextValue}>
-          <Form form={form}>
-            <Form.Field
-              label={intl.formatMessage({ id: ETranslations.global_network })}
-              name="networkId"
-            >
-              <ControlledNetworkSelectorTrigger
-                networkIds={networksResp.networkIds}
-              />
-            </Form.Field>
+        <ReferFriendsPageContainer>
+          <AddressInputContext.Provider value={contextValue}>
+            <Form form={form}>
+              <Form.Field
+                label={intl.formatMessage({ id: ETranslations.global_network })}
+                name="networkId"
+              >
+                <ControlledNetworkSelectorTrigger
+                  networkIds={networksResp.networkIds}
+                />
+              </Form.Field>
 
-            <Form.Field
-              label={intl.formatMessage({ id: ETranslations.global_address })}
-              name="to"
-              renderErrorMessage={renderAddressInputHyperlinkText}
-              rules={{
-                validate: createValidateAddressRule({
-                  defaultErrorMessage: intl.formatMessage({
-                    id: ETranslations.form_address_error_invalid,
+              <Form.Field
+                label={intl.formatMessage({ id: ETranslations.global_address })}
+                name="to"
+                renderErrorMessage={renderAddressInputHyperlinkText}
+                rules={{
+                  validate: createValidateAddressRule({
+                    defaultErrorMessage: intl.formatMessage({
+                      id: ETranslations.form_address_error_invalid,
+                    }),
                   }),
-                }),
-              }}
-            >
-              <AddressInput
-                enableAddressBook={!hideAddressBook}
-                enableWalletName
-                enableVerifySendFundToSelf
-                enableAddressInteractionStatus
-                enableAddressContract
-                enableAllowListValidation
-                accountSelector={addressInputAccountSelectorArgs}
-                // accountId={accountId}
-                networkId={networkIdValue}
-                contacts={
-                  !hideAddressBook
-                    ? addressBookEnabledNetworkIds.includes(networkIdValue)
-                    : undefined
-                }
-                enableNameResolve
-                placeholder={intl.formatMessage({
-                  id: ETranslations.form_address_placeholder,
-                })}
-                testID="refer-friends-edit-address-input"
-              />
-            </Form.Field>
-          </Form>
-        </AddressInputContext.Provider>
-        <YStack gap="$5" mt="$1.5">
-          <SizableText color="$textSubdued" size="$bodyMd">
-            {intl.formatMessage({
-              id: ETranslations.referral_reward_edit_address_desc_1,
-            })}
-          </SizableText>
-          <SizableText color="$textSubdued" size="$bodyMd">
-            {intl.formatMessage({
-              id: ETranslations.referral_reward_edit_address_desc_2,
-            })}
-          </SizableText>
-        </YStack>
+                }}
+              >
+                <AddressInput
+                  enableAddressBook={!hideAddressBook}
+                  enableWalletName
+                  enableVerifySendFundToSelf
+                  enableAddressInteractionStatus
+                  enableAddressContract
+                  enableAllowListValidation={enableAllowListValidation}
+                  accountSelector={addressInputAccountSelectorArgs}
+                  // accountId={accountId}
+                  networkId={networkIdValue}
+                  contacts={
+                    !hideAddressBook
+                      ? addressBookEnabledNetworkIds.includes(networkIdValue)
+                      : undefined
+                  }
+                  enableNameResolve
+                  placeholder={intl.formatMessage({
+                    id: ETranslations.form_address_placeholder,
+                  })}
+                  testID="refer-friends-edit-address-input"
+                />
+              </Form.Field>
+            </Form>
+          </AddressInputContext.Provider>
+          <YStack gap="$5" mt="$1.5">
+            <SizableText color="$textSubdued" size="$bodyMd">
+              {intl.formatMessage({
+                id: ETranslations.referral_reward_edit_address_desc_1,
+              })}
+            </SizableText>
+            <SizableText color="$textSubdued" size="$bodyMd">
+              {intl.formatMessage({
+                id: ETranslations.referral_reward_edit_address_desc_2,
+              })}
+            </SizableText>
+          </YStack>
+        </ReferFriendsPageContainer>
       </Page.Body>
       <Page.Footer
         confirmButtonProps={{

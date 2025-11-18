@@ -326,7 +326,7 @@ export function ShareContentRenderer({
                   lineHeight={scaledFonts.priceLabel * layout.lineHeight}
                 >
                   {appLocale.intl.formatMessage({
-                    id: ETranslations.referral_referral_link,
+                    id: ETranslations.perp_share_referral_desc,
                   })}
                 </SizableText>
                 <SizableText

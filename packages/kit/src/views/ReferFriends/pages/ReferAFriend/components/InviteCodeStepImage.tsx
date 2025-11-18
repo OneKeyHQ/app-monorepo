@@ -8,6 +8,9 @@ import step1DesktopImg from '@onekeyhq/kit/assets/inviteCode/1-2.png';
 import step2MobileImg from '@onekeyhq/kit/assets/inviteCode/2-1.png';
 import step2DesktopImg from '@onekeyhq/kit/assets/inviteCode/2-2.png';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+const DESKTOP_IMAGE_ASPECT_RATIO = 284 / 640;
 
 interface IInviteCodeStepImageProps {
   /** Step number (1 or 2) */
@@ -25,6 +28,7 @@ export function InviteCodeStepImage({ step }: IInviteCodeStepImageProps) {
   const { gtSm } = useMedia();
   const themeVariant = useThemeVariant();
   const { width: screenWidth } = useWindowDimensions();
+  const isDesktopImage = gtSm || platformEnv.isExtensionUiPopup;
 
   // Image mapping for steps and responsive versions
   const imageMap = {
@@ -39,19 +43,21 @@ export function InviteCodeStepImage({ step }: IInviteCodeStepImageProps) {
   };
 
   // Select image based on step and screen size
-  const selectedImage = imageMap[step]?.[gtSm ? 'desktop' : 'mobile'];
+  const selectedImage = imageMap[step]?.[isDesktopImage ? 'desktop' : 'mobile'];
 
   // Calculate image width based on platform and screen size
   const imageWidth = useMemo(() => {
     if (gtSm) return 640; // Desktop: fixed width
-    return screenWidth; // Native: screen width minus padding
+    return screenWidth; // Native / popup: screen width minus padding
   }, [gtSm, screenWidth]);
 
   // Calculate image height based on platform
   const imageHeight = useMemo(() => {
-    if (gtSm) return 284; // Desktop: fixed height
-    return screenWidth; // Native: use aspectRatio instead
-  }, [gtSm, screenWidth]);
+    if (isDesktopImage) {
+      return imageWidth * DESKTOP_IMAGE_ASPECT_RATIO;
+    }
+    return screenWidth; // Native mobile: keep square
+  }, [imageWidth, isDesktopImage, screenWidth]);
 
   return (
     <Image
