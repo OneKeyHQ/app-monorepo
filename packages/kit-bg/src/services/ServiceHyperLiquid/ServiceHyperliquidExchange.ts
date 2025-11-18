@@ -436,6 +436,14 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
             void this.backgroundApi.serviceHyperliquid.reportAgentApprovalToBackend(
               signatureInfo,
             );
+            void this.backgroundApi.serviceHyperliquid.notifyHyperliquidAccountBind(
+              {
+                signerAddress: signatureInfo.signerAddress,
+                action: signatureInfo.action,
+                nonce: signatureInfo.nonce,
+                signature: signatureInfo.signature,
+              },
+            );
           }
         } catch (error) {
           console.error('Failed to extract agent signature:', error);
