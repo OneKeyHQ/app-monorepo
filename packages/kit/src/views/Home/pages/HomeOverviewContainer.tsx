@@ -121,6 +121,15 @@ function HomeOverviewContainer() {
 
       listRefreshKey.current = key;
 
+      if (type === EHomeTab.ALL) {
+        setIsRefreshingTokenList(isRefreshing);
+        setIsRefreshingNftList(isRefreshing);
+        setIsRefreshingHistoryList(isRefreshing);
+        setIsRefreshingApprovalList(isRefreshing);
+        setIsRefreshingWorth(isRefreshing);
+        return;
+      }
+
       if (type === EHomeTab.TOKENS) {
         setIsRefreshingTokenList(isRefreshing);
       } else if (type === EHomeTab.NFT) {

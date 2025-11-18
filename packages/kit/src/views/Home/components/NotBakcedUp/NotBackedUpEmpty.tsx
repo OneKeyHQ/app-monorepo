@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useCallback, useEffect, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
@@ -14,9 +14,15 @@ import { WalletBackupActions } from '@onekeyhq/kit/src/components/WalletBackup';
 import { useBackUpWallet } from '@onekeyhq/kit/src/hooks/useBackUpWallet';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
+import { useAccountOverviewActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountOverview';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { EHomeTab } from '@onekeyhq/shared/types';
 
 import InfoBlock from './InfoBlock';
 import MainInfoBlock from './MainBlock';
@@ -26,10 +32,12 @@ function NotBackedUp() {
   const intl = useIntl();
   const themeVariant = useThemeVariant();
   const {
-    activeAccount: { wallet },
+    activeAccount: { wallet, account, network },
   } = useActiveAccount({
     num: 0,
   });
+
+  const { updateAccountOverviewState } = useAccountOverviewActions().current;
 
   const howToDepositLink = useHelpLink({ path: 'articles/11461136' });
   const depositFaqLink = useHelpLink({ path: 'articles/12569147' });
@@ -87,6 +95,19 @@ function NotBackedUp() {
       </XStack>
     );
   }, [backupText, handleBackupWallet, supportCloudBackup, wallet]);
+
+  useEffect(() => {
+    updateAccountOverviewState({
+      isRefreshing: false,
+      initialized: true,
+    });
+    appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
+      isRefreshing: false,
+      type: EHomeTab.ALL,
+      accountId: account?.id ?? '',
+      networkId: network?.id ?? '',
+    });
+  }, [account?.id, network?.id, updateAccountOverviewState]);
 
   return (
     <YStack gap="$5" px="$5" pb="$6">
