@@ -15,10 +15,10 @@ export function usePrimeTransferExit() {
         ...v,
         shouldPreventExit: false,
       }));
-      setTimeout(() => {
+      setTimeout(async () => {
         navigation.popStack();
         await timerUtils.wait(150);
-        void closeOnboardingPages();
+        await closeOnboardingPages();
       }, delay);
     },
     [navigation, setPrimeTransferAtom],
