@@ -114,8 +114,11 @@ export type IFirmwareUpdateDevSettings = {
   usePreReleaseConfig: boolean;
   forceUpdateResEvenSameVersion: boolean;
   forceUpdateFirmware: boolean;
+  forceUpdateOnceFirmware: boolean;
   forceUpdateBle: boolean;
+  forceUpdateOnceBle: boolean;
   forceUpdateBootloader: boolean;
+  forceUpdateOnceBootloader: boolean;
   showDeviceDebugLogs: boolean;
   showAutoCheckHardwareUpdatesToast: boolean;
 };
@@ -135,8 +138,11 @@ export const {
     usePreReleaseConfig: false,
     forceUpdateResEvenSameVersion: false,
     forceUpdateFirmware: false,
+    forceUpdateOnceFirmware: false,
     forceUpdateBle: false,
+    forceUpdateOnceBle: false,
     forceUpdateBootloader: false,
+    forceUpdateOnceBootloader: false,
     showDeviceDebugLogs: false,
     showAutoCheckHardwareUpdatesToast: false,
   },

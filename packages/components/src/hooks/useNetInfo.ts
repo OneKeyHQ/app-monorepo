@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 
 import { ONEKEY_HEALTH_CHECK_URL } from '@onekeyhq/shared/src/config/appConfig';
+import { healthCheckRequest } from '@onekeyhq/shared/src/request/helpers/healthCheckRequest';
 
 import { buildDeferredPromise } from './useDeferredPromise';
 import {
@@ -101,16 +102,11 @@ class NetInfo {
       reachabilityTest,
     } = this.configuration;
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(
-      () => controller.abort(),
-      reachabilityRequestTimeout,
-    );
-
     try {
-      const response = await fetch(reachabilityUrl, {
-        method: reachabilityMethod,
-        signal: controller.signal,
+      const response = await healthCheckRequest({
+        url: reachabilityUrl,
+        method: reachabilityMethod as 'GET' | 'POST',
+        timeout: reachabilityRequestTimeout,
       });
 
       this.updateState({
@@ -120,7 +116,6 @@ class NetInfo {
       console.error('Failed to fetch reachability:', error);
       this.updateState({ isInternetReachable: false });
     } finally {
-      clearTimeout(timeoutId);
       this.isFetching = false;
       const { reachabilityShortTimeout, reachabilityLongTimeout } =
         this.configuration;

@@ -10,12 +10,9 @@ import {
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import googlePlayService from '@onekeyhq/shared/src/googlePlayService/googlePlayService';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import type { IAppleCloudKitRecord } from '@onekeyhq/shared/src/storage/AppleCloudKitStorage/types';
-import type { IGoogleDriveFile } from '@onekeyhq/shared/src/storage/GoogleDriveStorage/types';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -25,7 +22,6 @@ import type {
 } from '@onekeyhq/shared/types/prime/primeTransferTypes';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
-import { EAtomNames } from '../../states/jotai/atomNames';
 import { cloudBackupStatusAtom } from '../../states/jotai/atoms/cloudBackup';
 import ServiceBase from '../ServiceBase';
 
@@ -34,7 +30,6 @@ import { OneKeyBackupProvider } from './backupProviders/OneKeyBackupProvider';
 import type { GoogleDriveBackupProvider } from './backupProviders/GoogleDriveBackupProvider';
 import type { ICloudBackupProvider } from './backupProviders/ICloudBackupProvider';
 import type {
-  IBackupCloudServerData,
   IBackupCloudServerDownloadData,
   IBackupDataEncryptedPayload,
   IBackupProviderInfo,
@@ -490,7 +485,12 @@ class ServiceCloudBackupV2 extends ServiceBase {
   @toastIfError()
   async androidListAllFiles() {
     const provider = this.getProvider();
-    return (provider as GoogleDriveBackupProvider).listAllFiles();
+    const result = await (provider as GoogleDriveBackupProvider).listAllFiles();
+
+    return {
+      result,
+      count: result?.files?.length ?? 0,
+    };
   }
 
   @backgroundMethod()
@@ -498,6 +498,19 @@ class ServiceCloudBackupV2 extends ServiceBase {
   async androidGetManifestFileObject() {
     const provider = this.getProvider();
     return (provider as GoogleDriveBackupProvider).getManifestFileObject();
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async androidGetManifest() {
+    const provider = this.getProvider();
+    return (provider as GoogleDriveBackupProvider).getManifest();
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async androidGetLegacyMetaData() {
+    return this.backgroundApi.serviceCloudBackup.downloadMetadataFile();
   }
 
   @backgroundMethod()
