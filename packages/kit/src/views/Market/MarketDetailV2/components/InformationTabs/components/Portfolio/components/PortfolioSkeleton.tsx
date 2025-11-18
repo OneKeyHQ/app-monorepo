@@ -8,10 +8,10 @@ function PortfolioSkeletonBase() {
       {Array.from({ length: 1 }).map((_, index) => (
         <XStack key={index} alignItems="center" gap="$3">
           {/* Amount */}
-          <Skeleton height="$4" width="$20" />
+          <Skeleton height="$4" width="45%" />
 
           {/* Total Value */}
-          <Skeleton height="$4" width="$20" />
+          <Skeleton height="$4" width="45%" />
         </XStack>
       ))}
     </YStack>
