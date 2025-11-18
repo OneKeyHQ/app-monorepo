@@ -22,6 +22,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EHomeTab } from '@onekeyhq/shared/types';
 
 import InfoBlock from './InfoBlock';
@@ -43,19 +44,32 @@ function NotBackedUp() {
   const depositFaqLink = useHelpLink({ path: 'articles/12569147' });
   const swapAndBridgeLink = useHelpLink({ path: 'articles/11461146' });
 
-  const { handleBackUpByCloud, handleBackUpByPhrase, supportCloudBackup } =
-    useBackUpWallet({
-      walletId: wallet?.id ?? '',
-    });
+  const {
+    handleBackUpByCloud,
+    handleBackUpByPhrase,
+    supportCloudBackup,
+    cloudBackupFeatureInfo,
+  } = useBackUpWallet({
+    walletId: wallet?.id ?? '',
+  });
+
+  const enableCloudBackup = useMemo(() => {
+    return (
+      supportCloudBackup &&
+      cloudBackupFeatureInfo &&
+      wallet?.id &&
+      accountUtils.isHdWallet({ walletId: wallet?.id ?? '' })
+    );
+  }, [supportCloudBackup, cloudBackupFeatureInfo, wallet?.id]);
 
   const handleBackupWallet = useCallback(() => {
-    if (supportCloudBackup) {
+    if (enableCloudBackup) {
       void handleBackUpByCloud();
       return;
     }
 
     void handleBackUpByPhrase();
-  }, [handleBackUpByCloud, handleBackUpByPhrase, supportCloudBackup]);
+  }, [enableCloudBackup, handleBackUpByPhrase, handleBackUpByCloud]);
 
   const backupText = useMemo(() => {
     if (supportCloudBackup) {
@@ -84,7 +98,7 @@ function NotBackedUp() {
         <Button variant="primary" size="large" onPress={handleBackupWallet}>
           {backupText}
         </Button>
-        <WalletBackupActions wallet={wallet} hidePhrase={!supportCloudBackup}>
+        <WalletBackupActions wallet={wallet} hidePhrase={!enableCloudBackup}>
           <IconButton
             icon="DotHorOutline"
             bg="$gray4"
@@ -94,7 +108,7 @@ function NotBackedUp() {
         </WalletBackupActions>
       </XStack>
     );
-  }, [backupText, handleBackupWallet, supportCloudBackup, wallet]);
+  }, [backupText, handleBackupWallet, enableCloudBackup, wallet]);
 
   useEffect(() => {
     updateAccountOverviewState({
