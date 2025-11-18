@@ -31,7 +31,6 @@ import type {
   ITabEarnParamList,
 } from '@onekeyhq/shared/src/routes';
 import {
-  EModalReceiveRoutes,
   EModalRoutes,
   EModalStakingRoutes,
   ETabRoutes,
@@ -42,7 +41,6 @@ import {
   normalizeToEarnProvider,
   normalizeToEarnSymbol,
 } from '@onekeyhq/shared/types/earn/earnProvider.constants';
-import { EStakingActionType } from '@onekeyhq/shared/types/staking';
 import type {
   IEarnAlert,
   IEarnTokenInfo,
@@ -65,9 +63,9 @@ import { PeriodSection } from '../../../Staking/components/ProtocolDetails/Perio
 import { ProtectionSection } from '../../../Staking/components/ProtocolDetails/ProtectionSectionV2';
 import { OverviewSkeleton } from '../../../Staking/components/StakingSkeleton';
 import { useCheckEthenaKycStatus } from '../../../Staking/hooks/useCheckEthenaKycStatus';
-import { useHandleSwap } from '../../../Staking/hooks/useHandleSwap';
 import { useUnsupportedProtocol } from '../../../Staking/hooks/useUnsupportedProtocol';
 import { ManagePositionContent } from '../../../Staking/pages/ManagePosition/components/ManagePositionContent';
+import { shouldUseCustomContent } from '../../../Staking/pages/ManagePosition/components/protocolConfigs';
 import { FAQSection } from '../../../Staking/pages/ProtocolDetailsV2/FAQSection';
 import { EarnPageContainer } from '../../components/EarnPageContainer';
 import { EarnProviderMirror } from '../../EarnProviderMirror';
@@ -537,7 +535,6 @@ const EarnProtocolDetailsPage = () => {
     symbol,
     provider,
     vault,
-    includeAccountInfo: !gtMd,
   });
 
   useUnsupportedProtocol({
@@ -584,34 +581,8 @@ const EarnProtocolDetailsPage = () => {
     [symbol, tokenInfo?.token?.logoURI],
   );
 
-  const handleNavigateToManagePosition = useCallback(
-    (tab?: 'deposit' | 'withdraw') => {
-      // Check if withdraw is WithdrawOrder type
-      if (tab === 'withdraw') {
-        const withdrawAction = detailInfo?.actions?.find(
-          (a) =>
-            a.type === EStakingActionType.Withdraw ||
-            a.type === EStakingActionType.WithdrawOrder,
-        );
-
-        if (withdrawAction?.type === EStakingActionType.WithdrawOrder) {
-          // Directly open WithdrawOptions modal
-          appNavigation.pushModal(EModalRoutes.StakingModal, {
-            screen: EModalStakingRoutes.WithdrawOptions,
-            params: {
-              accountId: earnAccount?.accountId || '',
-              networkId,
-              protocolInfo,
-              tokenInfo,
-              symbol,
-              provider,
-            },
-          });
-          return;
-        }
-      }
-
-      // Default: open ManagePosition
+  const handleOpenManageModal = useCallback(
+    (tab?: 'deposit') => {
       appNavigation.pushModal(EModalRoutes.StakingModal, {
         screen: EModalStakingRoutes.ManagePosition,
         params: {
@@ -623,46 +594,8 @@ const EarnProtocolDetailsPage = () => {
         },
       });
     },
-    [
-      appNavigation,
-      networkId,
-      symbol,
-      provider,
-      vault,
-      detailInfo,
-      earnAccount,
-      protocolInfo,
-      tokenInfo,
-    ],
+    [appNavigation, networkId, symbol, provider, vault],
   );
-
-  const { handleSwap } = useHandleSwap();
-
-  const handleReceiveUSDe = useCallback(() => {
-    if (!detailInfo?.subscriptionValue?.token?.info || !earnAccount) return;
-    appNavigation.pushModal(EModalRoutes.ReceiveModal, {
-      screen: EModalReceiveRoutes.ReceiveToken,
-      params: {
-        networkId,
-        accountId: earnAccount.accountId,
-        walletId: earnAccount.walletId,
-        token: detailInfo.subscriptionValue.token.info,
-      },
-    });
-  }, [
-    appNavigation,
-    networkId,
-    earnAccount,
-    detailInfo?.subscriptionValue?.token?.info,
-  ]);
-
-  const handleTradeUSDe = useCallback(async () => {
-    if (!detailInfo?.subscriptionValue?.token?.info) return;
-    await handleSwap({
-      token: detailInfo.subscriptionValue.token.info,
-      networkId,
-    });
-  }, [handleSwap, networkId, detailInfo?.subscriptionValue?.token?.info]);
 
   // Generate share URL
   const shareUrl = useMemo(() => {
@@ -694,96 +627,39 @@ const EarnProtocolDetailsPage = () => {
     );
   }, [gtMd, shareUrl, handleShare]);
 
+  const isCustomProtocol = useMemo(
+    () =>
+      shouldUseCustomContent({
+        symbol,
+        provider,
+        vault,
+      }),
+    [symbol, provider, vault],
+  );
+
   const pageFooter = useMemo(() => {
     if (gtMd) {
       return null;
     }
 
-    const shouldDisableButtons = isLoading || hasNoAccount || hasNoAddress;
-
-    // USDe: show Receive/Trade buttons
-    if (symbol === 'USDe') {
-      const receiveAction = detailInfo?.actions?.find(
-        (a) => a.type === EStakingActionType.Receive,
-      );
-      const tradeAction = detailInfo?.actions?.find(
-        (a) => a.type === EStakingActionType.Trade,
-      );
-
-      if (!receiveAction && !tradeAction) {
-        return null;
-      }
-
-      return (
-        <Page.Footer
-          onCancelText={
-            receiveAction
-              ? intl.formatMessage({ id: ETranslations.global_receive })
-              : undefined
-          }
-          cancelButtonProps={
-            receiveAction
-              ? {
-                  onPress: handleReceiveUSDe,
-                  disabled: shouldDisableButtons || receiveAction.disabled,
-                }
-              : undefined
-          }
-          onConfirmText={
-            tradeAction
-              ? intl.formatMessage({ id: ETranslations.global_trade })
-              : undefined
-          }
-          confirmButtonProps={
-            tradeAction
-              ? {
-                  variant: 'primary',
-                  onPress: handleTradeUSDe,
-                  disabled: shouldDisableButtons || tradeAction.disabled,
-                }
-              : undefined
-          }
-        />
-      );
-    }
-
-    // Normal assets: show Deposit/Withdraw buttons
-    const depositAction = detailInfo?.actions?.find(
-      (a) => a.type === EStakingActionType.Deposit,
-    );
-    const withdrawAction = detailInfo?.actions?.find(
-      (a) =>
-        a.type === EStakingActionType.Withdraw ||
-        a.type === EStakingActionType.WithdrawOrder,
-    );
+    const isManageOnly = isCustomProtocol;
+    const buttonText = isManageOnly
+      ? intl.formatMessage({ id: ETranslations.global_manage })
+      : intl.formatMessage({ id: ETranslations.earn_deposit });
+    const onPress = isManageOnly
+      ? () => handleOpenManageModal()
+      : () => handleOpenManageModal('deposit');
 
     return (
       <Page.Footer
-        onCancelText={intl.formatMessage({ id: ETranslations.global_withdraw })}
-        cancelButtonProps={{
-          onPress: () => handleNavigateToManagePosition('withdraw'),
-          disabled: shouldDisableButtons || withdrawAction?.disabled,
-        }}
-        onConfirmText={intl.formatMessage({ id: ETranslations.earn_deposit })}
+        onConfirmText={buttonText}
         confirmButtonProps={{
           variant: 'primary',
-          onPress: () => handleNavigateToManagePosition('deposit'),
-          disabled: shouldDisableButtons || depositAction?.disabled,
+          onPress,
         }}
       />
     );
-  }, [
-    gtMd,
-    intl,
-    handleNavigateToManagePosition,
-    symbol,
-    detailInfo?.actions,
-    handleReceiveUSDe,
-    handleTradeUSDe,
-    hasNoAccount,
-    hasNoAddress,
-    isLoading,
-  ]);
+  }, [gtMd, intl, handleOpenManageModal, isCustomProtocol]);
 
   return (
     <EarnPageContainer

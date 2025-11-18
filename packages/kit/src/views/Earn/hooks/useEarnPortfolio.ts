@@ -319,7 +319,7 @@ export const useEarnPortfolio = (): IUseEarnPortfolioReturn => {
           }));
 
           const investment: IEarnPortfolioInvestment = {
-            totalFiatValue: result.totalFiatValue,
+            totalFiatValue: '0',
             earnings24hFiatValue: '0',
             protocol: result.protocol,
             network: result.network,

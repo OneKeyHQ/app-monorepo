@@ -1106,8 +1106,20 @@ class ServiceStaking extends ServiceBase {
     networkId: string;
     provider: string;
     symbol: string;
+    kycAccountAddress?: string;
   }) {
     const client = await this.getClient(EServiceEndpointEnum.Earn);
+
+    if (
+      earnUtils.isEthenaProvider({ providerName: params.provider }) &&
+      params.symbol?.toUpperCase() === 'USDE'
+    ) {
+      const ethenaKycAddress =
+        await this.backgroundApi.serviceStaking.getEthenaKycAddress();
+      if (ethenaKycAddress) {
+        params.kycAccountAddress = ethenaKycAddress;
+      }
+    }
 
     const response = await client.get<{ data: IEarnInvestmentItemV2 }>(
       `/earn/v2/investment/detail`,

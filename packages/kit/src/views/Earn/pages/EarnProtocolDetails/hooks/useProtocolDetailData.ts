@@ -19,7 +19,6 @@ export function useProtocolDetailData({
   symbol,
   provider,
   vault,
-  includeAccountInfo = false,
 }: {
   accountId: string;
   networkId: string;
@@ -27,7 +26,6 @@ export function useProtocolDetailData({
   symbol: ISupportedSymbol;
   provider: string;
   vault: string | undefined;
-  includeAccountInfo?: boolean;
 }) {
   const {
     result: earnAccount,
@@ -51,34 +49,17 @@ export function useProtocolDetailData({
     run,
   } = usePromiseResult(
     async () => {
-      const params: {
-        accountId?: string;
-        indexedAccountId?: string;
-        networkId: string;
-        symbol: ISupportedSymbol;
-        provider: string;
-        vault?: string;
-      } = { networkId, symbol, provider, vault };
-
-      if (includeAccountInfo) {
-        params.accountId = accountId;
-        params.indexedAccountId = indexedAccountId;
-      }
-
       const response =
-        await backgroundApiProxy.serviceStaking.getProtocolDetailsV2(params);
+        await backgroundApiProxy.serviceStaking.getProtocolDetailsV2({
+          networkId,
+          symbol,
+          provider,
+          vault,
+        });
 
       return response;
     },
-    [
-      accountId,
-      indexedAccountId,
-      includeAccountInfo,
-      networkId,
-      symbol,
-      provider,
-      vault,
-    ],
+    [networkId, symbol, provider, vault],
     { watchLoading: true },
   );
 
