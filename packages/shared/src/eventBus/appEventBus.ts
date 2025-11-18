@@ -396,6 +396,9 @@ export interface IAppEventBusPayload {
     retry?: number;
     message?: string;
   };
+  [EAppEventBusNames.JumpSwapPro]: {
+    token: ISwapToken;
+  };
 }
 
 export enum EEventBusBroadcastMethodNames {

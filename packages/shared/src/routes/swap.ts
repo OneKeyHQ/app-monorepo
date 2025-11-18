@@ -14,6 +14,7 @@ import type {
 export enum EModalSwapRoutes {
   SwapMainLand = 'SwapMainLand',
   SwapTokenSelect = 'SwapTokenSelect',
+  SwapProSelectToken = 'SwapProSelectToken',
   SwapNetworkSelect = 'SwapNetworkSelect',
   SwapProviderSelect = 'SwapProviderSelect',
   SwapHistoryList = 'SwapHistoryList',
@@ -67,5 +68,8 @@ export type IModalSwapParamList = {
   };
   [EModalSwapRoutes.SwapLazyMarketModal]: {
     coinGeckoId: string;
+  };
+  [EModalSwapRoutes.SwapProSelectToken]: {
+    storeName: EJotaiContextStoreNames;
   };
 };

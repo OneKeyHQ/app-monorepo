@@ -14,6 +14,7 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
@@ -21,28 +22,25 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { dismissKeyboardWithDelay } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 import { MarketWatchListProviderMirrorV2 } from '../../../MarketWatchListProviderMirrorV2';
 
 import { SwapPanelWrap } from './SwapPanelWrap';
 
-export function SwapPanel({
-  networkId,
-  tokenAddress,
-}: {
-  networkId?: string;
-  tokenAddress?: string;
-}) {
+export function SwapPanel({ swapToken }: { swapToken: ISwapToken }) {
   const intl = useIntl();
   const media = useMedia();
+  const navigation = useAppNavigation();
   const isModalPage = useIsModalPage();
   const inPageDialog = useInPageDialog(
     isModalPage ? EInPageDialogType.inModalPage : EInPageDialogType.inTabPages,
   );
   const dialogRef = useRef<IDialogInstance>(null);
 
-  if (!networkId || !tokenAddress) {
+  if (!swapToken) {
     return (
       <Stack
         minHeight={400}
@@ -56,7 +54,7 @@ export function SwapPanel({
   }
 
   const showSwapDialog = () => {
-    if (networkId && tokenAddress) {
+    if (swapToken) {
       dialogRef.current = inPageDialog.show({
         onClose: () => {
           appEventBus.emit(
@@ -94,7 +92,18 @@ export function SwapPanel({
   if (media.lg) {
     return (
       <View p="$3">
-        <Button size="large" variant="primary" onPress={() => showSwapDialog()}>
+        <Button
+          size="large"
+          variant="primary"
+          onPress={() => {
+            navigation.pop();
+            navigation.switchTab(ETabRoutes.Swap);
+            appEventBus.emit(EAppEventBusNames.JumpSwapPro, {
+              token: swapToken,
+            });
+          }}
+        >
+          {/* <Button size="large" variant="primary" onPress={() => showSwapDialog()}> */}
           {intl.formatMessage({ id: ETranslations.dexmarket_details_trade })}
         </Button>
       </View>

@@ -56,8 +56,14 @@ export function DesktopLayout() {
             <Stack w={320} pb={platformEnv.isWeb ? '$12' : undefined}>
               <Stack px="$5" py="$4">
                 <SwapPanel
-                  networkId={networkId}
-                  tokenAddress={tokenDetail?.address}
+                  swapToken={{
+                    networkId,
+                    contractAddress: tokenDetail?.address || '',
+                    symbol: tokenDetail?.symbol || '',
+                    decimals: tokenDetail?.decimals || 0,
+                    logoURI: tokenDetail?.logoUrl,
+                    price: tokenDetail?.price,
+                  }}
                 />
               </Stack>
 

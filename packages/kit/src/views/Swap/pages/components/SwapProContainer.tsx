@@ -7,6 +7,8 @@ import { TabBarItem } from '@onekeyhq/components/src/composite/Tabs/TabBar';
 
 import { ETabName } from '../../../Perp/layouts/PerpMobileLayout';
 
+import SwapProTokenSelector from './SwapProTokenSelect';
+
 const SwapProContainer = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState<ETabName | string>(
@@ -25,6 +27,10 @@ const SwapProContainer = () => {
         <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
       }
     >
+      <XStack justifyContent="space-between" p="$4">
+        <SwapProTokenSelector onSelectTokenClick={() => {}} />
+        <IconButton icon="AccessibilityEyeSolid" />
+      </XStack>
       {/* <PerpTickerBar /> */}
       <XStack gap="$2.5" px="$4" pb="$4">
         <YStack flexBasis="35%" flexShrink={1}>

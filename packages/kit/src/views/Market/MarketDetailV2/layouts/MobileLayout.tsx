@@ -149,7 +149,16 @@ export function MobileLayout() {
       </ScrollView>
 
       {isNative ? null : (
-        <SwapPanel networkId={networkId} tokenAddress={tokenDetail?.address} />
+        <SwapPanel
+          swapToken={{
+            networkId,
+            contractAddress: tokenDetail?.address || '',
+            symbol: tokenDetail?.symbol || '',
+            decimals: tokenDetail?.decimals || 0,
+            logoURI: tokenDetail?.logoUrl,
+            price: tokenDetail?.price,
+          }}
+        />
       )}
     </YStack>
   );

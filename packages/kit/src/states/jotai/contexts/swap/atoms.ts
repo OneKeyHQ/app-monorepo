@@ -696,3 +696,7 @@ export const {
   atom: swapNativeTokenReserveGasAtom,
   use: useSwapNativeTokenReserveGasAtom,
 } = contextAtom<ISwapNativeTokenReserveGas[]>([]);
+
+// swap pro
+export const { atom: swapProSelectTokenAtom, use: useSwapProSelectTokenAtom } =
+  contextAtom<ISwapToken | undefined>(undefined);

@@ -83,6 +83,7 @@ import TransactionLossNetworkFeeExceedDialog from '../../components/TransactionL
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
 import { useSwapBuildTx } from '../../hooks/useSwapBuiltTx';
 import { useSwapInit } from '../../hooks/useSwapGlobal';
+import { useSwapProInit } from '../../hooks/useSwapPro';
 import {
   ESwapBatchTransferType,
   useSwapBatchTransferType,
@@ -142,6 +143,9 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   const [toToken] = useSwapSelectToTokenAtom();
   const [fromAmount] = useSwapFromTokenAmountAtom();
   const [swapStepData] = useSwapStepsAtom();
+
+  useSwapProInit();
+
   const swapSlippageRef = useRef(slippageItem);
   const { gtMd } = useMedia();
   const showSwapPro = useMemo(() => platformEnv.isNative && !gtMd, [gtMd]);
