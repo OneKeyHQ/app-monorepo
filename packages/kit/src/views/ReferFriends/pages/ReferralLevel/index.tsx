@@ -19,7 +19,7 @@ import type { IInviteLevelDetail } from '@onekeyhq/shared/src/referralCode/type'
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import { BreadcrumbSection } from '../../components';
+import { BreadcrumbSection, ReferFriendsPageContainer } from '../../components';
 
 import { CurrentLevelSection } from './components/CurrentLevelSection';
 import { LevelListSection } from './components/LevelListSection';
@@ -33,7 +33,7 @@ function ReferralLevelContent({ data }: { data: IInviteLevelDetail }) {
 
   return (
     <ScrollView>
-      <YStack px="$5" py="$5" gap="$5">
+      <ReferFriendsPageContainer py="$5" gap="$5">
         <BreadcrumbSection
           secondItemLabel={intl.formatMessage({
             id: ETranslations.referral_referral_level,
@@ -49,7 +49,7 @@ function ReferralLevelContent({ data }: { data: IInviteLevelDetail }) {
         <UpgradeProgressTitle />
 
         <LevelListSection levels={data.levels} />
-      </YStack>
+      </ReferFriendsPageContainer>
     </ScrollView>
   );
 }

@@ -7,6 +7,8 @@ import type { IDialogInstance } from '@onekeyhq/components';
 import { Dialog, Toast } from '@onekeyhq/components';
 import type { IBackupDataEncryptedPayload } from '@onekeyhq/kit-bg/src/services/ServiceCloudBackupV2/backupProviders/IOneKeyBackupProvider';
 import { useCloudBackupStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes';
@@ -261,6 +263,31 @@ export function useCloudBackup() {
               pop: true,
             });
           }
+        } catch (error) {
+          if (
+            errorUtils.isErrorByClassName({
+              error,
+              className: [EOneKeyErrorClassNames.IncorrectPassword],
+            })
+          ) {
+            // skip
+          } else {
+            // TODO: franco 备份失败，通用提示文案
+            Dialog.show({
+              title: '备份失败',
+              description: platformEnv.isNativeAndroid
+                ? '1. 可能网络故障；\n2. 可能未登录正确的 Google 账号；\n3. 可能未启用 GoogleDrive 同步服务；\n4. 可能 GoogleDrive 空间不足，前往「管理备份」删除备份释放空间'
+                : '1. 可能网络故障；\n2. 可能未登录正确的 Apple 账号；\n3. 可能未启用 iCloud 和钥匙串同步服务；\n4. 可能 iCloud 空间不足，前往「管理备份」删除备份释放空间',
+              onCancelText: '管理备份',
+              onCancel: () => {
+                void goToPageBackupList({ hideRestoreButton: true });
+              },
+              onConfirmText: intl.formatMessage({
+                id: ETranslations.global_got_it,
+              }),
+            });
+          }
+          throw error;
         } finally {
           void loadingDialog?.close?.();
           setCheckLoading(false);
@@ -270,10 +297,13 @@ export function useCloudBackup() {
         setCheckLoading(true);
         const isPasswordSet =
           await backgroundApiProxy.serviceCloudBackupV2.isBackupPasswordSet();
-        const resetPasswordAndBackup = async () => {
+        const resetPasswordAndBackup = async ({
+          isFirstTimeSetPassword,
+        }: { isFirstTimeSetPassword?: boolean } = {}) => {
           await verifyPasswordDialog?.close?.();
           resetPasswordDialog = showCloudBackupPasswordDialog({
             showConfirmPasswordField: true,
+            isFirstTimeSetPassword,
             onSubmit: async (password: string) => {
               const result =
                 await backgroundApiProxy.serviceCloudBackupV2.setBackupPassword(
@@ -292,7 +322,7 @@ export function useCloudBackup() {
           });
         };
         if (!isPasswordSet) {
-          await resetPasswordAndBackup();
+          await resetPasswordAndBackup({ isFirstTimeSetPassword: true });
         } else {
           verifyPasswordDialog = showCloudBackupPasswordDialog({
             showConfirmPasswordField: false,
@@ -427,7 +457,7 @@ export function useCloudBackup() {
             }),
           });
           try {
-            await timerUtils.wait(1000);
+            await timerUtils.wait(300);
             const data =
               await backgroundApiProxy.serviceCloudBackupV2.buildBackupData();
             await doBackup({ data });

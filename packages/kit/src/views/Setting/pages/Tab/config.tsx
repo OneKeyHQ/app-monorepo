@@ -146,7 +146,8 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
   const [{ perpConfigCommon }] = usePerpsCommonConfigPersistAtom();
   const [settings] = useSettingsPersistAtom();
 
-  const { cloudBackupFeatureInfo, goToPageBackupList } = useCloudBackup();
+  const { cloudBackupFeatureInfo, goToPageBackupList, startBackup } =
+    useCloudBackup();
 
   return useMemo(
     () => [
@@ -162,7 +163,8 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   title: cloudBackupFeatureInfo?.title,
                   onPress: (navigation) => {
                     navigation?.popStack();
-                    void goToPageBackupList();
+                    void startBackup({ alwaysGoToBackupDetail: true });
+                    // void goToPageBackupList();
                     // navigation?.pushModal(EModalRoutes.CloudBackupModal, {
                     //   screen: ECloudBackupRoutes.CloudBackupHome,
                     // });
@@ -795,7 +797,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
       isShowAppUpdateUI,
       appUpdateInfo.isNeedUpdate,
       devSettings.enabled,
-      goToPageBackupList,
+      startBackup,
       onPressAddressBook,
       helpCenterUrl,
       userAgreementUrl,
