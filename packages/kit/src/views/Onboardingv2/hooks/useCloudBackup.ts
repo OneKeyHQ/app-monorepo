@@ -272,18 +272,25 @@ export function useCloudBackup() {
           ) {
             // skip
           } else {
-            // TODO: franco 备份失败，通用提示文案
             Dialog.show({
-              title: '备份失败',
+              title: intl.formatMessage({
+                id: ETranslations.cloud_backup_failed,
+              }),
               description: platformEnv.isNativeAndroid
-                ? '1. 可能网络故障；\n2. 可能未登录正确的 Google 账号；\n3. 可能未启用 GoogleDrive 同步服务；\n4. 可能 GoogleDrive 空间不足，前往「管理备份」删除备份释放空间'
-                : '1. 可能网络故障；\n2. 可能未登录正确的 Apple 账号；\n3. 可能未启用 iCloud 和钥匙串同步服务；\n4. 可能 iCloud 空间不足，前往「管理备份」删除备份释放空间',
-              onCancelText: '管理备份',
+                ? intl.formatMessage({
+                    id: ETranslations.cloud_backup_failed_google_desc,
+                  })
+                : intl.formatMessage({
+                    id: ETranslations.cloud_backup_failed_apple_desc,
+                  }),
+              onCancelText: intl.formatMessage({
+                id: ETranslations.global_manage_backups,
+              }),
               onCancel: () => {
                 void goToPageBackupList({ hideRestoreButton: true });
               },
               onConfirmText: intl.formatMessage({
-                id: ETranslations.global_got_it,
+                id: ETranslations.global_close,
               }),
             });
           }
