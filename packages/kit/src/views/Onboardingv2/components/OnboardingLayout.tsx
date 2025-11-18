@@ -18,7 +18,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useLanguageSelector } from '../../Setting/hooks';
+import { useLanguageSelectorWithoutAuto } from '../../Setting/hooks/useLanguageSelector';
 
 const OnboardingLayoutBack = ({ exit }: { exit?: boolean }) => {
   const navigation = useAppNavigation();
@@ -42,7 +42,7 @@ const OnboardingLayoutBack = ({ exit }: { exit?: boolean }) => {
 
 function OnboardingLayoutLanguageSelector() {
   const intl = useIntl();
-  const { options, value, onChange } = useLanguageSelector(false);
+  const { options, value, onChange } = useLanguageSelectorWithoutAuto();
   const { gtMd } = useMedia();
 
   const handleLanguageChange = useCallback(
