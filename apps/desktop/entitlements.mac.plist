@@ -26,7 +26,7 @@
     <key>com.apple.security.network.server</key>
     <true/>
 
-    <!-- CloudKit configuration -->
+    <!-- CloudKit configuration - Matches Provisioning Profile for data sharing with MAS version -->
     <key>com.apple.developer.icloud-services</key>
     <array>
       <string>CloudKit</string>
@@ -45,10 +45,10 @@
       <string>iCloud.so.onekey.wallet</string>
     </array>
 
-    <!-- App Groups (enabled in provisioning profile) -->
+    <!-- App Groups - Matches Provisioning Profile -->
     <key>com.apple.security.application-groups</key>
     <array>
-      <string>BVJ3FU5H2K.so.onekey.wallet</string>
+      <string>group.so.onekey.wallet</string>
     </array>
   </dict>
 </plist>
