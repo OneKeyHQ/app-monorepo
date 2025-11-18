@@ -65,6 +65,7 @@ export function AccountExportPrivateKeyButton({
           if (mnemonic) ensureSensitiveTextEncoded(mnemonic);
           await navigateToBackupWalletReminderPage({
             walletId: wallet?.id ?? '',
+            accountName: accountName ?? '',
             isWalletBackedUp: wallet?.backuped ?? false,
             mnemonic,
           });

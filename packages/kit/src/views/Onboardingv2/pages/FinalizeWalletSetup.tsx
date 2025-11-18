@@ -50,7 +50,6 @@ import {
   useActiveAccount,
 } from '../../../states/jotai/contexts/accountSelector';
 import { withPromptPasswordVerify } from '../../../utils/passwordUtils';
-import { useWalletBoundReferralCode } from '../../ReferFriends/hooks/useWalletBoundReferralCode';
 import { OnboardingLayout } from '../components/OnboardingLayout';
 import {
   useConnectDeviceError,
@@ -142,6 +141,12 @@ const STEPS_DATA: Record<
   [EFinalizeWalletSetupSteps.Ready]: null,
 };
 
+const fixErrorString = (errorMessage: string) => {
+  if (errorMessage.toLowerCase() === 'no wallet creation strategy') {
+    return ETranslations.hardware_user_cancel_error;
+  }
+  return errorMessage;
+};
 function FinalizeWalletSetupPage({
   route,
 }: IPageScreenProps<
@@ -154,7 +159,7 @@ function FinalizeWalletSetupPage({
   const intl = useIntl();
   const navigation = useAppNavigation();
   const [bgAppColor, borderDisabledColor, borderActiveColor] = useThemeValue([
-    '$bgApp',
+    '$bg',
     '$borderDisabled',
     '$borderActive',
   ]);
@@ -317,11 +322,13 @@ function FinalizeWalletSetupPage({
         message: string;
       };
       setSetupError({
-        messageId: hardwareError
-          ? hardwareError.messageId ||
-            hardwareError.message ||
-            ETranslations.global_unknown_error
-          : ETranslations.global_unknown_error,
+        messageId: fixErrorString(
+          hardwareError
+            ? hardwareError.messageId ||
+                hardwareError.message ||
+                ETranslations.global_unknown_error
+            : ETranslations.global_unknown_error,
+        ) as ETranslations,
       });
     }
   }, [
@@ -382,6 +389,34 @@ function FinalizeWalletSetupPage({
   const currentStepData =
     STEPS_DATA[currentStep] ||
     STEPS_DATA[EFinalizeWalletSetupSteps.EncryptingData];
+
+  const svgMask = (
+    <Svg
+      height="100%"
+      width="100%"
+      style={{
+        position: 'absolute',
+        inset: 0,
+      }}
+    >
+      <Defs>
+        <RadialGradient
+          id="finalize-grad"
+          cx="50%"
+          cy="50%"
+          {...(platformEnv.isNative && {
+            rx: '60%',
+            ry: '30%',
+          })}
+        >
+          <Stop offset="0%" stopColor={bgAppColor} stopOpacity="0" />
+          <Stop offset="50%" stopColor={bgAppColor} stopOpacity="0.5" />
+          <Stop offset="100%" stopColor={bgAppColor} stopOpacity="1" />
+        </RadialGradient>
+      </Defs>
+      <Rect x="0" y="0" width="100%" height="100%" fill="url(#finalize-grad)" />
+    </Svg>
+  );
 
   return (
     <Page>
@@ -444,50 +479,9 @@ function FinalizeWalletSetupPage({
                 <MatrixBackground
                   {...(platformEnv.isNative && { lineCount: 60 })}
                 />
-                <Svg
-                  height="100%"
-                  width="100%"
-                  style={{
-                    position: 'absolute',
-                    inset: 0,
-                  }}
-                >
-                  <Defs>
-                    <RadialGradient
-                      id="finalize-grad"
-                      cx="50%"
-                      cy="50%"
-                      {...(platformEnv.isNative && {
-                        rx: '60%',
-                        ry: '30%',
-                      })}
-                    >
-                      <Stop
-                        offset="0%"
-                        stopColor={bgAppColor}
-                        stopOpacity="0"
-                      />
-                      <Stop
-                        offset="50%"
-                        stopColor={bgAppColor}
-                        stopOpacity="0.5"
-                      />
-                      <Stop
-                        offset="100%"
-                        stopColor={bgAppColor}
-                        stopOpacity="1"
-                      />
-                    </RadialGradient>
-                  </Defs>
-                  <Rect
-                    x="0"
-                    y="0"
-                    width="100%"
-                    height="100%"
-                    fill="url(#finalize-grad)"
-                  />
-                </Svg>
+                {!platformEnv.isNativeAndroid ? svgMask : null}
               </YStack>
+              {platformEnv.isNativeAndroid ? svgMask : null}
               <YStack
                 animation="quick"
                 animateOnly={['opacity']}
@@ -601,10 +595,12 @@ function FinalizeWalletSetupPage({
                     enterStyle={{
                       y: 8,
                       opacity: 0,
+                      filter: 'blur(4px)',
                     }}
                     exitStyle={{
                       y: -8,
                       opacity: 0,
+                      filter: 'blur(4px)',
                     }}
                   >
                     {currentStepData?.title || ''}

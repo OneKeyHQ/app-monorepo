@@ -7,6 +7,8 @@ import type { IDialogInstance } from '@onekeyhq/components';
 import { Dialog, Toast } from '@onekeyhq/components';
 import type { IBackupDataEncryptedPayload } from '@onekeyhq/kit-bg/src/services/ServiceCloudBackupV2/backupProviders/IOneKeyBackupProvider';
 import { useCloudBackupStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes';
@@ -261,6 +263,38 @@ export function useCloudBackup() {
               pop: true,
             });
           }
+        } catch (error) {
+          if (
+            errorUtils.isErrorByClassName({
+              error,
+              className: [EOneKeyErrorClassNames.IncorrectPassword],
+            })
+          ) {
+            // skip
+          } else {
+            Dialog.show({
+              title: intl.formatMessage({
+                id: ETranslations.cloud_backup_failed,
+              }),
+              description: platformEnv.isNativeAndroid
+                ? intl.formatMessage({
+                    id: ETranslations.cloud_backup_failed_google_desc,
+                  })
+                : intl.formatMessage({
+                    id: ETranslations.cloud_backup_failed_apple_desc,
+                  }),
+              onCancelText: intl.formatMessage({
+                id: ETranslations.global_manage_backups,
+              }),
+              onCancel: () => {
+                void goToPageBackupList({ hideRestoreButton: true });
+              },
+              onConfirmText: intl.formatMessage({
+                id: ETranslations.global_close,
+              }),
+            });
+          }
+          throw error;
         } finally {
           void loadingDialog?.close?.();
           setCheckLoading(false);
@@ -270,10 +304,13 @@ export function useCloudBackup() {
         setCheckLoading(true);
         const isPasswordSet =
           await backgroundApiProxy.serviceCloudBackupV2.isBackupPasswordSet();
-        const resetPasswordAndBackup = async () => {
+        const resetPasswordAndBackup = async ({
+          isFirstTimeSetPassword,
+        }: { isFirstTimeSetPassword?: boolean } = {}) => {
           await verifyPasswordDialog?.close?.();
           resetPasswordDialog = showCloudBackupPasswordDialog({
             showConfirmPasswordField: true,
+            isFirstTimeSetPassword,
             onSubmit: async (password: string) => {
               const result =
                 await backgroundApiProxy.serviceCloudBackupV2.setBackupPassword(
@@ -292,7 +329,7 @@ export function useCloudBackup() {
           });
         };
         if (!isPasswordSet) {
-          await resetPasswordAndBackup();
+          await resetPasswordAndBackup({ isFirstTimeSetPassword: true });
         } else {
           verifyPasswordDialog = showCloudBackupPasswordDialog({
             showConfirmPasswordField: false,
@@ -427,7 +464,7 @@ export function useCloudBackup() {
             }),
           });
           try {
-            await timerUtils.wait(1000);
+            await timerUtils.wait(300);
             const data =
               await backgroundApiProxy.serviceCloudBackupV2.buildBackupData();
             await doBackup({ data });

@@ -72,9 +72,10 @@ export default function PickYourDevice() {
               flexWrap: 'wrap',
               gap: '$px',
               bg: '$neutral3',
+              alignContent: 'stretch',
             }}
           >
-            {DEVICES.map(({ name, tags, image, deviceType }) => (
+            {DEVICES.map(({ name, tags, image, deviceType }, index) => (
               <YStack
                 key={name}
                 animateOnly={['backgroundColor']}
@@ -86,16 +87,18 @@ export default function PickYourDevice() {
                 borderCurve="continuous"
                 minHeight="$56"
                 $gtMd={{
-                  flexGrow: 1,
-                  flexBasis: 0,
-                  minWidth: '45%',
+                  flex: 1,
+                  flexBasis:
+                    index === 0 && DEVICES.length % 2 === 1 ? '80%' : '45%',
+                  minWidth:
+                    index === 0 && DEVICES.length % 2 === 1 ? '80%' : '45%',
                   p: '$10',
                   borderWidth: 0,
                   borderRadius: 0,
                 }}
                 bg="$bg"
-                hoverStyle={{ bg: '$gray2' }}
-                pressStyle={{ bg: '$gray3' }}
+                hoverStyle={{ bg: '$gray3' }}
+                pressStyle={{ bg: '$gray2' }}
                 userSelect="none"
                 gap="$3"
                 group

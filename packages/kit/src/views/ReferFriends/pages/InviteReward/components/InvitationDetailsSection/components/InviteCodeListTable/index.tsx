@@ -29,7 +29,9 @@ export function InviteCodeListTable({
   refetch,
 }: IInviteCodeListTableProps) {
   const intl = useIntl();
-  const { gtMd } = useMedia();
+  const { gtLg } = useMedia();
+  const hasCodeListData = Boolean(codeListData);
+  const isInitialLoading = !hasCodeListData && (isLoading ?? true);
 
   // Sort data
   const { sortedData, handleSortChange } = useSortableData(codeListData?.items);
@@ -41,7 +43,7 @@ export function InviteCodeListTable({
   );
 
   // Loading state
-  if (isLoading || !codeListData) {
+  if (isInitialLoading) {
     return (
       <Stack alignItems="center" justifyContent="center" py="$10">
         <Spinner size="large" />
@@ -61,7 +63,7 @@ export function InviteCodeListTable({
   }
 
   // Table with horizontal scroll support
-  return gtMd ? (
+  return gtLg ? (
     // Desktop: simple table
     <Stack flex={1}>
       <Table<IInviteCodeListItem>
@@ -83,7 +85,7 @@ export function InviteCodeListTable({
         flexGrow: 1,
       }}
     >
-      <Stack flex={1} minHeight={400} width={1000}>
+      <Stack flex={1} minHeight={400} width={940}>
         <Table<IInviteCodeListItem>
           dataSource={sortedData}
           columns={columns}

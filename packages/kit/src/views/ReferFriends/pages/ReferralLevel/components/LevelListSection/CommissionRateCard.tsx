@@ -26,7 +26,7 @@ export function CommissionRateCard({
         jc="space-between"
         ai="center"
       >
-        <SizableText size="$headingMd" color="$text">
+        <SizableText size="$bodyMd" color="$text">
           {label}
         </SizableText>
 

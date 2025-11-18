@@ -25,16 +25,12 @@ export default function BackupWalletReminder() {
   const navigation = useAppNavigation();
   const intl = useIntl();
   const { gtMd } = useMedia();
-  const { mnemonic, isWalletBackedUp, walletId } =
+  const params =
     useRoute<
       RouteProp<IOnboardingParamListV2, EOnboardingPagesV2.BackupWalletReminder>
     >().params;
   const handleContinue = () => {
-    navigation.push(EOnboardingPagesV2.ShowRecoveryPhrase, {
-      mnemonic,
-      isWalletBackedUp,
-      walletId,
-    });
+    navigation.push(EOnboardingPagesV2.ShowRecoveryPhrase, params);
   };
 
   const TEXTS: { text: string; icon: IKeyOfIcons }[] = [

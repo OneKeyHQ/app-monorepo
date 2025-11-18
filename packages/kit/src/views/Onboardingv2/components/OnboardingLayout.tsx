@@ -1,3 +1,5 @@
+import { useCallback } from 'react';
+
 import { useIntl } from 'react-intl';
 
 import type { IXStackProps, IYStackProps } from '@onekeyhq/components';
@@ -16,7 +18,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useLanguageSelector } from '../../Setting/hooks';
+import { useLanguageSelectorWithoutAuto } from '../../Setting/hooks/useLanguageSelector';
 
 const OnboardingLayoutBack = ({ exit }: { exit?: boolean }) => {
   const navigation = useAppNavigation();
@@ -40,8 +42,17 @@ const OnboardingLayoutBack = ({ exit }: { exit?: boolean }) => {
 
 function OnboardingLayoutLanguageSelector() {
   const intl = useIntl();
-  const { options, value, onChange } = useLanguageSelector();
+  const { options, value, onChange } = useLanguageSelectorWithoutAuto();
   const { gtMd } = useMedia();
+
+  const handleLanguageChange = useCallback(
+    (v: string) => {
+      setTimeout(() => {
+        void onChange(v);
+      }, 350);
+    },
+    [onChange],
+  );
 
   return (
     <YStack ml="auto">
@@ -50,7 +61,7 @@ function OnboardingLayoutLanguageSelector() {
         title={intl.formatMessage({ id: ETranslations.global_language })}
         items={options}
         value={value}
-        onChange={onChange}
+        onChange={handleLanguageChange}
         placement="bottom-end"
         floatingPanelProps={{ maxHeight: 280 }}
         sheetProps={{ snapPoints: [80], snapPointsMode: 'percent' }}
@@ -104,12 +115,15 @@ const OnboardingLayoutHeader = ({
     px="$5"
     $gtMd={{
       px: 56,
+      borderWidth: 0,
+      borderTopWidth: 1,
+      borderBottomWidth: 1,
+      borderStyle: 'solid',
+      borderColor: '$neutral4',
+      '$platform-web': {
+        borderStyle: 'dashed',
+      },
     }}
-    borderWidth={0}
-    borderTopWidth={1}
-    borderBottomWidth={1}
-    borderStyle="dashed"
-    borderColor="$neutral4"
     alignItems="center"
     {...rest}
   >
@@ -155,7 +169,7 @@ const OnboardingLayoutBody = ({
   constrained = true,
   ...rest
 }: {
-  children: React.ReactNode;
+  children?: React.ReactNode;
   scrollable?: boolean;
   constrained?: boolean;
 } & IYStackProps) => {
@@ -171,13 +185,21 @@ const OnboardingLayoutBody = ({
     <YStack
       flex={1}
       minHeight={0}
-      borderWidth={0}
-      borderTopWidth={1}
-      borderBottomWidth={1}
-      borderStyle="dashed"
-      borderColor="$neutral4"
       overflow="hidden"
-      {...(!scrollable ? { px: '$5', $gtMd: { px: '$10' } } : {})}
+      $gtMd={{
+        borderWidth: 0,
+        borderTopWidth: 1,
+        borderBottomWidth: 1,
+        borderStyle: 'solid',
+        borderColor: '$neutral4',
+        '$platform-web': {
+          borderStyle: 'dashed',
+        },
+        ...(!scrollable && {
+          px: '$10',
+        }),
+      }}
+      {...(!scrollable ? { px: '$5' } : {})}
       {...rest}
     >
       {scrollable ? (
@@ -215,13 +237,16 @@ function OnboardingLayoutFooter({ children }: { children?: React.ReactNode }) {
       px="$5"
       $gtMd={{
         px: '$10',
+        borderWidth: 0,
+        borderTopWidth: 1,
+        borderBottomWidth: 1,
+        borderStyle: 'solid',
+        borderColor: '$neutral4',
+        '$platform-web': {
+          borderStyle: 'dashed',
+        },
       }}
       minHeight="$6"
-      borderWidth={0}
-      borderTopWidth={1}
-      borderBottomWidth={1}
-      borderStyle="dashed"
-      borderColor="$neutral4"
       justifyContent="center"
       alignItems="center"
     >
@@ -242,6 +267,9 @@ function OnboardingLayoutRoot({ children }: { children: React.ReactNode }) {
       alignItems="center"
       justifyContent="center"
       bg="$neutral2"
+      $theme-dark={{
+        bg: '$bgApp',
+      }}
       $gtMd={{
         p: '$10',
       }}
@@ -266,13 +294,10 @@ function OnboardingLayoutRoot({ children }: { children: React.ReactNode }) {
         h="100%"
         w="100%"
         px="$5"
-        // $gtMd={{
-        //   px: '$10',
-        // }}
         bg="$bg"
         $theme-dark={{
           outlineWidth: 1,
-          outlineColor: '$neutral2',
+          outlineColor: '$neutral3',
           outlineStyle: 'solid',
         }}
         $gtMd={{
@@ -285,16 +310,27 @@ function OnboardingLayoutRoot({ children }: { children: React.ReactNode }) {
             boxShadow:
               '0 0 0 1px rgba(0, 0, 0, 0.04), 0 0 2px 0 rgba(0, 0, 0, 0.08), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
           },
+          '$platform-ios': {
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 1 },
+            shadowOpacity: 0.1,
+            shadowRadius: 1,
+          },
         }}
       >
         <YStack
           py="$10"
           h="100%"
-          borderWidth={0}
-          borderLeftWidth={1}
-          borderRightWidth={1}
-          borderStyle="dashed"
-          borderColor="$neutral4"
+          $gtMd={{
+            borderWidth: 0,
+            borderLeftWidth: 1,
+            borderRightWidth: 1,
+            borderStyle: 'solid',
+            borderColor: '$neutral4',
+            '$platform-web': {
+              borderStyle: 'dashed',
+            },
+          }}
           $platform-native={{
             pt: top + 10,
             pb: bottom + 10,
@@ -316,6 +352,18 @@ function OnboardingLayoutRoot({ children }: { children: React.ReactNode }) {
     </YStack>
   );
 }
+
+export const OnboardingLayoutFallback = () => {
+  return (
+    <OnboardingLayoutRoot>
+      <OnboardingLayoutHeader
+        showBackButton={false}
+        showLanguageSelector={false}
+      />
+      <OnboardingLayoutBody />
+    </OnboardingLayoutRoot>
+  );
+};
 
 export const OnboardingLayout = Object.assign(OnboardingLayoutRoot, {
   Header: OnboardingLayoutHeader,

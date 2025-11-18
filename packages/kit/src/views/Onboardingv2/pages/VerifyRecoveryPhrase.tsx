@@ -132,7 +132,7 @@ export default function VerifyRecoveryPhrase() {
             });
             Toast.error({
               title: intl.formatMessage({
-                id: ETranslations.feedback_passphrase_not_matched,
+                id: ETranslations.feedback_invalid_phrases,
               }),
             });
           }

@@ -119,6 +119,8 @@ export const getAccountIdOnNetwork = async ({
   }
 };
 
+let isQrWalletToastShown = false;
+
 const useParseQRCode = () => {
   const navigation = useAppNavigation();
   const clipboard = useClipboard();
@@ -341,54 +343,61 @@ const useParseQRCode = () => {
             void backgroundApiProxy.walletConnect.connectToDapp(wcValue.wcUri);
           }
           break;
-        case EQRCodeHandlerType.ANIMATION_CODE:
-          // eslint-disable-next-line no-case-declarations
-          const toast = Toast.show({
-            children: (
-              <Stack p="$4">
-                <ToastContent
-                  title=""
-                  message={intl.formatMessage({
-                    id: ETranslations.scan_qr_wallet_detected,
-                  })}
-                  actionsAlign="left"
-                  actions={[
-                    <Button
-                      key="1"
-                      variant="primary"
-                      size="small"
-                      onPressIn={async () => {
-                        await closeScanPage();
-                        await toast.close();
-                        navigation.pushModal(EModalRoutes.OnboardingModal, {
-                          screen: EOnboardingPages.ConnectYourDevice,
-                          params: {
-                            channel: EConnectDeviceChannel.qr,
-                          },
-                        });
-                      }}
-                    >
-                      {intl.formatMessage({
-                        id: ETranslations.global_connect,
-                      })}
-                    </Button>,
-                    <Button
-                      key="2"
-                      size="small"
-                      onPressIn={() => {
-                        void toast.close();
-                      }}
-                    >
-                      {intl.formatMessage({
-                        id: ETranslations.global_ignore,
-                      })}
-                    </Button>,
-                  ]}
-                />
-              </Stack>
-            ),
-          });
+        case EQRCodeHandlerType.ANIMATION_CODE: {
+          if (!isQrWalletToastShown) {
+            isQrWalletToastShown = true;
+            // eslint-disable-next-line no-case-declarations
+            const toast = Toast.show({
+              onClose: () => {
+                isQrWalletToastShown = false;
+              },
+              children: (
+                <Stack p="$4">
+                  <ToastContent
+                    title=""
+                    message={intl.formatMessage({
+                      id: ETranslations.scan_qr_wallet_detected,
+                    })}
+                    actionsAlign="left"
+                    actions={[
+                      <Button
+                        key="1"
+                        variant="primary"
+                        size="small"
+                        onPressIn={async () => {
+                          await closeScanPage();
+                          await toast.close();
+                          navigation.pushModal(EModalRoutes.OnboardingModal, {
+                            screen: EOnboardingPages.ConnectYourDevice,
+                            params: {
+                              channel: EConnectDeviceChannel.qr,
+                            },
+                          });
+                        }}
+                      >
+                        {intl.formatMessage({
+                          id: ETranslations.global_connect,
+                        })}
+                      </Button>,
+                      <Button
+                        key="2"
+                        size="small"
+                        onPressIn={() => {
+                          void toast.close();
+                        }}
+                      >
+                        {intl.formatMessage({
+                          id: ETranslations.global_ignore,
+                        })}
+                      </Button>,
+                    ]}
+                  />
+                </Stack>
+              ),
+            });
+          }
           break;
+        }
         default: {
           if (defaultHandler) {
             defaultHandler(value);

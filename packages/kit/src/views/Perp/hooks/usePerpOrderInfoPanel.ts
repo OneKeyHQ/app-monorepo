@@ -126,7 +126,7 @@ export function usePerpTradesHistory() {
     noop(refreshHook);
     setTimeout(() => {
       if (isFocusedRef.current) {
-        void backgroundApiProxy.serviceHyperliquidSubscription.updateSubscriptionForUserFills();
+        void backgroundApiProxy.serviceHyperliquidSubscription.refreshSubscriptionForUserFills();
       }
     }, 300);
   }, [refreshHook]);

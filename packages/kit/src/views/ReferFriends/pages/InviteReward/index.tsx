@@ -30,6 +30,8 @@ import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
+import { ReferFriendsPageContainer } from '../../components';
+
 import { ReferralListButton } from './components/ReferralListButton';
 
 function InviteRewardContent({
@@ -165,10 +167,12 @@ function InviteRewardPage() {
           if (summaryInfo) {
             return (
               <ScrollView>
-                <InviteRewardContent
-                  summaryInfo={summaryInfo}
-                  fetchSummaryInfo={fetchSummaryInfo}
-                />
+                <ReferFriendsPageContainer>
+                  <InviteRewardContent
+                    summaryInfo={summaryInfo}
+                    fetchSummaryInfo={fetchSummaryInfo}
+                  />
+                </ReferFriendsPageContainer>
               </ScrollView>
             );
           }

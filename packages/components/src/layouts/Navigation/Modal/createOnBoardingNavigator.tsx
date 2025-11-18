@@ -58,7 +58,7 @@ function OnBoardingModalNavigator({
 }: IProps) {
   const screenHeight = useWindowDimensions().height;
   const media = useMedia();
-  const { state, descriptors, navigation, NavigationContent } =
+  const { state, descriptors, navigation, NavigationContent, describe } =
     useNavigationBuilder<
       StackNavigationState<ParamListBase>,
       StackRouterOptions,
@@ -208,11 +208,11 @@ function OnBoardingModalNavigator({
               }}
             >
               <StackView
-                {...rest}
-                state={state}
-                // @ts-expect-error
-                descriptors={descriptors}
-                navigation={navigation}
+                {...(rest as any)}
+                state={state as any}
+                descriptors={descriptors as any}
+                navigation={navigation as any}
+                describe={describe as any}
               />
             </Stack>
           </Stack>

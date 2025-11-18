@@ -194,12 +194,14 @@ function CloudBackupPasswordDialogContent({
 export const showCloudBackupPasswordDialog = ({
   onSubmit,
   isRestoreAction,
+  isFirstTimeSetPassword,
   showConfirmPasswordField,
   showForgotPasswordButton,
   onPressForgotPassword,
   ...dialogProps
 }: IDialogShowProps & {
   isRestoreAction?: boolean;
+  isFirstTimeSetPassword?: boolean;
   onSubmit: (input: string) => Promise<void>;
   showConfirmPasswordField?: boolean;
   showForgotPasswordButton?: boolean;
@@ -223,6 +225,11 @@ export const showCloudBackupPasswordDialog = ({
   if (isRestoreAction) {
     description = appLocale.intl.formatMessage({
       id: ETranslations.import_backup_password_desc,
+    });
+  }
+  if (isFirstTimeSetPassword) {
+    description = appLocale.intl.formatMessage({
+      id: ETranslations.set_new_backup_password_fist_time,
     });
   }
 
