@@ -228,8 +228,9 @@ export const showCloudBackupPasswordDialog = ({
     });
   }
   if (isFirstTimeSetPassword) {
-    // TODO: franco 首次设置密码和第二次重置密码(忘记密码)的文案不同
-    description = 'Please set a backup password to protect your data.';
+    description = appLocale.intl.formatMessage({
+      id: ETranslations.set_new_backup_password_fist_time,
+    });
   }
 
   return Dialog.show({
