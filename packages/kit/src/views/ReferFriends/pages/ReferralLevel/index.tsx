@@ -33,7 +33,7 @@ function ReferralLevelContent({ data }: { data: IInviteLevelDetail }) {
 
   return (
     <ScrollView>
-      <ReferFriendsPageContainer py="$5" gap="$5">
+      <ReferFriendsPageContainer py="$5" px="$4" gap="$5">
         <BreadcrumbSection
           secondItemLabel={intl.formatMessage({
             id: ETranslations.referral_referral_level,
