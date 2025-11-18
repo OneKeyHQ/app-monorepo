@@ -230,9 +230,15 @@ const ActionField = ({
   asset: IEarnPortfolioInvestment['assets'][number];
 }) => {
   return (
-    <YStack gap="$1">
+    <YStack gap="$1" maxWidth="100%">
       {asset.rewardAssets?.map((reward, index) => (
-        <XStack key={index} ai="center">
+        <Stack
+          key={index}
+          flexDirection="row"
+          ai="center"
+          flexWrap="wrap"
+          maxWidth="100%"
+        >
           <EarnText mr="$1" size="$bodyMdMedium" text={reward.title} />
           <EarnText
             mr="$2"
@@ -241,7 +247,7 @@ const ActionField = ({
             text={reward.description}
           />
           <WrappedActionButton asset={asset} reward={reward} />
-        </XStack>
+        </Stack>
       ))}
     </YStack>
   );
