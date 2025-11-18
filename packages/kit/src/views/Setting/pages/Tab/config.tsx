@@ -797,7 +797,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
       isShowAppUpdateUI,
       appUpdateInfo.isNeedUpdate,
       devSettings.enabled,
-      goToPageBackupList,
+      startBackup,
       onPressAddressBook,
       helpCenterUrl,
       userAgreementUrl,
