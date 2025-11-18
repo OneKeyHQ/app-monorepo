@@ -745,3 +745,5 @@ export function setReportRequestFailureCallback(
   reportRequestFailureCallback = callback;
   debugLog('[IpTableAdapter] Request failure callback registered');
 }
+
+export { getSelectedIpForHost };

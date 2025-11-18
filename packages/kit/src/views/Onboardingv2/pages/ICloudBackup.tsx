@@ -173,7 +173,7 @@ export default function ICloudBackup() {
       <OnboardingLayout>
         <OnboardingLayout.Header
           title={
-            platformEnv.isNativeIOS
+            platformEnv.isNativeIOS || platformEnv.isDesktopMac
               ? intl.formatMessage({ id: ETranslations.settings_icloud_backup })
               : intl.formatMessage({
                   id: ETranslations.settings_google_drive_backup,
