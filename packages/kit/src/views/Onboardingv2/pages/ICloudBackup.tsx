@@ -66,7 +66,7 @@ export default function ICloudBackup() {
 
   const { result: allBackupsFromCloud, isLoading } = usePromiseResult(
     async () => {
-      await timerUtils.wait(1000);
+      await timerUtils.wait(300);
       noop(refreshHook);
       return backgroundApiProxy.serviceCloudBackupV2.getAllBackups();
     },
