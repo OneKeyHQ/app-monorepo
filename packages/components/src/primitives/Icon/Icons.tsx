@@ -1197,6 +1197,7 @@ const icons = {
       ? import("./react/solid/ArrowTriangleLeft")
       : import("./react/solid/ArrowTriangleRight"),
   ArrowTriangleTopSolid: () => import("./react/solid/ArrowTriangleTop"),
+  AtomSolid: () => import("./react/solid/Atom"),
   AtSignSolid: () => import("./react/solid/AtSign"),
   AttachmentSolid: () => import("./react/solid/Attachment"),
   AutoFlashSolid: () => import("./react/solid/AutoFlash"),

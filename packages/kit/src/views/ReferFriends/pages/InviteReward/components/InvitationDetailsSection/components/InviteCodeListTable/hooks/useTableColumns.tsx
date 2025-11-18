@@ -24,7 +24,7 @@ export function useTableColumns(
   onNoteUpdated?: () => void,
 ) {
   const intl = useIntl();
-  const { gtMd } = useMedia();
+  const { gtLg } = useMedia();
   const [{ currencyInfo }] = useSettingsPersistAtom();
   const currencySymbol = currencyInfo?.symbol ?? '';
 
@@ -34,7 +34,7 @@ export function useTableColumns(
       {
         title: intl.formatMessage({ id: ETranslations.referral_your_code }),
         dataIndex: EInviteCodeListTableColumn.CODE,
-        ...(gtMd ? { columnProps: { flex: 1 } } : { columnWidth: 115 }),
+        columnWidth: 130,
         render: (text: string) => <CodeCell code={text} />,
       },
       {
@@ -42,7 +42,7 @@ export function useTableColumns(
           id: ETranslations.referral_code_list_note,
         }),
         dataIndex: EInviteCodeListTableColumn.NOTE,
-        ...(gtMd ? { columnProps: { flex: 1 } } : { columnWidth: 145 }),
+        ...(gtLg ? { columnProps: { flex: 1 } } : { columnWidth: 160 }),
         render: (_text: string, record: IInviteCodeListItem) => (
           <NoteCell
             code={record.code}
@@ -57,7 +57,7 @@ export function useTableColumns(
         }),
         dataIndex: EInviteCodeListTableColumn.SALES_ORDERS,
         align: 'left',
-        ...(gtMd ? { columnProps: { flex: 1 } } : { columnWidth: 130 }),
+        ...(gtLg ? { columnProps: { flex: 1 } } : { columnWidth: 130 }),
         render: (value: number) => (
           <SizableText size="$bodyMdMedium" color="$text">
             {value}
@@ -69,7 +69,7 @@ export function useTableColumns(
           id: ETranslations.referral_code_list_wallets,
         }),
         dataIndex: EInviteCodeListTableColumn.ONCHAIN_WALLETS,
-        ...(gtMd ? { columnProps: { flex: 1 } } : { columnWidth: 130 }),
+        ...(gtLg ? { columnProps: { flex: 1 } } : { columnWidth: 130 }),
         render: (value: number) => (
           <SizableText size="$bodyMdMedium" color="$text">
             {value}
@@ -81,7 +81,7 @@ export function useTableColumns(
           id: ETranslations.referral_cumulative_rewards,
         }),
         dataIndex: EInviteCodeListTableColumn.CUMULATIVE_REWARDS,
-        ...(gtMd ? { columnProps: { flex: 1 } } : { columnWidth: 130 }),
+        ...(gtLg ? { columnProps: { flex: 1 } } : { columnWidth: 130 }),
         align: 'left',
         render: (value: string) => (
           <SizableText size="$bodyMdMedium" color="$text">
@@ -92,7 +92,7 @@ export function useTableColumns(
       {
         title: intl.formatMessage({ id: ETranslations.referral_code_list_at }),
         dataIndex: EInviteCodeListTableColumn.CREATED_AT,
-        ...(gtMd ? { columnProps: { flex: 1 } } : { columnWidth: 130 }),
+        ...(gtLg ? { columnProps: { flex: 1 } } : { columnWidth: 130 }),
         render: (date: string) => (
           <SizableText size="$bodyMdMedium" color="$text">
             {formatDate(date, { hideSeconds: true })}
@@ -102,11 +102,11 @@ export function useTableColumns(
       {
         title: '',
         dataIndex: EInviteCodeListTableColumn.INVITE_URL,
-        columnWidth: 100,
+        columnWidth: 115,
         render: (url: string) => <CopyLinkButton url={url} />,
       },
     ],
-    [currencySymbol, intl, gtMd, onNoteUpdated],
+    [currencySymbol, intl, gtLg, onNoteUpdated],
   );
 
   // Handle header row for sorting

@@ -65,7 +65,7 @@ export default function ICloudBackupDetails({
     IPrimeTransferData | IBackupDataEncryptedPayload | undefined
   >(
     async () => {
-      await timerUtils.wait(1000);
+      await timerUtils.wait(300);
       if (actionType === 'backup') {
         return backgroundApiProxy.serviceCloudBackupV2.buildBackupData();
       }

@@ -1,4 +1,7 @@
+import { useIntl } from 'react-intl';
+
 import { SizableText, XStack } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { Card } from '../RewardCard';
 import { NoRewardYet } from '../shared/NoRewardYet';
@@ -14,13 +17,16 @@ const DEFAULT_EARN_IMAGE_URL =
 export function OnChainReward({ onChain }: IOnChainRewardProps) {
   const { earnToken, onChainSummary, showRewards, toEarnRewardPage } =
     useOnChainReward({ onChain });
+  const intl = useIntl();
 
   return (
     <Card.Container flex={1}>
       <Card.Title
-        icon="CoinsOutline"
+        icon="AtomSolid"
         title={onChain.title}
-        description={onChain.description}
+        description={intl.formatMessage({
+          id: ETranslations.referral_onchain_desc,
+        })}
         showChevron
         onPress={toEarnRewardPage}
       />

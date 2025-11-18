@@ -211,6 +211,7 @@ class ServiceCloudBackupV2 extends ServiceBase {
     data: IPrimeTransferData;
     password: string;
   }): Promise<{ recordID: string; content: string }> {
+    // throw new OneKeyLocalError('test error');
     if (!params?.password) {
       throw new OneKeyLocalError('Password is required for backup');
     }
