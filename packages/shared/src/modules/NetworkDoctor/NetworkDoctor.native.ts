@@ -26,6 +26,8 @@ import { appApiClient } from '@onekeyhq/shared/src/appApiClient/appApiClient';
 import { ONEKEY_HEALTH_CHECK_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { getEndpointByServiceName } from '@onekeyhq/shared/src/config/endpointsMap';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
@@ -71,6 +73,13 @@ export class NetworkDoctor {
     defaultLogger.networkDoctor.log.info({
       info: '🩺 [NetworkDoctor] Initialized',
     });
+  }
+
+  /**
+   * Translation helper - uses global appLocale.intl
+   */
+  private t(key: ETranslations, values?: Record<string, any>): string {
+    return appLocale.intl.formatMessage({ id: key }, values);
   }
 
   /**
@@ -194,7 +203,7 @@ export class NetworkDoctor {
     this.emitProgress(
       EDiagnosticPhase.INITIALIZING,
       0,
-      'Initializing network diagnostics',
+      this.t(ETranslations.global_network_doctor_progress_initializing),
     );
 
     // Initialize endpoint, client and health check URL
@@ -206,7 +215,9 @@ export class NetworkDoctor {
       !this.healthCheckUrl ||
       !this.targetDomain
     ) {
-      throw new OneKeyError('Failed to initialize NetworkDoctor');
+      throw new OneKeyError(
+        this.t(ETranslations.global_network_doctor_failed_to_initialize),
+      );
     }
 
     // Initialize network logging
@@ -225,11 +236,12 @@ export class NetworkDoctor {
       this.emitProgress(
         EDiagnosticPhase.BASIC_NETWORK_INFO,
         1,
-        'Gathering basic network information',
+        this.t(ETranslations.global_network_doctor_progress_basic_info),
       );
       defaultLogger.networkDoctor.log.info({
         info: '[DR] Phase 1: Basic Network Info',
       });
+
       const netInfo = await this.testNetInfo();
       const networkEnv = await this.testNetworkEnv();
 
@@ -237,7 +249,7 @@ export class NetworkDoctor {
       this.emitProgress(
         EDiagnosticPhase.DNS_RESOLUTION,
         2,
-        'Resolving DNS for target domain',
+        this.t(ETranslations.global_network_doctor_progress_dns),
       );
       defaultLogger.networkDoctor.log.info({
         info: '[DR] Phase 2: DNS Resolution',
@@ -248,7 +260,7 @@ export class NetworkDoctor {
       this.emitProgress(
         EDiagnosticPhase.TCP_TLS_TESTS,
         3,
-        'Testing TCP connections and TLS handshake',
+        this.t(ETranslations.global_network_doctor_progress_tcp_tls),
       );
       defaultLogger.networkDoctor.log.info({
         info: '[DR] Phase 3: TCP & TLS Tests',
@@ -262,7 +274,7 @@ export class NetworkDoctor {
       this.emitProgress(
         EDiagnosticPhase.PING_TESTS,
         4,
-        'Running ping tests to target and reference servers',
+        this.t(ETranslations.global_network_doctor_progress_ping),
       );
       defaultLogger.networkDoctor.log.info({
         info: '[DR] Phase 4: Ping Tests',
@@ -276,7 +288,7 @@ export class NetworkDoctor {
       this.emitProgress(
         EDiagnosticPhase.HTTP_TESTS,
         5,
-        'Testing HTTP endpoints and health checks',
+        this.t(ETranslations.global_network_doctor_progress_http),
       );
       defaultLogger.networkDoctor.log.info({
         info: '[DR] Phase 5: HTTP Tests',
@@ -289,7 +301,7 @@ export class NetworkDoctor {
       this.emitProgress(
         EDiagnosticPhase.NETWORK_LOGS,
         6,
-        'Collecting network request logs',
+        this.t(ETranslations.global_network_doctor_progress_logs),
       );
       defaultLogger.networkDoctor.log.info({
         info: '[DR] Phase 6: Collecting Network Logs',
@@ -300,7 +312,7 @@ export class NetworkDoctor {
       this.emitProgress(
         EDiagnosticPhase.GENERATING_REPORT,
         7,
-        'Analyzing results and generating diagnostic report',
+        this.t(ETranslations.global_network_doctor_progress_report),
       );
       const report = this.generateReport({
         netInfo,
@@ -321,7 +333,7 @@ export class NetworkDoctor {
       this.emitProgress(
         EDiagnosticPhase.COMPLETED,
         8,
-        'Network diagnostics completed',
+        this.t(ETranslations.global_network_doctor_progress_completed),
       );
 
       defaultLogger.networkDoctor.log.info({
@@ -521,7 +533,9 @@ export class NetworkDoctor {
 
     if (!targetHost) {
       throw new OneKeyError(
-        'No target host specified for TCP connectivity test',
+        this.t(
+          ETranslations.global_no_target_host_specified_for_tcp_connectivity_test,
+        ),
       );
     }
 
@@ -873,7 +887,7 @@ export class NetworkDoctor {
         connectivityLevel: ENetworkConnectivityLevel.HEALTHY,
         oneKeyFailureReason: EOneKeyFailureReason.NONE,
         failureLayer: null,
-        summary: 'Network is healthy - OneKey service accessible',
+        summary: this.t(ETranslations.global_network_doctor_conclusion_healthy),
         suggestedActions: [],
         assessment: 'healthy',
         intermediateIssues:
@@ -909,11 +923,15 @@ export class NetworkDoctor {
         connectivityLevel: ENetworkConnectivityLevel.COMPLETELY_DOWN,
         oneKeyFailureReason: EOneKeyFailureReason.NONE,
         failureLayer: null,
-        summary: 'No network connectivity - All services unreachable',
+        summary: this.t(
+          ETranslations.global_network_doctor_conclusion_completely_down,
+        ),
         suggestedActions: [
-          'Check WiFi/cellular connection',
-          'Restart device',
-          'Check airplane mode',
+          this.t(ETranslations.global_network_doctor_action_check_connection),
+          this.t(ETranslations.global_network_doctor_action_restart_device),
+          this.t(
+            ETranslations.global_network_doctor_action_check_airplane_mode,
+          ),
         ],
         assessment: 'blocked',
       };
@@ -929,11 +947,12 @@ export class NetworkDoctor {
         connectivityLevel: ENetworkConnectivityLevel.INTERNATIONAL_RESTRICTED,
         oneKeyFailureReason: EOneKeyFailureReason.NONE,
         failureLayer: null,
-        summary:
-          'International network restricted - Mainland China network environment detected',
+        summary: this.t(
+          ETranslations.global_network_doctor_conclusion_access_limited,
+        ),
         suggestedActions: [
-          'Enable VPN to access international services',
-          'This is typical for users in mainland China',
+          this.t(ETranslations.global_network_doctor_action_check_proxy),
+          this.t(ETranslations.global_network_doctor_action_region_restriction),
         ],
         assessment: 'blocked',
       };
@@ -973,8 +992,10 @@ export class NetworkDoctor {
       connectivityLevel: ENetworkConnectivityLevel.ONEKEY_SERVICE_ERROR,
       oneKeyFailureReason: EOneKeyFailureReason.HTTP_REQUEST_FAILED,
       failureLayer: 'http',
-      summary: 'OneKey service error - Unknown network condition',
-      suggestedActions: ['Contact support with diagnostic report'],
+      summary: this.t(ETranslations.global_network_doctor_conclusion_unknown),
+      suggestedActions: [
+        this.t(ETranslations.global_network_doctor_action_contact_support),
+      ],
       assessment: 'degraded',
     };
   }
@@ -996,11 +1017,13 @@ export class NetworkDoctor {
         isBlocking: true,
         reason: EOneKeyFailureReason.DNS_RESOLUTION_FAILED,
         layer: 'dns',
-        summary: 'DNS resolution blocked for OneKey domain',
+        summary: this.t(
+          ETranslations.global_network_doctor_conclusion_dns_failed,
+        ),
         suggestedActions: [
-          'DNS poisoning detected',
-          'Try using encrypted DNS (DoH/DoT)',
-          'Enable VPN',
+          this.t(ETranslations.global_network_doctor_action_dns_anomaly),
+          this.t(ETranslations.global_network_doctor_action_encrypted_dns),
+          this.t(ETranslations.global_network_doctor_action_switch_network_dns),
         ],
       };
     }
@@ -1013,12 +1036,16 @@ export class NetworkDoctor {
         isBlocking: true,
         reason: EOneKeyFailureReason.TCP_HANDSHAKE_FAILED,
         layer: 'tcp',
-        summary: 'TCP connection blocked for OneKey',
+        summary: this.t(
+          ETranslations.global_network_doctor_conclusion_tcp_failed,
+        ),
         suggestedActions: [
-          'Selective blocking detected',
-          'Use domain fronting',
-          'Enable ECH (Encrypted Client Hello)',
-          'Try VPN',
+          this.t(
+            ETranslations.global_network_doctor_action_connection_interrupted,
+          ),
+          this.t(ETranslations.global_network_doctor_action_alternative_mode),
+          this.t(ETranslations.global_network_doctor_action_enable_ech),
+          this.t(ETranslations.global_network_doctor_action_switch_network_tcp),
         ],
       };
     }
@@ -1029,11 +1056,15 @@ export class NetworkDoctor {
         isBlocking: false,
         reason: EOneKeyFailureReason.TLS_HANDSHAKE_FAILED,
         layer: 'tls',
-        summary: 'TLS certificate error - Likely service configuration issue',
+        summary: this.t(
+          ETranslations.global_network_doctor_conclusion_tls_error,
+        ),
         suggestedActions: [
-          'This may be a test/staging environment',
-          'Check system date/time settings',
-          'Contact support if this persists',
+          this.t(ETranslations.global_network_doctor_action_test_environment),
+          this.t(ETranslations.global_network_doctor_action_check_datetime),
+          this.t(
+            ETranslations.global_network_doctor_action_contact_support_persist,
+          ),
         ],
       };
     }
@@ -1043,11 +1074,13 @@ export class NetworkDoctor {
       isBlocking: false,
       reason: EOneKeyFailureReason.HTTP_REQUEST_FAILED,
       layer: 'http',
-      summary: 'HTTP request failed - Service may be down',
+      summary: this.t(
+        ETranslations.global_network_doctor_conclusion_http_failed,
+      ),
       suggestedActions: [
-        'OneKey service may be temporarily unavailable',
-        'Check status page',
-        'Try again in a few minutes',
+        this.t(ETranslations.global_network_doctor_action_service_unavailable),
+        this.t(ETranslations.global_network_doctor_action_check_status),
+        this.t(ETranslations.global_network_doctor_action_try_later),
       ],
     };
   }
@@ -1061,18 +1094,24 @@ export class NetworkDoctor {
     // TCP false positive (TCP failed but TLS/HTTP succeeded)
     if (!results.tcpTests.yourApi.success && results.tlsTest.success) {
       issues.push(
-        'TCP test failed but TLS/HTTP succeeded (react-native-tcp-socket bug)',
+        this.t(ETranslations.global_network_doctor_issue_tcp_false_positive),
       );
     }
 
     // Ping blocked (normal behavior)
     if (!results.pingDomain.success && results.healthCheck.success) {
-      issues.push('Ping blocked but HTTPS works (normal CDN behavior)');
+      issues.push(
+        this.t(ETranslations.global_network_doctor_issue_ping_blocked),
+      );
     }
 
     // DNS slow but successful
     if (results.dns.durationMs > 3000 && !results.dns.error) {
-      issues.push(`DNS resolution slow (${results.dns.durationMs}ms)`);
+      issues.push(
+        this.t(ETranslations.global_network_doctor_issue_dns_slow, {
+          number: results.dns.durationMs,
+        }),
+      );
     }
 
     return issues;
