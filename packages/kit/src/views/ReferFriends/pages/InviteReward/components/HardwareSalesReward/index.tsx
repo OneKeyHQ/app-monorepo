@@ -25,7 +25,9 @@ export function HardwareSalesReward({
       <Card.Title
         icon="OnekeyLiteOutline"
         title={hardwareSales.title}
-        description={hardwareSales.description}
+        description={intl.formatMessage({
+          id: ETranslations.referral_hw_sales_desc,
+        })}
         onPress={toHardwareSalesRewardPage}
       />
 
@@ -55,11 +57,15 @@ export function HardwareSalesReward({
               label={intl.formatMessage({
                 id: ETranslations.referral_undistributed,
               })}
-              showInfoIcon
-              infoTooltip={intl.formatMessage(
-                { id: ETranslations.referral_hw_undistributed_pop },
-                { date: nextDistribution },
-              )}
+              infoTooltip={{
+                title: intl.formatMessage({
+                  id: ETranslations.referral_hw_undistributed_pop_title,
+                }),
+                content: intl.formatMessage(
+                  { id: ETranslations.referral_hw_undistributed_pop },
+                  { date: nextDistribution },
+                ),
+              }}
               value={
                 <Card.TokenValue
                   tokenImageUri={hardwareSales.available?.[0]?.token?.logoURI}
@@ -75,10 +81,14 @@ export function HardwareSalesReward({
               label={intl.formatMessage({
                 id: ETranslations.referral_sales_reward_pending,
               })}
-              showInfoIcon
-              infoTooltip={intl.formatMessage({
-                id: ETranslations.referral_hw_pending_pop,
-              })}
+              infoTooltip={{
+                title: intl.formatMessage({
+                  id: ETranslations.referral_hw_pending_pop_title,
+                }),
+                content: intl.formatMessage({
+                  id: ETranslations.referral_hw_pending_pop,
+                }),
+              }}
               value={
                 <Card.TokenValue
                   tokenImageUri={hardwareSales.pending?.[0]?.token?.logoURI}

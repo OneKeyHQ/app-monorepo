@@ -14,6 +14,7 @@ export function LevelListSection({
     const currentLevel = levels.find((level) => level.isCurrent);
     return currentLevel ? `level-${currentLevel.level}` : undefined;
   }, [levels]);
+  const displayLevels = useMemo(() => [...levels].reverse(), [levels]);
 
   return (
     <Accordion
@@ -26,13 +27,13 @@ export function LevelListSection({
       borderCurve="continuous"
       overflow="hidden"
     >
-      {levels.map((level, index) => (
+      {displayLevels.map((level, index) => (
         <LevelAccordionItem
           key={level.level}
           level={level}
           isCurrent={level.isCurrent}
           isFirst={index === 0}
-          isLast={index === levels.length - 1}
+          isLast={index === displayLevels.length - 1}
         />
       ))}
     </Accordion>

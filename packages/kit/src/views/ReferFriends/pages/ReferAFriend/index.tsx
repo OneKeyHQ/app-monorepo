@@ -11,6 +11,8 @@ import type { IInvitePostConfig } from '@onekeyhq/shared/src/referralCode/type';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
+import { ReferFriendsPageContainer } from '../../components';
+
 import { ReferAFriendHowToPhase } from './components/ReferAFriendHowToPhase';
 import { ReferAFriendIntroPhase } from './components/ReferAFriendIntroPhase';
 import { useReferAFriendData } from './hooks/useReferAFriendData';
@@ -85,7 +87,9 @@ function ReferAFriendPageWrapper() {
         />
       )}
       <Page.Body>
-        {postConfig ? <ReferAFriendPage postConfig={postConfig} /> : null}
+        <ReferFriendsPageContainer flex={1}>
+          {postConfig ? <ReferAFriendPage postConfig={postConfig} /> : null}
+        </ReferFriendsPageContainer>
       </Page.Body>
     </Page>
   );

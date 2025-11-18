@@ -7,7 +7,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useLocaleOptions } from './useLocaleOptions';
 
-export function useLanguageSelector() {
+export function useLanguageSelector(needRestart = true) {
   const localeOptions = useLocaleOptions();
   const [{ locale }] = useSettingsPersistAtom();
 
@@ -20,15 +20,20 @@ export function useLanguageSelector() {
     return locale === 'en-US' ? 'en' : locale;
   }, [locale]);
 
-  const onChange = useCallback(async (text: string) => {
-    await backgroundApiProxy.serviceSetting.setLocale(text as ILocaleSymbol);
-    setTimeout(() => {
-      if (platformEnv.isDesktop) {
-        void globalThis.desktopApiProxy?.system?.changeLanguage?.(text);
-      }
-      void backgroundApiProxy.serviceApp.restartApp();
-    }, 0);
-  }, []);
+  const onChange = useCallback(
+    async (text: string) => {
+      await backgroundApiProxy.serviceSetting.setLocale(text as ILocaleSymbol);
+      setTimeout(() => {
+        if (platformEnv.isDesktop) {
+          void globalThis.desktopApiProxy?.system?.changeLanguage?.(text);
+        }
+        if (needRestart) {
+          void backgroundApiProxy.serviceApp.restartApp();
+        }
+      }, 0);
+    },
+    [needRestart],
+  );
 
   return {
     options,

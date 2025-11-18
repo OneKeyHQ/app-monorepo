@@ -17,13 +17,13 @@ import {
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { useNavigateToEditAddress } from '@onekeyhq/kit/src/views/ReferFriends/pages/EditAddress/hooks/useNavigateToEditAddress';
+import { useNavigateToRewardHistory } from '@onekeyhq/kit/src/views/ReferFriends/pages/RewardDistributionHistory/hooks/useNavigateToRewardHistory';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IInviteSummary } from '@onekeyhq/shared/src/referralCode/type';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-
-import { useNavigateToEditAddress } from '../../../EditAddress/hooks/useNavigateToEditAddress';
 
 function CumulativeRewardsLineItem({
   bg,
@@ -59,6 +59,7 @@ export function CumulativeRewards({
   fetchSummaryInfo: () => void;
 }) {
   const navigateToEditAddress = useNavigateToEditAddress();
+  const navigateToRewardHistory = useNavigateToRewardHistory();
   const intl = useIntl();
   const { activeAccount } = useActiveAccount({ num: 0 });
 
@@ -70,6 +71,7 @@ export function CumulativeRewards({
       accountId: activeAccount.account?.id ?? '',
       address: withdrawAddresses[0]?.address,
       hideAddressBook: !!platformEnv.isWebDappMode,
+      enableAllowListValidation: false,
       onAddressAdded: async ({ networkId }: { networkId: string }) => {
         Toast.success({
           title: intl.formatMessage({
@@ -115,12 +117,20 @@ export function CumulativeRewards({
         >
           <YStack flex={1}>
             <XStack ai="center" jc="space-between">
-              <XStack gap="$1" ai="center">
+              <XStack gap="$2" ai="center">
                 <SizableText size="$bodyMdMedium" color="$textSubdued">
                   {intl.formatMessage({
-                    id: ETranslations.referral_cumulative_rewards,
+                    id: ETranslations.referral_referral_you_earned,
                   })}
                 </SizableText>
+
+                <IconButton
+                  icon="ClockTimeHistoryOutline"
+                  variant="tertiary"
+                  iconColor="$iconSubdued"
+                  size="small"
+                  onPress={navigateToRewardHistory}
+                />
               </XStack>
             </XStack>
             <Currency size="$heading4xl" color="$text" formatter="value">
