@@ -28,10 +28,7 @@
 
     <!-- CloudKit configuration - Matches Provisioning Profile for data sharing with MAS version -->
     <key>com.apple.developer.icloud-services</key>
-    <array>
-      <string>CloudKit</string>
-      <string>CloudDocuments</string>
-    </array>
+    <string>CloudKit</string>
     <key>com.apple.developer.icloud-container-environment</key>
     <string>Production</string>
     <key>com.apple.developer.ubiquity-kvstore-identifier</key>
