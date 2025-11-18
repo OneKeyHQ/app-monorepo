@@ -171,7 +171,7 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
         children: swapRouters,
         trackId: 'global-trade',
       },
-      !perpDisabled && {
+      {
         name: ETabRoutes.WebviewPerpTrade,
         tabBarIcon: (focused?: boolean) =>
           focused ? 'TradingViewCandlesSolid' : 'TradingViewCandlesOutline',
@@ -181,9 +181,9 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
         exact: true,
         children: perpWebviewRouters,
         trackId: 'global-perp',
-        hideOnTabBar: !perpTabShowWeb,
+        hiddenIcon: perpDisabled || !perpTabShowWeb,
       },
-      !perpDisabled && {
+      {
         name: ETabRoutes.Perp,
         tabBarIcon: (focused?: boolean) =>
           focused ? 'TradingViewCandlesSolid' : 'TradingViewCandlesOutline',
@@ -192,8 +192,7 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
         children: perpRouters,
         rewrite: perpTabShowWeb ? undefined : '/perps',
         exact: true,
-        // tabbarOnPress,
-        hideOnTabBar: perpTabShowWeb,
+        hiddenIcon: perpDisabled || perpTabShowWeb,
       },
       {
         name: ETabRoutes.Earn,
@@ -271,13 +270,13 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
 
     return tabs;
   }, [
-    isWebDappMode,
-    referFriendsTabConfig,
     params,
+    isWebDappMode,
     shouldShowMarketTab,
     handleMarketTabPress,
-    perpDisabled,
     perpTabShowWeb,
+    perpDisabled,
+    referFriendsTabConfig,
     isGtMdNonNative,
     toMyOneKeyModal,
     isShowMDDiscover,

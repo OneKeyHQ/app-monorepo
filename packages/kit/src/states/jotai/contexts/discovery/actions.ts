@@ -394,49 +394,65 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
     },
   );
 
-  closeAllWebTabs = contextAtomMethod(async (get, set) => {
-    const { tabs } = get(webTabsAtom());
-    const activeTabId = get(activeTabIdAtom());
-    const pinnedTabs = tabs.filter((tab) => tab.isPinned); // close all tabs exclude pinned tab
-    const tabsToClose = tabs.filter((tab) => !tab.isPinned);
+  closeAllWebTabs = contextAtomMethod(
+    async (
+      get,
+      set,
+      payload?: { navigation?: ReturnType<typeof useAppNavigation> },
+    ) => {
+      const navigation = payload?.navigation;
+      const { tabs } = get(webTabsAtom());
+      const activeTabId = get(activeTabIdAtom());
+      const pinnedTabs = tabs.filter((tab) => tab.isPinned); // close all tabs exclude pinned tab
+      const tabsToClose = tabs.filter((tab) => !tab.isPinned);
+      const nextPinnedTab = pinnedTabs[0];
+      const shouldResetActiveTab = pinnedTabs.every(
+        (tab) => tab.id !== activeTabId,
+      );
 
-    // Create a queue for closing tabs
-    const closeQueue = tabsToClose.map((tab) => async () => {
-      if (tab.url && tab.title) {
-        await this.addBrowserHistory.call(set, {
-          url: tab.url,
-          title: tab.title,
-        });
+      // Create a queue for closing tabs
+      const closeQueue = tabsToClose.map((tab) => async () => {
+        if (tab.url && tab.title) {
+          await this.addBrowserHistory.call(set, {
+            url: tab.url,
+            title: tab.title,
+          });
+        }
+      });
+
+      // Process queue sequentially
+      for (const closeOperation of closeQueue) {
+        await closeOperation();
       }
-    });
 
-    // Process queue sequentially
-    for (const closeOperation of closeQueue) {
-      await closeOperation();
-    }
+      // should update active tab, if active tab is not in pinnedTabs
+      if (shouldResetActiveTab) {
+        const nextActiveTabId = nextPinnedTab?.id ?? null;
+        this.setCurrentWebTab.call(set, nextActiveTabId);
 
-    // should update active tab, if active tab is not in pinnedTabs
-    if (pinnedTabs.every((tab) => tab.id !== activeTabId)) {
-      this.setCurrentWebTab.call(set, null);
-    }
-
-    for (const id of Object.getOwnPropertyNames(webviewRefs)) {
-      if (!pinnedTabs.find((tab) => tab.id === id)) {
-        delete webviewRefs[id];
+        if (!nextActiveTabId && platformEnv.isDesktop) {
+          navigation?.switchTab(ETabRoutes.Discovery);
+        }
       }
-    }
 
-    loggerForEmptyData(pinnedTabs, 'closeAllWebTabs');
-    this.buildWebTabs.call(set, { data: pinnedTabs });
+      for (const id of Object.getOwnPropertyNames(webviewRefs)) {
+        if (!pinnedTabs.find((tab) => tab.id === id)) {
+          delete webviewRefs[id];
+        }
+      }
 
-    setTimeout(() => {
-      this.saveLastClosedTab.call(set, tabsToClose);
-    }, 50);
+      loggerForEmptyData(pinnedTabs, 'closeAllWebTabs');
+      this.buildWebTabs.call(set, { data: pinnedTabs });
 
-    defaultLogger.discovery.browser.clearTabs({
-      clearTabsAmount: tabsToClose.length,
-    });
-  });
+      setTimeout(() => {
+        this.saveLastClosedTab.call(set, tabsToClose);
+      }, 50);
+
+      defaultLogger.discovery.browser.clearTabs({
+        clearTabsAmount: tabsToClose.length,
+      });
+    },
+  );
 
   setPinnedTab = contextAtomMethod(
     (get, set, payload: { id: string; pinned: boolean }) => {
