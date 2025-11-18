@@ -1,48 +1,5 @@
-/**
- * TableList Component
- *
- * A flexible table component with support for:
- * - Responsive column hiding based on priority
- * - Expandable rows with custom content
- * - Sorting, actions, and custom rendering
- *
- * @example Priority-based responsive hiding
- * ```tsx
- * <TableList
- *   data={items}
- *   columns={[
- *     { key: 'name', label: 'Name', priority: 5, render: ... },      // Always visible
- *     { key: 'email', label: 'Email', priority: 3, render: ... },    // Hidden on mobile
- *     { key: 'phone', label: 'Phone', priority: 2, render: ... },    // Hidden on mobile & small tablet
- *     { key: 'address', label: 'Address', priority: 1, render: ... }, // Hidden on mobile & small tablet
- *   ]}
- * />
- * ```
- *
- * Priority thresholds:
- * - Mobile (<640px): priority >= 3
- * - Small tablet (640px-768px): priority >= 2
- * - Desktop (>=768px): all priorities visible
- *
- * @example Expandable rows
- * ```tsx
- * <TableList
- *   data={items}
- *   columns={columns}
- *   expandable={{
- *     renderExpandedContent: (item, index) => (
- *       <YStack gap="$2">
- *         <Text>Extra details for {item.name}</Text>
- *       </YStack>
- *     ),
- *   }}
- * />
- * ```
- */
 import { memo, useCallback, useMemo, useState } from 'react';
 import type { ComponentProps, ReactElement, ReactNode } from 'react';
-
-import { StyleSheet } from 'react-native';
 
 import type { IKeyOfIcons, IXStackProps } from '@onekeyhq/components';
 import {
@@ -101,6 +58,10 @@ export interface ITableListProps<T> {
 
   // Header
   withHeader?: boolean;
+  headerProps?: Omit<
+    ComponentProps<typeof ListItem>,
+    'children' | 'gap' | 'onPress'
+  >;
 
   // Sorting (optional - if not provided, component manages internally)
   sortKey?: string;
@@ -297,6 +258,7 @@ interface ITableListHeaderProps<T> {
   enableDrillIn?: boolean;
   actions?: ITableListProps<T>['actions'];
   listItemProps?: ITableListProps<T>['listItemProps'];
+  headerProps?: ITableListProps<T>['headerProps'];
   expandable?: ITableListProps<T>['expandable'];
 }
 
@@ -309,6 +271,7 @@ function TableListHeader<T>({
   enableDrillIn,
   actions,
   listItemProps,
+  headerProps,
   expandable,
 }: ITableListHeaderProps<T>) {
   const handleSort = useCallback(
@@ -332,7 +295,7 @@ function TableListHeader<T>({
   );
 
   return (
-    <ListItem gap={rowGap ?? '$3'} {...listItemProps}>
+    <ListItem gap={rowGap ?? '$3'} {...listItemProps} {...headerProps}>
       {expandable ? <Stack width="$6" flexShrink={0} /> : null}
       {columns.map((column) => {
         let content: ReactNode = null;
@@ -540,6 +503,7 @@ function BasicTableList<T>({
   onPressRow,
   tableLayout: tableLayoutProp,
   withHeader = true,
+  headerProps,
   sortKey: sortKeyProp,
   sortDirection: sortDirectionProp,
   onSortChange,
@@ -646,6 +610,7 @@ function BasicTableList<T>({
           enableDrillIn={enableDrillIn}
           actions={actions}
           listItemProps={listItemProps}
+          headerProps={headerProps}
           expandable={expandable}
         />
       );
@@ -662,6 +627,7 @@ function BasicTableList<T>({
     enableDrillIn,
     actions,
     listItemProps,
+    headerProps,
     expandable,
   ]);
 
