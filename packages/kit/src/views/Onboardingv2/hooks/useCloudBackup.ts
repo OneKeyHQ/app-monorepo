@@ -7,6 +7,8 @@ import type { IDialogInstance } from '@onekeyhq/components';
 import { Dialog, Toast } from '@onekeyhq/components';
 import type { IBackupDataEncryptedPayload } from '@onekeyhq/kit-bg/src/services/ServiceCloudBackupV2/backupProviders/IOneKeyBackupProvider';
 import { useCloudBackupStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes';
@@ -261,6 +263,30 @@ export function useCloudBackup() {
               pop: true,
             });
           }
+        } catch (error) {
+          if (
+            errorUtils.isErrorByClassName({
+              error,
+              className: [EOneKeyErrorClassNames.IncorrectPassword],
+            })
+          ) {
+            // skip
+          } else {
+            // TODO: franco 备份失败，通用提示文案
+            Dialog.show({
+              title: '备份失败',
+              description:
+                '1. 可能网络故障；\n2. 可能未登录正确的 AppStore、GoogleDrive 账号；\n3. 可能云盘空间不足，前往「管理备份」删除备份释放空间',
+              onCancelText: '管理备份',
+              onCancel: () => {
+                void goToPageBackupList({ hideRestoreButton: true });
+              },
+              onConfirmText: intl.formatMessage({
+                id: ETranslations.global_got_it,
+              }),
+            });
+          }
+          throw error;
         } finally {
           void loadingDialog?.close?.();
           setCheckLoading(false);
