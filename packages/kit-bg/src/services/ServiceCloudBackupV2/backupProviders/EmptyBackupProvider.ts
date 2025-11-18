@@ -1,15 +1,8 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import type {
-  IAppleCloudKitAccountInfo,
-  IAppleCloudKitRecord,
-} from '@onekeyhq/shared/src/storage/AppleCloudKitStorage/types';
-import type { IGoogleDriveFile } from '@onekeyhq/shared/src/storage/GoogleDriveStorage';
-import type { IPrimeTransferData } from '@onekeyhq/shared/types/prime/primeTransferTypes';
 
 import type {
-  IBackupCloudServerData,
   IBackupCloudServerDownloadData,
   IBackupDataManifest,
   IBackupProviderAccountInfo,

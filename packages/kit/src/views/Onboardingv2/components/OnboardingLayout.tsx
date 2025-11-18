@@ -256,6 +256,9 @@ function OnboardingLayoutRoot({ children }: { children: React.ReactNode }) {
       alignItems="center"
       justifyContent="center"
       bg="$neutral2"
+      $theme-dark={{
+        bg: '$bgApp',
+      }}
       $gtMd={{
         p: '$10',
       }}
@@ -280,13 +283,10 @@ function OnboardingLayoutRoot({ children }: { children: React.ReactNode }) {
         h="100%"
         w="100%"
         px="$5"
-        // $gtMd={{
-        //   px: '$10',
-        // }}
         bg="$bg"
         $theme-dark={{
           outlineWidth: 1,
-          outlineColor: '$neutral2',
+          outlineColor: '$neutral3',
           outlineStyle: 'solid',
         }}
         $gtMd={{

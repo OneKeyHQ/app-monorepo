@@ -4,15 +4,18 @@ import { useIntl } from 'react-intl';
 
 import {
   Button,
+  Dialog,
   Divider,
   Page,
   SizableText,
   Stack,
   Switch,
   Toast,
+  YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickStack';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useCloudBackupPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -94,6 +97,25 @@ export default function Home() {
       />
       <Page.Body>
         <BackupDeviceList />
+        <MultipleClickStack
+          height="$10"
+          showDevBgColor
+          debugComponent={
+            <YStack gap="$2">
+              <Button
+                onPress={async () => {
+                  const metaData =
+                    await backgroundApiProxy.serviceCloudBackup.getMetaDataFromCloud();
+                  Dialog.debugMessage({
+                    debugMessage: metaData,
+                  });
+                }}
+              >
+                getMetaDataFromCloud
+              </Button>
+            </YStack>
+          }
+        />
       </Page.Body>
     </Page>
   );
