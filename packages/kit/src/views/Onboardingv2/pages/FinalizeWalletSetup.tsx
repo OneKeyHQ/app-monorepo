@@ -390,6 +390,34 @@ function FinalizeWalletSetupPage({
     STEPS_DATA[currentStep] ||
     STEPS_DATA[EFinalizeWalletSetupSteps.EncryptingData];
 
+  const svgMask = (
+    <Svg
+      height="100%"
+      width="100%"
+      style={{
+        position: 'absolute',
+        inset: 0,
+      }}
+    >
+      <Defs>
+        <RadialGradient
+          id="finalize-grad"
+          cx="50%"
+          cy="50%"
+          {...(platformEnv.isNative && {
+            rx: '60%',
+            ry: '30%',
+          })}
+        >
+          <Stop offset="0%" stopColor={bgAppColor} stopOpacity="0" />
+          <Stop offset="50%" stopColor={bgAppColor} stopOpacity="0.5" />
+          <Stop offset="100%" stopColor={bgAppColor} stopOpacity="1" />
+        </RadialGradient>
+      </Defs>
+      <Rect x="0" y="0" width="100%" height="100%" fill="url(#finalize-grad)" />
+    </Svg>
+  );
+
   return (
     <Page>
       <OnboardingLayout>
@@ -451,50 +479,9 @@ function FinalizeWalletSetupPage({
                 <MatrixBackground
                   {...(platformEnv.isNative && { lineCount: 60 })}
                 />
-                <Svg
-                  height="100%"
-                  width="100%"
-                  style={{
-                    position: 'absolute',
-                    inset: 0,
-                  }}
-                >
-                  <Defs>
-                    <RadialGradient
-                      id="finalize-grad"
-                      cx="50%"
-                      cy="50%"
-                      {...(platformEnv.isNative && {
-                        rx: '60%',
-                        ry: '30%',
-                      })}
-                    >
-                      <Stop
-                        offset="0%"
-                        stopColor={bgAppColor}
-                        stopOpacity="0"
-                      />
-                      <Stop
-                        offset="50%"
-                        stopColor={bgAppColor}
-                        stopOpacity="0.5"
-                      />
-                      <Stop
-                        offset="100%"
-                        stopColor={bgAppColor}
-                        stopOpacity="1"
-                      />
-                    </RadialGradient>
-                  </Defs>
-                  <Rect
-                    x="0"
-                    y="0"
-                    width="100%"
-                    height="100%"
-                    fill="url(#finalize-grad)"
-                  />
-                </Svg>
+                {!platformEnv.isNativeAndroid ? svgMask : null}
               </YStack>
+              {platformEnv.isNativeAndroid ? svgMask : null}
               <YStack
                 animation="quick"
                 animateOnly={['opacity']}
@@ -608,10 +595,12 @@ function FinalizeWalletSetupPage({
                     enterStyle={{
                       y: 8,
                       opacity: 0,
+                      filter: 'blur(4px)',
                     }}
                     exitStyle={{
                       y: -8,
                       opacity: 0,
+                      filter: 'blur(4px)',
                     }}
                   >
                     {currentStepData?.title || ''}
