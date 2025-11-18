@@ -35,8 +35,10 @@ function BasicNetworkAlert() {
       const percentage = Math.round(doctorState.progress.percentage);
       return `${percentage}%`;
     }
-    return 'Check';
-  }, [doctorState.status, doctorState.progress]);
+    return intl.formatMessage({
+      id: ETranslations.global_check,
+    });
+  }, [doctorState.status, doctorState.progress, intl]);
 
   return isInternetReachable ? null : (
     <Alert
