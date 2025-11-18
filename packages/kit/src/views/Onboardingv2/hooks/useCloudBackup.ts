@@ -270,10 +270,13 @@ export function useCloudBackup() {
         setCheckLoading(true);
         const isPasswordSet =
           await backgroundApiProxy.serviceCloudBackupV2.isBackupPasswordSet();
-        const resetPasswordAndBackup = async () => {
+        const resetPasswordAndBackup = async ({
+          isFirstTimeSetPassword,
+        }: { isFirstTimeSetPassword?: boolean } = {}) => {
           await verifyPasswordDialog?.close?.();
           resetPasswordDialog = showCloudBackupPasswordDialog({
             showConfirmPasswordField: true,
+            isFirstTimeSetPassword,
             onSubmit: async (password: string) => {
               const result =
                 await backgroundApiProxy.serviceCloudBackupV2.setBackupPassword(
@@ -292,7 +295,7 @@ export function useCloudBackup() {
           });
         };
         if (!isPasswordSet) {
-          await resetPasswordAndBackup();
+          await resetPasswordAndBackup({ isFirstTimeSetPassword: true });
         } else {
           verifyPasswordDialog = showCloudBackupPasswordDialog({
             showConfirmPasswordField: false,
@@ -427,7 +430,7 @@ export function useCloudBackup() {
             }),
           });
           try {
-            await timerUtils.wait(1000);
+            await timerUtils.wait(300);
             const data =
               await backgroundApiProxy.serviceCloudBackupV2.buildBackupData();
             await doBackup({ data });
