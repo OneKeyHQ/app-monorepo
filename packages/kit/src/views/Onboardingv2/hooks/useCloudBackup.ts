@@ -275,8 +275,9 @@ export function useCloudBackup() {
             // TODO: franco 备份失败，通用提示文案
             Dialog.show({
               title: '备份失败',
-              description:
-                '1. 可能网络故障；\n2. 可能未登录正确的 AppStore、GoogleDrive 账号；\n3. 可能云盘空间不足，前往「管理备份」删除备份释放空间',
+              description: platformEnv.isNativeAndroid
+                ? '1. 可能网络故障；\n2. 可能未登录正确的 Google 账号；\n3. 可能未启用 GoogleDrive 同步服务；\n4. 可能 GoogleDrive 空间不足，前往「管理备份」删除备份释放空间'
+                : '1. 可能网络故障；\n2. 可能未登录正确的 Apple 账号；\n3. 可能未启用 iCloud 和钥匙串同步服务；\n4. 可能 iCloud 空间不足，前往「管理备份」删除备份释放空间',
               onCancelText: '管理备份',
               onCancel: () => {
                 void goToPageBackupList({ hideRestoreButton: true });
