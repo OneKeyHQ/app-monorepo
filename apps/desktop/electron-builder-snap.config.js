@@ -17,8 +17,4 @@ module.exports = {
     'category': 'Utility',
     'target': ['snap'],
   },
-  // Refer：https://canonical-snap.readthedocs-hosted.com/reference/development/interfaces/raw-usb-interface/
-  'snap': {
-    'plugs': ['raw-usb'],
-  },
 };
