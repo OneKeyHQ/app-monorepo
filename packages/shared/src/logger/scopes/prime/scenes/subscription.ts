@@ -2,7 +2,7 @@
 import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 
 import { BaseScene } from '../../../base/baseScene';
-import { LogToServer } from '../../../base/decorators';
+import { LogToLocal, LogToServer } from '../../../base/decorators';
 
 export class PrimeSubscriptionScene extends BaseScene {
   /**
@@ -77,6 +77,55 @@ export class PrimeSubscriptionScene extends BaseScene {
       planType,
       amount,
       currency,
+    };
+  }
+
+  @LogToLocal()
+  @LogToServer()
+  public fetchPackagesFailed({ errorMessage }: { errorMessage: string }) {
+    return {
+      errorMessage,
+    };
+  }
+
+  // @LogToLocal()
+  // public onekeyIdLogin({ reason }: { reason: string }) {
+  //   return {
+  //     reason,
+  //   };
+  // }
+
+  @LogToLocal()
+  @LogToServer()
+  public onekeyIdLogout({ reason }: { reason: string }) {
+    return {
+      reason,
+    };
+  }
+
+  @LogToLocal()
+  @LogToServer()
+  public onekeyIdAtomNotLoggedIn({ reason }: { reason: string }) {
+    return {
+      reason,
+    };
+  }
+
+  @LogToLocal()
+  @LogToServer()
+  public onekeyIdInvalidToken({
+    url,
+    errorCode,
+    errorMessage,
+  }: {
+    url: string;
+    errorCode: number;
+    errorMessage: string;
+  }) {
+    return {
+      url,
+      errorCode,
+      errorMessage,
     };
   }
 }

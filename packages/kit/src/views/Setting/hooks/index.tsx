@@ -46,6 +46,9 @@ export function useResetApp(
         resetUtils.startResetting();
       }
       try {
+        defaultLogger.prime.subscription.onekeyIdLogout({
+          reason: 'useResetApp.doReset',
+        });
         void logoutOnekeyID();
         await timerUtils.wait(1000);
       } catch (error) {
