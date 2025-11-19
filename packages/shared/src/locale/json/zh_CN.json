@@ -2786,7 +2786,7 @@
   "referral.no_reward": "暂无奖励",
   "referral.onboard_bind_code": "绑定邀请码",
   "referral.onboard_bind_code_finish": "完成",
-  "referral.onchain_desc": "来自与您邀请的钱包",
+  "referral.onchain_desc": "来自绑定您邀请码的钱包",
   "referral.order_info": "订单信息",
   "referral.order_reward": "奖励",
   "referral.rate": "佣金比例（您 / 受邀者）",
