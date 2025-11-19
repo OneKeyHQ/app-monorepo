@@ -27,11 +27,15 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
 import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
 import { HwWalletAvatarImages } from '@onekeyhq/shared/src/utils/avatarUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
-import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import {
+  EAccountSelectorSceneName,
+  type EHardwareTransportType,
+} from '@onekeyhq/shared/types';
 import {
   EHardwareCallContext,
   EOneKeyDeviceMode,
@@ -47,7 +51,10 @@ import {
   useConnectDeviceError,
   useDeviceConnect,
 } from '../hooks/useDeviceConnect';
-import { getForceTransportType } from '../utils';
+import {
+  getDesktopForceUSBTransportType,
+  getForceTransportType,
+} from '../utils';
 
 import type { KnownDevice, SearchDevice } from '@onekeyfe/hd-core';
 
@@ -78,6 +85,9 @@ function CheckAndUpdatePage({
   const themeVariant = useThemeVariant();
   const navigation = useAppNavigation();
   const isFirmwareVerifiedRef = useRef<boolean | undefined>(undefined);
+  const originalTransportRef = useRef<EHardwareTransportType | undefined>(
+    undefined,
+  );
 
   const deviceLabel = useMemo(() => {
     if ((deviceData.device as KnownDevice)?.label) {
@@ -189,6 +199,18 @@ function CheckAndUpdatePage({
         showCancelButton: false,
       });
       return;
+    }
+
+    if (platformEnv.isDesktop) {
+      const desktopForceUSBTransportType =
+        await getDesktopForceUSBTransportType();
+      if (desktopForceUSBTransportType) {
+        originalTransportRef.current =
+          await backgroundApiProxy.serviceHardware.getCurrentForceTransportType();
+        await backgroundApiProxy.serviceHardware.setForceTransportType({
+          forceTransportType: desktopForceUSBTransportType,
+        });
+      }
     }
 
     if (deviceData.device?.connectId) {
@@ -509,6 +531,16 @@ function CheckAndUpdatePage({
   // When page regains focus, check if firmware was updated and recheck if needed
   useFocusEffect(
     useCallback(() => {
+      const savedTransport = originalTransportRef.current;
+      if (savedTransport !== undefined) {
+        void (async () => {
+          await backgroundApiProxy.serviceHardware.setForceTransportType({
+            forceTransportType: savedTransport,
+          });
+          originalTransportRef.current = undefined;
+        })();
+      }
+
       const finishTime = firmwareUpdateFinishTimeRef.current;
       if (!finishTime) {
         return;
