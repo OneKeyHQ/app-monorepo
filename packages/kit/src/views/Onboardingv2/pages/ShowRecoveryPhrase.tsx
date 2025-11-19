@@ -9,6 +9,7 @@ import {
   SizableText,
   XStack,
   YStack,
+  useClipboard,
   useMedia,
 } from '@onekeyhq/components';
 import {
@@ -83,6 +84,17 @@ export default function ShowRecoveryPhrase() {
 
   useRecoveryPhraseProtected();
 
+  const { copyText } = useClipboard();
+  const copyButton = useMemo(() => {
+    return (
+      <Button size="large" onPress={() => copyText(mnemonic)}>
+        {intl.formatMessage({
+          id: ETranslations.global_copy,
+        })}
+      </Button>
+    );
+  }, [copyText, intl, mnemonic]);
+
   return (
     <Page>
       <OnboardingLayout>
@@ -127,26 +139,32 @@ export default function ShowRecoveryPhrase() {
             </XStack>
 
             {gtMd ? (
-              <Button size="large" variant="primary" onPress={handleContinue}>
-                {intl.formatMessage({
-                  id: ETranslations.global_saved_the_phrases,
-                })}
-              </Button>
+              <XStack flex={1} gap="$2">
+                {copyButton}
+                <Button size="large" variant="primary" onPress={handleContinue}>
+                  {intl.formatMessage({
+                    id: ETranslations.global_saved_the_phrases,
+                  })}
+                </Button>
+              </XStack>
             ) : null}
           </YStack>
         </OnboardingLayout.Body>
         {!gtMd ? (
           <OnboardingLayout.Footer>
-            <Button
-              w="100%"
-              size="large"
-              variant="primary"
-              onPress={handleContinue}
-            >
-              {intl.formatMessage({
-                id: ETranslations.global_saved_the_phrases,
-              })}
-            </Button>
+            <XStack gap="$2">
+              {copyButton}
+              <Button
+                w="100%"
+                size="large"
+                variant="primary"
+                onPress={handleContinue}
+              >
+                {intl.formatMessage({
+                  id: ETranslations.global_saved_the_phrases,
+                })}
+              </Button>
+            </XStack>
           </OnboardingLayout.Footer>
         ) : null}
       </OnboardingLayout>
