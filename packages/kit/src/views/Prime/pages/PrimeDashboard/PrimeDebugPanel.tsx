@@ -15,11 +15,11 @@ import { usePrimeAuthV2 } from '@onekeyhq/kit/src/views/Prime/hooks/usePrimeAuth
 import { usePrimePayment } from '@onekeyhq/kit/src/views/Prime/hooks/usePrimePayment';
 import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 
 import { usePrimePurchaseCallback } from '../../components/PrimePurchaseDialog/PrimePurchaseDialog';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 function CloudSyncDebugTest() {
   const navigation = useAppNavigation();

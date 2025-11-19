@@ -67,15 +67,23 @@ export function InvitationDetailsSection({
         />
       </XStack>
 
-      <XStack gap="$2" px="$5" alignItems="center" jc="space-between">
+      <XStack
+        gap="$2"
+        px="$5"
+        alignItems="center"
+        jc="space-between"
+        flexWrap="wrap"
+      >
         <SimpleTabs value={selectedTab} onChange={setSelectedTab} tabs={tabs} />
 
         {selectedTab === EInvitationDetailsTab.REFERRAL ? (
-          <CreateCodeButton
-            remainingCodes={codeListData?.remainingCodes}
-            onCodeCreated={handleCodeCreated}
-            inviteUrlTemplate={inviteUrl}
-          />
+          <XStack pl="$4">
+            <CreateCodeButton
+              remainingCodes={codeListData?.remainingCodes}
+              onCodeCreated={handleCodeCreated}
+              inviteUrlTemplate={inviteUrl}
+            />
+          </XStack>
         ) : null}
       </XStack>
 

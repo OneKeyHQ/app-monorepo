@@ -6,17 +6,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { InviteCodeStepImage } from '../InviteCodeStepImage';
 import { ReferralBenefitsList } from '../ReferralBenefitsList';
 
-import { JoinButton } from './JoinButton';
-
-import type { EPhaseState } from '../../types';
-
-interface IReferAFriendHowToPhaseProps {
-  setPhaseState: (state: EPhaseState | undefined) => void;
-}
-
-export function ReferAFriendHowToPhase({
-  setPhaseState,
-}: IReferAFriendHowToPhaseProps) {
+export function ReferAFriendHowToPhase() {
   const intl = useIntl();
 
   return (
@@ -49,8 +39,6 @@ export function ReferAFriendHowToPhase({
             id: ETranslations.referral_intro_p2_note,
           })}
         />
-
-        <JoinButton setPhaseState={setPhaseState} />
       </Stack>
     </YStack>
   );

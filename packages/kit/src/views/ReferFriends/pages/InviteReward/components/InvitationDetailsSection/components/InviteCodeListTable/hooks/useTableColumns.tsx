@@ -42,7 +42,16 @@ export function useTableColumns(
           id: ETranslations.referral_code_list_note,
         }),
         dataIndex: EInviteCodeListTableColumn.NOTE,
-        ...(gtLg ? { columnProps: { flex: 1 } } : { columnWidth: 160 }),
+        ...(gtLg
+          ? { columnProps: { flex: 1 } }
+          : {
+              columnWidth: Math.max(
+                intl.formatMessage({
+                  id: ETranslations.referral_code_list_note,
+                }).length * 10,
+                160,
+              ),
+            }),
         render: (_text: string, record: IInviteCodeListItem) => (
           <NoteCell
             code={record.code}
@@ -57,7 +66,16 @@ export function useTableColumns(
         }),
         dataIndex: EInviteCodeListTableColumn.SALES_ORDERS,
         align: 'left',
-        ...(gtLg ? { columnProps: { flex: 1 } } : { columnWidth: 130 }),
+        ...(gtLg
+          ? { columnProps: { flex: 1 } }
+          : {
+              columnWidth: Math.max(
+                intl.formatMessage({
+                  id: ETranslations.referral_code_list_sales,
+                }).length * 10,
+                100,
+              ),
+            }),
         render: (value: number) => (
           <SizableText size="$bodyMdMedium" color="$text">
             {value}
@@ -69,7 +87,16 @@ export function useTableColumns(
           id: ETranslations.referral_code_list_wallets,
         }),
         dataIndex: EInviteCodeListTableColumn.ONCHAIN_WALLETS,
-        ...(gtLg ? { columnProps: { flex: 1 } } : { columnWidth: 130 }),
+        ...(gtLg
+          ? { columnProps: { flex: 1 } }
+          : {
+              columnWidth: Math.max(
+                intl.formatMessage({
+                  id: ETranslations.referral_code_list_wallets,
+                }).length * 10,
+                130,
+              ),
+            }),
         render: (value: number) => (
           <SizableText size="$bodyMdMedium" color="$text">
             {value}
@@ -81,7 +108,16 @@ export function useTableColumns(
           id: ETranslations.referral_cumulative_rewards,
         }),
         dataIndex: EInviteCodeListTableColumn.CUMULATIVE_REWARDS,
-        ...(gtLg ? { columnProps: { flex: 1 } } : { columnWidth: 130 }),
+        ...(gtLg
+          ? { columnProps: { flex: 1 } }
+          : {
+              columnWidth: Math.max(
+                intl.formatMessage({
+                  id: ETranslations.referral_cumulative_rewards,
+                }).length * 8,
+                130,
+              ),
+            }),
         align: 'left',
         render: (value: string) => (
           <SizableText size="$bodyMdMedium" color="$text">
@@ -92,7 +128,7 @@ export function useTableColumns(
       {
         title: intl.formatMessage({ id: ETranslations.referral_code_list_at }),
         dataIndex: EInviteCodeListTableColumn.CREATED_AT,
-        ...(gtLg ? { columnProps: { flex: 1 } } : { columnWidth: 130 }),
+        ...(gtLg ? { columnProps: { flex: 1 } } : { columnWidth: 145 }),
         render: (date: string) => (
           <SizableText size="$bodyMdMedium" color="$text">
             {formatDate(date, { hideSeconds: true })}
@@ -102,7 +138,11 @@ export function useTableColumns(
       {
         title: '',
         dataIndex: EInviteCodeListTableColumn.INVITE_URL,
-        columnWidth: 115,
+        columnWidth: Math.max(
+          intl.formatMessage({ id: ETranslations.browser_copy_link }).length *
+            10,
+          100,
+        ),
         render: (url: string) => <CopyLinkButton url={url} />,
       },
     ],
