@@ -68,6 +68,7 @@ export function useDeviceConnect() {
   );
   const activeDeviceRef = useRef<SearchDevice | null>(null);
   const activeFeaturesRef = useRef<IOneKeyDeviceFeatures | null>(null);
+  const wasInBootloaderModeRef = useRef<boolean>(false);
 
   const isSameHardware = useCallback(
     (target: SearchDevice, current: SearchDevice | null) => {
@@ -143,13 +144,22 @@ export function useDeviceConnect() {
   );
 
   const ensureActiveConnection = useCallback(
-    async (device: SearchDevice) => {
+    async (device: SearchDevice, options?: { forceReconnect?: boolean }) => {
+      // If device was in bootloader mode, force reconnect to get fresh features
+      const shouldForceReconnect =
+        options?.forceReconnect || wasInBootloaderModeRef.current;
+
       if (
+        !shouldForceReconnect &&
         isSameHardware(device, activeDeviceRef.current) &&
         activeFeaturesRef.current
       ) {
         return activeFeaturesRef.current;
       }
+
+      // Clear bootloader mode flag when reconnecting
+      wasInBootloaderModeRef.current = false;
+
       const features = await connectDevice(device);
       return features;
     },
@@ -326,6 +336,11 @@ export function useDeviceConnect() {
         });
 
         const handleBootloaderMode = (existsFirmware: boolean) => {
+          // Set bootloader mode flag so retry will force reconnect
+          wasInBootloaderModeRef.current = true;
+          // Clear cached features to ensure fresh data on retry
+          activeFeaturesRef.current = null;
+
           fwUpdateActions.showBootloaderMode({
             connectId: device.connectId ?? undefined,
             existsFirmware,
@@ -334,17 +349,21 @@ export function useDeviceConnect() {
           throw new OneKeyLocalError('Device is in bootloader mode');
         };
 
-        if (
-          await deviceUtils.isBootloaderModeFromSearchDevice({
-            device: device as any,
-          })
-        ) {
-          const existsFirmware =
-            await deviceUtils.existsFirmwareFromSearchDevice({
+        // Skip SearchDevice-based bootloader check if we're retrying after bootloader mode
+        // because device.mode might still be 'bootloader' even after firmware update
+        if (!wasInBootloaderModeRef.current) {
+          if (
+            await deviceUtils.isBootloaderModeFromSearchDevice({
               device: device as any,
-            });
-          handleBootloaderMode(existsFirmware);
-          return;
+            })
+          ) {
+            const existsFirmware =
+              await deviceUtils.existsFirmwareFromSearchDevice({
+                device: device as any,
+              });
+            handleBootloaderMode(existsFirmware);
+            return;
+          }
         }
 
         // Set global transport type based on selected channel before connecting
