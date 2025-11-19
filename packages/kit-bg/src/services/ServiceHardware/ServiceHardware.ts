@@ -1494,6 +1494,14 @@ class ServiceHardware extends ServiceBase {
   }
 
   @backgroundMethod()
+  async getCurrentForceTransportType(): Promise<
+    EHardwareTransportType | undefined
+  > {
+    const state = await hardwareForceTransportAtom.get();
+    return state.forceTransportType;
+  }
+
+  @backgroundMethod()
   async getCurrentTransportType() {
     return this.connectionManager.getCurrentTransportType();
   }
