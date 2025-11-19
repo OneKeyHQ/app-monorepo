@@ -3,6 +3,7 @@ import { memo, useCallback, useEffect } from 'react';
 import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
+import type { IYStackProps } from '@onekeyhq/components';
 import { Button, Icon, XStack, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
