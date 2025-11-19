@@ -12,6 +12,7 @@ export type IPrimeUserInfo = {
   isLoggedInOnServer: boolean; // server api login status
   isEnablePrime: boolean | undefined;
   isEnableSandboxPay: boolean | undefined;
+  isPrimeDeviceLimitExceeded: boolean | undefined;
   email: string | undefined; // update by local privy sdk
   displayEmail: string | undefined; // update by server api
   privyUserId: string | undefined;
@@ -35,6 +36,7 @@ export type IPrimeServerUserInfo = {
   isEnablePrime: boolean | undefined;
   isEnableSandboxPay: boolean | undefined;
   isPrime: boolean;
+  isPrimeDeviceLimitExceeded: boolean | undefined;
   primeExpiredAt: number;
   level: 'PRIME' | 'NORMAL';
   salt: string;

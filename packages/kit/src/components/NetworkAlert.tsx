@@ -26,8 +26,15 @@ function BasicNetworkAlert() {
       screen: EModalNetworkDoctorPages.NetworkDoctorResult,
     });
 
-    await backgroundApiProxy.serviceNetworkDoctor.runNetworkDiagnostics();
-  }, [navigation]);
+    // Only run diagnostics if not already running or completed
+    // If status is 'completed', just show the result without re-running
+    if (
+      doctorState.status !== 'running' &&
+      doctorState.status !== 'completed'
+    ) {
+      void backgroundApiProxy.serviceNetworkDoctor.runNetworkDiagnostics();
+    }
+  }, [navigation, doctorState.status]);
 
   // Calculate action button text based on diagnostics state
   const actionText = useMemo(() => {
@@ -35,10 +42,14 @@ function BasicNetworkAlert() {
       const percentage = Math.round(doctorState.progress.percentage);
       return `${percentage}%`;
     }
+    // Show 100% if completed and result hasn't been viewed yet
+    if (doctorState.status === 'completed' && doctorState.result) {
+      return '100%';
+    }
     return intl.formatMessage({
       id: ETranslations.global_check,
     });
-  }, [doctorState.status, doctorState.progress, intl]);
+  }, [doctorState.status, doctorState.progress, doctorState.result, intl]);
 
   return isInternetReachable ? null : (
     <Alert

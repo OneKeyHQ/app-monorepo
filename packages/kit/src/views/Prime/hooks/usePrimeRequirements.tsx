@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import { Dialog, Toast } from '@onekeyhq/components';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -39,6 +40,10 @@ export function usePrimeRequirements() {
       const isLoggedInInBackground: boolean =
         await backgroundApiProxy.servicePrime.isLoggedIn();
       if (!isLoggedInInBackground || !isLoggedIn) {
+        defaultLogger.prime.subscription.onekeyIdLogout({
+          reason:
+            'usePrimeRequirements: Logout when primePersistAtom,simpleDb.prime.getAuthToken is not logged in',
+        });
         // logout before login, make sure local privy cache is cleared
         void logout();
 

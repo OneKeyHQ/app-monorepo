@@ -616,9 +616,11 @@ export function SocialButtonGroup() {
         </SizableText>
         {!isTabNavigator && isUpToDate ? (
           <SizableText
-            color={textColor}
+            color="$textDisabled"
+            mt="$1"
             size={textSize}
-            ai={isTabNavigator ? 'flex-start' : 'center'}
+            ai="center"
+            textAlign="center"
           >
             {intl.formatMessage({ id: ETranslations.update_app_up_to_date })}
           </SizableText>

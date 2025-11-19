@@ -2,7 +2,12 @@ import { useCallback } from 'react';
 
 import { ensureSensitiveTextEncoded } from '@onekeyhq/core/src/secret';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { EModalKeyTagRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  EModalKeyTagRoutes,
+  EModalRoutes,
+  ERootRoutes,
+} from '@onekeyhq/shared/src/routes';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
@@ -19,7 +24,8 @@ function useBackUpWallet({ walletId }: { walletId: string }) {
   const navigation = useAppNavigation();
   const liteCard = useLiteCard();
 
-  const { supportCloudBackup, startBackup } = useCloudBackup();
+  const { supportCloudBackup, cloudBackupFeatureInfo, startBackup } =
+    useCloudBackup();
 
   const handleBackUpByPhrase = useCallback(async () => {
     if (!wallet?.id) {
@@ -67,9 +73,17 @@ function useBackUpWallet({ walletId }: { walletId: string }) {
   }, [navigation, wallet]);
 
   const handleBackUpByCloud = useCallback(async () => {
-    await startBackup();
     defaultLogger.account.wallet.backupWallet('cloud');
-  }, [startBackup]);
+
+    navigation.navigate(ERootRoutes.Main, undefined, {
+      pop: true,
+    });
+    await timerUtils.wait(100);
+    await startBackup({
+      alwaysGoToBackupDetail: true,
+    });
+    defaultLogger.account.wallet.backupWallet('cloud');
+  }, [navigation, startBackup]);
 
   return {
     handleBackUpByPhrase,
@@ -77,6 +91,7 @@ function useBackUpWallet({ walletId }: { walletId: string }) {
     handleBackUpByKeyTag,
     handleBackUpByCloud,
     supportCloudBackup,
+    cloudBackupFeatureInfo,
   };
 }
 

@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
@@ -12,9 +12,11 @@ import {
   SizableText,
   YStack,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useNetworkDoctorStateAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ENetworkConnectivityLevel } from '@onekeyhq/shared/src/modules/NetworkDoctor/types';
+import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
 
@@ -51,9 +53,19 @@ function NetworkDoctorResult() {
 
   const { status, progress, result, error } = doctorState;
 
+  // Only reset if status is 'completed' or 'failed', not 'running'
+  // This allows background diagnostics to continue if user closes the page
+  useEffect(
+    () => () => {
+      if (status === 'completed' || status === 'failed') {
+        void backgroundApiProxy.serviceNetworkDoctor.resetNetworkDiagnostics();
+      }
+    },
+    [status],
+  );
+
   const handleContactSupport = useCallback(() => {
-    // TODO: Navigate to support page or open support dialog
-    console.log('Contact support clicked');
+    void showIntercom();
   }, []);
 
   const handleClose = useCallback(() => {
