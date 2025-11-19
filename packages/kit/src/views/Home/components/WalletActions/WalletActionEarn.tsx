@@ -21,6 +21,7 @@ export function WalletActionEarn(props: {
   walletType: string | undefined;
   source: 'homePage' | 'tokenDetails';
   trackID?: string;
+  logoURI?: string;
 }) {
   const {
     accountId,
@@ -30,6 +31,7 @@ export function WalletActionEarn(props: {
     walletType,
     source,
     trackID,
+    logoURI,
   } = props;
 
   const navigation = useAppNavigation();
@@ -119,9 +121,11 @@ export function WalletActionEarn(props: {
       params: {
         symbol,
         filterNetworkId: networkId,
+        logoURI: logoURI ? encodeURIComponent(logoURI) : undefined,
       },
     });
   }, [
+    logoURI,
     intl,
     result?.symbolInfo?.symbol,
     result?.protocolList,
