@@ -129,17 +129,25 @@ const aggregateByProtocol = (
   return sortByFiatValueDesc(Array.from(protocolMap.values()));
 };
 
-const useInvestmentState = () => {
+const useInvestmentState = ({
+  initialTotalFiatValue,
+  initialTotalEarnings24hFiatValue,
+}: {
+  initialTotalFiatValue?: string;
+  initialTotalEarnings24hFiatValue?: string;
+} = {}) => {
   const [investments, setInvestments] = useState<IEarnPortfolioInvestment[]>(
     [],
   );
   const [earnTotalFiatValue, setEarnTotalFiatValue] = useState<BigNumber>(
-    new BigNumber(0),
+    () => new BigNumber(initialTotalFiatValue || 0),
   );
   const [earnTotalEarnings24hFiatValue, setEarnTotalEarnings24hFiatValue] =
-    useState<BigNumber>(new BigNumber(0));
+    useState<BigNumber>(
+      () => new BigNumber(initialTotalEarnings24hFiatValue || 0),
+    );
   const investmentMapRef = useRef<IInvestmentMap>(new Map());
-  const isLoadingNewAccountRef = useRef(false);
+  const isLoadingNewAccountRef = useRef(true);
 
   const updateInvestments = useCallback(
     (newMap: IInvestmentMap, shouldUpdateTotals = true) => {
@@ -259,6 +267,24 @@ export const useEarnPortfolio = (): IUseEarnPortfolioReturn => {
   const [isLoading, setIsLoading] = useState(true);
   const actions = useEarnActions();
   const [{ earnAccount }] = useEarnAtom();
+  const earnAccountKey = useMemo(
+    () =>
+      actions.current.buildEarnAccountsKey({
+        accountId: accountIdValue || undefined,
+        indexAccountId:
+          accountIndexedAccountIdValue || indexedAccountIdValue || undefined,
+        networkId: allNetworkId,
+      }),
+    [
+      actions,
+      accountIdValue,
+      accountIndexedAccountIdValue,
+      indexedAccountIdValue,
+      allNetworkId,
+    ],
+  );
+  const currentOverviewData =
+    earnAccountKey && earnAccount ? earnAccount[earnAccountKey] : undefined;
 
   const {
     investments,
@@ -269,7 +295,10 @@ export const useEarnPortfolio = (): IUseEarnPortfolioReturn => {
     clearInvestments,
     finishLoadingNewAccount,
     isLoadingNewAccountRef,
-  } = useInvestmentState();
+  } = useInvestmentState({
+    initialTotalFiatValue: currentOverviewData?.totalFiatValue,
+    initialTotalEarnings24hFiatValue: currentOverviewData?.earnings24h,
+  });
 
   const {
     hasAccountChanged,
@@ -288,23 +317,6 @@ export const useEarnPortfolio = (): IUseEarnPortfolioReturn => {
         { leading: true, trailing: true },
       ),
     [updateInvestments],
-  );
-
-  const earnAccountKey = useMemo(
-    () =>
-      actions.current.buildEarnAccountsKey({
-        accountId: accountIdValue || undefined,
-        indexAccountId:
-          accountIndexedAccountIdValue || indexedAccountIdValue || undefined,
-        networkId: allNetworkId,
-      }),
-    [
-      actions,
-      accountIdValue,
-      accountIndexedAccountIdValue,
-      indexedAccountIdValue,
-      allNetworkId,
-    ],
   );
 
   useEffect(() => {
