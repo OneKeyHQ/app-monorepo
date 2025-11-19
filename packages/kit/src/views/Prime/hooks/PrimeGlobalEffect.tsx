@@ -12,6 +12,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IPrimeUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
@@ -162,6 +163,9 @@ function PrimeGlobalEffectView() {
           }),
         );
       } else {
+        defaultLogger.prime.subscription.onekeyIdAtomNotLoggedIn({
+          reason: 'PrimeGlobalEffect: privySdk.getAccessToken() is null',
+        });
         await backgroundApiProxy.servicePrime.setPrimePersistAtomNotLoggedIn();
       }
 
@@ -185,6 +189,9 @@ function PrimeGlobalEffectView() {
   useEffect(() => {
     const fn = async () => {
       if (authenticated) {
+        defaultLogger.prime.subscription.onekeyIdLogout({
+          reason: 'appEventBus: EAppEventBusNames.PrimeLoginInvalidToken',
+        });
         // If the server returns that the login is invalid, call the privy sdk logout
         await logout();
       }

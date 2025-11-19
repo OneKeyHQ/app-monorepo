@@ -19,6 +19,7 @@ import { useLoginOneKeyId } from '@onekeyhq/kit/src/hooks/useLoginOneKeyId';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { EPrimeEmailOTPScene } from '@onekeyhq/shared/src/consts/primeConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
@@ -91,11 +92,17 @@ export default function PrimeDeleteAccount() {
 
         try {
           // logout privy sdk
+          defaultLogger.prime.subscription.onekeyIdLogout({
+            reason: 'PrimeDeleteAccount: handleDeleteAccount',
+          });
           await logout();
         } catch (error) {
           console.error('logout error', error);
         }
 
+        defaultLogger.prime.subscription.onekeyIdAtomNotLoggedIn({
+          reason: 'PrimeDeleteAccount',
+        });
         //  logout atom states
         await backgroundApiProxy.servicePrime.setPrimePersistAtomNotLoggedIn();
 

@@ -57,6 +57,10 @@ function OneKeyIdPage() {
       if (!isLoggedIn && isFocused) {
         await timerUtils.wait(300);
         navigation.popStack();
+        defaultLogger.prime.subscription.onekeyIdLogout({
+          reason:
+            'OneKeyIdPage: is focused and primePersistAtom is not logged in',
+        });
         void logoutRef.current();
       }
     })();
