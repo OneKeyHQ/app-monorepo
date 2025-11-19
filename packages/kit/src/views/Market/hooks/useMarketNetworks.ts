@@ -10,16 +10,18 @@ import { useMarketBasicConfig } from './useMarketBasicConfig';
 export function useMarketNetworks() {
   const { networkList, isLoading: isConfigLoading } = useMarketBasicConfig();
 
-  const { sortedNetworkList, networkIds } = useMemo(() => {
-    const sortedList = [...networkList].sort((a, b) => a.index - b.index);
-    const ids = sortedList
-      .map((configNetwork) => configNetwork.networkId)
-      .filter(Boolean);
-    return {
-      sortedNetworkList: sortedList,
-      networkIds: ids,
-    };
-  }, [networkList]);
+  const sortedNetworkList = useMemo(
+    () => [...networkList].sort((a, b) => a.index - b.index),
+    [networkList],
+  );
+
+  const networkIds = useMemo(
+    () =>
+      sortedNetworkList
+        .map((configNetwork) => configNetwork.networkId)
+        .filter(Boolean),
+    [sortedNetworkList],
+  );
 
   const { result: allNetworks = [], isLoading: isServerNetworksLoading } =
     usePromiseResult(
