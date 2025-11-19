@@ -115,23 +115,21 @@ export function CumulativeRewards({
           gap="$4"
           $md={{ flexDirection: 'column', jc: 'flex-start', ai: 'flex-start' }}
         >
-          <YStack flex={1}>
-            <XStack ai="center" jc="space-between">
-              <XStack gap="$2" ai="center">
-                <SizableText size="$bodyMdMedium" color="$textSubdued">
-                  {intl.formatMessage({
-                    id: ETranslations.referral_referral_you_earned,
-                  })}
-                </SizableText>
+          <YStack flex={1} $md={{ width: '100%' }}>
+            <XStack gap="$2" ai="center" $md={{ jc: 'space-between' }}>
+              <SizableText size="$bodyMdMedium" color="$textSubdued">
+                {intl.formatMessage({
+                  id: ETranslations.referral_referral_you_earned,
+                })}
+              </SizableText>
 
-                <IconButton
-                  icon="ClockTimeHistoryOutline"
-                  variant="tertiary"
-                  iconColor="$iconSubdued"
-                  size="small"
-                  onPress={navigateToRewardHistory}
-                />
-              </XStack>
+              <IconButton
+                icon="ClockTimeHistoryOutline"
+                variant="tertiary"
+                iconColor="$iconSubdued"
+                size="small"
+                onPress={navigateToRewardHistory}
+              />
             </XStack>
             <Currency size="$heading4xl" color="$text" formatter="value">
               {BigNumber(cumulativeRewards.distributed)
