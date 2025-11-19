@@ -105,7 +105,10 @@ export const usePortfolioAction = ({
       rewardSymbol,
     }: {
       actionIcon: IEarnClaimActionIcon;
-      token?: IEarnToken;
+      token?: {
+        price: string;
+        info: IEarnToken;
+      };
       rewardTokenAddress?: string;
       stakedSymbol?: string;
       rewardSymbol?: string;
@@ -117,12 +120,12 @@ export const usePortfolioAction = ({
           providerName: provider,
         });
 
-        const receiveToken = earnUtils.convertEarnTokenToIToken(token);
+        const receiveToken = earnUtils.convertEarnTokenToIToken(token?.info);
 
         // Use rewardTokenAddress if provided (from airdrop asset), otherwise use token.address
         // Only pass claimTokenAddress if it's a non-empty string
         const claimTokenAddress =
-          rewardTokenAddress || token?.address || undefined;
+          rewardTokenAddress || token?.info.address || undefined;
 
         await handleClaim({
           claimType: actionIcon.type,
@@ -142,8 +145,8 @@ export const usePortfolioAction = ({
           tokenInfo: token
             ? {
                 balanceParsed: '0',
-                token,
-                price: '0',
+                token: token.info,
+                price: token.price,
                 networkId,
                 provider,
                 vault,
@@ -164,7 +167,7 @@ export const usePortfolioAction = ({
           },
           // For airdrops, use stakedSymbol to refresh the correct portfolio item
           // For normal claims, use token?.symbol
-          portfolioSymbol: stakedSymbol || token?.symbol,
+          portfolioSymbol: stakedSymbol || token?.info.symbol,
           // For airdrops, also pass rewardSymbol to filter the correct airdrop asset
           portfolioRewardSymbol: rewardSymbol,
         });
@@ -265,7 +268,10 @@ export const usePortfolioAction = ({
       rewardSymbol,
     }: {
       actionIcon: IEarnActionIcon | IEarnClaimWithKycActionIcon;
-      token?: IEarnToken;
+      token?: {
+        price: string;
+        info: IEarnToken;
+      };
       rewardTokenAddress?: string;
       indexedAccountId?: string;
       stakedSymbol?: string;

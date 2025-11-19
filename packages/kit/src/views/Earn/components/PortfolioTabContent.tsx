@@ -98,10 +98,7 @@ const WrappedActionButton = ({
 
     handleAction({
       actionIcon: reward.button,
-      token:
-        'info' in (buttonData?.token || {})
-          ? (buttonData?.token as { info: IEarnToken }).info
-          : (buttonData?.token as IEarnToken),
+      token: buttonData?.token,
       rewardTokenAddress,
       indexedAccountId: indexedAccount?.id,
       stakedSymbol,

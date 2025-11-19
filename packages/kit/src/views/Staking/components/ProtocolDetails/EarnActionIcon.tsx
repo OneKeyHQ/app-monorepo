@@ -414,7 +414,6 @@ function BasicClaimWithKycActionIcon({
   const handleClaimAction = useHandleClaimAction({
     protocolInfo,
     tokenInfo,
-    token: actionIcon.data?.token,
   });
 
   const handlePress = useCallback(async () => {

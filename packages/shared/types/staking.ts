@@ -545,12 +545,10 @@ export interface IEarnClaimActionIcon {
   disabled: boolean;
   data?: {
     balance: string;
-    token:
-      | IEarnToken
-      | {
-          price: string;
-          info: IEarnToken;
-        };
+    token: {
+      price: string;
+      info: IEarnToken;
+    };
   };
 }
 
@@ -560,7 +558,10 @@ export interface IEarnClaimWithKycActionIcon {
   disabled: boolean;
   data?: {
     balance: string;
-    token: IEarnToken;
+    token: {
+      price: string;
+      info: IEarnToken;
+    };
     icon?: IEarnIcon;
     title?: IEarnText;
     description?: IEarnText[];
