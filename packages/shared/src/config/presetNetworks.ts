@@ -1891,6 +1891,276 @@ const monadTestnet: IServerNetwork = {
   'backendIndex': false,
 };
 
+const initverse: IServerNetwork = {
+  'impl': 'evm',
+  'chainId': '7233',
+  'id': 'evm--7233',
+  'name': 'InitVerse Mainnet',
+  'symbol': 'INI',
+  'code': 'Initverse',
+  'shortcode': 'Initverse',
+  'shortname': 'Initverse',
+  'decimals': 18,
+  'feeMeta': {
+    'code': 'INI',
+    'decimals': 9,
+    'symbol': 'Gwei',
+    'isEIP1559FeeEnabled': false,
+    'isWithL1BaseFee': false,
+  },
+  'status': ENetworkStatus.LISTED,
+  'isTestnet': false,
+  'extensions': {
+    'position': 999,
+    'isTokenSupported': true,
+    'isNFTEnabled': false,
+  },
+  'logoURI':
+    'https://uni-test.onekey-asset.com/dashboard/logo/upload_1749437735301.0.9780950009234293.0.jpg',
+  'defaultEnabled': false,
+  'backendIndex': false,
+};
+
+const xphere: IServerNetwork = {
+  'impl': 'evm',
+  'chainId': '20250217',
+  'id': 'evm--20250217',
+  'name': 'Xphere',
+  'symbol': 'XP',
+  'code': 'xphere',
+  'shortcode': 'xphere',
+  'shortname': 'Xphere',
+  'decimals': 18,
+  'feeMeta': {
+    'code': 'XP',
+    'decimals': 9,
+    'symbol': 'Gwei',
+    'isEIP1559FeeEnabled': true,
+    'isWithL1BaseFee': false,
+  },
+  'status': ENetworkStatus.LISTED,
+  'isTestnet': false,
+  'extensions': {
+    'position': 9999,
+    'isTokenSupported': true,
+    'isNFTEnabled': true,
+  },
+  'logoURI':
+    'https://uni-test.onekey-asset.com/dashboard/logo/upload_1752462858693.0.1873171320015441.0.webp',
+  'defaultEnabled': true,
+  'backendIndex': false,
+};
+
+const xdc: IServerNetwork = {
+  'impl': 'evm',
+  'chainId': '50',
+  'id': 'evm--50',
+  'name': 'XDC Network',
+  'symbol': 'XDC',
+  'code': 'xdc',
+  'shortcode': 'xdc',
+  'shortname': 'XDC',
+  'decimals': 18,
+  'feeMeta': {
+    'code': 'xdc',
+    'decimals': 9,
+    'symbol': 'Gwei',
+    'isEIP1559FeeEnabled': false,
+    'isWithL1BaseFee': false,
+  },
+  'status': ENetworkStatus.LISTED,
+  'isTestnet': false,
+  'extensions': {
+    'position': 9999,
+    'isTokenSupported': true,
+    'isNFTEnabled': false,
+  },
+  'logoURI':
+    'https://uni-test.onekey-asset.com/dashboard/logo/upload_1761205223934.0.4478656769331151.0.png',
+  'defaultEnabled': false,
+  'backendIndex': false,
+};
+
+const stable: IServerNetwork = {
+  'impl': 'evm',
+  'chainId': '988',
+  'id': 'evm--988',
+  'name': 'Stable',
+  'symbol': 'USDT',
+  'code': 'stable',
+  'shortcode': 'stable',
+  'shortname': 'stable',
+  'decimals': 18,
+  'feeMeta': {
+    'code': 'USDT',
+    'decimals': 9,
+    'symbol': 'Gwei',
+    'isEIP1559FeeEnabled': true,
+    'isWithL1BaseFee': false,
+  },
+  'status': ENetworkStatus.LISTED,
+  'isTestnet': false,
+  'extensions': {
+    'position': 9999,
+    'isTokenSupported': true,
+    'isNFTEnabled': true,
+  },
+  'logoURI':
+    'https://uni-test.onekey-asset.com/dashboard/logo/upload_1761793345289.0.7883666112160701.0.jpg',
+  'defaultEnabled': false,
+  'backendIndex': false,
+};
+
+const plasma: IServerNetwork = {
+  'impl': 'evm',
+  'chainId': '9745',
+  'id': 'evm--9745',
+  'name': 'Plasma',
+  'symbol': 'XPL',
+  'code': 'plasma',
+  'shortcode': 'plasma',
+  'shortname': 'Plasma',
+  'decimals': 18,
+  'feeMeta': {
+    'code': 'XPL',
+    'decimals': 9,
+    'symbol': 'Gwei',
+    'isEIP1559FeeEnabled': true,
+    'isWithL1BaseFee': false,
+  },
+  'status': ENetworkStatus.LISTED,
+  'isTestnet': false,
+  'extensions': {
+    'position': 9999,
+    'isTokenSupported': true,
+    'isNFTEnabled': false,
+  },
+  'logoURI':
+    'https://uni-test.onekey-asset.com/dashboard/logo/upload_1758847943312.0.8173107016915802.0.jpg',
+  'defaultEnabled': true,
+  'backendIndex': false,
+};
+
+const birdlayer: IServerNetwork = {
+  'impl': 'evm',
+  'chainId': '53456',
+  'id': 'evm--53456',
+  'name': 'BirdLayer mainnet',
+  'symbol': 'ETH',
+  'code': 'birdLayer',
+  'shortcode': 'birdLayer',
+  'shortname': 'birdLayer',
+  'decimals': 18,
+  'feeMeta': {
+    'code': 'eth',
+    'decimals': 9,
+    'symbol': 'Gwei',
+    'isEIP1559FeeEnabled': false,
+    'isWithL1BaseFee': false,
+  },
+  'status': ENetworkStatus.LISTED,
+  'isTestnet': false,
+  'extensions': {
+    'position': 9999,
+    'isTokenSupported': true,
+    'isNFTEnabled': false,
+  },
+  'logoURI':
+    'https://uni-test.onekey-asset.com/dashboard/logo/upload_1753770054421.0.2510982282836258.0.png',
+  'defaultEnabled': false,
+  'backendIndex': false,
+};
+
+const stableTestnet: IServerNetwork = {
+  'impl': 'evm',
+  'chainId': '2201',
+  'id': 'evm--2201',
+  'name': 'Stable Testnet',
+  'symbol': 'USDT',
+  'code': 'tstable',
+  'shortcode': 'tstable',
+  'shortname': 'tstable',
+  'decimals': 18,
+  'feeMeta': {
+    'code': 'USDT',
+    'decimals': 9,
+    'symbol': 'Gwei',
+    'isEIP1559FeeEnabled': true,
+    'isWithL1BaseFee': false,
+  },
+  'status': ENetworkStatus.LISTED,
+  'isTestnet': true,
+  'extensions': {
+    'position': 9999,
+    'isTokenSupported': true,
+    'isNFTEnabled': false,
+  },
+  'logoURI':
+    'https://uni-test.onekey-asset.com/dashboard/logo/upload_1761803049122.0.6965772515144228.0.jpg',
+  'defaultEnabled': true,
+  'backendIndex': false,
+};
+
+const hoodiTestnet: IServerNetwork = {
+  'impl': 'evm',
+  'chainId': '560048',
+  'id': 'evm--560048',
+  'name': 'Hoodi Testnet',
+  'symbol': 'ETH',
+  'code': 'hoodi',
+  'shortcode': 'hoodi',
+  'shortname': 'Hoodi',
+  'decimals': 18,
+  'feeMeta': {
+    'code': 'hoodi',
+    'decimals': 9,
+    'symbol': 'Gwei',
+    'isEIP1559FeeEnabled': false,
+    'isWithL1BaseFee': false,
+  },
+  'status': ENetworkStatus.LISTED,
+  'isTestnet': true,
+  'extensions': {
+    'position': 9999,
+    'isTokenSupported': false,
+    'isNFTEnabled': false,
+  },
+  'logoURI':
+    'https://uni-test.onekey-asset.com/dashboard/logo/upload_1756883866913.0.8669067536091339.0.png',
+  'defaultEnabled': false,
+  'backendIndex': false,
+};
+
+const baseSepolia: IServerNetwork = {
+  'impl': 'evm',
+  'chainId': '84532',
+  'id': 'evm--84532',
+  'name': 'Base sepolia',
+  'symbol': 'ETH',
+  'code': 'basesepolia',
+  'shortcode': 'basesepolia',
+  'shortname': 'basesepolia',
+  'decimals': 18,
+  'feeMeta': {
+    'code': '1',
+    'decimals': 6,
+    'symbol': 'ETH',
+    'isEIP1559FeeEnabled': false,
+    'isWithL1BaseFee': true,
+  },
+  'status': ENetworkStatus.LISTED,
+  'isTestnet': true,
+  'extensions': {
+    'position': 9999,
+    'isTokenSupported': false,
+    'isNFTEnabled': false,
+  },
+  'logoURI':
+    'https://uni-test.onekey-asset.com/dashboard/logo/upload_1728897524134.0.3238051322500066.0.jpg',
+  'defaultEnabled': false,
+  'backendIndex': false,
+};
+
 const btc: IServerNetwork = {
   'chainId': '0',
   'code': 'btc',
@@ -2995,6 +3265,15 @@ export const presetNetworksMap = {
   hsk,
   rsk,
   unichain,
+  initverse,
+  xphere,
+  xdc,
+  stable,
+  plasma,
+  birdlayer,
+  stableTestnet,
+  hoodiTestnet,
+  baseSepolia,
 
   // cosmos
   celestia,
@@ -3192,6 +3471,15 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     worldChain,
     hyperEvm,
     monadTestnet,
+    initverse,
+    xphere,
+    xdc,
+    stable,
+    plasma,
+    birdlayer,
+    stableTestnet,
+    hoodiTestnet,
+    baseSepolia,
 
     // cosmos
     celestia,
