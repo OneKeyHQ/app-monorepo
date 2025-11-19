@@ -354,6 +354,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       await backgroundApiProxy.serviceHyperliquidSubscription.connect();
     }
     try {
+      console.log('updateSubscriptions__by__atomActions');
       await backgroundApiProxy.serviceHyperliquidSubscription.updateSubscriptions();
     } catch (error) {
       console.error(

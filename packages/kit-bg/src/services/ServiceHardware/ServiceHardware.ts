@@ -1494,6 +1494,14 @@ class ServiceHardware extends ServiceBase {
   }
 
   @backgroundMethod()
+  async getCurrentForceTransportType(): Promise<
+    EHardwareTransportType | undefined
+  > {
+    const state = await hardwareForceTransportAtom.get();
+    return state.forceTransportType;
+  }
+
+  @backgroundMethod()
   async getCurrentTransportType() {
     return this.connectionManager.getCurrentTransportType();
   }
@@ -1619,6 +1627,16 @@ class ServiceHardware extends ServiceBase {
     featuresDeviceId?: string | undefined | null; // rawDeviceId
     features?: IOneKeyDeviceFeatures;
   }) {
+    // Allow connectId to be null in the following EHardwareCallContext cases
+    if (
+      EHardwareCallContext.UPDATE_FIRMWARE === hardwareCallContext &&
+      !connectId &&
+      !featuresDeviceId &&
+      !features
+    ) {
+      return '';
+    }
+
     if (!connectId) {
       throw new OneKeyLocalError('connectId is required');
     }

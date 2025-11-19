@@ -385,7 +385,9 @@ function DesktopCustomTabBar() {
                       containerType: 'normal',
                       transform: platformEnv.isNative ? '' : 'translateY(-50%)',
                     }}
-                    onPress={closeAllWebTabs}
+                    onPress={() => {
+                      void closeAllWebTabs({ navigation });
+                    }}
                   >
                     <Icon
                       flexShrink={0}

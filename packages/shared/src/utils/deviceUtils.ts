@@ -250,6 +250,12 @@ function getUpdatingConnectId({
   connectId: string | undefined;
   currentTransportType: EHardwareTransportType;
 }) {
+  if (
+    platformEnv.isDesktop &&
+    currentTransportType === EHardwareTransportType.WEBUSB
+  ) {
+    return connectId;
+  }
   if (platformEnv.isSupportDesktopBle) {
     if (currentTransportType === EHardwareTransportType.DesktopWebBle) {
       return connectId;

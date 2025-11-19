@@ -23,6 +23,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
+import { useRecoveryPhraseProtected } from '../../../hooks/useRecoveryPhraseProtected/useRecoveryPhraseProtected';
 import { OnboardingLayout } from '../components/OnboardingLayout';
 
 import type { RouteProp } from '@react-navigation/core';
@@ -46,7 +47,7 @@ export default function ShowRecoveryPhrase() {
     }
     return generateMnemonic();
   }, [route.params.mnemonic]);
-  const { result: walletName } = usePromiseResult<string>(async () => {
+  const { result: displayName } = usePromiseResult<string>(async () => {
     if (!route.params.walletId) {
       return '';
     }
@@ -57,7 +58,7 @@ export default function ShowRecoveryPhrase() {
       route.params.accountName &&
       accountUtils.isOthersWallet({ walletId: wallet.id })
     ) {
-      return `${wallet.name}/${route.params.accountName}`;
+      return route.params.accountName;
     }
     return wallet.name;
   }, [route.params.accountName, route.params.walletId]);
@@ -80,10 +81,12 @@ export default function ShowRecoveryPhrase() {
     }
   }, [navigation, route.params]);
 
+  useRecoveryPhraseProtected();
+
   return (
     <Page>
       <OnboardingLayout>
-        <OnboardingLayout.Header title={walletName} />
+        <OnboardingLayout.Header title={displayName} />
         <OnboardingLayout.Body>
           <YStack gap="$5">
             <YStack gap="$3">
@@ -118,6 +121,9 @@ export default function ShowRecoveryPhrase() {
                   </XStack>
                 </YStack>
               ))}
+              {recoveryPhrase.length % 2 === 1 ? (
+                <YStack p="$1" flex={1} flexBasis="50%" />
+              ) : null}
             </XStack>
 
             {gtMd ? (

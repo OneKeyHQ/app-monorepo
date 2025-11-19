@@ -1,3 +1,5 @@
+import { useCallback } from 'react';
+
 import { useIntl } from 'react-intl';
 
 import type { IXStackProps, IYStackProps } from '@onekeyhq/components';
@@ -16,7 +18,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useLanguageSelector } from '../../Setting/hooks';
+import { useLanguageSelectorWithoutAuto } from '../../Setting/hooks/useLanguageSelector';
 
 const OnboardingLayoutBack = ({ exit }: { exit?: boolean }) => {
   const navigation = useAppNavigation();
@@ -40,8 +42,17 @@ const OnboardingLayoutBack = ({ exit }: { exit?: boolean }) => {
 
 function OnboardingLayoutLanguageSelector() {
   const intl = useIntl();
-  const { options, value, onChange } = useLanguageSelector();
+  const { options, value, onChange } = useLanguageSelectorWithoutAuto();
   const { gtMd } = useMedia();
+
+  const handleLanguageChange = useCallback(
+    (v: string) => {
+      setTimeout(() => {
+        void onChange(v);
+      }, 350);
+    },
+    [onChange],
+  );
 
   return (
     <YStack ml="auto">
@@ -50,7 +61,7 @@ function OnboardingLayoutLanguageSelector() {
         title={intl.formatMessage({ id: ETranslations.global_language })}
         items={options}
         value={value}
-        onChange={onChange}
+        onChange={handleLanguageChange}
         placement="bottom-end"
         floatingPanelProps={{ maxHeight: 280 }}
         sheetProps={{ snapPoints: [80], snapPointsMode: 'percent' }}
@@ -256,6 +267,9 @@ function OnboardingLayoutRoot({ children }: { children: React.ReactNode }) {
       alignItems="center"
       justifyContent="center"
       bg="$neutral2"
+      $theme-dark={{
+        bg: '$bgApp',
+      }}
       $gtMd={{
         p: '$10',
       }}
@@ -280,13 +294,10 @@ function OnboardingLayoutRoot({ children }: { children: React.ReactNode }) {
         h="100%"
         w="100%"
         px="$5"
-        // $gtMd={{
-        //   px: '$10',
-        // }}
         bg="$bg"
         $theme-dark={{
           outlineWidth: 1,
-          outlineColor: '$neutral2',
+          outlineColor: '$neutral3',
           outlineStyle: 'solid',
         }}
         $gtMd={{

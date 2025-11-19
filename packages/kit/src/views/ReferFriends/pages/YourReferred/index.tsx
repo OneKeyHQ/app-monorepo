@@ -22,7 +22,7 @@ import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import { BreadcrumbSection } from '../../components';
+import { BreadcrumbSection, ReferFriendsPageContainer } from '../../components';
 import { useNavigateToWalletAddresses } from '../YourReferredWalletAddresses/hooks/useNavigateToWalletAddresses';
 
 function EmptyData() {
@@ -207,31 +207,33 @@ function YourReferredPageWrapper() {
         />
       )}
       <Page.Body>
-        {!md ? (
-          <YStack p="$5">
-            <BreadcrumbSection secondItemLabel={title} />
-          </YStack>
-        ) : null}
-        <Tabs.Container>
-          <Tabs.Tab
-            name={intl.formatMessage({
-              id: ETranslations.global_wallet,
-            })}
-          >
-            <Tabs.ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
-              <WalletList />
-            </Tabs.ScrollView>
-          </Tabs.Tab>
-          <Tabs.Tab
-            name={intl.formatMessage({
-              id: ETranslations.referral_referred_type_3,
-            })}
-          >
-            <Tabs.ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
-              <HardwareSales />
-            </Tabs.ScrollView>
-          </Tabs.Tab>
-        </Tabs.Container>
+        <ReferFriendsPageContainer flex={1}>
+          {!md ? (
+            <YStack p="$5">
+              <BreadcrumbSection secondItemLabel={title} />
+            </YStack>
+          ) : null}
+          <Tabs.Container>
+            <Tabs.Tab
+              name={intl.formatMessage({
+                id: ETranslations.global_wallet,
+              })}
+            >
+              <Tabs.ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
+                <WalletList />
+              </Tabs.ScrollView>
+            </Tabs.Tab>
+            <Tabs.Tab
+              name={intl.formatMessage({
+                id: ETranslations.referral_referred_type_3,
+              })}
+            >
+              <Tabs.ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
+                <HardwareSales />
+              </Tabs.ScrollView>
+            </Tabs.Tab>
+          </Tabs.Container>
+        </ReferFriendsPageContainer>
       </Page.Body>
     </Page>
   );

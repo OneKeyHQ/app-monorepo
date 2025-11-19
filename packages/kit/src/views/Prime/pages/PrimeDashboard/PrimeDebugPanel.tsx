@@ -19,6 +19,7 @@ import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 
 import { usePrimePurchaseCallback } from '../../components/PrimePurchaseDialog/PrimePurchaseDialog';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 function CloudSyncDebugTest() {
   const navigation = useAppNavigation();
@@ -308,6 +309,9 @@ export function PrimeDebugPanel({
         </Button>
         <Button
           onPress={() => {
+            defaultLogger.prime.subscription.onekeyIdLogout({
+              reason: 'PrimeDebugPanel Logout Button',
+            });
             void logout();
           }}
         >

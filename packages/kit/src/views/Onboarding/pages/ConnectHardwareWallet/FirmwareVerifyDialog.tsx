@@ -573,7 +573,7 @@ export function EnumBasicDialogContentContainer({
                 id: ETranslations.device_auth_request_title,
               })}
             </Dialog.Title>
-            <Dialog.Description>
+            <Dialog.Description mb="$-5">
               {intl.formatMessage({
                 id: ETranslations.device_auth_request_desc,
               })}
