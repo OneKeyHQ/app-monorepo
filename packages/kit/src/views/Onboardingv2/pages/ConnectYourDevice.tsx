@@ -45,6 +45,7 @@ import {
   NeedBluetoothPermissions,
   NeedBluetoothTurnedOn,
   NeedOneKeyBridge,
+  OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import bleManagerInstance from '@onekeyhq/shared/src/hardware/bleManager';
@@ -78,6 +79,7 @@ import { ListItem } from '../../../components/ListItem';
 import { WalletAvatar } from '../../../components/WalletAvatar';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
+import { useFirmwareUpdateActions } from '../../FirmwareUpdate/hooks/useFirmwareUpdateActions';
 import { OnboardingLayout } from '../components/OnboardingLayout';
 import {
   EBluetoothStatus,
@@ -375,6 +377,48 @@ function useDeviceConnection({
       ensureStopScan,
       handleDeviceSelect,
     ],
+  );
+}
+
+function useNavigateToCheckAndUpdatePage() {
+  const fwUpdateActions = useFirmwareUpdateActions();
+  const navigation = useAppNavigation();
+  return useCallback(
+    async (
+      deviceData: IConnectYourDeviceItem,
+      tabValue: EConnectDeviceChannel,
+    ) => {
+      const handleBootloaderMode = (existsFirmware: boolean) => {
+        fwUpdateActions.showBootloaderMode({
+          connectId: deviceData.device?.connectId ?? undefined,
+          existsFirmware,
+        });
+        console.log('Device is in bootloader mode', deviceData);
+        throw new OneKeyLocalError('Device is in bootloader mode');
+      };
+      if (
+        await deviceUtils.isBootloaderModeFromSearchDevice({
+          device: deviceData.device as any,
+        })
+      ) {
+        const baseDevice = deviceData.device as SearchDevice;
+        if (!baseDevice) {
+          throw new OneKeyLocalError('Device is not connected');
+        }
+        const existsFirmware = await deviceUtils.existsFirmwareFromSearchDevice(
+          {
+            device: baseDevice as any,
+          },
+        );
+        handleBootloaderMode(existsFirmware);
+      } else {
+        navigation.push(EOnboardingPagesV2.CheckAndUpdate, {
+          deviceData,
+          tabValue,
+        });
+      }
+    },
+    [fwUpdateActions, navigation],
   );
 }
 
@@ -759,18 +803,15 @@ function USBOrBLEConnectionIndicator({
 }: IDeviceConnectionProps) {
   const themeVariant = useThemeVariant();
   const intl = useIntl();
-  const navigation = useAppNavigation();
   const isFocused = useIsFocused();
   const [{ hardwareTransportType }] = useSettingsPersistAtom();
+  const navigateToCheckAndUpdatePage = useNavigateToCheckAndUpdatePage();
 
   // Use the shared device connection logic
   const deviceConnection = useDeviceConnection({
     tabValue,
     onDeviceSelect: async (item) => {
-      navigation.push(EOnboardingPagesV2.CheckAndUpdate, {
-        deviceData: item,
-        tabValue,
-      });
+      void navigateToCheckAndUpdatePage(item, tabValue);
     },
   });
 
@@ -868,17 +909,19 @@ function USBOrBLEConnectionIndicator({
             deviceSerialNumberFromUI: device.serialNumber,
           });
         if (connectedDevice.device) {
-          navigation.push(EOnboardingPagesV2.CheckAndUpdate, {
-            deviceData: connectedDevice,
-            tabValue,
-          });
+          void navigateToCheckAndUpdatePage(connectedDevice as any, tabValue);
         }
       }
     } catch (error) {
       console.error('onConnectWebDevice error:', error);
       setIsChecking(false);
     }
-  }, [setIsChecking, tabValue, promptWebUsbDeviceAccess, navigation]);
+  }, [
+    setIsChecking,
+    tabValue,
+    promptWebUsbDeviceAccess,
+    navigateToCheckAndUpdatePage,
+  ]);
 
   useEffect(() => {
     if (
@@ -1007,19 +1050,17 @@ function BluetoothConnectionIndicator({
 }: IDeviceConnectionProps) {
   const intl = useIntl();
   const isFocused = useIsFocused();
-  const navigation = useAppNavigation();
   const [bluetoothStatus, setBluetoothStatus] = useState<EBluetoothStatus>(
     EBluetoothStatus.checking,
   );
+
+  const navigateToCheckAndUpdatePage = useNavigateToCheckAndUpdatePage();
 
   // Use shared device connection logic for Bluetooth
   const deviceConnection = useDeviceConnection({
     tabValue,
     onDeviceSelect: async (item) => {
-      navigation.push(EOnboardingPagesV2.CheckAndUpdate, {
-        deviceData: item,
-        tabValue,
-      });
+      void navigateToCheckAndUpdatePage(item, tabValue);
     },
   });
 
