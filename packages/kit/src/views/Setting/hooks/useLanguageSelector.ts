@@ -56,11 +56,16 @@ export function useLanguageSelectorWithoutAuto() {
   }, [localeOptions]);
 
   const value = useMemo(() => {
-    if (locale === 'system') {
-      return systemLocale;
+    const localeValue = locale === 'system' ? systemLocale : locale;
+    if (localeValue === 'en-US') {
+      return 'en';
     }
-    return locale === 'en-US' ? 'en' : locale;
-  }, [locale, systemLocale]);
+    // Check if localeValue exists in options, fallback to 'en' if not found
+    const isValidLocale = options.some(
+      (option) => option.value === localeValue,
+    );
+    return isValidLocale ? localeValue : 'en';
+  }, [locale, systemLocale, options]);
 
   const onChange = useCallback(async (text: string) => {
     await changeLanguage(text);
