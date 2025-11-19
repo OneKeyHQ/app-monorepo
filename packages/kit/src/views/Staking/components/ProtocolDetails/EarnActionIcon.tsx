@@ -601,7 +601,7 @@ function BasicEarnActionIcon({
               description={actionIcon.data.description}
             />
           }
-          placement="top"
+          placement="bottom-start"
         />
       ) : null;
     case 'history':
