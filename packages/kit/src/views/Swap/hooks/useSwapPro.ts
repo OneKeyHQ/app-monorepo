@@ -1,9 +1,6 @@
 import { useCallback, useEffect } from 'react';
 
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { useSwapProJumpTokenAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/swap';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 
@@ -15,6 +12,7 @@ import {
 export function useSwapProInit() {
   const [, setSwapSwitchType] = useSwapTypeSwitchAtom();
   const [, setSwapProSelectToken] = useSwapProSelectTokenAtom();
+  const [swapProJumpToken, setSwapProJumpToken] = useSwapProJumpTokenAtom();
   const swapSwitchProToken = useCallback(
     (payload: { token: ISwapToken }) => {
       setSwapSwitchType(ESwapTabSwitchType.LIMIT);
@@ -23,9 +21,11 @@ export function useSwapProInit() {
     [setSwapSwitchType, setSwapProSelectToken],
   );
   useEffect(() => {
-    appEventBus.off(EAppEventBusNames.JumpSwapPro, swapSwitchProToken);
-    appEventBus.on(EAppEventBusNames.JumpSwapPro, swapSwitchProToken);
-  }, [swapSwitchProToken]);
+    if (swapProJumpToken.token) {
+      swapSwitchProToken({ token: swapProJumpToken.token });
+      setSwapProJumpToken({ token: undefined });
+    }
+  }, [swapProJumpToken, swapSwitchProToken, setSwapProJumpToken]);
 }
 
 export function useSwapProActions() {}

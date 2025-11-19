@@ -16,6 +16,7 @@ import {
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useSwapProJumpTokenAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/swap';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -39,7 +40,7 @@ export function SwapPanel({ swapToken }: { swapToken: ISwapToken }) {
     isModalPage ? EInPageDialogType.inModalPage : EInPageDialogType.inTabPages,
   );
   const dialogRef = useRef<IDialogInstance>(null);
-
+  const [, setSwapProJumpTokenAtom] = useSwapProJumpTokenAtom();
   if (!swapToken) {
     return (
       <Stack
@@ -96,11 +97,9 @@ export function SwapPanel({ swapToken }: { swapToken: ISwapToken }) {
           size="large"
           variant="primary"
           onPress={() => {
+            setSwapProJumpTokenAtom({ token: swapToken });
             navigation.pop();
             navigation.switchTab(ETabRoutes.Swap);
-            appEventBus.emit(EAppEventBusNames.JumpSwapPro, {
-              token: swapToken,
-            });
           }}
         >
           {/* <Button size="large" variant="primary" onPress={() => showSwapDialog()}> */}
