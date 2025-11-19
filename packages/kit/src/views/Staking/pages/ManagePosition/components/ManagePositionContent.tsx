@@ -2,7 +2,7 @@ import { useCallback, useMemo } from 'react';
 
 import { isEmpty } from 'lodash';
 
-import { Skeleton, XStack, YStack } from '@onekeyhq/components';
+import { YStack } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import type { ISupportedSymbol } from '@onekeyhq/shared/types/earn';
@@ -52,9 +52,7 @@ export function ManagePositionContent({
 }: IManagePositionContentProps) {
   const appNavigation = useAppNavigation();
 
-  // Use managePage hook to fetch all data
   const {
-    isLoading,
     tokenInfo,
     earnAccount,
     protocolInfo,
@@ -193,55 +191,6 @@ export function ManagePositionContent({
     }
     return null;
   }, [noAddressOrAccount, alertsWithdraw, alerts, noAddressWarningElement]);
-
-  // Show loading skeleton
-  if (isLoading && !noAddressOrAccount) {
-    return (
-      <YStack px="$5" pt="$4" gap="$6">
-        {/* Tabs skeleton */}
-        <XStack gap="$2">
-          <Skeleton w="$20" h="$9" borderRadius="$2" />
-          <Skeleton w="$20" h="$9" borderRadius="$2" />
-        </XStack>
-
-        {/* Input section skeleton */}
-        <YStack gap="$4">
-          <YStack gap="$3" p="$4" bg="$bgSubdued" borderRadius="$3">
-            <XStack jc="space-between" ai="center">
-              <Skeleton.BodyMd w="$20" />
-              <Skeleton.BodySm w="$24" />
-            </XStack>
-            <XStack jc="space-between" ai="center">
-              <Skeleton w="$32" h="$12" />
-              <XStack gap="$2" ai="center">
-                <Skeleton w="$10" h="$10" borderRadius="$full" />
-                <Skeleton.BodyLg w="$16" />
-              </XStack>
-            </XStack>
-          </YStack>
-
-          {/* Info cards skeleton */}
-          <YStack gap="$3">
-            <XStack jc="space-between" ai="center">
-              <Skeleton.BodyMd w="$24" />
-              <Skeleton.BodyMd w="$20" />
-            </XStack>
-            <XStack jc="space-between" ai="center">
-              <Skeleton.BodyMd w="$28" />
-              <Skeleton.BodyMd w="$16" />
-            </XStack>
-            <XStack jc="space-between" ai="center">
-              <Skeleton.BodyMd w="$20" />
-              <Skeleton.BodyMd w="$24" />
-            </XStack>
-          </YStack>
-
-          {/* Button skeleton */}
-          <Skeleton w="100%" h="$11" borderRadius="$3" />
-        </YStack>
-      </YStack>
-    );
-  }
 
   // USDe special rendering
   if (symbol.toLowerCase() === 'usde') {

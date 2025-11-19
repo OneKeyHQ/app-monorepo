@@ -118,7 +118,7 @@ export function ApyChart({
     [intl],
   );
 
-  const { result: chartData, isLoading } = usePromiseResult(
+  const { result: chartData } = usePromiseResult(
     async () => {
       const apyHistory = await backgroundApiProxy.serviceStaking.getApyHistory({
         networkId,
@@ -159,35 +159,6 @@ export function ApyChart({
     [networkId, symbol, provider, vault],
     { watchLoading: true },
   );
-
-  if (isLoading) {
-    return (
-      <YStack gap="$3">
-        <YStack>
-          {/* Token icon and name skeleton */}
-          <XStack gap="$2" ai="center">
-            <Skeleton w="$5" h="$5" borderRadius="$full" />
-            <Skeleton w={80} h="$4" borderRadius="$2" />
-          </XStack>
-          {/* APY value skeleton */}
-          <Skeleton w={120} h="$10" borderRadius="$2" mt="$2.5" />
-          {/* High and Low skeleton */}
-          <XStack gap="$4" mt="$6">
-            <YStack>
-              <Skeleton w={40} h="$3" borderRadius="$1" mb="$1" />
-              <Skeleton w={60} h="$4" borderRadius="$2" />
-            </YStack>
-            <YStack>
-              <Skeleton w={40} h="$3" borderRadius="$1" mb="$1" />
-              <Skeleton w={60} h="$4" borderRadius="$2" />
-            </YStack>
-          </XStack>
-        </YStack>
-        {/* Chart skeleton */}
-        <Skeleton h={200} w="100%" borderRadius="$3" />
-      </YStack>
-    );
-  }
 
   return (
     <YStack gap="$3">

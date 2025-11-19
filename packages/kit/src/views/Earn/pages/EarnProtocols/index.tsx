@@ -161,7 +161,7 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
       {
         key: 'protocol',
         label: intl.formatMessage({ id: ETranslations.global_protocol }),
-        flex: 2.5,
+        flex: 5,
         render: (item) => {
           return (
             <XStack jc="center" ai="center">
