@@ -87,7 +87,10 @@ const Rebate = ({
     [],
   );
 
-  if (!rebateData) {
+  if (
+    !rebateData ||
+    (isEmpty(rebateData?.distributed) && isEmpty(rebateData?.undistributed))
+  ) {
     return null;
   }
 
