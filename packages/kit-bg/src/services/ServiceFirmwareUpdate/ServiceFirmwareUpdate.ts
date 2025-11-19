@@ -592,14 +592,15 @@ class ServiceFirmwareUpdate extends ServiceBase {
     const checkBridgeRelease = await this._hasUseBridge();
     const currentTransportType =
       await this.backgroundApi.serviceSetting.getHardwareTransportType();
+    const updatingConnectId = deviceUtils.getUpdatingConnectId({
+      connectId,
+      currentTransportType,
+    });
     const result = await convertDeviceResponse(() =>
       // method fail if device on boot mode
-      hardwareSDK.checkAllFirmwareRelease(
-        deviceUtils.getUpdatingConnectId({ connectId, currentTransportType }),
-        {
-          checkBridgeRelease,
-        },
-      ),
+      hardwareSDK.checkAllFirmwareRelease(updatingConnectId, {
+        checkBridgeRelease,
+      }),
     );
 
     return result;
