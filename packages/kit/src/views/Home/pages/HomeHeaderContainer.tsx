@@ -54,13 +54,11 @@ function HomeHeaderContainer() {
       {isWalletNotBackedUp ? null : (
         <YStack
           $gtMd={{ flexDirection: 'row' }}
-          gap="$5"
-          p="$5"
           bg="$bgApp"
           pointerEvents="box-none"
         >
-          <ReceiveInfo closable />
-          <ReferralCodeBlock closable />
+          <ReceiveInfo closable containerProps={{ m: '$5' }} />
+          <ReferralCodeBlock closable containerProps={{ m: '$5' }} />
         </YStack>
       )}
     </HomeTokenListProviderMirror>

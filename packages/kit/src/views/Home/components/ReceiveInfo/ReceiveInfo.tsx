@@ -26,9 +26,11 @@ import MainInfoBlock from '../NotBakcedUp/MainBlock';
 function ReceiveInfo({
   recomputeLayout,
   closable,
+  containerProps,
 }: {
   recomputeLayout?: () => void;
   closable?: boolean;
+  containerProps?: IYStackProps;
 }) {
   const navigation = useAppNavigation();
   const themeVariant = useThemeVariant();
@@ -235,6 +237,7 @@ function ReceiveInfo({
         bg: '$green1',
         $gtMd: { flexBasis: 0, flexShrink: 1, flexGrow: 1 },
         pointerEvents: 'box-none',
+        ...containerProps,
       }}
     />
   );
