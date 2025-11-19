@@ -7,7 +7,10 @@ import {
   createJotaiContext,
 } from '@onekeyhq/kit/src/states/jotai/utils/createJotaiContext';
 import type { IEarnPermitCache } from '@onekeyhq/shared/types/earn';
-import type { IEarnAtomData } from '@onekeyhq/shared/types/staking';
+import type {
+  IEarnAtomData,
+  IEarnPortfolioInvestment,
+} from '@onekeyhq/shared/types/staking';
 
 const {
   Provider: ProviderJotaiContextEarn,
@@ -65,5 +68,10 @@ export const { atom: earnPermitCacheAtom, use: useEarnPermitCacheAtom } =
 
 export const { atom: earnLoadingStatesAtom, use: useEarnLoadingStatesAtom } =
   contextAtom<Record<string, boolean>>({});
+
+export const {
+  atom: earnPortfolioInvestmentsAtom,
+  use: useEarnPortfolioInvestmentsAtom,
+} = contextAtom<Record<string, IEarnPortfolioInvestment[]>>({});
 
 export const useEarnAtom = () => useContextAtom(earnAtom());

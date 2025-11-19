@@ -18,6 +18,7 @@ import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector
 import {
   useEarnActions,
   useEarnAtom,
+  useEarnPortfolioInvestmentsAtom,
 } from '../../../states/jotai/contexts/earn';
 
 interface IRefreshOptions {
@@ -63,6 +64,33 @@ const sortByFiatValueDesc = (
     const valueB = new BigNumber(b.totalFiatValue || '0');
     return valueB.comparedTo(valueA);
   });
+
+const filterValidInvestments = (
+  values: Iterable<IEarnPortfolioInvestment>,
+): IEarnPortfolioInvestment[] =>
+  Array.from(values).filter((inv) => {
+    if (inv.airdropAssets.length > 0) return true;
+    return hasPositiveFiatValue(inv.totalFiatValue);
+  });
+
+const createInvestmentKeyFromInvestment = (
+  investment: IEarnPortfolioInvestment,
+): IInvestmentKey => {
+  const firstAsset = investment.assets[0] || investment.airdropAssets[0];
+  return createInvestmentKey({
+    provider: investment.protocol.providerDetail.code,
+    symbol: firstAsset?.token.info.symbol || '',
+    vault: investment.protocol.vault,
+    networkId: investment.network.networkId,
+  });
+};
+
+const buildInvestmentMapFromList = (
+  investments: IEarnPortfolioInvestment[],
+): IInvestmentMap =>
+  new Map(
+    investments.map((inv) => [createInvestmentKeyFromInvestment(inv), inv]),
+  );
 
 const calculateTotalFiatValue = (
   investments: IEarnPortfolioInvestment[],
@@ -130,14 +158,16 @@ const aggregateByProtocol = (
 };
 
 const useInvestmentState = ({
+  initialInvestments,
   initialTotalFiatValue,
   initialTotalEarnings24hFiatValue,
 }: {
+  initialInvestments?: IEarnPortfolioInvestment[];
   initialTotalFiatValue?: string;
   initialTotalEarnings24hFiatValue?: string;
 } = {}) => {
   const [investments, setInvestments] = useState<IEarnPortfolioInvestment[]>(
-    [],
+    () => initialInvestments ?? [],
   );
   const [earnTotalFiatValue, setEarnTotalFiatValue] = useState<BigNumber>(
     () => new BigNumber(initialTotalFiatValue || 0),
@@ -146,16 +176,19 @@ const useInvestmentState = ({
     useState<BigNumber>(
       () => new BigNumber(initialTotalEarnings24hFiatValue || 0),
     );
-  const investmentMapRef = useRef<IInvestmentMap>(new Map());
+  const investmentMapRef = useRef<IInvestmentMap>(
+    initialInvestments && initialInvestments.length > 0
+      ? buildInvestmentMapFromList(initialInvestments)
+      : new Map(),
+  );
   const isLoadingNewAccountRef = useRef(true);
 
   const updateInvestments = useCallback(
-    (newMap: IInvestmentMap, shouldUpdateTotals = true) => {
-      const validInvestments = Array.from(newMap.values()).filter((inv) => {
-        if (inv.airdropAssets.length > 0) return true;
-        return hasPositiveFiatValue(inv.totalFiatValue);
-      });
-
+    (
+      newMap: IInvestmentMap,
+      shouldUpdateTotals = true,
+    ): IEarnPortfolioInvestment[] => {
+      const validInvestments = filterValidInvestments(newMap.values());
       const sorted = sortByFiatValueDesc(validInvestments);
       setInvestments(sorted);
 
@@ -166,20 +199,8 @@ const useInvestmentState = ({
         );
       }
 
-      investmentMapRef.current = new Map(
-        validInvestments.map((inv) => {
-          const firstAsset = inv.assets[0] || inv.airdropAssets[0];
-          return [
-            createInvestmentKey({
-              provider: inv.protocol.providerDetail.code,
-              symbol: firstAsset?.token.info.symbol || '',
-              vault: inv.protocol.vault,
-              networkId: inv.network.networkId,
-            }),
-            inv,
-          ];
-        }),
-      );
+      investmentMapRef.current = buildInvestmentMapFromList(validInvestments);
+      return sorted;
     },
     [],
   );
@@ -264,9 +285,9 @@ export const useEarnPortfolio = (): IUseEarnPortfolioReturn => {
   const indexedAccountIdValue = indexedAccount?.id ?? '';
   const accountIndexedAccountIdValue = account?.indexedAccountId;
 
-  const [isLoading, setIsLoading] = useState(true);
   const actions = useEarnActions();
   const [{ earnAccount }] = useEarnAtom();
+  const [portfolioCache, setPortfolioCache] = useEarnPortfolioInvestmentsAtom();
   const earnAccountKey = useMemo(
     () =>
       actions.current.buildEarnAccountsKey({
@@ -285,6 +306,13 @@ export const useEarnPortfolio = (): IUseEarnPortfolioReturn => {
   );
   const currentOverviewData =
     earnAccountKey && earnAccount ? earnAccount[earnAccountKey] : undefined;
+  const cachedInvestments = useMemo(() => {
+    if (!earnAccountKey) return undefined;
+    return portfolioCache[earnAccountKey];
+  }, [portfolioCache, earnAccountKey]);
+  const [isLoading, setIsLoading] = useState(
+    () => !(cachedInvestments && cachedInvestments.length > 0),
+  );
 
   const {
     investments,
@@ -296,6 +324,7 @@ export const useEarnPortfolio = (): IUseEarnPortfolioReturn => {
     finishLoadingNewAccount,
     isLoadingNewAccountRef,
   } = useInvestmentState({
+    initialInvestments: cachedInvestments,
     initialTotalFiatValue: currentOverviewData?.totalFiatValue,
     initialTotalEarnings24hFiatValue: currentOverviewData?.earnings24h,
   });
@@ -547,7 +576,17 @@ export const useEarnPortfolio = (): IUseEarnPortfolioReturn => {
             investmentMapRef.current = finalMap;
           }
 
-          updateInvestments(new Map(investmentMapRef.current), true);
+          const latestInvestments = updateInvestments(
+            new Map(investmentMapRef.current),
+            true,
+          );
+
+          if (earnAccountKey && latestInvestments) {
+            setPortfolioCache((prev) => ({
+              ...prev,
+              [earnAccountKey]: latestInvestments,
+            }));
+          }
 
           finishLoadingNewAccount();
 
@@ -577,6 +616,7 @@ export const useEarnPortfolio = (): IUseEarnPortfolioReturn => {
       fetchInvestmentDetail,
       throttledUIUpdate,
       updateInvestments,
+      setPortfolioCache,
     ],
   );
 
