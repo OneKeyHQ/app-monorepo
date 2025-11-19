@@ -84,6 +84,7 @@ import { OnboardingLayout } from '../components/OnboardingLayout';
 import {
   EBluetoothStatus,
   useDesktopBluetoothStatusPolling,
+  useDeviceConnect,
 } from '../hooks/useDeviceConnect';
 import {
   getDeviceLabel,
@@ -383,6 +384,7 @@ function useDeviceConnection({
 function useNavigateToCheckAndUpdatePage() {
   const fwUpdateActions = useFirmwareUpdateActions();
   const navigation = useAppNavigation();
+  const { ensureActiveConnection } = useDeviceConnect();
   return useCallback(
     async (
       deviceData: IConnectYourDeviceItem,
@@ -396,6 +398,7 @@ function useNavigateToCheckAndUpdatePage() {
         console.log('Device is in bootloader mode', deviceData);
         throw new OneKeyLocalError('Device is in bootloader mode');
       };
+      console.log('deviceData', deviceData);
       if (
         await deviceUtils.isBootloaderModeFromSearchDevice({
           device: deviceData.device as any,
@@ -411,14 +414,33 @@ function useNavigateToCheckAndUpdatePage() {
           },
         );
         handleBootloaderMode(existsFirmware);
-      } else {
-        navigation.push(EOnboardingPagesV2.CheckAndUpdate, {
-          deviceData,
-          tabValue,
-        });
+        return;
       }
+
+      const features = await ensureActiveConnection(
+        deviceData.device as SearchDevice,
+      );
+      if (!features) {
+        throw new OneKeyLocalError('Device is not connected');
+      }
+      const isBootloaderModeByFeatures =
+        await deviceUtils.isBootloaderModeByFeatures({
+          features,
+        });
+      console.log('existsFirmware', isBootloaderModeByFeatures, features);
+      if (isBootloaderModeByFeatures) {
+        const existsFirmware = await deviceUtils.existsFirmwareByFeatures({
+          features,
+        });
+        handleBootloaderMode(existsFirmware);
+        return;
+      }
+      navigation.push(EOnboardingPagesV2.CheckAndUpdate, {
+        deviceData,
+        tabValue,
+      });
     },
-    [fwUpdateActions, navigation],
+    [ensureActiveConnection, fwUpdateActions, navigation],
   );
 }
 

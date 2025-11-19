@@ -334,6 +334,13 @@ export function useDeviceConnect() {
           throw new OneKeyLocalError('Device is in bootloader mode');
         };
 
+        console.log(
+          'deviceData isBootloaderModeFromSearchDevice',
+          device,
+          await deviceUtils.isBootloaderModeFromSearchDevice({
+            device: device as any,
+          }),
+        );
         if (
           await deviceUtils.isBootloaderModeFromSearchDevice({
             device: device as any,
