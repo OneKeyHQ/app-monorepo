@@ -46,7 +46,7 @@ module.exports = {
       { target: 'zip', arch: ['x64', 'arm64', 'universal'] },
     ],
     'entitlements': getPath('entitlements.mac.plist'),
-    'entitlementsInherit': getPath('entitlements.mac.plist'), // Use same entitlements for child processes
+    'entitlementsInherit': getPath('entitlements.mac.inherit.plist'), // Simplified entitlements for Helper processes
     // Provisioning profile for CloudKit support with Developer ID
     // Injected by CI workflow from GitHub Secrets: DESKTOP_ISO_PROVISION_PROFILE_BASE64
     // Profile name in Apple Developer: OneKeyDesktop_DeveloperID_26/11/03
