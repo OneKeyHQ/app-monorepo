@@ -384,15 +384,18 @@ function useDeviceConnection({
 function useNavigateToCheckAndUpdatePage() {
   const fwUpdateActions = useFirmwareUpdateActions();
   const navigation = useAppNavigation();
-  const [isBootloaderModeChecking, setIsBootloaderModeChecking] =
-    useState(false);
+  const [bootloaderModeDeviceName, setBootloaderModeDeviceName] = useState('');
   const { ensureActiveConnection } = useDeviceConnect();
+  const clearBootloaderModeDeviceName = useCallback(() => {
+    setBootloaderModeDeviceName('');
+  }, []);
+
   const navigateToCheckAndUpdatePage = useCallback(
     async (
       deviceData: IConnectYourDeviceItem,
       tabValue: EConnectDeviceChannel,
     ) => {
-      setIsBootloaderModeChecking(true);
+      setBootloaderModeDeviceName(deviceData.device?.name ?? '');
       const handleBootloaderMode = (existsFirmware: boolean) => {
         fwUpdateActions.showBootloaderMode({
           connectId: deviceData.device?.connectId ?? undefined,
@@ -416,7 +419,7 @@ function useNavigateToCheckAndUpdatePage() {
             device: baseDevice as any,
           },
         );
-        setIsBootloaderModeChecking(false);
+        clearBootloaderModeDeviceName();
         handleBootloaderMode(existsFirmware);
         return;
       }
@@ -436,24 +439,29 @@ function useNavigateToCheckAndUpdatePage() {
         const existsFirmware = await deviceUtils.existsFirmwareByFeatures({
           features,
         });
-        setIsBootloaderModeChecking(false);
+        clearBootloaderModeDeviceName();
         handleBootloaderMode(existsFirmware);
         return;
       }
-      setIsBootloaderModeChecking(false);
+      clearBootloaderModeDeviceName();
       navigation.push(EOnboardingPagesV2.CheckAndUpdate, {
         deviceData,
         tabValue,
       });
     },
-    [ensureActiveConnection, fwUpdateActions, navigation],
+    [
+      clearBootloaderModeDeviceName,
+      ensureActiveConnection,
+      fwUpdateActions,
+      navigation,
+    ],
   );
   return useMemo(
     () => ({
       navigateToCheckAndUpdatePage,
-      isBootloaderModeChecking,
+      bootloaderModeDeviceName,
     }),
-    [navigateToCheckAndUpdatePage, isBootloaderModeChecking],
+    [navigateToCheckAndUpdatePage, bootloaderModeDeviceName],
   );
 }
 
@@ -840,7 +848,7 @@ function USBOrBLEConnectionIndicator({
   const intl = useIntl();
   const isFocused = useIsFocused();
   const [{ hardwareTransportType }] = useSettingsPersistAtom();
-  const { navigateToCheckAndUpdatePage, isBootloaderModeChecking } =
+  const { navigateToCheckAndUpdatePage, bootloaderModeDeviceName } =
     useNavigateToCheckAndUpdatePage();
 
   // Use the shared device connection logic
@@ -1058,7 +1066,7 @@ function USBOrBLEConnectionIndicator({
                   <ListItem
                     key={data.device?.deviceId}
                     drillIn
-                    isLoading={isBootloaderModeChecking}
+                    isLoading={bootloaderModeDeviceName === data.device?.name}
                     onPress={async () => {
                       await handleDeviceSelect(data);
                     }}
@@ -1091,7 +1099,7 @@ function BluetoothConnectionIndicator({
     EBluetoothStatus.checking,
   );
 
-  const { navigateToCheckAndUpdatePage, isBootloaderModeChecking } =
+  const { navigateToCheckAndUpdatePage, bootloaderModeDeviceName } =
     useNavigateToCheckAndUpdatePage();
 
   // Use shared device connection logic for Bluetooth
@@ -1224,7 +1232,7 @@ function BluetoothConnectionIndicator({
                   <ListItem
                     key={device.device?.connectId}
                     drillIn
-                    isLoading={isBootloaderModeChecking}
+                    isLoading={bootloaderModeDeviceName === device.device?.name}
                     onPress={async () => {
                       if (!device.device) {
                         return;
