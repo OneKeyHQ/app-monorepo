@@ -270,7 +270,6 @@ function TableListHeader<T>({
   rowGap,
   enableDrillIn,
   actions,
-  listItemProps,
   headerProps,
   expandable,
 }: ITableListHeaderProps<T>) {
@@ -295,7 +294,7 @@ function TableListHeader<T>({
   );
 
   return (
-    <ListItem gap={rowGap ?? '$3'} {...listItemProps} {...headerProps}>
+    <ListItem gap={rowGap ?? '$3'} {...headerProps}>
       {expandable ? <Stack width="$6" flexShrink={0} /> : null}
       {columns.map((column) => {
         let content: ReactNode = null;

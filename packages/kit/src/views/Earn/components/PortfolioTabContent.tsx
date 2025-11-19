@@ -33,6 +33,7 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
+  IEarnPortfolioAirdropAsset,
   IEarnPortfolioInvestment,
   IEarnText,
   IEarnToken,
@@ -43,7 +44,6 @@ import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector
 import { EarnText } from '../../Staking/components/ProtocolDetails/EarnText';
 import { EarnTooltip } from '../../Staking/components/ProtocolDetails/EarnTooltip';
 import { buildLocalTxStatusSyncId } from '../../Staking/utils/utils';
-import { useEarnPortfolio } from '../hooks/useEarnPortfolio';
 import { usePortfolioAction } from '../hooks/usePortfolioAction';
 
 import type { IUseEarnPortfolioReturn } from '../hooks/useEarnPortfolio';
@@ -85,6 +85,55 @@ const WrappedActionButton = ({
     }),
   });
 
+  const onPress = useCallback(() => {
+    const buttonData = 'data' in reward.button ? reward.button.data : undefined;
+
+    // For airdrop assets, also pass the reward token address from asset.token.info.address
+    const rewardTokenAddress =
+      'token' in asset &&
+      'address' in asset.token.info &&
+      asset.token.info.address
+        ? asset.token.info.address
+        : undefined;
+
+    handleAction({
+      actionIcon: reward.button,
+      token:
+        'info' in (buttonData?.token || {})
+          ? (buttonData?.token as { info: IEarnToken }).info
+          : (buttonData?.token as IEarnToken),
+      rewardTokenAddress,
+      indexedAccountId: indexedAccount?.id,
+      stakedSymbol,
+      rewardSymbol,
+    });
+  }, [
+    handleAction,
+    reward.button,
+    asset,
+    indexedAccount?.id,
+    stakedSymbol,
+    rewardSymbol,
+  ]);
+
+  const media = useMedia();
+
+  if (!media.gtSm) {
+    return (
+      <Button
+        ai="center"
+        variant="secondary"
+        size="small"
+        loading={loading}
+        disabled={loading || reward.button.disabled}
+        cursor={reward.button.disabled ? 'not-allowed' : 'pointer'}
+        onPress={onPress}
+      >
+        <EarnText size="$bodyMdMedium" text={reward.button.text as IEarnText} />
+      </Button>
+    );
+  }
+
   return (
     <Button
       p="0"
@@ -94,30 +143,7 @@ const WrappedActionButton = ({
       loading={loading}
       disabled={loading || reward.button.disabled}
       cursor={reward.button.disabled ? 'not-allowed' : 'pointer'}
-      onPress={() => {
-        const buttonData =
-          'data' in reward.button ? reward.button.data : undefined;
-
-        // For airdrop assets, also pass the reward token address from asset.token.info.address
-        const rewardTokenAddress =
-          'token' in asset &&
-          'address' in asset.token.info &&
-          asset.token.info.address
-            ? asset.token.info.address
-            : undefined;
-
-        handleAction({
-          actionIcon: reward.button,
-          token:
-            'info' in (buttonData?.token || {})
-              ? (buttonData?.token as { info: IEarnToken }).info
-              : (buttonData?.token as IEarnToken),
-          rewardTokenAddress,
-          indexedAccountId: indexedAccount?.id,
-          stakedSymbol,
-          rewardSymbol,
-        });
-      }}
+      onPress={onPress}
     >
       <EarnText
         size="$bodyMdMedium"
@@ -178,7 +204,7 @@ const EarningsField = ({
 }) => {
   return (
     <FieldWrapper>
-      <YStack ml="$3" mr="$2" jc="center" flex={1}>
+      <YStack jc="center" flex={1}>
         <EarnText size="$bodyMdMedium" text={asset.earnings24h?.title} />
         <XStack gap="$1">
           <EarnText
@@ -270,35 +296,24 @@ const ProtocolHeader = ({
 }: {
   portfolioItem: IEarnPortfolioInvestment;
 }) => {
-  const intl = useIntl();
   const currencyInfo = useCurrency();
-  const media = useMedia();
 
   return (
-    <YStack mb="$1" px="$5">
-      <XStack ai="center" gap="$1.5">
+    <YStack px="$5" py="$3">
+      <XStack ai="center">
         <Token
           size="xs"
           borderRadius="$2"
+          mr="$2"
           tokenImageUri={portfolioItem.protocol.providerDetail.logoURI}
         />
-        <SizableText size="$headingSm">
+        <SizableText size="$headingLg">
           {portfolioItem.protocol.providerDetail.name}
         </SizableText>
-        <Divider
-          bg="$headingSm"
-          vertical
-          ml="$3"
-          mr="$1.5"
-          height="$5"
-          width="$1"
-        />
+        <Divider bg="$headingSm" vertical mx="$3" height="$5" width="$1" />
         <XStack ai="center" gap="$1">
-          <SizableText size="$bodyMd" color="$textSubdued">
-            {intl.formatMessage({ id: ETranslations.earn_total_staked_value })}
-          </SizableText>
           <NumberSizeableText
-            size="$bodyMd"
+            size="$headingLg"
             color="$textSubdued"
             formatter="marketCap"
             formatterOptions={{ currency: currencyInfo.symbol }}
@@ -307,97 +322,120 @@ const ProtocolHeader = ({
           </NumberSizeableText>
         </XStack>
       </XStack>
-      {isEmpty(portfolioItem.airdropAssets) ||
-      portfolioItem.airdropAssets?.every((airdrop) =>
-        isEmpty(airdrop.airdropAssets),
-      ) ? null : (
-        <YStack mb="$2" mt="$5">
-          {portfolioItem.airdropAssets?.map((airdrop, index) => {
-            // Skip if this airdrop has no airdropAssets
-            if (isEmpty(airdrop.airdropAssets)) {
-              return null;
-            }
+    </YStack>
+  );
+};
 
-            // For airdrops, we need the staked token symbol to look up staking config
-            // Use the first staked asset's symbol from the same protocol
-            const stakedSymbol = portfolioItem.assets[0]?.token.info.symbol;
-            const Wrapper = media.gtSm ? XStack : YStack;
+const ProtocolAirdrop = ({
+  airdropAssets,
+  stakedSymbol,
+  airdropRenderMode = 'all',
+}: {
+  airdropAssets: IEarnPortfolioAirdropAsset[];
+  stakedSymbol?: string;
+  airdropRenderMode?: 'firstOnly' | 'all' | 'exceptFirst';
+}) => {
+  const media = useMedia();
 
-            return (
-              <Wrapper
-                key={index}
-                ai="flex-start"
-                gap="$1.5"
-                $gtMd={{
-                  ai: 'center',
-                  minHeight: '$9',
-                  gap: '$2.5',
-                }}
-              >
-                {media.gtMd ? (
-                  <Token
-                    size="xs"
-                    borderRadius="$2"
-                    tokenImageUri={airdrop.token.info.logoURI}
-                  />
-                ) : null}
-                {airdrop.airdropAssets.map((reward, rewardIndex) => {
-                  const needDivider =
-                    rewardIndex < airdrop.airdropAssets.length - 1 &&
-                    media.gtMd;
+  return (
+    <YStack px="$5" my="$2" $gtSm={{ my: 0 }}>
+      <XStack ai="center">
+        {isEmpty(airdropAssets) ||
+        airdropAssets?.every((airdrop) =>
+          isEmpty(airdrop.airdropAssets),
+        ) ? null : (
+          <YStack>
+            {airdropAssets?.map((airdrop, index) => {
+              const Wrapper = media.gtSm ? XStack : YStack;
 
-                  return (
-                    <XStack
-                      key={rewardIndex}
-                      ai="center"
-                      w="100%"
-                      $gtMd={{
-                        h: '$9',
-                        w: 'auto',
-                      }}
-                    >
-                      <XStack>
-                        <EarnText
-                          mr="$1"
-                          size="$bodyMdMedium"
-                          text={reward.title}
-                        />
-                        <EarnText
-                          mr="$1"
-                          size="$bodyMd"
-                          color="$textSubdued"
-                          text={reward.description}
-                        />
-                        <EarnTooltip tooltip={reward.tooltip} />
-                      </XStack>
-                      <XStack ml="auto" $gtMd={{ ml: 0 }}>
-                        {reward.button ? (
-                          <WrappedActionButton
-                            asset={airdrop}
-                            reward={reward}
-                            stakedSymbol={stakedSymbol}
-                            rewardSymbol={airdrop.token.info.symbol}
+              const filteredAirdrop = (() => {
+                if (airdropRenderMode === 'firstOnly') {
+                  return airdrop.airdropAssets.slice(0, 1);
+                }
+                if (airdropRenderMode === 'exceptFirst') {
+                  return airdrop.airdropAssets.slice(1);
+                }
+                if (airdropRenderMode === 'all') {
+                  return airdrop.airdropAssets;
+                }
+                return [];
+              })();
+
+              return (
+                <Wrapper
+                  key={index}
+                  ai="flex-start"
+                  gap="$1.5"
+                  $gtMd={{
+                    ai: 'center',
+                    minHeight: '$9',
+                    gap: '$2.5',
+                  }}
+                >
+                  {media.gtMd ? (
+                    <Token
+                      size="xs"
+                      borderRadius="$2"
+                      tokenImageUri={airdrop.token.info.logoURI}
+                    />
+                  ) : null}
+                  {filteredAirdrop.map((reward, rewardIndex) => {
+                    const needDivider =
+                      rewardIndex < filteredAirdrop.length - 1 && media.gtMd;
+
+                    return (
+                      <XStack
+                        key={rewardIndex}
+                        ai="center"
+                        w="100%"
+                        $gtMd={{
+                          h: '$9',
+                          w: 'auto',
+                        }}
+                      >
+                        <XStack>
+                          <EarnText
+                            mr="$1"
+                            size="$bodyMdMedium"
+                            text={reward.title}
+                          />
+                          <EarnText
+                            mr="$1"
+                            size="$bodyMd"
+                            color="$textSubdued"
+                            text={reward.description}
+                          />
+                          <EarnTooltip tooltip={reward.tooltip} />
+                        </XStack>
+                        <XStack ml="auto" $gtMd={{ ml: 0 }}>
+                          {reward.button ? (
+                            <WrappedActionButton
+                              asset={airdrop}
+                              reward={reward}
+                              stakedSymbol={stakedSymbol}
+                              rewardSymbol={airdrop.token.info.symbol}
+                            />
+                          ) : null}
+                        </XStack>
+                        {needDivider ? (
+                          <Divider
+                            bg="$borderSubdued"
+                            vertical
+                            ml="$3"
+                            mr="$0.5"
+                            height="$5"
+                            width="$1"
                           />
                         ) : null}
                       </XStack>
-                      {needDivider ? (
-                        <Divider
-                          bg="$borderSubdued"
-                          vertical
-                          ml="$3"
-                          mr="$0.5"
-                          height="$5"
-                          width="$1"
-                        />
-                      ) : null}
-                    </XStack>
-                  );
-                })}
-              </Wrapper>
-            );
-          })}
-        </YStack>
-      )}
+                    );
+                  })}
+                </Wrapper>
+              );
+            })}
+          </YStack>
+        )}
+      </XStack>
     </YStack>
   );
 };
@@ -430,14 +468,14 @@ const PortfolioItemComponent = ({
         {
           key: 'Asset status',
           label: intl.formatMessage({ id: ETranslations.global_status }),
-          flex: 1.5,
+          flex: 1,
           priority: 3,
           render: (asset) => <AssetStatusField asset={asset} />,
         },
         {
           key: 'Claimable',
           label: intl.formatMessage({ id: ETranslations.earn_claimable }),
-          flex: 1.5,
+          flex: 1,
           priority: 3,
           render: (asset) => <ActionField asset={asset} />,
         },
@@ -495,6 +533,11 @@ const PortfolioItemComponent = ({
   return (
     <YStack>
       <ProtocolHeader portfolioItem={portfolioItem} />
+      <ProtocolAirdrop
+        airdropRenderMode={media.gtSm ? 'all' : 'firstOnly'}
+        airdropAssets={portfolioItem.airdropAssets}
+        stakedSymbol={portfolioItem.assets[0]?.token.info.symbol}
+      />
       {showTable ? (
         <TableList<IEarnPortfolioInvestment['assets'][number]>
           data={portfolioItem.assets}
@@ -504,6 +547,13 @@ const PortfolioItemComponent = ({
           defaultSortKey="deposits"
           defaultSortDirection="desc"
           onPressRow={handleRowPress}
+          headerProps={{
+            mt: '$3',
+            minHeight: '$8',
+          }}
+          listItemProps={{
+            mt: media.gtSm ? '$2' : '$1',
+          }}
           expandable={
             !media.gtSm
               ? {
@@ -625,6 +675,13 @@ const PortfolioItemComponent = ({
             width: 100,
             align: 'flex-end',
           }}
+        />
+      ) : null}
+      {!media.gtSm ? (
+        <ProtocolAirdrop
+          airdropRenderMode="exceptFirst"
+          airdropAssets={portfolioItem.airdropAssets}
+          stakedSymbol={portfolioItem.assets[0]?.token.info.symbol}
         />
       ) : null}
     </YStack>
