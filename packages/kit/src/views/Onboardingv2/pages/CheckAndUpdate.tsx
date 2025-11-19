@@ -34,7 +34,7 @@ import { HwWalletAvatarImages } from '@onekeyhq/shared/src/utils/avatarUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import {
   EAccountSelectorSceneName,
-  type EHardwareTransportType,
+  EHardwareTransportType,
 } from '@onekeyhq/shared/types';
 import {
   EHardwareCallContext,
@@ -56,7 +56,7 @@ import {
   getForceTransportType,
 } from '../utils';
 
-import type { KnownDevice, SearchDevice } from '@onekeyfe/hd-core';
+import type { Features, KnownDevice, SearchDevice } from '@onekeyfe/hd-core';
 
 enum ECheckAndUpdateStepState {
   Idle = 'idle',
@@ -88,6 +88,7 @@ function CheckAndUpdatePage({
   const originalTransportRef = useRef<EHardwareTransportType | undefined>(
     undefined,
   );
+  const deviceFeaturesRef = useRef<Features | undefined>(undefined);
 
   const deviceLabel = useMemo(() => {
     if ((deviceData.device as KnownDevice)?.label) {
@@ -213,9 +214,28 @@ function CheckAndUpdatePage({
       }
     }
 
-    if (deviceData.device?.connectId) {
+    // Build USB connectId from ble connection
+    let connectIdToUse = deviceData.device?.connectId;
+    if (
+      platformEnv.isDesktop &&
+      originalTransportRef.current === EHardwareTransportType.DesktopWebBle &&
+      deviceFeaturesRef.current
+    ) {
+      try {
+        const usbConnectId = await deviceUtils.buildDeviceUSBConnectId({
+          features: deviceFeaturesRef.current,
+        });
+        if (usbConnectId) {
+          connectIdToUse = usbConnectId;
+        }
+      } catch (error) {
+        console.error('Failed to build USB connectId:', error);
+      }
+    }
+
+    if (connectIdToUse) {
       actions.openChangeLogModal({
-        connectId: deviceData.device?.connectId,
+        connectId: connectIdToUse,
       });
     }
   }, [actions, deviceData.device?.connectId, intl]);
@@ -447,6 +467,9 @@ function CheckAndUpdatePage({
         });
       cancelTimeout();
       if (r) {
+        if (r.features) {
+          deviceFeaturesRef.current = r.features;
+        }
         if (r.hasUpgrade) {
           setSteps((prev) => {
             const newSteps = [...prev];
