@@ -244,20 +244,62 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
   const content = useMemo(() => {
     if (isLoading) {
       return (
-        <YStack gap="$2">
-          <YStack px="$5" pb="$2">
-            <Skeleton h="$5" w={120} borderRadius="$2" />
-          </YStack>
-          {Array.from({ length: 2 }).map((_, index) => (
-            <ListItem key={index} mx="$0" px="$5">
-              <Skeleton w="$10" h="$10" borderRadius="$2" />
-              <YStack flex={1} gap="$2">
-                <Skeleton h="$4" w={120} borderRadius="$2" />
-                <Skeleton h="$3" w={180} borderRadius="$2" />
-              </YStack>
-              <YStack alignSelf="flex-start">
-                <Skeleton h="$4" w={80} borderRadius="$2" />
-              </YStack>
+        <YStack>
+          {/* Table Header - Desktop only */}
+          {media.gtSm ? (
+            <ListItem mx="$0" px="$5">
+              <XStack flex={2.5}>
+                <Skeleton h="$3" w={80} />
+              </XStack>
+              <XStack flex={1} jc="flex-end">
+                <Skeleton h="$3" w={60} />
+              </XStack>
+              <XStack flex={2} jc="flex-end">
+                <Skeleton h="$3" w={40} />
+              </XStack>
+              <XStack flex={2} jc="flex-end">
+                <Skeleton h="$3" w={40} />
+              </XStack>
+            </ListItem>
+          ) : null}
+
+          {/* Table Rows */}
+          {Array.from({ length: 3 }).map((_, index) => (
+            <ListItem
+              key={index}
+              mx="$0"
+              px="$5"
+              ai={media.gtSm ? 'center' : 'flex-start'}
+            >
+              {/* Protocol column */}
+              <XStack flex={media.gtSm ? 2.5 : 1} ai="center" gap="$3">
+                <Skeleton w="$10" h="$10" borderRadius="$2" />
+                <YStack gap="$1" flex={1}>
+                  <Skeleton h="$4" w="70%" />
+                  <Skeleton h="$3" w="50%" />
+                </YStack>
+              </XStack>
+
+              {media.gtSm ? (
+                <>
+                  {/* Network column */}
+                  <XStack flex={1} jc="flex-end">
+                    <Skeleton w="$6" h="$6" borderRadius="$full" />
+                  </XStack>
+                  {/* TVL column */}
+                  <XStack flex={2} jc="flex-end">
+                    <Skeleton h="$4" w={100} />
+                  </XStack>
+                  {/* APR column */}
+                  <XStack flex={2} jc="flex-end">
+                    <Skeleton h="$4" w={80} />
+                  </XStack>
+                </>
+              ) : (
+                <YStack ai="flex-end">
+                  <Skeleton h="$4" w={80} />
+                </YStack>
+              )}
             </ListItem>
           ))}
         </YStack>

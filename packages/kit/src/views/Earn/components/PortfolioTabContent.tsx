@@ -503,9 +503,6 @@ const PortfolioItemComponent = ({
           tableLayout
           defaultSortKey="deposits"
           defaultSortDirection="desc"
-          listItemProps={{
-            ai: 'flex-start',
-          }}
           onPressRow={handleRowPress}
           expandable={
             !media.gtSm
@@ -641,42 +638,83 @@ const PortfolioSkeletonItem = () => {
   const media = useMedia();
 
   return (
-    <YStack gap="$4">
-      <XStack ai="center" gap="$1.5">
-        <Skeleton w="$6" h="$6" borderRadius="$2" />
-        <Skeleton.BodyLg w="$32" />
-        <Skeleton.BodyMd w="$24" />
+    <YStack gap="$2" px="$5">
+      {/* Protocol Header */}
+      <XStack ai="center" gap="$1.5" mb="$1">
+        <Skeleton w="$5" h="$5" borderRadius="$2" />
+        <Skeleton h="$4" w={120} />
       </XStack>
-      <YStack gap="$3">
-        {Array.from({ length: 2 }).map((_, index) => (
-          <XStack key={index} ai="center" gap="$3">
-            <Skeleton w="$10" h="$10" borderRadius="$2" />
-            <YStack flex={1} gap="$2">
-              <Skeleton.BodyLg w="60%" />
-              <Skeleton.BodyMd w="40%" />
-            </YStack>
-            {media.gtSm ? (
-              <>
-                <YStack flex={1} gap="$2">
-                  <Skeleton.BodyMd w="50%" />
-                </YStack>
-                <YStack flex={1} gap="$2">
-                  <Skeleton.BodyMd w="70%" />
-                </YStack>
-                <Skeleton w="$20" h="$8" borderRadius="$2" />
-              </>
-            ) : null}
+
+      {/* Table Header - Desktop only */}
+      {media.gtSm ? (
+        <XStack gap="$3" px="$3" py="$2">
+          <XStack flex={1.5}>
+            <Skeleton h="$3" w={80} />
           </XStack>
-        ))}
-      </YStack>
+          <XStack flex={1}>
+            <Skeleton h="$3" w={100} />
+          </XStack>
+          <XStack flex={1.5}>
+            <Skeleton h="$3" w={60} />
+          </XStack>
+          <XStack flex={1.5}>
+            <Skeleton h="$3" w={80} />
+          </XStack>
+          <XStack w={100} />
+        </XStack>
+      ) : null}
+
+      {/* Table Rows */}
+      {Array.from({ length: 2 }).map((_, index) => (
+        <XStack
+          key={index}
+          gap="$3"
+          px="$3"
+          py="$2"
+          ai={media.gtSm ? 'center' : 'flex-start'}
+          minHeight={media.gtSm ? '$11' : '$14'}
+        >
+          {/* Token Icon + Deposit */}
+          <XStack flex={media.gtSm ? 1.5 : 1} ai="center" gap="$3">
+            <Skeleton w="$10" h="$10" borderRadius="$2" />
+            <YStack gap="$1" flex={1}>
+              <Skeleton h="$4" w="70%" />
+              <Skeleton h="$3" w="50%" />
+            </YStack>
+          </XStack>
+
+          {media.gtSm ? (
+            <>
+              {/* 24h Earnings */}
+              <YStack flex={1} gap="$1">
+                <Skeleton h="$4" w="60%" />
+                <Skeleton h="$3" w="40%" />
+              </YStack>
+              {/* Status */}
+              <YStack flex={1.5} gap="$1">
+                <Skeleton h="$4" w="80%" />
+                <Skeleton h="$3" w="50%" />
+              </YStack>
+              {/* Claimable */}
+              <YStack flex={1.5} gap="$1">
+                <Skeleton h="$4" w="70%" />
+              </YStack>
+              {/* Actions */}
+              <XStack w={100} jc="flex-end">
+                <Skeleton w="$20" h="$8" borderRadius="$2" />
+              </XStack>
+            </>
+          ) : null}
+        </XStack>
+      ))}
     </YStack>
   );
 };
 
 const PortfolioSkeleton = () => (
-  <YStack gap="$6" mx="$5">
+  <YStack gap="$4">
     <PortfolioSkeletonItem />
-    <Divider />
+    <Divider mx="$5" />
     <PortfolioSkeletonItem />
   </YStack>
 );
@@ -763,15 +801,24 @@ export const PortfolioTabContent = ({
   return (
     <YStack>
       {investments.map((item, index) => {
-        const showDivider = index < investments.length - 1;
+        if (
+          isEmpty(item.assets) &&
+          item.airdropAssets.find(
+            (airdrop) => !isEmpty(airdrop.airdropAssets),
+          ) == null
+        ) {
+          return null;
+        }
+
+        const showDivider = index !== 0 && investments.length > 1;
         const key = `${item.protocol.providerDetail.code}_${
           item.protocol.vaultName || ''
         }_${item.network.networkId}`;
 
         return (
           <>
+            {showDivider ? <Divider my="$4" mx="$5" /> : null}
             <PortfolioItem key={key} portfolioItem={item} />
-            {showDivider ? <Divider my="$4" /> : null}
           </>
         );
       })}

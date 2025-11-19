@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { debounce, throttle } from 'lodash';
+import pLimit from 'p-limit';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
+  IEarnAccountTokenResponse,
   IEarnInvestmentItemV2,
   IEarnPortfolioInvestment,
 } from '@onekeyhq/shared/types/staking';
@@ -24,10 +27,23 @@ interface IRefreshOptions {
   rewardSymbol?: string;
 }
 
+interface IFetchInvestmentParams {
+  publicKey?: string;
+  vault?: string;
+  accountAddress: string;
+  networkId: string;
+  provider: string;
+  symbol: string;
+}
+
+interface IFetchInvestmentResult {
+  key: IInvestmentKey;
+  investment: IEarnPortfolioInvestment;
+}
+
 type IInvestmentKey = string;
 type IInvestmentMap = Map<IInvestmentKey, IEarnPortfolioInvestment>;
 
-// Pure utility functions
 const createInvestmentKey = (item: {
   provider: string;
   symbol: string;
@@ -52,7 +68,6 @@ const calculateTotalFiatValue = (
   investments: IEarnPortfolioInvestment[],
 ): BigNumber =>
   investments.reduce((sum, inv) => {
-    // Skip airdrop-only investments (investments with only airdropAssets and no normal assets)
     if (inv.assets.length === 0 && inv.airdropAssets.length > 0) {
       return sum;
     }
@@ -68,13 +83,6 @@ const calculateTotalEarnings24hValue = (
     }
     return sum.plus(new BigNumber(inv.earnings24hFiatValue || '0'));
   }, new BigNumber(0));
-
-const hasListaCheckAction = (investment: IEarnPortfolioInvestment): boolean =>
-  investment.airdropAssets?.some((airdrop) =>
-    (airdrop.airdropAssets || []).some(
-      (reward) => reward.button?.type === 'listaCheck',
-    ),
-  ) ?? false;
 
 const enrichAssetWithMetadata = (
   asset: IEarnInvestmentItemV2['assets'][number],
@@ -121,7 +129,6 @@ const aggregateByProtocol = (
   return sortByFiatValueDesc(Array.from(protocolMap.values()));
 };
 
-// Custom hook for managing investment state
 const useInvestmentState = () => {
   const [investments, setInvestments] = useState<IEarnPortfolioInvestment[]>(
     [],
@@ -132,42 +139,51 @@ const useInvestmentState = () => {
   const [earnTotalEarnings24hFiatValue, setEarnTotalEarnings24hFiatValue] =
     useState<BigNumber>(new BigNumber(0));
   const investmentMapRef = useRef<IInvestmentMap>(new Map());
+  const isLoadingNewAccountRef = useRef(false);
 
-  const updateInvestments = useCallback((newMap: IInvestmentMap) => {
-    // Filter out zero-value investments
-    const validInvestments = Array.from(newMap.values()).filter((inv) => {
-      if (inv.airdropAssets.length > 0) {
-        return true;
+  const updateInvestments = useCallback(
+    (newMap: IInvestmentMap, shouldUpdateTotals = true) => {
+      const validInvestments = Array.from(newMap.values()).filter((inv) => {
+        if (inv.airdropAssets.length > 0) return true;
+        return hasPositiveFiatValue(inv.totalFiatValue);
+      });
+
+      const sorted = sortByFiatValueDesc(validInvestments);
+      setInvestments(sorted);
+
+      if (shouldUpdateTotals) {
+        setEarnTotalFiatValue(calculateTotalFiatValue(sorted));
+        setEarnTotalEarnings24hFiatValue(
+          calculateTotalEarnings24hValue(sorted),
+        );
       }
-      // Only keep investments with positive fiat value
-      return hasPositiveFiatValue(inv.totalFiatValue);
-    });
 
-    const sorted = sortByFiatValueDesc(validInvestments);
-    setInvestments(sorted);
-    setEarnTotalFiatValue(calculateTotalFiatValue(sorted));
-    setEarnTotalEarnings24hFiatValue(calculateTotalEarnings24hValue(sorted));
-    investmentMapRef.current = new Map(
-      validInvestments.map((inv) => {
-        const firstAsset = inv.assets[0] || inv.airdropAssets[0];
-        return [
-          createInvestmentKey({
-            provider: inv.protocol.providerDetail.code,
-            symbol: firstAsset?.token.info.symbol || '',
-            vault: inv.protocol.vault,
-            networkId: inv.network.networkId,
-          }),
-          inv,
-        ];
-      }),
-    );
-  }, []);
+      investmentMapRef.current = new Map(
+        validInvestments.map((inv) => {
+          const firstAsset = inv.assets[0] || inv.airdropAssets[0];
+          return [
+            createInvestmentKey({
+              provider: inv.protocol.providerDetail.code,
+              symbol: firstAsset?.token.info.symbol || '',
+              vault: inv.protocol.vault,
+              networkId: inv.network.networkId,
+            }),
+            inv,
+          ];
+        }),
+      );
+    },
+    [],
+  );
 
   const clearInvestments = useCallback(() => {
     investmentMapRef.current.clear();
     setInvestments([]);
-    setEarnTotalFiatValue(new BigNumber(0));
-    setEarnTotalEarnings24hFiatValue(new BigNumber(0));
+    isLoadingNewAccountRef.current = true;
+  }, []);
+
+  const finishLoadingNewAccount = useCallback(() => {
+    isLoadingNewAccountRef.current = false;
   }, []);
 
   return {
@@ -177,10 +193,11 @@ const useInvestmentState = () => {
     investmentMapRef,
     updateInvestments,
     clearInvestments,
+    finishLoadingNewAccount,
+    isLoadingNewAccountRef,
   };
 };
 
-// Custom hook for managing account state
 const useAccountState = (
   account?: { id: string } | null,
   indexedAccount?: { id: string } | null,
@@ -238,6 +255,7 @@ export const useEarnPortfolio = (): IUseEarnPortfolioReturn => {
   const accountIdValue = account?.id ?? '';
   const indexedAccountIdValue = indexedAccount?.id ?? '';
   const accountIndexedAccountIdValue = account?.indexedAccountId;
+
   const [isLoading, setIsLoading] = useState(true);
   const actions = useEarnActions();
   const [{ earnAccount }] = useEarnAtom();
@@ -249,6 +267,8 @@ export const useEarnPortfolio = (): IUseEarnPortfolioReturn => {
     investmentMapRef,
     updateInvestments,
     clearInvestments,
+    finishLoadingNewAccount,
+    isLoadingNewAccountRef,
   } = useInvestmentState();
 
   const {
@@ -257,6 +277,18 @@ export const useEarnPortfolio = (): IUseEarnPortfolioReturn => {
     isRequestStale,
     getCurrentRequestId,
   } = useAccountState(account, indexedAccount);
+
+  const throttledUIUpdate = useMemo(
+    () =>
+      throttle(
+        (newMap: IInvestmentMap) => {
+          updateInvestments(newMap, false);
+        },
+        500,
+        { leading: true, trailing: true },
+      ),
+    [updateInvestments],
+  );
 
   const earnAccountKey = useMemo(
     () =>
@@ -275,36 +307,26 @@ export const useEarnPortfolio = (): IUseEarnPortfolioReturn => {
     ],
   );
 
-  // Handle account changes
   useEffect(() => {
     if (hasAccountChanged()) {
       clearInvestments();
+      throttledUIUpdate.cancel();
     }
-  }, [hasAccountChanged, clearInvestments]);
+  }, [hasAccountChanged, clearInvestments, throttledUIUpdate]);
 
   const fetchInvestmentDetail = useCallback(
     async (
-      item: {
-        accountAddress: string;
-        networkId: string;
-        provider: string;
-        symbol: string;
-        vault?: string;
-        publicKey?: string;
-      },
+      item: IFetchInvestmentParams,
       isAirdrop: boolean,
       requestId: number,
-    ) => {
+    ): Promise<IFetchInvestmentResult | null> => {
       try {
         if (isAirdrop) {
           const result =
             await backgroundApiProxy.serviceStaking.fetchAirdropInvestmentDetail(
               item,
             );
-
-          if (isRequestStale(requestId)) {
-            return null;
-          }
+          if (isRequestStale(requestId)) return null;
 
           const key = createInvestmentKey({
             provider: result.protocol.providerDetail.code,
@@ -321,16 +343,17 @@ export const useEarnPortfolio = (): IUseEarnPortfolioReturn => {
             },
           }));
 
-          const investment: IEarnPortfolioInvestment = {
-            totalFiatValue: '0',
-            earnings24hFiatValue: '0',
-            protocol: result.protocol,
-            network: result.network,
-            assets: [],
-            airdropAssets: enrichedAirdropAssets,
+          return {
+            key,
+            investment: {
+              totalFiatValue: '0',
+              earnings24hFiatValue: '0',
+              protocol: result.protocol,
+              network: result.network,
+              assets: [],
+              airdropAssets: enrichedAirdropAssets,
+            },
           };
-
-          return { key, investment };
         }
 
         const result =
@@ -354,16 +377,17 @@ export const useEarnPortfolio = (): IUseEarnPortfolioReturn => {
           enrichAssetWithMetadata(asset, result),
         );
 
-        const investment: IEarnPortfolioInvestment = {
-          totalFiatValue: result.totalFiatValue,
-          earnings24hFiatValue: result.earnings24hFiatValue,
-          protocol: result.protocol,
-          network: result.network,
-          assets: enrichedAssets,
-          airdropAssets: [],
+        return {
+          key,
+          investment: {
+            totalFiatValue: result.totalFiatValue,
+            earnings24hFiatValue: result.earnings24hFiatValue,
+            protocol: result.protocol,
+            network: result.network,
+            assets: enrichedAssets,
+            airdropAssets: [],
+          },
         };
-
-        return { key, investment };
       } catch (error) {
         return null;
       }
@@ -378,169 +402,150 @@ export const useEarnPortfolio = (): IUseEarnPortfolioReturn => {
         return;
       }
 
-      // Check if account changed and update requestId BEFORE getting current requestId
-      // This ensures the new fetch uses the updated requestId
       if (hasAccountChanged()) {
         markAccountChange();
       }
 
       const requestId = getCurrentRequestId();
-      // Only set loading state for full refresh, not for partial refresh
       const isPartialRefresh = Boolean(options);
       if (!isPartialRefresh) {
         setIsLoading(true);
       }
 
-      const [assets, accounts] = await Promise.all([
-        backgroundApiProxy.serviceStaking.getAvailableAssetsV2(),
-        backgroundApiProxy.serviceStaking.getEarnAvailableAccountsParams({
-          accountId: accountIdValue,
-          networkId: allNetworkId,
-          indexedAccountId:
-            accountIndexedAccountIdValue || indexedAccountIdValue,
-        }),
-      ]);
+      try {
+        const [assets, accounts] = await Promise.all([
+          backgroundApiProxy.serviceStaking.getAvailableAssetsV2(),
+          backgroundApiProxy.serviceStaking.getEarnAvailableAccountsParams({
+            accountId: accountIdValue,
+            networkId: allNetworkId,
+            indexedAccountId:
+              accountIndexedAccountIdValue || indexedAccountIdValue,
+          }),
+        ]);
 
-      if (earnAccountKey) {
-        const normalizedAccounts = accounts.map((accountItem) => ({
-          tokens: [],
-          networkId: accountItem.networkId,
-          accountAddress: accountItem.accountAddress,
-          publicKey: accountItem.publicKey,
-        }));
-        const previousAccountData =
-          actions.current.getEarnAccount(earnAccountKey) || {};
-        actions.current.updateEarnAccounts({
-          key: earnAccountKey,
-          earnAccount: {
-            ...previousAccountData,
-            accounts: normalizedAccounts,
-            isOverviewLoaded: true,
-          },
-        });
-      }
+        if (isRequestStale(requestId)) return;
 
-      const accountAssetPairs = accounts.flatMap((accountItem) =>
-        assets
-          .filter((asset) => asset.networkId === accountItem.networkId)
-          .map((asset) => ({
-            isAirdrop: asset.type === 'airdrop',
-            params: {
-              accountAddress: accountItem.accountAddress,
-              networkId: accountItem.networkId,
-              provider: asset.provider,
-              symbol: asset.symbol,
-              ...(asset.vault && { vault: asset.vault }),
-              ...(accountItem.publicKey && {
-                publicKey: accountItem.publicKey,
-              }),
+        if (earnAccountKey) {
+          const normalizedAccounts = accounts.map((accountItem) => ({
+            tokens: [],
+            networkId: accountItem.networkId,
+            accountAddress: accountItem.accountAddress,
+            publicKey: accountItem.publicKey,
+          }));
+          const previousAccountData =
+            actions.current.getEarnAccount(earnAccountKey) || {};
+          actions.current.updateEarnAccounts({
+            key: earnAccountKey,
+            earnAccount: {
+              ...previousAccountData,
+              accounts: normalizedAccounts,
+              isOverviewLoaded: true,
             },
-          })),
-      );
+          });
+        }
 
-      // Filter pairs directly
-      const pairsWithType = options
-        ? accountAssetPairs.filter((pair) => {
-            const { params, isAirdrop } = pair;
-            if (options.provider && params.provider !== options.provider)
-              return false;
-            if (options.networkId && params.networkId !== options.networkId)
-              return false;
-            // For symbol filtering:
-            // - Normal assets: match against options.symbol (staked token symbol)
-            // - Airdrop assets: match against options.rewardSymbol (reward token symbol)
-            if (options.symbol) {
-              if (isAirdrop) {
-                // For airdrop, check if rewardSymbol is provided and matches
-                if (
-                  options.rewardSymbol &&
-                  params.symbol !== options.rewardSymbol
-                ) {
-                  return false;
-                }
-                // If no rewardSymbol provided, skip symbol check for airdrops
-                // This allows refreshing all airdrops for the provider
-              } else if (params.symbol !== options.symbol) {
-                // For normal assets, match symbol directly
-                return false;
-              }
-            }
-            return true;
-          })
-        : accountAssetPairs;
-
-      // Track which keys we fetched in this round
-      const fetchedKeys = new Set<IInvestmentKey>();
-      // Collect new data in this refresh batch for deduplication
-      const batchMap = new Map<IInvestmentKey, IEarnPortfolioInvestment>();
-
-      // Create fetch promises with streaming updates
-      const fetchPromises = pairsWithType.map(async ({ params, isAirdrop }) => {
-        const key = createInvestmentKey(params);
-        fetchedKeys.add(key);
-
-        const result = await fetchInvestmentDetail(
-          params,
-          isAirdrop,
-          requestId,
+        const accountAssetPairs = accounts.flatMap((accountItem) =>
+          assets
+            .filter((asset) => asset.networkId === accountItem.networkId)
+            .map((asset) => ({
+              isAirdrop: asset.type === 'airdrop',
+              params: {
+                accountAddress: accountItem.accountAddress,
+                networkId: accountItem.networkId,
+                provider: asset.provider,
+                symbol: asset.symbol,
+                ...(asset.vault && { vault: asset.vault }),
+                ...(accountItem.publicKey && {
+                  publicKey: accountItem.publicKey,
+                }),
+              },
+            })),
         );
 
-        // Streaming update: update UI immediately after each fetch completes
-        if (!isRequestStale(requestId) && result) {
-          const { key: resultKey, investment } = result;
-
-          // Check if we already have data for this key in current batch
-          const existingInBatch = batchMap.get(resultKey);
-          const mergedInvestment = existingInBatch
-            ? {
-                ...existingInBatch,
-                assets: [...existingInBatch.assets, ...investment.assets],
-                airdropAssets: [
-                  ...existingInBatch.airdropAssets,
-                  ...investment.airdropAssets,
-                ],
-                totalFiatValue: new BigNumber(
-                  existingInBatch.totalFiatValue || '0',
-                )
-                  .plus(new BigNumber(investment.totalFiatValue || '0'))
-                  .toFixed(),
+        const pairsWithType = options
+          ? accountAssetPairs.filter((pair) => {
+              const { params, isAirdrop } = pair;
+              if (options.provider && params.provider !== options.provider)
+                return false;
+              if (options.networkId && params.networkId !== options.networkId)
+                return false;
+              if (options.symbol) {
+                if (isAirdrop) {
+                  if (
+                    options.rewardSymbol &&
+                    params.symbol !== options.rewardSymbol
+                  ) {
+                    return false;
+                  }
+                } else if (params.symbol !== options.symbol) {
+                  return false;
+                }
               }
-            : investment;
+              return true;
+            })
+          : accountAssetPairs;
 
-          // Update batch map
-          batchMap.set(resultKey, mergedInvestment);
+        const keysUpdatedInThisSession = new Set<IInvestmentKey>();
+        const limit = pLimit(6);
 
-          // Immediately update the UI with current data
-          const streamingMap = new Map(investmentMapRef.current);
-          streamingMap.set(resultKey, mergedInvestment);
-          updateInvestments(streamingMap);
-        }
+        const tasks = pairsWithType.map(({ params, isAirdrop }) =>
+          limit(async () => {
+            if (isRequestStale(requestId)) return;
 
-        return result;
-      });
+            const result = await fetchInvestmentDetail(
+              params,
+              isAirdrop,
+              requestId,
+            );
 
-      // Wait for all promises to complete
-      await Promise.allSettled(fetchPromises);
+            if (!isRequestStale(requestId) && result) {
+              const { key: resultKey, investment: newInv } = result;
 
-      // Final cleanup: remove stale keys if this is a full refresh
-      if (!isRequestStale(requestId)) {
-        const finalMap = new Map(investmentMapRef.current);
+              const currentMap = investmentMapRef.current;
+              const existingInMap = currentMap.get(resultKey);
+              const hasUpdatedInSession =
+                keysUpdatedInThisSession.has(resultKey);
 
-        // Only remove stale keys if this is a full refresh (no filter options)
-        // If options are provided, we're doing a partial refresh and shouldn't delete other data
-        if (!options) {
-          Array.from(finalMap.keys()).forEach((key) => {
-            if (!fetchedKeys.has(key)) {
-              finalMap.delete(key);
+              let finalInv = newInv;
+
+              if (hasUpdatedInSession && existingInMap) {
+                finalInv = mergeInvestments(existingInMap, newInv);
+              }
+
+              keysUpdatedInThisSession.add(resultKey);
+              currentMap.set(resultKey, finalInv);
+
+              throttledUIUpdate(new Map(currentMap));
             }
-          });
+          }),
+        );
 
-          // Apply final cleanup
-          updateInvestments(finalMap);
+        await Promise.all(tasks);
+
+        if (!isRequestStale(requestId)) {
+          throttledUIUpdate.flush();
+
+          if (!options) {
+            const finalMap = new Map(investmentMapRef.current);
+            Array.from(finalMap.keys()).forEach((key) => {
+              if (!keysUpdatedInThisSession.has(key)) {
+                finalMap.delete(key);
+              }
+            });
+            investmentMapRef.current = finalMap;
+          }
+
+          updateInvestments(new Map(investmentMapRef.current), true);
+
+          finishLoadingNewAccount();
+
+          if (!isPartialRefresh) {
+            setIsLoading(false);
+          }
         }
-
-        // Only clear loading state for full refresh
-        if (!isPartialRefresh) {
+      } catch (e) {
+        console.error('Fetch investments failed', e);
+        if (!isRequestStale(requestId) && !isPartialRefresh) {
           setIsLoading(false);
         }
       }
@@ -551,15 +556,15 @@ export const useEarnPortfolio = (): IUseEarnPortfolioReturn => {
       indexedAccountIdValue,
       accountIndexedAccountIdValue,
       allNetworkId,
-      getCurrentRequestId,
-      fetchInvestmentDetail,
-      updateInvestments,
-      isRequestStale,
       hasAccountChanged,
       markAccountChange,
+      getCurrentRequestId,
+      isRequestStale,
       earnAccountKey,
       actions,
-      // investmentMapRef is a ref, doesn't need to be in deps
+      fetchInvestmentDetail,
+      throttledUIUpdate,
+      updateInvestments,
     ],
   );
 
@@ -589,15 +594,40 @@ export const useEarnPortfolio = (): IUseEarnPortfolioReturn => {
     [investments],
   );
 
+  const debouncedUpdateGlobalState = useMemo(
+    () =>
+      debounce(
+        (
+          key: string,
+          currentAccount: IEarnAccountTokenResponse,
+          fiatValue: string,
+          earnings: string,
+        ) => {
+          actions.current.updateEarnAccounts({
+            key,
+            earnAccount: {
+              ...currentAccount,
+              totalFiatValue: fiatValue,
+              earnings24h: earnings,
+            },
+          });
+        },
+        500,
+      ),
+    [actions],
+  );
+
   useEffect(() => {
     if (!earnAccountKey) return;
+
+    if (isLoadingNewAccountRef.current) return;
+
     const currentAccount = earnAccount?.[earnAccountKey];
     if (!currentAccount) return;
 
     const totalFiatValueStr = earnTotalFiatValue.toFixed();
     const earnings24hStr = earnTotalEarnings24hFiatValue.toFixed();
 
-    // Only update if values actually changed to prevent infinite loops
     if (
       currentAccount.totalFiatValue === totalFiatValueStr &&
       currentAccount.earnings24h === earnings24hStr
@@ -605,21 +635,21 @@ export const useEarnPortfolio = (): IUseEarnPortfolioReturn => {
       return;
     }
 
-    actions.current.updateEarnAccounts({
-      key: earnAccountKey,
-      earnAccount: {
-        ...currentAccount,
-        totalFiatValue: totalFiatValueStr,
-        earnings24h: earnings24hStr,
-      },
-    });
+    debouncedUpdateGlobalState(
+      earnAccountKey,
+      currentAccount,
+      totalFiatValueStr,
+      earnings24hStr,
+    );
+
+    return () => debouncedUpdateGlobalState.cancel();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     earnAccountKey,
     earnTotalFiatValue,
     earnTotalEarnings24hFiatValue,
-    // Do NOT include earnAccount or actions to prevent infinite loops
-    // earnAccount will trigger updates when we call updateEarnAccounts
+    earnAccount,
+    debouncedUpdateGlobalState,
   ]);
 
   return {
