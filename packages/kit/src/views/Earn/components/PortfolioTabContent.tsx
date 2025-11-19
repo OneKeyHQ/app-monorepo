@@ -775,8 +775,18 @@ export const PortfolioTabContent = ({
     };
   }, [refreshPortfolioRow, refresh]);
 
-  const showSkeleton = isLoading && investments.length === 0;
-  const showEmpty = !isLoading && investments.length === 0;
+  const showEmpty =
+    !isLoading &&
+    (investments.length === 0 ||
+      investments.every(
+        (item) =>
+          isEmpty(item.assets) &&
+          item.airdropAssets.find(
+            (airdrop) => !isEmpty(airdrop.airdropAssets),
+          ) == null,
+      ));
+
+  const showSkeleton = isLoading;
 
   // Show skeleton while loading initial data
   if (showSkeleton) {

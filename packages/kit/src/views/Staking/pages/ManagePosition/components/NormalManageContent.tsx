@@ -113,8 +113,6 @@ export function NormalManageContent({
     (name: string) => {
       const index = tabData.findIndex((item) => item.title === name);
       if (index !== -1) {
-        if (withdrawDisabled && isWithdrawOrder) return;
-
         if (index === 1 && isWithdrawOrder) {
           const withdrawParams = {
             accountId: earnAccount?.accountId || '',
@@ -147,7 +145,6 @@ export function NormalManageContent({
       }
     },
     [
-      withdrawDisabled,
       isWithdrawOrder,
       earnAccount?.accountId,
       focusedTab,
