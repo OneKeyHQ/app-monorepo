@@ -28,7 +28,9 @@
 
     <!-- CloudKit configuration - Matches Provisioning Profile wildcards -->
     <key>com.apple.developer.icloud-services</key>
-    <string>CloudKit</string>
+    <array>
+      <string>CloudKit</string>
+    </array>
     <key>com.apple.developer.icloud-container-environment</key>
     <string>Production</string>
     <key>com.apple.developer.ubiquity-kvstore-identifier</key>
