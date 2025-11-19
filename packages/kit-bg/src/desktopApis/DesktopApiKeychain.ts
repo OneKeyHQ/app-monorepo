@@ -1,5 +1,6 @@
 /* eslint-disable spellcheck/spell-checker */
 import {
+  cloudkitSetContainerID,
   keychainGetItem,
   keychainHasItem,
   keychainIsICloudSyncEnabled,
@@ -8,6 +9,7 @@ import {
 } from '@onekeyfe/electron-mac-icloud';
 import _logger from 'electron-log/main';
 
+import { DESKTOP_ICLOUD_CONTAINER_ID } from '@onekeyhq/shared/src/config/appConfig';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IAppleKeyChainStorage } from '@onekeyhq/shared/src/storage/AppleKeyChainStorage/types';
 
@@ -89,6 +91,7 @@ class DesktopApiKeychain implements IAppleKeyChainStorage {
    */
   async setItem(params: IKeychainSetItemParams): Promise<void> {
     this.ensureMacOS();
+    cloudkitSetContainerID(DESKTOP_ICLOUD_CONTAINER_ID);
     return keychainSetItem(params);
   }
 
@@ -104,6 +107,7 @@ class DesktopApiKeychain implements IAppleKeyChainStorage {
     params: IKeychainGetItemParams,
   ): Promise<IKeychainGetItemResult> {
     this.ensureMacOS();
+    cloudkitSetContainerID(DESKTOP_ICLOUD_CONTAINER_ID);
     return keychainGetItem({ key: params.key });
   }
 
@@ -117,6 +121,7 @@ class DesktopApiKeychain implements IAppleKeyChainStorage {
    */
   async removeItem(params: IKeychainRemoveItemParams): Promise<void> {
     this.ensureMacOS();
+    cloudkitSetContainerID(DESKTOP_ICLOUD_CONTAINER_ID);
     return keychainRemoveItem({ key: params.key });
   }
 
@@ -128,6 +133,7 @@ class DesktopApiKeychain implements IAppleKeyChainStorage {
    */
   async hasItem(params: IKeychainHasItemParams): Promise<boolean> {
     this.ensureMacOS();
+    cloudkitSetContainerID(DESKTOP_ICLOUD_CONTAINER_ID);
     return keychainHasItem({ key: params.key });
   }
 
