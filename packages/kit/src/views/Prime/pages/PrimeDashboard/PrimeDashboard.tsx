@@ -24,6 +24,7 @@ import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes'
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IPrimeParamList } from '@onekeyhq/shared/src/routes/prime';
 import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
@@ -46,7 +47,6 @@ import { PrimeUserInfo } from './PrimeUserInfo';
 
 import type { ISubscriptionPeriod } from '../../hooks/usePrimePaymentTypes';
 import type { RouteProp } from '@react-navigation/core';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 function PrimeBanner({ isPrimeActive = false }: { isPrimeActive?: boolean }) {
   const intl = useIntl();
