@@ -19,6 +19,7 @@ export const {
     isLoggedInOnServer: false,
     isEnablePrime: undefined,
     isEnableSandboxPay: undefined,
+    isPrimeDeviceLimitExceeded: undefined,
     email: undefined,
     displayEmail: undefined,
     privyUserId: undefined,
