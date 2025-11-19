@@ -384,12 +384,15 @@ function useDeviceConnection({
 function useNavigateToCheckAndUpdatePage() {
   const fwUpdateActions = useFirmwareUpdateActions();
   const navigation = useAppNavigation();
+  const [isBootloaderModeChecking, setIsBootloaderModeChecking] =
+    useState(false);
   const { ensureActiveConnection } = useDeviceConnect();
-  return useCallback(
+  const navigateToCheckAndUpdatePage = useCallback(
     async (
       deviceData: IConnectYourDeviceItem,
       tabValue: EConnectDeviceChannel,
     ) => {
+      setIsBootloaderModeChecking(true);
       const handleBootloaderMode = (existsFirmware: boolean) => {
         fwUpdateActions.showBootloaderMode({
           connectId: deviceData.device?.connectId ?? undefined,
@@ -414,6 +417,7 @@ function useNavigateToCheckAndUpdatePage() {
           },
         );
         handleBootloaderMode(existsFirmware);
+        setIsBootloaderModeChecking(false);
         return;
       }
 
@@ -433,14 +437,23 @@ function useNavigateToCheckAndUpdatePage() {
           features,
         });
         handleBootloaderMode(existsFirmware);
+        setIsBootloaderModeChecking(false);
         return;
       }
+      setIsBootloaderModeChecking(false);
       navigation.push(EOnboardingPagesV2.CheckAndUpdate, {
         deviceData,
         tabValue,
       });
     },
     [ensureActiveConnection, fwUpdateActions, navigation],
+  );
+  return useMemo(
+    () => ({
+      navigateToCheckAndUpdatePage,
+      isBootloaderModeChecking,
+    }),
+    [navigateToCheckAndUpdatePage, isBootloaderModeChecking],
   );
 }
 
@@ -827,7 +840,8 @@ function USBOrBLEConnectionIndicator({
   const intl = useIntl();
   const isFocused = useIsFocused();
   const [{ hardwareTransportType }] = useSettingsPersistAtom();
-  const navigateToCheckAndUpdatePage = useNavigateToCheckAndUpdatePage();
+  const { navigateToCheckAndUpdatePage, isBootloaderModeChecking } =
+    useNavigateToCheckAndUpdatePage();
 
   // Use the shared device connection logic
   const deviceConnection = useDeviceConnection({
@@ -1076,7 +1090,8 @@ function BluetoothConnectionIndicator({
     EBluetoothStatus.checking,
   );
 
-  const navigateToCheckAndUpdatePage = useNavigateToCheckAndUpdatePage();
+  const { navigateToCheckAndUpdatePage, isBootloaderModeChecking } =
+    useNavigateToCheckAndUpdatePage();
 
   // Use shared device connection logic for Bluetooth
   const deviceConnection = useDeviceConnection({
