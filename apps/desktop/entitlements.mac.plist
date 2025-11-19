@@ -26,6 +26,10 @@
     <key>com.apple.security.network.server</key>
     <true/>
 
+    <!-- Application Identifier - Required for CloudKit with Developer ID -->
+    <key>com.apple.application-identifier</key>
+    <string>BVJ3FU5H2K.so.onekey.wallet.desktop</string>
+
     <!-- CloudKit configuration - Matches Provisioning Profile wildcards -->
     <key>com.apple.developer.icloud-services</key>
     <array>
