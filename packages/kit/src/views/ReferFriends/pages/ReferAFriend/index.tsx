@@ -2,7 +2,13 @@ import { useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { AnimatePresence, Page, YStack, useMedia } from '@onekeyhq/components';
+import {
+  AnimatePresence,
+  Page,
+  Stack,
+  YStack,
+  useMedia,
+} from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -15,18 +21,23 @@ import { ReferFriendsPageContainer } from '../../components';
 
 import { ReferAFriendHowToPhase } from './components/ReferAFriendHowToPhase';
 import { ReferAFriendIntroPhase } from './components/ReferAFriendIntroPhase';
+import { ReferAFriendPhaseActions } from './components/ReferAFriendPhaseActions';
 import { useReferAFriendData } from './hooks/useReferAFriendData';
 import { EPhaseState } from './types';
 
 interface IReferAFriendPageProps {
   postConfig: IInvitePostConfig;
+  phaseState: EPhaseState | undefined;
+  setPhaseState: (state: EPhaseState | undefined) => void;
+  showInlineActions: boolean;
 }
 
-function ReferAFriendPage({ postConfig }: IReferAFriendPageProps) {
-  const [phaseState, setPhaseState] = useState<EPhaseState | undefined>(
-    EPhaseState.next,
-  );
-
+function ReferAFriendPage({
+  postConfig,
+  phaseState,
+  setPhaseState,
+  showInlineActions,
+}: IReferAFriendPageProps) {
   return (
     <YStack $gtMd={{ py: '$5' }} pb="$5" maxWidth={640} mx="auto" flex={1}>
       <AnimatePresence exitBeforeEnter>
@@ -41,10 +52,15 @@ function ReferAFriendPage({ postConfig }: IReferAFriendPageProps) {
               opacity: 0,
             }}
           >
-            <ReferAFriendIntroPhase
-              postConfig={postConfig}
-              setPhaseState={setPhaseState}
-            />
+            <YStack gap="$5">
+              <ReferAFriendIntroPhase postConfig={postConfig} />
+              {showInlineActions ? (
+                <ReferAFriendPhaseActions
+                  phaseState={phaseState}
+                  setPhaseState={setPhaseState}
+                />
+              ) : null}
+            </YStack>
           </YStack>
         ) : null}
         {phaseState === EPhaseState.join ? (
@@ -58,7 +74,15 @@ function ReferAFriendPage({ postConfig }: IReferAFriendPageProps) {
               opacity: 0,
             }}
           >
-            <ReferAFriendHowToPhase setPhaseState={setPhaseState} />
+            <YStack gap="$5">
+              <ReferAFriendHowToPhase />
+              {showInlineActions ? (
+                <ReferAFriendPhaseActions
+                  phaseState={phaseState}
+                  setPhaseState={setPhaseState}
+                />
+              ) : null}
+            </YStack>
           </YStack>
         ) : null}
       </AnimatePresence>
@@ -68,8 +92,14 @@ function ReferAFriendPage({ postConfig }: IReferAFriendPageProps) {
 
 function ReferAFriendPageWrapper() {
   const intl = useIntl();
-  const { md } = useMedia();
+  const { md, gtMd } = useMedia();
   const { postConfig } = useReferAFriendData();
+  const [phaseState, setPhaseState] = useState<EPhaseState | undefined>(
+    EPhaseState.next,
+  );
+
+  const showInlineActions = gtMd;
+  const shouldShowFooter = !showInlineActions && !!postConfig && !!phaseState;
 
   return (
     <Page scrollEnabled>
@@ -88,9 +118,28 @@ function ReferAFriendPageWrapper() {
       )}
       <Page.Body>
         <ReferFriendsPageContainer flex={1}>
-          {postConfig ? <ReferAFriendPage postConfig={postConfig} /> : null}
+          {postConfig ? (
+            <ReferAFriendPage
+              postConfig={postConfig}
+              phaseState={phaseState}
+              setPhaseState={setPhaseState}
+              showInlineActions={showInlineActions}
+            />
+          ) : null}
         </ReferFriendsPageContainer>
       </Page.Body>
+
+      {shouldShowFooter ? (
+        <Page.Footer>
+          <Stack px="$5" py="$2" bg="$bgApp">
+            <ReferAFriendPhaseActions
+              placement="footer"
+              phaseState={phaseState}
+              setPhaseState={setPhaseState}
+            />
+          </Stack>
+        </Page.Footer>
+      ) : null}
     </Page>
   );
 }
