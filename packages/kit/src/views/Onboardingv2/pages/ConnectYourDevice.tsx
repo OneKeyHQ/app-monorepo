@@ -416,8 +416,8 @@ function useNavigateToCheckAndUpdatePage() {
             device: baseDevice as any,
           },
         );
-        handleBootloaderMode(existsFirmware);
         setIsBootloaderModeChecking(false);
+        handleBootloaderMode(existsFirmware);
         return;
       }
 
@@ -436,8 +436,8 @@ function useNavigateToCheckAndUpdatePage() {
         const existsFirmware = await deviceUtils.existsFirmwareByFeatures({
           features,
         });
-        handleBootloaderMode(existsFirmware);
         setIsBootloaderModeChecking(false);
+        handleBootloaderMode(existsFirmware);
         return;
       }
       setIsBootloaderModeChecking(false);
@@ -1058,6 +1058,7 @@ function USBOrBLEConnectionIndicator({
                   <ListItem
                     key={data.device?.deviceId}
                     drillIn
+                    isLoading={isBootloaderModeChecking}
                     onPress={async () => {
                       await handleDeviceSelect(data);
                     }}
@@ -1223,6 +1224,7 @@ function BluetoothConnectionIndicator({
                   <ListItem
                     key={device.device?.connectId}
                     drillIn
+                    isLoading={isBootloaderModeChecking}
                     onPress={async () => {
                       if (!device.device) {
                         return;
