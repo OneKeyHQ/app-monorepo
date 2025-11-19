@@ -775,18 +775,16 @@ export const PortfolioTabContent = ({
     };
   }, [refreshPortfolioRow, refresh]);
 
-  const showEmpty =
-    !isLoading &&
-    (investments.length === 0 ||
-      investments.every(
-        (item) =>
-          isEmpty(item.assets) &&
-          item.airdropAssets.find(
-            (airdrop) => !isEmpty(airdrop.airdropAssets),
-          ) == null,
-      ));
+  const noAssets =
+    investments.length === 0 ||
+    investments.every(
+      (item) =>
+        isEmpty(item.assets) &&
+        item.airdropAssets.find((airdrop) => !isEmpty(airdrop.airdropAssets)) ==
+          null,
+    );
 
-  const showSkeleton = isLoading;
+  const showSkeleton = isLoading && noAssets;
 
   // Show skeleton while loading initial data
   if (showSkeleton) {
@@ -794,7 +792,7 @@ export const PortfolioTabContent = ({
   }
 
   // Show empty state when no investments
-  if (showEmpty) {
+  if (noAssets) {
     return (
       <Empty
         icon="ClockTimeHistoryOutline"
