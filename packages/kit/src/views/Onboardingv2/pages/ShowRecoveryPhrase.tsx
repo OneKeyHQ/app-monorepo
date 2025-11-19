@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 
 import {
   Button,
+  Dialog,
   Page,
   SizableText,
   XStack,
@@ -85,15 +86,47 @@ export default function ShowRecoveryPhrase() {
   useRecoveryPhraseProtected();
 
   const { copyText } = useClipboard();
+  const handleCopyMnemonic = useCallback(() => {
+    Dialog.show({
+      icon: 'ErrorOutline',
+      tone: 'destructive',
+      title: intl.formatMessage({
+        id: ETranslations.copy_recovery_phrases_warning_title,
+      }),
+      description: intl.formatMessage({
+        id: ETranslations.copy_recovery_phrases_warning_desc,
+      }),
+      footerProps: {
+        flexDirection: 'row-reverse',
+      },
+      onConfirmText: intl.formatMessage({
+        id: ETranslations.copy_anyway,
+      }),
+      onConfirm: () => {
+        copyText(mnemonic);
+      },
+      confirmButtonProps: {
+        testID: 'copy-recovery-phrase-confirm',
+        variant: 'secondary',
+      },
+      onCancelText: intl.formatMessage({
+        id: ETranslations.global_cancel_copy,
+      }),
+      cancelButtonProps: {
+        testID: 'copy-recovery-phrase-cancel',
+        variant: 'primary',
+      },
+    });
+  }, [copyText, intl, mnemonic]);
   const copyButton = useMemo(() => {
     return (
-      <Button size="large" onPress={() => copyText(mnemonic)}>
+      <Button size="large" onPress={handleCopyMnemonic}>
         {intl.formatMessage({
           id: ETranslations.global_copy,
         })}
       </Button>
     );
-  }, [copyText, intl, mnemonic]);
+  }, [handleCopyMnemonic, intl]);
 
   return (
     <Page>
