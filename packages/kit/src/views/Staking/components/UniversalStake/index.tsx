@@ -917,7 +917,7 @@ export function UniversalStake({
 
     if (transactionConfirmation?.receive) {
       items.push(
-        <CalculationListItem>
+        <CalculationListItem key="receive">
           <CalculationListItem.Label
             size={transactionConfirmation.receive.title.size || '$bodyMd'}
             color={transactionConfirmation.receive.title.color}
@@ -939,6 +939,7 @@ export function UniversalStake({
     if (estimateFeeResp) {
       items.push(
         <EstimateNetworkFee
+          key="network-fee"
           isVisible
           estimateFeeResp={estimateFeeResp}
           onPress={() => {
@@ -957,6 +958,7 @@ export function UniversalStake({
     ) {
       items.push(
         <BtcFeeRateInput
+          key="btc-fee-rate-input"
           estimateFeeUTXO={estimateFeeUTXO}
           onFeeRateChange={onFeeRateChange}
         />,
