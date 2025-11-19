@@ -317,7 +317,7 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
         },
       };
     }
-    if (activeAccount && activeAccount.account) {
+    if (activeAccount) {
       return {
         ...res,
         address: isAllNetwork
@@ -329,21 +329,29 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
             : activeAccount.network?.id,
         activeAccount: {
           ...activeAccount,
-          account: {
-            ...activeAccount.account,
-            id: isAllNetwork
-              ? accountForAllNet?.id ?? ''
-              : activeAccount.account?.id ?? '',
-          },
+          ...(activeAccount.account
+            ? {
+                account: {
+                  ...activeAccount.account,
+                  id: isAllNetwork
+                    ? accountForAllNet?.id ?? ''
+                    : activeAccount.account?.id ?? '',
+                },
+              }
+            : undefined),
         },
         accountInfo: {
           ...activeAccount,
-          account: {
-            ...activeAccount.account,
-            id: isAllNetwork
-              ? accountForAllNet?.id ?? ''
-              : activeAccount.account?.id ?? '',
-          },
+          ...(activeAccount.account
+            ? {
+                account: {
+                  ...activeAccount.account,
+                  id: isAllNetwork
+                    ? accountForAllNet?.id ?? ''
+                    : activeAccount.account?.id ?? '',
+                },
+              }
+            : undefined),
         },
       };
     }

@@ -69,6 +69,16 @@ export async function getForceTransportType(
   }
 }
 
+export async function getDesktopForceUSBTransportType(): Promise<EHardwareTransportType | null> {
+  if (platformEnv.isDesktop) {
+    const dev = await backgroundApiProxy.serviceDevSetting.getDevSetting();
+    const usbCommunicationMode = dev?.settings?.usbCommunicationMode;
+    if (usbCommunicationMode === 'bridge') return EHardwareTransportType.Bridge;
+    return EHardwareTransportType.WEBUSB;
+  }
+  return null;
+}
+
 export const getDeviceLabel = (
   deviceTypeItems: EDeviceType[],
   separator = '/',
