@@ -401,10 +401,8 @@ function useNavigateToCheckAndUpdatePage() {
           connectId: deviceData.device?.connectId ?? undefined,
           existsFirmware,
         });
-        console.log('Device is in bootloader mode', deviceData);
         throw new OneKeyLocalError('Device is in bootloader mode');
       };
-      console.log('deviceData', deviceData);
       if (
         await deviceUtils.isBootloaderModeFromSearchDevice({
           device: deviceData.device as any,
@@ -434,7 +432,6 @@ function useNavigateToCheckAndUpdatePage() {
         await deviceUtils.isBootloaderModeByFeatures({
           features,
         });
-      console.log('existsFirmware', isBootloaderModeByFeatures, features);
       if (isBootloaderModeByFeatures) {
         const existsFirmware = await deviceUtils.existsFirmwareByFeatures({
           features,
@@ -999,8 +996,6 @@ function USBOrBLEConnectionIndicator({
     return sortDevicesData(devicesData, deviceTypeItems);
   }, [deviceTypeItems, devicesData]);
 
-  console.log('connectStatus', connectStatus);
-  console.log('sortedDevicesData', sortedDevicesData);
   return (
     <>
       <ConnectionIndicator>
@@ -1319,7 +1314,6 @@ function ConnectYourDevicePage({
   EOnboardingPagesV2.ConnectYourDevice
 >) {
   const { deviceType: deviceTypeItems } = routeParams?.params || {};
-  console.log('deviceTypeItems', deviceTypeItems);
   const navigation = useAppNavigation();
   const intl = useIntl();
   const isSupportedQRCode = useMemo(() => {
