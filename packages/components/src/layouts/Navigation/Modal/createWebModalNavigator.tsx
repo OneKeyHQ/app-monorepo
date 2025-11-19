@@ -126,7 +126,11 @@ function WebModalNavigator({
     return (
       rootNavigation
         ?.getState?.()
-        ?.routes?.some((route) => route.name === ERootRoutes.Modal) ?? false
+        ?.routes?.some(
+          (route) =>
+            route.name === ERootRoutes.Modal ||
+            route.name === ERootRoutes.iOSFullScreen,
+        ) ?? false
     );
   }, [rootNavigation]);
 
