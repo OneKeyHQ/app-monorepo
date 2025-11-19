@@ -99,7 +99,7 @@ function ReceiveSelectorContent() {
             type: 'buy',
           });
         return {
-          isSupported: !url || !build,
+          isSupported: url && build,
           url,
         };
       } catch (error) {
