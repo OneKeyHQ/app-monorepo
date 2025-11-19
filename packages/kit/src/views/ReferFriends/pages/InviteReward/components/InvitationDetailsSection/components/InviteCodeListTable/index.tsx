@@ -85,17 +85,15 @@ export function InviteCodeListTable({
         flexGrow: 1,
       }}
     >
-      <Stack flex={1} minHeight={400} width={940}>
-        <Table<IInviteCodeListItem>
-          dataSource={sortedData}
-          columns={columns}
-          keyExtractor={(item) => item.code}
-          onHeaderRow={handleHeaderRow}
-          estimatedItemSize={50}
-          rowProps={{ px: '$2', minHeight: '$10' }}
-          scrollEnabled={false}
-        />
-      </Stack>
+      <Table<IInviteCodeListItem>
+        dataSource={sortedData}
+        columns={columns}
+        keyExtractor={(item) => item.code}
+        onHeaderRow={handleHeaderRow}
+        estimatedItemSize={50}
+        rowProps={{ px: '$2', minHeight: '$10' }}
+        scrollEnabled={false}
+      />
     </ScrollView>
   );
 }

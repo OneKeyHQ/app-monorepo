@@ -7,18 +7,12 @@ import type { IInvitePostConfig } from '@onekeyhq/shared/src/referralCode/type';
 import { InviteCodeStepImage } from '../InviteCodeStepImage';
 import { ReferralBenefitsList } from '../ReferralBenefitsList';
 
-import { NextButton } from './NextButton';
-
-import type { EPhaseState } from '../../types';
-
 interface IReferAFriendIntroPhaseProps {
   postConfig: IInvitePostConfig;
-  setPhaseState: (state: EPhaseState | undefined) => void;
 }
 
 export function ReferAFriendIntroPhase({
   postConfig,
-  setPhaseState,
 }: IReferAFriendIntroPhaseProps) {
   const intl = useIntl();
 
@@ -71,8 +65,6 @@ export function ReferAFriendIntroPhase({
             id: ETranslations.referral_intro_p1_note,
           })}
         />
-
-        <NextButton setPhaseState={setPhaseState} />
       </Stack>
     </YStack>
   );
