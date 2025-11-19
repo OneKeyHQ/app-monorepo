@@ -51,16 +51,18 @@ function HomeHeaderContainer() {
         )}
       </Stack>
       {isWalletNotBackedUp ? null : <WalletBanner />}
-      <YStack
-        $gtMd={{ flexDirection: 'row' }}
-        gap="$5"
-        p="$5"
-        bg="$bgApp"
-        pointerEvents="box-none"
-      >
-        {isWalletNotBackedUp ? null : <ReceiveInfo closable />}
-        {isWalletNotBackedUp ? null : <ReferralCodeBlock closable />}
-      </YStack>
+      {isWalletNotBackedUp ? null : (
+        <YStack
+          $gtMd={{ flexDirection: 'row' }}
+          gap="$5"
+          p="$5"
+          bg="$bgApp"
+          pointerEvents="box-none"
+        >
+          <ReceiveInfo closable />
+          <ReferralCodeBlock closable />
+        </YStack>
+      )}
     </HomeTokenListProviderMirror>
   );
 }
