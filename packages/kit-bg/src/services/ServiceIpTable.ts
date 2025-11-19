@@ -78,6 +78,55 @@ class ServiceIpTable extends ServiceBase {
   private domainHealthMap = new Map<string, IDomainHealthStats>();
 
   /**
+   * Check if IP Table is enabled considering all conditions:
+   * 1. Platform support
+   * 2. runtime.enabled
+   * 3. devSettings conditions (enableIpTableInDev, disableIpTableInProd)
+   * @returns true if IP Table should be active, false otherwise
+   */
+  private async isIpTableEnabled(): Promise<boolean> {
+    // 1. Check platform support
+    if (!isSupportIpTablePlatform()) {
+      return false;
+    }
+
+    // 2. Check runtime.enabled
+    const configWithRuntime = await this.getConfig();
+    if (!configWithRuntime.runtime?.enabled) {
+      return false;
+    }
+
+    // 3. Check devSettings (align with ipTableAdapter.ts shouldUseIpTable logic)
+    try {
+      const devSettings = await devSettingsPersistAtom.get();
+
+      // If devSettings panel is disabled, use default (enabled)
+      if (!devSettings.enabled) {
+        return false;
+      }
+
+      // Dev environment override - if explicitly set, use it
+      if (!devSettings.settings?.enableIpTableInDev) {
+        return false;
+      }
+
+      // Prod environment override - if explicitly disabled, respect it
+      if (devSettings.settings?.disableIpTableInProd) {
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      defaultLogger.ipTable.request.warn({
+        info: `[IpTable] Failed to check devSettings, defaulting to enabled: ${
+          error instanceof Error ? error.message : 'Unknown error'
+        }`,
+      });
+      return false;
+    }
+  }
+
+  /**
    * Get or initialize domain health stats
    */
   private getDomainHealth(domain: string): IDomainHealthStats {
@@ -388,6 +437,14 @@ class ServiceIpTable extends ServiceBase {
    */
   @backgroundMethod()
   async selectBestEndpointForDomain(domain: string): Promise<void> {
+    // Check if IP Table is enabled
+    if (!(await this.isIpTableEnabled())) {
+      defaultLogger.ipTable.request.info({
+        info: `[IpTable] Speed test skipped for ${domain}: IP Table is disabled`,
+      });
+      return;
+    }
+
     defaultLogger.ipTable.request.info({
       info: `[IpTable] Starting speed test for domain: ${domain}`,
     });
@@ -543,6 +600,14 @@ class ServiceIpTable extends ServiceBase {
    */
   @backgroundMethod()
   async runFullSpeedTest(): Promise<void> {
+    // Check if IP Table is enabled
+    if (!(await this.isIpTableEnabled())) {
+      defaultLogger.ipTable.request.info({
+        info: '[IpTable] Full speed test skipped: IP Table is disabled',
+      });
+      return;
+    }
+
     defaultLogger.ipTable.request.info({
       info: '[IpTable] Starting full speed test',
     });
@@ -573,6 +638,11 @@ class ServiceIpTable extends ServiceBase {
     requestType: 'ip' | 'domain',
     target: string,
   ): Promise<void> {
+    // Check if IP Table is enabled
+    if (!(await this.isIpTableEnabled())) {
+      return;
+    }
+
     const now = Date.now();
 
     // Get or initialize domain health stats
@@ -651,6 +721,9 @@ class ServiceIpTable extends ServiceBase {
   @backgroundMethod()
   async init(): Promise<void> {
     if (!isSupportIpTablePlatform()) {
+      return;
+    }
+    if (!(await this.isIpTableEnabled())) {
       return;
     }
     defaultLogger.ipTable.request.info({
