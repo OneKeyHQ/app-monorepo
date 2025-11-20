@@ -5,7 +5,7 @@ import { globalAtom } from '../utils';
 
 export const { target: swapProJumpTokenAtom, use: useSwapProJumpTokenAtom } =
   globalAtom<{ token: ISwapToken | undefined }>({
-    name: EAtomNames.perpsAccountLoadingInfoAtom,
+    name: EAtomNames.swapProJumpTokenAtom,
     initialValue: {
       token: undefined,
     },

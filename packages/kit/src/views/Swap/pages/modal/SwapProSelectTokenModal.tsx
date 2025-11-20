@@ -5,6 +5,9 @@ import { useIntl } from 'react-intl';
 
 import { Page, SearchBar, Stack } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useSwapProSelectTokenAtom } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EModalSwapRoutes,
@@ -14,6 +17,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { MarketNormalTokenList } from '../../../Market/MarketHomeV2/components/MarketTokenList';
 import { MarketTokenListNetworkSelector } from '../../../Market/MarketHomeV2/components/MarketTokenListNetworkSelector';
+import { MarketWatchListProviderMirrorV2 } from '../../../Market/MarketWatchListProviderMirrorV2';
 import { SwapProviderMirror } from '../SwapProviderMirror';
 
 import type { IMarketToken } from '../../../Market/MarketHomeV2/components/MarketTokenList/MarketTokenData';
@@ -22,13 +26,25 @@ import type { RouteProp } from '@react-navigation/core';
 const SwapProSelectTokenPage = () => {
   const intl = useIntl();
   const [selectedNetworkId, setSelectedNetworkId] = useState<string>('evm--1');
+  const [, setSwapProSelectToken] = useSwapProSelectTokenAtom();
   const [searchValue, setSearchValue] = useState<string>('');
   const handleNetworkIdChange = (networkId: string) => {
     setSelectedNetworkId(networkId);
   };
-
+  const navigation = useAppNavigation();
   const handleTokenSelect = (token: IMarketToken) => {
-    console.log('token', token);
+    setSwapProSelectToken({
+      networkId: token.networkId,
+      contractAddress: token.address,
+      decimals: token.decimals,
+      symbol: token.symbol,
+      logoURI: token.tokenImageUri,
+      networkLogoURI: token.networkLogoUri,
+      name: token.name,
+      isNative: token.isNative,
+      price: token.price?.toString(),
+    });
+    navigation.pop();
   };
   return (
     <Page>
@@ -39,7 +55,6 @@ const SwapProSelectTokenPage = () => {
             placeholder={intl.formatMessage({
               id: ETranslations.token_selector_search_placeholder,
             })}
-            autoFocus
             zIndex={20}
             selectTextOnFocus
             value={searchValue}
@@ -72,9 +87,13 @@ const SwapProSelectTokenModalWithProvider = () => {
     >();
   const { storeName } = route.params;
   return (
-    <SwapProviderMirror storeName={storeName}>
-      <SwapProSelectTokenPage />
-    </SwapProviderMirror>
+    <MarketWatchListProviderMirrorV2
+      storeName={EJotaiContextStoreNames.marketWatchListV2}
+    >
+      <SwapProviderMirror storeName={storeName}>
+        <SwapProSelectTokenPage />
+      </SwapProviderMirror>
+    </MarketWatchListProviderMirrorV2>
   );
 };
 export default function SwapProSelectTokenModal() {

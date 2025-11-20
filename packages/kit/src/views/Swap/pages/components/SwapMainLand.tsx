@@ -193,6 +193,16 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     },
     [navigation, storeName],
   );
+
+  const onProSelectToken = useCallback(() => {
+    navigation.pushModal(EModalRoutes.SwapModal, {
+      screen: EModalSwapRoutes.SwapProSelectToken,
+      params: {
+        storeName,
+      },
+    });
+  }, [navigation, storeName]);
+
   const onSelectRecentTokenPairs = useCallback(
     ({
       fromToken: fromTokenPair,
@@ -857,7 +867,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
             defaultSwapType={swapInitParams?.swapTabSwitchType}
           /> */}
         {showSwapPro && swapTypeSwitch === ESwapTabSwitchType.LIMIT ? (
-          <SwapProContainer />
+          <SwapProContainer onProSelectToken={onProSelectToken} />
         ) : (
           <ScrollView
             keyboardShouldPersistTaps="handled"

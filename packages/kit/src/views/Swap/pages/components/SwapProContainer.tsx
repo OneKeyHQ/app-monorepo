@@ -9,7 +9,11 @@ import { ETabName } from '../../../Perp/layouts/PerpMobileLayout';
 
 import SwapProTokenSelector from './SwapProTokenSelect';
 
-const SwapProContainer = () => {
+interface ISwapProContainerProps {
+  onProSelectToken: () => void;
+}
+
+const SwapProContainer = ({ onProSelectToken }: ISwapProContainerProps) => {
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState<ETabName | string>(
     ETabName.Positions,
@@ -17,6 +21,7 @@ const SwapProContainer = () => {
   const handleRefresh = useCallback(() => {
     console.log('handleRefresh');
   }, []);
+
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: '$bgApp' }}
@@ -28,7 +33,7 @@ const SwapProContainer = () => {
       }
     >
       <XStack justifyContent="space-between" p="$4">
-        <SwapProTokenSelector onSelectTokenClick={() => {}} />
+        <SwapProTokenSelector onSelectTokenClick={onProSelectToken} />
         <IconButton icon="AccessibilityEyeSolid" />
       </XStack>
       {/* <PerpTickerBar /> */}
