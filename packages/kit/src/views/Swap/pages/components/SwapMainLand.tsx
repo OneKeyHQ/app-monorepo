@@ -13,6 +13,7 @@ import {
   Dialog,
   EPageType,
   ScrollView,
+  Toast,
   YStack,
   useInModalDialog,
   useInTabDialog,
@@ -26,6 +27,7 @@ import {
   useSwapBuildTxFetchingAtom,
   useSwapFromTokenAmountAtom,
   useSwapLimitPriceUseRateAtom,
+  useSwapNativeTokenReserveGasAtom,
   useSwapQuoteActionLockAtom,
   useSwapQuoteCurrentSelectAtom,
   useSwapQuoteIntervalCountAtom,
@@ -50,6 +52,8 @@ import {
   type IModalSwapParamList,
 } from '@onekeyhq/shared/src/routes/swap';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
+import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import {
   checkWrappedTokenPair,
@@ -139,6 +143,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   const [toToken] = useSwapSelectToTokenAtom();
   const [fromAmount] = useSwapFromTokenAmountAtom();
   const [swapStepData] = useSwapStepsAtom();
+  const [swapNativeTokenReserveGas] = useSwapNativeTokenReserveGasAtom();
   const swapSlippageRef = useRef(slippageItem);
   if (swapSlippageRef.current !== slippageItem) {
     swapSlippageRef.current = slippageItem;
@@ -264,6 +269,67 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     ],
   );
 
+  const reserveGasFormatter: INumberFormatProps = useMemo(() => {
+    return {
+      formatter: 'balance',
+      formatterOptions: {
+        tokenSymbol: fromSelectToken?.symbol,
+      },
+    };
+  }, [fromSelectToken?.symbol]);
+
+  const checkNativeTokenGasToast = useCallback(() => {
+    let maxAmount = new BigNumber(fromTokenBalance ?? 0);
+    if (fromSelectToken?.isNative) {
+      const reserveGas = swapNativeTokenReserveGas.find(
+        (item) => item.networkId === fromSelectToken.networkId,
+      )?.reserveGas;
+      if (reserveGas) {
+        maxAmount = BigNumber.max(
+          0,
+          maxAmount.minus(new BigNumber(reserveGas)),
+        ).decimalPlaces(fromSelectToken?.decimals ?? 6, BigNumber.ROUND_DOWN);
+      }
+      let reserveGasFormatted: string | undefined | number = reserveGas;
+      if (reserveGas) {
+        reserveGasFormatted = numberFormat(
+          reserveGas.toString(),
+          reserveGasFormatter,
+        );
+      }
+      const message = intl.formatMessage(
+        {
+          id: reserveGasFormatted
+            ? ETranslations.swap_native_token_max_tip_already
+            : ETranslations.swap_native_token_max_tip,
+        },
+        {
+          num_token: reserveGasFormatted,
+        },
+      );
+      Toast.message({
+        title: message,
+      });
+    }
+    return maxAmount;
+  }, [
+    fromTokenBalance,
+    fromSelectToken?.isNative,
+    fromSelectToken?.networkId,
+    fromSelectToken?.decimals,
+    swapNativeTokenReserveGas,
+    intl,
+    reserveGasFormatter,
+  ]);
+
+  const onBalanceMaxPress = useCallback(() => {
+    const maxAmount = checkNativeTokenGasToast();
+    setFromInputAmount({
+      value: maxAmount?.toFixed() ?? '',
+      isInput: true,
+    });
+  }, [checkNativeTokenGasToast, setFromInputAmount]);
+
   const onSelectPercentageStage = useCallback(
     (stage: number) => {
       const fromTokenBalanceBN = new BigNumber(fromTokenBalance ?? 0);
@@ -279,13 +345,22 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
           fromSelectToken?.decimals,
         )
       ) {
+        if (stage === 100) {
+          onBalanceMaxPress();
+          return;
+        }
         setFromInputAmount({
           value: amountAfterDecimal.toFixed(),
           isInput: true,
         });
       }
     },
-    [fromTokenBalance, fromSelectToken?.decimals, setFromInputAmount],
+    [
+      onBalanceMaxPress,
+      fromTokenBalance,
+      fromSelectToken?.decimals,
+      setFromInputAmount,
+    ],
   );
 
   const isWrapped = useMemo(
@@ -847,6 +922,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
             onSelectToken={onSelectToken}
             selectLoading={fetchLoading}
             onSelectPercentageStage={onSelectPercentageStage}
+            onBalanceMaxPress={onBalanceMaxPress}
           />
           {swapTypeSwitch === ESwapTabSwitchType.LIMIT && !isWrapped ? (
             <LimitInfoContainer />
