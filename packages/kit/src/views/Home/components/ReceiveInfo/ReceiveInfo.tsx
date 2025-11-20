@@ -28,10 +28,12 @@ function ReceiveInfo({
   recomputeLayout,
   closable,
   containerProps,
+  setShowReceiveInfo,
 }: {
   recomputeLayout?: () => void;
   closable?: boolean;
   containerProps?: IYStackProps;
+  setShowReceiveInfo?: (show: boolean) => void;
 }) {
   const navigation = useAppNavigation();
   const themeVariant = useThemeVariant();
@@ -107,6 +109,16 @@ function ReceiveInfo({
       );
     };
   }, [refreshShouldShowReceiveInfo]);
+
+  useEffect(() => {
+    if (walletStatus.receiveInfoInit) {
+      setShowReceiveInfo?.(walletStatus.showReceiveInfo);
+    }
+  }, [
+    walletStatus.receiveInfoInit,
+    walletStatus.showReceiveInfo,
+    setShowReceiveInfo,
+  ]);
 
   if (!walletStatus.showReceiveInfo) {
     return null;

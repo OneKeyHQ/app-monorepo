@@ -1,3 +1,5 @@
+import type { ReactNode } from 'react';
+
 import { useIntl } from 'react-intl';
 
 import { SizableText, Stack, YStack } from '@onekeyhq/components';
@@ -9,10 +11,12 @@ import { ReferralBenefitsList } from '../ReferralBenefitsList';
 
 interface IReferAFriendIntroPhaseProps {
   postConfig: IInvitePostConfig;
+  actions?: ReactNode;
 }
 
 export function ReferAFriendIntroPhase({
   postConfig,
+  actions,
 }: IReferAFriendIntroPhaseProps) {
   const intl = useIntl();
 
@@ -65,6 +69,8 @@ export function ReferAFriendIntroPhase({
             id: ETranslations.referral_intro_p1_note,
           })}
         />
+
+        {actions}
       </Stack>
     </YStack>
   );
