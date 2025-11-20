@@ -245,7 +245,7 @@ function NetworkDoctorResult() {
               result &&
               !result.summary.allCriticalChecksPassed
                 ? intl.formatMessage({
-                    id: ETranslations.global_network_doctor_btn_contact_support,
+                    id: ETranslations.global_contact_us,
                   })
                 : undefined
             }
@@ -255,7 +255,6 @@ function NetworkDoctorResult() {
               !result.summary.allCriticalChecksPassed
                 ? {
                     onPress: handleContactSupport,
-                    icon: 'HelpSupportOutline',
                   }
                 : undefined
             }
