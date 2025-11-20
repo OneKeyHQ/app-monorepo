@@ -37,6 +37,7 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { MultipleClickStack } from '../../../components/MultipleClickStack';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { CloudAccountBar } from '../components/CloudAccountBar';
+import { showCloudBackupPasswordDialog } from '../components/CloudBackupDialogs';
 import { CloudBackupDetailsEmptyView } from '../components/CloudBackupEmptyView';
 import { CloudBackupLoadingSkeleton } from '../components/CloudBackupLoadingSkeleton';
 import { OnboardingLayout } from '../components/OnboardingLayout';
@@ -208,6 +209,27 @@ export default function ICloudBackupDetails({
                     }}
                   >
                     showBackupData
+                  </Button>
+                  <Button
+                    onPress={async () => {
+                      showCloudBackupPasswordDialog({
+                        onSubmit: async (password) => {
+                          const privateData =
+                            await backgroundApiProxy.serviceCloudBackupV2.restorePreparePrivateData(
+                              {
+                                payload:
+                                  backupData as IBackupDataEncryptedPayload,
+                                password,
+                              },
+                            );
+                          Dialog.debugMessage({
+                            debugMessage: privateData,
+                          });
+                        },
+                      });
+                    }}
+                  >
+                    showBackupPrivateData
                   </Button>
                   <Button
                     onPress={async () => {
