@@ -1163,7 +1163,7 @@ export function UniversalStake({
                       <EarnText
                         text={
                           transactionConfirmation?.tooltip?.type === 'text'
-                            ? transactionConfirmation.tooltip.data
+                            ? transactionConfirmation.tooltip.data.description
                             : undefined
                         }
                         size="$bodyMd"
@@ -1208,7 +1208,8 @@ export function UniversalStake({
                           iconSize="$5"
                           title={reward.title.text}
                           tooltip={
-                            (reward.tooltip as IEarnTextTooltip)?.data.text
+                            (reward.tooltip as IEarnTextTooltip)?.data
+                              .description.text
                           }
                           placement="top"
                         />

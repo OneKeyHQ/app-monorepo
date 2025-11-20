@@ -485,7 +485,10 @@ export interface IEarnHistoryActionIcon {
 
 export interface IEarnTextTooltip {
   type: 'text';
-  data: IEarnText;
+  data: {
+    title: IEarnText;
+    description: IEarnText;
+  };
 }
 
 export interface IEarnRebateTooltip {

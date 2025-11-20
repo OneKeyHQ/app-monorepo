@@ -33,7 +33,6 @@ import { validateAmountInputForStaking } from '@onekeyhq/kit/src/utils/validateA
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
-import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
 import { ECheckAmountActionType } from '@onekeyhq/shared/types/staking';
 import type {
   ICheckAmountAlert,
@@ -549,7 +548,7 @@ export function UniversalWithdraw({
                       <EarnText
                         text={
                           transactionConfirmation?.tooltip?.type === 'text'
-                            ? transactionConfirmation.tooltip.data
+                            ? transactionConfirmation.tooltip.data.description
                             : undefined
                         }
                         size="$bodyMd"
@@ -593,7 +592,8 @@ export function UniversalWithdraw({
                           iconSize="$5"
                           title={reward.title.text}
                           tooltip={
-                            (reward.tooltip as IEarnTextTooltip)?.data.text
+                            (reward.tooltip as IEarnTextTooltip)?.data
+                              .description.text
                           }
                           placement="top"
                         />
