@@ -1890,7 +1890,7 @@
   "ln.authorize_access_desc": "Kết nối ví cứng của bạn để truy cập vào tài khoản Lightning",
   "ln.authorize_access_network_error": "Xác thực không thành công, kiểm tra kết nối mạng của bạn và thử lại",
   "ln.payment_received_label": "Thanh toán nhận được",
-  "log_out_confirmation_text": "Bạn có chắc muốn đăng xuất khỏi ${email} không?",
+  "log_out_confirmation_text": "Bạn có chắc muốn đăng xuất khỏi {email} không?",
   "logged_out_feedback": "Đăng xuất thành công",
   "login.forgot_passcode": "Quên mã khóa?",
   "login.forgot_password": "Quên mật khẩu?",

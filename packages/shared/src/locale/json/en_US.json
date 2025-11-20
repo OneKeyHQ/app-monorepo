@@ -1890,7 +1890,7 @@
   "ln.authorize_access_desc": "Connecting your hardware wallet to access the Lightning account",
   "ln.authorize_access_network_error": "Authentication failed, check your network connection and try again",
   "ln.payment_received_label": "Payment received",
-  "log_out_confirmation_text": "Are you sure you want to log out of ${email}?",
+  "log_out_confirmation_text": "Are you sure you want to log out of {email}?",
   "logged_out_feedback": "Logged out successfully",
   "login.forgot_passcode": "Forgot passcode?",
   "login.forgot_password": "Forgot password?",

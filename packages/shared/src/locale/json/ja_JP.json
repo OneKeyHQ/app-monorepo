@@ -1890,7 +1890,7 @@
   "ln.authorize_access_desc": "Lightningアカウントにアクセスするためのハードウェアウォレットの接続",
   "ln.authorize_access_network_error": "認証に失敗しました、ネットワーク接続を確認して再試行してください",
   "ln.payment_received_label": "お支払い頂いた",
-  "log_out_confirmation_text": "${email} からログアウトしてもよろしいですか？",
+  "log_out_confirmation_text": "{email} からログアウトしてもよろしいですか？",
   "logged_out_feedback": "ログアウトしました",
   "login.forgot_passcode": "パスコードを忘れましたか？",
   "login.forgot_password": "パスワードを忘れましたか？",
