@@ -16,6 +16,7 @@ import { IpTableScope } from './scopes/ipTable';
 import { MarketScope } from './scopes/market';
 import { NetworkDoctorScope } from './scopes/networkDoctor';
 import { NotificationScope } from './scopes/notification/notification';
+import { OnboardingScope } from './scopes/onboarding';
 import { PerpScope } from './scopes/perp';
 import { PrimeScope } from './scopes/prime';
 import { ReferralScope } from './scopes/referral';
@@ -91,6 +92,8 @@ export class DefaultLogger {
   dex = new DexScope();
 
   prime = new PrimeScope();
+
+  onboarding = new OnboardingScope();
 }
 
 const defaultLogger = new DefaultLogger();
