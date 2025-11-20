@@ -1,6 +1,6 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
-import { StyleSheet } from 'react-native';
+import { StyleSheet, TouchableOpacity } from 'react-native';
 
 import {
   Icon,
@@ -49,6 +49,14 @@ export function DiscoveryItemCard({
     }
     return title;
   }, [title, maxWordLength]);
+
+  const handlePress = useCallback(() => {
+    handleOpenWebSite({
+      dApp,
+      webSite: { url, title, logo, sortIndex: undefined },
+    });
+  }, [handleOpenWebSite, dApp, url, title, logo]);
+
   if (isLoading) {
     return (
       <Stack
@@ -72,42 +80,38 @@ export function DiscoveryItemCard({
   }
 
   return (
-    <Stack
-      py="$2"
-      gap="$3"
-      justifyContent="center"
-      alignItems="center"
-      userSelect="none"
-      onPress={() =>
-        handleOpenWebSite({
-          dApp,
-          webSite: { url, title, logo, sortIndex: undefined },
-        })
-      }
-    >
-      <Image
-        size="$14"
-        position="relative"
-        borderRadius="$3"
-        borderCurve="continuous"
-        borderWidth={StyleSheet.hairlineWidth}
-        borderColor="$borderSubdued"
-        source={{ uri: logo }}
-        fallback={
-          <Image.Fallback>
-            <Icon size="$12" color="$iconSubdued" name="GlobusOutline" />
-          </Image.Fallback>
-        }
-      />
-      <SizableText
-        px="$2"
-        w="100%"
-        size="$bodySmMedium"
-        textAlign="center"
-        numberOfLines={2}
+    <TouchableOpacity onPress={handlePress} activeOpacity={1}>
+      <Stack
+        py="$2"
+        gap="$3"
+        justifyContent="center"
+        alignItems="center"
+        userSelect="none"
       >
-        {displayTitle}
-      </SizableText>
-    </Stack>
+        <Image
+          size="$14"
+          position="relative"
+          borderRadius="$3"
+          borderCurve="continuous"
+          borderWidth={StyleSheet.hairlineWidth}
+          borderColor="$borderSubdued"
+          source={{ uri: logo }}
+          fallback={
+            <Image.Fallback>
+              <Icon size="$12" color="$iconSubdued" name="GlobusOutline" />
+            </Image.Fallback>
+          }
+        />
+        <SizableText
+          px="$2"
+          w="100%"
+          size="$bodySmMedium"
+          textAlign="center"
+          numberOfLines={2}
+        >
+          {displayTitle}
+        </SizableText>
+      </Stack>
+    </TouchableOpacity>
   );
 }
