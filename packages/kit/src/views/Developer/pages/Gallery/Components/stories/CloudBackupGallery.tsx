@@ -11,6 +11,7 @@ import {
 } from '@onekeyhq/components';
 import { decryptAsync } from '@onekeyhq/core/src/secret/encryptors/aes256';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { showPrimeTransferImportProcessingDialog } from '@onekeyhq/kit/src/views/Prime/pages/PagePrimeTransfer/components/PrimeTransferImportProcessingDialog';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IPrimeTransferData } from '@onekeyhq/shared/types/prime/primeTransferTypes';
@@ -115,15 +116,10 @@ export function CloudBackupApiTests() {
 
         <XStack gap="$2" flexWrap="wrap">
           <Button
-            onPress={() =>
-              handleApiCall(
-                () => backgroundApiProxy.serviceCloudBackupV2.init(),
-                'init',
-              )
-            }
+            onPress={() => showPrimeTransferImportProcessingDialog({})}
             variant="secondary"
           >
-            Initialize Service
+            ShowImportProcessingDialog
           </Button>
           <Button
             onPress={() =>
