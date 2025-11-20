@@ -48,12 +48,14 @@ function ReferralCodeBlock({
   closable,
   onClose,
   containerProps,
+  setShowReferralCodeBlock,
 }: {
   inTabList?: boolean;
   recomputeLayout?: () => void;
   closable?: boolean;
   onClose?: () => void;
   containerProps?: ComponentProps<typeof MainInfoBlock>['containerProps'];
+  setShowReferralCodeBlock?: (show: boolean) => void;
 }) {
   const intl = useIntl();
   const themeVariant = useThemeVariant();
@@ -147,6 +149,16 @@ function ReferralCodeBlock({
       });
     }
   }, [shouldBoundReferralCode, updateWalletStatus]);
+
+  useEffect(() => {
+    if (walletStatus.referralCodeBlockInit) {
+      setShowReferralCodeBlock?.(walletStatus.showReferralCodeBlock);
+    }
+  }, [
+    walletStatus.referralCodeBlockInit,
+    walletStatus.showReferralCodeBlock,
+    setShowReferralCodeBlock,
+  ]);
 
   useEffect(() => {
     appEventBus.on(
