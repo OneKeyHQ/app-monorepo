@@ -125,7 +125,6 @@ export function SearchBar({
     <Input
       ref={inputRef}
       autoFocus={resolvedAutoFocus}
-      autoFocusDelayMs={resolvedAutoFocusDelayMs}
       selectTextOnFocus={selectTextOnFocus}
       value={value}
       onChangeText={handleChange}
