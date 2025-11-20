@@ -2,7 +2,7 @@ import { useCallback, useMemo } from 'react';
 
 import { isEmpty } from 'lodash';
 
-import { YStack } from '@onekeyhq/components';
+import { Skeleton, Stack, XStack, YStack } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import type { ISupportedSymbol } from '@onekeyhq/shared/types/earn';
@@ -35,6 +35,63 @@ export interface IManagePositionContentProps {
   onStakeWithdrawSuccess?: () => void;
 }
 
+const SectionSkeleton = () => (
+  <YStack px="$5" pt="$5" gap="$5">
+    {/* Tab bar skeleton */}
+    <XStack gap="$4">
+      <Skeleton w={80} h="$10" borderRadius="$2" />
+      <Skeleton w={80} h="$10" borderRadius="$2" />
+    </XStack>
+
+    {/* Main content area skeleton */}
+    <YStack gap="$4" pt="$3">
+      {/* Token info section */}
+      <XStack gap="$3" ai="center">
+        <Skeleton w="$10" h="$10" radius="round" />
+        <YStack f={1} gap="$2">
+          <Skeleton.BodyLg w={120} />
+          <Skeleton.BodyMd w={80} />
+        </YStack>
+      </XStack>
+
+      {/* Amount input section */}
+      <YStack gap="$3" pt="$4">
+        <Skeleton.BodyMd w={100} />
+        <Stack
+          bg="$bgSubdued"
+          borderRadius="$3"
+          p="$4"
+          borderWidth={1}
+          borderColor="$borderSubdued"
+        >
+          <Skeleton h="$10" w="60%" borderRadius="$2" />
+        </Stack>
+      </YStack>
+
+      {/* Info cards */}
+      <YStack gap="$3" pt="$3">
+        <XStack jc="space-between">
+          <Skeleton.BodyMd w={80} />
+          <Skeleton.BodyMd w={60} />
+        </XStack>
+        <XStack jc="space-between">
+          <Skeleton.BodyMd w={90} />
+          <Skeleton.BodyMd w={70} />
+        </XStack>
+        <XStack jc="space-between">
+          <Skeleton.BodyMd w={70} />
+          <Skeleton.BodyMd w={50} />
+        </XStack>
+      </YStack>
+
+      {/* Action button */}
+      <Stack pt="$4">
+        <Skeleton h="$12" w="100%" borderRadius="$3" />
+      </Stack>
+    </YStack>
+  </YStack>
+);
+
 export function ManagePositionContent({
   networkId,
   symbol,
@@ -65,6 +122,7 @@ export function ManagePositionContent({
     alertsWithdraw,
     refreshAccount: refreshManageAccount,
     run: refreshManageData,
+    isLoading,
   } = useManagePage({
     accountId,
     networkId,
@@ -191,6 +249,10 @@ export function ManagePositionContent({
     }
     return null;
   }, [noAddressOrAccount, alertsWithdraw, alerts, noAddressWarningElement]);
+
+  if (isLoading || !managePageData) {
+    return <SectionSkeleton />;
+  }
 
   // USDe special rendering
   if (symbol.toLowerCase() === 'usde') {

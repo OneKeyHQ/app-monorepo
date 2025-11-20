@@ -39,54 +39,47 @@ export const useManagePage = ({
     indexedAccountId,
   });
 
-  const {
-    result: managePageData,
-    isLoading: isLoadingManagePage,
-    run,
-  } = usePromiseResult(
+  const { result, isLoading, run } = usePromiseResult(
     async () => {
-      if (!earnAccount?.accountAddress) {
+      if (!earnAccount?.accountAddress || !accountId) {
         return undefined;
       }
 
-      const response = await backgroundApiProxy.serviceStaking.getManagePage({
-        networkId,
-        symbol,
-        provider,
-        vault,
-        accountAddress: earnAccount.accountAddress,
-        publicKey: networkUtils.isBTCNetwork(networkId)
-          ? earnAccount.account.pub
-          : undefined,
-      });
-      return response;
+      const managePageData =
+        await backgroundApiProxy.serviceStaking.getManagePage({
+          networkId,
+          symbol,
+          provider,
+          vault,
+          accountAddress: earnAccount.accountAddress,
+          publicKey: networkUtils.isBTCNetwork(networkId)
+            ? earnAccount.account.pub
+            : undefined,
+        });
+
+      const protocolList =
+        await backgroundApiProxy.serviceStaking.getProtocolList({
+          symbol,
+          accountId,
+          indexedAccountId,
+          filterNetworkId: networkId,
+        });
+
+      return { managePageData, protocolList };
     },
-    [earnAccount, networkId, symbol, provider, vault],
+    [
+      earnAccount,
+      networkId,
+      symbol,
+      provider,
+      vault,
+      accountId,
+      indexedAccountId,
+    ],
     { watchLoading: true },
   );
 
-  // Fetch protocol list to get provider details
-  const { result: protocolList, isLoading: isLoadingProtocolList } =
-    usePromiseResult(
-      async () => {
-        if (!accountId) {
-          return undefined;
-        }
-
-        const protocols =
-          await backgroundApiProxy.serviceStaking.getProtocolList({
-            symbol,
-            accountId,
-            indexedAccountId,
-            filterNetworkId: networkId,
-          });
-        return protocols;
-      },
-      [accountId, indexedAccountId, symbol, networkId],
-      { watchLoading: true },
-    );
-
-  const isLoading = isLoadingManagePage || isLoadingProtocolList;
+  const { managePageData, protocolList } = result || {};
 
   const tokenInfo: IEarnTokenInfo | undefined = useMemo(() => {
     if (!managePageData?.deposit?.data?.token) {
