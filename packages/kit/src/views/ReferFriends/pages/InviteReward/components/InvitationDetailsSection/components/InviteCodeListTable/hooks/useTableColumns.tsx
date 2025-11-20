@@ -24,7 +24,7 @@ export function useTableColumns(
   onNoteUpdated?: () => void,
 ) {
   const intl = useIntl();
-  const { gtLg } = useMedia();
+  const { gtXl } = useMedia();
   const [{ currencyInfo }] = useSettingsPersistAtom();
   const currencySymbol = currencyInfo?.symbol ?? '';
 
@@ -42,7 +42,7 @@ export function useTableColumns(
           id: ETranslations.referral_code_list_note,
         }),
         dataIndex: EInviteCodeListTableColumn.NOTE,
-        ...(gtLg
+        ...(gtXl
           ? { columnProps: { flex: 1 } }
           : {
               columnWidth: Math.max(
@@ -66,7 +66,7 @@ export function useTableColumns(
         }),
         dataIndex: EInviteCodeListTableColumn.SALES_ORDERS,
         align: 'left',
-        ...(gtLg
+        ...(gtXl
           ? { columnProps: { flex: 1 } }
           : {
               columnWidth: Math.max(
@@ -87,7 +87,7 @@ export function useTableColumns(
           id: ETranslations.referral_code_list_wallets,
         }),
         dataIndex: EInviteCodeListTableColumn.ONCHAIN_WALLETS,
-        ...(gtLg
+        ...(gtXl
           ? { columnProps: { flex: 1 } }
           : {
               columnWidth: Math.max(
@@ -108,7 +108,7 @@ export function useTableColumns(
           id: ETranslations.referral_cumulative_rewards,
         }),
         dataIndex: EInviteCodeListTableColumn.CUMULATIVE_REWARDS,
-        ...(gtLg
+        ...(gtXl
           ? { columnProps: { flex: 1 } }
           : {
               columnWidth: Math.max(
@@ -128,7 +128,7 @@ export function useTableColumns(
       {
         title: intl.formatMessage({ id: ETranslations.referral_code_list_at }),
         dataIndex: EInviteCodeListTableColumn.CREATED_AT,
-        ...(gtLg ? { columnProps: { flex: 1 } } : { columnWidth: 145 }),
+        ...(gtXl ? { columnProps: { flex: 1 } } : { columnWidth: 145 }),
         render: (date: string) => (
           <SizableText size="$bodyMdMedium" color="$text">
             {formatDate(date, { hideSeconds: true })}
@@ -146,7 +146,7 @@ export function useTableColumns(
         render: (url: string) => <CopyLinkButton url={url} />,
       },
     ],
-    [currencySymbol, intl, gtLg, onNoteUpdated],
+    [currencySymbol, intl, gtXl, onNoteUpdated],
   );
 
   // Handle header row for sorting

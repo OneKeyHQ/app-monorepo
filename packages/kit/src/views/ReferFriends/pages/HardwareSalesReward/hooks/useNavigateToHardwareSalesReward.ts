@@ -13,12 +13,12 @@ export function useNavigateToHardwareSalesReward() {
 
   return useCallback(() => {
     if (platformEnv.isNative) {
-      // Native platform: use Modal navigation
+      // Native or medium+ screens: use Modal navigation
       navigation.pushModal(EModalRoutes.ReferFriendsModal, {
         screen: EModalReferFriendsRoutes.HardwareSalesReward,
       });
     } else {
-      // Web/Desktop/Extension: use Tab navigation
+      // Small screens: use Tab navigation
       navigation.push(ETabReferFriendsRoutes.TabHardwareSalesReward);
     }
   }, [navigation]);
