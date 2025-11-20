@@ -2,8 +2,7 @@ import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import type { IListViewProps, IPopoverProps } from '@onekeyhq/components';
 import { useMedia } from '@onekeyhq/components';
-import { useMarketBasicConfig } from '@onekeyhq/kit/src/views/Market/hooks';
-import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { useMarketNetworks } from '@onekeyhq/kit/src/views/Market/hooks';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import { MarketTokenListNetworkSelectorMobile } from './MarketTokenListNetworkSelectorMobile';
@@ -31,23 +30,7 @@ function MarketTokenListNetworkSelector({
   const mobileComponentRef =
     useRef<IMarketTokenListNetworkSelectorMobileRef>(null);
 
-  const { networkList, isLoading } = useMarketBasicConfig();
-
-  const marketNetworks: IServerNetwork[] = useMemo(() => {
-    if (!networkList || networkList.length === 0) return [];
-
-    // Sort by index (smaller numbers first) then map to local network info
-    return networkList
-      .sort((a, b) => a.index - b.index)
-      .map((configNetwork) => {
-        const networkInfo = networkUtils.getLocalNetworkInfo(
-          configNetwork.networkId,
-        );
-        if (!networkInfo) return null;
-        return networkInfo;
-      })
-      .filter(Boolean);
-  }, [networkList]);
+  const { marketNetworks, isLoading } = useMarketNetworks();
 
   // Derive currently selected network purely from props to keep component stateless.
   const currentSelectNetwork = useMemo(() => {
