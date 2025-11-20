@@ -9,4 +9,13 @@ export class PageScene extends BaseScene {
       deviceType,
     };
   }
+
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
+  public connectYourDevice(deviceType: string, tabValue: string) {
+    return {
+      deviceType,
+      channel: tabValue,
+    };
+  }
 }
