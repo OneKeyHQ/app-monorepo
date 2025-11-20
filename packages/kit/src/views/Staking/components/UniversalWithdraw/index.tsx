@@ -390,7 +390,7 @@ export function UniversalWithdraw({
             color={transactionConfirmation.receive.title.color}
             tooltip={
               transactionConfirmation.receive.tooltip.type === 'text'
-                ? transactionConfirmation.receive.tooltip.data.title.text
+                ? transactionConfirmation.receive.tooltip?.data?.title?.text
                 : undefined
             }
           >
@@ -548,7 +548,7 @@ export function UniversalWithdraw({
                       <EarnText
                         text={
                           transactionConfirmation?.tooltip?.type === 'text'
-                            ? transactionConfirmation.tooltip.data.description
+                            ? transactionConfirmation.tooltip?.data?.description
                             : undefined
                         }
                         size="$bodyMd"
@@ -593,7 +593,7 @@ export function UniversalWithdraw({
                           title={reward.title.text}
                           tooltip={
                             (reward.tooltip as IEarnTextTooltip)?.data
-                              .description.text
+                              ?.description?.text
                           }
                           placement="top"
                         />
