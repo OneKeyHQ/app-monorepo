@@ -209,7 +209,7 @@ function CheckAndUpdatePage({
           } else {
             inProgressStep.state = ECheckAndUpdateStepState.Error;
             inProgressStep.errorMessage = intl.formatMessage({
-              id: ETranslations.swap_history_status_discard,
+              id: ETranslations.hardware_connect_timeout_error,
             });
           }
         }

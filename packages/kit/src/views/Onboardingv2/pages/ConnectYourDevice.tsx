@@ -524,6 +524,7 @@ function TroubleShootingButton({ type }: { type: 'usb' | 'bluetooth' }) {
                 m="0"
                 px="$5"
                 py="$2"
+                bg="$transparent"
                 hoverStyle={{
                   bg: '$bgHover',
                 }}
