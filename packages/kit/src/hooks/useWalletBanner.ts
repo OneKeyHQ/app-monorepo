@@ -35,7 +35,6 @@ function useWalletBanner({
         bannerId: item.id,
         type: 'jump',
       });
-
       if (
         item.hrefType === 'internal' &&
         item.href &&
