@@ -129,7 +129,13 @@ function PrimeTransferImportProcessingDialogContent({
           showDevBgColor
           debugComponent={
             <YStack gap="$2">
-              <SizableText>
+              <SizableText
+                onPress={() => {
+                  Dialog.debugMessage({
+                    debugMessage: importProgress?.totalDetailInfo,
+                  });
+                }}
+              >
                 {importProgress?.current ?? 0}/{importProgress?.total ?? 0}
               </SizableText>
               <SizableText>{JSON.stringify(importProgress?.stats)}</SizableText>
