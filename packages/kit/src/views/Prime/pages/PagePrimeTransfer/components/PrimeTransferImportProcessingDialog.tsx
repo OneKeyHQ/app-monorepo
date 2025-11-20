@@ -125,14 +125,24 @@ function PrimeTransferImportProcessingDialogContent({
           <Progress mt="$4" w="100%" size="medium" value={progressPercentage} />
         ) : null}
 
-        <XStack mt="$5" alignItems="center" gap="$2">
-          <MultipleClickStack
-            onPress={() => {
-              Dialog.debugMessage({
-                debugMessage: importProgress?.stats,
-              });
-            }}
-          >
+        <MultipleClickStack
+          showDevBgColor
+          debugComponent={
+            <YStack gap="$2">
+              <SizableText
+                onPress={() => {
+                  Dialog.debugMessage({
+                    debugMessage: importProgress?.totalDetailInfo,
+                  });
+                }}
+              >
+                {importProgress?.current ?? 0}/{importProgress?.total ?? 0}
+              </SizableText>
+              <SizableText>{JSON.stringify(importProgress?.stats)}</SizableText>
+            </YStack>
+          }
+        >
+          <XStack mt="$5" alignItems="center" gap="$2">
             <SizableText size="$bodyLg" textAlign="center">
               {(() => {
                 if (isDone || importProgress) {
@@ -164,8 +174,8 @@ function PrimeTransferImportProcessingDialogContent({
                 });
               })()}
             </SizableText>
-          </MultipleClickStack>
-        </XStack>
+          </XStack>
+        </MultipleClickStack>
       </YStack>
 
       <Dialog.Footer

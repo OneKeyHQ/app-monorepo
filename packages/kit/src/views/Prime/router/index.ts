@@ -74,8 +74,5 @@ export const PrimeRouter: IModalFlowNavigatorConfig<
   {
     name: EPrimePages.OneKeyId,
     component: OneKeyId,
-    options: {
-      headerShown: false,
-    },
   },
 ];

@@ -22,6 +22,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
+import type { IHyperLiquidSignatureRSV } from '@onekeyhq/shared/types/hyperliquid/webview';
 import type {
   ENotificationPushTopicTypes,
   INotificationClickParams,
@@ -1307,6 +1308,37 @@ export default class ServiceNotification extends ServiceBase {
       '/notification/v1/message/block-tx',
       params,
     );
+  }
+
+  @backgroundMethod()
+  async notifyHyperliquidAccountBind({
+    signerAddress,
+    action,
+    nonce,
+    signature,
+  }: {
+    signerAddress: string;
+    action: {
+      type: string;
+      signatureChainId: string;
+      hyperliquidChain: string;
+      agentAddress: string;
+      agentName: string;
+      nonce: number;
+    };
+    nonce: number;
+    signature: IHyperLiquidSignatureRSV;
+  }) {
+    if (!signerAddress) {
+      return;
+    }
+    const client = await this.getClient(EServiceEndpointEnum.Notification);
+    await client.post('/notification/v1/hyperliquid-account/bind', {
+      signerAddress,
+      action,
+      nonce,
+      signature,
+    });
   }
 
   @backgroundMethod()

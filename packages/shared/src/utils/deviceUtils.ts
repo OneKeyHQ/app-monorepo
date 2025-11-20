@@ -26,6 +26,7 @@ import type {
   IOneKeyDeviceType,
 } from '../../types/device';
 import type {
+  Features,
   IDeviceType,
   KnownDevice,
   OnekeyFeatures,
@@ -566,6 +567,18 @@ async function isBtcOnlyFirmware({
   return firmwareType === EFirmwareType.BitcoinOnly;
 }
 
+async function buildDeviceUSBConnectId({
+  features,
+}: {
+  features: Features | undefined;
+}): Promise<string | null> {
+  if (!features) {
+    return null;
+  }
+  const { getDeviceUUID } = await CoreSDKLoader();
+  return getDeviceUUID(features);
+}
+
 export default {
   dbDeviceToSearchDevice,
   getDeviceVersion,
@@ -595,4 +608,5 @@ export default {
   getDefaultHardwareTransportType,
   isBtcOnlyFirmware,
   isTouchDevice,
+  buildDeviceUSBConnectId,
 };
