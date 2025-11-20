@@ -78,3 +78,5 @@ export const PERPS_FILTERED_LEDGER_TYPES = new Set<string>([
   'vaultLeaderCommission',
   'rewardsClaim',
 ]);
+
+export const DISABLE_HYPERLIQUID_ACCOUNT_BIND = true;
