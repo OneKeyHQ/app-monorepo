@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { EDeviceType } from '@onekeyfe/hd-shared';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import pRetry from 'p-retry';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
@@ -78,6 +78,7 @@ function CheckAndUpdatePage({
   console.log('deviceData', deviceData);
   const themeVariant = useThemeVariant();
   const navigation = useAppNavigation();
+  const reactNavigation = useNavigation();
   const isFirmwareVerifiedRef = useRef<boolean | undefined>(undefined);
   const deviceFeaturesRef = useRef<Features | undefined>(undefined);
 
@@ -541,6 +542,18 @@ function CheckAndUpdatePage({
       };
     }, [checkFirmwareUpdate, restoreOriginalTransport]),
   );
+
+  useEffect(() => {
+    const unsubscribe = reactNavigation.addListener('beforeRemove', () => {
+      console.log(
+        'CheckAndUpdatePage unmounting, clearing forceTransportType...',
+      );
+      // Clean up forceTransportType when leaving this page
+      void backgroundApiProxy.serviceHardware.clearForceTransportType();
+    });
+
+    return unsubscribe;
+  }, [reactNavigation]);
 
   const handleVerifyHardware = useCallback(async () => {
     // Double-check: ensure device scanning is fully stopped before starting verification
