@@ -1890,7 +1890,7 @@
   "ln.authorize_access_desc": "Menghubungkan dompet hardware Anda untuk mengakses akun Lightning",
   "ln.authorize_access_network_error": "Otentikasi gagal, periksa koneksi jaringan Anda dan coba lagi",
   "ln.payment_received_label": "Pembayaran diterima",
-  "log_out_confirmation_text": "Apakah Anda yakin ingin keluar dari ${email}?",
+  "log_out_confirmation_text": "Apakah Anda yakin ingin keluar dari {email}?",
   "logged_out_feedback": "Berhasil keluar",
   "login.forgot_passcode": "Lupa kode sandi?",
   "login.forgot_password": "Lupa kata sandi?",

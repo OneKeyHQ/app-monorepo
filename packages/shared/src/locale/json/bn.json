@@ -1890,7 +1890,7 @@
   "ln.authorize_access_desc": "আপনার হার্ডওয়্যার ওয়ালেট সংযোগ করে লাইটনিং অ্যাকাউন্ট অ্যাক্সেস করুন",
   "ln.authorize_access_network_error": "প্রমাণীকরণ ব্যর্থ হয়েছে, আপনার নেটওয়ার্ক সংযোগ পরীক্ষা করুন এবং আবার চেষ্টা করুন",
   "ln.payment_received_label": "পেমেন্ট পেয়েছি",
-  "log_out_confirmation_text": "আপনি কি নিশ্চিত যে আপনি ${email} থেকে লগ আউট করতে চান?",
+  "log_out_confirmation_text": "আপনি কি নিশ্চিত যে আপনি {email} থেকে লগ আউট করতে চান?",
   "logged_out_feedback": "সফলভাবে লগ আউট হয়েছে",
   "login.forgot_passcode": "পাসকোড ভুলে গেছেন?",
   "login.forgot_password": "পাসওয়ার্ড ভুলে গেছেন?",
