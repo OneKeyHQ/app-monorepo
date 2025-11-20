@@ -6,6 +6,10 @@ import pLimit from 'p-limit';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
   IEarnAccountTokenResponse,
@@ -640,6 +644,20 @@ export const useEarnPortfolio = (): IUseEarnPortfolioReturn => {
     },
     [fetchAndUpdateInvestments],
   );
+
+  // Listen to account creation events to refresh portfolio data
+  useEffect(() => {
+    const handleAccountAdded = () => {
+      void fetchAndUpdateInvestments();
+    };
+    appEventBus.on(EAppEventBusNames.AddDBAccountsToWallet, handleAccountAdded);
+    return () => {
+      appEventBus.off(
+        EAppEventBusNames.AddDBAccountsToWallet,
+        handleAccountAdded,
+      );
+    };
+  }, [fetchAndUpdateInvestments]);
 
   const aggregatedInvestments = useMemo(
     () => aggregateByProtocol(investments),

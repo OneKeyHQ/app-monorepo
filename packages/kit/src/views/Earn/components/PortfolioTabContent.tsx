@@ -829,14 +829,38 @@ export const PortfolioTabContent = ({
     };
   }, [refreshPortfolioRow, refresh]);
 
-  const noAssets =
-    investments.length === 0 ||
-    investments.every(
-      (item) =>
-        isEmpty(item.assets) &&
-        item.airdropAssets.find((airdrop) => !isEmpty(airdrop.airdropAssets)) ==
-          null,
-    );
+  const filteredInvestments = useMemo(
+    () =>
+      investments.filter(
+        (item) =>
+          !isEmpty(item.assets) ||
+          item.airdropAssets.find(
+            (airdrop) => !isEmpty(airdrop.airdropAssets),
+          ) != null,
+      ),
+    [investments],
+  );
+  const noAssets = useMemo(
+    () => isEmpty(filteredInvestments),
+    [filteredInvestments],
+  );
+
+  const investmentsItemRender = useCallback(
+    (item: IEarnPortfolioInvestment, index: number) => {
+      const showDivider = index !== 0 && filteredInvestments.length > 1;
+      const key = `${item.protocol.providerDetail.code}_${
+        item.protocol.vaultName || ''
+      }_${item.network.networkId}`;
+
+      return (
+        <>
+          {showDivider ? <Divider my="$4" mx="$5" /> : null}
+          <PortfolioItem key={key} portfolioItem={item} />
+        </>
+      );
+    },
+    [filteredInvestments.length],
+  );
 
   const showSkeleton = isLoading && noAssets;
 
@@ -860,30 +884,5 @@ export const PortfolioTabContent = ({
     );
   }
 
-  return (
-    <YStack>
-      {investments.map((item, index) => {
-        if (
-          isEmpty(item.assets) &&
-          item.airdropAssets.find(
-            (airdrop) => !isEmpty(airdrop.airdropAssets),
-          ) == null
-        ) {
-          return null;
-        }
-
-        const showDivider = index !== 0 && investments.length > 1;
-        const key = `${item.protocol.providerDetail.code}_${
-          item.protocol.vaultName || ''
-        }_${item.network.networkId}`;
-
-        return (
-          <>
-            {showDivider ? <Divider my="$4" mx="$5" /> : null}
-            <PortfolioItem key={key} portfolioItem={item} />
-          </>
-        );
-      })}
-    </YStack>
-  );
+  return <YStack>{filteredInvestments.map(investmentsItemRender)}</YStack>;
 };
