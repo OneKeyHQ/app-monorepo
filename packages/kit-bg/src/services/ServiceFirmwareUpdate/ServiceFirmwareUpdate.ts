@@ -400,7 +400,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
     let features: Features = initialFeatures as Features;
 
     // use originalConnectId getFeatures() make sure sdk throw DeviceNotFound if connected device not matched with originalConnectId
-    if (isBootloaderMode) {
+    if (isBootloaderMode || !features) {
       features =
         await this.backgroundApi.serviceHardware.getFeaturesWithoutCache({
           connectId: isBootloaderMode ? updatingConnectId : originalConnectId,

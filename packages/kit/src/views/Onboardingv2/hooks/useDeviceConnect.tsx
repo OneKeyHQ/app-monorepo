@@ -32,7 +32,10 @@ import type {
   IFirmwareVerifyResult,
   IOneKeyDeviceFeatures,
 } from '@onekeyhq/shared/types/device';
-import { EOneKeyDeviceMode } from '@onekeyhq/shared/types/device';
+import {
+  EHardwareCallContext,
+  EOneKeyDeviceMode,
+} from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { ListItem } from '../../../components/ListItem';
@@ -49,9 +52,17 @@ import {
   trackHardwareWalletConnection,
 } from '../utils';
 
+import { usePrepareUSBConnectForFirmwareUpdate } from './usePrepareUSBConnectForFirmwareUpdate';
+
 import type { IDeviceType, SearchDevice } from '@onekeyfe/hd-core';
 
-export function useDeviceConnect() {
+export function useDeviceConnect({
+  setCurrentDevice,
+}: {
+  setCurrentDevice?: React.Dispatch<
+    React.SetStateAction<SearchDevice | undefined>
+  >;
+} = {}) {
   const intl = useIntl();
   const actions = useAccountSelectorActions();
 
@@ -68,6 +79,7 @@ export function useDeviceConnect() {
   );
   const activeDeviceRef = useRef<SearchDevice | null>(null);
   const activeFeaturesRef = useRef<IOneKeyDeviceFeatures | null>(null);
+  const wasInBootloaderModeRef = useRef<boolean>(false);
 
   const isSameHardware = useCallback(
     (target: SearchDevice, current: SearchDevice | null) => {
@@ -111,11 +123,15 @@ export function useDeviceConnect() {
   }, [deviceScanner]);
 
   const connectDevice = useCallback(
-    async (device: SearchDevice) => {
+    async (
+      device: SearchDevice,
+      hardwareCallContext?: EHardwareCallContext,
+    ) => {
       await ensureStopScan();
       try {
         const features = await backgroundApiProxy.serviceHardware.connect({
           device,
+          hardwareCallContext,
         });
         activeDeviceRef.current = { ...device };
         activeFeaturesRef.current = features ?? null;
@@ -143,17 +159,48 @@ export function useDeviceConnect() {
   );
 
   const ensureActiveConnection = useCallback(
-    async (device: SearchDevice) => {
+    async (device: SearchDevice, options?: { forceReconnect?: boolean }) => {
+      // If device was in bootloader mode, force reconnect to get fresh features
+      const shouldForceReconnect =
+        options?.forceReconnect || wasInBootloaderModeRef.current;
+
       if (
+        !shouldForceReconnect &&
         isSameHardware(device, activeDeviceRef.current) &&
         activeFeaturesRef.current
       ) {
         return activeFeaturesRef.current;
       }
-      const features = await connectDevice(device);
+
+      // Clear bootloader mode flag when reconnecting
+      wasInBootloaderModeRef.current = false;
+      let hardwareCallContext: EHardwareCallContext | undefined;
+      let isBootMode = false;
+      if (
+        await deviceUtils.isBootloaderModeFromSearchDevice({
+          device: device as any,
+        })
+      ) {
+        hardwareCallContext = EHardwareCallContext.UPDATE_FIRMWARE;
+        isBootMode = true;
+      }
+
+      const features = await connectDevice(device, hardwareCallContext);
+      // If device was in bootloader mode and connectId is empty, search for the updated device
+      if (device.connectId === '' && isBootMode && !features?.bootloader_mode) {
+        const searchedDevices =
+          await backgroundApiProxy.serviceHardware.searchDevices();
+        if (searchedDevices.success && searchedDevices.payload.length === 1) {
+          const updatedDevice = searchedDevices.payload[0];
+          // Update activeDeviceRef with the fresh device info
+          activeDeviceRef.current = { ...updatedDevice };
+          // Sync to parent component if callback provided
+          setCurrentDevice?.(updatedDevice);
+        }
+      }
       return features;
     },
-    [connectDevice, isSameHardware],
+    [connectDevice, isSameHardware, setCurrentDevice],
   );
 
   const getActiveDevice = useCallback(() => {
@@ -166,6 +213,7 @@ export function useDeviceConnect() {
 
   const fwUpdateActions = useFirmwareUpdateActions();
   const { showFirmwareVerifyDialog } = useFirmwareVerifyDialog();
+  const { prepareUSBConnect } = usePrepareUSBConnectForFirmwareUpdate();
 
   const handleRestoreWalletPress = useCallback(
     ({ deviceType }: { deviceType: IDeviceType }) => {
@@ -325,26 +373,63 @@ export function useDeviceConnect() {
           connectId: device.connectId ?? '',
         });
 
-        const handleBootloaderMode = (existsFirmware: boolean) => {
+        const handleBootloaderMode = async (existsFirmware: boolean) => {
+          // Set bootloader mode flag so retry will force reconnect
+          wasInBootloaderModeRef.current = true;
+
+          // Save current features before clearing (needed for USB connectId building)
+          const savedFeatures = activeFeaturesRef.current;
+          // Clear cached features to ensure fresh data on retry
+          activeFeaturesRef.current = null;
+
+          // Prepare USB connection callback (called when user clicks "Update now")
+          const prepareUSBForUpdate = async () => {
+            // Use saved features from bootloader detection (avoids extra hardware request)
+            let features = savedFeatures ?? undefined;
+            if (!features) {
+              // Fallback: fetch fresh from device if no saved features
+              features = await ensureActiveConnection(device);
+            }
+
+            const usbPrepareResult = await prepareUSBConnect({
+              device,
+              features,
+            });
+
+            // If USB preparation failed (e.g., USB not available), return undefined
+            // This will prevent openChangeLogModal from being called
+            if (!usbPrepareResult) {
+              return undefined;
+            }
+
+            // Return USB connectId if preparation succeeded, otherwise fallback
+            return usbPrepareResult.connectId ?? device.connectId ?? undefined;
+          };
+
           fwUpdateActions.showBootloaderMode({
             connectId: device.connectId ?? undefined,
             existsFirmware,
+            onBeforeUpdate: prepareUSBForUpdate,
           });
           console.log('Device is in bootloader mode', device);
           throw new OneKeyLocalError('Device is in bootloader mode');
         };
 
-        if (
-          await deviceUtils.isBootloaderModeFromSearchDevice({
-            device: device as any,
-          })
-        ) {
-          const existsFirmware =
-            await deviceUtils.existsFirmwareFromSearchDevice({
+        // Skip SearchDevice-based bootloader check if we're retrying after bootloader mode
+        // because device.mode might still be 'bootloader' even after firmware update
+        if (!wasInBootloaderModeRef.current) {
+          if (
+            await deviceUtils.isBootloaderModeFromSearchDevice({
               device: device as any,
-            });
-          handleBootloaderMode(existsFirmware);
-          return;
+            })
+          ) {
+            const existsFirmware =
+              await deviceUtils.existsFirmwareFromSearchDevice({
+                device: device as any,
+              });
+            await handleBootloaderMode(existsFirmware);
+            return;
+          }
         }
 
         // Set global transport type based on selected channel before connecting
@@ -361,12 +446,14 @@ export function useDeviceConnect() {
         }
 
         const features = await ensureActiveConnection(device);
+        // Get the latest device reference after connection (it may have been updated)
+        const latestDevice = getActiveDevice() ?? device;
 
         if (!features) {
           await trackHardwareWalletConnection({
             status: 'failure',
             isSoftwareWalletOnlyUser,
-            deviceType: device.deviceType,
+            deviceType: latestDevice.deviceType,
             features,
             hardwareTransportType: forceTransportType || hardwareTransportType,
           });
@@ -379,7 +466,7 @@ export function useDeviceConnect() {
           const existsFirmware = await deviceUtils.existsFirmwareByFeatures({
             features,
           });
-          handleBootloaderMode(existsFirmware);
+          await handleBootloaderMode(existsFirmware);
           return;
         }
 
@@ -387,7 +474,7 @@ export function useDeviceConnect() {
           features,
         });
         if (deviceType === 'unknown') {
-          deviceType = device.deviceType || deviceType;
+          deviceType = latestDevice.deviceType || deviceType;
         }
 
         const deviceMode = await deviceUtils.getDeviceModeFromFeatures({
@@ -411,14 +498,14 @@ export function useDeviceConnect() {
         const shouldAuthenticateFirmware =
           await backgroundApiProxy.serviceHardware.shouldAuthenticateFirmware({
             device: {
-              ...device,
-              deviceId: device.deviceId || features.device_id,
+              ...latestDevice,
+              deviceId: latestDevice.deviceId || features.device_id,
             },
           });
 
         if (shouldAuthenticateFirmware) {
           void backgroundApiProxy.serviceHardwareUI.closeHardwareUiStateDialog({
-            connectId: device.connectId ?? '',
+            connectId: latestDevice.connectId ?? '',
             hardClose: false,
             skipDelayClose: true,
             deviceResetToHome: false,
@@ -427,7 +514,7 @@ export function useDeviceConnect() {
           const result = await new Promise<IFirmwareVerifyResult>(
             (resolve, reject) => {
               void showFirmwareVerifyDialog({
-                device,
+                device: latestDevice,
                 features,
                 onVerified: ({ checked }: { checked: boolean }) => {
                   isVerified = checked;
@@ -435,9 +522,9 @@ export function useDeviceConnect() {
                     resolve({
                       verified: checked,
                       skipVerification: checked === false,
-                      device,
+                      device: latestDevice,
                       payload: {
-                        deviceType: device.deviceType,
+                        deviceType: latestDevice.deviceType,
                         data: '',
                         cert: '',
                         signature: '',
@@ -454,9 +541,9 @@ export function useDeviceConnect() {
                     resolve({
                       verified: false,
                       skipVerification: true,
-                      device,
+                      device: latestDevice,
                       payload: {
-                        deviceType: device.deviceType,
+                        deviceType: latestDevice.deviceType,
                         data: '',
                         cert: '',
                         signature: '',
@@ -485,7 +572,7 @@ export function useDeviceConnect() {
           return result;
         }
         void backgroundApiProxy.serviceHardwareUI.closeHardwareUiStateDialog({
-          connectId: device.connectId ?? '',
+          connectId: latestDevice.connectId ?? '',
           hardClose: false,
           skipDelayClose: true,
           deviceResetToHome: false,
@@ -497,9 +584,9 @@ export function useDeviceConnect() {
 
         return {
           verified: true,
-          device,
+          device: latestDevice,
           payload: {
-            deviceType: device.deviceType,
+            deviceType: latestDevice.deviceType,
             data: '',
             cert: '',
             signature: '',
@@ -510,7 +597,6 @@ export function useDeviceConnect() {
         };
       } catch (error) {
         // Clear force transport type on device connection error
-        void backgroundApiProxy.serviceHardware.clearForceTransportType();
         void backgroundApiProxy.serviceHardwareUI.cleanHardwareUiState();
         console.error('handleDeviceConnect error:', error);
         throw error;
@@ -523,6 +609,8 @@ export function useDeviceConnect() {
       ensureActiveConnection,
       fwUpdateActions,
       showFirmwareVerifyDialog,
+      prepareUSBConnect,
+      getActiveDevice,
     ],
   );
 

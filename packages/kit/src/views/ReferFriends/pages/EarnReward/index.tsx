@@ -47,7 +47,6 @@ import {
   BreadcrumbSection,
   ExportButton,
   FilterButton,
-  ReferFriendsPageContainer,
 } from '../../components';
 import { useRewardFilter } from '../../hooks/useRewardFilter';
 
@@ -475,59 +474,58 @@ function EarnRewardPageWrapper() {
           hideHeaderLeft={platformEnv.isDesktop}
         />
       )}
-      <Page.Body>
-        <ReferFriendsPageContainer position="relative">
-          {!md ? (
-            <YStack p="$5">
-              <BreadcrumbSection secondItemLabel={title} />
-            </YStack>
-          ) : null}
-          {tourTimes === 0 ? (
-            <Alert
-              closable
-              description={intl.formatMessage({
-                id: ETranslations.referral_earn_reward_tips,
-              })}
-              type="info"
-              mx="$5"
-              mb="$2.5"
-              onClose={tourVisited}
-            />
-          ) : null}
-          <YStack position="relative">
-            <RewardTypeTabs />
-
-            {!platformEnv.isNative && !md ? (
-              <XStack
-                position="absolute"
-                right="$5"
-                bottom="$2"
-                gap="$2"
-                zIndex={9999}
-                ai="center"
-                jc="center"
-              >
-                {tools()}
-              </XStack>
-            ) : null}
+      <Page.Body $gt2xl={{ width: 1280, mx: 'auto' }}>
+        {!md ? (
+          <YStack p="$5">
+            <BreadcrumbSection secondItemLabel={title} />
           </YStack>
-          {Content}
-          {isLoading || !lists[0] || !lists[1] ? (
-            <YStack
-              bg="$bgApp"
+        ) : null}
+        {tourTimes === 0 ? (
+          <Alert
+            closable
+            description={intl.formatMessage({
+              id: ETranslations.referral_earn_reward_tips,
+            })}
+            type="info"
+            mx="$5"
+            mb="$2.5"
+            onClose={tourVisited}
+          />
+        ) : null}
+        <YStack position="relative">
+          <RewardTypeTabs />
+
+          {!platformEnv.isNative && !md ? (
+            <XStack
               position="absolute"
-              top={0}
-              left={0}
-              right={0}
-              bottom={0}
+              right="$5"
+              bottom="$2"
+              gap="$2"
+              zIndex={9999}
               ai="center"
               jc="center"
-              flex={1}
             >
-              <Spinner size="large" />
-            </YStack>
+              {tools()}
+            </XStack>
           ) : null}
-        </ReferFriendsPageContainer>
+        </YStack>
+
+        {Content}
+        {isLoading || !lists[0] || !lists[1] ? (
+          <YStack
+            bg="$bgApp"
+            position="absolute"
+            top={0}
+            left={0}
+            right={0}
+            bottom={0}
+            ai="center"
+            jc="center"
+            flex={1}
+          >
+            <Spinner size="large" />
+          </YStack>
+        ) : null}
       </Page.Body>
     </Page>
   );

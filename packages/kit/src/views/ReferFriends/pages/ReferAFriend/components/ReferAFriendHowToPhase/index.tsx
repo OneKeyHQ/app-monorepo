@@ -1,3 +1,5 @@
+import type { ReactNode } from 'react';
+
 import { useIntl } from 'react-intl';
 
 import { Stack, YStack } from '@onekeyhq/components';
@@ -6,7 +8,13 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { InviteCodeStepImage } from '../InviteCodeStepImage';
 import { ReferralBenefitsList } from '../ReferralBenefitsList';
 
-export function ReferAFriendHowToPhase() {
+interface IReferAFriendHowToPhaseProps {
+  actions?: ReactNode;
+}
+
+export function ReferAFriendHowToPhase({
+  actions,
+}: IReferAFriendHowToPhaseProps) {
   const intl = useIntl();
 
   return (
@@ -39,6 +47,8 @@ export function ReferAFriendHowToPhase() {
             id: ETranslations.referral_intro_p2_note,
           })}
         />
+
+        {actions}
       </Stack>
     </YStack>
   );

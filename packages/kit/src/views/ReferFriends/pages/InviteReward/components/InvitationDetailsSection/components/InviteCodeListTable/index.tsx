@@ -29,7 +29,7 @@ export function InviteCodeListTable({
   refetch,
 }: IInviteCodeListTableProps) {
   const intl = useIntl();
-  const { gtLg } = useMedia();
+  const { gtXl } = useMedia();
   const hasCodeListData = Boolean(codeListData);
   const isInitialLoading = !hasCodeListData && (isLoading ?? true);
 
@@ -63,7 +63,7 @@ export function InviteCodeListTable({
   }
 
   // Table with horizontal scroll support
-  return gtLg ? (
+  return gtXl ? (
     // Desktop: simple table
     <Stack flex={1}>
       <Table<IInviteCodeListItem>

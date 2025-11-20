@@ -52,15 +52,17 @@ function ReferAFriendPage({
               opacity: 0,
             }}
           >
-            <YStack gap="$5">
-              <ReferAFriendIntroPhase postConfig={postConfig} />
-              {showInlineActions ? (
-                <ReferAFriendPhaseActions
-                  phaseState={phaseState}
-                  setPhaseState={setPhaseState}
-                />
-              ) : null}
-            </YStack>
+            <ReferAFriendIntroPhase
+              postConfig={postConfig}
+              actions={
+                showInlineActions ? (
+                  <ReferAFriendPhaseActions
+                    phaseState={phaseState}
+                    setPhaseState={setPhaseState}
+                  />
+                ) : undefined
+              }
+            />
           </YStack>
         ) : null}
         {phaseState === EPhaseState.join ? (
@@ -74,15 +76,16 @@ function ReferAFriendPage({
               opacity: 0,
             }}
           >
-            <YStack gap="$5">
-              <ReferAFriendHowToPhase />
-              {showInlineActions ? (
-                <ReferAFriendPhaseActions
-                  phaseState={phaseState}
-                  setPhaseState={setPhaseState}
-                />
-              ) : null}
-            </YStack>
+            <ReferAFriendHowToPhase
+              actions={
+                showInlineActions ? (
+                  <ReferAFriendPhaseActions
+                    phaseState={phaseState}
+                    setPhaseState={setPhaseState}
+                  />
+                ) : undefined
+              }
+            />
           </YStack>
         ) : null}
       </AnimatePresence>
