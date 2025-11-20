@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 import {
   Button,
   Dialog,
+  Icon,
   Page,
   SizableText,
   XStack,
@@ -120,13 +121,11 @@ export default function ShowRecoveryPhrase() {
   }, [copyText, intl, mnemonic]);
   const copyButton = useMemo(() => {
     return (
-      <Button size="large" onPress={handleCopyMnemonic}>
-        {intl.formatMessage({
-          id: ETranslations.global_copy,
-        })}
+      <Button size="large" onPress={handleCopyMnemonic} childrenAsText={false}>
+        <Icon name="Copy3Outline" />
       </Button>
     );
-  }, [handleCopyMnemonic, intl]);
+  }, [handleCopyMnemonic]);
 
   return (
     <Page>
@@ -172,13 +171,18 @@ export default function ShowRecoveryPhrase() {
             </XStack>
 
             {gtMd ? (
-              <XStack flex={1} gap="$2">
-                {copyButton}
-                <Button size="large" variant="primary" onPress={handleContinue}>
+              <XStack gap="$2">
+                <Button
+                  flex={1}
+                  size="large"
+                  variant="primary"
+                  onPress={handleContinue}
+                >
                   {intl.formatMessage({
                     id: ETranslations.global_saved_the_phrases,
                   })}
                 </Button>
+                {copyButton}
               </XStack>
             ) : null}
           </YStack>
@@ -186,9 +190,8 @@ export default function ShowRecoveryPhrase() {
         {!gtMd ? (
           <OnboardingLayout.Footer>
             <XStack gap="$2">
-              {copyButton}
               <Button
-                w="100%"
+                flex={1}
                 size="large"
                 variant="primary"
                 onPress={handleContinue}
@@ -197,6 +200,7 @@ export default function ShowRecoveryPhrase() {
                   id: ETranslations.global_saved_the_phrases,
                 })}
               </Button>
+              {copyButton}
             </XStack>
           </OnboardingLayout.Footer>
         ) : null}
