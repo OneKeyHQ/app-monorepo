@@ -79,6 +79,8 @@ export function DiscoveryItemCard({
     );
   }
 
+  // Use TouchableOpacity to fix iOS bug where setTimeout cannot be triggered
+  // through components other than Button or TouchableOpacity after hidden views are restored.
   return (
     <TouchableOpacity onPress={handlePress} activeOpacity={1}>
       <Stack
