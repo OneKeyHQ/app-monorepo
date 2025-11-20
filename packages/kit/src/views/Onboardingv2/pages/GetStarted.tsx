@@ -28,6 +28,7 @@ import {
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes';
 import type { HwWalletAvatarImages } from '@onekeyhq/shared/src/utils/avatarUtils';
 
@@ -37,7 +38,6 @@ import { TermsAndPrivacy } from '../../Onboarding/pages/GetStarted/components';
 import { OnboardingLayout } from '../components/OnboardingLayout';
 
 import type { LayoutChangeEvent } from 'react-native';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 const DEVICE_SIZE = 24;
 
