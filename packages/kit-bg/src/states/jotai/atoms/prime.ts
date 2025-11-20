@@ -164,6 +164,7 @@ export type IPrimeTransferAtomData = {
         randomNumber: string | undefined;
       }
     | undefined;
+  importCurrentCreatingTarget?: string;
   importProgress?: {
     totalDetailInfo?: IPrimeTransferImportProgressTotalDetailInfo;
     total: number;
