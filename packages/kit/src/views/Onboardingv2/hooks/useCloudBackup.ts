@@ -6,7 +6,11 @@ import { useThrottledCallback } from 'use-debounce';
 import type { IDialogInstance } from '@onekeyhq/components';
 import { Dialog, Toast } from '@onekeyhq/components';
 import type { IBackupDataEncryptedPayload } from '@onekeyhq/kit-bg/src/services/ServiceCloudBackupV2/backupProviders/IOneKeyBackupProvider';
-import { useCloudBackupStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type { ICloudBackupExitPreventAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  cloudBackupExitPreventAtom,
+  useCloudBackupStatusAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -234,6 +238,12 @@ export function useCloudBackup() {
               id: ETranslations.backing_up_desc,
             }),
           });
+          await cloudBackupExitPreventAtom.set(
+            (v): ICloudBackupExitPreventAtom => ({
+              ...v,
+              shouldPreventExit: true,
+            }),
+          );
           const result = await backgroundApiProxy.serviceCloudBackupV2.backup({
             password,
             data,
@@ -298,6 +308,12 @@ export function useCloudBackup() {
         } finally {
           void loadingDialog?.close?.();
           setCheckLoading(false);
+          await cloudBackupExitPreventAtom.set(
+            (v): ICloudBackupExitPreventAtom => ({
+              ...v,
+              shouldPreventExit: false,
+            }),
+          );
         }
       };
       try {
@@ -393,6 +409,12 @@ export function useCloudBackup() {
         onSubmit: async (password: string) => {
           // Show progress dialog
           try {
+            await cloudBackupExitPreventAtom.set(
+              (v): ICloudBackupExitPreventAtom => ({
+                ...v,
+                shouldPreventExit: true,
+              }),
+            );
             setCheckLoading(true);
             await backgroundApiProxy.serviceCloudBackupV2.restorePreparePrivateData(
               {
@@ -431,6 +453,12 @@ export function useCloudBackup() {
           } finally {
             setCheckLoading(false);
             // void dialog.close();
+            await cloudBackupExitPreventAtom.set(
+              (v): ICloudBackupExitPreventAtom => ({
+                ...v,
+                shouldPreventExit: false,
+              }),
+            );
           }
         },
       });
