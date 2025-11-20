@@ -35,7 +35,7 @@ function useWalletBanner({
         bannerId: item.id,
         type: 'jump',
       });
-      console.log('wallet banner item', item);
+
       if (
         item.hrefType === 'internal' &&
         item.href &&
@@ -81,11 +81,6 @@ function useWalletBanner({
         return;
       }
 
-      if (item.mode) {
-        parseNotificationPayload(item.mode, item.payload, () => {});
-        return;
-      }
-
       if (item.href) {
         await parseQRCode.parse(item.href, {
           handlers: [
@@ -101,6 +96,8 @@ function useWalletBanner({
           network,
           wallet,
         });
+      } else if (item.mode) {
+        parseNotificationPayload(item.mode, item.payload, () => {});
       }
     },
     [account, indexedAccountId, network, wallet, parseQRCode, navigation],
