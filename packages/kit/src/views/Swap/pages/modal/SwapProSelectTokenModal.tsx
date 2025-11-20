@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 import { Page, SearchBar, Stack } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { useSwapProSelectTokenAtom } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -14,10 +15,13 @@ import type {
   IModalSwapParamList,
 } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import type { IMarketSearchV2Token } from '@onekeyhq/shared/types/market';
 
 import { MarketNormalTokenList } from '../../../Market/MarketHomeV2/components/MarketTokenList';
 import { MarketTokenListNetworkSelector } from '../../../Market/MarketHomeV2/components/MarketTokenListNetworkSelector';
 import { MarketWatchListProviderMirrorV2 } from '../../../Market/MarketWatchListProviderMirrorV2';
+import { useSwapProTokenSearch } from '../../hooks/useSwapPro';
+import SwapProSearchTokenList from '../components/SwapProSearchTokenList';
 import { SwapProviderMirror } from '../SwapProviderMirror';
 
 import type { IMarketToken } from '../../../Market/MarketHomeV2/components/MarketTokenList/MarketTokenData';
@@ -25,12 +29,18 @@ import type { RouteProp } from '@react-navigation/core';
 
 const SwapProSelectTokenPage = () => {
   const intl = useIntl();
-  const [selectedNetworkId, setSelectedNetworkId] = useState<string>('evm--1');
-  const [, setSwapProSelectToken] = useSwapProSelectTokenAtom();
+  const [swapProTokenSelect, setSwapProSelectToken] =
+    useSwapProSelectTokenAtom();
+  const [selectedNetworkId, setSelectedNetworkId] = useState<string>(
+    swapProTokenSelect?.networkId ?? 'evm--1',
+  );
   const [searchValue, setSearchValue] = useState<string>('');
   const handleNetworkIdChange = (networkId: string) => {
     setSelectedNetworkId(networkId);
   };
+  const searchValueDebounce = useDebounce(searchValue, 500, { leading: true });
+  const { searchLoading, searchTokenList } =
+    useSwapProTokenSearch(searchValueDebounce);
   const navigation = useAppNavigation();
   const handleTokenSelect = (token: IMarketToken) => {
     setSwapProSelectToken({
@@ -40,6 +50,22 @@ const SwapProSelectTokenPage = () => {
       symbol: token.symbol,
       logoURI: token.tokenImageUri,
       networkLogoURI: token.networkLogoUri,
+      name: token.name,
+      isNative: token.isNative,
+      price: token.price?.toString(),
+    });
+    navigation.pop();
+  };
+  const handleSearchTokenSelect = (
+    token: IMarketSearchV2Token & { networkLogoURI: string },
+  ) => {
+    setSwapProSelectToken({
+      networkId: token.network,
+      contractAddress: token.address,
+      decimals: token.decimals,
+      symbol: token.symbol,
+      logoURI: token.logoUrl,
+      networkLogoURI: token.networkLogoURI,
       name: token.name,
       isNative: token.isNative,
       price: token.price?.toString(),
@@ -61,20 +87,30 @@ const SwapProSelectTokenPage = () => {
             onSearchTextChange={setSearchValue}
           />
         </Stack>
-        <MarketTokenListNetworkSelector
-          selectedNetworkId={selectedNetworkId}
-          onSelectNetworkId={handleNetworkIdChange}
-          placement="bottom-start"
-          containerStyle={{
-            px: '$4',
-            pt: '$3',
-            pb: '$2',
-          }}
-        />
-        <MarketNormalTokenList
-          onItemPress={handleTokenSelect}
-          networkId={selectedNetworkId}
-        />
+        {searchValueDebounce ? (
+          <SwapProSearchTokenList
+            isLoading={searchLoading}
+            items={searchTokenList}
+            onPress={handleSearchTokenSelect}
+          />
+        ) : (
+          <>
+            <MarketTokenListNetworkSelector
+              selectedNetworkId={selectedNetworkId}
+              onSelectNetworkId={handleNetworkIdChange}
+              placement="bottom-start"
+              containerStyle={{
+                px: '$4',
+                pt: '$3',
+                pb: '$2',
+              }}
+            />
+            <MarketNormalTokenList
+              onItemPress={handleTokenSelect}
+              networkId={selectedNetworkId}
+            />
+          </>
+        )}
       </Page.Body>
     </Page>
   );
