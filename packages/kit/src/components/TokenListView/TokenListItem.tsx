@@ -118,7 +118,7 @@ function BasicTokenListItem(props: ITokenListItemProps) {
             networkId={token.networkId}
             withNetwork={withNetwork}
             textProps={{
-              size: '$bodyLgMedium',
+              size: tableLayout ? '$bodyMdMedium' : '$bodyLgMedium',
               flexShrink: 0,
             }}
           />
