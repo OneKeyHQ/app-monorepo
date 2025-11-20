@@ -82,24 +82,27 @@ function CheckAndUpdatePage({
   const isFirmwareVerifiedRef = useRef<boolean | undefined>(undefined);
   const deviceFeaturesRef = useRef<Features | undefined>(undefined);
 
+  const [currentDevice, setCurrentDevice] = useState<SearchDevice | undefined>(
+    deviceData.device as SearchDevice | undefined,
+  );
+
   const deviceLabel = useMemo(() => {
-    if ((deviceData.device as KnownDevice)?.label) {
-      return (deviceData.device as KnownDevice).label;
+    if ((currentDevice as KnownDevice)?.label) {
+      return (currentDevice as KnownDevice).label;
     }
-    return (deviceData.device as SearchDevice).name;
-  }, [deviceData]);
+    return (currentDevice as SearchDevice).name;
+  }, [currentDevice]);
 
   const {
     verifyHardware,
     ensureActiveConnection,
     getActiveDevice,
     ensureStopScan,
-  } = useDeviceConnect();
+  } = useDeviceConnect({
+    setCurrentDevice,
+  });
   const { prepareUSBConnect, restoreOriginalTransport } =
     usePrepareUSBConnectForFirmwareUpdate();
-  const [currentDevice, setCurrentDevice] = useState<SearchDevice | undefined>(
-    deviceData.device as SearchDevice | undefined,
-  );
   const ensureTransportType = useCallback(async () => {
     if (!tabValue) {
       return;
@@ -113,10 +116,10 @@ function CheckAndUpdatePage({
   }, [tabValue]);
 
   const deviceImage = useMemo(() => {
-    const device = deviceData.device as SearchDevice;
+    const device = currentDevice as SearchDevice;
     const deviceType = device?.deviceType || EDeviceType.Pro;
     return HwWalletAvatarImages[deviceType];
-  }, [deviceData]);
+  }, [currentDevice]);
 
   const [steps, setSteps] = useState<
     {
@@ -178,7 +181,7 @@ function CheckAndUpdatePage({
   const toFirmwareUpgradePage = useCallback(async () => {
     // Use shared USB preparation logic
     const usbPrepareResult = await prepareUSBConnect({
-      device: deviceData.device as SearchDevice,
+      device: currentDevice as SearchDevice,
       features: deviceFeaturesRef.current,
     });
 
@@ -191,7 +194,7 @@ function CheckAndUpdatePage({
     actions.openChangeLogModal({
       connectId: usbPrepareResult.connectId,
     });
-  }, [actions, deviceData.device, prepareUSBConnect]);
+  }, [actions, currentDevice, prepareUSBConnect]);
 
   const createStepTimeout = useCallback(() => {
     const timeout = setTimeout(() => {
@@ -288,7 +291,7 @@ function CheckAndUpdatePage({
       navigation.push(EOnboardingPagesV2.FinalizeWalletSetup, {
         deviceData: {
           ...deviceData,
-          device: (deviceForFinalize ?? deviceData.device) as SearchDevice,
+          device: (deviceForFinalize ?? currentDevice) as SearchDevice,
         },
         isFirmwareVerified: isFirmwareVerifiedRef.current,
       });
@@ -568,7 +571,7 @@ function CheckAndUpdatePage({
 
     try {
       const [result] = await Promise.all([
-        verifyHardware(deviceData.device as SearchDevice, tabValue),
+        verifyHardware(currentDevice as SearchDevice, tabValue),
         new Promise<void>((resolve) => {
           setTimeout(resolve, 1200);
         }),
@@ -701,7 +704,7 @@ function CheckAndUpdatePage({
   );
 
   const DEVICE_SETUP_INSTRUCTIONS = useMemo(() => {
-    const deviceType = (deviceData.device as SearchDevice)?.deviceType;
+    const deviceType = (currentDevice as SearchDevice)?.deviceType;
     const isClassicOrMini =
       deviceType === EDeviceType.Classic ||
       deviceType === EDeviceType.Classic1s ||
@@ -779,7 +782,7 @@ function CheckAndUpdatePage({
       recoveryPhraseStep,
       finishOnboardingOnDevice,
     ];
-  }, [intl, deviceData]);
+  }, [intl, currentDevice]);
 
   const handleSkipCurrentStep = useCallback(() => {
     let currentStepId: ECheckAndUpdateStepId | undefined;
