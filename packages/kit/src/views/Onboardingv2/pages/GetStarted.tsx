@@ -37,6 +37,7 @@ import { TermsAndPrivacy } from '../../Onboarding/pages/GetStarted/components';
 import { OnboardingLayout } from '../components/OnboardingLayout';
 
 import type { LayoutChangeEvent } from 'react-native';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 const DEVICE_SIZE = 24;
 
@@ -229,6 +230,7 @@ export default function GetStarted() {
   const navigation = useAppNavigation();
   const handleGetStarted = () => {
     navigation.push(EOnboardingPagesV2.PickYourDevice);
+    defaultLogger.account.wallet.onboard({ onboardMethod: 'connectHWWallet' });
   };
   const { gtMd } = useMedia();
   const intl = useIntl();
