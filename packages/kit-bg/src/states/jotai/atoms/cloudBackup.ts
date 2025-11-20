@@ -39,3 +39,16 @@ export const { target: cloudBackupStatusAtom, use: useCloudBackupStatusAtom } =
       cloudBackupProviderInfo: undefined,
     },
   });
+
+export type ICloudBackupExitPreventAtom = {
+  shouldPreventExit: boolean;
+};
+export const {
+  target: cloudBackupExitPreventAtom,
+  use: useCloudBackupExitPreventAtom,
+} = globalAtom<ICloudBackupExitPreventAtom>({
+  name: EAtomNames.cloudBackupExitPreventAtom,
+  initialValue: {
+    shouldPreventExit: false,
+  },
+});

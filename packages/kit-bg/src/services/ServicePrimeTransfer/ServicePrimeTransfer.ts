@@ -101,7 +101,10 @@ import type {
   IDBUtxoAccount,
   IDBWallet,
 } from '../../dbs/local/types';
-import type { IPrimeTransferAtomData } from '../../states/jotai/atoms/prime';
+import type {
+  IPrimeTransferAtomData,
+  IPrimeTransferImportProgressTotalDetailInfo,
+} from '../../states/jotai/atoms/prime';
 import type { IAccountDeriveTypes } from '../../vaults/types';
 import type { Socket } from 'socket.io-client';
 
@@ -1533,6 +1536,13 @@ class ServicePrimeTransfer extends ServiceBase {
   }): Promise<void> {
     let totalProgressCount = 0;
 
+    const totalDetailInfo: IPrimeTransferImportProgressTotalDetailInfo = {
+      defaultNetworks: [],
+      hdWallets: {},
+      importedAccounts: {},
+      watchingAccounts: {},
+    };
+
     let backupRestoreDefaultNetworks: {
       networkId: string;
       deriveType: IAccountDeriveTypes;
@@ -1545,6 +1555,7 @@ class ServicePrimeTransfer extends ServiceBase {
           },
         );
       backupRestoreDefaultNetworks = networks;
+      totalDetailInfo.defaultNetworks = backupRestoreDefaultNetworks;
     }
     // Count wallets and their indexed accounts
     selectedTransferData.wallets?.forEach((wallet) => {
@@ -1552,36 +1563,67 @@ class ServicePrimeTransfer extends ServiceBase {
         wallet?.item?.accounts?.length || wallet?.item?.accountIdsLength || 0;
       if (isFromCloudBackupRestore) {
         let customNetworks: {
+          accountIndex: number;
           networkId: string;
           deriveType: IAccountDeriveTypes;
         }[] = [];
         wallet?.item?.createNetworkParams?.forEach((item) => {
-          customNetworks.push(...(item.customNetworks || []));
+          [
+            ...(item.customNetworks || []),
+            ...backupRestoreDefaultNetworks,
+          ].forEach((customNetwork) => {
+            customNetworks.push({
+              accountIndex: item.index,
+              networkId: customNetwork.networkId,
+              deriveType: customNetwork.deriveType,
+            });
+          });
         });
-        customNetworks.push(...backupRestoreDefaultNetworks);
+
         customNetworks = uniqBy(
           customNetworks,
-          (item) => `${item.networkId}_${item.deriveType}`,
+          (item) => `${item.networkId}_${item.deriveType}_${item.accountIndex}`,
         );
-        totalProgressCount += Math.max(count, customNetworks.length);
+
+        const customNetworksCount = customNetworks.length;
+        const accountsCount = Math.max(count, customNetworksCount);
+        totalProgressCount += accountsCount;
+        totalDetailInfo.hdWallets[wallet.id] = {
+          accountsCount,
+          walletId: wallet?.id,
+          walletItemId: wallet?.item?.id,
+        };
       } else {
         totalProgressCount += count;
       }
     });
     // this.backgroundApi.serviceBatchCreateAccount.addDefaultNetworkAccounts
     // Count imported accounts
-    totalProgressCount += selectedTransferData.importedAccounts?.length || 0;
+    const importedAccountsCount =
+      selectedTransferData.importedAccounts?.length || 0;
+    totalProgressCount += importedAccountsCount;
+    totalDetailInfo.importedAccounts = {
+      accountsCount: importedAccountsCount,
+    };
     // Count watching accounts
-    totalProgressCount += selectedTransferData.watchingAccounts?.length || 0;
+    const watchingAccountsCount =
+      selectedTransferData.watchingAccounts?.length || 0;
+    totalProgressCount += watchingAccountsCount;
+    totalDetailInfo.watchingAccounts = {
+      accountsCount: watchingAccountsCount,
+    };
 
-    await primeTransferAtom.set((prev) => ({
-      ...prev,
-      importProgress: {
-        total: totalProgressCount,
-        isImporting: true,
-        current: 0,
-      },
-    }));
+    await primeTransferAtom.set(
+      (prev): IPrimeTransferAtomData => ({
+        ...prev,
+        importProgress: {
+          totalDetailInfo,
+          total: totalProgressCount,
+          isImporting: true,
+          current: 0,
+        },
+      }),
+    );
   }
 
   finallyImportProgress = debounce(

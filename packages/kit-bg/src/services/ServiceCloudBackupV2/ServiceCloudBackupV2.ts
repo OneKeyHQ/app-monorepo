@@ -1,3 +1,6 @@
+/* eslint-disable spellcheck/spell-checker */
+import { cloneDeep } from 'lodash';
+
 import {
   decryptAsync,
   decryptImportedCredential,
@@ -95,7 +98,11 @@ class ServiceCloudBackupV2 extends ServiceBase {
       // return googlePlayService.isAvailable();
       return true;
     }
-    if (platformEnv.isDesktop && platformEnv.isDesktopMac) {
+    if (
+      platformEnv.isDesktop &&
+      platformEnv.isDesktopMac &&
+      platformEnv.isMas
+    ) {
       return true;
     }
     return false;
@@ -190,11 +197,16 @@ class ServiceCloudBackupV2 extends ServiceBase {
   async verifyBackupPassword(params: { password: string }): Promise<boolean> {
     const provider = this.getProvider();
     await provider.checkAvailability();
-    return provider.verifyBackupPassword({
-      password: await this.buildFullBackupPassword({
-        password: params.password,
-      }),
+    console.log('serviceCloudBackupV2__buildFullBackupPassword');
+    const fullPassword = await this.buildFullBackupPassword({
+      password: params.password,
     });
+    console.log('serviceCloudBackupV2__verifyBackupPassword');
+    const result = await provider.verifyBackupPassword({
+      password: fullPassword,
+    });
+    console.log('serviceCloudBackupV2__verifyBackupPassword__result: ', result);
+    return result;
   }
 
   @backgroundMethod()
@@ -211,6 +223,9 @@ class ServiceCloudBackupV2 extends ServiceBase {
     data: IPrimeTransferData;
     password: string;
   }): Promise<{ recordID: string; content: string }> {
+    // eslint-disable-next-line no-param-reassign
+    params = cloneDeep(params);
+    console.log('serviceCloudBackupV2__backup');
     // throw new OneKeyLocalError('test error');
     if (!params?.password) {
       throw new OneKeyLocalError('Password is required for backup');
@@ -218,7 +233,7 @@ class ServiceCloudBackupV2 extends ServiceBase {
     if (!params?.data?.privateData) {
       throw new OneKeyLocalError('Private data is required for backup');
     }
-    const backupPassword = params?.password;
+    const backupPassword: string = params?.password;
     const data: IPrimeTransferData = params.data;
     if (data?.publicData) {
       data.publicData.dataTime = Date.now();
@@ -232,29 +247,51 @@ class ServiceCloudBackupV2 extends ServiceBase {
         await this.backgroundApi.servicePassword.promptPasswordVerify();
       data.privateData.decryptedCredentials = {};
       const entries = Object.entries(data.privateData.credentials || {});
+      console.log('serviceCloudBackupV2__decryptCredentials');
       for (const [key, value] of entries) {
-        if (accountUtils.isHdWallet({ walletId: key })) {
-          data.privateData.decryptedCredentials[key] =
-            await decryptRevealableSeed({
-              rs: value,
-              password: localPassword,
-            });
-        }
-        if (accountUtils.isImportedAccount({ accountId: key })) {
-          data.privateData.decryptedCredentials[key] =
-            await decryptImportedCredential({
-              credential: value,
-              password: localPassword,
-            });
+        try {
+          if (
+            accountUtils.isHdWallet({ walletId: key }) ||
+            accountUtils.isTonMnemonicCredentialId(key)
+          ) {
+            data.privateData.decryptedCredentials[key] =
+              await decryptRevealableSeed({
+                rs: value,
+                password: localPassword,
+              });
+          } else if (accountUtils.isImportedAccount({ accountId: key })) {
+            data.privateData.decryptedCredentials[key] =
+              await decryptImportedCredential({
+                credential: value,
+                password: localPassword,
+              });
+          }
+        } catch (error) {
+          /*
+          data not matched to encoding: hex
+          key: "imported--607--e205f9...355fca5--v4R2--ton_credential"
+          value: "|RP|17...918143"
+          */
+          console.error('serviceCloudBackupV2__decryptCredentials__error', {
+            error,
+            key,
+            value: `${value?.slice(0, 10)}...${value?.slice(-6)}`,
+          });
+          throw new OneKeyLocalError(
+            `Failed to decrypt current credentials: ${key}`,
+          );
         }
       }
+      console.log('serviceCloudBackupV2__decryptCredentials__done');
     }
     if (data?.privateData && data?.privateData?.credentials) {
       data.privateData.credentials = {};
     }
 
+    console.log('serviceCloudBackupV2__stringify_privateData');
     const privateData = stringUtils.stableStringify(data.privateData);
 
+    console.log('serviceCloudBackupV2__encryptPayload');
     const privateDataEncryptedBuffer = await encryptAsync({
       data: Buffer.from(privateData, 'utf8'),
       password: await this.buildFullBackupPassword({
@@ -263,8 +300,10 @@ class ServiceCloudBackupV2 extends ServiceBase {
       allowRawPassword: true,
     });
 
+    console.log('serviceCloudBackupV2__toBase64');
     const privateDataEncrypted = privateDataEncryptedBuffer.toString('base64');
 
+    console.log('serviceCloudBackupV2__backupData');
     const result = await provider.backupData({
       privateDataEncrypted,
       publicData: data.publicData,
@@ -274,6 +313,7 @@ class ServiceCloudBackupV2 extends ServiceBase {
     });
 
     const { recordID, content } = result;
+    console.log('serviceCloudBackupV2__download');
     const downloadData = await this.download({
       recordId: recordID,
     });
