@@ -517,6 +517,7 @@ function TroubleShootingButton({ type }: { type: 'usb' | 'bluetooth' }) {
             <Accordion.Item value="0">
               <Accordion.Trigger
                 unstyled
+                bg="$transparent"
                 flexDirection="row"
                 alignItems="center"
                 borderWidth={0}
