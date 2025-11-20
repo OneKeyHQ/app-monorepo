@@ -128,8 +128,9 @@ function PrimeTransferImportProcessingDialogContent({
         <MultipleClickStack
           showDevBgColor
           debugComponent={
-            <YStack gap="$2">
+            <YStack gap="$2" alignItems="center">
               <SizableText
+                textAlign="center"
                 onPress={() => {
                   Dialog.debugMessage({
                     debugMessage: importProgress?.totalDetailInfo,
@@ -138,7 +139,12 @@ function PrimeTransferImportProcessingDialogContent({
               >
                 {importProgress?.current ?? 0}/{importProgress?.total ?? 0}
               </SizableText>
-              <SizableText>{JSON.stringify(importProgress?.stats)}</SizableText>
+              <SizableText textAlign="center">
+                {primeTransferAtom.importCurrentCreatingTarget}
+              </SizableText>
+              <SizableText textAlign="center">
+                {JSON.stringify(importProgress?.stats)}
+              </SizableText>
             </YStack>
           }
         >
