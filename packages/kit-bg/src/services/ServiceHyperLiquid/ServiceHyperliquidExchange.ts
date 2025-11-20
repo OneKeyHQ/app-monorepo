@@ -8,6 +8,7 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
+  DISABLE_HYPERLIQUID_ACCOUNT_BIND,
   type EHyperLiquidAgentName,
   PERPS_EMPTY_ADDRESS,
   PERPS_EVM_CHAIN_ID_HEX,
@@ -426,6 +427,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
 
       // Extract signature and report to backend after successful approval
       if (
+        !DISABLE_HYPERLIQUID_ACCOUNT_BIND &&
         params.authorize &&
         response.status === 'ok' &&
         response.response.type === 'default'
@@ -435,6 +437,14 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
           if (signatureInfo) {
             void this.backgroundApi.serviceHyperliquid.reportAgentApprovalToBackend(
               signatureInfo,
+            );
+            void this.backgroundApi.serviceHyperliquid.notifyHyperliquidAccountBind(
+              {
+                signerAddress: signatureInfo.signerAddress,
+                action: signatureInfo.action,
+                nonce: signatureInfo.nonce,
+                signature: signatureInfo.signature,
+              },
             );
           }
         } catch (error) {
