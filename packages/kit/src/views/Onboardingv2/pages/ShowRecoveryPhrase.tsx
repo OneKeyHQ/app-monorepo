@@ -5,10 +5,13 @@ import { useIntl } from 'react-intl';
 
 import {
   Button,
+  Dialog,
+  Icon,
   Page,
   SizableText,
   XStack,
   YStack,
+  useClipboard,
   useMedia,
 } from '@onekeyhq/components';
 import {
@@ -83,6 +86,47 @@ export default function ShowRecoveryPhrase() {
 
   useRecoveryPhraseProtected();
 
+  const { copyText } = useClipboard();
+  const handleCopyMnemonic = useCallback(() => {
+    Dialog.show({
+      icon: 'ErrorOutline',
+      tone: 'destructive',
+      title: intl.formatMessage({
+        id: ETranslations.copy_recovery_phrases_warning_title,
+      }),
+      description: intl.formatMessage({
+        id: ETranslations.copy_recovery_phrases_warning_desc,
+      }),
+      footerProps: {
+        flexDirection: 'row-reverse',
+      },
+      onConfirmText: intl.formatMessage({
+        id: ETranslations.copy_anyway,
+      }),
+      onConfirm: () => {
+        copyText(mnemonic);
+      },
+      confirmButtonProps: {
+        testID: 'copy-recovery-phrase-confirm',
+        variant: 'secondary',
+      },
+      onCancelText: intl.formatMessage({
+        id: ETranslations.global_cancel_copy,
+      }),
+      cancelButtonProps: {
+        testID: 'copy-recovery-phrase-cancel',
+        variant: 'primary',
+      },
+    });
+  }, [copyText, intl, mnemonic]);
+  const copyButton = useMemo(() => {
+    return (
+      <Button size="large" onPress={handleCopyMnemonic} childrenAsText={false}>
+        <Icon name="Copy3Outline" />
+      </Button>
+    );
+  }, [handleCopyMnemonic]);
+
   return (
     <Page>
       <OnboardingLayout>
@@ -127,26 +171,37 @@ export default function ShowRecoveryPhrase() {
             </XStack>
 
             {gtMd ? (
-              <Button size="large" variant="primary" onPress={handleContinue}>
-                {intl.formatMessage({
-                  id: ETranslations.global_saved_the_phrases,
-                })}
-              </Button>
+              <XStack gap="$2">
+                <Button
+                  flex={1}
+                  size="large"
+                  variant="primary"
+                  onPress={handleContinue}
+                >
+                  {intl.formatMessage({
+                    id: ETranslations.global_saved_the_phrases,
+                  })}
+                </Button>
+                {copyButton}
+              </XStack>
             ) : null}
           </YStack>
         </OnboardingLayout.Body>
         {!gtMd ? (
           <OnboardingLayout.Footer>
-            <Button
-              w="100%"
-              size="large"
-              variant="primary"
-              onPress={handleContinue}
-            >
-              {intl.formatMessage({
-                id: ETranslations.global_saved_the_phrases,
-              })}
-            </Button>
+            <XStack gap="$2">
+              <Button
+                flex={1}
+                size="large"
+                variant="primary"
+                onPress={handleContinue}
+              >
+                {intl.formatMessage({
+                  id: ETranslations.global_saved_the_phrases,
+                })}
+              </Button>
+              {copyButton}
+            </XStack>
           </OnboardingLayout.Footer>
         ) : null}
       </OnboardingLayout>

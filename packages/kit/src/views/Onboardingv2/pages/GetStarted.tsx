@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { memo, useEffect, useMemo, useState } from 'react';
 
 import { EDeviceType } from '@onekeyfe/hd-shared';
 import { MotiView } from 'moti';
@@ -16,8 +16,8 @@ import type { IYStackProps } from '@onekeyhq/components';
 import {
   BlurView,
   Button,
+  DecorativeOneKeyLogo,
   Icon,
-  Image,
   Page,
   SizableText,
   Stack,
@@ -41,165 +41,189 @@ import type { LayoutChangeEvent } from 'react-native';
 const DEVICE_SIZE = 24;
 
 // GridItem component - places items relative to center point
-function GridItem({
-  gridX,
-  gridY,
-  gridSize = 40,
-  unitSize = 2,
-  children,
-  scale = 1,
-  blur = false,
-}: {
-  gridX: number; // Grid unit X coordinate relative to center (negative = left, positive = right)
-  gridY: number; // Grid unit Y coordinate relative to center (negative = up, positive = down)
-  gridSize?: number; // Size of single grid cell (default 40px)
-  unitSize?: number; // Number of cells per unit side (default 2, means 2x2=4 cells)
-  children: React.ReactNode;
-  blur?: boolean;
-  scale?: number;
-}) {
-  const themeVariant = useThemeVariant();
+const GridItem = memo(
+  ({
+    gridX,
+    gridY,
+    gridSize = 40,
+    unitSize = 2,
+    children,
+    scale = 1,
+    blur = false,
+  }: {
+    gridX: number; // Grid unit X coordinate relative to center (negative = left, positive = right)
+    gridY: number; // Grid unit Y coordinate relative to center (negative = up, positive = down)
+    gridSize?: number; // Size of single grid cell (default 40px)
+    unitSize?: number; // Number of cells per unit side (default 2, means 2x2=4 cells)
+    children: React.ReactNode;
+    blur?: boolean;
+    scale?: number;
+  }) => {
+    const themeVariant = useThemeVariant();
 
-  // Calculate the pixel size of one unit
-  // unitSize=2, gridSize=40 => 2 * 40 = 80px (2x2 cells = 4 cells total)
-  const unitPixelSize = gridSize * unitSize;
+    // Memoize calculations to avoid recomputing on every render
+    const itemMetrics = useMemo(() => {
+      // Calculate the pixel size of one unit
+      // unitSize=2, gridSize=40 => 2 * 40 = 80px (2x2 cells = 4 cells total)
+      const unitPixelSize = gridSize * unitSize;
 
-  // Calculate offset from center
-  // Positive gridX = move right, Negative = move left
-  // Positive gridY = move down, Negative = move up
-  const offsetX = gridX * unitPixelSize;
-  const offsetY = gridY * unitPixelSize;
+      // Calculate offset from center
+      // Positive gridX = move right, Negative = move left
+      // Positive gridY = move down, Negative = move up
+      const offsetX = gridX * unitPixelSize;
+      const offsetY = gridY * unitPixelSize;
 
-  return (
-    <YStack
-      position="absolute"
-      // Use transform to position relative to center
-      // 50% moves to center, then offset by grid coordinates
-      left="50%"
-      top="50%"
-      width={unitPixelSize}
-      height={unitPixelSize}
-      style={{
+      return {
+        unitPixelSize,
         transform: [
           { translateX: offsetX - unitPixelSize / 2 },
           { translateY: offsetY - unitPixelSize / 2 },
           { scale },
         ],
-      }}
-      alignItems="center"
-      justifyContent="center"
-      pointerEvents="none"
-    >
+      };
+    }, [gridX, gridY, gridSize, unitSize, scale]);
+
+    // Memoize box shadow calculation for web platform
+    const webBoxShadow = useMemo(
+      () =>
+        `0 1px 1px 0 rgba(0, 0, 0, 0.05), 0 0 0 1px ${
+          themeVariant === 'light'
+            ? 'rgba(0, 0, 0, 0.05)'
+            : 'rgba(255, 255, 255, 0.05)'
+        }, 0 2px 4px 0 rgba(0, 0, 0, 0.04), 0 12px 34px 0 rgba(0, 0, 0, 0.05), 0 1px 2px 0 rgba(0, 0, 0, 0.04)`,
+      [themeVariant],
+    );
+
+    return (
       <YStack
-        animation="quick"
-        animateOnly={['transform']}
-        enterStyle={{
-          scale: 0.9,
+        position="absolute"
+        // Use transform to position relative to center
+        // 50% moves to center, then offset by grid coordinates
+        left="50%"
+        top="50%"
+        width={itemMetrics.unitPixelSize}
+        height={itemMetrics.unitPixelSize}
+        style={{
+          transform: itemMetrics.transform,
         }}
-        w="$14"
-        h="$14"
-        bg="$bg"
-        borderRadius="$3"
-        borderCurve="continuous"
         alignItems="center"
         justifyContent="center"
-        $platform-native={{
-          borderWidth: 1,
-          borderColor: '$neutral3',
-        }}
-        // $platform-android={{ elevation: 0.5 }}
-        $platform-ios={{
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 0.5 },
-          shadowOpacity: 0.2,
-          shadowRadius: 0.5,
-        }}
-        $platform-web={{
-          boxShadow: `0 1px 1px 0 rgba(0, 0, 0, 0.05), 0 0 0 1px ${
-            themeVariant === 'light'
-              ? 'rgba(0, 0, 0, 0.05)'
-              : 'rgba(255, 255, 255, 0.05)'
-          }, 0 2px 4px 0 rgba(0, 0, 0, 0.04), 0 12px 34px 0 rgba(0, 0, 0, 0.05), 0 1px 2px 0 rgba(0, 0, 0, 0.04)`,
-        }}
-        hoverStyle={{
-          scale: 0.9,
-        }}
+        pointerEvents="none"
       >
-        {children}
+        <YStack
+          w="$14"
+          h="$14"
+          bg="$bg"
+          borderRadius="$3"
+          borderCurve="continuous"
+          alignItems="center"
+          justifyContent="center"
+          $platform-native={{
+            borderWidth: 1,
+            borderColor: '$neutral3',
+          }}
+          // $platform-android={{ elevation: 0.5 }}
+          $platform-ios={{
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 0.5 },
+            shadowOpacity: 0.2,
+            shadowRadius: 0.5,
+          }}
+          $platform-web={{
+            transition: 'transform 100ms linear',
+            boxShadow: webBoxShadow,
+          }}
+          hoverStyle={{
+            scale: 0.9,
+          }}
+        >
+          {children}
+        </YStack>
+        {blur ? (
+          <BlurView
+            position="absolute"
+            inset={0}
+            intensity={10}
+            tint={themeVariant === 'light' ? 'light' : 'dark'}
+          />
+        ) : null}
       </YStack>
-      {blur ? (
-        <BlurView
-          position="absolute"
-          inset={0}
-          intensity={10}
-          tint={themeVariant === 'light' ? 'light' : 'dark'}
-        />
-      ) : null}
-    </YStack>
-  );
-}
+    );
+  },
+);
 
-function GridBackground({
-  gridSize,
-  lineColor,
-  ...rest
-}: {
-  gridSize: number;
-  lineColor: string;
-} & IYStackProps) {
-  const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
+GridItem.displayName = 'GridItem';
 
-  const handleLayout = (event: LayoutChangeEvent) => {
-    const { width: layoutWidth, height: layoutHeight } =
-      event.nativeEvent.layout;
-    setDimensions({ width: layoutWidth, height: layoutHeight });
-  };
+const GridBackground = memo(
+  ({
+    gridSize,
+    lineColor,
+    ...rest
+  }: {
+    gridSize: number;
+    lineColor: string;
+  } & IYStackProps) => {
+    const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
 
-  // Ensure cols and rows are always even numbers for symmetry
-  const cols = Math.floor(dimensions.width / gridSize / 2) * 2;
-  const rows = Math.floor(dimensions.height / gridSize / 2) * 2;
+    const handleLayout = (event: LayoutChangeEvent) => {
+      const { width: layoutWidth, height: layoutHeight } =
+        event.nativeEvent.layout;
+      setDimensions({ width: layoutWidth, height: layoutHeight });
+    };
 
-  // Calculate offsets to center the grid
-  const offsetX = (dimensions.width - cols * gridSize) / 2;
-  const offsetY = (dimensions.height - rows * gridSize) / 2;
+    // Memoize grid calculations to avoid recalculation on every render
+    const gridMetrics = useMemo(() => {
+      // Ensure cols and rows are always even numbers for symmetry
+      const cols = Math.floor(dimensions.width / gridSize / 2) * 2;
+      const rows = Math.floor(dimensions.height / gridSize / 2) * 2;
 
-  return (
-    <YStack onLayout={handleLayout} {...rest}>
-      <Svg width="100%" height="100%">
-        <Defs>
-          <Pattern
-            id="grid"
-            width={gridSize}
-            height={gridSize}
-            patternUnits="userSpaceOnUse"
-            x={offsetX}
-            y={offsetY}
-          >
-            {/* Horizontal line */}
-            <Line
-              x1="0"
-              y1="0"
-              x2={gridSize}
-              y2="0"
-              stroke={lineColor}
-              strokeWidth="1"
-            />
-            {/* Vertical line */}
-            <Line
-              x1="0"
-              y1="0"
-              x2="0"
-              y2={gridSize}
-              stroke={lineColor}
-              strokeWidth="1"
-            />
-          </Pattern>
-        </Defs>
-        <Rect width="100%" height="100%" fill="url(#grid)" />
-      </Svg>
-    </YStack>
-  );
-}
+      // Calculate offsets to center the grid
+      const offsetX = (dimensions.width - cols * gridSize) / 2;
+      const offsetY = (dimensions.height - rows * gridSize) / 2;
+
+      return { cols, rows, offsetX, offsetY };
+    }, [dimensions.width, dimensions.height, gridSize]);
+
+    return (
+      <YStack onLayout={handleLayout} {...rest}>
+        <Svg width="100%" height="100%">
+          <Defs>
+            <Pattern
+              id="grid"
+              width={gridSize}
+              height={gridSize}
+              patternUnits="userSpaceOnUse"
+              x={gridMetrics.offsetX}
+              y={gridMetrics.offsetY}
+            >
+              {/* Horizontal line */}
+              <Line
+                x1="0"
+                y1="0"
+                x2={gridSize}
+                y2="0"
+                stroke={lineColor}
+                strokeWidth="1"
+              />
+              {/* Vertical line */}
+              <Line
+                x1="0"
+                y1="0"
+                x2="0"
+                y2={gridSize}
+                stroke={lineColor}
+                strokeWidth="1"
+              />
+            </Pattern>
+          </Defs>
+          <Rect width="100%" height="100%" fill="url(#grid)" />
+        </Svg>
+      </YStack>
+    );
+  },
+);
+
+GridBackground.displayName = 'GridBackground';
 
 export default function GetStarted() {
   const navigation = useAppNavigation();
@@ -215,6 +239,10 @@ export default function GetStarted() {
 
   const themeVariant = useThemeVariant();
 
+  // Cache theme values to avoid multiple useThemeValue calls during render
+  const neutral6 = useThemeValue('$neutral6');
+  const bgColor = useThemeValue('$bg');
+
   const DEVICE_DATA: (keyof typeof HwWalletAvatarImages)[] = useMemo(() => {
     return [
       themeVariant === 'light' ? `${EDeviceType.Pro}White` : EDeviceType.Pro,
@@ -223,6 +251,18 @@ export default function GetStarted() {
       EDeviceType.Mini,
     ];
   }, [themeVariant]);
+
+  // Delay animation initialization to improve initial render performance
+  const [enableAnimation, setEnableAnimation] = useState(false);
+
+  useEffect(() => {
+    // Start animation after component has mounted and initial render is complete
+    const timer = setTimeout(() => {
+      setEnableAnimation(true);
+    }, 100);
+
+    return () => clearTimeout(timer);
+  }, []);
 
   return (
     <Page>
@@ -246,7 +286,7 @@ export default function GetStarted() {
                 w="100%"
                 h="100%"
                 gridSize={40}
-                lineColor={useThemeValue('$neutral6')}
+                lineColor={neutral6}
               />
               <Svg
                 height="100%"
@@ -264,21 +304,9 @@ export default function GetStarted() {
                     rx={gtMd ? '90%' : '50%'}
                     ry={gtMd ? '30%' : '50%'}
                   >
-                    <Stop
-                      offset="0%"
-                      stopColor={useThemeValue('$bg')}
-                      stopOpacity="0"
-                    />
-                    <Stop
-                      offset="50%"
-                      stopColor={useThemeValue('$bg')}
-                      stopOpacity="0.5"
-                    />
-                    <Stop
-                      offset="100%"
-                      stopColor={useThemeValue('$bg')}
-                      stopOpacity="1"
-                    />
+                    <Stop offset="0%" stopColor={bgColor} stopOpacity="0" />
+                    <Stop offset="50%" stopColor={bgColor} stopOpacity="0.5" />
+                    <Stop offset="100%" stopColor={bgColor} stopOpacity="1" />
                   </RadialGradient>
                 </Defs>
                 <Rect
@@ -289,16 +317,7 @@ export default function GetStarted() {
                   fill="url(#grad)"
                 />
               </Svg>
-              <YStack
-                position="absolute"
-                inset={0}
-                animation="quick"
-                animateOnly={['opacity']}
-                opacity={0.5}
-                enterStyle={{
-                  opacity: 0,
-                }}
-              >
+              <YStack position="absolute" inset={0} opacity={0.5}>
                 <GridItem gridX={gtMd ? -6 : -0.5} gridY={gtMd ? -2 : 4} blur>
                   <Icon name="OpCircleIllus" size="$8" />
                 </GridItem>
@@ -332,36 +351,8 @@ export default function GetStarted() {
                 </GridItem>
               </YStack>
             </YStack>
-            <YStack
-              gap={44}
-              justifyContent="center"
-              alignItems="center"
-              animation="quick"
-              animateOnly={['opacity', 'transform']}
-              enterStyle={{ opacity: 0, scale: 0.98 }}
-            >
-              <YStack
-                $platform-web={{
-                  boxShadow:
-                    '0 8px 12px 0 rgba(4, 31, 0, 0.08), 0 1px 2px 0 rgba(4, 31, 0, 0.10), 0 0 2px 0 rgba(4, 31, 0, 0.10)',
-                }}
-                $platform-native={{
-                  elevation: 1,
-                }}
-                borderRadius={13}
-                animation="quick"
-                animateOnly={['transform']}
-                hoverStyle={{
-                  scale: 0.95,
-                }}
-              >
-                <Image
-                  source={require('@onekeyhq/kit/assets/onboarding/logo-decorative.png')}
-                  width={58}
-                  height={58}
-                  zIndex={1}
-                />
-              </YStack>
+            <YStack gap={44} justifyContent="center" alignItems="center">
+              <DecorativeOneKeyLogo />
               <Stack gap="$4" minWidth="$80" zIndex={1}>
                 <Button
                   size="large"
@@ -377,35 +368,45 @@ export default function GetStarted() {
                       overflow="hidden"
                       alignItems="center"
                     >
-                      <MotiView
-                        from={{
-                          translateY: 0,
-                        }}
-                        animate={{
-                          translateY: Array.from(
-                            { length: DEVICE_DATA.length },
-                            (_, index) => ({
-                              type: 'spring',
-                              value: -index * DEVICE_SIZE,
-                              delay: 1000,
-                            }),
-                          ),
-                        }}
-                        transition={{
-                          loop: true,
-                        }}
-                      >
+                      {enableAnimation ? (
+                        <MotiView
+                          from={{
+                            translateY: 0,
+                          }}
+                          animate={{
+                            translateY: Array.from(
+                              { length: DEVICE_DATA.length },
+                              (_, index) => ({
+                                type: 'spring',
+                                value: -index * DEVICE_SIZE,
+                                delay: 1000,
+                              }),
+                            ),
+                          }}
+                          transition={{
+                            loop: true,
+                          }}
+                        >
+                          <YStack>
+                            {DEVICE_DATA.map((device, index) => (
+                              <WalletAvatar
+                                key={index}
+                                wallet={undefined}
+                                img={device}
+                                size={DEVICE_SIZE}
+                              />
+                            ))}
+                          </YStack>
+                        </MotiView>
+                      ) : (
                         <YStack>
-                          {DEVICE_DATA.map((device, index) => (
-                            <WalletAvatar
-                              key={index}
-                              wallet={undefined}
-                              img={device}
-                              size={DEVICE_SIZE}
-                            />
-                          ))}
+                          <WalletAvatar
+                            wallet={undefined}
+                            img={DEVICE_DATA[0]}
+                            size={DEVICE_SIZE}
+                          />
                         </YStack>
-                      </MotiView>
+                      )}
                     </YStack>
                     <SizableText size="$bodyLgMedium" color="$textInverse">
                       {intl.formatMessage({

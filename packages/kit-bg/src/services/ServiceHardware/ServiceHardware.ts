@@ -617,10 +617,8 @@ class ServiceHardware extends ServiceBase {
     // return Promise.reject(deviceError);
   }
 
-  private connectDevice = (connectId: string) =>
-    this.getFeaturesWithoutCache({
-      connectId,
-    });
+  private connectDevice = (params: IDeviceGetFeaturesOptions) =>
+    this.getFeaturesWithoutCache(params);
 
   private handlerConnectError = (e: any) => {
     const error: deviceErrors.OneKeyHardwareError | undefined =
@@ -638,11 +636,16 @@ class ServiceHardware extends ServiceBase {
   @backgroundMethod()
   async connect({
     device,
+    hardwareCallContext,
   }: {
     device: SearchDevice;
+    hardwareCallContext?: EHardwareCallContext;
   }): Promise<Features | undefined> {
     const { connectId } = device;
-    if (!connectId) {
+    if (
+      !connectId &&
+      hardwareCallContext !== EHardwareCallContext.UPDATE_FIRMWARE
+    ) {
       throw new OneKeyLocalError(
         'hardware connect ERROR: connectId is undefined',
       );
@@ -650,14 +653,17 @@ class ServiceHardware extends ServiceBase {
 
     // Get compatible connectId for the current transport type
     const compatibleConnectId = await this.getCompatibleConnectId({
-      connectId,
+      connectId: connectId || undefined,
       featuresDeviceId: device.deviceId,
-      hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+      hardwareCallContext:
+        hardwareCallContext || EHardwareCallContext.USER_INTERACTION,
     });
 
     if (platformEnv.isNative) {
       try {
-        return await this.connectDevice(compatibleConnectId);
+        return await this.connectDevice({
+          connectId: compatibleConnectId,
+        });
       } catch (e: any) {
         this.handlerConnectError(e);
       }
@@ -666,7 +672,13 @@ class ServiceHardware extends ServiceBase {
        * USB does not need the extra getFeatures call
        */
       try {
-        return await this.connectDevice(compatibleConnectId);
+        return await this.connectDevice({
+          connectId: compatibleConnectId,
+          params: {
+            allowEmptyConnectId:
+              hardwareCallContext === EHardwareCallContext.UPDATE_FIRMWARE,
+          },
+        });
       } catch (e: any) {
         return (device as KnownDevice).features;
       }

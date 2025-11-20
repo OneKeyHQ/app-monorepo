@@ -26,7 +26,15 @@ export enum EModalReceiveRoutes {
 }
 
 export type IModalReceiveParamList = {
-  [EModalReceiveRoutes.ReceiveSelector]: undefined;
+  [EModalReceiveRoutes.ReceiveSelector]:
+    | {
+        accountId: string;
+        networkId: string;
+        walletId: string;
+        indexedAccountId: string | undefined;
+        token: IToken;
+      }
+    | undefined;
   [EModalReceiveRoutes.CreateInvoice]: {
     accountId: string;
     networkId: string;

@@ -1301,20 +1301,26 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           token?.networkId &&
           !networkUtils.isAllNetwork({ networkId: token?.networkId })
         ) {
-          const toAccountInfos =
-            await backgroundApiProxy.serviceAccount.getNetworkAccount({
-              deriveType: swapAddressInfo.accountInfo?.deriveType ?? 'default',
-              indexedAccountId: swapAddressInfo.accountInfo?.indexedAccount?.id,
-              accountId: swapAddressInfo.accountInfo?.indexedAccount?.id
-                ? undefined
-                : swapAddressInfo.accountInfo?.account?.id ?? '',
-              dbAccount: swapAddressInfo.accountInfo?.dbAccount,
-              networkId: token.networkId,
-            });
-          if (toAccountInfos) {
-            accountAddress = toAccountInfos.addressDetail?.address;
-            accountNetworkId = toAccountInfos.addressDetail?.networkId;
-            accountId = toAccountInfos.id;
+          try {
+            const toAccountInfos =
+              await backgroundApiProxy.serviceAccount.getNetworkAccount({
+                deriveType:
+                  swapAddressInfo.accountInfo?.deriveType ?? 'default',
+                indexedAccountId:
+                  swapAddressInfo.accountInfo?.indexedAccount?.id,
+                accountId: swapAddressInfo.accountInfo?.indexedAccount?.id
+                  ? undefined
+                  : swapAddressInfo.accountInfo?.account?.id ?? '',
+                dbAccount: swapAddressInfo.accountInfo?.dbAccount,
+                networkId: token.networkId,
+              });
+            if (toAccountInfos) {
+              accountAddress = toAccountInfos.addressDetail?.address;
+              accountNetworkId = toAccountInfos.addressDetail?.networkId;
+              accountId = toAccountInfos.id;
+            }
+          } catch (e) {
+            console.error('swap_toToken_getNetworkAccountError--', e);
           }
         }
       } else {

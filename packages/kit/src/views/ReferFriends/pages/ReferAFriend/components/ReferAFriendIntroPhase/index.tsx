@@ -1,3 +1,5 @@
+import type { ReactNode } from 'react';
+
 import { useIntl } from 'react-intl';
 
 import { SizableText, Stack, YStack } from '@onekeyhq/components';
@@ -7,18 +9,14 @@ import type { IInvitePostConfig } from '@onekeyhq/shared/src/referralCode/type';
 import { InviteCodeStepImage } from '../InviteCodeStepImage';
 import { ReferralBenefitsList } from '../ReferralBenefitsList';
 
-import { NextButton } from './NextButton';
-
-import type { EPhaseState } from '../../types';
-
 interface IReferAFriendIntroPhaseProps {
   postConfig: IInvitePostConfig;
-  setPhaseState: (state: EPhaseState | undefined) => void;
+  actions?: ReactNode;
 }
 
 export function ReferAFriendIntroPhase({
   postConfig,
-  setPhaseState,
+  actions,
 }: IReferAFriendIntroPhaseProps) {
   const intl = useIntl();
 
@@ -72,7 +70,7 @@ export function ReferAFriendIntroPhase({
           })}
         />
 
-        <NextButton setPhaseState={setPhaseState} />
+        {actions}
       </Stack>
     </YStack>
   );

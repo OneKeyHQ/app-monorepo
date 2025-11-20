@@ -1,3 +1,5 @@
+import type { ReactNode } from 'react';
+
 import { useIntl } from 'react-intl';
 
 import { Stack, YStack } from '@onekeyhq/components';
@@ -6,16 +8,12 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { InviteCodeStepImage } from '../InviteCodeStepImage';
 import { ReferralBenefitsList } from '../ReferralBenefitsList';
 
-import { JoinButton } from './JoinButton';
-
-import type { EPhaseState } from '../../types';
-
 interface IReferAFriendHowToPhaseProps {
-  setPhaseState: (state: EPhaseState | undefined) => void;
+  actions?: ReactNode;
 }
 
 export function ReferAFriendHowToPhase({
-  setPhaseState,
+  actions,
 }: IReferAFriendHowToPhaseProps) {
   const intl = useIntl();
 
@@ -50,7 +48,7 @@ export function ReferAFriendHowToPhase({
           })}
         />
 
-        <JoinButton setPhaseState={setPhaseState} />
+        {actions}
       </Stack>
     </YStack>
   );

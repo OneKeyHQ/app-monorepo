@@ -108,6 +108,7 @@ export function FilterButton({
         items: inviteCodeOptions.map((option) => ({
           label: option.label,
           description: option.description,
+          descriptionNumberOfLines: 1,
           extra:
             filterState.inviteCode === option.value ? (
               <Icon name="CheckRadioSolid" size="$5" color="$icon" />

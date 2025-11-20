@@ -29,7 +29,7 @@ export function InviteCodeListTable({
   refetch,
 }: IInviteCodeListTableProps) {
   const intl = useIntl();
-  const { gtLg } = useMedia();
+  const { gtXl } = useMedia();
   const hasCodeListData = Boolean(codeListData);
   const isInitialLoading = !hasCodeListData && (isLoading ?? true);
 
@@ -63,7 +63,7 @@ export function InviteCodeListTable({
   }
 
   // Table with horizontal scroll support
-  return gtLg ? (
+  return gtXl ? (
     // Desktop: simple table
     <Stack flex={1}>
       <Table<IInviteCodeListItem>
@@ -85,17 +85,15 @@ export function InviteCodeListTable({
         flexGrow: 1,
       }}
     >
-      <Stack flex={1} minHeight={400} width={940}>
-        <Table<IInviteCodeListItem>
-          dataSource={sortedData}
-          columns={columns}
-          keyExtractor={(item) => item.code}
-          onHeaderRow={handleHeaderRow}
-          estimatedItemSize={50}
-          rowProps={{ px: '$2', minHeight: '$10' }}
-          scrollEnabled={false}
-        />
-      </Stack>
+      <Table<IInviteCodeListItem>
+        dataSource={sortedData}
+        columns={columns}
+        keyExtractor={(item) => item.code}
+        onHeaderRow={handleHeaderRow}
+        estimatedItemSize={50}
+        rowProps={{ px: '$2', minHeight: '$10' }}
+        scrollEnabled={false}
+      />
     </ScrollView>
   );
 }

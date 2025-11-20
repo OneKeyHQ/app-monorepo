@@ -637,6 +637,39 @@ function Overview({
   );
 }
 
+function BaseEarnBlockedOverview(props: {
+  showContent?: boolean;
+  icon: IKeyOfIcons;
+  title: string;
+  description: string;
+  refresh: () => Promise<void>;
+  refreshing: boolean;
+}) {
+  const intl = useIntl();
+  const { title, description, icon, refresh, refreshing, showContent } = props;
+
+  return showContent ? (
+    <Empty
+      icon={icon}
+      title={title}
+      description={description}
+      button={
+        <Button
+          mt="$6"
+          size="medium"
+          variant="primary"
+          onPress={refresh}
+          loading={refreshing}
+        >
+          {intl.formatMessage({
+            id: ETranslations.global_refresh,
+          })}
+        </Button>
+      }
+    />
+  ) : null;
+}
+
 function EarnBlockedOverview(props: {
   showHeader?: boolean;
   showContent?: boolean;
@@ -646,7 +679,6 @@ function EarnBlockedOverview(props: {
   refresh: () => Promise<void>;
   refreshing: boolean;
 }) {
-  const intl = useIntl();
   const {
     title,
     description,
@@ -657,7 +689,20 @@ function EarnBlockedOverview(props: {
     showContent,
   } = props;
 
-  return (
+  const content = useMemo(() => {
+    return (
+      <BaseEarnBlockedOverview
+        showContent={showContent}
+        icon={icon}
+        title={title}
+        description={description}
+        refresh={refresh}
+        refreshing={refreshing}
+      />
+    );
+  }, [showContent, icon, title, description, refresh, refreshing]);
+
+  if (showHeader) {
     <Page fullPage>
       {showHeader ? (
         <TabPageHeader
@@ -665,30 +710,11 @@ function EarnBlockedOverview(props: {
           tabRoute={ETabRoutes.Earn}
         />
       ) : null}
-      <Page.Body>
-        {showContent ? (
-          <Empty
-            icon={icon}
-            title={title}
-            description={description}
-            button={
-              <Button
-                mt="$6"
-                size="medium"
-                variant="primary"
-                onPress={refresh}
-                loading={refreshing}
-              >
-                {intl.formatMessage({
-                  id: ETranslations.global_refresh,
-                })}
-              </Button>
-            }
-          />
-        ) : null}
-      </Page.Body>
-    </Page>
-  );
+      <Page.Body>{content}</Page.Body>
+    </Page>;
+  }
+
+  return content;
 }
 
 function EarnHomeContent({

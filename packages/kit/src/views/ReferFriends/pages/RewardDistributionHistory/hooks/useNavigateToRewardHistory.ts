@@ -10,6 +10,7 @@ export function useNavigateToRewardHistory() {
   const navigation = useAppNavigation();
 
   return useCallback(() => {
+    // Native or medium+ screens: use Modal navigation
     navigation.pushModal(EModalRoutes.ReferFriendsModal, {
       screen: EModalReferFriendsRoutes.RewardDistributionHistory,
     });
