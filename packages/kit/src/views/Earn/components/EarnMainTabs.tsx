@@ -96,49 +96,25 @@ export function EarnMainTabs({
       {...containerProps}
     >
       <Tabs.Tab name={tabNames.assets}>
-        {isMobile ? (
-          <Tabs.ScrollView refreshControl={refreshControl}>
-            <YStack pt="$6" gap="$8">
-              <ProtocolsTabContent />
-            </YStack>
-          </Tabs.ScrollView>
-        ) : (
-          <YStack>
-            <YStack pt="$6" gap="$8">
-              <ProtocolsTabContent />
-            </YStack>
+        <Tabs.ScrollView refreshControl={refreshControl}>
+          <YStack pt="$6" gap="$8">
+            <ProtocolsTabContent />
           </YStack>
-        )}
+        </Tabs.ScrollView>
       </Tabs.Tab>
       <Tabs.Tab name={tabNames.portfolio}>
-        {isMobile ? (
-          <Tabs.ScrollView refreshControl={refreshControl}>
-            <YStack pt="$6" gap="$8">
-              <PortfolioTabContent portfolioData={portfolioData} />
-            </YStack>
-          </Tabs.ScrollView>
-        ) : (
-          <YStack>
-            <YStack pt="$6" gap="$8">
-              <PortfolioTabContent portfolioData={portfolioData} />
-            </YStack>
+        <Tabs.ScrollView refreshControl={refreshControl}>
+          <YStack pt="$6" gap="$8">
+            <PortfolioTabContent portfolioData={portfolioData} />
           </YStack>
-        )}
+        </Tabs.ScrollView>
       </Tabs.Tab>
       <Tabs.Tab name={tabNames.faqs}>
-        {isMobile ? (
-          <Tabs.ScrollView refreshControl={refreshControl}>
-            <YStack px="$5" pt="$6" gap="$8">
-              <FAQContent faqList={faqList} isLoading={isFaqLoading} />
-            </YStack>
-          </Tabs.ScrollView>
-        ) : (
-          <YStack>
-            <YStack px="$5" pt="$6" gap="$8">
-              <FAQContent faqList={faqList} isLoading={isFaqLoading} />
-            </YStack>
+        <Tabs.ScrollView refreshControl={refreshControl}>
+          <YStack px="$5" pt="$6" gap="$8">
+            <FAQContent faqList={faqList} isLoading={isFaqLoading} />
           </YStack>
-        )}
+        </Tabs.ScrollView>
       </Tabs.Tab>
     </Tabs.Container>
   );
