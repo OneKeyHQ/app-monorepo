@@ -1890,7 +1890,7 @@
   "ln.authorize_access_desc": "Connecter votre portefeuille matériel pour accéder au compte Lightning",
   "ln.authorize_access_network_error": "L'authentification a échoué, vérifiez votre connexion réseau et essayez à nouveau",
   "ln.payment_received_label": "Paiement reçu",
-  "log_out_confirmation_text": "Voulez-vous vraiment vous déconnecter de ${email} ?",
+  "log_out_confirmation_text": "Voulez-vous vraiment vous déconnecter de {email} ?",
   "logged_out_feedback": "Déconnexion réussie",
   "login.forgot_passcode": "Mot de passe oublié ?",
   "login.forgot_password": "Mot de passe oublié ?",
