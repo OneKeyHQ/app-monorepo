@@ -645,16 +645,19 @@ export const useEarnPortfolio = (): IUseEarnPortfolioReturn => {
     [fetchAndUpdateInvestments],
   );
 
-  // Listen to account creation events to refresh portfolio data
+  // Listen to account data update events to refresh portfolio data
   useEffect(() => {
-    const handleAccountAdded = () => {
+    const handleAccountDataUpdate = () => {
       void fetchAndUpdateInvestments();
     };
-    appEventBus.on(EAppEventBusNames.AddDBAccountsToWallet, handleAccountAdded);
+    appEventBus.on(
+      EAppEventBusNames.AccountDataUpdate,
+      handleAccountDataUpdate,
+    );
     return () => {
       appEventBus.off(
-        EAppEventBusNames.AddDBAccountsToWallet,
-        handleAccountAdded,
+        EAppEventBusNames.AccountDataUpdate,
+        handleAccountDataUpdate,
       );
     };
   }, [fetchAndUpdateInvestments]);
