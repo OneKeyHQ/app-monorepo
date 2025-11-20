@@ -1616,6 +1616,7 @@ class ServicePrimeTransfer extends ServiceBase {
     await primeTransferAtom.set(
       (prev): IPrimeTransferAtomData => ({
         ...prev,
+        importCurrentCreatingTarget: undefined,
         importProgress: {
           totalDetailInfo,
           total: totalProgressCount,
@@ -1844,10 +1845,12 @@ class ServicePrimeTransfer extends ServiceBase {
   async startImport({
     selectedTransferData,
     includingDefaultNetworks = false,
+    isFromCloudBackupRestore,
     password,
   }: {
     selectedTransferData: IPrimeTransferSelectedData;
     includingDefaultNetworks?: boolean;
+    isFromCloudBackupRestore?: boolean;
     password: string;
   }): Promise<{
     success: boolean;
@@ -1892,6 +1895,14 @@ class ServicePrimeTransfer extends ServiceBase {
 
       let newWallet: IDBWallet | undefined;
       try {
+        await primeTransferAtom.set(
+          (prev): IPrimeTransferAtomData => ({
+            ...prev,
+            importCurrentCreatingTarget: ['HdWallet: ', wallet.id, wallet.name]
+              .filter(Boolean)
+              .join('__'),
+          }),
+        );
         let mnemonicFromRs = '';
         if (credentialDecrypted) {
           mnemonicFromRs = revealEntropyToMnemonic(
@@ -1964,8 +1975,15 @@ class ServicePrimeTransfer extends ServiceBase {
         }
         try {
           if (newWallet) {
+            let skipNetworks = [presetNetworksMap.lightning.id];
+            if (isFromCloudBackupRestore) {
+              skipNetworks = [
+                presetNetworksMap.lightning.id,
+                presetNetworksMap.cardano.id,
+              ];
+            }
             const customNetworksUsed = customNetworks?.filter(
-              (n) => ![presetNetworksMap.lightning.id].includes(n.networkId),
+              (n) => !skipNetworks.includes(n.networkId),
             );
             await this.backgroundApi.serviceBatchCreateAccount.startBatchCreateAccountsFlowForAllNetwork(
               {
@@ -2033,6 +2051,19 @@ class ServicePrimeTransfer extends ServiceBase {
       if (!networkId) {
         throw new OneKeyLocalError('NetworkId is required');
       }
+      await primeTransferAtom.set(
+        (prev): IPrimeTransferAtomData => ({
+          ...prev,
+          importCurrentCreatingTarget: [
+            importedAccount.id,
+            importedAccount.name,
+            networkId,
+          ]
+            .filter(Boolean)
+            .join('__'),
+        }),
+      );
+
       const { exportedPrivateKey, privateKey } =
         await serviceAccount.getExportedPrivateKeyOfImportedAccount({
           importedAccount,
@@ -2117,6 +2148,19 @@ class ServicePrimeTransfer extends ServiceBase {
       if (!networkId) {
         throw new OneKeyLocalError('NetworkId is required');
       }
+
+      await primeTransferAtom.set(
+        (prev): IPrimeTransferAtomData => ({
+          ...prev,
+          importCurrentCreatingTarget: [
+            watchingAccount.id,
+            watchingAccount.name,
+            networkId,
+          ]
+            .filter(Boolean)
+            .join('__'),
+        }),
+      );
 
       if (watchingAccount?.pub) {
         if (this.currentImportTaskUUID !== taskUUID) {
