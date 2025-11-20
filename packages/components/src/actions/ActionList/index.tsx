@@ -47,6 +47,7 @@ export interface IActionListItemProps {
   label: string;
   extra?: ReactNode;
   description?: string;
+  descriptionNumberOfLines?: number;
   destructive?: boolean;
   onPress?: (close: () => void) => void | Promise<boolean | void>;
   onClose?: () => void;
@@ -86,6 +87,7 @@ export function ActionListItem(
     label,
     extra,
     description,
+    descriptionNumberOfLines,
     onPress,
     destructive,
     disabled,
@@ -185,7 +187,13 @@ export function ActionListItem(
             ) : null}
           </XStack>
           {description ? (
-            <SizableText size="$bodyMd" color="$textSubdued" textAlign="left">
+            <SizableText
+              size="$bodyMd"
+              color="$textSubdued"
+              textAlign="left"
+              numberOfLines={descriptionNumberOfLines}
+              ellipsizeMode={descriptionNumberOfLines ? 'tail' : undefined}
+            >
               {description}
             </SizableText>
           ) : null}
