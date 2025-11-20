@@ -1,3 +1,6 @@
+import { useCallback } from 'react';
+
+import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import type { IKeyOfIcons } from '@onekeyhq/components';
@@ -11,18 +14,24 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { IModalReceiveParamList } from '@onekeyhq/shared/src/routes';
+import { EModalReceiveRoutes } from '@onekeyhq/shared/src/routes';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { ListItem } from '../../../components/ListItem';
 import { useReviewControl } from '../../../components/ReviewControl';
+import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useHelpLink } from '../../../hooks/useHelpLink';
+import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { HomeTokenListProviderMirror } from '../../Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
 import { WalletActionBuy } from '../../Home/components/WalletActions/WalletActionBuy';
 import { WalletActionReceive } from '../../Home/components/WalletActions/WalletActionReceive';
 
 import type { IListItemProps } from '../../../components/ListItem';
+import type { RouteProp } from '@react-navigation/core';
 
 function ReceiveOptions({
   icon,
@@ -68,6 +77,72 @@ function ReceiveSelectorContent() {
   });
 
   const showBuyAction = useReviewControl();
+
+  const route =
+    useRoute<
+      RouteProp<IModalReceiveParamList, EModalReceiveRoutes.ReceiveSelector>
+    >();
+
+  const { accountId, networkId, walletId, indexedAccountId, token } =
+    route.params ?? {};
+
+  const navigation = useAppNavigation();
+
+  const { result } = usePromiseResult(async () => {
+    if (accountId && networkId && token) {
+      try {
+        const { url, build } =
+          await backgroundApiProxy.serviceFiatCrypto.generateWidgetUrl({
+            networkId,
+            tokenAddress: token.address,
+            accountId,
+            type: 'buy',
+          });
+        return {
+          isSupported: url && build,
+          url,
+        };
+      } catch (error) {
+        return {
+          isSupported: false,
+        };
+      }
+    }
+    return {
+      isSupported: true,
+    };
+  }, [accountId, networkId, token]);
+
+  const { isSupported, url } = result ?? {};
+
+  const handleReceiveOnPress = useCallback(
+    ({ onPress }: { onPress: () => void }) => {
+      if (token) {
+        navigation.push(EModalReceiveRoutes.ReceiveToken, {
+          networkId,
+          accountId,
+          walletId,
+          token,
+          indexedAccountId,
+          disableSelector: true,
+        });
+      } else {
+        onPress();
+      }
+    },
+    [token, accountId, networkId, walletId, indexedAccountId, navigation],
+  );
+
+  const handleBuyOnPress = useCallback(
+    ({ onPress }: { onPress: () => void }) => {
+      if (token && isSupported && url) {
+        openUrlExternal(url);
+      } else {
+        onPress();
+      }
+    },
+    [token, isSupported, url],
+  );
 
   return (
     <Page>
@@ -156,8 +231,8 @@ function ReceiveSelectorContent() {
                       </XStack>
                     </XStack>
                   }
-                  onPress={onPress}
-                  disabled={disabled}
+                  onPress={() => handleBuyOnPress({ onPress })}
+                  disabled={token ? !isSupported : disabled}
                 />
               )}
             />
@@ -174,7 +249,11 @@ function ReceiveSelectorContent() {
                 subtitle={intl.formatMessage({
                   id: ETranslations.receive_from_another_wallet_desc,
                 })}
-                onPress={onPress}
+                onPress={() =>
+                  handleReceiveOnPress({
+                    onPress,
+                  })
+                }
                 disabled={disabled}
               />
             )}
