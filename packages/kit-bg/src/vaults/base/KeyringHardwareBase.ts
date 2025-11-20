@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
 
+import { EAddressEncodings } from '@onekeyhq/core/src/types';
 import { slicePathTemplate } from '@onekeyhq/core/src/utils';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import {
@@ -157,6 +158,7 @@ export abstract class KeyringHardwareBase extends KeyringBase {
     usedIndexes,
     buildPath,
     buildResultAccount,
+    useTweak,
   }: {
     hwSdkNetwork: IHwSdkNetwork | undefined;
     params: IPrepareHardwareAccountsParams;
@@ -166,6 +168,7 @@ export abstract class KeyringHardwareBase extends KeyringBase {
       account: IHwAllNetworkPrepareAccountsItem;
       index: number;
     }) => T;
+    useTweak?: boolean;
   }): Promise<
     | {
         success: true;
@@ -191,6 +194,7 @@ export abstract class KeyringHardwareBase extends KeyringBase {
           const account = await hwAllNetworkPrepareAccountsResponse.getItem({
             path,
             hwSdkNetwork,
+            useTweak,
           });
           if (account && account.success && account.payload) {
             const resultAccount = buildResultAccount({ account, index });

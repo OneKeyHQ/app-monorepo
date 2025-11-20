@@ -164,7 +164,7 @@ async function buildAddAccountsNetworks({
 export async function buildDefaultAddAccountNetworks(
   params: IBuildDefaultAddAccountNetworksParams,
 ) {
-  const networks = await buildAddAccountsNetworks({
+  const networks: INetworkWithDeriveType[] = await buildAddAccountsNetworks({
     ...params,
     btc: true,
     evm: true,

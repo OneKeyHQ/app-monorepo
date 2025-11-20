@@ -107,10 +107,25 @@ export function useFirmwareUpdateActions() {
     ({
       connectId,
       existsFirmware,
+      onBeforeUpdate,
     }: {
       connectId: string | undefined;
       existsFirmware?: boolean;
+      onBeforeUpdate?: () => Promise<string | undefined>;
     }) => {
+      const handleUpdateClick = async () => {
+        // Call onBeforeUpdate callback if provided (for onboarding USB preparation)
+        const finalConnectId = onBeforeUpdate
+          ? await onBeforeUpdate()
+          : connectId;
+
+        // Only open modal if USB preparation succeeded (finalConnectId is defined)
+        // If undefined, it means USB is not available and a dialog was already shown
+        if (finalConnectId !== undefined) {
+          openChangeLogModal({ connectId: finalConnectId });
+        }
+      };
+
       if (existsFirmware) {
         Dialog.show({
           title: intl.formatMessage({
@@ -127,7 +142,7 @@ export function useFirmwareUpdateActions() {
             id: ETranslations.global_got_it,
           }),
           onCancel: async () => {
-            openChangeLogModal({ connectId });
+            await handleUpdateClick();
           },
           onCancelText: intl.formatMessage({
             id: ETranslations.update_update_now,
@@ -144,7 +159,7 @@ export function useFirmwareUpdateActions() {
           dismissOnOverlayPress: false,
           showCancelButton: false,
           onConfirm: async () => {
-            openChangeLogModal({ connectId });
+            await handleUpdateClick();
           },
           onConfirmText: intl.formatMessage({
             id: ETranslations.update_update_now,

@@ -47,7 +47,10 @@ import { EConfirmOnDeviceType } from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import AddressTypeSelector from '../../../components/AddressTypeSelector/AddressTypeSelector';
-import { HyperlinkText } from '../../../components/HyperlinkText';
+import {
+  FormatHyperlinkText,
+  HyperlinkText,
+} from '../../../components/HyperlinkText';
 import { NetworkAvatar } from '../../../components/NetworkAvatar';
 import { Token } from '../../../components/Token';
 import { useAccountData } from '../../../hooks/useAccountData';
@@ -242,19 +245,19 @@ function ReceiveToken() {
       copyAddressWithDeriveType({
         address: displayAddress,
         deriveInfo: currentDeriveInfo,
-        networkName: network?.shortname,
+        networkName: network?.name,
       });
     } else {
       copyAddressWithDeriveType({
         address: displayAddress,
-        networkName: network?.shortname,
+        networkName: network?.name,
       });
     }
   }, [
     copyAddressWithDeriveType,
     currentDeriveInfo,
     displayAddress,
-    network?.shortname,
+    network?.name,
     vaultSettings?.mergeDeriveAssetsEnabled,
   ]);
 
@@ -808,6 +811,9 @@ function ReceiveToken() {
     nativeToken?.logoURI,
   ]);
 
+  const isPressable = useMemo(() => {
+    return !!(banner?.href || banner?.mode);
+  }, [banner?.href, banner?.mode]);
   return (
     <Page safeAreaEnabled={false}>
       <Page.Header
@@ -829,7 +835,7 @@ function ReceiveToken() {
               borderRadius="$2"
               borderCurve="continuous"
               userSelect="none"
-              {...(banner?.href
+              {...(isPressable
                 ? {
                     focusable: true,
                     focusVisibleStyle: {
@@ -850,16 +856,16 @@ function ReceiveToken() {
                     },
                     onPress: () => handleBannerOnPress(banner),
                   }
-                : null)}
+                : undefined)}
             >
               <Image
                 size="$5"
                 source={{ uri: banner.src }}
                 fallback={<NetworkAvatar size="$5" networkId={networkId} />}
               />
-              <SizableText size="$bodyMd" flex={1}>
+              <FormatHyperlinkText size="$bodyMd" flex={1}>
                 {banner.title}
-              </SizableText>
+              </FormatHyperlinkText>
             </XStack>
           ) : null}
         </YStack>

@@ -18,9 +18,9 @@ import { REFERRAL_HELP_LINK } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
-  EModalReferFriendsRoutes,
-  EModalRoutes,
   ERootRoutes,
+  ETabReferFriendsRoutes,
+  ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
@@ -34,11 +34,11 @@ export function useToReferFriendsModalByRootNavigation() {
     const isLogin = await backgroundApiProxy.servicePrime.isLoggedIn();
 
     const screen = isLogin
-      ? EModalReferFriendsRoutes.InviteReward
-      : EModalReferFriendsRoutes.ReferAFriend;
+      ? ETabReferFriendsRoutes.TabInviteReward
+      : ETabReferFriendsRoutes.TabReferAFriend;
 
-    rootNavigationRef.current?.navigate(ERootRoutes.Modal, {
-      screen: EModalRoutes.ReferFriendsModal,
+    rootNavigationRef.current?.navigate(ERootRoutes.Main, {
+      screen: ETabRoutes.ReferFriends,
       params: {
         screen,
       },
@@ -46,16 +46,21 @@ export function useToReferFriendsModalByRootNavigation() {
   }, []);
 }
 
-export const isOpenedReferFriendsPage = () => {
-  const routeState = rootNavigationRef.current?.getRootState();
-  if (routeState?.routes) {
-    return routeState.routes.find(
-      // @ts-expect-error
-      (route) => route.params?.screen === EModalRoutes.ReferFriendsModal,
-    );
-  }
-  return false;
-};
+export function useReplaceToReferFriends() {
+  const navigation = useAppNavigation();
+
+  return useCallback(
+    async (params?: { utmSource?: string; code?: string }) => {
+      const isLogin = await backgroundApiProxy.servicePrime.isLoggedIn();
+      const screen = isLogin
+        ? ETabReferFriendsRoutes.TabInviteReward
+        : ETabReferFriendsRoutes.TabReferAFriend;
+
+      navigation.replace(screen, params);
+    },
+    [navigation],
+  );
+}
 
 export const useReferFriends = () => {
   const intl = useIntl();
@@ -65,11 +70,11 @@ export const useReferFriends = () => {
   const toInviteRewardPage = useCallback(async () => {
     const isLogin = await backgroundApiProxy.servicePrime.isLoggedIn();
     if (isLogin) {
-      navigation.pushModal(EModalRoutes.ReferFriendsModal, {
-        screen: EModalReferFriendsRoutes.InviteReward,
+      navigation.switchTab<ETabRoutes.ReferFriends>(ETabRoutes.ReferFriends, {
+        screen: ETabReferFriendsRoutes.TabInviteReward,
       });
     } else {
-      void loginOneKeyId({ toOneKeyIdPageOnLoginSuccess: true });
+      void loginOneKeyId({ toOneKeyIdPageOnLoginSuccess: false });
     }
   }, [loginOneKeyId, navigation]);
 
@@ -79,12 +84,12 @@ export const useReferFriends = () => {
       ESpotlightTour.referAFriend,
     );
     if (isLogin && isVisited) {
-      navigation.pushModal(EModalRoutes.ReferFriendsModal, {
-        screen: EModalReferFriendsRoutes.InviteReward,
+      navigation.switchTab<ETabRoutes.ReferFriends>(ETabRoutes.ReferFriends, {
+        screen: ETabReferFriendsRoutes.TabInviteReward,
       });
     } else {
-      navigation.pushModal(EModalRoutes.ReferFriendsModal, {
-        screen: EModalReferFriendsRoutes.ReferAFriend,
+      navigation.switchTab<ETabRoutes.ReferFriends>(ETabRoutes.ReferFriends, {
+        screen: ETabReferFriendsRoutes.TabReferAFriend,
       });
     }
   }, [navigation]);
@@ -92,7 +97,7 @@ export const useReferFriends = () => {
   const { copyText } = useClipboard();
 
   const shareReferRewards = useCallback(
-    async (onSuccess?: () => void, onFail?: () => void) => {
+    async (_onSuccess?: () => void, _onFail?: () => void) => {
       const isLogin = await backgroundApiProxy.servicePrime.isLoggedIn();
       const myReferralCode =
         await backgroundApiProxy.serviceReferralCode.getMyReferralCode();
@@ -102,11 +107,14 @@ export const useReferFriends = () => {
 
       const handleConfirm = () => {
         if (isLogin) {
-          navigation.pushModal(EModalRoutes.ReferFriendsModal, {
-            screen: EModalReferFriendsRoutes.InviteReward,
-          });
+          navigation.switchTab<ETabRoutes.ReferFriends>(
+            ETabRoutes.ReferFriends,
+            {
+              screen: ETabReferFriendsRoutes.TabInviteReward,
+            },
+          );
         } else {
-          void loginOneKeyId({ toOneKeyIdPageOnLoginSuccess: true });
+          void loginOneKeyId({ toOneKeyIdPageOnLoginSuccess: false });
         }
       };
       const dialog = Dialog.show({

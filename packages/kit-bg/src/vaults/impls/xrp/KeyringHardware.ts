@@ -122,6 +122,11 @@ export class KeyringHardware extends KeyringHardwareBase {
     const deviceParams = checkIsDefined(params.deviceParams);
     const { connectId, deviceId } = deviceParams.dbDevice;
     const dbAccount = await this.vault.getAccount();
+
+    if (Array.isArray(encodedTx.Memos) && encodedTx.Memos.length > 0) {
+      throw new OneKeyLocalError('XRP Memo signing is not supported yet.');
+    }
+
     const signTransactionParams = {
       path: dbAccount.path,
       transaction: {

@@ -10,12 +10,7 @@ import type { ISplashViewProps } from './type';
 // Support for displaying splash screen on Android versions below 12
 // This legacy splash screen implementation ensures compatibility with older Android devices
 // that don't support the newer native splash screen APIs
-const { LegacySplashScreen } = NativeModules as {
-  LegacySplashScreen: {
-    preventAutoHideAsync: () => Promise<boolean>;
-    hideAsync: () => Promise<boolean>;
-  };
-};
+const { LegacySplashScreen } = NativeModules;
 
 void preventAutoHideAsync();
 if (platformEnv.isNativeAndroid && LegacySplashScreen) {

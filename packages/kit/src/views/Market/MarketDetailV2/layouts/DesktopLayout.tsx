@@ -5,6 +5,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import {
   MarketTradingView,
@@ -52,7 +53,7 @@ export function DesktopLayout() {
       {!isNative ? (
         <Stack w={320}>
           <ScrollView>
-            <Stack w={320}>
+            <Stack w={320} pb={platformEnv.isWeb ? '$12' : undefined}>
               <Stack px="$5" py="$4">
                 <SwapPanel
                   networkId={networkId}

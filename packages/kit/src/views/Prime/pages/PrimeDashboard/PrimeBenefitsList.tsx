@@ -91,7 +91,7 @@ export function PrimeBenefitsList({
   const { ensureOneKeyIDLoggedIn } = usePrimeRequirements();
   const { isPrimeSubscriptionActive } = usePrimeAuthV2();
   const {
-    activeAccount: { wallet, account, network },
+    activeAccount: { wallet, account, network, indexedAccount },
   } = useActiveAccount({ num: 0 });
 
   return (
@@ -191,13 +191,13 @@ export function PrimeBenefitsList({
         })}
         onPress={() => {
           if (isPrimeSubscriptionActive) {
-            appEventBus.emit(EAppEventBusNames.RefreshApprovalList, undefined);
             navigation.navigate(EModalRoutes.ApprovalManagementModal, {
               screen: EModalApprovalManagementRoutes.ApprovalList,
               params: {
                 walletId: wallet?.id ?? '',
                 accountId: account?.id ?? '',
                 networkId: network?.id ?? '',
+                indexedAccountId: indexedAccount?.id ?? '',
               },
             });
           } else {

@@ -818,11 +818,17 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     swapSupportAllNetworks: ISwapNetwork[],
     fromToken: ISwapToken,
     addressInfo: ReturnType<typeof useSwapAddressInfo>,
+    directionType: ESwapDirectionType,
   ) => {
     const netInfo = swapSupportAllNetworks.find(
       (net) => net.networkId === fromToken.networkId,
     );
-    const networkId = addressInfo.accountInfo?.network?.id;
+    const isAllNetwork = networkUtils.isAllNetwork({
+      networkId: addressInfo.accountInfo?.network?.id,
+    });
+    const networkId = isAllNetwork
+      ? fromToken.networkId
+      : addressInfo.accountInfo?.network?.id;
     const walletId = addressInfo.accountInfo?.wallet?.id;
     const indexedAccountId = addressInfo.accountInfo?.indexedAccount?.id;
     const deriveType = addressInfo.accountInfo?.deriveType;
@@ -853,6 +859,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         actionLabel: appLocale.intl.formatMessage({
           id: ETranslations.global_create,
         }),
+        directionType,
         actionData: {
           num: 0,
           key,
@@ -924,7 +931,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         });
         return;
       }
-
       if (
         fromToken &&
         !swapFromAddressInfo.address &&
@@ -932,6 +938,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           walletId: swapFromAddressInfo.accountInfo?.wallet?.id,
         }) &&
         !accountUtils.isHwWallet({
+          walletId: swapFromAddressInfo.accountInfo?.wallet?.id,
+        }) &&
+        !accountUtils.isQrWallet({
           walletId: swapFromAddressInfo.accountInfo?.wallet?.id,
         })
       ) {
@@ -964,6 +973,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           swapSupportAllNetworks,
           fromToken,
           swapFromAddressInfo,
+          ESwapDirectionType.FROM,
         );
         alertsRes = [...alertsRes, alertAction];
       }
@@ -986,6 +996,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
             swapSupportAllNetworks,
             toToken,
             swapToAddressInfo,
+            ESwapDirectionType.TO,
           );
           alertsRes = [...alertsRes, alertAction];
         }
@@ -1290,16 +1301,26 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           token?.networkId &&
           !networkUtils.isAllNetwork({ networkId: token?.networkId })
         ) {
-          const toAccountInfos =
-            await backgroundApiProxy.serviceStaking.getEarnAccount({
-              accountId: swapAddressInfo.accountInfo?.account?.id ?? '',
-              networkId: token.networkId,
-              indexedAccountId: swapAddressInfo.accountInfo?.indexedAccount?.id,
-            });
-          if (toAccountInfos) {
-            accountAddress = toAccountInfos.accountAddress;
-            accountNetworkId = toAccountInfos.networkId;
-            accountId = toAccountInfos.accountId;
+          try {
+            const toAccountInfos =
+              await backgroundApiProxy.serviceAccount.getNetworkAccount({
+                deriveType:
+                  swapAddressInfo.accountInfo?.deriveType ?? 'default',
+                indexedAccountId:
+                  swapAddressInfo.accountInfo?.indexedAccount?.id,
+                accountId: swapAddressInfo.accountInfo?.indexedAccount?.id
+                  ? undefined
+                  : swapAddressInfo.accountInfo?.account?.id ?? '',
+                dbAccount: swapAddressInfo.accountInfo?.dbAccount,
+                networkId: token.networkId,
+              });
+            if (toAccountInfos) {
+              accountAddress = toAccountInfos.addressDetail?.address;
+              accountNetworkId = toAccountInfos.addressDetail?.networkId;
+              accountId = toAccountInfos.id;
+            }
+          } catch (e) {
+            console.error('swap_toToken_getNetworkAccountError--', e);
           }
         }
       } else {

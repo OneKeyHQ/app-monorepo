@@ -261,6 +261,16 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     return value;
   }
 
+  get serviceCloudBackupV2() {
+    const ServiceCloudBackupV2 =
+      require('../services/ServiceCloudBackupV2') as typeof import('../services/ServiceCloudBackupV2');
+    const value = new ServiceCloudBackupV2.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceCloudBackupV2', { value });
+    return value;
+  }
+
   get serviceLiteCardMnemonic() {
     const ServiceLiteCardMnemonic =
       require('../services/ServiceLiteCardMnemonic') as typeof import('../services/ServiceLiteCardMnemonic');
@@ -701,6 +711,16 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     return value;
   }
 
+  get serviceWalletStatus() {
+    const ServiceWalletStatus =
+      require('../services/ServiceWalletStatus') as typeof import('../services/ServiceWalletStatus');
+    const value = new ServiceWalletStatus.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceWalletStatus', { value });
+    return value;
+  }
+
   get serviceApproval() {
     const ServiceApproval =
       require('../services/ServiceApproval') as typeof import('../services/ServiceApproval');
@@ -758,6 +778,26 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
       backgroundApi: this,
     });
     Object.defineProperty(this, 'serviceHyperliquidSubscription', { value });
+    return value;
+  }
+
+  get serviceIpTable() {
+    const ServiceIpTable =
+      require('../services/ServiceIpTable') as typeof import('../services/ServiceIpTable');
+    const value = new ServiceIpTable.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceIpTable', { value });
+    return value;
+  }
+
+  get serviceNetworkDoctor() {
+    const ServiceNetworkDoctor =
+      require('../services/ServiceNetworkDoctor') as typeof import('../services/ServiceNetworkDoctor');
+    const value = new ServiceNetworkDoctor.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceNetworkDoctor', { value });
     return value;
   }
 }

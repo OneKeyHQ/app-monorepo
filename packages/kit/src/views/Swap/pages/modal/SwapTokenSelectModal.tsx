@@ -1,6 +1,13 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
-import { useRoute } from '@react-navigation/core';
+import { useFocusEffect, useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
@@ -35,6 +42,7 @@ import {
   useSwapNetworksIncludeAllNetworkAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
+  useSwapSelectTokenNetworkAtom,
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -150,10 +158,17 @@ const SwapTokenSelectPage = () => {
     toToken?.networkId,
     type,
   ]);
-  const [currentSelectNetwork, setCurrentSelectNetwork] = useState<
-    ISwapNetwork | undefined
-  >(syncDefaultNetworkSelect);
+  const [currentSelectNetwork, setCurrentSelectNetwork] =
+    useSwapSelectTokenNetworkAtom();
   const listViewRef = useRef<FlatList>(null);
+
+  useEffect(() => {
+    setCurrentSelectNetwork(syncDefaultNetworkSelect);
+    return () => {
+      setCurrentSelectNetwork(undefined);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [setCurrentSelectNetwork]);
 
   useEffect(() => {
     const accountNet =
@@ -266,13 +281,16 @@ const SwapTokenSelectPage = () => {
     [checkRiskToken, navigation, route.params.storeName, selectTokenHandler],
   );
 
-  const onSelectCurrentNetwork = useCallback((network: ISwapNetwork) => {
-    setCurrentSelectNetwork(network);
-    listViewRef.current?.scrollToOffset({
-      offset: 0,
-      animated: false,
-    });
-  }, []);
+  const onSelectCurrentNetwork = useCallback(
+    (network: ISwapNetwork) => {
+      setCurrentSelectNetwork(network);
+      listViewRef.current?.scrollToOffset({
+        offset: 0,
+        animated: false,
+      });
+    },
+    [setCurrentSelectNetwork],
+  );
 
   const { md } = useMedia();
   const { copyText, getClipboard } = useClipboard();

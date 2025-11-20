@@ -9,6 +9,7 @@ import {
   backgroundMethod,
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
   EHyperLiquidAgentName,
   FALLBACK_BUILDER_ADDRESS,
@@ -18,7 +19,9 @@ import {
   HYPER_LIQUID_CUSTOM_LOCAL_STORAGE_V2_PRESET,
   PERPS_NETWORK_ID,
 } from '@onekeyhq/shared/src/consts/perp';
+import { FIRST_EVM_ADDRESS_PATH } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
 import perfUtils from '@onekeyhq/shared/src/utils/debug/perfUtils';
@@ -42,6 +45,7 @@ import type {
   IWsActiveAssetCtx,
   IWsWebData2,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
+import type { IHyperLiquidSignatureRSV } from '@onekeyhq/shared/types/hyperliquid/webview';
 
 import localDb from '../../dbs/local/localDb';
 import {
@@ -57,6 +61,7 @@ import {
   perpsCustomSettingsAtom,
   perpsDepositNetworksAtom,
   perpsDepositTokensAtom,
+  perpsLastUsedLeverageAtom,
 } from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
 
@@ -401,6 +406,14 @@ export default class ServiceHyperliquid extends ServiceBase {
           assetId: activeAsset?.assetId,
         }),
       );
+
+      if (data.coin && data.leverage?.value) {
+        const lastUsedLeverage = await perpsLastUsedLeverageAtom.get();
+        await perpsLastUsedLeverageAtom.set({
+          ...lastUsedLeverage,
+          [data.coin]: data.leverage.value,
+        });
+      }
     } else {
       const activeAssetData = await perpsActiveAssetDataAtom.get();
       if (
@@ -1011,6 +1024,139 @@ export default class ServiceHyperliquid extends ServiceBase {
       promise: true,
     },
   );
+
+  async reportAgentApprovalToBackend(signatureInfo: {
+    action: {
+      type: string;
+      signatureChainId: string;
+      hyperliquidChain: string;
+      agentAddress: string;
+      agentName: string;
+      nonce: number;
+    };
+    signature: IHyperLiquidSignatureRSV;
+    nonce: number;
+    signerAddress: string;
+    accountId?: string;
+  }) {
+    try {
+      const selectedAccount = await perpsActiveAccountAtom.get();
+      const accountId = signatureInfo.accountId || selectedAccount.accountId;
+
+      if (!accountId) {
+        console.log('[reportAgentApprovalToBackend] No accountId, skipping');
+        return;
+      }
+
+      const walletId = accountUtils.getWalletIdFromAccountId({ accountId });
+      const isHdWallet = accountUtils.isHdWallet({ walletId });
+      const isHwWallet = accountUtils.isHwWallet({ walletId });
+
+      if (!isHdWallet && !isHwWallet) {
+        console.log(
+          '[reportAgentApprovalToBackend] Wallet type does not require binding, skipping',
+        );
+        return;
+      }
+
+      const networkIdsMap = getNetworkIdsMap();
+      const referenceNetworkId = networkIdsMap.eth || 'evm--1';
+      let referenceAddress = signatureInfo.signerAddress;
+
+      try {
+        const firstEvmAccountId = `${walletId}--${FIRST_EVM_ADDRESS_PATH}`;
+        const firstAccount = await this.backgroundApi.serviceAccount.getAccount(
+          {
+            accountId: firstEvmAccountId,
+            networkId: referenceNetworkId,
+          },
+        );
+        if (firstAccount?.address) {
+          referenceAddress = firstAccount.address;
+        }
+      } catch (error) {
+        console.error(
+          '[reportAgentApprovalToBackend] Failed to get first EVM address, fallback to signerAddress',
+          error,
+        );
+      }
+
+      const isAlreadyBound =
+        await this.backgroundApi.serviceReferralCode.checkWalletIsBoundReferralCode(
+          {
+            address: referenceAddress,
+            networkId: referenceNetworkId,
+          },
+        );
+
+      if (isAlreadyBound) {
+        console.log(
+          '[reportAgentApprovalToBackend] Wallet already bound, skipping',
+        );
+        return;
+      }
+      const myReferralCode =
+        await this.backgroundApi.serviceReferralCode.getMyReferralCode();
+
+      if (!myReferralCode) {
+        console.log(
+          '[reportAgentApprovalToBackend] No referral code, skipping',
+        );
+        return;
+      }
+
+      await this.backgroundApi.serviceReferralCode.bindPerpsWallet({
+        action: signatureInfo.action,
+        nonce: signatureInfo.nonce,
+        signature: signatureInfo.signature,
+        inviteCode: myReferralCode,
+        referenceAddress,
+        signerAddress: signatureInfo.signerAddress,
+      });
+    } catch (error) {
+      console.error('[reportAgentApprovalToBackend] Error:', error);
+    }
+  }
+
+  @backgroundMethod()
+  async notifyHyperliquidAccountBind({
+    signerAddress,
+    action,
+    nonce,
+    signature,
+  }: {
+    signerAddress: string;
+    action: {
+      type: string;
+      signatureChainId: string;
+      hyperliquidChain: string;
+      agentAddress: string;
+      agentName: string;
+      nonce: number;
+    };
+    nonce: number;
+    signature: IHyperLiquidSignatureRSV;
+  }) {
+    if (!signerAddress) {
+      return;
+    }
+    try {
+      const { serviceNotification } = this.backgroundApi;
+      if (serviceNotification?.notifyHyperliquidAccountBind) {
+        await serviceNotification.notifyHyperliquidAccountBind({
+          signerAddress,
+          action,
+          nonce,
+          signature,
+        });
+      }
+    } catch (error) {
+      console.error(
+        '[ServiceHyperliquid] Failed to notify hyperliquid account bind:',
+        error,
+      );
+    }
+  }
 
   async getBuilderFeeConfig() {
     void this.updatePerpsConfigByServerWithCache();

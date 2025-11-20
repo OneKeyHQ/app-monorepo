@@ -51,13 +51,13 @@ import {
 import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes/swap';
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
@@ -68,11 +68,16 @@ import {
   USDC_TOKEN_INFO,
   WITHDRAW_FEE,
 } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
+import { swapDefaultSetTokens } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
   ISwapNativeTokenConfig,
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
-import { ESwapSource } from '@onekeyhq/shared/types/swap/types';
+import {
+  ESwapSource,
+  ESwapTxHistoryStatus,
+} from '@onekeyhq/shared/types/swap/types';
+import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
 import usePerpDeposit from '../../../hooks/usePerpDeposit';
 import { PerpsProviderMirror } from '../../../PerpsProviderMirror';
@@ -173,11 +178,13 @@ function PerpsAccountAvatar({
 PerpsAccountAvatar.displayName = 'PerpsAccountAvatar';
 
 function SelectTokenPopoverContent({
+  selectedAccountAddress,
   symbol,
   depositTokensWithPrice,
   handleSwitchToTradePress,
   handleMaxPress,
 }: {
+  selectedAccountAddress: string;
   depositTokensWithPrice: IPerpsDepositToken[];
   symbol: string;
   handleSwitchToTradePress: () => void;
@@ -227,6 +234,10 @@ function SelectTokenPopoverContent({
               decimals: item.decimals,
             });
             void closePopover?.();
+            defaultLogger.perp.deposit.perpUserSelectDepositToken({
+              userAddress: selectedAccountAddress,
+              depositToken: item,
+            });
           }}
         >
           <XStack gap="$2" alignItems="center">
@@ -268,7 +279,14 @@ function SelectTokenPopoverContent({
         </ListItem>
       );
     },
-    [symbol, setPerpsDepositTokensAtom, closePopover, handleMaxPress, intl],
+    [
+      symbol,
+      intl,
+      setPerpsDepositTokensAtom,
+      handleMaxPress,
+      closePopover,
+      selectedAccountAddress,
+    ],
   );
   return (
     <YStack>
@@ -619,12 +637,15 @@ function DepositWithdrawContent({
         value: true,
       };
     }
-    const minFromTokenAmountFormatted = minFromTokenAmount
-      .decimalPlaces(
-        currentPerpsDepositSelectedToken?.decimals ?? 0,
-        BigNumber.ROUND_UP,
-      )
-      .toFixed();
+    const minFromTokenAmountFormatted = numberFormat(
+      minFromTokenAmount
+        .decimalPlaces(
+          currentPerpsDepositSelectedToken?.decimals ?? 0,
+          BigNumber.ROUND_UP,
+        )
+        .toFixed(),
+      { formatter: 'balance' },
+    );
     return {
       value: false,
       minFromTokenAmount: minFromTokenAmountFormatted,
@@ -702,6 +723,10 @@ function DepositWithdrawContent({
     currentPerpsDepositSelectedToken?.symbol,
   ]);
 
+  const isInsufficientBalance = useMemo(() => {
+    return amountBN.gt(availableBalanceBN) && amountBN.gt(0);
+  }, [amountBN, availableBalanceBN]);
+
   const {
     perpDepositQuote,
     perpDepositQuoteLoading,
@@ -709,8 +734,10 @@ function DepositWithdrawContent({
     multipleStepText,
     isArbitrumUsdcToken,
     shouldApprove,
+    shouldResetApprove,
     checkRefreshQuote,
     perpDepositQuoteAction,
+    handlePerpDepositTxSuccess,
   } = usePerpDeposit(
     amount,
     selectedAction,
@@ -718,6 +745,7 @@ function DepositWithdrawContent({
     selectedAccount.accountId ?? '',
     currentPerpsDepositSelectedToken,
     checkFromTokenFiatValue.value,
+    isInsufficientBalance,
   );
 
   const handleAmountChange = useCallback(
@@ -920,9 +948,74 @@ function DepositWithdrawContent({
       if (selectedAction === 'deposit') {
         if (isArbitrumUsdcToken) {
           await normalizeTxConfirm({
-            onSuccess: () => {
-              // TODO wait tx confirmed then check account status
-              void backgroundApiProxy.serviceHyperliquid.checkPerpsAccountStatus();
+            onSuccess: async (data: ISendTxOnSuccessData[]) => {
+              await backgroundApiProxy.serviceHyperliquid.checkPerpsAccountStatus();
+              const usdcToken = {
+                networkId: PERPS_NETWORK_ID,
+                contractAddress: USDC_TOKEN_INFO.address,
+                name: USDC_TOKEN_INFO.name,
+                symbol: USDC_TOKEN_INFO.symbol,
+                decimals: USDC_TOKEN_INFO.decimals,
+                networkLogoURI:
+                  swapDefaultSetTokens[PERPS_NETWORK_ID].toToken
+                    ?.networkLogoURI ?? '',
+              };
+              if (data?.[0]) {
+                const fromTxId = data[0].signedTx.txid;
+
+                void handlePerpDepositTxSuccess({
+                  fromToken:
+                    currentPerpsDepositSelectedTokenRef.current ?? usdcToken,
+                  fromTxId,
+                  toAmount: amount,
+                  fromAmount: amount,
+                  isArbUSDCOrder: true,
+                  skipToast: true,
+                });
+                defaultLogger.perp.deposit.perpDepositInitiate({
+                  userAddress: selectedAccount.accountAddress ?? '',
+                  receiverAddress: selectedAccount.accountAddress ?? '',
+                  token:
+                    currentPerpsDepositSelectedTokenRef.current ?? usdcToken,
+                  amount,
+                  toAmount: amount,
+                  status: ESwapTxHistoryStatus.SUCCESS,
+                  txId: fromTxId,
+                });
+              } else {
+                defaultLogger.perp.deposit.perpDepositInitiate({
+                  userAddress: selectedAccount.accountAddress ?? '',
+                  receiverAddress: selectedAccount.accountAddress ?? '',
+                  token:
+                    currentPerpsDepositSelectedTokenRef.current ?? usdcToken,
+                  amount,
+                  toAmount: amount,
+                  status: ESwapTxHistoryStatus.FAILED,
+                  errorMessage: 'no tx id found',
+                });
+              }
+              onClose?.();
+            },
+            onFail(error) {
+              const usdcToken = {
+                networkId: PERPS_NETWORK_ID,
+                contractAddress: USDC_TOKEN_INFO.address,
+                name: USDC_TOKEN_INFO.name,
+                symbol: USDC_TOKEN_INFO.symbol,
+                decimals: USDC_TOKEN_INFO.decimals,
+                networkLogoURI:
+                  swapDefaultSetTokens[PERPS_NETWORK_ID].toToken
+                    ?.networkLogoURI ?? '',
+              };
+              defaultLogger.perp.deposit.perpDepositInitiate({
+                userAddress: selectedAccount.accountAddress ?? '',
+                receiverAddress: selectedAccount.accountAddress ?? '',
+                token: currentPerpsDepositSelectedTokenRef.current ?? usdcToken,
+                amount,
+                toAmount: amount,
+                status: ESwapTxHistoryStatus.FAILED,
+                errorMessage: error?.message ?? '',
+              });
             },
             transfersInfo: [
               {
@@ -935,15 +1028,14 @@ function DepositWithdrawContent({
           });
         } else {
           await buildPerpDepositTx();
+          onClose?.();
         }
-        onClose?.();
       } else {
         await withdraw({
           userAccountId: selectedAccount.accountId || '',
           amount,
           destination: selectedAccount.accountAddress,
         });
-
         onClose?.();
       }
     } catch (error) {
@@ -953,17 +1045,18 @@ function DepositWithdrawContent({
       setIsSubmitting(false);
     }
   }, [
-    checkRefreshQuote,
-    perpDepositQuoteAction,
     isValidAmount,
     selectedAccount.accountAddress,
     selectedAccount.accountId,
     validateAmountBeforeSubmit,
+    checkRefreshQuote,
     selectedAction,
+    perpDepositQuoteAction,
     isArbitrumUsdcToken,
-    onClose,
     normalizeTxConfirm,
     amount,
+    handlePerpDepositTxSuccess,
+    onClose,
     buildPerpDepositTx,
     withdraw,
   ]);
@@ -972,9 +1065,19 @@ function DepositWithdrawContent({
     ? { inputAccessoryViewID: DEPOSIT_WITHDRAW_INPUT_ACCESSORY_VIEW_ID }
     : {};
 
-  const isInsufficientBalance = useMemo(() => {
-    return amountBN.gt(availableBalanceBN) && amountBN.gt(0);
-  }, [amountBN, availableBalanceBN]);
+  const accountTypeInfo = useMemo(() => {
+    const isHwWallet = accountUtils.isHwAccount({
+      accountId: selectedAccount.accountId ?? '',
+    });
+    const isExternalAccount = accountUtils.isExternalAccount({
+      accountId: selectedAccount.accountId ?? '',
+    });
+    return {
+      isHwWallet,
+      isExternalAccount,
+    };
+  }, [selectedAccount.accountId]);
+
   const buttonText = useMemo(() => {
     if (isInsufficientBalance)
       return intl.formatMessage({
@@ -990,6 +1093,20 @@ function DepositWithdrawContent({
       depositActionText = intl.formatMessage({
         id: ETranslations.perp_lifi_deposit_approve,
       });
+      if (accountTypeInfo.isHwWallet) {
+        depositActionText = intl.formatMessage({
+          id: shouldResetApprove
+            ? ETranslations.swap_review_confirm_3_on_device
+            : ETranslations.swap_review_confirm_2_on_device,
+        });
+      }
+      if (accountTypeInfo.isExternalAccount) {
+        depositActionText = intl.formatMessage({
+          id: shouldResetApprove
+            ? ETranslations.swap_review_confirm_3_on_wallet
+            : ETranslations.swap_review_confirm_2_on_wallet,
+        });
+      }
     }
     if (checkRefreshQuote) {
       depositActionText = intl.formatMessage({
@@ -1009,9 +1126,12 @@ function DepositWithdrawContent({
     intl,
     multipleStepText,
     shouldApprove,
+    checkRefreshQuote,
     perpDepositQuoteLoading,
     selectedAction,
-    checkRefreshQuote,
+    accountTypeInfo.isHwWallet,
+    accountTypeInfo.isExternalAccount,
+    shouldResetApprove,
   ]);
 
   useEffect(() => {
@@ -1030,11 +1150,17 @@ function DepositWithdrawContent({
         currentPerpsDepositSelectedToken:
           arbUSDCToken ?? depositTokensWithPrice?.[0],
       }));
+    } else if (!checkAccountSupport) {
+      setPerpsDepositTokensAtom((prev) => ({
+        ...prev,
+        currentPerpsDepositSelectedToken: undefined,
+      }));
     }
   }, [
     depositTokensWithPrice,
     currentPerpsDepositSelectedToken,
     setPerpsDepositTokensAtom,
+    checkAccountSupport,
   ]);
 
   const depositTokenSelectComponent = useMemo(() => {
@@ -1075,6 +1201,7 @@ function DepositWithdrawContent({
         }
         renderContent={
           <SelectTokenPopoverContent
+            selectedAccountAddress={selectedAccount.accountAddress ?? ''}
             symbol={settingsPersistAtom.currencyInfo?.symbol}
             depositTokensWithPrice={depositTokensWithPrice}
             handleSwitchToTradePress={handleSwitchToTradePress}
@@ -1084,14 +1211,15 @@ function DepositWithdrawContent({
       />
     );
   }, [
-    handleMaxPress,
-    handleSwitchToTradePress,
     balanceLoading,
+    checkAccountSupport,
+    depositTokensWithPrice,
     intl,
     currentPerpsDepositSelectedToken?.symbol,
+    selectedAccount.accountAddress,
     settingsPersistAtom.currencyInfo?.symbol,
-    depositTokensWithPrice,
-    checkAccountSupport,
+    handleSwitchToTradePress,
+    handleMaxPress,
   ]);
 
   const depositToAmount = useMemo(() => {
@@ -1467,7 +1595,12 @@ function MobileDepositWithdrawModal() {
   const [selectedAccount] = usePerpsActiveAccountAtom();
 
   const handleClose = useCallback(() => {
-    navigation.goBack();
+    setTimeout(
+      () => {
+        navigation.goBack();
+      },
+      platformEnv.isNative ? 350 : 0,
+    );
   }, [navigation]);
   if (!selectedAccount) {
     return (

@@ -12,6 +12,7 @@ import {
   allNetworksStateAtom,
   approvalsInfoAtom,
   contextAtomMethod,
+  walletStatusAtom,
 } from './atoms';
 
 class ContextJotaiActionsAccountOverview extends ContextJotaiActionsBase {
@@ -81,6 +82,24 @@ class ContextJotaiActionsAccountOverview extends ContextJotaiActionsBase {
       });
     },
   );
+
+  updateWalletStatus = contextAtomMethod(
+    (
+      get,
+      set,
+      payload: {
+        showReceiveInfo?: boolean;
+        receiveInfoInit?: boolean;
+        showReferralCodeBlock?: boolean;
+        referralCodeBlockInit?: boolean;
+      },
+    ) => {
+      set(walletStatusAtom(), {
+        ...get(walletStatusAtom()),
+        ...payload,
+      });
+    },
+  );
 }
 
 const createActions = memoFn(() => {
@@ -95,11 +114,13 @@ export function useAccountOverviewActions() {
   const updateAccountOverviewState = actions.updateAccountOverviewState.use();
   const updateAllNetworksState = actions.updateAllNetworksState.use();
   const updateApprovalsInfo = actions.updateApprovalsInfo.use();
+  const updateWalletStatus = actions.updateWalletStatus.use();
 
   return useRef({
     updateAllNetworksState,
     updateAccountWorth,
     updateAccountOverviewState,
     updateApprovalsInfo,
+    updateWalletStatus,
   });
 }

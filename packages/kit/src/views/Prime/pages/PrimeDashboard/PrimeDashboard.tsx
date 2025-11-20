@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import {
+  Dialog,
   Icon,
   IconButton,
   NavCloseButton,
@@ -23,6 +24,7 @@ import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes'
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IPrimeParamList } from '@onekeyhq/shared/src/routes/prime';
 import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
@@ -201,6 +203,10 @@ export default function PrimeDashboard({
           } catch (error) {
             const e = error as IOneKeyError | undefined;
 
+            defaultLogger.prime.subscription.fetchPackagesFailed({
+              errorMessage: e?.message || 'Unknown error',
+            });
+
             console.log(
               'revenueCatSDK.getPackages() ERROR >>>>>>> ',
               e,
@@ -220,6 +226,30 @@ export default function PrimeDashboard({
               //    (GooglePlay Service not available on this device, so we should not throw error)
               shouldThrow = false;
             }
+            /*
+            None of the products registered in the RevenueCat dashboard could be fetched
+            There's a problem with your configuration. None of the products registered in the RevenueCat dashboard could be fetched from the [Play Store/App Store].
+            */
+            if (
+              e?.message?.includes(
+                'None of the products registered in the RevenueCat dashboard could be fetched',
+              )
+            ) {
+              Dialog.confirm({
+                title: intl.formatMessage({
+                  id: ETranslations.global_an_error_occurred,
+                }),
+                description: intl.formatMessage({
+                  id: platformEnv.isNativeAndroid
+                    ? ETranslations.prime_unable_to_retrieve_subscription_list_google_play
+                    : ETranslations.prime_unable_to_retrieve_subscription_list,
+                }),
+                onConfirmText: intl.formatMessage({
+                  id: ETranslations.global_got_it,
+                }),
+              });
+              shouldThrow = false;
+            }
             if (shouldThrow) {
               throw error;
             }
@@ -227,6 +257,7 @@ export default function PrimeDashboard({
         });
       },
       [
+        intl,
         getPackagesNative,
         getPackagesWeb,
         isReady,

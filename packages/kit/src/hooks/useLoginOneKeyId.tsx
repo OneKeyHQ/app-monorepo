@@ -16,10 +16,9 @@ import { LazyLoadPage } from '@onekeyhq/kit/src/components/LazyLoadPage';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import type { EPrimeEmailOTPScene } from '@onekeyhq/shared/src/consts/primeConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import {
-  EModalReferFriendsRoutes,
-  EModalRoutes,
-} from '@onekeyhq/shared/src/routes';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { EModalRoutes } from '@onekeyhq/shared/src/routes';
+import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IPrimeUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
 
@@ -233,8 +232,8 @@ export const useLoginOneKeyId = () => {
   );
 
   const toOneKeyIdPage = useCallback(() => {
-    navigation.pushModal(EModalRoutes.ReferFriendsModal, {
-      screen: EModalReferFriendsRoutes.OneKeyId,
+    navigation.pushModal(EModalRoutes.PrimeModal, {
+      screen: EPrimePages.OneKeyId,
     });
   }, [navigation]);
 
@@ -254,6 +253,10 @@ export const useLoginOneKeyId = () => {
       if (isLoggedIn) {
         await onLoginSuccess();
       } else {
+        defaultLogger.prime.subscription.onekeyIdLogout({
+          reason:
+            'useLoginOneKeyId.loginOneKeyId(): call logout() before showing login dialog',
+        });
         // logout before login, make sure local privy cache is cleared
         void logout();
 

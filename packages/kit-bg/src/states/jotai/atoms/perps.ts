@@ -13,6 +13,7 @@ import type {
   IPerpsUniverse,
 } from '@onekeyhq/shared/types/hyperliquid';
 import { EPerpUserType } from '@onekeyhq/shared/types/hyperliquid';
+import type { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 
 import { EAtomNames } from '../atomNames';
 import { globalAtom, globalAtomComputedR } from '../utils';
@@ -37,6 +38,15 @@ export const {
     accountAddress: null,
     deriveType: 'default',
   },
+});
+
+// perpsActiveAccountRefreshHookAtom
+export const {
+  target: perpsActiveAccountRefreshHookAtom,
+  use: usePerpsActiveAccountRefreshHookAtom,
+} = globalAtom<{ refreshHook: number }>({
+  name: EAtomNames.perpsActiveAccountRefreshHookAtom,
+  initialValue: { refreshHook: 0 },
 });
 
 export type IPerpsActiveAccountSummaryAtom =
@@ -330,6 +340,27 @@ export const {
   },
 });
 
+export interface IPerpsDepositOrderAtom {
+  isArbUSDCOrder: boolean;
+  fromTxId: string;
+  toTxId?: string;
+  amount: string;
+  token: IPerpsDepositToken;
+  status: ESwapTxHistoryStatus;
+  accountId?: string | null;
+  indexedAccountId?: string | null;
+  time?: number;
+}
+
+export const { target: perpsDepositOrderAtom, use: usePerpsDepositOrderAtom } =
+  globalAtom<{ orders: IPerpsDepositOrderAtom[] }>({
+    name: EAtomNames.perpsDepositOrderAtom,
+    persist: true,
+    initialValue: {
+      orders: [],
+    },
+  });
+
 export interface IPerpsUserConfigPersistAtom {
   perpUserConfig: IPerpUserConfig;
 }
@@ -374,6 +405,17 @@ export const {
     sizeInputUnit: 'usd',
     slippage: 8,
   },
+});
+
+export type IPerpsLastUsedLeverageAtom = Record<string, number>;
+
+export const {
+  target: perpsLastUsedLeverageAtom,
+  use: usePerpsLastUsedLeverageAtom,
+} = globalAtom<IPerpsLastUsedLeverageAtom>({
+  name: EAtomNames.perpsLastUsedLeverageAtom,
+  persist: true,
+  initialValue: {},
 });
 
 // #endregion

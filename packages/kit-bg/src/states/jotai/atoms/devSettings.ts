@@ -55,6 +55,15 @@ export interface IDevSettings {
   showPerpsRenderStats?: boolean;
 
   usbCommunicationMode?: 'webusb' | 'bridge';
+
+  // IP Table control for different environments
+  // Development: enable IP Table (default false - disabled)
+  enableIpTableInDev?: boolean;
+  // Production: disable IP Table (default false - means enabled in production)
+  disableIpTableInProd?: boolean;
+  // Force IP Table strict mode: always use IP even if runtime.selections is empty
+  // Fallback to first available IP from config when no selection exists
+  forceIpTableStrict?: boolean;
 }
 
 export type IDevSettingsKeys = keyof IDevSettings;
@@ -89,6 +98,9 @@ export const {
       },
       useLocalTradingViewUrl: false,
       usbCommunicationMode: 'webusb',
+      enableIpTableInDev: false, // Dev: disabled by default (need manual enable)
+      disableIpTableInProd: false, // Prod: enabled by default (can manually disable)
+      forceIpTableStrict: false, // Strict mode: disabled by default
     },
   },
 });
@@ -102,8 +114,11 @@ export type IFirmwareUpdateDevSettings = {
   usePreReleaseConfig: boolean;
   forceUpdateResEvenSameVersion: boolean;
   forceUpdateFirmware: boolean;
+  forceUpdateOnceFirmware: boolean;
   forceUpdateBle: boolean;
+  forceUpdateOnceBle: boolean;
   forceUpdateBootloader: boolean;
+  forceUpdateOnceBootloader: boolean;
   showDeviceDebugLogs: boolean;
   showAutoCheckHardwareUpdatesToast: boolean;
 };
@@ -123,8 +138,11 @@ export const {
     usePreReleaseConfig: false,
     forceUpdateResEvenSameVersion: false,
     forceUpdateFirmware: false,
+    forceUpdateOnceFirmware: false,
     forceUpdateBle: false,
+    forceUpdateOnceBle: false,
     forceUpdateBootloader: false,
+    forceUpdateOnceBootloader: false,
     showDeviceDebugLogs: false,
     showAutoCheckHardwareUpdatesToast: false,
   },

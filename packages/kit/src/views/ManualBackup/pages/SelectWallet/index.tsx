@@ -5,17 +5,15 @@ import { useIntl } from 'react-intl';
 import { Empty, Page, SizableText } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { WalletListView } from '@onekeyhq/kit/src/components/WalletListView';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { navigateToBackupWalletReminderPage } from '@onekeyhq/kit/src/hooks/usePageNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 export default function ManualBackupSelectWalletPage() {
   const intl = useIntl();
-  const navigation = useAppNavigation();
   const walletList = usePromiseResult(async () => {
     const { wallets } = await backgroundApiProxy.serviceAccount.getWallets();
     const hdWalletList = wallets.filter((wallet) =>
@@ -24,22 +22,19 @@ export default function ManualBackupSelectWalletPage() {
     return hdWalletList;
   }, []).result;
 
-  const onPick = useCallback(
-    async (item: IDBWallet) => {
-      const { mnemonic } =
-        await backgroundApiProxy.serviceAccount.getHDAccountMnemonic({
-          walletId: item.id,
-          reason: EReasonForNeedPassword.Security,
-        });
-      navigation.push(EOnboardingPages.BeforeShowRecoveryPhrase, {
-        mnemonic,
-        isBackup: true,
-        isWalletBackedUp: item.backuped,
+  const onPick = useCallback(async (item: IDBWallet) => {
+    const { mnemonic } =
+      await backgroundApiProxy.serviceAccount.getHDAccountMnemonic({
         walletId: item.id,
+        reason: EReasonForNeedPassword.Security,
       });
-    },
-    [navigation],
-  );
+
+    await navigateToBackupWalletReminderPage({
+      walletId: item.id,
+      isWalletBackedUp: item.backuped,
+      mnemonic,
+    });
+  }, []);
 
   return (
     <Page>

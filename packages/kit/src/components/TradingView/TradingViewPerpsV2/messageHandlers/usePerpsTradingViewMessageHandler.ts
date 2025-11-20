@@ -114,7 +114,6 @@ export function usePerpsTradingViewMessageHandler({
           },
         );
 
-      // Filter trades by target symbol and format to TradingView marks
       const filteredTrades = historyTrades.filter(
         (trade: IFill) => trade.coin === targetSymbol,
       );

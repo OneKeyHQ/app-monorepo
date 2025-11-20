@@ -82,6 +82,18 @@ export class TransferInvalidCodeError extends OneKeyAppError {
   }
 }
 
+export class PrimeTransferImportCancelledError extends OneKeyAppError {
+  constructor(props?: IOneKeyError | string) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'PrimeTransferImportCancelledError',
+      }),
+    );
+  }
+
+  override className = EOneKeyErrorClassNames.PrimeTransferImportCancelledError;
+}
+
 export class RequestLimitExceededError extends OneKeyAppError {
   constructor(props?: IOneKeyError | string) {
     super(
@@ -1097,6 +1109,17 @@ export class BTCFreshAddressCanNotConnectDappError extends OneKeyAppError {
         defaultMessage: 'BTCFreshAddressCanNotConnectDappError',
         defaultKey:
           ETranslations.wallet_banner_single_address_required_description,
+      }),
+    );
+  }
+}
+
+export class HomeScreenNotSupportFormatError extends OneKeyAppError {
+  constructor(props?: IOneKeyError | string) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'HomeScreenNotSupportFormat',
+        defaultKey: ETranslations.homescreen_format_supported,
       }),
     );
   }

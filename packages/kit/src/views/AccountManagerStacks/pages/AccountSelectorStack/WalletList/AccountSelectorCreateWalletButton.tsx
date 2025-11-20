@@ -17,16 +17,6 @@ export function AccountSelectorCreateWalletButton() {
   if (!isEditableRouteParams) {
     return null;
   }
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const onboardingButton = (
-    <IconButton
-      onPress={() => {
-        void toOnBoardingPage();
-      }}
-      icon="PlusSmallOutline"
-      testID="account-add-wallet"
-    />
-  );
   return (
     <Stack p="$1" alignItems="center">
       <IconButton

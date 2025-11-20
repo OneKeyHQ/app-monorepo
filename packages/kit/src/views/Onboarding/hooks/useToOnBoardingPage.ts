@@ -7,8 +7,13 @@ import type { IOnboardingParamList } from '@onekeyhq/shared/src/routes';
 import {
   EModalRoutes,
   EOnboardingPages,
+  EOnboardingPagesV2,
+  EOnboardingV2Routes,
   ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+
+import { closeModalPages } from '../../../hooks/usePageNavigation';
 
 export const isOnboardingFromExtensionUrl = () => {
   // eslint-disable-next-line unicorn/prefer-global-this
@@ -24,11 +29,10 @@ export const useToOnBoardingPage = () => {
   return useMemo(
     () =>
       async ({
-        isFullModal = false,
         params,
       }: {
         isFullModal?: boolean;
-        params?: IOnboardingParamList[EOnboardingPages.GetStarted];
+        params?: IOnboardingParamList[EOnboardingPagesV2.GetStarted];
       } = {}) => {
         if (platformEnv.isWebDappMode) {
           navigation.pushModal(EModalRoutes.OnboardingModal, {
@@ -41,32 +45,29 @@ export const useToOnBoardingPage = () => {
           platformEnv.isExtensionUiPopup ||
           platformEnv.isExtensionUiSidePanel
         ) {
+          const newParams = {
+            ...params,
+            fromExt: true,
+          };
           await backgroundApiProxy.serviceApp.openExtensionExpandTab({
-            routes: [
-              isFullModal ? ERootRoutes.iOSFullScreen : ERootRoutes.Modal,
-              EModalRoutes.OnboardingModal,
-              EOnboardingPages.GetStarted,
-            ],
-            params: {
-              ...params,
-              isFullModal,
-              fromExt: true,
-            },
+            path: `/onboarding/get-started`,
+            params: newParams,
           });
           if (platformEnv.isExtensionUiSidePanel) {
             window.close();
           }
         } else {
-          navigation[isFullModal ? 'pushFullModal' : 'pushModal'](
-            EModalRoutes.OnboardingModal,
-            {
-              screen: EOnboardingPages.GetStarted,
+          await closeModalPages();
+          await timerUtils.wait(150);
+          navigation.navigate(ERootRoutes.Onboarding, {
+            screen: EOnboardingV2Routes.OnboardingV2,
+            params: {
+              screen: EOnboardingPagesV2.GetStarted,
               params: {
                 ...params,
-                isFullModal,
               },
             },
-          );
+          });
         }
       },
     [navigation],

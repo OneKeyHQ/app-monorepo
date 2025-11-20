@@ -1,12 +1,89 @@
 import { type ComponentProps } from 'react';
 
+import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
-import { Badge, Icon, SizableText, XStack } from '@onekeyhq/components';
+import {
+  Badge,
+  Dialog,
+  Icon,
+  SizableText,
+  Toast,
+  XStack,
+} from '@onekeyhq/components';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EAppUpdateRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 
 import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
 
 import { PrimeUserInfoMoreButton } from './PrimeUserInfoMoreButton';
+
+export function PrimeUserBadge() {
+  const intl = useIntl();
+  const { user } = usePrimeAuthV2();
+  const navigation = useAppNavigation();
+
+  const isPrime = user?.primeSubscription?.isActive;
+  if (!isPrime) return null;
+
+  if (user?.isPrimeDeviceLimitExceeded === true) {
+    return (
+      <Badge
+        onPress={() => {
+          Dialog.show({
+            title: intl.formatMessage({
+              id: ETranslations.prime_prime_access_limit_reached,
+            }),
+            description: intl.formatMessage(
+              {
+                id: ETranslations.global_exceeded_device_limit_for_prime,
+              },
+              {
+                number: 5,
+              },
+            ),
+            onConfirmText: intl.formatMessage({
+              id: ETranslations.update_update_now,
+            }),
+            onConfirm: () => {
+              navigation.pushModal(EModalRoutes.AppUpdateModal, {
+                screen: EAppUpdateRoutes.UpdatePreview,
+              });
+            },
+            onCancelText: intl.formatMessage({
+              id: ETranslations.global_got_it,
+            }),
+          });
+        }}
+        badgeType="warning"
+        badgeSize="sm"
+      >
+        <Badge.Text userSelect="none">
+          {intl.formatMessage({
+            id: ETranslations.prime_status_prime,
+          })}
+        </Badge.Text>
+        <Icon
+          name="InfoCircleOutline"
+          color="$iconSubdued"
+          size="$4"
+          ml="$1.5"
+        />
+      </Badge>
+    );
+  }
+
+  return (
+    <Badge bg="$brand3" badgeSize="sm">
+      <Badge.Text color="$brand11">
+        {intl.formatMessage({
+          id: ETranslations.prime_status_prime,
+        })}
+      </Badge.Text>
+    </Badge>
+  );
+}
 
 export function PrimeUserInfo({
   onLogoutSuccess,
@@ -15,8 +92,6 @@ export function PrimeUserInfo({
   onLogoutSuccess?: () => Promise<void>;
 } & ComponentProps<typeof XStack>) {
   const { user } = usePrimeAuthV2();
-  const isPrime = user?.primeSubscription?.isActive;
-
   return (
     <XStack
       alignItems="center"
@@ -45,18 +120,7 @@ export function PrimeUserInfo({
       >
         {user?.displayEmail}
       </SizableText>
-      {
-        isPrime ? (
-          <Badge bg="$brand3" badgeSize="sm">
-            <Badge.Text color="$brand11">Prime</Badge.Text>
-          </Badge>
-        ) : null
-        // <Badge badgeType="default" badgeSize="sm">
-        //   {intl.formatMessage({
-        //     id: ETranslations.prime_status_free,
-        //   })}
-        // </Badge>
-      }
+      <PrimeUserBadge />
       <PrimeUserInfoMoreButton onLogoutSuccess={onLogoutSuccess} />
     </XStack>
   );

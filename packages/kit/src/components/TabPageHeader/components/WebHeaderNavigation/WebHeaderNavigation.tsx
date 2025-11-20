@@ -30,7 +30,7 @@ function useWebHeaderNavigation({
 
   useOnRouterChange((state) => {
     if (!state) {
-      setCurrentTab(ETabRoutes.Home);
+      setCurrentTab(null);
       return;
     }
     const rootState = state?.routes.find(
@@ -50,13 +50,16 @@ function useWebHeaderNavigation({
       case ETabRoutes.Market:
         return 'market';
       case ETabRoutes.Perp:
+      case ETabRoutes.WebviewPerpTrade:
         return 'perps';
       case ETabRoutes.Earn:
         return 'defi';
       case ETabRoutes.Swap:
         return 'swap';
+      case ETabRoutes.ReferFriends:
+        return 'commission';
       default:
-        return undefined;
+        return null;
     }
   }, [controlledActiveKey, currentTab]);
 

@@ -10,7 +10,10 @@ import type {
   ISignedTxPro,
   IUnsignedTxPro,
 } from '@onekeyhq/core/src/types';
-import type { IPerpsDepositToken } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  type IPerpsDepositToken,
+  usePerpsDepositOrderAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type {
   IApproveInfo,
   IBuildUnsignedTxParams,
@@ -20,6 +23,7 @@ import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
 import { BATCH_SEND_TXS_FEE_UP_RATIO_FOR_SWAP } from '@onekeyhq/shared/src/consts/walletConsts';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EScanQrCodeModalPages } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { calculateFeeForSend } from '@onekeyhq/shared/src/utils/feeUtils';
@@ -42,6 +46,7 @@ import { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
 import {
   EProtocolOfExchange,
   ESwapFetchCancelCause,
+  ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
 import type {
   IPerpDepositQuoteRes,
@@ -54,6 +59,37 @@ import type { ISendTxBaseParams } from '@onekeyhq/shared/types/tx';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 
+export const usePerpDepositOrder = ({
+  accountId,
+  indexedAccountId,
+}: {
+  accountId?: string | null;
+  indexedAccountId?: string | null;
+}) => {
+  const [{ orders: perpDepositOrder }] = usePerpsDepositOrderAtom();
+
+  const filterPerpDepositOrder = useMemo(() => {
+    return perpDepositOrder.filter((item) => {
+      return (
+        ((!item.accountId && !accountId) || item.accountId === accountId) &&
+        ((!item.indexedAccountId && !indexedAccountId) ||
+          item.indexedAccountId === indexedAccountId)
+      );
+    });
+  }, [perpDepositOrder, accountId, indexedAccountId]);
+
+  useEffect(() => {
+    void backgroundApiProxy.serviceSwap.perpDepositOrderFetchLoop({
+      accountId,
+      indexedAccountId,
+    });
+  }, [accountId, indexedAccountId]);
+
+  return {
+    perpDepositOrder: filterPerpDepositOrder,
+  };
+};
+
 const usePerpDeposit = (
   amount: string,
   selectedAction: 'withdraw' | 'deposit',
@@ -61,6 +97,7 @@ const usePerpDeposit = (
   selectedAccountId?: string,
   token?: IPerpsDepositToken,
   checkFromTokenFiatValue?: boolean,
+  isAvailableBalance?: boolean,
 ) => {
   const [perpDepositQuote, setPerpDepositQuote] = useState<
     IPerpDepositQuoteResponse | undefined
@@ -68,6 +105,66 @@ const usePerpDeposit = (
   const intl = useIntl();
 
   const [perpDepositQuoteLoading, setPerpDepositQuoteLoading] = useState(false);
+  const [, setPerpDepositOrder] = usePerpsDepositOrderAtom();
+  const handlePerpDepositTxSuccess = useCallback(
+    ({
+      fromAmount,
+      toAmount,
+      fromToken,
+      fromTxId,
+      isArbUSDCOrder,
+      skipToast,
+    }: {
+      fromAmount: string;
+      toAmount: string;
+      fromToken: IPerpsDepositToken;
+      fromTxId: string;
+      isArbUSDCOrder: boolean;
+      skipToast?: boolean;
+    }) => {
+      if (!skipToast) {
+        Toast.success({
+          title: intl.formatMessage({
+            id: ETranslations.feedback_transaction_submitted,
+          }),
+          message: intl.formatMessage(
+            {
+              id: ETranslations.perp_toast_deposit_success_msg,
+            },
+            {
+              amount: fromAmount,
+              token: fromToken?.symbol,
+            },
+          ),
+        });
+      }
+      const time = Date.now();
+      setPerpDepositOrder((prev) => {
+        return {
+          orders: [
+            ...prev.orders,
+            {
+              isArbUSDCOrder,
+              fromTxId,
+              amount: toAmount,
+              token: fromToken,
+              status: ESwapTxHistoryStatus.PENDING,
+              time,
+              accountId: selectedAccountId,
+              indexedAccountId,
+            },
+          ],
+        };
+      });
+      setTimeout(() => {
+        void backgroundApiProxy.serviceSwap.perpDepositOrderFetchLoop({
+          accountId: selectedAccountId,
+          indexedAccountId,
+        });
+      }, 200);
+    },
+    [indexedAccountId, intl, selectedAccountId, setPerpDepositOrder],
+  );
   const isArbitrumUsdcToken = useMemo(() => {
     return equalTokenNoCaseSensitive({
       token1: token,
@@ -188,8 +285,14 @@ const usePerpDeposit = (
   ]);
 
   useEffect(() => {
-    void perpDepositQuoteAction();
-  }, [perpDepositQuoteAction]);
+    if (isAvailableBalance) {
+      void backgroundApiProxy.serviceSwap.cancelFetchPerpDepositQuote();
+      setPerpDepositQuoteLoading(false);
+      setPerpDepositQuote(undefined);
+    } else {
+      void perpDepositQuoteAction();
+    }
+  }, [perpDepositQuoteAction, isAvailableBalance]);
 
   const buildQuoteRes = useCallback(
     async (buildSwapResponse: IPerpDepositQuoteResponse) => {
@@ -933,44 +1036,70 @@ const usePerpDeposit = (
       },
       unsignedTxArr,
     );
-    const res = await perpSendTxAction(
-      {
-        networkId: token?.networkId,
-        accountId,
-        transfersInfo: transferInfo ? [transferInfo] : undefined,
-        encodedTx,
-        swapInfo,
-      },
-      gasFeeInfos,
-      unsignedTxArr,
-    );
-    if (res) {
-      Toast.success({
-        title: intl.formatMessage({
-          id: ETranslations.feedback_transaction_submitted,
-        }),
-        message: intl.formatMessage(
-          {
-            id: ETranslations.perp_toast_deposit_success_msg,
-          },
-          {
-            amount,
-            token: token?.symbol,
-          },
-        ),
+    try {
+      const res = await perpSendTxAction(
+        {
+          networkId: token?.networkId,
+          accountId,
+          transfersInfo: transferInfo ? [transferInfo] : undefined,
+          encodedTx,
+          swapInfo,
+        },
+        gasFeeInfos,
+        unsignedTxArr,
+      );
+      if (res) {
+        void handlePerpDepositTxSuccess({
+          fromTxId: res.txid,
+          isArbUSDCOrder: false,
+          fromToken: token,
+          toAmount: perpDepositQuote.result.toAmount,
+          fromAmount: amount,
+        });
+        defaultLogger.perp.deposit.perpDepositInitiate({
+          userAddress: result?.fromUserAddress ?? '',
+          receiverAddress: result?.perpReceiverAddress ?? '',
+          token,
+          amount,
+          toAmount: perpDepositQuote.result.toAmount,
+          status: ESwapTxHistoryStatus.SUCCESS,
+          txId: res.txid,
+        });
+      } else {
+        defaultLogger.perp.deposit.perpDepositInitiate({
+          userAddress: result?.fromUserAddress ?? '',
+          receiverAddress: result?.perpReceiverAddress ?? '',
+          token,
+          amount,
+          toAmount: perpDepositQuote.result.toAmount,
+          status: ESwapTxHistoryStatus.FAILED,
+          errorMessage: 'txid not found',
+        });
+      }
+    } catch (e: any) {
+      defaultLogger.perp.deposit.perpDepositInitiate({
+        userAddress: result?.fromUserAddress ?? '',
+        receiverAddress: result?.perpReceiverAddress ?? '',
+        token,
+        amount,
+        toAmount: perpDepositQuote.result.toAmount,
+        status: ESwapTxHistoryStatus.FAILED,
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        errorMessage: e?.message ?? '',
       });
     }
   }, [
-    amount,
-    token?.symbol,
     perpDepositQuote,
+    token,
     buildQuoteRes,
     getApproveUnSignedTxArr,
     estimateNetworkFee,
-    token?.networkId,
     accountId,
     perpSendTxAction,
-    intl,
+    handlePerpDepositTxSuccess,
+    amount,
+    result?.fromUserAddress,
+    result?.perpReceiverAddress,
   ]);
 
   const shouldSignEveryTime = useMemo(() => {
@@ -1021,11 +1150,14 @@ const usePerpDeposit = (
     perpDepositQuote,
     perpDepositQuoteLoading,
     shouldApprove: !!perpDepositQuote?.result?.allowanceResult,
+    shouldResetApprove:
+      perpDepositQuote?.result?.allowanceResult?.shouldResetApprove,
     multipleStepText,
     buildPerpDepositTx,
     isArbitrumUsdcToken,
     checkRefreshQuote,
     perpDepositQuoteAction,
+    handlePerpDepositTxSuccess,
   };
 };
 

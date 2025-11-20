@@ -20,7 +20,10 @@ import {
 } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
-import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
+import {
+  EOnboardingPages,
+  EOnboardingPagesV2,
+} from '@onekeyhq/shared/src/routes';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorage';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -33,6 +36,7 @@ import useScanQrCode from '../../../views/ScanQrCode/hooks/useScanQrCode';
 
 type ICreateQrWalletByScanParams = {
   isOnboarding?: boolean;
+  isOnboardingV2?: boolean;
   byWallet?: IDBWallet;
   byDevice?: IDBDevice;
   onFinalizeWalletSetupError?: () => void;
@@ -57,6 +61,7 @@ export function useCreateQrWallet() {
         urJson,
         byWallet,
         isOnboarding,
+        isOnboardingV2,
         byDevice,
         isCreateAccountAction,
       } = params;
@@ -85,8 +90,12 @@ export function useCreateQrWallet() {
       ) {
         throw new OneKeyErrorAirGapWalletMismatch();
       }
-      if (isOnboarding) {
-        navigation.push(EOnboardingPages.FinalizeWalletSetup);
+      if (isOnboardingV2 || isOnboarding) {
+        if (isOnboardingV2) {
+          navigation.push(EOnboardingPagesV2.FinalizeWalletSetup);
+        } else {
+          navigation.push(EOnboardingPages.FinalizeWalletSetup);
+        }
       }
       try {
         const result = await actions.current.createQrWallet({

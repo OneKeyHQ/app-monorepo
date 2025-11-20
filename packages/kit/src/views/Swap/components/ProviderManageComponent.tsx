@@ -71,13 +71,7 @@ export const ProviderSwitch = ({
             {providerInfo.providerName}
           </SizableText>
           {serviceDisable ? (
-            <Badge
-              bg="$bgSubdued"
-              borderRadius="$2.5"
-              h="$6"
-              borderWidth={1}
-              borderColor="$borderCritical"
-            >
+            <Badge badgeType="critical" badgeSize="lg" borderRadius="$4">
               <SizableText size="$bodySm" color="$textCritical">
                 {intl.formatMessage({
                   id: ETranslations.provider_unavailable,
@@ -123,27 +117,33 @@ const NetworkSwitch = ({
 }: INetworkSwitchProps) => {
   return (
     <Badge
-      bg={enable ? '$bgSubdued' : '$bgApp'}
+      bg={enable && !serviceDisable ? '$bgSubdued' : '$bgApp'}
       borderRadius="$2.5"
       h="$6"
       borderWidth={1}
       borderCurve="continuous"
-      borderColor={enable ? '$borderActive' : '$borderSubdued'}
+      borderColor={
+        enable && !serviceDisable ? '$borderActive' : '$borderSubdued'
+      }
       disabled={serviceDisable}
       onPress={() => {
         onNetworkSwitch(networkId, !enable);
       }}
-      hoverStyle={{
-        bg: '$bgStrongHover',
-      }}
-      pressStyle={{
-        bg: '$bgStrongActive',
-      }}
       cursor="pointer"
+      {...(!serviceDisable
+        ? {
+            hoverStyle: {
+              bg: '$bgStrongHover',
+            },
+            pressStyle: {
+              bg: '$bgStrongActive',
+            },
+          }
+        : {})}
     >
       <SizableText
-        size={enable ? '$bodySmMedium' : '$bodySm'}
-        color={enable ? '$text' : '$textSubdued'}
+        size={enable && !serviceDisable ? '$bodySmMedium' : '$bodySm'}
+        color={enable && !serviceDisable ? '$text' : '$textSubdued'}
       >
         {networkName}
       </SizableText>
@@ -197,22 +197,42 @@ const ProviderFold = ({
       ];
     }
     res = res.map((net) => {
-      const findDisNet = providerDisableNetworks.find(
-        (disN) =>
-          net.networkId.split('--')[0] === disN.networkId.split('--')[0],
-      );
-      if (findDisNet) {
-        return { ...net, enable: false };
+      if (net.networkId.startsWith('evm')) {
+        const allEvmNetDisabled = evmNet.every((evmN) =>
+          providerDisableNetworks.find(
+            (disN) => disN.networkId === evmN.networkId,
+          ),
+        );
+        if (allEvmNetDisabled) {
+          return { ...net, enable: false };
+        }
+      } else {
+        const findDisNet = providerDisableNetworks.find(
+          (disN) => net.networkId === disN.networkId,
+        );
+        if (findDisNet) {
+          return { ...net, enable: false };
+        }
       }
       return net;
     });
     res = res.map((net) => {
-      const findServerDisNet = serviceDisableNetworks.find(
-        (disN) =>
-          net.networkId.split('--')[0] === disN.networkId.split('--')[0],
-      );
-      if (findServerDisNet) {
-        return { ...net, serviceDisable: true };
+      if (net.networkId.startsWith('evm')) {
+        const allEvmNetDisabled = evmNet.every((evmN) =>
+          serviceDisableNetworks.find(
+            (disN) => disN.networkId === evmN.networkId,
+          ),
+        );
+        if (allEvmNetDisabled) {
+          return { ...net, serviceDisable: true };
+        }
+      } else {
+        const findServerDisNet = serviceDisableNetworks.find(
+          (disN) => net.networkId === disN.networkId,
+        );
+        if (findServerDisNet) {
+          return { ...net, serviceDisable: true };
+        }
       }
       return net;
     });

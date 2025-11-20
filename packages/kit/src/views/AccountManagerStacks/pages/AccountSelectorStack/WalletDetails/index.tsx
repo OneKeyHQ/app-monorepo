@@ -18,6 +18,7 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useCreateQrWallet } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useCreateQrWallet';
+import { useEnabledNetworksCompatibleWithWalletIdInAllNetworks } from '@onekeyhq/kit/src/hooks/useAllNetwork';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   useAccountSelectorActions,
@@ -186,6 +187,13 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
     () => focusedWalletInfo?.wallet?.deprecated,
     [focusedWalletInfo?.wallet?.deprecated],
   );
+
+  const { enabledNetworksCompatibleWithWalletId, networkInfoMap } =
+    useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
+      walletId: focusedWalletInfo?.wallet?.id ?? '',
+      networkId: selectedNetworkId,
+      withNetworksInfo: true,
+    });
 
   useEffect(() => {
     const fn = async () => {
@@ -531,6 +539,10 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
                 listDataResult?.mergeDeriveAssetsEnabled
               }
               hideAddress={hideAddress}
+              enabledNetworksCompatibleWithWalletId={
+                enabledNetworksCompatibleWithWalletId
+              }
+              networkInfoMap={networkInfoMap}
             />
           )}
           renderSectionFooter={({
@@ -581,6 +593,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
     allowSelectEmptyAccount,
     createQrWallet,
     editable,
+    enabledNetworksCompatibleWithWalletId,
     focusedWalletInfo,
     getItemLayout,
     handleLayoutCacheSet,
@@ -598,6 +611,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
     linkedNetworkId,
     listDataResult?.mergeDeriveAssetsEnabled,
     listViewLayout.height,
+    networkInfoMap,
     num,
     searchText,
     sectionData,

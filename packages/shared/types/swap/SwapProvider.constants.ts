@@ -835,6 +835,29 @@ export const swapDefaultSetTokens: Record<
       'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/linea.png',
     },
   },
+  'evm--196': {
+    fromToken: {
+      'networkId': 'evm--196',
+      'contractAddress': '',
+      'name': 'X Layer',
+      'symbol': 'OKB',
+      'decimals': 18,
+      'logoURI': 'https://uni.onekey-asset.com/static/chain/okb.png',
+      'isNative': true,
+      'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/okb.png',
+    },
+    toToken: {
+      'networkId': 'evm--196',
+      'contractAddress': '0x779ded0c9e1022225f8e0630b35a9b54be713736',
+      'name': 'USD₮0',
+      'symbol': 'USD₮0',
+      'decimals': 6,
+      'logoURI':
+        'https://uni-test.onekey-asset.com/server-service-onchain/evm--196/tokens/0x779ded0c9e1022225f8e0630b35a9b54be713736.png',
+      'isNative': false,
+      'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/okb.png',
+    },
+  },
 };
 
 export const swapPopularTokens: Record<string, ISwapToken[]> = {
@@ -1520,7 +1543,7 @@ export const swapPopularTokens: Record<string, ISwapToken[]> = {
       'decimals': 8,
       'isPopular': true,
       'logoURI':
-        'https://uni-test.onekey-asset.com/server-service-onchain/aptos--1/tokens/0x1::aptos_coin::AptosCoin.png',
+        'https://uni-test.onekey-asset.com/dashboard/logo/upload_1762841036401.0.9828413421109685.0.png',
       'isNative': true,
       'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/apt.png',
     },

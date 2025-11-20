@@ -17,6 +17,7 @@ import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickSt
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes/modal';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { formatDateFns } from '@onekeyhq/shared/src/utils/dateUtils';
@@ -180,6 +181,9 @@ function PrimeUserInfoMoreButtonDropDownMenu({
               id: ETranslations.prime_log_out,
             }),
             onConfirm: async () => {
+              defaultLogger.prime.subscription.onekeyIdLogout({
+                reason: 'PrimeUserInfoMoreButton Logout Button',
+              });
               await logout();
               await onLogoutSuccess?.();
             },

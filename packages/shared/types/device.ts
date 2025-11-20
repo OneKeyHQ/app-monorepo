@@ -10,12 +10,15 @@ import type {
   Features as FeaturesCore,
   IDeviceBLEFirmwareStatus,
   IDeviceType,
+  KnownDevice,
   ReleaseInfoPayload,
   Response,
+  SearchDevice,
   Success,
   Unsuccessful,
 } from '@onekeyfe/hd-core';
 import type { Features as FeaturesTransport } from '@onekeyfe/hd-transport';
+import type { ImageSourcePropType } from 'react-native';
 
 export type IOneKeyDeviceType = IDeviceType;
 
@@ -398,6 +401,33 @@ export enum EHardwareCallContext {
   BACKGROUND_TASK = 'background_task',
   SDK_INITIALIZATION = 'sdk_initialization',
   SILENT_CALL = 'silent_call',
+  UPDATE_FIRMWARE = 'update_firmware',
 }
 
 export type IHardwareCallContext = EHardwareCallContext;
+
+export interface IConnectYourDeviceItem {
+  title: string;
+  src: ImageSourcePropType;
+  opacity?: number;
+  device: SearchDevice | KnownDevice | undefined;
+}
+
+export interface IFirmwareVerifyResult {
+  verified: boolean;
+  skipVerification?: boolean;
+  device: SearchDevice | IDBDevice;
+  payload: {
+    deviceType: IDeviceType;
+    data: string;
+    cert: string;
+    signature: string;
+  };
+  result:
+    | {
+        message?: string;
+        data?: string;
+        code?: number;
+      }
+    | undefined;
+}

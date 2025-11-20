@@ -4,6 +4,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useMarketBasicConfig } from '@onekeyhq/kit/src/views/Market/hooks';
 import { useNetworkLoadingAnalytics } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/hooks/useNetworkLoadingAnalytics';
+import type { IMarketTokenListResponse } from '@onekeyhq/shared/types/marketV2';
 
 import {
   getNetworkLogoUri,
@@ -39,7 +40,6 @@ export function useMarketTokenList({
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isNetworkSwitching, setIsNetworkSwitching] = useState(false);
   const [hasReachedEnd, setHasReachedEnd] = useState(false);
-  const [consecutiveEmptyResponses, setConsecutiveEmptyResponses] = useState(0);
   const maxPages = 5;
 
   // Optimize network logo URI calculation
@@ -47,13 +47,17 @@ export function useMarketTokenList({
     () => getNetworkLogoUri(networkId),
     [networkId],
   );
+  const hasNetworkId = Boolean(networkId);
 
   const {
     result: apiResult,
     isLoading,
     run: fetchMarketTokenList,
-  } = usePromiseResult(
+  } = usePromiseResult<IMarketTokenListResponse | undefined>(
     async () => {
+      if (!hasNetworkId) {
+        return undefined;
+      }
       const response =
         await backgroundApiProxy.serviceMarketV2.fetchMarketTokenList({
           networkId,
@@ -69,16 +73,17 @@ export function useMarketTokenList({
         total: response.total,
       };
     },
-    [networkId, sortBy, sortType, pageSize, minLiquidity],
+    [hasNetworkId, networkId, sortBy, sortType, pageSize, minLiquidity],
     {
-      watchLoading: true,
+      watchLoading: hasNetworkId,
       revalidateOnFocus: true,
       revalidateOnReconnect: true,
     },
   );
+  const effectiveIsLoading = hasNetworkId ? isLoading : false;
 
   useEffect(() => {
-    if (!apiResult || !apiResult.list) {
+    if (!hasNetworkId || !apiResult || !apiResult.list) {
       return;
     }
 
@@ -97,22 +102,25 @@ export function useMarketTokenList({
 
     // Reset network switching state when new data arrives
     setIsNetworkSwitching(false);
-  }, [apiResult, networkId, networkLogoUri, trackNetworkLoading]);
+  }, [apiResult, hasNetworkId, networkId, networkLogoUri, trackNetworkLoading]);
 
   // Reset pagination when networkId, sortBy, or sortType changes
   useEffect(() => {
     setCurrentPage(1);
     setIsLoadingMore(false);
     setHasReachedEnd(false);
-    setConsecutiveEmptyResponses(0);
     // Don't clear data immediately to avoid UI flicker
     // The data will be replaced when new API result arrives
   }, [networkId, sortBy, sortType]);
 
   // Handle network switching - separate effect to track networkId changes specifically
   useEffect(() => {
+    if (!hasNetworkId) {
+      setIsNetworkSwitching(false);
+      return;
+    }
     setIsNetworkSwitching(true);
-  }, [networkId]);
+  }, [hasNetworkId, networkId]);
 
   const totalCount = apiResult?.total || 0;
 
@@ -130,7 +138,8 @@ export function useMarketTokenList({
     if (
       isLoadingMore ||
       currentPage >= maxPages ||
-      isLoading ||
+      !hasNetworkId ||
+      effectiveIsLoading ||
       hasReachedEnd
     ) {
       return;
@@ -153,9 +162,6 @@ export function useMarketTokenList({
         });
 
       if (response?.list?.length > 0) {
-        // Reset consecutive empty responses counter when we get data
-        setConsecutiveEmptyResponses(0);
-
         // Transform new data
         const newTransformed = response.list.map((item) =>
           transformApiItemToToken(item, {
@@ -171,17 +177,8 @@ export function useMarketTokenList({
         setTransformedData((prev) => [...prev, ...newTransformed]);
         setCurrentPage(nextPage);
       } else {
-        // Increment consecutive empty responses counter
-        const newConsecutiveEmptyCount = consecutiveEmptyResponses + 1;
-        setConsecutiveEmptyResponses(newConsecutiveEmptyCount);
-
-        // Only mark as reached end after 3 consecutive empty responses
-        if (newConsecutiveEmptyCount >= 3) {
-          setHasReachedEnd(true);
-        } else {
-          // Still try to load the next page
-          setCurrentPage(nextPage);
-        }
+        // Empty response - stop loading immediately
+        setHasReachedEnd(true);
       }
     } catch (error) {
       console.error('Failed to load more market tokens:', error);
@@ -191,8 +188,9 @@ export function useMarketTokenList({
   }, [
     isLoadingMore,
     currentPage,
-    isLoading,
+    effectiveIsLoading,
     hasReachedEnd,
+    hasNetworkId,
     networkId,
     sortBy,
     sortType,
@@ -200,15 +198,18 @@ export function useMarketTokenList({
     minLiquidity,
     trackNetworkLoading,
     networkLogoUri,
-    consecutiveEmptyResponses,
   ]);
 
   const canLoadMore =
-    currentPage < maxPages && !isLoading && !isLoadingMore && !hasReachedEnd;
+    hasNetworkId &&
+    currentPage < maxPages &&
+    !effectiveIsLoading &&
+    !isLoadingMore &&
+    !hasReachedEnd;
 
   return {
     data: transformedData,
-    isLoading,
+    isLoading: effectiveIsLoading,
     isLoadingMore,
     isNetworkSwitching,
     initialSortBy,

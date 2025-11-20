@@ -96,6 +96,7 @@ import PreSwapDialogContent from './PreSwapDialogContent';
 import SwapActionsState from './SwapActionsState';
 import SwapAlertContainer from './SwapAlertContainer';
 import SwapHeaderContainer from './SwapHeaderContainer';
+import SwapPendingHistoryListComponent from './SwapPendingHistoryList';
 import SwapQuoteInput from './SwapQuoteInput';
 import SwapQuoteResult from './SwapQuoteResult';
 import SwapTipsContainer from './SwapTipsContainer';
@@ -872,6 +873,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
             tokenPairs={swapRecentTokenPairs}
             fromTokenAmount={fromTokenAmount.value}
           />
+          <SwapPendingHistoryListComponent pageType={pageType} />
         </YStack>
       </YStack>
     </ScrollView>

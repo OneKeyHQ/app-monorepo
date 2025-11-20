@@ -1,9 +1,8 @@
 import { NativeModules } from 'react-native';
 
-const BundleUpdateModule = NativeModules.BundleUpdateModule as {
-  jsBundlePath: () => string;
-};
-const jsBundlePath =
+const BundleUpdateModule = NativeModules.BundleUpdateModule;
+
+const jsBundlePath: string =
   BundleUpdateModule && BundleUpdateModule.jsBundlePath
     ? BundleUpdateModule.jsBundlePath()
     : '';

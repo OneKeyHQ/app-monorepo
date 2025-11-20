@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { useFocusEffect } from '@react-navigation/native';
+import { useIsFocused } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import {
@@ -34,6 +34,7 @@ import { MultipleClickStack } from '../../../components/MultipleClickStack';
 import { TabPageHeader } from '../../../components/TabPageHeader';
 import { WebViewWithFeatures } from '../../../components/WebView/WebViewWithFeatures';
 import { useShortcutsRouteStatus } from '../../../hooks/useListenTabFocusState';
+import { usePerpFeatureGuard } from '../../../hooks/usePerpFeatureGuard';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { SingleAccountAndNetworkSelectorTrigger } from '../../Discovery/components/HeaderRightToolBar';
 import { ExtPerp, shouldOpenExpandExtPerp } from '../../Perp/pages/ExtPerp';
@@ -295,11 +296,33 @@ function WebviewPerpTradeView() {
   );
 }
 
+function PageWebviewPerpTradeView() {
+  const isFocused = useIsFocused();
+  const [isMounted, setIsMounted] = useState(false);
+  const isMountedRef = useRef(false);
+  useEffect(() => {
+    if (isMountedRef.current) {
+      return;
+    }
+    if (isFocused) {
+      isMountedRef.current = true;
+      setIsMounted(true);
+    }
+  }, [isFocused]);
+  if (!isMounted) {
+    return null;
+  }
+  return shouldOpenExpandExtPerp() ? <ExtPerp /> : <WebviewPerpTradeView />;
+}
+
 const PageWebviewPerpTrade = () => {
   useDebugComponentRemountLog({ name: 'PageWebviewPerpTrade' });
-  useFocusEffect(() => {
-    void backgroundApiProxy.serviceHyperliquid.updatePerpsConfigByServer();
-  });
+  const canRenderPerp = usePerpFeatureGuard();
+
+  if (!canRenderPerp) {
+    return null;
+  }
+
   return (
     <AccountSelectorProviderMirror
       config={{
@@ -308,7 +331,7 @@ const PageWebviewPerpTrade = () => {
       }}
       enabledNum={[0]}
     >
-      {shouldOpenExpandExtPerp() ? <ExtPerp /> : <WebviewPerpTradeView />}
+      <PageWebviewPerpTradeView />
     </AccountSelectorProviderMirror>
   );
 };

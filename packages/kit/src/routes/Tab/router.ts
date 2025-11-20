@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { CommonActions } from '@react-navigation/native';
 
@@ -31,6 +31,7 @@ import { earnRouters } from './Earn/router';
 import { marketRouters } from './Marktet/router';
 import { meRouters } from './Me/router';
 import { multiTabBrowserRouters } from './MultiTabBrowser/router';
+import { referFriendsRouters } from './ReferFriends/router';
 import { swapRouters } from './Swap/router';
 
 type IGetTabRouterParams = {
@@ -55,7 +56,9 @@ const getDiscoverRouterConfig = (
     exact: true,
     tabBarIcon: (focused?: boolean) =>
       focused ? 'CompassCircleSolid' : 'CompassCircleOutline',
-    translationId: ETranslations.global_browser,
+    translationId: platformEnv.isNative
+      ? ETranslations.global_discover
+      : ETranslations.global_browser,
     freezeOnBlur: Boolean(params?.freezeOnBlur),
     children: discoveryRouters,
     tabBarStyle,
@@ -106,16 +109,23 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
     };
   }, []);
 
+  const handleReferFriendsEntry = useCallback(() => {
+    void toReferFriendsPage();
+  }, [toReferFriendsPage]);
+
   const referFriendsTabConfig = useMemo(() => {
     return {
       name: ETabRoutes.ReferFriends,
       tabBarIcon: () => 'GiftOutline',
       translationId: ETranslations.sidebar_refer_a_friend,
-      tabbarOnPress: toReferFriendsPage,
-      children: null,
+      rewrite: '/refer-friends',
+      exact: true,
+      children: referFriendsRouters,
       trackId: 'global-referral',
+      freezeOnBlur: Boolean(params?.freezeOnBlur),
+      tabbarOnPress: handleReferFriendsEntry,
     };
-  }, [toReferFriendsPage]);
+  }, [handleReferFriendsEntry, params?.freezeOnBlur]);
 
   return useMemo(() => {
     const tabs = [
@@ -161,29 +171,28 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
         children: swapRouters,
         trackId: 'global-trade',
       },
-      !perpDisabled && {
+      {
         name: ETabRoutes.WebviewPerpTrade,
         tabBarIcon: (focused?: boolean) =>
           focused ? 'TradingViewCandlesSolid' : 'TradingViewCandlesOutline',
         translationId: ETranslations.global_perp,
         freezeOnBlur: Boolean(params?.freezeOnBlur),
-        rewrite: perpTabShowWeb ? '/perp' : undefined,
+        rewrite: perpTabShowWeb ? '/perps' : undefined,
         exact: true,
         children: perpWebviewRouters,
         trackId: 'global-perp',
-        hideOnTabBar: !perpTabShowWeb,
+        hiddenIcon: perpDisabled || !perpTabShowWeb,
       },
-      !perpDisabled && {
+      {
         name: ETabRoutes.Perp,
         tabBarIcon: (focused?: boolean) =>
           focused ? 'TradingViewCandlesSolid' : 'TradingViewCandlesOutline',
         translationId: ETranslations.global_perp,
         freezeOnBlur: Boolean(params?.freezeOnBlur),
         children: perpRouters,
-        rewrite: perpTabShowWeb ? undefined : '/perp',
+        rewrite: perpTabShowWeb ? undefined : '/perps',
         exact: true,
-        // tabbarOnPress,
-        hideOnTabBar: perpTabShowWeb,
+        hiddenIcon: perpDisabled || perpTabShowWeb,
       },
       {
         name: ETabRoutes.Earn,
@@ -196,6 +205,7 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
         exact: true,
         children: earnRouters,
         trackId: 'global-earn',
+        hideOnTabBar: platformEnv.isNative,
       },
       isWebDappMode ? referFriendsTabConfig : undefined,
       // In non-DAPP mode, show ReferFriends in more actions
@@ -260,13 +270,13 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
 
     return tabs;
   }, [
-    isWebDappMode,
-    referFriendsTabConfig,
     params,
+    isWebDappMode,
     shouldShowMarketTab,
     handleMarketTabPress,
-    perpDisabled,
     perpTabShowWeb,
+    perpDisabled,
+    referFriendsTabConfig,
     isGtMdNonNative,
     toMyOneKeyModal,
     isShowMDDiscover,

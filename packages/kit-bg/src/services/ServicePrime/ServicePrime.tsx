@@ -18,6 +18,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
@@ -123,6 +124,9 @@ class ServicePrime extends ServiceBase {
   async apiLogout() {
     const authToken = await this.backgroundApi.simpleDb.prime.getAuthToken();
     if (!authToken) {
+      defaultLogger.prime.subscription.onekeyIdAtomNotLoggedIn({
+        reason: 'ServicePrime.apiLogout: simpleDb.prime.getAuthToken() is null',
+      });
       await this.setPrimePersistAtomNotLoggedIn();
       return;
     }
@@ -215,9 +219,19 @@ class ServicePrime extends ServiceBase {
     await this.loginMutex.waitForUnlock();
     const authToken = await this.backgroundApi.simpleDb.prime.getAuthToken();
     if (!authToken) {
+      defaultLogger.prime.subscription.onekeyIdAtomNotLoggedIn({
+        reason:
+          'ServicePrime.apiFetchPrimeUserInfo: simpleDb.prime.getAuthToken() is null',
+      });
       await this.setPrimePersistAtomNotLoggedIn();
       const localUserInfo = await primePersistAtom.get();
 
+      defaultLogger.prime.subscription.onekeyIdInvalidToken({
+        url: '',
+        errorCode: -1759,
+        errorMessage:
+          'servicePrime.apiFetchPrimeUserInfo: simpleDb.prime.getAuthToken() No auth token',
+      });
       // clear privy login token cache
       appEventBus.emit(EAppEventBusNames.PrimeLoginInvalidToken, undefined);
 
@@ -261,6 +275,7 @@ class ServicePrime extends ServiceBase {
         displayEmail: serverUserInfo?.emails?.[0] || v?.displayEmail,
         isEnablePrime: serverUserInfo?.isEnablePrime,
         isEnableSandboxPay: serverUserInfo?.isEnableSandboxPay,
+        isPrimeDeviceLimitExceeded: serverUserInfo?.isPrimeDeviceLimitExceeded,
         isLoggedIn: true,
         isLoggedInOnServer: true,
         primeSubscription,
@@ -296,6 +311,7 @@ class ServicePrime extends ServiceBase {
         isLoggedInOnServer: false,
         isEnablePrime: undefined,
         isEnableSandboxPay: undefined,
+        isPrimeDeviceLimitExceeded: undefined,
         privyUserId: undefined,
         email: undefined,
         displayEmail: undefined,

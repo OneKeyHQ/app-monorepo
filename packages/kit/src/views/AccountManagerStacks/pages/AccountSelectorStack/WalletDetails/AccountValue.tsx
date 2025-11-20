@@ -5,10 +5,12 @@ import { isNil, map } from 'lodash';
 
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
-import { useEnabledNetworksCompatibleWithWalletIdInAllNetworks } from '@onekeyhq/kit/src/hooks/useAllNetwork';
 import { useActiveAccountValueAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
+import { SEPERATOR } from '@onekeyhq/shared/src/engine/engineConsts';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 function AccountValue(accountValue: {
   walletId: string;
@@ -20,6 +22,14 @@ function AccountValue(accountValue: {
   indexedAccountId?: string;
   mergeDeriveAssetsEnabled?: boolean;
   isSingleAddress?: boolean;
+  enabledNetworksCompatibleWithWalletId: IServerNetwork[];
+  networkInfoMap: Record<
+    string,
+    {
+      deriveType: IAccountDeriveTypes;
+      mergeDeriveAssetsEnabled: boolean;
+    }
+  >;
 }) {
   const [activeAccountValue] = useActiveAccountValueAtom();
   const isActiveAccount =
@@ -30,8 +40,8 @@ function AccountValue(accountValue: {
     linkedNetworkId,
     mergeDeriveAssetsEnabled,
     isSingleAddress,
-    walletId,
-    indexedAccountId,
+    enabledNetworksCompatibleWithWalletId,
+    networkInfoMap,
   } = accountValue;
 
   const { currency, value } = useMemo(() => {
@@ -40,13 +50,6 @@ function AccountValue(accountValue: {
     }
     return accountValue;
   }, [accountValue, activeAccountValue, isActiveAccount]);
-
-  const { enabledNetworksCompatibleWithWalletId } =
-    useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
-      walletId,
-      networkId: linkedNetworkId,
-      indexedAccountId,
-    });
 
   const accountValueString = useMemo(() => {
     if (typeof value === 'string') {
@@ -95,9 +98,21 @@ function AccountValue(accountValue: {
 
     return Object.entries(value).reduce((acc, [k, v]) => {
       const keyArray = k.split('_');
-      const networkId = keyArray[keyArray.length - 1];
+      const networkId = keyArray.pop() as string;
+      const accountId = keyArray.join('_');
+      const [_walletId, _path, _deriveType] = accountId.split(SEPERATOR) as [
+        string,
+        string,
+        string,
+      ];
+      const deriveType: IAccountDeriveTypes =
+        (_deriveType as IAccountDeriveTypes) || 'default';
       if (
-        enabledNetworksCompatibleWithWalletId.some((n) => n.id === networkId)
+        enabledNetworksCompatibleWithWalletId.some((n) => n.id === networkId) &&
+        networkInfoMap[networkId] &&
+        (networkInfoMap[networkId].mergeDeriveAssetsEnabled ||
+          networkInfoMap[networkId].deriveType.toLowerCase() ===
+            deriveType.toLowerCase())
       ) {
         return new BigNumber(acc ?? '0').plus(v ?? '0').toFixed();
       }
@@ -110,6 +125,7 @@ function AccountValue(accountValue: {
     isSingleAddress,
     linkedAccountId,
     enabledNetworksCompatibleWithWalletId,
+    networkInfoMap,
   ]);
 
   return accountValueString ? (
@@ -143,6 +159,8 @@ function AccountValueWithSpotlight({
   indexedAccountId,
   mergeDeriveAssetsEnabled,
   isSingleAddress,
+  enabledNetworksCompatibleWithWalletId,
+  networkInfoMap,
 }: {
   accountValue:
     | {
@@ -159,6 +177,14 @@ function AccountValueWithSpotlight({
   mergeDeriveAssetsEnabled?: boolean;
   isSingleAddress?: boolean;
   walletId: string;
+  enabledNetworksCompatibleWithWalletId: IServerNetwork[];
+  networkInfoMap: Record<
+    string,
+    {
+      deriveType: IAccountDeriveTypes;
+      mergeDeriveAssetsEnabled: boolean;
+    }
+  >;
 }) {
   return accountValue && accountValue.currency ? (
     <AccountValue
@@ -171,6 +197,10 @@ function AccountValueWithSpotlight({
       indexedAccountId={indexedAccountId}
       mergeDeriveAssetsEnabled={mergeDeriveAssetsEnabled}
       isSingleAddress={isSingleAddress}
+      enabledNetworksCompatibleWithWalletId={
+        enabledNetworksCompatibleWithWalletId
+      }
+      networkInfoMap={networkInfoMap}
     />
   ) : (
     <NumberSizeableTextWrapper

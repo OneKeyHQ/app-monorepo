@@ -74,6 +74,8 @@ export type IEventBusPayloadShowToast = {
   errorCode?: number;
   toastId?: string;
   i18nKey?: ETranslations;
+  requestId?: string;
+  diagnosticText?: string;
 };
 export interface IAppEventBusPayload {
   [EAppEventBusNames.ConfirmAccountSelected]: undefined;
@@ -240,6 +242,7 @@ export interface IAppEventBusPayload {
     networkId: string;
   };
   [EAppEventBusNames.AccountDataUpdate]: undefined;
+  [EAppEventBusNames.AccountValueUpdate]: undefined;
   [EAppEventBusNames.onDragBeginInListView]: undefined;
   [EAppEventBusNames.onDragEndInListView]: undefined;
   [EAppEventBusNames.SidePanel_BgToUI]: {

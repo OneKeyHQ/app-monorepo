@@ -1,5 +1,6 @@
-import { useEffect, useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
@@ -7,14 +8,20 @@ import {
   useUpdateEffect,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useAppIsLockedAtom,
+  usePerpsActiveAssetAtom,
+  usePerpsLastUsedLeverageAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { getValidPriceDecimals } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IFill } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import {
   usePerpTradesHistory,
   usePerpTradesHistoryViewAllUrl,
 } from '../../../hooks/usePerpOrderInfoPanel';
+import { useShowPositionShare } from '../../../hooks/useShowPositionShare';
 import { TradesHistoryRow } from '../Components/TradesHistoryRow';
 
 import { CommonTableListView, type IColumnConfig } from './CommonTableListView';
@@ -32,6 +39,94 @@ function PerpTradesHistoryList({
   const { trades, currentListPage, setCurrentListPage, isLoading } =
     usePerpTradesHistory();
   const { onViewAllUrl } = usePerpTradesHistoryViewAllUrl();
+  const [activeAsset] = usePerpsActiveAssetAtom();
+  const [lastUsedLeverage] = usePerpsLastUsedLeverageAtom();
+  const { showPositionShare } = useShowPositionShare();
+
+  const getLeverage = useCallback(
+    async (coin: string): Promise<number> => {
+      if (lastUsedLeverage?.[coin]) {
+        return lastUsedLeverage[coin];
+      }
+      if (activeAsset?.coin === coin && activeAsset?.universe?.maxLeverage) {
+        return activeAsset.universe.maxLeverage;
+      }
+      try {
+        const symbolMeta =
+          await backgroundApiProxy.serviceHyperliquid.getSymbolMeta({ coin });
+        return symbolMeta?.universe?.maxLeverage || 1;
+      } catch {
+        return 1;
+      }
+    },
+    [activeAsset, lastUsedLeverage],
+  );
+
+  const calculateEntryPrice = useCallback((fill: IFill): BigNumber | null => {
+    const sizeBN = new BigNumber(fill.sz);
+    if (sizeBN.isZero()) {
+      return null;
+    }
+
+    const exitPriceBN = new BigNumber(fill.px);
+    const pnlPerUnit = new BigNumber(fill.closedPnl).dividedBy(sizeBN);
+    const normalizedDir = fill.dir.toLowerCase();
+
+    if (normalizedDir.includes('close long')) {
+      return exitPriceBN.minus(pnlPerUnit);
+    }
+
+    if (normalizedDir.includes('close short')) {
+      return exitPriceBN.plus(pnlPerUnit);
+    }
+
+    return null;
+  }, []);
+
+  const handleShare = useCallback(
+    async (fill: IFill) => {
+      const closedPnlBN = new BigNumber(fill.closedPnl).minus(
+        new BigNumber(fill.fee),
+      );
+      if (closedPnlBN.isZero()) {
+        return;
+      }
+      const leverage = await getLeverage(fill.coin);
+      const entryPriceBN = calculateEntryPrice(fill);
+
+      const isLong = fill.side === 'A';
+      let pnlPercent = '0';
+      let entryPrice = '0';
+
+      if (entryPriceBN?.gt(0)) {
+        const decimals = getValidPriceDecimals(entryPriceBN.toFixed());
+        entryPrice = entryPriceBN.toFixed(decimals);
+
+        const positionSize = new BigNumber(fill.sz);
+        const investedCapital = positionSize
+          .multipliedBy(entryPriceBN)
+          .dividedBy(leverage);
+
+        if (investedCapital.gt(0)) {
+          pnlPercent = closedPnlBN
+            .dividedBy(investedCapital)
+            .times(100)
+            .toFixed(2);
+        }
+      }
+      showPositionShare({
+        side: isLong ? 'long' : 'short',
+        token: fill.coin,
+        pnl: String(closedPnlBN),
+        pnlPercent,
+        leverage,
+        entryPrice,
+        markPrice: fill.px,
+        priceType: 'exit',
+      });
+    },
+    [calculateEntryPrice, getLeverage, showPositionShare],
+  );
   const columnsConfig: IColumnConfig[] = useMemo(
     () => [
       {
@@ -115,29 +210,33 @@ function PerpTradesHistoryList({
     [columnsConfig],
   );
 
-  const renderTradesHistoryRow = (item: IFill, _index: number) => {
-    return (
-      <TradesHistoryRow
-        fill={item}
-        isMobile={isMobile}
-        cellMinWidth={totalMinWidth}
-        columnConfigs={columnsConfig}
-        index={_index}
-      />
-    );
-  };
+  const renderTradesHistoryRow = useCallback(
+    (item: IFill, _index: number) => {
+      return (
+        <TradesHistoryRow
+          fill={item}
+          isMobile={isMobile}
+          cellMinWidth={totalMinWidth}
+          columnConfigs={columnsConfig}
+          index={_index}
+          onShare={handleShare}
+        />
+      );
+    },
+    [isMobile, totalMinWidth, columnsConfig, handleShare],
+  );
   const [isLocked] = useAppIsLockedAtom();
 
   useUpdateEffect(() => {
     if (!isLocked) {
-      void backgroundApiProxy.serviceHyperliquidSubscription.updateSubscriptionForUserFills();
+      void backgroundApiProxy.serviceHyperliquidSubscription.refreshSubscriptionForUserFills();
     }
   }, [isLocked]);
 
   return (
     <CommonTableListView
       onPullToRefresh={async () => {
-        await backgroundApiProxy.serviceHyperliquidSubscription.updateSubscriptionForUserFills();
+        await backgroundApiProxy.serviceHyperliquidSubscription.refreshSubscriptionForUserFills();
       }}
       listViewDebugRenderTrackerProps={useMemo(
         (): IDebugRenderTrackerProps => ({
