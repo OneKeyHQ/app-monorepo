@@ -707,34 +707,6 @@ const mode: IServerNetwork = {
   'defaultEnabled': true,
   'backendIndex': false,
 };
-const mvm: IServerNetwork = {
-  'impl': 'evm',
-  'chainId': '73927',
-  'id': 'evm--73927',
-  'name': 'Mixin',
-  'symbol': 'ETH',
-  'code': 'mvm',
-  'shortcode': 'mvm',
-  'shortname': 'MVM',
-  'decimals': 18,
-  'feeMeta': {
-    'decimals': 9,
-    'symbol': 'Gwei',
-    'isEIP1559FeeEnabled': false,
-    'isWithL1BaseFee': false,
-  },
-  'status': ENetworkStatus.LISTED,
-  'isTestnet': false,
-  'extensions': {
-    'position': 9999,
-    'isTokenSupported': true,
-    'isNFTEnabled': false,
-  },
-  'logoURI':
-    'https://uni.onekey-asset.com/static/chain/mixin-virtual-machine.png',
-  'defaultEnabled': true,
-  'backendIndex': false,
-};
 const metis: IServerNetwork = {
   'impl': 'evm',
   'chainId': '1088',
@@ -2956,7 +2928,6 @@ export const presetNetworksMap = {
   octa,
   moonbeam,
   mode,
-  mvm,
   metis,
   merlinmainnet,
   mantle,
@@ -3148,7 +3119,6 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     octa,
     moonbeam,
     mode,
-    mvm,
     metis,
     merlinmainnet,
     mantle,
