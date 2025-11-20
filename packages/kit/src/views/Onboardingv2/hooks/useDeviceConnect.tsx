@@ -32,7 +32,10 @@ import type {
   IFirmwareVerifyResult,
   IOneKeyDeviceFeatures,
 } from '@onekeyhq/shared/types/device';
-import { EOneKeyDeviceMode } from '@onekeyhq/shared/types/device';
+import {
+  EHardwareCallContext,
+  EOneKeyDeviceMode,
+} from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { ListItem } from '../../../components/ListItem';
@@ -114,11 +117,15 @@ export function useDeviceConnect() {
   }, [deviceScanner]);
 
   const connectDevice = useCallback(
-    async (device: SearchDevice) => {
+    async (
+      device: SearchDevice,
+      hardwareCallContext?: EHardwareCallContext,
+    ) => {
       await ensureStopScan();
       try {
         const features = await backgroundApiProxy.serviceHardware.connect({
           device,
+          hardwareCallContext,
         });
         activeDeviceRef.current = { ...device };
         activeFeaturesRef.current = features ?? null;
@@ -161,8 +168,16 @@ export function useDeviceConnect() {
 
       // Clear bootloader mode flag when reconnecting
       wasInBootloaderModeRef.current = false;
+      let hardwareCallContext: EHardwareCallContext | undefined;
+      if (
+        await deviceUtils.isBootloaderModeFromSearchDevice({
+          device: device as any,
+        })
+      ) {
+        hardwareCallContext = EHardwareCallContext.UPDATE_FIRMWARE;
+      }
 
-      const features = await connectDevice(device);
+      const features = await connectDevice(device, hardwareCallContext);
       return features;
     },
     [connectDevice, isSameHardware],

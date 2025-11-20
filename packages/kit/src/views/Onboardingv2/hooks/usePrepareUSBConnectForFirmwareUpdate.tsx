@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 
+import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import { Dialog } from '@onekeyhq/components';
@@ -79,7 +80,7 @@ export function usePrepareUSBConnectForFirmwareUpdate() {
           const usbConnectId = await deviceUtils.buildDeviceUSBConnectId({
             features,
           });
-          if (usbConnectId) {
+          if (!isNil(usbConnectId)) {
             connectIdToUse = usbConnectId;
           }
         } catch (error) {
@@ -87,7 +88,7 @@ export function usePrepareUSBConnectForFirmwareUpdate() {
         }
       }
 
-      if (!connectIdToUse) {
+      if (isNil(connectIdToUse)) {
         return null;
       }
 

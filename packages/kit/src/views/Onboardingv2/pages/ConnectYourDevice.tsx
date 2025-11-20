@@ -1267,7 +1267,6 @@ function ConnectYourDevicePage({
 
   useEffect(() => {
     const unsubscribe = reactNavigation.addListener('beforeRemove', () => {
-      console.log('ConnectYourDevicePage beforeRemove cleanup');
       // Clean up forceTransportType when leaving this page
       void backgroundApiProxy.serviceHardware.clearForceTransportType();
     });

@@ -545,9 +545,6 @@ function CheckAndUpdatePage({
 
   useEffect(() => {
     const unsubscribe = reactNavigation.addListener('beforeRemove', () => {
-      console.log(
-        'CheckAndUpdatePage unmounting, clearing forceTransportType...',
-      );
       // Clean up forceTransportType when leaving this page
       void backgroundApiProxy.serviceHardware.clearForceTransportType();
     });
