@@ -6,7 +6,8 @@ import type {
 
 import { EAtomNames } from '../atomNames';
 import { globalAtom } from '../utils';
-import { IAccountDeriveTypes } from '../../../vaults/types';
+
+import type { IAccountDeriveTypes } from '../../../vaults/types';
 
 export type IPrimePersistAtomData = IPrimeUserInfo;
 export const {
