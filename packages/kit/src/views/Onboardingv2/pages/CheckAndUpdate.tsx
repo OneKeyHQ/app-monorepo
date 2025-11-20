@@ -27,15 +27,11 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
 import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
 import { HwWalletAvatarImages } from '@onekeyhq/shared/src/utils/avatarUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
-import {
-  EAccountSelectorSceneName,
-  EHardwareTransportType,
-} from '@onekeyhq/shared/types';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import {
   EHardwareCallContext,
   EOneKeyDeviceMode,
@@ -51,10 +47,8 @@ import {
   useConnectDeviceError,
   useDeviceConnect,
 } from '../hooks/useDeviceConnect';
-import {
-  getDesktopForceUSBTransportType,
-  getForceTransportType,
-} from '../utils';
+import { usePrepareUSBConnectForFirmwareUpdate } from '../hooks/usePrepareUSBConnectForFirmwareUpdate';
+import { getForceTransportType } from '../utils';
 
 import type { Features, KnownDevice, SearchDevice } from '@onekeyfe/hd-core';
 
@@ -85,9 +79,6 @@ function CheckAndUpdatePage({
   const themeVariant = useThemeVariant();
   const navigation = useAppNavigation();
   const isFirmwareVerifiedRef = useRef<boolean | undefined>(undefined);
-  const originalTransportRef = useRef<EHardwareTransportType | undefined>(
-    undefined,
-  );
   const deviceFeaturesRef = useRef<Features | undefined>(undefined);
 
   const deviceLabel = useMemo(() => {
@@ -103,6 +94,8 @@ function CheckAndUpdatePage({
     getActiveDevice,
     ensureStopScan,
   } = useDeviceConnect();
+  const { prepareUSBConnect, restoreOriginalTransport } =
+    usePrepareUSBConnectForFirmwareUpdate();
   const [currentDevice, setCurrentDevice] = useState<SearchDevice | undefined>(
     deviceData.device as SearchDevice | undefined,
   );
@@ -182,63 +175,22 @@ function CheckAndUpdatePage({
 
   const actions = useFirmwareUpdateActions();
   const toFirmwareUpgradePage = useCallback(async () => {
-    // Check if USB device is available
-    const isUSBDeviceAvailable =
-      await backgroundApiProxy.serviceHardware.detectUSBDeviceAvailability();
-    if (!isUSBDeviceAvailable) {
-      Dialog.show({
-        icon: 'TypeCoutline',
-        title: intl.formatMessage({
-          id: ETranslations.upgrade_use_usb,
-        }),
-        description: intl.formatMessage({
-          id: ETranslations.upgrade_recommend_usb,
-        }),
-        onConfirmText: intl.formatMessage({
-          id: ETranslations.global_got_it,
-        }),
-        showCancelButton: false,
-      });
+    // Use shared USB preparation logic
+    const usbPrepareResult = await prepareUSBConnect({
+      device: deviceData.device as SearchDevice,
+      features: deviceFeaturesRef.current,
+    });
+
+    if (!usbPrepareResult) {
+      // USB preparation failed (dialog already shown)
       return;
     }
 
-    if (platformEnv.isDesktop) {
-      const desktopForceUSBTransportType =
-        await getDesktopForceUSBTransportType();
-      if (desktopForceUSBTransportType) {
-        originalTransportRef.current =
-          await backgroundApiProxy.serviceHardware.getCurrentForceTransportType();
-        await backgroundApiProxy.serviceHardware.setForceTransportType({
-          forceTransportType: desktopForceUSBTransportType,
-        });
-      }
-    }
-
-    // Build USB connectId from ble connection
-    let connectIdToUse = deviceData.device?.connectId;
-    if (
-      platformEnv.isDesktop &&
-      originalTransportRef.current === EHardwareTransportType.DesktopWebBle &&
-      deviceFeaturesRef.current
-    ) {
-      try {
-        const usbConnectId = await deviceUtils.buildDeviceUSBConnectId({
-          features: deviceFeaturesRef.current,
-        });
-        if (usbConnectId) {
-          connectIdToUse = usbConnectId;
-        }
-      } catch (error) {
-        console.error('Failed to build USB connectId:', error);
-      }
-    }
-
-    if (connectIdToUse) {
-      actions.openChangeLogModal({
-        connectId: connectIdToUse,
-      });
-    }
-  }, [actions, deviceData.device?.connectId, intl]);
+    // Original transport is stored in singleton, will be restored in useFocusEffect
+    actions.openChangeLogModal({
+      connectId: usbPrepareResult.connectId,
+    });
+  }, [actions, deviceData.device, prepareUSBConnect]);
 
   const createStepTimeout = useCallback(() => {
     const timeout = setTimeout(() => {
@@ -554,15 +506,9 @@ function CheckAndUpdatePage({
   // When page regains focus, check if firmware was updated and recheck if needed
   useFocusEffect(
     useCallback(() => {
-      const savedTransport = originalTransportRef.current;
-      if (savedTransport !== undefined) {
-        void (async () => {
-          await backgroundApiProxy.serviceHardware.setForceTransportType({
-            forceTransportType: savedTransport,
-          });
-          originalTransportRef.current = undefined;
-        })();
-      }
+      void (async () => {
+        await restoreOriginalTransport();
+      })();
 
       const finishTime = firmwareUpdateFinishTimeRef.current;
       if (!finishTime) {
@@ -593,12 +539,13 @@ function CheckAndUpdatePage({
       return () => {
         clearTimeout(timeoutId);
       };
-    }, [checkFirmwareUpdate]),
+    }, [checkFirmwareUpdate, restoreOriginalTransport]),
   );
 
   const handleVerifyHardware = useCallback(async () => {
     // Double-check: ensure device scanning is fully stopped before starting verification
     await ensureStopScan();
+    await ensureTransportType();
 
     setSteps((prev) => {
       const newSteps = [...prev];
@@ -663,6 +610,7 @@ function CheckAndUpdatePage({
     }
   }, [
     ensureStopScan,
+    ensureTransportType,
     verifyHardware,
     deviceData.device,
     tabValue,

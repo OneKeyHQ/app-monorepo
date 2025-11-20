@@ -49,6 +49,8 @@ import {
   trackHardwareWalletConnection,
 } from '../utils';
 
+import { usePrepareUSBConnectForFirmwareUpdate } from './usePrepareUSBConnectForFirmwareUpdate';
+
 import type { IDeviceType, SearchDevice } from '@onekeyfe/hd-core';
 
 export function useDeviceConnect() {
@@ -176,6 +178,7 @@ export function useDeviceConnect() {
 
   const fwUpdateActions = useFirmwareUpdateActions();
   const { showFirmwareVerifyDialog } = useFirmwareVerifyDialog();
+  const { prepareUSBConnect } = usePrepareUSBConnectForFirmwareUpdate();
 
   const handleRestoreWalletPress = useCallback(
     ({ deviceType }: { deviceType: IDeviceType }) => {
@@ -335,15 +338,43 @@ export function useDeviceConnect() {
           connectId: device.connectId ?? '',
         });
 
-        const handleBootloaderMode = (existsFirmware: boolean) => {
+        const handleBootloaderMode = async (existsFirmware: boolean) => {
           // Set bootloader mode flag so retry will force reconnect
           wasInBootloaderModeRef.current = true;
+
+          // Save current features before clearing (needed for USB connectId building)
+          const savedFeatures = activeFeaturesRef.current;
           // Clear cached features to ensure fresh data on retry
           activeFeaturesRef.current = null;
+
+          // Prepare USB connection callback (called when user clicks "Update now")
+          const prepareUSBForUpdate = async () => {
+            // Use saved features from bootloader detection (avoids extra hardware request)
+            let features = savedFeatures ?? undefined;
+            if (!features) {
+              // Fallback: fetch fresh from device if no saved features
+              features = await ensureActiveConnection(device);
+            }
+
+            const usbPrepareResult = await prepareUSBConnect({
+              device,
+              features,
+            });
+
+            // If USB preparation failed (e.g., USB not available), return undefined
+            // This will prevent openChangeLogModal from being called
+            if (!usbPrepareResult) {
+              return undefined;
+            }
+
+            // Return USB connectId if preparation succeeded, otherwise fallback
+            return usbPrepareResult.connectId ?? device.connectId ?? undefined;
+          };
 
           fwUpdateActions.showBootloaderMode({
             connectId: device.connectId ?? undefined,
             existsFirmware,
+            onBeforeUpdate: prepareUSBForUpdate,
           });
           console.log('Device is in bootloader mode', device);
           throw new OneKeyLocalError('Device is in bootloader mode');
@@ -361,7 +392,7 @@ export function useDeviceConnect() {
               await deviceUtils.existsFirmwareFromSearchDevice({
                 device: device as any,
               });
-            handleBootloaderMode(existsFirmware);
+            await handleBootloaderMode(existsFirmware);
             return;
           }
         }
@@ -398,7 +429,7 @@ export function useDeviceConnect() {
           const existsFirmware = await deviceUtils.existsFirmwareByFeatures({
             features,
           });
-          handleBootloaderMode(existsFirmware);
+          await handleBootloaderMode(existsFirmware);
           return;
         }
 
@@ -529,7 +560,6 @@ export function useDeviceConnect() {
         };
       } catch (error) {
         // Clear force transport type on device connection error
-        void backgroundApiProxy.serviceHardware.clearForceTransportType();
         void backgroundApiProxy.serviceHardwareUI.cleanHardwareUiState();
         console.error('handleDeviceConnect error:', error);
         throw error;
@@ -542,6 +572,7 @@ export function useDeviceConnect() {
       ensureActiveConnection,
       fwUpdateActions,
       showFirmwareVerifyDialog,
+      prepareUSBConnect,
     ],
   );
 
