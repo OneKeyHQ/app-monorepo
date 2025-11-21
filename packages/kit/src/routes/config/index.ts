@@ -21,7 +21,7 @@ import { usePerpTabConfig } from '../../hooks/usePerpTabConfig';
 import { rootRouter, useRootRouter } from '../router';
 
 import { registerDeepLinking } from './deeplink';
-import { getStateFromPath } from './getStateFromPath';
+import { getStateFromPath } from './getStateFromPath.ext';
 
 import type { LinkingOptions } from '@react-navigation/native';
 
@@ -51,7 +51,7 @@ const resolveScreens = (routes: IScreenRouterConfig[]) =>
         return prev;
       }, {} as IScreenPathConfig)
     : undefined;
-const extHtmlFileUrl = `/${getExtensionIndexHtml()}`;
+const extHtmlFileUrl = '/';
 const ROOT_PATH = platformEnv.isExtension ? extHtmlFileUrl : '/';
 
 const MODAL_PATH = `/${ERootRoutes.Modal}`;
@@ -115,6 +115,7 @@ const useBuildLinking = (): LinkingOptions<any> => {
         }
 
         if (!rule?.showUrl) {
+          console.log('extHtmlFileUrl---ROOT_PATH--------->', ROOT_PATH);
           return ROOT_PATH;
         }
 
@@ -122,7 +123,7 @@ const useBuildLinking = (): LinkingOptions<any> => {
           ? defaultPath
           : defaultPathWithoutQuery;
         // keep manifest url with html file
-        if (platformEnv.isExtension) {
+        if (!platformEnv.isExtension) {
           /*
           check chrome.webRequest.onBeforeRequest
            /ui-expand-tab.html/#/   not working for Windows Chrome
@@ -130,11 +131,14 @@ const useBuildLinking = (): LinkingOptions<any> => {
           */
           if (newPath === '/' && globalThis.location.href.endsWith('#/')) {
             // fix the scenarios of /#, #/, and /#/
+            console.log('extHtmlFileUrl--------->', extHtmlFileUrl);
             return extHtmlFileUrl;
           }
+          console.log('extHtmlFileUrl--------->newPath', newPath);
           return `${extHtmlFileUrl}#${newPath}`;
         }
 
+        console.log('newPath--------->return', newPath);
         return newPath;
       },
       config: {
