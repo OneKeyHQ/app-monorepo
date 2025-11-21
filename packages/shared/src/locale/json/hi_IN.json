@@ -1890,7 +1890,7 @@
   "ln.authorize_access_desc": "अपने हार्डवेयर वॉलेट को लाइटनिंग खाता एक्सेस करने के लिए कनेक्ट करें",
   "ln.authorize_access_network_error": "प्रमाणीकरण विफल रहा, कृपया अपने नेटवर्क कनेक्शन की जांच करें और पुनः प्रयास करें",
   "ln.payment_received_label": "भुगतान प्राप्त",
-  "log_out_confirmation_text": "क्या आप वाकई ${email} से लॉग आउट करना चाहते हैं?",
+  "log_out_confirmation_text": "क्या आप वाकई {email} से लॉग आउट करना चाहते हैं?",
   "logged_out_feedback": "सफलतापूर्वक लॉग आउट किया गया",
   "login.forgot_passcode": "पासकोड भूल गए?",
   "login.forgot_password": "पासवर्ड भूल गए?",

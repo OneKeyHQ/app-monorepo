@@ -107,6 +107,14 @@ export default function AddExistingWallet() {
           icon: 'SecretPhraseOutline' as IKeyOfIcons,
           onPress: () => {
             navigation.push(EOnboardingPagesV2.ImportPhraseOrPrivateKey);
+
+            defaultLogger.account.wallet.addWalletStarted({
+              addMethod: 'ImportWallet',
+              details: {
+                importType: 'importPhraseOrPrivateKey',
+              },
+              isSoftwareWalletOnlyUser,
+            });
           },
         },
         {
@@ -114,9 +122,15 @@ export default function AddExistingWallet() {
           icon: 'OnekeyKeytagOutline' as IKeyOfIcons,
           onPress: async () => {
             await backgroundApiProxy.servicePassword.promptPasswordVerify();
-            defaultLogger.setting.page.keyTagImport();
             navigation.pushModal(EModalRoutes.OnboardingModal, {
               screen: EOnboardingPages.ImportKeyTag,
+            });
+            defaultLogger.account.wallet.addWalletStarted({
+              addMethod: 'ImportWallet',
+              details: {
+                importType: 'keyTag',
+              },
+              isSoftwareWalletOnlyUser,
             });
           },
         },
@@ -126,6 +140,13 @@ export default function AddExistingWallet() {
               icon: 'OnekeyLiteOutline' as IKeyOfIcons,
               onPress: async () => {
                 await liteCard.importWallet();
+                defaultLogger.account.wallet.addWalletStarted({
+                  addMethod: 'ImportWallet',
+                  details: {
+                    importType: 'lite',
+                  },
+                  isSoftwareWalletOnlyUser,
+                });
               },
             }
           : undefined,

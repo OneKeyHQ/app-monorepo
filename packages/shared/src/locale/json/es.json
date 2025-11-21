@@ -1890,7 +1890,7 @@
   "ln.authorize_access_desc": "Conectando tu monedero de hardware para acceder a la cuenta Lightning",
   "ln.authorize_access_network_error": "La autenticación falló, verifica tu conexión a la red e intenta de nuevo",
   "ln.payment_received_label": "Pago recibido",
-  "log_out_confirmation_text": "¿Seguro que quieres cerrar sesión en ${email}?",
+  "log_out_confirmation_text": "¿Estás seguro de que quieres cerrar sesión de {email}?",
   "logged_out_feedback": "Cierre de sesión exitoso",
   "login.forgot_passcode": "¿Olvidaste el código?",
   "login.forgot_password": "¿Olvidó su contraseña?",

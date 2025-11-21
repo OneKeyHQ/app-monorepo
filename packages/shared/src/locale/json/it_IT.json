@@ -1890,7 +1890,7 @@
   "ln.authorize_access_desc": "Collegare il tuo portafoglio hardware per accedere all'account Lightning",
   "ln.authorize_access_network_error": "Autenticazione fallita, controlla la tua connessione di rete e prova di nuovo",
   "ln.payment_received_label": "Pagamento ricevuto",
-  "log_out_confirmation_text": "Sei sicuro di voler uscire da ${email}?",
+  "log_out_confirmation_text": "Sei sicuro di voler uscire da {email}?",
   "logged_out_feedback": "Disconnessione riuscita",
   "login.forgot_passcode": "Hai dimenticato il codice?",
   "login.forgot_password": "Hai dimenticato la password?",

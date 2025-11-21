@@ -1890,7 +1890,7 @@
   "ln.authorize_access_desc": "Verbinden Sie Ihre Hardware-Wallet, um auf das Lightning-Konto zuzugreifen",
   "ln.authorize_access_network_error": "Authentifizierung fehlgeschlagen, überprüfen Sie Ihre Netzwerkverbindung und versuchen Sie es erneut",
   "ln.payment_received_label": "Zahlung erhalten",
-  "log_out_confirmation_text": "Möchten Sie sich wirklich von ${email} abmelden?",
+  "log_out_confirmation_text": "Möchten Sie sich wirklich von {email} abmelden?",
   "logged_out_feedback": "Erfolgreich abgemeldet",
   "login.forgot_passcode": "Passcode vergessen?",
   "login.forgot_password": "Passwort vergessen?",
