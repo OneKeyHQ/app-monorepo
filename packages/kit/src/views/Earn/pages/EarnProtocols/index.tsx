@@ -79,21 +79,16 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchProtocolData = useCallback(async () => {
-    if (!activeAccount?.account?.id) {
-      return;
-    }
-
     try {
       setIsLoading(true);
 
       const data = await backgroundApiProxy.serviceStaking.getProtocolList({
         symbol,
-        accountId: activeAccount.account.id,
-        indexedAccountId: activeAccount.indexedAccount?.id,
+        accountId: activeAccount?.account?.id,
+        indexedAccountId: activeAccount?.indexedAccount?.id,
         filterNetworkId,
       });
 
-      // const groupedData = groupProtocolsByGroup(intl, data);
       setProtocolData(data);
     } catch (error) {
       setProtocolData([]);
@@ -113,9 +108,8 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
 
   const handleProtocolPress = useCallback(
     async (protocol: IStakeProtocolListItem) => {
-      if (!activeAccount?.account?.id) {
-        return;
-      }
+      const accountId = activeAccount?.account?.id;
+      const indexedAccountId = activeAccount?.indexedAccount?.id;
 
       try {
         defaultLogger.staking.page.selectProvider({
@@ -123,19 +117,26 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
           stakeProvider: protocol.provider.name,
         });
 
-        const earnAccount =
-          await backgroundApiProxy.serviceStaking.getEarnAccount({
-            accountId: activeAccount.account.id,
-            indexedAccountId: activeAccount.indexedAccount?.id,
-            networkId: protocol.network.networkId,
-          });
+        // Fetch earnAccount before navigation
+        let earnAccount;
+        try {
+          if (accountId || indexedAccountId) {
+            earnAccount =
+              await backgroundApiProxy.serviceStaking.getEarnAccount({
+                accountId: accountId ?? '',
+                indexedAccountId,
+                networkId: protocol.network.networkId,
+              });
+          }
+        } catch (error) {
+          // Continue with original accountId even if fetch fails
+        }
 
         navigation.push(ETabEarnRoutes.EarnProtocolDetails, {
           networkId: protocol.network.networkId,
-          accountId: earnAccount?.accountId || activeAccount.account.id,
+          accountId: earnAccount?.accountId || accountId || '',
           indexedAccountId:
-            earnAccount?.account.indexedAccountId ||
-            activeAccount.indexedAccount?.id,
+            earnAccount?.account?.indexedAccountId || indexedAccountId,
           symbol,
           provider: protocol.provider.name,
           vault: earnUtils.isVaultBasedProvider({

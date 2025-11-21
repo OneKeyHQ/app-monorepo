@@ -32,13 +32,18 @@ export function useProtocolDetailData({
     run: refreshAccount,
     isLoading: isAccountLoading,
   } = usePromiseResult(
-    async () =>
-      backgroundApiProxy.serviceStaking.getEarnAccount({
+    async () => {
+      // If no account, don't fetch and don't block loading
+      if (!accountId && !indexedAccountId) {
+        return undefined;
+      }
+      return backgroundApiProxy.serviceStaking.getEarnAccount({
         accountId,
         networkId,
         indexedAccountId,
         btcOnlyTaproot: true,
-      }),
+      });
+    },
     [accountId, indexedAccountId, networkId],
     { watchLoading: true },
   );
@@ -48,17 +53,13 @@ export function useProtocolDetailData({
     isLoading: isDetailLoading,
     run,
   } = usePromiseResult(
-    async () => {
-      const response =
-        await backgroundApiProxy.serviceStaking.getProtocolDetailsV2({
-          networkId,
-          symbol,
-          provider,
-          vault,
-        });
-
-      return response;
-    },
+    async () =>
+      backgroundApiProxy.serviceStaking.getProtocolDetailsV2({
+        networkId,
+        symbol,
+        provider,
+        vault,
+      }),
     [networkId, symbol, provider, vault],
     { watchLoading: true },
   );
@@ -116,7 +117,11 @@ export function useProtocolDetailData({
     detailInfo,
     tokenInfo,
     protocolInfo,
-    isLoading: isAccountLoading || isDetailLoading,
+    // Only include account loading if we actually have an account to load
+    // Otherwise detail loading alone is enough
+    isLoading:
+      (accountId || indexedAccountId ? isAccountLoading : false) ||
+      isDetailLoading,
     refreshData: run,
     refreshAccount,
   };

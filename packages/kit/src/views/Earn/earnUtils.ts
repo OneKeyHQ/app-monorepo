@@ -212,12 +212,20 @@ export const EarnNavigation = {
     defaultLogger.staking.page.selectAsset({ tokenSymbol: symbol });
 
     if (protocols.length === 1) {
-      const earnAccount =
-        await backgroundApiProxy.serviceStaking.getEarnAccount({
-          accountId,
-          indexedAccountId,
-          networkId,
-        });
+      // Only fetch earnAccount if we have an accountId
+      let earnAccount;
+      if (accountId || indexedAccountId) {
+        try {
+          earnAccount = await backgroundApiProxy.serviceStaking.getEarnAccount({
+            accountId,
+            indexedAccountId,
+            networkId,
+          });
+        } catch (error) {
+          // Continue with original accountId even if fetch fails
+        }
+      }
+
       const protocol = protocols[0];
       navigation.navigate(ERootRoutes.Main, {
         screen: ETabRoutes.Earn,

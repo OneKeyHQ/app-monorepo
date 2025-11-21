@@ -796,7 +796,7 @@ export const useEarnPortfolio = (): IUseEarnPortfolioReturn => {
       isSyncingAtomRef.current = false;
       isLoadingNewAccountRef.current = true;
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedUpdateGlobalState, throttledUIUpdate, investmentMapRef]);
 
   useEffect(() => {

@@ -234,7 +234,7 @@ export function ManagePositionContent({
     return null;
   }, [noAddressOrAccount, alertsWithdraw, alerts, noAddressWarningElement]);
 
-  if (isLoading || !managePageData) {
+  if (isLoading) {
     return <SectionSkeleton />;
   }
 

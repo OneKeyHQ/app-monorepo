@@ -359,6 +359,8 @@ const ManagePositionPart = ({
   provider,
   vault,
   tokenImageUri,
+  accountId,
+  indexedAccountId,
   onCreateAddress,
   onStakeWithdrawSuccess,
 }: {
@@ -367,12 +369,11 @@ const ManagePositionPart = ({
   provider: string;
   vault?: string;
   tokenImageUri?: string;
+  accountId: string;
+  indexedAccountId?: string;
   onCreateAddress?: () => Promise<void>;
   onStakeWithdrawSuccess?: () => void;
 }) => {
-  const { activeAccount } = useActiveAccount({ num: 0 });
-  const { account, indexedAccount } = activeAccount;
-
   return (
     <YStack flex={4}>
       <YStack gap="$1.5" flex={1}>
@@ -382,8 +383,8 @@ const ManagePositionPart = ({
           symbol={symbol}
           provider={provider}
           vault={vault}
-          accountId={account?.id || ''}
-          indexedAccountId={indexedAccount?.id}
+          accountId={accountId}
+          indexedAccountId={indexedAccountId}
           fallbackTokenImageUri={tokenImageUri}
           onCreateAddress={onCreateAddress}
           onStakeWithdrawSuccess={onStakeWithdrawSuccess}
@@ -477,24 +478,18 @@ const EarnProtocolDetailsPage = () => {
     };
   }, [route.params, activeAccount]);
 
-  const { accountId, networkId, symbol, provider, vault } = resolvedParams;
+  const { accountId, indexedAccountId, networkId, symbol, provider, vault } =
+    resolvedParams;
 
-  const {
-    earnAccount,
-    detailInfo,
-    tokenInfo,
-    protocolInfo,
-    isLoading,
-    refreshData,
-    refreshAccount,
-  } = useProtocolDetailData({
-    accountId,
-    networkId,
-    indexedAccountId: indexedAccount?.id,
-    symbol,
-    provider,
-    vault,
-  });
+  const { detailInfo, tokenInfo, isLoading, refreshData, refreshAccount } =
+    useProtocolDetailData({
+      accountId,
+      networkId,
+      indexedAccountId,
+      symbol,
+      provider,
+      vault,
+    });
 
   useUnsupportedProtocol({
     detailInfo,
@@ -661,6 +656,8 @@ const EarnProtocolDetailsPage = () => {
               provider={provider}
               vault={vault}
               tokenImageUri={tokenInfo?.token?.logoURI}
+              accountId={accountId}
+              indexedAccountId={indexedAccountId}
               onCreateAddress={onCreateAddress}
               onStakeWithdrawSuccess={handleStakeWithdrawSuccess}
             />
