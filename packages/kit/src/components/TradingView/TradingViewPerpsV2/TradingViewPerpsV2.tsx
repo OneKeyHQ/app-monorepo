@@ -139,13 +139,6 @@ export function TradingViewPerpsV2(
     additionalParams,
   });
 
-  useEffect(() => {
-    console.log(
-      'TradingViewPerpsV2 staticTradingViewUrl updated: ====>>>: ',
-      staticTradingViewUrl,
-    );
-  }, [staticTradingViewUrl]);
-
   // Optimization: Dynamic symbol parameter sync mechanism
   useSymbolSync({
     webRef,
