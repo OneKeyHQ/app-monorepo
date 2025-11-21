@@ -126,7 +126,7 @@
     "react-native-ping": "1.2.8",
     "react-native-purchases": "8.11.9",
     "react-native-qrcode-styled": "0.4.0",
-    "react-native-reanimated": "3.18.0",
+    "react-native-reanimated": "3.19.4",
     "react-native-restart": "npm:react-native-restart-newarch@1.0.80",
     "react-native-safe-area-context": "5.4.1",
     "react-native-screens": "4.18.0",
