@@ -34,7 +34,7 @@ function BasicTabSubStackNavigator({
       () => {
         setIsMounted(true);
       },
-      platformEnv.isNative ? delay + 100 : 0,
+      platformEnv.isNative || platformEnv.isDesktop ? delay + 100 : 0,
     );
     return () => {
       clearTimeout(timer);
