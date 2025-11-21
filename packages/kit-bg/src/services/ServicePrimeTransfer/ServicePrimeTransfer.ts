@@ -1,6 +1,6 @@
 /* eslint-disable spellcheck/spell-checker */
 import { Semaphore } from 'async-mutex';
-import { debounce, isEmpty, isNaN, isNil, uniqBy } from 'lodash';
+import { cloneDeep, debounce, isEmpty, isNaN, isNil, uniqBy } from 'lodash';
 import natsort from 'natsort';
 import { io } from 'socket.io-client';
 
@@ -1162,6 +1162,8 @@ class ServicePrimeTransfer extends ServiceBase {
   }: {
     transferData: IPrimeTransferData;
   }) {
+    // eslint-disable-next-line no-param-reassign
+    transferData = cloneDeep(transferData);
     this.checkWebSocketConnected();
 
     if (!transferData.isWatchingOnly) {

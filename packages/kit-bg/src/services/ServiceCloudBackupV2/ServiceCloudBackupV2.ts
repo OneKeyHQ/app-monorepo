@@ -65,8 +65,8 @@ class ServiceCloudBackupV2 extends ServiceBase {
       const cloudBackupProviderInfo = await this.getBackupProviderInfo();
       const title = cloudBackupProviderInfo.displayNameI18nKey
         ? appLocale.intl.formatMessage({
-          id: cloudBackupProviderInfo.displayNameI18nKey as any,
-        })
+            id: cloudBackupProviderInfo.displayNameI18nKey as any,
+          })
         : cloudBackupProviderInfo.displayName;
       await cloudBackupStatusAtom.set(
         (): ICloudBackupStatusAtom => ({
