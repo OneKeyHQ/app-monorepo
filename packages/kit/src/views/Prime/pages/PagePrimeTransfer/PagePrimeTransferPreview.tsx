@@ -553,6 +553,8 @@ export default function PagePrimeTransferPreview() {
           const usedPassword = remoteDevicePassword || localPassword;
           const { success, errorsInfo } =
             await backgroundApiProxy.servicePrimeTransfer.startImport({
+              decryptedCredentialsHex:
+                transferData?.privateData?.decryptedCredentialsHex,
               selectedTransferData,
               password: usedPassword
                 ? await backgroundApiProxy.servicePassword.encodeSensitiveText({
@@ -663,12 +665,13 @@ export default function PagePrimeTransferPreview() {
       setIsImporting(false);
     }
   }, [
-    directionUserInfo?.fromUser?.appPlatformName,
-    intl,
+    selectedTransferData,
     isImporting,
     navigation,
-    selectedTransferData,
+    transferData?.privateData?.decryptedCredentialsHex,
     exitTransferFlow,
+    intl,
+    directionUserInfo?.fromUser?.appPlatformName,
   ]);
 
   return (

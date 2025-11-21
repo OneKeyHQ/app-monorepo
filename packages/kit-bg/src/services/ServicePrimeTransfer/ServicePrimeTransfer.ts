@@ -1,3 +1,4 @@
+/* eslint-disable spellcheck/spell-checker */
 import { Semaphore } from 'async-mutex';
 import { debounce, isEmpty, isNaN, isNil, uniqBy } from 'lodash';
 import natsort from 'natsort';
@@ -8,8 +9,10 @@ import {
   decryptAsync,
   decryptImportedCredential,
   decryptRevealableSeed,
+  decryptStringAsync,
   encryptAsync,
   encryptRevealableSeed,
+  encryptStringAsync,
   mnemonicFromEntropy,
   revealEntropyToMnemonic,
 } from '@onekeyhq/core/src/secret';
@@ -57,6 +60,7 @@ import type {
   IE2EESocketUserInfo,
   IPrimeTransferAccount,
   IPrimeTransferData,
+  IPrimeTransferDecryptedCredentials,
   IPrimeTransferHDAccount,
   IPrimeTransferHDWallet,
   IPrimeTransferHDWalletCreateNetworkParams,
@@ -1093,6 +1097,64 @@ class ServicePrimeTransfer extends ServiceBase {
     };
   }
 
+  async decryptTransferDataCredentials({
+    data,
+    clearOriginalCredentials = true,
+  }: {
+    data: IPrimeTransferData;
+    clearOriginalCredentials?: boolean;
+  }) {
+    if (!data?.privateData?.decryptedCredentials) {
+      const { password: localPassword } =
+        await this.backgroundApi.servicePassword.promptPasswordVerify();
+      data.privateData.decryptedCredentials = {};
+      const entries = Object.entries(data.privateData.credentials || {});
+      console.log('serviceCloudBackupV2__decryptCredentials');
+      for (const [key, value] of entries) {
+        try {
+          if (
+            accountUtils.isHdWallet({ walletId: key }) ||
+            accountUtils.isTonMnemonicCredentialId(key)
+          ) {
+            data.privateData.decryptedCredentials[key] =
+              await decryptRevealableSeed({
+                rs: value,
+                password: localPassword,
+              });
+          } else if (accountUtils.isImportedAccount({ accountId: key })) {
+            data.privateData.decryptedCredentials[key] =
+              await decryptImportedCredential({
+                credential: value,
+                password: localPassword,
+              });
+          }
+        } catch (error) {
+          /*
+          data not matched to encoding: hex
+          key: "imported--607--e205f9...355fca5--v4R2--ton_credential"
+          value: "|RP|17...918143"
+          */
+          console.error('serviceCloudBackupV2__decryptCredentials__error', {
+            error,
+            key,
+            value: `${value?.slice(0, 10)}...${value?.slice(-6)}`,
+          });
+          throw new OneKeyLocalError(
+            `Failed to decrypt current credentials: ${key}`,
+          );
+        }
+      }
+      console.log('serviceCloudBackupV2__decryptCredentials__done');
+    }
+    if (
+      clearOriginalCredentials &&
+      data?.privateData &&
+      data?.privateData?.credentials
+    ) {
+      data.privateData.credentials = {};
+    }
+  }
+
   @backgroundMethod()
   @toastIfError()
   async sendTransferData({
@@ -1111,6 +1173,21 @@ class ServicePrimeTransfer extends ServiceBase {
       if (!password) {
         throw new OneKeyLocalError('Password is required');
       }
+
+      await this.decryptTransferDataCredentials({
+        data: transferData,
+        clearOriginalCredentials: false,
+      });
+      transferData.privateData.decryptedCredentialsHex =
+        await encryptStringAsync({
+          dataEncoding: 'utf8',
+          data: stringUtils.stableStringify(
+            transferData.privateData.decryptedCredentials,
+          ),
+          password,
+          allowRawPassword: true,
+        });
+      transferData.privateData.decryptedCredentials = undefined;
     }
 
     const currentState = await primeTransferAtom.get();
@@ -1843,11 +1920,13 @@ class ServicePrimeTransfer extends ServiceBase {
   @backgroundMethod()
   @toastIfError()
   async startImport({
+    decryptedCredentialsHex,
     selectedTransferData,
     includingDefaultNetworks = false,
     isFromCloudBackupRestore,
     password,
   }: {
+    decryptedCredentialsHex?: string;
     selectedTransferData: IPrimeTransferSelectedData;
     includingDefaultNetworks?: boolean;
     isFromCloudBackupRestore?: boolean;
@@ -1862,6 +1941,17 @@ class ServicePrimeTransfer extends ServiceBase {
       error: string;
     }[];
   }> {
+    let decryptedCredentials: IPrimeTransferDecryptedCredentials | undefined;
+    if (decryptedCredentialsHex && password) {
+      decryptedCredentials = JSON.parse(
+        await decryptStringAsync({
+          data: decryptedCredentialsHex,
+          resultEncoding: 'utf8',
+          password,
+          allowRawPassword: true,
+        }),
+      ) as IPrimeTransferDecryptedCredentials;
+    }
     const taskUUID = stringUtils.generateUUID();
     this.currentImportTaskUUID = taskUUID;
     // const { watchingAccounts, importedAccounts } = selectedTransferData;
@@ -1904,10 +1994,12 @@ class ServicePrimeTransfer extends ServiceBase {
           }),
         );
         let mnemonicFromRs = '';
-        if (credentialDecrypted) {
+        const credentialDecryptedUsed =
+          credentialDecrypted || decryptedCredentials?.[wallet.id];
+        if (credentialDecryptedUsed) {
           mnemonicFromRs = revealEntropyToMnemonic(
             bufferUtils.toBuffer(
-              (credentialDecrypted as IBip39RevealableSeed)
+              (credentialDecryptedUsed as IBip39RevealableSeed)
                 .entropyWithLangPrefixed,
             ),
           );
@@ -2064,12 +2156,14 @@ class ServicePrimeTransfer extends ServiceBase {
         }),
       );
 
+      const credentialDecryptedUsed =
+        credentialDecrypted || decryptedCredentials?.[importedAccount.id];
       const { exportedPrivateKey, privateKey } =
         await serviceAccount.getExportedPrivateKeyOfImportedAccount({
           importedAccount,
           encryptedCredential: credential || '',
           password,
-          credentialDecrypted: credentialDecrypted as
+          credentialDecrypted: credentialDecryptedUsed as
             | ICoreImportedCredential
             | undefined,
           networkId,
@@ -2086,9 +2180,16 @@ class ServicePrimeTransfer extends ServiceBase {
         });
       if (addedAccounts?.length && addedAccounts?.[0]?.id) {
         try {
-          if (tonMnemonicCredential || tonMnemonicCredentialDecrypted) {
+          const tonMnemonicCredentialId =
+            accountUtils.buildTonMnemonicCredentialId({
+              accountId: importedAccount.id,
+            });
+          const tonMnemonicCredentialDecryptedUsed =
+            tonMnemonicCredentialDecrypted ||
+            decryptedCredentials?.[tonMnemonicCredentialId];
+          if (tonMnemonicCredential || tonMnemonicCredentialDecryptedUsed) {
             let tonRs: IBip39RevealableSeed | undefined =
-              tonMnemonicCredentialDecrypted;
+              tonMnemonicCredentialDecryptedUsed as IBip39RevealableSeed;
 
             if (!tonRs && tonMnemonicCredential) {
               if (!password) {
