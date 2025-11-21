@@ -120,16 +120,24 @@ export function TradingViewPerpsV2(
   const { handleNavigation } = useNavigationHandler();
 
   // Optimization: Static URL with only initialization params to avoid WebView reload
-  const { finalUrl: staticTradingViewUrl } = useTradingViewUrl({
-    additionalParams: {
+  // Memoize additionalParams to prevent useTradingViewUrl from regenerating URL
+  const additionalParams = useMemo(
+    () => ({
       symbol: initialSymbolRef.current, // Use frozen initial symbol
-      type: 'perps',
-    },
-  });
+      type: 'perps' as const,
+    }),
+    // Empty deps: only regenerate when component mounts or webviewKey changes (via external reloadHook)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [_webviewKey],
+  );
 
   useEffect(() => {
     initialSymbolRef.current = symbol;
   }, [symbol]);
+
+  const { finalUrl: staticTradingViewUrl } = useTradingViewUrl({
+    additionalParams,
+  });
 
   // Optimization: Dynamic symbol parameter sync mechanism
   useSymbolSync({
