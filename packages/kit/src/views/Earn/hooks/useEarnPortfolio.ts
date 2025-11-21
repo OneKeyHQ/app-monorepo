@@ -789,7 +789,14 @@ export const useEarnPortfolio = (): IUseEarnPortfolioReturn => {
       throttledUIUpdate.cancel();
       debouncedUpdateGlobalState.cancel();
       investmentMapRef.current.clear();
+
+      // CRITICAL: Clear all refs to release memory
+      fetchRef.current = null as any;
+      lastSyncedValuesRef.current = { totalFiatValue: '', earnings24h: '' };
+      isSyncingAtomRef.current = false;
+      isLoadingNewAccountRef.current = true;
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedUpdateGlobalState, throttledUIUpdate, investmentMapRef]);
 
   useEffect(() => {

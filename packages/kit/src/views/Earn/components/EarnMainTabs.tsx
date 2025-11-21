@@ -66,6 +66,14 @@ export function EarnMainTabs({
     }
   }, [defaultTab, initialTabName]);
 
+  // CRITICAL: Clear ref on unmount
+  useEffect(
+    () => () => {
+      tabsRef.current = null;
+    },
+    [],
+  );
+
   const refreshControl =
     isMobile && refreshEarnAccounts && isAccountsLoading !== undefined ? (
       <RefreshControl

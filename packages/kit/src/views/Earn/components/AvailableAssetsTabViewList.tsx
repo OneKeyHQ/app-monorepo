@@ -91,6 +91,10 @@ export function AvailableAssetsTabViewList() {
         // Update the corresponding data in atom
         actions.current.updateAvailableAssetsByType(tabType, tabAssets);
         return tabAssets;
+      } catch (error) {
+        console.error('Failed to fetch available assets:', error);
+        // Return empty array on error to prevent infinite loading
+        return [];
       } finally {
         actions.current.setLoadingState(loadingKey, false);
       }
@@ -113,6 +117,7 @@ export function AvailableAssetsTabViewList() {
     [selectedTabIndex, tabData, refreshTrigger, fetchAssetsData],
     {
       watchLoading: true,
+      undefinedResultIfError: false, // Return empty array instead of undefined on error
     },
   );
 

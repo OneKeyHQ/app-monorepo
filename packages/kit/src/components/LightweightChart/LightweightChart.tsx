@@ -33,11 +33,14 @@ export function LightweightChart({
   });
 
   useEffect(() => {
-    if (!chartContainerRef.current) return;
+    if (!chartContainerRef.current) return undefined;
 
-    const chart = createChart(chartContainerRef.current, {
+    // Capture container for cleanup
+    const container = chartContainerRef.current;
+
+    const chart = createChart(container, {
       ...createChartOptions(chartConfig.theme),
-      width: chartContainerRef.current.clientWidth,
+      width: container.clientWidth,
       height,
     });
 
@@ -84,20 +87,21 @@ export function LightweightChart({
 
     // Handle resize
     const resizeObserver = new ResizeObserver((entries) => {
-      if (
-        entries.length === 0 ||
-        entries[0].target !== chartContainerRef.current
-      )
-        return;
+      if (entries.length === 0 || entries[0].target !== container) return;
       const { width: newWidth } = entries[0].contentRect;
       chart.applyOptions({ width: newWidth });
     });
 
-    resizeObserver.observe(chartContainerRef.current);
+    resizeObserver.observe(container);
 
     return () => {
+      // Cleanup in correct order
       resizeObserver.disconnect();
       chart.remove();
+
+      // CRITICAL: Clear all refs to release memory
+      chartRef.current = null;
+      seriesRef.current = null;
     };
   }, [chartConfig, height, onHover]);
 

@@ -927,6 +927,10 @@ export const PortfolioTabContent = ({
     return () => {
       unregisterRefreshPortfolioItemHandler(handler);
       unregisterRefreshPortfolioHandler(fullRefreshHandler);
+
+      // CRITICAL: Clear all refs to release memory
+      refreshPortfolioRowRef.current = null as any;
+      refreshRef.current = null as any;
     };
   }, []);
 
