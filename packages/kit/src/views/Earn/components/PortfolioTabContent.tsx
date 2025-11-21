@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { isEmpty } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -47,6 +47,94 @@ import { buildLocalTxStatusSyncId } from '../../Staking/utils/utils';
 import { usePortfolioAction } from '../hooks/usePortfolioAction';
 
 import type { IUseEarnPortfolioReturn } from '../hooks/useEarnPortfolio';
+
+const refreshPortfolioItemHandlers = new Set<
+  (payload: {
+    provider: string;
+    symbol: string;
+    networkId: string;
+    rewardSymbol?: string;
+  }) => void
+>();
+let refreshPortfolioItemListenerRegistered = false;
+const refreshPortfolioItemGlobalHandler = (payload: {
+  provider: string;
+  symbol: string;
+  networkId: string;
+  rewardSymbol?: string;
+}) => {
+  refreshPortfolioItemHandlers.forEach((fn) => fn(payload));
+};
+
+const refreshPortfolioHandlers = new Set<() => void>();
+let refreshPortfolioListenerRegistered = false;
+const refreshPortfolioGlobalHandler = () => {
+  refreshPortfolioHandlers.forEach((fn) => fn());
+};
+
+const registerRefreshPortfolioItemHandler = (
+  handler: (payload: {
+    provider: string;
+    symbol: string;
+    networkId: string;
+    rewardSymbol?: string;
+  }) => void,
+) => {
+  refreshPortfolioItemHandlers.add(handler);
+  if (!refreshPortfolioItemListenerRegistered) {
+    appEventBus.on(
+      EAppEventBusNames.RefreshEarnPortfolioItem,
+      refreshPortfolioItemGlobalHandler,
+    );
+    refreshPortfolioItemListenerRegistered = true;
+  }
+};
+
+const unregisterRefreshPortfolioItemHandler = (
+  handler: (payload: {
+    provider: string;
+    symbol: string;
+    networkId: string;
+    rewardSymbol?: string;
+  }) => void,
+) => {
+  refreshPortfolioItemHandlers.delete(handler);
+  if (
+    refreshPortfolioItemHandlers.size === 0 &&
+    refreshPortfolioItemListenerRegistered
+  ) {
+    appEventBus.off(
+      EAppEventBusNames.RefreshEarnPortfolioItem,
+      refreshPortfolioItemGlobalHandler,
+    );
+    refreshPortfolioItemListenerRegistered = false;
+  }
+};
+
+const registerRefreshPortfolioHandler = (handler: () => void) => {
+  refreshPortfolioHandlers.add(handler);
+  if (!refreshPortfolioListenerRegistered) {
+    appEventBus.on(
+      EAppEventBusNames.RefreshEarnPortfolio,
+      refreshPortfolioGlobalHandler,
+    );
+    refreshPortfolioListenerRegistered = true;
+  }
+};
+
+const unregisterRefreshPortfolioHandler = (handler: () => void) => {
+  refreshPortfolioHandlers.delete(handler);
+  if (
+    refreshPortfolioHandlers.size === 0 &&
+    refreshPortfolioListenerRegistered
+  ) {
+    appEventBus.off(
+      EAppEventBusNames.RefreshEarnPortfolio,
+      refreshPortfolioGlobalHandler,
+    );
+    refreshPortfolioListenerRegistered = false;
+  }
+};
 
 const WrappedActionButton = ({
   asset,
@@ -813,6 +901,15 @@ export const PortfolioTabContent = ({
     [refresh],
   );
 
+  const refreshPortfolioRowRef = useRef(refreshPortfolioRow);
+  useEffect(() => {
+    refreshPortfolioRowRef.current = refreshPortfolioRow;
+  }, [refreshPortfolioRow]);
+  const refreshRef = useRef(refresh);
+  useEffect(() => {
+    refreshRef.current = refresh;
+  }, [refresh]);
+
   useEffect(() => {
     const handler = (payload: {
       provider: string;
@@ -820,21 +917,18 @@ export const PortfolioTabContent = ({
       networkId: string;
       rewardSymbol?: string;
     }) => {
-      refreshPortfolioRow(payload);
+      refreshPortfolioRowRef.current(payload);
     };
     const fullRefreshHandler = () => {
-      void refresh();
+      void refreshRef.current();
     };
-    appEventBus.on(EAppEventBusNames.RefreshEarnPortfolioItem, handler);
-    appEventBus.on(EAppEventBusNames.RefreshEarnPortfolio, fullRefreshHandler);
+    registerRefreshPortfolioItemHandler(handler);
+    registerRefreshPortfolioHandler(fullRefreshHandler);
     return () => {
-      appEventBus.off(EAppEventBusNames.RefreshEarnPortfolioItem, handler);
-      appEventBus.off(
-        EAppEventBusNames.RefreshEarnPortfolio,
-        fullRefreshHandler,
-      );
+      unregisterRefreshPortfolioItemHandler(handler);
+      unregisterRefreshPortfolioHandler(fullRefreshHandler);
     };
-  }, [refreshPortfolioRow, refresh]);
+  }, []);
 
   const filteredInvestments = useMemo(
     () =>

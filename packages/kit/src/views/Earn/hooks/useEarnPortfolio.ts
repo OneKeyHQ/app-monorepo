@@ -25,6 +25,37 @@ import {
   useEarnPortfolioInvestmentsAtom,
 } from '../../../states/jotai/contexts/earn';
 
+const accountDataUpdateFetchers = new Set<() => void>();
+let accountDataUpdateListenerRegistered = false;
+const handleAccountDataUpdateGlobal = () => {
+  accountDataUpdateFetchers.forEach((fetcher) => fetcher());
+};
+
+function registerAccountDataUpdateFetcher(fetcher: () => void) {
+  accountDataUpdateFetchers.add(fetcher);
+  if (!accountDataUpdateListenerRegistered) {
+    appEventBus.on(
+      EAppEventBusNames.AccountDataUpdate,
+      handleAccountDataUpdateGlobal,
+    );
+    accountDataUpdateListenerRegistered = true;
+  }
+}
+
+function unregisterAccountDataUpdateFetcher(fetcher: () => void) {
+  accountDataUpdateFetchers.delete(fetcher);
+  if (
+    accountDataUpdateFetchers.size === 0 &&
+    accountDataUpdateListenerRegistered
+  ) {
+    appEventBus.off(
+      EAppEventBusNames.AccountDataUpdate,
+      handleAccountDataUpdateGlobal,
+    );
+    accountDataUpdateListenerRegistered = false;
+  }
+}
+
 interface IRefreshOptions {
   provider?: string;
   networkId?: string;
@@ -687,23 +718,21 @@ export const useEarnPortfolio = (): IUseEarnPortfolioReturn => {
     [fetchAndUpdateInvestments],
   );
 
-  // Listen to account data update events to refresh portfolio data
+  const fetchRef = useRef(fetchAndUpdateInvestments);
   useEffect(() => {
-    const handleAccountDataUpdate = () => {
-      if (isSyncingAtomRef.current) return;
-      void fetchAndUpdateInvestments();
-    };
-    appEventBus.on(
-      EAppEventBusNames.AccountDataUpdate,
-      handleAccountDataUpdate,
-    );
-    return () => {
-      appEventBus.off(
-        EAppEventBusNames.AccountDataUpdate,
-        handleAccountDataUpdate,
-      );
-    };
+    fetchRef.current = fetchAndUpdateInvestments;
   }, [fetchAndUpdateInvestments]);
+
+  useEffect(() => {
+    const fetcher = () => {
+      if (isSyncingAtomRef.current) return;
+      void fetchRef.current();
+    };
+    registerAccountDataUpdateFetcher(fetcher);
+    return () => {
+      unregisterAccountDataUpdateFetcher(fetcher);
+    };
+  }, []);
 
   const aggregatedInvestments = useMemo(
     () => aggregateByProtocol(investments),

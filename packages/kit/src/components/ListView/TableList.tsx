@@ -1,6 +1,8 @@
 import { memo, useCallback, useMemo, useState } from 'react';
 import type { ComponentProps, ReactElement, ReactNode } from 'react';
 
+import stringify from 'fast-json-stable-stringify';
+
 import type { IKeyOfIcons, IXStackProps } from '@onekeyhq/components';
 import {
   Icon,
@@ -713,7 +715,37 @@ function BasicTableList<T>({
 }
 
 // Export memoized version with proper typing
-const MemoizedTableList = memo(BasicTableList) as typeof BasicTableList;
+const compareTableListProps = (
+  prevProps: ITableListProps<any>,
+  nextProps: ITableListProps<any>,
+) => {
+  if (prevProps === nextProps) {
+    return true;
+  }
+  const simplePropsEqual =
+    prevProps.isLoading === nextProps.isLoading &&
+    prevProps.tableLayout === nextProps.tableLayout &&
+    prevProps.sortKey === nextProps.sortKey &&
+    prevProps.sortDirection === nextProps.sortDirection &&
+    prevProps.enableDrillIn === nextProps.enableDrillIn &&
+    prevProps.withHeader === nextProps.withHeader &&
+    prevProps.rowGap === nextProps.rowGap;
+  if (!simplePropsEqual) {
+    return false;
+  }
+  const dataEqual =
+    prevProps.data === nextProps.data ||
+    stringify(prevProps.data) === stringify(nextProps.data);
+  const columnsEqual =
+    prevProps.columns === nextProps.columns ||
+    stringify(prevProps.columns) === stringify(nextProps.columns);
+  return dataEqual && columnsEqual;
+};
+
+const MemoizedTableList = memo(
+  BasicTableList,
+  compareTableListProps,
+) as typeof BasicTableList;
 
 export const TableList = MemoizedTableList as <T>(
   props: ITableListProps<T>,
