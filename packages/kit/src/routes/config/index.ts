@@ -52,7 +52,7 @@ const resolveScreens = (routes: IScreenRouterConfig[]) =>
       }, {} as IScreenPathConfig)
     : undefined;
 const extHtmlFileUrl = `/${getExtensionIndexHtml()}`;
-const ROOT_PATH = platformEnv.isExtension ? `${extHtmlFileUrl}#/` : '/';
+const ROOT_PATH = platformEnv.isExtension ? extHtmlFileUrl : '/';
 
 const MODAL_PATH = `/${ERootRoutes.Modal}`;
 const FULL_SCREEN_MODAL_PATH = `/${ERootRoutes.iOSFullScreen}`;
