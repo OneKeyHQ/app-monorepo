@@ -8088,7 +8088,7 @@ __metadata:
     react-native-get-random-values: "npm:1.9.0"
     react-native-image-colors: "npm:^2.5.0"
     react-native-image-crop-picker: "npm:0.50.0"
-    react-native-keyboard-controller: "npm:1.17.5"
+    react-native-keyboard-controller: "npm:1.19.6"
     react-native-level-fs: "npm:3.0.1"
     react-native-mmkv: "npm:3.3.0"
     react-native-modal: "npm:^13.0.1"
@@ -36079,7 +36079,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-is-edge-to-edge@npm:^1.1.6":
+"react-native-is-edge-to-edge@npm:^1.1.6, react-native-is-edge-to-edge@npm:^1.2.1":
   version: 1.2.1
   resolution: "react-native-is-edge-to-edge@npm:1.2.1"
   peerDependencies:
@@ -36101,16 +36101,16 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-keyboard-controller@npm:1.17.5":
-  version: 1.17.5
-  resolution: "react-native-keyboard-controller@npm:1.17.5"
+"react-native-keyboard-controller@npm:1.19.6":
+  version: 1.19.6
+  resolution: "react-native-keyboard-controller@npm:1.19.6"
   dependencies:
-    react-native-is-edge-to-edge: "npm:^1.1.6"
+    react-native-is-edge-to-edge: "npm:^1.2.1"
   peerDependencies:
     react: "*"
     react-native: "*"
     react-native-reanimated: ">=3.0.0"
-  checksum: 10/db1dfef8d5073f14591c716147d668f01610fa6ba2910ee5fab780d15ce3ef0d2135e3cd85a798c9c65d1e6cb6e3072883dff03da2376a38192d27937d3ee87b
+  checksum: 10/cbd8202d1c5e70a2c7984c47d8e639f56e05f89a340264e0391a793f783e72644dbf2633007474977f9a00b92ddd6a39d6f76ca4decea5e30afc0e457eb2e4b3
   languageName: node
   linkType: hard
 
