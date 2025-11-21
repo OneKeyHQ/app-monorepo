@@ -453,6 +453,7 @@ class ServiceCloudBackupV2 extends ServiceBase {
         await this.backgroundApi.servicePrimeTransfer.startImport({
           selectedTransferData,
           includingDefaultNetworks: true,
+          isFromCloudBackupRestore: true,
           password: localPassword,
         });
 
