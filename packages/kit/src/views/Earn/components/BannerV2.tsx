@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 
-import { Carousel, Skeleton, Stack } from '@onekeyhq/components';
+import { Carousel, Skeleton, Stack, useMedia } from '@onekeyhq/components';
 import type { IDiscoveryBanner } from '@onekeyhq/shared/types/discovery';
 
 import { BannerItemV2 } from './BannerItemV2';
@@ -11,8 +11,9 @@ interface IBannerV2Props {
 }
 
 export function BannerV2({ data, onBannerPress }: IBannerV2Props) {
+  const media = useMedia();
+
   const content = useMemo(() => {
-    // Only show skeleton if data is undefined
     const shouldShowSkeleton = data === undefined;
 
     if (shouldShowSkeleton) {
@@ -38,8 +39,13 @@ export function BannerV2({ data, onBannerPress }: IBannerV2Props) {
             height: 130,
             paddingTop: 30,
           }}
+          pagerProps={{
+            keyboardDismissMode: 'none',
+          }}
           renderItem={({ item }) => {
-            const noPadding = data.length > 0 && data[data.length - 1] === item;
+            const noPadding =
+              !media.gtSm ||
+              (data.length > 0 && data[data.length - 1] === item);
 
             return (
               <Stack pr={noPadding ? 0 : '$5'}>
@@ -55,7 +61,7 @@ export function BannerV2({ data, onBannerPress }: IBannerV2Props) {
     }
 
     return null;
-  }, [data, onBannerPress]);
+  }, [data, onBannerPress, media.gtSm]);
 
   return content;
 }

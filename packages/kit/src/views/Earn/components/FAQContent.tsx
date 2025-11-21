@@ -46,12 +46,7 @@ export function FAQContent({
     : undefined;
 
   return (
-    <Accordion
-      type="multiple"
-      gap="$2"
-      maxWidth={960}
-      defaultValue={defaultValue}
-    >
+    <Accordion type="multiple" gap="$2" defaultValue={defaultValue}>
       {faqList.map(({ question, answer }, index) => (
         <Accordion.Item value={String(index)} key={String(index)}>
           <Accordion.Trigger
