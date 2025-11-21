@@ -2084,18 +2084,18 @@ class ServicePrimeTransfer extends ServiceBase {
         }
         try {
           if (newWallet) {
-            let skipNetworks = [
+            const skipNetworks = [
               // lightning network requires network verification
               presetNetworksMap.lightning.id,
               // Skip Cardano network because address generation is very slow
               presetNetworksMap.cardano.id,
             ];
-            if (isFromCloudBackupRestore) {
-              skipNetworks = [
-                presetNetworksMap.lightning.id,
-                presetNetworksMap.cardano.id,
-              ];
-            }
+            // if (isFromCloudBackupRestore) {
+            //   skipNetworks = [
+            //     presetNetworksMap.lightning.id,
+            //     presetNetworksMap.cardano.id,
+            //   ];
+            // }
             const customNetworksUsed = customNetworks?.filter(
               (n) => !skipNetworks.includes(n.networkId),
             );
