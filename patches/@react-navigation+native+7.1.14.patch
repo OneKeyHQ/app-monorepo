@@ -257,7 +257,7 @@ index 474db5e..f14fb8b 100644
 \ No newline at end of file
 +// # sourceMappingURL=createMemoryHistory.js.map
 diff --git a/node_modules/@react-navigation/native/src/createMemoryHistory.tsx b/node_modules/@react-navigation/native/src/createMemoryHistory.tsx
-index 1568263..e53ff11 100644
+index 1568263..a9a74b5 100644
 --- a/node_modules/@react-navigation/native/src/createMemoryHistory.tsx
 +++ b/node_modules/@react-navigation/native/src/createMemoryHistory.tsx
 @@ -10,6 +10,48 @@ type HistoryRecord = {
@@ -298,7 +298,7 @@ index 1568263..e53ff11 100644
 +        indexHtmlFile,
 +        lastHash,
 +      );
-+      return `${indexHtmlFile}.html#${lastHash}`;
++      return lastHash ? `${indexHtmlFile}.html#${lastHash}` : `${indexHtmlFile}.html`;
 +    }
 +    console.log('fixHashInExtension---->path', path);
 +    return path;
