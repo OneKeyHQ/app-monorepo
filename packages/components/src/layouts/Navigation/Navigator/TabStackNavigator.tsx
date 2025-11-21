@@ -33,12 +33,9 @@ function BasicTabSubStackNavigator({
     if (!delayNumber) {
       return;
     }
-    const timer = setTimeout(
-      () => {
-        setIsMounted(true);
-      },
-      platformEnv.isNative || platformEnv.isDesktop ? delayNumber + 100 : 0,
-    );
+    const timer = setTimeout(() => {
+      setIsMounted(true);
+    }, delayNumber + 100);
     return () => {
       clearTimeout(timer);
     };
