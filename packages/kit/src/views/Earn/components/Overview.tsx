@@ -247,7 +247,7 @@ export const Overview = ({
   );
   const evmNetworkId = useMemo(() => getNetworkIdsMap().eth, []);
   const evmAccount = useMemo(() => {
-    return earnAccount?.[totalFiatMapKey]?.accounts.find(
+    return earnAccount?.[totalFiatMapKey]?.accounts?.find(
       (item) => item.networkId === evmNetworkId,
     );
   }, [earnAccount, totalFiatMapKey, evmNetworkId]);

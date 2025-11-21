@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 
 import { Carousel, Skeleton, Stack, useMedia } from '@onekeyhq/components';
 import type { IDiscoveryBanner } from '@onekeyhq/shared/types/discovery';
@@ -10,8 +10,23 @@ interface IBannerV2Props {
   onBannerPress: (item: IDiscoveryBanner) => void;
 }
 
-export function BannerV2({ data, onBannerPress }: IBannerV2Props) {
+function BannerV2Cmp({ data, onBannerPress }: IBannerV2Props) {
   const media = useMedia();
+
+  const renderItem = useCallback(
+    ({ item }: { item: IDiscoveryBanner }) => {
+      const noPadding =
+        !media.gtSm ||
+        (data && data.length > 0 && data[data.length - 1] === item);
+
+      return (
+        <Stack pr={noPadding ? 0 : '$5'}>
+          <BannerItemV2 item={item} onPress={onBannerPress} />
+        </Stack>
+      );
+    },
+    [data, media.gtSm, onBannerPress],
+  );
 
   const content = useMemo(() => {
     const shouldShowSkeleton = data === undefined;
@@ -42,17 +57,7 @@ export function BannerV2({ data, onBannerPress }: IBannerV2Props) {
           pagerProps={{
             keyboardDismissMode: 'none',
           }}
-          renderItem={({ item }) => {
-            const noPadding =
-              !media.gtSm ||
-              (data.length > 0 && data[data.length - 1] === item);
-
-            return (
-              <Stack pr={noPadding ? 0 : '$5'}>
-                <BannerItemV2 item={item} onPress={onBannerPress} />
-              </Stack>
-            );
-          }}
+          renderItem={renderItem}
           autoPlayInterval={3000}
           loop
           showPagination
@@ -61,7 +66,9 @@ export function BannerV2({ data, onBannerPress }: IBannerV2Props) {
     }
 
     return null;
-  }, [data, onBannerPress, media.gtSm]);
+  }, [data, renderItem]);
 
   return content;
 }
+
+export const BannerV2 = memo(BannerV2Cmp);

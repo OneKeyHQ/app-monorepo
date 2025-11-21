@@ -538,6 +538,13 @@ const PortfolioItemComponent = ({
       {showTable ? (
         <TableList<IEarnPortfolioInvestment['assets'][number]>
           data={portfolioItem.assets}
+          keyExtractor={(asset, index) =>
+            `${asset.token.info.symbol}-${
+              asset.metadata.protocol.providerDetail.code
+            }-${asset.metadata.network.networkId}-${
+              asset.metadata.protocol.vault || 'default'
+            }-${index}`
+          }
           columns={columns}
           withHeader={media.gtSm}
           tableLayout
