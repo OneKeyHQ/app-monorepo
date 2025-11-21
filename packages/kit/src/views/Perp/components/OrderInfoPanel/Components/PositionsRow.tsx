@@ -1314,9 +1314,10 @@ const PositionRow = memo(
       const fundingAllTimeFormatted = fundingAllTimeBN.abs().toFixed(2);
       const fundingSinceOpenFormatted = fundingSinceOpenBN.abs().toFixed(2);
       const fundingSinceChangeFormatted = fundingSinceChangeBN.abs().toFixed(2);
-      const roiPercent = marginUsedBN.gt(0)
-        ? pnlBn.div(marginUsedBN).times(100).abs().toFixed(2)
-        : '0';
+      const roiPercentBN = new BigNumber(
+        pos.returnOnEquity || '0',
+      ).multipliedBy(100);
+      const roiPercent = roiPercentBN.abs().toFixed(1);
       return {
         unrealizedPnl: pnlFormatted,
         marginUsedFormatted,
@@ -1334,12 +1335,13 @@ const PositionRow = memo(
         pnlPlusOrMinus,
       };
     }, [
-      pos.unrealizedPnl,
-      pos.marginUsed,
-      pos.cumFunding.allTime,
-      pos.cumFunding.sinceOpen,
-      pos.cumFunding.sinceChange,
       formatters.valueFormatter,
+      pos.cumFunding.allTime,
+      pos.cumFunding.sinceChange,
+      pos.cumFunding.sinceOpen,
+      pos.marginUsed,
+      pos.returnOnEquity,
+      pos.unrealizedPnl,
     ]);
 
     const { openOrders: currentAssetOpenOrders } = usePerpsOpenOrdersOfAsset({
@@ -1424,11 +1426,8 @@ const PositionRow = memo(
         ? new BigNumber(markPrice.midFormattedByDecimals).toFixed(decimals)
         : '0';
 
-      const pnlBn = new BigNumber(pos.unrealizedPnl || '0');
-      const marginUsedBN = new BigNumber(pos.marginUsed || '0');
-      const pnlPercent = marginUsedBN.gt(0)
-        ? pnlBn.div(marginUsedBN).times(100).toFixed(2)
-        : '0';
+      const roiPercentBN = new BigNumber(pos.returnOnEquity || '0');
+      const pnlPercent = roiPercentBN.multipliedBy(100).toFixed(1);
 
       showPositionShare({
         side: parseFloat(pos.szi) >= 0 ? 'long' : 'short',
