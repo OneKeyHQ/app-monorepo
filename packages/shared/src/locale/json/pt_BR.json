@@ -1890,7 +1890,7 @@
   "ln.authorize_access_desc": "Conectando sua carteira de hardware para acessar a conta Lightning",
   "ln.authorize_access_network_error": "A autenticação falhou, verifique sua conexão de rede e tente novamente",
   "ln.payment_received_label": "Pagamento recebido",
-  "log_out_confirmation_text": "Tem certeza de que deseja sair de ${email}?",
+  "log_out_confirmation_text": "Tem certeza de que deseja sair de {email}?",
   "logged_out_feedback": "Logout realizado com sucesso",
   "login.forgot_passcode": "Esqueceu a senha?",
   "login.forgot_password": "Esqueceu a senha?",
