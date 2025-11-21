@@ -78,6 +78,7 @@ import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import localDb from '../../dbs/local/localDb';
 import {
+  devSettingsPersistAtom,
   perpsActiveAccountRefreshHookAtom,
   settingsPersistAtom,
 } from '../../states/jotai/atoms';
@@ -110,6 +111,7 @@ import type {
   IPrimeTransferImportProgressTotalDetailInfo,
 } from '../../states/jotai/atoms/prime';
 import type { IAccountDeriveTypes } from '../../vaults/types';
+import type { IBatchBuildAccountsAdvancedFlowForAllNetworkParams } from '../ServiceBatchCreateAccount/ServiceBatchCreateAccount';
 import type { Socket } from 'socket.io-client';
 
 export interface ITransferProgress {
@@ -1692,12 +1694,14 @@ class ServicePrimeTransfer extends ServiceBase {
       accountsCount: watchingAccountsCount,
     };
 
+    const devSettings = await devSettingsPersistAtom.get();
+
     await primeTransferAtom.set(
       (prev): IPrimeTransferAtomData => ({
         ...prev,
         importCurrentCreatingTarget: undefined,
         importProgress: {
-          totalDetailInfo,
+          totalDetailInfo: devSettings.enabled ? totalDetailInfo : undefined,
           total: totalProgressCount,
           isImporting: true,
           current: 0,
@@ -1917,6 +1921,14 @@ class ServicePrimeTransfer extends ServiceBase {
     return Boolean(this.currentImportTaskUUID);
   }
 
+  batchCreateHdAccountsParams: IBatchBuildAccountsAdvancedFlowForAllNetworkParams[] =
+    [];
+
+  @backgroundMethod()
+  async getBatchCreateHdAccountsParams() {
+    return this.batchCreateHdAccountsParams;
+  }
+
   currentImportTaskUUID: string | undefined;
 
   @backgroundMethod()
@@ -1943,6 +1955,8 @@ class ServicePrimeTransfer extends ServiceBase {
       error: string;
     }[];
   }> {
+    this.batchCreateHdAccountsParams = [];
+    const devSettings = await devSettingsPersistAtom.get();
     let decryptedCredentials: IPrimeTransferDecryptedCredentials | undefined;
     if (decryptedCredentialsHex && password) {
       decryptedCredentials = JSON.parse(
@@ -1972,6 +1986,7 @@ class ServicePrimeTransfer extends ServiceBase {
       errorsInfo: [],
     };
 
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { serviceAccount, serviceNetwork, servicePassword } =
       this.backgroundApi;
 
@@ -2079,19 +2094,25 @@ class ServicePrimeTransfer extends ServiceBase {
             const customNetworksUsed = customNetworks?.filter(
               (n) => !skipNetworks.includes(n.networkId),
             );
+            const params: IBatchBuildAccountsAdvancedFlowForAllNetworkParams = {
+              walletId: newWallet.id,
+              fromIndex: index,
+              toIndex: index,
+              indexedAccountNames,
+              customNetworks: customNetworksUsed,
+              includingDefaultNetworks,
+              excludedIndexes: {},
+              saveToDb: true,
+              showUIProgress: true, // emit EAppEventBusNames.BatchCreateAccount event
+              autoHandleExitError: false,
+            };
+            // params.customNetworks = [];
+            // params.includingDefaultNetworks = true;
+            if (devSettings.enabled) {
+              this.batchCreateHdAccountsParams.push(params);
+            }
             await this.backgroundApi.serviceBatchCreateAccount.startBatchCreateAccountsFlowForAllNetwork(
-              {
-                walletId: newWallet.id,
-                fromIndex: index,
-                toIndex: index,
-                indexedAccountNames,
-                excludedIndexes: {},
-                saveToDb: true,
-                showUIProgress: true, // emit EAppEventBusNames.BatchCreateAccount event
-                autoHandleExitError: false,
-                customNetworks: customNetworksUsed,
-                includingDefaultNetworks,
-              },
+              params,
             );
           }
         } catch (e) {

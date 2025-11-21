@@ -175,6 +175,17 @@ function PrimeTransferImportProcessingDialogContent({
               >
                 {primeTransferAtom.importCurrentCreatingTarget}
               </SizableText>
+              <SizableText
+                onPress={async () => {
+                  const d =
+                    await backgroundApiProxy.servicePrimeTransfer.getBatchCreateHdAccountsParams();
+                  Dialog.debugMessage({
+                    debugMessage: d,
+                  });
+                }}
+              >
+                ShowBatchCreateHdAccountsParams
+              </SizableText>
               <SizableText textAlign="center">
                 {JSON.stringify(importProgress?.stats)}
               </SizableText>

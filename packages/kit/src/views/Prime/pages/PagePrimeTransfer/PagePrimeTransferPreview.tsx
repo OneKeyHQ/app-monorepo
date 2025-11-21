@@ -37,6 +37,7 @@ import type {
   IPrimeParamList,
 } from '@onekeyhq/shared/src/routes/prime';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
   IPrimeTransferAccount,
   IPrimeTransferData,
@@ -541,6 +542,9 @@ export default function PagePrimeTransferPreview() {
         try {
           void remotePasswordDialog?.close();
 
+          // exitTransferFlow();
+          // await timerUtils.wait(1000);
+
           await backgroundApiProxy.servicePrimeTransfer.initImportProgress({
             selectedTransferData,
           });
@@ -674,6 +678,22 @@ export default function PagePrimeTransferPreview() {
     directionUserInfo?.fromUser?.appPlatformName,
   ]);
 
+  const walletListView = useMemo(() => {
+    return (
+      <WalletList
+        selectedItemMap={selectedItemMap}
+        data={transferData}
+        onItemSelectChange={handleItemSelectChange}
+        onGroupSelectChange={handleGroupSelectChange}
+      />
+    );
+  }, [
+    selectedItemMap,
+    transferData,
+    handleItemSelectChange,
+    handleGroupSelectChange,
+  ]);
+
   return (
     <Page scrollEnabled>
       <Page.Header
@@ -683,12 +703,7 @@ export default function PagePrimeTransferPreview() {
       />
       <Page.Body>
         <Stack px="$5" pt="$2" gap="$5">
-          <WalletList
-            selectedItemMap={selectedItemMap}
-            data={transferData}
-            onItemSelectChange={handleItemSelectChange}
-            onGroupSelectChange={handleGroupSelectChange}
-          />
+          {walletListView}
           {debugButtons}
         </Stack>
       </Page.Body>
