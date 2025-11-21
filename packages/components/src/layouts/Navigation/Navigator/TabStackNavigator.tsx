@@ -30,9 +30,12 @@ function BasicTabSubStackNavigator({
     if (!delay) {
       return;
     }
-    const timer = setTimeout(() => {
-      setIsMounted(true);
-    }, delay + 100);
+    const timer = setTimeout(
+      () => {
+        setIsMounted(true);
+      },
+      platformEnv.isNative ? delay + 100 : 0,
+    );
     return () => {
       clearTimeout(timer);
     };
