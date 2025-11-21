@@ -7776,10 +7776,10 @@ __metadata:
     prettier: "npm:^2.8.1"
     progress-bar-webpack-plugin: "npm:^2.1.0"
     punycode: "npm:^2.3.1"
-    react: "npm:19.1.1"
+    react: "npm:19.1.0"
     react-beautiful-dnd: "npm:13.1.1"
     react-dev-utils: "npm:^12.0.1"
-    react-dom: "npm:19.1.1"
+    react-dom: "npm:19.1.0"
     react-mobile-cropper: "npm:^0.10.0"
     react-native: "npm:0.81.5"
     react-native-confirmation-code-field: "npm:^7.4.0"
@@ -8069,7 +8069,7 @@ __metadata:
     lottie-react: "npm:^2.4.0"
     lottie-react-native: "npm:7.2.2"
     path-browserify: "npm:^1.0.1"
-    react: "npm:19.1.1"
+    react: "npm:19.1.0"
     react-native: "npm:0.81.5"
     react-native-aes-crypto: "npm:3.2.1"
     react-native-awesome-slider: "npm:^2.9.0"
@@ -35648,13 +35648,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-dom@npm:19.1.1":
-  version: 19.1.1
-  resolution: "react-dom@npm:19.1.1"
+"react-dom@npm:19.1.0":
+  version: 19.1.0
+  resolution: "react-dom@npm:19.1.0"
   dependencies:
     scheduler: "npm:^0.26.0"
   peerDependencies:
-    react: ^19.1.1
+    react: ^19.1.0
   checksum: 10/9005415d2175b1f1eb4a544ad04afb29691bb7b6dd43bbdaa09932146b310b73bd4552bc772ad78fa481f409eada1560cf887606c83c1a53a922c1e30f1b3a34
   languageName: node
   linkType: hard
@@ -36841,9 +36841,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react@npm:19.1.1":
-  version: 19.1.1
-  resolution: "react@npm:19.1.1"
+"react@npm:19.1.0":
+  version: 19.1.0
+  resolution: "react@npm:19.1.0"
   checksum: 10/9801530fdc939e1a7a499422e930515b2400809cb39c2872984e99f832d233f61659a693871183dac3155c2f9b2c9dcf4440a56bd18983277ae92860e38c3a61
   languageName: node
   linkType: hard

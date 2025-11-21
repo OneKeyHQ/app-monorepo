@@ -133,9 +133,9 @@
     "p-timeout": "^6.1.4",
     "prettier": "^2.8.1",
     "punycode": "^2.3.1",
-    "react": "19.1.1",
+    "react": "19.1.0",
     "react-beautiful-dnd": "13.1.1",
-    "react-dom": "19.1.1",
+    "react-dom": "19.1.0",
     "react-mobile-cropper": "^0.10.0",
     "react-native": "0.81.5",
     "react-native-confirmation-code-field": "^7.4.0",
@@ -270,8 +270,8 @@
     "worker-loader": "^3.0.8"
   },
   "resolutions": {
-    "react": "19.1.1",
-    "react-dom": "19.1.1",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
     "@solana/web3.js": "1.98.2",
     "typescript": "5.6.3",
     "expo-modules-core": "3.0.26",
