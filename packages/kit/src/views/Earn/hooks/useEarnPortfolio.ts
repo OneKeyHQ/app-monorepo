@@ -254,22 +254,23 @@ const useAccountState = (
   const markAccountChange = useCallback(() => {
     prevAccountRef.current = { accountId, indexedAccountId };
     currentRequestIdRef.current += 1;
+    return currentRequestIdRef.current;
   }, [accountId, indexedAccountId]);
+
+  const startNewRequest = useCallback(() => {
+    currentRequestIdRef.current += 1;
+    return currentRequestIdRef.current;
+  }, []);
 
   const isRequestStale = useCallback((requestId: number) => {
     return requestId !== currentRequestIdRef.current;
   }, []);
 
-  const getCurrentRequestId = useCallback(
-    () => currentRequestIdRef.current,
-    [],
-  );
-
   return {
     hasAccountChanged,
     markAccountChange,
+    startNewRequest,
     isRequestStale,
-    getCurrentRequestId,
   };
 };
 
@@ -336,8 +337,8 @@ export const useEarnPortfolio = (): IUseEarnPortfolioReturn => {
   const {
     hasAccountChanged,
     markAccountChange,
+    startNewRequest,
     isRequestStale,
-    getCurrentRequestId,
   } = useAccountState(account, indexedAccount);
 
   const throttledUIUpdate = useMemo(
@@ -442,16 +443,15 @@ export const useEarnPortfolio = (): IUseEarnPortfolioReturn => {
 
   const fetchAndUpdateInvestments = useCallback(
     async (options?: IRefreshOptions) => {
+      const requestId = hasAccountChanged()
+        ? markAccountChange()
+        : startNewRequest();
+
       if (!accountIdValue && !indexedAccountIdValue) {
         setIsLoading(false);
         return;
       }
 
-      if (hasAccountChanged()) {
-        markAccountChange();
-      }
-
-      const requestId = getCurrentRequestId();
       const isPartialRefresh = Boolean(options);
       if (!isPartialRefresh) {
         setIsLoading(true);
@@ -613,7 +613,7 @@ export const useEarnPortfolio = (): IUseEarnPortfolioReturn => {
       allNetworkId,
       hasAccountChanged,
       markAccountChange,
-      getCurrentRequestId,
+      startNewRequest,
       isRequestStale,
       earnAccountKey,
       actions,
