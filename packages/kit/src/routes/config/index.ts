@@ -57,20 +57,7 @@ const ROOT_PATH = platformEnv.isExtension ? extHtmlFileUrl : '/';
 const MODAL_PATH = `/${ERootRoutes.Modal}`;
 const FULL_SCREEN_MODAL_PATH = `/${ERootRoutes.iOSFullScreen}`;
 
-const onGetStateFromPath = platformEnv.isExtension
-  ? (((path, options) => {
-      const state = getStateFromPath(path, options);
-      const prevState = rootNavigationRef.current?.getRootState();
-      // Keep the "main" router from re-rendering.
-      if (state && prevState) {
-        // @ts-expect-error
-        state.key = prevState?.key;
-        // @ts-expect-error
-        state.routes[0] = prevState?.routes[0];
-      }
-      return state;
-    }) as typeof getStateFromPath)
-  : getStateFromPath;
+const onGetStateFromPath = getStateFromPath;
 
 const useBuildLinking = (): LinkingOptions<any> => {
   const routes = useRootRouter();
