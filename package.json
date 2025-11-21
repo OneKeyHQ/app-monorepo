@@ -214,6 +214,7 @@
     "babel-plugin-transform-define": "^2.1.2",
     "babel-plugin-transform-inline-environment-variables": "^0.4.4",
     "babel-plugin-transform-remove-console": "^6.9.4",
+    "babel-preset-expo": "54.0.7",
     "cheerio": "^1.0.0-rc.12",
     "copy-webpack-plugin": "^6.0.2",
     "cross-env": "^7.0.3",

@@ -7708,6 +7708,7 @@ __metadata:
     babel-plugin-transform-define: "npm:^2.1.2"
     babel-plugin-transform-inline-environment-variables: "npm:^0.4.4"
     babel-plugin-transform-remove-console: "npm:^6.9.4"
+    babel-preset-expo: "npm:54.0.7"
     bech32: "npm:^2.0.0"
     biginteger: "npm:^1.0.3"
     bignumber.js: "npm:9.1.2"
@@ -18789,7 +18790,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"babel-preset-expo@npm:~54.0.7":
+"babel-preset-expo@npm:54.0.7, babel-preset-expo@npm:~54.0.7":
   version: 54.0.7
   resolution: "babel-preset-expo@npm:54.0.7"
   dependencies:
