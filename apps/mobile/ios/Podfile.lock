@@ -3232,7 +3232,7 @@ PODS:
     - SocketRocket
     - SSZipArchive (~> 2)
     - Yoga
-  - RNGestureHandler (2.27.1):
+  - RNGestureHandler (2.29.1):
     - boost
     - DoubleConversion
     - fast_float
@@ -4340,7 +4340,7 @@ SPEC CHECKSUMS:
   RNCAsyncStorage: fd44f4b03e007e642e98df6726737bc66e9ba609
   RNDnsLookup: db4a89381b80ec1a5153088518d2c4f8e51f2521
   RNFileLogger: 8a5c8d7454bf13ef6f4cecf9f42685787c518127
-  RNGestureHandler: 073a5963a0ce8b5d87e3009cc00b941b9669d763
+  RNGestureHandler: 9462ba64b3fdb2cb04cbc1b572d020c8d0a096e8
   RNImageCropPicker: d8edc23658ee4c20c38670073633f81046a6609f
   RNNotifee: 5e3b271e8ea7456a36eec994085543c9adca9168
   RNPermissions: 4f37f3e3995c275a640f16ecfc4e12b5db2e1206
