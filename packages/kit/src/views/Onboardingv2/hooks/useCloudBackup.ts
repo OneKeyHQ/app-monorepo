@@ -14,6 +14,7 @@ import {
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes';
 import {
@@ -185,6 +186,13 @@ export function useCloudBackup() {
               hideRestoreButton,
             },
           },
+        });
+        defaultLogger.account.wallet.addWalletStarted({
+          addMethod: 'ImportWallet',
+          details: {
+            importType: 'cloud',
+          },
+          isSoftwareWalletOnlyUser: true,
         });
       }
     },
