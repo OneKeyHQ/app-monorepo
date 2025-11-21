@@ -128,11 +128,9 @@ PODS:
     - ExpoModulesCore
   - ExpoHaptics (15.0.7):
     - ExpoModulesCore
-  - ExpoImage (2.4.0):
+  - ExpoImage (3.0.10):
     - ExpoModulesCore
-    - libavif/libdav1d
     - SDWebImage (~> 5.21.0)
-    - SDWebImageAVIFCoder (~> 0.11.0)
     - SDWebImageSVGCoder (~> 1.7.0)
     - SDWebImageWebPCoder (~> 0.14.6)
   - ExpoImageManipulator (13.1.7):
@@ -234,11 +232,6 @@ PODS:
     - React
   - JPushRN (3.2.1):
     - React
-  - libavif/core (1.1.1)
-  - libavif/libdav1d (1.1.1):
-    - libavif/core
-    - libdav1d (>= 0.6.0)
-  - libdav1d (1.2.0)
   - libwebp (1.5.0):
     - libwebp/demux (= 1.5.0)
     - libwebp/mux (= 1.5.0)
@@ -3670,9 +3663,6 @@ PODS:
   - SDWebImage (5.21.3):
     - SDWebImage/Core (= 5.21.3)
   - SDWebImage/Core (5.21.3)
-  - SDWebImageAVIFCoder (0.11.1):
-    - libavif/core (>= 0.11.0)
-    - SDWebImage (~> 5.10)
   - SDWebImageSVGCoder (1.7.0):
     - SDWebImage/Core (~> 5.6)
   - SDWebImageWebPCoder (0.14.6):
@@ -3879,11 +3869,9 @@ DEPENDENCIES:
 SPEC REPOS:
   https://github.com/aliyun/aliyun-specs.git:
     - EMASCurl
-    - libavif
   https://github.com/CocoaPods/Specs.git:
     - CocoaAsyncSocket
     - CocoaLumberjack
-    - libdav1d
     - libwebp
     - lottie-ios
     - MultiplatformBleAdapter
@@ -3891,7 +3879,6 @@ SPEC REPOS:
     - React-Codegen
     - RevenueCat
     - SDWebImage
-    - SDWebImageAVIFCoder
     - SDWebImageSVGCoder
     - SDWebImageWebPCoder
     - Sentry
@@ -4229,7 +4216,7 @@ SPEC CHECKSUMS:
   ExpoFileSystem: 77157a101e03150a4ea4f854b4dd44883c93ae0a
   ExpoFont: cf9d90ec1d3b97c4f513211905724c8171f82961
   ExpoHaptics: 807476b0c39e9d82b7270349d6487928ce32df84
-  ExpoImage: e4102c93d1dbe99ff54b075452d1bc9d6ec21b7c
+  ExpoImage: f8bd4c6fef4ab6135db7e2c76679ca49fd47d614
   ExpoImageManipulator: 1e06e7a1e56f454e75d01b7032c1e44963bfc865
   ExpoImagePicker: 0963da31800c906e01c03e25d7c849f16ebf02a2
   ExpoKeepAwake: bf0811570c8da182bfb879169437d4de298376e7
@@ -4253,8 +4240,6 @@ SPEC CHECKSUMS:
   ImageColors: 51cd79f7a9d2524b7a681c660b0a50574085563b
   JCoreRN: d985de509185b381c177fde4bb6bfc686089fdbd
   JPushRN: 807bc962b2f25860e5c0caa5fcb7b4910572b890
-  libavif: 6d21116c9c1bf5204b2c699108e85bd87b1b6f86
-  libdav1d: 23581a4d8ec811ff171ed5e2e05cd27bad64c39f
   libwebp: 02b23773aedb6ff1fd38cec7a77b81414c6842a8
   lottie-ios: a881093fab623c467d3bce374367755c272bdd59
   lottie-react-native: a13561a06cf3aa2727d0a9e913ca42eba64e20b9
@@ -4366,7 +4351,6 @@ SPEC CHECKSUMS:
   RNSVG: 94a1be05fab4043354bcf7104f0f9b0e2231ef05
   RNZipArchive: 4304f5100eab004eeb7349adc51997b3a28deb76
   SDWebImage: 16309af6d214ba3f77a7c6f6fdda888cb313a50a
-  SDWebImageAVIFCoder: afe194a084e851f70228e4be35ef651df0fc5c57
   SDWebImageSVGCoder: 15a300a97ec1c8ac958f009c02220ac0402e936c
   SDWebImageWebPCoder: e38c0a70396191361d60c092933e22c20d5b1380
   Sentry: 1e4e974d45f09d153af4b30b42acfb1c79e957d3
