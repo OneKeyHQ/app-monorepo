@@ -8084,7 +8084,7 @@ __metadata:
     react-native-fast-pbkdf2: "npm:^0.3.1"
     react-native-file-logger: "npm:0.7.1"
     react-native-fs: "npm:@dr.pogodin/react-native-fs@2.34.0"
-    react-native-gesture-handler: "npm:2.27.1"
+    react-native-gesture-handler: "npm:2.29.1"
     react-native-get-random-values: "npm:1.9.0"
     react-native-image-colors: "npm:^2.5.0"
     react-native-image-crop-picker: "npm:0.50.0"
@@ -36012,9 +36012,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-gesture-handler@npm:2.27.1":
-  version: 2.27.1
-  resolution: "react-native-gesture-handler@npm:2.27.1"
+"react-native-gesture-handler@npm:2.29.1":
+  version: 2.29.1
+  resolution: "react-native-gesture-handler@npm:2.29.1"
   dependencies:
     "@egjs/hammerjs": "npm:^2.0.17"
     hoist-non-react-statics: "npm:^3.3.0"
@@ -36022,7 +36022,7 @@ __metadata:
   peerDependencies:
     react: "*"
     react-native: "*"
-  checksum: 10/8b3b38610b14bf7f6276336c10cef518ec2a8bb031fc0caff7c8788fe7f4a129f0c5ada7881848d8b479efec9d260599af9c5e1001a4d498639521a38612c76c
+  checksum: 10/349517d8e0b3ed5282bc3f8536945dee3439c9cfe773fe26f248a4ccb53049169d484371bb0612a081c3860eff492db7f4dcbac528ff9b5ff1d504d04eb06f5f
   languageName: node
   linkType: hard
 
