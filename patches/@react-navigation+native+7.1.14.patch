@@ -1,5 +1,5 @@
 diff --git a/node_modules/@react-navigation/native/lib/module/createMemoryHistory.js b/node_modules/@react-navigation/native/lib/module/createMemoryHistory.js
-index 474db5e..f14fb8b 100644
+index 474db5e..fb7f822 100644
 --- a/node_modules/@react-navigation/native/lib/module/createMemoryHistory.js
 +++ b/node_modules/@react-navigation/native/lib/module/createMemoryHistory.js
 @@ -1,6 +1,49 @@
@@ -33,7 +33,7 @@ index 474db5e..f14fb8b 100644
 +      }
 +    }
 +
-+    let lastHash = path.includes('#') ? path.split('#').pop() || '';
++    let lastHash = path.includes('#') ? path.split('#').pop() : '';
 +    lastHash = lastHash === '/' ? '' : lastHash;
 +
 +    const indexHtmlFile = path.split('.html')?.[0];
@@ -257,7 +257,7 @@ index 474db5e..f14fb8b 100644
 \ No newline at end of file
 +// # sourceMappingURL=createMemoryHistory.js.map
 diff --git a/node_modules/@react-navigation/native/src/createMemoryHistory.tsx b/node_modules/@react-navigation/native/src/createMemoryHistory.tsx
-index 1568263..a9a74b5 100644
+index 1568263..7fad61c 100644
 --- a/node_modules/@react-navigation/native/src/createMemoryHistory.tsx
 +++ b/node_modules/@react-navigation/native/src/createMemoryHistory.tsx
 @@ -10,6 +10,48 @@ type HistoryRecord = {
@@ -288,7 +288,7 @@ index 1568263..a9a74b5 100644
 +      }
 +    }
 +
-+    let lastHash = path.split('#').pop() || '';
++    let lastHash = path.includes('#') ? path.split('#').pop() : '';
 +    lastHash = lastHash === '/' ? '' : lastHash;
 +
 +    const indexHtmlFile = path.split('.html')?.[0];
