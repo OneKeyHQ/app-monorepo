@@ -1,4 +1,6 @@
-import { useEffect } from 'react';
+import { useCallback } from 'react';
+
+import { useFocusEffect } from '@react-navigation/native';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
 import { Page, useMedia } from '@onekeyhq/components';
@@ -61,17 +63,19 @@ function MarketDetail({
 function MarketDetailV2(
   props: IPageScreenProps<ITabMarketParamList, ETabMarketRoutes.MarketDetailV2>,
 ) {
-  useEffect(() => {
-    if (platformEnv.isExtension) {
-      return;
-    }
+  useFocusEffect(
+    useCallback(() => {
+      if (platformEnv.isExtension) {
+        return;
+      }
 
-    appEventBus.emit(EAppEventBusNames.HideTabBar, true);
+      appEventBus.emit(EAppEventBusNames.HideTabBar, true);
 
-    return () => {
-      appEventBus.emit(EAppEventBusNames.HideTabBar, false);
-    };
-  }, []);
+      return () => {
+        appEventBus.emit(EAppEventBusNames.HideTabBar, false);
+      };
+    }, []),
+  );
 
   return (
     <AccountSelectorProviderMirror
