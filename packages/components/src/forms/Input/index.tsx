@@ -83,6 +83,7 @@ export type IInputProps = {
   ) => Promise<{ raw?: string }>; // const { start: startScanQrCode } = useScanQrCode();
   clearClipboardOnPaste?: boolean; // clear clipboard on paste
   autoFocusDelayMs?: number;
+  selectTextOnFocus?: boolean;
   /**
    * Auto scroll to top delay in milliseconds.
    * Default is 250ms, only works on Android.
@@ -414,30 +415,28 @@ function BaseInput(
   }));
 
   const selectionColor = useSelectionColor();
-
   const valueRef = useRef(value);
   if (valueRef.current !== value) {
     valueRef.current = value;
   }
 
   const shownValue = useFixAndroidInputValueDisplay(value);
-
   const { scrollToView } = useScrollToLocation(inputRef);
   // workaround for selectTextOnFocus={true} not working on Native App
   const handleFocus = useCallback(
-    async (e: NativeSyntheticEvent<TextInputFocusEventData>) => {
+    (e: NativeSyntheticEvent<TextInputFocusEventData>) => {
       onFocus?.(e);
       if (platformEnv.isNative && selectTextOnFocus) {
-        const { currentTarget } = e;
-        await timerUtils.setTimeoutPromised(() => {
-          currentTarget.setNativeProps({
+        const currentTarget = e.currentTarget;
+        void timerUtils.setTimeoutPromised(() => {
+          currentTarget?.setNativeProps({
             selection: { start: 0, end: valueRef.current?.length || 0 },
           });
         });
       }
       scrollToView();
     },
-    [onFocus, selectTextOnFocus, scrollToView],
+    [onFocus, scrollToView, selectTextOnFocus],
   );
 
   const onNumberPadChangeText = useCallback(
