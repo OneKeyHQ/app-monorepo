@@ -2084,7 +2084,12 @@ class ServicePrimeTransfer extends ServiceBase {
         }
         try {
           if (newWallet) {
-            let skipNetworks = [presetNetworksMap.lightning.id];
+            let skipNetworks = [
+              // lightning network requires network verification
+              presetNetworksMap.lightning.id,
+              // Skip Cardano network because address generation is very slow
+              presetNetworksMap.cardano.id,
+            ];
             if (isFromCloudBackupRestore) {
               skipNetworks = [
                 presetNetworksMap.lightning.id,
