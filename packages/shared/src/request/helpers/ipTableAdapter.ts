@@ -131,7 +131,7 @@ async function getSelectedIpForHostInternal(
     const strictMode = devSettings?.settings?.forceIpTableStrict;
 
     // First, try to get selected IP from runtime.selections
-    const selectedIp = runtime.selections[rootDomain];
+    const selectedIp = runtime?.selections[rootDomain];
 
     // If selectedIp exists (not undefined), use it
     if (selectedIp) {
