@@ -1890,7 +1890,7 @@
   "ln.authorize_access_desc": "เชื่อมต่อกระเป๋าเงินฮาร์ดแวร์ของคุณเพื่อเข้าถึงบัญชี Lightning",
   "ln.authorize_access_network_error": "การยืนยันตัวตนล้มเหลว โปรดตรวจสอบการเชื่อมต่อเครือข่ายของคุณและลองอีกครั้ง",
   "ln.payment_received_label": "ได้รับการชำระเงินแล้ว",
-  "log_out_confirmation_text": "คุณแน่ใจหรือไม่ว่าต้องการออกจากระบบจาก ${email}?",
+  "log_out_confirmation_text": "คุณแน่ใจหรือไม่ว่าต้องการออกจากระบบของ {email}?",
   "logged_out_feedback": "ออกจากระบบสำเร็จ",
   "login.forgot_passcode": "ลืมรหัสผ่าน?",
   "login.forgot_password": "ลืมรหัสผ่าน?",
