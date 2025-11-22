@@ -14,12 +14,11 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import type { ITabEarnParamList } from '@onekeyhq/shared/src/routes';
-import {
-  ETabDiscoveryRoutes,
+import type {
   ETabEarnRoutes,
-  ETabRoutes,
+  ITabEarnParamList,
 } from '@onekeyhq/shared/src/routes';
+import { ETabDiscoveryRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 import {
   openUrlExternal,
   openUrlInApp,
@@ -86,13 +85,6 @@ function BasicEarnHome({
   const navigation = useAppNavigation();
 
   const defaultTab = overrideDefaultTab || route.params?.tab;
-
-  const handleTabChange = useCallback(
-    (tab: 'assets' | 'portfolio' | 'faqs') => {
-      navigation.navigate(ETabEarnRoutes.EarnHome, { tab });
-    },
-    [navigation],
-  );
 
   const accountSelectorActions = useAccountSelectorActions();
 
@@ -247,7 +239,6 @@ function BasicEarnHome({
         {showHeader && showContent && media.md ? (
           <Stack h={tabPageHeight} />
         ) : null}
-        
         <EarnMainTabs
           isMobile
           faqList={faqList || []}
@@ -255,7 +246,6 @@ function BasicEarnHome({
           isAccountsLoading={isLoading}
           refreshEarnAccounts={refreshEarnData}
           defaultTab={defaultTab}
-          onTabChange={handleTabChange}
           portfolioData={portfolioData}
           containerProps={mobileContainerProps}
         />
@@ -305,7 +295,6 @@ function BasicEarnHome({
           isFaqLoading={isFaqLoading}
           isAccountsLoading={isLoading}
           defaultTab={defaultTab}
-          onTabChange={handleTabChange}
           portfolioData={portfolioData}
           refreshEarnAccounts={refreshEarnData}
         />

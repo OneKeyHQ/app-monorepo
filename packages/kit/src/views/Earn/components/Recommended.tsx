@@ -18,16 +18,18 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IRecommendAsset } from '@onekeyhq/shared/types/staking';
 
+import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import {
   useEarnActions,
   useEarnAtom,
 } from '../../../states/jotai/contexts/earn';
-import { useToTokenProviderListPage } from '../hooks/useToTokenProviderListPage';
+import { EarnNavigation } from '../earnUtils';
 
 import { AprText } from './AprText';
 
@@ -71,27 +73,44 @@ const RecommendedItem = memo(
     indexedAccountId?: string;
     noWalletConnected: boolean;
   } & IYStackProps) => {
-    const toTokenProviderListPage = useToTokenProviderListPage();
+    const navigation = useAppNavigation();
 
     const onPress = useCallback(async () => {
       if (token) {
+        defaultLogger.staking.page.selectAsset({ tokenSymbol: token.symbol });
+
         const earnAccount =
           await backgroundApiProxy.serviceStaking.getEarnAccount({
             indexedAccountId,
             accountId: accountId ?? '',
             networkId: token.protocols[0]?.networkId,
           });
-        await toTokenProviderListPage({
-          indexedAccountId:
-            earnAccount?.account.indexedAccountId || indexedAccountId,
-          accountId: earnAccount?.accountId || accountId || '',
-          networkId: token.protocols[0]?.networkId,
-          symbol: token.symbol,
-          protocols: token.protocols,
-          logoURI: token.logoURI,
-        });
+
+        const accountIdValue = earnAccount?.accountId || accountId || '';
+        const indexedAccountIdValue =
+          earnAccount?.account.indexedAccountId || indexedAccountId;
+
+        if (token.protocols.length === 1) {
+          const protocol = token.protocols[0];
+          await EarnNavigation.pushToEarnProtocolDetails(navigation, {
+            networkId: protocol.networkId,
+            accountId: accountIdValue,
+            indexedAccountId: indexedAccountIdValue,
+            symbol: token.symbol,
+            provider: protocol.provider,
+            vault: protocol.vault,
+          });
+        } else {
+          EarnNavigation.pushToEarnProtocols(navigation, {
+            symbol: token.symbol,
+            filterNetworkId: undefined,
+            logoURI: token.logoURI
+              ? encodeURIComponent(token.logoURI)
+              : undefined,
+          });
+        }
       }
-    }, [accountId, indexedAccountId, toTokenProviderListPage, token]);
+    }, [accountId, indexedAccountId, navigation, token]);
 
     if (!token) {
       return <YStack width="$40" flexGrow={1} />;

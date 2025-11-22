@@ -20,7 +20,6 @@ const EarnMainTabsComponent = ({
   refreshEarnAccounts,
   containerProps,
   defaultTab,
-  onTabChange,
   portfolioData,
 }: {
   isMobile: boolean;
@@ -30,7 +29,6 @@ const EarnMainTabsComponent = ({
   refreshEarnAccounts?: () => void;
   containerProps?: any;
   defaultTab?: 'assets' | 'portfolio' | 'faqs';
-  onTabChange?: (tab: 'assets' | 'portfolio' | 'faqs') => void;
   portfolioData: IUseEarnPortfolioReturn;
 }) => {
   const intl = useIntl();
@@ -86,15 +84,6 @@ const EarnMainTabsComponent = ({
       renderTabBar={(tabBarProps) => {
         const handleTabPress = (name: string) => {
           tabBarProps.onTabPress?.(name);
-          if (onTabChange) {
-            if (name === tabNames.portfolio) {
-              onTabChange('portfolio');
-            } else if (name === tabNames.faqs) {
-              onTabChange('faqs');
-            } else {
-              onTabChange('assets');
-            }
-          }
         };
         return <Tabs.TabBar {...tabBarProps} onTabPress={handleTabPress} />;
       }}

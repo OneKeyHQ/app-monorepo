@@ -20,11 +20,12 @@ import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { EarnActionIcon } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnActionIcon';
 import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnText';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { ETabEarnRoutes } from '@onekeyhq/shared/src/routes';
 import type {
   IEarnTokenInfo,
   IStakeEarnDetail,
 } from '@onekeyhq/shared/types/staking';
+
+import { EarnNavigation } from '../../../earnUtils';
 
 import type { UTCTimestamp } from 'lightweight-charts';
 
@@ -53,7 +54,7 @@ const ApyChartComponent = ({
   const navigation = useAppNavigation();
 
   const handleMyPortfolio = useCallback(() => {
-    navigation.navigate(ETabEarnRoutes.EarnHome, { tab: 'portfolio' });
+    EarnNavigation.pushToEarnHome(navigation, { tab: 'portfolio' });
   }, [navigation]);
 
   // Hover state for popover

@@ -18,6 +18,7 @@ import { TableList } from '@onekeyhq/kit/src/components/ListView/TableList';
 import type { ITableColumn } from '@onekeyhq/kit/src/components/ListView/TableList';
 import { NetworkAvatarGroup } from '@onekeyhq/kit/src/components/NetworkAvatar/NetworkAvatar';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
@@ -25,10 +26,11 @@ import {
   useEarnAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/earn';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IEarnAvailableAsset } from '@onekeyhq/shared/types/earn';
 import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
 
-import { useToTokenProviderListPage } from '../hooks/useToTokenProviderListPage';
+import { EarnNavigation } from '../earnUtils';
 
 import { AprText } from './AprText';
 
@@ -41,7 +43,7 @@ export function AvailableAssetsTabViewList() {
   const intl = useIntl();
   const [selectedTabIndex, setSelectedTabIndex] = useState(0);
   const media = useMedia();
-  const toTokenProviderListPage = useToTokenProviderListPage();
+  const navigation = useAppNavigation();
 
   const tabData = useMemo(
     () => [
@@ -211,16 +213,29 @@ export function AvailableAssetsTabViewList() {
   // Handle row press
   const handleRowPress = useCallback(
     async (asset: IEarnAvailableAsset) => {
-      await toTokenProviderListPage({
-        networkId: asset.protocols[0]?.networkId || '',
-        accountId: account?.id ?? '',
-        indexedAccountId: indexedAccount?.id,
-        symbol: asset.symbol,
-        protocols: asset.protocols,
-        logoURI: asset.logoURI,
-      });
+      defaultLogger.staking.page.selectAsset({ tokenSymbol: asset.symbol });
+
+      if (asset.protocols.length === 1) {
+        const protocol = asset.protocols[0];
+        await EarnNavigation.pushToEarnProtocolDetails(navigation, {
+          networkId: protocol.networkId,
+          accountId: account?.id ?? '',
+          indexedAccountId: indexedAccount?.id,
+          symbol: asset.symbol,
+          provider: protocol.provider,
+          vault: protocol.vault,
+        });
+      } else {
+        EarnNavigation.pushToEarnProtocols(navigation, {
+          symbol: asset.symbol,
+          filterNetworkId: undefined,
+          logoURI: asset.logoURI
+            ? encodeURIComponent(asset.logoURI)
+            : undefined,
+        });
+      }
     },
-    [account?.id, indexedAccount?.id, toTokenProviderListPage],
+    [account?.id, indexedAccount?.id, navigation],
   );
 
   // Mobile custom renderer

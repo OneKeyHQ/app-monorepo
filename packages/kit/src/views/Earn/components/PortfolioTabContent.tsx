@@ -44,6 +44,7 @@ import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector
 import { EarnText } from '../../Staking/components/ProtocolDetails/EarnText';
 import { EarnTooltip } from '../../Staking/components/ProtocolDetails/EarnTooltip';
 import { buildLocalTxStatusSyncId } from '../../Staking/utils/utils';
+import { EarnNavigation } from '../earnUtils';
 import { usePortfolioAction } from '../hooks/usePortfolioAction';
 
 import type { IUseEarnPortfolioReturn } from '../hooks/useEarnPortfolio';
@@ -573,20 +574,13 @@ const PortfolioItemComponent = ({
 
   const handleRowPress = useCallback(
     async (asset: IEarnPortfolioInvestment['assets'][number]) => {
-      const symbol = asset.token.info.symbol;
-      appNavigation.navigate(ERootRoutes.Main, {
-        screen: ETabRoutes.Earn,
-        params: {
-          screen: ETabEarnRoutes.EarnProtocolDetails,
-          params: {
-            indexedAccountId: indexedAccount?.id,
-            accountId: account?.id,
-            networkId: asset.metadata.network.networkId,
-            symbol,
-            provider: asset.metadata.protocol.providerDetail.code,
-            vault: asset.metadata.protocol.vault,
-          },
-        },
+      await EarnNavigation.pushToEarnProtocolDetails(appNavigation, {
+        networkId: asset.metadata.network.networkId,
+        accountId: account?.id,
+        indexedAccountId: indexedAccount?.id,
+        symbol: asset.token.info.symbol,
+        provider: asset.metadata.protocol.providerDetail.code,
+        vault: asset.metadata.protocol.vault,
       });
     },
     [appNavigation, account?.id, indexedAccount?.id],

@@ -1,9 +1,9 @@
+import { rootNavigationRef } from '@onekeyhq/components';
 import {
   WEB_APP_URL,
   WEB_APP_URL_DEV,
 } from '@onekeyhq/shared/src/config/appConfig';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalRoutes,
@@ -12,7 +12,6 @@ import {
   ETabEarnRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
-import type { IEarnAvailableAssetProtocol } from '@onekeyhq/shared/types/earn';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 
@@ -50,6 +49,23 @@ export const EarnNetworkUtils = {
     return this.getNetworkNameById(networkId) || 'unknown';
   },
 };
+
+function safePushToEarnRoute(
+  navigation: IAppNavigation,
+  route: ETabEarnRoutes,
+  params?: any,
+) {
+  if (route === ETabEarnRoutes.EarnHome) {
+    navigation.push(route, params);
+  }
+  navigation.navigate(ERootRoutes.Main, {
+    screen: ETabRoutes.Earn,
+    params: {
+      screen: route,
+      params,
+    },
+  });
+}
 
 export const EarnNavigation = {
   // navigate from deep link (compatible with old format)
@@ -191,70 +207,75 @@ export const EarnNavigation = {
       : `${origin}${baseUrl}`;
   },
 
-  toTokenProviderListPage: async (
-    navigation: ReturnType<typeof useAppNavigation>,
-    {
-      networkId,
-      accountId,
-      indexedAccountId,
-      symbol,
-      protocols,
-      logoURI,
-    }: {
-      networkId: string;
-      accountId: string;
-      indexedAccountId?: string;
+  pushToEarnHome(
+    navigation: IAppNavigation,
+    params?: {
+      tab?: 'assets' | 'portfolio' | 'faqs';
+    },
+  ) {
+    safePushToEarnRoute(navigation, ETabEarnRoutes.EarnHome, params);
+  },
+
+  pushToEarnProtocols(
+    navigation: IAppNavigation,
+    params: {
       symbol: string;
-      protocols: IEarnAvailableAssetProtocol[];
+      filterNetworkId?: string;
       logoURI?: string;
     },
-  ) => {
-    defaultLogger.staking.page.selectAsset({ tokenSymbol: symbol });
+  ) {
+    safePushToEarnRoute(navigation, ETabEarnRoutes.EarnProtocols, params);
+  },
 
-    if (protocols.length === 1) {
-      // Only fetch earnAccount if we have an accountId
-      let earnAccount;
-      if (accountId || indexedAccountId) {
-        try {
-          earnAccount = await backgroundApiProxy.serviceStaking.getEarnAccount({
-            accountId,
-            indexedAccountId,
-            networkId,
-          });
-        } catch (error) {
-          // Continue with original accountId even if fetch fails
-        }
+  async pushToEarnProtocolDetails(
+    navigation: IAppNavigation,
+    params: {
+      networkId: string;
+      accountId?: string;
+      indexedAccountId?: string;
+      symbol: string;
+      provider: string;
+      vault?: string;
+    },
+  ) {
+    let earnAccount;
+    if (params.accountId || params.indexedAccountId) {
+      try {
+        earnAccount = await backgroundApiProxy.serviceStaking.getEarnAccount({
+          accountId: params.accountId ?? '',
+          indexedAccountId: params.indexedAccountId,
+          networkId: params.networkId,
+        });
+      } catch (e) {
+        console.log('Failed to get earn account', e);
+        // ignore error
       }
-
-      const protocol = protocols[0];
-      navigation.navigate(ERootRoutes.Main, {
-        screen: ETabRoutes.Earn,
-        params: {
-          screen: ETabEarnRoutes.EarnProtocolDetails,
-          params: {
-            networkId: protocol.networkId,
-            accountId: earnAccount?.accountId || accountId,
-            indexedAccountId:
-              earnAccount?.account.indexedAccountId || indexedAccountId,
-            symbol,
-            provider: protocol.provider,
-            vault: protocol.vault,
-          },
-        },
-      });
-      return;
     }
 
-    navigation.navigate(ERootRoutes.Main, {
-      screen: ETabRoutes.Earn,
-      params: {
-        screen: ETabEarnRoutes.EarnProtocols,
-        params: {
-          symbol,
-          filterNetworkId: undefined,
-          logoURI: encodeURIComponent(logoURI ?? ''),
-        },
-      },
+    safePushToEarnRoute(navigation, ETabEarnRoutes.EarnProtocolDetails, {
+      networkId: params.networkId,
+      accountId: earnAccount?.accountId || params.accountId || '',
+      indexedAccountId:
+        earnAccount?.account.indexedAccountId || params.indexedAccountId,
+      symbol: params.symbol,
+      provider: params.provider,
+      vault: params.vault,
     });
+  },
+
+  pushToEarnProtocolDetailsShare(
+    navigation: IAppNavigation,
+    params: {
+      network: string;
+      symbol: string;
+      provider: string;
+      vault?: string;
+    },
+  ) {
+    safePushToEarnRoute(
+      navigation,
+      ETabEarnRoutes.EarnProtocolDetailsShare,
+      params,
+    );
   },
 };

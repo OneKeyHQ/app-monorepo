@@ -30,9 +30,11 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { normalizeToEarnProvider } from '@onekeyhq/shared/types/earn/earnProvider.constants';
 import type { IStakeProtocolListItem } from '@onekeyhq/shared/types/staking';
 
+import { DiscoveryBrowserProviderMirror } from '../../../Discovery/components/DiscoveryBrowserProviderMirror';
 import { EarnText } from '../../../Staking/components/ProtocolDetails/EarnText';
 import { AprText } from '../../components/AprText';
 import { EarnPageContainer } from '../../components/EarnPageContainer';
+import { EarnNavigation } from '../../earnUtils';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -117,26 +119,10 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
           stakeProvider: protocol.provider.name,
         });
 
-        // Fetch earnAccount before navigation
-        let earnAccount;
-        try {
-          if (accountId || indexedAccountId) {
-            earnAccount =
-              await backgroundApiProxy.serviceStaking.getEarnAccount({
-                accountId: accountId ?? '',
-                indexedAccountId,
-                networkId: protocol.network.networkId,
-              });
-          }
-        } catch (error) {
-          // Continue with original accountId even if fetch fails
-        }
-
-        navigation.push(ETabEarnRoutes.EarnProtocolDetails, {
+        await EarnNavigation.pushToEarnProtocolDetails(navigation, {
           networkId: protocol.network.networkId,
-          accountId: earnAccount?.accountId || accountId || '',
-          indexedAccountId:
-            earnAccount?.account?.indexedAccountId || indexedAccountId,
+          accountId,
+          indexedAccountId,
           symbol,
           provider: protocol.provider.name,
           vault: earnUtils.isVaultBasedProvider({
@@ -146,7 +132,7 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
             : undefined,
         });
       } catch (error) {
-        // Handle error silently
+        // ignore error
       }
     },
     [
@@ -393,7 +379,9 @@ export default function EarnProtocols(props: { route: IRouteProps }) {
       }}
       enabledNum={[0]}
     >
-      <BasicEarnProtocols {...props} />
+      <DiscoveryBrowserProviderMirror>
+        <BasicEarnProtocols {...props} />
+      </DiscoveryBrowserProviderMirror>
     </AccountSelectorProviderMirror>
   );
 }

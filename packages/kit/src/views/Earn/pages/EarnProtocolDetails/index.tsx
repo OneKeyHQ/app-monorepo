@@ -46,6 +46,7 @@ import type {
   IStakeEarnDetail,
 } from '@onekeyhq/shared/types/staking';
 
+import { DiscoveryBrowserProviderMirror } from '../../../Discovery/components/DiscoveryBrowserProviderMirror';
 import {
   PageFrame,
   isErrorState,
@@ -185,33 +186,6 @@ function GridSection({
 
 function AlertSection({ alerts }: { alerts?: IEarnAlert[] }) {
   return <EarnAlert alerts={alerts} />;
-}
-
-function ProviderSection({
-  provider,
-}: {
-  provider: IStakeEarnDetail['provider'];
-}) {
-  return provider ? (
-    <>
-      <YStack gap="$6">
-        <EarnText text={provider.title} size="$headingLg" />
-        <XStack flexWrap="wrap" m="$-5" p="$2">
-          {provider.items.map((cell) => (
-            <GridItem
-              key={cell.title.text}
-              title={cell.title}
-              description={cell.description}
-              actionIcon={cell.button}
-              tooltip={cell?.tooltip}
-              type={cell.type}
-            />
-          ))}
-        </XStack>
-      </YStack>
-      <Divider />
-    </>
-  ) : null;
 }
 
 function RiskSection({ risk }: { risk?: IStakeEarnDetail['risk'] }) {
@@ -681,7 +655,9 @@ function EarnProtocolDetailsPageWithProvider(props: { route: IRouteProps }) {
       enabledNum={[0]}
     >
       <EarnProviderMirror storeName={EJotaiContextStoreNames.earn}>
-        <EarnProtocolDetailsPage {...props} />
+        <DiscoveryBrowserProviderMirror>
+          <EarnProtocolDetailsPage {...props} />
+        </DiscoveryBrowserProviderMirror>
       </EarnProviderMirror>
     </AccountSelectorProviderMirror>
   );

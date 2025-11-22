@@ -11,6 +11,8 @@ import type { ISupportedSymbol } from '@onekeyhq/shared/types/earn';
 import { normalizeToEarnProvider } from '@onekeyhq/shared/types/earn/earnProvider.constants';
 import type { IEarnTokenInfo } from '@onekeyhq/shared/types/staking';
 
+import { EarnNavigation } from '../../../earnUtils';
+
 interface IUseProtocolDetailBreadcrumbParams {
   accountId?: string;
   indexedAccountId?: string;
@@ -57,9 +59,7 @@ export function useProtocolDetailBreadcrumb({
       {
         label: intl.formatMessage({ id: ETranslations.global_earn }),
         onClick: () => {
-          appNavigation.switchTab(ETabRoutes.Earn, {
-            screen: ETabEarnRoutes.EarnHome,
-          });
+          EarnNavigation.pushToEarnHome(appNavigation);
         },
       },
     ];
@@ -69,7 +69,7 @@ export function useProtocolDetailBreadcrumb({
       items.push({
         label: symbol,
         onClick: () => {
-          appNavigation.push(ETabEarnRoutes.EarnProtocols, {
+          EarnNavigation.pushToEarnProtocols(appNavigation, {
             symbol,
             logoURI: encodeURIComponent(tokenInfo.token.logoURI),
           });
