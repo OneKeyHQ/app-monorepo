@@ -396,6 +396,9 @@ export interface IAppEventBusPayload {
     retry?: number;
     message?: string;
   };
+  [EAppEventBusNames.SwitchDiscoveryTabInNative]: {
+    tab: ETranslations.global_browser | ETranslations.global_earn;
+  };
 }
 
 export enum EEventBusBroadcastMethodNames {
