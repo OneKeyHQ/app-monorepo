@@ -210,6 +210,16 @@ function MobileBrowser() {
     return Promise.resolve();
   }, [activeTabId, closeWebTab, setCurrentWebTab]);
 
+  useEffect(() => {
+    const listener = (event: { tab: ETranslations }) => {
+      void handleChangeHeaderTab(event.tab);
+    };
+    appEventBus.on(EAppEventBusNames.SwitchDiscoveryTabInNative, listener);
+    return () => {
+      appEventBus.off(EAppEventBusNames.SwitchDiscoveryTabInNative, listener);
+    };
+  }, [handleChangeHeaderTab]);
+
   // For risk detection
   useEffect(() => {
     const listener = () => {
