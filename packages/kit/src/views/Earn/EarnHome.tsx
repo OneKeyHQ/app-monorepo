@@ -12,10 +12,6 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { ITabEarnParamList } from '@onekeyhq/shared/src/routes';
@@ -89,10 +85,8 @@ function BasicEarnHome({
 
   const navigation = useAppNavigation();
 
-  // Get tab from route params or override (for Discovery tab embedding)
   const defaultTab = overrideDefaultTab || route.params?.tab;
 
-  // Handle tab change - update route params
   const handleTabChange = useCallback(
     (tab: 'assets' | 'portfolio' | 'faqs') => {
       navigation.navigate(ETabEarnRoutes.EarnHome, { tab });
@@ -102,7 +96,6 @@ function BasicEarnHome({
 
   const accountSelectorActions = useAccountSelectorActions();
 
-  // Listen to tab focus state and refetch incomplete data
   useListenTabFocusState(
     ETabRoutes.Earn,
     useCallback(
@@ -111,29 +104,23 @@ function BasicEarnHome({
         setIsEarnTabFocused(actualFocus);
         if (!actualFocus) return;
 
-        // Check and refetch incomplete data when tab becomes focused
         const allKey = `availableAssets-${EAvailableAssetsTypeEnum.All}`;
         const stableKey = `availableAssets-${EAvailableAssetsTypeEnum.StableCoins}`;
         const nativeKey = `availableAssets-${EAvailableAssetsTypeEnum.NativeTokens}`;
 
-        // Check loading states and data for each key
         const keys = [allKey, stableKey, nativeKey];
 
-        // Check if any data is incomplete and trigger refresh
         const hasIncompleteData = keys.some((key) =>
           actions.current.isDataIncomplete(key),
         );
 
         if (hasIncompleteData) {
-          // Clear loading states and trigger refresh to restart data fetching
           keys.forEach((key) => {
             actions.current.setLoadingState(key, false);
           });
           actions.current.triggerRefresh();
         }
 
-        // Always refetch banner and FAQ data when tab becomes focused
-        // since they are not managed by atom loading states
         void refetchBanners();
         void refetchFAQ();
       },
@@ -211,15 +198,12 @@ function BasicEarnHome({
   );
 
   const isLoading = !!portfolioLoading;
-  const intl = useIntl();
 
-  // Memoize containerProps to prevent EarnMainTabs re-renders
   const mobileContainerProps = useMemo(
     () => ({
       contentContainerStyle: {
         display: showContent ? undefined : 'none',
       },
-      // eslint-disable-next-line spellcheck/spell-checker
       allowHeaderOverscroll: true,
       renderHeader: () => (
         <YStack gap="$4" pt="$6" bg="$bgApp" pointerEvents="box-none">
@@ -239,7 +223,6 @@ function BasicEarnHome({
     platformEnv.isNativeIOS ? 143 : 92,
   );
   const handleTabPageLayout = useCallback((e: LayoutChangeEvent) => {
-    // Use the actual measured height without arbitrary adjustments
     const height = e.nativeEvent.layout.height - 20;
     setTabPageHeight(height);
   }, []);
@@ -258,10 +241,13 @@ function BasicEarnHome({
     );
   }
 
-  if (platformEnv.isNative && media.md) {
+  if (platformEnv.isNative) {
     return (
-      <>
-        {showHeader && showContent ? <Stack h={tabPageHeight} /> : null}
+      <YStack flex={1}>
+        {showHeader && showContent && media.md ? (
+          <Stack h={tabPageHeight} />
+        ) : null}
+        
         <EarnMainTabs
           isMobile
           faqList={faqList || []}
@@ -273,7 +259,8 @@ function BasicEarnHome({
           portfolioData={portfolioData}
           containerProps={mobileContainerProps}
         />
-        {showHeader && showContent && platformEnv.isNative ? (
+
+        {showHeader && showContent && media.md ? (
           <YStack
             position="absolute"
             top={-20}
@@ -289,7 +276,7 @@ function BasicEarnHome({
             />
           </YStack>
         ) : null}
-      </>
+      </YStack>
     );
   }
 
@@ -302,7 +289,6 @@ function BasicEarnHome({
       }
     >
       <YStack flex={1}>
-        {/* overview and banner */}
         <YStack>
           <XStack px="$5">
             <Overview onRefresh={refreshEarnData} isLoading={isLoading} />
@@ -371,7 +357,7 @@ const useNavigateToNativeEarnPage = platformEnv.isNative
               screen: ETabDiscoveryRoutes.TabDiscovery,
               params: {
                 defaultTab: ETranslations.global_earn,
-                earnTab: tabParam, // Pass the tab parameter
+                earnTab: tabParam,
               },
             },
             {

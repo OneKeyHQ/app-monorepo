@@ -18,7 +18,6 @@ import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/Acco
 import { CountDownCalendarAlert } from '@onekeyhq/kit/src/components/CountDownCalendarAlert';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   EJotaiContextStoreNames,
@@ -47,7 +46,6 @@ import type {
   IStakeEarnDetail,
 } from '@onekeyhq/shared/types/staking';
 
-import { DiscoveryBrowserProviderMirror } from '../../../Discovery/components/DiscoveryBrowserProviderMirror';
 import {
   PageFrame,
   isErrorState,
@@ -72,6 +70,8 @@ import { EarnNavigation, EarnNetworkUtils } from '../../earnUtils';
 import { ApyChart } from './components/ApyChart';
 import { useProtocolDetailBreadcrumb } from './hooks/useProtocolDetailBreadcrumb';
 import { useProtocolDetailData } from './hooks/useProtocolDetailData';
+
+import type { RouteProp } from '@react-navigation/core';
 
 function ManagersSection({
   managers,
@@ -396,11 +396,7 @@ const ManagePositionPart = ({
   );
 };
 
-const EarnProtocolDetailsPage = () => {
-  const route = useAppRoute<
-    ITabEarnParamList,
-    ETabEarnRoutes.EarnProtocolDetails | ETabEarnRoutes.EarnProtocolDetailsShare
-  >();
+const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
   const intl = useIntl();
   const appNavigation = useAppNavigation();
   const { gtMd } = useMedia();
@@ -670,7 +666,12 @@ const EarnProtocolDetailsPage = () => {
   );
 };
 
-function EarnProtocolDetailsPageWithProvider() {
+type IRouteProps = RouteProp<
+  ITabEarnParamList,
+  ETabEarnRoutes.EarnProtocolDetails | ETabEarnRoutes.EarnProtocolDetailsShare
+>;
+
+function EarnProtocolDetailsPageWithProvider(props: { route: IRouteProps }) {
   return (
     <AccountSelectorProviderMirror
       config={{
@@ -680,9 +681,7 @@ function EarnProtocolDetailsPageWithProvider() {
       enabledNum={[0]}
     >
       <EarnProviderMirror storeName={EJotaiContextStoreNames.earn}>
-        <DiscoveryBrowserProviderMirror>
-          <EarnProtocolDetailsPage />
-        </DiscoveryBrowserProviderMirror>
+        <EarnProtocolDetailsPage {...props} />
       </EarnProviderMirror>
     </AccountSelectorProviderMirror>
   );

@@ -55,7 +55,6 @@ const EarnMainTabsComponent = ({
     return tabNames.assets;
   }, [defaultTab, tabNames]);
 
-  // Switch tab when defaultTab changes (from route navigation)
   useEffect(() => {
     if (defaultTab && tabsRef.current) {
       const targetTabName = initialTabName;
@@ -66,7 +65,6 @@ const EarnMainTabsComponent = ({
     }
   }, [defaultTab, initialTabName]);
 
-  // CRITICAL: Clear ref on unmount
   useEffect(
     () => () => {
       tabsRef.current = null;
