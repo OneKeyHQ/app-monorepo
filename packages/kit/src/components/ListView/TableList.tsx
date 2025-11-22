@@ -468,7 +468,7 @@ function TableListRow<T>({
             ai="center"
             jc="center"
             animation="quick"
-            rotate={isExpanded ? '0deg' : '180deg'}
+            rotate={isExpanded ? '180deg' : '0deg'}
           >
             <Icon
               name="ChevronDownSmallOutline"

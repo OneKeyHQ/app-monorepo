@@ -430,7 +430,7 @@ const ProtocolAirdrop = ({
         airdropAssets?.every((airdrop) =>
           isEmpty(airdrop.airdropAssets),
         ) ? null : (
-          <YStack>
+          <YStack w="100%">
             {airdropAssets?.map((airdrop, index) => {
               const Wrapper = media.gtSm ? XStack : YStack;
 
@@ -452,6 +452,7 @@ const ProtocolAirdrop = ({
                   key={index}
                   ai="flex-start"
                   gap="$1.5"
+                  w="100%"
                   $gtMd={{
                     ai: 'center',
                     minHeight: '$9',
