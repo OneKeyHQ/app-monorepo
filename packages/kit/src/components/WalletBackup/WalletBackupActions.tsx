@@ -7,6 +7,7 @@ import { ActionList } from '@onekeyhq/components';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { useBackUpWallet } from '../../hooks/useBackUpWallet';
 
@@ -19,6 +20,7 @@ export function WalletBackupActions({
   hideLiteCard,
   hideKeyTag,
   hidePhrase,
+  hideCloud,
 }: {
   wallet: IDBWallet | undefined;
   children: React.ReactNode;
@@ -28,16 +30,38 @@ export function WalletBackupActions({
   hideLiteCard?: boolean;
   hideKeyTag?: boolean;
   hidePhrase?: boolean;
+  hideCloud?: boolean;
 }) {
   const intl = useIntl();
 
-  const { handleBackUpByPhrase, handleBackUpByLiteCard, handleBackUpByKeyTag } =
-    useBackUpWallet({ walletId: wallet?.id ?? '' });
+  const {
+    handleBackUpByPhrase,
+    handleBackUpByLiteCard,
+    handleBackUpByKeyTag,
+    handleBackUpByCloud,
+    supportCloudBackup,
+    cloudBackupFeatureInfo,
+  } = useBackUpWallet({ walletId: wallet?.id ?? '' });
 
   return (
     <ActionList
       title={intl.formatMessage({ id: ETranslations.global_backup })}
       items={[
+        !hideCloud &&
+        supportCloudBackup &&
+        cloudBackupFeatureInfo &&
+        wallet?.id &&
+        accountUtils.isHdWallet({ walletId: wallet?.id ?? '' })
+          ? {
+              label: cloudBackupFeatureInfo?.title || '',
+              icon: cloudBackupFeatureInfo?.icon as IKeyOfIcons,
+              onPress: async () => {
+                void handleBackUpByCloud();
+                onSelected?.();
+              },
+              onClose,
+            }
+          : undefined,
         !hidePhrase && {
           label: intl.formatMessage({
             id: ETranslations.manual_backup,

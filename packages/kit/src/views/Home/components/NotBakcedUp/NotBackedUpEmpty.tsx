@@ -72,7 +72,7 @@ function NotBackedUp() {
   }, [enableCloudBackup, handleBackUpByPhrase, handleBackUpByCloud]);
 
   const backupText = useMemo(() => {
-    if (supportCloudBackup) {
+    if (enableCloudBackup) {
       if (
         platformEnv.isNativeIOS ||
         (platformEnv.isDesktop && platformEnv.isDesktopMac)
@@ -90,7 +90,7 @@ function NotBackedUp() {
     }
 
     return intl.formatMessage({ id: ETranslations.backup_backup_now });
-  }, [intl, supportCloudBackup]);
+  }, [intl, enableCloudBackup]);
 
   const renderBackupWalletActions = useCallback(() => {
     return (
@@ -98,7 +98,11 @@ function NotBackedUp() {
         <Button variant="primary" size="large" onPress={handleBackupWallet}>
           {backupText}
         </Button>
-        <WalletBackupActions wallet={wallet} hidePhrase={!enableCloudBackup}>
+        <WalletBackupActions
+          wallet={wallet}
+          hidePhrase={!enableCloudBackup}
+          hideCloud={!!enableCloudBackup}
+        >
           <IconButton
             icon="DotHorOutline"
             bg="$gray4"
