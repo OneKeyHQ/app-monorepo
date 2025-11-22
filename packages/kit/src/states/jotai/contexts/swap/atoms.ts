@@ -1,5 +1,6 @@
 import BigNumber from 'bignumber.js';
 
+import { ESwapDirection } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { dangerAllNetworkRepresent } from '@onekeyhq/shared/src/config/presetNetworks';
 import {
@@ -30,6 +31,7 @@ import type {
 } from '@onekeyhq/shared/types/swap/types';
 import {
   ESwapNetworkFeeLevel,
+  ESwapProTradeType,
   ESwapTabSwitchType,
   LIMIT_PRICE_DEFAULT_DECIMALS,
   defaultLimitExpirationTime,
@@ -700,3 +702,12 @@ export const {
 // swap pro
 export const { atom: swapProSelectTokenAtom, use: useSwapProSelectTokenAtom } =
   contextAtom<ISwapToken | undefined>(undefined);
+
+export const { atom: swapProDirectionAtom, use: useSwapProDirectionAtom } =
+  contextAtom<ESwapDirection>(ESwapDirection.BUY);
+
+export const { atom: swapProTradeTypeAtom, use: useSwapProTradeTypeAtom } =
+  contextAtom<ESwapProTradeType>(ESwapProTradeType.MARKET);
+
+export const { atom: swapProInputAmountAtom, use: useSwapProInputAmountAtom } =
+  contextAtom<string>('');

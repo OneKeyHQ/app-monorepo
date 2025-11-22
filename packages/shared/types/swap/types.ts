@@ -1025,6 +1025,12 @@ export const ESwapLimitOrderUpdateInterval = 10_000;
 
 export const ESwapLimitOrderMarketPriceUpdateInterval = 15_000;
 
+// swap pro
+
+export enum ESwapProTradeType {
+  MARKET = 'market',
+  LIMIT = 'limit',
+}
 // component -----------------
 
 export interface IExplorersInfo {

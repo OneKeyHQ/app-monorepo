@@ -8,6 +8,7 @@ import { TabBarItem } from '@onekeyhq/components/src/composite/Tabs/TabBar';
 import { ETabName } from '../../../Perp/layouts/PerpMobileLayout';
 
 import SwapProTokenSelector from './SwapProTokenSelect';
+import SwapProTradingPanel from './SwapProTradingPanel';
 
 interface ISwapProContainerProps {
   onProSelectToken: () => void;
@@ -42,7 +43,7 @@ const SwapProContainer = ({ onProSelectToken }: ISwapProContainerProps) => {
           {/* <PerpOrderBook /> */}
         </YStack>
         <YStack flexBasis="65%" flexShrink={1}>
-          {/* <PerpTradingPanel isMobile /> */}
+          <SwapProTradingPanel />
         </YStack>
       </XStack>
       <XStack
