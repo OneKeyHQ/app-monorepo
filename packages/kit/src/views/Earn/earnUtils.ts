@@ -56,9 +56,9 @@ function safePushToEarnRoute(
   params?: any,
 ) {
   if (route === ETabEarnRoutes.EarnHome) {
-    navigation.push(route, params);
+    navigation.popTo(route, params);
   }
-  navigation.navigate(ERootRoutes.Main, {
+  navigation.popTo(ERootRoutes.Main, {
     screen: ETabRoutes.Earn,
     params: {
       screen: route,
