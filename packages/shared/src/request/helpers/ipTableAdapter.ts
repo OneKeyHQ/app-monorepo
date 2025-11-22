@@ -70,35 +70,19 @@ function extractRootDomain(hostname: string): string {
  * @returns true if IP Table should be used, false otherwise
  */
 async function shouldUseIpTable(): Promise<boolean> {
-  const defaultEnabled = false;
+  const defaultEnabled = true;
   try {
     const devSettings = await requestHelper.getDevSettingsPersistAtom();
-
-    if (!devSettings.enabled) {
-      return defaultEnabled;
-    }
-
-    const enabledInDev = !!devSettings.settings?.enableIpTableInDev;
-    if (devSettings.settings?.enableIpTableInDev) {
-      debugLog(
-        `[IpTableAdapter] Dev environment - IP Table ${
-          enabledInDev ? 'enabled' : 'disabled'
-        }`,
-      );
-      return enabledInDev;
-    }
 
     const disabledInProd = !!devSettings.settings?.disableIpTableInProd;
     if (disabledInProd) {
       debugLog(
-        `[IpTableAdapter] Prod environment - IP Table ${
-          disabledInProd ? 'disabled' : 'enabled'
-        }`,
+        `[IpTableAdapter] Dev settings disabled IP Table (disableIpTableInProd)`,
       );
-      return !disabledInProd;
+      return false;
     }
 
-    return false;
+    return true;
   } catch (error) {
     debugWarn('[IpTableAdapter] Failed to check IP Table permission:', error);
     defaultLogger.ipTable.request.warn({
