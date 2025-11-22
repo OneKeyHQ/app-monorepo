@@ -92,7 +92,7 @@ class ServiceIpTable extends ServiceBase {
 
     // 2. Check runtime.enabled
     const configWithRuntime = await this.getConfig();
-    if (!configWithRuntime.runtime?.enabled) {
+    if (configWithRuntime.runtime?.enabled === false) {
       return false;
     }
 

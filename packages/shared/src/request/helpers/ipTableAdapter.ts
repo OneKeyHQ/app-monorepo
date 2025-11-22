@@ -119,7 +119,7 @@ async function getSelectedIpForHostInternal(
     const configWithRuntime = await requestHelper.getIpTableConfig();
 
     // Check if config exists and is enabled
-    if (!configWithRuntime || !configWithRuntime?.runtime?.enabled) {
+    if (!configWithRuntime || configWithRuntime.runtime?.enabled === false) {
       return null;
     }
 
