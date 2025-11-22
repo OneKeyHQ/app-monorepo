@@ -1,15 +1,12 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
-import { StyleSheet } from 'react-native';
 import { useSharedValue } from 'react-native-reanimated';
 import { useThrottledCallback } from 'use-debounce';
 
 import {
   Badge,
-  IconButton,
   SizableText,
-  Skeleton,
   Tabs,
   XStack,
   YStack,
@@ -76,9 +73,17 @@ export function AvailableAssetsTabViewList() {
     return availableAssetsByType[currentTabType] || [];
   }, [availableAssetsByType, selectedTabIndex, tabData]);
 
+  // Use ref to track component mount status to prevent state updates after unmount
+  const isMountedRef = useRef(true);
+
   // Throttled function to fetch assets data
   const fetchAssetsData = useThrottledCallback(
     async (tabType: EAvailableAssetsTypeEnum) => {
+      // Early return if component is unmounted
+      if (!isMountedRef.current) {
+        return [];
+      }
+
       const loadingKey = `availableAssets-${tabType}`;
       actions.current.setLoadingState(loadingKey, true);
 
@@ -88,15 +93,21 @@ export function AvailableAssetsTabViewList() {
             type: tabType,
           });
 
-        // Update the corresponding data in atom
-        actions.current.updateAvailableAssetsByType(tabType, tabAssets);
+        // Only update state if component is still mounted
+        if (isMountedRef.current) {
+          // Update the corresponding data in atom
+          actions.current.updateAvailableAssetsByType(tabType, tabAssets);
+        }
         return tabAssets;
       } catch (error) {
         console.error('Failed to fetch available assets:', error);
         // Return empty array on error to prevent infinite loading
         return [];
       } finally {
-        actions.current.setLoadingState(loadingKey, false);
+        // Only update loading state if component is still mounted
+        if (isMountedRef.current) {
+          actions.current.setLoadingState(loadingKey, false);
+        }
       }
     },
     200,
@@ -254,6 +265,16 @@ export function AvailableAssetsTabViewList() {
     ),
     [handleRowPress],
   );
+
+  // Cleanup on unmount to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      // Mark component as unmounted
+      isMountedRef.current = false;
+      // Cancel any pending throttled calls
+      fetchAssetsData.cancel();
+    };
+  }, [fetchAssetsData]);
 
   return (
     <YStack gap="$3">

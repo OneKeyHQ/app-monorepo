@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 
 import { isEmpty } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -214,7 +214,7 @@ const Rebate = ({
   );
 };
 
-export const Overview = ({
+const OverviewComponent = ({
   isLoading,
   onRefresh,
 }: {
@@ -426,3 +426,5 @@ export const Overview = ({
     </YStack>
   );
 };
+
+export const Overview = memo(OverviewComponent);

@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useMemo, useState } from 'react';
+import { Fragment, memo, useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -275,7 +275,7 @@ function RiskSection({ risk }: { risk?: IStakeEarnDetail['risk'] }) {
   ) : null;
 }
 
-const DetailsPart = ({
+const DetailsPartComponent = ({
   detailInfo,
   tokenInfo,
   isLoading,
@@ -352,6 +352,8 @@ const DetailsPart = ({
     </YStack>
   );
 };
+
+const DetailsPart = memo(DetailsPartComponent);
 
 const ManagePositionPart = ({
   networkId,

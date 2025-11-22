@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { memo, useEffect, useMemo, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -12,7 +12,7 @@ import { ProtocolsTabContent } from './ProtocolsTabContent';
 
 import type { IUseEarnPortfolioReturn } from '../hooks/useEarnPortfolio';
 
-export function EarnMainTabs({
+const EarnMainTabsComponent = ({
   isMobile,
   faqList,
   isFaqLoading = false,
@@ -32,7 +32,7 @@ export function EarnMainTabs({
   defaultTab?: 'assets' | 'portfolio' | 'faqs';
   onTabChange?: (tab: 'assets' | 'portfolio' | 'faqs') => void;
   portfolioData: IUseEarnPortfolioReturn;
-}) {
+}) => {
   const intl = useIntl();
   const tabsRef = useRef<ITabContainerRef>(null);
 
@@ -126,4 +126,6 @@ export function EarnMainTabs({
       </Tabs.Tab>
     </Tabs.Container>
   );
-}
+};
+
+export const EarnMainTabs = memo(EarnMainTabsComponent);

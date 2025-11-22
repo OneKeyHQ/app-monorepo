@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -38,7 +38,7 @@ interface IApyChartProps {
   onShare?: () => void;
 }
 
-export function ApyChart({
+const ApyChartComponent = ({
   networkId,
   symbol,
   provider,
@@ -46,7 +46,7 @@ export function ApyChart({
   apyDetail,
   tokenInfo,
   onShare,
-}: IApyChartProps) {
+}: IApyChartProps) => {
   const intl = useIntl();
   const { gtMd } = useMedia();
   const isFocused = useRouteIsFocused();
@@ -297,4 +297,6 @@ export function ApyChart({
       ) : null}
     </YStack>
   );
-}
+};
+
+export const ApyChart = memo(ApyChartComponent);

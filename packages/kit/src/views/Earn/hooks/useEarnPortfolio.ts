@@ -25,14 +25,14 @@ import {
   useEarnPortfolioInvestmentsAtom,
 } from '../../../states/jotai/contexts/earn';
 
-const accountDataUpdateFetchers = new Set<() => void>();
+let currentAccountDataFetcher: (() => void) | null = null;
 let accountDataUpdateListenerRegistered = false;
 const handleAccountDataUpdateGlobal = () => {
-  accountDataUpdateFetchers.forEach((fetcher) => fetcher());
+  currentAccountDataFetcher?.();
 };
 
 function registerAccountDataUpdateFetcher(fetcher: () => void) {
-  accountDataUpdateFetchers.add(fetcher);
+  currentAccountDataFetcher = fetcher;
   if (!accountDataUpdateListenerRegistered) {
     appEventBus.on(
       EAppEventBusNames.AccountDataUpdate,
@@ -43,11 +43,10 @@ function registerAccountDataUpdateFetcher(fetcher: () => void) {
 }
 
 function unregisterAccountDataUpdateFetcher(fetcher: () => void) {
-  accountDataUpdateFetchers.delete(fetcher);
-  if (
-    accountDataUpdateFetchers.size === 0 &&
-    accountDataUpdateListenerRegistered
-  ) {
+  if (currentAccountDataFetcher === fetcher) {
+    currentAccountDataFetcher = null;
+  }
+  if (accountDataUpdateListenerRegistered && !currentAccountDataFetcher) {
     appEventBus.off(
       EAppEventBusNames.AccountDataUpdate,
       handleAccountDataUpdateGlobal,
@@ -316,7 +315,11 @@ export interface IUseEarnPortfolioReturn {
   refresh: (options?: IRefreshOptions) => Promise<void>;
 }
 
-export const useEarnPortfolio = (): IUseEarnPortfolioReturn => {
+export const useEarnPortfolio = ({
+  isActive = true,
+}: {
+  isActive?: boolean;
+} = {}): IUseEarnPortfolioReturn => {
   const isMountedRef = useRef(true);
   const isSyncingAtomRef = useRef(false);
   const { activeAccount } = useActiveAccount({ num: 0 });
@@ -723,7 +726,13 @@ export const useEarnPortfolio = (): IUseEarnPortfolioReturn => {
     fetchRef.current = fetchAndUpdateInvestments;
   }, [fetchAndUpdateInvestments]);
 
+  const shouldRegisterAccountListener =
+    isActive && (accountIdValue || indexedAccountIdValue);
   useEffect(() => {
+    if (!shouldRegisterAccountListener) {
+      return () => undefined;
+    }
+
     const fetcher = () => {
       if (isSyncingAtomRef.current) return;
       void fetchRef.current();
@@ -732,7 +741,7 @@ export const useEarnPortfolio = (): IUseEarnPortfolioReturn => {
     return () => {
       unregisterAccountDataUpdateFetcher(fetcher);
     };
-  }, []);
+  }, [shouldRegisterAccountListener, accountIdValue, indexedAccountIdValue]);
 
   const aggregatedInvestments = useMemo(
     () => aggregateByProtocol(investments),
