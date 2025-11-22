@@ -107,6 +107,7 @@ function CopyDiagnosticButton({ diagnosticText }: { diagnosticText: string }) {
 
   return (
     <Button
+      variant="primary"
       size="small"
       onPress={() => {
         void copyText(diagnosticText);
