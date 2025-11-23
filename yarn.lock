@@ -6902,14 +6902,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/electron-mac-icloud@npm:1.2.2":
-  version: 1.2.2
-  resolution: "@onekeyfe/electron-mac-icloud@npm:1.2.2"
+"@onekeyfe/electron-mac-icloud@npm:1.2.4":
+  version: 1.2.4
+  resolution: "@onekeyfe/electron-mac-icloud@npm:1.2.4"
   dependencies:
     bindings: "npm:1.5.0"
     node-addon-api: "npm:5.0.0"
     node-gyp: "npm:latest"
-  checksum: 10/5775d2c542ee18b984dba95c13e92c22d741fe38b6a835bef8bde9612c77c0c43f9d6de51a8069760ffd5aa44c2cce7e64912f13adc9d6478403a4f620ba91ff
+  checksum: 10/1687e0bc1e7bdbd3f9d1b06a96c0283b1cd632372e0a4b17bb2a79726fca61309850a9e3ac37eb3c2075d84c0a5e4712a0651acc81f4303d1c64f606834a15a7
   languageName: node
   linkType: hard
 
@@ -7794,7 +7794,7 @@ __metadata:
   dependencies:
     "@electron/notarize": "npm:2.3.2"
     "@electron/remote": "npm:^2.0.1"
-    "@onekeyfe/electron-mac-icloud": "npm:1.2.2"
+    "@onekeyfe/electron-mac-icloud": "npm:1.2.4"
     "@sentry/electron": "npm:5.8.0"
     "@stoprocent/noble": "npm:2.3.4"
     "@types/adm-zip": "npm:^0"
