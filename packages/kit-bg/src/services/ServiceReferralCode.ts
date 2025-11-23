@@ -92,12 +92,16 @@ class ServiceReferralCode extends ServiceBase {
       subject: string;
       timeRange: string;
       inviteCode?: string;
+      tab?: string;
     } = {
       subject: params.subject,
       timeRange: params.timeRange,
     };
     if (params.inviteCode) {
       queryParams.inviteCode = params.inviteCode;
+    }
+    if (params.tab) {
+      queryParams.tab = params.tab;
     }
     // API returns CSV string directly, not JSON
     const response = await client.get<string>('/rebate/v1/invite/export', {

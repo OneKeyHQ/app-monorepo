@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -10,7 +10,10 @@ import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
 import { useRedirectWhenNotLoggedIn } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useRedirectWhenNotLoggedIn';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { EExportSubject } from '@onekeyhq/shared/src/referralCode/type';
+import {
+  EExportSubject,
+  EExportTab,
+} from '@onekeyhq/shared/src/referralCode/type';
 import type {
   ETabReferFriendsRoutes,
   ITabReferFriendsParamList,
@@ -51,6 +54,9 @@ function EarnRewardPageWrapper() {
 
   // Use the filter hook for state management only
   const { filterState, updateFilter } = useRewardFilter();
+  const [activeRewardTab, setActiveRewardTab] = useState<EExportTab>(
+    EExportTab.Earn,
+  );
 
   const tools = useCallback(() => {
     return (
@@ -60,10 +66,15 @@ function EarnRewardPageWrapper() {
           subject={EExportSubject.Onchain}
           timeRange={filterState.timeRange}
           inviteCode={filterState.inviteCode}
+          tab={activeRewardTab}
         />
       </XStack>
     );
-  }, [filterState, updateFilter]);
+  }, [activeRewardTab, filterState, updateFilter]);
+
+  const handleRewardTabChange = useCallback((tab: EExportTab) => {
+    setActiveRewardTab(tab);
+  }, []);
 
   return (
     <Page>
@@ -118,6 +129,7 @@ function EarnRewardPageWrapper() {
             })}
             earnContent={<EarnRewardsTab filterState={filterState} />}
             perpsContent={<PerpsRecordsTab filterState={filterState} />}
+            onTabChange={handleRewardTabChange}
           />
         </YStack>
       </Page.Body>

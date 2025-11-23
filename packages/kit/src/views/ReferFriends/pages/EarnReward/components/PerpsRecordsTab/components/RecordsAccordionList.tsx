@@ -54,7 +54,7 @@ export function RecordsAccordionList({ sections }: IRecordsAccordionListProps) {
           })}
         </SizableText>
       </XStack>
-      <Accordion type="single" collapsible gap="$2">
+      <Accordion type="single" collapsible>
         {sections.map(({ key, accountAddress, fiatValue, items }) => (
           <Accordion.Item value={key} key={key}>
             <Accordion.Trigger

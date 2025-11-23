@@ -394,10 +394,16 @@ export enum EExportTimeRange {
   SixMonths = '6months',
 }
 
+export enum EExportTab {
+  Earn = 'Earn',
+  Perp = 'Perp',
+}
+
 export interface IExportInviteDataParams {
   subject: EExportSubject;
   timeRange: EExportTimeRange;
   inviteCode?: string;
+  tab?: EExportTab;
 }
 
 // API returns CSV string directly

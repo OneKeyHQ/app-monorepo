@@ -38,30 +38,29 @@ export function TradingVolumeSummaryCard({
     <XStack
       ai="center"
       jc="space-between"
-      py="$3"
-      px="$5"
-      bg="$bgSubdued"
-      borderRadius="$3"
+      py="$2"
+      px="$0"
       testID="TradingVolumeSummaryCard"
       {...rest}
     >
       {/* Left section: Title and total fiat value */}
-      <YStack gap="$1">
-        <SizableText size="$bodyMd" color="$textSubdued">
+      <YStack gap="$0">
+        <SizableText size="$bodyMd" color="$text">
           {displayTitle}
         </SizableText>
-        <Currency formatter="value" size="$heading3xl" fontWeight="600">
+        <Currency formatter="value" size="$bodySm" color="$textSubdued">
           {totalFiatValue}
         </Currency>
       </YStack>
 
       {/* Right section: Token icon, amount, and fiat value */}
-      <XStack ai="center" gap="$2">
-        <Token size="sm" tokenImageUri={token.logoURI} />
+      <XStack ai="center" gap="$2" borderRadius="$2">
+        <Token size="xs" tokenImageUri={token.logoURI} />
         <XStack ai="center" gap="$1">
           <NumberSizeableText
             formatter="balance"
-            size="$bodyLgMedium"
+            size="$bodyMd"
+            color="$text"
             formatterOptions={{
               tokenSymbol: token.symbol || '',
             }}
@@ -69,13 +68,13 @@ export function TradingVolumeSummaryCard({
             {tokenAmount}
           </NumberSizeableText>
           <XStack ai="center">
-            <SizableText size="$bodyLg" color="$textSubdued">
+            <SizableText size="$bodyMd" color="$textSubdued">
               (
             </SizableText>
-            <Currency formatter="value" size="$bodyLg" color="$textSubdued">
+            <Currency formatter="value" size="$bodyMd" color="$textSubdued">
               {tokenFiatValue}
             </Currency>
-            <SizableText size="$bodyLg" color="$textSubdued">
+            <SizableText size="$bodyMd" color="$textSubdued">
               )
             </SizableText>
           </XStack>
