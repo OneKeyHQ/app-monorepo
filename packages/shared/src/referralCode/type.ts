@@ -151,6 +151,34 @@ export interface IEarnRewardResponse {
   total: number;
 }
 
+export interface IPerpsRecordToken {
+  networkId: string;
+  address: string;
+  logoURI: string;
+  name: string;
+  symbol: string;
+}
+
+export interface IPerpsRecordItemDetail {
+  token: IPerpsRecordToken;
+  amount: string;
+  amountFiatValue: string;
+  tradingVolume: string;
+  tradingVolumeFiatValue: string;
+}
+
+export interface IPerpsRecordItem {
+  accountAddress: string;
+  fiatValue: string;
+  items: IPerpsRecordItemDetail[];
+}
+
+export interface IPerpsRecordsResponse {
+  fiatValue: string;
+  items: IPerpsRecordItem[];
+  total: number;
+}
+
 export interface IEarnPositionItem {
   key: string;
   networkId: string;

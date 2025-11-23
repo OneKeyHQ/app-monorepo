@@ -1,20 +1,24 @@
-import { useIntl } from 'react-intl';
+import type { ReactNode } from 'react';
 
 import { Tabs } from '@onekeyhq/components';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-export function RewardTypeTabs() {
-  const intl = useIntl();
+interface IRewardTypeTabsProps {
+  earnLabel: string;
+  perpsLabel: string;
+  earnContent: ReactNode;
+  perpsContent: ReactNode;
+}
 
+export function RewardTypeTabs({
+  earnLabel,
+  perpsLabel,
+  earnContent,
+  perpsContent,
+}: IRewardTypeTabsProps) {
   return (
     <Tabs.Container renderTabBar={(props) => <Tabs.TabBar {...props} />}>
-      <Tabs.Tab
-        name={intl.formatMessage({
-          id: ETranslations.referral_referred_type_2,
-        })}
-      >
-        <Tabs.ScrollView />
-      </Tabs.Tab>
+      <Tabs.Tab name={earnLabel}>{earnContent}</Tabs.Tab>
+      <Tabs.Tab name={perpsLabel}>{perpsContent}</Tabs.Tab>
     </Tabs.Container>
   );
 }
