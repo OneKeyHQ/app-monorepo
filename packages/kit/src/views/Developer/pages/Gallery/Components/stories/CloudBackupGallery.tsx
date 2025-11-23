@@ -11,13 +11,13 @@ import {
 } from '@onekeyhq/components';
 import { decryptAsync } from '@onekeyhq/core/src/secret/encryptors/aes256';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { showBatchCreateAccountProcessingDialog } from '@onekeyhq/kit/src/views/AccountManagerStacks/pages/BatchCreateAccount/ProcessingDialog';
 import { showPrimeTransferImportProcessingDialog } from '@onekeyhq/kit/src/views/Prime/pages/PagePrimeTransfer/components/PrimeTransferImportProcessingDialog';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IPrimeTransferData } from '@onekeyhq/shared/types/prime/primeTransferTypes';
 
 import { Layout } from './utils/Layout';
-import { showBatchCreateAccountProcessingDialog } from '../../../../../AccountManagerStacks/pages/BatchCreateAccount/ProcessingDialog';
 
 function demoLog(data: any, apiName: string) {
   Dialog.debugMessage({
