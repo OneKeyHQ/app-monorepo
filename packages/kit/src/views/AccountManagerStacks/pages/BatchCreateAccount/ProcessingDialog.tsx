@@ -130,12 +130,10 @@ function ProcessingDialogContent({
         py="$2.5"
         px="$5"
         gap="$5"
-        flex={1}
         alignItems="center"
         justifyContent="center"
       >
         <Stack
-          flex={1}
           alignItems="center"
           justifyContent="center"
           alignSelf="center"

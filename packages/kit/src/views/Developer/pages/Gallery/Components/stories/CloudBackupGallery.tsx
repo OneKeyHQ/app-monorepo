@@ -17,6 +17,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IPrimeTransferData } from '@onekeyhq/shared/types/prime/primeTransferTypes';
 
 import { Layout } from './utils/Layout';
+import { showBatchCreateAccountProcessingDialog } from '../../../../../AccountManagerStacks/pages/BatchCreateAccount/ProcessingDialog';
 
 function demoLog(data: any, apiName: string) {
   Dialog.debugMessage({
@@ -120,6 +121,12 @@ export function CloudBackupApiTests() {
             variant="secondary"
           >
             ShowImportProcessingDialog
+          </Button>
+          <Button
+            onPress={() => showBatchCreateAccountProcessingDialog({})}
+            variant="secondary"
+          >
+            ShowBatchCreateAccountProcessingDialog
           </Button>
           <Button
             onPress={() =>
