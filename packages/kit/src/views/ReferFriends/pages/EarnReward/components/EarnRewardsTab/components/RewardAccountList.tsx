@@ -1,10 +1,7 @@
-import type { ReactNode } from 'react';
-
 import { useIntl } from 'react-intl';
 
 import {
   Accordion,
-  Divider,
   NumberSizeableText,
   SizableText,
   XStack,
@@ -41,124 +38,92 @@ interface IRewardAccountListProps {
   listData: ISectionData[];
   vaultAmount?: IVaultAmount;
   showDeposited?: boolean;
-  headerTitle?: string;
-  headerValue?: string | number;
-  actions?: ReactNode;
 }
 
 export function RewardAccountList({
   listData,
   vaultAmount,
   showDeposited = true,
-  headerTitle,
-  headerValue,
-  actions,
 }: IRewardAccountListProps) {
   const intl = useIntl();
   return listData.length > 0 ? (
-    <YStack px="$5" py="$2">
-      <XStack ai="center" jc="space-between">
-        <SizableText size="$headingSm">
-          {headerTitle ||
-            intl.formatMessage({
-              id: ETranslations.referral_referred_type_2,
-            })}
-        </SizableText>
-        {headerValue !== undefined || actions ? (
-          <XStack ai="center" gap="$3">
-            {headerValue !== undefined ? (
-              <Currency formatter="value" size="$headingMd">
-                {headerValue}
-              </Currency>
-            ) : null}
-            {actions}
-          </XStack>
-        ) : null}
-      </XStack>
-      <Divider my="$3" />
-      <YStack>
-        <ReferFriendsListHeader />
-        <Accordion type="single" collapsible gap="$2">
-          {listData.map(({ accountAddress, fiatValue, items }) => (
-            <ReferFriendsAccordionItem
-              key={accountAddress}
-              value={accountAddress}
-              accountAddress={accountAddress}
-              fiatValue={fiatValue}
-              contentProps={{ pt: '$0' }}
-            >
-              {items.map((item, itemIndex) => (
-                <XStack
-                  ai="center"
-                  jc="space-between"
-                  key={itemIndex}
-                  py="$2"
-                >
-                  <YStack flexShrink={1}>
-                    <SizableText size="$bodyMd">
-                      {accountUtils.shortenAddress({
-                        address: accountAddress,
-                        leadingLength: 6,
-                        trailingLength: 4,
-                      })}
-                    </SizableText>
-                    {showDeposited ? (
-                      <SizableText
+    <YStack>
+      <ReferFriendsListHeader />
+      <Accordion type="single" collapsible gap="$2">
+        {listData.map(({ accountAddress, fiatValue, items }) => (
+          <ReferFriendsAccordionItem
+            key={accountAddress}
+            value={accountAddress}
+            accountAddress={accountAddress}
+            fiatValue={fiatValue}
+            contentProps={{ p: '$0' }}
+          >
+            {items.map((item, itemIndex) => (
+              <XStack ai="center" jc="space-between" key={itemIndex} py="$2">
+                <YStack flexShrink={1}>
+                  <SizableText size="$bodyMd">
+                    {accountUtils.shortenAddress({
+                      address: accountAddress,
+                      leadingLength: 6,
+                      trailingLength: 4,
+                    })}
+                  </SizableText>
+                  {showDeposited ? (
+                    <SizableText
+                      size="$bodySm"
+                      color="$textSubdued"
+                      flexShrink={1}
+                      bg="$green3"
+                    >
+                      <NumberSizeableText
+                        flexShrink={1}
+                        formatter="balance"
                         size="$bodySm"
                         color="$textSubdued"
-                        flexShrink={1}
-                      >
-                        <NumberSizeableText
-                          flexShrink={1}
-                          formatter="balance"
-                          size="$bodySm"
-                          color="$textSubdued"
-                          formatterOptions={{
-                            tokenSymbol: item.token.symbol || '',
-                          }}
-                        >
-                          {vaultAmount?.[accountAddress]?.[
-                            buildVaultKey(item)
-                          ] || 0}
-                        </NumberSizeableText>
-                        {` ${intl.formatMessage({
-                          id: ETranslations.earn_deposited,
-                        })}`}
-                      </SizableText>
-                    ) : null}
-                  </YStack>
-                  <XStack
-                    ai="center"
-                    gap="$2"
-                    flexDirection="row"
-                    $gtMd={{ gap: '$4' }}
-                  >
-                    <XStack ai="center">
-                      <Token
-                        size="xs"
-                        tokenImageUri={item.token.logoURI}
-                        mr="$2"
-                      />
-                      <NumberSizeableText
-                        formatter="balance"
-                        size="$bodyMd"
                         formatterOptions={{
                           tokenSymbol: item.token.symbol || '',
                         }}
                       >
-                        {item.amount}
+                        {vaultAmount?.[accountAddress]?.[buildVaultKey(item)] ||
+                          0}
                       </NumberSizeableText>
-                    </XStack>
-                    <Currency formatter="value" size="$bodyMd">
-                      {item.fiatValue}
-                    </Currency>
+                      {` ${intl.formatMessage({
+                        id: ETranslations.earn_deposited,
+                      })}`}
+                    </SizableText>
+                  ) : null}
+                </YStack>
+                <XStack
+                  ai="center"
+                  gap="$2"
+                  flexDirection="row"
+                  $gtMd={{ gap: '$4' }}
+                >
+                  <XStack ai="center">
+                    <Token
+                      size="xs"
+                      tokenImageUri={item.token.logoURI}
+                      mr="$2"
+                    />
+                    <NumberSizeableText
+                      formatter="balance"
+                      size="$bodyMd"
+                      formatterOptions={{
+                        tokenSymbol: item.token.symbol || '',
+                      }}
+                    >
+                      {item.amount}
+                    </NumberSizeableText>
                   </XStack>
+                  <Currency formatter="value" size="$bodyMd">
+                    {item.fiatValue}
+                  </Currency>
                 </XStack>
-              ))}
-            </ReferFriendsAccordionItem>
-          ))}
-        </Accordion>
-      </YStack>
+              </XStack>
+            ))}
+          </ReferFriendsAccordionItem>
+        ))}
+      </Accordion>
     </YStack>
   ) : (
     <EmptyData />

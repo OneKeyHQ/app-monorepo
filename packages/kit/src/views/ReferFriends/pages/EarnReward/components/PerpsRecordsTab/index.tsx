@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 
-import { Divider, YStack } from '@onekeyhq/components';
+import { YStack } from '@onekeyhq/components';
 import type { IFilterState } from '@onekeyhq/kit/src/views/ReferFriends/components/FilterButton';
 
 import { EmptyData } from '../EmptyData';
@@ -59,13 +59,14 @@ export function PerpsRecordsTab({
   }, [currentRecords]);
 
   return (
-    <YStack gap="$3">
-      <UndistributedRewardCard value={undistributedValue} mx="$5" mb="$1" />
+    <YStack gap="$5" py="$4" px="$5">
+      <UndistributedRewardCard value={undistributedValue} />
 
-      <YStack px="$5" gap="$3">
+      <YStack gap="$4">
         {showTabSwitcher ? (
           <RecordsTabSwitcher value={activeTab} onChange={setActiveTab} />
         ) : null}
+
         {hasData ? <RecordsAccordionList sections={listData} /> : <EmptyData />}
       </YStack>
     </YStack>

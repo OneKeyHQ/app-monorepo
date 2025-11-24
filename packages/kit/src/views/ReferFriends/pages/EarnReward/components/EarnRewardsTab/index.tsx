@@ -1,10 +1,7 @@
 import { useEffect, useState } from 'react';
 
-import { useIntl } from 'react-intl';
-
-import { ScrollView, Stack, YStack } from '@onekeyhq/components';
+import { YStack } from '@onekeyhq/components';
 import type { IFilterState } from '@onekeyhq/kit/src/views/ReferFriends/components/FilterButton';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { EmptyData } from '../EmptyData';
 import { ERecordsTabValue, RecordsTabSwitcher } from '../RecordsTabSwitcher';
@@ -26,7 +23,6 @@ interface IEarnRewardsTabProps {
 }
 
 export function EarnRewardsTab({ filterState }: IEarnRewardsTabProps) {
-  const intl = useIntl();
   const { lists, amountPending, vaultAmount, isLoading } =
     useEarnRewards(filterState);
   const [activeTab, setActiveTab] = useState<ERecordsTabValue>(
@@ -35,63 +31,41 @@ export function EarnRewardsTab({ filterState }: IEarnRewardsTabProps) {
 
   const hasAvailableData = (lists[0]?.length ?? 0) > 0;
   const hasTotalData = (lists[1]?.length ?? 0) > 0;
+  const showTabSwitcher = hasAvailableData || hasTotalData;
 
   useEffect(() => {
-    if (
-      activeTab === ERecordsTabValue.available &&
-      !hasAvailableData &&
-      hasTotalData
-    ) {
-      setActiveTab(ERecordsTabValue.total);
-    } else if (
-      activeTab === ERecordsTabValue.total &&
-      !hasTotalData &&
-      hasAvailableData
-    ) {
+    if (hasAvailableData) {
       setActiveTab(ERecordsTabValue.available);
+    } else if (hasTotalData) {
+      setActiveTab(ERecordsTabValue.total);
     }
-  }, [activeTab, hasAvailableData, hasTotalData]);
+  }, [hasAvailableData, hasTotalData]);
 
   const currentList =
     activeTab === ERecordsTabValue.available ? lists[0] || [] : lists[1] || [];
-
-  const undistributedCard = (
-    <UndistributedRewardCard value={amountPending ?? 0} mx="$5" mb="$4" />
-  );
-
-  if ((lists[0]?.length || 0) + (lists[1]?.length || 0) === 0) {
-    return (
-      <Stack>
-        {undistributedCard}
-        <YStack px="$5">
-          <EmptyData />
-        </YStack>
-        <LoadingOverlay visible={isLoading} />
-      </Stack>
-    );
-  }
+  const hasData = currentList.length > 0;
 
   return (
-    <Stack>
-      {undistributedCard}
-      <RecordsTabSwitcher value={activeTab} onChange={setActiveTab} />
-      <ScrollView style={{ paddingBottom: 40 }}>
-        <RewardAccountList
-          listData={currentList}
-          vaultAmount={vaultAmount}
-          showDeposited
-          headerTitle={
-            activeTab === ERecordsTabValue.available
-              ? intl.formatMessage({
-                  id: ETranslations.referral_reward_undistributed,
-                })
-              : intl.formatMessage({
-                  id: ETranslations.referral_referred_total,
-                })
-          }
-        />
-      </ScrollView>
+    <YStack gap="$5" py="$4" px="$5">
+      <UndistributedRewardCard value={amountPending ?? 0} />
+
+      <YStack gap="$4">
+        {showTabSwitcher ? (
+          <RecordsTabSwitcher value={activeTab} onChange={setActiveTab} />
+        ) : null}
+
+        {hasData ? (
+          <RewardAccountList
+            listData={currentList}
+            vaultAmount={vaultAmount}
+            showDeposited
+          />
+        ) : (
+          <EmptyData />
+        )}
+      </YStack>
+
       <LoadingOverlay visible={isLoading} />
-    </Stack>
+    </YStack>
   );
 }
