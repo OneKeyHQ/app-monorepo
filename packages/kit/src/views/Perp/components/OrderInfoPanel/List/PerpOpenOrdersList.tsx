@@ -33,9 +33,6 @@ function PerpOpenOrdersList({
   const [currentUser] = usePerpsActiveAccountAtom();
   const actions = useHyperliquidActions();
   const [currentListPage, setCurrentListPage] = useState(1);
-  const orders = useMemo(() => {
-    return openOrders.filter((o) => !o.coin.startsWith('@'));
-  }, [openOrders]);
   useEffect(() => {
     noop(currentUser?.accountAddress);
     setCurrentListPage(1);
@@ -123,12 +120,12 @@ function PerpOpenOrdersList({
         minWidth: 100,
         align: 'right',
         flex: 1,
-        ...(orders.length > 0 && {
+        ...(openOrders.length > 0 && {
           onPress: () => showCancelAllOrdersDialog(),
         }),
       },
     ],
-    [intl, orders.length],
+    [intl, openOrders.length],
   );
 
   const handleCancelOrder = useCallback(
@@ -189,12 +186,14 @@ function PerpOpenOrdersList({
       )}
       useTabsList={useTabsList}
       disableListScroll={disableListScroll}
-      enablePagination={!isMobile}
+      enablePagination
+      pageSize={isMobile ? 20 : 40}
+      paginationToBottom={isMobile}
       currentListPage={currentListPage}
       setCurrentListPage={setCurrentListPage}
       columns={columnsConfig}
       minTableWidth={totalMinWidth}
-      data={orders}
+      data={openOrders}
       isMobile={isMobile}
       renderRow={renderOrderRow}
       emptyMessage={intl.formatMessage({
