@@ -49,6 +49,7 @@ import {
   perpsAllAssetsFilteredAtom,
   perpsAllMidsAtom,
   perpsLedgerUpdatesAtom,
+  perpsOpenOrdersByCoinAtomCache,
   subscriptionActiveAtom,
   tradingFormAtom,
   tradingLoadingAtom,
@@ -59,6 +60,57 @@ import type { ITradingFormData } from './atoms';
 
 class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
   private orderBookTickOptionsLoaded = false;
+
+  private buildOpenOrdersByCoinMap(
+    openOrders: HL.IPerpsFrontendOrder[],
+    prevMap?: Record<string, HL.IPerpsFrontendOrder[]>,
+  ) {
+    const grouped = openOrders.reduce<Record<string, HL.IPerpsFrontendOrder[]>>(
+      (acc, order) => {
+        if (!acc[order.coin]) {
+          acc[order.coin] = [];
+        }
+        acc[order.coin].push(order);
+        return acc;
+      },
+      {},
+    );
+
+    if (!prevMap) {
+      return grouped;
+    }
+
+    Object.keys(grouped).forEach((coin) => {
+      const prevList = prevMap[coin];
+      const nextList = grouped[coin];
+
+      if (!prevList || prevList.length !== nextList.length) {
+        return;
+      }
+
+      let isSame = true;
+      for (let i = 0; i < nextList.length; i += 1) {
+        const prev = prevList[i];
+        const next = nextList[i];
+
+        if (
+          prev.oid !== next.oid ||
+          prev.sz !== next.sz ||
+          prev.limitPx !== next.limitPx ||
+          prev.triggerPx !== next.triggerPx
+        ) {
+          isSame = false;
+          break;
+        }
+      }
+
+      if (isSame) {
+        grouped[coin] = prevList;
+      }
+    });
+
+    return grouped;
+  }
 
   updateAllMids = contextAtomMethod((_, set, data: HL.IWsAllMids) => {
     set(perpsAllMidsAtom(), data);
@@ -137,10 +189,19 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         activePositions,
       });
 
-      const openOrders = data?.openOrders || [];
+      const prevOpenOrdersState = get(perpsActiveOpenOrdersAtom());
+      const allOrders = data?.openOrders || [];
+      const openOrders = allOrders.filter(
+        (order) => !order.coin.startsWith('@'),
+      );
+      const openOrdersByCoin = this.buildOpenOrdersByCoinMap(
+        openOrders,
+        prevOpenOrdersState?.openOrdersByCoin,
+      );
       set(perpsActiveOpenOrdersAtom(), {
         accountAddress: activeAccountAddress,
         openOrders,
+        openOrdersByCoin,
       });
     } else {
       const activePosition = get(perpsActivePositionAtom());
@@ -159,6 +220,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         set(perpsActiveOpenOrdersAtom(), {
           accountAddress: activeAccountAddress,
           openOrders: [],
+          openOrdersByCoin: {},
         });
       }
     }
@@ -462,7 +524,9 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     set(perpsActiveOpenOrdersAtom(), {
       accountAddress: undefined,
       openOrders: [],
+      openOrdersByCoin: {},
     });
+    perpsOpenOrdersByCoinAtomCache.clear();
     const current = get(perpsLedgerUpdatesAtom());
     set(perpsLedgerUpdatesAtom(), {
       accountAddress: undefined,
@@ -827,7 +891,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     },
   );
 
-  ensureTradingEnabled = contextAtomMethod(async (get, _set) => {
+  ensureTradingEnabled = contextAtomMethod(async (_get, _set) => {
     const info = await perpsActiveAccountIsAgentReadyAtom.get();
     if (info.isAgentReady === false) {
       showEnableTradingDialog();

@@ -45,6 +45,7 @@ import {
   EMultiTabBrowserRoutes,
   EOnboardingPagesV2,
   EOnboardingV2Routes,
+  ETabEarnRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { ERootRoutes } from '@onekeyhq/shared/src/routes/root';
@@ -267,7 +268,9 @@ const useDesktopEvents = platformEnv.isDesktop
             break;
           case EShortcutEvents.TabEarn:
             ensureModalClosedAndNavigate(() => {
-              navigation.switchTab(ETabRoutes.Earn);
+              navigation.switchTab(ETabRoutes.Earn, {
+                screen: ETabEarnRoutes.EarnHome,
+              });
             });
             break;
           case EShortcutEvents.TabSwap:

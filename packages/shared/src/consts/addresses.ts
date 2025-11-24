@@ -7,6 +7,7 @@ export const EthereumCbBTC = '0xcbB7C0000aB88B473b1f5aFd9ef808440eed33Bf';
 export const EthereumWBTC = '0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599';
 export const EthereumUSDF = '0xFa2B947eEc368f42195f24F36d2aF29f7c24CeC2';
 export const EthereumUSDe = '0x4c9EDD5852cd905f086C759E8383e09bff1E68B3';
+export const EthereumMORPHO = '0x58D97B57BB95320F9a05dC918Aef65434969c2B2';
 export const BinanceSmartChainUSDT =
   '0x55d398326f99059fF775485246999027B3197955';
 export const SuiUSDC =
