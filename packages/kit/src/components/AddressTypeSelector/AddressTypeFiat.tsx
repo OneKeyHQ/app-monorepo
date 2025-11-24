@@ -4,9 +4,9 @@ import { find } from 'lodash';
 
 import {
   NumberSizeableText,
-  useMedia,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 

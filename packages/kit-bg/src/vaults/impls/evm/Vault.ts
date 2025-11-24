@@ -19,6 +19,7 @@ import {
 } from '@onekeyhq/shared/src/errors';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import numberUtils, {
   toBigIntHex,
 } from '@onekeyhq/shared/src/utils/numberUtils';
@@ -114,7 +115,6 @@ import type {
   IWrappedInfo,
 } from '../../types';
 import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
-import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 const enabledNFTNetworkIds = networkUtils.getEnabledNFTNetworkIds();
 
