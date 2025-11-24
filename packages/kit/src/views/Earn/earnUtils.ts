@@ -50,15 +50,49 @@ export const EarnNetworkUtils = {
   },
 };
 
-function safePushToEarnRoute(
+async function safePushToEarnRoute(
   navigation: IAppNavigation,
   route: ETabEarnRoutes,
   params?: any,
 ) {
-  if (route === ETabEarnRoutes.EarnHome) {
-    navigation.popTo(route, params);
+  const rootState = rootNavigationRef.current?.getRootState?.();
+  const mainRoute = rootState?.routes?.find((r) => r.name === ERootRoutes.Main);
+
+  const tabState =
+    (mainRoute as { state?: { index?: number; routes?: { name?: string }[] } })
+      ?.state || {};
+  const currentTab = tabState.routes?.[tabState.index ?? 0]?.name as
+    | ETabRoutes
+    | undefined;
+
+  // 在「发现」Tab 内的 DeFi 子页，保持在当前 Tab 栈内导航，避免切到隐藏的 Earn Tab。
+  if (currentTab === ETabRoutes.Discovery) {
+    if (rootNavigationRef.current) {
+      rootNavigationRef.current.navigate(ERootRoutes.Main, {
+        screen: ETabRoutes.Discovery,
+        params: {
+          screen: route,
+          params,
+        },
+      });
+    } else {
+      navigation.navigate(ETabRoutes.Discovery as any, {
+        screen: route,
+        params,
+      });
+    }
+    return;
   }
-  navigation.popTo(ERootRoutes.Main, {
+
+  if (currentTab !== ETabRoutes.Earn) {
+    navigation.switchTab(ETabRoutes.Earn, {
+      screen: route,
+      params,
+    });
+    return;
+  }
+
+  navigation.navigate(ERootRoutes.Main, {
     screen: ETabRoutes.Earn,
     params: {
       screen: route,
