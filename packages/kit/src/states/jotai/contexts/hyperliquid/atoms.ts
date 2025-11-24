@@ -135,6 +135,7 @@ export const {
 export type IPerpsActiveOpenOrdersAtom = {
   accountAddress: string | undefined;
   openOrders: HL.IPerpsFrontendOrder[];
+  openOrdersByCoin: Record<string, HL.IPerpsFrontendOrder[]>;
 };
 export const {
   atom: perpsActiveOpenOrdersAtom,
@@ -142,6 +143,7 @@ export const {
 } = contextAtom<IPerpsActiveOpenOrdersAtom>({
   accountAddress: undefined,
   openOrders: [],
+  openOrdersByCoin: {},
 });
 
 export const {
@@ -168,6 +170,31 @@ export const {
     return acc;
   }, {} as { [coin: string]: number[] });
 });
+
+export const perpsOpenOrdersByCoinAtomCache = new Map<
+  string,
+  ReturnType<typeof contextAtomComputed<HL.IPerpsFrontendOrder[]>>
+>();
+
+function getOrCreatePerpsOpenOrdersByCoinAtom(coin: string) {
+  let entry = perpsOpenOrdersByCoinAtomCache.get(coin);
+  if (!entry) {
+    entry = contextAtomComputed((get) => {
+      const { openOrdersByCoin } = get(perpsActiveOpenOrdersAtom());
+      return openOrdersByCoin?.[coin] ?? [];
+    });
+    perpsOpenOrdersByCoinAtomCache.set(coin, entry);
+  }
+  return entry;
+}
+
+export function usePerpsOpenOrdersByCoin(
+  coin: string,
+): HL.IPerpsFrontendOrder[] {
+  const { use } = getOrCreatePerpsOpenOrdersByCoinAtom(coin);
+  const [orders] = use();
+  return orders;
+}
 
 export type IPerpsLedgerUpdatesAtom = {
   accountAddress: string | undefined;
