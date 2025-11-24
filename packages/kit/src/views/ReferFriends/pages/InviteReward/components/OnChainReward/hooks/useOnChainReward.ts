@@ -2,12 +2,6 @@ import { useCallback, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import { useNavigateToEarnReward } from '@onekeyhq/kit/src/views/ReferFriends/pages/EarnReward/hooks/useNavigateToEarnReward';
-import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
-
 import type {
   IUseOnChainRewardParams,
   IUseOnChainRewardReturn,
@@ -16,52 +10,50 @@ import type {
 export function useOnChainReward({
   onChain,
 }: IUseOnChainRewardParams): IUseOnChainRewardReturn {
-  const navigateToEarnReward = useNavigateToEarnReward();
-  const { activeAccount } = useActiveAccount({ num: 0 });
-
-  // Navigation callback
-  const toEarnRewardPage = useCallback(() => {
-    navigateToEarnReward(onChain.title || '');
-  }, [navigateToEarnReward, onChain.title]);
-
-  // Check if rewards are available
-  const showRewards = useMemo(
+  const hasEarnRewards = useMemo(
     () => (onChain.available?.length || 0) > 0,
     [onChain.available],
   );
 
-  // Calculate total USD value
-  const onChainSummary = useMemo(() => {
-    return onChain.available
-      ?.reduce((acc, curr) => {
-        return acc.plus(BigNumber(curr.usdValue));
-      }, BigNumber(0))
-      .toFixed(2);
-  }, [onChain.available]);
+  // Calculate total USD/fiat value for a reward list
+  const calculateSummary = useCallback(
+    (
+      rewards:
+        | {
+            usdValue: string;
+            fiatValue: string;
+          }[]
+        | undefined,
+      key: 'usdValue' | 'fiatValue',
+    ) => {
+      if (!rewards?.length) return undefined;
+      return rewards
+        .reduce((acc, curr) => {
+          return acc.plus(BigNumber(curr[key]));
+        }, BigNumber(0))
+        .toFixed(2);
+    },
+    [],
+  );
 
-  // Calculate total fiat value
-  const onChainSummaryFiat = useMemo(() => {
-    return onChain.available
-      ?.reduce((acc, curr) => {
-        return acc.plus(BigNumber(curr.fiatValue));
-      }, BigNumber(0))
-      .toFixed(2);
-  }, [onChain.available]);
+  const onChainSummary = useMemo(
+    () => calculateSummary(onChain.available, 'usdValue'),
+    [calculateSummary, onChain.available],
+  );
 
-  // Fetch USDC token information
-  const { result: earnToken } = usePromiseResult(async () => {
-    return backgroundApiProxy.serviceToken.getToken({
-      networkId: PERPS_NETWORK_ID,
-      tokenIdOnNetwork: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831',
-      accountId: activeAccount.account?.id ?? '',
-    });
-  }, [activeAccount.account?.id]);
+  const onChainSummaryFiat = useMemo(
+    () => calculateSummary(onChain.available, 'fiatValue'),
+    [calculateSummary, onChain.available],
+  );
+
+  const earnToken = useMemo(() => {
+    return onChain.available?.[0]?.token;
+  }, [onChain.available]);
 
   return {
     earnToken,
     onChainSummary,
     onChainSummaryFiat,
-    showRewards,
-    toEarnRewardPage,
+    hasEarnRewards,
   };
 }

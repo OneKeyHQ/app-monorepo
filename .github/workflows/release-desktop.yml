@@ -84,6 +84,20 @@ jobs:
         run: |
           echo ${{ secrets.DESKTOP_KEYS_SECRET }} | base64 -d > apps/desktop/sign.p12
 
+      - name: Install Developer ID provisioning profile for CloudKit
+        env:
+          DESKTOP_ISO_PROVISION_PROFILE_BASE64: ${{secrets.DESKTOP_ISO_PROVISION_PROFILE_BASE64}}
+        run: |
+          # create variables
+          PP_PATH=./apps/desktop/OneKey_Desktop_DeveloperId.provisionprofile
+
+          # import provisioning profile from secrets
+          echo -n "$DESKTOP_ISO_PROVISION_PROFILE_BASE64" | base64 --decode > $PP_PATH
+
+          # apply provisioning profile to system directory
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          cp $PP_PATH ~/Library/MobileDevice/Provisioning\ Profiles
+
       # - name: Publish and Sign Static Linux / Macos
       #   if: ${{ (github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/x') }}
       #   env:
@@ -141,6 +155,11 @@ jobs:
           name: onekey-desktop-linux-appimage-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
           path: |
             ./apps/desktop/build-electron/*.AppImage
+
+      - name: Clean up provisioning profile
+        if: ${{ always() }}
+        run: |
+          rm -f ~/Library/MobileDevice/Provisioning\ Profiles/OneKey_Desktop_DeveloperId.provisionprofile
 
       - name: Upload Artifacts Release
         uses: actions/upload-artifact@v4

@@ -1,31 +1,26 @@
+interface IRewardToken {
+  networkId: string;
+  address: string;
+  logoURI: string;
+  name: string;
+  symbol: string;
+}
+
+interface IRewardBalance {
+  token: IRewardToken;
+  amount: string;
+  fiatValue: string;
+  usdValue: string;
+}
+
 interface IReward {
   title: string;
   description: string;
-  monthlySalesFiatValue: string;
-  available?: {
-    token: {
-      networkId: string;
-      address: string;
-      logoURI: string;
-      name: string;
-      symbol: string;
-    };
-    amount: string;
-    usdValue: string;
-    fiatValue: string;
-  }[];
-  pending?: {
-    token: {
-      networkId: string;
-      address: string;
-      logoURI: string;
-      name: string;
-      symbol: string;
-    };
-    amount: string;
-    fiatValue: string;
-    usdValue: string;
-  }[];
+  monthlySales?: string;
+  monthlySalesFiatValue?: string;
+  available?: IRewardBalance[];
+  pending?: IRewardBalance[];
+  perp?: IRewardBalance[];
 }
 
 export interface IInviteSummary {
@@ -42,42 +37,43 @@ export interface IInviteSummary {
   enabledNetworks: string[];
   totalRewards: string;
   levelPercent: string;
-  nextRebateLevel: string;
+  nextRebateLevel?: string;
   Onchain: IReward;
   rebateConfig: {
     level: number;
+    emoji: string;
+    icon: string;
     rebate: number;
     discount: number;
     threshold: number;
-    emoji: string;
+    thresholdFiatValue: string;
     labelKey: string;
     label: string;
+    configs?: Record<string, IInviteLevelCommissionRate>;
   };
   rebateLevels: {
     level: number;
     rebate: number;
     discount: number;
+    threshold: number;
     thresholdFiatValue: string;
     emoji: string;
+    icon: string;
     labelKey: string;
     label: string;
+    configs?: Record<string, IInviteLevelCommissionRate>;
   }[];
   HardwareSales: IReward & {
-    nextStage: { isEnd: boolean; amount: string; label: string };
-  };
-  banners: any[];
-  cumulativeRewards: {
-    distributed: string;
-    undistributed: string;
-    nextDistribution: string;
-    token: {
-      networkId: string;
-      address: string;
-      logoURI: string;
-      name: string;
-      symbol: string;
+    nextStage: {
+      isEnd: boolean;
+      percent: string;
+      amount: string;
+      label: string;
     };
   };
+  Earn?: Record<string, any>;
+  banners: any[];
+  cumulativeRewards: IHardwareCumulativeRewards;
 }
 
 export interface IEarnWalletHistoryItem {
