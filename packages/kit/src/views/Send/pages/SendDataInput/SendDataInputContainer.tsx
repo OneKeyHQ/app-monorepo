@@ -1,5 +1,13 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  type ReactNode,
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
@@ -90,6 +98,7 @@ import {
   parseOnChainAmount,
 } from '../../../ScanQrCode/hooks/useParseQRCode';
 
+import CoinControlBadge from '../../components/CoinControlBadge';
 import RecentRecipients from './RecentRecipients';
 
 import type { RouteProp } from '@react-navigation/core';
@@ -352,6 +361,10 @@ function SendDataInputContainer() {
 
   const isLightningNetwork =
     networkUtils.isLightningNetworkByNetworkId(networkId);
+  const isBtcLikeNetwork = useMemo(
+    () => networkUtils.isBTCNetwork(currentAccount.networkId),
+    [currentAccount.networkId],
+  );
   const form = useForm<IFormValues>(formOptions);
 
   // token amount or fiat amount
@@ -917,10 +930,22 @@ function SendDataInputContainer() {
     tokenInfo?.symbol,
   ]);
 
+  const showCoinControlButton = useMemo(
+    () => isBtcLikeNetwork && !isNFT,
+    [isBtcLikeNetwork, isNFT],
+  );
+
+  const handleCoinControlPress = useCallback(() => {
+    console.log('Coin Control Pressed');
+  }, []);
+
   const renderAmountInputAddOn = useCallback(() => {
+    const addons: ReactNode[] = [];
+
     if (isLightningNetwork && !isUseFiat) {
-      return (
+      addons.push(
         <LightningUnitSwitch
+          key="lightning-unit-switch"
           value={lnUnit}
           onChange={(v) => {
             setLnUnit(v as ELightningUnit);
@@ -938,13 +963,14 @@ function SendDataInputContainer() {
               }
             }
           }}
-        />
+        />,
       );
     }
 
     if (vaultSettings?.mergeDeriveAssetsEnabled) {
-      return (
+      addons.push(
         <AddressTypeSelector
+          key="address-type-selector"
           placement="top-end"
           walletId={walletId}
           networkId={currentAccount.networkId}
@@ -962,23 +988,48 @@ function SendDataInputContainer() {
               }));
             }
           }}
-        />
+        />,
       );
     }
+
+    if (showCoinControlButton) {
+      addons.push(
+        <CoinControlBadge
+          key="coin-control"
+          onPress={handleCoinControlPress}
+        />,
+      );
+    }
+
+    if (!addons.length) return undefined;
+
+    return (
+      <XStack
+        gap="$2"
+        alignItems="center"
+        justifyContent="flex-end"
+        flexShrink={1}
+        flexWrap="wrap"
+      >
+        {addons}
+      </XStack>
+    );
   }, [
-    isLightningNetwork,
-    isUseFiat,
-    vaultSettings?.mergeDeriveAssetsEnabled,
-    lnUnit,
-    form,
-    walletId,
-    currentAccount.networkId,
     account?.indexedAccountId,
+    currentAccount.networkId,
     deriveInfo,
     deriveType,
     disableAddressTypeSelector,
-    showAddressTypeSelectorWhenDisabled,
+    form,
+    handleCoinControlPress,
+    isLightningNetwork,
+    isUseFiat,
+    lnUnit,
     map,
+    showAddressTypeSelectorWhenDisabled,
+    showCoinControlButton,
+    vaultSettings?.mergeDeriveAssetsEnabled,
+    walletId,
   ]);
 
   const renderTokenDataInputForm = useCallback(
