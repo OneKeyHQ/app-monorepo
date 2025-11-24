@@ -20,13 +20,7 @@ module.exports = {
   // Refer: https://canonical-snap.readthedocs-hosted.com/reference/development/interfaces/raw-usb-interface/
   'snap': {
     'plugs': [
-      'browser-support',
-      'desktop',
-      'desktop-legacy',
-      'gsettings',
-      'network',
-      'pulseaudio',
-      'unity7',
+      "default",
       'raw-usb',
     ],
   },
