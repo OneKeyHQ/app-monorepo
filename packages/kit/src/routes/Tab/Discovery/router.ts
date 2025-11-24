@@ -1,7 +1,9 @@
 import type { ITabSubNavigatorConfig } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { ETabDiscoveryRoutes } from '@onekeyhq/shared/src/routes';
-import { ETabEarnRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  ETabDiscoveryRoutes,
+  ETabEarnRoutes,
+} from '@onekeyhq/shared/src/routes';
 
 import { LazyLoadRootTabPage } from '../../../components/LazyLoadPage';
 

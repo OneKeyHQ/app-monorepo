@@ -45,7 +45,7 @@ class ContextJotaiActionsEarn extends ContextJotaiActionsBase {
     if (!get(atom).isMounted) {
       return;
     }
-    set(atom, () => payload);
+    set(atom, payload);
   });
 
   getAvailableAssetsByType = contextAtomMethod(

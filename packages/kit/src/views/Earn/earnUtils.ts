@@ -247,7 +247,7 @@ export const EarnNavigation = {
       tab?: 'assets' | 'portfolio' | 'faqs';
     },
   ) {
-    safePushToEarnRoute(navigation, ETabEarnRoutes.EarnHome, params);
+    void safePushToEarnRoute(navigation, ETabEarnRoutes.EarnHome, params);
   },
 
   pushToEarnProtocols(
@@ -258,7 +258,7 @@ export const EarnNavigation = {
       logoURI?: string;
     },
   ) {
-    safePushToEarnRoute(navigation, ETabEarnRoutes.EarnProtocols, params);
+    void safePushToEarnRoute(navigation, ETabEarnRoutes.EarnProtocols, params);
   },
 
   async pushToEarnProtocolDetails(
@@ -286,7 +286,7 @@ export const EarnNavigation = {
       }
     }
 
-    safePushToEarnRoute(navigation, ETabEarnRoutes.EarnProtocolDetails, {
+    void safePushToEarnRoute(navigation, ETabEarnRoutes.EarnProtocolDetails, {
       networkId: params.networkId,
       accountId: earnAccount?.accountId || params.accountId || '',
       indexedAccountId:
@@ -306,7 +306,7 @@ export const EarnNavigation = {
       vault?: string;
     },
   ) {
-    safePushToEarnRoute(
+    void safePushToEarnRoute(
       navigation,
       ETabEarnRoutes.EarnProtocolDetailsShare,
       params,
