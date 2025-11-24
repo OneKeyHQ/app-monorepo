@@ -78,6 +78,7 @@ import type {
 import {
   EAssetSelectorRoutes,
   EModalRoutes,
+  EModalSendRoutes,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
@@ -97,8 +98,8 @@ import {
   getAccountIdOnNetwork,
   parseOnChainAmount,
 } from '../../../ScanQrCode/hooks/useParseQRCode';
-
 import CoinControlBadge from '../../components/CoinControlBadge';
+
 import RecentRecipients from './RecentRecipients';
 
 import type { RouteProp } from '@react-navigation/core';
@@ -937,7 +938,10 @@ function SendDataInputContainer() {
 
   const handleCoinControlPress = useCallback(() => {
     console.log('Coin Control Pressed');
-  }, []);
+    navigation.pushModal(EModalRoutes.SendModal, {
+      screen: EModalSendRoutes.CoinControl,
+    });
+  }, [navigation]);
 
   const renderAmountInputAddOn = useCallback(() => {
     const addons: ReactNode[] = [];
