@@ -143,10 +143,12 @@ export default function CreateOrImportWallet() {
       mnemonic: encodedMnemonic,
       isWalletBackedUp: false,
     });
+    defaultLogger.account.wallet.onboard({ onboardMethod: 'createWallet' });
   }, [navigation]);
 
   const handleAddExistingWallet = () => {
     navigation.push(EOnboardingPagesV2.AddExistingWallet);
+    defaultLogger.account.wallet.onboard({ onboardMethod: 'importWallet' });
   };
 
   const handleConnectExternalWallet = () => {

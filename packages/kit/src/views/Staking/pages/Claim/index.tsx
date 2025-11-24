@@ -14,7 +14,6 @@ import type {
   IModalStakingParamList,
 } from '@onekeyhq/shared/src/routes';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
-import type { IEarnToken } from '@onekeyhq/shared/types/staking';
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 
 import { DiscoveryBrowserProviderMirror } from '../../../Discovery/components/DiscoveryBrowserProviderMirror';
@@ -46,6 +45,8 @@ const ClaimPage = () => {
   const handleClaim = useUniversalClaim({ accountId, networkId });
   const onConfirm = useCallback(
     async (amount: string) => {
+      const receiveToken = earnUtils.convertEarnTokenToIToken(info);
+
       await handleClaim({
         amount,
         identity,
@@ -59,7 +60,7 @@ const ClaimPage = () => {
             providerName: provider,
           }),
           protocolLogoURI: protocolInfo?.providerDetail.logoURI,
-          receive: { token: info as IEarnToken, amount },
+          receive: receiveToken ? { token: receiveToken, amount } : undefined,
           tags: [actionTag],
         },
         onSuccess: () => {

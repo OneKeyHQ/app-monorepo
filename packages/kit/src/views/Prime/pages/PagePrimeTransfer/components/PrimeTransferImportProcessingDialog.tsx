@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -45,6 +45,11 @@ function PrimeTransferImportProcessingDialogContent({
   const [isCancelled, setIsCancelled] = useState(false);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [hasError, setHasError] = useState(false);
+  const [importTargetProcessingDuration, setImportTargetProcessingDuration] =
+    useState<string>('');
+  const importTargetLastChangeTimestampRef = useRef<number>(Date.now());
+  const importTargetProcessingHistoryRef = useRef<Array<[string, string]>>([]);
+  const previousImportTargetNameRef = useRef<string>('');
 
   const { importProgress } = primeTransferAtom;
   const isDone = useMemo(() => {
@@ -96,6 +101,25 @@ function PrimeTransferImportProcessingDialogContent({
     };
   }, []);
 
+  useEffect(() => {
+    const now = Date.now();
+    const currentDuration = `${
+      now - importTargetLastChangeTimestampRef.current
+    }ms`;
+    setImportTargetProcessingDuration(currentDuration);
+
+    if (previousImportTargetNameRef.current) {
+      importTargetProcessingHistoryRef.current.push([
+        previousImportTargetNameRef.current,
+        currentDuration,
+      ]);
+    }
+
+    importTargetLastChangeTimestampRef.current = now;
+    previousImportTargetNameRef.current =
+      primeTransferAtom.importCurrentCreatingTarget || '';
+  }, [primeTransferAtom.importCurrentCreatingTarget]);
+
   /*
   Dialog.show({
             title: intl.formatMessage({
@@ -125,14 +149,50 @@ function PrimeTransferImportProcessingDialogContent({
           <Progress mt="$4" w="100%" size="medium" value={progressPercentage} />
         ) : null}
 
-        <XStack mt="$5" alignItems="center" gap="$2">
-          <MultipleClickStack
-            onPress={() => {
-              Dialog.debugMessage({
-                debugMessage: importProgress?.stats,
-              });
-            }}
-          >
+        <MultipleClickStack
+          showDevBgColor
+          debugComponent={
+            <YStack gap="$2" alignItems="center">
+              <SizableText
+                textAlign="center"
+                onPress={() => {
+                  Dialog.debugMessage({
+                    debugMessage: importProgress?.totalDetailInfo,
+                  });
+                }}
+              >
+                {importProgress?.current ?? 0}/{importProgress?.total ?? 0}
+                {'  '}
+                {importTargetProcessingDuration}
+              </SizableText>
+              <SizableText
+                textAlign="center"
+                onPress={() => {
+                  Dialog.debugMessage({
+                    debugMessage: importTargetProcessingHistoryRef,
+                  });
+                }}
+              >
+                {primeTransferAtom.importCurrentCreatingTarget}
+              </SizableText>
+              <SizableText
+                onPress={async () => {
+                  const d =
+                    await backgroundApiProxy.servicePrimeTransfer.getBatchCreateHdAccountsParams();
+                  Dialog.debugMessage({
+                    debugMessage: d,
+                  });
+                }}
+              >
+                ShowBatchCreateHdAccountsParams
+              </SizableText>
+              <SizableText textAlign="center">
+                {JSON.stringify(importProgress?.stats)}
+              </SizableText>
+            </YStack>
+          }
+        >
+          <XStack mt="$5" alignItems="center" gap="$2">
             <SizableText size="$bodyLg" textAlign="center">
               {(() => {
                 if (isDone || importProgress) {
@@ -164,8 +224,8 @@ function PrimeTransferImportProcessingDialogContent({
                 });
               })()}
             </SizableText>
-          </MultipleClickStack>
-        </XStack>
+          </XStack>
+        </MultipleClickStack>
       </YStack>
 
       <Dialog.Footer

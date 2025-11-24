@@ -1890,7 +1890,7 @@
   "ln.authorize_access_desc": "라이트닝 계정에 하드웨어 지갑을 연결하기",
   "ln.authorize_access_network_error": "인증에 실패했습니다, 네트워크 연결을 확인하고 다시 시도해보세요",
   "ln.payment_received_label": "지불 수신",
-  "log_out_confirmation_text": "${email}에서 로그아웃하시겠습니까?",
+  "log_out_confirmation_text": "{email}에서 로그아웃하시겠습니까?",
   "logged_out_feedback": "성공적으로 로그아웃되었습니다",
   "login.forgot_passcode": "암호를 잊으셨나요?",
   "login.forgot_password": "비밀번호를 잊으셨나요?",

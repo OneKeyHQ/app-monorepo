@@ -78,3 +78,6 @@ export const PERPS_FILTERED_LEDGER_TYPES = new Set<string>([
   'vaultLeaderCommission',
   'rewardsClaim',
 ]);
+
+// Disable wallet binding on perps page
+export const DISABLE_PERPS_WALLET_BIND = false;

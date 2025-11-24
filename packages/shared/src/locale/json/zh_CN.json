@@ -1890,7 +1890,7 @@
   "ln.authorize_access_desc": "连接您的硬件钱包以访问 Lightning 账户",
   "ln.authorize_access_network_error": "身份认证失败，请检查网络连接后重试",
   "ln.payment_received_label": "已收到付款",
-  "log_out_confirmation_text": "您确定要退出 ${email} 的登录吗?",
+  "log_out_confirmation_text": "您确定要退出 {email} 的登录吗?",
   "logged_out_feedback": "已成功退出登录",
   "login.forgot_passcode": "忘记密码？",
   "login.forgot_password": "忘记密码？",

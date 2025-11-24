@@ -183,6 +183,7 @@ function TokenListFooter(props: IProps) {
         aggregateTokensMap,
         accountAddress: account.address,
         allAggregateTokenMap,
+        searchKeyLengthThreshold: 1,
       },
     });
   }, [

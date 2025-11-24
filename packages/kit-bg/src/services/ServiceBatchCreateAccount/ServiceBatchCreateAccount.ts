@@ -33,12 +33,14 @@ import type { IBatchCreateAccount } from '@onekeyhq/shared/types/account';
 import { EHardwareCallContext } from '@onekeyhq/shared/types/device';
 
 import localDb from '../../dbs/local/localDb';
+import { primeTransferAtom } from '../../states/jotai/atoms/prime';
 import { vaultFactory } from '../../vaults/factory';
 import { getVaultSettings } from '../../vaults/settings';
 import { buildDefaultAddAccountNetworks } from '../ServiceAccount/defaultNetworkAccountsConfig';
 import ServiceBase from '../ServiceBase';
 import { HardwareAllNetworkGetAddressResponse } from '../ServiceHardware/HardwareAllNetworkGetAddressResponse';
 
+import type { IPrimeTransferAtomData } from '../../states/jotai/atoms/prime';
 import type {
   IAccountDeriveTypes,
   IHwAllNetworkPrepareAccountsItem,
@@ -1370,6 +1372,20 @@ class ServiceBatchCreateAccount extends ServiceBase {
         try {
           this.checkIfCancelled({ saveToDb, showUIProgress, errorMessage });
           defaultLogger.account.batchCreatePerf.prepareHdOrHwAccounts();
+
+          await primeTransferAtom.set(
+            (prev): IPrimeTransferAtomData => ({
+              ...prev,
+              importCurrentCreatingTarget: [
+                walletId,
+                indexesForRebuildChunk.join(','),
+                networkId,
+                deriveType === 'default' ? '' : deriveType,
+              ]
+                .filter(Boolean)
+                .join('__'),
+            }),
+          );
 
           const { vault, accounts } =
             await this.backgroundApi.serviceAccount.prepareHdOrHwAccounts({

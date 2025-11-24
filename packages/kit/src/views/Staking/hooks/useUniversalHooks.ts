@@ -6,6 +6,10 @@ import type { IEncodedTxBtc } from '@onekeyhq/core/src/chains/btc/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { type IModalSendParamList } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
@@ -55,6 +59,31 @@ const handleStakeSuccess = async ({
     });
   }
   onSuccess?.(data);
+};
+
+const emitEarnPortfolioRefresh = ({
+  provider,
+  symbol,
+  networkId,
+  targetSymbol,
+  rewardSymbol,
+}: {
+  provider?: string;
+  symbol?: string;
+  networkId: string;
+  targetSymbol?: string;
+  rewardSymbol?: string;
+}) => {
+  const finalSymbol = targetSymbol || symbol;
+  if (!provider || !finalSymbol) {
+    return;
+  }
+  appEventBus.emit(EAppEventBusNames.RefreshEarnPortfolioItem, {
+    provider,
+    symbol: finalSymbol,
+    networkId,
+    rewardSymbol,
+  });
 };
 
 export function useUniversalStake({
@@ -140,6 +169,11 @@ export function useUniversalStake({
             stakeInfo: stakeInfoWithOrderId,
             networkId,
             onSuccess,
+          });
+          emitEarnPortfolioRefresh({
+            provider,
+            symbol,
+            networkId,
           });
         },
         onFail,
@@ -281,6 +315,11 @@ export function useUniversalWithdraw({
               networkId,
               onSuccess,
             });
+            emitEarnPortfolioRefresh({
+              provider,
+              symbol,
+              networkId,
+            });
           } else {
             const psbtHex = data[0].signedTx.finalizedPsbtHex;
             if (psbtHex && identity) {
@@ -293,6 +332,11 @@ export function useUniversalWithdraw({
                 unstakeTxHex: psbtHex,
               });
               onSuccess?.(data);
+              emitEarnPortfolioRefresh({
+                provider,
+                symbol,
+                networkId,
+              });
             }
           }
         },
@@ -327,6 +371,8 @@ export function useUniversalClaim({
       stakingInfo,
       onSuccess,
       onFail,
+      portfolioSymbol,
+      portfolioRewardSymbol,
     }: {
       identity?: string;
       amount: string;
@@ -338,6 +384,8 @@ export function useUniversalClaim({
       vault: string;
       onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
       onFail?: IModalSendParamList['SendConfirm']['onFail'];
+      portfolioSymbol?: string;
+      portfolioRewardSymbol?: string;
     }) => {
       const continueClaim = async () => {
         const stakeTx =
@@ -383,6 +431,13 @@ export function useUniversalClaim({
               networkId,
               onSuccess,
             });
+            emitEarnPortfolioRefresh({
+              provider,
+              symbol,
+              networkId,
+              targetSymbol: portfolioSymbol,
+              rewardSymbol: portfolioRewardSymbol,
+            });
           },
           onFail,
           useFeeInTx,
@@ -405,16 +460,19 @@ export function useUniversalClaim({
             identity,
             accountAddress: account.address,
           });
-        const tokenFiatValueBN = BigNumber(
-          estimateFeeResp.token.price,
-        ).multipliedBy(amount);
-        if (tokenFiatValueBN.lt(estimateFeeResp.feeFiatValue)) {
-          showClaimEstimateGasAlert({
-            claimTokenFiatValue: tokenFiatValueBN.toFixed(),
-            estFiatValue: estimateFeeResp.feeFiatValue,
-            onConfirm: continueClaim,
-          });
-          return;
+        // Only check gas fee vs claim value if token price is available
+        if (estimateFeeResp.token?.price) {
+          const tokenFiatValueBN = BigNumber(
+            estimateFeeResp.token.price,
+          ).multipliedBy(amount);
+          if (tokenFiatValueBN.lt(estimateFeeResp.feeFiatValue)) {
+            showClaimEstimateGasAlert({
+              claimTokenFiatValue: tokenFiatValueBN.toFixed(),
+              estFiatValue: estimateFeeResp.feeFiatValue,
+              onConfirm: continueClaim,
+            });
+            return;
+          }
         }
       }
       await continueClaim();

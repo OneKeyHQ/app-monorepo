@@ -14,13 +14,13 @@ export function useNavigateToEarnReward() {
   return useCallback(
     (title: string) => {
       if (platformEnv.isNative) {
-        // Native platform: use Modal navigation
+        // Native or medium+ screens: use Modal navigation
         navigation.pushModal(EModalRoutes.ReferFriendsModal, {
           screen: EModalReferFriendsRoutes.EarnReward,
           params: { title },
         });
       } else {
-        // Web/Desktop/Extension: use Tab navigation
+        // Small screens: use Tab navigation
         navigation.push(ETabReferFriendsRoutes.TabEarnReward, { title });
       }
     },

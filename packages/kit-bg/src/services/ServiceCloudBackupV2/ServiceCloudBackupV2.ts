@@ -1,3 +1,6 @@
+/* eslint-disable spellcheck/spell-checker */
+import { cloneDeep } from 'lodash';
+
 import {
   decryptAsync,
   decryptImportedCredential,
@@ -190,11 +193,16 @@ class ServiceCloudBackupV2 extends ServiceBase {
   async verifyBackupPassword(params: { password: string }): Promise<boolean> {
     const provider = this.getProvider();
     await provider.checkAvailability();
-    return provider.verifyBackupPassword({
-      password: await this.buildFullBackupPassword({
-        password: params.password,
-      }),
+    console.log('serviceCloudBackupV2__buildFullBackupPassword');
+    const fullPassword = await this.buildFullBackupPassword({
+      password: params.password,
     });
+    console.log('serviceCloudBackupV2__verifyBackupPassword');
+    const result = await provider.verifyBackupPassword({
+      password: fullPassword,
+    });
+    console.log('serviceCloudBackupV2__verifyBackupPassword__result: ', result);
+    return result;
   }
 
   @backgroundMethod()
@@ -211,6 +219,9 @@ class ServiceCloudBackupV2 extends ServiceBase {
     data: IPrimeTransferData;
     password: string;
   }): Promise<{ recordID: string; content: string }> {
+    // eslint-disable-next-line no-param-reassign
+    params = cloneDeep(params);
+    console.log('serviceCloudBackupV2__backup');
     // throw new OneKeyLocalError('test error');
     if (!params?.password) {
       throw new OneKeyLocalError('Password is required for backup');
@@ -218,7 +229,7 @@ class ServiceCloudBackupV2 extends ServiceBase {
     if (!params?.data?.privateData) {
       throw new OneKeyLocalError('Private data is required for backup');
     }
-    const backupPassword = params?.password;
+    const backupPassword: string = params?.password;
     const data: IPrimeTransferData = params.data;
     if (data?.publicData) {
       data.publicData.dataTime = Date.now();
@@ -227,34 +238,16 @@ class ServiceCloudBackupV2 extends ServiceBase {
     const provider = this.getProvider();
     await provider.checkAvailability();
 
-    if (!data?.privateData?.decryptedCredentials) {
-      const { password: localPassword } =
-        await this.backgroundApi.servicePassword.promptPasswordVerify();
-      data.privateData.decryptedCredentials = {};
-      const entries = Object.entries(data.privateData.credentials || {});
-      for (const [key, value] of entries) {
-        if (accountUtils.isHdWallet({ walletId: key })) {
-          data.privateData.decryptedCredentials[key] =
-            await decryptRevealableSeed({
-              rs: value,
-              password: localPassword,
-            });
-        }
-        if (accountUtils.isImportedAccount({ accountId: key })) {
-          data.privateData.decryptedCredentials[key] =
-            await decryptImportedCredential({
-              credential: value,
-              password: localPassword,
-            });
-        }
-      }
-    }
-    if (data?.privateData && data?.privateData?.credentials) {
-      data.privateData.credentials = {};
-    }
+    await this.backgroundApi.servicePrimeTransfer.decryptTransferDataCredentials(
+      {
+        data,
+      },
+    );
 
+    console.log('serviceCloudBackupV2__stringify_privateData');
     const privateData = stringUtils.stableStringify(data.privateData);
 
+    console.log('serviceCloudBackupV2__encryptPayload');
     const privateDataEncryptedBuffer = await encryptAsync({
       data: Buffer.from(privateData, 'utf8'),
       password: await this.buildFullBackupPassword({
@@ -263,8 +256,10 @@ class ServiceCloudBackupV2 extends ServiceBase {
       allowRawPassword: true,
     });
 
+    console.log('serviceCloudBackupV2__toBase64');
     const privateDataEncrypted = privateDataEncryptedBuffer.toString('base64');
 
+    console.log('serviceCloudBackupV2__backupData');
     const result = await provider.backupData({
       privateDataEncrypted,
       publicData: data.publicData,
@@ -274,6 +269,7 @@ class ServiceCloudBackupV2 extends ServiceBase {
     });
 
     const { recordID, content } = result;
+    console.log('serviceCloudBackupV2__download');
     const downloadData = await this.download({
       recordId: recordID,
     });
@@ -413,6 +409,7 @@ class ServiceCloudBackupV2 extends ServiceBase {
         await this.backgroundApi.servicePrimeTransfer.startImport({
           selectedTransferData,
           includingDefaultNetworks: true,
+          isFromCloudBackupRestore: true,
           password: localPassword,
         });
 

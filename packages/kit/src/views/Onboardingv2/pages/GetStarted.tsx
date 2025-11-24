@@ -28,6 +28,7 @@ import {
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes';
 import type { HwWalletAvatarImages } from '@onekeyhq/shared/src/utils/avatarUtils';
 
@@ -229,6 +230,7 @@ export default function GetStarted() {
   const navigation = useAppNavigation();
   const handleGetStarted = () => {
     navigation.push(EOnboardingPagesV2.PickYourDevice);
+    defaultLogger.account.wallet.onboard({ onboardMethod: 'connectHWWallet' });
   };
   const { gtMd } = useMedia();
   const intl = useIntl();

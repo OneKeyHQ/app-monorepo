@@ -28,6 +28,7 @@ import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accoun
 import { PeriodSection } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/PeriodSectionV2';
 import { ProtectionSection } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/ProtectionSectionV2';
 import {
+  EJotaiContextStoreNames,
   useDevSettingsPersistAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -62,6 +63,7 @@ import type {
 } from '@onekeyhq/shared/types/staking';
 
 import { showRiskNoticeDialogBeforeDepositOrWithdraw } from '../../../Earn/components/RiskNoticeDialog';
+import { EarnProviderMirror } from '../../../Earn/EarnProviderMirror';
 import { EarnNavigation, EarnNetworkUtils } from '../../../Earn/earnUtils';
 import {
   PageFrame,
@@ -564,11 +566,60 @@ const ProtocolDetailsPage = () => {
           provider,
           vault,
         });
+
       return response;
     },
     [accountId, networkId, indexedAccountId, symbol, provider, vault],
     { watchLoading: true, revalidateOnFocus: true },
   );
+
+  const tokenInfo = useMemo(() => {
+    if (detailInfo?.subscriptionValue?.token) {
+      const balanceBN = new BigNumber(
+        detailInfo.subscriptionValue.balance || '0',
+      );
+      const balanceParsed = balanceBN.isNaN() ? '0' : balanceBN.toFixed();
+
+      return {
+        balanceParsed,
+        token: detailInfo.subscriptionValue.token.info,
+        price: detailInfo.subscriptionValue.token.price,
+        networkId,
+        provider,
+        vault,
+        accountId: accountId ?? '',
+      };
+    }
+    return undefined;
+  }, [detailInfo, networkId, provider, vault, accountId]);
+
+  const protocolInfo = useMemo(() => {
+    if (!detailInfo?.protocol || !earnAccount) {
+      return undefined;
+    }
+
+    const withdrawAction = detailInfo?.actions?.find(
+      (i) => i.type === 'withdraw',
+    ) as IEarnWithdrawActionIcon;
+
+    return {
+      ...detailInfo.protocol,
+      apyDetail: detailInfo.apyDetail,
+      earnAccount,
+      activeBalance: withdrawAction?.data?.balance,
+      eventEndTime: detailInfo?.countDownAlert?.endTime,
+      stakeTag: buildLocalTxStatusSyncId({
+        providerName: provider,
+        tokenSymbol: symbol,
+      }),
+      overflowBalance: detailInfo.nums?.overflow,
+      maxUnstakeAmount: detailInfo.nums?.maxUnstakeAmount,
+      minUnstakeAmount: detailInfo.nums?.minUnstakeAmount,
+      minTransactionFee: detailInfo.nums?.minTransactionFee,
+      remainingCap: detailInfo.nums?.remainingCap,
+      claimable: detailInfo.nums?.claimable,
+    };
+  }, [detailInfo, earnAccount, provider, symbol]);
 
   // Handle unsupported protocol
   useUnsupportedProtocol({
@@ -582,35 +633,6 @@ const ProtocolDetailsPage = () => {
     refreshEarnDetailData: run,
   });
 
-  const tokenInfo: IEarnTokenInfo | undefined = useMemo(() => {
-    if (!detailInfo?.subscriptionValue?.token) {
-      return undefined;
-    }
-
-    // Use BigNumber to handle balance and fallback to '0' if invalid or missing
-    const balanceBN = new BigNumber(
-      detailInfo.subscriptionValue.balance || '0',
-    );
-    const balanceParsed = balanceBN.isNaN() ? '0' : balanceBN.toFixed();
-
-    return {
-      balanceParsed,
-      token: detailInfo.subscriptionValue.token.info,
-      price: detailInfo.subscriptionValue.token.price,
-      networkId,
-      provider,
-      vault,
-      accountId,
-    };
-  }, [
-    detailInfo?.subscriptionValue?.token,
-    detailInfo?.subscriptionValue?.balance,
-    networkId,
-    provider,
-    vault,
-    accountId,
-  ]);
-
   const onCreateAddress = useCallback(async () => {
     await refreshAccount();
     void run();
@@ -619,82 +641,6 @@ const ProtocolDetailsPage = () => {
   const handleWithdraw = useHandleWithdraw();
   const handleStake = useHandleStake();
   const { handleSwap } = useHandleSwap();
-
-  // const { result: trackingResp, run: refreshTracking } = usePromiseResult(
-  //   async () => {
-  //     if (
-  //       provider.toLowerCase() !== EEarnProviderEnum.Babylon.toLowerCase() ||
-  //       !earnAccount
-  //     ) {
-  //       return [];
-  //     }
-  //     const items =
-  //       await backgroundApiProxy.serviceStaking.getBabylonTrackingItems({
-  //         accountId: earnAccount.accountId,
-  //         networkId: earnAccount.networkId,
-  //       });
-  //     return items;
-  //   },
-  //   [provider, earnAccount],
-  //   { initResult: [] },
-  // );
-
-  // const isFocused = useIsFocused();
-  // useEffect(() => {
-  //   if (isFocused) {
-  //     void refreshTracking();
-  //   }
-  // }, [isFocused, refreshTracking]);
-
-  // const onRefreshTracking = useCallback(async () => {
-  //   void run();
-  //   void refreshTracking();
-  // }, [run, refreshTracking]);
-
-  const protocolInfo: IProtocolInfo | undefined = useMemo(() => {
-    const withdrawAction = detailInfo?.actions?.find(
-      (i) => i.type === 'withdraw',
-    ) as IEarnWithdrawActionIcon;
-    return detailInfo?.protocol
-      ? {
-          ...detailInfo.protocol,
-          apyDetail: detailInfo.apyDetail,
-          earnAccount,
-          activeBalance: withdrawAction?.data?.balance,
-          eventEndTime: detailInfo?.countDownAlert?.endTime,
-          stakeTag: buildLocalTxStatusSyncId({
-            providerName: provider,
-            tokenSymbol: symbol,
-          }),
-
-          // withdraw
-          overflowBalance: detailInfo.nums?.overflow,
-          maxUnstakeAmount: detailInfo.nums?.maxUnstakeAmount,
-          minUnstakeAmount: detailInfo.nums?.minUnstakeAmount,
-
-          // staking
-          minTransactionFee: detailInfo.nums?.minTransactionFee,
-          remainingCap: detailInfo.nums?.remainingCap,
-
-          // claim
-          claimable: detailInfo.nums?.claimable,
-        }
-      : undefined;
-  }, [
-    detailInfo?.actions,
-    detailInfo?.apyDetail,
-    detailInfo?.countDownAlert?.endTime,
-    detailInfo?.nums?.claimable,
-    detailInfo?.nums?.maxUnstakeAmount,
-    detailInfo?.nums?.minTransactionFee,
-    detailInfo?.nums?.minUnstakeAmount,
-    detailInfo?.nums?.remainingCap,
-    detailInfo?.nums?.overflow,
-    detailInfo?.protocol,
-    earnAccount,
-    provider,
-    symbol,
-  ]);
 
   const onStake = useCallback(async () => {
     if (
@@ -891,7 +837,7 @@ const ProtocolDetailsPage = () => {
   const depositActionProps = useMemo(() => {
     const item = detailInfo?.actions?.find((i) => i.type === 'deposit');
     return {
-      text: item?.text.text,
+      text: typeof item?.text === 'string' ? item.text : item?.text?.text,
       buttonProps: {
         disabled: !earnAccount?.accountAddress || item?.disabled,
         variant: 'primary',
@@ -1222,7 +1168,9 @@ function ProtocolDetailsPageWithProvider() {
       }}
       enabledNum={[0]}
     >
-      <ProtocolDetailsPage />
+      <EarnProviderMirror storeName={EJotaiContextStoreNames.earn}>
+        <ProtocolDetailsPage />
+      </EarnProviderMirror>
     </AccountSelectorProviderMirror>
   );
 }

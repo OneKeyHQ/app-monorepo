@@ -3,6 +3,7 @@ import { memo, useCallback, useEffect } from 'react';
 import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
+import type { IYStackProps } from '@onekeyhq/components';
 import { Button, Icon, XStack, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -26,9 +27,13 @@ import MainInfoBlock from '../NotBakcedUp/MainBlock';
 function ReceiveInfo({
   recomputeLayout,
   closable,
+  containerProps,
+  setShowReceiveInfo,
 }: {
   recomputeLayout?: () => void;
   closable?: boolean;
+  containerProps?: IYStackProps;
+  setShowReceiveInfo?: (show: boolean) => void;
 }) {
   const navigation = useAppNavigation();
   const themeVariant = useThemeVariant();
@@ -104,6 +109,16 @@ function ReceiveInfo({
       );
     };
   }, [refreshShouldShowReceiveInfo]);
+
+  useEffect(() => {
+    if (walletStatus.receiveInfoInit) {
+      setShowReceiveInfo?.(walletStatus.showReceiveInfo);
+    }
+  }, [
+    walletStatus.receiveInfoInit,
+    walletStatus.showReceiveInfo,
+    setShowReceiveInfo,
+  ]);
 
   if (!walletStatus.showReceiveInfo) {
     return null;
@@ -235,6 +250,7 @@ function ReceiveInfo({
         bg: '$green1',
         $gtMd: { flexBasis: 0, flexShrink: 1, flexGrow: 1 },
         pointerEvents: 'box-none',
+        ...containerProps,
       }}
     />
   );

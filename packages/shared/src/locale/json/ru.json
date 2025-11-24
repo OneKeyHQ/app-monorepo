@@ -1890,7 +1890,7 @@
   "ln.authorize_access_desc": "Подключение вашего аппаратного кошелька для доступа к аккаунту Lightning",
   "ln.authorize_access_network_error": "Аутентификация не удалась, проверьте ваше сетевое соединение и попробуйте снова",
   "ln.payment_received_label": "Платеж получен",
-  "log_out_confirmation_text": "Вы уверены, что хотите выйти из ${email}?",
+  "log_out_confirmation_text": "Вы уверены, что хотите выйти из {email}?",
   "logged_out_feedback": "Вы успешно вышли из системы",
   "login.forgot_passcode": "Забыли код доступа?",
   "login.forgot_password": "Забыли пароль?",

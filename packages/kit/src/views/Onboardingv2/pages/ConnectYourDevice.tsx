@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { EDeviceType } from '@onekeyfe/hd-shared';
 import { useIsFocused } from '@react-navigation/core';
+import { useNavigation } from '@react-navigation/native';
 import { isString } from 'lodash';
 import natsort from 'natsort';
 import { useIntl } from 'react-intl';
@@ -50,6 +51,7 @@ import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErro
 import bleManagerInstance from '@onekeyhq/shared/src/hardware/bleManager';
 import { checkBLEPermissions } from '@onekeyhq/shared/src/hardware/blePermissions';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
@@ -523,6 +525,7 @@ function TroubleShootingButton({ type }: { type: 'usb' | 'bluetooth' }) {
                 m="0"
                 px="$5"
                 py="$2"
+                bg="$transparent"
                 hoverStyle={{
                   bg: '$bgHover',
                 }}
@@ -771,6 +774,10 @@ function USBOrBLEConnectionIndicator({
         deviceData: item,
         tabValue,
       });
+      defaultLogger.onboarding.page.connectYourDevice(
+        item.device?.deviceType || '',
+        tabValue,
+      );
     },
   });
 
@@ -1233,6 +1240,7 @@ function ConnectYourDevicePage({
   const { deviceType: deviceTypeItems } = routeParams?.params || {};
   console.log('deviceTypeItems', deviceTypeItems);
   const navigation = useAppNavigation();
+  const reactNavigation = useNavigation();
   const intl = useIntl();
   const isSupportedQRCode = useMemo(() => {
     return deviceTypeItems.every(
@@ -1262,6 +1270,15 @@ function ConnectYourDevicePage({
     ].filter(Boolean);
   }, [deviceTypeItems, intl]);
   const [tabValue, setTabValue] = useState(tabOptions[0]?.value);
+
+  useEffect(() => {
+    const unsubscribe = reactNavigation.addListener('beforeRemove', () => {
+      // Clean up forceTransportType when leaving this page
+      void backgroundApiProxy.serviceHardware.clearForceTransportType();
+    });
+
+    return unsubscribe;
+  }, [reactNavigation]);
 
   return (
     <Page>

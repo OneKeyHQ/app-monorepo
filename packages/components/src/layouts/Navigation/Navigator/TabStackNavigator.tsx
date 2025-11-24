@@ -23,20 +23,23 @@ function BasicTabSubStackNavigator({
   config: ITabSubNavigatorConfig<string, any>[] | null;
   delay?: number;
 }) {
+  const delayNumber = useMemo(() => {
+    return platformEnv.isNative || platformEnv.isDesktop ? delay : 0;
+  }, [delay]);
   const [bgColor, titleColor] = useThemeValue(['bgApp', 'text']);
   const intl = useIntl();
-  const [isMounted, setIsMounted] = useState(!(delay && delay > 0));
+  const [isMounted, setIsMounted] = useState(!(delayNumber && delayNumber > 0));
   useEffect(() => {
-    if (!delay) {
+    if (!delayNumber) {
       return;
     }
     const timer = setTimeout(() => {
       setIsMounted(true);
-    }, delay + 100);
+    }, delayNumber + 100);
     return () => {
       clearTimeout(timer);
     };
-  }, [delay]);
+  }, [delayNumber]);
 
   // Handle null config case - return null to avoid creating empty Stack.Navigator
   if (!isMounted || !config || config.length === 0) {

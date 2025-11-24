@@ -13,6 +13,7 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes';
 
@@ -106,6 +107,9 @@ export default function PickYourDevice() {
                   void navigation.push(EOnboardingPagesV2.ConnectYourDevice, {
                     deviceType,
                   });
+                  defaultLogger.onboarding.page.pickYourDevice(
+                    deviceType.join(','),
+                  );
                 }}
               >
                 <SizableText size="$headingXl" $gtMd={{ size: '$heading2xl' }}>

@@ -123,6 +123,7 @@ const WithdrawPage = () => {
       />
       <Page.Body>
         <UniversalWithdraw
+          isInModalContext
           accountAddress={protocolInfo?.earnAccount?.accountAddress || ''}
           price={price}
           decimals={token?.decimals}

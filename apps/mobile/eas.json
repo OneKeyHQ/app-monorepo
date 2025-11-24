@@ -15,7 +15,7 @@
       "ios": {
         "image": "macos-sequoia-15.6-xcode-26.0",
         "resourceClass": "medium",
-        "env": { 
+        "env": {
           "PLATFORM": "ios"
         }
       }
@@ -84,7 +84,6 @@
         "ascApiKeyPath": "./AscApiKey.p8"
       },
       "android": {
-        "serviceAccountKeyPath": "./pc-api-8644398719570171123-0-dcae07e2afab.json",
         "track": "internal"
       }
     }

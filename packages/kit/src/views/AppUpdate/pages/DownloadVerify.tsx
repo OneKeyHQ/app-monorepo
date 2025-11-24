@@ -16,10 +16,8 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EAppUpdateStatus } from '@onekeyhq/shared/src/appUpdate/type';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { useDownloadProgress } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
-import type {
-  EAppUpdateRoutes,
-  IAppUpdatePagesParamList,
-} from '@onekeyhq/shared/src/routes';
+import type { IAppUpdatePagesParamList } from '@onekeyhq/shared/src/routes';
+import { EAppUpdateRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import { HyperlinkText } from '../../../components/HyperlinkText';
@@ -106,6 +104,12 @@ function DownloadVerify({
   }, [navigation, showUpdateInCompleteDialog]);
 
   const [installing, setIsInstalling] = useState(false);
+
+  const handleToManualInstall = useCallback(() => {
+    navigation.pushModal(EModalRoutes.AppUpdateModal, {
+      screen: EAppUpdateRoutes.ManualInstall,
+    });
+  }, [navigation]);
 
   const handleToUpdate = useCallback(async () => {
     setIsInstalling(true);
@@ -379,7 +383,10 @@ function DownloadVerify({
       </Page.Body>
       <Page.Footer
         onConfirmText={intl.formatMessage({
-          id: ETranslations.global_secure_install,
+          id:
+            data.status === EAppUpdateStatus.manualInstall
+              ? ETranslations.update_manual_update
+              : ETranslations.global_install,
         })}
         confirmButtonProps={{
           loading: installing,
@@ -389,7 +396,11 @@ function DownloadVerify({
               : undefined,
           disabled: data.status !== EAppUpdateStatus.ready || installing,
         }}
-        onConfirm={handleToUpdate}
+        onConfirm={
+          data.status === EAppUpdateStatus.manualInstall
+            ? handleToManualInstall
+            : handleToUpdate
+        }
       />
     </Page>
   );

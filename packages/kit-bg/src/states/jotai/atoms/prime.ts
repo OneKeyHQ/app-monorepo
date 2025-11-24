@@ -7,6 +7,8 @@ import type {
 import { EAtomNames } from '../atomNames';
 import { globalAtom } from '../utils';
 
+import type { IAccountDeriveTypes } from '../../../vaults/types';
+
 export type IPrimePersistAtomData = IPrimeUserInfo;
 export const {
   target: primePersistAtom, // persist
@@ -126,6 +128,25 @@ export enum EPrimeTransferStatus {
   paired = 'paired',
   transferring = 'transferring',
 }
+export type IPrimeTransferImportProgressTotalDetailInfo = {
+  defaultNetworks: {
+    networkId: string;
+    deriveType: IAccountDeriveTypes;
+  }[];
+  hdWallets: {
+    [walletId: string]: {
+      accountsCount?: number;
+      walletItemId?: string;
+      walletId?: string;
+    };
+  };
+  importedAccounts: {
+    accountsCount?: number;
+  };
+  watchingAccounts: {
+    accountsCount?: number;
+  };
+};
 export type IPrimeTransferAtomData = {
   shouldPreventExit: boolean;
   websocketConnected: boolean;
@@ -143,7 +164,9 @@ export type IPrimeTransferAtomData = {
         randomNumber: string | undefined;
       }
     | undefined;
+  importCurrentCreatingTarget?: string;
   importProgress?: {
+    totalDetailInfo?: IPrimeTransferImportProgressTotalDetailInfo;
     total: number;
     current: number;
     isImporting: boolean;

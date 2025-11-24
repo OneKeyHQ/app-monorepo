@@ -61,6 +61,8 @@ export enum EAppEventBusNames {
   RefreshHistoryList = 'RefreshHistoryList',
   RefreshBookmarkList = 'RefreshBookmarkList',
   RefreshApprovalList = 'RefreshApprovalList',
+  RefreshEarnPortfolioItem = 'RefreshEarnPortfolioItem',
+  RefreshEarnPortfolio = 'RefreshEarnPortfolio',
   AccountDataUpdate = 'AccountDataUpdate',
   AccountValueUpdate = 'AccountValueUpdate',
   onDragBeginInListView = 'onDragBeginInListView',
@@ -120,4 +122,5 @@ export enum EAppEventBusNames {
   BtcFreshAddressUpdated = 'BtcFreshAddressUpdated',
   BtcFreshAddressConnectDappRejected = 'BtcFreshAddressConnectDappRejected',
   ClientLogUploadProgress = 'ClientLogUploadProgress',
+  SwitchDiscoveryTabInNative = 'SwitchDiscoveryTabInNative',
 }

@@ -82,7 +82,9 @@ export function CountDownCalendarAlert({
     const timer = setInterval(() => {
       setTimeLeft(calculateTimeLeft(effectiveTimeAt));
     }, 60_000); // Update every minute
-    return () => clearInterval(timer);
+    return () => {
+      clearInterval(timer);
+    };
   }, [effectiveTimeAt]);
 
   const shouldShowDays = timeLeft.days > 0;

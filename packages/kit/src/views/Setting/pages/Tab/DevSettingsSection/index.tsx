@@ -993,19 +993,6 @@ const BaseDevSettingsSection = () => {
       >
         <Switch size={ESwitchSize.small} />
       </SectionFieldItem>
-
-      <SectionFieldItem
-        icon="AutoFlashOutline"
-        name="enableIpTableInDev"
-        title="[开发环境] 启用 IP 直连"
-        subtitle={
-          devSettings.settings?.enableIpTableInDev
-            ? '开发环境已启用 IP 直连'
-            : '开发环境默认禁用 (需手动开启)'
-        }
-      >
-        <Switch size={ESwitchSize.small} />
-      </SectionFieldItem>
       <SectionFieldItem
         icon="BrokenLinkOutline"
         name="disableIpTableInProd"

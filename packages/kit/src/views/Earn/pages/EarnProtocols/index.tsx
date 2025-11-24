@@ -1,0 +1,387 @@
+import { useCallback, useEffect, useMemo, useState } from 'react';
+
+import { useIntl } from 'react-intl';
+
+import {
+  Badge,
+  Empty,
+  Image,
+  SizableText,
+  Skeleton,
+  XStack,
+  YStack,
+  useMedia,
+} from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import type { ITableColumn } from '@onekeyhq/kit/src/components/ListView/TableList';
+import { TableList } from '@onekeyhq/kit/src/components/ListView/TableList';
+import { NetworkAvatarGroup } from '@onekeyhq/kit/src/components/NetworkAvatar/NetworkAvatar';
+import { Token } from '@onekeyhq/kit/src/components/Token';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { ETabEarnRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
+import type { ITabEarnParamList } from '@onekeyhq/shared/src/routes';
+import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import { normalizeToEarnProvider } from '@onekeyhq/shared/types/earn/earnProvider.constants';
+import type { IStakeProtocolListItem } from '@onekeyhq/shared/types/staking';
+
+import { DiscoveryBrowserProviderMirror } from '../../../Discovery/components/DiscoveryBrowserProviderMirror';
+import { EarnText } from '../../../Staking/components/ProtocolDetails/EarnText';
+import { AprText } from '../../components/AprText';
+import { EarnPageContainer } from '../../components/EarnPageContainer';
+import { EarnNavigation } from '../../earnUtils';
+
+import type { RouteProp } from '@react-navigation/core';
+
+type IRouteProps = RouteProp<ITabEarnParamList, ETabEarnRoutes.EarnProtocols>;
+
+function BasicEarnProtocols({ route }: { route: IRouteProps }) {
+  const intl = useIntl();
+  const navigation = useAppNavigation();
+  const {
+    symbol,
+    filterNetworkId,
+    logoURI: encodedLogoURI,
+  } = route.params || {};
+
+  const logoURI = useMemo(() => {
+    try {
+      return encodedLogoURI ? decodeURIComponent(encodedLogoURI) : undefined;
+    } catch {
+      return undefined;
+    }
+  }, [encodedLogoURI]);
+
+  const media = useMedia();
+  const { activeAccount } = useActiveAccount({ num: 0 });
+
+  const customHeaderLeft = useMemo(
+    () => (
+      <>
+        <Token source={logoURI} size="md" />
+        <SizableText size="$headingXl" numberOfLines={1} flexShrink={1}>
+          {symbol ||
+            intl.formatMessage({
+              id: ETranslations.earn_symbol_staking_provider,
+            })}
+        </SizableText>
+      </>
+    ),
+    [intl, symbol, logoURI],
+  );
+
+  const [protocolData, setProtocolData] = useState<IStakeProtocolListItem[]>(
+    [],
+  );
+  const [isLoading, setIsLoading] = useState(true);
+
+  const fetchProtocolData = useCallback(async () => {
+    try {
+      setIsLoading(true);
+
+      const data = await backgroundApiProxy.serviceStaking.getProtocolList({
+        symbol,
+        accountId: activeAccount?.account?.id,
+        indexedAccountId: activeAccount?.indexedAccount?.id,
+        filterNetworkId,
+      });
+
+      setProtocolData(data);
+    } catch (error) {
+      setProtocolData([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [
+    symbol,
+    activeAccount?.account?.id,
+    activeAccount?.indexedAccount?.id,
+    filterNetworkId,
+  ]);
+
+  useEffect(() => {
+    void fetchProtocolData();
+  }, [fetchProtocolData]);
+
+  const handleProtocolPress = useCallback(
+    async (protocol: IStakeProtocolListItem) => {
+      const accountId = activeAccount?.account?.id;
+      const indexedAccountId = activeAccount?.indexedAccount?.id;
+
+      try {
+        defaultLogger.staking.page.selectProvider({
+          network: protocol.network.networkId,
+          stakeProvider: protocol.provider.name,
+        });
+
+        await EarnNavigation.pushToEarnProtocolDetails(navigation, {
+          networkId: protocol.network.networkId,
+          accountId,
+          indexedAccountId,
+          symbol,
+          provider: protocol.provider.name,
+          vault: earnUtils.isVaultBasedProvider({
+            providerName: protocol.provider.name,
+          })
+            ? protocol.provider.vault
+            : undefined,
+        });
+      } catch (error) {
+        // ignore error
+      }
+    },
+    [
+      activeAccount?.account?.id,
+      activeAccount?.indexedAccount?.id,
+      symbol,
+      navigation,
+    ],
+  );
+
+  const columns: ITableColumn<IStakeProtocolListItem>[] = useMemo(() => {
+    return [
+      {
+        key: 'protocol',
+        label: intl.formatMessage({ id: ETranslations.global_protocol }),
+        flex: 5,
+        render: (item) => {
+          return (
+            <XStack jc="center" ai="center">
+              <Token
+                size="md"
+                borderRadius="$2"
+                mr="$3"
+                tokenImageUri={item.provider.logoURI}
+              />
+              <YStack mr="$2">
+                <XStack ai="center" gap="$2">
+                  <SizableText size="$bodyLgMedium">
+                    {normalizeToEarnProvider(item.provider.name)}
+                  </SizableText>
+                  {item.provider.badges?.map((badge) => (
+                    <Badge
+                      my="auto"
+                      key={badge.tag}
+                      badgeType={badge.badgeType}
+                      badgeSize="sm"
+                    >
+                      <Badge.Text>{badge.tag}</Badge.Text>
+                    </Badge>
+                  ))}
+                </XStack>
+                {item?.provider?.description ? (
+                  <SizableText size="$bodySmMedium" color="$textSubdued">
+                    {item.provider.description}
+                  </SizableText>
+                ) : null}
+              </YStack>
+            </XStack>
+          );
+        },
+      },
+      {
+        key: 'network',
+        label: intl.formatMessage({ id: ETranslations.global_network }),
+        flex: 1,
+        hideInMobile: true,
+        align: 'flex-end',
+        render: (item) => (
+          <NetworkAvatarGroup
+            networkIds={[item.network.networkId]}
+            size="$5"
+            variant="spread"
+            maxVisible={3}
+          />
+        ),
+      },
+      {
+        key: 'tvl',
+        label: intl.formatMessage({ id: ETranslations.earn_tvl }),
+        flex: 2,
+        hideInMobile: true,
+        align: 'flex-end',
+        render: (item) => (
+          <SizableText size="$bodyLgMedium">
+            <EarnText size="$bodyLg" text={item?.tvl} />
+          </SizableText>
+        ),
+      },
+      {
+        key: 'yield',
+        label: intl.formatMessage({ id: ETranslations.global_apr }),
+        flex: 2,
+        align: 'flex-end',
+        render: (item) => (
+          <AprText
+            asset={{
+              aprWithoutFee: item?.provider?.aprWithoutFee ?? '',
+              aprInfo: item?.aprInfo,
+            }}
+          />
+        ),
+      },
+    ];
+  }, [intl]);
+
+  const content = useMemo(() => {
+    if (isLoading) {
+      return (
+        <YStack>
+          {/* Table Header - Desktop only */}
+          {media.gtSm ? (
+            <ListItem mx="$0" px="$5">
+              <XStack flex={2.5}>
+                <Skeleton h="$3" w={80} />
+              </XStack>
+              <XStack flex={1} jc="flex-end">
+                <Skeleton h="$3" w={60} />
+              </XStack>
+              <XStack flex={2} jc="flex-end">
+                <Skeleton h="$3" w={40} />
+              </XStack>
+              <XStack flex={2} jc="flex-end">
+                <Skeleton h="$3" w={40} />
+              </XStack>
+            </ListItem>
+          ) : null}
+
+          {/* Table Rows */}
+          {Array.from({ length: 3 }).map((_, index) => (
+            <ListItem
+              key={index}
+              mx="$0"
+              px="$5"
+              ai={media.gtSm ? 'center' : 'flex-start'}
+            >
+              {/* Protocol column */}
+              <XStack flex={media.gtSm ? 2.5 : 1} ai="center" gap="$3">
+                <Skeleton w="$10" h="$10" borderRadius="$2" />
+                <YStack gap="$1" flex={1}>
+                  <Skeleton h="$4" w="70%" />
+                  <Skeleton h="$3" w="50%" />
+                </YStack>
+              </XStack>
+
+              {media.gtSm ? (
+                <>
+                  {/* Network column */}
+                  <XStack flex={1} jc="flex-end">
+                    <Skeleton w="$6" h="$6" borderRadius="$full" />
+                  </XStack>
+                  {/* TVL column */}
+                  <XStack flex={2} jc="flex-end">
+                    <Skeleton h="$4" w={100} />
+                  </XStack>
+                  {/* APR column */}
+                  <XStack flex={2} jc="flex-end">
+                    <Skeleton h="$4" w={80} />
+                  </XStack>
+                </>
+              ) : (
+                <YStack ai="flex-end">
+                  <Skeleton h="$4" w={80} />
+                </YStack>
+              )}
+            </ListItem>
+          ))}
+        </YStack>
+      );
+    }
+
+    if (protocolData.length === 0) {
+      return (
+        <YStack alignItems="center" flex={1}>
+          <Empty
+            px="$5"
+            py="$0"
+            width="100%"
+            icon="ErrorOutline"
+            title={intl.formatMessage({
+              id: ETranslations.earn_no_protocols_available,
+            })}
+            buttonProps={{
+              flex: 1,
+              children: intl.formatMessage({
+                id: ETranslations.global_refresh,
+              }),
+              onPress: () => {
+                void fetchProtocolData();
+              },
+            }}
+          />
+        </YStack>
+      );
+    }
+
+    return (
+      <TableList<IStakeProtocolListItem>
+        data={protocolData}
+        columns={columns}
+        defaultSortKey="yield"
+        defaultSortDirection="desc"
+        onPressRow={handleProtocolPress}
+        enableDrillIn={media.gtSm}
+        isLoading={isLoading}
+      />
+    );
+  }, [
+    media,
+    columns,
+    fetchProtocolData,
+    intl,
+    isLoading,
+    protocolData,
+    handleProtocolPress,
+  ]);
+
+  return (
+    <EarnPageContainer
+      sceneName={EAccountSelectorSceneName.home}
+      tabRoute={ETabRoutes.Earn}
+      pageTitle={customHeaderLeft}
+      breadcrumbProps={{
+        items: [
+          {
+            label: intl.formatMessage({ id: ETranslations.global_earn }),
+            onClick: () => {
+              navigation.switchTab(ETabRoutes.Earn, {
+                screen: ETabEarnRoutes.EarnHome,
+              });
+            },
+          },
+          {
+            label:
+              symbol ||
+              intl.formatMessage({
+                id: ETranslations.earn_symbol_staking_provider,
+              }),
+          },
+        ],
+      }}
+      showBackButton
+    >
+      {content}
+    </EarnPageContainer>
+  );
+}
+
+export default function EarnProtocols(props: { route: IRouteProps }) {
+  return (
+    <AccountSelectorProviderMirror
+      config={{
+        sceneName: EAccountSelectorSceneName.home,
+        sceneUrl: '',
+      }}
+      enabledNum={[0]}
+    >
+      <DiscoveryBrowserProviderMirror>
+        <BasicEarnProtocols {...props} />
+      </DiscoveryBrowserProviderMirror>
+    </AccountSelectorProviderMirror>
+  );
+}
