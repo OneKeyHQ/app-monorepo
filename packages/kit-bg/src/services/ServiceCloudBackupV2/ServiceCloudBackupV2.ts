@@ -98,11 +98,7 @@ class ServiceCloudBackupV2 extends ServiceBase {
       // return googlePlayService.isAvailable();
       return true;
     }
-    if (
-      platformEnv.isDesktop &&
-      platformEnv.isDesktopMac &&
-      platformEnv.isMas
-    ) {
+    if (platformEnv.isDesktop && platformEnv.isDesktopMac) {
       return true;
     }
     return false;
