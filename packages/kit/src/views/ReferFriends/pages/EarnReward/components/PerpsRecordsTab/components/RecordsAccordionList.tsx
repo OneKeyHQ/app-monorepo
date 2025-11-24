@@ -2,7 +2,7 @@ import { useIntl } from 'react-intl';
 
 import { Accordion, YStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type { IPerpsRecordToken } from '@onekeyhq/shared/src/referralCode/type';
+import type { IRewardToken } from '@onekeyhq/shared/src/referralCode/type';
 
 import { ReferFriendsAccordionItem } from '../../ReferFriendsAccordionItem';
 import { ReferFriendsListHeader } from '../../ReferFriendsListHeader';
@@ -11,7 +11,7 @@ import { TradingVolumeSummaryCard } from './TradingVolumeSummaryCard';
 
 export interface IRecordsAccordionSectionItem {
   key: string;
-  token: IPerpsRecordToken;
+  token: IRewardToken;
   amount: string;
   fiatValue: string;
   tradingVolume: string;

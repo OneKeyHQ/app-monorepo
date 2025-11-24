@@ -1,4 +1,4 @@
-interface IRewardToken {
+export interface IRewardToken {
   networkId: string;
   address: string;
   logoURI: string;
@@ -151,16 +151,8 @@ export interface IEarnRewardResponse {
   total: number;
 }
 
-export interface IPerpsRecordToken {
-  networkId: string;
-  address: string;
-  logoURI: string;
-  name: string;
-  symbol: string;
-}
-
 export interface IPerpsRecordItemDetail {
-  token: IPerpsRecordToken;
+  token: IRewardToken;
   amount: string;
   amountFiatValue: string;
   tradingVolume: string;

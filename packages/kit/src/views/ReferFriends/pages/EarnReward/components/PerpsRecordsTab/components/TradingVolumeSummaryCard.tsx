@@ -10,13 +10,13 @@ import {
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
-import type { IPerpsRecordToken } from '@onekeyhq/shared/src/referralCode/type';
+import type { IRewardToken } from '@onekeyhq/shared/src/referralCode/type';
 
 interface ITradingVolumeSummaryCardProps extends IXStackProps {
   titleId?: ETranslations;
   title?: string;
   totalFiatValue: string | number;
-  token: IPerpsRecordToken;
+  token: IRewardToken;
   tokenAmount: string;
   tokenFiatValue: string;
 }
