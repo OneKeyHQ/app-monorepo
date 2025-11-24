@@ -6,8 +6,10 @@ import {
   cloudkitQueryRecords,
   cloudkitRecordExists,
   cloudkitSaveRecord,
+  cloudkitSetContainerID,
 } from '@onekeyfe/electron-mac-icloud';
 
+import { DESKTOP_ICLOUD_CONTAINER_ID } from '@onekeyhq/shared/src/config/appConfig';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type {
   IAppleCloudKitAccountInfo,
@@ -76,6 +78,7 @@ class DesktopApiCloudKit implements IAppleCloudKitStorage {
 
   async getAccountInfo(): Promise<IAppleCloudKitAccountInfo> {
     this.ensureMacOS();
+    cloudkitSetContainerID(DESKTOP_ICLOUD_CONTAINER_ID);
     const accountInfo = await cloudkitGetAccountInfo();
 
     return {
@@ -94,7 +97,7 @@ class DesktopApiCloudKit implements IAppleCloudKitStorage {
     params: ICloudKitSaveRecordParams,
   ): Promise<ICloudKitSaveRecordResult> {
     this.ensureMacOS();
-
+    cloudkitSetContainerID(DESKTOP_ICLOUD_CONTAINER_ID);
     return cloudkitSaveRecord(params);
   }
 
@@ -102,16 +105,19 @@ class DesktopApiCloudKit implements IAppleCloudKitStorage {
     params: ICloudKitFetchRecordParams,
   ): Promise<ICloudKitRecord | null> {
     this.ensureMacOS();
+    cloudkitSetContainerID(DESKTOP_ICLOUD_CONTAINER_ID);
     return cloudkitFetchRecord(params);
   }
 
   async deleteRecord(params: ICloudKitDeleteRecordParams): Promise<void> {
     this.ensureMacOS();
+    cloudkitSetContainerID(DESKTOP_ICLOUD_CONTAINER_ID);
     return cloudkitDeleteRecord(params);
   }
 
   async recordExists(params: ICloudKitRecordExistsParams): Promise<boolean> {
     this.ensureMacOS();
+    cloudkitSetContainerID(DESKTOP_ICLOUD_CONTAINER_ID);
     return cloudkitRecordExists(params);
   }
 
@@ -119,6 +125,7 @@ class DesktopApiCloudKit implements IAppleCloudKitStorage {
     params: ICloudKitQueryRecordsParams,
   ): Promise<ICloudKitQueryRecordsResult> {
     this.ensureMacOS();
+    cloudkitSetContainerID(DESKTOP_ICLOUD_CONTAINER_ID);
     return cloudkitQueryRecords(params);
   }
 }
