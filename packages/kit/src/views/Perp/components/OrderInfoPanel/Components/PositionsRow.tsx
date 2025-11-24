@@ -1,12 +1,4 @@
-import {
-  type PropsWithChildren,
-  createContext,
-  memo,
-  useCallback,
-  useContext,
-  useMemo,
-  useState,
-} from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -29,15 +21,14 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
   useHyperliquidActions,
   usePerpsActivePositionAtom,
+  usePerpsOpenOrdersByCoin,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { getValidPriceDecimals } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import { usePerpsMidPrice } from '../../../hooks/usePerpsMidPrice';
-import { usePerpsOpenOrdersOfAsset } from '../../../hooks/usePerpsOpenOrdersOfAsset';
 import { useShowPositionShare } from '../../../hooks/useShowPositionShare';
 import { showAdjustPositionMarginDialog } from '../AdjustPositionMarginModal';
 import { showClosePositionDialog } from '../ClosePositionModal';
@@ -45,7 +36,6 @@ import { showSetTpslDialog } from '../SetTpslModal';
 import { calcCellAlign, getColumnStyle } from '../utils';
 
 import type { IColumnConfig } from '../List/CommonTableListView';
-import type { AssetPosition } from '@nktkas/hyperliquid';
 
 interface IPositionRowProps {
   mockedPosition: {
@@ -53,105 +43,42 @@ interface IPositionRowProps {
   };
   cellMinWidth: number;
   columnConfigs: IColumnConfig[];
-  // tpslOrders: FrontendOrder[];
   handleViewTpslOrders: () => void;
   isMobile?: boolean;
 }
 
-interface IPositionRowContextValue {
-  mockedPosition: {
-    index: number;
-  };
-  cellMinWidth: number;
-  columnConfigs: IColumnConfig[];
-  coin: string;
-  decimals: number;
-  side: 'long' | 'short';
-  markPrice: {
-    mid: string | undefined;
-    midFormattedByDecimals: string | undefined;
-  };
-  assetInfo: {
-    assetSymbol: string;
-    leverage: number | string;
-    assetColor: string;
-    leverageType: string;
-  };
-  sizeInfo: {
-    sizeAbsFormatted: string | number;
-    sizeValue: string | number;
-  };
-  priceInfo: {
-    entryPriceFormatted: string;
-    liquidationPriceFormatted: string;
-  };
-  otherInfo: {
-    unrealizedPnl: string | number;
-    marginUsedFormatted: string | number;
-    fundingAllTimeFormatted: string;
-    fundingSinceOpenFormatted: string;
-    fundingSinceChangeFormatted: string;
-    fundingAllPlusOrMinus: string;
-    fundingAllTimeColor: string;
-    fundingSinceOpenPlusOrMinus: string;
-    fundingSinceOpenColor: string;
-    fundingSinceChangePlusOrMinus: string;
-    fundingSinceChangeColor: string;
-    roiPercent: string;
-    pnlColor: string;
-    pnlPlusOrMinus: string;
-  };
-  tpslInfo: {
-    tpsl: string;
-    showOrder: boolean;
-  };
-  isIsolatedMode: boolean;
-  isSizeViewChange: boolean;
-  onChangeAsset: () => void;
-  onSetTpsl: () => void;
-  onClosePosition: (type: 'market' | 'limit') => void;
-  onAdjustMargin: () => void;
-  onViewTpslOrders: () => void;
-  onSizeViewChange: () => void;
-  onShare: () => void;
+interface IAssetInfo {
+  assetSymbol: string;
+  leverage: number | string;
+  assetColor: string;
+  leverageType: string;
 }
 
-const PositionRowContext = createContext<IPositionRowContextValue | null>(null);
-
-function usePositionRowContext() {
-  const context = useContext(PositionRowContext);
-  if (!context) {
-    throw new OneKeyLocalError(
-      'usePositionRowContext must be used within PositionRowProvider',
-    );
-  }
-  return context;
+interface ISizeInfo {
+  sizeAbsFormatted: string | number;
+  sizeValue: string | number;
 }
 
-function PositionRowProvider({
-  children,
-  value,
-}: PropsWithChildren<{ value: IPositionRowContextValue }>) {
-  return (
-    <PositionRowContext.Provider value={value}>
-      {children}
-    </PositionRowContext.Provider>
-  );
+interface IPriceInfo {
+  entryPriceFormatted: string;
+  liquidationPriceFormatted: string;
 }
 
-function MarkPriceFromContext() {
-  const { markPrice } = usePositionRowContext();
-
-  return useMemo(
-    () => (
-      <DebugRenderTracker position="bottom-right" name="MarkPrice" offsetY={10}>
-        <SizableText numberOfLines={1} ellipsizeMode="tail" size="$bodySm">
-          {markPrice.midFormattedByDecimals}
-        </SizableText>
-      </DebugRenderTracker>
-    ),
-    [markPrice.midFormattedByDecimals],
-  );
+interface IOtherInfo {
+  unrealizedPnl: string | number;
+  marginUsedFormatted: string | number;
+  fundingAllTimeFormatted: string;
+  fundingSinceOpenFormatted: string;
+  fundingSinceChangeFormatted: string;
+  fundingAllPlusOrMinus: string;
+  fundingAllTimeColor: string;
+  fundingSinceOpenPlusOrMinus: string;
+  fundingSinceOpenColor: string;
+  fundingSinceChangePlusOrMinus: string;
+  fundingSinceChangeColor: string;
+  roiPercent: string;
+  pnlColor: string;
+  pnlPlusOrMinus: string;
 }
 
 function MarkPrice({ coin }: { coin: string }) {
@@ -171,28 +98,25 @@ function MarkPrice({ coin }: { coin: string }) {
   );
 }
 
-function _useCurrentPositionFromMocked(mockedPosition: { index: number }): {
-  position: AssetPosition['position'];
-} {
-  const [positions] = usePerpsActivePositionAtom();
-  return {
-    position: positions.activePositions[mockedPosition.index]?.position,
-  };
-}
-
-const PositionRowDesktopSymbolAndLeverage = memo(() => {
-  const { columnConfigs, assetInfo, onChangeAsset } = usePositionRowContext();
-
-  const content = useMemo(
-    () => (
+const PositionRowDesktopSymbolAndLeverage = memo(
+  ({
+    columnConfig,
+    assetInfo,
+    onChangeAsset,
+  }: {
+    columnConfig: IColumnConfig;
+    assetInfo: IAssetInfo;
+    onChangeAsset: () => void;
+  }) => {
+    return (
       <DebugRenderTracker
         position="bottom-right"
         name="PositionRowDesktopSymbolAndLeverage"
       >
         <XStack
-          {...getColumnStyle(columnConfigs[0])}
+          {...getColumnStyle(columnConfig)}
           alignItems="center"
-          justifyContent={calcCellAlign(columnConfigs[0].align)}
+          justifyContent={calcCellAlign(columnConfig.align)}
           gap="$2"
           pl="$2"
           cursor="pointer"
@@ -231,28 +155,29 @@ const PositionRowDesktopSymbolAndLeverage = memo(() => {
           </XStack>
         </XStack>
       </DebugRenderTracker>
-    ),
-    [columnConfigs, assetInfo, onChangeAsset],
-  );
-  return content;
-});
-
+    );
+  },
+);
 PositionRowDesktopSymbolAndLeverage.displayName =
   'PositionRowDesktopSymbolAndLeverage';
 
-const PositionRowDesktopPositionSize = memo(() => {
-  const { columnConfigs, sizeInfo } = usePositionRowContext();
-
-  const content = useMemo(
-    () => (
+const PositionRowDesktopPositionSize = memo(
+  ({
+    columnConfig,
+    sizeInfo,
+  }: {
+    columnConfig: IColumnConfig;
+    sizeInfo: ISizeInfo;
+  }) => {
+    return (
       <DebugRenderTracker
         position="bottom-right"
         name="PositionRowDesktopPositionSize"
       >
         <YStack
-          {...getColumnStyle(columnConfigs[1])}
+          {...getColumnStyle(columnConfig)}
           justifyContent="center"
-          alignItems={calcCellAlign(columnConfigs[1].align)}
+          alignItems={calcCellAlign(columnConfig.align)}
         >
           <SizableText numberOfLines={1} ellipsizeMode="tail" size="$bodySm">
             {`${sizeInfo.sizeAbsFormatted}`}
@@ -267,26 +192,27 @@ const PositionRowDesktopPositionSize = memo(() => {
           </SizableText>
         </YStack>
       </DebugRenderTracker>
-    ),
-    [columnConfigs, sizeInfo],
-  );
-  return content;
-});
-
+    );
+  },
+);
 PositionRowDesktopPositionSize.displayName = 'PositionRowDesktopPositionSize';
 
-const PositionRowDesktopEntryPrice = memo(() => {
-  const { columnConfigs, priceInfo } = usePositionRowContext();
-
-  const content = useMemo(
-    () => (
+const PositionRowDesktopEntryPrice = memo(
+  ({
+    columnConfig,
+    priceInfo,
+  }: {
+    columnConfig: IColumnConfig;
+    priceInfo: IPriceInfo;
+  }) => {
+    return (
       <DebugRenderTracker
         position="bottom-right"
         name="PositionRowDesktopEntryPrice"
       >
         <XStack
-          {...getColumnStyle(columnConfigs[2])}
-          justifyContent={calcCellAlign(columnConfigs[2].align)}
+          {...getColumnStyle(columnConfig)}
+          justifyContent={calcCellAlign(columnConfig.align)}
           alignItems="center"
         >
           <SizableText
@@ -296,46 +222,51 @@ const PositionRowDesktopEntryPrice = memo(() => {
           >{`${priceInfo.entryPriceFormatted}`}</SizableText>
         </XStack>
       </DebugRenderTracker>
-    ),
-    [columnConfigs, priceInfo],
-  );
-  return content;
-});
-
+    );
+  },
+);
 PositionRowDesktopEntryPrice.displayName = 'PositionRowDesktopEntryPrice';
 
-const PositionRowDesktopMarkPrice = memo(() => {
-  const { columnConfigs } = usePositionRowContext();
-
-  const content = useMemo(
-    () => (
+const PositionRowDesktopMarkPrice = memo(
+  ({ columnConfig, coin }: { columnConfig: IColumnConfig; coin: string }) => {
+    const { midFormattedByDecimals } = usePerpsMidPrice({ coin });
+    return (
       <XStack
-        {...getColumnStyle(columnConfigs[3])}
-        justifyContent={calcCellAlign(columnConfigs[3].align)}
+        {...getColumnStyle(columnConfig)}
+        justifyContent={calcCellAlign(columnConfig.align)}
         alignItems="center"
       >
-        <MarkPriceFromContext />
+        <DebugRenderTracker
+          position="bottom-right"
+          name="MarkPrice"
+          offsetY={10}
+        >
+          <SizableText numberOfLines={1} ellipsizeMode="tail" size="$bodySm">
+            {midFormattedByDecimals}
+          </SizableText>
+        </DebugRenderTracker>
       </XStack>
-    ),
-    [columnConfigs],
-  );
-  return content;
-});
-
+    );
+  },
+);
 PositionRowDesktopMarkPrice.displayName = 'PositionRowDesktopMarkPrice';
 
-const PositionRowDesktopLiqPrice = memo(() => {
-  const { columnConfigs, priceInfo } = usePositionRowContext();
-
-  const content = useMemo(
-    () => (
+const PositionRowDesktopLiqPrice = memo(
+  ({
+    columnConfig,
+    priceInfo,
+  }: {
+    columnConfig: IColumnConfig;
+    priceInfo: IPriceInfo;
+  }) => {
+    return (
       <DebugRenderTracker
         position="bottom-right"
         name="PositionRowDesktopLiqPrice"
       >
         <XStack
-          {...getColumnStyle(columnConfigs[4])}
-          justifyContent={calcCellAlign(columnConfigs[4].align)}
+          {...getColumnStyle(columnConfig)}
+          justifyContent={calcCellAlign(columnConfig.align)}
           alignItems="center"
         >
           <SizableText
@@ -345,23 +276,26 @@ const PositionRowDesktopLiqPrice = memo(() => {
           >{`${priceInfo.liquidationPriceFormatted}`}</SizableText>
         </XStack>
       </DebugRenderTracker>
-    ),
-    [columnConfigs, priceInfo],
-  );
-  return content;
-});
-
+    );
+  },
+);
 PositionRowDesktopLiqPrice.displayName = 'PositionRowDesktopLiqPrice';
 
-const PositionRowDesktopPnL = memo(() => {
-  const { columnConfigs, otherInfo, onShare } = usePositionRowContext();
-
-  const content = useMemo(
-    () => (
+const PositionRowDesktopPnL = memo(
+  ({
+    columnConfig,
+    otherInfo,
+    onShare,
+  }: {
+    columnConfig: IColumnConfig;
+    otherInfo: IOtherInfo;
+    onShare: () => void;
+  }) => {
+    return (
       <DebugRenderTracker position="bottom-right" name="PositionRowDesktopPnL">
         <XStack
-          {...getColumnStyle(columnConfigs[5])}
-          justifyContent={calcCellAlign(columnConfigs[5].align)}
+          {...getColumnStyle(columnConfig)}
+          justifyContent={calcCellAlign(columnConfig.align)}
           alignItems="center"
           gap="$1"
         >
@@ -383,27 +317,31 @@ const PositionRowDesktopPnL = memo(() => {
           />
         </XStack>
       </DebugRenderTracker>
-    ),
-    [columnConfigs, otherInfo, onShare],
-  );
-  return content;
-});
-
+    );
+  },
+);
 PositionRowDesktopPnL.displayName = 'PositionRowDesktopPnL';
 
-const PositionRowDesktopMargin = memo(() => {
-  const { columnConfigs, otherInfo, isIsolatedMode, onAdjustMargin } =
-    usePositionRowContext();
-
-  const content = useMemo(
-    () => (
+const PositionRowDesktopMargin = memo(
+  ({
+    columnConfig,
+    otherInfo,
+    isIsolatedMode,
+    onAdjustMargin,
+  }: {
+    columnConfig: IColumnConfig;
+    otherInfo: IOtherInfo;
+    isIsolatedMode: boolean;
+    onAdjustMargin: () => void;
+  }) => {
+    return (
       <DebugRenderTracker
         position="bottom-right"
         name="PositionRowDesktopMargin"
       >
         <XStack
-          {...getColumnStyle(columnConfigs[6])}
-          justifyContent={calcCellAlign(columnConfigs[6].align)}
+          {...getColumnStyle(columnConfig)}
+          justifyContent={calcCellAlign(columnConfig.align)}
           alignItems="center"
         >
           <XStack alignItems="center" gap="$1">
@@ -425,27 +363,30 @@ const PositionRowDesktopMargin = memo(() => {
           </XStack>
         </XStack>
       </DebugRenderTracker>
-    ),
-    [columnConfigs, otherInfo, isIsolatedMode, onAdjustMargin],
-  );
-  return content;
-});
-
+    );
+  },
+);
 PositionRowDesktopMargin.displayName = 'PositionRowDesktopMargin';
 
-const PositionRowDesktopFunding = memo(() => {
-  const intl = useIntl();
-  const { columnConfigs, otherInfo, assetInfo } = usePositionRowContext();
-
-  const content = useMemo(
-    () => (
+const PositionRowDesktopFunding = memo(
+  ({
+    columnConfig,
+    otherInfo,
+    assetInfo,
+  }: {
+    columnConfig: IColumnConfig;
+    otherInfo: IOtherInfo;
+    assetInfo: IAssetInfo;
+  }) => {
+    const intl = useIntl();
+    return (
       <DebugRenderTracker
         position="bottom-right"
         name="PositionRowDesktopFunding"
       >
         <XStack
-          {...getColumnStyle(columnConfigs[7])}
-          justifyContent={calcCellAlign(columnConfigs[7].align)}
+          {...getColumnStyle(columnConfig)}
+          justifyContent={calcCellAlign(columnConfig.align)}
           alignItems="center"
         >
           <Tooltip
@@ -513,25 +454,61 @@ const PositionRowDesktopFunding = memo(() => {
           />
         </XStack>
       </DebugRenderTracker>
-    ),
-    [columnConfigs, otherInfo, assetInfo, intl],
-  );
-  return content;
-});
-
+    );
+  },
+);
 PositionRowDesktopFunding.displayName = 'PositionRowDesktopFunding';
 
-const PositionRowDesktopTPSL = memo(() => {
-  const intl = useIntl();
-  const { columnConfigs, tpslInfo, onSetTpsl, onViewTpslOrders } =
-    usePositionRowContext();
+const PositionRowDesktopTPSL = memo(
+  ({
+    columnConfig,
+    coin,
+    onSetTpsl,
+    onViewTpslOrders,
+  }: {
+    columnConfig: IColumnConfig;
+    coin: string;
+    onSetTpsl: () => void;
+    onViewTpslOrders: () => void;
+  }) => {
+    const intl = useIntl();
+    const currentAssetOpenOrders = usePerpsOpenOrdersByCoin(coin);
+    const tpslInfo = useMemo(() => {
+      const emptyPrice = '--';
+      let tpPrice = emptyPrice;
+      let slPrice = emptyPrice;
+      let showOrder = false; // show goToOrders button
+      let hasNonPositionTpslOrder = false;
 
-  const content = useMemo(
-    () => (
+      currentAssetOpenOrders.forEach((order) => {
+        if (order.isPositionTpsl) {
+          if (order.orderType.startsWith('Take')) {
+            tpPrice = order.triggerPx;
+          }
+          if (order.orderType.startsWith('Stop')) {
+            slPrice = order.triggerPx;
+          }
+        } else {
+          hasNonPositionTpslOrder = true;
+        }
+      });
+
+      if (
+        hasNonPositionTpslOrder &&
+        tpPrice === emptyPrice &&
+        slPrice === emptyPrice
+      ) {
+        showOrder = true;
+      }
+
+      return { tpsl: `${tpPrice}/${slPrice}`, showOrder };
+    }, [currentAssetOpenOrders]);
+
+    return (
       <DebugRenderTracker position="bottom-right" name="PositionRowDesktopTPSL">
         <XStack
-          {...getColumnStyle(columnConfigs[8])}
-          justifyContent={calcCellAlign(columnConfigs[8].align)}
+          {...getColumnStyle(columnConfig)}
+          justifyContent={calcCellAlign(columnConfig.align)}
           alignItems="center"
         >
           {tpslInfo.showOrder ? (
@@ -578,28 +555,29 @@ const PositionRowDesktopTPSL = memo(() => {
           )}
         </XStack>
       </DebugRenderTracker>
-    ),
-    [columnConfigs, tpslInfo, onSetTpsl, onViewTpslOrders, intl],
-  );
-  return content;
-});
-
+    );
+  },
+);
 PositionRowDesktopTPSL.displayName = 'PositionRowDesktopTPSL';
 
-const PositionRowDesktopActions = memo(() => {
-  const intl = useIntl();
-  const { columnConfigs, onClosePosition } = usePositionRowContext();
-
-  const content = useMemo(
-    () => (
+const PositionRowDesktopActions = memo(
+  ({
+    columnConfig,
+    onClosePosition,
+  }: {
+    columnConfig: IColumnConfig;
+    onClosePosition: (type: 'market' | 'limit') => void;
+  }) => {
+    const intl = useIntl();
+    return (
       <DebugRenderTracker
         position="bottom-right"
         name="PositionRowDesktopActions"
         offsetY={10}
       >
         <XStack
-          {...getColumnStyle(columnConfigs[9])}
-          justifyContent={calcCellAlign(columnConfigs[9].align)}
+          {...getColumnStyle(columnConfig)}
+          justifyContent={calcCellAlign(columnConfig.align)}
           alignItems="center"
           gap="$2"
         >
@@ -631,19 +609,48 @@ const PositionRowDesktopActions = memo(() => {
           </XStack>
         </XStack>
       </DebugRenderTracker>
-    ),
-    [columnConfigs, onClosePosition, intl],
-  );
-  return content;
-});
-
+    );
+  },
+);
 PositionRowDesktopActions.displayName = 'PositionRowDesktopActions';
 
-const PositionRowDesktop = memo(() => {
-  const { mockedPosition, cellMinWidth } = usePositionRowContext();
+interface IPositionRowDesktopProps {
+  mockedPosition: { index: number };
+  cellMinWidth: number;
+  columnConfigs: IColumnConfig[];
+  assetInfo: IAssetInfo;
+  sizeInfo: ISizeInfo;
+  priceInfo: IPriceInfo;
+  otherInfo: IOtherInfo;
+  coin: string;
+  isIsolatedMode: boolean;
+  onChangeAsset: () => void;
+  onSetTpsl: () => void;
+  onClosePosition: (type: 'market' | 'limit') => void;
+  onAdjustMargin: () => void;
+  onViewTpslOrders: () => void;
+  onShare: () => void;
+}
 
-  const content = useMemo(
-    () => (
+const PositionRowDesktop = memo(
+  ({
+    mockedPosition,
+    cellMinWidth,
+    columnConfigs,
+    assetInfo,
+    sizeInfo,
+    priceInfo,
+    otherInfo,
+    coin,
+    isIsolatedMode,
+    onChangeAsset,
+    onSetTpsl,
+    onClosePosition,
+    onAdjustMargin,
+    onViewTpslOrders,
+    onShare,
+  }: IPositionRowDesktopProps) => {
+    return (
       <DebugRenderTracker
         position="left-center"
         offsetX={10}
@@ -661,470 +668,516 @@ const PositionRowDesktop = memo(() => {
             backgroundColor: '$bgSubdued',
           })}
         >
-          <PositionRowDesktopSymbolAndLeverage />
-          <PositionRowDesktopPositionSize />
-          <PositionRowDesktopEntryPrice />
-          <PositionRowDesktopMarkPrice />
-          <PositionRowDesktopLiqPrice />
-          <PositionRowDesktopPnL />
-          <PositionRowDesktopMargin />
-          <PositionRowDesktopFunding />
-          <PositionRowDesktopTPSL />
-          <PositionRowDesktopActions />
+          <PositionRowDesktopSymbolAndLeverage
+            columnConfig={columnConfigs[0]}
+            assetInfo={assetInfo}
+            onChangeAsset={onChangeAsset}
+          />
+          <PositionRowDesktopPositionSize
+            columnConfig={columnConfigs[1]}
+            sizeInfo={sizeInfo}
+          />
+          <PositionRowDesktopEntryPrice
+            columnConfig={columnConfigs[2]}
+            priceInfo={priceInfo}
+          />
+          <PositionRowDesktopMarkPrice
+            columnConfig={columnConfigs[3]}
+            coin={coin}
+          />
+          <PositionRowDesktopLiqPrice
+            columnConfig={columnConfigs[4]}
+            priceInfo={priceInfo}
+          />
+          <PositionRowDesktopPnL
+            columnConfig={columnConfigs[5]}
+            otherInfo={otherInfo}
+            onShare={onShare}
+          />
+          <PositionRowDesktopMargin
+            columnConfig={columnConfigs[6]}
+            otherInfo={otherInfo}
+            isIsolatedMode={isIsolatedMode}
+            onAdjustMargin={onAdjustMargin}
+          />
+          <PositionRowDesktopFunding
+            columnConfig={columnConfigs[7]}
+            otherInfo={otherInfo}
+            assetInfo={assetInfo}
+          />
+          <PositionRowDesktopTPSL
+            columnConfig={columnConfigs[8]}
+            coin={coin}
+            onSetTpsl={onSetTpsl}
+            onViewTpslOrders={onViewTpslOrders}
+          />
+          <PositionRowDesktopActions
+            columnConfig={columnConfigs[9]}
+            onClosePosition={onClosePosition}
+          />
         </XStack>
       </DebugRenderTracker>
-    ),
-    [cellMinWidth, mockedPosition.index],
-  );
-  return content;
-});
-
+    );
+  },
+);
 PositionRowDesktop.displayName = 'PositionRowDesktop';
 
-const PositionRowMobileHeader = memo(() => {
-  const intl = useIntl();
-  const { side, assetInfo, onChangeAsset, onShare } = usePositionRowContext();
+const PositionRowMobileHeader = memo(
+  ({
+    side,
+    assetInfo,
+    onChangeAsset,
+    onShare,
+  }: {
+    side: 'long' | 'short';
+    assetInfo: IAssetInfo;
+    onChangeAsset: () => void;
+    onShare: () => void;
+  }) => {
+    const intl = useIntl();
 
-  const content = useMemo(
-    () => (
-      <DebugRenderTracker
-        position="bottom-right"
-        name="PositionRowMobileHeader"
-      >
-        <XStack justifyContent="space-between" flex={1}>
+    return (
+      <XStack justifyContent="space-between" flex={1} position="relative">
+        <XStack
+          flex={1}
+          gap="$2"
+          alignItems="center"
+          cursor="pointer"
+          onPress={onChangeAsset}
+        >
           <XStack
-            flex={1}
-            gap="$2"
+            w="$4"
+            h="$4"
+            justifyContent="center"
             alignItems="center"
-            cursor="pointer"
-            onPress={onChangeAsset}
+            borderRadius={2}
+            backgroundColor={assetInfo.assetColor}
           >
-            <XStack
-              w="$4"
-              h="$4"
-              justifyContent="center"
-              alignItems="center"
-              borderRadius={2}
-              backgroundColor={assetInfo.assetColor}
-            >
-              <SizableText size="$bodySmMedium" color="$textOnColor">
-                {side === 'long'
-                  ? intl.formatMessage({
-                      id: ETranslations.perp_position_b,
-                    })
-                  : intl.formatMessage({
-                      id: ETranslations.perp_position_s,
-                    })}
-              </SizableText>
-            </XStack>
-            <SizableText size="$bodyMdMedium" color="$text">
-              {assetInfo.assetSymbol}
-            </SizableText>
-            <SizableText
-              bg="$bgSubdued"
-              borderRadius={2}
-              px="$1"
-              color="$textSubdued"
-              fontSize={10}
-            >
-              {assetInfo.leverageType} {assetInfo.leverage}x
+            <SizableText size="$bodySmMedium" color="$textOnColor">
+              {side === 'long'
+                ? intl.formatMessage({
+                    id: ETranslations.perp_position_b,
+                  })
+                : intl.formatMessage({
+                    id: ETranslations.perp_position_s,
+                  })}
             </SizableText>
           </XStack>
-          <IconButton
-            variant="tertiary"
-            size="small"
-            icon="ShareOutline"
-            iconSize="$3.5"
-            onPress={onShare}
-            cursor="pointer"
-          />
+          <SizableText size="$bodyMdMedium" color="$text">
+            {assetInfo.assetSymbol}
+          </SizableText>
+          <SizableText
+            bg="$bgSubdued"
+            borderRadius={2}
+            px="$1"
+            color="$textSubdued"
+            fontSize={10}
+          >
+            {assetInfo.leverageType} {assetInfo.leverage}x
+          </SizableText>
         </XStack>
-      </DebugRenderTracker>
-    ),
-    [side, assetInfo, onChangeAsset, intl, onShare],
-  );
-  return content;
-});
-
+        <IconButton
+          variant="tertiary"
+          size="small"
+          icon="ShareOutline"
+          iconSize="$3.5"
+          onPress={onShare}
+          cursor="pointer"
+        />
+      </XStack>
+    );
+  },
+);
 PositionRowMobileHeader.displayName = 'PositionRowMobileHeader';
 
-const PositionRowMobilePnLAndROE = memo(() => {
-  const intl = useIntl();
-  const { otherInfo } = usePositionRowContext();
+const PositionRowMobilePnLAndROE = memo(
+  ({ otherInfo }: { otherInfo: IOtherInfo }) => {
+    const intl = useIntl();
 
-  const content = useMemo(
-    () => (
-      <DebugRenderTracker
-        position="bottom-right"
-        name="PositionRowMobilePnLAndROE"
+    return (
+      <XStack
+        width="100%"
+        justifyContent="space-between"
+        alignItems="center"
+        position="relative"
       >
-        <XStack width="100%" justifyContent="space-between" alignItems="center">
-          <YStack gap="$1">
-            <SizableText size="$bodySm" color="$textSubdued">
-              {intl.formatMessage({
-                id: ETranslations.perp_position_pnl_mobile,
-              })}
-            </SizableText>
-            <SizableText size="$bodyMdMedium" color={otherInfo.pnlColor}>
-              {`${otherInfo.pnlPlusOrMinus}${otherInfo.unrealizedPnl}`}
-            </SizableText>
-          </YStack>
-          <YStack gap="$1" alignItems="flex-end">
-            <SizableText size="$bodySm" color="$textSubdued">
-              ROE
-            </SizableText>
-            <SizableText size="$bodyMdMedium" color={otherInfo.pnlColor}>
-              {`${otherInfo.pnlPlusOrMinus}${otherInfo.roiPercent}%`}
-            </SizableText>
-          </YStack>
-        </XStack>
-      </DebugRenderTracker>
-    ),
-    [otherInfo, intl],
-  );
-  return content;
-});
-
+        <YStack gap="$1">
+          <SizableText size="$bodySm" color="$textSubdued">
+            {intl.formatMessage({
+              id: ETranslations.perp_position_pnl_mobile,
+            })}
+          </SizableText>
+          <SizableText size="$bodyMdMedium" color={otherInfo.pnlColor}>
+            {`${otherInfo.pnlPlusOrMinus}${otherInfo.unrealizedPnl}`}
+          </SizableText>
+        </YStack>
+        <YStack gap="$1" alignItems="flex-end">
+          <SizableText size="$bodySm" color="$textSubdued">
+            ROE
+          </SizableText>
+          <SizableText size="$bodyMdMedium" color={otherInfo.pnlColor}>
+            {`${otherInfo.pnlPlusOrMinus}${otherInfo.roiPercent}%`}
+          </SizableText>
+        </YStack>
+      </XStack>
+    );
+  },
+);
 PositionRowMobilePnLAndROE.displayName = 'PositionRowMobilePnLAndROE';
 
-const PositionRowMobilePositionSize = memo(() => {
-  const intl = useIntl();
-  const { assetInfo, sizeInfo, isSizeViewChange, onSizeViewChange } =
-    usePositionRowContext();
+const PositionRowMobilePositionSize = memo(
+  ({
+    assetInfo,
+    sizeInfo,
+    isSizeViewChange,
+    onSizeViewChange,
+  }: {
+    assetInfo: IAssetInfo;
+    sizeInfo: ISizeInfo;
+    isSizeViewChange: boolean;
+    onSizeViewChange: () => void;
+  }) => {
+    const intl = useIntl();
 
-  const content = useMemo(
-    () => (
-      <DebugRenderTracker
-        position="bottom-right"
-        name="PositionRowMobilePositionSize"
-      >
-        <YStack gap="$1" width={120}>
-          <XStack alignItems="center" gap="$1" onPress={onSizeViewChange}>
-            <XStack alignItems="center" gap="$0.5">
-              <SizableText size="$bodySm" color="$textSubdued">
-                {intl.formatMessage({
-                  id: ETranslations.perp_position_position_size,
-                })}
-              </SizableText>
-              <SizableText size="$bodySm" color="$textSubdued">
-                {`${isSizeViewChange ? '(USD)' : `(${assetInfo.assetSymbol})`}`}
-              </SizableText>
-            </XStack>
-            <Icon name="RepeatOutline" size="$3" color="$textSubdued" />
-          </XStack>
-          <XStack alignItems="center" gap="$1" cursor="pointer">
-            <SizableText size="$bodySmMedium">
-              {isSizeViewChange
-                ? `$${sizeInfo.sizeValue}`
-                : sizeInfo.sizeAbsFormatted}
+    return (
+      <YStack gap="$1" width={120} position="relative">
+        <XStack alignItems="center" gap="$1" onPress={onSizeViewChange}>
+          <XStack alignItems="center" gap="$0.5">
+            <SizableText size="$bodySm" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.perp_position_position_size,
+              })}
+            </SizableText>
+            <SizableText size="$bodySm" color="$textSubdued">
+              {`${isSizeViewChange ? '(USD)' : `(${assetInfo.assetSymbol})`}`}
             </SizableText>
           </XStack>
-        </YStack>
-      </DebugRenderTracker>
-    ),
-    [assetInfo, sizeInfo, isSizeViewChange, onSizeViewChange, intl],
-  );
-  return content;
-});
-
+          <Icon name="RepeatOutline" size="$3" color="$textSubdued" />
+        </XStack>
+        <XStack alignItems="center" gap="$1" cursor="pointer">
+          <SizableText size="$bodySmMedium">
+            {isSizeViewChange
+              ? `$${sizeInfo.sizeValue}`
+              : sizeInfo.sizeAbsFormatted}
+          </SizableText>
+        </XStack>
+      </YStack>
+    );
+  },
+);
 PositionRowMobilePositionSize.displayName = 'PositionRowMobilePositionSize';
 
-const PositionRowMobileMargin = memo(() => {
-  const intl = useIntl();
-  const { otherInfo, isIsolatedMode, onAdjustMargin } = usePositionRowContext();
+const PositionRowMobileMargin = memo(
+  ({
+    otherInfo,
+    isIsolatedMode,
+    onAdjustMargin,
+  }: {
+    otherInfo: IOtherInfo;
+    isIsolatedMode: boolean;
+    onAdjustMargin: () => void;
+  }) => {
+    const intl = useIntl();
 
-  const content = useMemo(
-    () => (
-      <DebugRenderTracker
-        position="bottom-right"
-        name="PositionRowMobileMargin"
-      >
-        <YStack gap="$1" flex={1} alignItems="center">
-          <SizableText size="$bodySm" color="$textSubdued">
-            {intl.formatMessage({
-              id: ETranslations.perp_position_margin,
-            })}
+    return (
+      <YStack gap="$1" flex={1} alignItems="center" position="relative">
+        <SizableText size="$bodySm" color="$textSubdued">
+          {intl.formatMessage({
+            id: ETranslations.perp_position_margin,
+          })}
+        </SizableText>
+        <XStack alignItems="center" gap="$1">
+          <SizableText size="$bodySmMedium">
+            {`${otherInfo.marginUsedFormatted}`}
           </SizableText>
-          <XStack alignItems="center" gap="$1">
-            <SizableText size="$bodySmMedium">
-              {`${otherInfo.marginUsedFormatted}`}
-            </SizableText>
-            {isIsolatedMode ? (
-              <IconButton
-                variant="tertiary"
-                size="small"
-                icon="PencilOutline"
-                iconSize="$3"
-                onPress={onAdjustMargin}
-                cursor="pointer"
-              />
-            ) : null}
-          </XStack>
-        </YStack>
-      </DebugRenderTracker>
-    ),
-    [otherInfo, isIsolatedMode, onAdjustMargin, intl],
-  );
-  return content;
-});
-
+          {isIsolatedMode ? (
+            <IconButton
+              variant="tertiary"
+              size="small"
+              icon="PencilOutline"
+              iconSize="$3"
+              onPress={onAdjustMargin}
+              cursor="pointer"
+            />
+          ) : null}
+        </XStack>
+      </YStack>
+    );
+  },
+);
 PositionRowMobileMargin.displayName = 'PositionRowMobileMargin';
 
-const PositionRowMobileEntryPrice = memo(() => {
-  const intl = useIntl();
-  const { priceInfo } = usePositionRowContext();
+const PositionRowMobileEntryPrice = memo(
+  ({ priceInfo }: { priceInfo: IPriceInfo }) => {
+    const intl = useIntl();
 
-  const content = useMemo(
-    () => (
-      <DebugRenderTracker
-        position="bottom-right"
-        name="PositionRowMobileEntryPrice"
-      >
-        <YStack gap="$1" width={120} alignItems="flex-end">
-          <SizableText size="$bodySm" color="$textSubdued">
-            {intl.formatMessage({
-              id: ETranslations.perp_position_entry_price,
-            })}
-          </SizableText>
-          <SizableText size="$bodySmMedium">
-            {`${priceInfo.entryPriceFormatted}`}
-          </SizableText>
-        </YStack>
-      </DebugRenderTracker>
-    ),
-    [priceInfo, intl],
-  );
-  return content;
-});
-
+    return (
+      <YStack gap="$1" width={120} alignItems="flex-end" position="relative">
+        <SizableText size="$bodySm" color="$textSubdued">
+          {intl.formatMessage({
+            id: ETranslations.perp_position_entry_price,
+          })}
+        </SizableText>
+        <SizableText size="$bodySmMedium">
+          {`${priceInfo.entryPriceFormatted}`}
+        </SizableText>
+      </YStack>
+    );
+  },
+);
 PositionRowMobileEntryPrice.displayName = 'PositionRowMobileEntryPrice';
 
-const PositionRowMobileFunding = memo(() => {
-  const intl = useIntl();
-  const { assetInfo, otherInfo } = usePositionRowContext();
-
-  const content = useMemo(
-    () => (
-      <DebugRenderTracker
-        position="bottom-right"
-        name="PositionRowMobileFunding"
-      >
-        <YStack gap="$1" width={120}>
-          <Popover
-            title={intl.formatMessage({
-              id: ETranslations.perp_position_funding_2,
-            })}
-            renderTrigger={
-              <DashText
-                size="$bodySm"
-                color="$textSubdued"
-                dashColor="$textDisabled"
-                dashThickness={0.5}
-              >
-                {intl.formatMessage({
-                  id: ETranslations.perp_position_funding_2,
-                })}
-              </DashText>
-            }
-            renderContent={
-              <YStack
-                bg="$bg"
-                justifyContent="center"
-                w="100%"
-                px="$5"
-                pt="$2"
-                pb="$5"
-                gap="$4"
-              >
-                <XStack alignItems="center" justifyContent="space-between">
-                  <YStack w="50%">
-                    <SizableText size="$bodyMd" color="$textSubdued">
-                      {intl.formatMessage({
-                        id: ETranslations.perp_position_funding_since_open,
-                      })}
-                    </SizableText>
-                    <SizableText
-                      size="$bodyMdMedium"
-                      color={otherInfo.fundingSinceOpenColor}
-                    >
-                      {`${otherInfo.fundingSinceOpenPlusOrMinus}$${otherInfo.fundingSinceOpenFormatted}`}
-                    </SizableText>
-                  </YStack>
-
-                  <YStack w="50%">
-                    <SizableText size="$bodyMd" color="$textSubdued">
-                      {intl.formatMessage({
-                        id: ETranslations.perp_position_funding_since_change,
-                      })}
-                    </SizableText>
-                    <SizableText
-                      size="$bodyMdMedium"
-                      color={otherInfo.fundingSinceChangeColor}
-                    >
-                      {`${otherInfo.fundingSinceChangePlusOrMinus}$${otherInfo.fundingSinceChangeFormatted}`}
-                    </SizableText>
-                  </YStack>
-                </XStack>
-                <XStack alignItems="center" justifyContent="space-between">
-                  <YStack w="50%">
-                    <SizableText size="$bodyMd" color="$textSubdued">
-                      {intl.formatMessage(
-                        {
-                          id: ETranslations.perp_position_funding_all_time,
-                        },
-                        { token: assetInfo.assetSymbol },
-                      )}
-                    </SizableText>
-                    <SizableText
-                      size="$bodyMdMedium"
-                      color={otherInfo.fundingAllTimeColor}
-                    >
-                      {`${otherInfo.fundingAllPlusOrMinus}$${otherInfo.fundingAllTimeFormatted}`}
-                    </SizableText>
-                  </YStack>
-                </XStack>
-                <Divider />
-                <YStack gap="$2">
-                  <SizableText size="$bodySm" color="$textSubdued">
+const PositionRowMobileFunding = memo(
+  ({
+    assetInfo,
+    otherInfo,
+  }: {
+    assetInfo: IAssetInfo;
+    otherInfo: IOtherInfo;
+  }) => {
+    const intl = useIntl();
+    return (
+      <YStack gap="$1" width={120} position="relative">
+        <Popover
+          title={intl.formatMessage({
+            id: ETranslations.perp_position_funding_2,
+          })}
+          renderTrigger={
+            <DashText
+              size="$bodySm"
+              color="$textSubdued"
+              dashColor="$textDisabled"
+              dashThickness={0.5}
+            >
+              {intl.formatMessage({
+                id: ETranslations.perp_position_funding_2,
+              })}
+            </DashText>
+          }
+          renderContent={
+            <YStack
+              bg="$bg"
+              justifyContent="center"
+              w="100%"
+              px="$5"
+              pt="$2"
+              pb="$5"
+              gap="$4"
+            >
+              <XStack alignItems="center" justifyContent="space-between">
+                <YStack w="50%">
+                  <SizableText size="$bodyMd" color="$textSubdued">
                     {intl.formatMessage({
-                      id: ETranslations.perp_funding_rate_tip0,
+                      id: ETranslations.perp_position_funding_since_open,
                     })}
                   </SizableText>
-                  <SizableText size="$bodySmMedium">
-                    {intl.formatMessage({
-                      id: ETranslations.perp_funding_rate_tip1,
-                    })}
-                  </SizableText>
-                  <SizableText size="$bodySmMedium">
-                    {intl.formatMessage({
-                      id: ETranslations.perp_funding_rate_tip2,
-                    })}
+                  <SizableText
+                    size="$bodyMdMedium"
+                    color={otherInfo.fundingSinceOpenColor}
+                  >
+                    {`${otherInfo.fundingSinceOpenPlusOrMinus}$${otherInfo.fundingSinceOpenFormatted}`}
                   </SizableText>
                 </YStack>
+
+                <YStack w="50%">
+                  <SizableText size="$bodyMd" color="$textSubdued">
+                    {intl.formatMessage({
+                      id: ETranslations.perp_position_funding_since_change,
+                    })}
+                  </SizableText>
+                  <SizableText
+                    size="$bodyMdMedium"
+                    color={otherInfo.fundingSinceChangeColor}
+                  >
+                    {`${otherInfo.fundingSinceChangePlusOrMinus}$${otherInfo.fundingSinceChangeFormatted}`}
+                  </SizableText>
+                </YStack>
+              </XStack>
+              <XStack alignItems="center" justifyContent="space-between">
+                <YStack w="50%">
+                  <SizableText size="$bodyMd" color="$textSubdued">
+                    {intl.formatMessage(
+                      {
+                        id: ETranslations.perp_position_funding_all_time,
+                      },
+                      { token: assetInfo.assetSymbol },
+                    )}
+                  </SizableText>
+                  <SizableText
+                    size="$bodyMdMedium"
+                    color={otherInfo.fundingAllTimeColor}
+                  >
+                    {`${otherInfo.fundingAllPlusOrMinus}$${otherInfo.fundingAllTimeFormatted}`}
+                  </SizableText>
+                </YStack>
+              </XStack>
+              <Divider />
+              <YStack gap="$2">
+                <SizableText size="$bodySm" color="$textSubdued">
+                  {intl.formatMessage({
+                    id: ETranslations.perp_funding_rate_tip0,
+                  })}
+                </SizableText>
+                <SizableText size="$bodySmMedium">
+                  {intl.formatMessage({
+                    id: ETranslations.perp_funding_rate_tip1,
+                  })}
+                </SizableText>
+                <SizableText size="$bodySmMedium">
+                  {intl.formatMessage({
+                    id: ETranslations.perp_funding_rate_tip2,
+                  })}
+                </SizableText>
               </YStack>
-            }
-          />
+            </YStack>
+          }
+        />
 
-          <SizableText
-            size="$bodySmMedium"
-            color={otherInfo.fundingSinceOpenColor}
-          >
-            {`${otherInfo.fundingSinceOpenPlusOrMinus}$${otherInfo.fundingSinceOpenFormatted}`}
-          </SizableText>
-        </YStack>
-      </DebugRenderTracker>
-    ),
-    [assetInfo, otherInfo, intl],
-  );
-  return content;
-});
-
+        <SizableText
+          size="$bodySmMedium"
+          color={otherInfo.fundingSinceOpenColor}
+        >
+          {`${otherInfo.fundingSinceOpenPlusOrMinus}$${otherInfo.fundingSinceOpenFormatted}`}
+        </SizableText>
+      </YStack>
+    );
+  },
+);
 PositionRowMobileFunding.displayName = 'PositionRowMobileFunding';
 
-const PositionRowMobileTPSL = memo(() => {
+const PositionRowMobileTPSL = memo(({ coin }: { coin: string }) => {
   const intl = useIntl();
-  const { tpslInfo } = usePositionRowContext();
+  const currentAssetOpenOrders = usePerpsOpenOrdersByCoin(coin);
+  const tpslInfo = useMemo(() => {
+    const emptyPrice = '--';
+    let tpPrice = emptyPrice;
+    let slPrice = emptyPrice;
+    // Mobile only displays price, doesn't need showOrder logic
+    currentAssetOpenOrders.forEach((order) => {
+      if (order.isPositionTpsl) {
+        if (order.orderType.startsWith('Take')) {
+          tpPrice = order.triggerPx;
+        }
+        if (order.orderType.startsWith('Stop')) {
+          slPrice = order.triggerPx;
+        }
+      }
+    });
 
-  const content = useMemo(
-    () => (
-      <DebugRenderTracker position="bottom-right" name="PositionRowMobileTPSL">
-        <YStack gap="$1" flex={1} alignItems="center">
-          <SizableText size="$bodySm" color="$textSubdued">
-            {intl.formatMessage({
-              id: ETranslations.perp_position_tp_sl,
-            })}
-          </SizableText>
-          <SizableText
-            size="$bodySmMedium"
-            numberOfLines={1}
-          >{`${tpslInfo.tpsl}`}</SizableText>
-        </YStack>
-      </DebugRenderTracker>
-    ),
-    [tpslInfo, intl],
+    return { tpsl: `${tpPrice}/${slPrice}` };
+  }, [currentAssetOpenOrders]);
+
+  return (
+    <YStack gap="$1" flex={1} alignItems="center" position="relative">
+      <SizableText size="$bodySm" color="$textSubdued">
+        {intl.formatMessage({
+          id: ETranslations.perp_position_tp_sl,
+        })}
+      </SizableText>
+      <SizableText
+        size="$bodySmMedium"
+        numberOfLines={1}
+      >{`${tpslInfo.tpsl}`}</SizableText>
+    </YStack>
   );
-  return content;
 });
-
 PositionRowMobileTPSL.displayName = 'PositionRowMobileTPSL';
 
-const PositionRowMobileLiqPrice = memo(() => {
-  const intl = useIntl();
-  const { priceInfo } = usePositionRowContext();
-
-  const content = useMemo(
-    () => (
-      <DebugRenderTracker
-        position="bottom-right"
-        name="PositionRowMobileLiqPrice"
-      >
-        <YStack gap="$1" width={120} alignItems="flex-end">
-          <SizableText size="$bodySm" color="$textSubdued">
-            {intl.formatMessage({
-              id: ETranslations.perp_position_liq_price,
-            })}
-          </SizableText>
-          <SizableText size="$bodySmMedium">
-            {`${priceInfo.liquidationPriceFormatted}`}
-          </SizableText>
-        </YStack>
-      </DebugRenderTracker>
-    ),
-    [priceInfo, intl],
-  );
-  return content;
-});
-
+const PositionRowMobileLiqPrice = memo(
+  ({ priceInfo }: { priceInfo: IPriceInfo }) => {
+    const intl = useIntl();
+    return (
+      <YStack gap="$1" width={120} alignItems="flex-end" position="relative">
+        <SizableText size="$bodySm" color="$textSubdued">
+          {intl.formatMessage({
+            id: ETranslations.perp_position_liq_price,
+          })}
+        </SizableText>
+        <SizableText size="$bodySmMedium">
+          {`${priceInfo.liquidationPriceFormatted}`}
+        </SizableText>
+      </YStack>
+    );
+  },
+);
 PositionRowMobileLiqPrice.displayName = 'PositionRowMobileLiqPrice';
 
-const PositionRowMobileActions = memo(() => {
-  const intl = useIntl();
-  const { onSetTpsl, onClosePosition } = usePositionRowContext();
-
-  const content = useMemo(
-    () => (
-      <DebugRenderTracker
-        position="bottom-right"
-        name="PositionRowMobileActions"
+const PositionRowMobileActions = memo(
+  ({
+    onSetTpsl,
+    onClosePosition,
+  }: {
+    onSetTpsl: () => void;
+    onClosePosition: (type: 'market' | 'limit') => void;
+  }) => {
+    const intl = useIntl();
+    return (
+      <XStack
+        width="100%"
+        gap="$2.5"
+        justifyContent="space-between"
+        position="relative"
       >
-        <XStack width="100%" gap="$2.5" justifyContent="space-between">
-          <Button
-            size="medium"
-            variant="secondary"
-            onPress={onSetTpsl}
-            flex={1}
-          >
-            <SizableText size="$bodySm">
-              {intl.formatMessage({
-                id: ETranslations.perp_trade_set_tp_sl,
-              })}
-            </SizableText>
-          </Button>
-          <Button
-            size="medium"
-            variant="secondary"
-            onPress={() => onClosePosition('market')}
-            flex={1}
-          >
-            <SizableText size="$bodySm">
-              {intl.formatMessage({
-                id: ETranslations.perp_close_position_title,
-              })}
-            </SizableText>
-          </Button>
-        </XStack>
-      </DebugRenderTracker>
-    ),
-    [onSetTpsl, onClosePosition, intl],
-  );
-  return content;
-});
-
+        <Button size="medium" variant="secondary" onPress={onSetTpsl} flex={1}>
+          <SizableText size="$bodySm">
+            {intl.formatMessage({
+              id: ETranslations.perp_trade_set_tp_sl,
+            })}
+          </SizableText>
+        </Button>
+        <Button
+          size="medium"
+          variant="secondary"
+          onPress={() => onClosePosition('market')}
+          flex={1}
+        >
+          <SizableText size="$bodySm">
+            {intl.formatMessage({
+              id: ETranslations.perp_close_position_title,
+            })}
+          </SizableText>
+        </Button>
+      </XStack>
+    );
+  },
+);
 PositionRowMobileActions.displayName = 'PositionRowMobileActions';
 
-const PositionRowMobile = memo(() => {
-  const content = useMemo(
-    () => (
+interface IPositionRowMobileProps {
+  side: 'long' | 'short';
+  assetInfo: IAssetInfo;
+  sizeInfo: ISizeInfo;
+  priceInfo: IPriceInfo;
+  otherInfo: IOtherInfo;
+  coin: string;
+  isIsolatedMode: boolean;
+  isSizeViewChange: boolean;
+  onChangeAsset: () => void;
+  onSetTpsl: () => void;
+  onClosePosition: (type: 'market' | 'limit') => void;
+  onAdjustMargin: () => void;
+  onSizeViewChange: () => void;
+  onShare: () => void;
+}
+
+const PositionRowMobile = memo(
+  ({
+    side,
+    assetInfo,
+    sizeInfo,
+    priceInfo,
+    otherInfo,
+    coin,
+    isIsolatedMode,
+    isSizeViewChange,
+    onChangeAsset,
+    onSetTpsl,
+    onClosePosition,
+    onAdjustMargin,
+    onSizeViewChange,
+    onShare,
+  }: IPositionRowMobileProps) => {
+    return (
       <DebugRenderTracker
         position="bottom-left"
         offsetX={10}
@@ -1136,27 +1189,44 @@ const PositionRowMobile = memo(() => {
           flexDirection="column"
           alignItems="flex-start"
         >
-          <PositionRowMobileHeader />
-          <PositionRowMobilePnLAndROE />
+          <PositionRowMobileHeader
+            side={side}
+            assetInfo={assetInfo}
+            onChangeAsset={onChangeAsset}
+            onShare={onShare}
+          />
+          <PositionRowMobilePnLAndROE otherInfo={otherInfo} />
           <XStack width="100%" flex={1} alignItems="center">
-            <PositionRowMobilePositionSize />
-            <PositionRowMobileMargin />
-            <PositionRowMobileEntryPrice />
+            <PositionRowMobilePositionSize
+              assetInfo={assetInfo}
+              sizeInfo={sizeInfo}
+              isSizeViewChange={isSizeViewChange}
+              onSizeViewChange={onSizeViewChange}
+            />
+            <PositionRowMobileMargin
+              otherInfo={otherInfo}
+              isIsolatedMode={isIsolatedMode}
+              onAdjustMargin={onAdjustMargin}
+            />
+            <PositionRowMobileEntryPrice priceInfo={priceInfo} />
           </XStack>
           <XStack width="100%" flex={1} alignItems="center">
-            <PositionRowMobileFunding />
-            <PositionRowMobileTPSL />
-            <PositionRowMobileLiqPrice />
+            <PositionRowMobileFunding
+              assetInfo={assetInfo}
+              otherInfo={otherInfo}
+            />
+            <PositionRowMobileTPSL coin={coin} />
+            <PositionRowMobileLiqPrice priceInfo={priceInfo} />
           </XStack>
-          <PositionRowMobileActions />
+          <PositionRowMobileActions
+            onSetTpsl={onSetTpsl}
+            onClosePosition={onClosePosition}
+          />
         </ListItem>
       </DebugRenderTracker>
-    ),
-    [],
-  );
-  return content;
-});
-
+    );
+  },
+);
 PositionRowMobile.displayName = 'PositionRowMobile';
 
 const PositionRow = memo(
@@ -1235,10 +1305,6 @@ const PositionRow = memo(
       () => getValidPriceDecimals(pos.entryPx || '0'),
       [pos.entryPx],
     );
-
-    const markPrice = usePerpsMidPrice({
-      coin,
-    });
 
     const priceInfo = useMemo(() => {
       const entryPrice = new BigNumber(pos.entryPx || '0').toFixed(decimals);
@@ -1344,46 +1410,6 @@ const PositionRow = memo(
       pos.unrealizedPnl,
     ]);
 
-    const { openOrders: currentAssetOpenOrders } = usePerpsOpenOrdersOfAsset({
-      coin,
-    });
-    const tpslInfo = useMemo(() => {
-      const emptyPrice = '--';
-      let tpPrice = emptyPrice;
-      let slPrice = emptyPrice;
-      let showOrder = false; // show goToOrders button
-      let hasNonPositionTpslOrder = false;
-
-      currentAssetOpenOrders.forEach((order) => {
-        if (order.orderType.startsWith('Take')) {
-          if (order.isPositionTpsl) {
-            tpPrice = order.triggerPx;
-          } else {
-            hasNonPositionTpslOrder = true;
-          }
-        }
-        if (order.orderType.startsWith('Stop')) {
-          if (order.isPositionTpsl) {
-            slPrice = order.triggerPx;
-          } else {
-            hasNonPositionTpslOrder = true;
-          }
-        }
-      });
-
-      if (
-        hasNonPositionTpslOrder &&
-        tpPrice === emptyPrice &&
-        slPrice === emptyPrice
-      ) {
-        showOrder = true;
-      }
-
-      // <PositionRowMobileTPSL />
-      // <PositionRowDesktopTPSL />
-      return { tpsl: `${tpPrice}/${slPrice}`, showOrder };
-    }, [currentAssetOpenOrders]);
-
     const [isSizeViewChange, setIsSizeViewChange] = useState(false);
     const handleSizeViewChange = useCallback(() => {
       setIsSizeViewChange(!isSizeViewChange);
@@ -1421,9 +1447,10 @@ const PositionRow = memo(
 
     const { showPositionShare } = useShowPositionShare();
 
-    const handleShare = useCallback(() => {
-      const markPriceFormatted = markPrice.midFormattedByDecimals
-        ? new BigNumber(markPrice.midFormattedByDecimals).toFixed(decimals)
+    const handleShare = useCallback(async () => {
+      const priceData = await actions.current.getMidPrice({ coin });
+      const markPriceFormatted = priceData?.midFormattedByDecimals
+        ? new BigNumber(priceData.midFormattedByDecimals).toFixed(decimals)
         : '0';
 
       const roiPercentBN = new BigNumber(pos.returnOnEquity || '0');
@@ -1439,40 +1466,48 @@ const PositionRow = memo(
         markPrice: markPriceFormatted,
         priceType: 'mark',
       });
-    }, [showPositionShare, pos, markPrice.midFormattedByDecimals, decimals]);
+    }, [showPositionShare, pos, decimals, coin, actions]);
 
-    const contextValue: IPositionRowContextValue = {
-      mockedPosition,
-      cellMinWidth,
-      columnConfigs,
-      coin,
-      decimals,
-      side,
-      markPrice,
-      assetInfo,
-      sizeInfo,
-      priceInfo,
-      otherInfo,
-      tpslInfo,
-      isIsolatedMode,
-      isSizeViewChange,
-      onChangeAsset: handleChangeAsset,
-      onSetTpsl: handleSetTpsl,
-      onClosePosition: handleClosePosition,
-      onAdjustMargin: handleAdjustMargin,
-      onViewTpslOrders: handleViewTpslOrders,
-      onSizeViewChange: handleSizeViewChange,
-      onShare: handleShare,
-    };
+    if (isMobile) {
+      return (
+        <PositionRowMobile
+          side={side}
+          assetInfo={assetInfo}
+          sizeInfo={sizeInfo}
+          priceInfo={priceInfo}
+          otherInfo={otherInfo}
+          coin={coin}
+          isIsolatedMode={isIsolatedMode}
+          isSizeViewChange={isSizeViewChange}
+          onChangeAsset={handleChangeAsset}
+          onSetTpsl={handleSetTpsl}
+          onClosePosition={handleClosePosition}
+          onAdjustMargin={handleAdjustMargin}
+          onSizeViewChange={handleSizeViewChange}
+          onShare={handleShare}
+        />
+      );
+    }
 
     return (
-      <PositionRowProvider value={contextValue}>
-        {isMobile ? <PositionRowMobile /> : <PositionRowDesktop />}
-      </PositionRowProvider>
+      <PositionRowDesktop
+        mockedPosition={mockedPosition}
+        cellMinWidth={cellMinWidth}
+        columnConfigs={columnConfigs}
+        assetInfo={assetInfo}
+        sizeInfo={sizeInfo}
+        priceInfo={priceInfo}
+        otherInfo={otherInfo}
+        coin={coin}
+        isIsolatedMode={isIsolatedMode}
+        onChangeAsset={handleChangeAsset}
+        onSetTpsl={handleSetTpsl}
+        onClosePosition={handleClosePosition}
+        onAdjustMargin={handleAdjustMargin}
+        onViewTpslOrders={handleViewTpslOrders}
+        onShare={handleShare}
+      />
     );
-  },
-  (_prevProps) => {
-    return false;
   },
 );
 
