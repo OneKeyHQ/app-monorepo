@@ -227,5 +227,6 @@ export function getSymbolSupportedNetworks(): Record<
     'WBTC': [networkIdsMap.eth, networkIdsMap.sui],
     'USDf': [networkIdsMap.eth],
     'USDe': [networkIdsMap.eth],
+    'MORPHO': [networkIdsMap.eth],
   };
 }
