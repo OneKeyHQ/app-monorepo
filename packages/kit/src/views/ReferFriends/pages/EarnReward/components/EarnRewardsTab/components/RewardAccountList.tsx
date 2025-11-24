@@ -58,69 +58,75 @@ export function RewardAccountList({
             fiatValue={fiatValue}
             contentProps={{ p: '$0' }}
           >
-            {items.map((item, itemIndex) => (
-              <XStack ai="center" jc="space-between" key={itemIndex} py="$2">
-                <YStack flexShrink={1}>
-                  <SizableText size="$bodyMd">
-                    {accountUtils.shortenAddress({
-                      address: accountAddress,
-                      leadingLength: 6,
-                      trailingLength: 4,
-                    })}
-                  </SizableText>
-                  {showDeposited ? (
-                    <SizableText
-                      size="$bodySm"
-                      color="$textSubdued"
-                      flexShrink={1}
-                      bg="$green3"
-                    >
-                      <NumberSizeableText
-                        flexShrink={1}
-                        formatter="balance"
+            {items.map((item, itemIndex) => {
+              const depositedValue =
+                vaultAmount?.[accountAddress]?.[buildVaultKey(item)];
+              const shouldShowDeposited =
+                showDeposited && Number(depositedValue ?? 0) > 0;
+
+              return (
+                <XStack ai="center" jc="space-between" key={itemIndex} py="$2">
+                  <YStack flexShrink={1}>
+                    <SizableText size="$bodyMd">
+                      {accountUtils.shortenAddress({
+                        address: accountAddress,
+                        leadingLength: 6,
+                        trailingLength: 4,
+                      })}
+                    </SizableText>
+                    {shouldShowDeposited ? (
+                      <SizableText
                         size="$bodySm"
                         color="$textSubdued"
+                        flexShrink={1}
+                      >
+                        <NumberSizeableText
+                          flexShrink={1}
+                          formatter="balance"
+                          size="$bodySm"
+                          color="$textSubdued"
+                          formatterOptions={{
+                            tokenSymbol: item.token.symbol || '',
+                          }}
+                        >
+                          {depositedValue || 0}
+                        </NumberSizeableText>
+                        {` ${intl.formatMessage({
+                          id: ETranslations.earn_deposited,
+                        })}`}
+                      </SizableText>
+                    ) : null}
+                  </YStack>
+
+                  <XStack
+                    ai="center"
+                    gap="$2"
+                    flexDirection="row"
+                    $gtMd={{ gap: '$4' }}
+                  >
+                    <XStack ai="center">
+                      <Token
+                        size="xs"
+                        tokenImageUri={item.token.logoURI}
+                        mr="$2"
+                      />
+                      <NumberSizeableText
+                        formatter="balance"
+                        size="$bodyMd"
                         formatterOptions={{
                           tokenSymbol: item.token.symbol || '',
                         }}
                       >
-                        {vaultAmount?.[accountAddress]?.[buildVaultKey(item)] ||
-                          0}
+                        {item.amount}
                       </NumberSizeableText>
-                      {` ${intl.formatMessage({
-                        id: ETranslations.earn_deposited,
-                      })}`}
-                    </SizableText>
-                  ) : null}
-                </YStack>
-                <XStack
-                  ai="center"
-                  gap="$2"
-                  flexDirection="row"
-                  $gtMd={{ gap: '$4' }}
-                >
-                  <XStack ai="center">
-                    <Token
-                      size="xs"
-                      tokenImageUri={item.token.logoURI}
-                      mr="$2"
-                    />
-                    <NumberSizeableText
-                      formatter="balance"
-                      size="$bodyMd"
-                      formatterOptions={{
-                        tokenSymbol: item.token.symbol || '',
-                      }}
-                    >
-                      {item.amount}
-                    </NumberSizeableText>
+                    </XStack>
+                    <Currency formatter="value" size="$bodyMd">
+                      {item.fiatValue}
+                    </Currency>
                   </XStack>
-                  <Currency formatter="value" size="$bodyMd">
-                    {item.fiatValue}
-                  </Currency>
                 </XStack>
-              </XStack>
-            ))}
+              );
+            })}
           </ReferFriendsAccordionItem>
         ))}
       </Accordion>

@@ -6,6 +6,7 @@ import type { IPerpsRecordToken } from '@onekeyhq/shared/src/referralCode/type';
 
 import { ReferFriendsAccordionItem } from '../../ReferFriendsAccordionItem';
 import { ReferFriendsListHeader } from '../../ReferFriendsListHeader';
+
 import { TradingVolumeSummaryCard } from './TradingVolumeSummaryCard';
 
 export interface IRecordsAccordionSectionItem {

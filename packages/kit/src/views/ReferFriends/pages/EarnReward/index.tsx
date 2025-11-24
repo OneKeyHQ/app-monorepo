@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -87,7 +87,7 @@ function EarnRewardPageWrapper() {
           hideHeaderLeft={platformEnv.isDesktop}
         />
       )}
-      <Page.Body $gtXl={{ width: 980, mx: 'auto' }}>
+      <Page.Body $gt2xl={{ width: 1280, mx: 'auto' }}>
         {!md ? (
           <YStack p="$5">
             <BreadcrumbSection secondItemLabel={title} />
