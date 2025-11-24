@@ -94,6 +94,7 @@ export function getFilteredTokenBySearchKey({
   searchTokenList,
   allowEmptyWhenBelowMinLength,
   aggregateTokenListMap,
+  searchKeyLengthThreshold,
 }: {
   tokens: IAccountToken[];
   searchKey: string;
@@ -101,6 +102,7 @@ export function getFilteredTokenBySearchKey({
   searchTokenList?: IAccountToken[];
   allowEmptyWhenBelowMinLength?: boolean;
   aggregateTokenListMap?: Record<string, { tokens: IAccountToken[] }>;
+  searchKeyLengthThreshold?: number;
 }) {
   let mergedTokens = tokens;
 
@@ -122,7 +124,10 @@ export function getFilteredTokenBySearchKey({
       (token) => `${token.address}_${token.networkId ?? ''}`,
     );
   }
-  if (!searchKey || searchKey.length < SEARCH_KEY_MIN_LENGTH) {
+  if (
+    !searchKey ||
+    searchKey.length < (searchKeyLengthThreshold ?? SEARCH_KEY_MIN_LENGTH)
+  ) {
     return allowEmptyWhenBelowMinLength ? [] : mergedTokens;
   }
 
