@@ -241,6 +241,13 @@ export interface IAppEventBusPayload {
     accountId: string;
     networkId: string;
   };
+  [EAppEventBusNames.RefreshEarnPortfolioItem]: {
+    provider: string;
+    symbol: string;
+    networkId: string;
+    rewardSymbol?: string;
+  };
+  [EAppEventBusNames.RefreshEarnPortfolio]: undefined;
   [EAppEventBusNames.AccountDataUpdate]: undefined;
   [EAppEventBusNames.AccountValueUpdate]: undefined;
   [EAppEventBusNames.onDragBeginInListView]: undefined;
@@ -395,6 +402,9 @@ export interface IAppEventBusPayload {
     progressPercent?: number;
     retry?: number;
     message?: string;
+  };
+  [EAppEventBusNames.SwitchDiscoveryTabInNative]: {
+    tab: ETranslations.global_browser | ETranslations.global_earn;
   };
 }
 

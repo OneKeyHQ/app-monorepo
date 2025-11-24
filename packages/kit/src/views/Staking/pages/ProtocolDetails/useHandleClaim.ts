@@ -3,7 +3,8 @@ import { useCallback } from 'react';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import { EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
+import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import type {
   IEarnTokenInfo,
   IProtocolInfo,
@@ -36,6 +37,8 @@ export const useHandleClaim = ({
       isReward,
       stakingInfo,
       onSuccess,
+      portfolioSymbol,
+      portfolioRewardSymbol,
     }: {
       claimType: EClaimType;
       protocolInfo?: IProtocolInfo;
@@ -47,6 +50,8 @@ export const useHandleClaim = ({
       isMorphoClaim?: boolean;
       stakingInfo?: IStakingInfo;
       onSuccess?: () => void;
+      portfolioSymbol?: string;
+      portfolioRewardSymbol?: string;
     }) => {
       if (!accountId) return;
       const provider = protocolInfo?.provider || '';
@@ -67,33 +72,42 @@ export const useHandleClaim = ({
           provider,
           stakingInfo,
           claimTokenAddress,
+          portfolioSymbol:
+            portfolioSymbol || tokenInfo?.token?.symbol || undefined,
+          portfolioRewardSymbol,
           vault,
         });
         return;
       }
       if (
-        provider.toLowerCase() === 'everstake' &&
+        earnUtils.isEverstakeProvider({ providerName: provider }) &&
         symbol.toLowerCase() === 'apt'
       ) {
-        appNavigation.push(EModalStakingRoutes.Claim, {
-          accountId,
-          networkId,
-          protocolInfo,
-          tokenInfo,
-          onSuccess,
-          amount: stakingConfig.claimWithAmount ? claimAmount : undefined,
+        appNavigation.pushModal(EModalRoutes.StakingModal, {
+          screen: EModalStakingRoutes.Claim,
+          params: {
+            accountId,
+            networkId,
+            protocolInfo,
+            tokenInfo,
+            onSuccess,
+            amount: stakingConfig.claimWithAmount ? claimAmount : undefined,
+          },
         });
         return;
       }
 
       if (claimType === EClaimType.ClaimOrder) {
-        appNavigation.push(EModalStakingRoutes.ClaimOptions, {
-          accountId,
-          networkId,
-          protocolInfo,
-          tokenInfo,
-          symbol,
-          provider,
+        appNavigation.pushModal(EModalRoutes.StakingModal, {
+          screen: EModalStakingRoutes.ClaimOptions,
+          params: {
+            accountId,
+            networkId,
+            protocolInfo,
+            tokenInfo,
+            symbol,
+            provider,
+          },
         });
         return;
       }
@@ -110,18 +124,24 @@ export const useHandleClaim = ({
           stakingInfo,
           protocolVault: vault,
           vault,
+          portfolioSymbol:
+            portfolioSymbol || tokenInfo?.token?.symbol || undefined,
+          portfolioRewardSymbol,
         });
         return;
       }
 
       if (stakingConfig.claimWithTx) {
-        appNavigation.push(EModalStakingRoutes.ClaimOptions, {
-          accountId,
-          networkId,
-          protocolInfo,
-          tokenInfo,
-          symbol,
-          provider,
+        appNavigation.pushModal(EModalRoutes.StakingModal, {
+          screen: EModalStakingRoutes.ClaimOptions,
+          params: {
+            accountId,
+            networkId,
+            protocolInfo,
+            tokenInfo,
+            symbol,
+            provider,
+          },
         });
         return;
       }
@@ -133,6 +153,9 @@ export const useHandleClaim = ({
         stakingInfo,
         protocolVault: vault,
         vault,
+        portfolioSymbol:
+          portfolioSymbol || tokenInfo?.token?.symbol || undefined,
+        portfolioRewardSymbol,
       });
     },
     [accountId, networkId, handleUniversalClaim, appNavigation],

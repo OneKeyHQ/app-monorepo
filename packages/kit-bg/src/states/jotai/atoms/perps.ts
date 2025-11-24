@@ -392,7 +392,7 @@ export const {
 });
 
 export interface IPerpsTradingPreferences {
-  sizeInputUnit: 'token' | 'usd';
+  sizeInputUnit: 'token' | 'usd' | 'margin';
   slippage: number;
 }
 export const {
