@@ -12,7 +12,6 @@ import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
-import { getEnabledNFTNetworkIds } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   OneKeyError,
   OneKeyInternalError,
@@ -115,8 +114,9 @@ import type {
   IWrappedInfo,
 } from '../../types';
 import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
-const enabledNFTNetworkIds = getEnabledNFTNetworkIds();
+const enabledNFTNetworkIds = networkUtils.getEnabledNFTNetworkIds();
 
 // evm vault
 export default class Vault extends VaultBase {
