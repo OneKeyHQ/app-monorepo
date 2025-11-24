@@ -57,9 +57,7 @@ export interface IDevSettings {
   usbCommunicationMode?: 'webusb' | 'bridge';
 
   // IP Table control for different environments
-  // Development: enable IP Table (default false - disabled)
-  enableIpTableInDev?: boolean;
-  // Production: disable IP Table (default false - means enabled in production)
+  // Production: disable IP Table (default false - IP Table enabled)
   disableIpTableInProd?: boolean;
   // Force IP Table strict mode: always use IP even if runtime.selections is empty
   // Fallback to first available IP from config when no selection exists
@@ -98,8 +96,7 @@ export const {
       },
       useLocalTradingViewUrl: false,
       usbCommunicationMode: 'webusb',
-      enableIpTableInDev: false, // Dev: disabled by default (need manual enable)
-      disableIpTableInProd: false, // Prod: enabled by default (can manually disable)
+      disableIpTableInProd: false, // IP Table enabled by default
       forceIpTableStrict: false, // Strict mode: disabled by default
     },
   },

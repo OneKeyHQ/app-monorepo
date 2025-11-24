@@ -5,6 +5,7 @@ export {
   useConnectionStateAtom,
   useOrderBookTickOptionsAtom,
   usePerpsActiveOpenOrdersAtom,
+  usePerpsOpenOrdersByCoin,
   useTradingFormAtom,
   useTradingFormEnvAtom,
   useTradingFormComputedAtom,
