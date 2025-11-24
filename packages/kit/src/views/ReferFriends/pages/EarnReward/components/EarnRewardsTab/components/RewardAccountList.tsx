@@ -58,14 +58,14 @@ export function RewardAccountList({
             fiatValue={fiatValue}
             contentProps={{ p: '$0' }}
           >
-            {items.map((item, itemIndex) => {
-              const depositedValue =
-                vaultAmount?.[accountAddress]?.[buildVaultKey(item)];
+            {items.map((item) => {
+              const vaultKey = buildVaultKey(item);
+              const depositedValue = vaultAmount?.[accountAddress]?.[vaultKey];
               const shouldShowDeposited =
                 showDeposited && Number(depositedValue ?? 0) > 0;
 
               return (
-                <XStack ai="center" jc="space-between" key={itemIndex} py="$2">
+                <XStack ai="center" jc="space-between" key={vaultKey} py="$2">
                   <YStack flexShrink={1}>
                     <SizableText size="$bodyMd">
                       {accountUtils.shortenAddress({
