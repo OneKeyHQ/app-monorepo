@@ -96,5 +96,8 @@ export type IModalSendParamList = {
     tokenMap?: Record<string, ITokenFiat>;
     token?: IToken;
   };
-  [EModalSendRoutes.CoinControl]: undefined;
+  [EModalSendRoutes.CoinControl]: {
+    networkId: string;
+    accountId: string;
+  };
 };

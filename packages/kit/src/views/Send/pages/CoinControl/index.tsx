@@ -1,5 +1,8 @@
 import { memo, useCallback, useMemo, useState } from 'react';
 
+import { useRoute } from '@react-navigation/core';
+import BigNumber from 'bignumber.js';
+
 import type { ICheckedState } from '@onekeyhq/components';
 import {
   Button,
@@ -9,18 +12,21 @@ import {
   Page,
   Select,
   SizableText,
+  Spinner,
+  Stack,
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import type { IUtxoInfo } from '@onekeyhq/kit-bg/src/vaults/types';
+import type {
+  EModalSendRoutes,
+  IModalSendParamList,
+} from '@onekeyhq/shared/src/routes';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
-// UTXO data type definition
-interface IUTXO {
-  txid: string;
-  vout: number;
-  value: string; // BTC amount
-  address: string;
-  timestamp: number;
-}
+import type { RouteProp } from '@react-navigation/core';
 
 // Sort type enum
 enum ESortType {
@@ -30,24 +36,12 @@ enum ESortType {
   LargestFirst = 'largestFirst',
 }
 
-// Generate mock data (300 items for performance testing)
-const generateMockUTXOs = (count: number): IUTXO[] => {
-  const addresses = [
-    'bc1ph7ka...Im4nlc',
-    'bc1qxy2k...3dchkr',
-    'bc1q9z8x...7yw4mn',
-    '3J98t1W...Qb5t8h',
-    'bc1pxww...kl9mnh',
-  ];
-
-  return Array.from({ length: count }, (_, index) => ({
-    txid: `mock_txid_${index}`,
-    vout: index,
-    value: (Math.random() * 0.001).toFixed(7),
-    address: addresses[index % addresses.length],
-    timestamp: Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000, // Random timestamp within 30 days
-  }));
-};
+// Format timestamp to readable date
+function formatTimestamp(height: number, confirmations: number): string {
+  // For now, display confirmations count
+  // TODO: Convert block height to timestamp
+  return `${confirmations} confirmations`;
+}
 
 // ListItem component - optimized with memo for performance
 const UTXOListItem = memo(
@@ -56,32 +50,34 @@ const UTXOListItem = memo(
     index,
     isSelected,
     onToggle,
+    decimals,
+    symbol,
   }: {
-    item: IUTXO;
+    item: IUtxoInfo;
     index: number;
     isSelected: boolean;
     onToggle: (txid: string) => void;
+    decimals: number;
+    symbol: string;
   }) => {
     const handlePress = useCallback(() => {
       onToggle(item.txid);
     }, [item.txid, onToggle]);
 
-    const formattedDate = useMemo(() => {
-      const date = new Date(item.timestamp);
-      const options: Intl.DateTimeFormatOptions = {
-        month: 'long',
-        day: 'numeric',
-        year: 'numeric',
-        hour: 'numeric',
-        minute: '2-digit',
-      };
-      const formatted = date.toLocaleString('en-US', options);
-      // Format: "October 21, 2025 at 11:21"
-      return formatted
-        .replace(',', ' at')
-        .replace(' at ', ', ')
-        .replace(',', ' at');
-    }, [item.timestamp]);
+    const formattedInfo = useMemo(
+      () => formatTimestamp(item.height, item.confirmations),
+      [item.height, item.confirmations],
+    );
+
+    const formattedAmount = useMemo(
+      () => new BigNumber(item.value).shiftedBy(-decimals).toFixed(),
+      [item.value, decimals],
+    );
+
+    const shortenedAddress = useMemo(
+      () => accountUtils.shortenAddress({ address: item.address }),
+      [item.address],
+    );
 
     return (
       <XStack
@@ -108,16 +104,16 @@ const UTXOListItem = memo(
           textAlign="right"
           minWidth={120}
         >
-          {item.value} BTC
+          {formattedAmount} {symbol}
         </SizableText>
 
-        {/* Right: Address + Timestamp */}
+        {/* Right: Address + Info */}
         <YStack flex={1} ai="flex-end">
           <SizableText size="$bodyMd" color="$text">
-            {item.address}
+            {shortenedAddress}
           </SizableText>
           <SizableText size="$bodyMd" color="$textSubdued">
-            {formattedDate}
+            {formattedInfo}
           </SizableText>
         </YStack>
       </XStack>
@@ -128,8 +124,37 @@ const UTXOListItem = memo(
 UTXOListItem.displayName = 'UTXOListItem';
 
 function CoinControlPage() {
-  // Mock data
-  const mockData = useMemo(() => generateMockUTXOs(300), []);
+  // Get route params
+  const route =
+    useRoute<RouteProp<IModalSendParamList, EModalSendRoutes.CoinControl>>();
+  const { accountId, networkId } = route.params;
+
+  // Fetch network info
+  const { result: network } = usePromiseResult(async () => {
+    if (!networkId) return null;
+    return backgroundApiProxy.serviceNetwork.getNetwork({ networkId });
+  }, [networkId]);
+
+  // Fetch UTXO data
+  const { result, isLoading } = usePromiseResult(
+    async () => {
+      if (!accountId || !networkId) {
+        return [];
+      }
+      return backgroundApiProxy.serviceAccountProfile.getAccountUtxos({
+        accountId,
+        networkId,
+      });
+    },
+    [accountId, networkId],
+    {
+      watchLoading: true,
+      initResult: [],
+    },
+  );
+
+  // Memoize utxoList to prevent dependency issues
+  const utxoList: IUtxoInfo[] = useMemo(() => result ?? [], [result]);
 
   // State management
   const [selectedUTXOs, setSelectedUTXOs] = useState<Set<string>>(new Set());
@@ -137,14 +162,14 @@ function CoinControlPage() {
 
   // Sorted data based on current sort type
   const sortedData = useMemo(() => {
-    const data = [...mockData];
+    const data = [...utxoList];
     switch (sortType) {
       case ESortType.NewestFirst:
-        // Sort by timestamp descending (newest first)
-        return data.sort((a, b) => b.timestamp - a.timestamp);
+        // Sort by height descending (newest first)
+        return data.sort((a, b) => b.height - a.height);
       case ESortType.OldestFirst:
-        // Sort by timestamp ascending (oldest first)
-        return data.sort((a, b) => a.timestamp - b.timestamp);
+        // Sort by height ascending (oldest first)
+        return data.sort((a, b) => a.height - b.height);
       case ESortType.LargestFirst:
         // Sort by amount descending (largest first)
         return data.sort((a, b) => parseFloat(b.value) - parseFloat(a.value));
@@ -154,18 +179,18 @@ function CoinControlPage() {
       default:
         return data;
     }
-  }, [mockData, sortType]);
+  }, [utxoList, sortType]);
 
   // Check if all items are selected
   const isAllSelected = useMemo(
-    () => selectedUTXOs.size === mockData.length && mockData.length > 0,
-    [selectedUTXOs.size, mockData.length],
+    () => selectedUTXOs.size === utxoList.length && utxoList.length > 0,
+    [selectedUTXOs.size, utxoList.length],
   );
 
   // Check if some (but not all) items are selected
   const isIndeterminate = useMemo(
-    () => selectedUTXOs.size > 0 && selectedUTXOs.size < mockData.length,
-    [selectedUTXOs.size, mockData.length],
+    () => selectedUTXOs.size > 0 && selectedUTXOs.size < utxoList.length,
+    [selectedUTXOs.size, utxoList.length],
   );
 
   // Checkbox value state
@@ -177,14 +202,15 @@ function CoinControlPage() {
 
   // Calculate total amount of selected UTXOs
   const totalAmount = useMemo(() => {
-    let sum = 0;
+    if (!network) return '0';
+    let sum = new BigNumber(0);
     sortedData.forEach((utxo) => {
       if (selectedUTXOs.has(utxo.txid)) {
-        sum += parseFloat(utxo.value);
+        sum = sum.plus(utxo.value);
       }
     });
-    return sum.toFixed(7);
-  }, [selectedUTXOs, sortedData]);
+    return sum.shiftedBy(-network.decimals).toFixed();
+  }, [selectedUTXOs, sortedData, network]);
 
   // Toggle single UTXO selection
   const handleToggleUTXO = useCallback((txid: string) => {
@@ -204,16 +230,16 @@ function CoinControlPage() {
     if (isAllSelected) {
       setSelectedUTXOs(new Set());
     } else {
-      setSelectedUTXOs(new Set(mockData.map((utxo) => utxo.txid)));
+      setSelectedUTXOs(new Set(utxoList.map((utxo) => utxo.txid)));
     }
-  }, [isAllSelected, mockData]);
+  }, [isAllSelected, utxoList]);
 
   // Done button handler
   const handleDone = useCallback(() => {
     console.log('Selected UTXOs:', Array.from(selectedUTXOs));
-    console.log('Total amount:', totalAmount, 'BTC');
+    console.log('Total amount:', totalAmount, network?.symbol);
     // TODO: Pass selected UTXOs to parent component
-  }, [selectedUTXOs, totalAmount]);
+  }, [selectedUTXOs, totalAmount, network?.symbol]);
 
   // Sort options
   const sortOptions = useMemo(
@@ -240,30 +266,41 @@ function CoinControlPage() {
 
   // Render list item
   const renderItem = useCallback(
-    ({ item, index }: { item: IUTXO; index: number }) => (
+    ({ item, index }: { item: IUtxoInfo; index: number }) => (
       <UTXOListItem
         item={item}
         index={index}
         isSelected={selectedUTXOs.has(item.txid)}
         onToggle={handleToggleUTXO}
+        decimals={network?.decimals ?? 8}
+        symbol={network?.symbol ?? 'BTC'}
       />
     ),
-    [selectedUTXOs, handleToggleUTXO],
+    [selectedUTXOs, handleToggleUTXO, network?.decimals, network?.symbol],
   );
 
   // Key extractor for list items
-  const keyExtractor = useCallback((item: IUTXO) => item.txid, []);
+  const keyExtractor = useCallback(
+    (item: IUtxoInfo) => `${item.txid}-${item.vout}`,
+    [],
+  );
 
   return (
     <Page>
       <Page.Header title="Coin control" />
       <Page.Body>
-        <ListView
-          estimatedItemSize={60}
-          data={sortedData}
-          renderItem={renderItem}
-          keyExtractor={keyExtractor}
-        />
+        {isLoading ? (
+          <Stack flex={1} alignItems="center" justifyContent="center">
+            <Spinner size="large" />
+          </Stack>
+        ) : (
+          <ListView
+            estimatedItemSize={60}
+            data={sortedData}
+            renderItem={renderItem}
+            keyExtractor={keyExtractor}
+          />
+        )}
       </Page.Body>
       <Page.Footer>
         <XStack px="$5" py="$5" gap="$3" ai="center" bg="$bgApp">
@@ -276,7 +313,7 @@ function CoinControlPage() {
               {selectedUTXOs.size} selected
             </SizableText>
             <SizableText size="$bodyMd" fontWeight="600" color="$text">
-              {totalAmount} BTC
+              {totalAmount} {network?.symbol ?? 'BTC'}
             </SizableText>
           </YStack>
 

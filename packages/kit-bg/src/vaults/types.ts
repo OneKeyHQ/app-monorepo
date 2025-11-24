@@ -178,6 +178,7 @@ export type IVaultSettings = {
   replaceTxEnabled: boolean;
   cancelTxEnabled?: boolean;
   speedUpCancelEnabled?: boolean;
+  coinControlEnabled?: boolean;
   // Get the interval time for polling the fee API, in seconds
   estimatedFeePollingInterval: number;
 

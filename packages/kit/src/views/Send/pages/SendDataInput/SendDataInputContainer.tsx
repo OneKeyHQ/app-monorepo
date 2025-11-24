@@ -940,8 +940,12 @@ function SendDataInputContainer() {
     console.log('Coin Control Pressed');
     navigation.pushModal(EModalRoutes.SendModal, {
       screen: EModalSendRoutes.CoinControl,
+      params: {
+        accountId: currentAccount.accountId,
+        networkId: currentAccount.networkId,
+      },
     });
-  }, [navigation]);
+  }, [navigation, currentAccount.accountId, currentAccount.networkId]);
 
   const renderAmountInputAddOn = useCallback(() => {
     const addons: ReactNode[] = [];
