@@ -87,7 +87,7 @@ function EarnRewardPageWrapper() {
           hideHeaderLeft={platformEnv.isDesktop}
         />
       )}
-      <Page.Body $gt2xl={{ width: 1280, mx: 'auto' }}>
+      <Page.Body $gtXl={{ width: 980, mx: 'auto' }}>
         {!md ? (
           <YStack p="$5">
             <BreadcrumbSection secondItemLabel={title} />
@@ -119,19 +119,19 @@ function EarnRewardPageWrapper() {
               {tools()}
             </XStack>
           ) : null}
-
-          <RewardTypeTabs
-            earnLabel={intl.formatMessage({
-              id: ETranslations.referral_referred_type_2,
-            })}
-            perpsLabel={intl.formatMessage({
-              id: ETranslations.global_perp,
-            })}
-            earnContent={<EarnRewardsTab filterState={filterState} />}
-            perpsContent={<PerpsRecordsTab filterState={filterState} />}
-            onTabChange={handleRewardTabChange}
-          />
         </YStack>
+
+        <RewardTypeTabs
+          earnLabel={intl.formatMessage({
+            id: ETranslations.referral_referred_type_2,
+          })}
+          perpsLabel={intl.formatMessage({
+            id: ETranslations.global_perp,
+          })}
+          earnContent={<EarnRewardsTab filterState={filterState} />}
+          perpsContent={<PerpsRecordsTab filterState={filterState} />}
+          onTabChange={handleRewardTabChange}
+        />
       </Page.Body>
     </Page>
   );
