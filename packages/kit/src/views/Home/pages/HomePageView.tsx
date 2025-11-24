@@ -17,7 +17,6 @@ import type { ITabBarItemProps } from '@onekeyhq/components/src/composite/Tabs/T
 import { TabBarItem } from '@onekeyhq/components/src/composite/Tabs/TabBar';
 import { getNetworksSupportBulkRevokeApproval } from '@onekeyhq/shared/src/config/presetNetworks';
 import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
-import { getEnabledNFTNetworkIds } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -138,7 +137,7 @@ export function HomePageView({
 
   const isNFTEnabled =
     vaultSettings?.NFTEnabled &&
-    getEnabledNFTNetworkIds().includes(network?.id ?? '');
+    networkUtils.getEnabledNFTNetworkIds().includes(network?.id ?? '');
 
   const isWalletNotBackedUp = useMemo(() => {
     if (wallet && wallet.type === WALLET_TYPE_HD && !wallet.backuped) {
