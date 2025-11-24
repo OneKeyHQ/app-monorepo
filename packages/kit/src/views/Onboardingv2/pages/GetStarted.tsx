@@ -353,7 +353,7 @@ export default function GetStarted() {
                 </GridItem>
               </YStack>
             </YStack>
-            <YStack gap={44} justifyContent="center" alignItems="center">
+            <YStack gap={56} justifyContent="center" alignItems="center">
               <DecorativeOneKeyLogo />
               <Stack gap="$4" minWidth="$80" zIndex={1}>
                 <Button
@@ -422,12 +422,23 @@ export default function GetStarted() {
                   hoverStyle={{ bg: '$gray4' }}
                   pressStyle={{ bg: '$gray5' }}
                   size="large"
-                  icon="PlusLargeOutline"
+                  childrenAsText={false}
+                >
+                  <XStack gap="$2" alignItems="center">
+                    <Icon name="GoogleIllus" size="$5" />
+                    <SizableText size="$bodyLgMedium">
+                      Continue with Google
+                    </SizableText>
+                  </XStack>
+                </Button>
+                <Button
+                  m="$0"
+                  py="$2.5"
+                  size="large"
+                  variant="tertiary"
                   onPress={handleCreateOrImportWallet}
                 >
-                  {intl.formatMessage({
-                    id: ETranslations.onboarding_create_or_import_wallet,
-                  })}
+                  More options
                 </Button>
               </Stack>
             </YStack>
