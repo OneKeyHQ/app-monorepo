@@ -28,20 +28,12 @@ export function PerpsRecordsTab({
   const showTabSwitcher = hasAvailableData || hasTotalData;
 
   useEffect(() => {
-    if (
-      activeTab === ERecordsTabValue.available &&
-      !hasAvailableData &&
-      hasTotalData
-    ) {
-      setActiveTab(ERecordsTabValue.total);
-    } else if (
-      activeTab === ERecordsTabValue.total &&
-      !hasTotalData &&
-      hasAvailableData
-    ) {
+    if (hasAvailableData) {
       setActiveTab(ERecordsTabValue.available);
+    } else if (hasTotalData) {
+      setActiveTab(ERecordsTabValue.total);
     }
-  }, [activeTab, hasAvailableData, hasTotalData]);
+  }, [hasAvailableData, hasTotalData]);
 
   const currentRecords =
     activeTab === ERecordsTabValue.available ? recordsAvailable : recordsTotal;
@@ -70,8 +62,7 @@ export function PerpsRecordsTab({
     <YStack gap="$3">
       <UndistributedRewardCard value={undistributedValue} mx="$5" mb="$1" />
 
-      <Divider mx="$5" />
-      <YStack px="$5" py="$4" gap="$3">
+      <YStack px="$5" gap="$3">
         {showTabSwitcher ? (
           <RecordsTabSwitcher value={activeTab} onChange={setActiveTab} />
         ) : null}
