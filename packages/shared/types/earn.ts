@@ -14,6 +14,7 @@ export enum EEarnProviderEnum {
 
 export type ISupportedSymbol =
   | 'ETH'
+  | 'ADA'
   | 'USDC'
   | 'USDT'
   | 'DAI'

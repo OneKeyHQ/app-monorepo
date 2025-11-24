@@ -73,6 +73,7 @@ export const isSupportStaking = (symbol: string) =>
     'BTC',
     'SBTC',
     'ETH',
+    'ADA',
     'SOL',
     'APT',
     'ATOM',
@@ -94,6 +95,7 @@ export const earnMainnetNetworkIds = [
   getNetworkIdsMap().btc,
   getNetworkIdsMap().sui,
   getNetworkIdsMap().bsc,
+  getNetworkIdsMap().ada,
 ];
 
 export function normalizeToEarnSymbol(
@@ -103,6 +105,7 @@ export function normalizeToEarnSymbol(
     'btc': 'BTC',
     'sbtc': 'SBTC',
     'eth': 'ETH',
+    'ada': 'ADA',
     'sol': 'SOL',
     'apt': 'APT',
     'atom': 'ATOM',
@@ -215,6 +218,7 @@ export function getSymbolSupportedNetworks(): Record<
     'BTC': [networkIdsMap.btc],
     'SBTC': [networkIdsMap.sbtc],
     'ETH': [networkIdsMap.eth],
+    'ADA': [networkIdsMap.ada],
     'SOL': [networkIdsMap.sol],
     'APT': [networkIdsMap.apt],
     'ATOM': [networkIdsMap.cosmoshub],

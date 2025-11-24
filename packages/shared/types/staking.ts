@@ -735,6 +735,18 @@ export interface IEarnWithdrawActionData {
   };
 }
 
+export interface IEarnDelegateActionData {
+  type: 'delegate';
+  disabled: boolean;
+  text: IEarnText;
+}
+
+export interface IEarnUndelegateActionData {
+  type: 'undelegate';
+  disabled: boolean;
+  text: IEarnText;
+}
+
 export interface IEarnManagePageResponse {
   deposit?: IEarnDepositActionData;
   withdraw?: IEarnWithdrawActionData;
@@ -742,6 +754,8 @@ export interface IEarnManagePageResponse {
   trade?: IEarnTradeActionIcon;
   history?: IEarnHistoryActionIcon;
   activate?: IEarnActivateActionIcon;
+  delegate?: IEarnDelegateActionData;
+  undelegate?: IEarnUndelegateActionData;
   approve?: {
     allowance: string;
     approveType: string;
