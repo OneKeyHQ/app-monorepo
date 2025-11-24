@@ -90,7 +90,7 @@ const UTXOListItem = memo(
         pressStyle={{ bg: '$bgActive' }}
       >
         {/* Left: Checkbox + Index number */}
-        <XStack ai="center" gap="$2" w={80}>
+        <XStack ai="center" gap="$2" w={80} $md={{ w: 60 }}>
           <Checkbox value={isSelected} onChange={handlePress} />
           <SizableText size="$bodyMd" color="$text">
             {index + 1}
