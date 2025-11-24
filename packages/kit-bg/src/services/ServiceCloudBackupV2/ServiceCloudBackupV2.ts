@@ -242,51 +242,11 @@ class ServiceCloudBackupV2 extends ServiceBase {
     const provider = this.getProvider();
     await provider.checkAvailability();
 
-    if (!data?.privateData?.decryptedCredentials) {
-      const { password: localPassword } =
-        await this.backgroundApi.servicePassword.promptPasswordVerify();
-      data.privateData.decryptedCredentials = {};
-      const entries = Object.entries(data.privateData.credentials || {});
-      console.log('serviceCloudBackupV2__decryptCredentials');
-      for (const [key, value] of entries) {
-        try {
-          if (
-            accountUtils.isHdWallet({ walletId: key }) ||
-            accountUtils.isTonMnemonicCredentialId(key)
-          ) {
-            data.privateData.decryptedCredentials[key] =
-              await decryptRevealableSeed({
-                rs: value,
-                password: localPassword,
-              });
-          } else if (accountUtils.isImportedAccount({ accountId: key })) {
-            data.privateData.decryptedCredentials[key] =
-              await decryptImportedCredential({
-                credential: value,
-                password: localPassword,
-              });
-          }
-        } catch (error) {
-          /*
-          data not matched to encoding: hex
-          key: "imported--607--e205f9...355fca5--v4R2--ton_credential"
-          value: "|RP|17...918143"
-          */
-          console.error('serviceCloudBackupV2__decryptCredentials__error', {
-            error,
-            key,
-            value: `${value?.slice(0, 10)}...${value?.slice(-6)}`,
-          });
-          throw new OneKeyLocalError(
-            `Failed to decrypt current credentials: ${key}`,
-          );
-        }
-      }
-      console.log('serviceCloudBackupV2__decryptCredentials__done');
-    }
-    if (data?.privateData && data?.privateData?.credentials) {
-      data.privateData.credentials = {};
-    }
+    await this.backgroundApi.servicePrimeTransfer.decryptTransferDataCredentials(
+      {
+        data,
+      },
+    );
 
     console.log('serviceCloudBackupV2__stringify_privateData');
     const privateData = stringUtils.stableStringify(data.privateData);
