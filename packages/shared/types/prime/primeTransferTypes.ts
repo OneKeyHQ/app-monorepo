@@ -102,13 +102,15 @@ export type IPrimeTransferPublicData = {
   walletDetails: Array<IPrimeTransferPublicDataWalletDetail>;
 };
 
+export type IPrimeTransferDecryptedCredentials = Record<
+  string,
+  ICoreImportedCredential | IBip39RevealableSeed
+>;
 export type IPrimeTransferPrivateData = {
   // WalletID/ImportedAccountID -> encrypted credential
   credentials: Record<string, string> | undefined;
-  decryptedCredentials?: Record<
-    string,
-    ICoreImportedCredential | IBip39RevealableSeed
-  >;
+  decryptedCredentialsHex?: string;
+  decryptedCredentials?: IPrimeTransferDecryptedCredentials;
   // UUID -> DBAccount
   importedAccounts: Record<string, IPrimeTransferAccount>;
   // UUID -> DBAccount
