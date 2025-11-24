@@ -91,7 +91,11 @@ const UTXOListItem = memo(
       >
         {/* Left: Checkbox + Index number */}
         <XStack ai="center" gap="$2" w={80} $md={{ w: 60 }}>
-          <Checkbox value={isSelected} onChange={handlePress} />
+          <Checkbox
+            value={isSelected}
+            onChange={handlePress}
+            shouldStopPropagation
+          />
           <SizableText size="$bodyMd" color="$text">
             {index + 1}
           </SizableText>
@@ -172,10 +176,14 @@ function CoinControlPage() {
         return data.sort((a, b) => a.height - b.height);
       case ESortType.LargestFirst:
         // Sort by amount descending (largest first)
-        return data.sort((a, b) => parseFloat(b.value) - parseFloat(a.value));
+        return data.sort((a, b) =>
+          new BigNumber(b.value).comparedTo(new BigNumber(a.value)),
+        );
       case ESortType.SmallestFirst:
         // Sort by amount ascending (smallest first)
-        return data.sort((a, b) => parseFloat(a.value) - parseFloat(b.value));
+        return data.sort((a, b) =>
+          new BigNumber(a.value).comparedTo(new BigNumber(b.value)),
+        );
       default:
         return data;
     }
@@ -305,7 +313,11 @@ function CoinControlPage() {
       <Page.Footer>
         <XStack px="$5" py="$5" gap="$3" ai="center" bg="$bgApp">
           {/* Select all checkbox */}
-          <Checkbox value={checkboxValue} onChange={handleSelectAll} />
+          <Checkbox
+            value={checkboxValue}
+            onChange={handleSelectAll}
+            shouldStopPropagation
+          />
 
           {/* Selected info */}
           <YStack flex={1} jc="center">
