@@ -87,6 +87,7 @@ type IEditableChainSelectorContentProps = {
 };
 
 export const EditableChainSelectorContent = ({
+  recentNetworksEnabled,
   walletId,
   indexedAccountId,
   accountNetworkValues,
@@ -464,13 +465,15 @@ export const EditableChainSelectorContent = ({
             })}
           />
         </Stack>
-        <RecentNetworks
-          containerProps={{
-            mt: '$4',
-          }}
-          onPressItem={onPressItem}
-          availableNetworks={[...mainnetItems, ...testnetItems]}
-        />
+        {recentNetworksEnabled ? (
+          <RecentNetworks
+            containerProps={{
+              mt: '$4',
+            }}
+            onPressItem={onPressItem}
+            availableNetworks={[...mainnetItems, ...testnetItems]}
+          />
+        ) : null}
         <Stack flex={1}>
           {sections.length > 0 ? (
             <SortableSectionList
