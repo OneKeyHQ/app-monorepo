@@ -54,6 +54,7 @@ import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
+import { useSelectedUTXOsAtom } from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
 import {
   useAllTokenListAtom,
   useAllTokenListMapAtom,
@@ -99,6 +100,7 @@ import {
   parseOnChainAmount,
 } from '../../../ScanQrCode/hooks/useParseQRCode';
 import CoinControlBadge from '../../components/CoinControlBadge';
+import { SendConfirmProviderMirror } from '../../components/SendConfirmProvider/SendConfirmProviderMirror';
 
 import RecentRecipients from './RecentRecipients';
 
@@ -149,6 +151,7 @@ function SendDataInputContainer() {
 
   const [allTokens] = useAllTokenListAtom();
   const [map] = useAllTokenListMapAtom();
+  const [selectedUTXOs] = useSelectedUTXOsAtom();
 
   const addressInputChangeType = useRef(EInputAddressChangeType.Manual);
 
@@ -366,6 +369,27 @@ function SendDataInputContainer() {
     () => networkUtils.isBTCNetwork(currentAccount.networkId),
     [currentAccount.networkId],
   );
+
+  // Extract selected UTXO keys for current account
+  const currentSelectedUtxoKeys = useMemo(() => {
+    if (
+      selectedUTXOs &&
+      selectedUTXOs.networkId === currentAccount.networkId &&
+      selectedUTXOs.accountId === currentAccount.accountId &&
+      selectedUTXOs.selectedUtxoKeys.length > 0
+    ) {
+      return selectedUTXOs.selectedUtxoKeys;
+    }
+    return undefined;
+  }, [selectedUTXOs, currentAccount.networkId, currentAccount.accountId]);
+
+  useEffect(() => {
+    console.log(
+      '======>>>>>>>>currentSelectedUtxoKeys: ',
+      currentSelectedUtxoKeys,
+    );
+  }, [currentSelectedUtxoKeys]);
+
   const form = useForm<IFormValues>(formOptions);
 
   // token amount or fiat amount
@@ -663,6 +687,7 @@ function SendDataInputContainer() {
               paymentId: paymentIdValue,
               note: noteValue,
               hexData: tokenDetails?.info.isNative ? hexData : undefined,
+              selectedUtxoKeys: currentSelectedUtxoKeys,
             },
           ];
 
@@ -728,6 +753,7 @@ function SendDataInputContainer() {
     [
       account,
       amount,
+      currentSelectedUtxoKeys,
       displayTxMessageForm,
       form,
       intl,
@@ -1759,9 +1785,11 @@ function SendDataInputContainer() {
 }
 
 const SendDataInputContainerWithProvider = memo(() => (
-  <HomeTokenListProviderMirror>
-    <SendDataInputContainer />
-  </HomeTokenListProviderMirror>
+  <SendConfirmProviderMirror>
+    <HomeTokenListProviderMirror>
+      <SendDataInputContainer />
+    </HomeTokenListProviderMirror>
+  </SendConfirmProviderMirror>
 ));
 SendDataInputContainerWithProvider.displayName =
   'SendDataInputContainerWithProvider';

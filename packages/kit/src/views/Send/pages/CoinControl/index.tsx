@@ -18,13 +18,20 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import {
+  useSelectedUTXOsAtom,
+  useSendConfirmActions,
+} from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
 import type { IUtxoInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import type {
   EModalSendRoutes,
   IModalSendParamList,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+
+import { SendConfirmProviderMirror } from '../../components/SendConfirmProvider/SendConfirmProviderMirror';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -43,6 +50,11 @@ function formatTimestamp(height: number, confirmations: number): string {
   return `${confirmations} confirmations`;
 }
 
+// Generate UTXO unique key
+function generateUtxoKey(txid: string, vout: number): string {
+  return `${txid}:${vout}`;
+}
+
 // ListItem component - optimized with memo for performance
 const UTXOListItem = memo(
   ({
@@ -56,13 +68,14 @@ const UTXOListItem = memo(
     item: IUtxoInfo;
     index: number;
     isSelected: boolean;
-    onToggle: (txid: string) => void;
+    onToggle: (utxoKey: string) => void;
     decimals: number;
     symbol: string;
   }) => {
     const handlePress = useCallback(() => {
-      onToggle(item.txid);
-    }, [item.txid, onToggle]);
+      const utxoKey = generateUtxoKey(item.txid, item.vout);
+      onToggle(utxoKey);
+    }, [item.txid, item.vout, onToggle]);
 
     const formattedInfo = useMemo(
       () => formatTimestamp(item.height, item.confirmations),
@@ -133,6 +146,11 @@ function CoinControlPage() {
     useRoute<RouteProp<IModalSendParamList, EModalSendRoutes.CoinControl>>();
   const { accountId, networkId } = route.params;
 
+  // Hooks
+  const navigation = useAppNavigation();
+  const { updateSelectedUTXOs } = useSendConfirmActions().current;
+  const [selectedUTXOsFromAtom] = useSelectedUTXOsAtom();
+
   // Fetch network info
   const { result: network } = usePromiseResult(async () => {
     if (!networkId) return null;
@@ -160,8 +178,23 @@ function CoinControlPage() {
   // Memoize utxoList to prevent dependency issues
   const utxoList: IUtxoInfo[] = useMemo(() => result ?? [], [result]);
 
-  // State management
-  const [selectedUTXOs, setSelectedUTXOs] = useState<Set<string>>(new Set());
+  // Initialize selected UTXOs from atom (only on mount)
+  const initialSelectedUtxos = useMemo(() => {
+    if (
+      selectedUTXOsFromAtom &&
+      selectedUTXOsFromAtom.networkId === networkId &&
+      selectedUTXOsFromAtom.accountId === accountId &&
+      selectedUTXOsFromAtom.selectedUtxoKeys.length > 0
+    ) {
+      return new Set(selectedUTXOsFromAtom.selectedUtxoKeys);
+    }
+    return new Set<string>();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only compute on mount
+
+  // State management - stores UTXO keys in "txid:vout" format
+  const [selectedUTXOs, setSelectedUTXOs] =
+    useState<Set<string>>(initialSelectedUtxos);
   const [sortType, setSortType] = useState<ESortType>(ESortType.NewestFirst);
 
   // Sorted data based on current sort type
@@ -213,7 +246,8 @@ function CoinControlPage() {
     if (!network) return '0';
     let sum = new BigNumber(0);
     sortedData.forEach((utxo) => {
-      if (selectedUTXOs.has(utxo.txid)) {
+      const utxoKey = generateUtxoKey(utxo.txid, utxo.vout);
+      if (selectedUTXOs.has(utxoKey)) {
         sum = sum.plus(utxo.value);
       }
     });
@@ -221,13 +255,13 @@ function CoinControlPage() {
   }, [selectedUTXOs, sortedData, network]);
 
   // Toggle single UTXO selection
-  const handleToggleUTXO = useCallback((txid: string) => {
+  const handleToggleUTXO = useCallback((utxoKey: string) => {
     setSelectedUTXOs((prev) => {
       const newSet = new Set(prev);
-      if (newSet.has(txid)) {
-        newSet.delete(txid);
+      if (newSet.has(utxoKey)) {
+        newSet.delete(utxoKey);
       } else {
-        newSet.add(txid);
+        newSet.add(utxoKey);
       }
       return newSet;
     });
@@ -238,16 +272,25 @@ function CoinControlPage() {
     if (isAllSelected) {
       setSelectedUTXOs(new Set());
     } else {
-      setSelectedUTXOs(new Set(utxoList.map((utxo) => utxo.txid)));
+      setSelectedUTXOs(
+        new Set(utxoList.map((utxo) => generateUtxoKey(utxo.txid, utxo.vout))),
+      );
     }
   }, [isAllSelected, utxoList]);
 
   // Done button handler
   const handleDone = useCallback(() => {
-    console.log('Selected UTXOs:', Array.from(selectedUTXOs));
-    console.log('Total amount:', totalAmount, network?.symbol);
-    // TODO: Pass selected UTXOs to parent component
-  }, [selectedUTXOs, totalAmount, network?.symbol]);
+    // Save selected UTXOs to atom
+    updateSelectedUTXOs({
+      networkId,
+      accountId,
+      selectedUtxoKeys: Array.from(selectedUTXOs),
+      timestamp: Date.now(),
+    });
+
+    // Navigate back to SendDataInput page
+    navigation.pop();
+  }, [selectedUTXOs, networkId, accountId, updateSelectedUTXOs, navigation]);
 
   // Sort options
   const sortOptions = useMemo(
@@ -274,16 +317,19 @@ function CoinControlPage() {
 
   // Render list item
   const renderItem = useCallback(
-    ({ item, index }: { item: IUtxoInfo; index: number }) => (
-      <UTXOListItem
-        item={item}
-        index={index}
-        isSelected={selectedUTXOs.has(item.txid)}
-        onToggle={handleToggleUTXO}
-        decimals={network?.decimals ?? 8}
-        symbol={network?.symbol ?? 'BTC'}
-      />
-    ),
+    ({ item, index }: { item: IUtxoInfo; index: number }) => {
+      const utxoKey = generateUtxoKey(item.txid, item.vout);
+      return (
+        <UTXOListItem
+          item={item}
+          index={index}
+          isSelected={selectedUTXOs.has(utxoKey)}
+          onToggle={handleToggleUTXO}
+          decimals={network?.decimals ?? 8}
+          symbol={network?.symbol ?? 'BTC'}
+        />
+      );
+    },
     [selectedUTXOs, handleToggleUTXO, network?.decimals, network?.symbol],
   );
 
@@ -372,4 +418,12 @@ function CoinControlPage() {
   );
 }
 
-export default CoinControlPage;
+const CoinControlPageWithProvider = memo(() => (
+  <SendConfirmProviderMirror>
+    <CoinControlPage />
+  </SendConfirmProviderMirror>
+));
+
+CoinControlPageWithProvider.displayName = 'CoinControlPageWithProvider';
+
+export default CoinControlPageWithProvider;
