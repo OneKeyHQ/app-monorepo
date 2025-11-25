@@ -237,6 +237,7 @@ export const StakeSection = ({
         networkId={networkId}
         balance="0"
         tokenImageUri={fallbackTokenImageUri}
+        tokenSymbol={tokenInfo?.token.symbol}
         isDisabled
         approveTarget={{
           accountId,

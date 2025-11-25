@@ -11,6 +11,7 @@ import { EarnAlert } from '../../../components/ProtocolDetails/EarnAlert';
 import { NoAddressWarning } from '../../../components/ProtocolDetails/NoAddressWarning';
 import { useManagePage } from '../hooks/useManagePage';
 
+import { AdaManageContent } from './AdaManageContent';
 import { NormalManageContent } from './NormalManageContent';
 import { USDEManageContent } from './USDEManageContent';
 
@@ -132,6 +133,54 @@ export function ManagePositionContent({
   const resolvedTokenImageUri =
     tokenInfo?.token?.logoURI || fallbackTokenImageUri;
 
+  const resolvedTokenInfo = useMemo(() => {
+    if (tokenInfo?.token) {
+      return tokenInfo;
+    }
+
+    const fallbackToken = {
+      uniqueKey: `${networkId}-${symbol}`,
+      address: '',
+      name: symbol,
+      symbol,
+      decimals: 0,
+      logoURI: fallbackTokenImageUri || '',
+      isNative: false,
+      totalSupply: '0',
+      riskLevel: 0,
+      coingeckoId: '',
+    };
+
+    if (tokenInfo) {
+      return {
+        ...tokenInfo,
+        token: fallbackToken,
+      };
+    }
+
+    const fallbackTokenInfo = {
+      networkId,
+      provider,
+      vault: vault || '',
+      accountId: accountId || '',
+      indexedAccountId,
+      token: fallbackToken,
+      balanceParsed: '0',
+      price: '0',
+    };
+
+    return fallbackTokenInfo;
+  }, [
+    tokenInfo,
+    symbol,
+    fallbackTokenImageUri,
+    networkId,
+    provider,
+    vault,
+    accountId,
+    indexedAccountId,
+  ]);
+
   const noAddressWarningElement = useMemo(
     () =>
       noAddressOrAccount ? (
@@ -234,19 +283,28 @@ export function ManagePositionContent({
     return null;
   }, [noAddressOrAccount, alertsWithdraw, alerts, noAddressWarningElement]);
 
+  // Create beforeFooter content for special layout (USDe, ADA)
+  const specialBeforeFooter = useMemo(() => {
+    if (noAddressOrAccount) {
+      return noAddressWarningElement;
+    }
+    if (!isEmpty(alertsHolding) || !isEmpty(alerts)) {
+      return (
+        <YStack>
+          <EarnAlert alerts={alerts} />
+          <EarnAlert alerts={alertsHolding} />
+        </YStack>
+      );
+    }
+    return null;
+  }, [noAddressOrAccount, alertsHolding, alerts, noAddressWarningElement]);
+
   if (isLoading) {
     return <SectionSkeleton />;
   }
 
   // USDe special rendering
   if (symbol.toLowerCase() === 'usde') {
-    if (noAddressWarningElement) {
-      return <YStack px="$5">{noAddressWarningElement}</YStack>;
-    }
-    if (!managePageData?.holdings) {
-      return null;
-    }
-
     return (
       <USDEManageContent
         managePageData={managePageData}
@@ -254,11 +312,31 @@ export function ManagePositionContent({
         symbol={symbol as ISupportedSymbol}
         provider={provider}
         vault={vault}
-        alertsHolding={alertsHolding}
         onHistory={onHistory}
         earnAccount={earnAccount}
         showApyDetail={showApyDetail}
         isInModalContext={isInModalContext}
+        beforeFooter={specialBeforeFooter}
+        fallbackTokenImageUri={fallbackTokenImageUri}
+      />
+    );
+  }
+
+  // ADA special rendering (Stakefish provider)
+  if (symbol.toLowerCase() === 'ada') {
+    return (
+      <AdaManageContent
+        managePageData={managePageData}
+        networkId={networkId}
+        symbol={symbol as ISupportedSymbol}
+        provider={provider}
+        vault={vault}
+        onHistory={onHistory}
+        earnAccount={earnAccount}
+        showApyDetail={showApyDetail}
+        isInModalContext={isInModalContext}
+        beforeFooter={specialBeforeFooter}
+        fallbackTokenImageUri={fallbackTokenImageUri}
       />
     );
   }
@@ -270,7 +348,7 @@ export function ManagePositionContent({
       symbol={symbol}
       provider={provider}
       vault={vault}
-      tokenInfo={tokenInfo}
+      tokenInfo={resolvedTokenInfo}
       fallbackTokenImageUri={resolvedTokenImageUri}
       protocolInfo={protocolInfo}
       earnAccount={earnAccount ?? undefined}

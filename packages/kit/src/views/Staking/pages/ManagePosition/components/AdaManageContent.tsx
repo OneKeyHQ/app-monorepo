@@ -2,12 +2,11 @@ import { useCallback, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 
-import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { showRiskNoticeDialogBeforeDepositOrWithdraw } from '@onekeyhq/kit/src/views/Earn/components/RiskNoticeDialog';
 import { EModalReceiveRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type { ISupportedSymbol } from '@onekeyhq/shared/types/earn';
@@ -16,15 +15,14 @@ import {
   type IEarnManagePageResponse,
 } from '@onekeyhq/shared/types/staking';
 
-import { showKYCDialog } from '../../../components/ProtocolDetails/showKYCDialog';
-import { useHandleSwap } from '../../../hooks/useHandleSwap';
+import { useUniversalStake } from '../../../hooks/useUniversalHooks';
 
 import { SpecialManageContent } from './SpecialManageContent';
 import { ESpecialManageLayoutType } from './types';
 
 import type { ISpecialManageButtonConfig } from './types';
 
-interface IUSDEManageContentProps {
+interface IAdaManageContentProps {
   managePageData?: IEarnManagePageResponse;
   networkId: string;
   symbol: ISupportedSymbol;
@@ -44,7 +42,7 @@ interface IUSDEManageContentProps {
   } | null;
 }
 
-export function USDEManageContent({
+export function AdaManageContent({
   managePageData,
   networkId,
   symbol,
@@ -56,15 +54,15 @@ export function USDEManageContent({
   beforeFooter,
   fallbackTokenImageUri,
   earnAccount,
-}: IUSDEManageContentProps) {
+}: IAdaManageContentProps) {
   const appNavigation = useAppNavigation();
-  const { handleSwap } = useHandleSwap();
 
   const holdings = managePageData?.holdings;
   const receiveAction = managePageData?.receive;
-  const tradeAction = managePageData?.trade;
   const historyAction = managePageData?.history;
-  const activateAction = managePageData?.activate;
+  const delegateAction = managePageData?.delegate;
+  const undelegateAction = managePageData?.undelegate;
+  const riskNoticeDialog = managePageData?.riskNoticeDialog;
 
   // Extract the balance amount from holdings.title to use for rewards calculation
   const holdingsAmount = useMemo(
@@ -72,9 +70,20 @@ export function USDEManageContent({
     [holdings?.title],
   );
 
+  // Determine which action to use for transaction confirmation
+  const actionType = useMemo(() => {
+    if (undelegateAction && !undelegateAction.disabled) {
+      return ECheckAmountActionType.UNDELEGATE;
+    }
+    if (delegateAction && !delegateAction.disabled) {
+      return ECheckAmountActionType.DELEGATE;
+    }
+    return undefined;
+  }, [delegateAction, undelegateAction]);
+
   // Fetch transaction confirmation to get rewards information
   const { result: transactionConfirmation } = usePromiseResult(async () => {
-    if (!earnAccount?.accountAddress || !holdingsAmount) {
+    if (!earnAccount?.accountAddress || !holdingsAmount || !actionType) {
       return undefined;
     }
 
@@ -91,7 +100,7 @@ export function USDEManageContent({
           symbol,
           vault: vault || '',
           accountAddress: earnAccount.accountAddress,
-          action: ECheckAmountActionType.STAKING,
+          action: actionType,
           amount: holdingsAmount,
         });
       return resp;
@@ -106,10 +115,10 @@ export function USDEManageContent({
     provider,
     vault,
     holdingsAmount,
+    actionType,
   ]);
 
-  // TODO: Convert holdings token to IToken format with fallback
-  // Should fallback to tokenInfo?.token if holdings?.token is missing
+  // Convert holdings token to IToken format with fallback
   const token = useMemo(() => {
     if (!holdings?.token) return null;
     return {
@@ -132,86 +141,110 @@ export function USDEManageContent({
     });
   }, [appNavigation, networkId, earnAccount, token]);
 
-  const handleTrade = useCallback(async () => {
-    if (!token) return;
+  const handleStake = useUniversalStake({
+    accountId: earnAccount?.accountId || '',
+    networkId,
+  });
 
-    try {
-      await handleSwap({
-        token,
-        networkId,
-      });
-    } catch (error) {
-      console.error('handleTrade error:', error);
-    }
-  }, [handleSwap, networkId, token]);
+  const handleDelegate = useCallback(async () => {
+    // Check if this is the first delegate operation and show risk notice if needed
+    if (
+      earnAccount?.accountAddress &&
+      provider &&
+      networkId &&
+      riskNoticeDialog?.deposit
+    ) {
+      const isFirstDeposit =
+        await backgroundApiProxy.simpleDb.earnExtra.isFirstOperation(
+          networkId,
+          provider,
+          earnAccount.accountAddress,
+          'deposit',
+        );
 
-  const handleActivate = useCallback(() => {
-    if (!activateAction) return;
-
-    showKYCDialog({
-      actionData: activateAction,
-      onConfirm: async (checkboxStates: boolean[]) => {
-        if (checkboxStates.every(Boolean)) {
-          const resp =
-            await backgroundApiProxy.serviceStaking.verifyRegisterSignMessage({
-              networkId,
-              provider,
+      if (isFirstDeposit) {
+        showRiskNoticeDialogBeforeDepositOrWithdraw({
+          networkId,
+          providerName: provider,
+          address: earnAccount.accountAddress,
+          operationType: 'deposit',
+          riskNoticeDialogContent: riskNoticeDialog.deposit,
+          onConfirm: async () => {
+            await handleStake({
               symbol,
-              accountAddress: earnAccount?.accountAddress ?? '',
-              signature: '',
-              message: '',
+              provider,
+              amount: '0',
+              protocolVault: vault,
             });
-          if (resp.toast) {
-            Toast.success({
-              title: resp.toast.text.text,
-            });
-          }
-        }
-      },
+          },
+        });
+        return;
+      }
+    }
+
+    // If not first deposit or no risk notice, proceed directly
+    await handleStake({
+      symbol,
+      provider,
+      amount: '0',
     });
   }, [
-    activateAction,
-    networkId,
-    provider,
     symbol,
-    earnAccount?.accountAddress,
+    provider,
+    vault,
+    handleStake,
+    earnAccount,
+    networkId,
+    riskNoticeDialog,
   ]);
+
+  const handleUndelegate = useCallback(() => {
+    // TODO: Implement undelegate logic
+    console.log('TODO: Implement undelegate logic', {
+      networkId,
+      symbol,
+      provider,
+      vault,
+      earnAccount,
+    });
+  }, [networkId, symbol, provider, vault, earnAccount]);
 
   // Configure buttons based on available actions
   const buttonConfig = useMemo((): ISpecialManageButtonConfig => {
-    // Case 1: Activate action (single button)
-    if (activateAction) {
+    // Case 1: Only delegate action (single button)
+    if (delegateAction && (!undelegateAction || undelegateAction.disabled)) {
       return {
         type: ESpecialManageLayoutType.Single,
         buttons: {
           primary: {
-            text: activateAction.text?.text || 'Activate',
+            text: delegateAction.text?.text || 'Delegate',
             variant: 'primary',
-            disabled: !earnAccount?.accountAddress || activateAction.disabled,
-            onPress: handleActivate,
+            disabled: !earnAccount?.accountAddress || delegateAction.disabled,
+            onPress: handleDelegate,
           },
         },
       };
     }
 
-    // Case 2: Receive + Trade (dual buttons)
-    if (receiveAction || tradeAction) {
+    // Case 2: Undelegate + Receive (dual buttons)
+    if (undelegateAction || receiveAction) {
       return {
         type: ESpecialManageLayoutType.Dual,
         buttons: {
-          secondary: receiveAction
+          secondary: undelegateAction
             ? {
-                text: receiveAction.text?.text || 'Receive',
-                disabled: receiveAction.disabled,
-                onPress: handleReceive,
+                text: undelegateAction.text?.text || 'Undelegate',
+                disabled:
+                  undelegateAction.disabled || !earnAccount?.accountAddress,
+                onPress: handleUndelegate,
               }
             : undefined,
-          primary: tradeAction
+          primary: receiveAction
             ? {
-                text: tradeAction.text?.text || 'Trade',
+                text: receiveAction.text?.text || 'Receive',
                 variant: 'primary',
-                disabled: tradeAction.disabled,
-                onPress: () => void handleTrade(),
+                disabled: receiveAction.disabled,
+                onPress: handleReceive,
               }
             : undefined,
         },
@@ -224,13 +257,13 @@ export function USDEManageContent({
       buttons: {},
     };
   }, [
-    activateAction,
+    delegateAction,
+    undelegateAction,
     receiveAction,
-    tradeAction,
     earnAccount?.accountAddress,
-    handleActivate,
+    handleDelegate,
+    handleUndelegate,
     handleReceive,
-    handleTrade,
   ]);
 
   return (

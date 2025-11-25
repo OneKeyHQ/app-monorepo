@@ -700,7 +700,7 @@ class ServiceStaking extends ServiceBase {
     symbol: string;
     vault: string;
     accountAddress: string;
-    action: 'stake' | 'unstake' | 'claim';
+    action: ECheckAmountActionType;
     amount: string;
   }) {
     const client = await this.getClient(EServiceEndpointEnum.Earn);

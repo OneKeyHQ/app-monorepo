@@ -23,6 +23,8 @@ export enum ECheckAmountActionType {
   STAKING = 'stake',
   UNSTAKING = 'unstake',
   CLAIM = 'claim',
+  DELEGATE = 'delegate',
+  UNDELEGATE = 'undelegate',
 }
 
 export interface IEarnAlertButton {
@@ -756,6 +758,7 @@ export interface IEarnManagePageResponse {
   activate?: IEarnActivateActionIcon;
   delegate?: IEarnDelegateActionData;
   undelegate?: IEarnUndelegateActionData;
+  riskNoticeDialog?: Record<string, IEarnRiskNoticeDialog>;
   approve?: {
     allowance: string;
     approveType: string;
