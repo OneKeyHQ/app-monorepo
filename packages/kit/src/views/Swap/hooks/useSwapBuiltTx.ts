@@ -2746,7 +2746,7 @@ export function useSwapBuildTx() {
               feeInfo: gasInfo as IFeeInfoUnit,
               nativeTokenPrice: common?.nativeTokenPrice ?? 0,
             });
-            return feeResult.totalFiat;
+            return feeResult.totalFiatMinForDisplay;
           }),
         );
         const gasFeeFiatValueAll = gasFeeFiatValues.reduce((acc, curr) => {
