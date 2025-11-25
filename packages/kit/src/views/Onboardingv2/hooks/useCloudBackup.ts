@@ -12,8 +12,10 @@ import {
   useCloudBackupStatusAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes';
 import {
@@ -186,6 +188,13 @@ export function useCloudBackup() {
             },
           },
         });
+        defaultLogger.account.wallet.addWalletStarted({
+          addMethod: 'ImportWallet',
+          details: {
+            importType: 'cloud',
+          },
+          isSoftwareWalletOnlyUser: true,
+        });
       }
     },
     [checkIsAvailable, navigation],
@@ -224,6 +233,49 @@ export function useCloudBackup() {
       let verifyPasswordDialog: IDialogInstance | null = null;
       let resetPasswordDialog: IDialogInstance | null = null;
       let loadingDialog: IDialogInstance | null = null;
+
+      function handleBackupError(error: unknown) {
+        const e = error as Error | undefined;
+        const errorMessage = e?.message;
+        if (
+          errorMessage &&
+          errorMessage.includes('Quota exceeded') &&
+          errorMessage.includes('CKRecordID')
+        ) {
+          errorToastUtils.toastIfErrorDisable(error);
+        }
+        if (
+          errorUtils.isErrorByClassName({
+            error,
+            className: [EOneKeyErrorClassNames.IncorrectPassword],
+          })
+        ) {
+          // skip
+        } else {
+          Dialog.show({
+            title: intl.formatMessage({
+              id: ETranslations.cloud_backup_failed,
+            }),
+            description: platformEnv.isNativeAndroid
+              ? intl.formatMessage({
+                  id: ETranslations.cloud_backup_failed_google_desc,
+                })
+              : intl.formatMessage({
+                  id: ETranslations.cloud_backup_failed_apple_desc,
+                }),
+            onCancelText: intl.formatMessage({
+              id: ETranslations.global_manage_backups,
+            }),
+            onCancel: () => {
+              void goToPageBackupList({ hideRestoreButton: true });
+            },
+            onConfirmText: intl.formatMessage({
+              id: ETranslations.global_close,
+            }),
+          });
+        }
+        throw error;
+      }
 
       const backupFn = async (password: string) => {
         await verifyPasswordDialog?.close?.();
@@ -274,37 +326,7 @@ export function useCloudBackup() {
             });
           }
         } catch (error) {
-          if (
-            errorUtils.isErrorByClassName({
-              error,
-              className: [EOneKeyErrorClassNames.IncorrectPassword],
-            })
-          ) {
-            // skip
-          } else {
-            Dialog.show({
-              title: intl.formatMessage({
-                id: ETranslations.cloud_backup_failed,
-              }),
-              description: platformEnv.isNativeAndroid
-                ? intl.formatMessage({
-                    id: ETranslations.cloud_backup_failed_google_desc,
-                  })
-                : intl.formatMessage({
-                    id: ETranslations.cloud_backup_failed_apple_desc,
-                  }),
-              onCancelText: intl.formatMessage({
-                id: ETranslations.global_manage_backups,
-              }),
-              onCancel: () => {
-                void goToPageBackupList({ hideRestoreButton: true });
-              },
-              onConfirmText: intl.formatMessage({
-                id: ETranslations.global_close,
-              }),
-            });
-          }
-          throw error;
+          handleBackupError(error);
         } finally {
           void loadingDialog?.close?.();
           setCheckLoading(false);
@@ -328,18 +350,22 @@ export function useCloudBackup() {
             showConfirmPasswordField: true,
             isFirstTimeSetPassword,
             onSubmit: async (password: string) => {
-              const result =
-                await backgroundApiProxy.serviceCloudBackupV2.setBackupPassword(
-                  {
-                    password,
-                  },
-                );
-              if (result?.recordID) {
-                await backupFn(password);
-              } else {
-                Toast.error({
-                  title: 'Failed to set backup password',
-                });
+              try {
+                const result =
+                  await backgroundApiProxy.serviceCloudBackupV2.setBackupPassword(
+                    {
+                      password,
+                    },
+                  );
+                if (result?.recordID) {
+                  await backupFn(password);
+                } else {
+                  Toast.error({
+                    title: 'Failed to set backup password',
+                  });
+                }
+              } catch (error) {
+                handleBackupError(error);
               }
             },
           });

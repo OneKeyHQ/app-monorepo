@@ -341,6 +341,7 @@ function TokenDetailsHeader(props: IProps) {
               walletType={wallet?.type}
               source="tokenDetails"
               trackID="wallet-token-details-stake"
+              logoURI={tokenInfo.logoURI}
             />
             <ReviewControl>
               <ActionBuy

@@ -3,6 +3,7 @@ import { useRef } from 'react';
 import BigNumber from 'bignumber.js';
 
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
+import type { IWalletBanner } from '@onekeyhq/shared/types/walletBanner';
 
 import { ContextJotaiActionsBase } from '../../utils/ContextJotaiActionsBase';
 
@@ -13,6 +14,7 @@ import {
   approvalsInfoAtom,
   contextAtomMethod,
   walletStatusAtom,
+  walletTopBannersAtom,
 } from './atoms';
 
 class ContextJotaiActionsAccountOverview extends ContextJotaiActionsBase {
@@ -100,6 +102,14 @@ class ContextJotaiActionsAccountOverview extends ContextJotaiActionsBase {
       });
     },
   );
+
+  updateWalletTopBanners = contextAtomMethod(
+    (get, set, payload: { banners: IWalletBanner[] }) => {
+      set(walletTopBannersAtom(), {
+        banners: payload.banners,
+      });
+    },
+  );
 }
 
 const createActions = memoFn(() => {
@@ -115,6 +125,7 @@ export function useAccountOverviewActions() {
   const updateAllNetworksState = actions.updateAllNetworksState.use();
   const updateApprovalsInfo = actions.updateApprovalsInfo.use();
   const updateWalletStatus = actions.updateWalletStatus.use();
+  const updateWalletTopBanners = actions.updateWalletTopBanners.use();
 
   return useRef({
     updateAllNetworksState,
@@ -122,5 +133,6 @@ export function useAccountOverviewActions() {
     updateAccountOverviewState,
     updateApprovalsInfo,
     updateWalletStatus,
+    updateWalletTopBanners,
   });
 }

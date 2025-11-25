@@ -161,6 +161,10 @@ export function EarnTooltip({
     if (tooltip?.type === 'rebateDetails') {
       return tooltip.data.title.text;
     }
+    if (tooltip?.type === 'text' && tooltip?.data?.title?.text) {
+      return tooltip.data.title.text;
+    }
+
     return title || '';
   }, [tooltip, title]);
   const tooltipContent = useMemo(() => {
@@ -199,7 +203,7 @@ export function EarnTooltip({
       return <RebateDetailsPopoverContent tooltip={tooltip} />;
     }
 
-    return <EarnText text={tooltip.data} />;
+    return <EarnText text={tooltip?.data?.description} />;
   }, [onHistory, tooltip]);
   return tooltip ? (
     <Popover

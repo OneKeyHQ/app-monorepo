@@ -33,22 +33,24 @@ function ReferralLevelContent({ data }: { data: IInviteLevelDetail }) {
 
   return (
     <ScrollView>
-      <ReferFriendsPageContainer py="$5" px="$4" gap="$5">
-        <BreadcrumbSection
-          secondItemLabel={intl.formatMessage({
-            id: ETranslations.referral_referral_level,
-          })}
-        />
-        {currentLevelInfo ? (
-          <CurrentLevelSection
-            currentLevel={data.currentLevel}
-            levelIcon={currentLevelInfo.icon}
-            levelLabel={currentLevelInfo.label}
+      <ReferFriendsPageContainer>
+        <YStack py="$5" px="$4" gap="$5">
+          <BreadcrumbSection
+            secondItemLabel={intl.formatMessage({
+              id: ETranslations.referral_referral_level,
+            })}
           />
-        ) : null}
-        <UpgradeProgressTitle />
+          {currentLevelInfo ? (
+            <CurrentLevelSection
+              currentLevel={data.currentLevel}
+              levelIcon={currentLevelInfo.icon}
+              levelLabel={currentLevelInfo.label}
+            />
+          ) : null}
+          <UpgradeProgressTitle />
 
-        <LevelListSection levels={data.levels} />
+          <LevelListSection levels={data.levels} />
+        </YStack>
       </ReferFriendsPageContainer>
     </ScrollView>
   );

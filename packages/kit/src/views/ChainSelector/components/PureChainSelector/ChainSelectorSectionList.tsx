@@ -86,6 +86,7 @@ const ChainSelectorSectionListContent = ({
   return (
     <SectionList
       ref={listRef}
+      useFlashList
       contentContainerStyle={
         platformEnv.isNative
           ? undefined

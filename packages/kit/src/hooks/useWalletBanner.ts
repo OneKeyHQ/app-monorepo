@@ -82,6 +82,7 @@ function useWalletBanner({
 
       if (item.mode) {
         parseNotificationPayload(item.mode, item.payload, () => {});
+        return;
       }
 
       if (item.href) {

@@ -586,6 +586,7 @@ const SwapTokenSelectPage = () => {
         ) : null}
         <YStack flex={1}>
           <ListView
+            useFlashList
             ref={listViewRef}
             data={currentTokens}
             renderItem={renderItem}

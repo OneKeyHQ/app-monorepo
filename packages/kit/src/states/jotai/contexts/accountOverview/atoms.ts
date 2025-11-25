@@ -1,3 +1,5 @@
+import type { IWalletBanner } from '@onekeyhq/shared/types/walletBanner';
+
 import { createJotaiContext } from '../../utils/createJotaiContext';
 
 const {
@@ -64,4 +66,11 @@ export const { atom: approvalsInfoAtom, use: useApprovalsInfoAtom } =
     hasRiskApprovals: boolean;
   }>({
     hasRiskApprovals: false,
+  });
+
+export const { atom: walletTopBannersAtom, use: useWalletTopBannersAtom } =
+  contextAtom<{
+    banners: IWalletBanner[];
+  }>({
+    banners: [],
   });

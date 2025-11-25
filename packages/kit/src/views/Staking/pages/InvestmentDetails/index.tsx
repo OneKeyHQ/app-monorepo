@@ -34,7 +34,10 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  EModalStakingRoutes,
+  ETabEarnRoutes,
+} from '@onekeyhq/shared/src/routes';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type {
@@ -174,6 +177,7 @@ function BasicInvestmentDetails() {
             })),
           );
         const evmAccount = list.find((item) => item.networkId === evmNetworkId);
+        // XXX
         if (evmAccount) {
           const earnSummary =
             await backgroundApiProxy.serviceStaking.getEarnSummary(evmAccount);
@@ -302,7 +306,7 @@ function BasicInvestmentDetails() {
               networkId: tokenInfo.networkId,
             });
           if ((account || indexedAccount) && tokenInfo) {
-            navigation.push(EModalStakingRoutes.ProtocolDetailsV2, {
+            navigation.push(ETabEarnRoutes.EarnProtocolDetails, {
               indexedAccountId: pageEarnAccount?.account.indexedAccountId,
               accountId: pageEarnAccount?.accountId,
               networkId: tokenInfo.networkId,

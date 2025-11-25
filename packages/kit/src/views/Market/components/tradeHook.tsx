@@ -7,7 +7,8 @@ import { Dialog, SizableText } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
-  EModalStakingRoutes,
+  ETabEarnRoutes,
+  ETabRoutes,
   type IModalSwapParamList,
 } from '@onekeyhq/shared/src/routes';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes/modal';
@@ -32,7 +33,6 @@ import {
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
-import { showProtocolListDialog } from '../../Earn/components/showProtocolListDialog';
 
 export const useMarketTradeNetwork = (token: IMarketTokenDetail | null) => {
   const { detailPlatforms, platforms = {} } = token || {};
@@ -255,16 +255,12 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
       return;
     }
 
-    // Use dialog for multiple protocols, pass minimal required fields
-    showProtocolListDialog({
-      symbol: normalizedSymbol,
-      accountId: networkAccount.id,
-      indexedAccountId: networkAccount.indexedAccountId,
-      onProtocolSelect: async (params) => {
-        navigation.pushModal(EModalRoutes.StakingModal, {
-          screen: EModalStakingRoutes.ProtocolDetailsV2,
-          params,
-        });
+    // Navigate to protocols list page
+    navigation.switchTab(ETabRoutes.Earn, {
+      screen: ETabEarnRoutes.EarnProtocols,
+      params: {
+        symbol: normalizedSymbol,
+        filterNetworkId: networkId,
       },
     });
   }, [createAccountIfNotExists, navigation, networkId, symbol]);

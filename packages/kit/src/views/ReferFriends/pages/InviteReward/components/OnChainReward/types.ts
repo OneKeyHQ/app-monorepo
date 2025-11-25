@@ -8,17 +8,26 @@ export interface IUseOnChainRewardParams {
   onChain: IInviteSummary['Onchain'];
 }
 
+export interface IRewardTokenMeta {
+  logoURI?: string;
+  symbol?: string;
+  name?: string;
+}
+
 export interface IUseOnChainRewardReturn {
-  earnToken:
-    | {
-        logoURI?: string;
-        symbol?: string;
-        name?: string;
-      }
-    | null
-    | undefined;
+  earnToken: IRewardTokenMeta | null | undefined;
   onChainSummary: string | undefined;
   onChainSummaryFiat: string | undefined;
-  showRewards: boolean;
-  toEarnRewardPage: () => void;
+  hasEarnRewards: boolean;
+}
+
+export interface IUsePerpRewardParams {
+  onChain: IInviteSummary['Onchain'];
+}
+
+export interface IUsePerpRewardReturn {
+  perpToken: IRewardTokenMeta | null | undefined;
+  perpSummary: string | undefined;
+  perpSummaryFiat: string | undefined;
+  hasPerpRewards: boolean;
 }
