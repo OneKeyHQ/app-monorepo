@@ -1,3 +1,5 @@
+import { EFirmwareType } from '@onekeyfe/hd-shared';
+
 import {
   backgroundMethod,
   toastIfError,
@@ -277,6 +279,11 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
       const client = await this.serviceHardware.getClient(
         EServiceEndpointEnum.Utility,
       );
+
+      let firmwareType: 'universal' | 'btconly' = 'universal';
+      if (params.firmwareType === EFirmwareType.BitcoinOnly) {
+        firmwareType = 'btconly';
+      }
       const resp = await client.get<{
         data: {
           firmwares: IFirmwareVerifyInfo[];
@@ -287,6 +294,7 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
           system: params.firmwareVersion,
           bluetooth: params.bluetoothVersion,
           bootloader: params.bootloaderVersion,
+          firmwareType,
         },
       });
       return resp.data.data.firmwares;

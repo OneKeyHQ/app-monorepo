@@ -174,6 +174,7 @@ export function convertDeviceError(
       return new HardwareErrors.PinCancelled({ payload });
     case HardwareErrorCode.UnexpectPassphrase:
     case HardwareErrorCode.ActionCancelled:
+    case HardwareErrorCode.CallQueueActionCancelled:
       return new HardwareErrors.UserCancel({ payload });
     case HardwareErrorCode.BridgeNotInstalled:
       return new HardwareErrors.NeedOneKeyBridge({ payload });
@@ -216,6 +217,8 @@ export function convertDeviceError(
       });
     case HardwareErrorCode.DefectiveFirmware:
       return new HardwareErrors.DefectiveFirmware({ payload });
+    case HardwareErrorCode.FirmwareDowngradeNotAllowed:
+      return new HardwareErrors.FirmwareDowngradeNotAllowedError({ payload });
 
     // Bridge error
     case 'ERR_BAD_REQUEST':

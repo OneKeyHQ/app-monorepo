@@ -9,6 +9,7 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 export function NoAddressWarning({
@@ -80,7 +81,42 @@ export function NoAddressWarning({
 
   const isOthersAccount = accountUtils.isOthersAccount({ accountId });
 
+  // Check if Bitcoin Only firmware is trying to access non-BTC network
+  const { result: isBtcOnlyFirmwareUnsupported } = usePromiseResult(
+    async () => {
+      if (!accountUtils.isHwWallet({ walletId: wallet?.id })) {
+        return false;
+      }
+
+      const isBtcOnlyFirmware =
+        await backgroundApiProxy.serviceAccount.isBtcOnlyFirmwareByWalletId({
+          walletId: wallet?.id || '',
+        });
+
+      if (isBtcOnlyFirmware) {
+        const { impl } = networkUtils.parseNetworkId({ networkId });
+        return impl !== 'btc';
+      }
+      return false;
+    },
+    [wallet?.id, networkId],
+    { initResult: false },
+  );
+
   const content = useMemo(() => {
+    // Bitcoin Only firmware does not support non-BTC networks
+    if (isBtcOnlyFirmwareUnsupported) {
+      return {
+        title: intl.formatMessage(
+          { id: ETranslations.wallet_unsupported_network_title },
+          { network: result?.networkName ?? '' },
+        ),
+        description: intl.formatMessage({
+          id: ETranslations.wallet_unsupported_network_desc,
+        }),
+      };
+    }
+
     if (isOthersAccount) {
       return {
         title: intl.formatMessage(
@@ -107,7 +143,7 @@ export function NoAddressWarning({
         },
       ),
     };
-  }, [result, isOthersAccount, networkId, intl]);
+  }, [result, isOthersAccount, isBtcOnlyFirmwareUnsupported, networkId, intl]);
 
   if (!result) {
     return null;
@@ -130,7 +166,7 @@ export function NoAddressWarning({
       title={content.title}
       description={content.description}
       action={
-        isOthersAccount
+        isOthersAccount || isBtcOnlyFirmwareUnsupported
           ? undefined
           : {
               primary: intl.formatMessage({

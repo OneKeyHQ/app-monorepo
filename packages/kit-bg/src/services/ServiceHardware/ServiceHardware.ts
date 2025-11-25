@@ -1,4 +1,4 @@
-import { EDeviceType } from '@onekeyfe/hd-shared';
+import { EDeviceType, EFirmwareType } from '@onekeyfe/hd-shared';
 import { Semaphore } from 'async-mutex';
 import { uniq } from 'lodash';
 import semver from 'semver';
@@ -1222,14 +1222,68 @@ class ServiceHardware extends ServiceBase {
     });
   }
 
+  private fixHardwareBitcoinOnlyState(params: IUpdateFirmwareWorkflowParams) {
+    let bitcoinOnlyFlag:
+      | {
+          fw_vendor: string | undefined;
+          capabilities: number[] | undefined;
+        }
+      | undefined;
+    const capabilityBitcoinLike = 2;
+    const bitcoinOnlyFwVendor = 'OneKey Bitcoin-only';
+    try {
+      const updateFirmwareInfo = params?.releaseResult?.updateInfos?.firmware;
+      if (
+        updateFirmwareInfo?.fromFirmwareType === EFirmwareType.Universal &&
+        updateFirmwareInfo?.toFirmwareType === EFirmwareType.BitcoinOnly
+      ) {
+        const originalCapabilities =
+          (params?.releaseResult?.features
+            ?.capabilities as unknown as number[]) || [];
+        const newCapabilities = originalCapabilities.filter(
+          (item) => item !== capabilityBitcoinLike,
+        );
+
+        bitcoinOnlyFlag = {
+          fw_vendor: bitcoinOnlyFwVendor,
+          capabilities: newCapabilities,
+        };
+      } else if (
+        updateFirmwareInfo?.fromFirmwareType === EFirmwareType.BitcoinOnly &&
+        updateFirmwareInfo?.toFirmwareType === EFirmwareType.Universal
+      ) {
+        const originalCapabilities =
+          (params?.releaseResult?.features
+            ?.capabilities as unknown as number[]) || [];
+        const capabilities = [...originalCapabilities];
+
+        const hasExists = capabilities.find(
+          (item) => item === capabilityBitcoinLike,
+        );
+        if (!hasExists) {
+          capabilities.push(capabilityBitcoinLike);
+        }
+
+        bitcoinOnlyFlag = {
+          fw_vendor: undefined,
+          capabilities,
+        };
+      }
+    } catch (error) {
+      // ignore
+    }
+    return bitcoinOnlyFlag;
+  }
+
   @backgroundMethod()
   async updateDeviceVersionAfterFirmwareUpdate(
     params: IUpdateFirmwareWorkflowParams,
   ) {
+    const connectId = params.releaseResult.originalConnectId;
     const dbDevice = await localDb.getDeviceByQuery({
-      connectId: params.releaseResult.originalConnectId,
+      connectId,
     });
-    if (!dbDevice) {
+    if (!dbDevice || !connectId) {
       return;
     }
     const versionInfo: IDeviceVersionCacheInfo = {
@@ -1262,9 +1316,47 @@ class ServiceHardware extends ServiceBase {
       }
     });
 
+    const bitcoinOnlyFlag = this.fixHardwareBitcoinOnlyState(params);
+
     await localDb.updateDeviceVersionInfo({
       dbDeviceId: dbDevice.id,
       versionCacheInfo: filteredVersionInfo as IDeviceVersionCacheInfo,
+      bitcoinOnlyFlag,
+    });
+    if (bitcoinOnlyFlag) {
+      await this.updateHwWalletsDeprecatedStatus({
+        connectId,
+      });
+    }
+  }
+
+  @backgroundMethod()
+  async updateHwWalletsDeprecatedStatus({ connectId }: { connectId: string }) {
+    const allHwWallets =
+      await this.backgroundApi.serviceAccount.getAllHwQrWalletWithDevice({
+        filterHiddenWallet: false,
+        filterQrWallet: true,
+      });
+
+    const willUpdateDeprecateMap: Record<string, boolean> = {};
+
+    for (const walletWithDevice of Object.values(allHwWallets)) {
+      const wallet = walletWithDevice.wallet;
+      const device = walletWithDevice.device;
+
+      if (wallet?.id && device?.connectId) {
+        const isSameConnectId =
+          device.connectId === connectId || device.bleConnectId === connectId;
+
+        // only handle wallet with same connectId
+        if (isSameConnectId) {
+          willUpdateDeprecateMap[wallet.id] = true;
+        }
+      }
+    }
+
+    await this.backgroundApi.serviceAccount.updateWalletsDeprecatedState({
+      willUpdateDeprecateMap,
     });
   }
 

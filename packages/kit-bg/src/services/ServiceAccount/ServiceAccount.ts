@@ -1,3 +1,4 @@
+import { EFirmwareType } from '@onekeyfe/hd-shared';
 import { Semaphore } from 'async-mutex';
 import { ethers } from 'ethers';
 import { debounce, isEmpty, isNil, uniq, uniqBy } from 'lodash';
@@ -5314,6 +5315,29 @@ class ServiceAccount extends ServiceBase {
     } catch {
       return undefined;
     }
+  }
+
+  async isBtcOnlyFirmwareByWalletId({
+    walletId,
+  }: {
+    walletId: string;
+  }): Promise<boolean> {
+    if (!accountUtils.isHwWallet({ walletId })) {
+      return false;
+    }
+
+    let isBtcOnlyFirmware = false;
+    const walletDevice =
+      await this.backgroundApi.serviceAccount.getWalletDeviceSafe({
+        walletId,
+      });
+    if (walletDevice) {
+      const firmwareType = await deviceUtils.getFirmwareType({
+        features: walletDevice.featuresInfo,
+      });
+      isBtcOnlyFirmware = firmwareType === EFirmwareType.BitcoinOnly;
+    }
+    return isBtcOnlyFirmware;
   }
 }
 
