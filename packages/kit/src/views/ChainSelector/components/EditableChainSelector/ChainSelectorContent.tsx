@@ -51,28 +51,13 @@ const ListEmptyComponent = () => {
   );
 };
 
-const ListHeaderComponent = ({
-  recentNetworksEnabled,
-  mainnetItems,
-  testnetItems,
-}: {
-  initialScrollIndex?: { sectionIndex: number; itemIndex?: number };
-  recentNetworksEnabled?: boolean;
-  mainnetItems: IServerNetwork[];
-  testnetItems: IServerNetwork[];
-}) => {
-  const { allNetworkItem, searchText, onPressItem, setRecentNetworksHeight } =
-    useContext(EditableChainSelectorContext);
+const ListHeaderComponent = () => {
+  const { allNetworkItem, searchText } = useContext(
+    EditableChainSelectorContext,
+  );
 
   return (
-    <Stack mt="$4">
-      {recentNetworksEnabled ? (
-        <RecentNetworks
-          onPressItem={onPressItem}
-          setRecentNetworksHeight={setRecentNetworksHeight}
-          availableNetworks={[...mainnetItems, ...testnetItems]}
-        />
-      ) : null}
+    <Stack>
       {!allNetworkItem || searchText?.trim() ? null : (
         <EditableListItem item={allNetworkItem} isEditable={false} />
       )}
@@ -117,7 +102,6 @@ export const EditableChainSelectorContent = ({
   isEditMode,
   allNetworkItem,
   onFrequentlyUsedItemsChange,
-  recentNetworksEnabled,
 }: IEditableChainSelectorContentProps) => {
   const intl = useIntl();
   const { bottom } = useSafeAreaInsets();
@@ -480,6 +464,13 @@ export const EditableChainSelectorContent = ({
             })}
           />
         </Stack>
+        <RecentNetworks
+          containerProps={{
+            mt: '$4',
+          }}
+          onPressItem={onPressItem}
+          availableNetworks={[...mainnetItems, ...testnetItems]}
+        />
         <Stack flex={1}>
           {sections.length > 0 ? (
             <SortableSectionList
@@ -508,14 +499,7 @@ export const EditableChainSelectorContent = ({
                 }
                 return layoutList[index];
               }}
-              ListHeaderComponent={
-                <ListHeaderComponent
-                  recentNetworksEnabled={recentNetworksEnabled}
-                  initialScrollIndex={initialScrollIndex}
-                  mainnetItems={mainnetItems}
-                  testnetItems={testnetItems}
-                />
-              }
+              ListHeaderComponent={<ListHeaderComponent />}
               renderSectionHeader={renderSectionHeader}
               ListFooterComponent={
                 <>
