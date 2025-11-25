@@ -166,7 +166,7 @@ const DevSettingsAccordionTrigger = ({
           <YStack>
             <SizableText size="$bodyLgMedium">{title}</SizableText>
             {description || title ? (
-              <SizableText size="$bodyMd" color="$textSubdued">
+              <SizableText textAlign="left" size="$bodyMd" color="$textSubdued">
                 {description || title}
               </SizableText>
             ) : null}
@@ -367,6 +367,10 @@ const BaseDevSettingsSection = () => {
                 icon="CodeOutline"
                 title="platformEnv"
                 onPress={async () => {
+                  const bundleStartTime =
+                    typeof __BUNDLE_START_TIME__ !== 'undefined'
+                      ? __BUNDLE_START_TIME__
+                      : 0;
                   Dialog.debugMessage({
                     debugMessage: {
                       startupTimeAt:
@@ -384,7 +388,7 @@ const BaseDevSettingsSection = () => {
                         await LaunchOptionsManager.getJsReadyFromPerformanceNow(),
                       appWillMountFromPerformanceNow:
                         (globalThis.$$onekeyAppWillMountFromPerformanceNow ||
-                          0) - __BUNDLE_START_TIME__,
+                          0) - bundleStartTime,
                       uiVisibleFromPerformanceNow:
                         await LaunchOptionsManager.getUIVisibleFromPerformanceNow(),
                       deskChannel: globalThis?.desktopApi?.deskChannel,
@@ -1148,7 +1152,7 @@ const BaseDevSettingsSection = () => {
           <DevSettingsAccordionTrigger
             title="Account & Wallet & Prime & Network"
             description="账户，钱包，Prime，链和网络"
-            icon="AiImagesOutline"
+            icon="HeadOutline"
           />
           <Accordion.HeightAnimator animation="quick">
             <Accordion.Content animation="quick" exitStyle={{ opacity: 0 }}>
