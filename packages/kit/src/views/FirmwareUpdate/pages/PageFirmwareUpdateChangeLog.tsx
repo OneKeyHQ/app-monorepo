@@ -39,6 +39,7 @@ function PageFirmwareUpdateChangeLog() {
     EModalFirmwareUpdateRoutes.ChangeLog
   >();
   const connectId = route?.params?.connectId;
+  const firmwareType = route?.params?.firmwareType;
 
   const [stepInfo, setStepInfo] = useFirmwareUpdateStepInfoAtom();
 
@@ -65,10 +66,12 @@ function PageFirmwareUpdateChangeLog() {
             connectId,
             hardwareCallContext: EHardwareCallContext.UPDATE_FIRMWARE,
           });
+
         const r =
           await backgroundApiProxy.serviceFirmwareUpdate.checkAllFirmwareRelease(
             {
               connectId: compatibleConnectId,
+              firmwareType,
             },
           );
         if (r?.hasUpgrade) {
@@ -89,7 +92,7 @@ function PageFirmwareUpdateChangeLog() {
         });
       }
     },
-    [connectId, setStepInfo],
+    [connectId, firmwareType, setStepInfo],
     {
       watchLoading: true,
     },

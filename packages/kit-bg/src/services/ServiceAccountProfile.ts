@@ -91,7 +91,6 @@ class ServiceAccountProfile extends ServiceBase {
       // cardanoPubKey, // only for UTXO query, not for balance query
       withNetWorth: true,
     }).catch((e) => {
-      console.error('=====>>>>>> fetchAccountNativeBalance error', e);
       throw e;
     });
   }
