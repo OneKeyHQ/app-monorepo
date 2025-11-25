@@ -105,6 +105,7 @@ type IProps = {
   keepDefaultZeroBalanceTokens?: boolean;
   withAggregateBadge?: boolean;
   emptyProps?: IYStackProps;
+  searchKeyLengthThreshold?: number;
 };
 
 function TokenListViewCmp(props: IProps) {
@@ -141,6 +142,7 @@ function TokenListViewCmp(props: IProps) {
     accountId,
     networkId,
     indexedAccountId,
+    searchKeyLengthThreshold,
   } = props;
 
   const [activeAccountTokenList] = useActiveAccountTokenListAtom();
@@ -246,6 +248,7 @@ function TokenListViewCmp(props: IProps) {
         ? tokenSelectorSearchTokenList.tokens
         : searchTokenList.tokens,
       aggregateTokenListMap: allAggregateTokenMap,
+      searchKeyLengthThreshold,
     });
 
     if (!isTokenSelector) {
@@ -293,6 +296,7 @@ function TokenListViewCmp(props: IProps) {
     sortDirection,
     tokenListMap,
     aggregateTokenMap,
+    searchKeyLengthThreshold,
   ]);
 
   const { result: extensionActiveTabDAppInfo } = useActiveTabDAppInfo();

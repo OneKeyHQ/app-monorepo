@@ -79,4 +79,5 @@ export const PERPS_FILTERED_LEDGER_TYPES = new Set<string>([
   'rewardsClaim',
 ]);
 
-export const DISABLE_HYPERLIQUID_ACCOUNT_BIND = true;
+// Disable wallet binding on perps page
+export const DISABLE_PERPS_WALLET_BIND = false;
