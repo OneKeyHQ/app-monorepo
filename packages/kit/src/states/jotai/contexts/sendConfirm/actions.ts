@@ -13,6 +13,7 @@ import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
 import { ContextJotaiActionsBase } from '../../utils/ContextJotaiActionsBase';
 
 import {
+  type ISelectedUTXOsAtomValue,
   contextAtomMethod,
   customFeeAtom,
   decodedTxsAtom,
@@ -29,7 +30,6 @@ import {
   tokenApproveInfoAtom,
   txAdvancedSettingsAtom,
   unsignedTxsAtom,
-  type ISelectedUTXOsAtomValue,
 } from './atoms';
 
 class ContextJotaiActionsSendConfirm extends ContextJotaiActionsBase {

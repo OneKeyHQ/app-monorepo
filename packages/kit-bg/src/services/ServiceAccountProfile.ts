@@ -799,11 +799,9 @@ class ServiceAccountProfile extends ServiceBase {
         'CoinControl is not supported for this network',
       );
     }
-    const { utxoList, frozenUtxoList, allUtxoList } = await (
-      vault as BTCVault
-    )._collectUTXOsInfoByApi();
+    const { utxoList } = await (vault as BTCVault)._collectUTXOsInfoByApi();
 
-    return allUtxoList;
+    return utxoList;
   }
 
   // Get wallet type

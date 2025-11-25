@@ -875,7 +875,55 @@ export default class VaultBtc extends VaultBase {
 
     const isBatchTransfer = transfersInfo.length > 1;
 
-    const { utxoList: utxosInfo } = await this._collectUTXOsInfoByApi();
+    let { utxoList: utxosInfo } = await this._collectUTXOsInfoByApi();
+
+    // Coin Control: Filter UTXOs if manually selected
+    const selectedUtxoKeys = transfersInfo[0]?.selectedUtxoKeys;
+    console.log('CoinControl: selectedUtxoKeys from transfersInfo:', {
+      hasSelectedKeys: !!selectedUtxoKeys,
+      count: selectedUtxoKeys?.length ?? 0,
+      keys: selectedUtxoKeys,
+    });
+    console.log('CoinControl: total available UTXOs before filtering:', {
+      count: utxosInfo.length,
+      utxos: utxosInfo.map((u) => ({
+        key: `${u.txid}:${u.vout}`,
+        value: u.value,
+      })),
+    });
+
+    if (selectedUtxoKeys && selectedUtxoKeys.length > 0) {
+      const selectedKeysSet = new Set(selectedUtxoKeys);
+      const originalCount = utxosInfo.length;
+      utxosInfo = utxosInfo.filter((utxo) => {
+        const utxoKey = `${utxo.txid}:${utxo.vout}`;
+        return selectedKeysSet.has(utxoKey);
+      });
+
+      console.log('CoinControl: UTXOs after filtering:', {
+        originalCount,
+        filteredCount: utxosInfo.length,
+        filteredUtxos: utxosInfo.map((u) => ({
+          key: `${u.txid}:${u.vout}`,
+          value: u.value,
+        })),
+      });
+
+      if (utxosInfo.length === 0) {
+        console.log(
+          'CoinControl: ERROR - No UTXOs remaining after filter, throwing InsufficientBalance',
+        );
+        throw new InsufficientBalance({
+          info: {
+            symbol: network.symbol,
+          },
+        });
+      }
+    } else {
+      console.log(
+        'CoinControl: No manual selection, using all available UTXOs',
+      );
+    }
 
     // Select the slowest fee rate as default, otherwise the UTXO selection
     // would be failed.
@@ -974,6 +1022,8 @@ export default class VaultBtc extends VaultBase {
       changeAddress,
       txType,
     });
+
+    console.log('CoinControl: Result ->: ', { inputs, outputs, fee, bytes });
 
     return {
       inputs,
