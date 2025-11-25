@@ -375,9 +375,12 @@ export const SizeInput = memo(
 
     const formatLabel = useMemo(() => {
       if (label) return label;
-      if (inputMode === 'margin') return 'Cost';
+      if (inputMode === 'margin')
+        return intl.formatMessage({
+          id: ETranslations.perp_size_input_usd_order_cost,
+        });
       return intl.formatMessage({
-        id: ETranslations.dexmarket_details_history_amount,
+        id: ETranslations.perp_orderbook_size,
       });
     }, [label, intl, inputMode]);
 
