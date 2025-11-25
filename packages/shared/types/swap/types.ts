@@ -136,6 +136,9 @@ export interface ISwapNetwork extends ISwapNetworkBase {
 }
 
 export interface ISwapTokenBase {
+  fiatValue?: string;
+  balanceParsed?: string;
+  price?: string;
   networkId: string;
   contractAddress: string;
   isNative?: boolean;

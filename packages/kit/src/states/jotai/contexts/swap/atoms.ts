@@ -1,6 +1,7 @@
 import BigNumber from 'bignumber.js';
 
 import { ESwapDirection } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
+import type { IToken } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { dangerAllNetworkRepresent } from '@onekeyhq/shared/src/config/presetNetworks';
 import {
@@ -711,3 +712,14 @@ export const { atom: swapProTradeTypeAtom, use: useSwapProTradeTypeAtom } =
 
 export const { atom: swapProInputAmountAtom, use: useSwapProInputAmountAtom } =
   contextAtom<string>('');
+
+export const { atom: swapProSliderValueAtom, use: useSwapProSliderValueAtom } =
+  contextAtom<number>(0);
+
+export const {
+  atom: swapProUseSelectBuyTokenAtom,
+  use: useSwapProUseSelectBuyTokenAtom,
+} = contextAtom<IToken | undefined>(undefined);
+
+export const { atom: swapProSellToTokenAtom, use: useSwapProSellToTokenAtom } =
+  contextAtom<IToken | undefined>(undefined);

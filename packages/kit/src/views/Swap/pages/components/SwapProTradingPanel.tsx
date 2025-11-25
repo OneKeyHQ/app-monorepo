@@ -5,27 +5,25 @@ import { useIntl } from 'react-intl';
 import { YStack } from '@onekeyhq/components';
 import {
   useSwapProDirectionAtom,
+  useSwapProSelectTokenAtom,
   useSwapProTradeTypeAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ESwapProTradeType } from '@onekeyhq/shared/types/swap/types';
 
-import { TokenInputSection } from '../../../Market/MarketDetailV2/components/SwapPanel/components/TokenInputSection';
 import { TradeTypeSelector } from '../../../Market/MarketDetailV2/components/SwapPanel/components/TradeTypeSelector';
-import { useSpeedSwapActions } from '../../../Market/MarketDetailV2/components/SwapPanel/hooks/useSpeedSwapActions';
-import {
-  ESwapDirection,
-  ITradeType,
-} from '../../../Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
+import { PerpsSlider } from '../../../Perp/components/PerpsSlider';
 import SwapProTradeTypeSelector from '../../components/SwapProTradeTypeSelector';
+import { useSwapProTokenInit } from '../../hooks/useSwapPro';
 
-import type { ITokenInputSectionRef } from '../../../Market/MarketDetailV2/components/SwapPanel/components/TokenInputSection';
+import SwapProInputContainer from './SwapProInputContainer';
+import SwapProSlider from './SwapProSlider';
+import SwapProTradeInfoGroup from './SwapProTradeInfoGroup';
 
 const SwapProTradingPanel = () => {
   const [swapProDirection, setSwapProDirection] = useSwapProDirectionAtom();
   const [swapProTradeType, setSwapProTradeType] = useSwapProTradeTypeAtom();
   const intl = useIntl();
-  const tokenInputRef = useRef<ITokenInputSectionRef>(null);
   const selectTradeTypeItems = useMemo(
     () => [
       {
@@ -39,34 +37,7 @@ const SwapProTradingPanel = () => {
     ],
     [intl],
   );
-  //   const useSpeedSwapActionsParams = {
-  //     slippage,
-  //     spenderAddress: speedConfig.spenderAddress,
-  //     marketToken: {
-  //       networkId: networkId || '',
-  //       contractAddress: tokenDetail?.address || '',
-  //       symbol: tokenDetail?.symbol || '',
-  //       decimals: tokenDetail?.decimals || 0,
-  //       logoURI: tokenDetail?.logoUrl || '',
-  //       price: tokenDetail?.price || '',
-  //     },
-  //     tradeToken: {
-  //       networkId: paymentToken?.networkId || '',
-  //       contractAddress: paymentToken?.contractAddress || '',
-  //       symbol: paymentToken?.symbol || '',
-  //       decimals: paymentToken?.decimals || 0,
-  //       logoURI: paymentToken?.logoURI || '',
-  //       isNative: paymentToken?.isNative || false,
-  //     },
-  //     defaultTradeTokens: defaultTokens,
-  //     provider,
-  //     tradeType: tradeType || ESwapDirection.BUY,
-  //     fromTokenAmount: paymentAmount.toFixed(),
-  //     antiMEV: swapMevNetConfig?.includes(swapPanel.networkId ?? ''),
-  //     onCloseDialog,
-  //   };
-
-  //   const speedSwapActions = useSpeedSwapActions(useSpeedSwapActionsParams);
+  const { defaultTokens, isLoading } = useSwapProTokenInit();
 
   return (
     <YStack gap="$3">
@@ -83,19 +54,12 @@ const SwapProTradingPanel = () => {
         onSelectTradeType={setSwapProTradeType}
         selectItems={selectTradeTypeItems}
       />
-      {/* <TokenInputSection
-        ref={tokenInputRef}
-        tradeType={swapProDirection}
-        swapNativeTokenReserveGas={swapNativeTokenReserveGas}
-        onChange={(amount) => setPaymentAmount(new BigNumber(amount))}
-        selectedToken={
-          tradeType === ESwapDirection.SELL ? balanceToken : paymentToken
-        }
-        selectableTokens={defaultTokens}
-        onTokenChange={(token) => setPaymentToken(token)}
-        balance={balance}
-        onAmountEnterTypeChange={swapAnalytics.setAmountEnterType}
-      /> */}
+      <SwapProInputContainer
+        isLoading={isLoading}
+        defaultTokens={defaultTokens}
+      />
+      <SwapProSlider />
+      <SwapProTradeInfoGroup />
     </YStack>
   );
 };

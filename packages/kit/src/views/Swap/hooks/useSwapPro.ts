@@ -1,20 +1,31 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useSwapProJumpTokenAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/swap';
+import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IMarketSearchV2Token } from '@onekeyhq/shared/types/market';
+import { swapDefaultSetTokens } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
+import { usePromiseResult } from '../../../hooks/usePromiseResult';
+import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import {
+  useSwapProDirectionAtom,
   useSwapProSelectTokenAtom,
+  useSwapProSellToTokenAtom,
+  useSwapProUseSelectBuyTokenAtom,
   useSwapTypeSwitchAtom,
 } from '../../../states/jotai/contexts/swap';
+import { useSpeedSwapInit } from '../../Market/MarketDetailV2/components/SwapPanel/hooks/useSpeedSwapInit';
+import { ESwapDirection } from '../../Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
 
 export function useSwapProInit() {
   const [, setSwapSwitchType] = useSwapTypeSwitchAtom();
-  const [, setSwapProSelectToken] = useSwapProSelectTokenAtom();
+  const [swapProSelectToken, setSwapProSelectToken] =
+    useSwapProSelectTokenAtom();
   const [swapProJumpToken, setSwapProJumpToken] = useSwapProJumpTokenAtom();
   const swapSwitchProToken = useCallback(
     (payload: { token: ISwapToken }) => {
@@ -29,6 +40,148 @@ export function useSwapProInit() {
       setSwapProJumpToken({ token: undefined });
     }
   }, [swapProJumpToken, swapSwitchProToken, setSwapProJumpToken]);
+
+  useListenTabFocusState(ETabRoutes.Swap, (isFocus: boolean) => {
+    if (isFocus) {
+      if (!swapProSelectToken && !swapProJumpToken.token)
+        setSwapProSelectToken(swapDefaultSetTokens['evm--1'].fromToken);
+    }
+  });
+}
+
+export function useSwapProInputToken() {
+  const [swapProSelectToken] = useSwapProSelectTokenAtom();
+  const [swapProDirection] = useSwapProDirectionAtom();
+  const [swapProUseSelectBuyTokenAtom] = useSwapProUseSelectBuyTokenAtom();
+  const inputToken = useMemo(() => {
+    if (swapProDirection === ESwapDirection.BUY) {
+      return swapProUseSelectBuyTokenAtom;
+    }
+    return swapProSelectToken;
+  }, [swapProDirection, swapProUseSelectBuyTokenAtom, swapProSelectToken]);
+  return inputToken;
+}
+
+export function useSwapProTokenInit() {
+  const [swapProSelectToken] = useSwapProSelectTokenAtom();
+  const [swapProDirection] = useSwapProDirectionAtom();
+  const [swapProSellToToken, setSwapProSellToToken] =
+    useSwapProSellToTokenAtom();
+  const [swapProUseSelectBuyTokenAtom, setSwapProUseSelectBuyTokenAtom] =
+    useSwapProUseSelectBuyTokenAtom();
+  const { defaultTokens, isLoading } = useSpeedSwapInit(
+    swapProSelectToken?.networkId || '',
+  );
+  const [balanceLoading, setBalanceLoading] = useState(false);
+  const { activeAccount } = useActiveAccount({ num: 0 });
+  useEffect(() => {
+    if (!swapProUseSelectBuyTokenAtom && defaultTokens.length > 0) {
+      setSwapProUseSelectBuyTokenAtom(defaultTokens[0]);
+    }
+  }, [
+    swapProSelectToken,
+    swapProUseSelectBuyTokenAtom,
+    setSwapProUseSelectBuyTokenAtom,
+    defaultTokens,
+  ]);
+
+  useEffect(() => {
+    if (!swapProSellToToken && defaultTokens.length > 0) {
+      const nativeToken = defaultTokens.find((item) => item.isNative);
+      if (nativeToken) {
+        setSwapProSellToToken(nativeToken);
+      } else {
+        setSwapProSellToToken(defaultTokens[0]);
+      }
+    }
+  }, [defaultTokens, setSwapProSellToToken, swapProSellToToken]);
+  const inputToken = useSwapProInputToken();
+
+  const netAccountRes = usePromiseResult(async () => {
+    try {
+      const defaultDeriveType =
+        await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+          networkId: inputToken?.networkId ?? '',
+        });
+      const res = await backgroundApiProxy.serviceAccount.getNetworkAccount({
+        accountId: activeAccount?.indexedAccount?.id
+          ? undefined
+          : activeAccount?.account?.id,
+        indexedAccountId: activeAccount?.indexedAccount?.id ?? '',
+        networkId: inputToken?.networkId ?? '',
+        deriveType: defaultDeriveType ?? 'default',
+      });
+      return res;
+    } catch (e) {
+      return undefined;
+    }
+  }, [
+    activeAccount?.account?.id,
+    activeAccount?.indexedAccount?.id,
+    inputToken?.networkId,
+  ]);
+
+  const syncInputTokenBalance = useCallback(async () => {
+    setBalanceLoading(true);
+    try {
+      const balanceTokenInfo =
+        await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
+          networkId: inputToken?.networkId ?? '',
+          contractAddress: inputToken?.contractAddress ?? '',
+          accountAddress: netAccountRes.result?.addressDetail.address ?? '',
+          accountId: netAccountRes.result?.id ?? '',
+        });
+      if (balanceTokenInfo?.length) {
+        if (swapProDirection === ESwapDirection.BUY) {
+          setSwapProUseSelectBuyTokenAtom((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  balanceParsed: balanceTokenInfo[0].balanceParsed ?? '',
+                  price: balanceTokenInfo[0].price ?? '',
+                  fiatValue: balanceTokenInfo[0].fiatValue ?? '',
+                }
+              : undefined,
+          );
+        } else {
+          setSwapProSellToToken((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  balanceParsed: balanceTokenInfo[0].balanceParsed ?? '',
+                  price: balanceTokenInfo[0].price ?? '',
+                  fiatValue: balanceTokenInfo[0].fiatValue ?? '',
+                }
+              : undefined,
+          );
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setBalanceLoading(false);
+    }
+  }, [
+    inputToken?.contractAddress,
+    inputToken?.networkId,
+    netAccountRes.result?.addressDetail.address,
+    netAccountRes.result?.id,
+    setSwapProSellToToken,
+    setSwapProUseSelectBuyTokenAtom,
+    swapProDirection,
+  ]);
+
+  useEffect(() => {
+    if (inputToken && !inputToken.balanceParsed) {
+      void syncInputTokenBalance();
+    }
+  }, [inputToken, syncInputTokenBalance]);
+
+  return {
+    defaultTokens,
+    isLoading,
+    balanceLoading,
+  };
 }
 
 export function useSwapProActions() {}

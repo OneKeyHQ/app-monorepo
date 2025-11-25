@@ -17,7 +17,6 @@ import {
   YStack,
   useInModalDialog,
   useInTabDialog,
-  useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
@@ -152,8 +151,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
 
   const [swapNativeTokenReserveGas] = useSwapNativeTokenReserveGasAtom();
   const swapSlippageRef = useRef(slippageItem);
-  const { gtMd } = useMedia();
-  const showSwapPro = useMemo(() => platformEnv.isNative && !gtMd, [gtMd]);
+  const showSwapPro = useMemo(() => platformEnv.isNative, []);
   if (swapSlippageRef.current !== slippageItem) {
     swapSlippageRef.current = slippageItem;
   }
@@ -936,11 +934,6 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
           pt: pageType === EPageType.modal ? '$2.5' : '$5',
         }}
       >
-        {/* <SwapTipsContainer />
-          <SwapHeaderContainer
-            pageType={pageType}
-            defaultSwapType={swapInitParams?.swapTabSwitchType}
-          /> */}
         {showSwapPro && swapTypeSwitch === ESwapTabSwitchType.LIMIT ? (
           <SwapProContainer onProSelectToken={onProSelectToken} />
         ) : (
