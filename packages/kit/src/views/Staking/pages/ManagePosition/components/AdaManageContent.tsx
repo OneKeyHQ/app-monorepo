@@ -15,7 +15,10 @@ import {
   type IEarnManagePageResponse,
 } from '@onekeyhq/shared/types/staking';
 
-import { useUniversalStake } from '../../../hooks/useUniversalHooks';
+import {
+  useUniversalStake,
+  useUniversalWithdraw,
+} from '../../../hooks/useUniversalHooks';
 
 import { SpecialManageContent } from './SpecialManageContent';
 import { ESpecialManageLayoutType } from './types';
@@ -146,48 +149,39 @@ export function AdaManageContent({
     networkId,
   });
 
+  const handleWithdraw = useUniversalWithdraw({
+    accountId: earnAccount?.accountId || '',
+    networkId,
+  });
+
   const handleDelegate = useCallback(async () => {
-    // Check if this is the first delegate operation and show risk notice if needed
+    const executeStake = async () => {
+      await handleStake({
+        symbol,
+        provider,
+        amount: '0',
+        protocolVault: vault,
+      });
+    };
+
+    // Show risk notice if riskNoticeDialog is present
     if (
       earnAccount?.accountAddress &&
       provider &&
       networkId &&
-      riskNoticeDialog?.deposit
+      riskNoticeDialog
     ) {
-      const isFirstDeposit =
-        await backgroundApiProxy.simpleDb.earnExtra.isFirstOperation(
-          networkId,
-          provider,
-          earnAccount.accountAddress,
-          'deposit',
-        );
-
-      if (isFirstDeposit) {
-        showRiskNoticeDialogBeforeDepositOrWithdraw({
-          networkId,
-          providerName: provider,
-          address: earnAccount.accountAddress,
-          operationType: 'deposit',
-          riskNoticeDialogContent: riskNoticeDialog.deposit,
-          onConfirm: async () => {
-            await handleStake({
-              symbol,
-              provider,
-              amount: '0',
-              protocolVault: vault,
-            });
-          },
-        });
-        return;
-      }
+      showRiskNoticeDialogBeforeDepositOrWithdraw({
+        networkId,
+        providerName: provider,
+        address: earnAccount.accountAddress,
+        operationType: 'deposit',
+        riskNoticeDialogContent: riskNoticeDialog,
+        onConfirm: executeStake,
+      });
+    } else {
+      await executeStake();
     }
-
-    // If not first deposit or no risk notice, proceed directly
-    await handleStake({
-      symbol,
-      provider,
-      amount: '0',
-    });
   }, [
     symbol,
     provider,
@@ -198,16 +192,45 @@ export function AdaManageContent({
     riskNoticeDialog,
   ]);
 
-  const handleUndelegate = useCallback(() => {
-    // TODO: Implement undelegate logic
-    console.log('TODO: Implement undelegate logic', {
-      networkId,
-      symbol,
-      provider,
-      vault,
-      earnAccount,
-    });
-  }, [networkId, symbol, provider, vault, earnAccount]);
+  const handleUndelegate = useCallback(async () => {
+    const executeWithdraw = async () => {
+      await handleWithdraw({
+        symbol,
+        provider,
+        amount: holdingsAmount || '0',
+        protocolVault: vault,
+        withdrawAll: false,
+      });
+    };
+
+    // Show risk notice if riskNoticeDialog is present
+    if (
+      earnAccount?.accountAddress &&
+      provider &&
+      networkId &&
+      riskNoticeDialog
+    ) {
+      showRiskNoticeDialogBeforeDepositOrWithdraw({
+        networkId,
+        providerName: provider,
+        address: earnAccount.accountAddress,
+        operationType: 'withdraw',
+        riskNoticeDialogContent: riskNoticeDialog,
+        onConfirm: executeWithdraw,
+      });
+    } else {
+      await executeWithdraw();
+    }
+  }, [
+    symbol,
+    provider,
+    vault,
+    holdingsAmount,
+    handleWithdraw,
+    earnAccount,
+    networkId,
+    riskNoticeDialog,
+  ]);
 
   // Configure buttons based on available actions
   const buttonConfig = useMemo((): ISpecialManageButtonConfig => {

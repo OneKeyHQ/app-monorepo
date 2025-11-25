@@ -758,7 +758,7 @@ export interface IEarnManagePageResponse {
   activate?: IEarnActivateActionIcon;
   delegate?: IEarnDelegateActionData;
   undelegate?: IEarnUndelegateActionData;
-  riskNoticeDialog?: Record<string, IEarnRiskNoticeDialog>;
+  riskNoticeDialog?: IEarnRiskNoticeDialog;
   approve?: {
     allowance: string;
     approveType: string;
