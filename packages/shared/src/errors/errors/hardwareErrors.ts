@@ -469,7 +469,7 @@ export class FirmwareDowngradeNotAllowedError extends OneKeyHardwareError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'FirmwareDowngradeNotAllowed',
-        defaultKey: ETranslations.downgrade_warning_title,
+        defaultKey: ETranslations.device_firmware_upgrade_disallow_downgrade,
       }),
     );
   }

@@ -422,8 +422,9 @@ export function useFirmwareUpdateErrors({
         content: (
           <CommonError
             icon="CrossedLargeOutline"
-            title="Firmware Downgrade Not Allowed"
-            message="Firmware Downgrade Not Allowed"
+            title={intl.formatMessage({
+              id: ETranslations.device_firmware_upgrade_disallow_downgrade,
+            })}
           />
         ),
         retryText: defaultRetryText,
