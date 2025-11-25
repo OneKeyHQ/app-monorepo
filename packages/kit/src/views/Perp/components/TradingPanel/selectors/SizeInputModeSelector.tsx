@@ -1,13 +1,16 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback } from 'react';
+
+import { useIntl } from 'react-intl';
 
 import {
   Icon,
   Popover,
-  Radio,
   SizableText,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 
 export interface ISizeInputModeSelectorProps {
   value: 'token' | 'usd' | 'margin';
@@ -20,104 +23,55 @@ export function SizeInputModeSelector({
   onChange,
   tokenSymbol,
 }: ISizeInputModeSelectorProps) {
-  const radioValue = value === 'margin' ? 'cost' : 'amount';
+  const intl = useIntl();
+  const isTokenSelected = value === 'token';
+  const isUsdSelected = value === 'usd' || value === 'margin';
+  const { gtMd } = useMedia();
 
-  const handleRadioChange = useCallback(
-    (nextValue: string) => {
-      if (nextValue === 'amount') {
-        // Default to token when switching back from margin mode, unless it was already token/usd
-        if (value === 'margin') {
-          onChange('token');
-        }
-      } else if (nextValue === 'cost') {
-        onChange('margin');
-      }
-    },
-    [onChange, value],
-  );
+  const handleUsdCardPress = useCallback(() => {
+    if (!isUsdSelected) {
+      onChange('usd');
+    }
+  }, [isUsdSelected, onChange]);
 
-  const handleUnitChange = useCallback(
-    (unit: 'token' | 'usd') => {
-      if (value !== unit) {
-        onChange(unit);
-      }
-    },
-    [onChange, value],
-  );
-
-  const unitButtons = useMemo(
-    () => (
+  const renderRadioItem = (
+    label: string,
+    checked: boolean,
+    onPress: () => void,
+  ) => (
+    <XStack
+      alignItems="center"
+      gap="$2"
+      cursor="pointer"
+      onPress={(e) => {
+        e.stopPropagation();
+        onPress();
+      }}
+    >
       <XStack
-        bg="$bgSubdued"
-        p="$0.5"
-        borderRadius="$2"
-        gap="$1"
-        alignSelf="flex-start"
+        w="$3"
+        h="$3"
+        borderRadius="$full"
+        borderWidth={1.5}
+        borderColor={checked ? '$borderActive' : '$borderStrong'}
+        bg={checked ? '$bgPrimary' : 'transparent'}
+        alignItems="center"
+        justifyContent="center"
       >
-        <XStack
-          px="$2"
-          py="$1"
-          borderRadius="$2"
-          bg={value === 'usd' ? '$bgActive' : 'transparent'}
-          cursor="pointer"
-          onPress={() => handleUnitChange('usd')}
-          hoverStyle={{
-            bg: value === 'usd' ? '$bgActive' : '$bgHover',
-          }}
-        >
-          <SizableText
-            size="$bodySmMedium"
-            color={value === 'usd' ? '$text' : '$textSubdued'}
-          >
-            USDC
-          </SizableText>
-        </XStack>
-        <XStack
-          px="$2"
-          py="$1"
-          borderRadius="$2"
-          bg={value === 'token' ? '$bgActive' : 'transparent'}
-          cursor="pointer"
-          onPress={() => handleUnitChange('token')}
-          hoverStyle={{
-            bg: value === 'token' ? '$bgActive' : '$bgHover',
-          }}
-        >
-          <SizableText
-            size="$bodySmMedium"
-            color={value === 'token' ? '$text' : '$textSubdued'}
-          >
-            {tokenSymbol || 'Token'}
-          </SizableText>
-        </XStack>
+        {checked ? (
+          <XStack w="$1.5" h="$1.5" borderRadius="$full" bg="$iconInverse" />
+        ) : null}
       </XStack>
-    ),
-    [handleUnitChange, tokenSymbol, value],
-  );
-
-  const radioOptions = useMemo(
-    () => [
-      {
-        label: 'By amount',
-        value: 'amount',
-        description:
-          'Place an order by amount. Cost will change accordingly when you adjust the leverage.',
-        children: unitButtons,
-      },
-      {
-        label: 'By cost (USD)',
-        value: 'cost',
-        description:
-          "Place an order by cost. Cost won't change when you adjust the leverage.",
-      },
-    ],
-    [unitButtons],
+      <SizableText size="$bodySmMedium" color="$text">
+        {label}
+      </SizableText>
+    </XStack>
   );
 
   const trigger = (
     <XStack alignItems="center" gap="$1" cursor="pointer" userSelect="none">
       <SizableText size="$bodyMdMedium" color="$textSubdued">
-        {value === 'token' ? tokenSymbol || 'Token' : 'USDC'}
+        {value === 'token' ? tokenSymbol || 'Token' : 'USD'}
       </SizableText>
       <Icon
         name="ChevronTriangleDownSmallOutline"
@@ -129,16 +83,87 @@ export function SizeInputModeSelector({
 
   return (
     <Popover
-      title="Select Input Mode"
+      title={intl.formatMessage({
+        id: ETranslations.perp_size_input_title,
+      })}
       placement="bottom-end"
       renderTrigger={trigger}
       renderContent={
-        <YStack width={320} p="$4">
-          <Radio
-            value={radioValue}
-            onChange={handleRadioChange}
-            options={radioOptions}
-          />
+        <YStack p="$4" gap="$4">
+          {gtMd ? (
+            <SizableText size="$bodySmMedium" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.perp_size_input_title,
+              })}
+            </SizableText>
+          ) : null}
+          <YStack
+            p="$3"
+            gap="$2.5"
+            borderRadius="$3"
+            borderWidth={1}
+            borderColor={isTokenSelected ? '$borderActive' : '$borderSubdued'}
+            cursor="pointer"
+            onPress={() => onChange('token')}
+            hoverStyle={{
+              bg: '$bgHover',
+            }}
+          >
+            <YStack gap="$1">
+              <SizableText size="$headingSm" color="$text">
+                {tokenSymbol || 'Token'}
+              </SizableText>
+              <SizableText size="$bodySm" color="$textSubdued">
+                {intl.formatMessage(
+                  { id: ETranslations.perp_size_input_token_desc },
+                  {
+                    token: tokenSymbol || 'Token',
+                  },
+                )}
+              </SizableText>
+            </YStack>
+          </YStack>
+
+          <YStack
+            p="$3"
+            gap="$2.5"
+            borderRadius="$3"
+            borderWidth={1}
+            borderColor={isUsdSelected ? '$borderActive' : '$borderSubdued'}
+            cursor="pointer"
+            onPress={handleUsdCardPress}
+            hoverStyle={{
+              bg: '$bgHover',
+            }}
+          >
+            <YStack gap="$1">
+              <SizableText size="$headingSm" color="$text">
+                USD
+              </SizableText>
+              <SizableText size="$bodySm" color="$textSubdued">
+                {intl.formatMessage({
+                  id: ETranslations.perp_size_input_usd_desc,
+                })}
+              </SizableText>
+            </YStack>
+
+            <XStack gap="$6">
+              {renderRadioItem(
+                intl.formatMessage({
+                  id: ETranslations.perp_size_input_usd_order_size,
+                }),
+                value === 'usd',
+                () => onChange('usd'),
+              )}
+              {renderRadioItem(
+                intl.formatMessage({
+                  id: ETranslations.perp_size_input_usd_order_cost,
+                }),
+                value === 'margin',
+                () => onChange('margin'),
+              )}
+            </XStack>
+          </YStack>
         </YStack>
       }
     />
