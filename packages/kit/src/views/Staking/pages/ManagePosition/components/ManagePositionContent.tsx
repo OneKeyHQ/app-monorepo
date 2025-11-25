@@ -318,8 +318,8 @@ export function ManagePositionContent({
 
   // Create beforeFooter content for special layout (USDe, ADA)
   const specialBeforeFooter = useMemo(() => {
-    if (noAddressOrAccount) {
-      return noAddressWarningElement;
+    if (warningElement) {
+      return warningElement;
     }
     if (!isEmpty(alertsHolding) || !isEmpty(alerts)) {
       return (
@@ -330,7 +330,7 @@ export function ManagePositionContent({
       );
     }
     return null;
-  }, [noAddressOrAccount, alertsHolding, alerts, noAddressWarningElement]);
+  }, [alertsHolding, alerts, warningElement]);
 
   if (isLoading) {
     return <SectionSkeleton />;
