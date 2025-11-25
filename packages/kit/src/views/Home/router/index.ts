@@ -22,12 +22,22 @@ const UrlAccountLanding = LazyLoadPage(async () => {
   return { default: UrlAccountLandingModule };
 });
 
+const ReferralLanding = LazyLoadPage(async () => {
+  const { ReferralLandingPage } = await import(
+    '../pages/referralLanding/ReferralLandingPage'
+  );
+  return { default: ReferralLandingPage };
+});
+
 export const urlAccountRoutes = [
   {
     name: ETabHomeRoutes.TabHomeUrlAccountPage,
     component: UrlAccountPageContainer,
   },
 ];
+
+// Rewrite pattern for referral landing with app redirect: /r/:code/app/:page
+export const referralLandingRewrite = '/r/:code/app/:page';
 
 export const homeRouters: ITabSubNavigatorConfig<any, any>[] = [
   {
@@ -47,6 +57,14 @@ export const homeRouters: ITabSubNavigatorConfig<any, any>[] = [
   {
     name: ETabHomeRoutes.TabHomeUrlAccountPage,
     component: UrlAccountPageContainer,
+    exact: true,
+  },
+  {
+    // Referral landing page with app redirect: /r/:code/app/:page
+    // e.g., /r/65OUPH/app/perp -> navigates to perp page with referral code
+    name: ETabHomeRoutes.TabHomeReferralLanding,
+    component: ReferralLanding,
+    rewrite: referralLandingRewrite,
     exact: true,
   },
 ];

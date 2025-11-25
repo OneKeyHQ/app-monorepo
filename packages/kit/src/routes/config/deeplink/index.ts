@@ -18,8 +18,8 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
-  EModalReferFriendsRoutes,
-  EModalRoutes,
+  ETabReferFriendsRoutes,
+  ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
@@ -92,8 +92,9 @@ async function processDeepLinkUrlAccount(
             const { utm_source: utmSource, code } =
               queryParams as IEOneKeyDeepLinkParams[EOneKeyDeepLinkPath.invite_share];
             if (navigation) {
-              navigation.pushModal(EModalRoutes.ReferFriendsModal, {
-                screen: EModalReferFriendsRoutes.ReferAFriend,
+              // Navigate to Tab page instead of modal
+              navigation.switchTab(ETabRoutes.ReferFriends, {
+                screen: ETabReferFriendsRoutes.TabReferAFriend,
                 params: {
                   utmSource,
                   code,

@@ -7,7 +7,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IInvitePostConfig } from '@onekeyhq/shared/src/referralCode/type';
 
 import { InviteCodeStepImage } from '../InviteCodeStepImage';
-import { ReferralBenefitsList } from '../ReferralBenefitsList';
+import { ReferralBenefitsList } from '../../../../components';
 
 interface IReferAFriendIntroPhaseProps {
   postConfig: IInvitePostConfig;

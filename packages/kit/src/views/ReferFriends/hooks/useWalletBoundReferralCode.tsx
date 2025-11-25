@@ -138,10 +138,12 @@ function InviteCode({
   wallet,
   onSuccess,
   confirmBindReferralCode,
+  defaultReferralCode,
 }: {
   entry?: 'tab' | 'modal';
   wallet?: IDBWallet;
   onSuccess?: () => void;
+  defaultReferralCode?: string;
   confirmBindReferralCode: (params: {
     referralCode: string;
     preventClose?: () => void;
@@ -155,7 +157,7 @@ function InviteCode({
   const intl = useIntl();
   const form = useForm({
     defaultValues: {
-      referralCode: '',
+      referralCode: defaultReferralCode || '',
     },
   });
   const getReferralCodeWalletInfo = useGetReferralCodeWalletInfo();
@@ -521,7 +523,15 @@ export function useWalletBoundReferralCode({
       : EInPageDialogType.inTabPages,
   );
   const bindWalletInviteCode = useCallback(
-    ({ wallet, onSuccess }: { wallet?: IDBWallet; onSuccess?: () => void }) => {
+    ({
+      wallet,
+      onSuccess,
+      defaultReferralCode,
+    }: {
+      wallet?: IDBWallet;
+      onSuccess?: () => void;
+      defaultReferralCode?: string;
+    }) => {
       dialog.show({
         showExitButton: true,
         icon: 'GiftOutline',
@@ -535,6 +545,7 @@ export function useWalletBoundReferralCode({
             onSuccess={onSuccess}
             entry={entry}
             confirmBindReferralCode={confirmBindReferralCode}
+            defaultReferralCode={defaultReferralCode}
           />
         ),
       });

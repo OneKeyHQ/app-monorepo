@@ -6,7 +6,7 @@ import { Stack, YStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { InviteCodeStepImage } from '../InviteCodeStepImage';
-import { ReferralBenefitsList } from '../ReferralBenefitsList';
+import { ReferralBenefitsList } from '../../../../components';
 
 interface IReferAFriendHowToPhaseProps {
   actions?: ReactNode;
