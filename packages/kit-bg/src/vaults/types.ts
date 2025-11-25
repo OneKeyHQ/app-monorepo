@@ -508,6 +508,9 @@ export type ITransferInfo = {
   hexData?: string; // evm tx hex data
 
   xrpMemoFields?: IXrpMemoField[]; // https://xrpl.org/docs/references/protocol/transactions/common-fields#memos-field
+
+  // BTC Coin Control
+  selectedUtxoKeys?: string[]; // Format: "txid:vout" for manually selected UTXOs
 };
 
 export type IApproveInfo = {

@@ -21,6 +21,7 @@ import {
   nativeTokenTransferAmountAtom,
   nativeTokenTransferAmountToUpdateAtom,
   preCheckTxStatusAtom,
+  selectedUTXOsAtom,
   sendFeeStatusAtom,
   sendSelectedFeeAtom,
   sendSelectedFeeInfoAtom,
@@ -28,6 +29,7 @@ import {
   tokenApproveInfoAtom,
   txAdvancedSettingsAtom,
   unsignedTxsAtom,
+  type ISelectedUTXOsAtomValue,
 } from './atoms';
 
 class ContextJotaiActionsSendConfirm extends ContextJotaiActionsBase {
@@ -164,6 +166,16 @@ class ContextJotaiActionsSendConfirm extends ContextJotaiActionsBase {
       });
     },
   );
+
+  updateSelectedUTXOs = contextAtomMethod(
+    (get, set, value: ISelectedUTXOsAtomValue | null) => {
+      set(selectedUTXOsAtom(), value);
+    },
+  );
+
+  clearSelectedUTXOs = contextAtomMethod((get, set) => {
+    set(selectedUTXOsAtom(), null);
+  });
 }
 
 const createActions = memoFn(() => {
@@ -189,6 +201,8 @@ export function useSendConfirmActions() {
   const updateTokenApproveInfo = actions.updateTokenApproveInfo.use();
   const updateTxAdvancedSettings = actions.updateTxAdvancedSettings.use();
   const updateDecodedTxs = actions.updateDecodedTxs.use();
+  const updateSelectedUTXOs = actions.updateSelectedUTXOs.use();
+  const clearSelectedUTXOs = actions.clearSelectedUTXOs.use();
   return useRef({
     updateUnsignedTxs,
     updateSendSelectedFee,
@@ -204,5 +218,7 @@ export function useSendConfirmActions() {
     updateTokenApproveInfo,
     updateTxAdvancedSettings,
     updateDecodedTxs,
+    updateSelectedUTXOs,
+    clearSelectedUTXOs,
   });
 }
