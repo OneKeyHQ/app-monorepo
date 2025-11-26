@@ -202,9 +202,9 @@ export function HomePageView({
   const tabConfigs = useMemo(() => {
     return [
       {
-        id: EHomeWalletTab.Tokens,
+        id: EHomeWalletTab.Portfolio,
         name: intl.formatMessage({
-          id: ETranslations.global_crypto,
+          id: ETranslations.global_portfolio,
         }),
         component: <TokenListContainerWithProvider />,
       },
