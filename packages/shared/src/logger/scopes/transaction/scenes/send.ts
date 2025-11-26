@@ -22,6 +22,29 @@ export class SendScene extends BaseScene {
     };
   }
 
+  @LogToLocal()
+  public coinControlResult({
+    network,
+    inputCount,
+    outputCount,
+    fee,
+    txSize,
+  }: {
+    network: string | undefined;
+    inputCount: number | undefined;
+    outputCount: number | undefined;
+    fee: string | number | undefined;
+    txSize: number | undefined;
+  }) {
+    return {
+      network,
+      inputCount,
+      outputCount,
+      fee,
+      txSize,
+    };
+  }
+
   @LogToServer()
   public sendSelect({
     network,

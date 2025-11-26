@@ -1005,6 +1005,16 @@ export default class VaultBtc extends VaultBase {
       txType,
     });
 
+    if (skipUtxoSelection) {
+      defaultLogger.transaction.send.coinControlResult({
+        network: network.id,
+        inputCount: inputs?.length,
+        outputCount: outputs?.length,
+        fee,
+        txSize: bytes,
+      });
+    }
+
     return {
       inputs,
       outputs,
