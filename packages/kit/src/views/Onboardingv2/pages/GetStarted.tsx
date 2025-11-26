@@ -243,7 +243,7 @@ export default function GetStarted() {
 
   // Cache theme values to avoid multiple useThemeValue calls during render
   const neutral6 = useThemeValue('$neutral6');
-  const bgColor = useThemeValue('$bg');
+  const bgColor = useThemeValue('$bgApp');
 
   const DEVICE_DATA: (keyof typeof HwWalletAvatarImages)[] = useMemo(() => {
     return [
