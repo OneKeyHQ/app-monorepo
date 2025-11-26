@@ -365,10 +365,6 @@ function SendDataInputContainer() {
 
   const isLightningNetwork =
     networkUtils.isLightningNetworkByNetworkId(networkId);
-  const isBtcLikeNetwork = useMemo(
-    () => networkUtils.isBTCNetwork(currentAccount.networkId),
-    [currentAccount.networkId],
-  );
 
   // Extract selected UTXO keys for current account
   const currentSelectedUtxoKeys = useMemo(() => {
