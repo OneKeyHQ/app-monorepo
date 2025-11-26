@@ -5,9 +5,11 @@ import { I18nManager } from 'react-native';
 import { registerRootComponent } from 'expo';
 import '@onekeyhq/shared/src/polyfills';
 import { initSentry } from '@onekeyhq/shared/src/modules3rdParty/sentry';
+import { installFunctionHitLogger } from '@onekeyhq/shared/src/performance/heartbeatLogger';
 import App from './App';
 
 initSentry();
+installFunctionHitLogger();
 
 I18nManager.allowRTL(true);
 

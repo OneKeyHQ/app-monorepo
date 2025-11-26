@@ -82,6 +82,7 @@ function normalizeConfig({ platform, config }) {
     isExtChrome,
     isExtFirefox,
   } = require('../packages/shared/src/buildTimeEnv');
+  const enableHeartbeat = true;
 
   config.plugins = [
     ...(config.plugins || []),
@@ -140,6 +141,9 @@ function normalizeConfig({ platform, config }) {
       {
         'extensions': ['.text-js'],
       },
+    ],
+    enableHeartbeat && [
+      fullPath('./babel-plugins/rn-heartbeat'),
     ],
     /* FIX:
        TypeError: undefined is not an object. (evaluating 'this._callListeners.bind')
