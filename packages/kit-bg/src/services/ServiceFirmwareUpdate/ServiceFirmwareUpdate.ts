@@ -416,6 +416,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
     const releaseInfo = await this.baseCheckAllFirmwareRelease({
       connectId: originalConnectId,
       firmwareType,
+      skipChangeTransportType: true,
     });
 
     const firmware = await this.checkFirmwareRelease({
@@ -589,23 +590,28 @@ class ServiceFirmwareUpdate extends ServiceBase {
   async baseCheckAllFirmwareRelease({
     connectId,
     firmwareType,
+    skipChangeTransportType,
   }: {
     connectId: string | undefined;
     firmwareType: EFirmwareType | undefined;
+    skipChangeTransportType?: boolean;
   }) {
     const hardwareSDK = await this.getSDKInstance({
       connectId,
     });
     const checkBridgeRelease = await this._hasUseBridge();
-    const currentTransportType =
-      await this.backgroundApi.serviceSetting.getHardwareTransportType();
-    const updatingConnectId = deviceUtils.getUpdatingConnectId({
-      connectId,
-      currentTransportType,
-    });
+    let currentConnectId = connectId;
+    if (!skipChangeTransportType) {
+      const currentTransportType =
+        await this.backgroundApi.serviceSetting.getHardwareTransportType();
+      currentConnectId = deviceUtils.getUpdatingConnectId({
+        connectId,
+        currentTransportType,
+      });
+    }
     const result = await convertDeviceResponse(() =>
       // method fail if device on boot mode
-      hardwareSDK.checkAllFirmwareRelease(updatingConnectId, {
+      hardwareSDK.checkAllFirmwareRelease(currentConnectId, {
         checkBridgeRelease,
         firmwareType,
       }),

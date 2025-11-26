@@ -283,6 +283,26 @@ export function useFirmwareUpdateErrors({
     if (
       isHardwareErrorByCode({
         error,
+        code: HardwareErrorCode.SelectDevice,
+      })
+    ) {
+      return {
+        content: (
+          <CommonError
+            icon="CrossedLargeOutline"
+            message={intl.formatMessage({
+              id: ETranslations.update_only_one_usb_device_supported_for_upgrade,
+            })}
+          />
+        ),
+        onRetryHandler: onRetry,
+        retryText: defaultRetryText,
+      };
+    }
+
+    if (
+      isHardwareErrorByCode({
+        error,
         code: HardwareErrorCode.FirmwareUpdateManuallyEnterBoot,
       }) ||
       isHardwareErrorByCode({
