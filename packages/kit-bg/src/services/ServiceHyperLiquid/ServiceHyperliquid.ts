@@ -64,6 +64,7 @@ import {
   perpsDepositNetworksAtom,
   perpsDepositTokensAtom,
   perpsLastUsedLeverageAtom,
+  perpsTradesHistoryDataAtom,
 } from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
 
@@ -283,7 +284,12 @@ export default class ServiceHyperliquid extends ServiceBase {
   _getUserFillsByTimeMemo = cacheUtils.memoizee(
     async (params: IUserFillsByTimeParameters) => {
       const { infoClient } = hyperLiquidApiClients;
-      return infoClient.userFillsByTime({ ...params, reversed: true } as any);
+      const fills = await infoClient.userFillsByTime({
+        ...params,
+        reversed: true,
+      } as any);
+      // Filter out @ prefixed coins at backend service layer
+      return fills.filter((fill) => !fill.coin.startsWith('@'));
     },
     {
       max: 1,
@@ -297,7 +303,12 @@ export default class ServiceHyperliquid extends ServiceBase {
     params: IUserFillsByTimeParameters,
   ): Promise<IFill[]> {
     const { infoClient } = hyperLiquidApiClients;
-    return infoClient.userFillsByTime({ ...params, reversed: true } as any);
+    const fills = await infoClient.userFillsByTime({
+      ...params,
+      reversed: true,
+    } as any);
+    // Filter out @ prefixed coins at backend service layer
+    return fills.filter((fill) => !fill.coin.startsWith('@'));
   }
 
   @backgroundMethod()
@@ -305,6 +316,83 @@ export default class ServiceHyperliquid extends ServiceBase {
     params: IUserFillsByTimeParameters,
   ): Promise<IFill[]> {
     return this._getUserFillsByTimeMemo(params);
+  }
+
+  @backgroundMethod()
+  async loadTradesHistory(accountAddress: IHex): Promise<IFill[]> {
+    const current = await perpsTradesHistoryDataAtom.get();
+
+    if (
+      current.isLoaded &&
+      current.accountAddress?.toLowerCase() === accountAddress.toLowerCase()
+    ) {
+      return current.fills;
+    }
+
+    const now = Date.now();
+    const twoYearsAgo = now - 2 * 365 * 24 * 60 * 60 * 1000;
+
+    const fills = await this._getUserFillsByTimeMemo({
+      user: accountAddress,
+      startTime: twoYearsAgo,
+      endTime: now,
+      aggregateByTime: true,
+    });
+
+    const sorted = [...fills].sort((a, b) => b.time - a.time);
+
+    await perpsTradesHistoryDataAtom.set({
+      fills: sorted,
+      isLoaded: true,
+      latestTime: sorted[0]?.time ?? 0,
+      accountAddress: accountAddress.toLowerCase(),
+    });
+
+    return sorted;
+  }
+
+  @backgroundMethod()
+  async appendTradesHistory(
+    newFills: IFill[],
+    userAddress?: string,
+  ): Promise<void> {
+    const current = await perpsTradesHistoryDataAtom.get();
+    if (!current.isLoaded || newFills.length === 0) {
+      return;
+    }
+
+    if (
+      userAddress &&
+      current.accountAddress &&
+      userAddress.toLowerCase() !== current.accountAddress.toLowerCase()
+    ) {
+      return;
+    }
+
+    const filtered = newFills
+      .filter((f) => !f.coin.startsWith('@'))
+      .filter((f) => f.time > current.latestTime)
+      .sort((a, b) => b.time - a.time);
+
+    if (filtered.length === 0) {
+      return;
+    }
+
+    await perpsTradesHistoryDataAtom.set({
+      ...current,
+      fills: [...filtered, ...current.fills],
+      latestTime: Math.max(current.latestTime, filtered[0].time),
+    });
+  }
+
+  @backgroundMethod()
+  async resetTradesHistory(): Promise<void> {
+    await perpsTradesHistoryDataAtom.set({
+      fills: [],
+      isLoaded: false,
+      latestTime: 0,
+      accountAddress: undefined,
+    });
   }
 
   @backgroundMethod()
@@ -613,6 +701,7 @@ export default class ServiceHyperliquid extends ServiceBase {
       agentOk: false,
       referralCodeOk: false,
       builderFeeOk: false,
+      internalRebateBoundOk: false,
     };
     let status: IPerpsActiveAccountStatusInfoAtom | undefined;
 
@@ -675,6 +764,13 @@ export default class ServiceHyperliquid extends ServiceBase {
           hyperLiquidCache.activatedUser[accountAddress] = true;
           statusDetails.activatedOk = true;
 
+          // Start internal rebate binding check in parallel (non-blocking)
+          const internalRebateCheckPromise =
+            this.checkInternalRebateBindingStatus({
+              accountId: selectedAccount.accountId,
+              accountAddress,
+            });
+
           // Builder fee approve must be executed before agent setup
           await this.checkBuilderFeeStatus({
             accountAddress,
@@ -718,6 +814,10 @@ export default class ServiceHyperliquid extends ServiceBase {
 
             // referral code is optional, so we set it to true by default
             statusDetails.referralCodeOk = true;
+
+            // Await internal rebate binding check result
+            statusDetails.internalRebateBoundOk =
+              await internalRebateCheckPromise;
           }
         }
       }
@@ -968,6 +1068,65 @@ export default class ServiceHyperliquid extends ServiceBase {
     return agentCredential;
   }
 
+  private async checkInternalRebateBindingStatus({
+    accountId,
+    accountAddress,
+  }: {
+    accountId: string | null;
+    accountAddress: IHex;
+  }): Promise<boolean> {
+    if (!accountId) {
+      return true;
+    }
+
+    const walletId = accountUtils.getWalletIdFromAccountId({ accountId });
+    const isHdWallet = accountUtils.isHdWallet({ walletId });
+    const isHwWallet = accountUtils.isHwWallet({ walletId });
+
+    // Non-HD/HW wallets don't need internal rebate binding
+    if (!isHdWallet && !isHwWallet) {
+      return true;
+    }
+
+    const networkIdsMap = getNetworkIdsMap();
+    const referenceNetworkId = networkIdsMap.eth || 'evm--1';
+    let referenceAddress: string = accountAddress;
+
+    try {
+      const firstEvmAccountId = `${walletId}--${FIRST_EVM_ADDRESS_PATH}`;
+      const firstAccount = await this.backgroundApi.serviceAccount.getAccount({
+        accountId: firstEvmAccountId,
+        networkId: referenceNetworkId,
+      });
+      if (firstAccount?.address) {
+        referenceAddress = firstAccount.address;
+      }
+    } catch (error) {
+      console.error(
+        '[checkInternalRebateBindingStatus] Failed to get first EVM address, fallback to accountAddress',
+        error,
+      );
+    }
+
+    try {
+      const isInternalRebateBound =
+        await this.backgroundApi.serviceReferralCode.checkWalletIsBoundReferralCode(
+          {
+            address: referenceAddress,
+            networkId: referenceNetworkId,
+          },
+        );
+      return isInternalRebateBound;
+    } catch (error) {
+      console.error(
+        '[checkInternalRebateBindingStatus] Failed to check binding status',
+        error,
+      );
+      // On error, default to true to not block trading
+      return true;
+    }
+  }
+
   private async checkBuilderFeeStatus({
     accountAddress,
     isEnableTradingTrigger,
@@ -1122,7 +1281,6 @@ export default class ServiceHyperliquid extends ServiceBase {
         action: signatureInfo.action,
         nonce: signatureInfo.nonce,
         signature: signatureInfo.signature,
-        inviteCode: myReferralCode,
         referenceAddress,
         signerAddress: signatureInfo.signerAddress,
       });
@@ -1204,6 +1362,7 @@ export default class ServiceHyperliquid extends ServiceBase {
           agentOk: false,
           builderFeeOk: false,
           referralCodeOk: false,
+          internalRebateBoundOk: false,
         },
       }),
     );

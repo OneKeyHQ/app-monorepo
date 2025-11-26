@@ -512,7 +512,6 @@ class ServiceReferralCode extends ServiceBase {
     action,
     nonce,
     signature,
-    inviteCode,
     referenceAddress,
     signerAddress,
   }: {
@@ -526,7 +525,6 @@ class ServiceReferralCode extends ServiceBase {
     };
     nonce: number;
     signature: IHyperLiquidSignatureRSV;
-    inviteCode: string;
     referenceAddress?: string;
     signerAddress: string;
   }): Promise<{ success: boolean }> {
@@ -537,7 +535,6 @@ class ServiceReferralCode extends ServiceBase {
       action,
       nonce,
       signature,
-      inviteCode,
       referenceAddress,
       signerAddress,
     });
