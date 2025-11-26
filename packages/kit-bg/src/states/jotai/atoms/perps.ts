@@ -105,6 +105,7 @@ export type IPerpsActiveAccountStatusDetails = {
   agentOk: boolean;
   referralCodeOk: boolean;
   builderFeeOk: boolean;
+  internalRebateBoundOk: boolean;
 };
 export type IPerpsActiveAccountStatusInfoAtom =
   | {
@@ -143,7 +144,8 @@ export const {
       details?.agentOk &&
       details?.builderFeeOk &&
       details?.referralCodeOk &&
-      details?.activatedOk;
+      details?.activatedOk &&
+      details?.internalRebateBoundOk;
     const accountNotSupport =
       !account?.accountAddress && !account?.indexedAccountId;
     const canCreateAddress =
