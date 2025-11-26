@@ -215,10 +215,14 @@ function InviteCode({
       label: item.wallet.name,
       value: item.wallet.id,
       leading: <WalletAvatar wallet={item.wallet} size="$6" />,
-      description: item.isBound ? 'Bounded' : undefined,
+      description: item.isBound
+        ? intl.formatMessage({
+            id: ETranslations.referral_wallet_bind_code_finish,
+          })
+        : undefined,
       disabled: item.isBound,
     }));
-  }, [walletsWithStatus]);
+  }, [walletsWithStatus, intl]);
 
   const { result: walletInfo } = usePromiseResult(async () => {
     const r = await getReferralCodeWalletInfo(selectedWallet?.id);
