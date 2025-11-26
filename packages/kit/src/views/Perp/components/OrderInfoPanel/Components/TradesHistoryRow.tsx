@@ -67,14 +67,26 @@ const TradesHistoryRow = memo(
     }, [fill.time]);
 
     const directionInfo = useMemo(() => {
-      const directionStr = fill.dir;
       const side = fill.side;
       let directionColor = '$green11';
       if (side === 'A') {
         directionColor = '$red11';
       }
-      return { directionStr, directionColor };
-    }, [fill.dir, fill.side]);
+
+      let directionStr = fill.dir;
+      const isLiquidation = !!fill.liquidation;
+      if (isLiquidation) {
+        // market: common liquidation via market order
+        // backstop: rare fallback when market liquidity is insufficient
+        const liqPrefix =
+          fill.liquidation?.method === 'backstop'
+            ? 'Backstop Liq'
+            : 'Market Liq';
+        directionStr = `${liqPrefix}: ${fill.dir}`;
+      }
+
+      return { directionStr, directionColor, isLiquidation };
+    }, [fill.dir, fill.side, fill.liquidation]);
 
     const tradeBaseInfo = useMemo(() => {
       const price = fill.px;

@@ -2,6 +2,7 @@
 import BigNumber from 'bignumber.js';
 
 import type {
+  IFill,
   IHex,
   IL2BookOptions,
   IMarginTable,
@@ -104,6 +105,7 @@ export type IPerpsActiveAccountStatusDetails = {
   agentOk: boolean;
   referralCodeOk: boolean;
   builderFeeOk: boolean;
+  internalRebateBoundOk: boolean;
 };
 export type IPerpsActiveAccountStatusInfoAtom =
   | {
@@ -142,7 +144,8 @@ export const {
       details?.agentOk &&
       details?.builderFeeOk &&
       details?.referralCodeOk &&
-      details?.activatedOk;
+      details?.activatedOk &&
+      details?.internalRebateBoundOk;
     const accountNotSupport =
       !account?.accountAddress && !account?.indexedAccountId;
     const canCreateAddress =
@@ -460,6 +463,26 @@ export const {
 } = globalAtom<{ refreshHook: number }>({
   name: EAtomNames.perpsTradesHistoryRefreshHookAtom,
   initialValue: { refreshHook: 0 },
+});
+
+export interface IPerpsTradesHistoryDataAtom {
+  fills: IFill[];
+  isLoaded: boolean;
+  latestTime: number;
+  accountAddress: string | undefined;
+}
+
+export const {
+  target: perpsTradesHistoryDataAtom,
+  use: usePerpsTradesHistoryDataAtom,
+} = globalAtom<IPerpsTradesHistoryDataAtom>({
+  name: EAtomNames.perpsTradesHistoryDataAtom,
+  initialValue: {
+    fills: [],
+    isLoaded: false,
+    latestTime: 0,
+    accountAddress: undefined,
+  },
 });
 
 export const {

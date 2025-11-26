@@ -15,6 +15,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { useTradingFormAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
@@ -75,12 +76,15 @@ function SideButtonInternal({
   const calculations = useTradingCalculationsForSide(side);
   const {
     computedSizeForSide,
-    liquidationPrice,
+    liquidationPrice: liquidationPriceRaw,
     orderValue,
-    marginRequired,
+    marginRequired: marginRequiredRaw,
     isNoEnoughMargin,
     effectivePriceBN,
   } = calculations;
+
+  const marginRequired = useDebounce(marginRequiredRaw, 100);
+  const liquidationPrice = useDebounce(liquidationPriceRaw, 100);
 
   // Check if inputs are empty
   const hasEmptyInputs = useMemo(() => {

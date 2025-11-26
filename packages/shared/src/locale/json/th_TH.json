@@ -2029,6 +2029,7 @@
   "mev_protection_note": "ฟีเจอร์นี้ไม่รองรับหากคุณใช้ RPC แบบกำหนดเองหรือกระเป๋าเงินภายนอก",
   "msg__str_is_required_for_network_fees_top_up_str_to_make_tx": "ยอด {symbol} ไม่เพียงพอสำหรับค่าธรรมเนียมเครือข่าย โปรดเพิ่มอย่างน้อย {amount} {symbol}",
   "msg__transaction_with_the_same_nonce_already_exist_please_pay_a_higher_network_fee_otherwise_the_transaction_may_fail": "มีธุรกรรมที่มี nonce เดียวกันอยู่แล้ว กรุณาจ่ายค่าธรรมเนียมเครือข่ายที่สูงขึ้น มิฉะนั้นธุรกรรมอาจล้มเหลว",
+  "msg_insufficient_network_fee": "ยอด {symbol} ไม่เพียงพอสำหรับค่าธรรมเนียมเครือข่าย โปรดเพิ่มอย่างน้อย {amount} {symbol}",
   "native_token_tooltip": "นี่คือสกุลเงินดิจิทัลที่ใช้ในการชำระค่าธรรมเนียมเครือข่าย",
   "network.all_networks_selection_tip": "เมื่อคุณเลือก \"เครือข่ายทั้งหมด\" คุณสามารถปรับแต่งเครือข่ายที่จะรวมได้ เพื่อให้การโหลดเร็วขึ้น เฉพาะเครือข่ายยอดนิยมเท่านั้นที่เปิดใช้งานโดยค่าเริ่มต้น—แต่คุณสามารถเปิดใช้งานเครือข่ายเพิ่มเติมได้ที่นี่อย่างง่ายดาย",
   "network.enabled_but_no_address_notice": "คุณมีเครือข่ายที่เปิดใช้งาน {count} เครือข่าย แต่บางเครือข่ายยังไม่มีที่อยู่",
