@@ -1,4 +1,4 @@
-interface IRewardToken {
+export interface IRewardToken {
   networkId: string;
   address: string;
   logoURI: string;
@@ -148,6 +148,26 @@ export interface IEarnRewardResponse {
     fiatValue: string;
     items: IEarnRewardItem[];
   }[];
+  total: number;
+}
+
+export interface IPerpsRecordItemDetail {
+  token: IRewardToken;
+  amount: string;
+  amountFiatValue: string;
+  tradingVolume: string;
+  tradingVolumeFiatValue: string;
+}
+
+export interface IPerpsRecordItem {
+  accountAddress: string;
+  fiatValue: string;
+  items: IPerpsRecordItemDetail[];
+}
+
+export interface IPerpsRecordsResponse {
+  fiatValue: string;
+  items: IPerpsRecordItem[];
   total: number;
 }
 
@@ -366,10 +386,16 @@ export enum EExportTimeRange {
   SixMonths = '6months',
 }
 
+export enum EExportTab {
+  Earn = 'Earn',
+  Perp = 'Perp',
+}
+
 export interface IExportInviteDataParams {
   subject: EExportSubject;
   timeRange: EExportTimeRange;
   inviteCode?: string;
+  tab?: EExportTab;
 }
 
 // API returns CSV string directly
