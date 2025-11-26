@@ -965,7 +965,6 @@ function SendDataInputContainer() {
   ]);
 
   const handleCoinControlPress = useCallback(() => {
-    console.log('Coin Control Pressed');
     navigation.pushModal(EModalRoutes.SendModal, {
       screen: EModalSendRoutes.CoinControl,
       params: {

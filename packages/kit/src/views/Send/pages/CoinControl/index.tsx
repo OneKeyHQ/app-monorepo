@@ -2,6 +2,7 @@ import { memo, useCallback, useMemo, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
+import { useIntl } from 'react-intl';
 
 import type { ICheckedState } from '@onekeyhq/components';
 import {
@@ -25,6 +26,8 @@ import {
   useSendConfirmActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
 import type { IUtxoInfo } from '@onekeyhq/kit-bg/src/vaults/types';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import type {
   EModalSendRoutes,
   IModalSendParamList,
@@ -53,7 +56,7 @@ function formatBlockTime(blockTime?: number, confirmations?: number): string {
     return formatDateFns(new Date(blockTime));
   }
   if (confirmations === 0) {
-    return 'Pending';
+    return appLocale.intl.formatMessage({ id: ETranslations.global_pending });
   }
   return '-';
 }
@@ -149,23 +152,20 @@ const UTXOListItem = memo(
 UTXOListItem.displayName = 'UTXOListItem';
 
 function CoinControlPage() {
-  // Get route params
+  const intl = useIntl();
   const route =
     useRoute<RouteProp<IModalSendParamList, EModalSendRoutes.CoinControl>>();
   const { accountId, networkId } = route.params;
 
-  // Hooks
   const navigation = useAppNavigation();
   const { updateSelectedUTXOs } = useSendConfirmActions().current;
   const [selectedUTXOsFromAtom] = useSelectedUTXOsAtom();
 
-  // Fetch network info
   const { result: network } = usePromiseResult(async () => {
     if (!networkId) return null;
     return backgroundApiProxy.serviceNetwork.getNetwork({ networkId });
   }, [networkId]);
 
-  // Fetch UTXO data
   const { result, isLoading } = usePromiseResult(
     async () => {
       if (!accountId || !networkId) {
@@ -304,23 +304,31 @@ function CoinControlPage() {
   const sortOptions = useMemo(
     () => [
       {
-        label: 'Newest first',
+        label: intl.formatMessage({
+          id: ETranslations.wallet_sort_newest_first,
+        }),
         value: ESortType.NewestFirst,
       },
       {
-        label: 'Oldest first',
+        label: intl.formatMessage({
+          id: ETranslations.wallet_sort_oldest_first,
+        }),
         value: ESortType.OldestFirst,
       },
       {
-        label: 'Largest first',
-        value: ESortType.LargestFirst,
-      },
-      {
-        label: 'Smallest first',
+        label: intl.formatMessage({
+          id: ETranslations.wallet_sort_smallest_first,
+        }),
         value: ESortType.SmallestFirst,
       },
+      {
+        label: intl.formatMessage({
+          id: ETranslations.wallet_sort_largest_first,
+        }),
+        value: ESortType.LargestFirst,
+      },
     ],
-    [],
+    [intl],
   );
 
   // Render list item
@@ -353,7 +361,7 @@ function CoinControlPage() {
   const headerRight = useCallback(
     () => (
       <Select
-        title="Sort by"
+        title={intl.formatMessage({ id: ETranslations.market_sort_by })}
         value={sortType}
         onChange={setSortType}
         items={sortOptions}
@@ -362,12 +370,15 @@ function CoinControlPage() {
         )}
       />
     ),
-    [sortType, setSortType, sortOptions],
+    [sortType, setSortType, sortOptions, intl],
   );
 
   return (
     <Page>
-      <Page.Header title="Coin control" headerRight={headerRight} />
+      <Page.Header
+        title={intl.formatMessage({ id: ETranslations.wallet_coin_control })}
+        headerRight={headerRight}
+      />
       <Page.Body>
         {isLoading ? (
           <Stack flex={1} alignItems="center" justifyContent="center">
@@ -395,7 +406,10 @@ function CoinControlPage() {
           {/* Selected info */}
           <YStack flex={1} jc="center">
             <SizableText size="$bodyMd" color="$textSubdued">
-              {selectedUTXOs.size} selected
+              {intl.formatMessage(
+                { id: ETranslations.wallet_selected_utxo_count },
+                { count: selectedUTXOs.size },
+              )}
             </SizableText>
             <SizableText size="$bodyMd" fontWeight="600" color="$text">
               {totalAmount} {network?.symbol ?? 'BTC'}

@@ -3,6 +3,7 @@ import { memo } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Badge, Icon } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 type IProps = {
   onPress?: () => void;
@@ -32,7 +33,9 @@ function CoinControlBadge({ onPress }: IProps) {
         outlineOffset: 0,
       }}
     >
-      <Badge.Text>Coin control</Badge.Text>
+      <Badge.Text>
+        {intl.formatMessage({ id: ETranslations.wallet_coin_control })}
+      </Badge.Text>
       <Icon name="ExpandOutline" size="$4" color="$icon" />
     </Badge>
   );
