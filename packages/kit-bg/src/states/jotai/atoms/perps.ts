@@ -2,6 +2,7 @@
 import BigNumber from 'bignumber.js';
 
 import type {
+  IFill,
   IHex,
   IL2BookOptions,
   IMarginTable,
@@ -460,6 +461,26 @@ export const {
 } = globalAtom<{ refreshHook: number }>({
   name: EAtomNames.perpsTradesHistoryRefreshHookAtom,
   initialValue: { refreshHook: 0 },
+});
+
+export interface IPerpsTradesHistoryDataAtom {
+  fills: IFill[];
+  isLoaded: boolean;
+  latestTime: number;
+  accountAddress: string | undefined;
+}
+
+export const {
+  target: perpsTradesHistoryDataAtom,
+  use: usePerpsTradesHistoryDataAtom,
+} = globalAtom<IPerpsTradesHistoryDataAtom>({
+  name: EAtomNames.perpsTradesHistoryDataAtom,
+  initialValue: {
+    fills: [],
+    isLoaded: false,
+    latestTime: 0,
+    accountAddress: undefined,
+  },
 });
 
 export const {
