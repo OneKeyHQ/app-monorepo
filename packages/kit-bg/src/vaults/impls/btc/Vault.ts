@@ -892,6 +892,7 @@ export default class VaultBtc extends VaultBase {
       })),
     });
 
+    const skipUtxoSelection = selectedUtxoKeys && selectedUtxoKeys.length > 0;
     if (selectedUtxoKeys && selectedUtxoKeys.length > 0) {
       const selectedKeysSet = new Set(selectedUtxoKeys);
       const originalCount = utxosInfo.length;
@@ -944,6 +945,7 @@ export default class VaultBtc extends VaultBase {
         address,
         path,
         confirmations,
+        required: skipUtxoSelection ? true : undefined,
       }),
     );
 
