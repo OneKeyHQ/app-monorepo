@@ -5,6 +5,7 @@ import type {
 
 export enum EModalReferFriendsRoutes {
   ReferAFriend = 'ReferAFriend',
+  InvitedByFriend = 'InvitedByFriend',
   YourReferred = 'YourReferred',
   YourReferredWalletAddresses = 'YourReferredWalletAddresses',
   HardwareSalesReward = 'HardwareSalesReward',
@@ -19,6 +20,10 @@ export type IModalReferFriendsParamList = {
   [EModalReferFriendsRoutes.ReferAFriend]: {
     utmSource?: string;
     code?: string;
+  };
+  [EModalReferFriendsRoutes.InvitedByFriend]: {
+    code: string;
+    page?: string;
   };
   [EModalReferFriendsRoutes.YourReferred]: undefined;
   [EModalReferFriendsRoutes.YourReferredWalletAddresses]: {
