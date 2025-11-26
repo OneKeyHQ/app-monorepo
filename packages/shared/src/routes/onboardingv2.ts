@@ -46,7 +46,9 @@ export type IOnboardingParamListV2 = {
     fromExt?: boolean;
   };
   [EOnboardingPagesV2.AddExistingWallet]: undefined;
-  [EOnboardingPagesV2.CreateOrImportWallet]: undefined;
+  [EOnboardingPagesV2.CreateOrImportWallet]: {
+    fullOptions?: boolean;
+  };
   [EOnboardingPagesV2.FinalizeWalletSetup]: {
     mnemonic?: string;
     mnemonicType?: EMnemonicType;

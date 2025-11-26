@@ -169,11 +169,11 @@ export default function VerifyRecoveryPhrase() {
                 alignItems="center"
               >
                 {question.words.map((word, wordIndex) => (
-                  <XStack key={wordIndex} flex={1}>
+                  <XStack key={wordIndex} flexGrow={1} flexBasis={0}>
                     <Button
                       key={wordIndex}
                       size="large"
-                      width="100%"
+                      flex={1}
                       variant={
                         selectedWords[questionIndex] === word
                           ? 'primary'
