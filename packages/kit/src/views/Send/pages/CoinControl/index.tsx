@@ -7,7 +7,7 @@ import type { ICheckedState } from '@onekeyhq/components';
 import {
   Button,
   Checkbox,
-  Icon,
+  HeaderIconButton,
   ListView,
   Page,
   Select,
@@ -339,9 +339,25 @@ function CoinControlPage() {
     [],
   );
 
+  // Header right filter button
+  const headerRight = useCallback(
+    () => (
+      <Select
+        title="Sort by"
+        value={sortType}
+        onChange={setSortType}
+        items={sortOptions}
+        renderTrigger={({ onPress }) => (
+          <HeaderIconButton icon="SliderVerOutline" onPress={onPress} />
+        )}
+      />
+    ),
+    [sortType, setSortType, sortOptions],
+  );
+
   return (
     <Page>
-      <Page.Header title="Coin control" />
+      <Page.Header title="Coin control" headerRight={headerRight} />
       <Page.Body>
         {isLoading ? (
           <Stack flex={1} alignItems="center" justifyContent="center">
@@ -353,6 +369,7 @@ function CoinControlPage() {
             data={sortedData}
             renderItem={renderItem}
             keyExtractor={keyExtractor}
+            extraData={sortType}
           />
         )}
       </Page.Body>
@@ -374,39 +391,6 @@ function CoinControlPage() {
               {totalAmount} {network?.symbol ?? 'BTC'}
             </SizableText>
           </YStack>
-
-          {/* Sort selector */}
-          <Select
-            title="Sort by"
-            value={sortType}
-            onChange={setSortType}
-            items={sortOptions}
-            renderTrigger={({ label, onPress }) => (
-              <XStack
-                borderWidth="$0.5"
-                borderColor="$borderStrong"
-                borderRadius="$2"
-                px="$3"
-                py="$2"
-                onPress={onPress}
-                ai="center"
-                minWidth={128}
-                gap="$2"
-                hoverStyle={{ bg: '$bgHover' }}
-                pressStyle={{ bg: '$bgActive' }}
-              >
-                <SizableText size="$bodyMd" fontWeight="500" flexShrink={1}>
-                  {label}
-                </SizableText>
-                <Icon
-                  name="ChevronTopSmallOutline"
-                  size="$6"
-                  color="$icon"
-                  flexShrink={0}
-                />
-              </XStack>
-            )}
-          />
 
           {/* Done button */}
           <Button variant="primary" onPress={handleDone}>
