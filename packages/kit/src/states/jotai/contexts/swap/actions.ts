@@ -1001,6 +1001,30 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           alertsRes = [...alertsRes, alertAction];
         }
       }
+      if (fromToken) {
+        const accountId = swapFromAddressInfo.activeAccount?.account?.id ?? '';
+        const accountImpl = swapFromAddressInfo.activeAccount?.account?.impl;
+
+        const accountNetworkNotSupported =
+          await backgroundApiProxy.serviceAccount.checkAccountNetworkNotSupported(
+            {
+              accountId,
+              accountImpl,
+              activeNetworkId: fromToken.networkId,
+            },
+          );
+        if (accountNetworkNotSupported) {
+          alertsRes = [
+            ...alertsRes,
+            {
+              message: appLocale.intl.formatMessage({
+                id: ETranslations.swap_page_alert_account_does_not_support_swap,
+              }),
+              alertLevel: ESwapAlertLevel.ERROR,
+            },
+          ];
+        }
+      }
 
       const limitPriceUseRate = get(swapLimitPriceUseRateAtom());
       // market rate check
