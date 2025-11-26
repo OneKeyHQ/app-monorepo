@@ -6,14 +6,19 @@ import { Button, XStack } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useWalletBoundReferralCode } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useWalletBoundReferralCode';
+import { EOneKeyDeepLinkPath } from '@onekeyhq/shared/src/consts/deeplinkConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 
 interface IInvitedByFriendActionsProps {
   referralCode: string;
+  page?: string;
 }
 
 function InvitedByFriendActions({
   referralCode,
+  page,
 }: IInvitedByFriendActionsProps) {
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -35,6 +40,15 @@ function InvitedByFriendActions({
           navigation.pop();
         },
       });
+    } else if (platformEnv.isWeb) {
+      const url = uriUtils.buildDeepLinkUrl({
+        path: EOneKeyDeepLinkPath.invited_by_friend,
+        query: {
+          code: referralCode,
+          page,
+        },
+      });
+      globalThis.location.href = url;
     } else {
       bindWalletInviteCode({
         defaultReferralCode: referralCode,
@@ -43,7 +57,13 @@ function InvitedByFriendActions({
         },
       });
     }
-  }, [activeAccount?.wallet, bindWalletInviteCode, referralCode, navigation]);
+  }, [
+    activeAccount?.wallet,
+    bindWalletInviteCode,
+    referralCode,
+    page,
+    navigation,
+  ]);
 
   return (
     <XStack

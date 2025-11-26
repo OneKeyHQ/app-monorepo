@@ -31,6 +31,7 @@ function InvitedByFriendPage() {
     >();
 
   const referralCode = route.params?.code ?? '';
+  const page = route.params?.page;
 
   return (
     <Page scrollEnabled>
@@ -55,7 +56,7 @@ function InvitedByFriendPage() {
       </Page.Body>
 
       <Page.Footer>
-        <InvitedByFriendActions referralCode={referralCode} />
+        <InvitedByFriendActions referralCode={referralCode} page={page} />
       </Page.Footer>
     </Page>
   );

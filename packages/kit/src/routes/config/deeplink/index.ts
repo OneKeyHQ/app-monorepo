@@ -18,6 +18,8 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
+  EModalReferFriendsRoutes,
+  EModalRoutes,
   ETabReferFriendsRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
@@ -105,6 +107,40 @@ async function processDeepLinkUrlAccount(
               code,
               utmSource,
             );
+          }
+          break;
+        case EOneKeyDeepLinkPath.invited_by_friend:
+          {
+            const { code, page } =
+              queryParams as IEOneKeyDeepLinkParams[EOneKeyDeepLinkPath.invited_by_friend];
+            if (navigation) {
+              // Map page parameter to tab routes
+              const pageToTabRoute: Record<string, ETabRoutes> = {
+                perp: ETabRoutes.WebviewPerpTrade,
+                perps: ETabRoutes.WebviewPerpTrade,
+                swap: ETabRoutes.Swap,
+                market: ETabRoutes.Market,
+                earn: ETabRoutes.Earn,
+                defi: ETabRoutes.Earn,
+                discover: ETabRoutes.Discovery,
+              };
+              const pageLower = ((page as string) ?? '').toLowerCase();
+              const targetTabRoute =
+                pageToTabRoute[pageLower] ?? ETabRoutes.Home;
+
+              // Navigate to target tab first
+              navigation.switchTab(targetTabRoute);
+
+              // Then open InvitedByFriend modal
+              setTimeout(() => {
+                navigation.pushModal(EModalRoutes.ReferFriendsModal, {
+                  screen: EModalReferFriendsRoutes.InvitedByFriend,
+                  params: {
+                    code,
+                  },
+                });
+              }, 500);
+            }
           }
           break;
         case EOneKeyDeepLinkPath.cross_device_transfer:

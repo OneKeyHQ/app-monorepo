@@ -23,6 +23,7 @@ export type IModalReferFriendsParamList = {
   };
   [EModalReferFriendsRoutes.InvitedByFriend]: {
     code: string;
+    page?: string;
   };
   [EModalReferFriendsRoutes.YourReferred]: undefined;
   [EModalReferFriendsRoutes.YourReferredWalletAddresses]: {

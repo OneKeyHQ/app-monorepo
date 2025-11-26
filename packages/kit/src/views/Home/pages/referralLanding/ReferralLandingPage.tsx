@@ -74,6 +74,7 @@ function ReferralLandingPage() {
           screen: EModalReferFriendsRoutes.InvitedByFriend,
           params: {
             code,
+            page,
           },
         });
       }, 500);
