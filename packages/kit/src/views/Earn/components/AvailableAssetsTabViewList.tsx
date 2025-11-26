@@ -195,7 +195,7 @@ export function AvailableAssetsTabViewList() {
       },
       {
         key: 'yield',
-        label: intl.formatMessage({ id: ETranslations.global_apr }),
+        label: intl.formatMessage({ id: ETranslations.earn_yield }),
         flex: 1,
         align: 'flex-end',
         sortable: true,
