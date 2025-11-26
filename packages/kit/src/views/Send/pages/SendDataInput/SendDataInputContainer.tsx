@@ -451,14 +451,19 @@ function SendDataInputContainer() {
     tokenDetails?.price,
   ]);
   const {
-    result: { displayAmountFormItem } = { displayAmountFormItem: false },
+    result: { displayAmountFormItem, displayCoinControlButton } = {
+      displayAmountFormItem: false,
+      displayCoinControlButton: false,
+    },
   } = usePromiseResult(async () => {
     const vs = await backgroundApiProxy.serviceNetwork.getVaultSettings({
       networkId,
     });
+    const showCoinControlButton = !!vs.coinControlEnabled;
     if (!vs?.hideAmountInputOnFirstEntry) {
       return {
         displayAmountFormItem: true,
+        displayCoinControlButton: showCoinControlButton,
       };
     }
     if (toResolved) {
@@ -471,10 +476,12 @@ function SendDataInputContainer() {
         });
       return {
         displayAmountFormItem: validation.isValid,
+        displayCoinControlButton: showCoinControlButton,
       };
     }
     return {
       displayAmountFormItem: false,
+      displayCoinControlButton: showCoinControlButton,
     };
   }, [networkId, toResolved, form]);
 
@@ -957,11 +964,6 @@ function SendDataInputContainer() {
     tokenInfo?.symbol,
   ]);
 
-  const showCoinControlButton = useMemo(
-    () => isBtcLikeNetwork && !isNFT,
-    [isBtcLikeNetwork, isNFT],
-  );
-
   const handleCoinControlPress = useCallback(() => {
     console.log('Coin Control Pressed');
     navigation.pushModal(EModalRoutes.SendModal, {
@@ -1026,7 +1028,7 @@ function SendDataInputContainer() {
       );
     }
 
-    if (showCoinControlButton) {
+    if (displayCoinControlButton) {
       addons.push(
         <CoinControlBadge
           key="coin-control"
@@ -1061,7 +1063,7 @@ function SendDataInputContainer() {
     lnUnit,
     map,
     showAddressTypeSelectorWhenDisabled,
-    showCoinControlButton,
+    displayCoinControlButton,
     vaultSettings?.mergeDeriveAssetsEnabled,
     walletId,
   ]);
