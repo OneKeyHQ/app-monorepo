@@ -2029,6 +2029,7 @@
   "mev_protection_note": "Diese Funktion wird nicht unterstützt, wenn Sie ein benutzerdefiniertes RPC oder eine externe Wallet verwenden.",
   "msg__str_is_required_for_network_fees_top_up_str_to_make_tx": "Unzureichende {symbol} für Netzwerkgebühren. Fügen Sie mindestens {amount} {symbol} hinzu",
   "msg__transaction_with_the_same_nonce_already_exist_please_pay_a_higher_network_fee_otherwise_the_transaction_may_fail": "Transaktionen mit der gleichen Nonce existieren bereits, bitte zahlen Sie eine höhere Netzwerkgebühr, sonst könnte die Transaktion fehlschlagen.",
+  "msg_insufficient_network_fee": "Unzureichende {symbol} für Netzwerkgebühren. Fügen Sie mindestens {amount} {symbol} hinzu",
   "native_token_tooltip": "Dies ist die Kryptowährung, die zur Bezahlung von Netzwerkgebühren verwendet wird",
   "network.all_networks_selection_tip": "Wenn Sie \"Alle Netzwerke\" auswählen, können Sie anpassen, welche Netzwerke einbezogen werden sollen. Um das Laden schnell zu halten, sind standardmäßig nur beliebte Netzwerke aktiviert – aber Sie können hier problemlos zusätzliche Netzwerke aktivieren.",
   "network.enabled_but_no_address_notice": "Sie haben {count} aktivierte Netzwerke, aber einige haben noch keine Adressen.",

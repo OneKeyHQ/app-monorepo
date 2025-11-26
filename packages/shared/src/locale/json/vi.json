@@ -2029,6 +2029,7 @@
   "mev_protection_note": "Tính năng này không được hỗ trợ nếu bạn sử dụng RPC tùy chỉnh hoặc ví bên ngoài.",
   "msg__str_is_required_for_network_fees_top_up_str_to_make_tx": "Không đủ {symbol} để trả phí mạng. Vui lòng thêm ít nhất {amount} {symbol}",
   "msg__transaction_with_the_same_nonce_already_exist_please_pay_a_higher_network_fee_otherwise_the_transaction_may_fail": "Giao dịch với nonce giống nhau đã tồn tại, vui lòng trả phí mạng cao hơn, nếu không giao dịch có thể thất bại.",
+  "msg_insufficient_network_fee": "Không đủ {symbol} để trả phí mạng. Vui lòng thêm ít nhất {amount} {symbol}",
   "native_token_tooltip": "Đây là loại tiền điện tử được sử dụng để thanh toán phí mạng",
   "network.all_networks_selection_tip": "Khi bạn chọn \"Tất cả Mạng\", bạn có thể tùy chỉnh mạng nào để bao gồm. Để giữ cho việc tải nhanh, chỉ có các mạng phổ biến được bật theo mặc định—nhưng bạn có thể dễ dàng bật thêm các mạng khác ở đây.",
   "network.enabled_but_no_address_notice": "Bạn có {count} mạng đã được kích hoạt, nhưng một số chưa có địa chỉ",
