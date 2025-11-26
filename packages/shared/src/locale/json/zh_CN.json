@@ -2029,6 +2029,7 @@
   "mev_protection_note": "如果您使用自定义 RPC 或外部钱包，则不支持此功能。",
   "msg__str_is_required_for_network_fees_top_up_str_to_make_tx": "{symbol} 不足以支付网络费用。至少需补充 {amount} {symbol}",
   "msg__transaction_with_the_same_nonce_already_exist_please_pay_a_higher_network_fee_otherwise_the_transaction_may_fail": "已存在具有相同 nonce 的交易，请支付更高的网络费，否则交易可能会失败。",
+  "msg_insufficient_network_fee": "{symbol} 不足以支付网络费用。至少需补充 {amount} {symbol}",
   "native_token_tooltip": "该加密货币也会被用于支付网络费用",
   "network.all_networks_selection_tip": "当您选择「所有网络」时，您可以挑选要包含的网络。为了更快的加载速度，默认情况下只启用了热门网络——但您可以在此轻松启用其他网络。",
   "network.enabled_but_no_address_notice": "您有 {count} 个已启用的网络，但有些还没有地址",
@@ -3899,5 +3900,5 @@
   "wallet_empty_article_trade": "如何在 OneKey 中交易加密货币?",
   "watch_only_desc_manage": "您无法管理该钱包。",
   "watch_only_desc_transactions": "查看他人的交易。",
-  "word": "Word"
+  "word": "助记词"
 }

@@ -2029,6 +2029,7 @@
   "mev_protection_note": "Cette fonctionnalité n'est pas prise en charge si vous utilisez un RPC personnalisé ou un portefeuille externe.",
   "msg__str_is_required_for_network_fees_top_up_str_to_make_tx": "Fonds insuffisants en {symbol} pour les frais de réseau. Ajoutez au moins {amount} {symbol}",
   "msg__transaction_with_the_same_nonce_already_exist_please_pay_a_higher_network_fee_otherwise_the_transaction_may_fail": "Des transactions avec le même nonce existent déjà, veuillez payer des frais de réseau plus élevés, sinon la transaction pourrait échouer.",
+  "msg_insufficient_network_fee": "Fonds insuffisants en {symbol} pour les frais de réseau. Ajoutez au moins {amount} {symbol}",
   "native_token_tooltip": "C'est la cryptomonnaie utilisée pour payer les frais de réseau",
   "network.all_networks_selection_tip": "Lorsque vous sélectionnez \"Tous les réseaux\", vous pouvez personnaliser les réseaux à inclure. Pour maintenir un chargement rapide, seuls les réseaux populaires sont activés par défaut, mais vous pouvez facilement activer des réseaux supplémentaires ici.",
   "network.enabled_but_no_address_notice": "Vous avez {count} réseaux activés, mais certains n'ont pas encore d'adresses",

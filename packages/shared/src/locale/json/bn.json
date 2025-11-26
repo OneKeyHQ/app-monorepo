@@ -2029,6 +2029,7 @@
   "mev_protection_note": "এই বৈশিষ্ট্যটি সমর্থিত নয় যদি আপনি একটি কাস্টম RPC বা বাহ্যিক ওয়ালেট ব্যবহার করেন।",
   "msg__str_is_required_for_network_fees_top_up_str_to_make_tx": "নেটওয়ার্ক ফি এর জন্য পর্যাপ্ত {symbol} নেই। কমপক্ষে {amount} {symbol} যোগ করুন",
   "msg__transaction_with_the_same_nonce_already_exist_please_pay_a_higher_network_fee_otherwise_the_transaction_may_fail": "একই নন্সের সাথে লেনদেন ইতিমধ্যে বিদ্যমান, দয়া করে একটি উচ্চ নেটওয়ার্ক ফি পরুন, নতুবা লেনদেনটি ব্যর্থ হতে পারে।",
+  "msg_insufficient_network_fee": "নেটওয়ার্ক ফি এর জন্য পর্যাপ্ত {symbol} নেই। কমপক্ষে {amount} {symbol} যোগ করুন",
   "native_token_tooltip": "এটি নেটওয়ার্ক ফি পরিশোধের জন্য ব্যবহৃত ক্রিপ্টোকারেন্সি",
   "network.all_networks_selection_tip": "যখন আপনি \"All Networks\" নির্বাচন করেন, আপনি কোন নেটওয়ার্কগুলি অন্তর্ভুক্ত করবেন তা কাস্টমাইজ করতে পারেন। দ্রুত লোডিং বজায় রাখতে, শুধুমাত্র জনপ্রিয় নেটওয়ার্কগুলি ডিফল্টভাবে সক্রিয় থাকে—কিন্তু আপনি এখানে সহজেই অতিরিক্ত নেটওয়ার্ক সক্রিয় করতে পারেন।",
   "network.enabled_but_no_address_notice": "আপনার {count} টি সক্রিয় নেটওয়ার্ক আছে, কিন্তু কিছু নেটওয়ার্কের এখনও ঠিকানা নেই",
