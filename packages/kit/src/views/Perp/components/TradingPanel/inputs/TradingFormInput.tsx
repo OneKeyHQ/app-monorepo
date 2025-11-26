@@ -11,7 +11,6 @@ import {
   SizableText,
   XStack,
   YStack,
-  getFontSize,
   useIsKeyboardShown,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -180,9 +179,8 @@ export const TradingFormInput = memo(
             placeholder={placeholder}
             keyboardType={keyboardType}
             disabled={disabled}
-            fontSize={getFontSize('$bodyMd')}
-            fontWeight={500}
             bg="$bgSubdued"
+            allowFontScaling={false}
             containerProps={{
               flex: 1,
               borderWidth: 0,
