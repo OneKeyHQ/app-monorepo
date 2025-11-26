@@ -286,9 +286,8 @@ export default class ServiceHyperliquid extends ServiceBase {
       const { infoClient } = hyperLiquidApiClients;
       const fills = await infoClient.userFillsByTime({
         ...params,
-        reversed: true,
-      } as any);
-      // Filter out @ prefixed coins at backend service layer
+        aggregateByTime: true,
+      });
       return fills.filter((fill) => !fill.coin.startsWith('@'));
     },
     {
@@ -305,9 +304,8 @@ export default class ServiceHyperliquid extends ServiceBase {
     const { infoClient } = hyperLiquidApiClients;
     const fills = await infoClient.userFillsByTime({
       ...params,
-      reversed: true,
-    } as any);
-    // Filter out @ prefixed coins at backend service layer
+      aggregateByTime: true,
+    });
     return fills.filter((fill) => !fill.coin.startsWith('@'));
   }
 
@@ -330,7 +328,8 @@ export default class ServiceHyperliquid extends ServiceBase {
     }
 
     const now = Date.now();
-    const twoYearsAgo = now - 2 * 365 * 24 * 60 * 60 * 1000;
+    const historyDuration = timerUtils.getTimeDurationMs({ year: 2 });
+    const twoYearsAgo = now - historyDuration;
 
     const fills = await this._getUserFillsByTimeMemo({
       user: accountAddress,
@@ -1068,29 +1067,43 @@ export default class ServiceHyperliquid extends ServiceBase {
     return agentCredential;
   }
 
-  private async checkInternalRebateBindingStatus({
+  private async getRebateBindingReferenceInfo({
     accountId,
-    accountAddress,
+    signerAddress,
   }: {
     accountId: string | null;
-    accountAddress: IHex;
-  }): Promise<boolean> {
+    signerAddress: string;
+  }): Promise<{
+    walletId: string;
+    referenceAddress: string;
+    referenceNetworkId: string;
+  } | null> {
     if (!accountId) {
-      return true;
+      return null;
     }
 
     const walletId = accountUtils.getWalletIdFromAccountId({ accountId });
-    const isHdWallet = accountUtils.isHdWallet({ walletId });
-    const isHwWallet = accountUtils.isHwWallet({ walletId });
 
-    // Non-HD/HW wallets don't need internal rebate binding
-    if (!isHdWallet && !isHwWallet) {
-      return true;
+    if (
+      !accountUtils.isHdWallet({ walletId }) &&
+      !accountUtils.isHwWallet({ walletId })
+    ) {
+      return null;
     }
 
-    const networkIdsMap = getNetworkIdsMap();
-    const referenceNetworkId = networkIdsMap.eth || 'evm--1';
-    let referenceAddress: string = accountAddress;
+    try {
+      const wallet = await this.backgroundApi.serviceAccount.getWallet({
+        walletId,
+      });
+      if (accountUtils.isHwHiddenWallet({ wallet })) {
+        return null;
+      }
+    } catch {
+      return null;
+    }
+
+    const referenceNetworkId = getNetworkIdsMap().eth;
+    let referenceAddress = signerAddress;
 
     try {
       const firstEvmAccountId = `${walletId}--${FIRST_EVM_ADDRESS_PATH}`;
@@ -1103,26 +1116,42 @@ export default class ServiceHyperliquid extends ServiceBase {
       }
     } catch (error) {
       console.error(
-        '[checkInternalRebateBindingStatus] Failed to get first EVM address, fallback to accountAddress',
+        '[getRebateBindingReferenceInfo] Failed to get first EVM address',
         error,
       );
     }
 
+    return { walletId, referenceAddress, referenceNetworkId };
+  }
+
+  private async checkInternalRebateBindingStatus({
+    accountId,
+    accountAddress,
+  }: {
+    accountId: string | null;
+    accountAddress: IHex;
+  }): Promise<boolean> {
+    const refInfo = await this.getRebateBindingReferenceInfo({
+      accountId,
+      signerAddress: accountAddress,
+    });
+
+    if (!refInfo) {
+      return true;
+    }
+
     try {
-      const isInternalRebateBound =
-        await this.backgroundApi.serviceReferralCode.checkWalletIsBoundReferralCode(
-          {
-            address: referenceAddress,
-            networkId: referenceNetworkId,
-          },
-        );
-      return isInternalRebateBound;
+      return await this.backgroundApi.serviceReferralCode.checkWalletIsBoundReferralCode(
+        {
+          address: refInfo.referenceAddress,
+          networkId: refInfo.referenceNetworkId,
+        },
+      );
     } catch (error) {
       console.error(
         '[checkInternalRebateBindingStatus] Failed to check binding status',
         error,
       );
-      // On error, default to true to not block trading
       return true;
     }
   }
@@ -1215,65 +1244,31 @@ export default class ServiceHyperliquid extends ServiceBase {
       const selectedAccount = await perpsActiveAccountAtom.get();
       const accountId = signatureInfo.accountId || selectedAccount.accountId;
 
-      if (!accountId) {
-        console.log('[reportAgentApprovalToBackend] No accountId, skipping');
+      const refInfo = await this.getRebateBindingReferenceInfo({
+        accountId,
+        signerAddress: signatureInfo.signerAddress,
+      });
+
+      if (!refInfo) {
         return;
-      }
-
-      const walletId = accountUtils.getWalletIdFromAccountId({ accountId });
-      const isHdWallet = accountUtils.isHdWallet({ walletId });
-      const isHwWallet = accountUtils.isHwWallet({ walletId });
-
-      if (!isHdWallet && !isHwWallet) {
-        console.log(
-          '[reportAgentApprovalToBackend] Wallet type does not require binding, skipping',
-        );
-        return;
-      }
-
-      const networkIdsMap = getNetworkIdsMap();
-      const referenceNetworkId = networkIdsMap.eth || 'evm--1';
-      let referenceAddress = signatureInfo.signerAddress;
-
-      try {
-        const firstEvmAccountId = `${walletId}--${FIRST_EVM_ADDRESS_PATH}`;
-        const firstAccount = await this.backgroundApi.serviceAccount.getAccount(
-          {
-            accountId: firstEvmAccountId,
-            networkId: referenceNetworkId,
-          },
-        );
-        if (firstAccount?.address) {
-          referenceAddress = firstAccount.address;
-        }
-      } catch (error) {
-        console.error(
-          '[reportAgentApprovalToBackend] Failed to get first EVM address, fallback to signerAddress',
-          error,
-        );
       }
 
       const isAlreadyBound =
         await this.backgroundApi.serviceReferralCode.checkWalletIsBoundReferralCode(
           {
-            address: referenceAddress,
-            networkId: referenceNetworkId,
+            address: refInfo.referenceAddress,
+            networkId: refInfo.referenceNetworkId,
           },
         );
 
       if (isAlreadyBound) {
-        console.log(
-          '[reportAgentApprovalToBackend] Wallet already bound, skipping',
-        );
         return;
       }
+
       const myReferralCode =
         await this.backgroundApi.serviceReferralCode.getMyReferralCode();
 
       if (!myReferralCode) {
-        console.log(
-          '[reportAgentApprovalToBackend] No referral code, skipping',
-        );
         return;
       }
 
@@ -1281,7 +1276,7 @@ export default class ServiceHyperliquid extends ServiceBase {
         action: signatureInfo.action,
         nonce: signatureInfo.nonce,
         signature: signatureInfo.signature,
-        referenceAddress,
+        referenceAddress: refInfo.referenceAddress,
         signerAddress: signatureInfo.signerAddress,
       });
     } catch (error) {
