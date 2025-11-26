@@ -2029,6 +2029,7 @@
   "mev_protection_note": "Questa funzione non è supportata se si utilizza un RPC personalizzato o un portafoglio esterno.",
   "msg__str_is_required_for_network_fees_top_up_str_to_make_tx": "{symbol} insufficiente per le commissioni di rete. Aggiungi almeno {amount} {symbol}",
   "msg__transaction_with_the_same_nonce_already_exist_please_pay_a_higher_network_fee_otherwise_the_transaction_may_fail": "Esistono già transazioni con lo stesso nonce, si prega di pagare una commissione di rete più alta, altrimenti la transazione potrebbe fallire.",
+  "msg_insufficient_network_fee": "{symbol} insufficiente per le commissioni di rete. Aggiungi almeno {amount} {symbol}",
   "native_token_tooltip": "Questa è la criptovaluta utilizzata per pagare le commissioni di rete",
   "network.all_networks_selection_tip": "Quando selezioni \"Tutte le reti\", puoi personalizzare quali reti includere. Per mantenere il caricamento veloce, solo le reti popolari sono abilitate per impostazione predefinita, ma puoi facilmente abilitare reti aggiuntive qui.",
   "network.enabled_but_no_address_notice": "Hai {count} reti abilitate, ma alcune non hanno ancora indirizzi",

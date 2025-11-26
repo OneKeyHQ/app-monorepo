@@ -295,10 +295,7 @@ const OnboardingLayoutRoot = memo(
         }}
         alignItems="center"
         justifyContent="center"
-        bg="$neutral2"
-        $theme-dark={{
-          bg: '$bgApp',
-        }}
+        bg="$bgSubdued"
         $gtMd={{
           p: '$10',
         }}
@@ -319,7 +316,7 @@ const OnboardingLayoutRoot = memo(
           h="100%"
           w="100%"
           px="$5"
-          bg="$bg"
+          bg="$bgApp"
           $theme-dark={{
             outlineWidth: 1,
             outlineColor: '$neutral3',
