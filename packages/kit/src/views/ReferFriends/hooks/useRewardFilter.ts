@@ -4,7 +4,12 @@ import { EExportTimeRange } from '@onekeyhq/shared/src/referralCode/type';
 
 import type { IFilterState } from '../components/FilterButton';
 
-export const useRewardFilter = () => {
+export const useRewardFilter: () => {
+  filterState: IFilterState;
+  updateFilter: (updates: Partial<IFilterState>) => void;
+  resetFilter: () => void;
+  isFiltered: boolean;
+} = () => {
   const [filterState, setFilterState] = useState<IFilterState>({
     timeRange: EExportTimeRange.All,
     inviteCode: undefined,
