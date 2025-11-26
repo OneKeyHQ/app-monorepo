@@ -1203,6 +1203,7 @@ export default class VaultBtc extends VaultBase {
             withUTXOList: true,
             withFrozenBalance: true,
             withCheckInscription,
+            withUTXOBlockTime: true,
           });
         if (!utxoList) {
           throw new OneKeyInternalError(

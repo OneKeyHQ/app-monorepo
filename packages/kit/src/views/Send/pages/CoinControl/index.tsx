@@ -30,6 +30,7 @@ import type {
   IModalSendParamList,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { formatDateFns } from '@onekeyhq/shared/src/utils/dateUtils';
 
 import { SendConfirmProviderMirror } from '../../components/SendConfirmProvider/SendConfirmProviderMirror';
 
@@ -43,11 +44,18 @@ enum ESortType {
   LargestFirst = 'largestFirst',
 }
 
-// Format timestamp to readable date
-function formatTimestamp(height: number, confirmations: number): string {
-  // For now, display confirmations count
-  // TODO: Convert block height to timestamp
-  return `${confirmations} confirmations`;
+// Format blockTime to readable date
+// - If blockTime exists: format as "October 21, 2025 at 11:21"
+// - If no blockTime and confirmations = 0: show "Pending"
+// - Otherwise: show "-"
+function formatBlockTime(blockTime?: number, confirmations?: number): string {
+  if (blockTime) {
+    return formatDateFns(new Date(blockTime));
+  }
+  if (confirmations === 0) {
+    return 'Pending';
+  }
+  return '-';
 }
 
 // Generate UTXO unique key
@@ -78,8 +86,8 @@ const UTXOListItem = memo(
     }, [item.txid, item.vout, onToggle]);
 
     const formattedInfo = useMemo(
-      () => formatTimestamp(item.height, item.confirmations),
-      [item.height, item.confirmations],
+      () => formatBlockTime(item.blockTime, item.confirmations),
+      [item.blockTime, item.confirmations],
     );
 
     const formattedAmount = useMemo(
@@ -334,9 +342,11 @@ function CoinControlPage() {
   );
 
   // Key extractor for list items
+  // Include sortType in key to force re-render when sort changes
   const keyExtractor = useCallback(
-    (item: IUtxoInfo) => `${item.txid}-${item.vout}`,
-    [],
+    (item: IUtxoInfo, index: number) =>
+      `${sortType}-${index}-${item.txid}-${item.vout}`,
+    [sortType],
   );
 
   // Header right filter button

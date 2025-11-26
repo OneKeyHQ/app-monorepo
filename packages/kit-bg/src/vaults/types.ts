@@ -555,6 +555,7 @@ export type IUtxoInfo = {
   confirmations: number;
   address: string;
   path: string;
+  blockTime?: number;
   // Use for Cardano UTXO info
   txIndex?: number;
   amount?: IAdaAmount[];
