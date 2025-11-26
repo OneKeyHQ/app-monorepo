@@ -967,6 +967,19 @@ export class FirmwareUpdateVersionMismatchError extends OneKeyHardwareError {
   }
 }
 
+export class SelectDeviceError extends OneKeyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'SelectDeviceError',
+        defaultKey: ETranslations.update_ensure_one_usb_device_connected,
+      }),
+    );
+  }
+
+  override code = HardwareErrorCode.SelectDevice;
+}
+
 // UnknownHardware
 export class UnknownHardwareError extends OneKeyHardwareError {
   override className: EOneKeyErrorClassNames =
