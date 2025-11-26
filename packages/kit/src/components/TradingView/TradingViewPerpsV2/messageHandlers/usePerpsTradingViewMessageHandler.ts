@@ -96,31 +96,18 @@ export function usePerpsTradingViewMessageHandler({
       targetSymbol: string,
       targetUserAddress: IHex,
     ): Promise<ITradingMark[]> => {
-      const now = new Date();
-      const startDate = new Date(now);
-      startDate.setHours(0, 0, 0, 0);
-      startDate.setFullYear(startDate.getFullYear() - 2);
-      const endDate = new Date(now);
-      endDate.setHours(0, 0, 0, 0);
-      endDate.setFullYear(endDate.getFullYear() + 1);
-
-      const historyTrades =
-        await backgroundApiProxy.serviceHyperliquid.getUserFillsByTimeWithCache(
-          {
-            user: targetUserAddress,
-            startTime: startDate.getTime(),
-            endTime: endDate.getTime(),
-            aggregateByTime: true,
-          },
+      const historyTrades: IFill[] =
+        await backgroundApiProxy.serviceHyperliquid.loadTradesHistory(
+          targetUserAddress,
         );
 
       const filteredTrades = historyTrades.filter(
-        (trade: IFill) => trade.coin === targetSymbol,
+        (trade) => trade.coin === targetSymbol,
       );
 
       const marks: ITradingMark[] = filteredTrades
-        .map((trade: IFill) => convertFillToMark(trade))
-        .sort((a, b) => b.time - a.time); // Sort by time descending (latest first)
+        .map((trade) => convertFillToMark(trade))
+        .sort((a, b) => b.time - a.time);
 
       return marks;
     },
