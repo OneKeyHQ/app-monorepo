@@ -5,6 +5,7 @@ import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal, LogToServer } from '../../../base/decorators';
 
 import type { IDeviceType } from '@onekeyfe/hd-core';
+import type { EFirmwareType } from '@onekeyfe/hd-shared';
 
 type IFirmwareType = 'Firmware' | 'Bootloader' | 'Bluetooth';
 
@@ -71,6 +72,8 @@ export class FirmwareScene extends BaseScene {
     transportType: EHardwareTransportType | undefined;
     updateFlow: 'v1' | 'v2';
     firmwareVersions: IFirmwareVersions;
+    fromFirmwareType: EFirmwareType | undefined;
+    toFirmwareType: EFirmwareType | undefined;
     status: 'success' | 'failed';
     errorCode?: string;
     errorMessage?: string;

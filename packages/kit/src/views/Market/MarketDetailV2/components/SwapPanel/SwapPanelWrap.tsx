@@ -1,12 +1,18 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
+import { EFirmwareType } from '@onekeyfe/hd-shared';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { IMPL_BTC } from '@onekeyhq/shared/src/engine/engineConsts';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 
@@ -74,18 +80,73 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
       });
       return isAllNetwork || impl === networkImpl;
     }
+
+    if (!accountUtils.isHwWallet({ walletId: activeAccount.wallet?.id })) {
+      return true;
+    }
+
+    return null;
+  }, [
+    activeAccount?.account?.id,
+    activeAccount?.network?.id,
+    activeAccount.wallet?.id,
+    networkId,
+  ]);
+
+  const checkHardwareWalletSupport = useCallback(async () => {
+    if (!accountUtils.isHwWallet({ walletId: activeAccount.wallet?.id })) {
+      return true; // Non-hardware wallets are always supported
+    }
+
+    const isBtcOnlyFirmware =
+      await backgroundApiProxy.serviceAccount.isBtcOnlyFirmwareByWalletId({
+        walletId: activeAccount.wallet?.id || '',
+      });
+
+    if (isBtcOnlyFirmware) {
+      const { impl: networkImpl } = networkUtils.parseNetworkId({
+        networkId: networkId ?? '',
+      });
+      return networkImpl !== IMPL_BTC;
+    }
+
     return true;
-  }, [activeAccount?.account?.id, activeAccount?.network?.id, networkId]);
+  }, [activeAccount.wallet?.id, networkId]);
+
+  const isHwWallet = accountUtils.isHwWallet({
+    walletId: activeAccount.wallet?.id,
+  });
+  const { result: hwWalletSupport } = usePromiseResult(
+    checkHardwareWalletSupport,
+    [checkHardwareWalletSupport],
+    {
+      initResult: true,
+    },
+  );
 
   const supportSpeedSwap = useMemo(() => {
+    const syncCheckResult = checkAccountNetworkSupport();
+
+    let isAccountNetworkSupported: boolean;
+    if (syncCheckResult !== null) {
+      isAccountNetworkSupported = syncCheckResult;
+    } else if (isHwWallet) {
+      if (hwWalletSupport === null) {
+        throw new OneKeyLocalError('hwWalletSupport is null');
+      }
+      isAccountNetworkSupported = hwWalletSupport;
+    } else {
+      isAccountNetworkSupported = true;
+    }
+
     const speedSwapEnabled = originalSupportSpeedSwap;
     const tokenSwapEnabled = tokenDetail?.supportSwap?.enable !== false;
     const isEnabled =
-      speedSwapEnabled && tokenSwapEnabled && checkAccountNetworkSupport();
+      speedSwapEnabled && tokenSwapEnabled && isAccountNetworkSupported;
     let warningMessage = !tokenSwapEnabled
       ? tokenDetail?.supportSwap?.warningMessage
       : undefined;
-    if (!checkAccountNetworkSupport() && !warningMessage) {
+    if (!isAccountNetworkSupported && !warningMessage) {
       warningMessage = intl.formatMessage({
         id: ETranslations.swap_page_alert_account_does_not_support_swap,
       });
@@ -95,8 +156,10 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
       warningMessage,
     };
   }, [
-    intl,
     checkAccountNetworkSupport,
+    intl,
+    isHwWallet,
+    hwWalletSupport,
     originalSupportSpeedSwap,
     tokenDetail?.supportSwap?.enable,
     tokenDetail?.supportSwap?.warningMessage,

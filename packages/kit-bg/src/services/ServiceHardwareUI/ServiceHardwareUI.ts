@@ -474,6 +474,7 @@ class ServiceHardwareUI extends ServiceBase {
           error: error as any,
           code: [
             HardwareErrorCode.ActionCancelled,
+            HardwareErrorCode.CallQueueActionCancelled,
             HardwareErrorCode.PinCancelled,
             HardwareErrorCode.DeviceNotFound,
             // Hardware interrupts generally have follow-up actions; skip reset to home

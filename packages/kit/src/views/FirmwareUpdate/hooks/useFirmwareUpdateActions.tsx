@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 
+import { EFirmwareType } from '@onekeyfe/hd-shared';
 import { StackActions } from '@react-navigation/routers';
 import { useIntl } from 'react-intl';
 import { useThrottledCallback } from 'use-debounce';
@@ -23,7 +24,10 @@ export function useFirmwareUpdateActions() {
   const navigation = useAppNavigation();
 
   const openChangeLogOfExtension = useThrottledCallback(
-    async (params: { connectId: string | undefined }) =>
+    async (params: {
+      connectId: string | undefined;
+      firmwareType: EFirmwareType | undefined;
+    }) =>
       backgroundApiProxy.serviceApp.openExtensionExpandTab({
         routes: [
           ERootRoutes.Modal,
@@ -45,7 +49,10 @@ export function useFirmwareUpdateActions() {
         platformEnv.isExtensionUiPopup ||
         platformEnv.isExtensionUiSidePanel
       ) {
-        void openChangeLogOfExtension({ connectId });
+        void openChangeLogOfExtension({
+          connectId,
+          firmwareType: undefined,
+        });
         if (platformEnv.isExtensionUiSidePanel) {
           window.close();
         }
@@ -53,6 +60,7 @@ export function useFirmwareUpdateActions() {
       }
       navigation.push(EModalFirmwareUpdateRoutes.ChangeLog, {
         connectId,
+        firmwareType: undefined,
       });
     },
     [navigation, openChangeLogOfExtension],
@@ -62,12 +70,18 @@ export function useFirmwareUpdateActions() {
   appGlobals.$$appEventBus.emit('ShowFirmwareUpdateForce',{ connectId: '3383' })
   */
   const openChangeLogModal = useCallback(
-    ({ connectId }: { connectId: string | undefined }) => {
+    ({
+      connectId,
+      firmwareType,
+    }: {
+      connectId: string | undefined;
+      firmwareType?: EFirmwareType;
+    }) => {
       if (
         platformEnv.isExtensionUiPopup ||
         platformEnv.isExtensionUiSidePanel
       ) {
-        void openChangeLogOfExtension({ connectId });
+        void openChangeLogOfExtension({ connectId, firmwareType });
         if (platformEnv.isExtensionUiSidePanel) {
           window.close();
         }
@@ -82,6 +96,7 @@ export function useFirmwareUpdateActions() {
               screen: EModalFirmwareUpdateRoutes.ChangeLog,
               params: {
                 connectId,
+                firmwareType,
               },
             },
           }),
@@ -92,6 +107,7 @@ export function useFirmwareUpdateActions() {
           screen: EModalFirmwareUpdateRoutes.ChangeLog,
           params: {
             connectId,
+            firmwareType,
           },
         });
       }
@@ -191,10 +207,49 @@ export function useFirmwareUpdateActions() {
 
   const showCheckList = useCallback(
     ({ result }: { result: ICheckAllFirmwareReleaseResult | undefined }) => {
-      Dialog.confirm({
-        title: intl.formatMessage({
+      let title;
+
+      const updateFirmwareInfo = result?.updateInfos?.firmware;
+      if (
+        updateFirmwareInfo &&
+        updateFirmwareInfo?.fromFirmwareType &&
+        updateFirmwareInfo?.toFirmwareType &&
+        updateFirmwareInfo.toFirmwareType !==
+          updateFirmwareInfo.fromFirmwareType &&
+        updateFirmwareInfo.toFirmwareType === EFirmwareType.BitcoinOnly
+      ) {
+        title = intl.formatMessage(
+          {
+            id: ETranslations.device_checklist_switch_firmware_type,
+          },
+          {
+            type: 'Bitcoin-only',
+          },
+        );
+      } else if (
+        updateFirmwareInfo &&
+        updateFirmwareInfo?.fromFirmwareType &&
+        updateFirmwareInfo?.toFirmwareType &&
+        updateFirmwareInfo.toFirmwareType !==
+          updateFirmwareInfo.fromFirmwareType &&
+        updateFirmwareInfo.toFirmwareType === EFirmwareType.Universal
+      ) {
+        title = intl.formatMessage(
+          {
+            id: ETranslations.device_checklist_switch_firmware_type,
+          },
+          {
+            type: 'Universal',
+          },
+        );
+      } else {
+        title = intl.formatMessage({
           id: ETranslations.update_ready_to_upgrade_checklist,
-        }),
+        });
+      }
+
+      Dialog.confirm({
+        title,
         icon: 'ChecklistOutline',
         renderContent: <FirmwareUpdateCheckList result={result} />,
         onConfirmText: intl.formatMessage({
