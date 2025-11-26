@@ -757,13 +757,6 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   }),
                   renderElement: <DevSettingsSection />,
                 },
-                {
-                  icon: 'ApiConnectionOutline',
-                  title: 'API Endpoint Management',
-                  onPress: () => {
-                    showApiEndpointDialog();
-                  },
-                },
               ],
             ],
           }
