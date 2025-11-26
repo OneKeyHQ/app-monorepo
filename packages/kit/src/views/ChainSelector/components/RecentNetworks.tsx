@@ -130,7 +130,7 @@ function RecentNetworks({
               />
             </XStack>
           </SectionList.SectionHeader>
-          <XStack flex={1} gap="$2.5" flexWrap="wrap" px="$5" pb="$5">
+          <XStack gap="$2.5" flexWrap="wrap" px="$5" pb="$5">
             {recentNetworks.map((network) => (
               <RecentNetworkItem
                 key={network.id}
