@@ -51,6 +51,7 @@ export const useManagePage = ({
 
       const managePageData =
         await backgroundApiProxy.serviceStaking.getManagePage({
+          accountId,
           networkId,
           symbol,
           provider,
