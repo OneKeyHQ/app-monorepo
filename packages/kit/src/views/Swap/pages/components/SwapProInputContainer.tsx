@@ -37,12 +37,10 @@ const SwapProInputContainer = ({
   isLoading,
 }: ISwapProInputContainerProps) => {
   const intl = useIntl();
-  const [swapProSelectToken] = useSwapProSelectTokenAtom();
   const [swapProDirection] = useSwapProDirectionAtom();
   const [swapProInputAmount, setSwapProInputAmount] =
     useSwapProInputAmountAtom();
-  const [swapProUseSelectBuyToken, setSwapProUseSelectBuyToken] =
-    useSwapProUseSelectBuyTokenAtom();
+  const [, setSwapProUseSelectBuyToken] = useSwapProUseSelectBuyTokenAtom();
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
   const inputToken = useSwapProInputToken();
   const handleInputChange = useCallback(

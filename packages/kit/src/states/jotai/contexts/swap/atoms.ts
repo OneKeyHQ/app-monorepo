@@ -8,6 +8,7 @@ import {
   checkWrappedTokenPair,
   equalTokenNoCaseSensitive,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
+import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 import {
   ESwapProviderSort,
   mevSwapNetworks,
@@ -723,3 +724,16 @@ export const {
 
 export const { atom: swapProSellToTokenAtom, use: useSwapProSellToTokenAtom } =
   contextAtom<IToken | undefined>(undefined);
+
+export const { atom: swapProSlippageAtom, use: useSwapProSlippageAtom } =
+  contextAtom<number>(0.5);
+
+export const {
+  atom: swapProTokenMarketDetailInfoAtom,
+  use: useSwapProTokenMarketDetailInfoAtom,
+} = contextAtom<IMarketTokenDetail | undefined>(undefined);
+
+export const {
+  atom: swapProTokenMarketDetailInfoLoadingAtom,
+  use: useSwapProTokenMarketDetailInfoLoadingAtom,
+} = contextAtom<boolean>(false);

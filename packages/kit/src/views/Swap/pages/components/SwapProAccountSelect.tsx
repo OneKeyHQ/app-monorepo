@@ -1,0 +1,39 @@
+import { Icon, SizableText, XStack } from '@onekeyhq/components';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+
+import { useSwapProAccount } from '../../hooks/useSwapPro';
+
+interface ISwapProAccountSelectProps {
+  onSelectAccountClick: () => void;
+}
+
+const SwapProAccountSelect = ({
+  onSelectAccountClick,
+}: ISwapProAccountSelectProps) => {
+  const netAccountRes = useSwapProAccount();
+  return (
+    <XStack onPress={onSelectAccountClick} justifyContent="space-between">
+      <XStack gap="$1.5">
+        <Icon name="WalletOutline" size="$4" />
+        <SizableText size="$bodyMd">{netAccountRes?.result?.name}</SizableText>
+      </XStack>
+      <XStack gap="$1.5">
+        <SizableText
+          size="$bodySm"
+          color="$textSubdued"
+          numberOfLines={1}
+          flexShrink={1}
+        >
+          {accountUtils.shortenAddress({
+            address: netAccountRes?.result?.address ?? '',
+            leadingLength: 6,
+            trailingLength: 3,
+          })}
+        </SizableText>
+        <Icon name="ChevronRightOutline" size="$4" color="$iconSubdued" />
+      </XStack>
+    </XStack>
+  );
+};
+
+export default SwapProAccountSelect;

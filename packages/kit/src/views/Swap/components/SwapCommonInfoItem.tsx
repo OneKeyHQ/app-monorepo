@@ -10,6 +10,8 @@ import {
   XStack,
 } from '@onekeyhq/components';
 
+import type { SizableTextProps } from 'tamagui';
+
 interface ISwapCommonInfoItemProps {
   title: string;
   value?: string;
@@ -17,14 +19,18 @@ interface ISwapCommonInfoItemProps {
   onPress?: () => void;
   questionMarkContent?: ReactNode;
   isLoading?: boolean;
+  titleProps?: SizableTextProps;
+  valueProps?: SizableTextProps;
 }
 
 const SwapCommonInfoItemTitleContent = ({
   title,
   questionMarkContent,
+  titleProps,
 }: {
   title: string;
   questionMarkContent?: ReactNode;
+  titleProps?: SizableTextProps;
 }) => {
   const questionMarkComponent = useMemo(
     () => (
@@ -50,6 +56,7 @@ const SwapCommonInfoItemTitleContent = ({
         mr="$1"
         size="$bodyMd"
         color="$textSubdued"
+        {...titleProps}
       >
         {title}
       </SizableText>
@@ -67,6 +74,8 @@ const SwapCommonInfoItem = ({
   isLoading,
   valueComponent,
   questionMarkContent,
+  titleProps,
+  valueProps,
 }: ISwapCommonInfoItemProps) => {
   const rightTrigger = useMemo(
     () => (
@@ -80,7 +89,9 @@ const SwapCommonInfoItem = ({
         cursor={onPress ? 'pointer' : undefined}
       >
         {valueComponent || (
-          <SizableText size="$bodyMdMedium">{value}</SizableText>
+          <SizableText size="$bodyMdMedium" {...valueProps}>
+            {value}
+          </SizableText>
         )}
         {onPress ? (
           <Icon
@@ -92,7 +103,7 @@ const SwapCommonInfoItem = ({
         ) : null}
       </XStack>
     ),
-    [onPress, value, valueComponent],
+    [onPress, value, valueComponent, valueProps],
   );
 
   return (
@@ -100,6 +111,7 @@ const SwapCommonInfoItem = ({
       <SwapCommonInfoItemTitleContentMemo
         title={title}
         questionMarkContent={questionMarkContent}
+        titleProps={titleProps}
       />
 
       <XStack gap="$2">

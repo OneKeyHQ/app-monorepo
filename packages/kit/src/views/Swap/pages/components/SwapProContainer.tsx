@@ -6,8 +6,10 @@ import { IconButton, XStack, YStack } from '@onekeyhq/components';
 import { TabBarItem } from '@onekeyhq/components/src/composite/Tabs/TabBar';
 
 import { ETabName } from '../../../Perp/layouts/PerpMobileLayout';
+import { useSwapProTokenDetailInfo } from '../../hooks/useSwapPro';
 
 import SwapProTokenSelector from './SwapProTokenSelect';
+import SwapProTradeInfoPanel from './SwapProTradeInfoPanel';
 import SwapProTradingPanel from './SwapProTradingPanel';
 
 interface ISwapProContainerProps {
@@ -19,9 +21,12 @@ const SwapProContainer = ({ onProSelectToken }: ISwapProContainerProps) => {
   const [activeTab, setActiveTab] = useState<ETabName | string>(
     ETabName.Positions,
   );
-  const handleRefresh = useCallback(() => {
-    console.log('handleRefresh');
-  }, []);
+  const { fetchTokenMarketDetailInfo } = useSwapProTokenDetailInfo();
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchTokenMarketDetailInfo();
+    setRefreshing(false);
+  }, [fetchTokenMarketDetailInfo]);
 
   return (
     <ScrollView
@@ -33,14 +38,14 @@ const SwapProContainer = ({ onProSelectToken }: ISwapProContainerProps) => {
         <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
       }
     >
-      <XStack justifyContent="space-between" p="$4">
+      <XStack justifyContent="space-between" py="$4">
         <SwapProTokenSelector onSelectTokenClick={onProSelectToken} />
         <IconButton icon="AccessibilityEyeSolid" />
       </XStack>
       {/* <PerpTickerBar /> */}
-      <XStack gap="$2.5" px="$4" pb="$4">
+      <XStack gap="$2.5" pb="$4">
         <YStack flexBasis="35%" flexShrink={1}>
-          {/* <PerpOrderBook /> */}
+          <SwapProTradeInfoPanel />
         </YStack>
         <YStack flexBasis="65%" flexShrink={1}>
           <SwapProTradingPanel />
@@ -52,8 +57,6 @@ const SwapProContainer = ({ onProSelectToken }: ISwapProContainerProps) => {
         borderBottomColor="$borderSubdued"
         justifyContent="space-between"
         alignItems="center"
-        pr="$4"
-        pl="$4"
       >
         <XStack gap="$5">
           <TabBarItem

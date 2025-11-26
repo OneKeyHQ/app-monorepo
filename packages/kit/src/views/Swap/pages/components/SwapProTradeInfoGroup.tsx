@@ -25,9 +25,36 @@ const SwapProTradeInfoGroup = () => {
   }, [inputToken]);
   return (
     <YStack gap="$3">
-      <SwapCommonInfoItem title="Balance" value={balanceValue} />
-      <SwapCommonInfoItem title="Est. Receive" value={balanceValue} />
-      <SwapCommonInfoItem title="TradingFee" value={balanceValue} />
+      <SwapCommonInfoItem
+        title="Balance"
+        value={balanceValue}
+        titleProps={{
+          size: '$bodySm',
+        }}
+        valueProps={{
+          size: '$bodySmMedium',
+        }}
+      />
+      <SwapCommonInfoItem
+        title="Est. Receive"
+        value={balanceValue}
+        titleProps={{
+          size: '$bodySm',
+        }}
+        valueProps={{
+          size: '$bodySmMedium',
+        }}
+      />
+      <SwapCommonInfoItem
+        title="TradingFee"
+        value={balanceValue}
+        titleProps={{
+          size: '$bodySm',
+        }}
+        valueProps={{
+          size: '$bodySmMedium',
+        }}
+      />
     </YStack>
   );
 };

@@ -18,6 +18,7 @@ import {
   checkWrappedTokenPair,
   equalTokenNoCaseSensitive,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
+import type { IMarketTokenDetailResponse } from '@onekeyhq/shared/types/marketV2';
 import {
   swapBridgeDefaultTokenConfigs,
   swapBridgeDefaultTokenExtraConfigs,
@@ -70,6 +71,8 @@ import {
   swapManualSelectQuoteProvidersAtom,
   swapNetworks,
   swapNetworksIncludeAllNetworkAtom,
+  swapProTokenMarketDetailInfoAtom,
+  swapProTokenMarketDetailInfoLoadingAtom,
   swapQuoteActionLockAtom,
   swapQuoteCurrentSelectAtom,
   swapQuoteEventTotalCountAtom,
@@ -1808,6 +1811,61 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     }
     await this.limitMarketPriceRun.call(set, fromToken, toToken);
   });
+
+  swapProTokenMarketDetailFetchAction = contextAtomMethod(
+    async (get, set, contractAddress: string, networkId: string) => {
+      try {
+        set(swapProTokenMarketDetailInfoLoadingAtom(), true);
+        const tokenDetail =
+          await backgroundApiProxy.serviceMarketV2.fetchMarketTokenDetailByTokenAddress(
+            contractAddress,
+            networkId,
+          );
+        console.log('swap__tokenDetail', tokenDetail);
+        const responseData =
+          tokenDetail as unknown as IMarketTokenDetailResponse;
+
+        if (
+          typeof responseData?.data?.token?.name === 'undefined' ||
+          responseData.data.token.name === ''
+        ) {
+          console.warn('Token detail is not available');
+          return;
+        }
+
+        // Extract token and websocket data from new response format
+        const tokenData = responseData.data.token;
+        const currentTokenDetail = get(swapProTokenMarketDetailInfoAtom());
+        const isSameToken =
+          currentTokenDetail &&
+          equalTokenNoCaseSensitive({
+            token1: {
+              networkId,
+              contractAddress: tokenData.address,
+            },
+            token2: {
+              networkId,
+              contractAddress: currentTokenDetail.address || '',
+            },
+          });
+        const hasKLinePrice = isSameToken && currentTokenDetail?.lastUpdated;
+
+        const finalTokenData = hasKLinePrice
+          ? {
+              ...tokenData,
+              price: currentTokenDetail.price, // Always use K-line price
+              lastUpdated: currentTokenDetail.lastUpdated,
+            }
+          : tokenData;
+
+        set(swapProTokenMarketDetailInfoAtom(), finalTokenData);
+      } catch (error) {
+        console.error('swap__tokenDetail error', error);
+      } finally {
+        set(swapProTokenMarketDetailInfoLoadingAtom(), false);
+      }
+    },
+  );
 }
 
 const createActions = memoFn(() => new ContentJotaiActionsSwap());
@@ -1828,6 +1886,8 @@ export const useSwapActions = () => {
   const swapTypeSwitchAction = actions.swapTypeSwitchAction.use();
   const limitOrderMarketPriceIntervalAction =
     actions.limitOrderMarketPriceIntervalAction.use();
+  const swapProTokenMarketDetailFetchAction =
+    actions.swapProTokenMarketDetailFetchAction.use();
   const {
     cleanQuoteInterval,
     closeQuoteEvent,
@@ -1853,5 +1913,6 @@ export const useSwapActions = () => {
     needChangeToken,
     limitOrderMarketPriceIntervalAction,
     cleanLimitOrderMarketPriceInterval,
+    swapProTokenMarketDetailFetchAction,
   });
 };
