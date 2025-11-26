@@ -2029,6 +2029,7 @@
   "mev_protection_note": "This feature is not supported if you use a custom RPC or external wallet.",
   "msg__str_is_required_for_network_fees_top_up_str_to_make_tx": "Insufficient {symbol} for network fees. Add at least {amount} {symbol}",
   "msg__transaction_with_the_same_nonce_already_exist_please_pay_a_higher_network_fee_otherwise_the_transaction_may_fail": "Transactions with the same nonce already exist, please pay a higher network fee, otherwise the transaction may fail.",
+  "msg_insufficient_network_fee": "Insufficient {symbol} for network fees. Add at least {amount} {symbol}",
   "native_token_tooltip": "This is the cryptocurrency used to pay for network fees",
   "network.all_networks_selection_tip": "When you select \"All Networks\", you can customize which networks to include. To keep loading fast, only popular networks are enabled by default—but you can easily enable additional networks here.",
   "network.enabled_but_no_address_notice": "You have {count} enabled networks, but some don’t have addresses yet",

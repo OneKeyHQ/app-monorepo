@@ -2029,6 +2029,7 @@
   "mev_protection_note": "Fitur ini tidak didukung jika Anda menggunakan RPC kustom atau dompet eksternal.",
   "msg__str_is_required_for_network_fees_top_up_str_to_make_tx": "Jumlah {symbol} tidak mencukupi untuk biaya jaringan. Tambahkan setidaknya {amount} {symbol}",
   "msg__transaction_with_the_same_nonce_already_exist_please_pay_a_higher_network_fee_otherwise_the_transaction_may_fail": "Transaksi dengan nonce yang sama sudah ada, silakan bayar biaya jaringan yang lebih tinggi, jika tidak transaksi mungkin gagal.",
+  "msg_insufficient_network_fee": "Jumlah {symbol} tidak mencukupi untuk biaya jaringan. Tambahkan setidaknya {amount} {symbol}",
   "native_token_tooltip": "Ini adalah mata uang kripto yang digunakan untuk membayar biaya jaringan",
   "network.all_networks_selection_tip": "Ketika Anda memilih \"Semua Jaringan\", Anda dapat menyesuaikan jaringan mana yang akan disertakan. Untuk menjaga agar pemuatan tetap cepat, hanya jaringan populer yang diaktifkan secara default—tetapi Anda dapat dengan mudah mengaktifkan jaringan tambahan di sini.",
   "network.enabled_but_no_address_notice": "Anda memiliki {count} jaringan yang diaktifkan, tetapi beberapa belum memiliki alamat",

@@ -2029,6 +2029,7 @@
   "mev_protection_note": "Este recurso não é suportado se você usar um RPC personalizado ou uma carteira externa.",
   "msg__str_is_required_for_network_fees_top_up_str_to_make_tx": "Saldo insuficiente de {symbol} para taxas de rede. Adicione pelo menos {amount} {symbol}",
   "msg__transaction_with_the_same_nonce_already_exist_please_pay_a_higher_network_fee_otherwise_the_transaction_may_fail": "Transações com o mesmo nonce já existem, por favor, pague uma taxa de rede mais alta, caso contrário, a transação pode falhar.",
+  "msg_insufficient_network_fee": "Saldo insuficiente de {symbol} para taxas de rede. Adicione pelo menos {amount} {symbol}",
   "native_token_tooltip": "Esta é a criptomoeda usada para pagar as taxas de rede",
   "network.all_networks_selection_tip": "Quando você seleciona \"Todas as Redes\", você pode personalizar quais redes incluir. Para manter o carregamento rápido, apenas as redes populares estão habilitadas por padrão—mas você pode facilmente habilitar redes adicionais aqui.",
   "network.enabled_but_no_address_notice": "Você tem {count} redes ativadas, mas algumas ainda não têm endereços",

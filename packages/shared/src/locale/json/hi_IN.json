@@ -2029,6 +2029,7 @@
   "mev_protection_note": "यदि आप एक कस्टम RPC या बाहरी वॉलेट का उपयोग करते हैं, तो यह सुविधा समर्थित नहीं है।",
   "msg__str_is_required_for_network_fees_top_up_str_to_make_tx": "नेटवर्क शुल्क के लिए अपर्याप्त {symbol}। कम से कम {amount} {symbol} जोड़ें",
   "msg__transaction_with_the_same_nonce_already_exist_please_pay_a_higher_network_fee_otherwise_the_transaction_may_fail": "समान नॉन्स के साथ लेन-देन पहले से मौजूद हैं, कृपया एक उच्च नेटवर्क शुल्क दें, अन्यथा लेन-देन विफल हो सकता है।",
+  "msg_insufficient_network_fee": "नेटवर्क शुल्क के लिए अपर्याप्त {symbol}। कम से कम {amount} {symbol} जोड़ें",
   "native_token_tooltip": "यह वह क्रिप्टोकरेंसी है जिसका उपयोग नेटवर्क शुल्क के भुगतान के लिए किया जाता है",
   "network.all_networks_selection_tip": "जब आप \"सभी नेटवर्क\" चुनते हैं, तो आप यह अनुकूलित कर सकते हैं कि किन नेटवर्क्स को शामिल करना है। लोडिंग को तेज़ रखने के लिए, केवल लोकप्रिय नेटवर्क्स को डिफ़ॉल्ट रूप से सक्षम किया गया है—लेकिन आप यहाँ आसानी से अतिरिक्त नेटवर्क्स को सक्षम कर सकते हैं।",
   "network.enabled_but_no_address_notice": "आपके पास {count} सक्षम नेटवर्क हैं, लेकिन कुछ के पास अभी तक पते नहीं हैं।",

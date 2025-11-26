@@ -2029,6 +2029,7 @@
   "mev_protection_note": "Эта функция не поддерживается, если вы используете пользовательский RPC или внешний кошелек.",
   "msg__str_is_required_for_network_fees_top_up_str_to_make_tx": "Недостаточно {symbol} для сетевых комиссий. Добавьте как минимум {amount} {symbol}",
   "msg__transaction_with_the_same_nonce_already_exist_please_pay_a_higher_network_fee_otherwise_the_transaction_may_fail": "Транзакции с таким же nonce уже существуют, пожалуйста, уплатите более высокую сетевую комиссию, иначе транзакция может не пройти.",
+  "msg_insufficient_network_fee": "Недостаточно {symbol} для сетевых комиссий. Добавьте как минимум {amount} {symbol}",
   "native_token_tooltip": "Это криптовалюта, используемая для оплаты сетевых комиссий",
   "network.all_networks_selection_tip": "Когда вы выбираете \"Все сети\", вы можете настроить, какие сети включить. Чтобы загрузка происходила быстро, по умолчанию включены только популярные сети, но вы можете легко включить дополнительные сети здесь.",
   "network.enabled_but_no_address_notice": "У вас {count} включенных сетей, но у некоторых еще нет адресов",
