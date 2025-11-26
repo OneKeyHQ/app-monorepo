@@ -180,6 +180,7 @@ function useFirmwareVerifyBase({
 
       switch (code) {
         case HardwareErrorCode.ActionCancelled:
+        case HardwareErrorCode.CallQueueActionCancelled:
         case HardwareErrorCode.NewFirmwareForceUpdate:
           void dialogInstance.close();
           break;

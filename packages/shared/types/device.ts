@@ -17,6 +17,7 @@ import type {
   Success,
   Unsuccessful,
 } from '@onekeyfe/hd-core';
+import type { EFirmwareType } from '@onekeyfe/hd-shared';
 import type { Features as FeaturesTransport } from '@onekeyfe/hd-transport';
 import type { ImageSourcePropType } from 'react-native';
 
@@ -46,6 +47,7 @@ export type IFirmwareUpdatesDetectStatus = Partial<{
     connectId: string;
     hasUpgrade: boolean;
     toVersion: string | undefined;
+    toFirmwareType: EFirmwareType | undefined;
     toVersionBle: string | undefined;
     // hasUpgradeForce: boolean;
   };
@@ -83,7 +85,9 @@ type IFirmwareUpdateInfoBase<T> = {
   hasUpgradeForce: boolean;
   firmwareType: IDeviceFirmwareType;
   fromVersion: string;
+  fromFirmwareType: EFirmwareType | undefined;
   toVersion: string;
+  toFirmwareType: EFirmwareType | undefined;
   changelog: IFirmwareChangeLog | undefined;
   releasePayload: T;
   githubReleaseUrl?: string;
@@ -336,6 +340,7 @@ export interface IFetchFirmwareVerifyHashParams {
   firmwareVersion: string;
   bluetoothVersion: string;
   bootloaderVersion: string;
+  firmwareType: EFirmwareType | undefined;
 }
 
 export interface IDeviceVerifyRawVersions {
@@ -393,6 +398,7 @@ export type IFirmwareUpdateV3VersionParams = {
   bleVersion: string | undefined;
   firmwareVersion: string | undefined;
   bootloaderVersion: string | undefined;
+  firmwareType: EFirmwareType | undefined;
 };
 
 export enum EHardwareCallContext {

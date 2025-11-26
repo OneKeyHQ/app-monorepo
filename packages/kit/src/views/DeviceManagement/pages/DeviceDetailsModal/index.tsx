@@ -29,6 +29,7 @@ import {
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IHwQrWalletWithDevice } from '@onekeyhq/shared/types/account';
 
@@ -37,6 +38,7 @@ import DeviceBasicInfoSection from './DeviceBasicInfoSection';
 import DeviceQrInfoSection from './DeviceQrInfoSection';
 import DeviceSpecsSection from './DeviceSpecsSection';
 
+import type { EFirmwareType } from '@onekeyfe/hd-shared';
 import type { RouteProp } from '@react-navigation/native';
 
 function DeviceDetailsModalCmp() {
@@ -125,11 +127,15 @@ function DeviceDetailsModalCmp() {
   }, [result?.device, showFirmwareVerifyDialog]);
 
   const actions = useFirmwareUpdateActions();
-  const onPressCheckForUpdates = useCallback(() => {
-    actions.openChangeLogModal({
-      connectId: result?.device?.connectId,
-    });
-  }, [result?.device?.connectId, actions]);
+  const onPressCheckForUpdates = useCallback(
+    (firmwareType?: EFirmwareType) => {
+      actions.openChangeLogModal({
+        connectId: result?.device?.connectId,
+        firmwareType,
+      });
+    },
+    [result?.device?.connectId, actions],
+  );
 
   const onPressTroubleshooting = useCallback(() => {
     navigation.push(EModalDeviceManagementRoutes.HardwareTroubleshootingModal, {
@@ -197,16 +203,25 @@ function DeviceDetailsModalCmp() {
     };
   }, [result?.device?.connectId, detectStatus]);
 
+  const openChangeLogModalCallback = useCallback(() => {
+    actions.openChangeLogModal({ connectId: result?.device?.connectId });
+  }, [actions, result?.device?.connectId]);
+
   const renderUpdateAlert = useCallback(() => {
     if (isQrWallet) return null;
     if (!detectResult?.shouldUpdate) return null;
 
     let message = 'New firmware is available';
     if (detectResult?.detectInfo?.toVersion) {
+      const firmwareTypeLabel = deviceUtils.getFirmwareTypeLabelByFirmwareType({
+        firmwareType: detectResult.detectInfo.toFirmwareType,
+        displayFormat: 'withSpace',
+      });
+      const version = `${firmwareTypeLabel}${detectResult.detectInfo.toVersion}`;
       message = intl.formatMessage(
         { id: ETranslations.update_firmware_version_available },
         {
-          version: detectResult.detectInfo.toVersion,
+          version,
         },
       );
     } else if (detectResult?.detectInfo?.toVersionBle) {
@@ -227,12 +242,10 @@ function DeviceDetailsModalCmp() {
           borderRadius: '$3',
         }}
         message={message}
-        onPress={() => {
-          actions.openChangeLogModal({ connectId: result?.device?.connectId });
-        }}
+        onPress={openChangeLogModalCallback}
       />
     );
-  }, [intl, actions, result?.device?.connectId, detectResult, isQrWallet]);
+  }, [intl, openChangeLogModalCallback, detectResult, isQrWallet]);
 
   const renderContent = useCallback(() => {
     if (isLoading || !result) {

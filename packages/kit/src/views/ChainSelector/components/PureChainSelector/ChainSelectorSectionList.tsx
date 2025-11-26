@@ -25,7 +25,6 @@ import type {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { NetworkAvatarBase } from '@onekeyhq/kit/src/components/NetworkAvatar';
-import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -64,8 +63,6 @@ const ChainSelectorSectionListContent = ({
   onPressItem,
   networkId,
   initialScrollIndex,
-  recentNetworksEnabled,
-  networks,
   listRef,
 }: IChainSelectorSectionListContentProps & {
   initialScrollIndex: ISectionListProps<any>['initialScrollIndex'];
@@ -93,14 +90,6 @@ const ChainSelectorSectionListContent = ({
           : {
               minHeight: '100vh',
             }
-      }
-      ListHeaderComponent={
-        recentNetworksEnabled ? (
-          <RecentNetworks
-            onPressItem={onPressItem}
-            availableNetworks={networks}
-          />
-        ) : null
       }
       ListFooterComponent={<Stack h={bottom || '$2'} />}
       estimatedItemSize={48}
@@ -359,6 +348,12 @@ export const ChainSelectorSectionList: FC<IChainSelectorSectionListProps> = ({
           onChangeText={onChangeText}
         />
       </Stack>
+      {recentNetworksEnabled ? (
+        <RecentNetworks
+          onPressItem={onPressItem}
+          availableNetworks={networks}
+        />
+      ) : null}
       {/* Re-render the entire list after each text update */}
       {loading ? loadingElement : renderSections()}
     </Stack>

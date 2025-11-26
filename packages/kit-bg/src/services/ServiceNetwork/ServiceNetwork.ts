@@ -1,3 +1,4 @@
+import { EFirmwareType } from '@onekeyfe/hd-shared';
 import BigNumber from 'bignumber.js';
 import { isEmpty, isNil, uniq, uniqBy } from 'lodash';
 
@@ -22,7 +23,7 @@ import {
   AGGREGATE_TOKEN_MOCK_NETWORK_ID,
   NETWORK_SHOW_VALUE_THRESHOLD_USD,
 } from '@onekeyhq/shared/src/consts/networkConsts';
-import { SEPERATOR } from '@onekeyhq/shared/src/engine/engineConsts';
+import { IMPL_BTC, SEPERATOR } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
@@ -31,6 +32,7 @@ import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import perfUtils, {
   EPerformanceTimerLogNames,
 } from '@onekeyhq/shared/src/utils/debug/perfUtils';
+import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import type {
   IDetectedNetwork,
   IDetectedNetworkGroupItem,
@@ -1171,6 +1173,7 @@ class ServiceNetwork extends ServiceBase {
             walletId,
           });
         if (walletDevice) {
+          // Filter by device type
           const networksDeviceTypeDisabled = networkVaultSettings
             .filter((o) => {
               const deviceTypes = o.vaultSetting.supportedDeviceTypes;
@@ -1183,6 +1186,20 @@ class ServiceNetwork extends ServiceBase {
           networkIdsIncompatible = networkIdsIncompatible.concat(
             networksDeviceTypeDisabled,
           );
+
+          // Filter by firmware type (Bitcoin Only, etc.)
+          const firmwareType = await deviceUtils.getFirmwareType({
+            features: walletDevice.featuresInfo,
+          });
+
+          if (firmwareType === EFirmwareType.BitcoinOnly) {
+            // Bitcoin Only firmware: only allow BTC implementation networks
+            const nonBtcNetworks = networkVaultSettings
+              .filter((o) => o.network.impl !== IMPL_BTC)
+              .map((o) => o.network.id);
+            networkIdsIncompatible =
+              networkIdsIncompatible.concat(nonBtcNetworks);
+          }
         }
       } else if (isHdWallet) {
         // is software wallet

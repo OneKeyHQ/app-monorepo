@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 
+import { EFirmwareType } from '@onekeyfe/hd-shared';
 import { useIntl } from 'react-intl';
 
 import type { IBadgeType, IIconProps, IKeyOfIcons } from '@onekeyhq/components';
@@ -24,7 +25,7 @@ function DeviceBasicInfoSection({
   data: IHwQrWalletWithDevice;
   onPressHomescreen: () => void;
   onPressAuthRequest: () => void;
-  onPressCheckForUpdates: () => void;
+  onPressCheckForUpdates: (firmwareType?: EFirmwareType) => void;
   onPressTroubleshooting: () => void;
   authRequestLoading: boolean;
 }) {
@@ -34,7 +35,9 @@ function DeviceBasicInfoSection({
 
   const defaultInfo = useMemo(
     () => ({
-      firmwareVersion: '-',
+      firmwareVersion: '0.0.0',
+      firmwareVersionDisplay: '-',
+      firmwareType: undefined,
       walletAvatarBadge: undefined,
       verifiedBadgeType: 'default' as IBadgeType,
       verifiedBadgeText: '-',
@@ -77,12 +80,26 @@ function DeviceBasicInfoSection({
         },
       };
 
+      const firmwareType = await deviceUtils.getFirmwareType({
+        features: device.featuresInfo,
+      });
+      const firmwareTypeLabel = deviceUtils.getFirmwareTypeLabelByFirmwareType({
+        firmwareType,
+        displayFormat: 'withSpace',
+      });
+
+      const firmwareVersionDisplay = versions?.firmwareVersion
+        ? `${firmwareTypeLabel}v${versions?.firmwareVersion}`
+        : '-';
+
       const status = isVerified
         ? verificationStatus.success
         : verificationStatus.critical;
 
       return {
-        firmwareVersion: versions?.firmwareVersion ?? '-',
+        firmwareVersion: versions?.firmwareVersion ?? '0.0.0',
+        firmwareVersionDisplay,
+        firmwareType,
         walletAvatarBadge: undefined,
         verifiedBadgeType: status.type,
         verifiedBadgeIconName: status.icon,
@@ -116,7 +133,7 @@ function DeviceBasicInfoSection({
           {isQrWallet ? null : (
             <XStack mt="$1.5" gap="$1.5">
               <Badge badgeSize="sm" badgeType="default">
-                {`v${deviceInfo.firmwareVersion}`}
+                {deviceInfo.firmwareVersionDisplay}
               </Badge>
               <Badge badgeSize="sm" badgeType={deviceInfo.verifiedBadgeType}>
                 <XStack ai="center" gap="$1.5">
@@ -159,7 +176,28 @@ function DeviceBasicInfoSection({
               id: ETranslations.global_check_for_updates,
             })}
             drillIn
-            onPress={onPressCheckForUpdates}
+            onPress={() => onPressCheckForUpdates()}
+          />
+          <ListItem
+            title={intl.formatMessage(
+              {
+                id: ETranslations.device_settings_switch_firmware_type,
+              },
+              {
+                type:
+                  deviceInfo.firmwareType === EFirmwareType.BitcoinOnly
+                    ? 'Universal'
+                    : 'Bitcoin-only',
+              },
+            )}
+            drillIn
+            onPress={() =>
+              onPressCheckForUpdates(
+                deviceInfo.firmwareType === EFirmwareType.BitcoinOnly
+                  ? EFirmwareType.Universal
+                  : EFirmwareType.BitcoinOnly,
+              )
+            }
           />
           <ListItem
             title={intl.formatMessage({

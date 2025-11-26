@@ -215,6 +215,7 @@ export function useFirmwareUpdateErrors({
         code: [
           HardwareErrorCode.PinCancelled,
           HardwareErrorCode.ActionCancelled,
+          HardwareErrorCode.CallQueueActionCancelled,
           HardwareErrorCode.DeviceInterruptedFromOutside,
         ],
       })
@@ -407,6 +408,25 @@ export function useFirmwareUpdateErrors({
     ) {
       return {
         content: <ShouldUpdateByWeb />,
+        retryText: defaultRetryText,
+      };
+    }
+
+    if (
+      isHardwareErrorByCode({
+        error,
+        code: [HardwareErrorCode.FirmwareDowngradeNotAllowed],
+      })
+    ) {
+      return {
+        content: (
+          <CommonError
+            icon="CrossedLargeOutline"
+            title={intl.formatMessage({
+              id: ETranslations.device_firmware_upgrade_disallow_downgrade,
+            })}
+          />
+        ),
         retryText: defaultRetryText,
       };
     }

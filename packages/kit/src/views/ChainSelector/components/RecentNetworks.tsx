@@ -2,6 +2,7 @@ import { memo, useCallback, useEffect } from 'react';
 
 import { useIntl } from 'react-intl';
 
+import type { IStackProps } from '@onekeyhq/components';
 import {
   Button,
   IconButton,
@@ -56,10 +57,12 @@ function RecentNetworks({
   onPressItem,
   setRecentNetworksHeight,
   availableNetworks,
+  containerProps,
 }: {
   onPressItem?: (network: IServerNetwork) => void;
   setRecentNetworksHeight?: (height: number) => void;
   availableNetworks?: IServerNetwork[];
+  containerProps?: IStackProps;
 }) {
   const intl = useIntl();
 
@@ -110,7 +113,7 @@ function RecentNetworks({
   }, [run]);
 
   return (
-    <Stack onLayout={handleLayout}>
+    <Stack onLayout={handleLayout} {...containerProps}>
       {recentNetworks.length > 0 ? (
         <>
           <SectionList.SectionHeader

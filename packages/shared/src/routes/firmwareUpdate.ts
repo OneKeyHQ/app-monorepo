@@ -1,5 +1,7 @@
 import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/shared/types/device';
 
+import type { EFirmwareType } from '@onekeyfe/hd-shared';
+
 export enum EModalFirmwareUpdateRoutes {
   ChangeLog = 'ChangeLog',
   Install = 'Install',
@@ -9,6 +11,7 @@ export enum EModalFirmwareUpdateRoutes {
 export type IModalFirmwareUpdateParamList = {
   [EModalFirmwareUpdateRoutes.ChangeLog]: {
     connectId: string | undefined;
+    firmwareType: EFirmwareType | undefined;
   };
   [EModalFirmwareUpdateRoutes.Install]: {
     result: ICheckAllFirmwareReleaseResult;
