@@ -1129,10 +1129,12 @@ class ServiceStaking extends ServiceBase {
       }
     }
 
+    const { accountId, ...rest } = params;
+
     const response = await client.get<{ data: IEarnInvestmentItemV2 }>(
       `/earn/v2/investment/detail`,
       {
-        params,
+        params: rest,
         headers:
           await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
             accountId: params.accountId,
