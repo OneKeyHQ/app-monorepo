@@ -1114,6 +1114,7 @@ class ServiceStaking extends ServiceBase {
     provider: string;
     symbol: string;
     kycAccountAddress?: string;
+    accountId: string;
   }) {
     const client = await this.getClient(EServiceEndpointEnum.Earn);
 
@@ -1130,7 +1131,13 @@ class ServiceStaking extends ServiceBase {
 
     const response = await client.get<{ data: IEarnInvestmentItemV2 }>(
       `/earn/v2/investment/detail`,
-      { params },
+      {
+        params,
+        headers:
+          await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+            accountId: params.accountId,
+          }),
+      },
     );
 
     return response.data.data;

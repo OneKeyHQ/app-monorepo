@@ -69,6 +69,7 @@ interface IFetchInvestmentParams {
   networkId: string;
   provider: string;
   symbol: string;
+  accountId: string;
 }
 
 interface IFetchInvestmentResult {
@@ -555,6 +556,10 @@ export const useEarnPortfolio = ({
             .map((asset) => ({
               isAirdrop: asset.type === 'airdrop',
               params: {
+                accountId:
+                  accountIdValue ||
+                  accountIndexedAccountIdValue ||
+                  indexedAccountIdValue,
                 accountAddress: accountItem.accountAddress,
                 networkId: accountItem.networkId,
                 provider: asset.provider,
