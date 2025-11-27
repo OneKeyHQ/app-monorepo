@@ -7,9 +7,9 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
+import { EarnNavigation } from '@onekeyhq/kit/src/views/Earn/earnUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { ETabEarnRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 
 import { RawActions } from './RawActions';
 
@@ -101,28 +101,22 @@ export function WalletActionEarn(props: {
 
     if (protocols.length === 1) {
       const protocol = protocolList[0];
-      navigation.switchTab(ETabRoutes.Earn, {
-        screen: ETabEarnRoutes.EarnProtocolDetails,
-        params: {
-          networkId,
-          accountId,
-          indexedAccountId,
-          symbol,
-          provider: protocol.provider.name,
-          vault: protocol.provider.vault,
-        },
+      await EarnNavigation.pushToEarnProtocolDetails(navigation, {
+        networkId,
+        accountId,
+        indexedAccountId,
+        symbol,
+        provider: protocol.provider.name,
+        vault: protocol.provider.vault,
       });
       return;
     }
 
     // Navigate to protocols list page for multiple protocols
-    navigation.switchTab(ETabRoutes.Earn, {
-      screen: ETabEarnRoutes.EarnProtocols,
-      params: {
-        symbol,
-        filterNetworkId: networkId,
-        logoURI: logoURI ? encodeURIComponent(logoURI) : undefined,
-      },
+    EarnNavigation.pushToEarnProtocols(navigation, {
+      symbol,
+      filterNetworkId: networkId,
+      logoURI: logoURI ? encodeURIComponent(logoURI) : undefined,
     });
   }, [
     logoURI,

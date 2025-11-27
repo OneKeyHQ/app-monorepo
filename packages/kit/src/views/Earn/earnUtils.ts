@@ -9,6 +9,7 @@ import {
   EModalRoutes,
   EModalStakingRoutes,
   ERootRoutes,
+  ETabDiscoveryRoutes,
   ETabEarnRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
@@ -65,8 +66,14 @@ async function safePushToEarnRoute(
     | ETabRoutes
     | undefined;
 
-  // 在「发现」Tab 内的 DeFi 子页，保持在当前 Tab 栈内导航，避免切到隐藏的 Earn Tab。
   if (currentTab === ETabRoutes.Discovery) {
+    // When navigating to EarnHome from Discovery tab, pop back to TabDiscovery with earnTab param
+    if (route === ETabEarnRoutes.EarnHome) {
+      navigation.popTo(ETabDiscoveryRoutes.TabDiscovery, params);
+      return;
+    }
+
+    // For other routes in Discovery tab
     if (rootNavigationRef.current) {
       rootNavigationRef.current.navigate(ERootRoutes.Main, {
         screen: ETabRoutes.Discovery,
@@ -84,20 +91,16 @@ async function safePushToEarnRoute(
     return;
   }
 
-  if (currentTab !== ETabRoutes.Earn) {
-    navigation.switchTab(ETabRoutes.Earn, {
-      screen: route,
-      params,
-    });
+  if (currentTab === ETabRoutes.Earn) {
+    // Already in Earn tab, use direct navigation
+    navigation.navigate(route as any, params);
     return;
   }
 
-  navigation.navigate(ERootRoutes.Main, {
-    screen: ETabRoutes.Earn,
-    params: {
-      screen: route,
-      params,
-    },
+  // From other tabs (Home, Me, etc.), switch to Discovery tab
+  navigation.switchTab(ETabRoutes.Discovery, {
+    screen: route as any,
+    params,
   });
 }
 

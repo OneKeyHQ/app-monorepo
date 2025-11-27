@@ -675,6 +675,7 @@ class ServiceStaking extends ServiceBase {
     vault?: string;
     accountAddress: string;
     publicKey?: string;
+    accountId: string;
   }) {
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const requestParams = {
@@ -688,7 +689,13 @@ class ServiceStaking extends ServiceBase {
 
     const resp = await client.get<{ data: IEarnManagePageResponse }>(
       '/earn/v1/manage-page',
-      { params: requestParams },
+      {
+        params: requestParams,
+        headers:
+          await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+            accountId: params.accountId,
+          }),
+      },
     );
     return resp.data.data;
   }

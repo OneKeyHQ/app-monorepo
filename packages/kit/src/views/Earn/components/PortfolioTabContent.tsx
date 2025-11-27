@@ -535,12 +535,22 @@ const PortfolioItemComponent = ({
   const intl = useIntl();
   const media = useMedia();
 
+  const depositColumnLabel = useMemo(() => {
+    const firstAsset = portfolioItem?.assets?.[0];
+
+    if (firstAsset?.token?.info?.symbol?.toUpperCase() === 'USDE') {
+      return intl.formatMessage({ id: ETranslations.earn_holdings });
+    }
+
+    return intl.formatMessage({ id: ETranslations.earn_deposited });
+  }, [portfolioItem.assets, intl]);
+
   const columns: ITableColumn<IEarnPortfolioInvestment['assets'][number]>[] =
     useMemo(() => {
       return [
         {
           key: 'deposits',
-          label: intl.formatMessage({ id: ETranslations.earn_deposited }),
+          label: depositColumnLabel,
           flex: 1.5,
           priority: 5,
           render: (asset) => <DepositField asset={asset} />,
@@ -554,7 +564,7 @@ const PortfolioItemComponent = ({
         },
         {
           key: 'Asset status',
-          label: intl.formatMessage({ id: ETranslations.global_status }),
+          label: intl.formatMessage({ id: ETranslations.earn_asset_status }),
           flex: 1,
           priority: 3,
           render: (asset) => <AssetStatusField asset={asset} />,
@@ -567,7 +577,7 @@ const PortfolioItemComponent = ({
           render: (asset) => <ActionField asset={asset} />,
         },
       ];
-    }, [intl]);
+    }, [depositColumnLabel, intl]);
 
   const appNavigation = useAppNavigation();
   const { activeAccount } = useActiveAccount({ num: 0 });
