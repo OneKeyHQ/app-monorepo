@@ -1834,6 +1834,11 @@ class ServiceStaking extends ServiceBase {
   @backgroundMethod()
   async getBlockRegion() {
     try {
+      const isIpConnection =
+        await this.backgroundApi.serviceIpTable.isUsingIpConnection();
+      if (isIpConnection) {
+        return null;
+      }
       const client = await this.getClient(EServiceEndpointEnum.Earn);
       const response = await client.get<{
         data: IStakeBlockRegionResponse;
