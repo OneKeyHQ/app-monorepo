@@ -178,7 +178,6 @@ export type IVaultSettings = {
   replaceTxEnabled: boolean;
   cancelTxEnabled?: boolean;
   speedUpCancelEnabled?: boolean;
-  coinControlEnabled?: boolean;
   // Get the interval time for polling the fee API, in seconds
   estimatedFeePollingInterval: number;
 
@@ -508,9 +507,6 @@ export type ITransferInfo = {
   hexData?: string; // evm tx hex data
 
   xrpMemoFields?: IXrpMemoField[]; // https://xrpl.org/docs/references/protocol/transactions/common-fields#memos-field
-
-  // BTC Coin Control
-  selectedUtxoKeys?: string[]; // Format: "txid:vout" for manually selected UTXOs
 };
 
 export type IApproveInfo = {
@@ -555,7 +551,6 @@ export type IUtxoInfo = {
   confirmations: number;
   address: string;
   path: string;
-  blockTime?: number;
   // Use for Cardano UTXO info
   txIndex?: number;
   amount?: IAdaAmount[];
