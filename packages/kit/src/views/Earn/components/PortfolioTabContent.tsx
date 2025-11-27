@@ -401,7 +401,7 @@ const ProtocolHeader = ({
           <NumberSizeableText
             size="$headingLg"
             color="$textSubdued"
-            formatter="marketCap"
+            formatter="value"
             formatterOptions={{ currency: currencyInfo.symbol }}
           >
             {portfolioItem.totalFiatValue}
