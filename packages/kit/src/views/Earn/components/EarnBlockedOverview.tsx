@@ -38,7 +38,6 @@ export function EarnBlockedOverview(props: {
       ) : null}
       <Page.Body>
         <Empty
-          display={showContent ? undefined : 'none'}
           icon={icon}
           title={title}
           description={description}
