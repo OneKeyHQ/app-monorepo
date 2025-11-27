@@ -54,6 +54,7 @@ export type IFetchAccountDetailsParams = {
   withTronAccountResources?: boolean;
   withTransactionCount?: boolean;
   withXpubDerivedTokens?: boolean;
+  withUTXOBlockTime?: boolean;
 };
 
 export type IFetchAccountDetailsResp = {
