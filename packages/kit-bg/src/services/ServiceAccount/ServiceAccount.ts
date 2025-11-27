@@ -2756,7 +2756,6 @@ class ServiceAccount extends ServiceBase {
       deviceCommonParams: {
         passphraseState: wallet?.passphraseState,
         useEmptyPassphrase: !wallet.passphraseState,
-        skipWebDevicePrompt: platformEnv.isDesktop,
       },
     };
   }
