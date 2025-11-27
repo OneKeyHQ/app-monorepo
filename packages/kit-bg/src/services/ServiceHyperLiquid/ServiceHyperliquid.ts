@@ -19,7 +19,6 @@ import {
   HYPER_LIQUID_CUSTOM_LOCAL_STORAGE_V2_PRESET,
   PERPS_NETWORK_ID,
 } from '@onekeyhq/shared/src/consts/perp';
-import { FIRST_EVM_ADDRESS_PATH } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
@@ -1164,8 +1163,9 @@ export default class ServiceHyperliquid extends ServiceBase {
       return null;
     }
 
+    let wallet;
     try {
-      const wallet = await this.backgroundApi.serviceAccount.getWallet({
+      wallet = await this.backgroundApi.serviceAccount.getWallet({
         walletId,
       });
       if (accountUtils.isHwHiddenWallet({ wallet })) {
@@ -1176,23 +1176,7 @@ export default class ServiceHyperliquid extends ServiceBase {
     }
 
     const referenceNetworkId = getNetworkIdsMap().arbitrum;
-    let referenceAddress = signerAddress;
-
-    try {
-      const firstEvmAccountId = `${walletId}--${FIRST_EVM_ADDRESS_PATH}`;
-      const firstAccount = await this.backgroundApi.serviceAccount.getAccount({
-        accountId: firstEvmAccountId,
-        networkId: referenceNetworkId,
-      });
-      if (firstAccount?.address) {
-        referenceAddress = firstAccount.address;
-      }
-    } catch (error) {
-      console.error(
-        '[getRebateBindingReferenceInfo] Failed to get first EVM address',
-        error,
-      );
-    }
+    const referenceAddress = wallet.firstEvmAddress || signerAddress;
 
     return { walletId, referenceAddress, referenceNetworkId };
   }
