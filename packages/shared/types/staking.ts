@@ -509,8 +509,8 @@ export interface IEarnRebateTooltip {
 export interface IEarnWithdrawTooltip {
   type: 'withdraw';
   data: {
-    title: string;
-    description: string;
+    title: IEarnText;
+    description: IEarnText;
     items: {
       title: IEarnText;
       description: IEarnText;
