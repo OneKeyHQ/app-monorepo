@@ -23,10 +23,12 @@ import {
   IP_TABLE_SPEED_TEST_TIMEOUT_MS,
 } from '@onekeyhq/shared/src/request/constants/ipTableDefaults';
 import {
+  getSelectedIpForHost,
   setReportRequestFailureCallback,
   testDomainSpeed,
   testIpSpeed,
 } from '@onekeyhq/shared/src/request/helpers/ipTableAdapter';
+import { isSniSupported } from '@onekeyhq/shared/src/request/helpers/sniRequest';
 import { getRequestHeaders } from '@onekeyhq/shared/src/request/Interceptor';
 import type {
   IIpTableConfigWithRuntime,
@@ -203,6 +205,67 @@ class ServiceIpTable extends ServiceBase {
   @backgroundMethod()
   async getConfig(): Promise<IIpTableConfigWithRuntime> {
     return this.backgroundApi.simpleDb.ipTable.getConfig();
+  }
+
+  private async getConnectionInfo(): Promise<{
+    type: 'ip' | 'domain';
+    ip?: string;
+    domain: string;
+    sniSupported: boolean;
+  }> {
+    // Determine domain based on devSettings
+    const { enabled: devSettingEnabled, settings } =
+      await devSettingsPersistAtom.get();
+    const domain =
+      devSettingEnabled && settings?.enableTestEndpoint
+        ? ONEKEY_TEST_API_HOST
+        : ONEKEY_API_HOST;
+
+    const sniSupported = isSniSupported();
+
+    // 1. Check platform support
+    if (!sniSupported) {
+      return {
+        type: 'domain',
+        domain,
+        sniSupported: false,
+      };
+    }
+
+    // 2. Check if IP Table is enabled (includes runtime.enabled and devSettings check)
+    const ipTableEnabled = await this.isIpTableEnabled();
+    if (!ipTableEnabled) {
+      return {
+        type: 'domain',
+        domain,
+        sniSupported: true,
+      };
+    }
+
+    // 3. Get selected IP for this domain (use wallet.{domain} as hostname)
+    const hostname = `wallet.${domain}`;
+    const selectedIp = await getSelectedIpForHost(hostname);
+
+    if (selectedIp) {
+      return {
+        type: 'ip',
+        ip: selectedIp,
+        domain,
+        sniSupported: true,
+      };
+    }
+
+    return {
+      type: 'domain',
+      domain,
+      sniSupported: true,
+    };
+  }
+
+  @backgroundMethod()
+  async isUsingIpConnection(): Promise<boolean> {
+    const connectionInfo = await this.getConnectionInfo();
+    return connectionInfo.type === 'ip';
   }
 
   @backgroundMethod()
