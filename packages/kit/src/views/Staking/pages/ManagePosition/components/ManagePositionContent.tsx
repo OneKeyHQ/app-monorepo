@@ -158,7 +158,7 @@ export function ManagePositionContent({
   // Warning element: shows NoAddressWarning or NetworkMismatchWarning based on the situation
   const warningElement = useMemo(() => {
     // BTC-only firmware on non-BTC network - show network mismatch warning
-    if (!!accountNetworkNotSupported) {
+    if (accountNetworkNotSupported) {
       return <NetworkUnsupportedWarning networkId={networkId} />;
     }
 
