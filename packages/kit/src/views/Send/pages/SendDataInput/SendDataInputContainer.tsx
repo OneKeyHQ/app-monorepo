@@ -1,13 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-import {
-  type ReactNode,
-  memo,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
@@ -54,7 +46,6 @@ import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
-import { useSelectedUTXOsAtom } from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
 import {
   useAllTokenListAtom,
   useAllTokenListMapAtom,
@@ -79,7 +70,6 @@ import type {
 import {
   EAssetSelectorRoutes,
   EModalRoutes,
-  EModalSendRoutes,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
@@ -99,8 +89,6 @@ import {
   getAccountIdOnNetwork,
   parseOnChainAmount,
 } from '../../../ScanQrCode/hooks/useParseQRCode';
-import CoinControlBadge from '../../components/CoinControlBadge';
-import { SendConfirmProviderMirror } from '../../components/SendConfirmProvider/SendConfirmProviderMirror';
 
 import RecentRecipients from './RecentRecipients';
 
@@ -151,7 +139,6 @@ function SendDataInputContainer() {
 
   const [allTokens] = useAllTokenListAtom();
   const [map] = useAllTokenListMapAtom();
-  const [selectedUTXOs] = useSelectedUTXOsAtom();
 
   const addressInputChangeType = useRef(EInputAddressChangeType.Manual);
 
@@ -365,27 +352,6 @@ function SendDataInputContainer() {
 
   const isLightningNetwork =
     networkUtils.isLightningNetworkByNetworkId(networkId);
-
-  // Extract selected UTXO keys for current account
-  const currentSelectedUtxoKeys = useMemo(() => {
-    if (
-      selectedUTXOs &&
-      selectedUTXOs.networkId === currentAccount.networkId &&
-      selectedUTXOs.accountId === currentAccount.accountId &&
-      selectedUTXOs.selectedUtxoKeys.length > 0
-    ) {
-      return selectedUTXOs.selectedUtxoKeys;
-    }
-    return undefined;
-  }, [selectedUTXOs, currentAccount.networkId, currentAccount.accountId]);
-
-  useEffect(() => {
-    console.log(
-      '======>>>>>>>>currentSelectedUtxoKeys: ',
-      currentSelectedUtxoKeys,
-    );
-  }, [currentSelectedUtxoKeys]);
-
   const form = useForm<IFormValues>(formOptions);
 
   // token amount or fiat amount
@@ -447,19 +413,14 @@ function SendDataInputContainer() {
     tokenDetails?.price,
   ]);
   const {
-    result: { displayAmountFormItem, displayCoinControlButton } = {
-      displayAmountFormItem: false,
-      displayCoinControlButton: false,
-    },
+    result: { displayAmountFormItem } = { displayAmountFormItem: false },
   } = usePromiseResult(async () => {
     const vs = await backgroundApiProxy.serviceNetwork.getVaultSettings({
       networkId,
     });
-    const showCoinControlButton = !!vs.coinControlEnabled;
     if (!vs?.hideAmountInputOnFirstEntry) {
       return {
         displayAmountFormItem: true,
-        displayCoinControlButton: showCoinControlButton,
       };
     }
     if (toResolved) {
@@ -472,12 +433,10 @@ function SendDataInputContainer() {
         });
       return {
         displayAmountFormItem: validation.isValid,
-        displayCoinControlButton: showCoinControlButton,
       };
     }
     return {
       displayAmountFormItem: false,
-      displayCoinControlButton: showCoinControlButton,
     };
   }, [networkId, toResolved, form]);
 
@@ -690,7 +649,6 @@ function SendDataInputContainer() {
               paymentId: paymentIdValue,
               note: noteValue,
               hexData: tokenDetails?.info.isNative ? hexData : undefined,
-              selectedUtxoKeys: currentSelectedUtxoKeys,
             },
           ];
 
@@ -756,7 +714,6 @@ function SendDataInputContainer() {
     [
       account,
       amount,
-      currentSelectedUtxoKeys,
       displayTxMessageForm,
       form,
       intl,
@@ -960,23 +917,10 @@ function SendDataInputContainer() {
     tokenInfo?.symbol,
   ]);
 
-  const handleCoinControlPress = useCallback(() => {
-    navigation.pushModal(EModalRoutes.SendModal, {
-      screen: EModalSendRoutes.CoinControl,
-      params: {
-        accountId: currentAccount.accountId,
-        networkId: currentAccount.networkId,
-      },
-    });
-  }, [navigation, currentAccount.accountId, currentAccount.networkId]);
-
   const renderAmountInputAddOn = useCallback(() => {
-    const addons: ReactNode[] = [];
-
     if (isLightningNetwork && !isUseFiat) {
-      addons.push(
+      return (
         <LightningUnitSwitch
-          key="lightning-unit-switch"
           value={lnUnit}
           onChange={(v) => {
             setLnUnit(v as ELightningUnit);
@@ -994,14 +938,13 @@ function SendDataInputContainer() {
               }
             }
           }}
-        />,
+        />
       );
     }
 
     if (vaultSettings?.mergeDeriveAssetsEnabled) {
-      addons.push(
+      return (
         <AddressTypeSelector
-          key="address-type-selector"
           placement="top-end"
           walletId={walletId}
           networkId={currentAccount.networkId}
@@ -1019,48 +962,23 @@ function SendDataInputContainer() {
               }));
             }
           }}
-        />,
+        />
       );
     }
-
-    if (displayCoinControlButton) {
-      addons.push(
-        <CoinControlBadge
-          key="coin-control"
-          onPress={handleCoinControlPress}
-        />,
-      );
-    }
-
-    if (!addons.length) return undefined;
-
-    return (
-      <XStack
-        gap="$2"
-        alignItems="center"
-        justifyContent="flex-end"
-        flexShrink={1}
-        flexWrap="wrap"
-      >
-        {addons}
-      </XStack>
-    );
   }, [
-    account?.indexedAccountId,
+    isLightningNetwork,
+    isUseFiat,
+    vaultSettings?.mergeDeriveAssetsEnabled,
+    lnUnit,
+    form,
+    walletId,
     currentAccount.networkId,
+    account?.indexedAccountId,
     deriveInfo,
     deriveType,
     disableAddressTypeSelector,
-    form,
-    handleCoinControlPress,
-    isLightningNetwork,
-    isUseFiat,
-    lnUnit,
-    map,
     showAddressTypeSelectorWhenDisabled,
-    displayCoinControlButton,
-    vaultSettings?.mergeDeriveAssetsEnabled,
-    walletId,
+    map,
   ]);
 
   const renderTokenDataInputForm = useCallback(
@@ -1782,11 +1700,9 @@ function SendDataInputContainer() {
 }
 
 const SendDataInputContainerWithProvider = memo(() => (
-  <SendConfirmProviderMirror>
-    <HomeTokenListProviderMirror>
-      <SendDataInputContainer />
-    </HomeTokenListProviderMirror>
-  </SendConfirmProviderMirror>
+  <HomeTokenListProviderMirror>
+    <SendDataInputContainer />
+  </HomeTokenListProviderMirror>
 ));
 SendDataInputContainerWithProvider.displayName =
   'SendDataInputContainerWithProvider';
