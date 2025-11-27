@@ -172,6 +172,34 @@ export default class ServiceHyperliquid extends ServiceBase {
     hyperLiquidErrorLocales,
   }: IPerpServerConfigResponse) {
     let shouldNotifyToDapp = false;
+
+    // Check configVersion change before updating
+    const prevConfig = await this.backgroundApi.simpleDb.perp.getPerpData();
+    const prevConfigVersion = prevConfig.configVersion;
+    const newConfigVersion = referrerConfig.configVersion;
+    const isConfigVersionChanged =
+      !isNil(newConfigVersion) && prevConfigVersion !== newConfigVersion;
+
+    // If configVersion changed, remove all agent credentials
+    if (isConfigVersionChanged) {
+      console.log(
+        '[ServiceHyperliquid] configVersion changed:',
+        prevConfigVersion,
+        '->',
+        newConfigVersion,
+        ', removing all agent credentials',
+      );
+      try {
+        await this.removeAllAgentCredentialsAndResetStatus();
+      } catch (error) {
+        // Do not block trading if cleanup fails
+        console.error(
+          '[ServiceHyperliquid] Failed to remove agent credentials:',
+          error,
+        );
+      }
+    }
+
     await perpsCommonConfigPersistAtom.set(
       (prev): IPerpsCommonConfigPersistAtom => {
         const newVal = perfUtils.buildNewValueIfChanged(prev, {
@@ -203,6 +231,7 @@ export default class ServiceHyperliquid extends ServiceBase {
             : referrerConfig?.referrerRate,
           agentTTL: referrerConfig.agentTTL ?? prev?.agentTTL,
           referralCode: referrerConfig.referralCode || prev?.referralCode,
+          configVersion: referrerConfig.configVersion ?? prev?.configVersion,
           hyperliquidCustomSettings:
             customSettings || prev?.hyperliquidCustomSettings,
           hyperliquidCustomLocalStorage:
@@ -232,6 +261,25 @@ export default class ServiceHyperliquid extends ServiceBase {
         hyperliquidMaxBuilderFee: config.hyperliquidMaxBuilderFee,
       });
     }
+  }
+
+  async removeAllAgentCredentialsAndResetStatus() {
+    // Remove all agent credentials from local db
+    const removedCount = await localDb.removeAllHyperLiquidAgentCredentials();
+    console.log(
+      '[ServiceHyperliquid] Removed',
+      removedCount,
+      'agent credentials',
+    );
+
+    // Clear related caches
+    this.fetchExtraAgentsWithCache.clear();
+    this.getUserApprovedMaxBuilderFeeWithCache.clear();
+    hyperLiquidCache.activatedUser = {};
+    hyperLiquidCache.referrerCodeSetDone = {};
+
+    // Dispose exchange client and reset account status
+    await this.disposeExchangeClients();
   }
 
   @backgroundMethod()
@@ -268,13 +316,14 @@ export default class ServiceHyperliquid extends ServiceBase {
     return this._updatePerpsConfigByServerWithCache();
   }
 
+  // TODO: Change maxAge back to { hour: 1 } before production release
   _updatePerpsConfigByServerWithCache = cacheUtils.memoizee(
     async () => {
       return this.updatePerpsConfigByServer();
     },
     {
       max: 20,
-      maxAge: timerUtils.getTimeDurationMs({ hour: 1 }),
+      maxAge: 0,
       promise: true,
     },
   );
@@ -1297,13 +1346,6 @@ export default class ServiceHyperliquid extends ServiceBase {
         return;
       }
 
-      const myReferralCode =
-        await this.backgroundApi.serviceReferralCode.getMyReferralCode();
-
-      if (!myReferralCode) {
-        return;
-      }
-
       await this.backgroundApi.serviceReferralCode.bindPerpsWallet({
         action: signatureInfo.action,
         nonce: signatureInfo.nonce,
@@ -1342,6 +1384,28 @@ export default class ServiceHyperliquid extends ServiceBase {
       return;
     }
     try {
+      // Get account info from current active perps account
+      let accountId: string | undefined;
+      let accountName: string | undefined;
+      const activeAccount = await perpsActiveAccountAtom.get();
+      if (activeAccount?.accountId) {
+        accountId = activeAccount.accountId;
+        const walletId = accountUtils.getWalletIdFromAccountId({
+          accountId: activeAccount.accountId,
+        });
+        const [wallet, account] = await Promise.all([
+          this.backgroundApi.serviceAccount.getWallet({ walletId }),
+          this.backgroundApi.serviceAccount.getDBAccount({
+            accountId: activeAccount.accountId,
+          }),
+        ]);
+        if (wallet?.name && account?.name) {
+          accountName = `${wallet.name} / ${account.name}`;
+        } else if (account?.name) {
+          accountName = account.name;
+        }
+      }
+
       const { serviceNotification } = this.backgroundApi;
       if (serviceNotification?.notifyHyperliquidAccountBind) {
         await serviceNotification.notifyHyperliquidAccountBind({
@@ -1349,6 +1413,8 @@ export default class ServiceHyperliquid extends ServiceBase {
           action,
           nonce,
           signature,
+          accountId,
+          accountName,
         });
       }
     } catch (error) {
