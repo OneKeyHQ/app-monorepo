@@ -146,7 +146,7 @@ const stakingConfig: IStakingConfig = {
         supportedSymbols: ['USDf'],
         configs: {
           USDf: {
-            enabled: true,
+            enabled: false,
             tokenAddress: EthereumUSDF,
             displayProfit: true,
             stakingWithApprove: true,

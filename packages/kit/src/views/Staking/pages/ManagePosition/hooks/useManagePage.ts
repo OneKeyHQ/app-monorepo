@@ -16,8 +16,6 @@ import type {
 
 import { buildLocalTxStatusSyncId } from '../../../utils/utils';
 
-import { useEarnAccount } from './useEarnAccount';
-
 export const useManagePage = ({
   accountId,
   networkId,
@@ -33,20 +31,27 @@ export const useManagePage = ({
   provider: string;
   vault: string | undefined;
 }) => {
-  const { earnAccount, refreshAccount } = useEarnAccount({
-    accountId,
-    networkId,
-    indexedAccountId,
-  });
-
-  const { result, isLoading, run } = usePromiseResult(
+  const {
+    result,
+    isLoading = true,
+    run,
+  } = usePromiseResult(
     async () => {
-      if (!earnAccount?.accountAddress || !accountId) {
+      const earnAccount =
+        await backgroundApiProxy.serviceStaking.getEarnAccount({
+          accountId,
+          networkId,
+          indexedAccountId,
+          btcOnlyTaproot: true,
+        });
+
+      if (!earnAccount || !earnAccount.accountAddress) {
         return undefined;
       }
 
       const managePageData =
         await backgroundApiProxy.serviceStaking.getManagePage({
+          accountId,
           networkId,
           symbol,
           provider,
@@ -65,21 +70,13 @@ export const useManagePage = ({
           filterNetworkId: networkId,
         });
 
-      return { managePageData, protocolList };
+      return { managePageData, protocolList, earnAccount };
     },
-    [
-      earnAccount,
-      networkId,
-      symbol,
-      provider,
-      vault,
-      accountId,
-      indexedAccountId,
-    ],
+    [networkId, symbol, provider, vault, accountId, indexedAccountId],
     { watchLoading: true },
   );
 
-  const { managePageData, protocolList } = result || {};
+  const { managePageData, protocolList, earnAccount } = result || {};
 
   const tokenInfo: IEarnTokenInfo | undefined = useMemo(() => {
     if (!managePageData?.deposit?.data?.token) {
@@ -203,7 +200,6 @@ export const useManagePage = ({
     run,
     tokenInfo,
     earnAccount,
-    refreshAccount,
     protocolInfo,
     depositDisabled,
     withdrawDisabled,

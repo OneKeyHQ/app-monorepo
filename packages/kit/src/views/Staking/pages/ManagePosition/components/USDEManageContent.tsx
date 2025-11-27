@@ -1,13 +1,13 @@
 import { useCallback, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { useIntl } from 'react-intl';
 
 import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { EModalReceiveRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type { ISupportedSymbol } from '@onekeyhq/shared/types/earn';
@@ -57,6 +57,7 @@ export function USDEManageContent({
   fallbackTokenImageUri,
   earnAccount,
 }: IUSDEManageContentProps) {
+  const intl = useIntl();
   const appNavigation = useAppNavigation();
   const { handleSwap } = useHandleSwap();
 
