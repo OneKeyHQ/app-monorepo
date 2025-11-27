@@ -11,6 +11,7 @@ import type {
 } from '@onekeyhq/shared/src/routes';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useAppRoute } from '../../../hooks/useAppRoute';
 import { FirmwareInstallingView } from '../components/FirmwareInstallingView';
 import { FirmwareLatestVersionInstalled } from '../components/FirmwareLatestVersionInstalled';
@@ -27,6 +28,7 @@ function PageFirmwareUpdateInstall() {
     EModalFirmwareUpdateRoutes.Install
   >();
   const { result } = route.params;
+  const navigation = useAppNavigation();
 
   const [stepInfo] = useFirmwareUpdateStepInfoAtom();
 
@@ -65,6 +67,9 @@ function PageFirmwareUpdateInstall() {
     }
 
     if (stepInfo.step === EFirmwareUpdateSteps.error) {
+      requestAnimationFrame(() => {
+        navigation.pop();
+      });
       return <FirmwareUpdateExitPrevent shouldPreventRemove={false} />;
     }
 
@@ -73,7 +78,7 @@ function PageFirmwareUpdateInstall() {
         <FirmwareLatestVersionInstalled />
       </>
     );
-  }, [stepInfo.step, result]);
+  }, [stepInfo.step, navigation, result]);
 
   return (
     <Page

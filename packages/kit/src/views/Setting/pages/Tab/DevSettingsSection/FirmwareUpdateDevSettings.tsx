@@ -110,6 +110,12 @@ export function FirmwareUpdateDevSettings() {
         <Switch size={ESwitchSize.small} />
       </FirmwareUpdateSectionFieldItem>
       <FirmwareUpdateSectionFieldItem
+        name="updateDevDeviceBootloaderOnAppAllowed"
+        title="允许在 App 中更新 dev 设备的 bootloader"
+      >
+        <Switch size={ESwitchSize.small} />
+      </FirmwareUpdateSectionFieldItem>
+      <FirmwareUpdateSectionFieldItem
         name="forceUpdateBle"
         title="Force update bluetooth"
       >

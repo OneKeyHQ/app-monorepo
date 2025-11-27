@@ -196,7 +196,7 @@ function PerpTradesHistoryList({
         }),
         minWidth: 100,
         flex: 1,
-        align: 'right',
+        align: 'left',
       },
     ],
     [intl],

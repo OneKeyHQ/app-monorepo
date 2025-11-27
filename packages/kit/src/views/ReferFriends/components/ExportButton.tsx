@@ -6,6 +6,7 @@ import { IconButton, Toast } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EExportSubject,
+  EExportTab,
   EExportTimeRange,
 } from '@onekeyhq/shared/src/referralCode/type';
 
@@ -15,12 +16,14 @@ interface IExportButtonProps {
   subject?: EExportSubject;
   timeRange?: EExportTimeRange;
   inviteCode?: string;
+  tab?: EExportTab;
 }
 
 export function ExportButton({
   subject = EExportSubject.HardwareSales,
   timeRange = EExportTimeRange.All,
   inviteCode,
+  tab = EExportTab.Earn,
 }: IExportButtonProps) {
   const intl = useIntl();
   const { exportInviteData, isExporting } = useExportInviteData();
@@ -31,6 +34,7 @@ export function ExportButton({
         subject,
         timeRange,
         inviteCode,
+        tab,
       });
       Toast.success({
         title: intl.formatMessage({
@@ -44,7 +48,7 @@ export function ExportButton({
         }),
       });
     }
-  }, [exportInviteData, intl, subject, timeRange, inviteCode]);
+  }, [exportInviteData, intl, inviteCode, subject, tab, timeRange]);
 
   return (
     <IconButton
