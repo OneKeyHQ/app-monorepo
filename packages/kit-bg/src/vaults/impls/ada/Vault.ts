@@ -19,7 +19,11 @@ import {
   decodeSensitiveTextAsync,
   encodeSensitiveTextAsync,
 } from '@onekeyhq/core/src/secret';
-import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
+import type {
+  IEncodedTx,
+  ISignedTxPro,
+  IUnsignedTxPro,
+} from '@onekeyhq/core/src/types';
 import {
   InvalidAddress,
   LowerTransactionAmountError,
@@ -45,6 +49,7 @@ import type {
   IMeasureRpcStatusParams,
   IMeasureRpcStatusResult,
 } from '@onekeyhq/shared/types/customRpc';
+import type { IInternalDappTxParams } from '@onekeyhq/shared/types/staking';
 import {
   EDecodedTxActionType,
   EDecodedTxStatus,
@@ -706,5 +711,14 @@ export default class Vault extends VaultBase {
       ...params.signedTx,
       txid: signedTx.txid,
     };
+  }
+
+  override async buildInternalDappEncodedTx(
+    params: IInternalDappTxParams,
+  ): Promise<IEncodedTxAda> {
+    const encodedTx = await this.buildTxCborToEncodeTx(
+      params.internalDappTx as string,
+    );
+    return encodedTx;
   }
 }
