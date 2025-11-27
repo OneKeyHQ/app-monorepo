@@ -57,7 +57,6 @@ import {
 } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
@@ -876,35 +875,7 @@ export default class VaultBtc extends VaultBase {
 
     const isBatchTransfer = transfersInfo.length > 1;
 
-    let { utxoList: utxosInfo } = await this._collectUTXOsInfoByApi();
-
-    // Coin Control: Filter UTXOs if manually selected
-    const selectedUtxoKeys = transfersInfo[0]?.selectedUtxoKeys;
-    const totalUtxoCount = utxosInfo.length;
-
-    const skipUtxoSelection = selectedUtxoKeys && selectedUtxoKeys.length > 0;
-    if (skipUtxoSelection) {
-      const selectedKeysSet = new Set(selectedUtxoKeys);
-      utxosInfo = utxosInfo.filter((utxo) => {
-        const utxoKey = `${utxo.txid}:${utxo.vout}`;
-        return selectedKeysSet.has(utxoKey);
-      });
-
-      if (utxosInfo.length === 0) {
-        throw new InsufficientBalance({
-          info: {
-            symbol: network.symbol,
-          },
-        });
-      }
-
-      defaultLogger.transaction.send.coinControlSelected({
-        network: network.id,
-        selectedUtxoCount: utxosInfo.length,
-        totalUtxoCount,
-        selectedUtxoKeys,
-      });
-    }
+    const { utxoList: utxosInfo } = await this._collectUTXOsInfoByApi();
 
     // Select the slowest fee rate as default, otherwise the UTXO selection
     // would be failed.
@@ -925,7 +896,6 @@ export default class VaultBtc extends VaultBase {
         address,
         path,
         confirmations,
-        required: skipUtxoSelection ? true : undefined,
       }),
     );
 
@@ -1004,16 +974,6 @@ export default class VaultBtc extends VaultBase {
       changeAddress,
       txType,
     });
-
-    if (skipUtxoSelection) {
-      defaultLogger.transaction.send.coinControlResult({
-        network: network.id,
-        inputCount: inputs?.length,
-        outputCount: outputs?.length,
-        fee,
-        txSize: bytes,
-      });
-    }
 
     return {
       inputs,
@@ -1191,7 +1151,6 @@ export default class VaultBtc extends VaultBase {
             withUTXOList: true,
             withFrozenBalance: true,
             withCheckInscription,
-            withUTXOBlockTime: true,
           });
         if (!utxoList) {
           throw new OneKeyInternalError(
