@@ -1153,12 +1153,21 @@ class ServiceStaking extends ServiceBase {
     networkId: string;
     provider: string;
     symbol: string;
+    accountId: string;
   }) {
     const client = await this.getClient(EServiceEndpointEnum.Earn);
 
+    const { accountId, ...rest } = params;
+
     const response = await client.get<{ data: IEarnAirdropInvestmentItemV2 }>(
       `/earn/v1/investment/airdrop-detail`,
-      { params },
+      {
+        params: rest,
+        headers:
+          await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+            accountId: params.accountId,
+          }),
+      },
     );
 
     return response.data.data;
