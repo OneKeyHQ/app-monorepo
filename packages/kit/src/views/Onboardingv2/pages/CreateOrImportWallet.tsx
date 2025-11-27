@@ -11,16 +11,13 @@ import {
   Badge,
   Button,
   Dialog,
-  Form,
   HeightTransition,
   Icon,
   Image,
-  Input,
   Page,
   SizableText,
   XStack,
   YStack,
-  useForm,
 } from '@onekeyhq/components';
 import { generateMnemonic } from '@onekeyhq/core/src/secret';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -32,169 +29,15 @@ import {
   EOnboardingPagesV2,
 } from '@onekeyhq/shared/src/routes';
 import externalWalletLogoUtils from '@onekeyhq/shared/src/utils/externalWalletLogoUtils';
-import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
-import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { ListItem } from '../../../components/ListItem';
 import useAppNavigation from '../../../hooks/useAppNavigation';
-import { PrimeLoginEmailCodeDialogV2 } from '../../Prime/components/PrimeLoginEmailCodeDialogV2';
-import { usePrimeAuthV2 } from '../../Prime/hooks/usePrimeAuthV2';
+import { showOneKeyIDLoginDialog } from '../../Prime/components/OneKeyIDLoginDialog';
 import { OnboardingLayout } from '../components/OnboardingLayout';
 
 import { AnimatedDeviceAvatar } from './GetStarted';
 
 import type { RouteProp } from '@react-navigation/native';
-
-function KeylessWalletDialogContent({
-  onComplete,
-}: {
-  onComplete: () => void;
-}) {
-  const intl = useIntl();
-  const form = useForm<{ email: string }>({
-    defaultValues: { email: '' },
-    mode: 'onSubmit',
-  });
-
-  const { isReady, useLoginWithEmail } = usePrimeAuthV2();
-  const { sendCode, loginWithCode } = useLoginWithEmail({
-    onComplete: async () => {
-      // Handle login complete
-    },
-    onError: (error) => {
-      console.error('prime login error', error);
-    },
-  });
-
-  const handleSubmit = useCallback(async () => {
-    const isValid = await form.trigger('email');
-    if (isValid) {
-      const email = form.getValues('email');
-      onComplete();
-      // Show verification code dialog
-      Dialog.show({
-        renderContent: (
-          <PrimeLoginEmailCodeDialogV2
-            sendCode={sendCode}
-            loginWithCode={loginWithCode}
-            email={email}
-            onConfirm={(code) => {
-              // TODO: Handle verification code confirm for keyless wallet
-              console.log('verification code:', code);
-            }}
-            onLoginSuccess={async () => {
-              // TODO: Handle login success, create keyless wallet
-              console.log('login success');
-            }}
-          />
-        ),
-      });
-    }
-  }, [form, onComplete, sendCode, loginWithCode]);
-
-  return (
-    <YStack gap="$2.5">
-      <ListItem
-        py={10}
-        m="$0"
-        gap="$2"
-        drillIn
-        borderWidth={1}
-        borderColor="$borderStrong"
-        userSelect="none"
-        onPress={() => console.log('clicked')}
-      >
-        <Icon name="GoogleIllus" size="$5" />
-        <ListItem.Text
-          flex={1}
-          primary="Google"
-          primaryTextProps={{
-            size: '$bodyLg',
-          }}
-        />
-      </ListItem>
-      <ListItem
-        py={10}
-        m="$0"
-        gap="$2"
-        drillIn
-        borderWidth={1}
-        borderColor="$borderStrong"
-        userSelect="none"
-        onPress={() => console.log('clicked')}
-      >
-        <Icon name="AppleBrand" size="$5" y={-1} color="$iconActive" />
-        <ListItem.Text
-          flex={1}
-          primary="Apple"
-          primaryTextProps={{
-            size: '$bodyLg',
-          }}
-        />
-      </ListItem>
-      <Form form={form}>
-        <Form.Field
-          name="email"
-          rules={{
-            validate: (value) => {
-              if (!value) {
-                return intl.formatMessage({
-                  id: ETranslations.prime_onekeyid_email_error,
-                });
-              }
-              if (!stringUtils.isValidEmail(value)) {
-                return intl.formatMessage({
-                  id: ETranslations.prime_onekeyid_email_error,
-                });
-              }
-              return true;
-            },
-            onChange: () => {
-              form.clearErrors();
-            },
-          }}
-        >
-          <Input
-            placeholder="your@email.com"
-            size="large"
-            leftIconName="EmailOutline"
-            autoCapitalize="none"
-            onChangeText={(text) => text?.trim() ?? text}
-            addOns={[
-              {
-                label: 'Submit',
-                loading: !isReady,
-                onPress: handleSubmit,
-              },
-            ]}
-          />
-        </Form.Field>
-      </Form>
-      <SizableText mt="$2.5" size="$bodySm" color="$textSubdued">
-        OneKey keyless wallet offers unique and powerful security. It uses
-        advanced Shamir key-sharding technology to split your key into three
-        parts, so there's no need to write down a seed phrase — your account can
-        always be securely recovered.
-      </SizableText>
-      <XStack>
-        <SizableText
-          size="$bodySm"
-          color="$textInteractive"
-          textDecorationLine="underline"
-          cursor="pointer"
-          hoverStyle={{ opacity: 0.8 }}
-          pressStyle={{ opacity: 0.6 }}
-          onPress={() => {
-            openUrlExternal('https://help.onekey.so/hc/articles/');
-          }}
-        >
-          {intl.formatMessage({ id: ETranslations.global_learn_more })} ↗
-        </SizableText>
-      </XStack>
-    </YStack>
-  );
-}
 
 function CardHeader({ children }: { children: React.ReactNode }) {
   return (
@@ -357,16 +200,12 @@ export default function CreateOrImportWallet() {
       });
     } else {
       // Keyless wallet not enabled, show dialog to create one
-      const dialog = Dialog.show({
-        title: 'Create keyless wallet',
-        renderContent: (
-          <KeylessWalletDialogContent
-            onComplete={async () => {
-              await dialog.close();
-            }}
-          />
-        ),
-        showFooter: false,
+      showOneKeyIDLoginDialog({
+        variant: 'keylessWallet',
+        onLoginSuccess: async () => {
+          // TODO: Handle login success, create keyless wallet
+          console.log('login success - create keyless wallet');
+        },
       });
     }
   }, [intl, isKeylessEnabled]);
