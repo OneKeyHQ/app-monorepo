@@ -19,7 +19,7 @@ export function BannerItemV2({
         source={{ uri: item.imgUrl || item.src }}
         flex={1}
         borderWidth={1}
-        borderColor="var(--border-default, #E2E8F0)"
+        borderColor="$borderSubdued"
         borderRadius="$3"
       />
       <Stack
