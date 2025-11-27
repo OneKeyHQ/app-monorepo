@@ -1137,7 +1137,7 @@ class ServiceStaking extends ServiceBase {
         params: rest,
         headers:
           await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
-            accountId: params.accountId,
+            accountId,
           }),
       },
     );
@@ -1165,7 +1165,7 @@ class ServiceStaking extends ServiceBase {
         params: rest,
         headers:
           await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
-            accountId: params.accountId,
+            accountId,
           }),
       },
     );

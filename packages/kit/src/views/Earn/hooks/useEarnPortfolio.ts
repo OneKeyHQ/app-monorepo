@@ -556,10 +556,7 @@ export const useEarnPortfolio = ({
             .map((asset) => ({
               isAirdrop: asset.type === 'airdrop',
               params: {
-                accountId:
-                  accountIdValue ||
-                  accountIndexedAccountIdValue ||
-                  indexedAccountIdValue,
+                accountId: accountIdValue || '',
                 accountAddress: accountItem.accountAddress,
                 networkId: accountItem.networkId,
                 provider: asset.provider,
