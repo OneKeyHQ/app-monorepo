@@ -40,7 +40,7 @@ const EarnMainTabsComponent = ({
         id: ETranslations.earn_available_assets,
       }),
       portfolio: intl.formatMessage({
-        id: ETranslations.earn_portfolio,
+        id: ETranslations.earn_positions,
       }),
       faqs: intl.formatMessage({ id: ETranslations.global_faqs }),
     }),
