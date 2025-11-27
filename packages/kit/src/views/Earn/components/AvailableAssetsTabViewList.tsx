@@ -1,15 +1,12 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
-import { StyleSheet } from 'react-native';
 import { useSharedValue } from 'react-native-reanimated';
 import { useThrottledCallback } from 'use-debounce';
 
 import {
   Badge,
-  IconButton,
   SizableText,
-  Skeleton,
   Tabs,
   XStack,
   YStack,
@@ -17,6 +14,11 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { TableList } from '@onekeyhq/kit/src/components/ListView/TableList';
+import type { ITableColumn } from '@onekeyhq/kit/src/components/ListView/TableList';
+import { NetworkAvatarGroup } from '@onekeyhq/kit/src/components/NetworkAvatar/NetworkAvatar';
+import { Token } from '@onekeyhq/kit/src/components/Token';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
@@ -24,94 +26,24 @@ import {
   useEarnAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/earn';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type { IEarnAvailableAssetProtocol } from '@onekeyhq/shared/types/earn';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import type { IEarnAvailableAsset } from '@onekeyhq/shared/types/earn';
 import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
 
+import { EarnNavigation } from '../earnUtils';
+
 import { AprText } from './AprText';
-import { FAQPanel } from './FAQPanel';
 
-// Skeleton component for loading state
-function AvailableAssetsSkeleton() {
-  const media = useMedia();
-
-  return (
-    <YStack
-      mx="$-5"
-      $gtLg={{
-        mx: 0,
-        overflow: 'hidden',
-        bg: '$bg',
-        borderRadius: '$3',
-        borderWidth: StyleSheet.hairlineWidth,
-        borderColor: '$borderSubdued',
-        borderCurve: 'continuous',
-      }}
-    >
-      {Array.from({ length: 4 }).map((_, index) => (
-        <ListItem
-          key={index}
-          mx="$0"
-          px="$4"
-          {...(media.gtLg
-            ? {
-                borderRadius: '$0',
-              }
-            : {})}
-          {...(index !== 0 && media.gtLg
-            ? {
-                borderTopWidth: StyleSheet.hairlineWidth,
-                borderTopColor: '$borderSubdued',
-              }
-            : {})}
-        >
-          <XStack
-            flex={1}
-            alignItems="center"
-            justifyContent="space-between"
-            gap="$4"
-          >
-            <XStack ai="center" gap="$4">
-              <Skeleton
-                width={media.gtLg ? '$8' : '$10'}
-                height={media.gtLg ? '$8' : '$10'}
-                radius="round"
-              />
-              <Skeleton w={60} h={20} borderRadius="$2" />
-            </XStack>
-
-            <Skeleton w={90} h={20} borderRadius="$2" />
-
-            {media.gtLg ? (
-              <IconButton icon="ChevronRightSmallOutline" variant="tertiary" />
-            ) : null}
-          </XStack>
-        </ListItem>
-      ))}
-    </YStack>
-  );
-}
-
-interface IAvailableAssetsTabViewListProps {
-  onTokenPress?: (params: {
-    networkId: string;
-    accountId: string;
-    indexedAccountId?: string;
-    symbol: string;
-    protocols: IEarnAvailableAssetProtocol[];
-  }) => Promise<void>;
-}
-
-export function AvailableAssetsTabViewList({
-  onTokenPress,
-}: IAvailableAssetsTabViewListProps) {
+export function AvailableAssetsTabViewList() {
   const {
     activeAccount: { account, indexedAccount },
   } = useActiveAccount({ num: 0 });
   const [{ availableAssetsByType = {}, refreshTrigger = 0 }] = useEarnAtom();
   const actions = useEarnActions();
   const intl = useIntl();
-  const media = useMedia();
   const [selectedTabIndex, setSelectedTabIndex] = useState(0);
+  const media = useMedia();
+  const navigation = useAppNavigation();
 
   const tabData = useMemo(
     () => [
@@ -143,9 +75,17 @@ export function AvailableAssetsTabViewList({
     return availableAssetsByType[currentTabType] || [];
   }, [availableAssetsByType, selectedTabIndex, tabData]);
 
+  // Use ref to track component mount status to prevent state updates after unmount
+  const isMountedRef = useRef(true);
+
   // Throttled function to fetch assets data
   const fetchAssetsData = useThrottledCallback(
     async (tabType: EAvailableAssetsTypeEnum) => {
+      // Early return if component is unmounted
+      if (!isMountedRef.current) {
+        return [];
+      }
+
       const loadingKey = `availableAssets-${tabType}`;
       actions.current.setLoadingState(loadingKey, true);
 
@@ -155,11 +95,21 @@ export function AvailableAssetsTabViewList({
             type: tabType,
           });
 
-        // Update the corresponding data in atom
-        actions.current.updateAvailableAssetsByType(tabType, tabAssets);
+        // Only update state if component is still mounted
+        if (isMountedRef.current) {
+          // Update the corresponding data in atom
+          actions.current.updateAvailableAssetsByType(tabType, tabAssets);
+        }
         return tabAssets;
+      } catch (error) {
+        console.error('Failed to fetch available assets:', error);
+        // Return empty array on error to prevent infinite loading
+        return [];
       } finally {
-        actions.current.setLoadingState(loadingKey, false);
+        // Only update loading state if component is still mounted
+        if (isMountedRef.current) {
+          actions.current.setLoadingState(loadingKey, false);
+        }
       }
     },
     200,
@@ -180,6 +130,7 @@ export function AvailableAssetsTabViewList({
     [selectedTabIndex, tabData, refreshTrigger, fetchAssetsData],
     {
       watchLoading: true,
+      undefinedResultIfError: false, // Return empty array instead of undefined on error
     },
   );
 
@@ -195,320 +146,195 @@ export function AvailableAssetsTabViewList({
     [focusedTab, tabData],
   );
 
-  if (assets.length || isLoading) {
-    return (
-      <YStack gap="$3">
-        <SizableText size="$headingLg">
-          {intl.formatMessage({ id: ETranslations.earn_available_assets })}
-        </SizableText>
-        <Tabs.TabBar
-          divider={false}
-          onTabPress={handleTabChange}
-          tabNames={TabNames}
-          focusedTab={focusedTab}
-          renderItem={({ name, isFocused, onPress }) => (
-            <XStack
-              px="$2"
-              py="$1.5"
-              mr="$1"
-              bg={isFocused ? '$bgActive' : '$bg'}
-              borderRadius="$2"
-              borderCurve="continuous"
-              onPress={() => onPress(name)}
-            >
-              <SizableText
-                size="$bodyMdMedium"
-                color={isFocused ? '$text' : '$textSubdued'}
-                letterSpacing={-0.15}
-              >
-                {name}
-              </SizableText>
-            </XStack>
-          )}
-        />
-
-        {isLoading && assets.length === 0 ? (
-          <AvailableAssetsSkeleton />
-        ) : (
-          <YStack
-            mx="$-5"
-            $gtLg={{
-              mx: 0,
-              overflow: 'hidden',
-              bg: '$bg',
-              borderRadius: '$3',
-              borderWidth: StyleSheet.hairlineWidth,
-              borderColor: '$borderSubdued',
-              borderCurve: 'continuous',
-            }}
-          >
-            {assets.map((asset, index) => {
-              const { name, logoURI, symbol, badges = [], protocols } = asset;
-
-              return (
-                <ListItem
+  const columns: ITableColumn<IEarnAvailableAsset>[] = useMemo(
+    () => [
+      {
+        key: 'asset',
+        label: intl.formatMessage({ id: ETranslations.global_asset }),
+        flex: 2,
+        sortable: true,
+        comparator: (a, b) => a.symbol.localeCompare(b.symbol),
+        render: (asset) => (
+          <XStack ai="center" gap="$3">
+            <Token
+              size="md"
+              tokenImageUri={asset.logoURI}
+              borderRadius="$full"
+            />
+            <SizableText size="$bodyLgMedium">{asset.symbol}</SizableText>
+            <XStack gap="$1">
+              {asset.badges?.map((badge) => (
+                <Badge
+                  key={badge.tag}
+                  badgeType={badge.badgeType}
+                  badgeSize="sm"
                   userSelect="none"
-                  key={`${name}-${index}`}
-                  onPress={async () => {
-                    await onTokenPress?.({
-                      networkId: protocols[0]?.networkId || '',
-                      accountId: account?.id ?? '',
-                      indexedAccountId: indexedAccount?.id,
-                      symbol,
-                      protocols,
-                    });
-                  }}
-                  avatarProps={{
-                    src: logoURI,
-                    fallbackProps: {
-                      borderRadius: '$full',
-                    },
-                    ...(media.gtLg
-                      ? {
-                          size: '$8',
-                        }
-                      : {}),
-                  }}
-                  {...(media.gtLg
-                    ? {
-                        drillIn: true,
-                        mx: '$0',
-                        px: '$4',
-                        borderRadius: '$0',
-                      }
-                    : {})}
-                  {...(index !== 0 && media.gtLg
-                    ? {
-                        borderTopWidth: StyleSheet.hairlineWidth,
-                        borderTopColor: '$borderSubdued',
-                      }
-                    : {})}
                 >
-                  <ListItem.Text
-                    flexGrow={1}
-                    flexBasis={0}
-                    primary={
-                      <XStack gap="$2" alignItems="center">
-                        <SizableText size="$bodyLgMedium">{symbol}</SizableText>
-                        <XStack gap="$1">
-                          {badges.map((badge) => (
-                            <Badge
-                              key={badge.tag}
-                              badgeType={badge.badgeType}
-                              badgeSize="sm"
-                              userSelect="none"
-                            >
-                              <Badge.Text>{badge.tag}</Badge.Text>
-                            </Badge>
-                          ))}
-                        </XStack>
-                      </XStack>
-                    }
-                  />
-                  <XStack
-                    flex={1}
-                    ai="center"
-                    jc="flex-end"
-                    $gtLg={{
-                      jc: 'flex-start',
-                    }}
-                  >
-                    <XStack
-                      flexShrink={0}
-                      $gtLg={{
-                        width: 120,
-                      }}
-                      justifyContent="flex-end"
-                    >
-                      <AprText asset={asset} />
-                    </XStack>
-                  </XStack>
-                </ListItem>
-              );
-            })}
-          </YStack>
-        )}
-      </YStack>
-    );
-  }
-  return null;
-}
-
-export function AvailableAssetsTabViewListMobile({
-  onTokenPress,
-  assetType,
-  faqList,
-}: IAvailableAssetsTabViewListProps & {
-  assetType: EAvailableAssetsTypeEnum;
-  faqList?: Array<{ question: string; answer: string }>;
-}) {
-  const {
-    activeAccount: { account, indexedAccount },
-  } = useActiveAccount({ num: 0 });
-  const [{ availableAssetsByType = {}, refreshTrigger = 0 }] = useEarnAtom();
-  const actions = useEarnActions();
-  const media = useMedia();
-
-  // Get filtered assets based on selected tab
-  const assets = useMemo(() => {
-    return availableAssetsByType[assetType] || [];
-  }, [assetType, availableAssetsByType]);
-
-  // Throttled function to fetch assets data
-  const fetchAssetsData = useThrottledCallback(
-    async (tabType: EAvailableAssetsTypeEnum) => {
-      const loadingKey = `availableAssets-${tabType}`;
-      actions.current.setLoadingState(loadingKey, true);
-
-      try {
-        const tabAssets =
-          await backgroundApiProxy.serviceStaking.getAvailableAssets({
-            type: tabType,
-          });
-
-        // Update the corresponding data in atom
-        actions.current.updateAvailableAssetsByType(tabType, tabAssets);
-        return tabAssets;
-      } finally {
-        actions.current.setLoadingState(loadingKey, false);
-      }
-    },
-    200,
-    { leading: true, trailing: false },
+                  <Badge.Text>{badge.tag}</Badge.Text>
+                </Badge>
+              ))}
+            </XStack>
+          </XStack>
+        ),
+      },
+      {
+        key: 'network',
+        label: intl.formatMessage({ id: ETranslations.global_network }),
+        flex: 1,
+        hideInMobile: true,
+        render: (asset) => (
+          <NetworkAvatarGroup
+            networkIds={Array.from(
+              new Set(asset.protocols.map((p) => p.networkId)),
+            )}
+            size="$5"
+            variant="spread"
+            maxVisible={3}
+          />
+        ),
+      },
+      {
+        key: 'yield',
+        label: intl.formatMessage({ id: ETranslations.global_apr }),
+        flex: 1,
+        align: 'flex-end',
+        sortable: true,
+        comparator: (a, b) => {
+          const aprA = parseFloat(a.aprWithoutFee || a.apr || '0');
+          const aprB = parseFloat(b.aprWithoutFee || b.apr || '0');
+          return aprA - aprB;
+        },
+        render: (asset) => <AprText asset={asset} />,
+      },
+    ],
+    [intl],
   );
 
-  // Load data for the selected tab
-  const { isLoading } = usePromiseResult(
-    async () => {
-      if (assetType) {
-        const result = await fetchAssetsData(assetType);
-        return result || [];
+  // Handle row press
+  const handleRowPress = useCallback(
+    async (asset: IEarnAvailableAsset) => {
+      defaultLogger.staking.page.selectAsset({ tokenSymbol: asset.symbol });
+
+      if (asset.protocols.length === 1) {
+        const protocol = asset.protocols[0];
+        await EarnNavigation.pushToEarnProtocolDetails(navigation, {
+          networkId: protocol.networkId,
+          accountId: account?.id ?? '',
+          indexedAccountId: indexedAccount?.id,
+          symbol: asset.symbol,
+          provider: protocol.provider,
+          vault: protocol.vault,
+        });
+      } else {
+        EarnNavigation.pushToEarnProtocols(navigation, {
+          symbol: asset.symbol,
+          filterNetworkId: undefined,
+          logoURI: asset.logoURI
+            ? encodeURIComponent(asset.logoURI)
+            : undefined,
+        });
       }
-      return [];
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [refreshTrigger, fetchAssetsData],
-    {
-      watchLoading: true,
-    },
+    [account?.id, indexedAccount?.id, navigation],
   );
 
-  if (assets.length || isLoading) {
-    return (
-      <YStack>
-        <YStack gap="$3" mt="$2">
-          {isLoading && assets.length === 0 ? (
-            <YStack mx="$5">
-              <AvailableAssetsSkeleton />
-            </YStack>
-          ) : (
-            <YStack
-              $gtLg={{
-                mx: 0,
-                overflow: 'hidden',
-                bg: '$bg',
-                borderRadius: '$3',
-                borderWidth: StyleSheet.hairlineWidth,
-                borderColor: '$borderSubdued',
-                borderCurve: 'continuous',
-              }}
-            >
-              {assets.map((asset, index) => {
-                const { name, logoURI, symbol, badges = [], protocols } = asset;
-
-                return (
-                  <ListItem
+  // Mobile custom renderer
+  const mobileRenderItem = useCallback(
+    (asset: IEarnAvailableAsset) => (
+      <ListItem
+        userSelect="none"
+        onPress={() => handleRowPress(asset)}
+        avatarProps={{
+          src: asset.logoURI,
+          fallbackProps: {
+            borderRadius: '$full',
+          },
+        }}
+      >
+        <ListItem.Text
+          flex={1}
+          primary={
+            <XStack gap="$2" ai="center">
+              <SizableText size="$bodyLgMedium">{asset.symbol}</SizableText>
+              <XStack gap="$1">
+                {asset.badges?.map((badge) => (
+                  <Badge
+                    key={badge.tag}
+                    badgeType={badge.badgeType}
+                    badgeSize="sm"
                     userSelect="none"
-                    key={`${name}-${index}`}
-                    onPress={async () => {
-                      await onTokenPress?.({
-                        networkId: protocols[0]?.networkId || '',
-                        accountId: account?.id ?? '',
-                        indexedAccountId: indexedAccount?.id,
-                        symbol,
-                        protocols,
-                      });
-                    }}
-                    avatarProps={{
-                      src: logoURI,
-                      fallbackProps: {
-                        borderRadius: '$full',
-                      },
-                      ...(media.gtLg
-                        ? {
-                            size: '$8',
-                          }
-                        : {}),
-                    }}
-                    {...(media.gtLg
-                      ? {
-                          drillIn: true,
-                          mx: '$0',
-                          px: '$4',
-                          borderRadius: '$0',
-                        }
-                      : {})}
-                    {...(index !== 0 && media.gtLg
-                      ? {
-                          borderTopWidth: StyleSheet.hairlineWidth,
-                          borderTopColor: '$borderSubdued',
-                        }
-                      : {})}
                   >
-                    <ListItem.Text
-                      flexGrow={1}
-                      flexBasis={0}
-                      primary={
-                        <XStack gap="$2" alignItems="center">
-                          <SizableText size="$bodyLgMedium">
-                            {symbol}
-                          </SizableText>
-                          <XStack gap="$1">
-                            {badges.map((badge) => (
-                              <Badge
-                                key={badge.tag}
-                                badgeType={badge.badgeType}
-                                badgeSize="sm"
-                                userSelect="none"
-                              >
-                                <Badge.Text>{badge.tag}</Badge.Text>
-                              </Badge>
-                            ))}
-                          </XStack>
-                        </XStack>
-                      }
-                    />
-                    <XStack
-                      flex={1}
-                      ai="center"
-                      jc="flex-end"
-                      $gtLg={{
-                        jc: 'flex-start',
-                      }}
-                    >
-                      <XStack
-                        flexShrink={0}
-                        $gtLg={{
-                          width: 120,
-                        }}
-                        justifyContent="flex-end"
-                      >
-                        <AprText asset={asset} />
-                      </XStack>
-                    </XStack>
-                  </ListItem>
-                );
-              })}
-            </YStack>
-          )}
-        </YStack>
-        {faqList?.length ? (
-          <YStack py="$4" px="$5">
-            <FAQPanel faqList={faqList} isLoading={false} />
-          </YStack>
-        ) : null}
-      </YStack>
-    );
-  }
-  return null;
+                    <Badge.Text>{badge.tag}</Badge.Text>
+                  </Badge>
+                ))}
+              </XStack>
+            </XStack>
+          }
+        />
+        <XStack flex={1} ai="center" jc="flex-end">
+          <XStack flexShrink={0} jc="flex-end">
+            <AprText asset={asset} />
+          </XStack>
+        </XStack>
+      </ListItem>
+    ),
+    [handleRowPress],
+  );
+
+  // Cleanup on unmount to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      // Mark component as unmounted
+      isMountedRef.current = false;
+      // Cancel any pending throttled calls
+      fetchAssetsData.cancel();
+    };
+  }, [fetchAssetsData]);
+
+  return (
+    <YStack gap="$3">
+      <SizableText px="$5" size="$headingLg">
+        {intl.formatMessage({ id: ETranslations.earn_available_assets })}
+      </SizableText>
+      <Tabs.TabBar
+        containerStyle={{ px: '$5' }}
+        divider={false}
+        onTabPress={handleTabChange}
+        tabNames={TabNames}
+        focusedTab={focusedTab}
+        renderItem={({ name, isFocused, onPress }) => (
+          <XStack
+            px="$2"
+            py="$1.5"
+            mr="$1"
+            bg={isFocused ? '$bgActive' : '$bg'}
+            borderRadius="$2"
+            borderCurve="continuous"
+            onPress={() => onPress(name)}
+          >
+            <SizableText
+              size="$bodyMdMedium"
+              color={isFocused ? '$text' : '$textSubdued'}
+              letterSpacing={-0.15}
+            >
+              {name}
+            </SizableText>
+          </XStack>
+        )}
+      />
+
+      <TableList<IEarnAvailableAsset>
+        data={assets ?? []}
+        columns={columns}
+        keyExtractor={(asset) => asset.symbol}
+        withHeader={media.gtSm}
+        defaultSortKey="yield"
+        defaultSortDirection="desc"
+        onPressRow={(asset) => void handleRowPress(asset)}
+        mobileRenderItem={mobileRenderItem}
+        enableDrillIn
+        isLoading={Boolean(isLoading && assets.length === 0)}
+      />
+    </YStack>
+  );
 }

@@ -314,6 +314,30 @@ export default function GetStarted() {
   // Cache theme values to avoid multiple useThemeValue calls during render
   const neutral6 = useThemeValue('$neutral6');
   const bgColor = useThemeValue('$bgApp');
+<<<<<<< HEAD
+=======
+
+  const DEVICE_DATA: (keyof typeof HwWalletAvatarImages)[] = useMemo(() => {
+    return [
+      themeVariant === 'light' ? `${EDeviceType.Pro}White` : EDeviceType.Pro,
+      EDeviceType.Classic,
+      EDeviceType.Touch,
+      EDeviceType.Mini,
+    ];
+  }, [themeVariant]);
+
+  // Delay animation initialization to improve initial render performance
+  const [enableAnimation, setEnableAnimation] = useState(false);
+
+  useEffect(() => {
+    // Start animation after component has mounted and initial render is complete
+    const timer = setTimeout(() => {
+      setEnableAnimation(true);
+    }, 100);
+
+    return () => clearTimeout(timer);
+  }, []);
+>>>>>>> origin/x
 
   return (
     <Page>

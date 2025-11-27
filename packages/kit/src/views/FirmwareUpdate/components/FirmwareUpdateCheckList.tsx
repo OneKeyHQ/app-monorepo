@@ -113,6 +113,8 @@ export function FirmwareUpdateCheckList({
                   await deviceUtils.shouldUseV2FirmwareUpdateFlow({
                     features: result?.features,
                   });
+
+                const updateFirmwareInfo = result?.updateInfos?.firmware;
                 try {
                   await dialog.close();
                   setStepInfo({
@@ -155,11 +157,14 @@ export function FirmwareUpdateCheckList({
                       },
                     );
                   }
+
                   defaultLogger.update.firmware.firmwareUpdateResult({
                     deviceType: result?.deviceType,
                     transportType: hardwareTransportType,
                     updateFlow: useV2FirmwareUpdateFlow ? 'v2' : 'v1',
                     firmwareVersions: parseFirmwareVersions(result),
+                    fromFirmwareType: updateFirmwareInfo?.fromFirmwareType,
+                    toFirmwareType: updateFirmwareInfo?.toFirmwareType,
                     status: 'success',
                   });
 
@@ -180,6 +185,8 @@ export function FirmwareUpdateCheckList({
                     transportType: hardwareTransportType,
                     updateFlow: useV2FirmwareUpdateFlow ? 'v2' : 'v1',
                     firmwareVersions: parseFirmwareVersions(result),
+                    fromFirmwareType: updateFirmwareInfo?.fromFirmwareType,
+                    toFirmwareType: updateFirmwareInfo?.toFirmwareType,
                     status: 'failed',
                     errorCode: err?.code,
                     errorMessage: err?.message,

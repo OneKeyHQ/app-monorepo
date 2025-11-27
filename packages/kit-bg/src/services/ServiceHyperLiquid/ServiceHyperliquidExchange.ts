@@ -8,7 +8,7 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
-  DISABLE_HYPERLIQUID_ACCOUNT_BIND,
+  DISABLE_PERPS_WALLET_BIND,
   type EHyperLiquidAgentName,
   PERPS_EMPTY_ADDRESS,
   PERPS_EVM_CHAIN_ID_HEX,
@@ -427,7 +427,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
 
       // Extract signature and report to backend after successful approval
       if (
-        !DISABLE_HYPERLIQUID_ACCOUNT_BIND &&
+        !DISABLE_PERPS_WALLET_BIND &&
         params.authorize &&
         response.status === 'ok' &&
         response.response.type === 'default'

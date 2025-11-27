@@ -7,10 +7,9 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
-import { showProtocolListDialog } from '@onekeyhq/kit/src/views/Earn/components/showProtocolListDialog';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
+import { ETabEarnRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 
 import { RawActions } from './RawActions';
 
@@ -22,6 +21,7 @@ export function WalletActionEarn(props: {
   walletType: string | undefined;
   source: 'homePage' | 'tokenDetails';
   trackID?: string;
+  logoURI?: string;
 }) {
   const {
     accountId,
@@ -31,6 +31,7 @@ export function WalletActionEarn(props: {
     walletType,
     source,
     trackID,
+    logoURI,
   } = props;
 
   const navigation = useAppNavigation();
@@ -92,7 +93,6 @@ export function WalletActionEarn(props: {
       isSoftwareWalletOnlyUser,
     });
 
-    // Convert protocol list to the format expected by showProtocolListDialog
     const protocols = protocolList.map((protocol) => ({
       provider: protocol.provider.name,
       networkId: protocol.network.networkId,
@@ -101,8 +101,8 @@ export function WalletActionEarn(props: {
 
     if (protocols.length === 1) {
       const protocol = protocolList[0];
-      navigation.pushModal(EModalRoutes.StakingModal, {
-        screen: EModalStakingRoutes.ProtocolDetailsV2,
+      navigation.switchTab(ETabRoutes.Earn, {
+        screen: ETabEarnRoutes.EarnProtocolDetails,
         params: {
           networkId,
           accountId,
@@ -115,20 +115,17 @@ export function WalletActionEarn(props: {
       return;
     }
 
-    // Use dialog for multiple protocols
-    showProtocolListDialog({
-      symbol,
-      accountId,
-      indexedAccountId,
-      filterNetworkId: networkId,
-      onProtocolSelect: async (params) => {
-        navigation.pushModal(EModalRoutes.StakingModal, {
-          screen: EModalStakingRoutes.ProtocolDetailsV2,
-          params,
-        });
+    // Navigate to protocols list page for multiple protocols
+    navigation.switchTab(ETabRoutes.Earn, {
+      screen: ETabEarnRoutes.EarnProtocols,
+      params: {
+        symbol,
+        filterNetworkId: networkId,
+        logoURI: logoURI ? encodeURIComponent(logoURI) : undefined,
       },
     });
   }, [
+    logoURI,
     intl,
     result?.symbolInfo?.symbol,
     result?.protocolList,

@@ -161,7 +161,9 @@ export default function VerifyRecoveryPhrase() {
           {shuffleWords.map((question, questionIndex) => (
             <YStack key={questionIndex} gap="$2">
               <SizableText size="$bodyMd">
-                Word #{question.index + 1}
+                {`${intl.formatMessage({ id: ETranslations.word })} #${
+                  question.index + 1
+                }`}
               </SizableText>
               <XStack
                 gap="$2"

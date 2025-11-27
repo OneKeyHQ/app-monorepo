@@ -5,7 +5,7 @@ export default function StakingFormWrapper({
   ...rest
 }: IYStackProps) {
   return (
-    <YStack px="$5" py="$2.5" gap="$2.5" {...rest}>
+    <YStack px="$5" py="$2.5" gap="$4" {...rest}>
       {children}
     </YStack>
   );

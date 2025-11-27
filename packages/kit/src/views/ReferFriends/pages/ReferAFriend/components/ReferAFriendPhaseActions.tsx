@@ -74,7 +74,7 @@ export function ReferAFriendPhaseActions({
       <XStack gap="$4" w="100%" justifyContent="space-between">
         <Button
           variant="secondary"
-          width="47%"
+          flex={1}
           size={isFooter ? 'large' : undefined}
           onPress={handleBackToIntro}
         >
@@ -84,7 +84,7 @@ export function ReferAFriendPhaseActions({
         </Button>
         <Button
           variant="primary"
-          width="47%"
+          flex={1}
           size={isFooter ? 'large' : undefined}
           onPress={handleJoin}
         >

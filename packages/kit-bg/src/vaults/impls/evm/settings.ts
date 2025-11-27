@@ -5,6 +5,7 @@ import {
   EMPTY_NATIVE_TOKEN_ADDRESS,
   EthereumCbBTC,
   EthereumDAI,
+  EthereumMORPHO,
   EthereumPol,
   EthereumUSDC,
   EthereumUSDF,
@@ -87,7 +88,15 @@ const stakingConfig: IStakingConfig = {
         },
       },
       [EEarnProviderEnum.Morpho]: {
-        supportedSymbols: ['USDC', 'USDT', 'DAI', 'WETH', 'cbBTC', 'WBTC'],
+        supportedSymbols: [
+          'USDC',
+          'USDT',
+          'DAI',
+          'WETH',
+          'cbBTC',
+          'WBTC',
+          'MORPHO',
+        ],
         configs: {
           USDC: {
             enabled: true,
@@ -122,6 +131,12 @@ const stakingConfig: IStakingConfig = {
           WBTC: {
             enabled: true,
             tokenAddress: EthereumWBTC,
+            displayProfit: true,
+            stakingWithApprove: true,
+          },
+          MORPHO: {
+            enabled: true,
+            tokenAddress: EthereumMORPHO,
             displayProfit: true,
             stakingWithApprove: true,
           },

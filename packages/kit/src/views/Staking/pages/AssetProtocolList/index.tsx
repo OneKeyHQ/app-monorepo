@@ -26,8 +26,11 @@ import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRo
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import type { IModalStakingParamList } from '@onekeyhq/shared/src/routes';
-import { EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
+import type {
+  EModalStakingRoutes,
+  IModalStakingParamList,
+} from '@onekeyhq/shared/src/routes';
+import { ETabEarnRoutes } from '@onekeyhq/shared/src/routes';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import type { IStakeProtocolListItem } from '@onekeyhq/shared/types/staking';
 
@@ -162,7 +165,7 @@ function AssetProtocolListContent({
           indexedAccountId,
           networkId,
         });
-      appNavigation.navigate(EModalStakingRoutes.ProtocolDetailsV2, {
+      appNavigation.push(ETabEarnRoutes.EarnProtocolDetails, {
         accountId: earnAccount?.accountId || accountId,
         networkId: item.network.networkId,
         indexedAccountId:

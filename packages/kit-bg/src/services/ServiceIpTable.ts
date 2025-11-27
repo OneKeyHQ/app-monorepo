@@ -81,7 +81,7 @@ class ServiceIpTable extends ServiceBase {
    * Check if IP Table is enabled considering all conditions:
    * 1. Platform support
    * 2. runtime.enabled
-   * 3. devSettings conditions (enableIpTableInDev, disableIpTableInProd)
+   * 3. devSettings conditions (disableIpTableInProd)
    * @returns true if IP Table should be active, false otherwise
    */
   private async isIpTableEnabled(): Promise<boolean> {
@@ -92,23 +92,13 @@ class ServiceIpTable extends ServiceBase {
 
     // 2. Check runtime.enabled
     const configWithRuntime = await this.getConfig();
-    if (!configWithRuntime.runtime?.enabled) {
+    if (configWithRuntime.runtime?.enabled === false) {
       return false;
     }
 
     // 3. Check devSettings (align with ipTableAdapter.ts shouldUseIpTable logic)
     try {
       const devSettings = await devSettingsPersistAtom.get();
-
-      // If devSettings panel is disabled, use default (enabled)
-      if (!devSettings.enabled) {
-        return false;
-      }
-
-      // Dev environment override - if explicitly set, use it
-      if (!devSettings.settings?.enableIpTableInDev) {
-        return false;
-      }
 
       // Prod environment override - if explicitly disabled, respect it
       if (devSettings.settings?.disableIpTableInProd) {
@@ -122,7 +112,7 @@ class ServiceIpTable extends ServiceBase {
           error instanceof Error ? error.message : 'Unknown error'
         }`,
       });
-      return false;
+      return true;
     }
   }
 

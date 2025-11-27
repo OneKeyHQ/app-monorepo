@@ -872,6 +872,19 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         void this.backgroundApi.serviceHyperliquid.updateActiveAssetData(
           data as IPerpsActiveAssetDataRaw,
         );
+      } else if (subscriptionType === ESubscriptionType.USER_FILLS) {
+        const userFills = data as IWsUserFills;
+        if (!userFills.isSnapshot && userFills.fills?.length > 0) {
+          void this.backgroundApi.serviceHyperliquid.appendTradesHistory(
+            userFills.fills,
+            userFills.user,
+          );
+        }
+        appEventBus.emit(EAppEventBusNames.HyperliquidDataUpdate, {
+          type: SUBSCRIPTION_TYPE_INFO[subscriptionType].eventType,
+          subType: subscriptionType,
+          data,
+        });
       } else {
         appEventBus.emit(EAppEventBusNames.HyperliquidDataUpdate, {
           type: SUBSCRIPTION_TYPE_INFO[subscriptionType].eventType,
