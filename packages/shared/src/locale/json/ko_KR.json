@@ -3867,7 +3867,7 @@
   "wallet.risk_assets_hide_on_home_feedback_shown": "{tokenSymbol}이(가) 이제 홈 화면에 표시됩니다",
   "wallet.risk_assets_show_on_home": "홈 화면에 표시",
   "wallet.save_amount": "가스 할인",
-  "wallet.selected_utxo_count": "{}개 선택됨",
+  "wallet.selected_utxo_count": "{count}개 선택됨",
   "wallet.send_and_receive_cryptos": "암호화폐 보내고 받기",
   "wallet.send_free": "무료로 보내기",
   "wallet.sort_largest_first": "가장 큰 것부터",

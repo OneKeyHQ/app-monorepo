@@ -15,6 +15,7 @@ import type {
   ISignedMessagePro,
   ISignedTxPro,
 } from '@onekeyhq/core/src/types';
+import { presetNetworksMap } from '@onekeyhq/shared/src/config/presetNetworks';
 import { NotImplemented, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -37,6 +38,12 @@ import type {
 } from '../../types';
 import type { AllNetworkAddressParams } from '@onekeyfe/hd-core';
 
+const SpecialNetworkIdMap = {
+  [presetNetworksMap.assethubPolkadot.chainId]: 'polkadot-assethub',
+  [presetNetworksMap.assethubKusama.chainId]: 'kusama-assethub',
+  [presetNetworksMap.bifrostDot.chainId]: 'bifrost',
+};
+
 export class KeyringHardware extends KeyringHardwareBase {
   override coreApi = coreChainApi.dot.hd;
 
@@ -53,7 +60,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       path: params.path,
       showOnOneKey: false,
       prefix: networkInfo.addressPrefix,
-      chainName: chainId,
+      chainName: SpecialNetworkIdMap[chainId] || chainId,
     };
   }
 
@@ -154,6 +161,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     const account = await this.vault.getAccount();
     const network = await this.getNetwork();
     encodedTx.chainName = network.name;
+    const networkInfo = await this.getNetworkInfo();
 
     const customRpcClient = await (
       this.vault as VaultDot
@@ -170,7 +178,8 @@ export class KeyringHardware extends KeyringHardwareBase {
     const { signature } = await convertDeviceResponse(async () =>
       sdk.polkadotSignTransaction(connectId, deviceId, {
         path: account.path,
-        network: network.chainId,
+        prefix: +networkInfo.addressPrefix,
+        network: SpecialNetworkIdMap[network.chainId] || network.chainId,
         rawTx: bufferUtils.bytesToHex(tx.rawTx),
         ...deviceCommonParams,
       }),

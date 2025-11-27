@@ -3867,7 +3867,7 @@
   "wallet.risk_assets_hide_on_home_feedback_shown": "{tokenSymbol} тепер відображається на головній сторінці",
   "wallet.risk_assets_show_on_home": "Показувати на головній",
   "wallet.save_amount": "Знижка на газ",
-  "wallet.selected_utxo_count": "Вибрано: {}",
+  "wallet.selected_utxo_count": "Вибрано: {count}",
   "wallet.send_and_receive_cryptos": "Надсилайте та отримуйте криптовалюти",
   "wallet.send_free": "Надіслати безкоштовно",
   "wallet.sort_largest_first": "Спочатку найбільші",

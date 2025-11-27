@@ -3867,7 +3867,7 @@
   "wallet.risk_assets_hide_on_home_feedback_shown": "{tokenSymbol} แสดงบนหน้าแรกแล้ว",
   "wallet.risk_assets_show_on_home": "แสดงบนหน้าหลัก",
   "wallet.save_amount": "ส่วนลดค่าน้ำมัน",
-  "wallet.selected_utxo_count": "เลือกแล้ว {} รายการ",
+  "wallet.selected_utxo_count": "เลือกแล้ว {count} รายการ",
   "wallet.send_and_receive_cryptos": "ส่งและรับคริปโต",
   "wallet.send_free": "ส่งฟรี",
   "wallet.sort_largest_first": "จัดเรียงจากใหญ่สุดก่อน",

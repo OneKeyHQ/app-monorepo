@@ -3867,7 +3867,7 @@
   "wallet.risk_assets_hide_on_home_feedback_shown": "{tokenSymbol} теперь отображается на главном экране",
   "wallet.risk_assets_show_on_home": "Показывать на главной",
   "wallet.save_amount": "Скидка на газ",
-  "wallet.selected_utxo_count": "{} выбрано",
+  "wallet.selected_utxo_count": "{count} выбрано",
   "wallet.send_and_receive_cryptos": "Отправляйте и получайте криптовалюту",
   "wallet.send_free": "Отправить бесплатно",
   "wallet.sort_largest_first": "Сначала крупнейшие",

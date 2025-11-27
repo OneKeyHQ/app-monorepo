@@ -137,15 +137,17 @@ function SelectItem({
   leading,
   selectedValue,
   description,
+  disabled,
   testID = '',
 }: ISelectItemProps) {
   const { md } = useMedia();
   const handleSelect = useCallback(() => {
+    if (disabled) return;
     onSelect({
       value,
       label,
     });
-  }, [label, onSelect, value]);
+  }, [disabled, label, onSelect, value]);
   return useMemo(
     () => (
       <XStack
@@ -158,11 +160,13 @@ function SelectItem({
           borderRadius: '$3',
         }}
         borderCurve="continuous"
-        hoverStyle={{ bg: '$bgHover' }}
-        pressStyle={{ bg: '$bgActive' }}
+        opacity={disabled ? 0.5 : 1}
+        hoverStyle={disabled ? undefined : { bg: '$bgHover' }}
+        pressStyle={disabled ? undefined : { bg: '$bgActive' }}
         onPress={handleSelect}
         testID={testID}
         alignItems="center"
+        cursor={disabled ? 'not-allowed' : undefined}
       >
         {leading ? (
           <Stack alignContent="center" justifyContent="center" pr="$3">
@@ -193,6 +197,7 @@ function SelectItem({
     ),
     [
       description,
+      disabled,
       handleSelect,
       label,
       leading,

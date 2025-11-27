@@ -3867,7 +3867,7 @@
   "wallet.risk_assets_hide_on_home_feedback_shown": "{tokenSymbol} agora é exibido na tela inicial",
   "wallet.risk_assets_show_on_home": "Exibir no início",
   "wallet.save_amount": "Desconto no combustível",
-  "wallet.selected_utxo_count": "{} selecionado(s)",
+  "wallet.selected_utxo_count": "{count} selecionado(s)",
   "wallet.send_and_receive_cryptos": "Enviar e receber criptomoedas",
   "wallet.send_free": "Enviar grátis",
   "wallet.sort_largest_first": "Maior primeiro",

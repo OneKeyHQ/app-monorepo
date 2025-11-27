@@ -7,3 +7,4 @@ export {
   ReferFriendsPageContainer,
   REFER_FRIENDS_PAGE_MAX_WIDTH,
 } from './ReferFriendsPageContainer';
+export { ReferralBenefitsList } from './ReferralBenefitsList';

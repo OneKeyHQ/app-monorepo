@@ -3867,7 +3867,7 @@
   "wallet.risk_assets_hide_on_home_feedback_shown": "{tokenSymbol} がホームに表示されるようになりました",
   "wallet.risk_assets_show_on_home": "ホーム画面に表示",
   "wallet.save_amount": "ガス割引",
-  "wallet.selected_utxo_count": "{} 件選択済み",
+  "wallet.selected_utxo_count": "{count} 件選択済み",
   "wallet.send_and_receive_cryptos": "暗号資産の送受信",
   "wallet.send_free": "無料で送信",
   "wallet.sort_largest_first": "大きい順",

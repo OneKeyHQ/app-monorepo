@@ -3867,7 +3867,7 @@
   "wallet.risk_assets_hide_on_home_feedback_shown": "{tokenSymbol} is now shown on home",
   "wallet.risk_assets_show_on_home": "Show on home",
   "wallet.save_amount": "Gas discount",
-  "wallet.selected_utxo_count": "{} selected",
+  "wallet.selected_utxo_count": "{count} selected",
   "wallet.send_and_receive_cryptos": "Send and receive cryptos",
   "wallet.send_free": "Send free",
   "wallet.sort_largest_first": "Largest first",

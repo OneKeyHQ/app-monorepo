@@ -3867,7 +3867,7 @@
   "wallet.risk_assets_hide_on_home_feedback_shown": "{tokenSymbol} 已在首頁顯示",
   "wallet.risk_assets_show_on_home": "在首頁顯示",
   "wallet.save_amount": "Gas 補貼",
-  "wallet.selected_utxo_count": "已選取 {}",
+  "wallet.selected_utxo_count": "已選取 {count}",
   "wallet.send_and_receive_cryptos": "發送和接收加密貨幣",
   "wallet.send_free": "免費發送",
   "wallet.sort_largest_first": "最大",

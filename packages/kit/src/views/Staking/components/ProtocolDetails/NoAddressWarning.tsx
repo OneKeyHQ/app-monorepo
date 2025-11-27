@@ -8,8 +8,6 @@ import { useAccountSelectorCreateAddress } from '@onekeyhq/kit/src/components/Ac
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 export function NoAddressWarning({
@@ -57,12 +55,14 @@ export function NoAddressWarning({
   const { result } = usePromiseResult(async () => {
     const { serviceAccount, serviceNetwork } = backgroundApiProxy;
     let accountName = '';
+    let accountImpl: string | undefined;
     try {
       const account = await serviceAccount.getAccount({
         accountId,
         networkId,
       });
       accountName = account.name;
+      accountImpl = account.impl;
     } catch (e) {
       if (indexedAccountId) {
         const indexedAccount = await serviceAccount.getIndexedAccount({
@@ -75,49 +75,25 @@ export function NoAddressWarning({
     const network = await serviceNetwork.getNetwork({ networkId });
     return {
       accountName,
+      accountImpl,
       networkName: network.name,
     };
   }, [accountId, indexedAccountId, networkId]);
 
-  const isOthersAccount = accountUtils.isOthersAccount({ accountId });
-
-  // Check if Bitcoin Only firmware is trying to access non-BTC network
-  const { result: isBtcOnlyFirmwareUnsupported } = usePromiseResult(
+  const { result: accountNetworkNotSupported } = usePromiseResult(
     async () => {
-      if (!accountUtils.isHwWallet({ walletId: wallet?.id })) {
-        return false;
-      }
-
-      const isBtcOnlyFirmware =
-        await backgroundApiProxy.serviceAccount.isBtcOnlyFirmwareByWalletId({
-          walletId: wallet?.id || '',
-        });
-
-      if (isBtcOnlyFirmware) {
-        const { impl } = networkUtils.parseNetworkId({ networkId });
-        return impl !== 'btc';
-      }
-      return false;
+      return backgroundApiProxy.serviceAccount.checkAccountNetworkNotSupported({
+        accountId,
+        accountImpl: result?.accountImpl,
+        activeNetworkId: networkId,
+      });
     },
-    [wallet?.id, networkId],
-    { initResult: false },
+    [accountId, result?.accountImpl, networkId],
+    { initResult: undefined },
   );
 
   const content = useMemo(() => {
-    // Bitcoin Only firmware does not support non-BTC networks
-    if (isBtcOnlyFirmwareUnsupported) {
-      return {
-        title: intl.formatMessage(
-          { id: ETranslations.wallet_unsupported_network_title },
-          { network: result?.networkName ?? '' },
-        ),
-        description: intl.formatMessage({
-          id: ETranslations.wallet_unsupported_network_desc,
-        }),
-      };
-    }
-
-    if (isOthersAccount) {
+    if (accountNetworkNotSupported) {
       return {
         title: intl.formatMessage(
           { id: ETranslations.wallet_unsupported_network_title },
@@ -143,7 +119,7 @@ export function NoAddressWarning({
         },
       ),
     };
-  }, [result, isOthersAccount, isBtcOnlyFirmwareUnsupported, networkId, intl]);
+  }, [result, accountNetworkNotSupported, networkId, intl]);
 
   if (!result) {
     return null;
@@ -166,7 +142,7 @@ export function NoAddressWarning({
       title={content.title}
       description={content.description}
       action={
-        isOthersAccount || isBtcOnlyFirmwareUnsupported
+        accountNetworkNotSupported
           ? undefined
           : {
               primary: intl.formatMessage({

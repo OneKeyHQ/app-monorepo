@@ -71,6 +71,8 @@ export function convertDeviceError(
       return new HardwareErrors.FirmwareVersionTooLow({ payload });
     case HardwareErrorCode.DeviceUnexpectedMode:
       return new HardwareErrors.UnknownHardwareError({ payload });
+    case HardwareErrorCode.SelectDevice:
+      return new HardwareErrors.SelectDeviceError({ payload });
     case HardwareErrorCode.NotAllowInBootloaderMode:
       return new HardwareErrors.NotInBootLoaderMode({ payload });
     // case HardwareErrorCode.RequiredButInBootloaderMode:

@@ -3867,7 +3867,7 @@
   "wallet.risk_assets_hide_on_home_feedback_shown": "{tokenSymbol} hiện được hiển thị trên trang chủ",
   "wallet.risk_assets_show_on_home": "Hiển thị ở trang chủ",
   "wallet.save_amount": "Giảm giá gas",
-  "wallet.selected_utxo_count": "{} đã chọn",
+  "wallet.selected_utxo_count": "{count} đã chọn",
   "wallet.send_and_receive_cryptos": "Gửi và nhận tiền mã hoá",
   "wallet.send_free": "Gửi miễn phí",
   "wallet.sort_largest_first": "Lớn nhất trước",

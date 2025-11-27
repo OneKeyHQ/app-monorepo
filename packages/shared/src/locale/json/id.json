@@ -3867,7 +3867,7 @@
   "wallet.risk_assets_hide_on_home_feedback_shown": "{tokenSymbol} sekarang ditampilkan di beranda",
   "wallet.risk_assets_show_on_home": "Tampilkan di beranda",
   "wallet.save_amount": "Diskon gas",
-  "wallet.selected_utxo_count": "{} dipilih",
+  "wallet.selected_utxo_count": "{count} dipilih",
   "wallet.send_and_receive_cryptos": "Kirim dan terima kripto",
   "wallet.send_free": "Kirim gratis",
   "wallet.sort_largest_first": "Terbesar lebih dulu",

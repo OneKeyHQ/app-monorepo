@@ -3867,7 +3867,7 @@
   "wallet.risk_assets_hide_on_home_feedback_shown": "{tokenSymbol} এখন হোম পেজে প্রদর্শিত হচ্ছে।",
   "wallet.risk_assets_show_on_home": "হোমে দেখান",
   "wallet.save_amount": "গ্যাস ছাড়",
-  "wallet.selected_utxo_count": "{} নির্বাচিত",
+  "wallet.selected_utxo_count": "{count} নির্বাচিত",
   "wallet.send_and_receive_cryptos": "ক্রিপ্টো পাঠান এবং গ্রহণ করুন",
   "wallet.send_free": "বিনামূল্যে পাঠান",
   "wallet.sort_largest_first": "সর্ববৃহৎ আগে",
