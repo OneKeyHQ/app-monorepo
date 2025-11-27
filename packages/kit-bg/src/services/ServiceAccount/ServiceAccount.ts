@@ -52,6 +52,7 @@ import {
   COINTYPE_STC,
   FIRST_EVM_ADDRESS_PATH,
   IMPL_ALLNETWORKS,
+  IMPL_BTC,
   IMPL_EVM,
   IMPL_LTC,
 } from '@onekeyhq/shared/src/engine/engineConsts';
@@ -104,7 +105,10 @@ import type {
   IQrWalletAirGapAccount,
 } from '@onekeyhq/shared/types/account';
 import type { IGeneralInputValidation } from '@onekeyhq/shared/types/address';
-import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
+import type {
+  IDeviceSharedCallParams,
+  IOneKeyDeviceFeatures,
+} from '@onekeyhq/shared/types/device';
 import {
   EConfirmOnDeviceType,
   EHardwareCallContext,
@@ -5317,27 +5321,117 @@ class ServiceAccount extends ServiceBase {
     }
   }
 
+  /**
+   * Check if the wallet is a Bitcoin Only firmware
+   * @param walletId - wallet id
+   * @param featuresInfo - Optional: avoids redundant device queries
+   * @returns {boolean} if the wallet is a Bitcoin Only firmware
+   */
+  @backgroundMethod()
   async isBtcOnlyFirmwareByWalletId({
     walletId,
+    featuresInfo,
   }: {
     walletId: string;
+    featuresInfo?: IOneKeyDeviceFeatures;
   }): Promise<boolean> {
     if (!accountUtils.isHwWallet({ walletId })) {
       return false;
     }
 
-    let isBtcOnlyFirmware = false;
-    const walletDevice =
-      await this.backgroundApi.serviceAccount.getWalletDeviceSafe({
-        walletId,
+    let firmwareType: EFirmwareType | undefined;
+    if (featuresInfo) {
+      firmwareType = await deviceUtils.getFirmwareType({
+        features: featuresInfo,
       });
-    if (walletDevice) {
-      const firmwareType = await deviceUtils.getFirmwareType({
-        features: walletDevice.featuresInfo,
-      });
-      isBtcOnlyFirmware = firmwareType === EFirmwareType.BitcoinOnly;
+    } else {
+      const walletDevice =
+        await this.backgroundApi.serviceAccount.getWalletDeviceSafe({
+          walletId,
+        });
+      if (walletDevice) {
+        firmwareType = await deviceUtils.getFirmwareType({
+          features: walletDevice.featuresInfo,
+        });
+      }
     }
-    return isBtcOnlyFirmware;
+
+    return firmwareType === EFirmwareType.BitcoinOnly;
+  }
+
+  /**
+   * Check if the account network is supported
+   * @param accountId - account id
+   * @param accountImpl - Optional: avoids DB query if already known
+   * @param featuresInfo - Optional: avoids redundant device queries
+   * @param activeNetworkId - active network id
+   * @returns {boolean} if the account network is supported
+   */
+  @backgroundMethod()
+  async checkAccountNetworkNotSupported({
+    accountId,
+    accountImpl,
+    featuresInfo,
+    activeNetworkId,
+  }: {
+    accountId: string;
+    accountImpl?: string;
+    featuresInfo?: IOneKeyDeviceFeatures;
+    activeNetworkId: string;
+  }): Promise<
+    | {
+        networkImpl: string;
+      }
+    | undefined
+  > {
+    const walletId = accountUtils.getWalletIdFromAccountId({
+      accountId,
+    });
+
+    if (walletId === WALLET_TYPE_WATCHING) {
+      return undefined;
+    }
+
+    const { impl: activeNetworkImpl } = networkUtils.parseNetworkId({
+      networkId: activeNetworkId ?? '',
+    });
+
+    if (accountUtils.isOthersAccount({ accountId })) {
+      let currentAccountImpl = accountImpl;
+      if (!currentAccountImpl) {
+        const account = await this.getDBAccountSafe({ accountId });
+        if (!account) {
+          return undefined;
+        }
+        currentAccountImpl = account.impl;
+      }
+
+      const isAllNetwork = currentAccountImpl === IMPL_ALLNETWORKS;
+
+      if (isAllNetwork || currentAccountImpl === activeNetworkImpl) {
+        return undefined;
+      }
+
+      return {
+        networkImpl: activeNetworkImpl,
+      };
+    }
+
+    if (!accountUtils.isHwWallet({ walletId })) {
+      return undefined;
+    }
+
+    const isBtcOnlyFirmware = await this.isBtcOnlyFirmwareByWalletId({
+      walletId,
+      featuresInfo,
+    });
+    if (isBtcOnlyFirmware && activeNetworkImpl !== IMPL_BTC) {
+      return {
+        networkImpl: activeNetworkImpl,
+      };
+    }
+
+    return undefined;
   }
 }
 

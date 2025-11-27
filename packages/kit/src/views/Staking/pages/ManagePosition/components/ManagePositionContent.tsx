@@ -3,11 +3,14 @@ import { useCallback, useMemo } from 'react';
 import { isEmpty } from 'lodash';
 
 import { Skeleton, Stack, XStack, YStack } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import type { ISupportedSymbol } from '@onekeyhq/shared/types/earn';
 
 import { EarnAlert } from '../../../components/ProtocolDetails/EarnAlert';
+import { NetworkUnsupportedWarning } from '../../../components/ProtocolDetails/NetworkUnsupportedWarning';
 import { NoAddressWarning } from '../../../components/ProtocolDetails/NoAddressWarning';
 import { useManagePage } from '../hooks/useManagePage';
 
@@ -126,10 +129,30 @@ export function ManagePositionContent({
     await refreshManageData();
   }, [onCreateAddress, refreshManageAccount, refreshManageData]);
 
+  // Check if Bitcoin Only firmware is trying to access non-BTC network
+  const { result: accountNetworkNotSupported } = usePromiseResult(
+    async () => {
+      return backgroundApiProxy.serviceAccount.checkAccountNetworkNotSupported({
+        accountId,
+        activeNetworkId: networkId,
+      });
+    },
+    [accountId, networkId],
+    { initResult: undefined },
+  );
+
   const noAddressOrAccount = useMemo(
     () => (!accountId && !indexedAccountId) || !earnAccount?.accountAddress,
     [accountId, indexedAccountId, earnAccount?.accountAddress],
   );
+
+  // Determine if we should show warning instead of normal content
+  // This includes: no address, no account, or BTC-only firmware on non-BTC network
+  const shouldShowWarning = useMemo(
+    () => noAddressOrAccount || !!accountNetworkNotSupported,
+    [noAddressOrAccount, accountNetworkNotSupported],
+  );
+
   const resolvedTokenImageUri =
     tokenInfo?.token?.logoURI || fallbackTokenImageUri;
 
@@ -181,24 +204,34 @@ export function ManagePositionContent({
     indexedAccountId,
   ]);
 
-  const noAddressWarningElement = useMemo(
-    () =>
-      noAddressOrAccount ? (
+  // Warning element: shows NoAddressWarning or NetworkMismatchWarning based on the situation
+  const warningElement = useMemo(() => {
+    // BTC-only firmware on non-BTC network - show network mismatch warning
+    if (accountNetworkNotSupported) {
+      return <NetworkUnsupportedWarning networkId={networkId} />;
+    }
+
+    // No address or account - show no address warning
+    if (noAddressOrAccount) {
+      return (
         <NoAddressWarning
           accountId={accountId || ''}
           networkId={networkId}
           indexedAccountId={indexedAccountId}
           onCreateAddress={handleCreateAddress}
         />
-      ) : null,
-    [
-      noAddressOrAccount,
-      accountId,
-      networkId,
-      indexedAccountId,
-      handleCreateAddress,
-    ],
-  );
+      );
+    }
+
+    return null;
+  }, [
+    accountNetworkNotSupported,
+    noAddressOrAccount,
+    accountId,
+    networkId,
+    indexedAccountId,
+    handleCreateAddress,
+  ]);
 
   const historyAction = useMemo(
     () => managePageData?.history,
@@ -253,8 +286,9 @@ export function ManagePositionContent({
 
   // Create beforeFooter content for stake section
   const stakeBeforeFooter = useMemo(() => {
-    if (noAddressOrAccount) {
-      return noAddressWarningElement;
+    // If should show warning (no address or BTC-only firmware), return the warning element
+    if (shouldShowWarning) {
+      return warningElement;
     }
     if (!isEmpty(alertsStake) || !isEmpty(alerts)) {
       return (
@@ -265,12 +299,13 @@ export function ManagePositionContent({
       );
     }
     return null;
-  }, [noAddressOrAccount, alertsStake, alerts, noAddressWarningElement]);
+  }, [shouldShowWarning, warningElement, alertsStake, alerts]);
 
   // Create beforeFooter content for withdraw section
   const withdrawBeforeFooter = useMemo(() => {
-    if (noAddressOrAccount) {
-      return noAddressWarningElement;
+    // If should show warning (no address or BTC-only firmware), return the warning element
+    if (shouldShowWarning) {
+      return warningElement;
     }
     if (!isEmpty(alertsWithdraw) || !isEmpty(alerts)) {
       return (
@@ -281,7 +316,7 @@ export function ManagePositionContent({
       );
     }
     return null;
-  }, [noAddressOrAccount, alertsWithdraw, alerts, noAddressWarningElement]);
+  }, [shouldShowWarning, warningElement, alertsWithdraw, alerts]);
 
   // Create beforeFooter content for special layout (USDe, ADA)
   const specialBeforeFooter = useMemo(() => {
@@ -305,6 +340,14 @@ export function ManagePositionContent({
 
   // USDe special rendering
   if (symbol.toLowerCase() === 'usde') {
+    // Show warning if needed (no address or BTC-only firmware)
+    if (warningElement) {
+      return <YStack px="$5">{warningElement}</YStack>;
+    }
+    if (!managePageData?.holdings) {
+      return null;
+    }
+
     return (
       <USDEManageContent
         managePageData={managePageData}
