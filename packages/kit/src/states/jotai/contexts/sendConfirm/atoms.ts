@@ -128,13 +128,3 @@ export const { atom: txAdvancedSettingsAtom, use: useTxAdvancedSettingsAtom } =
     nonce: '',
     dataChanged: false,
   });
-
-export interface ISelectedUTXOsAtomValue {
-  networkId: string;
-  accountId: string;
-  selectedUtxoKeys: string[]; // Format: "txid:vout"
-  timestamp: number;
-}
-
-export const { atom: selectedUTXOsAtom, use: useSelectedUTXOsAtom } =
-  contextAtom<ISelectedUTXOsAtomValue | null>(null);
