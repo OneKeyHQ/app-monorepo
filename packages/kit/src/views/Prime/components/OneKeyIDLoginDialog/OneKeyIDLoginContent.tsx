@@ -22,13 +22,11 @@ import type { IOneKeyIDLoginDialogVariant } from './OneKeyIDLoginDialog';
 
 export interface IOneKeyIDLoginContentProps {
   variant?: IOneKeyIDLoginDialogVariant;
-  isReady: boolean;
   onEmailSubmit: (email: string) => void;
 }
 
 export function OneKeyIDLoginContent({
   variant = 'default',
-  isReady,
   onEmailSubmit,
 }: IOneKeyIDLoginContentProps) {
   const intl = useIntl();
@@ -42,6 +40,10 @@ export function OneKeyIDLoginContent({
     if (isValid) {
       const email = form.getValues('email');
       onEmailSubmit(email);
+    } else {
+      setTimeout(() => {
+        form.setFocus('email');
+      }, 100);
     }
   }, [form, onEmailSubmit]);
 
@@ -121,6 +123,7 @@ export function OneKeyIDLoginContent({
         >
           <Input
             autoFocus={!platformEnv.isNative}
+            blurOnSubmit={false}
             placeholder="your@email.com"
             size="large"
             leftIconName="EmailOutline"
@@ -130,7 +133,6 @@ export function OneKeyIDLoginContent({
             addOns={[
               {
                 label: 'Submit',
-                loading: !isReady,
                 onPress: handleSubmit,
               },
             ]}

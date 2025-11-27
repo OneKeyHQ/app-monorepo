@@ -16,7 +16,6 @@ const COUNTDOWN_TIME = 60;
 
 export interface IOneKeyIDVerifyCodeContentProps {
   email: string;
-  isReady: boolean;
   sendCode: (args: { email: string }) => Promise<void>;
   loginWithCode: (args: { code: string; email?: string }) => Promise<void>;
   onLoginSuccess?: () => void | Promise<void>;
@@ -25,7 +24,6 @@ export interface IOneKeyIDVerifyCodeContentProps {
 
 export function OneKeyIDVerifyCodeContent({
   email,
-  isReady,
   sendCode,
   loginWithCode,
   onLoginSuccess,
@@ -69,11 +67,11 @@ export function OneKeyIDVerifyCodeContent({
   );
 
   useEffect(() => {
-    if (isReady && !hasSentInitialCodeRef.current) {
+    if (!hasSentInitialCodeRef.current) {
       hasSentInitialCodeRef.current = true;
       void sendEmailVerificationCode(true);
     }
-  }, [isReady, sendEmailVerificationCode]);
+  }, [sendEmailVerificationCode]);
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>;
@@ -151,6 +149,14 @@ export function OneKeyIDVerifyCodeContent({
     onLoginSuccess,
   ]);
 
+  // Auto-submit when 6 digits are entered
+  useEffect(() => {
+    if (verificationCode.length === 6) {
+      void handleConfirm();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [verificationCode]);
+
   return (
     <YStack gap="$4">
       <SizableText color="$textSubdued">
@@ -197,7 +203,6 @@ export function OneKeyIDVerifyCodeContent({
           variant="primary"
           size="large"
           loading={isSubmittingVerificationCode}
-          disabled={verificationCode.length !== 6 || !isReady || !isApiReady}
           onPress={handleConfirm}
         >
           {intl.formatMessage({ id: ETranslations.global_confirm })}
@@ -205,6 +210,7 @@ export function OneKeyIDVerifyCodeContent({
       </XStack>
 
       <Button
+        m={0}
         alignSelf="center"
         size="small"
         variant="tertiary"

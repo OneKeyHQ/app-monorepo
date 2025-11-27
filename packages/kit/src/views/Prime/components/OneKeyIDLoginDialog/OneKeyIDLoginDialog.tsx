@@ -5,7 +5,7 @@ import { useIntl } from 'react-intl';
 import {
   AnimatePresence,
   Dialog,
-  Stack,
+  HeightTransition,
   Toast,
   YStack,
 } from '@onekeyhq/components';
@@ -38,7 +38,7 @@ export function OneKeyIDLoginDialog({
   const [view, setView] = useState<IView>('login');
   const [email, setEmail] = useState('');
 
-  const { isReady, getAccessToken, useLoginWithEmail } = usePrimeAuthV2();
+  const { getAccessToken, useLoginWithEmail } = usePrimeAuthV2();
 
   const { sendCode, loginWithCode } = useLoginWithEmail({
     onComplete: async () => {
@@ -58,9 +58,9 @@ export function OneKeyIDLoginDialog({
     setView('verify');
   }, []);
 
-  // const handleBack = useCallback(() => {
-  //   setView('login');
-  // }, []);
+  const handleBack = useCallback(() => {
+    setView('login');
+  }, []);
 
   const handleLoginSuccess = useCallback(async () => {
     try {
@@ -86,48 +86,52 @@ export function OneKeyIDLoginDialog({
       : intl.formatMessage({ id: ETranslations.prime_signup_login });
 
   return (
-    <Stack>
+    <YStack mx="$-5">
       <Dialog.Header>
         <Dialog.Title>{title}</Dialog.Title>
       </Dialog.Header>
 
-      <AnimatePresence exitBeforeEnter initial={false}>
-        {view === 'login' ? (
-          <YStack
-            key="login"
-            // animation="quick"
-            // enterStyle={{
-            //   opacity: 0,
-            //   filter: 'blur(4px)',
-            // }}
-          >
-            <OneKeyIDLoginContent
-              variant={variant}
-              isReady={isReady}
-              onEmailSubmit={handleEmailSubmit}
-            />
-          </YStack>
-        ) : (
-          <YStack
-            key="verify"
-            animation="quick"
-            enterStyle={{
-              opacity: 0,
-              filter: 'blur(4px)',
-            }}
-          >
-            <OneKeyIDVerifyCodeContent
-              email={email}
-              isReady={isReady}
-              sendCode={sendCode}
-              loginWithCode={loginWithCode}
-              onLoginSuccess={handleLoginSuccess}
-              // onBack={handleBack}
-            />
-          </YStack>
-        )}
-      </AnimatePresence>
-    </Stack>
+      <HeightTransition initialHeight={220}>
+        <YStack px="$5">
+          <AnimatePresence exitBeforeEnter initial={false}>
+            {view === 'login' ? (
+              <YStack
+                key="login"
+                animation="quick"
+                enterStyle={{
+                  opacity: 0,
+                  x: -20,
+                  filter: 'blur(4px)',
+                }}
+              >
+                <OneKeyIDLoginContent
+                  variant={variant}
+                  onEmailSubmit={handleEmailSubmit}
+                />
+              </YStack>
+            ) : (
+              <YStack
+                key="verify"
+                animation="quick"
+                enterStyle={{
+                  opacity: 0,
+                  x: 20,
+                  filter: 'blur(4px)',
+                }}
+              >
+                <OneKeyIDVerifyCodeContent
+                  email={email}
+                  sendCode={sendCode}
+                  loginWithCode={loginWithCode}
+                  onLoginSuccess={handleLoginSuccess}
+                  onBack={handleBack}
+                />
+              </YStack>
+            )}
+          </AnimatePresence>
+        </YStack>
+      </HeightTransition>
+    </YStack>
   );
 }
 
