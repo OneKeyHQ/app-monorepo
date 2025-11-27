@@ -761,19 +761,29 @@ export default class ServiceHyperliquid extends ServiceBase {
           hyperLiquidCache.activatedUser[accountAddress] = true;
           statusDetails.activatedOk = true;
 
-          // Start internal rebate binding check in parallel (non-blocking)
-          const internalRebateCheckPromise =
-            this.checkInternalRebateBindingStatus({
-              accountId: selectedAccount.accountId,
-              accountAddress,
-            });
-
-          // Builder fee approve must be executed before agent setup
+          // Builder fee must be approved before agent setup
           await this.checkBuilderFeeStatus({
             accountAddress,
             isEnableTradingTrigger,
             statusDetails,
           });
+
+          const isRebateBound =
+            await this.checkInternalRebateBindingStatusWithCache({
+              accountId: selectedAccount.accountId,
+              accountAddress,
+            });
+
+          // Clear local credentials to force new agent creation for rebate binding
+          if (!isRebateBound) {
+            await this.clearLocalAgentCredentials({
+              userAddress: accountAddress,
+            });
+            // Binding triggered via reportAgentApprovalToBackend after agent creation
+            statusDetails.internalRebateBoundOk = false;
+          } else {
+            statusDetails.internalRebateBoundOk = true;
+          }
 
           agentCredential = await this.checkAgentStatus({
             accountAddress,
@@ -808,13 +818,8 @@ export default class ServiceHyperliquid extends ServiceBase {
                 }
               }
             })();
-
-            // referral code is optional, so we set it to true by default
+            statusDetails.internalRebateBoundOk = true;
             statusDetails.referralCodeOk = true;
-
-            // Await internal rebate binding check result
-            statusDetails.internalRebateBoundOk =
-              await internalRebateCheckPromise;
           }
         }
       }
@@ -850,6 +855,27 @@ export default class ServiceHyperliquid extends ServiceBase {
       promise: true,
     },
   );
+
+  private async clearLocalAgentCredentials({
+    userAddress,
+  }: {
+    userAddress: string;
+  }) {
+    try {
+      const allCredentials = await localDb.getAllHyperLiquidAgentCredentials();
+      const credentialsToDelete = allCredentials.filter((credential) =>
+        credential.id.toLowerCase().includes(userAddress.toLowerCase()),
+      );
+
+      if (credentialsToDelete.length > 0) {
+        await localDb.removeCredentials({ credentials: credentialsToDelete });
+        this.fetchExtraAgentsWithCache.clear();
+        this.checkInternalRebateBindingStatusWithCache.clear();
+      }
+    } catch (error) {
+      console.error('[clearLocalAgentCredentials] Error:', error);
+    }
+  }
 
   private async checkAgentStatus({
     accountAddress,
@@ -1100,7 +1126,7 @@ export default class ServiceHyperliquid extends ServiceBase {
       return null;
     }
 
-    const referenceNetworkId = getNetworkIdsMap().eth;
+    const referenceNetworkId = getNetworkIdsMap().arbitrum;
     let referenceAddress = signerAddress;
 
     try {
@@ -1122,6 +1148,26 @@ export default class ServiceHyperliquid extends ServiceBase {
     return { walletId, referenceAddress, referenceNetworkId };
   }
 
+  checkInternalRebateBindingStatusWithCache = cacheUtils.memoizee(
+    async ({
+      accountId,
+      accountAddress,
+    }: {
+      accountId: string | null;
+      accountAddress: IHex;
+    }) => {
+      return this.checkInternalRebateBindingStatus({
+        accountId,
+        accountAddress,
+      });
+    },
+    {
+      max: 20,
+      maxAge: timerUtils.getTimeDurationMs({ minute: 1 }),
+      promise: true,
+    },
+  );
+
   private async checkInternalRebateBindingStatus({
     accountId,
     accountAddress,
@@ -1141,7 +1187,7 @@ export default class ServiceHyperliquid extends ServiceBase {
     try {
       return await this.backgroundApi.serviceReferralCode.checkWalletIsBoundReferralCode(
         {
-          address: refInfo.referenceAddress,
+          address: accountAddress,
           networkId: refInfo.referenceNetworkId,
         },
       );
@@ -1251,18 +1297,6 @@ export default class ServiceHyperliquid extends ServiceBase {
         return;
       }
 
-      const isAlreadyBound =
-        await this.backgroundApi.serviceReferralCode.checkWalletIsBoundReferralCode(
-          {
-            address: refInfo.referenceAddress,
-            networkId: refInfo.referenceNetworkId,
-          },
-        );
-
-      if (isAlreadyBound) {
-        return;
-      }
-
       const myReferralCode =
         await this.backgroundApi.serviceReferralCode.getMyReferralCode();
 
@@ -1277,6 +1311,9 @@ export default class ServiceHyperliquid extends ServiceBase {
         referenceAddress: refInfo.referenceAddress,
         signerAddress: signatureInfo.signerAddress,
       });
+
+      // Clear cache after successful binding
+      this.checkInternalRebateBindingStatusWithCache.clear();
     } catch (error) {
       console.error('[reportAgentApprovalToBackend] Error:', error);
     }
