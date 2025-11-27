@@ -44,10 +44,10 @@ const SwapProContainer = ({ onProSelectToken }: ISwapProContainerProps) => {
       </XStack>
       {/* <PerpTickerBar /> */}
       <XStack gap="$2.5" pb="$4">
-        <YStack flexBasis="35%" flexShrink={1}>
+        <YStack flexBasis="40%" flexShrink={1}>
           <SwapProTradeInfoPanel />
         </YStack>
-        <YStack flexBasis="65%" flexShrink={1}>
+        <YStack flexBasis="60%" flexShrink={1}>
           <SwapProTradingPanel />
         </YStack>
       </XStack>

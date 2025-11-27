@@ -1,7 +1,15 @@
+import { useState } from 'react';
+
 import { useIntl } from 'react-intl';
 
 import type { ISelectItem } from '@onekeyhq/components';
-import { Icon, Select, SizableText, XStack } from '@onekeyhq/components';
+import {
+  Icon,
+  Popover,
+  SizableText,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ESwapProTradeType } from '@onekeyhq/shared/types/swap/types';
 
@@ -17,19 +25,26 @@ const SwapProTradeTypeSelector = ({
   onSelectTradeType,
 }: ISwapProTradeTypeSelectorProps) => {
   const intl = useIntl();
+  const [isOpen, setIsOpen] = useState(false);
+
+  const handleItemPress = (value: ESwapProTradeType) => {
+    onSelectTradeType(value);
+    setIsOpen(false);
+  };
+
   return (
-    <Select
+    <Popover
       title=""
-      items={selectItems}
-      value={currentSelect}
-      onChange={onSelectTradeType}
-      renderTrigger={({ onPress }) => (
+      showHeader={false}
+      open={isOpen}
+      onOpenChange={setIsOpen}
+      renderTrigger={
         <XStack
           px="$3"
           cursor="pointer"
           userSelect="none"
           borderRadius="$2"
-          onPress={onPress}
+          onPress={() => setIsOpen(true)}
           h="$8"
           alignItems="center"
           gap="$2"
@@ -59,7 +74,53 @@ const SwapProTradeTypeSelector = ({
             color="$iconSubdued"
           />
         </XStack>
+      }
+      renderContent={({ closePopover }) => (
+        <YStack $md={{ p: '$3' }}>
+          {selectItems.map((item) => (
+            <XStack
+              key={String(item.value)}
+              px="$2"
+              py="$1.5"
+              borderRadius="$2"
+              $md={{
+                py: '$2.5',
+                borderRadius: '$3',
+              }}
+              bg={item.value === currentSelect ? '$bgActive' : '$bg'}
+              hoverStyle={{
+                bg: '$bgHover',
+              }}
+              pressStyle={{
+                bg: '$bgActive',
+              }}
+              onPress={() => {
+                handleItemPress(item.value as ESwapProTradeType);
+                closePopover();
+              }}
+              alignItems="center"
+              cursor="pointer"
+              opacity={item.disabled ? 0.5 : 1}
+            >
+              {item.leading ? (
+                <XStack pr="$3" alignItems="center">
+                  {item.leading}
+                </XStack>
+              ) : null}
+              <SizableText
+                flex={1}
+                size="$bodyMd"
+                color={item.value === currentSelect ? '$text' : '$textSubdued'}
+              >
+                {item.label}
+              </SizableText>
+            </XStack>
+          ))}
+        </YStack>
       )}
+      floatingPanelProps={{
+        width: '$56',
+      }}
     />
   );
 };

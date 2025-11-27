@@ -71,6 +71,7 @@ import {
   swapManualSelectQuoteProvidersAtom,
   swapNetworks,
   swapNetworksIncludeAllNetworkAtom,
+  swapProTokenDetailWebsocketAtom,
   swapProTokenMarketDetailInfoAtom,
   swapProTokenMarketDetailInfoLoadingAtom,
   swapQuoteActionLockAtom,
@@ -1845,7 +1846,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
             contractAddress,
             networkId,
           );
-        console.log('swap__tokenDetail', tokenDetail);
         const responseData =
           tokenDetail as unknown as IMarketTokenDetailResponse;
 
@@ -1859,6 +1859,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
 
         // Extract token and websocket data from new response format
         const tokenData = responseData.data.token;
+        const websocketConfig = responseData.data.websocket;
         const currentTokenDetail = get(swapProTokenMarketDetailInfoAtom());
         const isSameToken =
           currentTokenDetail &&
@@ -1883,6 +1884,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           : tokenData;
 
         set(swapProTokenMarketDetailInfoAtom(), finalTokenData);
+        set(swapProTokenDetailWebsocketAtom(), websocketConfig);
       } catch (error) {
         console.error('swap__tokenDetail error', error);
       } finally {

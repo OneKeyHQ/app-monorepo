@@ -1,14 +1,17 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useSwapProJumpTokenAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/swap';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IMarketSearchV2Token } from '@onekeyhq/shared/types/market';
+import type { IMarketTokenTransaction } from '@onekeyhq/shared/types/marketV2';
 import { swapDefaultSetTokens } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { useCurrency } from '../../../components/Currency';
 import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
@@ -20,6 +23,7 @@ import {
   useSwapProUseSelectBuyTokenAtom,
   useSwapTypeSwitchAtom,
 } from '../../../states/jotai/contexts/swap';
+import { useTransactionsWebSocket } from '../../Market/MarketDetailV2/components/InformationTabs/components/TransactionsHistory/hooks/useTransactionsWebSocket';
 import { useSpeedSwapInit } from '../../Market/MarketDetailV2/components/SwapPanel/hooks/useSpeedSwapInit';
 import { ESwapDirection } from '../../Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
 
@@ -248,11 +252,99 @@ export function useSwapProTokenDetailInfo() {
     swapProSelectToken?.networkId,
     swapProTokenMarketDetailFetchAction,
   ]);
-  useEffect(() => {
-    void fetchTokenMarketDetailInfo();
-  }, [fetchTokenMarketDetailInfo]);
+  usePromiseResult(
+    async () => {
+      await fetchTokenMarketDetailInfo();
+    },
+    [fetchTokenMarketDetailInfo],
+    {
+      pollingInterval: timerUtils.getTimeDurationMs({ seconds: 10 }),
+    },
+  );
+
   return {
     fetchTokenMarketDetailInfo,
+  };
+}
+
+const DEFAULT_PAGE_SIZE = 4;
+export function useSwapProTokenTransactionList(
+  tokenAddress: string,
+  networkId: string,
+  enableWebSocket: boolean,
+) {
+  const currencyInfo = useCurrency();
+  const [swapProTokenTransactionList, setSwapProTokenTransactionList] =
+    useState<IMarketTokenTransaction[]>([]);
+  const swapProTokenTransactionListRef = useRef<IMarketTokenTransaction[]>(
+    swapProTokenTransactionList,
+  );
+  if (swapProTokenTransactionListRef.current !== swapProTokenTransactionList) {
+    swapProTokenTransactionListRef.current = [...swapProTokenTransactionList];
+  }
+  const {
+    result: transactionsData,
+    isLoading: isRefreshing,
+    run: fetchTransactions,
+  } = usePromiseResult(
+    async () => {
+      const response =
+        await backgroundApiProxy.serviceMarketV2.fetchMarketTokenTransactions({
+          tokenAddress,
+          networkId,
+          limit: DEFAULT_PAGE_SIZE,
+        });
+      return response;
+    },
+    [tokenAddress, networkId],
+    {
+      watchLoading: true,
+    },
+  );
+  useEffect(() => {
+    const newTransactions = transactionsData?.list;
+    if (!newTransactions || newTransactions.length === 0) {
+      setSwapProTokenTransactionList([]);
+      return;
+    }
+    setSwapProTokenTransactionList(newTransactions);
+  }, [transactionsData?.list]);
+
+  const addNewTransaction = useCallback(
+    (newTransaction: IMarketTokenTransaction) => {
+      const prev = swapProTokenTransactionListRef.current;
+      // Check if transaction already exists to avoid duplicates
+      const existingIndex = prev.findIndex(
+        (tx) => tx.hash === newTransaction.hash,
+      );
+
+      if (existingIndex !== -1) {
+        return prev;
+      }
+
+      // Add new transaction at the beginning and sort by timestamp
+      const updatedTransactions = [newTransaction, ...prev]
+        .sort((a, b) => b.timestamp - a.timestamp)
+        .slice(0, DEFAULT_PAGE_SIZE);
+      setSwapProTokenTransactionList(updatedTransactions);
+    },
+    [],
+  );
+
+  // Subscribe to real-time transaction updates
+  // Only enable if websocket.txs is enabled and other conditions are met
+  useTransactionsWebSocket({
+    networkId,
+    tokenAddress,
+    enabled: enableWebSocket,
+    currency: currencyInfo.id,
+    onNewTransaction: addNewTransaction,
+  });
+
+  return {
+    swapProTokenTransactionList,
+    isRefreshing,
+    fetchTransactions,
   };
 }
 

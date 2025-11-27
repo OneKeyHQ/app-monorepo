@@ -14,7 +14,6 @@ import {
 import {
   useSwapProDirectionAtom,
   useSwapProInputAmountAtom,
-  useSwapProSelectTokenAtom,
   useSwapProUseSelectBuyTokenAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';

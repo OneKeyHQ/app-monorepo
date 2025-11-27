@@ -8,10 +8,15 @@ import {
   checkWrappedTokenPair,
   equalTokenNoCaseSensitive,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
-import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
+import type {
+  IMarketTokenDetail,
+  IMarketTokenDetailWebsocket,
+} from '@onekeyhq/shared/types/marketV2';
+import type { ESwapProTimeRange } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import {
   ESwapProviderSort,
   mevSwapNetworks,
+  swapProTimeRangeItems,
   swapProviderRecommendApprovedWeights,
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
@@ -734,6 +739,17 @@ export const {
 } = contextAtom<IMarketTokenDetail | undefined>(undefined);
 
 export const {
+  atom: swapProTokenDetailWebsocketAtom,
+  use: useSwapProTokenDetailWebsocketAtom,
+} = contextAtom<IMarketTokenDetailWebsocket | undefined>(undefined);
+
+export const {
   atom: swapProTokenMarketDetailInfoLoadingAtom,
   use: useSwapProTokenMarketDetailInfoLoadingAtom,
 } = contextAtom<boolean>(false);
+
+export const { atom: swapProTimeRangeAtom, use: useSwapProTimeRangeAtom } =
+  contextAtom<{ label: string; value: ESwapProTimeRange }>({
+    label: swapProTimeRangeItems[3].label,
+    value: swapProTimeRangeItems[3].value,
+  });

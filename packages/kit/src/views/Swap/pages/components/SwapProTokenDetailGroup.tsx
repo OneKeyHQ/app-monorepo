@@ -57,7 +57,7 @@ const SwapProTokenDetailGroup = () => {
         valueProps={{
           size: '$bodySmMedium',
         }}
-        isLoading={tokenMarketDetailLoading}
+        // isLoading={tokenMarketDetailLoading}
       />
       <SwapCommonInfoItem
         title="24h Vol"
@@ -68,7 +68,7 @@ const SwapProTokenDetailGroup = () => {
         valueProps={{
           size: '$bodySmMedium',
         }}
-        isLoading={tokenMarketDetailLoading}
+        // isLoading={tokenMarketDetailLoading}
       />
       <SwapCommonInfoItem
         title="Liquidity"
@@ -79,7 +79,7 @@ const SwapProTokenDetailGroup = () => {
         valueProps={{
           size: '$bodySmMedium',
         }}
-        isLoading={tokenMarketDetailLoading}
+        // isLoading={tokenMarketDetailLoading}
       />
       <SwapCommonInfoItem
         title="Holders"
@@ -90,7 +90,7 @@ const SwapProTokenDetailGroup = () => {
         valueProps={{
           size: '$bodySmMedium',
         }}
-        isLoading={tokenMarketDetailLoading}
+        // isLoading={tokenMarketDetailLoading}
       />
     </YStack>
   );
