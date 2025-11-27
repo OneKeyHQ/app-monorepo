@@ -156,7 +156,7 @@ export function EarnTooltip({
 
   const tooltipTitle = useMemo(() => {
     if (tooltip?.type === 'withdraw') {
-      return tooltip.data.title;
+      return tooltip.data.title.text;
     }
     if (tooltip?.type === 'rebateDetails') {
       return tooltip.data.title.text;
@@ -182,7 +182,7 @@ export function EarnTooltip({
           ))}
           {tooltip.data.description ? (
             <EarnText
-              text={{ text: tooltip.data.description }}
+              text={tooltip.data.description}
               size="$bodySm"
               color="$textSubdued"
               boldTextProps={{
