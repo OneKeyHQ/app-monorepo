@@ -35,7 +35,6 @@ import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
 import { usePerpsAssetCtx } from '../../../hooks/usePerpsAssetCtx';
 import { usePerpsMidPrice } from '../../../hooks/usePerpsMidPrice';
 import { useShowDepositWithdrawModal } from '../../../hooks/useShowDepositWithdrawModal';
-import { useShowInviteeRewardModal } from '../../InviteeReward/hooks/useShowInviteeRewardModal';
 import { PerpSettingsButton } from '../../PerpSettingsButton';
 
 import { PerpsAccountNumberValue } from './PerpsAccountNumberValue';
@@ -165,29 +164,12 @@ function DepositButton() {
   );
 }
 
-function InviteeRewardButton() {
-  const { showInviteeRewardModal } = useShowInviteeRewardModal();
-
-  return (
-    <DebugRenderTracker name="PerpsHeaderRight__InviteeRewardButton">
-      <IconButton
-        icon="GiftOutline"
-        size="small"
-        iconProps={{ color: '$iconSubdued' }}
-        variant="tertiary"
-        onPress={showInviteeRewardModal}
-      />
-    </DebugRenderTracker>
-  );
-}
-
 export function PerpsHeaderRight() {
   const { gtMd } = useMedia();
   const content = (
     <XStack alignItems="center" gap="$5">
       <WalletConnectionForWeb tabRoute={ETabRoutes.Perp} />
       {process.env.NODE_ENV !== 'production' ? <DebugButton /> : null}
-      <InviteeRewardButton />
       <DepositButton />
       {gtMd ? (
         <PerpSettingsButton testID="perp-header-settings-button" />

@@ -1,3 +1,5 @@
+import { useIntl } from 'react-intl';
+
 import type { useInTabDialog } from '@onekeyhq/components';
 import {
   Alert,
@@ -10,6 +12,8 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { perpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
 
@@ -25,6 +29,7 @@ export function InviteeRewardContent({
   walletAddress,
   isMobile,
 }: IInviteeRewardContentProps) {
+  const intl = useIntl();
   const { result: data, isLoading } = usePromiseResult(
     async () => {
       if (!walletAddress) {
@@ -45,7 +50,7 @@ export function InviteeRewardContent({
         <Alert
           type="info"
           renderTitle={() => (
-            <SizableText size="$bodySm" color="$textSubdued">
+            <SizableText size="$bodyMd" color="$textSubdued">
               Rewards will be distributed to your Arbitrum wallet (same address
               as Ethereum) by the 10th of next month.
             </SizableText>
@@ -61,8 +66,10 @@ export function InviteeRewardContent({
       </YStack>
       <Divider />
       <YStack gap="$2">
-        <SizableText size="$bodySm" color="$textSubdued">
-          Reward Distribution History
+        <SizableText size="$headingSm">
+          {intl.formatMessage({
+            id: ETranslations.referral_reward_history,
+          })}
         </SizableText>
         <RewardHistoryList
           isLoading={isLoading}
@@ -104,7 +111,9 @@ export async function showInviteeRewardDialog(
   }
 
   const dialogInTabRef = dialogInTab.show({
-    title: 'Invitee Reward',
+    title: appLocale.intl.formatMessage({
+      id: ETranslations.referral_title,
+    }),
     floatingPanelProps: {
       width: 480,
     },
