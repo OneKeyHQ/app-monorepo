@@ -48,6 +48,7 @@ type IMarketTokenListBaseProps = {
   toolbar?: ReactNode;
   result: IMarketTokenListResult;
   isWatchlistMode?: boolean;
+  showEndReachedIndicator?: boolean;
 };
 
 function MarketTokenListBase({
@@ -56,6 +57,7 @@ function MarketTokenListBase({
   toolbar,
   result,
   isWatchlistMode = false,
+  showEndReachedIndicator = false,
 }: IMarketTokenListBaseProps) {
   const toMarketDetailPage = useToDetailPage();
   const { md } = useMedia();
@@ -166,12 +168,30 @@ function MarketTokenListBase({
     (Boolean(isLoading) && data.length === 0) || Boolean(isNetworkSwitching);
 
   const TableFooterComponent = useMemo(() => {
-    return isLoadingMore ? (
-      <Stack alignItems="center" justifyContent="center" py="$4">
-        <Spinner size="small" />
-      </Stack>
-    ) : null;
-  }, [isLoadingMore]);
+    if (isLoadingMore) {
+      return (
+        <Stack alignItems="center" justifyContent="center" py="$4">
+          <Spinner size="small" />
+        </Stack>
+      );
+    }
+
+    // Show end indicator when no more data to load
+    if (showEndReachedIndicator && !canLoadMore && data.length > 0) {
+      return (
+        <Stack alignItems="center" justifyContent="center" py="$4">
+          <Stack
+            width={120}
+            height={4}
+            backgroundColor="$neutral5"
+            borderRadius="$full"
+          />
+        </Stack>
+      );
+    }
+
+    return null;
+  }, [isLoadingMore, showEndReachedIndicator, canLoadMore, data.length]);
 
   if (showSkeleton && platformEnv.isNativeAndroid) {
     return (
