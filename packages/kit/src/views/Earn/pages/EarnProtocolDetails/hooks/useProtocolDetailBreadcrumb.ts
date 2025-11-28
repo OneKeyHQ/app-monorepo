@@ -6,7 +6,6 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { ETabEarnRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 import type { ISupportedSymbol } from '@onekeyhq/shared/types/earn';
 import { normalizeToEarnProvider } from '@onekeyhq/shared/types/earn/earnProvider.constants';
 import type { IEarnTokenInfo } from '@onekeyhq/shared/types/staking';
@@ -22,8 +21,6 @@ interface IUseProtocolDetailBreadcrumbParams {
 }
 
 export function useProtocolDetailBreadcrumb({
-  accountId,
-  indexedAccountId,
   symbol,
   provider,
   tokenInfo,
@@ -33,21 +30,19 @@ export function useProtocolDetailBreadcrumb({
 
   // Fetch protocol list to determine if there are multiple protocols for this token
   const { result: protocolList } = usePromiseResult(async () => {
-    if (!accountId || !symbol) {
+    if (!symbol) {
       return [];
     }
 
     try {
       const data = await backgroundApiProxy.serviceStaking.getProtocolList({
         symbol,
-        accountId,
-        indexedAccountId,
       });
       return data || [];
     } catch (error) {
       return [];
     }
-  }, [accountId, indexedAccountId, symbol]);
+  }, [symbol]);
 
   const hasMultipleProtocols = useMemo(
     () => (protocolList?.length ?? 0) > 1,

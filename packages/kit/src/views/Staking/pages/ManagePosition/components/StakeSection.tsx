@@ -227,7 +227,7 @@ export const StakeSection = ({
   );
 
   // If no required data, render placeholder to maintain layout
-  if (!hasRequiredData || isLoading) {
+  if (!hasRequiredData) {
     return (
       <UniversalStake
         accountId={accountId}
