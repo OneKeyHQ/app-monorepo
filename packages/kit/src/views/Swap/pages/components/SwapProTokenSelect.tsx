@@ -33,12 +33,10 @@ const SwapProTokenSelector = ({
       bg="$bgApp"
       cursor="pointer"
       hoverStyle={{
-        p: '$2',
         borderRadius: '$full',
         bg: '$bgHover',
       }}
       pressStyle={{
-        p: '$2',
         borderRadius: '$full',
         bg: '$bgActive',
       }}

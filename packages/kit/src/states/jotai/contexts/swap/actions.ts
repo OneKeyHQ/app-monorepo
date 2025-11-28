@@ -71,6 +71,8 @@ import {
   swapManualSelectQuoteProvidersAtom,
   swapNetworks,
   swapNetworksIncludeAllNetworkAtom,
+  swapProSupportNetworksTokenListAtom,
+  swapProSupportNetworksTokenListLoadingAtom,
   swapProTokenDetailWebsocketAtom,
   swapProTokenMarketDetailInfoAtom,
   swapProTokenMarketDetailInfoLoadingAtom,
@@ -1625,6 +1627,62 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     },
   );
 
+  swapProLoadSupportNetworksTokenList = contextAtomMethod(
+    async (
+      get,
+      set,
+      supportNetworks: ISwapNetwork[],
+      indexedAccountId?: string,
+      otherWalletTypeAccountId?: string,
+    ) => {
+      set(swapProSupportNetworksTokenListLoadingAtom(), true);
+      const { swapSupportAccounts: swapProSupportAccounts } =
+        await backgroundApiProxy.serviceSwap.getSupportSwapAllAccounts({
+          indexedAccountId,
+          otherWalletTypeAccountId,
+          swapSupportNetworks: supportNetworks,
+        });
+      if (swapProSupportAccounts.length > 0) {
+        const accountAddressList = swapProSupportAccounts
+          .filter((item) => item.apiAddress)
+          .filter(
+            (item) => !networkUtils.isAllNetwork({ networkId: item.networkId }),
+          );
+        const requests = accountAddressList.map((networkDataString) => {
+          const {
+            apiAddress,
+            networkId: accountNetworkId,
+            accountId,
+          } = networkDataString;
+          return backgroundApiProxy.serviceSwap.fetchSwapTokens({
+            networkId: accountNetworkId,
+            accountNetworkId,
+            accountAddress: apiAddress,
+            accountId,
+            onlyAccountTokens: true,
+            isAllNetworkFetchAccountTokens: true,
+            protocol: ESwapTabSwitchType.SWAP,
+          });
+        });
+
+        const result = await Promise.all(requests);
+        const sortedResult = result
+          .filter(Boolean)
+          .flat()
+          .filter((item) => !item.isNative)
+          .sort((a, b) => {
+            return new BigNumber(b.fiatValue ?? '0').comparedTo(
+              new BigNumber(a.fiatValue ?? '0'),
+            );
+          });
+        set(swapProSupportNetworksTokenListAtom(), sortedResult);
+      } else {
+        set(swapProSupportNetworksTokenListAtom(), []);
+      }
+      set(swapProSupportNetworksTokenListLoadingAtom(), false);
+    },
+  );
+
   swapTypeSwitchAction = contextAtomMethod(
     async (
       get,
@@ -1914,6 +1972,8 @@ export const useSwapActions = () => {
     actions.limitOrderMarketPriceIntervalAction.use();
   const swapProTokenMarketDetailFetchAction =
     actions.swapProTokenMarketDetailFetchAction.use();
+  const swapProLoadSupportNetworksTokenList =
+    actions.swapProLoadSupportNetworksTokenList.use();
   const {
     cleanQuoteInterval,
     closeQuoteEvent,
@@ -1940,5 +2000,6 @@ export const useSwapActions = () => {
     limitOrderMarketPriceIntervalAction,
     cleanLimitOrderMarketPriceInterval,
     swapProTokenMarketDetailFetchAction,
+    swapProLoadSupportNetworksTokenList,
   });
 };

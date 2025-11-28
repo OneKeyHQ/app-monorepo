@@ -753,3 +753,13 @@ export const { atom: swapProTimeRangeAtom, use: useSwapProTimeRangeAtom } =
     label: swapProTimeRangeItems[3].label,
     value: swapProTimeRangeItems[3].value,
   });
+
+export const {
+  atom: swapProSupportNetworksTokenListAtom,
+  use: useSwapProSupportNetworksTokenListAtom,
+} = contextAtom<ISwapToken[]>([]);
+
+export const {
+  atom: swapProSupportNetworksTokenListLoadingAtom,
+  use: useSwapProSupportNetworksTokenListLoadingAtom,
+} = contextAtom<boolean>(false);

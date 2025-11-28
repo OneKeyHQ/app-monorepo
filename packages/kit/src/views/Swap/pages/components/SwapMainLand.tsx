@@ -62,6 +62,7 @@ import {
 } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type {
+  IFetchLimitOrderRes,
   IFetchQuoteResult,
   ISwapInitParams,
   ISwapPreSwapData,
@@ -906,6 +907,20 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     setSwapBuildTxFetching,
   ]);
 
+  const onOpenOrdersClick = useCallback(
+    (item: IFetchLimitOrderRes) => {
+      navigation.pushModal(EModalRoutes.SwapModal, {
+        screen: EModalSwapRoutes.LimitOrderDetail,
+        params: {
+          orderId: item.orderId,
+          orderItem: item,
+          storeName,
+        },
+      });
+    },
+    [navigation, storeName],
+  );
+
   return (
     // <ScrollView
     //   keyboardShouldPersistTaps="handled"
@@ -926,16 +941,21 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
       <YStack
         pt="$2.5"
         px="$5"
-        pb="$5"
         gap="$5"
         flex={1}
         $gtMd={{
           flex: 'unset',
           pt: pageType === EPageType.modal ? '$2.5' : '$5',
         }}
+        {...(showSwapPro && swapTypeSwitch === ESwapTabSwitchType.LIMIT
+          ? { pb: '$0' }
+          : { pb: '$5' })}
       >
         {showSwapPro && swapTypeSwitch === ESwapTabSwitchType.LIMIT ? (
-          <SwapProContainer onProSelectToken={onProSelectToken} />
+          <SwapProContainer
+            onProSelectToken={onProSelectToken}
+            onOpenOrdersClick={onOpenOrdersClick}
+          />
         ) : (
           <ScrollView
             keyboardShouldPersistTaps="handled"

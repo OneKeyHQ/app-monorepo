@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback } from 'react';
 
 import BigNumber from 'bignumber.js';
 
@@ -6,7 +6,6 @@ import {
   useSwapProInputAmountAtom,
   useSwapProSliderValueAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
-import { formatWithPrecision } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import { PerpsSlider } from '../../../Perp/components/PerpsSlider';
 import { useSwapProInputToken } from '../../hooks/useSwapPro';

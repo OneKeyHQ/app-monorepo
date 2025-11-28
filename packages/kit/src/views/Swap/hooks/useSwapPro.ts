@@ -23,6 +23,7 @@ import {
   useSwapProUseSelectBuyTokenAtom,
   useSwapTypeSwitchAtom,
 } from '../../../states/jotai/contexts/swap';
+import { useMarketBasicConfig } from '../../Market/hooks';
 import { useTransactionsWebSocket } from '../../Market/MarketDetailV2/components/InformationTabs/components/TransactionsHistory/hooks/useTransactionsWebSocket';
 import { useSpeedSwapInit } from '../../Market/MarketDetailV2/components/SwapPanel/hooks/useSpeedSwapInit';
 import { ESwapDirection } from '../../Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
@@ -39,6 +40,14 @@ export function useSwapProInit() {
     },
     [setSwapSwitchType, setSwapProSelectToken],
   );
+  const swapProSelectTokenRef = useRef<ISwapToken | undefined>(undefined);
+  if (swapProSelectTokenRef.current !== swapProSelectToken) {
+    swapProSelectTokenRef.current = swapProSelectToken;
+  }
+  const swapProJumpTokenRef = useRef<ISwapToken | undefined>(undefined);
+  if (swapProJumpTokenRef.current !== swapProJumpToken.token) {
+    swapProJumpTokenRef.current = swapProJumpToken.token;
+  }
   useEffect(() => {
     if (swapProJumpToken.token) {
       swapSwitchProToken({ token: swapProJumpToken.token });
@@ -48,9 +57,12 @@ export function useSwapProInit() {
 
   useListenTabFocusState(ETabRoutes.Swap, (isFocus: boolean) => {
     if (isFocus) {
-      if (!swapProSelectToken && !swapProJumpToken.token) {
+      if (!swapProSelectTokenRef.current && !swapProJumpTokenRef.current) {
         setSwapProSelectToken(swapDefaultSetTokens['evm--1'].fromToken);
       }
+    } else {
+      swapProSelectTokenRef.current = undefined;
+      swapProJumpTokenRef.current = undefined;
     }
   });
 }
@@ -210,6 +222,10 @@ export function useSwapProTokenSearch(input: string) {
   >([]);
   useEffect(() => {
     void (async () => {
+      if (!input) {
+        setSearchTokenList([]);
+        return;
+      }
       setSearchLoading(true);
       try {
         const searchRes =
@@ -345,6 +361,33 @@ export function useSwapProTokenTransactionList(
     swapProTokenTransactionList,
     isRefreshing,
     fetchTransactions,
+  };
+}
+
+export function useSwapProSupportNetworksTokenList() {
+  const { swapProLoadSupportNetworksTokenList } = useSwapActions().current;
+  const { networkList } = useMarketBasicConfig();
+  const { activeAccount } = useActiveAccount({ num: 0 });
+  const swapProLoadSupportNetworksTokenListRun = useCallback(async () => {
+    if (networkList.length > 0 && activeAccount) {
+      await swapProLoadSupportNetworksTokenList(
+        networkList.map((item) => ({
+          networkId: item.networkId,
+          symbol: item.name,
+          name: item.name,
+        })),
+        activeAccount.indexedAccount?.id,
+        !activeAccount?.indexedAccount?.id
+          ? activeAccount?.account?.id ?? activeAccount?.dbAccount?.id
+          : undefined,
+      );
+    }
+  }, [networkList, activeAccount, swapProLoadSupportNetworksTokenList]);
+  useEffect(() => {
+    void swapProLoadSupportNetworksTokenListRun();
+  }, [swapProLoadSupportNetworksTokenListRun]);
+  return {
+    swapProLoadSupportNetworksTokenListRun,
   };
 }
 
