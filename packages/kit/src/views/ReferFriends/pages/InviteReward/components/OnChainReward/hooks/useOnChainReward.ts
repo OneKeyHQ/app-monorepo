@@ -2,6 +2,11 @@ import { useCallback, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
+
 import type {
   IUseOnChainRewardParams,
   IUseOnChainRewardReturn,
@@ -10,6 +15,8 @@ import type {
 export function useOnChainReward({
   onChain,
 }: IUseOnChainRewardParams): IUseOnChainRewardReturn {
+  const { activeAccount } = useActiveAccount({ num: 0 });
+
   const hasEarnRewards = useMemo(
     () => (onChain.available?.length || 0) > 0,
     [onChain.available],
@@ -46,9 +53,16 @@ export function useOnChainReward({
     [calculateSummary, onChain.available],
   );
 
-  const earnToken = useMemo(() => {
-    return onChain.available?.[0]?.token;
-  }, [onChain.available]);
+  // Use USDC token since all values are accumulated in USDC
+  const { result: earnToken } = usePromiseResult(
+    async () =>
+      backgroundApiProxy.serviceToken.getToken({
+        networkId: PERPS_NETWORK_ID,
+        tokenIdOnNetwork: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831',
+        accountId: activeAccount.account?.id ?? '',
+      }),
+    [activeAccount.account?.id],
+  );
 
   return {
     earnToken,
