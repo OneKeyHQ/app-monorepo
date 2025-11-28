@@ -222,6 +222,22 @@ const stakingConfig: IStakingConfig = {
       },
     },
   },
+  [getNetworkIdsMap().hoodi]: {
+    providers: {
+      [EEarnProviderEnum.Stakefish]: {
+        supportedSymbols: ['ETH'],
+        configs: {
+          ETH: {
+            enabled: true,
+            tokenAddress: EMPTY_NATIVE_TOKEN_ADDRESS,
+            displayProfit: true,
+            withdrawWithTx: true,
+            claimWithTx: true,
+          },
+        },
+      },
+    },
+  },
 };
 
 const accountDeriveInfo: IAccountDeriveInfoMapEvm = {

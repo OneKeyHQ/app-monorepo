@@ -1009,4 +1009,6 @@ module.exports = [
   'Brotli',
   'Arial',
   'ip',
+  'hoodi',
+  'stakefish',
 ];
