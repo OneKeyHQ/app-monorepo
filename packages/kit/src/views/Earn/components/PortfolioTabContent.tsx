@@ -332,6 +332,16 @@ const AssetStatusField = ({
 }: {
   asset: IEarnPortfolioInvestment['assets'][number];
 }) => {
+  if (isEmpty(asset.assetsStatus)) {
+    return (
+      <FieldWrapper asset={asset}>
+        <Stack flexDirection="row" ai="center" flexWrap="wrap" maxWidth="100%">
+          <EarnText mr="$1" size="$bodyMdMedium" text={{ text: '-' }} />
+        </Stack>
+      </FieldWrapper>
+    );
+  }
+
   return (
     <FieldWrapper asset={asset}>
       {asset.assetsStatus?.map((status, index) => (
