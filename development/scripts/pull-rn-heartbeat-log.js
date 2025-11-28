@@ -6,7 +6,6 @@ const path = require('path');
 
 const BUNDLE_ID = process.env.RN_PROFILER_BUNDLE_ID || 'so.onekey.wallet';
 const LOG_FILES = [
-  'rn-profiler/heartbeat.log',
   'rn-profiler/functions.log',
 ];
 const OUTPUT_DIR = path.join(__dirname, '../output');

@@ -3,6 +3,11 @@ import {
   HEARTBEAT_LOG_RELATIVE_PATH,
   FUNCTION_LOG_RELATIVE_PATH,
   FUNCTION_STACK_FRAMES_DEFAULT,
+  FUNCTION_THRESHOLD_DEFAULT_MS,
+  FUNCTION_WARN_DEFAULT_MS,
+  FUNCTION_THRESHOLD_REQUEST_MS,
+  FUNCTION_WARN_REQUEST_MS,
+  FUNCTION_SAMPLE_REQUEST_DEFAULT,
 } from './heartbeatLogger.const';
 
 const heartbeatLogFilePath = `${RNFS.DocumentDirectoryPath}/${HEARTBEAT_LOG_RELATIVE_PATH}`;
@@ -13,13 +18,19 @@ const logDirPath = heartbeatLogFilePath.slice(
 );
 
 let timer: ReturnType<typeof setInterval> | null = null;
+let globalTraceId =
+  process.env.RN_PROFILER_TRACE_ID ||
+  `trace-${Date.now().toString(36)}-${Math.random()
+    .toString(36)
+    .slice(2, 8)}`;
 
 const perfThresholdMs = Number.parseInt(
-  process.env.RN_PROFILER_THRESHOLD_MS || '100',
+  process.env.RN_PROFILER_THRESHOLD_MS ||
+    `${FUNCTION_THRESHOLD_DEFAULT_MS}`,
   10,
 );
 const perfWarnMs = Number.parseInt(
-  process.env.RN_PROFILER_WARN_MS || '300',
+  process.env.RN_PROFILER_WARN_MS || `${FUNCTION_WARN_DEFAULT_MS}`,
   10,
 );
 const stackFrameLimit = Number.parseInt(
@@ -77,21 +88,61 @@ export function stopProfilerHeartbeat() {
 
 export { HEARTBEAT_LOG_RELATIVE_PATH };
 
-function captureStack() {
-  const err = new Error('fn-perf');
-  if (!err.stack) return undefined;
-  const lines = err.stack
-    .split('\n')
-    .slice(1)
-    .map((l) => l.trim())
-    .filter(
-      (line) =>
-        line &&
-        !line.includes('heartbeatLogger') &&
-        !line.includes('node_modules'),
-    )
-    .slice(0, stackFrameLimit);
-  return lines.length ? lines : undefined;
+function pickModule(file: string) {
+  if (!file) return 'unknown';
+  if (file.includes('packages/kit/src/views/')) return 'kit/views';
+  if (file.includes('packages/shared/src/engine/')) return 'shared/engine';
+  if (file.includes('packages/shared/src/request/')) return 'shared/request';
+  const parts = file.split('/');
+  const idx = parts.indexOf('packages');
+  if (idx >= 0 && parts[idx + 1]) {
+    return parts.slice(idx + 1, idx + 3).join('/');
+  }
+  return 'other';
+}
+
+function pickPage(file: string) {
+  if (!file) return undefined;
+  const parts = file.split('/');
+  const pagesIdx = parts.indexOf('pages');
+  if (pagesIdx >= 0 && parts[pagesIdx + 1]) {
+    return parts[pagesIdx + 1].replace(/\.(tsx|ts|js|jsx)$/, '');
+  }
+  const viewsIdx = parts.indexOf('views');
+  if (viewsIdx >= 0 && parts[viewsIdx + 1]) {
+    return parts[viewsIdx + 1];
+  }
+  return undefined;
+}
+
+function getModuleConfig(module: string) {
+  if (module === 'shared/request') {
+    const threshold = Number.parseInt(
+      process.env.RN_PROFILER_THRESHOLD_REQUEST_MS ||
+        `${FUNCTION_THRESHOLD_REQUEST_MS}`,
+      10,
+    );
+    const warn = Number.parseInt(
+      process.env.RN_PROFILER_WARN_REQUEST_MS ||
+        `${FUNCTION_WARN_REQUEST_MS}`,
+      10,
+    );
+    const sample = Number.parseInt(
+      process.env.RN_PROFILER_SAMPLE_REQUEST ||
+        `${FUNCTION_SAMPLE_REQUEST_DEFAULT}`,
+      10,
+    );
+    return { threshold, warn, sample };
+  }
+  return { threshold: perfThresholdMs, warn: perfWarnMs, sample: 1 };
+}
+
+function captureStack(meta: { file: string; line?: number }) {
+  // For now, just return file:line to keep logs lean and consistent.
+  if (meta?.file) {
+    return [`${meta.file}:${meta.line || 0}`];
+  }
+  return undefined;
 }
 
 export async function logFunctionHit(meta: {
@@ -118,11 +169,19 @@ export function recordFunctionPerfStart(meta: {
   file: string;
   line?: number;
 }) {
+  const module = pickModule(meta.file);
+  const page = pickPage(meta.file);
   return {
-    meta,
+    meta: {
+      ...meta,
+      module,
+      page,
+      traceId: globalThis.__profilerTraceId,
+    },
     start: typeof performance !== 'undefined' && performance.now
       ? performance.now()
       : Date.now(),
+    config: getModuleConfig(module),
   };
 }
 
@@ -131,6 +190,14 @@ export async function recordFunctionPerfEnd(token?: {
     name: string;
     file: string;
     line?: number;
+    module?: string;
+    page?: string;
+    traceId?: string;
+  };
+  config?: {
+    threshold: number;
+    warn: number;
+    sample: number;
   };
   start: number;
 }) {
@@ -141,21 +208,29 @@ export async function recordFunctionPerfEnd(token?: {
     (typeof performance !== 'undefined' && performance.now
       ? performance.now()
       : Date.now()) - token.start;
-  if (duration < perfThresholdMs) {
+  const config = token.config || getModuleConfig(token.meta.module || 'other');
+  if (config.sample > 1) {
+    const r = Math.floor(Math.random() * config.sample);
+    if (r !== 0) {
+      return;
+    }
+  }
+  if (duration < config.threshold) {
     return;
   }
-  const stack = captureStack();
+  const stack = captureStack(token.meta);
   const payload = JSON.stringify({
     ts: Date.now(),
     iso: new Date().toISOString(),
     duration,
     ...token.meta,
+    module: token.meta.module || pickModule(token.meta.file),
     stack,
   });
   try {
     await ensureLogFile(functionLogFilePath);
     await RNFS.appendFile(functionLogFilePath, `${payload}\n`, 'utf8');
-    if (duration >= perfWarnMs) {
+    if (duration >= config.warn) {
       // eslint-disable-next-line no-console
       console.warn(
         `[RN-FUNC-PERF] ${duration.toFixed(
@@ -187,5 +262,16 @@ export function installFunctionHitLogger() {
   globalThis.__recordFunctionStart = recordFunctionPerfStart;
   // @ts-ignore
   globalThis.__recordFunctionEnd = recordFunctionPerfEnd;
+  // @ts-ignore
+  globalThis.__profilerTraceId = globalTraceId;
+  // @ts-ignore
+  globalThis.__setProfilerTraceId = (id: string) => {
+    if (id) {
+      globalTraceId = id;
+      // @ts-ignore
+      globalThis.__profilerTraceId = globalTraceId;
+    }
+    return globalTraceId;
+  };
   return logFunctionHit;
 }
