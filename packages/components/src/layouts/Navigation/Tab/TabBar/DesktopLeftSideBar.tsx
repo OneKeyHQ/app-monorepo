@@ -197,7 +197,7 @@ function MoreTabItemView({
     if (showTooltipRef.current) {
       closeTooltipTimer.current = setTimeout(() => {
         dismissTooltip();
-      }, 250);
+      }, 300);
     } else if (showTooltipTimer.current) {
       clearTimeout(showTooltipTimer.current);
     }
@@ -272,6 +272,7 @@ function MoreTabItemView({
     <Tooltip
       open={isHovered}
       placement="right-start"
+      offset={{ mainAxis: 6, crossAxis: -28 }}
       renderTrigger={
         <YStack
           userSelect="none"
@@ -308,13 +309,12 @@ function MoreTabItemView({
       }
       renderContent={
         <YStack
-          pt="$1"
-          pb="$2"
-          minWidth={240}
+          minWidth={180}
           onHoverIn={handleHoverIn}
           onHoverOut={handleHoverOut}
+          pb="$1"
         >
-          <SizableText size="$headingMd" p="$2">
+          <SizableText size="$headingSm" pb="$1" pl="$2.5">
             {intl.formatMessage({
               id: ETranslations.global_more,
             })}
