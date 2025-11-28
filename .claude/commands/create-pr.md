@@ -34,7 +34,11 @@ Execute the following workflow to create a Pull Request from current changes:
    - Generate a clear PR title and description based on the changes
    - Include a summary of what was changed
 
-6. **Return the PR URL**
+6. **Update branch and enable auto-merge**
+   - Update the PR branch with latest base branch: `gh pr update-branch <PR号>`
+   - Enable auto-merge with squash: `gh pr merge <PR号> --auto --squash`
+
+7. **Return the PR URL**
    - Display the PR URL to the user
 
 ## Important Notes
