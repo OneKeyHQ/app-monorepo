@@ -649,6 +649,7 @@ const PortfolioItemComponent = ({
             minHeight: '$8',
           }}
           listItemProps={{
+            ai: 'flex-start',
             mt: media.gtSm ? '$2' : '$1',
           }}
           expandable={
