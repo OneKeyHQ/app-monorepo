@@ -229,6 +229,6 @@ export function getSymbolSupportedNetworks(): Record<
     'USDf': [networkIdsMap.eth],
     'USDe': [networkIdsMap.eth],
     'MORPHO': [networkIdsMap.eth],
-    'LISTA': [networkIdsMap.eth],
+    'LISTA': [networkIdsMap.bsc],
   };
 }
