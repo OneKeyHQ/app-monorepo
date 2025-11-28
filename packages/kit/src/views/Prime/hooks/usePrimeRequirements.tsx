@@ -7,6 +7,7 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { LazyLoadPage } from '../../../components/LazyLoadPage';
@@ -79,9 +80,11 @@ export function usePrimeRequirements() {
     async ({
       skipDialogConfirm,
       selectedSubscriptionPeriod,
+      featureName,
     }: {
       skipDialogConfirm?: boolean;
       selectedSubscriptionPeriod?: ISubscriptionPeriod;
+      featureName?: EPrimeFeatures;
     } = {}) => {
       await ensureOneKeyIDLoggedIn({
         skipDialogConfirm,
@@ -105,6 +108,7 @@ export function usePrimeRequirements() {
           if (selectedSubscriptionPeriod) {
             await purchase({
               selectedSubscriptionPeriod,
+              featureName,
             });
           } else {
             const purchaseDialog = Dialog.show({
@@ -113,6 +117,7 @@ export function usePrimeRequirements() {
                   onPurchase={() => {
                     void purchaseDialog.close();
                   }}
+                  featureName={featureName}
                 />
               ),
             });

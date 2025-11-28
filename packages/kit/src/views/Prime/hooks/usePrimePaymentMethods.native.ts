@@ -12,6 +12,7 @@ import googlePlayService from '@onekeyhq/shared/src/googlePlayService/googlePlay
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 import perfUtils from '@onekeyhq/shared/src/utils/debug/perfUtils';
 import type { IPrimeUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
 
@@ -214,8 +215,10 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
   const purchasePackageNative = useCallback(
     async ({
       subscriptionPeriod,
+      featureName,
     }: {
       subscriptionPeriod: ISubscriptionPeriod;
+      featureName?: EPrimeFeatures;
     }) => {
       try {
         if (!isReady) {
@@ -281,6 +284,7 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
             planType,
             amount,
             currency,
+            featureName,
           });
 
           void Dialog.confirm({
