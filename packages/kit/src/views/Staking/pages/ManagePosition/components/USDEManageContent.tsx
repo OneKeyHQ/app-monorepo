@@ -2,6 +2,7 @@ import { useCallback, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { isEmpty } from 'lodash';
+import { useIntl } from 'react-intl';
 
 import {
   Badge,
@@ -18,6 +19,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalReceiveRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
@@ -67,6 +69,7 @@ export function USDEManageContent({
   isInModalContext = false,
   earnAccount,
 }: IUSDEManageContentProps) {
+  const intl = useIntl();
   const appNavigation = useAppNavigation();
   const { handleSwap } = useHandleSwap();
 
@@ -204,7 +207,7 @@ export function USDEManageContent({
         {/* Header with History button */}
         <XStack jc="space-between" ai="center">
           <SizableText size="$headingMd" color="$text">
-            Holdings
+            {intl.formatMessage({ id: ETranslations.earn_holdings })}
           </SizableText>
           {historyActionItem && !historyActionItem.disabled ? (
             <IconButton

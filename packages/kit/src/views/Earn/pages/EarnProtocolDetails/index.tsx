@@ -418,8 +418,8 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
       }
 
       return {
-        accountId: activeAccount.account?.id || '',
-        indexedAccountId: activeAccount.indexedAccount?.id,
+        accountId: account?.id || '',
+        indexedAccountId: indexedAccount?.id,
         networkId,
         symbol,
         provider,
@@ -439,16 +439,15 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
     } = routeParams;
 
     return {
-      accountId: routeAccountId || activeAccount.account?.id || '',
-      indexedAccountId:
-        routeIndexedAccountId || activeAccount.indexedAccount?.id,
+      accountId: routeAccountId || account?.id || '',
+      indexedAccountId: routeIndexedAccountId || indexedAccount?.id,
       networkId,
       symbol,
       provider,
       vault,
       isFromShareLink: false,
     };
-  }, [route.params, activeAccount]);
+  }, [route.params, account?.id, indexedAccount?.id]);
 
   const { accountId, indexedAccountId, networkId, symbol, provider, vault } =
     resolvedParams;

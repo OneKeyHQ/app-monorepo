@@ -1,9 +1,7 @@
 import type { ReactElement } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { Skeleton, XStack, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useEarnActions } from '@onekeyhq/kit/src/states/jotai/contexts/earn/actions';
 import { MorphoBundlerContract } from '@onekeyhq/shared/src/consts/addresses';
@@ -94,7 +92,7 @@ export const StakeSection = ({
     }
   }, [estimateFeeUTXO]);
 
-  const { result, isLoading } = usePromiseResult(
+  const { result, isLoading = true } = usePromiseResult(
     async () => {
       if (!hasRequiredData || !protocolInfo?.approve?.approveTarget) {
         return undefined;
@@ -142,7 +140,6 @@ export const StakeSection = ({
   );
 
   const handleStake = useUniversalStake({ accountId, networkId });
-  const appNavigation = useAppNavigation();
 
   const onConfirm = useCallback(
     async ({
@@ -230,7 +227,7 @@ export const StakeSection = ({
   );
 
   // If no required data, render placeholder to maintain layout
-  if (!hasRequiredData) {
+  if (!hasRequiredData || isLoading) {
     return (
       <UniversalStake
         accountId={accountId}

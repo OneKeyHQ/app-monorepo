@@ -212,7 +212,7 @@ const ApyChartComponent = ({
                 onPress={handleMyPortfolio}
               >
                 <SizableText size="$bodyMdMedium" color="$textSubdued">
-                  {intl.formatMessage({ id: ETranslations.earn_portfolio })}
+                  {intl.formatMessage({ id: ETranslations.earn_positions })}
                 </SizableText>
                 <Icon
                   size="$bodySmMedium"

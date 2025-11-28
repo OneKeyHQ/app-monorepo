@@ -675,6 +675,7 @@ class ServiceStaking extends ServiceBase {
     vault?: string;
     accountAddress: string;
     publicKey?: string;
+    accountId: string;
   }) {
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const requestParams = {
@@ -688,7 +689,13 @@ class ServiceStaking extends ServiceBase {
 
     const resp = await client.get<{ data: IEarnManagePageResponse }>(
       '/earn/v1/manage-page',
-      { params: requestParams },
+      {
+        params: requestParams,
+        headers:
+          await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+            accountId: params.accountId,
+          }),
+      },
     );
     return resp.data.data;
   }
@@ -1107,6 +1114,7 @@ class ServiceStaking extends ServiceBase {
     provider: string;
     symbol: string;
     kycAccountAddress?: string;
+    accountId: string;
   }) {
     const client = await this.getClient(EServiceEndpointEnum.Earn);
 
@@ -1121,9 +1129,17 @@ class ServiceStaking extends ServiceBase {
       }
     }
 
+    const { accountId, ...rest } = params;
+
     const response = await client.get<{ data: IEarnInvestmentItemV2 }>(
       `/earn/v2/investment/detail`,
-      { params },
+      {
+        params: rest,
+        headers:
+          await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+            accountId,
+          }),
+      },
     );
 
     return response.data.data;
@@ -1137,12 +1153,21 @@ class ServiceStaking extends ServiceBase {
     networkId: string;
     provider: string;
     symbol: string;
+    accountId: string;
   }) {
     const client = await this.getClient(EServiceEndpointEnum.Earn);
 
+    const { accountId, ...rest } = params;
+
     const response = await client.get<{ data: IEarnAirdropInvestmentItemV2 }>(
       `/earn/v1/investment/airdrop-detail`,
-      { params },
+      {
+        params: rest,
+        headers:
+          await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+            accountId,
+          }),
+      },
     );
 
     return response.data.data;
@@ -1827,6 +1852,11 @@ class ServiceStaking extends ServiceBase {
   @backgroundMethod()
   async getBlockRegion() {
     try {
+      const isIpConnection =
+        await this.backgroundApi.serviceIpTable.isUsingIpConnection();
+      if (isIpConnection) {
+        return null;
+      }
       const client = await this.getClient(EServiceEndpointEnum.Earn);
       const response = await client.get<{
         data: IStakeBlockRegionResponse;

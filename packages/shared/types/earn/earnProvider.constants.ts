@@ -83,7 +83,6 @@ export const isSupportStaking = (symbol: string) =>
     'WETH',
     'CBBTC',
     'WBTC',
-    'USDF',
   ].includes(symbol.toUpperCase());
 
 export const earnMainnetNetworkIds = [

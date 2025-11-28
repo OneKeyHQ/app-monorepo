@@ -107,7 +107,6 @@ export function ManagePositionContent({
     alertsHolding,
     alertsStake,
     alertsWithdraw,
-    refreshAccount: refreshManageAccount,
     run: refreshManageData,
     isLoading,
   } = useManagePage({
@@ -124,9 +123,8 @@ export function ManagePositionContent({
     if (onCreateAddress) {
       await onCreateAddress();
     }
-    await refreshManageAccount();
     await refreshManageData();
-  }, [onCreateAddress, refreshManageAccount, refreshManageData]);
+  }, [onCreateAddress, refreshManageData]);
 
   // Check if Bitcoin Only firmware is trying to access non-BTC network
   const { result: accountNetworkNotSupported } = usePromiseResult(
