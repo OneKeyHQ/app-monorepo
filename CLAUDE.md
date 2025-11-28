@@ -43,12 +43,6 @@ OneKey is an open-source multi-chain crypto wallet with a monorepo architecture 
 - Code follows existing architectural patterns
 - Changes maintain backward compatibility where required
 
-### Branch Management
-- **Main branch**: `x` - This is the primary development branch
-- **IMPORTANT**: Always create new feature branches from `x`, never work directly on the `x` branch
-- **Workflow**: `x` → create feature branch → develop → PR back to `x`
-- Do not use `onekey`, `master`, or `main` as the base branch - always use `x`
-
 ## Development Commands
 
 ### Application Development Commands
@@ -385,7 +379,6 @@ OneKey is an open-source multi-chain crypto wallet with a monorepo architecture 
 - ❌ **NEVER** use `toLocaleLowerCase()` or `toLocaleUpperCase()` → Use `toLowerCase()` and `toUpperCase()` instead
 - ❌ **NEVER** directly import from `'@onekeyfe/hd-core'` → ALWAYS use `const {} = await CoreSDKLoader()` pattern
 - ❌ **NEVER** import `localDbInstance` directly → ALWAYS use `localDb` instead
-- ❌ **NEVER** work directly on the `x` branch → ALWAYS create feature branches
 - ❌ **NEVER** modify auto-generated files (`translations.ts`, locale JSON files)
 - ❌ **NEVER** bypass TypeScript types with `any` or `@ts-ignore` without documented justification
 - ❌ **NEVER** commit code that fails linting or TypeScript compilation
@@ -410,6 +403,44 @@ OneKey is an open-source multi-chain crypto wallet with a monorepo architecture 
 - Use clear and concise English for inline comments, function documentation, and code explanations
 - Avoid using non-English languages in comments to maintain consistency and accessibility for all developers
 - Do not use Chinese comments; always use English comments only
+
+## Git Usage Guidelines
+
+### Branch Management
+- **Main branch**: `x` - This is the primary development branch
+- **Workflow**: `x` → create feature branch → develop → PR back to `x`
+- Do not use `onekey`, `master`, or `main` as the base branch - always use `x`
+- **NEVER** work directly on the `x` branch → ALWAYS create feature branches
+
+### Branch Naming
+- Feature branches: `feat/description` or `feature/description`
+- Bug fixes: `fix/description`
+- Refactoring: `refactor/description`
+
+### Commit Message Format
+Use Conventional Commits format:
+- `feat:` - New features
+- `fix:` - Bug fixes
+- `refactor:` - Code refactoring
+- `perf:` / `optimize:` - Performance improvements
+- `chore:` - Build, version, or non-code changes
+- `docs:` - Documentation only
+
+**Format**: `type: short description`
+- Use lowercase
+- Keep first line under 72 characters
+- Include issue number if applicable: `fix: resolve login bug OK-12345`
+
+**IMPORTANT - Claude Code commits**:
+- Do NOT include "Generated with Claude Code" link
+- Do NOT include "Co-Authored-By: Claude" signature
+- Commit message should be indistinguishable from human-written commits
+
+### PR Naming Convention
+Follow the same format as commit messages:
+- `feat: add dark mode support`
+- `fix: resolve authentication timeout issue`
+- `refactor: simplify payment processing logic`
 
 ## Internationalization (i18n) Guidelines
 
