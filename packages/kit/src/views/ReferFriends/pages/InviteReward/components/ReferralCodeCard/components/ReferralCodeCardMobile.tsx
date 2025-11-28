@@ -10,6 +10,8 @@ import {
 
 import { useReferralCodeCard } from '../hooks/useReferralCodeCard';
 
+import { ReferralLinkDropdown } from './ReferralLinkDropdown';
+
 import type { IReferralCodeCardProps } from '../types';
 
 export function ReferralCodeCardMobile({
@@ -79,6 +81,7 @@ export function ReferralCodeCardMobile({
           color="$iconSubdued"
           flexShrink={0}
         />
+        <ReferralLinkDropdown inviteUrl={inviteUrl} />
       </ButtonFrame>
     </YStack>
   );
