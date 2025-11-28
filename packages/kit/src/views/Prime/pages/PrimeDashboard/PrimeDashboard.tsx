@@ -32,7 +32,6 @@ import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IPrimeServerUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
 
-import { usePrimePurchaseCallback } from '../../components/PrimePurchaseDialog/PrimePurchaseDialog';
 import { PrimeSubscriptionPlans } from '../../components/PrimePurchaseDialog/PrimeSubscriptionPlans';
 import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
 import { usePrimePayment } from '../../hooks/usePrimePayment';
@@ -79,6 +78,7 @@ export default function PrimeDashboard({
   route: RouteProp<IPrimeParamList, EPrimePages.PrimeDashboard>;
 }) {
   const intl = useIntl();
+  const { fromFeature } = route.params || {};
   // const isReady = false;
   const {
     user,
@@ -314,11 +314,13 @@ export default function PrimeDashboard({
     await ensurePrimeSubscriptionActive({
       skipDialogConfirm: true,
       selectedSubscriptionPeriod,
+      featureName: fromFeature,
     });
   }, [
     ensurePrimeSubscriptionActive,
     selectedSubscriptionPeriod,
     subscribeButtonEnabled,
+    fromFeature,
   ]);
 
   const isLoggedInMaybe =
