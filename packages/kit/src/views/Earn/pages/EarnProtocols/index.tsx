@@ -5,7 +5,6 @@ import { useIntl } from 'react-intl';
 import {
   Badge,
   Empty,
-  Image,
   SizableText,
   Skeleton,
   XStack,
@@ -23,8 +22,11 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { ETabEarnRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
-import type { ITabEarnParamList } from '@onekeyhq/shared/src/routes';
+import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import type {
+  ETabEarnRoutes,
+  ITabEarnParamList,
+} from '@onekeyhq/shared/src/routes';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { normalizeToEarnProvider } from '@onekeyhq/shared/types/earn/earnProvider.constants';
@@ -86,8 +88,6 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
 
       const data = await backgroundApiProxy.serviceStaking.getProtocolList({
         symbol,
-        accountId: activeAccount?.account?.id,
-        indexedAccountId: activeAccount?.indexedAccount?.id,
         filterNetworkId,
       });
 
@@ -97,12 +97,7 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
     } finally {
       setIsLoading(false);
     }
-  }, [
-    symbol,
-    activeAccount?.account?.id,
-    activeAccount?.indexedAccount?.id,
-    filterNetworkId,
-  ]);
+  }, [symbol, filterNetworkId]);
 
   useEffect(() => {
     void fetchProtocolData();
@@ -349,9 +344,7 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
           {
             label: intl.formatMessage({ id: ETranslations.global_earn }),
             onClick: () => {
-              navigation.switchTab(ETabRoutes.Earn, {
-                screen: ETabEarnRoutes.EarnHome,
-              });
+              EarnNavigation.pushToEarnHome(navigation);
             },
           },
           {
