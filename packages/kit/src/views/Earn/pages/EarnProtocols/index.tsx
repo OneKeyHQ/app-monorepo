@@ -86,8 +86,6 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
 
       const data = await backgroundApiProxy.serviceStaking.getProtocolList({
         symbol,
-        accountId: activeAccount?.account?.id,
-        indexedAccountId: activeAccount?.indexedAccount?.id,
         filterNetworkId,
       });
 
@@ -97,12 +95,7 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
     } finally {
       setIsLoading(false);
     }
-  }, [
-    symbol,
-    activeAccount?.account?.id,
-    activeAccount?.indexedAccount?.id,
-    filterNetworkId,
-  ]);
+  }, [symbol, filterNetworkId]);
 
   useEffect(() => {
     void fetchProtocolData();

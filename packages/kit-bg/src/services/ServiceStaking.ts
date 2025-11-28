@@ -722,15 +722,8 @@ class ServiceStaking extends ServiceBase {
   }
 
   _getProtocolList = memoizee(
-    async (params: {
-      symbol: string;
-      items: Array<{
-        networkId: string;
-        accountAddress?: string;
-        publicKey?: string;
-      }>;
-    }) => {
-      const { symbol, items } = params;
+    async (params: { symbol: string }) => {
+      const { symbol } = params;
       const client = await this.getClient(EServiceEndpointEnum.Earn);
 
       // Use v2 API that supports multiple networks
@@ -738,7 +731,6 @@ class ServiceStaking extends ServiceBase {
         data: { protocols: IStakeProtocolListItem[] };
       }>('/earn/v2/stake-protocol/list', {
         symbol,
-        items: items.filter((item) => item.accountAddress), // Only include items with account address
       });
       const protocols = protocolListResp.data.data.protocols;
       return protocols;
@@ -756,52 +748,10 @@ class ServiceStaking extends ServiceBase {
     indexedAccountId?: string;
     filterNetworkId?: string;
   }) {
-    const symbolSupportedNetworks = getSymbolSupportedNetworks();
-    const supportedNetworkIds =
-      symbolSupportedNetworks[
-        params.symbol as keyof typeof symbolSupportedNetworks
-      ] || [];
-
-    if (supportedNetworkIds.length === 0) {
-      return [];
-    }
-
-    // Get account info for each supported network
-    const networkAccountsPromises = supportedNetworkIds.map(
-      async (networkId) => {
-        if (!params.accountId) {
-          return { networkId, accountAddress: undefined, publicKey: undefined };
-        }
-
-        const earnAccount = await this.getEarnAccount({
-          accountId: params.accountId,
-          networkId,
-          indexedAccountId: params.indexedAccountId,
-          btcOnlyTaproot: true,
-        });
-
-        if (!earnAccount) {
-          return { networkId, accountAddress: undefined, publicKey: undefined };
-        }
-
-        return {
-          networkId: earnAccount.networkId,
-          accountAddress: earnAccount.accountAddress,
-          publicKey: networkUtils.isBTCNetwork(earnAccount.networkId)
-            ? earnAccount.account.pub
-            : undefined,
-        };
-      },
-    );
-
-    const networkAccounts = await Promise.all(networkAccountsPromises);
-
-    // Use cached _getProtocolList method with v2 API
     let allItems: IStakeProtocolListItem[] = [];
     try {
       allItems = await this._getProtocolList({
         symbol: params.symbol,
-        items: networkAccounts,
       });
     } catch (error) {
       console.warn(
