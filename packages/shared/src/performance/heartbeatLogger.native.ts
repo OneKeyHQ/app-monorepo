@@ -2,12 +2,13 @@ import RNFS from '../modules3rdParty/react-native-fs';
 import {
   HEARTBEAT_LOG_RELATIVE_PATH,
   FUNCTION_LOG_RELATIVE_PATH,
-  FUNCTION_STACK_FRAMES_DEFAULT,
   FUNCTION_THRESHOLD_DEFAULT_MS,
   FUNCTION_WARN_DEFAULT_MS,
   FUNCTION_THRESHOLD_REQUEST_MS,
   FUNCTION_WARN_REQUEST_MS,
   FUNCTION_SAMPLE_REQUEST_DEFAULT,
+  CALL_STACK_MAX_DEPTH,
+  CALL_STACK_LOG_DEPTH,
 } from './heartbeatLogger.const';
 
 const heartbeatLogFilePath = `${RNFS.DocumentDirectoryPath}/${HEARTBEAT_LOG_RELATIVE_PATH}`;
@@ -33,11 +34,10 @@ const perfWarnMs = Number.parseInt(
   process.env.RN_PROFILER_WARN_MS || `${FUNCTION_WARN_DEFAULT_MS}`,
   10,
 );
-const stackFrameLimit = Number.parseInt(
-  process.env.RN_PROFILER_STACK_FRAMES ||
-    `${FUNCTION_STACK_FRAMES_DEFAULT}`,
-  10,
-);
+
+// Global call stack for tracking function call hierarchy
+// Each frame contains: { name, file, line }
+const callStack: Array<{ name: string; file: string; line?: number }> = [];
 
 async function ensureLogFile(filePath: string) {
   const exists = await RNFS.exists(logDirPath);
@@ -137,14 +137,6 @@ function getModuleConfig(module: string) {
   return { threshold: perfThresholdMs, warn: perfWarnMs, sample: 1 };
 }
 
-function captureStack(meta: { file: string; line?: number }) {
-  // For now, just return file:line to keep logs lean and consistent.
-  if (meta?.file) {
-    return [`${meta.file}:${meta.line || 0}`];
-  }
-  return undefined;
-}
-
 export async function logFunctionHit(meta: {
   name: string;
   file: string;
@@ -169,6 +161,26 @@ export function recordFunctionPerfStart(meta: {
   file: string;
   line?: number;
 }) {
+  // Push current frame to call stack (with depth limit)
+  const frame = { name: meta.name, file: meta.file, line: meta.line };
+  if (callStack.length < CALL_STACK_MAX_DEPTH) {
+    callStack.push(frame);
+  }
+
+  // Capture current call stack snapshot (excluding self)
+  // This ensures we get the correct stack even in async scenarios
+  // Only keep the most recent N frames (closest callers) to keep logs lean
+  const stackSnapshot =
+    callStack.length > 1
+      ? callStack
+          .slice(
+            Math.max(0, callStack.length - 1 - CALL_STACK_LOG_DEPTH),
+            callStack.length - 1,
+          )
+          .filter((f) => f != null) // Filter out empty slots from sparse array
+          .map((f) => `${f.file}:${f.line || 0}#${f.name}`)
+      : undefined;
+
   const module = pickModule(meta.file);
   const page = pickPage(meta.file);
   return {
@@ -178,9 +190,12 @@ export function recordFunctionPerfStart(meta: {
       page,
       traceId: globalThis.__profilerTraceId,
     },
-    start: typeof performance !== 'undefined' && performance.now
-      ? performance.now()
-      : Date.now(),
+    start:
+      typeof performance !== 'undefined' && performance.now
+        ? performance.now()
+        : Date.now(),
+    stackDepth: callStack.length, // Record stack depth for later restoration
+    stackSnapshot, // Pre-captured stack for async safety
     config: getModuleConfig(module),
   };
 }
@@ -200,10 +215,23 @@ export async function recordFunctionPerfEnd(token?: {
     sample: number;
   };
   start: number;
+  stackDepth?: number;
+  stackSnapshot?: string[];
 }) {
   if (!token) {
     return;
   }
+
+  // Restore call stack to state before this function was called
+  // Only truncate, never expand (to avoid creating sparse arrays in async scenarios)
+  if (
+    token.stackDepth !== undefined &&
+    token.stackDepth > 0 &&
+    token.stackDepth - 1 < callStack.length
+  ) {
+    callStack.length = token.stackDepth - 1;
+  }
+
   const duration =
     (typeof performance !== 'undefined' && performance.now
       ? performance.now()
@@ -218,7 +246,10 @@ export async function recordFunctionPerfEnd(token?: {
   if (duration < config.threshold) {
     return;
   }
-  const stack = captureStack(token.meta);
+
+  // Use pre-captured stack snapshot for async safety
+  const stack = token.stackSnapshot;
+
   const payload = JSON.stringify({
     ts: Date.now(),
     iso: new Date().toISOString(),
