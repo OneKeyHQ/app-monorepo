@@ -35,7 +35,7 @@ export function useMarketTabsLogic(
   const [selectedTab, setSelectedTab] = useSelectedMarketTabAtom();
 
   const watchlistTabName = intl.formatMessage({
-    id: ETranslations.global_watchlist,
+    id: ETranslations.global_favorites,
   });
   const trendingTabName = intl.formatMessage({
     id: ETranslations.market_trending,

@@ -117,6 +117,7 @@ export function normalizeToEarnSymbol(
     'wbtc': 'WBTC',
     'usdf': 'USDf',
     'usde': 'USDe',
+    'lista': 'LISTA',
   };
   return symbolMap[symbol.toLowerCase()];
 }
@@ -134,6 +135,7 @@ export function normalizeToEarnProvider(
     'falcon': EEarnProviderEnum.Falcon,
     'ethena': EEarnProviderEnum.Ethena,
     'momentum': EEarnProviderEnum.Momentum,
+    'staked': EEarnProviderEnum.Lista,
   };
   return providerMap[provider.toLowerCase()];
 }
@@ -231,5 +233,6 @@ export function getSymbolSupportedNetworks(): Record<
     'USDf': [networkIdsMap.eth],
     'USDe': [networkIdsMap.eth],
     'MORPHO': [networkIdsMap.eth],
+    'LISTA': [networkIdsMap.bsc],
   };
 }

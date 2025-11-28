@@ -21,8 +21,6 @@ interface IUseProtocolDetailBreadcrumbParams {
 }
 
 export function useProtocolDetailBreadcrumb({
-  accountId,
-  indexedAccountId,
   symbol,
   provider,
   tokenInfo,
@@ -32,21 +30,19 @@ export function useProtocolDetailBreadcrumb({
 
   // Fetch protocol list to determine if there are multiple protocols for this token
   const { result: protocolList } = usePromiseResult(async () => {
-    if (!accountId || !symbol) {
+    if (!symbol) {
       return [];
     }
 
     try {
       const data = await backgroundApiProxy.serviceStaking.getProtocolList({
         symbol,
-        accountId,
-        indexedAccountId,
       });
       return data || [];
     } catch (error) {
       return [];
     }
-  }, [accountId, indexedAccountId, symbol]);
+  }, [symbol]);
 
   const hasMultipleProtocols = useMemo(
     () => (protocolList?.length ?? 0) > 1,

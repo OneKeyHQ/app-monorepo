@@ -35,6 +35,7 @@ interface IUSDEManageContentProps {
   isInModalContext?: boolean;
   beforeFooter?: React.ReactElement | null;
   fallbackTokenImageUri?: string;
+  onActionSuccess?: () => void;
   earnAccount?: {
     walletId: string;
     accountId: string;
@@ -55,6 +56,7 @@ export function USDEManageContent({
   isInModalContext = false,
   beforeFooter,
   fallbackTokenImageUri,
+  onActionSuccess,
   earnAccount,
 }: IUSDEManageContentProps) {
   const intl = useIntl();
@@ -141,10 +143,11 @@ export function USDEManageContent({
         token,
         networkId,
       });
+      onActionSuccess?.();
     } catch (error) {
       console.error('handleTrade error:', error);
     }
-  }, [handleSwap, networkId, token]);
+  }, [handleSwap, networkId, token, onActionSuccess]);
 
   const handleActivate = useCallback(() => {
     if (!activateAction) return;
@@ -167,6 +170,7 @@ export function USDEManageContent({
               title: resp.toast.text.text,
             });
           }
+          onActionSuccess?.();
         }
       },
     });
@@ -176,6 +180,7 @@ export function USDEManageContent({
     provider,
     symbol,
     earnAccount?.accountAddress,
+    onActionSuccess,
   ]);
 
   // Configure buttons based on available actions
