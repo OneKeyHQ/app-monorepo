@@ -524,7 +524,9 @@ export default function PagePrimeFeatures() {
           featureName: selectedFeature,
         });
       }
-      navigation.push(EPrimePages.PrimeDashboard);
+      navigation.push(EPrimePages.PrimeDashboard, {
+        fromFeature: selectedFeature,
+      });
       return;
     }
     if (isPackagesLoading) {
@@ -541,12 +543,16 @@ export default function PagePrimeFeatures() {
     // await ensureOneKeyIDLoggedIn({
     //   skipDialogConfirm: true,
     // });
+    const currentFeature = dataInfo.data[index]?.id;
     await ensurePrimeSubscriptionActive({
       skipDialogConfirm: true,
       selectedSubscriptionPeriod,
+      featureName: currentFeature,
     });
   }, [
+    dataInfo.data,
     ensurePrimeSubscriptionActive,
+    index,
     isPackagesLoading,
     navigation,
     selectedFeature,

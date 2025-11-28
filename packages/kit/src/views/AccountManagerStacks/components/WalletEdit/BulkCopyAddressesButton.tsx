@@ -6,6 +6,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalBulkCopyAddressesRoutes } from '@onekeyhq/shared/src/routes/bulkCopyAddresses';
 import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
@@ -39,6 +40,10 @@ export function BulkCopyAddressesButton({
         // Close the Action first and wait 150ms before ejecting the Modal to avoid the problem of closing after ejecting
         await timerUtils.wait(150);
         if (!isPrimeUser) {
+          defaultLogger.prime.subscription.primeEntryClick({
+            featureName: EPrimeFeatures.BulkCopyAddresses,
+            entryPoint: 'walletEdit',
+          });
           // FullModal can cause hierarchy issues
           navigation?.pushModal(EModalRoutes.PrimeModal, {
             screen: EPrimePages.PrimeFeatures,
