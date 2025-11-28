@@ -162,7 +162,9 @@ function EnableOneKeyCloudSwitchListItem() {
             return;
           }
           if (value) {
-            await ensurePrimeSubscriptionActive();
+            await ensurePrimeSubscriptionActive({
+              featureName: EPrimeFeatures.OneKeyCloud,
+            });
           }
 
           if (isSubmittingRef.current) {
