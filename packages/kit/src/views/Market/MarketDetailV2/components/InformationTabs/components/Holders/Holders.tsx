@@ -1,4 +1,4 @@
-import { memo, useCallback } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -39,6 +39,22 @@ function HoldersBase({ tokenAddress, networkId }: IHoldersProps) {
       [networkId, gtLg],
     );
 
+  const ListFooterComponent = useMemo(() => {
+    if (!isRefreshing && holders.length > 0) {
+      return (
+        <Stack alignItems="center" justifyContent="center" py="$4">
+          <Stack
+            width={120}
+            height={4}
+            backgroundColor="$neutral5"
+            borderRadius="$full"
+          />
+        </Stack>
+      );
+    }
+    return null;
+  }, [isRefreshing, holders.length]);
+
   return (
     <Tabs.FlatList<IMarketTokenHolder>
       data={holders}
@@ -50,6 +66,7 @@ function HoldersBase({ tokenAddress, networkId }: IHoldersProps) {
         item.accountAddress + item.fiatValue + item.amount
       }
       showsVerticalScrollIndicator
+      ListFooterComponent={ListFooterComponent}
       ListEmptyComponent={
         isRefreshing ? (
           <HoldersSkeleton />
