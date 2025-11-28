@@ -675,6 +675,7 @@ class ServiceStaking extends ServiceBase {
     vault?: string;
     accountAddress: string;
     publicKey?: string;
+    accountId: string;
   }) {
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const requestParams = {
@@ -688,7 +689,13 @@ class ServiceStaking extends ServiceBase {
 
     const resp = await client.get<{ data: IEarnManagePageResponse }>(
       '/earn/v1/manage-page',
-      { params: requestParams },
+      {
+        params: requestParams,
+        headers:
+          await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+            accountId: params.accountId,
+          }),
+      },
     );
     return resp.data.data;
   }
@@ -715,15 +722,8 @@ class ServiceStaking extends ServiceBase {
   }
 
   _getProtocolList = memoizee(
-    async (params: {
-      symbol: string;
-      items: Array<{
-        networkId: string;
-        accountAddress?: string;
-        publicKey?: string;
-      }>;
-    }) => {
-      const { symbol, items } = params;
+    async (params: { symbol: string }) => {
+      const { symbol } = params;
       const client = await this.getClient(EServiceEndpointEnum.Earn);
 
       // Use v2 API that supports multiple networks
@@ -731,7 +731,6 @@ class ServiceStaking extends ServiceBase {
         data: { protocols: IStakeProtocolListItem[] };
       }>('/earn/v2/stake-protocol/list', {
         symbol,
-        items: items.filter((item) => item.accountAddress), // Only include items with account address
       });
       const protocols = protocolListResp.data.data.protocols;
       return protocols;
@@ -749,52 +748,10 @@ class ServiceStaking extends ServiceBase {
     indexedAccountId?: string;
     filterNetworkId?: string;
   }) {
-    const symbolSupportedNetworks = getSymbolSupportedNetworks();
-    const supportedNetworkIds =
-      symbolSupportedNetworks[
-        params.symbol as keyof typeof symbolSupportedNetworks
-      ] || [];
-
-    if (supportedNetworkIds.length === 0) {
-      return [];
-    }
-
-    // Get account info for each supported network
-    const networkAccountsPromises = supportedNetworkIds.map(
-      async (networkId) => {
-        if (!params.accountId) {
-          return { networkId, accountAddress: undefined, publicKey: undefined };
-        }
-
-        const earnAccount = await this.getEarnAccount({
-          accountId: params.accountId,
-          networkId,
-          indexedAccountId: params.indexedAccountId,
-          btcOnlyTaproot: true,
-        });
-
-        if (!earnAccount) {
-          return { networkId, accountAddress: undefined, publicKey: undefined };
-        }
-
-        return {
-          networkId: earnAccount.networkId,
-          accountAddress: earnAccount.accountAddress,
-          publicKey: networkUtils.isBTCNetwork(earnAccount.networkId)
-            ? earnAccount.account.pub
-            : undefined,
-        };
-      },
-    );
-
-    const networkAccounts = await Promise.all(networkAccountsPromises);
-
-    // Use cached _getProtocolList method with v2 API
     let allItems: IStakeProtocolListItem[] = [];
     try {
       allItems = await this._getProtocolList({
         symbol: params.symbol,
-        items: networkAccounts,
       });
     } catch (error) {
       console.warn(
@@ -1107,6 +1064,7 @@ class ServiceStaking extends ServiceBase {
     provider: string;
     symbol: string;
     kycAccountAddress?: string;
+    accountId: string;
   }) {
     const client = await this.getClient(EServiceEndpointEnum.Earn);
 
@@ -1121,9 +1079,17 @@ class ServiceStaking extends ServiceBase {
       }
     }
 
+    const { accountId, ...rest } = params;
+
     const response = await client.get<{ data: IEarnInvestmentItemV2 }>(
       `/earn/v2/investment/detail`,
-      { params },
+      {
+        params: rest,
+        headers:
+          await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+            accountId,
+          }),
+      },
     );
 
     return response.data.data;
@@ -1137,12 +1103,21 @@ class ServiceStaking extends ServiceBase {
     networkId: string;
     provider: string;
     symbol: string;
+    accountId: string;
   }) {
     const client = await this.getClient(EServiceEndpointEnum.Earn);
 
+    const { accountId, ...rest } = params;
+
     const response = await client.get<{ data: IEarnAirdropInvestmentItemV2 }>(
       `/earn/v1/investment/airdrop-detail`,
-      { params },
+      {
+        params: rest,
+        headers:
+          await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+            accountId,
+          }),
+      },
     );
 
     return response.data.data;
@@ -1827,6 +1802,11 @@ class ServiceStaking extends ServiceBase {
   @backgroundMethod()
   async getBlockRegion() {
     try {
+      const isIpConnection =
+        await this.backgroundApi.serviceIpTable.isUsingIpConnection();
+      if (isIpConnection) {
+        return null;
+      }
       const client = await this.getClient(EServiceEndpointEnum.Earn);
       const response = await client.get<{
         data: IStakeBlockRegionResponse;

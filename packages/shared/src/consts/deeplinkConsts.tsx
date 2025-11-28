@@ -7,6 +7,7 @@ export enum EOneKeyDeepLinkPath {
   url_account = 'url_account',
   market_detail = 'market_detail',
   invite_share = 'invite_share',
+  invited_by_friend = 'invited_by_friend',
   cross_device_transfer = 'cross_device_transfer',
 }
 export type IEOneKeyDeepLinkParams = {
@@ -20,6 +21,10 @@ export type IEOneKeyDeepLinkParams = {
   [EOneKeyDeepLinkPath.invite_share]: {
     utm_source: string;
     code: string;
+  };
+  [EOneKeyDeepLinkPath.invited_by_friend]: {
+    code: string;
+    page?: string;
   };
   [EOneKeyDeepLinkPath.cross_device_transfer]: {
     code?: string;

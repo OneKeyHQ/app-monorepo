@@ -128,7 +128,10 @@ export type IDevicePassphraseParams = {
   passphraseState: string | undefined;
   useEmptyPassphrase: boolean | undefined;
 };
-export type IDeviceCommonParams = IDevicePassphraseParams;
+export type IDeviceWebUSBParams = {
+  skipWebDevicePrompt?: boolean;
+};
+export type IDeviceCommonParams = IDevicePassphraseParams & IDeviceWebUSBParams;
 export type IDeviceCommonParamsFull = CommonParams;
 
 export type IGetDeviceAccountDataParams = {

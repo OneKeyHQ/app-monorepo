@@ -109,8 +109,8 @@ function BasicMarketStarV2({
     <IconButton
       title={intl.formatMessage({
         id: checked
-          ? ETranslations.market_remove_from_watchlist
-          : ETranslations.market_add_to_watchlist,
+          ? ETranslations.market_remove_from_favorites
+          : ETranslations.market_add_to_favorites,
       })}
       icon={checked ? 'StarSolid' : 'StarOutline'}
       variant="tertiary"

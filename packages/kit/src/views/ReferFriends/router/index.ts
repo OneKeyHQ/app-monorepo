@@ -4,6 +4,7 @@ import type { IModalReferFriendsParamList } from '@onekeyhq/shared/src/routes';
 import { EModalReferFriendsRoutes } from '@onekeyhq/shared/src/routes';
 
 const ReferFriends = LazyLoadPage(() => import('../pages/ReferAFriend'));
+const InvitedByFriend = LazyLoadPage(() => import('../pages/InvitedByFriend'));
 const YourReferred = LazyLoadPage(() => import('../pages/YourReferred'));
 const HardwareSalesReward = LazyLoadPage(
   () => import('../pages/HardwareSalesReward'),
@@ -28,6 +29,10 @@ export const ReferFriendsRouter: IModalFlowNavigatorConfig<
     rewrite: '/r/invite',
     exact: true,
     component: ReferFriends,
+  },
+  {
+    name: EModalReferFriendsRoutes.InvitedByFriend,
+    component: InvitedByFriend,
   },
   {
     name: EModalReferFriendsRoutes.YourReferred,

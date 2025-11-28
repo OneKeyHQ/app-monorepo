@@ -6,8 +6,8 @@ import { LogToLocal, LogToServer } from '../../../base/decorators';
 
 export class PrimeSubscriptionScene extends BaseScene {
   /**
-   * 点击 Prime 功能入口
-   * 触发时机: 非 Prime 用户点击任何一个 Prime 功能的入口时触发
+   * Prime feature entry click
+   * Triggered when a non-Prime user clicks on any Prime feature entry point
    */
   @LogToServer()
   public primeEntryClick({
@@ -15,7 +15,12 @@ export class PrimeSubscriptionScene extends BaseScene {
     entryPoint,
   }: {
     featureName: EPrimeFeatures;
-    entryPoint: 'settingsPage' | 'moreActions' | 'approvalPopup' | 'primePage';
+    entryPoint:
+      | 'settingsPage'
+      | 'moreActions'
+      | 'approvalPopup'
+      | 'primePage'
+      | 'walletEdit';
   }) {
     return {
       featureName,
@@ -24,8 +29,8 @@ export class PrimeSubscriptionScene extends BaseScene {
   }
 
   /**
-   * 展示 Prime 功能介绍/引导弹窗
-   * 触发时机: 系统弹出功能介绍/订阅引导页（或弹窗）时触发
+   * Prime upsell/paywall shown
+   * Triggered when the feature introduction or subscription prompt page/dialog is displayed
    */
   @LogToServer()
   public primeUpsellShow({
@@ -42,8 +47,8 @@ export class PrimeSubscriptionScene extends BaseScene {
   }
 
   /**
-   * 点击"关于Prime"按钮
-   * 触发时机: 在功能介绍/引导页上，用户点击"订阅"或类似的行动号召（CTA）按钮时触发
+   * Prime upsell CTA button click
+   * Triggered when user clicks the "Subscribe" or similar call-to-action button on the upsell/paywall page
    */
   @LogToServer()
   public primeUpsellActionClick({
@@ -60,23 +65,27 @@ export class PrimeSubscriptionScene extends BaseScene {
   }
 
   /**
-   * 订阅成功
-   * 触发时机: 用户完成支付，成功订阅 Prime 后触发
+   * Prime subscription success
+   * Triggered when user completes payment and successfully subscribes to Prime
+   * @param featureName - The feature that led to this subscription (for tracking which feature attracts users)
    */
   @LogToServer()
   public primeSubscribeSuccess({
     planType,
     amount,
     currency,
+    featureName,
   }: {
     planType: 'monthly' | 'yearly';
     amount: number;
     currency: string;
+    featureName?: EPrimeFeatures;
   }) {
     return {
       planType,
       amount,
       currency,
+      featureName,
     };
   }
 

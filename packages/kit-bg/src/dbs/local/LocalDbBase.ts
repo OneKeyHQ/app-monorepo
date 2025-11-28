@@ -5495,5 +5495,13 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     );
   }
 
+  async removeAllHyperLiquidAgentCredentials(): Promise<number> {
+    const credentials = await this.getAllHyperLiquidAgentCredentials();
+    if (credentials.length > 0) {
+      await this.removeCredentials({ credentials });
+    }
+    return credentials.length;
+  }
+
   // #endregion
 }

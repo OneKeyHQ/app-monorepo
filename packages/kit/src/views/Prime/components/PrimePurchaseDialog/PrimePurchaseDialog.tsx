@@ -14,6 +14,7 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import googlePlayService from '@onekeyhq/shared/src/googlePlayService/googlePlayService';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 
 import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
 import { usePrimePayment } from '../../hooks/usePrimePayment';
@@ -42,12 +43,15 @@ export function usePrimePurchaseCallback({
   const purchaseByNative = useCallback(
     async ({
       selectedSubscriptionPeriod,
+      featureName,
     }: {
       selectedSubscriptionPeriod: ISubscriptionPeriod;
+      featureName?: EPrimeFeatures;
     }) => {
       try {
         const result = await purchasePackageNative?.({
           subscriptionPeriod: selectedSubscriptionPeriod,
+          featureName,
         });
         console.log('purchasePackageNative result >>>>>>', result);
       } finally {
@@ -61,8 +65,10 @@ export function usePrimePurchaseCallback({
   const purchase = useCallback(
     async ({
       selectedSubscriptionPeriod,
+      featureName,
     }: {
       selectedSubscriptionPeriod: ISubscriptionPeriod;
+      featureName?: EPrimeFeatures;
     }) => {
       try {
         onPurchase?.();
@@ -70,6 +76,7 @@ export function usePrimePurchaseCallback({
         if (platformEnv.isNativeIOS || platformEnv.isNativeAndroidGooglePlay) {
           void purchaseByNative({
             selectedSubscriptionPeriod,
+            featureName,
           });
           return;
         }
@@ -91,6 +98,7 @@ export function usePrimePurchaseCallback({
                       onPress: () => {
                         void purchaseByNative({
                           selectedSubscriptionPeriod,
+                          featureName,
                         });
                       },
                     },
@@ -99,6 +107,7 @@ export function usePrimePurchaseCallback({
                       onPress: () => {
                         void purchaseByWebview({
                           selectedSubscriptionPeriod,
+                          featureName,
                         });
                       },
                     },
@@ -109,6 +118,7 @@ export function usePrimePurchaseCallback({
           } else {
             void purchaseByWebview({
               selectedSubscriptionPeriod,
+              featureName,
             });
           }
           return;
@@ -119,6 +129,7 @@ export function usePrimePurchaseCallback({
             subscriptionPeriod: selectedSubscriptionPeriod,
             email: user?.email || '',
             locale: intl.locale,
+            featureName,
           });
           // await backgroundApiProxy.servicePrime.initRevenuecatPurchases({
           //   privyUserId: user.privyUserId || '',
@@ -149,8 +160,11 @@ export function usePrimePurchaseCallback({
   };
 }
 
-export const PrimePurchaseDialog = (props: { onPurchase: () => void }) => {
-  const { onPurchase } = props;
+export const PrimePurchaseDialog = (props: {
+  onPurchase: () => void;
+  featureName?: EPrimeFeatures;
+}) => {
+  const { onPurchase, featureName } = props;
   const intl = useIntl();
   const { user } = usePrimeAuthV2();
   const [selectedSubscriptionPeriod, setSelectedSubscriptionPeriod] =
@@ -198,6 +212,7 @@ export const PrimePurchaseDialog = (props: { onPurchase: () => void }) => {
         onConfirm={() => {
           return purchase({
             selectedSubscriptionPeriod,
+            featureName,
           });
         }}
       />

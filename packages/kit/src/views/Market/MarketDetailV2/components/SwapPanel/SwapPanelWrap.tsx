@@ -1,19 +1,13 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
-import { EFirmwareType } from '@onekeyfe/hd-shared';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import { IMPL_BTC } from '@onekeyhq/shared/src/engine/engineConsts';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
-import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 
 import { useTokenDetail } from '../../hooks/useTokenDetail';
@@ -57,84 +51,24 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
 
   const { activeAccount } = useActiveAccount({ num: 0 });
 
-  const checkAccountNetworkSupport = useCallback(() => {
-    if (
-      accountUtils.isImportedAccount({
+  const { result: accountNetworkNotSupported } = usePromiseResult(
+    async () => {
+      return backgroundApiProxy.serviceAccount.checkAccountNetworkNotSupported({
         accountId: activeAccount?.account?.id ?? '',
-      }) ||
-      accountUtils.isWatchingAccount({
-        accountId: activeAccount?.account?.id ?? '',
-      }) ||
-      accountUtils.isExternalAccount({
-        accountId: activeAccount?.account?.id ?? '',
-      })
-    ) {
-      const { impl } = networkUtils.parseNetworkId({
-        networkId: activeAccount?.network?.id ?? '',
+        accountImpl: activeAccount?.account?.impl,
+        activeNetworkId: networkId ?? '',
       });
-      const { impl: networkImpl } = networkUtils.parseNetworkId({
-        networkId: networkId ?? '',
-      });
-      const isAllNetwork = networkUtils.isAllNetwork({
-        networkId: activeAccount?.network?.id ?? '',
-      });
-      return isAllNetwork || impl === networkImpl;
-    }
-
-    if (!accountUtils.isHwWallet({ walletId: activeAccount.wallet?.id })) {
-      return true;
-    }
-
-    return null;
-  }, [
-    activeAccount?.account?.id,
-    activeAccount?.network?.id,
-    activeAccount.wallet?.id,
-    networkId,
-  ]);
-
-  const checkHardwareWalletSupport = useCallback(async () => {
-    if (!accountUtils.isHwWallet({ walletId: activeAccount.wallet?.id })) {
-      return true; // Non-hardware wallets are always supported
-    }
-
-    const isBtcOnlyFirmware =
-      await backgroundApiProxy.serviceAccount.isBtcOnlyFirmwareByWalletId({
-        walletId: activeAccount.wallet?.id || '',
-      });
-
-    if (isBtcOnlyFirmware) {
-      const { impl: networkImpl } = networkUtils.parseNetworkId({
-        networkId: networkId ?? '',
-      });
-      return networkImpl !== IMPL_BTC;
-    }
-
-    return true;
-  }, [activeAccount.wallet?.id, networkId]);
-
-  const isHwWallet = accountUtils.isHwWallet({
-    walletId: activeAccount.wallet?.id,
-  });
-  const { result: hwWalletSupport } = usePromiseResult(
-    checkHardwareWalletSupport,
-    [checkHardwareWalletSupport],
+    },
+    [activeAccount?.account?.id, activeAccount?.account?.impl, networkId],
     {
-      initResult: true,
+      initResult: undefined,
     },
   );
 
   const supportSpeedSwap = useMemo(() => {
-    const syncCheckResult = checkAccountNetworkSupport();
-
     let isAccountNetworkSupported: boolean;
-    if (syncCheckResult !== null) {
-      isAccountNetworkSupported = syncCheckResult;
-    } else if (isHwWallet) {
-      if (hwWalletSupport === null) {
-        throw new OneKeyLocalError('hwWalletSupport is null');
-      }
-      isAccountNetworkSupported = hwWalletSupport;
+    if (accountNetworkNotSupported !== undefined) {
+      isAccountNetworkSupported = false;
     } else {
       isAccountNetworkSupported = true;
     }
@@ -156,10 +90,8 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
       warningMessage,
     };
   }, [
-    checkAccountNetworkSupport,
+    accountNetworkNotSupported,
     intl,
-    isHwWallet,
-    hwWalletSupport,
     originalSupportSpeedSwap,
     tokenDetail?.supportSwap?.enable,
     tokenDetail?.supportSwap?.warningMessage,

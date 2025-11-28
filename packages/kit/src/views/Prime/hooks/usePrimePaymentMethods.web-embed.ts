@@ -9,6 +9,7 @@ import { useSearchParams } from 'react-router-dom';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { ILocaleJSONSymbol } from '@onekeyhq/shared/src/locale';
+import type { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 
 import purchaseSdkUtils from '../purchasesSdk/purchaseSdkUtils';
 
@@ -39,6 +40,7 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
       '') as ISubscriptionPeriod;
     const locale = searchParams.get('locale') || 'en';
     const mode = (searchParams.get('mode') || 'prod') as 'dev' | 'prod';
+    const featureName = searchParams.get('featureName') || '';
     return {
       apiKey,
       primeUserId,
@@ -46,6 +48,7 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
       subscriptionPeriod,
       locale,
       mode,
+      featureName,
     };
   }, [searchParams]);
 
@@ -148,15 +151,18 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
       subscriptionPeriod,
       email,
       locale,
+      featureName,
     }: {
       subscriptionPeriod: string;
       email: string;
       locale?: string; // https://www.revenuecat.com/docs/tools/paywalls/creating-paywalls#supported-locales
+      featureName?: EPrimeFeatures;
     }) => {
       console.log('purchasePackageWeb77632723>>>>>>', {
         subscriptionPeriod,
         email,
         locale,
+        featureName,
       });
 
       await initSdk();
@@ -218,6 +224,13 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
         const purchase = await Purchases.getSharedInstance().purchase(
           purchaseParams,
         );
+
+        primePaymentUtils.trackPrimeSubscriptionSuccess({
+          paywallPackage,
+          subscriptionPeriod,
+          featureName,
+        });
+
         // test credit card
         // https://docs.stripe.com/testing#testing-interactively
         // Mastercard: 5555555555554444

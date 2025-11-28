@@ -2,6 +2,7 @@ import { useCallback, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { isEmpty } from 'lodash';
+import { useIntl } from 'react-intl';
 
 import {
   Badge,
@@ -18,6 +19,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalReceiveRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
@@ -46,6 +48,7 @@ interface IUSDEManageContentProps {
   onHistory?: () => void;
   showApyDetail?: boolean;
   isInModalContext?: boolean;
+  onActionSuccess?: () => void;
   earnAccount?: {
     walletId: string;
     accountId: string;
@@ -65,8 +68,10 @@ export function USDEManageContent({
   onHistory,
   showApyDetail = false,
   isInModalContext = false,
+  onActionSuccess,
   earnAccount,
 }: IUSDEManageContentProps) {
+  const intl = useIntl();
   const appNavigation = useAppNavigation();
   const { handleSwap } = useHandleSwap();
 
@@ -157,10 +162,11 @@ export function USDEManageContent({
         token,
         networkId,
       });
+      onActionSuccess?.();
     } catch (error) {
       console.error('handleTrade error:', error);
     }
-  }, [handleSwap, networkId, token]);
+  }, [handleSwap, networkId, token, onActionSuccess]);
 
   const handleActivate = useCallback(() => {
     if (!activateAction) return;
@@ -183,6 +189,7 @@ export function USDEManageContent({
               title: resp.toast.text.text,
             });
           }
+          onActionSuccess?.();
         }
       },
     });
@@ -192,6 +199,7 @@ export function USDEManageContent({
     provider,
     symbol,
     earnAccount?.accountAddress,
+    onActionSuccess,
   ]);
 
   if (!holdings) {
@@ -204,7 +212,7 @@ export function USDEManageContent({
         {/* Header with History button */}
         <XStack jc="space-between" ai="center">
           <SizableText size="$headingMd" color="$text">
-            Holdings
+            {intl.formatMessage({ id: ETranslations.earn_holdings })}
           </SizableText>
           {historyActionItem && !historyActionItem.disabled ? (
             <IconButton

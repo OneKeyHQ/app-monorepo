@@ -4,6 +4,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useMarketBasicConfig } from '@onekeyhq/kit/src/views/Market/hooks';
 import { useNetworkLoadingAnalytics } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/hooks/useNetworkLoadingAnalytics';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IMarketTokenListResponse } from '@onekeyhq/shared/types/marketV2';
 
 import {
@@ -76,6 +77,7 @@ export function useMarketTokenList({
     [hasNetworkId, networkId, sortBy, sortType, pageSize, minLiquidity],
     {
       watchLoading: hasNetworkId,
+      pollingInterval: timerUtils.getTimeDurationMs({ seconds: 60 }),
       revalidateOnFocus: true,
       revalidateOnReconnect: true,
     },
