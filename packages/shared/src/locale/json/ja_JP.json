@@ -449,6 +449,8 @@
   "device.communication_failed": "デバイス通信に失敗しました。\"設定\" > \"ハードウェア通信\" でWebUSBモードに切り替えるか、接続問題を解決するために<url>https://help.onekey.so/articles/11461117<underline>OneKey Bridgeトラブルシューティングガイド</underline></url>を参照してください。",
   "device.communication_failed_with_no_web_usb_supported": "デバイスの通信に失敗しました。接続の問題を解決するには、<url>https://help.onekey.so/articles/11461117<underline>OneKey Bridge トラブルシューティングガイド</underline></url>をご参照ください。",
   "device.connect_via_usb": "デバイスをUSBで接続する",
+  "device.desc_update_latest_firmware": "この機能にアクセスするには、最新のファームウェアに更新してください。",
+  "device.firmware_update_required": "ファームウェアの更新が必要です",
   "device.firmware_upgrade_disallow_downgrade": "ダウングレードは許可されていません。アップグレード先のファームウェアが最新バージョンであることを確認してください。",
   "device.grant_usb_access": "USBアクセスを許可する",
   "device.hardware_communication": "ハードウェア通信",

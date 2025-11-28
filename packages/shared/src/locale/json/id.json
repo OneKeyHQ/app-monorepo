@@ -449,6 +449,8 @@
   "device.communication_failed": "Komunikasi perangkat gagal. Silakan coba beralih ke mode WebUSB di \"Pengaturan\" > \"Komunikasi Perangkat Keras\" atau lihat <url>https://help.onekey.so/articles/11461117<underline>panduan pemecahan masalah OneKey Bridge</underline></url> kami untuk menyelesaikan masalah koneksi.",
   "device.communication_failed_with_no_web_usb_supported": "Komunikasi perangkat gagal. Silakan merujuk ke <url>https://help.onekey.so/articles/11461117<underline>panduan pemecahan masalah OneKey Bridge</underline></url> kami untuk menyelesaikan masalah koneksi.",
   "device.connect_via_usb": "Hubungkan perangkat melalui USB",
+  "device.desc_update_latest_firmware": "Harap perbarui ke firmware terbaru untuk mengakses fitur ini.",
+  "device.firmware_update_required": "Pembaruan firmware diperlukan",
   "device.firmware_upgrade_disallow_downgrade": "Penurunan versi tidak diizinkan. Pastikan firmware yang Anda tingkatkan adalah versi terbaru.",
   "device.grant_usb_access": "Beri Akses USB",
   "device.hardware_communication": "Komunikasi perangkat keras",

@@ -449,6 +449,8 @@
   "device.communication_failed": "设备通信失败。请尝试在「设置」>「硬件通信」中切换到 WebUSB 模式，或参考我们的 <url>https://help.onekey.so/articles/11461117<underline>OneKey Bridge 故障排除指南</underline></url> 以解决连接问题。",
   "device.communication_failed_with_no_web_usb_supported": "设备通信失败。请参阅我们的 <url>https://help.onekey.so/articles/11461117<underline>OneKey Bridge 故障排除指南</underline></url> 以解决连接问题。",
   "device.connect_via_usb": "通过 USB 连接设备",
+  "device.desc_update_latest_firmware": "请更新至最新固件以使用此功能。",
+  "device.firmware_update_required": "需要固件更新",
   "device.firmware_upgrade_disallow_downgrade": "设备不允许降级。请确保您要升级的固件是最新版本。",
   "device.grant_usb_access": "授予 USB 访问权限",
   "device.hardware_communication": "硬件通信",
