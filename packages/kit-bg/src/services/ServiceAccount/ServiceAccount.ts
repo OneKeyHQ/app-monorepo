@@ -5352,13 +5352,10 @@ class ServiceAccount extends ServiceBase {
       promise: true,
       primitive: true,
       normalizer: ([options]) => {
-        if (options.featuresInfo) {
-          return `${options.walletId}-${
-            options.featuresInfo?.fw_vendor
-          }-${options.featuresInfo?.capabilities?.join(',')}`;
-        } else {
-          return options.walletId;
-        }
+        const fwVendor = options.featuresInfo?.fw_vendor || '';
+        const capabilities =
+          options.featuresInfo?.capabilities?.join(',') ?? '';
+        return `${options.walletId}-${fwVendor}-${capabilities}`;
       },
       maxAge: timerUtils.getTimeDurationMs({ seconds: 60 }),
       max: 5,
