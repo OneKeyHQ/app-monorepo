@@ -321,7 +321,7 @@ class ServiceReferralCode extends ServiceBase {
   async getPerpsInviteeRewards(params: {
     walletAddress: string;
   }): Promise<IPerpsInviteeRewardsResponse> {
-    const client = await this.getClient(EServiceEndpointEnum.Rebate);
+    const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Rebate);
     const response = await client.get<{ data: IPerpsInviteeRewardsResponse }>(
       '/rebate/v1/invite/perps-invitee-rewards',
       { params },
