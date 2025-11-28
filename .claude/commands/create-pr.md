@@ -35,11 +35,14 @@ Execute the following workflow to create a Pull Request from current changes:
    - Include a summary of what was changed
 
 6. **Update branch and enable auto-merge**
-   - Update the PR branch with latest base branch: `gh pr update-branch <PR号>`
-   - Enable auto-merge with squash: `gh pr merge <PR号> --auto --squash`
+   - Update the PR branch with latest base branch: `gh pr update-branch <PR_NUMBER>`
+   - Enable auto-merge with squash: `gh pr merge <PR_NUMBER> --auto --squash`
 
 7. **Return the PR URL**
    - Display the PR URL to the user
+
+8. **Open the PR in browser**
+   - Automatically open the PR URL in the default browser: `open <PR_URL>`
 
 ## Important Notes
 
