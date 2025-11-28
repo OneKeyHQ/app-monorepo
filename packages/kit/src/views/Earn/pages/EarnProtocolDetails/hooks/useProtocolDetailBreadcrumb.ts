@@ -6,7 +6,6 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { ETabEarnRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 import type { ISupportedSymbol } from '@onekeyhq/shared/types/earn';
 import { normalizeToEarnProvider } from '@onekeyhq/shared/types/earn/earnProvider.constants';
 import type { IEarnTokenInfo } from '@onekeyhq/shared/types/staking';
@@ -22,8 +21,6 @@ interface IUseProtocolDetailBreadcrumbParams {
 }
 
 export function useProtocolDetailBreadcrumb({
-  accountId,
-  indexedAccountId,
   symbol,
   provider,
   tokenInfo,
