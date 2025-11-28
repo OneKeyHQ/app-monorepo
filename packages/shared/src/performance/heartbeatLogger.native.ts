@@ -25,6 +25,11 @@ let globalTraceId =
     .toString(36)
     .slice(2, 8)}`;
 
+// Runtime context for better debugging
+let currentRoute: string | undefined;
+let lastUserAction: string | undefined;
+let lastActionTimestamp: number | undefined;
+
 const perfThresholdMs = Number.parseInt(
   process.env.RN_PROFILER_THRESHOLD_MS ||
     `${FUNCTION_THRESHOLD_DEFAULT_MS}`,
@@ -189,6 +194,13 @@ export function recordFunctionPerfStart(meta: {
       module,
       page,
       traceId: globalThis.__profilerTraceId,
+      // Runtime context
+      route: currentRoute,
+      action: lastUserAction,
+      actionAge:
+        lastActionTimestamp !== undefined
+          ? Date.now() - lastActionTimestamp
+          : undefined,
     },
     start:
       typeof performance !== 'undefined' && performance.now
@@ -208,6 +220,9 @@ export async function recordFunctionPerfEnd(token?: {
     module?: string;
     page?: string;
     traceId?: string;
+    route?: string;
+    action?: string;
+    actionAge?: number;
   };
   config?: {
     threshold: number;
@@ -304,5 +319,17 @@ export function installFunctionHitLogger() {
     }
     return globalTraceId;
   };
+
+  // Runtime context setters for debugging
+  // @ts-ignore
+  globalThis.__setProfilerRoute = (route: string) => {
+    currentRoute = route;
+  };
+  // @ts-ignore
+  globalThis.__setProfilerAction = (action: string) => {
+    lastUserAction = action;
+    lastActionTimestamp = Date.now();
+  };
+
   return logFunctionHit;
 }

@@ -4,19 +4,29 @@
  * Parse functions.log JSONL and print hottest functions/modules.
  *
  * Usage:
- *   node development/scripts/analyze-func-perf.js [path/to/functions.log] [report.json] [collapsed.txt] [speedscope.json] [report.md]
+ *   node development/scripts/analyze-func-perf.js
+ *
+ * All parameters are optional with sensible defaults:
+ *   - Input:  development/output/profiler/functions.log
+ *   - Output: development/output/profiler/report.json
+ *   - Output: development/output/profiler/speedscope.json
+ *   - Output: development/output/profiler/report.md
+ *
+ * Custom paths (all optional):
+ *   node development/scripts/analyze-func-perf.js [input.log] [report.json] [speedscope.json] [report.md]
  */
 
 const fs = require('fs');
 const path = require('path');
 
+const defaultOutputDir = path.join(__dirname, '../output/profiler');
+
 const inputPath =
   process.argv[2] ||
-  path.join(__dirname, '../output/profiler/functions.log');
-const outputPath = process.argv[3];
-const collapsedPath = process.argv[4];
-const speedscopePath = process.argv[5];
-const markdownPath = process.argv[6];
+  path.join(defaultOutputDir, 'functions.log');
+const outputPath = process.argv[3] ?? path.join(defaultOutputDir, 'report.json');
+const speedscopePath = process.argv[4] ?? path.join(defaultOutputDir, 'speedscope.json');
+const markdownPath = process.argv[5] ?? path.join(defaultOutputDir, 'report.md');
 
 const SKIP_PATTERNS = [
   /healthcheck/i,
@@ -39,7 +49,8 @@ function safeParse(line) {
 function pickModule(file) {
   if (!file) return 'unknown';
   if (file.includes('packages/kit/src/views/')) return 'kit/views';
-  if (file.includes('packages/shared/src/engine/')) return 'shared/engine';
+  if (file.includes('packages/kit/src/hooks/')) return 'kit/hooks';
+  if (file.includes('packages/kit-bg/src/services/')) return 'kit-bg/services';
   if (file.includes('packages/shared/src/request/')) return 'shared/request';
   const parts = file.split('/');
   const idx = parts.indexOf('packages');
@@ -54,6 +65,13 @@ function percentile(arr, p) {
   const sorted = [...arr].sort((a, b) => a - b);
   const idx = Math.floor((p / 100) * (sorted.length - 1));
   return sorted[idx];
+}
+
+function simplifyStackFrame(frame) {
+  if (!frame) return 'unknown';
+  // Extract just the function name from "file:line#name"
+  const match = frame.match(/#([^#]+)$/);
+  return match ? match[1] : frame;
 }
 
 const lines = fs
@@ -73,11 +91,21 @@ if (!lines.length) {
 const fnMap = new Map();
 const moduleMap = new Map();
 const pageMap = new Map();
+const routeMap = new Map();
+const callChainMap = new Map();
+const repeatCallMap = new Map();
+
+// Track repeated calls within short time windows
+let prevEntry = null;
+const REPEAT_WINDOW_MS = 100;
 
 for (const entry of lines) {
   const key = `${entry.file}:${entry.line || 0}#${entry.name}`;
   const module = entry.module || pickModule(entry.file);
   const page = entry.page || entry.component || 'unknown';
+  const route = entry.route || 'unknown';
+
+  // Function stats
   const existing =
     fnMap.get(key) || { name: entry.name, file: entry.file, line: entry.line, module, page, count: 0, total: 0, max: 0, durations: [] };
   existing.count += 1;
@@ -88,12 +116,14 @@ for (const entry of lines) {
   }
   fnMap.set(key, existing);
 
+  // Module stats
   const mod = moduleMap.get(module) || { module, count: 0, total: 0, max: 0 };
   mod.count += 1;
   mod.total += entry.duration;
   mod.max = Math.max(mod.max, entry.duration);
   moduleMap.set(module, mod);
 
+  // Page stats
   const pageKey = `${module}:${page}`;
   const pageEntry =
     pageMap.get(pageKey) || { module, page, count: 0, total: 0, max: 0 };
@@ -101,6 +131,34 @@ for (const entry of lines) {
   pageEntry.total += entry.duration;
   pageEntry.max = Math.max(pageEntry.max, entry.duration);
   pageMap.set(pageKey, pageEntry);
+
+  // Route stats (runtime context)
+  const routeEntry = routeMap.get(route) || { route, count: 0, total: 0, max: 0, functions: new Set() };
+  routeEntry.count += 1;
+  routeEntry.total += entry.duration;
+  routeEntry.max = Math.max(routeEntry.max, entry.duration);
+  routeEntry.functions.add(entry.name);
+  routeMap.set(route, routeEntry);
+
+  // Call chain analysis
+  if (Array.isArray(entry.stack) && entry.stack.length > 0) {
+    const chainKey = entry.stack.map(simplifyStackFrame).join(' → ') + ' → ' + entry.name;
+    const chainEntry = callChainMap.get(chainKey) || { chain: chainKey, count: 0, total: 0, max: 0 };
+    chainEntry.count += 1;
+    chainEntry.total += entry.duration;
+    chainEntry.max = Math.max(chainEntry.max, entry.duration);
+    callChainMap.set(chainKey, chainEntry);
+  }
+
+  // Repeated calls detection
+  if (prevEntry && prevEntry.name === entry.name && (entry.ts - prevEntry.ts) < REPEAT_WINDOW_MS) {
+    const repeatKey = `${entry.name}@${entry.file}`;
+    const repeatEntry = repeatCallMap.get(repeatKey) || { name: entry.name, file: entry.file, count: 0, totalDuration: 0 };
+    repeatEntry.count += 1;
+    repeatEntry.totalDuration += entry.duration;
+    repeatCallMap.set(repeatKey, repeatEntry);
+  }
+  prevEntry = entry;
 }
 
 const hotFns = Array.from(fnMap.values())
@@ -117,7 +175,7 @@ const hotModules = Array.from(moduleMap.values())
     ...m,
     avg: m.total / m.count,
   }))
-  .sort((a, b) => b.max - a.max);
+  .sort((a, b) => b.total - a.total);
 
 const hotPages = Array.from(pageMap.values())
   .map((p) => ({
@@ -126,8 +184,29 @@ const hotPages = Array.from(pageMap.values())
   }))
   .sort((a, b) => b.max - a.max);
 
+const hotRoutes = Array.from(routeMap.values())
+  .map((r) => ({
+    ...r,
+    avg: r.total / r.count,
+    functionCount: r.functions.size,
+  }))
+  .sort((a, b) => b.total - a.total);
+
+const hotCallChains = Array.from(callChainMap.values())
+  .map((c) => ({
+    ...c,
+    avg: c.total / c.count,
+  }))
+  .sort((a, b) => b.total - a.total)
+  .slice(0, 20);
+
+const repeatedCalls = Array.from(repeatCallMap.values())
+  .filter((r) => r.count >= 3)
+  .sort((a, b) => b.count - a.count)
+  .slice(0, 20);
+
 console.log(`Analyzed ${lines.length} calls from ${inputPath}\n`);
-console.log('Top functions (by p95):');
+console.log('=== Top Functions (by p95) ===');
 hotFns.forEach((f, idx) => {
   console.log(
     `${idx + 1}. ${f.name} (${f.module}) ${f.file}:${f.line || 0} - max=${f.max.toFixed(
@@ -138,17 +217,17 @@ hotFns.forEach((f, idx) => {
   );
 });
 
-console.log('\nModules:');
+console.log('\n=== Modules (by total time) ===');
 hotModules.forEach((m) => {
   console.log(
-    `- ${m.module}: max=${m.max.toFixed(2)}ms avg=${m.avg.toFixed(
+    `- ${m.module}: total=${m.total.toFixed(0)}ms max=${m.max.toFixed(2)}ms avg=${m.avg.toFixed(
       2,
     )}ms samples=${m.count}`,
   );
 });
 
-console.log('\nPages:');
-hotPages.slice(0, 20).forEach((p) => {
+console.log('\n=== Pages ===');
+hotPages.slice(0, 15).forEach((p) => {
   console.log(
     `- ${p.module}:${p.page} max=${p.max.toFixed(2)}ms avg=${p.avg.toFixed(
       2,
@@ -156,39 +235,56 @@ hotPages.slice(0, 20).forEach((p) => {
   );
 });
 
+if (hotRoutes.some((r) => r.route !== 'unknown')) {
+  console.log('\n=== Routes (runtime context) ===');
+  hotRoutes.filter((r) => r.route !== 'unknown').slice(0, 10).forEach((r) => {
+    console.log(
+      `- ${r.route}: total=${r.total.toFixed(0)}ms max=${r.max.toFixed(2)}ms functions=${r.functionCount} calls=${r.count}`,
+    );
+  });
+}
+
+if (hotCallChains.length > 0) {
+  console.log('\n=== Hot Call Chains ===');
+  hotCallChains.slice(0, 10).forEach((c, idx) => {
+    console.log(`${idx + 1}. [${c.total.toFixed(0)}ms total, ${c.count}x] ${c.chain}`);
+  });
+}
+
+if (repeatedCalls.length > 0) {
+  console.log('\n=== Repeated Calls (potential optimization) ===');
+  repeatedCalls.forEach((r) => {
+    console.log(`- ${r.name} called ${r.count}x rapidly (${r.totalDuration.toFixed(0)}ms total)`);
+  });
+}
+
 if (outputPath) {
+  // Clean up Set objects for JSON serialization
+  const routesForJson = hotRoutes.map((r) => ({
+    route: r.route,
+    count: r.count,
+    total: r.total,
+    max: r.max,
+    avg: r.avg,
+    functionCount: r.functionCount,
+  }));
   const out = {
     summary: {
       totalCalls: lines.length,
       functions: hotFns.length,
       modules: hotModules.length,
       pages: hotPages.length,
+      routes: hotRoutes.filter((r) => r.route !== 'unknown').length,
     },
     functions: hotFns,
     modules: hotModules,
     pages: hotPages,
+    routes: routesForJson.filter((r) => r.route !== 'unknown'),
+    callChains: hotCallChains,
+    repeatedCalls,
   };
   fs.writeFileSync(outputPath, JSON.stringify(out, null, 2), 'utf8');
   console.log(`\nSaved analysis to ${outputPath}`);
-}
-
-if (collapsedPath) {
-  const collapsedMap = new Map();
-  for (const entry of lines) {
-    const stackFrames = Array.isArray(entry.stack)
-      ? entry.stack.map((s) => String(s).replace(/^at\s+/, '').trim())
-      : [];
-    const frames = [entry.name, ...stackFrames];
-    const key = frames.join(';');
-    const prev = collapsedMap.get(key) || 0;
-    collapsedMap.set(key, prev + entry.duration);
-  }
-  const buf = Array.from(collapsedMap.entries())
-    .sort((a, b) => b[1] - a[1])
-    .map(([k, v]) => `${k} ${v.toFixed(3)}`)
-    .join('\n');
-  fs.writeFileSync(collapsedPath, buf, 'utf8');
-  console.log(`Saved collapsed stacks to ${collapsedPath}`);
 }
 
 if (speedscopePath) {
@@ -196,6 +292,7 @@ if (speedscopePath) {
   const frames = [];
   const frameIndex = new Map();
   function internFrame(name) {
+    if (!name || name === 'null') return null;
     if (frameIndex.has(name)) return frameIndex.get(name);
     const idx = frames.length;
     frames.push({ name });
@@ -206,25 +303,30 @@ if (speedscopePath) {
   const weights = [];
   for (const entry of lines) {
     const stackFrames = Array.isArray(entry.stack)
-      ? entry.stack.map((s) => String(s))
+      ? entry.stack
+          .filter((s) => s != null && s !== 'null' && s !== '')
+          .map((s) => simplifyStackFrame(String(s)))
       : [];
-    const framesArr = [entry.name, ...stackFrames].map(internFrame);
+    const allFrames = [entry.name, ...stackFrames];
+    const framesArr = allFrames
+      .map(internFrame)
+      .filter((idx) => idx !== null);
+    if (!framesArr.length) continue;
     samples.push(framesArr);
     weights.push(entry.duration);
   }
   const profile = {
-    type: 'sample',
+    type: 'sampled',
     name: 'RN Function Perf',
     unit: 'milliseconds',
     startValue: 0,
     endValue: weights.reduce((a, b) => a + b, 0),
     samples,
     weights,
-    frames,
   };
   const speedscope = {
-    $schema:
-      'https://www.speedscope.app/file-format-schema.json',
+    $schema: 'https://www.speedscope.app/file-format-schema.json',
+    version: '0.0.1',
     shared: { frames },
     profiles: [profile],
     activeProfileIndex: 0,
@@ -262,6 +364,38 @@ if (markdownPath) {
       2,
     )}ms samples=${p.count}\n`;
   });
+
+  // Routes section
+  const knownRoutes = hotRoutes.filter((r) => r.route !== 'unknown');
+  if (knownRoutes.length > 0) {
+    md += '\n## Routes (Runtime Context)\n';
+    md += 'Route | Total (ms) | Max (ms) | Functions | Calls\n';
+    md += '---|---|---|---|---\n';
+    knownRoutes.slice(0, 15).forEach((r) => {
+      md += `${r.route}|${r.total.toFixed(0)}|${r.max.toFixed(2)}|${r.functionCount}|${r.count}\n`;
+    });
+  }
+
+  // Call chains section
+  if (hotCallChains.length > 0) {
+    md += '\n## Hot Call Chains\n';
+    md += 'These call paths consume the most time:\n\n';
+    hotCallChains.slice(0, 10).forEach((c, idx) => {
+      md += `${idx + 1}. **${c.total.toFixed(0)}ms** (${c.count}x): \`${c.chain}\`\n`;
+    });
+  }
+
+  // Repeated calls section
+  if (repeatedCalls.length > 0) {
+    md += '\n## Repeated Calls (Potential Optimization)\n';
+    md += 'Functions called rapidly in succession (possible redundant calls):\n\n';
+    md += 'Function | Rapid Calls | Total Time (ms) | File\n';
+    md += '---|---|---|---\n';
+    repeatedCalls.forEach((r) => {
+      md += `${r.name}|${r.count}|${r.totalDuration.toFixed(0)}|${r.file}\n`;
+    });
+  }
+
   fs.writeFileSync(markdownPath, md, 'utf8');
   console.log(`Saved markdown report to ${markdownPath}`);
 }
