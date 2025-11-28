@@ -38,6 +38,8 @@ const settings: IVaultSettings = {
   defaultFeePresetIndex: 0,
   customRpcEnabled: true,
 
+  hasFrozenBalance: true,
+
   isUtxo: true,
   isSingleToken: false,
   NFTEnabled: false,
