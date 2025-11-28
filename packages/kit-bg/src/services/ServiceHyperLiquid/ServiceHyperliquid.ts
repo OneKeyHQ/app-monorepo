@@ -1217,13 +1217,46 @@ export default class ServiceHyperliquid extends ServiceBase {
       return true;
     }
 
+    const { referenceAddress, referenceNetworkId } = refInfo;
+    const isFirstAccount =
+      referenceAddress.toLowerCase() === accountAddress.toLowerCase();
+
     try {
-      return await this.backgroundApi.serviceReferralCode.checkWalletIsBoundReferralCode(
-        {
-          address: accountAddress,
-          networkId: refInfo.referenceNetworkId,
-        },
-      );
+      // Check if current account is bound
+      const isCurrentAccountBound =
+        await this.backgroundApi.serviceReferralCode.checkWalletIsBoundReferralCode(
+          {
+            address: accountAddress,
+            networkId: referenceNetworkId,
+          },
+        );
+
+      if (isCurrentAccountBound) {
+        return true;
+      }
+
+      // Current account is not bound
+      if (isFirstAccount) {
+        // First account: return false to trigger binding flow
+        return false;
+      }
+
+      // Non-first account: check first account's binding status
+      const isFirstAccountBound =
+        await this.backgroundApi.serviceReferralCode.checkWalletIsBoundReferralCode(
+          {
+            address: referenceAddress,
+            networkId: referenceNetworkId,
+          },
+        );
+
+      if (isFirstAccountBound) {
+        // First account is bound, current account needs binding too
+        return false;
+      }
+
+      // First account is not bound, skip binding for current account
+      return true;
     } catch (error) {
       console.error(
         '[checkInternalRebateBindingStatus] Failed to check binding status',
