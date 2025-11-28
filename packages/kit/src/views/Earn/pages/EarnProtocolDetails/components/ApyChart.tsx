@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -6,7 +6,6 @@ import {
   Icon,
   IconButton,
   SizableText,
-  Skeleton,
   XStack,
   YStack,
   useMedia,
@@ -16,7 +15,6 @@ import { LightweightChart } from '@onekeyhq/kit/src/components/LightweightChart'
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { EarnActionIcon } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnActionIcon';
 import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnText';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -50,7 +48,6 @@ const ApyChartComponent = ({
 }: IApyChartProps) => {
   const intl = useIntl();
   const { gtMd } = useMedia();
-  const isFocused = useRouteIsFocused();
   const navigation = useAppNavigation();
 
   const handleMyPortfolio = useCallback(() => {
@@ -121,13 +118,8 @@ const ApyChartComponent = ({
     [intl],
   );
 
-  const { result: chartData, setResult: setChartData } = usePromiseResult(
+  const { result: chartData } = usePromiseResult(
     async () => {
-      // Only fetch data when focused
-      if (!isFocused) {
-        return null;
-      }
-
       const apyHistory = await backgroundApiProxy.serviceStaking.getApyHistory({
         networkId,
         symbol,
@@ -164,16 +156,9 @@ const ApyChartComponent = ({
         marketChartData,
       };
     },
-    [networkId, symbol, provider, vault, isFocused],
+    [networkId, symbol, provider, vault],
     { watchLoading: true },
   );
-
-  // CRITICAL: Clear chart data when page is not focused to release memory
-  useEffect(() => {
-    if (!isFocused && chartData) {
-      setChartData(undefined);
-    }
-  }, [isFocused, chartData, setChartData]);
 
   return (
     <YStack gap="$3">
@@ -286,14 +271,11 @@ const ApyChartComponent = ({
               </YStack>
             </YStack>
           ) : null}
-          {/* CRITICAL: Only render chart when page is focused to prevent memory leaks */}
-          {isFocused ? (
-            <LightweightChart
-              data={chartData.marketChartData}
-              height={200}
-              onHover={handleHover}
-            />
-          ) : null}
+          <LightweightChart
+            data={chartData.marketChartData}
+            height={200}
+            onHover={handleHover}
+          />
         </YStack>
       ) : null}
     </YStack>
