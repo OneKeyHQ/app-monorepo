@@ -46,8 +46,8 @@ import { NotBackedUpEmpty } from '../components/NotBakcedUp';
 import { ApprovalListContainerWithProvider } from './ApprovalListContainer';
 import { HomeHeaderContainer } from './HomeHeaderContainer';
 import { NFTListContainerWithProvider } from './NFTListContainer';
+import { PortfolioContainerWithProvider } from './PortfolioContainer';
 import { TabHeaderSettings } from './TabHeaderSettings';
-import { TokenListContainerWithProvider } from './TokenListContainer';
 import { TxHistoryListContainerWithProvider } from './TxHistoryContainer';
 import WalletContentWithAuth from './WalletContentWithAuth';
 
@@ -206,7 +206,7 @@ export function HomePageView({
         name: intl.formatMessage({
           id: ETranslations.global_portfolio,
         }),
-        component: <TokenListContainerWithProvider />,
+        component: <PortfolioContainerWithProvider />,
       },
       isNFTEnabled
         ? {
