@@ -13,6 +13,7 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes/modal';
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
+import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
@@ -255,14 +256,39 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
       return;
     }
 
-    // Navigate to protocols list page
-    navigation.switchTab(ETabRoutes.Earn, {
-      screen: ETabEarnRoutes.EarnProtocols,
-      params: {
+    // Fetch protocol list to check if we should skip the list page
+    const protocolList =
+      await backgroundApiProxy.serviceStaking.getProtocolList({
         symbol: normalizedSymbol,
         filterNetworkId: networkId,
-      },
-    });
+      });
+
+    // If only one protocol, navigate directly to details page
+    if (protocolList.length === 1) {
+      const protocol = protocolList[0];
+      navigation.switchTab(ETabRoutes.Earn, {
+        screen: ETabEarnRoutes.EarnProtocolDetails,
+        params: {
+          networkId: protocol.network.networkId,
+          symbol: normalizedSymbol,
+          provider: protocol.provider.name,
+          vault: earnUtils.isVaultBasedProvider({
+            providerName: protocol.provider.name,
+          })
+            ? protocol.provider.vault
+            : undefined,
+        },
+      });
+    } else {
+      // Navigate to protocols list page if multiple providers
+      navigation.switchTab(ETabRoutes.Earn, {
+        screen: ETabEarnRoutes.EarnProtocols,
+        params: {
+          symbol: normalizedSymbol,
+          filterNetworkId: networkId,
+        },
+      });
+    }
   }, [createAccountIfNotExists, navigation, networkId, symbol]);
   const canStaking = useMemo(() => isSupportStaking(symbol), [symbol]);
 
