@@ -1,4 +1,4 @@
-import { Stack } from '@onekeyhq/components';
+import { XStack, YStack, useMedia } from '@onekeyhq/components';
 
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { DeFiListView } from '../components/DeFiListView';
@@ -7,21 +7,37 @@ import { HomeTokenListProviderMirrorWrapper } from '../components/HomeTokenListP
 import { PopularTrading } from '../components/PopularTrading';
 import { RecentHistory } from '../components/RecentHistory';
 import { SupportHub } from '../components/SupportHub';
-import { TokenListView } from '../components/TokenListView';
+import { TokenListBlock } from '../components/TokenListBlock';
 import { Upgrade } from '../components/Upgrade';
+import { PORTFOLIO_CONTAINER_RIGHT_SIDE_FIXED_WIDTH } from '../types';
 
 function PortfolioContainer() {
-  return (
-    <Stack>
-      <TokenListView />
-      <DeFiListView />
-      <PopularTrading />
-      <EarnListView />
-      <Upgrade />
-      <SupportHub />
-      <RecentHistory />
-    </Stack>
-  );
+  const media = useMedia();
+
+  const isTableLayout = media.gtMd;
+
+  if (isTableLayout) {
+    return (
+      <XStack gap="$6">
+        <YStack flex={1}>
+          <TokenListBlock />
+          <DeFiListView />
+          <PopularTrading />
+          <EarnListView />
+          <Upgrade />
+          <SupportHub />
+        </YStack>
+        <YStack
+          width={PORTFOLIO_CONTAINER_RIGHT_SIDE_FIXED_WIDTH}
+          flexShrink={0}
+        >
+          <RecentHistory />
+        </YStack>
+      </XStack>
+    );
+  }
+
+  return null;
 }
 
 function PortfolioContainerWithProvider() {
