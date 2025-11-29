@@ -18,7 +18,7 @@ function PortfolioContainer() {
 
   if (isTableLayout) {
     return (
-      <XStack gap="$6">
+      <XStack py="$3" px="$5" gap="$6">
         <YStack flex={1}>
           <TokenListBlock />
           <DeFiListView />

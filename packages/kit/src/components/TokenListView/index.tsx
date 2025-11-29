@@ -106,6 +106,7 @@ type IProps = {
   withAggregateBadge?: boolean;
   emptyProps?: IYStackProps;
   searchKeyLengthThreshold?: number;
+  plainMode?: boolean;
 };
 
 function TokenListViewCmp(props: IProps) {
@@ -143,6 +144,7 @@ function TokenListViewCmp(props: IProps) {
     networkId,
     indexedAccountId,
     searchKeyLengthThreshold,
+    plainMode = false,
   } = props;
 
   const [activeAccountTokenList] = useActiveAccountTokenListAtom();
@@ -430,6 +432,57 @@ function TokenListViewCmp(props: IProps) {
     tableLayout,
     emptyProps,
   ]);
+
+  if (plainMode) {
+    return (
+      <YStack>
+        {withHeader ? (
+          <TokenListHeader
+            filteredTokens={filteredTokens}
+            onManageToken={onManageToken}
+            manageTokenEnabled={manageTokenEnabled}
+            {...(tokens.length > 0 && {
+              tableLayout,
+            })}
+          />
+        ) : null}
+        {filteredTokens.map((item) => (
+          <TokenListItem
+            hideValue={hideValue}
+            token={item}
+            key={item.$key}
+            onPress={onPressToken}
+            tableLayout={tableLayout}
+            withPrice={withPrice}
+            isAllNetworks={isAllNetworks}
+            withNetwork={withNetwork}
+            isTokenSelector={isTokenSelector}
+            withSwapAction={withSwapAction}
+            showNetworkIcon={showNetworkIcon}
+            withAggregateBadge={withAggregateBadge}
+          />
+        ))}
+        <Stack pb="$5">
+          {withFooter ? (
+            <TokenListFooter
+              tableLayout={tableLayout}
+              hideZeroBalanceTokens={hideZeroBalanceTokens}
+              hasTokens={filteredTokens.length > 0}
+              manageTokenEnabled={manageTokenEnabled}
+            />
+          ) : null}
+          {!tokenSelectorSearchKey && footerTipText ? (
+            <Stack jc="center" ai="center" pt="$3">
+              <SizableText size="$bodySm" color="$textSubdued">
+                {footerTipText}
+              </SizableText>
+            </Stack>
+          ) : null}
+          {addPaddingOnListFooter ? <Stack h="$16" /> : null}
+        </Stack>
+      </YStack>
+    );
+  }
 
   return (
     <ListComponent

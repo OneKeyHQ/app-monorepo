@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 
 import { SizableText, XStack } from '@onekeyhq/components';
 
-import type { IRichBlockProps } from './RichBlock';
+import type { IRichBlockProps } from './types';
 
 function RichBlockHeader(
   props: Pick<
@@ -34,6 +34,8 @@ function RichBlockHeader(
       py="$3"
       $md={{ py: '$2' }}
       justifyContent="space-between"
+      alignItems="center"
+      gap="$2"
       {...headerContainerProps}
     >
       {renderTitle()}

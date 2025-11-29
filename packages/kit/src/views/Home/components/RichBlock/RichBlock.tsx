@@ -1,20 +1,9 @@
-import type {
-  ISizableTextProps,
-  IStackProps,
-  IXStackProps,
-} from '@onekeyhq/components';
 import { Stack } from '@onekeyhq/components';
 
+import { RichBlockContent } from './RichBlockContent';
 import { RichBlockHeader } from './RichBlockHeader';
 
-export type IRichBlockProps = {
-  title?: React.ReactNode;
-  titleProps?: ISizableTextProps;
-  headerActions?: React.ReactNode;
-  headerContainerProps?: IXStackProps;
-
-  blockContainerProps?: IStackProps;
-};
+import type { IRichBlockProps } from './types';
 
 function RichBlock(props: IRichBlockProps) {
   const {
@@ -23,9 +12,11 @@ function RichBlock(props: IRichBlockProps) {
     headerActions,
     headerContainerProps,
     blockContainerProps,
+    content,
+    contentContainerProps,
   } = props;
   return (
-    <Stack py="$3" px="$5" {...blockContainerProps}>
+    <Stack userSelect="none" pointerEvents="box-none" {...blockContainerProps}>
       {title || headerActions ? (
         <RichBlockHeader
           title={title}
@@ -34,6 +25,10 @@ function RichBlock(props: IRichBlockProps) {
           headerContainerProps={headerContainerProps}
         />
       ) : null}
+      <RichBlockContent
+        content={content}
+        contentContainerProps={contentContainerProps}
+      />
     </Stack>
   );
 }
