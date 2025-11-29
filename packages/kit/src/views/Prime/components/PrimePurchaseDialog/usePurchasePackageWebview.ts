@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EWebEmbedRoutePath } from '@onekeyhq/shared/src/consts/webEmbedConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 import openUrlUtils from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import { getPrimePaymentApiKey } from '../../hooks/getPrimePaymentApiKey';
@@ -20,8 +21,10 @@ export function usePurchasePackageWebview() {
   const purchasePackageWebview = useCallback(
     async ({
       selectedSubscriptionPeriod,
+      featureName,
     }: {
       selectedSubscriptionPeriod: ISubscriptionPeriod | undefined;
+      featureName?: EPrimeFeatures;
     }) => {
       if (!selectedSubscriptionPeriod) {
         return;
@@ -43,6 +46,7 @@ export function usePurchasePackageWebview() {
           locale: intl.locale,
           mode: platformEnv.isDev ? 'dev' : 'prod',
           apiKey: apiKey || '',
+          ...(featureName ? { featureName } : {}),
         },
       });
     },

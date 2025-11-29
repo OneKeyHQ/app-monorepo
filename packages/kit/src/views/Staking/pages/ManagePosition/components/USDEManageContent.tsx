@@ -48,6 +48,7 @@ interface IUSDEManageContentProps {
   onHistory?: () => void;
   showApyDetail?: boolean;
   isInModalContext?: boolean;
+  onActionSuccess?: () => void;
   earnAccount?: {
     walletId: string;
     accountId: string;
@@ -67,6 +68,7 @@ export function USDEManageContent({
   onHistory,
   showApyDetail = false,
   isInModalContext = false,
+  onActionSuccess,
   earnAccount,
 }: IUSDEManageContentProps) {
   const intl = useIntl();
@@ -160,10 +162,11 @@ export function USDEManageContent({
         token,
         networkId,
       });
+      onActionSuccess?.();
     } catch (error) {
       console.error('handleTrade error:', error);
     }
-  }, [handleSwap, networkId, token]);
+  }, [handleSwap, networkId, token, onActionSuccess]);
 
   const handleActivate = useCallback(() => {
     if (!activateAction) return;
@@ -186,6 +189,7 @@ export function USDEManageContent({
               title: resp.toast.text.text,
             });
           }
+          onActionSuccess?.();
         }
       },
     });
@@ -195,6 +199,7 @@ export function USDEManageContent({
     provider,
     symbol,
     earnAccount?.accountAddress,
+    onActionSuccess,
   ]);
 
   if (!holdings) {

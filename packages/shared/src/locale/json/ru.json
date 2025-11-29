@@ -449,6 +449,8 @@
   "device.communication_failed": "Не удалось установить связь с устройством. Пожалуйста, попробуйте переключиться в режим web-usb в \"Настройки\" > \"Аппаратная связь\" или обратитесь к нашему <url>https://help.onekey.so/articles/11461117<underline>руководству по устранению неполадок OneKey Bridge</underline></url> для решения проблемы с подключением.",
   "device.communication_failed_with_no_web_usb_supported": "Не удалось установить связь с устройством. Пожалуйста, обратитесь к нашему <url>https://help.onekey.so/articles/11461117<underline>руководству по устранению неполадок OneKey Bridge</underline></url>, чтобы решить проблему с подключением.",
   "device.connect_via_usb": "Подключите устройство через USB",
+  "device.desc_update_latest_firmware": "Пожалуйста, обновите прошивку до последней версии, чтобы получить доступ к этой функции.",
+  "device.firmware_update_required": "Требуется обновление прошивки",
   "device.firmware_upgrade_disallow_downgrade": "Понижение версии не допускается. Убедитесь, что прошивка, на которую вы обновляетесь, является последней версией.",
   "device.grant_usb_access": "Предоставить доступ к USB",
   "device.hardware_communication": "Аппаратная связь",

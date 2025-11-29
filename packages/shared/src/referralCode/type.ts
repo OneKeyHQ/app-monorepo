@@ -415,3 +415,25 @@ export interface IHardwareCumulativeRewards {
     symbol: string;
   };
 }
+
+// Perps Invitee Reward Types
+export interface IPerpsInviteeRewardToken {
+  address: string;
+  logoURI: string;
+  name: string;
+  networkId: string;
+  symbol: string;
+}
+
+export interface IPerpsInviteeRewardHistoryItem {
+  amount: string;
+  date: string;
+  tx: string;
+}
+
+export interface IPerpsInviteeRewardsResponse {
+  history: IPerpsInviteeRewardHistoryItem[];
+  token: IPerpsInviteeRewardToken;
+  totalBonus: string;
+  undistributed: string;
+}
