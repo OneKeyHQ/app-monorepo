@@ -449,6 +449,8 @@
   "device.communication_failed": "La communication de l'appareil a échoué. Veuillez essayer de passer en mode WebUSB dans \"Paramètres\" > \"Communication matérielle\" ou consultez notre <url>https://help.onekey.so/articles/11461117<underline>guide de dépannage OneKey Bridge</underline></url> pour résoudre le problème de connexion.",
   "device.communication_failed_with_no_web_usb_supported": "La communication avec l'appareil a échoué. Veuillez consulter notre <url>https://help.onekey.so/articles/11461117<underline>guide de dépannage OneKey Bridge</underline></url> pour résoudre le problème de connexion.",
   "device.connect_via_usb": "Connectez l'appareil via USB",
+  "device.desc_update_latest_firmware": "Veuillez mettre à jour vers la dernière version du micrologiciel pour accéder à cette fonctionnalité.",
+  "device.firmware_update_required": "Mise à jour du micrologiciel requise",
   "device.firmware_upgrade_disallow_downgrade": "La rétrogradation n'est pas autorisée. Veuillez vous assurer que le micrologiciel vers lequel vous effectuez la mise à niveau est la dernière version.",
   "device.grant_usb_access": "Accorder l'accès USB",
   "device.hardware_communication": "Communication matérielle",
