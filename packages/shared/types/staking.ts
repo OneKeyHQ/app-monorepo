@@ -756,6 +756,27 @@ export interface IEarnUndelegateActionData {
   data?: IEarnConfirmDialogData;
 }
 
+export interface IEarnSelectOption {
+  value: string;
+  label: IEarnText;
+  disabled?: boolean;
+  extra?: Record<string, unknown>;
+}
+
+export interface IEarnSelectField {
+  type: 'select';
+  key: string;
+  title?: IEarnText;
+  description?: IEarnText;
+  tooltip?: IEarnTooltip;
+  select: {
+    title?: IEarnText;
+    description?: IEarnText;
+    options: IEarnSelectOption[];
+    defaultValue?: string;
+  };
+}
+
 export interface IEarnManagePageResponse {
   deposit?: IEarnDepositActionData;
   withdraw?: IEarnWithdrawActionData;
@@ -766,6 +787,7 @@ export interface IEarnManagePageResponse {
   delegate?: IEarnDelegateActionData;
   undelegate?: IEarnUndelegateActionData;
   riskNoticeDialog?: IEarnRiskNoticeDialog;
+  ongoingValidator?: IEarnSelectField;
   approve?: {
     allowance: string;
     approveType: string;

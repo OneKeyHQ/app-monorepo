@@ -47,6 +47,7 @@ import type {
   IApproveConfirmFnParams,
   ICheckAmountAlert,
   IEarnEstimateFeeResp,
+  IEarnSelectField,
   IEarnTextTooltip,
   IEarnTokenInfo,
   IProtocolInfo,
@@ -69,6 +70,7 @@ import {
 } from '../EstimateNetworkFee';
 import { EarnActionIcon } from '../ProtocolDetails/EarnActionIcon';
 import { EarnText } from '../ProtocolDetails/EarnText';
+import { EarnValidatorSelect } from '../ProtocolDetails/EarnValidatorSelect';
 import { EStakeProgressStep, StakeProgress } from '../StakeProgress';
 import {
   StakingAmountInput,
@@ -117,6 +119,7 @@ type IUniversalStakeProps = {
   beforeFooter?: ReactElement | null;
   showApyDetail?: boolean;
   isInModalContext?: boolean;
+  ongoingValidator?: IEarnSelectField;
 };
 
 export function UniversalStake({
@@ -141,6 +144,7 @@ export function UniversalStake({
   beforeFooter,
   showApyDetail = false,
   isInModalContext = false,
+  ongoingValidator,
 }: PropsWithChildren<IUniversalStakeProps>) {
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -149,6 +153,9 @@ export function UniversalStake({
   const showEstimateGasAlert = useShowStakeEstimateGasAlert();
   const [amountValue, setAmountValue] = useState('');
   const [approving, setApproving] = useState<boolean>(false);
+  const [selectedValidator, setSelectedValidator] = useState<
+    string | undefined
+  >(ongoingValidator?.select?.defaultValue);
   const useVaultProvider = useMemo(
     () => earnUtils.isVaultBasedProvider({ providerName }),
     [providerName],
@@ -1229,86 +1236,98 @@ export function UniversalStake({
             })}
           </YStack>
           <Divider my="$5" />
-          <Accordion
-            overflow="hidden"
-            width="100%"
-            type="single"
-            collapsible
-            defaultValue=""
-          >
-            <Accordion.Item value="staking-accordion-content">
-              <Accordion.Trigger
-                unstyled
-                flexDirection="row"
-                alignItems="center"
-                alignSelf="flex-start"
-                px="$1"
-                mx="$-1"
-                width="100%"
-                justifyContent="space-between"
-                borderWidth={0}
-                bg="$transparent"
-                userSelect="none"
-                borderRadius="$1"
-                cursor={isAccordionTriggerDisabled ? 'not-allowed' : 'pointer'}
-                disabled={isAccordionTriggerDisabled}
-              >
-                {({ open }: { open: boolean }) => (
-                  <>
-                    <XStack gap="$1.5" alignItems="center">
-                      <Image
-                        width="$5"
-                        height="$5"
-                        src={providerLogo}
-                        borderRadius="$2"
-                      />
-                      <SizableText size="$bodyMd">
-                        {capitalizeString(providerName || '')}
-                      </SizableText>
-                    </XStack>
-                    <XStack>
-                      <YStack
-                        animation="quick"
-                        rotate={
-                          open && !isAccordionTriggerDisabled
-                            ? '180deg'
-                            : '0deg'
-                        }
-                        left="$2"
-                      >
-                        <Icon
-                          name="ChevronDownSmallOutline"
-                          color={
-                            isAccordionTriggerDisabled
-                              ? '$iconDisabled'
-                              : '$iconSubdued'
-                          }
-                          size="$5"
-                        />
-                      </YStack>
-                    </XStack>
-                  </>
-                )}
-              </Accordion.Trigger>
-              <Accordion.HeightAnimator animation="quick">
-                <Accordion.Content
-                  animation="quick"
-                  exitStyle={{ opacity: 0 }}
-                  px={0}
-                  pb={0}
-                  pt="$3.5"
-                  gap="$2.5"
+          <YStack gap="$5">
+            {ongoingValidator ? (
+              <EarnValidatorSelect
+                field={ongoingValidator}
+                value={selectedValidator}
+                onChange={setSelectedValidator}
+                disabled={amountInputDisabled}
+              />
+            ) : null}
+            <Accordion
+              overflow="hidden"
+              width="100%"
+              type="single"
+              collapsible
+              defaultValue=""
+            >
+              <Accordion.Item value="staking-accordion-content">
+                <Accordion.Trigger
+                  unstyled
+                  flexDirection="row"
+                  alignItems="center"
+                  alignSelf="flex-start"
+                  px="$1"
+                  mx="$-1"
+                  width="100%"
+                  justifyContent="space-between"
+                  borderWidth={0}
+                  bg="$transparent"
+                  userSelect="none"
+                  borderRadius="$1"
+                  cursor={
+                    isAccordionTriggerDisabled ? 'not-allowed' : 'pointer'
+                  }
+                  disabled={isAccordionTriggerDisabled}
                 >
-                  {accordionContent}
-                </Accordion.Content>
-              </Accordion.HeightAnimator>
-            </Accordion.Item>
-          </Accordion>
-          <TradeOrBuy
-            token={tokenInfo?.token as IToken}
-            accountId={accountId}
-            networkId={networkId}
-          />
+                  {({ open }: { open: boolean }) => (
+                    <>
+                      <XStack gap="$1.5" alignItems="center">
+                        <Image
+                          width="$5"
+                          height="$5"
+                          src={providerLogo}
+                          borderRadius="$2"
+                        />
+                        <SizableText size="$bodyMd">
+                          {capitalizeString(providerName || '')}
+                        </SizableText>
+                      </XStack>
+                      <XStack>
+                        <YStack
+                          animation="quick"
+                          rotate={
+                            open && !isAccordionTriggerDisabled
+                              ? '180deg'
+                              : '0deg'
+                          }
+                          left="$2"
+                        >
+                          <Icon
+                            name="ChevronDownSmallOutline"
+                            color={
+                              isAccordionTriggerDisabled
+                                ? '$iconDisabled'
+                                : '$iconSubdued'
+                            }
+                            size="$5"
+                          />
+                        </YStack>
+                      </XStack>
+                    </>
+                  )}
+                </Accordion.Trigger>
+                <Accordion.HeightAnimator animation="quick">
+                  <Accordion.Content
+                    animation="quick"
+                    exitStyle={{ opacity: 0 }}
+                    px={0}
+                    pb={0}
+                    pt="$3.5"
+                    gap="$2.5"
+                  >
+                    {accordionContent}
+                  </Accordion.Content>
+                </Accordion.HeightAnimator>
+              </Accordion.Item>
+            </Accordion>
+            <TradeOrBuy
+              token={tokenInfo?.token as IToken}
+              accountId={accountId}
+              networkId={networkId}
+            />
+          </YStack>
         </YStack>
       ) : null}
       {beforeFooter}

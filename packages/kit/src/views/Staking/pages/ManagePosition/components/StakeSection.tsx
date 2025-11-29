@@ -13,6 +13,7 @@ import type { IFeeUTXO } from '@onekeyhq/shared/types/fee';
 import { EApproveType, EEarnLabels } from '@onekeyhq/shared/types/staking';
 import type {
   IApproveConfirmFnParams,
+  IEarnSelectField,
   IEarnTokenInfo,
   IProtocolInfo,
 } from '@onekeyhq/shared/types/staking';
@@ -32,6 +33,7 @@ export const StakeSection = ({
   showApyDetail,
   isInModalContext,
   fallbackTokenImageUri,
+  ongoingValidator,
 }: {
   accountId: string;
   networkId: string;
@@ -43,6 +45,7 @@ export const StakeSection = ({
   showApyDetail?: boolean;
   isInModalContext?: boolean;
   fallbackTokenImageUri?: string;
+  ongoingValidator?: IEarnSelectField;
 }) => {
   // Early return if no tokenInfo or protocolInfo
   // This happens when there's no account or no address
@@ -279,6 +282,7 @@ export const StakeSection = ({
       beforeFooter={beforeFooter}
       showApyDetail={showApyDetail}
       isInModalContext={isInModalContext}
+      ongoingValidator={ongoingValidator}
     />
   );
 };

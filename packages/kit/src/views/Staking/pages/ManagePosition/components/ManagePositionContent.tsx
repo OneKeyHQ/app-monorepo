@@ -108,6 +108,7 @@ export function ManagePositionContent({
     alertsHolding,
     alertsStake,
     alertsWithdraw,
+    ongoingValidator,
     run: refreshManageData,
     isLoading,
   } = useManagePage({
@@ -410,6 +411,7 @@ export function ManagePositionContent({
       isInModalContext={isInModalContext}
       appNavigation={appNavigation}
       showApyDetail={showApyDetail}
+      ongoingValidator={ongoingValidator}
     />
   );
 }
