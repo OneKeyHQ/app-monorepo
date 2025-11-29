@@ -678,7 +678,15 @@ class ServiceStaking extends ServiceBase {
     accountId: string;
   }) {
     const client = await this.getClient(EServiceEndpointEnum.Earn);
-    const requestParams = {
+    const requestParams: {
+      networkId: string;
+      provider: string;
+      symbol: string;
+      accountAddress: string;
+      vault?: string;
+      publicKey?: string;
+      kycAccountAddress?: string;
+    } = {
       networkId: params.networkId,
       provider: params.provider.toLowerCase(),
       symbol: params.symbol,
@@ -686,6 +694,17 @@ class ServiceStaking extends ServiceBase {
       ...(params.vault && { vault: params.vault }),
       ...(params.publicKey && { publicKey: params.publicKey }),
     };
+
+    if (
+      earnUtils.isEthenaProvider({ providerName: params.provider }) &&
+      params.symbol?.toUpperCase() === 'USDE'
+    ) {
+      const ethenaKycAddress =
+        await this.backgroundApi.serviceStaking.getEthenaKycAddress();
+      if (ethenaKycAddress) {
+        requestParams.kycAccountAddress = ethenaKycAddress;
+      }
+    }
 
     const resp = await client.get<{ data: IEarnManagePageResponse }>(
       '/earn/v1/manage-page',

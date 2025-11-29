@@ -382,13 +382,10 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
 
   // Parse route params, support both normal and share link routes
   const resolvedParams = useMemo<{
-    accountId: string;
-    indexedAccountId: string | undefined;
     networkId: string;
     symbol: ISupportedSymbol;
     provider: string;
     vault: string | undefined;
-    isFromShareLink: boolean;
   }>(() => {
     const routeParams = route.params as any;
 
@@ -418,39 +415,27 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
       }
 
       return {
-        accountId: account?.id || '',
-        indexedAccountId: indexedAccount?.id,
         networkId,
         symbol,
         provider,
         vault,
-        isFromShareLink: true,
       };
     }
 
     // Old format: normal navigation
-    const {
-      accountId: routeAccountId,
-      indexedAccountId: routeIndexedAccountId,
-      networkId,
-      symbol,
-      provider,
-      vault,
-    } = routeParams;
+    const { networkId, symbol, provider, vault } = routeParams;
 
     return {
-      accountId: routeAccountId || account?.id || '',
-      indexedAccountId: routeIndexedAccountId || indexedAccount?.id,
       networkId,
       symbol,
       provider,
       vault,
-      isFromShareLink: false,
     };
-  }, [route.params, account?.id, indexedAccount?.id]);
+  }, [route.params]);
 
-  const { accountId, indexedAccountId, networkId, symbol, provider, vault } =
-    resolvedParams;
+  const accountId = account?.id || '';
+  const indexedAccountId = indexedAccount?.id;
+  const { networkId, symbol, provider, vault } = resolvedParams;
 
   const { detailInfo, tokenInfo, isLoading, refreshData, refreshAccount } =
     useProtocolDetailData({
