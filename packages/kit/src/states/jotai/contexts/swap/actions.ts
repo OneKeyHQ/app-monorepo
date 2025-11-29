@@ -954,7 +954,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           },
         ];
       }
-      if (fromToken) {
+      if (fromToken && swapFromAddressInfo.accountInfo?.wallet?.id) {
         const walletId = swapFromAddressInfo.accountInfo?.wallet?.id;
 
         const accountNetworkNotSupported =
