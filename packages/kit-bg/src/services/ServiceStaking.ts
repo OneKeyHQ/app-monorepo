@@ -1451,23 +1451,13 @@ class ServiceStaking extends ServiceBase {
   }
 
   @backgroundMethod()
-  fetchEarnHomePageBannerList() {
-    return this._fetchEarnHomePageBannerList();
+  async fetchEarnHomePageBannerList() {
+    const client = await this.getClient(EServiceEndpointEnum.Utility);
+    const res = await client.get<{ data: IDiscoveryBanner[] }>(
+      '/utility/v1/earn-banner/list',
+    );
+    return res.data.data;
   }
-
-  _fetchEarnHomePageBannerList = memoizee(
-    async () => {
-      const client = await this.getClient(EServiceEndpointEnum.Utility);
-      const res = await client.get<{ data: IDiscoveryBanner[] }>(
-        '/utility/v1/earn-banner/list',
-      );
-      return res.data.data;
-    },
-    {
-      promise: true,
-      maxAge: timerUtils.getTimeDurationMs({ seconds: 60 }),
-    },
-  );
 
   @backgroundMethod()
   async getEarnAvailableAccounts(params: {
