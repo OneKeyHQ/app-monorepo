@@ -51,8 +51,9 @@ export function InviteeRewardContent({
           type="info"
           renderTitle={() => (
             <SizableText size="$bodyMd" color="$textSubdued">
-              Rewards will be distributed to your Arbitrum wallet (same address
-              as Ethereum) by the 10th of next month.
+              {intl.formatMessage({
+                id: ETranslations.earn_reward_distribution_schedule,
+              })}
             </SizableText>
           )}
           closable
