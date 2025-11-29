@@ -296,19 +296,8 @@ function BasicInvestmentDetails() {
         userSelect="none"
         drillIn
         onPress={async () => {
-          const {
-            activeAccount: { account, indexedAccount },
-          } = accountInfo;
-          const pageEarnAccount =
-            await backgroundApiProxy.serviceStaking.getEarnAccount({
-              accountId: account?.id || '',
-              indexedAccountId: indexedAccount?.id,
-              networkId: tokenInfo.networkId,
-            });
-          if ((account || indexedAccount) && tokenInfo) {
+          if (tokenInfo) {
             navigation.push(ETabEarnRoutes.EarnProtocolDetails, {
-              indexedAccountId: pageEarnAccount?.account.indexedAccountId,
-              accountId: pageEarnAccount?.accountId,
               networkId: tokenInfo.networkId,
               symbol: tokenInfo.symbol,
               provider: providerName,
@@ -373,7 +362,7 @@ function BasicInvestmentDetails() {
         }
       />
     ),
-    [accountInfo, intl, navigation, settings.currencyInfo.symbol],
+    [intl, navigation, settings.currencyInfo.symbol],
   );
   return (
     <Page scrollEnabled>

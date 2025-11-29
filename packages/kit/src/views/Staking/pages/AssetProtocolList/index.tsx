@@ -158,18 +158,8 @@ function AssetProtocolListContent({
         network: item.network.networkId,
         stakeProvider: item.provider.name,
       });
-      const networkId = item.network.networkId;
-      const earnAccount =
-        await backgroundApiProxy.serviceStaking.getEarnAccount({
-          accountId: accountId || '',
-          indexedAccountId,
-          networkId,
-        });
       appNavigation.push(ETabEarnRoutes.EarnProtocolDetails, {
-        accountId: earnAccount?.accountId || accountId,
         networkId: item.network.networkId,
-        indexedAccountId:
-          earnAccount?.account.indexedAccountId || indexedAccountId,
         symbol,
         provider: item.provider.name,
         vault: earnUtils.isVaultBasedProvider({
@@ -179,7 +169,7 @@ function AssetProtocolListContent({
           : undefined,
       });
     },
-    [appNavigation, accountId, indexedAccountId, symbol],
+    [appNavigation, symbol],
   );
   const [
     {

@@ -102,7 +102,6 @@ const Rebate = ({
       position="absolute"
       right={0}
       top={0}
-      pr="$5"
     >
       <Popover
         open={open}

@@ -5321,6 +5321,47 @@ class ServiceAccount extends ServiceBase {
     }
   }
 
+  isBtcOnlyFirmwareByWalletIdMemoized = memoizee(
+    async ({
+      walletId,
+      featuresInfo,
+    }: {
+      walletId: string;
+      featuresInfo?: IOneKeyDeviceFeatures;
+    }) => {
+      let firmwareType: EFirmwareType | undefined;
+      if (featuresInfo) {
+        firmwareType = await deviceUtils.getFirmwareType({
+          features: featuresInfo,
+        });
+      } else {
+        const walletDevice =
+          await this.backgroundApi.serviceAccount.getWalletDeviceSafe({
+            walletId,
+          });
+        if (walletDevice) {
+          firmwareType = await deviceUtils.getFirmwareType({
+            features: walletDevice.featuresInfo,
+          });
+        }
+      }
+
+      return firmwareType === EFirmwareType.BitcoinOnly;
+    },
+    {
+      promise: true,
+      primitive: true,
+      normalizer: ([options]) => {
+        const fwVendor = options.featuresInfo?.fw_vendor || '';
+        const capabilities =
+          options.featuresInfo?.capabilities?.join(',') ?? '';
+        return `${options.walletId}-${fwVendor}-${capabilities}`;
+      },
+      maxAge: timerUtils.getTimeDurationMs({ seconds: 60 }),
+      max: 5,
+    },
+  );
+
   /**
    * Check if the wallet is a Bitcoin Only firmware
    * @param walletId - wallet id
@@ -5338,25 +5379,10 @@ class ServiceAccount extends ServiceBase {
     if (!accountUtils.isHwWallet({ walletId })) {
       return false;
     }
-
-    let firmwareType: EFirmwareType | undefined;
-    if (featuresInfo) {
-      firmwareType = await deviceUtils.getFirmwareType({
-        features: featuresInfo,
-      });
-    } else {
-      const walletDevice =
-        await this.backgroundApi.serviceAccount.getWalletDeviceSafe({
-          walletId,
-        });
-      if (walletDevice) {
-        firmwareType = await deviceUtils.getFirmwareType({
-          features: walletDevice.featuresInfo,
-        });
-      }
-    }
-
-    return firmwareType === EFirmwareType.BitcoinOnly;
+    return this.isBtcOnlyFirmwareByWalletIdMemoized({
+      walletId,
+      featuresInfo,
+    });
   }
 
   /**

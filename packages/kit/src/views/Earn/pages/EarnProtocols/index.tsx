@@ -5,7 +5,6 @@ import { useIntl } from 'react-intl';
 import {
   Badge,
   Empty,
-  Image,
   SizableText,
   Skeleton,
   XStack,
@@ -20,11 +19,13 @@ import { TableList } from '@onekeyhq/kit/src/components/ListView/TableList';
 import { NetworkAvatarGroup } from '@onekeyhq/kit/src/components/NetworkAvatar/NetworkAvatar';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { ETabEarnRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
-import type { ITabEarnParamList } from '@onekeyhq/shared/src/routes';
+import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import type {
+  ETabEarnRoutes,
+  ITabEarnParamList,
+} from '@onekeyhq/shared/src/routes';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { normalizeToEarnProvider } from '@onekeyhq/shared/types/earn/earnProvider.constants';
@@ -58,7 +59,6 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
   }, [encodedLogoURI]);
 
   const media = useMedia();
-  const { activeAccount } = useActiveAccount({ num: 0 });
 
   const customHeaderLeft = useMemo(
     () => (
@@ -86,8 +86,6 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
 
       const data = await backgroundApiProxy.serviceStaking.getProtocolList({
         symbol,
-        accountId: activeAccount?.account?.id,
-        indexedAccountId: activeAccount?.indexedAccount?.id,
         filterNetworkId,
       });
 
@@ -97,12 +95,7 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
     } finally {
       setIsLoading(false);
     }
-  }, [
-    symbol,
-    activeAccount?.account?.id,
-    activeAccount?.indexedAccount?.id,
-    filterNetworkId,
-  ]);
+  }, [symbol, filterNetworkId]);
 
   useEffect(() => {
     void fetchProtocolData();
@@ -110,9 +103,6 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
 
   const handleProtocolPress = useCallback(
     async (protocol: IStakeProtocolListItem) => {
-      const accountId = activeAccount?.account?.id;
-      const indexedAccountId = activeAccount?.indexedAccount?.id;
-
       try {
         defaultLogger.staking.page.selectProvider({
           network: protocol.network.networkId,
@@ -121,8 +111,6 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
 
         await EarnNavigation.pushToEarnProtocolDetails(navigation, {
           networkId: protocol.network.networkId,
-          accountId,
-          indexedAccountId,
           symbol,
           provider: protocol.provider.name,
           vault: earnUtils.isVaultBasedProvider({
@@ -135,12 +123,7 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
         // ignore error
       }
     },
-    [
-      activeAccount?.account?.id,
-      activeAccount?.indexedAccount?.id,
-      symbol,
-      navigation,
-    ],
+    [symbol, navigation],
   );
 
   const columns: ITableColumn<IStakeProtocolListItem>[] = useMemo(() => {
@@ -349,9 +332,7 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
           {
             label: intl.formatMessage({ id: ETranslations.global_earn }),
             onClick: () => {
-              navigation.switchTab(ETabRoutes.Earn, {
-                screen: ETabEarnRoutes.EarnHome,
-              });
+              EarnNavigation.pushToEarnHome(navigation);
             },
           },
           {

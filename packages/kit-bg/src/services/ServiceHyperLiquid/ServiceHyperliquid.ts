@@ -1222,7 +1222,12 @@ export default class ServiceHyperliquid extends ServiceBase {
       referenceAddress.toLowerCase() === accountAddress.toLowerCase();
 
     try {
-      // Check if current account is bound
+      // First account: skip binding check
+      if (isFirstAccount) {
+        return true;
+      }
+
+      // Non-first account: check if current account is bound
       const isCurrentAccountBound =
         await this.backgroundApi.serviceReferralCode.checkWalletIsBoundReferralCode(
           {
@@ -1235,13 +1240,7 @@ export default class ServiceHyperliquid extends ServiceBase {
         return true;
       }
 
-      // Current account is not bound
-      if (isFirstAccount) {
-        // First account: return false to trigger binding flow
-        return false;
-      }
-
-      // Non-first account: check first account's binding status
+      // Current account is not bound: check first account's binding status
       const isFirstAccountBound =
         await this.backgroundApi.serviceReferralCode.checkWalletIsBoundReferralCode(
           {

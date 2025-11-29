@@ -20,7 +20,6 @@ import { NetworkAvatarGroup } from '@onekeyhq/kit/src/components/NetworkAvatar/N
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   useEarnActions,
   useEarnAtom,
@@ -35,9 +34,6 @@ import { EarnNavigation } from '../earnUtils';
 import { AprText } from './AprText';
 
 export function AvailableAssetsTabViewList() {
-  const {
-    activeAccount: { account, indexedAccount },
-  } = useActiveAccount({ num: 0 });
   const [{ availableAssetsByType = {}, refreshTrigger = 0 }] = useEarnAtom();
   const actions = useEarnActions();
   const intl = useIntl();
@@ -219,8 +215,6 @@ export function AvailableAssetsTabViewList() {
         const protocol = asset.protocols[0];
         await EarnNavigation.pushToEarnProtocolDetails(navigation, {
           networkId: protocol.networkId,
-          accountId: account?.id ?? '',
-          indexedAccountId: indexedAccount?.id,
           symbol: asset.symbol,
           provider: protocol.provider,
           vault: protocol.vault,
@@ -235,7 +229,7 @@ export function AvailableAssetsTabViewList() {
         });
       }
     },
-    [account?.id, indexedAccount?.id, navigation],
+    [navigation],
   );
 
   // Mobile custom renderer

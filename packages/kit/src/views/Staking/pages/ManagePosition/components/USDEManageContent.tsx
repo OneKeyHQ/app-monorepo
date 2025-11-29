@@ -8,7 +8,6 @@ import {
   Badge,
   Button,
   Divider,
-  IconButton,
   Page,
   SizableText,
   Toast,
@@ -28,7 +27,9 @@ import type { ISupportedSymbol } from '@onekeyhq/shared/types/earn';
 import {
   ECheckAmountActionType,
   type IEarnAlert,
+  type IEarnHistoryActionIcon,
   type IEarnManagePageResponse,
+  type IStakeTag,
 } from '@onekeyhq/shared/types/staking';
 
 import { EarnActionIcon } from '../../../components/ProtocolDetails/EarnActionIcon';
@@ -38,6 +39,8 @@ import { EarnTooltip } from '../../../components/ProtocolDetails/EarnTooltip';
 import { showKYCDialog } from '../../../components/ProtocolDetails/showKYCDialog';
 import { useHandleSwap } from '../../../hooks/useHandleSwap';
 
+import { HeaderRight } from './HeaderRight';
+
 interface IUSDEManageContentProps {
   managePageData: IEarnManagePageResponse;
   networkId: string;
@@ -45,9 +48,15 @@ interface IUSDEManageContentProps {
   provider: string;
   vault?: string;
   alertsHolding: IEarnAlert[];
+  historyAction?: IEarnHistoryActionIcon;
   onHistory?: () => void;
+  indicatorAccountId?: string;
+  stakeTag?: IStakeTag;
+  onIndicatorRefresh?: () => void;
+  onRefreshPendingRef?: React.MutableRefObject<(() => Promise<void>) | null>;
   showApyDetail?: boolean;
   isInModalContext?: boolean;
+  onActionSuccess?: () => void;
   earnAccount?: {
     walletId: string;
     accountId: string;
@@ -64,9 +73,15 @@ export function USDEManageContent({
   provider,
   vault,
   alertsHolding,
+  historyAction,
   onHistory,
+  indicatorAccountId,
+  stakeTag,
+  onIndicatorRefresh,
+  onRefreshPendingRef,
   showApyDetail = false,
   isInModalContext = false,
+  onActionSuccess,
   earnAccount,
 }: IUSDEManageContentProps) {
   const intl = useIntl();
@@ -76,7 +91,6 @@ export function USDEManageContent({
   const holdings = managePageData?.holdings;
   const receiveAction = managePageData?.receive;
   const tradeAction = managePageData?.trade;
-  const historyActionItem = managePageData?.history;
   const activateAction = managePageData?.activate;
 
   const isWatchingAccount = useMemo(
@@ -160,10 +174,11 @@ export function USDEManageContent({
         token,
         networkId,
       });
+      onActionSuccess?.();
     } catch (error) {
       console.error('handleTrade error:', error);
     }
-  }, [handleSwap, networkId, token]);
+  }, [handleSwap, networkId, token, onActionSuccess]);
 
   const handleActivate = useCallback(() => {
     if (!activateAction) return;
@@ -186,6 +201,7 @@ export function USDEManageContent({
               title: resp.toast.text.text,
             });
           }
+          onActionSuccess?.();
         }
       },
     });
@@ -195,6 +211,7 @@ export function USDEManageContent({
     provider,
     symbol,
     earnAccount?.accountAddress,
+    onActionSuccess,
   ]);
 
   if (!holdings) {
@@ -204,18 +221,24 @@ export function USDEManageContent({
   return (
     <>
       <YStack px="$5" gap="$5">
-        {/* Header with History button */}
+        {/* Header with pending/history actions */}
         <XStack jc="space-between" ai="center">
           <SizableText size="$headingMd" color="$text">
             {intl.formatMessage({ id: ETranslations.earn_holdings })}
           </SizableText>
-          {historyActionItem && !historyActionItem.disabled ? (
-            <IconButton
-              icon="ClockTimeHistoryOutline"
-              onPress={() => onHistory?.()}
-              variant="tertiary"
-            />
-          ) : null}
+          <HeaderRight
+            accountId={indicatorAccountId || earnAccount?.accountId}
+            networkId={networkId}
+            stakeTag={stakeTag}
+            historyAction={historyAction}
+            onHistory={onHistory}
+            onRefresh={onIndicatorRefresh}
+            onRefreshPending={(refreshFn) => {
+              if (onRefreshPendingRef) {
+                onRefreshPendingRef.current = refreshFn;
+              }
+            }}
+          />
         </XStack>
 
         {/* Holdings Section */}
