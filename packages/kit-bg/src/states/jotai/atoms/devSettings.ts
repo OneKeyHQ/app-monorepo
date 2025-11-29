@@ -119,6 +119,7 @@ export type IFirmwareUpdateDevSettings = {
   updateDevDeviceBootloaderOnAppAllowed: boolean;
   showDeviceDebugLogs: boolean;
   showAutoCheckHardwareUpdatesToast: boolean;
+  forceUpdateBtcOnlyUniversalFirmware: boolean;
 };
 export type IFirmwareUpdateDevSettingsKeys = keyof IFirmwareUpdateDevSettings;
 export const {
@@ -144,6 +145,7 @@ export const {
     updateDevDeviceBootloaderOnAppAllowed: false,
     showDeviceDebugLogs: false,
     showAutoCheckHardwareUpdatesToast: false,
+    forceUpdateBtcOnlyUniversalFirmware: false,
   },
 });
 

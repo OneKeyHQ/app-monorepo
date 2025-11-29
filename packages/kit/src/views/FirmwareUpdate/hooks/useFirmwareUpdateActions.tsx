@@ -22,7 +22,11 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import { closeModalPages } from '../../../hooks/usePageNavigation';
 import { FirmwareUpdateCheckList } from '../components/FirmwareUpdateCheckList';
 
+<<<<<<< HEAD
 import type { EDeviceType } from '@onekeyfe/hd-shared';
+=======
+import type { AllFirmwareRelease } from '@onekeyfe/hd-core';
+>>>>>>> fa2f2b917e (chore: optimize loading speed)
 
 export function useFirmwareUpdateActions() {
   const intl = useIntl();
@@ -32,6 +36,7 @@ export function useFirmwareUpdateActions() {
     async (params: {
       connectId: string | undefined;
       firmwareType: EFirmwareType | undefined;
+      baseReleaseInfo?: AllFirmwareRelease;
     }) =>
       backgroundApiProxy.serviceApp.openExtensionExpandTab({
         routes: [
@@ -78,15 +83,21 @@ export function useFirmwareUpdateActions() {
     ({
       connectId,
       firmwareType,
+      baseReleaseInfo,
     }: {
       connectId: string | undefined;
       firmwareType?: EFirmwareType;
+      baseReleaseInfo?: AllFirmwareRelease;
     }) => {
       if (
         platformEnv.isExtensionUiPopup ||
         platformEnv.isExtensionUiSidePanel
       ) {
-        void openChangeLogOfExtension({ connectId, firmwareType });
+        void openChangeLogOfExtension({
+          connectId,
+          firmwareType,
+          baseReleaseInfo,
+        });
         if (platformEnv.isExtensionUiSidePanel) {
           window.close();
         }
@@ -102,6 +113,7 @@ export function useFirmwareUpdateActions() {
               params: {
                 connectId,
                 firmwareType,
+                baseReleaseInfo,
               },
             },
           }),
@@ -113,6 +125,7 @@ export function useFirmwareUpdateActions() {
           params: {
             connectId,
             firmwareType,
+            baseReleaseInfo,
           },
         });
       }

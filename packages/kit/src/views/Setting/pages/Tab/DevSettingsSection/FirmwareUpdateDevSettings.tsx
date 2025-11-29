@@ -80,6 +80,12 @@ export function FirmwareUpdateDevSettings() {
         <Switch size={ESwitchSize.small} />
       </FirmwareUpdateSectionFieldItem>
       <FirmwareUpdateSectionFieldItem
+        name="forceUpdateBtcOnlyUniversalFirmware"
+        title="BTC only 强制提示升级到最新通用固件"
+      >
+        <Switch size={ESwitchSize.small} />
+      </FirmwareUpdateSectionFieldItem>
+      <FirmwareUpdateSectionFieldItem
         name="allIsUpToDate"
         title="All is up to date"
       >

@@ -128,10 +128,11 @@ function DeviceDetailsModalCmp() {
 
   const actions = useFirmwareUpdateActions();
   const onPressCheckForUpdates = useCallback(
-    (firmwareType?: EFirmwareType) => {
+    (firmwareType?: EFirmwareType, baseReleaseInfo?: any) => {
       actions.openChangeLogModal({
         connectId: result?.device?.connectId,
         firmwareType,
+        baseReleaseInfo,
       });
     },
     [result?.device?.connectId, actions],
