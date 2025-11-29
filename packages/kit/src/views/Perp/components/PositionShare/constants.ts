@@ -2,7 +2,7 @@ import BigNumber from 'bignumber.js';
 
 import type { ICanvasConfig, IPnlDisplayMode, IShareData } from './types';
 
-export const REFERRAL_CODE = 'https://app.onekey.so/perps';
+export const DEFAULT_REFERRAL_URL = 'https://app.onekey.so/perps';
 
 export const SHOW_REFERRAL_CODE = true;
 

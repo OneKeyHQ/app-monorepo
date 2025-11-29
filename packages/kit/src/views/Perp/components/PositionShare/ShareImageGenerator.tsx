@@ -6,11 +6,12 @@ import QRCodeUtil from 'qrcode';
 import { Stack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { getHyperliquidTokenImageUrl } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import {
   BACKGROUNDS,
-  REFERRAL_CODE,
+  DEFAULT_REFERRAL_URL,
   SHOW_REFERRAL_CODE,
   getCanvasConfig,
   getPnlDisplayInfo,
@@ -25,6 +26,8 @@ import type {
 interface IShareImageGeneratorProps {
   data: IShareData;
   config: IShareConfig;
+  referralUrl?: string;
+  isReferralReady?: boolean;
 }
 
 const imageCache = new Map<string, HTMLImageElement>();
@@ -50,11 +53,12 @@ function loadImage(src: string): Promise<HTMLImageElement | null> {
   });
 }
 
+const CANVAS_CONFIG = getCanvasConfig(900);
+
 export const ShareImageGenerator = forwardRef<
   IShareImageGeneratorRef,
   IShareImageGeneratorProps
->(({ data, config }, ref) => {
-  const CANVAS_CONFIG = getCanvasConfig(900);
+>(({ data, config, referralUrl, isReferralReady = true }, ref) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const generate = useCallback(async (): Promise<string> => {
     const canvas = canvasRef.current;
@@ -90,12 +94,7 @@ export const ShareImageGenerator = forwardRef<
     const selectedBackground = isProfit
       ? BACKGROUNDS.profit[0]
       : BACKGROUNDS.loss[0];
-    console.log('selectedBackground', selectedBackground);
     try {
-      // Sticker temporarily disabled
-      // const selectedSticker =
-      //   config.stickerIndex !== null ? STICKERS[config.stickerIndex] : null;
-
       const [bgImg, tokenImg] = await Promise.all([
         selectedBackground ? loadImage(selectedBackground) : null,
         display.showTokenIcon ? loadImage(tokenImage) : null,
@@ -258,8 +257,7 @@ export const ShareImageGenerator = forwardRef<
         }
       }
 
-      if (SHOW_REFERRAL_CODE) {
-        // Define bottom rectangle size and position
+      if (SHOW_REFERRAL_CODE && isReferralReady) {
         const rectHeight = layout.referralHeight;
         const rectY = size - rectHeight;
         const rectWidth = size;
@@ -268,19 +266,18 @@ export const ShareImageGenerator = forwardRef<
         ctx.fillRect(0, rectY, rectWidth, rectHeight);
         ctx.filter = 'none';
 
-        // Generate QR code (positioned at bottom right with white background and padding)
         const qrCodePadding = 5;
         const qrCodeOuterSize = layout.qrCodeSize;
         const qrCodeInnerSize = qrCodeOuterSize - qrCodePadding * 2;
         const qrCodeY = rectY + (rectHeight - qrCodeOuterSize) / 2;
         const qrCodeX = size - padding - qrCodeOuterSize;
 
-        // Draw white background rectangle
         ctx.fillStyle = '#FFFFFF';
         ctx.fillRect(qrCodeX, qrCodeY, qrCodeOuterSize, qrCodeOuterSize);
 
         try {
-          const qrCodeDataUrl = await QRCodeUtil.toDataURL(REFERRAL_CODE, {
+          const qrLink = referralUrl || DEFAULT_REFERRAL_URL;
+          const qrCodeDataUrl = await QRCodeUtil.toDataURL(qrLink, {
             width: qrCodeInnerSize,
             margin: 0,
             color: {
@@ -300,10 +297,11 @@ export const ShareImageGenerator = forwardRef<
             );
           }
         } catch (error) {
-          console.error('Failed to generate QR code:', error);
+          if (platformEnv.isDev) {
+            console.error('Failed to generate QR code:', error);
+          }
         }
 
-        // Draw referral code text (positioned at bottom left, next to QR code)
         ctx.fillStyle = colors.textTertiary;
         ctx.textBaseline = 'middle';
         ctx.font = toCanvasFont(fonts.priceLabel);
@@ -318,32 +316,23 @@ export const ShareImageGenerator = forwardRef<
         ctx.globalAlpha = 1;
         ctx.font = toCanvasFont(fonts.priceValue);
         const referralTextX = padding;
+        const referralText = referralUrl || DEFAULT_REFERRAL_URL;
         ctx.fillText(
-          REFERRAL_CODE,
+          referralText,
           referralTextX,
           rectY + rectHeight / 2 + layout.referralOffset,
         );
         ctx.textBaseline = 'alphabetic';
       }
 
-      // Sticker temporarily disabled
-      // if (selectedSticker) {
-      //   ctx.font = toCanvasFont(layout.stickerSize);
-      //   ctx.textBaseline = 'bottom';
-      //   ctx.fillText(
-      //     selectedSticker,
-      //     size - padding - layout.stickerSize,
-      //     size - padding,
-      //   );
-      // }
-
       return canvas.toDataURL('image/png', 1.0);
     } catch (error) {
-      console.error('Failed to generate image:', error);
+      if (platformEnv.isDev) {
+        console.error('Failed to generate image:', error);
+      }
       return '';
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data, config]);
+  }, [data, config, referralUrl, isReferralReady]);
 
   useImperativeHandle(ref, () => ({ generate }));
 

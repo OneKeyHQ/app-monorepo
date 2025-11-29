@@ -88,9 +88,9 @@ export function EarnPageContainer({
         >
           <YStack w="100%" maxWidth={EARN_PAGE_MAX_WIDTH} mx="auto">
             {showBreadcrumb || showHeader ? (
-              <XStack px="$5" pb="$5" gap="$5" ai="center">
+              <XStack px="$3" pb="$5" gap="$5" ai="center">
                 {showBreadcrumb ? <Breadcrumb {...breadcrumbProps} /> : null}
-                {showHeader ? <>{header}</> : null}
+                {showHeader ? header : null}
               </XStack>
             ) : null}
             {children}

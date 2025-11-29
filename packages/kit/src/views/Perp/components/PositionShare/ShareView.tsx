@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { Image, Spinner, Stack } from '@onekeyhq/components';
 
@@ -8,12 +8,16 @@ import type {
   IShareConfig,
   IShareData,
   IShareImageGeneratorRef,
+  IShareReferralInfo,
 } from './types';
 
-interface IShareViewProps {
+const CANVAS_CONFIG = getCanvasConfig(900);
+
+interface IShareViewProps extends IShareReferralInfo {
   data: IShareData;
   config: IShareConfig;
   scale?: number;
+  isReferralReady?: boolean;
   generatorRef: React.RefObject<IShareImageGeneratorRef | null>;
 }
 
@@ -21,49 +25,43 @@ export function ShareView({
   data,
   config,
   scale = 0.5,
+  referralUrl,
+  isReferralReady,
   generatorRef,
 }: IShareViewProps) {
-  const CANVAS_CONFIG = getCanvasConfig(900);
-
   const displaySize = CANVAS_CONFIG.size * scale;
   const [previewImage, setPreviewImage] = useState<string | null>(null);
-  const [isFirstLoad, setIsFirstLoad] = useState(true);
+  const [isGenerating, setIsGenerating] = useState(true);
+  const generationIdRef = useRef(0);
 
   useEffect(() => {
+    generationIdRef.current += 1;
+    const currentGenerationId = generationIdRef.current;
+    setIsGenerating(true);
+
     const timer = setTimeout(() => {
       void (async () => {
         try {
           const generator = generatorRef.current;
-          if (!generator) return;
-          const base64 = await generator.generate();
-          if (base64) {
-            setPreviewImage(base64);
-            setIsFirstLoad(false);
+          if (!generator) {
+            setIsGenerating(false);
+            return;
           }
-        } catch (error) {
-          setIsFirstLoad(false);
+          const base64 = await generator.generate();
+          // Only update if this is still the current generation
+          if (currentGenerationId === generationIdRef.current && base64) {
+            setPreviewImage(base64);
+          }
+        } finally {
+          if (currentGenerationId === generationIdRef.current) {
+            setIsGenerating(false);
+          }
         }
       })();
     }, 50);
 
     return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data, config]);
-
-  if (isFirstLoad && !previewImage) {
-    return (
-      <Stack
-        width={displaySize}
-        height={displaySize}
-        justifyContent="center"
-        alignItems="center"
-        backgroundColor="$bgSubdued"
-        borderRadius="$3"
-      >
-        <Spinner size="large" />
-      </Stack>
-    );
-  }
+  }, [data, config, referralUrl, isReferralReady, generatorRef]);
 
   return (
     <Stack
@@ -73,6 +71,7 @@ export function ShareView({
       overflow="hidden"
       borderWidth={1}
       borderColor="$borderSubdued"
+      position="relative"
     >
       {previewImage ? (
         <Image
@@ -81,6 +80,20 @@ export function ShareView({
           height={displaySize}
           resizeMode="contain"
         />
+      ) : null}
+      {isGenerating && !previewImage ? (
+        <Stack
+          position="absolute"
+          top={0}
+          left={0}
+          right={0}
+          bottom={0}
+          justifyContent="center"
+          alignItems="center"
+          backgroundColor="$bgSubdued"
+        >
+          <Spinner size="large" />
+        </Stack>
       ) : null}
     </Stack>
   );

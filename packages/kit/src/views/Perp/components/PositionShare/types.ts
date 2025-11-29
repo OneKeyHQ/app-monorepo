@@ -22,6 +22,9 @@ export interface IShareData {
 export interface IShareImageGeneratorRef {
   generate: () => Promise<string>;
 }
+export interface IShareReferralInfo {
+  referralUrl?: string;
+}
 
 export interface ICanvasConfig {
   size: number;
