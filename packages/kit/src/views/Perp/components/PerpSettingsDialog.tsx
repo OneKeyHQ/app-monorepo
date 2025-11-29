@@ -104,7 +104,7 @@ function PerpSettingsPopoverContent({
           p="$0"
           titleProps={{ size: '$bodyMdMedium' }}
           title={intl.formatMessage({
-            id: ETranslations.referral_title,
+            id: ETranslations.perps_trade_reward,
           })}
           subtitleProps={{ size: '$bodySm' }}
           subtitle={intl.formatMessage({

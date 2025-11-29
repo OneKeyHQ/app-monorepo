@@ -47,17 +47,6 @@ export function InviteeRewardContent({
   const content = (
     <YStack gap="$5">
       <YStack gap="$5">
-        <Alert
-          type="info"
-          renderTitle={() => (
-            <SizableText size="$bodyMd" color="$textSubdued">
-              {intl.formatMessage({
-                id: ETranslations.earn_reward_distribution_schedule,
-              })}
-            </SizableText>
-          )}
-          closable
-        />
         <RewardSummaryCard
           isLoading={isLoading}
           totalBonus={data?.totalBonus}
@@ -113,7 +102,7 @@ export async function showInviteeRewardDialog(
 
   const dialogInTabRef = dialogInTab.show({
     title: appLocale.intl.formatMessage({
-      id: ETranslations.referral_title,
+      id: ETranslations.perps_trade_reward,
     }),
     floatingPanelProps: {
       width: 480,

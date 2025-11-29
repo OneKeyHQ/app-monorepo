@@ -37,7 +37,7 @@ export function RewardSummaryCard({
         <XStack ai="center" gap="$1.5" py="$0.5">
           <SizableText size="$headingSm">
             {intl.formatMessage({
-              id: ETranslations.referral_title,
+              id: ETranslations.dexmarket_total,
             })}
           </SizableText>
         </XStack>
