@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 
@@ -6,7 +6,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { showRiskNoticeDialogBeforeDepositOrWithdraw } from '@onekeyhq/kit/src/views/Earn/components/RiskNoticeDialog';
-import { showConfirmDialog } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/showKYCDialog';
+import { showConfirmDialogAsync } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/showKYCDialog';
 import { EModalReceiveRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
@@ -60,6 +60,8 @@ export function AdaManageContent({
   earnAccount,
 }: IAdaManageContentProps) {
   const appNavigation = useAppNavigation();
+  const [delegateLoading, setDelegateLoading] = useState(false);
+  const [undelegateLoading, setUndelegateLoading] = useState(false);
 
   const holdings = managePageData?.holdings;
   const receiveAction = managePageData?.receive;
@@ -167,50 +169,39 @@ export function AdaManageContent({
 
     // Show delegate reminder dialog if data is present
     if (delegateAction?.data) {
-      showConfirmDialog({
+      const confirmed = await showConfirmDialogAsync({
         data: delegateAction.data,
-        onConfirm: async () => {
-          // After reminder dialog confirmed, check for risk notice
-          if (
-            earnAccount?.accountAddress &&
-            provider &&
-            networkId &&
-            riskNoticeDialog
-          ) {
-            showRiskNoticeDialogBeforeDepositOrWithdraw({
-              networkId,
-              providerName: provider,
-              address: earnAccount.accountAddress,
-              operationType: 'deposit',
-              riskNoticeDialogContent: riskNoticeDialog,
-              onConfirm: executeStake,
-            });
-          } else {
-            await executeStake();
-          }
-        },
-        confirmText: delegateAction.text?.text,
       });
-      return;
+      if (!confirmed) {
+        return;
+      }
     }
 
-    // Show risk notice if riskNoticeDialog is present
-    if (
-      earnAccount?.accountAddress &&
-      provider &&
-      networkId &&
-      riskNoticeDialog
-    ) {
-      showRiskNoticeDialogBeforeDepositOrWithdraw({
-        networkId,
-        providerName: provider,
-        address: earnAccount.accountAddress,
-        operationType: 'deposit',
-        riskNoticeDialogContent: riskNoticeDialog,
-        onConfirm: executeStake,
-      });
-    } else {
-      await executeStake();
+    setDelegateLoading(true);
+    try {
+      // Show risk notice if riskNoticeDialog is present
+      if (
+        earnAccount?.accountAddress &&
+        provider &&
+        networkId &&
+        riskNoticeDialog
+      ) {
+        showRiskNoticeDialogBeforeDepositOrWithdraw({
+          networkId,
+          providerName: provider,
+          address: earnAccount.accountAddress,
+          operationType: 'deposit',
+          riskNoticeDialogContent: riskNoticeDialog,
+          onConfirm: executeStake,
+          onClose: () => setDelegateLoading(false),
+        });
+      } else {
+        await executeStake();
+      }
+    } finally {
+      if (!riskNoticeDialog) {
+        setDelegateLoading(false);
+      }
     }
   }, [
     symbol,
@@ -236,50 +227,39 @@ export function AdaManageContent({
 
     // Show undelegate reminder dialog if data is present
     if (undelegateAction?.data) {
-      showConfirmDialog({
+      const confirmed = await showConfirmDialogAsync({
         data: undelegateAction.data,
-        onConfirm: async () => {
-          // After reminder dialog confirmed, check for risk notice
-          if (
-            earnAccount?.accountAddress &&
-            provider &&
-            networkId &&
-            riskNoticeDialog
-          ) {
-            showRiskNoticeDialogBeforeDepositOrWithdraw({
-              networkId,
-              providerName: provider,
-              address: earnAccount.accountAddress,
-              operationType: 'withdraw',
-              riskNoticeDialogContent: riskNoticeDialog,
-              onConfirm: executeWithdraw,
-            });
-          } else {
-            await executeWithdraw();
-          }
-        },
-        confirmText: undelegateAction.text?.text,
       });
-      return;
+      if (!confirmed) {
+        return;
+      }
     }
 
-    // Show risk notice if riskNoticeDialog is present
-    if (
-      earnAccount?.accountAddress &&
-      provider &&
-      networkId &&
-      riskNoticeDialog
-    ) {
-      showRiskNoticeDialogBeforeDepositOrWithdraw({
-        networkId,
-        providerName: provider,
-        address: earnAccount.accountAddress,
-        operationType: 'withdraw',
-        riskNoticeDialogContent: riskNoticeDialog,
-        onConfirm: executeWithdraw,
-      });
-    } else {
-      await executeWithdraw();
+    setUndelegateLoading(true);
+    try {
+      // Show risk notice if riskNoticeDialog is present
+      if (
+        earnAccount?.accountAddress &&
+        provider &&
+        networkId &&
+        riskNoticeDialog
+      ) {
+        showRiskNoticeDialogBeforeDepositOrWithdraw({
+          networkId,
+          providerName: provider,
+          address: earnAccount.accountAddress,
+          operationType: 'withdraw',
+          riskNoticeDialogContent: riskNoticeDialog,
+          onConfirm: executeWithdraw,
+          onClose: () => setUndelegateLoading(false),
+        });
+      } else {
+        await executeWithdraw();
+      }
+    } finally {
+      if (!riskNoticeDialog) {
+        setUndelegateLoading(false);
+      }
     }
   }, [
     symbol,
@@ -304,6 +284,7 @@ export function AdaManageContent({
             text: delegateAction.text?.text || 'Delegate',
             variant: 'primary',
             disabled: !earnAccount?.accountAddress || delegateAction.disabled,
+            loading: delegateLoading,
             onPress: handleDelegate,
           },
         },
@@ -320,6 +301,7 @@ export function AdaManageContent({
                 text: undelegateAction.text?.text || 'Undelegate',
                 disabled:
                   undelegateAction.disabled || !earnAccount?.accountAddress,
+                loading: undelegateLoading,
                 onPress: handleUndelegate,
               }
             : undefined,
@@ -345,6 +327,8 @@ export function AdaManageContent({
     undelegateAction,
     receiveAction,
     earnAccount?.accountAddress,
+    delegateLoading,
+    undelegateLoading,
     handleDelegate,
     handleUndelegate,
     handleReceive,

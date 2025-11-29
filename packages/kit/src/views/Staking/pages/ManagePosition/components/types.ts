@@ -7,6 +7,7 @@ export interface ISpecialManageButton {
   text: string;
   variant?: IButtonProps['variant'];
   disabled?: boolean;
+  loading?: boolean;
   onPress: () => void | Promise<void>;
 }
 

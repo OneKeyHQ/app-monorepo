@@ -243,16 +243,17 @@ function GenericDialogContent({
 export interface IShowConfirmDialogParams {
   data: IEarnConfirmDialogData;
   onConfirm?: () => Promise<void>;
+  onClose?: () => void;
   confirmText?: string;
   icon?: IKeyOfIcons;
   tone?: IDialogProps['tone'];
-  // For link/close button types
   linkButton?: IClaimWithKycData['button'];
 }
 
 export function showConfirmDialog({
   data,
   onConfirm,
+  onClose,
   confirmText,
   icon = 'InfoCircleOutline',
   tone,
@@ -263,6 +264,7 @@ export function showConfirmDialog({
     title: data.title.text,
     showFooter: false,
     tone,
+    onClose,
     renderContent: (
       <GenericDialogContent
         data={data}
@@ -271,6 +273,37 @@ export function showConfirmDialog({
         linkButton={linkButton}
       />
     ),
+  });
+}
+
+export async function showConfirmDialogAsync({
+  data,
+  confirmText,
+  icon = 'InfoCircleOutline',
+  tone,
+}: Omit<
+  IShowConfirmDialogParams,
+  'onConfirm' | 'onClose' | 'linkButton'
+>): Promise<boolean> {
+  return new Promise((resolve) => {
+    let confirmed = false;
+    const dialog = Dialog.show({
+      icon,
+      title: data.title.text,
+      showFooter: false,
+      tone,
+      onClose: () => resolve(confirmed),
+      renderContent: (
+        <GenericDialogContent
+          data={data}
+          confirmText={confirmText}
+          onConfirm={async () => {
+            confirmed = true;
+            await dialog.close();
+          }}
+        />
+      ),
+    });
   });
 }
 

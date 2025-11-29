@@ -66,6 +66,7 @@ export function SpecialManageContent({
           variant={primaryButton.variant ?? 'primary'}
           onPress={primaryButton.onPress}
           disabled={primaryButton.disabled}
+          loading={primaryButton.loading}
         >
           {primaryButton.text}
         </Button>
@@ -81,6 +82,7 @@ export function SpecialManageContent({
                 variant={secondaryButton.variant}
                 onPress={secondaryButton.onPress}
                 disabled={secondaryButton.disabled}
+                loading={secondaryButton.loading}
               >
                 {secondaryButton.text}
               </Button>
@@ -92,6 +94,7 @@ export function SpecialManageContent({
                 variant={primaryButton.variant ?? 'primary'}
                 onPress={primaryButton.onPress}
                 disabled={primaryButton.disabled}
+                loading={primaryButton.loading}
               >
                 {primaryButton.text}
               </Button>
@@ -119,6 +122,7 @@ export function SpecialManageContent({
           confirmButtonProps={{
             onPress: primaryButton.onPress,
             disabled: primaryButton.disabled,
+            loading: primaryButton.loading,
           }}
         />
       );
@@ -134,6 +138,7 @@ export function SpecialManageContent({
               ? {
                   onPress: secondaryButton.onPress,
                   disabled: secondaryButton.disabled,
+                  loading: secondaryButton.loading,
                 }
               : undefined
           }
@@ -142,6 +147,7 @@ export function SpecialManageContent({
               ? {
                   onPress: primaryButton.onPress,
                   disabled: primaryButton.disabled,
+                  loading: primaryButton.loading,
                 }
               : undefined
           }
