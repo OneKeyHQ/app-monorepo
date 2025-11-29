@@ -92,7 +92,7 @@ function ReferralLandingPage() {
             page,
           },
         });
-      }, 1000);
+      }, 1500);
     };
 
     void processReferralLanding();
