@@ -31,6 +31,7 @@ import SwapProActionButton from './SwapProActionButton';
 import SwapProInputContainer from './SwapProInputContainer';
 import SwapProSlider from './SwapProSlider';
 import SwapProTradeInfoGroup from './SwapProTradeInfoGroup';
+import SwapProValueInput from './SwapProValueInput';
 
 const SwapProTradingPanel = () => {
   const [swapProDirection, setSwapProDirection] = useSwapProDirectionAtom();
@@ -94,6 +95,7 @@ const SwapProTradingPanel = () => {
         defaultTokens={defaultTokens}
       />
       <SwapProSlider />
+      <SwapProValueInput />
       <SwapProTradeInfoGroup />
       <SwapProAccountSelect onSelectAccountClick={handleSelectAccountClick} />
       <SlippageSetting

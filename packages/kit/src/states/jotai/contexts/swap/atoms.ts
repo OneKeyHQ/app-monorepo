@@ -763,3 +763,6 @@ export const {
   atom: swapProSupportNetworksTokenListLoadingAtom,
   use: useSwapProSupportNetworksTokenListLoadingAtom,
 } = contextAtom<boolean>(false);
+
+export const { atom: swapProTokenValueAtom, use: useSwapProTokenValueAtom } =
+  contextAtom<string>('');

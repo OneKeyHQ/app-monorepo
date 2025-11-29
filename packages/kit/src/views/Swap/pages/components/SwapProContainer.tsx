@@ -55,7 +55,6 @@ const SwapProContainer = ({
         <SwapProTokenSelector onSelectTokenClick={onProSelectToken} />
         <IconButton icon="AccessibilityEyeSolid" />
       </XStack>
-      {/* <PerpTickerBar /> */}
       <XStack gap="$2.5" pb="$4">
         <YStack flexBasis="40%" flexShrink={1}>
           <SwapProTradeInfoPanel />
