@@ -9,10 +9,9 @@ import {
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { ReferralLinkDropdown } from '../../ReferralLinkDropdown';
 import { ReferralListButton } from '../../ReferralListButton';
 import { useReferralCodeCard } from '../hooks/useReferralCodeCard';
-
-import { ReferralLinkDropdown } from './ReferralLinkDropdown';
 
 import type { IReferralCodeCardProps } from '../types';
 
