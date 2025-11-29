@@ -257,7 +257,24 @@ export default class Vault extends VaultBase {
       },
     ];
 
-    const nativeAmountMap = this._getOutputAmount(outputs, network.decimals);
+    let nativeAmountMap = this._getOutputAmount(outputs, network.decimals);
+
+    // Check if this is a staking tx with deregistration certificate (type=1)
+    // Deregistration will return the 2 ADA deposit, so the actual cost is only the fee
+    const stakingInfo = encodedTx.staking;
+    if (stakingInfo?.isStakingTx && stakingInfo.certificates) {
+      const hasDeregistration = stakingInfo.certificates.some(
+        (cert) => cert.type === 1,
+      );
+      if (hasDeregistration) {
+        // For deregistration tx, the nativeAmount should only be the fee
+        // because the 2 ADA deposit will be returned
+        nativeAmountMap = {
+          amount: encodedTx.totalFeeInNative,
+          amountValue: encodedTx.fee,
+        };
+      }
+    }
 
     if (nativeToken) {
       const sends = [];

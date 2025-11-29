@@ -62,7 +62,7 @@ export type IAdaChangeAddress = {
 // 0: stake registration, 1: stake deregistration, 2: delegation
 export type IAdaStakingCertificate = {
   type: number;
-  stakeCredential: string;
+  stakeCredential?: string;
   poolId?: string; // only for delegation certificate (type 2)
 };
 
