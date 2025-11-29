@@ -113,7 +113,7 @@ export const useStakingPendingTxs = ({
 
       await refreshPendingTxs();
     },
-    [isPending, accountId, networkId, stakeTag, refreshPendingTxs, pollingInterval],
+    [isPending, accountId, networkId, stakeTag, refreshPendingTxs],
     {
       pollingInterval,
     },
