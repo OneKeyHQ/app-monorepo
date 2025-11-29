@@ -18,6 +18,7 @@ export function ShareView({
   data,
   config,
   referralUrl,
+  inviteCode,
   isReferralReady,
 }: IShareViewProps) {
   const { width: screenWidth } = useWindowDimensions();
@@ -37,6 +38,7 @@ export function ShareView({
         data={data}
         config={config}
         referralUrl={referralUrl}
+        inviteCode={inviteCode}
         isReferralReady={isReferralReady}
         scale={displaySize / 1080}
       />

@@ -27,6 +27,7 @@ interface IShareImageGeneratorProps {
   data: IShareData;
   config: IShareConfig;
   referralUrl?: string;
+  inviteCode?: string;
   isReferralReady?: boolean;
 }
 
@@ -58,7 +59,7 @@ const CANVAS_CONFIG = getCanvasConfig(900);
 export const ShareImageGenerator = forwardRef<
   IShareImageGeneratorRef,
   IShareImageGeneratorProps
->(({ data, config, referralUrl, isReferralReady = true }, ref) => {
+>(({ data, config, referralUrl, inviteCode, isReferralReady = true }, ref) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const generate = useCallback(async (): Promise<string> => {
     const canvas = canvasRef.current;
@@ -316,9 +317,9 @@ export const ShareImageGenerator = forwardRef<
         ctx.globalAlpha = 1;
         ctx.font = toCanvasFont(fonts.priceValue);
         const referralTextX = padding;
-        const referralText = referralUrl || DEFAULT_REFERRAL_URL;
+        const displayText = inviteCode || DEFAULT_REFERRAL_URL;
         ctx.fillText(
-          referralText,
+          displayText,
           referralTextX,
           rectY + rectHeight / 2 + layout.referralOffset,
         );
@@ -332,7 +333,7 @@ export const ShareImageGenerator = forwardRef<
       }
       return '';
     }
-  }, [data, config, referralUrl, isReferralReady]);
+  }, [data, config, referralUrl, inviteCode, isReferralReady]);
 
   useImperativeHandle(ref, () => ({ generate }));
 
