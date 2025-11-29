@@ -449,6 +449,8 @@
   "device.communication_failed": "장치 통신에 실패했습니다. \"설정\" > \"하드웨어 통신\"에서 웹-USB 모드로 전환하거나 연결 문제를 해결하기 위해 <url>https://help.onekey.so/articles/11461117<underline>OneKey Bridge 문제 해결 가이드</underline></url>를 참조하십시오.",
   "device.communication_failed_with_no_web_usb_supported": "장치 통신에 실패했습니다. 연결 문제를 해결하려면 <url>https://help.onekey.so/articles/11461117<underline>OneKey Bridge 문제 해결 가이드</underline></url>를 참조하십시오.",
   "device.connect_via_usb": "USB를 통해 장치를 연결하세요",
+  "device.desc_update_latest_firmware": "이 기능에 접근하려면 최신 펌웨어로 업데이트하세요.",
+  "device.firmware_update_required": "펌웨어 업데이트가 필요합니다",
   "device.firmware_upgrade_disallow_downgrade": "다운그레이드는 허용되지 않습니다. 업그레이드하려는 펌웨어가 최신 버전인지 확인하세요.",
   "device.grant_usb_access": "USB 접근 권한 부여",
   "device.hardware_communication": "하드웨어 통신",
