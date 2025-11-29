@@ -1,14 +1,18 @@
 import { useEffect, useRef } from 'react';
 
+import { StackActions } from '@react-navigation/native';
+
 import { Page, Spinner, Stack, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
+import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   EModalReferFriendsRoutes,
   EModalRoutes,
-  type ETabHomeRoutes,
+  ETabHomeRoutes,
+  type ETabHomeRoutes as ETabHomeRoutesType,
   ETabRoutes,
   type ITabHomeParamList,
 } from '@onekeyhq/shared/src/routes';
@@ -27,19 +31,24 @@ const PAGE_TO_TAB_ROUTE: Record<string, ETabRoutes> = {
 function ReferralLandingPage() {
   const route = useAppRoute<
     ITabHomeParamList,
-    ETabHomeRoutes.TabHomeReferralLanding
+    ETabHomeRoutesType.TabHomeReferralLanding
   >();
   const navigation = useAppNavigation();
+  const [appIsLocked] = useAppIsLockedAtom();
 
   const hasProcessedRef = useRef(false);
 
   const routeParams = route.params as
-    | { code: string; page: string }
+    | { code: string; page?: string }
     | undefined;
   const code = routeParams?.code;
   const page = routeParams?.page;
 
+  // Process referral landing after app is unlocked
   useEffect(() => {
+    if (appIsLocked) {
+      return;
+    }
     if (hasProcessedRef.current) {
       return;
     }
@@ -65,10 +74,16 @@ function ReferralLandingPage() {
       const pageLower = page?.toLowerCase() ?? '';
       const targetTabRoute = PAGE_TO_TAB_ROUTE[pageLower] ?? ETabRoutes.Home;
 
-      // Navigate to target page
-      navigation.switchTab(targetTabRoute);
+      // Navigate to target page and replace current route
+      if (targetTabRoute === ETabRoutes.Home) {
+        // Replace to home page
+        navigation.dispatch(StackActions.replace(ETabHomeRoutes.TabHome));
+      } else {
+        // Switch to other tab
+        navigation.switchTab(targetTabRoute);
+      }
 
-      // Open InvitedByFriend modal when user has referral code
+      // Open InvitedByFriend modal after navigation
       setTimeout(() => {
         navigation.pushModal(EModalRoutes.ReferFriendsModal, {
           screen: EModalReferFriendsRoutes.InvitedByFriend,
@@ -77,11 +92,11 @@ function ReferralLandingPage() {
             page,
           },
         });
-      }, 500);
+      }, 1500);
     };
 
     void processReferralLanding();
-  }, [code, page, navigation]);
+  }, [appIsLocked, code, page, navigation]);
 
   return (
     <Page>
