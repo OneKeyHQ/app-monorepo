@@ -633,7 +633,13 @@ export default class Vault extends VaultBase {
     }
   }
 
-  async buildTxCborToEncodeTx(txHex: string): Promise<IEncodedTxAda> {
+  async buildTxCborToEncodeTx({
+    txHex,
+    isSignOnly,
+  }: {
+    txHex: string;
+    isSignOnly: boolean;
+  }): Promise<IEncodedTxAda> {
     const dbAccount = (await this.getAccount()) as IDBUtxoAccount;
     const changeAddress = getChangeAddress(dbAccount);
     const stakeAddress = await this._getStakeAddress(dbAccount.address);
@@ -662,12 +668,13 @@ export default class Vault extends VaultBase {
     });
     const CardanoApi = await sdk.getCardanoApi();
     const addresses = associatedAddresses.map((i) => i.address);
-    const encodeTx = await CardanoApi.dAppConvertCborTxToEncodeTx(
+    const encodeTx = await CardanoApi.dAppConvertCborTxToEncodeTx({
       txHex,
       utxos,
       addresses,
       changeAddress,
-    );
+      isSignOnly,
+    });
     return {
       ...encodeTx,
       changeAddress,
@@ -716,9 +723,10 @@ export default class Vault extends VaultBase {
   override async buildInternalDappEncodedTx(
     params: IInternalDappTxParams,
   ): Promise<IEncodedTxAda> {
-    const encodedTx = await this.buildTxCborToEncodeTx(
-      params.internalDappTx as string,
-    );
+    const encodedTx = await this.buildTxCborToEncodeTx({
+      txHex: params.internalDappTx as string,
+      isSignOnly: false,
+    });
     return encodedTx;
   }
 }
