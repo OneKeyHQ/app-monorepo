@@ -3,6 +3,7 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import type { IDiagnosticProgress } from '@onekeyhq/shared/src/modules/NetworkDoctor/types';
+import { isSupportIpTablePlatform } from '@onekeyhq/shared/src/utils/ipTableUtils';
 
 import { networkDoctorStateAtom } from '../states/jotai/atoms';
 
@@ -115,6 +116,11 @@ class ServiceNetworkDoctor extends ServiceBase {
 
       // Run diagnostics
       const result = await doctor.run();
+
+      // Trigger IP Table speed test for supported platforms
+      if (isSupportIpTablePlatform()) {
+        await this.backgroundApi.serviceIpTable.runFullSpeedTest();
+      }
 
       // Stop progress smoother
       this.stopProgressSmoother();

@@ -1,11 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 import { useSharedValue } from 'react-native-reanimated';
 import { useDebouncedCallback } from 'use-debounce';
 
 import type { ICarouselInstance } from '@onekeyhq/components';
-import { useSelectedMarketTabAtom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
+import { useMarketSelectedTabAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import type { IMarketHomeTabValue } from '../../types';
@@ -32,7 +32,7 @@ export function useMarketTabsLogic(
   onTabChange: (tabId: IMarketHomeTabValue) => void,
 ): IMarketTabsLogicReturn {
   const intl = useIntl();
-  const [selectedTab, setSelectedTab] = useSelectedMarketTabAtom();
+  const [{ tab: selectedTab }, setSelectedTabAtom] = useMarketSelectedTabAtom();
 
   const watchlistTabName = intl.formatMessage({
     id: ETranslations.global_favorites,
@@ -55,10 +55,8 @@ export function useMarketTabsLogic(
   // Create a SharedValue that always syncs with the atom state
   const focusedTab = useSharedValue(initialTabName);
 
-  // Ensure focusedTab always syncs with selectedTab state
-  useEffect(() => {
-    focusedTab.value = initialTabName;
-  }, [focusedTab, initialTabName]);
+  // Update focusedTab when selectedTab changes
+  focusedTab.value = initialTabName;
 
   const defaultIndex = useMemo(() => {
     return selectedTab === 'watchlist' ? 0 : 1;
@@ -70,14 +68,13 @@ export function useMarketTabsLogic(
       const tabValue = index === 0 ? 'watchlist' : 'trending';
 
       // Primary state update - this is the source of truth
-      setSelectedTab(tabValue);
+      setSelectedTabAtom({ tab: tabValue });
       onTabChange(tabValue);
 
       // Secondary update - sync SharedValue for TabBar component
-      // Note: This will be automatically updated by useEffect above, but we do it immediately for responsive UI
       focusedTab.value = tabNames[index];
     },
-    [focusedTab, onTabChange, setSelectedTab, tabNames],
+    [focusedTab, onTabChange, setSelectedTabAtom, tabNames],
   );
 
   const handleTabChange = useDebouncedCallback((tabName: string) => {
