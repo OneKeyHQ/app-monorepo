@@ -172,6 +172,7 @@ export interface IPerpServerReferrerConfig {
   referrerRate?: number;
   agentTTL?: number;
   referralCode?: string;
+  configVersion?: string;
 }
 
 export interface IPerpServerCommonConfig {

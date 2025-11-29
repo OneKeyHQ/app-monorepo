@@ -5,6 +5,7 @@ import safeStringify from 'fast-safe-stringify';
 
 import { usePrimePaymentMethods } from '@onekeyhq/kit/src/views/Prime/hooks/usePrimePaymentMethods';
 import { EWebEmbedPrivateRequestMethod } from '@onekeyhq/shared/src/consts/webEmbedConsts';
+import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 
 async function closeNativeWebViewModal() {
   await globalThis.$onekey.$private.request({
@@ -91,6 +92,7 @@ export default function PageWebEmbedPrimePurchase() {
     subscriptionPeriod,
     locale,
     mode,
+    featureName,
   } = webEmbedQueryParams || {};
 
   const run = useCallback(async () => {
@@ -108,10 +110,17 @@ export default function PageWebEmbedPrimePurchase() {
 
       console.log('call purchasePackageWeb');
 
+      const validFeatureName =
+        featureName &&
+        Object.values(EPrimeFeatures).includes(featureName as EPrimeFeatures)
+          ? (featureName as EPrimeFeatures)
+          : undefined;
+
       const purchaseResult = await purchasePackageWeb?.({
         subscriptionPeriod,
         email: primeUserEmail,
         locale,
+        featureName: validFeatureName,
       });
 
       const debugMessage = safeStringify.stableStringify(
@@ -148,6 +157,7 @@ export default function PageWebEmbedPrimePurchase() {
     apiKey,
     purchasePackageWeb,
     locale,
+    featureName,
   ]);
 
   useEffect(() => {

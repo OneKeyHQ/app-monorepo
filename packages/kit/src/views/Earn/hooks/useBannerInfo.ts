@@ -1,4 +1,6 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
+
+import { isEmpty } from 'lodash';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 
@@ -24,6 +26,13 @@ export const useBannerInfo = () => {
 
     actions.current.updateBanners(transformedBanners);
   }, [actions]);
+
+  useEffect(() => {
+    if (isEmpty(earnData.banners)) {
+      void refetchBanners();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return { earnBanners: earnData.banners, refetchBanners };
 };

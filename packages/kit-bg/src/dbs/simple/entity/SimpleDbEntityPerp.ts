@@ -42,6 +42,7 @@ export interface ISimpleDbPerpData {
   marginTablesMap?: IMarginTablesMap;
   agentTTL?: number; // in milliseconds
   referralCode?: string;
+  configVersion?: string;
   tradingviewDisplayPriceScale?: Record<string, number>; // decimal places for price display in tradingview chart
   hyperliquidTermsAccepted?: boolean;
   hyperliquidErrorLocales?: IHyperLiquidErrorLocaleItem[];

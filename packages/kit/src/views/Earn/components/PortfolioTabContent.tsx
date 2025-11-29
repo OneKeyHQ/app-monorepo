@@ -240,12 +240,30 @@ const WrappedActionButton = ({
   );
 };
 
+const useFieldWrapperNeedPadding = (
+  asset: IEarnPortfolioInvestment['assets'][number],
+) => {
+  return useMemo(() => !asset?.metadata?.protocol?.vaultName, [asset]);
+};
+
 const FieldWrapper = ({
   children,
+  asset,
   ...rest
-}: { children: React.ReactNode } & React.ComponentProps<typeof YStack>) => {
+}: {
+  children: React.ReactNode;
+  asset: IEarnPortfolioInvestment['assets'][number];
+} & React.ComponentProps<typeof YStack>) => {
+  const needPadding = useFieldWrapperNeedPadding(asset);
+
   return (
-    <YStack gap="$1" minHeight="$8" {...rest}>
+    <YStack
+      gap="$1"
+      minHeight="$8"
+      jc="flex-start"
+      pt={needPadding ? '$1.5' : 0}
+      {...rest}
+    >
       {children}
     </YStack>
   );
@@ -264,7 +282,7 @@ const DepositField = ({
         tokenImageUri={asset.token.info.logoURI}
         networkImageUri={asset.metadata.network.logoURI}
       />
-      <FieldWrapper ml="$3" mr="$2" jc="center" flex={1}>
+      <FieldWrapper ml="$3" mr="$2" flex={1} asset={asset}>
         <XStack gap="$1" maxWidth={200} flexWrap="wrap">
           <EarnText size="$bodyMdMedium" text={asset.deposit?.title} />
           <EarnText
@@ -289,7 +307,7 @@ const EarningsField = ({
   asset: IEarnPortfolioInvestment['assets'][number];
 }) => {
   return (
-    <FieldWrapper>
+    <FieldWrapper asset={asset}>
       <YStack jc="center" flex={1}>
         <EarnText size="$bodyMdMedium" text={asset.earnings24h?.title} />
         <XStack gap="$1">
@@ -314,8 +332,18 @@ const AssetStatusField = ({
 }: {
   asset: IEarnPortfolioInvestment['assets'][number];
 }) => {
+  if (isEmpty(asset.assetsStatus)) {
+    return (
+      <FieldWrapper asset={asset}>
+        <Stack flexDirection="row" ai="center" flexWrap="wrap" maxWidth="100%">
+          <EarnText mr="$1" size="$bodyMdMedium" text={{ text: '-' }} />
+        </Stack>
+      </FieldWrapper>
+    );
+  }
+
   return (
-    <FieldWrapper jc="center">
+    <FieldWrapper asset={asset}>
       {asset.assetsStatus?.map((status, index) => (
         <XStack key={index} ai="center" maxWidth={200} flexWrap="wrap">
           <EarnText mr="$2" size="$bodyMdMedium" text={status.title} />
@@ -341,7 +369,7 @@ const ActionField = ({
 }) => {
   if (isEmpty(asset.rewardAssets)) {
     return (
-      <FieldWrapper jc="center">
+      <FieldWrapper asset={asset}>
         <Stack flexDirection="row" ai="center" flexWrap="wrap" maxWidth="100%">
           <EarnText mr="$1" size="$bodyMdMedium" text={{ text: '-' }} />
         </Stack>
@@ -350,7 +378,7 @@ const ActionField = ({
   }
 
   return (
-    <FieldWrapper jc="center">
+    <FieldWrapper asset={asset}>
       {asset.rewardAssets?.map((reward, index) => (
         <Stack
           key={index}
@@ -401,7 +429,7 @@ const ProtocolHeader = ({
           <NumberSizeableText
             size="$headingLg"
             color="$textSubdued"
-            formatter="marketCap"
+            formatter="value"
             formatterOptions={{ currency: currencyInfo.symbol }}
           >
             {portfolioItem.totalFiatValue}
@@ -535,12 +563,22 @@ const PortfolioItemComponent = ({
   const intl = useIntl();
   const media = useMedia();
 
+  const depositColumnLabel = useMemo(() => {
+    const firstAsset = portfolioItem?.assets?.[0];
+
+    if (firstAsset?.token?.info?.symbol?.toUpperCase() === 'USDE') {
+      return intl.formatMessage({ id: ETranslations.earn_holdings });
+    }
+
+    return intl.formatMessage({ id: ETranslations.earn_deposited });
+  }, [portfolioItem.assets, intl]);
+
   const columns: ITableColumn<IEarnPortfolioInvestment['assets'][number]>[] =
     useMemo(() => {
       return [
         {
           key: 'deposits',
-          label: intl.formatMessage({ id: ETranslations.earn_deposited }),
+          label: depositColumnLabel,
           flex: 1.5,
           priority: 5,
           render: (asset) => <DepositField asset={asset} />,
@@ -554,7 +592,7 @@ const PortfolioItemComponent = ({
         },
         {
           key: 'Asset status',
-          label: intl.formatMessage({ id: ETranslations.global_status }),
+          label: intl.formatMessage({ id: ETranslations.earn_asset_status }),
           flex: 1,
           priority: 3,
           render: (asset) => <AssetStatusField asset={asset} />,
@@ -567,7 +605,7 @@ const PortfolioItemComponent = ({
           render: (asset) => <ActionField asset={asset} />,
         },
       ];
-    }, [intl]);
+    }, [depositColumnLabel, intl]);
 
   const appNavigation = useAppNavigation();
   const { activeAccount } = useActiveAccount({ num: 0 });
@@ -639,6 +677,7 @@ const PortfolioItemComponent = ({
             minHeight: '$8',
           }}
           listItemProps={{
+            ai: media.gtSm ? 'flex-start' : 'center',
             mt: media.gtSm ? '$2' : '$1',
           }}
           expandable={

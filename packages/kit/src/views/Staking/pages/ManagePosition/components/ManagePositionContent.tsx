@@ -107,7 +107,6 @@ export function ManagePositionContent({
     alertsHolding,
     alertsStake,
     alertsWithdraw,
-    refreshAccount: refreshManageAccount,
     run: refreshManageData,
     isLoading,
   } = useManagePage({
@@ -124,9 +123,8 @@ export function ManagePositionContent({
     if (onCreateAddress) {
       await onCreateAddress();
     }
-    await refreshManageAccount();
     await refreshManageData();
-  }, [onCreateAddress, refreshManageAccount, refreshManageData]);
+  }, [onCreateAddress, refreshManageData]);
 
   // Check if Bitcoin Only firmware is trying to access non-BTC network
   const { result: accountNetworkNotSupported } = usePromiseResult(
@@ -226,14 +224,18 @@ export function ManagePositionContent({
     isInModalContext,
   ]);
 
-  const handleStakeWithdrawSuccess = useCallback(() => {
+  const handleOperationSuccess = useCallback(() => {
+    void refreshManageData();
+    onStakeWithdrawSuccess?.();
     if (isInModalContext) {
       appNavigation.pop();
     }
-    // If not in modal, don't navigate (stay on current page)
-    // Call parent refresh callback to update data
-    onStakeWithdrawSuccess?.();
-  }, [isInModalContext, appNavigation, onStakeWithdrawSuccess]);
+  }, [
+    refreshManageData,
+    onStakeWithdrawSuccess,
+    isInModalContext,
+    appNavigation,
+  ]);
 
   // Create beforeFooter content for stake section
   const stakeBeforeFooter = useMemo(() => {
@@ -269,7 +271,7 @@ export function ManagePositionContent({
     return null;
   }, [shouldShowWarning, warningElement, alertsWithdraw, alerts]);
 
-  if (isLoading) {
+  if (isLoading && !managePageData) {
     return <SectionSkeleton />;
   }
 
@@ -292,6 +294,7 @@ export function ManagePositionContent({
         vault={vault}
         alertsHolding={alertsHolding}
         onHistory={onHistory}
+        onActionSuccess={handleOperationSuccess}
         earnAccount={earnAccount}
         showApyDetail={showApyDetail}
         isInModalContext={isInModalContext}
@@ -316,7 +319,7 @@ export function ManagePositionContent({
       withdrawBeforeFooter={withdrawBeforeFooter}
       historyAction={historyAction}
       onHistory={onHistory}
-      onSuccess={handleStakeWithdrawSuccess}
+      onSuccess={handleOperationSuccess}
       defaultTab={defaultTab}
       onTabChange={onTabChange}
       isInModalContext={isInModalContext}
