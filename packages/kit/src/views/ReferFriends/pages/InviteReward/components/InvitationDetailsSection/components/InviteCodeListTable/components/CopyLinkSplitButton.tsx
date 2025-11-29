@@ -30,6 +30,7 @@ export function CopyLinkSplitButton({ url }: ICopyLinkSplitButtonProps) {
 
   const handleCopy = useCallback(() => {
     void copyText(url);
+    defaultLogger.referral.page.shareReferralLink('copy');
   }, [url, copyText]);
 
   const handleCopyWalletLink = useCallback(() => {
