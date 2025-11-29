@@ -9,9 +9,9 @@ import ExpoSharing from '@onekeyhq/shared/src/modules3rdParty/expo-sharing';
 import RNFS from '@onekeyhq/shared/src/modules3rdParty/react-native-fs';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { REFERRAL_CODE } from './constants';
+import { DEFAULT_REFERRAL_URL } from './constants';
 
-export function useShareActions() {
+export function useShareActions(referralUrl?: string) {
   const { copyText } = useClipboard();
   const intl = useIntl();
   const saveImage = useCallback(
@@ -79,32 +79,37 @@ export function useShareActions() {
   );
 
   const copyLink = useCallback(() => {
+    const link = referralUrl || DEFAULT_REFERRAL_URL;
     try {
-      copyText(REFERRAL_CODE);
+      copyText(link);
     } catch {
       Toast.error({ title: 'Failed to copy link' });
     }
-  }, [copyText]);
+  }, [copyText, referralUrl]);
 
-  const shareToX = useCallback(async (base64Image: string, text: string) => {
-    try {
-      const tweetText = `${text}\n\n${REFERRAL_CODE}`;
-      const twitterUrl = `https://x.com/intent/tweet?text=${encodeURIComponent(
-        tweetText,
-      )}`;
+  const shareToX = useCallback(
+    async (_base64Image: string, text: string) => {
+      try {
+        const link = referralUrl || DEFAULT_REFERRAL_URL;
+        const tweetText = `${text}\n\n${link}`;
+        const twitterUrl = `https://x.com/intent/tweet?text=${encodeURIComponent(
+          tweetText,
+        )}`;
 
-      if (platformEnv.isNative) {
-        void Linking.openURL(twitterUrl);
-      } else {
-        window.open(twitterUrl, '_blank');
+        if (platformEnv.isNative) {
+          void Linking.openURL(twitterUrl);
+        } else {
+          globalThis.open(twitterUrl, '_blank');
+        }
+      } catch (error) {
+        Toast.error({
+          title: 'Failed to share',
+          message: error instanceof Error ? error.message : undefined,
+        });
       }
-    } catch (error) {
-      Toast.error({
-        title: 'Failed to share',
-        message: error instanceof Error ? error.message : undefined,
-      });
-    }
-  }, []);
+    },
+    [referralUrl],
+  );
 
   return {
     saveImage,

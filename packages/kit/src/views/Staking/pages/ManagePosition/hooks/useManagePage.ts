@@ -65,8 +65,6 @@ export const useManagePage = ({
       const protocolList =
         await backgroundApiProxy.serviceStaking.getProtocolList({
           symbol,
-          accountId,
-          indexedAccountId,
           filterNetworkId: networkId,
         });
 

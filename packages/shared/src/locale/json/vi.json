@@ -449,6 +449,8 @@
   "device.communication_failed": "Giao tiếp thiết bị thất bại. Vui lòng thử chuyển sang chế độ WebUSB trong \"Cài đặt\" > \"Giao tiếp phần cứng\" hoặc tham khảo <url>https://help.onekey.so/articles/11461117<underline>hướng dẫn khắc phục sự cố OneKey Bridge</underline></url> của chúng tôi để giải quyết vấn đề kết nối.",
   "device.communication_failed_with_no_web_usb_supported": "Giao tiếp thiết bị thất bại. Vui lòng tham khảo <url>https://help.onekey.so/articles/11461117<underline>hướng dẫn khắc phục sự cố OneKey Bridge</underline></url> của chúng tôi để giải quyết vấn đề kết nối.",
   "device.connect_via_usb": "Kết nối thiết bị qua USB",
+  "device.desc_update_latest_firmware": "Vui lòng cập nhật lên phiên bản firmware mới nhất để truy cập tính năng này.",
+  "device.firmware_update_required": "Yêu cầu cập nhật firmware",
   "device.firmware_upgrade_disallow_downgrade": "Không cho phép hạ cấp. Vui lòng đảm bảo firmware bạn đang nâng cấp là phiên bản mới nhất.",
   "device.grant_usb_access": "Cấp quyền truy cập USB",
   "device.hardware_communication": "Giao tiếp phần cứng",
