@@ -19,7 +19,6 @@ import { TableList } from '@onekeyhq/kit/src/components/ListView/TableList';
 import { NetworkAvatarGroup } from '@onekeyhq/kit/src/components/NetworkAvatar/NetworkAvatar';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
@@ -60,7 +59,6 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
   }, [encodedLogoURI]);
 
   const media = useMedia();
-  const { activeAccount } = useActiveAccount({ num: 0 });
 
   const customHeaderLeft = useMemo(
     () => (
@@ -105,9 +103,6 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
 
   const handleProtocolPress = useCallback(
     async (protocol: IStakeProtocolListItem) => {
-      const accountId = activeAccount?.account?.id;
-      const indexedAccountId = activeAccount?.indexedAccount?.id;
-
       try {
         defaultLogger.staking.page.selectProvider({
           network: protocol.network.networkId,
@@ -116,8 +111,6 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
 
         await EarnNavigation.pushToEarnProtocolDetails(navigation, {
           networkId: protocol.network.networkId,
-          accountId,
-          indexedAccountId,
           symbol,
           provider: protocol.provider.name,
           vault: earnUtils.isVaultBasedProvider({
@@ -130,12 +123,7 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
         // ignore error
       }
     },
-    [
-      activeAccount?.account?.id,
-      activeAccount?.indexedAccount?.id,
-      symbol,
-      navigation,
-    ],
+    [symbol, navigation],
   );
 
   const columns: ITableColumn<IStakeProtocolListItem>[] = useMemo(() => {

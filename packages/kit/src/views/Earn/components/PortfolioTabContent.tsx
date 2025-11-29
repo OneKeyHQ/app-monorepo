@@ -608,21 +608,17 @@ const PortfolioItemComponent = ({
     }, [depositColumnLabel, intl]);
 
   const appNavigation = useAppNavigation();
-  const { activeAccount } = useActiveAccount({ num: 0 });
-  const { account, indexedAccount } = activeAccount;
 
   const handleRowPress = useCallback(
     async (asset: IEarnPortfolioInvestment['assets'][number]) => {
       await EarnNavigation.pushToEarnProtocolDetails(appNavigation, {
         networkId: asset.metadata.network.networkId,
-        accountId: account?.id,
-        indexedAccountId: indexedAccount?.id,
         symbol: asset.token.info.symbol,
         provider: asset.metadata.protocol.providerDetail.code,
         vault: asset.metadata.protocol.vault,
       });
     },
-    [appNavigation, account?.id, indexedAccount?.id],
+    [appNavigation],
   );
 
   const handleManagePress = useCallback(

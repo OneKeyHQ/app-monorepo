@@ -14,9 +14,6 @@ import {
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
 
-import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-
-import type useAppNavigation from '../../hooks/useAppNavigation';
 import type { IAppNavigation } from '../../hooks/useAppNavigation';
 
 const NetworkNameToIdMap: Record<string, string> = {
@@ -109,35 +106,23 @@ export const EarnNavigation = {
   async pushDetailPageFromDeeplink(
     navigation: IAppNavigation,
     {
-      accountId,
       networkId,
-      indexedAccountId,
       symbol,
       provider,
       vault,
     }: {
-      accountId?: string;
       networkId: string;
-      indexedAccountId?: string;
       symbol: string;
       provider: string;
       vault?: string;
     },
   ) {
-    const earnAccount = await backgroundApiProxy.serviceStaking.getEarnAccount({
-      accountId: accountId ?? '',
-      indexedAccountId,
-      networkId,
-    });
     navigation.navigate(ERootRoutes.Main, {
       screen: ETabRoutes.Earn,
       params: {
         screen: ETabEarnRoutes.EarnProtocolDetails,
         params: {
-          accountId: earnAccount?.accountId || accountId || '',
           networkId,
-          indexedAccountId:
-            earnAccount?.account.indexedAccountId || indexedAccountId,
           symbol,
           provider,
           vault,
@@ -268,32 +253,13 @@ export const EarnNavigation = {
     navigation: IAppNavigation,
     params: {
       networkId: string;
-      accountId?: string;
-      indexedAccountId?: string;
       symbol: string;
       provider: string;
       vault?: string;
     },
   ) {
-    let earnAccount;
-    if (params.accountId || params.indexedAccountId) {
-      try {
-        earnAccount = await backgroundApiProxy.serviceStaking.getEarnAccount({
-          accountId: params.accountId ?? '',
-          indexedAccountId: params.indexedAccountId,
-          networkId: params.networkId,
-        });
-      } catch (e) {
-        console.log('Failed to get earn account', e);
-        // ignore error
-      }
-    }
-
     void safePushToEarnRoute(navigation, ETabEarnRoutes.EarnProtocolDetails, {
       networkId: params.networkId,
-      accountId: earnAccount?.accountId || params.accountId || '',
-      indexedAccountId:
-        earnAccount?.account.indexedAccountId || params.indexedAccountId,
       symbol: params.symbol,
       provider: params.provider,
       vault: params.vault,
