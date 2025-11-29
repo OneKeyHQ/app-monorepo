@@ -11,6 +11,7 @@ import type {
   IEarnHistoryActionIcon,
   IEarnTokenInfo,
   IProtocolInfo,
+  IStakeTag,
 } from '@onekeyhq/shared/types/staking';
 import { EStakingActionType } from '@onekeyhq/shared/types/staking';
 
@@ -34,6 +35,10 @@ interface INormalManageContentProps {
   withdrawBeforeFooter: React.ReactElement | null;
   historyAction?: IEarnHistoryActionIcon;
   onHistory?: (params?: { filterType?: string }) => void;
+  indicatorAccountId?: string;
+  stakeTag?: IStakeTag;
+  onIndicatorRefresh?: () => void;
+  onRefreshPendingRef?: React.MutableRefObject<(() => Promise<void>) | null>;
   onSuccess?: () => void;
   defaultTab?: 'deposit' | 'withdraw';
   onTabChange?: (tab: 'deposit' | 'withdraw') => void;
@@ -57,6 +62,10 @@ export function NormalManageContent({
   withdrawBeforeFooter,
   historyAction,
   onHistory,
+  indicatorAccountId,
+  stakeTag,
+  onIndicatorRefresh,
+  onRefreshPendingRef,
   onSuccess,
   defaultTab,
   onTabChange,
@@ -195,7 +204,19 @@ export function NormalManageContent({
             </XStack>
           )}
         />
-        <HeaderRight historyAction={historyAction} onHistory={onHistory} />
+        <HeaderRight
+          accountId={indicatorAccountId || earnAccount?.accountId}
+          networkId={networkId}
+          stakeTag={stakeTag || protocolInfo?.stakeTag}
+          historyAction={historyAction}
+          onHistory={onHistory}
+          onRefresh={onIndicatorRefresh}
+          onRefreshPending={(refreshFn) => {
+            if (onRefreshPendingRef) {
+              onRefreshPendingRef.current = refreshFn;
+            }
+          }}
+        />
       </XStack>
       {selectedTabIndex === 0 ? (
         <StakeSection
