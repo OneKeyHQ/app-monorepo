@@ -168,9 +168,22 @@ export function FirmwareUpdateCheckList({
                     status: 'success',
                   });
 
+                  const { fromFirmwareType, toFirmwareType } =
+                    updateFirmwareInfo ?? {
+                      fromFirmwareType: undefined,
+                      toFirmwareType: undefined,
+                    };
+
+                  const needOnboarding =
+                    fromFirmwareType &&
+                    toFirmwareType &&
+                    fromFirmwareType !== toFirmwareType;
+
                   setStepInfo({
                     step: EFirmwareUpdateSteps.updateDone,
-                    payload: undefined,
+                    payload: {
+                      needOnboarding,
+                    },
                   });
                 } catch (error) {
                   const err = toPlainErrorObject(error as any);
