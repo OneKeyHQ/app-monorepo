@@ -2,14 +2,13 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
-  Icon,
   NumberSizeableText,
   SizableText,
   Skeleton,
-  Tooltip,
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { InfoIcon } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/RewardCard/InfoIcon';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 interface IRewardSummaryCardProps {
@@ -30,6 +29,10 @@ export function RewardSummaryCard({
   const displayUndistributed = undistributed ?? '0';
   const displayTokenSymbol = tokenSymbol ?? 'USDC';
   const hasUndistributed = new BigNumber(displayUndistributed).gt(0);
+
+  const tooltipContent = intl.formatMessage({
+    id: ETranslations.earn_reward_distribution_schedule,
+  });
 
   return (
     <YStack gap="$2">
@@ -89,19 +92,7 @@ export function RewardSummaryCard({
           </XStack>
         ) : null}
 
-        <Tooltip
-          renderTrigger={
-            <Icon
-              name="InfoCircleOutline"
-              size="$5"
-              color="$iconSubdued"
-              cursor="pointer"
-            />
-          }
-          renderContent={intl.formatMessage({
-            id: ETranslations.earn_reward_distribution_schedule,
-          })}
-        />
+        <InfoIcon tooltip={tooltipContent} size="$5" />
       </XStack>
     </YStack>
   );

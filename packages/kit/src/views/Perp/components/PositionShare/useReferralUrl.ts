@@ -32,5 +32,5 @@ export function useReferralUrl() {
 
   const isReady = !isLoading && !!summaryInfo?.inviteCode;
 
-  return { referralUrl, isReady };
+  return { referralUrl, inviteCode: summaryInfo?.inviteCode, isReady };
 }

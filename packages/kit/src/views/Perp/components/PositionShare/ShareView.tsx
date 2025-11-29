@@ -26,6 +26,7 @@ export function ShareView({
   config,
   scale = 0.5,
   referralUrl,
+  inviteCode,
   isReferralReady,
   generatorRef,
 }: IShareViewProps) {
@@ -61,7 +62,7 @@ export function ShareView({
     }, 50);
 
     return () => clearTimeout(timer);
-  }, [data, config, referralUrl, isReferralReady, generatorRef]);
+  }, [data, config, referralUrl, inviteCode, isReferralReady, generatorRef]);
 
   return (
     <Stack

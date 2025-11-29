@@ -31,6 +31,7 @@ interface IShareContentRendererProps {
   scale?: number;
   onImagesReady?: () => void;
   referralUrl?: string;
+  inviteCode?: string;
   isReferralReady?: boolean;
 }
 
@@ -42,6 +43,7 @@ export function ShareContentRenderer({
   scale = 1,
   onImagesReady,
   referralUrl,
+  inviteCode,
   isReferralReady = true,
 }: IShareContentRendererProps) {
   const {
@@ -324,7 +326,7 @@ export function ShareContentRenderer({
                   color={colors.textTertiary}
                   lineHeight={scaledFonts.priceValue * layout.lineHeight}
                 >
-                  {referralUrl || DEFAULT_REFERRAL_URL}
+                  {inviteCode || DEFAULT_REFERRAL_URL}
                 </SizableText>
               </YStack>
               <QRCode
