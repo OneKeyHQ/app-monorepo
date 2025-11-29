@@ -449,6 +449,8 @@
   "device.communication_failed": "การสื่อสารกับอุปกรณ์ล้มเหลว กรุณาลองเปลี่ยนไปใช้โหมด WebUSB ใน \"การตั้งค่า\" > \"การสื่อสารฮาร์ดแวร์\" หรือดูที่ <url>https://help.onekey.so/articles/11461117<underline>คู่มือการแก้ไขปัญหา OneKey Bridge</underline></url> เพื่อแก้ไขปัญหาการเชื่อมต่อ",
   "device.communication_failed_with_no_web_usb_supported": "การสื่อสารของอุปกรณ์ล้มเหลว โปรดดูที่ <url>https://help.onekey.so/articles/11461117<underline>คู่มือการแก้ไขปัญหา OneKey Bridge</underline></url> เพื่อแก้ไขปัญหาการเชื่อมต่อ",
   "device.connect_via_usb": "เชื่อมต่ออุปกรณ์ผ่าน USB",
+  "device.desc_update_latest_firmware": "โปรดอัปเดตเฟิร์มแวร์เป็นเวอร์ชันล่าสุดเพื่อใช้งานฟีเจอร์นี้",
+  "device.firmware_update_required": "จำเป็นต้องอัปเดตเฟิร์มแวร์",
   "device.firmware_upgrade_disallow_downgrade": "ไม่อนุญาตให้ลดเวอร์ชัน กรุณาตรวจสอบให้แน่ใจว่าเฟิร์มแวร์ที่คุณกำลังอัปเกรดเป็นเวอร์ชันล่าสุด",
   "device.grant_usb_access": "ให้สิทธิ์การเข้าถึง USB",
   "device.hardware_communication": "การสื่อสารฮาร์ดแวร์",

@@ -22,6 +22,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
 
@@ -39,9 +40,9 @@ import type {
 import type { AllNetworkAddressParams } from '@onekeyfe/hd-core';
 
 const SpecialNetworkIdMap = {
-  [presetNetworksMap.assethubPolkadot.chainId]: 'polkadot-assethub',
-  [presetNetworksMap.assethubKusama.chainId]: 'kusama-assethub',
-  [presetNetworksMap.bifrostDot.chainId]: 'bifrost',
+  [networkUtils.parseNetworkId({
+    networkId: presetNetworksMap.assethubPolkadot.id,
+  }).chainId]: 'polkadot-assethub',
 };
 
 export class KeyringHardware extends KeyringHardwareBase {

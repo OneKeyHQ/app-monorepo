@@ -15,8 +15,8 @@ import {
 
 // Map page parameter to tab routes
 const PAGE_TO_TAB_ROUTE: Record<string, ETabRoutes> = {
-  perp: ETabRoutes.WebviewPerpTrade,
-  perps: ETabRoutes.WebviewPerpTrade,
+  perp: ETabRoutes.Perp,
+  perps: ETabRoutes.Perp,
   swap: ETabRoutes.Swap,
   market: ETabRoutes.Market,
   earn: ETabRoutes.Earn,

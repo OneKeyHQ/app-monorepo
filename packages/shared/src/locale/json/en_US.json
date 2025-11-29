@@ -449,6 +449,8 @@
   "device.communication_failed": "Device communication failed. Please try switching to WebUSB mode in \"Settings\" > \"Hardware Communication\" or refer to our <url>https://help.onekey.so/articles/11461117<underline>OneKey Bridge troubleshooting guide</underline></url> to resolve the connection issue.",
   "device.communication_failed_with_no_web_usb_supported": "Device communication failed. Please refer to our <url>https://help.onekey.so/articles/11461117<underline>OneKey Bridge troubleshooting guide</underline></url> to resolve the connection issue.",
   "device.connect_via_usb": "Connect device via USB",
+  "device.desc_update_latest_firmware": "Please update to the latest firmware to access this feature.",
+  "device.firmware_update_required": "Firmware update required",
   "device.firmware_upgrade_disallow_downgrade": "Downgrade is not allowed. Please ensure the firmware you are upgrading to is the latest version.",
   "device.grant_usb_access": "Grant USB Access",
   "device.hardware_communication": "Hardware communication",

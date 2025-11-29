@@ -127,6 +127,10 @@ export function UniversalWithdraw({
   const [loading, setLoading] = useState<boolean>(false);
   const withdrawAllRef = useRef(false);
   const [amountValue, setAmountValue] = useState(initialAmount ?? '');
+  const [checkAmountMessage, setCheckoutAmountMessage] = useState('');
+  const [checkAmountAlerts, setCheckAmountAlerts] = useState<
+    ICheckAmountAlert[]
+  >([]);
 
   const { result: estimateFeeResp } = usePromiseResult(async () => {
     if (
@@ -189,6 +193,13 @@ export function UniversalWithdraw({
     [networkId],
   ).result;
 
+  const resetAmount = useCallback(() => {
+    setAmountValue('');
+    setCheckoutAmountMessage('');
+    setCheckAmountAlerts([]);
+    withdrawAllRef.current = false;
+  }, []);
+
   const onPress = useCallback(async () => {
     try {
       setLoading(true);
@@ -196,15 +207,12 @@ export function UniversalWithdraw({
         amount: amountValue,
         withdrawAll: withdrawAllRef.current,
       });
+      resetAmount();
     } finally {
       setLoading(false);
     }
-  }, [amountValue, onConfirm]);
+  }, [amountValue, onConfirm, resetAmount]);
 
-  const [checkAmountMessage, setCheckoutAmountMessage] = useState('');
-  const [checkAmountAlerts, setCheckAmountAlerts] = useState<
-    ICheckAmountAlert[]
-  >([]);
   const [checkAmountLoading, setCheckAmountLoading] = useState(false);
   const checkAmount = useDebouncedCallback(async (amount: string) => {
     if (isNaN(amount)) {

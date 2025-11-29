@@ -449,6 +449,8 @@
   "device.communication_failed": "Зв'язок з пристроєм не вдався. Будь ласка, спробуйте переключитися в режим WebUSB у \"Налаштування\" > \"Комунікація з обладнанням\" або зверніться до нашого <url>https://help.onekey.so/articles/11461117<underline>посібника з усунення несправностей OneKey Bridge</underline></url> для вирішення проблеми з підключенням.",
   "device.communication_failed_with_no_web_usb_supported": "Помилка зв'язку з пристроєм. Будь ласка, зверніться до нашого <url>https://help.onekey.so/articles/11461117<underline>посібника з усунення несправностей OneKey Bridge</underline></url>, щоб вирішити проблему з підключенням.",
   "device.connect_via_usb": "Підключіть пристрій через USB",
+  "device.desc_update_latest_firmware": "Будь ласка, оновіть прошивку до останньої версії, щоб отримати доступ до цієї функції.",
+  "device.firmware_update_required": "Потрібне оновлення мікропрограми",
   "device.firmware_upgrade_disallow_downgrade": "Зниження версії не дозволено. Будь ласка, переконайтеся, що мікропрограма, до якої ви оновлюєте, є останньою версією.",
   "device.grant_usb_access": "Надати доступ до USB",
   "device.hardware_communication": "Апаратне спілкування",
