@@ -90,7 +90,7 @@ function useWalletBanner({
         });
       }
     },
-    [account, indexedAccountId, network, wallet, parseQRCode, navigation],
+    [account, network, wallet, parseQRCode, navigation],
   );
 
   return {
