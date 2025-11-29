@@ -6,6 +6,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { showRiskNoticeDialogBeforeDepositOrWithdraw } from '@onekeyhq/kit/src/views/Earn/components/RiskNoticeDialog';
+import { showConfirmDialog } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/showKYCDialog';
 import { EModalReceiveRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
@@ -164,6 +165,35 @@ export function AdaManageContent({
       });
     };
 
+    // Show delegate reminder dialog if data is present
+    if (delegateAction?.data) {
+      showConfirmDialog({
+        data: delegateAction.data,
+        onConfirm: async () => {
+          // After reminder dialog confirmed, check for risk notice
+          if (
+            earnAccount?.accountAddress &&
+            provider &&
+            networkId &&
+            riskNoticeDialog
+          ) {
+            showRiskNoticeDialogBeforeDepositOrWithdraw({
+              networkId,
+              providerName: provider,
+              address: earnAccount.accountAddress,
+              operationType: 'deposit',
+              riskNoticeDialogContent: riskNoticeDialog,
+              onConfirm: executeStake,
+            });
+          } else {
+            await executeStake();
+          }
+        },
+        confirmText: delegateAction.text?.text,
+      });
+      return;
+    }
+
     // Show risk notice if riskNoticeDialog is present
     if (
       earnAccount?.accountAddress &&
@@ -190,6 +220,7 @@ export function AdaManageContent({
     earnAccount,
     networkId,
     riskNoticeDialog,
+    delegateAction,
   ]);
 
   const handleUndelegate = useCallback(async () => {
@@ -202,6 +233,35 @@ export function AdaManageContent({
         withdrawAll: false,
       });
     };
+
+    // Show undelegate reminder dialog if data is present
+    if (undelegateAction?.data) {
+      showConfirmDialog({
+        data: undelegateAction.data,
+        onConfirm: async () => {
+          // After reminder dialog confirmed, check for risk notice
+          if (
+            earnAccount?.accountAddress &&
+            provider &&
+            networkId &&
+            riskNoticeDialog
+          ) {
+            showRiskNoticeDialogBeforeDepositOrWithdraw({
+              networkId,
+              providerName: provider,
+              address: earnAccount.accountAddress,
+              operationType: 'withdraw',
+              riskNoticeDialogContent: riskNoticeDialog,
+              onConfirm: executeWithdraw,
+            });
+          } else {
+            await executeWithdraw();
+          }
+        },
+        confirmText: undelegateAction.text?.text,
+      });
+      return;
+    }
 
     // Show risk notice if riskNoticeDialog is present
     if (
@@ -230,6 +290,7 @@ export function AdaManageContent({
     earnAccount,
     networkId,
     riskNoticeDialog,
+    undelegateAction,
   ]);
 
   // Configure buttons based on available actions

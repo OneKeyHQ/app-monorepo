@@ -581,20 +581,25 @@ export interface IEarnPortfolioActionIcon {
   text: IEarnText;
 }
 
+export interface IEarnConfirmDialogData {
+  title: IEarnText;
+  description: IEarnText[];
+  checkboxes?: IEarnText[];
+  accordions?: {
+    title: IEarnText;
+    description: IEarnText;
+  }[];
+  button?: {
+    disabled?: boolean;
+    text?: IEarnText;
+  };
+}
+
 export interface IEarnActivateActionIcon {
   type: 'activate';
   disabled: boolean;
   text: IEarnText;
-  data: {
-    title: IEarnText;
-    description: IEarnText[];
-    checkboxes: IEarnText[];
-    accordions: {
-      title: IEarnText;
-      description: IEarnText;
-    }[];
-    button: IEarnActivateActionIcon;
-  };
+  data: IEarnConfirmDialogData;
 }
 
 export interface IEarnReceiveActionIcon {
@@ -741,12 +746,14 @@ export interface IEarnDelegateActionData {
   type: 'delegate';
   disabled: boolean;
   text: IEarnText;
+  data?: IEarnConfirmDialogData;
 }
 
 export interface IEarnUndelegateActionData {
   type: 'undelegate';
   disabled: boolean;
   text: IEarnText;
+  data?: IEarnConfirmDialogData;
 }
 
 export interface IEarnManagePageResponse {
