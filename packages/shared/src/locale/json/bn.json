@@ -449,6 +449,8 @@
   "device.communication_failed": "ডিভাইসের যোগাযোগ ব্যর্থ হয়েছে। অনুগ্রহ করে \"সেটিংস\" > \"হার্ডওয়্যার কমিউনিকেশন\" এ গিয়ে ওয়েব-ইউএসবি মোডে পরিবর্তন করার চেষ্টা করুন অথবা আমাদের <url>https://help.onekey.so/articles/11461117<underline>OneKey Bridge সমস্যার সমাধান গাইড</underline></url> দেখুন সংযোগ সমস্যার সমাধানের জন্য।",
   "device.communication_failed_with_no_web_usb_supported": "ডিভাইস যোগাযোগ ব্যর্থ হয়েছে। সংযোগ সমস্যা সমাধান করতে আমাদের <url>https://help.onekey.so/articles/11461117<underline>ওয়ানকি ব্রিজ ট্রাবলশুটিং গাইড</underline></url> দেখুন।",
   "device.connect_via_usb": "ডিভাইসটি USB এর মাধ্যমে সংযুক্ত করুন",
+  "device.desc_update_latest_firmware": "এই ফিচারটি ব্যবহার করতে সর্বশেষ ফার্মওয়্যারে আপডেট করুন।",
+  "device.firmware_update_required": "ফার্মওয়্যার আপডেট প্রয়োজন",
   "device.firmware_upgrade_disallow_downgrade": "ডাউনগ্রেড করার অনুমতি নেই। অনুগ্রহ করে নিশ্চিত করুন যে আপনি যে ফার্মওয়্যারে আপগ্রেড করছেন সেটি সর্বশেষ সংস্করণ।",
   "device.grant_usb_access": "USB অ্যাক্সেস প্রদান করুন",
   "device.hardware_communication": "হার্ডওয়্যার যোগাযোগ",

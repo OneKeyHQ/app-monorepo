@@ -6,14 +6,20 @@ import { Stack } from '@onekeyhq/components';
 
 import { ShareContentRenderer } from './ShareContentRenderer';
 
-import type { IShareConfig, IShareData } from './types';
+import type { IShareConfig, IShareData, IShareReferralInfo } from './types';
 
-interface IShareViewProps {
+interface IShareViewProps extends IShareReferralInfo {
   data: IShareData;
   config: IShareConfig;
+  isReferralReady?: boolean;
 }
 
-export function ShareView({ data, config }: IShareViewProps) {
+export function ShareView({
+  data,
+  config,
+  referralUrl,
+  isReferralReady,
+}: IShareViewProps) {
   const { width: screenWidth } = useWindowDimensions();
 
   const displaySize = useMemo(() => screenWidth * 0.85, [screenWidth]);
@@ -30,6 +36,8 @@ export function ShareView({ data, config }: IShareViewProps) {
       <ShareContentRenderer
         data={data}
         config={config}
+        referralUrl={referralUrl}
+        isReferralReady={isReferralReady}
         scale={displaySize / 1080}
       />
     </Stack>

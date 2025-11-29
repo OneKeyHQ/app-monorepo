@@ -1466,13 +1466,33 @@ class ServiceStaking extends ServiceBase {
           ? undefined
           : true,
       });
-    return accountsInfo.filter(
-      (account) =>
-        !(
-          networkUtils.isBTCNetwork(account.networkId) &&
-          !isTaprootAddress(account.apiAddress)
-        ),
-    );
+
+    // Check if the wallet is using BTC-only firmware
+    const walletId = accountUtils.getWalletIdFromAccountId({ accountId });
+    let isBtcOnlyFirmware = false;
+    if (walletId && accountUtils.isHwWallet({ walletId })) {
+      isBtcOnlyFirmware =
+        await this.backgroundApi.serviceAccount.isBtcOnlyFirmwareByWalletId({
+          walletId,
+        });
+    }
+
+    return accountsInfo.filter((account) => {
+      // Filter out non-Taproot BTC addresses
+      if (
+        networkUtils.isBTCNetwork(account.networkId) &&
+        !isTaprootAddress(account.apiAddress)
+      ) {
+        return false;
+      }
+
+      // For BTC-only firmware, only allow BTC network accounts
+      if (isBtcOnlyFirmware && !networkUtils.isBTCNetwork(account.networkId)) {
+        return false;
+      }
+
+      return true;
+    });
   }
 
   _getFAQListForHome = memoizee(

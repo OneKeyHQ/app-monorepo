@@ -12,6 +12,7 @@ import { DEFAULT_PNL_DISPLAY_MODE, getDefaultShareText } from './constants';
 import { ControlPanel } from './ControlPanel';
 import { ShareImageGenerator } from './ShareImageGenerator';
 import { ShareView } from './ShareView';
+import { useReferralUrl } from './useReferralUrl';
 import { useShareActions } from './useShareActions';
 
 import type {
@@ -37,7 +38,8 @@ function ShareContent({ data, onClose, isMobile }: IShareContentProps) {
     pnlDisplayMode: DEFAULT_PNL_DISPLAY_MODE,
   });
 
-  const { saveImage, copyLink, shareToX } = useShareActions();
+  const { referralUrl, isReady: isReferralReady } = useReferralUrl();
+  const { saveImage, copyLink, shareToX } = useShareActions(referralUrl);
   const [isActionLoading, setIsActionLoading] = useState(false);
 
   const handleSaveImage = useCallback(async () => {
@@ -89,11 +91,19 @@ function ShareContent({ data, onClose, isMobile }: IShareContentProps) {
 
   const desktopLayout = (
     <YStack gap="$5">
-      <ShareImageGenerator ref={generatorRef} data={data} config={config} />
+      <ShareImageGenerator
+        ref={generatorRef}
+        data={data}
+        config={config}
+        referralUrl={referralUrl}
+        isReferralReady={isReferralReady}
+      />
       <Stack justifyContent="center" alignItems="center">
         <ShareView
           data={data}
           config={config}
+          referralUrl={referralUrl}
+          isReferralReady={isReferralReady}
           scale={0.5}
           generatorRef={generatorRef}
         />
@@ -101,7 +111,6 @@ function ShareContent({ data, onClose, isMobile }: IShareContentProps) {
       <Stack maxWidth={380}>
         <ControlPanel
           config={config}
-          data={data}
           onChange={setConfig}
           onSaveImage={handleSaveImage}
           onCopyLink={copyLink}
@@ -114,13 +123,24 @@ function ShareContent({ data, onClose, isMobile }: IShareContentProps) {
 
   const mobileLayout = (
     <YStack flex={1}>
-      <ShareImageGenerator ref={generatorRef} data={data} config={config} />
+      <ShareImageGenerator
+        ref={generatorRef}
+        data={data}
+        config={config}
+        referralUrl={referralUrl}
+        isReferralReady={isReferralReady}
+      />
       <Stack justifyContent="center" alignItems="center" mb="$6">
-        <ShareView data={data} config={config} generatorRef={generatorRef} />
+        <ShareView
+          data={data}
+          config={config}
+          referralUrl={referralUrl}
+          isReferralReady={isReferralReady}
+          generatorRef={generatorRef}
+        />
       </Stack>
       <ControlPanel
         config={config}
-        data={data}
         onChange={setConfig}
         onSaveImage={handleSaveImage}
         onCopyLink={copyLink}

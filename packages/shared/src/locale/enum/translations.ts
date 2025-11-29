@@ -454,6 +454,8 @@
   device_communication_failed = 'device.communication_failed',
   device_communication_failed_with_no_web_usb_supported = 'device.communication_failed_with_no_web_usb_supported',
   device_connect_via_usb = 'device.connect_via_usb',
+  device_desc_update_latest_firmware = 'device.desc_update_latest_firmware',
+  device_firmware_update_required = 'device.firmware_update_required',
   device_firmware_upgrade_disallow_downgrade = 'device.firmware_upgrade_disallow_downgrade',
   device_grant_usb_access = 'device.grant_usb_access',
   device_hardware_communication = 'device.hardware_communication',
