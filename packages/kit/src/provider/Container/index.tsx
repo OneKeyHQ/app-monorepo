@@ -6,7 +6,10 @@ import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 
 import { WalletBackupPreCheckContainer } from '../../components/WalletBackup';
 import useAppNavigation from '../../hooks/useAppNavigation';
-import { ETableViewType, TableModeViewContext } from '../../hooks/useTableMode';
+import {
+  ETabletViewType,
+  TabletModeViewContext,
+} from '../../hooks/useTabletMode';
 import { JotaiContextRootProvidersAutoMount } from '../../states/jotai/utils/JotaiContextStoreMirrorTracker';
 import { PrimeGlobalEffect } from '../../views/Prime/hooks/PrimeGlobalEffect';
 import { Bootstrap } from '../Bootstrap';
@@ -80,8 +83,8 @@ function MainRouter() {
   return <NavigationContainer />;
 }
 
-const tableMainViewContext = { viewType: ETableViewType.MAIN };
-const tableDetailViewContext = { viewType: ETableViewType.DETAIL };
+const tabletMainViewContext = { viewType: ETabletViewType.MAIN };
+const tabletDetailViewContext = { viewType: ETabletViewType.DETAIL };
 
 export function Container() {
   if (deviceType === DeviceType.TABLET) {
@@ -90,14 +93,14 @@ export function Container() {
         <AppStateLockContainer>
           <TableSplitViewContainer
             mainRouter={
-              <TableModeViewContext.Provider value={tableMainViewContext}>
+              <TabletModeViewContext.Provider value={tabletMainViewContext}>
                 <MainRouter />
-              </TableModeViewContext.Provider>
+              </TabletModeViewContext.Provider>
             }
             detailRouter={
-              <TableModeViewContext.Provider value={tableDetailViewContext}>
+              <TabletModeViewContext.Provider value={tabletDetailViewContext}>
                 <DetailRouter />
-              </TableModeViewContext.Provider>
+              </TabletModeViewContext.Provider>
             }
           />
           <GlobalWalletConnectModalContainer />

@@ -406,6 +406,9 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.SwitchDiscoveryTabInNative]: {
     tab: ETranslations.global_browser | ETranslations.global_earn;
   };
+  [EAppEventBusNames.SwitchTabBar]: {
+    route: string;
+  };
 }
 
 export enum EEventBusBroadcastMethodNames {
