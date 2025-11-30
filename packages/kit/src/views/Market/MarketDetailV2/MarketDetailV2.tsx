@@ -55,7 +55,13 @@ function MarketDetail({
     <Page>
       <MarketDetailHeader />
 
-      <Page.Body>{media.gtLg ? <DesktopLayout /> : <MobileLayout />}</Page.Body>
+      <Page.Body>
+        {media.gtLg && !platformEnv.isNative ? (
+          <DesktopLayout />
+        ) : (
+          <MobileLayout />
+        )}
+      </Page.Body>
     </Page>
   );
 }

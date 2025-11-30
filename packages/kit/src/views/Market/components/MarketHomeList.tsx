@@ -508,7 +508,7 @@ function BasicMarketHomeList({
 
   const toDetailPage = useCallback(
     (item: IMarketToken) => {
-      navigation.push(ETabMarketRoutes.MarketDetail, {
+      navigation.pushInTabletDetailView(ETabMarketRoutes.MarketDetail, {
         token: item.coingeckoId,
       });
     },

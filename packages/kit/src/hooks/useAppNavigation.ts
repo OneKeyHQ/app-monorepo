@@ -8,12 +8,16 @@ import type {
   IPageNavigationProp,
   IStackNavigationOptions,
 } from '@onekeyhq/components/src/layouts/Navigation';
+import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import type {
   ETabRoutes,
   IModalParamList,
   ITabStackParamList,
 } from '@onekeyhq/shared/src/routes';
 import { EModalRoutes, ERootRoutes } from '@onekeyhq/shared/src/routes';
+
+import { useIsTabletMainView } from './useTabletMode';
 
 const getModalRoute = () => {
   const state = rootNavigationRef.current?.getState();
@@ -79,6 +83,7 @@ function useAppNavigation<
 >() {
   const navigation = useNavigation<P>();
   const navigationRef = useRef(navigation);
+  const isTabletMainView = useIsTabletMainView();
 
   if (navigationRef.current !== navigation) {
     navigationRef.current = navigation;
@@ -221,6 +226,7 @@ function useAppNavigation<
   const push: typeof navigationRef.current.push = useCallback(
     (...args) => {
       const modalRoute = getModalRoute();
+      console.log('push', args, modalRoute);
       if (modalRoute) {
         const isSettingsModal =
           modalRoute.state?.routes?.[modalRoute.state?.index || 0]?.name ===
@@ -245,9 +251,20 @@ function useAppNavigation<
           }
         }
       }
-      navigationRef.current.push(...args);
+      navigationRef.current.navigate(...args);
     },
     [navigation],
+  );
+
+  const pushInTabletDetailView: typeof navigationRef.current.push = useCallback(
+    (...args) => {
+      if (isTabletMainView) {
+        appEventBus.emit(EAppEventBusNames.PushPageInTabletDetailView, args);
+      } else {
+        navigationRef.current.push(...args);
+      }
+    },
+    [isTabletMainView],
   );
 
   const replace: typeof navigationRef.current.replace = useCallback(
@@ -290,6 +307,7 @@ function useAppNavigation<
       switchTab,
       popToTop,
       popTo,
+      pushInTabletDetailView,
     }),
     [
       dispatch,
@@ -305,6 +323,7 @@ function useAppNavigation<
       reset,
       setOptions,
       switchTab,
+      pushInTabletDetailView,
     ],
   );
 }

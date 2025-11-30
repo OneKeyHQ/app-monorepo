@@ -606,9 +606,22 @@ export const useTabletDetailView = () => {
       const onSwitchTabBar = (event: { route: ETabRoutes }) => {
         appNavigation.switchTab(event.route);
       };
+      const onPushPageInTabletDetailView = (event: any) => {
+        setTimeout(() => {
+          appNavigation.push(...event);
+        }, 150);
+      };
       appEventBus.on(EAppEventBusNames.SwitchTabBar, onSwitchTabBar);
+      appEventBus.on(
+        EAppEventBusNames.PushPageInTabletDetailView,
+        onPushPageInTabletDetailView,
+      );
       return () => {
         appEventBus.off(EAppEventBusNames.SwitchTabBar, onSwitchTabBar);
+        appEventBus.off(
+          EAppEventBusNames.PushPageInTabletDetailView,
+          onPushPageInTabletDetailView,
+        );
       };
     }
   }, [appNavigation, isTabletDetailView]);

@@ -410,6 +410,7 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.SwitchTabBar]: {
     route: ETabRoutes;
   };
+  [EAppEventBusNames.PushPageInTabletDetailView]: any;
 }
 
 export enum EEventBusBroadcastMethodNames {

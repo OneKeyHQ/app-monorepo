@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { Page, useMedia } from '@onekeyhq/components';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -113,7 +114,7 @@ function MarketHome() {
         tabRoute={ETabRoutes.Market}
       />
       <Page.Body>
-        {md ? (
+        {md || platformEnv.isNative ? (
           <MobileLayout {...mobileProps} />
         ) : (
           <DesktopLayout {...desktopProps} />

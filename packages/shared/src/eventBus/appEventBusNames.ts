@@ -124,4 +124,5 @@ export enum EAppEventBusNames {
   ClientLogUploadProgress = 'ClientLogUploadProgress',
   SwitchDiscoveryTabInNative = 'SwitchDiscoveryTabInNative',
   SwitchTabBar = 'SwitchTabBar',
+  PushPageInTabletDetailView = 'PushPageInTabletDetailView',
 }
