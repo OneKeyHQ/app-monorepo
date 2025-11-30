@@ -609,7 +609,7 @@ export const useTabletDetailView = () => {
       const onPushPageInTabletDetailView = (event: any) => {
         setTimeout(() => {
           appNavigation.push(...event);
-        }, 50);
+        }, 10);
       };
       const onPushModalPageInTabletDetailView = (event: {
         route: EModalRoutes;
@@ -617,7 +617,7 @@ export const useTabletDetailView = () => {
       }) => {
         setTimeout(() => {
           appNavigation.pushModal(event.route, event.params);
-        }, 50);
+        }, 10);
       };
       appEventBus.on(EAppEventBusNames.SwitchTabBar, onSwitchTabBar);
       appEventBus.on(
