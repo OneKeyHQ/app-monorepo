@@ -174,10 +174,7 @@ export const EarnNavigation = {
     },
   ) {
     if (platformEnv.isNative) {
-      navigation.popTo(ERootRoutes.Main, {
-        screen: ETabRoutes.Discovery,
-        params: { screen: ETabDiscoveryRoutes.TabDiscovery, params },
-      });
+      navigation.popTo(ETabDiscoveryRoutes.TabDiscovery, params);
     } else {
       navigation.popTo(ERootRoutes.Main, {
         screen: ETabRoutes.Earn,
