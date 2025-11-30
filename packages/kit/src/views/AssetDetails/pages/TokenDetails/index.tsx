@@ -76,6 +76,7 @@ import TokenDetailsViews from './TokenDetailsView';
 
 import type { ITokenDetailsContextValue } from './TokenDetailsContext';
 import type { RouteProp } from '@react-navigation/core';
+import { TabletModalContainer, useTabletModalPageWidth } from '../../../../components/TabletHomeContainer';
 
 const num = 0;
 
@@ -582,6 +583,8 @@ function TokenDetailsView() {
     intl,
   ]);
 
+  const pageWidth = useTabletModalPageWidth();
+
   const handleTabIndexChange = useCallback(
     async (index: number) => {
       if (isAllNetworks && tokens.length > 1 && tokens[index]) {
@@ -653,6 +656,7 @@ function TokenDetailsView() {
       if (tabs && !isEmpty(tabs) && tabs.length > 1) {
         return (
           <Tabs.Container
+            width={pageWidth}
             ref={tabsRef as any}
             onIndexChange={handleTabIndexChange}
             initialTabName={lastActiveTabName}
@@ -890,15 +894,17 @@ export default function TokenDetailsModal() {
     ],
   );
   return (
-    <AccountSelectorProviderMirror
-      config={{
-        sceneName: EAccountSelectorSceneName.home,
-      }}
-      enabledNum={[num]}
-    >
-      <TokenDetailsContext.Provider value={contextValue}>
-        <TokenDetails />
-      </TokenDetailsContext.Provider>
-    </AccountSelectorProviderMirror>
+    <TabletModalContainer>
+      <AccountSelectorProviderMirror
+        config={{
+          sceneName: EAccountSelectorSceneName.home,
+        }}
+        enabledNum={[num]}
+      >
+        <TokenDetailsContext.Provider value={contextValue}>
+          <TokenDetails />
+        </TokenDetailsContext.Provider>
+      </AccountSelectorProviderMirror>
+    </TabletModalContainer>
   );
 }
