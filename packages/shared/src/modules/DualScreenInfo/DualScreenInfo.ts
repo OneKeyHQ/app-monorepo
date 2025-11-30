@@ -141,22 +141,3 @@ export function removeAllSpanningListeners(): void {
   }
 }
 
-/**
- * Hook to use dual screen info in React components
- */
-export { useDualScreenInfo } from './useDualScreenInfo';
-
-// Export types
-export type { IDualScreenInfoNativeModule };
-
-// Default export
-const DualScreenInfo = {
-  isDualScreenDevice,
-  isSpanning,
-  getWindowRects,
-  getHingeBounds,
-  addSpanningListener,
-  removeAllSpanningListeners,
-};
-
-export default DualScreenInfo;
