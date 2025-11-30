@@ -332,7 +332,7 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
           {
             label: intl.formatMessage({ id: ETranslations.global_earn }),
             onClick: () => {
-              EarnNavigation.pushToEarnHome(navigation);
+              void EarnNavigation.popToEarnHome(navigation);
             },
           },
           {
