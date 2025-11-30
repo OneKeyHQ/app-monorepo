@@ -96,7 +96,7 @@ export function Container() {
   return (
     <RootSiblingParent>
       <AppStateLockContainer>
-        <DetailRouter tableMode={false} />
+        <DetailRouter />
         <GlobalWalletConnectModalContainer />
       </AppStateLockContainer>
     </RootSiblingParent>
