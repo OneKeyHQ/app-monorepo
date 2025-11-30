@@ -16,8 +16,6 @@ import {
   MIN_TOGGLE_BROWSER_VISIBLE_DISTANCE,
 } from '../config/Animation.constants';
 
-const useIsIPadPortrait = platformEnv.isNativeIOSPad ? () => true : () => false;
-
 function useMobileBottomBarAnimation(activeTabId: string | null) {
   const toolbarRef = useMemo(() => createRef<any>(), []);
   const toolbarHeight = useSharedValue(BROWSER_BOTTOM_BAR_HEIGHT);
@@ -91,9 +89,8 @@ function useMobileBottomBarAnimation(activeTabId: string | null) {
     },
     [toolbarHeight, toolbarOpacity, toolbarRef],
   );
-  const isIPadPortrait = useIsIPadPortrait();
   const toolbarAnimatedStyle = useAnimatedStyle(() => ({
-    height: isIPadPortrait ? toolbarHeight.value * 2 : toolbarHeight.value,
+    height: toolbarHeight.value,
     opacity: toolbarOpacity.value,
   }));
 
