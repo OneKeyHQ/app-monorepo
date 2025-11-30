@@ -86,9 +86,12 @@ const useNativeDevTools =
     : () => {};
 
 export function NavigationContainer(props: IBasicNavigationContainerProps) {
+  const isTabletMainView = useIsTabletMainView();
   const handleReady = useCallback(() => {
-    navigationIntegration.registerNavigationContainer(rootNavigationRef);
-  }, []);
+    navigationIntegration.registerNavigationContainer(
+      isTabletMainView ? tabletMainViewNavigationRef : rootNavigationRef,
+    );
+  }, [isTabletMainView]);
   const { theme: themeName } = useSettingConfig();
   const theme = useTheme();
 
@@ -111,7 +114,6 @@ export function NavigationContainer(props: IBasicNavigationContainerProps) {
     ref: rootNavigationRef as RefObject<NavigationContainerRef<any>>,
   });
 
-  const isTabletMainView = useIsTabletMainView();
   return (
     <RNNavigationContainer
       {...props}
