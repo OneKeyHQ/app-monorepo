@@ -34,6 +34,10 @@ import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/He
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
+import {
+  TabletModalContainer,
+  useTabletModalPageWidth,
+} from '@onekeyhq/kit/src/components/TabletHomeContainer';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -65,11 +69,6 @@ import type {
   IFetchTokenDetailItem,
   IToken,
 } from '@onekeyhq/shared/types/token';
-
-import {
-  TabletModalContainer,
-  useTabletModalPageWidth,
-} from '../../../../components/TabletHomeContainer';
 
 import {
   TokenDetailsContext,
