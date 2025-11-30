@@ -1326,6 +1326,9 @@ export function UniversalStake({
               token={tokenInfo?.token as IToken}
               accountId={accountId}
               networkId={networkId}
+              containerStyle={{
+                pt: '$0',
+              }}
             />
           </YStack>
         </YStack>
