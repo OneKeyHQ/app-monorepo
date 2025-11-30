@@ -174,7 +174,6 @@ function MobileBrowser() {
   });
 
   const { displayHomePage } = useDisplayHomePageFlag();
-  const displayBottomBar = !displayHomePage;
 
   useEffect(() => {
     if (!tabs?.length) {
@@ -324,6 +323,8 @@ function MobileBrowser() {
     displayHomePage ||
     (ExpoDevice.deviceType === ExpoDevice.DeviceType.TABLET &&
       !isTabletDetailView);
+  const displayBottomBar = !showDiscoveryPage;
+
   return (
     <Page fullPage>
       {/* custom header */}
