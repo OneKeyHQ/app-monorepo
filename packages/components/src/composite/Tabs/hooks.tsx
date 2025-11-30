@@ -12,7 +12,7 @@ import { useWindowDimensions } from 'react-native';
 import { useAppSideBarStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useIsHorizontalLayout, useMedia } from '../../hooks';
+import { useIsWebHorizontalLayout, useMedia } from '../../hooks';
 import { MAX_SIDEBAR_WIDTH, MIN_SIDEBAR_WIDTH } from '../../utils/sidebar';
 
 import { useTabNameContext as useNativeTabNameContext } from './TabNameContext';
@@ -73,7 +73,7 @@ export * from './useCurrentTabScrollY';
 
 const useNativeTabContainerWidth = platformEnv.isNativeIOSPad
   ? () => {
-      const isHorizontal = useIsHorizontalLayout();
+      const isHorizontal = useIsWebHorizontalLayout();
       const { width } = useWindowDimensions();
       const [{ isCollapsed: leftSidebarCollapsed = false }] =
         useAppSideBarStatusAtom();
