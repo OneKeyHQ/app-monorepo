@@ -143,6 +143,10 @@ export function UniversalWithdraw({
       return undefined;
     }
 
+    if (earnUtils.isLidoProvider({ providerName })) {
+      return undefined;
+    }
+
     const account = await backgroundApiProxy.serviceAccount.getAccount({
       accountId,
       networkId,
