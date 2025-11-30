@@ -211,7 +211,7 @@ const EarningsField = ({
 }) => {
   return (
     <FieldWrapper asset={asset}>
-      <YStack jc="center" flex={1}>
+      <YStack jc="center" flex={1} gap="$1">
         <EarnText size="$bodyMdMedium" text={asset.earnings24h?.title} />
         <XStack gap="$1">
           <EarnText
