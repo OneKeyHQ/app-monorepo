@@ -77,14 +77,11 @@ export const TabSubStackNavigator = TabSubStackNavigatorMemo;
 
 const Tab = createBottomTabNavigator();
 
-const useTabBarPosition = platformEnv.isNativeIOSPad
-  ? () => {
-      const isLandscape = useOrientation();
-      return isLandscape ? 'left' : 'bottom';
-    }
+const useTabBarPosition = platformEnv.isNative
+  ? () => 'bottom'
   : () => {
       const media = useMedia();
-      return platformEnv.isNativeAndroid || media.md ? 'bottom' : 'left';
+      return media.md ? 'bottom' : 'left';
     };
 
 const GAP_TIME = 250;
