@@ -2,22 +2,23 @@
  * React hook for dual screen info
  */
 
-import { useEffect, useState, useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
-import type { Rect, SpanningEvent } from './index';
 import {
+  addSpanningListener,
   isDualScreenDevice as checkIsDualScreenDevice,
   isSpanning as checkIsSpanning,
-  getWindowRects as fetchWindowRects,
   getHingeBounds as fetchHingeBounds,
-  addSpanningListener,
-} from './index';
+  getWindowRects as fetchWindowRects,
+} from './DualScreenInfo';
 
-export interface UseDualScreenInfoResult {
+import type { IDualScreenInfoRect, ISpanningEvent } from './DualScreenInfo';
+
+export interface IUseDualScreenInfoResult {
   isDualScreenDevice: boolean;
   isSpanning: boolean;
-  windowRects: Rect[];
-  hingeBounds: Rect | null;
+  windowRects: IDualScreenInfoRect[];
+  hingeBounds: IDualScreenInfoRect | null;
   isLoading: boolean;
   refresh: () => Promise<void>;
 }
@@ -40,11 +41,13 @@ export interface UseDualScreenInfoResult {
  * }
  * ```
  */
-export function useDualScreenInfo(): UseDualScreenInfoResult {
+export function useDualScreenInfo(): IUseDualScreenInfoResult {
   const [isDualScreenDevice, setIsDualScreenDevice] = useState(false);
   const [isSpanning, setIsSpanning] = useState(false);
-  const [windowRects, setWindowRects] = useState<Rect[]>([]);
-  const [hingeBounds, setHingeBounds] = useState<Rect | null>(null);
+  const [windowRects, setWindowRects] = useState<IDualScreenInfoRect[]>([]);
+  const [hingeBounds, setHingeBounds] = useState<IDualScreenInfoRect | null>(
+    null,
+  );
   const [isLoading, setIsLoading] = useState(true);
 
   const refresh = useCallback(async () => {
@@ -72,18 +75,16 @@ export function useDualScreenInfo(): UseDualScreenInfoResult {
     void refresh();
 
     // Subscribe to spanning changes
-    const subscription = addSpanningListener(
-      (event: SpanningEvent) => {
-        setIsSpanning(event.isSpanning);
-        // Refresh window rects and hinge bounds when spanning changes
-        void Promise.all([fetchWindowRects(), fetchHingeBounds()]).then(
-          ([rects, hinge]) => {
-            setWindowRects(rects);
-            setHingeBounds(hinge);
-          }
-        );
-      }
-    );
+    const subscription = addSpanningListener((event: ISpanningEvent) => {
+      setIsSpanning(event.isSpanning);
+      // Refresh window rects and hinge bounds when spanning changes
+      void Promise.all([fetchWindowRects(), fetchHingeBounds()]).then(
+        ([rects, hinge]) => {
+          setWindowRects(rects);
+          setHingeBounds(hinge);
+        },
+      );
+    });
 
     return () => {
       subscription.remove();
@@ -99,4 +100,3 @@ export function useDualScreenInfo(): UseDualScreenInfoResult {
     refresh,
   };
 }
-
