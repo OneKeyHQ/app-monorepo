@@ -25,6 +25,7 @@ export const isOnboardingFromExtensionUrl = () => {
 };
 
 export const useToOnBoardingPage = () => {
+  const navigation = useAppNavigation();
   return useMemo(
     () =>
       async ({
