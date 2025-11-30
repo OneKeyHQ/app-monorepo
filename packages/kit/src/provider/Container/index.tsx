@@ -6,6 +6,7 @@ import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 
 import { WalletBackupPreCheckContainer } from '../../components/WalletBackup';
 import useAppNavigation from '../../hooks/useAppNavigation';
+import { ETableViewType, TableModeViewContext } from '../../hooks/useTableMode';
 import { JotaiContextRootProvidersAutoMount } from '../../states/jotai/utils/JotaiContextStoreMirrorTracker';
 import { PrimeGlobalEffect } from '../../views/Prime/hooks/PrimeGlobalEffect';
 import { Bootstrap } from '../Bootstrap';
@@ -79,14 +80,25 @@ function MainRouter() {
   return <NavigationContainer />;
 }
 
+const tableMainViewContext = { viewType: ETableViewType.MAIN };
+const tableDetailViewContext = { viewType: ETableViewType.DETAIL };
+
 export function Container() {
   if (deviceType === DeviceType.TABLET) {
     return (
       <RootSiblingParent>
         <AppStateLockContainer>
           <TableSplitViewContainer
-            mainRouter={<MainRouter />}
-            detailRouter={<DetailRouter />}
+            mainRouter={
+              <TableModeViewContext.Provider value={tableMainViewContext}>
+                <MainRouter />
+              </TableModeViewContext.Provider>
+            }
+            detailRouter={
+              <TableModeViewContext.Provider value={tableDetailViewContext}>
+                <DetailRouter />
+              </TableModeViewContext.Provider>
+            }
           />
           <GlobalWalletConnectModalContainer />
         </AppStateLockContainer>
