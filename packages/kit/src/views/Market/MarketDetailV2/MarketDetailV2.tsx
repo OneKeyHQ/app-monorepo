@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 
 import { useFocusEffect } from '@react-navigation/native';
+import * as ExpoDevice from 'expo-device';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
 import { Page, useMedia } from '@onekeyhq/components';
@@ -71,7 +72,10 @@ function MarketDetailV2(
 ) {
   useFocusEffect(
     useCallback(() => {
-      if (platformEnv.isExtension) {
+      if (
+        platformEnv.isExtension ||
+        ExpoDevice.deviceType === ExpoDevice.DeviceType.TABLET
+      ) {
         return;
       }
 
