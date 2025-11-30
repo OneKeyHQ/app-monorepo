@@ -26,7 +26,7 @@ import type { LayoutChangeEvent } from 'react-native';
 
 function PerpLayout() {
   const { gtMd } = useMedia();
-  if (gtMd || !platformEnv.isNative) {
+  if (gtMd && !platformEnv.isNative) {
     return <PerpDesktopLayout />;
   }
   return <PerpMobileLayout />;
