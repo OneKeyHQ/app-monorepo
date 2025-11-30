@@ -67,6 +67,11 @@ import type {
 } from '@onekeyhq/shared/types/token';
 
 import {
+  TabletModalContainer,
+  useTabletModalPageWidth,
+} from '../../../../components/TabletHomeContainer';
+
+import {
   TokenDetailsContext,
   useTokenDetailsContext,
 } from './TokenDetailsContext';
@@ -76,7 +81,6 @@ import TokenDetailsViews from './TokenDetailsView';
 
 import type { ITokenDetailsContextValue } from './TokenDetailsContext';
 import type { RouteProp } from '@react-navigation/core';
-import { TabletModalContainer, useTabletModalPageWidth } from '../../../../components/TabletHomeContainer';
 
 const num = 0;
 
@@ -706,6 +710,7 @@ function TokenDetailsView() {
     indexedAccountId,
     listViewContentContainerStyle,
     tabs,
+    pageWidth,
     handleTabIndexChange,
     lastActiveTabName,
   ]);

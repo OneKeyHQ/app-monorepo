@@ -70,6 +70,6 @@ export const useToOnBoardingPage = () => {
           });
         }
       },
-    [],
+    [navigation],
   );
 };
