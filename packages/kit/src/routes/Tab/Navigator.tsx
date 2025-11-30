@@ -30,6 +30,7 @@ import { whenAppUnlocked } from '../../utils/passwordUtils';
 import { tabExtraConfig, useTabRouterConfig } from './router';
 
 import type { NavigationProp } from '@react-navigation/native';
+import { useIsTabletDetailView } from '../../hooks/useTabletMode';
 
 // prevent pushModal from using unreleased Navigation instances during iOS modal animation by temporary exclusion,
 const useIsIOSTabNavigatorFocused =
@@ -83,6 +84,7 @@ export function TabNavigator() {
   const isShowWebTabBar = platformEnv.isDesktop || platformEnv.isNativeIOS;
   const isFocused = useIsIOSTabNavigatorFocused();
   const { gtMd } = useMedia();
+  const isTabletDetailView = useIsTabletDetailView();
 
   useCheckTabsChangedInDev(config);
 
@@ -91,6 +93,7 @@ export function TabNavigator() {
       <TabStackNavigator<ETabRoutes>
         config={config}
         extraConfig={isShowWebTabBar ? tabExtraConfig : undefined}
+        showTabBar={!isTabletDetailView}
       />
       {platformEnv.isWebDappMode && gtMd ? <Footer /> : null}
       <InPageTabContainer />

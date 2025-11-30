@@ -78,7 +78,7 @@ export const TabSubStackNavigator = TabSubStackNavigatorMemo;
 const Tab = createBottomTabNavigator();
 
 const useTabBarPosition = platformEnv.isNative
-  ? () => 'bottom'
+  ? () => 'bottom' as const
   : () => {
       const media = useMedia();
       return media.md ? 'bottom' : 'left';
@@ -88,6 +88,7 @@ const GAP_TIME = 250;
 export function TabStackNavigator<RouteName extends string>({
   config,
   extraConfig,
+  showTabBar = true,
 }: ITabNavigatorProps<RouteName>) {
   const intl = useIntl();
   const tabBarCallback = useCallback(
@@ -156,7 +157,7 @@ export function TabStackNavigator<RouteName extends string>({
 
   return (
     <Tab.Navigator
-      tabBar={tabBarCallback}
+      tabBar={showTabBar ? tabBarCallback : () => null}
       screenOptions={{
         headerShown: false,
         freezeOnBlur: true,
