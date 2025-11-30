@@ -119,7 +119,7 @@ const ProtocolHeader = ({
   const navigation = useAppNavigation();
 
   const handleMyPortfolio = useCallback(() => {
-    EarnNavigation.pushToEarnHome(navigation, { tab: 'portfolio' });
+    void EarnNavigation.popToEarnHome(navigation, { tab: 'portfolio' });
   }, [navigation]);
 
   return (

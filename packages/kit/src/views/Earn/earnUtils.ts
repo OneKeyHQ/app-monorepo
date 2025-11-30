@@ -7,6 +7,7 @@ import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   ERootRoutes,
+  ETabDiscoveryRoutes,
   ETabEarnRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
@@ -166,13 +167,25 @@ export const EarnNavigation = {
       : `${origin}${baseUrl}`;
   },
 
-  pushToEarnHome(
+  async popToEarnHome(
     navigation: IAppNavigation,
     params?: {
       tab?: 'assets' | 'portfolio' | 'faqs';
     },
   ) {
-    void safePushToEarnRoute(navigation, ETabEarnRoutes.EarnHome, params);
+    if (platformEnv.isNative) {
+      navigation.popTo(ERootRoutes.Main, {
+        screen: ETabRoutes.Discovery,
+        params: { screen: ETabDiscoveryRoutes.TabDiscovery, params },
+      });
+    } else {
+      navigation.popTo(ERootRoutes.Main, {
+        screen: ETabRoutes.Earn,
+        params: { screen: ETabEarnRoutes.EarnHome, params },
+      });
+    }
+
+    await timerUtils.wait(0);
   },
 
   pushToEarnProtocols(
