@@ -6,7 +6,7 @@ import { useIntl } from 'react-intl';
 import { useMedia } from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useOrientation, useThemeValue } from '../../../hooks';
+import { useThemeValue } from '../../../hooks';
 import { makeTabScreenOptions } from '../GlobalScreenOptions';
 import { createStackNavigator } from '../StackNavigator';
 import NavigationBar from '../Tab/TabBar';
