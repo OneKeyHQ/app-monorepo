@@ -72,17 +72,15 @@ export function useTabIsRefreshingFocused() {
 
 export * from './useCurrentTabScrollY';
 
-const useNativeTabContainerWidth = () => {
-  const isTablet = ExpoDevice.deviceType === ExpoDevice.DeviceType.TABLET;
-  const { width, height } = useWindowDimensions();
-  if (isTablet) {
-    return Math.max(width, height) / 2;
-  }
-  return Math.min(width, height);
-};
-
 export const useTabContainerWidth = platformEnv.isNative
-  ? useNativeTabContainerWidth
+  ? () => {
+      const isTablet = ExpoDevice.deviceType === ExpoDevice.DeviceType.TABLET;
+      const { width, height } = useWindowDimensions();
+      if (isTablet) {
+        return Math.max(width, height) / 2;
+      }
+      return Math.min(width, height);
+    }
   : () => {
       const [{ isCollapsed: leftSidebarCollapsed = false }] =
         useAppSideBarStatusAtom();
