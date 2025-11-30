@@ -142,7 +142,7 @@ function PerpCandleChartButtonMobile() {
   const navigation = useAppNavigation();
 
   const onPressCandleChart = useCallback(() => {
-    navigation.push(EModalPerpRoutes.MobilePerpMarket);
+    navigation.pushInTabletDetailView(EModalPerpRoutes.MobilePerpMarket);
   }, [navigation]);
 
   return (
