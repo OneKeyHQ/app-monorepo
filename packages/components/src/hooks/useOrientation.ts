@@ -6,33 +6,35 @@ import { Dimensions } from 'react-native';
 import { useMedia } from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-export const useOrientation = () => {
-  const [isLandscape, setIsLandscape] = useState(
-    Dimensions.get('window').width > Dimensions.get('window').height,
-  );
-
-  useEffect(() => {
-    const handleOrientationChange = (
-      event: ScreenOrientation.OrientationChangeEvent,
-    ) => {
-      setIsLandscape(
-        event.orientationInfo.orientation ===
-          ScreenOrientation.Orientation.LANDSCAPE_LEFT ||
-          event.orientationInfo.orientation ===
-            ScreenOrientation.Orientation.LANDSCAPE_RIGHT,
+export const useOrientation = platformEnv.isNative
+  ? () => false
+  : () => {
+      const [isLandscape, setIsLandscape] = useState(
+        Dimensions.get('window').width > Dimensions.get('window').height,
       );
-    };
 
-    const subscription = ScreenOrientation.addOrientationChangeListener(
-      handleOrientationChange,
-    );
-    return () => {
-      ScreenOrientation.removeOrientationChangeListener(subscription);
-    };
-  }, []);
+      useEffect(() => {
+        const handleOrientationChange = (
+          event: ScreenOrientation.OrientationChangeEvent,
+        ) => {
+          setIsLandscape(
+            event.orientationInfo.orientation ===
+              ScreenOrientation.Orientation.LANDSCAPE_LEFT ||
+              event.orientationInfo.orientation ===
+                ScreenOrientation.Orientation.LANDSCAPE_RIGHT,
+          );
+        };
 
-  return isLandscape;
-};
+        const subscription = ScreenOrientation.addOrientationChangeListener(
+          handleOrientationChange,
+        );
+        return () => {
+          ScreenOrientation.removeOrientationChangeListener(subscription);
+        };
+      }, []);
+
+      return isLandscape;
+    };
 
 export const useIsIpadLandscape = platformEnv.isNativeIOSPad
   ? () => false
