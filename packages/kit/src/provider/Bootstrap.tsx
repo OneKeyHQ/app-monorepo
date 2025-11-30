@@ -56,6 +56,7 @@ import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import { useAppUpdateInfo } from '../components/UpdateReminder/hooks';
 import useAppNavigation from '../hooks/useAppNavigation';
 import { useOnLock } from '../hooks/useOnLock';
+import { useIsTabletDetailView } from '../hooks/useTabletMode';
 import {
   isOpenedMyOneKeyModal,
   useToMyOneKeyModal,
@@ -597,6 +598,22 @@ export const useRemindDevelopmentBuildExtension =
       }
     : noop;
 
+export const useTabletDetailView = () => {
+  const isTabletDetailView = useIsTabletDetailView();
+  const appNavigation = useAppNavigation();
+  useEffect(() => {
+    if (isTabletDetailView) {
+      const onSwitchTabBar = (event: { route: ETabRoutes }) => {
+        appNavigation.switchTab(event.route);
+      };
+      appEventBus.on(EAppEventBusNames.SwitchTabBar, onSwitchTabBar);
+      return () => {
+        appEventBus.off(EAppEventBusNames.SwitchTabBar, onSwitchTabBar);
+      };
+    }
+  }, [appNavigation, isTabletDetailView]);
+};
+
 export function Bootstrap() {
   const navigation = useAppNavigation();
   const [devSettings] = useDevSettingsPersistAtom();
@@ -661,5 +678,6 @@ export function Bootstrap() {
   useIntercomInit();
   useClearStorageOnExtension();
   useRemindDevelopmentBuildExtension();
+  useTabletDetailView();
   return null;
 }

@@ -407,7 +407,7 @@ export interface IAppEventBusPayload {
     tab: ETranslations.global_browser | ETranslations.global_earn;
   };
   [EAppEventBusNames.SwitchTabBar]: {
-    route: string;
+    route: ETabRoutes;
   };
 }
 
