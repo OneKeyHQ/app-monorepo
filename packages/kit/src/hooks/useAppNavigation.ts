@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useRef } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
+import * as ExpoDevice from 'expo-device';
 
 import {
   Page,
@@ -83,6 +84,7 @@ function useAppNavigation<
     | IPageNavigationProp<any>
     | IModalNavigationProp<any> = IPageNavigationProp<any>,
 >() {
+  const isTablet = ExpoDevice.deviceType === ExpoDevice.DeviceType.TABLET;
   const navigation = useNavigation<P>();
   const navigationRef = useRef(navigation);
   const isTabletMainView = useIsTabletMainView();
@@ -170,6 +172,7 @@ function useAppNavigation<
         });
         return;
       }
+
       // If there is no stack route, use navigate to create a router stack.
       navigationInstance.navigate(modalType, {
         screen: route,
@@ -187,9 +190,16 @@ function useAppNavigation<
         params?: IModalParamList[T][keyof IModalParamList[T]];
       },
     ) => {
-      pushModalPage(ERootRoutes.Modal, route, params as any);
+      if (isTabletMainView) {
+        appEventBus.emit(EAppEventBusNames.PushModalPageInTabletDetailView, {
+          route,
+          params,
+        });
+      } else {
+        pushModalPage(ERootRoutes.Modal, route, params as any);
+      }
     },
-    [pushModalPage],
+    [isTabletMainView, pushModalPage],
   );
 
   const pushFullModal = useCallback(
@@ -227,8 +237,11 @@ function useAppNavigation<
 
   const push: typeof navigationRef.current.push = useCallback(
     (...args) => {
+      if (isTabletMainView) {
+        appEventBus.emit(EAppEventBusNames.PushPageInTabletDetailView, args);
+        return;
+      }
       const modalRoute = getModalRoute();
-      console.log('push', args, modalRoute);
       if (modalRoute) {
         const isSettingsModal =
           modalRoute.state?.routes?.[modalRoute.state?.index || 0]?.name ===
@@ -255,18 +268,7 @@ function useAppNavigation<
       }
       navigationRef.current.navigate(...args);
     },
-    [navigation],
-  );
-
-  const pushInTabletDetailView: typeof navigationRef.current.push = useCallback(
-    (...args) => {
-      if (isTabletMainView) {
-        appEventBus.emit(EAppEventBusNames.PushPageInTabletDetailView, args);
-      } else {
-        navigationRef.current.push(...args);
-      }
-    },
-    [isTabletMainView],
+    [isTabletMainView, navigation],
   );
 
   const replace: typeof navigationRef.current.replace = useCallback(
@@ -309,7 +311,6 @@ function useAppNavigation<
       switchTab,
       popToTop,
       popTo,
-      pushInTabletDetailView,
     }),
     [
       dispatch,
@@ -325,7 +326,6 @@ function useAppNavigation<
       reset,
       setOptions,
       switchTab,
-      pushInTabletDetailView,
     ],
   );
 }

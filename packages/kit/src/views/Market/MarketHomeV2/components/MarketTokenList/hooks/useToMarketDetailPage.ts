@@ -86,10 +86,7 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
         // Always clear token detail when navigating
         tokenDetailActions.current.clearTokenDetail();
 
-        navigation.pushInTabletDetailView(
-          ETabMarketRoutes.MarketDetailV2,
-          params,
-        );
+        navigation.push(ETabMarketRoutes.MarketDetailV2, params);
       }
     },
     [navigation, tokenDetailActions, options?.useRootNavigation, options?.from],

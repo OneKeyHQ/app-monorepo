@@ -609,18 +609,34 @@ export const useTabletDetailView = () => {
       const onPushPageInTabletDetailView = (event: any) => {
         setTimeout(() => {
           appNavigation.push(...event);
-        }, 150);
+        }, 50);
+      };
+      const onPushModalPageInTabletDetailView = (event: {
+        route: EModalRoutes;
+        params: any;
+      }) => {
+        setTimeout(() => {
+          appNavigation.pushModal(event.route, event.params);
+        }, 50);
       };
       appEventBus.on(EAppEventBusNames.SwitchTabBar, onSwitchTabBar);
       appEventBus.on(
         EAppEventBusNames.PushPageInTabletDetailView,
         onPushPageInTabletDetailView,
       );
+      appEventBus.on(
+        EAppEventBusNames.PushModalPageInTabletDetailView,
+        onPushModalPageInTabletDetailView,
+      );
       return () => {
         appEventBus.off(EAppEventBusNames.SwitchTabBar, onSwitchTabBar);
         appEventBus.off(
           EAppEventBusNames.PushPageInTabletDetailView,
           onPushPageInTabletDetailView,
+        );
+        appEventBus.off(
+          EAppEventBusNames.PushModalPageInTabletDetailView,
+          onPushModalPageInTabletDetailView,
         );
       };
     }

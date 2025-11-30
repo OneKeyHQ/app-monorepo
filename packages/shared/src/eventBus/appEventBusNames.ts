@@ -125,4 +125,5 @@ export enum EAppEventBusNames {
   SwitchDiscoveryTabInNative = 'SwitchDiscoveryTabInNative',
   SwitchTabBar = 'SwitchTabBar',
   PushPageInTabletDetailView = 'PushPageInTabletDetailView',
+  PushModalPageInTabletDetailView = 'PushModalPageInTabletDetailView',
 }
