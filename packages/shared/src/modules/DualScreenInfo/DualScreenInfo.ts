@@ -4,6 +4,7 @@
  */
 
 import { NativeEventEmitter, NativeModules, Platform } from 'react-native';
+
 import { OneKeyLocalError } from '../../errors';
 
 export interface IDualScreenInfoRect {
@@ -140,4 +141,3 @@ export function removeAllSpanningListeners(): void {
     console.warn('DualScreenInfo.removeAllSpanningListeners error:', error);
   }
 }
-
