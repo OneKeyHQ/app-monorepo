@@ -6,13 +6,11 @@ import {
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
-  EModalRoutes,
-  EModalStakingRoutes,
   ERootRoutes,
-  ETabDiscoveryRoutes,
   ETabEarnRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import type { IAppNavigation } from '../../hooks/useAppNavigation';
 
@@ -53,51 +51,19 @@ async function safePushToEarnRoute(
   route: ETabEarnRoutes,
   params?: any,
 ) {
-  const rootState = rootNavigationRef.current?.getRootState?.();
-  const mainRoute = rootState?.routes?.find((r) => r.name === ERootRoutes.Main);
+  const targetTab = platformEnv.isNative
+    ? ETabRoutes.Discovery
+    : ETabRoutes.Earn;
 
-  const tabState =
-    (mainRoute as { state?: { index?: number; routes?: { name?: string }[] } })
-      ?.state || {};
-  const currentTab = tabState.routes?.[tabState.index ?? 0]?.name as
-    | ETabRoutes
-    | undefined;
+  navigation.switchTab(targetTab);
+  await timerUtils.wait(0);
 
-  if (currentTab === ETabRoutes.Discovery) {
-    // When navigating to EarnHome from Discovery tab, pop back to TabDiscovery with earnTab param
-    if (route === ETabEarnRoutes.EarnHome) {
-      navigation.popTo(ETabDiscoveryRoutes.TabDiscovery, params);
-      return;
-    }
-
-    // For other routes in Discovery tab
-    if (rootNavigationRef.current) {
-      rootNavigationRef.current.navigate(ERootRoutes.Main, {
-        screen: ETabRoutes.Discovery,
-        params: {
-          screen: route,
-          params,
-        },
-      });
-    } else {
-      navigation.navigate(ETabRoutes.Discovery as any, {
-        screen: route,
-        params,
-      });
-    }
-    return;
-  }
-
-  if (currentTab === ETabRoutes.Earn) {
-    // Already in Earn tab, use direct navigation
-    navigation.navigate(route as any, params);
-    return;
-  }
-
-  // From other tabs (Home, Me, etc.), switch to Discovery tab
-  navigation.switchTab(ETabRoutes.Discovery, {
-    screen: route as any,
-    params,
+  navigation.navigate(ERootRoutes.Main, {
+    screen: targetTab,
+    params: {
+      screen: route,
+      params,
+    },
   });
 }
 
@@ -117,47 +83,18 @@ export const EarnNavigation = {
       vault?: string;
     },
   ) {
-    navigation.navigate(ERootRoutes.Main, {
-      screen: ETabRoutes.Earn,
-      params: {
-        screen: ETabEarnRoutes.EarnProtocolDetails,
-        params: {
-          networkId,
-          symbol,
-          provider,
-          vault,
-        },
-      },
-    });
-  },
-
-  // navigate from new share link
-  pushDetailPageFromShareLink(
-    navigation: IAppNavigation,
-    {
-      network,
+    await safePushToEarnRoute(navigation, ETabEarnRoutes.EarnProtocolDetails, {
+      networkId,
       symbol,
       provider,
       vault,
-    }: {
-      network: string;
-      symbol: string;
-      provider: string;
-      vault?: string;
-    },
-  ) {
-    navigation.pushModal(EModalRoutes.StakingModal, {
-      screen: EModalStakingRoutes.ProtocolDetailsV2Share,
-      params: {
-        network,
-        symbol,
-        provider,
-        vault,
-      },
     });
   },
 
-  // generate share link (for modal)
+  /**
+   * @deprecated
+   * @description: Will be removed
+   */
   generateShareLink({
     networkId,
     symbol,
