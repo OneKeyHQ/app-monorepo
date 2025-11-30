@@ -1,4 +1,5 @@
-import {
+import React, {
+  Fragment,
   type PropsWithChildren,
   createContext,
   useCallback,
@@ -64,7 +65,7 @@ export function TabletModalContainer({ children }: PropsWithChildren) {
       <YStack flex={1} onLayout={onLayout}>
         {width ? (
           <TabletModalContainerContext.Provider value={value}>
-            {children}
+            <Fragment key={width}>{children}</Fragment>
           </TabletModalContainerContext.Provider>
         ) : null}
       </YStack>
