@@ -358,8 +358,7 @@ public class DualScreenInfoModule extends ReactContextBaseJavaModule implements 
     }
 
     @Override
-    public void onCatalystInstanceDestroy() {
-        super.onCatalystInstanceDestroy();
+    public void invalidate() {
         stopObservingLayoutChanges();
         reactContext.removeLifecycleEventListener(this);
     }
