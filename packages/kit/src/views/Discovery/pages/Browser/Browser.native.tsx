@@ -1,6 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
+import * as ExpoDevice from 'expo-device';
 import { Freeze } from 'react-freeze';
 import { BackHandler } from 'react-native';
 import Animated from 'react-native-reanimated';
@@ -241,8 +242,6 @@ function MobileBrowser() {
     [tabs, handleScroll],
   );
 
-  const { gtMd } = useMedia();
-
   const handleSearchBarPress = useCallback(
     (url: string) => {
       const tab = tabs.find((t) => t.id === activeTabId);
@@ -258,7 +257,7 @@ function MobileBrowser() {
     [tabs, navigation, activeTabId],
   );
 
-  const { top, bottom } = useSafeAreaInsets();
+  const { top } = useSafeAreaInsets();
   const takeScreenshot = useTakeScreenshot(activeTabId);
 
   const handleGoBackHome = useCallback(async () => {
@@ -300,6 +299,7 @@ function MobileBrowser() {
       showTabBar();
     });
   }, [takeScreenshot, setDisplayHomePage, activeTabId]);
+  const isTabletDetailView = useIsTabletDetailView();
 
   useAndroidHardwareBack({
     displayHomePage,
@@ -316,15 +316,19 @@ function MobileBrowser() {
     const height = e.nativeEvent.layout.height - 20;
     setTabPageHeight(height);
   }, []);
-  const isTabletDetailView = useIsTabletDetailView();
-  if (isTabletDetailView) {
+  if (isTabletDetailView && displayHomePage) {
     return <TabletHomeContainer />;
   }
+
+  const showDiscoveryPage =
+    displayHomePage ||
+    (ExpoDevice.deviceType === ExpoDevice.DeviceType.TABLET &&
+      !isTabletDetailView);
   return (
     <Page fullPage>
       {/* custom header */}
 
-      {displayHomePage ? (
+      {showDiscoveryPage ? (
         <Stack h={tabPageHeight} />
       ) : (
         <XStack
@@ -355,7 +359,7 @@ function MobileBrowser() {
         <Stack
           flex={1}
           zIndex={3}
-          pb={gtMd ? bottom : 0}
+          pb={0}
           display={
             selectedHeaderTab === ETranslations.global_browser
               ? undefined
@@ -364,12 +368,10 @@ function MobileBrowser() {
         >
           <HandleRebuildBrowserData />
           <Stack flex={1}>
-            {gtMd ? null : (
-              <Stack display={displayHomePage ? 'flex' : 'none'}>
-                <DashboardContent onScroll={handleScroll} />
-              </Stack>
-            )}
-            <Freeze freeze={displayHomePage}>{content}</Freeze>
+            <Stack display={showDiscoveryPage ? 'flex' : 'none'}>
+              <DashboardContent onScroll={handleScroll} />
+            </Stack>
+            <Freeze freeze={showDiscoveryPage}>{content}</Freeze>
           </Stack>
           <Freeze freeze={!displayBottomBar}>
             <Animated.View
@@ -403,7 +405,7 @@ function MobileBrowser() {
           />
         </Stack>
       </Page.Body>
-      {displayHomePage ? (
+      {showDiscoveryPage ? (
         <YStack
           position="absolute"
           top={-20}
