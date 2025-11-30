@@ -1,6 +1,5 @@
 import { useContext, useEffect, useMemo, useRef } from 'react';
 
-import { useNavigation } from '@react-navigation/native';
 import { noop } from 'lodash';
 
 import type { ITabNavigatorConfig } from '@onekeyhq/components';
@@ -13,24 +12,13 @@ import {
 } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { ETabRoutes } from '@onekeyhq/shared/src/routes';
-import {
-  ERootRoutes,
-  ETabDiscoveryRoutes,
-  ETabEarnRoutes,
-  ETabHomeRoutes,
-  ETabMarketRoutes,
-  ETabSwapRoutes,
-} from '@onekeyhq/shared/src/routes';
 
 import { Footer } from '../../components/Footer';
 import { useRouteIsFocused } from '../../hooks/useRouteIsFocused';
+import { useIsTabletDetailView } from '../../hooks/useTabletMode';
 import { TabFreezeOnBlurContext } from '../../provider/Container/TabFreezeOnBlurContainer';
-import { whenAppUnlocked } from '../../utils/passwordUtils';
 
 import { tabExtraConfig, useTabRouterConfig } from './router';
-
-import type { NavigationProp } from '@react-navigation/native';
-import { useIsTabletDetailView } from '../../hooks/useTabletMode';
 
 // prevent pushModal from using unreleased Navigation instances during iOS modal animation by temporary exclusion,
 const useIsIOSTabNavigatorFocused =
