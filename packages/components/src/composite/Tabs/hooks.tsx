@@ -6,13 +6,14 @@ import {
   useState,
 } from 'react';
 
+import * as ExpoDevice from 'expo-device';
 import { useWindowDimensions } from 'react-native';
 
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { useAppSideBarStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useIsWebHorizontalLayout, useMedia } from '../../hooks';
+import { useMedia } from '../../hooks';
 import { MAX_SIDEBAR_WIDTH, MIN_SIDEBAR_WIDTH } from '../../utils/sidebar';
 
 import { useTabNameContext as useNativeTabNameContext } from './TabNameContext';
@@ -71,21 +72,15 @@ export function useTabIsRefreshingFocused() {
 
 export * from './useCurrentTabScrollY';
 
-const useNativeTabContainerWidth = platformEnv.isNativeIOSPad
-  ? () => {
-      const isHorizontal = useIsWebHorizontalLayout();
-      const { width } = useWindowDimensions();
-      const [{ isCollapsed: leftSidebarCollapsed = false }] =
-        useAppSideBarStatusAtom();
-      if (isHorizontal) {
-        return width - MIN_SIDEBAR_WIDTH;
-      }
-      const sideBarWidth = leftSidebarCollapsed
-        ? MIN_SIDEBAR_WIDTH
-        : MAX_SIDEBAR_WIDTH;
-      return width - sideBarWidth;
-    }
-  : () => undefined;
+const useNativeTabContainerWidth = () => {
+  const isTablet = ExpoDevice.deviceType === ExpoDevice.DeviceType.TABLET;
+  const { width, height } = useWindowDimensions();
+  if (isTablet) {
+    return Math.max(width, height) / 2;
+  }
+  return Math.min(width, height);
+};
+
 export const useTabContainerWidth = platformEnv.isNative
   ? useNativeTabContainerWidth
   : () => {
