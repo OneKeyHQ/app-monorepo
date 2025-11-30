@@ -1,3 +1,4 @@
+import { DeviceType, deviceType } from 'expo-device';
 import { RootSiblingParent } from 'react-native-root-siblings';
 
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
@@ -28,6 +29,7 @@ import { PasswordVerifyPortalContainer } from './PasswordVerifyPortalContainer';
 import { PortalBodyContainer } from './PortalBodyContainer';
 import { PrevCheckBeforeSendingContainer } from './PrevCheckBeforeSendingContainer';
 import { PrimeLoginContainerLazy } from './PrimeLoginContainer';
+import { TableSplitViewContainer } from './TableSplitViewContainer';
 import { VerifyTxContainer } from './VerifyTxContainer';
 import { WebPerformanceMonitorContainer } from './WebPerformanceMonitor';
 
@@ -42,36 +44,59 @@ function GlobalRootAppNavigationUpdate() {
   return null;
 }
 
+function DetailRouter() {
+  return (
+    <NavigationContainer>
+      <InAppNotification />
+      <GlobalRootAppNavigationUpdate />
+      <JotaiContextRootProvidersAutoMount />
+      <Bootstrap />
+      <AirGapQrcodeDialogContainer />
+      <CreateAddressContainer />
+      <PrevCheckBeforeSendingContainer />
+      <WalletBackupPreCheckContainer />
+      <VerifyTxContainer />
+      <HardwareUiStateContainer />
+      <PrimeLoginContainerLazy />
+      <DialogLoadingContainer />
+      <DiskFullWarningDialogContainer />
+      <CloudBackupContainer />
+      <FullWindowOverlayContainer />
+      <PortalBodyContainer />
+      <PageTrackerContainer />
+      <ErrorToastContainer />
+      <GlobalErrorHandlerContainer />
+      <ForceFirmwareUpdateContainer />
+      <ColdStartByNotification />
+      <PrimeGlobalEffect />
+      <WebPerformanceMonitorContainer />
+      <PasswordVerifyPortalContainer />
+    </NavigationContainer>
+  );
+}
+
+function MainRouter() {
+  return <NavigationContainer />;
+}
+
 export function Container() {
+  if (deviceType === DeviceType.TABLET) {
+    return (
+      <RootSiblingParent>
+        <AppStateLockContainer>
+          <TableSplitViewContainer
+            mainRouter={<MainRouter />}
+            detailRouter={<DetailRouter />}
+          />
+          <GlobalWalletConnectModalContainer />
+        </AppStateLockContainer>
+      </RootSiblingParent>
+    );
+  }
   return (
     <RootSiblingParent>
       <AppStateLockContainer>
-        <NavigationContainer>
-          <InAppNotification />
-          <GlobalRootAppNavigationUpdate />
-          <JotaiContextRootProvidersAutoMount />
-          <Bootstrap />
-          <AirGapQrcodeDialogContainer />
-          <CreateAddressContainer />
-          <PrevCheckBeforeSendingContainer />
-          <WalletBackupPreCheckContainer />
-          <VerifyTxContainer />
-          <HardwareUiStateContainer />
-          <PrimeLoginContainerLazy />
-          <DialogLoadingContainer />
-          <DiskFullWarningDialogContainer />
-          <CloudBackupContainer />
-          <FullWindowOverlayContainer />
-          <PortalBodyContainer />
-          <PageTrackerContainer />
-          <ErrorToastContainer />
-          <GlobalErrorHandlerContainer />
-          <ForceFirmwareUpdateContainer />
-          <ColdStartByNotification />
-          <PrimeGlobalEffect />
-          <WebPerformanceMonitorContainer />
-          <PasswordVerifyPortalContainer />
-        </NavigationContainer>
+        <DetailRouter tableMode={false} />
         <GlobalWalletConnectModalContainer />
       </AppStateLockContainer>
     </RootSiblingParent>
