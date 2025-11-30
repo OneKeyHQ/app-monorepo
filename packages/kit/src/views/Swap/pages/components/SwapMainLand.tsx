@@ -17,12 +17,12 @@ import {
   YStack,
   useInModalDialog,
   useInTabDialog,
+  useIsTabletDetailView,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { TabletHomeContainer } from '@onekeyhq/kit/src/components/TabletHomeContainer';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useIsTabletDetailView } from '@onekeyhq/kit/src/hooks/useTabletMode';
 import {
   useSwapActions,
   useSwapAlertsAtom,

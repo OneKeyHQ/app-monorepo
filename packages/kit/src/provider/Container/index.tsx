@@ -1,15 +1,12 @@
 import { DeviceType, deviceType } from 'expo-device';
 import { RootSiblingParent } from 'react-native-root-siblings';
 
+import { ETabletViewType, TabletModeViewContext } from '@onekeyhq/components';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 
 import { WalletBackupPreCheckContainer } from '../../components/WalletBackup';
 import useAppNavigation from '../../hooks/useAppNavigation';
-import {
-  ETabletViewType,
-  TabletModeViewContext,
-} from '../../hooks/useTabletMode';
 import { JotaiContextRootProvidersAutoMount } from '../../states/jotai/utils/JotaiContextStoreMirrorTracker';
 import { PrimeGlobalEffect } from '../../views/Prime/hooks/PrimeGlobalEffect';
 import { Bootstrap } from '../Bootstrap';

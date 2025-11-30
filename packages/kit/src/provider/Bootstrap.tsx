@@ -11,6 +11,7 @@ import {
   getDialogInstances,
   getFormInstances,
   rootNavigationRef,
+  useIsTabletDetailView,
   useMedia,
   useShortcuts,
 } from '@onekeyhq/components';
@@ -56,7 +57,6 @@ import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import { useAppUpdateInfo } from '../components/UpdateReminder/hooks';
 import useAppNavigation from '../hooks/useAppNavigation';
 import { useOnLock } from '../hooks/useOnLock';
-import { useIsTabletDetailView } from '../hooks/useTabletMode';
 import {
   isOpenedMyOneKeyModal,
   useToMyOneKeyModal,

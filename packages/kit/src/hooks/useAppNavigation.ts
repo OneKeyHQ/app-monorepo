@@ -2,7 +2,11 @@ import { useCallback, useMemo, useRef } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 
-import { Page, rootNavigationRef } from '@onekeyhq/components';
+import {
+  Page,
+  rootNavigationRef,
+  useIsTabletMainView,
+} from '@onekeyhq/components';
 import type {
   IModalNavigationProp,
   IPageNavigationProp,
@@ -16,8 +20,6 @@ import type {
   ITabStackParamList,
 } from '@onekeyhq/shared/src/routes';
 import { EModalRoutes, ERootRoutes } from '@onekeyhq/shared/src/routes';
-
-import { useIsTabletMainView } from './useTabletMode';
 
 const getModalRoute = () => {
   const state = rootNavigationRef.current?.getState();

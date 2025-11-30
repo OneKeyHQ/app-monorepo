@@ -12,7 +12,7 @@ import {
   Stack,
   XStack,
   YStack,
-  useMedia,
+  useIsTabletDetailView,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
@@ -21,7 +21,6 @@ import { TabletHomeContainer } from '@onekeyhq/kit/src/components/TabletHomeCont
 import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useListenTabFocusState from '@onekeyhq/kit/src/hooks/useListenTabFocusState';
-import { useIsTabletDetailView } from '@onekeyhq/kit/src/hooks/useTabletMode';
 import { useBrowserTabActions } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import { useTakeScreenshot } from '@onekeyhq/kit/src/views/Discovery/hooks/useTakeScreenshot';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';

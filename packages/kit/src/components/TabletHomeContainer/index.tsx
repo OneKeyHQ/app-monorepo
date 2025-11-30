@@ -1,8 +1,11 @@
 import type { PropsWithChildren } from 'react';
 
-import { Image, SizableText, YStack } from '@onekeyhq/components';
-
-import { useIsTabletDetailView } from '../../hooks/useTabletMode';
+import {
+  Image,
+  SizableText,
+  YStack,
+  useIsTabletDetailView,
+} from '@onekeyhq/components';
 
 export function TabletHomeContainer({ children }: PropsWithChildren) {
   const isDetailView = useIsTabletDetailView();

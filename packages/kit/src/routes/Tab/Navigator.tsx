@@ -8,6 +8,7 @@ import {
   Portal,
   Stack,
   TabStackNavigator,
+  useIsTabletDetailView,
   useMedia,
 } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -15,7 +16,6 @@ import type { ETabRoutes } from '@onekeyhq/shared/src/routes';
 
 import { Footer } from '../../components/Footer';
 import { useRouteIsFocused } from '../../hooks/useRouteIsFocused';
-import { useIsTabletDetailView } from '../../hooks/useTabletMode';
 import { TabFreezeOnBlurContext } from '../../provider/Container/TabFreezeOnBlurContainer';
 
 import { tabExtraConfig, useTabRouterConfig } from './router';

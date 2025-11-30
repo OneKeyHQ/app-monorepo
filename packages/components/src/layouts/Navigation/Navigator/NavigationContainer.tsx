@@ -17,6 +17,7 @@ import { useMMKVDevTools } from '@rozenite/mmkv-plugin';
 import { useNetworkActivityDevTools } from '@rozenite/network-activity-plugin';
 import { useReactNavigationDevTools } from '@rozenite/react-navigation-plugin';
 
+import { useIsTabletMainView } from '@onekeyhq/components/src/hooks/useTabletMode';
 import { useTheme } from '@onekeyhq/components/src/shared/tamagui';
 import type { GetProps } from '@onekeyhq/components/src/shared/tamagui';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
@@ -28,7 +29,6 @@ import mmkvStorageInstance from '@onekeyhq/shared/src/storage/instance/mmkvStora
 import { useSettingConfig } from '../../../hocs/Provider/hooks/useProviderValue';
 
 import type { NavigationContainerRef } from '@react-navigation/native';
-import { useIsTabletMainView } from '@onekeyhq/kit/src/hooks/useTabletMode';
 
 type IBasicNavigationContainerProps = GetProps<typeof RNNavigationContainer>;
 export type INavigationContainerProps = Partial<IBasicNavigationContainerProps>;
