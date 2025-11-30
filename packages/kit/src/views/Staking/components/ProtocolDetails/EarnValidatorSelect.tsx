@@ -20,7 +20,7 @@ export function EarnValidatorSelect({
   onChange,
   disabled,
 }: IEarnValidatorSelectProps) {
-  const { title, description, tooltip, select } = field;
+  const { title, tooltip, select } = field;
 
   const items: ISelectItem[] = useMemo(
     () =>
@@ -77,11 +77,7 @@ export function EarnValidatorSelect({
               opacity={disabled ? 0.5 : 1}
               hoverStyle={disabled ? undefined : { opacity: 0.8 }}
             >
-              {description ? (
-                <EarnText text={description} size="$bodyMdMedium" />
-              ) : (
-                <SizableText size="$bodyMdMedium">{selectedLabel}</SizableText>
-              )}
+              <SizableText size="$bodyMdMedium">{selectedLabel}</SizableText>
               <SizableText size="$bodyMd" color="$iconSubdued">
                 ›
               </SizableText>
