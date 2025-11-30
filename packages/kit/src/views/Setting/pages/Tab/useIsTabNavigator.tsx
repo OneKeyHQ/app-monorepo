@@ -3,6 +3,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export const useIsTabNavigator = () => {
   const { gtMd } = useMedia();
-  const isTabNavigator = platformEnv.isNativeIOSPad || gtMd;
+  const isTabNavigator = !platformEnv.isNative || gtMd;
   return isTabNavigator;
 };

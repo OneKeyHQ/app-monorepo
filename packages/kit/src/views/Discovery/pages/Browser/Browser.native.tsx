@@ -68,7 +68,7 @@ import type { RouteProp } from '@react-navigation/core';
 import type { LayoutChangeEvent } from 'react-native';
 import type { WebView } from 'react-native-webview';
 
-const isNativeMobile = platformEnv.isNative && !platformEnv.isNativeIOSPad;
+const isNativeMobile = platformEnv.isNative;
 
 const useAndroidHardwareBack = platformEnv.isNativeAndroid
   ? ({
@@ -298,11 +298,8 @@ function MobileBrowser() {
     setTimeout(() => {
       setDisplayHomePage(true);
       showTabBar();
-      if (platformEnv.isNativeIOSPad) {
-        navigation.switchTab(ETabRoutes.Discovery);
-      }
     });
-  }, [takeScreenshot, setDisplayHomePage, navigation, activeTabId]);
+  }, [takeScreenshot, setDisplayHomePage, activeTabId]);
 
   useAndroidHardwareBack({
     displayHomePage,

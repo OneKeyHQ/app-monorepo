@@ -7,7 +7,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-const isNative = platformEnv.isNative && !platformEnv.isNativeIOSPad;
+const isNative = platformEnv.isNative;
 
 export const showTabBar = () => {
   setTimeout(() => {

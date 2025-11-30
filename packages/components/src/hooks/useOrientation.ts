@@ -34,9 +34,7 @@ export const useOrientation = () => {
   return isLandscape;
 };
 
-export const useIsIpadLandscape = platformEnv.isNativeIOSPad
-  ? () => false
-  : () => false;
+export const useIsIpadLandscape = () => false;
 
 export const useIsWebHorizontalLayout = () => {
   const { gtMd } = useMedia();
