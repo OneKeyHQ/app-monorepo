@@ -79,7 +79,7 @@ export default function MobileBottomTabBar({
       });
       if (ExpoDevice.deviceType === ExpoDevice.DeviceType.TABLET) {
         appEventBus.emit(EAppEventBusNames.SwitchTabBar, {
-          route: route.key as unknown as ETabRoutes,
+          route: route.name as ETabRoutes,
         });
       }
       if (route.name === 'Swap') {
