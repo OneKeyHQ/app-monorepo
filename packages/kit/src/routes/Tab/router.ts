@@ -39,11 +39,7 @@ type IGetTabRouterParams = {
 };
 
 const useIsShowDesktopDiscover = () => {
-  const { gtMd } = useMedia();
-  return useMemo(
-    () => platformEnv.isDesktop || (platformEnv.isNative && gtMd),
-    [gtMd],
-  );
+  return useMemo(() => platformEnv.isDesktop, []);
 };
 
 const getDiscoverRouterConfig = (

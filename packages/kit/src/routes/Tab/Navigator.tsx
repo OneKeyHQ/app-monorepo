@@ -69,7 +69,7 @@ export function TabNavigator() {
   const { freezeOnBlur } = useContext(TabFreezeOnBlurContext);
   const routerConfigParams = useMemo(() => ({ freezeOnBlur }), [freezeOnBlur]);
   const config = useTabRouterConfig(routerConfigParams);
-  const isShowWebTabBar = platformEnv.isDesktop || platformEnv.isNativeIOS;
+  const isShowWebTabBar = platformEnv.isDesktop;
   const isFocused = useIsIOSTabNavigatorFocused();
   const { gtMd } = useMedia();
   const isTabletDetailView = useIsTabletDetailView();
