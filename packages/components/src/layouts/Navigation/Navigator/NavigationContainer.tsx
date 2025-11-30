@@ -28,9 +28,13 @@ import mmkvStorageInstance from '@onekeyhq/shared/src/storage/instance/mmkvStora
 import { useSettingConfig } from '../../../hocs/Provider/hooks/useProviderValue';
 
 import type { NavigationContainerRef } from '@react-navigation/native';
+import { useIsTabletMainView } from '@onekeyhq/kit/src/hooks/useTabletMode';
 
 type IBasicNavigationContainerProps = GetProps<typeof RNNavigationContainer>;
 export type INavigationContainerProps = Partial<IBasicNavigationContainerProps>;
+
+export const tabletMainViewNavigationRef =
+  createRef<NavigationContainerRef<any>>();
 export const rootNavigationRef = createRef<NavigationContainerRef<any>>();
 // for background open modal
 appGlobals.$navigationRef = rootNavigationRef as MutableRefObject<
@@ -107,11 +111,12 @@ export function NavigationContainer(props: IBasicNavigationContainerProps) {
     ref: rootNavigationRef as RefObject<NavigationContainerRef<any>>,
   });
 
+  const isTabletMainView = useIsTabletMainView();
   return (
     <RNNavigationContainer
       {...props}
       theme={themeOptions}
-      ref={rootNavigationRef}
+      ref={isTabletMainView ? tabletMainViewNavigationRef : rootNavigationRef}
       onReady={handleReady}
     />
   );
