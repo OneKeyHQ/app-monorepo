@@ -193,8 +193,13 @@ export function UniversalStake({
     () => earnUtils.isStakefishProvider({ providerName }),
     [providerName],
   );
+  // Only Stakefish ETH needs signature for create new validator
+  const isStakefishEthStake = useMemo(
+    () => isStakefishProvider && tokenSymbol?.toUpperCase() === 'ETH',
+    [isStakefishProvider, tokenSymbol],
+  );
   const isStakefishCreateNewValidator = useMemo(() => {
-    if (!isStakefishProvider || !selectedValidator) {
+    if (!isStakefishEthStake || !selectedValidator) {
       return false;
     }
     const selectedOption = ongoingValidator?.select?.options?.find(
@@ -202,7 +207,7 @@ export function UniversalStake({
     );
     return selectedOption?.extra?.isCreateNewValidator === true;
   }, [
-    isStakefishProvider,
+    isStakefishEthStake,
     selectedValidator,
     ongoingValidator?.select?.options,
   ]);

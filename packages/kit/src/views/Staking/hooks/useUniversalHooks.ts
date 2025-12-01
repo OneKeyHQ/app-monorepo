@@ -217,6 +217,9 @@ export function useUniversalWithdraw({
       stakingInfo,
       onSuccess,
       onFail,
+      // Signature and message for withdraw all
+      withdrawSignature,
+      withdrawMessage,
     }: {
       amount: string;
       symbol: string;
@@ -227,6 +230,9 @@ export function useUniversalWithdraw({
       stakingInfo?: IStakingInfo;
       onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
       onFail?: IModalSendParamList['SendConfirm']['onFail'];
+      // Signature and message for withdraw all
+      withdrawSignature?: string;
+      withdrawMessage?: string;
     }) => {
       let stakeTx: IStakeTxResponse | undefined;
       const stakingConfig =
@@ -287,6 +293,9 @@ export function useUniversalWithdraw({
             provider,
             protocolVault,
             withdrawAll,
+            // Pass signature and message for withdraw all
+            signature: withdrawSignature,
+            message: withdrawMessage,
           });
       }
       const encodedTx =

@@ -169,10 +169,12 @@ export type IWithdrawBaseParams = {
   provider: string;
 
   identity?: string; // sol pubkey
-  signature?: string; // lido unstake
+  signature?: string; // lido unstake, stakefish withdraw all
   deadline?: number; // lido unstake
   protocolVault?: string; // protocol vault
   withdrawAll?: boolean;
+  // Stakefish: original message for withdraw all signature
+  message?: string;
 };
 
 export type IUnstakePushParams = {
