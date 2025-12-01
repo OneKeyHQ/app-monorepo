@@ -22,11 +22,8 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import { closeModalPages } from '../../../hooks/usePageNavigation';
 import { FirmwareUpdateCheckList } from '../components/FirmwareUpdateCheckList';
 
-<<<<<<< HEAD
-import type { EDeviceType } from '@onekeyfe/hd-shared';
-=======
 import type { AllFirmwareRelease } from '@onekeyfe/hd-core';
->>>>>>> fa2f2b917e (chore: optimize loading speed)
+import type { EDeviceType } from '@onekeyfe/hd-shared';
 
 export function useFirmwareUpdateActions() {
   const intl = useIntl();
