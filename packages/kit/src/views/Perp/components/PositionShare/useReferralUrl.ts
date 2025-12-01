@@ -22,6 +22,11 @@ export function useReferralUrl() {
       if (code) {
         return { inviteCode: code };
       }
+      const isLoggedIn = await backgroundApiProxy.servicePrime.isLoggedIn();
+      if (!isLoggedIn) {
+        return null;
+      }
+
       return backgroundApiProxy.serviceReferralCode.getSummaryInfo();
     },
     [],
@@ -38,7 +43,6 @@ export function useReferralUrl() {
     return `${getWebAppUrl()}/r/${summaryInfo.inviteCode}/app/perp`;
   }, [summaryInfo?.inviteCode]);
 
-  const isReady = !isLoading && !!summaryInfo?.inviteCode;
-
+  const isReady = isLoading === false;
   return { referralUrl, inviteCode: summaryInfo?.inviteCode, isReady };
 }
