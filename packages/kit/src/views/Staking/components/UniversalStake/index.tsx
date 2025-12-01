@@ -60,6 +60,7 @@ import {
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { useEarnPermitApprove } from '../../hooks/useEarnPermitApprove';
+import { useEarnSignMessageWithoutVerify } from '../../hooks/useEarnSignMessageWithoutVerify';
 import { useTrackTokenAllowance } from '../../hooks/useUtilsHooks';
 import { capitalizeString, countDecimalPlaces } from '../../utils/utils';
 import { BtcFeeRateInput } from '../BtcFeeRateInput';
@@ -179,7 +180,28 @@ export function UniversalStake({
   >();
 
   const { getPermitSignature } = useEarnPermitApprove();
+  const signPersonalMessage = useEarnSignMessageWithoutVerify();
   const { getPermitCache, updatePermitCache } = useEarnActions().current;
+
+  const isStakefishProvider = useMemo(
+    () => earnUtils.isStakefishProvider({ providerName }),
+    [providerName],
+  );
+  const isStakefishCreateNewValidator = useMemo(() => {
+    if (!isStakefishProvider || !selectedValidator) {
+      return false;
+    }
+    const selectedOption = ongoingValidator?.select?.options?.find(
+      (option) => option.value === selectedValidator,
+    );
+    return selectedOption?.extra?.isCreateNewValidator === true;
+  }, [
+    isStakefishProvider,
+    selectedValidator,
+    ongoingValidator?.select?.options,
+  ]);
+  const stakefishPermitSignatureRef = useRef<string | undefined>(undefined);
+  const stakefishPermitMessageRef = useRef<string | undefined>(undefined);
 
   const useApprove = useMemo(() => !!approveType, [approveType]);
   const usePermit2Approve = approveType === EApproveType.Permit;
@@ -639,19 +661,67 @@ export function UniversalStake({
 
   const onSubmit = useCallback(async () => {
     Keyboard.dismiss();
-    const permitSignatureParams = usePermit2Approve
+
+    // Stakefish: get permit signature for create new validator
+    if (isStakefishCreateNewValidator && !stakefishPermitSignatureRef.current) {
+      setApproving(true);
+      try {
+        const { signature, message } = await signPersonalMessage({
+          networkId,
+          accountId,
+          provider: providerName,
+          symbol: tokenSymbol || '',
+          amount: new BigNumber(amountValue).toFixed(),
+          action: 'stake',
+        });
+        stakefishPermitSignatureRef.current = signature;
+        stakefishPermitMessageRef.current = message;
+      } catch (error) {
+        console.error('Stakefish permit sign error:', error);
+        setApproving(false);
+        return;
+      }
+      setApproving(false);
+    }
+
+    // Determine permitSignature source: Morpho uses permitSignatureRef, Stakefish uses stakefishPermitSignatureRef
+    let finalPermitSignature: string | undefined;
+    let finalMessage: string | undefined;
+    if (usePermit2Approve) {
+      finalPermitSignature = permitSignatureRef.current;
+    } else if (isStakefishCreateNewValidator) {
+      finalPermitSignature = stakefishPermitSignatureRef.current;
+      finalMessage = stakefishPermitMessageRef.current;
+    }
+
+    const permitSignatureParams = finalPermitSignature
       ? {
-          approveType,
-          permitSignature: permitSignatureRef.current,
+          approveType: usePermit2Approve ? approveType : undefined,
+          permitSignature: finalPermitSignature,
+          message: finalMessage,
         }
       : undefined;
+
+    // Stakefish specific params: validatorPubkey only for existing validator
+    const stakefishParams =
+      isStakefishProvider && !isStakefishCreateNewValidator
+        ? { validatorPubkey: selectedValidator }
+        : undefined;
+
     const resetAmount = () => {
       setAmountValue('');
       setCheckoutAmountMessage('');
       setCheckAmountAlerts([]);
+      // Reset stakefish permit signature and message
+      stakefishPermitSignatureRef.current = undefined;
+      stakefishPermitMessageRef.current = undefined;
     };
     const handleConfirm = async () => {
-      await onConfirm?.({ amount: amountValue, ...permitSignatureParams });
+      await onConfirm?.({
+        amount: amountValue,
+        ...permitSignatureParams,
+        ...stakefishParams,
+      });
       resetAmount();
     };
 
@@ -689,6 +759,14 @@ export function UniversalStake({
     amountValue,
     showEstimateGasAlert,
     checkEstimateGasAlert,
+    isStakefishProvider,
+    selectedValidator,
+    isStakefishCreateNewValidator,
+    signPersonalMessage,
+    networkId,
+    accountId,
+    tokenSymbol,
+    providerName,
   ]);
 
   const showStakeProgressRef = useRef<Record<string, boolean>>({});

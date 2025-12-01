@@ -106,10 +106,13 @@ export function useUniversalStake({
       protocolVault,
       approveType,
       permitSignature,
+      message,
       provider,
       stakingInfo,
       onSuccess,
       onFail,
+      // Stakefish specific param
+      validatorPublicKey,
     }: {
       amount: string;
       symbol: string;
@@ -118,10 +121,14 @@ export function useUniversalStake({
       protocolVault?: string;
       approveType?: EApproveType;
       permitSignature?: string;
+      // Stakefish: original message for permit signature
+      message?: string;
       provider: string;
       stakingInfo?: IStakingInfo;
       onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
       onFail?: IModalSendParamList['SendConfirm']['onFail'];
+      // Stakefish specific param
+      validatorPublicKey?: string;
     }) => {
       const stakeTx =
         await backgroundApiProxy.serviceStaking.buildStakeTransaction({
@@ -135,6 +142,9 @@ export function useUniversalStake({
           protocolVault,
           approveType,
           permitSignature,
+          message,
+          // Stakefish specific param
+          validatorPublicKey,
         });
 
       const encodedTx =

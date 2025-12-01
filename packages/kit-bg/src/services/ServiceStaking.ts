@@ -23,10 +23,7 @@ import type {
   EEarnProviderEnum,
   ISupportedSymbol,
 } from '@onekeyhq/shared/types/earn';
-import {
-  earnMainnetNetworkIds,
-  getSymbolSupportedNetworks,
-} from '@onekeyhq/shared/types/earn/earnProvider.constants';
+import { earnMainnetNetworkIds } from '@onekeyhq/shared/types/earn/earnProvider.constants';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   IAccountHistoryTx,
@@ -299,6 +296,8 @@ class ServiceStaking extends ServiceBase {
       protocolVault,
       approveType,
       permitSignature,
+      message,
+      validatorPublicKey,
       ...rest
     } = params;
     const client = await this.getClient(EServiceEndpointEnum.Earn);
@@ -315,9 +314,20 @@ class ServiceStaking extends ServiceBase {
     const isVaultBased = earnUtils.isVaultBasedProvider({
       providerName: provider,
     });
+
+    // Determine publicKey: Stakefish validator pubkey takes priority
+    let publicKey: string | undefined;
+    if (validatorPublicKey) {
+      // Stakefish: use validator pubkey from selector
+      publicKey = validatorPublicKey;
+    } else if (stakingConfig.usePublicKey) {
+      // Other providers: use account pubkey if required
+      publicKey = account.pub;
+    }
+
     const paramsToSend: Record<string, any> = {
       accountAddress: account.address,
-      publicKey: stakingConfig.usePublicKey ? account.pub : undefined,
+      publicKey,
       term: params.term,
       feeRate: params.feeRate,
       networkId,
@@ -328,7 +338,11 @@ class ServiceStaking extends ServiceBase {
       }),
       approveType,
       permitSignature:
-        approveType === EApproveType.Permit ? permitSignature : undefined,
+        approveType === EApproveType.Permit ||
+        earnUtils.isStakefishProvider({ providerName: provider })
+          ? permitSignature
+          : undefined,
+      message,
       ...rest,
     };
 
@@ -477,11 +491,11 @@ class ServiceStaking extends ServiceBase {
     if (!params?.accountAddress) {
       throw new OneKeyLocalError('accountAddress is required');
     }
-    if (!params?.vault) {
-      throw new OneKeyLocalError('vault is required');
-    }
     if (!params?.amount) {
       throw new OneKeyLocalError('amount is required');
+    }
+    if (!params?.vault && !params?.action) {
+      throw new OneKeyLocalError('vault or action is required');
     }
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const resp = await client.post<{

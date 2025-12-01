@@ -149,10 +149,15 @@ export type IStakeBaseParams = {
   protocolVault?: string; // protocol vault
   approveType?: EApproveType;
   permitSignature?: string;
+  // Stakefish: original message for permit signature
+  message?: string;
 
   inviteCode?: string;
   bindedAccountAddress?: string;
   bindedNetworkId?: string;
+
+  // Stakefish ETH validator
+  validatorPublicKey?: string; // validator pubkey from selector
 };
 
 export type IWithdrawBaseParams = {
@@ -1414,8 +1419,12 @@ export interface IBuildPermit2ApproveSignDataParams {
   provider: string;
   symbol: string;
   accountAddress: string;
-  vault: string;
-  amount: string;
+  amount?: string;
+  // Morpho: vault is required
+  vault?: string;
+  // Stakefish: action is required, identity required for unstake
+  action?: 'stake' | 'unstake';
+  identity?: string;
 }
 
 export interface IEarnPermit2ApproveSignData {
@@ -1451,6 +1460,10 @@ export interface IBuildRegisterSignMessageParams {
   provider: string;
   symbol: string;
   accountAddress: string;
+  // Stakefish: action is required, amount required for stake, identity required for unstake
+  action?: 'stake' | 'unstake';
+  amount?: string;
+  identity?: string;
 }
 
 export interface IEarnRegisterSignMessageResponse {
@@ -1469,6 +1482,10 @@ export type IApproveConfirmFnParams = {
   amount: string;
   approveType?: EApproveType;
   permitSignature?: string;
+  // Stakefish: original message for permit signature
+  message?: string;
+  // Stakefish ETH validator
+  validatorPubkey?: string;
 };
 
 export interface IEarnSummary {

@@ -149,6 +149,8 @@ export const StakeSection = ({
       amount,
       approveType,
       permitSignature,
+      message,
+      validatorPubkey,
     }: IApproveConfirmFnParams) => {
       if (!hasRequiredData) return;
 
@@ -160,6 +162,7 @@ export const StakeSection = ({
         amount,
         approveType,
         permitSignature,
+        message,
         symbol,
         provider: providerName,
         stakingInfo: {
@@ -179,6 +182,8 @@ export const StakeSection = ({
         })
           ? protocolInfo?.vault
           : undefined,
+        // Stakefish specific param
+        validatorPublicKey: validatorPubkey,
         onSuccess: async (txs) => {
           onSuccess?.();
           defaultLogger.staking.page.staking({
