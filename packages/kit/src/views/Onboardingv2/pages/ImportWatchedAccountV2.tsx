@@ -10,7 +10,7 @@ import {
   SegmentControl,
   TextAreaInput,
   YStack,
-  useIsGtMd,
+  useMedia,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes';
@@ -28,7 +28,7 @@ import type { IPhaseInputAreaInstance } from '../components/PhaseInputArea';
 export default function ImportWatchedAccountV2() {
   const navigation = useAppNavigation();
   const [selected, setSelected] = useState<'address' | 'publicKey'>('address');
-  const gtMd = useIsGtMd();
+  const { gtMd } = useMedia();
   const phaseInputAreaRef = useRef<IPhaseInputAreaInstance | null>(null);
   const [isConfirming, setIsConfirming] = useState(false);
   const intl = useIntl();

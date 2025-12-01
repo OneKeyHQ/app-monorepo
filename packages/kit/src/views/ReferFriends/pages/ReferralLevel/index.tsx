@@ -6,7 +6,7 @@ import {
   Spinner,
   Stack,
   YStack,
-  useIsMd,
+  useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
@@ -58,7 +58,7 @@ function ReferralLevelContent({ data }: { data: IInviteLevelDetail }) {
 
 function ReferralLevelPage() {
   const intl = useIntl();
-  const md = useIsMd();
+  const { md } = useMedia();
   // Redirect to ReferAFriend page if user is not logged in
   useRedirectWhenNotLoggedIn();
 

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo } from 'react';
 import type { ReactNode } from 'react';
 
-import { Spinner, Stack, Table, useIsMd } from '@onekeyhq/components';
+import { Spinner, Stack, Table, useMedia } from '@onekeyhq/components';
 import type { ITableColumn } from '@onekeyhq/components';
 import {
   EAppEventBusNames,
@@ -60,7 +60,7 @@ function MarketTokenListBase({
   showEndReachedIndicator = false,
 }: IMarketTokenListBaseProps) {
   const toMarketDetailPage = useToDetailPage();
-  const md = useIsMd();
+  const { md } = useMedia();
 
   const marketTokenColumns = useMarketTokenColumns(networkId, isWatchlistMode);
 

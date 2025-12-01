@@ -2,7 +2,7 @@ import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { ActionList, Icon, IconButton, useIsGtMd } from '@onekeyhq/components';
+import { ActionList, Icon, IconButton, useMedia } from '@onekeyhq/components';
 import type { IActionListItemProps } from '@onekeyhq/components';
 import { useInviteCodeList } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/InvitationDetailsSection/hooks/useInviteCodeList';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -24,7 +24,7 @@ export function FilterButton({
 }: IFilterButtonProps) {
   const intl = useIntl();
   const { codeListData } = useInviteCodeList();
-  const gtMd = useIsGtMd();
+  const { gtMd } = useMedia();
 
   const timeRangeOptions = useMemo(
     () => [

@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 
-import { YStack, useIsMd } from '@onekeyhq/components';
+import { YStack, useMedia } from '@onekeyhq/components';
 import type { IYStackProps } from '@onekeyhq/components';
 
 export const REFER_FRIENDS_PAGE_MAX_WIDTH = 1280;
@@ -9,7 +9,7 @@ export function ReferFriendsPageContainer({
   children,
   ...props
 }: IYStackProps): ReactNode {
-  const md = useIsMd();
+  const { md } = useMedia();
 
   if (md) {
     return children as ReactNode;

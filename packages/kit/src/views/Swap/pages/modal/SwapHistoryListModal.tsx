@@ -19,7 +19,7 @@ import {
   Stack,
   XStack,
   YStack,
-  useIsGtMd,
+  useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
@@ -279,7 +279,7 @@ const SwapHistoryListModal = ({
       />
     );
   }, [historyType, intl]);
-  const gtMd = useIsGtMd();
+  const { gtMd } = useMedia();
   return (
     <Page>
       <Page.Header

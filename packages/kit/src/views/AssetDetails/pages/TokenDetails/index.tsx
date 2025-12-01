@@ -28,7 +28,7 @@ import {
   Toast,
   XStack,
   useClipboard,
-  useIsGtMd,
+  useMedia,
 } from '@onekeyhq/components';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -132,7 +132,7 @@ function TokenDetailsView() {
     accountAddress,
   } = route.params;
 
-  const gtMd = useIsGtMd();
+  const { gtMd } = useMedia();
 
   const tabsRef = useRef<ITabContainerRef | null>(null);
 

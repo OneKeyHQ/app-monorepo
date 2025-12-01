@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useIsFocused } from '@react-navigation/native';
 
-import { Page, Stack, YStack, useIsGtMd } from '@onekeyhq/components';
+import { Page, Stack, YStack, useMedia } from '@onekeyhq/components';
 import { TabletHomeContainer } from '@onekeyhq/kit/src/components/TabletHomeContainer';
 import { FLOAT_NAV_BAR_Z_INDEX } from '@onekeyhq/shared/src/consts/zIndexConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -25,7 +25,7 @@ import { ExtPerp, shouldOpenExpandExtPerp } from './ExtPerp';
 import type { LayoutChangeEvent } from 'react-native';
 
 function PerpLayout() {
-  const gtMd = useIsGtMd();
+  const { gtMd } = useMedia();
   if (gtMd && !platformEnv.isNative) {
     return <PerpDesktopLayout />;
   }

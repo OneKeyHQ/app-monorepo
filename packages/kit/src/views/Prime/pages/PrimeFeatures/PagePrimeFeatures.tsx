@@ -19,7 +19,7 @@ import {
   Theme,
   XStack,
   YStack,
-  useIsGtMd,
+  useMedia,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { PaginationButton } from '@onekeyhq/components/src/composite/Banner/PaginationButton';
@@ -122,7 +122,7 @@ export default function PagePrimeFeatures() {
   const selectedSubscriptionPeriod = route.params?.selectedSubscriptionPeriod;
   const serverUserInfo = route.params?.serverUserInfo;
   const intl = useIntl();
-  const gtMd = useIsGtMd();
+  const { gtMd } = useMedia();
 
   // const [primePersistData] = usePrimePersistAtom();
   // const [primeMasterPasswordPersistData] = usePrimeMasterPasswordPersistAtom();

@@ -9,7 +9,7 @@ import {
   Skeleton,
   XStack,
   YStack,
-  useIsMd,
+  useMedia,
 } from '@onekeyhq/components';
 import type { IDialogInstance } from '@onekeyhq/components';
 import {
@@ -232,7 +232,7 @@ function HomeOverviewContainer() {
     wallet,
   ]);
 
-  const md = useIsMd();
+  const { md } = useMedia();
   const balanceDialogInstance = useRef<IDialogInstance | null>(null);
   const resourceDialogInstance = useRef<IDialogInstance | null>(null);
 

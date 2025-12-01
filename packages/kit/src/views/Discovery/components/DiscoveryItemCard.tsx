@@ -8,7 +8,7 @@ import {
   SizableText,
   Skeleton,
   Stack,
-  useIsMd,
+  useMedia,
 } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IDApp } from '@onekeyhq/shared/types/discovery';
@@ -32,7 +32,7 @@ export function DiscoveryItemCard({
   isLoading,
   handleOpenWebSite,
 }: IDiscoveryItemCardProps) {
-  const md = useIsMd();
+  const { md } = useMedia();
   const maxWordLength = useMemo(() => {
     if (platformEnv.isNative) {
       return 9;

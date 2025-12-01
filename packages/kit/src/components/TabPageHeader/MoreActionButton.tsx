@@ -22,7 +22,7 @@ import {
   XStack,
   YStack,
   useIsWebHorizontalLayout,
-  useIsGtMd,
+  useMedia,
   usePopoverContext,
 } from '@onekeyhq/components';
 import GiftExpandOnDark from '@onekeyhq/kit/assets/animations/gift-expand-on-dark.json';
@@ -426,7 +426,7 @@ function MoreActionContentGrid() {
   const openAddressBook = useShowAddressBook({
     useNewModal: true,
   });
-  const gtMd = useIsGtMd();
+  const { gtMd } = useMedia();
   const toMyOneKeyModal = useToMyOneKeyModal();
   const { user } = usePrimeAuthV2();
 

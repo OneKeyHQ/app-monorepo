@@ -22,7 +22,7 @@ import {
   TextAreaInput,
   XStack,
   YStack,
-  useIsGtMd,
+  useMedia,
   useReanimatedKeyboardAnimation,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -177,7 +177,7 @@ export default function ImportPhraseOrPrivateKey() {
     routeParams.params || {};
   const [selected, setSelected] =
     useState<EOnboardingV2ImportPhraseOrPrivateKeyTab>(defaultTab);
-  const gtMd = useIsGtMd();
+  const { gtMd } = useMedia();
   const phaseInputAreaRef = useRef<IPhaseInputAreaInstance | null>(null);
   const [isConfirming, setIsConfirming] = useState(false);
   const intl = useIntl();

@@ -3,7 +3,7 @@ import { useCallback, useMemo, useState } from 'react';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import { Button, rootNavigationRef, useIsGtMd } from '@onekeyhq/components';
+import { Button, rootNavigationRef, useMedia } from '@onekeyhq/components';
 import type { IButtonProps } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useAccountSelectorCreateAddress } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorCreateAddress';
@@ -56,7 +56,7 @@ export function ActionButton({
 }: IActionButtonProps) {
   const [hasClickedWithoutAmount, setHasClickedWithoutAmount] = useState(false);
   const intl = useIntl();
-  const gtMd = useIsGtMd();
+  const { gtMd } = useMedia();
   const { tokenDetail } = useTokenDetail();
   const [settingsValue] = useSettingsPersistAtom();
   const { activeAccount } = useActiveAccount({ num: 0 });

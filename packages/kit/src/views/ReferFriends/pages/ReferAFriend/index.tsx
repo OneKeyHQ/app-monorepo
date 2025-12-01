@@ -8,7 +8,7 @@ import {
   Page,
   Stack,
   YStack,
-  useIsMd,
+  useMedia,
 } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
@@ -100,7 +100,7 @@ function ReferAFriendPage({
 function ReferAFriendPageWrapper() {
   const intl = useIntl();
   const route = useRoute();
-  const md = useIsMd();
+  const { md } = useMedia();
   const { postConfig } = useReferAFriendData();
   const [phaseState, setPhaseState] = useState<EPhaseState | undefined>(
     EPhaseState.next,

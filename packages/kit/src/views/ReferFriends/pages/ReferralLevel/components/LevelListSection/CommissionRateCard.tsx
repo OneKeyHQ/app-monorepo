@@ -1,7 +1,7 @@
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
-import { SizableText, XStack, YStack, useIsMd } from '@onekeyhq/components';
+import { SizableText, XStack, YStack, useMedia } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IInviteLevelCommissionRate } from '@onekeyhq/shared/src/referralCode/type';
 
@@ -14,8 +14,9 @@ export function CommissionRateCard({
 }) {
   const intl = useIntl();
 
-  const md = useIsMd();
-  if (md) {
+  const media = useMedia();
+
+  if (media.md) {
     return (
       <XStack
         borderRadius="$2"

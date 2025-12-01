@@ -11,7 +11,6 @@ import {
   YStack,
   rootNavigationRef,
   useIsWebHorizontalLayout,
-  useIsGtMd,
   useMedia,
 } from '@onekeyhq/components';
 import {
@@ -56,7 +55,7 @@ export function SelectorTrigger() {
 }
 
 function DepositAction() {
-  const gtMd = useIsGtMd();
+  const { gtMd } = useMedia();
   const intl = useIntl();
   return gtMd ? null : (
     <Button
@@ -118,8 +117,7 @@ export function HeaderRight({
   }) => ReactNode;
 }) {
   const isHorizontal = useIsWebHorizontalLayout();
-  const { gtXl } = useMedia();
-  const gtMd = useIsGtMd();
+  const { gtXl, gtMd } = useMedia();
 
   const items = useMemo(() => {
     if (customHeaderRightItems) {

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import type { IListViewProps, IPopoverProps } from '@onekeyhq/components';
-import { useIsMd } from '@onekeyhq/components';
+import { useMedia } from '@onekeyhq/components';
 import { useMarketNetworks } from '@onekeyhq/kit/src/views/Market/hooks';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
@@ -24,7 +24,7 @@ function MarketTokenListNetworkSelector({
   placement,
   containerStyle,
 }: IMarketTokenListNetworkSelectorProps) {
-  const md = useIsMd();
+  const { md } = useMedia();
   const normalComponentRef =
     useRef<IMarketTokenListNetworkSelectorNormalRef>(null);
   const mobileComponentRef =

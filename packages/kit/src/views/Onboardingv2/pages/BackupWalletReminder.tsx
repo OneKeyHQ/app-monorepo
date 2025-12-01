@@ -10,7 +10,7 @@ import {
   SizableText,
   XStack,
   YStack,
-  useIsGtMd,
+  useMedia,
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -24,7 +24,7 @@ import type { RouteProp } from '@react-navigation/core';
 export default function BackupWalletReminder() {
   const navigation = useAppNavigation();
   const intl = useIntl();
-  const gtMd = useIsGtMd();
+  const { gtMd } = useMedia();
   const params =
     useRoute<
       RouteProp<IOnboardingParamListV2, EOnboardingPagesV2.BackupWalletReminder>

@@ -5,14 +5,14 @@ import { useWindowDimensions } from 'react-native';
 import {
   MAX_SIDEBAR_WIDTH,
   MIN_SIDEBAR_WIDTH,
-  useIsMd,
+  useMedia,
   useOrientation,
 } from '@onekeyhq/components';
 import { useAppSideBarStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export default function useHomePageWidth() {
-  const md = useIsMd();
+  const { md } = useMedia();
   const isLandscape = useOrientation();
   const screenWidth = useWindowDimensions().width;
   const screenHeight = useWindowDimensions().height;

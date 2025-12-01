@@ -11,7 +11,7 @@ import {
   SizableText,
   XStack,
   YStack,
-  useIsGtMd,
+  useMedia,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -56,7 +56,7 @@ OnboardingLayoutBack.displayName = 'OnboardingLayoutBack';
 const OnboardingLayoutLanguageSelector = memo(() => {
   const intl = useIntl();
   const { options, value, onChange } = useLanguageSelectorWithoutAuto();
-  const gtMd = useIsGtMd();
+  const { gtMd } = useMedia();
 
   const handleLanguageChange = useCallback(
     (v: string) => {

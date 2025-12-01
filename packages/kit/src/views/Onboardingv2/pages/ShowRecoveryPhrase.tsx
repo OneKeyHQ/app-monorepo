@@ -12,7 +12,7 @@ import {
   XStack,
   YStack,
   useClipboard,
-  useIsGtMd,
+  useMedia,
 } from '@onekeyhq/components';
 import {
   ensureSensitiveTextEncoded,
@@ -34,7 +34,7 @@ import type { RouteProp } from '@react-navigation/core';
 export default function ShowRecoveryPhrase() {
   const navigation = useAppNavigation();
   const intl = useIntl();
-  const gtMd = useIsGtMd();
+  const { gtMd } = useMedia();
   const route =
     useRoute<
       RouteProp<IOnboardingParamListV2, EOnboardingPagesV2.ShowRecoveryPhrase>

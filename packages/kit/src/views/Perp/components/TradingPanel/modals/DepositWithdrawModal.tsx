@@ -24,7 +24,7 @@ import {
   XStack,
   YStack,
   getFontSize,
-  useIsGtMd,
+  useMedia,
   usePopoverContext,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -319,7 +319,7 @@ function DepositWithdrawContent({
   isMobile,
 }: IDepositWithdrawContentProps) {
   const intl = useIntl();
-  const gtMd = useIsGtMd();
+  const { gtMd } = useMedia();
   const [accountSummary] = usePerpsActiveAccountSummaryAtom();
   const accountValue = accountSummary?.accountValue ?? '';
   const withdrawable = accountSummary?.withdrawable ?? '';

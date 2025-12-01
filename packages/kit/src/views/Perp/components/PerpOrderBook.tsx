@@ -11,7 +11,7 @@ import {
   Skeleton,
   XStack,
   YStack,
-  useIsGtMd,
+  useMedia,
 } from '@onekeyhq/components';
 import {
   useHyperliquidActions,
@@ -217,7 +217,7 @@ export function PerpOrderBook({
 }: {
   entry?: 'perpTab' | 'perpMobileMarket';
 }) {
-  const gtMd = useIsGtMd();
+  const { gtMd } = useMedia();
   const actionsRef = useHyperliquidActions();
   const [formData] = useTradingFormAtom();
   const [orderBookTickOptions] = useOrderBookTickOptionsAtom();

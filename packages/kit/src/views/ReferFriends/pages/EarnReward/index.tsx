@@ -3,7 +3,7 @@ import { useCallback, useState } from 'react';
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
-import { Alert, Page, XStack, YStack, useIsMd } from '@onekeyhq/components';
+import { Alert, Page, XStack, YStack, useMedia } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { useSpotlight } from '@onekeyhq/kit/src/components/Spotlight';
 import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
@@ -46,7 +46,7 @@ function EarnRewardPageWrapper() {
   const title =
     route.params?.title ||
     intl.formatMessage({ id: ETranslations.referral_referred_type_2 });
-  const md = useIsMd();
+  const { md } = useMedia();
 
   const { tourTimes, tourVisited } = useSpotlight(
     ESpotlightTour.earnRewardAlert,

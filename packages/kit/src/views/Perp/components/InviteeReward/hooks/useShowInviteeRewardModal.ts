@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 
-import { useInTabDialog, useIsGtMd } from '@onekeyhq/components';
+import { useInTabDialog, useMedia } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useWalletBoundReferralCode } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useWalletBoundReferralCode';
@@ -13,7 +13,7 @@ import { showInviteeRewardDialog } from '../InviteeRewardContent';
 
 export function useShowInviteeRewardModal() {
   const navigation = useAppNavigation();
-  const gtMd = useIsGtMd();
+  const { gtMd } = useMedia();
   const dialogInTab = useInTabDialog();
   const { bindWalletInviteCode, getReferralCodeBondStatus } =
     useWalletBoundReferralCode({
