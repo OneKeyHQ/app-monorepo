@@ -130,6 +130,7 @@ const useAndroidHardwareBack = platformEnv.isNativeAndroid
   : () => {};
 
 function MobileBrowser() {
+  const isTabletDevice = ExpoDevice.deviceType === ExpoDevice.DeviceType.TABLET;
   const route =
     useRoute<
       RouteProp<ITabDiscoveryParamList, ETabDiscoveryRoutes.TabDiscovery>
@@ -158,7 +159,7 @@ function MobileBrowser() {
   }, [defaultTab, handleChangeHeaderTab]);
   const { tabs } = useWebTabs();
   const { activeTabId } = useActiveTabId();
-  const { closeWebTab, setCurrentWebTab } = useBrowserTabActions().current;
+  const { closeWebTab } = useBrowserTabActions().current;
   const { tab: activeTabData } = useWebTabDataById(activeTabId ?? '');
   const navigation =
     useAppNavigation<IPageNavigationProp<IDiscoveryModalParamList>>();
@@ -200,16 +201,10 @@ function MobileBrowser() {
       : Promise.resolve();
   }, [activeTabId, closeWebTab]);
 
-  const onCloseCurrentWebTabAndGoHomePage = useCallback(() => {
-    if (activeTabId) {
-      closeWebTab({ tabId: activeTabId, entry: 'Menu' });
-      setCurrentWebTab(null);
-    }
-    showTabBar();
-    return Promise.resolve();
-  }, [activeTabId, closeWebTab, setCurrentWebTab]);
-
   useEffect(() => {
+    if (isTabletDevice) {
+      return;
+    }
     const listener = (event: { tab: ETranslations }) => {
       void handleChangeHeaderTab(event.tab);
     };
@@ -217,7 +212,7 @@ function MobileBrowser() {
     return () => {
       appEventBus.off(EAppEventBusNames.SwitchDiscoveryTabInNative, listener);
     };
-  }, [handleChangeHeaderTab]);
+  }, [handleChangeHeaderTab, isTabletDevice]);
 
   // For risk detection
   useEffect(() => {
@@ -317,9 +312,7 @@ function MobileBrowser() {
   }
 
   const showDiscoveryPage =
-    displayHomePage ||
-    (ExpoDevice.deviceType === ExpoDevice.DeviceType.TABLET &&
-      !isTabletDetailView);
+    displayHomePage || (isTabletDevice && !isTabletDetailView);
   const displayBottomBar = !showDiscoveryPage;
 
   return (
