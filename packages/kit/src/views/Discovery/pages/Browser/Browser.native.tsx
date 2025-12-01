@@ -131,6 +131,7 @@ const useAndroidHardwareBack = platformEnv.isNativeAndroid
 
 function MobileBrowser() {
   const isTabletDevice = ExpoDevice.deviceType === ExpoDevice.DeviceType.TABLET;
+  const isTabletDetailView = useIsTabletDetailView();
   const route =
     useRoute<
       RouteProp<ITabDiscoveryParamList, ETabDiscoveryRoutes.TabDiscovery>
@@ -138,14 +139,24 @@ function MobileBrowser() {
   const { defaultTab, earnTab } = route?.params || {};
   const [settings] = useSettingsPersistAtom();
   const [selectedHeaderTab, setSelectedHeaderTab] = useState<ETranslations>(
-    defaultTab || settings.selectedBrowserTab || ETranslations.global_browser,
+    isTabletDevice && isTabletDetailView
+      ? ETranslations.global_browser
+      : defaultTab ||
+          settings.selectedBrowserTab ||
+          ETranslations.global_browser,
   );
-  const handleChangeHeaderTab = useCallback(async (tab: ETranslations) => {
-    setSelectedHeaderTab(tab);
-    setTimeout(async () => {
-      await backgroundApiProxy.serviceSetting.setSelectedBrowserTab(tab);
-    }, 150);
-  }, []);
+  const handleChangeHeaderTab = useCallback(
+    async (tab: ETranslations) => {
+      if (isTabletDevice && isTabletDetailView) {
+        return;
+      }
+      setSelectedHeaderTab(tab);
+      setTimeout(async () => {
+        await backgroundApiProxy.serviceSetting.setSelectedBrowserTab(tab);
+      }, 150);
+    },
+    [isTabletDetailView, isTabletDevice],
+  );
   const previousDefaultTab = useRef<ETranslations | undefined>(defaultTab);
   useEffect(() => {
     if (previousDefaultTab.current !== defaultTab) {
@@ -290,7 +301,6 @@ function MobileBrowser() {
       showTabBar();
     });
   }, [takeScreenshot, setDisplayHomePage, activeTabId]);
-  const isTabletDetailView = useIsTabletDetailView();
 
   useAndroidHardwareBack({
     displayHomePage,
@@ -307,6 +317,7 @@ function MobileBrowser() {
     const height = e.nativeEvent.layout.height - 20;
     setTabPageHeight(height);
   }, []);
+
   if (isTabletDetailView && displayHomePage) {
     return <TabletHomeContainer />;
   }

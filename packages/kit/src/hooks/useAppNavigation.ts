@@ -125,7 +125,6 @@ function useAppNavigation<
             pop: true,
           },
         );
-        return;
       }
       rootNavigationRef.current?.navigate(
         ERootRoutes.Main,
