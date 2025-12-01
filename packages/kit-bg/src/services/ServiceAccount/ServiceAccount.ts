@@ -5438,7 +5438,7 @@ class ServiceAccount extends ServiceBase {
       networkId: activeNetworkId ?? '',
     });
 
-    // Handle Others account (requires accountId)
+    // other account maybe not have accountId only have walletId
     if (accountId && accountUtils.isOthersAccount({ accountId })) {
       let currentAccountImpl = accountImpl;
       if (!currentAccountImpl) {
@@ -5455,6 +5455,17 @@ class ServiceAccount extends ServiceBase {
         return undefined;
       }
 
+      return {
+        networkImpl: activeNetworkImpl,
+      };
+    }
+
+    // other account maybe not have accountId only have walletId
+    if (
+      !accountId &&
+      finalWalletId &&
+      accountUtils.isOthersWallet({ walletId: finalWalletId })
+    ) {
       return {
         networkImpl: activeNetworkImpl,
       };
