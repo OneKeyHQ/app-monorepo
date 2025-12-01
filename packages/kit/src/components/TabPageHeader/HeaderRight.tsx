@@ -145,7 +145,7 @@ export function HeaderRight({
 
     const earnItems = (
       <>
-        <GiftAction />
+        <GiftAction copyAsUrl />
         <WalletConnectionForWeb tabRoute={tabRoute} />
         {fixedItems}
       </>

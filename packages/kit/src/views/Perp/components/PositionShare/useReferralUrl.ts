@@ -45,7 +45,7 @@ export function useReferralUrl() {
     if (!inviteCode) {
       return defaultReferralUrl;
     }
-    return `${webAppUrl}/r/${inviteCode}/app/perp`;
+    return `${webAppUrl}/r/${inviteCode}/app/perps`;
   }, [inviteCode, webAppUrl, defaultReferralUrl]);
 
   const referralDisplayText = inviteCode || defaultReferralUrl;
