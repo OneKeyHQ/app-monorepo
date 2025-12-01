@@ -392,18 +392,22 @@ function MobileBrowser() {
             </Animated.View>
           </Freeze>
         </Stack>
-        <Stack
-          flex={1}
-          display={
-            selectedHeaderTab === ETranslations.global_earn ? undefined : 'none'
-          }
-        >
-          <EarnHomeWithProvider
-            showHeader={false}
-            showContent={selectedHeaderTab === ETranslations.global_earn}
-            defaultTab={earnTab}
-          />
-        </Stack>
+        {!isTabletDetailView ? (
+          <Stack
+            flex={1}
+            display={
+              selectedHeaderTab === ETranslations.global_earn
+                ? undefined
+                : 'none'
+            }
+          >
+            <EarnHomeWithProvider
+              showHeader={false}
+              showContent={selectedHeaderTab === ETranslations.global_earn}
+              defaultTab={earnTab}
+            />
+          </Stack>
+        ) : null}
       </Page.Body>
       {showDiscoveryPage ? (
         <YStack
