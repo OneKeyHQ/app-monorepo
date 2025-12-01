@@ -37,7 +37,10 @@ interface IFirmwareChangeDialogContentProps {
   device: IDBDevice;
   targetFirmwareType: EFirmwareType;
   fromFirmwareType: EFirmwareType;
-  onStateChange: (state: IFirmwareChangeDialogState) => void;
+  onStateChange: (
+    state: IFirmwareChangeDialogState,
+    baseReleaseInfo?: AllFirmwareRelease,
+  ) => void;
   onCancel: () => void;
 }
 
@@ -46,10 +49,16 @@ interface IUseFirmwareChangeDialogParams {
   onSuccess: (
     targetFirmwareType: EFirmwareType,
     fromFirmwareType: EFirmwareType,
+    baseReleaseInfo?: AllFirmwareRelease,
   ) => void;
   onUpgradeFirmware: () => void;
 }
 
+const UPDATE_BTC_ONLY_LIMIT = {
+  [EDeviceType.Classic1s]: '2.1.0',
+  [EDeviceType.ClassicPure]: '2.1.0',
+  [EDeviceType.Pro]: '2.8.3',
+};
 const CLASSIC1S_MIN_BOOTLOADER_VERSION = '2.1.0';
 
 function FirmwareChangeDialogContentBase({
@@ -91,6 +100,7 @@ function FirmwareChangeDialogContentBase({
               {
                 connectId: device?.connectId,
                 firmwareType: targetFirmwareType,
+                skipChangeTransportType: true,
                 retryCount: 0,
                 silentMode: true,
               },
@@ -114,16 +124,6 @@ function FirmwareChangeDialogContentBase({
         if (!checkFirmwareTypeAvailableResult) {
           const newState: IFirmwareChangeDialogState = {
             type: 'coming-soon',
-          };
-          setState(newState);
-          onStateChange(newState);
-          return;
-        }
-
-        // if device type is Pro, return success state
-        if (device.deviceType === EDeviceType.Pro) {
-          const newState: IFirmwareChangeDialogState = {
-            type: 'success',
           };
           setState(newState);
           onStateChange(newState);
@@ -154,6 +154,22 @@ function FirmwareChangeDialogContentBase({
           return;
         }
 
+        const mockForceUpdateBtcOnlyUniversalFirmware =
+          await backgroundApiProxy.serviceDevSetting.getFirmwareUpdateDevSettings(
+            'forceUpdateBtcOnlyUniversalFirmware',
+          );
+
+        if (mockForceUpdateBtcOnlyUniversalFirmware) {
+          const newState: IFirmwareChangeDialogState = {
+            type: 'bootloader-upgrade-needed',
+            bootloaderVersion: '1.0.0',
+            minVersion: CLASSIC1S_MIN_BOOTLOADER_VERSION,
+          };
+          setState(newState);
+          onStateChange(newState);
+          return;
+        }
+
         // get device version information
         const versions = await deviceUtils.getDeviceVersion({
           device,
@@ -165,7 +181,12 @@ function FirmwareChangeDialogContentBase({
 
         if (
           semver.valid(bootloaderVersion) &&
-          semver.lt(bootloaderVersion, CLASSIC1S_MIN_BOOTLOADER_VERSION)
+          semver.lt(
+            bootloaderVersion,
+            UPDATE_BTC_ONLY_LIMIT[
+              device.deviceType as keyof typeof UPDATE_BTC_ONLY_LIMIT
+            ],
+          )
         ) {
           const newState: IFirmwareChangeDialogState = {
             type: 'bootloader-upgrade-needed',
@@ -180,7 +201,7 @@ function FirmwareChangeDialogContentBase({
         // all conditions are met
         const newState: IFirmwareChangeDialogState = { type: 'success' };
         setState(newState);
-        onStateChange(newState);
+        onStateChange(newState, checkAllResultInfo);
       } catch (error) {
         if (!isMountedRef.current) return;
         console.error('Failed to check firmware type change:', error);
@@ -328,7 +349,10 @@ export function useFirmwareChangeDialog({
   const fromFirmwareTypeRef = useRef<EFirmwareType | null>(null);
 
   const handleStateChange = useCallback(
-    (newState: IFirmwareChangeDialogState) => {
+    (
+      newState: IFirmwareChangeDialogState,
+      baseReleaseInfo?: AllFirmwareRelease,
+    ) => {
       stateRef.current = newState;
 
       // success: close dialog and execute callback
@@ -337,6 +361,7 @@ export function useFirmwareChangeDialog({
         onSuccess(
           targetFirmwareTypeRef.current ?? EFirmwareType.Universal,
           fromFirmwareTypeRef.current ?? EFirmwareType.Universal,
+          baseReleaseInfo,
         );
       }
 

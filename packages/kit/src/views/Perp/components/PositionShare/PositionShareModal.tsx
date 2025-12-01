@@ -38,7 +38,11 @@ function ShareContent({ data, onClose, isMobile }: IShareContentProps) {
     pnlDisplayMode: DEFAULT_PNL_DISPLAY_MODE,
   });
 
-  const { referralUrl, isReady: isReferralReady } = useReferralUrl();
+  const {
+    referralUrl,
+    inviteCode,
+    isReady: isReferralReady,
+  } = useReferralUrl();
   const { saveImage, copyLink, shareToX } = useShareActions(referralUrl);
   const [isActionLoading, setIsActionLoading] = useState(false);
 
@@ -96,6 +100,7 @@ function ShareContent({ data, onClose, isMobile }: IShareContentProps) {
         data={data}
         config={config}
         referralUrl={referralUrl}
+        inviteCode={inviteCode}
         isReferralReady={isReferralReady}
       />
       <Stack justifyContent="center" alignItems="center">
@@ -103,6 +108,7 @@ function ShareContent({ data, onClose, isMobile }: IShareContentProps) {
           data={data}
           config={config}
           referralUrl={referralUrl}
+          inviteCode={inviteCode}
           isReferralReady={isReferralReady}
           scale={0.5}
           generatorRef={generatorRef}
@@ -128,6 +134,7 @@ function ShareContent({ data, onClose, isMobile }: IShareContentProps) {
         data={data}
         config={config}
         referralUrl={referralUrl}
+        inviteCode={inviteCode}
         isReferralReady={isReferralReady}
       />
       <Stack justifyContent="center" alignItems="center" mb="$6">
@@ -135,6 +142,7 @@ function ShareContent({ data, onClose, isMobile }: IShareContentProps) {
           data={data}
           config={config}
           referralUrl={referralUrl}
+          inviteCode={inviteCode}
           isReferralReady={isReferralReady}
           generatorRef={generatorRef}
         />

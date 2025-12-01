@@ -1,9 +1,8 @@
 import { useCallback, useEffect } from 'react';
 
-import { isEmpty } from 'lodash';
-
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 
+import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import { useEarnActions } from '../../../states/jotai/contexts/earn';
 import { useEarnAtom } from '../../../states/jotai/contexts/earn/atoms';
 
@@ -12,6 +11,7 @@ export const useBannerInfo = () => {
   const [earnData] = useEarnAtom();
 
   const refetchBanners = useCallback(async () => {
+    await backgroundApiProxy.serviceStaking.clearEarnHomePageBannerListCache();
     const bannerResult =
       await backgroundApiProxy.serviceStaking.fetchEarnHomePageBannerList();
     const transformedBanners =
@@ -27,12 +27,12 @@ export const useBannerInfo = () => {
     actions.current.updateBanners(transformedBanners);
   }, [actions]);
 
+  const themeVariant = useThemeVariant();
+
   useEffect(() => {
-    if (isEmpty(earnData.banners)) {
-      void refetchBanners();
-    }
+    void refetchBanners();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [themeVariant, refetchBanners]);
 
   return { earnBanners: earnData.banners, refetchBanners };
 };

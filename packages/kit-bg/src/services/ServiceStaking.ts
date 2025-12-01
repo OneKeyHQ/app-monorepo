@@ -1455,6 +1455,11 @@ class ServiceStaking extends ServiceBase {
     return this._fetchEarnHomePageBannerList();
   }
 
+  @backgroundMethod()
+  async clearEarnHomePageBannerListCache() {
+    void this._fetchEarnHomePageBannerList.clear();
+  }
+
   _fetchEarnHomePageBannerList = memoizee(
     async () => {
       const client = await this.getClient(EServiceEndpointEnum.Utility);

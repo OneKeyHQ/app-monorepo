@@ -17,9 +17,11 @@ import {
   YStack,
   useInModalDialog,
   useInTabDialog,
+  useIsTabletDetailView,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import { TabletHomeContainer } from '@onekeyhq/kit/src/components/TabletHomeContainer';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
   useSwapActions,
@@ -956,16 +958,22 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   );
 };
 
-const SwapMainLandWithPageType = (props: ISwapMainLoadProps) => (
-  <SwapProviderMirror
-    storeName={
-      props?.pageType === EPageType.modal
-        ? EJotaiContextStoreNames.swapModal
-        : EJotaiContextStoreNames.swap
-    }
-  >
-    <SwapMainLoad {...props} pageType={props?.pageType} />
-  </SwapProviderMirror>
-);
+const SwapMainLandWithPageType = (props: ISwapMainLoadProps) => {
+  const isTabletDetailView = useIsTabletDetailView();
+  if (isTabletDetailView && props?.pageType !== EPageType.modal) {
+    return <TabletHomeContainer />;
+  }
+  return (
+    <SwapProviderMirror
+      storeName={
+        props?.pageType === EPageType.modal
+          ? EJotaiContextStoreNames.swapModal
+          : EJotaiContextStoreNames.swap
+      }
+    >
+      <SwapMainLoad {...props} pageType={props?.pageType} />
+    </SwapProviderMirror>
+  );
+};
 
 export default SwapMainLandWithPageType;

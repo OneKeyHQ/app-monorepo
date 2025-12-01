@@ -19,6 +19,7 @@ interface IShareImageGeneratorProps {
   data: IShareData;
   config: IShareConfig;
   referralUrl?: string;
+  inviteCode?: string;
   isReferralReady?: boolean;
 }
 
@@ -32,7 +33,7 @@ async function fileUriToBase64(uri: string): Promise<string> {
 export const ShareImageGenerator = forwardRef<
   IShareImageGeneratorRef,
   IShareImageGeneratorProps
->(({ data, config, referralUrl, isReferralReady }, ref) => {
+>(({ data, config, referralUrl, inviteCode, isReferralReady }, ref) => {
   const viewShotRef = useRef<ViewShot>(null);
 
   const generate = useCallback(async (): Promise<string> => {
@@ -65,6 +66,7 @@ export const ShareImageGenerator = forwardRef<
           data={data}
           config={config}
           referralUrl={referralUrl}
+          inviteCode={inviteCode}
           isReferralReady={isReferralReady}
         />
       </ViewShot>

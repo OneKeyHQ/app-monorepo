@@ -11,13 +11,19 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalFirmwareUpdateRoutes,
   EModalRoutes,
+  EOnboardingPagesV2,
+  EOnboardingV2Routes,
   ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
 import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { closeModalPages } from '../../../hooks/usePageNavigation';
 import { FirmwareUpdateCheckList } from '../components/FirmwareUpdateCheckList';
+
+import type { AllFirmwareRelease } from '@onekeyfe/hd-core';
+import type { EDeviceType } from '@onekeyfe/hd-shared';
 
 export function useFirmwareUpdateActions() {
   const intl = useIntl();
@@ -27,6 +33,7 @@ export function useFirmwareUpdateActions() {
     async (params: {
       connectId: string | undefined;
       firmwareType: EFirmwareType | undefined;
+      baseReleaseInfo?: AllFirmwareRelease;
     }) =>
       backgroundApiProxy.serviceApp.openExtensionExpandTab({
         routes: [
@@ -73,15 +80,21 @@ export function useFirmwareUpdateActions() {
     ({
       connectId,
       firmwareType,
+      baseReleaseInfo,
     }: {
       connectId: string | undefined;
       firmwareType?: EFirmwareType;
+      baseReleaseInfo?: AllFirmwareRelease;
     }) => {
       if (
         platformEnv.isExtensionUiPopup ||
         platformEnv.isExtensionUiSidePanel
       ) {
-        void openChangeLogOfExtension({ connectId, firmwareType });
+        void openChangeLogOfExtension({
+          connectId,
+          firmwareType,
+          baseReleaseInfo,
+        });
         if (platformEnv.isExtensionUiSidePanel) {
           window.close();
         }
@@ -97,6 +110,7 @@ export function useFirmwareUpdateActions() {
               params: {
                 connectId,
                 firmwareType,
+                baseReleaseInfo,
               },
             },
           }),
@@ -108,6 +122,7 @@ export function useFirmwareUpdateActions() {
           params: {
             connectId,
             firmwareType,
+            baseReleaseInfo,
           },
         });
       }
@@ -118,6 +133,22 @@ export function useFirmwareUpdateActions() {
   const closeUpdateModal = useCallback(() => {
     navigation.popStack();
   }, [navigation]);
+
+  const restartOnboarding = useCallback(
+    async ({ deviceType }: { deviceType: EDeviceType | undefined }) => {
+      await closeModalPages();
+      rootNavigationRef.current?.navigate(ERootRoutes.Onboarding, {
+        screen: EOnboardingV2Routes.OnboardingV2,
+        params: {
+          screen: EOnboardingPagesV2.ConnectYourDevice,
+          params: {
+            deviceType: [deviceType],
+          },
+        },
+      });
+    },
+    [],
+  );
 
   const showBootloaderMode = useCallback(
     ({
@@ -268,5 +299,6 @@ export function useFirmwareUpdateActions() {
     showBootloaderMode,
     showForceUpdate,
     showCheckList,
+    restartOnboarding,
   };
 }

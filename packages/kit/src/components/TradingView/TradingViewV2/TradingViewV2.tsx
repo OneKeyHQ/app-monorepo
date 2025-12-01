@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useRef } from 'react';
 
-import { Stack, useOrientation } from '@onekeyhq/components';
+import { Stack } from '@onekeyhq/components';
 import type { IStackStyle } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -34,8 +34,6 @@ interface IBaseTradingViewV2Props {
 export type ITradingViewV2Props = IBaseTradingViewV2Props & IStackStyle;
 
 export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
-  const isLandscape = useOrientation();
-  const isIPadPortrait = platformEnv.isNativeIOSPad && !isLandscape;
   const webRef = useRef<IWebViewRef | null>(null);
   const theme = useThemeVariant();
   const isVisible = useRouteIsFocused();
@@ -132,7 +130,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     <Stack position="relative" flex={1}>
       {webView}
 
-      {platformEnv.isNativeIOS || isIPadPortrait ? (
+      {platformEnv.isNativeIOS ? (
         <Stack
           position="absolute"
           left={0}

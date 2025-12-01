@@ -2,10 +2,12 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { Page, useMedia } from '@onekeyhq/components';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
+import { TabletHomeContainer } from '../../../components/TabletHomeContainer';
 import { TabPageHeader } from '../../../components/TabPageHeader';
 import { useSelectedNetworkIdAtom } from '../../../states/jotai/contexts/marketV2';
 import { useMarketBasicConfig, useMarketEnterAnalytics } from '../hooks';
@@ -112,7 +114,7 @@ function MarketHome() {
         tabRoute={ETabRoutes.Market}
       />
       <Page.Body>
-        {md ? (
+        {md || platformEnv.isNative ? (
           <MobileLayout {...mobileProps} />
         ) : (
           <DesktopLayout {...desktopProps} />
@@ -124,18 +126,20 @@ function MarketHome() {
 
 export function MarketHomeV2() {
   return (
-    <AccountSelectorProviderMirror
-      config={{
-        sceneName: EAccountSelectorSceneName.home,
-        sceneUrl: '',
-      }}
-      enabledNum={[0]}
-    >
-      <MarketWatchListProviderMirrorV2
-        storeName={EJotaiContextStoreNames.marketWatchListV2}
+    <TabletHomeContainer>
+      <AccountSelectorProviderMirror
+        config={{
+          sceneName: EAccountSelectorSceneName.home,
+          sceneUrl: '',
+        }}
+        enabledNum={[0]}
       >
-        <MarketHome />
-      </MarketWatchListProviderMirrorV2>
-    </AccountSelectorProviderMirror>
+        <MarketWatchListProviderMirrorV2
+          storeName={EJotaiContextStoreNames.marketWatchListV2}
+        >
+          <MarketHome />
+        </MarketWatchListProviderMirrorV2>
+      </AccountSelectorProviderMirror>
+    </TabletHomeContainer>
   );
 }

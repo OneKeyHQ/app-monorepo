@@ -5386,23 +5386,29 @@ class ServiceAccount extends ServiceBase {
   }
 
   /**
-   * Check if the account network is supported
-   * @param accountId - account id
-   * @param accountImpl - Optional: avoids DB query if already known
-   * @param featuresInfo - Optional: avoids redundant device queries
-   * @param activeNetworkId - active network id
-   * @returns {boolean} if the account network is supported
+   * Check if the account network is supported by the wallet
+   *
+   * @param accountId - Optional: account ID (either accountId or walletId must be provided)
+   * @param walletId - Optional: wallet ID (either accountId or walletId must be provided)
+   * @param accountImpl - Optional: account implementation, avoids DB query if already known
+   * @param featuresInfo - Optional: device features, avoids redundant device queries
+   * @param activeNetworkId - Required: active network ID to check
+   *
+   * @throws {OneKeyInternalError} if neither accountId nor walletId is provided
+   * @returns {object | undefined} Returns { networkImpl } if network is not supported, undefined otherwise
    */
   @backgroundMethod()
   async checkAccountNetworkNotSupported({
     accountId,
+    walletId,
     accountImpl,
-    featuresInfo,
+    featuresInfoCache,
     activeNetworkId,
   }: {
-    accountId: string;
+    accountId?: string;
+    walletId?: string;
     accountImpl?: string;
-    featuresInfo?: IOneKeyDeviceFeatures;
+    featuresInfoCache?: IOneKeyDeviceFeatures;
     activeNetworkId: string;
   }): Promise<
     | {
@@ -5410,11 +5416,21 @@ class ServiceAccount extends ServiceBase {
       }
     | undefined
   > {
-    const walletId = accountUtils.getWalletIdFromAccountId({
-      accountId,
-    });
+    // Validate: at least one of accountId or walletId must be provided
+    if (!accountId && !walletId) {
+      throw new OneKeyInternalError(
+        'checkAccountNetworkNotSupported: either accountId or walletId must be provided',
+      );
+    }
 
-    if (walletId === WALLET_TYPE_WATCHING) {
+    // Determine walletId
+    let finalWalletId = walletId;
+    if (!finalWalletId && accountId) {
+      finalWalletId = accountUtils.getWalletIdFromAccountId({ accountId });
+    }
+
+    // Early returns for watching wallet
+    if (finalWalletId === WALLET_TYPE_WATCHING) {
       return undefined;
     }
 
@@ -5422,7 +5438,8 @@ class ServiceAccount extends ServiceBase {
       networkId: activeNetworkId ?? '',
     });
 
-    if (accountUtils.isOthersAccount({ accountId })) {
+    // Handle Others account (requires accountId)
+    if (accountId && accountUtils.isOthersAccount({ accountId })) {
       let currentAccountImpl = accountImpl;
       if (!currentAccountImpl) {
         const account = await this.getDBAccountSafe({ accountId });
@@ -5443,14 +5460,16 @@ class ServiceAccount extends ServiceBase {
       };
     }
 
-    if (!accountUtils.isHwWallet({ walletId })) {
+    // Check hardware wallet BTC-only firmware restriction
+    if (!accountUtils.isHwWallet({ walletId: finalWalletId! })) {
       return undefined;
     }
 
     const isBtcOnlyFirmware = await this.isBtcOnlyFirmwareByWalletId({
-      walletId,
-      featuresInfo,
+      walletId: finalWalletId!,
+      featuresInfo: featuresInfoCache,
     });
+
     if (isBtcOnlyFirmware && activeNetworkImpl !== IMPL_BTC) {
       return {
         networkImpl: activeNetworkImpl,

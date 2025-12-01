@@ -6,13 +6,10 @@ import type { IPageNavigationProp } from '@onekeyhq/components';
 import { Dialog, SizableText } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import {
-  ETabEarnRoutes,
-  ETabRoutes,
-  type IModalSwapParamList,
-} from '@onekeyhq/shared/src/routes';
+import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes/modal';
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
+import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
@@ -33,6 +30,7 @@ import {
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
+import { EarnNavigation } from '../../Earn/earnUtils';
 
 export const useMarketTradeNetwork = (token: IMarketTokenDetail | null) => {
   const { detailPlatforms, platforms = {} } = token || {};
@@ -255,14 +253,33 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
       return;
     }
 
-    // Navigate to protocols list page
-    navigation.switchTab(ETabRoutes.Earn, {
-      screen: ETabEarnRoutes.EarnProtocols,
-      params: {
+    // Fetch protocol list to check if we should skip the list page
+    const protocolList =
+      await backgroundApiProxy.serviceStaking.getProtocolList({
+        symbol: normalizedSymbol,
+      });
+
+    // If only one protocol, navigate directly to details page
+    if (protocolList.length === 1) {
+      const protocol = protocolList[0];
+      const vault = earnUtils.isVaultBasedProvider({
+        providerName: protocol.provider.name,
+      })
+        ? protocol.provider.vault
+        : undefined;
+      void EarnNavigation.pushToEarnProtocolDetails(navigation, {
+        networkId: protocol.network.networkId,
+        symbol: normalizedSymbol,
+        provider: protocol.provider.name,
+        vault,
+      });
+    } else {
+      // Navigate to protocols list page if multiple providers
+      void EarnNavigation.pushToEarnProtocols(navigation, {
         symbol: normalizedSymbol,
         filterNetworkId: networkId,
-      },
-    });
+      });
+    }
   }, [createAccountIfNotExists, navigation, networkId, symbol]);
   const canStaking = useMemo(() => isSupportStaking(symbol), [symbol]);
 
