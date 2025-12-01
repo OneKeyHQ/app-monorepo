@@ -2869,7 +2869,7 @@
   "referral.modal_been_invited_desc": "將錢包綁定至邀請碼，開啟雙贏",
   "referral.modal_been_invited_point1": "您獲得手續費回饋*",
   "referral.modal_been_invited_point2": "他們賺取佣金",
-  "referral.modal_been_invited_title": "您受邀了!請輸入代碼:{ABCDEF}",
+  "referral.modal_been_invited_title": "收到一個邀請！邀請碼：{ABCDEF}",
   "referral.modal_been_invited_title_code": "收到一個邀請！邀請碼 {ABCDEF}",
   "referral.more_questions": "如有更多問題，請查看<url>https://help.onekey.so/articles/11461266<underline>這裡</underline></url>。",
   "referral.next_distribution": "下一次發放",

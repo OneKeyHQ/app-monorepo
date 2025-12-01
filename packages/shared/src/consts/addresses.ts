@@ -19,6 +19,8 @@ export const SuiWBTC =
 
 export const MorphoBundlerContract =
   '0x4095f064b8d3c3548a3bebfd0bbfd04750e30077';
+export const MorphoUSDCVaultAddress =
+  '0x974c8FBf4fd795F66B85B73ebC988A51F1A040a9';
 
 export const ALL_NETWORK_ACCOUNT_MOCK_ADDRESS = 'AllNetworkMockAddress';
 export const EMPTY_NATIVE_TOKEN_ADDRESS = '';
