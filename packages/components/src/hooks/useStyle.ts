@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef } from 'react';
 
 import type {
-  UseMediaState,
   UseThemeResult,
   VariableVal,
 } from '@onekeyhq/components/src/shared/tamagui';
@@ -13,8 +12,6 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { SHEET_AND_DIALOG_Z_INDEX } from '@onekeyhq/shared/src/utils/overlayUtils';
 
-import { useOrientation } from './useOrientation';
-
 export {
   getTokens,
   getTokenValue,
@@ -24,36 +21,7 @@ export {
   usePropsAndStyle,
 } from '@onekeyhq/components/src/shared/tamagui';
 
-export const useMedia: typeof useTamaguiMedia = platformEnv.isNative
-  ? () => {
-      const media = useTamaguiMedia();
-      const isLandscape = useOrientation();
-      return useMemo(
-        () =>
-          isLandscape
-            ? ({
-                sm: media.sm,
-                gtSm: media.gtSm,
-                md: true,
-                gtMd: false,
-                '2md': false,
-                gt2Md: false,
-                lg: false,
-                gtLg: false,
-                xl: false,
-                gtXl: false,
-                '2xl': false,
-                gt2xl: false,
-                short: media.short,
-                tall: media.tall,
-                hoverNone: media.hoverNone,
-                pointerCoarse: media.pointerCoarse,
-              } as UseMediaState)
-            : media,
-        [isLandscape, media],
-      );
-    }
-  : useTamaguiMedia;
+export const useMedia = useTamaguiMedia;
 
 export type IThemeColorKeys = keyof UseThemeResult;
 const getValue = (
