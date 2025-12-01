@@ -174,11 +174,10 @@ export function USDEManageContent({
         token,
         networkId,
       });
-      onActionSuccess?.();
     } catch (error) {
       console.error('handleTrade error:', error);
     }
-  }, [handleSwap, networkId, token, onActionSuccess]);
+  }, [handleSwap, networkId, token]);
 
   const handleActivate = useCallback(() => {
     if (!activateAction) return;
