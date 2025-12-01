@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 
+import { rootNavigationRef } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -25,7 +26,6 @@ export const isOnboardingFromExtensionUrl = () => {
 
 export const useToOnBoardingPage = () => {
   const navigation = useAppNavigation();
-
   return useMemo(
     () =>
       async ({
@@ -59,7 +59,7 @@ export const useToOnBoardingPage = () => {
         } else {
           await closeModalPages();
           await timerUtils.wait(150);
-          navigation.navigate(ERootRoutes.Onboarding, {
+          rootNavigationRef.current?.navigate(ERootRoutes.Onboarding, {
             screen: EOnboardingV2Routes.OnboardingV2,
             params: {
               screen: EOnboardingPagesV2.GetStarted,

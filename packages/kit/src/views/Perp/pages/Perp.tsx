@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useIsFocused } from '@react-navigation/native';
 
 import { Page, Stack, YStack, useMedia } from '@onekeyhq/components';
+import { TabletHomeContainer } from '@onekeyhq/kit/src/components/TabletHomeContainer';
 import { FLOAT_NAV_BAR_Z_INDEX } from '@onekeyhq/shared/src/consts/zIndexConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
@@ -25,7 +26,7 @@ import type { LayoutChangeEvent } from 'react-native';
 
 function PerpLayout() {
   const { gtMd } = useMedia();
-  if (gtMd) {
+  if (gtMd && !platformEnv.isNative) {
     return <PerpDesktopLayout />;
   }
   return <PerpMobileLayout />;
@@ -123,10 +124,12 @@ export default function Perp() {
   }
 
   return (
-    <PerpsAccountSelectorProviderMirror>
-      <PerpsProviderMirror>
-        <PerpView />
-      </PerpsProviderMirror>
-    </PerpsAccountSelectorProviderMirror>
+    <TabletHomeContainer>
+      <PerpsAccountSelectorProviderMirror>
+        <PerpsProviderMirror>
+          <PerpView />
+        </PerpsProviderMirror>
+      </PerpsAccountSelectorProviderMirror>
+    </TabletHomeContainer>
   );
 }
