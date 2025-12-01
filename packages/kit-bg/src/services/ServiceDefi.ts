@@ -49,7 +49,7 @@ class ServiceDeFi extends ServiceBase {
     const resp = await client.post<{
       data: IFetchAccountDeFiPositionsResp;
     }>(
-      `/wallet/v1/account/token-approval/list`,
+      '/wallet/v1/portfolio/positions',
       {
         networkId,
         accountAddress,
@@ -62,6 +62,8 @@ class ServiceDeFi extends ServiceBase {
           }),
       },
     );
+
+    return resp.data.data;
   }
 }
 
