@@ -42,7 +42,12 @@ function RichBlockHeader(
             title
           )}
           {title && subTitle && withTitleSeparator ? (
-            <SizableText size="$headingLg" color="$textSubdued" {...titleProps}>
+            <SizableText
+              size="$headingLg"
+              color="$textSubdued"
+              $md={{ size: '$bodyLgMedium' }}
+              {...titleProps}
+            >
               ·
             </SizableText>
           ) : null}

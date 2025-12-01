@@ -1,35 +1,68 @@
-import qs from 'querystring';
-
-import { isNil, omitBy } from 'lodash';
-
 import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import type {
-  IFetchAccountDefiParams,
-  IFetchAccountDefiResp,
+  IFetchAccountDeFiPositionsParams,
+  IFetchAccountDeFiPositionsResp,
 } from '@onekeyhq/shared/types/defi';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import ServiceBase from './ServiceBase';
 
 @backgroundClass()
-class ServiceDefi extends ServiceBase {
+class ServiceDeFi extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
   }
 
+  _fetchAccountDeFiPositionsControllers: AbortController[] = [];
+
   @backgroundMethod()
-  public async fetchAccountDefi(
-    params: IFetchAccountDefiParams,
-  ): Promise<IFetchAccountDefiResp> {
+  public async abortFetchAccountDeFiPositions() {
+    this._fetchAccountDeFiPositionsControllers.forEach((controller) => {
+      controller.abort();
+    });
+    this._fetchAccountDeFiPositionsControllers = [];
+  }
+
+  @backgroundMethod()
+  public async fetchAccountDeFiPositions(
+    params: IFetchAccountDeFiPositionsParams,
+  ) {
+    const { accountId, networkId } = params;
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
-    const resp = await client.get<{
-      data: IFetchAccountDefiResp;
-    }>(`/wallet/v1/account/defi/list?${qs.stringify(omitBy(params, isNil))}`);
-    return resp.data.data;
+
+    const controller = new AbortController();
+    this._fetchAccountDeFiPositionsControllers.push(controller);
+
+    let accountAddress = params.accountAddress;
+
+    if (!accountAddress) {
+      accountAddress =
+        await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+          accountId,
+          networkId,
+        });
+    }
+
+    const resp = await client.post<{
+      data: IFetchAccountDeFiPositionsResp;
+    }>(
+      `/wallet/v1/account/token-approval/list`,
+      {
+        networkId,
+        accountAddress,
+      },
+      {
+        signal: controller.signal,
+        headers:
+          await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+            accountId,
+          }),
+      },
+    );
   }
 }
 
-export default ServiceDefi;
+export default ServiceDeFi;

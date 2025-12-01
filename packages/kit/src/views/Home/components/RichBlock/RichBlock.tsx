@@ -11,6 +11,7 @@ function RichBlock(props: IRichBlockProps) {
     subTitle,
     titleProps,
     subTitleProps,
+    withTitleSeparator,
     headerActions,
     headerContainerProps,
     blockContainerProps,
@@ -25,6 +26,7 @@ function RichBlock(props: IRichBlockProps) {
           titleProps={titleProps}
           subTitle={subTitle}
           subTitleProps={subTitleProps}
+          withTitleSeparator={withTitleSeparator}
           headerActions={headerActions}
           headerContainerProps={headerContainerProps}
         />
