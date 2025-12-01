@@ -8,6 +8,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalReferFriendsRoutes,
   EModalRoutes,
@@ -41,8 +42,18 @@ function ReferralLandingPage() {
   const routeParams = route.params as
     | { code: string; page?: string }
     | undefined;
-  const code = routeParams?.code;
+  const routeCode = routeParams?.code;
   const page = routeParams?.page;
+
+  // Handle /r/invite?code=XXX case - extract code from URL query params
+  let code = routeCode;
+  if (routeCode === 'invite' && platformEnv.isWeb) {
+    const parsedURL = new URL(globalThis?.location.href);
+    const queryCode = parsedURL.searchParams.get('code');
+    if (queryCode) {
+      code = queryCode;
+    }
+  }
 
   // Process referral landing after app is unlocked
   useEffect(() => {

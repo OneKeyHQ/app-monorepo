@@ -2,19 +2,15 @@ import { useMemo } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import {
   WEB_APP_URL,
   WEB_APP_URL_DEV,
 } from '@onekeyhq/shared/src/config/appConfig';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
-import { DEFAULT_REFERRAL_URL } from './constants';
-
-function getWebAppUrl() {
-  return platformEnv.isDev ? WEB_APP_URL_DEV : WEB_APP_URL;
-}
 
 export function useReferralUrl() {
+  const [devSettings] = useDevSettingsPersistAtom();
+
   const { result: summaryInfo, isLoading } = usePromiseResult(
     async () => {
       const code =
@@ -36,13 +32,28 @@ export function useReferralUrl() {
     },
   );
 
-  const referralUrl = useMemo(() => {
-    if (!summaryInfo?.inviteCode) {
-      return DEFAULT_REFERRAL_URL;
+  const webAppUrl = useMemo(() => {
+    const useTestUrl =
+      devSettings.enabled && devSettings.settings?.enableTestEndpoint;
+    return useTestUrl ? WEB_APP_URL_DEV : WEB_APP_URL;
+  }, [devSettings.enabled, devSettings.settings?.enableTestEndpoint]);
+
+  const inviteCode = summaryInfo?.inviteCode;
+  const defaultReferralUrl = `${webAppUrl}/perps`;
+
+  const referralQrCodeUrl = useMemo(() => {
+    if (!inviteCode) {
+      return defaultReferralUrl;
     }
-    return `${getWebAppUrl()}/r/${summaryInfo.inviteCode}/app/perp`;
-  }, [summaryInfo?.inviteCode]);
+    return `${webAppUrl}/r/${inviteCode}/app/perp`;
+  }, [inviteCode, webAppUrl, defaultReferralUrl]);
+
+  const referralDisplayText = inviteCode || defaultReferralUrl;
 
   const isReady = isLoading === false;
-  return { referralUrl, inviteCode: summaryInfo?.inviteCode, isReady };
+  return {
+    referralQrCodeUrl,
+    referralDisplayText,
+    isReady,
+  };
 }
