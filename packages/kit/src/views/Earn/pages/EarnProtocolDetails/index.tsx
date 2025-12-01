@@ -12,7 +12,7 @@ import {
   Stack,
   XStack,
   YStack,
-  useIsGtMd,
+  useMedia,
   useShare,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -189,7 +189,7 @@ function ChartSection({
   vault?: string;
 }) {
   const intl = useIntl();
-  const gtMd = useIsGtMd();
+  const { gtMd } = useMedia();
 
   // Fetch chart data to get high/low values
   const { result: apyHistory } = usePromiseResult(async () => {
@@ -494,7 +494,7 @@ const ManagePositionPart = ({
 const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
   const intl = useIntl();
   const appNavigation = useAppNavigation();
-  const gtMd = useIsGtMd();
+  const { gtMd } = useMedia();
   const { shareText } = useShare();
   const [devSettings] = useDevSettingsPersistAtom();
   const { activeAccount } = useActiveAccount({ num: 0 });
