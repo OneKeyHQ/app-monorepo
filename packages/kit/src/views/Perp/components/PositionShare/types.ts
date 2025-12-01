@@ -23,8 +23,8 @@ export interface IShareImageGeneratorRef {
   generate: () => Promise<string>;
 }
 export interface IShareReferralInfo {
-  referralUrl?: string;
-  inviteCode?: string;
+  referralQrCodeUrl?: string;
+  referralDisplayText?: string;
 }
 
 export interface ICanvasConfig {
