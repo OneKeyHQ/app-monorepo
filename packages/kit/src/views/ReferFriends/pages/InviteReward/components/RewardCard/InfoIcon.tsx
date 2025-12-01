@@ -6,7 +6,7 @@ import {
   SizableText,
   Tooltip,
   YStack,
-  useMedia,
+  useIsGtMd,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 
@@ -18,7 +18,7 @@ export interface IInfoIconProps {
 
 export function InfoIcon({ onPress, size = '$5', tooltip }: IInfoIconProps) {
   const intl = useIntl();
-  const { gtMd } = useMedia();
+  const gtMd = useIsGtMd();
   const icon = <Icon name="InfoCircleOutline" size={size} onPress={onPress} />;
 
   if (tooltip) {

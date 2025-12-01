@@ -9,7 +9,7 @@ import {
   Stack,
   XStack,
   YStack,
-  useMedia,
+  useIsGtMd,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -40,7 +40,7 @@ export function MarketRecommendList({
 }: IMarketRecommendListProps) {
   const intl = useIntl();
   const actions = useWatchListV2Action();
-  const { gtMd } = useMedia();
+  const gtMd = useIsGtMd();
 
   const defaultTokens = useMemo(
     () => recommendedTokens?.slice(0, maxSize) || [],

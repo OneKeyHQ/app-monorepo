@@ -11,7 +11,7 @@ import {
   SizableText,
   XStack,
   YStack,
-  useMedia,
+  useIsGtMd,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
@@ -50,7 +50,7 @@ const LimitOrderCard = ({
 }) => {
   const { fromTokenInfo, toTokenInfo, fromAmount, toAmount } = item;
   const intl = useIntl();
-  const { gtMd } = useMedia();
+  const gtMd = useIsGtMd();
   const createdAtFormat = useMemo(() => {
     const date = new BigNumber(item.createdAt).toNumber();
     const dateStr = formatDate(new Date(date), {

@@ -15,7 +15,7 @@ import {
   Spinner,
   XStack,
   YStack,
-  useMedia,
+  useIsMd,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
@@ -85,7 +85,7 @@ function HardwareSalesRewardPageWrapper() {
     ESpotlightTour.hardwareSalesRewardAlert,
   );
   const intl = useIntl();
-  const { md } = useMedia();
+  const md = useIsMd();
 
   const [isLoading, setIsLoading] = useState(false);
   const [sections, setSections] = useState<

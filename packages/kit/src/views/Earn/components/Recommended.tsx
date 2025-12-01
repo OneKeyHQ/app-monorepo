@@ -13,7 +13,7 @@ import {
   Skeleton,
   XStack,
   YStack,
-  useMedia,
+  useIsMd,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
@@ -209,7 +209,7 @@ function RecommendedContainer({ children }: PropsWithChildren) {
 }
 
 export function Recommended() {
-  const { md } = useMedia();
+  const md = useIsMd();
   const allNetworkId = getNetworkIdsMap().onekeyall;
   const {
     activeAccount: { account, indexedAccount },

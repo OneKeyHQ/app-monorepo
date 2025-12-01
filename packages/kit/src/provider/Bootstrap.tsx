@@ -12,7 +12,7 @@ import {
   getFormInstances,
   rootNavigationRef,
   useIsTabletDetailView,
-  useMedia,
+  useIsMd,
   useShortcuts,
 } from '@onekeyhq/components';
 import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
@@ -459,7 +459,7 @@ const launchFloatingIconEvent = async (intl: IntlShape) => {
 };
 
 export const useIntercomInit = () => {
-  const { md } = useMedia();
+  const md = useIsMd();
   const isInitializedRef = useRef(false);
 
   useEffect(() => {

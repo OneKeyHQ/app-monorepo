@@ -19,7 +19,7 @@ import {
   Stack,
   XStack,
   YStack,
-  useMedia,
+  useIsGtMd,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
@@ -121,7 +121,7 @@ export function UniversalWithdraw({
   isInModalContext = false,
 }: PropsWithChildren<IUniversalWithdrawProps>) {
   const navigation = useAppNavigation();
-  const { gtMd } = useMedia();
+  const gtMd = useIsGtMd();
   const { handleOpenWebSite } = useBrowserAction().current;
   const price = Number(inputPrice) > 0 ? inputPrice : '0';
   const [loading, setLoading] = useState<boolean>(false);

@@ -8,7 +8,7 @@ import {
   Tabs,
   XStack,
   YStack,
-  useMedia,
+  useIsMd,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
@@ -190,7 +190,7 @@ function YourReferredPageWrapper() {
   useRedirectWhenNotLoggedIn();
 
   const intl = useIntl();
-  const { md } = useMedia();
+  const md = useIsMd();
   const title = intl.formatMessage({
     id: ETranslations.referral_your_referred,
   });

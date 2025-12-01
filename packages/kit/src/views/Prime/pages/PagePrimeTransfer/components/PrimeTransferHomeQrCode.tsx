@@ -13,7 +13,7 @@ import {
   XStack,
   YStack,
   useClipboard,
-  useMedia,
+  useIsGtMd,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -29,7 +29,7 @@ export function PrimeTransferHomeQrCode() {
   const [primeTransferAtom] = usePrimeTransferAtom();
   const themeVariant = useThemeVariant();
   const websocketConnected = primeTransferAtom.websocketConnected;
-  const { gtMd } = useMedia();
+  const gtMd = useIsGtMd();
 
   const [pairingCode, setPairingCode] = useState<string | undefined>(undefined);
   const { result: pairingCodeQRCode } = usePromiseResult(async () => {

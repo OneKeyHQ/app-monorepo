@@ -25,6 +25,7 @@ import {
   XStack,
   YStack,
   useIsFocusedTab,
+  useIsGtMd,
   useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -466,7 +467,8 @@ function BasicMarketHomeList({
     }
   }, [fetchCategory, isFocused, listData.length]);
 
-  const { gtMd, gt2Md, gtLg, gtXl, gt2xl } = useMedia();
+  const { gt2Md, gtLg, gtXl, gt2xl } = useMedia();
+  const gtMd = useIsGtMd();
 
   const filterCoingeckoIdsListData = useMemo(() => {
     const filterListData = category.coingeckoIds?.length

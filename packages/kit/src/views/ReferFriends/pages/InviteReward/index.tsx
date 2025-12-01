@@ -9,7 +9,7 @@ import {
   Stack,
   XStack,
   YStack,
-  useMedia,
+  useIsMd,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
@@ -94,7 +94,7 @@ function InviteRewardContent({
 
 function InviteRewardPage() {
   const intl = useIntl();
-  const { md } = useMedia();
+  const md = useIsMd();
   // Redirect to ReferAFriend page if user is not logged in
   useRedirectWhenNotLoggedIn();
 

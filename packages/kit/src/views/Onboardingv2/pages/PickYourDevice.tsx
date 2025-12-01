@@ -10,7 +10,7 @@ import {
   SizableText,
   XStack,
   YStack,
-  useMedia,
+  useIsGtMd,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -23,7 +23,7 @@ import { OnboardingLayout } from '../components/OnboardingLayout';
 export default function PickYourDevice() {
   const intl = useIntl();
   const navigation = useAppNavigation();
-  const { gtMd } = useMedia();
+  const gtMd = useIsGtMd();
   const DEVICES = useMemo(() => {
     const devices = [
       {

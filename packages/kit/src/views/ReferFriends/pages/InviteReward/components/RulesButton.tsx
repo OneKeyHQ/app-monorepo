@@ -1,13 +1,13 @@
 import { useIntl } from 'react-intl';
 
-import { Button, IconButton, useMedia } from '@onekeyhq/components';
+import { Button, IconButton, useIsMd } from '@onekeyhq/components';
 import { REFERRAL_HELP_LINK } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 export function RulesButton() {
   const intl = useIntl();
-  const { md } = useMedia();
+  const md = useIsMd();
 
   const handlePress = () => {
     void openUrlExternal(REFERRAL_HELP_LINK);

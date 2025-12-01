@@ -26,7 +26,7 @@ import {
   XStack,
   YStack,
   useClipboard,
-  useMedia,
+  useIsMd,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -292,7 +292,7 @@ const SwapTokenSelectPage = () => {
     [setCurrentSelectNetwork],
   );
 
-  const { md } = useMedia();
+  const md = useIsMd();
   const { copyText, getClipboard } = useClipboard();
 
   const handlePaste = useCallback(async () => {

@@ -13,7 +13,7 @@ import {
   Spinner,
   XStack,
   YStack,
-  useMedia,
+  useIsMd,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
@@ -117,7 +117,7 @@ function RewardDistributionHistoryPageWrapper() {
   // }, [fetchInvitePaidList]);
 
   const intl = useIntl();
-  const { md } = useMedia();
+  const md = useIsMd();
   const renderItem = useCallback(
     ({ item }: { item: IInvitePaidItem; section: ISectionListItem }) => {
       return (

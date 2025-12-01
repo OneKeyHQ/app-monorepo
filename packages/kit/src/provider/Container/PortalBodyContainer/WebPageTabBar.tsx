@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 
-import { Portal, useMedia } from '@onekeyhq/components';
+import { Portal, useIsGtMd } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import DesktopCustomTabBar from '../../../views/Discovery/pages/DesktopCustomTabBar';
@@ -8,7 +8,7 @@ import DesktopCustomTabBar from '../../../views/Discovery/pages/DesktopCustomTab
 const useShowWebBars = platformEnv.isNative
   ? () => false
   : () => {
-      const { gtMd } = useMedia();
+      const gtMd = useIsGtMd();
       return gtMd;
     };
 export const WebPageTabBar =

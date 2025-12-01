@@ -18,7 +18,7 @@ import {
   SizableText,
   XStack,
   YStack,
-  useMedia,
+  useIsGtMd,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import {
@@ -67,7 +67,7 @@ function ReceiveToken() {
   useDebugComponentRemountLog({
     name: 'ReceiveToken9971',
   });
-  const media = useMedia();
+  const gtMd = useIsGtMd();
   const intl = useIntl();
   const navigation = useAppNavigation();
   const route =
@@ -479,7 +479,7 @@ function ReceiveToken() {
       >
         <Button
           variant="primary"
-          size={media.gtMd ? 'medium' : 'large'}
+          size={gtMd ? 'medium' : 'large'}
           onPress={handleVerifyOnDevicePress}
           $md={{
             width: '100%',
@@ -524,7 +524,7 @@ function ReceiveToken() {
     handleVerifyOnDevicePress,
     intl,
     isHardwareWallet,
-    media.gtMd,
+    gtMd,
     shouldShowAddress,
   ]);
 

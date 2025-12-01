@@ -8,7 +8,7 @@ import {
   SizableText,
   XStack,
   YStack,
-  useMedia,
+  useIsGtMd,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 
@@ -26,7 +26,7 @@ export function SizeInputModeSelector({
   const intl = useIntl();
   const isTokenSelected = value === 'token';
   const isUsdSelected = value === 'usd' || value === 'margin';
-  const { gtMd } = useMedia();
+  const gtMd = useIsGtMd();
 
   const handleUsdCardPress = useCallback(() => {
     if (!isUsdSelected) {

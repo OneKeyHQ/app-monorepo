@@ -12,6 +12,7 @@ import {
   SizableText,
   XStack,
   YStack,
+  useIsGtMd,
   useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -113,7 +114,7 @@ function WalletBanner() {
     }
   }, []);
 
-  const { gtMd } = useMedia();
+  const gtMd = useIsGtMd();
 
   const handlePageChanged = useDebouncedCallback((index: number) => {
     if (banners[index]) {

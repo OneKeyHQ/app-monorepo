@@ -22,7 +22,7 @@ import {
   Stack,
   XStack,
   YStack,
-  useMedia,
+  useIsGtMd,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
@@ -144,7 +144,7 @@ export function UniversalStake({
 }: PropsWithChildren<IUniversalStakeProps>) {
   const intl = useIntl();
   const navigation = useAppNavigation();
-  const { gtMd } = useMedia();
+  const gtMd = useIsGtMd();
   const { handleOpenWebSite } = useBrowserAction().current;
   const showEstimateGasAlert = useShowStakeEstimateGasAlert();
   const [amountValue, setAmountValue] = useState('');

@@ -12,7 +12,7 @@ import {
   XStack,
   rootNavigationRef,
   useIsModalPage,
-  useMedia,
+  useIsMd,
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { closeModalPages } from '@onekeyhq/kit/src/hooks/usePageNavigation';
@@ -114,7 +114,7 @@ const SwapActionsState = ({
   const quoting = useSwapQuoteEventFetching();
 
   const isModalPage = useIsModalPage();
-  const { md } = useMedia();
+  const md = useIsMd();
 
   const onActionHandlerBefore = useCallback(async () => {
     if (swapActionState.noConnectWallet) {

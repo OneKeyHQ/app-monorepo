@@ -9,7 +9,7 @@ import {
   Stack,
   TabStackNavigator,
   useIsTabletDetailView,
-  useMedia,
+  useIsGtMd,
   useOrientation,
 } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -73,7 +73,7 @@ export function TabNavigator() {
   const config = useTabRouterConfig(routerConfigParams);
   const isShowWebTabBar = platformEnv.isDesktop;
   const isFocused = useIsIOSTabNavigatorFocused();
-  const { gtMd } = useMedia();
+  const gtMd = useIsGtMd();
   const isTabletDetailView = useIsTabletDetailView();
 
   useCheckTabsChangedInDev(config);

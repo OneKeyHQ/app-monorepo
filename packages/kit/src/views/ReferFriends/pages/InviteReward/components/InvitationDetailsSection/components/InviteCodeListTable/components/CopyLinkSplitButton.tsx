@@ -10,7 +10,7 @@ import {
   Stack,
   XStack,
   useClipboard,
-  useMedia,
+  useIsGtMd,
 } from '@onekeyhq/components';
 import type { IActionListItemProps } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -23,7 +23,7 @@ interface ICopyLinkSplitButtonProps {
 export function CopyLinkSplitButton({ url }: ICopyLinkSplitButtonProps) {
   const intl = useIntl();
   const { copyText } = useClipboard();
-  const { gtMd } = useMedia();
+  const gtMd = useIsGtMd();
 
   const walletInviteUrl = useMemo(() => `${url}/app`, [url]);
   const shopInviteUrl = useMemo(() => `${url}/shop`, [url]);

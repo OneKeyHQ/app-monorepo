@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Button, Dialog, SizableText, useMedia } from '@onekeyhq/components';
+import { Button, Dialog, SizableText, useIsMd } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { NoteDialogContent } from './NoteDialogContent';
@@ -16,7 +16,7 @@ interface INoteCellProps {
 // Note cell with add/edit note functionality
 export function NoteCell({ code, note, onNoteUpdated }: INoteCellProps) {
   const intl = useIntl();
-  const { md } = useMedia();
+  const md = useIsMd();
 
   const handleOpenDialog = useCallback(() => {
     const dialogTitle = intl.formatMessage({

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { Page, useMedia } from '@onekeyhq/components';
+import { Page, useIsMd } from '@onekeyhq/components';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
@@ -21,7 +21,7 @@ import type { ITimeRangeSelectorValue } from './components/TimeRangeSelector';
 import type { ILiquidityFilter } from './types';
 
 function MarketHome() {
-  const { md } = useMedia();
+  const md = useIsMd();
 
   // Load market basic config using the new hook
   const { defaultNetworkId, formattedMinLiquidity } = useMarketBasicConfig();

@@ -23,7 +23,7 @@ import {
   Stack,
   XStack,
   YStack,
-  useMedia,
+  useIsGtMd,
   useThemeValue,
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -232,7 +232,7 @@ export default function GetStarted() {
     navigation.push(EOnboardingPagesV2.PickYourDevice);
     defaultLogger.account.wallet.onboard({ onboardMethod: 'connectHWWallet' });
   };
-  const { gtMd } = useMedia();
+  const gtMd = useIsGtMd();
   const intl = useIntl();
 
   const handleCreateOrImportWallet = () => {

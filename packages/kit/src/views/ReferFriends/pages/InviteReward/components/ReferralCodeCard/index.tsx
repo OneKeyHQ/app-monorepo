@@ -1,4 +1,4 @@
-import { useMedia } from '@onekeyhq/components';
+import { useIsGtMd } from '@onekeyhq/components';
 
 import { ReferralCodeCardDesktop } from './components/ReferralCodeCardDesktop';
 import { ReferralCodeCardMobile } from './components/ReferralCodeCardMobile';
@@ -6,7 +6,7 @@ import { ReferralCodeCardMobile } from './components/ReferralCodeCardMobile';
 import type { IReferralCodeCardProps } from './types';
 
 export function ReferralCodeCard(props: IReferralCodeCardProps) {
-  const { gtMd } = useMedia();
+  const gtMd = useIsGtMd();
 
   if (gtMd) {
     return <ReferralCodeCardDesktop {...props} />;

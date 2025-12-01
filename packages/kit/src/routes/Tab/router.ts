@@ -5,7 +5,7 @@ import { CommonActions } from '@react-navigation/native';
 import {
   getTokenValue,
   rootNavigationRef,
-  useMedia,
+  useIsMd,
 } from '@onekeyhq/components';
 import type {
   ITabNavigatorConfig,
@@ -64,7 +64,7 @@ const getDiscoverRouterConfig = (
 };
 
 export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
-  const { md } = useMedia();
+  const md = useIsMd();
 
   const isShowDesktopDiscover = useIsShowDesktopDiscover();
   const isWebDappMode = platformEnv.isWebDappMode;

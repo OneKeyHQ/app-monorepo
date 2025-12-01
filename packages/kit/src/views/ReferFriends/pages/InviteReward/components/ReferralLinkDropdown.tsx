@@ -9,7 +9,7 @@ import {
   IconButton,
   Stack,
   useClipboard,
-  useMedia,
+  useIsGtMd,
 } from '@onekeyhq/components';
 import type { IActionListItemProps, IButtonProps } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -26,7 +26,7 @@ export function ReferralLinkDropdown({
 }: IReferralLinkDropdownProps) {
   const intl = useIntl();
   const { copyText } = useClipboard();
-  const { gtMd } = useMedia();
+  const gtMd = useIsGtMd();
 
   const walletInviteUrl = useMemo(() => `${inviteUrl}/app`, [inviteUrl]);
   const shopInviteUrl = useMemo(() => `${inviteUrl}/shop`, [inviteUrl]);

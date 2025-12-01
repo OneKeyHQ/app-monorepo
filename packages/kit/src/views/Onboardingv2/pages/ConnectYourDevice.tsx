@@ -29,7 +29,7 @@ import {
   Video,
   XStack,
   YStack,
-  useMedia,
+  useIsGtMd,
   usePopoverContext,
 } from '@onekeyhq/components';
 import { usePromptWebDeviceAccess } from '@onekeyhq/kit/src/hooks/usePromptWebDeviceAccess';
@@ -1187,7 +1187,7 @@ function QRWalletConnect({
 }: {
   navigateToCreateQRWallet: () => Promise<void>;
 }) {
-  const { gtMd } = useMedia();
+  const gtMd = useIsGtMd();
   const intl = useIntl();
   const { closePopover } = usePopoverContext();
   const handleCreateQRWallet = useCallback(async () => {

@@ -1,13 +1,13 @@
 import { memo } from 'react';
 
-import { useMedia } from '@onekeyhq/components';
+import { useIsGtMd } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { PerpTickerBarDesktop } from './PerpTickerBarDesktop';
 import { PerpTickerBarMobile } from './PerpTickerBarMobile';
 
 function PerpTickerBar() {
-  const { gtMd } = useMedia();
+  const gtMd = useIsGtMd();
 
   if (!gtMd || platformEnv.isNative) {
     return <PerpTickerBarMobile />;
