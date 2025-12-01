@@ -1,8 +1,9 @@
 import * as ExpoDevice from 'expo-device';
+import { useMedia } from 'tamagui';
 
 import { useDualScreenInfo } from '@onekeyhq/shared/src/modules/DualScreenInfo';
-import { useMedia } from 'tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import { useOrientation } from './useOrientation';
 
 export const useIsTablet = () => {
@@ -15,5 +16,5 @@ export const useIsTablet = () => {
 export const useIsGtMd = () => {
   const { gtMd } = useMedia();
   const isLandscape = useOrientation();
-  return platformEnv.isNative ? isLandscape : gtMd;
+  return platformEnv.isNative && isLandscape ? false : gtMd;
 };
