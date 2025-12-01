@@ -86,7 +86,7 @@ export const isSupportStaking = (symbol: string) =>
     'WBTC',
   ].includes(symbol.toUpperCase());
 
-export const earnMainnetNetworkIds = [
+export const earnMainnetNetworkIds: string[] = [
   getNetworkIdsMap().eth,
   getNetworkIdsMap().cosmoshub,
   getNetworkIdsMap().apt,
@@ -96,6 +96,20 @@ export const earnMainnetNetworkIds = [
   getNetworkIdsMap().bsc,
   getNetworkIdsMap().ada,
 ];
+
+export const earnTestnetNetworkIds: string[] = [getNetworkIdsMap().hoodi];
+
+export function getEarnNetworkIds({
+  enableTestEndpoint,
+}: {
+  enableTestEndpoint?: boolean;
+}): string[] {
+  if (enableTestEndpoint) {
+    // Test environment: mainnet + testnet
+    return [...earnMainnetNetworkIds, ...earnTestnetNetworkIds];
+  }
+  return earnMainnetNetworkIds;
+}
 
 export function normalizeToEarnSymbol(
   symbol: string,

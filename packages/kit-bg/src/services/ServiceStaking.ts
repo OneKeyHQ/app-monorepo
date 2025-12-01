@@ -23,7 +23,7 @@ import type {
   EEarnProviderEnum,
   ISupportedSymbol,
 } from '@onekeyhq/shared/types/earn';
-import { earnMainnetNetworkIds } from '@onekeyhq/shared/types/earn/earnProvider.constants';
+import { getEarnNetworkIds } from '@onekeyhq/shared/types/earn/earnProvider.constants';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   IAccountHistoryTx,
@@ -79,6 +79,7 @@ import { EApproveType } from '@onekeyhq/shared/types/staking';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 import simpleDb from '../dbs/simple/simpleDb';
+import { devSettingsPersistAtom } from '../states/jotai/atoms';
 import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';
@@ -944,10 +945,15 @@ class ServiceStaking extends ServiceBase {
     networkId: string;
     indexedAccountId?: string;
   }) {
+    const devSettings = await devSettingsPersistAtom.get();
+    const enableTestEndpoint =
+      devSettings.enabled && devSettings.settings?.enableTestEndpoint;
+
     const accounts = await this.getEarnAvailableAccounts({
       accountId,
       networkId,
       indexedAccountId,
+      excludeTestNetwork: !enableTestEndpoint,
     });
     const accountParams: {
       networkId: string;
@@ -955,12 +961,14 @@ class ServiceStaking extends ServiceBase {
       publicKey?: string;
     }[] = [];
 
-    earnMainnetNetworkIds.forEach((mainnetNetworkId) => {
-      const account = accounts.find((i) => i.networkId === mainnetNetworkId);
+    const earnNetworkIds = getEarnNetworkIds({ enableTestEndpoint });
+
+    earnNetworkIds.forEach((earnNetworkId) => {
+      const account = accounts.find((i) => i.networkId === earnNetworkId);
       if (account?.apiAddress) {
         accountParams.push({
           accountAddress: account?.apiAddress,
-          networkId: mainnetNetworkId,
+          networkId: earnNetworkId,
           publicKey: account?.pub,
         });
       }
@@ -1496,6 +1504,7 @@ class ServiceStaking extends ServiceBase {
     accountId: string;
     networkId: string;
     indexedAccountId?: string;
+    excludeTestNetwork?: boolean;
   }) {
     const { accountId, networkId } = params;
     const { accountsInfo } =
@@ -1506,6 +1515,7 @@ class ServiceStaking extends ServiceBase {
         fetchAllNetworkAccounts: accountUtils.isOthersAccount({ accountId })
           ? undefined
           : true,
+        excludeTestNetwork: params.excludeTestNetwork,
       });
 
     // Check if the wallet is using BTC-only firmware
