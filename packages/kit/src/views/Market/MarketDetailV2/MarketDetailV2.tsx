@@ -85,7 +85,7 @@ function MarketDetailV2(
       return () => {
         appEventBus.emit(EAppEventBusNames.HideTabBar, false);
       };
-    }, []),
+    }, [isLandscape]),
   );
 
   return (

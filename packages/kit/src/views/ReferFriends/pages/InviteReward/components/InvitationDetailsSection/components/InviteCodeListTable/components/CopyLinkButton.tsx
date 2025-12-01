@@ -21,7 +21,12 @@ export function CopyLinkButton({
   }, [url, copyText]);
 
   return (
-    <Button variant="secondary" size="small" onPress={handleCopy} {...buttonProps}>
+    <Button
+      variant="secondary"
+      size="small"
+      onPress={handleCopy}
+      {...buttonProps}
+    >
       {intl.formatMessage({ id: ETranslations.browser_copy_link })}
     </Button>
   );
