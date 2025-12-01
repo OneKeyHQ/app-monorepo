@@ -43,13 +43,20 @@ import { useProtocolMultiTokenPendingTxs } from '../hooks/useStakingPendingTxs';
 import type { IUseEarnPortfolioReturn } from '../hooks/useEarnPortfolio';
 import type { IStakePendingTx } from '../hooks/useStakingPendingTxs';
 
-const PortfolioPendingTxsContext = createContext<IStakePendingTx[]>([]);
+type IPortfolioPendingTxsContext = {
+  pendingTxs: IStakePendingTx[];
+  onRefresh?: () => void;
+};
+
+const PortfolioPendingTxsContext = createContext<IPortfolioPendingTxsContext>({
+  pendingTxs: [],
+});
 
 const PortfolioPendingTxsProvider = ({
   value,
   children,
 }: {
-  value: IStakePendingTx[];
+  value: IPortfolioPendingTxsContext;
   children: React.ReactNode;
 }) => (
   <PortfolioPendingTxsContext.Provider value={value}>
@@ -78,7 +85,10 @@ const WrappedActionButton = ({
 }) => {
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { account, indexedAccount } = activeAccount;
-  const pendingTxs = usePortfolioPendingTxs();
+  const { pendingTxs, onRefresh } = usePortfolioPendingTxs();
+  const handleActionSuccess = useCallback(async () => {
+    onRefresh?.();
+  }, [onRefresh]);
 
   // For staking config lookup, use:
   // - stakedSymbol for airdrops (the token that was staked to earn rewards)
@@ -113,6 +123,7 @@ const WrappedActionButton = ({
     vault: vaultForConfig,
     providerLogoURI: asset.metadata.protocol.providerDetail.logoURI,
     stakeTag,
+    onSuccess: handleActionSuccess,
   });
 
   const onPress = useCallback(() => {
@@ -549,7 +560,7 @@ const PortfolioItemComponent = ({
   }, [onRefreshRow, provider, networkId]);
 
   // Monitor pending txs for all tokens in this protocol
-  const { allTxs } = useProtocolMultiTokenPendingTxs({
+  const { allTxs = [] } = useProtocolMultiTokenPendingTxs({
     networkId,
     provider,
     symbols: allSymbols,
@@ -636,7 +647,9 @@ const PortfolioItemComponent = ({
   );
 
   return (
-    <PortfolioPendingTxsProvider value={allTxs}>
+    <PortfolioPendingTxsProvider
+      value={{ pendingTxs: allTxs, onRefresh: handleRefresh }}
+    >
       <YStack>
         <ProtocolHeader portfolioItem={portfolioItem} />
         <ProtocolAirdrop
