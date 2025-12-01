@@ -36,6 +36,8 @@ import { PrimeLoginContainerLazy } from './PrimeLoginContainer';
 import { TableSplitViewContainer } from './TableSplitViewContainer';
 import { VerifyTxContainer } from './VerifyTxContainer';
 import { WebPerformanceMonitorContainer } from './WebPerformanceMonitor';
+import { isDualScreenDevice, isSpanning } from '@onekeyhq/shared/src/modules/DualScreenInfo/DualScreenInfo';
+import { useEffect } from 'react';
 
 const PageTrackerContainer = LazyLoad(
   () => import('./PageTrackerContainer'),
@@ -88,6 +90,10 @@ const tabletDetailViewContext = { viewType: ETabletViewType.DETAIL };
 
 export function Container() {
   const isTablet = useIsTablet();
+  useEffect(() => {
+    void isDualScreenDevice();
+    void isSpanning();
+  }, []);
   if (isTablet) {
     return (
       <RootSiblingParent>
