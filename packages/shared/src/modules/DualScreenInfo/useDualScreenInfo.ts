@@ -52,9 +52,13 @@ const DEFAULT_RESULT: IUseDualScreenInfoResult = {
   isLoading: false,
   refresh: async () => {},
 };
+
+let IS_DUAL_SCREEN_DEVICE = false;
 export const useDualScreenInfo = platformEnv.isNativeAndroid
   ? (): IUseDualScreenInfoResult => {
-      const [isDualScreenDevice, setIsDualScreenDevice] = useState(false);
+      const [isDualScreenDevice, setIsDualScreenDevice] = useState(
+        IS_DUAL_SCREEN_DEVICE,
+      );
       const [isSpanning, setIsSpanning] = useState(false);
       const [windowRects, setWindowRects] = useState<IDualScreenInfoRect[]>([]);
       const [hingeBounds, setHingeBounds] =
@@ -71,6 +75,7 @@ export const useDualScreenInfo = platformEnv.isNativeAndroid
           ]);
 
           setIsDualScreenDevice(isDualScreen);
+          IS_DUAL_SCREEN_DEVICE = isDualScreen;
           setIsSpanning(spanning);
           setWindowRects(rects);
           setHingeBounds(hinge);
