@@ -13,18 +13,12 @@ import {
   Stack,
   XStack,
   YStack,
-  useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import type {
@@ -345,14 +339,12 @@ const OverviewComponent = ({
           >
             {totalFiatValue}
           </NumberSizeableText>
-          {platformEnv.isNative ? null : (
-            <IconButton
-              icon="RefreshCcwOutline"
-              variant="tertiary"
-              loading={isLoading}
-              onPress={handleRefresh}
-            />
-          )}
+          <IconButton
+            icon="RefreshCcwOutline"
+            variant="tertiary"
+            loading={isLoading}
+            onPress={handleRefresh}
+          />
         </XStack>
       </YStack>
       {/* 24h earnings */}

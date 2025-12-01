@@ -1767,7 +1767,7 @@ PODS:
     - React-Core
   - react-native-network-info (5.2.2):
     - React
-  - react-native-pager-view (7.0.0):
+  - react-native-pager-view (7.0.1):
     - DoubleConversion
     - glog
     - hermes-engine
@@ -3517,7 +3517,7 @@ SPEC CHECKSUMS:
   react-native-mmkv: 69af18f435f8978ed3e7b8c1b23bba35350ddcd8
   react-native-netinfo: cec9c4e86083cb5b6aba0e0711f563e2fbbff187
   react-native-network-info: 703d4b16ff0ff6f03127728348251bf5f12b823a
-  react-native-pager-view: e52266cedb6b1312af2f17b1620e045238495a30
+  react-native-pager-view: 6fd80a1df31b41d1459e3ebc05f633e188b15926
   react-native-performance-stats: 088634dc35ead1dfcd371be67bd94dd0f2f104ac
   react-native-ping: 589027e929c300b0b68cc5c34105f33610177055
   react-native-safe-area-context: 8cf8caf5fc0f5a5d3581b650579af9c85c16be04
