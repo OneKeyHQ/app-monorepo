@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useRef } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -7,6 +7,7 @@ import {
   RefreshControl,
   Tabs,
   YStack,
+  rootNavigationRef,
   useTabContainerWidth,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -58,6 +59,28 @@ const EarnMainTabsComponent = ({
     return tabNames.assets;
   }, [defaultTab, tabNames]);
 
+  const tabKeyByName = useMemo(() => {
+    const map: Record<string, 'assets' | 'portfolio' | 'faqs'> = {};
+    (
+      Object.entries(tabNames) as Array<[keyof typeof tabNames, string]>
+    ).forEach(([key, value]) => {
+      map[value] = key;
+    });
+    return map;
+  }, [tabNames]);
+
+  const handleTabChange = useCallback(
+    ({ tabName }: { tabName: string }) => {
+      const tabKey = tabKeyByName[tabName];
+      if (tabKey) {
+        rootNavigationRef.current?.setParams?.({
+          tab: tabKey,
+        });
+      }
+    },
+    [tabKeyByName],
+  );
+
   useEffect(() => {
     if (defaultTab && tabsRef.current) {
       const targetTabName = initialTabName;
@@ -99,6 +122,7 @@ const EarnMainTabsComponent = ({
         return <Tabs.TabBar {...tabBarProps} onTabPress={handleTabPress} />;
       }}
       initialTabName={initialTabName}
+      onTabChange={handleTabChange}
       {...containerProps}
     >
       <Tabs.Tab name={tabNames.assets}>
