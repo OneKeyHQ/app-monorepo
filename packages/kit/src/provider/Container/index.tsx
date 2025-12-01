@@ -1,7 +1,10 @@
-import { DeviceType, deviceType } from 'expo-device';
 import { RootSiblingParent } from 'react-native-root-siblings';
 
-import { ETabletViewType, TabletModeViewContext } from '@onekeyhq/components';
+import {
+  ETabletViewType,
+  TabletModeViewContext,
+  useIsTablet,
+} from '@onekeyhq/components';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 
@@ -84,7 +87,8 @@ const tabletMainViewContext = { viewType: ETabletViewType.MAIN };
 const tabletDetailViewContext = { viewType: ETabletViewType.DETAIL };
 
 export function Container() {
-  if (deviceType === DeviceType.TABLET) {
+  const isTablet = useIsTablet();
+  if (isTablet) {
     return (
       <RootSiblingParent>
         <AppStateLockContainer>
