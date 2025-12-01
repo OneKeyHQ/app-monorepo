@@ -21,6 +21,7 @@ import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
+import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
   IEarnPortfolioAirdropAsset,
@@ -39,6 +40,7 @@ import { usePortfolioAction } from '../hooks/usePortfolioAction';
 import { useProtocolMultiTokenPendingTxs } from '../hooks/useStakingPendingTxs';
 
 import type { IUseEarnPortfolioReturn } from '../hooks/useEarnPortfolio';
+import { MorphoUSDCVaultAddress } from '@onekeyhq/shared/src/consts/addresses';
 
 const WrappedActionButton = ({
   asset,
@@ -63,8 +65,16 @@ const WrappedActionButton = ({
   // For staking config lookup, use:
   // - stakedSymbol for airdrops (the token that was staked to earn rewards)
   // - asset.token.info.symbol for normal claims (the staked token itself)
-  const symbolForConfig = stakedSymbol || asset.token.info.symbol;
-  const vaultForConfig = stakedVault || asset.metadata.protocol.vault;
+  let symbolForConfig = stakedSymbol || asset.token.info.symbol;
+  let vaultForConfig = stakedVault || asset.metadata.protocol.vault;
+  if (
+    earnUtils.isMorphoProvider({
+      providerName: asset.metadata.protocol.providerDetail.code,
+    })
+  ) {
+    symbolForConfig = 'USDC';
+    vaultForConfig = MorphoUSDCVaultAddress;
+  }
 
   const { loading, handleAction } = usePortfolioAction({
     accountId: account?.id || '',
