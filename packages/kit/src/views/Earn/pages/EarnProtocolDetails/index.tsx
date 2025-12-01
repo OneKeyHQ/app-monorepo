@@ -12,6 +12,7 @@ import {
   Stack,
   XStack,
   YStack,
+  useIsGtMd,
   useMedia,
   useShare,
 } from '@onekeyhq/components';
@@ -189,7 +190,7 @@ function ChartSection({
   vault?: string;
 }) {
   const intl = useIntl();
-  const { gtMd } = useMedia();
+  const gtMd = useIsGtMd();
 
   // Fetch chart data to get high/low values
   const { result: apyHistory } = usePromiseResult(async () => {
@@ -708,8 +709,8 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
       customHeaderRightItems={headerRight}
       footer={pageFooter}
     >
-      <XStack $gtMd={{ flexDirection: 'row' }} flexDirection="column">
-        <Stack w="100%" $gtMd={{ width: '65%' }}>
+      <XStack flexDirection={gtMd ? 'row' : 'column'}>
+        <Stack w="100%" width={gtMd ? '65%' : undefined}>
           <DetailsPart
             detailInfo={detailInfo}
             tokenInfo={tokenInfo}
@@ -724,7 +725,7 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
           />
         </Stack>
         {gtMd ? (
-          <Stack $gtMd={{ width: '35%' }}>
+          <Stack width={gtMd ? '35%' : undefined}>
             <ManagePositionPart
               networkId={networkId}
               symbol={symbol}
