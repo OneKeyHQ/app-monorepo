@@ -54,7 +54,7 @@ export function useProtocolDetailBreadcrumb({
       {
         label: intl.formatMessage({ id: ETranslations.global_earn }),
         onClick: () => {
-          EarnNavigation.pushToEarnHome(appNavigation);
+          void EarnNavigation.popToEarnHome(appNavigation);
         },
       },
     ];
