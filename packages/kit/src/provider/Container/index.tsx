@@ -1,3 +1,5 @@
+import { useEffect } from 'react';
+
 import { RootSiblingParent } from 'react-native-root-siblings';
 
 import {
@@ -7,6 +9,11 @@ import {
 } from '@onekeyhq/components';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
+import {
+  isDualScreenDevice,
+  isSpanning,
+} from '@onekeyhq/shared/src/modules/DualScreenInfo/DualScreenInfo';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { WalletBackupPreCheckContainer } from '../../components/WalletBackup';
 import useAppNavigation from '../../hooks/useAppNavigation';
@@ -36,8 +43,6 @@ import { PrimeLoginContainerLazy } from './PrimeLoginContainer';
 import { TableSplitViewContainer } from './TableSplitViewContainer';
 import { VerifyTxContainer } from './VerifyTxContainer';
 import { WebPerformanceMonitorContainer } from './WebPerformanceMonitor';
-import { isDualScreenDevice, isSpanning } from '@onekeyhq/shared/src/modules/DualScreenInfo/DualScreenInfo';
-import { useEffect } from 'react';
 
 const PageTrackerContainer = LazyLoad(
   () => import('./PageTrackerContainer'),
@@ -88,12 +93,19 @@ function MainRouter() {
 const tabletMainViewContext = { viewType: ETabletViewType.MAIN };
 const tabletDetailViewContext = { viewType: ETabletViewType.DETAIL };
 
+const usePreCheckIsDualScreenDevice = platformEnv.isNativeAndroid
+  ? () => {
+      useEffect(() => {
+        setTimeout(() => {
+          void Promise.all([isDualScreenDevice(), isSpanning()]);
+        });
+      }, []);
+    }
+  : () => {};
+
 export function Container() {
+  usePreCheckIsDualScreenDevice();
   const isTablet = useIsTablet();
-  useEffect(() => {
-    void isDualScreenDevice();
-    void isSpanning();
-  }, []);
   if (isTablet) {
     return (
       <RootSiblingParent>
