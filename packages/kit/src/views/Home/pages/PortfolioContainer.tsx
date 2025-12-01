@@ -1,7 +1,7 @@
 import { XStack, YStack, useMedia } from '@onekeyhq/components';
 
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
-import { DeFiListView } from '../components/DeFiListView';
+import { DeFiListBlock } from '../components/DeFiListBlock';
 import { EarnListView } from '../components/EarnListView';
 import { HomeTokenListProviderMirrorWrapper } from '../components/HomeTokenListProvider';
 import { PopularTrading } from '../components/PopularTrading';
@@ -20,8 +20,8 @@ function PortfolioContainer() {
     return (
       <XStack py="$3" px="$5" gap="$6">
         <YStack flex={1}>
-          <TokenListBlock />
-          <DeFiListView />
+          {/* <TokenListBlock /> */}
+          <DeFiListBlock />
           <PopularTrading />
           <EarnListView />
           <Upgrade />
