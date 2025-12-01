@@ -2,7 +2,13 @@ import { useEffect, useRef } from 'react';
 
 import { StackActions } from '@react-navigation/native';
 
-import { Page, Spinner, Stack, YStack } from '@onekeyhq/components';
+import {
+  Page,
+  Spinner,
+  Stack,
+  YStack,
+  rootNavigationRef,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
@@ -17,6 +23,19 @@ import {
   ETabRoutes,
   type ITabHomeParamList,
 } from '@onekeyhq/shared/src/routes';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+
+// Wait for navigation to be ready
+const waitForNavigationReady = async (maxWaitMs = 3000): Promise<boolean> => {
+  const startTime = Date.now();
+  while (Date.now() - startTime < maxWaitMs) {
+    if (rootNavigationRef.current) {
+      return true;
+    }
+    await timerUtils.wait(100);
+  }
+  return false;
+};
 
 // Map page parameter to tab routes
 const PAGE_TO_TAB_ROUTE: Record<string, ETabRoutes> = {
@@ -66,6 +85,16 @@ function ReferralLandingPage() {
     hasProcessedRef.current = true;
 
     const processReferralLanding = async () => {
+      // Wait for navigation system to be ready
+      const isNavigationReady = await waitForNavigationReady();
+      if (!isNavigationReady) {
+        // Navigation system not ready, fallback to web redirect
+        if (platformEnv.isWeb) {
+          globalThis.location.href = '/';
+        }
+        return;
+      }
+
       // Log the referral landing
       defaultLogger.referral.page.enterReferralGuide(code, 'app_landing');
 
