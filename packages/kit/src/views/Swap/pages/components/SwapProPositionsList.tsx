@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -11,11 +11,13 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import {
+  useSwapProEnableCurrentSymbolAtom,
   useSwapProSelectTokenAtom,
   useSwapProSupportNetworksTokenListAtom,
   useSwapProSupportNetworksTokenListLoadingAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 import SwapProPositionItem from '../../components/SwapProPositionItem';
@@ -28,6 +30,8 @@ const SwapProPositionsList = () => {
     useSwapProSupportNetworksTokenListAtom();
   const [swapProSupportNetworksTokenListLoading] =
     useSwapProSupportNetworksTokenListLoadingAtom();
+  const [swapProEnableCurrentSymbol] = useSwapProEnableCurrentSymbolAtom();
+  const [swapProTokenSelect] = useSwapProSelectTokenAtom();
   const [, setSwapProSelectToken] = useSwapProSelectTokenAtom();
   const onPositionTokenPress = useCallback(
     (token: ISwapToken) => {
@@ -45,6 +49,22 @@ const SwapProPositionsList = () => {
     },
     [setSwapProSelectToken],
   );
+  const filteredTokenList = useMemo(() => {
+    if (swapProEnableCurrentSymbol) {
+      return swapProSupportNetworksTokenList.filter((token) =>
+        equalTokenNoCaseSensitive({
+          token1: token,
+          token2: swapProTokenSelect,
+        }),
+      );
+    }
+    return swapProSupportNetworksTokenList;
+  }, [
+    swapProEnableCurrentSymbol,
+    swapProSupportNetworksTokenList,
+    swapProTokenSelect,
+  ]);
+
   const renderItem = useCallback(
     ({ item }: { item: ISwapToken }) => (
       <SwapProPositionItem token={item} onPress={onPositionTokenPress} />
@@ -66,7 +86,7 @@ const SwapProPositionsList = () => {
   }
   return (
     <ListView
-      data={swapProSupportNetworksTokenList}
+      data={filteredTokenList}
       renderItem={renderItem}
       ItemSeparatorComponent={ItemSeparatorComponent}
       ListEmptyComponent={

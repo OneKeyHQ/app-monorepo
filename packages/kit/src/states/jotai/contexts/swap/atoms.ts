@@ -766,3 +766,18 @@ export const {
 
 export const { atom: swapProTokenValueAtom, use: useSwapProTokenValueAtom } =
   contextAtom<string>('');
+
+export const {
+  atom: swapProEnableCurrentSymbolAtom,
+  use: useSwapProEnableCurrentSymbolAtom,
+} = contextAtom<boolean>(false);
+
+export const {
+  atom: swapProToTotalValueAtom,
+  use: useSwapProToTotalValueAtom,
+} = contextAtom<string>('');
+
+export const {
+  atom: swapProLimitPriceValueAtom,
+  use: useSwapProLimitPriceValueAtom,
+} = contextAtom<string>('');

@@ -4,6 +4,7 @@ import { RefreshControl, ScrollView } from 'react-native';
 
 import { IconButton, XStack, YStack } from '@onekeyhq/components';
 import { TabBarItem } from '@onekeyhq/components/src/composite/Tabs/TabBar';
+import { useSwapProSelectTokenAtom } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import type { IFetchLimitOrderRes } from '@onekeyhq/shared/types/swap/types';
 
 import { ETabName } from '../../../Perp/layouts/PerpMobileLayout';
@@ -13,6 +14,7 @@ import {
 } from '../../hooks/useSwapPro';
 
 import LimitOrderList from './LimitOrderList';
+import SwapProCurrentSymbolEnable from './SwapProCurrentSymbolEnable';
 import SwapProPositionsList from './SwapProPositionsList';
 import SwapProTokenSelector from './SwapProTokenSelect';
 import SwapProTradeInfoPanel from './SwapProTradeInfoPanel';
@@ -31,6 +33,7 @@ const SwapProContainer = ({
   const [activeTab, setActiveTab] = useState<ETabName | string>(
     ETabName.Positions,
   );
+  const [swapProTokenSelect] = useSwapProSelectTokenAtom();
   const { fetchTokenMarketDetailInfo } = useSwapProTokenDetailInfo();
   const { swapProLoadSupportNetworksTokenListRun } =
     useSwapProSupportNetworksTokenList();
@@ -55,11 +58,11 @@ const SwapProContainer = ({
         <SwapProTokenSelector onSelectTokenClick={onProSelectToken} />
         <IconButton icon="AccessibilityEyeSolid" />
       </XStack>
-      <XStack gap="$2.5" pb="$4">
-        <YStack flexBasis="40%" flexShrink={1}>
+      <XStack gap="$2.5" pb="$4" alignItems="stretch">
+        <YStack flexBasis="40%" flexShrink={1} alignSelf="stretch">
           <SwapProTradeInfoPanel />
         </YStack>
-        <YStack flexBasis="60%" flexShrink={1}>
+        <YStack flexBasis="60%" flexShrink={1} alignSelf="stretch">
           <SwapProTradingPanel />
         </YStack>
       </XStack>
@@ -95,13 +98,19 @@ const SwapProContainer = ({
           display={activeTab === ETabName.Positions ? 'flex' : 'none'}
           flex={1}
         >
+          <SwapProCurrentSymbolEnable />
           <SwapProPositionsList />
         </YStack>
         <YStack
           display={activeTab === ETabName.OpenOrders ? 'flex' : 'none'}
           flex={1}
         >
-          <LimitOrderList onClickCell={onOpenOrdersClick} type="open" />
+          <SwapProCurrentSymbolEnable />
+          <LimitOrderList
+            onClickCell={onOpenOrdersClick}
+            type="open"
+            filterToken={swapProTokenSelect}
+          />
         </YStack>
       </YStack>
     </ScrollView>

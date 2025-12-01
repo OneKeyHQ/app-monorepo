@@ -24,7 +24,7 @@ const SwapProTradeInfoGroup = () => {
     return formattedBalance;
   }, [inputToken]);
   return (
-    <YStack gap="$3">
+    <YStack gap="$2">
       <SwapCommonInfoItem
         title="Balance"
         value={balanceValue}

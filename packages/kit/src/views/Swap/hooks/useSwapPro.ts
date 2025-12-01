@@ -8,7 +8,10 @@ import type { IMarketSearchV2Token } from '@onekeyhq/shared/types/market';
 import type { IMarketTokenTransaction } from '@onekeyhq/shared/types/marketV2';
 import { swapDefaultSetTokens } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
-import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
+import {
+  ESwapProTradeType,
+  ESwapTabSwitchType,
+} from '@onekeyhq/shared/types/swap/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useCurrency } from '../../../components/Currency';
@@ -20,6 +23,7 @@ import {
   useSwapProDirectionAtom,
   useSwapProSelectTokenAtom,
   useSwapProSellToTokenAtom,
+  useSwapProTradeTypeAtom,
   useSwapProUseSelectBuyTokenAtom,
   useSwapTypeSwitchAtom,
 } from '../../../states/jotai/contexts/swap';
@@ -283,13 +287,23 @@ export function useSwapProTokenDetailInfo() {
   };
 }
 
-const DEFAULT_PAGE_SIZE = 4;
 export function useSwapProTokenTransactionList(
   tokenAddress: string,
   networkId: string,
   enableWebSocket: boolean,
 ) {
   const currencyInfo = useCurrency();
+  const [swapProTradeType] = useSwapProTradeTypeAtom();
+  const transactionListPageSize = useMemo(() => {
+    if (swapProTradeType === ESwapProTradeType.LIMIT) {
+      return 8;
+    }
+    return 4;
+  }, [swapProTradeType]);
+  const transactionListPageSizeRef = useRef(transactionListPageSize);
+  if (transactionListPageSizeRef.current !== transactionListPageSize) {
+    transactionListPageSizeRef.current = transactionListPageSize;
+  }
   const [swapProTokenTransactionList, setSwapProTokenTransactionList] =
     useState<IMarketTokenTransaction[]>([]);
   const swapProTokenTransactionListRef = useRef<IMarketTokenTransaction[]>(
@@ -308,11 +322,11 @@ export function useSwapProTokenTransactionList(
         await backgroundApiProxy.serviceMarketV2.fetchMarketTokenTransactions({
           tokenAddress,
           networkId,
-          limit: DEFAULT_PAGE_SIZE,
+          limit: transactionListPageSize,
         });
       return response;
     },
-    [tokenAddress, networkId],
+    [tokenAddress, networkId, transactionListPageSize],
     {
       watchLoading: true,
     },
@@ -341,7 +355,7 @@ export function useSwapProTokenTransactionList(
       // Add new transaction at the beginning and sort by timestamp
       const updatedTransactions = [newTransaction, ...prev]
         .sort((a, b) => b.timestamp - a.timestamp)
-        .slice(0, DEFAULT_PAGE_SIZE);
+        .slice(0, transactionListPageSizeRef.current);
       setSwapProTokenTransactionList(updatedTransactions);
     },
     [],

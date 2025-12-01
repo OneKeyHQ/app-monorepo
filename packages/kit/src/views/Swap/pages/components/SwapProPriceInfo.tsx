@@ -57,7 +57,7 @@ const SwapProPriceInfo = () => {
     tokenMarketDetailInfo?.price,
   ]);
   return (
-    <YStack gap="$1">
+    <YStack gap="$1.5" mt="$1.5" mb="$1">
       <SizableText size="$headingLg" color={textColor}>
         {formattedPrice}
       </SizableText>

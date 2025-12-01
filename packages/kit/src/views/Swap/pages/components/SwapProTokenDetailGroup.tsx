@@ -1,18 +1,13 @@
 import { useMemo } from 'react';
 
 import { YStack } from '@onekeyhq/components';
-import {
-  useSwapProTokenMarketDetailInfoAtom,
-  useSwapProTokenMarketDetailInfoLoadingAtom,
-} from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import { useSwapProTokenMarketDetailInfoAtom } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 
 import SwapCommonInfoItem from '../../components/SwapCommonInfoItem';
 
 const SwapProTokenDetailGroup = () => {
   const [tokenMarketDetailInfo] = useSwapProTokenMarketDetailInfoAtom();
-  const [tokenMarketDetailLoading] =
-    useSwapProTokenMarketDetailInfoLoadingAtom();
 
   const { marketCap, volume24h, liquidity, holders } = useMemo(() => {
     const formattedMarketCap = numberFormat(
@@ -47,7 +42,7 @@ const SwapProTokenDetailGroup = () => {
     };
   }, [tokenMarketDetailInfo]);
   return (
-    <YStack gap="$1.5">
+    <YStack gap="$2">
       <SwapCommonInfoItem
         title="Market Cap"
         value={marketCap}

@@ -14,8 +14,8 @@ const SwapProAccountSelect = ({
   return (
     <XStack onPress={onSelectAccountClick} justifyContent="space-between">
       <XStack gap="$1.5">
-        <Icon name="WalletOutline" size="$4" />
-        <SizableText size="$bodyMd">{netAccountRes?.result?.name}</SizableText>
+        <Icon name="WalletOutline" size="$4" color="$iconSubdued" />
+        <SizableText size="$bodySm">{netAccountRes?.result?.name}</SizableText>
       </XStack>
       <XStack gap="$1.5">
         <SizableText
@@ -30,7 +30,7 @@ const SwapProAccountSelect = ({
             trailingLength: 3,
           })}
         </SizableText>
-        <Icon name="ChevronRightOutline" size="$4" color="$iconSubdued" />
+        <Icon name="ChevronRightSmallOutline" size="$4" color="$iconSubdued" />
       </XStack>
     </XStack>
   );

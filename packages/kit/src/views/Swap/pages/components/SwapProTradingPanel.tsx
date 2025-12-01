@@ -1,10 +1,12 @@
-import { useCallback, useMemo, useRef } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { YStack } from '@onekeyhq/components';
+import { Icon, YStack } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
+  useSwapLimitExpirationTimeAtom,
+  useSwapLimitPartiallyFillAtom,
   useSwapProDirectionAtom,
   useSwapProSlippageAtom,
   useSwapProTradeTypeAtom,
@@ -21,22 +23,32 @@ import {
   ESwapSlippageSegmentKey,
 } from '@onekeyhq/shared/types/swap/types';
 
-import { SlippageSetting } from '../../../Market/MarketDetailV2/components/SwapPanel/components/SlippageSetting';
 import { TradeTypeSelector } from '../../../Market/MarketDetailV2/components/SwapPanel/components/TradeTypeSelector';
+import LimitExpirySelect from '../../components/LimitExpirySelect';
+import LimitPartialFillSelect from '../../components/LimitPartialFillSelect';
 import SwapProTradeTypeSelector from '../../components/SwapProTradeTypeSelector';
+import { useSwapLimitConfigMaps } from '../../hooks/useSwapGlobal';
 import { useSwapProTokenInit } from '../../hooks/useSwapPro';
 
 import SwapProAccountSelect from './SwapProAccountSelect';
 import SwapProActionButton from './SwapProActionButton';
 import SwapProInputContainer from './SwapProInputContainer';
+import SwapProLimitPriceValue from './SwapProLimitPriceValue';
 import SwapProSlider from './SwapProSlider';
+import { SwapProSlippageSetting } from './SwapProSlippageSetting';
+import SwapProToTotalValue from './SwapProToTotalValue';
 import SwapProTradeInfoGroup from './SwapProTradeInfoGroup';
-import SwapProValueInput from './SwapProValueInput';
 
 const SwapProTradingPanel = () => {
   const [swapProDirection, setSwapProDirection] = useSwapProDirectionAtom();
   const [swapProTradeType, setSwapProTradeType] = useSwapProTradeTypeAtom();
+  const [swapLimitExpirySelect, setSwapLimitExpirySelect] =
+    useSwapLimitExpirationTimeAtom();
+  const [swapLimitPartiallyFill, setSwapLimitPartiallyFill] =
+    useSwapLimitPartiallyFillAtom();
   const [, setSwapProSliderValue] = useSwapProSlippageAtom();
+  const { limitOrderExpiryStepMap, limitOrderPartiallyFillStepMap } =
+    useSwapLimitConfigMaps();
   const intl = useIntl();
   const selectTradeTypeItems = useMemo(
     () => [
@@ -76,33 +88,94 @@ const SwapProTradingPanel = () => {
     [setSwapProSliderValue, speedConfig?.slippage],
   );
   return (
-    <YStack gap="$3" flex={1}>
-      <TradeTypeSelector
-        value={swapProDirection}
-        onChange={(value) => {
-          if (value) {
-            setSwapProDirection(value);
-          }
-        }}
-      />
-      <SwapProTradeTypeSelector
-        currentSelect={swapProTradeType}
-        onSelectTradeType={setSwapProTradeType}
-        selectItems={selectTradeTypeItems}
-      />
-      <SwapProInputContainer
-        isLoading={isLoading}
-        defaultTokens={defaultTokens}
-      />
-      <SwapProSlider />
-      <SwapProValueInput />
-      <SwapProTradeInfoGroup />
-      <SwapProAccountSelect onSelectAccountClick={handleSelectAccountClick} />
-      <SlippageSetting
-        autoDefaultValue={speedConfig?.slippage}
-        isMEV={isMEV}
-        onSlippageChange={handleSlippageChange}
-      />
+    <YStack gap="$2" flex={1} justifyContent="space-between">
+      <YStack gap="$2">
+        <TradeTypeSelector
+          value={swapProDirection}
+          onChange={(value) => {
+            if (value) {
+              setSwapProDirection(value);
+            }
+          }}
+        />
+        <SwapProTradeTypeSelector
+          currentSelect={swapProTradeType}
+          onSelectTradeType={setSwapProTradeType}
+          selectItems={selectTradeTypeItems}
+        />
+        {swapProTradeType === ESwapProTradeType.LIMIT ? (
+          <SwapProLimitPriceValue />
+        ) : null}
+        <SwapProInputContainer
+          isLoading={isLoading}
+          defaultTokens={defaultTokens}
+        />
+        <SwapProSlider />
+        <SwapProToTotalValue />
+        <SwapProTradeInfoGroup />
+        <SwapProAccountSelect onSelectAccountClick={handleSelectAccountClick} />
+        <SwapProSlippageSetting
+          autoDefaultValue={speedConfig?.slippage}
+          isMEV={isMEV}
+          onSlippageChange={handleSlippageChange}
+        />
+        {swapProTradeType === ESwapProTradeType.LIMIT ? (
+          <>
+            <LimitExpirySelect
+              currentSelectExpiryValue={swapLimitExpirySelect}
+              onSelectExpiryValue={setSwapLimitExpirySelect}
+              selectItems={limitOrderExpiryStepMap}
+              leftIcon={
+                <Icon
+                  name="ClockTimeHistoryOutline"
+                  size="$4"
+                  color="$iconSubdued"
+                />
+              }
+              titleProps={{
+                size: '$bodySm',
+              }}
+              valueProps={{
+                size: '$bodySm',
+                color: '$textSubdued',
+              }}
+              rightIcon={
+                <Icon
+                  name="ChevronRightSmallOutline"
+                  size="$4"
+                  color="$iconSubdued"
+                />
+              }
+            />
+            <LimitPartialFillSelect
+              currentSelectPartiallyFillValue={swapLimitPartiallyFill}
+              onSelectPartiallyFillValue={setSwapLimitPartiallyFill}
+              selectItems={limitOrderPartiallyFillStepMap}
+              leftIcon={
+                <Icon
+                  name="CirclePlaceholderOnOutline"
+                  size="$4"
+                  color="$iconSubdued"
+                />
+              }
+              titleProps={{
+                size: '$bodySm',
+              }}
+              valueProps={{
+                size: '$bodySm',
+                color: '$textSubdued',
+              }}
+              rightIcon={
+                <Icon
+                  name="ChevronRightSmallOutline"
+                  size="$4"
+                  color="$iconSubdued"
+                />
+              }
+            />
+          </>
+        ) : null}
+      </YStack>
       <SwapProActionButton />
     </YStack>
   );

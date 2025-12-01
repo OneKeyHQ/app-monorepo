@@ -60,9 +60,12 @@ const SwapProInputContainer = ({
     swapProDirection === ESwapDirection.BUY && defaultTokens.length > 1;
 
   return (
-    <Stack>
+    <Stack borderRadius="$2" bg="$bgStrong" mb="$2">
       <Input
         size="medium"
+        containerProps={{
+          borderWidth: 0,
+        }}
         keyboardType="decimal-pad"
         value={swapProInputAmount}
         onChangeText={handleInputChange}
@@ -72,7 +75,9 @@ const SwapProInputContainer = ({
         addOns={[
           {
             renderContent: isLoading ? (
-              <Skeleton width="$5" height="$5" borderRadius="$full" />
+              <XStack alignItems="center" gap="$1" px="$2">
+                <Skeleton width="$10" height="$5" borderRadius="$full" />
+              </XStack>
             ) : (
               <XStack
                 alignItems="center"
