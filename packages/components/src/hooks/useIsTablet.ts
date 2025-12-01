@@ -13,8 +13,13 @@ export const useIsTablet = () => {
   );
 };
 
-export const useIsGtMd = () => {
-  const { gtMd } = useMedia();
-  const isLandscape = useOrientation();
-  return platformEnv.isNative && isLandscape ? false : gtMd;
-};
+export const useIsGtMd = platformEnv.isNative
+  ? () => {
+      const { gtMd } = useMedia();
+      const isLandscape = useOrientation();
+      return platformEnv.isNative && isLandscape ? false : gtMd;
+    }
+  : () => {
+      const { gtMd } = useMedia();
+      return gtMd;
+    };
