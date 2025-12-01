@@ -1,6 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
+import * as ExpoDevice from 'expo-device';
 import { Freeze } from 'react-freeze';
 import { BackHandler } from 'react-native';
 import Animated from 'react-native-reanimated';
@@ -11,11 +12,12 @@ import {
   Stack,
   XStack,
   YStack,
-  useMedia,
+  useIsTabletDetailView,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { TabletHomeContainer } from '@onekeyhq/kit/src/components/TabletHomeContainer';
 import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useListenTabFocusState from '@onekeyhq/kit/src/hooks/useListenTabFocusState';
@@ -65,8 +67,6 @@ import { withBrowserProvider } from './WithBrowserProvider';
 import type { RouteProp } from '@react-navigation/core';
 import type { LayoutChangeEvent } from 'react-native';
 import type { WebView } from 'react-native-webview';
-
-const isNativeMobile = platformEnv.isNative && !platformEnv.isNativeIOSPad;
 
 const useAndroidHardwareBack = platformEnv.isNativeAndroid
   ? ({
@@ -130,21 +130,33 @@ const useAndroidHardwareBack = platformEnv.isNativeAndroid
   : () => {};
 
 function MobileBrowser() {
+  const isTabletDevice = ExpoDevice.deviceType === ExpoDevice.DeviceType.TABLET;
+  const isTabletDetailView = useIsTabletDetailView();
   const route =
     useRoute<
       RouteProp<ITabDiscoveryParamList, ETabDiscoveryRoutes.TabDiscovery>
     >();
-  const { defaultTab } = route?.params || {};
+  const { defaultTab, earnTab } = route?.params || {};
   const [settings] = useSettingsPersistAtom();
   const [selectedHeaderTab, setSelectedHeaderTab] = useState<ETranslations>(
-    defaultTab || settings.selectedBrowserTab || ETranslations.global_browser,
+    isTabletDevice && isTabletDetailView
+      ? ETranslations.global_browser
+      : defaultTab ||
+          settings.selectedBrowserTab ||
+          ETranslations.global_browser,
   );
-  const handleChangeHeaderTab = useCallback(async (tab: ETranslations) => {
-    setSelectedHeaderTab(tab);
-    setTimeout(async () => {
-      await backgroundApiProxy.serviceSetting.setSelectedBrowserTab(tab);
-    }, 150);
-  }, []);
+  const handleChangeHeaderTab = useCallback(
+    async (tab: ETranslations) => {
+      if (isTabletDevice && isTabletDetailView) {
+        return;
+      }
+      setSelectedHeaderTab(tab);
+      setTimeout(async () => {
+        await backgroundApiProxy.serviceSetting.setSelectedBrowserTab(tab);
+      }, 150);
+    },
+    [isTabletDetailView, isTabletDevice],
+  );
   const previousDefaultTab = useRef<ETranslations | undefined>(defaultTab);
   useEffect(() => {
     if (previousDefaultTab.current !== defaultTab) {
@@ -158,7 +170,7 @@ function MobileBrowser() {
   }, [defaultTab, handleChangeHeaderTab]);
   const { tabs } = useWebTabs();
   const { activeTabId } = useActiveTabId();
-  const { closeWebTab, setCurrentWebTab } = useBrowserTabActions().current;
+  const { closeWebTab } = useBrowserTabActions().current;
   const { tab: activeTabData } = useWebTabDataById(activeTabId ?? '');
   const navigation =
     useAppNavigation<IPageNavigationProp<IDiscoveryModalParamList>>();
@@ -171,7 +183,6 @@ function MobileBrowser() {
   });
 
   const { displayHomePage } = useDisplayHomePageFlag();
-  const displayBottomBar = !displayHomePage;
 
   useEffect(() => {
     if (!tabs?.length) {
@@ -201,14 +212,18 @@ function MobileBrowser() {
       : Promise.resolve();
   }, [activeTabId, closeWebTab]);
 
-  const onCloseCurrentWebTabAndGoHomePage = useCallback(() => {
-    if (activeTabId) {
-      closeWebTab({ tabId: activeTabId, entry: 'Menu' });
-      setCurrentWebTab(null);
+  useEffect(() => {
+    if (isTabletDevice) {
+      return;
     }
-    showTabBar();
-    return Promise.resolve();
-  }, [activeTabId, closeWebTab, setCurrentWebTab]);
+    const listener = (event: { tab: ETranslations }) => {
+      void handleChangeHeaderTab(event.tab);
+    };
+    appEventBus.on(EAppEventBusNames.SwitchDiscoveryTabInNative, listener);
+    return () => {
+      appEventBus.off(EAppEventBusNames.SwitchDiscoveryTabInNative, listener);
+    };
+  }, [handleChangeHeaderTab, isTabletDevice]);
 
   // For risk detection
   useEffect(() => {
@@ -229,8 +244,6 @@ function MobileBrowser() {
     [tabs, handleScroll],
   );
 
-  const { gtMd } = useMedia();
-
   const handleSearchBarPress = useCallback(
     (url: string) => {
       const tab = tabs.find((t) => t.id === activeTabId);
@@ -246,7 +259,7 @@ function MobileBrowser() {
     [tabs, navigation, activeTabId],
   );
 
-  const { top, bottom } = useSafeAreaInsets();
+  const { top } = useSafeAreaInsets();
   const takeScreenshot = useTakeScreenshot(activeTabId);
 
   const handleGoBackHome = useCallback(async () => {
@@ -286,11 +299,8 @@ function MobileBrowser() {
     setTimeout(() => {
       setDisplayHomePage(true);
       showTabBar();
-      if (platformEnv.isNativeIOSPad) {
-        navigation.switchTab(ETabRoutes.Discovery);
-      }
     });
-  }, [takeScreenshot, setDisplayHomePage, navigation, activeTabId]);
+  }, [takeScreenshot, setDisplayHomePage, activeTabId]);
 
   useAndroidHardwareBack({
     displayHomePage,
@@ -307,11 +317,20 @@ function MobileBrowser() {
     const height = e.nativeEvent.layout.height - 20;
     setTabPageHeight(height);
   }, []);
+
+  if (isTabletDetailView && displayHomePage) {
+    return <TabletHomeContainer />;
+  }
+
+  const showDiscoveryPage =
+    displayHomePage || (isTabletDevice && !isTabletDetailView);
+  const displayBottomBar = !showDiscoveryPage;
+
   return (
     <Page fullPage>
       {/* custom header */}
 
-      {displayHomePage ? (
+      {showDiscoveryPage ? (
         <Stack h={tabPageHeight} />
       ) : (
         <XStack
@@ -321,17 +340,8 @@ function MobileBrowser() {
           my="$1"
           mt={platformEnv.isNativeAndroid ? '$3' : undefined}
         >
-          <Stack
-            onPress={
-              isNativeMobile
-                ? handleGoBackHome
-                : onCloseCurrentWebTabAndGoHomePage
-            }
-          >
-            <Icon
-              name={isNativeMobile ? 'MinimizeOutline' : 'CrossedLargeOutline'}
-              mr="$4"
-            />
+          <Stack onPress={handleGoBackHome}>
+            <Icon name="MinimizeOutline" mr="$4" />
           </Stack>
 
           <CustomHeaderTitle handleSearchBarPress={handleSearchBarPress} />
@@ -342,7 +352,7 @@ function MobileBrowser() {
         <Stack
           flex={1}
           zIndex={3}
-          pb={gtMd ? bottom : 0}
+          pb={0}
           display={
             selectedHeaderTab === ETranslations.global_browser
               ? undefined
@@ -351,12 +361,10 @@ function MobileBrowser() {
         >
           <HandleRebuildBrowserData />
           <Stack flex={1}>
-            {gtMd ? null : (
-              <Stack display={displayHomePage ? 'flex' : 'none'}>
-                <DashboardContent onScroll={handleScroll} />
-              </Stack>
-            )}
-            <Freeze freeze={displayHomePage}>{content}</Freeze>
+            <Stack display={showDiscoveryPage ? 'flex' : 'none'}>
+              <DashboardContent onScroll={handleScroll} />
+            </Stack>
+            <Freeze freeze={showDiscoveryPage}>{content}</Freeze>
           </Stack>
           <Freeze freeze={!displayBottomBar}>
             <Animated.View
@@ -377,12 +385,24 @@ function MobileBrowser() {
             </Animated.View>
           </Freeze>
         </Stack>
-        <EarnHomeWithProvider
-          showHeader={false}
-          showContent={selectedHeaderTab === ETranslations.global_earn}
-        />
+        {!isTabletDetailView ? (
+          <Stack
+            flex={1}
+            display={
+              selectedHeaderTab === ETranslations.global_earn
+                ? undefined
+                : 'none'
+            }
+          >
+            <EarnHomeWithProvider
+              showHeader={false}
+              showContent={selectedHeaderTab === ETranslations.global_earn}
+              defaultTab={earnTab}
+            />
+          </Stack>
+        ) : null}
       </Page.Body>
-      {displayHomePage ? (
+      {showDiscoveryPage ? (
         <YStack
           position="absolute"
           top={-20}

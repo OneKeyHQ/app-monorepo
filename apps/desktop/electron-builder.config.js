@@ -38,7 +38,7 @@ module.exports = {
     'icon': 'app/build/static/images/icons/512x512.png',
     'artifactName': 'OneKey-Wallet-${version}-mac-${arch}.${ext}',
     'hardenedRuntime': true,
-    'gatekeeperAssess': false,
+    'gatekeeperAssess': true, // Changed from false - required for CloudKit with Developer ID
     'darkModeSupport': false,
     'category': 'productivity',
     'target': [
@@ -46,9 +46,19 @@ module.exports = {
       { target: 'zip', arch: ['x64', 'arm64', 'universal'] },
     ],
     'entitlements': getPath('entitlements.mac.plist'),
-    // 'entitlementsInherit': getPath('entitlements.mas.inherit.plist'),
+    'entitlementsInherit': getPath('entitlements.mac.inherit.plist'), // Simplified entitlements for Helper processes
+    // Provisioning profile for CloudKit support with Developer ID
+    // Injected by CI workflow from GitHub Secrets: DESKTOP_ISO_PROVISION_PROFILE_BASE64
+    // Profile name in Apple Developer: OneKeyDesktop_DeveloperID_26/11/03
+    'provisioningProfile': getPath(
+      'OneKey_Desktop_DeveloperId.provisionprofile',
+    ),
     'extendInfo': {
       'NSCameraUsageDescription': 'Please allow OneKey to use your camera',
+      'NSBluetoothAlwaysUsageDescription':
+        'OneKey wallet needs Bluetooth access to communicate with hardware wallets',
+      'NSBluetoothPeripheralUsageDescription':
+        'OneKey wallet needs Bluetooth access to discover and connect with hardware wallets',
     },
   },
   'win': {

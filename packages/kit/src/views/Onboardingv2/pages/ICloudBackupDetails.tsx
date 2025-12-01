@@ -128,13 +128,7 @@ export default function ICloudBackupDetails({
     await doBackup({ data: backupData as IPrimeTransferData });
   }, [backupData, doBackup]);
 
-  const renderContent = () => {
-    if (fetchLoading) {
-      return <CloudBackupLoadingSkeleton />;
-    }
-    if (!walletData?.length) {
-      return <CloudBackupDetailsEmptyView />;
-    }
+  const walletListView = useMemo(() => {
     return walletData.map((item, index) => (
       <ListItem
         key={index}
@@ -183,6 +177,17 @@ export default function ICloudBackupDetails({
         </YStack>
       </ListItem>
     ));
+  }, [intl, walletData]);
+
+  const renderContent = () => {
+    if (fetchLoading) {
+      return <CloudBackupLoadingSkeleton />;
+    }
+    if (!walletData?.length) {
+      return <CloudBackupDetailsEmptyView />;
+    }
+    // return null;
+    return walletListView;
   };
 
   const isButtonDisabled = useMemo(() => {

@@ -12,12 +12,14 @@ import { EarnTooltip } from './EarnTooltip';
 export function GridItem({
   title,
   description,
+  descriptionComponent,
   actionIcon,
   tooltip,
   type = 'default',
 }: {
   title: IEarnText;
   description?: IEarnText;
+  descriptionComponent?: React.ReactNode;
   tooltip?: IEarnTooltip;
   actionIcon?: IEarnActionIcon;
   type?: 'default' | 'info' | 'alert';
@@ -31,6 +33,7 @@ export function GridItem({
           return <EarnText text={title} size="$bodyMdMedium" />;
         }}
         description={description?.text}
+        descriptionComponent={descriptionComponent}
       />
     );
   }
@@ -45,6 +48,7 @@ export function GridItem({
           return <EarnText text={title} size="$bodyMdMedium" />;
         }}
         description={description?.text}
+        descriptionComponent={descriptionComponent}
       />
     );
   }
@@ -62,6 +66,7 @@ export function GridItem({
       </XStack>
       <XStack gap="$1" alignItems="center">
         <EarnText text={description} size="$bodyLgMedium" />
+        {descriptionComponent ?? null}
         <EarnActionIcon title={title.text} actionIcon={actionIcon} />
       </XStack>
     </YStack>

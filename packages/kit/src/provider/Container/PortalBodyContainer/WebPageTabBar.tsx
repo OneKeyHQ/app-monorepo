@@ -1,15 +1,12 @@
 import { useMemo } from 'react';
 
-import { Portal, useMedia, useOrientation } from '@onekeyhq/components';
+import { Portal, useMedia } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import DesktopCustomTabBar from '../../../views/Discovery/pages/DesktopCustomTabBar';
 
-const useShowWebBars = platformEnv.isNativeIOSPad
-  ? () => {
-      const isLandscape = useOrientation();
-      return isLandscape;
-    }
+const useShowWebBars = platformEnv.isNative
+  ? () => false
   : () => {
       const { gtMd } = useMedia();
       return gtMd;

@@ -6,7 +6,7 @@ import { useIntl } from 'react-intl';
 import { useMedia } from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useOrientation, useThemeValue } from '../../../hooks';
+import { useThemeValue } from '../../../hooks';
 import { makeTabScreenOptions } from '../GlobalScreenOptions';
 import { createStackNavigator } from '../StackNavigator';
 import NavigationBar from '../Tab/TabBar';
@@ -23,20 +23,23 @@ function BasicTabSubStackNavigator({
   config: ITabSubNavigatorConfig<string, any>[] | null;
   delay?: number;
 }) {
+  const delayNumber = useMemo(() => {
+    return platformEnv.isNative || platformEnv.isDesktop ? delay : 0;
+  }, [delay]);
   const [bgColor, titleColor] = useThemeValue(['bgApp', 'text']);
   const intl = useIntl();
-  const [isMounted, setIsMounted] = useState(!(delay && delay > 0));
+  const [isMounted, setIsMounted] = useState(!(delayNumber && delayNumber > 0));
   useEffect(() => {
-    if (!delay) {
+    if (!delayNumber) {
       return;
     }
     const timer = setTimeout(() => {
       setIsMounted(true);
-    }, delay + 100);
+    }, delayNumber + 100);
     return () => {
       clearTimeout(timer);
     };
-  }, [delay]);
+  }, [delayNumber]);
 
   // Handle null config case - return null to avoid creating empty Stack.Navigator
   if (!isMounted || !config || config.length === 0) {
@@ -74,20 +77,18 @@ export const TabSubStackNavigator = TabSubStackNavigatorMemo;
 
 const Tab = createBottomTabNavigator();
 
-const useTabBarPosition = platformEnv.isNativeIOSPad
-  ? () => {
-      const isLandscape = useOrientation();
-      return isLandscape ? 'left' : 'bottom';
-    }
+const useTabBarPosition = platformEnv.isNative
+  ? () => 'bottom' as const
   : () => {
       const media = useMedia();
-      return platformEnv.isNativeAndroid || media.md ? 'bottom' : 'left';
+      return media.md ? 'bottom' : 'left';
     };
 
 const GAP_TIME = 250;
 export function TabStackNavigator<RouteName extends string>({
   config,
   extraConfig,
+  showTabBar = true,
 }: ITabNavigatorProps<RouteName>) {
   const intl = useIntl();
   const tabBarCallback = useCallback(
@@ -156,7 +157,7 @@ export function TabStackNavigator<RouteName extends string>({
 
   return (
     <Tab.Navigator
-      tabBar={tabBarCallback}
+      tabBar={showTabBar ? tabBarCallback : () => null}
       screenOptions={{
         headerShown: false,
         freezeOnBlur: true,

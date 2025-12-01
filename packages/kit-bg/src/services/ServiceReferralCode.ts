@@ -18,6 +18,8 @@ import type {
   IInvitePaidHistory,
   IInvitePostConfig,
   IInviteSummary,
+  IPerpsInviteeRewardsResponse,
+  IPerpsRecordsResponse,
   IUpdateInviteCodeNoteResponse,
 } from '@onekeyhq/shared/src/referralCode/type';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -91,12 +93,16 @@ class ServiceReferralCode extends ServiceBase {
       subject: string;
       timeRange: string;
       inviteCode?: string;
+      tab?: string;
     } = {
       subject: params.subject,
       timeRange: params.timeRange,
     };
     if (params.inviteCode) {
       queryParams.inviteCode = params.inviteCode;
+    }
+    if (params.tab) {
+      queryParams.tab = params.tab;
     }
     // API returns CSV string directly, not JSON
     const response = await client.get<string>('/rebate/v1/invite/export', {
@@ -280,6 +286,46 @@ class ServiceReferralCode extends ServiceBase {
     const response = await client.get<{
       data: IEarnRewardResponse;
     }>('/rebate/v1/invite/earn-records', { params });
+    return response.data.data;
+  }
+
+  @backgroundMethod()
+  async getPerpsRecords(
+    timeRange?: EExportTimeRange,
+    inviteCode?: string,
+    status?: 'AVAILABLE',
+  ): Promise<IPerpsRecordsResponse> {
+    const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Rebate);
+    const params: {
+      timeRange?: string;
+      inviteCode?: string;
+      status?: string;
+    } = {};
+    if (timeRange) {
+      params.timeRange = timeRange;
+    }
+    if (inviteCode) {
+      params.inviteCode = inviteCode;
+    }
+    if (status) {
+      params.status = status;
+    }
+    const response = await client.get<{ data: IPerpsRecordsResponse }>(
+      '/rebate/v1/invite/perps-records',
+      { params },
+    );
+    return response.data.data;
+  }
+
+  @backgroundMethod()
+  async getPerpsInviteeRewards(params: {
+    walletAddress: string;
+  }): Promise<IPerpsInviteeRewardsResponse> {
+    const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Rebate);
+    const response = await client.get<{ data: IPerpsInviteeRewardsResponse }>(
+      '/rebate/v1/invite/perps-invitee-rewards',
+      { params },
+    );
     return response.data.data;
   }
 
@@ -479,7 +525,6 @@ class ServiceReferralCode extends ServiceBase {
     action,
     nonce,
     signature,
-    inviteCode,
     referenceAddress,
     signerAddress,
   }: {
@@ -493,7 +538,6 @@ class ServiceReferralCode extends ServiceBase {
     };
     nonce: number;
     signature: IHyperLiquidSignatureRSV;
-    inviteCode: string;
     referenceAddress?: string;
     signerAddress: string;
   }): Promise<{ success: boolean }> {
@@ -504,7 +548,6 @@ class ServiceReferralCode extends ServiceBase {
       action,
       nonce,
       signature,
-      inviteCode,
       referenceAddress,
       signerAddress,
     });

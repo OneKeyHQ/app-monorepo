@@ -33,12 +33,14 @@ import type { IBatchCreateAccount } from '@onekeyhq/shared/types/account';
 import { EHardwareCallContext } from '@onekeyhq/shared/types/device';
 
 import localDb from '../../dbs/local/localDb';
+import { primeTransferAtom } from '../../states/jotai/atoms/prime';
 import { vaultFactory } from '../../vaults/factory';
 import { getVaultSettings } from '../../vaults/settings';
 import { buildDefaultAddAccountNetworks } from '../ServiceAccount/defaultNetworkAccountsConfig';
 import ServiceBase from '../ServiceBase';
 import { HardwareAllNetworkGetAddressResponse } from '../ServiceHardware/HardwareAllNetworkGetAddressResponse';
 
+import type { IPrimeTransferAtomData } from '../../states/jotai/atoms/prime';
 import type {
   IAccountDeriveTypes,
   IHwAllNetworkPrepareAccountsItem,
@@ -424,6 +426,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
   }): Promise<IBatchBuildAccountsBaseParams[]> {
     const networks = await buildDefaultAddAccountNetworks({
       backgroundApi: this.backgroundApi,
+      walletId,
       includingNetworkWithGlobalDeriveType: true,
     });
     return networks.map((item) => ({
@@ -1054,6 +1057,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
             // **** PIN\passphrase cancel
             HardwareErrorCode.PinCancelled,
             HardwareErrorCode.ActionCancelled,
+            HardwareErrorCode.CallQueueActionCancelled,
             HardwareErrorCode.DeviceInterruptedFromOutside, // cancel PIN from app
             HardwareErrorCode.DeviceInterruptedFromUser, // cancel PIN from app
           ],
@@ -1370,6 +1374,20 @@ class ServiceBatchCreateAccount extends ServiceBase {
         try {
           this.checkIfCancelled({ saveToDb, showUIProgress, errorMessage });
           defaultLogger.account.batchCreatePerf.prepareHdOrHwAccounts();
+
+          await primeTransferAtom.set(
+            (prev): IPrimeTransferAtomData => ({
+              ...prev,
+              importCurrentCreatingTarget: [
+                walletId,
+                indexesForRebuildChunk.join(','),
+                networkId,
+                deriveType === 'default' ? '' : deriveType,
+              ]
+                .filter(Boolean)
+                .join('__'),
+            }),
+          );
 
           const { vault, accounts } =
             await this.backgroundApi.serviceAccount.prepareHdOrHwAccounts({

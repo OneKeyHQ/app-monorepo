@@ -3,11 +3,11 @@ import type { ReactNode } from 'react';
 import { useIntl } from 'react-intl';
 
 import { SizableText, Stack, YStack } from '@onekeyhq/components';
+import { ReferralBenefitsList } from '@onekeyhq/kit/src/views/ReferFriends/components/ReferralBenefitsList';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IInvitePostConfig } from '@onekeyhq/shared/src/referralCode/type';
 
 import { InviteCodeStepImage } from '../InviteCodeStepImage';
-import { ReferralBenefitsList } from '../ReferralBenefitsList';
 
 interface IReferAFriendIntroPhaseProps {
   postConfig: IInvitePostConfig;

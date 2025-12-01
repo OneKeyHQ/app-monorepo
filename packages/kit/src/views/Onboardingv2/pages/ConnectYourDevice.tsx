@@ -51,6 +51,7 @@ import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErro
 import bleManagerInstance from '@onekeyhq/shared/src/hardware/bleManager';
 import { checkBLEPermissions } from '@onekeyhq/shared/src/hardware/blePermissions';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
@@ -773,6 +774,10 @@ function USBOrBLEConnectionIndicator({
         deviceData: item,
         tabValue,
       });
+      defaultLogger.onboarding.page.connectYourDevice(
+        item.device?.deviceType || '',
+        tabValue,
+      );
     },
   });
 

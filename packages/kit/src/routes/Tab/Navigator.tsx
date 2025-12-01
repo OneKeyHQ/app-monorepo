@@ -1,6 +1,5 @@
 import { useContext, useEffect, useMemo, useRef } from 'react';
 
-import { useNavigation } from '@react-navigation/native';
 import { noop } from 'lodash';
 
 import type { ITabNavigatorConfig } from '@onekeyhq/components';
@@ -9,27 +8,17 @@ import {
   Portal,
   Stack,
   TabStackNavigator,
+  useIsTabletDetailView,
   useMedia,
 } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { ETabRoutes } from '@onekeyhq/shared/src/routes';
-import {
-  ERootRoutes,
-  ETabDiscoveryRoutes,
-  ETabEarnRoutes,
-  ETabHomeRoutes,
-  ETabMarketRoutes,
-  ETabSwapRoutes,
-} from '@onekeyhq/shared/src/routes';
 
 import { Footer } from '../../components/Footer';
 import { useRouteIsFocused } from '../../hooks/useRouteIsFocused';
 import { TabFreezeOnBlurContext } from '../../provider/Container/TabFreezeOnBlurContainer';
-import { whenAppUnlocked } from '../../utils/passwordUtils';
 
 import { tabExtraConfig, useTabRouterConfig } from './router';
-
-import type { NavigationProp } from '@react-navigation/native';
 
 // prevent pushModal from using unreleased Navigation instances during iOS modal animation by temporary exclusion,
 const useIsIOSTabNavigatorFocused =
@@ -80,9 +69,10 @@ export function TabNavigator() {
   const { freezeOnBlur } = useContext(TabFreezeOnBlurContext);
   const routerConfigParams = useMemo(() => ({ freezeOnBlur }), [freezeOnBlur]);
   const config = useTabRouterConfig(routerConfigParams);
-  const isShowWebTabBar = platformEnv.isDesktop || platformEnv.isNativeIOS;
+  const isShowWebTabBar = platformEnv.isDesktop;
   const isFocused = useIsIOSTabNavigatorFocused();
   const { gtMd } = useMedia();
+  const isTabletDetailView = useIsTabletDetailView();
 
   useCheckTabsChangedInDev(config);
 
@@ -91,6 +81,7 @@ export function TabNavigator() {
       <TabStackNavigator<ETabRoutes>
         config={config}
         extraConfig={isShowWebTabBar ? tabExtraConfig : undefined}
+        showTabBar={!isTabletDetailView}
       />
       {platformEnv.isWebDappMode && gtMd ? <Footer /> : null}
       <InPageTabContainer />

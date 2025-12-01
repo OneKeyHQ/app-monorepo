@@ -10,7 +10,6 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useIsModalPage } from '../../hocs';
-import { useIsIpadLandscape } from '../../hooks/useOrientation';
 import { Spinner, Stack, View } from '../../primitives';
 
 import { useTabBarHeight } from './hooks';
@@ -30,7 +29,6 @@ function Loading() {
 const useMinHeight = (isFullPage: boolean) => {
   const isModalPage = useIsModalPage();
   const tabHeight = useTabBarHeight();
-  const isIpadLandscape = useIsIpadLandscape();
   return useMemo(() => {
     if (!platformEnv.isNativeIOS) {
       return undefined;
@@ -40,12 +38,6 @@ const useMinHeight = (isFullPage: boolean) => {
     }
     if (!isModalPage) {
       if (platformEnv.isNativeIOSPad) {
-        if (isIpadLandscape) {
-          return Math.min(
-            Dimensions.get('window').height,
-            Dimensions.get('window').width,
-          );
-        }
         return (
           Math.max(
             Dimensions.get('window').height,
@@ -56,7 +48,7 @@ const useMinHeight = (isFullPage: boolean) => {
       return Dimensions.get('window').height - tabHeight;
     }
     return undefined;
-  }, [isFullPage, isIpadLandscape, isModalPage, tabHeight]);
+  }, [isFullPage, isModalPage, tabHeight]);
 };
 
 /**

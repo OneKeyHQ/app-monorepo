@@ -7,5 +7,6 @@ export enum ETabDiscoveryRoutes {
 export type ITabDiscoveryParamList = {
   [ETabDiscoveryRoutes.TabDiscovery]: {
     defaultTab?: ETranslations;
+    earnTab?: 'assets' | 'portfolio' | 'faqs';
   };
 };

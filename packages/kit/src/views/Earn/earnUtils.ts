@@ -1,12 +1,17 @@
+import { rootNavigationRef } from '@onekeyhq/components';
 import {
   WEB_APP_URL,
   WEB_APP_URL_DEV,
 } from '@onekeyhq/shared/src/config/appConfig';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
-
-import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import {
+  ERootRoutes,
+  ETabDiscoveryRoutes,
+  ETabEarnRoutes,
+  ETabRoutes,
+} from '@onekeyhq/shared/src/routes';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import type { IAppNavigation } from '../../hooks/useAppNavigation';
 
@@ -42,72 +47,55 @@ export const EarnNetworkUtils = {
   },
 };
 
+async function safePushToEarnRoute(
+  navigation: IAppNavigation,
+  route: ETabEarnRoutes,
+  params?: any,
+) {
+  const targetTab = platformEnv.isNative
+    ? ETabRoutes.Discovery
+    : ETabRoutes.Earn;
+
+  navigation.switchTab(targetTab);
+  await timerUtils.wait(0);
+
+  rootNavigationRef.current?.navigate(ERootRoutes.Main, {
+    screen: targetTab,
+    params: {
+      screen: route,
+      params,
+    },
+  });
+}
+
 export const EarnNavigation = {
   // navigate from deep link (compatible with old format)
   async pushDetailPageFromDeeplink(
     navigation: IAppNavigation,
     {
-      accountId,
       networkId,
-      indexedAccountId,
       symbol,
       provider,
       vault,
     }: {
-      accountId?: string;
       networkId: string;
-      indexedAccountId?: string;
       symbol: string;
       provider: string;
       vault?: string;
     },
   ) {
-    const earnAccount = await backgroundApiProxy.serviceStaking.getEarnAccount({
-      accountId: accountId ?? '',
-      indexedAccountId,
+    await safePushToEarnRoute(navigation, ETabEarnRoutes.EarnProtocolDetails, {
       networkId,
-    });
-    navigation.pushModal(EModalRoutes.StakingModal, {
-      screen: EModalStakingRoutes.ProtocolDetailsV2,
-      params: {
-        accountId: earnAccount?.accountId || accountId || '',
-        networkId,
-        indexedAccountId:
-          earnAccount?.account.indexedAccountId || indexedAccountId,
-        symbol,
-        provider,
-        vault,
-      },
-    });
-  },
-
-  // navigate from new share link
-  pushDetailPageFromShareLink(
-    navigation: IAppNavigation,
-    {
-      network,
       symbol,
       provider,
       vault,
-    }: {
-      network: string;
-      symbol: string;
-      provider: string;
-      vault?: string;
-    },
-  ) {
-    navigation.pushModal(EModalRoutes.StakingModal, {
-      screen: EModalStakingRoutes.ProtocolDetailsV2Share,
-      params: {
-        network,
-        symbol,
-        provider,
-        vault,
-      },
     });
   },
 
-  // generate share link
+  /**
+   * @deprecated
+   * @description: Will be removed
+   */
   generateShareLink({
     networkId,
     symbol,
@@ -141,5 +129,103 @@ export const EarnNavigation = {
     return queryString
       ? `${origin}${baseUrl}?${queryString}`
       : `${origin}${baseUrl}`;
+  },
+
+  // generate earn share link (for EarnProtocolDetails page)
+  generateEarnShareLink({
+    networkId,
+    symbol,
+    provider,
+    vault,
+    isDevMode = false,
+  }: {
+    networkId: string;
+    symbol: string;
+    provider: string;
+    vault?: string;
+    isDevMode?: boolean;
+  }): string {
+    let origin = WEB_APP_URL;
+    if (platformEnv.isWeb) {
+      origin = globalThis.location.origin;
+    }
+    if (!platformEnv.isWeb && isDevMode) {
+      origin = WEB_APP_URL_DEV;
+    }
+
+    const networkName = EarnNetworkUtils.getShareNetworkParam(networkId);
+    const baseUrl = `/earn/${networkName}/${symbol.toLowerCase()}/${provider.toLowerCase()}`;
+    const queryParams = new URLSearchParams();
+
+    if (vault) {
+      queryParams.append('vault', vault);
+    }
+
+    const queryString = queryParams.toString();
+    return queryString
+      ? `${origin}${baseUrl}?${queryString}`
+      : `${origin}${baseUrl}`;
+  },
+
+  async popToEarnHome(
+    navigation: IAppNavigation,
+    params?: {
+      tab?: 'assets' | 'portfolio' | 'faqs';
+    },
+  ) {
+    if (platformEnv.isNative) {
+      navigation.popTo(ETabDiscoveryRoutes.TabDiscovery, params);
+    } else {
+      navigation.popTo(ERootRoutes.Main, {
+        screen: ETabRoutes.Earn,
+        params: { screen: ETabEarnRoutes.EarnHome, params },
+      });
+    }
+
+    await timerUtils.wait(0);
+  },
+
+  pushToEarnProtocols(
+    navigation: IAppNavigation,
+    params: {
+      symbol: string;
+      filterNetworkId?: string;
+      logoURI?: string;
+    },
+  ) {
+    void safePushToEarnRoute(navigation, ETabEarnRoutes.EarnProtocols, params);
+  },
+
+  async pushToEarnProtocolDetails(
+    navigation: IAppNavigation,
+    params: {
+      networkId: string;
+      symbol: string;
+      provider: string;
+      vault?: string;
+    },
+  ) {
+    void safePushToEarnRoute(navigation, ETabEarnRoutes.EarnProtocolDetails, {
+      networkId: params.networkId,
+      symbol: params.symbol,
+      provider: params.provider,
+      vault: params.vault,
+    });
+  },
+
+  pushToEarnProtocolDetailsShare(
+    navigation: IAppNavigation,
+    params: {
+      network: string;
+      symbol: string;
+      provider: string;
+      vault?: string;
+    },
+  ) {
+    void safePushToEarnRoute(
+      navigation,
+      ETabEarnRoutes.EarnProtocolDetailsShare,
+      params,
+    );
   },
 };

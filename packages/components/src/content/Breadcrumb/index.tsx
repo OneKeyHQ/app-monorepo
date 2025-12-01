@@ -40,6 +40,9 @@ const BreadcrumbItem = styled(XStack, {
   alignItems: 'center',
   cursor: 'pointer',
   userSelect: 'none',
+  borderRadius: '$2',
+  px: '$2',
+  py: '$1',
   pressStyle: {
     bg: '$bgHover',
   },

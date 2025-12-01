@@ -24,6 +24,11 @@ export class HardwareSDKScene extends BaseScene {
     connectId: string;
     payload: any;
   }) {
-    return [action, connectId, devOnlyData(payload)];
+    // filter rawPayload properties
+    const newPayload = {
+      ...payload,
+      rawPayload: undefined,
+    };
+    return [action, connectId, devOnlyData(newPayload)];
   }
 }

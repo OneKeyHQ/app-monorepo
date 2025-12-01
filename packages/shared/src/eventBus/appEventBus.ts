@@ -40,6 +40,7 @@ import type {
 } from '../../types/swap/types';
 import type { IAccountToken, ITokenFiat } from '../../types/token';
 import type { IOneKeyError } from '../errors/types/errorTypes';
+import type { EModalRoutes, ETabRoutes } from '../routes';
 import type { IWalletConnectSession } from '../walletConnect/types';
 import type { FuseResult } from 'fuse.js';
 
@@ -241,6 +242,13 @@ export interface IAppEventBusPayload {
     accountId: string;
     networkId: string;
   };
+  [EAppEventBusNames.RefreshEarnPortfolioItem]: {
+    provider: string;
+    symbol: string;
+    networkId: string;
+    rewardSymbol?: string;
+  };
+  [EAppEventBusNames.RefreshEarnPortfolio]: undefined;
   [EAppEventBusNames.AccountDataUpdate]: undefined;
   [EAppEventBusNames.AccountValueUpdate]: undefined;
   [EAppEventBusNames.onDragBeginInListView]: undefined;
@@ -395,6 +403,17 @@ export interface IAppEventBusPayload {
     progressPercent?: number;
     retry?: number;
     message?: string;
+  };
+  [EAppEventBusNames.SwitchDiscoveryTabInNative]: {
+    tab: ETranslations.global_browser | ETranslations.global_earn;
+  };
+  [EAppEventBusNames.SwitchTabBar]: {
+    route: ETabRoutes;
+  };
+  [EAppEventBusNames.PushPageInTabletDetailView]: any;
+  [EAppEventBusNames.PushModalPageInTabletDetailView]: {
+    route: EModalRoutes;
+    params: any;
   };
 }
 

@@ -1,5 +1,7 @@
+import { DeviceType, deviceType } from 'expo-device';
 import { RootSiblingParent } from 'react-native-root-siblings';
 
+import { ETabletViewType, TabletModeViewContext } from '@onekeyhq/components';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 
@@ -28,6 +30,7 @@ import { PasswordVerifyPortalContainer } from './PasswordVerifyPortalContainer';
 import { PortalBodyContainer } from './PortalBodyContainer';
 import { PrevCheckBeforeSendingContainer } from './PrevCheckBeforeSendingContainer';
 import { PrimeLoginContainerLazy } from './PrimeLoginContainer';
+import { TableSplitViewContainer } from './TableSplitViewContainer';
 import { VerifyTxContainer } from './VerifyTxContainer';
 import { WebPerformanceMonitorContainer } from './WebPerformanceMonitor';
 
@@ -42,36 +45,70 @@ function GlobalRootAppNavigationUpdate() {
   return null;
 }
 
+function DetailRouter() {
+  return (
+    <NavigationContainer>
+      <InAppNotification />
+      <GlobalRootAppNavigationUpdate />
+      <JotaiContextRootProvidersAutoMount />
+      <Bootstrap />
+      <AirGapQrcodeDialogContainer />
+      <CreateAddressContainer />
+      <PrevCheckBeforeSendingContainer />
+      <WalletBackupPreCheckContainer />
+      <VerifyTxContainer />
+      <HardwareUiStateContainer />
+      <PrimeLoginContainerLazy />
+      <DialogLoadingContainer />
+      <DiskFullWarningDialogContainer />
+      <CloudBackupContainer />
+      <FullWindowOverlayContainer />
+      <PortalBodyContainer />
+      <PageTrackerContainer />
+      <ErrorToastContainer />
+      <GlobalErrorHandlerContainer />
+      <ForceFirmwareUpdateContainer />
+      <ColdStartByNotification />
+      <PrimeGlobalEffect />
+      <WebPerformanceMonitorContainer />
+      <PasswordVerifyPortalContainer />
+    </NavigationContainer>
+  );
+}
+
+function MainRouter() {
+  return <NavigationContainer />;
+}
+
+const tabletMainViewContext = { viewType: ETabletViewType.MAIN };
+const tabletDetailViewContext = { viewType: ETabletViewType.DETAIL };
+
 export function Container() {
+  if (deviceType === DeviceType.TABLET) {
+    return (
+      <RootSiblingParent>
+        <AppStateLockContainer>
+          <TableSplitViewContainer
+            mainRouter={
+              <TabletModeViewContext.Provider value={tabletMainViewContext}>
+                <MainRouter />
+              </TabletModeViewContext.Provider>
+            }
+            detailRouter={
+              <TabletModeViewContext.Provider value={tabletDetailViewContext}>
+                <DetailRouter />
+              </TabletModeViewContext.Provider>
+            }
+          />
+          <GlobalWalletConnectModalContainer />
+        </AppStateLockContainer>
+      </RootSiblingParent>
+    );
+  }
   return (
     <RootSiblingParent>
       <AppStateLockContainer>
-        <NavigationContainer>
-          <InAppNotification />
-          <GlobalRootAppNavigationUpdate />
-          <JotaiContextRootProvidersAutoMount />
-          <Bootstrap />
-          <AirGapQrcodeDialogContainer />
-          <CreateAddressContainer />
-          <PrevCheckBeforeSendingContainer />
-          <WalletBackupPreCheckContainer />
-          <VerifyTxContainer />
-          <HardwareUiStateContainer />
-          <PrimeLoginContainerLazy />
-          <DialogLoadingContainer />
-          <DiskFullWarningDialogContainer />
-          <CloudBackupContainer />
-          <FullWindowOverlayContainer />
-          <PortalBodyContainer />
-          <PageTrackerContainer />
-          <ErrorToastContainer />
-          <GlobalErrorHandlerContainer />
-          <ForceFirmwareUpdateContainer />
-          <ColdStartByNotification />
-          <PrimeGlobalEffect />
-          <WebPerformanceMonitorContainer />
-          <PasswordVerifyPortalContainer />
-        </NavigationContainer>
+        <DetailRouter />
         <GlobalWalletConnectModalContainer />
       </AppStateLockContainer>
     </RootSiblingParent>

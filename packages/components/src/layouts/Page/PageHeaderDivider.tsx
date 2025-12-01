@@ -1,12 +1,12 @@
 import { memo } from 'react';
 
 import { Divider } from '../../content';
-import { useIsHorizontalLayout } from '../../hooks';
+import { useIsWebHorizontalLayout } from '../../hooks';
 
 import type { IStackStyle } from '../../primitives';
 
 function BasicPageHeaderDivider(props: IStackStyle) {
-  const isHorizontal = useIsHorizontalLayout();
+  const isHorizontal = useIsWebHorizontalLayout();
   return isHorizontal ? (
     <Divider
       $platform-web={{

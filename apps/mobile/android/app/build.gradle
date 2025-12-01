@@ -275,6 +275,10 @@ dependencies {
     // EventBus
     implementation 'org.greenrobot:eventbus-java:3.3.1'
 
+    // AndroidX Window Manager for dual-screen and foldable devices support
+    implementation 'androidx.window:window:1.5.1'
+    implementation 'androidx.window:window-java:1.5.1'
+
     // geckoview
     // implementation("org.mozilla.geckoview:geckoview:133.0.20241209150345")
     // implementation("com.google.code.gson:gson:2.13.1")

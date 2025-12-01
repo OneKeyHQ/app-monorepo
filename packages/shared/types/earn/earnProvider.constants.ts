@@ -83,7 +83,6 @@ export const isSupportStaking = (symbol: string) =>
     'WETH',
     'CBBTC',
     'WBTC',
-    'USDF',
   ].includes(symbol.toUpperCase());
 
 export const earnMainnetNetworkIds = [
@@ -115,6 +114,7 @@ export function normalizeToEarnSymbol(
     'wbtc': 'WBTC',
     'usdf': 'USDf',
     'usde': 'USDe',
+    'lista': 'LISTA',
   };
   return symbolMap[symbol.toLowerCase()];
 }
@@ -132,6 +132,7 @@ export function normalizeToEarnProvider(
     'falcon': EEarnProviderEnum.Falcon,
     'ethena': EEarnProviderEnum.Ethena,
     'momentum': EEarnProviderEnum.Momentum,
+    'staked': EEarnProviderEnum.Lista,
   };
   return providerMap[provider.toLowerCase()];
 }
@@ -227,5 +228,7 @@ export function getSymbolSupportedNetworks(): Record<
     'WBTC': [networkIdsMap.eth, networkIdsMap.sui],
     'USDf': [networkIdsMap.eth],
     'USDe': [networkIdsMap.eth],
+    'MORPHO': [networkIdsMap.eth],
+    'LISTA': [networkIdsMap.bsc],
   };
 }

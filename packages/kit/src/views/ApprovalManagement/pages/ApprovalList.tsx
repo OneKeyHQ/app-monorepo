@@ -97,24 +97,29 @@ function ApprovalList() {
       });
     }
 
+    let realAccountId = accountId;
+
     const globalDeriveType =
       await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
         networkId: searchNetworkId,
       });
 
-    const { accounts } =
-      await backgroundApiProxy.serviceAccount.getAccountsByIndexedAccounts({
-        indexedAccountIds: [indexedAccountId ?? ''],
-        networkId: searchNetworkId,
-        deriveType: globalDeriveType,
-      });
+    if (indexedAccountId) {
+      const { accounts } =
+        await backgroundApiProxy.serviceAccount.getAccountsByIndexedAccounts({
+          indexedAccountIds: [indexedAccountId ?? ''],
+          networkId: searchNetworkId,
+          deriveType: globalDeriveType,
+        });
+      realAccountId = accounts[0]?.id ?? accountId;
+    }
 
     await backgroundApiProxy.serviceApproval.abortFetchAccountApprovals();
 
     try {
       const resp =
         await backgroundApiProxy.serviceApproval.fetchAccountApprovals({
-          accountId: accounts[0]?.id ?? accountId,
+          accountId: realAccountId,
           networkId: searchNetworkId,
           indexedAccountId,
           networksEnabledOnly: false,

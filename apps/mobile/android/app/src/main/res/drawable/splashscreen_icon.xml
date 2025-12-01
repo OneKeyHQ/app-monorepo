@@ -1,0 +1,26 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="240dp"
+    android:height="240dp"
+    android:viewportWidth="288"
+    android:viewportHeight="288">
+  <!-- Squircle logo centered, NO circular clip-path so it keeps its rounded square shape -->
+  <group
+      android:scaleX="0.73333335"
+      android:scaleY="0.73333335"
+      android:translateX="38.4"
+      android:translateY="38.4">
+    <!-- Green squircle background (superellipse shape) -->
+    <path
+        android:pathData="M216,144C216,193.71 193.71,216 144,216C94.29,216 72,193.71 72,144C72,94.29 94.29,72 144,72C193.71,72 216,94.29 216,144Z"
+        android:fillColor="#44D62C"/>
+    <!-- Number "1" -->
+    <path
+        android:pathData="M150.51,102.53H130.48L126.96,113.16H138.09V135.54H150.51V102.53Z"
+        android:fillColor="#000000"/>
+    <!-- Letter "O" -->
+    <path
+        android:pathData="M166.84,162.63C166.84,175.24 156.62,185.47 144,185.47C131.38,185.47 121.16,175.24 121.16,162.63C121.16,150.01 131.38,139.78 144,139.78C156.62,139.78 166.84,150.01 166.84,162.63ZM156.47,162.63C156.47,169.51 150.89,175.1 144,175.1C137.11,175.1 131.53,169.51 131.53,162.63C131.53,155.74 137.11,150.15 144,150.15C150.89,150.15 156.47,155.74 156.47,162.63Z"
+        android:fillColor="#000000"
+        android:fillType="evenOdd"/>
+  </group>
+</vector>
