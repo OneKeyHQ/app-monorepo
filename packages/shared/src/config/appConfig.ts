@@ -73,7 +73,7 @@ export function buildReferralUrl({
   source: 'Perps' | 'Earn';
   env?: IEndpointEnv;
 }): string {
-  const path = source === 'Perps' ? '/app/perp' : '/app/earn';
+  const path = source === 'Perps' ? '/app/perps' : '/app/defi';
   const baseUrl = getWebAppUrl(env);
   return `${baseUrl}/r/${code}${path}`;
 }
