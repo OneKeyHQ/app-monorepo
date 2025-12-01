@@ -9,9 +9,7 @@ import ExpoSharing from '@onekeyhq/shared/src/modules3rdParty/expo-sharing';
 import RNFS from '@onekeyhq/shared/src/modules3rdParty/react-native-fs';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { DEFAULT_REFERRAL_URL } from './constants';
-
-export function useShareActions(referralUrl?: string) {
+export function useShareActions(referralQrCodeUrl?: string) {
   const { copyText } = useClipboard();
   const intl = useIntl();
   const saveImage = useCallback(
@@ -79,19 +77,21 @@ export function useShareActions(referralUrl?: string) {
   );
 
   const copyLink = useCallback(() => {
-    const link = referralUrl || DEFAULT_REFERRAL_URL;
-    try {
-      copyText(link);
-    } catch {
-      Toast.error({ title: 'Failed to copy link' });
+    if (referralQrCodeUrl) {
+      try {
+        copyText(referralQrCodeUrl);
+      } catch {
+        Toast.error({ title: 'Failed to copy link' });
+      }
     }
-  }, [copyText, referralUrl]);
+  }, [copyText, referralQrCodeUrl]);
 
   const shareToX = useCallback(
     async (_base64Image: string, text: string) => {
       try {
-        const link = referralUrl || DEFAULT_REFERRAL_URL;
-        const tweetText = `${text}\n\n${link}`;
+        const tweetText = referralQrCodeUrl
+          ? `${text}\n\n${referralQrCodeUrl}`
+          : text;
         const twitterUrl = `https://x.com/intent/tweet?text=${encodeURIComponent(
           tweetText,
         )}`;
@@ -108,7 +108,7 @@ export function useShareActions(referralUrl?: string) {
         });
       }
     },
-    [referralUrl],
+    [referralQrCodeUrl],
   );
 
   return {

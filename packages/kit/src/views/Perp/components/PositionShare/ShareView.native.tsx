@@ -17,8 +17,8 @@ interface IShareViewProps extends IShareReferralInfo {
 export function ShareView({
   data,
   config,
-  referralUrl,
-  inviteCode,
+  referralQrCodeUrl,
+  referralDisplayText,
   isReferralReady,
 }: IShareViewProps) {
   const { width: screenWidth } = useWindowDimensions();
@@ -37,8 +37,8 @@ export function ShareView({
       <ShareContentRenderer
         data={data}
         config={config}
-        referralUrl={referralUrl}
-        inviteCode={inviteCode}
+        referralQrCodeUrl={referralQrCodeUrl}
+        referralDisplayText={referralDisplayText}
         isReferralReady={isReferralReady}
         scale={displaySize / 1080}
       />
