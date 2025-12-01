@@ -4,21 +4,25 @@ import { useIntl } from 'react-intl';
 
 import {
   ActionList,
+  Button,
+  Icon,
   IconButton,
   Stack,
   useClipboard,
   useMedia,
 } from '@onekeyhq/components';
-import type { IActionListItemProps } from '@onekeyhq/components';
+import type { IActionListItemProps, IButtonProps } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 interface IReferralLinkDropdownProps {
   inviteUrl: string;
+  buttonProps?: IButtonProps;
 }
 
 export function ReferralLinkDropdown({
   inviteUrl,
+  buttonProps,
 }: IReferralLinkDropdownProps) {
   const intl = useIntl();
   const { copyText } = useClipboard();
@@ -71,14 +75,19 @@ export function ReferralLinkDropdown({
   );
 
   const renderTrigger = useMemo(
-    () => (
-      <IconButton
-        icon="ChevronDownSmallOutline"
-        variant="tertiary"
-        size="small"
-      />
-    ),
-    [],
+    () =>
+      buttonProps ? (
+        <Button variant="secondary" size="small" {...buttonProps}>
+          <Icon name="ChevronDownSmallOutline" size="$3" />
+        </Button>
+      ) : (
+        <IconButton
+          icon="ChevronDownSmallOutline"
+          variant="tertiary"
+          size="small"
+        />
+      ),
+    [buttonProps],
   );
 
   const handleStopPropagation = useCallback(
@@ -93,6 +102,19 @@ export function ReferralLinkDropdown({
       <Stack onPress={handleStopPropagation}>
         <ActionList title={title} renderTrigger={renderTrigger} items={items} />
       </Stack>
+    );
+  }
+
+  if (buttonProps) {
+    return (
+      <Button
+        variant="secondary"
+        size="small"
+        onPress={handleMobilePress}
+        {...buttonProps}
+      >
+        <Icon name="ChevronDownSmallOutline" size="$3" />
+      </Button>
     );
   }
 
