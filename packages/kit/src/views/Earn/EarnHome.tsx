@@ -132,23 +132,12 @@ function BasicEarnHome({
           const networkId = params.get('networkId');
           const vault = params.get('vault');
           if (provider && symbol && networkId) {
-            const earnAccount =
-              await backgroundApiProxy.serviceStaking.getEarnAccount({
-                indexedAccountId: indexedAccount?.id,
-                accountId: account?.id ?? '',
-                networkId,
-              });
             const navigationParams: {
-              accountId?: string;
               networkId: string;
-              indexedAccountId?: string;
               symbol: string;
               provider: string;
               vault?: string;
             } = {
-              accountId: earnAccount?.accountId || account?.id || '',
-              indexedAccountId:
-                earnAccount?.account.indexedAccountId || indexedAccount?.id,
               provider,
               symbol,
               networkId,

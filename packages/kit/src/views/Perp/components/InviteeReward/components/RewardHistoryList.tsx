@@ -50,6 +50,7 @@ function RewardItemSkeleton() {
 }
 
 function RewardItem({ item, token }: IRewardItemProps) {
+  const intl = useIntl();
   const handleTxPress = useCallback(() => {
     if (item.tx) {
       const explorerUrl = `https://arbiscan.io/tx/${item.tx}`;
@@ -66,7 +67,11 @@ function RewardItem({ item, token }: IRewardItemProps) {
         <XStack ai="center" gap="$3" flex={1}>
           <Token size="md" tokenImageUri={token.logoURI} />
           <YStack gap="$0.5" flex={1}>
-            <SizableText size="$bodyMdMedium">Reward</SizableText>
+            <SizableText size="$bodyMdMedium">
+              {intl.formatMessage({
+                id: ETranslations.perps_get_reward,
+              })}
+            </SizableText>
             {item.tx ? (
               <XStack
                 ai="center"

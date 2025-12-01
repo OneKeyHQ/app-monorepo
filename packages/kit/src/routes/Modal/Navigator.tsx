@@ -16,7 +16,7 @@ export function ModalNavigator({ pageType }: { pageType?: EPageType }) {
   );
 }
 
-export function iOSFullScreenNavigator() {
+export function IOSFullScreenNavigator() {
   return <ModalNavigator pageType={EPageType.fullScreen} />;
 }
 

@@ -1,28 +1,20 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback } from 'react';
 
-import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
   Badge,
-  Button,
   IconButton,
-  Image,
-  ScrollView,
   SizableText,
-  Stack,
   XStack,
   YStack,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import { BACKGROUNDS } from './constants';
-
-import type { IPnlDisplayMode, IShareConfig, IShareData } from './types';
+import type { IPnlDisplayMode, IShareConfig } from './types';
 
 interface IControlPanelProps {
   config: IShareConfig;
-  data: IShareData;
   onChange: (config: IShareConfig) => void;
   onSaveImage: () => void;
   onCopyLink: () => void;
@@ -33,7 +25,6 @@ interface IControlPanelProps {
 
 export function ControlPanel({
   config,
-  data,
   onChange,
   onSaveImage,
   onCopyLink,
@@ -42,23 +33,6 @@ export function ControlPanel({
   isMobile,
 }: IControlPanelProps) {
   const intl = useIntl();
-
-  const isProfit = useMemo(() => {
-    const pnlBn = new BigNumber(data.pnl || '0');
-    return pnlBn.isGreaterThan(0);
-  }, [data.pnl]);
-
-  // const availableBackgrounds = useMemo(() => {
-  //   const specific = isProfit ? BACKGROUNDS.profit : BACKGROUNDS.loss;
-  //   return [...BACKGROUNDS.neutral, ...specific];
-  // }, [isProfit]);
-
-  // const handleBackgroundChange = useCallback(
-  //   (index: number) => {
-  //     onChange({ ...config, backgroundIndex: index });
-  //   },
-  //   [config, onChange],
-  // );
 
   const handlePnlDisplayModeChange = useCallback(
     (mode: IPnlDisplayMode) => {
@@ -71,41 +45,6 @@ export function ControlPanel({
   return (
     <YStack flex={1} px={isMobile ? 10 : undefined} gap="$5">
       <YStack flex={1} gap="$11">
-        {/* <YStack gap="$2">
-          <SizableText size="$headingXs">
-            {intl.formatMessage({
-              id: ETranslations.perps_share_position_background,
-            })}
-          </SizableText>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          <XStack gap="$3">
-              {availableBackgrounds.map((bgSource, index) => (
-              <Stack
-                  key={index}
-                  width={72}
-                  height={72}
-                borderRadius="$3"
-                  borderWidth="$0.5"
-                borderColor={
-                    config.backgroundIndex === index
-                    ? '$borderActive'
-                    : '$borderSubdued'
-                }
-                justifyContent="center"
-                alignItems="center"
-                  overflow="hidden"
-                cursor="pointer"
-                hoverStyle={{ borderColor: '$borderHover' }}
-                pressStyle={{ opacity: 0.8 }}
-                  onPress={() => handleBackgroundChange(index)}
-              >
-                  <Image source={{ uri: bgSource }} width={72} height={72} />
-              </Stack>
-            ))}
-          </XStack>
-        </ScrollView>
-        </YStack> */}
-
         <YStack gap="$2">
           <SizableText size="$headingXs" color="$textSubdued">
             {intl.formatMessage({

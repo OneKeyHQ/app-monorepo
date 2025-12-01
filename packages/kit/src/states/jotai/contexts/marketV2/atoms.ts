@@ -60,9 +60,6 @@ export const { atom: showWatchlistOnlyAtom, use: useShowWatchlistOnlyAtom } =
 export const { atom: selectedNetworkIdAtom, use: useSelectedNetworkIdAtom } =
   contextAtom<string>('');
 
-export const { atom: selectedMarketTabAtom, use: useSelectedMarketTabAtom } =
-  contextAtom<string>('trending');
-
 // SwapPanel Analytics Atoms
 export interface ISwapAnalyticsState {
   amountEnterType: EAmountEnterType;
