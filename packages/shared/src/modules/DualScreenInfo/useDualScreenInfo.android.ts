@@ -4,8 +4,6 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import platformEnv from '../../platformEnv';
-
 import {
   addSpanningListener,
   isDualScreenDevice as checkIsDualScreenDevice,
