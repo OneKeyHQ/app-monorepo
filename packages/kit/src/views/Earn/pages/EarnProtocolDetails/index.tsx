@@ -13,7 +13,6 @@ import {
   XStack,
   YStack,
   useIsGtMd,
-  useMedia,
   useShare,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -495,7 +494,7 @@ const ManagePositionPart = ({
 const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
   const intl = useIntl();
   const appNavigation = useAppNavigation();
-  const { gtMd } = useMedia();
+  const gtMd = useIsGtMd();
   const { shareText } = useShare();
   const [devSettings] = useDevSettingsPersistAtom();
   const { activeAccount } = useActiveAccount({ num: 0 });
