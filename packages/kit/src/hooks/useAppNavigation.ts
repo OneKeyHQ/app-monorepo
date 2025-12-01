@@ -6,6 +6,7 @@ import * as ExpoDevice from 'expo-device';
 import {
   Page,
   rootNavigationRef,
+  tabletMainViewNavigationRef,
   useIsTabletMainView,
 } from '@onekeyhq/components';
 import type {
@@ -113,6 +114,18 @@ function useAppNavigation<
         params?: ITabStackParamList[T][keyof ITabStackParamList[T]];
       },
     ) => {
+      setTimeout(() => {
+        tabletMainViewNavigationRef.current?.navigate(
+          ERootRoutes.Main,
+          {
+            screen: route,
+            params,
+          },
+          {
+            pop: true,
+          },
+        );
+      });
       rootNavigationRef.current?.navigate(
         ERootRoutes.Main,
         {
