@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 
 import { useFocusEffect } from '@react-navigation/native';
+import * as ExpoDevice from 'expo-device';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
 import { Page, useMedia } from '@onekeyhq/components';
@@ -55,7 +56,13 @@ function MarketDetail({
     <Page>
       <MarketDetailHeader />
 
-      <Page.Body>{media.gtLg ? <DesktopLayout /> : <MobileLayout />}</Page.Body>
+      <Page.Body>
+        {media.gtLg && !platformEnv.isNative ? (
+          <DesktopLayout />
+        ) : (
+          <MobileLayout />
+        )}
+      </Page.Body>
     </Page>
   );
 }
@@ -65,7 +72,10 @@ function MarketDetailV2(
 ) {
   useFocusEffect(
     useCallback(() => {
-      if (platformEnv.isExtension) {
+      if (
+        platformEnv.isExtension ||
+        ExpoDevice.deviceType === ExpoDevice.DeviceType.TABLET
+      ) {
         return;
       }
 

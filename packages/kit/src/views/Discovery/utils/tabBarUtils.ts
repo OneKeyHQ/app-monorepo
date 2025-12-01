@@ -1,5 +1,7 @@
 import { useEffect } from 'react';
 
+import * as ExpoDevice from 'expo-device';
+
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import {
   EAppEventBusNames,
@@ -7,7 +9,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-const isNative = platformEnv.isNative && !platformEnv.isNativeIOSPad;
+const isNative = platformEnv.isNative;
 
 export const showTabBar = () => {
   setTimeout(() => {
@@ -22,6 +24,9 @@ export const useNotifyTabBarDisplay = isNative
       const hideTabBar = isActive && isFocused;
 
       useEffect(() => {
+        if (ExpoDevice.deviceType === ExpoDevice.DeviceType.TABLET) {
+          return;
+        }
         appEventBus.emit(EAppEventBusNames.HideTabBar, hideTabBar);
       }, [hideTabBar]);
     }

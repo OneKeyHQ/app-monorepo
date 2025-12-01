@@ -1636,7 +1636,7 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - Yoga
-  - react-native-cloud-fs (2.6.3):
+  - react-native-cloud-fs (2.6.4):
     - React
   - react-native-compat (2.21.7):
     - DoubleConversion
@@ -3508,7 +3508,7 @@ SPEC CHECKSUMS:
   react-native-aes: e38d08f68d27e85d14590b7ef0b404ceebf5f891
   react-native-ble-plx: 42b541d86904b350743b507a00222145d833cac9
   react-native-capture-protection: 8df17cfa486df1c267f9de32f4877f75be216670
-  react-native-cloud-fs: c86a54591a932e41d94b0965f16d0713150b1fd0
+  react-native-cloud-fs: 330b1de38d4c35f287a755182eb5e56d03a3e1cc
   react-native-compat: 792f9cfc926dd4edb1e1e73ebf0f08308083a825
   react-native-fast-pbkdf2: 329e89b9929a51ed4d9ba88bf355a266f13d9d93
   react-native-get-random-values: 419569b6ed3d15bfb9b6781b2f2e058f8e8d2698
