@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
+import { createContext, memo, useCallback, useContext, useMemo } from 'react';
 
 import { isEmpty } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -19,6 +19,7 @@ import type { ITableColumn } from '@onekeyhq/kit/src/components/ListView/TableLi
 import { TableList } from '@onekeyhq/kit/src/components/ListView/TableList';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { MorphoUSDCVaultAddress } from '@onekeyhq/shared/src/consts/addresses';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
@@ -40,7 +41,23 @@ import { usePortfolioAction } from '../hooks/usePortfolioAction';
 import { useProtocolMultiTokenPendingTxs } from '../hooks/useStakingPendingTxs';
 
 import type { IUseEarnPortfolioReturn } from '../hooks/useEarnPortfolio';
-import { MorphoUSDCVaultAddress } from '@onekeyhq/shared/src/consts/addresses';
+import type { IStakePendingTx } from '../hooks/useStakingPendingTxs';
+
+const PortfolioPendingTxsContext = createContext<IStakePendingTx[]>([]);
+
+const PortfolioPendingTxsProvider = ({
+  value,
+  children,
+}: {
+  value: IStakePendingTx[];
+  children: React.ReactNode;
+}) => (
+  <PortfolioPendingTxsContext.Provider value={value}>
+    {children}
+  </PortfolioPendingTxsContext.Provider>
+);
+
+const usePortfolioPendingTxs = () => useContext(PortfolioPendingTxsContext);
 
 const WrappedActionButton = ({
   asset,
@@ -61,6 +78,7 @@ const WrappedActionButton = ({
 }) => {
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { account, indexedAccount } = activeAccount;
+  const pendingTxs = usePortfolioPendingTxs();
 
   // For staking config lookup, use:
   // - stakedSymbol for airdrops (the token that was staked to earn rewards)
@@ -76,6 +94,17 @@ const WrappedActionButton = ({
     vaultForConfig = MorphoUSDCVaultAddress;
   }
 
+  const stakeTag = buildLocalTxStatusSyncId({
+    providerName: asset.metadata.protocol.providerDetail.code,
+    tokenSymbol: symbolForConfig,
+  });
+
+  // const [isPending, setIsPending] = useState(false);
+  const isPending = useMemo(() => {
+    console.log('pendingTxspendingTxspendingTxs', pendingTxs, stakeTag);
+    return pendingTxs.some((tx) => tx.stakingInfo.tags?.includes(stakeTag));
+  }, [pendingTxs, stakeTag]);
+
   const { loading, handleAction } = usePortfolioAction({
     accountId: account?.id || '',
     networkId: asset.metadata.network.networkId,
@@ -84,10 +113,7 @@ const WrappedActionButton = ({
     provider: asset.metadata.protocol.providerDetail.code,
     vault: vaultForConfig,
     providerLogoURI: asset.metadata.protocol.providerDetail.logoURI,
-    stakeTag: buildLocalTxStatusSyncId({
-      providerName: asset.metadata.protocol.providerDetail.code,
-      tokenSymbol: symbolForConfig,
-    }),
+    stakeTag,
   });
 
   const onPress = useCallback(() => {
@@ -126,7 +152,7 @@ const WrappedActionButton = ({
         ai="center"
         variant="secondary"
         size="small"
-        loading={loading}
+        loading={loading || isPending}
         disabled={loading || reward.button.disabled}
         cursor={reward.button.disabled ? 'not-allowed' : 'pointer'}
         onPress={onPress}
@@ -142,7 +168,7 @@ const WrappedActionButton = ({
       ai="center"
       variant="link"
       size="small"
-      loading={loading}
+      loading={loading || isPending}
       disabled={loading || reward.button.disabled}
       cursor={reward.button.disabled ? 'not-allowed' : 'pointer'}
       onPress={onPress}
@@ -524,7 +550,7 @@ const PortfolioItemComponent = ({
   }, [onRefreshRow, provider, networkId]);
 
   // Monitor pending txs for all tokens in this protocol
-  const { pendingCount } = useProtocolMultiTokenPendingTxs({
+  const { allTxs } = useProtocolMultiTokenPendingTxs({
     networkId,
     provider,
     symbols: allSymbols,
@@ -611,173 +637,178 @@ const PortfolioItemComponent = ({
   );
 
   return (
-    <YStack>
-      <ProtocolHeader
-        portfolioItem={portfolioItem}
-        pendingCount={pendingCount}
-      />
-      <ProtocolAirdrop
-        airdropRenderMode={media.gtSm ? 'all' : 'firstOnly'}
-        airdropAssets={portfolioItem.airdropAssets}
-        stakedSymbol={portfolioItem.assets[0]?.token.info.symbol}
-        stakedVault={portfolioItem.assets[0]?.metadata.protocol.vault}
-      />
-      {showTable ? (
-        <TableList<IEarnPortfolioInvestment['assets'][number]>
-          data={portfolioItem.assets}
-          keyExtractor={(asset, index) =>
-            `${asset.token.info.symbol}-${
-              asset.metadata.protocol.providerDetail.code
-            }-${asset.metadata.network.networkId}-${
-              asset.metadata.protocol.vault || 'default'
-            }-${index}`
-          }
-          columns={columns}
-          withHeader={media.gtSm}
-          tableLayout
-          defaultSortKey="deposits"
-          defaultSortDirection="desc"
-          onPressRow={handleRowPress}
-          headerProps={{
-            mt: '$3',
-            minHeight: '$8',
-          }}
-          listItemProps={{
-            ai: media.gtSm ? 'flex-start' : 'center',
-            mt: media.gtSm ? '$2' : '$1',
-          }}
-          expandable={
-            !media.gtSm
-              ? {
-                  renderExpandedContent: (asset) => (
-                    <YStack gap="$5">
-                      {/* Est. 24h earnings */}
-                      <XStack ai="center" gap="$1">
-                        <EarnText
-                          size="$bodyLgMedium"
-                          text={asset.earnings24h?.title}
-                        />
-                        <SizableText size="$bodyMd" color="$textSubdued">
-                          {intl.formatMessage({
-                            id: ETranslations.earn_24h_earnings,
-                          })}
-                        </SizableText>
-                      </XStack>
-
-                      {/* Asset status list */}
-                      {asset.assetsStatus?.map((status, index) => (
-                        <XStack key={index} ai="center">
-                          <EarnText size="$bodyMdMedium" text={status.title} />
-                          <XStack gap="$1.5">
-                            <EarnText
-                              ml="$2"
-                              size="$bodyMd"
-                              color="$textSubdued"
-                              text={status.description}
-                            />
-                            <EarnTooltip tooltip={status.tooltip} />
-                          </XStack>
-                        </XStack>
-                      ))}
-
-                      {/* Reward assets (claimable rewards) */}
-                      {asset.rewardAssets?.map((reward, index) => (
-                        <XStack key={index} ai="center" jc="space-between">
-                          <XStack ai="center" gap="$2">
-                            <EarnText
-                              size="$bodyMdMedium"
-                              text={reward.title}
-                            />
-                            <EarnText
-                              size="$bodyMd"
-                              color="$textSubdued"
-                              text={reward.description}
-                            />
-                            <EarnTooltip tooltip={reward.tooltip} />
-                          </XStack>
-                          <WrappedActionButton asset={asset} reward={reward} />
-                        </XStack>
-                      ))}
-
-                      {/* Buttons */}
-                      <XStack gap="$3">
-                        <Button
-                          flex={1}
-                          size="medium"
-                          variant="secondary"
-                          onPress={async () => {
-                            await handleManagePress(asset);
-                          }}
-                        >
-                          {intl.formatMessage({
-                            id: ETranslations.global_manage,
-                          })}
-                        </Button>
-                        <Button
-                          flex={1}
-                          size="medium"
-                          variant="secondary"
-                          onPress={async () => {
-                            await handleRowPress(asset);
-                          }}
-                        >
-                          {intl.formatMessage({
-                            id: ETranslations.global_details,
-                          })}
-                        </Button>
-                      </XStack>
-                    </YStack>
-                  ),
-                }
-              : undefined
-          }
-          actions={{
-            render: (asset) => {
-              return (
-                <Stack gap="$2">
-                  {asset.buttons?.map(
-                    (
-                      button: {
-                        type: string;
-                        text: { text: string };
-                        disabled: boolean;
-                      },
-                      index: number,
-                    ) => {
-                      return (
-                        <Button
-                          key={index}
-                          size="small"
-                          disabled={button?.disabled}
-                          variant="secondary"
-                          onPress={async () => {
-                            if (button?.type === 'manage') {
-                              await handleManagePress(asset);
-                            }
-                          }}
-                        >
-                          {button.text?.text}
-                        </Button>
-                      );
-                    },
-                  )}
-                </Stack>
-              );
-            },
-            width: 100,
-            align: 'flex-end',
-          }}
-        />
-      ) : null}
-      {!media.gtSm ? (
+    <PortfolioPendingTxsProvider value={allTxs}>
+      <YStack>
+        <ProtocolHeader portfolioItem={portfolioItem} />
         <ProtocolAirdrop
-          airdropRenderMode="exceptFirst"
+          airdropRenderMode={media.gtSm ? 'all' : 'firstOnly'}
           airdropAssets={portfolioItem.airdropAssets}
           stakedSymbol={portfolioItem.assets[0]?.token.info.symbol}
           stakedVault={portfolioItem.assets[0]?.metadata.protocol.vault}
         />
-      ) : null}
-    </YStack>
+        {showTable ? (
+          <TableList<IEarnPortfolioInvestment['assets'][number]>
+            data={portfolioItem.assets}
+            keyExtractor={(asset, index) =>
+              `${asset.token.info.symbol}-${
+                asset.metadata.protocol.providerDetail.code
+              }-${asset.metadata.network.networkId}-${
+                asset.metadata.protocol.vault || 'default'
+              }-${index}`
+            }
+            columns={columns}
+            withHeader={media.gtSm}
+            tableLayout
+            defaultSortKey="deposits"
+            defaultSortDirection="desc"
+            onPressRow={handleRowPress}
+            headerProps={{
+              mt: '$3',
+              minHeight: '$8',
+            }}
+            listItemProps={{
+              ai: media.gtSm ? 'flex-start' : 'center',
+              mt: media.gtSm ? '$2' : '$1',
+            }}
+            expandable={
+              !media.gtSm
+                ? {
+                    renderExpandedContent: (asset) => (
+                      <YStack gap="$5">
+                        {/* Est. 24h earnings */}
+                        <XStack ai="center" gap="$1">
+                          <EarnText
+                            size="$bodyLgMedium"
+                            text={asset.earnings24h?.title}
+                          />
+                          <SizableText size="$bodyMd" color="$textSubdued">
+                            {intl.formatMessage({
+                              id: ETranslations.earn_24h_earnings,
+                            })}
+                          </SizableText>
+                        </XStack>
+
+                        {/* Asset status list */}
+                        {asset.assetsStatus?.map((status, index) => (
+                          <XStack key={index} ai="center">
+                            <EarnText
+                              size="$bodyMdMedium"
+                              text={status.title}
+                            />
+                            <XStack gap="$1.5">
+                              <EarnText
+                                ml="$2"
+                                size="$bodyMd"
+                                color="$textSubdued"
+                                text={status.description}
+                              />
+                              <EarnTooltip tooltip={status.tooltip} />
+                            </XStack>
+                          </XStack>
+                        ))}
+
+                        {/* Reward assets (claimable rewards) */}
+                        {asset.rewardAssets?.map((reward, index) => (
+                          <XStack key={index} ai="center" jc="space-between">
+                            <XStack ai="center" gap="$2">
+                              <EarnText
+                                size="$bodyMdMedium"
+                                text={reward.title}
+                              />
+                              <EarnText
+                                size="$bodyMd"
+                                color="$textSubdued"
+                                text={reward.description}
+                              />
+                              <EarnTooltip tooltip={reward.tooltip} />
+                            </XStack>
+                            <WrappedActionButton
+                              asset={asset}
+                              reward={reward}
+                            />
+                          </XStack>
+                        ))}
+
+                        {/* Buttons */}
+                        <XStack gap="$3">
+                          <Button
+                            flex={1}
+                            size="medium"
+                            variant="secondary"
+                            onPress={async () => {
+                              await handleManagePress(asset);
+                            }}
+                          >
+                            {intl.formatMessage({
+                              id: ETranslations.global_manage,
+                            })}
+                          </Button>
+                          <Button
+                            flex={1}
+                            size="medium"
+                            variant="secondary"
+                            onPress={async () => {
+                              await handleRowPress(asset);
+                            }}
+                          >
+                            {intl.formatMessage({
+                              id: ETranslations.global_details,
+                            })}
+                          </Button>
+                        </XStack>
+                      </YStack>
+                    ),
+                  }
+                : undefined
+            }
+            actions={{
+              render: (asset) => {
+                return (
+                  <Stack gap="$2">
+                    {asset.buttons?.map(
+                      (
+                        button: {
+                          type: string;
+                          text: { text: string };
+                          disabled: boolean;
+                        },
+                        index: number,
+                      ) => {
+                        return (
+                          <Button
+                            key={index}
+                            size="small"
+                            disabled={button?.disabled}
+                            variant="secondary"
+                            onPress={async () => {
+                              if (button?.type === 'manage') {
+                                await handleManagePress(asset);
+                              }
+                            }}
+                          >
+                            {button.text?.text}
+                          </Button>
+                        );
+                      },
+                    )}
+                  </Stack>
+                );
+              },
+              width: 100,
+              align: 'flex-end',
+            }}
+          />
+        ) : null}
+        {!media.gtSm ? (
+          <ProtocolAirdrop
+            airdropRenderMode="exceptFirst"
+            airdropAssets={portfolioItem.airdropAssets}
+            stakedSymbol={portfolioItem.assets[0]?.token.info.symbol}
+            stakedVault={portfolioItem.assets[0]?.metadata.protocol.vault}
+          />
+        ) : null}
+      </YStack>
+    </PortfolioPendingTxsProvider>
   );
 };
 

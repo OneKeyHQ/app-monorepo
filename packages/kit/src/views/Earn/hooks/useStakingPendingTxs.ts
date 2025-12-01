@@ -4,10 +4,14 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { usePrevious } from '@onekeyhq/kit/src/hooks/usePrevious';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import type { IStakeTag } from '@onekeyhq/shared/types/staking';
 
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { buildLocalTxStatusSyncId } from '../../Staking/utils/utils';
+
+export type IStakePendingTx = IAccountHistoryTx &
+  Required<Pick<IAccountHistoryTx, 'stakingInfo'>>;
 
 export const useStakingPendingTxs = ({
   accountId,
@@ -239,6 +243,7 @@ export const useProtocolMultiTokenPendingTxs = ({
   }, [isPending, prevIsPending]);
 
   return {
+    allTxs,
     pendingCount: allTxs.length,
     refreshPending: refreshPendingWithHistory,
   };

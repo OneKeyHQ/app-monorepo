@@ -28,6 +28,7 @@ interface IUsePortfolioActionParams {
   vault?: string;
   providerLogoURI?: string;
   stakeTag?: string;
+  onSuccess?: () => Promise<void>;
 }
 
 export const usePortfolioAction = ({
@@ -39,6 +40,7 @@ export const usePortfolioAction = ({
   vault,
   providerLogoURI,
   stakeTag,
+  onSuccess,
 }: IUsePortfolioActionParams) => {
   const [loading, setLoading] = useState(false);
 
@@ -90,10 +92,11 @@ export const usePortfolioAction = ({
           });
         }
       } finally {
+        void onSuccess?.();
         setLoading(false);
       }
     },
-    [signMessage, earnAccountId, networkId, provider, symbol],
+    [signMessage, earnAccountId, networkId, provider, symbol, onSuccess],
   );
 
   const handleClaimAction = useCallback(
@@ -170,12 +173,14 @@ export const usePortfolioAction = ({
           portfolioSymbol: stakedSymbol || token?.info.symbol,
           // For airdrops, also pass rewardSymbol to filter the correct airdrop asset
           portfolioRewardSymbol: rewardSymbol,
+          onSuccess,
         });
       } finally {
         setLoading(false);
       }
     },
     [
+      onSuccess,
       handleClaim,
       provider,
       symbol,
