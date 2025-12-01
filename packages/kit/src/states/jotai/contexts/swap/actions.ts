@@ -869,6 +869,37 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     } as ISwapAlertState;
   };
 
+  checkAccountNetworkNotSupportedAlert = async ({
+    addressInfo,
+    activeNetworkId,
+  }: {
+    addressInfo?: ReturnType<typeof useSwapAddressInfo>;
+    activeNetworkId: string;
+  }) => {
+    if (!addressInfo) {
+      return undefined;
+    }
+
+    const walletId = addressInfo.accountInfo?.wallet?.id;
+    const accountId = addressInfo.accountInfo?.account?.id;
+
+    const accountNetworkNotSupported =
+      await backgroundApiProxy.serviceAccount.checkAccountNetworkNotSupported({
+        walletId,
+        accountId,
+        activeNetworkId,
+      });
+    if (accountNetworkNotSupported) {
+      return {
+        message: appLocale.intl.formatMessage({
+          id: ETranslations.swap_page_alert_account_does_not_support_swap,
+        }),
+        alertLevel: ESwapAlertLevel.ERROR,
+      };
+    }
+    return undefined;
+  };
+
   checkSwapWarning = contextAtomMethod(
     async (
       get,
@@ -931,49 +962,29 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         });
         return;
       }
-      if (
-        fromToken &&
-        !swapFromAddressInfo.address &&
-        !accountUtils.isHdWallet({
-          walletId: swapFromAddressInfo.accountInfo?.wallet?.id,
-        }) &&
-        !accountUtils.isHwWallet({
-          walletId: swapFromAddressInfo.accountInfo?.wallet?.id,
-        }) &&
-        !accountUtils.isQrWallet({
-          walletId: swapFromAddressInfo.accountInfo?.wallet?.id,
-        })
-      ) {
-        alertsRes = [
-          ...alertsRes,
-          {
-            message: appLocale.intl.formatMessage({
-              id: ETranslations.swap_page_alert_account_does_not_support_swap,
-            }),
-            alertLevel: ESwapAlertLevel.ERROR,
-          },
-        ];
-      }
       if (fromToken && swapFromAddressInfo.accountInfo?.wallet?.id) {
-        const walletId = swapFromAddressInfo.accountInfo?.wallet?.id;
-
-        const accountNetworkNotSupported =
-          await backgroundApiProxy.serviceAccount.checkAccountNetworkNotSupported(
-            {
-              walletId,
-              activeNetworkId: fromToken.networkId,
-            },
-          );
-        if (accountNetworkNotSupported) {
-          alertsRes = [
-            ...alertsRes,
-            {
-              message: appLocale.intl.formatMessage({
-                id: ETranslations.swap_page_alert_account_does_not_support_swap,
-              }),
-              alertLevel: ESwapAlertLevel.ERROR,
-            },
-          ];
+        const accountNetworkNotSupportedAlert =
+          await this.checkAccountNetworkNotSupportedAlert({
+            addressInfo: swapFromAddressInfo,
+            activeNetworkId: fromToken.networkId,
+          });
+        if (accountNetworkNotSupportedAlert) {
+          alertsRes = [...alertsRes, accountNetworkNotSupportedAlert];
+          set(swapAlertsAtom(), {
+            states: alertsRes,
+            quoteId: quoteResult?.quoteId ?? '',
+          });
+          return;
+        }
+      }
+      if (toToken && swapToAddressInfo.accountInfo?.wallet?.id) {
+        const accountNetworkNotSupportedAlert =
+          await this.checkAccountNetworkNotSupportedAlert({
+            addressInfo: swapToAddressInfo,
+            activeNetworkId: toToken.networkId,
+          });
+        if (accountNetworkNotSupportedAlert) {
+          alertsRes = [...alertsRes, accountNetworkNotSupportedAlert];
           set(swapAlertsAtom(), {
             states: alertsRes,
             quoteId: quoteResult?.quoteId ?? '',
