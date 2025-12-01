@@ -8,7 +8,9 @@ import type { IRichBlockProps } from './types';
 function RichBlock(props: IRichBlockProps) {
   const {
     title,
+    subTitle,
     titleProps,
+    subTitleProps,
     headerActions,
     headerContainerProps,
     blockContainerProps,
@@ -17,10 +19,12 @@ function RichBlock(props: IRichBlockProps) {
   } = props;
   return (
     <Stack userSelect="none" pointerEvents="box-none" {...blockContainerProps}>
-      {title || headerActions ? (
+      {title || subTitle || headerActions ? (
         <RichBlockHeader
           title={title}
           titleProps={titleProps}
+          subTitle={subTitle}
+          subTitleProps={subTitleProps}
           headerActions={headerActions}
           headerContainerProps={headerContainerProps}
         />

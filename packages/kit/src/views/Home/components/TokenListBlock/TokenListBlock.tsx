@@ -9,9 +9,7 @@ import { useThrottledCallback } from 'use-debounce';
 import {
   IconButton,
   NumberSizeableText,
-  SizableText,
   Stack,
-  XStack,
   useMedia,
   useOnRouterChange,
   useTabIsRefreshingFocused,
@@ -1926,40 +1924,24 @@ function TokenListBlock() {
     return false;
   }, [allNetworksState.visibleCount, network?.isAllNetworks]);
 
-  const renderTitle = useCallback(() => {
+  const renderSubTitle = useCallback(() => {
     if (media.gtMd) {
       return (
-        <XStack alignItems="center" gap="$1">
-          <SizableText size="$headingLg">
-            {intl.formatMessage({
-              id: ETranslations.global_universal_search_tabs_tokens,
-            })}
-          </SizableText>
-          <SizableText size="$headingLg" color="$textSubdued">
-            ·
-          </SizableText>
-          <NumberSizeableText
-            size="$headingXl"
-            color="$textSubdued"
-            formatter="value"
-            formatterOptions={{
-              currency: settings.currencyInfo.symbol,
-            }}
-          >
-            123
-          </NumberSizeableText>
-        </XStack>
+        <NumberSizeableText
+          size="$headingXl"
+          color="$textSubdued"
+          formatter="value"
+          formatterOptions={{
+            currency: settings.currencyInfo.symbol,
+          }}
+        >
+          123
+        </NumberSizeableText>
       );
     }
 
-    return (
-      <SizableText size="$bodyLgMedium">
-        {intl.formatMessage({
-          id: ETranslations.global_universal_search_tabs_tokens,
-        })}
-      </SizableText>
-    );
-  }, [intl, media.gtMd, settings.currencyInfo.symbol]);
+    return null;
+  }, [media.gtMd, settings.currencyInfo.symbol]);
 
   const renderHeaderActions = useCallback(() => {
     if (manageTokenEnabled && media.gtMd) {
@@ -2052,7 +2034,11 @@ function TokenListBlock() {
 
   return (
     <RichBlock
-      title={renderTitle()}
+      withTitleSeparator
+      title={intl.formatMessage({
+        id: ETranslations.global_universal_search_tabs_tokens,
+      })}
+      subTitle={renderSubTitle()}
       headerActions={renderHeaderActions()}
       content={renderContent()}
     />

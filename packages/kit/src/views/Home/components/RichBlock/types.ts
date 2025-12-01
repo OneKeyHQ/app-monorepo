@@ -7,6 +7,9 @@ import type {
 export type IRichBlockProps = {
   title?: React.ReactNode;
   titleProps?: ISizableTextProps;
+  withTitleSeparator?: boolean;
+  subTitle?: React.ReactNode;
+  subTitleProps?: ISizableTextProps;
   headerActions?: React.ReactNode;
   headerContainerProps?: IXStackProps;
 

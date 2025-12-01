@@ -7,27 +7,64 @@ import type { IRichBlockProps } from './types';
 function RichBlockHeader(
   props: Pick<
     IRichBlockProps,
-    'title' | 'titleProps' | 'headerActions' | 'headerContainerProps'
+    | 'title'
+    | 'titleProps'
+    | 'withTitleSeparator'
+    | 'subTitle'
+    | 'subTitleProps'
+    | 'headerActions'
+    | 'headerContainerProps'
   >,
 ) {
-  const { title, titleProps, headerActions, headerContainerProps } = props;
+  const {
+    title,
+    titleProps,
+    subTitle,
+    subTitleProps,
+    withTitleSeparator,
+    headerActions,
+    headerContainerProps,
+  } = props;
 
   const renderTitle = useCallback(() => {
-    if (typeof title === 'string') {
+    if (title || subTitle) {
       return (
-        <SizableText
-          size="$headingLg"
-          $md={{
-            size: '$bodyLgMedium',
-          }}
-          {...titleProps}
-        >
-          {title}
-        </SizableText>
+        <XStack alignItems="center" gap="$1">
+          {typeof title === 'string' ? (
+            <SizableText
+              size="$headingLg"
+              $md={{ size: '$bodyLgMedium' }}
+              {...titleProps}
+            >
+              {title}
+            </SizableText>
+          ) : (
+            title
+          )}
+          {title && subTitle && withTitleSeparator ? (
+            <SizableText size="$headingLg" color="$textSubdued" {...titleProps}>
+              ·
+            </SizableText>
+          ) : null}
+          {typeof subTitle === 'string' ? (
+            <SizableText
+              size="$headingXl"
+              color="$textSubdued"
+              $md={{
+                size: '$bodyLgMedium',
+              }}
+              {...subTitleProps}
+            >
+              {subTitle}
+            </SizableText>
+          ) : (
+            subTitle
+          )}
+        </XStack>
       );
     }
-    return title;
-  }, [title, titleProps]);
+    return null;
+  }, [title, titleProps, subTitle, subTitleProps, withTitleSeparator]);
 
   return (
     <XStack
