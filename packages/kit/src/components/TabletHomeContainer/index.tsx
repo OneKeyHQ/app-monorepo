@@ -15,14 +15,16 @@ import {
   SizableText,
   YStack,
   useIsTabletDetailView,
+  useOrientation,
 } from '@onekeyhq/components';
 
 import type { LayoutChangeEvent } from 'react-native';
 
 export function TabletHomeContainer({ children }: PropsWithChildren) {
   const isDetailView = useIsTabletDetailView();
+  const isLandscape = useOrientation();
 
-  if (isDetailView) {
+  if (isDetailView && isLandscape) {
     return (
       <YStack flex={1} justifyContent="center" alignItems="center" gap="$4">
         <Image source={require('@onekeyhq/kit/assets/logo.png')} size={124} />

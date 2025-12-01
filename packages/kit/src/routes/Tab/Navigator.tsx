@@ -10,6 +10,7 @@ import {
   TabStackNavigator,
   useIsTabletDetailView,
   useMedia,
+  useOrientation,
 } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { ETabRoutes } from '@onekeyhq/shared/src/routes';
@@ -67,6 +68,7 @@ const useCheckTabsChangedInDev = platformEnv.isDev
 
 export function TabNavigator() {
   const { freezeOnBlur } = useContext(TabFreezeOnBlurContext);
+  const isLandscape = useOrientation();
   const routerConfigParams = useMemo(() => ({ freezeOnBlur }), [freezeOnBlur]);
   const config = useTabRouterConfig(routerConfigParams);
   const isShowWebTabBar = platformEnv.isDesktop;
@@ -81,7 +83,7 @@ export function TabNavigator() {
       <TabStackNavigator<ETabRoutes>
         config={config}
         extraConfig={isShowWebTabBar ? tabExtraConfig : undefined}
-        showTabBar={!isTabletDetailView}
+        showTabBar={!(isTabletDetailView && isLandscape)}
       />
       {platformEnv.isWebDappMode && gtMd ? <Footer /> : null}
       <InPageTabContainer />

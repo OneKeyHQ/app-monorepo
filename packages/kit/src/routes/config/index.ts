@@ -57,7 +57,24 @@ const ROOT_PATH = platformEnv.isExtension ? extHtmlFileUrl : '/';
 const MODAL_PATH = `/${ERootRoutes.Modal}`;
 const FULL_SCREEN_MODAL_PATH = `/${ERootRoutes.iOSFullScreen}`;
 
-const onGetStateFromPath = getStateFromPath;
+const onGetStateFromPath = (path: string, options?: any) => {
+  // Web platform: rewrite ?r= referral parameter to /r/{code}/app/{page} format
+  if (platformEnv.isWeb) {
+    const [pathPart, queryPart] = path.split('?');
+    if (queryPart) {
+      const searchParams = new URLSearchParams(queryPart);
+      const referralCode = searchParams.get('r');
+      if (referralCode) {
+        const pagePath = pathPart.replace(/^\//, '').replace(/\/$/, '');
+        const rewrittenPath = pagePath
+          ? `/r/${referralCode}/app/${pagePath}`
+          : `/r/${referralCode}/app`;
+        return getStateFromPath(rewrittenPath, options);
+      }
+    }
+  }
+  return getStateFromPath(path, options);
+};
 
 const useBuildLinking = (): LinkingOptions<any> => {
   const routes = useRootRouter();

@@ -11,6 +11,7 @@ import {
   useTabContainerWidth,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { FAQContent } from './FAQContent';
 import { PortfolioTabContent } from './PortfolioTabContent';
@@ -113,7 +114,7 @@ const EarnMainTabsComponent = ({
 
   return (
     <Tabs.Container
-      width={tabContainerWidth}
+      width={platformEnv.isNative ? tabContainerWidth : undefined}
       ref={tabsRef}
       renderTabBar={(tabBarProps) => {
         const handleTabPress = (name: string) => {
