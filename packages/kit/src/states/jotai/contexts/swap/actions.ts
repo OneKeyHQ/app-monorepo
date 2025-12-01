@@ -962,22 +962,35 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         });
         return;
       }
+
       if (fromToken && swapFromAddressInfo.accountInfo?.wallet?.id) {
-        const accountNetworkNotSupportedAlert =
-          await this.checkAccountNetworkNotSupportedAlert({
-            addressInfo: swapFromAddressInfo,
-            activeNetworkId: fromToken.networkId,
+        const needCheck =
+          !swapFromAddressInfo.address ||
+          accountUtils.isHwWallet({
+            walletId: swapFromAddressInfo.accountInfo?.wallet?.id,
           });
-        if (accountNetworkNotSupportedAlert) {
-          alertsRes = [...alertsRes, accountNetworkNotSupportedAlert];
-          set(swapAlertsAtom(), {
-            states: alertsRes,
-            quoteId: quoteResult?.quoteId ?? '',
-          });
-          return;
+
+        if (needCheck) {
+          const accountNetworkNotSupportedAlert =
+            await this.checkAccountNetworkNotSupportedAlert({
+              addressInfo: swapFromAddressInfo,
+              activeNetworkId: fromToken.networkId,
+            });
+          if (accountNetworkNotSupportedAlert) {
+            alertsRes = [...alertsRes, accountNetworkNotSupportedAlert];
+            set(swapAlertsAtom(), {
+              states: alertsRes,
+              quoteId: quoteResult?.quoteId ?? '',
+            });
+            return;
+          }
         }
       }
-      if (toToken && swapToAddressInfo.accountInfo?.wallet?.id) {
+      if (
+        toToken &&
+        !swapToAddressInfo.address &&
+        swapToAddressInfo.accountInfo?.wallet?.id
+      ) {
         const accountNetworkNotSupportedAlert =
           await this.checkAccountNetworkNotSupportedAlert({
             addressInfo: swapToAddressInfo,
