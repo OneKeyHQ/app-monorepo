@@ -17,9 +17,20 @@ export const useIsGtMd = platformEnv.isNative
   ? () => {
       const { gtMd } = useMedia();
       const isLandscape = useOrientation();
-      return platformEnv.isNative && isLandscape ? false : gtMd;
+      return isLandscape ? false : gtMd;
     }
   : () => {
       const { gtMd } = useMedia();
       return gtMd;
+    };
+
+export const useIsMd = platformEnv.isNative
+  ? () => {
+      const { md } = useMedia();
+      const isLandscape = useOrientation();
+      return isLandscape ? true : md;
+    }
+  : () => {
+      const { md } = useMedia();
+      return md;
     };
