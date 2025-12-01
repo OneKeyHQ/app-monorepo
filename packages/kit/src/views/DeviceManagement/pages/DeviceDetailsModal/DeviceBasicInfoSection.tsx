@@ -16,6 +16,8 @@ import type { IHwQrWalletWithDevice } from '@onekeyhq/shared/types/account';
 
 import { useFirmwareChangeDialog } from './FirmwareChangeDialog';
 
+import type { AllFirmwareRelease } from '@onekeyfe/hd-core';
+
 function DeviceBasicInfoSection({
   data,
   onPressHomescreen,
@@ -27,7 +29,10 @@ function DeviceBasicInfoSection({
   data: IHwQrWalletWithDevice;
   onPressHomescreen: () => void;
   onPressAuthRequest: () => void;
-  onPressCheckForUpdates: (firmwareType?: EFirmwareType) => void;
+  onPressCheckForUpdates: (
+    firmwareType?: EFirmwareType,
+    baseReleaseInfo?: AllFirmwareRelease,
+  ) => void;
   onPressTroubleshooting: () => void;
   authRequestLoading: boolean;
 }) {
@@ -126,8 +131,12 @@ function DeviceBasicInfoSection({
 
   const { show: showFirmwareChangeDialog } = useFirmwareChangeDialog({
     device,
-    onSuccess: (targetFirmwareType: EFirmwareType) => {
-      onPressCheckForUpdates(targetFirmwareType);
+    onSuccess: (
+      targetFirmwareType: EFirmwareType,
+      fromFirmwareType: EFirmwareType,
+      baseReleaseInfo,
+    ) => {
+      onPressCheckForUpdates(targetFirmwareType, baseReleaseInfo);
     },
     onUpgradeFirmware: () => {
       onPressCheckForUpdates();
