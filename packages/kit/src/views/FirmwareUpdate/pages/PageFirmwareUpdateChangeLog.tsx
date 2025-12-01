@@ -40,6 +40,7 @@ function PageFirmwareUpdateChangeLog() {
   >();
   const connectId = route?.params?.connectId;
   const firmwareType = route?.params?.firmwareType;
+  const baseReleaseInfo = route?.params?.baseReleaseInfo;
 
   const [stepInfo, setStepInfo] = useFirmwareUpdateStepInfoAtom();
 
@@ -72,6 +73,7 @@ function PageFirmwareUpdateChangeLog() {
             {
               connectId: compatibleConnectId,
               firmwareType,
+              baseReleaseInfoCache: baseReleaseInfo,
             },
           );
         if (r?.hasUpgrade) {
@@ -92,7 +94,7 @@ function PageFirmwareUpdateChangeLog() {
         });
       }
     },
-    [connectId, firmwareType, setStepInfo],
+    [connectId, firmwareType, baseReleaseInfo, setStepInfo],
     {
       watchLoading: true,
     },

@@ -1,4 +1,4 @@
-import { XStack, useIsHorizontalLayout } from '@onekeyhq/components';
+import { XStack, useIsWebHorizontalLayout } from '@onekeyhq/components';
 
 import { UrlAccountNavHeader } from '../../views/Home/pages/urlAccount/UrlAccountNavHeader';
 import {
@@ -7,7 +7,7 @@ import {
 } from '../AccountSelector';
 
 export function UrlAccountPageHeader() {
-  const isHorizontal = useIsHorizontalLayout();
+  const isHorizontal = useIsWebHorizontalLayout();
 
   return (
     <XStack gap="$2.5" ai="center">

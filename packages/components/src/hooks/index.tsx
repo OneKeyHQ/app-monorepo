@@ -16,3 +16,4 @@ export * from './useShortcuts';
 export * from './useStyle';
 export * from './useUpdateEffect';
 export * from './useVisibilityChange';
+export * from './useTabletMode';

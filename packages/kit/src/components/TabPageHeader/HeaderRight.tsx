@@ -10,7 +10,7 @@ import {
   XStack,
   YStack,
   rootNavigationRef,
-  useIsHorizontalLayout,
+  useIsWebHorizontalLayout,
   useMedia,
 } from '@onekeyhq/components';
 import {
@@ -116,7 +116,7 @@ export function HeaderRight({
     fixedItems: ReactNode;
   }) => ReactNode;
 }) {
-  const isHorizontal = useIsHorizontalLayout();
+  const isHorizontal = useIsWebHorizontalLayout();
   const { gtXl, gtMd } = useMedia();
 
   const items = useMemo(() => {

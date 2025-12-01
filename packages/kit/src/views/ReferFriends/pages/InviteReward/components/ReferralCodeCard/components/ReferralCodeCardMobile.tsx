@@ -8,9 +8,8 @@ import {
   YStack,
 } from '@onekeyhq/components';
 
+import { ReferralLinkDropdown } from '../../ReferralLinkDropdown';
 import { useReferralCodeCard } from '../hooks/useReferralCodeCard';
-
-import { ReferralLinkDropdown } from './ReferralLinkDropdown';
 
 import type { IReferralCodeCardProps } from '../types';
 
