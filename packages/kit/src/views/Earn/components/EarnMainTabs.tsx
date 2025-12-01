@@ -126,21 +126,21 @@ const EarnMainTabsComponent = ({
       {...containerProps}
     >
       <Tabs.Tab name={tabNames.assets}>
-        <Tabs.ScrollView refreshControl={refreshControl}>
+        <Tabs.ScrollView>
           <YStack pt="$6" gap="$8">
             <ProtocolsTabContent />
           </YStack>
         </Tabs.ScrollView>
       </Tabs.Tab>
       <Tabs.Tab name={tabNames.portfolio}>
-        <Tabs.ScrollView refreshControl={refreshControl}>
+        <Tabs.ScrollView>
           <YStack pt="$6" gap="$8">
             <PortfolioTabContent portfolioData={portfolioData} />
           </YStack>
         </Tabs.ScrollView>
       </Tabs.Tab>
       <Tabs.Tab name={tabNames.faqs}>
-        <Tabs.ScrollView refreshControl={refreshControl}>
+        <Tabs.ScrollView>
           <YStack px="$5" pt="$6" gap="$8">
             <FAQContent faqList={faqList} isLoading={isFaqLoading} />
           </YStack>

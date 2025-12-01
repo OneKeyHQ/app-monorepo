@@ -345,14 +345,12 @@ const OverviewComponent = ({
           >
             {totalFiatValue}
           </NumberSizeableText>
-          {platformEnv.isNative ? null : (
-            <IconButton
-              icon="RefreshCcwOutline"
-              variant="tertiary"
-              loading={isLoading}
-              onPress={handleRefresh}
-            />
-          )}
+          <IconButton
+            icon="RefreshCcwOutline"
+            variant="tertiary"
+            loading={isLoading}
+            onPress={handleRefresh}
+          />
         </XStack>
       </YStack>
       {/* 24h earnings */}
