@@ -327,8 +327,7 @@ function MobileBrowser() {
   const showDiscoveryPage =
     displayHomePage ||
     (isTabletDevice &&
-      ((isTabletDetailView && !isLandscape) ||
-        (!isTabletDetailView && isLandscape)));
+      ((isTabletDetailView && !isLandscape) || !isTabletDetailView));
   const displayBottomBar = !showDiscoveryPage;
 
   return (
@@ -390,7 +389,7 @@ function MobileBrowser() {
             </Animated.View>
           </Freeze>
         </Stack>
-        {!isTabletDetailView ? (
+        {!isTabletDetailView || (isTabletDetailView && !isLandscape) ? (
           <Stack
             flex={1}
             display={
