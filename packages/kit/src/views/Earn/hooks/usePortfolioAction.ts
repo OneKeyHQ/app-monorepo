@@ -82,17 +82,8 @@ export const usePortfolioAction = ({
           request: { origin: 'https://lista.org/', scope: 'ethereum' },
         });
 
-        const symbolForRefresh = actionStakedSymbol || symbol;
-        if (symbolForRefresh) {
-          appEventBus.emit(EAppEventBusNames.RefreshEarnPortfolioItem, {
-            provider,
-            symbol: symbolForRefresh,
-            networkId,
-            rewardSymbol: actionRewardSymbol,
-          });
-        }
-      } finally {
         void onSuccess?.();
+      } finally {
         setLoading(false);
       }
     },
