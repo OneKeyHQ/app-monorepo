@@ -11,6 +11,7 @@ import {
 } from '@onekeyhq/components';
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 interface IUndistributedRewardCardProps extends IYStackProps {
   value: string | number;
@@ -28,7 +29,12 @@ export const UndistributedRewardCard: FC<IUndistributedRewardCardProps> = ({
 
   return (
     <YStack gap="$1" testID="UndistributedRewardCard" {...rest}>
-      <XStack ai="center" jc="space-between" gap="$2">
+      <XStack
+        ai="center"
+        jc="space-between"
+        gap="$2"
+        pt={platformEnv.isNative ? '$10' : undefined}
+      >
         <SizableText size="$bodyLg" color="$textSubdued">
           {intl.formatMessage({
             id: ETranslations.referral_reward_undistributed,
