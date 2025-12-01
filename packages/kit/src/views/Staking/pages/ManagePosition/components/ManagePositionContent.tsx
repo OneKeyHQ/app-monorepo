@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 
 import { isEmpty } from 'lodash';
 
@@ -107,7 +107,6 @@ export function ManagePositionContent({
     alertsHolding,
     alertsStake,
     alertsWithdraw,
-    refreshAccount: refreshManageAccount,
     run: refreshManageData,
     isLoading,
   } = useManagePage({
@@ -124,9 +123,8 @@ export function ManagePositionContent({
     if (onCreateAddress) {
       await onCreateAddress();
     }
-    await refreshManageAccount();
     await refreshManageData();
-  }, [onCreateAddress, refreshManageAccount, refreshManageData]);
+  }, [onCreateAddress, refreshManageData]);
 
   // Check if Bitcoin Only firmware is trying to access non-BTC network
   const { result: accountNetworkNotSupported } = usePromiseResult(
@@ -226,14 +224,23 @@ export function ManagePositionContent({
     isInModalContext,
   ]);
 
-  const handleStakeWithdrawSuccess = useCallback(() => {
+  // Ref to store refreshPending function from useStakingPendingTxs hook
+  const refreshPendingRef = useRef<(() => Promise<void>) | null>(null);
+
+  const handleOperationSuccess = useCallback(() => {
+    void refreshManageData();
+    // Immediately refresh pending transactions after operation
+    void refreshPendingRef.current?.();
+    onStakeWithdrawSuccess?.();
     if (isInModalContext) {
       appNavigation.pop();
     }
-    // If not in modal, don't navigate (stay on current page)
-    // Call parent refresh callback to update data
-    onStakeWithdrawSuccess?.();
-  }, [isInModalContext, appNavigation, onStakeWithdrawSuccess]);
+  }, [
+    refreshManageData,
+    onStakeWithdrawSuccess,
+    isInModalContext,
+    appNavigation,
+  ]);
 
   // Create beforeFooter content for stake section
   const stakeBeforeFooter = useMemo(() => {
@@ -269,7 +276,7 @@ export function ManagePositionContent({
     return null;
   }, [shouldShowWarning, warningElement, alertsWithdraw, alerts]);
 
-  if (isLoading) {
+  if (isLoading && !managePageData) {
     return <SectionSkeleton />;
   }
 
@@ -291,7 +298,13 @@ export function ManagePositionContent({
         provider={provider}
         vault={vault}
         alertsHolding={alertsHolding}
+        historyAction={historyAction}
         onHistory={onHistory}
+        indicatorAccountId={earnAccount?.accountId}
+        stakeTag={protocolInfo?.stakeTag}
+        onIndicatorRefresh={refreshManageData}
+        onRefreshPendingRef={refreshPendingRef}
+        onActionSuccess={handleOperationSuccess}
         earnAccount={earnAccount}
         showApyDetail={showApyDetail}
         isInModalContext={isInModalContext}
@@ -316,7 +329,11 @@ export function ManagePositionContent({
       withdrawBeforeFooter={withdrawBeforeFooter}
       historyAction={historyAction}
       onHistory={onHistory}
-      onSuccess={handleStakeWithdrawSuccess}
+      indicatorAccountId={earnAccount?.accountId}
+      stakeTag={protocolInfo?.stakeTag}
+      onIndicatorRefresh={refreshManageData}
+      onRefreshPendingRef={refreshPendingRef}
+      onSuccess={handleOperationSuccess}
       defaultTab={defaultTab}
       onTabChange={onTabChange}
       isInModalContext={isInModalContext}

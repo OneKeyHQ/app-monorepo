@@ -45,7 +45,6 @@ import { vaultFactory } from '../vaults/factory';
 import ServiceBase from './ServiceBase';
 
 import type { IDBUtxoAccount } from '../dbs/local/types';
-import type BTCVault from '../vaults/impls/btc/Vault';
 
 @backgroundClass()
 class ServiceAccountProfile extends ServiceBase {
@@ -779,29 +778,6 @@ class ServiceAccountProfile extends ServiceBase {
         filterHiddenWallet: true,
       });
     return Object.keys(hwQrWallets).length === 0;
-  }
-
-  @backgroundMethod()
-  public async getAccountUtxos({
-    accountId,
-    networkId,
-  }: {
-    accountId: string;
-    networkId: string;
-  }) {
-    const vault = await vaultFactory.getVault({
-      networkId,
-      accountId,
-    });
-    const vaultSettings = await vault.getVaultSettings();
-    if (!vaultSettings.coinControlEnabled) {
-      throw new OneKeyLocalError(
-        'CoinControl is not supported for this network',
-      );
-    }
-    const { utxoList } = await (vault as BTCVault)._collectUTXOsInfoByApi();
-
-    return utxoList;
   }
 
   // Get wallet type

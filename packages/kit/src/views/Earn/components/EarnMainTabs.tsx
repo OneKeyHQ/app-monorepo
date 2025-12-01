@@ -3,7 +3,12 @@ import { memo, useEffect, useMemo, useRef } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { ITabContainerRef } from '@onekeyhq/components';
-import { RefreshControl, Tabs, YStack } from '@onekeyhq/components';
+import {
+  RefreshControl,
+  Tabs,
+  YStack,
+  useTabContainerWidth,
+} from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { FAQContent } from './FAQContent';
@@ -40,7 +45,7 @@ const EarnMainTabsComponent = ({
         id: ETranslations.earn_available_assets,
       }),
       portfolio: intl.formatMessage({
-        id: ETranslations.earn_portfolio,
+        id: ETranslations.earn_positions,
       }),
       faqs: intl.formatMessage({ id: ETranslations.global_faqs }),
     }),
@@ -70,16 +75,22 @@ const EarnMainTabsComponent = ({
     [],
   );
 
-  const refreshControl =
-    isMobile && refreshEarnAccounts && isAccountsLoading !== undefined ? (
+  const refreshControl = useMemo(() => {
+    return isMobile &&
+      refreshEarnAccounts &&
+      isAccountsLoading !== undefined ? (
       <RefreshControl
         refreshing={isAccountsLoading}
         onRefresh={refreshEarnAccounts}
       />
     ) : undefined;
+  }, [isMobile, refreshEarnAccounts, isAccountsLoading]);
+
+  const tabContainerWidth = useTabContainerWidth();
 
   return (
     <Tabs.Container
+      width={tabContainerWidth}
       ref={tabsRef}
       renderTabBar={(tabBarProps) => {
         const handleTabPress = (name: string) => {

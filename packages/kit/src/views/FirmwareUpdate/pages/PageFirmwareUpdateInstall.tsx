@@ -61,7 +61,7 @@ function PageFirmwareUpdateInstall() {
               <FirmwareUpdateExitPrevent />
             </>
           ) : null}
-          <FirmwareInstallingView result={result} isDone={isDone} />
+          <FirmwareInstallingView result={result} />
         </>
       );
     }

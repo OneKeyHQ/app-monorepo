@@ -161,7 +161,7 @@ export function MarketRecommendList({
               }
             >
               {intl.formatMessage({
-                id: ETranslations.market_empty_watchlist_title,
+                id: ETranslations.market_favorites_empty,
               })}
             </SizableText>
             <SizableText
@@ -173,7 +173,7 @@ export function MarketRecommendList({
               pt="$2"
             >
               {intl.formatMessage({
-                id: ETranslations.market_empty_watchlist_desc,
+                id: ETranslations.market_favorites_empty_desc,
               })}
             </SizableText>
           </>

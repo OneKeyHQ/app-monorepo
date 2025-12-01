@@ -11,6 +11,7 @@ import {
   getDialogInstances,
   getFormInstances,
   rootNavigationRef,
+  useIsTabletDetailView,
   useMedia,
   useShortcuts,
 } from '@onekeyhq/components';
@@ -597,6 +598,51 @@ export const useRemindDevelopmentBuildExtension =
       }
     : noop;
 
+export const useTabletDetailView = () => {
+  const isTabletDetailView = useIsTabletDetailView();
+  const appNavigation = useAppNavigation();
+  useEffect(() => {
+    if (isTabletDetailView) {
+      const onSwitchTabBar = (event: { route: ETabRoutes }) => {
+        appNavigation.switchTab(event.route);
+      };
+      const onPushPageInTabletDetailView = (event: any) => {
+        setTimeout(() => {
+          appNavigation.push(...event);
+        }, 10);
+      };
+      const onPushModalPageInTabletDetailView = (event: {
+        route: EModalRoutes;
+        params: any;
+      }) => {
+        setTimeout(() => {
+          appNavigation.pushModal(event.route, event.params);
+        }, 10);
+      };
+      appEventBus.on(EAppEventBusNames.SwitchTabBar, onSwitchTabBar);
+      appEventBus.on(
+        EAppEventBusNames.PushPageInTabletDetailView,
+        onPushPageInTabletDetailView,
+      );
+      appEventBus.on(
+        EAppEventBusNames.PushModalPageInTabletDetailView,
+        onPushModalPageInTabletDetailView,
+      );
+      return () => {
+        appEventBus.off(EAppEventBusNames.SwitchTabBar, onSwitchTabBar);
+        appEventBus.off(
+          EAppEventBusNames.PushPageInTabletDetailView,
+          onPushPageInTabletDetailView,
+        );
+        appEventBus.off(
+          EAppEventBusNames.PushModalPageInTabletDetailView,
+          onPushModalPageInTabletDetailView,
+        );
+      };
+    }
+  }, [appNavigation, isTabletDetailView]);
+};
+
 export function Bootstrap() {
   const navigation = useAppNavigation();
   const [devSettings] = useDevSettingsPersistAtom();
@@ -661,5 +707,6 @@ export function Bootstrap() {
   useIntercomInit();
   useClearStorageOnExtension();
   useRemindDevelopmentBuildExtension();
+  useTabletDetailView();
   return null;
 }
