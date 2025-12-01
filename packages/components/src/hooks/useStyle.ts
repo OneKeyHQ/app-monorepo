@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react';
 
 import type {
+  UseMediaState,
   UseThemeResult,
   VariableVal,
 } from '@onekeyhq/components/src/shared/tamagui';
@@ -23,20 +24,33 @@ export {
   usePropsAndStyle,
 } from '@onekeyhq/components/src/shared/tamagui';
 
-export const useMedia = platformEnv.isNative
+export const useMedia: typeof useTamaguiMedia = platformEnv.isNative
   ? () => {
-      const { md, gtMd, lg, gtLg, xl, gtXl } = useTamaguiMedia();
+      const media = useTamaguiMedia();
       const isLandscape = useOrientation();
       return useMemo(
-        () => ({
-          md: isLandscape ? true : md,
-          gtMd: isLandscape ? false : gtMd,
-          lg: isLandscape ? false : lg,
-          gtLg: isLandscape ? false : gtLg,
-          xl: isLandscape ? false : xl,
-          gtXl: isLandscape ? false : gtXl,
-        }),
-        [isLandscape, md, gtMd, lg, gtLg, xl, gtXl],
+        () =>
+          isLandscape
+            ? ({
+                sm: media.sm,
+                gtSm: media.gtSm,
+                md: true,
+                gtMd: false,
+                '2md': false,
+                gt2Md: false,
+                lg: false,
+                gtLg: false,
+                xl: false,
+                gtXl: false,
+                '2xl': false,
+                gt2xl: false,
+                short: media.short,
+                tall: media.tall,
+                hoverNone: media.hoverNone,
+                pointerCoarse: media.pointerCoarse,
+              } as UseMediaState)
+            : media,
+        [isLandscape, media],
       );
     }
   : useTamaguiMedia;
