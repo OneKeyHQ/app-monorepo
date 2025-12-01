@@ -13,6 +13,7 @@ import {
   XStack,
   YStack,
   useIsTabletDetailView,
+  useIsTabletMainView,
   useOrientation,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
@@ -132,6 +133,7 @@ const useAndroidHardwareBack = platformEnv.isNativeAndroid
 
 function MobileBrowser() {
   const isTabletDevice = ExpoDevice.deviceType === ExpoDevice.DeviceType.TABLET;
+  const isTabletMainView = useIsTabletMainView();
   const isTabletDetailView = useIsTabletDetailView();
   const route =
     useRoute<
@@ -320,14 +322,20 @@ function MobileBrowser() {
     setTabPageHeight(height);
   }, []);
 
+  const showDiscoveryPage = useMemo(() => {
+    if (isTabletMainView) {
+      return true;
+    }
+    if (isTabletDetailView) {
+      return isLandscape ? false : displayHomePage;
+    }
+    return displayHomePage;
+  }, [isTabletMainView, isTabletDetailView, displayHomePage, isLandscape]);
+
   if (isTabletDetailView && isLandscape && displayHomePage) {
     return <TabletHomeContainer />;
   }
 
-  const showDiscoveryPage =
-    displayHomePage ||
-    (isTabletDevice &&
-      ((isTabletDetailView && !isLandscape) || !isTabletDetailView));
   const displayBottomBar = !showDiscoveryPage;
 
   return (
