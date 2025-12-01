@@ -174,7 +174,7 @@ export function PerpsHeaderRight() {
       <DepositButton />
       {gtMd ? (
         <>
-          <GiftAction source="Perps" />
+          <GiftAction source="Perps" copyAsUrl />
           <PerpSettingsButton testID="perp-header-settings-button" />
         </>
       ) : null}

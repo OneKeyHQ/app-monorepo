@@ -1399,7 +1399,7 @@ export default class VaultBtc extends VaultBase {
         )
       ) {
         throw new OneKeyInternalError({
-          key: ETranslations.feedback_unable_to_send_frozen_balance,
+          key: ETranslations.feedback_unable_to_send_protected_ordinals,
         });
       }
     }

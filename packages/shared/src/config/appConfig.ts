@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 
+import App from '@onekeyhq/desktop/App';
 import type { EServiceEndpointEnum, IEndpointEnv } from '../../types/endpoint';
 
 export const HARDWARE_SDK_IFRAME_SRC_ONEKEYSO =
@@ -34,6 +35,7 @@ export const DOWNLOAD_URL = 'https://onekey.so/download';
 export const DOWNLOAD_MOBILE_APP_URL =
   'https://onekey.so/download?client=mobile';
 export const REFERRAL_HELP_LINK = 'https://help.onekey.so/articles/11461266';
+
 export const FRESH_ADDRESS_LEARN_MORE_URL =
   'https://help.onekey.so/articles/12620219';
 
@@ -57,6 +59,24 @@ export const IP_TABLE_CDN_FETCH_TIMEOUT_MS = 5000; // 5 seconds timeout for CDN 
 export const WEB_APP_URL = 'https://app.onekey.so';
 export const WEB_APP_URL_SHORT = 'https://1key.so';
 export const WEB_APP_URL_DEV = 'https://app.onekeytest.com';
+
+export function getWebAppUrl(env: IEndpointEnv): string {
+  return env === 'prod' ? 'app.onekey.so' : 'app.onekeytest.com';
+}
+
+export function buildReferralUrl({
+  code,
+  source,
+  env = 'prod',
+}: {
+  code: string;
+  source: 'Perps' | 'Earn';
+  env?: IEndpointEnv;
+}): string {
+  const path = source === 'Perps' ? '/app/perps' : '/app/defi';
+  const baseUrl = getWebAppUrl(env);
+  return `${baseUrl}/r/${code}${path}`;
+}
 
 export const EXT_RATE_URL = {
   'chrome':
