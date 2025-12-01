@@ -59,7 +59,7 @@ async function safePushToEarnRoute(
   navigation.switchTab(targetTab);
   await timerUtils.wait(0);
 
-  navigation.navigate(ERootRoutes.Main, {
+  rootNavigationRef.current?.navigate(ERootRoutes.Main, {
     screen: targetTab,
     params: {
       screen: route,
