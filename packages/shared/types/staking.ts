@@ -21,6 +21,7 @@ export type IAllowanceOverview = {
 
 export enum ECheckAmountActionType {
   STAKING = 'stake',
+  RESTAKE = 'restake',
   UNSTAKING = 'unstake',
   CLAIM = 'claim',
   DELEGATE = 'delegate',

@@ -157,6 +157,12 @@ export function UniversalStake({
   const [selectedValidator, setSelectedValidator] = useState<
     string | undefined
   >(ongoingValidator?.select?.defaultValue);
+
+  // Reset selectedValidator when accountId/networkId changes (manage-page re-fetches)
+  useEffect(() => {
+    setSelectedValidator(ongoingValidator?.select?.defaultValue);
+  }, [ongoingValidator?.select?.defaultValue]);
+
   const useVaultProvider = useMemo(
     () => earnUtils.isVaultBasedProvider({ providerName }),
     [providerName],
@@ -262,6 +268,12 @@ export function UniversalStake({
   const [transactionConfirmation, setTransactionConfirmation] = useState<
     IStakeTransactionConfirmation | undefined
   >();
+  // Stakefish: identity for existing validator
+  const stakefishIdentity =
+    isStakefishProvider && !isStakefishCreateNewValidator
+      ? selectedValidator
+      : undefined;
+
   const fetchTransactionConfirmation = useCallback(
     async (amount: string) => {
       if (isDisabled) {
@@ -276,6 +288,7 @@ export function UniversalStake({
           accountAddress: protocolInfo?.earnAccount?.accountAddress || '',
           action: ECheckAmountActionType.STAKING,
           amount,
+          identity: stakefishIdentity,
         });
       return resp;
     },
@@ -287,6 +300,7 @@ export function UniversalStake({
       useVaultProvider,
       protocolInfo?.vault,
       protocolInfo?.earnAccount?.accountAddress,
+      stakefishIdentity,
     ],
   );
 
@@ -427,6 +441,7 @@ export function UniversalStake({
     amountValue,
     debouncedFetchEstimateFeeResp,
     debouncedFetchTransactionConfirmation,
+    stakefishIdentity,
   ]);
 
   // const { showFalconEventEndedDialog } = useFalconEventEndedDialog({
@@ -446,39 +461,47 @@ export function UniversalStake({
   >([]);
   const [checkAmountLoading, setCheckAmountLoading] = useState(false);
 
-  const checkAmount = useDebouncedCallback(async (amount: string) => {
-    if (isNaN(amount)) {
-      return;
-    }
-    setCheckAmountLoading(true);
-    try {
-      const response = await backgroundApiProxy.serviceStaking.checkAmount({
-        accountId,
-        networkId,
-        symbol: tokenSymbol,
-        provider: providerName,
-        action: ECheckAmountActionType.STAKING,
-        amount,
-        protocolVault,
-        withdrawAll: false,
-      });
-
-      if (Number(response.code) === 0) {
-        setCheckoutAmountMessage('');
-        setCheckAmountAlerts(response.data?.alerts || []);
-      } else {
-        setCheckoutAmountMessage(response.message);
-        setCheckAmountAlerts([]);
+  const checkAmount = useDebouncedCallback(
+    async ({ amount, identity }: { amount: string; identity?: string }) => {
+      if (isNaN(amount)) {
+        return;
       }
-    } finally {
-      setCheckAmountLoading(false);
-    }
-  }, 300);
+      setCheckAmountLoading(true);
+      try {
+        const response = await backgroundApiProxy.serviceStaking.checkAmount({
+          accountId,
+          networkId,
+          symbol: tokenSymbol,
+          provider: providerName,
+          action: identity
+            ? ECheckAmountActionType.RESTAKE
+            : ECheckAmountActionType.STAKING,
+          amount,
+          protocolVault,
+          withdrawAll: false,
+          identity,
+        });
 
-  // Initialize checkAmount on component mount
+        if (Number(response.code) === 0) {
+          setCheckoutAmountMessage('');
+          setCheckAmountAlerts(response.data?.alerts || []);
+        } else {
+          setCheckoutAmountMessage(response.message);
+          setCheckAmountAlerts([]);
+        }
+      } finally {
+        setCheckAmountLoading(false);
+      }
+    },
+    300,
+  );
+
   useEffect(() => {
-    void checkAmount('0');
-  }, [checkAmount]);
+    void checkAmount({
+      amount: amountValue || '0',
+      identity: stakefishIdentity,
+    });
+  }, [checkAmount, stakefishIdentity, amountValue]);
 
   const onChangeAmountValue = useCallback(
     (value: string) => {
@@ -505,10 +528,10 @@ export function UniversalStake({
       } else {
         setAmountValue(value);
         void debouncedFetchEstimateFeeResp(value);
-        void checkAmount(value);
+        void checkAmount({ amount: value, identity: stakefishIdentity });
       }
     },
-    [decimals, debouncedFetchEstimateFeeResp, checkAmount],
+    [decimals, debouncedFetchEstimateFeeResp, checkAmount, stakefishIdentity],
   );
 
   const onBlurAmountValue = useOnBlurAmountValue(amountValue, setAmountValue);

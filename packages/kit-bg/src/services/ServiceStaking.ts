@@ -321,7 +321,6 @@ class ServiceStaking extends ServiceBase {
       // Stakefish: use validator pubkey from selector
       publicKey = validatorPublicKey;
     } else if (stakingConfig.usePublicKey) {
-      // Other providers: use account pubkey if required
       publicKey = account.pub;
     }
 
@@ -742,6 +741,7 @@ class ServiceStaking extends ServiceBase {
     accountAddress: string;
     action: ECheckAmountActionType;
     amount: string;
+    identity?: string;
   }) {
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const amountNumber = BigNumber(params.amount);
@@ -1231,6 +1231,7 @@ class ServiceStaking extends ServiceBase {
     withdrawAll,
     amount,
     protocolVault,
+    identity,
   }: {
     accountId?: string;
     networkId?: string;
@@ -1240,6 +1241,7 @@ class ServiceStaking extends ServiceBase {
     withdrawAll: boolean;
     amount?: string;
     protocolVault?: string;
+    identity?: string;
   }) {
     if (!networkId || !accountId || !provider) {
       throw new OneKeyLocalError(
@@ -1266,6 +1268,7 @@ class ServiceStaking extends ServiceBase {
         amount: amountNumber.isNaN() ? '0' : amountNumber.toFixed(),
         vault: isVaultBased ? protocolVault : '',
         withdrawAll,
+        identity,
       },
     });
     return result.data;
