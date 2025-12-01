@@ -43,6 +43,7 @@ export interface IStakingFlowConfig {
   claimWithTx?: boolean;
   usePublicKey?: boolean;
   claimWithAmount?: boolean;
+  allowPartialWithdraw?: boolean;
 }
 
 interface IProviderConfig {

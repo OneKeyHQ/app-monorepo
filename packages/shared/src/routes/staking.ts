@@ -74,6 +74,7 @@ export type IModalStakingParamList = {
     amount?: string;
     fromPage?: EModalStakingRoutes.WithdrawOptions;
     onSuccess?: () => void;
+    allowPartialWithdraw?: boolean;
   };
   [EModalStakingRoutes.Claim]: IDetailPageInfoParams &
     IDetailPageInfoParams & {

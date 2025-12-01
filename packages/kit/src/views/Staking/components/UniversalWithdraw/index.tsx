@@ -234,6 +234,7 @@ export function UniversalWithdraw({
         amount,
         protocolVault,
         withdrawAll: withdrawAllRef.current,
+        identity,
       });
 
       if (Number(response.code) === 0) {
@@ -269,6 +270,7 @@ export function UniversalWithdraw({
           accountAddress,
           action: ECheckAmountActionType.UNSTAKING,
           amount,
+          identity,
         });
       return resp;
     },
@@ -279,6 +281,7 @@ export function UniversalWithdraw({
       networkId,
       providerName,
       tokenSymbol,
+      identity,
     ],
   );
 
