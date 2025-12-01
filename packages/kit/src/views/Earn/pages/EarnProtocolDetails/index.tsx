@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import {
   Divider,
+  Icon,
   IconButton,
   Image,
   Page,
@@ -14,10 +15,12 @@ import {
   useMedia,
   useShare,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { CountDownCalendarAlert } from '@onekeyhq/kit/src/components/CountDownCalendarAlert';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   EJotaiContextStoreNames,
@@ -101,33 +104,147 @@ function ManagersSection({
   ) : null;
 }
 
+const ProtocolHeader = ({
+  symbol,
+  apyDetail,
+  tokenInfo,
+  onShare,
+}: {
+  symbol: string;
+  apyDetail: IStakeEarnDetail['apyDetail'];
+  tokenInfo?: IEarnTokenInfo;
+  onShare?: () => void;
+}) => {
+  const intl = useIntl();
+  const navigation = useAppNavigation();
+
+  const handleMyPortfolio = useCallback(() => {
+    void EarnNavigation.popToEarnHome(navigation, { tab: 'portfolio' });
+  }, [navigation]);
+
+  return (
+    <YStack>
+      {/* Token icon and name with My Portfolio button - always show */}
+      <XStack jc="space-between" ai="center" h="$9">
+        <XStack gap="$2" ai="center">
+          <Token size="xs" tokenImageUri={tokenInfo?.token.logoURI} />
+          <SizableText size="$bodyLgMedium">
+            {tokenInfo?.token.symbol || symbol}
+          </SizableText>
+        </XStack>
+      </XStack>
+
+      <XStack gap="$2" ai="center" pt="$2.5">
+        <EarnText
+          text={
+            apyDetail?.description || {
+              text: intl.formatMessage({ id: ETranslations.earn_earn_points }),
+              color: '$textDisabled',
+            }
+          }
+          size="$heading3xl"
+        />
+        <EarnActionIcon
+          title={apyDetail?.title?.text}
+          actionIcon={apyDetail?.button}
+        />
+        {onShare ? (
+          <IconButton
+            icon="ShareOutline"
+            size="small"
+            variant="tertiary"
+            iconColor="$iconSubdued"
+            onPress={onShare}
+          />
+        ) : null}
+        <XStack
+          ml="auto"
+          cursor="pointer"
+          ai="center"
+          onPress={handleMyPortfolio}
+        >
+          <SizableText size="$bodyMdMedium" color="$textSubdued">
+            {intl.formatMessage({ id: ETranslations.earn_positions })}
+          </SizableText>
+          <Icon
+            size="$bodySmMedium"
+            name="ChevronRightSmallOutline"
+            color="$iconSubdued"
+          />
+        </XStack>
+      </XStack>
+    </YStack>
+  );
+};
+
 function ChartSection({
   networkId,
   symbol,
   provider,
   vault,
-  apyDetail,
-  tokenInfo,
-  onShare,
 }: {
   networkId: string;
   symbol: string;
   provider: string;
   vault?: string;
-  apyDetail: IStakeEarnDetail['apyDetail'];
-  tokenInfo?: IEarnTokenInfo;
-  onShare?: () => void;
 }) {
+  const intl = useIntl();
+  const { gtMd } = useMedia();
+
+  // Fetch chart data to get high/low values
+  const { result: apyHistory } = usePromiseResult(async () => {
+    const history = await backgroundApiProxy.serviceStaking.getApyHistory({
+      networkId,
+      symbol,
+      provider,
+      vault,
+    });
+    return history;
+  }, [networkId, symbol, provider, vault]);
+
+  // Calculate high and low APY
+  const { high, low } = useMemo(() => {
+    if (!apyHistory || apyHistory.length === 0) {
+      return { high: null, low: null };
+    }
+    const apyValues = apyHistory.map((item) => Number(item.apy));
+    return {
+      high: Math.max(...apyValues),
+      low: Math.min(...apyValues),
+    };
+  }, [apyHistory]);
+
   return (
-    <ApyChart
-      networkId={networkId}
-      symbol={symbol}
-      provider={provider}
-      vault={vault}
-      apyDetail={apyDetail}
-      tokenInfo={tokenInfo}
-      onShare={onShare}
-    />
+    <YStack gap="$3">
+      {/* High and Low values */}
+      {gtMd && high !== null && low !== null ? (
+        <XStack gap="$4" pt="$6">
+          <YStack>
+            <SizableText size="$bodySm" color="$textSubdued">
+              {intl.formatMessage({ id: ETranslations.market_high })}
+            </SizableText>
+            <SizableText size="$bodyMd" color="$text">
+              {high.toFixed(2)}%
+            </SizableText>
+          </YStack>
+          <YStack>
+            <SizableText size="$bodySm" color="$textSubdued">
+              {intl.formatMessage({ id: ETranslations.market_low })}
+            </SizableText>
+            <SizableText size="$bodyMd" color="$text">
+              {low.toFixed(2)}%
+            </SizableText>
+          </YStack>
+        </XStack>
+      ) : null}
+      {/* Chart component */}
+      <ApyChart
+        networkId={networkId}
+        symbol={symbol}
+        provider={provider}
+        vault={vault}
+      />
+    </YStack>
   );
 }
 
@@ -287,16 +404,20 @@ const DetailsPartComponent = ({
       >
         {detailInfo ? (
           <YStack gap="$8">
-            <ChartSection
-              networkId={networkId}
-              symbol={symbol}
-              provider={provider}
-              vault={vault}
-              apyDetail={detailInfo.apyDetail}
-              tokenInfo={tokenInfo}
-              onShare={onShare}
-            />
-            <Divider />
+            <YStack>
+              <ProtocolHeader
+                symbol={symbol}
+                apyDetail={detailInfo.apyDetail}
+                tokenInfo={tokenInfo}
+                onShare={onShare}
+              />
+              <ChartSection
+                networkId={networkId}
+                symbol={symbol}
+                provider={provider}
+                vault={vault}
+              />
+            </YStack>
             <GridSection data={detailInfo.intro} />
             <GridSection data={detailInfo.rules} />
             {detailInfo?.countDownAlert?.startTime &&
