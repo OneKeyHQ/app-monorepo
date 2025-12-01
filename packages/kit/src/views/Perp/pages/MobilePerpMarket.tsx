@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo } from 'react';
 
+import * as ExpoDevice from 'expo-device';
 import { useIntl } from 'react-intl';
 
 import {
@@ -93,6 +94,9 @@ function MobilePerpMarket() {
   }, [coin, themeVariant, onPressTokenSelector, onPageGoBack, intl]);
 
   useEffect(() => {
+    if (ExpoDevice.deviceType === ExpoDevice.DeviceType.TABLET) {
+      return;
+    }
     appEventBus.emit(EAppEventBusNames.HideTabBar, true);
 
     return () => {

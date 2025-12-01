@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo } from 'react';
 
 import { CommonActions } from '@react-navigation/native';
+import * as ExpoDevice from 'expo-device';
 import { Animated, StyleSheet } from 'react-native';
 import { useThrottledCallback } from 'use-debounce';
 
@@ -76,6 +77,11 @@ export default function MobileBottomTabBar({
         target: route.key,
         canPreventDefault: true,
       });
+      if (ExpoDevice.deviceType === ExpoDevice.DeviceType.TABLET) {
+        appEventBus.emit(EAppEventBusNames.SwitchTabBar, {
+          route: route.name as ETabRoutes,
+        });
+      }
       if (route.name === 'Swap') {
         defaultLogger.swap.enterSwap.enterSwap({
           enterFrom: ESwapSource.TAB,

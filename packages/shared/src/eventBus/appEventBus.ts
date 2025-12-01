@@ -40,6 +40,7 @@ import type {
 } from '../../types/swap/types';
 import type { IAccountToken, ITokenFiat } from '../../types/token';
 import type { IOneKeyError } from '../errors/types/errorTypes';
+import type { EModalRoutes, ETabRoutes } from '../routes';
 import type { IWalletConnectSession } from '../walletConnect/types';
 import type { FuseResult } from 'fuse.js';
 
@@ -405,6 +406,14 @@ export interface IAppEventBusPayload {
   };
   [EAppEventBusNames.SwitchDiscoveryTabInNative]: {
     tab: ETranslations.global_browser | ETranslations.global_earn;
+  };
+  [EAppEventBusNames.SwitchTabBar]: {
+    route: ETabRoutes;
+  };
+  [EAppEventBusNames.PushPageInTabletDetailView]: any;
+  [EAppEventBusNames.PushModalPageInTabletDetailView]: {
+    route: EModalRoutes;
+    params: any;
   };
 }
 
