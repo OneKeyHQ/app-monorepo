@@ -68,8 +68,6 @@ import type { RouteProp } from '@react-navigation/core';
 import type { LayoutChangeEvent } from 'react-native';
 import type { WebView } from 'react-native-webview';
 
-const isNativeMobile = platformEnv.isNative;
-
 const useAndroidHardwareBack = platformEnv.isNativeAndroid
   ? ({
       displayHomePage,
@@ -338,17 +336,8 @@ function MobileBrowser() {
           my="$1"
           mt={platformEnv.isNativeAndroid ? '$3' : undefined}
         >
-          <Stack
-            onPress={
-              isNativeMobile
-                ? handleGoBackHome
-                : onCloseCurrentWebTabAndGoHomePage
-            }
-          >
-            <Icon
-              name={isNativeMobile ? 'MinimizeOutline' : 'CrossedLargeOutline'}
-              mr="$4"
-            />
+          <Stack onPress={handleGoBackHome}>
+            <Icon name="MinimizeOutline" mr="$4" />
           </Stack>
 
           <CustomHeaderTitle handleSearchBarPress={handleSearchBarPress} />
