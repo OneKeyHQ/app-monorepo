@@ -37,8 +37,6 @@ export const useOrientation = () => {
   return isDualScreenDevice ? isSpanning : isLandscape;
 };
 
-export const useIsIpadLandscape = () => false;
-
 export const useIsWebHorizontalLayout = () => {
   const { gtMd } = useMedia();
   return !platformEnv.isNative && gtMd;
