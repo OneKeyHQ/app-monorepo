@@ -101,7 +101,6 @@ const WrappedActionButton = ({
 
   // const [isPending, setIsPending] = useState(false);
   const isPending = useMemo(() => {
-    console.log('pendingTxspendingTxspendingTxs', pendingTxs, stakeTag);
     return pendingTxs.some((tx) => tx.stakingInfo.tags?.includes(stakeTag));
   }, [pendingTxs, stakeTag]);
 
