@@ -16,6 +16,7 @@ import { PortfolioTabContent } from './PortfolioTabContent';
 import { ProtocolsTabContent } from './ProtocolsTabContent';
 
 import type { IUseEarnPortfolioReturn } from '../hooks/useEarnPortfolio';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 const EarnMainTabsComponent = ({
   isMobile,
@@ -90,7 +91,7 @@ const EarnMainTabsComponent = ({
 
   return (
     <Tabs.Container
-      width={tabContainerWidth}
+      width={platformEnv.isNative ? tabContainerWidth : undefined}
       ref={tabsRef}
       renderTabBar={(tabBarProps) => {
         const handleTabPress = (name: string) => {
