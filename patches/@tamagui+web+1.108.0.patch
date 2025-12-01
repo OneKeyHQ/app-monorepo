@@ -1,8 +1,8 @@
 diff --git a/node_modules/@tamagui/web/dist/cjs/hooks/useMedia.native.js b/node_modules/@tamagui/web/dist/cjs/hooks/useMedia.native.js
-index 47addac..8edc832 100644
+index 47addac..6414cf4 100644
 --- a/node_modules/@tamagui/web/dist/cjs/hooks/useMedia.native.js
 +++ b/node_modules/@tamagui/web/dist/cjs/hooks/useMedia.native.js
-@@ -160,11 +160,81 @@ function unlisten() {
+@@ -160,11 +160,80 @@ function unlisten() {
    }), dispose.clear();
  }
  var setupVersion = -1;
@@ -36,7 +36,6 @@ index 47addac..8edc832 100644
  function setupMediaListeners() {
    var _loop = function(key2) {
      var update = function() {
-+      console.log('useMedia--update', key2, getMatch().matches, mediaState[key2]);
        var next = !!getMatch().matches;
 -      next !== mediaState[key2] && (mediaState = _object_spread_props(_object_spread({}, mediaState), _define_property({}, key2, next)), updateCurrentState());
 +      checkTabletSplitView((isSplitView) => {
