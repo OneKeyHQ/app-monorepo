@@ -18,7 +18,6 @@ import { getHyperliquidTokenImageUrl } from '@onekeyhq/shared/src/utils/perpsUti
 import {
   BACKGROUNDS,
   CANVAS_CONFIG,
-  DEFAULT_REFERRAL_URL,
   SHOW_REFERRAL_CODE,
   getPnlDisplayInfo,
 } from './constants';
@@ -30,8 +29,8 @@ interface IShareContentRendererProps {
   config: IShareConfig;
   scale?: number;
   onImagesReady?: () => void;
-  referralUrl?: string;
-  inviteCode?: string;
+  referralQrCodeUrl?: string;
+  referralDisplayText?: string;
   isReferralReady?: boolean;
 }
 
@@ -42,8 +41,8 @@ export function ShareContentRenderer({
   config,
   scale = 1,
   onImagesReady,
-  referralUrl,
-  inviteCode,
+  referralQrCodeUrl,
+  referralDisplayText,
   isReferralReady = true,
 }: IShareContentRendererProps) {
   const {
@@ -326,11 +325,11 @@ export function ShareContentRenderer({
                   color={colors.textTertiary}
                   lineHeight={scaledFonts.priceValue * layout.lineHeight}
                 >
-                  {inviteCode || DEFAULT_REFERRAL_URL}
+                  {referralDisplayText}
                 </SizableText>
               </YStack>
               <QRCode
-                value={referralUrl || DEFAULT_REFERRAL_URL}
+                value={referralQrCodeUrl ?? ''}
                 size={layout.qrCodeSize * scale - 5}
                 padding={5}
               />

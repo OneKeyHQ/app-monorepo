@@ -76,6 +76,14 @@ function BasicEarnHome({
   const portfolioData = useEarnPortfolio({ isActive: isEarnTabFocused });
   const { refresh: refreshEarnDataRaw, isLoading: portfolioLoading } =
     portfolioData;
+
+  const isLoading = useMemo(() => {
+    if (platformEnv.isNative && !showContent) {
+      return false;
+    }
+    return portfolioLoading;
+  }, [portfolioLoading, showContent]);
+
   const refreshEarnData = useCallback(async () => {
     await backgroundApiProxy.serviceStaking.clearAvailableAssetsCache();
     actions.current.triggerRefresh();
@@ -88,36 +96,38 @@ function BasicEarnHome({
 
   const accountSelectorActions = useAccountSelectorActions();
 
+  const handleListenTabFocusState = useCallback(
+    (isFocus: boolean, isHideByModal: boolean) => {
+      const actualFocus = isFocus && !isHideByModal;
+      setIsEarnTabFocused(actualFocus);
+      if (!actualFocus) return;
+
+      const allKey = `availableAssets-${EAvailableAssetsTypeEnum.All}`;
+      const stableKey = `availableAssets-${EAvailableAssetsTypeEnum.StableCoins}`;
+      const nativeKey = `availableAssets-${EAvailableAssetsTypeEnum.NativeTokens}`;
+
+      const keys = [allKey, stableKey, nativeKey];
+
+      const hasIncompleteData = keys.some((key) =>
+        actions.current.isDataIncomplete(key),
+      );
+
+      if (hasIncompleteData) {
+        keys.forEach((key) => {
+          actions.current.setLoadingState(key, false);
+        });
+        actions.current.triggerRefresh();
+      }
+
+      void refetchBanners();
+      void refetchFAQ();
+    },
+    [actions, refetchBanners, refetchFAQ],
+  );
+
   useListenTabFocusState(
-    ETabRoutes.Earn,
-    useCallback(
-      (isFocus, isHideByModal) => {
-        const actualFocus = isFocus && !isHideByModal;
-        setIsEarnTabFocused(actualFocus);
-        if (!actualFocus) return;
-
-        const allKey = `availableAssets-${EAvailableAssetsTypeEnum.All}`;
-        const stableKey = `availableAssets-${EAvailableAssetsTypeEnum.StableCoins}`;
-        const nativeKey = `availableAssets-${EAvailableAssetsTypeEnum.NativeTokens}`;
-
-        const keys = [allKey, stableKey, nativeKey];
-
-        const hasIncompleteData = keys.some((key) =>
-          actions.current.isDataIncomplete(key),
-        );
-
-        if (hasIncompleteData) {
-          keys.forEach((key) => {
-            actions.current.setLoadingState(key, false);
-          });
-          actions.current.triggerRefresh();
-        }
-
-        void refetchBanners();
-        void refetchFAQ();
-      },
-      [actions, refetchBanners, refetchFAQ],
-    ),
+    [ETabRoutes.Earn, ETabRoutes.Discovery],
+    handleListenTabFocusState,
   );
 
   const onBannerPress = useCallback(
@@ -177,8 +187,6 @@ function BasicEarnHome({
     ),
     [earnBanners, onBannerPress],
   );
-
-  const isLoading = !!portfolioLoading;
 
   const mobileContainerProps = useMemo(
     () => ({

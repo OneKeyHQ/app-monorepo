@@ -116,8 +116,8 @@ async function processDeepLinkUrlAccount(
             if (navigation) {
               // Map page parameter to tab routes
               const pageToTabRoute: Record<string, ETabRoutes> = {
-                perp: ETabRoutes.WebviewPerpTrade,
-                perps: ETabRoutes.WebviewPerpTrade,
+                perp: ETabRoutes.Perp,
+                perps: ETabRoutes.Perp,
                 swap: ETabRoutes.Swap,
                 market: ETabRoutes.Market,
                 earn: ETabRoutes.Earn,
