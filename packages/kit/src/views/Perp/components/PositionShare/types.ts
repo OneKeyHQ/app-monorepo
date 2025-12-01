@@ -24,6 +24,7 @@ export interface IShareImageGeneratorRef {
 }
 export interface IShareReferralInfo {
   referralUrl?: string;
+  inviteCode?: string;
 }
 
 export interface ICanvasConfig {

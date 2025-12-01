@@ -954,6 +954,33 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           },
         ];
       }
+      if (fromToken && swapFromAddressInfo.accountInfo?.wallet?.id) {
+        const walletId = swapFromAddressInfo.accountInfo?.wallet?.id;
+
+        const accountNetworkNotSupported =
+          await backgroundApiProxy.serviceAccount.checkAccountNetworkNotSupported(
+            {
+              walletId,
+              activeNetworkId: fromToken.networkId,
+            },
+          );
+        if (accountNetworkNotSupported) {
+          alertsRes = [
+            ...alertsRes,
+            {
+              message: appLocale.intl.formatMessage({
+                id: ETranslations.swap_page_alert_account_does_not_support_swap,
+              }),
+              alertLevel: ESwapAlertLevel.ERROR,
+            },
+          ];
+          set(swapAlertsAtom(), {
+            states: alertsRes,
+            quoteId: quoteResult?.quoteId ?? '',
+          });
+          return;
+        }
+      }
 
       // check from address
       if (
@@ -999,30 +1026,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
             ESwapDirectionType.TO,
           );
           alertsRes = [...alertsRes, alertAction];
-        }
-      }
-      if (fromToken) {
-        const accountId = swapFromAddressInfo.activeAccount?.account?.id ?? '';
-        const accountImpl = swapFromAddressInfo.activeAccount?.account?.impl;
-
-        const accountNetworkNotSupported =
-          await backgroundApiProxy.serviceAccount.checkAccountNetworkNotSupported(
-            {
-              accountId,
-              accountImpl,
-              activeNetworkId: fromToken.networkId,
-            },
-          );
-        if (accountNetworkNotSupported) {
-          alertsRes = [
-            ...alertsRes,
-            {
-              message: appLocale.intl.formatMessage({
-                id: ETranslations.swap_page_alert_account_does_not_support_swap,
-              }),
-              alertLevel: ESwapAlertLevel.ERROR,
-            },
-          ];
         }
       }
 

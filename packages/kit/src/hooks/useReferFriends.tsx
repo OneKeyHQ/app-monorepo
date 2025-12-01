@@ -97,13 +97,22 @@ export const useReferFriends = () => {
   const { copyText } = useClipboard();
 
   const shareReferRewards = useCallback(
-    async (_onSuccess?: () => void, _onFail?: () => void) => {
+    async (
+      _onSuccess?: () => void,
+      _onFail?: () => void,
+      source: 'Earn' | 'Perps' = 'Earn',
+    ) => {
       const isLogin = await backgroundApiProxy.servicePrime.isLoggedIn();
       const myReferralCode =
         await backgroundApiProxy.serviceReferralCode.getMyReferralCode();
 
       const postConfig =
         await backgroundApiProxy.serviceReferralCode.getPostConfig();
+
+      const sourceConfig =
+        source === 'Perps' && postConfig.locales.Perps
+          ? postConfig.locales.Perps
+          : postConfig.locales.Earn;
 
       const handleConfirm = () => {
         if (isLogin) {
@@ -119,7 +128,7 @@ export const useReferFriends = () => {
       };
       const dialog = Dialog.show({
         icon: 'GiftOutline',
-        title: postConfig.locales.Earn.title,
+        title: sourceConfig.title,
         description: (
           <FormatHyperlinkText
             size="$bodyMd"
@@ -128,7 +137,7 @@ export const useReferFriends = () => {
               void dialog.close();
             }}
           >
-            {postConfig.locales.Earn.subtitle}
+            {sourceConfig.subtitle}
           </FormatHyperlinkText>
         ),
         renderContent: isLogin ? (
@@ -161,10 +170,10 @@ export const useReferFriends = () => {
               </XStack>
               <YStack flexShrink={1}>
                 <SizableText size="$headingMd">
-                  {postConfig.locales?.Earn?.for_you?.title}
+                  {sourceConfig.for_you.title}
                 </SizableText>
                 <SizableText mt="$1" size="$bodyMd" color="$textSubdued">
-                  {postConfig.locales?.Earn?.for_you?.subtitle}
+                  {sourceConfig.for_you.subtitle}
                 </SizableText>
               </YStack>
             </XStack>
@@ -174,10 +183,10 @@ export const useReferFriends = () => {
               </XStack>
               <YStack flexShrink={1}>
                 <SizableText size="$headingMd">
-                  {postConfig.locales?.Earn?.for_your_friend?.title}
+                  {sourceConfig.for_your_friend.title}
                 </SizableText>
                 <SizableText mt="$1" size="$bodyMd" color="$textSubdued">
-                  {postConfig.locales?.Earn?.for_your_friend?.subtitle}
+                  {sourceConfig.for_your_friend.subtitle}
                 </SizableText>
               </YStack>
             </XStack>

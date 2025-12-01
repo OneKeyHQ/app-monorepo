@@ -1,10 +1,8 @@
 import { useEffect } from 'react';
 
 import { Button, XStack } from '@onekeyhq/components';
-import {
-  PendingIndicator,
-  useStakingPendingTxs,
-} from '@onekeyhq/kit/src/views/Staking/components/StakingActivityIndicator';
+import { useStakingPendingTxs } from '@onekeyhq/kit/src/views/Earn/hooks/useStakingPendingTxs';
+import { PendingIndicator } from '@onekeyhq/kit/src/views/Staking/components/StakingActivityIndicator';
 import type {
   IEarnHistoryActionIcon,
   IStakeTag,

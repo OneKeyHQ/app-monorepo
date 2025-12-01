@@ -788,6 +788,7 @@ export function UniversalStake({
   }, [intl, resetUSDTApproveValue]);
 
   const onApprove = useCallback(async () => {
+    Keyboard.dismiss();
     setApproving(true);
     let approveAllowance = allowance;
     try {

@@ -1,6 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 
-import { Stack, useOrientation } from '@onekeyhq/components';
+import { Stack } from '@onekeyhq/components';
 import type { IStackStyle } from '@onekeyhq/components';
 import { usePerpsCandlesWebviewMountedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -99,8 +99,6 @@ export function TradingViewPerpsV2(
 ) {
   const { symbol, userAddress, onLoadEnd, onTradeUpdate, webviewKey } = props;
   const [, setMounted] = usePerpsCandlesWebviewMountedAtom();
-  const isLandscape = useOrientation();
-  const isIPadPortrait = platformEnv.isNativeIOSPad && !isLandscape;
   const webRef = useRef<IWebViewRef | null>(null);
   const theme = useThemeVariant();
   const _webviewKey = useMemo(() => {
@@ -186,7 +184,7 @@ export function TradingViewPerpsV2(
         decelerationRate="normal"
       />
 
-      {platformEnv.isNativeIOS || isIPadPortrait ? (
+      {platformEnv.isNativeIOS ? (
         <Stack
           position="absolute"
           left={0}
