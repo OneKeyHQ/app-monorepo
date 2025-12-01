@@ -13,6 +13,7 @@ import {
   XStack,
   YStack,
   useIsTabletDetailView,
+  useOrientation,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
@@ -136,10 +137,11 @@ function MobileBrowser() {
     useRoute<
       RouteProp<ITabDiscoveryParamList, ETabDiscoveryRoutes.TabDiscovery>
     >();
+  const isLandscape = useOrientation();
   const { defaultTab, earnTab } = route?.params || {};
   const [settings] = useSettingsPersistAtom();
   const [selectedHeaderTab, setSelectedHeaderTab] = useState<ETranslations>(
-    isTabletDevice && isTabletDetailView
+    isTabletDevice && isTabletDetailView && isLandscape
       ? ETranslations.global_browser
       : defaultTab ||
           settings.selectedBrowserTab ||
@@ -147,7 +149,7 @@ function MobileBrowser() {
   );
   const handleChangeHeaderTab = useCallback(
     async (tab: ETranslations) => {
-      if (isTabletDevice && isTabletDetailView) {
+      if (isTabletDevice && isTabletDetailView && isLandscape) {
         return;
       }
       setSelectedHeaderTab(tab);
@@ -155,7 +157,7 @@ function MobileBrowser() {
         await backgroundApiProxy.serviceSetting.setSelectedBrowserTab(tab);
       }, 150);
     },
-    [isTabletDetailView, isTabletDevice],
+    [isLandscape, isTabletDetailView, isTabletDevice],
   );
   const previousDefaultTab = useRef<ETranslations | undefined>(defaultTab);
   useEffect(() => {
@@ -318,12 +320,15 @@ function MobileBrowser() {
     setTabPageHeight(height);
   }, []);
 
-  if (isTabletDetailView && displayHomePage) {
+  if (isTabletDetailView && isLandscape && displayHomePage) {
     return <TabletHomeContainer />;
   }
 
   const showDiscoveryPage =
-    displayHomePage || (isTabletDevice && !isTabletDetailView);
+    displayHomePage ||
+    (isTabletDevice &&
+      ((isTabletDetailView && !isLandscape) ||
+        (!isTabletDetailView && isLandscape)));
   const displayBottomBar = !showDiscoveryPage;
 
   return (
