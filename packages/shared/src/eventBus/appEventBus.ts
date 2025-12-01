@@ -60,10 +60,15 @@ export interface IHardwareErrorDialogPayload {
 }
 
 export enum EFinalizeWalletSetupSteps {
+  // Regular wallet steps
   CreatingWallet = 'CreatingWallet',
   GeneratingAccounts = 'GeneratingAccounts',
   EncryptingData = 'EncryptingData',
   Ready = 'Ready',
+  // Keyless wallet steps
+  CreatingDeviceKey = 'CreatingDeviceKey',
+  CreatingCloudKey = 'CreatingCloudKey',
+  CreatingAuthKey = 'CreatingAuthKey',
 }
 
 export type IEventBusPayloadShowToast = {

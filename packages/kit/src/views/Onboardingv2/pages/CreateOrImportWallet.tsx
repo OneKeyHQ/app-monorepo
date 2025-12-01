@@ -33,6 +33,7 @@ import externalWalletLogoUtils from '@onekeyhq/shared/src/utils/externalWalletLo
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { showOneKeyIDLoginDialog } from '../../Prime/components/OneKeyIDLoginDialog';
+import { usePrimeAuthV2 } from '../../Prime/hooks/usePrimeAuthV2';
 import { OnboardingLayout } from '../components/OnboardingLayout';
 
 import { AnimatedDeviceAvatar } from './GetStarted';
@@ -142,6 +143,7 @@ export default function CreateOrImportWallet() {
 
   const walletKeys = ['metamask', 'okx', 'rainbow', 'tokenpocket'] as const;
   const navigation = useAppNavigation();
+  const { isLoggedIn } = usePrimeAuthV2();
 
   const handleExpand = useCallback(() => {
     setExpanded((prev) => !prev);
@@ -198,17 +200,23 @@ export default function CreateOrImportWallet() {
         showCancelButton: false,
         onConfirmText: intl.formatMessage({ id: ETranslations.global_got_it }),
       });
+    } else if (isLoggedIn) {
+      // Already logged in to OneKey ID, navigate to create keyless wallet
+      navigation.push(EOnboardingPagesV2.FinalizeWalletSetup, {
+        variant: 'keylessWallet',
+      });
     } else {
-      // Keyless wallet not enabled, show dialog to create one
+      // Not logged in, show login dialog first
       showOneKeyIDLoginDialog({
         variant: 'keylessWallet',
         onLoginSuccess: async () => {
-          // TODO: Handle login success, create keyless wallet
-          console.log('login success - create keyless wallet');
+          navigation.push(EOnboardingPagesV2.FinalizeWalletSetup, {
+            variant: 'keylessWallet',
+          });
         },
       });
     }
-  }, [intl, isKeylessEnabled]);
+  }, [intl, isKeylessEnabled, isLoggedIn, navigation]);
 
   return (
     <Page>

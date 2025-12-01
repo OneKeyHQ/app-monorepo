@@ -55,6 +55,7 @@ export type IOnboardingParamListV2 = {
     isWalletBackedUp?: boolean;
     isFirmwareVerified?: boolean;
     deviceData?: IConnectYourDeviceItem;
+    variant?: 'wallet' | 'keylessWallet';
   };
   [EOnboardingPagesV2.PickYourDevice]: undefined;
   [EOnboardingPagesV2.ConnectYourDevice]: {

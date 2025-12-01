@@ -76,12 +76,9 @@ export const useToOnBoardingPage = () => {
             rootNavigationRef.current?.navigate(ERootRoutes.Onboarding, {
               screen: EOnboardingV2Routes.OnboardingV2,
               params: {
-                screen: EOnboardingPagesV2.GetStarted,
+                screen: EOnboardingPagesV2.CreateOrImportWallet,
                 params: {
-                  screen: EOnboardingPagesV2.CreateOrImportWallet,
-                  params: {
-                    fullOptions: true,
-                  },
+                  fullOptions: true,
                 },
               },
             });
