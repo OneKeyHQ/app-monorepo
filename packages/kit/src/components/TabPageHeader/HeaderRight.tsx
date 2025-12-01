@@ -25,12 +25,12 @@ import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
 import { ETabMarketRoutes } from '@onekeyhq/shared/src/routes/tabMarket';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import { useReferFriends } from '../../hooks/useReferFriends';
 import TabCountButton from '../../views/Discovery/components/MobileBrowser/TabCountButton';
 import { HistoryIconButton } from '../../views/Discovery/pages/components/HistoryIconButton';
 
 import {
   DownloadButton,
+  GiftAction,
   HeaderNotificationIconButton,
   LanguageButton,
   OneKeyIdButton,
@@ -39,21 +39,6 @@ import {
 } from './components';
 import { MoreActionButton } from './MoreActionButton';
 import { UrlAccountPageHeader } from './urlAccountPageHeader';
-
-function GiftAction() {
-  const { shareReferRewards } = useReferFriends();
-  const handleShareReferRewards = useCallback(() => {
-    void shareReferRewards();
-  }, [shareReferRewards]);
-  const intl = useIntl();
-  return (
-    <HeaderIconButton
-      title={intl.formatMessage({ id: ETranslations.referral_title })}
-      icon="GiftOutline"
-      onPress={handleShareReferRewards}
-    />
-  );
-}
 
 export function MoreAction() {
   return <MoreActionButton key="more-action" />;

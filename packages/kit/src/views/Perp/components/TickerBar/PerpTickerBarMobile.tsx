@@ -1,6 +1,5 @@
 import { memo, useCallback, useMemo } from 'react';
 
-import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
@@ -12,6 +11,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { GiftAction } from '@onekeyhq/kit/src/components/TabPageHeader/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
   usePerpsActiveAccountMmrAtom,
@@ -177,6 +177,7 @@ export function PerpTickerBarMobile() {
 
       <XStack pt="$0.5" gap="$3" alignItems="center">
         <PerpTickerBarMMRInfoMobile />
+        <GiftAction source="Perps" />
         <PerpCandleChartButtonMobile />
         <PerpSettingsButton testID="perp-mobile-settings-button" />
       </XStack>

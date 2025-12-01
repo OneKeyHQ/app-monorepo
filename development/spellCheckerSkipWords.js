@@ -1011,4 +1011,5 @@ module.exports = [
   'Brotli',
   'Arial',
   'ip',
+  'Dropdown',
 ];

@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import {
+  Button,
   Dialog,
   EInPageDialogType,
   Form,
@@ -30,15 +31,21 @@ import type { OneKeyError } from '@onekeyhq/shared/src/errors';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import {
+  EAccountManagerStacksRoutes,
+  EModalRoutes,
+} from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EMnemonicType } from '@onekeyhq/shared/src/utils/secret';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import {
   EMessageTypesBtc,
   EMessageTypesEth,
 } from '@onekeyhq/shared/types/message';
 
 import { WalletAvatar } from '../../../components/WalletAvatar/WalletAvatar';
+import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useSignatureConfirm } from '../../../hooks/useSignatureConfirm';
 
@@ -161,6 +168,7 @@ function InviteCode({
     },
   });
   const getReferralCodeWalletInfo = useGetReferralCodeWalletInfo();
+  const navigation = useAppNavigation();
 
   // Fetch all wallets with bound status
   const { result: walletsWithStatus } = usePromiseResult(async () => {
@@ -224,6 +232,9 @@ function InviteCode({
     }));
   }, [walletsWithStatus, intl]);
 
+  // Check if there are no available wallets
+  const hasNoWallets = !walletsWithStatus || walletsWithStatus.length === 0;
+
   const { result: walletInfo } = usePromiseResult(async () => {
     const r = await getReferralCodeWalletInfo(selectedWallet?.id);
     if (!r) {
@@ -281,37 +292,61 @@ function InviteCode({
             id: ETranslations.referral_wallet_code_wallet,
           })}
         </SizableText>
-        <Select
-          title={intl.formatMessage({
-            id: ETranslations.referral_select_wallet,
-          })}
-          items={walletItems}
-          value={selectedWalletId}
-          onChange={(walletId) => {
-            if (typeof walletId === 'string') {
-              setSelectedWalletId(walletId);
-            }
-          }}
-          renderTrigger={() => (
-            <XStack
-              gap="$2"
-              ai="center"
-              py="$2"
-              px="$3"
-              bg="$bgSubdued"
-              borderRadius="$2"
-              borderWidth={StyleSheet.hairlineWidth}
-              borderColor="$borderSubdued"
-              jc="space-between"
-            >
-              <XStack gap="$2" ai="center">
-                <WalletAvatar wallet={selectedWallet} size="$6" />
-                <SizableText size="$bodyLg">{selectedWallet?.name}</SizableText>
+        {hasNoWallets ? (
+          <Button
+            variant="secondary"
+            size="medium"
+            onPress={() => {
+              navigation.pushModal(EModalRoutes.AccountManagerStacks, {
+                screen: EAccountManagerStacksRoutes.AccountSelectorStack,
+                params: {
+                  num: 0,
+                  sceneName: EAccountSelectorSceneName.home,
+                  sceneUrl: '',
+                  editable: true,
+                },
+              });
+            }}
+          >
+            {intl.formatMessage({
+              id: ETranslations.global_add_wallet,
+            })}
+          </Button>
+        ) : (
+          <Select
+            title={intl.formatMessage({
+              id: ETranslations.referral_select_wallet,
+            })}
+            items={walletItems}
+            value={selectedWalletId}
+            onChange={(walletId) => {
+              if (typeof walletId === 'string') {
+                setSelectedWalletId(walletId);
+              }
+            }}
+            renderTrigger={() => (
+              <XStack
+                gap="$2"
+                ai="center"
+                py="$2"
+                px="$3"
+                bg="$bgSubdued"
+                borderRadius="$2"
+                borderWidth={StyleSheet.hairlineWidth}
+                borderColor="$borderSubdued"
+                jc="space-between"
+              >
+                <XStack gap="$2" ai="center">
+                  <WalletAvatar wallet={selectedWallet} size="$6" />
+                  <SizableText size="$bodyLg">
+                    {selectedWallet?.name}
+                  </SizableText>
+                </XStack>
+                <Icon name="ChevronDownSmallOutline" color="$iconSubdued" />
               </XStack>
-              <Icon name="ChevronDownSmallOutline" color="$iconSubdued" />
-            </XStack>
-          )}
-        />
+            )}
+          />
+        )}
       </YStack>
       <YStack gap="$1">
         <SizableText size="$bodyMd" color="$textSubdued">
@@ -352,6 +387,9 @@ function InviteCode({
         onConfirmText={intl.formatMessage({
           id: ETranslations.global_apply,
         })}
+        confirmButtonProps={{
+          disabled: hasNoWallets,
+        }}
       />
     </YStack>
   );

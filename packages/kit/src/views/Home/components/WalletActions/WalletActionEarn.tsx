@@ -14,25 +14,15 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { RawActions } from './RawActions';
 
 export function WalletActionEarn(props: {
-  accountId: string;
   tokenAddress: string;
   networkId: string;
-  indexedAccountId: string | undefined;
   walletType: string | undefined;
   source: 'homePage' | 'tokenDetails';
   trackID?: string;
   logoURI?: string;
 }) {
-  const {
-    accountId,
-    tokenAddress,
-    networkId,
-    indexedAccountId,
-    walletType,
-    source,
-    trackID,
-    logoURI,
-  } = props;
+  const { tokenAddress, networkId, walletType, source, trackID, logoURI } =
+    props;
 
   const navigation = useAppNavigation();
 
@@ -82,7 +72,7 @@ export function WalletActionEarn(props: {
     const symbol = result?.symbolInfo?.symbol ?? '';
     const protocolList = result?.protocolList ?? [];
 
-    if (!networkId || !accountId || !symbol || protocolList.length === 0) {
+    if (!networkId || !symbol || protocolList.length === 0) {
       return;
     }
 
@@ -103,8 +93,6 @@ export function WalletActionEarn(props: {
       const protocol = protocolList[0];
       await EarnNavigation.pushToEarnProtocolDetails(navigation, {
         networkId,
-        accountId,
-        indexedAccountId,
         symbol,
         provider: protocol.provider.name,
         vault: protocol.provider.vault,
@@ -125,11 +113,9 @@ export function WalletActionEarn(props: {
     result?.protocolList,
     result?.blockData,
     networkId,
-    accountId,
     walletType,
     source,
     navigation,
-    indexedAccountId,
     isSoftwareWalletOnlyUser,
   ]);
 

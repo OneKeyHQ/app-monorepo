@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
-import { StyleSheet } from 'react-native';
+import { Keyboard, StyleSheet } from 'react-native';
 import { useDebouncedCallback } from 'use-debounce';
 
 import {
@@ -143,6 +143,10 @@ export function UniversalWithdraw({
       return undefined;
     }
 
+    if (earnUtils.isLidoProvider({ providerName })) {
+      return undefined;
+    }
+
     const account = await backgroundApiProxy.serviceAccount.getAccount({
       accountId,
       networkId,
@@ -202,6 +206,7 @@ export function UniversalWithdraw({
 
   const onPress = useCallback(async () => {
     try {
+      Keyboard.dismiss();
       setLoading(true);
       await onConfirm?.({
         amount: amountValue,
