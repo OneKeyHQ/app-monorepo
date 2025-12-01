@@ -12,6 +12,7 @@ import {
   Tabs,
   XStack,
   YStack,
+  useOrientation,
 } from '@onekeyhq/components';
 import { usePerpsActiveAssetAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
@@ -93,8 +94,9 @@ function MobilePerpMarket() {
     );
   }, [coin, themeVariant, onPressTokenSelector, onPageGoBack, intl]);
 
+  const isLandscape = useOrientation();
   useEffect(() => {
-    if (ExpoDevice.deviceType === ExpoDevice.DeviceType.TABLET) {
+    if (ExpoDevice.deviceType === ExpoDevice.DeviceType.TABLET && isLandscape) {
       return;
     }
     appEventBus.emit(EAppEventBusNames.HideTabBar, true);
@@ -102,7 +104,7 @@ function MobilePerpMarket() {
     return () => {
       appEventBus.emit(EAppEventBusNames.HideTabBar, false);
     };
-  }, []);
+  }, [isLandscape]);
 
   const pageHeader = useMemo(
     () => <Page.Header headerLeft={renderHeaderTitle} />,

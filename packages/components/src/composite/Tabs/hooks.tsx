@@ -13,7 +13,7 @@ import { useWindowDimensions } from 'react-native';
 import { useAppSideBarStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useMedia } from '../../hooks';
+import { useMedia, useOrientation } from '../../hooks';
 import { MAX_SIDEBAR_WIDTH, MIN_SIDEBAR_WIDTH } from '../../utils/sidebar';
 
 import { useTabNameContext as useNativeTabNameContext } from './TabNameContext';
@@ -75,9 +75,12 @@ export * from './useCurrentTabScrollY';
 export const useTabContainerWidth = platformEnv.isNative
   ? () => {
       const isTablet = ExpoDevice.deviceType === ExpoDevice.DeviceType.TABLET;
+      const isLandscape = useOrientation();
       const { width, height } = useWindowDimensions();
       if (isTablet) {
-        return Math.max(width, height) / 2;
+        return isLandscape
+          ? Math.max(width, height) / 2
+          : Math.min(width, height);
       }
       return Math.min(width, height);
     }
