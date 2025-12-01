@@ -85,7 +85,6 @@ function useAppNavigation<
     | IPageNavigationProp<any>
     | IModalNavigationProp<any> = IPageNavigationProp<any>,
 >() {
-  const isTablet = ExpoDevice.deviceType === ExpoDevice.DeviceType.TABLET;
   const navigation = useNavigation<P>();
   const navigationRef = useRef(navigation);
   const isTabletMainView = useIsTabletMainView();

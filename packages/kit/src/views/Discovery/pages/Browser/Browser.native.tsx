@@ -13,6 +13,8 @@ import {
   XStack,
   YStack,
   useIsTabletDetailView,
+  useIsTabletMainView,
+  useOrientation,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
@@ -131,15 +133,17 @@ const useAndroidHardwareBack = platformEnv.isNativeAndroid
 
 function MobileBrowser() {
   const isTabletDevice = ExpoDevice.deviceType === ExpoDevice.DeviceType.TABLET;
+  const isTabletMainView = useIsTabletMainView();
   const isTabletDetailView = useIsTabletDetailView();
   const route =
     useRoute<
       RouteProp<ITabDiscoveryParamList, ETabDiscoveryRoutes.TabDiscovery>
     >();
+  const isLandscape = useOrientation();
   const { defaultTab, earnTab } = route?.params || {};
   const [settings] = useSettingsPersistAtom();
   const [selectedHeaderTab, setSelectedHeaderTab] = useState<ETranslations>(
-    isTabletDevice && isTabletDetailView
+    isTabletDevice && isTabletDetailView && isLandscape
       ? ETranslations.global_browser
       : defaultTab ||
           settings.selectedBrowserTab ||
@@ -147,7 +151,7 @@ function MobileBrowser() {
   );
   const handleChangeHeaderTab = useCallback(
     async (tab: ETranslations) => {
-      if (isTabletDevice && isTabletDetailView) {
+      if (isTabletDevice && isTabletDetailView && isLandscape) {
         return;
       }
       setSelectedHeaderTab(tab);
@@ -155,7 +159,7 @@ function MobileBrowser() {
         await backgroundApiProxy.serviceSetting.setSelectedBrowserTab(tab);
       }, 150);
     },
-    [isTabletDetailView, isTabletDevice],
+    [isLandscape, isTabletDetailView, isTabletDevice],
   );
   const previousDefaultTab = useRef<ETranslations | undefined>(defaultTab);
   useEffect(() => {
@@ -318,12 +322,20 @@ function MobileBrowser() {
     setTabPageHeight(height);
   }, []);
 
-  if (isTabletDetailView && displayHomePage) {
+  const showDiscoveryPage = useMemo(() => {
+    if (isTabletMainView) {
+      return true;
+    }
+    if (isTabletDetailView) {
+      return isLandscape ? false : displayHomePage;
+    }
+    return displayHomePage;
+  }, [isTabletMainView, isTabletDetailView, displayHomePage, isLandscape]);
+
+  if (isTabletDetailView && isLandscape && displayHomePage) {
     return <TabletHomeContainer />;
   }
 
-  const showDiscoveryPage =
-    displayHomePage || (isTabletDevice && !isTabletDetailView);
   const displayBottomBar = !showDiscoveryPage;
 
   return (
@@ -385,7 +397,7 @@ function MobileBrowser() {
             </Animated.View>
           </Freeze>
         </Stack>
-        {!isTabletDetailView ? (
+        {!isTabletDetailView || (isTabletDetailView && !isLandscape) ? (
           <Stack
             flex={1}
             display={
