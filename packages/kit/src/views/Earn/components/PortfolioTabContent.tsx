@@ -45,6 +45,7 @@ const WrappedActionButton = ({
   reward,
   stakedSymbol,
   rewardSymbol,
+  stakedVault,
 }: {
   asset:
     | IEarnPortfolioInvestment['assets'][number]
@@ -54,6 +55,7 @@ const WrappedActionButton = ({
     | IEarnPortfolioInvestment['airdropAssets'][number]['airdropAssets'][number];
   stakedSymbol?: string;
   rewardSymbol?: string;
+  stakedVault?: string;
 }) => {
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { account, indexedAccount } = activeAccount;
@@ -62,6 +64,7 @@ const WrappedActionButton = ({
   // - stakedSymbol for airdrops (the token that was staked to earn rewards)
   // - asset.token.info.symbol for normal claims (the staked token itself)
   const symbolForConfig = stakedSymbol || asset.token.info.symbol;
+  const vaultForConfig = stakedVault || asset.metadata.protocol.vault;
 
   const { loading, handleAction } = usePortfolioAction({
     accountId: account?.id || '',
@@ -69,7 +72,7 @@ const WrappedActionButton = ({
     indexedAccountId: indexedAccount?.id,
     symbol: symbolForConfig,
     provider: asset.metadata.protocol.providerDetail.code,
-    vault: asset.metadata.protocol.vault,
+    vault: vaultForConfig,
     providerLogoURI: asset.metadata.protocol.providerDetail.logoURI,
     stakeTag: buildLocalTxStatusSyncId({
       providerName: asset.metadata.protocol.providerDetail.code,
@@ -353,10 +356,12 @@ const ProtocolHeader = ({
 const ProtocolAirdrop = ({
   airdropAssets,
   stakedSymbol,
+  stakedVault,
   airdropRenderMode = 'all',
 }: {
   airdropAssets: IEarnPortfolioAirdropAsset[];
   stakedSymbol?: string;
+  stakedVault?: string;
   airdropRenderMode?: 'firstOnly' | 'all' | 'exceptFirst';
 }) => {
   const media = useMedia();
@@ -369,25 +374,25 @@ const ProtocolAirdrop = ({
           isEmpty(airdrop.airdropAssets),
         ) ? null : (
           <YStack w="100%">
-            {airdropAssets?.map((airdrop, index) => {
-              const Wrapper = media.gtSm ? XStack : YStack;
+            {airdropAssets?.map((airdropGroup, groupIndex) => {
+              const Layout = media.gtSm ? XStack : YStack;
 
-              const filteredAirdrop = (() => {
+              const airdropsToRender = (() => {
                 if (airdropRenderMode === 'firstOnly') {
-                  return airdrop.airdropAssets.slice(0, 1);
+                  return airdropGroup.airdropAssets.slice(0, 1);
                 }
                 if (airdropRenderMode === 'exceptFirst') {
-                  return airdrop.airdropAssets.slice(1);
+                  return airdropGroup.airdropAssets.slice(1);
                 }
                 if (airdropRenderMode === 'all') {
-                  return airdrop.airdropAssets;
+                  return airdropGroup.airdropAssets;
                 }
                 return [];
               })();
 
               return (
-                <Wrapper
-                  key={index}
+                <Layout
+                  key={groupIndex}
                   ai="flex-start"
                   gap="$1.5"
                   w="100%"
@@ -401,12 +406,12 @@ const ProtocolAirdrop = ({
                     <Token
                       size="xs"
                       borderRadius="$2"
-                      tokenImageUri={airdrop.token.info.logoURI}
+                      tokenImageUri={airdropGroup.token.info.logoURI}
                     />
                   ) : null}
-                  {filteredAirdrop.map((reward, rewardIndex) => {
-                    const needDivider =
-                      rewardIndex < filteredAirdrop.length - 1 && media.gtMd;
+                  {airdropsToRender.map((airdropReward, rewardIndex) => {
+                    const showDivider =
+                      rewardIndex < airdropsToRender.length - 1 && media.gtMd;
 
                     return (
                       <XStack
@@ -422,27 +427,28 @@ const ProtocolAirdrop = ({
                           <EarnText
                             mr="$1"
                             size="$bodyMdMedium"
-                            text={reward.title}
+                            text={airdropReward.title}
                           />
                           <EarnText
                             mr="$1"
                             size="$bodyMd"
                             color="$textSubdued"
-                            text={reward.description}
+                            text={airdropReward.description}
                           />
-                          <EarnTooltip tooltip={reward.tooltip} />
+                          <EarnTooltip tooltip={airdropReward.tooltip} />
                         </XStack>
                         <XStack ml="auto" $gtMd={{ ml: 0 }}>
-                          {reward.button ? (
+                          {airdropReward.button ? (
                             <WrappedActionButton
-                              asset={airdrop}
-                              reward={reward}
+                              asset={airdropGroup}
+                              reward={airdropReward}
                               stakedSymbol={stakedSymbol}
-                              rewardSymbol={airdrop.token.info.symbol}
+                              stakedVault={stakedVault}
+                              rewardSymbol={airdropGroup.token.info.symbol}
                             />
                           ) : null}
                         </XStack>
-                        {needDivider ? (
+                        {showDivider ? (
                           <Divider
                             bg="$borderSubdued"
                             vertical
@@ -455,7 +461,7 @@ const ProtocolAirdrop = ({
                       </XStack>
                     );
                   })}
-                </Wrapper>
+                </Layout>
               );
             })}
           </YStack>
@@ -604,6 +610,7 @@ const PortfolioItemComponent = ({
         airdropRenderMode={media.gtSm ? 'all' : 'firstOnly'}
         airdropAssets={portfolioItem.airdropAssets}
         stakedSymbol={portfolioItem.assets[0]?.token.info.symbol}
+        stakedVault={portfolioItem.assets[0]?.metadata.protocol.vault}
       />
       {showTable ? (
         <TableList<IEarnPortfolioInvestment['assets'][number]>
@@ -757,6 +764,7 @@ const PortfolioItemComponent = ({
           airdropRenderMode="exceptFirst"
           airdropAssets={portfolioItem.airdropAssets}
           stakedSymbol={portfolioItem.assets[0]?.token.info.symbol}
+          stakedVault={portfolioItem.assets[0]?.metadata.protocol.vault}
         />
       ) : null}
     </YStack>
