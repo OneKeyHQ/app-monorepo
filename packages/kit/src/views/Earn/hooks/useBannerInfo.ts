@@ -32,7 +32,7 @@ export const useBannerInfo = () => {
   useEffect(() => {
     void refetchBanners();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [themeVariant]);
+  }, [themeVariant, refetchBanners]);
 
   return { earnBanners: earnData.banners, refetchBanners };
 };
