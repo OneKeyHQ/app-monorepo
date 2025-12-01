@@ -9,6 +9,7 @@ import {
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { ReferralLinkDropdown } from '../../ReferralLinkDropdown';
 import { ReferralListButton } from '../../ReferralListButton';
 import { useReferralCodeCard } from '../hooks/useReferralCodeCard';
 
@@ -18,12 +19,14 @@ interface IReferralInputFieldProps {
   label: string;
   value: string;
   onCopy: () => void;
+  extra?: React.ReactNode;
 }
 
 function ReferralInputField({
   label,
   value,
   onCopy,
+  extra,
 }: IReferralInputFieldProps) {
   return (
     <ButtonFrame
@@ -67,6 +70,7 @@ function ReferralInputField({
           color="$iconSubdued"
           flexShrink={0}
         />
+        {extra}
       </XStack>
     </ButtonFrame>
   );
@@ -113,6 +117,7 @@ export function ReferralCodeCardDesktop({
           label={intlStrings.referralLink}
           value={inviteCodeUrl}
           onCopy={copyLink}
+          extra={<ReferralLinkDropdown inviteUrl={inviteUrl} />}
         />
       </YStack>
     </YStack>

@@ -8,6 +8,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 
+import { ReferralLinkDropdown } from '../../ReferralLinkDropdown';
 import { useReferralCodeCard } from '../hooks/useReferralCodeCard';
 
 import type { IReferralCodeCardProps } from '../types';
@@ -79,6 +80,7 @@ export function ReferralCodeCardMobile({
           color="$iconSubdued"
           flexShrink={0}
         />
+        <ReferralLinkDropdown inviteUrl={inviteUrl} />
       </ButtonFrame>
     </YStack>
   );

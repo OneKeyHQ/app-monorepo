@@ -3,6 +3,7 @@ import { useCallback } from 'react';
 import { Button, Page, YStack } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { TabletHomeContainer } from '@onekeyhq/kit/src/components/TabletHomeContainer';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { ITabMeParamList } from '@onekeyhq/shared/src/routes';
 import {
@@ -84,7 +85,11 @@ const TabMe = () => {
 };
 
 function TabMeContainer() {
-  return <TabMe />;
+  return (
+    <TabletHomeContainer>
+      <TabMe />
+    </TabletHomeContainer>
+  );
 }
 
 export default TabMeContainer;

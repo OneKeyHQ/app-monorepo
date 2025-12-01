@@ -1,3 +1,5 @@
+import type { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
+
 import type {
   CustomerInfo as CustomerInfoWeb,
   PurchaseResult,
@@ -36,12 +38,15 @@ export type IUsePrimePayment = {
     subscriptionPeriod: ISubscriptionPeriod;
     locale: string;
     mode: 'dev' | 'prod';
+    featureName?: string;
   };
   purchasePackageNative:
     | (({
         subscriptionPeriod,
+        featureName,
       }: {
         subscriptionPeriod: ISubscriptionPeriod;
+        featureName?: EPrimeFeatures;
       }) => Promise<MakePurchaseResult>)
     | undefined;
   purchasePackageWeb:
@@ -49,10 +54,12 @@ export type IUsePrimePayment = {
         subscriptionPeriod,
         email,
         locale,
+        featureName,
       }: {
         subscriptionPeriod: ISubscriptionPeriod;
         email: string;
         locale?: string;
+        featureName?: EPrimeFeatures;
       }) => Promise<PurchaseResult>)
     | undefined;
 };

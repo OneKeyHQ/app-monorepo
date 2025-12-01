@@ -18,6 +18,7 @@ import type {
   IInvitePaidHistory,
   IInvitePostConfig,
   IInviteSummary,
+  IPerpsInviteeRewardsResponse,
   IPerpsRecordsResponse,
   IUpdateInviteCodeNoteResponse,
 } from '@onekeyhq/shared/src/referralCode/type';
@@ -311,6 +312,18 @@ class ServiceReferralCode extends ServiceBase {
     }
     const response = await client.get<{ data: IPerpsRecordsResponse }>(
       '/rebate/v1/invite/perps-records',
+      { params },
+    );
+    return response.data.data;
+  }
+
+  @backgroundMethod()
+  async getPerpsInviteeRewards(params: {
+    walletAddress: string;
+  }): Promise<IPerpsInviteeRewardsResponse> {
+    const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Rebate);
+    const response = await client.get<{ data: IPerpsInviteeRewardsResponse }>(
+      '/rebate/v1/invite/perps-invitee-rewards',
       { params },
     );
     return response.data.data;

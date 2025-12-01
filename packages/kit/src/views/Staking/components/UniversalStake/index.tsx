@@ -638,8 +638,15 @@ export function UniversalStake({
           permitSignature: permitSignatureRef.current,
         }
       : undefined;
-    const handleConfirm = () =>
-      onConfirm?.({ amount: amountValue, ...permitSignatureParams });
+    const resetAmount = () => {
+      setAmountValue('');
+      setCheckoutAmountMessage('');
+      setCheckAmountAlerts([]);
+    };
+    const handleConfirm = async () => {
+      await onConfirm?.({ amount: amountValue, ...permitSignatureParams });
+      resetAmount();
+    };
 
     // Wait for the dialog confirmation if it's shown
     // await showFalconEventEndedDialog();
@@ -781,6 +788,7 @@ export function UniversalStake({
   }, [intl, resetUSDTApproveValue]);
 
   const onApprove = useCallback(async () => {
+    Keyboard.dismiss();
     setApproving(true);
     let approveAllowance = allowance;
     try {

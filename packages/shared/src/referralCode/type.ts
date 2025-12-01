@@ -270,6 +270,18 @@ export interface IInvitePostConfig {
         subtitle: string;
       };
     };
+    Perps?: {
+      title: string;
+      subtitle: string;
+      for_you: {
+        title: string;
+        subtitle: string;
+      };
+      for_your_friend: {
+        title: string;
+        subtitle: string;
+      };
+    };
   };
 }
 
@@ -376,7 +388,8 @@ export interface IUpdateInviteCodeNoteResponse {
 // Export functionality types
 export enum EExportSubject {
   HardwareSales = 'HardwareSales',
-  Onchain = 'Onchain',
+  Defi = 'Defi',
+  Perp = 'Perp',
 }
 
 export enum EExportTimeRange {
@@ -414,4 +427,26 @@ export interface IHardwareCumulativeRewards {
     name: string;
     symbol: string;
   };
+}
+
+// Perps Invitee Reward Types
+export interface IPerpsInviteeRewardToken {
+  address: string;
+  logoURI: string;
+  name: string;
+  networkId: string;
+  symbol: string;
+}
+
+export interface IPerpsInviteeRewardHistoryItem {
+  amount: string;
+  date: string;
+  tx: string;
+}
+
+export interface IPerpsInviteeRewardsResponse {
+  history: IPerpsInviteeRewardHistoryItem[];
+  token: IPerpsInviteeRewardToken;
+  totalBonus: string;
+  undistributed: string;
 }

@@ -91,6 +91,8 @@ export enum EAtomNames {
 
   // swap
   swapProJumpTokenAtom = 'swapProJumpTokenAtom',
+  // market
+  marketSelectedTabAtom = 'marketSelectedTabAtom',
 }
 export type IAtomNameKeys = keyof typeof EAtomNames;
 export const atomsConfig: Partial<

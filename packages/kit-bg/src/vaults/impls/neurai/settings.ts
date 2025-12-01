@@ -42,7 +42,6 @@ const settings: IVaultSettings = {
   mergeDeriveAssetsEnabled: false,
   qrAccountEnabled: false,
   replaceTxEnabled: false,
-  coinControlEnabled: false,
 
   createAllDeriveTypeAccountsByDefault: false,
   enabledInternalSignAndVerify: false,

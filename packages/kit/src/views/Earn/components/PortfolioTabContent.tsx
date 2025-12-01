@@ -19,123 +19,26 @@ import type { ITableColumn } from '@onekeyhq/kit/src/components/ListView/TableLi
 import { TableList } from '@onekeyhq/kit/src/components/ListView/TableList';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import {
-  EModalRoutes,
-  EModalStakingRoutes,
-  ERootRoutes,
-  ETabEarnRoutes,
-  ETabRoutes,
-} from '@onekeyhq/shared/src/routes';
+import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
   IEarnPortfolioAirdropAsset,
   IEarnPortfolioInvestment,
   IEarnText,
-  IEarnToken,
 } from '@onekeyhq/shared/types/staking';
 
 import { useCurrency } from '../../../components/Currency';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { EarnText } from '../../Staking/components/ProtocolDetails/EarnText';
 import { EarnTooltip } from '../../Staking/components/ProtocolDetails/EarnTooltip';
+import { PendingIndicator } from '../../Staking/components/StakingActivityIndicator';
 import { buildLocalTxStatusSyncId } from '../../Staking/utils/utils';
 import { EarnNavigation } from '../earnUtils';
 import { usePortfolioAction } from '../hooks/usePortfolioAction';
+import { useProtocolMultiTokenPendingTxs } from '../hooks/useStakingPendingTxs';
 
 import type { IUseEarnPortfolioReturn } from '../hooks/useEarnPortfolio';
-
-const refreshPortfolioItemHandlers = new Set<
-  (payload: {
-    provider: string;
-    symbol: string;
-    networkId: string;
-    rewardSymbol?: string;
-  }) => void
->();
-let refreshPortfolioItemListenerRegistered = false;
-const refreshPortfolioItemGlobalHandler = (payload: {
-  provider: string;
-  symbol: string;
-  networkId: string;
-  rewardSymbol?: string;
-}) => {
-  refreshPortfolioItemHandlers.forEach((fn) => fn(payload));
-};
-
-const refreshPortfolioHandlers = new Set<() => void>();
-let refreshPortfolioListenerRegistered = false;
-const refreshPortfolioGlobalHandler = () => {
-  refreshPortfolioHandlers.forEach((fn) => fn());
-};
-
-const registerRefreshPortfolioItemHandler = (
-  handler: (payload: {
-    provider: string;
-    symbol: string;
-    networkId: string;
-    rewardSymbol?: string;
-  }) => void,
-) => {
-  refreshPortfolioItemHandlers.add(handler);
-  if (!refreshPortfolioItemListenerRegistered) {
-    appEventBus.on(
-      EAppEventBusNames.RefreshEarnPortfolioItem,
-      refreshPortfolioItemGlobalHandler,
-    );
-    refreshPortfolioItemListenerRegistered = true;
-  }
-};
-
-const unregisterRefreshPortfolioItemHandler = (
-  handler: (payload: {
-    provider: string;
-    symbol: string;
-    networkId: string;
-    rewardSymbol?: string;
-  }) => void,
-) => {
-  refreshPortfolioItemHandlers.delete(handler);
-  if (
-    refreshPortfolioItemHandlers.size === 0 &&
-    refreshPortfolioItemListenerRegistered
-  ) {
-    appEventBus.off(
-      EAppEventBusNames.RefreshEarnPortfolioItem,
-      refreshPortfolioItemGlobalHandler,
-    );
-    refreshPortfolioItemListenerRegistered = false;
-  }
-};
-
-const registerRefreshPortfolioHandler = (handler: () => void) => {
-  refreshPortfolioHandlers.add(handler);
-  if (!refreshPortfolioListenerRegistered) {
-    appEventBus.on(
-      EAppEventBusNames.RefreshEarnPortfolio,
-      refreshPortfolioGlobalHandler,
-    );
-    refreshPortfolioListenerRegistered = true;
-  }
-};
-
-const unregisterRefreshPortfolioHandler = (handler: () => void) => {
-  refreshPortfolioHandlers.delete(handler);
-  if (
-    refreshPortfolioHandlers.size === 0 &&
-    refreshPortfolioListenerRegistered
-  ) {
-    appEventBus.off(
-      EAppEventBusNames.RefreshEarnPortfolio,
-      refreshPortfolioGlobalHandler,
-    );
-    refreshPortfolioListenerRegistered = false;
-  }
-};
 
 const WrappedActionButton = ({
   asset,
@@ -240,12 +143,30 @@ const WrappedActionButton = ({
   );
 };
 
+const useFieldWrapperNeedPadding = (
+  asset: IEarnPortfolioInvestment['assets'][number],
+) => {
+  return useMemo(() => !asset?.metadata?.protocol?.vaultName, [asset]);
+};
+
 const FieldWrapper = ({
   children,
+  asset,
   ...rest
-}: { children: React.ReactNode } & React.ComponentProps<typeof YStack>) => {
+}: {
+  children: React.ReactNode;
+  asset: IEarnPortfolioInvestment['assets'][number];
+} & React.ComponentProps<typeof YStack>) => {
+  const needPadding = useFieldWrapperNeedPadding(asset);
+
   return (
-    <YStack gap="$1" minHeight="$8" {...rest}>
+    <YStack
+      gap="$1"
+      minHeight="$8"
+      jc="flex-start"
+      pt={needPadding ? '$1.5' : 0}
+      {...rest}
+    >
       {children}
     </YStack>
   );
@@ -264,7 +185,7 @@ const DepositField = ({
         tokenImageUri={asset.token.info.logoURI}
         networkImageUri={asset.metadata.network.logoURI}
       />
-      <FieldWrapper ml="$3" mr="$2" jc="center" flex={1}>
+      <FieldWrapper ml="$3" mr="$2" flex={1} asset={asset}>
         <XStack gap="$1" maxWidth={200} flexWrap="wrap">
           <EarnText size="$bodyMdMedium" text={asset.deposit?.title} />
           <EarnText
@@ -289,8 +210,8 @@ const EarningsField = ({
   asset: IEarnPortfolioInvestment['assets'][number];
 }) => {
   return (
-    <FieldWrapper>
-      <YStack jc="center" flex={1}>
+    <FieldWrapper asset={asset}>
+      <YStack jc="center" flex={1} gap="$1">
         <EarnText size="$bodyMdMedium" text={asset.earnings24h?.title} />
         <XStack gap="$1">
           <EarnText
@@ -314,8 +235,18 @@ const AssetStatusField = ({
 }: {
   asset: IEarnPortfolioInvestment['assets'][number];
 }) => {
+  if (isEmpty(asset.assetsStatus)) {
+    return (
+      <FieldWrapper asset={asset}>
+        <Stack flexDirection="row" ai="center" flexWrap="wrap" maxWidth="100%">
+          <EarnText mr="$1" size="$bodyMdMedium" text={{ text: '-' }} />
+        </Stack>
+      </FieldWrapper>
+    );
+  }
+
   return (
-    <FieldWrapper jc="center">
+    <FieldWrapper asset={asset}>
       {asset.assetsStatus?.map((status, index) => (
         <XStack key={index} ai="center" maxWidth={200} flexWrap="wrap">
           <EarnText mr="$2" size="$bodyMdMedium" text={status.title} />
@@ -341,7 +272,7 @@ const ActionField = ({
 }) => {
   if (isEmpty(asset.rewardAssets)) {
     return (
-      <FieldWrapper jc="center">
+      <FieldWrapper asset={asset}>
         <Stack flexDirection="row" ai="center" flexWrap="wrap" maxWidth="100%">
           <EarnText mr="$1" size="$bodyMdMedium" text={{ text: '-' }} />
         </Stack>
@@ -350,7 +281,7 @@ const ActionField = ({
   }
 
   return (
-    <FieldWrapper jc="center">
+    <FieldWrapper asset={asset}>
       {asset.rewardAssets?.map((reward, index) => (
         <Stack
           key={index}
@@ -379,8 +310,10 @@ const ActionField = ({
 
 const ProtocolHeader = ({
   portfolioItem,
+  pendingCount,
 }: {
   portfolioItem: IEarnPortfolioInvestment;
+  pendingCount?: number;
 }) => {
   const currencyInfo = useCurrency();
 
@@ -401,12 +334,17 @@ const ProtocolHeader = ({
           <NumberSizeableText
             size="$headingLg"
             color="$textSubdued"
-            formatter="marketCap"
+            formatter="value"
             formatterOptions={{ currency: currencyInfo.symbol }}
           >
             {portfolioItem.totalFiatValue}
           </NumberSizeableText>
         </XStack>
+        {pendingCount && pendingCount > 0 ? (
+          <XStack ml="$2">
+            <PendingIndicator num={pendingCount} />
+          </XStack>
+        ) : null}
       </XStack>
     </YStack>
   );
@@ -529,18 +467,68 @@ const ProtocolAirdrop = ({
 
 const PortfolioItemComponent = ({
   portfolioItem,
+  onRefreshRow,
 }: {
   portfolioItem: IEarnPortfolioInvestment;
+  onRefreshRow?: (payload: {
+    provider: string;
+    symbol?: string;
+    networkId: string;
+    rewardSymbol?: string;
+  }) => void;
 }) => {
   const intl = useIntl();
   const media = useMedia();
+
+  // Collect all symbols from assets and airdropAssets
+  const allSymbols = useMemo(() => {
+    const assetSymbols = portfolioItem.assets.map(
+      (asset) => asset.token.info.symbol,
+    );
+    const airdropSymbols = portfolioItem.airdropAssets.map(
+      (airdrop) => airdrop.token.info.symbol,
+    );
+    return [...assetSymbols, ...airdropSymbols];
+  }, [portfolioItem.assets, portfolioItem.airdropAssets]);
+
+  // Get provider and networkId from first asset or first airdrop asset
+  const firstAsset = portfolioItem.assets[0] || portfolioItem.airdropAssets[0];
+  const provider = firstAsset?.metadata.protocol.providerDetail.code || '';
+  const networkId = firstAsset?.metadata.network.networkId || '';
+
+  // Refresh callback for when pending txs complete
+  const handleRefresh = useCallback(() => {
+    if (!onRefreshRow) return;
+
+    // Refresh the entire protocol (all assets and airdrops under this provider/network)
+    onRefreshRow({
+      provider,
+      networkId,
+    });
+  }, [onRefreshRow, provider, networkId]);
+
+  // Monitor pending txs for all tokens in this protocol
+  const { pendingCount } = useProtocolMultiTokenPendingTxs({
+    networkId,
+    provider,
+    symbols: allSymbols,
+    onRefresh: handleRefresh,
+  });
+
+  const depositColumnLabel = useMemo(() => {
+    if (firstAsset?.token?.info?.symbol?.toUpperCase() === 'USDE') {
+      return intl.formatMessage({ id: ETranslations.earn_holdings });
+    }
+
+    return intl.formatMessage({ id: ETranslations.earn_deposited });
+  }, [firstAsset, intl]);
 
   const columns: ITableColumn<IEarnPortfolioInvestment['assets'][number]>[] =
     useMemo(() => {
       return [
         {
           key: 'deposits',
-          label: intl.formatMessage({ id: ETranslations.earn_deposited }),
+          label: depositColumnLabel,
           flex: 1.5,
           priority: 5,
           render: (asset) => <DepositField asset={asset} />,
@@ -554,7 +542,7 @@ const PortfolioItemComponent = ({
         },
         {
           key: 'Asset status',
-          label: intl.formatMessage({ id: ETranslations.global_status }),
+          label: intl.formatMessage({ id: ETranslations.earn_asset_status }),
           flex: 1,
           priority: 3,
           render: (asset) => <AssetStatusField asset={asset} />,
@@ -567,24 +555,20 @@ const PortfolioItemComponent = ({
           render: (asset) => <ActionField asset={asset} />,
         },
       ];
-    }, [intl]);
+    }, [depositColumnLabel, intl]);
 
   const appNavigation = useAppNavigation();
-  const { activeAccount } = useActiveAccount({ num: 0 });
-  const { account, indexedAccount } = activeAccount;
 
   const handleRowPress = useCallback(
     async (asset: IEarnPortfolioInvestment['assets'][number]) => {
       await EarnNavigation.pushToEarnProtocolDetails(appNavigation, {
         networkId: asset.metadata.network.networkId,
-        accountId: account?.id,
-        indexedAccountId: indexedAccount?.id,
         symbol: asset.token.info.symbol,
         provider: asset.metadata.protocol.providerDetail.code,
         vault: asset.metadata.protocol.vault,
       });
     },
-    [appNavigation, account?.id, indexedAccount?.id],
+    [appNavigation],
   );
 
   const handleManagePress = useCallback(
@@ -612,7 +596,10 @@ const PortfolioItemComponent = ({
 
   return (
     <YStack>
-      <ProtocolHeader portfolioItem={portfolioItem} />
+      <ProtocolHeader
+        portfolioItem={portfolioItem}
+        pendingCount={pendingCount}
+      />
       <ProtocolAirdrop
         airdropRenderMode={media.gtSm ? 'all' : 'firstOnly'}
         airdropAssets={portfolioItem.airdropAssets}
@@ -639,6 +626,7 @@ const PortfolioItemComponent = ({
             minHeight: '$8',
           }}
           listItemProps={{
+            ai: media.gtSm ? 'flex-start' : 'center',
             mt: media.gtSm ? '$2' : '$1',
           }}
           expandable={
@@ -874,13 +862,13 @@ export const PortfolioTabContent = ({
   const refreshPortfolioRow = useCallback<
     (payload: {
       provider: string;
-      symbol: string;
+      symbol?: string;
       networkId: string;
       rewardSymbol?: string;
     }) => void
   >(
     (payload) => {
-      if (!payload?.provider || !payload?.symbol || !payload?.networkId) {
+      if (!payload?.provider || !payload?.networkId) {
         return;
       }
       // Add delay to allow backend data to update after order success
@@ -895,39 +883,6 @@ export const PortfolioTabContent = ({
     },
     [refresh],
   );
-
-  const refreshPortfolioRowRef = useRef(refreshPortfolioRow);
-  useEffect(() => {
-    refreshPortfolioRowRef.current = refreshPortfolioRow;
-  }, [refreshPortfolioRow]);
-  const refreshRef = useRef(refresh);
-  useEffect(() => {
-    refreshRef.current = refresh;
-  }, [refresh]);
-
-  useEffect(() => {
-    const handler = (payload: {
-      provider: string;
-      symbol: string;
-      networkId: string;
-      rewardSymbol?: string;
-    }) => {
-      refreshPortfolioRowRef.current(payload);
-    };
-    const fullRefreshHandler = () => {
-      void refreshRef.current();
-    };
-    registerRefreshPortfolioItemHandler(handler);
-    registerRefreshPortfolioHandler(fullRefreshHandler);
-    return () => {
-      unregisterRefreshPortfolioItemHandler(handler);
-      unregisterRefreshPortfolioHandler(fullRefreshHandler);
-
-      // CRITICAL: Clear all refs to release memory
-      refreshPortfolioRowRef.current = null as any;
-      refreshRef.current = null as any;
-    };
-  }, []);
 
   const filteredInvestments = useMemo(
     () =>
@@ -955,11 +910,15 @@ export const PortfolioTabContent = ({
       return (
         <>
           {showDivider ? <Divider my="$4" mx="$5" /> : null}
-          <PortfolioItem key={key} portfolioItem={item} />
+          <PortfolioItem
+            key={key}
+            portfolioItem={item}
+            onRefreshRow={refreshPortfolioRow}
+          />
         </>
       );
     },
-    [filteredInvestments.length],
+    [filteredInvestments.length, refreshPortfolioRow],
   );
 
   const showSkeleton = isLoading && noAssets;

@@ -1316,6 +1316,8 @@ export default class ServiceNotification extends ServiceBase {
     action,
     nonce,
     signature,
+    accountId,
+    accountName,
   }: {
     signerAddress: string;
     action: {
@@ -1328,6 +1330,8 @@ export default class ServiceNotification extends ServiceBase {
     };
     nonce: number;
     signature: IHyperLiquidSignatureRSV;
+    accountId?: string;
+    accountName?: string;
   }) {
     if (!signerAddress) {
       return;
@@ -1338,6 +1342,8 @@ export default class ServiceNotification extends ServiceBase {
       action,
       nonce,
       signature,
+      accountId,
+      accountName,
     });
   }
 

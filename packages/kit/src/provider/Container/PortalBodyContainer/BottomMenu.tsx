@@ -10,15 +10,13 @@ import {
   SizableText,
   Stack,
   YStack,
-  useIsIpadLandscape,
-  useMedia,
+  useIsWebHorizontalLayout,
 } from '@onekeyhq/components';
 import { DesktopTabItem } from '@onekeyhq/components/src/layouts/Navigation/Tab/TabBar/DesktopTabItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppSideBarStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { useNotificationsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/notifications';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalNotificationsRoutes } from '@onekeyhq/shared/src/routes/notifications';
 import { shortcutsKeys } from '@onekeyhq/shared/src/shortcuts/shortcutsKeys.enum';
@@ -116,10 +114,8 @@ function BaseBottomMenu({ isCollapse }: { isCollapse: boolean }) {
 }
 
 export function BottomMenu() {
-  const { gtMd } = useMedia();
-  const isIpadLandscape = useIsIpadLandscape();
   const [{ isCollapsed }] = useAppSideBarStatusAtom();
-  const isShowBottomMenu = platformEnv.isNativeIOSPad ? isIpadLandscape : gtMd;
+  const isShowBottomMenu = useIsWebHorizontalLayout();
   return isShowBottomMenu ? (
     <Portal.Body container={EPortalContainerConstantName.SIDEBAR_BANNER}>
       <BaseBottomMenu isCollapse={isCollapsed} />

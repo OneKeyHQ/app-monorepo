@@ -13,6 +13,7 @@ import {
   useShortcuts,
 } from '@onekeyhq/components';
 import { DelayedRender } from '@onekeyhq/components/src/hocs/DelayedRender';
+import { TabletHomeContainer } from '@onekeyhq/kit/src/components/TabletHomeContainer';
 import {
   HYPER_LIQUID_ORIGIN,
   HYPER_LIQUID_WEBVIEW_TRADE_URL,
@@ -324,15 +325,17 @@ const PageWebviewPerpTrade = () => {
   }
 
   return (
-    <AccountSelectorProviderMirror
-      config={{
-        sceneName: EAccountSelectorSceneName.home,
-        sceneUrl: '',
-      }}
-      enabledNum={[0]}
-    >
-      <PageWebviewPerpTradeView />
-    </AccountSelectorProviderMirror>
+    <TabletHomeContainer>
+      <AccountSelectorProviderMirror
+        config={{
+          sceneName: EAccountSelectorSceneName.home,
+          sceneUrl: '',
+        }}
+        enabledNum={[0]}
+      >
+        <PageWebviewPerpTradeView />
+      </AccountSelectorProviderMirror>
+    </TabletHomeContainer>
   );
 };
 

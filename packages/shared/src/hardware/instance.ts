@@ -66,7 +66,8 @@ const createHardwareSDKInstance = async (params: {
 
     let env: undefined | ConnectSettings['env'];
     if (params.hardwareTransportType === EHardwareTransportType.WEBUSB) {
-      env = 'webusb' as const;
+      // Desktop WebUSB doesn't need browser permission prompt
+      env = platformEnv.isDesktop ? 'desktop-webusb' : 'webusb';
     } else if (
       params.hardwareTransportType === EHardwareTransportType.DesktopWebBle
     ) {

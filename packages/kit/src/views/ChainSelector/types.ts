@@ -10,3 +10,5 @@ export type IPureChainSelectorSectionListItem = {
   data: IServerNetworkMatch[];
   isUnavailable?: boolean;
 };
+
+export const CELL_HEIGHT = 48;
