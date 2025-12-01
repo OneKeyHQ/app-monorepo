@@ -2,15 +2,22 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { NumberSizeableText, Stack, useMedia } from '@onekeyhq/components';
+import {
+  NumberSizeableText,
+  Stack,
+  YStack,
+  useMedia,
+} from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 import { RichBlock } from '../RichBlock/RichBlock';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+
+import { Protocol } from './Protocol';
 
 function DeFiListBlock() {
   const intl = useIntl();
@@ -60,7 +67,11 @@ function DeFiListBlock() {
     return null;
   }, [media.gtMd, settings.currencyInfo.symbol]);
   const renderContent = useCallback(() => {
-    return 'defi list';
+    return (
+      <YStack gap="$5" flex={1}>
+        <Protocol />
+      </YStack>
+    );
   }, []);
   return (
     <RichBlock
@@ -68,6 +79,7 @@ function DeFiListBlock() {
       title={intl.formatMessage({ id: ETranslations.global_earn })}
       subTitle={renderSubTitle()}
       content={renderContent()}
+      plainContentContainer
     />
   );
 }

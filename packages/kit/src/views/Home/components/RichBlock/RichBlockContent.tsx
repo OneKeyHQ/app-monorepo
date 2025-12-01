@@ -7,7 +7,14 @@ import type { IRichBlockProps } from './types';
 function RichBlockContent({
   content,
   contentContainerProps,
-}: Pick<IRichBlockProps, 'content' | 'contentContainerProps'>) {
+  plainContentContainer,
+}: Pick<
+  IRichBlockProps,
+  'content' | 'contentContainerProps' | 'plainContentContainer'
+>) {
+  if (plainContentContainer) {
+    return <Stack {...contentContainerProps}>{content}</Stack>;
+  }
   return (
     <Stack
       py="$2"

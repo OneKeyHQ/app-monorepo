@@ -17,6 +17,7 @@ function RichBlock(props: IRichBlockProps) {
     blockContainerProps,
     content,
     contentContainerProps,
+    plainContentContainer,
   } = props;
   return (
     <Stack userSelect="none" pointerEvents="box-none" {...blockContainerProps}>
@@ -34,6 +35,7 @@ function RichBlock(props: IRichBlockProps) {
       <RichBlockContent
         content={content}
         contentContainerProps={contentContainerProps}
+        plainContentContainer={plainContentContainer}
       />
     </Stack>
   );

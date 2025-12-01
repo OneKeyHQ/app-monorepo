@@ -15,5 +15,6 @@ export type IRichBlockProps = {
 
   content: React.ReactNode | undefined;
   contentContainerProps?: IStackProps;
+  plainContentContainer?: boolean;
   blockContainerProps?: IStackProps;
 };
