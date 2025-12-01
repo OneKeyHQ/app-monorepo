@@ -1,5 +1,6 @@
-import type { FC } from 'react';
+import { type FC, useMemo } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
@@ -12,6 +13,8 @@ import {
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+const MIN_DISPLAY_AMOUNT = 0.01;
 
 interface IUndistributedRewardCardProps extends IYStackProps {
   value: string | number;
@@ -26,6 +29,11 @@ export const UndistributedRewardCard: FC<IUndistributedRewardCardProps> = ({
   ...rest
 }) => {
   const intl = useIntl();
+
+  const isMinDisplay = useMemo(() => {
+    const bn = new BigNumber(value);
+    return bn.isGreaterThan(0) && bn.isLessThan(MIN_DISPLAY_AMOUNT);
+  }, [value]);
 
   return (
     <YStack gap="$1" testID="UndistributedRewardCard" {...rest}>
@@ -50,9 +58,13 @@ export const UndistributedRewardCard: FC<IUndistributedRewardCardProps> = ({
           />
         ) : null}
       </XStack>
-      <Currency formatter="value" size="$heading5xl">
-        {value}
-      </Currency>
+      {isMinDisplay ? (
+        <SizableText size="$heading5xl">{`< $${MIN_DISPLAY_AMOUNT}`}</SizableText>
+      ) : (
+        <Currency formatter="value" size="$heading5xl">
+          {value}
+        </Currency>
+      )}
     </YStack>
   );
 };
