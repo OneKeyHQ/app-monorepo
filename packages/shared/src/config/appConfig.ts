@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 
 import App from '@onekeyhq/desktop/App';
+
 import type { EServiceEndpointEnum, IEndpointEnv } from '../../types/endpoint';
 
 export const HARDWARE_SDK_IFRAME_SRC_ONEKEYSO =
