@@ -21,7 +21,7 @@ import {
   Stack,
   XStack,
   YStack,
-  useIsHorizontalLayout,
+  useIsWebHorizontalLayout,
   useMedia,
   usePopoverContext,
 } from '@onekeyhq/components';
@@ -626,7 +626,7 @@ function MoreActionContentGrid() {
 }
 
 const useIsShowRedDot = () => {
-  const isHorizontal = useIsHorizontalLayout();
+  const isHorizontal = useIsWebHorizontalLayout();
   const [{ firstTimeGuideOpened, badge: notificationBadges }] =
     useNotificationsAtom();
   if (isHorizontal) {

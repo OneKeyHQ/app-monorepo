@@ -334,10 +334,8 @@ function TokenDetailsHeader(props: IProps) {
               trackID="wallet-token-details-bridge"
             />
             <WalletActionEarn
-              accountId={accountId}
               tokenAddress={tokenInfo.address}
               networkId={networkId}
-              indexedAccountId={indexedAccountId}
               walletType={wallet?.type}
               source="tokenDetails"
               trackID="wallet-token-details-stake"

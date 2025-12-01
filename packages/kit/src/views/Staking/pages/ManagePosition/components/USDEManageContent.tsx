@@ -14,6 +14,7 @@ import type { ISupportedSymbol } from '@onekeyhq/shared/types/earn';
 import {
   ECheckAmountActionType,
   type IEarnManagePageResponse,
+  type IStakeTag,
 } from '@onekeyhq/shared/types/staking';
 
 import { showKYCDialog } from '../../../components/ProtocolDetails/showKYCDialog';
@@ -31,6 +32,10 @@ interface IUSDEManageContentProps {
   provider: string;
   vault?: string;
   onHistory?: () => void;
+  indicatorAccountId?: string;
+  stakeTag?: IStakeTag;
+  onIndicatorRefresh?: () => void;
+  onRefreshPendingRef?: React.MutableRefObject<(() => Promise<void>) | null>;
   showApyDetail?: boolean;
   isInModalContext?: boolean;
   beforeFooter?: React.ReactElement | null;
@@ -52,6 +57,10 @@ export function USDEManageContent({
   provider,
   vault,
   onHistory,
+  indicatorAccountId,
+  stakeTag,
+  onIndicatorRefresh,
+  onRefreshPendingRef,
   showApyDetail = false,
   isInModalContext = false,
   beforeFooter,
@@ -143,11 +152,10 @@ export function USDEManageContent({
         token,
         networkId,
       });
-      onActionSuccess?.();
     } catch (error) {
       console.error('handleTrade error:', error);
     }
-  }, [handleSwap, networkId, token, onActionSuccess]);
+  }, [handleSwap, networkId, token]);
 
   const handleActivate = useCallback(() => {
     if (!activateAction) return;

@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 
 import { isEmpty } from 'lodash';
 
@@ -274,8 +274,13 @@ export function ManagePositionContent({
     isInModalContext,
   ]);
 
+  // Ref to store refreshPending function from useStakingPendingTxs hook
+  const refreshPendingRef = useRef<(() => Promise<void>) | null>(null);
+
   const handleOperationSuccess = useCallback(() => {
     void refreshManageData();
+    // Immediately refresh pending transactions after operation
+    void refreshPendingRef.current?.();
     onStakeWithdrawSuccess?.();
     if (isInModalContext) {
       appNavigation.pop();
@@ -359,6 +364,10 @@ export function ManagePositionContent({
         provider={provider}
         vault={vault}
         onHistory={onHistory}
+        indicatorAccountId={earnAccount?.accountId}
+        stakeTag={protocolInfo?.stakeTag}
+        onIndicatorRefresh={refreshManageData}
+        onRefreshPendingRef={refreshPendingRef}
         onActionSuccess={handleOperationSuccess}
         earnAccount={earnAccount}
         showApyDetail={showApyDetail}
@@ -405,6 +414,10 @@ export function ManagePositionContent({
       withdrawBeforeFooter={withdrawBeforeFooter}
       historyAction={historyAction}
       onHistory={onHistory}
+      indicatorAccountId={earnAccount?.accountId}
+      stakeTag={protocolInfo?.stakeTag}
+      onIndicatorRefresh={refreshManageData}
+      onRefreshPendingRef={refreshPendingRef}
       onSuccess={handleOperationSuccess}
       defaultTab={defaultTab}
       onTabChange={onTabChange}

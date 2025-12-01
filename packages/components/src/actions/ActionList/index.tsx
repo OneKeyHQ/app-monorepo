@@ -177,8 +177,7 @@ export function ActionListItem(
               {label}
             </SizableText>
 
-            {(platformEnv.isDesktop || platformEnv.isNativeIOSPad) &&
-            keys?.length ? (
+            {platformEnv.isDesktop && keys?.length ? (
               <Shortcut>
                 {keys.map((key) => (
                   <Shortcut.Key key={key}>{key}</Shortcut.Key>

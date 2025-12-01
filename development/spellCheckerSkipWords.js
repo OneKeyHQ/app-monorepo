@@ -1013,4 +1013,5 @@ module.exports = [
   'ip',
   'hoodi',
   'stakefish',
+  'Dropdown',
 ];

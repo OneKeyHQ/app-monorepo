@@ -38,6 +38,10 @@ export const urlAccountRoutes = [
 
 // Rewrite pattern for referral landing with app redirect: /r/:code/app/:page
 export const referralLandingRewrite = '/r/:code/app/:page';
+// Rewrite pattern for referral landing without page: /r/:code/app
+export const referralLandingRewriteWithoutPage = '/r/:code/app';
+// Rewrite pattern for referral landing with code only: /r/:code
+export const referralLandingRewriteCodeOnly = '/r/:code';
 
 export const homeRouters: ITabSubNavigatorConfig<any, any>[] = [
   {
@@ -65,6 +69,22 @@ export const homeRouters: ITabSubNavigatorConfig<any, any>[] = [
     name: ETabHomeRoutes.TabHomeReferralLanding,
     component: ReferralLanding,
     rewrite: referralLandingRewrite,
+    exact: true,
+  },
+  {
+    // Referral landing page without page param: /r/:code/app
+    // e.g., /r/65OUPH/app -> navigates to home page with referral code
+    name: ETabHomeRoutes.TabHomeReferralLandingWithoutPage,
+    component: ReferralLanding,
+    rewrite: referralLandingRewriteWithoutPage,
+    exact: true,
+  },
+  {
+    // Referral landing page with code only: /r/:code
+    // e.g., /r/65OUPH -> navigates to home page with referral code
+    name: ETabHomeRoutes.TabHomeReferralLandingCodeOnly,
+    component: ReferralLanding,
+    rewrite: referralLandingRewriteCodeOnly,
     exact: true,
   },
 ];

@@ -34,6 +34,10 @@ import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/He
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
+import {
+  TabletModalContainer,
+  useTabletModalPageWidth,
+} from '@onekeyhq/kit/src/components/TabletHomeContainer';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -582,6 +586,8 @@ function TokenDetailsView() {
     intl,
   ]);
 
+  const pageWidth = useTabletModalPageWidth();
+
   const handleTabIndexChange = useCallback(
     async (index: number) => {
       if (isAllNetworks && tokens.length > 1 && tokens[index]) {
@@ -653,6 +659,7 @@ function TokenDetailsView() {
       if (tabs && !isEmpty(tabs) && tabs.length > 1) {
         return (
           <Tabs.Container
+            width={pageWidth}
             ref={tabsRef as any}
             onIndexChange={handleTabIndexChange}
             initialTabName={lastActiveTabName}
@@ -702,6 +709,7 @@ function TokenDetailsView() {
     indexedAccountId,
     listViewContentContainerStyle,
     tabs,
+    pageWidth,
     handleTabIndexChange,
     lastActiveTabName,
   ]);
@@ -890,15 +898,17 @@ export default function TokenDetailsModal() {
     ],
   );
   return (
-    <AccountSelectorProviderMirror
-      config={{
-        sceneName: EAccountSelectorSceneName.home,
-      }}
-      enabledNum={[num]}
-    >
-      <TokenDetailsContext.Provider value={contextValue}>
-        <TokenDetails />
-      </TokenDetailsContext.Provider>
-    </AccountSelectorProviderMirror>
+    <TabletModalContainer>
+      <AccountSelectorProviderMirror
+        config={{
+          sceneName: EAccountSelectorSceneName.home,
+        }}
+        enabledNum={[num]}
+      >
+        <TokenDetailsContext.Provider value={contextValue}>
+          <TokenDetails />
+        </TokenDetailsContext.Provider>
+      </AccountSelectorProviderMirror>
+    </TabletModalContainer>
   );
 }

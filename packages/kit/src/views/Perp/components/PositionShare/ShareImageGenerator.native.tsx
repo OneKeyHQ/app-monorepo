@@ -4,6 +4,7 @@ import ViewShot from 'react-native-view-shot';
 
 import { Stack } from '@onekeyhq/components';
 import RNFS from '@onekeyhq/shared/src/modules3rdParty/react-native-fs';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { CANVAS_CONFIG } from './constants';
 import { ShareContentRenderer } from './ShareContentRenderer';
@@ -17,6 +18,9 @@ import type {
 interface IShareImageGeneratorProps {
   data: IShareData;
   config: IShareConfig;
+  referralUrl?: string;
+  inviteCode?: string;
+  isReferralReady?: boolean;
 }
 
 async function fileUriToBase64(uri: string): Promise<string> {
@@ -29,7 +33,7 @@ async function fileUriToBase64(uri: string): Promise<string> {
 export const ShareImageGenerator = forwardRef<
   IShareImageGeneratorRef,
   IShareImageGeneratorProps
->(({ data, config }, ref) => {
+>(({ data, config, referralUrl, inviteCode, isReferralReady }, ref) => {
   const viewShotRef = useRef<ViewShot>(null);
 
   const generate = useCallback(async (): Promise<string> => {
@@ -41,7 +45,10 @@ export const ShareImageGenerator = forwardRef<
       if (!fileUri) return '';
       const base64 = await fileUriToBase64(fileUri);
       return base64;
-    } catch {
+    } catch (error) {
+      if (platformEnv.isDev) {
+        console.error('Failed to generate image:', error);
+      }
       return '';
     }
   }, []);
@@ -55,7 +62,13 @@ export const ShareImageGenerator = forwardRef<
         options={{ format: 'png', quality: 1.0 }}
         style={{ width: CANVAS_CONFIG.size, height: CANVAS_CONFIG.size }}
       >
-        <ShareContentRenderer data={data} config={config} />
+        <ShareContentRenderer
+          data={data}
+          config={config}
+          referralUrl={referralUrl}
+          inviteCode={inviteCode}
+          isReferralReady={isReferralReady}
+        />
       </ViewShot>
     </Stack>
   );
