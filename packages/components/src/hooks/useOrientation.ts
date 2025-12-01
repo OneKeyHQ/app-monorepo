@@ -5,11 +5,14 @@ import { Dimensions } from 'react-native';
 
 import { useMedia } from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { useDualScreenInfo } from '@onekeyhq/shared/src/modules/DualScreenInfo';
 
 export const useOrientation = () => {
   const [isLandscape, setIsLandscape] = useState(
     Dimensions.get('window').width > Dimensions.get('window').height,
   );
+
+  const { isDualScreenDevice, isSpanning } = useDualScreenInfo();
 
   useEffect(() => {
     const handleOrientationChange = (
@@ -31,7 +34,7 @@ export const useOrientation = () => {
     };
   }, []);
 
-  return isLandscape;
+  return isDualScreenDevice ? isSpanning : isLandscape;
 };
 
 export const useIsIpadLandscape = () => false;
