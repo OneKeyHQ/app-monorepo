@@ -114,8 +114,8 @@ function useAppNavigation<
         params?: ITabStackParamList[T][keyof ITabStackParamList[T]];
       },
     ) => {
-      if (tabletMainViewNavigationRef.current) {
-        tabletMainViewNavigationRef.current.navigate(
+      setTimeout(() => {
+        tabletMainViewNavigationRef.current?.navigate(
           ERootRoutes.Main,
           {
             screen: route,
@@ -125,7 +125,7 @@ function useAppNavigation<
             pop: true,
           },
         );
-      }
+      });
       rootNavigationRef.current?.navigate(
         ERootRoutes.Main,
         {
