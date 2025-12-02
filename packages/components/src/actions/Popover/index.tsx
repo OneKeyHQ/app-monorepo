@@ -16,9 +16,9 @@ import {
 
 import { Dimensions } from 'react-native';
 
+import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
 import {
   TMPopover,
-  useMedia,
   withStaticProperties,
 } from '@onekeyhq/components/src/shared/tamagui';
 import type {

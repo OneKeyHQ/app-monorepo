@@ -17,3 +17,4 @@ export * from './useStyle';
 export * from './useUpdateEffect';
 export * from './useVisibilityChange';
 export * from './useTabletMode';
+export * from './useIsTablet';
