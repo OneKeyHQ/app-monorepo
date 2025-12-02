@@ -18,6 +18,7 @@ import {
   useInModalDialog,
   useInTabDialog,
   useIsTabletDetailView,
+  useOrientation,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
@@ -960,7 +961,12 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
 
 const SwapMainLandWithPageType = (props: ISwapMainLoadProps) => {
   const isTabletDetailView = useIsTabletDetailView();
-  if (isTabletDetailView && props?.pageType !== EPageType.modal) {
+  const isLandscape = useOrientation();
+  if (
+    isTabletDetailView &&
+    props?.pageType !== EPageType.modal &&
+    isLandscape
+  ) {
     return <TabletHomeContainer />;
   }
   return (
