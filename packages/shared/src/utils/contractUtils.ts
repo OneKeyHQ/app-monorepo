@@ -40,6 +40,28 @@ function parseSignatureParameters(signature: string): string[] {
   return params;
 }
 
+function flattenBigNumbers(data: unknown): unknown {
+  if (Array.isArray(data)) {
+    return data.map((item) => flattenBigNumbers(item));
+  }
+
+  if (data !== null && typeof data === 'object') {
+    if ((data as { _isBigNumber?: boolean })._isBigNumber) {
+      return (data as { _hex: string })._hex;
+    }
+
+    const result: Record<string, unknown> = {};
+    const dataObj = data as Record<string, unknown>;
+    for (const key of Object.keys(dataObj)) {
+      result[key] = flattenBigNumbers(dataObj[key]);
+    }
+    return result;
+  }
+
+  return data;
+}
+
 export default {
+  flattenBigNumbers,
   parseSignatureParameters,
 };
