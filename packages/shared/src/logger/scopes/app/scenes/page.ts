@@ -85,14 +85,4 @@ export class PageScene extends BaseScene {
   public removeUnlockJob() {
     return {};
   }
-
-  @LogToLocal()
-  public logDeviceType(deviceType: DeviceType) {
-    return { deviceType };
-  }
-
-  @LogToLocal()
-  public isDualScreenDevice(isTablet: boolean, isSpanning: boolean) {
-    return { isTablet, isSpanning };
-  }
 }

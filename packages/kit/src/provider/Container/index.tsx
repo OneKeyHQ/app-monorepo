@@ -99,14 +99,7 @@ const usePreCheckIsDualScreenDevice = platformEnv.isNativeAndroid
   ? () => {
       useEffect(() => {
         setTimeout(() => {
-          defaultLogger.app.page.logDeviceType(
-            ExpoDevice.deviceType ?? ExpoDevice.DeviceType.UNKNOWN,
-          );
-          void Promise.all([isDualScreenDevice(), isSpanning()]).then(
-            ([isDual, spanning]) => {
-              defaultLogger.app.page.isDualScreenDevice(isDual, spanning);
-            },
-          );
+          void Promise.all([isDualScreenDevice(), isSpanning()]);
         });
       }, []);
     }
