@@ -767,6 +767,7 @@ export interface IEarnUndelegateActionData {
 export interface IEarnSelectOption {
   value: string;
   label: IEarnText;
+  description?: IEarnText;
   disabled?: boolean;
   extra?: Record<string, unknown>;
 }

@@ -27,6 +27,7 @@ export function EarnValidatorSelect({
       select.options.map((option) => ({
         value: option.value,
         label: option.label.text,
+        description: option.description?.text,
         disabled: option.disabled,
       })),
     [select.options],
