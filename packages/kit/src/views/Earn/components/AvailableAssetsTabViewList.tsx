@@ -318,6 +318,7 @@ export function AvailableAssetsTabViewList() {
       />
 
       <TableList<IEarnAvailableAsset>
+        key={`assets-tab-${selectedTabIndex}`}
         data={assets ?? []}
         columns={columns}
         keyExtractor={(asset) => asset.symbol}
