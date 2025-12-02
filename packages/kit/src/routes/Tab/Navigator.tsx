@@ -9,6 +9,7 @@ import {
   Stack,
   TabStackNavigator,
   useIsTabletDetailView,
+  useIsTabletMainView,
   useMedia,
   useOrientation,
 } from '@onekeyhq/components';
@@ -35,7 +36,8 @@ const useIsIOSTabNavigatorFocused =
 let isRendered = false;
 function InPageTabContainer() {
   const isRenderedRef = useRef(isRendered);
-  if (isRenderedRef.current) {
+  const isTabletMainView = useIsTabletMainView();
+  if (isRenderedRef.current || isTabletMainView) {
     return null;
   }
   isRendered = true;
