@@ -26,6 +26,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { MarketWatchListProviderMirrorV2 } from '../../../MarketWatchListProviderMirrorV2';
 
 import { SwapPanelWrap } from './SwapPanelWrap';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export function SwapPanel({
   networkId,
@@ -91,7 +92,7 @@ export function SwapPanel({
     }
   };
 
-  if (media.lg) {
+  if (platformEnv.isNative ? media.md : media.lg) {
     return (
       <View p="$3">
         <Button size="large" variant="primary" onPress={() => showSwapDialog()}>
