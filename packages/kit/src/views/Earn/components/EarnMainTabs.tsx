@@ -99,17 +99,6 @@ const EarnMainTabsComponent = ({
     [],
   );
 
-  const refreshControl = useMemo(() => {
-    return isMobile &&
-      refreshEarnAccounts &&
-      isAccountsLoading !== undefined ? (
-      <RefreshControl
-        refreshing={isAccountsLoading}
-        onRefresh={refreshEarnAccounts}
-      />
-    ) : undefined;
-  }, [isMobile, refreshEarnAccounts, isAccountsLoading]);
-
   const tabContainerWidth = useTabContainerWidth();
 
   return (
