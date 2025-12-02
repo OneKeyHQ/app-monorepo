@@ -221,11 +221,7 @@ function MobileBrowser() {
   }, [activeTabId, closeWebTab]);
 
   useEffect(() => {
-    if (isTabletDevice) {
-      return;
-    }
     const listener = (event: { tab: ETranslations }) => {
-      alert(event.tab);
       void handleChangeHeaderTab(event.tab);
     };
     appEventBus.on(EAppEventBusNames.SwitchDiscoveryTabInNative, listener);
