@@ -16,7 +16,11 @@ import {
 } from '@onekeyhq/shared/src/consts/deeplinkConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { ETabHomeRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  ETabHomeRoutes,
+  ETabReferFriendsRoutes,
+  ETabRoutes,
+} from '@onekeyhq/shared/src/routes';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
