@@ -217,9 +217,6 @@ function MobileBrowser() {
   }, [activeTabId, closeWebTab]);
 
   useEffect(() => {
-    if (isTabletDevice) {
-      return;
-    }
     const listener = (event: { tab: ETranslations }) => {
       void handleChangeHeaderTab(event.tab);
     };
@@ -376,7 +373,9 @@ function MobileBrowser() {
             <Stack display={showDiscoveryPage ? 'flex' : 'none'}>
               <DashboardContent onScroll={handleScroll} />
             </Stack>
-            <Freeze freeze={showDiscoveryPage}>{content}</Freeze>
+            {!isTabletMainView ? (
+              <Freeze freeze={showDiscoveryPage}>{content}</Freeze>
+            ) : null}
           </Stack>
           <Freeze freeze={!displayBottomBar}>
             <Animated.View
@@ -428,7 +427,6 @@ function MobileBrowser() {
             sceneName={EAccountSelectorSceneName.home}
             tabRoute={ETabRoutes.Discovery}
             selectedHeaderTab={selectedHeaderTab}
-            onSelectHeaderTab={handleChangeHeaderTab}
           />
         </YStack>
       ) : null}
