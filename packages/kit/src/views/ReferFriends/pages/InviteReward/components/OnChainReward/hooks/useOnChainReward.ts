@@ -38,7 +38,7 @@ export function useOnChainReward({
         .reduce((acc, curr) => {
           return acc.plus(BigNumber(curr[key]));
         }, BigNumber(0))
-        .toFixed(2);
+        .toFixed();
     },
     [],
   );
