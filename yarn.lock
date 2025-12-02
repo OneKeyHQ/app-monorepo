@@ -7951,7 +7951,7 @@ __metadata:
     react-native-canvas: "npm:^0.1.39"
     react-native-capture-protection: "npm:2.3.0"
     react-native-check-biometric-auth-changed: "npm:0.1.1"
-    react-native-cloud-fs: "npm:@onekeyfe/react-native-cloud-fs@2.6.4"
+    react-native-cloud-fs: "npm:@onekeyfe/react-native-cloud-fs@2.6.5"
     react-native-collapsible-tab-view: "npm:8.0.1"
     react-native-crypto: "npm:^2.2.0"
     react-native-dns-lookup: "npm:1.0.6"
@@ -35044,10 +35044,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-cloud-fs@npm:@onekeyfe/react-native-cloud-fs@2.6.4":
-  version: 2.6.4
-  resolution: "@onekeyfe/react-native-cloud-fs@npm:2.6.4"
-  checksum: 10/a8528b2640ce8c8137f8a7a5b09afa012c43e767d69f15a150ee00378b5e3a1bfbc85c573482bc6b428173625df9c7b1ede9546a9abbc200cc076078e45ffb23
+"react-native-cloud-fs@npm:@onekeyfe/react-native-cloud-fs@2.6.5":
+  version: 2.6.5
+  resolution: "@onekeyfe/react-native-cloud-fs@npm:2.6.5"
+  checksum: 10/171633c84e346e605e5aeb5547a866074096d94d0546f60098b1abc0683ca530c28a5960ff741dc0af58316224cb84023aa4611a12331271e520938a4dd20138
   languageName: node
   linkType: hard
 
