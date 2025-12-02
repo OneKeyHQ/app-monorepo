@@ -299,12 +299,6 @@ class ServiceApp extends ServiceBase {
   }
 
   @backgroundMethod()
-  async isTablet() {
-    defaultLogger.app.page.addUnlockJob();
-    appEventBus.emit(EAppEventBusNames.UnlockApp, undefined);
-  }
-
-  @backgroundMethod()
   async dispatchUnlockJob() {
     defaultLogger.app.page.dispatchUnlockJob();
     appEventBus.emit(EAppEventBusNames.UnlockApp, undefined);
