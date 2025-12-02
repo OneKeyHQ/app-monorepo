@@ -325,9 +325,7 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.HardwareFeaturesUpdate]: {
     deviceId: string;
   };
-  [EAppEventBusNames.UnlockApp]: {
-    jobId: string;
-  };
+  [EAppEventBusNames.UnlockApp]: undefined;
   [EAppEventBusNames.AddressBookUpdate]: undefined;
   [EAppEventBusNames.MarketWSDataUpdate]: {
     channel: string;

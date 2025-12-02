@@ -299,18 +299,9 @@ class ServiceApp extends ServiceBase {
   }
 
   @backgroundMethod()
-  async addUnlockJob(jobId: string) {
-    this.unlockJobIds.push(jobId);
-  }
-
-  @backgroundMethod()
   async dispatchUnlockJob() {
-    while (this.unlockJobIds.length > 0) {
-      const jobId = this.unlockJobIds.pop();
-      if (jobId) {
-        appEventBus.emit(EAppEventBusNames.UnlockApp, { jobId });
-      }
-    }
+    defaultLogger.app.page.dispatchUnlockJob();
+    appEventBus.emit(EAppEventBusNames.UnlockApp, undefined);
   }
 
   @backgroundMethod()
