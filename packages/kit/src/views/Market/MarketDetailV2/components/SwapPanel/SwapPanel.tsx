@@ -27,7 +27,6 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { MarketWatchListProviderMirrorV2 } from '../../../MarketWatchListProviderMirrorV2';
 
 import { SwapPanelWrap } from './SwapPanelWrap';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export function SwapPanel({
   networkId,
