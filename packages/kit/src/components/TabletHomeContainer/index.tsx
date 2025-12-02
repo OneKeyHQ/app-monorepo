@@ -8,12 +8,11 @@ import {
   useState,
 } from 'react';
 
-import { DeviceType, deviceType } from 'expo-device';
-
 import {
   Image,
   SizableText,
   YStack,
+  useIsTablet,
   useIsTabletDetailView,
   useOrientation,
 } from '@onekeyhq/components';
@@ -48,7 +47,7 @@ export const useTabletModalPageWidth = () => {
 };
 
 export function TabletModalContainer({ children }: PropsWithChildren) {
-  const isTablet = deviceType === DeviceType.TABLET;
+  const isTablet = useIsTablet();
   const [width, setWidth] = useState(0);
   const onLayout = useCallback(
     (event: LayoutChangeEvent) => {

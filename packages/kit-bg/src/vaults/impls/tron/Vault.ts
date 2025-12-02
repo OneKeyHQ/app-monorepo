@@ -22,6 +22,7 @@ import {
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import chainResourceUtils from '@onekeyhq/shared/src/utils/chainResourceUtils';
+import contractUtils from '@onekeyhq/shared/src/utils/contractUtils';
 import { calculateFeeForSend } from '@onekeyhq/shared/src/utils/feeUtils';
 import { toBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -837,38 +838,15 @@ export default class Vault extends VaultBase {
     }
 
     let buildTxParams = [];
-    if (isSwapBridge) {
-      const functionParams = defaultAbiCoder.decode(
-        [
-          'tuple(address,address,address,uint256,uint256,uint256,uint256,uint256,bytes,bytes,bytes)',
-        ],
-        `0x${data.slice(10)}`,
-      );
-      buildTxParams = [
-        {
-          type: 'tuple(address,address,address,uint256,uint256,uint256,uint256,uint256,bytes,bytes,bytes)',
-          value: functionParams[0],
-        },
-      ];
-    } else {
-      const functionParams = defaultAbiCoder.decode(
-        ['uint256', 'uint256', 'uint256', 'bytes32[]'],
-        `0x${data.slice(10)}`,
-      ) as [{ _hex: string }, { _hex: string }, { _hex: string }, string[]];
-
-      buildTxParams = [
-        { type: 'uint256', value: functionParams[0]._hex },
-        {
-          type: 'uint256',
-          value: functionParams[1]._hex,
-        },
-        { type: 'uint256', value: functionParams[2]._hex },
-        {
-          type: 'bytes32[]',
-          value: functionParams[3],
-        },
-      ];
-    }
+    const functionParams =
+      contractUtils.parseSignatureParameters(signatureDataHex);
+    const functionParamValues = contractUtils.flattenBigNumbers(
+      defaultAbiCoder.decode(functionParams, `0x${data.slice(10)}`),
+    ) as unknown[];
+    buildTxParams = functionParams.map((param, index) => ({
+      type: param,
+      value: functionParamValues[index],
+    }));
 
     const [{ result, transaction }] =
       await this.backgroundApi.serviceAccountProfile.sendProxyRequest<{
