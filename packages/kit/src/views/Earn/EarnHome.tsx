@@ -1,4 +1,4 @@
-import { useCallback, useLayoutEffect, useMemo, useState } from 'react';
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -26,6 +26,7 @@ import {
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IDiscoveryBanner } from '@onekeyhq/shared/types/discovery';
 import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
+import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 
 import { AccountSelectorProviderMirror } from '../../components/AccountSelector';
 import { TabPageHeader } from '../../components/TabPageHeader';
@@ -49,7 +50,9 @@ import { useBannerInfo } from './hooks/useBannerInfo';
 import { useBlockRegion } from './hooks/useBlockRegion';
 import { useEarnPortfolio } from './hooks/useEarnPortfolio';
 import { useFAQListInfo } from './hooks/useFAQListInfo';
+import { useStakingPendingTxsByInfo } from './hooks/useStakingPendingTxs';
 
+import type { IStakePendingTx } from './hooks/useStakingPendingTxs';
 import type { LayoutChangeEvent } from 'react-native';
 
 function BasicEarnHome({
@@ -73,6 +76,7 @@ function BasicEarnHome({
   const { earnBanners, refetchBanners } = useBannerInfo();
   const { faqList, isFaqLoading, refetchFAQ } = useFAQListInfo();
   const [isEarnTabFocused, setIsEarnTabFocused] = useState(true);
+  const wasFocusedRef = useRef(false);
   const portfolioData = useEarnPortfolio({ isActive: isEarnTabFocused });
   const { refresh: refreshEarnDataRaw, isLoading: portfolioLoading } =
     portfolioData;
@@ -83,6 +87,16 @@ function BasicEarnHome({
     }
     return portfolioLoading;
   }, [portfolioLoading, showContent]);
+
+  const pendingTxsFilter = useCallback((tx: IStakePendingTx) => {
+    return [EEarnLabels.Stake, EEarnLabels.Withdraw].includes(
+      tx.stakingInfo.label,
+    );
+  }, []);
+  useStakingPendingTxsByInfo({
+    filter: pendingTxsFilter,
+    onRefresh: refreshEarnDataRaw,
+  });
 
   const refreshEarnData = useCallback(async () => {
     await backgroundApiProxy.serviceStaking.clearAvailableAssetsCache();
@@ -99,6 +113,10 @@ function BasicEarnHome({
   const handleListenTabFocusState = useCallback(
     (isFocus: boolean, isHideByModal: boolean) => {
       const actualFocus = isFocus && !isHideByModal;
+      if (actualFocus && !wasFocusedRef.current) {
+        void refreshEarnData();
+      }
+      wasFocusedRef.current = actualFocus;
       setIsEarnTabFocused(actualFocus);
       if (!actualFocus) return;
 
@@ -122,7 +140,7 @@ function BasicEarnHome({
       void refetchBanners();
       void refetchFAQ();
     },
-    [actions, refetchBanners, refetchFAQ],
+    [actions, refetchBanners, refetchFAQ, refreshEarnData],
   );
 
   useListenTabFocusState(
