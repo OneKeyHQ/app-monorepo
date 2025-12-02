@@ -7968,7 +7968,7 @@ __metadata:
     react-native-modal: "npm:^13.0.1"
     react-native-network-info: "npm:5.2.2"
     react-native-network-logger: "npm:2.0.1"
-    react-native-pager-view: "npm:7.0.0"
+    react-native-pager-view: "npm:7.0.1"
     react-native-passkeys: "npm:0.3.3"
     react-native-performance-stats: "npm:0.2.3"
     react-native-permissions: "npm:5.4.2"
@@ -35389,13 +35389,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-pager-view@npm:7.0.0":
-  version: 7.0.0
-  resolution: "react-native-pager-view@npm:7.0.0"
+"react-native-pager-view@npm:7.0.1":
+  version: 7.0.1
+  resolution: "react-native-pager-view@npm:7.0.1"
   peerDependencies:
     react: "*"
     react-native: "*"
-  checksum: 10/652c12ebc9b473d81df99111d2dec0139585742b903dff916a6726156295af27d4bf464b9dcc22c133375dfc253a0653dba9c3cb705c892ba0beb7de8479792e
+  checksum: 10/171111c9004c900f163c220a36dbd88b33d78c0159ddc2df9e4b25bbd6666a564f7a6e545116167677944b2e1d25767c3ce8584328fde3c22ea8ea5bcafdd58b
   languageName: node
   linkType: hard
 
