@@ -16,10 +16,8 @@ import {
 } from '@onekeyhq/shared/src/consts/deeplinkConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
-  EModalReferFriendsRoutes,
-  EModalRoutes,
+  ETabHomeRoutes,
   ETabReferFriendsRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
@@ -63,7 +61,7 @@ async function processDeepLinkUrlAccount(
         }, 1500);
         return;
       }
-      switch (platformEnv.isNative ? hostname : path?.slice(1)) {
+      switch (hostname ?? path?.slice(1)) {
         case EOneKeyDeepLinkPath.url_account: {
           const query =
             queryParams as IEOneKeyDeepLinkParams[EOneKeyDeepLinkPath.url_account];
@@ -114,32 +112,14 @@ async function processDeepLinkUrlAccount(
             const { code, page } =
               queryParams as IEOneKeyDeepLinkParams[EOneKeyDeepLinkPath.invited_by_friend];
             if (navigation) {
-              // Map page parameter to tab routes
-              const pageToTabRoute: Record<string, ETabRoutes> = {
-                perp: ETabRoutes.Perp,
-                perps: ETabRoutes.Perp,
-                swap: ETabRoutes.Swap,
-                market: ETabRoutes.Market,
-                earn: ETabRoutes.Earn,
-                defi: ETabRoutes.Earn,
-                discover: ETabRoutes.Discovery,
-              };
-              const pageLower = ((page as string) ?? '').toLowerCase();
-              const targetTabRoute =
-                pageToTabRoute[pageLower] ?? ETabRoutes.Home;
-
-              // Navigate to target tab first
-              navigation.switchTab(targetTabRoute);
-
-              // Then open InvitedByFriend modal
-              setTimeout(() => {
-                navigation.pushModal(EModalRoutes.ReferFriendsModal, {
-                  screen: EModalReferFriendsRoutes.InvitedByFriend,
-                  params: {
-                    code,
-                  },
-                });
-              }, 500);
+              // Navigate to ReferralLandingPage which handles the modal opening
+              navigation.switchTab(ETabRoutes.Home, {
+                screen: ETabHomeRoutes.TabHomeReferralLanding,
+                params: {
+                  code,
+                  page: page ?? '',
+                },
+              });
             }
           }
           break;

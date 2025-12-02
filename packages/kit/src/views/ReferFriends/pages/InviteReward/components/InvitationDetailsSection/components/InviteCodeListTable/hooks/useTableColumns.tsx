@@ -1,5 +1,6 @@
 import { useCallback, useMemo } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import { SizableText, useMedia } from '@onekeyhq/components';
@@ -119,11 +120,16 @@ export function useTableColumns(
               ),
             }),
         align: 'left',
-        render: (value: string) => (
-          <SizableText size="$bodyMdMedium" color="$text">
-            {currencySymbol ? `${currencySymbol}${value}` : value}
-          </SizableText>
-        ),
+        render: (value: string) => {
+          const formattedValue = new BigNumber(value).toFixed(2);
+          return (
+            <SizableText size="$bodyMdMedium" color="$text">
+              {currencySymbol
+                ? `${currencySymbol}${formattedValue}`
+                : formattedValue}
+            </SizableText>
+          );
+        },
       },
       {
         title: intl.formatMessage({ id: ETranslations.referral_code_list_at }),
