@@ -106,18 +106,18 @@ function BasicEarnHome({
   }, [filteredTxs]);
   const previousIsPendingRef = useRef(isPending);
 
+  useEffect(() => {
+    if (previousIsPendingRef.current && !isPending) {
+      void refreshEarnDataRaw();
+    }
+    previousIsPendingRef.current = isPending;
+  }, [isPending, refreshEarnDataRaw]);
+
   const refreshEarnData = useCallback(async () => {
     await backgroundApiProxy.serviceStaking.clearAvailableAssetsCache();
     actions.current.triggerRefresh();
     await refreshEarnDataRaw();
   }, [actions, refreshEarnDataRaw]);
-
-  useEffect(() => {
-    if (previousIsPendingRef.current && !isPending) {
-      void refreshEarnData();
-    }
-    previousIsPendingRef.current = isPending;
-  }, [isPending, refreshEarnData]);
 
   const navigation = useAppNavigation();
 
