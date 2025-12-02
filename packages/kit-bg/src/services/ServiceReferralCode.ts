@@ -110,7 +110,23 @@ class ServiceReferralCode extends ServiceBase {
       responseType: 'text',
       autoHandleError: false, // Skip JSON error checking for CSV response
     } as any);
-    return response.data;
+
+    // Parse filename from Content-Disposition header
+    const contentDisposition = response.headers['content-disposition'] as
+      | string
+      | undefined;
+    let filename: string | undefined;
+    if (contentDisposition) {
+      const match = contentDisposition.match(/filename="?([^";\n]+)"?/);
+      if (match) {
+        filename = match[1];
+      }
+    }
+
+    return {
+      data: response.data,
+      filename,
+    };
   }
 
   @backgroundMethod()
