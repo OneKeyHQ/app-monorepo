@@ -1,11 +1,15 @@
+import { EFirmwareType } from '@onekeyfe/hd-shared';
 import { isNil } from 'lodash';
 
 import type { SizeTokens } from '@onekeyhq/components';
 import { Icon, Image, SizableText, Stack } from '@onekeyhq/components';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import { presetNetworksMap } from '@onekeyhq/shared/src/config/presetNetworks';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IAllWalletAvatarImageNames } from '@onekeyhq/shared/src/utils/avatarUtils';
 import { AllWalletAvatarImages } from '@onekeyhq/shared/src/utils/avatarUtils';
+
+import { NetworkAvatar } from '../NetworkAvatar';
 
 import type { IWalletProps } from '../../views/AccountManagerStacks/type';
 import type { IDeviceType } from '@onekeyfe/hd-core';
@@ -18,6 +22,7 @@ export type IWalletAvatarBaseProps = {
 export type IWalletAvatarProps = IWalletAvatarBaseProps & {
   status?: IWalletProps['status'];
   badge?: number | string;
+  firmwareTypeBadge?: EFirmwareType;
 };
 
 export function WalletAvatarBase({
@@ -59,6 +64,7 @@ export function WalletAvatar({
   size = '$10',
   status,
   badge,
+  firmwareTypeBadge,
   img,
   wallet,
 }: IWalletAvatarProps) {
@@ -76,6 +82,20 @@ export function WalletAvatar({
           zIndex="$1"
         >
           <Stack borderRadius="$full" w="$2.5" h="$2.5" bg="$bgSuccessStrong" />
+        </Stack>
+      ) : null}
+      {firmwareTypeBadge === EFirmwareType.BitcoinOnly ? (
+        <Stack
+          position="absolute"
+          h="$4"
+          px="$0.5"
+          justifyContent="center"
+          top={-4}
+          left={0}
+          borderRadius="$full"
+          zIndex="$1"
+        >
+          <NetworkAvatar networkId={presetNetworksMap.btc.id} size={14} />
         </Stack>
       ) : null}
       {!isNil(badge) ? (
