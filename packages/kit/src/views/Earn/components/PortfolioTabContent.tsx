@@ -46,11 +46,11 @@ import type {
 } from '../hooks/useEarnPortfolio';
 
 type IPortfolioPendingTxsContext = {
-  onRefresh?: () => void;
+  onRefresh?: (options?: IRefreshOptions) => Promise<void>;
 };
 
 const PortfolioPendingTxsContext = createContext<IPortfolioPendingTxsContext>({
-  onRefresh: () => {},
+  onRefresh: async () => {},
 });
 
 const PortfolioPendingTxsProvider = ({
@@ -88,8 +88,10 @@ const WrappedActionButtonCmp = ({
   const { account, indexedAccount } = activeAccount;
   const { onRefresh } = usePortfolioPendingTxs();
   const handleActionSuccess = useCallback(async () => {
-    onRefresh?.();
-  }, [onRefresh]);
+    void onRefresh?.({
+      provider: asset.metadata.protocol.providerDetail.code,
+    });
+  }, [onRefresh, asset.metadata.protocol.providerDetail.code]);
 
   // For staking config lookup, use:
   // - stakedSymbol for airdrops (the token that was staked to earn rewards)

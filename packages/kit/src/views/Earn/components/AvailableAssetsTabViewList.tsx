@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { isEmpty } from 'lodash';
 import { useIntl } from 'react-intl';
 import { useSharedValue } from 'react-native-reanimated';
 import { useThrottledCallback } from 'use-debounce';
@@ -113,7 +114,7 @@ export function AvailableAssetsTabViewList() {
   );
 
   // Load data for the selected tab
-  const { isLoading } = usePromiseResult(
+  usePromiseResult(
     async () => {
       const currentTabType = tabData[selectedTabIndex]?.type;
       if (currentTabType) {
@@ -327,7 +328,6 @@ export function AvailableAssetsTabViewList() {
         onPressRow={(asset) => void handleRowPress(asset)}
         mobileRenderItem={mobileRenderItem}
         enableDrillIn
-        isLoading={Boolean(isLoading && assets.length === 0)}
       />
     </YStack>
   );
