@@ -4,8 +4,6 @@ import type { ENotificationPushTopicTypes } from '@onekeyhq/shared/types/notific
 import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal, LogToServer } from '../../../base/decorators';
 
-import type { DeviceType } from 'expo-device';
-
 export class PageScene extends BaseScene {
   @LogToServer()
   @LogToLocal()
