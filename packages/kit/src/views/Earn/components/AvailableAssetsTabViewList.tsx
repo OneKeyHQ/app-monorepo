@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { isEmpty } from 'lodash';
 import { useIntl } from 'react-intl';
 import { useSharedValue } from 'react-native-reanimated';
 import { useThrottledCallback } from 'use-debounce';
