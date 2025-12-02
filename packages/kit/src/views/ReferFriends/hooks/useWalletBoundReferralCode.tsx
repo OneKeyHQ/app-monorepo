@@ -235,6 +235,15 @@ function InviteCode({
   // Check if there are no available wallets
   const hasNoWallets = !walletsWithStatus || walletsWithStatus.length === 0;
 
+  // Check if the selected wallet is already bound
+  const isSelectedWalletBound = useMemo(() => {
+    if (!walletsWithStatus || !selectedWalletId) return false;
+    const found = walletsWithStatus.find(
+      (w) => w.wallet.id === selectedWalletId,
+    );
+    return found?.isBound ?? false;
+  }, [walletsWithStatus, selectedWalletId]);
+
   const { result: walletInfo } = usePromiseResult(async () => {
     const r = await getReferralCodeWalletInfo(selectedWallet?.id);
     if (!r) {
@@ -347,6 +356,13 @@ function InviteCode({
             )}
           />
         )}
+        {isSelectedWalletBound ? (
+          <SizableText size="$bodySm" color="$textCritical" mt="$1">
+            {intl.formatMessage({
+              id: ETranslations.referral_already_bound,
+            })}
+          </SizableText>
+        ) : null}
       </YStack>
       <YStack gap="$1">
         <SizableText size="$bodyMd" color="$textSubdued">
@@ -388,7 +404,7 @@ function InviteCode({
           id: ETranslations.global_apply,
         })}
         confirmButtonProps={{
-          disabled: hasNoWallets,
+          disabled: hasNoWallets || isSelectedWalletBound,
         }}
       />
     </YStack>
