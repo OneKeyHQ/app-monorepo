@@ -1,5 +1,3 @@
-import uuid from 'react-native-uuid';
-
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
   EAppEventBusNames,
@@ -34,19 +32,13 @@ export const whenAppUnlocked = () => {
         resolve();
         return;
       }
-      const unlockJobId = uuid.v1().toString();
-      const callback = (
-        event: IAppEventBusPayload[EAppEventBusNames.UnlockApp],
-      ) => {
-        if (event.jobId === unlockJobId) {
-          setTimeout(() => {
-            resolve();
-          }, 100);
-          appEventBus.off(EAppEventBusNames.UnlockApp, callback);
-        }
+      const callback = () => {
+        setTimeout(() => {
+          resolve();
+        }, 100);
+        appEventBus.off(EAppEventBusNames.UnlockApp, callback);
       };
       appEventBus.on(EAppEventBusNames.UnlockApp, callback);
-      await backgroundApiProxy.serviceApp.addUnlockJob(unlockJobId);
     });
   });
 };
