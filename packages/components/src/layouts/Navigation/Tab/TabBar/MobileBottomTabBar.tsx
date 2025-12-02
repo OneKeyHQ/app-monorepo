@@ -4,7 +4,7 @@ import { CommonActions } from '@react-navigation/native';
 import { Animated, StyleSheet } from 'react-native';
 import { useThrottledCallback } from 'use-debounce';
 
-import { useSafeAreaInsets } from '@onekeyhq/components/src/hooks';
+import { useIsTablet, useSafeAreaInsets } from '@onekeyhq/components/src/hooks';
 import { Stack } from '@onekeyhq/components/src/primitives';
 import type { IKeyOfIcons } from '@onekeyhq/components/src/primitives';
 import {
@@ -65,6 +65,7 @@ export default function MobileBottomTabBar({
     });
   }, [heightAnim, opacityAnim]);
 
+  const isTablet = useIsTablet();
   const onTabPress = useCallback(
     (
       route: RouteProp<Record<string, object | undefined>, string>,
@@ -76,6 +77,11 @@ export default function MobileBottomTabBar({
         target: route.key,
         canPreventDefault: true,
       });
+      if (isTablet) {
+        appEventBus.emit(EAppEventBusNames.SwitchTabBar, {
+          route: route.name as ETabRoutes,
+        });
+      }
       if (route.name === 'Swap') {
         defaultLogger.swap.enterSwap.enterSwap({
           enterFrom: ESwapSource.TAB,
@@ -103,7 +109,7 @@ export default function MobileBottomTabBar({
         defaultLogger.app.page.tabBarClick(trackId);
       }
     },
-    [navigation, state.key],
+    [isTablet, navigation, state.key],
   );
   const onDebouncedTabPress = useThrottledCallback(onTabPress, 250);
   const handleRoutePress = platformEnv.isNativeAndroid

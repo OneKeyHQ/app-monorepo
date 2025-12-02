@@ -76,4 +76,5 @@ export interface ITabNavigatorExtraConfig<RouteName extends string> {
 export interface ITabNavigatorProps<RouteName extends string> {
   config: ITabNavigatorConfig<RouteName>[];
   extraConfig?: ITabNavigatorExtraConfig<RouteName>;
+  showTabBar?: boolean;
 }

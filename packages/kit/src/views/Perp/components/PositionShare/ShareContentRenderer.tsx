@@ -18,7 +18,6 @@ import { getHyperliquidTokenImageUrl } from '@onekeyhq/shared/src/utils/perpsUti
 import {
   BACKGROUNDS,
   CANVAS_CONFIG,
-  REFERRAL_CODE,
   SHOW_REFERRAL_CODE,
   getPnlDisplayInfo,
 } from './constants';
@@ -30,6 +29,9 @@ interface IShareContentRendererProps {
   config: IShareConfig;
   scale?: number;
   onImagesReady?: () => void;
+  referralQrCodeUrl?: string;
+  referralDisplayText?: string;
+  isReferralReady?: boolean;
 }
 
 const { size, padding, colors, fonts, layout, display } = CANVAS_CONFIG;
@@ -39,6 +41,9 @@ export function ShareContentRenderer({
   config,
   scale = 1,
   onImagesReady,
+  referralQrCodeUrl,
+  referralDisplayText,
+  isReferralReady = true,
 }: IShareContentRendererProps) {
   const {
     side,
@@ -55,9 +60,6 @@ export function ShareContentRenderer({
   const pnlColor = isProfit ? colors.long : colors.short;
   const sideColor = side === 'long' ? colors.long : colors.short;
   const tokenImage = tokenImageUrl || getHyperliquidTokenImageUrl(token);
-  // Sticker temporarily disabled
-  // const selectedSticker =
-  //   config.stickerIndex !== null ? STICKERS[config.stickerIndex] : null;
   const pnlDisplayMode = config.pnlDisplayMode;
 
   const selectedBackground = isProfit
@@ -288,19 +290,7 @@ export function ShareContentRenderer({
           </YStack>
         ) : null}
 
-        {/* Sticker temporarily disabled */}
-        {/* {selectedSticker ? (
-          <SizableText
-            position="absolute"
-            right={scaledPadding}
-            bottom={scaledPadding}
-            fontSize={scaledLayout.stickerSize}
-            lineHeight={scaledLayout.stickerSize * layout.lineHeight}
-          >
-            {selectedSticker}
-          </SizableText>
-        ) : null} */}
-        {SHOW_REFERRAL_CODE ? (
+        {SHOW_REFERRAL_CODE && isReferralReady ? (
           <Stack
             position="absolute"
             bottom={0}
@@ -335,11 +325,11 @@ export function ShareContentRenderer({
                   color={colors.textTertiary}
                   lineHeight={scaledFonts.priceValue * layout.lineHeight}
                 >
-                  {REFERRAL_CODE}
+                  {referralDisplayText}
                 </SizableText>
               </YStack>
               <QRCode
-                value={REFERRAL_CODE}
+                value={referralQrCodeUrl ?? ''}
                 size={layout.qrCodeSize * scale - 5}
                 padding={5}
               />

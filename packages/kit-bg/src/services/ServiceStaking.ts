@@ -678,7 +678,15 @@ class ServiceStaking extends ServiceBase {
     accountId: string;
   }) {
     const client = await this.getClient(EServiceEndpointEnum.Earn);
-    const requestParams = {
+    const requestParams: {
+      networkId: string;
+      provider: string;
+      symbol: string;
+      accountAddress: string;
+      vault?: string;
+      publicKey?: string;
+      kycAccountAddress?: string;
+    } = {
       networkId: params.networkId,
       provider: params.provider.toLowerCase(),
       symbol: params.symbol,
@@ -686,6 +694,17 @@ class ServiceStaking extends ServiceBase {
       ...(params.vault && { vault: params.vault }),
       ...(params.publicKey && { publicKey: params.publicKey }),
     };
+
+    if (
+      earnUtils.isEthenaProvider({ providerName: params.provider }) &&
+      params.symbol?.toUpperCase() === 'USDE'
+    ) {
+      const ethenaKycAddress =
+        await this.backgroundApi.serviceStaking.getEthenaKycAddress();
+      if (ethenaKycAddress) {
+        requestParams.kycAccountAddress = ethenaKycAddress;
+      }
+    }
 
     const resp = await client.get<{ data: IEarnManagePageResponse }>(
       '/earn/v1/manage-page',
@@ -1436,6 +1455,11 @@ class ServiceStaking extends ServiceBase {
     return this._fetchEarnHomePageBannerList();
   }
 
+  @backgroundMethod()
+  async clearEarnHomePageBannerListCache() {
+    void this._fetchEarnHomePageBannerList.clear();
+  }
+
   _fetchEarnHomePageBannerList = memoizee(
     async () => {
       const client = await this.getClient(EServiceEndpointEnum.Utility);
@@ -1466,13 +1490,33 @@ class ServiceStaking extends ServiceBase {
           ? undefined
           : true,
       });
-    return accountsInfo.filter(
-      (account) =>
-        !(
-          networkUtils.isBTCNetwork(account.networkId) &&
-          !isTaprootAddress(account.apiAddress)
-        ),
-    );
+
+    // Check if the wallet is using BTC-only firmware
+    const walletId = accountUtils.getWalletIdFromAccountId({ accountId });
+    let isBtcOnlyFirmware = false;
+    if (walletId && accountUtils.isHwWallet({ walletId })) {
+      isBtcOnlyFirmware =
+        await this.backgroundApi.serviceAccount.isBtcOnlyFirmwareByWalletId({
+          walletId,
+        });
+    }
+
+    return accountsInfo.filter((account) => {
+      // Filter out non-Taproot BTC addresses
+      if (
+        networkUtils.isBTCNetwork(account.networkId) &&
+        !isTaprootAddress(account.apiAddress)
+      ) {
+        return false;
+      }
+
+      // For BTC-only firmware, only allow BTC network accounts
+      if (isBtcOnlyFirmware && !networkUtils.isBTCNetwork(account.networkId)) {
+        return false;
+      }
+
+      return true;
+    });
   }
 
   _getFAQListForHome = memoizee(

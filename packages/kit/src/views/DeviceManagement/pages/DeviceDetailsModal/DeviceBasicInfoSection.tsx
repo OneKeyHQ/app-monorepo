@@ -1,6 +1,6 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
-import { EFirmwareType } from '@onekeyfe/hd-shared';
+import { EDeviceType, EFirmwareType } from '@onekeyfe/hd-shared';
 import { useIntl } from 'react-intl';
 
 import type { IBadgeType, IIconProps, IKeyOfIcons } from '@onekeyhq/components';
@@ -14,6 +14,10 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import type { IHwQrWalletWithDevice } from '@onekeyhq/shared/types/account';
 
+import { useFirmwareChangeDialog } from './FirmwareChangeDialog';
+
+import type { AllFirmwareRelease } from '@onekeyfe/hd-core';
+
 function DeviceBasicInfoSection({
   data,
   onPressHomescreen,
@@ -25,7 +29,10 @@ function DeviceBasicInfoSection({
   data: IHwQrWalletWithDevice;
   onPressHomescreen: () => void;
   onPressAuthRequest: () => void;
-  onPressCheckForUpdates: (firmwareType?: EFirmwareType) => void;
+  onPressCheckForUpdates: (
+    firmwareType?: EFirmwareType,
+    baseReleaseInfo?: AllFirmwareRelease,
+  ) => void;
   onPressTroubleshooting: () => void;
   authRequestLoading: boolean;
 }) {
@@ -38,6 +45,7 @@ function DeviceBasicInfoSection({
       firmwareVersion: '0.0.0',
       firmwareVersionDisplay: '-',
       firmwareType: undefined,
+      isAllowChangeFirmwareType: false,
       walletAvatarBadge: undefined,
       verifiedBadgeType: 'default' as IBadgeType,
       verifiedBadgeText: '-',
@@ -80,6 +88,11 @@ function DeviceBasicInfoSection({
         },
       };
 
+      const isAllowChangeFirmwareType = [
+        EDeviceType.Pro,
+        EDeviceType.Classic1s,
+        EDeviceType.ClassicPure,
+      ].includes(deviceType);
       const firmwareType = await deviceUtils.getFirmwareType({
         features: device.featuresInfo,
       });
@@ -100,6 +113,7 @@ function DeviceBasicInfoSection({
         firmwareVersion: versions?.firmwareVersion ?? '0.0.0',
         firmwareVersionDisplay,
         firmwareType,
+        isAllowChangeFirmwareType,
         walletAvatarBadge: undefined,
         verifiedBadgeType: status.type,
         verifiedBadgeIconName: status.icon,
@@ -114,6 +128,63 @@ function DeviceBasicInfoSection({
     [device, intl, defaultInfo],
     { initResult: defaultInfo },
   );
+
+  const { show: showFirmwareChangeDialog } = useFirmwareChangeDialog({
+    device,
+    onSuccess: (
+      targetFirmwareType: EFirmwareType,
+      fromFirmwareType: EFirmwareType,
+      baseReleaseInfo,
+    ) => {
+      onPressCheckForUpdates(targetFirmwareType, baseReleaseInfo);
+    },
+    onUpgradeFirmware: () => {
+      onPressCheckForUpdates();
+    },
+  });
+
+  const onPressFirmwareTypeChange = useCallback(() => {
+    showFirmwareChangeDialog({
+      hasAllowChangeFirmwareType: deviceInfo.isAllowChangeFirmwareType,
+      targetFirmwareType:
+        deviceInfo.firmwareType === EFirmwareType.BitcoinOnly
+          ? EFirmwareType.Universal
+          : EFirmwareType.BitcoinOnly,
+      fromFirmwareType: deviceInfo.firmwareType ?? EFirmwareType.Universal,
+    });
+  }, [
+    deviceInfo.firmwareType,
+    deviceInfo.isAllowChangeFirmwareType,
+    showFirmwareChangeDialog,
+  ]);
+
+  const firmwareTypeChangeView = useMemo(() => {
+    if (!deviceInfo.isAllowChangeFirmwareType) {
+      return null;
+    }
+    return (
+      <ListItem
+        title={intl.formatMessage(
+          {
+            id: ETranslations.device_settings_switch_firmware_type,
+          },
+          {
+            type:
+              deviceInfo.firmwareType === EFirmwareType.BitcoinOnly
+                ? 'Universal'
+                : 'Bitcoin-only',
+          },
+        )}
+        drillIn
+        onPress={onPressFirmwareTypeChange}
+      />
+    );
+  }, [
+    deviceInfo.isAllowChangeFirmwareType,
+    deviceInfo.firmwareType,
+    intl,
+    onPressFirmwareTypeChange,
+  ]);
 
   return (
     <YStack pt="$3" pb="$3" gap="$5" bg="$bgSubdued" borderRadius="$4">
@@ -178,27 +249,7 @@ function DeviceBasicInfoSection({
             drillIn
             onPress={() => onPressCheckForUpdates()}
           />
-          <ListItem
-            title={intl.formatMessage(
-              {
-                id: ETranslations.device_settings_switch_firmware_type,
-              },
-              {
-                type:
-                  deviceInfo.firmwareType === EFirmwareType.BitcoinOnly
-                    ? 'Universal'
-                    : 'Bitcoin-only',
-              },
-            )}
-            drillIn
-            onPress={() =>
-              onPressCheckForUpdates(
-                deviceInfo.firmwareType === EFirmwareType.BitcoinOnly
-                  ? EFirmwareType.Universal
-                  : EFirmwareType.BitcoinOnly,
-              )
-            }
-          />
+          {firmwareTypeChangeView}
           <ListItem
             title={intl.formatMessage({
               id: ETranslations.global_hardware_troubleshooting,

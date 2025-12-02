@@ -63,6 +63,12 @@ function MarketWatchlistTokenList({
   //   watchlistResult,
   // });
 
+  // Wait for data to be loaded before rendering anything
+  // This prevents flashing the recommend list while data is still loading
+  if (!watchlistState.isMounted) {
+    return null;
+  }
+
   // Show recommend list when watchlist is empty
   if (watchlist.length === 0) {
     return <MarketRecommendList recommendedTokens={recommendedTokens} />;

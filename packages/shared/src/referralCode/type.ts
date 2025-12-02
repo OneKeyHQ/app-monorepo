@@ -270,6 +270,18 @@ export interface IInvitePostConfig {
         subtitle: string;
       };
     };
+    Perps?: {
+      title: string;
+      subtitle: string;
+      for_you: {
+        title: string;
+        subtitle: string;
+      };
+      for_your_friend: {
+        title: string;
+        subtitle: string;
+      };
+    };
   };
 }
 
@@ -377,6 +389,7 @@ export interface IUpdateInviteCodeNoteResponse {
 export enum EExportSubject {
   HardwareSales = 'HardwareSales',
   Onchain = 'Onchain',
+  Perp = 'Perp',
 }
 
 export enum EExportTimeRange {

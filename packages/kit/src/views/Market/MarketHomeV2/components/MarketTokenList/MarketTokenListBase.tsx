@@ -1,7 +1,13 @@
 import { useCallback, useEffect, useMemo } from 'react';
 import type { ReactNode } from 'react';
 
-import { Spinner, Stack, Table, useMedia } from '@onekeyhq/components';
+import {
+  ListEndIndicator,
+  Spinner,
+  Stack,
+  Table,
+  useMedia,
+} from '@onekeyhq/components';
 import type { ITableColumn } from '@onekeyhq/components';
 import {
   EAppEventBusNames,
@@ -178,16 +184,7 @@ function MarketTokenListBase({
 
     // Show end indicator when no more data to load
     if (showEndReachedIndicator && !canLoadMore && data.length > 0) {
-      return (
-        <Stack alignItems="center" justifyContent="center" py="$4">
-          <Stack
-            width={120}
-            height={4}
-            backgroundColor="$neutral5"
-            borderRadius="$full"
-          />
-        </Stack>
-      );
+      return <ListEndIndicator />;
     }
 
     return null;

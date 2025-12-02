@@ -1636,7 +1636,7 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - Yoga
-  - react-native-cloud-fs (2.6.3):
+  - react-native-cloud-fs (2.6.4):
     - React
   - react-native-compat (2.21.7):
     - DoubleConversion
@@ -1767,7 +1767,7 @@ PODS:
     - React-Core
   - react-native-network-info (5.2.2):
     - React
-  - react-native-pager-view (7.0.0):
+  - react-native-pager-view (7.0.1):
     - DoubleConversion
     - glog
     - hermes-engine
@@ -3508,7 +3508,7 @@ SPEC CHECKSUMS:
   react-native-aes: e38d08f68d27e85d14590b7ef0b404ceebf5f891
   react-native-ble-plx: 42b541d86904b350743b507a00222145d833cac9
   react-native-capture-protection: 8df17cfa486df1c267f9de32f4877f75be216670
-  react-native-cloud-fs: c86a54591a932e41d94b0965f16d0713150b1fd0
+  react-native-cloud-fs: 330b1de38d4c35f287a755182eb5e56d03a3e1cc
   react-native-compat: 792f9cfc926dd4edb1e1e73ebf0f08308083a825
   react-native-fast-pbkdf2: 329e89b9929a51ed4d9ba88bf355a266f13d9d93
   react-native-get-random-values: 419569b6ed3d15bfb9b6781b2f2e058f8e8d2698
@@ -3517,7 +3517,7 @@ SPEC CHECKSUMS:
   react-native-mmkv: 69af18f435f8978ed3e7b8c1b23bba35350ddcd8
   react-native-netinfo: cec9c4e86083cb5b6aba0e0711f563e2fbbff187
   react-native-network-info: 703d4b16ff0ff6f03127728348251bf5f12b823a
-  react-native-pager-view: e52266cedb6b1312af2f17b1620e045238495a30
+  react-native-pager-view: 6fd80a1df31b41d1459e3ebc05f633e188b15926
   react-native-performance-stats: 088634dc35ead1dfcd371be67bd94dd0f2f104ac
   react-native-ping: 589027e929c300b0b68cc5c34105f33610177055
   react-native-safe-area-context: 8cf8caf5fc0f5a5d3581b650579af9c85c16be04

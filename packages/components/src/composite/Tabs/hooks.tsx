@@ -8,11 +8,12 @@ import {
 
 import { useWindowDimensions } from 'react-native';
 
+import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { useAppSideBarStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useIsHorizontalLayout, useMedia } from '../../hooks';
+import { useIsTablet, useOrientation } from '../../hooks';
 import { MAX_SIDEBAR_WIDTH, MIN_SIDEBAR_WIDTH } from '../../utils/sidebar';
 
 import { useTabNameContext as useNativeTabNameContext } from './TabNameContext';
@@ -71,23 +72,18 @@ export function useTabIsRefreshingFocused() {
 
 export * from './useCurrentTabScrollY';
 
-const useNativeTabContainerWidth = platformEnv.isNativeIOSPad
-  ? () => {
-      const isHorizontal = useIsHorizontalLayout();
-      const { width } = useWindowDimensions();
-      const [{ isCollapsed: leftSidebarCollapsed = false }] =
-        useAppSideBarStatusAtom();
-      if (isHorizontal) {
-        return width - MIN_SIDEBAR_WIDTH;
-      }
-      const sideBarWidth = leftSidebarCollapsed
-        ? MIN_SIDEBAR_WIDTH
-        : MAX_SIDEBAR_WIDTH;
-      return width - sideBarWidth;
-    }
-  : () => undefined;
 export const useTabContainerWidth = platformEnv.isNative
-  ? useNativeTabContainerWidth
+  ? () => {
+      const isTablet = useIsTablet();
+      const isLandscape = useOrientation();
+      const { width, height } = useWindowDimensions();
+      if (isTablet) {
+        return isLandscape
+          ? Math.max(width, height) / 2
+          : Math.min(width, height);
+      }
+      return Math.min(width, height);
+    }
   : () => {
       const [{ isCollapsed: leftSidebarCollapsed = false }] =
         useAppSideBarStatusAtom();

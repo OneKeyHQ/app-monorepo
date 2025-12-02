@@ -2,12 +2,19 @@ import { useCallback, useMemo, useRef } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 
-import { Page, rootNavigationRef } from '@onekeyhq/components';
+import {
+  Page,
+  rootNavigationRef,
+  tabletMainViewNavigationRef,
+  useIsTabletMainView,
+} from '@onekeyhq/components';
 import type {
   IModalNavigationProp,
   IPageNavigationProp,
   IStackNavigationOptions,
 } from '@onekeyhq/components/src/layouts/Navigation';
+import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import type {
   ETabRoutes,
   IModalParamList,
@@ -79,6 +86,7 @@ function useAppNavigation<
 >() {
   const navigation = useNavigation<P>();
   const navigationRef = useRef(navigation);
+  const isTabletMainView = useIsTabletMainView();
 
   if (navigationRef.current !== navigation) {
     navigationRef.current = navigation;
@@ -104,6 +112,18 @@ function useAppNavigation<
         params?: ITabStackParamList[T][keyof ITabStackParamList[T]];
       },
     ) => {
+      setTimeout(() => {
+        tabletMainViewNavigationRef.current?.navigate(
+          ERootRoutes.Main,
+          {
+            screen: route,
+            params,
+          },
+          {
+            pop: true,
+          },
+        );
+      });
       rootNavigationRef.current?.navigate(
         ERootRoutes.Main,
         {
@@ -163,6 +183,7 @@ function useAppNavigation<
         });
         return;
       }
+
       // If there is no stack route, use navigate to create a router stack.
       navigationInstance.navigate(modalType, {
         screen: route,
@@ -180,9 +201,16 @@ function useAppNavigation<
         params?: IModalParamList[T][keyof IModalParamList[T]];
       },
     ) => {
-      pushModalPage(ERootRoutes.Modal, route, params as any);
+      if (isTabletMainView) {
+        appEventBus.emit(EAppEventBusNames.PushModalPageInTabletDetailView, {
+          route,
+          params,
+        });
+      } else {
+        pushModalPage(ERootRoutes.Modal, route, params as any);
+      }
     },
-    [pushModalPage],
+    [isTabletMainView, pushModalPage],
   );
 
   const pushFullModal = useCallback(
@@ -220,6 +248,10 @@ function useAppNavigation<
 
   const push: typeof navigationRef.current.push = useCallback(
     (...args) => {
+      if (isTabletMainView) {
+        appEventBus.emit(EAppEventBusNames.PushPageInTabletDetailView, args);
+        return;
+      }
       const modalRoute = getModalRoute();
       if (modalRoute) {
         const isSettingsModal =
@@ -245,9 +277,9 @@ function useAppNavigation<
           }
         }
       }
-      navigationRef.current.push(...args);
+      navigationRef.current.navigate(...args);
     },
-    [navigation],
+    [isTabletMainView, navigation],
   );
 
   const replace: typeof navigationRef.current.replace = useCallback(

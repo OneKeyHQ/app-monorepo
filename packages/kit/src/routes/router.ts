@@ -6,9 +6,9 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ERootRoutes } from '@onekeyhq/shared/src/routes';
 
 import {
+  IOSFullScreenNavigator,
   ModalNavigator,
   OnboardingNavigator,
-  iOSFullScreenNavigator,
 } from './Modal/Navigator';
 import {
   fullModalRouter,
@@ -53,7 +53,7 @@ export const rootRouter: IRootStackNavigatorConfig<ERootRoutes, any>[] = [
   },
   {
     name: ERootRoutes.iOSFullScreen,
-    component: iOSFullScreenNavigator,
+    component: IOSFullScreenNavigator,
     type: 'iOSFullScreen',
   },
   ...buildPermissionRouter(),

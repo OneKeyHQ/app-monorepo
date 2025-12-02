@@ -63,14 +63,10 @@ function RecommendedSkeletonItem({ ...rest }: IYStackProps) {
 const RecommendedItem = memo(
   ({
     token,
-    accountId,
-    indexedAccountId,
     noWalletConnected,
     ...rest
   }: {
     token?: IRecommendAsset;
-    accountId?: string;
-    indexedAccountId?: string;
     noWalletConnected: boolean;
   } & IYStackProps) => {
     const navigation = useAppNavigation();
@@ -79,23 +75,10 @@ const RecommendedItem = memo(
       if (token) {
         defaultLogger.staking.page.selectAsset({ tokenSymbol: token.symbol });
 
-        const earnAccount =
-          await backgroundApiProxy.serviceStaking.getEarnAccount({
-            indexedAccountId,
-            accountId: accountId ?? '',
-            networkId: token.protocols[0]?.networkId,
-          });
-
-        const accountIdValue = earnAccount?.accountId || accountId || '';
-        const indexedAccountIdValue =
-          earnAccount?.account.indexedAccountId || indexedAccountId;
-
         if (token.protocols.length === 1) {
           const protocol = token.protocols[0];
           await EarnNavigation.pushToEarnProtocolDetails(navigation, {
             networkId: protocol.networkId,
-            accountId: accountIdValue,
-            indexedAccountId: indexedAccountIdValue,
             symbol: token.symbol,
             provider: protocol.provider,
             vault: protocol.vault,
@@ -110,7 +93,7 @@ const RecommendedItem = memo(
           });
         }
       }
-    }, [accountId, indexedAccountId, navigation, token]);
+    }, [navigation, token]);
 
     if (!token) {
       return <YStack width="$40" flexGrow={1} />;
@@ -332,8 +315,6 @@ export function Recommended() {
                 <YStack key={token.symbol} minWidth="$52">
                   <RecommendedItem
                     token={token}
-                    accountId={account?.id}
-                    indexedAccountId={indexedAccount?.id}
                     noWalletConnected={noWalletConnected}
                   />
                 </YStack>
@@ -355,8 +336,6 @@ export function Recommended() {
               >
                 <RecommendedItem
                   token={token}
-                  accountId={account?.id}
-                  indexedAccountId={indexedAccount?.id}
                   noWalletConnected={noWalletConnected}
                 />
               </YStack>

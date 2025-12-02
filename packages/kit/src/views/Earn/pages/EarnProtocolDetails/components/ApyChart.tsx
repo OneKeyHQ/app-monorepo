@@ -1,31 +1,17 @@
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import {
-  Icon,
-  IconButton,
+  Divider,
   SizableText,
   Skeleton,
-  XStack,
+  Stack,
   YStack,
-  useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { LightweightChart } from '@onekeyhq/kit/src/components/LightweightChart';
-import { Token } from '@onekeyhq/kit/src/components/Token';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
-import { EarnActionIcon } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnActionIcon';
-import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnText';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type {
-  IEarnTokenInfo,
-  IStakeEarnDetail,
-} from '@onekeyhq/shared/types/staking';
-
-import { EarnNavigation } from '../../../earnUtils';
 
 import type { UTCTimestamp } from 'lightweight-charts';
 
@@ -34,9 +20,6 @@ interface IApyChartProps {
   symbol: string;
   provider: string;
   vault?: string;
-  apyDetail: IStakeEarnDetail['apyDetail'];
-  tokenInfo?: IEarnTokenInfo;
-  onShare?: () => void;
 }
 
 const ApyChartComponent = ({
@@ -44,18 +27,8 @@ const ApyChartComponent = ({
   symbol,
   provider,
   vault,
-  apyDetail,
-  tokenInfo,
-  onShare,
 }: IApyChartProps) => {
   const intl = useIntl();
-  const { gtMd } = useMedia();
-  const isFocused = useRouteIsFocused();
-  const navigation = useAppNavigation();
-
-  const handleMyPortfolio = useCallback(() => {
-    EarnNavigation.pushToEarnHome(navigation, { tab: 'portfolio' });
-  }, [navigation]);
 
   // Hover state for popover
   const [hoverData, setHoverData] = useState<{
@@ -121,13 +94,8 @@ const ApyChartComponent = ({
     [intl],
   );
 
-  const { result: chartData, setResult: setChartData } = usePromiseResult(
+  const { result: chartData, isLoading } = usePromiseResult(
     async () => {
-      // Only fetch data when focused
-      if (!isFocused) {
-        return null;
-      }
-
       const apyHistory = await backgroundApiProxy.serviceStaking.getApyHistory({
         networkId,
         symbol,
@@ -138,11 +106,6 @@ const ApyChartComponent = ({
       if (!apyHistory || apyHistory.length === 0) {
         return null;
       }
-
-      // Calculate high and low APY
-      const apyValues = apyHistory.map((item) => Number(item.apy));
-      const high = Math.max(...apyValues);
-      const low = Math.min(...apyValues);
 
       // Convert to chart format
       // timestamp is in milliseconds, need to convert to seconds for UTCTimestamp
@@ -159,95 +122,49 @@ const ApyChartComponent = ({
       );
 
       return {
-        high,
-        low,
         marketChartData,
       };
     },
-    [networkId, symbol, provider, vault, isFocused],
+    [networkId, symbol, provider, vault],
     { watchLoading: true },
   );
 
-  // CRITICAL: Clear chart data when page is not focused to release memory
-  useEffect(() => {
-    if (!isFocused && chartData) {
-      setChartData(undefined);
-    }
-  }, [isFocused, chartData, setChartData]);
-
   return (
-    <YStack gap="$3">
-      <YStack>
-        {/* Token icon and name with My Portfolio button - always show */}
-        <XStack jc="space-between" ai="center" h="$9">
-          <XStack gap="$2" ai="center">
-            <Token size="xs" tokenImageUri={tokenInfo?.token.logoURI} />
-            <SizableText size="$bodyLgMedium">
-              {tokenInfo?.token.symbol || symbol}
-            </SizableText>
-          </XStack>
-        </XStack>
-        {/* APY value with buttons - only show if apyDetail exists */}
-        {apyDetail ? (
-          <>
-            <XStack gap="$2" ai="center" pt="$2.5">
-              <EarnText text={apyDetail.description} size="$heading3xl" />
-              <EarnActionIcon
-                title={apyDetail.title.text}
-                actionIcon={apyDetail.button}
-              />
-              {onShare ? (
-                <IconButton
-                  icon="ShareOutline"
-                  size="small"
-                  variant="tertiary"
-                  iconColor="$iconSubdued"
-                  onPress={onShare}
-                />
-              ) : null}
-              <XStack
-                ml="auto"
-                cursor="pointer"
-                ai="center"
-                onPress={handleMyPortfolio}
-              >
-                <SizableText size="$bodyMdMedium" color="$textSubdued">
-                  {intl.formatMessage({ id: ETranslations.earn_positions })}
-                </SizableText>
-                <Icon
-                  size="$bodySmMedium"
-                  name="ChevronRightSmallOutline"
-                  color="$iconSubdued"
-                />
-              </XStack>
-            </XStack>
-            {/* High and Low values */}
-            {gtMd && chartData ? (
-              <XStack gap="$4" pt="$6">
-                <YStack>
-                  <SizableText size="$bodySm" color="$textSubdued">
-                    {intl.formatMessage({ id: ETranslations.market_high })}
-                  </SizableText>
-                  <SizableText size="$bodyMd" color="$text">
-                    {chartData.high.toFixed(2)}%
-                  </SizableText>
-                </YStack>
-                <YStack>
-                  <SizableText size="$bodySm" color="$textSubdued">
-                    {intl.formatMessage({ id: ETranslations.market_low })}
-                  </SizableText>
-                  <SizableText size="$bodyMd" color="$text">
-                    {chartData.low.toFixed(2)}%
-                  </SizableText>
-                </YStack>
-              </XStack>
-            ) : null}
-          </>
-        ) : null}
-      </YStack>
-      {chartData ? (
+    <>
+      {/* Chart Skeleton - show during loading */}
+      {isLoading && !chartData ? (
+        <Stack
+          $gtMd={{ height: 200 }}
+          $md={{ height: 180 }}
+          $sm={{ height: 160 }}
+          height={160}
+          position="relative"
+          overflow="hidden"
+          animation="quick"
+          enterStyle={{ opacity: 0 }}
+        >
+          <Skeleton w="100%" h="100%" borderRadius="$2" />
+          {/* Simulated chart curve overlay for better visual */}
+          <Stack
+            position="absolute"
+            bottom={0}
+            left={0}
+            right={0}
+            height="60%"
+            opacity={0.3}
+          >
+            <Skeleton w="100%" h="100%" borderRadius="$2" />
+          </Stack>
+        </Stack>
+      ) : null}
+
+      {/* Chart - show when data is loaded */}
+      {chartData && !isLoading ? (
         <YStack
           position="relative"
+          animation="quick"
+          enterStyle={{ opacity: 0, scale: 0.98 }}
+          exitStyle={{ opacity: 0, scale: 0.98 }}
           onLayout={(e) => {
             const width = e.nativeEvent.layout.width;
             if (width !== containerWidth) {
@@ -286,17 +203,15 @@ const ApyChartComponent = ({
               </YStack>
             </YStack>
           ) : null}
-          {/* CRITICAL: Only render chart when page is focused to prevent memory leaks */}
-          {isFocused ? (
-            <LightweightChart
-              data={chartData.marketChartData}
-              height={200}
-              onHover={handleHover}
-            />
-          ) : null}
+          <LightweightChart
+            data={chartData.marketChartData}
+            height={200}
+            onHover={handleHover}
+          />
+          <Divider mt="$8" />
         </YStack>
       ) : null}
-    </YStack>
+    </>
   );
 };
 

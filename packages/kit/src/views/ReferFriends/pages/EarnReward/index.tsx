@@ -59,11 +59,15 @@ function EarnRewardPageWrapper() {
   );
 
   const tools = useCallback(() => {
+    const exportSubject =
+      activeRewardTab === EExportTab.Earn
+        ? EExportSubject.Onchain
+        : EExportSubject.Perp;
     return (
       <XStack gap="$2">
         <FilterButton filterState={filterState} onFilterChange={updateFilter} />
         <ExportButton
-          subject={EExportSubject.Onchain}
+          subject={exportSubject}
           timeRange={filterState.timeRange}
           inviteCode={filterState.inviteCode}
           tab={activeRewardTab}

@@ -1,6 +1,11 @@
-import { useCallback, useLayoutEffect, useMemo, useState } from 'react';
-
-import { useIntl } from 'react-intl';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import {
   Page,
@@ -26,6 +31,7 @@ import {
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IDiscoveryBanner } from '@onekeyhq/shared/types/discovery';
 import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
+import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 
 import { AccountSelectorProviderMirror } from '../../components/AccountSelector';
 import { TabPageHeader } from '../../components/TabPageHeader';
@@ -49,7 +55,9 @@ import { useBannerInfo } from './hooks/useBannerInfo';
 import { useBlockRegion } from './hooks/useBlockRegion';
 import { useEarnPortfolio } from './hooks/useEarnPortfolio';
 import { useFAQListInfo } from './hooks/useFAQListInfo';
+import { useStakingPendingTxsByInfo } from './hooks/useStakingPendingTxs';
 
+import type { IStakePendingTx } from './hooks/useStakingPendingTxs';
 import type { LayoutChangeEvent } from 'react-native';
 
 function BasicEarnHome({
@@ -73,9 +81,38 @@ function BasicEarnHome({
   const { earnBanners, refetchBanners } = useBannerInfo();
   const { faqList, isFaqLoading, refetchFAQ } = useFAQListInfo();
   const [isEarnTabFocused, setIsEarnTabFocused] = useState(true);
+  const wasFocusedRef = useRef(false);
   const portfolioData = useEarnPortfolio({ isActive: isEarnTabFocused });
   const { refresh: refreshEarnDataRaw, isLoading: portfolioLoading } =
     portfolioData;
+
+  const isLoading = useMemo(() => {
+    if (platformEnv.isNative && !showContent) {
+      return false;
+    }
+    return portfolioLoading;
+  }, [portfolioLoading, showContent]);
+
+  const pendingTxsFilter = useCallback((tx: IStakePendingTx) => {
+    return [EEarnLabels.Stake, EEarnLabels.Withdraw].includes(
+      tx.stakingInfo.label,
+    );
+  }, []);
+  const { filteredTxs } = useStakingPendingTxsByInfo({
+    filter: pendingTxsFilter,
+  });
+  const isPending = useMemo(() => {
+    return filteredTxs.length > 0;
+  }, [filteredTxs]);
+  const previousIsPendingRef = useRef(isPending);
+
+  useEffect(() => {
+    if (previousIsPendingRef.current && !isPending) {
+      void refreshEarnDataRaw();
+    }
+    previousIsPendingRef.current = isPending;
+  }, [isPending, refreshEarnDataRaw]);
+
   const refreshEarnData = useCallback(async () => {
     await backgroundApiProxy.serviceStaking.clearAvailableAssetsCache();
     actions.current.triggerRefresh();
@@ -88,36 +125,42 @@ function BasicEarnHome({
 
   const accountSelectorActions = useAccountSelectorActions();
 
+  const handleListenTabFocusState = useCallback(
+    (isFocus: boolean, isHideByModal: boolean) => {
+      const actualFocus = isFocus && !isHideByModal;
+      if (actualFocus && !wasFocusedRef.current) {
+        void refreshEarnData();
+      }
+      wasFocusedRef.current = actualFocus;
+      setIsEarnTabFocused(actualFocus);
+      if (!actualFocus) return;
+
+      const allKey = `availableAssets-${EAvailableAssetsTypeEnum.All}`;
+      const stableKey = `availableAssets-${EAvailableAssetsTypeEnum.StableCoins}`;
+      const nativeKey = `availableAssets-${EAvailableAssetsTypeEnum.NativeTokens}`;
+
+      const keys = [allKey, stableKey, nativeKey];
+
+      const hasIncompleteData = keys.some((key) =>
+        actions.current.isDataIncomplete(key),
+      );
+
+      if (hasIncompleteData) {
+        keys.forEach((key) => {
+          actions.current.setLoadingState(key, false);
+        });
+        actions.current.triggerRefresh();
+      }
+
+      void refetchBanners();
+      void refetchFAQ();
+    },
+    [actions, refetchBanners, refetchFAQ, refreshEarnData],
+  );
+
   useListenTabFocusState(
-    ETabRoutes.Earn,
-    useCallback(
-      (isFocus, isHideByModal) => {
-        const actualFocus = isFocus && !isHideByModal;
-        setIsEarnTabFocused(actualFocus);
-        if (!actualFocus) return;
-
-        const allKey = `availableAssets-${EAvailableAssetsTypeEnum.All}`;
-        const stableKey = `availableAssets-${EAvailableAssetsTypeEnum.StableCoins}`;
-        const nativeKey = `availableAssets-${EAvailableAssetsTypeEnum.NativeTokens}`;
-
-        const keys = [allKey, stableKey, nativeKey];
-
-        const hasIncompleteData = keys.some((key) =>
-          actions.current.isDataIncomplete(key),
-        );
-
-        if (hasIncompleteData) {
-          keys.forEach((key) => {
-            actions.current.setLoadingState(key, false);
-          });
-          actions.current.triggerRefresh();
-        }
-
-        void refetchBanners();
-        void refetchFAQ();
-      },
-      [actions, refetchBanners, refetchFAQ],
-    ),
+    [ETabRoutes.Earn, ETabRoutes.Discovery],
+    handleListenTabFocusState,
   );
 
   const onBannerPress = useCallback(
@@ -132,23 +175,12 @@ function BasicEarnHome({
           const networkId = params.get('networkId');
           const vault = params.get('vault');
           if (provider && symbol && networkId) {
-            const earnAccount =
-              await backgroundApiProxy.serviceStaking.getEarnAccount({
-                indexedAccountId: indexedAccount?.id,
-                accountId: account?.id ?? '',
-                networkId,
-              });
             const navigationParams: {
-              accountId?: string;
               networkId: string;
-              indexedAccountId?: string;
               symbol: string;
               provider: string;
               vault?: string;
             } = {
-              accountId: earnAccount?.accountId || account?.id || '',
-              indexedAccountId:
-                earnAccount?.account.indexedAccountId || indexedAccount?.id,
               provider,
               symbol,
               networkId,
@@ -188,8 +220,6 @@ function BasicEarnHome({
     ),
     [earnBanners, onBannerPress],
   );
-
-  const isLoading = !!portfolioLoading;
 
   const mobileContainerProps = useMemo(
     () => ({

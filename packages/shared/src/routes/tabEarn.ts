@@ -18,8 +18,6 @@ export type ITabEarnParamList = {
   };
   [ETabEarnRoutes.EarnProtocolDetails]: {
     networkId: string;
-    accountId: string;
-    indexedAccountId?: string;
     symbol: string;
     provider: string;
     vault?: string;

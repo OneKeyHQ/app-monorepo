@@ -1,14 +1,15 @@
 import BigNumber from 'bignumber.js';
+import { useIntl } from 'react-intl';
 
 import {
-  Icon,
   NumberSizeableText,
   SizableText,
   Skeleton,
-  Tooltip,
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { InfoIcon } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/RewardCard/InfoIcon';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 interface IRewardSummaryCardProps {
   isLoading?: boolean;
@@ -23,17 +24,25 @@ export function RewardSummaryCard({
   undistributed,
   tokenSymbol,
 }: IRewardSummaryCardProps) {
+  const intl = useIntl();
   const displayTotalBonus = totalBonus ?? '0';
   const displayUndistributed = undistributed ?? '0';
   const displayTokenSymbol = tokenSymbol ?? 'USDC';
   const hasUndistributed = new BigNumber(displayUndistributed).gt(0);
 
+  const tooltipContent = intl.formatMessage({
+    id: ETranslations.earn_reward_distribution_schedule,
+  });
+
   return (
     <YStack gap="$2">
       <XStack ai="center" gap="$2">
         <XStack ai="center" gap="$1.5" py="$0.5">
-          <Icon name="OnekeyBrand" />
-          <SizableText size="$bodySm">Referral bonus</SizableText>
+          <SizableText size="$headingSm">
+            {intl.formatMessage({
+              id: ETranslations.dexmarket_total,
+            })}
+          </SizableText>
         </XStack>
       </XStack>
 
@@ -42,7 +51,7 @@ export function RewardSummaryCard({
           <Skeleton width={120} height={28} />
         ) : (
           <NumberSizeableText
-            size="$bodySm"
+            size="$bodyMd"
             formatter="value"
             formatterOptions={{
               tokenSymbol: displayTokenSymbol,
@@ -55,11 +64,11 @@ export function RewardSummaryCard({
 
         {hasUndistributed ? (
           <XStack ai="center" gap="$1" flexShrink={1}>
-            <SizableText size="$bodySm" color="$textSubdued">
+            <SizableText size="$bodyMd" color="$textSubdued">
               +
             </SizableText>
             <NumberSizeableText
-              size="$bodySm"
+              size="$bodyMd"
               color="$textSubdued"
               formatter="value"
               formatterOptions={{
@@ -71,27 +80,19 @@ export function RewardSummaryCard({
               {displayUndistributed}
             </NumberSizeableText>
             <SizableText
-              size="$bodySm"
+              size="$bodyMd"
               color="$textSubdued"
               numberOfLines={1}
               flexShrink={0}
             >
-              Undistributed
+              {intl.formatMessage({
+                id: ETranslations.referral_undistributed,
+              })}
             </SizableText>
           </XStack>
         ) : null}
 
-        <Tooltip
-          renderTrigger={
-            <Icon
-              name="InfoCircleOutline"
-              size="$5"
-              color="$iconSubdued"
-              cursor="pointer"
-            />
-          }
-          renderContent="This is your total referral bonus from trading on Perps."
-        />
+        <InfoIcon tooltip={tooltipContent} size="$5" />
       </XStack>
     </YStack>
   );
