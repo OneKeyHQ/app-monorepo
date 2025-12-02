@@ -3,8 +3,10 @@ import { useRef } from 'react';
 import BigNumber from 'bignumber.js';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { ESwapDirection } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
 import type { useSwapAddressInfo } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapAccount';
 import { moveNetworkToFirst } from '@onekeyhq/kit/src/views/Swap/utils/utils';
+import { settingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IEventSourceMessageEvent } from '@onekeyhq/shared/src/eventSource';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
@@ -25,6 +27,7 @@ import {
   swapDefaultSetTokens,
   swapRateDifferenceMax,
   swapRateDifferenceMin,
+  swapSlippageAutoValue,
   swapTokenCatchMapMaxCount,
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
@@ -71,11 +74,18 @@ import {
   swapManualSelectQuoteProvidersAtom,
   swapNetworks,
   swapNetworksIncludeAllNetworkAtom,
+  swapProDirectionAtom,
+  swapProInputAmountAtom,
+  swapProSelectTokenAtom,
+  swapProSellToTokenAtom,
+  swapProSlippageAtom,
   swapProSupportNetworksTokenListAtom,
   swapProSupportNetworksTokenListLoadingAtom,
+  swapProToTotalValueAtom,
   swapProTokenDetailWebsocketAtom,
   swapProTokenMarketDetailInfoAtom,
   swapProTokenMarketDetailInfoLoadingAtom,
+  swapProUseSelectBuyTokenAtom,
   swapQuoteActionLockAtom,
   swapQuoteCurrentSelectAtom,
   swapQuoteEventTotalCountAtom,
@@ -89,6 +99,8 @@ import {
   swapSelectedToTokenBalanceAtom,
   swapShouldRefreshQuoteAtom,
   swapSilenceQuoteLoading,
+  swapSpeedQuoteFetchingAtom,
+  swapSpeedQuoteResultAtom,
   swapToTokenAmountAtom,
   swapTokenFetchingAtom,
   swapTokenMapAtom,
@@ -801,6 +813,102 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     },
   );
 
+  runSpeedQuote = contextAtomMethod(
+    async (
+      get,
+      set,
+      fromToken: ISwapToken,
+      toToken: ISwapToken,
+      slippagePercentage: number,
+      autoSlippage?: boolean,
+      address?: string,
+      accountId?: string,
+      kind?: ESwapQuoteKind,
+      fromTokenAmount?: string,
+      toTokenAmount?: string,
+      receivingAddress?: string,
+    ) => {
+      try {
+        set(swapSpeedQuoteFetchingAtom(), true);
+        set(swapSpeedQuoteResultAtom(), undefined);
+        const res = await backgroundApiProxy.serviceSwap.fetchSpeedSwapQuote({
+          fromToken,
+          toToken,
+          fromTokenAmount,
+          toTokenAmount,
+          kind,
+          userAddress: address,
+          slippagePercentage,
+          autoSlippage,
+          receivingAddress,
+          accountId,
+          protocol: ESwapTabSwitchType.SWAP,
+        });
+        if (res?.length) {
+          const quoteResult = res[0];
+          set(swapSpeedQuoteResultAtom(), quoteResult);
+          if (quoteResult.autoSuggestedSlippage) {
+            const slippageItem = get(swapProSlippageAtom());
+            if (slippageItem.key === ESwapSlippageSegmentKey.AUTO) {
+              set(swapProSlippageAtom(), {
+                key: ESwapSlippageSegmentKey.AUTO,
+                value: quoteResult.autoSuggestedSlippage,
+              });
+            }
+          }
+        }
+        set(swapSpeedQuoteFetchingAtom(), false);
+      } catch (e: any) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        if (e?.cause !== ESwapFetchCancelCause.SWAP_SPEED_QUOTE_CANCEL) {
+          set(swapSpeedQuoteFetchingAtom(), false);
+        }
+      }
+    },
+  );
+
+  quoteSpeedAction = contextAtomMethod(
+    async (
+      get,
+      set,
+      slippageItem: { key: ESwapSlippageSegmentKey; value: number },
+      address?: string,
+      accountId?: string,
+      receivingAddress?: string,
+    ) => {
+      this.cancelSpeedQuote();
+      const selectedToken = get(swapProSelectTokenAtom());
+      const buySelectToken = get(swapProUseSelectBuyTokenAtom());
+      const sellSelectToken = get(swapProSellToTokenAtom());
+      const swapProDirection = get(swapProDirectionAtom());
+      const fromTokenAmount = get(swapProInputAmountAtom());
+      const fromToken =
+        swapProDirection === ESwapDirection.BUY
+          ? buySelectToken
+          : selectedToken;
+      const toToken =
+        swapProDirection === ESwapDirection.BUY
+          ? selectedToken
+          : sellSelectToken;
+      if (!fromToken || !toToken) {
+        return;
+      }
+      void this.runSpeedQuote.call(
+        set,
+        fromToken,
+        toToken,
+        slippageItem.value,
+        slippageItem.key === ESwapSlippageSegmentKey.AUTO,
+        address,
+        accountId,
+        ESwapQuoteKind.SELL,
+        fromTokenAmount,
+        undefined,
+        receivingAddress,
+      );
+    },
+  );
+
   cleanQuoteInterval = () => {
     if (this.quoteInterval) {
       clearTimeout(this.quoteInterval);
@@ -812,6 +920,21 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
   closeQuoteEvent = () => {
     void backgroundApiProxy.serviceSwap.cancelFetchQuoteEvents();
   };
+
+  cancelSpeedQuote = () => {
+    void backgroundApiProxy.serviceSwap.cancelFetchSpeedSwapQuote();
+  };
+
+  cleanSpeedQuote = contextAtomMethod(async (get, set) => {
+    set(swapSpeedQuoteFetchingAtom(), false);
+    set(swapSpeedQuoteResultAtom(), undefined);
+    set(swapProToTotalValueAtom(), '');
+    set(swapProSlippageAtom(), {
+      key: ESwapSlippageSegmentKey.AUTO,
+      value: swapSlippageAutoValue,
+    });
+    set(swapProInputAmountAtom(), '');
+  });
 
   cleanLimitOrderMarketPriceInterval = () => {
     if (this.limitOrderMarketPriceInterval) {
@@ -2001,11 +2124,14 @@ export const useSwapActions = () => {
     actions.swapProTokenMarketDetailFetchAction.use();
   const swapProLoadSupportNetworksTokenList =
     actions.swapProLoadSupportNetworksTokenList.use();
+  const quoteSpeedAction = actions.quoteSpeedAction.use();
+  const cleanSpeedQuote = actions.cleanSpeedQuote.use();
   const {
     cleanQuoteInterval,
     closeQuoteEvent,
     needChangeToken,
     cleanLimitOrderMarketPriceInterval,
+    cancelSpeedQuote,
   } = actions;
 
   return useRef({
@@ -2028,5 +2154,8 @@ export const useSwapActions = () => {
     cleanLimitOrderMarketPriceInterval,
     swapProTokenMarketDetailFetchAction,
     swapProLoadSupportNetworksTokenList,
+    quoteSpeedAction,
+    cancelSpeedQuote,
+    cleanSpeedQuote,
   });
 };

@@ -26,7 +26,6 @@ import { useSwapProInputToken } from '../../hooks/useSwapPro';
 import type { IToken } from '../../../Market/MarketDetailV2/components/SwapPanel/types';
 
 interface ISwapProInputContainerProps {
-  //   onSelectToken: (token: ISwapToken) => void;
   defaultTokens: IToken[];
   isLoading?: boolean;
 }

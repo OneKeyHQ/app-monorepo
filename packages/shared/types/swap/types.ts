@@ -492,6 +492,24 @@ export interface ISwapPreSwapData {
   };
 }
 
+export interface IFetchSwapQuoteParams {
+  fromToken: ISwapToken;
+  toToken: ISwapToken;
+  fromTokenAmount?: string;
+  receivingAddress?: string;
+  userAddress?: string;
+  slippagePercentage: number;
+  autoSlippage?: boolean;
+  blockNumber?: number;
+  accountId?: string;
+  protocol: ESwapTabSwitchType;
+  expirationTime?: number;
+  limitPartiallyFillable?: boolean;
+  kind?: ESwapQuoteKind;
+  toTokenAmount?: string;
+  userMarketPriceRate?: string;
+}
+
 export interface IFetchQuoteResult {
   quoteId?: string;
   eventId?: string;
@@ -615,6 +633,7 @@ export enum ESwapFetchCancelCause {
   SWAP_QUOTE_CANCEL = 'SWAP_QUOTE_CANCEL',
   SWAP_APPROVE_ALLOWANCE_CANCEL = 'SWAP_APPROVE_ALLOWANCE_CANCEL',
   SWAP_PERP_DEPOSIT_QUOTE_CANCEL = 'SWAP_PERP_DEPOSIT_QUOTE_CANCEL',
+  SWAP_SPEED_QUOTE_CANCEL = 'SWAP_SPEED_QUOTE_CANCEL',
 }
 
 // swap action&alert state

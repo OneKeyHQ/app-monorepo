@@ -1,10 +1,11 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import type { IDialogInstance } from '@onekeyhq/components';
 import { Dialog, Icon, SizableText, XStack } from '@onekeyhq/components';
 import SlippageSettingDialog from '@onekeyhq/kit/src/components/SlippageSettingDialog';
+import { useSwapProSlippageAtom } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { swapSlippageWillAheadMinValue } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type { ISwapSlippageSegmentItem } from '@onekeyhq/shared/types/swap/types';
@@ -13,29 +14,23 @@ import { ESwapSlippageSegmentKey } from '@onekeyhq/shared/types/swap/types';
 export interface ISwapProSlippageSettingProps {
   autoDefaultValue?: number;
   isMEV?: boolean;
-  onSlippageChange?: (item: ISwapSlippageSegmentItem) => void;
 }
 
 export function SwapProSlippageSetting({
   isMEV = false,
   autoDefaultValue = 0.5,
-  onSlippageChange,
 }: ISwapProSlippageSettingProps) {
   const intl = useIntl();
-  const [slippageItem, setSlippageItem] = useState<ISwapSlippageSegmentItem>({
-    key: ESwapSlippageSegmentKey.AUTO,
-    value: autoDefaultValue,
-  });
+  const [slippageItem, setSlippageItem] = useSwapProSlippageAtom();
 
   const slippageOnSave = useCallback(
     (item: ISwapSlippageSegmentItem, closeFn?: IDialogInstance['close']) => {
       setSlippageItem(item);
-      onSlippageChange?.(item);
       if (closeFn) {
         void closeFn({ flag: 'save' });
       }
     },
-    [onSlippageChange],
+    [setSlippageItem],
   );
 
   const onSlippageHandleClick = useCallback(() => {

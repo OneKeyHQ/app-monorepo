@@ -1,8 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import BigNumber from 'bignumber.js';
+
+import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { useSwapProJumpTokenAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/swap';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IMarketSearchV2Token } from '@onekeyhq/shared/types/market';
 import type { IMarketTokenTransaction } from '@onekeyhq/shared/types/marketV2';
@@ -21,10 +25,14 @@ import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector
 import {
   useSwapActions,
   useSwapProDirectionAtom,
+  useSwapProInputAmountAtom,
   useSwapProSelectTokenAtom,
   useSwapProSellToTokenAtom,
+  useSwapProSlippageAtom,
+  useSwapProToTotalValueAtom,
   useSwapProTradeTypeAtom,
   useSwapProUseSelectBuyTokenAtom,
+  useSwapSpeedQuoteResultAtom,
   useSwapTypeSwitchAtom,
 } from '../../../states/jotai/contexts/swap';
 import { useMarketBasicConfig } from '../../Market/hooks';
@@ -82,6 +90,19 @@ export function useSwapProInputToken() {
     return swapProSelectToken;
   }, [swapProDirection, swapProUseSelectBuyTokenAtom, swapProSelectToken]);
   return inputToken;
+}
+
+export function useSwapProToToken() {
+  const [swapProSelectToken] = useSwapProSelectTokenAtom();
+  const [swapProDirection] = useSwapProDirectionAtom();
+  const [swapProSellToTokenAtom] = useSwapProSellToTokenAtom();
+  const toToken = useMemo(() => {
+    if (swapProDirection === ESwapDirection.BUY) {
+      return swapProSelectToken;
+    }
+    return swapProSellToTokenAtom;
+  }, [swapProDirection, swapProSellToTokenAtom, swapProSelectToken]);
+  return toToken;
 }
 
 export function useSwapProAccount() {
@@ -405,4 +426,86 @@ export function useSwapProSupportNetworksTokenList() {
   };
 }
 
-export function useSwapProActions() {}
+export function useSwapProActions() {
+  const { quoteSpeedAction, cancelSpeedQuote, cleanSpeedQuote } =
+    useSwapActions().current;
+  const [swapTabSwitchType] = useSwapTypeSwitchAtom();
+  const [swapTradeType] = useSwapProTradeTypeAtom();
+  const [swapProInputAmount] = useSwapProInputAmountAtom();
+  const debounceInputAmount = useDebounce(swapProInputAmount, 300, {
+    leading: true,
+  });
+  const currencyInfo = useCurrency();
+  const [swapProSelectToken] = useSwapProSelectTokenAtom();
+  const [swapProDirection] = useSwapProDirectionAtom();
+  const [swapProUseSelectBuyTokenAtom] = useSwapProUseSelectBuyTokenAtom();
+  const [swapProSellToTokenAtom] = useSwapProSellToTokenAtom();
+  const [, setSwapProToTotalValue] = useSwapProToTotalValueAtom();
+  const [swapProQuoteResult] = useSwapSpeedQuoteResultAtom();
+  const [slippageItem] = useSwapProSlippageAtom();
+  const swapProtoToken = useSwapProToToken();
+  const swapProAccount = useSwapProAccount();
+  const enableSwapProMarketQuote = useMemo(
+    () =>
+      swapTabSwitchType === ESwapTabSwitchType.LIMIT &&
+      swapTradeType === ESwapProTradeType.MARKET,
+    [swapTabSwitchType, swapTradeType],
+  );
+
+  useEffect(() => {
+    if (swapProQuoteResult?.toAmount) {
+      const toAmountBN = new BigNumber(swapProQuoteResult.toAmount);
+      const toTokenPriceBN = new BigNumber(swapProtoToken?.price ?? '0');
+      const toTokenValue = toTokenPriceBN.multipliedBy(toAmountBN).toFixed();
+      const formattedToTokenValue = numberFormat(toTokenValue, {
+        formatter: 'value',
+        formatterOptions: {
+          currency: currencyInfo.symbol,
+        },
+      });
+      setSwapProToTotalValue(formattedToTokenValue);
+    }
+  }, [
+    setSwapProToTotalValue,
+    swapProtoToken?.price,
+    swapProQuoteResult?.toAmount,
+    currencyInfo.symbol,
+  ]);
+
+  useEffect(() => {
+    const debounceInputAmountBN = new BigNumber(debounceInputAmount ?? '0');
+    if (
+      !enableSwapProMarketQuote ||
+      !swapProAccount.result?.addressDetail.address ||
+      debounceInputAmountBN.isNaN() ||
+      debounceInputAmountBN.lte(0)
+    ) {
+      cancelSpeedQuote();
+      void cleanSpeedQuote();
+      return;
+    }
+    void quoteSpeedAction(
+      slippageItem,
+      swapProAccount.result?.addressDetail.address,
+      swapProAccount.result?.id,
+      swapProAccount.result?.addressDetail.address,
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    debounceInputAmount,
+    quoteSpeedAction,
+    swapProSelectToken?.contractAddress,
+    swapProSelectToken?.networkId,
+    swapProDirection,
+    swapProUseSelectBuyTokenAtom?.contractAddress,
+    swapProUseSelectBuyTokenAtom?.networkId,
+    swapProSellToTokenAtom?.contractAddress,
+    swapProSellToTokenAtom?.networkId,
+    slippageItem,
+    enableSwapProMarketQuote,
+  ]);
+
+  return {
+    quoteSpeedAction,
+  };
+}

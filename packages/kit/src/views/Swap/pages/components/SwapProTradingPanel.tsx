@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -8,7 +8,6 @@ import {
   useSwapLimitExpirationTimeAtom,
   useSwapLimitPartiallyFillAtom,
   useSwapProDirectionAtom,
-  useSwapProSlippageAtom,
   useSwapProTradeTypeAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -17,11 +16,7 @@ import {
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import type { ISwapSlippageSegmentItem } from '@onekeyhq/shared/types/swap/types';
-import {
-  ESwapProTradeType,
-  ESwapSlippageSegmentKey,
-} from '@onekeyhq/shared/types/swap/types';
+import { ESwapProTradeType } from '@onekeyhq/shared/types/swap/types';
 
 import { TradeTypeSelector } from '../../../Market/MarketDetailV2/components/SwapPanel/components/TradeTypeSelector';
 import LimitExpirySelect from '../../components/LimitExpirySelect';
@@ -46,7 +41,6 @@ const SwapProTradingPanel = () => {
     useSwapLimitExpirationTimeAtom();
   const [swapLimitPartiallyFill, setSwapLimitPartiallyFill] =
     useSwapLimitPartiallyFillAtom();
-  const [, setSwapProSliderValue] = useSwapProSlippageAtom();
   const { limitOrderExpiryStepMap, limitOrderPartiallyFillStepMap } =
     useSwapLimitConfigMaps();
   const intl = useIntl();
@@ -77,16 +71,6 @@ const SwapProTradingPanel = () => {
   const { defaultTokens, isLoading, speedConfig, isMEV } =
     useSwapProTokenInit();
 
-  const handleSlippageChange = useCallback(
-    (item: ISwapSlippageSegmentItem) => {
-      if (item.key === ESwapSlippageSegmentKey.AUTO) {
-        setSwapProSliderValue(speedConfig?.slippage ?? 0.5);
-      } else {
-        setSwapProSliderValue(item.value);
-      }
-    },
-    [setSwapProSliderValue, speedConfig?.slippage],
-  );
   return (
     <YStack gap="$2" flex={1} justifyContent="space-between">
       <YStack gap="$2">
@@ -117,7 +101,6 @@ const SwapProTradingPanel = () => {
         <SwapProSlippageSetting
           autoDefaultValue={speedConfig?.slippage}
           isMEV={isMEV}
-          onSlippageChange={handleSlippageChange}
         />
         {swapProTradeType === ESwapProTradeType.LIMIT ? (
           <>

@@ -30,6 +30,7 @@ import type {
   ISwapNativeTokenReserveGas,
   ISwapNetwork,
   ISwapPreSwapData,
+  ISwapSlippageSegmentItem,
   ISwapStep,
   ISwapTips,
   ISwapToken,
@@ -39,6 +40,7 @@ import type {
 import {
   ESwapNetworkFeeLevel,
   ESwapProTradeType,
+  ESwapSlippageSegmentKey,
   ESwapTabSwitchType,
   LIMIT_PRICE_DEFAULT_DECIMALS,
   defaultLimitExpirationTime,
@@ -730,9 +732,6 @@ export const {
 export const { atom: swapProSellToTokenAtom, use: useSwapProSellToTokenAtom } =
   contextAtom<IToken | undefined>(undefined);
 
-export const { atom: swapProSlippageAtom, use: useSwapProSlippageAtom } =
-  contextAtom<number>(0.5);
-
 export const {
   atom: swapProTokenMarketDetailInfoAtom,
   use: useSwapProTokenMarketDetailInfoAtom,
@@ -781,3 +780,19 @@ export const {
   atom: swapProLimitPriceValueAtom,
   use: useSwapProLimitPriceValueAtom,
 } = contextAtom<string>('');
+
+export const {
+  atom: swapSpeedQuoteFetchingAtom,
+  use: useSwapSpeedQuoteFetchingAtom,
+} = contextAtom<boolean>(false);
+
+export const {
+  atom: swapSpeedQuoteResultAtom,
+  use: useSwapSpeedQuoteResultAtom,
+} = contextAtom<IFetchQuoteResult | undefined>(undefined);
+
+export const { atom: swapProSlippageAtom, use: useSwapProSlippageAtom } =
+  contextAtom<ISwapSlippageSegmentItem>({
+    key: ESwapSlippageSegmentKey.AUTO,
+    value: 0.5,
+  });
