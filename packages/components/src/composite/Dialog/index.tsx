@@ -17,12 +17,12 @@ import { setStringAsync } from 'expo-clipboard';
 import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
+import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
 import {
   AnimatePresence,
   Sheet,
   SizableText,
   TMDialog,
-  useMedia,
 } from '@onekeyhq/components/src/shared/tamagui';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
