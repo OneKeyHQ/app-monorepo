@@ -1,7 +1,6 @@
 import { useCallback, useMemo, useRef } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
-import * as ExpoDevice from 'expo-device';
 
 import {
   Page,

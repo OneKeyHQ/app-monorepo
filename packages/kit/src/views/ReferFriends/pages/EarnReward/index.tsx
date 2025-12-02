@@ -61,7 +61,7 @@ function EarnRewardPageWrapper() {
   const tools = useCallback(() => {
     const exportSubject =
       activeRewardTab === EExportTab.Earn
-        ? EExportSubject.Defi
+        ? EExportSubject.Onchain
         : EExportSubject.Perp;
     return (
       <XStack gap="$2">
