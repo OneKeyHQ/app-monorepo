@@ -1,5 +1,3 @@
-import uuid from 'react-native-uuid';
-
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
   EAppEventBusNames,
@@ -7,6 +5,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 export const withPromptPasswordVerify = async <T>({
   run,
@@ -30,23 +29,20 @@ export const withPromptPasswordVerify = async <T>({
 export const whenAppUnlocked = () => {
   return new Promise<void>((resolve) => {
     void backgroundApiProxy.serviceApp.isAppLocked().then(async (isLock) => {
+      defaultLogger.app.page.isAppLocked(isLock);
       if (!isLock) {
         resolve();
         return;
       }
-      const unlockJobId = uuid.v1().toString();
-      const callback = (
-        event: IAppEventBusPayload[EAppEventBusNames.UnlockApp],
-      ) => {
-        if (event.jobId === unlockJobId) {
-          setTimeout(() => {
-            resolve();
-          }, 100);
-          appEventBus.off(EAppEventBusNames.UnlockApp, callback);
-        }
+      const callback = () => {
+        setTimeout(() => {
+          resolve();
+        }, 100);
+        appEventBus.off(EAppEventBusNames.UnlockApp, callback);
+        defaultLogger.app.page.removeUnlockJob();
       };
+      defaultLogger.app.page.addUnlockJob();
       appEventBus.on(EAppEventBusNames.UnlockApp, callback);
-      await backgroundApiProxy.serviceApp.addUnlockJob(unlockJobId);
     });
   });
 };
