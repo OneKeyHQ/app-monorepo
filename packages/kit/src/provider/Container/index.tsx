@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 
+import * as ExpoDevice from 'expo-device';
 import { RootSiblingParent } from 'react-native-root-siblings';
 
 import {
@@ -9,6 +10,7 @@ import {
 } from '@onekeyhq/components';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   isDualScreenDevice,
   isSpanning,
@@ -97,7 +99,14 @@ const usePreCheckIsDualScreenDevice = platformEnv.isNativeAndroid
   ? () => {
       useEffect(() => {
         setTimeout(() => {
-          void Promise.all([isDualScreenDevice(), isSpanning()]);
+          defaultLogger.app.page.logDeviceType(
+            ExpoDevice.deviceType ?? ExpoDevice.DeviceType.UNKNOWN,
+          );
+          void Promise.all([isDualScreenDevice(), isSpanning()]).then(
+            ([isDual, spanning]) => {
+              defaultLogger.app.page.isDualScreenDevice(isDual, spanning);
+            },
+          );
         });
       }, []);
     }

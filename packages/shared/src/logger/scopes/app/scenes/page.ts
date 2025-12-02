@@ -4,6 +4,8 @@ import type { ENotificationPushTopicTypes } from '@onekeyhq/shared/types/notific
 import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal, LogToServer } from '../../../base/decorators';
 
+import type { DeviceType } from 'expo-device';
+
 export class PageScene extends BaseScene {
   @LogToServer()
   @LogToLocal()
@@ -82,5 +84,15 @@ export class PageScene extends BaseScene {
   @LogToLocal()
   public removeUnlockJob() {
     return {};
+  }
+
+  @LogToLocal()
+  public logDeviceType(deviceType: DeviceType) {
+    return { deviceType };
+  }
+
+  @LogToLocal()
+  public isDualScreenDevice(isTablet: boolean, isSpanning: boolean) {
+    return { isTablet, isSpanning };
   }
 }
