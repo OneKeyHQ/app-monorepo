@@ -113,7 +113,7 @@ export function AvailableAssetsTabViewList() {
   );
 
   // Load data for the selected tab
-  const { isLoading } = usePromiseResult(
+  usePromiseResult(
     async () => {
       const currentTabType = tabData[selectedTabIndex]?.type;
       if (currentTabType) {
@@ -318,6 +318,7 @@ export function AvailableAssetsTabViewList() {
       />
 
       <TableList<IEarnAvailableAsset>
+        key={`assets-tab-${selectedTabIndex}`}
         data={assets ?? []}
         columns={columns}
         keyExtractor={(asset) => asset.symbol}
@@ -327,7 +328,6 @@ export function AvailableAssetsTabViewList() {
         onPressRow={(asset) => void handleRowPress(asset)}
         mobileRenderItem={mobileRenderItem}
         enableDrillIn
-        isLoading={Boolean(isLoading && assets.length === 0)}
       />
     </YStack>
   );

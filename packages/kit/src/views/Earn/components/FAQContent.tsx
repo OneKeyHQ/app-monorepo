@@ -1,3 +1,7 @@
+import { useMemo } from 'react';
+
+import { isEmpty } from 'lodash';
+
 import {
   Accordion,
   Icon,
@@ -32,7 +36,13 @@ export function FAQContent({
 }) {
   const media = useMedia();
 
-  if (isLoading) {
+  // On large screens (desktop), expand all items by default
+  const defaultValue = useMemo(
+    () => (media.gtMd ? faqList?.map((_, index) => String(index)) : undefined),
+    [faqList, media.gtMd],
+  );
+
+  if (isLoading && isEmpty(faqList)) {
     return <FAQPanelSkeleton />;
   }
 
@@ -40,15 +50,10 @@ export function FAQContent({
     return null;
   }
 
-  // On large screens (desktop), expand all items by default
-  const defaultValue = media.gtMd
-    ? faqList.map((_, index) => String(index))
-    : undefined;
-
   return (
     <Accordion type="multiple" gap="$2" defaultValue={defaultValue}>
       {faqList.map(({ question, answer }, index) => (
-        <Accordion.Item value={String(index)} key={String(index)}>
+        <Accordion.Item value={String(index)} key={question}>
           <Accordion.Trigger
             unstyled
             flexDirection="row"
