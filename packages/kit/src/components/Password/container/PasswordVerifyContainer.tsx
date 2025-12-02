@@ -426,18 +426,8 @@ const PasswordVerifyContainer = ({
     })();
   }, []);
 
-  const loadingView = useMemo(() => {
-    return passwordEncryptorInitError ? (
-      <SizableText size="$bodyMd" color="$textCritical" textAlign="center">
-        {passwordEncryptorInitError}
-      </SizableText>
-    ) : (
-      <Spinner />
-    );
-  }, [passwordEncryptorInitError]);
-
   return (
-    <Stack onLayout={onLayout}>
+    <Stack>
       <PasswordVerify
         passwordMode={passwordMode}
         alertText={alertText}
