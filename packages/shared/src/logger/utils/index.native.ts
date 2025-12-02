@@ -17,10 +17,10 @@ import {
 import RNFS from '@onekeyhq/shared/src/modules3rdParty/react-native-fs';
 import { zip } from '@onekeyhq/shared/src/modules3rdParty/react-native-zip-archive';
 
+import { CacheResult } from '../../modules/DualScreenInfo/type';
 import platformEnv from '../../platformEnv';
 
 import type { IUtilsType } from './types';
-import { CacheResult } from '../../modules/DualScreenInfo/type';
 
 const NATIVE_LOG_DIR_PATH = `${RNFS?.CachesDirectoryPath || 'OneKey'}/logs`;
 const NATIVE_LOG_ZIP_PATH = `${RNFS?.CachesDirectoryPath || 'OneKey'}/logs_zip`;
