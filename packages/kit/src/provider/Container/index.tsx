@@ -1,6 +1,5 @@
 import { useEffect } from 'react';
 
-import * as ExpoDevice from 'expo-device';
 import { RootSiblingParent } from 'react-native-root-siblings';
 
 import {
@@ -10,7 +9,6 @@ import {
 } from '@onekeyhq/components';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   isDualScreenDevice,
   isSpanning,
