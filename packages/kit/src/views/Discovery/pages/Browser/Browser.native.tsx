@@ -154,11 +154,7 @@ function MobileBrowser() {
       if (isTabletDevice && isTabletDetailView && isLandscape) {
         return;
       }
-      // fix: iOS issue where event trigger disappears after view switching
-      // use setTimeout to ensure UI state updates properly
-      setTimeout(() => {
-        setSelectedHeaderTab(tab);
-      }, 50);
+      setSelectedHeaderTab(tab);
       setTimeout(async () => {
         await backgroundApiProxy.serviceSetting.setSelectedBrowserTab(tab);
       }, 150);
