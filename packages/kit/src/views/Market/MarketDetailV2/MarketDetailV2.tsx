@@ -1,10 +1,14 @@
 import { useCallback } from 'react';
 
 import { useFocusEffect } from '@react-navigation/native';
-import * as ExpoDevice from 'expo-device';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
-import { Page, useMedia, useOrientation } from '@onekeyhq/components';
+import {
+  Page,
+  useIsTablet,
+  useMedia,
+  useOrientation,
+} from '@onekeyhq/components';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
@@ -71,12 +75,10 @@ function MarketDetailV2(
   props: IPageScreenProps<ITabMarketParamList, ETabMarketRoutes.MarketDetailV2>,
 ) {
   const isLandscape = useOrientation();
+  const isTablet = useIsTablet();
   useFocusEffect(
     useCallback(() => {
-      if (
-        platformEnv.isExtension ||
-        (ExpoDevice.deviceType === ExpoDevice.DeviceType.TABLET && isLandscape)
-      ) {
+      if (platformEnv.isExtension || (isTablet && isLandscape)) {
         return;
       }
 
@@ -85,7 +87,7 @@ function MarketDetailV2(
       return () => {
         appEventBus.emit(EAppEventBusNames.HideTabBar, false);
       };
-    }, [isLandscape]),
+    }, [isLandscape, isTablet]),
   );
 
   return (

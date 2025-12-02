@@ -4,6 +4,9 @@ import {
   WEB_APP_URL_DEV,
 } from '@onekeyhq/shared/src/config/appConfig';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   ERootRoutes,
@@ -57,6 +60,13 @@ async function safePushToEarnRoute(
     : ETabRoutes.Earn;
 
   navigation.switchTab(targetTab);
+  if (platformEnv.isNative) {
+    void timerUtils.wait(150).then(() => {
+      appEventBus.emit(EAppEventBusNames.SwitchDiscoveryTabInNative, {
+        tab: ETranslations.global_earn,
+      });
+    });
+  }
   await timerUtils.wait(0);
 
   rootNavigationRef.current?.navigate(ERootRoutes.Main, {

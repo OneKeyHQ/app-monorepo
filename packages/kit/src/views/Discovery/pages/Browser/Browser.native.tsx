@@ -1,7 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
-import * as ExpoDevice from 'expo-device';
 import { Freeze } from 'react-freeze';
 import { BackHandler } from 'react-native';
 import Animated from 'react-native-reanimated';
@@ -12,6 +11,7 @@ import {
   Stack,
   XStack,
   YStack,
+  useIsTablet,
   useIsTabletDetailView,
   useIsTabletMainView,
   useOrientation,
@@ -132,7 +132,7 @@ const useAndroidHardwareBack = platformEnv.isNativeAndroid
   : () => {};
 
 function MobileBrowser() {
-  const isTabletDevice = ExpoDevice.deviceType === ExpoDevice.DeviceType.TABLET;
+  const isTabletDevice = useIsTablet();
   const isTabletMainView = useIsTabletMainView();
   const isTabletDetailView = useIsTabletDetailView();
   const route =
