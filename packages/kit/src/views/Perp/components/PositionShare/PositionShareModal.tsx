@@ -39,11 +39,11 @@ function ShareContent({ data, onClose, isMobile }: IShareContentProps) {
   });
 
   const {
-    referralUrl,
-    inviteCode,
+    referralQrCodeUrl,
+    referralDisplayText,
     isReady: isReferralReady,
   } = useReferralUrl();
-  const { saveImage, copyLink, shareToX } = useShareActions(referralUrl);
+  const { saveImage, copyLink, shareToX } = useShareActions(referralQrCodeUrl);
   const [isActionLoading, setIsActionLoading] = useState(false);
 
   const handleSaveImage = useCallback(async () => {
@@ -99,16 +99,16 @@ function ShareContent({ data, onClose, isMobile }: IShareContentProps) {
         ref={generatorRef}
         data={data}
         config={config}
-        referralUrl={referralUrl}
-        inviteCode={inviteCode}
+        referralQrCodeUrl={referralQrCodeUrl}
+        referralDisplayText={referralDisplayText}
         isReferralReady={isReferralReady}
       />
       <Stack justifyContent="center" alignItems="center">
         <ShareView
           data={data}
           config={config}
-          referralUrl={referralUrl}
-          inviteCode={inviteCode}
+          referralQrCodeUrl={referralQrCodeUrl}
+          referralDisplayText={referralDisplayText}
           isReferralReady={isReferralReady}
           scale={0.5}
           generatorRef={generatorRef}
@@ -133,16 +133,16 @@ function ShareContent({ data, onClose, isMobile }: IShareContentProps) {
         ref={generatorRef}
         data={data}
         config={config}
-        referralUrl={referralUrl}
-        inviteCode={inviteCode}
+        referralQrCodeUrl={referralQrCodeUrl}
+        referralDisplayText={referralDisplayText}
         isReferralReady={isReferralReady}
       />
       <Stack justifyContent="center" alignItems="center" mb="$6">
         <ShareView
           data={data}
           config={config}
-          referralUrl={referralUrl}
-          inviteCode={inviteCode}
+          referralQrCodeUrl={referralQrCodeUrl}
+          referralDisplayText={referralDisplayText}
           isReferralReady={isReferralReady}
           generatorRef={generatorRef}
         />

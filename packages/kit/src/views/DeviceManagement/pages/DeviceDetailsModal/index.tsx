@@ -38,6 +38,7 @@ import DeviceBasicInfoSection from './DeviceBasicInfoSection';
 import DeviceQrInfoSection from './DeviceQrInfoSection';
 import DeviceSpecsSection from './DeviceSpecsSection';
 
+import type { AllFirmwareRelease } from '@onekeyfe/hd-core';
 import type { EFirmwareType } from '@onekeyfe/hd-shared';
 import type { RouteProp } from '@react-navigation/native';
 
@@ -128,10 +129,11 @@ function DeviceDetailsModalCmp() {
 
   const actions = useFirmwareUpdateActions();
   const onPressCheckForUpdates = useCallback(
-    (firmwareType?: EFirmwareType) => {
+    (firmwareType?: EFirmwareType, baseReleaseInfo?: AllFirmwareRelease) => {
       actions.openChangeLogModal({
         connectId: result?.device?.connectId,
         firmwareType,
+        baseReleaseInfo,
       });
     },
     [result?.device?.connectId, actions],

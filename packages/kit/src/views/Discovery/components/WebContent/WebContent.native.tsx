@@ -12,6 +12,7 @@ import {
 import { EValidateUrlEnum } from '@onekeyhq/shared/types/dappConnection';
 
 import { webviewRefs } from '../../utils/explorerUtils';
+import { showTabBar } from '../../utils/tabBarUtils';
 import BlockAccessView from '../BlockAccessView';
 
 import type { IWebTab } from '../../types';
@@ -198,6 +199,7 @@ function WebContent({
           onCloseTab={() => {
             closeWebTab({ tabId: id, entry: 'BlockView' });
             setCurrentWebTab(null);
+            showTabBar();
           }}
           // onContinue={() => {
           //   addUrlToPhishingCache({ url: phishingUrlRef.current });
