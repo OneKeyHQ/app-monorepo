@@ -380,7 +380,9 @@ function MobileBrowser() {
             <Stack display={showDiscoveryPage ? 'flex' : 'none'}>
               <DashboardContent onScroll={handleScroll} />
             </Stack>
-            <Freeze freeze={showDiscoveryPage}>{content}</Freeze>
+            {!isTabletMainView ? (
+              <Freeze freeze={showDiscoveryPage}>{content}</Freeze>
+            ) : null}
           </Stack>
           <Freeze freeze={!displayBottomBar}>
             <Animated.View
