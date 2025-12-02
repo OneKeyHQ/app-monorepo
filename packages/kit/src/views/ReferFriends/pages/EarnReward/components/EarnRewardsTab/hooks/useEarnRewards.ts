@@ -47,7 +47,7 @@ export function useEarnRewards(filterState: IFilterState) {
     if (salesResult.status === 'fulfilled') {
       const data = salesResult.value;
       listBundles[0] = data.items?.length ? data.items : [];
-      pending = BigNumber(data.fiatValue).toFixed(2) || '0';
+      pending = BigNumber(data.fiatValue).toFixed() || '0';
     }
     if (totalResult.status === 'fulfilled') {
       const data = totalResult.value;

@@ -3,10 +3,8 @@ import { createRef, useEffect } from 'react';
 
 import { useWindowDimensions } from 'react-native';
 
-import {
-  ToastProvider,
-  useMedia,
-} from '@onekeyhq/components/src/shared/tamagui';
+import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
+import { ToastProvider } from '@onekeyhq/components/src/shared/tamagui';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors/errors/localError';
 import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import type { ETranslations } from '@onekeyhq/shared/src/locale';

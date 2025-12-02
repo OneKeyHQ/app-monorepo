@@ -14,9 +14,14 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { FormatHyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
-import { REFERRAL_HELP_LINK } from '@onekeyhq/shared/src/config/appConfig';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
+import {
+  REFERRAL_HELP_LINK,
+  buildReferralUrl,
+} from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import type { IInvitePostConfig } from '@onekeyhq/shared/src/referralCode/type';
 import {
   ERootRoutes,
   ETabReferFriendsRoutes,
@@ -24,6 +29,7 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import type { IEndpointEnv } from '@onekeyhq/shared/types/endpoint';
 
 import useAppNavigation from './useAppNavigation';
 import { useLoginOneKeyId } from './useLoginOneKeyId';
@@ -66,6 +72,13 @@ export const useReferFriends = () => {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const { loginOneKeyId } = useLoginOneKeyId();
+  const [devSettings] = useDevSettingsPersistAtom();
+
+  const env: IEndpointEnv = useMemo(() => {
+    const useTestEnv =
+      devSettings.enabled && devSettings.settings?.enableTestEndpoint;
+    return useTestEnv ? 'test' : 'prod';
+  }, [devSettings.enabled, devSettings.settings?.enableTestEndpoint]);
 
   const toInviteRewardPage = useCallback(async () => {
     const isLogin = await backgroundApiProxy.servicePrime.isLoggedIn();
@@ -101,18 +114,35 @@ export const useReferFriends = () => {
       _onSuccess?: () => void,
       _onFail?: () => void,
       source: 'Earn' | 'Perps' = 'Earn',
+      copyAsUrl = false,
     ) => {
       const isLogin = await backgroundApiProxy.servicePrime.isLoggedIn();
       const myReferralCode =
         await backgroundApiProxy.serviceReferralCode.getMyReferralCode();
 
-      const postConfig =
+      const postConfig: IInvitePostConfig | undefined =
         await backgroundApiProxy.serviceReferralCode.getPostConfig();
 
-      const sourceConfig =
-        source === 'Perps' && postConfig.locales.Perps
+      const sourceConfig: IInvitePostConfig['locales']['Earn'] =
+        source === 'Perps' && postConfig?.locales.Perps
           ? postConfig.locales.Perps
-          : postConfig.locales.Earn;
+          : postConfig?.locales.Earn ?? {
+              title: '',
+              subtitle: '',
+              for_you: { title: '', subtitle: '' },
+              for_your_friend: { title: '', subtitle: '' },
+            };
+
+      const getReferralUrl = (code: string) =>
+        buildReferralUrl({
+          code,
+          source,
+          env,
+        });
+
+      const copyContent = copyAsUrl
+        ? getReferralUrl(myReferralCode)
+        : myReferralCode;
 
       const handleConfirm = () => {
         if (isLogin) {
@@ -128,7 +158,7 @@ export const useReferFriends = () => {
       };
       const dialog = Dialog.show({
         icon: 'GiftOutline',
-        title: sourceConfig.title,
+        title: sourceConfig?.title,
         description: (
           <FormatHyperlinkText
             size="$bodyMd"
@@ -137,17 +167,25 @@ export const useReferFriends = () => {
               void dialog.close();
             }}
           >
-            {sourceConfig.subtitle}
+            {sourceConfig?.subtitle}
           </FormatHyperlinkText>
         ),
         renderContent: isLogin ? (
           <YStack gap="$5">
-            <YStack gap="$1">
+            <YStack gap="$2">
               <SizableText size="$bodyMdMedium">
                 {intl.formatMessage({ id: ETranslations.referral_your_code })}
               </SizableText>
-              <XStack gap="$3" ai="center">
-                <SizableText size="$headingXl">{myReferralCode}</SizableText>
+              <XStack
+                gap="$3"
+                bg="$bgStrong"
+                borderRadius="$2"
+                px="$2"
+                py="$1.5"
+                justifyContent="space-between"
+                alignItems="center"
+              >
+                <SizableText size="$bodyLgMedium">{myReferralCode}</SizableText>
                 <IconButton
                   title={intl.formatMessage({ id: ETranslations.global_copy })}
                   variant="tertiary"
@@ -161,6 +199,47 @@ export const useReferFriends = () => {
                 />
               </XStack>
             </YStack>
+
+            {copyAsUrl ? (
+              <YStack gap="$2">
+                <SizableText size="$bodyMdMedium">
+                  {intl.formatMessage({
+                    id: ETranslations.referral_referral_link,
+                  })}
+                </SizableText>
+                <XStack
+                  gap="$3"
+                  bg="$bgStrong"
+                  borderRadius="$2"
+                  px="$2"
+                  py="$1.5"
+                  justifyContent="space-between"
+                  alignItems="center"
+                >
+                  <SizableText
+                    size="$bodyLgMedium"
+                    numberOfLines={1}
+                    flexShrink={1}
+                  >
+                    {copyContent}
+                  </SizableText>
+                  <IconButton
+                    title={intl.formatMessage({
+                      id: ETranslations.global_copy,
+                    })}
+                    variant="tertiary"
+                    icon="Copy3Outline"
+                    size="small"
+                    iconColor="$iconSubdued"
+                    flexShrink={0}
+                    onPress={() => {
+                      copyText(copyContent);
+                      defaultLogger.referral.page.copyReferralCode();
+                    }}
+                  />
+                </XStack>
+              </YStack>
+            ) : null}
           </YStack>
         ) : (
           <YStack gap="$5">
@@ -170,10 +249,10 @@ export const useReferFriends = () => {
               </XStack>
               <YStack flexShrink={1}>
                 <SizableText size="$headingMd">
-                  {sourceConfig.for_you.title}
+                  {sourceConfig?.for_you?.title}
                 </SizableText>
                 <SizableText mt="$1" size="$bodyMd" color="$textSubdued">
-                  {sourceConfig.for_you.subtitle}
+                  {sourceConfig?.for_you?.subtitle}
                 </SizableText>
               </YStack>
             </XStack>
@@ -183,10 +262,10 @@ export const useReferFriends = () => {
               </XStack>
               <YStack flexShrink={1}>
                 <SizableText size="$headingMd">
-                  {sourceConfig.for_your_friend.title}
+                  {sourceConfig?.for_your_friend?.title}
                 </SizableText>
                 <SizableText mt="$1" size="$bodyMd" color="$textSubdued">
-                  {sourceConfig.for_your_friend.subtitle}
+                  {sourceConfig?.for_your_friend?.subtitle}
                 </SizableText>
               </YStack>
             </XStack>
@@ -209,7 +288,7 @@ export const useReferFriends = () => {
         onConfirm: handleConfirm,
       });
     },
-    [copyText, intl, loginOneKeyId, navigation],
+    [copyText, intl, loginOneKeyId, navigation, env],
   );
 
   return useMemo(

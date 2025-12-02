@@ -5,7 +5,11 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { ReferralBenefitsList } from '../../../components';
 
-function InvitedByFriendContent() {
+function InvitedByFriendContent({
+  referralCode,
+}: {
+  referralCode?: string;
+}) {
   const intl = useIntl();
 
   const benefits = [
@@ -26,9 +30,14 @@ function InvitedByFriendContent() {
   return (
     <Stack mx="auto" gap="$10" px="$5" mt="$4">
       <ReferralBenefitsList
-        title={intl.formatMessage({
-          id: ETranslations.referral_modal_been_invited_title,
-        })}
+        title={intl.formatMessage(
+          {
+            id: referralCode
+              ? ETranslations.referral_modal_been_invited_title_code
+              : ETranslations.referral_modal_been_invited_title,
+          },
+          { ABCDEF: referralCode },
+        )}
         subtitle={intl.formatMessage({
           id: ETranslations.referral_modal_been_invited_desc,
         })}

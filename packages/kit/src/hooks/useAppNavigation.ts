@@ -1,7 +1,6 @@
 import { useCallback, useMemo, useRef } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
-import * as ExpoDevice from 'expo-device';
 
 import {
   Page,
@@ -85,7 +84,6 @@ function useAppNavigation<
     | IPageNavigationProp<any>
     | IModalNavigationProp<any> = IPageNavigationProp<any>,
 >() {
-  const isTablet = ExpoDevice.deviceType === ExpoDevice.DeviceType.TABLET;
   const navigation = useNavigation<P>();
   const navigationRef = useRef(navigation);
   const isTabletMainView = useIsTabletMainView();

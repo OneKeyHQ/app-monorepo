@@ -1,0 +1,89 @@
+diff --git a/node_modules/@tamagui/web/dist/cjs/hooks/useMedia.native.js b/node_modules/@tamagui/web/dist/cjs/hooks/useMedia.native.js
+index 47addac..4e90132 100644
+--- a/node_modules/@tamagui/web/dist/cjs/hooks/useMedia.native.js
++++ b/node_modules/@tamagui/web/dist/cjs/hooks/useMedia.native.js
+@@ -160,11 +160,83 @@ function unlisten() {
+   }), dispose.clear();
+ }
+ var setupVersion = -1;
++
++let isDualScreenDevice = false;
++
++const DualScreenInfoNative = require('react-native').NativeModules.DualScreenInfo;
++
++const ScreenOrientation = require('expo-screen-orientation');
++
++const ExpoDevice = require('expo-device');
++
++
++if (DualScreenInfoNative && DualScreenInfoNative.isDualScreenDevice) {
++  DualScreenInfoNative.isDualScreenDevice().then((result) => {
++    isDualScreenDevice = result;
++  });
++}
++
++function checkTabletSplitView(callback) {
++  if (isDualScreenDevice) {
++    DualScreenInfoNative.isSpanning().then((result) => {
++      callback(!!result);
++    });
++  } else if (ExpoDevice.deviceType === ExpoDevice.DeviceType.TABLET) {
++    ScreenOrientation.getOrientationAsync().then((result) => {
++      callback(result === ScreenOrientation.Orientation.LANDSCAPE_LEFT || result === ScreenOrientation.Orientation.LANDSCAPE_RIGHT);
++    });
++  } else {
++    callback(false);
++  }
++}
++
+ function setupMediaListeners() {
+   var _loop = function(key2) {
+     var update = function() {
+       var next = !!getMatch().matches;
+-      next !== mediaState[key2] && (mediaState = _object_spread_props(_object_spread({}, mediaState), _define_property({}, key2, next)), updateCurrentState());
++      checkTabletSplitView((isSplitView) => {
++        if (isSplitView) {
++           switch (key2) {
++            case 'sm':
++              next = true;
++              break;
++            case 'gtSm':
++              next = true;
++              break;
++            case 'md':
++              next = true;
++              break;
++            case 'gtMd':
++              next = false;
++              break;
++            case '2md':
++              next = false;
++              break;
++            case 'gt2md':
++              next = false;
++              break;
++            case 'lg':
++              next = false;
++              break;
++            case 'gtLg':
++              next = false;
++              break;
++            case 'xl':
++              next = false;
++              break;
++            case 'gtXl':
++              next = false;
++              break;
++            case '2xl':
++              next = false;
++              break;
++            case 'gt2xl':
++              next = false;
++              break;
++           }
++        }
++        next !== mediaState[key2] && (mediaState = _object_spread_props(_object_spread({}, mediaState), _define_property({}, key2, next)), updateCurrentState());
++      })
+     }, str = mediaObjectToString(mediaQueryConfig[key2], key2), getMatch = function() {
+       return (0, import_matchMedia.matchMedia)(str);
+     }, match = getMatch();

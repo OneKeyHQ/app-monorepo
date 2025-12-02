@@ -6,14 +6,14 @@ import {
   useState,
 } from 'react';
 
-import * as ExpoDevice from 'expo-device';
 import { useWindowDimensions } from 'react-native';
 
+import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { useAppSideBarStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useMedia } from '../../hooks';
+import { useIsTablet, useOrientation } from '../../hooks';
 import { MAX_SIDEBAR_WIDTH, MIN_SIDEBAR_WIDTH } from '../../utils/sidebar';
 
 import { useTabNameContext as useNativeTabNameContext } from './TabNameContext';
@@ -74,10 +74,13 @@ export * from './useCurrentTabScrollY';
 
 export const useTabContainerWidth = platformEnv.isNative
   ? () => {
-      const isTablet = ExpoDevice.deviceType === ExpoDevice.DeviceType.TABLET;
+      const isTablet = useIsTablet();
+      const isLandscape = useOrientation();
       const { width, height } = useWindowDimensions();
       if (isTablet) {
-        return Math.max(width, height) / 2;
+        return isLandscape
+          ? Math.max(width, height) / 2
+          : Math.min(width, height);
       }
       return Math.min(width, height);
     }
