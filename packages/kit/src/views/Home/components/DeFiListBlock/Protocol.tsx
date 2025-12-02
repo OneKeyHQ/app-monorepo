@@ -1,6 +1,10 @@
+import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
+
 import {
   Accordion,
   Badge,
+  Divider,
   Icon,
   IconButton,
   NumberSizeableText,
@@ -8,13 +12,56 @@ import {
   View,
   XStack,
 } from '@onekeyhq/components';
-import type { IDeFiPosition } from '@onekeyhq/shared/types/defi';
 import { Token } from '@onekeyhq/kit/src/components/Token';
-import { useIntl } from 'react-intl';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
-import openUrlUtils from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { StyleSheet } from 'react-native';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import type { IDeFiPosition } from '@onekeyhq/shared/types/defi';
+
+import { RichTable } from '../RichTable';
+
+export const userData = [
+  {
+    id: '1',
+    name: 'Alice Johnson',
+    email: 'alice@example.com',
+    age: 28,
+    status: 'active',
+  },
+  {
+    id: '2',
+    name: 'Bob Smith',
+    email: 'bob@example.com',
+    age: 34,
+    status: 'inactive',
+  },
+  {
+    id: '3',
+    name: 'Charlie Brown',
+    email: 'charlie@example.com',
+    age: 22,
+    status: 'active',
+  },
+];
+
+const columns = [
+  {
+    title: appLocale.intl.formatMessage({ id: ETranslations.global_asset }),
+    dataIndex: 'asset',
+  },
+  {
+    title: 'Type',
+    dataIndex: 'type',
+  },
+  {
+    title: 'Amount',
+    dataIndex: 'amount',
+  },
+  {
+    title: 'USD Value',
+    dataIndex: 'usd-value',
+  },
+];
 
 function Protocol() {
   const intl = useIntl();
@@ -96,27 +143,32 @@ function Protocol() {
             </>
           )}
         </Accordion.Trigger>
-        <Accordion.HeightAnimator animation="quick">
-          <Accordion.Content
-            animation="quick"
-            exitStyle={{ opacity: 0 }}
-            py="$2"
-            px="$5"
+        <Accordion.Content exitStyle={{ opacity: 0 }} py="$2">
+          <XStack
+            alignItems="center"
+            justifyContent="space-between"
+            pl="$1"
+            pr="$3"
+            py="$3"
           >
-            <XStack alignItems="center" justifyContent="space-between">
-              <Badge badgeType="success" badgeSize="lg" ml="$-2">
-                <Badge.Text>Liquidity</Badge.Text>
-              </Badge>
-              <NumberSizeableText
-                size="$headingSm"
-                formatter="value"
-                formatterOptions={{ currency: settings.currencyInfo.symbol }}
-              >
-                333
-              </NumberSizeableText>
-            </XStack>
-          </Accordion.Content>
-        </Accordion.HeightAnimator>
+            <Badge badgeType="success" badgeSize="lg">
+              <Badge.Text>Liquidity</Badge.Text>
+            </Badge>
+            <NumberSizeableText
+              size="$headingSm"
+              formatter="value"
+              formatterOptions={{ currency: settings.currencyInfo.symbol }}
+            >
+              333
+            </NumberSizeableText>
+          </XStack>
+          <RichTable
+            dataSource={userData}
+            columns={columns}
+            keyExtractor={(item) => item.id}
+            estimatedItemSize={48}
+          />
+        </Accordion.Content>
       </Accordion.Item>
     </Accordion>
   );
