@@ -5,6 +5,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 export const withPromptPasswordVerify = async <T>({
   run,
@@ -28,6 +29,7 @@ export const withPromptPasswordVerify = async <T>({
 export const whenAppUnlocked = () => {
   return new Promise<void>((resolve) => {
     void backgroundApiProxy.serviceApp.isAppLocked().then(async (isLock) => {
+      defaultLogger.app.page.isAppLocked(isLock);
       if (!isLock) {
         resolve();
         return;
@@ -37,7 +39,9 @@ export const whenAppUnlocked = () => {
           resolve();
         }, 100);
         appEventBus.off(EAppEventBusNames.UnlockApp, callback);
+        defaultLogger.app.page.removeUnlockJob();
       };
+      defaultLogger.app.page.addUnlockJob();
       appEventBus.on(EAppEventBusNames.UnlockApp, callback);
     });
   });
