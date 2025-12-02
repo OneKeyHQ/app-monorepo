@@ -1,11 +1,10 @@
-import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 export const withPromptPasswordVerify = async <T>({
   run,
