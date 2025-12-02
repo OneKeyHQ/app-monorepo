@@ -1,6 +1,11 @@
-import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
-
-import { useIntl } from 'react-intl';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import {
   Page,
@@ -93,10 +98,20 @@ function BasicEarnHome({
       tx.stakingInfo.label,
     );
   }, []);
-  useStakingPendingTxsByInfo({
+  const { filteredTxs } = useStakingPendingTxsByInfo({
     filter: pendingTxsFilter,
-    onRefresh: refreshEarnDataRaw,
   });
+  const isPending = useMemo(() => {
+    return filteredTxs.length > 0;
+  }, [filteredTxs]);
+  const previousIsPendingRef = useRef(isPending);
+
+  useEffect(() => {
+    if (previousIsPendingRef.current && !isPending) {
+      void refreshEarnDataRaw();
+    }
+    previousIsPendingRef.current = isPending;
+  }, [isPending, refreshEarnDataRaw]);
 
   const refreshEarnData = useCallback(async () => {
     await backgroundApiProxy.serviceStaking.clearAvailableAssetsCache();

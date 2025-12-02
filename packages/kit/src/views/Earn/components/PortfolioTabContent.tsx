@@ -1,4 +1,12 @@
-import { createContext, memo, useCallback, useContext, useMemo } from 'react';
+import {
+  createContext,
+  memo,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+} from 'react';
 
 import { isEmpty } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -117,7 +125,6 @@ const WrappedActionButtonCmp = ({
     networkId: asset.metadata.network.networkId,
     provider: asset.metadata.protocol.providerDetail.code,
     symbols,
-    onRefresh,
   });
 
   // const [isPending, setIsPending] = useState(false);
@@ -128,6 +135,14 @@ const WrappedActionButtonCmp = ({
         tx.stakingInfo.tags?.includes(stakeTag),
     );
   }, [pendingTxs, stakeTag]);
+  const prevPending = useRef(isPending);
+
+  useEffect(() => {
+    if (prevPending.current && !isPending) {
+      void handleActionSuccess();
+    }
+    prevPending.current = isPending;
+  }, [isPending, handleActionSuccess]);
 
   const { loading, handleAction } = usePortfolioAction({
     accountId: account?.id || '',
