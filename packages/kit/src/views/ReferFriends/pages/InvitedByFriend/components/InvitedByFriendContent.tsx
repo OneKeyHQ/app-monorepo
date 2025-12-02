@@ -5,11 +5,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { ReferralBenefitsList } from '../../../components';
 
-function InvitedByFriendContent({
-  referralCode,
-}: {
-  referralCode?: string;
-}) {
+function InvitedByFriendContent({ referralCode }: { referralCode?: string }) {
   const intl = useIntl();
 
   const benefits = [
