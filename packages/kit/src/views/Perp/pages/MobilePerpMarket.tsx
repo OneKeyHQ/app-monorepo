@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo } from 'react';
 
-import * as ExpoDevice from 'expo-device';
 import { useIntl } from 'react-intl';
 
 import {
@@ -12,6 +11,7 @@ import {
   Tabs,
   XStack,
   YStack,
+  useIsTablet,
   useOrientation,
 } from '@onekeyhq/components';
 import { usePerpsActiveAssetAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -94,9 +94,10 @@ function MobilePerpMarket() {
     );
   }, [coin, themeVariant, onPressTokenSelector, onPageGoBack, intl]);
 
+  const isTablet = useIsTablet();
   const isLandscape = useOrientation();
   useEffect(() => {
-    if (ExpoDevice.deviceType === ExpoDevice.DeviceType.TABLET && isLandscape) {
+    if (isTablet && isLandscape) {
       return;
     }
     appEventBus.emit(EAppEventBusNames.HideTabBar, true);
@@ -104,7 +105,7 @@ function MobilePerpMarket() {
     return () => {
       appEventBus.emit(EAppEventBusNames.HideTabBar, false);
     };
-  }, [isLandscape]);
+  }, [isLandscape, isTablet]);
 
   const pageHeader = useMemo(
     () => <Page.Header headerLeft={renderHeaderTitle} />,
