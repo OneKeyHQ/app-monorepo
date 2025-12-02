@@ -1,4 +1,12 @@
-import { createContext, memo, useCallback, useContext, useMemo } from 'react';
+import {
+  createContext,
+  memo,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+} from 'react';
 
 import { isEmpty } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -38,12 +46,13 @@ import { PendingIndicator } from '../../Staking/components/StakingActivityIndica
 import { buildLocalTxStatusSyncId } from '../../Staking/utils/utils';
 import { EarnNavigation } from '../earnUtils';
 import { usePortfolioAction } from '../hooks/usePortfolioAction';
-import { useProtocolMultiTokenPendingTxs } from '../hooks/useStakingPendingTxs';
+import { useStakingPendingTxsByInfo } from '../hooks/useStakingPendingTxs';
 
 import type {
   IRefreshOptions,
   IUseEarnPortfolioReturn,
 } from '../hooks/useEarnPortfolio';
+import type { IStakePendingTx } from '../hooks/useStakingPendingTxs';
 
 type IPortfolioPendingTxsContext = {
   onRefresh?: (options?: IRefreshOptions) => Promise<void>;
@@ -112,22 +121,29 @@ const WrappedActionButtonCmp = ({
     tokenSymbol: symbolForConfig,
   });
 
-  const symbols = useMemo(() => [symbolForConfig], [symbolForConfig]);
-  const { allTxs: pendingTxs = [] } = useProtocolMultiTokenPendingTxs({
-    networkId: asset.metadata.network.networkId,
-    provider: asset.metadata.protocol.providerDetail.code,
-    symbols,
-    onRefresh,
+  const pendingTxsFilter = useCallback(
+    (tx: IStakePendingTx) => {
+      return (
+        [EEarnLabels.Claim].includes(tx.stakingInfo.label) &&
+        tx.stakingInfo.tags?.includes(stakeTag)
+      );
+    },
+    [stakeTag],
+  );
+  const { filteredTxs: pendingTxs = [] } = useStakingPendingTxsByInfo({
+    filter: pendingTxsFilter,
   });
-
-  // const [isPending, setIsPending] = useState(false);
   const isPending = useMemo(() => {
-    return pendingTxs.some(
-      (tx) =>
-        tx.stakingInfo.label === EEarnLabels.Claim &&
-        tx.stakingInfo.tags?.includes(stakeTag),
-    );
-  }, [pendingTxs, stakeTag]);
+    return pendingTxs.length > 0;
+  }, [pendingTxs]);
+  const previousIsPendingRef = useRef(isPending);
+
+  useEffect(() => {
+    if (previousIsPendingRef.current && !isPending) {
+      void handleActionSuccess();
+    }
+    previousIsPendingRef.current = isPending;
+  }, [isPending, handleActionSuccess]);
 
   const { loading, handleAction } = usePortfolioAction({
     accountId: account?.id || '',
