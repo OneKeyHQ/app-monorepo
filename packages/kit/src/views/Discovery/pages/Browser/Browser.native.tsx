@@ -225,6 +225,7 @@ function MobileBrowser() {
       return;
     }
     const listener = (event: { tab: ETranslations }) => {
+      alert(event.tab);
       void handleChangeHeaderTab(event.tab);
     };
     appEventBus.on(EAppEventBusNames.SwitchDiscoveryTabInNative, listener);
@@ -434,7 +435,6 @@ function MobileBrowser() {
             sceneName={EAccountSelectorSceneName.home}
             tabRoute={ETabRoutes.Discovery}
             selectedHeaderTab={selectedHeaderTab}
-            onSelectHeaderTab={handleChangeHeaderTab}
           />
         </YStack>
       ) : null}
