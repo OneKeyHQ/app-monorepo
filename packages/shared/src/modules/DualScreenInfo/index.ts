@@ -20,5 +20,4 @@ const DualScreenInfo = {
 export default DualScreenInfo;
 
 export { useDualScreenInfo } from './useDualScreenInfo';
-export type { IDualScreenInfoRect, ISpanningEvent } from './DualScreenInfo';
-export type { IUseDualScreenInfoResult } from './useDualScreenInfo';
+export type { IUseDualScreenInfoResult } from './type';

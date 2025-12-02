@@ -55,7 +55,7 @@ function unregisterAccountDataUpdateFetcher(fetcher: () => void) {
   }
 }
 
-interface IRefreshOptions {
+export interface IRefreshOptions {
   provider?: string;
   networkId?: string;
   symbol?: string;

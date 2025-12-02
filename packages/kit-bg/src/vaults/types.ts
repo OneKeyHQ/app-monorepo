@@ -412,6 +412,7 @@ type IHwAllNetworkPrepareAccountsItemErrorPayload = {
   errorCode: string | number; // TODO use code instead
   connectId: string;
   deviceId: string;
+  params?: any;
 };
 
 type IHwAllNetworkPrepareAccountsItemCommon = {
