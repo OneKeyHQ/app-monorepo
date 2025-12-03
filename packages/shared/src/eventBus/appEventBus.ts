@@ -398,6 +398,7 @@ export interface IAppEventBusPayload {
   };
   [EAppEventBusNames.SwitchDiscoveryTabInNative]: {
     tab: ETranslations.global_browser | ETranslations.global_earn;
+    openUrl?: boolean;
   };
   [EAppEventBusNames.SwitchTabBar]: {
     route: ETabRoutes;
