@@ -129,11 +129,11 @@ export function NavigationContainer(props: IBasicNavigationContainerProps) {
   );
 }
 
-export const switchTab = (
-  route: ETabRoutes,
+export const switchTab = <T extends ETabRoutes>(
+  route: T,
   params?: {
-    screen: keyof ITabStackParamList[ETabRoutes];
-    params?: ITabStackParamList[ETabRoutes][keyof ITabStackParamList[ETabRoutes]];
+    screen: keyof ITabStackParamList[T];
+    params?: ITabStackParamList[T][keyof ITabStackParamList[T]];
   },
 ) => {
   setTimeout(() => {
