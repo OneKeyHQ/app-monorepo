@@ -55,6 +55,11 @@ import type {
 } from '../hooks/useEarnPortfolio';
 import type { IStakePendingTx } from '../hooks/useStakingPendingTxs';
 
+const useIsDesktopLayout = () => {
+  const media = useMedia();
+  return !platformEnv.isNative && media.gtSm;
+};
+
 type IPortfolioPendingTxsContext = {
   onRefresh?: (options?: IRefreshOptions) => Promise<void>;
 };
@@ -186,8 +191,7 @@ const WrappedActionButtonCmp = ({
     rewardSymbol,
   ]);
 
-  const media = useMedia();
-  const isDesktopLayout = !platformEnv.isNative && media.gtSm;
+  const isDesktopLayout = useIsDesktopLayout();
   if (!isDesktopLayout) {
     return (
       <Button
@@ -445,7 +449,7 @@ const ProtocolAirdrop = ({
   airdropRenderMode?: 'firstOnly' | 'all' | 'exceptFirst';
 }) => {
   const media = useMedia();
-  const isDesktopLayout = !platformEnv.isNative && media.gtSm;
+  const isDesktopLayout = useIsDesktopLayout();
   return (
     <YStack px="$5" my="$2" $gtSm={{ my: 0 }}>
       <XStack ai="center">
@@ -559,8 +563,7 @@ const PortfolioItemComponent = ({
   onRefresh?: (options?: IRefreshOptions) => Promise<void>;
 }) => {
   const intl = useIntl();
-  const media = useMedia();
-  const isDesktopLayout = !platformEnv.isNative && media.gtSm;
+  const isDesktopLayout = useIsDesktopLayout();
   // Get provider and networkId from first asset or first airdrop asset
   const firstAsset = portfolioItem.assets[0] || portfolioItem.airdropAssets[0];
 
@@ -823,8 +826,7 @@ const PortfolioItem = memo(PortfolioItemComponent);
 
 // Skeleton component for loading state
 const PortfolioSkeletonItem = () => {
-  const media = useMedia();
-  const isDesktopLayout = !platformEnv.isNative && media.gtSm;
+  const isDesktopLayout = useIsDesktopLayout();
   return (
     <YStack gap="$2" px="$5">
       {/* Protocol Header */}
