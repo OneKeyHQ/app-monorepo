@@ -92,7 +92,7 @@ export function SwapPanel({
     }
   };
 
-  if (platformEnv.isNative ? media.md : media.lg) {
+  if (platformEnv.isNative || media.lg) {
     return (
       <View p="$3">
         <Button size="large" variant="primary" onPress={() => showSwapDialog()}>
