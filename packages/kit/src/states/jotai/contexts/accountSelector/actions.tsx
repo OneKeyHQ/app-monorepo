@@ -1,7 +1,7 @@
 import { useRef } from 'react';
 
 import { Semaphore } from 'async-mutex';
-import { cloneDeep, isEqual, isUndefined, omitBy } from 'lodash';
+import { cloneDeep, isEmpty, isEqual, isUndefined, omitBy } from 'lodash';
 
 import type { IDialogInstance } from '@onekeyhq/components';
 import { Dialog, Toast } from '@onekeyhq/components';
@@ -359,11 +359,15 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           if (
             sceneInfo?.sceneName === EAccountSelectorSceneName.discover &&
             sceneInfo?.sceneUrl?.startsWith('https://pancakeswap.finance') &&
-            (!newSelectedAccount?.deriveType || oldSelectedAccount?.deriveType)
+            (!newSelectedAccount?.deriveType || !oldSelectedAccount?.deriveType)
           ) {
-            alert('deriveType is undefined');
-            alert(JSON.stringify(newSelectedAccount));
-            alert(JSON.stringify(oldSelectedAccount));
+            // alert(
+            //   `
+            //   deriveType is undefined\n\n\n
+            //   newSelectedAccount: \n${JSON.stringify(newSelectedAccount)} \n\n
+            //   oldSelectedAccount: \n${JSON.stringify(oldSelectedAccount)}
+            //   `,
+            // );
           }
         }
 
@@ -373,6 +377,10 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             omitBy(newSelectedAccount, isUndefined),
           )
         ) {
+          return;
+        }
+
+        if (isEmpty(newSelectedAccount)) {
           return;
         }
 
