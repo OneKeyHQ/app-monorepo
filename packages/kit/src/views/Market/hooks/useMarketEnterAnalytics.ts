@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 
 import { useRoute } from '@react-navigation/native';
+import { debounce } from 'lodash';
 
 import {
   EAppEventBusNames,
@@ -48,12 +49,11 @@ export function useMarketEnterAnalytics(params?: {
 
 export function useMarketHomePageEnterAnalytics() {
   useEffect(() => {
-    const listener = (payload: { from: EEnterWay }) => {
-      console.log('useMarketHomePageEnterAnalytics', payload);
+    const listener = debounce((payload: { from: EEnterWay }) => {
       defaultLogger.dex.enter.dexEnter({
         enterWay: payload.from,
       });
-    };
+    }, 50);
     appEventBus.on(EAppEventBusNames.MarketHomePageEnter, listener);
     return () => {
       appEventBus.off(EAppEventBusNames.MarketHomePageEnter, listener);
