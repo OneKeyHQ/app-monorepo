@@ -256,7 +256,7 @@ function MobileBrowser() {
     return () => {
       appEventBus.off(EAppEventBusNames.SwitchDiscoveryTabInNative, listener);
     };
-  }, [handleChangeHeaderTab, navigation]);
+  }, [handleChangeHeaderTab]);
 
   // For risk detection
   useEffect(() => {
