@@ -113,6 +113,10 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
   } = usePromiseResult(
     async () => {
       if (!selectedAccount?.focusedWallet || !usedDeriveType) {
+        defaultLogger.accountSelector.listData.listDataMissingParams({
+          focusedWallet: selectedAccount?.focusedWallet,
+          deriveType: usedDeriveType,
+        });
         return Promise.resolve(undefined);
       }
       // await timerUtils.wait(1000);
@@ -147,6 +151,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
       },
     },
   );
+
   const sectionDataOriginal = useMemo(
     () => listDataResult?.sectionData || [],
     [listDataResult?.sectionData],
