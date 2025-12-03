@@ -135,7 +135,7 @@ const WithdrawPage = () => {
           isInModalContext
           accountAddress={protocolInfo?.earnAccount?.accountAddress || ''}
           price={price}
-          decimals={token?.decimals}
+          decimals={protocolInfo?.protocolInputDecimals ?? token?.decimals}
           balance={balance}
           accountId={accountId}
           networkId={networkId}

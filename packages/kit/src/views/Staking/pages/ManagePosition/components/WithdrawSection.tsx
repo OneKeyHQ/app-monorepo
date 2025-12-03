@@ -128,7 +128,7 @@ export const WithdrawSection = ({
     <UniversalWithdraw
       accountAddress={protocolInfo?.earnAccount?.accountAddress || ''}
       price={tokenInfo?.price ? String(tokenInfo.price) : '0'}
-      decimals={token?.decimals}
+      decimals={protocolInfo?.protocolInputDecimals ?? token?.decimals}
       balance={protocolInfo?.activeBalance || '0'}
       accountId={accountId}
       networkId={networkId}
