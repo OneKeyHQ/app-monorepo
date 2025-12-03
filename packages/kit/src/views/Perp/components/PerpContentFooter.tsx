@@ -17,7 +17,7 @@ export function PerpContentFooter() {
   const { gtSm } = useMedia();
   const { poweredByHyperliquidLogo } = usePerpsLogo();
 
-  if (gtSm && !platformEnv.isWebDappMode) {
+  if (!platformEnv.isNative && !platformEnv.isWebDappMode && gtSm) {
     return (
       <Page.Footer>
         <XStack

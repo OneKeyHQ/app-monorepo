@@ -257,7 +257,7 @@ export function DeriveTypeSelectorTriggerIconRenderer({
         size="$4.5"
         {...iconProps}
       />
-      {!platformEnv.isNativeAndroid && media.gtSm && autoShowLabel ? (
+      {media.gtSm && autoShowLabel ? (
         <SizableText
           pl="$2"
           pr="$1"
