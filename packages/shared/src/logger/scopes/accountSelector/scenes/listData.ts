@@ -1,5 +1,9 @@
-import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
+import type {
+  IAccountSelectorSelectedAccount,
+  IAccountSelectorSelectedAccountsMap,
+} from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
+import type { IConnectionAccountInfo } from '@onekeyhq/shared/types/dappConnection';
 
 import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal } from '../../../base/decorators';
@@ -80,6 +84,54 @@ export class AccountSelectorListDataScene extends BaseScene {
     isDbWalletFromParams: boolean;
     walletId: string;
     resultAccountsLength: number;
+  }) {
+    return params;
+  }
+
+  @LogToLocal()
+  public simpleDbSelectedAccountsMap(params: {
+    selectedAccountsMap: IAccountSelectorSelectedAccountsMap | undefined;
+  }) {
+    return params;
+  }
+
+  @LogToLocal()
+  public simpleDbDappConnectionSelectedAccountsMap(params: {
+    connectionMap:
+      | {
+          [x: number]: IConnectionAccountInfo;
+        }
+      | undefined;
+  }) {
+    return params;
+  }
+
+  @LogToLocal()
+  public initFromStorageDiscoverySelectedAccountsMapMerged(params: {
+    selectedAccountsMap: IAccountSelectorSelectedAccountsMap | undefined;
+  }) {
+    return params;
+  }
+
+  @LogToLocal()
+  public fixDeriveTypesForInitAccountSelectorMap(params: {
+    selectedAccount: IAccountSelectorSelectedAccount;
+    globalDeriveType: IAccountDeriveTypes | undefined;
+    fixedDeriveType: IAccountDeriveTypes;
+  }) {
+    return params;
+  }
+
+  @LogToLocal()
+  public fixDeriveTypesForInitAccountSelectorMapResult(params: {
+    selectedAccountsMap: IAccountSelectorSelectedAccountsMap | undefined;
+  }) {
+    return params;
+  }
+
+  @LogToLocal()
+  public initFromStorageSelectedAccountsMapResult(params: {
+    selectedAccountsMap: IAccountSelectorSelectedAccountsMap | undefined;
   }) {
     return params;
   }

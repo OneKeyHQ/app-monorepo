@@ -525,6 +525,14 @@ class ServiceAccountSelector extends ServiceBase {
               globalDeriveType || v.deriveType || 'default';
             v.deriveType = deriveType;
 
+            defaultLogger.accountSelector.listData.fixDeriveTypesForInitAccountSelectorMap(
+              {
+                selectedAccount: v,
+                globalDeriveType,
+                fixedDeriveType: deriveType,
+              },
+            );
+
             if (
               v.walletId &&
               accountUtils.isOthersWallet({ walletId: v.walletId })
