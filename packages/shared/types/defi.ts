@@ -4,6 +4,12 @@ export type IFetchAccountDeFiPositionsParams = {
   accountAddress?: string;
 };
 
+export enum EDeFiAssetType {
+  ASSET = 'asset',
+  DEBT = 'debt',
+  REWARD = 'reward',
+}
+
 export type IDeFiAssetMeta = {
   decimals: number;
   logoUrl?: string;
@@ -39,8 +45,8 @@ export type IDeFiPosition = {
   chain: string;
   category: string;
   assets: IDeFiAsset[];
-  debts: unknown[];
-  rewards: unknown[];
+  debts: IDeFiAsset[];
+  rewards: IDeFiAsset[];
   metrics: IMetrics;
   source: IDeFiSource;
 };
@@ -83,4 +89,18 @@ export type IFetchAccountDeFiPositionsResp = {
     degraded: boolean;
     warnings: string[];
   };
+};
+
+export type IDeFiProtocol = {
+  networkId: string;
+  owner: string;
+  protocol: string; // as protocolId
+  categories: string[];
+  positions: {
+    category: string;
+    assets: (IDeFiAsset & { type: EDeFiAssetType })[];
+    debts: (IDeFiAsset & { type: EDeFiAssetType })[];
+    rewards: (IDeFiAsset & { type: EDeFiAssetType })[];
+    value: string;
+  }[];
 };
