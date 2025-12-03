@@ -1,3 +1,4 @@
+import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 
 import { BaseScene } from '../../../base/baseScene';
@@ -8,6 +9,7 @@ export class AccountSelectorListDataScene extends BaseScene {
   public listDataMissingParams(params: {
     focusedWallet: string | undefined;
     deriveType: IAccountDeriveTypes | undefined;
+    selectedAccount: IAccountSelectorSelectedAccount | undefined;
   }) {
     return params;
   }

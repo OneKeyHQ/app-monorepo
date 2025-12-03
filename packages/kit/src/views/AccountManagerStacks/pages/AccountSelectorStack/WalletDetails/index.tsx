@@ -31,7 +31,10 @@ import type {
   IDBIndexedAccount,
   IDBWallet,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
-import type { IAccountSelectorAccountsListSectionData } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
+import type {
+  IAccountSelectorAccountsListSectionData,
+  IAccountSelectorSelectedAccount,
+} from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import { accountSelectorAccountsListIsLoadingAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { emptyArray } from '@onekeyhq/shared/src/consts';
@@ -65,6 +68,9 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
   const actions = useAccountSelectorActions();
   const listRef = useRef<ISortableSectionListRef<any> | null>(null);
   const route = useAccountSelectorRoute();
+  const selectedAccountRef =
+    useRef<IAccountSelectorSelectedAccount>(selectedAccount);
+  selectedAccountRef.current = selectedAccount;
 
   const linkNetwork: boolean | undefined = route.params?.linkNetwork;
   const linkNetworkId: string | undefined = route.params?.linkNetworkId;
@@ -116,6 +122,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
         defaultLogger.accountSelector.listData.listDataMissingParams({
           focusedWallet: selectedAccount?.focusedWallet,
           deriveType: usedDeriveType,
+          selectedAccount: selectedAccountRef.current,
         });
         return Promise.resolve(undefined);
       }
