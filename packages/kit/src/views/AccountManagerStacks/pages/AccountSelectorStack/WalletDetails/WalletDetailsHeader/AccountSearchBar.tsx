@@ -86,9 +86,9 @@ export function AccountSearchBar({
         leftIconName="SearchOutline"
         size="small"
         allowClear
-        placeholder={`${intl.formatMessage({
+        placeholder={intl.formatMessage({
           id: ETranslations.global_search_account_selector,
-        })}...`}
+        })}
         containerProps={{
           flex: 1,
           borderRadius: '$full',
