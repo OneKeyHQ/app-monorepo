@@ -148,8 +148,14 @@ export const switchTab = <T extends ETabRoutes>(
       },
     );
   });
-  rootNavigationRef.current?.navigate(ERootRoutes.Main, {
-    screen: route,
-    params,
-  });
+  rootNavigationRef.current?.navigate(
+    ERootRoutes.Main,
+    {
+      screen: route,
+      params,
+    },
+    {
+      pop: true,
+    },
+  );
 };
