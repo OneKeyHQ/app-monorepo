@@ -375,6 +375,9 @@ export type IProtocolInfo = {
   claimable?: string;
   remainingCap?: string;
   withdrawAction?: IEarnWithdrawActionIcon;
+  // Max decimal places allowed for amount input (UI restriction)
+  // If undefined, defaults to token decimals
+  protocolInputDecimals?: number;
 };
 
 export interface IEarnToken {
@@ -862,6 +865,9 @@ export interface IEarnRiskNoticeDialog {
 }
 
 export interface IStakeEarnDetail {
+  // Max decimal places allowed for amount input (UI restriction)
+  // If undefined, defaults to token decimals
+  protocolInputDecimals?: number;
   protection?: {
     title: IEarnText;
     items: {

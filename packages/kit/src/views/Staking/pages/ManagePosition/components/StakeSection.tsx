@@ -259,7 +259,9 @@ export const StakeSection = ({
     <UniversalStake
       accountId={accountId}
       networkId={networkId}
-      decimals={tokenInfo?.token?.decimals}
+      decimals={
+        protocolInfo?.protocolInputDecimals ?? tokenInfo?.token?.decimals
+      }
       balance={tokenInfo?.balanceParsed ?? ''}
       tokenImageUri={tokenInfo?.token.logoURI || fallbackTokenImageUri}
       tokenSymbol={tokenInfo?.token.symbol}

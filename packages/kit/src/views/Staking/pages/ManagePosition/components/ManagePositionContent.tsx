@@ -33,6 +33,8 @@ export interface IManagePositionContentProps {
   onTabChange?: (tab: 'deposit' | 'withdraw') => void;
   showApyDetail?: boolean;
   fallbackTokenImageUri?: string;
+  // Max decimal places allowed for amount input (from details API)
+  protocolInputDecimals?: number;
 
   // Optional callbacks
   onCreateAddress?: () => Promise<void>;
@@ -91,6 +93,7 @@ export function ManagePositionContent({
   onTabChange,
   showApyDetail = false,
   fallbackTokenImageUri,
+  protocolInputDecimals,
   onCreateAddress,
   onStakeWithdrawSuccess,
   isInModalContext = false,
@@ -100,7 +103,7 @@ export function ManagePositionContent({
   const {
     tokenInfo,
     earnAccount,
-    protocolInfo,
+    protocolInfo: rawProtocolInfo,
     managePageData,
     depositDisabled,
     withdrawDisabled,
@@ -119,6 +122,17 @@ export function ManagePositionContent({
     provider,
     vault,
   });
+
+  // Merge protocolInputDecimals from details API into protocolInfo
+  const protocolInfo = useMemo(() => {
+    if (!rawProtocolInfo) {
+      return undefined;
+    }
+    return {
+      ...rawProtocolInfo,
+      protocolInputDecimals,
+    };
+  }, [rawProtocolInfo, protocolInputDecimals]);
 
   // Handle create address
   const handleCreateAddress = useCallback(async () => {
