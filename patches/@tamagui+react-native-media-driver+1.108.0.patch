@@ -1,0 +1,37 @@
+diff --git a/node_modules/@tamagui/react-native-media-driver/dist/cjs/mediaQueryList.native.js b/node_modules/@tamagui/react-native-media-driver/dist/cjs/mediaQueryList.native.js
+index 2f15dc4..399f413 100644
+--- a/node_modules/@tamagui/react-native-media-driver/dist/cjs/mediaQueryList.native.js
++++ b/node_modules/@tamagui/react-native-media-driver/dist/cjs/mediaQueryList.native.js
+@@ -66,6 +66,11 @@ function _object_spread_props(target, source) {
+     Object.defineProperty(target, key, Object.getOwnPropertyDescriptor(source, key));
+   }), target;
+ }
++
++const ScreenOrientation = require('expo-screen-orientation');
++const ExpoDevice = require('expo-device');
++const DualScreenInfoModule = require('react-native').NativeModules?.DualScreenInfo;
++
+ var NativeMediaQueryList = /* @__PURE__ */ function() {
+   "use strict";
+   function NativeMediaQueryList2(query) {
+@@ -73,6 +78,20 @@ var NativeMediaQueryList = /* @__PURE__ */ function() {
+     _class_call_check(this, NativeMediaQueryList2), _define_property(this, "query", void 0), _define_property(this, "listeners", void 0), this.query = query, this.listeners = [], this.notify(), import_react_native.Dimensions.addEventListener("change", function() {
+       _this.notify();
+     });
++    if (ExpoDevice.deviceType === ExpoDevice.DeviceType.TABLET) {
++      ScreenOrientation.addOrientationChangeListener (() => {
++        _this.notify();
++      });
++    }
++    if (DualScreenInfoModule && DualScreenInfoModule.isDualScreenDevice) {
++      DualScreenInfoModule.isDualScreenDevice().then((isDualScreen) => {
++        if (isDualScreen) {
++          DualScreenInfoModule.addSpanningListener(() => {
++            _this.notify();
++          });
++        }
++      });
++    }
+   }
+   return _create_class(NativeMediaQueryList2, [
+     {

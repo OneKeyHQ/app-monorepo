@@ -64,7 +64,7 @@ export interface IPasswordVerifyForm {
   passCode: string;
 }
 
-const PasswordVerify = ({
+function PasswordVerify({
   isEnable,
   alertText,
   confirmBtnDisabled,
@@ -74,7 +74,7 @@ const PasswordVerify = ({
   onBiologyAuth,
   onPasswordChange,
   onInputPasswordAuth,
-}: IPasswordVerifyProps) => {
+}: IPasswordVerifyProps) {
   const intl = useIntl();
   const form = useForm<IPasswordVerifyForm>({
     mode: 'onSubmit',
@@ -379,5 +379,5 @@ const PasswordVerify = ({
       )}
     </Form>
   );
-};
+}
 export default memo(PasswordVerify);
