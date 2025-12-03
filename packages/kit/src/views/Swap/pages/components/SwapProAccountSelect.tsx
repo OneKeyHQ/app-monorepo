@@ -1,3 +1,5 @@
+import { useMemo } from 'react';
+
 import { Icon, SizableText, XStack } from '@onekeyhq/components';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
@@ -11,8 +13,22 @@ const SwapProAccountSelect = ({
   onSelectAccountClick,
 }: ISwapProAccountSelectProps) => {
   const netAccountRes = useSwapProAccount();
+  const accountValue = useMemo(() => {
+    if (!netAccountRes?.result?.address) {
+      return 'select account';
+    }
+    return accountUtils.shortenAddress({
+      address: netAccountRes?.result?.address ?? '',
+      leadingLength: 6,
+      trailingLength: 3,
+    });
+  }, [netAccountRes?.result?.address]);
   return (
-    <XStack onPress={onSelectAccountClick} justifyContent="space-between">
+    <XStack
+      onPress={onSelectAccountClick}
+      justifyContent="space-between"
+      my="$1"
+    >
       <XStack gap="$1.5">
         <Icon name="WalletOutline" size="$4" color="$iconSubdued" />
         <SizableText size="$bodySm">{netAccountRes?.result?.name}</SizableText>
@@ -24,11 +40,7 @@ const SwapProAccountSelect = ({
           numberOfLines={1}
           flexShrink={1}
         >
-          {accountUtils.shortenAddress({
-            address: netAccountRes?.result?.address ?? '',
-            leadingLength: 6,
-            trailingLength: 3,
-          })}
+          {accountValue}
         </SizableText>
         <Icon name="ChevronRightSmallOutline" size="$4" color="$iconSubdued" />
       </XStack>

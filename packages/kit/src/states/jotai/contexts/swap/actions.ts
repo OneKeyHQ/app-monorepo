@@ -933,7 +933,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       key: ESwapSlippageSegmentKey.AUTO,
       value: swapSlippageAutoValue,
     });
-    set(swapProInputAmountAtom(), '');
   });
 
   cleanLimitOrderMarketPriceInterval = () => {

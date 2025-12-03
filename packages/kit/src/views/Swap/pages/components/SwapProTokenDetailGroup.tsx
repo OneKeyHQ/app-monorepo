@@ -42,7 +42,7 @@ const SwapProTokenDetailGroup = () => {
     };
   }, [tokenMarketDetailInfo]);
   return (
-    <YStack gap="$2">
+    <YStack gap="$1.5">
       <SwapCommonInfoItem
         title="Market Cap"
         value={marketCap}

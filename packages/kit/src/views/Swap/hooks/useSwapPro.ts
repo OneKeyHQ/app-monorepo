@@ -52,13 +52,17 @@ export function useSwapProInit() {
     },
     [setSwapSwitchType, setSwapProSelectToken],
   );
-  const swapProSelectTokenRef = useRef<ISwapToken | undefined>(undefined);
+  const swapProSelectTokenRef = useRef<ISwapToken | undefined>(
+    swapProSelectToken,
+  );
   if (swapProSelectTokenRef.current !== swapProSelectToken) {
     swapProSelectTokenRef.current = swapProSelectToken;
   }
-  const swapProJumpTokenRef = useRef<ISwapToken | undefined>(undefined);
-  if (swapProJumpTokenRef.current !== swapProJumpToken.token) {
-    swapProJumpTokenRef.current = swapProJumpToken.token;
+  const swapProJumpTokenRef = useRef<ISwapToken | undefined>(
+    swapProJumpToken?.token,
+  );
+  if (swapProJumpTokenRef.current !== swapProJumpToken?.token) {
+    swapProJumpTokenRef.current = swapProJumpToken?.token;
   }
   useEffect(() => {
     if (swapProJumpToken.token) {
@@ -72,9 +76,6 @@ export function useSwapProInit() {
       if (!swapProSelectTokenRef.current && !swapProJumpTokenRef.current) {
         setSwapProSelectToken(swapDefaultSetTokens['evm--1'].fromToken);
       }
-    } else {
-      swapProSelectTokenRef.current = undefined;
-      swapProJumpTokenRef.current = undefined;
     }
   });
 }
@@ -108,18 +109,20 @@ export function useSwapProToToken() {
 export function useSwapProAccount() {
   const { activeAccount } = useActiveAccount({ num: 0 });
   const inputToken = useSwapProInputToken();
+  const [selectMarketToken] = useSwapProSelectTokenAtom();
   const netAccountRes = usePromiseResult(async () => {
     try {
       const defaultDeriveType =
         await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
-          networkId: inputToken?.networkId ?? '',
+          networkId:
+            inputToken?.networkId ?? selectMarketToken?.networkId ?? '',
         });
       const res = await backgroundApiProxy.serviceAccount.getNetworkAccount({
         accountId: activeAccount?.indexedAccount?.id
           ? undefined
           : activeAccount?.account?.id,
         indexedAccountId: activeAccount?.indexedAccount?.id ?? '',
-        networkId: inputToken?.networkId ?? '',
+        networkId: inputToken?.networkId ?? selectMarketToken?.networkId ?? '',
         deriveType: defaultDeriveType ?? 'default',
       });
       return res;
@@ -130,6 +133,7 @@ export function useSwapProAccount() {
     activeAccount?.account?.id,
     activeAccount?.indexedAccount?.id,
     inputToken?.networkId,
+    selectMarketToken?.networkId,
   ]);
   return netAccountRes;
 }
@@ -317,7 +321,7 @@ export function useSwapProTokenTransactionList(
   const [swapProTradeType] = useSwapProTradeTypeAtom();
   const transactionListPageSize = useMemo(() => {
     if (swapProTradeType === ESwapProTradeType.LIMIT) {
-      return 8;
+      return 10;
     }
     return 4;
   }, [swapProTradeType]);
@@ -426,12 +430,13 @@ export function useSwapProSupportNetworksTokenList() {
   };
 }
 
-export function useSwapProActions() {
+export function useSwapProActionsQuote() {
   const { quoteSpeedAction, cancelSpeedQuote, cleanSpeedQuote } =
     useSwapActions().current;
   const [swapTabSwitchType] = useSwapTypeSwitchAtom();
   const [swapTradeType] = useSwapProTradeTypeAtom();
-  const [swapProInputAmount] = useSwapProInputAmountAtom();
+  const [swapProInputAmount, setSwapProInputAmount] =
+    useSwapProInputAmountAtom();
   const debounceInputAmount = useDebounce(swapProInputAmount, 300, {
     leading: true,
   });
@@ -453,7 +458,10 @@ export function useSwapProActions() {
   );
 
   useEffect(() => {
-    if (swapProQuoteResult?.toAmount) {
+    if (
+      swapProQuoteResult?.toAmount &&
+      swapTradeType === ESwapProTradeType.MARKET
+    ) {
       const toAmountBN = new BigNumber(swapProQuoteResult.toAmount);
       const toTokenPriceBN = new BigNumber(swapProtoToken?.price ?? '0');
       const toTokenValue = toTokenPriceBN.multipliedBy(toAmountBN).toFixed();
@@ -466,6 +474,7 @@ export function useSwapProActions() {
       setSwapProToTotalValue(formattedToTokenValue);
     }
   }, [
+    swapTradeType,
     setSwapProToTotalValue,
     swapProtoToken?.price,
     swapProQuoteResult?.toAmount,
@@ -475,21 +484,18 @@ export function useSwapProActions() {
   useEffect(() => {
     const debounceInputAmountBN = new BigNumber(debounceInputAmount ?? '0');
     if (
-      !enableSwapProMarketQuote ||
-      !swapProAccount.result?.addressDetail.address ||
-      debounceInputAmountBN.isNaN() ||
-      debounceInputAmountBN.lte(0)
+      enableSwapProMarketQuote &&
+      swapProAccount.result?.addressDetail.address &&
+      !debounceInputAmountBN.isNaN() &&
+      debounceInputAmountBN.gt(0)
     ) {
-      cancelSpeedQuote();
-      void cleanSpeedQuote();
-      return;
+      void quoteSpeedAction(
+        slippageItem,
+        swapProAccount.result?.addressDetail.address,
+        swapProAccount.result?.id,
+        swapProAccount.result?.addressDetail.address,
+      );
     }
-    void quoteSpeedAction(
-      slippageItem,
-      swapProAccount.result?.addressDetail.address,
-      swapProAccount.result?.id,
-      swapProAccount.result?.addressDetail.address,
-    );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     debounceInputAmount,
@@ -503,6 +509,28 @@ export function useSwapProActions() {
     swapProSellToTokenAtom?.networkId,
     slippageItem,
     enableSwapProMarketQuote,
+  ]);
+
+  useEffect(() => {
+    const debounceInputAmountBN = new BigNumber(debounceInputAmount ?? '0');
+    if (debounceInputAmountBN.isNaN() || debounceInputAmountBN.lte(0)) {
+      cancelSpeedQuote();
+      void cleanSpeedQuote();
+    }
+  }, [cancelSpeedQuote, cleanSpeedQuote, debounceInputAmount]);
+
+  useEffect(() => {
+    if (
+      !enableSwapProMarketQuote ||
+      !swapProAccount.result?.addressDetail.address
+    ) {
+      setSwapProInputAmount('');
+    }
+  }, [
+    cleanSpeedQuote,
+    enableSwapProMarketQuote,
+    setSwapProInputAmount,
+    swapProAccount.result?.addressDetail.address,
   ]);
 
   return {

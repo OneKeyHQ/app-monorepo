@@ -23,7 +23,10 @@ import LimitExpirySelect from '../../components/LimitExpirySelect';
 import LimitPartialFillSelect from '../../components/LimitPartialFillSelect';
 import SwapProTradeTypeSelector from '../../components/SwapProTradeTypeSelector';
 import { useSwapLimitConfigMaps } from '../../hooks/useSwapGlobal';
-import { useSwapProTokenInit } from '../../hooks/useSwapPro';
+import {
+  useSwapProActionsQuote,
+  useSwapProTokenInit,
+} from '../../hooks/useSwapPro';
 
 import SwapProAccountSelect from './SwapProAccountSelect';
 import SwapProActionButton from './SwapProActionButton';
@@ -70,6 +73,8 @@ const SwapProTradingPanel = () => {
   };
   const { defaultTokens, isLoading, speedConfig, isMEV } =
     useSwapProTokenInit();
+
+  useSwapProActionsQuote();
 
   return (
     <YStack gap="$2" flex={1} justifyContent="space-between">

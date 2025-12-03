@@ -31,7 +31,7 @@ const SwapProTokenTransactionList = () => {
       Boolean(enableWebSocket),
     );
   return (
-    <YStack gap="$1" mb="$2">
+    <YStack gap="$1" mb="$1">
       <XStack justifyContent="space-between" mb="$2">
         <SizableText size="$bodySm" color="$textSubdued">
           {intl.formatMessage({
