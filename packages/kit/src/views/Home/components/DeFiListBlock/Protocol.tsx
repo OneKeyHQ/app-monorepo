@@ -16,33 +16,8 @@ import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
-import type { IDeFiPosition } from '@onekeyhq/shared/types/defi';
 
 import { RichTable } from '../RichTable';
-
-export const userData = [
-  {
-    id: '1',
-    name: 'Alice Johnson',
-    email: 'alice@example.com',
-    age: 28,
-    status: 'active',
-  },
-  {
-    id: '2',
-    name: 'Bob Smith',
-    email: 'bob@example.com',
-    age: 34,
-    status: 'inactive',
-  },
-  {
-    id: '3',
-    name: 'Charlie Brown',
-    email: 'charlie@example.com',
-    age: 22,
-    status: 'active',
-  },
-];
 
 const columns = [
   {
@@ -58,7 +33,7 @@ const columns = [
     dataIndex: 'amount',
   },
   {
-    title: 'USD Value',
+    title: appLocale.intl.formatMessage({ id: ETranslations.global_value }),
     dataIndex: 'usd-value',
   },
 ];

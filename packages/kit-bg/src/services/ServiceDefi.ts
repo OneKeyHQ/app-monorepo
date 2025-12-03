@@ -2,6 +2,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import defiUtils from '@onekeyhq/shared/src/utils/defiUtils';
 import type {
   IFetchAccountDeFiPositionsParams,
   IFetchAccountDeFiPositionsResp,
@@ -63,7 +64,16 @@ class ServiceDeFi extends ServiceBase {
       },
     );
 
-    return resp.data.data;
+    const parsedData = defiUtils.transformDeFiData({
+      positions: resp.data.data.data.positions,
+      protocolSummaries: resp.data.data.data.protocolSummaries,
+    });
+
+    return {
+      overview: resp.data.data.data.totals,
+      protocols: parsedData.protocols,
+      protocolMap: parsedData.protocolMap,
+    };
   }
 }
 

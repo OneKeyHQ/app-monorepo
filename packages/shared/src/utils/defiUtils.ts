@@ -8,6 +8,16 @@ import {
   type IProtocolSummary,
 } from '../../types/defi';
 
+function buildProtocolMapKey({
+  protocol,
+  networkId,
+}: {
+  protocol: string;
+  networkId: string;
+}) {
+  return `${networkId}-${protocol}`;
+}
+
 function transformDeFiData({
   positions,
   protocolSummaries,
@@ -36,12 +46,18 @@ function transformDeFiData({
   >();
 
   protocolSummaries.forEach((summary) => {
-    protocolMap.set(summary.protocol, summary);
+    protocolMap.set(
+      buildProtocolMapKey({
+        protocol: summary.protocol,
+        networkId: summary.networkIds[0],
+      }),
+      summary,
+    );
   });
 
   Object.values(positions).forEach((networkPositions) => {
     networkPositions.forEach((position) => {
-      const protocolPositionsMapKey = `${position.networkId}-${position.protocol}-${position.owner}`;
+      const protocolPositionsMapKey = `${position.networkId}-${position.protocol}`;
 
       if (!protocolMap.has(protocolPositionsMapKey)) {
         protocolPositionsMap.set(protocolPositionsMapKey, {
@@ -131,7 +147,7 @@ function transformDeFiData({
     });
   });
 
-  const protocolPositions: IDeFiProtocol[] = Array.from(
+  const protocols: IDeFiProtocol[] = Array.from(
     protocolPositionsMap.values(),
   ).map((value) => ({
     ...value,
@@ -146,11 +162,12 @@ function transformDeFiData({
   }));
 
   return {
-    protocolPositions,
+    protocols,
     protocolMap,
   };
 }
 
 export default {
   transformDeFiData,
+  buildProtocolMapKey,
 };
