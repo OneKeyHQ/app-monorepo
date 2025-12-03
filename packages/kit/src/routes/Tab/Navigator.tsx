@@ -59,7 +59,7 @@ const useCheckTabsChangedInDev = platformEnv.isDev
         ) {
           // @react-navigation/core/src/useNavigationBuilder.tsx 532L
           // eslint-disable-next-line no-restricted-syntax
-          throw new Error(
+          console.warn(
             'tabs changed, please check the config. This may cause infinite rendering loops in react navigation tab navigator',
           );
         }
