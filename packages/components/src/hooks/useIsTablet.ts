@@ -1,10 +1,13 @@
 import * as ExpoDevice from 'expo-device';
 
 import { useDualScreenInfo } from '@onekeyhq/shared/src/modules/DualScreenInfo';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-export const useIsTablet = () => {
+export const useIsNativeTablet = () => {
   const { isDualScreenDevice } = useDualScreenInfo();
   return (
-    isDualScreenDevice || ExpoDevice.deviceType === ExpoDevice.DeviceType.TABLET
+    platformEnv.isNative &&
+    (isDualScreenDevice ||
+      ExpoDevice.deviceType === ExpoDevice.DeviceType.TABLET)
   );
 };

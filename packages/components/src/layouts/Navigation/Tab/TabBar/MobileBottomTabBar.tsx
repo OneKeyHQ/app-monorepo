@@ -4,7 +4,7 @@ import { CommonActions } from '@react-navigation/native';
 import { Animated, StyleSheet } from 'react-native';
 import { useThrottledCallback } from 'use-debounce';
 
-import { useIsTablet, useSafeAreaInsets } from '@onekeyhq/components/src/hooks';
+import { useIsNativeTablet, useSafeAreaInsets } from '@onekeyhq/components/src/hooks';
 import { Stack } from '@onekeyhq/components/src/primitives';
 import type { IKeyOfIcons } from '@onekeyhq/components/src/primitives';
 import {
@@ -65,7 +65,7 @@ export default function MobileBottomTabBar({
     });
   }, [heightAnim, opacityAnim]);
 
-  const isTablet = useIsTablet();
+  const isTablet = useIsNativeTablet();
   const onTabPress = useCallback(
     (
       route: RouteProp<Record<string, object | undefined>, string>,

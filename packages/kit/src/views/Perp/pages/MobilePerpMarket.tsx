@@ -11,7 +11,7 @@ import {
   Tabs,
   XStack,
   YStack,
-  useIsTablet,
+  useIsNativeTablet,
   useOrientation,
 } from '@onekeyhq/components';
 import { usePerpsActiveAssetAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -94,7 +94,7 @@ function MobilePerpMarket() {
     );
   }, [coin, themeVariant, onPressTokenSelector, onPageGoBack, intl]);
 
-  const isTablet = useIsTablet();
+  const isTablet = useIsNativeTablet();
   const isLandscape = useOrientation();
   useEffect(() => {
     if (isTablet && isLandscape) {
