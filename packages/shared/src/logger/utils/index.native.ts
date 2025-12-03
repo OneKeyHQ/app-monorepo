@@ -17,6 +17,7 @@ import {
 import RNFS from '@onekeyhq/shared/src/modules3rdParty/react-native-fs';
 import { zip } from '@onekeyhq/shared/src/modules3rdParty/react-native-zip-archive';
 
+import { CacheResult } from '../../modules/DualScreenInfo/type';
 import platformEnv from '../../platformEnv';
 
 import type { IUtilsType } from './types';
@@ -63,6 +64,8 @@ const getDeviceInfo = () =>
     `System: ${osName ?? ''} ${osVersion ?? ''}`,
     `isDevice: ${isDevice ? 1 : 0}`,
     `deviceType: ${deviceType ?? ''}`,
+    `isDualScreenDevice: ${CacheResult.isDualScreenDevice ? 1 : 0}`,
+    `isSpanning: ${CacheResult.isSpanning ? 1 : 0}`,
     `arch: ${supportedCpuArchitectures?.join(',') ?? ''}`,
     `Version Hash: ${process.env.COMMITHASH || ''}`,
     `Memory: ${totalMemory ?? 0}`,

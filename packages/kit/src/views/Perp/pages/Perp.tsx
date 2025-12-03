@@ -91,7 +91,7 @@ function PerpContent() {
   );
 }
 
-export function PerpView() {
+function PerpView() {
   const isFocused = useIsFocused();
   const [isMounted, setIsMounted] = useState(false);
   const isMountedRef = useRef(false);
@@ -107,7 +107,7 @@ export function PerpView() {
   if (!isMounted) {
     return null;
   }
-  return shouldOpenExpandExtPerp() ? (
+  return shouldOpenExpandExtPerp ? (
     <ExtPerp />
   ) : (
     <>
@@ -117,10 +117,17 @@ export function PerpView() {
   );
 }
 
+function ExtPerpNull() {
+  const isFocused = useIsFocused();
+  return isFocused ? <ExtPerp /> : null;
+}
+
 export default function Perp() {
+  console.log('Perp render');
   const canRenderPerp = usePerpFeatureGuard();
+  console.log('Perp render canRenderPerp', canRenderPerp);
   if (!canRenderPerp) {
-    return null;
+    return shouldOpenExpandExtPerp ? <ExtPerpNull /> : null;
   }
 
   return (

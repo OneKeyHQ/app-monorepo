@@ -335,6 +335,10 @@ export const useEarnPortfolio = ({
   const accountIdValue = account?.id ?? '';
   const indexedAccountIdValue = indexedAccount?.id ?? '';
   const accountIndexedAccountIdValue = account?.indexedAccountId;
+  const activeAccountIdRef = useRef(accountIdValue);
+  useEffect(() => {
+    activeAccountIdRef.current = accountIdValue;
+  }, [accountIdValue]);
 
   const actions = useEarnActions();
   const [{ earnAccount }] = useEarnAtom();
@@ -412,8 +416,15 @@ export const useEarnPortfolio = ({
       clearInvestments();
       throttledUIUpdate.cancel();
       lastSyncedValuesRef.current = { totalFiatValue: '', earnings24h: '' };
+      markAccountChange();
+      setIsLoading(true);
     }
-  }, [hasAccountChanged, clearInvestments, throttledUIUpdate]);
+  }, [
+    hasAccountChanged,
+    clearInvestments,
+    throttledUIUpdate,
+    markAccountChange,
+  ]);
 
   const fetchInvestmentDetail = useCallback(
     async (
@@ -614,6 +625,14 @@ export const useEarnPortfolio = ({
               isAirdrop,
               requestId,
             );
+
+            // Skip outdated account responses
+            if (
+              params.accountId &&
+              params.accountId !== activeAccountIdRef.current
+            ) {
+              return;
+            }
 
             if (!isRequestStale(requestId) && isMountedRef.current && result) {
               const { key: resultKey, investment: newInv, remove } = result;

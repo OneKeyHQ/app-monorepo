@@ -128,9 +128,6 @@ function BasicEarnHome({
   const handleListenTabFocusState = useCallback(
     (isFocus: boolean, isHideByModal: boolean) => {
       const actualFocus = isFocus && !isHideByModal;
-      if (actualFocus && !wasFocusedRef.current) {
-        void refreshEarnData();
-      }
       wasFocusedRef.current = actualFocus;
       setIsEarnTabFocused(actualFocus);
       if (!actualFocus) return;
@@ -155,7 +152,7 @@ function BasicEarnHome({
       void refetchBanners();
       void refetchFAQ();
     },
-    [actions, refetchBanners, refetchFAQ, refreshEarnData],
+    [actions, refetchBanners, refetchFAQ],
   );
 
   useListenTabFocusState(
