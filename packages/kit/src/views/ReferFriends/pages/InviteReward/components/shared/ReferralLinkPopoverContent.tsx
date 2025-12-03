@@ -9,6 +9,7 @@ import {
   XStack,
   YStack,
   useClipboard,
+  useMedia,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -26,8 +27,26 @@ function ReferralLinkItem({
   displayUrl,
   onCopy,
 }: IReferralLinkItemProps) {
+  const { md } = useMedia();
+
   return (
-    <XStack gap="$2.5" p="$2" alignItems="center">
+    <XStack
+      gap="$2.5"
+      px="$4"
+      py="$2"
+      alignItems="center"
+      borderRadius="$3"
+      borderCurve="continuous"
+      onPress={onCopy}
+      {...(!md && {
+        hoverStyle: {
+          bg: '$bgHover',
+        },
+        pressStyle: {
+          bg: '$bgActive',
+        },
+      })}
+    >
       <YStack flex={1} gap="$0.5">
         <SizableText size="$headingSm">{title}</SizableText>
         <SizableText size="$bodyMd" color="$textSubdued">
@@ -37,11 +56,12 @@ function ReferralLinkItem({
           borderWidth={1}
           borderColor="$borderSubdued"
           borderRadius="$1"
-          px="$2"
+          px="$1"
           py="$0.5"
           alignSelf="flex-start"
+          mt="$0.5"
         >
-          <SizableText size="$bodySm" color="$textDisabled">
+          <SizableText size="$bodySmMedium" color="$textDisabled">
             {displayUrl}
           </SizableText>
         </Stack>
@@ -50,6 +70,7 @@ function ReferralLinkItem({
         icon="Copy3Outline"
         variant="tertiary"
         size="small"
+        iconProps={{ color: '$iconDisabled' }}
         onPress={onCopy}
       />
     </XStack>
@@ -84,7 +105,7 @@ export function ReferralLinkPopoverContent({
   }, [copyText, shopInviteUrl]);
 
   return (
-    <YStack p="$1" gap="$2">
+    <YStack p="$1" $md={{ pb: '$3' }}>
       <ReferralLinkItem
         title={intl.formatMessage({
           id: ETranslations.referral_link_hw_title,

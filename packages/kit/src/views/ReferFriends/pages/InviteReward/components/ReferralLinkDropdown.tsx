@@ -1,6 +1,9 @@
 import { useCallback, useMemo } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { IconButton, Popover, Stack } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import {
   REFERRAL_LINK_POPOVER_WIDTH,
@@ -14,6 +17,8 @@ interface IReferralLinkDropdownProps {
 export function ReferralLinkDropdown({
   inviteUrl,
 }: IReferralLinkDropdownProps) {
+  const intl = useIntl();
+
   const handleStopPropagation = useCallback(
     (e: { stopPropagation: () => void }) => {
       e.stopPropagation();
@@ -40,7 +45,7 @@ export function ReferralLinkDropdown({
   return (
     <Stack onPress={handleStopPropagation}>
       <Popover
-        title=""
+        title={intl.formatMessage({ id: ETranslations.global_more_links })}
         renderTrigger={renderTrigger}
         renderContent={renderContent}
         floatingPanelProps={{

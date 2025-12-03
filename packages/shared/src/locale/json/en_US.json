@@ -1459,6 +1459,7 @@
   "global.model": "Model",
   "global.month_date": "{month} {date}",
   "global.more": "More",
+  "global.more_links": "More links",
   "global.move_to_top": "Move to top",
   "global.multi_account_notification": "Increase notification limit",
   "global.multi_chain_wallet": "Multi-chain wallet",

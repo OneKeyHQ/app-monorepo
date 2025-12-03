@@ -1464,6 +1464,7 @@
   global_model = 'global.model',
   global_month_date = 'global.month_date',
   global_more = 'global.more',
+  global_more_links = 'global.more_links',
   global_move_to_top = 'global.move_to_top',
   global_multi_account_notification = 'global.multi_account_notification',
   global_multi_chain_wallet = 'global.multi_chain_wallet',

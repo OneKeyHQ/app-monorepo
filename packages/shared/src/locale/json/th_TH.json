@@ -1459,6 +1459,7 @@
   "global.model": "โมเดล",
   "global.month_date": "{month} {date}",
   "global.more": "เพิ่มเติม",
+  "global.more_links": "ลิงก์เพิ่มเติม",
   "global.move_to_top": "ย้ายไปด้านบน",
   "global.multi_account_notification": "เพิ่มขีดจำกัดการแจ้งเตือน",
   "global.multi_chain_wallet": "กระเป๋าสตางค์หลายเชื่อมโยง",
