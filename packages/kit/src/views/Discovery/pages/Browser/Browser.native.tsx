@@ -11,7 +11,7 @@ import {
   Stack,
   XStack,
   YStack,
-  useIsTablet,
+  useIsNativeTablet,
   useIsTabletDetailView,
   useIsTabletMainView,
   useOrientation,
@@ -132,7 +132,7 @@ const useAndroidHardwareBack = platformEnv.isNativeAndroid
   : () => {};
 
 function MobileBrowser() {
-  const isTabletDevice = useIsTablet();
+  const isTabletDevice = useIsNativeTablet();
   const isTabletMainView = useIsTabletMainView();
   const isTabletDetailView = useIsTabletDetailView();
   const route =

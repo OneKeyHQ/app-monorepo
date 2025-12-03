@@ -13,7 +13,7 @@ import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
 import { useAppSideBarStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useIsTablet, useOrientation } from '../../hooks';
+import { useIsNativeTablet, useOrientation } from '../../hooks';
 import { MAX_SIDEBAR_WIDTH, MIN_SIDEBAR_WIDTH } from '../../utils/sidebar';
 
 import { useTabNameContext as useNativeTabNameContext } from './TabNameContext';
@@ -74,7 +74,7 @@ export * from './useCurrentTabScrollY';
 
 export const useTabContainerWidth = platformEnv.isNative
   ? () => {
-      const isTablet = useIsTablet();
+      const isTablet = useIsNativeTablet();
       const isLandscape = useOrientation();
       const { width, height } = useWindowDimensions();
       if (isTablet) {

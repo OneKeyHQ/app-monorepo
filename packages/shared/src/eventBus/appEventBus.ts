@@ -15,6 +15,7 @@ import type { IAirGapUrJson } from '@onekeyhq/qr-wallet-sdk';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors/errors/localError';
 import type { IOneKeyHardwareErrorPayload } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import type { ELogUploadStage } from '@onekeyhq/shared/src/logger/types';
 import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
 
@@ -405,6 +406,9 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.PushModalPageInTabletDetailView]: {
     route: EModalRoutes;
     params: any;
+  };
+  [EAppEventBusNames.MarketHomePageEnter]: {
+    from: EEnterWay;
   };
 }
 
