@@ -141,9 +141,8 @@ const popToDiscoveryHomePage = () => {
   if (currentRoute?.name === ERootRoutes.Main) {
     if (currentRoute.state) {
       const tabIndex = currentRoute.state.index || 0;
-      const tabRoute = currentRoute.state.routes[tabIndex];
-      if (tabRoute?.name === ETabRoutes.Discovery) {
-        const discoveryRoute = currentRoute.state.routes[tabIndex];
+      const discoveryRoute = currentRoute.state.routes[tabIndex];
+      if (discoveryRoute?.name === ETabRoutes.Discovery) {
         const discoveryState = discoveryRoute?.state;
         if (
           discoveryState?.index !== 0 &&
