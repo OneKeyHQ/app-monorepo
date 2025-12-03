@@ -2,7 +2,7 @@ import type { IAccountSelectorFocusedWallet } from '@onekeyhq/kit-bg/src/dbs/sim
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 
 import { BaseScene } from '../../../base/baseScene';
-import { LogToLocal } from '../../../base/decorators';
+import { LogToConsole, LogToLocal } from '../../../base/decorators';
 
 export class AccountSelectorListDataScene extends BaseScene {
   @LogToLocal()
