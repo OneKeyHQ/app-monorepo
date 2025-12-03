@@ -15,7 +15,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import type { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
+import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
 import { ESwapSource } from '@onekeyhq/shared/types/swap/types';
 
 import { switchTab } from '../../Navigator/NavigationContainer';
@@ -29,6 +29,7 @@ import type {
 } from '@react-navigation/bottom-tabs';
 import type { RouteProp } from '@react-navigation/native';
 import type { StyleProp, ViewStyle } from 'react-native';
+import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 
 export type IMobileBottomTabBarProps = BottomTabBarProps & {
   backgroundColor?: string;
@@ -92,6 +93,11 @@ export default function MobileBottomTabBar({
 
       if (!isActive && !event.defaultPrevented) {
         switchTab(route.name as ETabRoutes);
+        if (route.name === ETabRoutes.Market) {
+          appEventBus.emit(EAppEventBusNames.MarketHomePageEnter, {
+            from: EEnterWay.HomeTab,
+          });
+        }
       }
       const trackId = (options as { trackId?: string })?.trackId;
       if (trackId) {

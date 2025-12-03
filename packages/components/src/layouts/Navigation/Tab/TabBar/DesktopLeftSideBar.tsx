@@ -28,10 +28,13 @@ import {
 } from '@onekeyhq/components/src/utils/sidebar';
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { useAppSideBarStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
+import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import type { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
+import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 import { ESwapSource } from '@onekeyhq/shared/types/swap/types';
 
@@ -230,6 +233,11 @@ function MoreTabItemView({
         });
         if (!focus && !event.defaultPrevented) {
           switchTab(route.name as ETabRoutes);
+          if (route.name === ETabRoutes.Market) {
+            appEventBus.emit(EAppEventBusNames.MarketHomePageEnter, {
+              from: EEnterWay.HomeTab,
+            });
+          }
         }
       };
 
@@ -373,6 +381,11 @@ export function DesktopLeftSideBar({
         }
         if (!focus && !event.defaultPrevented) {
           switchTab(route.name as ETabRoutes);
+          if (route.name === ETabRoutes.Market) {
+            appEventBus.emit(EAppEventBusNames.MarketHomePageEnter, {
+              from: EEnterWay.HomeTab,
+            });
+          }
         }
       };
 
