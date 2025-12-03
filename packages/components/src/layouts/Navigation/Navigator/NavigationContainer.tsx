@@ -24,6 +24,11 @@ import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import { updateRootViewBackgroundColor } from '@onekeyhq/shared/src/modules3rdParty/rootview-background';
 import { navigationIntegration } from '@onekeyhq/shared/src/modules3rdParty/sentry';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type {
+  ETabRoutes,
+  ITabStackParamList,
+} from '@onekeyhq/shared/src/routes';
+import { ERootRoutes } from '@onekeyhq/shared/src/routes';
 import mmkvStorageInstance from '@onekeyhq/shared/src/storage/instance/mmkvStorageInstance';
 
 import { useSettingConfig } from '../../../hocs/Provider/hooks/useProviderValue';
@@ -123,3 +128,28 @@ export function NavigationContainer(props: IBasicNavigationContainerProps) {
     />
   );
 }
+
+export const switchTab = (
+  route: ETabRoutes,
+  params?: {
+    screen: keyof ITabStackParamList[ETabRoutes];
+    params?: ITabStackParamList[ETabRoutes][keyof ITabStackParamList[ETabRoutes]];
+  },
+) => {
+  setTimeout(() => {
+    tabletMainViewNavigationRef.current?.navigate(
+      ERootRoutes.Main,
+      {
+        screen: route,
+        params,
+      },
+      {
+        pop: true,
+      },
+    );
+  });
+  rootNavigationRef.current?.navigate(ERootRoutes.Main, {
+    screen: route,
+    params,
+  });
+};

@@ -5,7 +5,7 @@ import { useNavigation } from '@react-navigation/core';
 import {
   Page,
   rootNavigationRef,
-  tabletMainViewNavigationRef,
+  switchTab,
   useIsTabletMainView,
 } from '@onekeyhq/components';
 import type {
@@ -15,11 +15,7 @@ import type {
 } from '@onekeyhq/components/src/layouts/Navigation';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
-import type {
-  ETabRoutes,
-  IModalParamList,
-  ITabStackParamList,
-} from '@onekeyhq/shared/src/routes';
+import type { IModalParamList } from '@onekeyhq/shared/src/routes';
 import { EModalRoutes, ERootRoutes } from '@onekeyhq/shared/src/routes';
 
 const getModalRoute = () => {
@@ -103,40 +99,6 @@ function useAppNavigation<
       popStack();
     }
   }, [popStack]);
-
-  const switchTab = useCallback(
-    <T extends ETabRoutes>(
-      route: T,
-      params?: {
-        screen: keyof ITabStackParamList[T];
-        params?: ITabStackParamList[T][keyof ITabStackParamList[T]];
-      },
-    ) => {
-      setTimeout(() => {
-        tabletMainViewNavigationRef.current?.navigate(
-          ERootRoutes.Main,
-          {
-            screen: route,
-            params,
-          },
-          {
-            pop: true,
-          },
-        );
-      });
-      rootNavigationRef.current?.navigate(
-        ERootRoutes.Main,
-        {
-          screen: route,
-          params,
-        },
-        {
-          pop: true,
-        },
-      );
-    },
-    [],
-  );
 
   const pushModalPage = useCallback(
     <T extends EModalRoutes>(
@@ -336,7 +298,6 @@ function useAppNavigation<
       replace,
       reset,
       setOptions,
-      switchTab,
     ],
   );
 }

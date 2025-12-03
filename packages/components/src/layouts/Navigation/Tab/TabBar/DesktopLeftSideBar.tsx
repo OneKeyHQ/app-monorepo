@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { CommonActions } from '@react-navigation/native';
 import { MotiView } from 'moti';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
@@ -31,12 +30,12 @@ import {
 import { useAppSideBarStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
-import { ETabMarketRoutes } from '@onekeyhq/shared/src/routes/tabMarket';
+import type { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 import { ESwapSource } from '@onekeyhq/shared/types/swap/types';
+
+import { switchTab } from '../../Navigator/NavigationContainer';
 
 import { DesktopTabItem } from './DesktopTabItem';
 
@@ -230,20 +229,7 @@ function MoreTabItemView({
           canPreventDefault: true,
         });
         if (!focus && !event.defaultPrevented) {
-          navigation.dispatch({
-            ...CommonActions.navigate({
-              name: route.name,
-              merge: true,
-              params:
-                route.name === ETabRoutes.Market
-                  ? {
-                      screen: ETabMarketRoutes.TabMarket,
-                      params: { from: EEnterWay.HomeTab },
-                    }
-                  : undefined,
-            }),
-            target: state.key,
-          });
+          switchTab(route.name as ETabRoutes);
         }
       };
 
@@ -259,14 +245,7 @@ function MoreTabItemView({
         />
       );
     });
-  }, [
-    routes,
-    focusRouteName,
-    descriptors,
-    dismissTooltip,
-    navigation,
-    state.key,
-  ]);
+  }, [routes, focusRouteName, descriptors, dismissTooltip, navigation]);
 
   return (
     <Tooltip
@@ -393,20 +372,7 @@ export function DesktopLeftSideBar({
           });
         }
         if (!focus && !event.defaultPrevented) {
-          navigation.dispatch({
-            ...CommonActions.navigate({
-              name: route.name,
-              merge: true,
-              params:
-                route.name === ETabRoutes.Market
-                  ? {
-                      screen: ETabMarketRoutes.TabMarket,
-                      params: { from: EEnterWay.HomeTab },
-                    }
-                  : undefined,
-            }),
-            target: state.key,
-          });
+          switchTab(route.name as ETabRoutes);
         }
       };
 
