@@ -3,16 +3,18 @@ import { useCallback, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
-  ActionList,
   Divider,
   Icon,
+  Popover,
   SizableText,
   Stack,
   XStack,
   useClipboard,
-  useMedia,
 } from '@onekeyhq/components';
-import type { IActionListItemProps } from '@onekeyhq/components';
+import {
+  REFERRAL_LINK_POPOVER_WIDTH,
+  ReferralLinkPopoverContent,
+} from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/shared';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
@@ -23,73 +25,37 @@ interface ICopyLinkSplitButtonProps {
 export function CopyLinkSplitButton({ url }: ICopyLinkSplitButtonProps) {
   const intl = useIntl();
   const { copyText } = useClipboard();
-  const { gtMd } = useMedia();
-
-  const walletInviteUrl = useMemo(() => `${url}/app`, [url]);
-  const shopInviteUrl = useMemo(() => `${url}/shop`, [url]);
 
   const handleCopy = useCallback(() => {
     void copyText(url);
     defaultLogger.referral.page.shareReferralLink('copy');
   }, [url, copyText]);
 
-  const handleCopyWalletLink = useCallback(() => {
-    copyText(walletInviteUrl);
-    defaultLogger.referral.page.shareReferralLink('copy');
-  }, [copyText, walletInviteUrl]);
-
-  const handleCopyShopLink = useCallback(() => {
-    copyText(shopInviteUrl);
-    defaultLogger.referral.page.shareReferralLink('copy');
-  }, [copyText, shopInviteUrl]);
-
-  const title = intl.formatMessage({
-    id: ETranslations.referral_referral_link,
-  });
-
-  const items = useMemo<IActionListItemProps[]>(
-    () => [
-      {
-        label: intl.formatMessage({
-          id: ETranslations.referral_copy_link_wallet,
-        }),
-        onPress: handleCopyWalletLink,
-      },
-      {
-        label: intl.formatMessage({
-          id: ETranslations.referral_copy_link_shop,
-        }),
-        onPress: handleCopyShopLink,
-      },
-    ],
-    [intl, handleCopyWalletLink, handleCopyShopLink],
-  );
-
-  const handleMobilePress = useCallback(
+  const handleStopPropagation = useCallback(
     (e: { stopPropagation: () => void }) => {
       e.stopPropagation();
-      ActionList.show({
-        title,
-        items,
-      });
     },
-    [title, items],
+    [],
   );
 
   const renderTrigger = useMemo(
     () => (
-      <Stack px="$2" py="$1.5">
+      <Stack
+        px="$2"
+        py="$1.5"
+        hoverStyle={{ bg: '$bgHover' }}
+        pressStyle={{ bg: '$bgActive' }}
+        onPress={() => {}}
+      >
         <Icon name="ChevronDownSmallOutline" size="$4" color="$icon" />
       </Stack>
     ),
     [],
   );
 
-  const handleStopPropagation = useCallback(
-    (e: { stopPropagation: () => void }) => {
-      e.stopPropagation();
-    },
-    [],
+  const renderContent = useCallback(
+    () => <ReferralLinkPopoverContent inviteUrl={url} />,
+    [url],
   );
 
   return (
@@ -107,25 +73,16 @@ export function CopyLinkSplitButton({ url }: ICopyLinkSplitButtonProps) {
         </SizableText>
       </Stack>
       <Divider vertical h="$4" />
-      {gtMd ? (
-        <Stack onPress={handleStopPropagation}>
-          <ActionList
-            title={title}
-            renderTrigger={renderTrigger}
-            items={items}
-          />
-        </Stack>
-      ) : (
-        <Stack
-          px="$2"
-          py="$1.5"
-          onPress={handleMobilePress}
-          hoverStyle={{ bg: '$bgHover' }}
-          pressStyle={{ bg: '$bgActive' }}
-        >
-          <Icon name="ChevronDownSmallOutline" size="$4" color="$icon" />
-        </Stack>
-      )}
+      <Stack onPress={handleStopPropagation}>
+        <Popover
+          title=""
+          renderTrigger={renderTrigger}
+          renderContent={renderContent}
+          floatingPanelProps={{
+            width: REFERRAL_LINK_POPOVER_WIDTH,
+          }}
+        />
+      </Stack>
     </XStack>
   );
 }
