@@ -1119,12 +1119,21 @@ export type IBabylonPortfolioItem = {
   isOverflow: string;
 };
 
+export type IClaimableListItemExtra = {
+  disabled?: boolean;
+  badge?: {
+    badgeType: IBadgeType;
+    tag: string;
+  };
+};
+
 export type IClaimableListItem = {
   id: string;
   amount: string;
   fiatValue?: string;
   isPending?: boolean;
   babylonExtra?: IBabylonPortfolioItem;
+  extra?: IClaimableListItemExtra;
 };
 
 export type IClaimableListResponse = {
@@ -1135,6 +1144,9 @@ export type IClaimableListResponse = {
     logoURI: string;
   };
   items: IClaimableListItem[];
+  description?: {
+    text: string;
+  };
 };
 
 export interface IEarnAccountToken {
