@@ -116,7 +116,7 @@ const SwapCommonInfoItem = ({
 
       <XStack gap="$2">
         {isLoading ? (
-          <Stack py="$1">
+          <Stack py={valueProps?.size === '$bodySmMedium' ? '$0' : '$1'}>
             <Skeleton h="$3" w="$24" />
           </Stack>
         ) : (

@@ -846,6 +846,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         });
         if (res?.length) {
           const quoteResult = res[0];
+          console.log('swap__quoteResult', quoteResult);
           set(swapSpeedQuoteResultAtom(), quoteResult);
           if (quoteResult.autoSuggestedSlippage) {
             const slippageItem = get(swapProSlippageAtom());

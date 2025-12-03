@@ -450,6 +450,10 @@ export function useSwapProActionsQuote() {
   const [slippageItem] = useSwapProSlippageAtom();
   const swapProtoToken = useSwapProToToken();
   const swapProAccount = useSwapProAccount();
+  const slippageItemRef = useRef(slippageItem);
+  if (slippageItemRef.current !== slippageItem) {
+    slippageItemRef.current = slippageItem;
+  }
   const enableSwapProMarketQuote = useMemo(
     () =>
       swapTabSwitchType === ESwapTabSwitchType.LIMIT &&
@@ -490,7 +494,7 @@ export function useSwapProActionsQuote() {
       debounceInputAmountBN.gt(0)
     ) {
       void quoteSpeedAction(
-        slippageItem,
+        slippageItemRef.current,
         swapProAccount.result?.addressDetail.address,
         swapProAccount.result?.id,
         swapProAccount.result?.addressDetail.address,
@@ -507,7 +511,6 @@ export function useSwapProActionsQuote() {
     swapProUseSelectBuyTokenAtom?.networkId,
     swapProSellToTokenAtom?.contractAddress,
     swapProSellToTokenAtom?.networkId,
-    slippageItem,
     enableSwapProMarketQuote,
   ]);
 

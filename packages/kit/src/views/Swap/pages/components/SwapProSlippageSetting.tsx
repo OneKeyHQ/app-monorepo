@@ -57,10 +57,10 @@ export function SwapProSlippageSetting({
     if (slippageItem.key === ESwapSlippageSegmentKey.AUTO) {
       return `${intl.formatMessage({
         id: ETranslations.slippage_tolerance_switch_auto,
-      })} (${autoDefaultValue}%)`;
+      })} (${slippageItem.value}%)`;
     }
     return `${slippageItem.value}%`;
-  }, [slippageItem, intl, autoDefaultValue]);
+  }, [slippageItem, intl]);
 
   return (
     <XStack
