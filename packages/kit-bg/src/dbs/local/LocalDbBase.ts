@@ -1304,7 +1304,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       }));
 
     defaultLogger.accountSelector.listData.dbGetWalletSafe({
-      dbWalletFromParams: !!dbWallet,
+      isDbWalletFromParams: !!dbWallet,
       walletId,
       isMocked: wallet?.isMocked,
     });
@@ -1334,7 +1334,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
 
     defaultLogger.accountSelector.listData.dbGetIndexedAccountsOfWallet({
       allIndexedAccountsFromParamsLength: allIndexedAccounts?.length,
-      dbWalletFromParams: !!dbWallet,
+      isDbWalletFromParams: !!dbWallet,
       walletId,
       resultAccountsLength: accounts.length,
     });

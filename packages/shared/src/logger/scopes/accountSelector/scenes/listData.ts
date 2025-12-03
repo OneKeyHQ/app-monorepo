@@ -1,8 +1,7 @@
-import type { IAccountSelectorFocusedWallet } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 
 import { BaseScene } from '../../../base/baseScene';
-import { LogToConsole, LogToLocal } from '../../../base/decorators';
+import { LogToLocal } from '../../../base/decorators';
 
 export class AccountSelectorListDataScene extends BaseScene {
   @LogToLocal()
@@ -15,7 +14,7 @@ export class AccountSelectorListDataScene extends BaseScene {
 
   @LogToLocal()
   public buildAccountsListData(params: {
-    focusedWallet: IAccountSelectorFocusedWallet;
+    focusedWallet: string | undefined;
     othersNetworkId: string | undefined;
     linkedNetworkId: string | undefined;
     selectedNetworkId: string | undefined;
@@ -26,9 +25,7 @@ export class AccountSelectorListDataScene extends BaseScene {
   }
 
   @LogToLocal()
-  public focusedWalletMissing(params: {
-    focusedWallet: IAccountSelectorFocusedWallet;
-  }) {
+  public focusedWalletMissing(params: { focusedWallet: string | undefined }) {
     return params;
   }
 
@@ -51,7 +48,7 @@ export class AccountSelectorListDataScene extends BaseScene {
 
   @LogToLocal()
   public dbGetWalletSafe(params: {
-    dbWalletFromParams: boolean;
+    isDbWalletFromParams: boolean;
     walletId: string;
     isMocked: boolean | undefined;
   }) {
@@ -78,7 +75,7 @@ export class AccountSelectorListDataScene extends BaseScene {
   @LogToLocal()
   public dbGetIndexedAccountsOfWallet(params: {
     allIndexedAccountsFromParamsLength: number | undefined;
-    dbWalletFromParams: boolean;
+    isDbWalletFromParams: boolean;
     walletId: string;
     resultAccountsLength: number;
   }) {
