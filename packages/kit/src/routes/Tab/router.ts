@@ -211,15 +211,17 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
         inMoreAction: true,
         hideOnTabBar: !isGtMdNonNative,
       },
-      {
-        name: ETabRoutes.DeviceManagement,
-        tabBarIcon: () => 'OnekeyDeviceCustom',
-        translationId: ETranslations.global_device,
-        tabbarOnPress: toMyOneKeyModal,
-        children: null,
-        trackId: 'global-my-onekey',
-        hideOnTabBar: !isGtMdNonNative,
-      },
+      platformEnv.isNative
+        ? undefined
+        : {
+            name: ETabRoutes.DeviceManagement,
+            tabBarIcon: () => 'OnekeyDeviceCustom',
+            translationId: ETranslations.global_device,
+            tabbarOnPress: toMyOneKeyModal,
+            children: null,
+            trackId: 'global-my-onekey',
+            hideOnTabBar: !isGtMdNonNative,
+          },
       isShowMDDiscover ? getDiscoverRouterConfig(params) : undefined,
       platformEnv.isDev
         ? {
