@@ -15,11 +15,14 @@ function InvitedByFriendImage() {
   const themeVariant = useThemeVariant();
   const { width: screenWidth } = useWindowDimensions();
 
-  const isDesktopImage = gtSm || platformEnv.isExtensionUiPopup;
+  const isDesktopImage =
+    !platformEnv.isNative && (gtSm || platformEnv.isExtensionUiPopup);
   const selectedImage = isDesktopImage ? desktopImg : mobileImg;
 
   const imageWidth = useMemo(() => {
-    if (gtSm) return 640;
+    if (!platformEnv.isNative && gtSm) {
+      return 640;
+    }
     return screenWidth;
   }, [gtSm, screenWidth]);
 
