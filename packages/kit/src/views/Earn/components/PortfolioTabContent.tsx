@@ -1,4 +1,12 @@
-import { createContext, memo, useCallback, useContext, useMemo } from 'react';
+import {
+  createContext,
+  memo,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+} from 'react';
 
 import { isEmpty } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -21,13 +29,14 @@ import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { MorphoUSDCVaultAddress } from '@onekeyhq/shared/src/consts/addresses';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import type {
-  IEarnPortfolioAirdropAsset,
-  IEarnPortfolioInvestment,
-  IEarnText,
+import {
+  EEarnLabels,
+  type IEarnPortfolioAirdropAsset,
+  type IEarnPortfolioInvestment,
+  type IEarnText,
 } from '@onekeyhq/shared/types/staking';
 
 import { useCurrency } from '../../../components/Currency';
@@ -38,18 +47,25 @@ import { PendingIndicator } from '../../Staking/components/StakingActivityIndica
 import { buildLocalTxStatusSyncId } from '../../Staking/utils/utils';
 import { EarnNavigation } from '../earnUtils';
 import { usePortfolioAction } from '../hooks/usePortfolioAction';
-import { useProtocolMultiTokenPendingTxs } from '../hooks/useStakingPendingTxs';
+import { useStakingPendingTxsByInfo } from '../hooks/useStakingPendingTxs';
 
-import type { IUseEarnPortfolioReturn } from '../hooks/useEarnPortfolio';
+import type {
+  IRefreshOptions,
+  IUseEarnPortfolioReturn,
+} from '../hooks/useEarnPortfolio';
 import type { IStakePendingTx } from '../hooks/useStakingPendingTxs';
 
+const useIsDesktopLayout = () => {
+  const media = useMedia();
+  return !platformEnv.isNative && media.gtSm;
+};
+
 type IPortfolioPendingTxsContext = {
-  pendingTxs: IStakePendingTx[];
-  onRefresh?: () => void;
+  onRefresh?: (options?: IRefreshOptions) => Promise<void>;
 };
 
 const PortfolioPendingTxsContext = createContext<IPortfolioPendingTxsContext>({
-  pendingTxs: [],
+  onRefresh: async () => {},
 });
 
 const PortfolioPendingTxsProvider = ({
@@ -66,7 +82,7 @@ const PortfolioPendingTxsProvider = ({
 
 const usePortfolioPendingTxs = () => useContext(PortfolioPendingTxsContext);
 
-const WrappedActionButton = ({
+const WrappedActionButtonCmp = ({
   asset,
   reward,
   stakedSymbol,
@@ -85,10 +101,12 @@ const WrappedActionButton = ({
 }) => {
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { account, indexedAccount } = activeAccount;
-  const { pendingTxs, onRefresh } = usePortfolioPendingTxs();
+  const { onRefresh } = usePortfolioPendingTxs();
   const handleActionSuccess = useCallback(async () => {
-    onRefresh?.();
-  }, [onRefresh]);
+    void onRefresh?.({
+      provider: asset.metadata.protocol.providerDetail.code,
+    });
+  }, [onRefresh, asset.metadata.protocol.providerDetail.code]);
 
   // For staking config lookup, use:
   // - stakedSymbol for airdrops (the token that was staked to earn rewards)
@@ -109,10 +127,29 @@ const WrappedActionButton = ({
     tokenSymbol: symbolForConfig,
   });
 
-  // const [isPending, setIsPending] = useState(false);
+  const pendingTxsFilter = useCallback(
+    (tx: IStakePendingTx) => {
+      return (
+        [EEarnLabels.Claim].includes(tx.stakingInfo.label) &&
+        tx.stakingInfo.tags?.includes(stakeTag)
+      );
+    },
+    [stakeTag],
+  );
+  const { filteredTxs: pendingTxs = [] } = useStakingPendingTxsByInfo({
+    filter: pendingTxsFilter,
+  });
   const isPending = useMemo(() => {
-    return pendingTxs.some((tx) => tx.stakingInfo.tags?.includes(stakeTag));
-  }, [pendingTxs, stakeTag]);
+    return pendingTxs.length > 0;
+  }, [pendingTxs]);
+  const previousIsPendingRef = useRef(isPending);
+
+  useEffect(() => {
+    if (previousIsPendingRef.current && !isPending) {
+      void handleActionSuccess();
+    }
+    previousIsPendingRef.current = isPending;
+  }, [isPending, handleActionSuccess]);
 
   const { loading, handleAction } = usePortfolioAction({
     accountId: account?.id || '',
@@ -154,9 +191,8 @@ const WrappedActionButton = ({
     rewardSymbol,
   ]);
 
-  const media = useMedia();
-
-  if (!media.gtSm) {
+  const isDesktopLayout = useIsDesktopLayout();
+  if (!isDesktopLayout) {
     return (
       <Button
         ai="center"
@@ -191,6 +227,8 @@ const WrappedActionButton = ({
     </Button>
   );
 };
+
+const WrappedActionButton = memo(WrappedActionButtonCmp);
 
 const useFieldWrapperNeedPadding = (
   asset: IEarnPortfolioInvestment['assets'][number],
@@ -350,6 +388,11 @@ const ActionField = ({
             color="$textSubdued"
             text={reward.description}
           />
+          {reward?.tooltip ? (
+            <XStack mr="$2">
+              <EarnTooltip tooltip={reward.tooltip} />
+            </XStack>
+          ) : null}
           <WrappedActionButton asset={asset} reward={reward} />
         </Stack>
       ))}
@@ -411,7 +454,7 @@ const ProtocolAirdrop = ({
   airdropRenderMode?: 'firstOnly' | 'all' | 'exceptFirst';
 }) => {
   const media = useMedia();
-
+  const isDesktopLayout = useIsDesktopLayout();
   return (
     <YStack px="$5" my="$2" $gtSm={{ my: 0 }}>
       <XStack ai="center">
@@ -421,7 +464,7 @@ const ProtocolAirdrop = ({
         ) ? null : (
           <YStack w="100%">
             {airdropAssets?.map((airdropGroup, groupIndex) => {
-              const Layout = media.gtSm ? XStack : YStack;
+              const Layout = isDesktopLayout ? XStack : YStack;
 
               const airdropsToRender = (() => {
                 if (airdropRenderMode === 'firstOnly') {
@@ -519,53 +562,15 @@ const ProtocolAirdrop = ({
 
 const PortfolioItemComponent = ({
   portfolioItem,
-  onRefreshRow,
+  onRefresh,
 }: {
   portfolioItem: IEarnPortfolioInvestment;
-  onRefreshRow?: (payload: {
-    provider: string;
-    symbol?: string;
-    networkId: string;
-    rewardSymbol?: string;
-  }) => void;
+  onRefresh?: (options?: IRefreshOptions) => Promise<void>;
 }) => {
   const intl = useIntl();
-  const media = useMedia();
-
-  // Collect all symbols from assets and airdropAssets
-  const allSymbols = useMemo(() => {
-    const assetSymbols = portfolioItem.assets.map(
-      (asset) => asset.token.info.symbol,
-    );
-    const airdropSymbols = portfolioItem.airdropAssets.map(
-      (airdrop) => airdrop.token.info.symbol,
-    );
-    return [...assetSymbols, ...airdropSymbols];
-  }, [portfolioItem.assets, portfolioItem.airdropAssets]);
-
+  const isDesktopLayout = useIsDesktopLayout();
   // Get provider and networkId from first asset or first airdrop asset
   const firstAsset = portfolioItem.assets[0] || portfolioItem.airdropAssets[0];
-  const provider = firstAsset?.metadata.protocol.providerDetail.code || '';
-  const networkId = firstAsset?.metadata.network.networkId || '';
-
-  // Refresh callback for when pending txs complete
-  const handleRefresh = useCallback(() => {
-    if (!onRefreshRow) return;
-
-    // Refresh the entire protocol (all assets and airdrops under this provider/network)
-    onRefreshRow({
-      provider,
-      networkId,
-    });
-  }, [onRefreshRow, provider, networkId]);
-
-  // Monitor pending txs for all tokens in this protocol
-  const { allTxs = [] } = useProtocolMultiTokenPendingTxs({
-    networkId,
-    provider,
-    symbols: allSymbols,
-    onRefresh: handleRefresh,
-  });
 
   const depositColumnLabel = useMemo(() => {
     if (firstAsset?.token?.info?.symbol?.toUpperCase() === 'USDE') {
@@ -647,13 +652,11 @@ const PortfolioItemComponent = ({
   );
 
   return (
-    <PortfolioPendingTxsProvider
-      value={{ pendingTxs: allTxs, onRefresh: handleRefresh }}
-    >
+    <PortfolioPendingTxsProvider value={{ onRefresh }}>
       <YStack>
         <ProtocolHeader portfolioItem={portfolioItem} />
         <ProtocolAirdrop
-          airdropRenderMode={media.gtSm ? 'all' : 'firstOnly'}
+          airdropRenderMode={isDesktopLayout ? 'all' : 'firstOnly'}
           airdropAssets={portfolioItem.airdropAssets}
           stakedSymbol={portfolioItem.assets[0]?.token.info.symbol}
           stakedVault={portfolioItem.assets[0]?.metadata.protocol.vault}
@@ -669,8 +672,8 @@ const PortfolioItemComponent = ({
               }-${index}`
             }
             columns={columns}
-            withHeader={media.gtSm}
-            tableLayout
+            withHeader={isDesktopLayout}
+            tableLayout={isDesktopLayout}
             defaultSortKey="deposits"
             defaultSortDirection="desc"
             onPressRow={handleRowPress}
@@ -679,11 +682,11 @@ const PortfolioItemComponent = ({
               minHeight: '$8',
             }}
             listItemProps={{
-              ai: media.gtSm ? 'flex-start' : 'center',
-              mt: media.gtSm ? '$2' : '$1',
+              ai: isDesktopLayout ? 'flex-start' : 'center',
+              mt: isDesktopLayout ? '$2' : '$1',
             }}
             expandable={
-              !media.gtSm
+              !isDesktopLayout
                 ? {
                     renderExpandedContent: (asset) => (
                       <YStack gap="$5">
@@ -811,7 +814,7 @@ const PortfolioItemComponent = ({
             }}
           />
         ) : null}
-        {!media.gtSm ? (
+        {!isDesktopLayout ? (
           <ProtocolAirdrop
             airdropRenderMode="exceptFirst"
             airdropAssets={portfolioItem.airdropAssets}
@@ -828,8 +831,7 @@ const PortfolioItem = memo(PortfolioItemComponent);
 
 // Skeleton component for loading state
 const PortfolioSkeletonItem = () => {
-  const media = useMedia();
-
+  const isDesktopLayout = useIsDesktopLayout();
   return (
     <YStack gap="$2" px="$5">
       {/* Protocol Header */}
@@ -839,7 +841,7 @@ const PortfolioSkeletonItem = () => {
       </XStack>
 
       {/* Table Header - Desktop only */}
-      {media.gtSm ? (
+      {isDesktopLayout ? (
         <XStack gap="$3" px="$3" py="$2">
           <XStack flex={1.5}>
             <Skeleton h="$3" w={80} />
@@ -864,11 +866,11 @@ const PortfolioSkeletonItem = () => {
           gap="$3"
           px="$3"
           py="$2"
-          ai={media.gtSm ? 'center' : 'flex-start'}
-          minHeight={media.gtSm ? '$11' : '$14'}
+          ai={isDesktopLayout ? 'center' : 'flex-start'}
+          minHeight={isDesktopLayout ? '$11' : '$14'}
         >
           {/* Token Icon + Deposit */}
-          <XStack flex={media.gtSm ? 1.5 : 1} ai="center" gap="$3">
+          <XStack flex={isDesktopLayout ? 1.5 : 1} ai="center" gap="$3">
             <Skeleton w="$10" h="$10" borderRadius="$2" />
             <YStack gap="$1" flex={1}>
               <Skeleton h="$4" w="70%" />
@@ -876,7 +878,7 @@ const PortfolioSkeletonItem = () => {
             </YStack>
           </XStack>
 
-          {media.gtSm ? (
+          {isDesktopLayout ? (
             <>
               {/* 24h Earnings */}
               <YStack flex={1} gap="$1">
@@ -920,31 +922,6 @@ export const PortfolioTabContent = ({
   const intl = useIntl();
   const { investments, isLoading, refresh } = portfolioData;
 
-  const refreshPortfolioRow = useCallback<
-    (payload: {
-      provider: string;
-      symbol?: string;
-      networkId: string;
-      rewardSymbol?: string;
-    }) => void
-  >(
-    (payload) => {
-      if (!payload?.provider || !payload?.networkId) {
-        return;
-      }
-      // Add delay to allow backend data to update after order success
-      void timerUtils.wait(350).then(() => {
-        void refresh({
-          provider: payload.provider,
-          symbol: payload.symbol,
-          networkId: payload.networkId,
-          rewardSymbol: payload.rewardSymbol,
-        });
-      });
-    },
-    [refresh],
-  );
-
   const filteredInvestments = useMemo(
     () =>
       investments.filter(
@@ -971,15 +948,11 @@ export const PortfolioTabContent = ({
       return (
         <>
           {showDivider ? <Divider my="$4" mx="$5" /> : null}
-          <PortfolioItem
-            key={key}
-            portfolioItem={item}
-            onRefreshRow={refreshPortfolioRow}
-          />
+          <PortfolioItem key={key} portfolioItem={item} onRefresh={refresh} />
         </>
       );
     },
-    [filteredInvestments.length, refreshPortfolioRow],
+    [filteredInvestments.length, refresh],
   );
 
   const showSkeleton = isLoading && noAssets;

@@ -5,7 +5,7 @@ import { usePromiseResult } from '../../../hooks/usePromiseResult';
 export const useFAQListInfo = () => {
   const {
     result: faqList,
-    isLoading: isFaqLoading,
+    isLoading: isFaqLoading = true,
     run: refetchFAQ,
   } = usePromiseResult(
     async () => {
@@ -17,7 +17,6 @@ export const useFAQListInfo = () => {
     {
       initResult: [],
       watchLoading: true,
-      revalidateOnFocus: true,
     },
   );
 

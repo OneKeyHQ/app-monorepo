@@ -2,7 +2,13 @@ import { memo, useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { SizableText, Stack, Tabs, useMedia } from '@onekeyhq/components';
+import {
+  ListEndIndicator,
+  SizableText,
+  Stack,
+  Tabs,
+  useMedia,
+} from '@onekeyhq/components';
 import { useMarketHolders } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/useMarketHolders';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -41,16 +47,7 @@ function HoldersBase({ tokenAddress, networkId }: IHoldersProps) {
 
   const ListFooterComponent = useMemo(() => {
     if (!isRefreshing && holders.length > 0) {
-      return (
-        <Stack alignItems="center" justifyContent="center" py="$4">
-          <Stack
-            width={120}
-            height={4}
-            backgroundColor="$neutral5"
-            borderRadius="$full"
-          />
-        </Stack>
-      );
+      return <ListEndIndicator />;
     }
     return null;
   }, [isRefreshing, holders.length]);

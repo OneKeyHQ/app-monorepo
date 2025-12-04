@@ -53,6 +53,27 @@ index d5b82ff..a4bed78 100644
      fun addView(host: NestedScrollableHost, child: View?, index: Int) {
          if (child == null) {
              return
+diff --git a/node_modules/react-native-pager-view/ios/RNCPagerViewComponentView.mm b/node_modules/react-native-pager-view/ios/RNCPagerViewComponentView.mm
+index d52f532..cd8762c 100644
+--- a/node_modules/react-native-pager-view/ios/RNCPagerViewComponentView.mm
++++ b/node_modules/react-native-pager-view/ios/RNCPagerViewComponentView.mm
+@@ -427,10 +427,12 @@ - (BOOL)isLtrLayout {
+ 
+ - (void)sendScrollEventsForPosition:(NSInteger)position offset:(CGFloat)offset {
+     const auto eventEmitter = [self pagerEventEmitter];
+-    eventEmitter->onPageScroll(RNCViewPagerEventEmitter::OnPageScroll{
+-        .position = static_cast<double>(position),
+-        .offset = offset
+-    });
++     if (eventEmitter && eventEmitter != nullptr) {
++        eventEmitter->onPageScroll(RNCViewPagerEventEmitter::OnPageScroll{
++            .position = static_cast<double>(position),
++            .offset = offset
++        });
++     }
+   
+     // This is temporary workaround to allow animations based on onPageScroll event
+     // until Fabric implements proper NativeAnimationDriver,
 diff --git a/node_modules/react-native-pager-view/src/PagerViewNativeComponent.ts b/node_modules/react-native-pager-view/src/PagerViewNativeComponent.ts
 index 19d935e..4109654 100644
 --- a/node_modules/react-native-pager-view/src/PagerViewNativeComponent.ts

@@ -99,6 +99,7 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
             params: {
               screen: ETabMarketRoutes.TabMarket,
             },
+            pop: true,
           }),
         );
       }

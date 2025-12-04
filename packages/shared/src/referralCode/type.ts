@@ -388,7 +388,7 @@ export interface IUpdateInviteCodeNoteResponse {
 // Export functionality types
 export enum EExportSubject {
   HardwareSales = 'HardwareSales',
-  Defi = 'Defi',
+  Onchain = 'Onchain',
   Perp = 'Perp',
 }
 

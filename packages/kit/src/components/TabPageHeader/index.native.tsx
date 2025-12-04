@@ -18,7 +18,6 @@ export function TabPageHeader({
   tabRoute,
   customHeaderRightItems,
   selectedHeaderTab,
-  onSelectHeaderTab,
   renderCustomHeaderRightItems,
   customHeaderLeftItems,
   hideSearch = false,
@@ -58,7 +57,6 @@ export function TabPageHeader({
         <View>
           <HeaderLeft
             selectedHeaderTab={selectedHeaderTab}
-            onSelectHeaderTab={onSelectHeaderTab}
             sceneName={sceneName}
             tabRoute={tabRoute}
             customHeaderLeftItems={customHeaderLeftItems}
