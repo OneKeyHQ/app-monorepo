@@ -673,7 +673,7 @@ const PortfolioItemComponent = ({
             }
             columns={columns}
             withHeader={isDesktopLayout}
-            tableLayout
+            tableLayout={isDesktopLayout}
             defaultSortKey="deposits"
             defaultSortDirection="desc"
             onPressRow={handleRowPress}
