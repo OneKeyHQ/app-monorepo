@@ -1,8 +1,8 @@
 diff --git a/node_modules/@tamagui/web/dist/cjs/hooks/useMedia.native.js b/node_modules/@tamagui/web/dist/cjs/hooks/useMedia.native.js
-index 47addac..4e90132 100644
+index 47addac..85f0848 100644
 --- a/node_modules/@tamagui/web/dist/cjs/hooks/useMedia.native.js
 +++ b/node_modules/@tamagui/web/dist/cjs/hooks/useMedia.native.js
-@@ -160,11 +160,83 @@ function unlisten() {
+@@ -160,11 +160,85 @@ function unlisten() {
    }), dispose.clear();
  }
  var setupVersion = -1;
@@ -24,13 +24,15 @@ index 47addac..4e90132 100644
 +
 +function checkTabletSplitView(callback) {
 +  if (isDualScreenDevice) {
-+    DualScreenInfoNative.isSpanning().then((result) => {
-+      callback(!!result);
-+    });
++    // DualScreenInfoNative.isSpanning().then((result) => {
++    //   callback(!!result);
++    // });
++    callback(true);
 +  } else if (ExpoDevice.deviceType === ExpoDevice.DeviceType.TABLET) {
-+    ScreenOrientation.getOrientationAsync().then((result) => {
-+      callback(result === ScreenOrientation.Orientation.LANDSCAPE_LEFT || result === ScreenOrientation.Orientation.LANDSCAPE_RIGHT);
-+    });
++    // ScreenOrientation.getOrientationAsync().then((result) => {
++    //   callback(result === ScreenOrientation.Orientation.LANDSCAPE_LEFT || result === ScreenOrientation.Orientation.LANDSCAPE_RIGHT);
++    // });
++    callback(true);
 +  } else {
 +    callback(false);
 +  }

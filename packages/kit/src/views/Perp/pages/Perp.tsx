@@ -32,10 +32,7 @@ function PerpLayout() {
   return <PerpMobileLayout />;
 }
 
-console.log('PerpContent js loaded');
-
 function PerpContent() {
-  console.log('PerpContent render');
   const [tabPageHeight, setTabPageHeight] = useState(
     platformEnv.isNativeIOS ? 143 : 92,
   );
@@ -91,7 +88,7 @@ function PerpContent() {
   );
 }
 
-export function PerpView() {
+function PerpView() {
   const isFocused = useIsFocused();
   const [isMounted, setIsMounted] = useState(false);
   const isMountedRef = useRef(false);
@@ -107,7 +104,7 @@ export function PerpView() {
   if (!isMounted) {
     return null;
   }
-  return shouldOpenExpandExtPerp() ? (
+  return shouldOpenExpandExtPerp ? (
     <ExtPerp />
   ) : (
     <>
@@ -117,10 +114,15 @@ export function PerpView() {
   );
 }
 
+function ExtPerpNull() {
+  const isFocused = useIsFocused();
+  return isFocused ? <ExtPerp /> : null;
+}
+
 export default function Perp() {
   const canRenderPerp = usePerpFeatureGuard();
   if (!canRenderPerp) {
-    return null;
+    return shouldOpenExpandExtPerp ? <ExtPerpNull /> : null;
   }
 
   return (

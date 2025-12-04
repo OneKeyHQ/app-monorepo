@@ -157,6 +157,7 @@ function parseFlexShorthand(flex: string): {
 function getVisibleColumnsByPriority<T>(
   columns: ITableColumn<T>[],
   media: ReturnType<typeof useMedia>,
+  tableLayout: boolean,
 ): ITableColumn<T>[] {
   // Define priority thresholds for different breakpoints
   // gtMd (>= 768px): show all columns
@@ -165,7 +166,8 @@ function getVisibleColumnsByPriority<T>(
 
   let minPriority = 0;
 
-  if (!media.gtSm) {
+  // When tableLayout is false (mobile mode), always use mobile priority threshold
+  if (!tableLayout || !media.gtSm) {
     // Mobile: only show priority >= 5
     minPriority = 5;
   } else if (!media.gtMd) {
@@ -561,8 +563,8 @@ function BasicTableList<T>({
 
   // Determine layout mode
   const tableLayout = useMemo(
-    () => tableLayoutProp ?? media.gtSm,
-    [tableLayoutProp, media.gtSm],
+    () => tableLayoutProp ?? media.gtMd,
+    [tableLayoutProp, media.gtMd],
   );
 
   // Filter columns based on priority and mobile setting
@@ -575,7 +577,7 @@ function BasicTableList<T>({
     }
 
     // Then apply priority-based filtering
-    filtered = getVisibleColumnsByPriority(filtered, media);
+    filtered = getVisibleColumnsByPriority(filtered, media, tableLayout);
 
     return filtered;
   }, [tableLayout, columns, media]);

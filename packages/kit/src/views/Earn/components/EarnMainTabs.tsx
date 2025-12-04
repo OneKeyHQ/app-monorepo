@@ -13,6 +13,8 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { useRouteIsFocused } from '../../../hooks/useRouteIsFocused';
+
 import { FAQContent } from './FAQContent';
 import { PortfolioTabContent } from './PortfolioTabContent';
 import { ProtocolsTabContent } from './ProtocolsTabContent';
@@ -82,7 +84,14 @@ const EarnMainTabsComponent = ({
     [tabKeyByName],
   );
 
+  const isFocused = useRouteIsFocused();
+  const isFocusedRef = useRef(isFocused);
+
   useEffect(() => {
+    if (isFocused === isFocusedRef.current) {
+      return;
+    }
+    isFocusedRef.current = isFocused;
     if (defaultTab && tabsRef.current) {
       const targetTabName = initialTabName;
       const currentTabName = tabsRef.current.getFocusedTab();
@@ -90,7 +99,7 @@ const EarnMainTabsComponent = ({
         tabsRef.current.jumpToTab(targetTabName);
       }
     }
-  }, [defaultTab, initialTabName]);
+  }, [defaultTab, initialTabName, isFocused]);
 
   useEffect(
     () => () => {
