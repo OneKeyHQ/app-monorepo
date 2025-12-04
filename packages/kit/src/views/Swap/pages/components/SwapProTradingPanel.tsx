@@ -16,7 +16,14 @@ import {
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import { ESwapProTradeType } from '@onekeyhq/shared/types/swap/types';
+import type {
+  ISpeedSwapConfig,
+  ISwapProSpeedConfig,
+} from '@onekeyhq/shared/types/swap/types';
+import {
+  ESwapProTradeType,
+  ISwapTokenBase,
+} from '@onekeyhq/shared/types/swap/types';
 
 import { TradeTypeSelector } from '../../../Market/MarketDetailV2/components/SwapPanel/components/TradeTypeSelector';
 import LimitExpirySelect from '../../components/LimitExpirySelect';
@@ -37,7 +44,21 @@ import { SwapProSlippageSetting } from './SwapProSlippageSetting';
 import SwapProToTotalValue from './SwapProToTotalValue';
 import SwapProTradeInfoGroup from './SwapProTradeInfoGroup';
 
-const SwapProTradingPanel = () => {
+import type { IToken } from '../../../Market/MarketDetailV2/components/SwapPanel/types';
+
+interface ISwapProTradingPanelProps {
+  swapProConfig: ISwapProSpeedConfig;
+  balanceLoading: boolean;
+  configLoading: boolean;
+  isMev: boolean;
+}
+
+const SwapProTradingPanel = ({
+  swapProConfig,
+  balanceLoading,
+  isMev,
+  configLoading,
+}: ISwapProTradingPanelProps) => {
   const [swapProDirection, setSwapProDirection] = useSwapProDirectionAtom();
   const [swapProTradeType, setSwapProTradeType] = useSwapProTradeTypeAtom();
   const [swapLimitExpirySelect, setSwapLimitExpirySelect] =
@@ -71,8 +92,6 @@ const SwapProTradingPanel = () => {
       },
     });
   };
-  const { defaultTokens, isLoading, speedConfig, isMEV } =
-    useSwapProTokenInit();
 
   useSwapProActionsQuote();
 
@@ -96,16 +115,16 @@ const SwapProTradingPanel = () => {
           <SwapProLimitPriceValue />
         ) : null}
         <SwapProInputContainer
-          isLoading={isLoading}
-          defaultTokens={defaultTokens}
+          isLoading={configLoading}
+          defaultTokens={swapProConfig.defaultTokens as IToken[]}
         />
         <SwapProSlider />
         <SwapProToTotalValue />
         <SwapProTradeInfoGroup />
         <SwapProAccountSelect onSelectAccountClick={handleSelectAccountClick} />
         <SwapProSlippageSetting
-          autoDefaultValue={speedConfig?.slippage}
-          isMEV={isMEV}
+          autoDefaultValue={swapProConfig?.slippage}
+          isMEV={isMev}
         />
         {swapProTradeType === ESwapProTradeType.LIMIT ? (
           <>

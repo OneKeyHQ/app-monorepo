@@ -4,13 +4,11 @@ import BigNumber from 'bignumber.js';
 
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { useSwapProJumpTokenAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/swap';
-import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IMarketSearchV2Token } from '@onekeyhq/shared/types/market';
 import type { IMarketTokenTransaction } from '@onekeyhq/shared/types/marketV2';
-import { swapDefaultSetTokens } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import {
   ESwapProTradeType,
@@ -19,7 +17,6 @@ import {
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useCurrency } from '../../../components/Currency';
-import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import {
@@ -70,14 +67,6 @@ export function useSwapProInit() {
       setSwapProJumpToken({ token: undefined });
     }
   }, [swapProJumpToken, swapSwitchProToken, setSwapProJumpToken]);
-
-  useListenTabFocusState(ETabRoutes.Swap, (isFocus: boolean) => {
-    if (isFocus) {
-      if (!swapProSelectTokenRef.current && !swapProJumpTokenRef.current) {
-        setSwapProSelectToken(swapDefaultSetTokens['evm--1'].fromToken);
-      }
-    }
-  });
 }
 
 export function useSwapProInputToken() {
@@ -139,24 +128,35 @@ export function useSwapProAccount() {
 }
 
 export function useSwapProTokenInit() {
-  const [swapProSelectToken] = useSwapProSelectTokenAtom();
+  const [swapProSelectToken, setSwapProSelectToken] =
+    useSwapProSelectTokenAtom();
   const [swapProDirection] = useSwapProDirectionAtom();
   const [swapProSellToToken, setSwapProSellToToken] =
     useSwapProSellToTokenAtom();
   const [swapProUseSelectBuyTokenAtom, setSwapProUseSelectBuyTokenAtom] =
     useSwapProUseSelectBuyTokenAtom();
-  const { defaultTokens, isLoading, speedConfig, swapMevNetConfig } =
-    useSpeedSwapInit(swapProSelectToken?.networkId || '');
+  const {
+    defaultTokens,
+    isLoading,
+    speedConfig,
+    swapMevNetConfig,
+    speedDefaultSelectToken,
+  } = useSpeedSwapInit(swapProSelectToken?.networkId || '');
   const [balanceLoading, setBalanceLoading] = useState(false);
   useEffect(() => {
     if (!swapProUseSelectBuyTokenAtom && defaultTokens.length > 0) {
       setSwapProUseSelectBuyTokenAtom(defaultTokens[0]);
     }
+    if (speedDefaultSelectToken && !swapProSelectToken) {
+      setSwapProSelectToken(speedDefaultSelectToken);
+    }
   }, [
     swapProSelectToken,
     swapProUseSelectBuyTokenAtom,
     setSwapProUseSelectBuyTokenAtom,
+    setSwapProSelectToken,
     defaultTokens,
+    speedDefaultSelectToken,
   ]);
 
   useEffect(() => {

@@ -11,6 +11,7 @@ import { ETabName } from '../../../Perp/layouts/PerpMobileLayout';
 import {
   useSwapProSupportNetworksTokenList,
   useSwapProTokenDetailInfo,
+  useSwapProTokenInit,
 } from '../../hooks/useSwapPro';
 
 import LimitOrderList from './LimitOrderList';
@@ -44,6 +45,15 @@ const SwapProContainer = ({
     setRefreshing(false);
   }, [fetchTokenMarketDetailInfo, swapProLoadSupportNetworksTokenListRun]);
 
+  const {
+    isLoading,
+    swapMevNetConfig,
+    swapProSelectToken,
+    speedConfig,
+    balanceLoading,
+    isMEV,
+  } = useSwapProTokenInit();
+
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: '$bgApp' }}
@@ -63,7 +73,11 @@ const SwapProContainer = ({
           <SwapProTradeInfoPanel />
         </YStack>
         <YStack flexBasis="60%" flexShrink={1} alignSelf="stretch">
-          <SwapProTradingPanel />
+          <SwapProTradingPanel
+            swapProConfig={speedConfig}
+            configLoading={isLoading}
+            balanceLoading
+          />
         </YStack>
       </XStack>
       <XStack

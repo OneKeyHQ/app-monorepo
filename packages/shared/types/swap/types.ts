@@ -999,14 +999,17 @@ export interface IFetchLimitOrderRes {
     signedType: EMessageTypesEth;
   };
 }
+
+export interface ISwapProSpeedConfig {
+  slippage: number;
+  spenderAddress: string;
+  defaultTokens: ISwapTokenBase[];
+  swapMevNetConfig: string[];
+}
 export interface ISpeedSwapConfig {
   provider: string;
-  speedConfig: {
-    slippage: number;
-    spenderAddress: string;
-    defaultTokens: ISwapTokenBase[];
-    swapMevNetConfig: string[];
-  };
+  speedConfig: ISwapProSpeedConfig;
+  speedDefaultSelectToken: ISwapTokenBase;
   supportSpeedSwap: boolean;
 }
 

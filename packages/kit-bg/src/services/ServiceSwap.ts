@@ -47,6 +47,7 @@ import {
   maxRecentTokenPairs,
   mevSwapNetworks,
   swapApprovingStateFetchInterval,
+  swapDefaultSetTokens,
   swapHistoryStateFetchInterval,
   swapHistoryStateFetchRiceIntervalCount,
   swapQuoteEventTimeout,
@@ -2218,6 +2219,7 @@ export default class ServiceSwap extends ServiceBase {
           swapMevNetConfig: mevSwapNetworks,
         },
         supportSpeedSwap: false,
+        speedDefaultSelectToken: swapDefaultSetTokens['evm--1'].toToken,
       };
     }
   }
