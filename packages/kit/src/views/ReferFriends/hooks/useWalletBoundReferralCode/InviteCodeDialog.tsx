@@ -11,11 +11,11 @@ import {
   Input,
   Select,
   SizableText,
+  Spinner,
   XStack,
   YStack,
   useForm,
 } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar/WalletAvatar';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -28,9 +28,9 @@ import {
   EAccountManagerStacksRoutes,
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
+import { useFetchWalletsWithBoundStatus } from './useFetchWalletsWithBoundStatus';
 import { useGetReferralCodeWalletInfo } from './useGetReferralCodeWalletInfo';
 
 import type { IReferralCodeWalletInfo } from './types';
@@ -61,38 +61,9 @@ export function InviteCodeDialog({
     },
   });
   const getReferralCodeWalletInfo = useGetReferralCodeWalletInfo();
+  const { walletsWithStatus, isLoading: isLoadingWallets } =
+    useFetchWalletsWithBoundStatus();
   const navigation = useAppNavigation();
-
-  // Fetch all wallets with bound status
-  const { result: walletsWithStatus } = usePromiseResult(async () => {
-    const { wallets } = await backgroundApiProxy.serviceAccount.getWallets({
-      nestedHiddenWallets: false,
-    });
-
-    // Filter valid wallets (HD and hardware wallets)
-    const validWallets = wallets.filter(
-      (w) =>
-        (accountUtils.isHdWallet({ walletId: w.id }) ||
-          accountUtils.isHwWallet({ walletId: w.id })) &&
-        !accountUtils.isHwHiddenWallet({ wallet: w }),
-    );
-
-    // Get bound status for each wallet
-    const walletsWithBoundStatus = await Promise.all(
-      validWallets.map(async (w) => {
-        const referralCodeInfo =
-          await backgroundApiProxy.serviceReferralCode.getWalletReferralCode({
-            walletId: w.id,
-          });
-        return {
-          wallet: w,
-          isBound: referralCodeInfo?.isBound ?? false,
-        };
-      }),
-    );
-
-    return walletsWithBoundStatus;
-  }, []);
 
   // Selected wallet state
   const [selectedWalletId, setSelectedWalletId] = useState<string | undefined>(
@@ -194,7 +165,22 @@ export function InviteCodeDialog({
             id: ETranslations.referral_wallet_code_wallet,
           })}
         </SizableText>
-        {hasNoWallets ? (
+        {isLoadingWallets ? (
+          <XStack
+            gap="$2"
+            ai="center"
+            py="$2"
+            px="$3"
+            bg="$bgSubdued"
+            borderRadius="$2"
+            borderWidth={StyleSheet.hairlineWidth}
+            borderColor="$borderSubdued"
+            jc="center"
+          >
+            <Spinner size="small" />
+          </XStack>
+        ) : null}
+        {!isLoadingWallets && hasNoWallets ? (
           <Button
             variant="secondary"
             size="medium"
@@ -214,7 +200,8 @@ export function InviteCodeDialog({
               id: ETranslations.global_add_wallet,
             })}
           </Button>
-        ) : (
+        ) : null}
+        {!isLoadingWallets && !hasNoWallets ? (
           <Select
             title={intl.formatMessage({
               id: ETranslations.referral_select_wallet,
@@ -248,7 +235,7 @@ export function InviteCodeDialog({
               </XStack>
             )}
           />
-        )}
+        ) : null}
         {isSelectedWalletBound ? (
           <SizableText size="$bodySm" color="$textCritical" mt="$1">
             {intl.formatMessage({
