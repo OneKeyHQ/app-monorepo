@@ -10,6 +10,7 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { EmptyDeFi } from '@onekeyhq/kit/src/components/Empty';
 import { ListLoading } from '@onekeyhq/kit/src/components/Loading';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -55,11 +56,6 @@ function DeFiListBlock() {
     if (networkUtils.isAllNetwork({ networkId: network.id })) {
       return;
     }
-
-    updateDeFiListState({
-      isRefreshing: true,
-      initialized: false,
-    });
 
     await backgroundApiProxy.serviceDeFi.abortFetchAccountDeFiPositions();
 
@@ -132,10 +128,6 @@ function DeFiListBlock() {
     isRefreshing,
   ]);
   const renderContent = useCallback(() => {
-    if (!initialized && isRefreshing) {
-      return <ListLoading isTokenSelectorView={false} />;
-    }
-
     return (
       <YStack gap="$5" flex={1}>
         {protocols.map((protocol) => (
@@ -146,7 +138,25 @@ function DeFiListBlock() {
         ))}
       </YStack>
     );
-  }, [initialized, isRefreshing, protocols]);
+  }, [protocols]);
+
+  if (protocols.length === 0) {
+    return (
+      <RichBlock
+        withTitleSeparator
+        title={intl.formatMessage({ id: ETranslations.global_earn })}
+        subTitle={renderSubTitle()}
+        content={
+          !initialized && isRefreshing ? (
+            <ListLoading isTokenSelectorView={false} />
+          ) : (
+            <EmptyDeFi />
+          )
+        }
+      />
+    );
+  }
+
   return (
     <RichBlock
       withTitleSeparator
