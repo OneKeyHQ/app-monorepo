@@ -29,6 +29,7 @@ import type {
 } from '@onekeyhq/shared/types/defi';
 
 import { RichTable } from '../RichTable';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 function Protocol({ protocol }: { protocol: IDeFiProtocol }) {
   const intl = useIntl();
@@ -64,7 +65,11 @@ function Protocol({ protocol }: { protocol: IDeFiProtocol }) {
         title: 'Type',
         dataIndex: 'category',
         render: (category: string) => (
-          <SizableText size="$bodyMdMedium" color="$textInfo">
+          <SizableText
+            size="$bodyMdMedium"
+            color="$textInfo"
+            textTransform="capitalize"
+          >
             {category}
           </SizableText>
         ),
@@ -73,7 +78,9 @@ function Protocol({ protocol }: { protocol: IDeFiProtocol }) {
         title: 'Amount',
         dataIndex: 'amount',
         render: (amount: string) => (
-          <SizableText size="$bodyMdMedium">{amount}</SizableText>
+          <NumberSizeableText size="$bodyMdMedium" formatter="balance">
+            {amount}
+          </NumberSizeableText>
         ),
       },
       {
@@ -172,7 +179,11 @@ function Protocol({ protocol }: { protocol: IDeFiProtocol }) {
           {({ open }: { open: boolean }) => (
             <>
               <XStack gap="$3" alignItems="center">
-                <Token />
+                <Token
+                  size="lg"
+                  tokenImageUri={protocolInfo?.protocolLogo}
+                  isNFT
+                />
                 <SizableText size="$headingLg">
                   {protocolInfo?.protocolName ?? protocol.protocol}
                 </SizableText>
@@ -183,7 +194,7 @@ function Protocol({ protocol }: { protocol: IDeFiProtocol }) {
                   variant="tertiary"
                   icon="OpenOutline"
                   size="small"
-                  onPress={() => {}}
+                  onPress={() => openUrlExternal(protocolInfo?.protocolUrl)}
                 />
               </XStack>
               <XStack alignItems="center" gap="$3">

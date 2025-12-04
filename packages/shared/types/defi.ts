@@ -60,7 +60,8 @@ export type IProtocolSummary = {
   networkIds: string[];
   positionCount: number;
   positionIndices: { index: number; networkId: string }[];
-  logoUrl?: string;
+  protocolLogo: string;
+  protocolUrl: string;
 };
 
 export type IFetchAccountDeFiPositionsResp = {

@@ -129,7 +129,7 @@ function transformDeFiData({
       positionValue.debts.push(...debts);
       positionValue.rewards.push(...rewards);
       // calculate value
-      positionValue.value.plus(
+      positionValue.value = positionValue.value.plus(
         position.assets
           .reduce((acc, asset) => acc.plus(asset.value), new BigNumber(0))
           .plus(
@@ -160,7 +160,7 @@ function transformDeFiData({
         category: key,
         value: position.value.toFixed(),
         all: position.all.sort((a, b) => {
-          return a.value - b.value;
+          return b.value - a.value;
         }),
       }),
     ),
