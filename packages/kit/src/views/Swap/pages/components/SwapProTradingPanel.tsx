@@ -120,7 +120,7 @@ const SwapProTradingPanel = ({
         />
         <SwapProSlider />
         <SwapProToTotalValue />
-        <SwapProTradeInfoGroup />
+        <SwapProTradeInfoGroup balanceLoading={balanceLoading} />
         <SwapProAccountSelect onSelectAccountClick={handleSelectAccountClick} />
         <SwapProSlippageSetting
           autoDefaultValue={swapProConfig?.slippage}

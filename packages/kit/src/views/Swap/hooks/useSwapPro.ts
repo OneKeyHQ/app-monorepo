@@ -3,7 +3,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import BigNumber from 'bignumber.js';
 
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
-import { useSwapProJumpTokenAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/swap';
+import {
+  swapProJumpTokenAtom,
+  useSwapProJumpTokenAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms/swap';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -131,6 +134,7 @@ export function useSwapProTokenInit() {
   const [swapProSelectToken, setSwapProSelectToken] =
     useSwapProSelectTokenAtom();
   const [swapProDirection] = useSwapProDirectionAtom();
+  const [swapProJumpToken] = useSwapProJumpTokenAtom();
   const [swapProSellToToken, setSwapProSellToToken] =
     useSwapProSellToTokenAtom();
   const [swapProUseSelectBuyTokenAtom, setSwapProUseSelectBuyTokenAtom] =
@@ -147,16 +151,27 @@ export function useSwapProTokenInit() {
     if (!swapProUseSelectBuyTokenAtom && defaultTokens.length > 0) {
       setSwapProUseSelectBuyTokenAtom(defaultTokens[0]);
     }
-    if (speedDefaultSelectToken && !swapProSelectToken) {
-      setSwapProSelectToken(speedDefaultSelectToken);
-    }
   }, [
     swapProSelectToken,
     swapProUseSelectBuyTokenAtom,
     setSwapProUseSelectBuyTokenAtom,
     setSwapProSelectToken,
     defaultTokens,
+  ]);
+
+  useEffect(() => {
+    if (
+      !swapProJumpToken?.token &&
+      !swapProSelectToken &&
+      speedDefaultSelectToken
+    ) {
+      setSwapProSelectToken(speedDefaultSelectToken);
+    }
+  }, [
+    swapProJumpToken,
+    setSwapProSelectToken,
     speedDefaultSelectToken,
+    swapProSelectToken,
   ]);
 
   useEffect(() => {
@@ -196,7 +211,7 @@ export function useSwapProTokenInit() {
               : undefined,
           );
         } else {
-          setSwapProSellToToken((prev) =>
+          setSwapProSelectToken((prev) =>
             prev
               ? {
                   ...prev,
@@ -218,9 +233,31 @@ export function useSwapProTokenInit() {
     inputToken?.networkId,
     netAccountRes.result?.addressDetail.address,
     netAccountRes.result?.id,
-    setSwapProSellToToken,
+    setSwapProSelectToken,
     setSwapProUseSelectBuyTokenAtom,
     swapProDirection,
+  ]);
+
+  const syncToTokenPrice = useCallback(async () => {
+    if (swapProSellToToken?.networkId && !swapProSellToToken?.price) {
+      const balanceTokenInfo =
+        await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
+          networkId: swapProSellToToken?.networkId ?? '',
+          contractAddress: swapProSellToToken?.contractAddress ?? '',
+        });
+      if (balanceTokenInfo?.length) {
+        setSwapProSellToToken((prev) =>
+          prev
+            ? { ...prev, price: balanceTokenInfo[0].price ?? '' }
+            : undefined,
+        );
+      }
+    }
+  }, [
+    setSwapProSellToToken,
+    swapProSellToToken?.contractAddress,
+    swapProSellToToken?.networkId,
+    swapProSellToToken?.price,
   ]);
 
   useEffect(() => {
@@ -228,6 +265,12 @@ export function useSwapProTokenInit() {
       void syncInputTokenBalance();
     }
   }, [inputToken, syncInputTokenBalance]);
+
+  useEffect(() => {
+    if (swapProSellToToken && !swapProSellToToken.price) {
+      void syncToTokenPrice();
+    }
+  }, [swapProSellToToken, syncToTokenPrice]);
 
   const isMEV = useMemo(() => {
     return swapMevNetConfig?.includes(swapProSelectToken?.networkId ?? '');
@@ -343,6 +386,9 @@ export function useSwapProTokenTransactionList(
     run: fetchTransactions,
   } = usePromiseResult(
     async () => {
+      if (!networkId) {
+        return undefined;
+      }
       const response =
         await backgroundApiProxy.serviceMarketV2.fetchMarketTokenTransactions({
           tokenAddress,

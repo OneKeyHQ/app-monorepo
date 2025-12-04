@@ -1,9 +1,6 @@
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import {
-  mevSwapNetworks,
-  swapDefaultSetTokens,
-} from '@onekeyhq/shared/types/swap/SwapProvider.constants';
+import { mevSwapNetworks } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 
 import type { IToken } from '../types';
 
@@ -27,7 +24,7 @@ export function useSpeedSwapInit(networkId: string) {
           swapMevNetConfig: mevSwapNetworks,
         },
         supportSpeedSwap: false,
-        speedDefaultSelectToken: swapDefaultSetTokens['evm--1'].toToken,
+        speedDefaultSelectToken: undefined,
       },
       watchLoading: true,
     },

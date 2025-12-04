@@ -15,7 +15,13 @@ import {
   useSwapProToToken,
 } from '../../hooks/useSwapPro';
 
-const SwapProTradeInfoGroup = () => {
+interface ISwapProTradeInfoGroupProps {
+  balanceLoading: boolean;
+}
+
+const SwapProTradeInfoGroup = ({
+  balanceLoading,
+}: ISwapProTradeInfoGroupProps) => {
   const inputToken = useSwapProInputToken();
   const toToken = useSwapProToToken();
   const [swapProQuoteResult] = useSwapSpeedQuoteResultAtom();
@@ -63,6 +69,7 @@ const SwapProTradeInfoGroup = () => {
         valueProps={{
           size: '$bodySmMedium',
         }}
+        isLoading={balanceLoading}
       />
       <SwapCommonInfoItem
         title="Est. Receive"

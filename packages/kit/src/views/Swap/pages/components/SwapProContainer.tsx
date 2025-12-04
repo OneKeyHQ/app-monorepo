@@ -59,7 +59,10 @@ const SwapProContainer = ({
       }
     >
       <XStack justifyContent="space-between" pb="$4" pt="$1" bg="$bgApp">
-        <SwapProTokenSelector onSelectTokenClick={onProSelectToken} />
+        <SwapProTokenSelector
+          onSelectTokenClick={onProSelectToken}
+          configLoading={isLoading}
+        />
         <IconButton icon="AccessibilityEyeSolid" />
       </XStack>
       <XStack gap="$2.5" pb="$4" alignItems="stretch">
@@ -70,8 +73,8 @@ const SwapProContainer = ({
           <SwapProTradingPanel
             swapProConfig={speedConfig}
             configLoading={isLoading}
-            balanceLoading
-            isMev
+            balanceLoading={balanceLoading}
+            isMev={isMEV}
           />
         </YStack>
       </XStack>

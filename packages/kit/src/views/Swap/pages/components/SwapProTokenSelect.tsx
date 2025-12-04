@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 
-import { Badge, Icon, SizableText } from '@onekeyhq/components';
+import { Badge, Icon, SizableText, Skeleton } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { useSwapProSelectTokenAtom } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
@@ -8,10 +8,12 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 interface ISwapProTokenSelector {
   onSelectTokenClick: () => void;
+  configLoading: boolean;
 }
 
 const SwapProTokenSelector = ({
   onSelectTokenClick,
+  configLoading,
 }: ISwapProTokenSelector) => {
   const [swapProTokenSelect] = useSwapProSelectTokenAtom();
   const themeVariant = useThemeVariant();
@@ -27,6 +29,9 @@ const SwapProTokenSelector = ({
     }
     return undefined;
   }, [swapProTokenSelect]);
+  if (configLoading) {
+    return <Skeleton w="$10" h="$10" />;
+  }
   return (
     <Badge
       gap="$3"

@@ -2049,11 +2049,17 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     async (get, set, contractAddress: string, networkId: string) => {
       try {
         set(swapProTokenMarketDetailInfoLoadingAtom(), true);
+        console.log(
+          'swap__swapProTokenMarketDetailFetchAction',
+          contractAddress,
+          networkId,
+        );
         const tokenDetail =
           await backgroundApiProxy.serviceMarketV2.fetchMarketTokenDetailByTokenAddress(
             contractAddress,
             networkId,
           );
+        console.log('swap__tokenDetail', tokenDetail);
         const responseData =
           tokenDetail as unknown as IMarketTokenDetailResponse;
 
@@ -2068,6 +2074,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         // Extract token and websocket data from new response format
         const tokenData = responseData.data.token;
         const websocketConfig = responseData.data.websocket;
+        const currentSelectToken = get(swapProSelectTokenAtom());
         const currentTokenDetail = get(swapProTokenMarketDetailInfoAtom());
         const isSameToken =
           currentTokenDetail &&
@@ -2090,9 +2097,23 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
               lastUpdated: currentTokenDetail.lastUpdated,
             }
           : tokenData;
-
         set(swapProTokenMarketDetailInfoAtom(), finalTokenData);
         set(swapProTokenDetailWebsocketAtom(), websocketConfig);
+        if (
+          currentSelectToken &&
+          equalTokenNoCaseSensitive({
+            token1: {
+              networkId,
+              contractAddress,
+            },
+            token2: currentSelectToken,
+          })
+        ) {
+          set(swapProSelectTokenAtom(), {
+            ...currentSelectToken,
+            price: finalTokenData.price,
+          });
+        }
       } catch (error) {
         console.error('swap__tokenDetail error', error);
       } finally {
