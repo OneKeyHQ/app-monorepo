@@ -1,3 +1,6 @@
+import { useCallback, useMemo } from 'react';
+
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
@@ -9,38 +12,124 @@ import {
   IconButton,
   NumberSizeableText,
   SizableText,
+  Stack,
   View,
   XStack,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { useDeFiListProtocolMapAtom } from '@onekeyhq/kit/src/states/jotai/contexts/deFiList';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import defiUtils from '@onekeyhq/shared/src/utils/defiUtils';
+import type {
+  EDeFiAssetType,
+  IDeFiAsset,
+  IDeFiProtocol,
+} from '@onekeyhq/shared/types/defi';
 
 import { RichTable } from '../RichTable';
 
-const columns = [
-  {
-    title: appLocale.intl.formatMessage({ id: ETranslations.global_asset }),
-    dataIndex: 'asset',
-  },
-  {
-    title: 'Type',
-    dataIndex: 'type',
-  },
-  {
-    title: 'Amount',
-    dataIndex: 'amount',
-  },
-  {
-    title: appLocale.intl.formatMessage({ id: ETranslations.global_value }),
-    dataIndex: 'usd-value',
-  },
-];
-
-function Protocol() {
+function Protocol({ protocol }: { protocol: IDeFiProtocol }) {
   const intl = useIntl();
   const [settings] = useSettingsPersistAtom();
+  const [{ protocolMap }] = useDeFiListProtocolMapAtom();
+  const protocolInfo =
+    protocolMap[
+      defiUtils.buildProtocolMapKey({
+        protocol: protocol.protocol,
+        networkId: protocol.networkId,
+      })
+    ];
+
+  const protocolTotalValue = useMemo(() => {
+    return new BigNumber(protocolInfo?.totalValue ?? 0)
+      .plus(protocolInfo?.totalDebt ?? 0)
+      .toFixed();
+  }, [protocolInfo?.totalValue, protocolInfo?.totalDebt]);
+
+  const columns = useMemo(() => {
+    return [
+      {
+        title: appLocale.intl.formatMessage({ id: ETranslations.global_asset }),
+        dataIndex: 'symbol',
+        render: (symbol: string, record: IDeFiAsset) => (
+          <XStack gap="$3" alignItems="center">
+            <Token size="lg" tokenImageUri={record.meta?.logoUrl} />
+            <SizableText size="$bodyMdMedium">{symbol}</SizableText>
+          </XStack>
+        ),
+      },
+      {
+        title: 'Type',
+        dataIndex: 'category',
+        render: (category: string) => (
+          <SizableText size="$bodyMdMedium" color="$textInfo">
+            {category}
+          </SizableText>
+        ),
+      },
+      {
+        title: 'Amount',
+        dataIndex: 'amount',
+        render: (amount: string) => (
+          <SizableText size="$bodyMdMedium">{amount}</SizableText>
+        ),
+      },
+      {
+        title: appLocale.intl.formatMessage({ id: ETranslations.global_value }),
+        dataIndex: 'value',
+        render: (value: string) => (
+          <NumberSizeableText
+            size="$bodyMdMedium"
+            formatter="value"
+            formatterOptions={{ currency: settings.currencyInfo.symbol }}
+          >
+            {value}
+          </NumberSizeableText>
+        ),
+      },
+    ];
+  }, [settings.currencyInfo.symbol]);
+
+  const renderProtocolPositions = useCallback(() => {
+    return protocol.positions.map((position, index) => {
+      if (index !== 0 && index !== protocol.positions.length - 1) {
+        return <Divider key={index} />;
+      }
+
+      return (
+        <Stack key={position.category}>
+          <XStack
+            alignItems="center"
+            justifyContent="space-between"
+            pl="$1"
+            pr="$3"
+            py="$3"
+          >
+            <Badge badgeType="success" badgeSize="lg">
+              <Badge.Text textTransform="capitalize">
+                {position.category}
+              </Badge.Text>
+            </Badge>
+            <NumberSizeableText
+              size="$headingSm"
+              formatter="value"
+              formatterOptions={{ currency: settings.currencyInfo.symbol }}
+            >
+              {position.value}
+            </NumberSizeableText>
+          </XStack>
+          <RichTable<IDeFiAsset & { type: EDeFiAssetType }>
+            dataSource={position.all}
+            columns={columns}
+            keyExtractor={(item) => item.address}
+            estimatedItemSize={48}
+          />
+        </Stack>
+      );
+    });
+  }, [protocol.positions, settings.currencyInfo.symbol, columns]);
 
   return (
     <Accordion
@@ -84,7 +173,9 @@ function Protocol() {
             <>
               <XStack gap="$3" alignItems="center">
                 <Token />
-                <SizableText size="$headingLg">Uniswap V3</SizableText>
+                <SizableText size="$headingLg">
+                  {protocolInfo?.protocolName ?? protocol.protocol}
+                </SizableText>
                 <IconButton
                   title={intl.formatMessage({
                     id: ETranslations.global_view_in_blockchain_explorer,
@@ -101,7 +192,7 @@ function Protocol() {
                   formatter="value"
                   formatterOptions={{ currency: settings.currencyInfo.symbol }}
                 >
-                  123
+                  {protocolTotalValue}
                 </NumberSizeableText>
                 <View
                   animation="quick"
@@ -119,30 +210,7 @@ function Protocol() {
           )}
         </Accordion.Trigger>
         <Accordion.Content exitStyle={{ opacity: 0 }} py="$2">
-          <XStack
-            alignItems="center"
-            justifyContent="space-between"
-            pl="$1"
-            pr="$3"
-            py="$3"
-          >
-            <Badge badgeType="success" badgeSize="lg">
-              <Badge.Text>Liquidity</Badge.Text>
-            </Badge>
-            <NumberSizeableText
-              size="$headingSm"
-              formatter="value"
-              formatterOptions={{ currency: settings.currencyInfo.symbol }}
-            >
-              333
-            </NumberSizeableText>
-          </XStack>
-          <RichTable
-            dataSource={userData}
-            columns={columns}
-            keyExtractor={(item) => item.id}
-            estimatedItemSize={48}
-          />
+          {renderProtocolPositions()}
         </Accordion.Content>
       </Accordion.Item>
     </Accordion>

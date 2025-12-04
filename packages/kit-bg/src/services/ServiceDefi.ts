@@ -47,9 +47,7 @@ class ServiceDeFi extends ServiceBase {
         });
     }
 
-    const resp = await client.post<{
-      data: IFetchAccountDeFiPositionsResp;
-    }>(
+    const resp = await client.post<IFetchAccountDeFiPositionsResp>(
       '/wallet/v1/portfolio/positions',
       {
         networkId,
@@ -65,12 +63,12 @@ class ServiceDeFi extends ServiceBase {
     );
 
     const parsedData = defiUtils.transformDeFiData({
-      positions: resp.data.data.data.positions,
-      protocolSummaries: resp.data.data.data.protocolSummaries,
+      positions: resp.data.data.positions,
+      protocolSummaries: resp.data.data.protocolSummaries,
     });
 
     return {
-      overview: resp.data.data.data.totals,
+      overview: resp.data.data.totals,
       protocols: parsedData.protocols,
       protocolMap: parsedData.protocolMap,
     };

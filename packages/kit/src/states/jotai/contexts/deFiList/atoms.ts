@@ -49,3 +49,12 @@ export const {
 }>({
   protocolMap: {},
 });
+
+export const { atom: deFiListStateAtom, use: useDeFiListStateAtom } =
+  contextAtom<{
+    isRefreshing: boolean;
+    initialized: boolean;
+  }>({
+    isRefreshing: true,
+    initialized: false,
+  });

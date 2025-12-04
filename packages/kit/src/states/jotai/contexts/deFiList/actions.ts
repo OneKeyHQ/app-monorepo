@@ -15,6 +15,7 @@ import {
   deFiListOverviewAtom,
   deFiListProtocolMapAtom,
   deFiListProtocolsAtom,
+  deFiListStateAtom,
 } from './atoms';
 
 class ContextJotaiActionsDeFiList extends ContextJotaiActionsBase {
@@ -112,6 +113,22 @@ class ContextJotaiActionsDeFiList extends ContextJotaiActionsBase {
       }
     },
   );
+
+  updateDeFiListState = contextAtomMethod(
+    (
+      get,
+      set,
+      value: {
+        isRefreshing?: boolean;
+        initialized?: boolean;
+      },
+    ) => {
+      set(deFiListStateAtom(), (v) => ({
+        ...v,
+        ...value,
+      }));
+    },
+  );
 }
 
 const createActions = memoFn(() => {
@@ -124,9 +141,13 @@ export function useDeFiListActions() {
 
   const updateDeFiListOverview = actions.updateDeFiListOverview.use();
   const updateDeFiListProtocols = actions.updateDeFiListProtocols.use();
+  const updateDeFiListProtocolMap = actions.updateDeFiListProtocolMap.use();
+  const updateDeFiListState = actions.updateDeFiListState.use();
 
   return useRef({
     updateDeFiListOverview,
     updateDeFiListProtocols,
+    updateDeFiListProtocolMap,
+    updateDeFiListState,
   });
 }

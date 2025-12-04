@@ -25,7 +25,7 @@ function transformDeFiData({
   positions: Record<string, IDeFiPosition[]>;
   protocolSummaries: IProtocolSummary[];
 }) {
-  const protocolMap = new Map<string, IProtocolSummary>();
+  const protocolMap: Record<string, IProtocolSummary> = {};
   const protocolPositionsMap = new Map<
     string,
     {
@@ -35,6 +35,7 @@ function transformDeFiData({
       positionMap: Map<
         string,
         {
+          all: (IDeFiAsset & { type: EDeFiAssetType })[];
           assets: (IDeFiAsset & { type: EDeFiAssetType })[];
           debts: (IDeFiAsset & { type: EDeFiAssetType })[];
           rewards: (IDeFiAsset & { type: EDeFiAssetType })[];
@@ -46,20 +47,19 @@ function transformDeFiData({
   >();
 
   protocolSummaries.forEach((summary) => {
-    protocolMap.set(
+    protocolMap[
       buildProtocolMapKey({
         protocol: summary.protocol,
         networkId: summary.networkIds[0],
-      }),
-      summary,
-    );
+      })
+    ] = summary;
   });
 
   Object.values(positions).forEach((networkPositions) => {
     networkPositions.forEach((position) => {
       const protocolPositionsMapKey = `${position.networkId}-${position.protocol}`;
 
-      if (!protocolMap.has(protocolPositionsMapKey)) {
+      if (!protocolPositionsMap.has(protocolPositionsMapKey)) {
         protocolPositionsMap.set(protocolPositionsMapKey, {
           owner: position.owner,
           networkId: position.networkId,
@@ -78,6 +78,7 @@ function transformDeFiData({
         positionMap: Map<
           string,
           {
+            all: (IDeFiAsset & { type: EDeFiAssetType })[];
             assets: (IDeFiAsset & { type: EDeFiAssetType })[];
             debts: (IDeFiAsset & { type: EDeFiAssetType })[];
             rewards: (IDeFiAsset & { type: EDeFiAssetType })[];
@@ -91,6 +92,7 @@ function transformDeFiData({
 
       if (!protocolPositionsMapValue.positionMap.has(positionKey)) {
         protocolPositionsMapValue.positionMap.set(positionKey, {
+          all: [],
           assets: [],
           debts: [],
           rewards: [],
@@ -101,30 +103,31 @@ function transformDeFiData({
       const positionValue = protocolPositionsMapValue.positionMap.get(
         positionKey,
       ) as {
+        all: (IDeFiAsset & { type: EDeFiAssetType })[];
         assets: (IDeFiAsset & { type: EDeFiAssetType })[];
         debts: (IDeFiAsset & { type: EDeFiAssetType })[];
         rewards: (IDeFiAsset & { type: EDeFiAssetType })[];
         value: BigNumber;
       };
 
-      positionValue.assets.push(
-        ...position.assets.map((asset) => ({
-          ...asset,
-          type: EDeFiAssetType.ASSET,
-        })),
-      );
-      positionValue.debts.push(
-        ...position.debts.map((debt) => ({
-          ...debt,
-          type: EDeFiAssetType.DEBT,
-        })),
-      );
-      positionValue.rewards.push(
-        ...position.rewards.map((reward) => ({
-          ...reward,
-          type: EDeFiAssetType.REWARD,
-        })),
-      );
+      const assets = position.assets.map((asset) => ({
+        ...asset,
+        type: EDeFiAssetType.ASSET,
+      }));
+      const debts = position.debts.map((debt) => ({
+        ...debt,
+        type: EDeFiAssetType.DEBT,
+      }));
+      const rewards = position.rewards.map((reward) => ({
+        ...reward,
+        type: EDeFiAssetType.REWARD,
+      }));
+
+      positionValue.all.push(...assets, ...debts, ...rewards);
+
+      positionValue.assets.push(...assets);
+      positionValue.debts.push(...debts);
+      positionValue.rewards.push(...rewards);
       // calculate value
       positionValue.value.plus(
         position.assets
@@ -156,6 +159,9 @@ function transformDeFiData({
         ...position,
         category: key,
         value: position.value.toFixed(),
+        all: position.all.sort((a, b) => {
+          return a.valueUsd - b.valueUsd;
+        }),
       }),
     ),
     categories: Array.from(value.categorySet),

@@ -1,6 +1,7 @@
 import { XStack, YStack, useMedia } from '@onekeyhq/components';
 
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
+import { ProviderJotaiContextDeFiList } from '../../../states/jotai/contexts/deFiList';
 import { DeFiListBlock } from '../components/DeFiListBlock';
 import { EarnListView } from '../components/EarnListView';
 import { HomeTokenListProviderMirrorWrapper } from '../components/HomeTokenListProvider';
@@ -47,7 +48,9 @@ function PortfolioContainerWithProvider() {
 
   return (
     <HomeTokenListProviderMirrorWrapper accountId={account?.id ?? ''}>
-      <PortfolioContainer />
+      <ProviderJotaiContextDeFiList>
+        <PortfolioContainer />
+      </ProviderJotaiContextDeFiList>
     </HomeTokenListProviderMirrorWrapper>
   );
 }

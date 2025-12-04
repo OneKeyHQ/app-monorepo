@@ -20,8 +20,8 @@ export type IDeFiAsset = {
   symbol: string;
   address: string;
   amount: string;
-  valueUsd: number;
-  priceUsd: number;
+  value: number;
+  price: number;
   category: string;
   meta: IDeFiAssetMeta;
 };
@@ -60,6 +60,7 @@ export type IProtocolSummary = {
   networkIds: string[];
   positionCount: number;
   positionIndices: { index: number; networkId: string }[];
+  logoUrl?: string;
 };
 
 export type IFetchAccountDeFiPositionsResp = {
@@ -98,6 +99,7 @@ export type IDeFiProtocol = {
   categories: string[];
   positions: {
     category: string;
+    all: (IDeFiAsset & { type: EDeFiAssetType })[];
     assets: (IDeFiAsset & { type: EDeFiAssetType })[];
     debts: (IDeFiAsset & { type: EDeFiAssetType })[];
     rewards: (IDeFiAsset & { type: EDeFiAssetType })[];
