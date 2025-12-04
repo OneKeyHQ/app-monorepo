@@ -815,10 +815,7 @@ export default class ServicePassword extends ServiceBase {
       unLock: true,
       manualLocking: false,
     }));
-    // Delay execution to avoid UI jank
-    setTimeout(() => {
-      void this.backgroundApi.serviceApp.dispatchUnlockJob();
-    });
+    await this.backgroundApi.serviceApp.dispatchUnlockJob();
   }
 
   @backgroundMethod()

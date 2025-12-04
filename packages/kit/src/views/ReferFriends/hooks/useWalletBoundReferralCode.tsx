@@ -1,13 +1,16 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import {
+  Button,
   Dialog,
   EInPageDialogType,
   Form,
+  Icon,
   Input,
+  Select,
   SizableText,
   Toast,
   XStack,
@@ -28,15 +31,21 @@ import type { OneKeyError } from '@onekeyhq/shared/src/errors';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import {
+  EAccountManagerStacksRoutes,
+  EModalRoutes,
+} from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EMnemonicType } from '@onekeyhq/shared/src/utils/secret';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import {
   EMessageTypesBtc,
   EMessageTypesEth,
 } from '@onekeyhq/shared/types/message';
 
 import { WalletAvatar } from '../../../components/WalletAvatar/WalletAvatar';
+import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useSignatureConfirm } from '../../../hooks/useSignatureConfirm';
 
@@ -134,14 +143,14 @@ export function useGetReferralCodeWalletInfo() {
 }
 
 function InviteCode({
-  entry,
   wallet,
   onSuccess,
   confirmBindReferralCode,
+  defaultReferralCode,
 }: {
-  entry?: 'tab' | 'modal';
   wallet?: IDBWallet;
   onSuccess?: () => void;
+  defaultReferralCode?: string;
   confirmBindReferralCode: (params: {
     referralCode: string;
     preventClose?: () => void;
@@ -155,17 +164,93 @@ function InviteCode({
   const intl = useIntl();
   const form = useForm({
     defaultValues: {
-      referralCode: '',
+      referralCode: defaultReferralCode || '',
     },
   });
   const getReferralCodeWalletInfo = useGetReferralCodeWalletInfo();
+  const navigation = useAppNavigation();
+
+  // Fetch all wallets with bound status
+  const { result: walletsWithStatus } = usePromiseResult(async () => {
+    const { wallets } = await backgroundApiProxy.serviceAccount.getWallets({
+      nestedHiddenWallets: false,
+    });
+
+    // Filter valid wallets (HD and hardware wallets)
+    const validWallets = wallets.filter(
+      (w) =>
+        (accountUtils.isHdWallet({ walletId: w.id }) ||
+          accountUtils.isHwWallet({ walletId: w.id })) &&
+        !accountUtils.isHwHiddenWallet({ wallet: w }),
+    );
+
+    // Get bound status for each wallet
+    const walletsWithBoundStatus = await Promise.all(
+      validWallets.map(async (w) => {
+        const referralCodeInfo =
+          await backgroundApiProxy.serviceReferralCode.getWalletReferralCode({
+            walletId: w.id,
+          });
+        return {
+          wallet: w,
+          isBound: referralCodeInfo?.isBound ?? false,
+        };
+      }),
+    );
+
+    return walletsWithBoundStatus;
+  }, []);
+
+  // Selected wallet state
+  const [selectedWalletId, setSelectedWalletId] = useState<string | undefined>(
+    wallet?.id,
+  );
+
+  // Get the selected wallet object
+  const selectedWallet = useMemo(() => {
+    if (!walletsWithStatus) return wallet;
+    const found = walletsWithStatus.find(
+      (w) => w.wallet.id === selectedWalletId,
+    );
+    return found?.wallet ?? wallet;
+  }, [walletsWithStatus, selectedWalletId, wallet]);
+
+  // Build wallet items for Select
+  const walletItems = useMemo(() => {
+    if (!walletsWithStatus) return [];
+
+    return walletsWithStatus.map((item) => ({
+      label: item.wallet.name,
+      value: item.wallet.id,
+      leading: <WalletAvatar wallet={item.wallet} size="$6" />,
+      description: item.isBound
+        ? intl.formatMessage({
+            id: ETranslations.referral_wallet_bind_code_finish,
+          })
+        : undefined,
+      disabled: item.isBound,
+    }));
+  }, [walletsWithStatus, intl]);
+
+  // Check if there are no available wallets
+  const hasNoWallets = !walletsWithStatus || walletsWithStatus.length === 0;
+
+  // Check if the selected wallet is already bound
+  const isSelectedWalletBound = useMemo(() => {
+    if (!walletsWithStatus || !selectedWalletId) return false;
+    const found = walletsWithStatus.find(
+      (w) => w.wallet.id === selectedWalletId,
+    );
+    return found?.isBound ?? false;
+  }, [walletsWithStatus, selectedWalletId]);
+
   const { result: walletInfo } = usePromiseResult(async () => {
-    const r = await getReferralCodeWalletInfo(wallet?.id);
+    const r = await getReferralCodeWalletInfo(selectedWallet?.id);
     if (!r) {
       return null;
     }
     return r;
-  }, [wallet?.id, getReferralCodeWalletInfo]);
+  }, [selectedWallet?.id, getReferralCodeWalletInfo]);
 
   const { navigationToMessageConfirmAsync } = useSignatureConfirm({
     accountId: walletInfo?.accountId ?? '',
@@ -210,63 +295,117 @@ function InviteCode({
 
   return (
     <YStack mt="$-3">
-      <XStack ai="center" gap="$2" pb="$5">
-        <SizableText size="$bodyLg">
+      <YStack pb="$5" gap="$1">
+        <SizableText size="$bodyMd" color="$textSubdued">
           {intl.formatMessage({
             id: ETranslations.referral_wallet_code_wallet,
           })}
         </SizableText>
-        <XStack
-          gap="$2"
-          ai="center"
-          py="$1"
-          pl="$2"
-          pr="$3"
-          bg="$bgSubdued"
-          borderRadius="$2"
-          borderWidth={StyleSheet.hairlineWidth}
-          borderColor="$borderSubdued"
-        >
-          <WalletAvatar wallet={walletInfo?.wallet} size="$6" />
-          <SizableText size="$bodyLg">{walletInfo?.wallet?.name}</SizableText>
-        </XStack>
-      </XStack>
-      <Form form={form}>
-        <Form.Field
-          name="referralCode"
-          rules={{
-            required: true,
-            pattern: {
-              value: /^[a-zA-Z0-9]{1,30}$/,
-              message: intl.formatMessage({
-                id: ETranslations.referral_invalid_code,
-              }),
-            },
-          }}
-        >
-          <Input
-            placeholder={intl.formatMessage({
-              id: ETranslations.referral_wallet_code_placeholder,
+        {hasNoWallets ? (
+          <Button
+            variant="secondary"
+            size="medium"
+            onPress={() => {
+              navigation.pushModal(EModalRoutes.AccountManagerStacks, {
+                screen: EAccountManagerStacksRoutes.AccountSelectorStack,
+                params: {
+                  num: 0,
+                  sceneName: EAccountSelectorSceneName.home,
+                  sceneUrl: '',
+                  editable: true,
+                },
+              });
+            }}
+          >
+            {intl.formatMessage({
+              id: ETranslations.global_add_wallet,
             })}
-            maxLength={30}
+          </Button>
+        ) : (
+          <Select
+            title={intl.formatMessage({
+              id: ETranslations.referral_select_wallet,
+            })}
+            items={walletItems}
+            value={selectedWalletId}
+            onChange={(walletId) => {
+              if (typeof walletId === 'string') {
+                setSelectedWalletId(walletId);
+              }
+            }}
+            renderTrigger={() => (
+              <XStack
+                gap="$2"
+                ai="center"
+                py="$2"
+                px="$3"
+                bg="$bgSubdued"
+                borderRadius="$2"
+                borderWidth={StyleSheet.hairlineWidth}
+                borderColor="$borderSubdued"
+                jc="space-between"
+              >
+                <XStack gap="$2" ai="center">
+                  <WalletAvatar wallet={selectedWallet} size="$6" />
+                  <SizableText size="$bodyLg">
+                    {selectedWallet?.name}
+                  </SizableText>
+                </XStack>
+                <Icon name="ChevronDownSmallOutline" color="$iconSubdued" />
+              </XStack>
+            )}
           />
-        </Form.Field>
-      </Form>
+        )}
+        {isSelectedWalletBound ? (
+          <SizableText size="$bodySm" color="$textCritical" mt="$1">
+            {intl.formatMessage({
+              id: ETranslations.referral_already_bound,
+            })}
+          </SizableText>
+        ) : null}
+      </YStack>
+      <YStack gap="$1">
+        <SizableText size="$bodyMd" color="$textSubdued">
+          {intl.formatMessage({
+            id: ETranslations.referral_apply_referral_code_code,
+          })}
+        </SizableText>
+        <Form form={form}>
+          <Form.Field
+            name="referralCode"
+            rules={{
+              required: true,
+              pattern: {
+                value: /^[a-zA-Z0-9]{1,30}$/,
+                message: intl.formatMessage({
+                  id: ETranslations.referral_invalid_code,
+                }),
+              },
+            }}
+          >
+            <Input
+              placeholder={intl.formatMessage({
+                id: ETranslations.referral_wallet_code_placeholder,
+              })}
+              maxLength={30}
+            />
+          </Form.Field>
+        </Form>
+      </YStack>
       <SizableText mt="$3" size="$bodyMd" color="$textSubdued">
         {intl.formatMessage({
           id: ETranslations.referral_wallet_code_desc,
         })}
       </SizableText>
       <Dialog.Footer
-        showCancelButton
+        showCancelButton={false}
         onConfirm={handleConfirm}
-        onConfirmText={intl.formatMessage({ id: ETranslations.global_confirm })}
-        onCancelText={intl.formatMessage({
-          id:
-            entry === 'tab'
-              ? ETranslations.global_skip
-              : ETranslations.global_cancel,
+        onConfirmText={intl.formatMessage({
+          id: ETranslations.global_apply,
         })}
+        confirmButtonProps={{
+          disabled: hasNoWallets || isSelectedWalletBound,
+        }}
       />
     </YStack>
   );
@@ -521,7 +660,15 @@ export function useWalletBoundReferralCode({
       : EInPageDialogType.inTabPages,
   );
   const bindWalletInviteCode = useCallback(
-    ({ wallet, onSuccess }: { wallet?: IDBWallet; onSuccess?: () => void }) => {
+    ({
+      wallet,
+      onSuccess,
+      defaultReferralCode,
+    }: {
+      wallet?: IDBWallet;
+      onSuccess?: () => void;
+      defaultReferralCode?: string;
+    }) => {
       dialog.show({
         showExitButton: true,
         icon: 'GiftOutline',
@@ -533,13 +680,13 @@ export function useWalletBoundReferralCode({
           <InviteCode
             wallet={wallet}
             onSuccess={onSuccess}
-            entry={entry}
             confirmBindReferralCode={confirmBindReferralCode}
+            defaultReferralCode={defaultReferralCode}
           />
         ),
       });
     },
-    [dialog, intl, entry, confirmBindReferralCode],
+    [dialog, intl, confirmBindReferralCode],
   );
 
   return {

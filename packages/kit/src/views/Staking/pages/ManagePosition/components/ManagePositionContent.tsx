@@ -1,13 +1,16 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 
 import { isEmpty } from 'lodash';
 
 import { Skeleton, Stack, XStack, YStack } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import type { ISupportedSymbol } from '@onekeyhq/shared/types/earn';
 
 import { EarnAlert } from '../../../components/ProtocolDetails/EarnAlert';
+import { NetworkUnsupportedWarning } from '../../../components/ProtocolDetails/NetworkUnsupportedWarning';
 import { NoAddressWarning } from '../../../components/ProtocolDetails/NoAddressWarning';
 import { useManagePage } from '../hooks/useManagePage';
 
@@ -104,7 +107,6 @@ export function ManagePositionContent({
     alertsHolding,
     alertsStake,
     alertsWithdraw,
-    refreshAccount: refreshManageAccount,
     run: refreshManageData,
     isLoading,
   } = useManagePage({
@@ -121,35 +123,64 @@ export function ManagePositionContent({
     if (onCreateAddress) {
       await onCreateAddress();
     }
-    await refreshManageAccount();
     await refreshManageData();
-  }, [onCreateAddress, refreshManageAccount, refreshManageData]);
+  }, [onCreateAddress, refreshManageData]);
+
+  // Check if Bitcoin Only firmware is trying to access non-BTC network
+  const { result: accountNetworkNotSupported } = usePromiseResult(
+    async () => {
+      return backgroundApiProxy.serviceAccount.checkAccountNetworkNotSupported({
+        accountId,
+        activeNetworkId: networkId,
+      });
+    },
+    [accountId, networkId],
+    { initResult: undefined },
+  );
 
   const noAddressOrAccount = useMemo(
     () => (!accountId && !indexedAccountId) || !earnAccount?.accountAddress,
     [accountId, indexedAccountId, earnAccount?.accountAddress],
   );
+
+  // Determine if we should show warning instead of normal content
+  // This includes: no address, no account, or BTC-only firmware on non-BTC network
+  const shouldShowWarning = useMemo(
+    () => noAddressOrAccount || !!accountNetworkNotSupported,
+    [noAddressOrAccount, accountNetworkNotSupported],
+  );
+
   const resolvedTokenImageUri =
     tokenInfo?.token?.logoURI || fallbackTokenImageUri;
 
-  const noAddressWarningElement = useMemo(
-    () =>
-      noAddressOrAccount ? (
+  // Warning element: shows NoAddressWarning or NetworkMismatchWarning based on the situation
+  const warningElement = useMemo(() => {
+    // BTC-only firmware on non-BTC network - show network mismatch warning
+    if (accountNetworkNotSupported) {
+      return <NetworkUnsupportedWarning networkId={networkId} />;
+    }
+
+    // No address or account - show no address warning
+    if (noAddressOrAccount) {
+      return (
         <NoAddressWarning
           accountId={accountId || ''}
           networkId={networkId}
           indexedAccountId={indexedAccountId}
           onCreateAddress={handleCreateAddress}
         />
-      ) : null,
-    [
-      noAddressOrAccount,
-      accountId,
-      networkId,
-      indexedAccountId,
-      handleCreateAddress,
-    ],
-  );
+      );
+    }
+
+    return null;
+  }, [
+    accountNetworkNotSupported,
+    noAddressOrAccount,
+    accountId,
+    networkId,
+    indexedAccountId,
+    handleCreateAddress,
+  ]);
 
   const historyAction = useMemo(
     () => managePageData?.history,
@@ -193,19 +224,29 @@ export function ManagePositionContent({
     isInModalContext,
   ]);
 
-  const handleStakeWithdrawSuccess = useCallback(() => {
+  // Ref to store refreshPending function from useStakingPendingTxs hook
+  const refreshPendingRef = useRef<(() => Promise<void>) | null>(null);
+
+  const handleOperationSuccess = useCallback(() => {
+    void refreshManageData();
+    // Immediately refresh pending transactions after operation
+    void refreshPendingRef.current?.();
+    onStakeWithdrawSuccess?.();
     if (isInModalContext) {
       appNavigation.pop();
     }
-    // If not in modal, don't navigate (stay on current page)
-    // Call parent refresh callback to update data
-    onStakeWithdrawSuccess?.();
-  }, [isInModalContext, appNavigation, onStakeWithdrawSuccess]);
+  }, [
+    refreshManageData,
+    onStakeWithdrawSuccess,
+    isInModalContext,
+    appNavigation,
+  ]);
 
   // Create beforeFooter content for stake section
   const stakeBeforeFooter = useMemo(() => {
-    if (noAddressOrAccount) {
-      return noAddressWarningElement;
+    // If should show warning (no address or BTC-only firmware), return the warning element
+    if (shouldShowWarning) {
+      return warningElement;
     }
     if (!isEmpty(alertsStake) || !isEmpty(alerts)) {
       return (
@@ -216,12 +257,13 @@ export function ManagePositionContent({
       );
     }
     return null;
-  }, [noAddressOrAccount, alertsStake, alerts, noAddressWarningElement]);
+  }, [shouldShowWarning, warningElement, alertsStake, alerts]);
 
   // Create beforeFooter content for withdraw section
   const withdrawBeforeFooter = useMemo(() => {
-    if (noAddressOrAccount) {
-      return noAddressWarningElement;
+    // If should show warning (no address or BTC-only firmware), return the warning element
+    if (shouldShowWarning) {
+      return warningElement;
     }
     if (!isEmpty(alertsWithdraw) || !isEmpty(alerts)) {
       return (
@@ -232,16 +274,17 @@ export function ManagePositionContent({
       );
     }
     return null;
-  }, [noAddressOrAccount, alertsWithdraw, alerts, noAddressWarningElement]);
+  }, [shouldShowWarning, warningElement, alertsWithdraw, alerts]);
 
-  if (isLoading) {
+  if (isLoading && !managePageData) {
     return <SectionSkeleton />;
   }
 
   // USDe special rendering
   if (symbol.toLowerCase() === 'usde') {
-    if (noAddressWarningElement) {
-      return <YStack px="$5">{noAddressWarningElement}</YStack>;
+    // Show warning if needed (no address or BTC-only firmware)
+    if (warningElement) {
+      return <YStack px="$5">{warningElement}</YStack>;
     }
     if (!managePageData?.holdings) {
       return null;
@@ -255,7 +298,13 @@ export function ManagePositionContent({
         provider={provider}
         vault={vault}
         alertsHolding={alertsHolding}
+        historyAction={historyAction}
         onHistory={onHistory}
+        indicatorAccountId={earnAccount?.accountId}
+        stakeTag={protocolInfo?.stakeTag}
+        onIndicatorRefresh={refreshManageData}
+        onRefreshPendingRef={refreshPendingRef}
+        onActionSuccess={handleOperationSuccess}
         earnAccount={earnAccount}
         showApyDetail={showApyDetail}
         isInModalContext={isInModalContext}
@@ -280,7 +329,11 @@ export function ManagePositionContent({
       withdrawBeforeFooter={withdrawBeforeFooter}
       historyAction={historyAction}
       onHistory={onHistory}
-      onSuccess={handleStakeWithdrawSuccess}
+      indicatorAccountId={earnAccount?.accountId}
+      stakeTag={protocolInfo?.stakeTag}
+      onIndicatorRefresh={refreshManageData}
+      onRefreshPendingRef={refreshPendingRef}
+      onSuccess={handleOperationSuccess}
       defaultTab={defaultTab}
       onTabChange={onTabChange}
       isInModalContext={isInModalContext}

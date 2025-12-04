@@ -424,6 +424,7 @@ function CheckAndUpdatePage({
         await backgroundApiProxy.serviceFirmwareUpdate.checkAllFirmwareRelease({
           connectId: compatibleConnectId,
           skipCancel: true,
+          firmwareType: undefined,
         });
       cancelTimeout();
       if (r) {

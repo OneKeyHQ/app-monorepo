@@ -956,16 +956,18 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   );
 };
 
-const SwapMainLandWithPageType = (props: ISwapMainLoadProps) => (
-  <SwapProviderMirror
-    storeName={
-      props?.pageType === EPageType.modal
-        ? EJotaiContextStoreNames.swapModal
-        : EJotaiContextStoreNames.swap
-    }
-  >
-    <SwapMainLoad {...props} pageType={props?.pageType} />
-  </SwapProviderMirror>
-);
+const SwapMainLandWithPageType = (props: ISwapMainLoadProps) => {
+  return (
+    <SwapProviderMirror
+      storeName={
+        props?.pageType === EPageType.modal
+          ? EJotaiContextStoreNames.swapModal
+          : EJotaiContextStoreNames.swap
+      }
+    >
+      <SwapMainLoad {...props} pageType={props?.pageType} />
+    </SwapProviderMirror>
+  );
+};
 
 export default SwapMainLandWithPageType;

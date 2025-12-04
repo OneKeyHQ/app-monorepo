@@ -1,5 +1,5 @@
 /* eslint-disable max-classes-per-file */
-import { HardwareErrorCode } from '@onekeyfe/hd-shared';
+import { EFirmwareType, HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { get, uniq } from 'lodash';
 
 import {
@@ -160,10 +160,19 @@ export class UserCancelFromOutside extends OneKeyHardwareError {
 
 export class UnknownMethod extends OneKeyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps) {
+    const firmwareType = get<string | undefined>(
+      props?.payload?.params,
+      'firmwareType',
+      undefined,
+    );
+    let key = ETranslations.hardware_unknown_message_error;
+    if (firmwareType === EFirmwareType.BitcoinOnly) {
+      key = ETranslations.hardware_unknown_message_error_bitcoin_only;
+    }
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'UnknownMethod',
-        defaultKey: ETranslations.hardware_unknown_message_error,
+        defaultKey: key,
       }),
     );
   }
@@ -462,6 +471,19 @@ export class ForbiddenKeyPathError extends OneKeyHardwareError {
   }
 
   override code = HardwareErrorCode.RuntimeError;
+}
+
+export class FirmwareDowngradeNotAllowedError extends OneKeyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'FirmwareDowngradeNotAllowed',
+        defaultKey: ETranslations.device_firmware_upgrade_disallow_downgrade,
+      }),
+    );
+  }
+
+  override code = HardwareErrorCode.FirmwareDowngradeNotAllowed;
 }
 
 export class BTCPsbtTooManyUtxos extends OneKeyHardwareError {
@@ -952,6 +974,19 @@ export class FirmwareUpdateVersionMismatchError extends OneKeyHardwareError {
       }),
     );
   }
+}
+
+export class SelectDeviceError extends OneKeyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'SelectDeviceError',
+        defaultKey: ETranslations.update_ensure_one_usb_device_connected,
+      }),
+    );
+  }
+
+  override code = HardwareErrorCode.SelectDevice;
 }
 
 // UnknownHardware

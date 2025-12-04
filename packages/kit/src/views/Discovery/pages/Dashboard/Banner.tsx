@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { Banner, Skeleton, Stack } from '@onekeyhq/components';
 import { EEnterMethod } from '@onekeyhq/shared/src/logger/scopes/discovery/scenes/dapp';
@@ -31,6 +31,25 @@ export function DashboardBanner({
     [isLoading],
   );
 
+  const handleBannerItemPress = useCallback(
+    (item: IDiscoveryBanner) => {
+      if (item.href) {
+        handleWebSite({
+          webSite: {
+            url: item.href,
+            title: item.href,
+            logo: undefined,
+            sortIndex: undefined,
+          },
+          useSystemBrowser: item.useSystemBrowser,
+          shouldPopNavigation: false,
+          enterMethod: EEnterMethod.banner,
+        });
+      }
+    },
+    [handleWebSite],
+  );
+
   return (
     <Stack
       h={120}
@@ -56,19 +75,7 @@ export function DashboardBanner({
         isLoading={isLoading}
         itemTitleContainerStyle={{ display: 'none' }}
         emptyComponent={emptyComponent}
-        onItemPress={(item) => {
-          handleWebSite({
-            webSite: {
-              url: item.href,
-              title: item.href,
-              logo: undefined,
-              sortIndex: undefined,
-            },
-            useSystemBrowser: item.useSystemBrowser,
-            shouldPopNavigation: false,
-            enterMethod: EEnterMethod.banner,
-          });
-        }}
+        onItemPress={handleBannerItemPress}
       />
     </Stack>
   );

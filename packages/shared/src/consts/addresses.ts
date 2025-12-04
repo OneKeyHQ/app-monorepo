@@ -10,6 +10,8 @@ export const EthereumUSDe = '0x4c9EDD5852cd905f086C759E8383e09bff1E68B3';
 export const EthereumMORPHO = '0x58D97B57BB95320F9a05dC918Aef65434969c2B2';
 export const BinanceSmartChainUSDT =
   '0x55d398326f99059fF775485246999027B3197955';
+export const BinanceSmartChainLISTA =
+  '0xFceB31A79F71AC9CBDCF853519c1b12D379EdC46';
 export const SuiUSDC =
   '0xdba34672e30cb065b1f93e3ab55318768fd6fef66c15942c9f7cb846e2f900e7::usdc::USDC';
 export const SuiWBTC =
@@ -17,6 +19,8 @@ export const SuiWBTC =
 
 export const MorphoBundlerContract =
   '0x4095f064b8d3c3548a3bebfd0bbfd04750e30077';
+export const MorphoUSDCVaultAddress =
+  '0x974c8FBf4fd795F66B85B73ebC988A51F1A040a9';
 
 export const ALL_NETWORK_ACCOUNT_MOCK_ADDRESS = 'AllNetworkMockAddress';
 export const EMPTY_NATIVE_TOKEN_ADDRESS = '';

@@ -33,6 +33,7 @@ function MarketNormalTokenList({
       toolbar={toolbar}
       result={normalResult}
       isWatchlistMode={false}
+      showEndReachedIndicator
     />
   );
 }

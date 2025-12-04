@@ -4,18 +4,18 @@ import {
   WEB_APP_URL_DEV,
 } from '@onekeyhq/shared/src/config/appConfig';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
-  EModalRoutes,
-  EModalStakingRoutes,
   ERootRoutes,
+  ETabDiscoveryRoutes,
   ETabEarnRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
-import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-
-import type useAppNavigation from '../../hooks/useAppNavigation';
 import type { IAppNavigation } from '../../hooks/useAppNavigation';
 
 const NetworkNameToIdMap: Record<string, string> = {
@@ -55,45 +55,22 @@ async function safePushToEarnRoute(
   route: ETabEarnRoutes,
   params?: any,
 ) {
-  const rootState = rootNavigationRef.current?.getRootState?.();
-  const mainRoute = rootState?.routes?.find((r) => r.name === ERootRoutes.Main);
+  const targetTab = platformEnv.isNative
+    ? ETabRoutes.Discovery
+    : ETabRoutes.Earn;
 
-  const tabState =
-    (mainRoute as { state?: { index?: number; routes?: { name?: string }[] } })
-      ?.state || {};
-  const currentTab = tabState.routes?.[tabState.index ?? 0]?.name as
-    | ETabRoutes
-    | undefined;
-
-  // 在「发现」Tab 内的 DeFi 子页，保持在当前 Tab 栈内导航，避免切到隐藏的 Earn Tab。
-  if (currentTab === ETabRoutes.Discovery) {
-    if (rootNavigationRef.current) {
-      rootNavigationRef.current.navigate(ERootRoutes.Main, {
-        screen: ETabRoutes.Discovery,
-        params: {
-          screen: route,
-          params,
-        },
+  navigation.switchTab(targetTab);
+  if (platformEnv.isNative) {
+    void timerUtils.wait(150).then(() => {
+      appEventBus.emit(EAppEventBusNames.SwitchDiscoveryTabInNative, {
+        tab: ETranslations.global_earn,
       });
-    } else {
-      navigation.navigate(ETabRoutes.Discovery as any, {
-        screen: route,
-        params,
-      });
-    }
-    return;
-  }
-
-  if (currentTab !== ETabRoutes.Earn) {
-    navigation.switchTab(ETabRoutes.Earn, {
-      screen: route,
-      params,
     });
-    return;
   }
+  await timerUtils.wait(0);
 
-  navigation.navigate(ERootRoutes.Main, {
-    screen: ETabRoutes.Earn,
+  rootNavigationRef.current?.navigate(ERootRoutes.Main, {
+    screen: targetTab,
     params: {
       screen: route,
       params,
@@ -106,70 +83,29 @@ export const EarnNavigation = {
   async pushDetailPageFromDeeplink(
     navigation: IAppNavigation,
     {
-      accountId,
       networkId,
-      indexedAccountId,
       symbol,
       provider,
       vault,
     }: {
-      accountId?: string;
       networkId: string;
-      indexedAccountId?: string;
       symbol: string;
       provider: string;
       vault?: string;
     },
   ) {
-    const earnAccount = await backgroundApiProxy.serviceStaking.getEarnAccount({
-      accountId: accountId ?? '',
-      indexedAccountId,
+    await safePushToEarnRoute(navigation, ETabEarnRoutes.EarnProtocolDetails, {
       networkId,
-    });
-    navigation.navigate(ERootRoutes.Main, {
-      screen: ETabRoutes.Earn,
-      params: {
-        screen: ETabEarnRoutes.EarnProtocolDetails,
-        params: {
-          accountId: earnAccount?.accountId || accountId || '',
-          networkId,
-          indexedAccountId:
-            earnAccount?.account.indexedAccountId || indexedAccountId,
-          symbol,
-          provider,
-          vault,
-        },
-      },
-    });
-  },
-
-  // navigate from new share link
-  pushDetailPageFromShareLink(
-    navigation: IAppNavigation,
-    {
-      network,
       symbol,
       provider,
       vault,
-    }: {
-      network: string;
-      symbol: string;
-      provider: string;
-      vault?: string;
-    },
-  ) {
-    navigation.pushModal(EModalRoutes.StakingModal, {
-      screen: EModalStakingRoutes.ProtocolDetailsV2Share,
-      params: {
-        network,
-        symbol,
-        provider,
-        vault,
-      },
     });
   },
 
-  // generate share link (for modal)
+  /**
+   * @deprecated
+   * @description: Will be removed
+   */
   generateShareLink({
     networkId,
     symbol,
@@ -241,13 +177,22 @@ export const EarnNavigation = {
       : `${origin}${baseUrl}`;
   },
 
-  pushToEarnHome(
+  async popToEarnHome(
     navigation: IAppNavigation,
     params?: {
       tab?: 'assets' | 'portfolio' | 'faqs';
     },
   ) {
-    void safePushToEarnRoute(navigation, ETabEarnRoutes.EarnHome, params);
+    if (platformEnv.isNative) {
+      navigation.popTo(ETabDiscoveryRoutes.TabDiscovery, params);
+    } else {
+      navigation.popTo(ERootRoutes.Main, {
+        screen: ETabRoutes.Earn,
+        params: { screen: ETabEarnRoutes.EarnHome, params },
+      });
+    }
+
+    await timerUtils.wait(0);
   },
 
   pushToEarnProtocols(
@@ -265,32 +210,13 @@ export const EarnNavigation = {
     navigation: IAppNavigation,
     params: {
       networkId: string;
-      accountId?: string;
-      indexedAccountId?: string;
       symbol: string;
       provider: string;
       vault?: string;
     },
   ) {
-    let earnAccount;
-    if (params.accountId || params.indexedAccountId) {
-      try {
-        earnAccount = await backgroundApiProxy.serviceStaking.getEarnAccount({
-          accountId: params.accountId ?? '',
-          indexedAccountId: params.indexedAccountId,
-          networkId: params.networkId,
-        });
-      } catch (e) {
-        console.log('Failed to get earn account', e);
-        // ignore error
-      }
-    }
-
     void safePushToEarnRoute(navigation, ETabEarnRoutes.EarnProtocolDetails, {
       networkId: params.networkId,
-      accountId: earnAccount?.accountId || params.accountId || '',
-      indexedAccountId:
-        earnAccount?.account.indexedAccountId || params.indexedAccountId,
       symbol: params.symbol,
       provider: params.provider,
       vault: params.vault,

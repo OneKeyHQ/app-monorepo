@@ -1,6 +1,7 @@
 import { type ReactNode, useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
+import { TouchableOpacity } from 'react-native';
 
 import {
   DebugRenderTracker,
@@ -11,6 +12,10 @@ import {
   rootNavigationRef,
   useMedia,
 } from '@onekeyhq/components';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -37,33 +42,35 @@ const discoveryTabs = [ETranslations.global_browser, ETranslations.global_earn];
 function SegmentText({
   translationId,
   selected,
-  setSelectedTab,
 }: {
   translationId: (typeof discoveryTabs)[number];
   selected: boolean;
-  setSelectedTab?: (tab: ETranslations) => void;
 }) {
   const intl = useIntl();
   const handlePress = useCallback(() => {
-    setSelectedTab?.(translationId);
-  }, [setSelectedTab, translationId]);
+    appEventBus.emit(EAppEventBusNames.SwitchDiscoveryTabInNative, {
+      tab: translationId as
+        | ETranslations.global_browser
+        | ETranslations.global_earn,
+    });
+  }, [translationId]);
   return (
-    <SizableText
-      size="$headingXl"
-      color={selected ? '$text' : '$textSubdued'}
-      onPress={handlePress}
-    >
-      {intl.formatMessage({ id: translationId })}
-    </SizableText>
+    <TouchableOpacity onPress={handlePress} activeOpacity={1}>
+      <SizableText
+        size="$headingXl"
+        color={selected ? '$text' : '$textSubdued'}
+        onPress={handlePress}
+      >
+        {intl.formatMessage({ id: translationId })}
+      </SizableText>
+    </TouchableOpacity>
   );
 }
 
 function DiscoveryHeaderSegment({
   selectedHeaderTab,
-  onSelectHeaderTab,
 }: {
   selectedHeaderTab?: ETranslations;
-  onSelectHeaderTab?: (tab: ETranslations) => void;
 }) {
   return (
     <XStack gap="$4">
@@ -72,7 +79,6 @@ function DiscoveryHeaderSegment({
           key={tab}
           translationId={tab}
           selected={selectedHeaderTab === tab}
-          setSelectedTab={onSelectHeaderTab}
         />
       ))}
     </XStack>
@@ -84,10 +90,8 @@ export function HeaderLeft({
   sceneName,
   tabRoute,
   customHeaderLeftItems,
-  onSelectHeaderTab,
 }: {
   selectedHeaderTab?: ETranslations;
-  onSelectHeaderTab?: (tab: ETranslations) => void;
   sceneName: EAccountSelectorSceneName;
   tabRoute: ETabRoutes;
   customHeaderLeftItems?: ReactNode;
@@ -154,10 +158,7 @@ export function HeaderLeft({
 
     if (tabRoute === ETabRoutes.Discovery) {
       return platformEnv.isNative ? (
-        <DiscoveryHeaderSegment
-          selectedHeaderTab={selectedHeaderTab}
-          onSelectHeaderTab={onSelectHeaderTab}
-        />
+        <DiscoveryHeaderSegment selectedHeaderTab={selectedHeaderTab} />
       ) : null;
     }
 
@@ -179,14 +180,7 @@ export function HeaderLeft({
 
     // For mobile and native platforms, keep the original layout
     return <WalletConnectionGroup tabRoute={tabRoute} />;
-  }, [
-    customHeaderLeftItems,
-    sceneName,
-    tabRoute,
-    gtMd,
-    selectedHeaderTab,
-    onSelectHeaderTab,
-  ]);
+  }, [customHeaderLeftItems, sceneName, tabRoute, gtMd, selectedHeaderTab]);
   return (
     <AccountSelectorProviderMirror
       enabledNum={[0]}

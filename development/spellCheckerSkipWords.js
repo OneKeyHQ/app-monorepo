@@ -864,6 +864,8 @@ module.exports = [
   'Unstaking',
   'unstyled',
   'uosmo',
+  'upsell',
+  'Upsell',
   'upsert',
   'uptime',
   'uri',
@@ -1009,4 +1011,5 @@ module.exports = [
   'Brotli',
   'Arial',
   'ip',
+  'Dropdown',
 ];

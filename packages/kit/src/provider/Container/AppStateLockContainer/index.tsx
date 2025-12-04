@@ -41,36 +41,16 @@ export function AppStateLockContainer({
   children,
 }: PropsWithChildren<unknown>) {
   const [isLocked] = useAppIsLockedAtom();
-  // Pre-rendering on the web platform not only does not improve the rendering speed of the lock screen interface,
-  // but also causes the input box to be unable to auto focus.
-  const [isPreloadChildren, setIsPreloadChildren] = useState(
-    // only works on native.
-    platformEnv.isRuntimeBrowser,
-  );
-  const showChildren = useCallback(() => {
-    setTimeout(() => {
-      setIsPreloadChildren(true);
-    }, 50);
-  }, []);
+
   const handleUnlock = useCallback(async () => {
     await backgroundApiProxy.servicePassword.unLockApp();
   }, []);
-  const handleLayout = useCallback(
-    (e: LayoutChangeEvent) => {
-      const { height } = e.nativeEvent.layout;
-      if (height) {
-        showChildren();
-      }
-    },
-    [showChildren],
-  );
 
   const lockContainerRef = useWebLockCheck(isLocked);
 
-  const isShowChildren = !isLocked || isPreloadChildren;
   return (
     <>
-      {isShowChildren ? children : null}
+      {children}
       {!isLocked ? <AppStateUpdater /> : null}
       <AnimatePresence>
         {isLocked ? (
@@ -94,7 +74,6 @@ export function AppStateLockContainer({
               >
                 <PasswordVerifyContainer
                   name="lock"
-                  onLayout={handleLayout}
                   onVerifyRes={async (data) => {
                     // isExt support lock without password
                     if (data || platformEnv.isExtension) {

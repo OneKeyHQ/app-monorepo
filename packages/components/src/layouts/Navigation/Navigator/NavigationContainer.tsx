@@ -17,12 +17,18 @@ import { useMMKVDevTools } from '@rozenite/mmkv-plugin';
 import { useNetworkActivityDevTools } from '@rozenite/network-activity-plugin';
 import { useReactNavigationDevTools } from '@rozenite/react-navigation-plugin';
 
+import { useIsTabletMainView } from '@onekeyhq/components/src/hooks/useTabletMode';
 import { useTheme } from '@onekeyhq/components/src/shared/tamagui';
 import type { GetProps } from '@onekeyhq/components/src/shared/tamagui';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import { updateRootViewBackgroundColor } from '@onekeyhq/shared/src/modules3rdParty/rootview-background';
 import { navigationIntegration } from '@onekeyhq/shared/src/modules3rdParty/sentry';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type {
+  ETabRoutes,
+  ITabStackParamList,
+} from '@onekeyhq/shared/src/routes';
+import { ERootRoutes } from '@onekeyhq/shared/src/routes';
 import mmkvStorageInstance from '@onekeyhq/shared/src/storage/instance/mmkvStorageInstance';
 
 import { useSettingConfig } from '../../../hocs/Provider/hooks/useProviderValue';
@@ -31,6 +37,9 @@ import type { NavigationContainerRef } from '@react-navigation/native';
 
 type IBasicNavigationContainerProps = GetProps<typeof RNNavigationContainer>;
 export type INavigationContainerProps = Partial<IBasicNavigationContainerProps>;
+
+export const tabletMainViewNavigationRef =
+  createRef<NavigationContainerRef<any>>();
 export const rootNavigationRef = createRef<NavigationContainerRef<any>>();
 // for background open modal
 appGlobals.$navigationRef = rootNavigationRef as MutableRefObject<
@@ -82,9 +91,12 @@ const useNativeDevTools =
     : () => {};
 
 export function NavigationContainer(props: IBasicNavigationContainerProps) {
+  const isTabletMainView = useIsTabletMainView();
   const handleReady = useCallback(() => {
-    navigationIntegration.registerNavigationContainer(rootNavigationRef);
-  }, []);
+    navigationIntegration.registerNavigationContainer(
+      isTabletMainView ? tabletMainViewNavigationRef : rootNavigationRef,
+    );
+  }, [isTabletMainView]);
   const { theme: themeName } = useSettingConfig();
   const theme = useTheme();
 
@@ -111,8 +123,39 @@ export function NavigationContainer(props: IBasicNavigationContainerProps) {
     <RNNavigationContainer
       {...props}
       theme={themeOptions}
-      ref={rootNavigationRef}
+      ref={isTabletMainView ? tabletMainViewNavigationRef : rootNavigationRef}
       onReady={handleReady}
     />
   );
 }
+
+export const switchTab = <T extends ETabRoutes>(
+  route: T,
+  params?: {
+    screen: keyof ITabStackParamList[T];
+    params?: ITabStackParamList[T][keyof ITabStackParamList[T]];
+  },
+) => {
+  setTimeout(() => {
+    tabletMainViewNavigationRef.current?.navigate(
+      ERootRoutes.Main,
+      {
+        screen: route,
+        params,
+      },
+      {
+        pop: true,
+      },
+    );
+  });
+  rootNavigationRef.current?.navigate(
+    ERootRoutes.Main,
+    {
+      screen: route,
+      params,
+    },
+    {
+      pop: true,
+    },
+  );
+};

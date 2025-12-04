@@ -6,6 +6,7 @@ export enum EModalPerpRoutes {
   MobileTokenSelector = 'MobileTokenSelector',
   MobileSetTpsl = 'MobileSetTpsl',
   MobileDepositWithdrawModal = 'MobileDepositWithdrawModal',
+  PerpsInviteeRewardModal = 'PerpsInviteeRewardModal',
 }
 
 export type IModalPerpParamList = {
@@ -14,4 +15,5 @@ export type IModalPerpParamList = {
   [EModalPerpRoutes.MobileTokenSelector]: undefined;
   [EModalPerpRoutes.MobileSetTpsl]: ISetTpslParams;
   [EModalPerpRoutes.MobileDepositWithdrawModal]: undefined;
+  [EModalPerpRoutes.PerpsInviteeRewardModal]: undefined;
 };

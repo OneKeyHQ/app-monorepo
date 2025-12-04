@@ -1,10 +1,9 @@
 import { useCallback } from 'react';
 
-import { useNavigation } from '@react-navigation/native';
-
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import { rootNavigationRef } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -35,7 +34,8 @@ interface IUseToDetailPageOptions {
 }
 
 export function useToDetailPage(options?: IUseToDetailPageOptions) {
-  const navigation = useNavigation<IPageNavigationProp<ITabMarketParamList>>();
+  const navigation =
+    useAppNavigation<IPageNavigationProp<ITabMarketParamList>>();
   const tokenDetailActions = useTokenDetailActions();
 
   const toMarketDetailPage = useCallback(

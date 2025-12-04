@@ -61,31 +61,6 @@ const handleStakeSuccess = async ({
   onSuccess?.(data);
 };
 
-const emitEarnPortfolioRefresh = ({
-  provider,
-  symbol,
-  networkId,
-  targetSymbol,
-  rewardSymbol,
-}: {
-  provider?: string;
-  symbol?: string;
-  networkId: string;
-  targetSymbol?: string;
-  rewardSymbol?: string;
-}) => {
-  const finalSymbol = targetSymbol || symbol;
-  if (!provider || !finalSymbol) {
-    return;
-  }
-  appEventBus.emit(EAppEventBusNames.RefreshEarnPortfolioItem, {
-    provider,
-    symbol: finalSymbol,
-    networkId,
-    rewardSymbol,
-  });
-};
-
 export function useUniversalStake({
   networkId,
   accountId,
@@ -169,11 +144,6 @@ export function useUniversalStake({
             stakeInfo: stakeInfoWithOrderId,
             networkId,
             onSuccess,
-          });
-          emitEarnPortfolioRefresh({
-            provider,
-            symbol,
-            networkId,
           });
         },
         onFail,
@@ -315,11 +285,6 @@ export function useUniversalWithdraw({
               networkId,
               onSuccess,
             });
-            emitEarnPortfolioRefresh({
-              provider,
-              symbol,
-              networkId,
-            });
           } else {
             const psbtHex = data[0].signedTx.finalizedPsbtHex;
             if (psbtHex && identity) {
@@ -332,11 +297,6 @@ export function useUniversalWithdraw({
                 unstakeTxHex: psbtHex,
               });
               onSuccess?.(data);
-              emitEarnPortfolioRefresh({
-                provider,
-                symbol,
-                networkId,
-              });
             }
           }
         },
@@ -430,13 +390,6 @@ export function useUniversalClaim({
               stakeInfo: stakeInfoWithOrderId,
               networkId,
               onSuccess,
-            });
-            emitEarnPortfolioRefresh({
-              provider,
-              symbol,
-              networkId,
-              targetSymbol: portfolioSymbol,
-              rewardSymbol: portfolioRewardSymbol,
             });
           },
           onFail,

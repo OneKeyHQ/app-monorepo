@@ -2216,9 +2216,16 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   async updateDeviceVersionInfo({
     dbDeviceId,
     versionCacheInfo,
+    bitcoinOnlyFlag,
   }: {
     dbDeviceId: string;
     versionCacheInfo: IDeviceVersionCacheInfo;
+    bitcoinOnlyFlag:
+      | {
+          fw_vendor: string | undefined;
+          capabilities: number[] | undefined;
+        }
+      | undefined;
   }) {
     const device = await this.getDevice(dbDeviceId);
     await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
@@ -2230,6 +2237,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           item.features = JSON.stringify({
             ...device.featuresInfo,
             ...versionCacheInfo,
+            ...bitcoinOnlyFlag,
           });
           return item;
         },
@@ -5468,37 +5476,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         });
 
         if (true) throw new OneKeyLocalError('test error');
-
-        const ctxById = await this.txGetRecordById({
-          tx,
-          name: ELocalDBStoreNames.Context,
-          id: `${DB_MAIN_CONTEXT_ID}-1111`,
-        });
-        console.log('demoTestTransactionAutoCommit>>>>>>> 3.1', ctxById);
-
-        // TODO 如果事务提前提交，之前的数据改动会回滚吗？
-        // globalThis?.crypto?.subtle cause transaction commit immediately
-        if (globalThis?.crypto?.subtle) {
-          // const hash = await globalThis.crypto.subtle.digest(
-          //   'SHA-256',
-          //   bufferUtils.toBuffer('hello-world', 'utf-8'),
-          // );
-        }
-
-        _ctx = await this.txGetContext({ tx });
-        console.log('demoTestTransactionAutoCommit>>>>>>> 4', _ctx);
-
-        await this.txUpdateContext({
-          tx,
-          updater: (r) => {
-            r.backupUUID = `2222: ${new Date().toLocaleTimeString()}`;
-            return Promise.resolve(r);
-          },
-        });
-
-        _ctx = await this.txGetContext({ tx });
-        console.log('demoTestTransactionAutoCommit>>>>>>> 5', _ctx);
-        return _ctx;
       },
     );
 
@@ -5516,6 +5493,14 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         accountUtils.HYPERLIQUID_AGENT_CREDENTIAL_PREFIX,
       ),
     );
+  }
+
+  async removeAllHyperLiquidAgentCredentials(): Promise<number> {
+    const credentials = await this.getAllHyperLiquidAgentCredentials();
+    if (credentials.length > 0) {
+      await this.removeCredentials({ credentials });
+    }
+    return credentials.length;
   }
 
   // #endregion

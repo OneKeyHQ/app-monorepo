@@ -1,4 +1,4 @@
-interface IRewardToken {
+export interface IRewardToken {
   networkId: string;
   address: string;
   logoURI: string;
@@ -151,6 +151,26 @@ export interface IEarnRewardResponse {
   total: number;
 }
 
+export interface IPerpsRecordItemDetail {
+  token: IRewardToken;
+  amount: string;
+  amountFiatValue: string;
+  tradingVolume: string;
+  tradingVolumeFiatValue: string;
+}
+
+export interface IPerpsRecordItem {
+  accountAddress: string;
+  fiatValue: string;
+  items: IPerpsRecordItemDetail[];
+}
+
+export interface IPerpsRecordsResponse {
+  fiatValue: string;
+  items: IPerpsRecordItem[];
+  total: number;
+}
+
 export interface IEarnPositionItem {
   key: string;
   networkId: string;
@@ -239,6 +259,18 @@ export interface IInvitePostConfig {
   };
   locales: {
     Earn: {
+      title: string;
+      subtitle: string;
+      for_you: {
+        title: string;
+        subtitle: string;
+      };
+      for_your_friend: {
+        title: string;
+        subtitle: string;
+      };
+    };
+    Perps?: {
       title: string;
       subtitle: string;
       for_you: {
@@ -357,6 +389,7 @@ export interface IUpdateInviteCodeNoteResponse {
 export enum EExportSubject {
   HardwareSales = 'HardwareSales',
   Onchain = 'Onchain',
+  Perp = 'Perp',
 }
 
 export enum EExportTimeRange {
@@ -366,10 +399,16 @@ export enum EExportTimeRange {
   SixMonths = '6months',
 }
 
+export enum EExportTab {
+  Earn = 'Earn',
+  Perp = 'Perp',
+}
+
 export interface IExportInviteDataParams {
   subject: EExportSubject;
   timeRange: EExportTimeRange;
   inviteCode?: string;
+  tab?: EExportTab;
 }
 
 // API returns CSV string directly
@@ -388,4 +427,26 @@ export interface IHardwareCumulativeRewards {
     name: string;
     symbol: string;
   };
+}
+
+// Perps Invitee Reward Types
+export interface IPerpsInviteeRewardToken {
+  address: string;
+  logoURI: string;
+  name: string;
+  networkId: string;
+  symbol: string;
+}
+
+export interface IPerpsInviteeRewardHistoryItem {
+  amount: string;
+  date: string;
+  tx: string;
+}
+
+export interface IPerpsInviteeRewardsResponse {
+  history: IPerpsInviteeRewardHistoryItem[];
+  token: IPerpsInviteeRewardToken;
+  totalBonus: string;
+  undistributed: string;
 }

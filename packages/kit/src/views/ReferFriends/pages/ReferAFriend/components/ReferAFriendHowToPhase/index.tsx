@@ -3,10 +3,10 @@ import type { ReactNode } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Stack, YStack } from '@onekeyhq/components';
+import { ReferralBenefitsList } from '@onekeyhq/kit/src/views/ReferFriends/components/ReferralBenefitsList';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { InviteCodeStepImage } from '../InviteCodeStepImage';
-import { ReferralBenefitsList } from '../ReferralBenefitsList';
 
 interface IReferAFriendHowToPhaseProps {
   actions?: ReactNode;

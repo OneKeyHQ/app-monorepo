@@ -15,6 +15,7 @@ import type { IAirGapUrJson } from '@onekeyhq/qr-wallet-sdk';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors/errors/localError';
 import type { IOneKeyHardwareErrorPayload } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import type { ELogUploadStage } from '@onekeyhq/shared/src/logger/types';
 import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
 
@@ -40,6 +41,7 @@ import type {
 } from '../../types/swap/types';
 import type { IAccountToken, ITokenFiat } from '../../types/token';
 import type { IOneKeyError } from '../errors/types/errorTypes';
+import type { EModalRoutes, ETabRoutes } from '../routes';
 import type { IWalletConnectSession } from '../walletConnect/types';
 import type { FuseResult } from 'fuse.js';
 
@@ -241,13 +243,6 @@ export interface IAppEventBusPayload {
     accountId: string;
     networkId: string;
   };
-  [EAppEventBusNames.RefreshEarnPortfolioItem]: {
-    provider: string;
-    symbol: string;
-    networkId: string;
-    rewardSymbol?: string;
-  };
-  [EAppEventBusNames.RefreshEarnPortfolio]: undefined;
   [EAppEventBusNames.AccountDataUpdate]: undefined;
   [EAppEventBusNames.AccountValueUpdate]: undefined;
   [EAppEventBusNames.onDragBeginInListView]: undefined;
@@ -331,9 +326,7 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.HardwareFeaturesUpdate]: {
     deviceId: string;
   };
-  [EAppEventBusNames.UnlockApp]: {
-    jobId: string;
-  };
+  [EAppEventBusNames.UnlockApp]: undefined;
   [EAppEventBusNames.AddressBookUpdate]: undefined;
   [EAppEventBusNames.MarketWSDataUpdate]: {
     channel: string;
@@ -405,6 +398,18 @@ export interface IAppEventBusPayload {
   };
   [EAppEventBusNames.SwitchDiscoveryTabInNative]: {
     tab: ETranslations.global_browser | ETranslations.global_earn;
+    openUrl?: boolean;
+  };
+  [EAppEventBusNames.SwitchTabBar]: {
+    route: ETabRoutes;
+  };
+  [EAppEventBusNames.PushPageInTabletDetailView]: any;
+  [EAppEventBusNames.PushModalPageInTabletDetailView]: {
+    route: EModalRoutes;
+    params: any;
+  };
+  [EAppEventBusNames.MarketHomePageEnter]: {
+    from: EEnterWay;
   };
 }
 

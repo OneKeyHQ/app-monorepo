@@ -1,4 +1,12 @@
-import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
+import {
+  createContext,
+  memo,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+} from 'react';
 
 import { isEmpty } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -19,129 +27,67 @@ import type { ITableColumn } from '@onekeyhq/kit/src/components/ListView/TableLi
 import { TableList } from '@onekeyhq/kit/src/components/ListView/TableList';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { MorphoUSDCVaultAddress } from '@onekeyhq/shared/src/consts/addresses';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
+import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import {
-  EModalRoutes,
-  EModalStakingRoutes,
-  ERootRoutes,
-  ETabEarnRoutes,
-  ETabRoutes,
-} from '@onekeyhq/shared/src/routes';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import type {
-  IEarnPortfolioAirdropAsset,
-  IEarnPortfolioInvestment,
-  IEarnText,
-  IEarnToken,
+  EEarnLabels,
+  type IEarnPortfolioAirdropAsset,
+  type IEarnPortfolioInvestment,
+  type IEarnText,
 } from '@onekeyhq/shared/types/staking';
 
 import { useCurrency } from '../../../components/Currency';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { EarnText } from '../../Staking/components/ProtocolDetails/EarnText';
 import { EarnTooltip } from '../../Staking/components/ProtocolDetails/EarnTooltip';
+import { PendingIndicator } from '../../Staking/components/StakingActivityIndicator';
 import { buildLocalTxStatusSyncId } from '../../Staking/utils/utils';
 import { EarnNavigation } from '../earnUtils';
 import { usePortfolioAction } from '../hooks/usePortfolioAction';
+import { useStakingPendingTxsByInfo } from '../hooks/useStakingPendingTxs';
 
-import type { IUseEarnPortfolioReturn } from '../hooks/useEarnPortfolio';
+import type {
+  IRefreshOptions,
+  IUseEarnPortfolioReturn,
+} from '../hooks/useEarnPortfolio';
+import type { IStakePendingTx } from '../hooks/useStakingPendingTxs';
 
-const refreshPortfolioItemHandlers = new Set<
-  (payload: {
-    provider: string;
-    symbol: string;
-    networkId: string;
-    rewardSymbol?: string;
-  }) => void
->();
-let refreshPortfolioItemListenerRegistered = false;
-const refreshPortfolioItemGlobalHandler = (payload: {
-  provider: string;
-  symbol: string;
-  networkId: string;
-  rewardSymbol?: string;
-}) => {
-  refreshPortfolioItemHandlers.forEach((fn) => fn(payload));
+const useIsDesktopLayout = () => {
+  const media = useMedia();
+  return !platformEnv.isNative && media.gtSm;
 };
 
-const refreshPortfolioHandlers = new Set<() => void>();
-let refreshPortfolioListenerRegistered = false;
-const refreshPortfolioGlobalHandler = () => {
-  refreshPortfolioHandlers.forEach((fn) => fn());
+type IPortfolioPendingTxsContext = {
+  onRefresh?: (options?: IRefreshOptions) => Promise<void>;
 };
 
-const registerRefreshPortfolioItemHandler = (
-  handler: (payload: {
-    provider: string;
-    symbol: string;
-    networkId: string;
-    rewardSymbol?: string;
-  }) => void,
-) => {
-  refreshPortfolioItemHandlers.add(handler);
-  if (!refreshPortfolioItemListenerRegistered) {
-    appEventBus.on(
-      EAppEventBusNames.RefreshEarnPortfolioItem,
-      refreshPortfolioItemGlobalHandler,
-    );
-    refreshPortfolioItemListenerRegistered = true;
-  }
-};
+const PortfolioPendingTxsContext = createContext<IPortfolioPendingTxsContext>({
+  onRefresh: async () => {},
+});
 
-const unregisterRefreshPortfolioItemHandler = (
-  handler: (payload: {
-    provider: string;
-    symbol: string;
-    networkId: string;
-    rewardSymbol?: string;
-  }) => void,
-) => {
-  refreshPortfolioItemHandlers.delete(handler);
-  if (
-    refreshPortfolioItemHandlers.size === 0 &&
-    refreshPortfolioItemListenerRegistered
-  ) {
-    appEventBus.off(
-      EAppEventBusNames.RefreshEarnPortfolioItem,
-      refreshPortfolioItemGlobalHandler,
-    );
-    refreshPortfolioItemListenerRegistered = false;
-  }
-};
+const PortfolioPendingTxsProvider = ({
+  value,
+  children,
+}: {
+  value: IPortfolioPendingTxsContext;
+  children: React.ReactNode;
+}) => (
+  <PortfolioPendingTxsContext.Provider value={value}>
+    {children}
+  </PortfolioPendingTxsContext.Provider>
+);
 
-const registerRefreshPortfolioHandler = (handler: () => void) => {
-  refreshPortfolioHandlers.add(handler);
-  if (!refreshPortfolioListenerRegistered) {
-    appEventBus.on(
-      EAppEventBusNames.RefreshEarnPortfolio,
-      refreshPortfolioGlobalHandler,
-    );
-    refreshPortfolioListenerRegistered = true;
-  }
-};
+const usePortfolioPendingTxs = () => useContext(PortfolioPendingTxsContext);
 
-const unregisterRefreshPortfolioHandler = (handler: () => void) => {
-  refreshPortfolioHandlers.delete(handler);
-  if (
-    refreshPortfolioHandlers.size === 0 &&
-    refreshPortfolioListenerRegistered
-  ) {
-    appEventBus.off(
-      EAppEventBusNames.RefreshEarnPortfolio,
-      refreshPortfolioGlobalHandler,
-    );
-    refreshPortfolioListenerRegistered = false;
-  }
-};
-
-const WrappedActionButton = ({
+const WrappedActionButtonCmp = ({
   asset,
   reward,
   stakedSymbol,
   rewardSymbol,
+  stakedVault,
 }: {
   asset:
     | IEarnPortfolioInvestment['assets'][number]
@@ -151,14 +97,59 @@ const WrappedActionButton = ({
     | IEarnPortfolioInvestment['airdropAssets'][number]['airdropAssets'][number];
   stakedSymbol?: string;
   rewardSymbol?: string;
+  stakedVault?: string;
 }) => {
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { account, indexedAccount } = activeAccount;
+  const { onRefresh } = usePortfolioPendingTxs();
+  const handleActionSuccess = useCallback(async () => {
+    void onRefresh?.({
+      provider: asset.metadata.protocol.providerDetail.code,
+    });
+  }, [onRefresh, asset.metadata.protocol.providerDetail.code]);
 
   // For staking config lookup, use:
   // - stakedSymbol for airdrops (the token that was staked to earn rewards)
   // - asset.token.info.symbol for normal claims (the staked token itself)
-  const symbolForConfig = stakedSymbol || asset.token.info.symbol;
+  let symbolForConfig = stakedSymbol || asset.token.info.symbol;
+  let vaultForConfig = stakedVault || asset.metadata.protocol.vault;
+  if (
+    earnUtils.isMorphoProvider({
+      providerName: asset.metadata.protocol.providerDetail.code,
+    })
+  ) {
+    symbolForConfig = 'USDC';
+    vaultForConfig = MorphoUSDCVaultAddress;
+  }
+
+  const stakeTag = buildLocalTxStatusSyncId({
+    providerName: asset.metadata.protocol.providerDetail.code,
+    tokenSymbol: symbolForConfig,
+  });
+
+  const pendingTxsFilter = useCallback(
+    (tx: IStakePendingTx) => {
+      return (
+        [EEarnLabels.Claim].includes(tx.stakingInfo.label) &&
+        tx.stakingInfo.tags?.includes(stakeTag)
+      );
+    },
+    [stakeTag],
+  );
+  const { filteredTxs: pendingTxs = [] } = useStakingPendingTxsByInfo({
+    filter: pendingTxsFilter,
+  });
+  const isPending = useMemo(() => {
+    return pendingTxs.length > 0;
+  }, [pendingTxs]);
+  const previousIsPendingRef = useRef(isPending);
+
+  useEffect(() => {
+    if (previousIsPendingRef.current && !isPending) {
+      void handleActionSuccess();
+    }
+    previousIsPendingRef.current = isPending;
+  }, [isPending, handleActionSuccess]);
 
   const { loading, handleAction } = usePortfolioAction({
     accountId: account?.id || '',
@@ -166,12 +157,10 @@ const WrappedActionButton = ({
     indexedAccountId: indexedAccount?.id,
     symbol: symbolForConfig,
     provider: asset.metadata.protocol.providerDetail.code,
-    vault: asset.metadata.protocol.vault,
+    vault: vaultForConfig,
     providerLogoURI: asset.metadata.protocol.providerDetail.logoURI,
-    stakeTag: buildLocalTxStatusSyncId({
-      providerName: asset.metadata.protocol.providerDetail.code,
-      tokenSymbol: symbolForConfig,
-    }),
+    stakeTag,
+    onSuccess: handleActionSuccess,
   });
 
   const onPress = useCallback(() => {
@@ -202,15 +191,14 @@ const WrappedActionButton = ({
     rewardSymbol,
   ]);
 
-  const media = useMedia();
-
-  if (!media.gtSm) {
+  const isDesktopLayout = useIsDesktopLayout();
+  if (!isDesktopLayout) {
     return (
       <Button
         ai="center"
         variant="secondary"
         size="small"
-        loading={loading}
+        loading={loading || isPending}
         disabled={loading || reward.button.disabled}
         cursor={reward.button.disabled ? 'not-allowed' : 'pointer'}
         onPress={onPress}
@@ -226,7 +214,7 @@ const WrappedActionButton = ({
       ai="center"
       variant="link"
       size="small"
-      loading={loading}
+      loading={loading || isPending}
       disabled={loading || reward.button.disabled}
       cursor={reward.button.disabled ? 'not-allowed' : 'pointer'}
       onPress={onPress}
@@ -240,12 +228,32 @@ const WrappedActionButton = ({
   );
 };
 
+const WrappedActionButton = memo(WrappedActionButtonCmp);
+
+const useFieldWrapperNeedPadding = (
+  asset: IEarnPortfolioInvestment['assets'][number],
+) => {
+  return useMemo(() => !asset?.metadata?.protocol?.vaultName, [asset]);
+};
+
 const FieldWrapper = ({
   children,
+  asset,
   ...rest
-}: { children: React.ReactNode } & React.ComponentProps<typeof YStack>) => {
+}: {
+  children: React.ReactNode;
+  asset: IEarnPortfolioInvestment['assets'][number];
+} & React.ComponentProps<typeof YStack>) => {
+  const needPadding = useFieldWrapperNeedPadding(asset);
+
   return (
-    <YStack gap="$1" minHeight="$8" {...rest}>
+    <YStack
+      gap="$1"
+      minHeight="$8"
+      jc="flex-start"
+      pt={needPadding ? '$1.5' : 0}
+      {...rest}
+    >
       {children}
     </YStack>
   );
@@ -264,7 +272,7 @@ const DepositField = ({
         tokenImageUri={asset.token.info.logoURI}
         networkImageUri={asset.metadata.network.logoURI}
       />
-      <FieldWrapper ml="$3" mr="$2" jc="center" flex={1}>
+      <FieldWrapper ml="$3" mr="$2" flex={1} asset={asset}>
         <XStack gap="$1" maxWidth={200} flexWrap="wrap">
           <EarnText size="$bodyMdMedium" text={asset.deposit?.title} />
           <EarnText
@@ -289,8 +297,8 @@ const EarningsField = ({
   asset: IEarnPortfolioInvestment['assets'][number];
 }) => {
   return (
-    <FieldWrapper>
-      <YStack jc="center" flex={1}>
+    <FieldWrapper asset={asset}>
+      <YStack jc="center" flex={1} gap="$1">
         <EarnText size="$bodyMdMedium" text={asset.earnings24h?.title} />
         <XStack gap="$1">
           <EarnText
@@ -314,8 +322,18 @@ const AssetStatusField = ({
 }: {
   asset: IEarnPortfolioInvestment['assets'][number];
 }) => {
+  if (isEmpty(asset.assetsStatus)) {
+    return (
+      <FieldWrapper asset={asset}>
+        <Stack flexDirection="row" ai="center" flexWrap="wrap" maxWidth="100%">
+          <EarnText mr="$1" size="$bodyMdMedium" text={{ text: '-' }} />
+        </Stack>
+      </FieldWrapper>
+    );
+  }
+
   return (
-    <FieldWrapper jc="center">
+    <FieldWrapper asset={asset}>
       {asset.assetsStatus?.map((status, index) => (
         <XStack key={index} ai="center" maxWidth={200} flexWrap="wrap">
           <EarnText mr="$2" size="$bodyMdMedium" text={status.title} />
@@ -341,7 +359,7 @@ const ActionField = ({
 }) => {
   if (isEmpty(asset.rewardAssets)) {
     return (
-      <FieldWrapper jc="center">
+      <FieldWrapper asset={asset}>
         <Stack flexDirection="row" ai="center" flexWrap="wrap" maxWidth="100%">
           <EarnText mr="$1" size="$bodyMdMedium" text={{ text: '-' }} />
         </Stack>
@@ -350,7 +368,7 @@ const ActionField = ({
   }
 
   return (
-    <FieldWrapper jc="center">
+    <FieldWrapper asset={asset}>
       {asset.rewardAssets?.map((reward, index) => (
         <Stack
           key={index}
@@ -370,6 +388,11 @@ const ActionField = ({
             color="$textSubdued"
             text={reward.description}
           />
+          {reward?.tooltip ? (
+            <XStack mr="$2">
+              <EarnTooltip tooltip={reward.tooltip} />
+            </XStack>
+          ) : null}
           <WrappedActionButton asset={asset} reward={reward} />
         </Stack>
       ))}
@@ -379,8 +402,10 @@ const ActionField = ({
 
 const ProtocolHeader = ({
   portfolioItem,
+  pendingCount,
 }: {
   portfolioItem: IEarnPortfolioInvestment;
+  pendingCount?: number;
 }) => {
   const currencyInfo = useCurrency();
 
@@ -401,12 +426,17 @@ const ProtocolHeader = ({
           <NumberSizeableText
             size="$headingLg"
             color="$textSubdued"
-            formatter="marketCap"
+            formatter="value"
             formatterOptions={{ currency: currencyInfo.symbol }}
           >
             {portfolioItem.totalFiatValue}
           </NumberSizeableText>
         </XStack>
+        {pendingCount && pendingCount > 0 ? (
+          <XStack ml="$2">
+            <PendingIndicator num={pendingCount} />
+          </XStack>
+        ) : null}
       </XStack>
     </YStack>
   );
@@ -415,14 +445,16 @@ const ProtocolHeader = ({
 const ProtocolAirdrop = ({
   airdropAssets,
   stakedSymbol,
+  stakedVault,
   airdropRenderMode = 'all',
 }: {
   airdropAssets: IEarnPortfolioAirdropAsset[];
   stakedSymbol?: string;
+  stakedVault?: string;
   airdropRenderMode?: 'firstOnly' | 'all' | 'exceptFirst';
 }) => {
   const media = useMedia();
-
+  const isDesktopLayout = useIsDesktopLayout();
   return (
     <YStack px="$5" my="$2" $gtSm={{ my: 0 }}>
       <XStack ai="center">
@@ -431,25 +463,25 @@ const ProtocolAirdrop = ({
           isEmpty(airdrop.airdropAssets),
         ) ? null : (
           <YStack w="100%">
-            {airdropAssets?.map((airdrop, index) => {
-              const Wrapper = media.gtSm ? XStack : YStack;
+            {airdropAssets?.map((airdropGroup, groupIndex) => {
+              const Layout = isDesktopLayout ? XStack : YStack;
 
-              const filteredAirdrop = (() => {
+              const airdropsToRender = (() => {
                 if (airdropRenderMode === 'firstOnly') {
-                  return airdrop.airdropAssets.slice(0, 1);
+                  return airdropGroup.airdropAssets.slice(0, 1);
                 }
                 if (airdropRenderMode === 'exceptFirst') {
-                  return airdrop.airdropAssets.slice(1);
+                  return airdropGroup.airdropAssets.slice(1);
                 }
                 if (airdropRenderMode === 'all') {
-                  return airdrop.airdropAssets;
+                  return airdropGroup.airdropAssets;
                 }
                 return [];
               })();
 
               return (
-                <Wrapper
-                  key={index}
+                <Layout
+                  key={groupIndex}
                   ai="flex-start"
                   gap="$1.5"
                   w="100%"
@@ -463,12 +495,12 @@ const ProtocolAirdrop = ({
                     <Token
                       size="xs"
                       borderRadius="$2"
-                      tokenImageUri={airdrop.token.info.logoURI}
+                      tokenImageUri={airdropGroup.token.info.logoURI}
                     />
                   ) : null}
-                  {filteredAirdrop.map((reward, rewardIndex) => {
-                    const needDivider =
-                      rewardIndex < filteredAirdrop.length - 1 && media.gtMd;
+                  {airdropsToRender.map((airdropReward, rewardIndex) => {
+                    const showDivider =
+                      rewardIndex < airdropsToRender.length - 1 && media.gtMd;
 
                     return (
                       <XStack
@@ -484,27 +516,28 @@ const ProtocolAirdrop = ({
                           <EarnText
                             mr="$1"
                             size="$bodyMdMedium"
-                            text={reward.title}
+                            text={airdropReward.title}
                           />
                           <EarnText
                             mr="$1"
                             size="$bodyMd"
                             color="$textSubdued"
-                            text={reward.description}
+                            text={airdropReward.description}
                           />
-                          <EarnTooltip tooltip={reward.tooltip} />
+                          <EarnTooltip tooltip={airdropReward.tooltip} />
                         </XStack>
                         <XStack ml="auto" $gtMd={{ ml: 0 }}>
-                          {reward.button ? (
+                          {airdropReward.button ? (
                             <WrappedActionButton
-                              asset={airdrop}
-                              reward={reward}
+                              asset={airdropGroup}
+                              reward={airdropReward}
                               stakedSymbol={stakedSymbol}
-                              rewardSymbol={airdrop.token.info.symbol}
+                              stakedVault={stakedVault}
+                              rewardSymbol={airdropGroup.token.info.symbol}
                             />
                           ) : null}
                         </XStack>
-                        {needDivider ? (
+                        {showDivider ? (
                           <Divider
                             bg="$borderSubdued"
                             vertical
@@ -517,7 +550,7 @@ const ProtocolAirdrop = ({
                       </XStack>
                     );
                   })}
-                </Wrapper>
+                </Layout>
               );
             })}
           </YStack>
@@ -529,18 +562,30 @@ const ProtocolAirdrop = ({
 
 const PortfolioItemComponent = ({
   portfolioItem,
+  onRefresh,
 }: {
   portfolioItem: IEarnPortfolioInvestment;
+  onRefresh?: (options?: IRefreshOptions) => Promise<void>;
 }) => {
   const intl = useIntl();
-  const media = useMedia();
+  const isDesktopLayout = useIsDesktopLayout();
+  // Get provider and networkId from first asset or first airdrop asset
+  const firstAsset = portfolioItem.assets[0] || portfolioItem.airdropAssets[0];
+
+  const depositColumnLabel = useMemo(() => {
+    if (firstAsset?.token?.info?.symbol?.toUpperCase() === 'USDE') {
+      return intl.formatMessage({ id: ETranslations.earn_holdings });
+    }
+
+    return intl.formatMessage({ id: ETranslations.earn_deposited });
+  }, [firstAsset, intl]);
 
   const columns: ITableColumn<IEarnPortfolioInvestment['assets'][number]>[] =
     useMemo(() => {
       return [
         {
           key: 'deposits',
-          label: intl.formatMessage({ id: ETranslations.earn_deposited }),
+          label: depositColumnLabel,
           flex: 1.5,
           priority: 5,
           render: (asset) => <DepositField asset={asset} />,
@@ -554,7 +599,7 @@ const PortfolioItemComponent = ({
         },
         {
           key: 'Asset status',
-          label: intl.formatMessage({ id: ETranslations.global_status }),
+          label: intl.formatMessage({ id: ETranslations.earn_asset_status }),
           flex: 1,
           priority: 3,
           render: (asset) => <AssetStatusField asset={asset} />,
@@ -567,24 +612,20 @@ const PortfolioItemComponent = ({
           render: (asset) => <ActionField asset={asset} />,
         },
       ];
-    }, [intl]);
+    }, [depositColumnLabel, intl]);
 
   const appNavigation = useAppNavigation();
-  const { activeAccount } = useActiveAccount({ num: 0 });
-  const { account, indexedAccount } = activeAccount;
 
   const handleRowPress = useCallback(
     async (asset: IEarnPortfolioInvestment['assets'][number]) => {
       await EarnNavigation.pushToEarnProtocolDetails(appNavigation, {
         networkId: asset.metadata.network.networkId,
-        accountId: account?.id,
-        indexedAccountId: indexedAccount?.id,
         symbol: asset.token.info.symbol,
         provider: asset.metadata.protocol.providerDetail.code,
         vault: asset.metadata.protocol.vault,
       });
     },
-    [appNavigation, account?.id, indexedAccount?.id],
+    [appNavigation],
   );
 
   const handleManagePress = useCallback(
@@ -611,167 +652,178 @@ const PortfolioItemComponent = ({
   );
 
   return (
-    <YStack>
-      <ProtocolHeader portfolioItem={portfolioItem} />
-      <ProtocolAirdrop
-        airdropRenderMode={media.gtSm ? 'all' : 'firstOnly'}
-        airdropAssets={portfolioItem.airdropAssets}
-        stakedSymbol={portfolioItem.assets[0]?.token.info.symbol}
-      />
-      {showTable ? (
-        <TableList<IEarnPortfolioInvestment['assets'][number]>
-          data={portfolioItem.assets}
-          keyExtractor={(asset, index) =>
-            `${asset.token.info.symbol}-${
-              asset.metadata.protocol.providerDetail.code
-            }-${asset.metadata.network.networkId}-${
-              asset.metadata.protocol.vault || 'default'
-            }-${index}`
-          }
-          columns={columns}
-          withHeader={media.gtSm}
-          tableLayout
-          defaultSortKey="deposits"
-          defaultSortDirection="desc"
-          onPressRow={handleRowPress}
-          headerProps={{
-            mt: '$3',
-            minHeight: '$8',
-          }}
-          listItemProps={{
-            mt: media.gtSm ? '$2' : '$1',
-          }}
-          expandable={
-            !media.gtSm
-              ? {
-                  renderExpandedContent: (asset) => (
-                    <YStack gap="$5">
-                      {/* Est. 24h earnings */}
-                      <XStack ai="center" gap="$1">
-                        <EarnText
-                          size="$bodyLgMedium"
-                          text={asset.earnings24h?.title}
-                        />
-                        <SizableText size="$bodyMd" color="$textSubdued">
-                          {intl.formatMessage({
-                            id: ETranslations.earn_24h_earnings,
-                          })}
-                        </SizableText>
-                      </XStack>
-
-                      {/* Asset status list */}
-                      {asset.assetsStatus?.map((status, index) => (
-                        <XStack key={index} ai="center">
-                          <EarnText size="$bodyMdMedium" text={status.title} />
-                          <XStack gap="$1.5">
-                            <EarnText
-                              ml="$2"
-                              size="$bodyMd"
-                              color="$textSubdued"
-                              text={status.description}
-                            />
-                            <EarnTooltip tooltip={status.tooltip} />
-                          </XStack>
-                        </XStack>
-                      ))}
-
-                      {/* Reward assets (claimable rewards) */}
-                      {asset.rewardAssets?.map((reward, index) => (
-                        <XStack key={index} ai="center" jc="space-between">
-                          <XStack ai="center" gap="$2">
-                            <EarnText
-                              size="$bodyMdMedium"
-                              text={reward.title}
-                            />
-                            <EarnText
-                              size="$bodyMd"
-                              color="$textSubdued"
-                              text={reward.description}
-                            />
-                            <EarnTooltip tooltip={reward.tooltip} />
-                          </XStack>
-                          <WrappedActionButton asset={asset} reward={reward} />
-                        </XStack>
-                      ))}
-
-                      {/* Buttons */}
-                      <XStack gap="$3">
-                        <Button
-                          flex={1}
-                          size="medium"
-                          variant="secondary"
-                          onPress={async () => {
-                            await handleManagePress(asset);
-                          }}
-                        >
-                          {intl.formatMessage({
-                            id: ETranslations.global_manage,
-                          })}
-                        </Button>
-                        <Button
-                          flex={1}
-                          size="medium"
-                          variant="secondary"
-                          onPress={async () => {
-                            await handleRowPress(asset);
-                          }}
-                        >
-                          {intl.formatMessage({
-                            id: ETranslations.global_details,
-                          })}
-                        </Button>
-                      </XStack>
-                    </YStack>
-                  ),
-                }
-              : undefined
-          }
-          actions={{
-            render: (asset) => {
-              return (
-                <Stack gap="$2">
-                  {asset.buttons?.map(
-                    (
-                      button: {
-                        type: string;
-                        text: { text: string };
-                        disabled: boolean;
-                      },
-                      index: number,
-                    ) => {
-                      return (
-                        <Button
-                          key={index}
-                          size="small"
-                          disabled={button?.disabled}
-                          variant="secondary"
-                          onPress={async () => {
-                            if (button?.type === 'manage') {
-                              await handleManagePress(asset);
-                            }
-                          }}
-                        >
-                          {button.text?.text}
-                        </Button>
-                      );
-                    },
-                  )}
-                </Stack>
-              );
-            },
-            width: 100,
-            align: 'flex-end',
-          }}
-        />
-      ) : null}
-      {!media.gtSm ? (
+    <PortfolioPendingTxsProvider value={{ onRefresh }}>
+      <YStack>
+        <ProtocolHeader portfolioItem={portfolioItem} />
         <ProtocolAirdrop
-          airdropRenderMode="exceptFirst"
+          airdropRenderMode={isDesktopLayout ? 'all' : 'firstOnly'}
           airdropAssets={portfolioItem.airdropAssets}
           stakedSymbol={portfolioItem.assets[0]?.token.info.symbol}
+          stakedVault={portfolioItem.assets[0]?.metadata.protocol.vault}
         />
-      ) : null}
-    </YStack>
+        {showTable ? (
+          <TableList<IEarnPortfolioInvestment['assets'][number]>
+            data={portfolioItem.assets}
+            keyExtractor={(asset, index) =>
+              `${asset.token.info.symbol}-${
+                asset.metadata.protocol.providerDetail.code
+              }-${asset.metadata.network.networkId}-${
+                asset.metadata.protocol.vault || 'default'
+              }-${index}`
+            }
+            columns={columns}
+            withHeader={isDesktopLayout}
+            tableLayout={isDesktopLayout}
+            defaultSortKey="deposits"
+            defaultSortDirection="desc"
+            onPressRow={handleRowPress}
+            headerProps={{
+              mt: '$3',
+              minHeight: '$8',
+            }}
+            listItemProps={{
+              ai: isDesktopLayout ? 'flex-start' : 'center',
+              mt: isDesktopLayout ? '$2' : '$1',
+            }}
+            expandable={
+              !isDesktopLayout
+                ? {
+                    renderExpandedContent: (asset) => (
+                      <YStack gap="$5">
+                        {/* Est. 24h earnings */}
+                        <XStack ai="center" gap="$1">
+                          <EarnText
+                            size="$bodyLgMedium"
+                            text={asset.earnings24h?.title}
+                          />
+                          <SizableText size="$bodyMd" color="$textSubdued">
+                            {intl.formatMessage({
+                              id: ETranslations.earn_24h_earnings,
+                            })}
+                          </SizableText>
+                        </XStack>
+
+                        {/* Asset status list */}
+                        {asset.assetsStatus?.map((status, index) => (
+                          <XStack key={index} ai="center">
+                            <EarnText
+                              size="$bodyMdMedium"
+                              text={status.title}
+                            />
+                            <XStack gap="$1.5">
+                              <EarnText
+                                ml="$2"
+                                size="$bodyMd"
+                                color="$textSubdued"
+                                text={status.description}
+                              />
+                              <EarnTooltip tooltip={status.tooltip} />
+                            </XStack>
+                          </XStack>
+                        ))}
+
+                        {/* Reward assets (claimable rewards) */}
+                        {asset.rewardAssets?.map((reward, index) => (
+                          <XStack key={index} ai="center" jc="space-between">
+                            <XStack ai="center" gap="$2">
+                              <EarnText
+                                size="$bodyMdMedium"
+                                text={reward.title}
+                              />
+                              <EarnText
+                                size="$bodyMd"
+                                color="$textSubdued"
+                                text={reward.description}
+                              />
+                              <EarnTooltip tooltip={reward.tooltip} />
+                            </XStack>
+                            <WrappedActionButton
+                              asset={asset}
+                              reward={reward}
+                            />
+                          </XStack>
+                        ))}
+
+                        {/* Buttons */}
+                        <XStack gap="$3">
+                          <Button
+                            flex={1}
+                            size="medium"
+                            variant="secondary"
+                            onPress={async () => {
+                              await handleManagePress(asset);
+                            }}
+                          >
+                            {intl.formatMessage({
+                              id: ETranslations.global_manage,
+                            })}
+                          </Button>
+                          <Button
+                            flex={1}
+                            size="medium"
+                            variant="secondary"
+                            onPress={async () => {
+                              await handleRowPress(asset);
+                            }}
+                          >
+                            {intl.formatMessage({
+                              id: ETranslations.global_details,
+                            })}
+                          </Button>
+                        </XStack>
+                      </YStack>
+                    ),
+                  }
+                : undefined
+            }
+            actions={{
+              render: (asset) => {
+                return (
+                  <Stack gap="$2">
+                    {asset.buttons?.map(
+                      (
+                        button: {
+                          type: string;
+                          text: { text: string };
+                          disabled: boolean;
+                        },
+                        index: number,
+                      ) => {
+                        return (
+                          <Button
+                            key={index}
+                            size="small"
+                            disabled={button?.disabled}
+                            variant="secondary"
+                            onPress={async () => {
+                              if (button?.type === 'manage') {
+                                await handleManagePress(asset);
+                              }
+                            }}
+                          >
+                            {button.text?.text}
+                          </Button>
+                        );
+                      },
+                    )}
+                  </Stack>
+                );
+              },
+              width: 100,
+              align: 'flex-end',
+            }}
+          />
+        ) : null}
+        {!isDesktopLayout ? (
+          <ProtocolAirdrop
+            airdropRenderMode="exceptFirst"
+            airdropAssets={portfolioItem.airdropAssets}
+            stakedSymbol={portfolioItem.assets[0]?.token.info.symbol}
+            stakedVault={portfolioItem.assets[0]?.metadata.protocol.vault}
+          />
+        ) : null}
+      </YStack>
+    </PortfolioPendingTxsProvider>
   );
 };
 
@@ -779,8 +831,7 @@ const PortfolioItem = memo(PortfolioItemComponent);
 
 // Skeleton component for loading state
 const PortfolioSkeletonItem = () => {
-  const media = useMedia();
-
+  const isDesktopLayout = useIsDesktopLayout();
   return (
     <YStack gap="$2" px="$5">
       {/* Protocol Header */}
@@ -790,7 +841,7 @@ const PortfolioSkeletonItem = () => {
       </XStack>
 
       {/* Table Header - Desktop only */}
-      {media.gtSm ? (
+      {isDesktopLayout ? (
         <XStack gap="$3" px="$3" py="$2">
           <XStack flex={1.5}>
             <Skeleton h="$3" w={80} />
@@ -815,11 +866,11 @@ const PortfolioSkeletonItem = () => {
           gap="$3"
           px="$3"
           py="$2"
-          ai={media.gtSm ? 'center' : 'flex-start'}
-          minHeight={media.gtSm ? '$11' : '$14'}
+          ai={isDesktopLayout ? 'center' : 'flex-start'}
+          minHeight={isDesktopLayout ? '$11' : '$14'}
         >
           {/* Token Icon + Deposit */}
-          <XStack flex={media.gtSm ? 1.5 : 1} ai="center" gap="$3">
+          <XStack flex={isDesktopLayout ? 1.5 : 1} ai="center" gap="$3">
             <Skeleton w="$10" h="$10" borderRadius="$2" />
             <YStack gap="$1" flex={1}>
               <Skeleton h="$4" w="70%" />
@@ -827,7 +878,7 @@ const PortfolioSkeletonItem = () => {
             </YStack>
           </XStack>
 
-          {media.gtSm ? (
+          {isDesktopLayout ? (
             <>
               {/* 24h Earnings */}
               <YStack flex={1} gap="$1">
@@ -871,64 +922,6 @@ export const PortfolioTabContent = ({
   const intl = useIntl();
   const { investments, isLoading, refresh } = portfolioData;
 
-  const refreshPortfolioRow = useCallback<
-    (payload: {
-      provider: string;
-      symbol: string;
-      networkId: string;
-      rewardSymbol?: string;
-    }) => void
-  >(
-    (payload) => {
-      if (!payload?.provider || !payload?.symbol || !payload?.networkId) {
-        return;
-      }
-      // Add delay to allow backend data to update after order success
-      void timerUtils.wait(350).then(() => {
-        void refresh({
-          provider: payload.provider,
-          symbol: payload.symbol,
-          networkId: payload.networkId,
-          rewardSymbol: payload.rewardSymbol,
-        });
-      });
-    },
-    [refresh],
-  );
-
-  const refreshPortfolioRowRef = useRef(refreshPortfolioRow);
-  useEffect(() => {
-    refreshPortfolioRowRef.current = refreshPortfolioRow;
-  }, [refreshPortfolioRow]);
-  const refreshRef = useRef(refresh);
-  useEffect(() => {
-    refreshRef.current = refresh;
-  }, [refresh]);
-
-  useEffect(() => {
-    const handler = (payload: {
-      provider: string;
-      symbol: string;
-      networkId: string;
-      rewardSymbol?: string;
-    }) => {
-      refreshPortfolioRowRef.current(payload);
-    };
-    const fullRefreshHandler = () => {
-      void refreshRef.current();
-    };
-    registerRefreshPortfolioItemHandler(handler);
-    registerRefreshPortfolioHandler(fullRefreshHandler);
-    return () => {
-      unregisterRefreshPortfolioItemHandler(handler);
-      unregisterRefreshPortfolioHandler(fullRefreshHandler);
-
-      // CRITICAL: Clear all refs to release memory
-      refreshPortfolioRowRef.current = null as any;
-      refreshRef.current = null as any;
-    };
-  }, []);
-
   const filteredInvestments = useMemo(
     () =>
       investments.filter(
@@ -955,11 +948,11 @@ export const PortfolioTabContent = ({
       return (
         <>
           {showDivider ? <Divider my="$4" mx="$5" /> : null}
-          <PortfolioItem key={key} portfolioItem={item} />
+          <PortfolioItem key={key} portfolioItem={item} onRefresh={refresh} />
         </>
       );
     },
-    [filteredInvestments.length],
+    [filteredInvestments.length, refresh],
   );
 
   const showSkeleton = isLoading && noAssets;

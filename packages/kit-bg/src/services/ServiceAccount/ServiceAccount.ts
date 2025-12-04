@@ -1,3 +1,4 @@
+import { EFirmwareType } from '@onekeyfe/hd-shared';
 import { Semaphore } from 'async-mutex';
 import { ethers } from 'ethers';
 import { debounce, isEmpty, isNil, uniq, uniqBy } from 'lodash';
@@ -51,6 +52,7 @@ import {
   COINTYPE_STC,
   FIRST_EVM_ADDRESS_PATH,
   IMPL_ALLNETWORKS,
+  IMPL_BTC,
   IMPL_EVM,
   IMPL_LTC,
 } from '@onekeyhq/shared/src/engine/engineConsts';
@@ -103,7 +105,10 @@ import type {
   IQrWalletAirGapAccount,
 } from '@onekeyhq/shared/types/account';
 import type { IGeneralInputValidation } from '@onekeyhq/shared/types/address';
-import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
+import type {
+  IDeviceSharedCallParams,
+  IOneKeyDeviceFeatures,
+} from '@onekeyhq/shared/types/device';
 import {
   EConfirmOnDeviceType,
   EHardwareCallContext,
@@ -5314,6 +5319,175 @@ class ServiceAccount extends ServiceBase {
     } catch {
       return undefined;
     }
+  }
+
+  isBtcOnlyFirmwareByWalletIdMemoized = memoizee(
+    async ({
+      walletId,
+      featuresInfo,
+    }: {
+      walletId: string;
+      featuresInfo?: IOneKeyDeviceFeatures;
+    }) => {
+      let firmwareType: EFirmwareType | undefined;
+      if (featuresInfo) {
+        firmwareType = await deviceUtils.getFirmwareType({
+          features: featuresInfo,
+        });
+      } else {
+        const walletDevice =
+          await this.backgroundApi.serviceAccount.getWalletDeviceSafe({
+            walletId,
+          });
+        if (walletDevice) {
+          firmwareType = await deviceUtils.getFirmwareType({
+            features: walletDevice.featuresInfo,
+          });
+        }
+      }
+
+      return firmwareType === EFirmwareType.BitcoinOnly;
+    },
+    {
+      promise: true,
+      primitive: true,
+      normalizer: ([options]) => {
+        const fwVendor = options.featuresInfo?.fw_vendor || '';
+        const capabilities =
+          options.featuresInfo?.capabilities?.join(',') ?? '';
+        return `${options.walletId}-${fwVendor}-${capabilities}`;
+      },
+      maxAge: timerUtils.getTimeDurationMs({ seconds: 60 }),
+      max: 5,
+    },
+  );
+
+  /**
+   * Check if the wallet is a Bitcoin Only firmware
+   * @param walletId - wallet id
+   * @param featuresInfo - Optional: avoids redundant device queries
+   * @returns {boolean} if the wallet is a Bitcoin Only firmware
+   */
+  @backgroundMethod()
+  async isBtcOnlyFirmwareByWalletId({
+    walletId,
+    featuresInfo,
+  }: {
+    walletId: string;
+    featuresInfo?: IOneKeyDeviceFeatures;
+  }): Promise<boolean> {
+    if (!accountUtils.isHwWallet({ walletId })) {
+      return false;
+    }
+    return this.isBtcOnlyFirmwareByWalletIdMemoized({
+      walletId,
+      featuresInfo,
+    });
+  }
+
+  /**
+   * Check if the account network is supported by the wallet
+   *
+   * @param accountId - Optional: account ID (either accountId or walletId must be provided)
+   * @param walletId - Optional: wallet ID (either accountId or walletId must be provided)
+   * @param accountImpl - Optional: account implementation, avoids DB query if already known
+   * @param featuresInfo - Optional: device features, avoids redundant device queries
+   * @param activeNetworkId - Required: active network ID to check
+   *
+   * @throws {OneKeyInternalError} if neither accountId nor walletId is provided
+   * @returns {object | undefined} Returns { networkImpl } if network is not supported, undefined otherwise
+   */
+  @backgroundMethod()
+  async checkAccountNetworkNotSupported({
+    accountId,
+    walletId,
+    accountImpl,
+    featuresInfoCache,
+    activeNetworkId,
+  }: {
+    accountId?: string;
+    walletId?: string;
+    accountImpl?: string;
+    featuresInfoCache?: IOneKeyDeviceFeatures;
+    activeNetworkId: string;
+  }): Promise<
+    | {
+        networkImpl: string;
+      }
+    | undefined
+  > {
+    // Validate: at least one of accountId or walletId must be provided
+    if (!accountId && !walletId) {
+      throw new OneKeyInternalError(
+        'checkAccountNetworkNotSupported: either accountId or walletId must be provided',
+      );
+    }
+
+    // Determine walletId
+    let finalWalletId = walletId;
+    if (!finalWalletId && accountId) {
+      finalWalletId = accountUtils.getWalletIdFromAccountId({ accountId });
+    }
+
+    // Early returns for watching wallet
+    if (finalWalletId === WALLET_TYPE_WATCHING) {
+      return undefined;
+    }
+
+    const { impl: activeNetworkImpl } = networkUtils.parseNetworkId({
+      networkId: activeNetworkId ?? '',
+    });
+
+    // other account maybe not have accountId only have walletId
+    if (accountId && accountUtils.isOthersAccount({ accountId })) {
+      let currentAccountImpl = accountImpl;
+      if (!currentAccountImpl) {
+        const account = await this.getDBAccountSafe({ accountId });
+        if (!account) {
+          return undefined;
+        }
+        currentAccountImpl = account.impl;
+      }
+
+      const isAllNetwork = currentAccountImpl === IMPL_ALLNETWORKS;
+
+      if (isAllNetwork || currentAccountImpl === activeNetworkImpl) {
+        return undefined;
+      }
+
+      return {
+        networkImpl: activeNetworkImpl,
+      };
+    }
+
+    // other account maybe not have accountId only have walletId
+    if (
+      !accountId &&
+      finalWalletId &&
+      accountUtils.isOthersWallet({ walletId: finalWalletId })
+    ) {
+      return {
+        networkImpl: activeNetworkImpl,
+      };
+    }
+
+    // Check hardware wallet BTC-only firmware restriction
+    if (!accountUtils.isHwWallet({ walletId: finalWalletId! })) {
+      return undefined;
+    }
+
+    const isBtcOnlyFirmware = await this.isBtcOnlyFirmwareByWalletId({
+      walletId: finalWalletId!,
+      featuresInfo: featuresInfoCache,
+    });
+
+    if (isBtcOnlyFirmware && activeNetworkImpl !== IMPL_BTC) {
+      return {
+        networkImpl: activeNetworkImpl,
+      };
+    }
+
+    return undefined;
   }
 }
 

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 
+import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
@@ -14,7 +15,10 @@ import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IInvitePostConfig } from '@onekeyhq/shared/src/referralCode/type';
-import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  EModalReferFriendsRoutes,
+  ETabRoutes,
+} from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { ReferFriendsPageContainer } from '../../components';
@@ -95,18 +99,22 @@ function ReferAFriendPage({
 
 function ReferAFriendPageWrapper() {
   const intl = useIntl();
-  const { md, gtMd } = useMedia();
+  const route = useRoute();
+  const { md } = useMedia();
   const { postConfig } = useReferAFriendData();
   const [phaseState, setPhaseState] = useState<EPhaseState | undefined>(
     EPhaseState.next,
   );
 
-  const showInlineActions = gtMd;
+  // Check if opened as Modal (window mode) by route name
+  const isModalMode = route.name === EModalReferFriendsRoutes.ReferAFriend;
+
+  const showInlineActions = !isModalMode;
   const shouldShowFooter = !showInlineActions && !!postConfig && !!phaseState;
 
   return (
     <Page scrollEnabled>
-      {platformEnv.isNative || md ? (
+      {platformEnv.isNative || isModalMode || md ? (
         <Page.Header
           title={intl.formatMessage({
             id: ETranslations.sidebar_refer_a_friend,
@@ -134,7 +142,7 @@ function ReferAFriendPageWrapper() {
 
       {shouldShowFooter ? (
         <Page.Footer>
-          <Stack px="$5" py="$2" bg="$bgApp">
+          <Stack px="$4" py="$4" bg="$bgApp">
             <ReferAFriendPhaseActions
               placement="footer"
               phaseState={phaseState}

@@ -26,7 +26,6 @@ import {
 import type { ITradingFormData } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpsAccountLoadingInfoAtom,
-  usePerpsActiveAccountSummaryAtom,
   usePerpsActiveAssetAtom,
   usePerpsActiveAssetCtxAtom,
   usePerpsActiveAssetDataAtom,
@@ -77,7 +76,6 @@ function PerpTradingForm({
   isMobile = false,
 }: IPerpTradingFormProps) {
   const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
-  const [accountSummary] = usePerpsActiveAccountSummaryAtom();
 
   const [formData] = useTradingFormAtom();
   const [, setTradingFormEnv] = useTradingFormEnvAtom();
@@ -119,9 +117,13 @@ function PerpTradingForm({
   }, [formData.type, formData.price, midPrice, updateForm]);
 
   useEffect(() => {
+    const rawAvailable = activeAssetData?.availableToTrade;
+    const maxAvailable = rawAvailable
+      ? Math.max(Number(rawAvailable[0] ?? 0), Number(rawAvailable[1] ?? 0))
+      : 0;
     const nextEnv = {
       markPrice: midPrice,
-      availableToTrade: activeAssetData?.availableToTrade,
+      availableToTrade: [maxAvailable, maxAvailable],
       leverageValue: activeAssetData?.leverage?.value,
       fallbackLeverage: activeAsset?.universe?.maxLeverage,
       szDecimals: activeAsset?.universe?.szDecimals,
@@ -228,13 +230,15 @@ function PerpTradingForm({
     }, [perpsPositions, perpsSelectedSymbol.coin]);
 
   const availableToTrade = useMemo(() => {
-    const accountValue = new BigNumber(accountSummary?.accountValue || '0');
-    const totalMarginUsed = new BigNumber(
-      accountSummary?.totalMarginUsed || '0',
+    const available = activeAssetData?.availableToTrade;
+    if (!available) return '0';
+    const longValue = Number(available[0] ?? 0);
+    const shortValue = Number(available[1] ?? 0);
+    return new BigNumber(Math.max(longValue, shortValue)).toFixed(
+      2,
+      BigNumber.ROUND_DOWN,
     );
-    const availableToTradeBN = accountValue.minus(totalMarginUsed);
-    return availableToTradeBN.toFixed();
-  }, [accountSummary]);
+  }, [activeAssetData?.availableToTrade]);
 
   const switchToManual = useCallback(() => {
     if (tradingComputed.sizeInputMode === EPerpsSizeInputMode.SLIDER) {

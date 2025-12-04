@@ -6,15 +6,11 @@ import {
   Button,
   Checkbox,
   Dialog,
-  Divider,
   SizableText,
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import {
-  useTradingFormAtom,
-  useTradingFormComputedAtom,
-} from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { useTradingFormAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpsActiveAssetAtom,
   usePerpsCustomSettingsAtom,
@@ -22,7 +18,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 
-import { useOrderConfirm } from '../../../hooks';
+import { useOrderConfirm, useTradingCalculationsForSide } from '../../../hooks';
 import { PerpsProviderMirror } from '../../../PerpsProviderMirror';
 import {
   GetTradingButtonStyleProps,
@@ -51,9 +47,10 @@ function OrderConfirmContent({
   const [perpsCustomSettings, setPerpsCustomSettings] =
     usePerpsCustomSettingsAtom();
   const [formData] = useTradingFormAtom();
-  const [tradingComputed] = useTradingFormComputedAtom();
   const [selectedSymbol] = usePerpsActiveAssetAtom();
   const effectiveSide = overrideSide || formData.side;
+  const { computedSizeForSide } = useTradingCalculationsForSide(effectiveSide);
+  const szDecimals = selectedSymbol?.universe?.szDecimals ?? 2;
   const actionColor = getTradingSideTextColor(effectiveSide);
   const buttonStyleProps = GetTradingButtonStyleProps(effectiveSide, false);
   const intl = useIntl();
@@ -67,11 +64,12 @@ function OrderConfirmContent({
         });
 
   const sizeDisplay = useMemo(() => {
+    const sizeString = computedSizeForSide.toFixed(szDecimals);
     if (selectedSymbol?.coin) {
-      return `${tradingComputed.computedSizeString} ${selectedSymbol.coin}`;
+      return `${sizeString} ${selectedSymbol.coin}`;
     }
-    return tradingComputed.computedSizeString;
-  }, [tradingComputed.computedSizeString, selectedSymbol?.coin]);
+    return sizeString;
+  }, [computedSizeForSide, szDecimals, selectedSymbol?.coin]);
 
   const buttonText = useMemo(() => {
     if (isSubmitting) {
