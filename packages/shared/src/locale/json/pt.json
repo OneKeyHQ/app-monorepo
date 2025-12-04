@@ -39,6 +39,7 @@
   "Limit.order_status_unfilled": "Não preenchido",
   "Perps.referral_bonus_from": "Bônus de indicação por negociação em Perps",
   "account_model.watched": "Assistido",
+  "account_name_form_helper_text": "Não insira informações confidenciais.",
   "action_save": "Salvar",
   "add_existing_wallet_badge_phrases_length": "Suporta frases de recuperação de 12 a 24 palavras",
   "add_existing_wallet_desc": "Transferir, restaurar ou importar",

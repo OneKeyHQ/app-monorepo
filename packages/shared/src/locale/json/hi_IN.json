@@ -39,6 +39,7 @@
   "Limit.order_status_unfilled": "अपूर्ण",
   "Perps.referral_bonus_from": "Perps पर ट्रेडिंग से रेफरल बोनस",
   "account_model.watched": "देखा",
+  "account_name_form_helper_text": "संवेदनशील जानकारी दर्ज न करें।",
   "action_save": "सहेजें",
   "add_existing_wallet_badge_phrases_length": "12–24 शब्दों वाले रिकवरी फ़्रेज़ का समर्थन करता है",
   "add_existing_wallet_desc": "ट्रांसफर, पुनर्स्थापना या आयात",

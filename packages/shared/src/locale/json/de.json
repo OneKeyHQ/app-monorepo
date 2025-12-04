@@ -39,6 +39,7 @@
   "Limit.order_status_unfilled": "Ungefüllt",
   "Perps.referral_bonus_from": "Empfehlungsbonus aus dem Handel mit Perps",
   "account_model.watched": "Gesehen",
+  "account_name_form_helper_text": "Geben Sie keine sensiblen Informationen ein.",
   "action_save": "Speichern",
   "add_existing_wallet_badge_phrases_length": "Unterstützt Wiederherstellungsphrasen mit 12–24 Wörtern",
   "add_existing_wallet_desc": "Übertragen, wiederherstellen oder importieren",
