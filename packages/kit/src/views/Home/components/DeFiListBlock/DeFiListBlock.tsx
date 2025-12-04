@@ -8,6 +8,7 @@ import {
   Skeleton,
   YStack,
   useMedia,
+  useTabIsRefreshingFocused,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { EmptyDeFi } from '@onekeyhq/kit/src/components/Empty';
@@ -27,6 +28,10 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { RichBlock } from '../RichBlock/RichBlock';
 
 import { Protocol } from './Protocol';
+import {
+  POLLING_DEBOUNCE_INTERVAL,
+  POLLING_INTERVAL_FOR_DEFI,
+} from '@onekeyhq/shared/src/consts/walletConsts';
 
 function DeFiListBlock() {
   const intl = useIntl();
@@ -40,6 +45,8 @@ function DeFiListBlock() {
     updateDeFiListState,
   } = useDeFiListActions().current;
 
+  const { isFocused, isHeaderRefreshing } = useTabIsRefreshingFocused();
+
   const [overview] = useDeFiListOverviewAtom();
   const [{ isRefreshing, initialized }] = useDeFiListStateAtom();
   const [{ protocols }] = useDeFiListProtocolsAtom();
@@ -48,56 +55,65 @@ function DeFiListBlock() {
     activeAccount: { account, network },
   } = useActiveAccount({ num: 0 });
 
-  usePromiseResult(async () => {
-    if (!account || !network) {
-      return;
-    }
+  usePromiseResult(
+    async () => {
+      if (!account || !network) {
+        return;
+      }
 
-    if (networkUtils.isAllNetwork({ networkId: network.id })) {
-      return;
-    }
+      if (networkUtils.isAllNetwork({ networkId: network.id })) {
+        return;
+      }
 
-    await backgroundApiProxy.serviceDeFi.abortFetchAccountDeFiPositions();
+      await backgroundApiProxy.serviceDeFi.abortFetchAccountDeFiPositions();
 
-    try {
-      const resp =
-        await backgroundApiProxy.serviceDeFi.fetchAccountDeFiPositions({
-          accountId: account.id,
-          networkId: network.id,
-          accountAddress: account.address,
+      try {
+        const resp =
+          await backgroundApiProxy.serviceDeFi.fetchAccountDeFiPositions({
+            accountId: account.id,
+            networkId: network.id,
+            accountAddress: account.address,
+          });
+        updateDeFiListOverview({
+          overview: {
+            totalValue: new BigNumber(resp.overview.totalValue ?? 0).toFixed(),
+            totalDebt: new BigNumber(resp.overview.totalDebt ?? 0).toFixed(),
+            netWorth: new BigNumber(resp.overview.netWorth ?? 0).toFixed(),
+            chains: resp.overview.chains,
+            protocolCount: resp.overview.protocolCount,
+            positionCount: resp.overview.positionCount,
+          },
         });
-      updateDeFiListOverview({
-        overview: {
-          totalValue: new BigNumber(resp.overview.totalValue ?? 0).toFixed(),
-          totalDebt: new BigNumber(resp.overview.totalDebt ?? 0).toFixed(),
-          netWorth: new BigNumber(resp.overview.netWorth ?? 0).toFixed(),
-          chains: resp.overview.chains,
-          protocolCount: resp.overview.protocolCount,
-          positionCount: resp.overview.positionCount,
-        },
-      });
-      updateDeFiListProtocols({
-        protocols: resp.protocols,
-      });
-      updateDeFiListProtocolMap({
-        protocolMap: resp.protocolMap,
-      });
-    } catch (e) {
-      console.error(e);
-    } finally {
-      updateDeFiListState({
-        isRefreshing: false,
-        initialized: true,
-      });
-    }
-  }, [
-    account,
-    network,
-    updateDeFiListOverview,
-    updateDeFiListProtocols,
-    updateDeFiListProtocolMap,
-    updateDeFiListState,
-  ]);
+        updateDeFiListProtocols({
+          protocols: resp.protocols,
+        });
+        updateDeFiListProtocolMap({
+          protocolMap: resp.protocolMap,
+        });
+      } catch (e) {
+        console.error(e);
+      } finally {
+        updateDeFiListState({
+          isRefreshing: false,
+          initialized: true,
+        });
+      }
+    },
+    [
+      account,
+      network,
+      updateDeFiListOverview,
+      updateDeFiListProtocols,
+      updateDeFiListProtocolMap,
+      updateDeFiListState,
+    ],
+    {
+      overrideIsFocused: (isPageFocused) => isPageFocused && isFocused,
+      debounced: POLLING_DEBOUNCE_INTERVAL,
+      revalidateOnFocus: true,
+      pollingInterval: POLLING_INTERVAL_FOR_DEFI,
+    },
+  );
 
   const renderSubTitle = useCallback(() => {
     if (media.gtMd) {
