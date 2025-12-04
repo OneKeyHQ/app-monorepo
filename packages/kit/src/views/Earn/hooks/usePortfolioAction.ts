@@ -82,7 +82,7 @@ export const usePortfolioAction = ({
           request: { origin: 'https://lista.org/', scope: 'ethereum' },
         });
 
-        void onSuccess?.();
+        await onSuccess?.();
       } finally {
         setLoading(false);
       }
