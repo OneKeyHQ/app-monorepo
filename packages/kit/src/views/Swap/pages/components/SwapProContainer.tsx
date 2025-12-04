@@ -45,14 +45,8 @@ const SwapProContainer = ({
     setRefreshing(false);
   }, [fetchTokenMarketDetailInfo, swapProLoadSupportNetworksTokenListRun]);
 
-  const {
-    isLoading,
-    swapMevNetConfig,
-    swapProSelectToken,
-    speedConfig,
-    balanceLoading,
-    isMEV,
-  } = useSwapProTokenInit();
+  const { isLoading, speedConfig, balanceLoading, isMEV } =
+    useSwapProTokenInit();
 
   return (
     <ScrollView
@@ -77,6 +71,7 @@ const SwapProContainer = ({
             swapProConfig={speedConfig}
             configLoading={isLoading}
             balanceLoading
+            isMev
           />
         </YStack>
       </XStack>
