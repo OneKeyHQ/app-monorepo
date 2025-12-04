@@ -14,14 +14,20 @@ import {
   YStack,
   useIsNativeTablet,
   useIsTabletDetailView,
+  useIsTabletMainView,
   useOrientation,
 } from '@onekeyhq/components';
 
 import type { LayoutChangeEvent } from 'react-native';
 
 export function TabletHomeContainer({ children }: PropsWithChildren) {
+  const isMainView = useIsTabletMainView();
   const isDetailView = useIsTabletDetailView();
   const isLandscape = useOrientation();
+
+  if (isMainView && !isLandscape) {
+    return null;
+  }
 
   if (isDetailView && isLandscape) {
     return (
