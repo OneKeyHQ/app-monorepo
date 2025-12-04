@@ -247,12 +247,19 @@ export default class Vault extends VaultBase {
         isMine: output.address === account.address,
       }));
 
+    // For staking transactions, outputs may be empty (e.g., stake delegation)
+    // Only use transferInfo.to as fallback when it's a staking transaction
+    const isStakingTx = encodedTx.staking?.isStakingTx === true;
+    const toAddress =
+      utxoTo[0]?.address ??
+      (isStakingTx ? encodedTx.transferInfo?.to : undefined);
+
     let actions: IDecodedTxAction[] = [
       {
         type: EDecodedTxActionType.UNKNOWN,
         unknownAction: {
           from: account.address,
-          to: utxoTo[0].address,
+          to: toAddress,
         },
       },
     ];
@@ -332,7 +339,7 @@ export default class Vault extends VaultBase {
           type: EDecodedTxActionType.ASSET_TRANSFER,
           assetTransfer: {
             from: account.address,
-            to: utxoTo[0].address,
+            to: toAddress,
             sends,
             receives: [],
             utxoFrom,
@@ -348,7 +355,7 @@ export default class Vault extends VaultBase {
       signer: account.address,
       nonce: 0,
       actions,
-      to: utxoTo[0].address,
+      to: toAddress,
       status: EDecodedTxStatus.Pending,
       networkId: this.networkId,
       accountId: this.accountId,

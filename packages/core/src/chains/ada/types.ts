@@ -64,6 +64,7 @@ export type IAdaStakingCertificate = {
   type: number;
   stakeCredential?: string;
   poolId?: string; // only for delegation certificate (type 2)
+  poolKeyHash?: string; // pool key hash for delegation
 };
 
 export type IAdaStakingInfo = {
