@@ -44,6 +44,7 @@
   Limit_order_status_unfilled = 'Limit.order_status_unfilled',
   Perps_referral_bonus_from = 'Perps.referral_bonus_from',
   account_model_watched = 'account_model.watched',
+  account_name_form_helper_text = 'account_name_form_helper_text',
   action_save = 'action_save',
   add_existing_wallet_badge_phrases_length = 'add_existing_wallet_badge_phrases_length',
   add_existing_wallet_desc = 'add_existing_wallet_desc',

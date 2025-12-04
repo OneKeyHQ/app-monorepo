@@ -39,6 +39,7 @@
   "Limit.order_status_unfilled": "Неисполненный",
   "Perps.referral_bonus_from": "Реферальный бонус от торговли на Perps",
   "account_model.watched": "Просмотрено",
+  "account_name_form_helper_text": "Не вводите конфиденциальную информацию.",
   "action_save": "Сохранить",
   "add_existing_wallet_badge_phrases_length": "Поддерживает мнемонические фразы восстановления из 12–24 слов",
   "add_existing_wallet_desc": "Перенести, восстановить или импортировать",

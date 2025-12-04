@@ -39,6 +39,7 @@
   "Limit.order_status_unfilled": "Chưa thực hiện",
   "Perps.referral_bonus_from": "Tiền thưởng giới thiệu từ giao dịch trên Perps",
   "account_model.watched": "Đã xem",
+  "account_name_form_helper_text": "Không nhập thông tin nhạy cảm.",
   "action_save": "Lưu",
   "add_existing_wallet_badge_phrases_length": "Hỗ trợ cụm từ khôi phục 12–24 từ",
   "add_existing_wallet_desc": "Chuyển, khôi phục hoặc nhập",
