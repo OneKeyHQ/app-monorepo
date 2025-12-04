@@ -1353,10 +1353,13 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           !networkUtils.isAllNetwork({ networkId: token?.networkId })
         ) {
           try {
+            const accountDeriveType =
+              await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork(
+                { networkId: token.networkId },
+              );
             const toAccountInfos =
               await backgroundApiProxy.serviceAccount.getNetworkAccount({
-                deriveType:
-                  swapAddressInfo.accountInfo?.deriveType ?? 'default',
+                deriveType: accountDeriveType ?? 'default',
                 indexedAccountId:
                   swapAddressInfo.accountInfo?.indexedAccount?.id,
                 accountId: swapAddressInfo.accountInfo?.indexedAccount?.id
