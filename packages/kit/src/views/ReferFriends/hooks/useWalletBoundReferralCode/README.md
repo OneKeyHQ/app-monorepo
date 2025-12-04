@@ -6,25 +6,27 @@ This module handles wallet referral code binding functionality.
 
 ```
 useWalletBoundReferralCode/
-├── index.ts                          # Unified exports
-├── types.ts                          # Type definitions
-├── useGetReferralCodeWalletInfo.ts   # Get wallet info hook
-├── InviteCodeDialog.tsx              # UI component
-└── useWalletBoundReferralCode.tsx    # Main hook
+├── index.ts                              # Unified exports
+├── types.ts                              # Type definitions
+├── useGetReferralCodeWalletInfo.ts       # Get single wallet info hook
+├── useFetchWalletsWithBoundStatus.ts     # Batch check all wallets bound status
+├── InviteCodeDialog.tsx                  # UI component
+└── useWalletBoundReferralCode.tsx        # Main hook
 ```
 
 ## Dependency Graph
 
 ```
-                        index.ts
-                           │
-        ┌──────────────────┼──────────────────┐
-        ▼                  ▼                  ▼
+                           index.ts
+                              │
+        ┌─────────────────────┼─────────────────────┐
+        ▼                     ▼                     ▼
     types.ts    useGetReferralCode-    useWalletBound-
                 WalletInfo.ts          ReferralCode.tsx
         │              │                      │
-        │              │                      ▼
-        │              │            InviteCodeDialog.tsx
+        │              ▼                      ▼
+        │    useFetchWalletsWithBound-  InviteCodeDialog.tsx
+        │    Status.ts                        │
         │              │                      │
         └──────────────┴──────────────────────┘
                        ▲
@@ -57,12 +59,36 @@ Hook to retrieve wallet information for referral code binding.
 - Returns first EVM account for regular wallets
 - Returns first BTC Taproot account for BTC-only wallets
 
+### useFetchWalletsWithBoundStatus.ts
+
+Hook to batch check all wallets' referral code binding status.
+
+**Features:**
+- Fetches all valid wallets (HD and hardware wallets)
+- Uses batch API `batchCheckWalletsBoundReferralCode` to check binding status in one request
+- Updates local database with the latest binding status
+- Returns loading state and wallet list with binding status
+
+**Returns:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| walletsWithStatus | Array | List of wallets with `{ wallet, isBound }` |
+| isLoading | boolean | Whether the data is being fetched |
+
+**Usage:**
+
+```tsx
+const { walletsWithStatus, isLoading } = useFetchWalletsWithBoundStatus();
+```
+
 ### InviteCodeDialog.tsx
 
 UI component for the referral code binding dialog.
 
 **Features:**
-- Wallet selector dropdown
+- Wallet selector dropdown with loading state
+- Uses `useFetchWalletsWithBoundStatus` to batch check binding status
 - Shows binding status for each wallet
 - Referral code input with validation (alphanumeric, 1-30 chars)
 - Disables already-bound wallets
