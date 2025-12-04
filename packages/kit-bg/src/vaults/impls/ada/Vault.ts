@@ -266,21 +266,98 @@ export default class Vault extends VaultBase {
 
     let nativeAmountMap = this._getOutputAmount(outputs, network.decimals);
 
-    // Handle staking transactions based on certificate types
+    // If stakingInfo is provided from external (e.g., staking page),
+    // use buildInternalStakingAction for proper UI rendering
+    if (unsignedTx.stakingInfo) {
+      const accountAddress = await this.getAccountAddress();
+      const action = await this.buildInternalStakingAction({
+        stakingInfo: unsignedTx.stakingInfo,
+        accountAddress,
+        stakingToAddress: toAddress,
+      });
+
+      // Calculate nativeAmount based on certificate types
+      const encodedStakingInfo = encodedTx.staking;
+      if (encodedStakingInfo?.certificates) {
+        const hasRegistration = encodedStakingInfo.certificates.some(
+          (cert) => cert.type === 0,
+        );
+        const hasDeregistration = encodedStakingInfo.certificates.some(
+          (cert) => cert.type === 1,
+        );
+
+        if (hasDeregistration) {
+          // Deregistration: returns deposit, actual cost is only the fee
+          nativeAmountMap = {
+            amount: encodedTx.totalFeeInNative,
+            amountValue: encodedTx.fee,
+          };
+        } else if (hasRegistration) {
+          // Registration: add deposit (inputs - outputs - fee)
+          const inputsTotal = inputs.reduce((sum, input) => {
+            const lovelace = input.amount.find((a) => a.unit === 'lovelace');
+            return sum.plus(lovelace?.quantity ?? 0);
+          }, new BigNumber(0));
+          const outputsTotal = outputs.reduce(
+            (sum, output) => sum.plus(output.amount),
+            new BigNumber(0),
+          );
+          const depositLovelace = inputsTotal
+            .minus(outputsTotal)
+            .minus(encodedTx.fee);
+          const depositAda = depositLovelace.shiftedBy(-network.decimals);
+
+          nativeAmountMap = {
+            amount: new BigNumber(encodedTx.totalFeeInNative)
+              .plus(depositAda)
+              .toFixed(),
+            amountValue: new BigNumber(encodedTx.fee)
+              .plus(depositLovelace)
+              .toFixed(),
+          };
+        } else {
+          // Re-delegation: only fee
+          nativeAmountMap = {
+            amount: encodedTx.totalFeeInNative,
+            amountValue: encodedTx.fee,
+          };
+        }
+      }
+
+      return {
+        txid: '',
+        owner: account.address,
+        signer: account.address,
+        nonce: 0,
+        actions: [action],
+        to: toAddress,
+        status: EDecodedTxStatus.Pending,
+        networkId: this.networkId,
+        accountId: this.accountId,
+        xpub: (account as IDBUtxoAccount).xpub,
+        extraInfo: null,
+        encodedTx,
+        totalFeeInNative: encodedTx.totalFeeInNative,
+        nativeAmount: nativeAmountMap.amount,
+        nativeAmountValue: nativeAmountMap.amountValue,
+      };
+    }
+
+    // Handle staking transactions based on certificate types (fallback for dApp tx)
     // Certificate types: 0 = registration, 1 = deregistration, 2 = delegation
-    const stakingInfo = encodedTx.staking;
+    const encodedStakingInfo = encodedTx.staking;
     let stakingLabel = '';
     let hasRegistration = false;
     let hasDeregistration = false;
 
-    if (isStakingTx && stakingInfo?.certificates) {
-      hasRegistration = stakingInfo.certificates.some(
+    if (isStakingTx && encodedStakingInfo?.certificates) {
+      hasRegistration = encodedStakingInfo.certificates.some(
         (cert) => cert.type === 0,
       );
-      hasDeregistration = stakingInfo.certificates.some(
+      hasDeregistration = encodedStakingInfo.certificates.some(
         (cert) => cert.type === 1,
       );
-      const hasDelegation = stakingInfo.certificates.some(
+      const hasDelegation = encodedStakingInfo.certificates.some(
         (cert) => cert.type === 2,
       );
 

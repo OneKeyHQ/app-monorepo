@@ -407,6 +407,8 @@ export function ManagePositionContent({
         isInModalContext={isInModalContext}
         beforeFooter={specialBeforeFooter}
         fallbackTokenImageUri={fallbackTokenImageUri}
+        protocolInfo={protocolInfo}
+        tokenInfo={resolvedTokenInfo}
       />
     );
   }

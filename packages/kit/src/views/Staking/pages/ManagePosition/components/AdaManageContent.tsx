@@ -13,8 +13,12 @@ import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type { ISupportedSymbol } from '@onekeyhq/shared/types/earn';
 import {
   ECheckAmountActionType,
+  EEarnLabels,
   type IEarnManagePageResponse,
+  type IEarnTokenInfo,
+  type IProtocolInfo,
 } from '@onekeyhq/shared/types/staking';
+import type { IToken } from '@onekeyhq/shared/types/token';
 
 import {
   useUniversalStake,
@@ -44,6 +48,8 @@ interface IAdaManageContentProps {
     accountAddress: string;
     account: INetworkAccount;
   } | null;
+  protocolInfo?: IProtocolInfo;
+  tokenInfo?: IEarnTokenInfo;
 }
 
 export function AdaManageContent({
@@ -58,6 +64,8 @@ export function AdaManageContent({
   beforeFooter,
   fallbackTokenImageUri,
   earnAccount,
+  protocolInfo,
+  tokenInfo,
 }: IAdaManageContentProps) {
   const appNavigation = useAppNavigation();
   const [delegateLoading, setDelegateLoading] = useState(false);
@@ -158,12 +166,22 @@ export function AdaManageContent({
   });
 
   const handleDelegate = useCallback(async () => {
+    const stakeToken = tokenInfo?.token as IToken | undefined;
     const executeStake = async () => {
       await handleStake({
         symbol,
         provider,
         amount: '0',
         protocolVault: vault,
+        stakingInfo: {
+          label: EEarnLabels.Stake,
+          protocol: earnUtils.getEarnProviderName({
+            providerName: provider,
+          }),
+          protocolLogoURI: protocolInfo?.providerDetail?.logoURI,
+          send: stakeToken ? { token: stakeToken, amount: '0' } : undefined,
+          tags: protocolInfo?.stakeTag ? [protocolInfo.stakeTag] : [],
+        },
       });
     };
 
@@ -212,9 +230,12 @@ export function AdaManageContent({
     networkId,
     riskNoticeDialog,
     delegateAction,
+    protocolInfo,
+    tokenInfo,
   ]);
 
   const handleUndelegate = useCallback(async () => {
+    const withdrawToken = tokenInfo?.token as IToken | undefined;
     const executeWithdraw = async () => {
       await handleWithdraw({
         symbol,
@@ -222,6 +243,17 @@ export function AdaManageContent({
         amount: holdingsAmount || '0',
         protocolVault: vault,
         withdrawAll: false,
+        stakingInfo: {
+          label: EEarnLabels.Withdraw,
+          protocol: earnUtils.getEarnProviderName({
+            providerName: provider,
+          }),
+          protocolLogoURI: protocolInfo?.providerDetail?.logoURI,
+          receive: withdrawToken
+            ? { token: withdrawToken, amount: holdingsAmount || '0' }
+            : undefined,
+          tags: protocolInfo?.stakeTag ? [protocolInfo.stakeTag] : [],
+        },
       });
     };
 
@@ -271,6 +303,8 @@ export function AdaManageContent({
     networkId,
     riskNoticeDialog,
     undelegateAction,
+    protocolInfo,
+    tokenInfo,
   ]);
 
   // Configure buttons based on available actions
