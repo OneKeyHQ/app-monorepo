@@ -388,6 +388,11 @@ const ActionField = ({
             color="$textSubdued"
             text={reward.description}
           />
+          {reward?.tooltip ? (
+            <XStack mr="$2">
+              <EarnTooltip tooltip={reward.tooltip} />
+            </XStack>
+          ) : null}
           <WrappedActionButton asset={asset} reward={reward} />
         </Stack>
       ))}
