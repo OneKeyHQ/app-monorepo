@@ -29,6 +29,8 @@ export type IEOneKeyDeepLinkParams = {
   [EOneKeyDeepLinkPath.cross_device_transfer]: {
     code?: string;
     server?: string;
+    /** Variant to customize the transfer UI - 'keylessWallet' for Keyless Wallet Share transfer */
+    variant?: 'default' | 'transferShares';
   };
 };
 

@@ -4,7 +4,15 @@ import axios from 'axios';
 import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import { Button, Dialog, Page } from '@onekeyhq/components';
+import {
+  Button,
+  Dialog,
+  Icon,
+  Page,
+  SizableText,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
@@ -130,6 +138,7 @@ export default function PagePrimeTransfer() {
     if (primeTransferAtom.status === EPrimeTransferStatus.init) {
       return (
         <PrimeTransferHome
+          variant={route.params?.variant ?? 'default'}
           remotePairingCode={remotePairingCode}
           setRemotePairingCode={setRemotePairingCode}
           autoConnect={!!routeParamsCode}
@@ -149,6 +158,7 @@ export default function PagePrimeTransfer() {
     }
     return <></>;
   }, [
+    route.params?.variant,
     routeParamsCode,
     routeParamsServer,
     primeTransferAtom.status,
@@ -231,6 +241,20 @@ export default function PagePrimeTransfer() {
         shouldPreventRemove={primeTransferAtom.shouldPreventExit}
         // shouldPreventRemove={false}
       />
+      {route.params?.variant === 'transferShares' ? (
+        <Page.Footer>
+          <YStack p="$5">
+            <Button variant="tertiary" size="small" childrenAsText={false}>
+              <XStack gap="$2" alignItems="center">
+                <SizableText color="$textInteractive" size="$bodyMdMedium">
+                  I don't have a Keyless Wallet
+                </SizableText>
+                <Icon name="OpenOutline" color="$textInteractive" size="$4" />
+              </XStack>
+            </Button>
+          </YStack>
+        </Page.Footer>
+      ) : null}
     </Page>
   );
 }

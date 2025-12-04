@@ -22,12 +22,14 @@ import {
 import { generateMnemonic } from '@onekeyhq/core/src/secret';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes';
 import {
   EModalRoutes,
   EOnboardingPages,
   EOnboardingPagesV2,
 } from '@onekeyhq/shared/src/routes';
+import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import externalWalletLogoUtils from '@onekeyhq/shared/src/utils/externalWalletLogoUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -190,7 +192,25 @@ export default function CreateOrImportWallet() {
   // TODO: Replace with actual check from backend service
   const isKeylessEnabled = false;
 
+  // Cloud backup is supported on iOS (iCloud), Android (Google Drive), and macOS App Store (iCloud)
+  const isCloudBackupSupported =
+    platformEnv.isNativeIOS || platformEnv.isNativeAndroid || platformEnv.isMas;
+
   const handleKeylessWalletClick = useCallback(() => {
+    // Check if device supports cloud backup first
+    if (!isCloudBackupSupported) {
+      // Device doesn't support cloud backup, open Transfer Modal for QR migration
+      // The Transfer Modal will be adjusted for this keyless wallet scenario
+      // with a "I haven't created a keyless wallet yet" button in the footer
+      navigation.pushModal(EModalRoutes.PrimeModal, {
+        screen: EPrimePages.PrimeTransfer,
+        params: {
+          variant: 'transferShares',
+        },
+      });
+      return;
+    }
+
     if (isKeylessEnabled) {
       // Keyless wallet already exists
       Dialog.show({
@@ -216,7 +236,7 @@ export default function CreateOrImportWallet() {
         },
       });
     }
-  }, [intl, isKeylessEnabled, isLoggedIn, navigation]);
+  }, [intl, isCloudBackupSupported, isKeylessEnabled, isLoggedIn, navigation]);
 
   return (
     <Page>

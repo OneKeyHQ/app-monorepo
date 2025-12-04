@@ -25,18 +25,24 @@ export type IOneKeyIDLoginDialogVariant = 'keylessWallet' | 'default';
 
 export interface IOneKeyIDLoginDialogProps {
   variant?: IOneKeyIDLoginDialogVariant;
+  /** Initial view to display. Defaults to 'login'. Use 'verify' to skip email input (requires email prop). */
+  initialView?: IView;
+  /** Email address to use when initialView is 'verify'. */
+  email?: string;
   onLoginSuccess?: () => void | Promise<void>;
   onClose?: () => void;
 }
 
 export function OneKeyIDLoginDialog({
   variant = 'default',
+  initialView = 'login',
+  email: emailProp,
   onLoginSuccess,
   onClose,
 }: IOneKeyIDLoginDialogProps) {
   const intl = useIntl();
-  const [view, setView] = useState<IView>('login');
-  const [email, setEmail] = useState('');
+  const [view, setView] = useState<IView>(initialView);
+  const [email, setEmail] = useState(emailProp ?? '');
 
   const { getAccessToken, useLoginWithEmail } = usePrimeAuthV2();
 
@@ -59,8 +65,13 @@ export function OneKeyIDLoginDialog({
   }, []);
 
   const handleBack = useCallback(() => {
-    setView('login');
-  }, []);
+    // If we started directly on verify view, close the dialog instead of going back
+    if (initialView === 'verify') {
+      onClose?.();
+    } else {
+      setView('login');
+    }
+  }, [initialView, onClose]);
 
   const handleLoginSuccess = useCallback(async () => {
     try {
@@ -80,10 +91,18 @@ export function OneKeyIDLoginDialog({
     }
   }, [getAccessToken, intl, onLoginSuccess, onClose]);
 
-  const title =
-    variant === 'keylessWallet'
-      ? 'Create keyless wallet'
-      : intl.formatMessage({ id: ETranslations.prime_signup_login });
+  const getTitle = () => {
+    if (view === 'verify') {
+      return intl.formatMessage({
+        id: ETranslations.prime_enter_verification_code,
+      });
+    }
+    if (variant === 'keylessWallet') {
+      return 'Create keyless wallet';
+    }
+    return intl.formatMessage({ id: ETranslations.prime_signup_login });
+  };
+  const title = getTitle();
 
   return (
     <YStack mx="$-5">

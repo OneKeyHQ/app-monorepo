@@ -31,11 +31,13 @@ const { QR_CODE, ENTER_LINK } = TRANSFER_METHOD;
 type ITransferMethod = (typeof TRANSFER_METHOD)[keyof typeof TRANSFER_METHOD];
 
 export function PrimeTransferHome({
+  variant,
   remotePairingCode,
   setRemotePairingCode,
   autoConnect,
   autoConnectCustomServer,
 }: {
+  variant?: 'default' | 'transferShares';
   remotePairingCode: string;
   setRemotePairingCode: (code: string) => void;
   autoConnect?: boolean;
@@ -77,9 +79,13 @@ export function PrimeTransferHome({
   return (
     <>
       <Page.Header
-        title={intl.formatMessage({
-          id: ETranslations.transfer_establish_connection,
-        })}
+        title={
+          variant === 'transferShares'
+            ? 'Transfer keyless wallet'
+            : intl.formatMessage({
+                id: ETranslations.transfer_establish_connection,
+              })
+        }
       />
 
       <PrimeTransferServerStatusBar />
