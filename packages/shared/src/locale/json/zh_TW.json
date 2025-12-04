@@ -39,6 +39,7 @@
   "Limit.order_status_unfilled": "未成交",
   "Perps.referral_bonus_from": "在 Perps 上交易的推薦獎金",
   "account_model.watched": "觀察帳戶",
+  "account_name_form_helper_text": "請勿輸入敏感資訊。",
   "action_save": "保存",
   "add_existing_wallet_badge_phrases_length": "支援 12–24 個字的助記詞",
   "add_existing_wallet_desc": "轉移、還原或匯入",

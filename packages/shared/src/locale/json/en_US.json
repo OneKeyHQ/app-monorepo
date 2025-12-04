@@ -39,6 +39,7 @@
   "Limit.order_status_unfilled": "Unfilled",
   "Perps.referral_bonus_from": "Referral bonus from trading on Perps",
   "account_model.watched": "Watch-Only",
+  "account_name_form_helper_text": "Do not enter sensitive information.",
   "action_save": "Save",
   "add_existing_wallet_badge_phrases_length": "Supports 12–24 word recovery phrases",
   "add_existing_wallet_desc": "Transfer, restore or import",

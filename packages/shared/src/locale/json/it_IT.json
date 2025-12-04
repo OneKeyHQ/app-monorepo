@@ -39,6 +39,7 @@
   "Limit.order_status_unfilled": "Non eseguito",
   "Perps.referral_bonus_from": "Bonus referral dal trading su Perps",
   "account_model.watched": "Visto",
+  "account_name_form_helper_text": "Non inserire informazioni sensibili.",
   "action_save": "Salva",
   "add_existing_wallet_badge_phrases_length": "Supporta frasi di recupero da 12 a 24 parole",
   "add_existing_wallet_desc": "Trasferisci, ripristina o importa",

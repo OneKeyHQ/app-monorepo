@@ -39,6 +39,7 @@
   "Limit.order_status_unfilled": "未約定",
   "Perps.referral_bonus_from": "Perpsでの取引による紹介ボーナス",
   "account_model.watched": "視聴済み",
+  "account_name_form_helper_text": "機密情報を入力しないでください。",
   "action_save": "保存",
   "add_existing_wallet_badge_phrases_length": "12～24語のリカバリーフレーズに対応",
   "add_existing_wallet_desc": "転送、復元、またはインポート",
