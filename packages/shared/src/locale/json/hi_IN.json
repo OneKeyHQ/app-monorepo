@@ -1874,7 +1874,7 @@
   "hardware.transaction_signing_error_not_in_signing_mode": "लेन-देन हस्ताक्षर त्रुटि: हस्ताक्षर मोड में नहीं",
   "hardware.transferring_data": "डेटा स्थानांतरित कर रहा है...",
   "hardware.two_onekey_lite_not_same": "संबंध के लिए प्रयुक्त दो OneKey Lite एक समान नहीं हैं।",
-  "hardware.unknown_message_error": "वर्तमान फर्मवेयर समर्थित नहीं है, कृपया उन्नयन करने का प्रयास करें",
+  "hardware.unknown_message_error": "वर्तमान फर्मवेयर इस ऑपरेशन का समर्थन नहीं करता है",
   "hardware.unknown_message_error_bitcoin_only": "वर्तमान BTC केवल फर्मवेयर समर्थित नहीं है",
   "hardware.unsupported_passphrase_characters": "असमर्थित वर्ण हैं",
   "hardware.user_cancel_error": "कार्रवाई रद्द कर दी गई",

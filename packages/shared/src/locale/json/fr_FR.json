@@ -1874,7 +1874,7 @@
   "hardware.transaction_signing_error_not_in_signing_mode": "Erreur de signature de transaction : Pas en mode signature",
   "hardware.transferring_data": "Transfert de données...",
   "hardware.two_onekey_lite_not_same": "Les deux OneKey Lite utilisés pour la connexion ne sont pas les mêmes.",
-  "hardware.unknown_message_error": "Le firmware actuel n'est pas pris en charge, veuillez essayer de le mettre à jour",
+  "hardware.unknown_message_error": "Le micrologiciel actuel ne prend pas en charge cette opération",
   "hardware.unknown_message_error_bitcoin_only": "Le firmware actuel ne prend pas en charge uniquement le BTC.",
   "hardware.unsupported_passphrase_characters": "Contient des caractères non pris en charge",
   "hardware.user_cancel_error": "Action annulée",

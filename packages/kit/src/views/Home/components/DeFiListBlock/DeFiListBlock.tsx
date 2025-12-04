@@ -22,16 +22,16 @@ import {
   useDeFiListStateAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/deFiList';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  POLLING_DEBOUNCE_INTERVAL,
+  POLLING_INTERVAL_FOR_DEFI,
+} from '@onekeyhq/shared/src/consts/walletConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 import { RichBlock } from '../RichBlock/RichBlock';
 
 import { Protocol } from './Protocol';
-import {
-  POLLING_DEBOUNCE_INTERVAL,
-  POLLING_INTERVAL_FOR_DEFI,
-} from '@onekeyhq/shared/src/consts/walletConsts';
 
 function DeFiListBlock() {
   const intl = useIntl();

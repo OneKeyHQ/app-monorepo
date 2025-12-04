@@ -1874,7 +1874,7 @@
   "hardware.transaction_signing_error_not_in_signing_mode": "Lỗi ký giao dịch: Không ở chế độ ký",
   "hardware.transferring_data": "Đang chuyển dữ liệu...",
   "hardware.two_onekey_lite_not_same": "Hai OneKey Lite được sử dụng để kết nối không giống nhau.",
-  "hardware.unknown_message_error": "Phần mềm cơ sở hiện tại không được hỗ trợ, vui lòng thử nâng cấp",
+  "hardware.unknown_message_error": "Phần mềm cơ sở hiện tại không hỗ trợ thao tác này",
   "hardware.unknown_message_error_bitcoin_only": "Phần mềm chỉ dành cho BTC hiện tại không được hỗ trợ",
   "hardware.unsupported_passphrase_characters": "Chứa các ký tự không được hỗ trợ",
   "hardware.user_cancel_error": "Hành động đã bị hủy",

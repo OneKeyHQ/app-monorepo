@@ -1874,7 +1874,7 @@
   "hardware.transaction_signing_error_not_in_signing_mode": "লেনদেন স্বাক্ষর ত্রুটি: স্বাক্ষর মোডে নেই",
   "hardware.transferring_data": "ডাটা স্থানান্তর করা হচ্ছে...",
   "hardware.two_onekey_lite_not_same": "সংযোগের জন্য ব্যবহৃত দুটি OneKey Lite একই নয়।",
-  "hardware.unknown_message_error": "বর্তমান ফার্মওয়্যার সমর্থিত নয়, দয়া করে আপগ্রেড করার চেষ্টা করুন",
+  "hardware.unknown_message_error": "বর্তমান ফার্মওয়্যার এই অপারেশনটি সমর্থন করে না",
   "hardware.unknown_message_error_bitcoin_only": "বর্তমান BTC-র জন্য শুধুমাত্র ফার্মওয়্যার সমর্থিত নয়",
   "hardware.unsupported_passphrase_characters": "অসমর্থিত অক্ষর রয়েছে",
   "hardware.user_cancel_error": "ক্রিয়া বাতিল করা হয়েছে",

@@ -1874,7 +1874,7 @@
   "hardware.transaction_signing_error_not_in_signing_mode": "Kesalahan penandatanganan transaksi: Tidak dalam mode penandatanganan",
   "hardware.transferring_data": "Memindahkan data...",
   "hardware.two_onekey_lite_not_same": "Dua OneKey Lite yang digunakan untuk koneksi tidak sama.",
-  "hardware.unknown_message_error": "Firmware saat ini tidak didukung, silakan coba untuk melakukan upgrade",
+  "hardware.unknown_message_error": "Firmware saat ini tidak mendukung operasi ini",
   "hardware.unknown_message_error_bitcoin_only": "Firmware BTC saat ini tidak didukung",
   "hardware.unsupported_passphrase_characters": "Mengandung karakter yang tidak didukung",
   "hardware.user_cancel_error": "Tindakan dibatalkan",

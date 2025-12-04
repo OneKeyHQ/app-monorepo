@@ -1874,7 +1874,7 @@
   "hardware.transaction_signing_error_not_in_signing_mode": "거래 서명 오류: 서명 모드가 아님",
   "hardware.transferring_data": "데이터 전송 중...",
   "hardware.two_onekey_lite_not_same": "연결에 사용된 두 개의 OneKey Lite가 동일하지 않습니다.",
-  "hardware.unknown_message_error": "현재 펌웨어가 지원되지 않습니다, 업그레이드를 시도해보세요",
+  "hardware.unknown_message_error": "현재 펌웨어는 이 작업을 지원하지 않습니다",
   "hardware.unknown_message_error_bitcoin_only": "현재 BTC 전용 펌웨어는 지원되지 않습니다.",
   "hardware.unsupported_passphrase_characters": "지원하지 않는 문자가 포함되어 있습니다",
   "hardware.user_cancel_error": "작업 취소",

@@ -1874,7 +1874,7 @@
   "hardware.transaction_signing_error_not_in_signing_mode": "Помилка підпису транзакції: не в режимі підпису",
   "hardware.transferring_data": "Передача даних...",
   "hardware.two_onekey_lite_not_same": "Два OneKey Lite, що використовуються для з'єднання, не є однаковими.",
-  "hardware.unknown_message_error": "Поточне програмне забезпечення не підтримується, спробуйте оновити",
+  "hardware.unknown_message_error": "Поточна прошивка не підтримує цю операцію",
   "hardware.unknown_message_error_bitcoin_only": "Поточна прошивка, що працює лише з BTC, не підтримується",
   "hardware.unsupported_passphrase_characters": "Містить непідтримувані символи",
   "hardware.user_cancel_error": "Дію скасовано",

@@ -20,8 +20,8 @@ import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useDeFiListProtocolMapAtom } from '@onekeyhq/kit/src/states/jotai/contexts/deFiList';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import defiUtils from '@onekeyhq/shared/src/utils/defiUtils';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type {
   EDeFiAssetType,
   IDeFiAsset,
@@ -29,7 +29,6 @@ import type {
 } from '@onekeyhq/shared/types/defi';
 
 import { RichTable } from '../RichTable';
-import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 function Protocol({ protocol }: { protocol: IDeFiProtocol }) {
   const intl = useIntl();
@@ -52,7 +51,7 @@ function Protocol({ protocol }: { protocol: IDeFiProtocol }) {
   const columns = useMemo(() => {
     return [
       {
-        title: appLocale.intl.formatMessage({ id: ETranslations.global_asset }),
+        title: intl.formatMessage({ id: ETranslations.global_asset }),
         dataIndex: 'symbol',
         render: (symbol: string, record: IDeFiAsset) => (
           <XStack gap="$3" alignItems="center">
@@ -84,7 +83,7 @@ function Protocol({ protocol }: { protocol: IDeFiProtocol }) {
         ),
       },
       {
-        title: appLocale.intl.formatMessage({ id: ETranslations.global_value }),
+        title: intl.formatMessage({ id: ETranslations.global_value }),
         dataIndex: 'value',
         render: (value: string) => (
           <NumberSizeableText
@@ -97,7 +96,7 @@ function Protocol({ protocol }: { protocol: IDeFiProtocol }) {
         ),
       },
     ];
-  }, [settings.currencyInfo.symbol]);
+  }, [settings.currencyInfo.symbol, intl]);
 
   const renderProtocolPositions = useCallback(() => {
     return protocol.positions.map((position, index) => {

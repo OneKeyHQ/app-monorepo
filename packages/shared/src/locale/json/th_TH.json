@@ -1874,7 +1874,7 @@
   "hardware.transaction_signing_error_not_in_signing_mode": "ข้อผิดพลาดในการลงชื่อในธุรกรรม: ไม่ได้อยู่ในโหมดการลงชื่อ",
   "hardware.transferring_data": "กำลังถ่ายโอนข้อมูล...",
   "hardware.two_onekey_lite_not_same": "สอง OneKey Lite ที่ใช้สำหรับการเชื่อมต่อไม่เหมือนกัน",
-  "hardware.unknown_message_error": "ฟิร์มแวร์ปัจจุบันไม่รองรับ โปรดลองอัปเกรด",
+  "hardware.unknown_message_error": "เฟิร์มแวร์ปัจจุบันไม่รองรับการดำเนินการนี้",
   "hardware.unknown_message_error_bitcoin_only": "ไม่รองรับเฟิร์มแวร์ BTC ปัจจุบันเท่านั้น",
   "hardware.unsupported_passphrase_characters": "มีอักขระที่ไม่รองรับ",
   "hardware.user_cancel_error": "การดำเนินการถูกยกเลิก",

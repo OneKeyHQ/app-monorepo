@@ -1874,7 +1874,7 @@
   "hardware.transaction_signing_error_not_in_signing_mode": "交易签名错误：未处于签名模式",
   "hardware.transferring_data": "正在传输数据...",
   "hardware.two_onekey_lite_not_same": "两次用于连接的 OneKey Lite 不一致",
-  "hardware.unknown_message_error": "当前固件不受支持，请先尝试升级再继续",
+  "hardware.unknown_message_error": "当前固件不支持此操作",
   "hardware.unknown_message_error_bitcoin_only": "比特币专用的固件不支持该操作。",
   "hardware.unsupported_passphrase_characters": "包含不支持的字符",
   "hardware.user_cancel_error": "操作已取消",

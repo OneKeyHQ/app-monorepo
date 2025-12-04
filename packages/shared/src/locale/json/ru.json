@@ -1874,7 +1874,7 @@
   "hardware.transaction_signing_error_not_in_signing_mode": "Ошибка подписания транзакции: не в режиме подписания",
   "hardware.transferring_data": "Передача данных...",
   "hardware.two_onekey_lite_not_same": "Два OneKey Lite, используемые для подключения, не одинаковы.",
-  "hardware.unknown_message_error": "Текущая прошивка не поддерживается, попробуйте обновить",
+  "hardware.unknown_message_error": "Текущая прошивка не поддерживает эту операцию",
   "hardware.unknown_message_error_bitcoin_only": "Текущая прошивка только для BTC не поддерживается",
   "hardware.unsupported_passphrase_characters": "Содержит неподдерживаемые символы",
   "hardware.user_cancel_error": "Действие отменено",

@@ -53,7 +53,7 @@ function RichBlockHeader(
           ) : null}
           {typeof subTitle === 'string' ? (
             <SizableText
-              size="$headingXl"
+              size="$headingLg"
               color="$textSubdued"
               $md={{
                 size: '$bodyLgMedium',

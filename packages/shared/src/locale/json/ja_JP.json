@@ -1874,7 +1874,7 @@
   "hardware.transaction_signing_error_not_in_signing_mode": "トランザクション署名エラー：署名モードではありません",
   "hardware.transferring_data": "データを転送中...",
   "hardware.two_onekey_lite_not_same": "接続に使用される2つのOneKey Liteは同じではありません。",
-  "hardware.unknown_message_error": "現在のファームウェアはサポートされていません、アップグレードを試してみてください",
+  "hardware.unknown_message_error": "現在のファームウェアはこの操作をサポートしていません",
   "hardware.unknown_message_error_bitcoin_only": "現在のBTCのみのファームウェアはサポートされていません",
   "hardware.unsupported_passphrase_characters": "サポートされていない文字が含まれています",
   "hardware.user_cancel_error": "アクションがキャンセルされました",

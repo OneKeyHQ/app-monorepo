@@ -1874,7 +1874,7 @@
   "hardware.transaction_signing_error_not_in_signing_mode": "Errore nella firma della transazione: non in modalità di firma",
   "hardware.transferring_data": "Trasferimento dati in corso...",
   "hardware.two_onekey_lite_not_same": "I due OneKey Lite utilizzati per la connessione non sono gli stessi.",
-  "hardware.unknown_message_error": "Firmware corrente non supportato, si prega di provare ad aggiornare",
+  "hardware.unknown_message_error": "Il firmware attuale non supporta questa operazione",
   "hardware.unknown_message_error_bitcoin_only": "Firmware BTC attuale non supportato",
   "hardware.unsupported_passphrase_characters": "Contiene caratteri non supportati",
   "hardware.user_cancel_error": "Azione annullata",

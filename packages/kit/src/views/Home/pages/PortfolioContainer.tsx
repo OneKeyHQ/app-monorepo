@@ -19,10 +19,10 @@ function PortfolioContainer() {
 
   if (isTableLayout) {
     return (
-      <XStack py="$3" px="$5" gap="$6">
+      <XStack py="$3" px="$5" gap="$8">
         <YStack flex={1}>
           {/* <TokenListBlock /> */}
-          <DeFiListBlock />
+          {/* <DeFiListBlock /> */}
           <PopularTrading />
           <EarnListView />
           <Upgrade />
