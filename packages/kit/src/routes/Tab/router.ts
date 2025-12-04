@@ -204,13 +204,16 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
         trackId: 'global-earn',
         hideOnTabBar: platformEnv.isNative,
       },
-      isWebDappMode ? referFriendsTabConfig : undefined,
+      !platformEnv.isNative && isWebDappMode
+        ? referFriendsTabConfig
+        : undefined,
       // In non-DAPP mode, show ReferFriends in more actions
-      !isWebDappMode && {
-        ...referFriendsTabConfig,
-        inMoreAction: true,
-        hideOnTabBar: !isGtMdNonNative,
-      },
+      !platformEnv.isNative &&
+        !isWebDappMode && {
+          ...referFriendsTabConfig,
+          inMoreAction: true,
+          hideOnTabBar: !isGtMdNonNative,
+        },
       platformEnv.isNative
         ? undefined
         : {
