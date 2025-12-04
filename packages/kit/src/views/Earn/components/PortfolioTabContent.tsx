@@ -29,6 +29,7 @@ import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { MorphoUSDCVaultAddress } from '@onekeyhq/shared/src/consts/addresses';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import {
@@ -53,6 +54,11 @@ import type {
   IUseEarnPortfolioReturn,
 } from '../hooks/useEarnPortfolio';
 import type { IStakePendingTx } from '../hooks/useStakingPendingTxs';
+
+const useIsDesktopLayout = () => {
+  const media = useMedia();
+  return !platformEnv.isNative && media.gtSm;
+};
 
 type IPortfolioPendingTxsContext = {
   onRefresh?: (options?: IRefreshOptions) => Promise<void>;
@@ -185,9 +191,8 @@ const WrappedActionButtonCmp = ({
     rewardSymbol,
   ]);
 
-  const media = useMedia();
-
-  if (!media.gtSm) {
+  const isDesktopLayout = useIsDesktopLayout();
+  if (!isDesktopLayout) {
     return (
       <Button
         ai="center"
@@ -444,7 +449,7 @@ const ProtocolAirdrop = ({
   airdropRenderMode?: 'firstOnly' | 'all' | 'exceptFirst';
 }) => {
   const media = useMedia();
-
+  const isDesktopLayout = useIsDesktopLayout();
   return (
     <YStack px="$5" my="$2" $gtSm={{ my: 0 }}>
       <XStack ai="center">
@@ -454,7 +459,7 @@ const ProtocolAirdrop = ({
         ) ? null : (
           <YStack w="100%">
             {airdropAssets?.map((airdropGroup, groupIndex) => {
-              const Layout = media.gtSm ? XStack : YStack;
+              const Layout = isDesktopLayout ? XStack : YStack;
 
               const airdropsToRender = (() => {
                 if (airdropRenderMode === 'firstOnly') {
@@ -558,8 +563,7 @@ const PortfolioItemComponent = ({
   onRefresh?: (options?: IRefreshOptions) => Promise<void>;
 }) => {
   const intl = useIntl();
-  const media = useMedia();
-
+  const isDesktopLayout = useIsDesktopLayout();
   // Get provider and networkId from first asset or first airdrop asset
   const firstAsset = portfolioItem.assets[0] || portfolioItem.airdropAssets[0];
 
@@ -647,7 +651,7 @@ const PortfolioItemComponent = ({
       <YStack>
         <ProtocolHeader portfolioItem={portfolioItem} />
         <ProtocolAirdrop
-          airdropRenderMode={media.gtSm ? 'all' : 'firstOnly'}
+          airdropRenderMode={isDesktopLayout ? 'all' : 'firstOnly'}
           airdropAssets={portfolioItem.airdropAssets}
           stakedSymbol={portfolioItem.assets[0]?.token.info.symbol}
           stakedVault={portfolioItem.assets[0]?.metadata.protocol.vault}
@@ -663,7 +667,7 @@ const PortfolioItemComponent = ({
               }-${index}`
             }
             columns={columns}
-            withHeader={media.gtSm}
+            withHeader={isDesktopLayout}
             tableLayout
             defaultSortKey="deposits"
             defaultSortDirection="desc"
@@ -673,11 +677,11 @@ const PortfolioItemComponent = ({
               minHeight: '$8',
             }}
             listItemProps={{
-              ai: media.gtSm ? 'flex-start' : 'center',
-              mt: media.gtSm ? '$2' : '$1',
+              ai: isDesktopLayout ? 'flex-start' : 'center',
+              mt: isDesktopLayout ? '$2' : '$1',
             }}
             expandable={
-              !media.gtSm
+              !isDesktopLayout
                 ? {
                     renderExpandedContent: (asset) => (
                       <YStack gap="$5">
@@ -805,7 +809,7 @@ const PortfolioItemComponent = ({
             }}
           />
         ) : null}
-        {!media.gtSm ? (
+        {!isDesktopLayout ? (
           <ProtocolAirdrop
             airdropRenderMode="exceptFirst"
             airdropAssets={portfolioItem.airdropAssets}
@@ -822,8 +826,7 @@ const PortfolioItem = memo(PortfolioItemComponent);
 
 // Skeleton component for loading state
 const PortfolioSkeletonItem = () => {
-  const media = useMedia();
-
+  const isDesktopLayout = useIsDesktopLayout();
   return (
     <YStack gap="$2" px="$5">
       {/* Protocol Header */}
@@ -833,7 +836,7 @@ const PortfolioSkeletonItem = () => {
       </XStack>
 
       {/* Table Header - Desktop only */}
-      {media.gtSm ? (
+      {isDesktopLayout ? (
         <XStack gap="$3" px="$3" py="$2">
           <XStack flex={1.5}>
             <Skeleton h="$3" w={80} />
@@ -858,11 +861,11 @@ const PortfolioSkeletonItem = () => {
           gap="$3"
           px="$3"
           py="$2"
-          ai={media.gtSm ? 'center' : 'flex-start'}
-          minHeight={media.gtSm ? '$11' : '$14'}
+          ai={isDesktopLayout ? 'center' : 'flex-start'}
+          minHeight={isDesktopLayout ? '$11' : '$14'}
         >
           {/* Token Icon + Deposit */}
-          <XStack flex={media.gtSm ? 1.5 : 1} ai="center" gap="$3">
+          <XStack flex={isDesktopLayout ? 1.5 : 1} ai="center" gap="$3">
             <Skeleton w="$10" h="$10" borderRadius="$2" />
             <YStack gap="$1" flex={1}>
               <Skeleton h="$4" w="70%" />
@@ -870,7 +873,7 @@ const PortfolioSkeletonItem = () => {
             </YStack>
           </XStack>
 
-          {media.gtSm ? (
+          {isDesktopLayout ? (
             <>
               {/* 24h Earnings */}
               <YStack flex={1} gap="$1">

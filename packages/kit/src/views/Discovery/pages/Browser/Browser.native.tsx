@@ -11,6 +11,7 @@ import {
   Stack,
   XStack,
   YStack,
+  rootNavigationRef,
   useIsNativeTablet,
   useIsTabletDetailView,
   useIsTabletMainView,
@@ -40,6 +41,7 @@ import type {
 import {
   EDiscoveryModalRoutes,
   EModalRoutes,
+  ERootRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/debugUtils';
@@ -131,6 +133,31 @@ const useAndroidHardwareBack = platformEnv.isNativeAndroid
     }
   : () => {};
 
+const popToDiscoveryHomePage = () => {
+  const rootState = rootNavigationRef.current?.getState();
+  const currentIndex = rootState?.index || 0;
+  const routes = rootState?.routes || [];
+  const currentRoute = routes[currentIndex];
+  if (currentRoute?.name === ERootRoutes.Main) {
+    if (currentRoute.state) {
+      const tabIndex = currentRoute.state.index || 0;
+      const discoveryRoute = currentRoute.state.routes[tabIndex];
+      if (discoveryRoute?.name === ETabRoutes.Discovery) {
+        const discoveryState = discoveryRoute?.state;
+        if (
+          discoveryState?.index !== 0 &&
+          rootNavigationRef.current?.canGoBack()
+        ) {
+          rootNavigationRef.current?.goBack();
+          setTimeout(() => {
+            popToDiscoveryHomePage();
+          });
+        }
+      }
+    }
+  }
+};
+
 function MobileBrowser() {
   const isTabletDevice = useIsNativeTablet();
   const isTabletMainView = useIsTabletMainView();
@@ -217,14 +244,19 @@ function MobileBrowser() {
   }, [activeTabId, closeWebTab]);
 
   useEffect(() => {
-    const listener = (event: { tab: ETranslations }) => {
+    const listener = (event: { tab: ETranslations; openUrl?: boolean }) => {
       void handleChangeHeaderTab(event.tab);
+      if (event.tab === ETranslations.global_browser && event.openUrl) {
+        setTimeout(() => {
+          popToDiscoveryHomePage();
+        }, 50);
+      }
     };
     appEventBus.on(EAppEventBusNames.SwitchDiscoveryTabInNative, listener);
     return () => {
       appEventBus.off(EAppEventBusNames.SwitchDiscoveryTabInNative, listener);
     };
-  }, [handleChangeHeaderTab, isTabletDevice]);
+  }, [handleChangeHeaderTab]);
 
   // For risk detection
   useEffect(() => {
