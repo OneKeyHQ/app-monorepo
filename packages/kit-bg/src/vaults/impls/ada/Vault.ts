@@ -699,6 +699,8 @@ export default class Vault extends VaultBase {
       changeAddress,
       isSignOnly,
     });
+
+    console.log(JSON.stringify(encodeTx, null, 2));
     return {
       ...encodeTx,
       changeAddress,
@@ -749,7 +751,7 @@ export default class Vault extends VaultBase {
   ): Promise<IEncodedTxAda> {
     const encodedTx = await this.buildTxCborToEncodeTx({
       txHex: params.internalDappTx as string,
-      isSignOnly: false,
+      isSignOnly: true,
     });
     return encodedTx;
   }
