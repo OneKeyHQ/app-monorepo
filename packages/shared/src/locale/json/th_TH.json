@@ -39,6 +39,7 @@
   "Limit.order_status_unfilled": "ไม่ได้รับการเติมเต็ม",
   "Perps.referral_bonus_from": "โบนัสแนะนำเพื่อนจากการเทรดบน Perps",
   "account_model.watched": "ดูแล้ว",
+  "account_name_form_helper_text": "ห้ามป้อนข้อมูลที่ละเอียดอ่อน",
   "action_save": "บันทึก",
   "add_existing_wallet_badge_phrases_length": "รองรับวลีการกู้คืน 12–24 คำ",
   "add_existing_wallet_desc": "ถ่ายโอน กู้คืน หรือ นำเข้า",

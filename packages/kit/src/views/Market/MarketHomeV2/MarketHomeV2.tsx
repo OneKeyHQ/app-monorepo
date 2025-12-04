@@ -10,7 +10,8 @@ import { AccountSelectorProviderMirror } from '../../../components/AccountSelect
 import { TabletHomeContainer } from '../../../components/TabletHomeContainer';
 import { TabPageHeader } from '../../../components/TabPageHeader';
 import { useSelectedNetworkIdAtom } from '../../../states/jotai/contexts/marketV2';
-import { useMarketBasicConfig, useMarketEnterAnalytics } from '../hooks';
+import { useMarketBasicConfig } from '../hooks';
+import { useMarketHomePageEnterAnalytics } from '../hooks/useMarketEnterAnalytics';
 import { MarketWatchListProviderMirrorV2 } from '../MarketWatchListProviderMirrorV2';
 
 import { useNetworkAnalytics, useTabAnalytics } from './hooks';
@@ -28,7 +29,7 @@ function MarketHome() {
   const [selectedNetworkId, setSelectedNetworkId] = useSelectedNetworkIdAtom();
 
   // Track market entry analytics
-  useMarketEnterAnalytics();
+  useMarketHomePageEnterAnalytics();
 
   // Market analytics hooks
   const { handleTabChange } = useTabAnalytics();
