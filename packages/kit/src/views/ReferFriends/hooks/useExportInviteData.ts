@@ -15,20 +15,23 @@ export function useExportInviteData() {
       try {
         setIsExporting(true);
 
-        // Fetch CSV data from API (returns CSV string directly)
-        const csvString =
+        // Fetch CSV data from API (returns CSV string and filename)
+        const result =
           await backgroundApiProxy.serviceReferralCode.exportInviteData(params);
 
-        if (!csvString) {
+        if (!result.data) {
           throw new OneKeyError('No data to export');
         }
 
-        // Generate filename with timestamp
-        const timestamp = format(new Date(), 'yyyyMMdd_HHmmss');
-        const filename = `invite_data_${params.subject}_${params.timeRange}_${timestamp}.csv`;
+        // Use server-provided filename, fallback to generated one
+        let filename = result.filename;
+        if (!filename) {
+          const timestamp = format(new Date(), 'yyyyMMdd_HHmmss');
+          filename = `invite_data_${params.subject}_${params.timeRange}_${timestamp}.csv`;
+        }
 
         // Export CSV file directly (skipConversion = true)
-        await csvExporterUtils.exportCSV(csvString, filename, true);
+        await csvExporterUtils.exportCSV(result.data, filename, true);
 
         return true;
       } catch (error) {

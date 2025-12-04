@@ -868,13 +868,14 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         navigation.switchTab(ETabRoutes.MultiTabBrowser);
       } else if (shouldPopNavigation) {
         navigation.switchTab(ETabRoutes.Discovery);
-        if (platformEnv.isNative) {
-          setTimeout(() => {
-            appEventBus.emit(EAppEventBusNames.SwitchDiscoveryTabInNative, {
-              tab: ETranslations.global_browser,
-            });
-          }, 150);
-        }
+      }
+      if (platformEnv.isNative) {
+        setTimeout(() => {
+          appEventBus.emit(EAppEventBusNames.SwitchDiscoveryTabInNative, {
+            tab: ETranslations.global_browser,
+            openUrl: true,
+          });
+        }, 150);
       }
     },
   );
