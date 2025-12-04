@@ -367,10 +367,12 @@ class ServiceReferralCode extends ServiceBase {
       walletId,
     });
     if (walletReferralCode) {
-      const alreadyBound = await this.checkWalletIsBoundReferralCode({
-        address: walletReferralCode.address,
-        networkId: walletReferralCode.networkId,
-      });
+      const { address, networkId } = walletReferralCode;
+      const batchResult = await this.batchCheckWalletsBoundReferralCode([
+        { address, networkId },
+      ]);
+      const key = `${networkId}:${address}`;
+      const alreadyBound = batchResult[key] ?? false;
       const newWalletReferralCode = {
         ...walletReferralCode,
         isBound: alreadyBound,
