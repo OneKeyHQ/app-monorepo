@@ -5,6 +5,8 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import type {
   EExportTimeRange,
+  IBatchCheckWalletItem,
+  IBatchCheckWalletResponse,
   IEarnPositionsResponse,
   IEarnRewardResponse,
   IEarnWalletHistory,
@@ -440,6 +442,16 @@ class ServiceReferralCode extends ServiceBase {
       params: { address, networkId },
     });
     return response.data.data.data;
+  }
+
+  @backgroundMethod()
+  async batchCheckWalletsBoundReferralCode(items: IBatchCheckWalletItem[]) {
+    const client = await this.getClient(EServiceEndpointEnum.Rebate);
+    const response = await client.post<{
+      data: IBatchCheckWalletResponse;
+    }>('/rebate/v1/wallet/batch-check', { items });
+    // Response: { code: 0, message: "success", data: { "networkId:address": boolean } }
+    return response.data.data;
   }
 
   @backgroundMethod()
