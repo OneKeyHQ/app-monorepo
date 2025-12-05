@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
+import { usePrimeAuthV2 } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EWebEmbedRoutePath } from '@onekeyhq/shared/src/consts/webEmbedConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -9,7 +10,6 @@ import type { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 import openUrlUtils from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import { getPrimePaymentApiKey } from '../../hooks/getPrimePaymentApiKey';
-import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
 
 import type { ISubscriptionPeriod } from '../../hooks/usePrimePaymentTypes';
 
@@ -40,7 +40,7 @@ export function usePurchasePackageWebview() {
         isWebEmbed: true,
         hashRoutePath: EWebEmbedRoutePath.primePurchase,
         hashRouteQueryParams: {
-          primeUserId: user?.privyUserId || '',
+          primeUserId: user?.supabaseUserId || '',
           primeUserEmail: user?.email || '',
           subscriptionPeriod: selectedSubscriptionPeriod,
           locale: intl.locale,
@@ -50,7 +50,7 @@ export function usePurchasePackageWebview() {
         },
       });
     },
-    [navigation, user?.privyUserId, user?.email, intl.locale],
+    [navigation, user?.supabaseUserId, user?.email, intl.locale],
   );
 
   return purchasePackageWebview;

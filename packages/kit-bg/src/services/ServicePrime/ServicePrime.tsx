@@ -33,6 +33,7 @@ import type {
 import {
   primeLoginDialogAtom,
   primePersistAtom,
+  primePersistAtomInitialValue,
   primeServerMasterPasswordStatusAtom,
 } from '../../states/jotai/atoms/prime';
 import ServiceBase from '../ServiceBase';
@@ -232,7 +233,7 @@ class ServicePrime extends ServiceBase {
         errorMessage:
           'servicePrime.apiFetchPrimeUserInfo: simpleDb.prime.getAuthToken() No auth token',
       });
-      // clear privy login token cache
+      // clear supabase login token cache
       appEventBus.emit(EAppEventBusNames.PrimeLoginInvalidToken, undefined);
 
       return {
@@ -306,20 +307,7 @@ class ServicePrime extends ServiceBase {
   async setPrimePersistAtomNotLoggedIn() {
     console.log('servicePrime.setPrimePersistAtomNotLoggedIn');
     await primePersistAtom.set(
-      (): IPrimePersistAtomData => ({
-        isLoggedIn: false,
-        isLoggedInOnServer: false,
-        isEnablePrime: undefined,
-        isEnableSandboxPay: undefined,
-        isPrimeDeviceLimitExceeded: undefined,
-        privyUserId: undefined,
-        email: undefined,
-        displayEmail: undefined,
-        primeSubscription: undefined,
-        subscriptionManageUrl: undefined,
-        // salt: undefined,
-        // pwdHash: undefined,
-      }),
+      (): IPrimePersistAtomData => primePersistAtomInitialValue,
     );
     await this.backgroundApi.serviceMasterPassword.clearLocalMasterPassword();
     await primeServerMasterPasswordStatusAtom.set((v) => ({
@@ -387,7 +375,7 @@ class ServicePrime extends ServiceBase {
     //   emailCodeRequired: true,
     // };
 
-    throw new OneKeyLocalError('Deprecated, use Privy instead');
+    throw new OneKeyLocalError('Deprecated, use supabase instead');
   }
 
   @backgroundMethod()

@@ -4,7 +4,7 @@ import { useIntl } from 'react-intl';
 
 import { Dialog, Input, Portal } from '@onekeyhq/components';
 import type { IDialogProps } from '@onekeyhq/components/src/composite/Dialog/type';
-import { usePrimeAuthV2 } from '@onekeyhq/kit/src/views/Prime/hooks/usePrimeAuthV2';
+import { usePrimeAuthV2 } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -52,7 +52,7 @@ export function useResetApp(
         void logoutOnekeyID();
         await timerUtils.wait(1000);
       } catch (error) {
-        console.error('failed to logoutPrivy', error);
+        console.error('failed to logoutSupabase', error);
       }
       await backgroundApiProxy.serviceApp.resetApp();
     } catch (e) {

@@ -27,6 +27,7 @@ import {
 } from '@onekeyhq/components';
 import GiftExpandOnDark from '@onekeyhq/kit/assets/animations/gift-expand-on-dark.json';
 import GiftExpandOnLight from '@onekeyhq/kit/assets/animations/gift-expand-on-light.json';
+import { usePrimeAuthV2 } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useShowAddressBook } from '@onekeyhq/kit/src/hooks/useShowAddressBook';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -62,7 +63,6 @@ import { useThemeVariant } from '../../hooks/useThemeVariant';
 import { HomeFirmwareUpdateReminder } from '../../views/FirmwareUpdate/components/HomeFirmwareUpdateReminder';
 import { WalletXfpStatusReminder } from '../../views/Home/components/WalletXfpStatusReminder/WalletXfpStatusReminder';
 import { PrimeHeaderIconButtonLazy } from '../../views/Prime/components/PrimeHeaderIconButton';
-import { usePrimeAuthV2 } from '../../views/Prime/hooks/usePrimeAuthV2';
 import { usePrimeAvailable } from '../../views/Prime/hooks/usePrimeAvailable';
 import useScanQrCode from '../../views/ScanQrCode/hooks/useScanQrCode';
 import { AccountSelectorProviderMirror } from '../AccountSelector';
@@ -286,7 +286,7 @@ function MoreActionContentGridItem({
   }, [closePopover, onPress, trackID]);
 
   const { user } = usePrimeAuthV2();
-  const isPrimeUser = user?.primeSubscription?.isActive && user?.privyUserId;
+  const isPrimeUser = user?.primeSubscription?.isActive && user?.supabaseUserId;
 
   if (isPrimeFeature && !isPrimeAvailable) {
     return null;
@@ -447,7 +447,7 @@ function MoreActionContentGrid() {
 
   const checkIsPrimeUser = useCallback(
     (showFeature: EPrimeFeatures) => {
-      if (user?.primeSubscription?.isActive && user?.privyUserId) {
+      if (user?.primeSubscription?.isActive && user?.supabaseUserId) {
         return true;
       }
       navigation.pushFullModal(EModalRoutes.PrimeModal, {
@@ -500,7 +500,7 @@ function MoreActionContentGrid() {
 
   const scanQrCode = useScanQrCode();
 
-  const isPrimeUser = user?.primeSubscription?.isActive && user?.privyUserId;
+  const isPrimeUser = user?.primeSubscription?.isActive && user?.supabaseUserId;
 
   const handleScan = useCallback(async () => {
     await scanQrCode.start({

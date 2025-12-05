@@ -3,11 +3,11 @@ import { useEffect } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Dialog, SizableText, Stack } from '@onekeyhq/components';
+import { usePrimeAuthV2 } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import { useDebounce } from '../../../hooks/useDebounce';
-import { usePrimeAuthV2 } from '../hooks/usePrimeAuthV2';
 
 export function PrimeDeviceLogoutAlertDialog() {
   const intl = useIntl();

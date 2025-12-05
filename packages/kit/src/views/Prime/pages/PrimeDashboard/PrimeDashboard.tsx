@@ -18,6 +18,7 @@ import {
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { usePrimeAuthV2 } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
@@ -33,7 +34,6 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IPrimeServerUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import { PrimeSubscriptionPlans } from '../../components/PrimePurchaseDialog/PrimeSubscriptionPlans';
-import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
 import { usePrimePayment } from '../../hooks/usePrimePayment';
 import { usePrimePaymentMethodsWeb } from '../../hooks/usePrimePaymentMethodsWeb';
 import { usePrimeRequirements } from '../../hooks/usePrimeRequirements';
@@ -84,7 +84,7 @@ export default function PrimeDashboard({
     user,
     isLoggedIn,
     isPrimeSubscriptionActive,
-    privyUser,
+    supabaseUser,
     authenticated,
     // logout,
   } = usePrimeAuthV2();
@@ -143,11 +143,15 @@ export default function PrimeDashboard({
     if (isPrimeSubscriptionActive) {
       return false;
     }
-    if (!user?.privyUserId) {
+    if (!user?.supabaseUserId) {
       return false;
     }
     return true;
-  }, [isPrimeSubscriptionActive, shouldShowConfirmButton, user?.privyUserId]);
+  }, [
+    isPrimeSubscriptionActive,
+    shouldShowConfirmButton,
+    user?.supabaseUserId,
+  ]);
 
   const { getPackagesWeb: getPackagesWeb2 } = usePrimePaymentMethodsWeb();
   // const getPackagesWeb2 = useCallback(async () => {
@@ -188,7 +192,7 @@ export default function PrimeDashboard({
           return [];
         }
 
-        if (!user?.privyUserId) {
+        if (!user?.supabaseUserId) {
           return [];
         }
 
@@ -262,7 +266,7 @@ export default function PrimeDashboard({
         getPackagesWeb,
         isReady,
         shouldShowSubscriptionPlans,
-        user?.privyUserId,
+        user?.supabaseUserId,
       ],
       {
         watchLoading: true,
@@ -325,7 +329,7 @@ export default function PrimeDashboard({
 
   const isLoggedInMaybe =
     authenticated ||
-    privyUser?.id ||
+    supabaseUser?.id ||
     user?.isLoggedIn ||
     user?.isLoggedInOnServer ||
     isLoggedIn;

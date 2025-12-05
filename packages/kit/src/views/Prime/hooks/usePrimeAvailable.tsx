@@ -1,9 +1,8 @@
 import { useMemo } from 'react';
 
+import { usePrimeAuthV2 } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
-import { usePrimeAuthV2 } from './usePrimeAuthV2';
 
 export function usePrimeAvailable() {
   const [devSettings] = useDevSettingsPersistAtom();

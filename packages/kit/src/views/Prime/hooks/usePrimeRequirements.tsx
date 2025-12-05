@@ -3,6 +3,7 @@ import { useCallback } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Dialog, Toast } from '@onekeyhq/components';
+import { usePrimeAuthV2 } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -15,7 +16,6 @@ import { useLoginOneKeyId } from '../../../hooks/useLoginOneKeyId';
 import { usePrimePurchaseCallback } from '../components/PrimePurchaseDialog/PrimePurchaseDialog';
 
 import { getPrimePaymentApiKey } from './getPrimePaymentApiKey';
-import { usePrimeAuthV2 } from './usePrimeAuthV2';
 
 import type { ISubscriptionPeriod } from './usePrimePaymentTypes';
 
@@ -45,7 +45,7 @@ export function usePrimeRequirements() {
           reason:
             'usePrimeRequirements: Logout when primePersistAtom,simpleDb.prime.getAuthToken is not logged in',
         });
-        // logout before login, make sure local privy cache is cleared
+        // logout before login, make sure local supabase cache is cleared
         void logout();
 
         const onConfirm = async () => {

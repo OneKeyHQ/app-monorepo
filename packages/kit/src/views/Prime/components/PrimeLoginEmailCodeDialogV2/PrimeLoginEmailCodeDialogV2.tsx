@@ -12,20 +12,16 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { usePrimeAuthV2 } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-
-import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
-
-import type { IPrivyState } from '../../hooks/usePrivyUniversalV2/usePrivyUniversalV2Types';
 
 const COUNTDOWN_TIME = 60;
 
 export function PrimeLoginEmailCodeDialogV2(props: {
   email: string;
-  privyState?: IPrivyState;
   sendCode: (args: { email: string }) => Promise<void>;
-  loginWithCode: (args: { code: string; email?: string }) => Promise<void>;
+  loginWithCode: (args: { code: string; email: string }) => Promise<void>;
   onLoginSuccess?: () => void | Promise<void>;
   onConfirm: (code: string) => void;
 }) {
@@ -42,7 +38,6 @@ export function PrimeLoginEmailCodeDialogV2(props: {
   });
   const intl = useIntl();
   const { isReady } = usePrimeAuthV2();
-  // https://auth.privy.io/api/v1/passwordless/init
   const [isApiReady, setIsApiReady] = useState(false);
 
   const sendEmailVerificationCode = useCallback(async () => {

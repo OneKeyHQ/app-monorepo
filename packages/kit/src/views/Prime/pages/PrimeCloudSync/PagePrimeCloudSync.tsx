@@ -16,6 +16,7 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickStack';
+import { usePrimeAuthV2 } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { Section } from '@onekeyhq/kit/src/components/Section';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
@@ -35,7 +36,6 @@ import { formatDistanceToNow } from '@onekeyhq/shared/src/utils/dateUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { AppAutoLockSettingsView } from '../../../Setting/pages/AppAutoLock';
-import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
 import { usePrimeRequirements } from '../../hooks/usePrimeRequirements';
 
 function isAutoLockValueNotAllowed(value: number) {
@@ -124,7 +124,7 @@ function EnableOneKeyCloudSwitchListItem() {
   }, [passwordSettings.appLockDuration, passwordSettings.isPasswordSet]);
 
   const { user } = usePrimeAuthV2();
-  const isPrimeUser = user?.primeSubscription?.isActive && user?.privyUserId;
+  const isPrimeUser = user?.primeSubscription?.isActive && user?.supabaseUserId;
 
   return (
     <ListItem

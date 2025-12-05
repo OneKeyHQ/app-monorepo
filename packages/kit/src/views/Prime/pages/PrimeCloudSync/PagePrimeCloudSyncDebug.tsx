@@ -18,6 +18,7 @@ import {
   useClipboard,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { usePrimeAuthV2 } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { IDBCloudSyncItem } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import {
@@ -37,8 +38,6 @@ import type {
   IPrimeDeviceInfo,
   IPrimeServerUserInfo,
 } from '@onekeyhq/shared/types/prime/primeTypes';
-
-import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
 
 type ITabType = 'local' | 'server';
 
@@ -458,7 +457,7 @@ function StatusPanel() {
       })}
       {renderTestItem({
         title: 'OneKeyID 已登录',
-        checkValue: !!user?.privyUserId,
+        checkValue: !!user?.supabaseUserId,
       })}
       {renderTestItem({
         title: 'Prime 已付费，且订阅未过期',

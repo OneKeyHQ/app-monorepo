@@ -5,6 +5,7 @@ import { BigNumber } from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import { Toast } from '@onekeyhq/components';
+import { usePrimeAuthV2 } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
@@ -18,7 +19,6 @@ import purchaseSdkUtils from '../purchasesSdk/purchaseSdkUtils';
 
 import { getPrimePaymentApiKey } from './getPrimePaymentApiKey';
 import primePaymentUtils from './primePaymentUtils';
-import { usePrimeAuthV2 } from './usePrimeAuthV2';
 
 import type {
   IPackage,
@@ -49,7 +49,7 @@ export function usePrimePaymentMethodsWeb(): IUsePrimePayment {
       if (!apiKey) {
         throw new OneKeyLocalError('No REVENUECAT api key found');
       }
-      if (!user?.privyUserId && loginRequired) {
+      if (!user?.supabaseUserId && loginRequired) {
         throw new OneKeyLocalError('User not logged in');
       }
 
@@ -61,10 +61,11 @@ export function usePrimePaymentMethodsWeb(): IUsePrimePayment {
 
       Purchases.configure(
         apiKey,
-        user?.privyUserId || Purchases.generateRevenueCatAnonymousAppUserId(),
+        user?.supabaseUserId ||
+          Purchases.generateRevenueCatAnonymousAppUserId(),
       );
     },
-    [isReady, user?.privyUserId],
+    [isReady, user?.supabaseUserId],
   );
 
   const getCustomerInfo = useCallback(async () => {
@@ -76,7 +77,7 @@ export function usePrimePaymentMethodsWeb(): IUsePrimePayment {
     console.log('revenuecat customerInfo', customerInfo);
 
     const appUserId = Purchases.getSharedInstance().getAppUserId();
-    if (appUserId !== user?.privyUserId) {
+    if (appUserId !== user?.supabaseUserId) {
       throw new OneKeyLocalError('AppUserId not match');
     }
 
@@ -94,7 +95,7 @@ export function usePrimePaymentMethodsWeb(): IUsePrimePayment {
     }
 
     return customerInfo;
-  }, [initSdk, setPrimePersistAtom, user?.privyUserId]);
+  }, [initSdk, setPrimePersistAtom, user?.supabaseUserId]);
 
   const getPackagesWeb = useCallback(async () => {
     await initSdk();

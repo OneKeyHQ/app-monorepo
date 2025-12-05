@@ -13,6 +13,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { LazyLoadPage } from '@onekeyhq/kit/src/components/LazyLoadPage';
+import { usePrimeAuthV2 } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import type { EPrimeEmailOTPScene } from '@onekeyhq/shared/src/consts/primeConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -23,7 +24,6 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IPrimeUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
-import { usePrimeAuthV2 } from '../views/Prime/hooks/usePrimeAuthV2';
 
 const PrimeLoginEmailDialogV2 = LazyLoadPage(
   () =>
@@ -257,7 +257,7 @@ export const useLoginOneKeyId = () => {
           reason:
             'useLoginOneKeyId.loginOneKeyId(): call logout() before showing login dialog',
         });
-        // logout before login, make sure local privy cache is cleared
+        // logout before login, make sure local supabase storage cache is cleared
         void logout();
 
         // 跳转到登录页面

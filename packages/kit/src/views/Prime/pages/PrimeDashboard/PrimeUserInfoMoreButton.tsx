@@ -14,6 +14,7 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickStack';
+import { usePrimeAuthV2 } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -24,7 +25,6 @@ import { formatDateFns } from '@onekeyhq/shared/src/utils/dateUtils';
 import openUrlUtils from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import { usePrimePurchaseCallback } from '../../components/PrimePurchaseDialog/PrimePurchaseDialog';
-import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
 import { usePrimePayment } from '../../hooks/usePrimePayment';
 
 function PrimeUserInfoMoreButtonDropDownMenu({

@@ -10,13 +10,13 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { usePrimeAuthV2 } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import googlePlayService from '@onekeyhq/shared/src/googlePlayService/googlePlayService';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 
-import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
 import { usePrimePayment } from '../../hooks/usePrimePayment';
 
 import { PrimeSubscriptionPlans } from './PrimeSubscriptionPlans';
@@ -132,7 +132,7 @@ export function usePrimePurchaseCallback({
             featureName,
           });
           // await backgroundApiProxy.servicePrime.initRevenuecatPurchases({
-          //   privyUserId: user.privyUserId || '',
+          //   supabaseUserId: user.supabaseUserId || '',
           // });
           // await backgroundApiProxy.servicePrime.purchasePaywallPackage({
           //   packageId: selectedPackageId,

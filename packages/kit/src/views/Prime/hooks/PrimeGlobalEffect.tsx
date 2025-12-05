@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import { noop } from 'lodash';
 
 import { useUpdateEffect } from '@onekeyhq/components';
+import { usePrimeAuthV2 } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import type { IPrimeInitAtomData } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   usePrimeInitAtom,
@@ -19,10 +20,9 @@ import type { IPrimeUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { GlobalJotaiReady } from '../../../components/GlobalJotaiReady/GlobalJotaiReady';
+import { useSupabaseAuth } from '../../../components/OneKeyAuth/supabase/useSupabaseAuth';
 
-import { usePrimeAuthV2 } from './usePrimeAuthV2';
 import { usePrimePaymentMethods } from './usePrimePaymentMethods';
-import { usePrivyUniversalV2 } from './usePrivyUniversalV2';
 
 import type {
   IRevenueCatCustomerInfoNative,
@@ -35,8 +35,11 @@ function PrimeGlobalEffectView() {
 
   const { getCustomerInfo } = usePrimePaymentMethods();
 
-  // https://github.com/privy-io/create-next-app/blob/main/pages/index.tsx
-  const { authenticated, getAccessToken, privyUser } = usePrivyUniversalV2();
+  const {
+    isLoggedIn: isSupabaseLoggedIn,
+    getAccessToken: getSupabaseAccessToken,
+    supabaseUser,
+  } = useSupabaseAuth();
 
   const { isReady, user, logout } = usePrimeAuthV2();
 
@@ -44,7 +47,7 @@ function PrimeGlobalEffectView() {
   userRef.current = user;
 
   const autoRefreshPrimeUserInfo = useCallback(async () => {
-    if (isReady && user?.privyUserId && user?.isLoggedInOnServer) {
+    if (isReady && user?.supabaseUserId && user?.isLoggedInOnServer) {
       // wait 600ms to ensure the apiLogin() is finished
       await timerUtils.wait(600);
 
@@ -56,11 +59,11 @@ function PrimeGlobalEffectView() {
         await backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo();
       }
     }
-  }, [isReady, user?.privyUserId, user?.isLoggedInOnServer]);
+  }, [isReady, user?.supabaseUserId, user?.isLoggedInOnServer]);
 
   useEffect(() => {
     void (async () => {
-      if (platformEnv.isDev && isReady && user?.privyUserId) {
+      if (platformEnv.isDev && isReady && user?.supabaseUserId) {
         const customerInfo = await getCustomerInfo();
 
         const customerInfoWeb = customerInfo as IRevenueCatCustomerInfoWeb;
@@ -113,7 +116,7 @@ function PrimeGlobalEffectView() {
         }
       }
     })();
-  }, [getCustomerInfo, isReady, user?.privyUserId]);
+  }, [getCustomerInfo, isReady, user?.supabaseUserId]);
 
   useEffect(() => {
     void autoRefreshPrimeUserInfo();
@@ -141,9 +144,9 @@ function PrimeGlobalEffectView() {
       if (!isReady) {
         return;
       }
-      let accessToken: string | null = '';
-      if (authenticated) {
-        accessToken = await getAccessToken();
+      let accessToken: string | null | undefined = '';
+      if (isSupabaseLoggedIn) {
+        accessToken = await getSupabaseAccessToken();
       }
 
       // use apiLogin() to save authToken
@@ -158,8 +161,8 @@ function PrimeGlobalEffectView() {
           (v): IPrimeUserInfo => ({
             ...v,
             isLoggedIn: true,
-            email: privyUser?.email,
-            privyUserId: privyUser?.id,
+            email: supabaseUser?.email,
+            supabaseUserId: supabaseUser?.id,
           }),
         );
       } else {
@@ -179,20 +182,20 @@ function PrimeGlobalEffectView() {
   }, [
     setPrimePersistAtom,
     setPrimeInitAtom,
-    authenticated,
-    getAccessToken,
     isReady,
-    privyUser?.email,
-    privyUser?.id,
+    isSupabaseLoggedIn,
+    getSupabaseAccessToken,
+    supabaseUser?.email,
+    supabaseUser?.id,
   ]);
 
   useEffect(() => {
     const fn = async () => {
-      if (authenticated) {
+      if (isSupabaseLoggedIn) {
         defaultLogger.prime.subscription.onekeyIdLogout({
           reason: 'appEventBus: EAppEventBusNames.PrimeLoginInvalidToken',
         });
-        // If the server returns that the login is invalid, call the privy sdk logout
+        // If the server returns that the login is invalid, call the supabase sdk logout
         await logout();
       }
       await backgroundApiProxy.simpleDb.prime.saveAuthToken('');
@@ -201,7 +204,7 @@ function PrimeGlobalEffectView() {
     return () => {
       appEventBus.off(EAppEventBusNames.PrimeLoginInvalidToken, fn);
     };
-  }, [logout, authenticated]);
+  }, [logout, isSupabaseLoggedIn]);
 
   const isActive = primePersistAtom.primeSubscription?.isActive;
   useUpdateEffect(() => {

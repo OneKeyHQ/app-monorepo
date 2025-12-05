@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import { ActionList, Divider } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { usePrimeAuthV2 } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import {
   useAccountSelectorContextData,
   useActiveAccount,
@@ -13,7 +14,6 @@ import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
-import { usePrimeAuthV2 } from '../../../Prime/hooks/usePrimeAuthV2';
 import { usePrimeAvailable } from '../../../Prime/hooks/usePrimeAvailable';
 
 import { AddHiddenWalletButton } from './AddHiddenWalletButton';
@@ -40,7 +40,7 @@ function WalletEditButtonView({
   const { user } = usePrimeAuthV2();
 
   const isPrimeUser = useMemo(() => {
-    return user?.primeSubscription?.isActive && user?.privyUserId;
+    return user?.primeSubscription?.isActive && user?.supabaseUserId;
   }, [user]);
 
   const showDeviceManagementButton = useMemo(() => {

@@ -14,6 +14,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { usePrimeAuthV2 } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useLoginOneKeyId } from '@onekeyhq/kit/src/hooks/useLoginOneKeyId';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -21,8 +22,6 @@ import { EPrimeEmailOTPScene } from '@onekeyhq/shared/src/consts/primeConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
-
-import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
 
 export default function PrimeDeleteAccount() {
   const { logout, user, getAccessToken } = usePrimeAuthV2();
@@ -91,7 +90,7 @@ export default function PrimeDeleteAccount() {
         }
 
         try {
-          // logout privy sdk
+          // logout supabase sdk
           defaultLogger.prime.subscription.onekeyIdLogout({
             reason: 'PrimeDeleteAccount: handleDeleteAccount',
           });

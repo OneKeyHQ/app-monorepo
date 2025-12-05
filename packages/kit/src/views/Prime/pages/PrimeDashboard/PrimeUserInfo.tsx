@@ -15,7 +15,8 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EAppUpdateRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 
-import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
+// import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
+import { usePrimeAuthV2 } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 
 import { PrimeUserInfoMoreButton } from './PrimeUserInfoMoreButton';
 
@@ -110,8 +111,7 @@ export function PrimeUserInfo({
       <Icon name="PeopleOutline" color="$iconSubdued" size="$5" />
       <SizableText
         onPress={() => {
-          // console.log(privy?.web?.user);
-          // console.log(privy?.native?.user);
+          //
         }}
         flex={1}
         size="$bodyMdMedium"

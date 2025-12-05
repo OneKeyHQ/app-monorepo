@@ -16,6 +16,7 @@ import {
 } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { usePrimeAuthV2 } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useReferFriends } from '@onekeyhq/kit/src/hooks/useReferFriends';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
@@ -27,7 +28,6 @@ import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
 import { usePrimeAvailable } from '../../hooks/usePrimeAvailable';
 import { PrimeUserInfo } from '../PrimeDashboard/PrimeUserInfo';
 
