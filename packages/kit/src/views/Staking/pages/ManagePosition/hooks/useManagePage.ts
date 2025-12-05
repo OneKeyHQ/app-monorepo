@@ -192,6 +192,11 @@ export const useManagePage = ({
     [managePageData?.alertsWithdraw],
   );
 
+  const ongoingValidator = useMemo(
+    () => managePageData?.ongoingValidator,
+    [managePageData?.ongoingValidator],
+  );
+
   return {
     managePageData,
     isLoading,
@@ -205,5 +210,6 @@ export const useManagePage = ({
     alertsHolding,
     alertsStake,
     alertsWithdraw,
+    ongoingValidator,
   };
 };

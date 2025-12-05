@@ -19,7 +19,11 @@ import {
   decodeSensitiveTextAsync,
   encodeSensitiveTextAsync,
 } from '@onekeyhq/core/src/secret';
-import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
+import type {
+  IEncodedTx,
+  ISignedTxPro,
+  IUnsignedTxPro,
+} from '@onekeyhq/core/src/types';
 import {
   InvalidAddress,
   LowerTransactionAmountError,
@@ -28,6 +32,7 @@ import {
 } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
@@ -45,6 +50,7 @@ import type {
   IMeasureRpcStatusParams,
   IMeasureRpcStatusResult,
 } from '@onekeyhq/shared/types/customRpc';
+import type { IInternalDappTxParams } from '@onekeyhq/shared/types/staking';
 import {
   EDecodedTxActionType,
   EDecodedTxStatus,
@@ -242,20 +248,145 @@ export default class Vault extends VaultBase {
         isMine: output.address === account.address,
       }));
 
+    // For staking transactions, outputs may be empty (e.g., stake delegation)
+    // Only use transferInfo.to as fallback when it's a staking transaction
+    const isStakingTx = encodedTx.staking?.isStakingTx === true;
+    const toAddress =
+      utxoTo[0]?.address ??
+      (isStakingTx ? encodedTx.transferInfo?.to : undefined);
+
     let actions: IDecodedTxAction[] = [
       {
         type: EDecodedTxActionType.UNKNOWN,
         unknownAction: {
           from: account.address,
-          to: utxoTo[0].address,
+          to: toAddress,
         },
       },
     ];
 
-    const nativeAmountMap = this._getOutputAmount(outputs, network.decimals);
+    let nativeAmountMap = this._getOutputAmount(outputs, network.decimals);
 
+    // If stakingInfo is provided from external (e.g., staking page),
+    // use buildInternalStakingAction for proper UI rendering
+    if (unsignedTx.stakingInfo) {
+      const accountAddress = await this.getAccountAddress();
+      const action = await this.buildInternalStakingAction({
+        stakingInfo: unsignedTx.stakingInfo,
+        accountAddress,
+        stakingToAddress: toAddress,
+      });
+
+      // Calculate nativeAmount based on certificate types
+      const encodedStakingInfo = encodedTx.staking;
+      if (encodedStakingInfo?.certificates) {
+        const hasRegistration = encodedStakingInfo.certificates.some(
+          (cert) => cert.type === 0,
+        );
+        const hasDeregistration = encodedStakingInfo.certificates.some(
+          (cert) => cert.type === 1,
+        );
+
+        if (hasDeregistration) {
+          // Deregistration: returns deposit, actual cost is only the fee
+          nativeAmountMap = {
+            amount: encodedTx.totalFeeInNative,
+            amountValue: encodedTx.fee,
+          };
+        } else if (hasRegistration) {
+          // Registration: add deposit (inputs - outputs - fee)
+          const inputsTotal = inputs.reduce((sum, input) => {
+            const lovelace = input.amount.find((a) => a.unit === 'lovelace');
+            return sum.plus(lovelace?.quantity ?? 0);
+          }, new BigNumber(0));
+          const outputsTotal = outputs.reduce(
+            (sum, output) => sum.plus(output.amount),
+            new BigNumber(0),
+          );
+          const depositLovelace = inputsTotal
+            .minus(outputsTotal)
+            .minus(encodedTx.fee);
+          const depositAda = depositLovelace.shiftedBy(-network.decimals);
+
+          nativeAmountMap = {
+            amount: new BigNumber(encodedTx.totalFeeInNative)
+              .plus(depositAda)
+              .toFixed(),
+            amountValue: new BigNumber(encodedTx.fee)
+              .plus(depositLovelace)
+              .toFixed(),
+          };
+        } else {
+          // Re-delegation: only fee
+          nativeAmountMap = {
+            amount: encodedTx.totalFeeInNative,
+            amountValue: encodedTx.fee,
+          };
+        }
+      }
+
+      return {
+        txid: '',
+        owner: account.address,
+        signer: account.address,
+        nonce: 0,
+        actions: [action],
+        to: toAddress,
+        status: EDecodedTxStatus.Pending,
+        networkId: this.networkId,
+        accountId: this.accountId,
+        xpub: (account as IDBUtxoAccount).xpub,
+        extraInfo: null,
+        encodedTx,
+        totalFeeInNative: encodedTx.totalFeeInNative,
+        nativeAmount: nativeAmountMap.amount,
+        nativeAmountValue: nativeAmountMap.amountValue,
+      };
+    }
+
+    // Handle staking transactions based on certificate types (fallback for dApp tx)
+    // Certificate types: 0 = registration, 1 = deregistration, 2 = delegation
+    const encodedStakingInfo = encodedTx.staking;
+    let stakingLabel = '';
+    let hasRegistration = false;
+    let hasDeregistration = false;
+
+    if (isStakingTx && encodedStakingInfo?.certificates) {
+      hasRegistration = encodedStakingInfo.certificates.some(
+        (cert) => cert.type === 0,
+      );
+      hasDeregistration = encodedStakingInfo.certificates.some(
+        (cert) => cert.type === 1,
+      );
+      const hasDelegation = encodedStakingInfo.certificates.some(
+        (cert) => cert.type === 2,
+      );
+
+      if (hasDeregistration) {
+        // Deregistration: returns 2 ADA deposit, actual cost is only the fee
+        stakingLabel = 'Undelegate';
+        nativeAmountMap = {
+          amount: encodedTx.totalFeeInNative,
+          amountValue: encodedTx.fee,
+        };
+      } else if (hasRegistration && hasDelegation) {
+        stakingLabel = 'Delegate';
+      } else if (hasDelegation) {
+        stakingLabel = 'Delegate';
+        nativeAmountMap = {
+          amount: encodedTx.totalFeeInNative,
+          amountValue: encodedTx.fee,
+        };
+      } else if (hasRegistration) {
+        stakingLabel = 'Stake Registration';
+      }
+    }
+
+    // Build sends array (unified logic for both staking and normal transfers)
     if (nativeToken) {
       const sends = [];
+
+      // Process outputs (for normal transfers and tokens in staking tx)
       for (const output of outputs.filter((o) => !o.isChange)) {
         for (const asset of output.assets) {
           const token = await this.backgroundApi.serviceToken.getToken({
@@ -295,7 +426,51 @@ export default class Vault extends VaultBase {
           symbol: network.symbol,
         });
       }
-      // put native token first
+
+      // For registration tx, add deposit amount (inputs - outputs - fee = deposit)
+      if (isStakingTx && hasRegistration && !hasDeregistration) {
+        const inputsTotal = inputs.reduce((sum, input) => {
+          const lovelace = input.amount.find((a) => a.unit === 'lovelace');
+          return sum.plus(lovelace?.quantity ?? 0);
+        }, new BigNumber(0));
+
+        const outputsTotal = outputs.reduce(
+          (sum, output) => sum.plus(output.amount),
+          new BigNumber(0),
+        );
+
+        const depositLovelace = inputsTotal
+          .minus(outputsTotal)
+          .minus(encodedTx.fee);
+        const depositAda = depositLovelace.shiftedBy(-network.decimals);
+
+        if (depositLovelace.gt(0)) {
+          sends.push({
+            from: account.address,
+            to: toAddress ?? account.address,
+            isNative: true,
+            tokenIdOnNetwork: '',
+            name: nativeToken.name,
+            icon: nativeToken.logoURI ?? '',
+            amount: depositAda.toFixed(),
+            amountValue: depositLovelace.toFixed(),
+            symbol: network.symbol,
+            label: 'Stake Key Deposit',
+          });
+
+          // Update nativeAmountMap to include deposit
+          nativeAmountMap = {
+            amount: new BigNumber(nativeAmountMap.amount)
+              .plus(depositAda)
+              .toFixed(),
+            amountValue: new BigNumber(nativeAmountMap.amountValue)
+              .plus(depositLovelace)
+              .toFixed(),
+          };
+        }
+      }
+
+      // Sort: put native token first
       sends.sort((a, b) => {
         if (a.isNative && !b.isNative) {
           return -1;
@@ -305,16 +480,21 @@ export default class Vault extends VaultBase {
         }
         return 0;
       });
+
       actions = [
         {
           type: EDecodedTxActionType.ASSET_TRANSFER,
           assetTransfer: {
             from: account.address,
-            to: utxoTo[0].address,
+            to: toAddress,
             sends,
             receives: [],
             utxoFrom,
             utxoTo,
+            ...(isStakingTx && {
+              isInternalStaking: true,
+              internalStakingLabel: stakingLabel,
+            }),
           },
         },
       ];
@@ -326,7 +506,7 @@ export default class Vault extends VaultBase {
       signer: account.address,
       nonce: 0,
       actions,
-      to: utxoTo[0].address,
+      to: toAddress,
       status: EDecodedTxStatus.Pending,
       networkId: this.networkId,
       accountId: this.accountId,
@@ -628,7 +808,13 @@ export default class Vault extends VaultBase {
     }
   }
 
-  async buildTxCborToEncodeTx(txHex: string): Promise<IEncodedTxAda> {
+  async buildTxCborToEncodeTx({
+    txHex,
+    isSignOnly,
+  }: {
+    txHex: string;
+    isSignOnly: boolean;
+  }): Promise<IEncodedTxAda> {
     const dbAccount = (await this.getAccount()) as IDBUtxoAccount;
     const changeAddress = getChangeAddress(dbAccount);
     const stakeAddress = await this._getStakeAddress(dbAccount.address);
@@ -657,11 +843,16 @@ export default class Vault extends VaultBase {
     });
     const CardanoApi = await sdk.getCardanoApi();
     const addresses = associatedAddresses.map((i) => i.address);
-    const encodeTx = await CardanoApi.dAppConvertCborTxToEncodeTx(
+    const encodeTx = await CardanoApi.dAppConvertCborTxToEncodeTx({
       txHex,
       utxos,
       addresses,
       changeAddress,
+      isSignOnly,
+    });
+
+    defaultLogger.transaction.coinSelect.adaEncodedTx(
+      encodeTx as unknown as IEncodedTxAda,
     );
     return {
       ...encodeTx,
@@ -706,5 +897,15 @@ export default class Vault extends VaultBase {
       ...params.signedTx,
       txid: signedTx.txid,
     };
+  }
+
+  override async buildInternalDappEncodedTx(
+    params: IInternalDappTxParams,
+  ): Promise<IEncodedTxAda> {
+    const encodedTx = await this.buildTxCborToEncodeTx({
+      txHex: params.internalDappTx as string,
+      isSignOnly: true,
+    });
+    return encodedTx;
   }
 }
