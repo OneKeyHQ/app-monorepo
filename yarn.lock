@@ -6766,9 +6766,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/coinselect@npm:3.1.14":
-  version: 3.1.14
-  resolution: "@onekeyfe/coinselect@npm:3.1.14"
+"@onekeyfe/coinselect@npm:3.1.16":
+  version: 3.1.16
+  resolution: "@onekeyfe/coinselect@npm:3.1.16"
   dependencies:
     bchaddrjs: "npm:^0.5.2"
     bech32: "npm:^2.0.0"
@@ -6789,7 +6789,7 @@ __metadata:
     wif: "npm:^5.0.0"
   peerDependencies:
     tslib: ^2.6.2
-  checksum: 10/97be13c92c9dcffba99deafc78d56ae057c0495571e58582436e24d97424fca828721b7927db5edf58687b19949f1a4330ba8c0abf9a5ec15d03243a2576a517
+  checksum: 10/7b0706b80f4c93b2e454ab8f8a241ed8f289de986c8839de2019912104a099ec891983fc58845eb1e26a6b9d66e513059684f34b19a705457c892d0fccf570eb
   languageName: node
   linkType: hard
 
@@ -7747,7 +7747,7 @@ __metadata:
     "@noble/secp256k1": "npm:1.7.1"
     "@onekeyfe/bitcoinforksjs-lib": "npm:7.0.0-rc.0"
     "@onekeyfe/cardano-coin-selection-asmjs": "npm:1.1.10-alpha.8"
-    "@onekeyfe/coinselect": "npm:3.1.14"
+    "@onekeyfe/coinselect": "npm:3.1.16"
     "@onekeyfe/kaspa-core-lib": "npm:^1.0.2"
     "@onekeyfe/kaspa-wasm": "npm:^1.0.2"
     "@solana/spl-token": "npm:^0.4.8"
@@ -35980,18 +35980,18 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-server-dom-webpack@npm:~19.0.0":
-  version: 19.0.0
-  resolution: "react-server-dom-webpack@npm:19.0.0"
+"react-server-dom-webpack@npm:19.0.1":
+  version: 19.0.1
+  resolution: "react-server-dom-webpack@npm:19.0.1"
   dependencies:
     acorn-loose: "npm:^8.3.0"
     neo-async: "npm:^2.6.1"
     webpack-sources: "npm:^3.2.0"
   peerDependencies:
-    react: ^19.0.0
-    react-dom: ^19.0.0
+    react: ^19.0.1
+    react-dom: ^19.0.1
     webpack: ^5.59.0
-  checksum: 10/ab6478303befbe1e6331dd1ca3fc5d9aa76081dee6fad6a3debe0712ffd85eb063d39f1f7ba785a6591fc641ca4b1fc1f24e3215cbd6d26851a8f76ea085d326
+  checksum: 10/bf457509c1201b2bd5080beee6ffa50a2dff70e0ff8130e95bb39d75e51a2bbfad4b72acd732ac4f8dd7f91ec202986b44f68f78a81d1acd266279e1ce63721c
   languageName: node
   linkType: hard
 

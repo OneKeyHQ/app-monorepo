@@ -75,7 +75,7 @@ export function CopyLinkSplitButton({ url }: ICopyLinkSplitButtonProps) {
       <Divider vertical h="$4" />
       <Stack onPress={handleStopPropagation}>
         <Popover
-          title=""
+          title={intl.formatMessage({ id: ETranslations.global_more_links })}
           renderTrigger={renderTrigger}
           renderContent={renderContent}
           floatingPanelProps={{
