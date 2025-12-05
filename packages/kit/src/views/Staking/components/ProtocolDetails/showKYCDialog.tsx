@@ -1,6 +1,8 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useState } from 'react';
 
-import type { ICheckedState } from '@onekeyhq/components';
+import { useIntl } from 'react-intl';
+
+import type { ICheckedState, IKeyOfIcons } from '@onekeyhq/components';
 import {
   Button,
   Checkbox,
@@ -11,28 +13,42 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import type { IDialogProps } from '@onekeyhq/components/src/composite/Dialog/type';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type {
   IEarnActivateActionIcon,
   IEarnClaimWithKycActionIcon,
+  IEarnConfirmDialogData,
 } from '@onekeyhq/shared/types/staking';
 
 import { EarnText } from './EarnText';
 
-function KYCDialogContent({
+type IClaimWithKycData = NonNullable<IEarnClaimWithKycActionIcon['data']>;
+
+interface IGenericDialogContentProps {
+  data: IEarnConfirmDialogData;
+  onConfirm?: () => Promise<void>;
+  confirmText?: string;
+  // For link/close button types (from ClaimWithKycDialog)
+  linkButton?: IClaimWithKycData['button'];
+}
+
+function GenericDialogContent({
   data,
   onConfirm,
-}: {
-  data: IEarnActivateActionIcon['data'];
-  onConfirm: (checkboxStates: boolean[]) => Promise<void>;
-}) {
-  // Initialize checkbox states for all checkbox
+  confirmText,
+  linkButton,
+}: IGenericDialogContentProps) {
+  const intl = useIntl();
+  const hasCheckboxes =
+    Array.isArray(data.checkboxes) && data.checkboxes.length > 0;
+
   const [checkboxStates, setCheckboxStates] = useState<ICheckedState[]>(
-    data.checkboxes.map(() => false),
+    hasCheckboxes ? (data.checkboxes ?? []).map(() => false) : [],
   );
 
-  // Initialize accordion expand states
   const [expandedItems, setExpandedItems] = useState<boolean[]>(
     data.accordions?.map(() => false) || [],
   );
@@ -55,24 +71,92 @@ function KYCDialogContent({
   const handleConfirm = useCallback(
     () =>
       new Promise<void>((resolve, reject) => {
-        // Convert ICheckedState to boolean for onConfirm callback
-        const booleanStates = checkboxStates.map((state) => Boolean(state));
-        onConfirm(booleanStates)
-          .then(() => resolve())
-          .catch(() => reject());
+        if (onConfirm) {
+          onConfirm()
+            .then(() => resolve())
+            .catch(() => reject());
+        } else {
+          resolve();
+        }
       }),
-    [checkboxStates, onConfirm],
+    [onConfirm],
   );
 
-  const isConfirmDisabled = checkboxStates.some((state) => !state);
+  // Handle link button press (for ClaimWithKyc scenarios)
+  const handleLinkPress = useCallback(() => {
+    if (linkButton?.type === 'link') {
+      if (linkButton.data?.showIntercom) {
+        void showIntercom();
+        return;
+      }
+      if (linkButton.data?.link) {
+        void openUrlExternal(linkButton.data.link);
+      }
+    }
+  }, [linkButton]);
+
+  const isConfirmDisabled = hasCheckboxes
+    ? checkboxStates.some((state) => !state)
+    : false;
+
+  const buttonText =
+    confirmText ||
+    data.button?.text?.text ||
+    intl.formatMessage({
+      id: ETranslations.global_confirm,
+    });
+
+  // Render footer based on button type
+  const renderFooter = () => {
+    // Link button type
+    if (linkButton?.type === 'link') {
+      return (
+        <Dialog.Footer
+          onConfirm={handleLinkPress}
+          onConfirmText={linkButton.text?.text || ''}
+          confirmButtonProps={{
+            icon: linkButton.icon?.icon,
+            disabled: Boolean(linkButton.disabled),
+          }}
+          showCancelButton={false}
+        />
+      );
+    }
+
+    // Close button type
+    if (linkButton?.type === 'close') {
+      return (
+        <Dialog.Footer
+          onCancelText={linkButton.text?.text || ''}
+          cancelButtonProps={{
+            disabled: Boolean(linkButton.disabled),
+          }}
+          showConfirmButton={false}
+        />
+      );
+    }
+
+    // Default confirm button
+    return (
+      <Dialog.Footer
+        onConfirm={handleConfirm}
+        onConfirmText={buttonText}
+        confirmButtonProps={{
+          disabled: isConfirmDisabled,
+        }}
+        showCancelButton={false}
+      />
+    );
+  };
 
   return (
     <YStack gap="$2">
       {/* Description sections */}
-      {data.description.map((desc, index) => (
+      {data.description?.map((desc, index) => (
         <EarnText key={index} text={desc} fontSize="$bodyMd" />
       ))}
 
+      {/* Accordions */}
       {Array.isArray(data.accordions) && data.accordions.length > 0 ? (
         <YStack gap="$2">
           {data.accordions.map(({ title, description }, index) => (
@@ -84,7 +168,6 @@ function KYCDialogContent({
                 px="$2"
                 py="$1"
                 mx="$-2"
-                // my="$-1"
                 bg="$transparent"
                 borderWidth={0}
                 borderRadius="$2"
@@ -132,27 +215,248 @@ function KYCDialogContent({
       ) : null}
 
       {/* Checkboxes */}
-      <YStack gap="$3">
-        {data.checkboxes.map((checkbox, index) => (
-          <XStack key={index} alignItems="flex-start" gap="$2">
-            <Checkbox
-              labelContainerProps={{
-                flex: 1,
-              }}
-              label={checkbox.text}
-              value={checkboxStates[index]}
-              onChange={handleCheckboxChange(index)}
-              labelProps={{
-                variant: '$bodyMdMedium',
-              }}
-            />
-          </XStack>
-        ))}
-      </YStack>
+      {hasCheckboxes ? (
+        <YStack gap="$3">
+          {(data.checkboxes ?? []).map((checkbox, index) => (
+            <XStack key={index} alignItems="flex-start" gap="$2">
+              <Checkbox
+                labelContainerProps={{
+                  flex: 1,
+                }}
+                label={checkbox.text}
+                value={checkboxStates[index]}
+                onChange={handleCheckboxChange(index)}
+                labelProps={{
+                  variant: '$bodyMdMedium',
+                }}
+              />
+            </XStack>
+          ))}
+        </YStack>
+      ) : null}
+
+      {renderFooter()}
+    </YStack>
+  );
+}
+
+export interface IShowConfirmDialogParams {
+  data: IEarnConfirmDialogData;
+  onConfirm?: () => Promise<void>;
+  onClose?: () => void;
+  confirmText?: string;
+  icon?: IKeyOfIcons;
+  tone?: IDialogProps['tone'];
+  linkButton?: IClaimWithKycData['button'];
+}
+
+export function showConfirmDialog({
+  data,
+  onConfirm,
+  onClose,
+  confirmText,
+  icon = 'InfoCircleOutline',
+  tone,
+  linkButton,
+}: IShowConfirmDialogParams) {
+  return Dialog.show({
+    icon,
+    title: data.title.text,
+    showFooter: false,
+    tone,
+    onClose,
+    renderContent: (
+      <GenericDialogContent
+        data={data}
+        onConfirm={onConfirm}
+        confirmText={confirmText}
+        linkButton={linkButton}
+      />
+    ),
+  });
+}
+
+export async function showConfirmDialogAsync({
+  data,
+  confirmText,
+  icon = 'InfoCircleOutline',
+  tone,
+}: Omit<
+  IShowConfirmDialogParams,
+  'onConfirm' | 'onClose' | 'linkButton'
+>): Promise<boolean> {
+  return new Promise((resolve) => {
+    let confirmed = false;
+    const dialog = Dialog.show({
+      icon,
+      title: data.title.text,
+      showFooter: false,
+      tone,
+      onClose: () => resolve(confirmed),
+      renderContent: (
+        <GenericDialogContent
+          data={data}
+          confirmText={confirmText}
+          onConfirm={async () => {
+            confirmed = true;
+            await dialog.close();
+          }}
+        />
+      ),
+    });
+  });
+}
+
+export function showClaimWithKycDialog({
+  actionData,
+}: {
+  actionData: IEarnClaimWithKycActionIcon;
+}) {
+  const data = actionData.data;
+  if (!data) return undefined;
+
+  return showConfirmDialog({
+    data: {
+      title: data.title ?? { text: '' },
+      description: data.description ?? [],
+    },
+    icon: data.icon?.icon,
+    tone: data.tone,
+    linkButton: data.button,
+  });
+}
+
+function KYCDialogContent({
+  data,
+  onConfirm,
+}: {
+  data: IEarnActivateActionIcon['data'];
+  onConfirm: (checkboxStates: boolean[]) => Promise<void>;
+}) {
+  const checkboxes = data.checkboxes ?? [];
+
+  const [checkboxStates, setCheckboxStates] = useState<ICheckedState[]>(
+    checkboxes.map(() => false),
+  );
+
+  const [expandedItems, setExpandedItems] = useState<boolean[]>(
+    data.accordions?.map(() => false) || [],
+  );
+
+  const handleCheckboxChange = useCallback(
+    (index: number) => (value: ICheckedState) => {
+      setCheckboxStates((prev) =>
+        prev.map((state, i) => (i === index ? value : state)),
+      );
+    },
+    [],
+  );
+
+  const toggleExpandedItem = useCallback((index: number) => {
+    setExpandedItems((prev) =>
+      prev.map((expanded, i) => (i === index ? !expanded : expanded)),
+    );
+  }, []);
+
+  const handleConfirm = useCallback(
+    () =>
+      new Promise<void>((resolve, reject) => {
+        const booleanStates = checkboxStates.map((state) => Boolean(state));
+        onConfirm(booleanStates)
+          .then(() => resolve())
+          .catch(() => reject());
+      }),
+    [checkboxStates, onConfirm],
+  );
+
+  const isConfirmDisabled = checkboxStates.some((state) => !state);
+
+  return (
+    <YStack gap="$2">
+      {data.description.map((desc, index) => (
+        <EarnText key={index} text={desc} fontSize="$bodyMd" />
+      ))}
+
+      {Array.isArray(data.accordions) && data.accordions.length > 0 ? (
+        <YStack gap="$2">
+          {data.accordions.map(({ title, description }, index) => (
+            <YStack key={String(index)}>
+              <Button
+                variant="secondary"
+                size="small"
+                onPress={() => toggleExpandedItem(index)}
+                px="$2"
+                py="$1"
+                mx="$-2"
+                bg="$transparent"
+                borderWidth={0}
+                borderRadius="$2"
+                hoverStyle={{
+                  bg: '$bgHover',
+                }}
+                pressStyle={{
+                  bg: '$bgActive',
+                }}
+                justifyContent="space-between"
+                alignItems="center"
+                flexDirection="row"
+              >
+                <XStack alignItems="center" gap="$1">
+                  <SizableText
+                    textAlign="left"
+                    size="$bodyMd"
+                    color={expandedItems[index] ? '$text' : '$textSubdued'}
+                  >
+                    {title.text}
+                  </SizableText>
+                  <Stack rotate={expandedItems[index] ? '180deg' : '0deg'}>
+                    <Icon
+                      name="ChevronDownSmallOutline"
+                      color={
+                        expandedItems[index] ? '$iconActive' : '$iconSubdued'
+                      }
+                      size="$5"
+                    />
+                  </Stack>
+                </XStack>
+              </Button>
+              {expandedItems[index] ? (
+                <YStack pt="$2">
+                  <EarnText
+                    text={description}
+                    size="$bodySm"
+                    color="$textSubdued"
+                  />
+                </YStack>
+              ) : null}
+            </YStack>
+          ))}
+        </YStack>
+      ) : null}
+
+      {checkboxes.length > 0 ? (
+        <YStack gap="$3">
+          {checkboxes.map((checkbox, index) => (
+            <XStack key={index} alignItems="flex-start" gap="$2">
+              <Checkbox
+                labelContainerProps={{
+                  flex: 1,
+                }}
+                label={checkbox.text}
+                value={checkboxStates[index]}
+                onChange={handleCheckboxChange(index)}
+                labelProps={{
+                  variant: '$bodyMdMedium',
+                }}
+              />
+            </XStack>
+          ))}
+        </YStack>
+      ) : null}
 
       <Dialog.Footer
         onConfirm={handleConfirm}
-        onConfirmText={data.button.text.text}
+        onConfirmText={data.button?.text?.text || ''}
         confirmButtonProps={{
           disabled: isConfirmDisabled,
         }}
@@ -176,100 +480,5 @@ export function showKYCDialog({
     renderContent: (
       <KYCDialogContent data={actionData.data} onConfirm={onConfirm} />
     ),
-  });
-}
-
-function ClaimWithKycDialogContent({
-  data,
-}: {
-  data: IEarnClaimWithKycActionIcon['data'];
-}) {
-  const button = useMemo(() => {
-    if (data?.button?.type === 'link') {
-      return data.button;
-    }
-    if (data?.button?.type === 'close') {
-      return data.button;
-    }
-    return undefined;
-  }, [data?.button]);
-
-  const handleLinkPress = useCallback(() => {
-    if (button?.type === 'link') {
-      if (button.data?.showIntercom) {
-        void showIntercom();
-        return;
-      }
-      if (button.data?.link) {
-        void openUrlExternal(button.data.link);
-      }
-    }
-  }, [button]);
-
-  const buttonText = useMemo(() => {
-    if (typeof button?.text?.text === 'string') {
-      return button.text.text;
-    }
-    return '';
-  }, [button?.text?.text]);
-
-  const isButtonDisabled = Boolean(button?.disabled);
-
-  const renderFooter = () => {
-    if (!button) {
-      return null;
-    }
-
-    if (button.type === 'link') {
-      return (
-        <Dialog.Footer
-          onConfirm={handleLinkPress}
-          onConfirmText={buttonText}
-          confirmButtonProps={{
-            icon: button.icon?.icon,
-            disabled: isButtonDisabled,
-          }}
-          showCancelButton={false}
-        />
-      );
-    }
-
-    if (button.type === 'close') {
-      return (
-        <Dialog.Footer
-          onCancelText={buttonText}
-          cancelButtonProps={{
-            disabled: isButtonDisabled,
-          }}
-          showConfirmButton={false}
-        />
-      );
-    }
-
-    return null;
-  };
-
-  return (
-    <YStack gap="$2">
-      {data?.description?.map((desc, index) => (
-        <EarnText key={index} text={desc} fontSize="$bodyMd" />
-      ))}
-
-      {renderFooter()}
-    </YStack>
-  );
-}
-
-export function showClaimWithKycDialog({
-  actionData,
-}: {
-  actionData: IEarnClaimWithKycActionIcon;
-}) {
-  return Dialog.show({
-    icon: actionData.data?.icon?.icon,
-    title: actionData.data?.title?.text,
-    showFooter: false,
-    renderContent: <ClaimWithKycDialogContent data={actionData.data} />,
-    tone: actionData.data?.tone,
   });
 }
