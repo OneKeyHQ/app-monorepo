@@ -254,11 +254,6 @@ export class KeyringHardware extends KeyringHardwareBase {
       };
     }
 
-    console.log(
-      '=====>>hw cardanoParams: ',
-      JSON.stringify(cardanoParams, null, 2),
-    );
-
     const res = await HardwareSDK.cardanoSignTransaction(connectId, deviceId, {
       ...params.deviceParams?.deviceCommonParams,
       inputs: transformToOneKeyInputs(inputs, utxos),

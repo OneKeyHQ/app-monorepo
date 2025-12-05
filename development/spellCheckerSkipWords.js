@@ -1014,4 +1014,5 @@ module.exports = [
   'hoodi',
   'stakefish',
   'Dropdown',
+  'Deregistration',
 ];

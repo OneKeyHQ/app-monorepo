@@ -32,6 +32,7 @@ import {
 } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
@@ -850,7 +851,9 @@ export default class Vault extends VaultBase {
       isSignOnly,
     });
 
-    console.log(JSON.stringify(encodeTx, null, 2));
+    defaultLogger.transaction.coinSelect.adaEncodedTx(
+      encodeTx as unknown as IEncodedTxAda,
+    );
     return {
       ...encodeTx,
       changeAddress,
