@@ -4,23 +4,30 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { normalizeTokenContractAddress } from '@onekeyhq/shared/src/utils/tokenUtils';
 
 import { useGetReferralCodeWalletInfo } from './useGetReferralCodeWalletInfo';
 
-type IWalletInfo = {
+import type { IReferralCodeWalletInfo } from './types';
+
+type IWalletWithWalletInfo = {
   wallet: IDBWallet;
-  walletId: string;
-  networkId: string;
-  accountId: string;
-  address: string;
-  pubkey: string | undefined;
-  isBtcOnlyWallet: boolean;
+  walletInfo: IReferralCodeWalletInfo | null;
 };
 
 type IWalletWithValidInfo = {
   wallet: IDBWallet;
-  walletInfo: IWalletInfo;
+  walletInfo: IReferralCodeWalletInfo;
 };
+
+function buildWalletBoundKey(networkId: string, address: string): string {
+  const normalizedAddress =
+    normalizeTokenContractAddress({
+      networkId,
+      contractAddress: address,
+    }) || address;
+  return `${networkId}:${normalizedAddress}`;
+}
 
 export function useFetchWalletsWithBoundStatus() {
   const getReferralCodeWalletInfo = useGetReferralCodeWalletInfo();
@@ -44,7 +51,7 @@ export function useFetchWalletsWithBoundStatus() {
     }
 
     // Get wallet info for each valid wallet
-    const walletInfos = await Promise.all(
+    const walletInfos: IWalletWithWalletInfo[] = await Promise.all(
       validWallets.map(async (w) => {
         const info = await getReferralCodeWalletInfo(w.id);
         return { wallet: w, walletInfo: info };
@@ -60,11 +67,18 @@ export function useFetchWalletsWithBoundStatus() {
       return [];
     }
 
-    // Build batch check items
-    const batchCheckItems = walletsWithInfo.map((item) => ({
-      address: item.walletInfo.address,
-      networkId: item.walletInfo.networkId,
-    }));
+    // Build batch check items with normalized addresses
+    const batchCheckItems = walletsWithInfo.map((item) => {
+      const { networkId, address } = item.walletInfo;
+      return {
+        address:
+          normalizeTokenContractAddress({
+            networkId,
+            contractAddress: address,
+          }) || address,
+        networkId,
+      };
+    });
 
     // Batch check all wallets' bound status via API
     let batchResult: Record<string, boolean> = {};
@@ -87,7 +101,10 @@ export function useFetchWalletsWithBoundStatus() {
     // Build result and update local database
     const walletsWithBoundStatus = await Promise.all(
       walletsWithInfo.map(async (item) => {
-        const key = `${item.walletInfo.networkId}:${item.walletInfo.address}`;
+        const key = buildWalletBoundKey(
+          item.walletInfo.networkId,
+          item.walletInfo.address,
+        );
         const isBound = batchResult[key] ?? false;
 
         // Update local database
