@@ -3194,6 +3194,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
 export const getNetworksSupportFilterScamHistory = memoFn(
   (): IServerNetwork[] => [
     eth,
+    sol,
     sepolia,
     holesky,
     base,
