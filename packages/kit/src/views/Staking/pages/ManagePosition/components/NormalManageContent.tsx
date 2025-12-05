@@ -9,6 +9,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import type {
   IEarnHistoryActionIcon,
+  IEarnSelectField,
   IEarnTokenInfo,
   IProtocolInfo,
   IStakeTag,
@@ -46,6 +47,7 @@ interface INormalManageContentProps {
   appNavigation: IAppNavigation;
   showApyDetail?: boolean;
   fallbackTokenImageUri?: string;
+  ongoingValidator?: IEarnSelectField;
 }
 
 export function NormalManageContent({
@@ -73,6 +75,7 @@ export function NormalManageContent({
   appNavigation,
   showApyDetail,
   fallbackTokenImageUri,
+  ongoingValidator,
 }: INormalManageContentProps) {
   const intl = useIntl();
 
@@ -230,6 +233,7 @@ export function NormalManageContent({
           showApyDetail={showApyDetail}
           isInModalContext={isInModalContext}
           fallbackTokenImageUri={fallbackTokenImageUri}
+          ongoingValidator={ongoingValidator}
         />
       ) : null}
       {selectedTabIndex === 1 ? (

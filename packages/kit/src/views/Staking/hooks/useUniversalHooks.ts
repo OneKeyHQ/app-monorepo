@@ -81,10 +81,13 @@ export function useUniversalStake({
       protocolVault,
       approveType,
       permitSignature,
+      message,
       provider,
       stakingInfo,
       onSuccess,
       onFail,
+      // Stakefish specific param
+      validatorPublicKey,
     }: {
       amount: string;
       symbol: string;
@@ -93,10 +96,14 @@ export function useUniversalStake({
       protocolVault?: string;
       approveType?: EApproveType;
       permitSignature?: string;
+      // Stakefish: original message for permit signature
+      message?: string;
       provider: string;
       stakingInfo?: IStakingInfo;
       onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
       onFail?: IModalSendParamList['SendConfirm']['onFail'];
+      // Stakefish specific param
+      validatorPublicKey?: string;
     }) => {
       const stakeTx =
         await backgroundApiProxy.serviceStaking.buildStakeTransaction({
@@ -110,6 +117,9 @@ export function useUniversalStake({
           protocolVault,
           approveType,
           permitSignature,
+          message,
+          // Stakefish specific param
+          validatorPublicKey,
         });
 
       const encodedTx =
@@ -177,6 +187,9 @@ export function useUniversalWithdraw({
       stakingInfo,
       onSuccess,
       onFail,
+      // Signature and message for withdraw all
+      withdrawSignature,
+      withdrawMessage,
     }: {
       amount: string;
       symbol: string;
@@ -187,6 +200,9 @@ export function useUniversalWithdraw({
       stakingInfo?: IStakingInfo;
       onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
       onFail?: IModalSendParamList['SendConfirm']['onFail'];
+      // Signature and message for withdraw all
+      withdrawSignature?: string;
+      withdrawMessage?: string;
     }) => {
       let stakeTx: IStakeTxResponse | undefined;
       const stakingConfig =
@@ -247,6 +263,9 @@ export function useUniversalWithdraw({
             provider,
             protocolVault,
             withdrawAll,
+            // Pass signature and message for withdraw all
+            signature: withdrawSignature,
+            message: withdrawMessage,
           });
       }
       const encodedTx =

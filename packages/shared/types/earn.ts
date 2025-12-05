@@ -14,6 +14,7 @@ export enum EEarnProviderEnum {
 
 export type ISupportedSymbol =
   | 'ETH'
+  | 'ADA'
   | 'USDC'
   | 'USDT'
   | 'DAI'
@@ -42,6 +43,7 @@ export interface IStakingFlowConfig {
   claimWithTx?: boolean;
   usePublicKey?: boolean;
   claimWithAmount?: boolean;
+  allowPartialWithdraw?: boolean;
 }
 
 interface IProviderConfig {

@@ -59,6 +59,7 @@ export type INetworkShortCode =
   | 'opbnb'
   | 'fevm'
   | 'holesky'
+  | 'hoodi'
   | 'flare'
   | 'base'
   | 'ton'

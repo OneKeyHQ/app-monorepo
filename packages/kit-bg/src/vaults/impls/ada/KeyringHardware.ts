@@ -268,7 +268,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       tx.body,
       res.payload.witnesses,
       {
-        signOnly: !!encodedTx.signOnly,
+        signOnly: encodedTx.staking?.isStakingTx ? false : !!encodedTx.signOnly,
       },
     );
 

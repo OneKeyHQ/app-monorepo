@@ -42,6 +42,10 @@ const SendConfirmFromSwap = LazyLoadPage(
     ),
 );
 
+const CoinControlPage = LazyLoadPage(
+  () => import('@onekeyhq/kit/src/views/Send/pages/CoinControl'),
+);
+
 export const ModalSendStack: IModalFlowNavigatorConfig<
   EModalSendRoutes,
   IModalSendParamList
@@ -74,5 +78,9 @@ export const ModalSendStack: IModalFlowNavigatorConfig<
   {
     name: EModalSendRoutes.SendSelectDeriveAddress,
     component: DeriveTypesAddress,
+  },
+  {
+    name: EModalSendRoutes.CoinControl,
+    component: CoinControlPage,
   },
 ];

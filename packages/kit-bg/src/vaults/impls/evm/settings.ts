@@ -167,6 +167,19 @@ const stakingConfig: IStakingConfig = {
           },
         },
       },
+      [EEarnProviderEnum.Stakefish]: {
+        supportedSymbols: ['ETH'],
+        configs: {
+          ETH: {
+            enabled: true,
+            tokenAddress: EMPTY_NATIVE_TOKEN_ADDRESS,
+            displayProfit: true,
+            withdrawWithTx: true,
+            claimWithTx: true,
+            allowPartialWithdraw: true,
+          },
+        },
+      },
     },
   },
   [getNetworkIdsMap().sepolia]: {
@@ -212,6 +225,23 @@ const stakingConfig: IStakingConfig = {
             tokenAddress: BinanceSmartChainLISTA,
             displayProfit: true,
             stakingWithApprove: true,
+          },
+        },
+      },
+    },
+  },
+  [getNetworkIdsMap().hoodi]: {
+    providers: {
+      [EEarnProviderEnum.Stakefish]: {
+        supportedSymbols: ['ETH'],
+        configs: {
+          ETH: {
+            enabled: true,
+            tokenAddress: EMPTY_NATIVE_TOKEN_ADDRESS,
+            displayProfit: true,
+            withdrawWithTx: true,
+            claimWithTx: true,
+            allowPartialWithdraw: true,
           },
         },
       },

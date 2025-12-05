@@ -1,10 +1,13 @@
 import { ECoreApiExportedSecretKeyType } from '@onekeyhq/core/src/types';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { EMPTY_NATIVE_TOKEN_ADDRESS } from '@onekeyhq/shared/src/consts/addresses';
 import {
   COINTYPE_ADA,
   IMPL_ADA,
   INDEX_PLACEHOLDER,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
 
 import { EDBAccountType } from '../../../dbs/local/consts';
 
@@ -57,6 +60,25 @@ const settings: IVaultSettings = {
       addressPrefix: '',
     },
   },
+  stakingConfig: {
+    [getNetworkIdsMap().ada]: {
+      providers: {
+        [EEarnProviderEnum.Stakefish]: {
+          supportedSymbols: ['ADA'],
+          configs: {
+            ADA: {
+              enabled: true,
+              tokenAddress: EMPTY_NATIVE_TOKEN_ADDRESS,
+              displayProfit: true,
+              withdrawWithTx: true,
+              claimWithTx: true,
+            },
+          },
+        },
+      },
+    },
+  },
+  stakingResultPollingInterval: 5,
 };
 
 export default Object.freeze(settings);

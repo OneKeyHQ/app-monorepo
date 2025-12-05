@@ -1,3 +1,5 @@
+import type { IEncodedTxAda } from '@onekeyhq/core/src/chains/ada/types';
+
 import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal } from '../../../base/decorators';
 
@@ -22,5 +24,10 @@ export class CoinSelectScene extends BaseScene {
           }
         : undefined,
     };
+  }
+
+  @LogToLocal()
+  public adaEncodedTx(encodedTx: IEncodedTxAda) {
+    return encodedTx;
   }
 }

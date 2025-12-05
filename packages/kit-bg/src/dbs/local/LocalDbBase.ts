@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 // eslint-disable-next-line max-classes-per-file
 
-import { EDeviceType } from '@onekeyfe/hd-shared';
+import { EDeviceType, EFirmwareType } from '@onekeyfe/hd-shared';
 import {
   debounce,
   isEmpty,
@@ -2354,6 +2354,11 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     const deviceNameArr = deviceName.split(':');
     deviceName = deviceNameArr?.[0] || deviceName;
     const serialNo: string | undefined = deviceNameArr?.[1] || undefined;
+    const firmwareStr: string | undefined = deviceNameArr?.[2] || undefined;
+    let firmwareType: EFirmwareType | undefined;
+    if (firmwareStr && firmwareStr.toLowerCase() === 'btc') {
+      firmwareType = EFirmwareType.BitcoinOnly;
+    }
 
     if (passphraseState || qrDevice.buildBy === 'hdkey') {
       if (fullXfp) {
@@ -2451,6 +2456,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           onekey_serial_no?: string;
           onekey_serial?: string;
           serial_no?: string;
+          $app_firmware_type?: EFirmwareType;
         }
       | undefined;
     if (serialNo) {
@@ -2458,6 +2464,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         onekey_serial_no: serialNo || undefined,
         onekey_serial: serialNo || undefined,
         serial_no: serialNo || undefined,
+        $app_firmware_type: firmwareType,
       };
     }
     const featuresStr = featuresInfo ? JSON.stringify(featuresInfo) : '';

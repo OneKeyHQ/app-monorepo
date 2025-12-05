@@ -184,7 +184,10 @@ class ProviderApiCardano extends ProviderApiBase {
     const { accountInfo: { networkId, accountId } = {} } = (
       await this.getAccountsInfo(request)
     )[0];
-    const encodedTx = await vault.buildTxCborToEncodeTx(params.tx);
+    const encodedTx = await vault.buildTxCborToEncodeTx({
+      txHex: params.tx,
+      isSignOnly: true,
+    });
     const result =
       await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
         request,

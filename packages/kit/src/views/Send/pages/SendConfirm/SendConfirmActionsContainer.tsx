@@ -80,7 +80,8 @@ function SendConfirmActionsContainer(props: IProps) {
     useNativeTokenTransferAmountToUpdateAtom();
   const [preCheckTxStatus] = usePreCheckTxStatusAtom();
   const [txAdvancedSettings] = useTxAdvancedSettingsAtom();
-  const { updateSendTxStatus } = useSendConfirmActions().current;
+  const { updateSendTxStatus, clearSelectedUTXOs } =
+    useSendConfirmActions().current;
   const successfullySentTxs = useRef<string[]>([]);
 
   const dappApprove = useDappApproveAction({
@@ -223,6 +224,9 @@ function SendConfirmActionsContainer(props: IProps) {
         }),
       });
 
+      // Clear selected UTXOs after successful transaction (Coin Control)
+      clearSelectedUTXOs();
+
       const signedTx = result[0].signedTx;
 
       void dappApprove.resolve({ result: signedTx });
@@ -247,6 +251,7 @@ function SendConfirmActionsContainer(props: IProps) {
     }
   }, [
     updateSendTxStatus,
+    clearSelectedUTXOs,
     sendSelectedFeeInfo,
     networkId,
     accountId,
