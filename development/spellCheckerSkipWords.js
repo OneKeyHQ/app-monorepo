@@ -1011,5 +1011,8 @@ module.exports = [
   'Brotli',
   'Arial',
   'ip',
+  'hoodi',
+  'stakefish',
   'Dropdown',
+  'Deregistration',
 ];

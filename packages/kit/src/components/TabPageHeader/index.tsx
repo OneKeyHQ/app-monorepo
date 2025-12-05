@@ -17,7 +17,6 @@ export function TabPageHeader({
   sceneName,
   tabRoute,
   selectedHeaderTab,
-  onSelectHeaderTab,
   renderCustomHeaderRightItems,
   customHeaderRightItems,
   customHeaderLeftItems,
@@ -28,19 +27,12 @@ export function TabPageHeader({
     () => (
       <HeaderLeft
         selectedHeaderTab={selectedHeaderTab}
-        onSelectHeaderTab={onSelectHeaderTab}
         sceneName={sceneName}
         tabRoute={tabRoute}
         customHeaderLeftItems={customHeaderLeftItems}
       />
     ),
-    [
-      selectedHeaderTab,
-      onSelectHeaderTab,
-      sceneName,
-      tabRoute,
-      customHeaderLeftItems,
-    ],
+    [selectedHeaderTab, sceneName, tabRoute, customHeaderLeftItems],
   );
 
   const { config } = useAccountSelectorContextData();

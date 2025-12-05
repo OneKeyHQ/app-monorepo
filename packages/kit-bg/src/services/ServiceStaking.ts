@@ -23,10 +23,7 @@ import type {
   EEarnProviderEnum,
   ISupportedSymbol,
 } from '@onekeyhq/shared/types/earn';
-import {
-  earnMainnetNetworkIds,
-  getSymbolSupportedNetworks,
-} from '@onekeyhq/shared/types/earn/earnProvider.constants';
+import { getEarnNetworkIds } from '@onekeyhq/shared/types/earn/earnProvider.constants';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   IAccountHistoryTx,
@@ -82,6 +79,7 @@ import { EApproveType } from '@onekeyhq/shared/types/staking';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 import simpleDb from '../dbs/simple/simpleDb';
+import { devSettingsPersistAtom } from '../states/jotai/atoms';
 import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';
@@ -299,6 +297,8 @@ class ServiceStaking extends ServiceBase {
       protocolVault,
       approveType,
       permitSignature,
+      message,
+      validatorPublicKey,
       ...rest
     } = params;
     const client = await this.getClient(EServiceEndpointEnum.Earn);
@@ -315,9 +315,19 @@ class ServiceStaking extends ServiceBase {
     const isVaultBased = earnUtils.isVaultBasedProvider({
       providerName: provider,
     });
+
+    // Determine publicKey: Stakefish validator pubkey takes priority
+    let publicKey: string | undefined;
+    if (validatorPublicKey) {
+      // Stakefish: use validator pubkey from selector
+      publicKey = validatorPublicKey;
+    } else if (stakingConfig.usePublicKey) {
+      publicKey = account.pub;
+    }
+
     const paramsToSend: Record<string, any> = {
       accountAddress: account.address,
-      publicKey: stakingConfig.usePublicKey ? account.pub : undefined,
+      publicKey,
       term: params.term,
       feeRate: params.feeRate,
       networkId,
@@ -328,7 +338,11 @@ class ServiceStaking extends ServiceBase {
       }),
       approveType,
       permitSignature:
-        approveType === EApproveType.Permit ? permitSignature : undefined,
+        approveType === EApproveType.Permit ||
+        earnUtils.isStakefishProvider({ providerName: provider })
+          ? permitSignature
+          : undefined,
+      message,
       ...rest,
     };
 
@@ -477,11 +491,11 @@ class ServiceStaking extends ServiceBase {
     if (!params?.accountAddress) {
       throw new OneKeyLocalError('accountAddress is required');
     }
-    if (!params?.vault) {
-      throw new OneKeyLocalError('vault is required');
-    }
     if (!params?.amount) {
       throw new OneKeyLocalError('amount is required');
+    }
+    if (!params?.vault && !params?.action) {
+      throw new OneKeyLocalError('vault or action is required');
     }
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const resp = await client.post<{
@@ -726,8 +740,9 @@ class ServiceStaking extends ServiceBase {
     symbol: string;
     vault: string;
     accountAddress: string;
-    action: 'stake' | 'unstake' | 'claim';
+    action: ECheckAmountActionType;
     amount: string;
+    identity?: string;
   }) {
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const amountNumber = BigNumber(params.amount);
@@ -930,10 +945,15 @@ class ServiceStaking extends ServiceBase {
     networkId: string;
     indexedAccountId?: string;
   }) {
+    const devSettings = await devSettingsPersistAtom.get();
+    const enableTestEndpoint =
+      devSettings.enabled && devSettings.settings?.enableTestEndpoint;
+
     const accounts = await this.getEarnAvailableAccounts({
       accountId,
       networkId,
       indexedAccountId,
+      excludeTestNetwork: !enableTestEndpoint,
     });
     const accountParams: {
       networkId: string;
@@ -941,12 +961,14 @@ class ServiceStaking extends ServiceBase {
       publicKey?: string;
     }[] = [];
 
-    earnMainnetNetworkIds.forEach((mainnetNetworkId) => {
-      const account = accounts.find((i) => i.networkId === mainnetNetworkId);
+    const earnNetworkIds = getEarnNetworkIds({ enableTestEndpoint });
+
+    earnNetworkIds.forEach((earnNetworkId) => {
+      const account = accounts.find((i) => i.networkId === earnNetworkId);
       if (account?.apiAddress) {
         accountParams.push({
           accountAddress: account?.apiAddress,
-          networkId: mainnetNetworkId,
+          networkId: earnNetworkId,
           publicKey: account?.pub,
         });
       }
@@ -1217,6 +1239,7 @@ class ServiceStaking extends ServiceBase {
     withdrawAll,
     amount,
     protocolVault,
+    identity,
   }: {
     accountId?: string;
     networkId?: string;
@@ -1226,6 +1249,7 @@ class ServiceStaking extends ServiceBase {
     withdrawAll: boolean;
     amount?: string;
     protocolVault?: string;
+    identity?: string;
   }) {
     if (!networkId || !accountId || !provider) {
       throw new OneKeyLocalError(
@@ -1252,6 +1276,7 @@ class ServiceStaking extends ServiceBase {
         amount: amountNumber.isNaN() ? '0' : amountNumber.toFixed(),
         vault: isVaultBased ? protocolVault : '',
         withdrawAll,
+        identity,
       },
     });
     return result.data;
@@ -1479,6 +1504,7 @@ class ServiceStaking extends ServiceBase {
     accountId: string;
     networkId: string;
     indexedAccountId?: string;
+    excludeTestNetwork?: boolean;
   }) {
     const { accountId, networkId } = params;
     const { accountsInfo } =
@@ -1489,6 +1515,7 @@ class ServiceStaking extends ServiceBase {
         fetchAllNetworkAccounts: accountUtils.isOthersAccount({ accountId })
           ? undefined
           : true,
+        excludeTestNetwork: params.excludeTestNetwork,
       });
 
     // Check if the wallet is using BTC-only firmware

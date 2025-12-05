@@ -58,6 +58,20 @@ export type IAdaChangeAddress = {
   };
 };
 
+// Certificate types for Cardano staking
+// 0: stake registration, 1: stake deregistration, 2: delegation
+export type IAdaStakingCertificate = {
+  type: number;
+  stakeCredential?: string;
+  poolId?: string; // only for delegation certificate (type 2)
+  poolKeyHash?: string; // pool key hash for delegation
+};
+
+export type IAdaStakingInfo = {
+  isStakingTx: boolean;
+  certificates: IAdaStakingCertificate[];
+};
+
 export type IEncodedTxAda = {
   inputs: IAdaEncodeInput[];
   outputs: IAdaEncodeOutput[];
@@ -72,6 +86,7 @@ export type IEncodedTxAda = {
   tx: IAdaTxInfo;
   changeAddress: IAdaChangeAddress;
   signOnly?: boolean;
+  staking?: IAdaStakingInfo;
 };
 
 // export type IAdaHistory = {

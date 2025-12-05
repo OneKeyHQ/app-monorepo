@@ -5,7 +5,7 @@ import { RootSiblingParent } from 'react-native-root-siblings';
 import {
   ETabletViewType,
   TabletModeViewContext,
-  useIsTablet,
+  useIsNativeTablet,
 } from '@onekeyhq/components';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
@@ -105,7 +105,7 @@ const usePreCheckIsDualScreenDevice = platformEnv.isNativeAndroid
 
 export function Container() {
   usePreCheckIsDualScreenDevice();
-  const isTablet = useIsTablet();
+  const isTablet = useIsNativeTablet();
   if (isTablet) {
     return (
       <RootSiblingParent>

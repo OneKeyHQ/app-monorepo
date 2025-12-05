@@ -9,6 +9,7 @@ import {
   Stack,
   TabStackNavigator,
   useIsTabletDetailView,
+  useIsTabletMainView,
   useMedia,
   useOrientation,
 } from '@onekeyhq/components';
@@ -35,7 +36,8 @@ const useIsIOSTabNavigatorFocused =
 let isRendered = false;
 function InPageTabContainer() {
   const isRenderedRef = useRef(isRendered);
-  if (isRenderedRef.current) {
+  const isTabletMainView = useIsTabletMainView();
+  if (isRenderedRef.current || isTabletMainView) {
     return null;
   }
   isRendered = true;
@@ -57,7 +59,7 @@ const useCheckTabsChangedInDev = platformEnv.isDev
         ) {
           // @react-navigation/core/src/useNavigationBuilder.tsx 532L
           // eslint-disable-next-line no-restricted-syntax
-          throw new Error(
+          console.warn(
             'tabs changed, please check the config. This may cause infinite rendering loops in react navigation tab navigator',
           );
         }

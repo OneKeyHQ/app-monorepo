@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo } from 'react';
 
-import { CommonActions } from '@react-navigation/native';
 import { Animated, StyleSheet } from 'react-native';
 import { useThrottledCallback } from 'use-debounce';
 
-import { useIsTablet, useSafeAreaInsets } from '@onekeyhq/components/src/hooks';
+import {
+  useIsNativeTablet,
+  useSafeAreaInsets,
+} from '@onekeyhq/components/src/hooks';
 import { Stack } from '@onekeyhq/components/src/primitives';
 import type { IKeyOfIcons } from '@onekeyhq/components/src/primitives';
 import {
@@ -15,8 +17,9 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
-import { ETabMarketRoutes } from '@onekeyhq/shared/src/routes/tabMarket';
 import { ESwapSource } from '@onekeyhq/shared/types/swap/types';
+
+import { switchTab } from '../../Navigator/NavigationContainer';
 
 import { MobileTabItem } from './MobileTabItem';
 
@@ -65,7 +68,7 @@ export default function MobileBottomTabBar({
     });
   }, [heightAnim, opacityAnim]);
 
-  const isTablet = useIsTablet();
+  const isTablet = useIsNativeTablet();
   const onTabPress = useCallback(
     (
       route: RouteProp<Record<string, object | undefined>, string>,
@@ -89,27 +92,19 @@ export default function MobileBottomTabBar({
       }
 
       if (!isActive && !event.defaultPrevented) {
-        navigation.dispatch({
-          ...CommonActions.navigate({
-            name: route.name,
-            merge: true,
-            params:
-              route.name === ETabRoutes.Market
-                ? {
-                    screen: ETabMarketRoutes.TabMarket,
-                    params: { from: EEnterWay.HomeTab },
-                  }
-                : undefined,
-          }),
-          target: state.key,
-        });
+        switchTab(route.name as ETabRoutes);
+        if (route.name === ETabRoutes.Market) {
+          appEventBus.emit(EAppEventBusNames.MarketHomePageEnter, {
+            from: EEnterWay.HomeTab,
+          });
+        }
       }
       const trackId = (options as { trackId?: string })?.trackId;
       if (trackId) {
         defaultLogger.app.page.tabBarClick(trackId);
       }
     },
-    [isTablet, navigation, state.key],
+    [isTablet, navigation],
   );
   const onDebouncedTabPress = useThrottledCallback(onTabPress, 250);
   const handleRoutePress = platformEnv.isNativeAndroid

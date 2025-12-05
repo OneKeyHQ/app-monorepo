@@ -128,9 +128,6 @@ function BasicEarnHome({
   const handleListenTabFocusState = useCallback(
     (isFocus: boolean, isHideByModal: boolean) => {
       const actualFocus = isFocus && !isHideByModal;
-      if (actualFocus && !wasFocusedRef.current) {
-        void refreshEarnData();
-      }
       wasFocusedRef.current = actualFocus;
       setIsEarnTabFocused(actualFocus);
       if (!actualFocus) return;
@@ -155,7 +152,7 @@ function BasicEarnHome({
       void refetchBanners();
       void refetchFAQ();
     },
-    [actions, refetchBanners, refetchFAQ, refreshEarnData],
+    [actions, refetchBanners, refetchFAQ],
   );
 
   useListenTabFocusState(
@@ -363,40 +360,29 @@ export function EarnHomeWithProvider({
 
 const useNavigateToNativeEarnPage = platformEnv.isNative
   ? () => {
-      const { md } = useMedia();
       const navigation = useAppNavigation();
       const route = useAppRoute<ITabEarnParamList, ETabEarnRoutes.EarnHome>();
       const tabParam = route.params?.tab;
 
       useLayoutEffect(() => {
-        if (md) {
-          navigation.navigate(
-            ETabRoutes.Discovery,
-            {
-              screen: ETabDiscoveryRoutes.TabDiscovery,
-              params: {
-                defaultTab: ETranslations.global_earn,
-                earnTab: tabParam,
-              },
+        navigation.navigate(
+          ETabRoutes.Discovery,
+          {
+            screen: ETabDiscoveryRoutes.TabDiscovery,
+            params: {
+              defaultTab: ETranslations.global_earn,
+              earnTab: tabParam,
             },
-            {
-              pop: true,
-            },
-          );
-        }
-      }, [navigation, md, tabParam]);
+          },
+          {
+            pop: true,
+          },
+        );
+      }, [navigation, tabParam]);
     }
   : () => {};
 
 export default function EarnHome() {
   useNavigateToNativeEarnPage();
-  return platformEnv.isNative ? (
-    <Page fullPage>
-      <Page.Body>
-        <EarnHomeWithProvider />
-      </Page.Body>
-    </Page>
-  ) : (
-    <EarnHomeWithProvider />
-  );
+  return platformEnv.isNative ? null : <EarnHomeWithProvider />;
 }

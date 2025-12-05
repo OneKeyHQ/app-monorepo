@@ -5,7 +5,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import type { IPageScreenProps } from '@onekeyhq/components';
 import {
   Page,
-  useIsTablet,
+  useIsNativeTablet,
   useMedia,
   useOrientation,
 } from '@onekeyhq/components';
@@ -75,7 +75,7 @@ function MarketDetailV2(
   props: IPageScreenProps<ITabMarketParamList, ETabMarketRoutes.MarketDetailV2>,
 ) {
   const isLandscape = useOrientation();
-  const isTablet = useIsTablet();
+  const isTablet = useIsNativeTablet();
   useFocusEffect(
     useCallback(() => {
       if (platformEnv.isExtension || (isTablet && isLandscape)) {
