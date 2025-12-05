@@ -25,6 +25,7 @@ import { EOneKeyDeviceMode } from '@onekeyhq/shared/types/device';
 import { Layout } from './utils/Layout';
 
 import type { IDeviceType } from '@onekeyfe/hd-core';
+import { OpenBleSettingsDialog } from '@onekeyhq/kit/src/components/Hardware/HardwareDialog';
 // https://i.mij.rip/2024/09/19/b0cdcbdb45494fe53b831fff02981fdb.jpeg
 
 const HardwareActionTest = () => {
@@ -285,6 +286,18 @@ const HardwareGallery = () => (
               }}
             >
               Test HomeScreen imagePathToHex
+            </Button>
+            <Button
+              onPress={async () => {
+                Dialog.show({
+                  title: 'Test Open Ble Settings Dialog',
+                  dialogContainer: ({ ref }) => (
+                    <OpenBleSettingsDialog ref={ref} />
+                  ),
+                });
+              }}
+            >
+              Test Open Ble Settings Dialog
             </Button>
           </Stack>
         ),
