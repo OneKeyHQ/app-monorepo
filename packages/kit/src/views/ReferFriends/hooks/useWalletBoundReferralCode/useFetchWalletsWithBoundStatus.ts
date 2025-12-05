@@ -2,9 +2,25 @@ import { useCallback } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { useGetReferralCodeWalletInfo } from './useGetReferralCodeWalletInfo';
+
+type IWalletInfo = {
+  wallet: IDBWallet;
+  walletId: string;
+  networkId: string;
+  accountId: string;
+  address: string;
+  pubkey: string | undefined;
+  isBtcOnlyWallet: boolean;
+};
+
+type IWalletWithValidInfo = {
+  wallet: IDBWallet;
+  walletInfo: IWalletInfo;
+};
 
 export function useFetchWalletsWithBoundStatus() {
   const getReferralCodeWalletInfo = useGetReferralCodeWalletInfo();
@@ -22,6 +38,11 @@ export function useFetchWalletsWithBoundStatus() {
         !accountUtils.isHwHiddenWallet({ wallet: w }),
     );
 
+    // Early return if no valid wallets
+    if (validWallets.length === 0) {
+      return [];
+    }
+
     // Get wallet info for each valid wallet
     const walletInfos = await Promise.all(
       validWallets.map(async (w) => {
@@ -32,12 +53,7 @@ export function useFetchWalletsWithBoundStatus() {
 
     // Filter wallets with valid info
     const walletsWithInfo = walletInfos.filter(
-      (
-        item,
-      ): item is {
-        wallet: (typeof item)['wallet'];
-        walletInfo: NonNullable<(typeof item)['walletInfo']>;
-      } => item.walletInfo !== null,
+      (item): item is IWalletWithValidInfo => item.walletInfo !== null,
     );
 
     if (walletsWithInfo.length === 0) {
@@ -57,8 +73,15 @@ export function useFetchWalletsWithBoundStatus() {
         await backgroundApiProxy.serviceReferralCode.batchCheckWalletsBoundReferralCode(
           batchCheckItems,
         );
+      console.log(
+        '===>>> batchCheckWalletsBoundReferralCode result:',
+        batchResult,
+      );
     } catch (error) {
-      console.log('batchCheckWalletsBoundReferralCode error:', error);
+      console.log(
+        '===>>> batchCheckWalletsBoundReferralCode error, treating all as not bound:',
+        error,
+      );
     }
 
     // Build result and update local database
