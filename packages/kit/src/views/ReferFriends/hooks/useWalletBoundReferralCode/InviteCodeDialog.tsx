@@ -284,7 +284,11 @@ export function InviteCodeDialog({
           id: ETranslations.global_apply,
         })}
         confirmButtonProps={{
-          disabled: hasNoWallets || isSelectedWalletBound,
+          disabled:
+            hasNoWallets ||
+            isSelectedWalletBound ||
+            isLoadingWallets ||
+            !selectedWallet,
         }}
       />
     </YStack>
