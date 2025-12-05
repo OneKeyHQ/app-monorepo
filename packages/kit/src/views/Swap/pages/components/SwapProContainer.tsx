@@ -24,11 +24,13 @@ import SwapProTradingPanel from './SwapProTradingPanel';
 interface ISwapProContainerProps {
   onProSelectToken: () => void;
   onOpenOrdersClick: (item: IFetchLimitOrderRes) => void;
+  onSwapProActionClick: () => void;
 }
 
 const SwapProContainer = ({
   onProSelectToken,
   onOpenOrdersClick,
+  onSwapProActionClick,
 }: ISwapProContainerProps) => {
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState<ETabName | string>(
@@ -75,6 +77,7 @@ const SwapProContainer = ({
             configLoading={isLoading}
             balanceLoading={balanceLoading}
             isMev={isMEV}
+            onSwapProActionClick={onSwapProActionClick}
           />
         </YStack>
       </XStack>

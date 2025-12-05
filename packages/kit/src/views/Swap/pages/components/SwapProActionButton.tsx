@@ -1,7 +1,17 @@
-import { Button } from '@onekeyhq/components';
+import { Button, SizableText } from '@onekeyhq/components';
 
-const SwapProActionButton = () => {
-  return <Button>action</Button>;
+interface ISwapProActionButtonProps {
+  onSwapProActionClick: () => void;
+}
+
+const SwapProActionButton = ({
+  onSwapProActionClick,
+}: ISwapProActionButtonProps) => {
+  return (
+    <Button onPress={onSwapProActionClick}>
+      <SizableText>action</SizableText>
+    </Button>
+  );
 };
 
 export default SwapProActionButton;

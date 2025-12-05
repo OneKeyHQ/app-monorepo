@@ -796,3 +796,17 @@ export const { atom: swapProSlippageAtom, use: useSwapProSlippageAtom } =
     key: ESwapSlippageSegmentKey.AUTO,
     value: 0.5,
   });
+
+export const {
+  atom: swapProTokenSupportLimitAtom,
+  use: useSwapProTokenSupportLimitAtom,
+} = contextAtomComputed((get) => {
+  const swapProSelectToken = get(swapProSelectTokenAtom());
+  const swapSupportNetworks = get(swapNetworks());
+  const swapSupportLimitNetworks = swapSupportNetworks.filter(
+    (net) => net.supportLimit,
+  );
+  return !!swapSupportLimitNetworks.find(
+    (net) => net.networkId === swapProSelectToken?.networkId,
+  );
+});

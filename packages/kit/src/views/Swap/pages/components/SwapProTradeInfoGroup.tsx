@@ -4,16 +4,20 @@ import BigNumber from 'bignumber.js';
 
 import { YStack } from '@onekeyhq/components';
 import {
+  useSwapProTradeTypeAtom,
+  useSwapQuoteCurrentSelectAtom,
   useSwapSpeedQuoteFetchingAtom,
   useSwapSpeedQuoteResultAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
+import { ESwapProTradeType } from '@onekeyhq/shared/types/swap/types';
 
 import SwapCommonInfoItem from '../../components/SwapCommonInfoItem';
 import {
   useSwapProInputToken,
   useSwapProToToken,
 } from '../../hooks/useSwapPro';
+import { useSwapQuoteLoading } from '../../hooks/useSwapState';
 
 interface ISwapProTradeInfoGroupProps {
   balanceLoading: boolean;
@@ -24,8 +28,11 @@ const SwapProTradeInfoGroup = ({
 }: ISwapProTradeInfoGroupProps) => {
   const inputToken = useSwapProInputToken();
   const toToken = useSwapProToToken();
-  const [swapProQuoteResult] = useSwapSpeedQuoteResultAtom();
-  const [swapProQuoteFetching] = useSwapSpeedQuoteFetchingAtom();
+  const [swapProQuoteResultPro] = useSwapSpeedQuoteResultAtom();
+  const [swapProQuoteFetchingPro] = useSwapSpeedQuoteFetchingAtom();
+  const [swapCurrentQuoteResult] = useSwapQuoteCurrentSelectAtom();
+  const [swapProTradeType] = useSwapProTradeTypeAtom();
+  const swapQuoteLoading = useSwapQuoteLoading();
   const balanceValue = useMemo(() => {
     const balanceBN = new BigNumber(inputToken?.balanceParsed ?? '0');
     if (balanceBN.isZero() || balanceBN.isNaN()) {
@@ -39,6 +46,20 @@ const SwapProTradeInfoGroup = ({
     });
     return formattedBalance;
   }, [inputToken]);
+
+  const swapProQuoteResult = useMemo(() => {
+    if (swapProTradeType === ESwapProTradeType.LIMIT) {
+      return swapProQuoteResultPro;
+    }
+    return swapCurrentQuoteResult;
+  }, [swapProQuoteResultPro, swapCurrentQuoteResult, swapProTradeType]);
+
+  const swapProQuoteFetching = useMemo(() => {
+    if (swapProTradeType === ESwapProTradeType.LIMIT) {
+      return swapProQuoteFetchingPro;
+    }
+    return swapQuoteLoading;
+  }, [swapProQuoteFetchingPro, swapQuoteLoading, swapProTradeType]);
 
   const receiveValue = useMemo(() => {
     if (swapProQuoteResult?.toAmount) {

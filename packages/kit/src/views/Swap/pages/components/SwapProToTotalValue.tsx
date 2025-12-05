@@ -1,28 +1,50 @@
 import { useCallback } from 'react';
 
+import BigNumber from 'bignumber.js';
+
 import { Stack } from '@onekeyhq/components';
 import {
   useSwapProToTotalValueAtom,
   useSwapProTradeTypeAtom,
   useSwapSpeedQuoteFetchingAtom,
+  useSwapToTokenAmountAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { ESwapProTradeType } from '@onekeyhq/shared/types/swap/types';
 
 import SwapCommonInfoItem from '../../components/SwapCommonInfoItem';
 import SwapProCenterInput from '../../components/SwapProCenterInput';
+import { useSwapProToToken } from '../../hooks/useSwapPro';
 
 const SwapProToTotalValue = () => {
   const [swapProTradeType] = useSwapProTradeTypeAtom();
   const [swapProQuoteFetching] = useSwapSpeedQuoteFetchingAtom();
+  const [, setSwapToTokenAmount] = useSwapToTokenAmountAtom();
   const [swapProToTotalValue, setSwapProToTotalValue] =
     useSwapProToTotalValueAtom();
+  const swapProtoToToken = useSwapProToToken();
   const handleTokenValueChange = useCallback(
     (text: string) => {
       if (swapProTradeType === ESwapProTradeType.LIMIT) {
         setSwapProToTotalValue(text);
+        const toAmountValue = new BigNumber(text);
+        const toTokenPrice = new BigNumber(swapProtoToToken?.price ?? '0');
+        const toTokenAmount = toAmountValue
+          .div(toTokenPrice)
+          .decimalPlaces(swapProtoToToken?.decimals ?? 0, BigNumber.ROUND_DOWN)
+          .toFixed();
+        setSwapToTokenAmount({
+          value: toTokenAmount,
+          isInput: true,
+        });
       }
     },
-    [setSwapProToTotalValue, swapProTradeType],
+    [
+      setSwapProToTotalValue,
+      setSwapToTokenAmount,
+      swapProTradeType,
+      swapProtoToToken?.decimals,
+      swapProtoToToken?.price,
+    ],
   );
   if (swapProTradeType !== ESwapProTradeType.LIMIT) {
     return (

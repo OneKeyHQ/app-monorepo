@@ -30,10 +30,7 @@ import LimitExpirySelect from '../../components/LimitExpirySelect';
 import LimitPartialFillSelect from '../../components/LimitPartialFillSelect';
 import SwapProTradeTypeSelector from '../../components/SwapProTradeTypeSelector';
 import { useSwapLimitConfigMaps } from '../../hooks/useSwapGlobal';
-import {
-  useSwapProActionsQuote,
-  useSwapProTokenInit,
-} from '../../hooks/useSwapPro';
+import { useSwapProActionsQuote } from '../../hooks/useSwapPro';
 
 import SwapProAccountSelect from './SwapProAccountSelect';
 import SwapProActionButton from './SwapProActionButton';
@@ -51,6 +48,7 @@ interface ISwapProTradingPanelProps {
   balanceLoading: boolean;
   configLoading: boolean;
   isMev: boolean;
+  onSwapProActionClick: () => void;
 }
 
 const SwapProTradingPanel = ({
@@ -58,6 +56,7 @@ const SwapProTradingPanel = ({
   balanceLoading,
   isMev,
   configLoading,
+  onSwapProActionClick,
 }: ISwapProTradingPanelProps) => {
   const [swapProDirection, setSwapProDirection] = useSwapProDirectionAtom();
   const [swapProTradeType, setSwapProTradeType] = useSwapProTradeTypeAtom();
@@ -183,7 +182,7 @@ const SwapProTradingPanel = ({
           </>
         ) : null}
       </YStack>
-      <SwapProActionButton />
+      <SwapProActionButton onSwapProActionClick={onSwapProActionClick} />
     </YStack>
   );
 };

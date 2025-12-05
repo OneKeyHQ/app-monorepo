@@ -12,16 +12,23 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import {
+  useSwapFromTokenAmountAtom,
   useSwapProDirectionAtom,
   useSwapProInputAmountAtom,
+  useSwapProTradeTypeAtom,
   useSwapProUseSelectBuyTokenAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { ESwapProTradeType } from '@onekeyhq/shared/types/swap/types';
 
 import { TokenSelectorPopover } from '../../../Market/MarketDetailV2/components/SwapPanel/components/TokenInputSection/TokenSelectorPopover';
 import { ESwapDirection } from '../../../Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
-import { useSwapProInputToken } from '../../hooks/useSwapPro';
+import {
+  useSwapLimitPriceCheck,
+  useSwapProInputToken,
+  useSwapProToToken,
+} from '../../hooks/useSwapPro';
 
 import type { IToken } from '../../../Market/MarketDetailV2/components/SwapPanel/types';
 
@@ -36,18 +43,33 @@ const SwapProInputContainer = ({
 }: ISwapProInputContainerProps) => {
   const intl = useIntl();
   const [swapProDirection] = useSwapProDirectionAtom();
+  const [swapProTradeType] = useSwapProTradeTypeAtom();
+  const [fromInputAmount, setFromInputAmount] = useSwapFromTokenAmountAtom();
   const [swapProInputAmount, setSwapProInputAmount] =
     useSwapProInputAmountAtom();
   const [, setSwapProUseSelectBuyToken] = useSwapProUseSelectBuyTokenAtom();
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
   const inputToken = useSwapProInputToken();
+  const toToken = useSwapProToToken();
   const handleInputChange = useCallback(
     (text: string) => {
       if (validateAmountInput(text, inputToken?.decimals)) {
-        setSwapProInputAmount(text);
+        if (swapProTradeType === ESwapProTradeType.MARKET) {
+          setSwapProInputAmount(text);
+        } else {
+          setFromInputAmount({
+            value: text,
+            isInput: true,
+          });
+        }
       }
     },
-    [inputToken?.decimals, setSwapProInputAmount],
+    [
+      inputToken?.decimals,
+      setFromInputAmount,
+      setSwapProInputAmount,
+      swapProTradeType,
+    ],
   );
   const handleTokenSelect = useCallback(
     (token: IToken) => {
@@ -58,6 +80,8 @@ const SwapProInputContainer = ({
   const isTokenSelectorVisible =
     swapProDirection === ESwapDirection.BUY && defaultTokens.length > 1;
 
+  useSwapLimitPriceCheck(inputToken, toToken);
+
   return (
     <Stack borderRadius="$2" bg="$bgStrong" mb="$2">
       <Input
@@ -66,7 +90,11 @@ const SwapProInputContainer = ({
           borderWidth: 0,
         }}
         keyboardType="decimal-pad"
-        value={swapProInputAmount}
+        value={
+          swapProTradeType === ESwapProTradeType.MARKET
+            ? swapProInputAmount
+            : fromInputAmount.value
+        }
         onChangeText={handleInputChange}
         leftAddOnProps={{
           label: intl.formatMessage({ id: ETranslations.content__amount }),

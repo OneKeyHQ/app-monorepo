@@ -3,9 +3,12 @@ import { useCallback } from 'react';
 import BigNumber from 'bignumber.js';
 
 import {
+  useSwapFromTokenAmountAtom,
   useSwapProInputAmountAtom,
   useSwapProSliderValueAtom,
+  useSwapProTradeTypeAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import { ESwapProTradeType } from '@onekeyhq/shared/types/swap/types';
 
 import { PerpsSlider } from '../../../Perp/components/PerpsSlider';
 import { useSwapProInputToken } from '../../hooks/useSwapPro';
@@ -13,6 +16,8 @@ import { useSwapProInputToken } from '../../hooks/useSwapPro';
 const SwapProSlider = () => {
   const inputToken = useSwapProInputToken();
   const [, setSwapProInputAmount] = useSwapProInputAmountAtom();
+  const [swapProTradeType] = useSwapProTradeTypeAtom();
+  const [, setSwapFromTokenAmount] = useSwapFromTokenAmountAtom();
   const [swapProSliderValue, setSwapProSliderValue] =
     useSwapProSliderValueAtom();
   const handleSliderPercentChange = useCallback(
@@ -31,14 +36,23 @@ const SwapProSlider = () => {
           .multipliedBy(sliderPercentBN)
           .decimalPlaces(inputToken?.decimals, BigNumber.ROUND_DOWN)
           .toFixed();
-        setSwapProInputAmount(inputNewAmount);
+        if (swapProTradeType === ESwapProTradeType.LIMIT) {
+          setSwapFromTokenAmount({
+            value: inputNewAmount,
+            isInput: true,
+          });
+        } else {
+          setSwapProInputAmount(inputNewAmount);
+        }
       }
     },
     [
       inputToken?.balanceParsed,
       inputToken?.decimals,
+      setSwapFromTokenAmount,
       setSwapProInputAmount,
       setSwapProSliderValue,
+      swapProTradeType,
     ],
   );
 

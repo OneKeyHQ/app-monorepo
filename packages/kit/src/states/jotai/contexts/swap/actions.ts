@@ -2022,28 +2022,32 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         console.error(error);
       }
       this.limitOrderMarketPriceInterval = setTimeout(() => {
-        void this.limitOrderMarketPriceIntervalAction.call(set);
+        void this.limitOrderMarketPriceIntervalAction.call(
+          set,
+          fromToken,
+          toToken,
+        );
       }, ESwapLimitOrderMarketPriceUpdateInterval);
     },
   );
 
-  limitOrderMarketPriceIntervalAction = contextAtomMethod(async (get, set) => {
-    if (this.limitOrderMarketPriceInterval) {
-      clearInterval(this.limitOrderMarketPriceInterval);
-    }
-    const type = get(swapTypeSwitchAtom());
-    if (type !== ESwapTabSwitchType.LIMIT) {
-      set(limitOrderMarketPriceAtom(), {});
-      return;
-    }
-    const fromToken = get(swapSelectFromTokenAtom());
-    const toToken = get(swapSelectToTokenAtom());
-    if (checkWrappedTokenPair({ fromToken, toToken })) {
-      set(limitOrderMarketPriceAtom(), {});
-      return;
-    }
-    await this.limitMarketPriceRun.call(set, fromToken, toToken);
-  });
+  limitOrderMarketPriceIntervalAction = contextAtomMethod(
+    async (get, set, fromToken?: ISwapToken, toToken?: ISwapToken) => {
+      if (this.limitOrderMarketPriceInterval) {
+        clearInterval(this.limitOrderMarketPriceInterval);
+      }
+      const type = get(swapTypeSwitchAtom());
+      if (type !== ESwapTabSwitchType.LIMIT) {
+        set(limitOrderMarketPriceAtom(), {});
+        return;
+      }
+      if (checkWrappedTokenPair({ fromToken, toToken })) {
+        set(limitOrderMarketPriceAtom(), {});
+        return;
+      }
+      await this.limitMarketPriceRun.call(set, fromToken, toToken);
+    },
+  );
 
   swapProTokenMarketDetailFetchAction = contextAtomMethod(
     async (get, set, contractAddress: string, networkId: string) => {

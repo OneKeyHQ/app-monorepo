@@ -37,6 +37,7 @@ import {
   useSwapSelectToTokenAtom,
   useSwapSelectedFromTokenBalanceAtom,
   useSwapShouldRefreshQuoteAtom,
+  useSwapSpeedQuoteResultAtom,
   useSwapStepsAtom,
   useSwapToTokenAmountAtom,
   useSwapTypeSwitchAtom,
@@ -142,19 +143,27 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   const [fromSelectToken] = useSwapSelectFromTokenAtom();
   const [toSelectToken] = useSwapSelectToTokenAtom();
   const { slippageItem } = useSwapSlippagePercentageModeInfo();
-  const [currentQuoteRes] = useSwapQuoteCurrentSelectAtom();
+  const [currentQuote] = useSwapQuoteCurrentSelectAtom();
   const [, setSwapSteps] = useSwapStepsAtom();
   const [swapToAmount] = useSwapToTokenAmountAtom();
   const [swapLimitUseRate] = useSwapLimitPriceUseRateAtom();
   const [toToken] = useSwapSelectToTokenAtom();
   const [fromAmount] = useSwapFromTokenAmountAtom();
   const [swapStepData] = useSwapStepsAtom();
-
+  const [swapProQuoteResult] = useSwapSpeedQuoteResultAtom();
+  const focusSwapPro = useMemo(() => {
+    return platformEnv.isNative && swapTypeSwitch === ESwapTabSwitchType.LIMIT;
+  }, [swapTypeSwitch]);
+  const currentQuoteRes = useMemo(() => {
+    if (focusSwapPro) {
+      return swapProQuoteResult;
+    }
+    return currentQuote;
+  }, [focusSwapPro, currentQuote, swapProQuoteResult]);
   useSwapProInit();
 
   const [swapNativeTokenReserveGas] = useSwapNativeTokenReserveGasAtom();
   const swapSlippageRef = useRef(slippageItem);
-  const showSwapPro = useMemo(() => platformEnv.isNative, []);
   if (swapSlippageRef.current !== slippageItem) {
     swapSlippageRef.current = slippageItem;
   }
@@ -825,8 +834,10 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     if (!currentQuoteRes) {
       return;
     }
-    cleanQuoteInterval();
-    setSwapShouldRefreshQuote(true);
+    if (!focusSwapPro) {
+      cleanQuoteInterval();
+      setSwapShouldRefreshQuote(true);
+    }
     parseQuoteResultToSteps();
     setSwapBuildTxFetching(true);
     setTimeout(() => {
@@ -898,6 +909,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   }, [
     InTabDialog,
     InModalDialog,
+    focusSwapPro,
     currentQuoteRes,
     cleanQuoteInterval,
     setSwapShouldRefreshQuote,
@@ -949,14 +961,13 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
           flex: 'unset',
           pt: pageType === EPageType.modal ? '$2.5' : '$5',
         }}
-        {...(showSwapPro && swapTypeSwitch === ESwapTabSwitchType.LIMIT
-          ? { pb: '$0' }
-          : { pb: '$5' })}
+        {...(focusSwapPro ? { pb: '$0' } : { pb: '$5' })}
       >
-        {showSwapPro && swapTypeSwitch === ESwapTabSwitchType.LIMIT ? (
+        {focusSwapPro ? (
           <SwapProContainer
             onProSelectToken={onProSelectToken}
             onOpenOrdersClick={onOpenOrdersClick}
+            onSwapProActionClick={onPreSwap}
           />
         ) : (
           <ScrollView

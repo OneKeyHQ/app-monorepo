@@ -13,6 +13,8 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ESwapProTradeType } from '@onekeyhq/shared/types/swap/types';
 
+import { useSwapProTokenSupportLimitAtom } from '../../../states/jotai/contexts/swap';
+
 interface ISwapProTradeTypeSelectorProps {
   selectItems: ISelectItem[];
   currentSelect: ESwapProTradeType;
@@ -26,7 +28,7 @@ const SwapProTradeTypeSelector = ({
 }: ISwapProTradeTypeSelectorProps) => {
   const intl = useIntl();
   const [isOpen, setIsOpen] = useState(false);
-
+  const [swapProTokenSupportLimit] = useSwapProTokenSupportLimitAtom();
   const handleItemPress = (value: ESwapProTradeType) => {
     onSelectTradeType(value);
     setIsOpen(false);
@@ -98,6 +100,10 @@ const SwapProTradeTypeSelector = ({
                 handleItemPress(item.value as ESwapProTradeType);
                 closePopover();
               }}
+              disabled={Boolean(
+                item.value === ESwapProTradeType.LIMIT &&
+                  !swapProTokenSupportLimit,
+              )}
               alignItems="center"
               cursor="pointer"
               opacity={item.disabled ? 0.5 : 1}

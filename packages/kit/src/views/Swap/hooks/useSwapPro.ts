@@ -10,9 +10,16 @@ import {
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import {
+  checkWrappedTokenPair,
+  equalTokenNoCaseSensitive,
+} from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IMarketSearchV2Token } from '@onekeyhq/shared/types/market';
 import type { IMarketTokenTransaction } from '@onekeyhq/shared/types/marketV2';
-import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
+import type {
+  IFetchQuoteResult,
+  ISwapToken,
+} from '@onekeyhq/shared/types/swap/types';
 import {
   ESwapProTradeType,
   ESwapTabSwitchType,
@@ -24,15 +31,21 @@ import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import {
   useSwapActions,
+  useSwapFromTokenAmountAtom,
+  useSwapLimitPriceFromAmountAtom,
+  useSwapLimitPriceToAmountAtom,
   useSwapProDirectionAtom,
   useSwapProInputAmountAtom,
   useSwapProSelectTokenAtom,
   useSwapProSellToTokenAtom,
   useSwapProSlippageAtom,
   useSwapProToTotalValueAtom,
+  useSwapProTokenSupportLimitAtom,
   useSwapProTradeTypeAtom,
   useSwapProUseSelectBuyTokenAtom,
+  useSwapQuoteCurrentSelectAtom,
   useSwapSpeedQuoteResultAtom,
+  useSwapToTokenAmountAtom,
   useSwapTypeSwitchAtom,
 } from '../../../states/jotai/contexts/swap';
 import { useMarketBasicConfig } from '../../Market/hooks';
@@ -134,7 +147,9 @@ export function useSwapProTokenInit() {
   const [swapProSelectToken, setSwapProSelectToken] =
     useSwapProSelectTokenAtom();
   const [swapProDirection] = useSwapProDirectionAtom();
+  const [swapProTokenSupportLimit] = useSwapProTokenSupportLimitAtom();
   const [swapProJumpToken] = useSwapProJumpTokenAtom();
+  const [swapProTradeType, setSwapProTradeType] = useSwapProTradeTypeAtom();
   const [swapProSellToToken, setSwapProSellToToken] =
     useSwapProSellToTokenAtom();
   const [swapProUseSelectBuyTokenAtom, setSwapProUseSelectBuyTokenAtom] =
@@ -157,6 +172,22 @@ export function useSwapProTokenInit() {
     setSwapProUseSelectBuyTokenAtom,
     setSwapProSelectToken,
     defaultTokens,
+  ]);
+
+  useEffect(() => {
+    if (
+      !swapProTokenSupportLimit &&
+      swapProSelectToken &&
+      swapProTradeType === ESwapProTradeType.LIMIT
+    ) {
+      setSwapProTradeType(ESwapProTradeType.MARKET);
+    }
+  }, [
+    swapProTokenSupportLimit,
+    setSwapProSelectToken,
+    swapProSelectToken,
+    swapProTradeType,
+    setSwapProTradeType,
   ]);
 
   useEffect(() => {
@@ -585,4 +616,87 @@ export function useSwapProActionsQuote() {
   return {
     quoteSpeedAction,
   };
+}
+
+export function useSwapLimitPriceCheck(
+  fromToken?: ISwapToken,
+  toToken?: ISwapToken,
+) {
+  const [swapLimitPriceFromAmount] = useSwapLimitPriceFromAmountAtom();
+  const [swapLimitPriceToAmount] = useSwapLimitPriceToAmountAtom();
+  const [swapTypeSwitchValue] = useSwapTypeSwitchAtom();
+  const [, setFromInputAmount] = useSwapFromTokenAmountAtom();
+  const [, setToInputAmount] = useSwapToTokenAmountAtom();
+  const [swapQuoteCurrentSelect] = useSwapQuoteCurrentSelectAtom();
+  useEffect(() => {
+    if (
+      swapTypeSwitchValue === ESwapTabSwitchType.LIMIT &&
+      swapLimitPriceFromAmount
+    ) {
+      setFromInputAmount({
+        value: swapLimitPriceFromAmount,
+        isInput: false,
+      });
+    }
+  }, [setFromInputAmount, swapLimitPriceFromAmount, swapTypeSwitchValue]);
+
+  useEffect(() => {
+    if (
+      swapTypeSwitchValue === ESwapTabSwitchType.LIMIT &&
+      swapLimitPriceToAmount
+    ) {
+      setToInputAmount({
+        value: swapLimitPriceToAmount,
+        isInput: false,
+      });
+    }
+  }, [setToInputAmount, swapLimitPriceToAmount, swapTypeSwitchValue]);
+
+  useEffect(() => {
+    if (
+      swapTypeSwitchValue !== ESwapTabSwitchType.LIMIT ||
+      checkWrappedTokenPair({
+        fromToken,
+        toToken,
+      })
+    ) {
+      let toAmount = '';
+      if (
+        equalTokenNoCaseSensitive({
+          token1: fromToken,
+          token2: swapQuoteCurrentSelect?.fromTokenInfo,
+        }) &&
+        equalTokenNoCaseSensitive({
+          token1: toToken,
+          token2: swapQuoteCurrentSelect?.toTokenInfo,
+        })
+      ) {
+        toAmount = swapQuoteCurrentSelect?.toAmount ?? '';
+      }
+      if (
+        checkWrappedTokenPair({
+          fromToken,
+          toToken,
+        })
+      ) {
+        toAmount = swapQuoteCurrentSelect?.isWrapped
+          ? swapQuoteCurrentSelect?.toAmount ?? ''
+          : '';
+      }
+      setToInputAmount({
+        value: toAmount,
+        isInput: false,
+      });
+    }
+  }, [
+    swapQuoteCurrentSelect?.toAmount,
+    swapQuoteCurrentSelect?.fromTokenInfo,
+    swapQuoteCurrentSelect?.toTokenInfo,
+    swapQuoteCurrentSelect?.isWrapped,
+    setToInputAmount,
+    setFromInputAmount,
+    swapTypeSwitchValue,
+    fromToken,
+    toToken,
+  ]);
 }

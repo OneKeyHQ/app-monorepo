@@ -1,35 +1,27 @@
-import { useCallback } from 'react';
-
-import {
-  useSwapProLimitPriceValueAtom,
-  useSwapProTradeTypeAtom,
-} from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import { useSwapProTradeTypeAtom } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { ESwapProTradeType } from '@onekeyhq/shared/types/swap/types';
 
 import SwapProCenterInput from '../../components/SwapProCenterInput';
+import { useSwapLimitRate } from '../../hooks/useSwapLimitRate';
 
 const SwapProLimitPriceValue = () => {
-  const [swapProLimitPriceValue, setSwapProLimitPriceValue] =
-    useSwapProLimitPriceValueAtom();
   const [swapProTradeType] = useSwapProTradeTypeAtom();
-
-  const handleTokenValueChange = useCallback(
-    (text: string) => {
-      if (swapProTradeType === ESwapProTradeType.LIMIT) {
-        setSwapProLimitPriceValue(text);
-      }
-    },
-    [setSwapProLimitPriceValue, swapProTradeType],
-  );
-
+  const {
+    onLimitRateChange,
+    limitPriceUseRate,
+    // onSetMarketPrice,
+    // limitPriceSetReverse,
+    // onChangeReverse,
+    // limitPriceEqualMarketPrice,
+  } = useSwapLimitRate();
   if (swapProTradeType !== ESwapProTradeType.LIMIT) {
     return null;
   }
   return (
     <SwapProCenterInput
       title="Limit price value"
-      value={swapProLimitPriceValue}
-      onChangeText={handleTokenValueChange}
+      value={limitPriceUseRate.inputRate ?? ''}
+      onChangeText={onLimitRateChange}
       inputDisabled={false}
     />
   );
