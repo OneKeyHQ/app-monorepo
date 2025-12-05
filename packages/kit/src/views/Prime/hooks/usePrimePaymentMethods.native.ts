@@ -67,26 +67,26 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
   }, []);
 
   const loginPurchasesSdk = useCallback(async () => {
-    if (!user?.supabaseUserId) {
+    if (!user?.onekeyUserId) {
       throw new OneKeyLocalError('User not logged in');
     }
-    if (user?.supabaseUserId) {
+    if (user?.onekeyUserId) {
       try {
-        await PurchasesReactNative.logIn(user.supabaseUserId);
+        await PurchasesReactNative.logIn(user.onekeyUserId);
       } catch (e) {
         console.error(e);
       }
       try {
-        await PurchasesReactNative.logIn(user.supabaseUserId);
+        await PurchasesReactNative.logIn(user.onekeyUserId);
       } catch (e) {
         console.error(e);
       }
     }
     const appUserId = await PurchasesReactNative.getAppUserID();
-    if (appUserId !== user?.supabaseUserId) {
+    if (appUserId !== user?.onekeyUserId) {
       throw new OneKeyLocalError('AppUserId not match');
     }
-  }, [user?.supabaseUserId]);
+  }, [user?.onekeyUserId]);
 
   const restorePurchases = useCallback(async () => {
     try {

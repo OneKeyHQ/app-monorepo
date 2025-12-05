@@ -124,7 +124,7 @@ function EnableOneKeyCloudSwitchListItem() {
   }, [passwordSettings.appLockDuration, passwordSettings.isPasswordSet]);
 
   const { user } = usePrimeAuthV2();
-  const isPrimeUser = user?.primeSubscription?.isActive && user?.supabaseUserId;
+  const isPrimeUser = user?.primeSubscription?.isActive && user?.onekeyUserId;
 
   return (
     <ListItem

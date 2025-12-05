@@ -18,7 +18,7 @@ export const primePersistAtomInitialValue: IPrimePersistAtomData = {
   isPrimeDeviceLimitExceeded: undefined,
   email: undefined,
   displayEmail: undefined,
-  supabaseUserId: undefined,
+  onekeyUserId: undefined,
   primeSubscription: undefined,
   subscriptionManageUrl: undefined,
 };

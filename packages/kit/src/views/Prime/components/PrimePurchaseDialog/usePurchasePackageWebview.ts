@@ -40,7 +40,7 @@ export function usePurchasePackageWebview() {
         isWebEmbed: true,
         hashRoutePath: EWebEmbedRoutePath.primePurchase,
         hashRouteQueryParams: {
-          primeUserId: user?.supabaseUserId || '',
+          primeUserId: user?.onekeyUserId || '',
           primeUserEmail: user?.email || '',
           subscriptionPeriod: selectedSubscriptionPeriod,
           locale: intl.locale,
@@ -50,7 +50,7 @@ export function usePurchasePackageWebview() {
         },
       });
     },
-    [navigation, user?.supabaseUserId, user?.email, intl.locale],
+    [navigation, user?.onekeyUserId, user?.email, intl.locale],
   );
 
   return purchasePackageWebview;

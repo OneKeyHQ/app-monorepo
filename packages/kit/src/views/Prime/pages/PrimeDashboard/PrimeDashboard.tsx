@@ -143,15 +143,11 @@ export default function PrimeDashboard({
     if (isPrimeSubscriptionActive) {
       return false;
     }
-    if (!user?.supabaseUserId) {
+    if (!user?.onekeyUserId) {
       return false;
     }
     return true;
-  }, [
-    isPrimeSubscriptionActive,
-    shouldShowConfirmButton,
-    user?.supabaseUserId,
-  ]);
+  }, [isPrimeSubscriptionActive, shouldShowConfirmButton, user?.onekeyUserId]);
 
   const { getPackagesWeb: getPackagesWeb2 } = usePrimePaymentMethodsWeb();
   // const getPackagesWeb2 = useCallback(async () => {
@@ -192,7 +188,7 @@ export default function PrimeDashboard({
           return [];
         }
 
-        if (!user?.supabaseUserId) {
+        if (!user?.onekeyUserId) {
           return [];
         }
 
@@ -266,7 +262,7 @@ export default function PrimeDashboard({
         getPackagesWeb,
         isReady,
         shouldShowSubscriptionPlans,
-        user?.supabaseUserId,
+        user?.onekeyUserId,
       ],
       {
         watchLoading: true,

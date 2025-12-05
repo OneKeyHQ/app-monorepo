@@ -126,7 +126,7 @@ storage 清空后，尝试获取 user 报错
 - privy 用户迁移
   - 批量获取已注册的 privy 用户
   - 批量创建 supabase 用户
-  - 记录 privyUserId 和 supabaseUserId 映射关系
+  - 记录 privyUserId 和 onekeyUserId 映射关系
 - revenueCat 订购权益数据迁移
   - 服务器更新 revenueCat 已订阅的用户 id（privyId->supabaseId）
 - 云端同步、邀请返佣等相关数据迁移
@@ -316,7 +316,7 @@ async function bulkCreatePasswordlessUsers(emails: string[]) {
 
 # 服务器数据迁移
 
-privyUserId -> supabaseUserId 
+privyUserId -> onekeyUserId 
 
 
 
@@ -326,10 +326,10 @@ privyUserId -> supabaseUserId
 
 ```
 await Purchases.configure({ ..., appUserID: privyUserId });
-await Purchases.logIn(supabaseUserId);
+await Purchases.logIn(onekeyUserId);
 ```
 
-## 服务端 RevenueCat 查询逻辑，需同时支持 privyUserId （旧版客户端）和 supabaseUserId（新版客户端）
+## 服务端 RevenueCat 查询逻辑，需同时支持 privyUserId （旧版客户端）和 onekeyUserId（新版客户端）
 
 
 

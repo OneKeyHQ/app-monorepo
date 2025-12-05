@@ -49,7 +49,7 @@ export function usePrimePaymentMethodsWeb(): IUsePrimePayment {
       if (!apiKey) {
         throw new OneKeyLocalError('No REVENUECAT api key found');
       }
-      if (!user?.supabaseUserId && loginRequired) {
+      if (!user?.onekeyUserId && loginRequired) {
         throw new OneKeyLocalError('User not logged in');
       }
 
@@ -61,11 +61,10 @@ export function usePrimePaymentMethodsWeb(): IUsePrimePayment {
 
       Purchases.configure(
         apiKey,
-        user?.supabaseUserId ||
-          Purchases.generateRevenueCatAnonymousAppUserId(),
+        user?.onekeyUserId || Purchases.generateRevenueCatAnonymousAppUserId(),
       );
     },
-    [isReady, user?.supabaseUserId],
+    [isReady, user?.onekeyUserId],
   );
 
   const getCustomerInfo = useCallback(async () => {
@@ -77,7 +76,7 @@ export function usePrimePaymentMethodsWeb(): IUsePrimePayment {
     console.log('revenuecat customerInfo', customerInfo);
 
     const appUserId = Purchases.getSharedInstance().getAppUserId();
-    if (appUserId !== user?.supabaseUserId) {
+    if (appUserId !== user?.onekeyUserId) {
       throw new OneKeyLocalError('AppUserId not match');
     }
 
@@ -95,7 +94,7 @@ export function usePrimePaymentMethodsWeb(): IUsePrimePayment {
     }
 
     return customerInfo;
-  }, [initSdk, setPrimePersistAtom, user?.supabaseUserId]);
+  }, [initSdk, setPrimePersistAtom, user?.onekeyUserId]);
 
   const getPackagesWeb = useCallback(async () => {
     await initSdk();

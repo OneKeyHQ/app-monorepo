@@ -286,7 +286,7 @@ function MoreActionContentGridItem({
   }, [closePopover, onPress, trackID]);
 
   const { user } = usePrimeAuthV2();
-  const isPrimeUser = user?.primeSubscription?.isActive && user?.supabaseUserId;
+  const isPrimeUser = user?.primeSubscription?.isActive && user?.onekeyUserId;
 
   if (isPrimeFeature && !isPrimeAvailable) {
     return null;
@@ -447,7 +447,7 @@ function MoreActionContentGrid() {
 
   const checkIsPrimeUser = useCallback(
     (showFeature: EPrimeFeatures) => {
-      if (user?.primeSubscription?.isActive && user?.supabaseUserId) {
+      if (user?.primeSubscription?.isActive && user?.onekeyUserId) {
         return true;
       }
       navigation.pushFullModal(EModalRoutes.PrimeModal, {
@@ -500,7 +500,7 @@ function MoreActionContentGrid() {
 
   const scanQrCode = useScanQrCode();
 
-  const isPrimeUser = user?.primeSubscription?.isActive && user?.supabaseUserId;
+  const isPrimeUser = user?.primeSubscription?.isActive && user?.onekeyUserId;
 
   const handleScan = useCallback(async () => {
     await scanQrCode.start({

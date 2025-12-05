@@ -89,7 +89,7 @@ export abstract class PurchasesSdkWebBase extends PurchasesSdkBase {
           locale: locale as ILocaleJSONSymbol,
         }),
       };
-      // TODO check package user is Matched to supabaseUserId
+      // TODO check package user is Matched to onekeyUserId
       // TODO check if user has already purchased
       const purchase = await Purchases.getSharedInstance().purchase(
         purchaseParams,

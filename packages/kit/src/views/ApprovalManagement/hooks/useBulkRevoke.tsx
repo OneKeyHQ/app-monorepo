@@ -33,7 +33,7 @@ function useBulkRevoke() {
   const intl = useIntl();
   const { isPrimeAvailable } = usePrimeAvailable();
   const { user } = usePrimeAuthV2();
-  const isPrimeUser = user?.primeSubscription?.isActive && user?.supabaseUserId;
+  const isPrimeUser = user?.primeSubscription?.isActive && user?.onekeyUserId;
 
   const [isBuildingRevokeTxs, setIsBuildingRevokeTxs] = useState(false);
   const navigation = useAppNavigation();

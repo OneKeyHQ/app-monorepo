@@ -15,7 +15,7 @@ import type { Session } from '@supabase/supabase-js';
 
 export default function SupabaseAuthProvider({ children }: PropsWithChildren) {
   const [authSession, setSession] = useState<Session | undefined | null>();
-  const [profile, setProfile] = useState<any>();
+  // const [profile, setProfile] = useState<any>();
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   // TODO move to OneKeyAuthGlobalEffects
@@ -60,16 +60,16 @@ export default function SupabaseAuthProvider({ children }: PropsWithChildren) {
   useEffect(() => {
     const fetchProfile = async () => {
       setIsLoading(true);
-      if (authSession) {
-        const { data } = await getSupabaseClient()
-          .client.from('profiles')
-          .select('*')
-          .eq('id', authSession.user.id)
-          .single();
-        setProfile(data);
-      } else {
-        setProfile(null);
-      }
+      // if (authSession) {
+      //   const { data } = await getSupabaseClient()
+      //     .client.from('profiles')
+      //     .select('*')
+      //     .eq('id', authSession.user.id)
+      //     .single();
+      //   setProfile(data);
+      // } else {
+      //   setProfile(null);
+      // }
       setIsLoading(false);
     };
     void fetchProfile();
@@ -81,10 +81,10 @@ export default function SupabaseAuthProvider({ children }: PropsWithChildren) {
         () => ({
           session: authSession,
           isLoading,
-          profile,
+          // profile,
           isLoggedIn: !!authSession,
         }),
-        [authSession, profile, isLoading],
+        [authSession, isLoading],
       )}
     >
       {children}

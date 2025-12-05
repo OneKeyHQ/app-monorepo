@@ -132,7 +132,7 @@ export function usePrimePurchaseCallback({
             featureName,
           });
           // await backgroundApiProxy.servicePrime.initRevenuecatPurchases({
-          //   supabaseUserId: user.supabaseUserId || '',
+          //   onekeyUserId: user.onekeyUserId || '',
           // });
           // await backgroundApiProxy.servicePrime.purchasePaywallPackage({
           //   packageId: selectedPackageId,

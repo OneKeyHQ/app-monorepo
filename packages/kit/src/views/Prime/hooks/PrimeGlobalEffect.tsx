@@ -47,7 +47,7 @@ function PrimeGlobalEffectView() {
   userRef.current = user;
 
   const autoRefreshPrimeUserInfo = useCallback(async () => {
-    if (isReady && user?.supabaseUserId && user?.isLoggedInOnServer) {
+    if (isReady && user?.onekeyUserId && user?.isLoggedInOnServer) {
       // wait 600ms to ensure the apiLogin() is finished
       await timerUtils.wait(600);
 
@@ -59,11 +59,11 @@ function PrimeGlobalEffectView() {
         await backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo();
       }
     }
-  }, [isReady, user?.supabaseUserId, user?.isLoggedInOnServer]);
+  }, [isReady, user?.onekeyUserId, user?.isLoggedInOnServer]);
 
   useEffect(() => {
     void (async () => {
-      if (platformEnv.isDev && isReady && user?.supabaseUserId) {
+      if (platformEnv.isDev && isReady && user?.onekeyUserId) {
         const customerInfo = await getCustomerInfo();
 
         const customerInfoWeb = customerInfo as IRevenueCatCustomerInfoWeb;
@@ -116,7 +116,7 @@ function PrimeGlobalEffectView() {
         }
       }
     })();
-  }, [getCustomerInfo, isReady, user?.supabaseUserId]);
+  }, [getCustomerInfo, isReady, user?.onekeyUserId]);
 
   useEffect(() => {
     void autoRefreshPrimeUserInfo();
@@ -157,17 +157,12 @@ function PrimeGlobalEffectView() {
       // Do not save accessToken here, apiLogin() will save it
 
       if (accessToken) {
-        setPrimePersistAtom(
-          (v): IPrimeUserInfo => ({
-            ...v,
-            isLoggedIn: true,
-            email: supabaseUser?.email,
-            supabaseUserId: supabaseUser?.id,
-          }),
-        );
+        // do nothing here, apiLogin() will set the primePersistAtom and update login status
       } else {
         defaultLogger.prime.subscription.onekeyIdAtomNotLoggedIn({
-          reason: 'PrimeGlobalEffect: privySdk.getAccessToken() is null',
+          reason: `PrimeGlobalEffect: privySdk.getAccessToken() is null, isSupabaseLoggedIn=${
+            isSupabaseLoggedIn?.toString() ?? 'null'
+          }`,
         });
         await backgroundApiProxy.servicePrime.setPrimePersistAtomNotLoggedIn();
       }
@@ -185,8 +180,6 @@ function PrimeGlobalEffectView() {
     isReady,
     isSupabaseLoggedIn,
     getSupabaseAccessToken,
-    supabaseUser?.email,
-    supabaseUser?.id,
   ]);
 
   useEffect(() => {

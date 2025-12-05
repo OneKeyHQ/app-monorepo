@@ -22,13 +22,13 @@ export function PrimeHeaderIconButton({
   const themeVariant = useThemeVariant();
 
   const icon = useMemo(() => {
-    if (isPrime && user?.supabaseUserId) {
+    if (isPrime && user?.onekeyUserId) {
       return themeVariant === 'light'
         ? 'OnekeyPrimeLightColored'
         : 'OnekeyPrimeDarkColored';
     }
     return 'PrimeOutline';
-  }, [isPrime, themeVariant, user?.supabaseUserId]);
+  }, [isPrime, themeVariant, user?.onekeyUserId]);
 
   const onPrimeButtonPressed = useCallback(async () => {
     if (onPress) {

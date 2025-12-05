@@ -40,7 +40,7 @@ function WalletEditButtonView({
   const { user } = usePrimeAuthV2();
 
   const isPrimeUser = useMemo(() => {
-    return user?.primeSubscription?.isActive && user?.supabaseUserId;
+    return user?.primeSubscription?.isActive && user?.onekeyUserId;
   }, [user]);
 
   const showDeviceManagementButton = useMemo(() => {

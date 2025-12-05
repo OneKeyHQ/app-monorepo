@@ -15,7 +15,7 @@ export type IPrimeUserInfo = {
   isPrimeDeviceLimitExceeded: boolean | undefined;
   email: string | undefined; // update by local supabase sdk
   displayEmail: string | undefined; // update by server api
-  supabaseUserId: string | undefined;
+  onekeyUserId: string | undefined;
   subscriptionManageUrl: string | undefined; // update by local revenuecat sdk: Purchases.getCustomerInfo()
   primeSubscription: IPrimeSubscriptionInfo | undefined;
 };

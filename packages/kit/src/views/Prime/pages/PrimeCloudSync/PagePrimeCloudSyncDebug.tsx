@@ -457,7 +457,7 @@ function StatusPanel() {
       })}
       {renderTestItem({
         title: 'OneKeyID 已登录',
-        checkValue: !!user?.supabaseUserId,
+        checkValue: !!user?.onekeyUserId,
       })}
       {renderTestItem({
         title: 'Prime 已付费，且订阅未过期',
