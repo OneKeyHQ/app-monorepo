@@ -116,66 +116,66 @@ export class BackgroundApiProxyBase
     ...params: Array<any>
   ): Promise<any> {
     ensureSerializable(params);
-    let [serviceName, methodName] = method.split('.');
-    if (!methodName) {
-      methodName = serviceName;
-      serviceName = '';
-    }
-    if (serviceName === 'ROOT') {
-      serviceName = '';
-    }
-    let backgroundMethodName = `${INTERNAL_METHOD_PREFIX}${methodName}`;
+    // let [serviceName, methodName] = method.split('.');
+    // if (!methodName) {
+    //   methodName = serviceName;
+    //   serviceName = '';
+    // }
+    // if (serviceName === 'ROOT') {
+    //   serviceName = '';
+    // }
+    // let backgroundMethodName = `${INTERNAL_METHOD_PREFIX}${methodName}`;
 
-    if (platformEnv.isExtension && platformEnv.isExtensionUi) {
-      const data: IBackgroundApiInternalCallMessage = {
-        service: serviceName,
-        method: backgroundMethodName,
-        params,
-      };
-      if (sync) {
-        // call without Promise result
-        appGlobals.extJsBridgeUiToBg.requestSync({
-          data,
-        });
-      } else {
-        return appGlobals.extJsBridgeUiToBg.request({
-          data,
-        });
-      }
-    } else {
-      // some third party modules call native object methods, so we should NOT rename method
-      //    react-native/node_modules/pretty-format
-      //    expo/node_modules/pretty-format
-      const IGNORE_METHODS = ['hasOwnProperty', 'toJSON'];
-      if (platformEnv.isNative && IGNORE_METHODS.includes(methodName)) {
-        backgroundMethodName = methodName;
-      }
-      if (!this.backgroundApi) {
-        throw new OneKeyLocalError('backgroundApi not found in non-ext env');
-      }
+    // if (platformEnv.isExtension && platformEnv.isExtensionUi) {
+    //   const data: IBackgroundApiInternalCallMessage = {
+    //     service: serviceName,
+    //     method: backgroundMethodName,
+    //     params,
+    //   };
+    //   if (sync) {
+    //     // call without Promise result
+    //     appGlobals.extJsBridgeUiToBg.requestSync({
+    //       data,
+    //     });
+    //   } else {
+    //     return appGlobals.extJsBridgeUiToBg.request({
+    //       data,
+    //     });
+    //   }
+    // } else {
+    //   // some third party modules call native object methods, so we should NOT rename method
+    //   //    react-native/node_modules/pretty-format
+    //   //    expo/node_modules/pretty-format
+    //   const IGNORE_METHODS = ['hasOwnProperty', 'toJSON'];
+    //   if (platformEnv.isNative && IGNORE_METHODS.includes(methodName)) {
+    //     backgroundMethodName = methodName;
+    //   }
+    //   if (!this.backgroundApi) {
+    //     throw new OneKeyLocalError('backgroundApi not found in non-ext env');
+    //   }
 
-      const serviceApi = getBackgroundServiceApi({
-        serviceName,
-        backgroundApi: this.backgroundApi,
-      });
+    //   const serviceApi = getBackgroundServiceApi({
+    //     serviceName,
+    //     backgroundApi: this.backgroundApi,
+    //   });
 
-      if (serviceApi[backgroundMethodName] && serviceApi[methodName]) {
-        const resultPromise = serviceApi[methodName].call(
-          serviceApi,
-          ...params,
-        );
-        ensurePromiseObject(resultPromise, {
-          serviceName,
-          methodName,
-        });
-        let result = await resultPromise;
-        result = ensureSerializable(result, true);
-        return result;
-      }
-      if (!IGNORE_METHODS.includes(backgroundMethodName)) {
-        return throwMethodNotFound(serviceName, backgroundMethodName);
-      }
-    }
+    //   if (serviceApi[backgroundMethodName] && serviceApi[methodName]) {
+    //     const resultPromise = serviceApi[methodName].call(
+    //       serviceApi,
+    //       ...params,
+    //     );
+    //     ensurePromiseObject(resultPromise, {
+    //       serviceName,
+    //       methodName,
+    //     });
+    //     let result = await resultPromise;
+    //     result = ensureSerializable(result, true);
+    //     return result;
+    //   }
+    //   if (!IGNORE_METHODS.includes(backgroundMethodName)) {
+    //     return throwMethodNotFound(serviceName, backgroundMethodName);
+    //   }
+    // }
   }
 
   callBackgroundSync(method: string, ...params: Array<any>): any {

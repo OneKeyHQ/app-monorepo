@@ -81,6 +81,6 @@ export const useDisplaySplash =
       };
 
 export function SplashProvider({ children }: PropsWithChildren<unknown>) {
-  const displaySplash = useDisplaySplash();
+  const displaySplash = true;
   return displaySplash ? <Splash>{children}</Splash> : null;
 }
