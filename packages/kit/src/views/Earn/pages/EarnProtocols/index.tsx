@@ -21,6 +21,7 @@ import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import type {
   ETabEarnRoutes,
@@ -59,6 +60,8 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
   }, [encodedLogoURI]);
 
   const media = useMedia();
+
+  const isDesktopLayout = !platformEnv.isNative && media.gtSm;
 
   const customHeaderLeft = useMemo(
     () => (
@@ -216,7 +219,7 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
       return (
         <YStack>
           {/* Table Header - Desktop only */}
-          {media.gtSm ? (
+          {isDesktopLayout ? (
             <ListItem mx="$0" px="$5">
               <XStack flex={2.5}>
                 <Skeleton h="$3" w={80} />
@@ -239,10 +242,10 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
               key={index}
               mx="$0"
               px="$5"
-              ai={media.gtSm ? 'center' : 'flex-start'}
+              ai={isDesktopLayout ? 'center' : 'flex-start'}
             >
               {/* Protocol column */}
-              <XStack flex={media.gtSm ? 2.5 : 1} ai="center" gap="$3">
+              <XStack flex={isDesktopLayout ? 2.5 : 1} ai="center" gap="$3">
                 <Skeleton w="$10" h="$10" borderRadius="$2" />
                 <YStack gap="$1" flex={1}>
                   <Skeleton h="$4" w="70%" />
@@ -250,7 +253,7 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
                 </YStack>
               </XStack>
 
-              {media.gtSm ? (
+              {isDesktopLayout ? (
                 <>
                   {/* Network column */}
                   <XStack flex={1} jc="flex-end">
@@ -308,18 +311,18 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
         defaultSortKey="yield"
         defaultSortDirection="desc"
         onPressRow={handleProtocolPress}
-        enableDrillIn={media.gtSm}
+        enableDrillIn={isDesktopLayout}
         isLoading={isLoading}
       />
     );
   }, [
-    media,
-    columns,
-    fetchProtocolData,
-    intl,
     isLoading,
     protocolData,
+    columns,
     handleProtocolPress,
+    isDesktopLayout,
+    intl,
+    fetchProtocolData,
   ]);
 
   return (

@@ -32,10 +32,7 @@ function PerpLayout() {
   return <PerpMobileLayout />;
 }
 
-console.log('PerpContent js loaded');
-
 function PerpContent() {
-  console.log('PerpContent render');
   const [tabPageHeight, setTabPageHeight] = useState(
     platformEnv.isNativeIOS ? 143 : 92,
   );
@@ -123,9 +120,7 @@ function ExtPerpNull() {
 }
 
 export default function Perp() {
-  console.log('Perp render');
   const canRenderPerp = usePerpFeatureGuard();
-  console.log('Perp render canRenderPerp', canRenderPerp);
   if (!canRenderPerp) {
     return shouldOpenExpandExtPerp ? <ExtPerpNull /> : null;
   }

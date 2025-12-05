@@ -1,3 +1,5 @@
+import { useMemo } from 'react';
+
 import { useWindowDimensions } from 'react-native';
 
 import {
@@ -7,6 +9,7 @@ import {
   XStack,
   YStack,
   useMedia,
+  useOrientation,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
@@ -36,7 +39,11 @@ export function TokenDetailHeaderLeft({
   showMediaAndSecurity = true,
   isNative = false,
 }: ITokenDetailHeaderLeftProps) {
-  const { width: screenWidth } = useWindowDimensions();
+  const isLandscape = useOrientation();
+  const { width: windowScreenWidth } = useWindowDimensions();
+  const screenWidth = useMemo(() => {
+    return isLandscape ? windowScreenWidth / 2 : windowScreenWidth;
+  }, [isLandscape, windowScreenWidth]);
   const { md } = useMedia();
 
   const {

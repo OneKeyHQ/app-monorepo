@@ -39,6 +39,7 @@
   "Limit.order_status_unfilled": "অপূর্ণ",
   "Perps.referral_bonus_from": "পার্পস-এ ট্রেডিং থেকে রেফারাল বোনাস",
   "account_model.watched": "দেখা হয়েছে",
+  "account_name_form_helper_text": "সংবেদনশীল তথ্য প্রবেশ করাবেন না।",
   "action_save": "সংরক্ষণ করুন",
   "add_existing_wallet_badge_phrases_length": "12–24 শব্দের পুনরুদ্ধার বাক্যাংশ সমর্থন করে",
   "add_existing_wallet_desc": "স্থানান্তর, পুনরুদ্ধার বা আমদানি",

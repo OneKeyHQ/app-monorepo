@@ -12,16 +12,22 @@ import {
   Image,
   SizableText,
   YStack,
-  useIsTablet,
+  useIsNativeTablet,
   useIsTabletDetailView,
+  useIsTabletMainView,
   useOrientation,
 } from '@onekeyhq/components';
 
 import type { LayoutChangeEvent } from 'react-native';
 
 export function TabletHomeContainer({ children }: PropsWithChildren) {
+  const isMainView = useIsTabletMainView();
   const isDetailView = useIsTabletDetailView();
   const isLandscape = useOrientation();
+
+  if (isMainView && !isLandscape) {
+    return null;
+  }
 
   if (isDetailView && isLandscape) {
     return (
@@ -47,7 +53,7 @@ export const useTabletModalPageWidth = () => {
 };
 
 export function TabletModalContainer({ children }: PropsWithChildren) {
-  const isTablet = useIsTablet();
+  const isTablet = useIsNativeTablet();
   const [width, setWidth] = useState(0);
   const onLayout = useCallback(
     (event: LayoutChangeEvent) => {
