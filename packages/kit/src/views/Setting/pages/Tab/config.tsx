@@ -732,35 +732,33 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
           ],
         ],
       },
-      devSettings.enabled
-        ? {
-            icon: 'CodeSolid',
-            name: ESettingsTabNames.Dev,
-            title: intl.formatMessage({
-              id: ETranslations.global_dev_mode,
-            }),
-            tabBarItemStyle: {
-              backgroundColor: '$bgCritical',
+      {
+        icon: 'CodeSolid',
+        name: ESettingsTabNames.Dev,
+        title: intl.formatMessage({
+          id: ETranslations.global_dev_mode,
+        }),
+        tabBarItemStyle: {
+          backgroundColor: '$bgCritical',
+        },
+        tabBarIconStyle: {
+          color: '$iconCritical',
+        },
+        tabBarLabelStyle: {
+          color: '$textCritical',
+        },
+        configs: [
+          [
+            {
+              icon: 'CodeOutline',
+              title: intl.formatMessage({
+                id: ETranslations.global_dev_mode,
+              }),
+              renderElement: <DevSettingsSection />,
             },
-            tabBarIconStyle: {
-              color: '$iconCritical',
-            },
-            tabBarLabelStyle: {
-              color: '$textCritical',
-            },
-            configs: [
-              [
-                {
-                  icon: 'CodeOutline',
-                  title: intl.formatMessage({
-                    id: ETranslations.global_dev_mode,
-                  }),
-                  renderElement: <DevSettingsSection />,
-                },
-              ],
-            ],
-          }
-        : undefined,
+          ],
+        ],
+      },
       {
         icon: 'SearchOutline',
         name: ESettingsTabNames.Search,
@@ -789,7 +787,6 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
       settings.hardwareTransportType,
       isShowAppUpdateUI,
       appUpdateInfo.isNeedUpdate,
-      devSettings.enabled,
       startBackup,
       onPressAddressBook,
       helpCenterUrl,

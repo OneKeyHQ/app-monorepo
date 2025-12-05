@@ -271,10 +271,6 @@ const BaseDevSettingsSection = () => {
     navigationToMessageConfirmAsync,
   ]);
 
-  if (!devSettings.enabled) {
-    return null;
-  }
-
   return (
     <Section
       title={intl.formatMessage({ id: ETranslations.global_dev_mode })}

@@ -239,19 +239,17 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
             trackId: 'global-me',
           }
         : undefined,
-      platformEnv.isDev
-        ? {
-            name: ETabRoutes.Developer,
-            tabBarIcon: (focused?: boolean) =>
-              focused ? 'CodeBracketsSolid' : 'CodeBracketsOutline',
-            translationId: ETranslations.global_dev_mode,
-            freezeOnBlur: Boolean(params?.freezeOnBlur),
-            rewrite: '/dev',
-            exact: true,
-            children: developerRouters,
-            trackId: 'global-dev',
-          }
-        : undefined,
+      {
+        name: ETabRoutes.Developer,
+        tabBarIcon: (focused?: boolean) =>
+          focused ? 'CodeBracketsSolid' : 'CodeBracketsOutline',
+        translationId: ETranslations.global_dev_mode,
+        freezeOnBlur: Boolean(params?.freezeOnBlur),
+        rewrite: '/dev',
+        exact: true,
+        children: developerRouters,
+        trackId: 'global-dev',
+      },
       isShowDesktopDiscover
         ? getDiscoverRouterConfig(params, {
             marginTop: getTokenValue('$4', 'size'),
