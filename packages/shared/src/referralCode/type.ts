@@ -450,3 +450,16 @@ export interface IPerpsInviteeRewardsResponse {
   totalBonus: string;
   undistributed: string;
 }
+
+// Batch check wallet bound referral code types
+export interface IBatchCheckWalletItem {
+  networkId: string;
+  address: string;
+}
+
+export interface IBatchCheckWalletParams {
+  items: IBatchCheckWalletItem[];
+}
+
+// Response is a map where key is "networkId:address" and value is boolean
+export type IBatchCheckWalletResponse = Record<string, boolean>;

@@ -2,6 +2,49 @@ import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal, LogToServer } from '../../../base/decorators';
 
 export class SendScene extends BaseScene {
+  @LogToLocal()
+  public coinControlSelected({
+    network,
+    selectedUtxoCount,
+    totalUtxoCount,
+    selectedUtxoKeys,
+  }: {
+    network: string | undefined;
+    selectedUtxoCount: number;
+    totalUtxoCount: number;
+    selectedUtxoKeys: string[];
+  }) {
+    return {
+      network,
+      selectedUtxoCount,
+      totalUtxoCount,
+      selectedUtxoKeys,
+    };
+  }
+
+  @LogToLocal()
+  public coinControlResult({
+    network,
+    inputCount,
+    outputCount,
+    fee,
+    txSize,
+  }: {
+    network: string | undefined;
+    inputCount: number | undefined;
+    outputCount: number | undefined;
+    fee: string | number | undefined;
+    txSize: number | undefined;
+  }) {
+    return {
+      network,
+      inputCount,
+      outputCount,
+      fee,
+      txSize,
+    };
+  }
+
   @LogToServer()
   public sendSelect({
     network,

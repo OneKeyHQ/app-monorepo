@@ -1,8 +1,8 @@
 diff --git a/node_modules/@tamagui/web/dist/cjs/hooks/useMedia.native.js b/node_modules/@tamagui/web/dist/cjs/hooks/useMedia.native.js
-index 47addac..85f0848 100644
+index 47addac..808ba9d 100644
 --- a/node_modules/@tamagui/web/dist/cjs/hooks/useMedia.native.js
 +++ b/node_modules/@tamagui/web/dist/cjs/hooks/useMedia.native.js
-@@ -160,11 +160,85 @@ function unlisten() {
+@@ -160,11 +160,76 @@ function unlisten() {
    }), dispose.clear();
  }
  var setupVersion = -1;
@@ -46,15 +46,6 @@ index 47addac..85f0848 100644
 +      checkTabletSplitView((isSplitView) => {
 +        if (isSplitView) {
 +           switch (key2) {
-+            case 'sm':
-+              next = true;
-+              break;
-+            case 'gtSm':
-+              next = true;
-+              break;
-+            case 'md':
-+              next = true;
-+              break;
 +            case 'gtMd':
 +              next = false;
 +              break;
