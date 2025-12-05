@@ -5376,13 +5376,17 @@ class ServiceAccount extends ServiceBase {
     walletId: string;
     featuresInfo?: IOneKeyDeviceFeatures;
   }): Promise<boolean> {
-    if (!accountUtils.isHwWallet({ walletId })) {
-      return false;
+    if (
+      accountUtils.isHwWallet({ walletId }) ||
+      accountUtils.isQrWallet({ walletId })
+    ) {
+      return this.isBtcOnlyFirmwareByWalletIdMemoized({
+        walletId,
+        featuresInfo,
+      });
     }
-    return this.isBtcOnlyFirmwareByWalletIdMemoized({
-      walletId,
-      featuresInfo,
-    });
+
+    return false;
   }
 
   /**
@@ -5469,11 +5473,6 @@ class ServiceAccount extends ServiceBase {
       return {
         networkImpl: activeNetworkImpl,
       };
-    }
-
-    // Check hardware wallet BTC-only firmware restriction
-    if (!accountUtils.isHwWallet({ walletId: finalWalletId! })) {
-      return undefined;
     }
 
     const isBtcOnlyFirmware = await this.isBtcOnlyFirmwareByWalletId({
