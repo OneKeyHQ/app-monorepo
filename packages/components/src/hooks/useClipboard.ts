@@ -16,6 +16,28 @@ const getClipboard = async () => {
   return str.trim();
 };
 
+// Utility function to check if text looks like a valid URL without protocol
+function isUrlWithoutProtocol(text: string): boolean {
+  // Match patterns like: onekey.so/invite/ABC123, www.example.com, etc.
+  const urlPattern =
+    /^(?:www\.)?[a-zA-Z0-9-]+(?:\.[a-zA-Z]{2,})+(?:\/[^\s]*)?$/;
+  return urlPattern.test(text);
+}
+
+// Utility function to ensure URL has https:// prefix
+function ensureHttpsPrefix(url: string): string {
+  if (!url) return url;
+  // Already has protocol
+  if (/^https?:\/\//i.test(url)) {
+    return url;
+  }
+  // Looks like a URL without protocol, add https://
+  if (isUrlWithoutProtocol(url)) {
+    return `https://${url}`;
+  }
+  return url;
+}
+
 export function useClipboard() {
   const intl = useIntl();
   const supportPaste = useMemo(() => {
@@ -38,6 +60,14 @@ export function useClipboard() {
       }
     },
     [intl],
+  );
+
+  const copyUrl = useCallback(
+    (url: string, successMessageId?: ETranslations, showToast = true) => {
+      const processedUrl = ensureHttpsPrefix(url);
+      copyText(processedUrl, successMessageId, showToast);
+    },
+    [copyText],
   );
 
   const debounceToastClearSuccess = useDebouncedCallback(() => {
@@ -77,11 +107,12 @@ export function useClipboard() {
   return useMemo(
     () => ({
       copyText,
+      copyUrl,
       clearText,
       onPasteClearText,
       getClipboard,
       supportPaste,
     }),
-    [clearText, onPasteClearText, copyText, supportPaste],
+    [clearText, onPasteClearText, copyText, copyUrl, supportPaste],
   );
 }

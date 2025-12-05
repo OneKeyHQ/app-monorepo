@@ -89,20 +89,20 @@ export function ReferralLinkPopoverContent({
   inviteUrl,
 }: IReferralLinkPopoverContentProps) {
   const intl = useIntl();
-  const { copyText } = useClipboard();
+  const { copyUrl } = useClipboard();
 
   const walletInviteUrl = useMemo(() => `${inviteUrl}/app`, [inviteUrl]);
   const shopInviteUrl = useMemo(() => `${inviteUrl}/shop`, [inviteUrl]);
 
   const handleCopyWalletLink = useCallback(() => {
-    copyText(walletInviteUrl);
+    copyUrl(walletInviteUrl);
     defaultLogger.referral.page.shareReferralLink('copy');
-  }, [copyText, walletInviteUrl]);
+  }, [copyUrl, walletInviteUrl]);
 
   const handleCopyShopLink = useCallback(() => {
-    copyText(shopInviteUrl);
+    copyUrl(shopInviteUrl);
     defaultLogger.referral.page.shareReferralLink('copy');
-  }, [copyText, shopInviteUrl]);
+  }, [copyUrl, shopInviteUrl]);
 
   return (
     <YStack p="$1" $md={{ pb: '$3' }}>
