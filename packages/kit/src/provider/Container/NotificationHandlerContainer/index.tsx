@@ -47,7 +47,7 @@ function BaseNotificationHandlerContainer() {
     };
   }, [activeAccountRef]);
 
-  const { handleOpenWebSite } = useBrowserAction().current;
+  const browserAction = useBrowserAction().current;
 
   useEffect(() => {
     const handleShowFallbackUpdateDialog = ({
@@ -121,9 +121,12 @@ function BaseNotificationHandlerContainer() {
     };
     const handleShowNotificationDappNavigation = (url: string) => {
       if (platformEnv.isNative || platformEnv.isDesktop) {
-        handleOpenWebSite({
-          dapp: {
+        browserAction.handleOpenWebSite({
+          webSite: {
             url,
+            title: '',
+            logo: undefined,
+            sortIndex: undefined,
           },
           navigation,
           shouldPopNavigation: true,
@@ -161,7 +164,7 @@ function BaseNotificationHandlerContainer() {
         handleShowNotificationDappNavigation,
       );
     };
-  }, [getLocalParams, handleOpenWebSite, navigation, showFallbackUpdateDialog]);
+  }, [browserAction, getLocalParams, navigation, showFallbackUpdateDialog]);
   useInitialNotification();
   return null;
 }

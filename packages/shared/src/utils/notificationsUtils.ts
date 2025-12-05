@@ -157,10 +157,6 @@ export function parseNotificationPayload(
       }
       break;
     case ENotificationPushMessageMode.openInApp:
-      if (payload) {
-        openUrlInApp(payload);
-      }
-      break;
     case ENotificationPushMessageMode.openInDapp:
       appEventBus.emit(
         EAppEventBusNames.ShowNotificationInDappPage,
