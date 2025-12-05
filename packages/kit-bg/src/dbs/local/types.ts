@@ -51,6 +51,7 @@ import type { RealmSchemaHardwareHomeScreen } from './realm/schemas/RealmSchemaH
 import type { RealmSchemaIndexedAccount } from './realm/schemas/RealmSchemaIndexedAccount';
 import type { RealmSchemaWallet } from './realm/schemas/RealmSchemaWallet';
 import type { IDeviceType, SearchDevice } from '@onekeyfe/hd-core';
+import type { EFirmwareType } from '@onekeyfe/hd-shared';
 import type { DBSchema } from 'idb';
 
 // ---------------------------------------------- base
@@ -348,7 +349,10 @@ export type IDBDeviceSettings = {
 };
 export type IDBDevice = IDBBaseObjectWithName & {
   features: string; // TODO rename to featuresRaw
-  featuresInfo?: IOneKeyDeviceFeatures; // readonly field // TODO rename to features
+  featuresInfo?: IOneKeyDeviceFeatures & {
+    // only qr wallet
+    $app_firmware_type?: EFirmwareType;
+  }; // readonly field // TODO rename to features
   // TODO make index for better performance (getDeviceByQuery)
   connectId: string; // alias BLE mac or USB sn, never changed even if device reset
   name: string;

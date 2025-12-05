@@ -34,11 +34,14 @@ import {
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 
 import { useAccountSelectorRoute } from '../../../router/useAccountSelectorRoute';
 
 import { AccountSelectorCreateWalletButton } from './AccountSelectorCreateWalletButton';
 import { WalletListItem } from './WalletListItem';
+
+import type { IAccountSelectorWalletInfo } from '../../../type';
 
 interface IWalletListProps {
   num: number;
@@ -119,7 +122,12 @@ export function AccountSelectorWalletListSideBar({
     result: walletsResult,
     setResult,
     run: reloadWallets,
-  } = usePromiseResult(
+  } = usePromiseResult<
+    | {
+        wallets: IAccountSelectorWalletInfo[];
+      }
+    | undefined
+  >(
     async () => {
       noop(reloadWalletsHook);
       defaultLogger.accountSelector.perf.buildWalletListSideBarData();
@@ -128,7 +136,34 @@ export function AccountSelectorWalletListSideBar({
         ignoreEmptySingletonWalletAccounts: true,
         ignoreNonBackedUpWallets: hideNonBackedUpWallet,
       });
-      return r;
+      const wallets = await Promise.all(
+        r.wallets.map(async (wallet) => {
+          const isHwWallet = accountUtils.isHwWallet({
+            walletId: wallet.id,
+          });
+          const isQrWallet = accountUtils.isQrWallet({
+            walletId: wallet.id,
+          });
+          const isHwOrQrWallet = isQrWallet || isHwWallet;
+
+          const firmwareTypeBadge = isHwOrQrWallet
+            ? await deviceUtils.getFirmwareType({
+                features: wallet.associatedDeviceInfo?.featuresInfo,
+              })
+            : undefined;
+
+          const badge = isQrWallet ? 'QR' : undefined;
+
+          return {
+            ...wallet,
+            firmwareTypeBadge,
+            badge,
+          };
+        }),
+      );
+      return {
+        wallets,
+      };
     },
     [serviceAccount, hideNonBackedUpWallet, reloadWalletsHook],
     {
@@ -296,7 +331,8 @@ export function AccountSelectorWalletListSideBar({
 
   const { md } = useMedia();
 
-  const listViewRef = useRef<ISortableListViewRef<IDBWallet>>(null);
+  const listViewRef =
+    useRef<ISortableListViewRef<IAccountSelectorWalletInfo>>(null);
 
   const isShowCloseButton = md && !platformEnv.isNativeIOS;
   return (
@@ -347,7 +383,7 @@ export function AccountSelectorWalletListSideBar({
           />
         )}
         keyExtractor={(item) => `${item.id}`}
-        data={wallets as IDBWallet[]}
+        data={wallets as IAccountSelectorWalletInfo[]}
         onDragEnd={async (result) => {
           if (!walletsResult) {
             return;
@@ -365,12 +401,6 @@ export function AccountSelectorWalletListSideBar({
         }}
         extraData={[selectedAccount.focusedWallet, reloadWalletsHook]}
         renderItem={({ item, drag, dragProps }) => {
-          const badge = accountUtils.isQrWallet({
-            walletId: item.id,
-          })
-            ? 'QR'
-            : undefined;
-
           return (
             <Stack pb="$3" dataSet={dragProps}>
               <WalletListItem
@@ -380,7 +410,7 @@ export function AccountSelectorWalletListSideBar({
                 onWalletPress={onWalletPress}
                 onWalletLongPress={drag}
                 testID={`wallet-${item.id}`}
-                badge={badge}
+                badge={item.badge}
                 isEditMode={isEditableRouteParams}
                 shouldShowCreateHiddenWalletButtonFn={
                   shouldShowCreateHiddenWalletButtonFn

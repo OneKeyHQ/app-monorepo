@@ -557,11 +557,21 @@ function getDefaultHardwareTransportType(): EHardwareTransportType {
 async function getFirmwareType({
   features,
 }: {
-  features: IOneKeyDeviceFeatures | undefined;
+  features:
+    | (IOneKeyDeviceFeatures & { $app_firmware_type?: EFirmwareType })
+    | undefined;
 }) {
   if (!features) {
     return EFirmwareType.Universal;
   }
+
+  if (
+    features.$app_firmware_type &&
+    features.$app_firmware_type === EFirmwareType.BitcoinOnly
+  ) {
+    return EFirmwareType.BitcoinOnly;
+  }
+
   const { getFirmwareType: sdkGetFirmwareType } = await CoreSDKLoader();
   return sdkGetFirmwareType(features);
 }
