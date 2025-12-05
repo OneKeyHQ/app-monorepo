@@ -22,18 +22,22 @@ export default function SupabaseAuthProvider({ children }: PropsWithChildren) {
   // Fetch the session once, and subscribe to auth state changes
   useEffect(() => {
     const fetchSession = async () => {
-      setIsLoading(true);
-      const {
-        data: { session },
-        error,
-      } = await getSupabaseClient().client.auth.getSession();
-      if (error) {
-        console.error('Error fetching session:', error);
+      try {
+        setIsLoading(true);
+        const {
+          data: { session },
+          error,
+        } = await getSupabaseClient().client.auth.getSession();
+        if (error) {
+          console.error('Error fetching session:', error);
+        }
+        setSession(session);
+      } finally {
+        setIsLoading(false);
       }
-      setSession(session);
-      setIsLoading(false);
     };
     void fetchSession();
+
     const {
       data: { subscription },
     } = getSupabaseClient().client.auth.onAuthStateChange((_event, session) => {
@@ -72,7 +76,7 @@ export default function SupabaseAuthProvider({ children }: PropsWithChildren) {
       // }
       setIsLoading(false);
     };
-    void fetchProfile();
+    // void fetchProfile();
   }, [authSession]);
 
   return (

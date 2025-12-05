@@ -1,12 +1,14 @@
 import { useCallback, useMemo } from 'react';
 
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+
 import { getSupabaseClient } from './getSupabaseClient';
 import { useSupabaseAuthContext } from './SupabaseAuthContext';
 
 export function useSupabaseAuth() {
   const ctx = useSupabaseAuthContext();
   const supabaseUser = ctx?.session?.user;
-  const isReady = true; // TODO context init ready, or isLoading?
+  const isReady = !ctx?.isLoading;
   const isLoggedIn = ctx?.isLoggedIn;
 
   const signOut = useCallback(async () => {
@@ -26,6 +28,9 @@ export function useSupabaseAuth() {
         shouldCreateUser: true,
       },
     });
+    if (res.error && res.error.message) {
+      throw new OneKeyLocalError(res.error.message);
+    }
     console.log('useSupabaseAuth_signInWithOtp', res);
     return res;
   }, []);

@@ -85,7 +85,7 @@ export default function PrimeDashboard({
     isLoggedIn,
     isPrimeSubscriptionActive,
     supabaseUser,
-    authenticated,
+    isSupabaseLoggedIn,
     // logout,
   } = usePrimeAuthV2();
 
@@ -324,7 +324,7 @@ export default function PrimeDashboard({
   ]);
 
   const isLoggedInMaybe =
-    authenticated ||
+    isSupabaseLoggedIn ||
     supabaseUser?.id ||
     user?.isLoggedIn ||
     user?.isLoggedInOnServer ||

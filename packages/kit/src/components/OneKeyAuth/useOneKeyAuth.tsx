@@ -32,7 +32,7 @@ export function usePrimeAuthV2() {
       return {
         sendCode: async ({ email }: { email: string }) => {
           const _res = await supabaseSignInWithOtp({ email });
-          // return res;
+          console.log(_res);
         },
         loginWithCode: async ({
           code,
@@ -71,53 +71,24 @@ export function usePrimeAuthV2() {
       // sdkLogout,
       getAccessToken,
       isReady,
-      authenticated: isSupabaseLoggedIn,
+      isSupabaseLoggedIn,
       useLoginWithEmail,
+      getSupabaseClient,
       supabaseUser,
+      supabaseSignInWithOtp,
+      supabaseVerifyOtp,
+      supabaseSignOut,
     };
   }, [
     getAccessToken,
     isReady,
     isSupabaseLoggedIn,
     logout,
-    supabaseUser,
-    useLoginWithEmail,
     user,
+    useLoginWithEmail,
+    supabaseUser,
+    supabaseSignInWithOtp,
+    supabaseVerifyOtp,
+    supabaseSignOut,
   ]);
-}
-
-export function useOneKeyAuth() {
-  const signOut = useCallback(async () => {
-    const res = await getSupabaseClient().client.auth.signOut();
-    if (res.error) {
-      console.error('Error signing out:', res.error);
-    }
-    // TODO force clear supabase storage
-    return res;
-  }, []);
-  const signInWithOtp = useCallback(async ({ email }: { email: string }) => {
-    const res = await getSupabaseClient().client.auth.signInWithOtp({
-      email,
-      options: {
-        // set this to false if you do not want the user to be automatically signed up
-        shouldCreateUser: true,
-      },
-    });
-    return res;
-  }, []);
-  const verifyOtp = useCallback(
-    async ({ email, otp }: { email: string; otp: string }) => {
-      const res = await getSupabaseClient().client.auth.verifyOtp({
-        email,
-        token: otp,
-        type: 'email',
-      });
-      return res;
-    },
-    [],
-  );
-  return useMemo(
-    () => ({ signOut, signInWithOtp, verifyOtp, getSupabaseClient }),
-    [signOut, signInWithOtp, verifyOtp],
-  );
 }

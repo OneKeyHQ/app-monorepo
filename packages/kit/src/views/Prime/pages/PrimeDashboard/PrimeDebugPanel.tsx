@@ -188,7 +188,8 @@ export function PrimeDebugPanel({
 }: {
   shouldShowConfirmButton: boolean;
 }) {
-  const { getAccessToken, logout, isReady, authenticated } = usePrimeAuthV2();
+  const { getAccessToken, logout, isReady, isSupabaseLoggedIn } =
+    usePrimeAuthV2();
   const { getCustomerInfo, getPackagesNative, getPackagesWeb } =
     usePrimePayment();
   const navigation = useAppNavigation();
@@ -231,7 +232,7 @@ export function PrimeDebugPanel({
           onPress={() => {
             showDebugMessageByDialog({
               ready: isReady,
-              authenticated,
+              isSupabaseLoggedIn,
             });
           }}
         >

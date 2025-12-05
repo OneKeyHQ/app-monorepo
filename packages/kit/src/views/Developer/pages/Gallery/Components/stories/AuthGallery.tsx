@@ -9,7 +9,7 @@ import {
   Toast,
 } from '@onekeyhq/components';
 import { useSupabaseAuthContext } from '@onekeyhq/kit/src/components/OneKeyAuth/supabase/SupabaseAuthContext';
-import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
+import { usePrimeAuthV2 } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKeys';
@@ -46,8 +46,12 @@ function demoError(error: unknown, apiName: string) {
 }
 
 export function AuthApiTests() {
-  const { signOut, signInWithOtp, verifyOtp, getSupabaseClient } =
-    useOneKeyAuth();
+  const {
+    supabaseSignOut,
+    supabaseSignInWithOtp,
+    supabaseVerifyOtp,
+    getSupabaseClient,
+  } = usePrimeAuthV2();
   const supabaseContext = useSupabaseAuthContext();
 
   const lastOneKeyIdLoginEmail = appStorage.syncStorage.getString(
@@ -95,7 +99,7 @@ export function AuthApiTests() {
           onPress={async () => {
             try {
               setSignOutLoading(true);
-              const res = await signOut();
+              const res = await supabaseSignOut();
               demoLog(res, 'sign out');
             } catch (e) {
               demoError(e, 'sign out');
@@ -112,7 +116,7 @@ export function AuthApiTests() {
           onPress={async () => {
             try {
               setSignInLoading(true);
-              const res = await signInWithOtp({ email });
+              const res = await supabaseSignInWithOtp({ email });
               demoLog(res, 'sign in with otp');
             } catch (e) {
               demoError(e, 'sign in with otp');
@@ -128,7 +132,7 @@ export function AuthApiTests() {
           onPress={async () => {
             try {
               setVerifyLoading(true);
-              const res = await verifyOtp({ email, otp });
+              const res = await supabaseVerifyOtp({ email, otp });
               demoLog(res, 'verify otp');
             } catch (e) {
               demoError(e, 'verify otp');

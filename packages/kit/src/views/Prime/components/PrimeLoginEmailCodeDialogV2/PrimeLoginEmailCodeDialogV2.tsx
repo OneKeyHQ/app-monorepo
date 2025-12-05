@@ -51,6 +51,14 @@ export function PrimeLoginEmailCodeDialogV2(props: {
       await sendCode({ email });
       setIsApiReady(true);
       setCountdown(COUNTDOWN_TIME);
+    } catch (error) {
+      Toast.error({
+        title: (error as Error)?.message,
+      });
+      setIsApiReady(true);
+      setState({ status: 'initial' });
+      setCountdown(0);
+      throw error;
     } finally {
       setIsResending(false);
     }

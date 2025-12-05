@@ -9,6 +9,7 @@ import {
   SizableText,
   Spinner,
   Stack,
+  Toast,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -59,7 +60,12 @@ export function EmailOTPDialog(props: {
   const intl = useIntl();
 
   useMemo(() => {
-    void sendCode();
+    void sendCode().catch((error) => {
+      Toast.error({
+        title: (error as Error)?.message,
+      });
+      throw error;
+    });
   }, [sendCode]);
 
   const sendEmailVerificationCode = useCallback(async () => {
@@ -72,6 +78,11 @@ export function EmailOTPDialog(props: {
     try {
       await sendCode();
       setCountdown(COUNTDOWN_TIME);
+    } catch (error) {
+      Toast.error({
+        title: (error as Error)?.message,
+      });
+      throw error;
     } finally {
       setIsResending(false);
     }
