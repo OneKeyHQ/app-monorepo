@@ -39,6 +39,7 @@
   "Limit.order_status_unfilled": "미체결",
   "Perps.referral_bonus_from": "퍼프스 거래 추천 보너스",
   "account_model.watched": "시청함",
+  "account_name_form_helper_text": "민감한 정보를 입력하지 마세요.",
   "action_save": "저장",
   "add_existing_wallet_badge_phrases_length": "12~24개 단어로 된 복구 구문 지원",
   "add_existing_wallet_desc": "전송, 복원 또는 가져오기",

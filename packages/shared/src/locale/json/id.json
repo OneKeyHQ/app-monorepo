@@ -39,6 +39,7 @@
   "Limit.order_status_unfilled": "Tidak Terisi",
   "Perps.referral_bonus_from": "Bonus referral dari trading di Perps",
   "account_model.watched": "Ditonton",
+  "account_name_form_helper_text": "Jangan masukkan informasi sensitif.",
   "action_save": "Simpan",
   "add_existing_wallet_badge_phrases_length": "Mendukung frasa pemulihan 12–24 kata",
   "add_existing_wallet_desc": "Transfer, memulihkan, atau mengimpor",

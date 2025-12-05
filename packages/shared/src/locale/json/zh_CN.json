@@ -39,6 +39,7 @@
   "Limit.order_status_unfilled": "未成交",
   "Perps.referral_bonus_from": "在 Perps 上交易的返佣奖金",
   "account_model.watched": "观察账户",
+  "account_name_form_helper_text": "请勿输入机密信息。",
   "action_save": "保存",
   "add_existing_wallet_badge_phrases_length": "支持 12-24 个单词的助记词",
   "add_existing_wallet_desc": "传输、恢复或导入",
