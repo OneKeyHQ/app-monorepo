@@ -14,9 +14,8 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { usePrimeAuthV2 } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
+import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useLoginOneKeyId } from '@onekeyhq/kit/src/hooks/useLoginOneKeyId';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { EPrimeEmailOTPScene } from '@onekeyhq/shared/src/consts/primeConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -24,7 +23,7 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 export default function PrimeDeleteAccount() {
-  const { logout, user, getAccessToken } = usePrimeAuthV2();
+  const { logout, user, getAccessToken, sendEmailOTP } = useOneKeyAuth();
   const navigation = useAppNavigation();
   const intl = useIntl();
 
@@ -57,8 +56,6 @@ export default function PrimeDeleteAccount() {
       watchLoading: true,
     },
   );
-
-  const { sendEmailOTP } = useLoginOneKeyId();
 
   const handleDeleteAccount = useCallback(async () => {
     const isPasswordSet =

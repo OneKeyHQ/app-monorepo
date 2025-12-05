@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { usePrimeAuthV2 } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
+import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EWebEmbedRoutePath } from '@onekeyhq/shared/src/consts/webEmbedConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -15,7 +15,7 @@ import type { ISubscriptionPeriod } from '../../hooks/usePrimePaymentTypes';
 
 export function usePurchasePackageWebview() {
   const navigation = useAppNavigation();
-  const { user } = usePrimeAuthV2();
+  const { user } = useOneKeyAuth();
   const intl = useIntl();
 
   const purchasePackageWebview = useCallback(

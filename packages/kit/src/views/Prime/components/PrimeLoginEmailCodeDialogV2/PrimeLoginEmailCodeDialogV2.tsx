@@ -12,7 +12,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import { usePrimeAuthV2 } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
+import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
@@ -37,7 +37,7 @@ export function PrimeLoginEmailCodeDialogV2(props: {
     status: 'initial',
   });
   const intl = useIntl();
-  const { isReady } = usePrimeAuthV2();
+  const { isReady } = useOneKeyAuth();
   const [isApiReady, setIsApiReady] = useState(false);
 
   const sendEmailVerificationCode = useCallback(async () => {

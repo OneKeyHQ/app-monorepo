@@ -9,7 +9,7 @@ import {
   Toast,
 } from '@onekeyhq/components';
 import { useSupabaseAuthContext } from '@onekeyhq/kit/src/components/OneKeyAuth/supabase/SupabaseAuthContext';
-import { usePrimeAuthV2 } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
+import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKeys';
@@ -47,11 +47,13 @@ function demoError(error: unknown, apiName: string) {
 
 export function AuthApiTests() {
   const {
+    user,
+    supabaseUser,
     supabaseSignOut,
     supabaseSignInWithOtp,
     supabaseVerifyOtp,
     getSupabaseClient,
-  } = usePrimeAuthV2();
+  } = useOneKeyAuth();
   const supabaseContext = useSupabaseAuthContext();
 
   const lastOneKeyIdLoginEmail = appStorage.syncStorage.getString(
@@ -92,6 +94,20 @@ export function AuthApiTests() {
           }}
         >
           show auth context data
+        </Button>
+        <Button
+          onPress={() => {
+            demoLog(supabaseUser, 'show supabase user data');
+          }}
+        >
+          show supabase user data
+        </Button>
+        <Button
+          onPress={() => {
+            demoLog(user, 'show user data');
+          }}
+        >
+          show OneKey user data
         </Button>
         <Button
           loading={signOutLoading}

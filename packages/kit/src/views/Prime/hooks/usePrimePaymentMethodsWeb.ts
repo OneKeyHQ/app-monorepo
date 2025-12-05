@@ -5,7 +5,7 @@ import { BigNumber } from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import { Toast } from '@onekeyhq/components';
-import { usePrimeAuthV2 } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
+import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
@@ -33,7 +33,7 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 export function usePrimePaymentMethodsWeb(): IUsePrimePayment {
-  const { user, isReady: isAuthReady } = usePrimeAuthV2();
+  const { user, isReady: isAuthReady } = useOneKeyAuth();
   const [, setPrimePersistAtom] = usePrimePersistAtom();
   const isReady = isAuthReady;
 

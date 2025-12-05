@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 
 import { HeaderIconButton, Stack, Toast } from '@onekeyhq/components';
-import { usePrimeAuthV2 } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
+import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
@@ -14,7 +14,7 @@ export function PrimeHeaderIconButton({
   onPress?: () => void | Promise<void>;
   networkId?: string;
 }) {
-  const { isReady, user } = usePrimeAuthV2();
+  const { isReady, user } = useOneKeyAuth();
   const isPrime = user?.primeSubscription?.isActive;
 
   const navigation = useAppNavigation();

@@ -5,7 +5,7 @@ import { useIntl } from 'react-intl';
 import { ActionList, Divider } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import { usePrimeAuthV2 } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
+import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import {
   useAccountSelectorContextData,
   useActiveAccount,
@@ -37,7 +37,7 @@ function WalletEditButtonView({
   } = useActiveAccount({ num: num ?? 0 });
 
   const { isPrimeAvailable } = usePrimeAvailable();
-  const { user } = usePrimeAuthV2();
+  const { user } = useOneKeyAuth();
 
   const isPrimeUser = useMemo(() => {
     return user?.primeSubscription?.isActive && user?.onekeyUserId;

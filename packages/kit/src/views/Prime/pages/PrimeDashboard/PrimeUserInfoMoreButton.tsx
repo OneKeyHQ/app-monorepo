@@ -14,7 +14,7 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickStack';
-import { usePrimeAuthV2 } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
+import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -34,7 +34,7 @@ function PrimeUserInfoMoreButtonDropDownMenu({
   handleActionListClose: () => void;
   onLogoutSuccess?: () => Promise<void>;
 }) {
-  const { logout, user } = usePrimeAuthV2();
+  const { logout, user } = useOneKeyAuth();
   const isPrime = user?.primeSubscription?.isActive;
   const primeExpiredAt = user?.primeSubscription?.expiresAt;
   const { getCustomerInfo } = usePrimePayment();

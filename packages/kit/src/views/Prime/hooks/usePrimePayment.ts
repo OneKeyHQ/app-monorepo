@@ -1,6 +1,6 @@
 import { useRef } from 'react';
 
-import { usePrimeAuthV2 } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
+import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import type { IPrimeUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import { usePrimePaymentMethods } from './usePrimePaymentMethods';
@@ -8,7 +8,7 @@ import { usePrimePaymentMethods } from './usePrimePaymentMethods';
 import type { IUsePrimePayment } from './usePrimePaymentTypes';
 
 export function usePrimePayment(): IUsePrimePayment {
-  const { user } = usePrimeAuthV2();
+  const { user } = useOneKeyAuth();
   const userRef = useRef<IPrimeUserInfo>(user);
   userRef.current = user;
 

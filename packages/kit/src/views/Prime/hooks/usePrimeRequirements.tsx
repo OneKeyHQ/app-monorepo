@@ -3,7 +3,7 @@ import { useCallback } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Dialog, Toast } from '@onekeyhq/components';
-import { usePrimeAuthV2 } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
+import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -12,7 +12,6 @@ import type { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { LazyLoadPage } from '../../../components/LazyLoadPage';
-import { useLoginOneKeyId } from '../../../hooks/useLoginOneKeyId';
 import { usePrimePurchaseCallback } from '../components/PrimePurchaseDialog/PrimePurchaseDialog';
 
 import { getPrimePaymentApiKey } from './getPrimePaymentApiKey';
@@ -26,8 +25,7 @@ const PrimePurchaseDialog = LazyLoadPage(
 );
 
 export function usePrimeRequirements() {
-  const { user, isLoggedIn, logout } = usePrimeAuthV2();
-  const { loginOneKeyId } = useLoginOneKeyId();
+  const { user, isLoggedIn, logout, loginOneKeyId } = useOneKeyAuth();
 
   const { purchase } = usePrimePurchaseCallback();
 

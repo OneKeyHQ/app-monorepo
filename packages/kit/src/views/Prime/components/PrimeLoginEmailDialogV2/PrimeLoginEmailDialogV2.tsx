@@ -4,7 +4,7 @@ import { useIntl } from 'react-intl';
 
 import { Dialog, Form, Input, Stack, useForm } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { usePrimeAuthV2 } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
+import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKeys';
@@ -32,7 +32,7 @@ export function PrimeLoginEmailDialogV2(props: {
     getAccessToken,
     useLoginWithEmail,
     // user
-  } = usePrimeAuthV2();
+  } = useOneKeyAuth();
   const { sendCode, loginWithCode } = useLoginWithEmail();
 
   const intl = useIntl();

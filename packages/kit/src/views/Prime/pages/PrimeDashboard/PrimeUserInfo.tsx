@@ -11,7 +11,7 @@ import {
   Toast,
   XStack,
 } from '@onekeyhq/components';
-import { usePrimeAuthV2 } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
+import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EAppUpdateRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
@@ -22,7 +22,7 @@ import { PrimeUserInfoMoreButton } from './PrimeUserInfoMoreButton';
 
 export function PrimeUserBadge() {
   const intl = useIntl();
-  const { user } = usePrimeAuthV2();
+  const { user } = useOneKeyAuth();
   const navigation = useAppNavigation();
 
   const isPrime = user?.primeSubscription?.isActive;
@@ -92,7 +92,7 @@ export function PrimeUserInfo({
 }: {
   onLogoutSuccess?: () => Promise<void>;
 } & ComponentProps<typeof XStack>) {
-  const { user } = usePrimeAuthV2();
+  const { user } = useOneKeyAuth();
   return (
     <XStack
       alignItems="center"

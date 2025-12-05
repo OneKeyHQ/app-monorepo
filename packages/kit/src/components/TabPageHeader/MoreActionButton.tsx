@@ -27,7 +27,7 @@ import {
 } from '@onekeyhq/components';
 import GiftExpandOnDark from '@onekeyhq/kit/assets/animations/gift-expand-on-dark.json';
 import GiftExpandOnLight from '@onekeyhq/kit/assets/animations/gift-expand-on-light.json';
-import { usePrimeAuthV2 } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
+import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useShowAddressBook } from '@onekeyhq/kit/src/hooks/useShowAddressBook';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -55,7 +55,6 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { useLoginOneKeyId } from '../../hooks/useLoginOneKeyId';
 import { useOnLock } from '../../hooks/useOnLock';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { useReferFriends } from '../../hooks/useReferFriends';
@@ -96,7 +95,7 @@ function MoreActionProvider({ children }: PropsWithChildren) {
 
 function MoreActionContentHeader() {
   const intl = useIntl();
-  const { user } = usePrimeAuthV2();
+  const { user } = useOneKeyAuth();
 
   const { closePopover } = usePopoverContext();
   const { isPrimeAvailable } = usePrimeAvailable();
@@ -104,7 +103,7 @@ function MoreActionContentHeader() {
     activeAccount: { network },
   } = useActiveAccount({ num: 0 });
 
-  const { loginOneKeyId } = useLoginOneKeyId();
+  const { loginOneKeyId } = useOneKeyAuth();
 
   const handleLogin = useCallback(async () => {
     await closePopover?.();
@@ -285,7 +284,7 @@ function MoreActionContentGridItem({
     }
   }, [closePopover, onPress, trackID]);
 
-  const { user } = usePrimeAuthV2();
+  const { user } = useOneKeyAuth();
   const isPrimeUser = user?.primeSubscription?.isActive && user?.onekeyUserId;
 
   if (isPrimeFeature && !isPrimeAvailable) {
@@ -428,7 +427,7 @@ function MoreActionContentGrid() {
   });
   const { gtMd } = useMedia();
   const toMyOneKeyModal = useToMyOneKeyModal();
-  const { user } = usePrimeAuthV2();
+  const { user } = useOneKeyAuth();
 
   const handleDeviceManagement = useCallback(async () => {
     await toMyOneKeyModal();

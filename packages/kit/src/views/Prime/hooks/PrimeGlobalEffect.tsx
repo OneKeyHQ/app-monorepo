@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import { noop } from 'lodash';
 
 import { useUpdateEffect } from '@onekeyhq/components';
-import { usePrimeAuthV2 } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
+import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import type { IPrimeInitAtomData } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   usePrimeInitAtom,
@@ -43,7 +43,7 @@ function PrimeGlobalEffectAfterAuthReady() {
     supabaseUser,
     isSupabaseLoggedIn,
     getAccessToken: getSupabaseAccessToken,
-  } = usePrimeAuthV2();
+  } = useOneKeyAuth();
 
   const userRef = useRef<IPrimeUserInfo>(user);
   userRef.current = user;
@@ -212,7 +212,7 @@ function PrimeGlobalEffectAfterAuthReady() {
 }
 
 function PrimeGlobalEffectView() {
-  const { isReady, logout, isSupabaseLoggedIn } = usePrimeAuthV2();
+  const { isReady, logout, isSupabaseLoggedIn } = useOneKeyAuth();
 
   useEffect(() => {
     const fn = async () => {

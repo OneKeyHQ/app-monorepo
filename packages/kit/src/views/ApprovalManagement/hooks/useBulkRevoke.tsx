@@ -12,7 +12,7 @@ import {
 } from '@onekeyhq/components';
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import { usePrimeAuthV2 } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
+import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
@@ -32,7 +32,7 @@ import type { IHasId } from '../../../hooks/useLinkedList';
 function useBulkRevoke() {
   const intl = useIntl();
   const { isPrimeAvailable } = usePrimeAvailable();
-  const { user } = usePrimeAuthV2();
+  const { user } = useOneKeyAuth();
   const isPrimeUser = user?.primeSubscription?.isActive && user?.onekeyUserId;
 
   const [isBuildingRevokeTxs, setIsBuildingRevokeTxs] = useState(false);

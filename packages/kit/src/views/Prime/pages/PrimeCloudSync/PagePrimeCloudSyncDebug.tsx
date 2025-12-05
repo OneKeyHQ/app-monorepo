@@ -18,7 +18,7 @@ import {
   useClipboard,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { usePrimeAuthV2 } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
+import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { IDBCloudSyncItem } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import {
@@ -341,7 +341,7 @@ function SyncItemTable({ activeTab }: { activeTab: ITabType }) {
 }
 
 function StatusPanel() {
-  const { user } = usePrimeAuthV2();
+  const { user } = useOneKeyAuth();
   const [cloudSyncStatus] = usePrimeCloudSyncPersistAtom();
   const [localMasterPasswordInfo] = usePrimeMasterPasswordPersistAtom();
   const [devSettings] = useDevSettingsPersistAtom();

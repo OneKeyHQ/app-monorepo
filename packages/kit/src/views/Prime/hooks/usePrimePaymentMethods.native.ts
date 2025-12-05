@@ -5,7 +5,7 @@ import { useIntl } from 'react-intl';
 import PurchasesReactNative, { LOG_LEVEL } from 'react-native-purchases';
 
 import { Dialog, Toast } from '@onekeyhq/components';
-import { usePrimeAuthV2 } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
+import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
@@ -39,7 +39,7 @@ void (async () => {
 
 export function usePrimePaymentMethods(): IUsePrimePayment {
   const [isPaymentReady, setIsPaymentReady] = useState(false);
-  const { isReady: isAuthReady, user } = usePrimeAuthV2();
+  const { isReady: isAuthReady, user } = useOneKeyAuth();
 
   const [, setPrimePersistAtom] = usePrimePersistAtom();
   const intl = useIntl();

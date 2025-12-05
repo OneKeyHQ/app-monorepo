@@ -11,6 +11,8 @@ export function useSupabaseAuth() {
   const isReady = !ctx?.isLoading;
   const isLoggedIn = ctx?.isLoggedIn;
 
+  void supabaseUser?.id;
+
   const signOut = useCallback(async () => {
     const res = await getSupabaseClient().client.auth.signOut();
     console.log('useSupabaseAuth_signOut', res);

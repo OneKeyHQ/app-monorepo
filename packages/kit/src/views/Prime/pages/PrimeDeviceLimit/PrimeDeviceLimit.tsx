@@ -11,7 +11,7 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import { usePrimeAuthV2 } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
+import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useFormatDate from '@onekeyhq/kit/src/hooks/useFormatDate';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -26,7 +26,7 @@ import type {
 import type { RouteProp } from '@react-navigation/native';
 
 export default function PrimeDeviceLimit() {
-  const { getAccessToken } = usePrimeAuthV2();
+  const { getAccessToken } = useOneKeyAuth();
   const navigation = useAppNavigation();
   const intl = useIntl();
   const { formatDistanceToNow } = useFormatDate();
