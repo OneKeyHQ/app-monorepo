@@ -6766,9 +6766,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/coinselect@npm:3.1.14":
-  version: 3.1.14
-  resolution: "@onekeyfe/coinselect@npm:3.1.14"
+"@onekeyfe/coinselect@npm:3.1.16":
+  version: 3.1.16
+  resolution: "@onekeyfe/coinselect@npm:3.1.16"
   dependencies:
     bchaddrjs: "npm:^0.5.2"
     bech32: "npm:^2.0.0"
@@ -6789,7 +6789,7 @@ __metadata:
     wif: "npm:^5.0.0"
   peerDependencies:
     tslib: ^2.6.2
-  checksum: 10/97be13c92c9dcffba99deafc78d56ae057c0495571e58582436e24d97424fca828721b7927db5edf58687b19949f1a4330ba8c0abf9a5ec15d03243a2576a517
+  checksum: 10/7b0706b80f4c93b2e454ab8f8a241ed8f289de986c8839de2019912104a099ec891983fc58845eb1e26a6b9d66e513059684f34b19a705457c892d0fccf570eb
   languageName: node
   linkType: hard
 
@@ -7747,7 +7747,7 @@ __metadata:
     "@noble/secp256k1": "npm:1.7.1"
     "@onekeyfe/bitcoinforksjs-lib": "npm:7.0.0-rc.0"
     "@onekeyfe/cardano-coin-selection-asmjs": "npm:1.1.5"
-    "@onekeyfe/coinselect": "npm:3.1.14"
+    "@onekeyfe/coinselect": "npm:3.1.16"
     "@onekeyfe/kaspa-core-lib": "npm:^1.0.2"
     "@onekeyfe/kaspa-wasm": "npm:^1.0.2"
     "@solana/spl-token": "npm:^0.4.8"
