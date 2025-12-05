@@ -11,12 +11,12 @@ import {
   Toast,
   XStack,
 } from '@onekeyhq/components';
+import { usePrimeAuthV2 } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EAppUpdateRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 
 // import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
-import { usePrimeAuthV2 } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 
 import { PrimeUserInfoMoreButton } from './PrimeUserInfoMoreButton';
 
