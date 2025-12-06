@@ -815,6 +815,8 @@ function ConnectByUSBOrBLE({
     } catch (error) {
       console.error('onConnectWebDevice error:', error);
       setIsChecking(false);
+    } finally {
+      setIsChecking(false);
     }
   }, [onDeviceConnect, promptWebUsbDeviceAccess, tabValue, setIsChecking]);
 

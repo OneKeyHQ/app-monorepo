@@ -148,6 +148,7 @@ async function processDeepLinkWalletConnect({
 }: IProcessDeepLinkParams) {
   try {
     const { hostname, path, queryParams, scheme } = parsedUrl;
+
     let wcUri = '';
     // define deeplink schema at
     //  - packages/web/validation/deeplink.ios.json

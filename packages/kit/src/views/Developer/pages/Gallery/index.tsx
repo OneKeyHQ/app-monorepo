@@ -576,6 +576,13 @@ const AccordionGallery = LazyLoadPage(
     ),
 );
 
+const AuthGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/AuthGallery'
+    ),
+);
+
 const OTPInputGallery = LazyLoadPage(
   () =>
     import(
@@ -1006,5 +1013,9 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentPlayground,
     component: PlaygroundGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentAuth,
+    component: AuthGallery,
   },
 ];

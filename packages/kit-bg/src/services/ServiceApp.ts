@@ -243,10 +243,10 @@ class ServiceApp extends ServiceBase {
 
   @backgroundMethod()
   async resetApp() {
-    // logout privy is called in UI hooks
     defaultLogger.prime.subscription.onekeyIdLogout({
       reason: 'ServiceApp.resetApp',
     });
+    // logout supabase is called in UI hooks
     void this.backgroundApi.servicePrime.apiLogout();
 
     defaultLogger.setting.page.clearDataStep('servicePrime-apiLogout');
