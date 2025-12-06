@@ -180,6 +180,7 @@ export type IFetchAccountHistoryParams = {
   sourceCurrency?: string;
   targetCurrency?: string;
   currencyMap?: Record<string, ICurrencyItem>;
+  limit?: number;
 };
 
 export type IOnChainHistoryTxToken = {

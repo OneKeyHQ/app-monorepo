@@ -18,6 +18,7 @@ import { SupportHub } from '../components/SupportHub';
 import { TokenListBlock } from '../components/TokenListBlock';
 import { Upgrade } from '../components/Upgrade';
 import { PORTFOLIO_CONTAINER_RIGHT_SIDE_FIXED_WIDTH } from '../types';
+import { ProviderJotaiContextHistoryList } from '../../../states/jotai/contexts/historyList';
 
 function PortfolioContainer() {
   const media = useMedia();
@@ -28,9 +29,9 @@ function PortfolioContainer() {
     return (
       <XStack py="$3" px="$5" gap="$8">
         <YStack flex={1}>
-          {/* <TokenListBlock tableLayout />
-          <DeFiListBlock tableLayout /> */}
-          <PopularTrading tableLayout />
+          {/* <TokenListBlock tableLayout /> */}
+          {/* <DeFiListBlock tableLayout /> */}
+          {/* <PopularTrading tableLayout /> */}
           <EarnListView />
           <Upgrade />
           <SupportHub />
@@ -60,7 +61,9 @@ function PortfolioContainerWithProvider() {
   return (
     <HomeTokenListProviderMirrorWrapper accountId={account?.id ?? ''}>
       <ProviderJotaiContextDeFiList>
-        <PortfolioContainer />
+        <ProviderJotaiContextHistoryList>
+          <PortfolioContainer />
+        </ProviderJotaiContextHistoryList>
       </ProviderJotaiContextDeFiList>
     </HomeTokenListProviderMirrorWrapper>
   );
