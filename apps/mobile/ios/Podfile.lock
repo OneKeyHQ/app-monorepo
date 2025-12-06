@@ -2432,7 +2432,7 @@ PODS:
   - react-native-tcp-socket (6.3.0):
     - CocoaAsyncSocket
     - React-Core
-  - react-native-video (6.14.0):
+  - react-native-video (6.18.0):
     - boost
     - DoubleConversion
     - fast_float
@@ -2450,7 +2450,7 @@ PODS:
     - React-graphics
     - React-ImageManager
     - React-jsi
-    - react-native-video/Video (= 6.14.0)
+    - react-native-video/Video (= 6.18.0)
     - React-NativeModulesApple
     - React-RCTFabric
     - React-renderercss
@@ -2461,7 +2461,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - SocketRocket
     - Yoga
-  - react-native-video/Fabric (6.14.0):
+  - react-native-video/Fabric (6.18.0):
     - boost
     - DoubleConversion
     - fast_float
@@ -2489,7 +2489,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - SocketRocket
     - Yoga
-  - react-native-video/Video (6.14.0):
+  - react-native-video/Video (6.18.0):
     - boost
     - DoubleConversion
     - fast_float
@@ -4291,7 +4291,7 @@ SPEC CHECKSUMS:
   react-native-safe-area-context: ea7c9ba09a7b44e0dd1df408082760a8537f4547
   react-native-slider: 6201419b3e3f7c6b7cf2068e0c01274fa86a1da5
   react-native-tcp-socket: 120072c8020262032773f80f0daaf3964aaa08a1
-  react-native-video: 02db500a472254c194ea3eaaedb3603cfe7296fc
+  react-native-video: 624deff94be379ffaba289bed13fc0917f01abcb
   react-native-view-shot: aab9ffbcc2f01035ee8ffd9a00c773e215b35c8b
   react-native-webview: d73728424a0e24989d71ffdc6fcf15d5f74ff4a2
   react-native-webview-cleaner: c2d3bbb850105553c845303044234ca82062d592

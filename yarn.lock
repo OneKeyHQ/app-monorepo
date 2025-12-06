@@ -7902,7 +7902,7 @@ __metadata:
     react-native-screens: "npm:4.18.0"
     react-native-svg: "npm:15.12.1"
     react-native-tcp-socket: "npm:6.3.0"
-    react-native-video: "npm:6.14.0"
+    react-native-video: "npm:6.18.0"
     react-native-view-shot: "npm:4.0.3"
     react-native-webview: "npm:13.15.0"
     react-native-webview-cleaner: "npm:@onekeyfe/react-native-webview-cleaner@1.0.0"
@@ -35657,13 +35657,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-video@npm:6.14.0":
-  version: 6.14.0
-  resolution: "react-native-video@npm:6.14.0"
+"react-native-video@npm:6.18.0":
+  version: 6.18.0
+  resolution: "react-native-video@npm:6.18.0"
   peerDependencies:
     react: "*"
     react-native: "*"
-  checksum: 10/b267f7b983395aaf0b4266f94ea122b41c4a9fe48868bbd9ac871b7e8f5e2256d5e898c893f369455f5ff0131d8327c900d01483cddf5fd4d2cd82d64e0cc343
+  checksum: 10/d628fbe22dca5fe1d084110e4aef31444298f3aaf88dca1cdb570accb7b933facc8e66f0b8766e2f0fa967e5922d1d47fb353276180b79ea40ecf2ed8fd333e5
   languageName: node
   linkType: hard
 
