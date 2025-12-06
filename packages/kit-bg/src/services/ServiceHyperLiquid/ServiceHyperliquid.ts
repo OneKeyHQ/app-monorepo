@@ -1227,27 +1227,23 @@ export default class ServiceHyperliquid extends ServiceBase {
         return true;
       }
 
-      // Non-first account: check if current account is bound
-      const isCurrentAccountBound =
-        await this.backgroundApi.serviceReferralCode.checkWalletIsBoundReferralCode(
-          {
-            address: accountAddress,
-            networkId: referenceNetworkId,
-          },
+      // Non-first account: batch check both current and first account binding status
+      const batchResult =
+        await this.backgroundApi.serviceReferralCode.batchCheckWalletsBoundReferralCode(
+          [
+            { address: accountAddress, networkId: referenceNetworkId },
+            { address: referenceAddress, networkId: referenceNetworkId },
+          ],
         );
+
+      const currentAccountKey = `${referenceNetworkId}:${accountAddress}`;
+      const firstAccountKey = `${referenceNetworkId}:${referenceAddress}`;
+      const isCurrentAccountBound = batchResult[currentAccountKey] ?? false;
+      const isFirstAccountBound = batchResult[firstAccountKey] ?? false;
 
       if (isCurrentAccountBound) {
         return true;
       }
-
-      // Current account is not bound: check first account's binding status
-      const isFirstAccountBound =
-        await this.backgroundApi.serviceReferralCode.checkWalletIsBoundReferralCode(
-          {
-            address: referenceAddress,
-            networkId: referenceNetworkId,
-          },
-        );
 
       if (isFirstAccountBound) {
         // First account is bound, current account needs binding too

@@ -49,6 +49,16 @@ const WithdrawOptions = () => {
     { watchLoading: true },
   );
 
+  const { result: stakingConfig } = usePromiseResult(
+    () =>
+      backgroundApiProxy.serviceStaking.getStakingConfigs({
+        networkId,
+        symbol,
+        provider,
+      }),
+    [networkId, symbol, provider],
+  );
+
   const onPress = useCallback<IOnSelectOption>(
     ({ item }) => {
       appNavigation.push(EModalStakingRoutes.Withdraw, {
@@ -59,13 +69,21 @@ const WithdrawOptions = () => {
         identity: item.id,
         amount: item.amount,
         fromPage: EModalStakingRoutes.WithdrawOptions,
+        allowPartialWithdraw: stakingConfig?.allowPartialWithdraw,
         onSuccess: () => {
           // pop to portfolio details page
           setTimeout(() => appNavigation.pop(), 4);
         },
       });
     },
-    [appNavigation, accountId, networkId, protocolInfo, tokenInfo],
+    [
+      appNavigation,
+      accountId,
+      networkId,
+      protocolInfo,
+      tokenInfo,
+      stakingConfig?.allowPartialWithdraw,
+    ],
   );
 
   const babylonStatusMap = useBabylonStatusMap();
@@ -113,6 +131,7 @@ const WithdrawOptions = () => {
               onConfirmText={intl.formatMessage({
                 id: ETranslations.global_withdraw,
               })}
+              description={result.description}
               extraFields={
                 networkUtils.isBTCNetwork(networkId)
                   ? [

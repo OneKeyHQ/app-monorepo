@@ -112,7 +112,6 @@ export const WithdrawSection = ({
         balance="0"
         accountId={accountId}
         networkId={networkId}
-        tokenSymbol=""
         providerName=""
         onConfirm={async () => {}}
         protocolVault=""
@@ -120,6 +119,7 @@ export const WithdrawSection = ({
         isInModalContext={isInModalContext}
         beforeFooter={beforeFooter}
         tokenImageUri={fallbackTokenImageUri}
+        tokenSymbol={tokenInfo?.token.symbol}
       />
     );
   }
@@ -128,7 +128,7 @@ export const WithdrawSection = ({
     <UniversalWithdraw
       accountAddress={protocolInfo?.earnAccount?.accountAddress || ''}
       price={tokenInfo?.price ? String(tokenInfo.price) : '0'}
-      decimals={token?.decimals}
+      decimals={protocolInfo?.protocolInputDecimals ?? token?.decimals}
       balance={protocolInfo?.activeBalance || '0'}
       accountId={accountId}
       networkId={networkId}

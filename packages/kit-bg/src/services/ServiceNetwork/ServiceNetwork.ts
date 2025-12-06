@@ -1243,6 +1243,27 @@ class ServiceNetwork extends ServiceBase {
         networkIdsIncompatible = networkIdsIncompatible.concat(
           networksQrAccountDisabled,
         );
+
+        const walletDevice =
+          await this.backgroundApi.serviceAccount.getWalletDeviceSafe({
+            walletId,
+          });
+
+        if (walletDevice) {
+          // Filter by firmware type (Bitcoin Only, etc.)
+          const firmwareType = await deviceUtils.getFirmwareType({
+            features: walletDevice.featuresInfo,
+          });
+
+          if (firmwareType === EFirmwareType.BitcoinOnly) {
+            // Bitcoin Only firmware: only allow BTC implementation networks
+            const nonBtcNetworks = networkVaultSettings
+              .filter((o) => o.network.impl !== IMPL_BTC)
+              .map((o) => o.network.id);
+            networkIdsIncompatible =
+              networkIdsIncompatible.concat(nonBtcNetworks);
+          }
+        }
         // Qr account only support btc/evm network
       }
     }

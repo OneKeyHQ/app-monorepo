@@ -178,7 +178,9 @@ function BasicStakePage() {
   }, [estimateFeeUTXO]);
   const tokenSymbol = tokenInfo?.token.symbol || '';
   const balanceParsed = tokenInfo?.balanceParsed || '';
-  const decimals = tokenInfo?.token.decimals || 0;
+  const decimals =
+    protocolInfo?.protocolInputDecimals ?? tokenInfo?.token.decimals ?? 0;
+
   return (
     <Page scrollEnabled>
       <Page.Header

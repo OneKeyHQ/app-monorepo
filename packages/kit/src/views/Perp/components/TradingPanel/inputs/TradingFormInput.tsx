@@ -172,7 +172,7 @@ export const TradingFormInput = memo(
           <Input
             flex={1}
             h={36}
-            size="medium"
+            size="small"
             value={value}
             onChangeText={handleInputChange}
             onFocus={onFocus}

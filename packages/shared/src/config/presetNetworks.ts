@@ -1836,6 +1836,35 @@ const monadTestnet: IServerNetwork = {
   'backendIndex': false,
 };
 
+const hoodi: IServerNetwork = {
+  'impl': 'evm',
+  'chainId': '560048',
+  'id': 'evm--560048',
+  'name': 'Hoodi Testnet',
+  'symbol': 'ETH',
+  'code': 'hoodi',
+  'shortcode': 'hoodi',
+  'shortname': 'Hoodi',
+  'decimals': 18,
+  'feeMeta': {
+    'decimals': 9,
+    'symbol': 'Gwei',
+    'isEIP1559FeeEnabled': false,
+    'isWithL1BaseFee': false,
+  },
+  'status': ENetworkStatus.LISTED,
+  'isTestnet': true,
+  'extensions': {
+    'position': 9999,
+    'isTokenSupported': false,
+    'isNFTEnabled': false,
+  },
+  'logoURI':
+    'https://uni.onekey-asset.com/dashboard/logo/upload_1756881610802.0.9132280905497288.0.jpeg',
+  'defaultEnabled': false,
+  'backendIndex': false,
+};
+
 const btc: IServerNetwork = {
   'chainId': '0',
   'code': 'btc',
@@ -2938,6 +2967,7 @@ export const presetNetworksMap = {
   hsk,
   rsk,
   unichain,
+  hoodi,
 
   // cosmos
   celestia,
@@ -3133,6 +3163,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     worldChain,
     hyperEvm,
     monadTestnet,
+    hoodi,
 
     // cosmos
     celestia,
@@ -3194,8 +3225,10 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
 export const getNetworksSupportFilterScamHistory = memoFn(
   (): IServerNetwork[] => [
     eth,
+    sol,
     sepolia,
     holesky,
+    hoodi,
     base,
     optimism,
     avalanche,

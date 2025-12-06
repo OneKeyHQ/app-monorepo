@@ -27,11 +27,13 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { useAddHiddenWallet } from '../WalletDetails/hooks/useAddHiddenWallet';
 
+import type { IAccountSelectorWalletInfo } from '../../../type';
+
 type IWalletListItemProps = {
   isEditMode?: boolean;
   isOthers?: boolean;
   focusedWallet: IAccountSelectorFocusedWallet;
-  wallet: IDBWallet | undefined;
+  wallet: IAccountSelectorWalletInfo | undefined;
   onWalletPress: (focusedWallet: IAccountSelectorFocusedWallet) => void;
   onWalletLongPress?: (focusedWallet: IAccountSelectorFocusedWallet) => void;
   shouldShowCreateHiddenWalletButtonFn?: (params: {
@@ -194,6 +196,7 @@ export function WalletListItem({
     wallet,
     status: 'default', // 'default' | 'connected';
     badge,
+    firmwareTypeBadge: wallet?.firmwareTypeBadge,
   };
   const [accountSelectorStatus] = useAccountSelectorStatusAtom();
   noop(accountSelectorStatus?.passphraseProtectionChangedAt);

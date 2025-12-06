@@ -33,6 +33,7 @@ import type {
 import {
   primeLoginDialogAtom,
   primePersistAtom,
+  primePersistAtomInitialValue,
   primeServerMasterPasswordStatusAtom,
 } from '../../states/jotai/atoms/prime';
 import ServiceBase from '../ServiceBase';
@@ -84,12 +85,7 @@ class ServicePrime extends ServiceBase {
       const client = await this.getPrimeClient();
       try {
         const response = await client.post<{
-          data: {
-            userId: string;
-            inviteCode: string;
-            emails: string[];
-            createdAt: string;
-          };
+          data: IPrimeServerUserInfo;
         }>(
           '/prime/v1/user/login',
           {},
@@ -101,18 +97,10 @@ class ServicePrime extends ServiceBase {
         );
         // only save authToken if api login success
         await this.backgroundApi.simpleDb.prime.saveAuthToken(accessToken);
-        if (response.data.data.inviteCode) {
-          await this.backgroundApi.serviceReferralCode.updateMyReferralCode(
-            response.data.data.inviteCode,
-          );
-        }
-        await primePersistAtom.set(
-          (v): IPrimePersistAtomData => ({
-            ...v,
-            displayEmail: response?.data?.data?.emails?.[0],
-            isLoggedInOnServer: true,
-          }),
-        );
+
+        await this.updatePrimeAtomByServerUserInfo({
+          serverUserInfo: response.data.data,
+        });
       } catch (error) {
         await this.backgroundApi.simpleDb.prime.saveAuthToken('');
         throw error;
@@ -209,6 +197,52 @@ class ServicePrime extends ServiceBase {
     return randomId;
   }
 
+  async updatePrimeAtomByServerUserInfo({
+    serverUserInfo,
+  }: {
+    serverUserInfo: IPrimeServerUserInfo;
+  }) {
+    let primeSubscription: IPrimeSubscriptionInfo | undefined;
+    if (serverUserInfo.isPrime) {
+      primeSubscription = {
+        isActive: true,
+        expiresAt: serverUserInfo.primeExpiredAt,
+        willRenew: serverUserInfo.willRenew,
+        subscriptions: serverUserInfo.subscriptions,
+      };
+    } else {
+      primeSubscription = undefined;
+    }
+
+    await primePersistAtom.set((v): IPrimePersistAtomData => {
+      const userEmail = serverUserInfo?.emails?.[0] || undefined;
+      return {
+        ...v,
+        email: userEmail, // TODO update from PrimeGlobalEffect
+        displayEmail: userEmail,
+        onekeyUserId: serverUserInfo?.userId,
+        isEnablePrime: serverUserInfo?.isEnablePrime,
+        isEnableSandboxPay: serverUserInfo?.isEnableSandboxPay,
+        isPrimeDeviceLimitExceeded: serverUserInfo?.isPrimeDeviceLimitExceeded,
+        isLoggedIn: true,
+        isLoggedInOnServer: true,
+        primeSubscription,
+        // salt: serverUserInfo.salt,
+        // pwdHash: serverUserInfo.pwdHash,
+      };
+    });
+
+    if (serverUserInfo?.inviteCode) {
+      await this.backgroundApi.serviceReferralCode.updateMyReferralCode(
+        serverUserInfo.inviteCode,
+      );
+    }
+
+    return {
+      primeSubscription,
+    };
+  }
+
   @backgroundMethod()
   async apiFetchPrimeUserInfo(): Promise<{
     userInfo: IPrimeUserInfo;
@@ -232,7 +266,7 @@ class ServicePrime extends ServiceBase {
         errorMessage:
           'servicePrime.apiFetchPrimeUserInfo: simpleDb.prime.getAuthToken() No auth token',
       });
-      // clear privy login token cache
+      // clear supabase login token cache
       appEventBus.emit(EAppEventBusNames.PrimeLoginInvalidToken, undefined);
 
       return {
@@ -242,7 +276,6 @@ class ServicePrime extends ServiceBase {
       };
     }
     const serverUserInfo = await this.callApiFetchPrimeUserInfo();
-    let primeSubscription: IPrimeSubscriptionInfo | undefined;
     void this.backgroundApi.servicePrimeCloudSync.showAlertDialogIfServerPasswordNotSet(
       {
         serverUserInfo,
@@ -253,36 +286,11 @@ class ServicePrime extends ServiceBase {
         serverUserInfo,
       },
     );
-    if (serverUserInfo.isPrime) {
-      primeSubscription = {
-        isActive: true,
-        expiresAt: serverUserInfo.primeExpiredAt,
-        willRenew: serverUserInfo.willRenew,
-        subscriptions: serverUserInfo.subscriptions,
-      };
-    } else {
-      primeSubscription = undefined;
-    }
 
-    if (serverUserInfo?.inviteCode) {
-      await this.backgroundApi.serviceReferralCode.updateMyReferralCode(
-        serverUserInfo.inviteCode,
-      );
-    }
-    await primePersistAtom.set(
-      (v): IPrimePersistAtomData => ({
-        ...v,
-        displayEmail: serverUserInfo?.emails?.[0] || v?.displayEmail,
-        isEnablePrime: serverUserInfo?.isEnablePrime,
-        isEnableSandboxPay: serverUserInfo?.isEnableSandboxPay,
-        isPrimeDeviceLimitExceeded: serverUserInfo?.isPrimeDeviceLimitExceeded,
-        isLoggedIn: true,
-        isLoggedInOnServer: true,
-        primeSubscription,
-        // salt: serverUserInfo.salt,
-        // pwdHash: serverUserInfo.pwdHash,
-      }),
-    );
+    const { primeSubscription } = await this.updatePrimeAtomByServerUserInfo({
+      serverUserInfo,
+    });
+
     const localUserInfo = await primePersistAtom.get();
 
     const serverPasswordUUID = serverUserInfo?.pwdHash;
@@ -306,20 +314,7 @@ class ServicePrime extends ServiceBase {
   async setPrimePersistAtomNotLoggedIn() {
     console.log('servicePrime.setPrimePersistAtomNotLoggedIn');
     await primePersistAtom.set(
-      (): IPrimePersistAtomData => ({
-        isLoggedIn: false,
-        isLoggedInOnServer: false,
-        isEnablePrime: undefined,
-        isEnableSandboxPay: undefined,
-        isPrimeDeviceLimitExceeded: undefined,
-        privyUserId: undefined,
-        email: undefined,
-        displayEmail: undefined,
-        primeSubscription: undefined,
-        subscriptionManageUrl: undefined,
-        // salt: undefined,
-        // pwdHash: undefined,
-      }),
+      (): IPrimePersistAtomData => primePersistAtomInitialValue,
     );
     await this.backgroundApi.serviceMasterPassword.clearLocalMasterPassword();
     await primeServerMasterPasswordStatusAtom.set((v) => ({
@@ -332,7 +327,19 @@ class ServicePrime extends ServiceBase {
   async isLoggedIn() {
     const { isLoggedIn, isLoggedInOnServer } = await primePersistAtom.get();
     const authToken = await this.backgroundApi.simpleDb.prime.getAuthToken();
-    return Boolean(isLoggedIn && isLoggedInOnServer && authToken);
+    const result = Boolean(isLoggedIn && isLoggedInOnServer && authToken);
+
+    if (!result) {
+      // debugger;
+      defaultLogger.prime.subscription.onekeyIdAtomNotLoggedIn({
+        reason: `isLoggedIn=false ${JSON.stringify({
+          isLoggedIn,
+          isLoggedInOnServer,
+          authTokenExists: !!authToken,
+        })}`,
+      });
+    }
+    return result;
   }
 
   @backgroundMethod()
@@ -387,7 +394,7 @@ class ServicePrime extends ServiceBase {
     //   emailCodeRequired: true,
     // };
 
-    throw new OneKeyLocalError('Deprecated, use Privy instead');
+    throw new OneKeyLocalError('Deprecated, use supabase instead');
   }
 
   @backgroundMethod()

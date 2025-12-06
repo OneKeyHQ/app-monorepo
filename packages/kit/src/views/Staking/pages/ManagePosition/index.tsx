@@ -33,8 +33,16 @@ const ManagePositionPage = () => {
     provider: string;
     vault: string | undefined;
     tokenImageUri: string | undefined;
+    protocolInputDecimals: number | undefined;
   }>(() => {
-    const { networkId, symbol, provider, vault, tokenImageUri } = route.params;
+    const {
+      networkId,
+      symbol,
+      provider,
+      vault,
+      tokenImageUri,
+      protocolInputDecimals,
+    } = route.params;
     return {
       accountId: activeAccount.account?.id || '',
       indexedAccountId: activeAccount.indexedAccount?.id,
@@ -43,6 +51,7 @@ const ManagePositionPage = () => {
       provider,
       vault,
       tokenImageUri,
+      protocolInputDecimals,
     };
   }, [route.params, activeAccount]);
 
@@ -54,6 +63,7 @@ const ManagePositionPage = () => {
     provider,
     vault,
     tokenImageUri,
+    protocolInputDecimals,
   } = resolvedParams;
 
   // Get tab from route params
@@ -73,6 +83,7 @@ const ManagePositionPage = () => {
           accountId={accountId}
           indexedAccountId={indexedAccountId}
           fallbackTokenImageUri={tokenImageUri}
+          protocolInputDecimals={protocolInputDecimals}
           defaultTab={defaultTab}
         />
       </Page.Body>
