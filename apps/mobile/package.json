@@ -89,7 +89,7 @@
     "jcore-react-native": "https://github.com/OneKeyHQ/jcore-react-native.git#4bfbbddbbeb9f295d3ee3eda9e39129a14e99d2c",
     "jpush-react-native": "https://github.com/OneKeyHQ/jpush-react-native.git#33eca9ebd18aba2ed6810f26f00add94211d9156",
     "lottie-react": "^2.4.0",
-    "lottie-react-native": "7.2.2",
+    "lottie-react-native": "7.3.4",
     "path-browserify": "^1.0.1",
     "react": "19.1.0",
     "react-native": "0.81.5",

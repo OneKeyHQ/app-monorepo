@@ -7861,7 +7861,7 @@ __metadata:
     jcore-react-native: "https://github.com/OneKeyHQ/jcore-react-native.git#4bfbbddbbeb9f295d3ee3eda9e39129a14e99d2c"
     jpush-react-native: "https://github.com/OneKeyHQ/jpush-react-native.git#33eca9ebd18aba2ed6810f26f00add94211d9156"
     lottie-react: "npm:^2.4.0"
-    lottie-react-native: "npm:7.2.2"
+    lottie-react-native: "npm:7.3.4"
     path-browserify: "npm:^1.0.1"
     react: "npm:19.1.0"
     react-native: "npm:0.81.5"
@@ -30229,11 +30229,11 @@ __metadata:
   languageName: node
   linkType: hard
 
-"lottie-react-native@npm:7.2.2":
-  version: 7.2.2
-  resolution: "lottie-react-native@npm:7.2.2"
+"lottie-react-native@npm:7.3.4":
+  version: 7.3.4
+  resolution: "lottie-react-native@npm:7.3.4"
   peerDependencies:
-    "@lottiefiles/dotlottie-react": ^0.6.5
+    "@lottiefiles/dotlottie-react": ^0.13.5
     react: "*"
     react-native: ">=0.46"
     react-native-windows: ">=0.63.x"
@@ -30242,7 +30242,7 @@ __metadata:
       optional: true
     react-native-windows:
       optional: true
-  checksum: 10/ce4e129af1db6dac5865ca7614d182a50e25f0f38e3e0aea609b9e0e3e2690068bb39758dda90797ff71363cc96ce9c40e704a462eb557cc59229d8416f5d9d8
+  checksum: 10/c22cbac35b426d3d348448e7de3254b1825734b445d6dfee27dca03b8b231d9ba288dffb4890ae5a909314eedf2e2340545e1b8bbfd0c1b58e8e317b095b66c8
   languageName: node
   linkType: hard
 
