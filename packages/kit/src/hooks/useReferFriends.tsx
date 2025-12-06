@@ -34,8 +34,9 @@ import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { IEndpointEnv } from '@onekeyhq/shared/types/endpoint';
 
+import { useOneKeyAuth } from '../components/OneKeyAuth/useOneKeyAuth';
+
 import useAppNavigation from './useAppNavigation';
-import { useLoginOneKeyId } from './useLoginOneKeyId';
 
 export function useToReferFriendsModalByRootNavigation() {
   return useCallback(async () => {
@@ -93,7 +94,7 @@ export function useReplaceToReferFriends() {
 export const useReferFriends = () => {
   const intl = useIntl();
   const navigation = useAppNavigation();
-  const { loginOneKeyId } = useLoginOneKeyId();
+  const { loginOneKeyId } = useOneKeyAuth();
   const [devSettings] = useDevSettingsPersistAtom();
 
   const env: IEndpointEnv = useMemo(() => {

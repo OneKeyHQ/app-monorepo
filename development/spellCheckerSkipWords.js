@@ -30,6 +30,7 @@ module.exports = [
   '10xxxxxx',
   'hardcode',
   'viem',
+  'supabase',
   'reown',
   'wui',
   'deeplinks',
