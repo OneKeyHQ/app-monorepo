@@ -1,8 +1,11 @@
 // https://supabase.com/docs/guides/auth/quickstarts/with-expo-react-native-social-auth?queryGroups=auth-store&auth-store=async-storage
 import { createClient } from '@supabase/supabase-js';
 
-import { SUPABASE_PROJECT_URL, SUPABASE_PUBLIC_API_KEY } from './consts';
-import { SupabaseStorage } from './SupabaseStorage';
+import supabaseStorageInstance from '@onekeyhq/shared/src/storage/instance/supabaseStorageInstance';
+import {
+  SUPABASE_PROJECT_URL,
+  SUPABASE_PUBLIC_API_KEY,
+} from '@onekeyhq/shared/src/storage/SupabaseStorage/consts';
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -10,11 +13,10 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 // import 'react-native-url-polyfill/auto'; // TODO move to shared polyfill
 
 let client: SupabaseClient | undefined;
-let storage: SupabaseStorage | undefined;
+const storage = supabaseStorageInstance;
 
 export function getSupabaseClient() {
   if (!client) {
-    storage = new SupabaseStorage();
     client = createClient(
       SUPABASE_PROJECT_URL ?? '',
       SUPABASE_PUBLIC_API_KEY ?? '',

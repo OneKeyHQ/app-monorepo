@@ -1,6 +1,6 @@
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import appStorage from '@onekeyhq/shared/src/storage/appStorage';
-import secureStorageInstance from '@onekeyhq/shared/src/storage/instance/secureStorageInstance';
+import platformEnv from '../../platformEnv';
+import appStorage from '../appStorage';
+import secureStorageInstance from '../instance/secureStorageInstance';
 
 import { SUPABASE_STORAGE_KEY_PREFIX } from './consts';
 
@@ -9,7 +9,7 @@ const shouldUseSecureStorage = platformEnv.isNative || platformEnv.isDesktop;
 const prefixedKeys = new Set<string>();
 
 const withPrefixedKey = (key: string) => {
-  const newKey = `${SUPABASE_STORAGE_KEY_PREFIX}${key}`;
+  const newKey = `${SUPABASE_STORAGE_KEY_PREFIX as string}${key}`;
   prefixedKeys.add(newKey);
   return newKey;
 };
