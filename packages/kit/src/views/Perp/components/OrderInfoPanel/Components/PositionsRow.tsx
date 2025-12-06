@@ -1083,6 +1083,25 @@ const PositionRowMobileTPSL = memo(({ coin }: { coin: string }) => {
 });
 PositionRowMobileTPSL.displayName = 'PositionRowMobileTPSL';
 
+const PositionRowMobileMarkPrice = memo(({ coin }: { coin: string }) => {
+  const intl = useIntl();
+  const { midFormattedByDecimals } = usePerpsMidPrice({ coin });
+
+  return (
+    <YStack gap="$1" flex={1} alignItems="center" position="relative">
+      <SizableText size="$bodySm" color="$textSubdued">
+        {intl.formatMessage({
+          id: ETranslations.perp_position_mark_price,
+        })}
+      </SizableText>
+      <SizableText size="$bodySmMedium" numberOfLines={1}>
+        {midFormattedByDecimals || '--'}
+      </SizableText>
+    </YStack>
+  );
+});
+PositionRowMobileMarkPrice.displayName = 'PositionRowMobileMarkPrice';
+
 const PositionRowMobileLiqPrice = memo(
   ({ priceInfo }: { priceInfo: IPriceInfo }) => {
     const intl = useIntl();
@@ -1215,7 +1234,7 @@ const PositionRowMobile = memo(
               assetInfo={assetInfo}
               otherInfo={otherInfo}
             />
-            <PositionRowMobileTPSL coin={coin} />
+            <PositionRowMobileMarkPrice coin={coin} />
             <PositionRowMobileLiqPrice priceInfo={priceInfo} />
           </XStack>
           <PositionRowMobileActions
