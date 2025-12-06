@@ -156,10 +156,10 @@ function WebContent({
         onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
         onNavigationStateChange={onNavigationStateChange}
         onOpenWindow={(e) => {
-          const { targetUrl } = e.nativeEvent
+          const { targetUrl } = e.nativeEvent;
           const validateState = validateWebviewSrc(targetUrl);
           if (validateState === EValidateUrlEnum.ValidDeeplink) {
-            handleDeepLinkUrl({ url: targetUrl });            
+            handleDeepLinkUrl({ url: targetUrl });
           } else {
             void gotoSite({
               url: targetUrl,

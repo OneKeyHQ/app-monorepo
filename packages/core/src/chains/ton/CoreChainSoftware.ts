@@ -28,7 +28,11 @@ import {
 } from '../../types';
 
 import { genAddressFromPublicKey } from './sdkTon';
-import { serializeData, serializeDataPayload, serializeProof } from './sdkTon/tx';
+import {
+  serializeData,
+  serializeDataPayload,
+  serializeProof,
+} from './sdkTon/tx';
 
 import type { IEncodedTxTon } from './types';
 import type TonWeb from 'tonweb';
@@ -93,14 +97,14 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     const unsignedMsg = payload.unsignedMsg as IUnsignedMessageTon;
 
     let data: Buffer;
-    if(unsignedMsg.payload.payload) {
+    if (unsignedMsg.payload.payload) {
       data = await serializeDataPayload({
         payload: unsignedMsg.payload.payload,
         appDomain: unsignedMsg.payload.appDomain as string,
         timestamp: unsignedMsg.payload.timestamp,
         address: unsignedMsg.payload.address as string,
       });
-    } else if(unsignedMsg.payload.isProof) {
+    } else if (unsignedMsg.payload.isProof) {
       const proof = await serializeProof({
         message: unsignedMsg.message,
         timestamp: unsignedMsg.payload.timestamp,

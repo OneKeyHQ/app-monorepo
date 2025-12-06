@@ -1,16 +1,23 @@
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import TonWeb from 'tonweb';
 
-import { sha256 } from '../../../secret';
-import { SignDataPayloadBinary, SignDataPayloadCell, SignDataPayloadText } from '../../../types';
-import { encodeDnsName } from './utils';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { crc32 } from '@onekeyhq/shared/src/utils/crc32';
 
+import { sha256 } from '../../../secret';
+
+import { encodeDnsName } from './utils';
+
+import type {
+  ISignDataPayloadBinary,
+  ISignDataPayloadCell,
+  ISignDataPayloadText,
+} from '../../../types';
+
 export async function createTextBinaryHash(
-  payload: SignDataPayloadText | SignDataPayloadBinary,
+  payload: ISignDataPayloadText | ISignDataPayloadBinary,
   address: string,
   domain: string,
-  timestamp: number
+  timestamp: number,
 ): Promise<Buffer> {
   const addr = new TonWeb.Address(address);
 
@@ -39,31 +46,33 @@ export async function createTextBinaryHash(
 
   // Build message
   const message = Buffer.concat([
-      Buffer.from([0xff, 0xff]),
-      Buffer.from('ton-connect/sign-data/'),
-      wcBuffer,
-      addr.hashPart,
-      domainLenBuffer,
-      domainBuffer,
-      tsBuffer,
-      payloadPrefix,
-      payloadLenBuffer,
-      payloadBuffer,
+    Buffer.from([0xff, 0xff]),
+    Buffer.from('ton-connect/sign-data/'),
+    wcBuffer,
+    addr.hashPart,
+    domainLenBuffer,
+    domainBuffer,
+    tsBuffer,
+    payloadPrefix,
+    payloadLenBuffer,
+    payloadBuffer,
   ]);
 
   // Hash message with sha256
-  return await sha256(message);
+  return sha256(message);
 }
 
 export async function createCellHash(
-  payload: SignDataPayloadCell,
+  payload: ISignDataPayloadCell,
   address: string,
   domain: string,
-  timestamp: number
+  timestamp: number,
 ): Promise<Buffer> {
   const addr = new TonWeb.Address(address);
 
-  const cell = TonWeb.boc.Cell.oneFromBoc(Buffer.from(payload.cell, 'base64').toString('hex'),);
+  const cell = TonWeb.boc.Cell.oneFromBoc(
+    Buffer.from(payload.cell, 'base64').toString('hex'),
+  );
   const schemaHash = crc32(payload.schema); // unsigned crc32 hash
   const encodedDomain = encodeDnsName(domain).toString('utf8');
 
@@ -71,7 +80,7 @@ export async function createCellHash(
   domainRef.bits.writeString(encodedDomain);
 
   const message = new TonWeb.boc.Cell();
-  message.bits.writeUint(0x75569022, 32); // prefix
+  message.bits.writeUint(0x75_56_90_22, 32); // prefix
   message.bits.writeUint(schemaHash, 32); // schema hash
   message.bits.writeUint(timestamp, 64); // timestamp
   message.bits.writeAddress(addr); // user wallet address
@@ -88,18 +97,18 @@ export async function serializeDataPayload({
   appDomain,
   address,
 }: {
-  payload: SignDataPayloadText | SignDataPayloadBinary | SignDataPayloadCell;
+  payload: ISignDataPayloadText | ISignDataPayloadBinary | ISignDataPayloadCell;
   appDomain: string;
   timestamp: number;
   address: string;
 }) {
-  if(payload.type === 'text' || payload.type === 'binary') {
-    return await createTextBinaryHash(payload, address, appDomain, timestamp);
-  } else if(payload.type === 'cell') {
-    return await createCellHash(payload, address, appDomain, timestamp);
-  } else {
-    throw new OneKeyLocalError('Invalid payload type');
+  if (payload.type === 'text' || payload.type === 'binary') {
+    return createTextBinaryHash(payload, address, appDomain, timestamp);
   }
+  if (payload.type === 'cell') {
+    return createCellHash(payload, address, appDomain, timestamp);
+  }
+  throw new OneKeyLocalError('Invalid payload type');
 }
 
 export async function serializeData({

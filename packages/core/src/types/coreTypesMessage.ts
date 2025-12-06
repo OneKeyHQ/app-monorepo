@@ -29,16 +29,16 @@ export type IUnsignedMessageAptos = {
   payload?: ISignMessageRequest;
 };
 
-export type SignDataPayloadText = {
-  type: "text";
+export type ISignDataPayloadText = {
+  type: 'text';
   text: string;
 };
-export type SignDataPayloadBinary = {
-  type: "binary";
+export type ISignDataPayloadBinary = {
+  type: 'binary';
   bytes: string;
 };
-export type SignDataPayloadCell = {
-  type: "cell";
+export type ISignDataPayloadCell = {
+  type: 'cell';
   schema: string;
   cell: string;
 };
@@ -52,7 +52,10 @@ export type IUnsignedMessageTon = {
     timestamp: number;
     appDomain?: string;
     address?: string;
-    payload?: SignDataPayloadText | SignDataPayloadBinary | SignDataPayloadCell
+    payload?:
+      | ISignDataPayloadText
+      | ISignDataPayloadBinary
+      | ISignDataPayloadCell;
   };
 };
 
