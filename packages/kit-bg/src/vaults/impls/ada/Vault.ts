@@ -50,7 +50,10 @@ import type {
   IMeasureRpcStatusParams,
   IMeasureRpcStatusResult,
 } from '@onekeyhq/shared/types/customRpc';
-import type { IInternalDappTxParams } from '@onekeyhq/shared/types/staking';
+import {
+  EEarnLabels,
+  type IInternalDappTxParams,
+} from '@onekeyhq/shared/types/staking';
 import {
   EDecodedTxActionType,
   EDecodedTxStatus,
@@ -265,65 +268,52 @@ export default class Vault extends VaultBase {
       },
     ];
 
-    let nativeAmountMap = this._getOutputAmount(outputs, network.decimals);
+    const nativeAmountMap = this._getOutputAmount(outputs, network.decimals);
 
-    // If stakingInfo is provided from external (e.g., staking page),
+    // If stakingInfo is provided (internal staking page),
     // use buildInternalStakingAction for proper UI rendering
     if (unsignedTx.stakingInfo) {
       const accountAddress = await this.getAccountAddress();
-      const action = await this.buildInternalStakingAction({
-        stakingInfo: unsignedTx.stakingInfo,
-        accountAddress,
-        stakingToAddress: toAddress,
-      });
+      const isDelegate = unsignedTx.stakingInfo.label === EEarnLabels.Stake;
 
-      // Calculate nativeAmount based on certificate types
-      const encodedStakingInfo = encodedTx.staking;
-      if (encodedStakingInfo?.certificates) {
-        const hasRegistration = encodedStakingInfo.certificates.some(
-          (cert) => cert.type === 0,
+      // Build stakingInfo with calculated send amount (only for delegate)
+      let stakingInfo = unsignedTx.stakingInfo;
+      let sendAmountAda = '0';
+      let sendAmountLovelace = '0';
+
+      if (isDelegate && nativeToken) {
+        // Calculate deposit: inputs - outputs - fee (fee is shown separately)
+        const inputsTotal = inputs.reduce((sum, input) => {
+          const lovelace = input.amount.find((a) => a.unit === 'lovelace');
+          return sum.plus(lovelace?.quantity ?? 0);
+        }, new BigNumber(0));
+        const outputsTotal = outputs.reduce(
+          (sum, output) => sum.plus(output.amount),
+          new BigNumber(0),
         );
-        const hasDeregistration = encodedStakingInfo.certificates.some(
-          (cert) => cert.type === 1,
-        );
+        const depositLovelace = inputsTotal
+          .minus(outputsTotal)
+          .minus(encodedTx.fee);
+        const depositAda = depositLovelace.shiftedBy(-network.decimals);
 
-        if (hasDeregistration) {
-          // Deregistration: returns deposit, actual cost is only the fee
-          nativeAmountMap = {
-            amount: encodedTx.totalFeeInNative,
-            amountValue: encodedTx.fee,
-          };
-        } else if (hasRegistration) {
-          // Registration: add deposit (inputs - outputs - fee)
-          const inputsTotal = inputs.reduce((sum, input) => {
-            const lovelace = input.amount.find((a) => a.unit === 'lovelace');
-            return sum.plus(lovelace?.quantity ?? 0);
-          }, new BigNumber(0));
-          const outputsTotal = outputs.reduce(
-            (sum, output) => sum.plus(output.amount),
-            new BigNumber(0),
-          );
-          const depositLovelace = inputsTotal
-            .minus(outputsTotal)
-            .minus(encodedTx.fee);
-          const depositAda = depositLovelace.shiftedBy(-network.decimals);
-
-          nativeAmountMap = {
-            amount: new BigNumber(encodedTx.totalFeeInNative)
-              .plus(depositAda)
-              .toFixed(),
-            amountValue: new BigNumber(encodedTx.fee)
-              .plus(depositLovelace)
-              .toFixed(),
-          };
-        } else {
-          // Re-delegation: only fee
-          nativeAmountMap = {
-            amount: encodedTx.totalFeeInNative,
-            amountValue: encodedTx.fee,
+        if (depositLovelace.gt(0)) {
+          sendAmountAda = depositAda.toFixed();
+          sendAmountLovelace = depositLovelace.toFixed();
+          stakingInfo = {
+            ...unsignedTx.stakingInfo,
+            send: {
+              token: nativeToken,
+              amount: sendAmountAda,
+            },
           };
         }
       }
+
+      const action = await this.buildInternalStakingAction({
+        stakingInfo,
+        accountAddress,
+        stakingToAddress: toAddress,
+      });
 
       return {
         txid: '',
@@ -339,54 +329,15 @@ export default class Vault extends VaultBase {
         extraInfo: null,
         encodedTx,
         totalFeeInNative: encodedTx.totalFeeInNative,
-        nativeAmount: nativeAmountMap.amount,
-        nativeAmountValue: nativeAmountMap.amountValue,
+        nativeAmount: sendAmountAda,
+        nativeAmountValue: sendAmountLovelace,
       };
     }
 
-    // Handle staking transactions based on certificate types (fallback for dApp tx)
-    // Certificate types: 0 = registration, 1 = deregistration, 2 = delegation
-    const encodedStakingInfo = encodedTx.staking;
-    let stakingLabel = '';
-    let hasRegistration = false;
-    let hasDeregistration = false;
-
-    if (isStakingTx && encodedStakingInfo?.certificates) {
-      hasRegistration = encodedStakingInfo.certificates.some(
-        (cert) => cert.type === 0,
-      );
-      hasDeregistration = encodedStakingInfo.certificates.some(
-        (cert) => cert.type === 1,
-      );
-      const hasDelegation = encodedStakingInfo.certificates.some(
-        (cert) => cert.type === 2,
-      );
-
-      if (hasDeregistration) {
-        // Deregistration: returns 2 ADA deposit, actual cost is only the fee
-        stakingLabel = 'Undelegate';
-        nativeAmountMap = {
-          amount: encodedTx.totalFeeInNative,
-          amountValue: encodedTx.fee,
-        };
-      } else if (hasRegistration && hasDelegation) {
-        stakingLabel = 'Delegate';
-      } else if (hasDelegation) {
-        stakingLabel = 'Delegate';
-        nativeAmountMap = {
-          amount: encodedTx.totalFeeInNative,
-          amountValue: encodedTx.fee,
-        };
-      } else if (hasRegistration) {
-        stakingLabel = 'Stake Registration';
-      }
-    }
-
-    // Build sends array (unified logic for both staking and normal transfers)
+    // Build sends array for normal transfers (non-staking transactions)
     if (nativeToken) {
       const sends = [];
 
-      // Process outputs (for normal transfers and tokens in staking tx)
       for (const output of outputs.filter((o) => !o.isChange)) {
         for (const asset of output.assets) {
           const token = await this.backgroundApi.serviceToken.getToken({
@@ -427,49 +378,6 @@ export default class Vault extends VaultBase {
         });
       }
 
-      // For registration tx, add deposit amount (inputs - outputs - fee = deposit)
-      if (isStakingTx && hasRegistration && !hasDeregistration) {
-        const inputsTotal = inputs.reduce((sum, input) => {
-          const lovelace = input.amount.find((a) => a.unit === 'lovelace');
-          return sum.plus(lovelace?.quantity ?? 0);
-        }, new BigNumber(0));
-
-        const outputsTotal = outputs.reduce(
-          (sum, output) => sum.plus(output.amount),
-          new BigNumber(0),
-        );
-
-        const depositLovelace = inputsTotal
-          .minus(outputsTotal)
-          .minus(encodedTx.fee);
-        const depositAda = depositLovelace.shiftedBy(-network.decimals);
-
-        if (depositLovelace.gt(0)) {
-          sends.push({
-            from: account.address,
-            to: toAddress ?? account.address,
-            isNative: true,
-            tokenIdOnNetwork: '',
-            name: nativeToken.name,
-            icon: nativeToken.logoURI ?? '',
-            amount: depositAda.toFixed(),
-            amountValue: depositLovelace.toFixed(),
-            symbol: network.symbol,
-            label: 'Stake Key Deposit',
-          });
-
-          // Update nativeAmountMap to include deposit
-          nativeAmountMap = {
-            amount: new BigNumber(nativeAmountMap.amount)
-              .plus(depositAda)
-              .toFixed(),
-            amountValue: new BigNumber(nativeAmountMap.amountValue)
-              .plus(depositLovelace)
-              .toFixed(),
-          };
-        }
-      }
-
       // Sort: put native token first
       sends.sort((a, b) => {
         if (a.isNative && !b.isNative) {
@@ -491,10 +399,6 @@ export default class Vault extends VaultBase {
             receives: [],
             utxoFrom,
             utxoTo,
-            ...(isStakingTx && {
-              isInternalStaking: true,
-              internalStakingLabel: stakingLabel,
-            }),
           },
         },
       ];
