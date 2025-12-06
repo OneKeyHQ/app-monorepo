@@ -11,6 +11,8 @@ import type {
   FocusEvent,
   NativeSyntheticEvent,
   TargetedEvent,
+  TextInputFocusEventData,
+  TextInputSubmitEditingEventData,
 } from 'react-native';
 
 type IHeaderSearchBarProps = {
