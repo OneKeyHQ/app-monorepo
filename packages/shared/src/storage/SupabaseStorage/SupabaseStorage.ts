@@ -14,6 +14,7 @@ const shouldUseSecureStorage = (() => {
   if (platformEnv.isNative) {
     return true;
   }
+  // The secure storage of the desktop in the development environment does not work, the data written only has the key, and the value is always empty
   if (platformEnv.isDesktop && !platformEnv.isDev) {
     return true;
   }
