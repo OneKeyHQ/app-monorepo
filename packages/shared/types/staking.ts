@@ -297,9 +297,17 @@ export enum EInternalDappEnum {
   Swap = 'swap',
 }
 
+export enum EInternalStakingAction {
+  Stake = 'stake',
+  Withdraw = 'withdraw',
+  Claim = 'claim',
+}
+
 export type IInternalDappTxParams = {
   internalDappTx: IStakeTx;
   internalDappType: EInternalDappEnum;
+  /** Staking action type, only applicable when internalDappType is Staking */
+  stakingAction?: EInternalStakingAction;
 };
 
 // Cosmos dapp interface signAmino
