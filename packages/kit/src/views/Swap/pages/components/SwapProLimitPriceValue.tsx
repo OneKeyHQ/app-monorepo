@@ -6,14 +6,7 @@ import { useSwapLimitRate } from '../../hooks/useSwapLimitRate';
 
 const SwapProLimitPriceValue = () => {
   const [swapProTradeType] = useSwapProTradeTypeAtom();
-  const {
-    onLimitRateChange,
-    limitPriceUseRate,
-    // onSetMarketPrice,
-    // limitPriceSetReverse,
-    // onChangeReverse,
-    // limitPriceEqualMarketPrice,
-  } = useSwapLimitRate();
+  const { onLimitRateChange, limitPriceUseRate } = useSwapLimitRate();
   if (swapProTradeType !== ESwapProTradeType.LIMIT) {
     return null;
   }

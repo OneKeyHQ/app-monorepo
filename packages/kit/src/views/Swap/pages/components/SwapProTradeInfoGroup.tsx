@@ -49,16 +49,15 @@ const SwapProTradeInfoGroup = ({
 
   const swapProQuoteResult = useMemo(() => {
     if (swapProTradeType === ESwapProTradeType.LIMIT) {
-      return swapProQuoteResultPro;
+      return swapCurrentQuoteResult;
     }
-    return swapCurrentQuoteResult;
+    return swapProQuoteResultPro;
   }, [swapProQuoteResultPro, swapCurrentQuoteResult, swapProTradeType]);
-
   const swapProQuoteFetching = useMemo(() => {
     if (swapProTradeType === ESwapProTradeType.LIMIT) {
-      return swapProQuoteFetchingPro;
+      return swapQuoteLoading;
     }
-    return swapQuoteLoading;
+    return swapProQuoteFetchingPro;
   }, [swapProQuoteFetchingPro, swapQuoteLoading, swapProTradeType]);
 
   const receiveValue = useMemo(() => {

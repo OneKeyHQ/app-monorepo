@@ -500,66 +500,6 @@ export const {
 }>({});
 
 export const {
-  atom: swapLimitPriceMarketPriceAtom,
-  use: useSwapLimitPriceMarketPriceAtom,
-} = contextAtomComputed<ISwapLimitPriceInfo>((get) => {
-  const limitOrderMarketPrice = get(limitOrderMarketPriceAtom());
-  const { fromTokenPriceInfo, toTokenPriceInfo } = limitOrderMarketPrice;
-  const fromToken = get(swapSelectFromTokenAtom());
-  const toToken = get(swapSelectToTokenAtom());
-  if (
-    fromTokenPriceInfo &&
-    toTokenPriceInfo &&
-    equalTokenNoCaseSensitive({
-      token1: fromToken,
-      token2: fromTokenPriceInfo.tokenInfo,
-    }) &&
-    equalTokenNoCaseSensitive({
-      token1: toToken,
-      token2: toTokenPriceInfo.tokenInfo,
-    }) &&
-    !checkWrappedTokenPair({
-      fromToken,
-      toToken,
-    })
-  ) {
-    const fromPriceBN = new BigNumber(
-      fromTokenPriceInfo.price ? fromTokenPriceInfo.price : '0',
-    );
-    const toPriceBN = new BigNumber(
-      toTokenPriceInfo.price ? toTokenPriceInfo.price : '0',
-    );
-    if (fromPriceBN.isZero() || toPriceBN.isZero()) {
-      return {};
-    }
-    const rate = fromPriceBN
-      .div(toPriceBN)
-      .decimalPlaces(
-        toTokenPriceInfo.tokenInfo.decimals ?? LIMIT_PRICE_DEFAULT_DECIMALS,
-        BigNumber.ROUND_HALF_UP,
-      )
-      .toFixed();
-    const reverseRate = toPriceBN
-      .div(fromPriceBN)
-      .decimalPlaces(
-        fromTokenPriceInfo.tokenInfo.decimals ?? LIMIT_PRICE_DEFAULT_DECIMALS,
-        BigNumber.ROUND_HALF_UP,
-      )
-      .toFixed();
-    const limitPriceMarketInfo = {
-      fromToken: fromTokenPriceInfo.tokenInfo,
-      toToken: toTokenPriceInfo.tokenInfo,
-      rate,
-      reverseRate,
-      fromTokenMarketPrice: fromTokenPriceInfo.price,
-      toTokenMarketPrice: toTokenPriceInfo.price,
-    };
-    return limitPriceMarketInfo;
-  }
-  return {};
-});
-
-export const {
   atom: swapLimitExpirationTimeAtom,
   use: useSwapLimitExpirationTimeAtom,
 } = contextAtom<{ label: string; value: string }>({
@@ -809,4 +749,75 @@ export const {
   return !!swapSupportLimitNetworks.find(
     (net) => net.networkId === swapProSelectToken?.networkId,
   );
+});
+
+export const {
+  atom: swapLimitPriceMarketPriceAtom,
+  use: useSwapLimitPriceMarketPriceAtom,
+} = contextAtomComputed<ISwapLimitPriceInfo>((get) => {
+  const limitOrderMarketPrice = get(limitOrderMarketPriceAtom());
+  const { fromTokenPriceInfo, toTokenPriceInfo } = limitOrderMarketPrice;
+  let fromToken = get(swapSelectFromTokenAtom());
+  let toToken = get(swapSelectToTokenAtom());
+  const swapProTradeType = get(swapProTradeTypeAtom());
+  const swapProDirection = get(swapProDirectionAtom());
+  if (swapProTradeType === ESwapProTradeType.LIMIT) {
+    if (swapProDirection === ESwapDirection.BUY) {
+      fromToken = get(swapProUseSelectBuyTokenAtom());
+      toToken = get(swapProSelectTokenAtom());
+    } else {
+      fromToken = get(swapProSelectTokenAtom());
+      toToken = get(swapProSellToTokenAtom());
+    }
+  }
+  if (
+    fromTokenPriceInfo &&
+    toTokenPriceInfo &&
+    equalTokenNoCaseSensitive({
+      token1: fromToken,
+      token2: fromTokenPriceInfo.tokenInfo,
+    }) &&
+    equalTokenNoCaseSensitive({
+      token1: toToken,
+      token2: toTokenPriceInfo.tokenInfo,
+    }) &&
+    !checkWrappedTokenPair({
+      fromToken,
+      toToken,
+    })
+  ) {
+    const fromPriceBN = new BigNumber(
+      fromTokenPriceInfo.price ? fromTokenPriceInfo.price : '0',
+    );
+    const toPriceBN = new BigNumber(
+      toTokenPriceInfo.price ? toTokenPriceInfo.price : '0',
+    );
+    if (fromPriceBN.isZero() || toPriceBN.isZero()) {
+      return {};
+    }
+    const rate = fromPriceBN
+      .div(toPriceBN)
+      .decimalPlaces(
+        toTokenPriceInfo.tokenInfo.decimals ?? LIMIT_PRICE_DEFAULT_DECIMALS,
+        BigNumber.ROUND_HALF_UP,
+      )
+      .toFixed();
+    const reverseRate = toPriceBN
+      .div(fromPriceBN)
+      .decimalPlaces(
+        fromTokenPriceInfo.tokenInfo.decimals ?? LIMIT_PRICE_DEFAULT_DECIMALS,
+        BigNumber.ROUND_HALF_UP,
+      )
+      .toFixed();
+    const limitPriceMarketInfo = {
+      fromToken: fromTokenPriceInfo.tokenInfo,
+      toToken: toTokenPriceInfo.tokenInfo,
+      rate,
+      reverseRate,
+      fromTokenMarketPrice: fromTokenPriceInfo.price,
+      toTokenMarketPrice: toTokenPriceInfo.price,
+    };
+    return limitPriceMarketInfo;
+  }
+  return {};
 });

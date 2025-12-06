@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 
 import BigNumber from 'bignumber.js';
 
@@ -18,7 +18,7 @@ import { useSwapProToToken } from '../../hooks/useSwapPro';
 const SwapProToTotalValue = () => {
   const [swapProTradeType] = useSwapProTradeTypeAtom();
   const [swapProQuoteFetching] = useSwapSpeedQuoteFetchingAtom();
-  const [, setSwapToTokenAmount] = useSwapToTokenAmountAtom();
+  const [toTokenAmount, setSwapToTokenAmount] = useSwapToTokenAmountAtom();
   const [swapProToTotalValue, setSwapProToTotalValue] =
     useSwapProToTotalValueAtom();
   const swapProtoToToken = useSwapProToToken();
@@ -26,14 +26,22 @@ const SwapProToTotalValue = () => {
     (text: string) => {
       if (swapProTradeType === ESwapProTradeType.LIMIT) {
         setSwapProToTotalValue(text);
-        const toAmountValue = new BigNumber(text);
-        const toTokenPrice = new BigNumber(swapProtoToToken?.price ?? '0');
-        const toTokenAmount = toAmountValue
-          .div(toTokenPrice)
-          .decimalPlaces(swapProtoToToken?.decimals ?? 0, BigNumber.ROUND_DOWN)
-          .toFixed();
+        const toAmountValue = new BigNumber(text ?? '0');
+        let toTokenAmountValue = '';
+        if (toAmountValue.isNaN() || toAmountValue.isZero()) {
+          toTokenAmountValue = '';
+        } else {
+          const toTokenPrice = new BigNumber(swapProtoToToken?.price ?? '0');
+          toTokenAmountValue = toAmountValue
+            .div(toTokenPrice)
+            .decimalPlaces(
+              swapProtoToToken?.decimals ?? 0,
+              BigNumber.ROUND_DOWN,
+            )
+            .toFixed();
+        }
         setSwapToTokenAmount({
-          value: toTokenAmount,
+          value: toTokenAmountValue,
           isInput: true,
         });
       }
@@ -46,6 +54,24 @@ const SwapProToTotalValue = () => {
       swapProtoToToken?.price,
     ],
   );
+
+  useEffect(() => {
+    if (swapProTradeType === ESwapProTradeType.LIMIT) {
+      const toTokenAmountBn = new BigNumber(toTokenAmount.value ?? '0');
+      if (
+        (toTokenAmountBn.isNaN() || toTokenAmountBn.isZero()) &&
+        !toTokenAmount.isInput
+      ) {
+        setSwapProToTotalValue('');
+      }
+    }
+  }, [
+    toTokenAmount.isInput,
+    toTokenAmount.value,
+    swapProTradeType,
+    setSwapProToTotalValue,
+  ]);
+
   if (swapProTradeType !== ESwapProTradeType.LIMIT) {
     return (
       <Stack mt="$3">

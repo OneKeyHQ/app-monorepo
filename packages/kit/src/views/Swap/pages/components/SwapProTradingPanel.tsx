@@ -16,14 +16,8 @@ import {
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import type {
-  ISpeedSwapConfig,
-  ISwapProSpeedConfig,
-} from '@onekeyhq/shared/types/swap/types';
-import {
-  ESwapProTradeType,
-  ISwapTokenBase,
-} from '@onekeyhq/shared/types/swap/types';
+import type { ISwapProSpeedConfig } from '@onekeyhq/shared/types/swap/types';
+import { ESwapProTradeType } from '@onekeyhq/shared/types/swap/types';
 
 import { TradeTypeSelector } from '../../../Market/MarketDetailV2/components/SwapPanel/components/TradeTypeSelector';
 import LimitExpirySelect from '../../components/LimitExpirySelect';

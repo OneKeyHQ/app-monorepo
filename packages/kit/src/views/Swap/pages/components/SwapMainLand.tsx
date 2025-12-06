@@ -28,6 +28,11 @@ import {
   useSwapFromTokenAmountAtom,
   useSwapLimitPriceUseRateAtom,
   useSwapNativeTokenReserveGasAtom,
+  useSwapProInputAmountAtom,
+  useSwapProSelectTokenAtom,
+  useSwapProSellToTokenAtom,
+  useSwapProTradeTypeAtom,
+  useSwapProUseSelectBuyTokenAtom,
   useSwapQuoteActionLockAtom,
   useSwapQuoteCurrentSelectAtom,
   useSwapQuoteIntervalCountAtom,
@@ -73,6 +78,7 @@ import type {
 import {
   EProtocolOfExchange,
   ESwapDirectionType,
+  ESwapProTradeType,
   ESwapQuoteKind,
   ESwapSelectTokenSource,
   ESwapStepStatus,
@@ -88,7 +94,12 @@ import TransactionLossNetworkFeeExceedDialog from '../../components/TransactionL
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
 import { useSwapBuildTx } from '../../hooks/useSwapBuiltTx';
 import { useSwapInit } from '../../hooks/useSwapGlobal';
-import { useSwapProInit } from '../../hooks/useSwapPro';
+import {
+  useSwapProInit,
+  useSwapProInputToken,
+  useSwapProToToken,
+} from '../../hooks/useSwapPro';
+import { useSwapQuote } from '../../hooks/useSwapQuote';
 import {
   ESwapBatchTransferType,
   useSwapBatchTransferType,
@@ -138,17 +149,20 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   const [fromTokenBalance] = useSwapSelectedFromTokenBalanceAtom();
   const [, setSwapShouldRefreshQuote] = useSwapShouldRefreshQuoteAtom();
   const [, setSwapBuildTxFetching] = useSwapBuildTxFetchingAtom();
-  const [fromSelectToken] = useSwapSelectFromTokenAtom();
-  const [toSelectToken] = useSwapSelectToTokenAtom();
+  const [fromSelectTokenAtom] = useSwapSelectFromTokenAtom();
+  const [toSelectTokenAtom] = useSwapSelectToTokenAtom();
   const { slippageItem } = useSwapSlippagePercentageModeInfo();
   const [currentQuote] = useSwapQuoteCurrentSelectAtom();
   const [, setSwapSteps] = useSwapStepsAtom();
   const [swapToAmount] = useSwapToTokenAmountAtom();
   const [swapLimitUseRate] = useSwapLimitPriceUseRateAtom();
   const [toToken] = useSwapSelectToTokenAtom();
-  const [fromAmount] = useSwapFromTokenAmountAtom();
   const [swapStepData] = useSwapStepsAtom();
   const [swapProQuoteResult] = useSwapSpeedQuoteResultAtom();
+  const swapProFromToken = useSwapProInputToken();
+  const swapProToToken = useSwapProToToken();
+  const [swapProInputAmount] = useSwapProInputAmountAtom();
+  const [swapProTradeType] = useSwapProTradeTypeAtom();
   const focusSwapPro = useMemo(() => {
     return platformEnv.isNative && swapTypeSwitch === ESwapTabSwitchType.LIMIT;
   }, [swapTypeSwitch]);
@@ -158,6 +172,28 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     }
     return currentQuote;
   }, [focusSwapPro, currentQuote, swapProQuoteResult]);
+  const fromSelectToken = useMemo(() => {
+    if (focusSwapPro) {
+      return swapProFromToken;
+    }
+    return fromSelectTokenAtom;
+  }, [focusSwapPro, fromSelectTokenAtom, swapProFromToken]);
+  const toSelectToken = useMemo(() => {
+    if (focusSwapPro) {
+      return swapProToToken;
+    }
+    return toSelectTokenAtom;
+  }, [focusSwapPro, toSelectTokenAtom, swapProToToken]);
+
+  const swapTypeFinal = useMemo(() => {
+    if (focusSwapPro) {
+      return swapProTradeType === ESwapProTradeType.LIMIT
+        ? ESwapTabSwitchType.LIMIT
+        : ESwapTabSwitchType.SWAP;
+    }
+    return swapTypeSwitch;
+  }, [focusSwapPro, swapProTradeType, swapTypeSwitch]);
+
   useSwapProInit();
 
   const [swapNativeTokenReserveGas] = useSwapNativeTokenReserveGasAtom();
@@ -630,13 +666,15 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     setSwapSteps({
       steps: [...steps],
       preSwapData: {
-        swapType: swapTypeSwitch,
+        swapType: swapTypeFinal,
         fromToken: fromSelectToken,
         toToken: toSelectToken,
         shouldFallback: SwapBuildShouldFallBackNetworkIds.includes(
           fromSelectToken?.networkId ?? '',
         ),
-        fromTokenAmount: fromAmount.value,
+        fromTokenAmount: focusSwapPro
+          ? swapProInputAmount
+          : fromTokenAmount.value,
         toTokenAmount: swapToAmount.value,
         providerInfo: currentQuoteRes?.info,
         supportPreBuild,
@@ -662,17 +700,19 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
       quoteResult: { ...(currentQuoteRes as IFetchQuoteResult) },
     });
   }, [
-    shouldSignEveryTime,
     currentQuoteRes,
     swapBatchTransferType,
     setSwapSteps,
-    swapTypeSwitch,
+    swapTypeFinal,
     fromSelectToken,
     toSelectToken,
-    fromAmount.value,
+    focusSwapPro,
+    swapProInputAmount,
+    fromTokenAmount.value,
     swapToAmount.value,
     supportPreBuild,
     needFetchGas,
+    shouldSignEveryTime,
     createWrapStep,
     createSignStep,
     createApproveStep,
@@ -737,7 +777,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
         netCost.gt(0)
       ) {
         let toRealAmount = new BigNumber(0);
-        const fromAmountBN = new BigNumber(fromAmount.value);
+        const fromAmountBN = new BigNumber(fromTokenAmount.value);
         const toAmountBN = new BigNumber(swapToAmount.value);
         if (!toAmountBN.isNaN() && !toAmountBN.isZero()) {
           toRealAmount = new BigNumber(swapToAmount.value);
@@ -803,7 +843,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     intl,
     onActionHandler,
     swapLimitUseRate.rate,
-    fromAmount.value,
+    fromTokenAmount.value,
     swapToAmount.value,
     toToken?.decimals,
   ]);
@@ -932,6 +972,8 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     },
     [navigation, storeName],
   );
+
+  useSwapQuote();
 
   return (
     // <ScrollView

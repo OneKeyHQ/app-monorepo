@@ -50,6 +50,7 @@ import {
   ESwapDirectionType,
   ESwapFetchCancelCause,
   ESwapLimitOrderMarketPriceUpdateInterval,
+  ESwapProTradeType,
   ESwapQuoteKind,
   ESwapRateDifferenceUnit,
   ESwapSlippageSegmentKey,
@@ -85,6 +86,7 @@ import {
   swapProTokenDetailWebsocketAtom,
   swapProTokenMarketDetailInfoAtom,
   swapProTokenMarketDetailInfoLoadingAtom,
+  swapProTradeTypeAtom,
   swapProUseSelectBuyTokenAtom,
   swapQuoteActionLockAtom,
   swapQuoteCurrentSelectAtom,
@@ -721,11 +723,22 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       reQuote?: boolean,
       receivingAddress?: string,
     ) => {
-      const fromToken = get(swapSelectFromTokenAtom());
-      const toToken = get(swapSelectToTokenAtom());
+      let fromToken = get(swapSelectFromTokenAtom());
+      let toToken = get(swapSelectToTokenAtom());
       const fromTokenAmount = get(swapFromTokenAmountAtom());
       const swapTabSwitchType = get(swapTypeSwitchAtom());
       const toTokenAmount = get(swapToTokenAmountAtom());
+      const swapProTradeType = get(swapProTradeTypeAtom());
+      const swapProDirection = get(swapProDirectionAtom());
+      if (swapProTradeType === ESwapProTradeType.LIMIT) {
+        if (swapProDirection === ESwapDirection.BUY) {
+          fromToken = get(swapProUseSelectBuyTokenAtom());
+          toToken = get(swapProSelectTokenAtom());
+        } else {
+          fromToken = get(swapProSelectTokenAtom());
+          toToken = get(swapProSellToTokenAtom());
+        }
+      }
       // check limit zero
       set(swapQuoteActionLockAtom(), (v) => ({
         ...v,
@@ -846,7 +859,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         });
         if (res?.length) {
           const quoteResult = res[0];
-          console.log('swap__quoteResult', quoteResult);
           set(swapSpeedQuoteResultAtom(), quoteResult);
           if (quoteResult.autoSuggestedSlippage) {
             const slippageItem = get(swapProSlippageAtom());
@@ -2056,17 +2068,11 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     async (get, set, contractAddress: string, networkId: string) => {
       try {
         set(swapProTokenMarketDetailInfoLoadingAtom(), true);
-        console.log(
-          'swap__swapProTokenMarketDetailFetchAction',
-          contractAddress,
-          networkId,
-        );
         const tokenDetail =
           await backgroundApiProxy.serviceMarketV2.fetchMarketTokenDetailByTokenAddress(
             contractAddress,
             networkId,
           );
-        console.log('swap__tokenDetail', tokenDetail);
         const responseData =
           tokenDetail as unknown as IMarketTokenDetailResponse;
 

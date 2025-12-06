@@ -163,7 +163,15 @@ export function useSwapProTokenInit() {
   } = useSpeedSwapInit(swapProSelectToken?.networkId || '');
   const [balanceLoading, setBalanceLoading] = useState(false);
   useEffect(() => {
-    if (!swapProUseSelectBuyTokenAtom && defaultTokens.length > 0) {
+    if (
+      (!swapProUseSelectBuyTokenAtom && defaultTokens.length > 0) ||
+      !defaultTokens.find((item) =>
+        equalTokenNoCaseSensitive({
+          token1: item,
+          token2: swapProUseSelectBuyTokenAtom,
+        }),
+      )
+    ) {
       setSwapProUseSelectBuyTokenAtom(defaultTokens[0]);
     }
   }, [
@@ -624,9 +632,12 @@ export function useSwapLimitPriceCheck(
 ) {
   const [swapLimitPriceFromAmount] = useSwapLimitPriceFromAmountAtom();
   const [swapLimitPriceToAmount] = useSwapLimitPriceToAmountAtom();
+  const [, setSwapProToTotalValueAtom] = useSwapProToTotalValueAtom();
+  const [swapProTradeType] = useSwapProTradeTypeAtom();
   const [swapTypeSwitchValue] = useSwapTypeSwitchAtom();
   const [, setFromInputAmount] = useSwapFromTokenAmountAtom();
   const [, setToInputAmount] = useSwapToTokenAmountAtom();
+  const swapProtoToToken = useSwapProToToken();
   const [swapQuoteCurrentSelect] = useSwapQuoteCurrentSelectAtom();
   useEffect(() => {
     if (
@@ -649,8 +660,25 @@ export function useSwapLimitPriceCheck(
         value: swapLimitPriceToAmount,
         isInput: false,
       });
+      if (swapProTradeType === ESwapProTradeType.LIMIT) {
+        const swapLimitPriceToAmountBN = new BigNumber(swapLimitPriceToAmount);
+        const swapLimitPriceBN = new BigNumber(swapProtoToToken?.price ?? '0');
+        const swapLimitPriceValue = swapLimitPriceBN
+          .multipliedBy(swapLimitPriceToAmountBN)
+          .decimalPlaces(swapProtoToToken?.decimals ?? 0, BigNumber.ROUND_DOWN)
+          .toFixed();
+        setSwapProToTotalValueAtom(swapLimitPriceValue);
+      }
     }
-  }, [setToInputAmount, swapLimitPriceToAmount, swapTypeSwitchValue]);
+  }, [
+    setSwapProToTotalValueAtom,
+    setToInputAmount,
+    swapLimitPriceToAmount,
+    swapProTradeType,
+    swapProtoToToken?.decimals,
+    swapProtoToToken?.price,
+    swapTypeSwitchValue,
+  ]);
 
   useEffect(() => {
     if (

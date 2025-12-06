@@ -59,7 +59,6 @@ const SwapQuoteInput = ({
   const { alternationToken } = useSwapActions().current;
   const [fromTokenBalance] = useSwapSelectedFromTokenBalanceAtom();
   const [toTokenBalance] = useSwapSelectedToTokenBalanceAtom();
-  useSwapQuote();
   useSwapFromAccountNetworkSync();
 
   const getTransform = useCallback(() => {

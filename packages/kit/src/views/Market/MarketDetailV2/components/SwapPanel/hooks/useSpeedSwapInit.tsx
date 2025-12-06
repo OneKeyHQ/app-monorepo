@@ -10,7 +10,6 @@ export function useSpeedSwapInit(networkId: string) {
       const config = await backgroundApiProxy.serviceSwap.fetchSpeedSwapConfig({
         networkId,
       });
-      console.log('swap__config', config);
       return config;
     },
     [networkId],

@@ -78,7 +78,7 @@ const SwapProTradeTypeSelector = ({
         </XStack>
       }
       renderContent={({ closePopover }) => (
-        <YStack $md={{ p: '$3' }}>
+        <YStack $md={{ p: '$3' }} gap="$2">
           {selectItems.map((item) => (
             <XStack
               key={String(item.value)}
