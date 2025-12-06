@@ -166,7 +166,6 @@ export function AdaManageContent({
   });
 
   const handleDelegate = useCallback(async () => {
-    const stakeToken = tokenInfo?.token as IToken | undefined;
     const executeStake = async () => {
       await handleStake({
         symbol,
@@ -179,7 +178,7 @@ export function AdaManageContent({
             providerName: provider,
           }),
           protocolLogoURI: protocolInfo?.providerDetail?.logoURI,
-          send: stakeToken ? { token: stakeToken, amount: '0' } : undefined,
+          // ADA delegate doesn't transfer funds, so no send field needed
           tags: protocolInfo?.stakeTag ? [protocolInfo.stakeTag] : [],
         },
       });
@@ -231,7 +230,6 @@ export function AdaManageContent({
     riskNoticeDialog,
     delegateAction,
     protocolInfo,
-    tokenInfo,
   ]);
 
   const handleUndelegate = useCallback(async () => {
