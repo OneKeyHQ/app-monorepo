@@ -2227,6 +2227,7 @@ PODS:
   - react-native-network-info (5.2.2):
     - React
   - react-native-pager-view (7.0.1):
+    - boost
     - DoubleConversion
     - fast_float
     - fmt
@@ -4219,7 +4220,6 @@ SPEC CHECKSUMS:
   ExpoLocalAuthentication: 490fac71e8b2ad9f1252ee7c7b391f85db1fae33
   ExpoLocalization: f6c6aaa3bfff77b666bb958bdfeb5c55df21d990
   ExpoModulesCore: 9613dfd4f33c2ab5b29cdabd5c1e71ec7a5f6f9d
-  ExpoNativeExtensions: eb96bc06b4243500e240b435d120e580787b8d1d
   ExpoScreenCapture: 936adc13394b58fc78a9785723e08aa28a10bc41
   ExpoScreenOrientation: 62c4750605bcf5834b9dc080afe741bc1965a802
   ExpoSecureStore: b367d9f62c9102d808afbeb1561636d4276e439d
@@ -4276,7 +4276,7 @@ SPEC CHECKSUMS:
   react-native-aes: e38d08f68d27e85d14590b7ef0b404ceebf5f891
   react-native-ble-plx: 9ded55bdd592dc266e5b24f2eab37000d977c118
   react-native-capture-protection: 9f8fc339baa61d4f9885c8fe91f6ac4ec38df45b
-  react-native-cloud-fs: c86a54591a932e41d94b0965f16d0713150b1fd0
+  react-native-cloud-fs: 03ad849da6cecc3cb58ed970ce4078a2e0814848
   react-native-compat: cc901bbaa0336eb1e336966e4b2d9ab748d14735
   react-native-fast-pbkdf2: 329e89b9929a51ed4d9ba88bf355a266f13d9d93
   react-native-get-random-values: 419569b6ed3d15bfb9b6781b2f2e058f8e8d2698
@@ -4285,8 +4285,8 @@ SPEC CHECKSUMS:
   react-native-mmkv: e4577d4ace0732f3728ce1aa5271b67fdcb40a27
   react-native-netinfo: cec9c4e86083cb5b6aba0e0711f563e2fbbff187
   react-native-network-info: 703d4b16ff0ff6f03127728348251bf5f12b823a
-  react-native-pager-view: 6fd80a1df31b41d1459e3ebc05f633e188b15926
-  react-native-performance-stats: 088634dc35ead1dfcd371be67bd94dd0f2f104ac
+  react-native-pager-view: d91a84dd23f9fba7e63c4b9d68f32f52c9ec62ca
+  react-native-performance-stats: 9738b58eed6e0d4c52e64ba98d6ca9e6af204067
   react-native-ping: 589027e929c300b0b68cc5c34105f33610177055
   react-native-safe-area-context: ea7c9ba09a7b44e0dd1df408082760a8537f4547
   react-native-slider: 6201419b3e3f7c6b7cf2068e0c01274fa86a1da5
