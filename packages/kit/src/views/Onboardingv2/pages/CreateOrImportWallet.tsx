@@ -189,54 +189,72 @@ export default function CreateOrImportWallet() {
     defaultLogger.account.wallet.onboard({ onboardMethod: 'connectHWWallet' });
   };
 
-  // TODO: Replace with actual check from backend service
+  // TODO: @zuo Replace with actual check
   const isKeylessEnabled = false;
+
+  // TODO: @zuo Replace with actual server check after login
+  const hasServerAuthShare = true;
 
   // Cloud backup is supported on iOS (iCloud), Android (Google Drive), and macOS App Store (iCloud)
   const isCloudBackupSupported =
     platformEnv.isNativeIOS || platformEnv.isNativeAndroid || platformEnv.isMas;
 
   const handleKeylessWalletClick = useCallback(() => {
-    // Check if device supports cloud backup first
-    if (!isCloudBackupSupported) {
-      // Device doesn't support cloud backup, open Transfer Modal for QR migration
-      // The Transfer Modal will be adjusted for this keyless wallet scenario
-      // with a "I haven't created a keyless wallet yet" button in the footer
-      navigation.pushModal(EModalRoutes.PrimeModal, {
-        screen: EPrimePages.PrimeTransfer,
-        params: {
-          variant: 'transferShares',
-        },
+    // Step 1: Check if local device already has Keyless Wallet
+    if (isKeylessEnabled) {
+      Dialog.show({
+        title: 'Keyless Wallet',
+        description:
+          'You already have a Keyless Wallet on this device. No need to create another one.',
+        showCancelButton: false,
+        onConfirmText: intl.formatMessage({ id: ETranslations.global_got_it }),
       });
       return;
     }
 
-    if (isKeylessEnabled) {
-      // Keyless wallet already exists
-      Dialog.show({
-        title: 'Keyless Wallet',
-        description:
-          'You can only create one keyless wallet. You already have an active keyless wallet in your account.',
-        showCancelButton: false,
-        onConfirmText: intl.formatMessage({ id: ETranslations.global_got_it }),
-      });
-    } else if (isLoggedIn) {
-      // Already logged in to OneKey ID, navigate to create keyless wallet
-      navigation.push(EOnboardingPagesV2.FinalizeWalletSetup, {
-        variant: 'keylessWallet',
-      });
-    } else {
-      // Not logged in, show login dialog first
+    // Logic to execute after login is confirmed
+    const proceedAfterLogin = () => {
+      // Step 2.2: Check if server has Auth Share for this OneKey ID
+      if (hasServerAuthShare) {
+        // Has Auth Share → Step 4: Recovery flow
+        navigation.push(EOnboardingPagesV2.KeylessWalletRecovery, {});
+        return;
+      }
+
+      // No Auth Share → Step 3: Create flow
+      if (!isCloudBackupSupported) {
+        // Step 3.1: Device doesn't support cloud backup → QR migration module
+        navigation.pushModal(EModalRoutes.PrimeModal, {
+          screen: EPrimePages.PrimeTransfer,
+          params: {
+            variant: 'createKeylessWallet',
+          },
+        });
+      } else {
+        // Step 3.2: Device supports cloud backup → Create Keyless Wallet
+        navigation.push(EOnboardingPagesV2.FinalizeWalletSetup, {
+          variant: 'keylessWallet',
+        });
+      }
+    };
+
+    // Step 2.1: Ensure user is logged in to OneKey ID
+    if (!isLoggedIn) {
       showOneKeyIDLoginDialog({
         variant: 'keylessWallet',
-        onLoginSuccess: async () => {
-          navigation.push(EOnboardingPagesV2.FinalizeWalletSetup, {
-            variant: 'keylessWallet',
-          });
-        },
+        onLoginSuccess: proceedAfterLogin,
       });
+    } else {
+      proceedAfterLogin();
     }
-  }, [intl, isCloudBackupSupported, isKeylessEnabled, isLoggedIn, navigation]);
+  }, [
+    hasServerAuthShare,
+    intl,
+    isCloudBackupSupported,
+    isKeylessEnabled,
+    isLoggedIn,
+    navigation,
+  ]);
 
   return (
     <Page>

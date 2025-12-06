@@ -31,6 +31,8 @@ export interface IOneKeyIDLoginDialogProps {
   email?: string;
   onLoginSuccess?: () => void | Promise<void>;
   onClose?: () => void;
+  /** Called when dialog is dismissed without successful login */
+  onDismiss?: () => void;
 }
 
 export function OneKeyIDLoginDialog({
@@ -157,11 +159,24 @@ export function OneKeyIDLoginDialog({
 export function showOneKeyIDLoginDialog(
   props: Omit<IOneKeyIDLoginDialogProps, 'onClose'> = {},
 ) {
+  const { onDismiss, onLoginSuccess, ...restProps } = props;
+  let loginSucceeded = false;
+
   const dialog = Dialog.show({
     showFooter: false,
+    onClose: () => {
+      // Called when dialog is dismissed (X button, outside click, back button, etc.)
+      if (!loginSucceeded) {
+        onDismiss?.();
+      }
+    },
     renderContent: (
       <OneKeyIDLoginDialog
-        {...props}
+        {...restProps}
+        onLoginSuccess={async () => {
+          loginSucceeded = true;
+          await onLoginSuccess?.();
+        }}
         onClose={async () => {
           await dialog.close();
         }}

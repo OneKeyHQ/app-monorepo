@@ -37,7 +37,7 @@ export function PrimeTransferHome({
   autoConnect,
   autoConnectCustomServer,
 }: {
-  variant?: 'default' | 'transferShares';
+  variant?: 'default' | 'createKeylessWallet' | 'recoverKeylessWallet';
   remotePairingCode: string;
   setRemotePairingCode: (code: string) => void;
   autoConnect?: boolean;
@@ -80,8 +80,9 @@ export function PrimeTransferHome({
     <>
       <Page.Header
         title={
-          variant === 'transferShares'
-            ? 'Transfer keyless wallet'
+          variant === 'createKeylessWallet' ||
+          variant === 'recoverKeylessWallet'
+            ? 'Transfer Keyless Wallet'
             : intl.formatMessage({
                 id: ETranslations.transfer_establish_connection,
               })

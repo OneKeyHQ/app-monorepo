@@ -241,7 +241,11 @@ export default function PagePrimeTransfer() {
         shouldPreventRemove={primeTransferAtom.shouldPreventExit}
         // shouldPreventRemove={false}
       />
-      {route.params?.variant === 'transferShares' ? (
+      {/* Only show "I don't have a Keyless Wallet" for creation flow */}
+      {/* - default: other data transfer, not related to Keyless Wallet */}
+      {/* - createKeylessWallet: creating Keyless Wallet, user might not have one */}
+      {/* - recoverKeylessWallet: recovering, user already has Keyless Wallet */}
+      {route.params?.variant === 'createKeylessWallet' ? (
         <Page.Footer>
           <YStack p="$5">
             <Button variant="tertiary" size="small" childrenAsText={false}>

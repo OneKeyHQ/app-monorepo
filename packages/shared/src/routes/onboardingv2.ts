@@ -33,6 +33,7 @@ export enum EOnboardingPagesV2 {
   ConnectWalletSelectNetworks = 'ConnectWalletSelectNetworks',
   ConnectExternalWallet = 'ConnectExternalWallet',
   ImportKeyTag = 'ImportKeyTag',
+  KeylessWalletRecovery = 'KeylessWalletRecovery',
 }
 interface IVerifyRecoveryPhraseParams {
   mnemonic: string;
@@ -96,4 +97,7 @@ export type IOnboardingParamListV2 = {
     title: string;
   };
   [EOnboardingPagesV2.ImportKeyTag]: undefined;
+  [EOnboardingPagesV2.KeylessWalletRecovery]: {
+    email?: string;
+  };
 };
