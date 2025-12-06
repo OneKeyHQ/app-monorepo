@@ -4,7 +4,7 @@ import { useIntl } from 'react-intl';
 
 import { Dialog, Input, Portal } from '@onekeyhq/components';
 import type { IDialogProps } from '@onekeyhq/components/src/composite/Dialog/type';
-import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
+import { useOneKeyAuthMethods } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -36,7 +36,7 @@ export function useResetApp(
 ) {
   const { inAppStateLock = false, silentReset = false } = params || {};
   const intl = useIntl();
-  const { logout: logoutOnekeyID } = useOneKeyAuth();
+  const { logout: logoutOnekeyID } = useOneKeyAuthMethods();
 
   const doReset = useCallback(async () => {
     // reset app

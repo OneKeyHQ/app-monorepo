@@ -40,10 +40,8 @@ const PrimeLoginEmailDialogV2 = LazyLoadPage(
   </Stack>,
 );
 
-export function useOneKeyAuth() {
+export function useOneKeyAuthMethods() {
   const [user] = usePrimePersistAtom();
-  const intl = useIntl();
-  const navigation = useAppNavigation();
 
   const {
     signOut: supabaseSignOut,
@@ -54,35 +52,6 @@ export function useOneKeyAuth() {
     signInWithOtp: supabaseSignInWithOtp,
     verifyOtp: supabaseVerifyOtp,
   } = useSupabaseAuth();
-
-  const useLoginWithEmail = useCallback(
-    // ({
-    //   onComplete,
-    //   onError,
-    // }: {
-    //   onComplete: () => void;
-    //   onError: (error: Error) => void;
-    // })
-    () => {
-      return {
-        sendCode: async ({ email }: { email: string }) => {
-          const _res = await supabaseSignInWithOtp({ email });
-          console.log(_res);
-        },
-        loginWithCode: async ({
-          code,
-          email,
-        }: {
-          code: string;
-          email: string;
-        }) => {
-          const _res = await supabaseVerifyOtp({ email, otp: code });
-          // return res;
-        },
-      };
-    },
-    [supabaseSignInWithOtp, supabaseVerifyOtp],
-  );
 
   const apiLogout = useCallback(async () => {
     await backgroundApiProxy.servicePrime.apiLogout();
@@ -95,6 +64,94 @@ export function useOneKeyAuth() {
       await supabaseSignOut();
     }
   }, [apiLogout, supabaseSignOut]);
+
+  return useMemo(() => {
+    return {
+      isLoggedIn: user?.isLoggedIn && user?.isLoggedInOnServer,
+      isPrimeSubscriptionActive: user?.primeSubscription?.isActive,
+      user,
+      logout,
+      // apiLogout,
+      // sdkLogout,
+      getAccessToken,
+      isReady,
+      isSupabaseLoggedIn,
+      getSupabaseClient,
+      supabaseUser,
+      supabaseSignInWithOtp,
+      supabaseVerifyOtp,
+      supabaseSignOut,
+    };
+  }, [
+    getAccessToken,
+    isReady,
+    isSupabaseLoggedIn,
+    logout,
+    user,
+    supabaseUser,
+    supabaseSignInWithOtp,
+    supabaseVerifyOtp,
+    supabaseSignOut,
+  ]);
+}
+
+export function useOneKeyAuth() {
+  const navigation = useAppNavigation();
+  const intl = useIntl();
+
+  const methods = useOneKeyAuthMethods();
+  const { logout, supabaseSignInWithOtp, supabaseVerifyOtp } = methods;
+
+  const toOneKeyIdPage = useCallback(() => {
+    navigation.pushModal(EModalRoutes.PrimeModal, {
+      screen: EPrimePages.OneKeyId,
+    });
+  }, [navigation]);
+
+  const loginOneKeyId = useCallback(
+    async ({
+      toOneKeyIdPageOnLoginSuccess,
+    }: {
+      toOneKeyIdPageOnLoginSuccess?: boolean;
+    } = {}) => {
+      const isLoggedIn = await backgroundApiProxy.servicePrime.isLoggedIn();
+      const onLoginSuccess = async () => {
+        if (toOneKeyIdPageOnLoginSuccess) {
+          await timerUtils.wait(120);
+          toOneKeyIdPage();
+        }
+      };
+      if (isLoggedIn) {
+        await onLoginSuccess();
+      } else {
+        defaultLogger.prime.subscription.onekeyIdLogout({
+          reason:
+            'useLoginOneKeyId.loginOneKeyId(): call logout() before showing login dialog',
+        });
+        // logout before login, make sure local supabase storage cache is cleared
+        void logout();
+
+        // 跳转到登录页面
+        const loginDialog = Dialog.show({
+          renderContent: (
+            <PrimeLoginEmailDialogV2
+              title={intl.formatMessage({
+                id: ETranslations.prime_signup_login,
+              })}
+              description={intl.formatMessage({
+                id: ETranslations.prime_onekeyid_continue_description,
+              })}
+              onComplete={() => {
+                void loginDialog.close();
+              }}
+              onLoginSuccess={onLoginSuccess}
+            />
+          ),
+        });
+      }
+    },
+    [intl, logout, toOneKeyIdPage],
+  );
 
   const sendEmailOTP = useCallback(
     async ({
@@ -148,91 +205,42 @@ export function useOneKeyAuth() {
     [intl],
   );
 
-  const toOneKeyIdPage = useCallback(() => {
-    navigation.pushModal(EModalRoutes.PrimeModal, {
-      screen: EPrimePages.OneKeyId,
-    });
-  }, [navigation]);
-
-  const loginOneKeyId = useCallback(
-    async ({
-      toOneKeyIdPageOnLoginSuccess,
-    }: {
-      toOneKeyIdPageOnLoginSuccess?: boolean;
-    } = {}) => {
-      const isLoggedIn = await backgroundApiProxy.servicePrime.isLoggedIn();
-      const onLoginSuccess = async () => {
-        if (toOneKeyIdPageOnLoginSuccess) {
-          await timerUtils.wait(120);
-          toOneKeyIdPage();
-        }
+  const useLoginWithEmail = useCallback(
+    // ({
+    //   onComplete,
+    //   onError,
+    // }: {
+    //   onComplete: () => void;
+    //   onError: (error: Error) => void;
+    // })
+    () => {
+      return {
+        sendCode: async ({ email }: { email: string }) => {
+          const _res = await supabaseSignInWithOtp({ email });
+          console.log(_res);
+        },
+        loginWithCode: async ({
+          code,
+          email,
+        }: {
+          code: string;
+          email: string;
+        }) => {
+          const _res = await supabaseVerifyOtp({ email, otp: code });
+          // return res;
+        },
       };
-      if (isLoggedIn) {
-        await onLoginSuccess();
-      } else {
-        defaultLogger.prime.subscription.onekeyIdLogout({
-          reason:
-            'useLoginOneKeyId.loginOneKeyId(): call logout() before showing login dialog',
-        });
-        // logout before login, make sure local supabase storage cache is cleared
-        void logout();
-
-        // 跳转到登录页面
-        const loginDialog = Dialog.show({
-          renderContent: (
-            <PrimeLoginEmailDialogV2
-              title={intl.formatMessage({
-                id: ETranslations.prime_signup_login,
-              })}
-              description={intl.formatMessage({
-                id: ETranslations.prime_onekeyid_continue_description,
-              })}
-              onComplete={() => {
-                void loginDialog.close();
-              }}
-              onLoginSuccess={onLoginSuccess}
-            />
-          ),
-        });
-      }
     },
-    [intl, logout, toOneKeyIdPage],
+    [supabaseSignInWithOtp, supabaseVerifyOtp],
   );
 
   return useMemo(() => {
     return {
-      isLoggedIn: user?.isLoggedIn && user?.isLoggedInOnServer,
-      isPrimeSubscriptionActive: user?.primeSubscription?.isActive,
-      user,
-      logout,
-      // apiLogout,
-      // sdkLogout,
-      getAccessToken,
-      isReady,
-      isSupabaseLoggedIn,
-      useLoginWithEmail,
-      getSupabaseClient,
-      supabaseUser,
-      supabaseSignInWithOtp,
-      supabaseVerifyOtp,
-      supabaseSignOut,
-      sendEmailOTP,
-      loginOneKeyId,
+      ...methods,
       toOneKeyIdPage,
+      loginOneKeyId,
+      sendEmailOTP,
+      useLoginWithEmail,
     };
-  }, [
-    getAccessToken,
-    isReady,
-    isSupabaseLoggedIn,
-    logout,
-    user,
-    useLoginWithEmail,
-    supabaseUser,
-    supabaseSignInWithOtp,
-    supabaseVerifyOtp,
-    supabaseSignOut,
-    sendEmailOTP,
-    loginOneKeyId,
-    toOneKeyIdPage,
-  ]);
+  }, [methods, sendEmailOTP, loginOneKeyId, toOneKeyIdPage, useLoginWithEmail]);
 }

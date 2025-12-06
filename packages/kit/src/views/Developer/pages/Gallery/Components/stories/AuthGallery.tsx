@@ -65,6 +65,8 @@ export function AuthApiTests() {
   const [signOutLoading, setSignOutLoading] = useState(false);
   const [signInLoading, setSignInLoading] = useState(false);
   const [verifyLoading, setVerifyLoading] = useState(false);
+  const [storageKey, setStorageKey] = useState('test13477193465');
+  const [storageValue, setStorageValue] = useState('test');
 
   useEffect(() => {
     appStorage.syncStorage.set(
@@ -169,35 +171,85 @@ export function AuthApiTests() {
         >
           get user
         </Button>
+        <SizableText size="$headingMd" mt="$4">
+          Storage Tests
+        </SizableText>
+        <Input
+          placeholder="storage key"
+          value={storageKey}
+          onChangeText={setStorageKey}
+        />
+        <Input
+          placeholder="storage value"
+          value={storageValue}
+          onChangeText={setStorageValue}
+        />
         <Button
           onPress={async () => {
-            await getSupabaseClient().storage?.clear();
+            try {
+              const result = await getSupabaseClient().storage?.setItem(
+                storageKey,
+                storageValue,
+              );
+              demoLog(result, 'storage set item');
+            } catch (e) {
+              demoError(e, 'storage set item');
+            }
           }}
         >
-          clear storage
+          storage set item (write)
         </Button>
         <Button
           onPress={async () => {
-            demoLog(
-              await getSupabaseClient().storage?.setItem(
-                'test13477193465',
-                'test',
-              ),
-              'storage set item',
-            );
+            try {
+              const result = await getSupabaseClient().storage?.getItem(
+                storageKey,
+              );
+              demoLog(result, 'storage get item');
+            } catch (e) {
+              demoError(e, 'storage get item');
+            }
           }}
         >
-          storage test
+          storage get item (read)
         </Button>
         <Button
           onPress={async () => {
-            demoLog(
-              await getSupabaseClient().storage?.getAllKeys(),
-              'storage get all keys',
-            );
+            try {
+              const result = await getSupabaseClient().storage?.removeItem(
+                storageKey,
+              );
+              demoLog(result, 'storage remove item');
+            } catch (e) {
+              demoError(e, 'storage remove item');
+            }
+          }}
+        >
+          storage remove item (delete)
+        </Button>
+        <Button
+          onPress={async () => {
+            try {
+              const result = await getSupabaseClient().storage?.getAllKeys();
+              demoLog(result, 'storage get all keys');
+            } catch (e) {
+              demoError(e, 'storage get all keys');
+            }
           }}
         >
           storage get all keys
+        </Button>
+        <Button
+          onPress={async () => {
+            try {
+              await getSupabaseClient().storage?.clear();
+              demoLog('cleared', 'storage clear');
+            } catch (e) {
+              demoError(e, 'storage clear');
+            }
+          }}
+        >
+          clear storage
         </Button>
       </Stack>
     </Stack>

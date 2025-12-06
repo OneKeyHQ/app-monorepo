@@ -6,7 +6,19 @@ import secureStorageInstance from '../instance/secureStorageInstance';
 
 import { SUPABASE_STORAGE_KEY_PREFIX } from './consts';
 
-const shouldUseSecureStorage = platformEnv.isNative || platformEnv.isDesktop;
+const shouldUseSecureStorage = (() => {
+  const isSupportSecureStorage = secureStorageInstance.supportSecureStorage();
+  if (!isSupportSecureStorage) {
+    return false;
+  }
+  if (platformEnv.isNative) {
+    return true;
+  }
+  if (platformEnv.isDesktop && !platformEnv.isDev) {
+    return true;
+  }
+  return false;
+})();
 
 const prefixedKeys = new Set<string>();
 
@@ -22,14 +34,16 @@ export class SupabaseStorage {
   }
 
   getItemWithCache = cacheUtils.memoizee(
-    (key: string) => {
+    async (key: string) => {
       // eslint-disable-next-line no-param-reassign
       key = withPrefixedKey(key);
 
       if (shouldUseSecureStorage) {
-        return secureStorageInstance.getSecureItem(key);
+        const result = await secureStorageInstance.getSecureItem(key);
+        return result;
       }
-      return appStorage.getItem(key);
+      const result = await appStorage.getItem(key);
+      return result;
     },
     {
       promise: true,
