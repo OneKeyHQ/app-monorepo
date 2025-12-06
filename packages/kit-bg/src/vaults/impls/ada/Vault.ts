@@ -52,6 +52,7 @@ import type {
 } from '@onekeyhq/shared/types/customRpc';
 import {
   EEarnLabels,
+  EInternalStakingAction,
   type IInternalDappTxParams,
 } from '@onekeyhq/shared/types/staking';
 import {
@@ -806,10 +807,12 @@ export default class Vault extends VaultBase {
   override async buildInternalDappEncodedTx(
     params: IInternalDappTxParams,
   ): Promise<IEncodedTxAda> {
+    const { stakingAction } = params;
     const encodedTx = await this.buildTxCborToEncodeTx({
       txHex: params.internalDappTx as string,
-      isSignOnly: true,
+      isSignOnly: params.stakingAction !== EInternalStakingAction.Claim,
     });
+
     return encodedTx;
   }
 }

@@ -16,6 +16,7 @@ import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 import {
   type EApproveType,
   EInternalDappEnum,
+  EInternalStakingAction,
   type IStakeTxResponse,
   type IStakingInfo,
 } from '@onekeyhq/shared/types/staking';
@@ -128,6 +129,7 @@ export function useUniversalStake({
           accountId,
           tx: stakeTx.tx,
           internalDappType: EInternalDappEnum.Staking,
+          stakingAction: EInternalStakingAction.Stake,
         });
 
       let useFeeInTx;
@@ -274,6 +276,7 @@ export function useUniversalWithdraw({
           accountId,
           tx: stakeTx.tx,
           internalDappType: EInternalDappEnum.Staking,
+          stakingAction: EInternalStakingAction.Withdraw,
         });
       let useFeeInTx;
       let feeInfoEditable;
@@ -384,6 +387,7 @@ export function useUniversalClaim({
             accountId,
             tx: stakeTx.tx,
             internalDappType: EInternalDappEnum.Staking,
+            stakingAction: EInternalStakingAction.Claim,
           });
         let useFeeInTx;
         let feeInfoEditable;
