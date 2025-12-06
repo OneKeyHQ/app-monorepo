@@ -272,7 +272,68 @@ PODS:
     - ReactCommon/turbomodule/core
     - SocketRocket
     - Yoga
+  - MMKVCore (2.2.4)
   - MultiplatformBleAdapter (0.2.0)
+  - NitroMmkv (4.1.0):
+    - boost
+    - DoubleConversion
+    - fast_float
+    - fmt
+    - glog
+    - hermes-engine
+    - MMKVCore (= 2.2.4)
+    - NitroModules
+    - RCT-Folly
+    - RCT-Folly/Fabric
+    - RCTRequired
+    - RCTTypeSafety
+    - React-callinvoker
+    - React-Core
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - SocketRocket
+    - Yoga
+  - NitroModules (0.31.10):
+    - boost
+    - DoubleConversion
+    - fast_float
+    - fmt
+    - glog
+    - hermes-engine
+    - RCT-Folly
+    - RCT-Folly/Fabric
+    - RCTRequired
+    - RCTTypeSafety
+    - React-callinvoker
+    - React-Core
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - SocketRocket
+    - Yoga
   - PurchasesHybridCommon (14.2.0):
     - RevenueCat (= 5.32.0)
   - RCT-Folly (2024.11.18.00):
@@ -2194,34 +2255,6 @@ PODS:
     - ReactCommon/turbomodule/core
     - SocketRocket
     - Yoga
-  - react-native-mmkv (3.3.0):
-    - boost
-    - DoubleConversion
-    - fast_float
-    - fmt
-    - glog
-    - hermes-engine
-    - RCT-Folly
-    - RCT-Folly/Fabric
-    - RCTRequired
-    - RCTTypeSafety
-    - React-Core
-    - React-debug
-    - React-Fabric
-    - React-featureflags
-    - React-graphics
-    - React-ImageManager
-    - React-jsi
-    - React-NativeModulesApple
-    - React-RCTFabric
-    - React-renderercss
-    - React-rendererdebug
-    - React-utils
-    - ReactCodegen
-    - ReactCommon/turbomodule/bridging
-    - ReactCommon/turbomodule/core
-    - SocketRocket
-    - Yoga
   - react-native-netinfo (11.4.1):
     - React-Core
   - react-native-network-info (5.2.2):
@@ -3755,6 +3788,8 @@ DEPENDENCIES:
   - JCoreRN (from `../../../node_modules/jcore-react-native`)
   - JPushRN (from `../../../node_modules/jpush-react-native`)
   - lottie-react-native (from `../../../node_modules/lottie-react-native`)
+  - NitroMmkv (from `../../../node_modules/react-native-mmkv`)
+  - NitroModules (from `../../../node_modules/react-native-nitro-modules`)
   - RCT-Folly (from `../../../node_modules/react-native/third-party-podspecs/RCT-Folly.podspec`)
   - RCTDeprecation (from `../../../node_modules/react-native/ReactApple/Libraries/RCTFoundation/RCTDeprecation`)
   - RCTRequired (from `../../../node_modules/react-native/Libraries/Required`)
@@ -3798,7 +3833,6 @@ DEPENDENCIES:
   - react-native-get-random-values (from `../../../node_modules/react-native-get-random-values`)
   - react-native-keyboard-controller (from `../../../node_modules/react-native-keyboard-controller`)
   - "react-native-lite-card (from `../../../node_modules/@onekeyfe/react-native-lite-card`)"
-  - react-native-mmkv (from `../../../node_modules/react-native-mmkv`)
   - "react-native-netinfo (from `../../../node_modules/@react-native-community/netinfo`)"
   - react-native-network-info (from `../../../node_modules/react-native-network-info`)
   - react-native-pager-view (from `../../../node_modules/react-native-pager-view`)
@@ -3871,6 +3905,7 @@ SPEC REPOS:
     - CocoaLumberjack
     - libwebp
     - lottie-ios
+    - MMKVCore
     - MultiplatformBleAdapter
     - PurchasesHybridCommon
     - React-Codegen
@@ -3976,6 +4011,10 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/jpush-react-native"
   lottie-react-native:
     :path: "../../../node_modules/lottie-react-native"
+  NitroMmkv:
+    :path: "../../../node_modules/react-native-mmkv"
+  NitroModules:
+    :path: "../../../node_modules/react-native-nitro-modules"
   RCT-Folly:
     :podspec: "../../../node_modules/react-native/third-party-podspecs/RCT-Folly.podspec"
   RCTDeprecation:
@@ -4060,8 +4099,6 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/react-native-keyboard-controller"
   react-native-lite-card:
     :path: "../../../node_modules/@onekeyfe/react-native-lite-card"
-  react-native-mmkv:
-    :path: "../../../node_modules/react-native-mmkv"
   react-native-netinfo:
     :path: "../../../node_modules/@react-native-community/netinfo"
   react-native-network-info:
@@ -4237,7 +4274,10 @@ SPEC CHECKSUMS:
   libwebp: 02b23773aedb6ff1fd38cec7a77b81414c6842a8
   lottie-ios: a881093fab623c467d3bce374367755c272bdd59
   lottie-react-native: d2b7601b28c063bde347fac764166b5362037846
+  MMKVCore: f2dd4c9befea04277a55e84e7812f930537993df
   MultiplatformBleAdapter: b1fddd0d499b96b607e00f0faa8e60648343dc1d
+  NitroMmkv: 63e5b053f70241e850f26237fcd55eb1813f10c0
+  NitroModules: cf8804dafa637b6535c73fd113c3202b11307bfd
   PurchasesHybridCommon: f1650b33e9a1dd04d5e8a40dfe757f39e63f935c
   RCT-Folly: 846fda9475e61ec7bcbf8a3fe81edfcaeb090669
   RCTDeprecation: 5eb1d2eeff5fb91151e8a8eef45b6c7658b6c897
@@ -4282,7 +4322,6 @@ SPEC CHECKSUMS:
   react-native-get-random-values: 419569b6ed3d15bfb9b6781b2f2e058f8e8d2698
   react-native-keyboard-controller: 44a1a840c0d2ede629af60d6fbf84fc69ee4cb10
   react-native-lite-card: cdc6274cf64242db31c40fc220a67a309cdc888b
-  react-native-mmkv: e4577d4ace0732f3728ce1aa5271b67fdcb40a27
   react-native-netinfo: cec9c4e86083cb5b6aba0e0711f563e2fbbff187
   react-native-network-info: 703d4b16ff0ff6f03127728348251bf5f12b823a
   react-native-pager-view: d91a84dd23f9fba7e63c4b9d68f32f52c9ec62ca

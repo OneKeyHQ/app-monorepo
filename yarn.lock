@@ -7885,10 +7885,11 @@ __metadata:
     react-native-image-crop-picker: "npm:0.50.0"
     react-native-keyboard-controller: "npm:1.19.6"
     react-native-level-fs: "npm:3.0.1"
-    react-native-mmkv: "npm:3.3.0"
+    react-native-mmkv: "npm:4.1.0"
     react-native-modal: "npm:^13.0.1"
     react-native-network-info: "npm:5.2.2"
     react-native-network-logger: "npm:2.0.1"
+    react-native-nitro-modules: "npm:0.31.10"
     react-native-pager-view: "npm:7.0.1"
     react-native-passkeys: "npm:0.3.3"
     react-native-performance-stats: "npm:0.2.3"
@@ -35376,13 +35377,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-mmkv@npm:3.3.0":
-  version: 3.3.0
-  resolution: "react-native-mmkv@npm:3.3.0"
+"react-native-mmkv@npm:4.1.0":
+  version: 4.1.0
+  resolution: "react-native-mmkv@npm:4.1.0"
   peerDependencies:
     react: "*"
     react-native: "*"
-  checksum: 10/809f89f0192eb856ca4a0cc931ba26d6e383da154ccbf23160b89c4c4fcbb8c2bc8976ad921a75ad5170f60bc6991cadf8c41579b4ca9bb892b0b7a10e2689f4
+    react-native-nitro-modules: "*"
+  checksum: 10/306b2b1371bb58152ec562326d93f25e5cf173f31a313ce78202d3681c3cc6f5a0ca792726f94d3482d3bd0fa341735b046223bbe4b85baacba006307d76a792
   languageName: node
   linkType: hard
 
@@ -35415,6 +35417,16 @@ __metadata:
     react: "*"
     react-native: "*"
   checksum: 10/a4c231ad58c9e9221e752558de1b723fcf374ef7749806df48b1997ebeae5e015a598f05b964ec8c60b8a3004254166625bb927a905cc6a6997ded99ccf64de1
+  languageName: node
+  linkType: hard
+
+"react-native-nitro-modules@npm:0.31.10":
+  version: 0.31.10
+  resolution: "react-native-nitro-modules@npm:0.31.10"
+  peerDependencies:
+    react: "*"
+    react-native: "*"
+  checksum: 10/b0dabcc7c251660d39c712898a2147fcb14bf99cbf2a1a4ff0bc2c8798e4d72b4d3a2ee03e684a1454aaee6a17d665ab38c3f445234a2e17aced32b776ecac38
   languageName: node
   linkType: hard
 
