@@ -366,25 +366,24 @@ function SendDataInputContainer() {
   const isLightningNetwork =
     networkUtils.isLightningNetworkByNetworkId(networkId);
 
-  // Extract selected UTXO keys for current account
-  const currentSelectedUtxoKeys = useMemo(() => {
+  // Extract selected UTXO info for current account
+  const currentSelectedUtxoInfo = useMemo(() => {
     if (
       selectedUTXOs &&
       selectedUTXOs.networkId === currentAccount.networkId &&
       selectedUTXOs.accountId === currentAccount.accountId &&
       selectedUTXOs.selectedUtxoKeys.length > 0
     ) {
-      return selectedUTXOs.selectedUtxoKeys;
+      return {
+        keys: selectedUTXOs.selectedUtxoKeys,
+        totalValue: selectedUTXOs.selectedUtxoTotalValue,
+      };
     }
     return undefined;
   }, [selectedUTXOs, currentAccount.networkId, currentAccount.accountId]);
 
-  useEffect(() => {
-    console.log(
-      '======>>>>>>>>currentSelectedUtxoKeys: ',
-      currentSelectedUtxoKeys,
-    );
-  }, [currentSelectedUtxoKeys]);
+  // For backward compatibility
+  const currentSelectedUtxoKeys = currentSelectedUtxoInfo?.keys;
 
   const form = useForm<IFormValues>(formOptions);
 
@@ -783,6 +782,47 @@ function SendDataInputContainer() {
       txMessageLinkedString,
     ],
   );
+  // Get the effective balance for validation (considers selected UTXOs)
+  const effectiveBalance = useMemo(() => {
+    if (currentSelectedUtxoInfo?.totalValue) {
+      const decimals = tokenDetails?.info?.decimals;
+      if (decimals === undefined || decimals === null) {
+        throw new OneKeyInternalError(
+          'Token decimals is required for UTXO balance calculation',
+        );
+      }
+      return new BigNumber(currentSelectedUtxoInfo.totalValue)
+        .shiftedBy(-decimals)
+        .toFixed();
+    }
+    return tokenDetails?.balanceParsed ?? '0';
+  }, [
+    currentSelectedUtxoInfo?.totalValue,
+    tokenDetails?.info?.decimals,
+    tokenDetails?.balanceParsed,
+  ]);
+
+  const effectiveBalanceFiat = useMemo(() => {
+    if (currentSelectedUtxoInfo?.totalValue && tokenDetails?.price) {
+      const decimals = tokenDetails?.info?.decimals;
+      if (decimals === undefined || decimals === null) {
+        throw new OneKeyInternalError(
+          'Token decimals is required for UTXO fiat calculation',
+        );
+      }
+      const balanceInToken = new BigNumber(
+        currentSelectedUtxoInfo.totalValue,
+      ).shiftedBy(-decimals);
+      return balanceInToken.times(tokenDetails.price).toFixed();
+    }
+    return tokenDetails?.fiatValue ?? '0';
+  }, [
+    currentSelectedUtxoInfo?.totalValue,
+    tokenDetails?.info?.decimals,
+    tokenDetails?.price,
+    tokenDetails?.fiatValue,
+  ]);
+
   const handleValidateTokenAmount = useCallback(
     async (value: string) => {
       let amountBN = new BigNumber(value ?? 0);
@@ -798,7 +838,8 @@ function SendDataInputContainer() {
         : vaultSettings?.minTransferAmount ?? '0';
 
       if (isUseFiat) {
-        if (amountBN.isGreaterThan(tokenDetails?.fiatValue ?? 0)) {
+        // Use effective balance (considers selected UTXOs)
+        if (amountBN.isGreaterThan(effectiveBalanceFiat)) {
           isInsufficientBalance = true;
         }
 
@@ -816,7 +857,8 @@ function SendDataInputContainer() {
           );
         }
 
-        if (amountBN.isGreaterThan(tokenDetails?.balanceParsed ?? 0)) {
+        // Use effective balance (considers selected UTXOs)
+        if (amountBN.isGreaterThan(effectiveBalance)) {
           isInsufficientBalance = true;
         }
 
@@ -852,7 +894,8 @@ function SendDataInputContainer() {
           accountId: currentAccount.accountId,
           networkId: currentAccount.networkId,
           amount: amountBN.toFixed(),
-          tokenBalance: tokenDetails?.balanceParsed ?? '0',
+          // Use effective balance for validation
+          tokenBalance: effectiveBalance,
           to: toRaw ?? '',
           isNative: tokenDetails?.info.isNative,
         });
@@ -878,9 +921,9 @@ function SendDataInputContainer() {
       isLightningNetwork,
       lnUnit,
       tokenDetails?.info.isNative,
-      tokenDetails?.fiatValue,
       tokenDetails?.price,
-      tokenDetails?.balanceParsed,
+      effectiveBalance,
+      effectiveBalanceFiat,
       vaultSettings?.nativeMinTransferAmount,
       vaultSettings?.minTransferAmount,
       vaultSettings?.transferZeroNativeTokenEnabled,
@@ -921,20 +964,63 @@ function SendDataInputContainer() {
     displayAmountFormItem,
   ]);
 
+  // When UTXOs are selected, use the selected UTXO total value as max balance
   const maxBalance = useMemo(() => {
-    let balance = new BigNumber(tokenDetails?.balanceParsed ?? '0');
+    let balance: BigNumber;
+
+    // If UTXOs are selected, use selected UTXO total value
+    if (currentSelectedUtxoInfo?.totalValue) {
+      const decimals = tokenDetails?.info?.decimals;
+      if (decimals === undefined || decimals === null) {
+        throw new OneKeyInternalError(
+          'Token decimals is required for UTXO max balance calculation',
+        );
+      }
+      balance = new BigNumber(currentSelectedUtxoInfo.totalValue).shiftedBy(
+        -decimals,
+      );
+    } else {
+      balance = new BigNumber(tokenDetails?.balanceParsed ?? '0');
+    }
+
     if (isLightningNetwork && lnUnit === ELightningUnit.BTC) {
       balance = new BigNumber(
         chainValueUtils.convertSatsToBtc(balance.toFixed()),
       );
     }
     return balance.isNaN() ? '0' : balance.toFixed();
-  }, [tokenDetails?.balanceParsed, isLightningNetwork, lnUnit]);
+  }, [
+    tokenDetails?.balanceParsed,
+    tokenDetails?.info?.decimals,
+    currentSelectedUtxoInfo?.totalValue,
+    isLightningNetwork,
+    lnUnit,
+  ]);
 
   const maxBalanceFiat = useMemo(() => {
+    // If UTXOs are selected, calculate fiat value from selected UTXO total
+    if (currentSelectedUtxoInfo?.totalValue && tokenDetails?.price) {
+      const decimals = tokenDetails?.info?.decimals;
+      if (decimals === undefined || decimals === null) {
+        throw new OneKeyInternalError(
+          'Token decimals is required for UTXO max fiat calculation',
+        );
+      }
+      const balanceInToken = new BigNumber(
+        currentSelectedUtxoInfo.totalValue,
+      ).shiftedBy(-decimals);
+      const fiatValue = balanceInToken.times(tokenDetails.price);
+      return fiatValue.isNaN() ? '0' : fiatValue.toFixed();
+    }
+
     const balanceFiat = new BigNumber(tokenDetails?.fiatValue ?? '0');
     return balanceFiat.isNaN() ? '0' : balanceFiat.toFixed();
-  }, [tokenDetails?.fiatValue]);
+  }, [
+    tokenDetails?.fiatValue,
+    tokenDetails?.price,
+    tokenDetails?.info?.decimals,
+    currentSelectedUtxoInfo?.totalValue,
+  ]);
 
   // Lightning Network only accepts integer values on Token Mode
   const isIntegerAmount = useMemo(

@@ -249,9 +249,8 @@ function CoinControlPage() {
     return false;
   }, [isAllSelected, isIndeterminate]);
 
-  // Calculate total amount of selected UTXOs
-  const totalAmount = useMemo(() => {
-    if (!network) return '0';
+  // Calculate total value of selected UTXOs (in smallest unit, e.g. satoshi)
+  const totalValueRaw = useMemo(() => {
     let sum = new BigNumber(0);
     sortedData.forEach((utxo) => {
       const utxoKey = generateUtxoKey(utxo.txid, utxo.vout);
@@ -259,8 +258,14 @@ function CoinControlPage() {
         sum = sum.plus(utxo.value);
       }
     });
-    return sum.shiftedBy(-network.decimals).toFixed();
-  }, [selectedUTXOs, sortedData, network]);
+    return sum.toFixed();
+  }, [selectedUTXOs, sortedData]);
+
+  // Calculate total amount for display (formatted with decimals)
+  const totalAmount = useMemo(() => {
+    if (!network) return '0';
+    return new BigNumber(totalValueRaw).shiftedBy(-network.decimals).toFixed();
+  }, [totalValueRaw, network]);
 
   // Toggle single UTXO selection
   const handleToggleUTXO = useCallback((utxoKey: string) => {
@@ -293,12 +298,20 @@ function CoinControlPage() {
       networkId,
       accountId,
       selectedUtxoKeys: Array.from(selectedUTXOs),
+      selectedUtxoTotalValue: totalValueRaw,
       timestamp: Date.now(),
     });
 
     // Navigate back to SendDataInput page
     navigation.pop();
-  }, [selectedUTXOs, networkId, accountId, updateSelectedUTXOs, navigation]);
+  }, [
+    selectedUTXOs,
+    totalValueRaw,
+    networkId,
+    accountId,
+    updateSelectedUTXOs,
+    navigation,
+  ]);
 
   // Sort options
   const sortOptions = useMemo(
