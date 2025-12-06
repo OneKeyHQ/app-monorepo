@@ -18,6 +18,7 @@ import {
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
@@ -33,7 +34,6 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IPrimeServerUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import { PrimeSubscriptionPlans } from '../../components/PrimePurchaseDialog/PrimeSubscriptionPlans';
-import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
 import { usePrimePayment } from '../../hooks/usePrimePayment';
 import { usePrimePaymentMethodsWeb } from '../../hooks/usePrimePaymentMethodsWeb';
 import { usePrimeRequirements } from '../../hooks/usePrimeRequirements';
@@ -81,16 +81,21 @@ export default function PrimeDashboard({
   const { fromFeature } = route.params || {};
   // const isReady = false;
   const {
+    isReady: isAuthReady,
     user,
     isLoggedIn,
     isPrimeSubscriptionActive,
-    privyUser,
-    authenticated,
+    supabaseUser,
+    isSupabaseLoggedIn,
     // logout,
-  } = usePrimeAuthV2();
+  } = useOneKeyAuth();
 
-  const { isReady, getPackagesNative, restorePurchases, getPackagesWeb } =
-    usePrimePayment();
+  const {
+    isReady: isPurchaseReady,
+    getPackagesNative,
+    restorePurchases,
+    getPackagesWeb,
+  } = usePrimePayment();
 
   const [selectedSubscriptionPeriod, setSelectedSubscriptionPeriod] =
     useState<ISubscriptionPeriod>('P1Y');
@@ -115,7 +120,7 @@ export default function PrimeDashboard({
   useEffect(() => {
     const fn = async () => {
       // isFocused won't be triggered when Login Dialog is open or closed
-      if (isFocused) {
+      if (isFocused && isAuthReady) {
         await timerUtils.wait(600);
         if (!isFocusedRef.current) {
           // may be blurred when auto navigate to Device Limit Page
@@ -127,7 +132,7 @@ export default function PrimeDashboard({
       }
     };
     void fn();
-  }, [isFocused]);
+  }, [isFocused, isAuthReady]);
 
   const shouldShowConfirmButton = useMemo(() => {
     if (!isLoggedIn || !isPrimeSubscriptionActive) {
@@ -143,11 +148,11 @@ export default function PrimeDashboard({
     if (isPrimeSubscriptionActive) {
       return false;
     }
-    if (!user?.privyUserId) {
+    if (!user?.onekeyUserId) {
       return false;
     }
     return true;
-  }, [isPrimeSubscriptionActive, shouldShowConfirmButton, user?.privyUserId]);
+  }, [isPrimeSubscriptionActive, shouldShowConfirmButton, user?.onekeyUserId]);
 
   const { getPackagesWeb: getPackagesWeb2 } = usePrimePaymentMethodsWeb();
   // const getPackagesWeb2 = useCallback(async () => {
@@ -156,8 +161,8 @@ export default function PrimeDashboard({
   // }, []);
 
   const { result: webPackages } = usePromiseResult(async () => {
-    if (isReady) {
-      console.log('getPackagesWeb2__isReady', isReady);
+    if (isPurchaseReady) {
+      console.log('getPackagesWeb2__isReady', isPurchaseReady);
       const shouldPolyfillRandomUUIDTemporarily =
         !globalThis?.crypto?.randomUUID && platformEnv.isNativeAndroid;
       if (shouldPolyfillRandomUUIDTemporarily) {
@@ -179,16 +184,17 @@ export default function PrimeDashboard({
         }
       }
     }
-  }, [getPackagesWeb2, isReady]);
+  }, [getPackagesWeb2, isPurchaseReady]);
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { result: sdkPackages, isLoading: isPackagesLoading } =
     usePromiseResult(
       async () => {
-        if (!shouldShowSubscriptionPlans || !isReady) {
+        if (!shouldShowSubscriptionPlans || !isPurchaseReady) {
           return [];
         }
 
-        if (!user?.privyUserId) {
+        if (!user?.onekeyUserId) {
           return [];
         }
 
@@ -260,9 +266,9 @@ export default function PrimeDashboard({
         intl,
         getPackagesNative,
         getPackagesWeb,
-        isReady,
+        isPurchaseReady,
         shouldShowSubscriptionPlans,
-        user?.privyUserId,
+        user?.onekeyUserId,
       ],
       {
         watchLoading: true,
@@ -324,8 +330,9 @@ export default function PrimeDashboard({
   ]);
 
   const isLoggedInMaybe =
-    authenticated ||
-    privyUser?.id ||
+    isSupabaseLoggedIn ||
+    supabaseUser?.id ||
+    user?.onekeyUserId ||
     user?.isLoggedIn ||
     user?.isLoggedInOnServer ||
     isLoggedIn;
@@ -386,7 +393,7 @@ export default function PrimeDashboard({
               </Stack>
             ) : null}
 
-            {isReady ? (
+            {isPurchaseReady ? (
               <PrimeBenefitsList
                 selectedSubscriptionPeriod={selectedSubscriptionPeriod}
                 networkId={route.params?.networkId}

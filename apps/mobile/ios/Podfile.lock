@@ -164,8 +164,6 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - Yoga
-  - ExpoNativeExtensions (0.0.4):
-    - ExpoModulesCore
   - ExpoScreenCapture (7.1.5):
     - ExpoModulesCore
   - ExpoScreenOrientation (8.1.7):
@@ -2967,7 +2965,6 @@ DEPENDENCIES:
   - ExpoLocalAuthentication (from `../../../node_modules/expo-local-authentication/ios`)
   - ExpoLocalization (from `../../../node_modules/expo-localization/ios`)
   - ExpoModulesCore (from `../../../node_modules/expo-modules-core`)
-  - "ExpoNativeExtensions (from `../../../node_modules/@privy-io/expo-native-extensions/ios`)"
   - ExpoScreenCapture (from `../../../node_modules/expo-screen-capture/ios`)
   - ExpoScreenOrientation (from `../../../node_modules/expo-screen-orientation/ios`)
   - ExpoSecureStore (from `../../../node_modules/expo-secure-store/ios`)
@@ -3176,8 +3173,6 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/expo-localization/ios"
   ExpoModulesCore:
     :path: "../../../node_modules/expo-modules-core"
-  ExpoNativeExtensions:
-    :path: "../../../node_modules/@privy-io/expo-native-extensions/ios"
   ExpoScreenCapture:
     :path: "../../../node_modules/expo-screen-capture/ios"
   ExpoScreenOrientation:
@@ -3451,7 +3446,6 @@ SPEC CHECKSUMS:
   ExpoLocalAuthentication: 490fac71e8b2ad9f1252ee7c7b391f85db1fae33
   ExpoLocalization: f6c6aaa3bfff77b666bb958bdfeb5c55df21d990
   ExpoModulesCore: b0282ef361d46ddf759228430382226293060051
-  ExpoNativeExtensions: eb96bc06b4243500e240b435d120e580787b8d1d
   ExpoScreenCapture: 936adc13394b58fc78a9785723e08aa28a10bc41
   ExpoScreenOrientation: c883a8f448232c4f185cea4f08ce54ebdf9d010d
   ExpoSecureStore: b367d9f62c9102d808afbeb1561636d4276e439d

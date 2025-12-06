@@ -464,23 +464,68 @@ class ProviderApiTon extends ProviderApiBase {
     const accounts = await this.getAccountsInfo(request);
     const account = accounts[0];
     const timestamp = Math.floor(Date.now() / 1000);
+    const appDomain = (request.origin ?? '').replace(/^(https?:\/\/)/, '');
+
+    const isLegacy = !('type' in params);
+
+    if (isLegacy) {
+      const result = await this.backgroundApi.serviceDApp.openSignMessageModal({
+        request,
+        networkId: account?.accountInfo?.networkId ?? '',
+        accountId: account?.account.id ?? '',
+        unsignedMessage: {
+          type: EMessageTypesTon.SIGN_DATA,
+          message: Buffer.from(params.cell, 'base64').toString('hex'),
+          payload: {
+            schemaCrc: params.schema_crc,
+            timestamp,
+          },
+        },
+      });
+
+      return {
+        signature: result,
+        timestamp,
+      };
+    }
+
+    // new SignData
+    let message;
+    switch (params.type) {
+      case 'binary':
+        message = Buffer.from(params.bytes, 'base64').toString('hex');
+        break;
+      case 'cell':
+        message = params.cell;
+        break;
+      case 'text':
+        message = params.text;
+        break;
+      default:
+        throw new OneKeyLocalError('Invalid params');
+    }
     const result = await this.backgroundApi.serviceDApp.openSignMessageModal({
       request,
       networkId: account?.accountInfo?.networkId ?? '',
       accountId: account?.account.id ?? '',
       unsignedMessage: {
-        type: EMessageTypesTon.SIGN_DATA,
-        message: Buffer.from(params.cell, 'base64').toString('hex'),
+        type: EMessageTypesTon.SIGN_DATA_V1,
+        message,
         payload: {
-          schemaCrc: params.schema_crc,
+          payload: params,
           timestamp,
+          appDomain,
+          address: account.account.address,
         },
       },
     });
 
     return {
-      signature: result,
+      signature: Buffer.from(result as string, 'hex').toString('base64'),
       timestamp,
+      address: account.account.address,
+      domain: appDomain,
+      payload: params,
     };
   }
 

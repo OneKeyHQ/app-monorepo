@@ -156,10 +156,16 @@ function WebContent({
         onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
         onNavigationStateChange={onNavigationStateChange}
         onOpenWindow={(e) => {
-          void gotoSite({
-            url: e.nativeEvent.targetUrl,
-            siteMode,
-          });
+          const { targetUrl } = e.nativeEvent;
+          const validateState = validateWebviewSrc(targetUrl);
+          if (validateState === EValidateUrlEnum.ValidDeeplink) {
+            handleDeepLinkUrl({ url: targetUrl });
+          } else {
+            void gotoSite({
+              url: targetUrl,
+              siteMode,
+            });
+          }
         }}
         allowpopups
         onLoadStart={onLoadStart}
