@@ -1,4 +1,11 @@
-import { XStack, YStack, useMedia } from '@onekeyhq/components';
+import {
+  SizableText,
+  Stack,
+  Tabs,
+  XStack,
+  YStack,
+  useMedia,
+} from '@onekeyhq/components';
 
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { ProviderJotaiContextDeFiList } from '../../../states/jotai/contexts/deFiList';
@@ -15,15 +22,15 @@ import { PORTFOLIO_CONTAINER_RIGHT_SIDE_FIXED_WIDTH } from '../types';
 function PortfolioContainer() {
   const media = useMedia();
 
-  const isTableLayout = media.gtMd;
+  const tableLayout = media.gtMd;
 
-  if (isTableLayout) {
+  if (tableLayout) {
     return (
       <XStack py="$3" px="$5" gap="$8">
         <YStack flex={1}>
-          {/* <TokenListBlock /> */}
-          {/* <DeFiListBlock /> */}
-          <PopularTrading />
+          {/* <TokenListBlock tableLayout />
+          <DeFiListBlock tableLayout /> */}
+          <PopularTrading tableLayout />
           <EarnListView />
           <Upgrade />
           <SupportHub />
@@ -38,7 +45,11 @@ function PortfolioContainer() {
     );
   }
 
-  return null;
+  return (
+    <YStack gap="$8" px="$5" py="$3">
+      <PopularTrading />
+    </YStack>
+  );
 }
 
 function PortfolioContainerWithProvider() {

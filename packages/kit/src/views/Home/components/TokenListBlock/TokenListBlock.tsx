@@ -87,7 +87,7 @@ import { RichBlock } from '../RichBlock/RichBlock';
 
 const networkIdsMap = getNetworkIdsMap();
 
-function TokenListBlock() {
+function TokenListBlock({ tableLayout }: { tableLayout?: boolean }) {
   const [settings] = useSettingsPersistAtom();
 
   const { isFocused, isHeaderRefreshing, setIsHeaderRefreshing } =

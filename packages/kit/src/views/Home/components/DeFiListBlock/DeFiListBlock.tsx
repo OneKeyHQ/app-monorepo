@@ -33,7 +33,7 @@ import { RichBlock } from '../RichBlock/RichBlock';
 
 import { Protocol } from './Protocol';
 
-function DeFiListBlock() {
+function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
   const intl = useIntl();
   const media = useMedia();
   const [settings] = useSettingsPersistAtom();
@@ -116,7 +116,7 @@ function DeFiListBlock() {
   );
 
   const renderSubTitle = useCallback(() => {
-    if (media.gtMd) {
+    if (true) {
       if (!initialized && isRefreshing) {
         return <Skeleton.HeadingXl />;
       }
