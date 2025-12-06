@@ -34,7 +34,7 @@ export class SupabaseStorage {
     {
       promise: true,
       primitive: true,
-      maxAge: timerUtils.getTimeDurationMs({ seconds: 10 }),
+      maxAge: timerUtils.getTimeDurationMs({ seconds: 30 }),
     },
   );
 
