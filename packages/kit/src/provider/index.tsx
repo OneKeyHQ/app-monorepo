@@ -62,27 +62,27 @@ export function KitProvider(props: any = {}) {
 
   const content = (
     <SafeAreaProvider>
-      <GlobalJotaiReady>
-        <PrivyProviderLazy>
-          <KeyboardProvider>
-            <GestureHandlerRootView style={flexStyle}>
-              <ThemeProvider>
-                <NetworkReachabilityTracker />
-                <SplashProvider>
-                  <Container />
-                </SplashProvider>
-                <PasswordVerifyPromptMount />
-                <WebViewWebEmbedProvider />
-                <LastActivityTracker />
-                <SystemLocaleTracker />
-                <StateActiveContainer />
-                <SyncHomeAccountToDappAccountProvider />
-                <HardwareServiceProvider />
-              </ThemeProvider>
-            </GestureHandlerRootView>
-          </KeyboardProvider>
-        </PrivyProviderLazy>
-      </GlobalJotaiReady>
+      {/* <GlobalJotaiReady> */}
+      <PrivyProviderLazy>
+        <KeyboardProvider>
+          <GestureHandlerRootView style={flexStyle}>
+            <ThemeProvider>
+              <NetworkReachabilityTracker />
+              <SplashProvider>
+                <Container />
+              </SplashProvider>
+              <PasswordVerifyPromptMount />
+              <WebViewWebEmbedProvider />
+              <LastActivityTracker />
+              <SystemLocaleTracker />
+              <StateActiveContainer />
+              <SyncHomeAccountToDappAccountProvider />
+              <HardwareServiceProvider />
+            </ThemeProvider>
+          </GestureHandlerRootView>
+        </KeyboardProvider>
+      </PrivyProviderLazy>
+      {/* </GlobalJotaiReady> */}
     </SafeAreaProvider>
   );
 
