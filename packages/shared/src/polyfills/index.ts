@@ -7,10 +7,10 @@ import './polyfillsPlatform';
 
 import './reactCreateElementShim';
 import '../modules3rdParty/cross-crypto/verify';
-// import '../request';
+import '../request';
 
 // import { normalizeRequestLibs } from '../request/normalize';
-// import timerUtils from '../utils/timerUtils';
+import timerUtils from '../utils/timerUtils';
 // @ts-ignore
 // global.setInterval = setIntervalAsync;
 // // @ts-ignore
@@ -18,5 +18,5 @@ import '../modules3rdParty/cross-crypto/verify';
 // import { interceptConsoleErrorWithExtraInfo } from '../errors/utils/errorUtils';
 
 // normalizeRequestLibs();
-// timerUtils.interceptTimerWithDisable();
+timerUtils.interceptTimerWithDisable();
 // interceptConsoleErrorWithExtraInfo();
