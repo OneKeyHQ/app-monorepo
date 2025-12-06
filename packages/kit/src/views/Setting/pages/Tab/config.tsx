@@ -11,6 +11,7 @@ import type {
 } from '@onekeyhq/components';
 import { Dialog } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import PasswordUpdateContainer from '@onekeyhq/kit/src/components/Password/container/PasswordUpdateContainer';
 import {
   isShowAppUpdateUIWhenUpdating,
@@ -54,7 +55,6 @@ import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import { useCloudBackup } from '../../../Onboardingv2/hooks/useCloudBackup';
-import { usePrimeAuthV2 } from '../../../Prime/hooks/usePrimeAuthV2';
 import { usePrimeAvailable } from '../../../Prime/hooks/usePrimeAvailable';
 import { showApiEndpointDialog } from '../../components/ApiEndpointDialog';
 
@@ -142,7 +142,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
   const helpCenterUrl = useHelpLink({ path: '' });
   const [devSettings] = useDevSettingsPersistAtom();
   const { isPrimeAvailable } = usePrimeAvailable();
-  const { isLoggedIn } = usePrimeAuthV2();
+  const { isLoggedIn } = useOneKeyAuth();
   const [{ perpConfigCommon }] = usePerpsCommonConfigPersistAtom();
   const [settings] = useSettingsPersistAtom();
 

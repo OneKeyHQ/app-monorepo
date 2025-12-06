@@ -16,6 +16,7 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickStack';
+import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { Section } from '@onekeyhq/kit/src/components/Section';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
@@ -35,7 +36,6 @@ import { formatDistanceToNow } from '@onekeyhq/shared/src/utils/dateUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { AppAutoLockSettingsView } from '../../../Setting/pages/AppAutoLock';
-import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
 import { usePrimeRequirements } from '../../hooks/usePrimeRequirements';
 
 function isAutoLockValueNotAllowed(value: number) {
@@ -98,7 +98,7 @@ function AutoLockUpdateDialogContent({
 
 function EnableOneKeyCloudSwitchListItem() {
   const [config] = usePrimeCloudSyncPersistAtom();
-  const { isPrimeSubscriptionActive } = usePrimeAuthV2();
+  const { isPrimeSubscriptionActive } = useOneKeyAuth();
   const navigation = useAppNavigation();
   const route = useAppRoute<IPrimeParamList, EPrimePages.PrimeCloudSync>();
   const serverUserInfo = route.params?.serverUserInfo;
@@ -123,8 +123,8 @@ function EnableOneKeyCloudSwitchListItem() {
     );
   }, [passwordSettings.appLockDuration, passwordSettings.isPasswordSet]);
 
-  const { user } = usePrimeAuthV2();
-  const isPrimeUser = user?.primeSubscription?.isActive && user?.privyUserId;
+  const { user } = useOneKeyAuth();
+  const isPrimeUser = user?.primeSubscription?.isActive && user?.onekeyUserId;
 
   return (
     <ListItem
