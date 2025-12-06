@@ -3464,16 +3464,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@ethereumjs/common@npm:^3.2.0":
-  version: 3.2.0
-  resolution: "@ethereumjs/common@npm:3.2.0"
-  dependencies:
-    "@ethereumjs/util": "npm:^8.1.0"
-    crc-32: "npm:^1.2.0"
-  checksum: 10/b3f612406b6bcefaf9117ceb42eff58d311e2b50205e3d55b4c793d803de517efbc84075e058dc0e2ec27a2bff11dfc279dda1fa2b249ed6ab3973be045898f4
-  languageName: node
-  linkType: hard
-
 "@ethereumjs/rlp@npm:^4.0.1":
   version: 4.0.1
   resolution: "@ethereumjs/rlp@npm:4.0.1"
@@ -3483,19 +3473,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@ethereumjs/tx@npm:^4.2.0":
-  version: 4.2.0
-  resolution: "@ethereumjs/tx@npm:4.2.0"
-  dependencies:
-    "@ethereumjs/common": "npm:^3.2.0"
-    "@ethereumjs/rlp": "npm:^4.0.1"
-    "@ethereumjs/util": "npm:^8.1.0"
-    ethereum-cryptography: "npm:^2.0.0"
-  checksum: 10/cbd2ffc3ef76ca5416d58f2f694858d9fcac946e6a107fef44cf3f308a7c9fcc996a6847868609354d72d5b356faee68408e9d5601c4c4f7dad8e18cb2c24a95
-  languageName: node
-  linkType: hard
-
-"@ethereumjs/util@npm:^8.0.0, @ethereumjs/util@npm:^8.1.0":
+"@ethereumjs/util@npm:^8.0.0, @ethereumjs/util@npm:^8.0.6":
   version: 8.1.0
   resolution: "@ethereumjs/util@npm:8.1.0"
   dependencies:
@@ -5706,54 +5684,17 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@metamask/abi-utils@npm:^3.0.0":
-  version: 3.0.0
-  resolution: "@metamask/abi-utils@npm:3.0.0"
+"@metamask/eth-sig-util@npm:5.1.0":
+  version: 5.1.0
+  resolution: "@metamask/eth-sig-util@npm:5.1.0"
   dependencies:
-    "@metamask/superstruct": "npm:^3.1.0"
-    "@metamask/utils": "npm:^11.0.1"
-  checksum: 10/068b98185148b9e185b4af4392c6a6f82f1d4b1ff60013c57679c618f37afe9030e3ccc940e1a8b690be6f62ea91115ab18b73f3c3c09f4eff1794e31ababb9b
-  languageName: node
-  linkType: hard
-
-"@metamask/eth-sig-util@npm:8.2.0":
-  version: 8.2.0
-  resolution: "@metamask/eth-sig-util@npm:8.2.0"
-  dependencies:
-    "@ethereumjs/rlp": "npm:^4.0.1"
-    "@ethereumjs/util": "npm:^8.1.0"
-    "@metamask/abi-utils": "npm:^3.0.0"
-    "@metamask/utils": "npm:^11.0.1"
-    "@scure/base": "npm:~1.1.3"
-    ethereum-cryptography: "npm:^2.1.2"
+    "@ethereumjs/util": "npm:^8.0.6"
+    bn.js: "npm:^4.12.0"
+    ethereum-cryptography: "npm:^2.0.0"
+    ethjs-util: "npm:^0.1.6"
     tweetnacl: "npm:^1.0.3"
-  checksum: 10/385df1ec541116e1bd725a1df1a519996bad167f99d1b2677126e398cdfda6fc3f03d2ff8f1ca523966bc0aae3ea92a9050953a45d5a7711f4128aacf9242bfc
-  languageName: node
-  linkType: hard
-
-"@metamask/superstruct@npm:^3.1.0":
-  version: 3.2.1
-  resolution: "@metamask/superstruct@npm:3.2.1"
-  checksum: 10/9e29380f2cf8b129283ccb2b568296d92682b705109ba62dbd7739ffd6a1982fe38c7228cdcf3cbee94dbcdd5fcc1c846ab9d1dd3582167154f914422fcff547
-  languageName: node
-  linkType: hard
-
-"@metamask/utils@npm:^11.0.1":
-  version: 11.8.1
-  resolution: "@metamask/utils@npm:11.8.1"
-  dependencies:
-    "@ethereumjs/tx": "npm:^4.2.0"
-    "@metamask/superstruct": "npm:^3.1.0"
-    "@noble/hashes": "npm:^1.3.1"
-    "@scure/base": "npm:^1.1.3"
-    "@types/debug": "npm:^4.1.7"
-    "@types/lodash": "npm:^4.17.20"
-    debug: "npm:^4.3.4"
-    lodash: "npm:^4.17.21"
-    pony-cause: "npm:^2.1.10"
-    semver: "npm:^7.5.4"
-    uuid: "npm:^9.0.1"
-  checksum: 10/efd3aab7f86b4a74d396cf1d5fc76e748ff78906802fdc15ec9ce2d1a9bd6b035e8e036ea93eb6b9ea33782c70adb9000772eb7a5e0164e8e9e2ebb077dca3ab
+    tweetnacl-util: "npm:^0.15.1"
+  checksum: 10/e75c082cd059e1bcc7736c7016ce68ed8c10a7f2c3a4a0da9d5c979ccb03923e6c651133c31787e6226d58961870ff27b6a60380ca3f2cc5039f132821015269
   languageName: node
   linkType: hard
 
@@ -7377,7 +7318,7 @@ __metadata:
     "@expo/webpack-config": "npm:~19.0.1"
     "@glif/filecoin-rpc-client": "npm:3.0.2"
     "@intercom/messenger-js-sdk": "npm:^0.0.14"
-    "@metamask/eth-sig-util": "npm:8.2.0"
+    "@metamask/eth-sig-util": "npm:5.1.0"
     "@morpho-org/bundler-sdk-ethers": "npm:^1.0.3"
     "@mysten/sui": "npm:1.28.0"
     "@ngraveio/bc-ur": "npm:^1.1.13"
@@ -11195,7 +11136,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@scure/base@npm:1.2.6, @scure/base@npm:^1.1.3, @scure/base@npm:^1.1.7, @scure/base@npm:~1.2.5":
+"@scure/base@npm:1.2.6, @scure/base@npm:^1.1.7, @scure/base@npm:~1.2.5":
   version: 1.2.6
   resolution: "@scure/base@npm:1.2.6"
   checksum: 10/c1a7bd5e0b0c8f94c36fbc220f4a67cc832b00e2d2065c7d8a404ed81ab1c94c5443def6d361a70fc382db3496e9487fb9941728f0584782b274c18a4bed4187
@@ -11216,7 +11157,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@scure/base@npm:~1.1.3, @scure/base@npm:~1.1.6, @scure/base@npm:~1.1.7, @scure/base@npm:~1.1.8":
+"@scure/base@npm:~1.1.6, @scure/base@npm:~1.1.7, @scure/base@npm:~1.1.8":
   version: 1.1.9
   resolution: "@scure/base@npm:1.1.9"
   checksum: 10/f0ab7f687bbcdee2a01377fe3cd808bf63977999672751295b6a92625d5322f4754a96d40f6bd579bc367aad48ecf8a4e6d0390e70296e6ded1076f52adb16bb
@@ -14639,7 +14580,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/debug@npm:^4.1.6, @types/debug@npm:^4.1.7":
+"@types/debug@npm:^4.1.6":
   version: 4.1.12
   resolution: "@types/debug@npm:4.1.12"
   dependencies:
@@ -14952,13 +14893,6 @@ __metadata:
   version: 4.17.1
   resolution: "@types/lodash@npm:4.17.1"
   checksum: 10/384bdd29348a000f8e815f94839a1a8c7f5a4ca856b016ade7f2abdc1df0b4e3e009c113b69db320a8fde51d1f38e60c19462b9bf3e82e0e2e32d3ac3e7ba2c4
-  languageName: node
-  linkType: hard
-
-"@types/lodash@npm:^4.17.20":
-  version: 4.17.21
-  resolution: "@types/lodash@npm:4.17.21"
-  checksum: 10/34920830a3bc82ba619cda05e606fef00c148a69b4f19f770645d2587ccdb8e42ef3ddfc174b7884c0c709fc0a1aeb48f7326da969bad12a1464a03efbbe414c
   languageName: node
   linkType: hard
 
@@ -18694,6 +18628,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"bn.js@npm:^4.12.0":
+  version: 4.12.2
+  resolution: "bn.js@npm:4.12.2"
+  checksum: 10/5803983405c087443e0e6c9bb5d0bc863d9f987d77e710f81b14c55616494f5a274e1650ee892531acb3529d52c0e0ea48aa12d2873dd80a75dde9d73a2ec518
+  languageName: node
+  linkType: hard
+
 "body-parser@npm:1.20.3, body-parser@npm:^1.20.3":
   version: 1.20.3
   resolution: "body-parser@npm:1.20.3"
@@ -20706,15 +20647,6 @@ __metadata:
   version: 3.7.2
   resolution: "countries-and-timezones@npm:3.7.2"
   checksum: 10/056c838cf0bfa0ce502e95205969fefefb5c81bc08d3def8e993c6b5919edbd62fa9e504b708eee6d9df962867e8f292aa6da16eac434a81d343abc801836dcd
-  languageName: node
-  linkType: hard
-
-"crc-32@npm:^1.2.0":
-  version: 1.2.2
-  resolution: "crc-32@npm:1.2.2"
-  bin:
-    crc32: bin/crc32.njs
-  checksum: 10/824f696a5baaf617809aa9cd033313c8f94f12d15ebffa69f10202480396be44aef9831d900ab291638a8022ed91c360696dd5b1ba691eb3f34e60be8835b7c3
   languageName: node
   linkType: hard
 
@@ -23854,7 +23786,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"ethereum-cryptography@npm:2.2.1, ethereum-cryptography@npm:^2.1.2, ethereum-cryptography@npm:^2.1.3":
+"ethereum-cryptography@npm:2.2.1, ethereum-cryptography@npm:^2.1.3":
   version: 2.2.1
   resolution: "ethereum-cryptography@npm:2.2.1"
   dependencies:
@@ -24073,7 +24005,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"ethjs-util@npm:0.1.6, ethjs-util@npm:^0.1.3":
+"ethjs-util@npm:0.1.6, ethjs-util@npm:^0.1.3, ethjs-util@npm:^0.1.6":
   version: 0.1.6
   resolution: "ethjs-util@npm:0.1.6"
   dependencies:
@@ -32985,13 +32917,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"pony-cause@npm:^2.1.10":
-  version: 2.1.11
-  resolution: "pony-cause@npm:2.1.11"
-  checksum: 10/ed7d0bb6e3e69f753080bf736b71f40e6ae4c13ec0c8c473ff73345345c088819966fdd68a62ad7482d464bf41176cf9421f5f63715d1a4532005eedc099db55
-  languageName: node
-  linkType: hard
-
 "popmotion@npm:11.0.3":
   version: 11.0.3
   resolution: "popmotion@npm:11.0.3"
@@ -39962,7 +39887,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"uuid@npm:^9.0.0, uuid@npm:^9.0.1":
+"uuid@npm:^9.0.0":
   version: 9.0.1
   resolution: "uuid@npm:9.0.1"
   bin:
