@@ -5,7 +5,11 @@ import BigNumber from 'bignumber.js';
 import { ethers } from 'ethersV6';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { MorphoBundlerContract } from '@onekeyhq/shared/src/consts/addresses';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import {
+  MorphoBaseBundlerContract,
+  MorphoBundlerContract,
+} from '@onekeyhq/shared/src/consts/addresses';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
@@ -54,8 +58,12 @@ export function useEarnPermitApprove() {
 
       // check spender address
       if (
-        permit2Data.message.spender.toLowerCase() !==
-        MorphoBundlerContract.toLowerCase()
+        (networkId === getNetworkIdsMap().eth &&
+          permit2Data.message.spender.toLowerCase() !==
+            MorphoBundlerContract.toLowerCase()) ||
+        (networkId === getNetworkIdsMap().base &&
+          permit2Data.message.spender.toLowerCase() !==
+            MorphoBaseBundlerContract.toLowerCase())
       ) {
         const error = new Error(
           `Invalid spender address. Expected: ${MorphoBundlerContract}, Got: ${permit2Data.message.spender}`,
