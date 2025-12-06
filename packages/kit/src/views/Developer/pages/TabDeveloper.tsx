@@ -13,6 +13,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
+import { TabletHomeContainer } from '@onekeyhq/kit/src/components/TabletHomeContainer';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { ITabDeveloperParamList } from '@onekeyhq/shared/src/routes';
 import { ETabDeveloperRoutes } from '@onekeyhq/shared/src/routes';
@@ -250,4 +251,11 @@ const TabDeveloper = () => {
   );
 };
 
-export default TabDeveloper;
+function TabDeveloperContainer() {
+  return (
+    <TabletHomeContainer>
+      <TabDeveloper />
+    </TabletHomeContainer>
+  );
+}
+export default TabDeveloperContainer;

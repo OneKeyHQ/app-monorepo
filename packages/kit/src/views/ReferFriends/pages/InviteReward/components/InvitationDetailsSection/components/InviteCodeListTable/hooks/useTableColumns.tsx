@@ -1,5 +1,6 @@
 import { useCallback, useMemo } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import { SizableText, useMedia } from '@onekeyhq/components';
@@ -10,7 +11,7 @@ import type { IInviteCodeListItem } from '@onekeyhq/shared/src/referralCode/type
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 
 import { CodeCell } from '../components/CodeCell';
-import { CopyLinkButton } from '../components/CopyLinkButton';
+import { CopyLinkSplitButton } from '../components/CopyLinkSplitButton';
 import { NoteCell } from '../components/NoteCell';
 import { EInviteCodeListTableColumn, SORTABLE_COLUMNS } from '../const';
 
@@ -119,11 +120,16 @@ export function useTableColumns(
               ),
             }),
         align: 'left',
-        render: (value: string) => (
-          <SizableText size="$bodyMdMedium" color="$text">
-            {currencySymbol ? `${currencySymbol}${value}` : value}
-          </SizableText>
-        ),
+        render: (value: string) => {
+          const formattedValue = new BigNumber(value).toFixed(2);
+          return (
+            <SizableText size="$bodyMdMedium" color="$text">
+              {currencySymbol
+                ? `${currencySymbol}${formattedValue}`
+                : formattedValue}
+            </SizableText>
+          );
+        },
       },
       {
         title: intl.formatMessage({ id: ETranslations.referral_code_list_at }),
@@ -140,10 +146,11 @@ export function useTableColumns(
         dataIndex: EInviteCodeListTableColumn.INVITE_URL,
         columnWidth: Math.max(
           intl.formatMessage({ id: ETranslations.browser_copy_link }).length *
-            10,
-          100,
+            10 +
+            40,
+          140,
         ),
-        render: (url: string) => <CopyLinkButton url={url} />,
+        render: (url: string) => <CopyLinkSplitButton url={url} />,
       },
     ],
     [currencySymbol, intl, gtXl, onNoteUpdated],

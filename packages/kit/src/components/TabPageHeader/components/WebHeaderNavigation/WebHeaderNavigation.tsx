@@ -8,7 +8,11 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePerpTabConfig } from '@onekeyhq/kit/src/hooks/usePerpTabConfig';
 import { useToReferFriendsModalByRootNavigation } from '@onekeyhq/kit/src/hooks/useReferFriends';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  ERootRoutes,
+  ETabEarnRoutes,
+  ETabRoutes,
+} from '@onekeyhq/shared/src/routes';
 
 import { HeaderNavigation } from './HeaderNavigation';
 
@@ -81,7 +85,9 @@ function useWebHeaderNavigation({
           }
           break;
         case 'defi':
-          navigation.switchTab(ETabRoutes.Earn);
+          navigation.switchTab(ETabRoutes.Earn, {
+            screen: ETabEarnRoutes.EarnHome,
+          });
           break;
         case 'swap':
           navigation.switchTab(ETabRoutes.Swap);

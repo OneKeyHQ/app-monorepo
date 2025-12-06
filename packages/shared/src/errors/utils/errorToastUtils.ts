@@ -11,6 +11,13 @@ import { EOneKeyErrorClassNames, type IOneKeyError } from '../types/errorTypes';
 async function buildDiagnosticText(err: IOneKeyError): Promise<string> {
   const parts: string[] = [];
 
+  // Add request URL if available (from axios interceptor error data)
+  const requestUrl = (err?.data as { requestUrl?: string } | undefined)
+    ?.requestUrl;
+  if (requestUrl) {
+    parts.push(`URL: ${requestUrl}`);
+  }
+
   if (err?.requestId) {
     parts.push(`RequestId: ${err.requestId}`);
 

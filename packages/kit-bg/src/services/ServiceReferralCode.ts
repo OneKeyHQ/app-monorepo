@@ -5,6 +5,8 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import type {
   EExportTimeRange,
+  IBatchCheckWalletItem,
+  IBatchCheckWalletResponse,
   IEarnPositionsResponse,
   IEarnRewardResponse,
   IEarnWalletHistory,
@@ -18,6 +20,8 @@ import type {
   IInvitePaidHistory,
   IInvitePostConfig,
   IInviteSummary,
+  IPerpsInviteeRewardsResponse,
+  IPerpsRecordsResponse,
   IUpdateInviteCodeNoteResponse,
 } from '@onekeyhq/shared/src/referralCode/type';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -91,6 +95,7 @@ class ServiceReferralCode extends ServiceBase {
       subject: string;
       timeRange: string;
       inviteCode?: string;
+      tab?: string;
     } = {
       subject: params.subject,
       timeRange: params.timeRange,
@@ -98,13 +103,32 @@ class ServiceReferralCode extends ServiceBase {
     if (params.inviteCode) {
       queryParams.inviteCode = params.inviteCode;
     }
+    if (params.tab) {
+      queryParams.tab = params.tab;
+    }
     // API returns CSV string directly, not JSON
     const response = await client.get<string>('/rebate/v1/invite/export', {
       params: queryParams,
       responseType: 'text',
       autoHandleError: false, // Skip JSON error checking for CSV response
     } as any);
-    return response.data;
+
+    // Parse filename from Content-Disposition header
+    const contentDisposition = response.headers['content-disposition'] as
+      | string
+      | undefined;
+    let filename: string | undefined;
+    if (contentDisposition) {
+      const match = contentDisposition.match(/filename="?([^";\n]+)"?/);
+      if (match) {
+        filename = match[1];
+      }
+    }
+
+    return {
+      data: response.data,
+      filename,
+    };
   }
 
   @backgroundMethod()
@@ -284,6 +308,46 @@ class ServiceReferralCode extends ServiceBase {
   }
 
   @backgroundMethod()
+  async getPerpsRecords(
+    timeRange?: EExportTimeRange,
+    inviteCode?: string,
+    status?: 'AVAILABLE',
+  ): Promise<IPerpsRecordsResponse> {
+    const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Rebate);
+    const params: {
+      timeRange?: string;
+      inviteCode?: string;
+      status?: string;
+    } = {};
+    if (timeRange) {
+      params.timeRange = timeRange;
+    }
+    if (inviteCode) {
+      params.inviteCode = inviteCode;
+    }
+    if (status) {
+      params.status = status;
+    }
+    const response = await client.get<{ data: IPerpsRecordsResponse }>(
+      '/rebate/v1/invite/perps-records',
+      { params },
+    );
+    return response.data.data;
+  }
+
+  @backgroundMethod()
+  async getPerpsInviteeRewards(params: {
+    walletAddress: string;
+  }): Promise<IPerpsInviteeRewardsResponse> {
+    const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Rebate);
+    const response = await client.get<{ data: IPerpsInviteeRewardsResponse }>(
+      '/rebate/v1/invite/perps-invitee-rewards',
+      { params },
+    );
+    return response.data.data;
+  }
+
+  @backgroundMethod()
   async getMyReferralCode() {
     const myReferralCode =
       await this.backgroundApi.simpleDb.referralCode.getMyReferralCode();
@@ -303,10 +367,12 @@ class ServiceReferralCode extends ServiceBase {
       walletId,
     });
     if (walletReferralCode) {
-      const alreadyBound = await this.checkWalletIsBoundReferralCode({
-        address: walletReferralCode.address,
-        networkId: walletReferralCode.networkId,
-      });
+      const { address, networkId } = walletReferralCode;
+      const batchResult = await this.batchCheckWalletsBoundReferralCode([
+        { address, networkId },
+      ]);
+      const key = `${networkId}:${address}`;
+      const alreadyBound = batchResult[key] ?? false;
       const newWalletReferralCode = {
         ...walletReferralCode,
         isBound: alreadyBound,
@@ -378,6 +444,16 @@ class ServiceReferralCode extends ServiceBase {
       params: { address, networkId },
     });
     return response.data.data.data;
+  }
+
+  @backgroundMethod()
+  async batchCheckWalletsBoundReferralCode(items: IBatchCheckWalletItem[]) {
+    const client = await this.getClient(EServiceEndpointEnum.Rebate);
+    const response = await client.post<{
+      data: IBatchCheckWalletResponse;
+    }>('/rebate/v1/wallet/batch-check', { items });
+    // Response: { code: 0, message: "success", data: { "networkId:address": boolean } }
+    return response.data.data;
   }
 
   @backgroundMethod()
@@ -479,7 +555,6 @@ class ServiceReferralCode extends ServiceBase {
     action,
     nonce,
     signature,
-    inviteCode,
     referenceAddress,
     signerAddress,
   }: {
@@ -493,7 +568,6 @@ class ServiceReferralCode extends ServiceBase {
     };
     nonce: number;
     signature: IHyperLiquidSignatureRSV;
-    inviteCode: string;
     referenceAddress?: string;
     signerAddress: string;
   }): Promise<{ success: boolean }> {
@@ -504,7 +578,6 @@ class ServiceReferralCode extends ServiceBase {
       action,
       nonce,
       signature,
-      inviteCode,
       referenceAddress,
       signerAddress,
     });

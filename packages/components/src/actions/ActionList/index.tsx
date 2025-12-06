@@ -6,11 +6,9 @@ import { useIntl } from 'react-intl';
 import { type GestureResponderEvent } from 'react-native';
 import { useDebouncedCallback } from 'use-debounce';
 
+import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
 import { Spinner } from '@onekeyhq/components/src/primitives/Spinner';
-import {
-  useMedia,
-  withStaticProperties,
-} from '@onekeyhq/components/src/shared/tamagui';
+import { withStaticProperties } from '@onekeyhq/components/src/shared/tamagui';
 import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -177,8 +175,7 @@ export function ActionListItem(
               {label}
             </SizableText>
 
-            {(platformEnv.isDesktop || platformEnv.isNativeIOSPad) &&
-            keys?.length ? (
+            {platformEnv.isDesktop && keys?.length ? (
               <Shortcut>
                 {keys.map((key) => (
                   <Shortcut.Key key={key}>{key}</Shortcut.Key>

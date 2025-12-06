@@ -236,8 +236,10 @@ class ServiceQrWallet extends ServiceBase {
     let networkIds: string[] = [];
     const allDefaultAddAccountNetworks =
       await buildDefaultAddAccountNetworksForQrWallet({
+        walletId: byWallet.id,
         backgroundApi: this.backgroundApi,
         includingNetworkWithGlobalDeriveType: true,
+        firmwareType: byDevice?.featuresInfo?.$app_firmware_type,
       });
     let allDefaultAddAccountNetworksIds = allDefaultAddAccountNetworks.map(
       (item) => item.networkId,

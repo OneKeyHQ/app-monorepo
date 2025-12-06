@@ -2,7 +2,7 @@ import { memo, useCallback, useMemo } from 'react';
 
 import { createPortal } from 'react-dom';
 
-import { useMedia } from '@onekeyhq/components/src/shared/tamagui';
+import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
 import { SHEET_POPOVER_Z_INDEX } from '@onekeyhq/shared/src/utils/overlayUtils';
 
 import { Stack } from '../../primitives';

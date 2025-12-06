@@ -134,7 +134,7 @@ function InviteRewardPage() {
       {platformEnv.isNative || md ? (
         <Page.Header
           title={intl.formatMessage({
-            id: ETranslations.referral_title,
+            id: ETranslations.perps_trade_reward,
           })}
           headerRight={renderHeaderRight}
         />

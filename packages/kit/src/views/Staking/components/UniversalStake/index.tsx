@@ -47,6 +47,7 @@ import type {
   IApproveConfirmFnParams,
   ICheckAmountAlert,
   IEarnEstimateFeeResp,
+  IEarnSelectField,
   IEarnTextTooltip,
   IEarnTokenInfo,
   IProtocolInfo,
@@ -59,6 +60,7 @@ import {
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { useEarnPermitApprove } from '../../hooks/useEarnPermitApprove';
+import { useEarnSignMessageWithoutVerify } from '../../hooks/useEarnSignMessageWithoutVerify';
 import { useTrackTokenAllowance } from '../../hooks/useUtilsHooks';
 import { capitalizeString, countDecimalPlaces } from '../../utils/utils';
 import { BtcFeeRateInput } from '../BtcFeeRateInput';
@@ -69,6 +71,7 @@ import {
 } from '../EstimateNetworkFee';
 import { EarnActionIcon } from '../ProtocolDetails/EarnActionIcon';
 import { EarnText } from '../ProtocolDetails/EarnText';
+import { EarnValidatorSelect } from '../ProtocolDetails/EarnValidatorSelect';
 import { EStakeProgressStep, StakeProgress } from '../StakeProgress';
 import {
   StakingAmountInput,
@@ -114,6 +117,10 @@ type IUniversalStakeProps = {
     spenderAddress: string;
     token?: IToken;
   };
+  beforeFooter?: ReactElement | null;
+  showApyDetail?: boolean;
+  isInModalContext?: boolean;
+  ongoingValidator?: IEarnSelectField;
 };
 
 export function UniversalStake({
@@ -135,6 +142,10 @@ export function UniversalStake({
   approveType,
   approveTarget,
   currentAllowance,
+  beforeFooter,
+  showApyDetail = false,
+  isInModalContext = false,
+  ongoingValidator,
 }: PropsWithChildren<IUniversalStakeProps>) {
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -143,6 +154,15 @@ export function UniversalStake({
   const showEstimateGasAlert = useShowStakeEstimateGasAlert();
   const [amountValue, setAmountValue] = useState('');
   const [approving, setApproving] = useState<boolean>(false);
+  const [selectedValidator, setSelectedValidator] = useState<
+    string | undefined
+  >(ongoingValidator?.select?.defaultValue);
+
+  // Reset selectedValidator when accountId/networkId changes (manage-page re-fetches)
+  useEffect(() => {
+    setSelectedValidator(ongoingValidator?.select?.defaultValue);
+  }, [ongoingValidator?.select?.defaultValue]);
+
   const useVaultProvider = useMemo(
     () => earnUtils.isVaultBasedProvider({ providerName }),
     [providerName],
@@ -166,7 +186,33 @@ export function UniversalStake({
   >();
 
   const { getPermitSignature } = useEarnPermitApprove();
+  const signPersonalMessage = useEarnSignMessageWithoutVerify();
   const { getPermitCache, updatePermitCache } = useEarnActions().current;
+
+  const isStakefishProvider = useMemo(
+    () => earnUtils.isStakefishProvider({ providerName }),
+    [providerName],
+  );
+  // Only Stakefish ETH needs signature for create new validator
+  const isStakefishEthStake = useMemo(
+    () => isStakefishProvider && tokenSymbol?.toUpperCase() === 'ETH',
+    [isStakefishProvider, tokenSymbol],
+  );
+  const isStakefishCreateNewValidator = useMemo(() => {
+    if (!isStakefishEthStake || !selectedValidator) {
+      return false;
+    }
+    const selectedOption = ongoingValidator?.select?.options?.find(
+      (option) => option.value === selectedValidator,
+    );
+    return selectedOption?.extra?.isCreateNewValidator === true;
+  }, [
+    isStakefishEthStake,
+    selectedValidator,
+    ongoingValidator?.select?.options,
+  ]);
+  const stakefishPermitSignatureRef = useRef<string | undefined>(undefined);
+  const stakefishPermitMessageRef = useRef<string | undefined>(undefined);
 
   const useApprove = useMemo(() => !!approveType, [approveType]);
   const usePermit2Approve = approveType === EApproveType.Permit;
@@ -227,8 +273,17 @@ export function UniversalStake({
   const [transactionConfirmation, setTransactionConfirmation] = useState<
     IStakeTransactionConfirmation | undefined
   >();
+  // Stakefish: identity for existing validator
+  const stakefishIdentity =
+    isStakefishProvider && !isStakefishCreateNewValidator
+      ? selectedValidator
+      : undefined;
+
   const fetchTransactionConfirmation = useCallback(
     async (amount: string) => {
+      if (isDisabled) {
+        return undefined;
+      }
       const resp =
         await backgroundApiProxy.serviceStaking.getTransactionConfirmation({
           networkId,
@@ -238,16 +293,19 @@ export function UniversalStake({
           accountAddress: protocolInfo?.earnAccount?.accountAddress || '',
           action: ECheckAmountActionType.STAKING,
           amount,
+          identity: stakefishIdentity,
         });
       return resp;
     },
     [
+      isDisabled,
       networkId,
       providerName,
       tokenInfo?.token.symbol,
       useVaultProvider,
       protocolInfo?.vault,
       protocolInfo?.earnAccount?.accountAddress,
+      stakefishIdentity,
     ],
   );
 
@@ -388,6 +446,7 @@ export function UniversalStake({
     amountValue,
     debouncedFetchEstimateFeeResp,
     debouncedFetchTransactionConfirmation,
+    stakefishIdentity,
   ]);
 
   // const { showFalconEventEndedDialog } = useFalconEventEndedDialog({
@@ -407,39 +466,47 @@ export function UniversalStake({
   >([]);
   const [checkAmountLoading, setCheckAmountLoading] = useState(false);
 
-  const checkAmount = useDebouncedCallback(async (amount: string) => {
-    if (isNaN(amount)) {
-      return;
-    }
-    setCheckAmountLoading(true);
-    try {
-      const response = await backgroundApiProxy.serviceStaking.checkAmount({
-        accountId,
-        networkId,
-        symbol: tokenSymbol,
-        provider: providerName,
-        action: ECheckAmountActionType.STAKING,
-        amount,
-        protocolVault,
-        withdrawAll: false,
-      });
-
-      if (Number(response.code) === 0) {
-        setCheckoutAmountMessage('');
-        setCheckAmountAlerts(response.data?.alerts || []);
-      } else {
-        setCheckoutAmountMessage(response.message);
-        setCheckAmountAlerts([]);
+  const checkAmount = useDebouncedCallback(
+    async ({ amount, identity }: { amount: string; identity?: string }) => {
+      if (isNaN(amount)) {
+        return;
       }
-    } finally {
-      setCheckAmountLoading(false);
-    }
-  }, 300);
+      setCheckAmountLoading(true);
+      try {
+        const response = await backgroundApiProxy.serviceStaking.checkAmount({
+          accountId,
+          networkId,
+          symbol: tokenSymbol,
+          provider: providerName,
+          action: identity
+            ? ECheckAmountActionType.RESTAKE
+            : ECheckAmountActionType.STAKING,
+          amount,
+          protocolVault,
+          withdrawAll: false,
+          identity,
+        });
 
-  // Initialize checkAmount on component mount
+        if (Number(response.code) === 0) {
+          setCheckoutAmountMessage('');
+          setCheckAmountAlerts(response.data?.alerts || []);
+        } else {
+          setCheckoutAmountMessage(response.message);
+          setCheckAmountAlerts([]);
+        }
+      } finally {
+        setCheckAmountLoading(false);
+      }
+    },
+    300,
+  );
+
   useEffect(() => {
-    void checkAmount('0');
-  }, [checkAmount]);
+    void checkAmount({
+      amount: amountValue || '0',
+      identity: stakefishIdentity,
+    });
+  }, [checkAmount, stakefishIdentity, amountValue]);
 
   const onChangeAmountValue = useCallback(
     (value: string) => {
@@ -466,10 +533,10 @@ export function UniversalStake({
       } else {
         setAmountValue(value);
         void debouncedFetchEstimateFeeResp(value);
-        void checkAmount(value);
+        void checkAmount({ amount: value, identity: stakefishIdentity });
       }
     },
-    [decimals, debouncedFetchEstimateFeeResp, checkAmount],
+    [decimals, debouncedFetchEstimateFeeResp, checkAmount, stakefishIdentity],
   );
 
   const onBlurAmountValue = useOnBlurAmountValue(amountValue, setAmountValue);
@@ -622,14 +689,69 @@ export function UniversalStake({
 
   const onSubmit = useCallback(async () => {
     Keyboard.dismiss();
-    const permitSignatureParams = usePermit2Approve
+
+    // Stakefish: get permit signature for create new validator
+    if (isStakefishCreateNewValidator && !stakefishPermitSignatureRef.current) {
+      setApproving(true);
+      try {
+        const { signature, message } = await signPersonalMessage({
+          networkId,
+          accountId,
+          provider: providerName,
+          symbol: tokenSymbol || '',
+          amount: new BigNumber(amountValue).toFixed(),
+          action: 'stake',
+        });
+        stakefishPermitSignatureRef.current = signature;
+        stakefishPermitMessageRef.current = message;
+      } catch (error) {
+        console.error('Stakefish permit sign error:', error);
+        setApproving(false);
+        return;
+      }
+      setApproving(false);
+    }
+
+    // Determine permitSignature source: Morpho uses permitSignatureRef, Stakefish uses stakefishPermitSignatureRef
+    let finalPermitSignature: string | undefined;
+    let finalMessage: string | undefined;
+    if (usePermit2Approve) {
+      finalPermitSignature = permitSignatureRef.current;
+    } else if (isStakefishCreateNewValidator) {
+      finalPermitSignature = stakefishPermitSignatureRef.current;
+      finalMessage = stakefishPermitMessageRef.current;
+    }
+
+    const permitSignatureParams = finalPermitSignature
       ? {
-          approveType,
-          permitSignature: permitSignatureRef.current,
+          approveType: usePermit2Approve ? approveType : undefined,
+          permitSignature: finalPermitSignature,
+          message: finalMessage,
         }
       : undefined;
-    const handleConfirm = () =>
-      onConfirm?.({ amount: amountValue, ...permitSignatureParams });
+
+    // Stakefish specific params: validatorPubkey only for existing validator
+    const stakefishParams =
+      isStakefishProvider && !isStakefishCreateNewValidator
+        ? { validatorPubkey: selectedValidator }
+        : undefined;
+
+    const resetAmount = () => {
+      setAmountValue('');
+      setCheckoutAmountMessage('');
+      setCheckAmountAlerts([]);
+      // Reset stakefish permit signature and message
+      stakefishPermitSignatureRef.current = undefined;
+      stakefishPermitMessageRef.current = undefined;
+    };
+    const handleConfirm = async () => {
+      await onConfirm?.({
+        amount: amountValue,
+        ...permitSignatureParams,
+        ...stakefishParams,
+      });
+      resetAmount();
+    };
 
     // Wait for the dialog confirmation if it's shown
     // await showFalconEventEndedDialog();
@@ -665,6 +787,14 @@ export function UniversalStake({
     amountValue,
     showEstimateGasAlert,
     checkEstimateGasAlert,
+    isStakefishProvider,
+    selectedValidator,
+    isStakefishCreateNewValidator,
+    signPersonalMessage,
+    networkId,
+    accountId,
+    tokenSymbol,
+    providerName,
   ]);
 
   const showStakeProgressRef = useRef<Record<string, boolean>>({});
@@ -771,6 +901,7 @@ export function UniversalStake({
   }, [intl, resetUSDTApproveValue]);
 
   const onApprove = useCallback(async () => {
+    Keyboard.dismiss();
     setApproving(true);
     let approveAllowance = allowance;
     try {
@@ -907,13 +1038,13 @@ export function UniversalStake({
 
     if (transactionConfirmation?.receive) {
       items.push(
-        <CalculationListItem>
+        <CalculationListItem key="receive">
           <CalculationListItem.Label
             size={transactionConfirmation.receive.title.size || '$bodyMd'}
             color={transactionConfirmation.receive.title.color}
             tooltip={
               transactionConfirmation.receive.tooltip.type === 'text'
-                ? transactionConfirmation.receive.tooltip.data.title.text
+                ? transactionConfirmation.receive.tooltip?.data?.title?.text
                 : undefined
             }
           >
@@ -929,6 +1060,7 @@ export function UniversalStake({
     if (estimateFeeResp) {
       items.push(
         <EstimateNetworkFee
+          key="network-fee"
           isVisible
           estimateFeeResp={estimateFeeResp}
           onPress={() => {
@@ -947,6 +1079,7 @@ export function UniversalStake({
     ) {
       items.push(
         <BtcFeeRateInput
+          key="btc-fee-rate-input"
           estimateFeeUTXO={estimateFeeUTXO}
           onFeeRateChange={onFeeRateChange}
         />,
@@ -992,6 +1125,39 @@ export function UniversalStake({
     amountValue,
     tokenInfo?.token.symbol,
   ]);
+
+  const footerContent = (
+    <YStack bg="$bgApp" gap="$5">
+      {isShowStakeProgress ? (
+        <Stack>
+          <StakeProgress
+            approveType={approveType}
+            currentStep={
+              isDisable || shouldApprove
+                ? EStakeProgressStep.approve
+                : EStakeProgressStep.deposit
+            }
+          />
+        </Stack>
+      ) : null}
+      <Page.FooterActions
+        p={0}
+        onConfirmText={onConfirmText}
+        buttonContainerProps={{
+          $gtMd: {
+            ml: '0',
+          },
+          w: '100%',
+        }}
+        confirmButtonProps={{
+          onPress: shouldApprove ? onApprove : onSubmit,
+          loading: loadingAllowance || approving || checkAmountLoading,
+          disabled: isDisable,
+          w: '100%',
+        }}
+      />
+    </YStack>
+  );
 
   return (
     <StakingFormWrapper>
@@ -1070,348 +1236,251 @@ export function UniversalStake({
         </>
       ) : null}
 
-      {/* {isLessThanMinAmount ? (
-        <Alert
-          icon="InfoCircleOutline"
-          type="critical"
-          title={intl.formatMessage(
-            { id: ETranslations.earn_minimum_amount },
-            { number: minAmount, symbol: tokenSymbol },
-          )}
-        />
-      ) : null}
-      {isInsufficientBalance ? (
-        <Alert
-          icon="InfoCircleOutline"
-          type="critical"
-          title={intl.formatMessage({
-            id: ETranslations.earn_insufficient_balance,
-          })}
-        />
-      ) : null}
-      {isGreaterThanMaxAmount ? (
-        <Alert
-          icon="InfoCircleOutline"
-          type="critical"
-          title={intl.formatMessage(
-            {
-              id: ETranslations.earn_maximum_staking_alert,
-            },
-            { number: maxAmount ?? '', symbol: tokenSymbol },
-          )}
-        />
-      ) : null}
-      {isReachBabylonCap ? (
-        <Alert
-          icon="InfoCircleOutline"
-          type="critical"
-          title={intl.formatMessage({
-            id: ETranslations.earn_reaching_staking_cap,
-          })}
-        />
-      ) : null} */}
-
-      <YStack
-        p="$3.5"
-        pt="$5"
-        borderRadius="$3"
-        borderWidth={StyleSheet.hairlineWidth}
-        borderColor="$borderSubdued"
-      >
-        {protocolInfo?.apyDetail ? (
-          <XStack gap="$1" ai="center">
-            <EarnText
-              text={protocolInfo.apyDetail.description}
-              size="$headingLg"
-              color="$textSuccess"
-            />
-            <EarnActionIcon
-              title={protocolInfo.apyDetail.title.text}
-              actionIcon={protocolInfo.apyDetail.button}
-            />
-          </XStack>
-        ) : null}
-        <YStack pt="$3.5" gap="$2">
-          <XStack ai="center" gap="$1">
-            <EarnText
-              text={transactionConfirmation?.title}
-              color="$textSubdued"
-              size="$bodyMd"
-              boldTextProps={{
-                size: '$bodyMdMedium',
-              }}
-            />
-            {transactionConfirmation?.tooltip ? (
-              <Popover
-                placement="top"
-                title={transactionConfirmation?.title?.text}
-                renderTrigger={
-                  <IconButton
-                    iconColor="$iconSubdued"
-                    size="small"
-                    icon="InfoCircleOutline"
-                    variant="tertiary"
-                  />
-                }
-                renderContent={
-                  <Stack p="$5">
-                    <EarnText
-                      text={
-                        transactionConfirmation?.tooltip?.type === 'text'
-                          ? transactionConfirmation.tooltip.data
-                          : undefined
-                      }
-                      size="$bodyMd"
-                    />
-                  </Stack>
-                }
+      {!isDisabled ? (
+        <YStack
+          p="$3.5"
+          pt="$5"
+          borderRadius="$3"
+          borderWidth={StyleSheet.hairlineWidth}
+          borderColor="$borderSubdued"
+        >
+          {showApyDetail && transactionConfirmation?.apyDetail ? (
+            <XStack gap="$1" ai="center" mb="$3.5">
+              <EarnText
+                text={transactionConfirmation.apyDetail.description}
+                size="$headingLg"
+                color="$textSuccess"
               />
-            ) : null}
-          </XStack>
-          {transactionConfirmation?.rewards.map((reward) => {
-            const hasTooltip = reward.tooltip?.type === 'text';
-            let descriptionTextSize = (
-              hasTooltip ? '$bodyMd' : '$bodyLgMedium'
-            ) as FontSizeTokens;
-            if (reward.description.size) {
-              descriptionTextSize = reward.description.size;
-            }
-
-            return (
-              <XStack
-                key={reward.title.text}
-                gap="$1"
-                ai="flex-start"
-                mt="$1.5"
-                flexWrap="wrap"
-              >
-                <XStack gap="$1" flex={1} flexWrap="wrap" ai="center">
-                  <EarnText
-                    text={reward.title}
-                    color={reward.title.color}
-                    size={reward.title.size}
-                  />
-                  <XStack gap="$1" flex={1} flexWrap="wrap" ai="center">
-                    <EarnText
-                      text={reward.description}
-                      size={descriptionTextSize}
-                      color={reward.description.color ?? '$textSubdued'}
-                      flexShrink={1}
-                    />
-                    {hasTooltip ? (
-                      <Popover.Tooltip
-                        iconSize="$5"
-                        title={reward.title.text}
-                        tooltip={
-                          (reward.tooltip as IEarnTextTooltip)?.data.text
-                        }
-                        placement="top"
-                      />
-                    ) : null}
-                  </XStack>
-                </XStack>
-              </XStack>
-            );
-          })}
-        </YStack>
-        {/* {btcStakeTerm ? (
-          <YStack gap="$2">
-            <XStack gap="$1">
-              <SizableText size="$bodyMd" color="$textSubdued">
-                {intl.formatMessage({
-                  id: ETranslations.earn_term,
-                })}
-              </SizableText>
-              <Popover.Tooltip
-                iconSize="$5"
-                title={intl.formatMessage({
-                  id: ETranslations.earn_term,
-                })}
-                tooltip={intl.formatMessage({
-                  id: ETranslations.earn_term_tooltip,
-                })}
-                placement="top"
+              <EarnActionIcon
+                title={transactionConfirmation.apyDetail.title.text}
+                actionIcon={transactionConfirmation.apyDetail.button}
               />
             </XStack>
-            {btcStakeTerm}
-          </YStack>
-        ) : null} */}
-        {/* {stakingTime ? (
-          <XStack pt="$3.5" gap="$1">
-            <SizableText size="$bodyMd" color="$textSubdued">
-              {intl.formatMessage({ id: ETranslations.earn_earnings_start })}
-            </SizableText>
-            <SizableText size="$bodyMdMedium">
-              {intl.formatMessage(
-                { id: ETranslations.earn_in_number },
-                {
-                  number: formatStakingDistanceToNowStrict(stakingTime),
-                },
-              )}
-            </SizableText>
-          </XStack>
-        ) : null} */}
-        {/* {nextLaunchLeft && rewardToken ? (
-          <XStack pt="$3.5" gap="$1">
-            <SizableText size="$bodyMd" color="$textSubdued">
-              {intl.formatMessage({
-                id: ETranslations.earn_until_next_launch,
-              })}
-            </SizableText>
-            <SizableText size="$bodyMdMedium">
-              {intl.formatMessage(
-                { id: ETranslations.earn_number_symbol_left },
-                {
-                  number: Number(nextLaunchLeft).toFixed(2),
-                  symbol: rewardToken,
-                },
-              )}
-            </SizableText>
-            <Popover.Tooltip
-              iconSize="$5"
-              title={intl.formatMessage({
-                id: ETranslations.earn_until_next_launch,
-              })}
-              tooltip={intl.formatMessage({
-                id: ETranslations.earn_until_next_launch_tooltip,
-              })}
-              placement="top"
-            />
-          </XStack>
-        ) : null} */}
-        {/* {btcUnlockTime ? (
-          <XStack pt="$3.5" gap="$1">
-            <SizableText size="$bodyMd" color="$textSubdued">
-              {intl.formatMessage({
-                id: ETranslations.earn_unlock_time,
-              })}
-            </SizableText>
-            <SizableText size="$bodyMdMedium">{btcUnlockTime}</SizableText>
-          </XStack>
-        ) : null} */}
-        <Divider my="$5" />
-        <Accordion
-          overflow="hidden"
-          width="100%"
-          type="single"
-          collapsible
-          defaultValue=""
-        >
-          <Accordion.Item value="staking-accordion-content">
-            <Accordion.Trigger
-              unstyled
-              flexDirection="row"
-              alignItems="center"
-              alignSelf="flex-start"
-              px="$1"
-              mx="$-1"
-              width="100%"
-              justifyContent="space-between"
-              borderWidth={0}
-              bg="$transparent"
-              userSelect="none"
-              borderRadius="$1"
-              cursor={isAccordionTriggerDisabled ? 'not-allowed' : 'pointer'}
-              disabled={isAccordionTriggerDisabled}
-            >
-              {({ open }: { open: boolean }) => (
-                <>
-                  <XStack gap="$1.5" alignItems="center">
-                    <Image
-                      width="$5"
-                      height="$5"
-                      src={providerLogo}
-                      borderRadius="$2"
+          ) : null}
+          <YStack gap="$2">
+            <XStack ai="center" gap="$1">
+              <EarnText
+                text={transactionConfirmation?.title}
+                color="$textSubdued"
+                size="$bodyMd"
+                boldTextProps={{
+                  size: '$bodyMdMedium',
+                }}
+              />
+              {transactionConfirmation?.tooltip ? (
+                <Popover
+                  placement="top"
+                  title={transactionConfirmation?.title?.text}
+                  renderTrigger={
+                    <IconButton
+                      iconColor="$iconSubdued"
+                      size="small"
+                      icon="InfoCircleOutline"
+                      variant="tertiary"
                     />
-                    <SizableText size="$bodyMd">
-                      {capitalizeString(providerName || '')}
-                    </SizableText>
-                  </XStack>
-                  <XStack>
-                    {isAccordionTriggerDisabled ? undefined : (
-                      <SizableText color="$textSubdued" size="$bodyMd">
-                        {intl.formatMessage({
-                          id: ETranslations.global_details,
-                        })}
-                      </SizableText>
-                    )}
-                    <YStack
-                      animation="quick"
-                      rotate={
-                        open && !isAccordionTriggerDisabled ? '180deg' : '0deg'
-                      }
-                      left="$2"
-                    >
-                      <Icon
-                        name="ChevronDownSmallOutline"
-                        color={
-                          isAccordionTriggerDisabled
-                            ? '$iconDisabled'
-                            : '$iconSubdued'
+                  }
+                  renderContent={
+                    <Stack p="$5">
+                      <EarnText
+                        text={
+                          transactionConfirmation?.tooltip?.type === 'text'
+                            ? transactionConfirmation?.tooltip?.data
+                                ?.description
+                            : undefined
                         }
-                        size="$5"
+                        size="$bodyMd"
                       />
-                    </YStack>
+                    </Stack>
+                  }
+                />
+              ) : null}
+            </XStack>
+            {transactionConfirmation?.rewards.map((reward) => {
+              const hasTooltip = reward.tooltip?.type === 'text';
+              let descriptionTextSize = (
+                hasTooltip ? '$bodyMd' : '$bodyLgMedium'
+              ) as FontSizeTokens;
+              if (reward.description.size) {
+                descriptionTextSize = reward.description.size;
+              }
+
+              return (
+                <XStack
+                  key={reward.title.text}
+                  gap="$1"
+                  ai="flex-start"
+                  mt="$1.5"
+                  flexWrap="wrap"
+                >
+                  <XStack gap="$1" flex={1} flexWrap="wrap" ai="center">
+                    <EarnText
+                      text={reward.title}
+                      color={reward.title.color}
+                      size={reward.title.size}
+                    />
+                    <XStack gap="$1" flex={1} flexWrap="wrap" ai="center">
+                      <EarnText
+                        text={reward.description}
+                        size={descriptionTextSize}
+                        color={reward.description.color ?? '$textSubdued'}
+                        flexShrink={1}
+                      />
+                      {hasTooltip ? (
+                        <Popover.Tooltip
+                          iconSize="$5"
+                          title={reward.title.text}
+                          tooltip={
+                            (reward.tooltip as IEarnTextTooltip)?.data
+                              ?.description?.text
+                          }
+                          placement="top"
+                        />
+                      ) : null}
+                    </XStack>
                   </XStack>
-                </>
-              )}
-            </Accordion.Trigger>
-            <Accordion.HeightAnimator animation="quick">
-              <Accordion.Content
-                animation="quick"
-                exitStyle={{ opacity: 0 }}
-                px={0}
-                pb={0}
-                pt="$3.5"
-                gap="$2.5"
-              >
-                {accordionContent}
-              </Accordion.Content>
-            </Accordion.HeightAnimator>
-          </Accordion.Item>
-        </Accordion>
-        <TradeOrBuy
-          token={tokenInfo?.token as IToken}
-          accountId={accountId}
-          networkId={networkId}
-        />
-      </YStack>
-      <Page.Footer>
-        <Stack
-          bg="$bgApp"
-          flexDirection="column"
-          $gtMd={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            jc: 'space-between',
-          }}
-        >
-          <Stack pl="$5" $md={{ pt: '$5' }}>
-            {isShowStakeProgress ? (
-              <StakeProgress
-                approveType={approveType}
-                currentStep={
-                  isDisable || shouldApprove
-                    ? EStakeProgressStep.approve
-                    : EStakeProgressStep.deposit
-                }
+                </XStack>
+              );
+            })}
+          </YStack>
+          <Divider my="$5" />
+          <YStack gap="$5">
+            {ongoingValidator ? (
+              <EarnValidatorSelect
+                field={ongoingValidator}
+                value={selectedValidator}
+                onChange={setSelectedValidator}
+                disabled={amountInputDisabled}
               />
             ) : null}
-          </Stack>
-
-          <Page.FooterActions
-            onConfirmText={onConfirmText}
-            confirmButtonProps={{
-              onPress: shouldApprove ? onApprove : onSubmit,
-              loading: loadingAllowance || approving || checkAmountLoading,
-              disabled: isDisable,
+            <Accordion
+              overflow="hidden"
+              width="100%"
+              type="single"
+              collapsible
+              defaultValue=""
+            >
+              <Accordion.Item value="staking-accordion-content">
+                <Accordion.Trigger
+                  unstyled
+                  flexDirection="row"
+                  alignItems="center"
+                  alignSelf="flex-start"
+                  px="$1"
+                  mx="$-1"
+                  width="100%"
+                  justifyContent="space-between"
+                  borderWidth={0}
+                  bg="$transparent"
+                  userSelect="none"
+                  borderRadius="$1"
+                  cursor={
+                    isAccordionTriggerDisabled ? 'not-allowed' : 'pointer'
+                  }
+                  disabled={isAccordionTriggerDisabled}
+                >
+                  {({ open }: { open: boolean }) => (
+                    <>
+                      <XStack gap="$1.5" alignItems="center">
+                        <Image
+                          width="$5"
+                          height="$5"
+                          src={providerLogo}
+                          borderRadius="$2"
+                        />
+                        <SizableText size="$bodyMd">
+                          {capitalizeString(providerName || '')}
+                        </SizableText>
+                      </XStack>
+                      <XStack>
+                        <YStack
+                          animation="quick"
+                          rotate={
+                            open && !isAccordionTriggerDisabled
+                              ? '180deg'
+                              : '0deg'
+                          }
+                          left="$2"
+                        >
+                          <Icon
+                            name="ChevronDownSmallOutline"
+                            color={
+                              isAccordionTriggerDisabled
+                                ? '$iconDisabled'
+                                : '$iconSubdued'
+                            }
+                            size="$5"
+                          />
+                        </YStack>
+                      </XStack>
+                    </>
+                  )}
+                </Accordion.Trigger>
+                <Accordion.HeightAnimator animation="quick">
+                  <Accordion.Content
+                    animation="quick"
+                    exitStyle={{ opacity: 0 }}
+                    px={0}
+                    pb={0}
+                    pt="$3.5"
+                    gap="$2.5"
+                  >
+                    {accordionContent}
+                  </Accordion.Content>
+                </Accordion.HeightAnimator>
+              </Accordion.Item>
+            </Accordion>
+            <TradeOrBuy
+              token={tokenInfo?.token as IToken}
+              accountId={accountId}
+              networkId={networkId}
+              containerStyle={{
+                pt: '$0',
+              }}
+            />
+          </YStack>
+        </YStack>
+      ) : null}
+      {beforeFooter}
+      {isInModalContext ? (
+        <Page.Footer>
+          <Stack
+            bg="$bgApp"
+            flexDirection="column"
+            $gtMd={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              jc: 'space-between',
             }}
+          >
+            <Stack pl="$5" $md={{ pt: '$5' }}>
+              {isShowStakeProgress ? (
+                <StakeProgress
+                  approveType={approveType}
+                  currentStep={
+                    isDisable || shouldApprove
+                      ? EStakeProgressStep.approve
+                      : EStakeProgressStep.deposit
+                  }
+                />
+              ) : null}
+            </Stack>
+
+            <Page.FooterActions
+              onConfirmText={onConfirmText}
+              confirmButtonProps={{
+                onPress: shouldApprove ? onApprove : onSubmit,
+                loading: loadingAllowance || approving || checkAmountLoading,
+                disabled: isDisable,
+              }}
+            />
+          </Stack>
+          <PercentageStageOnKeyboard
+            onSelectPercentageStage={onSelectPercentageStage}
           />
-        </Stack>
-        <PercentageStageOnKeyboard
-          onSelectPercentageStage={onSelectPercentageStage}
-        />
-      </Page.Footer>
+        </Page.Footer>
+      ) : (
+        <YStack>{footerContent}</YStack>
+      )}
     </StakingFormWrapper>
   );
 }

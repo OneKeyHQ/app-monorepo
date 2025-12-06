@@ -172,6 +172,7 @@ export interface IPerpServerReferrerConfig {
   referrerRate?: number;
   agentTTL?: number;
   referralCode?: string;
+  configVersion?: string;
 }
 
 export interface IPerpServerCommonConfig {
@@ -750,7 +751,7 @@ class ServiceWebviewPerp extends ServiceBase {
       this.lastExtPerpTab =
         await this.backgroundApi.serviceApp.openExtensionExpandTab({
           // routes: [ERootRoutes.Main, ETabRoutes.Perp], // not working for extension
-          path: '/perp',
+          path: '/perps',
         });
     }
   }

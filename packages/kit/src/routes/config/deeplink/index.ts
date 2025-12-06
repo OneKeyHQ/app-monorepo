@@ -16,10 +16,10 @@ import {
 } from '@onekeyhq/shared/src/consts/deeplinkConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
-  EModalReferFriendsRoutes,
-  EModalRoutes,
+  ETabHomeRoutes,
+  ETabReferFriendsRoutes,
+  ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
@@ -61,7 +61,7 @@ async function processDeepLinkUrlAccount(
         }, 1500);
         return;
       }
-      switch (platformEnv.isNative ? hostname : path?.slice(1)) {
+      switch (hostname ?? path?.slice(1)) {
         case EOneKeyDeepLinkPath.url_account: {
           const query =
             queryParams as IEOneKeyDeepLinkParams[EOneKeyDeepLinkPath.url_account];
@@ -92,8 +92,9 @@ async function processDeepLinkUrlAccount(
             const { utm_source: utmSource, code } =
               queryParams as IEOneKeyDeepLinkParams[EOneKeyDeepLinkPath.invite_share];
             if (navigation) {
-              navigation.pushModal(EModalRoutes.ReferFriendsModal, {
-                screen: EModalReferFriendsRoutes.ReferAFriend,
+              // Navigate to Tab page instead of modal
+              navigation.switchTab(ETabRoutes.ReferFriends, {
+                screen: ETabReferFriendsRoutes.TabReferAFriend,
                 params: {
                   utmSource,
                   code,
@@ -104,6 +105,22 @@ async function processDeepLinkUrlAccount(
               code,
               utmSource,
             );
+          }
+          break;
+        case EOneKeyDeepLinkPath.invited_by_friend:
+          {
+            const { code, page } =
+              queryParams as IEOneKeyDeepLinkParams[EOneKeyDeepLinkPath.invited_by_friend];
+            if (navigation) {
+              // Navigate to ReferralLandingPage which handles the modal opening
+              navigation.switchTab(ETabRoutes.Home, {
+                screen: ETabHomeRoutes.TabHomeReferralLanding,
+                params: {
+                  code,
+                  page: page ?? '',
+                },
+              });
+            }
           }
           break;
         case EOneKeyDeepLinkPath.cross_device_transfer:
@@ -131,6 +148,7 @@ async function processDeepLinkWalletConnect({
 }: IProcessDeepLinkParams) {
   try {
     const { hostname, path, queryParams, scheme } = parsedUrl;
+
     let wcUri = '';
     // define deeplink schema at
     //  - packages/web/validation/deeplink.ios.json

@@ -97,9 +97,9 @@ export default function PickYourDevice() {
                   borderWidth: 0,
                   borderRadius: 0,
                 }}
-                bg="$bg"
-                hoverStyle={{ bg: '$gray3' }}
-                pressStyle={{ bg: '$gray2' }}
+                bg="$bgApp"
+                hoverStyle={{ bg: '$gray2' }}
+                pressStyle={{ bg: '$gray1' }}
                 userSelect="none"
                 gap="$3"
                 group

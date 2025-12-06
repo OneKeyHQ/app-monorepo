@@ -23,10 +23,12 @@ import {
   IP_TABLE_SPEED_TEST_TIMEOUT_MS,
 } from '@onekeyhq/shared/src/request/constants/ipTableDefaults';
 import {
+  getSelectedIpForHost,
   setReportRequestFailureCallback,
   testDomainSpeed,
   testIpSpeed,
 } from '@onekeyhq/shared/src/request/helpers/ipTableAdapter';
+import { isSniSupported } from '@onekeyhq/shared/src/request/helpers/sniRequest';
 import { getRequestHeaders } from '@onekeyhq/shared/src/request/Interceptor';
 import type {
   IIpTableConfigWithRuntime,
@@ -81,7 +83,7 @@ class ServiceIpTable extends ServiceBase {
    * Check if IP Table is enabled considering all conditions:
    * 1. Platform support
    * 2. runtime.enabled
-   * 3. devSettings conditions (enableIpTableInDev, disableIpTableInProd)
+   * 3. devSettings conditions (disableIpTableInProd)
    * @returns true if IP Table should be active, false otherwise
    */
   private async isIpTableEnabled(): Promise<boolean> {
@@ -92,23 +94,13 @@ class ServiceIpTable extends ServiceBase {
 
     // 2. Check runtime.enabled
     const configWithRuntime = await this.getConfig();
-    if (!configWithRuntime.runtime?.enabled) {
+    if (configWithRuntime.runtime?.enabled === false) {
       return false;
     }
 
     // 3. Check devSettings (align with ipTableAdapter.ts shouldUseIpTable logic)
     try {
       const devSettings = await devSettingsPersistAtom.get();
-
-      // If devSettings panel is disabled, use default (enabled)
-      if (!devSettings.enabled) {
-        return false;
-      }
-
-      // Dev environment override - if explicitly set, use it
-      if (!devSettings.settings?.enableIpTableInDev) {
-        return false;
-      }
 
       // Prod environment override - if explicitly disabled, respect it
       if (devSettings.settings?.disableIpTableInProd) {
@@ -122,7 +114,7 @@ class ServiceIpTable extends ServiceBase {
           error instanceof Error ? error.message : 'Unknown error'
         }`,
       });
-      return false;
+      return true;
     }
   }
 
@@ -213,6 +205,68 @@ class ServiceIpTable extends ServiceBase {
   @backgroundMethod()
   async getConfig(): Promise<IIpTableConfigWithRuntime> {
     return this.backgroundApi.simpleDb.ipTable.getConfig();
+  }
+
+  @backgroundMethod()
+  async getConnectionInfo(): Promise<{
+    type: 'ip' | 'domain';
+    ip?: string;
+    domain: string;
+    sniSupported: boolean;
+  }> {
+    // Determine domain based on devSettings
+    const { enabled: devSettingEnabled, settings } =
+      await devSettingsPersistAtom.get();
+    const domain =
+      devSettingEnabled && settings?.enableTestEndpoint
+        ? ONEKEY_TEST_API_HOST
+        : ONEKEY_API_HOST;
+
+    const sniSupported = isSniSupported();
+
+    // 1. Check platform support
+    if (!sniSupported) {
+      return {
+        type: 'domain',
+        domain,
+        sniSupported: false,
+      };
+    }
+
+    // 2. Check if IP Table is enabled (includes runtime.enabled and devSettings check)
+    const ipTableEnabled = await this.isIpTableEnabled();
+    if (!ipTableEnabled) {
+      return {
+        type: 'domain',
+        domain,
+        sniSupported: true,
+      };
+    }
+
+    // 3. Get selected IP for this domain (use wallet.{domain} as hostname)
+    const hostname = `wallet.${domain}`;
+    const selectedIp = await getSelectedIpForHost(hostname);
+
+    if (selectedIp) {
+      return {
+        type: 'ip',
+        ip: selectedIp,
+        domain,
+        sniSupported: true,
+      };
+    }
+
+    return {
+      type: 'domain',
+      domain,
+      sniSupported: true,
+    };
+  }
+
+  @backgroundMethod()
+  async isUsingIpConnection(): Promise<boolean> {
+    const connectionInfo = await this.getConnectionInfo();
+    return connectionInfo.type === 'ip';
   }
 
   @backgroundMethod()

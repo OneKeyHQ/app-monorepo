@@ -14,35 +14,57 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { FormatHyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
-import { REFERRAL_HELP_LINK } from '@onekeyhq/shared/src/config/appConfig';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
+import {
+  REFERRAL_HELP_LINK,
+  buildReferralUrl,
+} from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { IInvitePostConfig } from '@onekeyhq/shared/src/referralCode/type';
 import {
+  EModalReferFriendsRoutes,
+  EModalRoutes,
   ERootRoutes,
   ETabReferFriendsRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import type { IEndpointEnv } from '@onekeyhq/shared/types/endpoint';
+
+import { useOneKeyAuth } from '../components/OneKeyAuth/useOneKeyAuth';
 
 import useAppNavigation from './useAppNavigation';
-import { useLoginOneKeyId } from './useLoginOneKeyId';
 
-// use rootNavigationRef to navigate
 export function useToReferFriendsModalByRootNavigation() {
   return useCallback(async () => {
     const isLogin = await backgroundApiProxy.servicePrime.isLoggedIn();
 
-    const screen = isLogin
-      ? ETabReferFriendsRoutes.TabInviteReward
-      : ETabReferFriendsRoutes.TabReferAFriend;
+    if (platformEnv.isNative) {
+      const screen = isLogin
+        ? EModalReferFriendsRoutes.InviteReward
+        : EModalReferFriendsRoutes.ReferAFriend;
 
-    rootNavigationRef.current?.navigate(ERootRoutes.Main, {
-      screen: ETabRoutes.ReferFriends,
-      params: {
-        screen,
-      },
-    });
+      rootNavigationRef.current?.navigate(ERootRoutes.Modal, {
+        screen: EModalRoutes.ReferFriendsModal,
+        params: {
+          screen,
+        },
+      });
+    } else {
+      const screen = isLogin
+        ? ETabReferFriendsRoutes.TabInviteReward
+        : ETabReferFriendsRoutes.TabReferAFriend;
+
+      rootNavigationRef.current?.navigate(ERootRoutes.Main, {
+        screen: ETabRoutes.ReferFriends,
+        params: {
+          screen,
+        },
+      });
+    }
   }, []);
 }
 
@@ -52,11 +74,18 @@ export function useReplaceToReferFriends() {
   return useCallback(
     async (params?: { utmSource?: string; code?: string }) => {
       const isLogin = await backgroundApiProxy.servicePrime.isLoggedIn();
-      const screen = isLogin
-        ? ETabReferFriendsRoutes.TabInviteReward
-        : ETabReferFriendsRoutes.TabReferAFriend;
 
-      navigation.replace(screen, params);
+      if (platformEnv.isNative) {
+        const screen = isLogin
+          ? EModalReferFriendsRoutes.InviteReward
+          : EModalReferFriendsRoutes.ReferAFriend;
+        navigation.replace(screen, params);
+      } else {
+        const screen = isLogin
+          ? ETabReferFriendsRoutes.TabInviteReward
+          : ETabReferFriendsRoutes.TabReferAFriend;
+        navigation.replace(screen, params);
+      }
     },
     [navigation],
   );
@@ -65,14 +94,27 @@ export function useReplaceToReferFriends() {
 export const useReferFriends = () => {
   const intl = useIntl();
   const navigation = useAppNavigation();
-  const { loginOneKeyId } = useLoginOneKeyId();
+  const { loginOneKeyId } = useOneKeyAuth();
+  const [devSettings] = useDevSettingsPersistAtom();
+
+  const env: IEndpointEnv = useMemo(() => {
+    const useTestEnv =
+      devSettings.enabled && devSettings.settings?.enableTestEndpoint;
+    return useTestEnv ? 'test' : 'prod';
+  }, [devSettings.enabled, devSettings.settings?.enableTestEndpoint]);
 
   const toInviteRewardPage = useCallback(async () => {
     const isLogin = await backgroundApiProxy.servicePrime.isLoggedIn();
     if (isLogin) {
-      navigation.switchTab<ETabRoutes.ReferFriends>(ETabRoutes.ReferFriends, {
-        screen: ETabReferFriendsRoutes.TabInviteReward,
-      });
+      if (platformEnv.isNative) {
+        navigation.pushModal(EModalRoutes.ReferFriendsModal, {
+          screen: EModalReferFriendsRoutes.InviteReward,
+        });
+      } else {
+        navigation.switchTab<ETabRoutes.ReferFriends>(ETabRoutes.ReferFriends, {
+          screen: ETabReferFriendsRoutes.TabInviteReward,
+        });
+      }
     } else {
       void loginOneKeyId({ toOneKeyIdPageOnLoginSuccess: false });
     }
@@ -83,13 +125,22 @@ export const useReferFriends = () => {
     const isVisited = await backgroundApiProxy.serviceSpotlight.isVisited(
       ESpotlightTour.referAFriend,
     );
-    if (isLogin && isVisited) {
-      navigation.switchTab<ETabRoutes.ReferFriends>(ETabRoutes.ReferFriends, {
-        screen: ETabReferFriendsRoutes.TabInviteReward,
+
+    const shouldShowInviteReward = isLogin && isVisited;
+
+    if (platformEnv.isNative) {
+      // Native: use Modal
+      navigation.pushModal(EModalRoutes.ReferFriendsModal, {
+        screen: shouldShowInviteReward
+          ? EModalReferFriendsRoutes.InviteReward
+          : EModalReferFriendsRoutes.ReferAFriend,
       });
     } else {
+      // Web: use Tab
       navigation.switchTab<ETabRoutes.ReferFriends>(ETabRoutes.ReferFriends, {
-        screen: ETabReferFriendsRoutes.TabReferAFriend,
+        screen: shouldShowInviteReward
+          ? ETabReferFriendsRoutes.TabInviteReward
+          : ETabReferFriendsRoutes.TabReferAFriend,
       });
     }
   }, [navigation]);
@@ -97,29 +148,62 @@ export const useReferFriends = () => {
   const { copyText } = useClipboard();
 
   const shareReferRewards = useCallback(
-    async (_onSuccess?: () => void, _onFail?: () => void) => {
+    async (
+      _onSuccess?: () => void,
+      _onFail?: () => void,
+      source: 'Earn' | 'Perps' = 'Earn',
+      copyAsUrl = false,
+    ) => {
       const isLogin = await backgroundApiProxy.servicePrime.isLoggedIn();
       const myReferralCode =
         await backgroundApiProxy.serviceReferralCode.getMyReferralCode();
 
-      const postConfig =
+      const postConfig: IInvitePostConfig | undefined =
         await backgroundApiProxy.serviceReferralCode.getPostConfig();
+
+      const sourceConfig: IInvitePostConfig['locales']['Earn'] =
+        source === 'Perps' && postConfig?.locales.Perps
+          ? postConfig.locales.Perps
+          : postConfig?.locales.Earn ?? {
+              title: '',
+              subtitle: '',
+              for_you: { title: '', subtitle: '' },
+              for_your_friend: { title: '', subtitle: '' },
+            };
+
+      const getReferralUrl = (code: string) =>
+        buildReferralUrl({
+          code,
+          source,
+          env,
+        });
+
+      const copyContent = copyAsUrl
+        ? getReferralUrl(myReferralCode)
+        : myReferralCode;
 
       const handleConfirm = () => {
         if (isLogin) {
-          navigation.switchTab<ETabRoutes.ReferFriends>(
-            ETabRoutes.ReferFriends,
-            {
-              screen: ETabReferFriendsRoutes.TabInviteReward,
-            },
-          );
+          if (platformEnv.isNative) {
+            navigation.pushModal(EModalRoutes.ReferFriendsModal, {
+              screen: EModalReferFriendsRoutes.InviteReward,
+            });
+          } else {
+            navigation.switchTab<ETabRoutes.ReferFriends>(
+              ETabRoutes.ReferFriends,
+              {
+                screen: ETabReferFriendsRoutes.TabInviteReward,
+              },
+            );
+          }
         } else {
           void loginOneKeyId({ toOneKeyIdPageOnLoginSuccess: false });
         }
       };
+
       const dialog = Dialog.show({
         icon: 'GiftOutline',
-        title: postConfig.locales.Earn.title,
+        title: sourceConfig?.title,
         description: (
           <FormatHyperlinkText
             size="$bodyMd"
@@ -128,17 +212,25 @@ export const useReferFriends = () => {
               void dialog.close();
             }}
           >
-            {postConfig.locales.Earn.subtitle}
+            {sourceConfig?.subtitle}
           </FormatHyperlinkText>
         ),
         renderContent: isLogin ? (
           <YStack gap="$5">
-            <YStack gap="$1">
+            <YStack gap="$2">
               <SizableText size="$bodyMdMedium">
                 {intl.formatMessage({ id: ETranslations.referral_your_code })}
               </SizableText>
-              <XStack gap="$3" ai="center">
-                <SizableText size="$headingXl">{myReferralCode}</SizableText>
+              <XStack
+                gap="$3"
+                bg="$bgStrong"
+                borderRadius="$2"
+                px="$2"
+                py="$1.5"
+                justifyContent="space-between"
+                alignItems="center"
+              >
+                <SizableText size="$bodyLgMedium">{myReferralCode}</SizableText>
                 <IconButton
                   title={intl.formatMessage({ id: ETranslations.global_copy })}
                   variant="tertiary"
@@ -152,6 +244,47 @@ export const useReferFriends = () => {
                 />
               </XStack>
             </YStack>
+
+            {copyAsUrl ? (
+              <YStack gap="$2">
+                <SizableText size="$bodyMdMedium">
+                  {intl.formatMessage({
+                    id: ETranslations.referral_referral_link,
+                  })}
+                </SizableText>
+                <XStack
+                  gap="$3"
+                  bg="$bgStrong"
+                  borderRadius="$2"
+                  px="$2"
+                  py="$1.5"
+                  justifyContent="space-between"
+                  alignItems="center"
+                >
+                  <SizableText
+                    size="$bodyLgMedium"
+                    numberOfLines={1}
+                    flexShrink={1}
+                  >
+                    {copyContent}
+                  </SizableText>
+                  <IconButton
+                    title={intl.formatMessage({
+                      id: ETranslations.global_copy,
+                    })}
+                    variant="tertiary"
+                    icon="Copy3Outline"
+                    size="small"
+                    iconColor="$iconSubdued"
+                    flexShrink={0}
+                    onPress={() => {
+                      copyText(copyContent);
+                      defaultLogger.referral.page.copyReferralCode();
+                    }}
+                  />
+                </XStack>
+              </YStack>
+            ) : null}
           </YStack>
         ) : (
           <YStack gap="$5">
@@ -161,10 +294,10 @@ export const useReferFriends = () => {
               </XStack>
               <YStack flexShrink={1}>
                 <SizableText size="$headingMd">
-                  {postConfig.locales?.Earn?.for_you?.title}
+                  {sourceConfig?.for_you?.title}
                 </SizableText>
                 <SizableText mt="$1" size="$bodyMd" color="$textSubdued">
-                  {postConfig.locales?.Earn?.for_you?.subtitle}
+                  {sourceConfig?.for_you?.subtitle}
                 </SizableText>
               </YStack>
             </XStack>
@@ -174,10 +307,10 @@ export const useReferFriends = () => {
               </XStack>
               <YStack flexShrink={1}>
                 <SizableText size="$headingMd">
-                  {postConfig.locales?.Earn?.for_your_friend?.title}
+                  {sourceConfig?.for_your_friend?.title}
                 </SizableText>
                 <SizableText mt="$1" size="$bodyMd" color="$textSubdued">
-                  {postConfig.locales?.Earn?.for_your_friend?.subtitle}
+                  {sourceConfig?.for_your_friend?.subtitle}
                 </SizableText>
               </YStack>
             </XStack>
@@ -200,7 +333,7 @@ export const useReferFriends = () => {
         onConfirm: handleConfirm,
       });
     },
-    [copyText, intl, loginOneKeyId, navigation],
+    [copyText, intl, loginOneKeyId, navigation, env],
   );
 
   return useMemo(

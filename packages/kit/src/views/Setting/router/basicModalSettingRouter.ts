@@ -88,6 +88,13 @@ const CloudBackupGallery = LazyLoadPage(
     ),
 );
 
+const AuthGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/AuthGallery'
+    ),
+);
+
 const ExportCustomNetworkConfig = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Setting/pages/ExportCustomNetworkConfig'),
@@ -198,6 +205,10 @@ export const BasicModalSettingStack: IModalFlowNavigatorConfig<
   {
     name: EModalSettingRoutes.SettingDevCloudBackupGalleryModal,
     component: CloudBackupGallery,
+  },
+  {
+    name: EModalSettingRoutes.SettingDevAuthGalleryModal,
+    component: AuthGallery,
   },
   {
     name: EModalSettingRoutes.SettingExportCustomNetworkConfig,

@@ -80,6 +80,12 @@ export function FirmwareUpdateDevSettings() {
         <Switch size={ESwitchSize.small} />
       </FirmwareUpdateSectionFieldItem>
       <FirmwareUpdateSectionFieldItem
+        name="forceUpdateBtcOnlyUniversalFirmware"
+        title="BTC only 强制提示升级到最新通用固件"
+      >
+        <Switch size={ESwitchSize.small} />
+      </FirmwareUpdateSectionFieldItem>
+      <FirmwareUpdateSectionFieldItem
         name="allIsUpToDate"
         title="All is up to date"
       >
@@ -106,6 +112,12 @@ export function FirmwareUpdateDevSettings() {
       <FirmwareUpdateSectionFieldItem
         name="forceUpdateOnceFirmware"
         title="Force update firmware (once)"
+      >
+        <Switch size={ESwitchSize.small} />
+      </FirmwareUpdateSectionFieldItem>
+      <FirmwareUpdateSectionFieldItem
+        name="updateDevDeviceBootloaderOnAppAllowed"
+        title="允许在 App 中更新 dev 设备的 bootloader"
       >
         <Switch size={ESwitchSize.small} />
       </FirmwareUpdateSectionFieldItem>

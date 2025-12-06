@@ -1,116 +1,44 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { isEqual, noop } from 'lodash';
+import { noop } from 'lodash';
 
 import {
   usePerpsActiveAccountAtom,
+  usePerpsTradesHistoryDataAtom,
   usePerpsTradesHistoryRefreshHookAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { PERPS_HISTORY_FILLS_URL } from '@onekeyhq/shared/src/consts/perp';
-import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { openUrlInApp } from '@onekeyhq/shared/src/utils/openUrlUtils';
-import type { IFill, IWsUserFills } from '@onekeyhq/shared/types/hyperliquid';
-import {
-  EPerpsSubscriptionCategory,
-  ESubscriptionType,
-} from '@onekeyhq/shared/types/hyperliquid';
+import type { IFill } from '@onekeyhq/shared/types/hyperliquid';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
 
 export function usePerpTradesHistory() {
   const [currentAccount] = usePerpsActiveAccountAtom();
-  const currentAccountAddressRef = useRef(currentAccount?.accountAddress);
-  currentAccountAddressRef.current = currentAccount?.accountAddress;
-
+  const [tradesData] = usePerpsTradesHistoryDataAtom();
   const [{ refreshHook }] = usePerpsTradesHistoryRefreshHookAtom();
 
-  const [isLoading, setIsLoading] = useState(true);
   const [currentListPage, setCurrentListPage] = useState(1);
-  const [tradesHistory, setTradesHistory] = useState<IFill[]>([]);
-
-  const tradesHistoryRef = useRef<IFill[]>([]);
-  if (tradesHistoryRef.current !== tradesHistory) {
-    tradesHistoryRef.current = tradesHistory;
-  }
-
-  const tradesHistoryAccountRef = useRef<string | undefined>(undefined);
+  const prevAccountRef = useRef<string | null | undefined>(undefined);
 
   useEffect(() => {
-    const handleUserFillsListUpdate = (payload: unknown) => {
-      const eventPayload = payload as {
-        type: EPerpsSubscriptionCategory;
-        subType: ESubscriptionType;
-        data: IWsUserFills;
-      };
+    const accountAddress = currentAccount?.accountAddress;
 
-      if (
-        eventPayload.type === EPerpsSubscriptionCategory.ACCOUNT &&
-        eventPayload.subType === ESubscriptionType.USER_FILLS
-      ) {
-        setIsLoading(false);
-        const { data } = eventPayload;
-        if (data.fills.length === 0) {
-          return;
-        }
-        const newFills = [...data.fills]
-          .filter((fill) => !fill.coin.startsWith('@'))
-          .sort((a, b) => b.time - a.time);
-        const newFirstFillItem = newFills[0];
-        const prevFirstFillItem = tradesHistoryRef.current[0];
-
-        const eventUserAddress = eventPayload.data?.user?.toLowerCase();
-        const currentAccountAddress =
-          currentAccountAddressRef.current?.toLowerCase();
-
-        if (eventUserAddress && eventUserAddress === currentAccountAddress) {
-          const isFirstItemEqual = isEqual(prevFirstFillItem, newFirstFillItem);
-          // check if first item is the same, then skip merge
-          if (isFirstItemEqual && prevFirstFillItem) {
-            return;
-          }
-          tradesHistoryAccountRef.current = currentAccountAddress;
-          if (data.isSnapshot) {
-            setTradesHistory((_prev) => [...newFills]);
-          } else {
-            setTradesHistory((prev) => [...newFills, ...prev]);
-          }
-        } else if (
-          prevFirstFillItem &&
-          tradesHistoryAccountRef.current &&
-          tradesHistoryAccountRef.current !== currentAccountAddress
-        ) {
-          // reset trades history if account not matched
-          tradesHistoryAccountRef.current = currentAccountAddress;
-          setTradesHistory([]);
-        }
-      }
-    };
-
-    appEventBus.on(
-      EAppEventBusNames.HyperliquidDataUpdate,
-      handleUserFillsListUpdate,
-    );
-
-    return () => {
-      appEventBus.off(
-        EAppEventBusNames.HyperliquidDataUpdate,
-        handleUserFillsListUpdate,
-      );
-    };
-  }, []);
-
-  useEffect(() => {
-    setCurrentListPage(1); // reset to page 1 when account changed
-    tradesHistoryAccountRef.current = '';
-    setTradesHistory([]);
-    if (currentAccount?.accountAddress) {
-      setIsLoading(true);
-    } else {
-      setIsLoading(false);
+    if (prevAccountRef.current !== accountAddress) {
+      setCurrentListPage(1);
+      prevAccountRef.current = accountAddress;
     }
+
+    if (!accountAddress) {
+      void backgroundApiProxy.serviceHyperliquid.resetTradesHistory();
+      return;
+    }
+
+    void backgroundApiProxy.serviceHyperliquid.loadTradesHistory(
+      accountAddress,
+    );
   }, [currentAccount?.accountAddress]);
 
   const isFocusedRef = useRef(true);
@@ -131,11 +59,14 @@ export function usePerpTradesHistory() {
     }, 300);
   }, [refreshHook]);
 
+  const fills: IFill[] = tradesData?.fills ?? [];
+  const isLoaded: boolean = tradesData?.isLoaded ?? false;
+
   return {
-    trades: tradesHistory,
+    trades: fills,
     currentListPage,
     setCurrentListPage,
-    isLoading,
+    isLoading: !isLoaded,
   };
 }
 

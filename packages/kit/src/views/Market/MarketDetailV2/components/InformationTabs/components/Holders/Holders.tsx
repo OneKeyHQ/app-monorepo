@@ -1,8 +1,14 @@
-import { memo, useCallback } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { SizableText, Stack, Tabs, useMedia } from '@onekeyhq/components';
+import {
+  ListEndIndicator,
+  SizableText,
+  Stack,
+  Tabs,
+  useMedia,
+} from '@onekeyhq/components';
 import { useMarketHolders } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/useMarketHolders';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -39,6 +45,13 @@ function HoldersBase({ tokenAddress, networkId }: IHoldersProps) {
       [networkId, gtLg],
     );
 
+  const ListFooterComponent = useMemo(() => {
+    if (!isRefreshing && holders.length > 0) {
+      return <ListEndIndicator />;
+    }
+    return null;
+  }, [isRefreshing, holders.length]);
+
   return (
     <Tabs.FlatList<IMarketTokenHolder>
       data={holders}
@@ -50,6 +63,7 @@ function HoldersBase({ tokenAddress, networkId }: IHoldersProps) {
         item.accountAddress + item.fiatValue + item.amount
       }
       showsVerticalScrollIndicator
+      ListFooterComponent={ListFooterComponent}
       ListEmptyComponent={
         isRefreshing ? (
           <HoldersSkeleton />

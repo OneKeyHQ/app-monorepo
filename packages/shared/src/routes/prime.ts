@@ -37,6 +37,7 @@ export enum EPrimeFeatures {
 export type IPrimeParamList = {
   [EPrimePages.PrimeDashboard]: {
     networkId?: string;
+    fromFeature?: EPrimeFeatures;
   };
   [EPrimePages.PrimeDeviceLimit]: {
     isExceedDeviceLimit?: boolean;

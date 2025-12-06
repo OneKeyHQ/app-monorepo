@@ -178,8 +178,6 @@ PODS:
     - ReactCommon/turbomodule/core
     - SocketRocket
     - Yoga
-  - ExpoNativeExtensions (0.0.4):
-    - ExpoModulesCore
   - ExpoScreenCapture (7.1.5):
     - ExpoModulesCore
   - ExpoScreenOrientation (8.1.7):
@@ -2077,7 +2075,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - SocketRocket
     - Yoga
-  - react-native-cloud-fs (2.6.3):
+  - react-native-cloud-fs (2.6.5):
     - React
   - react-native-compat (2.21.7):
     - boost
@@ -2228,8 +2226,7 @@ PODS:
     - React-Core
   - react-native-network-info (5.2.2):
     - React
-  - react-native-pager-view (7.0.0):
-    - boost
+  - react-native-pager-view (7.0.1):
     - DoubleConversion
     - fast_float
     - fmt
@@ -3742,7 +3739,6 @@ DEPENDENCIES:
   - ExpoLocalAuthentication (from `../../../node_modules/expo-local-authentication/ios`)
   - ExpoLocalization (from `../../../node_modules/expo-localization/ios`)
   - ExpoModulesCore (from `../../../node_modules/expo-modules-core`)
-  - "ExpoNativeExtensions (from `../../../node_modules/@privy-io/expo-native-extensions/ios`)"
   - ExpoScreenCapture (from `../../../node_modules/expo-screen-capture/ios`)
   - ExpoScreenOrientation (from `../../../node_modules/expo-screen-orientation/ios`)
   - ExpoSecureStore (from `../../../node_modules/expo-secure-store/ios`)
@@ -3948,8 +3944,6 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/expo-localization/ios"
   ExpoModulesCore:
     :path: "../../../node_modules/expo-modules-core"
-  ExpoNativeExtensions:
-    :path: "../../../node_modules/@privy-io/expo-native-extensions/ios"
   ExpoScreenCapture:
     :path: "../../../node_modules/expo-screen-capture/ios"
   ExpoScreenOrientation:
@@ -4291,8 +4285,8 @@ SPEC CHECKSUMS:
   react-native-mmkv: e4577d4ace0732f3728ce1aa5271b67fdcb40a27
   react-native-netinfo: cec9c4e86083cb5b6aba0e0711f563e2fbbff187
   react-native-network-info: 703d4b16ff0ff6f03127728348251bf5f12b823a
-  react-native-pager-view: 4046e20b89f9ec1d29155668eb06c76a5f464951
-  react-native-performance-stats: 9738b58eed6e0d4c52e64ba98d6ca9e6af204067
+  react-native-pager-view: 6fd80a1df31b41d1459e3ebc05f633e188b15926
+  react-native-performance-stats: 088634dc35ead1dfcd371be67bd94dd0f2f104ac
   react-native-ping: 589027e929c300b0b68cc5c34105f33610177055
   react-native-safe-area-context: ea7c9ba09a7b44e0dd1df408082760a8537f4547
   react-native-slider: 6201419b3e3f7c6b7cf2068e0c01274fa86a1da5

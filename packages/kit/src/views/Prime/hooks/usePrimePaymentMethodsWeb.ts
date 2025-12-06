@@ -5,12 +5,13 @@ import { BigNumber } from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import { Toast } from '@onekeyhq/components';
+import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import type { ILocaleJSONSymbol } from '@onekeyhq/shared/src/locale';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import type { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 import perfUtils from '@onekeyhq/shared/src/utils/debug/perfUtils';
 import type { IPrimeUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
 
@@ -18,7 +19,6 @@ import purchaseSdkUtils from '../purchasesSdk/purchaseSdkUtils';
 
 import { getPrimePaymentApiKey } from './getPrimePaymentApiKey';
 import primePaymentUtils from './primePaymentUtils';
-import { usePrimeAuthV2 } from './usePrimeAuthV2';
 
 import type {
   IPackage,
@@ -33,7 +33,7 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 export function usePrimePaymentMethodsWeb(): IUsePrimePayment {
-  const { user, isReady: isAuthReady } = usePrimeAuthV2();
+  const { user, isReady: isAuthReady } = useOneKeyAuth();
   const [, setPrimePersistAtom] = usePrimePersistAtom();
   const isReady = isAuthReady;
 
@@ -49,7 +49,7 @@ export function usePrimePaymentMethodsWeb(): IUsePrimePayment {
       if (!apiKey) {
         throw new OneKeyLocalError('No REVENUECAT api key found');
       }
-      if (!user?.privyUserId && loginRequired) {
+      if (!user?.onekeyUserId && loginRequired) {
         throw new OneKeyLocalError('User not logged in');
       }
 
@@ -61,10 +61,10 @@ export function usePrimePaymentMethodsWeb(): IUsePrimePayment {
 
       Purchases.configure(
         apiKey,
-        user?.privyUserId || Purchases.generateRevenueCatAnonymousAppUserId(),
+        user?.onekeyUserId || Purchases.generateRevenueCatAnonymousAppUserId(),
       );
     },
-    [isReady, user?.privyUserId],
+    [isReady, user?.onekeyUserId],
   );
 
   const getCustomerInfo = useCallback(async () => {
@@ -76,7 +76,7 @@ export function usePrimePaymentMethodsWeb(): IUsePrimePayment {
     console.log('revenuecat customerInfo', customerInfo);
 
     const appUserId = Purchases.getSharedInstance().getAppUserId();
-    if (appUserId !== user?.privyUserId) {
+    if (appUserId !== user?.onekeyUserId) {
       throw new OneKeyLocalError('AppUserId not match');
     }
 
@@ -94,7 +94,7 @@ export function usePrimePaymentMethodsWeb(): IUsePrimePayment {
     }
 
     return customerInfo;
-  }, [initSdk, setPrimePersistAtom, user?.privyUserId]);
+  }, [initSdk, setPrimePersistAtom, user?.onekeyUserId]);
 
   const getPackagesWeb = useCallback(async () => {
     await initSdk();
@@ -150,10 +150,12 @@ export function usePrimePaymentMethodsWeb(): IUsePrimePayment {
       subscriptionPeriod,
       email,
       locale,
+      featureName,
     }: {
       subscriptionPeriod: string;
       email: string;
       locale?: string; // https://www.revenuecat.com/docs/tools/paywalls/creating-paywalls#supported-locales
+      featureName?: EPrimeFeatures;
     }) => {
       await initSdk({ loginRequired: true });
       try {
@@ -201,40 +203,10 @@ export function usePrimePaymentMethodsWeb(): IUsePrimePayment {
           purchaseParams,
         );
 
-        // Track successful subscription
-        const planType = subscriptionPeriod === 'P1Y' ? 'yearly' : 'monthly';
-
-        let amount = 0;
-        try {
-          const amountMicros =
-            paywallPackage.rcBillingProduct.currentPrice?.amountMicros;
-          if (amountMicros && typeof amountMicros === 'number') {
-            amount = new BigNumber(amountMicros).div(1_000_000).toNumber();
-          }
-        } catch (error) {
-          console.warn('Error converting price amount:', error);
-          amount = 0;
-        }
-
-        let currency = 'USD';
-        try {
-          const formattedPrice =
-            paywallPackage.rcBillingProduct.currentPrice?.formattedPrice;
-          if (formattedPrice) {
-            currency =
-              primePaymentUtils.extractCurrencySymbol(formattedPrice, {
-                useShortUSSymbol: true,
-              }) || 'USD';
-          }
-        } catch (error) {
-          console.warn('Error extracting currency:', error);
-          currency = 'USD';
-        }
-
-        defaultLogger.prime.subscription.primeSubscribeSuccess({
-          planType,
-          amount,
-          currency,
+        primePaymentUtils.trackPrimeSubscriptionSuccess({
+          paywallPackage,
+          subscriptionPeriod,
+          featureName,
         });
 
         // test credit card

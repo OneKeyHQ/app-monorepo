@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 // eslint-disable-next-line max-classes-per-file
 
-import { EDeviceType } from '@onekeyfe/hd-shared';
+import { EDeviceType, EFirmwareType } from '@onekeyfe/hd-shared';
 import {
   debounce,
   isEmpty,
@@ -2216,9 +2216,16 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   async updateDeviceVersionInfo({
     dbDeviceId,
     versionCacheInfo,
+    bitcoinOnlyFlag,
   }: {
     dbDeviceId: string;
     versionCacheInfo: IDeviceVersionCacheInfo;
+    bitcoinOnlyFlag:
+      | {
+          fw_vendor: string | undefined;
+          capabilities: number[] | undefined;
+        }
+      | undefined;
   }) {
     const device = await this.getDevice(dbDeviceId);
     await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
@@ -2230,6 +2237,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           item.features = JSON.stringify({
             ...device.featuresInfo,
             ...versionCacheInfo,
+            ...bitcoinOnlyFlag,
           });
           return item;
         },
@@ -2346,6 +2354,11 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     const deviceNameArr = deviceName.split(':');
     deviceName = deviceNameArr?.[0] || deviceName;
     const serialNo: string | undefined = deviceNameArr?.[1] || undefined;
+    const firmwareStr: string | undefined = deviceNameArr?.[2] || undefined;
+    let firmwareType: EFirmwareType | undefined;
+    if (firmwareStr && firmwareStr.toLowerCase() === 'btc') {
+      firmwareType = EFirmwareType.BitcoinOnly;
+    }
 
     if (passphraseState || qrDevice.buildBy === 'hdkey') {
       if (fullXfp) {
@@ -2443,6 +2456,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           onekey_serial_no?: string;
           onekey_serial?: string;
           serial_no?: string;
+          $app_firmware_type?: EFirmwareType;
         }
       | undefined;
     if (serialNo) {
@@ -2450,6 +2464,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         onekey_serial_no: serialNo || undefined,
         onekey_serial: serialNo || undefined,
         serial_no: serialNo || undefined,
+        $app_firmware_type: firmwareType,
       };
     }
     const featuresStr = featuresInfo ? JSON.stringify(featuresInfo) : '';
@@ -5468,37 +5483,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         });
 
         if (true) throw new OneKeyLocalError('test error');
-
-        const ctxById = await this.txGetRecordById({
-          tx,
-          name: ELocalDBStoreNames.Context,
-          id: `${DB_MAIN_CONTEXT_ID}-1111`,
-        });
-        console.log('demoTestTransactionAutoCommit>>>>>>> 3.1', ctxById);
-
-        // TODO 如果事务提前提交，之前的数据改动会回滚吗？
-        // globalThis?.crypto?.subtle cause transaction commit immediately
-        if (globalThis?.crypto?.subtle) {
-          // const hash = await globalThis.crypto.subtle.digest(
-          //   'SHA-256',
-          //   bufferUtils.toBuffer('hello-world', 'utf-8'),
-          // );
-        }
-
-        _ctx = await this.txGetContext({ tx });
-        console.log('demoTestTransactionAutoCommit>>>>>>> 4', _ctx);
-
-        await this.txUpdateContext({
-          tx,
-          updater: (r) => {
-            r.backupUUID = `2222: ${new Date().toLocaleTimeString()}`;
-            return Promise.resolve(r);
-          },
-        });
-
-        _ctx = await this.txGetContext({ tx });
-        console.log('demoTestTransactionAutoCommit>>>>>>> 5', _ctx);
-        return _ctx;
       },
     );
 
@@ -5516,6 +5500,14 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         accountUtils.HYPERLIQUID_AGENT_CREDENTIAL_PREFIX,
       ),
     );
+  }
+
+  async removeAllHyperLiquidAgentCredentials(): Promise<number> {
+    const credentials = await this.getAllHyperLiquidAgentCredentials();
+    if (credentials.length > 0) {
+      await this.removeCredentials({ credentials });
+    }
+    return credentials.length;
   }
 
   // #endregion

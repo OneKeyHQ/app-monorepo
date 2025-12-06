@@ -240,7 +240,7 @@ function BalanceDetailsContent({
               }}
             >
               {appLocale.intl.formatMessage({
-                id: ETranslations.balance_detail_frozen,
+                id: ETranslations.balance_detail_protected_ordinals,
               })}
             </Button>
           </XStack>

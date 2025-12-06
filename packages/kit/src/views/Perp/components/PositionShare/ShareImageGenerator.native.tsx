@@ -4,6 +4,7 @@ import ViewShot from 'react-native-view-shot';
 
 import { Stack } from '@onekeyhq/components';
 import RNFS from '@onekeyhq/shared/src/modules3rdParty/react-native-fs';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { CANVAS_CONFIG } from './constants';
 import { ShareContentRenderer } from './ShareContentRenderer';
@@ -17,6 +18,9 @@ import type {
 interface IShareImageGeneratorProps {
   data: IShareData;
   config: IShareConfig;
+  referralQrCodeUrl?: string;
+  referralDisplayText?: string;
+  isReferralReady?: boolean;
 }
 
 async function fileUriToBase64(uri: string): Promise<string> {
@@ -29,36 +33,50 @@ async function fileUriToBase64(uri: string): Promise<string> {
 export const ShareImageGenerator = forwardRef<
   IShareImageGeneratorRef,
   IShareImageGeneratorProps
->(({ data, config }, ref) => {
-  const viewShotRef = useRef<ViewShot>(null);
+>(
+  (
+    { data, config, referralQrCodeUrl, referralDisplayText, isReferralReady },
+    ref,
+  ) => {
+    const viewShotRef = useRef<ViewShot>(null);
 
-  const generate = useCallback(async (): Promise<string> => {
-    const viewShot = viewShotRef.current;
-    if (!viewShot) return '';
+    const generate = useCallback(async (): Promise<string> => {
+      const viewShot = viewShotRef.current;
+      if (!viewShot) return '';
 
-    try {
-      const fileUri = await viewShot.capture?.();
-      if (!fileUri) return '';
-      const base64 = await fileUriToBase64(fileUri);
-      return base64;
-    } catch {
-      return '';
-    }
-  }, []);
+      try {
+        const fileUri = await viewShot.capture?.();
+        if (!fileUri) return '';
+        const base64 = await fileUriToBase64(fileUri);
+        return base64;
+      } catch (error) {
+        if (platformEnv.isDev) {
+          console.error('Failed to generate image:', error);
+        }
+        return '';
+      }
+    }, []);
 
-  useImperativeHandle(ref, () => ({ generate }));
+    useImperativeHandle(ref, () => ({ generate }));
 
-  return (
-    <Stack position="absolute" left={-9999} top={-9999} opacity={0}>
-      <ViewShot
-        ref={viewShotRef}
-        options={{ format: 'png', quality: 1.0 }}
-        style={{ width: CANVAS_CONFIG.size, height: CANVAS_CONFIG.size }}
-      >
-        <ShareContentRenderer data={data} config={config} />
-      </ViewShot>
-    </Stack>
-  );
-});
+    return (
+      <Stack position="absolute" left={-9999} top={-9999} opacity={0}>
+        <ViewShot
+          ref={viewShotRef}
+          options={{ format: 'png', quality: 1.0 }}
+          style={{ width: CANVAS_CONFIG.size, height: CANVAS_CONFIG.size }}
+        >
+          <ShareContentRenderer
+            data={data}
+            config={config}
+            referralQrCodeUrl={referralQrCodeUrl}
+            referralDisplayText={referralDisplayText}
+            isReferralReady={isReferralReady}
+          />
+        </ViewShot>
+      </Stack>
+    );
+  },
+);
 
 ShareImageGenerator.displayName = 'ShareImageGenerator';

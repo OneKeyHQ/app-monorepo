@@ -426,7 +426,9 @@ class ServiceBatchCreateAccount extends ServiceBase {
   }): Promise<IBatchBuildAccountsBaseParams[]> {
     const networks = await buildDefaultAddAccountNetworks({
       backgroundApi: this.backgroundApi,
+      walletId,
       includingNetworkWithGlobalDeriveType: true,
+      firmwareType: undefined,
     });
     return networks.map((item) => ({
       ...item,
@@ -1056,6 +1058,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
             // **** PIN\passphrase cancel
             HardwareErrorCode.PinCancelled,
             HardwareErrorCode.ActionCancelled,
+            HardwareErrorCode.CallQueueActionCancelled,
             HardwareErrorCode.DeviceInterruptedFromOutside, // cancel PIN from app
             HardwareErrorCode.DeviceInterruptedFromUser, // cancel PIN from app
           ],

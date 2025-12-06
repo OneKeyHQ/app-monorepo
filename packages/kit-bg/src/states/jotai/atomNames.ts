@@ -79,6 +79,7 @@ export enum EAtomNames {
   perpsDepositTokensAtom = 'perpsDepositTokensAtom',
   perpsWebSocketReadyStateAtom = 'perpsWebSocketReadyStateAtom',
   perpsTradesHistoryRefreshHookAtom = 'perpsTradesHistoryRefreshHookAtom',
+  perpsTradesHistoryDataAtom = 'perpsTradesHistoryDataAtom',
   perpsCandlesWebviewReloadHookAtom = 'perpsCandlesWebviewReloadHookAtom',
   perpsCandlesWebviewMountedAtom = 'perpsCandlesWebviewMountedAtom',
   perpsWebSocketDataUpdateTimesAtom = 'perpsWebSocketDataUpdateTimesAtom',
@@ -87,6 +88,8 @@ export enum EAtomNames {
   perpsLastUsedLeverageAtom = 'perpsLastUsedLeverageAtom',
   // network doctor
   networkDoctorStateAtom = 'networkDoctorStateAtom',
+  // market
+  marketSelectedTabAtom = 'marketSelectedTabAtom',
 }
 export type IAtomNameKeys = keyof typeof EAtomNames;
 export const atomsConfig: Partial<

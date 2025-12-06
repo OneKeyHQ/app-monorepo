@@ -1,6 +1,10 @@
 import type { IWalletAvatarProps } from '@onekeyhq/kit/src/components/WalletAvatar';
-import type { IDBIndexedAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import type {
+  IDBIndexedAccount,
+  IDBWallet,
+} from '@onekeyhq/kit-bg/src/dbs/local/types';
 
+import type { EFirmwareType } from '@onekeyfe/hd-shared';
 import type { AvatarImageProps } from 'tamagui';
 
 export type IAccountProps = {
@@ -26,4 +30,10 @@ export type IWalletProps = {
   type?: 'hd' | 'hw' | 'others';
   name: string;
   accounts: IAccountGroupProps[];
+};
+
+export type IAccountSelectorWalletInfo = IDBWallet & {
+  // only firmware device
+  firmwareTypeBadge?: EFirmwareType;
+  badge?: number | string;
 };

@@ -208,18 +208,6 @@ export const getEnabledAccountDynamicNetworkIds = (): string[] => [
   getNetworkIdsMap().optimism,
 ];
 
-// TODO move to networkUtils
-export const getEnabledNFTNetworkIds = (): string[] => [
-  getNetworkIdsMap().onekeyall,
-  getNetworkIdsMap().eth,
-  getNetworkIdsMap().optimism,
-  getNetworkIdsMap().bsc,
-  getNetworkIdsMap().polygon,
-  getNetworkIdsMap().arbitrum,
-  getNetworkIdsMap().avalanche,
-  getNetworkIdsMap().sol,
-];
-
 function getSupportedImpls() {
   if (process.env.NODE_ENV === 'production') {
     return PRODUCTION_IMPLS;

@@ -39,11 +39,7 @@ type IGetTabRouterParams = {
 };
 
 const useIsShowDesktopDiscover = () => {
-  const { gtMd } = useMedia();
-  return useMemo(
-    () => platformEnv.isDesktop || (platformEnv.isNative && gtMd),
-    [gtMd],
-  );
+  return useMemo(() => platformEnv.isDesktop, []);
 };
 
 const getDiscoverRouterConfig = (
@@ -103,6 +99,7 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
             params: {
               screen: ETabMarketRoutes.TabMarket,
             },
+            pop: true,
           }),
         );
       }
@@ -207,22 +204,27 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
         trackId: 'global-earn',
         hideOnTabBar: platformEnv.isNative,
       },
-      isWebDappMode ? referFriendsTabConfig : undefined,
+      !platformEnv.isNative && isWebDappMode
+        ? referFriendsTabConfig
+        : undefined,
       // In non-DAPP mode, show ReferFriends in more actions
-      !isWebDappMode && {
-        ...referFriendsTabConfig,
-        inMoreAction: true,
-        hideOnTabBar: !isGtMdNonNative,
-      },
-      {
-        name: ETabRoutes.DeviceManagement,
-        tabBarIcon: () => 'OnekeyDeviceCustom',
-        translationId: ETranslations.global_device,
-        tabbarOnPress: toMyOneKeyModal,
-        children: null,
-        trackId: 'global-my-onekey',
-        hideOnTabBar: !isGtMdNonNative,
-      },
+      !platformEnv.isNative &&
+        !isWebDappMode && {
+          ...referFriendsTabConfig,
+          inMoreAction: true,
+          hideOnTabBar: !isGtMdNonNative,
+        },
+      platformEnv.isNative
+        ? undefined
+        : {
+            name: ETabRoutes.DeviceManagement,
+            tabBarIcon: () => 'OnekeyDeviceCustom',
+            translationId: ETranslations.global_device,
+            tabbarOnPress: toMyOneKeyModal,
+            children: null,
+            trackId: 'global-my-onekey',
+            hideOnTabBar: !isGtMdNonNative,
+          },
       isShowMDDiscover ? getDiscoverRouterConfig(params) : undefined,
       platformEnv.isDev
         ? {

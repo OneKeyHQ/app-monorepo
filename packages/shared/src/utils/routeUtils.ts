@@ -176,6 +176,11 @@ export const buildAllowList = (
         showUrl: true,
         showParams: true,
       },
+    [pagePath`${ERootRoutes.Modal}${EModalRoutes.StakingModal}${EModalStakingRoutes.ManagePosition}`]:
+      {
+        showUrl: true,
+        showParams: true,
+      },
     // Page: /main/tab-Swap/TabSwap
     // Don't worry, the URL here is virtual, actually /swap.
     // it will automatically find the real route according to the route stacks.
