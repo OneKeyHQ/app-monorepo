@@ -53,9 +53,9 @@ PODS:
     - ReactCommon/turbomodule/core
     - Yoga
   - CocoaAsyncSocket (7.6.5)
-  - CocoaLumberjack (3.8.5):
-    - CocoaLumberjack/Core (= 3.8.5)
-  - CocoaLumberjack/Core (3.8.5)
+  - CocoaLumberjack (3.9.0):
+    - CocoaLumberjack/Core (= 3.9.0)
+  - CocoaLumberjack/Core (3.9.0)
   - DoubleConversion (1.1.6)
   - EMASCurl (1.4.1)
   - EXApplication (6.1.4):
@@ -120,7 +120,6 @@ PODS:
     - ExpoModulesCore
     - libavif/libdav1d
     - SDWebImage (~> 5.21.0)
-    - SDWebImageAVIFCoder (~> 0.11.0)
     - SDWebImageSVGCoder (~> 1.7.0)
     - SDWebImageWebPCoder (~> 0.14.6)
   - ExpoImageManipulator (13.1.7):
@@ -214,8 +213,8 @@ PODS:
     - React
   - JPushRN (3.2.1):
     - React
-  - libavif/core (0.11.1)
-  - libavif/libdav1d (0.11.1):
+  - libavif/core (1.1.1)
+  - libavif/libdav1d (1.1.1):
     - libavif/core
     - libdav1d (>= 0.6.0)
   - libdav1d (1.2.0)
@@ -2318,7 +2317,6 @@ PODS:
     - React-utils
   - React-Sandbox (0.4.0):
     - DoubleConversion
-    - fmt
     - glog
     - hermes-engine
     - RCT-Folly (= 2024.11.18.00)
@@ -2332,7 +2330,9 @@ PODS:
     - React-hermes
     - React-ImageManager
     - React-jsi
+    - React-jsitooling
     - React-NativeModulesApple
+    - React-RCTAppDelegate
     - React-RCTFabric
     - React-renderercss
     - React-rendererdebug
@@ -2911,12 +2911,9 @@ PODS:
   - RNZipArchive/Core (7.0.2):
     - React-Core
     - SSZipArchive (~> 2.5.5)
-  - SDWebImage (5.21.1):
-    - SDWebImage/Core (= 5.21.1)
-  - SDWebImage/Core (5.21.1)
-  - SDWebImageAVIFCoder (0.11.0):
-    - libavif/core (>= 0.11.0)
-    - SDWebImage (~> 5.10)
+  - SDWebImage (5.21.3):
+    - SDWebImage/Core (= 5.21.3)
+  - SDWebImage/Core (5.21.3)
   - SDWebImageSVGCoder (1.7.0):
     - SDWebImage/Core (~> 5.6)
   - SDWebImageWebPCoder (0.14.6):
@@ -3119,20 +3116,18 @@ DEPENDENCIES:
 SPEC REPOS:
   https://github.com/aliyun/aliyun-specs.git:
     - EMASCurl
+    - libavif
   https://github.com/CocoaPods/Specs.git:
-    - React-Codegen
-  trunk:
     - CocoaAsyncSocket
     - CocoaLumberjack
-    - libavif
     - libdav1d
     - libwebp
     - lottie-ios
     - MultiplatformBleAdapter
     - PurchasesHybridCommon
+    - React-Codegen
     - RevenueCat
     - SDWebImage
-    - SDWebImageAVIFCoder
     - SDWebImageSVGCoder
     - SDWebImageWebPCoder
     - Sentry
@@ -3452,7 +3447,7 @@ SPEC CHECKSUMS:
   Burnt: e3a3397e26172fca31a59bb27421475a58068836
   CheckBiometricAuthChanged: 9744da7f2c19b2f99fb1e94308a874a5c0df5d7d
   CocoaAsyncSocket: 065fd1e645c7abab64f7a6a2007a48038fdc6a99
-  CocoaLumberjack: 6a459bc897d6d80bd1b8c78482ec7ad05dffc3f0
+  CocoaLumberjack: 5644158777912b7de7469fa881f8a3f259c2512a
   DoubleConversion: cb417026b2400c8f53ae97020b2be961b59470cb
   EMASCurl: 50940d5e8e695aa85d153514e184f897dc1ca2a7
   EXApplication: 63b87ca5204304007fac6b1be432f8afa3731c17
@@ -3470,7 +3465,7 @@ SPEC CHECKSUMS:
   ExpoFileSystem: 7f92f7be2f5c5ed40a7c9efc8fa30821181d9d63
   ExpoFont: abbb91a911eb961652c2b0a22eef801860425ed6
   ExpoHaptics: 0ff6e0d83cd891178a306e548da1450249d54500
-  ExpoImage: e4102c93d1dbe99ff54b075452d1bc9d6ec21b7c
+  ExpoImage: 212312cf6e348e0255369879b8eb7d2b499b6adf
   ExpoImageManipulator: 1e06e7a1e56f454e75d01b7032c1e44963bfc865
   ExpoImagePicker: 0963da31800c906e01c03e25d7c849f16ebf02a2
   ExpoKeepAwake: bf0811570c8da182bfb879169437d4de298376e7
@@ -3494,7 +3489,7 @@ SPEC CHECKSUMS:
   ImageColors: 51cd79f7a9d2524b7a681c660b0a50574085563b
   JCoreRN: d985de509185b381c177fde4bb6bfc686089fdbd
   JPushRN: 807bc962b2f25860e5c0caa5fcb7b4910572b890
-  libavif: 84bbb62fb232c3018d6f1bab79beea87e35de7b7
+  libavif: 6d21116c9c1bf5204b2c699108e85bd87b1b6f86
   libdav1d: 23581a4d8ec811ff171ed5e2e05cd27bad64c39f
   libwebp: 02b23773aedb6ff1fd38cec7a77b81414c6842a8
   lottie-ios: a881093fab623c467d3bce374367755c272bdd59
@@ -3581,7 +3576,7 @@ SPEC CHECKSUMS:
   React-runtimeexecutor: ebfd71307b3166c73ac0c441c1ea42e0f17f821d
   React-RuntimeHermes: a76cacef9e28fedbf7a49c95d0ccda7a317044b5
   React-runtimescheduler: a27bbf20bd606056f0404afdca7c4242e015cf51
-  React-Sandbox: ce046fe19e3c5725dcd2cc37518c11788e0a0849
+  React-Sandbox: 46bdf72aae651ebaab6097f9090c7194dd999776
   React-timing: 0f749e1c5ca1147b699b25ec79003950e6366056
   React-utils: aa7c038cfabf6b8f5e63dbf7cd3ed162a4399668
   ReactAppDependencyProvider: f3e842e6cb5a825b6918a74a38402ba1409411f8
@@ -3606,8 +3601,7 @@ SPEC CHECKSUMS:
   RNSentry: 857855d887a12dd8f049e7b72bf38d09f92ea7dc
   RNSVG: 680e961f640e381aab730a04b2371969686ed9f7
   RNZipArchive: 4304f5100eab004eeb7349adc51997b3a28deb76
-  SDWebImage: f29024626962457f3470184232766516dee8dfea
-  SDWebImageAVIFCoder: 00310d246aab3232ce77f1d8f0076f8c4b021d90
+  SDWebImage: 16309af6d214ba3f77a7c6f6fdda888cb313a50a
   SDWebImageSVGCoder: 15a300a97ec1c8ac958f009c02220ac0402e936c
   SDWebImageWebPCoder: e38c0a70396191361d60c092933e22c20d5b1380
   Sentry: 1e4e974d45f09d153af4b30b42acfb1c79e957d3
