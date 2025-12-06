@@ -33,7 +33,7 @@ interface IShareImageGeneratorProps {
 const imageCache = new Map<string, HTMLImageElement>();
 
 function toCanvasFont(size: number, weight: string | number = 'bold'): string {
-  return `${weight} ${size}px MiSans`;
+  return `${weight} ${size}px MiSans, system-ui, -apple-system, sans-serif`;
 }
 
 function loadImage(src: string): Promise<HTMLImageElement | null> {
