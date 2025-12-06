@@ -38,9 +38,9 @@ export class JotaiBgSync {
   // }>;
 
   async jotaiInitFromUi() {
-    if (!platformEnv.isExtensionUi) {
-      return;
-    }
+    // if (!platformEnv.isExtensionUi) {
+    //   return;
+    // }
     const { states } = await this.backgroundApi.getAtomStates();
     await jotaiInitFromUi({ states });
   }
