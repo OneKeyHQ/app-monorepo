@@ -12,6 +12,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
+import supabaseStorageInstance from '@onekeyhq/shared/src/storage/instance/supabaseStorageInstance';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IPrimeUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
 
@@ -60,8 +61,18 @@ export function useOneKeyAuthMethods() {
   const logout: () => Promise<void> = useCallback(async () => {
     try {
       await apiLogout();
-    } finally {
+    } catch {
+      // do nothing
+    }
+    try {
       await supabaseSignOut();
+    } catch {
+      // do nothing
+    }
+    try {
+      await supabaseStorageInstance.clear();
+    } catch {
+      // do nothing
     }
   }, [apiLogout, supabaseSignOut]);
 
