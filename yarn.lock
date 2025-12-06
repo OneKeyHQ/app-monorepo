@@ -2687,6 +2687,16 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@callstack/react-native-sandbox@npm:0.4.0":
+  version: 0.4.0
+  resolution: "@callstack/react-native-sandbox@npm:0.4.0"
+  peerDependencies:
+    react: "*"
+    react-native: "*"
+  checksum: 10/43d9f823d6ac8d43b7970a5083e5c2556b032a91ece6d32139f3a70a988a4a693b3a879a2f96fb3441cd9a35292925e1497e78fc216e0965bc1f5a583009a67a
+  languageName: node
+  linkType: hard
+
 "@cityofzion/neon-core@npm:^5.7.0":
   version: 5.7.0
   resolution: "@cityofzion/neon-core@npm:5.7.0"
@@ -7878,6 +7888,7 @@ __metadata:
   dependencies:
     "@babel/core": "npm:^7.20.0"
     "@backpackapp-io/react-native-toast": "npm:0.14.0"
+    "@callstack/react-native-sandbox": "npm:0.4.0"
     "@expo-google-fonts/inter": "npm:^0.2.3"
     "@formatjs/intl-getcanonicallocales": "npm:^1.9.2"
     "@formatjs/intl-locale": "npm:^2.4.47"
@@ -10690,21 +10701,6 @@ __metadata:
   peerDependencies:
     "@babel/core": "*"
   checksum: 10/07ee06dec35eccb915af455cf574320c5c85e577e92913c986c8c9a4ef4731a08c416f05aee8c0531457f6a22db02a1f60d4ad816075d67640cae47b608bae2d
-  languageName: node
-  linkType: hard
-
-"@react-native/codegen@npm:0.79.5":
-  version: 0.79.5
-  resolution: "@react-native/codegen@npm:0.79.5"
-  dependencies:
-    glob: "npm:^7.1.1"
-    hermes-parser: "npm:0.25.1"
-    invariant: "npm:^2.2.4"
-    nullthrows: "npm:^1.1.1"
-    yargs: "npm:^17.6.2"
-  peerDependencies:
-    "@babel/core": "*"
-  checksum: 10/a642d32e416d261799eb0677a6618bbb15d1274fb14951cf76e3c37b3d427bc2cba5e34885ffcb76131c5c50b3982771de8668917916ab86a1a1e3b3c49ea0e0
   languageName: node
   linkType: hard
 

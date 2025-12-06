@@ -2316,6 +2316,31 @@ PODS:
     - React-runtimeexecutor
     - React-timing
     - React-utils
+  - React-Sandbox (0.4.0):
+    - DoubleConversion
+    - fmt
+    - glog
+    - hermes-engine
+    - RCT-Folly (= 2024.11.18.00)
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-hermes
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - Yoga
   - React-timing (0.79.5)
   - React-utils (0.79.5):
     - glog
@@ -3064,6 +3089,7 @@ DEPENDENCIES:
   - React-runtimeexecutor (from `../../../node_modules/react-native/ReactCommon/runtimeexecutor`)
   - React-RuntimeHermes (from `../../../node_modules/react-native/ReactCommon/react/runtime`)
   - React-runtimescheduler (from `../../../node_modules/react-native/ReactCommon/react/renderer/runtimescheduler`)
+  - "React-Sandbox (from `../../../node_modules/@callstack/react-native-sandbox`)"
   - React-timing (from `../../../node_modules/react-native/ReactCommon/react/timing`)
   - React-utils (from `../../../node_modules/react-native/ReactCommon/react/utils`)
   - ReactAppDependencyProvider (from `build/generated/ios`)
@@ -3367,6 +3393,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/react-native/ReactCommon/react/runtime"
   React-runtimescheduler:
     :path: "../../../node_modules/react-native/ReactCommon/react/renderer/runtimescheduler"
+  React-Sandbox:
+    :path: "../../../node_modules/@callstack/react-native-sandbox"
   React-timing:
     :path: "../../../node_modules/react-native/ReactCommon/react/timing"
   React-utils:
@@ -3553,6 +3581,7 @@ SPEC CHECKSUMS:
   React-runtimeexecutor: ebfd71307b3166c73ac0c441c1ea42e0f17f821d
   React-RuntimeHermes: a76cacef9e28fedbf7a49c95d0ccda7a317044b5
   React-runtimescheduler: a27bbf20bd606056f0404afdca7c4242e015cf51
+  React-Sandbox: ce046fe19e3c5725dcd2cc37518c11788e0a0849
   React-timing: 0f749e1c5ca1147b699b25ec79003950e6366056
   React-utils: aa7c038cfabf6b8f5e63dbf7cd3ed162a4399668
   ReactAppDependencyProvider: f3e842e6cb5a825b6918a74a38402ba1409411f8
