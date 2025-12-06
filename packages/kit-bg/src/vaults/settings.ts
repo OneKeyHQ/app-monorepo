@@ -27,6 +27,7 @@ import {
   IMPL_NOSTR,
   IMPL_SCDO,
   IMPL_SOL,
+  IMPL_STELLAR,
   IMPL_SUI,
   IMPL_TBTC,
   IMPL_TON,

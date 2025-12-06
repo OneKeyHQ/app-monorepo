@@ -153,6 +153,15 @@ class ServiceSignatureConfirm extends ServiceBase {
       }
     }
 
+    // =======>>>>>>> debug <<<<<<<< =======
+    if (
+      await this.backgroundApi.serviceNetwork.isCustomNetwork({
+        networkId,
+      })
+    ) {
+      disableParseTxThroughApi = true;
+    }
+
     // try to parse tx through background api
     // multi txs not supported by api for now, will support in future versions
     if (!disableParseTxThroughApi) {

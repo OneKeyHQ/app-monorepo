@@ -6451,7 +6451,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@noble/curves@npm:^1.7.0":
+"@noble/curves@npm:^1.7.0, @noble/curves@npm:^1.9.6":
   version: 1.9.7
   resolution: "@noble/curves@npm:1.9.7"
   dependencies:
@@ -7752,6 +7752,7 @@ __metadata:
     "@solana/spl-token": "npm:^0.4.8"
     "@solana/web3.js": "npm:1.98.2"
     "@starcoin/starcoin": "npm:^2.3.7"
+    "@stellar/stellar-base": "npm:^14.0.3"
     "@ton/core": "npm:^0.61.0"
     "@ton/crypto": "npm:^3.3.0"
     "@ton/ton": "npm:^15.3.1"
@@ -12441,6 +12442,27 @@ __metadata:
     lodash: "npm:^4.17.21"
     ws: "npm:7.2.3"
   checksum: 10/cc22a60fdac4782e0b8ab1b2d1324abbc9247876205e3bf9e92e3bb1e2e609256afad6ebca4e7ced4a385c17c9fa44a8d387a5b23b0ac740bddc46e3804f172d
+  languageName: node
+  linkType: hard
+
+"@stellar/js-xdr@npm:^3.1.2":
+  version: 3.1.2
+  resolution: "@stellar/js-xdr@npm:3.1.2"
+  checksum: 10/96b5c52088bb2f2cc11a04ee1766ceb9431bdb0195058b9bc8d60cd1459772c2be6a9aa1bf69ba8b7589cfaf71beef96890e60d7fd7de0332c11ae1917f95440
+  languageName: node
+  linkType: hard
+
+"@stellar/stellar-base@npm:^14.0.3":
+  version: 14.0.3
+  resolution: "@stellar/stellar-base@npm:14.0.3"
+  dependencies:
+    "@noble/curves": "npm:^1.9.6"
+    "@stellar/js-xdr": "npm:^3.1.2"
+    base32.js: "npm:^0.1.0"
+    bignumber.js: "npm:^9.3.1"
+    buffer: "npm:^6.0.3"
+    sha.js: "npm:^2.4.12"
+  checksum: 10/57b200469d4ef32b8f8ba2b1fc97a48d2437076f51658255700b63e9a2df2c59b996cc7e105bf80d9fb29fc8f72294c467f62e15ade5e03dec50de5b294ae8a0
   languageName: node
   linkType: hard
 
@@ -18241,6 +18263,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"base32.js@npm:^0.1.0":
+  version: 0.1.0
+  resolution: "base32.js@npm:0.1.0"
+  checksum: 10/7d7401a8f5c4ec45336ff72c97ee554b9bc22c2153b301acf657e6f9e25928a6205b2cfc55731072ba5686515e4903e2d3e462bea49db5f1515bbd01da1276ad
+  languageName: node
+  linkType: hard
+
 "base64-arraybuffer@npm:^1.0.2":
   version: 1.0.2
   resolution: "base64-arraybuffer@npm:1.0.2"
@@ -18383,6 +18412,13 @@ __metadata:
   version: 7.2.1
   resolution: "bignumber.js@npm:7.2.1"
   checksum: 10/9bfd02d93cba7d61607b9d52ffb3176844af5712f7f6a0530350daf7852894215fbaa8e6090a9fc841b297b39d475abb90451d3533bc939d1e96a4bfe293e226
+  languageName: node
+  linkType: hard
+
+"bignumber.js@npm:^9.3.1":
+  version: 9.3.1
+  resolution: "bignumber.js@npm:9.3.1"
+  checksum: 10/1be0372bf0d6d29d0a49b9e6a9cefbd54dad9918232ad21fcd4ec39030260773abf0c76af960c6b3b98d3115a3a71e61c6a111812d1395040a039cfa178e0245
   languageName: node
   linkType: hard
 
