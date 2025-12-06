@@ -604,7 +604,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@babel/helper-plugin-utils@npm:^7.0.0, @babel/helper-plugin-utils@npm:^7.10.4, @babel/helper-plugin-utils@npm:^7.12.13, @babel/helper-plugin-utils@npm:^7.14.5, @babel/helper-plugin-utils@npm:^7.18.6, @babel/helper-plugin-utils@npm:^7.18.9, @babel/helper-plugin-utils@npm:^7.20.2, @babel/helper-plugin-utils@npm:^7.22.5, @babel/helper-plugin-utils@npm:^7.8.0, @babel/helper-plugin-utils@npm:^7.8.3":
+"@babel/helper-plugin-utils@npm:^7.0.0, @babel/helper-plugin-utils@npm:^7.10.4, @babel/helper-plugin-utils@npm:^7.12.13, @babel/helper-plugin-utils@npm:^7.14.5, @babel/helper-plugin-utils@npm:^7.18.6, @babel/helper-plugin-utils@npm:^7.20.2, @babel/helper-plugin-utils@npm:^7.22.5, @babel/helper-plugin-utils@npm:^7.8.0, @babel/helper-plugin-utils@npm:^7.8.3":
   version: 7.22.5
   resolution: "@babel/helper-plugin-utils@npm:7.22.5"
   checksum: 10/ab220db218089a2aadd0582f5833fd17fa300245999f5f8784b10f5a75267c4e808592284a29438a0da365e702f05acb369f99e1c915c02f9f9210ec60eab8ea
@@ -894,18 +894,6 @@ __metadata:
   peerDependencies:
     "@babel/core": ^7.0.0-0
   checksum: 10/cf9eb3c80bcee3ee82d28f1053db97fa6c6e4dea819f73df5a3cb9155d45efc29914e86353572eab36adfe691ca1573e6e2cddae4edbdd475253044575eb7a24
-  languageName: node
-  linkType: hard
-
-"@babel/plugin-proposal-export-namespace-from@npm:^7.18.9":
-  version: 7.18.9
-  resolution: "@babel/plugin-proposal-export-namespace-from@npm:7.18.9"
-  dependencies:
-    "@babel/helper-plugin-utils": "npm:^7.18.9"
-    "@babel/plugin-syntax-export-namespace-from": "npm:^7.8.3"
-  peerDependencies:
-    "@babel/core": ^7.0.0-0
-  checksum: 10/84ff22bacc5d30918a849bfb7e0e90ae4c5b8d8b65f2ac881803d1cf9068dffbe53bd657b0e4bc4c20b4db301b1c85f1e74183cf29a0dd31e964bd4e97c363ef
   languageName: node
   linkType: hard
 
@@ -7425,7 +7413,6 @@ __metadata:
     "@alephium/web3": "npm:^1.5.2"
     "@babel/plugin-proposal-class-properties": "npm:^7.18.6"
     "@babel/plugin-proposal-class-static-block": "npm:^7.21.0"
-    "@babel/plugin-proposal-export-namespace-from": "npm:^7.18.9"
     "@babel/plugin-proposal-nullish-coalescing-operator": "npm:^7.18.6"
     "@babel/plugin-proposal-private-methods": "npm:^7.18.6"
     "@babel/plugin-proposal-private-property-in-object": "npm:^7.21.11"
