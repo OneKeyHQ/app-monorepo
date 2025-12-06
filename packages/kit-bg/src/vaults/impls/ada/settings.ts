@@ -71,7 +71,7 @@ const settings: IVaultSettings = {
               tokenAddress: EMPTY_NATIVE_TOKEN_ADDRESS,
               displayProfit: true,
               withdrawWithTx: true,
-              claimWithTx: true,
+              claimWithTx: false,
             },
           },
         },
