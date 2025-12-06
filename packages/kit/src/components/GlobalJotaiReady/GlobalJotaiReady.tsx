@@ -5,19 +5,19 @@ import { View } from 'react-native';
 import { globalJotaiStorageReadyHandler } from '@onekeyhq/kit-bg/src/states/jotai/jotaiStorage';
 
 export function GlobalJotaiReady({ children }: { children: any }) {
-  const [isReady, setIsReady] = useState(false);
-  useEffect(() => {
-    void globalJotaiStorageReadyHandler.ready.then((ready) => {
-      startTransition(() => {
-        console.log('GlobalJotaiReady ready', ready);
-        setIsReady(ready);
-      });
-    });
-  }, []);
+  // const [isReady, setIsReady] = useState(false);
+  // useEffect(() => {
+  //   void globalJotaiStorageReadyHandler.ready.then((ready) => {
+  //     startTransition(() => {
+  //       console.log('GlobalJotaiReady ready', ready);
+  //       setIsReady(ready);
+  //     });
+  //   });
+  // }, []);
 
-  if (!isReady) {
-    return <View testID="GlobalJotaiReady-not-ready-placeholder" />;
-  }
+  // if (!isReady) {
+  //   return <View testID="GlobalJotaiReady-not-ready-placeholder" />;
+  // }
 
   // eslint-disable-next-line @typescript-eslint/no-unsafe-return
   return children;

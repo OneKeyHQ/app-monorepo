@@ -21,6 +21,7 @@ import { SystemLocaleTracker } from '../components/SystemLocaleTracker';
 import { PrivyProviderLazy } from '../views/Prime/components/PrivyProviderLazy';
 
 import { Container } from './Container';
+import BackgroundApiContainer from './Container/BackgroundApiContainer';
 import { ColdStartByNotification } from './Container/ColdStartByNotification';
 import { NetworkReachabilityTracker } from './Container/NetworkReachabilityTracker';
 import { StateActiveContainer } from './Container/StateActiveContainer';
@@ -62,27 +63,27 @@ export function KitProvider(props: any = {}) {
 
   const content = (
     <SafeAreaProvider>
-      {/* <GlobalJotaiReady> */}
-      <PrivyProviderLazy>
-        <KeyboardProvider>
-          <GestureHandlerRootView style={flexStyle}>
-            <ThemeProvider>
-              <NetworkReachabilityTracker />
-              <SplashProvider>
-                <Container />
-              </SplashProvider>
-              <PasswordVerifyPromptMount />
-              <WebViewWebEmbedProvider />
-              <LastActivityTracker />
-              <SystemLocaleTracker />
-              <StateActiveContainer />
-              <SyncHomeAccountToDappAccountProvider />
-              <HardwareServiceProvider />
-            </ThemeProvider>
-          </GestureHandlerRootView>
-        </KeyboardProvider>
-      </PrivyProviderLazy>
-      {/* </GlobalJotaiReady> */}
+      <GlobalJotaiReady>
+        <PrivyProviderLazy>
+          <KeyboardProvider>
+            <GestureHandlerRootView style={flexStyle}>
+              <ThemeProvider>
+                <NetworkReachabilityTracker />
+                <SplashProvider>
+                  <Container />
+                </SplashProvider>
+                <PasswordVerifyPromptMount />
+                <WebViewWebEmbedProvider />
+                <LastActivityTracker />
+                <SystemLocaleTracker />
+                <StateActiveContainer />
+                <SyncHomeAccountToDappAccountProvider />
+                <HardwareServiceProvider />
+              </ThemeProvider>
+            </GestureHandlerRootView>
+          </KeyboardProvider>
+        </PrivyProviderLazy>
+      </GlobalJotaiReady>
     </SafeAreaProvider>
   );
 
