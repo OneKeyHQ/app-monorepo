@@ -37,6 +37,7 @@ import type {
 } from '@onekeyhq/shared/types/history';
 import type { ILNURLPaymentInfo } from '@onekeyhq/shared/types/lightning';
 import type { ENFTType } from '@onekeyhq/shared/types/nft';
+import type { EUtxoSelectionStrategy } from '@onekeyhq/shared/types/send';
 import type { IStakingInfo } from '@onekeyhq/shared/types/staking';
 import type {
   ESwapTabSwitchType,
@@ -79,6 +80,8 @@ export enum EVaultKeyringTypes {
   watching = 'watching',
   external = 'external',
 }
+
+export { EUtxoSelectionStrategy } from '@onekeyhq/shared/types/send';
 
 // AccountNameInfo
 export type IAccountDeriveInfoItems = {
@@ -512,6 +515,7 @@ export type ITransferInfo = {
 
   // BTC Coin Control
   selectedUtxoKeys?: string[]; // Format: "txid:vout" for manually selected UTXOs
+  utxoSelectionStrategy?: EUtxoSelectionStrategy; // Strategy for UTXO selection
 };
 
 export type IApproveInfo = {

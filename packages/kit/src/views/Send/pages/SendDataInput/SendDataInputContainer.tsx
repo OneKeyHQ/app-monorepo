@@ -91,6 +91,7 @@ import { ELightningUnit } from '@onekeyhq/shared/types/lightning';
 import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
 import { ENFTType } from '@onekeyhq/shared/types/nft';
 import { EQRCodeHandlerType } from '@onekeyhq/shared/types/qrCode';
+import { EUtxoSelectionStrategy } from '@onekeyhq/shared/types/send';
 import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import { showBalanceDetailsDialog } from '../../../Home/components/BalanceDetailsDialog';
@@ -690,6 +691,9 @@ function SendDataInputContainer() {
               note: noteValue,
               hexData: tokenDetails?.info.isNative ? hexData : undefined,
               selectedUtxoKeys: currentSelectedUtxoKeys,
+              utxoSelectionStrategy: currentSelectedUtxoKeys
+                ? EUtxoSelectionStrategy.Default
+                : undefined,
             },
           ];
 
