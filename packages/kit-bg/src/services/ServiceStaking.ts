@@ -297,6 +297,7 @@ class ServiceStaking extends ServiceBase {
       protocolVault,
       approveType,
       permitSignature,
+      unsignedMessage,
       message,
       validatorPublicKey,
       ...rest
@@ -342,6 +343,8 @@ class ServiceStaking extends ServiceBase {
         earnUtils.isStakefishProvider({ providerName: provider })
           ? permitSignature
           : undefined,
+      unsignedMessage:
+        approveType === EApproveType.Permit ? unsignedMessage : undefined,
       message,
       ...rest,
     };

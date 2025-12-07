@@ -16,6 +16,7 @@ import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 import {
   type EApproveType,
   EInternalDappEnum,
+  type IEarnPermit2ApproveSignData,
   type IStakeTxResponse,
   type IStakingInfo,
 } from '@onekeyhq/shared/types/staking';
@@ -81,6 +82,7 @@ export function useUniversalStake({
       protocolVault,
       approveType,
       permitSignature,
+      unsignedMessage,
       message,
       provider,
       stakingInfo,
@@ -96,6 +98,8 @@ export function useUniversalStake({
       protocolVault?: string;
       approveType?: EApproveType;
       permitSignature?: string;
+      // Permit2 sign data for Morpho
+      unsignedMessage?: IEarnPermit2ApproveSignData;
       // Stakefish: original message for permit signature
       message?: string;
       provider: string;
@@ -117,6 +121,7 @@ export function useUniversalStake({
           protocolVault,
           approveType,
           permitSignature,
+          unsignedMessage,
           message,
           // Stakefish specific param
           validatorPublicKey,

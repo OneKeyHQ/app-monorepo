@@ -150,6 +150,7 @@ export type IStakeBaseParams = {
   protocolVault?: string; // protocol vault
   approveType?: EApproveType;
   permitSignature?: string;
+  unsignedMessage?: IEarnPermit2ApproveSignData;
   // Stakefish: original message for permit signature
   message?: string;
 
@@ -1504,6 +1505,7 @@ export type IApproveConfirmFnParams = {
   amount: string;
   approveType?: EApproveType;
   permitSignature?: string;
+  unsignedMessage?: IEarnPermit2ApproveSignData;
   // Stakefish: original message for permit signature
   message?: string;
   // Stakefish ETH validator
