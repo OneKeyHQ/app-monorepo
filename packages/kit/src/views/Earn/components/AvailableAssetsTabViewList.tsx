@@ -26,6 +26,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/earn';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IEarnAvailableAsset } from '@onekeyhq/shared/types/earn';
 import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
 
@@ -322,7 +323,7 @@ export function AvailableAssetsTabViewList() {
         data={assets ?? []}
         columns={columns}
         keyExtractor={(asset) => asset.symbol}
-        withHeader={media.gtSm}
+        withHeader={platformEnv.isNative ? false : media.gtSm}
         defaultSortKey="yield"
         defaultSortDirection="desc"
         onPressRow={(asset) => void handleRowPress(asset)}
