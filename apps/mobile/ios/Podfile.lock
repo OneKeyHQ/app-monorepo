@@ -230,8 +230,6 @@ PODS:
     - React
   - JPushRN (3.2.1):
     - React
-  - JXCategoryView (1.6.8)
-  - JXPagingView/Pager (2.1.3)
   - libwebp (1.5.0):
     - libwebp/demux (= 1.5.0)
     - libwebp/mux (= 1.5.0)
@@ -2464,10 +2462,6 @@ PODS:
     - ReactCommon/turbomodule/core
     - SocketRocket
     - Yoga
-  - react-native-tab-page-view (1.1.2):
-    - JXCategoryView (~> 1.6.1)
-    - JXPagingView/Pager (~> 2.1.2)
-    - React
   - react-native-tcp-socket (6.3.0):
     - CocoaAsyncSocket
     - React-Core
@@ -3846,7 +3840,6 @@ DEPENDENCIES:
   - react-native-ping (from `../../../node_modules/react-native-ping`)
   - react-native-safe-area-context (from `../../../node_modules/react-native-safe-area-context`)
   - "react-native-slider (from `../../../node_modules/@react-native-community/slider`)"
-  - "react-native-tab-page-view (from `../../../node_modules/@onekeyfe/react-native-tab-page-view`)"
   - react-native-tcp-socket (from `../../../node_modules/react-native-tcp-socket`)
   - react-native-video (from `../../../node_modules/react-native-video`)
   - react-native-view-shot (from `../../../node_modules/react-native-view-shot`)
@@ -3910,8 +3903,6 @@ SPEC REPOS:
   https://github.com/CocoaPods/Specs.git:
     - CocoaAsyncSocket
     - CocoaLumberjack
-    - JXCategoryView
-    - JXPagingView
     - libwebp
     - lottie-ios
     - MMKVCore
@@ -4122,8 +4113,6 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/react-native-safe-area-context"
   react-native-slider:
     :path: "../../../node_modules/@react-native-community/slider"
-  react-native-tab-page-view:
-    :path: "../../../node_modules/@onekeyfe/react-native-tab-page-view"
   react-native-tcp-socket:
     :path: "../../../node_modules/react-native-tcp-socket"
   react-native-video:
@@ -4282,8 +4271,6 @@ SPEC CHECKSUMS:
   ImageColors: 51cd79f7a9d2524b7a681c660b0a50574085563b
   JCoreRN: d985de509185b381c177fde4bb6bfc686089fdbd
   JPushRN: 807bc962b2f25860e5c0caa5fcb7b4910572b890
-  JXCategoryView: 262d503acea0b1278c79a1c25b7332ffaef4d518
-  JXPagingView: afdd2e9af09c90160dd232b970d603cc6e7ddd0e
   libwebp: 02b23773aedb6ff1fd38cec7a77b81414c6842a8
   lottie-ios: a881093fab623c467d3bce374367755c272bdd59
   lottie-react-native: d2b7601b28c063bde347fac764166b5362037846
@@ -4342,7 +4329,6 @@ SPEC CHECKSUMS:
   react-native-ping: 589027e929c300b0b68cc5c34105f33610177055
   react-native-safe-area-context: ea7c9ba09a7b44e0dd1df408082760a8537f4547
   react-native-slider: 6201419b3e3f7c6b7cf2068e0c01274fa86a1da5
-  react-native-tab-page-view: dbdd786ae9429db9883ecbb4a3418b44c31ec914
   react-native-tcp-socket: 120072c8020262032773f80f0daaf3964aaa08a1
   react-native-video: 624deff94be379ffaba289bed13fc0917f01abcb
   react-native-view-shot: aab9ffbcc2f01035ee8ffd9a00c773e215b35c8b
