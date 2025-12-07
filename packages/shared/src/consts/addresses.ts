@@ -25,9 +25,8 @@ export const MorphoUSDCVaultAddress =
 
 export const MorphoBaseBundlerContract =
   '0xb98c948cfa24072e58935bc004a8a7b376ae746a';
-// TODO: API 返回值大小写不一致
 export const PangolinsBaseUSDCVaultAddress =
-  '0x1401d1271c47648ac70cbcdfa3776d4a87ce006b';
+  '0x1401d1271C47648AC70cBcdfA3776D4A87CE006B';
 
 export const ALL_NETWORK_ACCOUNT_MOCK_ADDRESS = 'AllNetworkMockAddress';
 export const EMPTY_NATIVE_TOKEN_ADDRESS = '';
