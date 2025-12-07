@@ -2,7 +2,12 @@ import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 
-import { BrowserWindow, app, dialog } from 'electron';
+import {
+  BrowserWindow,
+  app,
+  dialog,
+  autoUpdater as nativeUpdater,
+} from 'electron';
 import isDev from 'electron-is-dev';
 import logger from 'electron-log/main';
 import { CancellationToken, autoUpdater } from 'electron-updater';
@@ -84,6 +89,7 @@ autoUpdater.autoInstallOnAppQuit = false;
 autoUpdater.disableDifferentialDownload = true;
 autoUpdater.logger = logger;
 
+const isMac = process.platform === 'darwin';
 const isMas = process.mas;
 const isSnapStore = process.platform === 'linux' && process.env.SNAP;
 const isWindowsMsStore =
@@ -567,11 +573,25 @@ class DesktopApiAppUpdate {
         if (selection.response === 0) {
           store.setUpdateBuildNumber(buildNumber);
           logger.info('auto-update', 'button[0] was clicked', buildNumber);
-          app.removeAllListeners('window-all-closed');
-          this.getMainWindow()?.removeAllListeners('close');
-          for (const window of BrowserWindow.getAllWindows()) {
-            window.close();
-            window.destroy();
+          // https://github.com/electron-userland/electron-builder/issues/8997#issuecomment-2969507357
+          /**
+           * On macOS 15+ auto-update / relaunch issues:
+           * - https://github.com/electron-userland/electron-builder/issues/8795
+           * - https://github.com/electron-userland/electron-builder/issues/8997
+           */
+          if (isMac) {
+            app.removeAllListeners('before-quit');
+            app.removeAllListeners('window-all-closed');
+            BrowserWindow.getAllWindows().forEach((win) => {
+              if (win.isDestroyed()) {
+                return;
+              }
+              win.removeAllListeners('close');
+              win.close();
+            });
+            nativeUpdater.once('before-quit-for-update', () => {
+              app.exit();
+            });
           }
           autoUpdater.quitAndInstall(false);
         }

@@ -4,16 +4,14 @@ import { useIntl } from 'react-intl';
 
 import { Dialog, Form, Input, Stack, useForm } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKeys';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
-import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
 import { PrimeLoginEmailCodeDialogV2 } from '../PrimeLoginEmailCodeDialogV2';
-
-import type { IPrivyState } from '../../hooks/usePrivyUniversalV2/usePrivyUniversalV2Types';
 
 export function PrimeLoginEmailDialogV2(props: {
   onComplete: () => void;
@@ -34,18 +32,8 @@ export function PrimeLoginEmailDialogV2(props: {
     getAccessToken,
     useLoginWithEmail,
     // user
-  } = usePrimeAuthV2();
-  const { sendCode, loginWithCode, state } = useLoginWithEmail({
-    onComplete: async () => {
-      //
-    },
-    onError: (error) => {
-      console.error('prime login error', error);
-    },
-  });
-  const privyStateRef = useRef<IPrivyState>(state);
-  privyStateRef.current = state;
-  // console.log('privyStateRef.current', privyStateRef.current);
+  } = useOneKeyAuth();
+  const { sendCode, loginWithCode } = useLoginWithEmail();
 
   const intl = useIntl();
 
@@ -74,7 +62,6 @@ export function PrimeLoginEmailDialogV2(props: {
         const dialog = Dialog.show({
           renderContent: (
             <PrimeLoginEmailCodeDialogV2
-              // privyState={privyStateRef.current}
               sendCode={sendCode}
               loginWithCode={loginWithCode}
               email={data.email}

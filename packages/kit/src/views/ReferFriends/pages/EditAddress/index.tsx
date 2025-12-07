@@ -29,8 +29,8 @@ import {
 import { AddressInputContext } from '@onekeyhq/kit/src/components/AddressInput/AddressInputContext';
 import { renderAddressInputHyperlinkText } from '@onekeyhq/kit/src/components/AddressInput/AddressInputHyperlinkText';
 import { renderAddressSecurityHeaderRightButton } from '@onekeyhq/kit/src/components/AddressInput/AddressSecurityHeaderRightButton';
+import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useLoginOneKeyId } from '@onekeyhq/kit/src/hooks/useLoginOneKeyId';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { EPrimeEmailOTPScene } from '@onekeyhq/shared/src/consts/primeConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -70,7 +70,7 @@ function BasicEditAddress() {
 
   const accountId = route.params?.accountId ?? '';
 
-  const { sendEmailOTP } = useLoginOneKeyId();
+  const { sendEmailOTP } = useOneKeyAuth();
 
   const { result: networksResp } = usePromiseResult(
     async () => {

@@ -32,6 +32,7 @@ import type {
 import type {
   ECheckAmountActionType,
   EInternalDappEnum,
+  EInternalStakingAction,
   IAllowanceOverview,
   IApyHistoryResponse,
   IAvailableAsset,
@@ -1590,16 +1591,19 @@ class ServiceStaking extends ServiceBase {
     networkId,
     tx,
     internalDappType,
+    stakingAction,
   }: {
     accountId: string;
     networkId: string;
     tx: IStakeTx;
     internalDappType: EInternalDappEnum;
+    stakingAction?: EInternalStakingAction;
   }) {
     const vault = await vaultFactory.getVault({ networkId, accountId });
     const encodedTx = await vault.buildInternalDappEncodedTx({
       internalDappTx: tx as any,
       internalDappType,
+      stakingAction,
     });
     return encodedTx;
   }

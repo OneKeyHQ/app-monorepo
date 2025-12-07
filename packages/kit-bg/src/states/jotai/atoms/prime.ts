@@ -10,24 +10,25 @@ import { globalAtom } from '../utils';
 import type { IAccountDeriveTypes } from '../../../vaults/types';
 
 export type IPrimePersistAtomData = IPrimeUserInfo;
+export const primePersistAtomInitialValue: IPrimePersistAtomData = {
+  isLoggedIn: false,
+  isLoggedInOnServer: false,
+  isEnablePrime: undefined,
+  isEnableSandboxPay: undefined,
+  isPrimeDeviceLimitExceeded: undefined,
+  email: undefined,
+  displayEmail: undefined,
+  onekeyUserId: undefined,
+  primeSubscription: undefined,
+  subscriptionManageUrl: undefined,
+};
 export const {
   target: primePersistAtom, // persist
   use: usePrimePersistAtom,
 } = globalAtom<IPrimePersistAtomData>({
   name: EAtomNames.primePersistAtom,
   persist: true,
-  initialValue: {
-    isLoggedIn: false,
-    isLoggedInOnServer: false,
-    isEnablePrime: undefined,
-    isEnableSandboxPay: undefined,
-    isPrimeDeviceLimitExceeded: undefined,
-    email: undefined,
-    displayEmail: undefined,
-    privyUserId: undefined,
-    primeSubscription: undefined,
-    subscriptionManageUrl: undefined,
-  },
+  initialValue: primePersistAtomInitialValue,
 });
 
 export type IPrimeCloudSyncPersistAtomData = {
