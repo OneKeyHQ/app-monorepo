@@ -38,10 +38,12 @@ import type {
   IMarginTableMap,
   IPerpsActiveAssetData,
   IPerpsActiveAssetDataRaw,
+  IPerpsAssetPosition,
   IPerpsUniverse,
   IUserFillsByTimeParameters,
   IUserFillsParameters,
   IWsActiveAssetCtx,
+  IWsAllDexsClearinghouseState,
   IWsWebData2,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
 import type { IHyperLiquidSignatureRSV } from '@onekeyhq/shared/types/hyperliquid/webview';
@@ -602,6 +604,55 @@ export default class ServiceHyperliquid extends ServiceBase {
     }
   }
 
+  async updateActiveAccountSummaryFromClearinghouseState(
+    data: IWsAllDexsClearinghouseState,
+  ) {
+    const activeAccount = await perpsActiveAccountAtom.get();
+    const activeAddress = activeAccount?.accountAddress?.toLowerCase();
+    const dataUser = data?.user?.toLowerCase();
+
+    if (!activeAddress || activeAddress !== dataUser) {
+      const activeAccountSummary = await perpsActiveAccountSummaryAtom.get();
+      if (
+        activeAccountSummary?.accountAddress?.toLowerCase() !== activeAddress
+      ) {
+        await perpsActiveAccountSummaryAtom.set(undefined);
+      }
+      return;
+    }
+
+    const statePair =
+      data.clearinghouseStates?.find(
+        ([name]: [string, unknown]) => name === 'Hyperliquid',
+      ) || data.clearinghouseStates?.[0];
+    const clearinghouseState = statePair?.[1];
+    if (!clearinghouseState) {
+      return;
+    }
+
+    const positions = (clearinghouseState?.assetPositions ||
+      []) as IPerpsAssetPosition[];
+    const totalUnrealizedPnlBN = positions.reduce(
+      (sum: BigNumber, position: IPerpsAssetPosition) => {
+        const pnl = position.position?.unrealizedPnl;
+        return pnl ? sum.plus(pnl) : sum;
+      },
+      new BigNumber(0),
+    );
+
+    await perpsActiveAccountSummaryAtom.set({
+      accountAddress: activeAddress as IHex,
+      accountValue: clearinghouseState.marginSummary?.accountValue,
+      totalMarginUsed: clearinghouseState.marginSummary?.totalMarginUsed,
+      crossAccountValue: clearinghouseState.crossMarginSummary?.accountValue,
+      crossMaintenanceMarginUsed: clearinghouseState.crossMaintenanceMarginUsed,
+      totalNtlPos: clearinghouseState.marginSummary?.totalNtlPos,
+      totalRawUsd: clearinghouseState.marginSummary?.totalRawUsd,
+      withdrawable: clearinghouseState.withdrawable,
+      totalUnrealizedPnl: totalUnrealizedPnlBN.toFixed(),
+    });
+  }
+
   hideSelectAccountLoadingTimer: ReturnType<typeof setTimeout> | undefined;
 
   @backgroundMethod()
@@ -1074,20 +1125,31 @@ export default class ServiceHyperliquid extends ServiceBase {
         try {
           retryTimes -= 1;
           approveAgentResult = await approveAgentFn();
-          if (
+          const approveOk =
             approveAgentResult &&
-            approveAgentResult.status === 'ok' &&
-            approveAgentResult.response.type === 'default'
-          ) {
+            typeof approveAgentResult === 'object' &&
+            'status' in approveAgentResult &&
+            (approveAgentResult as { status?: string }).status === 'ok';
+          const approveDefaultResponse =
+            approveAgentResult &&
+            typeof approveAgentResult === 'object' &&
+            'response' in approveAgentResult &&
+            (approveAgentResult as { response?: { type?: string } }).response
+              ?.type === 'default';
+          if (approveOk && approveDefaultResponse) {
             break;
           }
         } catch (error) {
           const requestError = error as IApiRequestError | undefined;
           console.log('approveAgentError::', requestError);
+          const errorResponse = (
+            requestError as {
+              response?: { status?: string; response?: string };
+            }
+          )?.response;
           if (
-            requestError?.response &&
-            requestError?.response.status === 'err' &&
-            requestError?.response.response === 'User has pending agent removal'
+            errorResponse?.status === 'err' &&
+            errorResponse?.response === 'User has pending agent removal'
           ) {
             if (retryTimes <= 0) {
               throw error;

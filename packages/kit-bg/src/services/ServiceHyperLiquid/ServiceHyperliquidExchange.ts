@@ -87,6 +87,9 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
 
   private _exchangeClient: ExchangeClient | null = null;
 
+  private _wallet: WalletHyperliquidProxy | WalletHyperliquidOnekey | null =
+    null;
+
   private _builderFeeInfo:
     | {
         b: `0x${string}`;
@@ -193,6 +196,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       });
 
       this._account = account;
+      this._wallet = wallet;
     } catch (error) {
       throw new OneKeyLocalError(
         `Failed to setup exchange client: ${String(error)}`,
@@ -372,7 +376,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     nonce: number;
     signerAddress: string;
   } | null> {
-    const wallet = this.exchangeClient?.wallet;
+    const wallet = this._wallet;
 
     const signedData = (
       wallet as WalletHyperliquidOnekey
@@ -588,6 +592,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     this._account = null;
     this._exchangeClient = null;
     this._builderFeeInfo = undefined;
+    this._wallet = null;
   }
 
   async checkAccountCanTrade() {

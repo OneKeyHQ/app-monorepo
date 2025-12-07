@@ -226,6 +226,97 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     }
   });
 
+  updateAllDexsClearinghouseState = contextAtomMethod(
+    async (get, set, data: HL.IWsAllDexsClearinghouseState) => {
+      const activeAccount = await perpsActiveAccountAtom.get();
+      const activeAccountAddress = activeAccount?.accountAddress?.toLowerCase();
+      const dataUser = data?.user?.toLowerCase();
+      if (!activeAccountAddress || activeAccountAddress !== dataUser) {
+        // cleanup if account switched
+        const activePosition = get(perpsActivePositionAtom());
+        if (
+          activePosition?.accountAddress?.toLowerCase() !== activeAccountAddress
+        ) {
+          set(perpsActivePositionAtom(), {
+            accountAddress: activeAccountAddress,
+            activePositions: [],
+          });
+        }
+        return;
+      }
+
+      const statePair =
+        data.clearinghouseStates?.find(([name]) => name === 'Hyperliquid') ??
+        data.clearinghouseStates?.[0];
+      const clearinghouseState = statePair?.[1];
+      const positions = clearinghouseState?.assetPositions || [];
+      const activePositions = positions
+        .filter((pos) => {
+          const size = parseFloat(pos.position?.szi || '0');
+          return Math.abs(size) > 0;
+        })
+        .sort(
+          (a, b) =>
+            parseFloat(b.position.positionValue || '0') -
+            parseFloat(a.position.positionValue || '0'),
+        );
+
+      set(perpsActivePositionAtom(), {
+        accountAddress: activeAccountAddress,
+        activePositions,
+      });
+    },
+  );
+
+  updateOpenOrders = contextAtomMethod(
+    async (get, set, data: HL.IWsOpenOrders) => {
+      const activeAccount = await perpsActiveAccountAtom.get();
+      const activeAccountAddress = activeAccount?.accountAddress?.toLowerCase();
+      const dataUser = data?.user?.toLowerCase();
+      if (!activeAccountAddress || activeAccountAddress !== dataUser) {
+        const activeOpenOrders = get(perpsActiveOpenOrdersAtom());
+        if (
+          activeOpenOrders?.accountAddress?.toLowerCase() !==
+          activeAccountAddress
+        ) {
+          set(perpsActiveOpenOrdersAtom(), {
+            accountAddress: activeAccountAddress,
+            openOrders: [],
+            openOrdersByCoin: {},
+          });
+        }
+        return;
+      }
+
+      const prevOpenOrdersState = get(perpsActiveOpenOrdersAtom());
+      const allOrders = data?.orders || [];
+      const openOrders = allOrders.filter(
+        (order) => !order.coin.startsWith('@'),
+      );
+      const openOrdersByCoin = this.buildOpenOrdersByCoinMap(
+        openOrders,
+        prevOpenOrdersState?.openOrdersByCoin,
+      );
+      set(perpsActiveOpenOrdersAtom(), {
+        accountAddress: activeAccountAddress,
+        openOrders,
+        openOrdersByCoin,
+      });
+    },
+  );
+
+  updateAllDexsAssetCtxs = contextAtomMethod(
+    (_, set, data: HL.IWsAllDexsAssetCtxs) => {
+      const ctxs =
+        data?.ctxs?.find(([name]) => name === 'Hyperliquid')?.[1] ||
+        data?.ctxs?.[0]?.[1] ||
+        [];
+      set(perpsAllAssetCtxsAtom(), {
+        assetCtxs: ctxs,
+      });
+    },
+  );
+
   updateLedgerUpdates = contextAtomMethod(
     async (get, set, data: HL.IWsUserNonFundingLedgerUpdates) => {
       const activeAccount = await perpsActiveAccountAtom.get();
@@ -282,6 +373,9 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
 
   updateL2Book = contextAtomMethod(async (get, set, data: HL.IBook) => {
     const activeAsset = await perpsActiveAssetAtom.get();
+    if (!data) {
+      return;
+    }
     if (activeAsset?.coin === data.coin) {
       set(l2BookAtom(), data);
     } else {
@@ -1154,6 +1248,10 @@ export function useHyperliquidActions() {
   const refreshAllPerpsData = actions.refreshAllPerpsData.use();
   const getTokenSzDecimals = actions.getTokenSzDecimals.use();
   const getMidPrice = actions.getMidPrice.use();
+  const updateAllDexsClearinghouseState =
+    actions.updateAllDexsClearinghouseState.use();
+  const updateOpenOrders = actions.updateOpenOrders.use();
+  const updateAllDexsAssetCtxs = actions.updateAllDexsAssetCtxs.use();
 
   return useRef({
     updateAllAssetsFiltered,
@@ -1166,6 +1264,9 @@ export function useHyperliquidActions() {
     updateConnectionState,
     changeActiveAsset,
     changeActivePerpsAccount,
+    updateAllDexsClearinghouseState,
+    updateOpenOrders,
+    updateAllDexsAssetCtxs,
 
     updateSubscriptions,
     startSubscriptions,

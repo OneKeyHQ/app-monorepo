@@ -11,11 +11,11 @@ import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { getValidPriceDecimals } from '@onekeyhq/shared/src/utils/perpsUtils';
+import type { IPerpsFrontendOrder } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { calcCellAlign, getColumnStyle } from '../utils';
 
 import type { IColumnConfig } from '../List/CommonTableListView';
-import type { FrontendOrder } from '@nktkas/hyperliquid';
 
 const balanceFormatter: INumberFormatProps = {
   formatter: 'balance',
@@ -36,7 +36,7 @@ const priceFormatter: INumberFormatProps = {
 };
 
 interface IOpenOrdersRowProps {
-  order: FrontendOrder;
+  order: IPerpsFrontendOrder;
   cellMinWidth: number;
   columnConfigs: IColumnConfig[];
   handleCancelOrder: () => void;
@@ -159,12 +159,14 @@ const OpenOrdersRow = memo(
     ]);
 
     const tpslInfo = useMemo(() => {
-      const tpslChildren = order.children;
+      const tpslChildren = (order.children ?? []) as IPerpsFrontendOrder[];
       let tpPrice = '--';
       let slPrice = '--';
       if (tpslChildren && tpslChildren.length > 0) {
-        const tpslOrders = tpslChildren.filter((child) => child.isPositionTpsl);
-        tpslOrders.forEach((child) => {
+        const tpslOrders = tpslChildren.filter(
+          (child: IPerpsFrontendOrder) => child.isPositionTpsl,
+        );
+        tpslOrders.forEach((child: IPerpsFrontendOrder) => {
           if (child.orderType.startsWith('Take')) {
             tpPrice = `${numberFormat(child.triggerPx, priceFormatter)}`;
           } else if (child.orderType.startsWith('Stop')) {
