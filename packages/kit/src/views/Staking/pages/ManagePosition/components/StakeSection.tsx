@@ -149,6 +149,7 @@ export const StakeSection = ({
       amount,
       approveType,
       permitSignature,
+      unsignedMessage,
       message,
       validatorPubkey,
     }: IApproveConfirmFnParams) => {
@@ -162,6 +163,7 @@ export const StakeSection = ({
         amount,
         approveType,
         permitSignature,
+        unsignedMessage,
         message,
         symbol,
         provider: providerName,
