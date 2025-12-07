@@ -190,7 +190,7 @@ const stakingConfig: IStakingConfig = {
         configs: {
           USDC: {
             enabled: true,
-            tokenAddress: EthereumUSDC,
+            tokenAddress: BaseUSDC,
             displayProfit: true,
             stakingWithApprove: true,
           },
