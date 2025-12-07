@@ -7385,6 +7385,16 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@onekeyfe/react-native-sni-connect@npm:1.1.0":
+  version: 1.1.0
+  resolution: "@onekeyfe/react-native-sni-connect@npm:1.1.0"
+  peerDependencies:
+    react: "*"
+    react-native: "*"
+  checksum: 10/eb313b71719c7532a638f26f4b8833297898743d5e80ba457f226ede9e8a1450cd71560a070d0178cb57d6442c740b7e799a36b250d74e1979f56e56bfef46b4
+  languageName: node
+  linkType: hard
+
 "@onekeyfe/react-native-tab-page-view@npm:1.1.2":
   version: 1.1.2
   resolution: "@onekeyfe/react-native-tab-page-view@npm:1.1.2"
@@ -7808,6 +7818,7 @@ __metadata:
     "@onekeyfe/react-native-animated-charts": "npm:1.0.0"
     "@onekeyfe/react-native-ble-utils": "npm:0.1.4"
     "@onekeyfe/react-native-lite-card": "npm:1.0.15"
+    "@onekeyfe/react-native-sni-connect": "npm:1.1.0"
     "@onekeyfe/react-native-tab-page-view": "npm:1.1.2"
     "@onekeyfe/react-native-text-input": "npm:0.3.0"
     "@onekeyhq/components": "npm:*"
