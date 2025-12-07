@@ -12,6 +12,7 @@ export const BinanceSmartChainUSDT =
   '0x55d398326f99059fF775485246999027B3197955';
 export const BinanceSmartChainLISTA =
   '0xFceB31A79F71AC9CBDCF853519c1b12D379EdC46';
+export const BaseUSDC = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
 export const SuiUSDC =
   '0xdba34672e30cb065b1f93e3ab55318768fd6fef66c15942c9f7cb846e2f900e7::usdc::USDC';
 export const SuiWBTC =
@@ -21,6 +22,11 @@ export const MorphoBundlerContract =
   '0x4095f064b8d3c3548a3bebfd0bbfd04750e30077';
 export const MorphoUSDCVaultAddress =
   '0x974c8FBf4fd795F66B85B73ebC988A51F1A040a9';
+
+export const MorphoBaseBundlerContract =
+  '0xb98c948cfa24072e58935bc004a8a7b376ae746a';
+export const PangolinsBaseUSDCVaultAddress =
+  '0x1401d1271C47648AC70cBcdfA3776D4A87CE006B';
 
 export const ALL_NETWORK_ACCOUNT_MOCK_ADDRESS = 'AllNetworkMockAddress';
 export const EMPTY_NATIVE_TOKEN_ADDRESS = '';
