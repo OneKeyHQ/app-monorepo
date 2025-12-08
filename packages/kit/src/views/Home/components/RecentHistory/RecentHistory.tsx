@@ -25,7 +25,7 @@ function RecentHistory() {
         <Button
           size="small"
           variant="tertiary"
-          iconAfter="ChevronRightOutline"
+          iconAfter="ChevronRightSmallOutline"
           color="$textSubdued"
           iconProps={{ color: '$iconSubdued' }}
         >
