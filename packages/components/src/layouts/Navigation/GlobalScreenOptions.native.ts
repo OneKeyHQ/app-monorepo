@@ -170,11 +170,15 @@ export function makeFullScreenOptions(): IStackNavigationOptions {
 }
 
 export function makeOnboardingScreenOptions(): IStackNavigationOptions {
-  return {
+  const options: IStackNavigationOptions = {
     headerShown: false,
     presentation: 'card',
     gestureEnabled: false,
     gestureDirection: 'horizontal',
     animation: 'slide_from_left',
   };
+  if (platformEnv.isNativeAndroid) {
+    options.animation = 'none';
+  }
+  return options;
 }
