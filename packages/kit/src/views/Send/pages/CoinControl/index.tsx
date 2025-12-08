@@ -33,7 +33,7 @@ import type {
   IModalSendParamList,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import { formatDateFns } from '@onekeyhq/shared/src/utils/dateUtils';
+import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 
 import { SendConfirmProviderMirror } from '../../components/SendConfirmProvider/SendConfirmProviderMirror';
 
@@ -48,12 +48,11 @@ enum ESortType {
 }
 
 // Format blockTime to readable date
-// - If blockTime exists: format as "October 21, 2025 at 11:21"
 // - If no blockTime and confirmations = 0: show "Pending"
 // - Otherwise: show "-"
 function formatBlockTime(blockTime?: number, confirmations?: number): string {
   if (blockTime) {
-    return formatDateFns(new Date(blockTime));
+    return formatDate(new Date(blockTime));
   }
   if (confirmations === 0) {
     return appLocale.intl.formatMessage({ id: ETranslations.global_pending });
