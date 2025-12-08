@@ -41,6 +41,7 @@ import performance from '@onekeyhq/shared/src/performance';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EDiscoveryModalRoutes,
+  EGalleryRoutes,
   EModalRoutes,
   EModalSettingRoutes,
   EMultiTabBrowserRoutes,
@@ -669,18 +670,29 @@ export function Bootstrap() {
       */
       const timer = setTimeout(() => {
         navigation.switchTab(autoNavigation.selectedTab as ETabRoutes);
+        // ----------------------------------------------
+        // navigate to auth gallery
+        navigation.navigate(ERootRoutes.Main, {
+          screen: ETabRoutes.Developer,
+          params: {
+            screen: EGalleryRoutes.ComponentAuth,
+          },
+        });
+        // ----------------------------------------------
         // navigation.pushModal(EModalRoutes.PrimeModal, {
         //   screen: EPrimePages.PrimeTransfer,
         // });
+        // ----------------------------------------------
         // navigation.pushModal(EModalRoutes.OnboardingModal, {
         //   screen: EOnboardingPages.ConnectWallet,
         // });
-        navigation.navigate(ERootRoutes.Onboarding, {
-          screen: EOnboardingV2Routes.OnboardingV2,
-          params: {
-            screen: EOnboardingPagesV2.AddExistingWallet,
-          },
-        });
+        // ----------------------------------------------
+        // navigation.navigate(ERootRoutes.Onboarding, {
+        //   screen: EOnboardingV2Routes.OnboardingV2,
+        //   params: {
+        //     screen: EOnboardingPagesV2.AddExistingWallet,
+        //   },
+        // });
       }, 1000);
 
       return () => clearTimeout(timer);

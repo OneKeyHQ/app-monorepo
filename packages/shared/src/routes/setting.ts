@@ -20,6 +20,7 @@ export enum EModalSettingRoutes {
   SettingDevPerpGalleryModal = 'SettingDevPerpGalleryModal',
   SettingDevCryptoGalleryModal = 'SettingDevCryptoGalleryModal',
   SettingDevCloudBackupGalleryModal = 'SettingDevCloudBackupGalleryModal',
+  SettingDevAuthGalleryModal = 'SettingDevAuthGalleryModal',
   SettingExportCustomNetworkConfig = 'SettingExportCustomNetworkConfig',
   SettingNotifications = 'SettingNotifications',
   SettingManageAccountActivity = 'SettingManageAccountActivity',
@@ -53,6 +54,7 @@ export type IModalSettingParamList = {
   [EModalSettingRoutes.SettingDevPerpGalleryModal]: undefined;
   [EModalSettingRoutes.SettingDevCryptoGalleryModal]: undefined;
   [EModalSettingRoutes.SettingDevCloudBackupGalleryModal]: undefined;
+  [EModalSettingRoutes.SettingDevAuthGalleryModal]: undefined;
   [EModalSettingRoutes.SettingExportCustomNetworkConfig]: undefined;
   [EModalSettingRoutes.SettingNotifications]: undefined;
   [EModalSettingRoutes.SettingManageAccountActivity]: undefined;

@@ -19,10 +19,14 @@ import {
   permissionRequired,
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { COINTYPE_COSMOS } from '@onekeyhq/shared/src/engine/engineConsts';
+import {
+  COINTYPE_COSMOS,
+  IMPL_COSMOS,
+} from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
@@ -382,7 +386,7 @@ class ProviderApiCosmos extends ProviderApiBase {
       };
       signOptions?: any;
     },
-  ): Promise<any> {
+  ) {
     defaultLogger.discovery.dapp.dappRequest({ request });
     const networkId = this.convertCosmosChainId(params.signDoc.chainId);
     if (!networkId) throw new OneKeyLocalError('Invalid chainId');
@@ -646,6 +650,102 @@ class ProviderApiCosmos extends ProviderApiBase {
       currencies: [],
       feeCurrencies: [],
     };
+  }
+
+  // Wallet connect
+  @providerApiMethod()
+  public async cosmos_getAccounts(
+    request: IJsBridgeMessagePayload,
+    params: any,
+  ) {
+    // @ts-ignore
+    const wcChain = request.data.wcChainName as string;
+
+    if (!wcChain) {
+      throw new OneKeyLocalError('Invalid wcChain');
+    }
+    const [namespace, chainId] = wcChain.split(':');
+
+    if (namespace !== IMPL_COSMOS) {
+      throw new OneKeyLocalError('Invalid wcChain');
+    }
+
+    const account = await this._getAccount(
+      request,
+      this.convertCosmosChainId(chainId) ?? '',
+    );
+
+    return [
+      {
+        algo: 'secp251k1',
+        pubkey: account.account.pub
+          ? Buffer.from(
+              hexUtils.stripHexPrefix(account.account.pub),
+              'hex',
+            ).toString('base64')
+          : '',
+        address: account.account.addressDetail.displayAddress,
+      },
+    ];
+  }
+
+  @providerApiMethod()
+  public async cosmos_signAmino(
+    request: IJsBridgeMessagePayload,
+    params: {
+      signerAddress: string;
+      signDoc: ICosmosStdSignDoc;
+    },
+  ) {
+    return this.signAmino(request, {
+      signer: params.signerAddress,
+      signDoc: params.signDoc,
+    });
+  }
+
+  @providerApiMethod()
+  public async cosmos_signDirect(
+    request: IJsBridgeMessagePayload,
+    params: {
+      signerAddress: string;
+      signDoc: {
+        chainId: string;
+        accountNumber: string;
+        authInfoBytes: string;
+        bodyBytes: string;
+      };
+    },
+  ) {
+    return this.signDirect(request, {
+      signer: params.signerAddress,
+      signDoc: {
+        chainId: params.signDoc.chainId,
+        accountNumber: params.signDoc.accountNumber,
+        authInfoBytes: Buffer.from(
+          params.signDoc.authInfoBytes,
+          'base64',
+        ).toString('hex'),
+        bodyBytes: Buffer.from(params.signDoc.bodyBytes, 'base64').toString(
+          'hex',
+        ),
+      },
+    }).then((res) => {
+      return {
+        signed: {
+          chainId: res.signed.chainId,
+          accountNumber: res.signed.accountNumber,
+          authInfoBytes: Buffer.from(
+            hexUtils.stripHexPrefix(res.signed.authInfoBytes),
+            'hex',
+          ).toString('base64'),
+          bodyBytes: Buffer.from(
+            hexUtils.stripHexPrefix(res.signed.bodyBytes),
+            'hex',
+          ).toString('base64'),
+        },
+        signature: res.signature,
+      };
+    });
   }
 }
 

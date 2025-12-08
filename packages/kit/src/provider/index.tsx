@@ -16,9 +16,9 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/debugUtils';
 
 import { GlobalJotaiReady } from '../components/GlobalJotaiReady';
+import SupabaseAuthProvider from '../components/OneKeyAuth/supabase/SupabaseAuthProvider';
 import PasswordVerifyPromptMount from '../components/Password/container/PasswordVerifyPromptMount';
 import { SystemLocaleTracker } from '../components/SystemLocaleTracker';
-import { PrivyProviderLazy } from '../views/Prime/components/PrivyProviderLazy';
 
 import { Container } from './Container';
 import BackgroundApiContainer from './Container/BackgroundApiContainer';
@@ -66,25 +66,23 @@ export function KitProvider(props: any = {}) {
       <BackgroundApiContainer />
       <SafeAreaProvider>
         <GlobalJotaiReady>
-          <PrivyProviderLazy>
-            <KeyboardProvider>
-              <GestureHandlerRootView style={flexStyle}>
-                <ThemeProvider>
-                  <NetworkReachabilityTracker />
-                  <SplashProvider>
-                    <Container />
-                  </SplashProvider>
-                  <PasswordVerifyPromptMount />
-                  <WebViewWebEmbedProvider />
-                  <LastActivityTracker />
-                  <SystemLocaleTracker />
-                  <StateActiveContainer />
-                  <SyncHomeAccountToDappAccountProvider />
-                  <HardwareServiceProvider />
-                </ThemeProvider>
-              </GestureHandlerRootView>
-            </KeyboardProvider>
-          </PrivyProviderLazy>
+          <KeyboardProvider>
+            <GestureHandlerRootView style={flexStyle}>
+              <ThemeProvider>
+                <NetworkReachabilityTracker />
+                <SplashProvider>
+                  <Container />
+                </SplashProvider>
+                <PasswordVerifyPromptMount />
+                <WebViewWebEmbedProvider />
+                <LastActivityTracker />
+                <SystemLocaleTracker />
+                <StateActiveContainer />
+                <SyncHomeAccountToDappAccountProvider />
+                <HardwareServiceProvider />
+              </ThemeProvider>
+            </GestureHandlerRootView>
+          </KeyboardProvider>
         </GlobalJotaiReady>
       </SafeAreaProvider>
     </>

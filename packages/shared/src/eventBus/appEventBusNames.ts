@@ -114,6 +114,7 @@ export enum EAppEventBusNames {
   ShowFallbackUpdateDialog = 'ShowFallbackUpdateDialog',
   ShowNotificationViewDialog = 'ShowNotificationViewDialog',
   ShowNotificationPageNavigation = 'ShowNotificationPageNavigation',
+  ShowNotificationInDappPage = 'ShowNotificationInDappPage',
   UpdateNotificationBadge = 'UpdateNotificationBadge',
   HyperliquidDataUpdate = 'HyperliquidDataUpdate',
   HyperliquidConnectionChange = 'HyperliquidConnectionChange',
