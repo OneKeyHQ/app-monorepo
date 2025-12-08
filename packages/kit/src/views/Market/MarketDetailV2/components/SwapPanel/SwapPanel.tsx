@@ -32,7 +32,13 @@ import { MarketWatchListProviderMirrorV2 } from '../../../MarketWatchListProvide
 
 import { SwapPanelWrap } from './SwapPanelWrap';
 
-export function SwapPanel({ swapToken }: { swapToken: ISwapToken }) {
+export function SwapPanel({
+  swapToken,
+  disableTrade,
+}: {
+  swapToken: ISwapToken;
+  disableTrade?: boolean;
+}) {
   const intl = useIntl();
   const media = useMedia();
   const navigation = useAppNavigation();
@@ -91,7 +97,10 @@ export function SwapPanel({ swapToken }: { swapToken: ISwapToken }) {
     }
   };
 
-  if (platformEnv.isNative || media.lg) {
+  if (platformEnv.isNative) {
+    if (disableTrade) {
+      return null;
+    }
     return (
       <View p="$3">
         <Button
@@ -103,7 +112,16 @@ export function SwapPanel({ swapToken }: { swapToken: ISwapToken }) {
             navigation.switchTab(ETabRoutes.Swap);
           }}
         >
-          {/* <Button size="large" variant="primary" onPress={() => showSwapDialog()}> */}
+          {intl.formatMessage({ id: ETranslations.dexmarket_details_trade })}
+        </Button>
+      </View>
+    );
+  }
+
+  if (media.lg) {
+    return (
+      <View p="$3">
+        <Button size="large" variant="primary" onPress={() => showSwapDialog()}>
           {intl.formatMessage({ id: ETranslations.dexmarket_details_trade })}
         </Button>
       </View>

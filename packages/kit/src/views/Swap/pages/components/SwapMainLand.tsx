@@ -30,9 +30,7 @@ import {
   useSwapNativeTokenReserveGasAtom,
   useSwapProInputAmountAtom,
   useSwapProSelectTokenAtom,
-  useSwapProSellToTokenAtom,
   useSwapProTradeTypeAtom,
-  useSwapProUseSelectBuyTokenAtom,
   useSwapQuoteActionLockAtom,
   useSwapQuoteCurrentSelectAtom,
   useSwapQuoteIntervalCountAtom,
@@ -52,8 +50,12 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { EModalRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  EAccountManagerStacksRoutes,
+  EModalRoutes,
+} from '@onekeyhq/shared/src/routes';
 import {
   EModalSwapRoutes,
   type IModalSwapParamList,
@@ -95,6 +97,7 @@ import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
 import { useSwapBuildTx } from '../../hooks/useSwapBuiltTx';
 import { useSwapInit } from '../../hooks/useSwapGlobal';
 import {
+  useSwapProAccount,
   useSwapProInit,
   useSwapProInputToken,
   useSwapProToToken,
@@ -159,19 +162,21 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   const [toToken] = useSwapSelectToTokenAtom();
   const [swapStepData] = useSwapStepsAtom();
   const [swapProQuoteResult] = useSwapSpeedQuoteResultAtom();
+  const [swapProSelectToken] = useSwapProSelectTokenAtom();
   const swapProFromToken = useSwapProInputToken();
   const swapProToToken = useSwapProToToken();
   const [swapProInputAmount] = useSwapProInputAmountAtom();
   const [swapProTradeType] = useSwapProTradeTypeAtom();
+  const swapProAccount = useSwapProAccount();
   const focusSwapPro = useMemo(() => {
     return platformEnv.isNative && swapTypeSwitch === ESwapTabSwitchType.LIMIT;
   }, [swapTypeSwitch]);
   const currentQuoteRes = useMemo(() => {
-    if (focusSwapPro) {
+    if (focusSwapPro && swapProTradeType === ESwapProTradeType.MARKET) {
       return swapProQuoteResult;
     }
     return currentQuote;
-  }, [focusSwapPro, currentQuote, swapProQuoteResult]);
+  }, [focusSwapPro, swapProTradeType, currentQuote, swapProQuoteResult]);
   const fromSelectToken = useMemo(() => {
     if (focusSwapPro) {
       return swapProFromToken;
@@ -251,6 +256,24 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
       },
     });
   }, [navigation, storeName]);
+
+  const onProMarketDetail = useCallback(() => {
+    navigation.pushModal(EModalRoutes.SwapModal, {
+      screen: EModalSwapRoutes.SwapProMarketDetail,
+      params: {
+        tokenAddress: swapProSelectToken?.contractAddress ?? '',
+        network: swapProSelectToken?.networkId ?? '',
+        isNative: swapProSelectToken?.isNative,
+        from: EEnterWay.SwapPro,
+        disableTrade: true,
+      },
+    });
+  }, [
+    navigation,
+    swapProSelectToken?.contractAddress,
+    swapProSelectToken?.networkId,
+    swapProSelectToken?.isNative,
+  ]);
 
   const onSelectRecentTokenPairs = useCallback(
     ({
@@ -672,9 +695,10 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
         shouldFallback: SwapBuildShouldFallBackNetworkIds.includes(
           fromSelectToken?.networkId ?? '',
         ),
-        fromTokenAmount: focusSwapPro
-          ? swapProInputAmount
-          : fromTokenAmount.value,
+        fromTokenAmount:
+          focusSwapPro && swapProTradeType === ESwapProTradeType.MARKET
+            ? swapProInputAmount
+            : fromTokenAmount.value,
         toTokenAmount: swapToAmount.value,
         providerInfo: currentQuoteRes?.info,
         supportPreBuild,
@@ -707,6 +731,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     fromSelectToken,
     toSelectToken,
     focusSwapPro,
+    swapProTradeType,
     swapProInputAmount,
     fromTokenAmount.value,
     swapToAmount.value,
@@ -868,7 +893,21 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     }, 500);
   }, [setSwapBuildTxFetching, dialogClose, setSwapSteps]);
 
+  const handleSelectAccountClick = useCallback(() => {
+    navigation.pushModal(EModalRoutes.AccountManagerStacks, {
+      screen: EAccountManagerStacksRoutes.AccountSelectorStack,
+      params: {
+        num: 0,
+        sceneName: EAccountSelectorSceneName.swap,
+      },
+    });
+  }, [navigation]);
+
   const onPreSwap = useCallback(() => {
+    if (focusSwapPro && !swapProAccount?.result?.addressDetail.address) {
+      handleSelectAccountClick();
+      return;
+    }
     if (!currentQuoteRes) {
       return;
     }
@@ -945,18 +984,20 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
             });
     }, 100);
   }, [
-    InTabDialog,
-    InModalDialog,
     focusSwapPro,
+    swapProAccount?.result?.addressDetail.address,
     currentQuoteRes,
+    parseQuoteResultToSteps,
+    setSwapBuildTxFetching,
+    handleSelectAccountClick,
     cleanQuoteInterval,
     setSwapShouldRefreshQuote,
-    parseQuoteResultToSteps,
+    pageType,
+    InModalDialog,
     onPreSwapClose,
     intl,
-    pageType,
     handleConfirm,
-    setSwapBuildTxFetching,
+    InTabDialog,
   ]);
 
   const onOpenOrdersClick = useCallback(
@@ -991,6 +1032,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
       <SwapHeaderContainer
         pageType={pageType}
         defaultSwapType={swapInitParams?.swapTabSwitchType}
+        showSwapPro={platformEnv.isNative}
       />
       <YStack
         pt="$2.5"
@@ -1008,6 +1050,8 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
             onProSelectToken={onProSelectToken}
             onOpenOrdersClick={onOpenOrdersClick}
             onSwapProActionClick={onPreSwap}
+            handleSelectAccountClick={handleSelectAccountClick}
+            onProMarketDetail={onProMarketDetail}
           />
         ) : (
           <ScrollView

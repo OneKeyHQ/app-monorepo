@@ -34,8 +34,8 @@ import { MobileLayout } from './layouts/MobileLayout';
 function MarketDetail({
   route,
 }: IPageScreenProps<ITabMarketParamList, ETabMarketRoutes.MarketDetailV2>) {
-  const { tokenAddress, network, isNative } = route.params;
-
+  const { tokenAddress, network, isNative, disableTrade } = route.params;
+  console.log('swap__disableTrade', disableTrade);
   // Convert shortcode back to full networkId if needed
   // network is a shortcode like 'bsc', convert it to 'evm--56'
   const networkId =
@@ -64,7 +64,7 @@ function MarketDetail({
         {media.gtLg && !platformEnv.isNative ? (
           <DesktopLayout />
         ) : (
-          <MobileLayout />
+          <MobileLayout disableTrade={disableTrade} />
         )}
       </Page.Body>
     </Page>

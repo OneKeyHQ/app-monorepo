@@ -58,6 +58,7 @@ const LimitOrderList = ({
   const { cancelLimitOrder } = useSwapBuildTx();
   const [{ swapLimitOrders }] = useInAppNotificationAtom();
 
+  console.log('swap__orders__', swapLimitOrders);
   const runCancel = useCallback(
     async (item: IFetchLimitOrderRes) => {
       try {

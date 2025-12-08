@@ -1,6 +1,7 @@
 import { useCallback, useEffect } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { useIntl } from 'react-intl';
 
 import { Stack } from '@onekeyhq/components';
 import {
@@ -9,6 +10,7 @@ import {
   useSwapSpeedQuoteFetchingAtom,
   useSwapToTokenAmountAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ESwapProTradeType } from '@onekeyhq/shared/types/swap/types';
 
 import SwapCommonInfoItem from '../../components/SwapCommonInfoItem';
@@ -16,6 +18,7 @@ import SwapProCenterInput from '../../components/SwapProCenterInput';
 import { useSwapProToToken } from '../../hooks/useSwapPro';
 
 const SwapProToTotalValue = () => {
+  const intl = useIntl();
   const [swapProTradeType] = useSwapProTradeTypeAtom();
   const [swapProQuoteFetching] = useSwapSpeedQuoteFetchingAtom();
   const [toTokenAmount, setSwapToTokenAmount] = useSwapToTokenAmountAtom();
@@ -76,7 +79,7 @@ const SwapProToTotalValue = () => {
     return (
       <Stack mt="$3">
         <SwapCommonInfoItem
-          title="Total Value"
+          title={intl.formatMessage({ id: ETranslations.dexmarket_total })}
           value={`≈ ${swapProToTotalValue}`}
           titleProps={{
             size: '$bodySm',
@@ -93,7 +96,7 @@ const SwapProToTotalValue = () => {
   return (
     <Stack mt="$2">
       <SwapProCenterInput
-        title="total value"
+        title={intl.formatMessage({ id: ETranslations.dexmarket_total })}
         value={swapProToTotalValue}
         onChangeText={handleTokenValueChange}
         inputDisabled={false}

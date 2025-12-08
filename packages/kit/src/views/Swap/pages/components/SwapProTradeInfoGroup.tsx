@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { useIntl } from 'react-intl';
 
 import { YStack } from '@onekeyhq/components';
 import {
@@ -9,6 +10,7 @@ import {
   useSwapSpeedQuoteFetchingAtom,
   useSwapSpeedQuoteResultAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { ESwapProTradeType } from '@onekeyhq/shared/types/swap/types';
 
@@ -26,6 +28,7 @@ interface ISwapProTradeInfoGroupProps {
 const SwapProTradeInfoGroup = ({
   balanceLoading,
 }: ISwapProTradeInfoGroupProps) => {
+  const intl = useIntl();
   const inputToken = useSwapProInputToken();
   const toToken = useSwapProToToken();
   const [swapProQuoteResultPro] = useSwapSpeedQuoteResultAtom();
@@ -81,7 +84,7 @@ const SwapProTradeInfoGroup = ({
   return (
     <YStack gap="$3">
       <SwapCommonInfoItem
-        title="Balance"
+        title={intl.formatMessage({ id: ETranslations.global_balance })}
         value={balanceValue}
         titleProps={{
           size: '$bodySm',
@@ -92,7 +95,7 @@ const SwapProTradeInfoGroup = ({
         isLoading={balanceLoading}
       />
       <SwapCommonInfoItem
-        title="Est. Receive"
+        title={intl.formatMessage({ id: ETranslations.earn_est_receive })}
         value={receiveValue}
         titleProps={{
           size: '$bodySm',
@@ -103,7 +106,7 @@ const SwapProTradeInfoGroup = ({
         isLoading={swapProQuoteFetching}
       />
       <SwapCommonInfoItem
-        title="TradingFee"
+        title="Trading Fee"
         value={tradingFeeValue}
         titleProps={{
           size: '$bodySm',

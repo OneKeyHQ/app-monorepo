@@ -35,6 +35,10 @@ const SwapProTokenSelectModal = LazyLoad(
   () => import('../pages/modal/SwapProSelectTokenModal'),
 );
 
+const SwapProMarketDetailModal = LazyLoadPage(
+  () => import('../../Market/MarketDetailV2'),
+);
+
 export const ModalSwapStack: IModalFlowNavigatorConfig<
   EModalSwapRoutes,
   IModalSwapParamList
@@ -88,5 +92,10 @@ export const ModalSwapStack: IModalFlowNavigatorConfig<
     name: EModalSwapRoutes.SwapProSelectToken,
     component: SwapProTokenSelectModal,
     translationId: ETranslations.token_selector_title,
+  },
+  {
+    name: EModalSwapRoutes.SwapProMarketDetail,
+    component: SwapProMarketDetailModal,
+    translationId: ETranslations.dexmarket_details_overview,
   },
 ];

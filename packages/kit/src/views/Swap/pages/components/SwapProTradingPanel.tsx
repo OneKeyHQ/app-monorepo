@@ -43,6 +43,8 @@ interface ISwapProTradingPanelProps {
   configLoading: boolean;
   isMev: boolean;
   onSwapProActionClick: () => void;
+  hasEnoughBalance: boolean;
+  handleSelectAccountClick: () => void;
 }
 
 const SwapProTradingPanel = ({
@@ -51,6 +53,8 @@ const SwapProTradingPanel = ({
   isMev,
   configLoading,
   onSwapProActionClick,
+  handleSelectAccountClick,
+  hasEnoughBalance,
 }: ISwapProTradingPanelProps) => {
   const [swapProDirection, setSwapProDirection] = useSwapProDirectionAtom();
   const [swapProTradeType, setSwapProTradeType] = useSwapProTradeTypeAtom();
@@ -74,17 +78,6 @@ const SwapProTradingPanel = ({
     ],
     [intl],
   );
-
-  const navigation = useAppNavigation();
-  const handleSelectAccountClick = () => {
-    navigation.pushModal(EModalRoutes.AccountManagerStacks, {
-      screen: EAccountManagerStacksRoutes.AccountSelectorStack,
-      params: {
-        num: 0,
-        sceneName: EAccountSelectorSceneName.swap,
-      },
-    });
-  };
 
   useSwapProActionsQuote();
 
@@ -176,7 +169,10 @@ const SwapProTradingPanel = ({
           </>
         ) : null}
       </YStack>
-      <SwapProActionButton onSwapProActionClick={onSwapProActionClick} />
+      <SwapProActionButton
+        onSwapProActionClick={onSwapProActionClick}
+        hasEnoughBalance={hasEnoughBalance}
+      />
     </YStack>
   );
 };

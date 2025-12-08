@@ -3,11 +3,10 @@ import { useCallback, useState } from 'react';
 import { RefreshControl, ScrollView } from 'react-native';
 
 import { IconButton, XStack, YStack } from '@onekeyhq/components';
-import { TabBarItem } from '@onekeyhq/components/src/composite/Tabs/TabBar';
 import { useSwapProSelectTokenAtom } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import type { IFetchLimitOrderRes } from '@onekeyhq/shared/types/swap/types';
 
-import { ETabName } from '../../../Perp/layouts/PerpMobileLayout';
+import { ETabName, TabBarItem } from '../../../Perp/layouts/PerpMobileLayout';
 import {
   useSwapProSupportNetworksTokenList,
   useSwapProTokenDetailInfo,
@@ -25,12 +24,16 @@ interface ISwapProContainerProps {
   onProSelectToken: () => void;
   onOpenOrdersClick: (item: IFetchLimitOrderRes) => void;
   onSwapProActionClick: () => void;
+  handleSelectAccountClick: () => void;
+  onProMarketDetail: () => void;
 }
 
 const SwapProContainer = ({
   onProSelectToken,
   onOpenOrdersClick,
   onSwapProActionClick,
+  handleSelectAccountClick,
+  onProMarketDetail,
 }: ISwapProContainerProps) => {
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState<ETabName | string>(
@@ -47,7 +50,7 @@ const SwapProContainer = ({
     setRefreshing(false);
   }, [fetchTokenMarketDetailInfo, swapProLoadSupportNetworksTokenListRun]);
 
-  const { isLoading, speedConfig, balanceLoading, isMEV } =
+  const { isLoading, speedConfig, balanceLoading, isMEV, hasEnoughBalance } =
     useSwapProTokenInit();
 
   return (
@@ -65,7 +68,13 @@ const SwapProContainer = ({
           onSelectTokenClick={onProSelectToken}
           configLoading={isLoading}
         />
-        <IconButton icon="AccessibilityEyeSolid" />
+        <IconButton
+          icon="ChartTrendingUp2Outline"
+          w="$6"
+          h="$6"
+          onPress={onProMarketDetail}
+          backgroundColor="$bgApp"
+        />
       </XStack>
       <XStack gap="$2.5" pb="$4" alignItems="stretch">
         <YStack flexBasis="40%" flexShrink={1} alignSelf="stretch">
@@ -78,6 +87,8 @@ const SwapProContainer = ({
             balanceLoading={balanceLoading}
             isMev={isMEV}
             onSwapProActionClick={onSwapProActionClick}
+            hasEnoughBalance={hasEnoughBalance}
+            handleSelectAccountClick={handleSelectAccountClick}
           />
         </YStack>
       </XStack>
@@ -100,13 +111,13 @@ const SwapProContainer = ({
             onPress={setActiveTab}
           />
         </XStack>
-        <IconButton
+        {/* <IconButton
           variant="tertiary"
           size="small"
           borderRadius="$full"
           icon="ClockTimeHistoryOutline"
           onPress={() => {}}
-        />
+        /> */}
       </XStack>
       <YStack flex={1}>
         <YStack

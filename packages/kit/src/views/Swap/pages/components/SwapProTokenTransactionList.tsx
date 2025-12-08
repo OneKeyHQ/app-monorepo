@@ -55,8 +55,11 @@ const SwapProTokenTransactionList = () => {
         </YStack>
       ) : (
         <YStack gap="$1.5">
-          {swapProTokenTransactionList.map((item) => (
-            <SwapProTokenTransactionItem key={item.hash} item={item} />
+          {swapProTokenTransactionList.map((item, index) => (
+            <SwapProTokenTransactionItem
+              key={`${item.hash}-${index}`}
+              item={item}
+            />
           ))}
         </YStack>
       )}

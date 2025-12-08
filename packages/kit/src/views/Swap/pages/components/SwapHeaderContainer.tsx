@@ -141,7 +141,7 @@ const SwapHeaderContainer = ({
         >
           {intl.formatMessage({
             id: showSwapPro
-              ? ETranslations.swap_page_limit
+              ? ETranslations.dexmarket_pro
               : ETranslations.swap_page_limit,
           })}
         </CustomTabItem>

@@ -3,10 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import BigNumber from 'bignumber.js';
 
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
-import {
-  swapProJumpTokenAtom,
-  useSwapProJumpTokenAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms/swap';
+import { useSwapProJumpTokenAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/swap';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -16,10 +13,7 @@ import {
 } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IMarketSearchV2Token } from '@onekeyhq/shared/types/market';
 import type { IMarketTokenTransaction } from '@onekeyhq/shared/types/marketV2';
-import type {
-  IFetchQuoteResult,
-  ISwapToken,
-} from '@onekeyhq/shared/types/swap/types';
+import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import {
   ESwapProTradeType,
   ESwapTabSwitchType,
@@ -154,6 +148,7 @@ export function useSwapProTokenInit() {
     useSwapProSellToTokenAtom();
   const [swapProUseSelectBuyTokenAtom, setSwapProUseSelectBuyTokenAtom] =
     useSwapProUseSelectBuyTokenAtom();
+  const [swapProInputAmount] = useSwapProInputAmountAtom();
   const {
     defaultTokens,
     isLoading,
@@ -315,6 +310,12 @@ export function useSwapProTokenInit() {
     return swapMevNetConfig?.includes(swapProSelectToken?.networkId ?? '');
   }, [swapMevNetConfig, swapProSelectToken?.networkId]);
 
+  const hasEnoughBalance = useMemo(() => {
+    const inputAmountBN = new BigNumber(swapProInputAmount ?? '0');
+    const inputTokenBalanceBN = new BigNumber(inputToken?.balanceParsed ?? '0');
+    return inputTokenBalanceBN.gte(inputAmountBN);
+  }, [inputToken?.balanceParsed, swapProInputAmount]);
+
   return {
     defaultTokens,
     isLoading,
@@ -323,6 +324,7 @@ export function useSwapProTokenInit() {
     swapMevNetConfig,
     swapProSelectToken,
     isMEV,
+    hasEnoughBalance,
   };
 }
 

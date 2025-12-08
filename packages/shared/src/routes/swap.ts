@@ -11,6 +11,8 @@ import type {
   ISwapTxHistory,
 } from '@onekeyhq/shared/types/swap/types';
 
+import type { EEnterWay } from '../logger/scopes/dex';
+
 export enum EModalSwapRoutes {
   SwapMainLand = 'SwapMainLand',
   SwapTokenSelect = 'SwapTokenSelect',
@@ -23,6 +25,7 @@ export enum EModalSwapRoutes {
   TokenRiskReminder = 'TokenRiskReminder',
   SwapLazyMarketModal = 'SwapLazyMarketModal',
   LimitOrderDetail = 'LimitOrderDetail',
+  SwapProMarketDetail = 'SwapProMarketDetail',
 }
 
 export type IModalSwapParamList = {
@@ -71,5 +74,12 @@ export type IModalSwapParamList = {
   };
   [EModalSwapRoutes.SwapProSelectToken]: {
     storeName: EJotaiContextStoreNames;
+  };
+  [EModalSwapRoutes.SwapProMarketDetail]: {
+    tokenAddress: string;
+    network: string;
+    isNative?: boolean;
+    from?: EEnterWay;
+    disableTrade?: boolean;
   };
 };
