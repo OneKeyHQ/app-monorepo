@@ -1186,20 +1186,9 @@ export default class VaultBtc extends VaultBase {
     return lookup;
   }
 
-  _collectUTXOsInfoByApi = memoizee(
-    async () => {
+  _collectUTXOsInfoByApiWithCache = memoizee(
+    async (withCheckInscription: boolean) => {
       try {
-        const inscriptionProtection =
-          await this.backgroundApi.serviceSetting.getInscriptionProtection();
-        const checkInscriptionProtectionEnabled =
-          await this.backgroundApi.serviceSetting.checkInscriptionProtectionEnabled(
-            {
-              networkId: this.networkId,
-              accountId: this.accountId,
-            },
-          );
-        const withCheckInscription =
-          checkInscriptionProtectionEnabled && inscriptionProtection;
         const { utxoList, frozenUtxoList, allUtxoList } =
           await this.backgroundApi.serviceAccountProfile.fetchAccountDetails({
             networkId: this.networkId,
@@ -1231,6 +1220,21 @@ export default class VaultBtc extends VaultBase {
       maxAge: timerUtils.getTimeDurationMs({ seconds: 30 }),
     },
   );
+
+  async _collectUTXOsInfoByApi() {
+    const inscriptionProtection =
+      await this.backgroundApi.serviceSetting.getInscriptionProtection();
+    const checkInscriptionProtectionEnabled =
+      await this.backgroundApi.serviceSetting.checkInscriptionProtectionEnabled(
+        {
+          networkId: this.networkId,
+          accountId: this.accountId,
+        },
+      );
+    const withCheckInscription =
+      checkInscriptionProtectionEnabled && inscriptionProtection;
+    return this._collectUTXOsInfoByApiWithCache(withCheckInscription);
+  }
 
   async _getRelPathsToAddressByApi({
     addresses, // addresses in tx.inputs
