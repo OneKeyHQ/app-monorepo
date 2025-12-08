@@ -1,14 +1,13 @@
 diff --git a/node_modules/@react-navigation/native/lib/module/createMemoryHistory.js b/node_modules/@react-navigation/native/lib/module/createMemoryHistory.js
-index 474db5e..fdb3e04 100644
+index 474db5e..4b47a93 100644
 --- a/node_modules/@react-navigation/native/lib/module/createMemoryHistory.js
 +++ b/node_modules/@react-navigation/native/lib/module/createMemoryHistory.js
-@@ -1,6 +1,51 @@
+@@ -1,6 +1,38 @@
  "use strict";
  
  import { nanoid } from 'nanoid/non-secure';
 +
 +const isExtension = typeof window !== 'undefined' && process.env.ONEKEY_PLATFORM === 'ext'
-+console.log('isExtension---->', isExtension, process.env.ONEKEY_PLATFORM);
 +
 +function fixHashInExtension(path) {
 +  if (isExtension) {
@@ -23,12 +22,6 @@ index 474db5e..fdb3e04 100644
 +      const currentIndexHtmlWithoutSlash = currentIndexHtml.split('/')?.pop();
 +      if (currentIndexHtmlWithoutSlash) {
 +        const currentPath = path.includes('#') ? path.split('#').pop() : path;
-+        console.log(
-+          'fixHashInExtension---->currentIndexHtmlWithoutSlash',
-+          currentIndexHtmlWithoutSlash,
-+          currentIndexHtml,
-+          path,
-+        );
 +        return `/${currentIndexHtmlWithoutSlash}.html#${currentPath}`;
 +      }
 +    }
@@ -38,14 +31,8 @@ index 474db5e..fdb3e04 100644
 +
 +    const indexHtmlFile = path.split('.html')?.[0];
 +    if (indexHtmlFile) {
-+      console.log(
-+        'fixHashInExtension---->indexHtmlFile',
-+        indexHtmlFile,
-+        lastHash,
-+      );
 +      return lastHash ? `${indexHtmlFile}.html#${lastHash}` : `${indexHtmlFile}.html`;
 +    }
-+    console.log('fixHashInExtension---->path', path);
 +    return path;
 +  }
 +  return path;
@@ -54,7 +41,7 @@ index 474db5e..fdb3e04 100644
  export function createMemoryHistory() {
    let index = 0;
    let items = [];
-@@ -64,9 +109,10 @@ export function createMemoryHistory() {
+@@ -64,9 +96,10 @@ export function createMemoryHistory() {
        // We don't store state object in history.state because:
        // - browsers have limits on how big it can be, and we don't control the size
        // - while not recommended, there could be non-serializable data in state
@@ -66,7 +53,7 @@ index 474db5e..fdb3e04 100644
      },
      replace({
        path,
-@@ -104,9 +150,10 @@ export function createMemoryHistory() {
+@@ -104,9 +137,10 @@ export function createMemoryHistory() {
            id
          };
        }
@@ -79,15 +66,14 @@ index 474db5e..fdb3e04 100644
      // `history.go(n)` is asynchronous, there are couple of things to keep in mind:
      // - it won't do anything if we can't go `n` steps, the `popstate` event won't fire.
 diff --git a/node_modules/@react-navigation/native/src/createMemoryHistory.tsx b/node_modules/@react-navigation/native/src/createMemoryHistory.tsx
-index 1568263..604948a 100644
+index 1568263..2adaaec 100644
 --- a/node_modules/@react-navigation/native/src/createMemoryHistory.tsx
 +++ b/node_modules/@react-navigation/native/src/createMemoryHistory.tsx
-@@ -10,6 +10,50 @@ type HistoryRecord = {
+@@ -10,6 +10,37 @@ type HistoryRecord = {
    path: string;
  };
  
 +const isExtension = typeof window !== 'undefined' && process.env.ONEKEY_PLATFORM === 'ext'
-+console.log('isExtension---->', isExtension, process.env.ONEKEY_PLATFORM);
 +
 +function fixHashInExtension(path: string) {
 +  if (isExtension) {
@@ -102,12 +88,6 @@ index 1568263..604948a 100644
 +      const currentIndexHtmlWithoutSlash = currentIndexHtml.split('/')?.pop();
 +      if (currentIndexHtmlWithoutSlash) {
 +        const currentPath = path.includes('#') ? path.split('#').pop() : path;
-+        console.log(
-+          'fixHashInExtension---->currentIndexHtmlWithoutSlash',
-+          currentIndexHtmlWithoutSlash,
-+          currentIndexHtml,
-+          path,
-+        );
 +        return `/${currentIndexHtmlWithoutSlash}.html#${currentPath}`;
 +      }
 +    }
@@ -117,14 +97,8 @@ index 1568263..604948a 100644
 +
 +    const indexHtmlFile = path.split('.html')?.[0];
 +    if (indexHtmlFile) {
-+      console.log(
-+        'fixHashInExtension---->indexHtmlFile',
-+        indexHtmlFile,
-+        lastHash,
-+      );
 +      return lastHash ? `${indexHtmlFile}.html#${lastHash}` : `${indexHtmlFile}.html`;
 +    }
-+    console.log('fixHashInExtension---->path', path);
 +    return path;
 +  }
 +  return path;
@@ -133,7 +107,7 @@ index 1568263..604948a 100644
  export function createMemoryHistory() {
    let index = 0;
    let items: HistoryRecord[] = [];
-@@ -76,7 +120,8 @@ export function createMemoryHistory() {
+@@ -76,7 +107,8 @@ export function createMemoryHistory() {
        // We don't store state object in history.state because:
        // - browsers have limits on how big it can be, and we don't control the size
        // - while not recommended, there could be non-serializable data in state
@@ -143,7 +117,7 @@ index 1568263..604948a 100644
      },
  
      replace({ path, state }: { path: string; state: NavigationState }) {
-@@ -96,7 +141,6 @@ export function createMemoryHistory() {
+@@ -96,7 +128,6 @@ export function createMemoryHistory() {
          //   the page when navigating forward in history.
          // - This is the first time any state modifications are done
          //   So we need to push the entry as there's nothing to replace
@@ -151,7 +125,7 @@ index 1568263..604948a 100644
          pathWithHash = pathWithHash + hash;
          items = [{ path: pathWithHash, state, id }];
          index = 0;
-@@ -107,7 +151,8 @@ export function createMemoryHistory() {
+@@ -107,7 +138,8 @@ export function createMemoryHistory() {
          items[index] = { path, state, id };
        }
  
