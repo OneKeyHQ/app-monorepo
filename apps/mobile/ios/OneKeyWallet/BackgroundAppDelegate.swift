@@ -39,7 +39,7 @@ class BackgroundReactNativeDelegate: ExpoReactNativeFactoryDelegate {
   override func bundleURL() -> URL? {
 #if DEBUG
     // Load Metro bundle for background runner (change root as needed)
-    return URL(string: BackgroundReactNativeDelegate.BACKGROUND_BUNDLE_DEBUG_URL)
+    return RCTBundleURLProvider.sharedSettings().jsBundleURL(forBundleRoot: BackgroundReactNativeDelegate.BACKGROUND_BUNDLE_DEBUG_URL)
 #else
     // Look for updated background bundle in Documents first
     // if let bundlePath = BundleUpdateModule.currentBundleBackgroundJSBundle() {
