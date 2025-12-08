@@ -52,7 +52,7 @@ module.exports = async () => {
       'node_modules/(?!(react-native-reanimated|react-native-aes-crypto|react-native-mmkv|@keystonehq/bc-ur-registry-eth)/)',
     ],
     transform: {
-      '^.+\\.(ts|tsx)$': [
+      '^.+\\.[jt]sx?$': [
         'ts-jest',
         {
           'diagnostics': {
