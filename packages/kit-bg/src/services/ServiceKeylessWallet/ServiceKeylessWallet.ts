@@ -45,13 +45,13 @@ class ServiceKeylessWallet extends ServiceBase {
   async buildKeylessWalletUserInfo(): Promise<IKeylessWalletUserInfo> {
     const primeUserInfo = await primePersistAtom.get();
     if (
-      !primeUserInfo?.privyUserId ||
+      !primeUserInfo?.onekeyUserId ||
       !primeUserInfo?.isLoggedIn ||
       !primeUserInfo?.isLoggedInOnServer
     ) {
       throw new OneKeyLocalError('OneKeyID user is not logged in');
     }
-    const onekeyIdUserId = primeUserInfo.privyUserId;
+    const onekeyIdUserId = primeUserInfo.onekeyUserId;
     const onekeyIdEmail = primeUserInfo.email;
     if (!onekeyIdEmail) {
       throw new OneKeyLocalError('OneKeyID email is not set');

@@ -47,7 +47,8 @@ export function OneKeyIDLoginDialog({
 
   const { getAccessToken, useLoginWithEmail } = useOneKeyAuth();
 
-  const { sendCode, loginWithCode: supabaseLoginWithCode } = useLoginWithEmail();
+  const { sendCode, loginWithCode: supabaseLoginWithCode } =
+    useLoginWithEmail();
 
   // Wrap loginWithCode to ensure email is always provided
   const loginWithCode = useCallback(

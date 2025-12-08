@@ -24,4 +24,3 @@ export function useOneKeyIDLoginDialog(
     [showLoginDialog],
   );
 }
-
