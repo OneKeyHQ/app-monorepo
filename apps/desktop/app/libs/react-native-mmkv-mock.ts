@@ -1,11 +1,12 @@
 // Mock for react-native-mmkv
 // In-memory storage implementation for MMKV interface
-export class MMKV {
+
+class MMKV {
   private storage: Map<string, boolean | string | number | ArrayBuffer>;
 
   private listeners: Set<(changedKey: string) => void>;
 
-  constructor() {
+  constructor(options: { id: string }) {
     this.storage = new Map();
     this.listeners = new Set();
   }
@@ -75,3 +76,5 @@ export class MMKV {
     this.listeners.forEach((listener) => listener(key));
   }
 }
+
+export const createMMKV = (options: { id: string }): MMKV => new MMKV(options);
