@@ -4,6 +4,10 @@ export class MMKV {
     // Mock implementation
   }
 
+  static createMMKV(_options?: { id?: string }) {
+    return new MMKV(_options);
+  }
+
   set(_key: string, _value: string | number | boolean): void {
     // Mock implementation
   }
