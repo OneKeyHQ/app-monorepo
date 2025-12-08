@@ -271,8 +271,8 @@ const KeylessWalletCreationFlow = () => {
   return (
     <YStack gap="$4">
       <SizableText size="$bodyMd" color="$textSubdued">
-        Complete Keyless Wallet Creation Flow: Generate packs → Save device pack
-        → Upload cloud pack → Upload auth pack
+        Complete Keyless Wallet Creation Flow: Generate shares → Save device
+        share → Upload cloud share → Upload auth share
       </SizableText>
 
       <XStack gap="$2" flexWrap="wrap">
@@ -296,24 +296,24 @@ const KeylessWalletCreationFlow = () => {
       </XStack>
 
       <YStack gap="$3">
-        {renderStep(1, 'Generate Packs', step1, handleStep1, false)}
+        {renderStep(1, 'Generate shares', step1, handleStep1, false)}
         {renderStep(
           2,
-          'Save Device Pack',
+          'Save Device Share',
           step2,
           handleStep2,
           step1.status !== 'success',
         )}
         {renderStep(
           3,
-          'Upload Cloud Pack',
+          'Upload Cloud Share',
           step3,
           handleStep3,
           step2.status !== 'success',
         )}
         {renderStep(
           4,
-          'Upload Auth Pack',
+          'Upload Auth Share',
           step4,
           handleStep4,
           step3.status !== 'success',
@@ -336,12 +336,12 @@ const KeylessWalletCreationFlow = () => {
           </SizableText>
           {packSetInFromDevicePack ? (
             <SizableText size="$bodySm" color="$textSubdued">
-              Device Pack Set ID: {packSetInFromDevicePack}
+              packSetInFromDevicePack: {packSetInFromDevicePack}
             </SizableText>
           ) : null}
           {packSetInFromCloudPack ? (
             <SizableText size="$bodySm" color="$textSubdued">
-              Cloud Pack Set ID: {packSetInFromCloudPack}
+              packSetInFromCloudPack: {packSetInFromCloudPack}
             </SizableText>
           ) : null}
           <Button

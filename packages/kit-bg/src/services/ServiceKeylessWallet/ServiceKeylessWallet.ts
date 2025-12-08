@@ -454,27 +454,27 @@ class ServiceKeylessWallet extends ServiceBase {
       throw new OneKeyLocalError('Failed to save device pack to storage');
     }
     if (!isEqual(savedDevicePack, params.devicePack)) {
-      // Print mismatched fields
-      const mismatchedPaths = findMismatchedPaths(
-        savedDevicePack,
-        params.devicePack,
-      );
-      console.error(
-        '[ServiceKeylessWallet] Device pack mismatch detected:',
-        JSON.stringify(mismatchedPaths, null, 2),
-      );
-      console.error(
-        '[ServiceKeylessWallet] Saved device pack:',
-        JSON.stringify(savedDevicePack, null, 2),
-      );
-      console.error(
-        '[ServiceKeylessWallet] Expected device pack:',
-        JSON.stringify(params.devicePack, null, 2),
-      );
+      if (process.env.NODE_ENV !== 'production') {
+        // Print mismatched fields
+        const mismatchedPaths = findMismatchedPaths(
+          savedDevicePack,
+          params.devicePack,
+        );
+        console.error(
+          '[ServiceKeylessWallet] Device pack mismatch detected:',
+          JSON.stringify(mismatchedPaths, null, 2),
+        );
+        console.error(
+          '[ServiceKeylessWallet] Saved device pack:',
+          JSON.stringify(savedDevicePack, null, 2),
+        );
+        console.error(
+          '[ServiceKeylessWallet] Expected device pack:',
+          JSON.stringify(params.devicePack, null, 2),
+        );
+      }
       throw new OneKeyLocalError(
-        `Failed to save device pack to storage: ${String(
-          mismatchedPaths.length,
-        )} field(s) mismatch`,
+        'Failed to save device pack to storage, mismatched fields',
       );
     }
     return {

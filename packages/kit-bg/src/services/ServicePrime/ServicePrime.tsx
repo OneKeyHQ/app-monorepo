@@ -6,7 +6,7 @@ import {
   backgroundMethod,
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { RESET_CLOUD_SYNC_MASTER_PASSWORD_UUID } from '@onekeyhq/shared/src/consts/primeConsts';
+import { EPrimeEmailOTPScene, RESET_CLOUD_SYNC_MASTER_PASSWORD_UUID } from '@onekeyhq/shared/src/consts/primeConsts';
 import type { OneKeyError } from '@onekeyhq/shared/src/errors';
 import {
   OneKeyLocalError,
@@ -746,7 +746,7 @@ class ServicePrime extends ServiceBase {
   }
 
   @backgroundMethod()
-  async sendEmailOTP(scene: string) {
+  async sendEmailOTP(scene: EPrimeEmailOTPScene) {
     if (!scene) {
       throw new OneKeyLocalError('sendEmailOTP ERROR: Invalid scene');
     }

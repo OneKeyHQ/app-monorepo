@@ -84,7 +84,8 @@ export function useKeylessWallet() {
 
       return new Promise<{ success: boolean }>((resolve, reject) => {
         void sendEmailOTP({
-          scene: EPrimeEmailOTPScene.GetKeylessWalletAuthPack,
+          scene: EPrimeEmailOTPScene.UpdateRebateWithdrawAddress,
+          // scene: EPrimeEmailOTPScene.GetKeylessWalletAuthPack,
           onCancel: () => {
             reject(new Error('User cancelled'));
           },
