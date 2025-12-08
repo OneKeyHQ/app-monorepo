@@ -355,22 +355,6 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           }
         }
 
-        if (process.env.NODE_ENV !== 'production') {
-          if (
-            sceneInfo?.sceneName === EAccountSelectorSceneName.discover &&
-            sceneInfo?.sceneUrl?.startsWith('https://pancakeswap.finance') &&
-            (!newSelectedAccount?.deriveType || !oldSelectedAccount?.deriveType)
-          ) {
-            // alert(
-            //   `
-            //   deriveType is undefined\n\n\n
-            //   newSelectedAccount: \n${JSON.stringify(newSelectedAccount)} \n\n
-            //   oldSelectedAccount: \n${JSON.stringify(oldSelectedAccount)}
-            //   `,
-            // );
-          }
-        }
-
         if (
           isEqual(
             omitBy(oldSelectedAccount, isUndefined),
