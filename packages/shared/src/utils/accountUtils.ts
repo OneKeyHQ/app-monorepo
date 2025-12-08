@@ -912,8 +912,29 @@ function isEnabledBtcFreshAddress({
   return false;
 }
 
+function buildKeylessWalletId({ sharePackSetId }: { sharePackSetId: string }) {
+  return `${WALLET_TYPE_HD}-keyless-${sharePackSetId}`;
+}
+
+function isKeylessWallet({ walletId }: { walletId: string }) {
+  return walletId.startsWith(`${WALLET_TYPE_HD}-keyless-`);
+}
+
+function getKeylessWalletPackSetId({ walletId }: { walletId: string }) {
+  const packSetId = walletId.split(`${WALLET_TYPE_HD}-keyless-`)[1];
+  if (!packSetId) {
+    throw new OneKeyLocalError(
+      'getKeylessWalletPackSetId ERROR: packSetId is empty',
+    );
+  }
+  return packSetId;
+}
+
 export default {
   URL_ACCOUNT_ID,
+  buildKeylessWalletId,
+  isKeylessWallet,
+  getKeylessWalletPackSetId,
   buildAccountValueKey,
   parseAccountValueKey,
   buildUtxoAddressRelPath,

@@ -21,6 +21,7 @@ export enum EModalSettingRoutes {
   SettingDevCryptoGalleryModal = 'SettingDevCryptoGalleryModal',
   SettingDevCloudBackupGalleryModal = 'SettingDevCloudBackupGalleryModal',
   SettingDevAuthGalleryModal = 'SettingDevAuthGalleryModal',
+  SettingDevKeylessWalletGallery = 'SettingDevKeylessWalletGallery',
   SettingExportCustomNetworkConfig = 'SettingExportCustomNetworkConfig',
   SettingNotifications = 'SettingNotifications',
   SettingManageAccountActivity = 'SettingManageAccountActivity',

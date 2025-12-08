@@ -20,7 +20,7 @@ export function RegistrationID() {
       icon="CodeOutline"
       copyable
       title={registrationID}
-      subtitle="RegistrationID"
+      subtitle="JPush RegistrationID"
     />
   );
 }

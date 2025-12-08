@@ -220,6 +220,7 @@ class ServicePrime extends ServiceBase {
         ...v,
         email: userEmail, // TODO update from PrimeGlobalEffect
         displayEmail: userEmail,
+        keylessWalletId: serverUserInfo?.keylessWalletId,
         onekeyUserId: serverUserInfo?.userId,
         isEnablePrime: serverUserInfo?.isEnablePrime,
         isEnableSandboxPay: serverUserInfo?.isEnableSandboxPay,
@@ -314,7 +315,7 @@ class ServicePrime extends ServiceBase {
   async setPrimePersistAtomNotLoggedIn() {
     console.log('servicePrime.setPrimePersistAtomNotLoggedIn');
     await primePersistAtom.set(
-      (): IPrimePersistAtomData => primePersistAtomInitialValue,
+      (): IPrimePersistAtomData => primePersistAtomInitialValue, // TODO clone deep
     );
     await this.backgroundApi.serviceMasterPassword.clearLocalMasterPassword();
     await primeServerMasterPasswordStatusAtom.set((v) => ({

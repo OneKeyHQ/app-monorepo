@@ -5,8 +5,9 @@ import type {
   IDBUtxoAccount,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
 
-export function generateUUID() {
-  return uuid.v4() as string;
+export function generateUUID(options?: { removeDashes?: boolean }) {
+  const uuidString = uuid.v4() as string;
+  return options?.removeDashes ? uuidString.replace(/-/g, '') : uuidString;
 }
 
 export function generateLocalIndexedIdFunc() {

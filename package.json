@@ -149,6 +149,7 @@
     "react-virtualized": "^9.22.6",
     "rlp": "^3.0.0",
     "set-interval-async": "^3.0.3",
+    "shamir-secret-sharing": "^0.0.4",
     "socket.io-client": "^4.7.5",
     "sonner": "^1.4.41",
     "stream-browserify": "^3.0.0",

@@ -6,7 +6,7 @@ import {
 import biologyAuth from '@onekeyhq/shared/src/biologyAuth';
 import type { IBiologyAuth } from '@onekeyhq/shared/src/biologyAuth/types';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import secureStorageInstance from '@onekeyhq/shared/src/storage/instance/secureStorageInstance';
+import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 
 import { settingsPersistAtom } from '../../states/jotai/atoms/settings';
 
@@ -24,21 +24,21 @@ class BiologyAuthUtils implements IBiologyAuth {
   }
 
   savePassword = async (password: string) => {
-    if (!secureStorageInstance.supportSecureStorage()) return;
+    if (!(await appStorage.secureStorage.supportSecureStorage())) return;
     let text = await decodeSensitiveTextAsync({ encodedText: password });
     const settings = await settingsPersistAtom.get();
     text = await encodeSensitiveTextAsync({
       text,
       key: `${encodeKeyPrefix}${settings.sensitiveEncodeKey}`,
     });
-    await secureStorageInstance.setSecureItem('password', text);
+    await appStorage.secureStorage.setSecureItem('password', text);
   };
 
   getPassword = async () => {
-    if (!secureStorageInstance.supportSecureStorage()) {
+    if (!(await appStorage.secureStorage.supportSecureStorage())) {
       throw new OneKeyLocalError('No password');
     }
-    let text = await secureStorageInstance.getSecureItem('password');
+    let text = await appStorage.secureStorage.getSecureItem('password');
     if (text) {
       const settings = await settingsPersistAtom.get();
       text = await decodeSensitiveTextAsync({
@@ -52,8 +52,8 @@ class BiologyAuthUtils implements IBiologyAuth {
   };
 
   deletePassword = async () => {
-    if (!secureStorageInstance.supportSecureStorage()) return;
-    await secureStorageInstance.removeSecureItem('password');
+    if (!(await appStorage.secureStorage.supportSecureStorage())) return;
+    await appStorage.secureStorage.removeSecureItem('password');
   };
 }
 export const biologyAuthUtils = new BiologyAuthUtils();

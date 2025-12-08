@@ -15,6 +15,8 @@ module.exports = [
   'reown',
   'cloudfs',
   'getters',
+  'keyless',
+  'shamir',
   '0xxxxxxx',
   'Provideri',
   'franco',

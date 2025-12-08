@@ -95,6 +95,13 @@ const AuthGallery = LazyLoadPage(
     ),
 );
 
+const KeylessWalletGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/KeylessWalletGallery'
+    ),
+);
+
 const ExportCustomNetworkConfig = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Setting/pages/ExportCustomNetworkConfig'),
@@ -209,6 +216,10 @@ export const BasicModalSettingStack: IModalFlowNavigatorConfig<
   {
     name: EModalSettingRoutes.SettingDevAuthGalleryModal,
     component: AuthGallery,
+  },
+  {
+    name: EModalSettingRoutes.SettingDevKeylessWalletGallery,
+    component: KeylessWalletGallery,
   },
   {
     name: EModalSettingRoutes.SettingExportCustomNetworkConfig,

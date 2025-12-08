@@ -4151,6 +4151,13 @@ class ServiceAccount extends ServiceBase {
       [walletId: string]: { hash: string; xfp: string };
     } = {};
     for (const wallet of hdWallets) {
+      const isKeylessWallet = accountUtils.isKeylessWallet({
+        walletId: wallet.id,
+      });
+      if (isKeylessWallet) {
+        // eslint-disable-next-line no-continue
+        continue;
+      }
       try {
         const isHdWallet = accountUtils.isHdWallet({ walletId: wallet.id });
         if (isHdWallet) {
