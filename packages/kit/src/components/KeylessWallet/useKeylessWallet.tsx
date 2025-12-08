@@ -3,7 +3,10 @@ import { useCallback, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import { EPrimeEmailOTPScene } from '@onekeyhq/shared/src/consts/primeConsts';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  OneKeyLocalError,
+  PrimeSendEmailOTPCancelError,
+} from '@onekeyhq/shared/src/errors';
 import type {
   IAuthKeyPack,
   ICloudKeyPack,
@@ -91,7 +94,7 @@ export function useKeylessWallet() {
           scene: EPrimeEmailOTPScene.UpdateRebateWithdrawAddress,
           // scene: EPrimeEmailOTPScene.GetKeylessWalletAuthPack,
           onCancel: () => {
-            reject(new Error('User cancelled'));
+            reject(new PrimeSendEmailOTPCancelError());
           },
           onConfirm: async ({ code, uuid }) => {
             const result =

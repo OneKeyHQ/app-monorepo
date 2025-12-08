@@ -13,12 +13,12 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { PrimeLoginEmailCodeDialogV2 } from '../PrimeLoginEmailCodeDialogV2';
 
-export function PrimeLoginEmailDialogV2(props: {
+function PrimeLoginEmailDialogV2(props: {
   onComplete: () => void;
   onLoginSuccess?: () => void | Promise<void>;
   title?: string;
   description?: string;
-  onConfirm: (code: string) => void;
+  onConfirm?: (code: string) => void;
 }) {
   const { onComplete, onLoginSuccess, title, description, onConfirm } = props;
 

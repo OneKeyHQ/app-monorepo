@@ -8,6 +8,7 @@ import { LazyLoadPage } from '@onekeyhq/kit/src/components/LazyLoadPage';
 import { useSupabaseAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/supabase/useSupabaseAuth';
 import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { EPrimeEmailOTPScene } from '@onekeyhq/shared/src/consts/primeConsts';
+import { PrimeLoginDialogCancelError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
@@ -17,6 +18,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IPrimeUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import useAppNavigation from '../../hooks/useAppNavigation';
+// import PrimeLoginEmailDialogV2 from '../../views/Prime/components/PrimeLoginEmailDialogV2/PrimeLoginEmailDialogV2';
 
 import { getSupabaseClient } from './supabase/getSupabaseClient';
 
@@ -136,7 +138,7 @@ export function useOneKeyAuth() {
           resolve({ success: true });
         };
         const onCancelFn = () => {
-          reject(new Error('User cancelled'));
+          reject(new PrimeLoginDialogCancelError());
         };
         if (isLoggedIn) {
           void onLoginSuccessFn();
@@ -150,6 +152,8 @@ export function useOneKeyAuth() {
 
           // 跳转到登录页面
           const loginDialog = Dialog.show({
+            onCancel: onCancelFn,
+            onClose: onCancelFn,
             renderContent: (
               <PrimeLoginEmailDialogV2
                 title={intl.formatMessage({
@@ -162,8 +166,6 @@ export function useOneKeyAuth() {
                   void loginDialog.close();
                 }}
                 onLoginSuccess={onLoginSuccessFn}
-                onCancel={onCancelFn}
-                onClose={onCancelFn}
               />
             ),
           });
