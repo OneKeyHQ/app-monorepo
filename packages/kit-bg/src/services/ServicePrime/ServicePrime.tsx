@@ -322,6 +322,12 @@ class ServicePrime extends ServiceBase {
       ...v,
       isServerMasterPasswordSet: false,
     }));
+    // Clear authPack cache when user logs out
+    try {
+      await this.backgroundApi.serviceKeylessWallet.clearAuthPackCache();
+    } catch {
+      // Ignore errors when clearing cache
+    }
   }
 
   @backgroundMethod()

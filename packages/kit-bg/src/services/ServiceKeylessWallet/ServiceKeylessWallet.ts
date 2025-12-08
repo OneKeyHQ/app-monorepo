@@ -1,3 +1,5 @@
+import { isEqual } from 'lodash';
+
 import { mnemonicToEntropy } from '@onekeyhq/core/src/secret';
 import {
   backgroundClass,
@@ -21,7 +23,11 @@ import shamirUtils from '@onekeyhq/shared/src/keylessWallet/shamirUtils';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
+import { findMismatchedPaths } from '@onekeyhq/shared/src/utils/miscUtils';
+import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
+import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import { EPrimeTransferDataType } from '@onekeyhq/shared/types/prime/primeTransferTypes';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
@@ -432,11 +438,49 @@ class ServiceKeylessWallet extends ServiceBase {
   @backgroundMethod()
   async saveDevicePackToStorage(params: {
     devicePack: IDeviceKeyPack;
-  }): Promise<void> {
-    return keylessDeviceKeyStorage.saveDevicePackToStorage({
+  }): Promise<{ success: boolean; packSetInFromDevicePack: string }> {
+    await keylessDeviceKeyStorage.saveDevicePackToStorage({
       ...params,
       backgroundApi: this.backgroundApi,
     });
+    await timerUtils.wait(1000);
+
+    const savedDevicePack =
+      await keylessDeviceKeyStorage.getDevicePackFromStorage({
+        packSetId: params.devicePack.packSetId,
+        backgroundApi: this.backgroundApi,
+      });
+    if (!savedDevicePack?.encrypted) {
+      throw new OneKeyLocalError('Failed to save device pack to storage');
+    }
+    if (!isEqual(savedDevicePack, params.devicePack)) {
+      // Print mismatched fields
+      const mismatchedPaths = findMismatchedPaths(
+        savedDevicePack,
+        params.devicePack,
+      );
+      console.error(
+        '[ServiceKeylessWallet] Device pack mismatch detected:',
+        JSON.stringify(mismatchedPaths, null, 2),
+      );
+      console.error(
+        '[ServiceKeylessWallet] Saved device pack:',
+        JSON.stringify(savedDevicePack, null, 2),
+      );
+      console.error(
+        '[ServiceKeylessWallet] Expected device pack:',
+        JSON.stringify(params.devicePack, null, 2),
+      );
+      throw new OneKeyLocalError(
+        `Failed to save device pack to storage: ${String(
+          mismatchedPaths.length,
+        )} field(s) mismatch`,
+      );
+    }
+    return {
+      success: true,
+      packSetInFromDevicePack: savedDevicePack.packSetId,
+    };
   }
 
   /**
@@ -488,6 +532,187 @@ class ServiceKeylessWallet extends ServiceBase {
   @backgroundMethod()
   async clearAuthPackCache(params?: { packSetId?: string }): Promise<void> {
     return keylessAuthPackCache.clearAuthPackCache(params);
+  }
+
+  /**
+   * Get device pack from local storage.
+   * Returns null if not found.
+   */
+  @backgroundMethod()
+  async getKeylessDevicePack(params: {
+    packSetId: string;
+  }): Promise<IDeviceKeyPack | null> {
+    return this.getDevicePackFromStorage(params);
+  }
+
+  /**
+   * Get auth pack with fallback strategy:
+   * 1. Try memory cache first
+   * 2. If cache miss, return null (caller should use getAuthPackFromServerWithOTP to fetch via OTP)
+   */
+  @backgroundMethod()
+  async getKeylessAuthPack(params: {
+    packSetId: string;
+  }): Promise<IAuthKeyPack | null> {
+    const { packSetId } = params;
+
+    // 1. Try memory cache first
+    const cachedAuthPack = await this.getAuthPackFromCache({ packSetId });
+    if (cachedAuthPack) {
+      return cachedAuthPack;
+    }
+
+    // 2. Return null if cache miss (caller should use getAuthPackFromServerWithOTP to fetch via OTP)
+    return null;
+  }
+
+  /**
+   * Get auth pack from server with OTP verification.
+   * This method should be called when getKeylessAuthPack returns null.
+   * The caller should:
+   * 1. Call servicePrime.sendEmailOTP(EPrimeEmailOTPScene.GetKeylessWalletAuthPack) to send OTP
+   * 2. Show EmailOTPDialog to user for code input (via useOneKeyAuth().sendEmailOTP)
+   * 3. Call this method with the OTP code and uuid
+   * 4. The returned authPack will be automatically cached in memory
+   */
+  @backgroundMethod()
+  @toastIfError()
+  async getAuthPackFromServerWithOTP(params: {
+    packSetId: string;
+    emailOTP: string;
+    uuid: string;
+  }): Promise<IAuthKeyPack> {
+    const { packSetId, emailOTP, uuid } = params;
+
+    // Verify user is logged in
+    const primeUserInfo = await primePersistAtom.get();
+    if (
+      !primeUserInfo?.onekeyUserId ||
+      !primeUserInfo?.isLoggedIn ||
+      !primeUserInfo?.isLoggedInOnServer
+    ) {
+      throw new OneKeyLocalError('OneKeyID user is not logged in');
+    }
+
+    // Call server API to get authPack with OTP verification
+    const client = await this.backgroundApi.servicePrime.getOneKeyIdClient(
+      EServiceEndpointEnum.Prime,
+    );
+    const result = await client.post<
+      IApiClientResponse<{
+        authPack: IAuthKeyPack;
+      }>
+    >('/prime/v1/keyless-wallet/auth-pack', {
+      packSetId,
+      emailOTP,
+      uuid,
+    });
+
+    const responseData = result?.data?.data;
+    if (!responseData?.authPack) {
+      throw new OneKeyLocalError('Failed to get authPack from server');
+    }
+
+    const authPack = responseData.authPack;
+
+    // Verify packSetId matches
+    if (authPack.packSetId !== packSetId) {
+      throw new OneKeyLocalError('Pack set id does not match');
+    }
+
+    // Cache the authPack in memory
+    await this.cacheAuthPackInMemory({ authPack });
+
+    return authPack;
+  }
+
+  /**
+   * Upload auth pack to server with OTP verification.
+   * This method should be called during keyless wallet creation.
+   * The caller should:
+   * 1. Call servicePrime.sendEmailOTP(EPrimeEmailOTPScene.GetKeylessWalletAuthPack) to send OTP
+   * 2. Show EmailOTPDialog to user for code input (via useOneKeyAuth().sendEmailOTP)
+   * 3. Call this method with the OTP code and uuid
+   * 4. The authPack will be uploaded to server and cached in memory
+   */
+  @backgroundMethod()
+  @toastIfError()
+  async uploadAuthPackToServerWithOTP(params: {
+    authPack: IAuthKeyPack;
+    emailOTP: string;
+    uuid: string;
+  }): Promise<{
+    success: boolean;
+  }> {
+    const { authPack, emailOTP, uuid } = params;
+    const packSetId = authPack.packSetId;
+
+    // Verify user is logged in
+    const primeUserInfo = await primePersistAtom.get();
+    if (
+      !primeUserInfo?.onekeyUserId ||
+      !primeUserInfo?.isLoggedIn ||
+      !primeUserInfo?.isLoggedInOnServer
+    ) {
+      throw new OneKeyLocalError('OneKeyID user is not logged in');
+    }
+
+    // Serialize authPack to JSON string
+    const authPackString = stringUtils.stableStringify(authPack);
+
+    // Call server API to upload authPack with OTP verification
+    const client = await this.backgroundApi.servicePrime.getOneKeyIdClient(
+      EServiceEndpointEnum.Prime,
+    );
+    const result = await client.post<
+      IApiClientResponse<{
+        success: boolean;
+      }>
+    >('/prime/v1/keyless-wallet/auth-pack', {
+      packSetId,
+      authPack: authPackString,
+      emailOTP,
+      uuid,
+    });
+
+    const responseData = result?.data?.data;
+    const success = responseData?.success;
+    if (!success) {
+      throw new OneKeyLocalError('Failed to upload authPack to server');
+    }
+
+    // Cache the authPack in memory after successful upload
+    await this.cacheAuthPackInMemory({ authPack });
+
+    return {
+      success,
+    };
+  }
+
+  /**
+   * Get cloud pack from cloud backup.
+   * Returns null if not found or cloud backup is not available.
+   */
+  @backgroundMethod()
+  async getKeylessCloudPack(params: {
+    packSetId: string;
+  }): Promise<ICloudKeyPack | null> {
+    const { packSetId } = params;
+
+    // TODO login cloud drive
+    try {
+      const isSupportCloudBackup =
+        await this.backgroundApi.serviceCloudBackupV2.supportCloudBackup();
+      if (!isSupportCloudBackup) {
+        return null;
+      }
+
+      const cloudPayload = await this.restoreCloudKeyPack({ packSetId });
+      return cloudPayload?.cloudKeyPack || null;
+    } catch {
+      // Return null if cloud backup is not available or restore fails
+      return null;
+    }
   }
 }
 

@@ -172,9 +172,11 @@ export function useOneKeyAuth() {
   const sendEmailOTP = useCallback(
     async ({
       onConfirm,
+      onCancel,
       scene,
       description,
     }: {
+      onCancel?: () => void;
       onConfirm: ({
         code,
         uuid,
@@ -189,6 +191,12 @@ export function useOneKeyAuth() {
       return new Promise<void>((resolve) => {
         let uuid = '';
         const dialog = Dialog.show({
+          onCancel: () => {
+            onCancel?.();
+          },
+          onClose: () => {
+            onCancel?.();
+          },
           renderContent: (
             <EmailOTPDialog
               title={intl.formatMessage({

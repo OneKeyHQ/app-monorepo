@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState } from 'react';
 
-import { cloneDeep, isEqual, isPlainObject } from 'lodash';
+import { cloneDeep, isEqual } from 'lodash';
 
 import {
   Alert,
@@ -19,7 +19,9 @@ import {
   YStack,
   useClipboard,
 } from '@onekeyhq/components';
+import type { IKeyOfIcons } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useKeylessWallet } from '@onekeyhq/kit/src/components/KeylessWallet/useKeylessWallet';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import type {
   IDBIndexedAccount,
@@ -32,51 +34,10 @@ import type {
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import secureStorage from '@onekeyhq/shared/src/storage/secureStorage';
+import { findMismatchedPaths } from '@onekeyhq/shared/src/utils/miscUtils';
 import { EPrimeTransferDataType } from '@onekeyhq/shared/types/prime/primeTransferTypes';
 
 import { Layout } from './utils/Layout';
-
-function findMismatchedPaths(
-  obj1: unknown,
-  obj2: unknown,
-  path = '',
-): { path: string; value1: unknown; value2: unknown }[] {
-  const mismatches: { path: string; value1: unknown; value2: unknown }[] = [];
-
-  if (isEqual(obj1, obj2)) {
-    return mismatches;
-  }
-
-  if (!isPlainObject(obj1) || !isPlainObject(obj2)) {
-    mismatches.push({ path: path || 'root', value1: obj1, value2: obj2 });
-    return mismatches;
-  }
-
-  const allKeys = new Set([
-    ...Object.keys(obj1 as object),
-    ...Object.keys(obj2 as object),
-  ]);
-
-  for (const key of allKeys) {
-    const currentPath = path ? `${path}.${key}` : key;
-    const value1 = (obj1 as Record<string, unknown>)[key];
-    const value2 = (obj2 as Record<string, unknown>)[key];
-
-    if (!isEqual(value1, value2)) {
-      if (isPlainObject(value1) && isPlainObject(value2)) {
-        mismatches.push(...findMismatchedPaths(value1, value2, currentPath));
-      } else {
-        mismatches.push({
-          path: currentPath,
-          value1: value1 ? `${value1.toString().slice(0, 11)}...` : '',
-          value2: value2 ? `${value2.toString().slice(0, 11)}...` : '',
-        });
-      }
-    }
-  }
-
-  return mismatches;
-}
 
 // Helper function to compare packs with stable fields only
 function isPacksEqual(
@@ -92,6 +53,319 @@ function isPacksEqual(
   };
   return isEqual(normalize(packs1), normalize(packs2));
 }
+
+type IStepStatus = 'pending' | 'loading' | 'success' | 'error';
+
+interface IStepState {
+  status: IStepStatus;
+  error?: string;
+  result?: unknown;
+}
+
+const KeylessWalletCreationFlow = () => {
+  const { generatePacks, saveDevicePack, uploadCloudPack, uploadAuthPack } =
+    useKeylessWallet();
+
+  const [step1, setStep1] = useState<IStepState>({ status: 'pending' });
+  const [step2, setStep2] = useState<IStepState>({ status: 'pending' });
+  const [step3, setStep3] = useState<IStepState>({ status: 'pending' });
+  const [step4, setStep4] = useState<IStepState>({ status: 'pending' });
+
+  const [generatedPacks, setGeneratedPacks] =
+    useState<IKeylessWalletPacks | null>(null);
+  const [packSetInFromDevicePack, setPackSetInFromDevicePack] =
+    useState<string>('');
+  const [packSetInFromCloudPack, setPackSetInFromCloudPack] =
+    useState<string>('');
+
+  const handleStep1 = useCallback(async () => {
+    try {
+      setStep1({ status: 'loading' });
+      const packs = await generatePacks();
+      setGeneratedPacks(packs);
+      setStep1({ status: 'success', result: packs });
+    } catch (e: any) {
+      const errorMessage = (e as Error)?.message ?? 'Unknown error';
+      setStep1({ status: 'error', error: errorMessage });
+    }
+  }, [generatePacks]);
+
+  const handleStep2 = useCallback(async () => {
+    if (!generatedPacks) {
+      setStep2({ status: 'error', error: 'No packs generated' });
+      return;
+    }
+    try {
+      setStep2({ status: 'loading' });
+      const result = await saveDevicePack({
+        devicePack: generatedPacks.deviceKeyPack,
+      });
+      setPackSetInFromDevicePack(result.packSetInFromDevicePack);
+      setStep2({ status: 'success', result });
+    } catch (e: any) {
+      const errorMessage = (e as Error)?.message ?? 'Unknown error';
+      setStep2({ status: 'error', error: errorMessage });
+      console.error(e);
+    }
+  }, [generatedPacks, saveDevicePack]);
+
+  const handleStep3 = useCallback(async () => {
+    if (!generatedPacks) {
+      setStep3({ status: 'error', error: 'No packs generated' });
+      return;
+    }
+    try {
+      setStep3({ status: 'loading' });
+      const result = await uploadCloudPack({
+        cloudPack: generatedPacks.cloudKeyPack,
+      });
+      setPackSetInFromCloudPack(result.packSetInFromCloudPack);
+      setStep3({ status: 'success', result });
+    } catch (e: any) {
+      const errorMessage = (e as Error)?.message ?? 'Unknown error';
+      setStep3({ status: 'error', error: errorMessage });
+      console.error(e);
+    }
+  }, [generatedPacks, uploadCloudPack]);
+
+  const handleStep4 = useCallback(async () => {
+    if (!generatedPacks) {
+      setStep4({ status: 'error', error: 'No packs generated' });
+      return;
+    }
+    if (!packSetInFromDevicePack || !packSetInFromCloudPack) {
+      setStep4({
+        status: 'error',
+        error: 'Previous steps not completed',
+      });
+      return;
+    }
+    try {
+      setStep4({ status: 'loading' });
+      const result = await uploadAuthPack({
+        authPack: generatedPacks.authKeyPack,
+        packSetInFromCloudPack,
+        packSetInFromDevicePack,
+      });
+      setStep4({ status: 'success', result });
+    } catch (e: any) {
+      const errorMessage = (e as Error)?.message ?? 'Unknown error';
+      setStep4({ status: 'error', error: errorMessage });
+      console.error(e);
+    }
+  }, [
+    generatedPacks,
+    packSetInFromCloudPack,
+    packSetInFromDevicePack,
+    uploadAuthPack,
+  ]);
+
+  const resetFlowStatus = useCallback(() => {
+    setStep1({ status: 'pending' });
+    setStep2({ status: 'pending' });
+    setStep3({ status: 'pending' });
+    setStep4({ status: 'pending' });
+    setGeneratedPacks(null);
+    setPackSetInFromDevicePack('');
+    setPackSetInFromCloudPack('');
+  }, []);
+
+  const renderStep = (
+    stepNumber: number,
+    title: string,
+    state: IStepState,
+    onPress: () => void,
+    disabled: boolean,
+  ) => {
+    const getStatusIcon = (): IKeyOfIcons => {
+      switch (state.status) {
+        case 'success':
+          return 'CheckRadioOutline';
+        case 'error':
+          return 'ErrorOutline';
+        case 'loading':
+          return 'RefreshCcwOutline';
+        default:
+          return 'CirclePlaceholderOnOutline';
+      }
+    };
+
+    const getStatusColor = () => {
+      switch (state.status) {
+        case 'success':
+          return '$iconSuccess';
+        case 'error':
+          return '$iconCritical';
+        case 'loading':
+          return '$iconSubdued';
+        default:
+          return '$iconDisabled';
+      }
+    };
+
+    return (
+      <XStack
+        gap="$3"
+        p="$3"
+        borderRadius="$2"
+        bg={(() => {
+          switch (state.status) {
+            case 'success':
+              return '$bgSuccessSubdued';
+            case 'error':
+              return '$bgCriticalSubdued';
+            default:
+              return '$bgSubdued';
+          }
+        })()}
+        alignItems="center"
+      >
+        <Icon name={getStatusIcon()} size="$5" color={getStatusColor()} />
+        <YStack flex={1} gap="$1">
+          <SizableText size="$bodyMd" fontWeight="600">
+            Step {stepNumber}: {title}
+          </SizableText>
+          {(() => {
+            if (state.status === 'error' && state.error) {
+              return (
+                <SizableText size="$bodySm" color="$textCritical">
+                  Error: {state.error}
+                </SizableText>
+              );
+            }
+            if (state.status === 'success') {
+              return (
+                <SizableText size="$bodySm" color="$textSuccess">
+                  Success
+                </SizableText>
+              );
+            }
+            if (state.status === 'loading') {
+              return (
+                <SizableText size="$bodySm" color="$textSubdued">
+                  Loading...
+                </SizableText>
+              );
+            }
+            return null;
+          })()}
+        </YStack>
+        <Button
+          size="small"
+          variant={state.status === 'success' ? 'secondary' : 'primary'}
+          disabled={
+            disabled || state.status === 'loading' || state.status === 'success'
+          }
+          onPress={onPress}
+        >
+          {(() => {
+            if (state.status === 'loading') return 'Loading...';
+            if (state.status === 'success') return 'Done';
+            return 'Execute';
+          })()}
+        </Button>
+      </XStack>
+    );
+  };
+
+  return (
+    <YStack gap="$4">
+      <SizableText size="$bodyMd" color="$textSubdued">
+        Complete Keyless Wallet Creation Flow: Generate packs → Save device pack
+        → Upload cloud pack → Upload auth pack
+      </SizableText>
+
+      <XStack gap="$2" flexWrap="wrap">
+        <Button size="small" variant="secondary" onPress={resetFlowStatus}>
+          Reset Flow Status
+        </Button>
+
+        <Button
+          size="small"
+          variant="secondary"
+          onPress={async () => {
+            await backgroundApiProxy.servicePassword.clearCachedPassword();
+            Toast.success({
+              title: 'Memory Passcode Cleared',
+              message: 'Memory passcode has been cleared.',
+            });
+          }}
+        >
+          Clear Memory Passcode
+        </Button>
+      </XStack>
+
+      <YStack gap="$3">
+        {renderStep(1, 'Generate Packs', step1, handleStep1, false)}
+        {renderStep(
+          2,
+          'Save Device Pack',
+          step2,
+          handleStep2,
+          step1.status !== 'success',
+        )}
+        {renderStep(
+          3,
+          'Upload Cloud Pack',
+          step3,
+          handleStep3,
+          step2.status !== 'success',
+        )}
+        {renderStep(
+          4,
+          'Upload Auth Pack',
+          step4,
+          handleStep4,
+          step3.status !== 'success',
+        )}
+      </YStack>
+
+      {step4.status === 'success' ? (
+        <Alert
+          type="success"
+          title="Complete!"
+          description="All steps completed successfully. Keyless wallet creation flow is done."
+        />
+      ) : null}
+
+      {generatedPacks ? (
+        <YStack gap="$2" p="$3" borderRadius="$2" bg="$bgSubdued">
+          <SizableText size="$headingSm">Generated Packs Info:</SizableText>
+          <SizableText size="$bodySm" color="$textSubdued">
+            packSetId: {generatedPacks.deviceKeyPack.packSetId}
+          </SizableText>
+          {packSetInFromDevicePack ? (
+            <SizableText size="$bodySm" color="$textSubdued">
+              Device Pack Set ID: {packSetInFromDevicePack}
+            </SizableText>
+          ) : null}
+          {packSetInFromCloudPack ? (
+            <SizableText size="$bodySm" color="$textSubdued">
+              Cloud Pack Set ID: {packSetInFromCloudPack}
+            </SizableText>
+          ) : null}
+          <Button
+            size="small"
+            variant="secondary"
+            onPress={() => {
+              Dialog.debugMessage({
+                debugMessage: {
+                  generatedPacks,
+                  step1: step1.result,
+                  step2: step2.result,
+                  step3: step3.result,
+                  step4: step4.result,
+                },
+              });
+            }}
+          >
+            View All Results
+          </Button>
+        </YStack>
+      ) : null}
+    </YStack>
+  );
+};
 
 const KeylessWalletGallery = () => {
   const navigation = useAppNavigation();
@@ -1348,6 +1622,10 @@ const KeylessWalletGallery = () => {
               ) : null}
             </YStack>
           ),
+        },
+        {
+          title: 'Complete Keyless Wallet Creation Flow',
+          element: <KeylessWalletCreationFlow />,
         },
       ]}
     />

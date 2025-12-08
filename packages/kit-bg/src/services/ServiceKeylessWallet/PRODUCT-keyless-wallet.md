@@ -28,9 +28,9 @@
    - 首选调用 `getDevicePackFromStorage({ packSetId })`，内部会优先从 `secureStorage` 读取，若不支持则从 `appStorage` 读取。
    - 若读取失败但成功拿到另外任意两个 pack，调用 `restoreKeylessWallet()` 的组合恢复 device pack，再调用 `saveDevicePackToStorage()` 保持与创建流程一致的写入方式。
 2. **authPack**
-   - 优先读 `ServiceKeylessWallet` 的内存缓存。
-   - 若缓存缺失且设备支持云盘静默访问，调用 `restoreCloudKeyPack(packSetId)` 下载 cloud pack，使用 `keylessWalletUtils.restoreFromAuthAndCloud()` 重建 `authPack`，并通过 `cacheAuthPackInMemory()` 刷新内存缓存。
-   - 若仍失败，发起服务器接口请求 OTP -> 下发 `authPack`，拿到后立即调用 `cacheAuthPackInMemory()`，杜绝任何形式的本地持久化。
+   - 优先读 `ServiceKeylessWallet` 的内存缓存（通过 `getKeylessAuthPack()`）。
+   - 若缓存缺失，调用 `getAuthPackFromServerWithOTP()` 通过 OTP 验证从服务器获取 `authPack`，获取后自动调用 `cacheAuthPackInMemory()` 缓存到内存，杜绝任何形式的本地持久化。
+   - OTP 流程：调用 `servicePrime.sendEmailOTP(EPrimeEmailOTPScene.GetKeylessWalletAuthPack)` 发送验证码，前端通过 `useOneKeyAuth().sendEmailOTP()` 弹出 `EmailOTPDialog`，用户输入验证码后调用 `getAuthPackFromServerWithOTP()`。
 3. **cloudPack**
    - 仅在以下场景才尝试读取：① 指纹/FaceID 失效导致 device pack 无法从 secureStorage 解锁；② 内存里不存在与当前 `packSetId` 匹配的 `authPackCache`。此时可通过 `restoreCloudKeyPack(packSetId)` 拉取 cloud pack，配合其他 pack 恢复缺失部分。
    - 若云盘不可用且仍需 cloud pack，直接提示用户前往支持云盘的平台执行创建或恢复，避免在非云端环境重复备份。
@@ -91,10 +91,10 @@
 
 ---
 
-## OTP 触发点（TODO）
-- 初始化阶段上传 `authPack` 时，需要调用 OTP 验证接口（复用现有登录安全流程）。
-- 启用阶段的“服务器拉取 `authPack`”同样需要 OTP，以确认是本人操作。
-- 具体接口需与后台协商后补充到 `ServiceKeylessWallet`，暂以 TODO 标注。
+## OTP 触发点
+- **初始化阶段上传 `authPack`**：通过 `uploadAuthPackToServerWithOTP()` 方法实现，需要 OTP 验证（复用现有登录安全流程）。
+- **启用阶段的“服务器拉取 `authPack`”**：通过 `getAuthPackFromServerWithOTP()` 方法实现，需要 OTP 验证以确认是本人操作。
+- 使用 `EPrimeEmailOTPScene.GetKeylessWalletAuthPack` 作为 OTP 场景标识。
 
 ---
 
@@ -148,7 +148,7 @@
 ## 开发待办
 - [x] `ServiceKeylessWallet` 内实现 `saveDevicePackToStorage()`：内部自带 secureStorage / appStorage 兜底逻辑，两套存储保持独立、互不调用。
 - [x] `ServiceKeylessWallet` 内实现 `cacheAuthPackInMemory()`，并串接云盘/OTP 缺失缓存的补链逻辑。
-- [ ] 定义三把 key 拉取方法（`getKeylessDevicePack()`、`getKeylessAuthPack()`、`getKeylessCloudPack()`），对 device/auth/cloud 数据来源进行封装，便于启用/恢复流程复用。
+- [x] 定义三把 key 拉取方法（`getKeylessDevicePack()`、`getKeylessAuthPack()`、`getKeylessCloudPack()`），对 device/auth/cloud 数据来源进行封装，便于启用/恢复流程复用。
 - [ ] 接入 `servicePrime.sendEmailOTP()` + `useLoginOneKeyId().sendEmailOTP()`，完成初始化、启用流程的验证码验证。
 - [ ] 在前端界面呈现 OneKeyID 登录状态、云盘能力、OTP 弹窗，串联 Prime Transfer 发送/接收交互。
 - [ ] 在 gallery 提供带二次确认的测试按钮，清除本地 devicePack（secureStorage + appStorage 兜底）并删除云盘上的 cloudPack（调用 backup 服务删除接口）。
@@ -172,8 +172,28 @@
   - 已实现 `cacheAuthPackInMemory()` 方法：使用 `sensitiveEncodeKey` + session passcode 组合密钥加密 authPack，存储在内存 Map 中（key 为 packSetId）。
   - 已实现 `getAuthPackFromCache()` 方法：从内存缓存读取并解密 authPack，缓存未命中返回 null。
   - 已实现 `clearAuthPackCache()` 方法：支持清空指定 packSetId 的缓存或全部缓存，应在用户登出时调用。
+  - 实现位置：`packages/kit-bg/src/services/ServiceKeylessWallet/utils/keylessAuthPackCache.ts`
+
+- [x] 在用户登出流程中调用 `clearAuthPackCache()`：
+  - 已在 `ServicePrime.setPrimePersistAtomNotLoggedIn()` 中添加 `clearAuthPackCache()` 调用，确保用户登出时清理 authPack 缓存。
+  - 该方法是统一处理登出状态的地方，无论通过哪个路径登出都会清理缓存，避免跨账号泄露。
+  - 实现位置：`packages/kit-bg/src/services/ServicePrime/ServicePrime.tsx`
+
+- [x] 定义三把 key 拉取方法：
+  - 已实现 `getKeylessDevicePack()` 方法：从本地存储读取 device pack。
+  - 已实现 `getKeylessAuthPack()` 方法：优先从内存缓存读取，缓存缺失返回 null（需通过 OTP 获取）。
+  - 已实现 `getAuthPackFromServerWithOTP()` 方法：通过 OTP 验证从服务器获取 authPack，获取后自动缓存到内存。
+  - 已实现 `getKeylessCloudPack()` 方法：从云盘备份读取 cloud pack，不支持或失败返回 null。
   - 实现位置：`packages/kit-bg/src/services/ServiceKeylessWallet/ServiceKeylessWallet.ts`
 
+- [x] 接入 OTP 方式获取和上传 authPack：
+  - 已添加 `EPrimeEmailOTPScene.GetKeylessWalletAuthPack` OTP 场景常量。
+  - 已实现 `getAuthPackFromServerWithOTP()` 方法：接收 OTP code 和 uuid，调用服务器接口获取 authPack，获取成功后自动调用 `cacheAuthPackInMemory()` 缓存到内存。
+  - 已实现 `uploadAuthPackToServerWithOTP()` 方法：接收 authPack 对象、OTP code 和 uuid，将 authPack 序列化为 JSON 字符串后上传到服务器，上传成功后自动缓存到内存。
+  - 使用流程：
+    - **获取流程**：调用方通过 `servicePrime.sendEmailOTP(EPrimeEmailOTPScene.GetKeylessWalletAuthPack)` 发送验证码，前端通过 `useOneKeyAuth().sendEmailOTP()` 弹出 `EmailOTPDialog`，用户输入验证码后调用 `getAuthPackFromServerWithOTP()`。
+    - **上传流程**：调用方通过 `servicePrime.sendEmailOTP(EPrimeEmailOTPScene.GetKeylessWalletAuthPack)` 发送验证码，前端通过 `useOneKeyAuth().sendEmailOTP()` 弹出 `EmailOTPDialog`，用户输入验证码后调用 `uploadAuthPackToServerWithOTP()`。
+  - 实现位置：`packages/kit-bg/src/services/ServiceKeylessWallet/ServiceKeylessWallet.ts`、`packages/shared/src/consts/primeConsts.ts`
+
 ## 下一步
-- [ ] 在用户登出流程中调用 `clearAuthPackCache()`，确保缓存清理。
-- [ ] 定义三把 key 拉取方法（`getKeylessDevicePack()`、`getKeylessAuthPack()`、`getKeylessCloudPack()`），对 device/auth/cloud 数据来源进行封装，便于启用/恢复流程复用。
+- [ ] 在前端界面实现完整的启用流程：调用 `getKeylessAuthPack()`，若返回 null 则触发 OTP 流程获取 authPack。
