@@ -64,7 +64,6 @@
     "@glif/filecoin-rpc-client": "3.0.2",
     "@intercom/messenger-js-sdk": "^0.0.14",
     "@metamask/eth-sig-util": "5.1.0",
-    "@morpho-org/bundler-sdk-ethers": "^1.0.3",
     "@mysten/sui": "1.28.0",
     "@ngraveio/bc-ur": "^1.1.13",
     "@nktkas/hyperliquid": "0.24.2",

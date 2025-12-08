@@ -169,7 +169,7 @@ const stakingConfig: IStakingConfig = {
         },
       },
       [EEarnProviderEnum.Stakefish]: {
-        supportedSymbols: ['ETH'],
+        supportedSymbols: ['ETH', 'POL'],
         configs: {
           ETH: {
             enabled: true,
@@ -178,6 +178,10 @@ const stakingConfig: IStakingConfig = {
             withdrawWithTx: true,
             claimWithTx: true,
             allowPartialWithdraw: true,
+          },
+          POL: {
+            ...commonStakeConfigs.POL,
+            claimWithTx: true,
           },
         },
       },
