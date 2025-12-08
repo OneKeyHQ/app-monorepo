@@ -1,42 +1,76 @@
-/* eslint-disable no-useless-constructor, @typescript-eslint/no-useless-constructor */
+// Mock for react-native-mmkv
+// In-memory storage implementation for MMKV interface
 export class MMKV {
-  constructor(_options?: { id?: string }) {
-    // Mock implementation
+  private storage: Map<string, boolean | string | number | ArrayBuffer>;
+
+  private listeners: Set<(changedKey: string) => void>;
+
+  constructor() {
+    this.storage = new Map();
+    this.listeners = new Set();
   }
 
-  static createMMKV(_options?: { id?: string }) {
-    return new MMKV(_options);
+  set(key: string, value: boolean | string | number | ArrayBuffer): void {
+    this.storage.set(key, value);
+    this.notifyListeners(key);
   }
 
-  set(_key: string, _value: string | number | boolean): void {
-    // Mock implementation
+  getString(key: string): string | undefined {
+    const value = this.storage.get(key);
+    return typeof value === 'string' ? value : undefined;
   }
 
-  getString(_key: string): string | undefined {
-    // Mock implementation
-    return undefined;
+  getNumber(key: string): number | undefined {
+    const value = this.storage.get(key);
+    return typeof value === 'number' ? value : undefined;
   }
 
-  getNumber(_key: string): number | undefined {
-    // Mock implementation
-    return undefined;
+  getBoolean(key: string): boolean | undefined {
+    const value = this.storage.get(key);
+    return typeof value === 'boolean' ? value : undefined;
   }
 
-  getBoolean(_key: string): boolean | undefined {
-    // Mock implementation
-    return undefined;
-  }
-
-  remove(_key: string): void {
-    // Mock implementation
-  }
-
-  clearAll(): void {
-    // Mock implementation
+  getBuffer(key: string): ArrayBuffer | undefined {
+    const value = this.storage.get(key);
+    return value as ArrayBuffer | undefined;
   }
 
   getAllKeys(): string[] {
-    // Mock implementation
-    return [];
+    return Array.from(this.storage.keys());
+  }
+
+  recrypt(_key: string | undefined): void {
+    throw new Error('Method not implemented.');
+  }
+
+  remove(key: string): boolean {
+    const result = this.storage.delete(key);
+    this.notifyListeners(key);
+    return result;
+  }
+
+  contains(key: string): boolean {
+    return this.storage.has(key);
+  }
+
+  clearAll(): void {
+    const keys = Array.from(this.storage.keys());
+    this.storage.clear();
+    keys.forEach((key) => this.notifyListeners(key));
+  }
+
+  addOnValueChangedListener(listener: (changedKey: string) => void): {
+    remove: () => void;
+  } {
+    this.listeners.add(listener);
+    return {
+      remove: () => {
+        this.listeners.delete(listener);
+      },
+    };
+  }
+
+  private notifyListeners(key: string): void {
+    this.listeners.forEach((listener) => listener(key));
   }
 }
