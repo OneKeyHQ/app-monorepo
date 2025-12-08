@@ -37,10 +37,12 @@ RCT_EXPORT_MODULE();
     
     NSString *urlString = @"http://localhost:8082/apps/mobile/background.bundle?platform=ios&dev=true&lazy=false&minify=false&inlineSourceMap=false&modulesOnly=false&runModule=true&excludeSource=true&sourcePaths=url-server&app=so.onekey.wallet&transform.routerRoot=app&transform.engine=hermes&transform.bytecode=1&unstable_transformProfile=hermes-stable";
     NSURL *jsCodeLocation = [NSURL URLWithString:urlString];
-    backgroundRootView = [[RCTRootView alloc] initWithBundleURL:jsCodeLocation
-                                                      moduleName:@"background"
-                                               initialProperties:nil
-                                                   launchOptions:nil];
+    dispatch_async(dispatch_get_main_queue(), ^{
+      backgroundRootView = [[RCTRootView alloc] initWithBundleURL:jsCodeLocation
+                                                       moduleName:@"background"
+                                                initialProperties:nil
+                                                    launchOptions:nil];
+    });
 }
 
 RCT_EXPORT_METHOD(sendToUI:(NSDictionary *)msg)
