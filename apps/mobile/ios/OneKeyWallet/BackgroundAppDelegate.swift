@@ -19,12 +19,8 @@ class BackgroundAppDelegate: ExpoAppDelegate {
       self.reactNativeFactory = factory
       self.bindReactNativeFactory(factory)
 
-      let window = UIWindow(frame: UIScreen.main.bounds)
-      self.window = window
-      factory.startReactNative(
+      factory.startBackgroundReactNative(
         withModuleName: BackgroundReactNativeDelegate.BACKGROUND_BUNDLE_NAME,
-        in: window,
-        launchOptions: nil
       )
     }
   }
