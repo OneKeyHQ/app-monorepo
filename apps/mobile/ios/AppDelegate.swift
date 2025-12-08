@@ -14,6 +14,9 @@ public class AppDelegate: ExpoAppDelegate {
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
   ) -> Bool {
     LaunchOptionsManager.sharedInstance().saveStartupTime(NSNumber(value: Date().timeIntervalSince1970))
+    DispatchQueue.global(qos: .userInitiated).async {
+      BackgroundRunnerModule.sharedInstance().startBackgroundRunner()
+    }
     let delegate = ReactNativeDelegate()
     let factory = ExpoReactNativeFactory(delegate: delegate)
     delegate.dependencyProvider = RCTAppDependencyProvider()
