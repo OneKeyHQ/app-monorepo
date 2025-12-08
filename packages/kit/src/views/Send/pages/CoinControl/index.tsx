@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
@@ -185,23 +185,36 @@ function CoinControlPage() {
   // Memoize utxoList to prevent dependency issues
   const utxoList: IUtxoInfo[] = useMemo(() => result ?? [], [result]);
 
-  // Initialize selected UTXOs from atom (only on mount)
-  const initialSelectedUtxos = useMemo(() => {
+  // Track if initial selection has been applied
+  const hasInitializedRef = useRef(false);
+
+  // State management - stores UTXO keys in "txid:vout" format
+  const [selectedUTXOs, setSelectedUTXOs] = useState<Set<string>>(new Set());
+
+  // Initialize selected UTXOs when utxoList is loaded
+  // Priority: 1. Use saved selection from atom if exists 2. Default to select all
+  useEffect(() => {
+    if (hasInitializedRef.current || utxoList.length === 0) {
+      return;
+    }
+    hasInitializedRef.current = true;
+
+    // Check if there's a saved selection in atom for this account/network
     if (
       selectedUTXOsFromAtom &&
       selectedUTXOsFromAtom.networkId === networkId &&
       selectedUTXOsFromAtom.accountId === accountId &&
       selectedUTXOsFromAtom.selectedUtxoKeys.length > 0
     ) {
-      return new Set(selectedUTXOsFromAtom.selectedUtxoKeys);
+      // Use saved selection
+      setSelectedUTXOs(new Set(selectedUTXOsFromAtom.selectedUtxoKeys));
+    } else {
+      // Default: select all UTXOs
+      setSelectedUTXOs(
+        new Set(utxoList.map((utxo) => generateUtxoKey(utxo.txid, utxo.vout))),
+      );
     }
-    return new Set<string>();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Only compute on mount
-
-  // State management - stores UTXO keys in "txid:vout" format
-  const [selectedUTXOs, setSelectedUTXOs] =
-    useState<Set<string>>(initialSelectedUtxos);
+  }, [utxoList, selectedUTXOsFromAtom, networkId, accountId]);
   const [sortType, setSortType] = useState<ESortType>(ESortType.NewestFirst);
 
   // Sorted data based on current sort type
@@ -430,7 +443,9 @@ function CoinControlPage() {
 
           {/* Done button */}
           <Button variant="primary" onPress={handleDone}>
-            Done
+            {intl.formatMessage({
+              id: ETranslations.global_done,
+            })}
           </Button>
         </XStack>
       </Page.Footer>
