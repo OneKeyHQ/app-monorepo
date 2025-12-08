@@ -51,6 +51,8 @@ function PortfolioContainer() {
     <YStack gap="$8" px="$5" py="$3">
       <PopularTrading />
       <EarnListView />
+      <Upgrade />
+      <SupportHub />
     </YStack>
   );
 }
