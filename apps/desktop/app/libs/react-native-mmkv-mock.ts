@@ -27,7 +27,7 @@ export class MMKV {
     return undefined;
   }
 
-  delete(_key: string): void {
+  remove(_key: string): void {
     // Mock implementation
   }
 
