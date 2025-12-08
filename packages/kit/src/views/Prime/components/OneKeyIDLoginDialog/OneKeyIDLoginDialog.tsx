@@ -20,10 +20,7 @@ import { OneKeyIDVerifyCodeContent } from './OneKeyIDVerifyCodeContent';
 
 type IView = 'login' | 'verify';
 
-export type IOneKeyIDLoginDialogVariant = 'keylessWallet' | 'default';
-
 export interface IOneKeyIDLoginDialogProps {
-  variant?: IOneKeyIDLoginDialogVariant;
   /** Initial view to display. Defaults to 'login'. Use 'verify' to skip email input (requires email prop). */
   initialView?: IView;
   /** Email address to use when initialView is 'verify'. */
@@ -35,7 +32,6 @@ export interface IOneKeyIDLoginDialogProps {
 }
 
 export function OneKeyIDLoginDialog({
-  variant = 'default',
   initialView = 'login',
   email: emailProp,
   onLoginSuccess,
@@ -47,7 +43,8 @@ export function OneKeyIDLoginDialog({
 
   const { getAccessToken, useLoginWithEmail } = useOneKeyAuth();
 
-  const { sendCode, loginWithCode: supabaseLoginWithCode } = useLoginWithEmail();
+  const { sendCode, loginWithCode: supabaseLoginWithCode } =
+    useLoginWithEmail();
 
   // Wrap loginWithCode to ensure email is always provided
   const loginWithCode = useCallback(
@@ -99,9 +96,6 @@ export function OneKeyIDLoginDialog({
         id: ETranslations.prime_enter_verification_code,
       });
     }
-    if (variant === 'keylessWallet') {
-      return 'Create keyless wallet';
-    }
     return intl.formatMessage({ id: ETranslations.prime_signup_login });
   };
   const title = getTitle();
@@ -125,10 +119,7 @@ export function OneKeyIDLoginDialog({
                   filter: 'blur(4px)',
                 }}
               >
-                <OneKeyIDLoginContent
-                  variant={variant}
-                  onEmailSubmit={handleEmailSubmit}
-                />
+                <OneKeyIDLoginContent onEmailSubmit={handleEmailSubmit} />
               </YStack>
             ) : (
               <YStack

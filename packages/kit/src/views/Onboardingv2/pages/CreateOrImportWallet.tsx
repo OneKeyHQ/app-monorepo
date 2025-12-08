@@ -35,6 +35,7 @@ import externalWalletLogoUtils from '@onekeyhq/shared/src/utils/externalWalletLo
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useOneKeyAuth } from '../../../components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { TermsAndPrivacy } from '../../Onboarding/pages/GetStarted/components';
 import { showOneKeyIDLoginDialog } from '../../Prime/components/OneKeyIDLoginDialog';
 import { OnboardingLayout } from '../components/OnboardingLayout';
 
@@ -241,7 +242,6 @@ export default function CreateOrImportWallet() {
     // Step 2.1: Ensure user is logged in to OneKey ID
     if (!isLoggedIn) {
       showOneKeyIDLoginDialog({
-        variant: 'keylessWallet',
         onLoginSuccess: proceedAfterLogin,
       });
     } else {
@@ -622,6 +622,9 @@ export default function CreateOrImportWallet() {
             </Card>
           </OnboardingLayout.ConstrainedContent>
         </OnboardingLayout.Body>
+        {/* <OnboardingLayout.Footer>
+          {fullOptions ? <TermsAndPrivacy /> : null}
+        </OnboardingLayout.Footer> */}
       </OnboardingLayout>
     </Page>
   );
