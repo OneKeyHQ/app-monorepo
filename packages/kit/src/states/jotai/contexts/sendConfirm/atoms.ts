@@ -133,6 +133,7 @@ export interface ISelectedUTXOsAtomValue {
   networkId: string;
   accountId: string;
   selectedUtxoKeys: string[]; // Format: "txid:vout"
+  selectedUtxoTotalValue: string; // Total value of selected UTXOs (in smallest unit, e.g. satoshi)
   timestamp: number;
 }
 

@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
@@ -33,7 +33,7 @@ import type {
   IModalSendParamList,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import { formatDateFns } from '@onekeyhq/shared/src/utils/dateUtils';
+import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 
 import { SendConfirmProviderMirror } from '../../components/SendConfirmProvider/SendConfirmProviderMirror';
 
@@ -48,12 +48,11 @@ enum ESortType {
 }
 
 // Format blockTime to readable date
-// - If blockTime exists: format as "October 21, 2025 at 11:21"
 // - If no blockTime and confirmations = 0: show "Pending"
 // - Otherwise: show "-"
 function formatBlockTime(blockTime?: number, confirmations?: number): string {
   if (blockTime) {
-    return formatDateFns(new Date(blockTime));
+    return formatDate(new Date(blockTime));
   }
   if (confirmations === 0) {
     return appLocale.intl.formatMessage({ id: ETranslations.global_pending });
@@ -186,23 +185,36 @@ function CoinControlPage() {
   // Memoize utxoList to prevent dependency issues
   const utxoList: IUtxoInfo[] = useMemo(() => result ?? [], [result]);
 
-  // Initialize selected UTXOs from atom (only on mount)
-  const initialSelectedUtxos = useMemo(() => {
+  // Track if initial selection has been applied
+  const hasInitializedRef = useRef(false);
+
+  // State management - stores UTXO keys in "txid:vout" format
+  const [selectedUTXOs, setSelectedUTXOs] = useState<Set<string>>(new Set());
+
+  // Initialize selected UTXOs when utxoList is loaded
+  // Priority: 1. Use saved selection from atom if exists 2. Default to select all
+  useEffect(() => {
+    if (hasInitializedRef.current || utxoList.length === 0) {
+      return;
+    }
+    hasInitializedRef.current = true;
+
+    // Check if there's a saved selection in atom for this account/network
     if (
       selectedUTXOsFromAtom &&
       selectedUTXOsFromAtom.networkId === networkId &&
       selectedUTXOsFromAtom.accountId === accountId &&
       selectedUTXOsFromAtom.selectedUtxoKeys.length > 0
     ) {
-      return new Set(selectedUTXOsFromAtom.selectedUtxoKeys);
+      // Use saved selection
+      setSelectedUTXOs(new Set(selectedUTXOsFromAtom.selectedUtxoKeys));
+    } else {
+      // Default: select all UTXOs
+      setSelectedUTXOs(
+        new Set(utxoList.map((utxo) => generateUtxoKey(utxo.txid, utxo.vout))),
+      );
     }
-    return new Set<string>();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Only compute on mount
-
-  // State management - stores UTXO keys in "txid:vout" format
-  const [selectedUTXOs, setSelectedUTXOs] =
-    useState<Set<string>>(initialSelectedUtxos);
+  }, [utxoList, selectedUTXOsFromAtom, networkId, accountId]);
   const [sortType, setSortType] = useState<ESortType>(ESortType.NewestFirst);
 
   // Sorted data based on current sort type
@@ -249,9 +261,8 @@ function CoinControlPage() {
     return false;
   }, [isAllSelected, isIndeterminate]);
 
-  // Calculate total amount of selected UTXOs
-  const totalAmount = useMemo(() => {
-    if (!network) return '0';
+  // Calculate total value of selected UTXOs (in smallest unit, e.g. satoshi)
+  const totalValueRaw = useMemo(() => {
     let sum = new BigNumber(0);
     sortedData.forEach((utxo) => {
       const utxoKey = generateUtxoKey(utxo.txid, utxo.vout);
@@ -259,8 +270,14 @@ function CoinControlPage() {
         sum = sum.plus(utxo.value);
       }
     });
-    return sum.shiftedBy(-network.decimals).toFixed();
-  }, [selectedUTXOs, sortedData, network]);
+    return sum.toFixed();
+  }, [selectedUTXOs, sortedData]);
+
+  // Calculate total amount for display (formatted with decimals)
+  const totalAmount = useMemo(() => {
+    if (!network) return '0';
+    return new BigNumber(totalValueRaw).shiftedBy(-network.decimals).toFixed();
+  }, [totalValueRaw, network]);
 
   // Toggle single UTXO selection
   const handleToggleUTXO = useCallback((utxoKey: string) => {
@@ -293,12 +310,20 @@ function CoinControlPage() {
       networkId,
       accountId,
       selectedUtxoKeys: Array.from(selectedUTXOs),
+      selectedUtxoTotalValue: totalValueRaw,
       timestamp: Date.now(),
     });
 
     // Navigate back to SendDataInput page
     navigation.pop();
-  }, [selectedUTXOs, networkId, accountId, updateSelectedUTXOs, navigation]);
+  }, [
+    selectedUTXOs,
+    totalValueRaw,
+    networkId,
+    accountId,
+    updateSelectedUTXOs,
+    navigation,
+  ]);
 
   // Sort options
   const sortOptions = useMemo(
@@ -418,7 +443,9 @@ function CoinControlPage() {
 
           {/* Done button */}
           <Button variant="primary" onPress={handleDone}>
-            Done
+            {intl.formatMessage({
+              id: ETranslations.global_done,
+            })}
           </Button>
         </XStack>
       </Page.Footer>
