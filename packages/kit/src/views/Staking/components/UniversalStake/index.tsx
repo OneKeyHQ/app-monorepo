@@ -47,6 +47,7 @@ import type {
   IApproveConfirmFnParams,
   ICheckAmountAlert,
   IEarnEstimateFeeResp,
+  IEarnPermit2ApproveSignData,
   IEarnSelectField,
   IEarnTextTooltip,
   IEarnTokenInfo,
@@ -217,6 +218,9 @@ export function UniversalStake({
   const useApprove = useMemo(() => !!approveType, [approveType]);
   const usePermit2Approve = approveType === EApproveType.Permit;
   const permitSignatureRef = useRef<string | undefined>(undefined);
+  const permit2DataRef = useRef<IEarnPermit2ApproveSignData | undefined>(
+    undefined,
+  );
   const isFocus = useIsFocused();
 
   const {
@@ -253,6 +257,7 @@ export function UniversalStake({
       });
       if (permitCache) {
         permitSignatureRef.current = permitCache.signature;
+        permit2DataRef.current = permitCache.permit2Data;
         return false;
       }
     }
@@ -715,8 +720,10 @@ export function UniversalStake({
     // Determine permitSignature source: Morpho uses permitSignatureRef, Stakefish uses stakefishPermitSignatureRef
     let finalPermitSignature: string | undefined;
     let finalMessage: string | undefined;
+    let finalUnsignedMessage: IEarnPermit2ApproveSignData | undefined;
     if (usePermit2Approve) {
       finalPermitSignature = permitSignatureRef.current;
+      finalUnsignedMessage = permit2DataRef.current;
     } else if (isStakefishCreateNewValidator) {
       finalPermitSignature = stakefishPermitSignatureRef.current;
       finalMessage = stakefishPermitMessageRef.current;
@@ -726,6 +733,7 @@ export function UniversalStake({
       ? {
           approveType: usePermit2Approve ? approveType : undefined,
           permitSignature: finalPermitSignature,
+          unsignedMessage: finalUnsignedMessage,
           message: finalMessage,
         }
       : undefined;
@@ -911,6 +919,7 @@ export function UniversalStake({
       console.error(e);
     }
     permitSignatureRef.current = undefined;
+    permit2DataRef.current = undefined;
     showStakeProgressRef.current[amountValue] = true;
 
     const allowanceBN = BigNumber(approveAllowance);
@@ -936,12 +945,13 @@ export function UniversalStake({
 
           if (permitCache) {
             permitSignatureRef.current = permitCache.signature;
+            permit2DataRef.current = permitCache.permit2Data;
             void onSubmit();
             setApproving(false);
             return;
           }
 
-          const permitBundlerAction = await getPermitSignature({
+          const { signature, unsignedMessage } = await getPermitSignature({
             networkId: approveTarget.networkId,
             accountId: approveTarget.accountId,
             token: tokenInfo?.token as IToken,
@@ -949,7 +959,8 @@ export function UniversalStake({
             providerName,
             vaultAddress: approveTarget.spenderAddress,
           });
-          permitSignatureRef.current = permitBundlerAction;
+          permitSignatureRef.current = signature;
+          permit2DataRef.current = unsignedMessage;
 
           // Update permit cache
           updatePermitCache({
@@ -957,7 +968,8 @@ export function UniversalStake({
             networkId: approveTarget.networkId,
             tokenAddress: tokenInfo?.token?.address ?? '',
             amount: amountValue,
-            signature: permitBundlerAction,
+            signature,
+            permit2Data: unsignedMessage,
             expiredAt: Date.now() + 24 * 60 * 60 * 1000, // 24 hours
           });
 
