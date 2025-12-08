@@ -22,6 +22,7 @@ import {
 import type { IKeyOfIcons } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useKeylessWallet } from '@onekeyhq/kit/src/components/KeylessWallet/useKeylessWallet';
+import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import type {
   IDBIndexedAccount,
@@ -36,8 +37,6 @@ import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import secureStorage from '@onekeyhq/shared/src/storage/secureStorage';
 import { findMismatchedPaths } from '@onekeyhq/shared/src/utils/miscUtils';
 import { EPrimeTransferDataType } from '@onekeyhq/shared/types/prime/primeTransferTypes';
-
-import { useOneKeyAuth } from '../../../../../../components/OneKeyAuth/useOneKeyAuth';
 
 import { Layout } from './utils/Layout';
 
