@@ -84,6 +84,7 @@ const icons = {
   FilecoinIllus: () => import("./react/illus/Filecoin"),
   GasIllus: () => import("./react/illus/Gas"),
   GnosisChainIllus: () => import("./react/illus/GnosisChain"),
+  GoogleIllus: () => import("./react/illus/Google"),
   GooglePayIllus: () => import("./react/illus/GooglePay"),
   HandDrawRightDownArrowIllus: () =>
     import("./react/illus/HandDrawRightDownArrow"),
@@ -1197,7 +1198,6 @@ const icons = {
       ? import("./react/solid/ArrowTriangleLeft")
       : import("./react/solid/ArrowTriangleRight"),
   ArrowTriangleTopSolid: () => import("./react/solid/ArrowTriangleTop"),
-  AtomSolid: () => import("./react/solid/Atom"),
   AtSignSolid: () => import("./react/solid/AtSign"),
   AttachmentSolid: () => import("./react/solid/Attachment"),
   AutoFlashSolid: () => import("./react/solid/AutoFlash"),

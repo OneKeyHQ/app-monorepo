@@ -175,7 +175,7 @@ export default function VerifyRecoveryPhrase() {
                     <Button
                       key={wordIndex}
                       size="large"
-                      width="100%"
+                      flex={1}
                       variant={
                         selectedWords[questionIndex] === word
                           ? 'primary'
