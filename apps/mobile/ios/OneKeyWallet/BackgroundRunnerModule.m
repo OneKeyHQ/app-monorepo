@@ -29,16 +29,6 @@ RCT_EXPORT_MODULE();
     return @[@"toUI", @"toBackground"];
 }
 
-- (void)startObserving
-{
-    _hasListeners = YES;
-}
-
-- (void)stopObserving
-{
-    _hasListeners = NO;
-}
-
 - (void)startBackgroundRunner
 {
     if (backgroundRootView != nil) {
@@ -55,12 +45,8 @@ RCT_EXPORT_MODULE();
 
 RCT_EXPORT_METHOD(sendMessage:(NSDictionary *)msg)
 {
-    // Handle message from JS
     NSLog(@"[BackgroundRunnerModule] Received message: %@", msg);
-    
-    if (_hasListeners) {
-        [self sendEventWithName:@"toUI" body:msg];
-    }
+    [self sendEventWithName:@"toUI" body:msg];
 }
 
 @end
