@@ -24,12 +24,12 @@ import { PORTFOLIO_CONTAINER_RIGHT_SIDE_FIXED_WIDTH } from '../types';
 function PortfolioContainer() {
   const media = useMedia();
 
-  const tableLayout = media.gtMd;
+  const tableLayout = media.gtXl;
 
   if (tableLayout) {
     return (
       <XStack py="$3" px="$5" gap="$8">
-        <YStack flex={1}>
+        <YStack flex={1} gap="$8">
           {/* <TokenListBlock tableLayout /> */}
           {/* <DeFiListBlock tableLayout /> */}
           {/* <PopularTrading tableLayout /> */}

@@ -13,13 +13,13 @@ import {
 } from '@onekeyhq/components';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 
 import { usePrimeAvailable } from '../../../Prime/hooks/usePrimeAvailable';
 import { RichBlock } from '../RichBlock';
-import { useThemeVariant } from '../../../../hooks/useThemeVariant';
 
 function Upgrade() {
   const intl = useIntl();
@@ -81,11 +81,11 @@ function Upgrade() {
               />
             </LinearGradient>
           </LinearGradient>
-          <YStack>
+          <YStack flex={1}>
             <SizableText size="$headingMd">
               {intl.formatMessage({ id: ETranslations.global_prime })}
             </SizableText>
-            <SizableText size="$bodyMd">
+            <SizableText size="$bodyMd" numberOfLines={2}>
               {intl.formatMessage({
                 id: ETranslations.settings_cloud_sync_bulk_tools_and_more,
               })}
@@ -105,7 +105,7 @@ function Upgrade() {
         </Button>
       </XStack>
     );
-  }, [intl, appNavigation]);
+  }, [intl, appNavigation, themeVariant]);
 
   if (!isPrimeAvailable) {
     return null;
