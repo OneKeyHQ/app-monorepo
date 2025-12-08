@@ -10,11 +10,10 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKeys';
-
-import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
 
 import { OneKeyIDLoginContent } from './OneKeyIDLoginContent';
 import { OneKeyIDVerifyCodeContent } from './OneKeyIDVerifyCodeContent';
@@ -46,16 +45,17 @@ export function OneKeyIDLoginDialog({
   const [view, setView] = useState<IView>(initialView);
   const [email, setEmail] = useState(emailProp ?? '');
 
-  const { getAccessToken, useLoginWithEmail } = usePrimeAuthV2();
+  const { getAccessToken, useLoginWithEmail } = useOneKeyAuth();
 
-  const { sendCode, loginWithCode } = useLoginWithEmail({
-    onComplete: async () => {
-      // Handle login complete
+  const { sendCode, loginWithCode: supabaseLoginWithCode } = useLoginWithEmail();
+
+  // Wrap loginWithCode to ensure email is always provided
+  const loginWithCode = useCallback(
+    async ({ code, email: emailParam }: { code: string; email?: string }) => {
+      await supabaseLoginWithCode({ code, email: emailParam || email });
     },
-    onError: (error) => {
-      console.error('prime login error', error);
-    },
-  });
+    [supabaseLoginWithCode, email],
+  );
 
   const handleEmailSubmit = useCallback((submittedEmail: string) => {
     appStorage.syncStorage.set(

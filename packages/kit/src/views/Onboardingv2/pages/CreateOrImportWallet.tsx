@@ -33,9 +33,9 @@ import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import externalWalletLogoUtils from '@onekeyhq/shared/src/utils/externalWalletLogoUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { useOneKeyAuth } from '../../../components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { showOneKeyIDLoginDialog } from '../../Prime/components/OneKeyIDLoginDialog';
-import { usePrimeAuthV2 } from '../../Prime/hooks/usePrimeAuthV2';
 import { OnboardingLayout } from '../components/OnboardingLayout';
 
 import { AnimatedDeviceAvatar } from './GetStarted';
@@ -145,7 +145,7 @@ export default function CreateOrImportWallet() {
 
   const walletKeys = ['metamask', 'okx', 'rainbow', 'tokenpocket'] as const;
   const navigation = useAppNavigation();
-  const { isLoggedIn } = usePrimeAuthV2();
+  const { isLoggedIn } = useOneKeyAuth();
 
   const handleExpand = useCallback(() => {
     setExpanded((prev) => !prev);
