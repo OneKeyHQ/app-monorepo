@@ -5,7 +5,7 @@ import Expo
 import ExpoModulesCore
 
 public class BackgroundExpoReactNativeFactory: RCTReactNativeFactory, ExpoReactNativeFactoryProtocol {
-  private let defaultModuleName = "main"
+  private let defaultModuleName = "background"
   private lazy var reactDelegate: ExpoReactDelegate = {
     ExpoReactDelegate(
       handlers: BackgroundExpoAppDelegateSubscriberRepository.reactDelegateHandlers,
