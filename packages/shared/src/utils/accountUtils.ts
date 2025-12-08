@@ -930,11 +930,20 @@ function getKeylessWalletPackSetId({ walletId }: { walletId: string }) {
   return packSetId;
 }
 
+function buildKeylessDevicePackKey({
+  packSetId,
+}: {
+  packSetId: string;
+}): string {
+  return `OneKey_Keyless__${packSetId}`;
+}
+
 export default {
   URL_ACCOUNT_ID,
   buildKeylessWalletId,
   isKeylessWallet,
   getKeylessWalletPackSetId,
+  buildKeylessDevicePackKey,
   buildAccountValueKey,
   parseAccountValueKey,
   buildUtxoAddressRelPath,

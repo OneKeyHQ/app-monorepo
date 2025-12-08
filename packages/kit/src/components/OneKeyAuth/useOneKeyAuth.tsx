@@ -122,18 +122,23 @@ export function useOneKeyAuth() {
   const loginOneKeyId = useCallback(
     async ({
       toOneKeyIdPageOnLoginSuccess,
+      onLoginSuccess,
     }: {
       toOneKeyIdPageOnLoginSuccess?: boolean;
+      onLoginSuccess?: () => Promise<void>;
     } = {}) => {
       const isLoggedIn = await backgroundApiProxy.servicePrime.isLoggedIn();
-      const onLoginSuccess = async () => {
-        if (toOneKeyIdPageOnLoginSuccess) {
+      const onLoginSuccessFn = async () => {
+        if (onLoginSuccess) {
+          await timerUtils.wait(120);
+          await onLoginSuccess();
+        } else if (toOneKeyIdPageOnLoginSuccess) {
           await timerUtils.wait(120);
           toOneKeyIdPage();
         }
       };
       if (isLoggedIn) {
-        await onLoginSuccess();
+        await onLoginSuccessFn();
       } else {
         defaultLogger.prime.subscription.onekeyIdLogout({
           reason:

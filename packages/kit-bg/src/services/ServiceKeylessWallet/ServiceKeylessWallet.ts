@@ -9,11 +9,8 @@ import { ECloudBackupProviderType } from '@onekeyhq/shared/src/cloudBackup/cloud
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type {
   IAuthKeyPack,
-  IAuthKeyPackEncryptedData,
   ICloudKeyPack,
-  ICloudKeyPackEncryptedData,
   IDeviceKeyPack,
-  IDeviceKeyPackEncryptedData,
   IKeylessMnemonicInfo,
   IKeylessWalletPacks,
   IKeylessWalletRestoredData,
@@ -32,6 +29,9 @@ import localDb from '../../dbs/local/localDb';
 import { primePersistAtom } from '../../states/jotai/atoms';
 import { devSettingsPersistAtom } from '../../states/jotai/atoms/devSettings';
 import ServiceBase from '../ServiceBase';
+
+import keylessAuthPackCache from './utils/keylessAuthPackCache';
+import keylessDeviceKeyStorage from './utils/keylessDeviceKeyStorage';
 
 import type { IDBIndexedAccount, IDBWallet } from '../../dbs/local/types';
 
@@ -423,6 +423,71 @@ class ServiceKeylessWallet extends ServiceBase {
     return {
       transferType: EPrimeTransferDataType.keylessWallet,
     };
+  }
+
+  /**
+   * Save device pack to local storage with passcode encryption.
+   * Unified method for creating, enabling, and manual recovery flows.
+   */
+  @backgroundMethod()
+  async saveDevicePackToStorage(params: {
+    devicePack: IDeviceKeyPack;
+  }): Promise<void> {
+    return keylessDeviceKeyStorage.saveDevicePackToStorage({
+      ...params,
+      backgroundApi: this.backgroundApi,
+    });
+  }
+
+  /**
+   * Get device pack from local storage and decrypt it.
+   */
+  @backgroundMethod()
+  async getDevicePackFromStorage(params: {
+    packSetId: string;
+  }): Promise<IDeviceKeyPack | null> {
+    return keylessDeviceKeyStorage.getDevicePackFromStorage({
+      ...params,
+      backgroundApi: this.backgroundApi,
+    });
+  }
+
+  /**
+   * Cache authPack in memory with encryption.
+   * Uses sensitiveEncodeKey + session passcode as encryption key.
+   * Avoids any disk persistence to reduce security risk.
+   */
+  @backgroundMethod()
+  async cacheAuthPackInMemory(params: {
+    authPack: IAuthKeyPack;
+  }): Promise<void> {
+    return keylessAuthPackCache.cacheAuthPackInMemory({
+      ...params,
+      backgroundApi: this.backgroundApi,
+    });
+  }
+
+  /**
+   * Get authPack from memory cache and decrypt it.
+   * Returns null if cache miss.
+   */
+  @backgroundMethod()
+  async getAuthPackFromCache(params: {
+    packSetId: string;
+  }): Promise<IAuthKeyPack | null> {
+    return keylessAuthPackCache.getAuthPackFromCache({
+      ...params,
+      backgroundApi: this.backgroundApi,
+    });
+  }
+
+  /**
+   * Clear authPack cache for a specific packSetId or all caches.
+   * Should be called when user logs out or switches accounts.
+   */
+  @backgroundMethod()
+  async clearAuthPackCache(params?: { packSetId?: string }): Promise<void> {
+    return keylessAuthPackCache.clearAuthPackCache(params);
   }
 }
 
