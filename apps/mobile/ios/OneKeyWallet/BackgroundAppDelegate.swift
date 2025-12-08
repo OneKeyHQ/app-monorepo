@@ -8,11 +8,11 @@ class BackgroundAppDelegate: ExpoAppDelegate {
   var window: UIWindow?
   var reactNativeDelegate: ExpoReactNativeFactoryDelegate?
   var reactNativeFactory: RCTReactNativeFactory?
-
+  
   func startBackgroundRunner() {
     DispatchQueue.main.async {
       let delegate = BackgroundReactNativeDelegate()
-      let factory = ExpoReactNativeFactory(delegate: delegate)
+      let factory = BackgroundExpoReactNativeFactory(delegate: delegate)
       delegate.dependencyProvider = RCTAppDependencyProvider()
       
       self.reactNativeDelegate = delegate
