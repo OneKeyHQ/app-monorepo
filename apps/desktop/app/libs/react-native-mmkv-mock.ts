@@ -40,6 +40,7 @@ export class MMKV {
   }
 
   recrypt(_key: string | undefined): void {
+    // eslint-disable-next-line no-restricted-syntax
     throw new Error('Method not implemented.');
   }
 
