@@ -973,15 +973,12 @@ function SendDataInputContainer() {
     let balance: BigNumber;
 
     // If UTXOs are selected, use selected UTXO total value
-    if (currentSelectedUtxoInfo?.totalValue) {
-      const decimals = tokenDetails?.info?.decimals;
-      if (decimals === undefined || decimals === null) {
-        throw new OneKeyInternalError(
-          'Token decimals is required for UTXO max balance calculation',
-        );
-      }
-      balance = new BigNumber(currentSelectedUtxoInfo.totalValue).shiftedBy(
-        -decimals,
+    if (currentSelectedUtxoInfo?.totalValue && tokenDetails?.info) {
+      balance = new BigNumber(
+        chainValueUtils.convertTokenChainValueToAmount({
+          value: currentSelectedUtxoInfo.totalValue,
+          token: tokenDetails.info,
+        }),
       );
     } else {
       balance = new BigNumber(tokenDetails?.balanceParsed ?? '0');
@@ -994,8 +991,8 @@ function SendDataInputContainer() {
     }
     return balance.isNaN() ? '0' : balance.toFixed();
   }, [
+    tokenDetails?.info,
     tokenDetails?.balanceParsed,
-    tokenDetails?.info?.decimals,
     currentSelectedUtxoInfo?.totalValue,
     isLightningNetwork,
     lnUnit,
@@ -1003,16 +1000,17 @@ function SendDataInputContainer() {
 
   const maxBalanceFiat = useMemo(() => {
     // If UTXOs are selected, calculate fiat value from selected UTXO total
-    if (currentSelectedUtxoInfo?.totalValue && tokenDetails?.price) {
-      const decimals = tokenDetails?.info?.decimals;
-      if (decimals === undefined || decimals === null) {
-        throw new OneKeyInternalError(
-          'Token decimals is required for UTXO max fiat calculation',
-        );
-      }
+    if (
+      currentSelectedUtxoInfo?.totalValue &&
+      tokenDetails?.price &&
+      tokenDetails?.info
+    ) {
       const balanceInToken = new BigNumber(
-        currentSelectedUtxoInfo.totalValue,
-      ).shiftedBy(-decimals);
+        chainValueUtils.convertTokenChainValueToAmount({
+          value: currentSelectedUtxoInfo.totalValue,
+          token: tokenDetails.info,
+        }),
+      );
       const fiatValue = balanceInToken.times(tokenDetails.price);
       return fiatValue.isNaN() ? '0' : fiatValue.toFixed();
     }
@@ -1022,7 +1020,7 @@ function SendDataInputContainer() {
   }, [
     tokenDetails?.fiatValue,
     tokenDetails?.price,
-    tokenDetails?.info?.decimals,
+    tokenDetails?.info,
     currentSelectedUtxoInfo?.totalValue,
   ]);
 
