@@ -8,7 +8,6 @@ import {
 } from 'react';
 
 import {
-  Page,
   RefreshControl,
   Stack,
   XStack,
@@ -43,9 +42,11 @@ import {
   useActiveAccount,
 } from '../../states/jotai/contexts/accountSelector';
 import { useEarnActions } from '../../states/jotai/contexts/earn';
+import { BorrowHome } from '../Borrow/pages/BorrowHome';
 
 import { BannerV2 } from './components/BannerV2';
 import { EarnBlockedOverview } from './components/EarnBlockedOverview';
+import { EarnHomeTabs } from './components/EarnHomeTabs';
 import { EarnMainTabs } from './components/EarnMainTabs';
 import { EarnPageContainer } from './components/EarnPageContainer';
 import { Overview } from './components/Overview';
@@ -262,38 +263,43 @@ function BasicEarnHome({
 
   if (platformEnv.isNative) {
     return (
-      <YStack flex={1}>
-        {showHeader && showContent && media.md ? (
-          <Stack h={tabPageHeight} />
-        ) : null}
-        <EarnMainTabs
-          isMobile
-          faqList={faqList || []}
-          isFaqLoading={isFaqLoading}
-          isAccountsLoading={isLoading}
-          refreshEarnAccounts={refreshEarnData}
-          defaultTab={defaultTab}
-          portfolioData={portfolioData}
-          containerProps={mobileContainerProps}
-        />
-
-        {showHeader && showContent && media.md ? (
-          <YStack
-            position="absolute"
-            top={-20}
-            left={0}
-            bg="$bgApp"
-            pt="$5"
-            width="100%"
-            onLayout={handleTabPageLayout}
-          >
-            <TabPageHeader
-              sceneName={EAccountSelectorSceneName.home}
-              tabRoute={ETabRoutes.Earn}
+      <EarnHomeTabs
+        earn={
+          <YStack flex={1}>
+            {showHeader && showContent && media.md ? (
+              <Stack h={tabPageHeight} />
+            ) : null}
+            <EarnMainTabs
+              isMobile
+              faqList={faqList || []}
+              isFaqLoading={isFaqLoading}
+              isAccountsLoading={isLoading}
+              refreshEarnAccounts={refreshEarnData}
+              defaultTab={defaultTab}
+              portfolioData={portfolioData}
+              containerProps={mobileContainerProps}
             />
+
+            {showHeader && showContent && media.md ? (
+              <YStack
+                position="absolute"
+                top={-20}
+                left={0}
+                bg="$bgApp"
+                pt="$5"
+                width="100%"
+                onLayout={handleTabPageLayout}
+              >
+                <TabPageHeader
+                  sceneName={EAccountSelectorSceneName.home}
+                  tabRoute={ETabRoutes.Earn}
+                />
+              </YStack>
+            ) : null}
           </YStack>
-        ) : null}
-      </YStack>
+        }
+        borrow={<BorrowHome />}
+      />
     );
   }
 
@@ -301,31 +307,39 @@ function BasicEarnHome({
     <EarnPageContainer
       sceneName={EAccountSelectorSceneName.home}
       tabRoute={ETabRoutes.Earn}
+      contentContainerStyle={{
+        pt: '0',
+      }}
       refreshControl={
         <RefreshControl refreshing={isLoading} onRefresh={refreshEarnData} />
       }
     >
-      <YStack flex={1}>
-        <YStack>
-          <XStack px="$5">
-            <Overview onRefresh={refreshEarnData} isLoading={isLoading} />
-          </XStack>
-          {banners ? (
-            <YStack borderRadius="$3" width="100%" borderCurve="continuous">
-              {banners}
+      <EarnHomeTabs
+        earn={
+          <YStack flex={1}>
+            <YStack>
+              <XStack px="$5">
+                <Overview onRefresh={refreshEarnData} isLoading={isLoading} />
+              </XStack>
+              {banners ? (
+                <YStack borderRadius="$3" width="100%" borderCurve="continuous">
+                  {banners}
+                </YStack>
+              ) : null}
             </YStack>
-          ) : null}
-        </YStack>
-        <EarnMainTabs
-          isMobile={false}
-          faqList={faqList || []}
-          isFaqLoading={isFaqLoading}
-          isAccountsLoading={isLoading}
-          defaultTab={defaultTab}
-          portfolioData={portfolioData}
-          refreshEarnAccounts={refreshEarnData}
-        />
-      </YStack>
+            <EarnMainTabs
+              isMobile={false}
+              faqList={faqList || []}
+              isFaqLoading={isFaqLoading}
+              isAccountsLoading={isLoading}
+              defaultTab={defaultTab}
+              portfolioData={portfolioData}
+              refreshEarnAccounts={refreshEarnData}
+            />
+          </YStack>
+        }
+        borrow={<BorrowHome />}
+      />
     </EarnPageContainer>
   );
 }

@@ -341,6 +341,27 @@ export type IEarnTokenItem = {
   info: IToken;
 };
 
+export type IBorrowApy = {
+  apy: string;
+  title: IEarnText;
+};
+
+export type IBorrowBalance = {
+  amount: string;
+  fiatValue: string;
+  title: IEarnText;
+  description: IEarnText;
+};
+
+export type IBorrowToken = {
+  networkId: string;
+  address: string;
+  name: string;
+  symbol: string;
+  decimals: number;
+  logoURI: string;
+};
+
 export interface IEarnText {
   text: string;
   color?: string;
@@ -566,7 +587,7 @@ export enum EClaimType {
 
 export interface IEarnClaimActionIcon {
   type: EClaimType;
-  text: string | IEarnText;
+  text: IEarnText;
   disabled: boolean;
   data?: {
     balance: string;
@@ -642,6 +663,12 @@ export interface IEarnCloseActionIcon {
 
 export interface IEarnListaCheckActionIcon {
   type: 'listaCheck';
+  disabled: boolean;
+  text: IEarnText;
+}
+
+export interface IBorrowHealthFactorRiskDetail {
+  type: 'healthFactorRiskDetail';
   disabled: boolean;
   text: IEarnText;
 }
@@ -1577,4 +1604,93 @@ export interface IApyHistoryResponse {
   code: number;
   message: string;
   data: IApyHistoryItem[];
+}
+
+export interface IBorrowNetwork {
+  networkId: string;
+  network: string;
+  name: string;
+  symbol: string;
+  decimals: number;
+  logoURI: string;
+  indexerSupported: boolean;
+  fallbackSupported: boolean;
+  nativeTokenAddress: string;
+  coingeckoPlatform: string;
+  nativeTokenCoingeckoId: string;
+}
+
+export interface IBorrowMarketItem {
+  provider: string;
+  networkId: string;
+  name: string;
+  logoURI: string;
+  marketAddress: string;
+  network: IBorrowNetwork;
+}
+
+export interface IBorrowReserveRequestParams {
+  provider: string;
+  networkId: string;
+  marketAddress: string;
+  accountId: string;
+}
+
+export interface IBorrowReserveItem {
+  overview: {
+    netWorth: IEarnText;
+    netApy: IEarnText;
+    healthFactor: {
+      value: string;
+      text: IEarnText;
+      button?: IBorrowHealthFactorRiskDetail;
+    };
+    history: IEarnHistoryActionIcon;
+    rewards: IEarnClaimActionIcon;
+  };
+  supplied: {
+    suppliedBalance: string;
+    supplyApy: string;
+    collateralBalance: string;
+    assets: {
+      token: IBorrowToken;
+      apyDetail: IBorrowApy;
+      categories: string[];
+      suppliedAmount: IBorrowBalance;
+      withdrawButton: IEarnWithdrawAction;
+    }[];
+  };
+  borrowed: {
+    borrowedBalance: string;
+    borrowApy: string;
+    borrowPowerUsed: string;
+    assets: {
+      token: IBorrowToken;
+      apyDetail: IBorrowApy;
+      categories: string[];
+      borrowedAmount: IBorrowBalance;
+      repayButton: any; // FIXME[borrow]: repay action icon
+    }[];
+  };
+  supply: {
+    alert: IEarnAlert;
+    assets: {
+      token: IBorrowToken;
+      apyDetail: IBorrowApy;
+      categories: string[];
+      walletBalance: IBorrowBalance;
+      canBeCollateral: boolean;
+      supplyButton: IEarnDepositActionData;
+    }[];
+  };
+  borrow: {
+    alert: IEarnAlert;
+    assets: {
+      token: IBorrowToken;
+      apyDetail: IBorrowApy;
+      categories: string[];
+      available: IBorrowBalance;
+      borrowButton: any; // FIXME[borrow]: borrow action icon
+    }[];
+  };
 }

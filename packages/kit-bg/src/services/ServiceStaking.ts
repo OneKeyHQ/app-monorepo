@@ -37,6 +37,9 @@ import type {
   IApyHistoryResponse,
   IAvailableAsset,
   IBabylonPortfolioItem,
+  IBorrowMarketItem,
+  IBorrowReserveItem,
+  IBorrowReserveRequestParams,
   IBuildPermit2ApproveSignDataParams,
   IBuildRegisterSignMessageParams,
   ICheckAmountAlert,
@@ -1930,6 +1933,39 @@ class ServiceStaking extends ServiceBase {
       },
     );
 
+    return response.data.data;
+  }
+
+  @backgroundMethod()
+  async getBorrowMarkets() {
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const response = await client.get<{
+      data: {
+        markets: IBorrowMarketItem[];
+      };
+    }>('/earn/v1/borrow/markets');
+    return response.data.data?.markets || [];
+  }
+
+  @backgroundMethod()
+  async getBorrowReserves(params: IBorrowReserveRequestParams) {
+    const { accountId, ...rest } = params;
+
+    const accountAddress =
+      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        networkId: params.networkId,
+        accountId,
+      });
+
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const response = await client.get<{
+      data: IBorrowReserveItem;
+    }>('/earn/v1/borrow/reserves', {
+      params: {
+        ...rest,
+        accountAddress,
+      },
+    });
     return response.data.data;
   }
 }

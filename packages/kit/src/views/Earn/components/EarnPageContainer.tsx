@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from 'react';
 
-import type { IBreadcrumbProps } from '@onekeyhq/components';
+import type { IBreadcrumbProps, IScrollViewProps } from '@onekeyhq/components';
 import {
   Breadcrumb,
   NavBackButton,
@@ -30,6 +30,7 @@ interface IEarnPageContainerProps {
   showBackButton?: boolean;
   footer?: React.ReactNode;
   customHeaderRightItems?: React.ReactNode;
+  contentContainerStyle?: IScrollViewProps['contentContainerStyle'];
 }
 
 export function EarnPageContainer({
@@ -43,6 +44,7 @@ export function EarnPageContainer({
   footer,
   header,
   customHeaderRightItems,
+  contentContainerStyle,
 }: IEarnPageContainerProps) {
   const media = useMedia();
   const navigation = useAppNavigation();
@@ -72,6 +74,13 @@ export function EarnPageContainer({
     [breadcrumbProps, media],
   );
   const showHeader = useMemo(() => header, [header]);
+  const scrollViewContentContainerStyle = useMemo(
+    () => ({
+      py: '$6',
+      ...contentContainerStyle,
+    }),
+    [contentContainerStyle],
+  );
 
   return (
     <Page>
@@ -83,7 +92,7 @@ export function EarnPageContainer({
       />
       <Page.Body>
         <ScrollView
-          contentContainerStyle={{ py: '$6' }}
+          contentContainerStyle={scrollViewContentContainerStyle}
           refreshControl={refreshControl}
         >
           <YStack w="100%" maxWidth={EARN_PAGE_MAX_WIDTH} mx="auto">
