@@ -49,7 +49,7 @@ module.exports = async () => {
     },
     // TODO unify with transpile modules
     transformIgnorePatterns: [
-      'node_modules/(?!(react-native-reanimated|react-native-aes-crypto|@keystonehq/bc-ur-registry-eth)/)',
+      'node_modules/(?!(react-native-reanimated|react-native-aes-crypto|react-native-mmkv|@keystonehq/bc-ur-registry-eth)/)',
     ],
     transform: {
       '^.+\\.(ts|tsx)$': [
