@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		070588052EE7243F0006DF09 /* BackgroundReactNativeDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = 070588042EE7243F0006DF09 /* BackgroundReactNativeDelegate.m */; };
 		076068BF2E7EF3BA00E007B2 /* gopenpgp-3.3.0.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 076068BE2E7EF3BA00E007B2 /* gopenpgp-3.3.0.xcframework */; };
 		076068C02E7EF3BA00E007B2 /* gopenpgp-3.3.0.xcframework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 076068BE2E7EF3BA00E007B2 /* gopenpgp-3.3.0.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		0799B7702E162F7D001ADEC8 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0799B76F2E162F7D001ADEC8 /* AppDelegate.swift */; };
@@ -74,6 +75,8 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		070588032EE7243F0006DF09 /* BackgroundReactNativeDelegate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = BackgroundReactNativeDelegate.h; path = OneKeyWallet/BackgroundReactNativeDelegate.h; sourceTree = "<group>"; };
+		070588042EE7243F0006DF09 /* BackgroundReactNativeDelegate.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = BackgroundReactNativeDelegate.m; path = OneKeyWallet/BackgroundReactNativeDelegate.m; sourceTree = "<group>"; };
 		076068BE2E7EF3BA00E007B2 /* gopenpgp-3.3.0.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = "gopenpgp-3.3.0.xcframework"; path = "XCFrameworks/gopenpgp-3.3.0.xcframework"; sourceTree = "<group>"; };
 		0799B76F2E162F7D001ADEC8 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		07A0D9DB2E7997C6005A1AA2 /* BundleUpdateModule.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = BundleUpdateModule.h; path = OneKeyWallet/BundleUpdateModule.h; sourceTree = "<group>"; };
@@ -167,6 +170,8 @@
 		13B07FAE1A68108700A75B9A /* OneKeyWallet */ = {
 			isa = PBXGroup;
 			children = (
+				070588032EE7243F0006DF09 /* BackgroundReactNativeDelegate.h */,
+				070588042EE7243F0006DF09 /* BackgroundReactNativeDelegate.m */,
 				07F61F442EE710E7001CE866 /* BackgroundRunnerModule.h */,
 				07F61F452EE710E7001CE866 /* BackgroundRunnerModule.m */,
 				F47935B82EA0770600766A6F /* CloudKitModule.m */,
@@ -593,6 +598,7 @@
 				07F61F462EE710E7001CE866 /* BackgroundRunnerModule.m in Sources */,
 				F47935BC2EA0770600766A6F /* CloudKitModule.m in Sources */,
 				F47935BD2EA0770600766A6F /* CloudKitModule.swift in Sources */,
+				070588052EE7243F0006DF09 /* BackgroundReactNativeDelegate.m in Sources */,
 				F47935BE2EA0770600766A6F /* KeychainModule.m in Sources */,
 				F4B7B0862EA61E4200F80AB9 /* CloudKitModuleCore.swift in Sources */,
 				F4B7B0872EA61E4200F80AB9 /* KeychainModuleCore.swift in Sources */,
