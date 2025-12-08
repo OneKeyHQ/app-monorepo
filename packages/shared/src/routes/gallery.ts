@@ -106,4 +106,5 @@ export enum EGalleryRoutes {
   ComponentUnOrderedList = 'component-UnOrderedList',
   FontGallery = 'component-Font',
   ComponentPlayground = 'component-Playground',
+  ComponentAuth = 'component-Auth',
 }

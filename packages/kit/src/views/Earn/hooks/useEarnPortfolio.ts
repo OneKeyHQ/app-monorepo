@@ -12,6 +12,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { earnTestnetNetworkIds } from '@onekeyhq/shared/types/earn/earnProvider.constants';
 import type {
   IEarnInvestmentItemV2,
   IEarnPortfolioInvestment,
@@ -92,6 +93,9 @@ const createInvestmentKey = (item: {
 const hasPositiveFiatValue = (value: string | undefined): boolean =>
   new BigNumber(value || '0').gt(0);
 
+const isEarnTestnetNetwork = (networkId: string): boolean =>
+  earnTestnetNetworkIds.includes(networkId);
+
 const sortByFiatValueDesc = (
   investments: IEarnPortfolioInvestment[],
 ): IEarnPortfolioInvestment[] =>
@@ -106,6 +110,8 @@ const filterValidInvestments = (
 ): IEarnPortfolioInvestment[] =>
   Array.from(values).filter((inv) => {
     if (inv.airdropAssets.length > 0) return true;
+    // Skip fiat value check for testnet networks
+    if (isEarnTestnetNetwork(inv.network.networkId)) return true;
     return hasPositiveFiatValue(inv.totalFiatValue);
   });
 
@@ -476,7 +482,11 @@ export const useEarnPortfolio = ({
           return null;
         }
 
-        if (!hasPositiveFiatValue(result.totalFiatValue)) {
+        // Skip fiat value check for testnet networks
+        if (
+          !isEarnTestnetNetwork(result.network.networkId) &&
+          !hasPositiveFiatValue(result.totalFiatValue)
+        ) {
           return {
             key,
             remove: true,

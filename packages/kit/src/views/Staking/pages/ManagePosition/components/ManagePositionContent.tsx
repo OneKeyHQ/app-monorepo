@@ -14,6 +14,7 @@ import { NetworkUnsupportedWarning } from '../../../components/ProtocolDetails/N
 import { NoAddressWarning } from '../../../components/ProtocolDetails/NoAddressWarning';
 import { useManagePage } from '../hooks/useManagePage';
 
+import { AdaManageContent } from './AdaManageContent';
 import { NormalManageContent } from './NormalManageContent';
 import { USDEManageContent } from './USDEManageContent';
 
@@ -32,6 +33,8 @@ export interface IManagePositionContentProps {
   onTabChange?: (tab: 'deposit' | 'withdraw') => void;
   showApyDetail?: boolean;
   fallbackTokenImageUri?: string;
+  // Max decimal places allowed for amount input (from details API)
+  protocolInputDecimals?: number;
 
   // Optional callbacks
   onCreateAddress?: () => Promise<void>;
@@ -90,6 +93,7 @@ export function ManagePositionContent({
   onTabChange,
   showApyDetail = false,
   fallbackTokenImageUri,
+  protocolInputDecimals,
   onCreateAddress,
   onStakeWithdrawSuccess,
   isInModalContext = false,
@@ -99,7 +103,7 @@ export function ManagePositionContent({
   const {
     tokenInfo,
     earnAccount,
-    protocolInfo,
+    protocolInfo: rawProtocolInfo,
     managePageData,
     depositDisabled,
     withdrawDisabled,
@@ -107,6 +111,7 @@ export function ManagePositionContent({
     alertsHolding,
     alertsStake,
     alertsWithdraw,
+    ongoingValidator,
     run: refreshManageData,
     isLoading,
   } = useManagePage({
@@ -117,6 +122,17 @@ export function ManagePositionContent({
     provider,
     vault,
   });
+
+  // Merge protocolInputDecimals from details API into protocolInfo
+  const protocolInfo = useMemo(() => {
+    if (!rawProtocolInfo) {
+      return undefined;
+    }
+    return {
+      ...rawProtocolInfo,
+      protocolInputDecimals,
+    };
+  }, [rawProtocolInfo, protocolInputDecimals]);
 
   // Handle create address
   const handleCreateAddress = useCallback(async () => {
@@ -152,6 +168,54 @@ export function ManagePositionContent({
 
   const resolvedTokenImageUri =
     tokenInfo?.token?.logoURI || fallbackTokenImageUri;
+
+  const resolvedTokenInfo = useMemo(() => {
+    if (tokenInfo?.token) {
+      return tokenInfo;
+    }
+
+    const fallbackToken = {
+      uniqueKey: `${networkId}-${symbol}`,
+      address: '',
+      name: symbol,
+      symbol,
+      decimals: 0,
+      logoURI: fallbackTokenImageUri || '',
+      isNative: false,
+      totalSupply: '0',
+      riskLevel: 0,
+      coingeckoId: '',
+    };
+
+    if (tokenInfo) {
+      return {
+        ...tokenInfo,
+        token: fallbackToken,
+      };
+    }
+
+    const fallbackTokenInfo = {
+      networkId,
+      provider,
+      vault: vault || '',
+      accountId: accountId || '',
+      indexedAccountId,
+      token: fallbackToken,
+      balanceParsed: '0',
+      price: '0',
+    };
+
+    return fallbackTokenInfo;
+  }, [
+    tokenInfo,
+    symbol,
+    fallbackTokenImageUri,
+    networkId,
+    provider,
+    vault,
+    accountId,
+    indexedAccountId,
+  ]);
 
   // Warning element: shows NoAddressWarning or NetworkMismatchWarning based on the situation
   const warningElement = useMemo(() => {
@@ -276,6 +340,22 @@ export function ManagePositionContent({
     return null;
   }, [shouldShowWarning, warningElement, alertsWithdraw, alerts]);
 
+  // Create beforeFooter content for special layout (USDe, ADA)
+  const specialBeforeFooter = useMemo(() => {
+    if (warningElement) {
+      return warningElement;
+    }
+    if (!isEmpty(alertsHolding) || !isEmpty(alerts)) {
+      return (
+        <YStack>
+          <EarnAlert alerts={alerts} />
+          <EarnAlert alerts={alertsHolding} />
+        </YStack>
+      );
+    }
+    return null;
+  }, [alertsHolding, alerts, warningElement]);
+
   if (isLoading && !managePageData) {
     return <SectionSkeleton />;
   }
@@ -297,8 +377,6 @@ export function ManagePositionContent({
         symbol={symbol as ISupportedSymbol}
         provider={provider}
         vault={vault}
-        alertsHolding={alertsHolding}
-        historyAction={historyAction}
         onHistory={onHistory}
         indicatorAccountId={earnAccount?.accountId}
         stakeTag={protocolInfo?.stakeTag}
@@ -308,6 +386,29 @@ export function ManagePositionContent({
         earnAccount={earnAccount}
         showApyDetail={showApyDetail}
         isInModalContext={isInModalContext}
+        beforeFooter={specialBeforeFooter}
+        fallbackTokenImageUri={fallbackTokenImageUri}
+      />
+    );
+  }
+
+  // ADA special rendering (Stakefish provider)
+  if (symbol.toLowerCase() === 'ada') {
+    return (
+      <AdaManageContent
+        managePageData={managePageData}
+        networkId={networkId}
+        symbol={symbol as ISupportedSymbol}
+        provider={provider}
+        vault={vault}
+        onHistory={onHistory}
+        earnAccount={earnAccount}
+        showApyDetail={showApyDetail}
+        isInModalContext={isInModalContext}
+        beforeFooter={specialBeforeFooter}
+        fallbackTokenImageUri={fallbackTokenImageUri}
+        protocolInfo={protocolInfo}
+        tokenInfo={resolvedTokenInfo}
       />
     );
   }
@@ -319,7 +420,7 @@ export function ManagePositionContent({
       symbol={symbol}
       provider={provider}
       vault={vault}
-      tokenInfo={tokenInfo}
+      tokenInfo={resolvedTokenInfo}
       fallbackTokenImageUri={resolvedTokenImageUri}
       protocolInfo={protocolInfo}
       earnAccount={earnAccount ?? undefined}
@@ -339,6 +440,7 @@ export function ManagePositionContent({
       isInModalContext={isInModalContext}
       appNavigation={appNavigation}
       showApyDetail={showApyDetail}
+      ongoingValidator={ongoingValidator}
     />
   );
 }

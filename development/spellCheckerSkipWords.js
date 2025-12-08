@@ -30,6 +30,7 @@ module.exports = [
   '10xxxxxx',
   'hardcode',
   'viem',
+  'supabase',
   'reown',
   'wui',
   'deeplinks',
@@ -1011,5 +1012,8 @@ module.exports = [
   'Brotli',
   'Arial',
   'ip',
+  'hoodi',
+  'stakefish',
   'Dropdown',
+  'Deregistration',
 ];

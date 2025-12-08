@@ -63,6 +63,8 @@ export type IModalStakingParamList = {
     vault?: string;
     tab?: 'deposit' | 'withdraw';
     tokenImageUri?: string;
+    // Max decimal places allowed for amount input (from details API)
+    protocolInputDecimals?: number;
   };
   [EModalStakingRoutes.Stake]: IDetailPageInfoParams & {
     currentAllowance: string;
@@ -74,6 +76,7 @@ export type IModalStakingParamList = {
     amount?: string;
     fromPage?: EModalStakingRoutes.WithdrawOptions;
     onSuccess?: () => void;
+    allowPartialWithdraw?: boolean;
   };
   [EModalStakingRoutes.Claim]: IDetailPageInfoParams &
     IDetailPageInfoParams & {

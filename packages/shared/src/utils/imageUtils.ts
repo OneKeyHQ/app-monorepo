@@ -6,7 +6,7 @@ import {
   readAsStringAsync as ExpoFSReadAsStringAsync,
   writeAsStringAsync as ExpoFSWriteAsStringAsync,
   cacheDirectory,
-} from 'expo-file-system';
+} from 'expo-file-system/legacy';
 import { SaveFormat, manipulateAsync } from 'expo-image-manipulator';
 import { isArray, isNil, isNumber, isObject, isString } from 'lodash';
 import { Image as RNImage } from 'react-native';

@@ -161,6 +161,12 @@ export function parseNotificationPayload(
         openUrlInApp(payload);
       }
       break;
+    case ENotificationPushMessageMode.openInDapp:
+      appEventBus.emit(
+        EAppEventBusNames.ShowNotificationInDappPage,
+        payload as string,
+      );
+      break;
     default:
       break;
   }

@@ -1136,6 +1136,15 @@ const BaseDevSettingsSection = () => {
                 }}
               />
               <SectionPressItem
+                icon="PeopleOutline"
+                title="AuthGallery"
+                onPress={() => {
+                  navigation.push(
+                    EModalSettingRoutes.SettingDevAuthGalleryModal,
+                  );
+                }}
+              />
+              <SectionPressItem
                 icon="KeyOutline"
                 title="KeylessWalletGallery"
                 onPress={() => {

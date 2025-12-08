@@ -41,6 +41,7 @@ import type {
   IStakeTransactionConfirmation,
 } from '@onekeyhq/shared/types/staking';
 
+import { useEarnSignMessageWithoutVerify } from '../../hooks/useEarnSignMessageWithoutVerify';
 import { capitalizeString, countDecimalPlaces } from '../../utils/utils';
 import { CalculationListItem } from '../CalculationList';
 import { EstimateNetworkFee } from '../EstimateNetworkFee';
@@ -84,9 +85,14 @@ type IUniversalWithdrawProps = {
   onConfirm?: ({
     amount,
     withdrawAll,
+    signature,
+    message,
   }: {
     amount: string;
     withdrawAll: boolean;
+    // Stakefish: signature and message for withdraw all
+    signature?: string;
+    message?: string;
   }) => Promise<void>;
   beforeFooter?: ReactElement | null;
   showApyDetail?: boolean;
@@ -127,6 +133,18 @@ export function UniversalWithdraw({
   const [loading, setLoading] = useState<boolean>(false);
   const withdrawAllRef = useRef(false);
   const [amountValue, setAmountValue] = useState(initialAmount ?? '');
+
+  // Sign message hook and refs for withdraw all signature
+  const signPersonalMessage = useEarnSignMessageWithoutVerify();
+  const withdrawSignatureRef = useRef<string | undefined>(undefined);
+  const withdrawMessageRef = useRef<string | undefined>(undefined);
+  // Only Stakefish ETH needs signature for withdraw all
+  const isStakefishEthWithdraw = useMemo(
+    () =>
+      earnUtils.isStakefishProvider({ providerName: providerName ?? '' }) &&
+      tokenSymbol?.toUpperCase() === 'ETH',
+    [providerName, tokenSymbol],
+  );
   const [checkAmountMessage, setCheckoutAmountMessage] = useState('');
   const [checkAmountAlerts, setCheckAmountAlerts] = useState<
     ICheckAmountAlert[]
@@ -202,21 +220,62 @@ export function UniversalWithdraw({
     setCheckoutAmountMessage('');
     setCheckAmountAlerts([]);
     withdrawAllRef.current = false;
+    // Reset withdraw signature and message
+    withdrawSignatureRef.current = undefined;
+    withdrawMessageRef.current = undefined;
   }, []);
 
   const onPress = useCallback(async () => {
     try {
       Keyboard.dismiss();
       setLoading(true);
+
+      // Get signature for withdraw all (Stakefish ETH)
+      if (
+        isStakefishEthWithdraw &&
+        withdrawAllRef.current &&
+        !withdrawSignatureRef.current
+      ) {
+        try {
+          const { signature, message } = await signPersonalMessage({
+            networkId: networkId || '',
+            accountId: accountId || '',
+            provider: providerName || '',
+            symbol: tokenSymbol || '',
+            action: 'unstake',
+            identity,
+          });
+          withdrawSignatureRef.current = signature;
+          withdrawMessageRef.current = message;
+        } catch (error) {
+          console.error('Stakefish withdraw sign error:', error);
+          setLoading(false);
+          return;
+        }
+      }
+
       await onConfirm?.({
         amount: amountValue,
         withdrawAll: withdrawAllRef.current,
+        signature: withdrawSignatureRef.current,
+        message: withdrawMessageRef.current,
       });
       resetAmount();
     } finally {
       setLoading(false);
     }
-  }, [amountValue, onConfirm, resetAmount]);
+  }, [
+    amountValue,
+    onConfirm,
+    resetAmount,
+    isStakefishEthWithdraw,
+    signPersonalMessage,
+    networkId,
+    accountId,
+    providerName,
+    tokenSymbol,
+    identity,
+  ]);
 
   const [checkAmountLoading, setCheckAmountLoading] = useState(false);
   const checkAmount = useDebouncedCallback(async (amount: string) => {
@@ -234,6 +293,7 @@ export function UniversalWithdraw({
         amount,
         protocolVault,
         withdrawAll: withdrawAllRef.current,
+        identity,
       });
 
       if (Number(response.code) === 0) {
@@ -269,6 +329,7 @@ export function UniversalWithdraw({
           accountAddress,
           action: ECheckAmountActionType.UNSTAKING,
           amount,
+          identity,
         });
       return resp;
     },
@@ -279,6 +340,7 @@ export function UniversalWithdraw({
       networkId,
       providerName,
       tokenSymbol,
+      identity,
     ],
   );
 
