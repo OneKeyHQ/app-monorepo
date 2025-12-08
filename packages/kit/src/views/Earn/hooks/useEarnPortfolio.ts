@@ -96,6 +96,36 @@ const hasPositiveFiatValue = (value: string | undefined): boolean =>
 const isEarnTestnetNetwork = (networkId: string): boolean =>
   earnTestnetNetworkIds.includes(networkId);
 
+const hasPositiveAmount = (amountText: string): boolean => {
+  // Extract numeric value from strings like "66.2253 ETH", "0.001 BTC"
+  const numericPart = amountText.split(' ')[0];
+  return new BigNumber(numericPart || '0').gt(0);
+};
+
+const hasPositiveDepositAmount = (
+  investment: IEarnPortfolioInvestment,
+): boolean => {
+  return investment.assets.some((asset) => {
+    // Check active deposits
+    const depositText = asset.deposit?.title?.text || '';
+    if (hasPositiveAmount(depositText)) return true;
+
+    // Check pending/withdrawing/unstaking assets in assetsStatus
+    const hasPendingAssets = asset.assetsStatus?.some((status) => {
+      const statusAmount = status.title?.text || '';
+      return hasPositiveAmount(statusAmount);
+    });
+    if (hasPendingAssets) return true;
+
+    // Check claimable rewards
+    const hasClaimableRewards = asset.rewardAssets?.some((reward) => {
+      const rewardAmount = reward.title?.text || '';
+      return hasPositiveAmount(rewardAmount);
+    });
+    return hasClaimableRewards || false;
+  });
+};
+
 const sortByFiatValueDesc = (
   investments: IEarnPortfolioInvestment[],
 ): IEarnPortfolioInvestment[] =>
@@ -110,8 +140,12 @@ const filterValidInvestments = (
 ): IEarnPortfolioInvestment[] =>
   Array.from(values).filter((inv) => {
     if (inv.airdropAssets.length > 0) return true;
-    // Skip fiat value check for testnet networks
-    if (isEarnTestnetNetwork(inv.network.networkId)) return true;
+
+    // For testnet networks, check actual deposit amount instead of fiat value
+    if (isEarnTestnetNetwork(inv.network.networkId)) {
+      return hasPositiveDepositAmount(inv);
+    }
+
     return hasPositiveFiatValue(inv.totalFiatValue);
   });
 
