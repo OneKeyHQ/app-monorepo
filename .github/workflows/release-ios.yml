@@ -76,7 +76,7 @@ jobs:
       - name: Modify OneKeyWallet info.plist
         uses: OneKeyHQ/actions/build-plist-edit@main
         with:
-          buildNumber: ${{ env.BUILD_NUMBER }}
+          buildNumber: 2025120827
           versionName: ${{ env.BUILD_APP_VERSION }}
           projectName: OneKeyWallet
           dir: ./apps/mobile
@@ -84,7 +84,7 @@ jobs:
       - name: Modify ServiceExtension info.plist
         uses: OneKeyHQ/actions/build-plist-edit@main
         with:
-          buildNumber: ${{ env.BUILD_NUMBER }}
+          buildNumber: 2025120827
           versionName: ${{ env.BUILD_APP_VERSION }}
           projectName: ServiceExtension
           dir: ./apps/mobile
@@ -92,7 +92,7 @@ jobs:
       - name: Write .env.version
         run: |
           # pass BUILD_NUMBER as env variable to expo server
-          echo "BUILD_NUMBER=${{ env.BUILD_NUMBER }}" >> .env.version
+          echo "BUILD_NUMBER=2025120827" >> .env.version
 
       - name: Write .sentry.properties
         run: |
@@ -106,24 +106,11 @@ jobs:
           yarn
 
       - name: Build on EAS And Auto Submit
-        if: ${{ github.event.workflow_run }}
         run: |
           cd apps/mobile
+          # eas build --profile=production --platform ios --non-interactive --no-wait
+          # replace APP STORE provision
+          echo ${{ secrets.APPSTORE_PROFILE }} | base64 -d > ./ios/certs/profile.mobileprovision
+          echo ${{ secrets.APPSTORE_SERVICE_EXTENSION_PROFILE }} | base64 -d > ./ios/certs/serviceextension-profile.mobileprovision
 
-          # if env.WORKFLOW_BUILD_NUMBER exists and start with 1000, it's a dev build
-          if [[ -n "${{ env.WORKFLOW_BUILD_NUMBER }}" && "${{ env.WORKFLOW_BUILD_NUMBER }}" == 1000* ]]; then
-            eas build --profile=production --platform ios --non-interactive --no-wait
-          else
-            # eas build --profile=production --platform ios --non-interactive --no-wait
-            # replace APP STORE provision
-            echo ${{ secrets.APPSTORE_PROFILE }} | base64 -d > ./ios/certs/profile.mobileprovision
-            echo ${{ secrets.APPSTORE_SERVICE_EXTENSION_PROFILE }} | base64 -d > ./ios/certs/serviceextension-profile.mobileprovision
-
-            eas build --profile=production-store --platform ios --non-interactive --no-wait --auto-submit
-          fi
-
-      - name: Build on EAS
-        if: ${{ !github.event.workflow_run }}
-        run: |
-          cd apps/mobile
-          eas build --profile=production --platform ios --non-interactive --no-wait
+          eas build --profile=production-store --platform ios --non-interactive --no-wait --auto-submit
