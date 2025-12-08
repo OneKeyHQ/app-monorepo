@@ -122,49 +122,53 @@ export function useOneKeyAuth() {
   const loginOneKeyId = useCallback(
     async ({
       toOneKeyIdPageOnLoginSuccess,
-      onLoginSuccess,
     }: {
       toOneKeyIdPageOnLoginSuccess?: boolean;
-      onLoginSuccess?: () => Promise<void>;
     } = {}) => {
       const isLoggedIn = await backgroundApiProxy.servicePrime.isLoggedIn();
-      const onLoginSuccessFn = async () => {
-        if (onLoginSuccess) {
-          await timerUtils.wait(120);
-          await onLoginSuccess();
-        } else if (toOneKeyIdPageOnLoginSuccess) {
-          await timerUtils.wait(120);
-          toOneKeyIdPage();
-        }
-      };
-      if (isLoggedIn) {
-        await onLoginSuccessFn();
-      } else {
-        defaultLogger.prime.subscription.onekeyIdLogout({
-          reason:
-            'useLoginOneKeyId.loginOneKeyId(): call logout() before showing login dialog',
-        });
-        // logout before login, make sure local supabase storage cache is cleared
-        void logout();
 
-        // 跳转到登录页面
-        const loginDialog = Dialog.show({
-          renderContent: (
-            <PrimeLoginEmailDialogV2
-              title={intl.formatMessage({
-                id: ETranslations.prime_signup_login,
-              })}
-              description={intl.formatMessage({
-                id: ETranslations.prime_onekeyid_continue_description,
-              })}
-              onComplete={() => {
-                void loginDialog.close();
-              }}
-              onLoginSuccess={onLoginSuccess}
-            />
-          ),
-        });
-      }
+      return new Promise<{ success: boolean }>((resolve, reject) => {
+        const onLoginSuccessFn = async () => {
+          await timerUtils.wait(120);
+          if (toOneKeyIdPageOnLoginSuccess) {
+            toOneKeyIdPage();
+          }
+          resolve({ success: true });
+        };
+        const onCancelFn = () => {
+          reject(new Error('User cancelled'));
+        };
+        if (isLoggedIn) {
+          void onLoginSuccessFn();
+        } else {
+          defaultLogger.prime.subscription.onekeyIdLogout({
+            reason:
+              'useLoginOneKeyId.loginOneKeyId(): call logout() before showing login dialog',
+          });
+          // logout before login, make sure local supabase storage cache is cleared
+          void logout();
+
+          // 跳转到登录页面
+          const loginDialog = Dialog.show({
+            renderContent: (
+              <PrimeLoginEmailDialogV2
+                title={intl.formatMessage({
+                  id: ETranslations.prime_signup_login,
+                })}
+                description={intl.formatMessage({
+                  id: ETranslations.prime_onekeyid_continue_description,
+                })}
+                onComplete={() => {
+                  void loginDialog.close();
+                }}
+                onLoginSuccess={onLoginSuccessFn}
+                onCancel={onCancelFn}
+                onClose={onCancelFn}
+              />
+            ),
+          });
+        }
+      });
     },
     [intl, logout, toOneKeyIdPage],
   );

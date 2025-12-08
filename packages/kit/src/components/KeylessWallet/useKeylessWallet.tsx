@@ -22,8 +22,12 @@ export function useKeylessWallet() {
   }, [user]);
 
   const generatePacks = useCallback(async () => {
+    const { success } = await loginOneKeyId();
+    if (!success) {
+      throw new OneKeyLocalError('User not logged in');
+    }
     return backgroundApiProxy.serviceKeylessWallet.generateKeylessWalletPacks();
-  }, []);
+  }, [loginOneKeyId]);
 
   const saveDevicePack = useCallback(
     async ({
@@ -121,21 +125,15 @@ export function useKeylessWallet() {
     if (!isKeylessWalletCreated) {
       await createKeylessWalletFn();
     }
-    // TODO @franco enable keyless wallet
+    // TODO enable keyless wallet
   }, [createKeylessWalletFn, isKeylessWalletCreated]);
 
   const enableKeylessWallet = useCallback(async () => {
-    // check if the user is logged in
-    if (!isLoggedIn) {
-      await loginOneKeyId({
-        onLoginSuccess: async () => {
-          await enableKeylessWalletFn();
-        },
-      });
-      return;
+    const { success } = await loginOneKeyId();
+    if (success) {
+      await enableKeylessWalletFn();
     }
-    await enableKeylessWalletFn();
-  }, [enableKeylessWalletFn, isLoggedIn, loginOneKeyId]);
+  }, [enableKeylessWalletFn, loginOneKeyId]);
 
   return {
     enableKeylessWallet,

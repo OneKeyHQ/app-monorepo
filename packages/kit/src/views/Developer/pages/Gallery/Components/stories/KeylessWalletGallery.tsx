@@ -37,6 +37,8 @@ import secureStorage from '@onekeyhq/shared/src/storage/secureStorage';
 import { findMismatchedPaths } from '@onekeyhq/shared/src/utils/miscUtils';
 import { EPrimeTransferDataType } from '@onekeyhq/shared/types/prime/primeTransferTypes';
 
+import { useOneKeyAuth } from '../../../../../../components/OneKeyAuth/useOneKeyAuth';
+
 import { Layout } from './utils/Layout';
 
 // Helper function to compare packs with stable fields only
@@ -65,6 +67,7 @@ interface IStepState {
 const KeylessWalletCreationFlow = () => {
   const { generatePacks, saveDevicePack, uploadCloudPack, uploadAuthPack } =
     useKeylessWallet();
+  const { logout } = useOneKeyAuth();
 
   const [step1, setStep1] = useState<IStepState>({ status: 'pending' });
   const [step2, setStep2] = useState<IStepState>({ status: 'pending' });
@@ -168,6 +171,11 @@ const KeylessWalletCreationFlow = () => {
     setGeneratedPacks(null);
     setPackSetInFromDevicePack('');
     setPackSetInFromCloudPack('');
+
+    Toast.success({
+      title: 'Flow Status Reset',
+      message: 'Flow status has been reset.',
+    });
   }, []);
 
   const renderStep = (
@@ -292,6 +300,20 @@ const KeylessWalletCreationFlow = () => {
           }}
         >
           Clear Memory Passcode
+        </Button>
+
+        <Button
+          size="small"
+          variant="secondary"
+          onPress={async () => {
+            await logout();
+            Toast.success({
+              title: 'OneKey ID Logged Out',
+              message: 'OneKey ID has been logged out.',
+            });
+          }}
+        >
+          Logout OneKey ID
         </Button>
       </XStack>
 
