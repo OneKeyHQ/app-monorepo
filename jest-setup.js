@@ -2,9 +2,9 @@
 // require('react-native-reanimated').setUpTests();
 
 // FIX:     ReferenceError: self is not defined
-const MockMMKV = require('./apps/desktop/app/libs/react-native-mmkv-mock');
-
 globalThis.self = globalThis.self || globalThis;
+
+const MockMMKV = require('./apps/desktop/app/libs/react-native-mmkv-mock');
 
 class LocalStorageMock {
   constructor() {
@@ -77,8 +77,7 @@ jest.mock('expo-localization', () => ({
 
 jest.mock('react-native-mmkv', () => ({
   __esModule: true,
-  MMKV: MockMMKV,
-  createMMKV: jest.fn(() => new MockMMKV()),
+  createMMKV: MockMMKV.createMMKV,
 }));
 
 // ** shim TextEncoder
