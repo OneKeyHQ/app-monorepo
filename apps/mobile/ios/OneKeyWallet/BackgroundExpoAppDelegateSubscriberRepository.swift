@@ -9,7 +9,7 @@ private var _reactDelegateHandlers = [ExpoReactDelegateHandler]()
  Class responsible for managing access to app delegate subscribers and react delegates.
  It should be used to access subscribers without depending on the `Expo` package where they are registered.
  */
-@objc(EXExpoAppDelegateSubscriberRepository)
+@objc(BackgroundExpoAppDelegateSubscriberRepository)
 public class BackgroundExpoAppDelegateSubscriberRepository: NSObject {
   @objc
   public static var subscribers: [ExpoAppDelegateSubscriberProtocol] {
