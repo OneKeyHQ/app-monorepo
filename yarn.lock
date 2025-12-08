@@ -5875,15 +5875,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@morpho-org/bundler-sdk-ethers@npm:^1.0.3":
-  version: 1.0.3
-  resolution: "@morpho-org/bundler-sdk-ethers@npm:1.0.3"
-  peerDependencies:
-    ethers: ^6.12.0
-  checksum: 10/c44f91bfebae742d258330dd6d70f1d46ae5768518a0960365838952663500be0ca23bcdc55e366d447af7eb9884d1570f42db22e430908abeeb25b8899c6044
-  languageName: node
-  linkType: hard
-
 "@motionone/animation@npm:^10.12.0":
   version: 10.16.3
   resolution: "@motionone/animation@npm:10.16.3"
@@ -7319,7 +7310,6 @@ __metadata:
     "@glif/filecoin-rpc-client": "npm:3.0.2"
     "@intercom/messenger-js-sdk": "npm:^0.0.14"
     "@metamask/eth-sig-util": "npm:5.1.0"
-    "@morpho-org/bundler-sdk-ethers": "npm:^1.0.3"
     "@mysten/sui": "npm:1.28.0"
     "@ngraveio/bc-ur": "npm:^1.1.13"
     "@nktkas/hyperliquid": "npm:0.24.2"
