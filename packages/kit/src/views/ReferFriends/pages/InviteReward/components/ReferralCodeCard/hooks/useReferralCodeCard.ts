@@ -18,7 +18,7 @@ export function useReferralCodeCard({
   inviteUrl,
   inviteCode,
 }: IReferralCodeCardProps): IUseReferralCodeCardReturn {
-  const { copyText } = useClipboard();
+  const { copyText, copyUrl } = useClipboard();
   const intl = useIntl();
 
   const handleCopy = useCallback(() => {
@@ -31,9 +31,9 @@ export function useReferralCodeCard({
   }, [inviteUrl]);
 
   const copyLink = useCallback(() => {
-    copyText(inviteUrl);
+    copyUrl(inviteUrl);
     defaultLogger.referral.page.shareReferralLink('copy');
-  }, [copyText, inviteUrl]);
+  }, [copyUrl, inviteUrl]);
 
   const handleShare = useCallback(() => {
     setTimeout(() => {

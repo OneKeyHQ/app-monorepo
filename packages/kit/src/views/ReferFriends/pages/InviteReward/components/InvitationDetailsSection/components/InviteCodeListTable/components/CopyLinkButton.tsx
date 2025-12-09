@@ -14,11 +14,11 @@ export function CopyLinkButton({
   buttonProps?: IButtonProps;
 }) {
   const intl = useIntl();
-  const { copyText } = useClipboard();
+  const { copyUrl } = useClipboard();
 
   const handleCopy = useCallback(() => {
-    void copyText(url);
-  }, [url, copyText]);
+    void copyUrl(url);
+  }, [url, copyUrl]);
 
   return (
     <Button
