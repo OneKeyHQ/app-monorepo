@@ -453,7 +453,7 @@ function CoinControlPage() {
             borderBottomWidth="$0"
           >
             <SizableText size="$bodyMd" fontWeight="500" color="$text">
-              Sort coins
+              {intl.formatMessage({ id: ETranslations.wallet_sort_coins })}
             </SizableText>
             <Select
               title={intl.formatMessage({ id: ETranslations.market_sort_by })}
