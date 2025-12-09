@@ -211,6 +211,7 @@ class ServiceUniversalSearch extends ServiceBase {
     return this.backgroundApi.serviceMarket.searchToken(query);
   }
 
+  @backgroundMethod()
   async universalSearchOfV2MarketToken(query: string) {
     return this.backgroundApi.serviceMarket.searchV2Token(query);
   }
