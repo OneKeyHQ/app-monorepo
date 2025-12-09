@@ -302,12 +302,16 @@ export function HardwareTransportTypeListItem(props: ICustomElementProps) {
     if (platformEnv.isDesktop) {
       const usb = devPersist?.settings?.usbCommunicationMode;
       const desktopTransportList: ISelectItem[] = [];
-      if (usb === 'bridge') {
+      const enableBridge = platformEnv.isDesktopLinux || usb === 'bridge';
+      const enableWebUSB = platformEnv.isDesktopLinux || usb !== 'bridge';
+
+      if (enableBridge) {
         desktopTransportList.push({
           label: 'Bridge',
           value: EHardwareTransportType.Bridge,
         });
-      } else {
+      }
+      if (enableWebUSB) {
         desktopTransportList.push({
           label: 'WebUSB',
           value: EHardwareTransportType.WEBUSB,
@@ -537,8 +541,7 @@ export function SocialButtonGroup() {
   const handleCopyVersion = useCallback(() => {
     void handleOpenDevMode(() =>
       copyText(
-        `${upperFirst(versionString)}-${platformEnv.bundleVersion || ''}-${
-          platformEnv.githubSHA || ''
+        `${upperFirst(versionString)}-${platformEnv.bundleVersion || ''}-${platformEnv.githubSHA || ''
         }`,
       ),
     );

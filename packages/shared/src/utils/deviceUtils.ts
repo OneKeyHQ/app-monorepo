@@ -548,6 +548,10 @@ function getDefaultHardwareTransportType(): EHardwareTransportType {
   if (platformEnv.isNative) {
     return EHardwareTransportType.BLE;
   }
+  // Because of uDev rules, using http bridge in linux desktop
+  if (platformEnv.isDesktopLinux) {
+    return EHardwareTransportType.Bridge;
+  }
   if (platformEnv.isSupportWebUSB) {
     return EHardwareTransportType.WEBUSB;
   }
