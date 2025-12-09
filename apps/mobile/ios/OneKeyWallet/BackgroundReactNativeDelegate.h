@@ -1,4 +1,5 @@
 #import <Foundation/Foundation.h>
+#import <UIKit/UIKit.h>
 
 #if __has_include(<React-RCTAppDelegate/RCTDefaultReactNativeFactoryDelegate.h>)
 #import <React-RCTAppDelegate/RCTDefaultReactNativeFactoryDelegate.h>

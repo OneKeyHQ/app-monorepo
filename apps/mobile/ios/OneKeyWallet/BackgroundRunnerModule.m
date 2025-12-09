@@ -8,25 +8,7 @@
 #elif __has_include("RCTAppDependencyProvider.h")
 #import "RCTAppDependencyProvider.h"
 #endif
-
-@interface BackgroundReactNativeDelegate : RCTDefaultReactNativeFactoryDelegate
-@end
-
-@implementation BackgroundReactNativeDelegate
-
-- (NSURL *)sourceURLForBridge:(RCTBridge *)bridge {
-  return [self bundleURL];
-}
-
-- (NSURL *)bundleURL {
-#if DEBUG
-  return [NSURL URLWithString:@"http://localhost:8082/apps/mobile/background.bundle?platform=ios&dev=true&lazy=false&minify=false&inlineSourceMap=false&modulesOnly=false&runModule=true&excludeSource=true&sourcePaths=url-server&app=so.onekey.wallet&transform.routerRoot=app&transform.engine=hermes&transform.bytecode=1&unstable_transformProfile=hermes-stable"];
-#else
-  return [[NSBundle mainBundle] URLForResource:@"background" withExtension:@"jsbundle"];
-#endif
-}
-
-@end
+#import "BackgroundReactNativeDelegate.h"
 
 @implementation BackgroundRunnerModule
 {
