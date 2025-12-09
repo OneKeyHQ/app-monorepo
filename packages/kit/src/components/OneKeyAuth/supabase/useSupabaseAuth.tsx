@@ -44,6 +44,9 @@ export function useSupabaseAuth() {
         type: 'email',
       });
       console.log('useSupabaseAuth_verifyOtp', res);
+      if (res.error && res.error.message) {
+        throw new OneKeyLocalError(res.error.message);
+      }
       return res;
     },
     [],

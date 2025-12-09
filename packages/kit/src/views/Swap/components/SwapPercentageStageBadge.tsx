@@ -5,17 +5,14 @@ const SwapPercentageStageBadge = ({
   stage,
   onSelectStage,
   badgeSize,
-  key,
   ...props
 }: {
   stage: number;
   badgeSize?: 'sm' | 'lg';
   onSelectStage?: (stage: number) => void;
-  key: string;
 } & IStackProps) => {
   const component = (
     <Badge
-      key={key}
       role="button"
       badgeSize={badgeSize ?? 'sm'}
       onPress={() => {
