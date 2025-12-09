@@ -1,12 +1,9 @@
 import { useMemo } from 'react';
 
 import { SizableText, XStack, YStack } from '@onekeyhq/components';
+import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { Token } from '@onekeyhq/kit/src/components/Token';
-import {
-  useSettingsAtom,
-  useSettingsPersistAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { IMarketSearchV2Token } from '@onekeyhq/shared/types/market';
@@ -22,13 +19,13 @@ const SwapProSearchTokenListItem = ({
   item,
   onPress,
 }: ISwapProSearchTokenListItemProps) => {
-  const [settings] = useSettingsPersistAtom();
+  const currencyInfo = useCurrency();
   const formatPrice = useMemo(() => {
     return numberFormat(item.price, {
       formatter: 'price',
-      formatterOptions: { currency: settings.currencyInfo.symbol },
+      formatterOptions: { currency: currencyInfo.symbol },
     });
-  }, [item.price, settings.currencyInfo.symbol]);
+  }, [item.price, currencyInfo.symbol]);
   const formatLiq = useMemo(() => {
     return numberFormat(item.liquidity, {
       formatter: 'balance',

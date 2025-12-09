@@ -3,7 +3,6 @@ import { useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Icon, YStack } from '@onekeyhq/components';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
   useSwapLimitExpirationTimeAtom,
   useSwapLimitPartiallyFillAtom,
@@ -12,11 +11,6 @@ import {
   useSwapProTradeTypeAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import {
-  EAccountManagerStacksRoutes,
-  EModalRoutes,
-} from '@onekeyhq/shared/src/routes';
-import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { ISwapProSpeedConfig } from '@onekeyhq/shared/types/swap/types';
 import { ESwapProTradeType } from '@onekeyhq/shared/types/swap/types';
 

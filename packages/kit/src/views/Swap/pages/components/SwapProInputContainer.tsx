@@ -48,7 +48,7 @@ const SwapProInputContainer = ({
   const intl = useIntl();
   const [swapProDirection] = useSwapProDirectionAtom();
   const [swapProTradeType] = useSwapProTradeTypeAtom();
-  const [swapTypeSwitch, setSwapTypeSwitch] = useSwapTypeSwitchAtom();
+  const [, setSwapTypeSwitch] = useSwapTypeSwitchAtom();
   const [fromInputAmount, setFromInputAmount] = useSwapFromTokenAmountAtom();
   const [swapProInputAmount, setSwapProInputAmount] =
     useSwapProInputAmountAtom();

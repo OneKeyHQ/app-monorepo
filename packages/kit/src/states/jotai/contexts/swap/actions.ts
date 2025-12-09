@@ -2073,8 +2073,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
             contractAddress,
             networkId,
           );
-        const responseData =
-          tokenDetail as unknown as IMarketTokenDetailResponse;
+        const responseData = tokenDetail;
 
         if (
           typeof responseData?.data?.token?.name === 'undefined' ||

@@ -111,13 +111,6 @@ const SwapProContainer = ({
             onPress={setActiveTab}
           />
         </XStack>
-        {/* <IconButton
-          variant="tertiary"
-          size="small"
-          borderRadius="$full"
-          icon="ClockTimeHistoryOutline"
-          onPress={() => {}}
-        /> */}
       </XStack>
       <YStack flex={1}>
         <YStack

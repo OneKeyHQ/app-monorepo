@@ -12,12 +12,13 @@ import type {
   IMarketTokenDetail,
   IMarketTokenDetailWebsocket,
 } from '@onekeyhq/shared/types/marketV2';
-import type { ESwapProTimeRange } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import {
+  ESwapProTimeRange,
   ESwapProviderSort,
   mevSwapNetworks,
   swapProTimeRangeItems,
   swapProviderRecommendApprovedWeights,
+  swapSlippageAutoValue,
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
   ESwapDirectionType,
@@ -687,10 +688,15 @@ export const {
   use: useSwapProTokenMarketDetailInfoLoadingAtom,
 } = contextAtom<boolean>(false);
 
+const DEFAULT_TIME_RANGE = ESwapProTimeRange.TWENTY_FOUR_HOURS;
+const defaultTimeRangeItem =
+  swapProTimeRangeItems.find((item) => item.value === DEFAULT_TIME_RANGE) ??
+  swapProTimeRangeItems[swapProTimeRangeItems.length - 1];
+
 export const { atom: swapProTimeRangeAtom, use: useSwapProTimeRangeAtom } =
   contextAtom<{ label: string; value: ESwapProTimeRange }>({
-    label: swapProTimeRangeItems[3].label,
-    value: swapProTimeRangeItems[3].value,
+    label: defaultTimeRangeItem.label,
+    value: defaultTimeRangeItem.value,
   });
 
 export const {
@@ -734,7 +740,7 @@ export const {
 export const { atom: swapProSlippageAtom, use: useSwapProSlippageAtom } =
   contextAtom<ISwapSlippageSegmentItem>({
     key: ESwapSlippageSegmentKey.AUTO,
-    value: 0.5,
+    value: swapSlippageAutoValue,
   });
 
 export const {

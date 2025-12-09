@@ -79,7 +79,11 @@ const SwapProSelectTokenPage = () => {
   };
   return (
     <Page>
-      <Page.Header headerTitle="Swap Pro" />
+      <Page.Header
+        headerTitle={intl.formatMessage({
+          id: ETranslations.dexmarket_pro,
+        })}
+      />
       <Page.Body>
         <Stack px="$5" pb="$4">
           <SearchBar

@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Button, SizableText } from '@onekeyhq/components';
+import { Button } from '@onekeyhq/components';
 import {
   useSwapProDirectionAtom,
   useSwapProSelectTokenAtom,

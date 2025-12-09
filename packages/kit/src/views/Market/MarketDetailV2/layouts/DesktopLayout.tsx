@@ -58,9 +58,9 @@ export function DesktopLayout() {
                 <SwapPanel
                   swapToken={{
                     networkId,
-                    contractAddress: tokenDetail?.address || '',
-                    symbol: tokenDetail?.symbol || '',
-                    decimals: tokenDetail?.decimals || 0,
+                    contractAddress: tokenDetail?.address,
+                    symbol: tokenDetail?.symbol,
+                    decimals: tokenDetail?.decimals,
                     logoURI: tokenDetail?.logoUrl,
                     price: tokenDetail?.price,
                   }}
