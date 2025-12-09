@@ -19,8 +19,16 @@ function PrimeLoginEmailDialogV2(props: {
   title?: string;
   description?: string;
   onConfirm?: (code: string) => void;
+  onCancel?: () => void | Promise<void>;
 }) {
-  const { onComplete, onLoginSuccess, title, description, onConfirm } = props;
+  const {
+    onComplete,
+    onLoginSuccess,
+    title,
+    description,
+    onConfirm,
+    onCancel,
+  } = props;
 
   const lastOneKeyIdLoginEmail = appStorage.syncStorage.getString(
     EAppSyncStorageKeys.last_onekey_id_login_email,
@@ -60,6 +68,8 @@ function PrimeLoginEmailDialogV2(props: {
         onComplete?.();
         await timerUtils.wait(550);
         const dialog = Dialog.show({
+          onCancel,
+          onClose: onCancel,
           renderContent: (
             <PrimeLoginEmailCodeDialogV2
               sendCode={sendCode}
@@ -93,6 +103,7 @@ function PrimeLoginEmailDialogV2(props: {
       onConfirm,
       onLoginSuccess,
       sendCode,
+      onCancel,
     ],
   );
 

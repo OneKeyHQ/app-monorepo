@@ -130,7 +130,10 @@ export function useOneKeyAuth() {
       const isLoggedIn = await backgroundApiProxy.servicePrime.isLoggedIn();
 
       return new Promise<{ success: boolean }>((resolve, reject) => {
+        let isClosedByNextStep = false;
+        let isResolved = false;
         const onLoginSuccessFn = async () => {
+          isResolved = true;
           await timerUtils.wait(120);
           if (toOneKeyIdPageOnLoginSuccess) {
             toOneKeyIdPage();
@@ -138,7 +141,16 @@ export function useOneKeyAuth() {
           resolve({ success: true });
         };
         const onCancelFn = () => {
+          if (isResolved) {
+            return;
+          }
           reject(new PrimeLoginDialogCancelError());
+        };
+        const onCancelFirstStepFn = () => {
+          if (isClosedByNextStep) {
+            return;
+          }
+          onCancelFn();
         };
         if (isLoggedIn) {
           void onLoginSuccessFn();
@@ -152,8 +164,8 @@ export function useOneKeyAuth() {
 
           // 跳转到登录页面
           const loginDialog = Dialog.show({
-            onCancel: onCancelFn,
-            onClose: onCancelFn,
+            onCancel: onCancelFirstStepFn,
+            onClose: onCancelFirstStepFn,
             renderContent: (
               <PrimeLoginEmailDialogV2
                 title={intl.formatMessage({
@@ -163,9 +175,11 @@ export function useOneKeyAuth() {
                   id: ETranslations.prime_onekeyid_continue_description,
                 })}
                 onComplete={() => {
+                  isClosedByNextStep = true;
                   void loginDialog.close();
                 }}
                 onLoginSuccess={onLoginSuccessFn}
+                onCancel={onCancelFn}
               />
             ),
           });
