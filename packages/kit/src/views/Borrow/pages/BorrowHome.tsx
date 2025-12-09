@@ -1,10 +1,14 @@
 import { memo } from 'react';
 
-import { YStack } from '@onekeyhq/components';
+import { XStack, YStack } from '@onekeyhq/components';
 
 import { BorrowProvider } from '../BorrowProvider';
+import { BorrowCard } from '../components/BorrowCard';
+import { BorrowedCard } from '../components/BorrowedCard';
 import { Markets } from '../components/Markets';
 import { Overview } from '../components/Overview';
+import { SuppliedCard } from '../components/SuppliedCard';
+import { SupplyCard } from '../components/SupplyCard';
 
 const BorrowHomeCmp = memo(() => {
   return (
@@ -12,6 +16,16 @@ const BorrowHomeCmp = memo(() => {
       <YStack flex={1} px="$5">
         <Markets />
         <Overview />
+        <XStack flex={1} gap="$5">
+          <YStack flex={1} gap="$5">
+            <SuppliedCard />
+            <SupplyCard />
+          </YStack>
+          <YStack flex={1} gap="$5">
+            <BorrowedCard />
+            <BorrowCard />
+          </YStack>
+        </XStack>
       </YStack>
     </BorrowProvider>
   );

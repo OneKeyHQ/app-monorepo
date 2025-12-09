@@ -36,6 +36,7 @@ export const Markets = () => {
   return (
     <XStack mb="$4" h="$14" ai="center" gap="$3">
       <Token
+        isNFT
         source={market?.logoURI}
         networkImageUri={market?.network.logoURI}
         size="md"
