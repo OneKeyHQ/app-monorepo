@@ -1,6 +1,13 @@
 #import <Foundation/Foundation.h>
 
+#if __has_include(<React-RCTAppDelegate/RCTDefaultReactNativeFactoryDelegate.h>)
 #import <React-RCTAppDelegate/RCTDefaultReactNativeFactoryDelegate.h>
+#elif __has_include(<React_RCTAppDelegate/RCTDefaultReactNativeFactoryDelegate.h>)
+#import <React_RCTAppDelegate/RCTDefaultReactNativeFactoryDelegate.h>
+#else
+#import "RCTDefaultReactNativeFactoryDelegate.h"
+#endif
+
 #import <React/RCTComponent.h>
 
 #include <string>
@@ -10,7 +17,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 @interface BackgroundReactNativeDelegate : RCTDefaultReactNativeFactoryDelegate
 
-@property (nonatomic) std::shared_ptr<const facebook::react::SandboxReactNativeViewEventEmitter> eventEmitter;
+//@property (nonatomic) std::shared_ptr<const facebook::react::SandboxReactNativeViewEventEmitter> eventEmitter;
 @property (nonatomic, assign) BOOL hasOnMessageHandler;
 @property (nonatomic, assign) BOOL hasOnErrorHandler;
 @property (nonatomic, readwrite) std::string origin;

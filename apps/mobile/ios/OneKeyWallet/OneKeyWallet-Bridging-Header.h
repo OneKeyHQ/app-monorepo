@@ -6,4 +6,4 @@
 #import "BundleUpdateModule.h"
 #import "JPUSHService.h"
 #import "RCTJPushModule.h"
-
+#import "BackgroundRunnerModule.h"

@@ -16,9 +16,6 @@
 #import <objc/runtime.h>
 
 #include <fmt/format.h>
-#include "SandboxDelegateWrapper.h"
-#include "SandboxRegistry.h"
-#import "StubTurboModuleCxx.h"
 
 namespace jsi = facebook::jsi;
 namespace TurboModuleConvertUtils = facebook::react::TurboModuleConvertUtils;
@@ -63,9 +60,6 @@ static std::string safeGetStringProperty(jsi::Runtime &rt, const jsi::Object &ob
 
 @implementation BackgroundReactNativeDelegate
 
-// Note: Registry functionality has been moved to SandboxRegistry class
-// This class now focuses solely on delegate responsibilities
-
 #pragma mark - Instance Methods
 
 - (instancetype)init
@@ -108,59 +102,9 @@ static std::string safeGetStringProperty(jsi::Runtime &rt, const jsi::Object &ob
   return _allowedTurboModules;
 }
 
-- (void)setOrigin:(std::string)origin
-{
-  if (_origin == origin) {
-    return;
-  }
-
-  // Unregister old origin if it exists
-  if (!_origin.empty()) {
-    auto &registry = SandboxRegistry::getInstance();
-    registry.unregister(_origin);
-  }
-
-  // Set new origin
-  _origin = origin;
-
-  // Register new origin if it's not empty
-  if (!_origin.empty()) {
-    auto &registry = SandboxRegistry::getInstance();
-    auto wrapper = std::make_shared<SandboxDelegateWrapper>(self);
-    registry.registerSandbox(_origin, wrapper, _allowedOrigins);
-  }
-}
-
 - (void)setJsBundleSource:(std::string)jsBundleSource
 {
   _jsBundleSource = jsBundleSource;
-}
-
-- (void)setAllowedOrigins:(std::set<std::string>)allowedOrigins
-{
-  _allowedOrigins = allowedOrigins;
-
-  // Re-register with new allowedOrigins if origin is set
-  if (!_origin.empty()) {
-    auto &registry = SandboxRegistry::getInstance();
-    auto wrapper = std::make_shared<SandboxDelegateWrapper>(self);
-    registry.registerSandbox(_origin, wrapper, _allowedOrigins);
-  }
-}
-
-- (void)setAllowedTurboModules:(std::set<std::string>)allowedTurboModules
-{
-  _allowedTurboModules = allowedTurboModules;
-}
-
-- (void)dealloc
-{
-  if (!_origin.empty()) {
-    auto &registry = SandboxRegistry::getInstance();
-    registry.unregister(_origin);
-  } else {
-    [self cleanupResources];
-  }
 }
 
 - (NSURL *)sourceURLForBridge:(RCTBridge *)bridge
@@ -212,17 +156,17 @@ static std::string safeGetStringProperty(jsi::Runtime &rt, const jsi::Object &ob
 
       _onMessageSandbox->call(runtime, {std::move(parsedValue)});
     } catch (const jsi::JSError &e) {
-      if (self.eventEmitter && self.hasOnErrorHandler) {
-        SandboxReactNativeViewEventEmitter::OnError errorEvent = {
-            .isFatal = false, .name = "JSError", .message = e.getMessage(), .stack = e.getStack()};
-        self.eventEmitter->onError(errorEvent);
-      }
+    //   if (self.eventEmitter && self.hasOnErrorHandler) {
+    //     SandboxReactNativeViewEventEmitter::OnError errorEvent = {
+    //         .isFatal = false, .name = "JSError", .message = e.getMessage(), .stack = e.getStack()};
+    //     self.eventEmitter->onError(errorEvent);
+    //   }
     } catch (const std::exception &e) {
-      if (self.eventEmitter && self.hasOnErrorHandler) {
-        SandboxReactNativeViewEventEmitter::OnError errorEvent = {
-            .isFatal = false, .name = "RuntimeError", .message = e.what(), .stack = ""};
-        self.eventEmitter->onError(errorEvent);
-      }
+    //   if (self.eventEmitter && self.hasOnErrorHandler) {
+    //     SandboxReactNativeViewEventEmitter::OnError errorEvent = {
+    //         .isFatal = false, .name = "RuntimeError", .message = e.what(), .stack = ""};
+    //     self.eventEmitter->onError(errorEvent);
+    //   }
     } catch (...) {
       NSLog(@"[BackgroundReactNativeDelegate] Runtime invalid during postMessage for sandbox %s", _origin.c_str());
     }
@@ -231,25 +175,25 @@ static std::string safeGetStringProperty(jsi::Runtime &rt, const jsi::Object &ob
 
 - (bool)routeMessage:(const std::string &)message toSandbox:(const std::string &)targetId
 {
-  auto &registry = SandboxRegistry::getInstance();
-  auto target = registry.find(targetId);
-  if (!target) {
-    return false;
-  }
+//   auto &registry = SandboxRegistry::getInstance();
+//   auto target = registry.find(targetId);
+//   if (!target) {
+//     return false;
+//   }
 
-  // Check if the current sandbox is permitted to send messages to the target
-  if (!registry.isPermittedFrom(_origin, targetId)) {
-    if (self.eventEmitter && self.hasOnErrorHandler) {
-      std::string errorMessage =
-          fmt::format("Access denied: Sandbox '{}' is not permitted to send messages to '{}'", _origin, targetId);
-      SandboxReactNativeViewEventEmitter::OnError errorEvent = {
-          .isFatal = false, .name = "AccessDeniedError", .message = errorMessage, .stack = ""};
-      self.eventEmitter->onError(errorEvent);
-    }
-    return false;
-  }
+//   // Check if the current sandbox is permitted to send messages to the target
+//   if (!registry.isPermittedFrom(_origin, targetId)) {
+//     // if (self.eventEmitter && self.hasOnErrorHandler) {
+//     //   std::string errorMessage =
+//     //       fmt::format("Access denied: Sandbox '{}' is not permitted to send messages to '{}'", _origin, targetId);
+//     //   SandboxReactNativeViewEventEmitter::OnError errorEvent = {
+//     //       .isFatal = false, .name = "AccessDeniedError", .message = errorMessage, .stack = ""};
+//     //   self.eventEmitter->onError(errorEvent);
+//     // }
+//     return false;
+//   }
 
-  target->postMessage(message);
+//  target->postMessage(message);
   return true;
 }
 
@@ -291,12 +235,12 @@ static std::string safeGetStringProperty(jsi::Runtime &rt, const jsi::Object &ob
 - (std::shared_ptr<facebook::react::TurboModule>)getTurboModule:(const std::string &)name
                                                       jsInvoker:(std::shared_ptr<facebook::react::CallInvoker>)jsInvoker
 {
-  if (_allowedTurboModules.contains(name)) {
+//  if (_allowedTurboModules.contains(name)) {
     return [super getTurboModule:name jsInvoker:jsInvoker];
-  } else {
-    // Return C++ stub instead of nullptr
-    return std::make_shared<facebook::react::StubTurboModuleCxx>(name, jsInvoker);
-  }
+//  } else {
+//    // Return C++ stub instead of nullptr
+//    return std::make_shared<facebook::react::StubTurboModuleCxx>(name, jsInvoker);
+//  }
 }
 
 - (jsi::Function)createPostMessageFunction:(jsi::Runtime &)runtime
@@ -333,15 +277,15 @@ static std::string safeGetStringProperty(jsi::Runtime &rt, const jsi::Object &ob
 
           // Prevent self-targeting
           if (_origin == targetOrigin) {
-            if (self.eventEmitter && self.hasOnErrorHandler) {
-              std::string errorMessage = fmt::format("Cannot send message to self (sandbox '{}')", targetOrigin);
-              SandboxReactNativeViewEventEmitter::OnError errorEvent = {
-                  .isFatal = false, .name = "SelfTargetingError", .message = errorMessage, .stack = ""};
-              self.eventEmitter->onError(errorEvent);
-            } else {
-              // Fallback: throw JSError if no error handler
-              throw jsi::JSError(rt, fmt::format("Cannot send message to self (sandbox '{}')", targetOrigin).c_str());
-            }
+            // if (self.eventEmitter && self.hasOnErrorHandler) {
+            //   std::string errorMessage = fmt::format("Cannot send message to self (sandbox '{}')", targetOrigin);
+            //   SandboxReactNativeViewEventEmitter::OnError errorEvent = {
+            //       .isFatal = false, .name = "SelfTargetingError", .message = errorMessage, .stack = ""};
+            //   self.eventEmitter->onError(errorEvent);
+            // } else {
+            //   // Fallback: throw JSError if no error handler
+            //   throw jsi::JSError(rt, fmt::format("Cannot send message to self (sandbox '{}')", targetOrigin).c_str());
+            // }
             return jsi::Value::undefined();
           }
 
@@ -356,23 +300,23 @@ static std::string safeGetStringProperty(jsi::Runtime &rt, const jsi::Object &ob
           BOOL success = [self routeMessage:messageJson toSandbox:targetOrigin];
           if (!success) {
             // Target sandbox doesn't exist - trigger error event
-            if (self.eventEmitter && self.hasOnErrorHandler) {
-              std::string errorMessage = fmt::format("Target sandbox '{}' not found", targetOrigin);
-              SandboxReactNativeViewEventEmitter::OnError errorEvent = {
-                  .isFatal = false, .name = "SandboxRoutingError", .message = errorMessage, .stack = ""};
-              self.eventEmitter->onError(errorEvent);
-            } else {
+            // if (self.eventEmitter && self.hasOnErrorHandler) {
+            //   std::string errorMessage = fmt::format("Target sandbox '{}' not found", targetOrigin);
+            //   SandboxReactNativeViewEventEmitter::OnError errorEvent = {
+            //       .isFatal = false, .name = "SandboxRoutingError", .message = errorMessage, .stack = ""};
+            //   self.eventEmitter->onError(errorEvent);
+            // } else {
               // Fallback: throw JSError if no error handler
               std::string errorMessage = fmt::format("Target sandbox '{}' not found", targetOrigin);
               throw jsi::JSError(rt, errorMessage.c_str());
-            }
+            // }
           }
         } else {
           // targetOrigin is undefined/null - route to host (backward compatibility)
-          if (self.eventEmitter && self.hasOnMessageHandler) {
-            SandboxReactNativeViewEventEmitter::OnMessage messageEvent = {.data = jsi::dynamicFromValue(rt, args[0])};
-            self.eventEmitter->onMessage(messageEvent);
-          }
+        //   if (self.eventEmitter && self.hasOnMessageHandler) {
+        //     SandboxReactNativeViewEventEmitter::OnMessage messageEvent = {.data = jsi::dynamicFromValue(rt, args[0])};
+        //     self.eventEmitter->onMessage(messageEvent);
+        //   }
         }
 
         return jsi::Value::undefined();
@@ -430,22 +374,22 @@ static std::string safeGetStringProperty(jsi::Runtime &rt, const jsi::Object &ob
           return jsi::Value::undefined();
         }
 
-        if (self.eventEmitter && self.hasOnErrorHandler) {
-          const jsi::Object &error = args[0].asObject(rt);
-          bool isFatal = args[1].getBool();
+        // if (self.eventEmitter && self.hasOnErrorHandler) {
+        //   const jsi::Object &error = args[0].asObject(rt);
+        //   bool isFatal = args[1].getBool();
 
-          SandboxReactNativeViewEventEmitter::OnError errorEvent = {
-              .isFatal = isFatal,
-              .name = safeGetStringProperty(rt, error, "name"),
-              .message = safeGetStringProperty(rt, error, "message"),
-              .stack = safeGetStringProperty(rt, error, "stack")};
-          self.eventEmitter->onError(errorEvent);
-        } else { // Call the original handler
+        //   SandboxReactNativeViewEventEmitter::OnError errorEvent = {
+        //       .isFatal = isFatal,
+        //       .name = safeGetStringProperty(rt, error, "name"),
+        //       .message = safeGetStringProperty(rt, error, "message"),
+        //       .stack = safeGetStringProperty(rt, error, "stack")};
+        //   self.eventEmitter->onError(errorEvent);
+        // } else { // Call the original handler
           if (originalHandler->isObject() && originalHandler->asObject(rt).isFunction(rt)) {
             jsi::Function original = originalHandler->asObject(rt).asFunction(rt);
             original.call(rt, args, count);
           }
-        }
+        // }
 
         return jsi::Value::undefined();
       });
