@@ -9,7 +9,6 @@
 /* Begin PBXBuildFile section */
 		070588082EE727090006DF09 /* BackgroundRunnerModule.m in Sources */ = {isa = PBXBuildFile; fileRef = 070588062EE727090006DF09 /* BackgroundRunnerModule.m */; };
 		070588092EE727090006DF09 /* BackgroundRunnerModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = 070588072EE727090006DF09 /* BackgroundRunnerModule.swift */; };
-		0705880D2EE729EE0006DF09 /* BackgroundAppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0705880C2EE729EE0006DF09 /* BackgroundAppDelegate.swift */; };
 		076068BF2E7EF3BA00E007B2 /* gopenpgp-3.3.0.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 076068BE2E7EF3BA00E007B2 /* gopenpgp-3.3.0.xcframework */; };
 		076068C02E7EF3BA00E007B2 /* gopenpgp-3.3.0.xcframework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 076068BE2E7EF3BA00E007B2 /* gopenpgp-3.3.0.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		0799B7702E162F7D001ADEC8 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0799B76F2E162F7D001ADEC8 /* AppDelegate.swift */; };
@@ -17,8 +16,6 @@
 		07A167A92E576AF7006A3117 /* OneKeyLogo.icon in Resources */ = {isa = PBXBuildFile; fileRef = 07A167A82E576AF7006A3117 /* OneKeyLogo.icon */; };
 		07A167AA2E576AF7006A3117 /* OneKeyLogo.icon in Resources */ = {isa = PBXBuildFile; fileRef = 07A167A82E576AF7006A3117 /* OneKeyLogo.icon */; };
 		07BBD7EC2E7C85FA00A3654D /* Verification.m in Sources */ = {isa = PBXBuildFile; fileRef = 07BBD7EB2E7C85FA00A3654D /* Verification.m */; };
-		07FB2EBD2EE7393300C63B3D /* BackgroundExpoReactNativeFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07FB2EBC2EE7393300C63B3D /* BackgroundExpoReactNativeFactory.swift */; };
-		07FB2EBF2EE73B2300C63B3D /* BackgroundExpoAppDelegateSubscriberRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07FB2EBE2EE73B2300C63B3D /* BackgroundExpoAppDelegateSubscriberRepository.swift */; };
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
 		31ADF8BB30114AF196CCBDE4 /* noop-file.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DAB62C802804CA1BF90BB10 /* noop-file.swift */; };
 		35EE15B12B9A2ACD004C86AC /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 35EE15B32B9A2ACD004C86AC /* InfoPlist.strings */; };
@@ -80,7 +77,6 @@
 /* Begin PBXFileReference section */
 		070588062EE727090006DF09 /* BackgroundRunnerModule.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = BackgroundRunnerModule.m; path = OneKeyWallet/BackgroundRunnerModule.m; sourceTree = "<group>"; };
 		070588072EE727090006DF09 /* BackgroundRunnerModule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = BackgroundRunnerModule.swift; path = OneKeyWallet/BackgroundRunnerModule.swift; sourceTree = "<group>"; };
-		0705880C2EE729EE0006DF09 /* BackgroundAppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = BackgroundAppDelegate.swift; path = OneKeyWallet/BackgroundAppDelegate.swift; sourceTree = "<group>"; };
 		076068BE2E7EF3BA00E007B2 /* gopenpgp-3.3.0.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = "gopenpgp-3.3.0.xcframework"; path = "XCFrameworks/gopenpgp-3.3.0.xcframework"; sourceTree = "<group>"; };
 		0799B76F2E162F7D001ADEC8 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		07A0D9DB2E7997C6005A1AA2 /* BundleUpdateModule.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = BundleUpdateModule.h; path = OneKeyWallet/BundleUpdateModule.h; sourceTree = "<group>"; };
@@ -88,8 +84,6 @@
 		07A167A82E576AF7006A3117 /* OneKeyLogo.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = OneKeyLogo.icon; sourceTree = "<group>"; };
 		07BBD7EA2E7C85FA00A3654D /* Verification.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = Verification.h; path = OneKeyWallet/Verification.h; sourceTree = "<group>"; };
 		07BBD7EB2E7C85FA00A3654D /* Verification.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = Verification.m; path = OneKeyWallet/Verification.m; sourceTree = "<group>"; };
-		07FB2EBC2EE7393300C63B3D /* BackgroundExpoReactNativeFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = BackgroundExpoReactNativeFactory.swift; path = OneKeyWallet/BackgroundExpoReactNativeFactory.swift; sourceTree = "<group>"; };
-		07FB2EBE2EE73B2300C63B3D /* BackgroundExpoAppDelegateSubscriberRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = BackgroundExpoAppDelegateSubscriberRepository.swift; path = OneKeyWallet/BackgroundExpoAppDelegateSubscriberRepository.swift; sourceTree = "<group>"; };
 		13B07F961A680F5B00A75B9A /* OneKeyWallet.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = OneKeyWallet.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = OneKeyWallet/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = OneKeyWallet/Info.plist; sourceTree = "<group>"; };
@@ -174,9 +168,6 @@
 		13B07FAE1A68108700A75B9A /* OneKeyWallet */ = {
 			isa = PBXGroup;
 			children = (
-				07FB2EBC2EE7393300C63B3D /* BackgroundExpoReactNativeFactory.swift */,
-				07FB2EBE2EE73B2300C63B3D /* BackgroundExpoAppDelegateSubscriberRepository.swift */,
-				0705880C2EE729EE0006DF09 /* BackgroundAppDelegate.swift */,
 				070588062EE727090006DF09 /* BackgroundRunnerModule.m */,
 				070588072EE727090006DF09 /* BackgroundRunnerModule.swift */,
 				F47935B82EA0770600766A6F /* CloudKitModule.m */,
@@ -595,14 +586,11 @@
 			files = (
 				LAUNCH0012E85D3A700D9A657 /* LaunchOptionsManager.m in Sources */,
 				31ADF8BB30114AF196CCBDE4 /* noop-file.swift in Sources */,
-				0705880D2EE729EE0006DF09 /* BackgroundAppDelegate.swift in Sources */,
 				0799B7702E162F7D001ADEC8 /* AppDelegate.swift in Sources */,
 				07BBD7EC2E7C85FA00A3654D /* Verification.m in Sources */,
 				EA7A13F42D9EEC2C002BD82F /* RCTRootViewBackground.m in Sources */,
 				07A0D9DD2E7997C6005A1AA2 /* BundleUpdateModule.m in Sources */,
 				4B0291071DB1A9856B2D4C1B /* ExpoModulesProvider.swift in Sources */,
-				07FB2EBF2EE73B2300C63B3D /* BackgroundExpoAppDelegateSubscriberRepository.swift in Sources */,
-				07FB2EBD2EE7393300C63B3D /* BackgroundExpoReactNativeFactory.swift in Sources */,
 				F47935BC2EA0770600766A6F /* CloudKitModule.m in Sources */,
 				F47935BD2EA0770600766A6F /* CloudKitModule.swift in Sources */,
 				070588082EE727090006DF09 /* BackgroundRunnerModule.m in Sources */,
