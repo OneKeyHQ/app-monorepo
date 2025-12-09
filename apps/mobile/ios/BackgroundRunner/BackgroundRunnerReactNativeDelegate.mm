@@ -44,8 +44,6 @@ static std::string safeGetStringProperty(jsi::Runtime &rt, const jsi::Object &ob
 @interface BackgroundReactNativeDelegate () {
   RCTInstance *_rctInstance;
   std::shared_ptr<jsi::Function> _onMessageSandbox;
-  std::set<std::string> _allowedTurboModules;
-  std::set<std::string> _allowedOrigins;
   std::string _origin;
   std::string _jsBundleSource;
 }
@@ -76,8 +74,6 @@ static std::string safeGetStringProperty(jsi::Runtime &rt, const jsi::Object &ob
 {
   _onMessageSandbox.reset();
   _rctInstance = nil;
-  _allowedTurboModules.clear();
-  _allowedOrigins.clear();
 }
 
 #pragma mark - C++ Property Getters
@@ -90,16 +86,6 @@ static std::string safeGetStringProperty(jsi::Runtime &rt, const jsi::Object &ob
 - (std::string)jsBundleSource
 {
   return _jsBundleSource;
-}
-
-- (std::set<std::string>)allowedOrigins
-{
-  return _allowedOrigins;
-}
-
-- (std::set<std::string>)allowedTurboModules
-{
-  return _allowedTurboModules;
 }
 
 - (void)setJsBundleSource:(std::string)jsBundleSource
@@ -229,18 +215,13 @@ static std::string safeGetStringProperty(jsi::Runtime &rt, const jsi::Object &ob
 
 - (id<RCTModuleProvider>)getModuleProvider:(const char *)name
 {
-  return _allowedTurboModules.contains(name) ? [super getModuleProvider:name] : nullptr;
+  return [super getModuleProvider:name];
 }
 
 - (std::shared_ptr<facebook::react::TurboModule>)getTurboModule:(const std::string &)name
                                                       jsInvoker:(std::shared_ptr<facebook::react::CallInvoker>)jsInvoker
 {
-//  if (_allowedTurboModules.contains(name)) {
     return [super getTurboModule:name jsInvoker:jsInvoker];
-//  } else {
-//    // Return C++ stub instead of nullptr
-//    return std::make_shared<facebook::react::StubTurboModuleCxx>(name, jsInvoker);
-//  }
 }
 
 - (jsi::Function)createPostMessageFunction:(jsi::Runtime &)runtime

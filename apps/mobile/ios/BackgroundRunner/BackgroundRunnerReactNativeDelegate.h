@@ -27,18 +27,6 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, readwrite) std::string origin;
 
 /**
- * Sets the list of allowed TurboModules for this sandbox instance.
- * Only modules in this list will be accessible to the JavaScript runtime.
- */
-@property (nonatomic, readwrite) std::set<std::string> allowedTurboModules;
-
-/**
- * Sets the list of allowed origins for this sandbox instance.
- * Only sandboxes with origins in this list can send messages to this sandbox.
- */
-@property (nonatomic, readwrite) std::set<std::string> allowedOrigins;
-
-/**
  * Initializes the delegate.
  * @return Initialized delegate instance with filtered module access
  */
