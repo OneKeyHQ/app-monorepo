@@ -20,6 +20,8 @@
 			<string>ios</string>
 			<key>SupportedPlatformVariant</key>
 			<string>simulator</string>
+			<key>MinimumOSVersion</key>
+			<string>15.5</string>
 		</dict>
 		<dict>
 			<key>BinaryPath</key>
@@ -35,6 +37,8 @@
 			</array>
 			<key>SupportedPlatform</key>
 			<string>macos</string>
+			<key>MinimumOSVersion</key>
+			<string>15.5</string>
 		</dict>
 		<dict>
 			<key>BinaryPath</key>
@@ -49,6 +53,8 @@
 			</array>
 			<key>SupportedPlatform</key>
 			<string>ios</string>
+			<key>MinimumOSVersion</key>
+			<string>15.5</string>
 		</dict>
 	</array>
 	<key>CFBundlePackageType</key>
@@ -57,5 +63,7 @@
 	<true/>
 	<key>XCFrameworkFormatVersion</key>
 	<string>1.0</string>
+	<key>MinimumOSVersion</key>
+	<string>15.5</string>
 </dict>
 </plist>
