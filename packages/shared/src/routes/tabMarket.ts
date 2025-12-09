@@ -16,5 +16,6 @@ export type ITabMarketParamList = {
     network: string;
     isNative?: boolean;
     from?: EEnterWay;
+    disableTrade?: boolean;
   };
 };

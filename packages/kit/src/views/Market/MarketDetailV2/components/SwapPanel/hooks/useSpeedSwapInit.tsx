@@ -23,6 +23,7 @@ export function useSpeedSwapInit(networkId: string) {
           swapMevNetConfig: mevSwapNetworks,
         },
         supportSpeedSwap: false,
+        speedDefaultSelectToken: undefined,
       },
       watchLoading: true,
     },
@@ -35,5 +36,6 @@ export function useSpeedSwapInit(networkId: string) {
     supportSpeedSwap: result?.supportSpeedSwap,
     provider: result?.provider,
     swapMevNetConfig: result?.speedConfig.swapMevNetConfig,
+    speedDefaultSelectToken: result?.speedDefaultSelectToken,
   };
 }
