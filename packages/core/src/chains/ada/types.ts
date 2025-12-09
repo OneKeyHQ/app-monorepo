@@ -69,7 +69,7 @@ export type IAdaStakingCertificate = {
 
 export type IAdaStakingInfo = {
   isStakingTx: boolean;
-  certificates: IAdaStakingCertificate[];
+  certificates?: IAdaStakingCertificate[];
 };
 
 export type IEncodedTxAda = {

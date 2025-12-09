@@ -1,6 +1,7 @@
 import { ECoreApiExportedSecretKeyType } from '@onekeyhq/core/src/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
+  BaseUSDC,
   BinanceSmartChainLISTA,
   BinanceSmartChainUSDT,
   EMPTY_NATIVE_TOKEN_ADDRESS,
@@ -168,7 +169,7 @@ const stakingConfig: IStakingConfig = {
         },
       },
       [EEarnProviderEnum.Stakefish]: {
-        supportedSymbols: ['ETH'],
+        supportedSymbols: ['ETH', 'POL'],
         configs: {
           ETH: {
             enabled: true,
@@ -177,6 +178,25 @@ const stakingConfig: IStakingConfig = {
             withdrawWithTx: true,
             claimWithTx: true,
             allowPartialWithdraw: true,
+          },
+          POL: {
+            ...commonStakeConfigs.POL,
+            claimWithTx: true,
+          },
+        },
+      },
+    },
+  },
+  [getNetworkIdsMap().base]: {
+    providers: {
+      [EEarnProviderEnum.Morpho]: {
+        supportedSymbols: ['USDC', 'MORPHO'],
+        configs: {
+          USDC: {
+            enabled: true,
+            tokenAddress: BaseUSDC,
+            displayProfit: true,
+            stakingWithApprove: true,
           },
         },
       },

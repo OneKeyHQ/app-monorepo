@@ -42,7 +42,7 @@ const syncStorageWeb = {
     return mmkvStorageInstance.getBoolean(key);
   },
   delete(key: EAppSyncStorageKeys) {
-    mmkvStorageInstance.delete(key);
+    mmkvStorageInstance.remove(key);
   },
   clearAll() {
     mmkvStorageInstance.clearAll();

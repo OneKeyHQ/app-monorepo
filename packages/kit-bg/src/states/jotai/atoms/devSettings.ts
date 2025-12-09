@@ -92,7 +92,7 @@ export const {
       showPerformanceMonitor: true,
       autoNavigation: {
         enabled: false,
-        selectedTab: ETabRoutes.Discovery,
+        selectedTab: ETabRoutes.Home,
       },
       useLocalTradingViewUrl: false,
       usbCommunicationMode: 'webusb',

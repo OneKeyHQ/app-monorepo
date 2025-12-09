@@ -32,6 +32,7 @@ import type {
 import type {
   ECheckAmountActionType,
   EInternalDappEnum,
+  EInternalStakingAction,
   IAllowanceOverview,
   IApyHistoryResponse,
   IAvailableAsset,
@@ -297,6 +298,7 @@ class ServiceStaking extends ServiceBase {
       protocolVault,
       approveType,
       permitSignature,
+      unsignedMessage,
       message,
       validatorPublicKey,
       ...rest
@@ -342,6 +344,8 @@ class ServiceStaking extends ServiceBase {
         earnUtils.isStakefishProvider({ providerName: provider })
           ? permitSignature
           : undefined,
+      unsignedMessage:
+        approveType === EApproveType.Permit ? unsignedMessage : undefined,
       message,
       ...rest,
     };
@@ -1587,16 +1591,19 @@ class ServiceStaking extends ServiceBase {
     networkId,
     tx,
     internalDappType,
+    stakingAction,
   }: {
     accountId: string;
     networkId: string;
     tx: IStakeTx;
     internalDappType: EInternalDappEnum;
+    stakingAction?: EInternalStakingAction;
   }) {
     const vault = await vaultFactory.getVault({ networkId, accountId });
     const encodedTx = await vault.buildInternalDappEncodedTx({
       internalDappTx: tx as any,
       internalDappType,
+      stakingAction,
     });
     return encodedTx;
   }

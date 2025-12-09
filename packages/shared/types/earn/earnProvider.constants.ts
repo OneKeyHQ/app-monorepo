@@ -2,6 +2,7 @@ import { SUI_TYPE_ARG } from '@mysten/sui/utils';
 
 import { getNetworkIdsMap } from '../../src/config/networkIds';
 import {
+  BaseUSDC,
   EthereumCbBTC,
   EthereumDAI,
   EthereumPol,
@@ -36,6 +37,27 @@ const earnTradeDefaultSetUSDC = {
   'isNative': false,
   'isPopular': true,
   'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/eth.png',
+};
+
+const earnTradeDefaultSetBaseETH = {
+  'networkId': 'evm--8453',
+  'contractAddress': '',
+  'name': 'Ethereum',
+  'symbol': 'ETH',
+  'decimals': 18,
+  'isNative': true,
+  'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/base.png',
+};
+
+const earnTradeDefaultSetBaseUSDC = {
+  'networkId': 'evm--8453',
+  'contractAddress': '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+  'name': 'USD Coin',
+  'symbol': 'USDC',
+  'decimals': 6,
+  'isNative': false,
+  'isPopular': true,
+  'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/base.png',
 };
 
 const earnTradeDefaultSetSOL = {
@@ -88,6 +110,7 @@ export const isSupportStaking = (symbol: string) =>
 
 export const earnMainnetNetworkIds: string[] = [
   getNetworkIdsMap().eth,
+  getNetworkIdsMap().base,
   getNetworkIdsMap().cosmoshub,
   getNetworkIdsMap().apt,
   getNetworkIdsMap().sol,
@@ -196,6 +219,15 @@ export function getImportFromToken({
       swapTabSwitchType = ESwapTabSwitchType.SWAP;
       break;
     }
+    case networkIdsMap.base: {
+      if ([BaseUSDC.toLowerCase()].includes(tokenAddress.toLowerCase())) {
+        importFromToken = earnTradeDefaultSetBaseETH;
+      } else {
+        importFromToken = earnTradeDefaultSetBaseUSDC;
+      }
+      swapTabSwitchType = ESwapTabSwitchType.SWAP;
+      break;
+    }
     case networkIdsMap.sol: {
       importFromToken = earnTradeDefaultSetSOL;
       swapTabSwitchType = ESwapTabSwitchType.SWAP;
@@ -238,7 +270,7 @@ export function getSymbolSupportedNetworks(): Record<
     'APT': [networkIdsMap.apt],
     'ATOM': [networkIdsMap.cosmoshub],
     'POL': [networkIdsMap.eth],
-    'USDC': [networkIdsMap.eth, networkIdsMap.sui],
+    'USDC': [networkIdsMap.eth, networkIdsMap.sui, networkIdsMap.base],
     'USDT': [networkIdsMap.eth, networkIdsMap.bsc],
     'DAI': [networkIdsMap.eth],
     'WETH': [networkIdsMap.eth],
