@@ -1,5 +1,7 @@
 import { memo, useCallback, useMemo, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   Divider,
   Icon,
@@ -9,6 +11,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EUtxoSelectionStrategy } from '@onekeyhq/shared/types/send';
 
@@ -18,17 +21,20 @@ type IStrategyOption = {
   value: EUtxoSelectionStrategy;
 };
 
-const STRATEGY_OPTIONS: IStrategyOption[] = [
+const STRATEGY_OPTION_CONFIG: Array<{
+  value: EUtxoSelectionStrategy;
+  labelId: ETranslations;
+  descriptionId: ETranslations;
+}> = [
   {
-    label: 'Minimize fees',
-    description:
-      'Use fewer inputs to reduce transaction size and lower the network fee.',
     value: EUtxoSelectionStrategy.Default,
+    labelId: ETranslations.wallet_strategy_minimize_fees,
+    descriptionId: ETranslations.wallet_strategy_minimize_fees_desc,
   },
   {
-    label: 'Merge coins',
-    description: 'Combine small coins now to avoid higher fees in the future.',
     value: EUtxoSelectionStrategy.ForceSelected,
+    labelId: ETranslations.wallet_strategy_merge_coins,
+    descriptionId: ETranslations.wallet_strategy_merge_coins_desc,
   },
 ];
 
@@ -89,7 +95,7 @@ const StrategyOption = memo(
       onPress={() => onSelect(item.value)}
     >
       <YStack flex={1} gap="$0.5">
-        <SizableText size="$bodyLg" fontWeight="500" color="$text">
+        <SizableText size="$bodyLgMedium" color="$text">
           {item.label}
         </SizableText>
         <SizableText size="$bodyMd" color="$textSubdued">
@@ -108,7 +114,15 @@ const StrategyOption = memo(
 StrategyOption.displayName = 'CoinControlStrategyOption';
 
 const LearnMoreRow = memo(
-  ({ onPress, disabled }: { onPress?: () => void; disabled?: boolean }) => (
+  ({
+    onPress,
+    disabled,
+    label,
+  }: {
+    onPress?: () => void;
+    disabled?: boolean;
+    label: string;
+  }) => (
     <XStack
       px="$5"
       py="$2.5"
@@ -133,9 +147,12 @@ const LearnMoreRow = memo(
           <Icon name="QuestionmarkOutline" size="$4" color="$iconSubdued" />
         </Stack>
         <SizableText size="$bodyMd" fontWeight="500" color="$textSubdued">
-          Learn more
+          {label}
         </SizableText>
       </XStack>
+      {!platformEnv.isNative ? (
+        <Icon name="ArrowTopRightOutline" size="$4" color="$iconSubdued" />
+      ) : null}
     </XStack>
   ),
 );
@@ -147,15 +164,26 @@ const CoinControlStrategyPopover = ({
   onChange,
   onLearnMore,
 }: ICoinControlStrategyPopoverProps) => {
+  const intl = useIntl();
   const [isOpen, setIsOpen] = useState(false);
   const handleOpenChange = useCallback((open: boolean) => {
     setIsOpen(open);
   }, []);
 
+  const strategyOptions = useMemo<IStrategyOption[]>(
+    () =>
+      STRATEGY_OPTION_CONFIG.map((item) => ({
+        value: item.value,
+        label: intl.formatMessage({ id: item.labelId }),
+        description: intl.formatMessage({ id: item.descriptionId }),
+      })),
+    [intl],
+  );
+
   const selectedLabel = useMemo(() => {
-    const option = STRATEGY_OPTIONS.find((item) => item.value === value);
-    return option?.label ?? STRATEGY_OPTIONS[0].label;
-  }, [value]);
+    const option = strategyOptions.find((item) => item.value === value);
+    return option?.label ?? strategyOptions[0]?.label ?? '';
+  }, [strategyOptions, value]);
 
   const handleSelect = useCallback(
     (strategy: EUtxoSelectionStrategy) => {
@@ -173,7 +201,9 @@ const CoinControlStrategyPopover = ({
 
   return (
     <Popover
-      title="Coin selection strategy"
+      title={intl.formatMessage({
+        id: ETranslations.wallet_coin_selection_strategy,
+      })}
       open={isOpen}
       onOpenChange={handleOpenChange}
       renderContent={
@@ -184,7 +214,7 @@ const CoinControlStrategyPopover = ({
             </Stack>
           ) : null}
           <YStack gap="$0.5">
-            {STRATEGY_OPTIONS.map((item) => (
+            {strategyOptions.map((item) => (
               <StrategyOption
                 key={item.value}
                 item={item}
@@ -193,13 +223,17 @@ const CoinControlStrategyPopover = ({
               />
             ))}
           </YStack>
-          <LearnMoreRow onPress={handleLearnMore} disabled={!onLearnMore} />
+          <LearnMoreRow
+            onPress={handleLearnMore}
+            disabled={!onLearnMore}
+            label={intl.formatMessage({ id: ETranslations.global_learn_more })}
+          />
         </YStack>
       }
       renderTrigger={<Trigger label={selectedLabel} />}
       floatingPanelProps={{
         width: platformEnv.isNative ? '$72' : 353,
-        // borderRadius: '$6',
+        borderRadius: '$6',
         p: 0,
       }}
     />

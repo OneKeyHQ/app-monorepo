@@ -428,7 +428,9 @@ function CoinControlPage() {
             borderBottomWidth="$0"
           >
             <SizableText size="$bodyMd" fontWeight="500" color="$text">
-              Coin selection strategy
+              {intl.formatMessage({
+                id: ETranslations.wallet_coin_selection_strategy,
+              })}
             </SizableText>
             <CoinControlStrategyPopover
               value={strategy}
