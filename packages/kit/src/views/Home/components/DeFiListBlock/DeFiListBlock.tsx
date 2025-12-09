@@ -137,7 +137,6 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
 
     return null;
   }, [
-    media.gtMd,
     settings.currencyInfo.symbol,
     overview.totalValue,
     initialized,

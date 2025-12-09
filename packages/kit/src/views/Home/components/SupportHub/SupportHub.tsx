@@ -4,20 +4,20 @@ import { useIntl } from 'react-intl';
 
 import type { IIconProps } from '@onekeyhq/components';
 import {
+  Button,
   Icon,
+  Image,
   SizableText,
   Stack,
   XStack,
   YStack,
-  Image,
-  Button,
 } from '@onekeyhq/components';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import { ONEKEY_SIFU_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import { RichBlock } from '../RichBlock';
-import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 function SupportHubItem({
   icon,
