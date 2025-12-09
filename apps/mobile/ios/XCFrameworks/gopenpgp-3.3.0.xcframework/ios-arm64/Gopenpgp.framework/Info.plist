@@ -13,7 +13,7 @@
 	<key>CFBundleVersion</key>
 	<string>0.0.1758379400</string>
 	<key>MinimumOSVersion</key>
-	<string>13.0</string>
+	<string>15.5</string>
 	<key>RCTNewArchEnabled</key>
 	<true/>
 </dict>
