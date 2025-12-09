@@ -3,12 +3,10 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 54;
+	objectVersion = 70;
 	objects = {
 
 /* Begin PBXBuildFile section */
-		070588082EE727090006DF09 /* BackgroundRunnerModule.m in Sources */ = {isa = PBXBuildFile; fileRef = 070588062EE727090006DF09 /* BackgroundRunnerModule.m */; };
-		07059BF62EE82D72001078EE /* BackgroundReactNativeDelegate.mm in Sources */ = {isa = PBXBuildFile; fileRef = 07059BF52EE82D72001078EE /* BackgroundReactNativeDelegate.mm */; };
 		076068BF2E7EF3BA00E007B2 /* gopenpgp-3.3.0.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 076068BE2E7EF3BA00E007B2 /* gopenpgp-3.3.0.xcframework */; };
 		076068C02E7EF3BA00E007B2 /* gopenpgp-3.3.0.xcframework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 076068BE2E7EF3BA00E007B2 /* gopenpgp-3.3.0.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		0799B7702E162F7D001ADEC8 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0799B76F2E162F7D001ADEC8 /* AppDelegate.swift */; };
@@ -75,10 +73,6 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		070588062EE727090006DF09 /* BackgroundRunnerModule.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = BackgroundRunnerModule.m; path = OneKeyWallet/BackgroundRunnerModule.m; sourceTree = "<group>"; };
-		07059BEB2EE81D3F001078EE /* BackgroundRunnerModule.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = BackgroundRunnerModule.h; path = OneKeyWallet/BackgroundRunnerModule.h; sourceTree = "<group>"; };
-		07059BF42EE82D72001078EE /* BackgroundReactNativeDelegate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = BackgroundReactNativeDelegate.h; path = OneKeyWallet/BackgroundReactNativeDelegate.h; sourceTree = "<group>"; };
-		07059BF52EE82D72001078EE /* BackgroundReactNativeDelegate.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; name = BackgroundReactNativeDelegate.mm; path = OneKeyWallet/BackgroundReactNativeDelegate.mm; sourceTree = "<group>"; };
 		076068BE2E7EF3BA00E007B2 /* gopenpgp-3.3.0.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = "gopenpgp-3.3.0.xcframework"; path = "XCFrameworks/gopenpgp-3.3.0.xcframework"; sourceTree = "<group>"; };
 		0799B76F2E162F7D001ADEC8 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		07A0D9DB2E7997C6005A1AA2 /* BundleUpdateModule.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = BundleUpdateModule.h; path = OneKeyWallet/BundleUpdateModule.h; sourceTree = "<group>"; };
@@ -138,6 +132,10 @@
 		LAUNCH0012E85D3A700D9A658 /* LaunchOptionsManager.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = LaunchOptionsManager.h; path = OneKeyWallet/LaunchOptionsManager.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		07059BFA2EE82F64001078EE /* BackgroundRunner */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = BackgroundRunner; sourceTree = "<group>"; };
+/* End PBXFileSystemSynchronizedRootGroup section */
+
 /* Begin PBXFrameworksBuildPhase section */
 		13B07F8C1A680F5B00A75B9A /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
@@ -170,10 +168,7 @@
 		13B07FAE1A68108700A75B9A /* OneKeyWallet */ = {
 			isa = PBXGroup;
 			children = (
-				07059BF42EE82D72001078EE /* BackgroundReactNativeDelegate.h */,
-				07059BF52EE82D72001078EE /* BackgroundReactNativeDelegate.mm */,
-				07059BEB2EE81D3F001078EE /* BackgroundRunnerModule.h */,
-				070588062EE727090006DF09 /* BackgroundRunnerModule.m */,
+				07059BFA2EE82F64001078EE /* BackgroundRunner */,
 				F47935B82EA0770600766A6F /* CloudKitModule.m */,
 				F47935B92EA0770600766A6F /* CloudKitModule.swift */,
 				F4B7B0842EA61E4200F80AB9 /* CloudKitModuleCore.swift */,
@@ -307,6 +302,9 @@
 			);
 			dependencies = (
 				C274DAC42AE2644400755275 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				07059BFA2EE82F64001078EE /* BackgroundRunner */,
 			);
 			name = OneKeyWallet;
 			productName = OneKeyWallet;
@@ -597,11 +595,9 @@
 				4B0291071DB1A9856B2D4C1B /* ExpoModulesProvider.swift in Sources */,
 				F47935BC2EA0770600766A6F /* CloudKitModule.m in Sources */,
 				F47935BD2EA0770600766A6F /* CloudKitModule.swift in Sources */,
-				070588082EE727090006DF09 /* BackgroundRunnerModule.m in Sources */,
 				F47935BE2EA0770600766A6F /* KeychainModule.m in Sources */,
 				F4B7B0862EA61E4200F80AB9 /* CloudKitModuleCore.swift in Sources */,
 				F4B7B0872EA61E4200F80AB9 /* KeychainModuleCore.swift in Sources */,
-				07059BF62EE82D72001078EE /* BackgroundReactNativeDelegate.mm in Sources */,
 				F47935BF2EA0770600766A6F /* KeychainModule.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
