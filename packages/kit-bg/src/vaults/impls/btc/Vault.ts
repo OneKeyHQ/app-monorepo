@@ -1029,6 +1029,7 @@ export default class VaultBtc extends VaultBase {
         outputCount: outputs?.length,
         fee,
         txSize: bytes,
+        strategy: utxoSelectionStrategy,
       });
     }
 
