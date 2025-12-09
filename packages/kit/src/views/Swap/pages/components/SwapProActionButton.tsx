@@ -8,6 +8,7 @@ import {
   useSwapProSelectTokenAtom,
   useSwapProTradeTypeAtom,
   useSwapQuoteCurrentSelectAtom,
+  useSwapSpeedQuoteFetchingAtom,
   useSwapSpeedQuoteResultAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -15,15 +16,18 @@ import { ESwapProTradeType } from '@onekeyhq/shared/types/swap/types';
 
 import { ESwapDirection } from '../../../Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
 import { useSwapProAccount } from '../../hooks/useSwapPro';
+import { useSwapQuoteLoading } from '../../hooks/useSwapState';
 
 interface ISwapProActionButtonProps {
   onSwapProActionClick: () => void;
   hasEnoughBalance: boolean;
+  balanceLoading: boolean;
 }
 
 const SwapProActionButton = ({
   onSwapProActionClick,
   hasEnoughBalance,
+  balanceLoading,
 }: ISwapProActionButtonProps) => {
   const intl = useIntl();
   const [swapProTradeType] = useSwapProTradeTypeAtom();
@@ -32,16 +36,28 @@ const SwapProActionButton = ({
   const [swapProQuoteResult] = useSwapSpeedQuoteResultAtom();
   const swapProAccount = useSwapProAccount();
   const [swapProSelectToken] = useSwapProSelectTokenAtom();
+  const quoteLoading = useSwapQuoteLoading();
+  const quoteFetching = useSwapSpeedQuoteFetchingAtom();
   const currentQuoteRes = useMemo(() => {
     if (swapProTradeType === ESwapProTradeType.MARKET) {
       return swapProQuoteResult;
     }
     return swapQuoteResult;
   }, [swapProTradeType, swapProQuoteResult, swapQuoteResult]);
-
+  const currentQuoteLoading = useMemo(() => {
+    if (swapProTradeType === ESwapProTradeType.MARKET) {
+      return quoteFetching;
+    }
+    return quoteLoading;
+  }, [swapProTradeType, quoteLoading, quoteFetching]);
   const actionButtonDisabled = useMemo(() => {
-    return !hasEnoughBalance || !currentQuoteRes?.toAmount;
-  }, [hasEnoughBalance, currentQuoteRes]);
+    return (
+      !hasEnoughBalance ||
+      !currentQuoteRes?.toAmount ||
+      balanceLoading ||
+      currentQuoteLoading
+    );
+  }, [hasEnoughBalance, currentQuoteRes, balanceLoading, currentQuoteLoading]);
 
   const actionButtonText = useMemo(() => {
     if (!hasEnoughBalance) {

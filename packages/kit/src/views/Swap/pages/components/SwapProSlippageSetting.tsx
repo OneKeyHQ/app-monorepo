@@ -44,12 +44,6 @@ export function SwapProSlippageSetting({
           isMEV={isMEV}
         />
       ),
-      onOpen: () => {
-        console.log('Slippage dialog opened');
-      },
-      onClose: (extra) => {
-        console.log('Slippage dialog closed', extra);
-      },
     });
   }, [intl, slippageItem, autoDefaultValue, slippageOnSave, isMEV]);
 
@@ -68,8 +62,9 @@ export function SwapProSlippageSetting({
       alignItems="center"
       userSelect="none"
       cursor="pointer"
+      onPress={onSlippageHandleClick}
     >
-      <XStack onPress={onSlippageHandleClick} alignItems="center" gap="$1">
+      <XStack alignItems="center" gap="$1">
         <Icon name="ChartTrendingOutline" size="$4" color="$iconSubdued" />
         <SizableText
           size="$bodySm"

@@ -2279,7 +2279,7 @@ export default class ServiceSwap extends ServiceBase {
             ),
         },
       );
-      this._quoteAbortController = undefined;
+      this._speedSwapQuoteAbortController = undefined;
 
       if (data?.code === 0 && data?.data?.length) {
         return data?.data;

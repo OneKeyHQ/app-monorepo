@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef } from 'react';
 import type { IListViewProps, IPopoverProps } from '@onekeyhq/components';
 import { useMedia } from '@onekeyhq/components';
 import { useMarketNetworks } from '@onekeyhq/kit/src/views/Market/hooks';
-import { ENetworkStatus, type IServerNetwork } from '@onekeyhq/shared/types';
+import { type IServerNetwork } from '@onekeyhq/shared/types';
 
 import { MarketTokenListNetworkSelectorMobile } from './MarketTokenListNetworkSelectorMobile';
 import { MarketTokenListNetworkSelectorNormal } from './MarketTokenListNetworkSelectorNormal';
@@ -49,7 +49,7 @@ function MarketTokenListNetworkSelector({
     if (!selectedNetworkId && !startListSelect) {
       onSelectNetworkId?.(marketNetworks[0].id);
     }
-  }, [marketNetworks, selectedNetworkId, onSelectNetworkId]);
+  }, [marketNetworks, selectedNetworkId, onSelectNetworkId, startListSelect]);
 
   const onSelectCurrentNetwork = useCallback(
     (network: IServerNetwork) => {

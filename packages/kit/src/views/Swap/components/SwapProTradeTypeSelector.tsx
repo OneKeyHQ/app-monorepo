@@ -95,7 +95,6 @@ const SwapProTradeTypeSelector = ({
               }}
               onPress={() => {
                 handleItemPress(item.value as ESwapProTradeType);
-                closePopover();
               }}
               disabled={item.disabled}
               alignItems="center"

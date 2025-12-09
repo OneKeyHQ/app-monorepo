@@ -36,7 +36,6 @@ import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils'
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   EProtocolOfExchange,
-  ESwapLimitOrderExpiryStep,
   ESwapQuoteKind,
   ESwapTabSwitchType,
   type IFetchQuoteResult,

@@ -31,8 +31,8 @@ const SwapProPositionsList = () => {
   const [swapProSupportNetworksTokenListLoading] =
     useSwapProSupportNetworksTokenListLoadingAtom();
   const [swapProEnableCurrentSymbol] = useSwapProEnableCurrentSymbolAtom();
-  const [swapProTokenSelect] = useSwapProSelectTokenAtom();
-  const [, setSwapProSelectToken] = useSwapProSelectTokenAtom();
+  const [swapProTokenSelect, setSwapProSelectToken] =
+    useSwapProSelectTokenAtom();
   const onPositionTokenPress = useCallback(
     (token: ISwapToken) => {
       setSwapProSelectToken({

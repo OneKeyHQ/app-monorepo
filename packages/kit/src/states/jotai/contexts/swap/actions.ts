@@ -6,7 +6,6 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { ESwapDirection } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
 import type { useSwapAddressInfo } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapAccount';
 import { moveNetworkToFirst } from '@onekeyhq/kit/src/views/Swap/utils/utils';
-import { settingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IEventSourceMessageEvent } from '@onekeyhq/shared/src/eventSource';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
@@ -20,7 +19,6 @@ import {
   checkWrappedTokenPair,
   equalTokenNoCaseSensitive,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
-import type { IMarketTokenDetailResponse } from '@onekeyhq/shared/types/marketV2';
 import {
   swapBridgeDefaultTokenConfigs,
   swapBridgeDefaultTokenExtraConfigs,
@@ -857,7 +855,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           accountId,
           protocol: ESwapTabSwitchType.SWAP,
         });
-        if (res?.length) {
+        if (res && res.length > 0) {
           const quoteResult = res[0];
           set(swapSpeedQuoteResultAtom(), quoteResult);
           if (quoteResult.autoSuggestedSlippage) {

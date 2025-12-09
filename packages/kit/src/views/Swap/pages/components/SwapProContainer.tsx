@@ -10,6 +10,7 @@ import { ETabName, TabBarItem } from '../../../Perp/layouts/PerpMobileLayout';
 import {
   useSwapProSupportNetworksTokenList,
   useSwapProTokenDetailInfo,
+  useSwapProTokenInfoSync,
   useSwapProTokenInit,
 } from '../../hooks/useSwapPro';
 
@@ -41,21 +42,31 @@ const SwapProContainer = ({
   );
   const [swapProTokenSelect] = useSwapProSelectTokenAtom();
   const { fetchTokenMarketDetailInfo } = useSwapProTokenDetailInfo();
+  const { syncInputTokenBalance, syncToTokenPrice } = useSwapProTokenInfoSync();
   const { swapProLoadSupportNetworksTokenListRun } =
     useSwapProSupportNetworksTokenList();
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
-    await fetchTokenMarketDetailInfo();
-    await swapProLoadSupportNetworksTokenListRun();
+    await Promise.all([
+      fetchTokenMarketDetailInfo(),
+      swapProLoadSupportNetworksTokenListRun(),
+      syncInputTokenBalance(),
+      syncToTokenPrice(),
+    ]);
     setRefreshing(false);
-  }, [fetchTokenMarketDetailInfo, swapProLoadSupportNetworksTokenListRun]);
+  }, [
+    fetchTokenMarketDetailInfo,
+    swapProLoadSupportNetworksTokenListRun,
+    syncInputTokenBalance,
+    syncToTokenPrice,
+  ]);
 
   const { isLoading, speedConfig, balanceLoading, isMEV, hasEnoughBalance } =
     useSwapProTokenInit();
 
   return (
     <ScrollView
-      style={{ flex: 1, backgroundColor: '$bgApp' }}
+      style={{ flex: 1 }}
       contentContainerStyle={{ flexGrow: 1 }}
       showsVerticalScrollIndicator={false}
       stickyHeaderIndices={[0, 2]}

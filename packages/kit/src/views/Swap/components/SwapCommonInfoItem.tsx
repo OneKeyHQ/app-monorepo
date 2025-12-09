@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { memo, useMemo } from 'react';
 
 import {
+  type ISizableTextProps,
   Icon,
   Popover,
   SizableText,
@@ -10,8 +11,6 @@ import {
   XStack,
 } from '@onekeyhq/components';
 
-import type { SizableTextProps } from 'tamagui';
-
 interface ISwapCommonInfoItemProps {
   title: string;
   value?: string;
@@ -19,8 +18,8 @@ interface ISwapCommonInfoItemProps {
   onPress?: () => void;
   questionMarkContent?: ReactNode;
   isLoading?: boolean;
-  titleProps?: SizableTextProps;
-  valueProps?: SizableTextProps;
+  titleProps?: ISizableTextProps;
+  valueProps?: ISizableTextProps;
 }
 
 const SwapCommonInfoItemTitleContent = ({
@@ -30,7 +29,7 @@ const SwapCommonInfoItemTitleContent = ({
 }: {
   title: string;
   questionMarkContent?: ReactNode;
-  titleProps?: SizableTextProps;
+  titleProps?: ISizableTextProps;
 }) => {
   const questionMarkComponent = useMemo(
     () => (

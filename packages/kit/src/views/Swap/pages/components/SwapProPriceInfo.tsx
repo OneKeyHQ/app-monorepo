@@ -44,8 +44,12 @@ const SwapProPriceInfo = () => {
         showPlusMinusSigns: true,
       },
     });
-    const textColorValue =
-      priceChangeValue > 0 ? '$textSuccess' : '$textCritical';
+    let textColorValue = '$text';
+    if (priceChangeValue > 0) {
+      textColorValue = '$textSuccess';
+    } else if (priceChangeValue < 0) {
+      textColorValue = '$textCritical';
+    }
     return {
       formattedPrice: formattedPriceValue,
       formattedPriceChange: formattedPriceChangeValue,

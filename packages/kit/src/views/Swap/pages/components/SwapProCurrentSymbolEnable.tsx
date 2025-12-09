@@ -9,13 +9,14 @@ const SwapProCurrentSymbolEnable = () => {
     useSwapProEnableCurrentSymbolAtom();
   const intl = useIntl();
   return (
-    <XStack gap="$2" alignItems="center" mt="$2">
-      <Checkbox
-        value={swapProEnableCurrentSymbol}
-        onChange={(value) => {
-          setSwapProEnableCurrentSymbol(!!value);
-        }}
-      />
+    <XStack
+      gap="$2"
+      alignItems="center"
+      mt="$2"
+      onPress={() => setSwapProEnableCurrentSymbol(!swapProEnableCurrentSymbol)}
+      cursor="pointer"
+    >
+      <Checkbox value={swapProEnableCurrentSymbol} />
       <SizableText>
         {intl.formatMessage({ id: ETranslations.dexmarket_pro_current_symbol })}
       </SizableText>

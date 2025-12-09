@@ -21,6 +21,8 @@ import {
 } from '../../hooks/useSwapPro';
 import { useSwapQuoteLoading } from '../../hooks/useSwapState';
 
+import { ITEM_TITLE_PROPS, ITEM_VALUE_PROPS } from './SwapProTokenDetailGroup';
+
 interface ISwapProTradeInfoGroupProps {
   balanceLoading: boolean;
 }
@@ -86,34 +88,24 @@ const SwapProTradeInfoGroup = ({
       <SwapCommonInfoItem
         title={intl.formatMessage({ id: ETranslations.global_balance })}
         value={balanceValue}
-        titleProps={{
-          size: '$bodySm',
-        }}
-        valueProps={{
-          size: '$bodySmMedium',
-        }}
+        titleProps={ITEM_TITLE_PROPS}
+        valueProps={ITEM_VALUE_PROPS}
         isLoading={balanceLoading}
       />
       <SwapCommonInfoItem
         title={intl.formatMessage({ id: ETranslations.earn_est_receive })}
         value={receiveValue}
-        titleProps={{
-          size: '$bodySm',
-        }}
-        valueProps={{
-          size: '$bodySmMedium',
-        }}
+        titleProps={ITEM_TITLE_PROPS}
+        valueProps={ITEM_VALUE_PROPS}
         isLoading={swapProQuoteFetching}
       />
       <SwapCommonInfoItem
-        title="Trading Fee"
+        title={intl.formatMessage({
+          id: ETranslations.swap_history_detail_service_fee,
+        })}
         value={tradingFeeValue}
-        titleProps={{
-          size: '$bodySm',
-        }}
-        valueProps={{
-          size: '$bodySmMedium',
-        }}
+        titleProps={ITEM_TITLE_PROPS}
+        valueProps={ITEM_VALUE_PROPS}
         isLoading={swapProQuoteFetching}
       />
     </YStack>

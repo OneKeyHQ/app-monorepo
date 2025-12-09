@@ -12,28 +12,51 @@ interface ISwapProTokenTransactionItemProps {
   item: IMarketTokenTransaction;
 }
 
+const FALLBACK_DISPLAY = '-';
+
+const isValidNumericValue = (value: unknown): boolean => {
+  if (value === null || value === undefined || value === '') {
+    return false;
+  }
+  const num = Number(value);
+  return Number.isFinite(num);
+};
+
 const SwapProTokenTransactionItem = ({
   item,
 }: ISwapProTokenTransactionItemProps) => {
   const currencyInfo = useCurrency();
   const { formatPrice, formatTokenValue, textColor } = useMemo(() => {
-    const tokenPrice = item.type === 'buy' ? item.to.price : item.from.price;
-    const formatPriceValue = numberFormat(tokenPrice, {
-      formatter: 'price',
-      formatterOptions: {
-        currency: currencyInfo.symbol,
-      },
-    });
-    const tokenAmount = item.type === 'buy' ? item.to.amount : item.from.amount;
-    const tokenValue = new BigNumber(tokenAmount)
-      .multipliedBy(tokenPrice)
-      .toFixed();
-    const formatTokenValueValue = numberFormat(tokenValue, {
-      formatter: 'value',
-      formatterOptions: {
-        currency: currencyInfo.symbol,
-      },
-    });
+    const rawTokenPrice = item.type === 'buy' ? item.to.price : item.from.price;
+    const rawTokenAmount =
+      item.type === 'buy' ? item.to.amount : item.from.amount;
+
+    const isPriceValid = isValidNumericValue(rawTokenPrice);
+    const isAmountValid = isValidNumericValue(rawTokenAmount);
+
+    let formatPriceValue = FALLBACK_DISPLAY;
+    if (isPriceValid) {
+      formatPriceValue = numberFormat(rawTokenPrice, {
+        formatter: 'price',
+        formatterOptions: {
+          currency: currencyInfo.symbol,
+        },
+      });
+    }
+
+    let formatTokenValueValue = FALLBACK_DISPLAY;
+    if (isPriceValid && isAmountValid) {
+      const tokenValue = new BigNumber(rawTokenAmount)
+        .multipliedBy(rawTokenPrice)
+        .toFixed();
+      formatTokenValueValue = numberFormat(tokenValue, {
+        formatter: 'value',
+        formatterOptions: {
+          currency: currencyInfo.symbol,
+        },
+      });
+    }
+
     const textColorValue =
       item.type === 'buy' ? '$textSuccess' : '$textCritical';
     return {

@@ -5,7 +5,7 @@ import BigNumber from 'bignumber.js';
 import { SizableText, Stack, XStack, YStack } from '@onekeyhq/components';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
-import { ESwapProTimeRange } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
+import type { ESwapProTimeRange } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 
 import { useCurrency } from '../../../components/Currency';
 
@@ -14,49 +14,38 @@ interface ISwapProBuySellInfoProps {
   timeRange: ESwapProTimeRange;
 }
 
+const getCountByTimeRange = (
+  detail: IMarketTokenDetail | undefined,
+  timeRange: ESwapProTimeRange,
+  type: 'buy' | 'sell',
+) => {
+  const key = `${type}${timeRange}Count` as keyof IMarketTokenDetail;
+  return (detail?.[key] as number) ?? 0;
+};
+
 const SwapProBuySellInfo = ({
   tokenDetailInfo,
   timeRange,
 }: ISwapProBuySellInfoProps) => {
   const currencyInfo = useCurrency();
   const buyCount = useMemo(() => {
-    switch (timeRange) {
-      case ESwapProTimeRange.ONE_HOUR:
-        return tokenDetailInfo?.buy1hCount ?? 0;
-      case ESwapProTimeRange.FOUR_HOURS:
-        return tokenDetailInfo?.buy4hCount ?? 0;
-      case ESwapProTimeRange.EIGHT_HOURS:
-        return tokenDetailInfo?.buy8hCount ?? 0;
-      case ESwapProTimeRange.TWENTY_FOUR_HOURS:
-        return tokenDetailInfo?.buy24hCount ?? 0;
-      default:
-        return 0;
-    }
+    return getCountByTimeRange(tokenDetailInfo, timeRange, 'buy');
   }, [timeRange, tokenDetailInfo]);
   const sellCount = useMemo(() => {
-    switch (timeRange) {
-      case ESwapProTimeRange.ONE_HOUR:
-        return tokenDetailInfo?.sell1hCount ?? 0;
-      case ESwapProTimeRange.FOUR_HOURS:
-        return tokenDetailInfo?.sell4hCount ?? 0;
-      case ESwapProTimeRange.EIGHT_HOURS:
-        return tokenDetailInfo?.sell8hCount ?? 0;
-      case ESwapProTimeRange.TWENTY_FOUR_HOURS:
-        return tokenDetailInfo?.sell24hCount ?? 0;
-      default:
-        return 0;
-    }
+    return getCountByTimeRange(tokenDetailInfo, timeRange, 'sell');
   }, [timeRange, tokenDetailInfo]);
   const totalCount = useMemo(() => {
     return new BigNumber(buyCount ?? 0).plus(sellCount ?? 0).toNumber();
   }, [buyCount, sellCount]);
   const buyPercentage = useMemo(() => {
+    if (totalCount === 0) return 0;
     return new BigNumber(buyCount ?? 0)
       .dividedBy(totalCount ?? 0)
       .multipliedBy(100)
       .toNumber();
   }, [buyCount, totalCount]);
   const sellPercentage = useMemo(() => {
+    if (totalCount === 0) return 0;
     return new BigNumber(sellCount ?? 0)
       .dividedBy(totalCount ?? 0)
       .multipliedBy(100)

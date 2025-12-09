@@ -174,6 +174,7 @@ const SwapProTradingPanel = ({
       <SwapProActionButton
         onSwapProActionClick={onSwapProActionClick}
         hasEnoughBalance={hasEnoughBalance}
+        balanceLoading={balanceLoading}
       />
     </YStack>
   );

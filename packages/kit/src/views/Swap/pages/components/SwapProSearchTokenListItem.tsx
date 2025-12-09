@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { memo, useMemo } from 'react';
 
 import { SizableText, XStack, YStack } from '@onekeyhq/components';
 import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
@@ -32,7 +32,7 @@ const SwapProSearchTokenListItem = ({
     });
   }, [item.liquidity]);
   return (
-    <ListItem justifyContent="space-between" onPress={() => void onPress(item)}>
+    <ListItem justifyContent="space-between" onPress={() => onPress(item)}>
       <XStack gap="$2">
         <Token
           tokenImageUri={item.logoUrl}
@@ -71,4 +71,4 @@ const SwapProSearchTokenListItem = ({
   );
 };
 
-export default SwapProSearchTokenListItem;
+export default memo(SwapProSearchTokenListItem);

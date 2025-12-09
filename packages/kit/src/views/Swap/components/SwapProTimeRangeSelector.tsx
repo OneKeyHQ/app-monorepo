@@ -79,7 +79,6 @@ const SwapProTimeRangeSelector = ({
               }}
               onPress={() => {
                 handleItemPress(item.value);
-                closePopover();
               }}
               alignItems="center"
               cursor="pointer"

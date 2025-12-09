@@ -1,6 +1,9 @@
 import { useMemo } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { Icon, SizableText, XStack } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { useSwapProAccount } from '../../hooks/useSwapPro';
@@ -12,17 +15,18 @@ interface ISwapProAccountSelectProps {
 const SwapProAccountSelect = ({
   onSelectAccountClick,
 }: ISwapProAccountSelectProps) => {
+  const intl = useIntl();
   const netAccountRes = useSwapProAccount();
   const accountValue = useMemo(() => {
     if (!netAccountRes?.result?.address) {
-      return 'select account';
+      return intl.formatMessage({ id: ETranslations.global_select_wallet });
     }
     return accountUtils.shortenAddress({
       address: netAccountRes?.result?.address ?? '',
       leadingLength: 6,
       trailingLength: 3,
     });
-  }, [netAccountRes?.result?.address]);
+  }, [netAccountRes?.result?.address, intl]);
   return (
     <XStack
       onPress={onSelectAccountClick}

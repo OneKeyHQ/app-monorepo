@@ -4,6 +4,7 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import { Stack } from '@onekeyhq/components';
+import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
 import {
   useSwapProToTotalValueAtom,
   useSwapProTradeTypeAtom,
@@ -25,6 +26,7 @@ const SwapProToTotalValue = () => {
   const [swapProToTotalValue, setSwapProToTotalValue] =
     useSwapProToTotalValueAtom();
   const swapProtoToToken = useSwapProToToken();
+  const currencyInfo = useCurrency();
   const handleTokenValueChange = useCallback(
     (text: string) => {
       if (swapProTradeType === ESwapProTradeType.LIMIT) {
@@ -35,13 +37,17 @@ const SwapProToTotalValue = () => {
           toTokenAmountValue = '';
         } else {
           const toTokenPrice = new BigNumber(swapProtoToToken?.price ?? '0');
-          toTokenAmountValue = toAmountValue
-            .div(toTokenPrice)
-            .decimalPlaces(
-              swapProtoToToken?.decimals ?? 0,
-              BigNumber.ROUND_DOWN,
-            )
-            .toFixed();
+          if (toTokenPrice.isNaN() || toTokenPrice.isZero()) {
+            toTokenAmountValue = '';
+          } else {
+            toTokenAmountValue = toAmountValue
+              .div(toTokenPrice)
+              .decimalPlaces(
+                swapProtoToToken?.decimals ?? 0,
+                BigNumber.ROUND_DOWN,
+              )
+              .toFixed();
+          }
         }
         setSwapToTokenAmount({
           value: toTokenAmountValue,
@@ -96,7 +102,9 @@ const SwapProToTotalValue = () => {
   return (
     <Stack mt="$2">
       <SwapProCenterInput
-        title={intl.formatMessage({ id: ETranslations.dexmarket_total })}
+        title={`${intl.formatMessage({ id: ETranslations.dexmarket_total })} (${
+          currencyInfo.symbol
+        })`}
         value={swapProToTotalValue}
         onChangeText={handleTokenValueChange}
         inputDisabled={false}
