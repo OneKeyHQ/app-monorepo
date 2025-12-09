@@ -10,15 +10,13 @@
 #endif
 
 #import <React/RCTComponent.h>
-#import <OneKeyWallet-Swift.h>
 
 #include <string>
 #include <vector>
 
-
 NS_ASSUME_NONNULL_BEGIN
 
-@interface BackgroundReactNativeDelegate : BackgroundExpoReactNativeFactoryDelegate
+@interface BackgroundReactNativeDelegate : RCTDefaultReactNativeFactoryDelegate
 
 //@property (nonatomic) std::shared_ptr<const facebook::react::SandboxReactNativeViewEventEmitter> eventEmitter;
 @property (nonatomic, assign) BOOL hasOnMessageHandler;
