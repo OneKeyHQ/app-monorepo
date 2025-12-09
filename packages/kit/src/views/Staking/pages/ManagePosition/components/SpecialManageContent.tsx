@@ -7,7 +7,6 @@ import {
   Badge,
   Button,
   Divider,
-  IconButton,
   Page,
   SizableText,
   XStack,
@@ -177,11 +176,16 @@ export function SpecialManageContent({
               intl.formatMessage({ id: ETranslations.earn_holdings })}
           </SizableText>
           {historyAction && !historyAction.disabled ? (
-            <IconButton
+            <Button
+              variant="tertiary"
+              size="small"
               icon="ClockTimeHistoryOutline"
               onPress={() => onHistory?.()}
-              variant="tertiary"
-            />
+              mt={isInModalContext ? '$1' : undefined}
+            >
+              {historyAction.text?.text ||
+                intl.formatMessage({ id: ETranslations.global_history })}
+            </Button>
           ) : null}
         </XStack>
 
