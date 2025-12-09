@@ -394,19 +394,23 @@ function handleDeepLinkUrl(
   };
 
   const sendEventData = () => {
-    isAppReady = true;
-
     const safelyMainWindow = getSafelyMainWindow();
     if (safelyMainWindow) {
       showMainWindow();
-      if (process.env.NODE_ENV !== 'production') {
+
+      // Cold startup: cache the deep link for later processing
+      if (!isAppReady) {
         safelyMainWindow?.webContents.send(
           ipcMessageKeys.OPEN_DEEP_LINK_URL,
           eventData,
         );
       }
+
+      // Hot startup: send directly to registered listener
       mainWindow?.webContents.send(ipcMessageKeys.EVENT_OPEN_URL, eventData);
     }
+
+    isAppReady = true;
   };
   if (isAppReady && mainWindow) {
     sendEventData();
