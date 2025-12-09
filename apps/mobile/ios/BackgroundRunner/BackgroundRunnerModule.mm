@@ -10,6 +10,8 @@
 #endif
 #import "BackgroundRunnerReactNativeDelegate.h"
 
+#import <OnekeyWallet-Swift.h>
+
 @interface BackgroundRunnerModule ()
 @property (nonatomic, strong) BackgroundReactNativeDelegate *reactNativeFactoryDelegate;
 @property (nonatomic, strong) RCTReactNativeFactory *reactNativeFactory;
@@ -35,7 +37,7 @@ RCT_EXPORT_MODULE(BackgroundRunnerModule)
   dispatch_once(&onceToken, ^{
     sharedInstance = [[self alloc] init];
     sharedInstance.reactNativeFactoryDelegate = [[BackgroundReactNativeDelegate alloc] init];
-    sharedInstance.reactNativeFactory = [[RCTReactNativeFactory alloc] initWithDelegate:sharedInstance.reactNativeFactoryDelegate];
+    sharedInstance.reactNativeFactory = [BackgroundExpoReactNativeFactory create:sharedInstance.reactNativeFactoryDelegate];
   });
   return sharedInstance;
 }

@@ -13,6 +13,9 @@
 #import <ReactAppDependencyProvider/RCTAppDependencyProvider.h>
 #import <ReactCommon/RCTTurboModule.h>
 
+#import <ExpoModulesCore/EXAppDefines.h>
+#import <ExpoModulesCore/ExpoModulesCore.h>
+
 #import <objc/runtime.h>
 
 #include <fmt/format.h>
@@ -65,7 +68,7 @@ static std::string safeGetStringProperty(jsi::Runtime &rt, const jsi::Object &ob
   if (self = [super init]) {
     _hasOnMessageHandler = NO;
     _hasOnErrorHandler = NO;
-    self.dependencyProvider = [[RCTAppDependencyProvider alloc] init];
+//    self.dependencyProvider = [[RCTAppDependencyProvider alloc] init];
   }
   return self;
 }
