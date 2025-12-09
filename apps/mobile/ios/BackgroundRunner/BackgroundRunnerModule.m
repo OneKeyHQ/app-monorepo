@@ -8,7 +8,7 @@
 #elif __has_include("RCTAppDependencyProvider.h")
 #import "RCTAppDependencyProvider.h"
 #endif
-#import "BackgroundReactNativeDelegate.h"
+#import "BackgroundRunnerReactNativeDelegate.h"
 
 @implementation BackgroundRunnerModule
 {
