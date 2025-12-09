@@ -42,7 +42,6 @@ import {
   usePasswordWebAuthInfoAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import { displayAppUpdateVersion } from '@onekeyhq/shared/src/appUpdate';
 import {
   GITHUB_URL,
@@ -288,7 +287,6 @@ export function CleanDataListItem(props: ICustomElementProps) {
 
 export function HardwareTransportTypeListItem(props: ICustomElementProps) {
   const [{ hardwareTransportType }] = useSettingsPersistAtom();
-  const [devPersist] = useDevSettingsPersistAtom();
 
   const transportOptions = useMemo(() => {
     if (platformEnv.isNative) {
@@ -300,18 +298,13 @@ export function HardwareTransportTypeListItem(props: ICustomElementProps) {
       ];
     }
     if (platformEnv.isDesktop) {
-      const usb = devPersist?.settings?.usbCommunicationMode;
       const desktopTransportList: ISelectItem[] = [];
-      const enableBridge = platformEnv.isDesktopLinux || usb === 'bridge';
-      const enableWebUSB = platformEnv.isDesktopLinux || usb !== 'bridge';
-
-      if (enableBridge) {
+      if (platformEnv.isDesktopLinux) {
         desktopTransportList.push({
           label: 'Bridge',
           value: EHardwareTransportType.Bridge,
         });
-      }
-      if (enableWebUSB) {
+      } else {
         desktopTransportList.push({
           label: 'WebUSB',
           value: EHardwareTransportType.WEBUSB,
@@ -340,7 +333,7 @@ export function HardwareTransportTypeListItem(props: ICustomElementProps) {
       ];
     }
     return [];
-  }, [devPersist?.settings?.usbCommunicationMode]);
+  }, []);
   const onChange = useCallback(async (value: string) => {
     const newTransportType = value as EHardwareTransportType;
 
