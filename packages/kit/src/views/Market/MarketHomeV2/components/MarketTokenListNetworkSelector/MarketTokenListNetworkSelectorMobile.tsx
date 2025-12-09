@@ -18,6 +18,8 @@ interface IMarketTokenListNetworkSelectorMobileProps {
   forceLoading?: boolean;
   placement?: IPopoverProps['placement'];
   containerStyle?: IListViewProps<any>['contentContainerStyle'];
+  onStartListSelect?: () => void;
+  startListSelect?: boolean;
 }
 
 export interface IMarketTokenListNetworkSelectorMobileRef {
@@ -37,6 +39,8 @@ const MarketTokenListNetworkSelectorMobile = forwardRef<
       isLoading,
       placement,
       containerStyle,
+      onStartListSelect,
+      startListSelect,
     },
     ref,
   ) => {
@@ -67,6 +71,8 @@ const MarketTokenListNetworkSelectorMobile = forwardRef<
             onMoreNetworkSelect={handleMoreNetworkSelect}
             placement={placement}
             containerStyle={containerStyle}
+            onStartListSelect={onStartListSelect}
+            startListSelect={startListSelect}
           />
         )}
       </Stack>

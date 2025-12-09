@@ -68,7 +68,6 @@ export function useMarketTokenList({
           limit: pageSize,
           minLiquidity,
         });
-
       return {
         list: response.list,
         total: response.total,

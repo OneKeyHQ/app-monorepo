@@ -8,6 +8,7 @@ export enum EEnterWay {
   Others = 'Others',
   ExtensionPopup = 'ExtensionPopup',
   ExtensionSidePanel = 'ExtensionSidePanel',
+  SwapPro = 'SwapPro',
 }
 
 export enum EDexListName {
