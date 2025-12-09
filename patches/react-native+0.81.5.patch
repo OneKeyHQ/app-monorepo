@@ -275,6 +275,29 @@ index 377f41e..0b6544b 100644
  }
  
  #pragma mark - Layout
+diff --git a/node_modules/react-native/React/CxxUtils/RCTFollyConvert.h b/node_modules/react-native/React/CxxUtils/RCTFollyConvert.h
+index d783536..6a0c156 100644
+--- a/node_modules/react-native/React/CxxUtils/RCTFollyConvert.h
++++ b/node_modules/react-native/React/CxxUtils/RCTFollyConvert.h
+@@ -7,7 +7,17 @@
+ 
+ #import <Foundation/Foundation.h>
+ 
+-#include <react/utils/FollyConvert.h>
++#if __has_include(<react/utils/FollyConvert.h>)
++  // static libs / header maps (no use_frameworks!)
++  #import <react/utils/FollyConvert.h>
++#elif __has_include("FollyConvert.h")
++  /// `use_frameworks! :linkage => :static` users will need to import FollyConvert this way
++  #import "FollyConvert.h"
++#elif __has_include("RCTFollyConvert.h")
++  #import "RCTFollyConvert.h"
++#else
++  #error "FollyConvert.h not found. Ensure React-utils & RCT-Folly pods are installed."
++#endif
+ 
+ // This file has been moved to `react/utils/FollyConvert.h`.
+ // We are keeping the header here for backwards compatibility.
 diff --git a/node_modules/react-native/React/Fabric/Mounting/ComponentViews/TextInput/RCTTextInputComponentView.mm b/node_modules/react-native/React/Fabric/Mounting/ComponentViews/TextInput/RCTTextInputComponentView.mm
 index 577bebe..ad0f253 100644
 --- a/node_modules/react-native/React/Fabric/Mounting/ComponentViews/TextInput/RCTTextInputComponentView.mm
