@@ -8,6 +8,7 @@ import {
   useSwapLimitExpirationTimeAtom,
   useSwapLimitPartiallyFillAtom,
   useSwapProDirectionAtom,
+  useSwapProTokenSupportLimitAtom,
   useSwapProTradeTypeAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -65,6 +66,7 @@ const SwapProTradingPanel = ({
   const { limitOrderExpiryStepMap, limitOrderPartiallyFillStepMap } =
     useSwapLimitConfigMaps();
   const intl = useIntl();
+  const [swapProTokenSupportLimit] = useSwapProTokenSupportLimitAtom();
   const selectTradeTypeItems = useMemo(
     () => [
       {
@@ -74,9 +76,15 @@ const SwapProTradingPanel = ({
       {
         label: intl.formatMessage({ id: ETranslations.perp_trade_limit }),
         value: ESwapProTradeType.LIMIT,
+        disabled: !swapProTokenSupportLimit,
+        description: swapProTokenSupportLimit
+          ? undefined
+          : intl.formatMessage({
+              id: ETranslations.dexmarket_pro_limit_desc,
+            }),
       },
     ],
-    [intl],
+    [intl, swapProTokenSupportLimit],
   );
 
   useSwapProActionsQuote();

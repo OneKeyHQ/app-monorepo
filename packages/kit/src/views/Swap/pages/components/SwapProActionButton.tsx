@@ -40,7 +40,7 @@ const SwapProActionButton = ({
   }, [swapProTradeType, swapProQuoteResult, swapQuoteResult]);
 
   const actionButtonDisabled = useMemo(() => {
-    return !hasEnoughBalance || !currentQuoteRes;
+    return !hasEnoughBalance || !currentQuoteRes?.toAmount;
   }, [hasEnoughBalance, currentQuoteRes]);
 
   const actionButtonText = useMemo(() => {

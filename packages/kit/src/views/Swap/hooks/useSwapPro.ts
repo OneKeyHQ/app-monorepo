@@ -312,6 +312,9 @@ export function useSwapProTokenInit() {
 
   const hasEnoughBalance = useMemo(() => {
     const inputAmountBN = new BigNumber(swapProInputAmount ?? '0');
+    if (inputAmountBN.isNaN() || inputAmountBN.isZero()) {
+      return true;
+    }
     const inputTokenBalanceBN = new BigNumber(inputToken?.balanceParsed ?? '0');
     return inputTokenBalanceBN.gte(inputAmountBN);
   }, [inputToken?.balanceParsed, swapProInputAmount]);
