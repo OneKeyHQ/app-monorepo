@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -42,7 +43,7 @@ interface ICreationStep {
   id: ECreationStepId;
   icon: IKeyOfIcons;
   title: string;
-  description?: string;
+  description?: ReactNode;
   state: ECreationStepState;
   infoMessage?: string;
 }
@@ -58,30 +59,38 @@ const STEP_CONFIG: Record<
   {
     icon: IKeyOfIcons;
     title: string;
-    description: string;
-    infoMessage: string;
+    description: ReactNode;
+    infoMessage?: string;
     buttonText: string;
   }
 > = {
   [ECreationStepId.DeviceShare]: {
     icon: 'Key2Solid',
     title: 'Device Key',
-    description: 'Encrypted with your passcode and stored on this device.',
-    infoMessage: 'Tap to save the key to your device',
+    description: (
+      <>
+        Encrypted with your{' '}
+        <SizableText size="$bodyMdMedium" color="$textSubdued">
+          passcode
+        </SizableText>
+        .
+      </>
+    ),
+    // infoMessage: 'Tap to save the key to your device',
     buttonText: 'Save to Device',
   },
   [ECreationStepId.CloudShare]: {
     icon: 'CloudSolid',
     title: 'Cloud Key',
     description: `Encrypted backup to ${cloudProviderName}`,
-    infoMessage: `Tap to backup the key to ${cloudProviderName}`,
+    // infoMessage: `Tap to backup the key to ${cloudProviderName}`,
     buttonText: `Backup to ${cloudProviderName}`,
   },
   [ECreationStepId.AuthShare]: {
     icon: 'EmailSolid',
     title: 'Auth Key',
     description: 'Protected by your OneKey ID',
-    infoMessage: 'Tap to save the key to OneKey server',
+    // infoMessage: 'Tap to save the key to OneKey server',
     buttonText: 'Save to Server',
   },
 };
@@ -267,10 +276,22 @@ export function KeylessWalletCreation({
     [],
   );
 
-  // Handle "Complete Setup" button
+  // Handle "Complete Setup" - navigate to finalize wallet setup
   const handleCompleteSetup = useCallback(() => {
     navigation.push(EOnboardingPagesV2.FinalizeWalletSetup, {});
   }, [navigation]);
+
+  // Auto-navigate when all steps are complete
+  useEffect(() => {
+    if (isCreationComplete) {
+      // Small delay to let user see the final success state
+      const timer = setTimeout(() => {
+        handleCompleteSetup();
+      }, 800);
+      return () => clearTimeout(timer);
+    }
+    return undefined;
+  }, [isCreationComplete, handleCompleteSetup]);
 
   // Reset steps when component mounts
   useEffect(() => {
@@ -324,7 +345,11 @@ export function KeylessWalletCreation({
             exitStyle={{ scale: 0.8, opacity: 0 }}
             key="info"
           >
-            <Icon name="InfoCircleOutline" color="$iconInfo" size="$5" />
+            <Icon
+              name="CirclePlaceholderOnOutline"
+              color="$iconSubdued"
+              size="$4.5"
+            />
           </YStack>
         );
       default:
@@ -344,12 +369,12 @@ export function KeylessWalletCreation({
             }}
           >
             <YStack gap="$2">
-              <SizableText color="$textSubdued">
-                Your Keyless Wallet is secured with{' '}
-                <SizableText color="$text" size="$bodyMdMedium">
+              <SizableText color="$textDisabled">
+                Secure by{' '}
+                <SizableText size="$bodyMdMedium" color="$textSubdued">
                   3 security keys
                 </SizableText>
-                . Complete all steps below to finish setup.
+                .
               </SizableText>
             </YStack>
 
@@ -481,11 +506,15 @@ export function KeylessWalletCreation({
                       opacity={step.state === ECreationStepState.Idle ? 0.5 : 1}
                     >
                       <SizableText size="$headingSm">{step.title}</SizableText>
-                      {step.description ? (
-                        <SizableText color="$textSubdued">
-                          {step.description}
-                        </SizableText>
-                      ) : null}
+                      <HeightTransition initialHeight={0}>
+                        {step.description &&
+                        (step.state === ECreationStepState.Info ||
+                          step.state === ECreationStepState.InProgress) ? (
+                          <SizableText color="$textDisabled">
+                            {step.description}
+                          </SizableText>
+                        ) : null}
+                      </HeightTransition>
                     </YStack>
                   </XStack>
 
@@ -501,17 +530,20 @@ export function KeylessWalletCreation({
                         borderTopColor="$borderSubdued"
                         alignItems="center"
                       >
-                        <SizableText
-                          size="$bodyMdMedium"
-                          color="$textInfo"
-                          flex={1}
-                          textAlign="left"
-                        >
-                          {step.infoMessage}
-                        </SizableText>
+                        {step.infoMessage ? (
+                          <SizableText
+                            size="$bodyMdMedium"
+                            color="$textInfo"
+                            flex={1}
+                            textAlign="left"
+                          >
+                            {step.infoMessage}
+                          </SizableText>
+                        ) : null}
                         <Button
                           variant="primary"
                           onPress={() => handleStepAction(step.id)}
+                          w="100%"
                         >
                           {getButtonText(step.id)}
                         </Button>
@@ -553,57 +585,7 @@ export function KeylessWalletCreation({
             ))}
           </OnboardingLayout.ConstrainedContent>
         </OnboardingLayout.Body>
-        <OnboardingLayout.Footer>
-          <AnimatePresence initial={false} exitBeforeEnter>
-            {!isCreationComplete ? (
-              <Button
-                key="progress-button"
-                variant="secondary"
-                size="large"
-                disabled
-                w="100%"
-                maxWidth={400}
-                animation="quick"
-                animateOnly={['opacity', 'transform']}
-                enterStyle={{
-                  opacity: 0,
-                  y: -16,
-                  filter: 'blur(4px)',
-                }}
-                exitStyle={{
-                  opacity: 0,
-                  y: -16,
-                  filter: 'blur(4px)',
-                }}
-              >
-                Setup Progress ({successCount}/3)
-              </Button>
-            ) : (
-              <Button
-                key="complete-button"
-                variant="primary"
-                size="large"
-                onPress={handleCompleteSetup}
-                w="100%"
-                maxWidth={400}
-                animation="quick"
-                animateOnly={['opacity', 'transform']}
-                enterStyle={{
-                  opacity: 0,
-                  y: 16,
-                  filter: 'blur(4px)',
-                }}
-                exitStyle={{
-                  opacity: 0,
-                  y: 16,
-                  filter: 'blur(4px)',
-                }}
-              >
-                Complete Setup
-              </Button>
-            )}
-          </AnimatePresence>
-        </OnboardingLayout.Footer>
+        <OnboardingLayout.Footer />
       </OnboardingLayout>
     </Page>
   );
