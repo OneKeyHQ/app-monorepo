@@ -77,6 +77,7 @@ class BackgroundReactNativeDelegate: RCTDefaultReactNativeFactoryDelegate {
   override func bundleURL() -> URL? {
     #if DEBUG
     return RCTBundleURLProvider.sharedSettings().jsBundleURL(forBundleRoot: BackgroundReactNativeDelegate.BACKGROUND_BUNDLE_NAME)
+    return URL(string: BackgroundReactNativeDelegate.BACKGROUND_BUNDLE_DEBUG_URL)
     #else
       return Bundle.main.url(forResource: BackgroundReactNativeDelegate.BACKGROUND_BUNDLE_NAME, withExtension: "jsbundle")
     #endif
