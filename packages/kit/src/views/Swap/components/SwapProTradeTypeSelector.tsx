@@ -74,7 +74,7 @@ const SwapProTradeTypeSelector = ({
           />
         </XStack>
       }
-      renderContent={({ closePopover }) => (
+      renderContent={() => (
         <YStack $md={{ p: '$3' }} gap="$2">
           {selectItems.map((item) => (
             <XStack
@@ -94,6 +94,9 @@ const SwapProTradeTypeSelector = ({
                 bg: '$bgActive',
               }}
               onPress={() => {
+                if (item.disabled) {
+                  return;
+                }
                 handleItemPress(item.value as ESwapProTradeType);
               }}
               disabled={item.disabled}

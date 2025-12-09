@@ -2239,6 +2239,7 @@ export default class ServiceSwap extends ServiceBase {
     kind,
     protocol,
   }: IFetchSwapQuoteParams) {
+    await this.cancelFetchSpeedSwapQuote();
     const walletDevice =
       await this.backgroundApi.serviceAccount.getAccountDeviceSafe({
         accountId: accountId ?? '',

@@ -37,7 +37,7 @@ const SwapProActionButton = ({
   const swapProAccount = useSwapProAccount();
   const [swapProSelectToken] = useSwapProSelectTokenAtom();
   const quoteLoading = useSwapQuoteLoading();
-  const quoteFetching = useSwapSpeedQuoteFetchingAtom();
+  const [quoteFetching] = useSwapSpeedQuoteFetchingAtom();
   const currentQuoteRes = useMemo(() => {
     if (swapProTradeType === ESwapProTradeType.MARKET) {
       return swapProQuoteResult;

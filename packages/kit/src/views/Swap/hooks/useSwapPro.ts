@@ -148,6 +148,14 @@ export function useSwapProTokenInfoSync() {
   const swapProSellToToken = useSwapProToToken();
 
   const syncInputTokenBalance = useCallback(async () => {
+    if (
+      !inputToken?.contractAddress ||
+      !inputToken?.networkId ||
+      !netAccountRes.result?.addressDetail.address ||
+      !netAccountRes.result?.id
+    ) {
+      return;
+    }
     setBalanceLoading(true);
     try {
       const balanceTokenInfo =

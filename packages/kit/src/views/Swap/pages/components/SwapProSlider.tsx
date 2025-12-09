@@ -29,7 +29,7 @@ const SwapProSlider = () => {
       let newValue = value;
       if (value > 100) {
         newValue = 100;
-      } else if (newValue < 0) {
+      } else if (value < 0) {
         newValue = 0;
       }
       setSwapProSliderValue(newValue);

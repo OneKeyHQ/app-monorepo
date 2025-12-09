@@ -16,7 +16,6 @@ interface IMarketTokenListNetworkSelectorProps {
   onSelectNetworkId?: (networkId: string) => void;
   placement?: IPopoverProps['placement'];
   containerStyle?: IListViewProps<any>['contentContainerStyle'];
-  addStartList?: boolean;
   onStartListSelect?: () => void;
   startListSelect?: boolean;
 }

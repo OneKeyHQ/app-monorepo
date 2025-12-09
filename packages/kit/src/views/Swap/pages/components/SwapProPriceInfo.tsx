@@ -38,7 +38,7 @@ const SwapProPriceInfo = () => {
       },
     );
     const priceChangeValue = Number(priceChange);
-    const formattedPriceChangeValue = numberFormat(priceChange.toString(), {
+    const formattedPriceChangeValue = numberFormat(priceChange, {
       formatter: 'priceChange',
       formatterOptions: {
         showPlusMinusSigns: true,
