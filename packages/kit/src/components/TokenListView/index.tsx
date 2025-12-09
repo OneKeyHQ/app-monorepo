@@ -1,14 +1,16 @@
 import type { ComponentProps, ReactElement, ReactNode } from 'react';
-import { memo, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 
 import {
+  Button,
   type IYStackProps,
   ListView,
   SizableText,
   Stack,
   Tabs,
+  XStack,
   YStack,
   useStyle,
 } from '@onekeyhq/components';
@@ -56,6 +58,8 @@ import { TokenListFooter } from './TokenListFooter';
 import { TokenListHeader } from './TokenListHeader';
 import { TokenListItem } from './TokenListItem';
 import { TokenListViewContext } from './TokenListViewContext';
+import { useIntl } from 'react-intl';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 type IProps = {
   accountId: string;
@@ -107,6 +111,7 @@ type IProps = {
   emptyProps?: IYStackProps;
   searchKeyLengthThreshold?: number;
   plainMode?: boolean;
+  limit?: number;
 };
 
 function TokenListViewCmp(props: IProps) {
@@ -145,7 +150,18 @@ function TokenListViewCmp(props: IProps) {
     indexedAccountId,
     searchKeyLengthThreshold,
     plainMode = false,
+    limit,
   } = props;
+
+  const intl = useIntl();
+
+  const [overFlowState, setOverFlowState] = useState<{
+    isOverflow: boolean;
+    isSliced: boolean;
+  }>({
+    isOverflow: false,
+    isSliced: true,
+  });
 
   const [activeAccountTokenList] = useActiveAccountTokenListAtom();
   const [tokenList] = useTokenListAtom();
@@ -242,7 +258,7 @@ function TokenListViewCmp(props: IProps) {
   const [{ sortType, sortDirection }] = useTokenListSortAtom();
 
   const filteredTokens = useMemo(() => {
-    const resp = getFilteredTokenBySearchKey({
+    let resp = getFilteredTokenBySearchKey({
       tokens,
       searchKey: isTokenSelector ? tokenSelectorSearchKey : searchKey,
       searchAll,
@@ -255,7 +271,7 @@ function TokenListViewCmp(props: IProps) {
 
     if (!isTokenSelector) {
       if (sortType === ETokenListSortType.Price) {
-        return sortTokensByPrice({
+        resp = sortTokensByPrice({
           tokens: resp,
           sortDirection,
           map: {
@@ -263,10 +279,8 @@ function TokenListViewCmp(props: IProps) {
             ...aggregateTokenMap,
           },
         });
-      }
-
-      if (sortType === ETokenListSortType.Value) {
-        return sortTokensByFiatValue({
+      } else if (sortType === ETokenListSortType.Value) {
+        resp = sortTokensByFiatValue({
           tokens: resp,
           sortDirection,
           map: {
@@ -274,14 +288,16 @@ function TokenListViewCmp(props: IProps) {
             ...aggregateTokenMap,
           },
         });
-      }
-
-      if (sortType === ETokenListSortType.Name) {
-        return sortTokensByName({
+      } else if (sortType === ETokenListSortType.Name) {
+        resp = sortTokensByName({
           tokens: resp,
           sortDirection,
         });
       }
+    }
+
+    if (overFlowState.isOverflow && overFlowState.isSliced) {
+      resp = resp.slice(0, limit);
     }
 
     return resp;
@@ -294,11 +310,14 @@ function TokenListViewCmp(props: IProps) {
     tokenSelectorSearchTokenList.tokens,
     searchTokenList.tokens,
     allAggregateTokenMap,
+    searchKeyLengthThreshold,
+    overFlowState.isOverflow,
+    overFlowState.isSliced,
     sortType,
     sortDirection,
     tokenListMap,
     aggregateTokenMap,
-    searchKeyLengthThreshold,
+    limit,
   ]);
 
   const { result: extensionActiveTabDAppInfo } = useActiveTabDAppInfo();
@@ -433,7 +452,86 @@ function TokenListViewCmp(props: IProps) {
     emptyProps,
   ]);
 
+  useEffect(() => {
+    if (limit && filteredTokens.length > limit) {
+      setOverFlowState((prev) => ({
+        ...prev,
+        isOverflow: true,
+      }));
+    }
+  }, [filteredTokens.length, limit]);
+
+  const renderPlainModeFooter = useCallback(() => {
+    if (overFlowState.isOverflow) {
+      return (
+        <XStack py="$3" jc="center" ai="center">
+          {overFlowState.isSliced ? (
+            <Button
+              size="small"
+              variant="secondary"
+              onPress={() =>
+                setOverFlowState((prev) => ({ ...prev, isSliced: false }))
+              }
+            >
+              {intl.formatMessage({ id: ETranslations.global_show_more })}
+            </Button>
+          ) : (
+            <Button
+              size="small"
+              variant="secondary"
+              onPress={() =>
+                setOverFlowState((prev) => ({ ...prev, isSliced: true }))
+              }
+            >
+              {intl.formatMessage({ id: ETranslations.global_show_less })}
+            </Button>
+          )}
+        </XStack>
+      );
+    }
+    return (
+      <Stack pb="$5">
+        {withFooter ? (
+          <TokenListFooter
+            tableLayout={tableLayout}
+            hideZeroBalanceTokens={hideZeroBalanceTokens}
+            hasTokens={filteredTokens.length > 0}
+            manageTokenEnabled={manageTokenEnabled}
+          />
+        ) : null}
+        {!tokenSelectorSearchKey && footerTipText ? (
+          <Stack jc="center" ai="center" pt="$3">
+            <SizableText size="$bodySm" color="$textSubdued">
+              {footerTipText}
+            </SizableText>
+          </Stack>
+        ) : null}
+        {addPaddingOnListFooter ? <Stack h="$16" /> : null}
+      </Stack>
+    );
+  }, [
+    overFlowState.isOverflow,
+    overFlowState.isSliced,
+    withFooter,
+    tableLayout,
+    hideZeroBalanceTokens,
+    filteredTokens.length,
+    manageTokenEnabled,
+    tokenSelectorSearchKey,
+    footerTipText,
+    addPaddingOnListFooter,
+    intl,
+  ]);
+
   if (plainMode) {
+    if (showSkeleton) {
+      return (
+        <YStack style={{ flex: 1 }}>
+          <ListLoading isTokenSelectorView={!tableLayout} />
+        </YStack>
+      );
+    }
+
     return (
       <YStack>
         {withHeader ? (
@@ -462,24 +560,7 @@ function TokenListViewCmp(props: IProps) {
             withAggregateBadge={withAggregateBadge}
           />
         ))}
-        <Stack pb="$5">
-          {withFooter ? (
-            <TokenListFooter
-              tableLayout={tableLayout}
-              hideZeroBalanceTokens={hideZeroBalanceTokens}
-              hasTokens={filteredTokens.length > 0}
-              manageTokenEnabled={manageTokenEnabled}
-            />
-          ) : null}
-          {!tokenSelectorSearchKey && footerTipText ? (
-            <Stack jc="center" ai="center" pt="$3">
-              <SizableText size="$bodySm" color="$textSubdued">
-                {footerTipText}
-              </SizableText>
-            </Stack>
-          ) : null}
-          {addPaddingOnListFooter ? <Stack h="$16" /> : null}
-        </Stack>
+        {renderPlainModeFooter()}
       </YStack>
     );
   }

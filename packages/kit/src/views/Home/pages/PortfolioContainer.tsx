@@ -30,7 +30,7 @@ function PortfolioContainer() {
     return (
       <XStack py="$3" px="$5" gap="$8">
         <YStack flex={1} gap="$8">
-          {/* <TokenListBlock tableLayout /> */}
+          <TokenListBlock tableLayout />
           {/* <DeFiListBlock tableLayout /> */}
           {/* <PopularTrading tableLayout /> */}
           <EarnListView />

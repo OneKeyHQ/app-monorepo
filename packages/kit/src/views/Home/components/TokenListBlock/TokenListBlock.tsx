@@ -1964,6 +1964,7 @@ function TokenListBlock({ tableLayout }: { tableLayout?: boolean }) {
   const renderContent = useCallback(() => {
     return (
       <TokenListView
+        limit={5}
         plainMode
         withHeader
         withFooter
