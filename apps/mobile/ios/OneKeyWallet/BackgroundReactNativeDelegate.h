@@ -17,7 +17,7 @@ NS_ASSUME_NONNULL_BEGIN
  * This class provides the core React Native integration functionality.
  * For C++ registry integration, use SandboxDelegateWrapper.
  */
-@interface SandboxReactNativeDelegate : RCTDefaultReactNativeFactoryDelegate
+@interface BackgroundReactNativeDelegate : RCTDefaultReactNativeFactoryDelegate
 
 @property (nonatomic) std::shared_ptr<const facebook::react::SandboxReactNativeViewEventEmitter> eventEmitter;
 @property (nonatomic, assign) BOOL hasOnMessageHandler;

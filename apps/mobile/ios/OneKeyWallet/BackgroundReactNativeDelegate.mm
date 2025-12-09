@@ -1,4 +1,4 @@
-#import "SandboxReactNativeDelegate.h"
+#import "BackgroundReactNativeDelegate.h"
 
 #include <jsi/JSIDynamic.h>
 #include <jsi/decorator.h>
@@ -44,7 +44,7 @@ static std::string safeGetStringProperty(jsi::Runtime &rt, const jsi::Object &ob
   return value.isString() ? value.getString(rt).utf8(rt) : "";
 }
 
-@interface SandboxReactNativeDelegate () {
+@interface BackgroundReactNativeDelegate () {
   RCTInstance *_rctInstance;
   std::shared_ptr<jsi::Function> _onMessageSandbox;
   std::set<std::string> _allowedTurboModules;
@@ -61,7 +61,7 @@ static std::string safeGetStringProperty(jsi::Runtime &rt, const jsi::Object &ob
 
 @end
 
-@implementation SandboxReactNativeDelegate
+@implementation BackgroundReactNativeDelegate
 
 // Note: Registry functionality has been moved to SandboxRegistry class
 // This class now focuses solely on delegate responsibilities
@@ -224,7 +224,7 @@ static std::string safeGetStringProperty(jsi::Runtime &rt, const jsi::Object &ob
         self.eventEmitter->onError(errorEvent);
       }
     } catch (...) {
-      NSLog(@"[SandboxReactNativeDelegate] Runtime invalid during postMessage for sandbox %s", _origin.c_str());
+      NSLog(@"[BackgroundReactNativeDelegate] Runtime invalid during postMessage for sandbox %s", _origin.c_str());
     }
   }];
 }
