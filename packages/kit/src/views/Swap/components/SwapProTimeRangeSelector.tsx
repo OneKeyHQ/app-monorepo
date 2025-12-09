@@ -39,7 +39,7 @@ const SwapProTimeRangeSelector = ({
           cursor="pointer"
           userSelect="none"
           borderRadius="$2"
-          onPress={() => setIsOpen(true)}
+          onPress={() => setIsOpen((prev) => !prev)}
           h="$8"
           alignItems="center"
           justifyContent="space-between"
