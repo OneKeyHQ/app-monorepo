@@ -125,6 +125,12 @@ const KeylessWalletRecovery = LazyLoadPage(
   false,
   <OnboardingLayoutFallback />,
 );
+const KeylessWalletCreation = LazyLoadPage(
+  () => import('../pages/KeylessWalletCreation'),
+  undefined,
+  false,
+  <OnboardingLayoutFallback />,
+);
 
 const hiddenHeaderOptions = {
   headerShown: false,
@@ -232,6 +238,11 @@ export const OnboardingRouterV2: IModalFlowNavigatorConfig<
   {
     name: EOnboardingPagesV2.KeylessWalletRecovery,
     component: KeylessWalletRecovery,
+    options: hiddenHeaderOptions,
+  },
+  {
+    name: EOnboardingPagesV2.KeylessWalletCreation,
+    component: KeylessWalletCreation,
     options: hiddenHeaderOptions,
   },
 ];

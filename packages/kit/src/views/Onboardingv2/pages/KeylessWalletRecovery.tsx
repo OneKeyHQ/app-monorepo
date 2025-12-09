@@ -503,9 +503,7 @@ export default function KeylessWalletRecovery({
 
   // Handle "Restore Wallet" button - finalize wallet setup
   const handleRestoreWallet = useCallback(() => {
-    navigation.push(EOnboardingPagesV2.FinalizeWalletSetup, {
-      variant: 'keylessWallet',
-    });
+    navigation.push(EOnboardingPagesV2.FinalizeWalletSetup, {});
   }, [navigation]);
 
   // Retry handlers
@@ -670,6 +668,10 @@ export default function KeylessWalletRecovery({
                         $platform-web={{
                           boxShadow:
                             '0 0 0 1px rgba(0, 0, 0, 0.04), 0 0 2px 0 rgba(0, 0, 0, 0.08), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
+                        }}
+                        $theme-dark={{
+                          borderWidth: StyleSheet.hairlineWidth,
+                          borderColor: '$neutral2',
                         }}
                         zIndex={0}
                       />

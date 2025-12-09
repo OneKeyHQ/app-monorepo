@@ -34,6 +34,7 @@ export enum EOnboardingPagesV2 {
   ConnectExternalWallet = 'ConnectExternalWallet',
   ImportKeyTag = 'ImportKeyTag',
   KeylessWalletRecovery = 'KeylessWalletRecovery',
+  KeylessWalletCreation = 'KeylessWalletCreation',
 }
 interface IVerifyRecoveryPhraseParams {
   mnemonic: string;
@@ -56,7 +57,6 @@ export type IOnboardingParamListV2 = {
     isWalletBackedUp?: boolean;
     isFirmwareVerified?: boolean;
     deviceData?: IConnectYourDeviceItem;
-    variant?: 'wallet' | 'keylessWallet';
   };
   [EOnboardingPagesV2.PickYourDevice]: undefined;
   [EOnboardingPagesV2.ConnectYourDevice]: {
@@ -98,6 +98,9 @@ export type IOnboardingParamListV2 = {
   };
   [EOnboardingPagesV2.ImportKeyTag]: undefined;
   [EOnboardingPagesV2.KeylessWalletRecovery]: {
+    email?: string;
+  };
+  [EOnboardingPagesV2.KeylessWalletCreation]: {
     email?: string;
   };
 };

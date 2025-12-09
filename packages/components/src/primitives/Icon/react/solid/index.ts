@@ -471,6 +471,7 @@ export { default as Input } from './Input';
 export { default as Invite } from './Invite';
 export { default as Italic } from './Italic';
 export { default as JudgeGavel } from './JudgeGavel';
+export { default as Key2 } from './Key2';
 export { default as Key } from './Key';
 export { default as KeyboardConnect } from './KeyboardConnect';
 export { default as KeyboardDown } from './KeyboardDown';
