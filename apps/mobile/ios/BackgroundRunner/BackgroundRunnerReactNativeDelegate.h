@@ -11,8 +11,10 @@
 
 #import <React/RCTComponent.h>
 
+#ifdef __cplusplus
 #include <string>
 #include <vector>
+#endif
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -21,6 +23,8 @@ NS_ASSUME_NONNULL_BEGIN
 //@property (nonatomic) std::shared_ptr<const facebook::react::SandboxReactNativeViewEventEmitter> eventEmitter;
 @property (nonatomic, assign) BOOL hasOnMessageHandler;
 @property (nonatomic, assign) BOOL hasOnErrorHandler;
+
+#ifdef __cplusplus
 @property (nonatomic, readwrite) std::string origin;
 @property (nonatomic, readwrite) std::string jsBundleSource;
 
@@ -36,12 +40,14 @@ NS_ASSUME_NONNULL_BEGIN
  */
 @property (nonatomic, readwrite) std::set<std::string> allowedOrigins;
 
+#endif
 /**
  * Initializes the delegate.
  * @return Initialized delegate instance with filtered module access
  */
 - (instancetype)init;
 
+#ifdef __cplusplus
 /**
  * Posts a message to the JavaScript runtime.
  * @param message C++ string containing the JSON.stringified message
@@ -55,6 +61,7 @@ NS_ASSUME_NONNULL_BEGIN
  * @return true if the message was successfully routed, false otherwise
  */
 - (bool)routeMessage:(const std::string &)message toSandbox:(const std::string &)targetId;
+#endif
 
 @end
 

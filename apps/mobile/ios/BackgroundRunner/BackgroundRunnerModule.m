@@ -64,15 +64,15 @@ RCT_EXPORT_METHOD(startBackgroundRunner) {
   dispatch_async(dispatch_get_main_queue(), ^{
       self->_reactNativeFactoryDelegate = [[BackgroundReactNativeDelegate alloc] init];
       
-      Class dependencyProviderClass = NSClassFromString(@"RCTAppDependencyProvider");
-      if (dependencyProviderClass) {
-          self->_reactNativeFactoryDelegate.dependencyProvider = [[dependencyProviderClass alloc] init];
-      } else {
-          NSLog(@"[BackgroundRunnerModule] Warning: RCTAppDependencyProvider class not found.");
-      }
-      
-      self->_reactNativeFactory = [[RCTReactNativeFactory alloc] initWithDelegate:self->_reactNativeFactoryDelegate];
-      [self->_reactNativeFactory.rootViewFactory viewWithModuleName:@"background" initialProperties:@{}];
+//      Class dependencyProviderClass = NSClassFromString(@"RCTAppDependencyProvider");
+//      if (dependencyProviderClass) {
+//          self->_reactNativeFactoryDelegate.dependencyProvider = [[dependencyProviderClass alloc] init];
+//      } else {
+//          NSLog(@"[BackgroundRunnerModule] Warning: RCTAppDependencyProvider class not found.");
+//      }
+//      
+//      self->_reactNativeFactory = [[RCTReactNativeFactory alloc] initWithDelegate:self->_reactNativeFactoryDelegate];
+//      [self->_reactNativeFactory.rootViewFactory viewWithModuleName:@"background" initialProperties:@{}];
   });
 }
 
