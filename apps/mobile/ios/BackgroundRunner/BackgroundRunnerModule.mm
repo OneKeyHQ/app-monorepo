@@ -10,15 +10,19 @@
 #endif
 #import "BackgroundRunnerReactNativeDelegate.h"
 
+@interface BackgroundRunnerModule ()
+@property (nonatomic, strong) BackgroundReactNativeDelegate *reactNativeFactoryDelegate;
+@property (nonatomic, strong) RCTReactNativeFactory *reactNativeFactory;
+@property (nonatomic, assign) BOOL hasListeners;
+@property (nonatomic, assign) BOOL isStarted;
+@end
+
 @implementation BackgroundRunnerModule
-{
-  BOOL _hasListeners;
-  RCTReactNativeFactory *_reactNativeFactory;
-  BackgroundReactNativeDelegate *_reactNativeFactoryDelegate;
-}
 
 static BackgroundRunnerModule *sharedInstance = nil;
 static BOOL isStarted = NO;
+static NSString *const MODULE_NAME = @"background";
+static NSString *const MODULE_DEBUG_URL = @"http://localhost:8082/apps/mobile/background.bundle?platform=ios&dev=true&lazy=false&minify=false&inlineSourceMap=false&modulesOnly=false&runModule=true&excludeSource=true&sourcePaths=url-server&app=so.onekey.wallet&transform.routerRoot=app&transform.engine=hermes&transform.bytecode=1&unstable_transformProfile=hermes-stable";
 
 RCT_EXPORT_MODULE(BackgroundRunnerModule)
 
@@ -30,6 +34,8 @@ RCT_EXPORT_MODULE(BackgroundRunnerModule)
   static dispatch_once_t onceToken;
   dispatch_once(&onceToken, ^{
     sharedInstance = [[self alloc] init];
+    sharedInstance.reactNativeFactoryDelegate = [[BackgroundReactNativeDelegate alloc] init];
+    sharedInstance.reactNativeFactory = [[RCTReactNativeFactory alloc] initWithDelegate:sharedInstance.reactNativeFactoryDelegate];
   });
   return sharedInstance;
 }
@@ -62,17 +68,12 @@ RCT_EXPORT_METHOD(startBackgroundRunner) {
   isStarted = YES;
   
   dispatch_async(dispatch_get_main_queue(), ^{
-      self->_reactNativeFactoryDelegate = [[BackgroundReactNativeDelegate alloc] init];
-      
-//      Class dependencyProviderClass = NSClassFromString(@"RCTAppDependencyProvider");
-//      if (dependencyProviderClass) {
-//          self->_reactNativeFactoryDelegate.dependencyProvider = [[dependencyProviderClass alloc] init];
-//      } else {
-//          NSLog(@"[BackgroundRunnerModule] Warning: RCTAppDependencyProvider class not found.");
-//      }
-//      
-//      self->_reactNativeFactory = [[RCTReactNativeFactory alloc] initWithDelegate:self->_reactNativeFactoryDelegate];
-//      [self->_reactNativeFactory.rootViewFactory viewWithModuleName:@"background" initialProperties:@{}];
+    NSDictionary *initialProperties = @{};
+    NSDictionary *launchOptions = @{};
+    [self.reactNativeFactoryDelegate setJsBundleSource:std::string([MODULE_DEBUG_URL UTF8String])];
+    [self.reactNativeFactory.rootViewFactory viewWithModuleName:MODULE_NAME
+                                                             initialProperties:initialProperties
+                                                                 launchOptions:launchOptions];
   });
 }
 
