@@ -2,21 +2,12 @@
 
 #import <React-RCTAppDelegate/RCTDefaultReactNativeFactoryDelegate.h>
 #import <React/RCTComponent.h>
-#import <react/renderer/components/RNSandboxSpec/EventEmitters.h>
 
 #include <string>
 #include <vector>
 
 NS_ASSUME_NONNULL_BEGIN
 
-/**
- * A React Native delegate that provides sandboxed environments with filtered module access.
- * This delegate uses RCTFilteredAppDependencyProvider to restrict which native modules
- * are available to the JavaScript runtime, enhancing security in multi-instance scenarios.
- *
- * This class provides the core React Native integration functionality.
- * For C++ registry integration, use SandboxDelegateWrapper.
- */
 @interface BackgroundReactNativeDelegate : RCTDefaultReactNativeFactoryDelegate
 
 @property (nonatomic) std::shared_ptr<const facebook::react::SandboxReactNativeViewEventEmitter> eventEmitter;
