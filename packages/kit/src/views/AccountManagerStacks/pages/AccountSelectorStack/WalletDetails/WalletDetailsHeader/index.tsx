@@ -21,6 +21,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import type { IWalletDetailsProps } from '..';
+import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 
 type IWalletDetailsHeaderProps = {
   editable?: boolean;
@@ -59,6 +60,12 @@ export function WalletDetailsHeader({
     [wallet, editable],
   );
 
+  const firmwareType = useMemo(() => {
+    return deviceUtils.getFirmwareTypeByCachedFeatures({
+      features: device?.featuresInfo,
+    });
+  }, [device]);
+
   return (
     <YStack
       testID="account-selector-header"
@@ -91,7 +98,11 @@ export function WalletDetailsHeader({
             })}
           >
             <Stack>
-              <WalletAvatar size="$8" wallet={wallet} />
+              <WalletAvatar
+                size="$8"
+                wallet={wallet}
+                firmwareTypeBadge={firmwareType}
+              />
               {isAvatarEditable ? (
                 <ListItem.Avatar.CornerIcon
                   name="MenuCircleHorSolid"

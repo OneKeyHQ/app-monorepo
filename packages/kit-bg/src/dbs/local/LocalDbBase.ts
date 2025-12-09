@@ -2161,6 +2161,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       return;
     }
 
+    const featuresInfo = await deviceUtils.attachAppParamsToFeatures({
+      features,
+    });
     let isUpdated = false;
     await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
       await this.txUpdateRecords({
@@ -2168,7 +2171,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         name: ELocalDBStoreNames.Device,
         ids: [device.id],
         updater: async (item) => {
-          const newFeatures = stringUtils.stableStringify(features);
+          const newFeatures = stringUtils.stableStringify(featuresInfo);
           if (item.features !== newFeatures) {
             item.features = newFeatures;
             isUpdated = true;
@@ -2243,6 +2246,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       | {
           fw_vendor: string | undefined;
           capabilities: number[] | undefined;
+          $app_firmware_type?: EFirmwareType;
         }
       | undefined;
   }) {
@@ -2861,7 +2865,10 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       hiddenDefaultWalletName = hiddenWalletNameInfo.hiddenWalletName;
     }
 
-    const featuresStr = JSON.stringify(features);
+    const featuresInfo = await deviceUtils.attachAppParamsToFeatures({
+      features,
+    });
+    const featuresStr = JSON.stringify(featuresInfo);
 
     const firstAccountIndex = 0;
 
