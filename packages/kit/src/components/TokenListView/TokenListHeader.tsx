@@ -55,7 +55,11 @@ function SortButton({
       userSelect="none"
       onPress={onPress}
     >
-      <SizableText size="$bodyMdMedium" color="$textSubdued">
+      <SizableText
+        size="$bodyMdMedium"
+        color="$textSubdued"
+        textTransform="uppercase"
+      >
         {label}
       </SizableText>
       {iconName ? (

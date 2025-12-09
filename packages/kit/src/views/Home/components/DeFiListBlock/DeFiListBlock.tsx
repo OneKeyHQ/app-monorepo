@@ -1,13 +1,13 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
+  Button,
   NumberSizeableText,
   Skeleton,
   YStack,
-  useMedia,
   useTabIsRefreshingFocused,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -33,9 +33,10 @@ import { RichBlock } from '../RichBlock/RichBlock';
 
 import { Protocol } from './Protocol';
 
+const MAX_PROTOCOLS_ON_SMALL_SCREEN = 6;
+
 function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
   const intl = useIntl();
-  const media = useMedia();
   const [settings] = useSettingsPersistAtom();
 
   const {
@@ -50,6 +51,14 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
   const [overview] = useDeFiListOverviewAtom();
   const [{ isRefreshing, initialized }] = useDeFiListStateAtom();
   const [{ protocols }] = useDeFiListProtocolsAtom();
+
+  const [overflowState, setOverflowState] = useState<{
+    isOverflow: boolean;
+    isSliced: boolean;
+  }>({
+    isOverflow: false,
+    isSliced: true,
+  });
 
   const {
     activeAccount: { account, network },
@@ -115,6 +124,22 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
     },
   );
 
+  useEffect(() => {
+    if (!tableLayout && protocols.length > MAX_PROTOCOLS_ON_SMALL_SCREEN) {
+      setOverflowState((prev) => ({
+        ...prev,
+        isOverflow: true,
+      }));
+    }
+  }, [protocols, tableLayout]);
+
+  const filteredProtocols = useMemo(() => {
+    if (overflowState.isOverflow && overflowState.isSliced) {
+      return protocols.slice(0, MAX_PROTOCOLS_ON_SMALL_SCREEN);
+    }
+    return protocols;
+  }, [protocols, overflowState.isOverflow, overflowState.isSliced]);
+
   const renderSubTitle = useCallback(() => {
     if (true) {
       if (!initialized && isRefreshing) {
@@ -144,16 +169,41 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
   ]);
   const renderContent = useCallback(() => {
     return (
-      <YStack gap="$5" flex={1}>
-        {protocols.map((protocol) => (
-          <Protocol
-            key={`${protocol.networkId}-${protocol.protocol}`}
-            protocol={protocol}
-          />
-        ))}
-      </YStack>
+      <>
+        <YStack gap={tableLayout ? '$5' : '$0'} flex={1}>
+          {filteredProtocols.map((protocol) => (
+            <Protocol
+              key={`${protocol.networkId}-${protocol.protocol}`}
+              protocol={protocol}
+              tableLayout={tableLayout}
+            />
+          ))}
+        </YStack>
+        {!tableLayout && overflowState.isOverflow ? (
+          <Button
+            size="small"
+            variant="secondary"
+            onPress={() =>
+              setOverflowState((prev) => ({
+                ...prev,
+                isSliced: !prev.isSliced,
+              }))
+            }
+          >
+            {overflowState.isSliced
+              ? intl.formatMessage({ id: ETranslations.global_show_more })
+              : intl.formatMessage({ id: ETranslations.global_show_less })}
+          </Button>
+        ) : null}
+      </>
     );
-  }, [protocols]);
+  }, [
+    filteredProtocols,
+    tableLayout,
+    intl,
+    overflowState.isOverflow,
+    overflowState.isSliced,
+  ]);
 
   if (protocols.length === 0) {
     return (

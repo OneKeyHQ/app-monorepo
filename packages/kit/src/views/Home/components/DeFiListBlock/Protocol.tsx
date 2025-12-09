@@ -15,11 +15,16 @@ import {
   Stack,
   View,
   XStack,
+  YStack,
 } from '@onekeyhq/components';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDeFiListProtocolMapAtom } from '@onekeyhq/kit/src/states/jotai/contexts/deFiList';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EModalRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalAssetDetailRoutes } from '@onekeyhq/shared/src/routes/assetDetails';
 import defiUtils from '@onekeyhq/shared/src/utils/defiUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type {
@@ -30,8 +35,15 @@ import type {
 
 import { RichTable } from '../RichTable';
 
-function Protocol({ protocol }: { protocol: IDeFiProtocol }) {
+function Protocol({
+  protocol,
+  tableLayout,
+}: {
+  protocol: IDeFiProtocol;
+  tableLayout?: boolean;
+}) {
   const intl = useIntl();
+  const navigation = useAppNavigation();
   const [settings] = useSettingsPersistAtom();
   const [{ protocolMap }] = useDeFiListProtocolMapAtom();
   const protocolInfo =
@@ -137,8 +149,66 @@ function Protocol({ protocol }: { protocol: IDeFiProtocol }) {
     });
   }, [protocol.positions, settings.currencyInfo.symbol, columns]);
 
+  const handlePressProtocol = useCallback(() => {
+    navigation.pushModal(EModalRoutes.MainModal, {
+      screen: EModalAssetDetailRoutes.DeFiProtocolDetails,
+      params: {
+        protocol,
+        protocolInfo,
+      },
+    });
+  }, [protocol, protocolInfo, navigation]);
+
+  if (!tableLayout) {
+    return (
+      <ListItem
+        key={`${protocol.protocol}-${protocol.networkId}`}
+        gap="$3"
+        alignItems="center"
+        justifyContent="space-between"
+        onPress={handlePressProtocol}
+      >
+        <XStack alignItems="center" gap="$3" flex={1}>
+          <Token size="lg" tokenImageUri={protocolInfo?.protocolLogo} />
+          <YStack flex={1}>
+            <SizableText size="$bodyLgMedium" flex={1}>
+              {protocolInfo?.protocolName ?? protocol.protocol}
+            </SizableText>
+            <XStack alignItems="center" gap="$1" flexWrap="wrap" flex={1}>
+              {protocol.categories.slice(0, 2).map((category) => (
+                <Badge key={category} badgeType="success" badgeSize="sm">
+                  <Badge.Text textTransform="capitalize">{category}</Badge.Text>
+                </Badge>
+              ))}
+              {protocol.categories.length > 2 ? (
+                <Badge badgeType="success" badgeSize="sm">
+                  <Badge.Text textTransform="capitalize">
+                    {`+${protocol.categories.length - 2}`}
+                  </Badge.Text>
+                </Badge>
+              ) : null}
+            </XStack>
+          </YStack>
+        </XStack>
+        <ListItem.Text
+          align="right"
+          primary={
+            <NumberSizeableText
+              size="$bodyLgMedium"
+              formatter="value"
+              formatterOptions={{ currency: settings.currencyInfo.symbol }}
+            >
+              {protocolTotalValue}
+            </NumberSizeableText>
+          }
+        />
+      </ListItem>
+    );
+  }
+
   return (
     <Accordion
+      key={`${protocol.protocol}-${protocol.networkId}`}
       collapsible
       overflow="hidden"
       width="100%"

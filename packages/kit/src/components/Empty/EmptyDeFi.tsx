@@ -3,9 +3,13 @@ import { useIntl } from 'react-intl';
 import { Button, Empty, SizableText } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+
+import useAppNavigation from '../../hooks/useAppNavigation';
 
 function EmptyDeFi() {
   const intl = useIntl();
+  const navigation = useAppNavigation();
   return (
     <Empty
       h={platformEnv.isNativeAndroid ? 300 : undefined}
@@ -15,7 +19,9 @@ function EmptyDeFi() {
         <Button
           variant="tertiary"
           size="large"
-          onPress={() => {}}
+          onPress={() => {
+            navigation.switchTab(ETabRoutes.Earn);
+          }}
           iconAfter="ArrowRightOutline"
         >
           <SizableText size="$headingXl">start earning</SizableText>
