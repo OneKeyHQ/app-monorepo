@@ -238,7 +238,7 @@ export function useOneKeyAuth() {
           email: string;
         }) => {
           const _res = await supabaseVerifyOtp({ email, otp: code });
-          // return res;
+          console.log(_res);
         },
       };
     },
