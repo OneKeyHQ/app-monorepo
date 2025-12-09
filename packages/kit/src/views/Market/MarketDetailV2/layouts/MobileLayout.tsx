@@ -153,8 +153,8 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
           swapToken={{
             networkId,
             contractAddress: tokenDetail?.address || '',
-            symbol: tokenDetail?.symbol,
-            decimals: tokenDetail?.decimals,
+            symbol: tokenDetail?.symbol || '',
+            decimals: tokenDetail?.decimals || 0,
             logoURI: tokenDetail?.logoUrl,
             price: tokenDetail?.price,
           }}
