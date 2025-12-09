@@ -42,6 +42,7 @@ import {
   usePasswordWebAuthInfoAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import { displayAppUpdateVersion } from '@onekeyhq/shared/src/appUpdate';
 import {
   GITHUB_URL,
@@ -287,6 +288,7 @@ export function CleanDataListItem(props: ICustomElementProps) {
 
 export function HardwareTransportTypeListItem(props: ICustomElementProps) {
   const [{ hardwareTransportType }] = useSettingsPersistAtom();
+  const [devPersist] = useDevSettingsPersistAtom();
 
   const transportOptions = useMemo(() => {
     if (platformEnv.isNative) {
@@ -298,8 +300,9 @@ export function HardwareTransportTypeListItem(props: ICustomElementProps) {
       ];
     }
     if (platformEnv.isDesktop) {
+      const usb = devPersist?.settings?.usbCommunicationMode;
       const desktopTransportList: ISelectItem[] = [];
-      if (platformEnv.isDesktopLinux) {
+      if (usb === 'bridge') {
         desktopTransportList.push({
           label: 'Bridge',
           value: EHardwareTransportType.Bridge,
@@ -333,7 +336,7 @@ export function HardwareTransportTypeListItem(props: ICustomElementProps) {
       ];
     }
     return [];
-  }, []);
+  }, [devPersist?.settings?.usbCommunicationMode]);
   const onChange = useCallback(async (value: string) => {
     const newTransportType = value as EHardwareTransportType;
 
@@ -534,7 +537,8 @@ export function SocialButtonGroup() {
   const handleCopyVersion = useCallback(() => {
     void handleOpenDevMode(() =>
       copyText(
-        `${upperFirst(versionString)}-${platformEnv.bundleVersion || ''}-${platformEnv.githubSHA || ''
+        `${upperFirst(versionString)}-${platformEnv.bundleVersion || ''}-${
+          platformEnv.githubSHA || ''
         }`,
       ),
     );
