@@ -1,4 +1,4 @@
-#import "BackgroundReactNativeDelegate.h"
+#import "BackgroundRunnerReactNativeDelegate.h"
 
 #include <jsi/JSIDynamic.h>
 #include <jsi/decorator.h>
