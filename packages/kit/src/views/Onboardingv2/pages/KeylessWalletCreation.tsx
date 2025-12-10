@@ -4,7 +4,7 @@ import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
-import type { IKeyOfIcons, IPageScreenProps } from '@onekeyhq/components';
+import type { IPageScreenProps } from '@onekeyhq/components';
 import {
   AnimatePresence,
   Button,
@@ -24,6 +24,10 @@ import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { OnboardingLayout } from '../components/OnboardingLayout';
+import {
+  type ISecurityKeyType,
+  SecurityKeyIcon,
+} from '../components/SecurityKeyIcon';
 
 enum ECreationStepState {
   Idle = 'idle',
@@ -41,7 +45,7 @@ enum ECreationStepId {
 
 interface ICreationStep {
   id: ECreationStepId;
-  icon: IKeyOfIcons;
+  securityKeyType: ISecurityKeyType;
   title: string;
   description?: ReactNode;
   state: ECreationStepState;
@@ -57,7 +61,7 @@ const cloudProviderName =
 const STEP_CONFIG: Record<
   ECreationStepId,
   {
-    icon: IKeyOfIcons;
+    securityKeyType: ISecurityKeyType;
     title: string;
     description: ReactNode;
     infoMessage?: string;
@@ -65,7 +69,7 @@ const STEP_CONFIG: Record<
   }
 > = {
   [ECreationStepId.DeviceShare]: {
-    icon: 'Key2Solid',
+    securityKeyType: 'device',
     title: 'Device Key',
     description: (
       <>
@@ -80,14 +84,14 @@ const STEP_CONFIG: Record<
     buttonText: 'Save to Device',
   },
   [ECreationStepId.CloudShare]: {
-    icon: 'CloudSolid',
+    securityKeyType: 'cloud',
     title: 'Cloud Key',
     description: `Encrypted backup to ${cloudProviderName}`,
     // infoMessage: `Tap to backup the key to ${cloudProviderName}`,
     buttonText: `Backup to ${cloudProviderName}`,
   },
   [ECreationStepId.AuthShare]: {
-    icon: 'EmailSolid',
+    securityKeyType: 'auth',
     title: 'Auth Key',
     description: 'Protected by your OneKey ID',
     // infoMessage: 'Tap to save the key to OneKey server',
@@ -109,7 +113,7 @@ export function KeylessWalletCreation({
   const createStep = useCallback(
     (id: ECreationStepId, state: ECreationStepState): ICreationStep => ({
       id,
-      icon: STEP_CONFIG[id].icon,
+      securityKeyType: STEP_CONFIG[id].securityKeyType,
       title: STEP_CONFIG[id].title,
       description: STEP_CONFIG[id].description,
       state,
@@ -479,7 +483,10 @@ export function KeylessWalletCreation({
                       justifyContent="center"
                       opacity={step.state === ECreationStepState.Idle ? 0.5 : 1}
                     >
-                      <Icon name={step.icon} size="$6" color="$iconActive" />
+                      <SecurityKeyIcon
+                        type={step.securityKeyType}
+                        muted={step.state === ECreationStepState.Idle}
+                      />
                       {step.state !== ECreationStepState.Idle ? (
                         <YStack
                           position="absolute"
