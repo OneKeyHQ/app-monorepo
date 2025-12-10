@@ -847,6 +847,7 @@
   "earn_no_assets_deposited": "まだ資産は預けられていません",
   "earn_reward_distribution_schedule": "報酬は来月10日までにArbitrumウォレット（Ethereumと同じアドレス）に配布されます。",
   "edit_fee_custom_set_as_default_description": "{network}のすべての将来のトランザクションのデフォルトとして設定する",
+  "email_verification_rate_limit": "新しい確認コードをリクエストする前に{rest}秒お待ちください",
   "energy_consumed": "消費エネルギー",
   "enter_passcode": "パスコードを入力してください",
   "enter_password": "パスワードを入力する",

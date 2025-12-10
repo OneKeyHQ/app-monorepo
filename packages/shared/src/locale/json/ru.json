@@ -847,6 +847,7 @@
   "earn_no_assets_deposited": "Активы еще не депонированы",
   "earn_reward_distribution_schedule": "Вознаграждения будут зачислены на ваш кошелек Arbitrum (тот же адрес, что и Ethereum) до 10 числа следующего месяца.",
   "edit_fee_custom_set_as_default_description": "Установить по умолчанию для всех будущих транзакций в {network}",
+  "email_verification_rate_limit": "Пожалуйста, подождите {rest} секунд перед запросом нового кода подтверждения",
   "energy_consumed": "Потребленная энергия",
   "enter_passcode": "Введите код доступа",
   "enter_password": "Введите пароль",

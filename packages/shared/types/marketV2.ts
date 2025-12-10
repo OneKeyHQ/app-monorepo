@@ -230,6 +230,27 @@ export interface IMarketTokenTransactionsResponse {
   cursor?: string;
 }
 
+export interface IMarketAccountTokenTransactionParty {
+  amount: string;
+  address: string;
+}
+
+export interface IMarketAccountTokenTransaction {
+  hash: string;
+  type: 'buy' | 'sell';
+  timestamp: number;
+  amount: string;
+  from: IMarketAccountTokenTransactionParty;
+  to: IMarketAccountTokenTransactionParty;
+}
+
+export interface IMarketAccountTokenTransactionsResponse {
+  list: IMarketAccountTokenTransaction[];
+  hasMore?: boolean;
+  total?: number;
+  cursor?: string;
+}
+
 export interface IMarketTokenHolder {
   accountAddress: string;
   amount: string;
