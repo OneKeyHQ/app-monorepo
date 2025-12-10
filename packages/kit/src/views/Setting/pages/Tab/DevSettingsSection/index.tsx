@@ -50,6 +50,7 @@ import {
   isGooglePlayServicesAvailable,
   openWebViewInGooglePlay,
 } from '@onekeyhq/shared/src/modules3rdParty/webview-checker';
+import { nativeUIBridge } from '@onekeyhq/shared/src/nativeBridge';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
@@ -83,7 +84,6 @@ import { RegistrationID } from './RegistrationID';
 import { SectionFieldItem } from './SectionFieldItem';
 import { SectionPressItem } from './SectionPressItem';
 import { SentryCrashSettings } from './SentryCrashSettings';
-import { nativeUIBridge } from '@onekeyhq/shared/src/nativeBridge';
 
 let correctDevOnlyPwd = '';
 
@@ -468,7 +468,7 @@ const BaseDevSettingsSection = () => {
                   subtitle="Native Bridge"
                   onPress={async () => {
                     const unsubscribe = nativeUIBridge.onMessage((message) => {
-                      console.log('message', message);
+                      alert(`message in ui thread: ${JSON.stringify(message)}`);
                       unsubscribe();
                     });
                     nativeUIBridge.postMessage({ type: 'test1' });
