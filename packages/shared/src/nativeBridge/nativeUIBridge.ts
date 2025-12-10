@@ -22,11 +22,9 @@ const onMessageCallback = (
 BackgroundRunnerModule.onMessage(onMessageCallback);
 
 const checkThread = () => {
-  if (globalThis.$$isNativeUiThread) {
+  if (!globalThis.$$isNativeUiThread) {
     // eslint-disable-next-line no-restricted-syntax
-    throw new Error(
-      'this function is not available in native background thread',
-    );
+    throw new Error('this function is not available in native ui thread');
   }
 };
 

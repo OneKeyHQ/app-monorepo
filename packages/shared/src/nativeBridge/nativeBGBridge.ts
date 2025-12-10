@@ -35,7 +35,7 @@ function checkReady(times = 0) {
 checkReady();
 
 const checkThread = () => {
-  if (!globalThis.$$isNativeUiThread) {
+  if (globalThis.$$isNativeUiThread) {
     // eslint-disable-next-line no-restricted-syntax
     throw new Error(
       'this function is not available in native background thread',
@@ -54,9 +54,6 @@ export const nativeBGBridge = {
   },
   onHostMessage: (callback: (message: Record<string, any>) => void) => {
     checkThread();
-    if (!isReady) {
-      return;
-    }
     callbacks.add(callback);
     return () => {
       callbacks.delete(callback);
