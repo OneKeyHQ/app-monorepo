@@ -2,13 +2,7 @@ import { useCallback, useRef, useState } from 'react';
 
 import { RefreshControl, ScrollView } from 'react-native';
 
-import {
-  EPageType,
-  IconButton,
-  XStack,
-  YStack,
-  usePageType,
-} from '@onekeyhq/components';
+import { IconButton, XStack, YStack } from '@onekeyhq/components';
 import { useSwapProSelectTokenAtom } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import type {
   IFetchLimitOrderRes,

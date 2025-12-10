@@ -49,9 +49,6 @@ const SwapProTokenDetailGroup = () => {
       tokenMarketDetailInfo?.holders?.toString() ?? '0',
       {
         formatter: 'marketCap',
-        formatterOptions: {
-          currency: currencyInfo.symbol,
-        },
       },
     );
     return {

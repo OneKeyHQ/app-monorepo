@@ -101,6 +101,7 @@ const SwapProTradingPanel = ({
         <SwapProTradeTypeSelector
           currentSelect={swapProTradeType}
           onSelectTradeType={(value) => {
+            if (value === swapProTradeType) return;
             setSwapProInputAmount('');
             setFromInputAmount({
               value: '',
