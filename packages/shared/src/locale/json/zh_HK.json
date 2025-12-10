@@ -847,6 +847,7 @@
   "earn_no_assets_deposited": "目前尚未認購任何資產",
   "earn_reward_distribution_schedule": "獎勵將於下個月 10 號之前發放到您的 Arbitrum 錢包（與以太坊相同的地址）。",
   "edit_fee_custom_set_as_default_description": "設為 {network} 網路未來交易的預設值",
+  "email_verification_rate_limit": "請等待 {rest} 秒後再請求新的驗證碼",
   "energy_consumed": "能量消耗",
   "enter_passcode": "輸入密碼",
   "enter_password": "輸入密碼",

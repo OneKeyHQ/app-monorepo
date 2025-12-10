@@ -409,6 +409,10 @@ export function ManagePositionContent({
         fallbackTokenImageUri={fallbackTokenImageUri}
         protocolInfo={protocolInfo}
         tokenInfo={resolvedTokenInfo}
+        indicatorAccountId={earnAccount?.accountId}
+        stakeTag={protocolInfo?.stakeTag}
+        onIndicatorRefresh={refreshManageData}
+        onRefreshPendingRef={refreshPendingRef}
       />
     );
   }

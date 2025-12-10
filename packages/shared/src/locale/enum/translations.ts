@@ -852,6 +852,7 @@
   earn_no_assets_deposited = 'earn_no_assets_deposited',
   earn_reward_distribution_schedule = 'earn_reward_distribution_schedule',
   edit_fee_custom_set_as_default_description = 'edit_fee_custom_set_as_default_description',
+  email_verification_rate_limit = 'email_verification_rate_limit',
   energy_consumed = 'energy_consumed',
   enter_passcode = 'enter_passcode',
   enter_password = 'enter_password',
