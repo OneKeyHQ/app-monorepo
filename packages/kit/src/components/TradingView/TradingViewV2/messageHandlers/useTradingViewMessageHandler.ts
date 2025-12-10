@@ -71,7 +71,14 @@ export function useTradingViewMessageHandler({
         await handleAnalyticsEvent(data.method, { data, context });
       }
     },
-    [tokenAddress, networkId, webRef, onPanesCountChange, accountAddress, tokenSymbol],
+    [
+      tokenAddress,
+      networkId,
+      webRef,
+      onPanesCountChange,
+      accountAddress,
+      tokenSymbol,
+    ],
   );
 
   return {

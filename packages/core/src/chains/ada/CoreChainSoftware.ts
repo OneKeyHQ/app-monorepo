@@ -114,7 +114,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       Number(accountIndex),
       encodedTx.inputs as unknown as IAdaUTXO[],
       xprv,
-      !!encodedTx.signOnly,
+      encodedTx.staking?.isStakingTx ? false : !!encodedTx.signOnly,
       false,
     );
 
