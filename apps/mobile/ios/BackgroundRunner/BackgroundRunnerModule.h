@@ -5,8 +5,6 @@
 
 + (instancetype)sharedInstance;
 - (void)startBackgroundRunner;
-- (void)sendToUI:(NSDictionary *)msg;
-- (void)sendToBackground:(NSDictionary *)msg;
 
 @end
 
