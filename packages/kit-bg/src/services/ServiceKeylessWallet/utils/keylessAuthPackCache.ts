@@ -4,32 +4,14 @@ import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
 import { settingsPersistAtom } from '../../../states/jotai/atoms/settings';
 
+import { buildKeylessLocalEncryptionKey } from './keylessLocalEncryptionKey';
+
 import type { IBackgroundApi } from '../../../apis/IBackgroundApi';
 
 // In-memory cache for authPack, keyed by packSetId
 // Module-level cache shared across all instances
 // Note: Only stores the current user's authPack, cleared when caching new one
 const authPackCache: Map<string, string> = new Map();
-
-/**
- * Build encryption key from sensitiveEncodeKey and session passcode.
- */
-async function buildEncryptionKey(params: {
-  backgroundApi: IBackgroundApi;
-}): Promise<string> {
-  const { backgroundApi } = params;
-
-  // 1. Get sensitiveEncodeKey from settings
-  const settings = await settingsPersistAtom.get();
-  const sensitiveEncodeKey = settings.sensitiveEncodeKey;
-
-  // 2. Get current session passcode
-  const { password } =
-    await backgroundApi.servicePassword.promptPasswordVerify();
-
-  // 3. Combine sensitiveEncodeKey and passcode to form encryption key
-  return `${sensitiveEncodeKey}${password}`;
-}
 
 /**
  * Cache authPack in memory with encryption.
@@ -47,7 +29,7 @@ async function cacheAuthPackInMemory(params: {
   const authPackString = stringUtils.stableStringify(authPack);
 
   // 2. Build encryption key from sensitiveEncodeKey and session passcode
-  const encryptionKey = await buildEncryptionKey({ backgroundApi });
+  const encryptionKey = await buildKeylessLocalEncryptionKey({ backgroundApi });
 
   // 3. Encrypt authPack string
   const encryptedAuthPack = await backgroundApi.servicePassword.encryptString({
@@ -72,17 +54,17 @@ async function cacheAuthPackInMemory(params: {
 async function getAuthPackFromCache(params: {
   packSetId: string;
   backgroundApi: IBackgroundApi;
-}): Promise<IAuthKeyPack | null> {
+}): Promise<IAuthKeyPack> {
   const { packSetId, backgroundApi } = params;
 
   // 1. Check if cache exists
   const encryptedAuthPack = authPackCache.get(packSetId);
   if (!encryptedAuthPack) {
-    return null;
+    throw new OneKeyLocalError('Auth pack not found in cache');
   }
 
   // 2. Build decryption key from sensitiveEncodeKey and session passcode
-  const decryptionKey = await buildEncryptionKey({ backgroundApi });
+  const decryptionKey = await buildKeylessLocalEncryptionKey({ backgroundApi });
 
   // 3. Decrypt authPack string
   let authPackString: string;
@@ -95,8 +77,6 @@ async function getAuthPackFromCache(params: {
       allowRawPassword: true,
     });
   } catch (error) {
-    // If decryption fails (e.g., passcode changed), clear cache for this packSetId
-    authPackCache.delete(packSetId);
     throw new OneKeyLocalError(
       'Failed to decrypt authPack from cache: invalid password or corrupted data',
     );
@@ -106,8 +86,6 @@ async function getAuthPackFromCache(params: {
   try {
     return JSON.parse(authPackString) as IAuthKeyPack;
   } catch (error) {
-    // If parsing fails, clear corrupted cache for this packSetId
-    authPackCache.delete(packSetId);
     throw new OneKeyLocalError(
       'Failed to parse authPack from cache: invalid JSON format',
     );

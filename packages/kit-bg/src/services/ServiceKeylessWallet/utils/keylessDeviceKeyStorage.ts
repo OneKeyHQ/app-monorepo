@@ -1,3 +1,4 @@
+import { decodeSensitiveTextAsync, sha256 } from '@onekeyhq/core/src/secret';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IDeviceKeyPack } from '@onekeyhq/shared/src/keylessWallet/keylessWalletTypes';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
@@ -7,27 +8,9 @@ import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
 import { settingsPersistAtom } from '../../../states/jotai/atoms';
 
+import { buildKeylessLocalEncryptionKey } from './keylessLocalEncryptionKey';
+
 import type { IBackgroundApi } from '../../../apis/IBackgroundApi';
-
-/**
- * Build encryption key from sensitiveEncodeKey and session passcode.
- */
-async function buildEncryptionKey(params: {
-  backgroundApi: IBackgroundApi;
-}): Promise<string> {
-  const { backgroundApi } = params;
-
-  // 1. Get sensitiveEncodeKey from settings
-  const settings = await settingsPersistAtom.get();
-  const sensitiveEncodeKey = settings.sensitiveEncodeKey;
-
-  // 2. Get current session passcode
-  const { password } =
-    await backgroundApi.servicePassword.promptPasswordVerify();
-
-  // 3. Combine sensitiveEncodeKey and passcode to form encryption key
-  return `${sensitiveEncodeKey}${password}`;
-}
 
 async function devicePackSetItem(key: string, encryptedPayloadBase64: string) {
   const isSecureStorageSupported =
@@ -66,7 +49,7 @@ async function saveDevicePackToStorage(params: {
   const jsonString = stringUtils.stableStringify(devicePack);
 
   // 3. Encrypt with encryption key
-  const encryptionKey = await buildEncryptionKey({ backgroundApi });
+  const encryptionKey = await buildKeylessLocalEncryptionKey({ backgroundApi });
 
   const encryptedPayloadHex = await backgroundApi.servicePassword.encryptString(
     {
@@ -107,7 +90,7 @@ async function getDevicePackFromStorage(params: {
   }
 
   // 3. Decrypt with encryption key
-  const decryptionKey = await buildEncryptionKey({ backgroundApi });
+  const decryptionKey = await buildKeylessLocalEncryptionKey({ backgroundApi });
 
   let jsonString: string;
   try {
@@ -120,7 +103,9 @@ async function getDevicePackFromStorage(params: {
     });
   } catch (error) {
     throw new OneKeyLocalError(
-      'Failed to decrypt device pack: invalid password or corrupted data',
+      `Failed to decrypt device pack: invalid password or corrupted data: ${
+        (error as Error)?.message
+      }`,
     );
   }
 

@@ -129,7 +129,7 @@ export function useOneKeyAuth() {
     } = {}) => {
       const isLoggedIn = await backgroundApiProxy.servicePrime.isLoggedIn();
 
-      return new Promise<{ success: boolean }>((resolve, reject) => {
+      return new Promise<void>((resolve, reject) => {
         let isClosedByNextStep = false;
         let isResolved = false;
         const onLoginSuccessFn = async () => {
@@ -138,7 +138,7 @@ export function useOneKeyAuth() {
           if (toOneKeyIdPageOnLoginSuccess) {
             toOneKeyIdPage();
           }
-          resolve({ success: true });
+          resolve();
         };
         const onCancelFn = () => {
           if (isResolved) {

@@ -388,6 +388,305 @@ const KeylessWalletCreationFlow = () => {
   );
 };
 
+function KeylessWalletRecoveryFlow() {
+  const { supabaseUser } = useOneKeyAuth();
+  const { user } = useOneKeyAuth();
+  const {
+    getDevicePack,
+    getAuthPackFromCache,
+    getAuthPackFromServer,
+    getCloudPack,
+    deleteAuthPackFromServer,
+  } = useKeylessWallet();
+
+  const [getDevicePackStep, setGetDevicePackStep] = useState<IStepState>({
+    status: 'pending',
+  });
+  const [getAuthPackFromCacheStep, setGetAuthPackFromCacheStep] =
+    useState<IStepState>({ status: 'pending' });
+  const [getAuthPackFromServerStep, setGetAuthPackFromServerStep] =
+    useState<IStepState>({ status: 'pending' });
+  const [getCloudPackStep, setGetCloudPackStep] = useState<IStepState>({
+    status: 'pending',
+  });
+
+  const handleGetDevicePack = useCallback(async () => {
+    try {
+      setGetDevicePackStep({ status: 'loading' });
+      const result = await getDevicePack();
+      setGetDevicePackStep({ status: 'success', result });
+    } catch (e: any) {
+      const errorMessage = (e as Error)?.message ?? 'Unknown error';
+      setGetDevicePackStep({ status: 'error', error: errorMessage });
+    }
+  }, [getDevicePack]);
+
+  const handleGetAuthPackFromCache = useCallback(async () => {
+    try {
+      setGetAuthPackFromCacheStep({ status: 'loading' });
+      const result = await getAuthPackFromCache();
+      setGetAuthPackFromCacheStep({ status: 'success', result });
+    } catch (e: any) {
+      const errorMessage = (e as Error)?.message ?? 'Unknown error';
+      setGetAuthPackFromCacheStep({ status: 'error', error: errorMessage });
+    }
+  }, [getAuthPackFromCache]);
+
+  const handleGetAuthPackFromServer = useCallback(async () => {
+    try {
+      setGetAuthPackFromServerStep({ status: 'loading' });
+      const result = await getAuthPackFromServer();
+      setGetAuthPackFromServerStep({ status: 'success', result });
+    } catch (e: any) {
+      const errorMessage = (e as Error)?.message ?? 'Unknown error';
+      setGetAuthPackFromServerStep({ status: 'error', error: errorMessage });
+    }
+  }, [getAuthPackFromServer]);
+
+  const handleGetCloudPack = useCallback(async () => {
+    try {
+      setGetCloudPackStep({ status: 'loading' });
+      const result = await getCloudPack();
+      setGetCloudPackStep({ status: 'success', result });
+    } catch (e: any) {
+      const errorMessage = (e as Error)?.message ?? 'Unknown error';
+      setGetCloudPackStep({ status: 'error', error: errorMessage });
+    }
+  }, [getCloudPack]);
+
+  const renderStep = (
+    stepNumber: number,
+    title: string,
+    state: IStepState,
+    onPress: () => void,
+    disabled: boolean,
+  ) => {
+    const getStatusIcon = (): IKeyOfIcons => {
+      switch (state.status) {
+        case 'success':
+          return 'CheckRadioOutline';
+        case 'error':
+          return 'ErrorOutline';
+        case 'loading':
+          return 'RefreshCcwOutline';
+        default:
+          return 'CirclePlaceholderOnOutline';
+      }
+    };
+
+    const getStatusColor = () => {
+      switch (state.status) {
+        case 'success':
+          return '$iconSuccess';
+        case 'error':
+          return '$iconCritical';
+        case 'loading':
+          return '$iconSubdued';
+        default:
+          return '$iconDisabled';
+      }
+    };
+
+    return (
+      <XStack
+        gap="$3"
+        p="$3"
+        borderRadius="$2"
+        bg={(() => {
+          switch (state.status) {
+            case 'success':
+              return '$bgSuccessSubdued';
+            case 'error':
+              return '$bgCriticalSubdued';
+            default:
+              return '$bgSubdued';
+          }
+        })()}
+        alignItems="center"
+      >
+        <Icon name={getStatusIcon()} size="$5" color={getStatusColor()} />
+        <YStack flex={1} gap="$1">
+          <SizableText size="$bodyMd" fontWeight="600">
+            {title}
+          </SizableText>
+          {(() => {
+            if (state.status === 'error' && state.error) {
+              return (
+                <SizableText size="$bodySm" color="$textCritical">
+                  Error: {state.error}
+                </SizableText>
+              );
+            }
+            if (state.status === 'success') {
+              return (
+                <SizableText size="$bodySm" color="$textSuccess">
+                  Success
+                </SizableText>
+              );
+            }
+            if (state.status === 'loading') {
+              return (
+                <SizableText size="$bodySm" color="$textSubdued">
+                  Loading...
+                </SizableText>
+              );
+            }
+            return null;
+          })()}
+        </YStack>
+        <Button
+          size="small"
+          variant={state.status === 'success' ? 'secondary' : 'primary'}
+          disabled={disabled || state.status === 'loading'}
+          onPress={onPress}
+        >
+          {(() => {
+            if (state.status === 'loading') return 'Loading...';
+            if (state.status === 'success') return 'Done';
+            return 'Execute';
+          })()}
+        </Button>
+      </XStack>
+    );
+  };
+
+  return (
+    <YStack gap="$4">
+      <SizableText size="$bodyMd" color="$textSubdued">
+        Complete Keyless Wallet Recovery Flow: Generate shares → Save device
+      </SizableText>
+      <SizableText size="$bodyMd" color="$textSubdued">
+        keylessWalletId: {user?.keylessWalletId}
+      </SizableText>
+      <SizableText size="$bodyMd" color="$textSubdued">
+        supabaseUser: {supabaseUser?.email}
+      </SizableText>
+      <Button
+        onPress={async () => {
+          const result =
+            await backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo();
+          Dialog.debugMessage({
+            debugMessage: result,
+          });
+        }}
+      >
+        GetUserInfo
+      </Button>
+
+      <YStack gap="$3">
+        {renderStep(
+          1,
+          'Get Device Pack',
+          getDevicePackStep,
+          handleGetDevicePack,
+          false,
+        )}
+        {renderStep(
+          2,
+          'Get Auth Pack From Cache',
+          getAuthPackFromCacheStep,
+          handleGetAuthPackFromCache,
+          false,
+        )}
+        {renderStep(
+          3,
+          'Get Auth Pack From Server',
+          getAuthPackFromServerStep,
+          handleGetAuthPackFromServer,
+          false,
+        )}
+        {renderStep(
+          4,
+          'Get Cloud Pack',
+          getCloudPackStep,
+          handleGetCloudPack,
+          false,
+        )}
+        <Button
+          variant="destructive"
+          onPress={async () => {
+            const r = await deleteAuthPackFromServer();
+            Dialog.debugMessage({
+              debugMessage: r,
+            });
+          }}
+        >
+          Delete Auth Pack From Server
+        </Button>
+      </YStack>
+
+      {getDevicePackStep.status === 'success' ||
+      getAuthPackFromCacheStep.status === 'success' ||
+      getAuthPackFromServerStep.status === 'success' ||
+      getCloudPackStep.status === 'success' ? (
+        <YStack gap="$2" p="$3" borderRadius="$2" bg="$bgSubdued">
+          <SizableText size="$headingSm">Results:</SizableText>
+          {getDevicePackStep.status === 'success' ? (
+            <Button
+              size="small"
+              variant="secondary"
+              onPress={() => {
+                Dialog.debugMessage({
+                  debugMessage: {
+                    getDevicePack: getDevicePackStep.result,
+                  },
+                });
+              }}
+            >
+              View Device Pack Result
+            </Button>
+          ) : null}
+          {getAuthPackFromCacheStep.status === 'success' ? (
+            <Button
+              size="small"
+              variant="secondary"
+              onPress={() => {
+                Dialog.debugMessage({
+                  debugMessage: {
+                    getAuthPackFromCache: getAuthPackFromCacheStep.result,
+                  },
+                });
+              }}
+            >
+              View Auth Pack From Cache Result
+            </Button>
+          ) : null}
+          {getAuthPackFromServerStep.status === 'success' ? (
+            <Button
+              size="small"
+              variant="secondary"
+              onPress={() => {
+                Dialog.debugMessage({
+                  debugMessage: {
+                    getAuthPackFromServer: getAuthPackFromServerStep.result,
+                  },
+                });
+              }}
+            >
+              View Auth Pack From Server Result
+            </Button>
+          ) : null}
+          {getCloudPackStep.status === 'success' ? (
+            <Button
+              size="small"
+              variant="secondary"
+              onPress={() => {
+                Dialog.debugMessage({
+                  debugMessage: {
+                    getCloudPack: getCloudPackStep.result,
+                  },
+                });
+              }}
+            >
+              View Cloud Pack Result
+            </Button>
+          ) : null}
+        </YStack>
+      ) : null}
+    </YStack>
+  );
+}
+
 const KeylessWalletGallery = () => {
   const navigation = useAppNavigation();
   const { copyText } = useClipboard();
@@ -419,6 +718,9 @@ const KeylessWalletGallery = () => {
   const [cloudBackupResult, setCloudBackupResult] = useState('');
   const [cloudRestoreResult, setCloudRestoreResult] = useState('');
   const [allowDuplicate, setAllowDuplicate] = useState(true);
+
+  // Delete Auth Pack From Server States
+  const [deleteAuthPackResult, setDeleteAuthPackResult] = useState('');
 
   // Restore result with decrypted data
   const [restoredDecryptedData, setRestoredDecryptedData] = useState<{
@@ -971,6 +1273,46 @@ const KeylessWalletGallery = () => {
               >
                 Keyless Wallet User Info
               </Button>
+              <Button
+                variant="destructive"
+                disabled={!packs?.authKeyPack?.packSetId}
+                onPress={async () => {
+                  const packSetId =
+                    packs?.authKeyPack?.packSetId ??
+                    packs?.deviceKeyPack?.packSetId ??
+                    packs?.cloudKeyPack?.packSetId;
+                  if (!packSetId) {
+                    setDeleteAuthPackResult(
+                      '❌ Error: No packSetId available. Generate wallet packs first.',
+                    );
+                    return;
+                  }
+                  try {
+                    setDeleteAuthPackResult(
+                      '⏳ Deleting auth pack from server...',
+                    );
+                    const result =
+                      await backgroundApiProxy.serviceKeylessWallet.deleteAuthPackFromServer();
+                    setDeleteAuthPackResult(
+                      `✅ Delete success!\n${JSON.stringify(result, null, 2)}`,
+                    );
+                    Toast.success({
+                      title: 'Delete Success',
+                      message: 'Auth pack has been deleted from server.',
+                    });
+                  } catch (e: any) {
+                    const errorMessage =
+                      (e as Error)?.message ?? 'Unknown error';
+                    setDeleteAuthPackResult(`❌ Error: ${errorMessage}`);
+                    Toast.error({
+                      title: 'Delete Failed',
+                      message: errorMessage,
+                    });
+                  }
+                }}
+              >
+                Delete Auth Pack From Server
+              </Button>
 
               {/* Created Wallet Display */}
               {createWalletError ? (
@@ -1204,6 +1546,17 @@ const KeylessWalletGallery = () => {
                   No packs generated yet. Click "Create Wallet" first.
                 </SizableText>
               )}
+
+              {deleteAuthPackResult ? (
+                <YStack gap="$2" p="$3" borderRadius="$2" bg="$bgSubdued">
+                  <SizableText size="$headingSm">
+                    Delete Auth Pack Result:
+                  </SizableText>
+                  <SizableText size="$bodyMd" selectable>
+                    {deleteAuthPackResult}
+                  </SizableText>
+                </YStack>
+              ) : null}
             </YStack>
           ),
         },
@@ -1647,6 +2000,10 @@ const KeylessWalletGallery = () => {
         {
           title: 'Complete Keyless Wallet Creation Flow',
           element: <KeylessWalletCreationFlow />,
+        },
+        {
+          title: 'Complete Keyless Wallet Recovery Flow',
+          element: <KeylessWalletRecoveryFlow />,
         },
       ]}
     />

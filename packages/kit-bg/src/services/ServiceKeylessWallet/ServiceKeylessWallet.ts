@@ -561,8 +561,6 @@ class ServiceKeylessWallet extends ServiceBase {
     if (cachedAuthPack) {
       return cachedAuthPack;
     }
-
-    // 2. Return null if cache miss (caller should use getAuthPackFromServerWithOTP to fetch via OTP)
     return null;
   }
 
@@ -584,6 +582,10 @@ class ServiceKeylessWallet extends ServiceBase {
   }): Promise<IAuthKeyPack> {
     const { packSetId, emailOTP, uuid } = params;
 
+    if (!packSetId) {
+      throw new OneKeyLocalError('Pack set id is required');
+    }
+
     // Verify user is logged in
     const primeUserInfo = await primePersistAtom.get();
     if (
@@ -598,25 +600,28 @@ class ServiceKeylessWallet extends ServiceBase {
     const client = await this.backgroundApi.servicePrime.getOneKeyIdClient(
       EServiceEndpointEnum.Prime,
     );
-    const result = await client.post<
-      IApiClientResponse<{
-        authPack: IAuthKeyPack;
-      }>
-    >('/prime/v1/keyless-wallet/auth-pack', {
-      packSetId,
-      emailOTP,
-      uuid,
-    });
+    const result = await client.post<IApiClientResponse<string>>(
+      '/prime/v1/user/getKeylessAuthShare',
+      {
+        uuid,
+        emailOTP,
+        keylessWalletId: packSetId,
+      },
+    );
 
-    const responseData = result?.data?.data;
-    if (!responseData?.authPack) {
+    const authPackString = result?.data?.data;
+    if (!authPackString) {
       throw new OneKeyLocalError('Failed to get authPack from server');
     }
-
-    const authPack = responseData.authPack;
+    let authPack: IAuthKeyPack;
+    try {
+      authPack = JSON.parse(authPackString) as IAuthKeyPack;
+    } catch (error) {
+      throw new OneKeyLocalError('Failed to parse authPack from server');
+    }
 
     // Verify packSetId matches
-    if (authPack.packSetId !== packSetId) {
+    if (authPack?.packSetId !== packSetId) {
       throw new OneKeyLocalError('Pack set id does not match');
     }
 
@@ -647,6 +652,10 @@ class ServiceKeylessWallet extends ServiceBase {
     const { authPack, emailOTP, uuid } = params;
     const packSetId = authPack.packSetId;
 
+    if (!packSetId) {
+      throw new OneKeyLocalError('Pack set id is required');
+    }
+
     // Verify user is logged in
     const primeUserInfo = await primePersistAtom.get();
     if (
@@ -664,19 +673,26 @@ class ServiceKeylessWallet extends ServiceBase {
     const client = await this.backgroundApi.servicePrime.getOneKeyIdClient(
       EServiceEndpointEnum.Prime,
     );
+
     const result = await client.post<
       IApiClientResponse<{
-        success: boolean;
+        ok: boolean;
       }>
-    >('/prime/v1/keyless-wallet/auth-pack', {
-      packSetId,
-      authPack: authPackString,
-      emailOTP,
+    >('/prime/v1/user/createKeylessAuthShare', {
       uuid,
+      emailOTP,
+      keylessWalletId: packSetId,
+      keylessAuthShare: authPackString,
     });
 
     const responseData = result?.data?.data;
-    const success = responseData?.success;
+
+    await this.showToast({
+      method: 'success',
+      title: 'uploadAuthPackToServerWithOTP',
+      message: JSON.stringify(responseData, null, 2),
+    });
+    const success = responseData?.ok;
     if (!success) {
       throw new OneKeyLocalError('Failed to upload authPack to server');
     }
@@ -689,6 +705,22 @@ class ServiceKeylessWallet extends ServiceBase {
     };
   }
 
+  // deleteAuthPackFromServer
+  @backgroundMethod()
+  @toastIfError()
+  async deleteAuthPackFromServer() {
+    // Call server API to delete authPack
+    const client = await this.backgroundApi.servicePrime.getOneKeyIdClient(
+      EServiceEndpointEnum.Prime,
+    );
+    const result = await client.post<
+      IApiClientResponse<{
+        ok: boolean;
+      }>
+    >(`/prime/v1/user/resetKeylessAuthShare`, {});
+    return result.data.data;
+  }
+
   /**
    * Get cloud pack from cloud backup.
    * Returns null if not found or cloud backup is not available.
@@ -696,7 +728,7 @@ class ServiceKeylessWallet extends ServiceBase {
   @backgroundMethod()
   async getKeylessCloudPack(params: {
     packSetId: string;
-  }): Promise<ICloudKeyPack | null> {
+  }): Promise<ICloudKeyPack> {
     const { packSetId } = params;
 
     // TODO login cloud drive
@@ -704,14 +736,24 @@ class ServiceKeylessWallet extends ServiceBase {
       const isSupportCloudBackup =
         await this.backgroundApi.serviceCloudBackupV2.supportCloudBackup();
       if (!isSupportCloudBackup) {
-        return null;
+        throw new OneKeyLocalError(
+          'Cloud backup is not supported on this device',
+        );
       }
 
       const cloudPayload = await this.restoreCloudKeyPack({ packSetId });
-      return cloudPayload?.cloudKeyPack || null;
-    } catch {
-      // Return null if cloud backup is not available or restore fails
-      return null;
+      if (!cloudPayload?.cloudKeyPack) {
+        throw new OneKeyLocalError(
+          'Failed to get keyless cloud pack from cloud backup, no cloudKeyPack found',
+        );
+      }
+      return cloudPayload?.cloudKeyPack;
+    } catch (error) {
+      throw new OneKeyLocalError(
+        `Failed to get keyless cloud pack from cloud backup: ${
+          (error as Error)?.message
+        }`,
+      );
     }
   }
 }
