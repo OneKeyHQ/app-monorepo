@@ -1,10 +1,12 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { isNil } from 'lodash';
+import { useIntl } from 'react-intl';
 
 import { useIsModalPage } from '@onekeyhq/components';
 import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { ISwapProviderManager } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
@@ -16,6 +18,7 @@ import type {
 } from '@onekeyhq/shared/types/swap/types';
 import {
   ESwapDirectionType,
+  ESwapLimitOrderExpiryStep,
   ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
 
@@ -657,3 +660,75 @@ export function useSwapInit(params?: ISwapInitParams) {
     fetchLoading: networkListFetching,
   };
 }
+
+export const useSwapLimitConfigMaps = () => {
+  const intl = useIntl();
+  const limitOrderExpiryStepMap = useMemo(
+    () => [
+      {
+        label: `5 ${intl.formatMessage({
+          id: ETranslations.Limit_expire_minutes,
+        })}`,
+        value: ESwapLimitOrderExpiryStep.FIVE_MINUTES.toString(),
+      },
+      {
+        label: `30 ${intl.formatMessage({
+          id: ETranslations.Limit_expire_minutes,
+        })}`,
+        value: ESwapLimitOrderExpiryStep.THIRTY_MINUTES.toString(),
+      },
+      {
+        label: `1 ${intl.formatMessage({
+          id: ETranslations.Limit_expire_hour,
+        })}`,
+        value: ESwapLimitOrderExpiryStep.ONE_HOUR.toString(),
+      },
+      {
+        label: `1 ${intl.formatMessage({
+          id: ETranslations.Limit_expire_day,
+        })}`,
+        value: ESwapLimitOrderExpiryStep.ONE_DAY.toString(),
+      },
+      {
+        label: `3 ${intl.formatMessage({
+          id: ETranslations.Limit_expire_days,
+        })}`,
+        value: ESwapLimitOrderExpiryStep.THREE_DAYS.toString(),
+      },
+      {
+        label: `7 ${intl.formatMessage({
+          id: ETranslations.Limit_expire_days,
+        })}`,
+        value: ESwapLimitOrderExpiryStep.ONE_WEEK.toString(),
+      },
+      {
+        label: `1 ${intl.formatMessage({
+          id: ETranslations.Limit_expire_month,
+        })}`,
+        value: ESwapLimitOrderExpiryStep.ONE_MONTH.toString(),
+      },
+    ],
+    [intl],
+  );
+  const limitOrderPartiallyFillStepMap = useMemo(
+    () => [
+      {
+        label: intl.formatMessage({
+          id: ETranslations.Limit_info_partial_fill_enable,
+        }),
+        value: true,
+      },
+      {
+        label: intl.formatMessage({
+          id: ETranslations.Limit_info_partial_fill_disable,
+        }),
+        value: false,
+      },
+    ],
+    [intl],
+  );
+  return {
+    limitOrderExpiryStepMap,
+    limitOrderPartiallyFillStepMap,
+  };
+};

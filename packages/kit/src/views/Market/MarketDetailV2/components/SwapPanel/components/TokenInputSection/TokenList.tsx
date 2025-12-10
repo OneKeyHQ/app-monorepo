@@ -26,12 +26,14 @@ interface ITokenListProps {
   tokens?: IToken[];
   onTokenPress?: (token: IToken) => void;
   onTradePress: () => void;
+  disabledOnSwitchToTrade?: boolean;
 }
 
 export function TokenList({
   tokens = [],
   onTokenPress,
   onTradePress,
+  disabledOnSwitchToTrade,
 }: ITokenListProps) {
   const { activeAccount } = useActiveAccount({ num: 0 });
   const [settingsPersistAtom] = useSettingsPersistAtom();
@@ -148,7 +150,10 @@ export function TokenList({
         ))}
       </YStack>
 
-      <SwitchToTradePrompt onTradePress={onTradePress} />
+      <SwitchToTradePrompt
+        onTradePress={onTradePress}
+        disabledOnSwitchToTrade={disabledOnSwitchToTrade}
+      />
     </YStack>
   );
 }

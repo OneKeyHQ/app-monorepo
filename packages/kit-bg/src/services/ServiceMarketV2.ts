@@ -11,6 +11,7 @@ import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
 import type {
   IMarketAccountPortfolioResponse,
+  IMarketAccountTokenTransactionsResponse,
   IMarketBasicConfigResponse,
   IMarketChainsResponse,
   IMarketTokenBatchListResponse,
@@ -197,6 +198,49 @@ class ServiceMarketV2 extends ServiceBase {
     });
     const { data } = response.data;
     return data;
+  }
+
+  @backgroundMethod()
+  async fetchMarketAccountTokenTransactions({
+    accountAddress,
+    tokenAddress,
+    networkId,
+    cursor,
+    timeFrom,
+    timeTo,
+  }: {
+    accountAddress: string;
+    tokenAddress: string;
+    networkId: string;
+    cursor?: string;
+    timeFrom?: number;
+    timeTo?: number;
+  }) {
+    try {
+      const client = await this.getClient(EServiceEndpointEnum.Utility);
+      const response = await client.get<{
+        code: number;
+        message: string;
+        data: IMarketAccountTokenTransactionsResponse;
+      }>('/utility/v2/market/account/token/transactions', {
+        params: {
+          accountAddress,
+          tokenAddress,
+          networkId,
+          ...(cursor !== undefined && { cursor }),
+          ...(timeFrom !== undefined && { timeFrom }),
+          ...(timeTo !== undefined && { timeTo }),
+        },
+      });
+      const { data } = response.data;
+      return data;
+    } catch (error) {
+      console.error(
+        '[ServiceMarketV2] fetchMarketAccountTokenTransactions error:',
+        error,
+      );
+      return { list: [] };
+    }
   }
 
   @backgroundMethod()

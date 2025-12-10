@@ -1021,6 +1021,7 @@ export default class VaultBtc extends VaultBase {
         outputs,
         fee,
         bytes,
+        strategy: utxoSelectionStrategy,
       });
       defaultLogger.transaction.send.coinControlResult({
         network: network.id,
@@ -1028,6 +1029,7 @@ export default class VaultBtc extends VaultBase {
         outputCount: outputs?.length,
         fee,
         txSize: bytes,
+        strategy: utxoSelectionStrategy,
       });
     }
 
