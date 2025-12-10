@@ -1,18 +1,19 @@
 import { useMemo } from 'react';
 
 import { isEmpty } from 'lodash';
+import { useIntl } from 'react-intl';
 
 import {
   Badge,
   Button,
   Divider,
-  IconButton,
   Page,
   SizableText,
   XStack,
   YStack,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   IEarnHistoryActionIcon,
   IEarnManagePageResponse,
@@ -52,6 +53,7 @@ export function SpecialManageContent({
   fallbackTokenImageUri,
   fallbackSymbol,
 }: ISpecialManageContentProps) {
+  const intl = useIntl();
   const isSingleButton = buttonConfig.type === ESpecialManageLayoutType.Single;
   const primaryButton = buttonConfig.buttons.primary;
   const secondaryButton = buttonConfig.buttons.secondary;
@@ -170,14 +172,20 @@ export function SpecialManageContent({
         {/* Header with History button */}
         <XStack jc="space-between" ai="center">
           <SizableText size="$headingMd" color="$text">
-            Holdings
+            {holdings?.title.text ||
+              intl.formatMessage({ id: ETranslations.earn_holdings })}
           </SizableText>
           {historyAction && !historyAction.disabled ? (
-            <IconButton
+            <Button
+              variant="tertiary"
+              size="small"
               icon="ClockTimeHistoryOutline"
               onPress={() => onHistory?.()}
-              variant="tertiary"
-            />
+              mt={isInModalContext ? '$1' : undefined}
+            >
+              {historyAction.text?.text ||
+                intl.formatMessage({ id: ETranslations.global_history })}
+            </Button>
           ) : null}
         </XStack>
 

@@ -159,6 +159,23 @@ export const mevSwapNetworks = [
 export const approvingIntervalSecondsDefault = 8;
 export const approvingIntervalSecondsEth = 20;
 
+export enum ESwapProTimeRange {
+  ONE_HOUR = '1h',
+  FOUR_HOURS = '4h',
+  EIGHT_HOURS = '8h',
+  TWENTY_FOUR_HOURS = '24h',
+}
+// swap pro
+export const swapProTimeRangeItems: {
+  label: string;
+  value: ESwapProTimeRange;
+}[] = [
+  { label: '1H', value: ESwapProTimeRange.ONE_HOUR },
+  { label: '4H', value: ESwapProTimeRange.FOUR_HOURS },
+  { label: '8H', value: ESwapProTimeRange.EIGHT_HOURS },
+  { label: '24H', value: ESwapProTimeRange.TWENTY_FOUR_HOURS },
+];
+
 export const swapDefaultSetTokens: Record<
   string,
   {

@@ -29,7 +29,7 @@ import { PerpTips } from '../components/PerpTips';
 import { PerpTickerBar } from '../components/TickerBar/PerpTickerBar';
 import { PerpTradingPanel } from '../components/TradingPanel/PerpTradingPanel';
 
-enum ETabName {
+export enum ETabName {
   Positions = 'Positions',
   OpenOrders = 'OpenOrders',
 }
@@ -42,29 +42,19 @@ const tabNameToTranslationKey: Record<
   [ETabName.OpenOrders]: ETranslations.perp_open_orders_title,
 };
 
-const TabBarItem = memo(
+export const TabBarItem = memo(
   ({
     name,
     isFocused,
     onPress,
+    tabCount,
   }: {
     name: ETabName;
     isFocused: boolean;
     onPress: (name: ETabName) => void;
+    tabCount?: string;
   }) => {
     const intl = useIntl();
-    const [openOrdersLength] = usePerpsActiveOpenOrdersLengthAtom();
-    const [positionsLength] = usePerpsActivePositionLengthAtom();
-
-    const tabCount = useMemo(() => {
-      if (name === ETabName.Positions && positionsLength > 0) {
-        return `(${positionsLength})`;
-      }
-      if (name === ETabName.OpenOrders && openOrdersLength > 0) {
-        return `(${openOrdersLength})`;
-      }
-      return '';
-    }, [name, positionsLength, openOrdersLength]);
 
     return (
       <DebugRenderTracker
@@ -81,7 +71,7 @@ const TabBarItem = memo(
           <SizableText size="$headingXs">
             {`${intl.formatMessage({
               id: tabNameToTranslationKey[name],
-            })} ${tabCount}`}
+            })}${tabCount ? ` ${tabCount}` : ''}`}
           </SizableText>
         </XStack>
       </DebugRenderTracker>
@@ -118,6 +108,22 @@ export function PerpMobileLayout() {
     }
   }, [actions]);
 
+  const [openOrdersLength] = usePerpsActiveOpenOrdersLengthAtom();
+  const [positionsLength] = usePerpsActivePositionLengthAtom();
+
+  const positionsTabCount = useMemo(() => {
+    if (positionsLength > 0) {
+      return `(${positionsLength})`;
+    }
+    return '';
+  }, [positionsLength]);
+
+  const openOrdersTabCount = useMemo(() => {
+    if (openOrdersLength > 0) {
+      return `(${openOrdersLength})`;
+    }
+    return '';
+  }, [openOrdersLength]);
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: '$bgApp' }}
@@ -152,11 +158,13 @@ export function PerpMobileLayout() {
             name={ETabName.Positions}
             isFocused={activeTab === ETabName.Positions}
             onPress={setActiveTab}
+            tabCount={positionsTabCount}
           />
           <TabBarItem
             name={ETabName.OpenOrders}
             isFocused={activeTab === ETabName.OpenOrders}
             onPress={setActiveTab}
+            tabCount={openOrdersTabCount}
           />
         </XStack>
         <IconButton

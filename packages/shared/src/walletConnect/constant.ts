@@ -75,7 +75,7 @@ export const WALLET_CONNECT_CLIENT_META = {
 export const namespaceToImplsMap: Record<INamespaceUnion, string> = {
   eip155: IMPL_EVM,
   // solana: IMPL_SOL,
-  cosmos: IMPL_COSMOS,
+  // cosmos: IMPL_COSMOS,
   // polkadot: IMPL_DOT,
   // tron: IMPL_TRON,
   algorand: IMPL_ALGO,
@@ -86,7 +86,7 @@ export const implToNamespaceMap: {
 } = {
   [IMPL_EVM]: 'eip155',
   // [IMPL_SOL]: 'solana',
-  [IMPL_COSMOS]: 'cosmos',
+  // [IMPL_COSMOS]: 'cosmos',
   // [IMPL_DOT]: 'polkadot',
   // [IMPL_TRON]: 'tron',
   [IMPL_ALGO]: 'algorand',
@@ -193,7 +193,7 @@ export const ALGO_SIGNING_METHODS = {
 export const supportMethodsMap: Record<INamespaceUnion, string[]> = {
   eip155: Object.values(EIP155_SIGNING_METHODS),
   // solana: [],
-  cosmos: Object.values(COSMOS_SIGNING_METHODS),
+  // cosmos: Object.values(COSMOS_SIGNING_METHODS),
   // polkadot: [],
   // tron: [],
   algorand: Object.values(ALGO_SIGNING_METHODS),
@@ -202,7 +202,7 @@ export const supportMethodsMap: Record<INamespaceUnion, string[]> = {
 export const supportEventsMap: Record<INamespaceUnion, string[]> = {
   eip155: ['accountsChanged', 'chainChanged'],
   // solana: [],
-  cosmos: ['chainChanged', 'accountsChanged'],
+  // cosmos: ['accountsChanged'], // chainChanged not supported
   // polkadot: [],
   // tron: [],
   algorand: ['accountsChanged', 'chainChanged'],

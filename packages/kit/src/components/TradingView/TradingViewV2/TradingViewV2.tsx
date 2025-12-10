@@ -29,6 +29,7 @@ interface IBaseTradingViewV2Props {
   decimal: number;
   onPanesCountChange?: (count: number) => void;
   dataSource?: 'websocket' | 'polling';
+  accountAddress?: string;
 }
 
 export type ITradingViewV2Props = IBaseTradingViewV2Props & IStackStyle;
@@ -46,6 +47,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     decimal,
     onPanesCountChange,
     dataSource,
+    accountAddress,
   } = props;
 
   const { handleNavigation } = useNavigationHandler();
@@ -54,6 +56,8 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     networkId,
     webRef,
     onPanesCountChange,
+    accountAddress,
+    tokenSymbol: symbol,
   });
 
   const { finalUrl: tradingViewUrlWithParams } = useTradingViewUrl({

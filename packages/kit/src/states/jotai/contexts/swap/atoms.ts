@@ -1,15 +1,24 @@
 import BigNumber from 'bignumber.js';
 
+import { ESwapDirection } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
+import type { IToken } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { dangerAllNetworkRepresent } from '@onekeyhq/shared/src/config/presetNetworks';
 import {
   checkWrappedTokenPair,
   equalTokenNoCaseSensitive,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
+import type {
+  IMarketTokenDetail,
+  IMarketTokenDetailWebsocket,
+} from '@onekeyhq/shared/types/marketV2';
 import {
+  ESwapProTimeRange,
   ESwapProviderSort,
   mevSwapNetworks,
+  swapProTimeRangeItems,
   swapProviderRecommendApprovedWeights,
+  swapSlippageAutoValue,
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
   ESwapDirectionType,
@@ -22,6 +31,7 @@ import type {
   ISwapNativeTokenReserveGas,
   ISwapNetwork,
   ISwapPreSwapData,
+  ISwapSlippageSegmentItem,
   ISwapStep,
   ISwapTips,
   ISwapToken,
@@ -30,6 +40,8 @@ import type {
 } from '@onekeyhq/shared/types/swap/types';
 import {
   ESwapNetworkFeeLevel,
+  ESwapProTradeType,
+  ESwapSlippageSegmentKey,
   ESwapTabSwitchType,
   LIMIT_PRICE_DEFAULT_DECIMALS,
   defaultLimitExpirationTime,
@@ -489,66 +501,6 @@ export const {
 }>({});
 
 export const {
-  atom: swapLimitPriceMarketPriceAtom,
-  use: useSwapLimitPriceMarketPriceAtom,
-} = contextAtomComputed<ISwapLimitPriceInfo>((get) => {
-  const limitOrderMarketPrice = get(limitOrderMarketPriceAtom());
-  const { fromTokenPriceInfo, toTokenPriceInfo } = limitOrderMarketPrice;
-  const fromToken = get(swapSelectFromTokenAtom());
-  const toToken = get(swapSelectToTokenAtom());
-  if (
-    fromTokenPriceInfo &&
-    toTokenPriceInfo &&
-    equalTokenNoCaseSensitive({
-      token1: fromToken,
-      token2: fromTokenPriceInfo.tokenInfo,
-    }) &&
-    equalTokenNoCaseSensitive({
-      token1: toToken,
-      token2: toTokenPriceInfo.tokenInfo,
-    }) &&
-    !checkWrappedTokenPair({
-      fromToken,
-      toToken,
-    })
-  ) {
-    const fromPriceBN = new BigNumber(
-      fromTokenPriceInfo.price ? fromTokenPriceInfo.price : '0',
-    );
-    const toPriceBN = new BigNumber(
-      toTokenPriceInfo.price ? toTokenPriceInfo.price : '0',
-    );
-    if (fromPriceBN.isZero() || toPriceBN.isZero()) {
-      return {};
-    }
-    const rate = fromPriceBN
-      .div(toPriceBN)
-      .decimalPlaces(
-        toTokenPriceInfo.tokenInfo.decimals ?? LIMIT_PRICE_DEFAULT_DECIMALS,
-        BigNumber.ROUND_HALF_UP,
-      )
-      .toFixed();
-    const reverseRate = toPriceBN
-      .div(fromPriceBN)
-      .decimalPlaces(
-        fromTokenPriceInfo.tokenInfo.decimals ?? LIMIT_PRICE_DEFAULT_DECIMALS,
-        BigNumber.ROUND_HALF_UP,
-      )
-      .toFixed();
-    const limitPriceMarketInfo = {
-      fromToken: fromTokenPriceInfo.tokenInfo,
-      toToken: toTokenPriceInfo.tokenInfo,
-      rate,
-      reverseRate,
-      fromTokenMarketPrice: fromTokenPriceInfo.price,
-      toTokenMarketPrice: toTokenPriceInfo.price,
-    };
-    return limitPriceMarketInfo;
-  }
-  return {};
-});
-
-export const {
   atom: swapLimitExpirationTimeAtom,
   use: useSwapLimitExpirationTimeAtom,
 } = contextAtom<{ label: string; value: string }>({
@@ -696,3 +648,182 @@ export const {
   atom: swapNativeTokenReserveGasAtom,
   use: useSwapNativeTokenReserveGasAtom,
 } = contextAtom<ISwapNativeTokenReserveGas[]>([]);
+
+// swap pro
+export const { atom: swapProSelectTokenAtom, use: useSwapProSelectTokenAtom } =
+  contextAtom<ISwapToken | undefined>(undefined);
+
+export const { atom: swapProDirectionAtom, use: useSwapProDirectionAtom } =
+  contextAtom<ESwapDirection>(ESwapDirection.BUY);
+
+export const { atom: swapProTradeTypeAtom, use: useSwapProTradeTypeAtom } =
+  contextAtom<ESwapProTradeType>(ESwapProTradeType.MARKET);
+
+export const { atom: swapProInputAmountAtom, use: useSwapProInputAmountAtom } =
+  contextAtom<string>('');
+
+export const { atom: swapProSliderValueAtom, use: useSwapProSliderValueAtom } =
+  contextAtom<number>(0);
+
+export const {
+  atom: swapProUseSelectBuyTokenAtom,
+  use: useSwapProUseSelectBuyTokenAtom,
+} = contextAtom<IToken | undefined>(undefined);
+
+export const { atom: swapProSellToTokenAtom, use: useSwapProSellToTokenAtom } =
+  contextAtom<IToken | undefined>(undefined);
+
+export const {
+  atom: swapProTokenMarketDetailInfoAtom,
+  use: useSwapProTokenMarketDetailInfoAtom,
+} = contextAtom<IMarketTokenDetail | undefined>(undefined);
+
+export const {
+  atom: swapProTokenDetailWebsocketAtom,
+  use: useSwapProTokenDetailWebsocketAtom,
+} = contextAtom<IMarketTokenDetailWebsocket | undefined>(undefined);
+
+export const {
+  atom: swapProTokenMarketDetailInfoLoadingAtom,
+  use: useSwapProTokenMarketDetailInfoLoadingAtom,
+} = contextAtom<boolean>(false);
+
+const DEFAULT_TIME_RANGE = ESwapProTimeRange.TWENTY_FOUR_HOURS;
+const defaultTimeRangeItem =
+  swapProTimeRangeItems.find((item) => item.value === DEFAULT_TIME_RANGE) ??
+  swapProTimeRangeItems[swapProTimeRangeItems.length - 1];
+
+export const { atom: swapProTimeRangeAtom, use: useSwapProTimeRangeAtom } =
+  contextAtom<{ label: string; value: ESwapProTimeRange }>({
+    label: defaultTimeRangeItem.label,
+    value: defaultTimeRangeItem.value,
+  });
+
+export const {
+  atom: swapProSupportNetworksTokenListAtom,
+  use: useSwapProSupportNetworksTokenListAtom,
+} = contextAtom<ISwapToken[]>([]);
+
+export const {
+  atom: swapProSupportNetworksTokenListLoadingAtom,
+  use: useSwapProSupportNetworksTokenListLoadingAtom,
+} = contextAtom<boolean>(false);
+
+export const { atom: swapProTokenValueAtom, use: useSwapProTokenValueAtom } =
+  contextAtom<string>('');
+
+export const {
+  atom: swapProEnableCurrentSymbolAtom,
+  use: useSwapProEnableCurrentSymbolAtom,
+} = contextAtom<boolean>(false);
+
+export const {
+  atom: swapProToTotalValueAtom,
+  use: useSwapProToTotalValueAtom,
+} = contextAtom<string>('');
+
+export const {
+  atom: swapProLimitPriceValueAtom,
+  use: useSwapProLimitPriceValueAtom,
+} = contextAtom<string>('');
+
+export const {
+  atom: swapSpeedQuoteFetchingAtom,
+  use: useSwapSpeedQuoteFetchingAtom,
+} = contextAtom<boolean>(false);
+
+export const {
+  atom: swapSpeedQuoteResultAtom,
+  use: useSwapSpeedQuoteResultAtom,
+} = contextAtom<IFetchQuoteResult | undefined>(undefined);
+
+export const { atom: swapProSlippageAtom, use: useSwapProSlippageAtom } =
+  contextAtom<ISwapSlippageSegmentItem>({
+    key: ESwapSlippageSegmentKey.AUTO,
+    value: swapSlippageAutoValue,
+  });
+
+export const {
+  atom: swapProTokenSupportLimitAtom,
+  use: useSwapProTokenSupportLimitAtom,
+} = contextAtomComputed((get) => {
+  const swapProSelectToken = get(swapProSelectTokenAtom());
+  const swapSupportNetworks = get(swapNetworks());
+  const swapSupportLimitNetworks = swapSupportNetworks.filter(
+    (net) => net.supportLimit,
+  );
+  return !!swapSupportLimitNetworks.find(
+    (net) => net.networkId === swapProSelectToken?.networkId,
+  );
+});
+
+export const {
+  atom: swapLimitPriceMarketPriceAtom,
+  use: useSwapLimitPriceMarketPriceAtom,
+} = contextAtomComputed<ISwapLimitPriceInfo>((get) => {
+  const limitOrderMarketPrice = get(limitOrderMarketPriceAtom());
+  const { fromTokenPriceInfo, toTokenPriceInfo } = limitOrderMarketPrice;
+  let fromToken = get(swapSelectFromTokenAtom());
+  let toToken = get(swapSelectToTokenAtom());
+  const swapProTradeType = get(swapProTradeTypeAtom());
+  const swapProDirection = get(swapProDirectionAtom());
+  if (swapProTradeType === ESwapProTradeType.LIMIT) {
+    if (swapProDirection === ESwapDirection.BUY) {
+      fromToken = get(swapProUseSelectBuyTokenAtom());
+      toToken = get(swapProSelectTokenAtom());
+    } else {
+      fromToken = get(swapProSelectTokenAtom());
+      toToken = get(swapProSellToTokenAtom());
+    }
+  }
+  if (
+    fromTokenPriceInfo &&
+    toTokenPriceInfo &&
+    equalTokenNoCaseSensitive({
+      token1: fromToken,
+      token2: fromTokenPriceInfo.tokenInfo,
+    }) &&
+    equalTokenNoCaseSensitive({
+      token1: toToken,
+      token2: toTokenPriceInfo.tokenInfo,
+    }) &&
+    !checkWrappedTokenPair({
+      fromToken,
+      toToken,
+    })
+  ) {
+    const fromPriceBN = new BigNumber(
+      fromTokenPriceInfo.price ? fromTokenPriceInfo.price : '0',
+    );
+    const toPriceBN = new BigNumber(
+      toTokenPriceInfo.price ? toTokenPriceInfo.price : '0',
+    );
+    if (fromPriceBN.isZero() || toPriceBN.isZero()) {
+      return {};
+    }
+    const rate = fromPriceBN
+      .div(toPriceBN)
+      .decimalPlaces(
+        toTokenPriceInfo.tokenInfo.decimals ?? LIMIT_PRICE_DEFAULT_DECIMALS,
+        BigNumber.ROUND_HALF_UP,
+      )
+      .toFixed();
+    const reverseRate = toPriceBN
+      .div(fromPriceBN)
+      .decimalPlaces(
+        fromTokenPriceInfo.tokenInfo.decimals ?? LIMIT_PRICE_DEFAULT_DECIMALS,
+        BigNumber.ROUND_HALF_UP,
+      )
+      .toFixed();
+    const limitPriceMarketInfo = {
+      fromToken: fromTokenPriceInfo.tokenInfo,
+      toToken: toTokenPriceInfo.tokenInfo,
+      rate,
+      reverseRate,
+      fromTokenMarketPrice: fromTokenPriceInfo.price,
+      toTokenMarketPrice: toTokenPriceInfo.price,
+    };
+    return limitPriceMarketInfo;
+  }
+  return {};
+});

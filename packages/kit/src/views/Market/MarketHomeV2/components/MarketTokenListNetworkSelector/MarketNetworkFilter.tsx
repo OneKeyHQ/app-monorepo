@@ -6,6 +6,7 @@ import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import { useNetworkFilterScroll } from '../../hooks/useNetworkFilterScroll';
 
+import { MarketNetworkStartFilterItem } from './MarketNetworkStartFilterItem';
 import { MoreButton } from './MoreButton';
 import { NetworksFilterItem } from './NetworksFilterItem';
 
@@ -15,6 +16,8 @@ interface ISwapNetworkToggleGroupProps {
   selectedNetwork?: IServerNetwork;
   onMoreNetworkSelect: (network: IServerNetwork) => void;
   placement?: IPopoverProps['placement'];
+  onStartListSelect?: () => void;
+  startListSelect?: boolean;
 }
 
 // Layout constants for desktop network filter scrolling
@@ -40,6 +43,8 @@ const MarketNetworkFilter = forwardRef<
       onSelectNetwork,
       onMoreNetworkSelect,
       placement,
+      onStartListSelect,
+      startListSelect,
     },
     ref,
   ) => {
@@ -91,6 +96,12 @@ const MarketNetworkFilter = forwardRef<
             onContentSizeChange={handleContentSizeChange}
           >
             <XStack gap="$0.5" pr={allowMoreButton ? '$4' : undefined}>
+              {onStartListSelect ? (
+                <MarketNetworkStartFilterItem
+                  isSelected={startListSelect}
+                  onPress={onStartListSelect}
+                />
+              ) : null}
               {networks.map((network) => (
                 <NetworksFilterItem
                   key={network.id}
