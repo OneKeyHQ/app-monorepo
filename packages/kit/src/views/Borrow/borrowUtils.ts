@@ -1,0 +1,82 @@
+import { rootNavigationRef } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  EModalRoutes,
+  EModalStakingRoutes,
+  ERootRoutes,
+  ETabEarnRoutes,
+  ETabRoutes,
+} from '@onekeyhq/shared/src/routes';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+
+import type { IAppNavigation } from '../../hooks/useAppNavigation';
+
+async function safePushToBorrowRoute(
+  navigation: IAppNavigation,
+  route: ETabEarnRoutes,
+  params?: any,
+) {
+  const targetTab = platformEnv.isNative
+    ? ETabRoutes.Discovery
+    : ETabRoutes.Earn;
+
+  navigation.switchTab(targetTab);
+  await timerUtils.wait(0);
+
+  rootNavigationRef.current?.navigate(ERootRoutes.Main, {
+    screen: targetTab,
+    params: {
+      screen: route,
+      params,
+    },
+  });
+}
+
+export const BorrowNavigation = {
+  pushToBorrowReserveDetails(
+    navigation: IAppNavigation,
+    params: {
+      networkId: string;
+      provider: string;
+      marketAddress: string;
+      reserveAddress: string;
+      symbol: string;
+      logoURI?: string;
+    },
+  ) {
+    void safePushToBorrowRoute(
+      navigation,
+      ETabEarnRoutes.BorrowReserveDetails,
+      {
+        networkId: params.networkId,
+        provider: params.provider,
+        marketAddress: params.marketAddress,
+        reserveAddress: params.reserveAddress,
+        symbol: params.symbol,
+        logoURI: params.logoURI,
+      },
+    );
+  },
+
+  pushToBorrowHistory(
+    navigation: IAppNavigation,
+    params: {
+      accountId: string;
+      networkId: string;
+      provider: string;
+      marketAddress: string;
+      title?: string;
+    },
+  ) {
+    navigation.pushModal(EModalRoutes.StakingModal, {
+      screen: EModalStakingRoutes.BorrowHistoryList,
+      params: {
+        accountId: params.accountId,
+        networkId: params.networkId,
+        provider: params.provider,
+        marketAddress: params.marketAddress,
+        title: params.title || 'Borrow History', // FIXME[borrow]: i18n
+      },
+    });
+  },
+};

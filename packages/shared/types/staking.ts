@@ -420,6 +420,7 @@ export interface IEarnToken {
   totalSupply: string;
   riskLevel: number;
   coingeckoId: string;
+  networkId: string;
 }
 
 export interface IEarnTokenInfo {
@@ -1605,6 +1606,12 @@ export interface IApyHistoryItem {
   timestamp: number;
 }
 
+export interface IBorrowApyHistoryItem {
+  timestamp: number;
+  borrowApy: string;
+  supplyApy: string;
+}
+
 export interface IApyHistoryResponse {
   code: number;
   message: string;
@@ -1666,6 +1673,7 @@ export interface IBorrowReserveItem {
     supplyApy: string;
     collateralBalance: string;
     assets: {
+      reserveAddress: string;
       token: IBorrowToken;
       apyDetail: IBorrowApy;
       categories: string[];
@@ -1678,6 +1686,7 @@ export interface IBorrowReserveItem {
     borrowApy: string;
     borrowPowerUsed: string;
     assets: {
+      reserveAddress: string;
       token: IBorrowToken;
       apyDetail: IBorrowApy;
       categories: string[];
@@ -1688,6 +1697,7 @@ export interface IBorrowReserveItem {
   supply: {
     alert: IEarnAlert;
     assets: {
+      reserveAddress: string;
       token: IBorrowToken;
       apyDetail: IBorrowApy;
       categories: string[];
@@ -1699,6 +1709,7 @@ export interface IBorrowReserveItem {
   borrow: {
     alert: IEarnAlert;
     assets: {
+      reserveAddress: string;
       token: IBorrowToken;
       apyDetail: IBorrowApy;
       categories: string[];
@@ -1717,4 +1728,47 @@ export interface IBorrowHistory {
     tokenAddress: string;
     timestamp: number;
   }[];
+}
+
+export interface IBorrowReserveDetail {
+  reserveSize: string;
+  utilizationRatio: string;
+  liquidity: string;
+  oraclePrice: string;
+  userInfo: {
+    walletBalance: string;
+    suppliedBalance: string;
+    borrowedBalance: string;
+    availableBorrowBalance: string;
+    alerts: IEarnAlert[];
+    walletBalanceFiatValue: string;
+    suppliedBalanceFiatValue: string;
+    borrowedBalanceFiatValue: string;
+    availableBorrowBalanceFiatValue: string;
+  };
+  supply: {
+    token: IEarnToken;
+    apyDetail: IBorrowApy;
+    categories: string[];
+    canBeCollateral: boolean;
+    totalCapacity: string;
+    totalSupplied: string;
+    maxLtv: string;
+    liquidationLtv: string;
+    softLiquidation: string;
+    totalCapacityFiatValue: string;
+    totalSuppliedFiatValue: string;
+  };
+  borrow: {
+    token: IEarnToken;
+    apyDetail: IBorrowApy;
+    categories: string[];
+    totalCapacity: string;
+    totalBorrowed: string;
+    canBeBorrowed: boolean;
+    borrowFactor: string;
+    totalCapacityFiatValue: string;
+    totalBorrowedFiatValue: string;
+  };
+  interestRateModel: string;
 }

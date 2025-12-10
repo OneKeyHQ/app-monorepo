@@ -19,6 +19,7 @@ export enum EModalStakingRoutes {
   WithdrawOptions = 'WithdrawOptions',
   PortfolioDetails = 'PortfolioDetails',
   HistoryList = 'HistoryList',
+  BorrowHistoryList = 'BorrowHistoryList',
 }
 
 type IBaseRouteParams = {
@@ -103,5 +104,10 @@ export type IModalStakingParamList = {
     filterType?: string;
     title?: string;
     alerts?: IEarnAlert[];
+  };
+  [EModalStakingRoutes.BorrowHistoryList]: IBaseRouteParams & {
+    provider: string;
+    marketAddress: string;
+    title?: string;
   };
 };

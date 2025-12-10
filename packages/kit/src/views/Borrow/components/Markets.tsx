@@ -15,12 +15,16 @@ export const Markets = () => {
   const isFocused = useIsFocusedTab();
   const { markets } = useBorrowMarkets({ isActive: isFocused });
   const market = useMemo(() => markets?.[0], [markets]);
-  const { setReserves } = useBorrowContext();
+  const { setReserves, setMarket } = useBorrowContext();
 
   const { earnAccount } = useEarnAccount({
     networkId: market?.networkId,
   });
   const { fetchReserves } = useBorrowReserves();
+
+  useEffect(() => {
+    setMarket(market ?? null);
+  }, [market, setMarket]);
 
   useEffect(() => {
     if (!isEmpty(market) && earnAccount) {

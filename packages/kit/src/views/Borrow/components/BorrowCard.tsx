@@ -11,17 +11,18 @@ export const BorrowCard = () => {
   // FIXME[borrow]: i18n
   return (
     <Card title="Assets to borrow">
+      {/* FIXME[borrow]: i18n */}
       <BorrowTableList<IBorrowReserveItem['borrow']['assets'][number]>
         data={reserves?.borrow.assets || []}
         columns={[
           {
-            label: 'Asset',
+            label: 'Asset', // FIXME[borrow]: i18n
             key: 'asset',
             render: AssetField,
             flex: 1,
           },
         ]}
-        emptyContent="Nothing supplied yet"
+        emptyContent="Nothing supplied yet" // FIXME[borrow]: i18n
       />
     </Card>
   );

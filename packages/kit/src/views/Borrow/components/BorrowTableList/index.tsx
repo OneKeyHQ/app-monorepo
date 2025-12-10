@@ -17,6 +17,7 @@ type IBorrowTableListProps<T> = {
   estimatedItemHeight?: number;
   listProps?: Omit<ITableListProps<T>, 'columns' | 'data'>;
   emptyContent: string;
+  onPressRow?: (item: T, index: number) => void;
 };
 
 const BorrowTableList = <T,>({
@@ -25,6 +26,7 @@ const BorrowTableList = <T,>({
   isLoading = false,
   listProps = {},
   emptyContent,
+  onPressRow,
 }: IBorrowTableListProps<T>) => {
   if (isLoading) {
     return <Skeleton height={200} />;
@@ -40,6 +42,7 @@ const BorrowTableList = <T,>({
       data={data}
       tableLayout
       withHeader
+      onPressRow={onPressRow}
       {...listProps}
     />
   );

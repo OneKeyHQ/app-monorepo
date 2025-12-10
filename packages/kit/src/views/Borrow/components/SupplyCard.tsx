@@ -1,6 +1,10 @@
+import { useCallback } from 'react';
+
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import type { IBorrowReserveItem } from '@onekeyhq/shared/types/staking';
 
 import { useBorrowContext } from '../BorrowProvider';
+import { BorrowNavigation } from '../borrowUtils';
 
 import {
   AmountField,
@@ -10,13 +14,30 @@ import {
 } from './BorrowTableList';
 import { Card } from './Card';
 
-export const SupplyCard = () => {
-  const { reserves } = useBorrowContext();
+type ISupplyAsset = IBorrowReserveItem['supply']['assets'][number];
 
-  // FIXME[borrow]: i18n
+export const SupplyCard = () => {
+  const { reserves, market } = useBorrowContext();
+  const navigation = useAppNavigation();
+
+  const handlePressRow = useCallback(
+    (item: ISupplyAsset) => {
+      if (!market) return;
+      BorrowNavigation.pushToBorrowReserveDetails(navigation, {
+        networkId: market.networkId,
+        provider: market.provider,
+        marketAddress: market.marketAddress,
+        reserveAddress: item.reserveAddress,
+        symbol: item.token.symbol,
+        logoURI: item.token.logoURI,
+      });
+    },
+    [navigation, market],
+  );
+
   return (
     <Card title="Assets to supply">
-      <BorrowTableList<IBorrowReserveItem['supply']['assets'][number]>
+      <BorrowTableList<ISupplyAsset>
         data={reserves?.supply.assets || []}
         columns={[
           {
@@ -45,6 +66,7 @@ export const SupplyCard = () => {
             flex: 1,
           },
         ]}
+        onPressRow={handlePressRow}
         emptyContent="Nothing supplied yet"
       />
     </Card>

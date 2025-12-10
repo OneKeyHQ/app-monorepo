@@ -37,8 +37,10 @@ import type {
   IApyHistoryResponse,
   IAvailableAsset,
   IBabylonPortfolioItem,
+  IBorrowApyHistoryItem,
   IBorrowHistory,
   IBorrowMarketItem,
+  IBorrowReserveDetail,
   IBorrowReserveItem,
   IBorrowReserveRequestParams,
   IBuildPermit2ApproveSignDataParams,
@@ -1989,6 +1991,55 @@ class ServiceStaking extends ServiceBase {
     const response = await client.get<{
       data: IBorrowHistory;
     }>('/earn/v1/borrow/obligation/history', {
+      params: {
+        ...rest,
+        accountAddress,
+      },
+    });
+    return response.data.data;
+  }
+
+  @backgroundMethod()
+  async getBorrowApyHistory(params: {
+    networkId: string;
+    provider: string;
+    marketAddress: string;
+    reserveAddress: string;
+    days: 'week' | 'month' | 'quarter' | 'half-year' | 'year';
+  }) {
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+
+    const response = await client.get<{
+      data: {
+        items: IBorrowApyHistoryItem[];
+      };
+    }>('/earn/v1/borrow/apy/history', {
+      params,
+    });
+
+    return response.data.data;
+  }
+
+  @backgroundMethod()
+  async getBorrowReserveDetails(params: {
+    networkId: string;
+    provider: string;
+    marketAddress: string;
+    reserveAddress: string;
+    accountId: string;
+  }) {
+    const { accountId, ...rest } = params;
+
+    const accountAddress =
+      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        networkId: params.networkId,
+        accountId,
+      });
+
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const response = await client.get<{
+      data: IBorrowReserveDetail;
+    }>('/earn/v1/borrow/reserve-detail', {
       params: {
         ...rest,
         accountAddress,

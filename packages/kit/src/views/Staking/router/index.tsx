@@ -57,6 +57,10 @@ const HistoryList = LazyLoad(
   () => import('@onekeyhq/kit/src/views/Staking/pages/HistoryList'),
 );
 
+const BorrowHistoryList = LazyLoad(
+  () => import('@onekeyhq/kit/src/views/Borrow/pages/BorrowHistoryList'),
+);
+
 export const StakingModalRouter: IModalFlowNavigatorConfig<
   EModalStakingRoutes | EModalAssetDetailRoutes,
   IModalStakingParamList & IModalAssetDetailsParamList
@@ -119,6 +123,10 @@ export const StakingModalRouter: IModalFlowNavigatorConfig<
   {
     name: EModalStakingRoutes.HistoryList,
     component: HistoryList,
+  },
+  {
+    name: EModalStakingRoutes.BorrowHistoryList,
+    component: BorrowHistoryList,
   },
   ...(ModalAssetDetailsStack as IModalFlowNavigatorConfig<
     EModalStakingRoutes | EModalAssetDetailRoutes,
