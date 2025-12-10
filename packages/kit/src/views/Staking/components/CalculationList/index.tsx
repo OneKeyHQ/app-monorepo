@@ -43,6 +43,7 @@ function CalculationListItemLabel({
         title={children}
         tooltip={tooltip}
         placement="top"
+        triggerProps={{ variant: 'tertiary', size: 'small', m: 0 }}
       />
     </XStack>
   ) : (
