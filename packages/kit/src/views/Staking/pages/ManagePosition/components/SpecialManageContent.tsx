@@ -1,21 +1,23 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { isEmpty } from 'lodash';
+import { useIntl } from 'react-intl';
 
 import {
   Badge,
   Button,
   Divider,
-  IconButton,
   Page,
   SizableText,
   XStack,
   YStack,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   IEarnHistoryActionIcon,
   IEarnManagePageResponse,
+  IStakeTag,
   IStakeTransactionConfirmation,
 } from '@onekeyhq/shared/types/staking';
 
@@ -23,6 +25,7 @@ import { EarnActionIcon } from '../../../components/ProtocolDetails/EarnActionIc
 import { EarnText } from '../../../components/ProtocolDetails/EarnText';
 import { EarnTooltip } from '../../../components/ProtocolDetails/EarnTooltip';
 
+import { HeaderRight } from './HeaderRight';
 import { ESpecialManageLayoutType } from './types';
 
 import type { ISpecialManageButtonConfig } from './types';
@@ -38,6 +41,12 @@ interface ISpecialManageContentProps {
   transactionConfirmation?: IStakeTransactionConfirmation;
   fallbackTokenImageUri?: string;
   fallbackSymbol?: string;
+  // PendingIndicator props
+  indicatorAccountId?: string;
+  networkId?: string;
+  stakeTag?: IStakeTag;
+  onIndicatorRefresh?: () => void;
+  onRefreshPendingRef?: React.MutableRefObject<(() => Promise<void>) | null>;
 }
 
 export function SpecialManageContent({
@@ -51,7 +60,13 @@ export function SpecialManageContent({
   transactionConfirmation,
   fallbackTokenImageUri,
   fallbackSymbol,
+  indicatorAccountId,
+  networkId,
+  stakeTag,
+  onIndicatorRefresh,
+  onRefreshPendingRef,
 }: ISpecialManageContentProps) {
+  const intl = useIntl();
   const isSingleButton = buttonConfig.type === ESpecialManageLayoutType.Single;
   const primaryButton = buttonConfig.buttons.primary;
   const secondaryButton = buttonConfig.buttons.secondary;
@@ -106,6 +121,54 @@ export function SpecialManageContent({
 
     return null;
   }, [isInModalContext, isSingleButton, primaryButton, secondaryButton]);
+
+  // Render header right content (History button or PendingIndicator)
+  const renderHistoryRightButton = useCallback(() => {
+    if (!historyAction || historyAction.disabled) {
+      return null;
+    }
+
+    if (indicatorAccountId && networkId && stakeTag) {
+      return (
+        <HeaderRight
+          accountId={indicatorAccountId}
+          networkId={networkId}
+          stakeTag={stakeTag}
+          historyAction={historyAction}
+          onHistory={onHistory}
+          onRefresh={onIndicatorRefresh}
+          onRefreshPending={(refreshFn) => {
+            if (onRefreshPendingRef) {
+              onRefreshPendingRef.current = refreshFn;
+            }
+          }}
+        />
+      );
+    }
+
+    return (
+      <Button
+        variant="tertiary"
+        size="small"
+        icon="ClockTimeHistoryOutline"
+        onPress={() => onHistory?.()}
+        mt={isInModalContext ? '$1' : undefined}
+      >
+        {historyAction.text?.text ||
+          intl.formatMessage({ id: ETranslations.global_history })}
+      </Button>
+    );
+  }, [
+    historyAction,
+    indicatorAccountId,
+    networkId,
+    stakeTag,
+    onHistory,
+    onIndicatorRefresh,
+    onRefreshPendingRef,
+    isInModalContext,
+    intl,
+  ]);
 
   // Footer for modal context
   const footerContent = useMemo(() => {
@@ -167,18 +230,17 @@ export function SpecialManageContent({
   return (
     <>
       <YStack px="$5" gap="$5">
-        {/* Header with History button */}
-        <XStack jc="space-between" ai="center">
+        {/* Header with History button and PendingIndicator */}
+        <XStack
+          jc="space-between"
+          ai="center"
+          mt={isInModalContext ? '$1' : undefined}
+        >
           <SizableText size="$headingMd" color="$text">
-            Holdings
+            {holdings?.title.text ||
+              intl.formatMessage({ id: ETranslations.earn_holdings })}
           </SizableText>
-          {historyAction && !historyAction.disabled ? (
-            <IconButton
-              icon="ClockTimeHistoryOutline"
-              onPress={() => onHistory?.()}
-              variant="tertiary"
-            />
-          ) : null}
+          {renderHistoryRightButton()}
         </XStack>
 
         {/* Holdings Section */}

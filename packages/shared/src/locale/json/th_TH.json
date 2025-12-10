@@ -847,6 +847,7 @@
   "earn_no_assets_deposited": "ยังไม่มีการฝากทรัพย์สิน",
   "earn_reward_distribution_schedule": "รางวัลจะถูกแจกจ่ายไปยังกระเป๋าเงิน Arbitrum ของคุณ (ที่อยู่เดียวกับ Ethereum) ภายในวันที่ 10 ของเดือนหน้า",
   "edit_fee_custom_set_as_default_description": "ตั้งเป็นค่าเริ่มต้นสำหรับธุรกรรมทั้งหมดในอนาคตบน {network}",
+  "email_verification_rate_limit": "โปรดรอ {rest} วินาทีก่อนที่จะขอรหัสยืนยันใหม่",
   "energy_consumed": "พลังงานที่ใช้ไป",
   "enter_passcode": "กรุณาใส่รหัสผ่าน",
   "enter_password": "ใส่รหัสผ่าน",
