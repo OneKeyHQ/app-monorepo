@@ -112,7 +112,7 @@ static std::string safeGetStringProperty(jsi::Runtime &rt, const jsi::Object &ob
     }
   }
 
-  return bundleFile = [[NSBundle mainBundle] URLForResource: @"background" withExtension: @"bundle"];
+  return [[NSBundle mainBundle] URLForResource: @"background" withExtension: @"bundle"];
 }
 
 - (void)postMessage:(const std::string &)message
