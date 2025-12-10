@@ -58,6 +58,7 @@ import type { SimpleDbEntityUniversalSearch } from '../entity/SimpleDbEntityUniv
 import type { SimpleDbEntityV4MigrationResult } from '../entity/SimpleDbEntityV4MigrationResult';
 import type { SimpleDbEntityWalletBanner } from '../entity/SimpleDbEntityWalletBanner';
 import type { SimpleDbEntityWalletStatus } from '../entity/SimpleDbEntityWalletStatus';
+import type { SimpleDbEntityDeFi } from '../entity/SimpleDbEntityDeFi';
 
 export class SimpleDbProxy
   extends BackgroundServiceProxyBase
@@ -278,4 +279,6 @@ export class SimpleDbProxy
   ) as SimpleDbEntityWalletStatus;
 
   ipTable = this._createProxyService('ipTable') as SimpleDbEntityIpTable;
+
+  deFi = this._createProxyService('deFi') as SimpleDbEntityDeFi;
 }

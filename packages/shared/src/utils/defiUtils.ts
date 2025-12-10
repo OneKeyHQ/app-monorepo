@@ -173,7 +173,34 @@ function transformDeFiData({
   };
 }
 
+export function getEmptyDeFiData() {
+  return {
+    overview: {
+      totalValue: '0',
+      totalDebt: '0',
+      netWorth: '0',
+      chains: [],
+      protocolCount: 0,
+      positionCount: 0,
+    },
+    protocols: [],
+    protocolMap: {},
+  } as {
+    overview: {
+      totalValue: string;
+      totalDebt: string;
+      netWorth: string;
+      chains: string[];
+      protocolCount: number;
+      positionCount: number;
+    };
+    protocols: IDeFiProtocol[];
+    protocolMap: Record<string, IProtocolSummary>;
+  };
+}
+
 export default {
+  getEmptyDeFiData,
   transformDeFiData,
   buildProtocolMapKey,
 };

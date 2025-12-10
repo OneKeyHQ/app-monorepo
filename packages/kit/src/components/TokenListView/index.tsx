@@ -462,30 +462,18 @@ function TokenListViewCmp(props: IProps) {
   }, [filteredTokens.length, limit]);
 
   const renderPlainModeFooter = useCallback(() => {
-    if (overFlowState.isOverflow) {
+    if (overFlowState.isOverflow && overFlowState.isSliced) {
       return (
         <XStack py="$3" jc="center" ai="center">
-          {overFlowState.isSliced ? (
-            <Button
-              size="small"
-              variant="secondary"
-              onPress={() =>
-                setOverFlowState((prev) => ({ ...prev, isSliced: false }))
-              }
-            >
-              {intl.formatMessage({ id: ETranslations.global_show_more })}
-            </Button>
-          ) : (
-            <Button
-              size="small"
-              variant="secondary"
-              onPress={() =>
-                setOverFlowState((prev) => ({ ...prev, isSliced: true }))
-              }
-            >
-              {intl.formatMessage({ id: ETranslations.global_show_less })}
-            </Button>
-          )}
+          <Button
+            size="small"
+            variant="secondary"
+            onPress={() =>
+              setOverFlowState((prev) => ({ ...prev, isSliced: false }))
+            }
+          >
+            {intl.formatMessage({ id: ETranslations.global_show_more })}
+          </Button>
         </XStack>
       );
     }
@@ -506,7 +494,19 @@ function TokenListViewCmp(props: IProps) {
             </SizableText>
           </Stack>
         ) : null}
-        {addPaddingOnListFooter ? <Stack h="$16" /> : null}
+        {overFlowState.isOverflow && !overFlowState.isSliced ? (
+          <Stack jc="center" ai="center" pt="$3">
+            <Button
+              size="small"
+              variant="secondary"
+              onPress={() =>
+                setOverFlowState((prev) => ({ ...prev, isSliced: true }))
+              }
+            >
+              {intl.formatMessage({ id: ETranslations.global_show_less })}
+            </Button>
+          </Stack>
+        ) : null}
       </Stack>
     );
   }, [
@@ -519,7 +519,6 @@ function TokenListViewCmp(props: IProps) {
     manageTokenEnabled,
     tokenSelectorSearchKey,
     footerTipText,
-    addPaddingOnListFooter,
     intl,
   ]);
 

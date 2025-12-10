@@ -10,6 +10,9 @@ import type {
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import ServiceBase from './ServiceBase';
+import { isEmpty } from 'lodash';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 
 @backgroundClass()
 class ServiceDeFi extends ServiceBase {
@@ -31,7 +34,31 @@ class ServiceDeFi extends ServiceBase {
   public async fetchAccountDeFiPositions(
     params: IFetchAccountDeFiPositionsParams,
   ) {
-    const { accountId, networkId } = params;
+    const {
+      accountId,
+      networkId,
+      isAllNetworks,
+      allNetworksAccountId,
+      allNetworksNetworkId,
+      saveToLocal,
+    } = params;
+
+    const isUrlAccount = accountUtils.isUrlAccountFn({ accountId });
+
+    const currentNetworkId = isUrlAccount
+      ? this._currentUrlNetworkId
+      : this._currentNetworkId;
+
+    const currentAccountId = isUrlAccount
+      ? this._currentUrlAccountId
+      : this._currentAccountId;
+
+    if (isAllNetworks && currentNetworkId !== getNetworkIdsMap().onekeyall)
+      return {
+        ...defiUtils.getEmptyDeFiData(),
+        networkId: currentNetworkId,
+      };
+
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
 
     const controller = new AbortController();
@@ -72,7 +99,43 @@ class ServiceDeFi extends ServiceBase {
       overview: resp.data.data.data.totals,
       protocols: parsedData.protocols,
       protocolMap: parsedData.protocolMap,
+      isSameAllNetworksAccountData: !!(
+        allNetworksAccountId &&
+        allNetworksNetworkId &&
+        allNetworksAccountId === currentAccountId &&
+        allNetworksNetworkId === currentNetworkId
+      ),
     };
+  }
+
+  @backgroundMethod()
+  public async syncDeFiEnabledNetworks() {
+    const networkIds = await this.fetchDeFiEnabledNetworks();
+    if (isEmpty(networkIds)) {
+      return;
+    }
+
+    await this.backgroundApi.simpleDb.deFi.updateEnabledNetworksMap({
+      enabledNetworksMap: networkIds.reduce((acc, networkId) => {
+        acc[networkId] = true;
+        return acc;
+      }, {} as Record<string, boolean>),
+    });
+  }
+
+  @backgroundMethod()
+  public async fetchDeFiEnabledNetworks() {
+    const client = await this.getClient(EServiceEndpointEnum.Wallet);
+    const resp = await client.get<{
+      data: { networkIds: string[] };
+    }>('/wallet/v1/portfolio/chains');
+    const networkIds = resp.data.data.networkIds ?? [];
+    return networkIds;
+  }
+
+  @backgroundMethod()
+  public async getDeFiEnabledNetworksMap() {
+    return this.backgroundApi.simpleDb.deFi.getEnabledNetworksMap();
   }
 }
 

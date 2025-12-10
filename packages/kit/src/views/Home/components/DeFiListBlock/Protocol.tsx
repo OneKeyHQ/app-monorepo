@@ -38,9 +38,11 @@ import { RichTable } from '../RichTable';
 function Protocol({
   protocol,
   tableLayout,
+  isAllNetworks,
 }: {
   protocol: IDeFiProtocol;
   tableLayout?: boolean;
+  isAllNetworks?: boolean;
 }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -171,7 +173,12 @@ function Protocol({
         px="$2"
       >
         <XStack alignItems="center" gap="$3" flex={1}>
-          <Token size="lg" tokenImageUri={protocolInfo?.protocolLogo} />
+          <Token
+            size="lg"
+            tokenImageUri={protocolInfo?.protocolLogo}
+            showNetworkIcon={isAllNetworks}
+            networkId={protocol.networkId}
+          />
           <YStack flex={1}>
             <SizableText size="$bodyLgMedium" flex={1}>
               {protocolInfo?.protocolName ?? protocol.protocol}
@@ -254,6 +261,8 @@ function Protocol({
                   size="lg"
                   tokenImageUri={protocolInfo?.protocolLogo}
                   isNFT
+                  showNetworkIcon={isAllNetworks}
+                  networkId={protocol.networkId}
                 />
                 <SizableText size="$headingLg">
                   {protocolInfo?.protocolName ?? protocol.protocol}

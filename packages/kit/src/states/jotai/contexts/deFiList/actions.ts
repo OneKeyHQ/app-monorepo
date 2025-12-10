@@ -3,6 +3,7 @@ import { useRef } from 'react';
 import BigNumber from 'bignumber.js';
 
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
+import defiUtils from '@onekeyhq/shared/src/utils/defiUtils';
 import type {
   IDeFiProtocol,
   IProtocolSummary,
@@ -75,10 +76,31 @@ class ContextJotaiActionsDeFiList extends ContextJotaiActionsBase {
       },
     ) => {
       const protocols = get(deFiListProtocolsAtom());
+      const { protocolMap } = get(deFiListProtocolMapAtom());
 
       if (value.merge) {
         set(deFiListProtocolsAtom(), {
-          protocols: [...protocols.protocols, ...value.protocols],
+          protocols: [...protocols.protocols, ...value.protocols].sort(
+            (a, b) => {
+              return new BigNumber(
+                protocolMap[
+                  defiUtils.buildProtocolMapKey({
+                    protocol: b.protocol,
+                    networkId: b.networkId,
+                  })
+                ]?.totalValue ?? 0,
+              ).comparedTo(
+                new BigNumber(
+                  protocolMap[
+                    defiUtils.buildProtocolMapKey({
+                      protocol: a.protocol,
+                      networkId: a.networkId,
+                    })
+                  ]?.totalValue ?? 0,
+                ),
+              );
+            },
+          ),
         });
       } else {
         set(deFiListProtocolsAtom(), {

@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
+import { useThrottledCallback } from 'use-debounce';
 
 import {
   Button,
@@ -14,6 +15,7 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { EmptyDeFi } from '@onekeyhq/kit/src/components/Empty';
 import { ListLoading } from '@onekeyhq/kit/src/components/Loading';
+import { useAllNetworkRequests } from '@onekeyhq/kit/src/hooks/useAllNetwork';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
@@ -27,8 +29,17 @@ import {
   POLLING_DEBOUNCE_INTERVAL,
   POLLING_INTERVAL_FOR_DEFI,
 } from '@onekeyhq/shared/src/consts/walletConsts';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import defiUtils from '@onekeyhq/shared/src/utils/defiUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import type {
+  IDeFiProtocol,
+  IProtocolSummary,
+} from '@onekeyhq/shared/types/defi';
 
 import { RichBlock } from '../RichBlock/RichBlock';
 
@@ -62,10 +73,10 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
   });
 
   const {
-    activeAccount: { account, network },
+    activeAccount: { account, network, wallet },
   } = useActiveAccount({ num: 0 });
 
-  usePromiseResult(
+  const { run } = usePromiseResult(
     async () => {
       if (!account || !network) {
         return;
@@ -125,6 +136,177 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
     },
   );
 
+  const deFiDataRef = useRef<{
+    overview: {
+      totalValue: string;
+      totalDebt: string;
+      netWorth: string;
+      chains: string[];
+      protocolCount: number;
+      positionCount: number;
+    };
+    protocols: IDeFiProtocol[];
+  }>(defiUtils.getEmptyDeFiData());
+
+  const updateAllNetworkData = useThrottledCallback(() => {
+    updateDeFiListOverview({
+      overview: deFiDataRef.current.overview,
+      merge: true,
+    });
+    updateDeFiListProtocols({
+      protocols: deFiDataRef.current.protocols,
+      merge: true,
+    });
+    deFiDataRef.current = defiUtils.getEmptyDeFiData();
+  }, 1000);
+
+  const handleAllNetworkRequests = useCallback(
+    async ({
+      accountId,
+      networkId,
+      allNetworkDataInit,
+    }: {
+      accountId: string;
+      networkId: string;
+      allNetworkDataInit?: boolean;
+    }) => {
+      const r = await backgroundApiProxy.serviceDeFi.fetchAccountDeFiPositions({
+        accountId,
+        networkId,
+        isAllNetworks: true,
+        allNetworksAccountId: account?.id,
+        allNetworksNetworkId: network?.id,
+        saveToLocal: true,
+      });
+
+      if (!allNetworkDataInit && r.isSameAllNetworksAccountData) {
+        deFiDataRef.current = {
+          overview: {
+            totalValue: new BigNumber(r.overview.totalValue ?? 0)
+              .plus(deFiDataRef.current.overview.totalValue)
+              .toFixed(),
+            totalDebt: new BigNumber(r.overview.totalDebt ?? 0)
+              .plus(deFiDataRef.current.overview.totalDebt)
+              .toFixed(),
+            netWorth: new BigNumber(r.overview.netWorth ?? 0)
+              .plus(deFiDataRef.current.overview.netWorth)
+              .toFixed(),
+            chains: Array.from(
+              new Set([
+                ...deFiDataRef.current.overview.chains,
+                ...r.overview.chains,
+              ]),
+            ),
+            protocolCount:
+              deFiDataRef.current.overview.protocolCount +
+              r.overview.protocolCount,
+            positionCount:
+              deFiDataRef.current.overview.positionCount +
+              r.overview.positionCount,
+          },
+          protocols: [...deFiDataRef.current.protocols, ...r.protocols],
+        };
+        updateDeFiListProtocolMap({
+          protocolMap: r.protocolMap,
+          merge: true,
+        });
+        updateAllNetworkData();
+        updateDeFiListState({
+          initialized: true,
+          isRefreshing: false,
+        });
+      }
+
+      return r;
+    },
+    [
+      updateDeFiListState,
+      account?.id,
+      network?.id,
+      updateAllNetworkData,
+      updateDeFiListProtocolMap,
+    ],
+  );
+
+  const handleClearAllNetworkData = useCallback(() => {
+    updateDeFiListOverview({
+      overview: {
+        totalValue: '0',
+        totalDebt: '0',
+        netWorth: '0',
+        chains: [],
+        protocolCount: 0,
+        positionCount: 0,
+      },
+    });
+    updateDeFiListProtocols({
+      protocols: [],
+    });
+    updateDeFiListProtocolMap({
+      protocolMap: {},
+    });
+  }, [
+    updateDeFiListOverview,
+    updateDeFiListProtocols,
+    updateDeFiListProtocolMap,
+  ]);
+
+  const {
+    run: runAllNetworkRequests,
+    result: allNetworksResult,
+    isEmptyAccount,
+  } = useAllNetworkRequests<
+    Awaited<
+      ReturnType<
+        typeof backgroundApiProxy.serviceDeFi.fetchAccountDeFiPositions
+      >
+    >
+  >({
+    accountId: account?.id,
+    networkId: network?.id,
+    walletId: wallet?.id,
+    isAllNetworks: network?.isAllNetworks,
+    allNetworkRequests: handleAllNetworkRequests,
+    clearAllNetworkData: handleClearAllNetworkData,
+    isDeFiRequests: true,
+  });
+
+  const handleRefreshAllNetworkData = useCallback(() => {
+    void runAllNetworkRequests({ alwaysSetState: true });
+  }, [runAllNetworkRequests]);
+
+  useEffect(() => {
+    if (network?.isAllNetworks && isEmptyAccount) {
+      updateDeFiListState({
+        initialized: true,
+        isRefreshing: false,
+      });
+      updateDeFiListOverview({
+        overview: {
+          totalValue: '0',
+          totalDebt: '0',
+          netWorth: '0',
+          chains: [],
+          protocolCount: 0,
+          positionCount: 0,
+        },
+      });
+      updateDeFiListProtocols({
+        protocols: [],
+      });
+      updateDeFiListProtocolMap({
+        protocolMap: {},
+      });
+    }
+  }, [
+    isEmptyAccount,
+    network?.isAllNetworks,
+    updateDeFiListState,
+    updateDeFiListOverview,
+    updateDeFiListProtocols,
+    updateDeFiListProtocolMap,
+  ]);
+
   useEffect(() => {
     if (!tableLayout && protocols.length > MAX_PROTOCOLS_ON_SMALL_SCREEN) {
       setOverflowState((prev) => ({
@@ -133,6 +315,121 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
       }));
     }
   }, [protocols, tableLayout]);
+
+  useEffect(() => {
+    const initDeFiData = async ({
+      accountId,
+      networkId,
+    }: {
+      accountId: string;
+      networkId: string;
+    }) => {
+      void backgroundApiProxy.serviceDeFi.updateCurrentAccount({
+        networkId,
+        accountId,
+      });
+    };
+    if (account?.id && network?.id) {
+      void initDeFiData({
+        accountId: account.id,
+        networkId: network.id,
+      });
+    }
+  }, [account?.id, network?.id]);
+
+  useEffect(() => {
+    const refresh = () => {
+      if (network?.isAllNetworks) {
+        void handleRefreshAllNetworkData();
+      } else {
+        void run();
+      }
+    };
+
+    const fn = () => {
+      if (isFocused) {
+        refresh();
+      }
+    };
+    appEventBus.on(EAppEventBusNames.NetworkDeriveTypeChanged, fn);
+    appEventBus.on(EAppEventBusNames.AccountDataUpdate, fn);
+    return () => {
+      appEventBus.off(EAppEventBusNames.AccountDataUpdate, fn);
+      appEventBus.off(EAppEventBusNames.NetworkDeriveTypeChanged, fn);
+    };
+  }, [isFocused, network?.isAllNetworks, handleRefreshAllNetworkData, run]);
+
+  useEffect(() => {
+    if (allNetworksResult) {
+      const tempOverview = {
+        totalValue: '0',
+        totalDebt: '0',
+        netWorth: '0',
+        chains: [] as string[],
+        protocolCount: 0,
+        positionCount: 0,
+      };
+      let tempProtocols: IDeFiProtocol[] = [];
+      let tempProtocolMap: Record<string, IProtocolSummary> = {};
+      // merge all networks result
+      for (const r of allNetworksResult) {
+        tempOverview.totalValue = new BigNumber(tempOverview.totalValue)
+          .plus(r.overview.totalValue)
+          .toFixed();
+        tempOverview.totalDebt = new BigNumber(tempOverview.totalDebt)
+          .plus(r.overview.totalDebt)
+          .toFixed();
+        tempOverview.netWorth = new BigNumber(tempOverview.netWorth)
+          .plus(r.overview.netWorth)
+          .toFixed();
+        tempOverview.chains = Array.from(
+          new Set([...overview.chains, ...r.overview.chains]),
+        );
+        tempOverview.protocolCount += r.overview.protocolCount;
+        tempOverview.positionCount += r.overview.positionCount;
+        tempProtocols = [...tempProtocols, ...r.protocols];
+        tempProtocolMap = {
+          ...tempProtocolMap,
+          ...r.protocolMap,
+        };
+      }
+      updateDeFiListOverview({
+        overview: tempOverview,
+      });
+      updateDeFiListProtocols({
+        protocols: tempProtocols,
+      });
+      updateDeFiListProtocolMap({
+        protocolMap: tempProtocolMap,
+      });
+      updateDeFiListState({
+        initialized: true,
+        isRefreshing: false,
+      });
+    }
+  }, [
+    allNetworksResult,
+    updateDeFiListOverview,
+    updateDeFiListProtocols,
+    updateDeFiListProtocolMap,
+    overview.chains,
+    updateDeFiListState,
+  ]);
+
+  useEffect(() => {
+    if (isHeaderRefreshing) {
+      if (network?.isAllNetworks) {
+        handleRefreshAllNetworkData();
+      } else {
+        void run();
+      }
+    }
+  }, [
+    isHeaderRefreshing,
+    run,
+    handleRefreshAllNetworkData,
+    network?.isAllNetworks,
+  ]);
 
   const filteredProtocols = useMemo(() => {
     if (overflowState.isOverflow && overflowState.isSliced) {
@@ -178,6 +475,7 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
               key={`${protocol.networkId}-${protocol.protocol}`}
               protocol={protocol}
               tableLayout={tableLayout}
+              isAllNetworks={network?.isAllNetworks}
             />
           ))}
         </YStack>
@@ -209,6 +507,7 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
   }, [
     filteredProtocols,
     tableLayout,
+    network?.isAllNetworks,
     intl,
     overflowState.isOverflow,
     overflowState.isSliced,

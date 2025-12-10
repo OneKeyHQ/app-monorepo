@@ -2,6 +2,10 @@ export type IFetchAccountDeFiPositionsParams = {
   accountId: string;
   networkId: string;
   accountAddress?: string;
+  isAllNetworks?: boolean;
+  allNetworksAccountId?: string;
+  allNetworksNetworkId?: string;
+  saveToLocal?: boolean;
 };
 
 export enum EDeFiAssetType {
