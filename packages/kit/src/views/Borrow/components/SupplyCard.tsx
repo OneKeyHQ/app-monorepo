@@ -23,7 +23,7 @@ export const SupplyCard = () => {
             label: 'Asset / Can be collateral',
             key: 'asset',
             render: AssetField,
-            flex: 1,
+            flex: 1.5,
           },
           {
             label: 'Balance',

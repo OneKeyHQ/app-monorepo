@@ -343,8 +343,7 @@ export type IEarnTokenItem = {
 
 export type IBorrowApy = {
   apy: string;
-  title: IEarnText;
-};
+} & IEarnAvailableAssetAprInfo;
 
 export type IBorrowBalance = {
   amount: string;
