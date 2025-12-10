@@ -847,6 +847,7 @@
   "earn_no_assets_deposited": "अभी तक कोई संपत्ति जमा नहीं की गई",
   "earn_reward_distribution_schedule": "पुरस्कार अगले महीने की 10 तारीख तक आपके आर्बिट्रम वॉलेट (इथेरियम के समान पता) में वितरित कर दिए जाएंगे।",
   "edit_fee_custom_set_as_default_description": "{network} पर सभी भविष्य के लेनदेन के लिए डिफ़ॉल्ट के रूप में सेट करें",
+  "email_verification_rate_limit": "नया सत्यापन कोड का अनुरोध करने से पहले कृपया {rest} सेकंड प्रतीक्षा करें",
   "energy_consumed": "खपत की गई ऊर्जा",
   "enter_passcode": "पासकोड दर्ज करें",
   "enter_password": "पास वर्ड दर्ज करें",

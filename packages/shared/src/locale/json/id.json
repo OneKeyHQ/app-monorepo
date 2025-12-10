@@ -847,6 +847,7 @@
   "earn_no_assets_deposited": "Belum ada aset yang disetorkan",
   "earn_reward_distribution_schedule": "Hadiah akan didistribusikan ke dompet Arbitrum Anda (alamat yang sama dengan Ethereum) paling lambat tanggal 10 bulan depan.",
   "edit_fee_custom_set_as_default_description": "Tetapkan sebagai default untuk semua transaksi di masa mendatang pada {network}",
+  "email_verification_rate_limit": "Harap tunggu {rest} detik sebelum meminta kode verifikasi baru",
   "energy_consumed": "Energi yang dikonsumsi",
   "enter_passcode": "Masukkan kode sandi",
   "enter_password": "Masukkan kata kunci",

@@ -847,6 +847,7 @@
   "earn_no_assets_deposited": "아직 예치된 자산이 없습니다",
   "earn_reward_distribution_schedule": "보상은 다음 달 10일까지 귀하의 Arbitrum 지갑(이더리움과 동일한 주소)으로 분배됩니다.",
   "edit_fee_custom_set_as_default_description": "{network}에서 모든 향후 거래에 대해 기본값으로 설정",
+  "email_verification_rate_limit": "새 인증 코드를 요청하기 전에 {rest}초 동안 기다려 주세요",
   "energy_consumed": "소비된 에너지",
   "enter_passcode": "암호를 입력하세요",
   "enter_password": "암호를 입력",
