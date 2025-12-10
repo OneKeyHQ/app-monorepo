@@ -847,6 +847,7 @@
   "earn_no_assets_deposited": "Активів ще немає внесено",
   "earn_reward_distribution_schedule": "Винагороди будуть розподілені на ваш гаманець Arbitrum (та сама адреса, що й Ethereum) до 10-го числа наступного місяця.",
   "edit_fee_custom_set_as_default_description": "Встановити як типове для всіх майбутніх транзакцій у мережі {network}",
+  "email_verification_rate_limit": "Будь ласка, зачекайте {rest} секунд перед запитом нового коду підтвердження",
   "energy_consumed": "Енергія, що споживається",
   "enter_passcode": "Введіть код доступу",
   "enter_password": "Введіть пароль",

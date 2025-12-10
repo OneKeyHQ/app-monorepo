@@ -847,6 +847,7 @@
   "earn_no_assets_deposited": "Chưa có tài sản nào được gửi",
   "earn_reward_distribution_schedule": "Phần thưởng sẽ được phân phối vào ví Arbitrum của bạn (cùng địa chỉ với Ethereum) vào ngày 10 tháng sau.",
   "edit_fee_custom_set_as_default_description": "Đặt làm mặc định cho tất cả các giao dịch trong tương lai trên {network}",
+  "email_verification_rate_limit": "Vui lòng đợi {rest} giây trước khi yêu cầu mã xác minh mới",
   "energy_consumed": "Năng lượng tiêu thụ",
   "enter_passcode": "Nhập mã bảo vệ",
   "enter_password": "Nhập mật khẩu",

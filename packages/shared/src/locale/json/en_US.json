@@ -847,6 +847,7 @@
   "earn_no_assets_deposited": "No assets deposited yet",
   "earn_reward_distribution_schedule": "Rewards will be distributed to your Arbitrum wallet (same address as Ethereum) by the 10th of next month.",
   "edit_fee_custom_set_as_default_description": "Set as default for all future transactions on {network}",
+  "email_verification_rate_limit": "Please wait {rest} seconds before requesting a new verification code",
   "energy_consumed": "Energy consumed",
   "enter_passcode": "Enter passcode",
   "enter_password": "Enter password",

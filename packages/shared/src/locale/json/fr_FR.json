@@ -847,6 +847,7 @@
   "earn_no_assets_deposited": "Aucun actif déposé pour le moment",
   "earn_reward_distribution_schedule": "Les récompenses seront distribuées sur votre portefeuille Arbitrum (même adresse qu'Ethereum) d'ici le 10 du mois prochain.",
   "edit_fee_custom_set_as_default_description": "Définir comme valeur par défaut pour toutes les transactions futures sur {network}",
+  "email_verification_rate_limit": "Veuillez patienter {rest} secondes avant de demander un nouveau code de vérification",
   "energy_consumed": "Énergie consommée",
   "enter_passcode": "Entrez le code d'accès",
   "enter_password": "Entrer le mot de passe",
