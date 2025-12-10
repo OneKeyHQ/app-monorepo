@@ -617,8 +617,10 @@ class ServiceHardware extends ServiceBase {
     // return Promise.reject(deviceError);
   }
 
-  private connectDevice = (params: IDeviceGetFeaturesOptions) =>
-    this.getFeaturesWithoutCache(params);
+  @backgroundMethod()
+  async connectDevice(params: IDeviceGetFeaturesOptions) {
+    return this.getFeaturesWithoutCache(params);
+  }
 
   private handlerConnectError = (e: any) => {
     const error: deviceErrors.OneKeyHardwareError | undefined =
