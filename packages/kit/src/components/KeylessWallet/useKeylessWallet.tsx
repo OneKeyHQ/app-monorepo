@@ -227,9 +227,9 @@ export function useKeylessWallet() {
     }
     const getCloudKeySilently = async () => {
       if (await backgroundApiProxy.serviceCloudBackupV2.supportCloudBackup()) {
-        const cloudAccont =
+        const cloudAccount =
           await backgroundApiProxy.serviceCloudBackupV2.getCloudAccountInfo();
-        if (cloudAccont.userId) {
+        if (cloudAccount.userId) {
           const cloudPack = await getCloudPack();
           return cloudPack;
         }
@@ -245,7 +245,7 @@ export function useKeylessWallet() {
           deviceKeyPack,
           authKeyPack,
         });
-      return;
+      return restoredPacks;
     }
     if (!deviceKeyPack) {
       cloudKeyPack = await getCloudKeySilently();
@@ -265,12 +265,12 @@ export function useKeylessWallet() {
         await saveDevicePack({
           devicePack: restoredPacks.packs.deviceKeyPack,
         });
-        return;
+        return restoredPacks;
       }
     }
     if (!authKeyPack) {
       if (deviceKeyPack) {
-        void (!authKeyPack && deviceKeyPack);
+        void (deviceKeyPack && !authKeyPack);
         cloudKeyPack = await getCloudKeySilently();
         if (!cloudKeyPack) {
           authKeyPack = await getAuthPackFromServer();
@@ -281,10 +281,10 @@ export function useKeylessWallet() {
             cloudKeyPack: cloudKeyPack || undefined,
             deviceKeyPack,
           });
-      } else {
-        void (!authKeyPack && !deviceKeyPack);
-        // do nothing
+        return restoredPacks;
       }
+      void (!deviceKeyPack && !authKeyPack);
+      // do nothing
     }
   }, [
     loginOneKeyId,
@@ -316,11 +316,12 @@ export function useKeylessWallet() {
             }),
           });
         } else {
+          // do nothing
         }
       }
       // await enableKeylessWalletFn();
     },
-    [enableKeylessWalletFn, loginOneKeyId],
+    [intl, loginOneKeyId],
   );
 
   return {
