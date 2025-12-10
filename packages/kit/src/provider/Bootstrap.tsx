@@ -701,13 +701,13 @@ export function Bootstrap() {
   }, [navigation, autoNavigation?.enabled, autoNavigation?.selectedTab]);
 
   useEffect(() => {
-    if (devSettings.enabled) {
-      performance.start(true, !!devSettings.settings?.showPerformanceMonitor);
-    }
+    // if (devSettings.enabled) {
+    performance.start(true, true);
+    // }
     return () => {
       performance.stop();
     };
-  }, [devSettings.enabled, devSettings.settings?.showPerformanceMonitor]);
+  }, []);
 
   useFetchCurrencyList();
   useFetchMarketBasicConfig();
