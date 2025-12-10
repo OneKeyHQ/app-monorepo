@@ -145,6 +145,8 @@ export const useManagePage = ({
       remainingCap: managePageData.nums?.remainingCap,
       // claim
       claimable: managePageData.nums?.claimable,
+      // input decimals restriction
+      protocolInputDecimals: managePageData.nums?.protocolInputDecimals,
       // approve
       approve: managePageData.approve
         ? {

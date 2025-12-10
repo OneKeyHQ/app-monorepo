@@ -237,8 +237,7 @@ export function SpecialManageContent({
           mt={isInModalContext ? '$1' : undefined}
         >
           <SizableText size="$headingMd" color="$text">
-            {holdings?.title.text ||
-              intl.formatMessage({ id: ETranslations.earn_holdings })}
+            {intl.formatMessage({ id: ETranslations.earn_holdings })}
           </SizableText>
           {renderHistoryRightButton()}
         </XStack>
