@@ -149,9 +149,14 @@ export function useDeviceConnect({
           Toast.error({
             title: message || 'DeviceConnectError',
           });
-        } else {
-          console.error('connectDevice error:', get(error, 'message', ''));
         }
+        defaultLogger.hardware.sdkLog.connectError({
+          connectId: device.connectId ?? '',
+          deviceId: device.deviceId ?? '',
+          deviceType: device.deviceType ?? '',
+          uuid: device.uuid ?? '',
+          error: get(error, 'message', ''),
+        });
         throw error;
       }
     },

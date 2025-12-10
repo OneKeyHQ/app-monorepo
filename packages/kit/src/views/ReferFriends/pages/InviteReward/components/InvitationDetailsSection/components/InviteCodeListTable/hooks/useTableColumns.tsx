@@ -3,7 +3,7 @@ import { useCallback, useMemo } from 'react';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import { SizableText, useMedia } from '@onekeyhq/components';
+import { SizableText } from '@onekeyhq/components';
 import type { ITableColumn } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -18,6 +18,7 @@ import { EInviteCodeListTableColumn, SORTABLE_COLUMNS } from '../const';
 import type { ISortableColumn } from './useSortableData';
 
 export function useTableColumns(
+  containerWidth: number,
   onSortChange: (
     column: ISortableColumn,
     order: 'asc' | 'desc' | undefined,
@@ -25,9 +26,67 @@ export function useTableColumns(
   onNoteUpdated?: () => void,
 ) {
   const intl = useIntl();
-  const { gtXl } = useMedia();
   const [{ currencyInfo }] = useSettingsPersistAtom();
   const currencySymbol = currencyInfo?.symbol ?? '';
+
+  // Calculate column widths
+  const columnWidths = useMemo(() => {
+    const noteWidth = Math.max(
+      intl.formatMessage({ id: ETranslations.referral_code_list_note }).length *
+        10,
+      160,
+    );
+    const salesWidth = Math.max(
+      intl.formatMessage({ id: ETranslations.referral_code_list_sales })
+        .length * 10,
+      100,
+    );
+    const walletsWidth = Math.max(
+      intl.formatMessage({ id: ETranslations.referral_code_list_wallets })
+        .length * 10,
+      130,
+    );
+    const rewardsWidth = Math.max(
+      intl.formatMessage({ id: ETranslations.referral_cumulative_rewards })
+        .length * 9,
+      135,
+    );
+    const createdAtWidth = 145;
+    const codeWidth = 130;
+    const inviteUrlWidth = Math.max(
+      intl.formatMessage({ id: ETranslations.browser_copy_link }).length * 10 +
+        40,
+      135,
+    );
+
+    return {
+      noteWidth,
+      salesWidth,
+      walletsWidth,
+      rewardsWidth,
+      createdAtWidth,
+      codeWidth,
+      inviteUrlWidth,
+    };
+  }, [intl]);
+
+  // Calculate total fixed width
+  const totalFixedWidth = useMemo(() => {
+    return (
+      columnWidths.codeWidth +
+      columnWidths.noteWidth +
+      columnWidths.salesWidth +
+      columnWidths.walletsWidth +
+      columnWidths.rewardsWidth +
+      columnWidths.createdAtWidth +
+      columnWidths.inviteUrlWidth
+    );
+  }, [columnWidths]);
+
+  // Determine if we should use flex layout
+  const shouldUseFlex = useMemo(() => {
+    return containerWidth > 0 && containerWidth >= totalFixedWidth;
+  }, [containerWidth, totalFixedWidth]);
 
   // Define columns
   const columns: ITableColumn<IInviteCodeListItem>[] = useMemo(
@@ -35,7 +94,7 @@ export function useTableColumns(
       {
         title: intl.formatMessage({ id: ETranslations.referral_your_code }),
         dataIndex: EInviteCodeListTableColumn.CODE,
-        columnWidth: 130,
+        columnWidth: columnWidths.codeWidth,
         render: (text: string) => <CodeCell code={text} />,
       },
       {
@@ -43,16 +102,9 @@ export function useTableColumns(
           id: ETranslations.referral_code_list_note,
         }),
         dataIndex: EInviteCodeListTableColumn.NOTE,
-        ...(gtXl
+        ...(shouldUseFlex
           ? { columnProps: { flex: 1 } }
-          : {
-              columnWidth: Math.max(
-                intl.formatMessage({
-                  id: ETranslations.referral_code_list_note,
-                }).length * 10,
-                160,
-              ),
-            }),
+          : { columnWidth: columnWidths.noteWidth }),
         render: (_text: string, record: IInviteCodeListItem) => (
           <NoteCell
             code={record.code}
@@ -67,16 +119,9 @@ export function useTableColumns(
         }),
         dataIndex: EInviteCodeListTableColumn.SALES_ORDERS,
         align: 'left',
-        ...(gtXl
+        ...(shouldUseFlex
           ? { columnProps: { flex: 1 } }
-          : {
-              columnWidth: Math.max(
-                intl.formatMessage({
-                  id: ETranslations.referral_code_list_sales,
-                }).length * 10,
-                100,
-              ),
-            }),
+          : { columnWidth: columnWidths.salesWidth }),
         render: (value: number) => (
           <SizableText size="$bodyMdMedium" color="$text">
             {value}
@@ -88,16 +133,9 @@ export function useTableColumns(
           id: ETranslations.referral_code_list_wallets,
         }),
         dataIndex: EInviteCodeListTableColumn.ONCHAIN_WALLETS,
-        ...(gtXl
+        ...(shouldUseFlex
           ? { columnProps: { flex: 1 } }
-          : {
-              columnWidth: Math.max(
-                intl.formatMessage({
-                  id: ETranslations.referral_code_list_wallets,
-                }).length * 10,
-                130,
-              ),
-            }),
+          : { columnWidth: columnWidths.walletsWidth }),
         render: (value: number) => (
           <SizableText size="$bodyMdMedium" color="$text">
             {value}
@@ -109,16 +147,9 @@ export function useTableColumns(
           id: ETranslations.referral_cumulative_rewards,
         }),
         dataIndex: EInviteCodeListTableColumn.CUMULATIVE_REWARDS,
-        ...(gtXl
+        ...(shouldUseFlex
           ? { columnProps: { flex: 1 } }
-          : {
-              columnWidth: Math.max(
-                intl.formatMessage({
-                  id: ETranslations.referral_cumulative_rewards,
-                }).length * 8,
-                130,
-              ),
-            }),
+          : { columnWidth: columnWidths.rewardsWidth }),
         align: 'left',
         render: (value: string) => {
           const formattedValue = new BigNumber(value).toFixed(2);
@@ -134,7 +165,9 @@ export function useTableColumns(
       {
         title: intl.formatMessage({ id: ETranslations.referral_code_list_at }),
         dataIndex: EInviteCodeListTableColumn.CREATED_AT,
-        ...(gtXl ? { columnProps: { flex: 1 } } : { columnWidth: 145 }),
+        ...(shouldUseFlex
+          ? { columnProps: { flex: 1 } }
+          : { columnWidth: columnWidths.createdAtWidth }),
         render: (date: string) => (
           <SizableText size="$bodyMdMedium" color="$text">
             {formatDate(date, { hideSeconds: true })}
@@ -143,17 +176,25 @@ export function useTableColumns(
       },
       {
         title: '',
+        align: 'right',
         dataIndex: EInviteCodeListTableColumn.INVITE_URL,
-        columnWidth: Math.max(
-          intl.formatMessage({ id: ETranslations.browser_copy_link }).length *
-            10 +
-            40,
-          140,
-        ),
+        columnWidth: columnWidths.inviteUrlWidth,
         render: (url: string) => <CopyLinkSplitButton url={url} />,
       },
     ],
-    [currencySymbol, intl, gtXl, onNoteUpdated],
+    [
+      intl,
+      columnWidths.codeWidth,
+      columnWidths.noteWidth,
+      columnWidths.salesWidth,
+      columnWidths.walletsWidth,
+      columnWidths.rewardsWidth,
+      columnWidths.createdAtWidth,
+      columnWidths.inviteUrlWidth,
+      shouldUseFlex,
+      onNoteUpdated,
+      currencySymbol,
+    ],
   );
 
   // Handle header row for sorting
@@ -175,5 +216,6 @@ export function useTableColumns(
   return {
     columns,
     handleHeaderRow,
+    shouldUseFlex,
   };
 }
