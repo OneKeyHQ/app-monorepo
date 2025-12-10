@@ -1017,10 +1017,6 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   useSwapQuote();
 
   return (
-    // <ScrollView
-    //   keyboardShouldPersistTaps="handled"
-    //   keyboardDismissMode="on-drag"
-    // >
     <YStack
       testID="swap-content-container"
       flex={1}
@@ -1034,29 +1030,29 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
         defaultSwapType={swapInitParams?.swapTabSwitchType}
         showSwapPro={platformEnv.isNative}
       />
-      <YStack
-        pt="$2.5"
-        px="$5"
-        gap="$5"
-        flex={1}
-        $gtMd={{
-          flex: 'unset',
-          pt: pageType === EPageType.modal ? '$2.5' : '$5',
-        }}
-        {...(focusSwapPro ? { pb: '$0' } : { pb: '$5' })}
-      >
-        {focusSwapPro ? (
-          <SwapProContainer
-            onProSelectToken={onProSelectToken}
-            onOpenOrdersClick={onOpenOrdersClick}
-            onSwapProActionClick={onPreSwap}
-            handleSelectAccountClick={handleSelectAccountClick}
-            onProMarketDetail={onProMarketDetail}
-          />
-        ) : (
-          <ScrollView
-            keyboardShouldPersistTaps="handled"
-            keyboardDismissMode="on-drag"
+      {focusSwapPro ? (
+        <SwapProContainer
+          onProSelectToken={onProSelectToken}
+          onOpenOrdersClick={onOpenOrdersClick}
+          onSwapProActionClick={onPreSwap}
+          handleSelectAccountClick={handleSelectAccountClick}
+          onProMarketDetail={onProMarketDetail}
+        />
+      ) : (
+        <ScrollView
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+        >
+          <YStack
+            pt="$2.5"
+            px="$5"
+            gap="$5"
+            flex={1}
+            $gtMd={{
+              flex: 'unset',
+              pt: pageType === EPageType.modal ? '$2.5' : '$5',
+            }}
+            pb="$5"
           >
             <LimitOrderOpenItem storeName={storeName} />
             <SwapQuoteInput
@@ -1091,11 +1087,10 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
               fromTokenAmount={fromTokenAmount.value}
             />
             <SwapPendingHistoryListComponent pageType={pageType} />
-          </ScrollView>
-        )}
-      </YStack>
+          </YStack>
+        </ScrollView>
+      )}
     </YStack>
-    // </ScrollView>
   );
 };
 

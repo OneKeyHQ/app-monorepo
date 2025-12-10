@@ -53,7 +53,9 @@ export function SwapProSlippageSetting({
         id: ETranslations.slippage_tolerance_switch_auto,
       })} (${slippageItem.value}%)`;
     }
-    return `${slippageItem.value}%`;
+    return `${intl.formatMessage({
+      id: ETranslations.slippage_tolerance_switch_custom,
+    })} (${slippageItem.value}%)`;
   }, [slippageItem, intl]);
 
   return (

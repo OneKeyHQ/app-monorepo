@@ -120,7 +120,7 @@ const SwapProSelectTokenPage = () => {
               }}
             />
             {startListSelect ? (
-              <MarketWatchlistTokenList />
+              <MarketWatchlistTokenList onItemPress={handleTokenSelect} />
             ) : (
               <MarketNormalTokenList
                 onItemPress={handleTokenSelect}
