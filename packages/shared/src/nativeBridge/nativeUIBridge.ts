@@ -17,7 +17,7 @@ const onMessageCallback = (error: Error | null, message: string) => {
   callbacks.forEach((callback: ICallback) => callback(JSON.parse(message)));
 };
 
-BackgroundRunnerModule.onMessage(onMessageCallback);
+// BackgroundRunnerModule.onMessage(onMessageCallback);
 
 const checkThread = () => {
   if (!globalThis.$$isNativeUiThread) {
