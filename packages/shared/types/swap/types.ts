@@ -1009,7 +1009,7 @@ export interface ISwapProSpeedConfig {
 export interface ISpeedSwapConfig {
   provider: string;
   speedConfig: ISwapProSpeedConfig;
-  speedDefaultSelectToken: ISwapTokenBase;
+  speedDefaultSelectToken?: ISwapTokenBase;
   supportSpeedSwap: boolean;
 }
 

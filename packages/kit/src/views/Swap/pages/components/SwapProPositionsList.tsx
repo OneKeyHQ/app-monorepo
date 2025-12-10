@@ -22,33 +22,21 @@ import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 import SwapProPositionItem from '../../components/SwapProPositionItem';
 
+interface ISwapProPositionsListProps {
+  onTokenPress: (token: ISwapToken) => void;
+}
+
 const ItemSeparatorComponent = () => <Divider />;
 
-const SwapProPositionsList = () => {
+const SwapProPositionsList = ({ onTokenPress }: ISwapProPositionsListProps) => {
   const intl = useIntl();
   const [swapProSupportNetworksTokenList] =
     useSwapProSupportNetworksTokenListAtom();
   const [swapProSupportNetworksTokenListLoading] =
     useSwapProSupportNetworksTokenListLoadingAtom();
   const [swapProEnableCurrentSymbol] = useSwapProEnableCurrentSymbolAtom();
-  const [swapProTokenSelect, setSwapProSelectToken] =
-    useSwapProSelectTokenAtom();
-  const onPositionTokenPress = useCallback(
-    (token: ISwapToken) => {
-      setSwapProSelectToken({
-        networkId: token.networkId,
-        contractAddress: token.contractAddress,
-        decimals: token.decimals,
-        symbol: token.symbol,
-        logoURI: token.logoURI,
-        networkLogoURI: token.networkLogoURI,
-        name: token.name,
-        isNative: token.isNative,
-        price: token.price?.toString(),
-      });
-    },
-    [setSwapProSelectToken],
-  );
+  const [swapProTokenSelect] = useSwapProSelectTokenAtom();
+
   const filteredTokenList = useMemo(() => {
     if (swapProEnableCurrentSymbol) {
       return swapProSupportNetworksTokenList.filter((token) =>
@@ -67,9 +55,9 @@ const SwapProPositionsList = () => {
 
   const renderItem = useCallback(
     ({ item }: { item: ISwapToken }) => (
-      <SwapProPositionItem token={item} onPress={onPositionTokenPress} />
+      <SwapProPositionItem token={item} onPress={onTokenPress} />
     ),
-    [onPositionTokenPress],
+    [onTokenPress],
   );
   if (swapProSupportNetworksTokenListLoading) {
     return (

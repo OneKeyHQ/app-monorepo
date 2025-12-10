@@ -17,9 +17,10 @@ interface ISwapProBuySellInfoProps {
 const getCountByTimeRange = (
   detail: IMarketTokenDetail | undefined,
   timeRange: ESwapProTimeRange,
-  type: 'buy' | 'sell',
+  type: 'buy' | 'sell' | 'volume',
+  endString: string,
 ) => {
-  const key = `${type}${timeRange}Count` as keyof IMarketTokenDetail;
+  const key = `${type}${timeRange}${endString}` as keyof IMarketTokenDetail;
   return (detail?.[key] as number) ?? 0;
 };
 
@@ -29,10 +30,10 @@ const SwapProBuySellInfo = ({
 }: ISwapProBuySellInfoProps) => {
   const currencyInfo = useCurrency();
   const buyCount = useMemo(() => {
-    return getCountByTimeRange(tokenDetailInfo, timeRange, 'buy');
+    return getCountByTimeRange(tokenDetailInfo, timeRange, 'buy', 'Count');
   }, [timeRange, tokenDetailInfo]);
   const sellCount = useMemo(() => {
-    return getCountByTimeRange(tokenDetailInfo, timeRange, 'sell');
+    return getCountByTimeRange(tokenDetailInfo, timeRange, 'sell', 'Count');
   }, [timeRange, tokenDetailInfo]);
   const totalCount = useMemo(() => {
     return new BigNumber(buyCount ?? 0).plus(sellCount ?? 0).toNumber();
@@ -52,27 +53,33 @@ const SwapProBuySellInfo = ({
       .toNumber();
   }, [sellCount, totalCount]);
   const buyVolume = useMemo(() => {
-    const buyVolumeValue = new BigNumber(buyCount ?? 0)
-      .multipliedBy(tokenDetailInfo?.price ?? 0)
-      .toFixed();
-    return numberFormat(buyVolumeValue, {
+    const buyVolumeValue = getCountByTimeRange(
+      tokenDetailInfo,
+      timeRange,
+      'volume',
+      '',
+    );
+    return numberFormat(buyVolumeValue.toString(), {
       formatter: 'marketCap',
       formatterOptions: {
         currency: currencyInfo.symbol,
       },
     });
-  }, [buyCount, tokenDetailInfo?.price, currencyInfo.symbol]);
+  }, [tokenDetailInfo, timeRange, currencyInfo.symbol]);
   const sellVolume = useMemo(() => {
-    const sellVolumeValue = new BigNumber(sellCount ?? 0)
-      .multipliedBy(tokenDetailInfo?.price ?? 0)
-      .toFixed();
-    return numberFormat(sellVolumeValue, {
+    const sellVolumeValue = getCountByTimeRange(
+      tokenDetailInfo,
+      timeRange,
+      'volume',
+      '',
+    );
+    return numberFormat(sellVolumeValue.toString(), {
       formatter: 'marketCap',
       formatterOptions: {
         currency: currencyInfo.symbol,
       },
     });
-  }, [sellCount, tokenDetailInfo?.price, currencyInfo.symbol]);
+  }, [tokenDetailInfo, timeRange, currencyInfo.symbol]);
   return (
     <YStack gap="$2" mt="$2" flex={1}>
       <XStack position="relative" borderRadius="$1" overflow="hidden">

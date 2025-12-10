@@ -149,11 +149,9 @@ export function TokenList({
           />
         ))}
       </YStack>
-
-      <SwitchToTradePrompt
-        onTradePress={onTradePress}
-        disabledOnSwitchToTrade={disabledOnSwitchToTrade}
-      />
+      {disabledOnSwitchToTrade ? null : (
+        <SwitchToTradePrompt onTradePress={onTradePress} />
+      )}
     </YStack>
   );
 }

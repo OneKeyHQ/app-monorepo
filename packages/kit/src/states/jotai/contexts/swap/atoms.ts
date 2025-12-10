@@ -679,6 +679,11 @@ export const {
 } = contextAtom<IMarketTokenDetail | undefined>(undefined);
 
 export const {
+  atom: swapProTokenTransactionPriceAtom,
+  use: useSwapProTokenTransactionPriceAtom,
+} = contextAtom<string>('');
+
+export const {
   atom: swapProTokenDetailWebsocketAtom,
   use: useSwapProTokenDetailWebsocketAtom,
 } = contextAtom<IMarketTokenDetailWebsocket | undefined>(undefined);
@@ -715,7 +720,7 @@ export const { atom: swapProTokenValueAtom, use: useSwapProTokenValueAtom } =
 export const {
   atom: swapProEnableCurrentSymbolAtom,
   use: useSwapProEnableCurrentSymbolAtom,
-} = contextAtom<boolean>(false);
+} = contextAtom<boolean>(true);
 
 export const {
   atom: swapProToTotalValueAtom,

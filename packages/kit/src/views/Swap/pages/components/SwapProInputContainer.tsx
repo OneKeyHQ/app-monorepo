@@ -102,9 +102,7 @@ const SwapProInputContainer = ({
             : fromInputAmount.value
         }
         onChangeText={handleInputChange}
-        leftAddOnProps={{
-          label: intl.formatMessage({ id: ETranslations.content__amount }),
-        }}
+        placeholder={intl.formatMessage({ id: ETranslations.content__amount })}
         addOns={[
           {
             renderContent: isLoading ? (
