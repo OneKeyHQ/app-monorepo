@@ -79,18 +79,14 @@ RCT_EXPORT_METHOD(startBackgroundRunner) {
   });
 }
 
-RCT_EXPORT_METHOD(sendToUI:(NSDictionary *)msg) {
-  NSLog(@"[BackgroundRunnerModule] Received message: %@", msg);
+RCT_EXPORT_METHOD(postMessage:(NSString *)msg) {
   if (_hasListeners) {
-    [self sendEventWithName:@"toUI" body:msg];
+    [self.reactNativeFactoryDelegate postMessage:std::string([msg UTF8String])];
   }
 }
 
-RCT_EXPORT_METHOD(sendToBackground:(NSDictionary *)msg) {
-  NSLog(@"[BackgroundRunnerModule] Received message: %@", msg);
-  if (_hasListeners) {
-    [self sendEventWithName:@"toBackground" body:msg];
-  }
+RCT_EXPORT_METHOD(onMessage:(RCTResponseSenderBlock)callback) {
+  self.reactNativeFactoryDelegate.onMessageCallback = callback;
 }
 
 @end

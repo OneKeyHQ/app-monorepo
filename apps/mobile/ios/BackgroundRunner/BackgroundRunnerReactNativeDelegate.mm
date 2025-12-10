@@ -244,27 +244,27 @@ static std::string safeGetStringProperty(jsi::Runtime &rt, const jsi::Object &ob
         }
 
         // Check if targetOrigin is provided
-        if (count == 2 && !args[1].isNull() && !args[1].isUndefined()) {
-          const jsi::Value &targetOriginArg = args[1];
-          if (!targetOriginArg.isString()) {
-            throw jsi::JSError(rt, "Expected a string as the second argument (targetOrigin)");
-          }
+        // if (count == 2 && !args[1].isNull() && !args[1].isUndefined()) {
+        //   const jsi::Value &targetOriginArg = args[1];
+        //   if (!targetOriginArg.isString()) {
+        //     throw jsi::JSError(rt, "Expected a string as the second argument (targetOrigin)");
+        //   }
 
-          std::string targetOrigin = targetOriginArg.getString(rt).utf8(rt);
+          // std::string targetOrigin = targetOriginArg.getString(rt).utf8(rt);
 
           // Prevent self-targeting
-          if (_origin == targetOrigin) {
-            // if (self.eventEmitter && self.hasOnErrorHandler) {
-            //   std::string errorMessage = fmt::format("Cannot send message to self (sandbox '{}')", targetOrigin);
-            //   SandboxReactNativeViewEventEmitter::OnError errorEvent = {
-            //       .isFatal = false, .name = "SelfTargetingError", .message = errorMessage, .stack = ""};
-            //   self.eventEmitter->onError(errorEvent);
-            // } else {
-            //   // Fallback: throw JSError if no error handler
-            //   throw jsi::JSError(rt, fmt::format("Cannot send message to self (sandbox '{}')", targetOrigin).c_str());
-            // }
-            return jsi::Value::undefined();
-          }
+          // if (_origin == targetOrigin) {
+          //   // if (self.eventEmitter && self.hasOnErrorHandler) {
+          //   //   std::string errorMessage = fmt::format("Cannot send message to self (sandbox '{}')", targetOrigin);
+          //   //   SandboxReactNativeViewEventEmitter::OnError errorEvent = {
+          //   //       .isFatal = false, .name = "SelfTargetingError", .message = errorMessage, .stack = ""};
+          //   //   self.eventEmitter->onError(errorEvent);
+          //   // } else {
+          //   //   // Fallback: throw JSError if no error handler
+          //   //   throw jsi::JSError(rt, fmt::format("Cannot send message to self (sandbox '{}')", targetOrigin).c_str());
+          //   // }
+          //   return jsi::Value::undefined();
+          // }
 
           // Convert message to JSON string
           jsi::Object jsonObject = rt.global().getPropertyAsObject(rt, "JSON");
@@ -274,8 +274,8 @@ static std::string safeGetStringProperty(jsi::Runtime &rt, const jsi::Object &ob
           NSString *messageNS = [NSString stringWithUTF8String:messageJson.c_str()];
 
           // Route message to specific sandbox
-          BOOL success = [self routeMessage:messageJson toSandbox:targetOrigin];
-          if (!success) {
+          // BOOL success = [self routeMessage:messageJson toSandbox:targetOrigin];
+          // if (!success) {
             // Target sandbox doesn't exist - trigger error event
             // if (self.eventEmitter && self.hasOnErrorHandler) {
             //   std::string errorMessage = fmt::format("Target sandbox '{}' not found", targetOrigin);
@@ -284,18 +284,20 @@ static std::string safeGetStringProperty(jsi::Runtime &rt, const jsi::Object &ob
             //   self.eventEmitter->onError(errorEvent);
             // } else {
               // Fallback: throw JSError if no error handler
-              std::string errorMessage = fmt::format("Target sandbox '{}' not found", targetOrigin);
-              throw jsi::JSError(rt, errorMessage.c_str());
+              // std::string errorMessage = fmt::format("Target sandbox '{}' not found", targetOrigin);
+              // throw jsi::JSError(rt, errorMessage.c_str());
             // }
-          }
-        } else {
+          // }
+        // } else {
           // targetOrigin is undefined/null - route to host (backward compatibility)
         //   if (self.eventEmitter && self.hasOnMessageHandler) {
         //     SandboxReactNativeViewEventEmitter::OnMessage messageEvent = {.data = jsi::dynamicFromValue(rt, args[0])};
         //     self.eventEmitter->onMessage(messageEvent);
         //   }
+        // }
+        if (self.onMessageCallback) {
+          self.onMessageCallback(@[[NSNull null], messageNS]);
         }
-
         return jsi::Value::undefined();
       });
 }

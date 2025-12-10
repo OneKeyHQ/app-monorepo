@@ -26,6 +26,8 @@ NS_ASSUME_NONNULL_BEGIN
 
 @property (nonatomic, readwrite) std::string origin;
 
+@property (nonatomic, copy) RCTResponseSenderBlock onMessageCallback;
+
 /**
  * Initializes the delegate.
  * @return Initialized delegate instance with filtered module access
