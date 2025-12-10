@@ -26,7 +26,7 @@ import {
 import { MobileInformationTabs } from '../components/InformationTabs/layout/MobileInformationTabs';
 import { useTokenDetail } from '../hooks/useTokenDetail';
 
-export function MobileLayout() {
+export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
   const { tokenAddress, networkId, tokenDetail, isNative, websocketConfig } =
     useTokenDetail();
   const intl = useIntl();
@@ -149,7 +149,17 @@ export function MobileLayout() {
       </ScrollView>
 
       {isNative ? null : (
-        <SwapPanel networkId={networkId} tokenAddress={tokenDetail?.address} />
+        <SwapPanel
+          swapToken={{
+            networkId,
+            contractAddress: tokenDetail?.address || '',
+            symbol: tokenDetail?.symbol || '',
+            decimals: tokenDetail?.decimals || 0,
+            logoURI: tokenDetail?.logoUrl,
+            price: tokenDetail?.price,
+          }}
+          disableTrade={disableTrade}
+        />
       )}
     </YStack>
   );

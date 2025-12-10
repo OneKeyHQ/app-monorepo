@@ -1,4 +1,5 @@
 import type { IModalFlowNavigatorConfig } from '@onekeyhq/components';
+import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
 import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes/swap';
@@ -29,6 +30,13 @@ const SwapMainLandModal = LazyLoadPage(
 );
 const SwapLazyMarketModal = LazyLoadPage(
   () => import('../pages/modal/SwapLazyMarketModal'),
+);
+const SwapProTokenSelectModal = LazyLoad(
+  () => import('../pages/modal/SwapProSelectTokenModal'),
+);
+
+const SwapProMarketDetailModal = LazyLoadPage(
+  () => import('../../Market/MarketDetailV2'),
 );
 
 export const ModalSwapStack: IModalFlowNavigatorConfig<
@@ -79,5 +87,15 @@ export const ModalSwapStack: IModalFlowNavigatorConfig<
     name: EModalSwapRoutes.SwapLazyMarketModal,
     component: SwapLazyMarketModal,
     translationId: ETranslations.swap_page_swap,
+  },
+  {
+    name: EModalSwapRoutes.SwapProSelectToken,
+    component: SwapProTokenSelectModal,
+    translationId: ETranslations.token_selector_title,
+  },
+  {
+    name: EModalSwapRoutes.SwapProMarketDetail,
+    component: SwapProMarketDetailModal,
+    translationId: ETranslations.dexmarket_details_overview,
   },
 ];

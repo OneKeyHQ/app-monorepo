@@ -136,6 +136,9 @@ export interface ISwapNetwork extends ISwapNetworkBase {
 }
 
 export interface ISwapTokenBase {
+  fiatValue?: string;
+  balanceParsed?: string;
+  price?: string;
   networkId: string;
   contractAddress: string;
   isNative?: boolean;
@@ -489,6 +492,24 @@ export interface ISwapPreSwapData {
   };
 }
 
+export interface IFetchSwapQuoteParams {
+  fromToken: ISwapToken;
+  toToken: ISwapToken;
+  fromTokenAmount?: string;
+  receivingAddress?: string;
+  userAddress?: string;
+  slippagePercentage: number;
+  autoSlippage?: boolean;
+  blockNumber?: number;
+  accountId?: string;
+  protocol: ESwapTabSwitchType;
+  expirationTime?: number;
+  limitPartiallyFillable?: boolean;
+  kind?: ESwapQuoteKind;
+  toTokenAmount?: string;
+  userMarketPriceRate?: string;
+}
+
 export interface IFetchQuoteResult {
   quoteId?: string;
   eventId?: string;
@@ -612,6 +633,7 @@ export enum ESwapFetchCancelCause {
   SWAP_QUOTE_CANCEL = 'SWAP_QUOTE_CANCEL',
   SWAP_APPROVE_ALLOWANCE_CANCEL = 'SWAP_APPROVE_ALLOWANCE_CANCEL',
   SWAP_PERP_DEPOSIT_QUOTE_CANCEL = 'SWAP_PERP_DEPOSIT_QUOTE_CANCEL',
+  SWAP_SPEED_QUOTE_CANCEL = 'SWAP_SPEED_QUOTE_CANCEL',
 }
 
 // swap action&alert state
@@ -977,14 +999,17 @@ export interface IFetchLimitOrderRes {
     signedType: EMessageTypesEth;
   };
 }
+
+export interface ISwapProSpeedConfig {
+  slippage: number;
+  spenderAddress: string;
+  defaultTokens: ISwapTokenBase[];
+  swapMevNetConfig: string[];
+}
 export interface ISpeedSwapConfig {
   provider: string;
-  speedConfig: {
-    slippage: number;
-    spenderAddress: string;
-    defaultTokens: ISwapTokenBase[];
-    swapMevNetConfig: string[];
-  };
+  speedConfig: ISwapProSpeedConfig;
+  speedDefaultSelectToken: ISwapTokenBase;
   supportSpeedSwap: boolean;
 }
 
@@ -1025,6 +1050,12 @@ export const ESwapLimitOrderUpdateInterval = 10_000;
 
 export const ESwapLimitOrderMarketPriceUpdateInterval = 15_000;
 
+// swap pro
+
+export enum ESwapProTradeType {
+  MARKET = 'market',
+  LIMIT = 'limit',
+}
 // component -----------------
 
 export interface IExplorersInfo {
