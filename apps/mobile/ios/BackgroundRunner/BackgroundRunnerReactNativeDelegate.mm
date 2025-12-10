@@ -248,7 +248,7 @@ static std::string safeGetStringProperty(jsi::Runtime &rt, const jsi::Object &ob
         std::string messageJson = jsonResult.getString(rt).utf8(rt);
         NSString *messageNS = [NSString stringWithUTF8String:messageJson.c_str()];
         if (self.onMessageCallback) {
-          self.onMessageCallback(@[[NSNull null], messageNS]);
+          self.onMessageCallback(messageNS);
         }
         return jsi::Value::undefined();
       });

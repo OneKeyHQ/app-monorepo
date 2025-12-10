@@ -68,15 +68,14 @@ RCT_EXPORT_METHOD(startBackgroundRunner) {
     [sharedInstance.reactNativeFactory.rootViewFactory viewWithModuleName:MODULE_NAME
                                                              initialProperties:initialProperties
                                                                  launchOptions:launchOptions];
+    [sharedInstance.reactNativeFactoryDelegate setOnMessageCallback:^(NSString *message) {
+      NSLog(@"onMessageCallback: %@", message);
+    }];
   });
 }
 
 RCT_EXPORT_METHOD(postMessage:(NSString *)msg) {
     [sharedInstance.reactNativeFactoryDelegate postMessage:std::string([msg UTF8String])];
-}
-
-RCT_EXPORT_METHOD(onMessage:(RCTResponseSenderBlock)callback) {
-  sharedInstance.reactNativeFactoryDelegate.onMessageCallback = callback;
 }
 
 @end
