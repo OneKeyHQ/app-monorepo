@@ -126,7 +126,11 @@ extension AppDelegate:JPUSHRegisterDelegate {
       LaunchOptionsManager.sharedInstance().log("received local notification: \(userInfo)")
     }
     
-    completionHandler(Int(UNNotificationPresentationOptions.badge.rawValue | UNNotificationPresentationOptions.sound.rawValue | UNNotificationPresentationOptions.alert.rawValue))
+    if #available(iOS 14.0, *) {
+      completionHandler(Int(UNNotificationPresentationOptions.badge.rawValue | UNNotificationPresentationOptions.sound.rawValue | UNNotificationPresentationOptions.banner.rawValue))
+    } else {
+      completionHandler(Int(UNNotificationPresentationOptions.badge.rawValue | UNNotificationPresentationOptions.sound.rawValue | UNNotificationPresentationOptions.alert.rawValue))
+    }
   }
   
   @available(iOS 10.0, *)
