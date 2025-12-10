@@ -10,7 +10,6 @@ import {
   IconButton,
   NumberSizeableText,
   Stack,
-  useMedia,
   useOnRouterChange,
   useTabIsRefreshingFocused,
 } from '@onekeyhq/components';
@@ -168,7 +167,6 @@ function TokenListBlock({ tableLayout }: { tableLayout?: boolean }) {
     isOthersWallet,
   });
 
-  const media = useMedia();
   const navigation = useAppNavigation();
 
   useOnRouterChange((state) => {
@@ -1925,7 +1923,7 @@ function TokenListBlock({ tableLayout }: { tableLayout?: boolean }) {
   }, [allNetworksState.visibleCount, network?.isAllNetworks]);
 
   const renderSubTitle = useCallback(() => {
-    if (media.gtMd) {
+    if (tableLayout) {
       return (
         <NumberSizeableText
           size="$headingXl"
@@ -1941,10 +1939,10 @@ function TokenListBlock({ tableLayout }: { tableLayout?: boolean }) {
     }
 
     return null;
-  }, [media.gtMd, settings.currencyInfo.symbol]);
+  }, [tableLayout, settings.currencyInfo.symbol]);
 
   const renderHeaderActions = useCallback(() => {
-    if (manageTokenEnabled && media.gtMd) {
+    if (manageTokenEnabled && tableLayout) {
       return (
         <IconButton
           title={intl.formatMessage({
@@ -1959,7 +1957,7 @@ function TokenListBlock({ tableLayout }: { tableLayout?: boolean }) {
     }
 
     return null;
-  }, [media.gtMd, intl, manageTokenEnabled, handleOnManageToken]);
+  }, [tableLayout, intl, manageTokenEnabled, handleOnManageToken]);
 
   const renderContent = useCallback(() => {
     return (
@@ -1984,9 +1982,7 @@ function TokenListBlock({ tableLayout }: { tableLayout?: boolean }) {
         onPressToken={handleOnPressToken}
         isAllNetworks={network?.isAllNetworks}
         homeDefaultTokenMap={homeDefaultTokenMap}
-        {...(media.gtLg && {
-          tableLayout: true,
-        })}
+        tableLayout={tableLayout}
         emptyAccountView={
           isAllNetworkEmptyAccount ? (
             <Stack py="$20">
@@ -2018,6 +2014,7 @@ function TokenListBlock({ tableLayout }: { tableLayout?: boolean }) {
     account?.id,
     accountName,
     allAggregateTokenMap,
+    tableLayout,
     deriveInfo?.label,
     deriveInfo?.labelKey,
     handleOnManageToken,
@@ -2027,7 +2024,6 @@ function TokenListBlock({ tableLayout }: { tableLayout?: boolean }) {
     intl,
     isAllNetworkEmptyAccount,
     manageTokenEnabled,
-    media.gtLg,
     network?.id,
     network?.isAllNetworks,
     network?.name,
@@ -2042,6 +2038,7 @@ function TokenListBlock({ tableLayout }: { tableLayout?: boolean }) {
       subTitle={renderSubTitle()}
       headerActions={renderHeaderActions()}
       content={renderContent()}
+      plainContentContainer={!tableLayout}
     />
   );
 }

@@ -18,15 +18,18 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import { RichBlock } from '../RichBlock';
+import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 
 function SupportHubItem({
   icon,
   title,
   link,
+  onPress,
 }: {
   icon: IIconProps['name'];
   title: string;
-  link: string;
+  link?: string;
+  onPress?: () => void;
 }) {
   return (
     <XStack
@@ -36,9 +39,13 @@ function SupportHubItem({
       py="$3"
       bg="$bgSubdued"
       justifyContent="space-between"
-      onPress={() => {
-        openUrlExternal(link);
-      }}
+      onPress={
+        link
+          ? () => {
+              openUrlExternal(link);
+            }
+          : onPress
+      }
     >
       <XStack alignItems="center" gap="$2.5" flex={1}>
         <Stack borderRadius="$full" p="$2" bg="$bgStrong">
@@ -46,9 +53,11 @@ function SupportHubItem({
         </Stack>
         <SizableText size="$bodyMdMedium">{title}</SizableText>
       </XStack>
-      <Stack width="$4" height="$4">
-        <Icon name="ArrowTopRightOutline" size="$4" color="$iconSubdued" />
-      </Stack>
+      {link ? (
+        <Stack width="$4" height="$4">
+          <Icon name="ArrowTopRightOutline" size="$4" color="$iconSubdued" />
+        </Stack>
+      ) : null}
     </XStack>
   );
 }
@@ -58,13 +67,6 @@ function SupportHub() {
 
   const helpCenterCommonFaqLink = useHelpLink({
     path: '',
-  });
-
-  const securityFeaturesHelpLink = useHelpLink({
-    path: '/articles/11461139',
-  });
-  const sendAndReceiveHelpLink = useHelpLink({
-    path: '/articles/11461145',
   });
 
   const renderContent = useCallback(() => {
@@ -77,15 +79,13 @@ function SupportHub() {
           content={
             <YStack
               height={145}
-              backgroundImage={require('@onekeyhq/kit/assets/wallet-add-money-bg-dark.png')}
-              backgroundSize="cover"
-              backgroundPosition="center"
-              backgroundRepeat="no-repeat"
               justifyContent="center"
               px="$4"
               position="relative"
               onPress={() => {
-                openUrlExternal(ONEKEY_SIFU_URL);
+                openUrlExternal(
+                  `${ONEKEY_SIFU_URL}/?utm_source=app_support_hub`,
+                );
               }}
             >
               <Image
@@ -123,11 +123,13 @@ function SupportHub() {
             }}
             content={
               <SupportHubItem
-                icon="ShieldOutline"
+                icon="HelpSupportOutline"
                 title={intl.formatMessage({
-                  id: ETranslations.global_security_features_of_onekey_app,
+                  id: ETranslations.global_contact_us,
                 })}
-                link={securityFeaturesHelpLink}
+                onPress={() => {
+                  void showIntercom();
+                }}
               />
             }
             contentContainerProps={{
@@ -141,11 +143,11 @@ function SupportHub() {
             }}
             content={
               <SupportHubItem
-                icon="CoinsAddOutline"
+                icon="BookOpenOutline"
                 title={intl.formatMessage({
-                  id: ETranslations.wallet_send_and_receive_cryptos,
+                  id: ETranslations.settings_help_center,
                 })}
-                link={sendAndReceiveHelpLink}
+                link={helpCenterCommonFaqLink}
               />
             }
             contentContainerProps={{
@@ -156,28 +158,12 @@ function SupportHub() {
         </Stack>
       </Stack>
     );
-  }, [intl, securityFeaturesHelpLink, sendAndReceiveHelpLink]);
+  }, [intl, helpCenterCommonFaqLink]);
 
   return (
     <RichBlock
       title={intl.formatMessage({ id: ETranslations.settings_support_hub })}
       content={renderContent()}
-      headerActions={
-        <Button
-          size="small"
-          variant="tertiary"
-          iconAfter="OpenOutline"
-          color="$textSubdued"
-          iconProps={{ color: '$iconSubdued' }}
-          onPress={() => {
-            openUrlExternal(helpCenterCommonFaqLink);
-          }}
-        >
-          {intl.formatMessage({
-            id: ETranslations.global_learn_more,
-          })}
-        </Button>
-      }
       plainContentContainer
     />
   );

@@ -527,7 +527,17 @@ function TokenListViewCmp(props: IProps) {
     if (showSkeleton) {
       return (
         <YStack style={{ flex: 1 }}>
-          <ListLoading isTokenSelectorView={!tableLayout} />
+          <ListLoading
+            itemProps={
+              tableLayout
+                ? undefined
+                : {
+                    mx: '$0',
+                    px: '$0',
+                  }
+            }
+            isTokenSelectorView={!tableLayout}
+          />
         </YStack>
       );
     }
@@ -558,6 +568,12 @@ function TokenListViewCmp(props: IProps) {
             withSwapAction={withSwapAction}
             showNetworkIcon={showNetworkIcon}
             withAggregateBadge={withAggregateBadge}
+            {...(tableLayout
+              ? undefined
+              : {
+                  mx: '$0',
+                  px: '$0',
+                })}
           />
         ))}
         {renderPlainModeFooter()}

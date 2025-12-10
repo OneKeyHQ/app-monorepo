@@ -1651,7 +1651,7 @@
   "global.select_crypto": "Select crypto",
   "global.select_network": "Select network",
   "global.select_wallet": "Select wallet",
-  "global.select_wallet_type_to_add": "Select Wallet Type to Add",
+  "global.select_wallet_type_to_add": "Select Wallet ort to Add",
   "global.sell": "Sell",
   "global.send": "Send",
   "global.sent_successfully": "Sent successfully",

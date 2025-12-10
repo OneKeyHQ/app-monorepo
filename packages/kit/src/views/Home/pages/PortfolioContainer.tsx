@@ -1,11 +1,4 @@
-import {
-  SizableText,
-  Stack,
-  Tabs,
-  XStack,
-  YStack,
-  useMedia,
-} from '@onekeyhq/components';
+import { XStack, YStack, useMedia } from '@onekeyhq/components';
 
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { ProviderJotaiContextDeFiList } from '../../../states/jotai/contexts/deFiList';
@@ -31,8 +24,8 @@ function PortfolioContainer() {
       <XStack py="$3" px="$5" gap="$8">
         <YStack flex={1} gap="$8">
           <TokenListBlock tableLayout />
-          {/* <DeFiListBlock tableLayout /> */}
-          {/* <PopularTrading tableLayout /> */}
+          <DeFiListBlock tableLayout />
+          <PopularTrading tableLayout />
           <EarnListView />
           <Upgrade />
           <SupportHub />
@@ -49,6 +42,8 @@ function PortfolioContainer() {
 
   return (
     <YStack gap="$8" px="$5" py="$3">
+      <TokenListBlock />
+      <DeFiListBlock />
       <PopularTrading />
       <EarnListView />
       <Upgrade />

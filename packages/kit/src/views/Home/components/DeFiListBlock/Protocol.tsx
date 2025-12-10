@@ -167,6 +167,8 @@ function Protocol({
         alignItems="center"
         justifyContent="space-between"
         onPress={handlePressProtocol}
+        mx="$-2"
+        px="$2"
       >
         <XStack alignItems="center" gap="$3" flex={1}>
           <Token size="lg" tokenImageUri={protocolInfo?.protocolLogo} />

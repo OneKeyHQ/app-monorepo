@@ -7,6 +7,7 @@ import {
   Button,
   NumberSizeableText,
   Skeleton,
+  Stack,
   YStack,
   useTabIsRefreshingFocused,
 } from '@onekeyhq/components';
@@ -141,7 +142,7 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
   }, [protocols, overflowState.isOverflow, overflowState.isSliced]);
 
   const renderSubTitle = useCallback(() => {
-    if (true) {
+    if (tableLayout) {
       if (!initialized && isRefreshing) {
         return <Skeleton.HeadingXl />;
       }
@@ -166,6 +167,7 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
     overview.totalValue,
     initialized,
     isRefreshing,
+    tableLayout,
   ]);
   const renderContent = useCallback(() => {
     return (
@@ -179,21 +181,28 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
             />
           ))}
         </YStack>
-        {!tableLayout && overflowState.isOverflow ? (
-          <Button
-            size="small"
-            variant="secondary"
-            onPress={() =>
-              setOverflowState((prev) => ({
-                ...prev,
-                isSliced: !prev.isSliced,
-              }))
-            }
+        {overflowState.isOverflow ? (
+          <Stack
+            alignItems="center"
+            justifyContent="center"
+            pt="$4"
+            flexDirection={tableLayout ? 'row' : 'column'}
           >
-            {overflowState.isSliced
-              ? intl.formatMessage({ id: ETranslations.global_show_more })
-              : intl.formatMessage({ id: ETranslations.global_show_less })}
-          </Button>
+            <Button
+              size={tableLayout ? 'small' : 'medium'}
+              variant="secondary"
+              onPress={() =>
+                setOverflowState((prev) => ({
+                  ...prev,
+                  isSliced: !prev.isSliced,
+                }))
+              }
+            >
+              {overflowState.isSliced
+                ? intl.formatMessage({ id: ETranslations.global_show_more })
+                : intl.formatMessage({ id: ETranslations.global_show_less })}
+            </Button>
+          </Stack>
         ) : null}
       </>
     );
@@ -211,9 +220,20 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
         withTitleSeparator
         title={intl.formatMessage({ id: ETranslations.global_earn })}
         subTitle={renderSubTitle()}
+        plainContentContainer={!tableLayout}
         content={
           !initialized && isRefreshing ? (
-            <ListLoading isTokenSelectorView={false} />
+            <ListLoading
+              itemProps={
+                tableLayout
+                  ? undefined
+                  : {
+                      mx: '$0',
+                      px: '$0',
+                    }
+              }
+              isTokenSelectorView={false}
+            />
           ) : (
             <EmptyDeFi />
           )

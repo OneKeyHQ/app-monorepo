@@ -36,43 +36,46 @@ function DeFiProtocolDetails() {
   const [settings] = useSettingsPersistAtom();
   const renderProtocolOverview = useCallback(() => {
     return (
-      <XStack
-        alignItems="center"
-        justifyContent="space-between"
-        gap="$3"
-        p="$5"
-      >
-        <XStack alignItems="center" gap="$3">
-          <Token
-            size="xl"
-            tokenImageUri={protocolInfo.protocolLogo}
-            showNetworkIcon
-            networkId={protocol.networkId}
+      <>
+        <XStack
+          alignItems="center"
+          justifyContent="space-between"
+          gap="$3"
+          p="$5"
+        >
+          <XStack alignItems="center" gap="$3">
+            <Token
+              size="xl"
+              tokenImageUri={protocolInfo.protocolLogo}
+              showNetworkIcon
+              networkId={protocol.networkId}
+            />
+            <YStack>
+              <SizableText size="$heading2xl" numberOfLines={1}>
+                {protocolInfo.protocolName}
+              </SizableText>
+              <NumberSizeableText
+                size="$bodyLgMedium"
+                formatter="value"
+                formatterOptions={{ currency: settings.currencyInfo.symbol }}
+                color="$textSubdued"
+              >
+                {protocolInfo.totalValue}
+              </NumberSizeableText>
+            </YStack>
+          </XStack>
+          <IconButton
+            title={intl.formatMessage({
+              id: ETranslations.global_view_in_blockchain_explorer,
+            })}
+            variant="tertiary"
+            icon="OpenOutline"
+            size="small"
+            onPress={() => openUrlExternal(protocolInfo?.protocolUrl)}
           />
-          <YStack>
-            <SizableText size="$heading2xl" numberOfLines={1}>
-              {protocolInfo.protocolName}
-            </SizableText>
-            <NumberSizeableText
-              size="$bodyLgMedium"
-              formatter="value"
-              formatterOptions={{ currency: settings.currencyInfo.symbol }}
-              color="$textSubdued"
-            >
-              {protocolInfo.totalValue}
-            </NumberSizeableText>
-          </YStack>
         </XStack>
-        <IconButton
-          title={intl.formatMessage({
-            id: ETranslations.global_view_in_blockchain_explorer,
-          })}
-          variant="tertiary"
-          icon="OpenOutline"
-          size="small"
-          onPress={() => openUrlExternal(protocolInfo?.protocolUrl)}
-        />
-      </XStack>
+        <Divider />
+      </>
     );
   }, [
     protocolInfo.totalValue,
@@ -87,8 +90,13 @@ function DeFiProtocolDetails() {
     return (
       <YStack py="$3">
         {protocol.positions.map((position, index) => (
-          <Stack key={position.category} py="$3">
-            <XStack alignItems="center" justifyContent="space-between" p="$3">
+          <Stack key={position.category} py="$2" px="$5">
+            <XStack
+              alignItems="center"
+              justifyContent="space-between"
+              py="$3"
+              ml="$-2"
+            >
               <Badge badgeType="success" badgeSize="lg">
                 <Badge.Text textTransform="capitalize">
                   {position.category}
@@ -109,6 +117,7 @@ function DeFiProtocolDetails() {
                   alignItems="center"
                   gap="$3"
                   justifyContent="space-between"
+                  py="$2"
                 >
                   <XStack alignItems="center" gap="$3" flex={1}>
                     <Token size="md" tokenImageUri={asset.meta?.logoUrl} />
