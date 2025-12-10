@@ -4,9 +4,11 @@ import { useIntl } from 'react-intl';
 
 import { Icon, YStack } from '@onekeyhq/components';
 import {
+  useSwapFromTokenAmountAtom,
   useSwapLimitExpirationTimeAtom,
   useSwapLimitPartiallyFillAtom,
   useSwapProDirectionAtom,
+  useSwapProInputAmountAtom,
   useSwapProTokenSupportLimitAtom,
   useSwapProTradeTypeAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
@@ -53,6 +55,8 @@ const SwapProTradingPanel = ({
 }: ISwapProTradingPanelProps) => {
   const [swapProDirection, setSwapProDirection] = useSwapProDirectionAtom();
   const [swapProTradeType, setSwapProTradeType] = useSwapProTradeTypeAtom();
+  const [, setSwapProInputAmount] = useSwapProInputAmountAtom();
+  const [, setFromInputAmount] = useSwapFromTokenAmountAtom();
   const [swapLimitExpirySelect, setSwapLimitExpirySelect] =
     useSwapLimitExpirationTimeAtom();
   const [swapLimitPartiallyFill, setSwapLimitPartiallyFill] =
@@ -96,7 +100,15 @@ const SwapProTradingPanel = ({
         />
         <SwapProTradeTypeSelector
           currentSelect={swapProTradeType}
-          onSelectTradeType={setSwapProTradeType}
+          onSelectTradeType={(value) => {
+            if (value === swapProTradeType) return;
+            setSwapProInputAmount('');
+            setFromInputAmount({
+              value: '',
+              isInput: true,
+            });
+            setSwapProTradeType(value);
+          }}
           selectItems={selectTradeTypeItems}
         />
         {swapProTradeType === ESwapProTradeType.LIMIT ? (

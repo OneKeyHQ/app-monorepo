@@ -90,10 +90,8 @@ const SwapProActionButton = ({
     <Button
       disabled={actionButtonDisabled}
       onPress={onSwapProActionClick}
-      variant={actionButtonDisabled ? 'secondary' : 'primary'}
-      backgroundColor={
-        actionButtonDisabled ? '$bgDisabled' : '$bgSuccessStrong'
-      }
+      variant="primary"
+      backgroundColor="$bgSuccessStrong"
     >
       {actionButtonText}
     </Button>
