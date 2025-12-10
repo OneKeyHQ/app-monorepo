@@ -1,10 +1,13 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
 import { RefreshControl, ScrollView } from 'react-native';
 
 import { IconButton, XStack, YStack } from '@onekeyhq/components';
 import { useSwapProSelectTokenAtom } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
-import type { IFetchLimitOrderRes } from '@onekeyhq/shared/types/swap/types';
+import type {
+  IFetchLimitOrderRes,
+  ISwapToken,
+} from '@onekeyhq/shared/types/swap/types';
 
 import { ETabName, TabBarItem } from '../../../Perp/layouts/PerpMobileLayout';
 import {
@@ -40,7 +43,9 @@ const SwapProContainer = ({
   const [activeTab, setActiveTab] = useState<ETabName | string>(
     ETabName.Positions,
   );
-  const [swapProTokenSelect] = useSwapProSelectTokenAtom();
+  const [swapProTokenSelect, setSwapProSelectToken] =
+    useSwapProSelectTokenAtom();
+  const scrollViewRef = useRef<ScrollView>(null);
   const { fetchTokenMarketDetailInfo } = useSwapProTokenDetailInfo();
   const { syncInputTokenBalance, syncToTokenPrice } = useSwapProTokenInfoSync();
   const { swapProLoadSupportNetworksTokenListRun } =
@@ -60,16 +65,41 @@ const SwapProContainer = ({
     syncInputTokenBalance,
     syncToTokenPrice,
   ]);
-
+  const onTokenPress = useCallback(
+    (token: ISwapToken) => {
+      setSwapProSelectToken({
+        networkId: token.networkId,
+        contractAddress: token.contractAddress,
+        decimals: token.decimals,
+        symbol: token.symbol,
+        logoURI: token.logoURI,
+        networkLogoURI: token.networkLogoURI,
+        name: token.name,
+        isNative: token.isNative,
+        price: token.price?.toString(),
+      });
+      scrollViewRef.current?.scrollTo({
+        y: 0,
+        animated: true,
+      });
+    },
+    [setSwapProSelectToken],
+  );
   const { isLoading, speedConfig, balanceLoading, isMEV, hasEnoughBalance } =
     useSwapProTokenInit();
-
   return (
     <ScrollView
       style={{ flex: 1 }}
-      contentContainerStyle={{ flexGrow: 1 }}
+      ref={scrollViewRef}
+      contentContainerStyle={{
+        flexGrow: 1,
+        paddingTop: 10,
+        paddingHorizontal: 20,
+      }}
       showsVerticalScrollIndicator={false}
       stickyHeaderIndices={[0, 2]}
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="on-drag"
       refreshControl={
         <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
       }
@@ -129,7 +159,7 @@ const SwapProContainer = ({
           flex={1}
         >
           <SwapProCurrentSymbolEnable />
-          <SwapProPositionsList />
+          <SwapProPositionsList onTokenPress={onTokenPress} />
         </YStack>
         <YStack
           display={activeTab === ETabName.OpenOrders ? 'flex' : 'none'}

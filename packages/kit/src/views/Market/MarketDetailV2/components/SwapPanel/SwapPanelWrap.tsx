@@ -47,7 +47,7 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
     defaultTokens,
     provider,
     swapMevNetConfig,
-  } = useSpeedSwapInit(networkId || '');
+  } = useSpeedSwapInit(networkId || '', true);
 
   const { activeAccount } = useActiveAccount({ num: 0 });
 

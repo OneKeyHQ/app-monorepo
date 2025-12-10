@@ -30,7 +30,7 @@ const SwapProTokenSelector = ({
     return undefined;
   }, [swapProTokenSelect]);
   if (configLoading) {
-    return <Skeleton w="$10" h="$10" />;
+    return <Skeleton w="$20" h="$10" borderRadius="$2" />;
   }
   return (
     <Badge

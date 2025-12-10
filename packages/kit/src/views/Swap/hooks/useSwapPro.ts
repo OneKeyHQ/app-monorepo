@@ -4,6 +4,7 @@ import BigNumber from 'bignumber.js';
 
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { useSwapProJumpTokenAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/swap';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -22,7 +23,10 @@ import {
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useCurrency } from '../../../components/Currency';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
-import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
+import {
+  useAccountSelectorActions,
+  useActiveAccount,
+} from '../../../states/jotai/contexts/accountSelector';
 import {
   useSwapActions,
   useSwapFromTokenAmountAtom,
@@ -35,6 +39,7 @@ import {
   useSwapProSlippageAtom,
   useSwapProToTotalValueAtom,
   useSwapProTokenSupportLimitAtom,
+  useSwapProTokenTransactionPriceAtom,
   useSwapProTradeTypeAtom,
   useSwapProUseSelectBuyTokenAtom,
   useSwapQuoteCurrentSelectAtom,
@@ -107,8 +112,10 @@ export function useSwapProToToken() {
 
 export function useSwapProAccount() {
   const { activeAccount } = useActiveAccount({ num: 0 });
+  const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const inputToken = useSwapProInputToken();
   const [selectMarketToken] = useSwapProSelectTokenAtom();
+  const { updateSelectedAccountNetwork } = useAccountSelectorActions().current;
   const netAccountRes = usePromiseResult(async () => {
     try {
       const defaultDeriveType =
@@ -134,6 +141,25 @@ export function useSwapProAccount() {
     inputToken?.networkId,
     selectMarketToken?.networkId,
   ]);
+
+  useEffect(() => {
+    if (
+      selectMarketToken?.networkId &&
+      swapTypeSwitch === ESwapTabSwitchType.LIMIT &&
+      activeAccount?.network?.id !== selectMarketToken?.networkId &&
+      platformEnv.isNative
+    ) {
+      void updateSelectedAccountNetwork({
+        num: 0,
+        networkId: selectMarketToken?.networkId,
+      });
+    }
+  }, [
+    activeAccount?.network?.id,
+    selectMarketToken?.networkId,
+    swapTypeSwitch,
+    updateSelectedAccountNetwork,
+  ]);
   return netAccountRes;
 }
 
@@ -149,7 +175,6 @@ export function useSwapProTokenInfoSync() {
 
   const syncInputTokenBalance = useCallback(async () => {
     if (
-      !inputToken?.contractAddress ||
       !inputToken?.networkId ||
       !netAccountRes.result?.addressDetail.address ||
       !netAccountRes.result?.id
@@ -244,6 +269,7 @@ export function useSwapProTokenInit() {
   const [swapProUseSelectBuyTokenAtom, setSwapProUseSelectBuyTokenAtom] =
     useSwapProUseSelectBuyTokenAtom();
   const [swapProInputAmount] = useSwapProInputAmountAtom();
+
   const {
     defaultTokens,
     isLoading,
@@ -251,6 +277,7 @@ export function useSwapProTokenInit() {
     swapMevNetConfig,
     speedDefaultSelectToken,
   } = useSpeedSwapInit(swapProSelectToken?.networkId || '');
+
   useEffect(() => {
     if (
       (!swapProUseSelectBuyTokenAtom && defaultTokens.length > 0) ||
@@ -301,7 +328,15 @@ export function useSwapProTokenInit() {
   ]);
 
   useEffect(() => {
-    if (!swapProSellToToken && defaultTokens.length > 0) {
+    if (
+      (!swapProSellToToken && defaultTokens.length > 0) ||
+      !defaultTokens.some((item) =>
+        equalTokenNoCaseSensitive({
+          token1: item,
+          token2: swapProSellToToken,
+        }),
+      )
+    ) {
       const nativeToken = defaultTokens.find((item) => item.isNative);
       if (nativeToken) {
         setSwapProSellToToken(nativeToken);
@@ -443,6 +478,8 @@ export function useSwapProTokenTransactionList(
 ) {
   const currencyInfo = useCurrency();
   const [swapProTradeType] = useSwapProTradeTypeAtom();
+  const [, setSwapProTokenTransactionPrice] =
+    useSwapProTokenTransactionPriceAtom();
   const transactionListPageSize = useMemo(() => {
     if (swapProTradeType === ESwapProTradeType.LIMIT) {
       return 10;
@@ -490,7 +527,8 @@ export function useSwapProTokenTransactionList(
       return;
     }
     setSwapProTokenTransactionList(newTransactions);
-  }, [transactionsData?.list]);
+    setSwapProTokenTransactionPrice(newTransactions[0].to.price ?? '');
+  }, [transactionsData?.list, setSwapProTokenTransactionPrice]);
 
   const addNewTransaction = useCallback(
     (newTransaction: IMarketTokenTransaction) => {
@@ -509,8 +547,9 @@ export function useSwapProTokenTransactionList(
         .sort((a, b) => b.timestamp - a.timestamp)
         .slice(0, transactionListPageSizeRef.current);
       setSwapProTokenTransactionList(updatedTransactions);
+      setSwapProTokenTransactionPrice(updatedTransactions[0].to.price ?? '');
     },
-    [],
+    [setSwapProTokenTransactionPrice],
   );
 
   // Subscribe to real-time transaction updates
