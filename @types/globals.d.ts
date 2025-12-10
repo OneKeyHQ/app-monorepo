@@ -48,6 +48,7 @@ declare global {
     | undefined;
   var $$onekeyStartupTimeAt: number | undefined;
   var $$onekeyJsReadyAt: number | undefined;
+  var $$isNativeUiThread: boolean | undefined;
   var $$onekeyUIVisibleAt: number | undefined;
   var $$onekeyJsReadyFromPerformanceNow: number | undefined;
   var $$onekeyAppWillMountFromPerformanceNow: number | undefined;

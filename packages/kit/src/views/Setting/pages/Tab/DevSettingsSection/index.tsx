@@ -83,6 +83,7 @@ import { RegistrationID } from './RegistrationID';
 import { SectionFieldItem } from './SectionFieldItem';
 import { SectionPressItem } from './SectionPressItem';
 import { SentryCrashSettings } from './SentryCrashSettings';
+import { nativeUIBridge } from '@onekeyhq/shared/src/nativeBridge';
 
 let correctDevOnlyPwd = '';
 
@@ -459,6 +460,21 @@ const BaseDevSettingsSection = () => {
                   });
                 }}
               />
+
+              {platformEnv.isNative ? (
+                <SectionPressItem
+                  icon="InfoCircleOutline"
+                  title="Test Native Bridge"
+                  subtitle="Native Bridge"
+                  onPress={async () => {
+                    const unsubscribe = nativeUIBridge.onMessage((message) => {
+                      console.log('message', message);
+                      unsubscribe();
+                    });
+                    nativeUIBridge.postMessage({ type: 'test1' });
+                  }}
+                />
+              ) : null}
 
               {platformEnv.isNativeAndroid ? (
                 <SectionPressItem

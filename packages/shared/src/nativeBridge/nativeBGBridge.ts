@@ -10,7 +10,7 @@ let isReady = false;
 let waitMessages: Record<string, any>[] = [];
 
 function checkReady(times = 0) {
-  if (times > 10_000) {
+  if (globalThis.$$isNativeUiThread || times > 10_000) {
     return;
   }
   if (
@@ -34,8 +34,18 @@ function checkReady(times = 0) {
 
 checkReady();
 
+const checkThread = () => {
+  if (!globalThis.$$isNativeUiThread) {
+    // eslint-disable-next-line no-restricted-syntax
+    throw new Error(
+      'this function is not available in native background thread',
+    );
+  }
+};
+
 export const nativeBGBridge = {
   postHostMessage: (message: Record<string, any>) => {
+    checkThread();
     if (!isReady) {
       waitMessages.push(message);
       return;
@@ -43,6 +53,7 @@ export const nativeBGBridge = {
     globalThis.postHostMessage(message);
   },
   onHostMessage: (callback: (message: Record<string, any>) => void) => {
+    checkThread();
     if (!isReady) {
       return;
     }

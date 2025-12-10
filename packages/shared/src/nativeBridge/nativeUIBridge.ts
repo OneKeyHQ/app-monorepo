@@ -21,11 +21,22 @@ const onMessageCallback = (
 
 BackgroundRunnerModule.onMessage(onMessageCallback);
 
+const checkThread = () => {
+  if (globalThis.$$isNativeUiThread) {
+    // eslint-disable-next-line no-restricted-syntax
+    throw new Error(
+      'this function is not available in native background thread',
+    );
+  }
+};
+
 export const nativeUIBridge = {
   postMessage: (message: Record<string, any>) => {
+    checkThread();
     BackgroundRunnerModule.postMessage(JSON.stringify(message));
   },
   onMessage: (callback: (message: Record<string, any>) => void) => {
+    checkThread();
     callbacks.add(callback);
     return () => {
       callbacks.delete(callback);
