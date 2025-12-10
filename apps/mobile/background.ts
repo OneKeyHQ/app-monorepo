@@ -27,7 +27,7 @@ nativeBGBridge.postHostMessage({ type: 'test' });
 nativeBGBridge.onHostMessage((message) => {
   console.log('message', message);
   if (message.type === 'test1') {
-    alert('test2 in background, wait 3 seconds');
+    alert(`${JSON.stringify(message)} in background, wait 3 seconds`);
     setTimeout(() => {
       nativeBGBridge.postHostMessage({ type: 'test2' });
     }, 3000);
