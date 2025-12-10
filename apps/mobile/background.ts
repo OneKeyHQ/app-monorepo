@@ -19,3 +19,7 @@ console.log('ExpoDevice', ExpoDevice);
 globalThis.Sharing = async () => {
   return Sharing.shareAsync('12313213');
 };
+
+setTimeout(() => {
+  alert('in background');
+}, 10 * 1000);
