@@ -3,12 +3,13 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 54;
+	objectVersion = 70;
 	objects = {
 
 /* Begin PBXBuildFile section */
 		076068BF2E7EF3BA00E007B2 /* gopenpgp-3.3.0.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 076068BE2E7EF3BA00E007B2 /* gopenpgp-3.3.0.xcframework */; };
 		076068C02E7EF3BA00E007B2 /* gopenpgp-3.3.0.xcframework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 076068BE2E7EF3BA00E007B2 /* gopenpgp-3.3.0.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		07924E9C2EE974C400731C5C /* background.bundle in Resources */ = {isa = PBXBuildFile; fileRef = 07924E9B2EE974C400731C5C /* background.bundle */; };
 		0799B7702E162F7D001ADEC8 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0799B76F2E162F7D001ADEC8 /* AppDelegate.swift */; };
 		07A0D9DD2E7997C6005A1AA2 /* BundleUpdateModule.m in Sources */ = {isa = PBXBuildFile; fileRef = 07A0D9DC2E7997C6005A1AA2 /* BundleUpdateModule.m */; };
 		07A167A92E576AF7006A3117 /* OneKeyLogo.icon in Resources */ = {isa = PBXBuildFile; fileRef = 07A167A82E576AF7006A3117 /* OneKeyLogo.icon */; };
@@ -74,6 +75,7 @@
 
 /* Begin PBXFileReference section */
 		076068BE2E7EF3BA00E007B2 /* gopenpgp-3.3.0.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = "gopenpgp-3.3.0.xcframework"; path = "XCFrameworks/gopenpgp-3.3.0.xcframework"; sourceTree = "<group>"; };
+		07924E9B2EE974C400731C5C /* background.bundle */ = {isa = PBXFileReference; lastKnownFileType = text; path = background.bundle; sourceTree = "<group>"; };
 		0799B76F2E162F7D001ADEC8 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		07A0D9DB2E7997C6005A1AA2 /* BundleUpdateModule.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = BundleUpdateModule.h; path = OneKeyWallet/BundleUpdateModule.h; sourceTree = "<group>"; };
 		07A0D9DC2E7997C6005A1AA2 /* BundleUpdateModule.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = BundleUpdateModule.m; path = OneKeyWallet/BundleUpdateModule.m; sourceTree = "<group>"; };
@@ -168,6 +170,7 @@
 		13B07FAE1A68108700A75B9A /* OneKeyWallet */ = {
 			isa = PBXGroup;
 			children = (
+				07924E9B2EE974C400731C5C /* background.bundle */,
 				07059BFA2EE82F64001078EE /* BackgroundRunner */,
 				F47935B82EA0770600766A6F /* CloudKitModule.m */,
 				F47935B92EA0770600766A6F /* CloudKitModule.swift */,
@@ -390,6 +393,7 @@
 				35EE15B12B9A2ACD004C86AC /* InfoPlist.strings in Resources */,
 				07A167A92E576AF7006A3117 /* OneKeyLogo.icon in Resources */,
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
+				07924E9C2EE974C400731C5C /* background.bundle in Resources */,
 				EA9B87EC2BD94E3B00B8E64A /* PrivacyInfo.xcprivacy in Resources */,
 				3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */,
 				EA9FF4ED2BDFFDBB00AC618A /* web-embed in Resources */,

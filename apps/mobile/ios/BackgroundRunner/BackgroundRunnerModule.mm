@@ -70,7 +70,7 @@ RCT_EXPORT_METHOD(startBackgroundRunner) {
   dispatch_async(dispatch_get_main_queue(), ^{
     NSDictionary *initialProperties = @{};
     NSDictionary *launchOptions = @{};
-    [self.reactNativeFactoryDelegate setJsBundleSource:std::string([MODULE_DEBUG_URL UTF8String])];
+//    [self.reactNativeFactoryDelegate setJsBundleSource:std::string([MODULE_DEBUG_URL UTF8String])];
     [self.reactNativeFactory.rootViewFactory viewWithModuleName:MODULE_NAME
                                                              initialProperties:initialProperties
                                                                  launchOptions:launchOptions];
