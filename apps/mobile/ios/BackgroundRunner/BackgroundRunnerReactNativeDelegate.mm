@@ -201,8 +201,8 @@ static std::string safeGetStringProperty(jsi::Runtime &rt, const jsi::Object &ob
   }
 
   [_rctInstance callFunctionOnBufferedRuntimeExecutor:[=](jsi::Runtime &runtime) {
-    facebook::react::defineReadOnlyGlobal(runtime, "postMessage", [self createPostMessageFunction:runtime]);
-    facebook::react::defineReadOnlyGlobal(runtime, "setOnMessage", [self createSetOnMessageFunction:runtime]);
+    facebook::react::defineReadOnlyGlobal(runtime, "postHostMessage", [self createPostMessageFunction:runtime]);
+    facebook::react::defineReadOnlyGlobal(runtime, "onHostMessage", [self createSetOnMessageFunction:runtime]);
     [self setupErrorHandler:runtime];
   }];
 }
