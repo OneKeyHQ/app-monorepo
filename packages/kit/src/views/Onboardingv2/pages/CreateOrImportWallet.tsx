@@ -35,6 +35,7 @@ import externalWalletLogoUtils from '@onekeyhq/shared/src/utils/externalWalletLo
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useOneKeyAuth } from '../../../components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { TermsAndPrivacy } from '../../Onboarding/pages/GetStarted/components';
 import { showOneKeyIDLoginDialog } from '../../Prime/components/OneKeyIDLoginDialog';
 import { OnboardingLayout } from '../components/OnboardingLayout';
 
@@ -193,11 +194,12 @@ export default function CreateOrImportWallet() {
   const isKeylessEnabled = false;
 
   // TODO: @zuo Replace with actual server check after login
-  const hasServerAuthShare = true;
+  const hasServerAuthShare = false;
 
   // Cloud backup is supported on iOS (iCloud), Android (Google Drive), and macOS App Store (iCloud)
-  const isCloudBackupSupported =
-    platformEnv.isNativeIOS || platformEnv.isNativeAndroid || platformEnv.isMas;
+  // const isCloudBackupSupported =
+  //   platformEnv.isNativeIOS || platformEnv.isNativeAndroid || platformEnv.isMas;
+  const isCloudBackupSupported = true;
 
   const handleKeylessWalletClick = useCallback(() => {
     // Step 1: Check if local device already has Keyless Wallet
@@ -232,16 +234,13 @@ export default function CreateOrImportWallet() {
         });
       } else {
         // Step 3.2: Device supports cloud backup → Create Keyless Wallet
-        navigation.push(EOnboardingPagesV2.FinalizeWalletSetup, {
-          variant: 'keylessWallet',
-        });
+        navigation.push(EOnboardingPagesV2.KeylessWalletCreation, {});
       }
     };
 
     // Step 2.1: Ensure user is logged in to OneKey ID
     if (!isLoggedIn) {
       showOneKeyIDLoginDialog({
-        variant: 'keylessWallet',
         onLoginSuccess: proceedAfterLogin,
       });
     } else {
@@ -622,6 +621,9 @@ export default function CreateOrImportWallet() {
             </Card>
           </OnboardingLayout.ConstrainedContent>
         </OnboardingLayout.Body>
+        {/* <OnboardingLayout.Footer>
+          {fullOptions ? <TermsAndPrivacy /> : null}
+        </OnboardingLayout.Footer> */}
       </OnboardingLayout>
     </Page>
   );

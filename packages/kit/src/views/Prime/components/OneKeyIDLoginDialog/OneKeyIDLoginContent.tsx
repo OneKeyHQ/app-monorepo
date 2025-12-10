@@ -8,25 +8,19 @@ import {
   Icon,
   Input,
   SizableText,
-  XStack,
   YStack,
   useForm,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
-import type { IOneKeyIDLoginDialogVariant } from './OneKeyIDLoginDialog';
-
 export interface IOneKeyIDLoginContentProps {
-  variant?: IOneKeyIDLoginDialogVariant;
   onEmailSubmit: (email: string) => void;
 }
 
 export function OneKeyIDLoginContent({
-  variant = 'default',
   onEmailSubmit,
 }: IOneKeyIDLoginContentProps) {
   const intl = useIntl();
@@ -56,8 +50,6 @@ export function OneKeyIDLoginContent({
     // TODO: Implement Apple OAuth login with Privy
     console.log('Apple login clicked - OAuth integration pending');
   }, []);
-
-  const isKeylessWallet = variant === 'keylessWallet';
 
   return (
     <YStack gap="$2.5">
@@ -139,36 +131,10 @@ export function OneKeyIDLoginContent({
           />
         </Form.Field>
       </Form>
-      {isKeylessWallet ? (
-        <>
-          <SizableText mt="$2.5" size="$bodySm" color="$textSubdued">
-            OneKey keyless wallet offers unique and powerful security. It uses
-            advanced Shamir key-sharding technology to split your key into three
-            parts, so there's no need to write down a seed phrase — your account
-            can always be securely recovered.
-          </SizableText>
-          <XStack>
-            <SizableText
-              size="$bodySm"
-              color="$textInteractive"
-              textDecorationLine="underline"
-              cursor="pointer"
-              hoverStyle={{ opacity: 0.8 }}
-              pressStyle={{ opacity: 0.6 }}
-              onPress={() => {
-                openUrlExternal('https://help.onekey.so/hc/articles/');
-              }}
-            >
-              {intl.formatMessage({ id: ETranslations.global_learn_more })} ↗
-            </SizableText>
-          </XStack>
-        </>
-      ) : (
-        <SizableText mt="$2.5" size="$bodySm" color="$textSubdued">
-          OneKey ID is all you need to access all OneKey services and earn
-          referral rewards.
-        </SizableText>
-      )}
+      <SizableText mt="$2.5" size="$bodySm" color="$textSubdued">
+        OneKey ID is all you need to access all OneKey services and earn
+        referral rewards.
+      </SizableText>
     </YStack>
   );
 }

@@ -1664,6 +1664,7 @@ const icons = {
   ItalicSolid: () => import("./react/solid/Italic"),
   JudgeGavelSolid: () => import("./react/solid/JudgeGavel"),
   KeySolid: () => import("./react/solid/Key"),
+  Key2Solid: () => import("./react/solid/Key2"),
   KeyboardConnectSolid: () => import("./react/solid/KeyboardConnect"),
   KeyboardDownSolid: () => import("./react/solid/KeyboardDown"),
   KeyboardUpSolid: () => import("./react/solid/KeyboardUp"),

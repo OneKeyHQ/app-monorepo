@@ -141,28 +141,6 @@ const STEPS_DATA: Partial<Record<EFinalizeWalletSetupSteps, IStepData>> = {
   [EFinalizeWalletSetupSteps.Ready]: null,
 };
 
-// Keyless wallet setup steps
-const KEYLESS_STEPS_DATA: Partial<
-  Record<EFinalizeWalletSetupSteps, IStepData>
-> = {
-  [EFinalizeWalletSetupSteps.CreatingDeviceKey]: {
-    pathData:
-      'M35 39H39M41 17V13C41 9.6863 38.3138 7 35 7H13C9.6863 7 7 9.6863 7 13V32C7 33.6568 5.65686 35 4 35C4 38.3138 6.6863 41 10 41H30M7 35H29M29 23C29 19.6863 31.6862 17 35 17H39C42.3138 17 45 19.6863 45 23V37C45 40.3138 42.3138 43 39 43H35C31.6862 43 29 40.3138 29 37V23Z',
-    title: 'Creating device key',
-  },
-  [EFinalizeWalletSetupSteps.CreatingCloudKey]: {
-    pathData:
-      'M14 39C7.92486 39 3 34.0752 3 28C3 22.6374 6.8374 18.171 11.916 17.1971C13.8264 12.3947 18.5168 9 24 9C30.8606 9 36.48 14.3145 36.966 21.0512C41.4822 21.5332 45 25.3558 45 30C45 34.9706 40.9706 39 36 39H14Z',
-    title: 'Creating cloud key',
-  },
-  [EFinalizeWalletSetupSteps.CreatingAuthKey]: {
-    pathData:
-      'M39 10.2778C39 13.1926 32.2842 15.5556 24 15.5556C15.7157 15.5556 9 13.1926 9 10.2778M39 10.2778C39 7.36294 32.2842 5 24 5C15.7157 5 9 7.36294 9 10.2778M39 10.2778V37.7222C39 40.637 32.2842 43 24 43C15.7157 43 9 40.637 9 37.7222V10.2778M39 23.7774C39 26.6922 32.2842 29.0552 24 29.0552C15.7157 29.0552 9 26.6922 9 23.7774',
-    title: 'Creating Auth key',
-  },
-  [EFinalizeWalletSetupSteps.Ready]: null,
-};
-
 const fixErrorString = (errorMessage: string) => {
   if (errorMessage.toLowerCase() === 'no wallet creation strategy') {
     return ETranslations.hardware_user_cancel_error;
@@ -176,7 +154,7 @@ function FinalizeWalletSetupPage({
   EOnboardingPagesV2.FinalizeWalletSetup
 >) {
   const {
-    activeAccount: { wallet },
+    activeAccount: { wallet: _wallet },
   } = useActiveAccount({ num: 0 });
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -198,14 +176,8 @@ function FinalizeWalletSetupPage({
   const deviceData = route?.params?.deviceData;
   const isFirmwareVerified = route?.params?.isFirmwareVerified;
   const isWalletBackedUp = route?.params?.isWalletBackedUp;
-  const variant = route?.params?.variant ?? 'wallet';
 
-  // Select steps data and initial step based on variant
-  const isKeylessWallet = variant === 'keylessWallet';
-  const stepsData = isKeylessWallet ? KEYLESS_STEPS_DATA : STEPS_DATA;
-  const initialStep = isKeylessWallet
-    ? EFinalizeWalletSetupSteps.CreatingDeviceKey
-    : EFinalizeWalletSetupSteps.CreatingWallet;
+  const initialStep = EFinalizeWalletSetupSteps.CreatingWallet;
 
   const [currentStep, setCurrentStep] =
     useState<EFinalizeWalletSetupSteps>(initialStep);
@@ -312,22 +284,6 @@ function FinalizeWalletSetupPage({
   const { connectDevice, createHWWallet } = useDeviceConnect();
   const createWallet = useCallback(async () => {
     try {
-      // **** keyless wallet case
-      if (isKeylessWallet && !created.current) {
-        created.current = true;
-        // Simulate keyless wallet creation process
-        // Step 1: Creating device key (already started)
-        await timerUtils.wait(2200);
-        // Step 2: Creating cloud key
-        goNextStep(EFinalizeWalletSetupSteps.CreatingCloudKey);
-        await timerUtils.wait(2200);
-        // Step 3: Creating auth key
-        goNextStep(EFinalizeWalletSetupSteps.CreatingAuthKey);
-        await timerUtils.wait(2200);
-        // Done
-        goNextStep(EFinalizeWalletSetupSteps.Ready);
-        return;
-      }
       // **** hd wallet case
       if (mnemonic && !created.current) {
         await withPromptPasswordVerify({
@@ -384,7 +340,6 @@ function FinalizeWalletSetupPage({
     goNextStep,
     connectDevice,
     createHWWallet,
-    isKeylessWallet,
   ]);
 
   useEffect(() => {
@@ -431,12 +386,8 @@ function FinalizeWalletSetupPage({
   }, [createWallet, initialStep]);
 
   const currentStepData =
-    stepsData[currentStep] ||
-    stepsData[
-      isKeylessWallet
-        ? EFinalizeWalletSetupSteps.CreatingDeviceKey
-        : EFinalizeWalletSetupSteps.EncryptingData
-    ];
+    STEPS_DATA[currentStep] ||
+    STEPS_DATA[EFinalizeWalletSetupSteps.EncryptingData];
 
   const svgMask = (
     <Svg
