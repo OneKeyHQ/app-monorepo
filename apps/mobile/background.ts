@@ -4,6 +4,8 @@ import { NativeModules } from 'react-native';
 import { FileLogger } from 'react-native-file-logger';
 import { createMMKV } from 'react-native-mmkv';
 
+import { nativeBGBridge } from '@onekeyhq/shared/src/nativeBridge';
+
 console.log('background.ts');
 console.log('background22212.ts');
 
@@ -20,6 +22,4 @@ globalThis.Sharing = async () => {
   return Sharing.shareAsync('12313213');
 };
 
-setTimeout(() => {
-  alert('in background');
-}, 10 * 1000);
+nativeBGBridge.postHostMessage({ type: 'test' });

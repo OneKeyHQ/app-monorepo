@@ -98,6 +98,9 @@ declare global {
   var extJsBridgeOffscreenToBg: JsBridgeBase;
   var ONEKEY_DESKTOP_DEEP_LINKS: any[];
 
+  var postHostMessage: (message: Record<string, any>) => void;
+  var onHostMessage: (callback: (message: Record<string, any>) => void) => void;
+
   var WEB_EMBED_ONEKEY_APP_SETTINGS: IWebEmbedOnekeyAppSettings | undefined;
 
   // Added for webpack/bundler injected variables
