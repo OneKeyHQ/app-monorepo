@@ -37,6 +37,7 @@ import type {
   IApyHistoryResponse,
   IAvailableAsset,
   IBabylonPortfolioItem,
+  IBorrowHistory,
   IBorrowMarketItem,
   IBorrowReserveItem,
   IBorrowReserveRequestParams,
@@ -1961,6 +1962,33 @@ class ServiceStaking extends ServiceBase {
     const response = await client.get<{
       data: IBorrowReserveItem;
     }>('/earn/v1/borrow/reserves', {
+      params: {
+        ...rest,
+        accountAddress,
+      },
+    });
+    return response.data.data;
+  }
+
+  @backgroundMethod()
+  async getBorrowHistory(params: {
+    networkId: string;
+    provider: string;
+    marketAddress: string;
+    accountId: string;
+  }) {
+    const { accountId, ...rest } = params;
+
+    const accountAddress =
+      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        networkId: params.networkId,
+        accountId,
+      });
+
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const response = await client.get<{
+      data: IBorrowHistory;
+    }>('/earn/v1/borrow/obligation/history', {
       params: {
         ...rest,
         accountAddress,

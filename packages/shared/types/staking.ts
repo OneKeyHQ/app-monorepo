@@ -672,6 +672,12 @@ export interface IBorrowHealthFactorRiskDetail {
   text: IEarnText;
 }
 
+export interface IBorrowOnekeyBonusAction {
+  type: 'OneKeyBonus';
+  disabled: boolean;
+  text: IEarnText;
+}
+
 export type IEarnActionIcon =
   | IEarnPopupActionIcon
   | IEarnLinkActionIcon
@@ -1644,8 +1650,16 @@ export interface IBorrowReserveItem {
       text: IEarnText;
       button?: IBorrowHealthFactorRiskDetail;
     };
+    onekeyBonus: {
+      value: string;
+      text: IEarnText;
+      button?: IBorrowOnekeyBonusAction;
+    };
     history: IEarnHistoryActionIcon;
-    rewards: IEarnClaimActionIcon;
+    rewards: {
+      text: IEarnText;
+      button: IEarnClaimActionIcon;
+    };
   };
   supplied: {
     suppliedBalance: string;
@@ -1692,4 +1706,15 @@ export interface IBorrowReserveItem {
       borrowButton: any; // FIXME[borrow]: borrow action icon
     }[];
   };
+}
+
+export interface IBorrowHistory {
+  list: {
+    networkId: string;
+    txHash: string;
+    title: string;
+    amount: string;
+    tokenAddress: string;
+    timestamp: number;
+  }[];
 }
