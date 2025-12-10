@@ -63,20 +63,20 @@ RCT_EXPORT_METHOD(startBackgroundRunner) {
     NSDictionary *initialProperties = @{};
     NSDictionary *launchOptions = @{};
     #if DEBUG
-    [self.reactNativeFactoryDelegate setJsBundleSource:std::string([MODULE_DEBUG_URL UTF8String])];
+    [sharedInstance.reactNativeFactoryDelegate setJsBundleSource:std::string([MODULE_DEBUG_URL UTF8String])];
     #endif
-    [self.reactNativeFactory.rootViewFactory viewWithModuleName:MODULE_NAME
+    [sharedInstance.reactNativeFactory.rootViewFactory viewWithModuleName:MODULE_NAME
                                                              initialProperties:initialProperties
                                                                  launchOptions:launchOptions];
   });
 }
 
 RCT_EXPORT_METHOD(postMessage:(NSString *)msg) {
-    [self.reactNativeFactoryDelegate postMessage:std::string([msg UTF8String])];
+    [sharedInstance.reactNativeFactoryDelegate postMessage:std::string([msg UTF8String])];
 }
 
 RCT_EXPORT_METHOD(onMessage:(RCTResponseSenderBlock)callback) {
-  self.reactNativeFactoryDelegate.onMessageCallback = callback;
+  sharedInstance.reactNativeFactoryDelegate.onMessageCallback = callback;
 }
 
 @end
