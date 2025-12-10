@@ -899,6 +899,8 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
       params: {
         num: 0,
         sceneName: EAccountSelectorSceneName.swap,
+        editable: true,
+        linkNetwork: true,
       },
     });
   }, [navigation]);

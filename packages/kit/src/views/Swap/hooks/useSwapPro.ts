@@ -4,6 +4,7 @@ import BigNumber from 'bignumber.js';
 
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { useSwapProJumpTokenAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/swap';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -22,7 +23,10 @@ import {
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useCurrency } from '../../../components/Currency';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
-import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
+import {
+  useAccountSelectorActions,
+  useActiveAccount,
+} from '../../../states/jotai/contexts/accountSelector';
 import {
   useSwapActions,
   useSwapFromTokenAmountAtom,
@@ -108,8 +112,10 @@ export function useSwapProToToken() {
 
 export function useSwapProAccount() {
   const { activeAccount } = useActiveAccount({ num: 0 });
+  const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const inputToken = useSwapProInputToken();
   const [selectMarketToken] = useSwapProSelectTokenAtom();
+  const { updateSelectedAccountNetwork } = useAccountSelectorActions().current;
   const netAccountRes = usePromiseResult(async () => {
     try {
       const defaultDeriveType =
@@ -134,6 +140,25 @@ export function useSwapProAccount() {
     activeAccount?.indexedAccount?.id,
     inputToken?.networkId,
     selectMarketToken?.networkId,
+  ]);
+
+  useEffect(() => {
+    if (
+      selectMarketToken?.networkId &&
+      swapTypeSwitch === ESwapTabSwitchType.LIMIT &&
+      activeAccount?.network?.id !== selectMarketToken?.networkId &&
+      platformEnv.isNative
+    ) {
+      void updateSelectedAccountNetwork({
+        num: 0,
+        networkId: selectMarketToken?.networkId,
+      });
+    }
+  }, [
+    activeAccount?.network?.id,
+    selectMarketToken?.networkId,
+    swapTypeSwitch,
+    updateSelectedAccountNetwork,
   ]);
   return netAccountRes;
 }
