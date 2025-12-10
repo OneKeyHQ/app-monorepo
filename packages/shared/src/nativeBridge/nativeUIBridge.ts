@@ -4,7 +4,7 @@ const { BackgroundRunnerModule } = NativeModules as unknown as {
   BackgroundRunnerModule: {
     postMessage: (message: string) => void;
     onMessage: (
-      callback: (error: Error | null, message: Record<string, any>) => void,
+      callback: (error: Error | null, message: string) => void,
     ) => void;
   };
 };
@@ -12,11 +12,9 @@ const { BackgroundRunnerModule } = NativeModules as unknown as {
 type ICallback = (message: Record<string, any>) => void;
 
 const callbacks: Set<ICallback> = new Set();
-const onMessageCallback = (
-  error: Error | null,
-  message: Record<string, any>,
-) => {
-  callbacks.forEach((callback: ICallback) => callback(message));
+const onMessageCallback = (error: Error | null, message: string) => {
+  console.log('onMessageCallback', message);
+  callbacks.forEach((callback: ICallback) => callback(JSON.parse(message)));
 };
 
 BackgroundRunnerModule.onMessage(onMessageCallback);
