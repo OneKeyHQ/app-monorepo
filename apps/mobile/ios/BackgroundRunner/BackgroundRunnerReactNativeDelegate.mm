@@ -113,10 +113,7 @@ static std::string safeGetStringProperty(jsi::Runtime &rt, const jsi::Object &ob
   if ([jsBundleSourceNS hasSuffix:@".jsbundle"]) {
     return [[NSBundle mainBundle] URLForResource:jsBundleSourceNS withExtension:nil];
   }
-
-  NSString *bundleName =
-      [jsBundleSourceNS hasSuffix:@".bundle"] ? [jsBundleSourceNS stringByDeletingPathExtension] : jsBundleSourceNS;
-  return [[RCTBundleURLProvider sharedSettings] jsBundleURLForBundleRoot:bundleName];
+  return [[NSBundle mainBundle] URLForResource: @"background" withExtension: @"bundle"];
 }
 
 - (void)postMessage:(const std::string &)message
