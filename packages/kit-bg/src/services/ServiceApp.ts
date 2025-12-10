@@ -1,9 +1,11 @@
+import axios from 'axios';
 import RNRestart from 'react-native-restart';
 
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import {
   backgroundClass,
   backgroundMethod,
+  toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
   isAvailable,
@@ -334,6 +336,64 @@ class ServiceApp extends ServiceBase {
   async getLaunchTimesLastReset() {
     const v = await simpleDb.appStatus.getRawData();
     return v?.launchTimesLastReset ?? 0;
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async testToastDeduplication({
+    errorCode,
+    count = 10,
+  }: {
+    errorCode: 403 | 429 | 500 | 502 | 503;
+    count?: number;
+  }) {
+    const BASE_URL = 'http://localhost:3456';
+    const endpointMap = {
+      403: '/api/test-403',
+      429: '/api/test-429',
+      500: '/api/test-500',
+      502: '/api/test-502',
+      503: '/api/test-503',
+    };
+
+    const endpoint = endpointMap[errorCode];
+    const promises = [];
+
+    console.log('[Toast Deduplication Test] Starting test', {
+      errorCode,
+      count,
+    });
+
+    for (let i = 0; i < count; i += 1) {
+      promises.push(
+        axios
+          .get<string>(`${BASE_URL}${endpoint}`, {
+            validateStatus: () => true, // Don't throw on any status code
+          })
+          .then((res) => {
+            console.log(
+              `[Toast Deduplication Test] Request ${i + 1}/${count}:`,
+              res.status,
+              res.statusText,
+            );
+            return res.data;
+          })
+          .catch((err) => {
+            console.error(
+              `[Toast Deduplication Test] Request ${i + 1}/${count} failed:`,
+              err,
+            );
+            throw err;
+          }),
+      );
+    }
+
+    await Promise.all(promises);
+
+    return {
+      success: true,
+      message: `Sent ${count} concurrent ${errorCode} requests. Check toast count in UI.`,
+    };
   }
 }
 

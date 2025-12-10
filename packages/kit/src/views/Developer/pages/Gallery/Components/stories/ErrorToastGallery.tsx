@@ -244,6 +244,88 @@ function Demo2() {
   return (
     <Stack gap="$2">
       <Button
+        onPress={async () => {
+          const result =
+            await backgroundApiProxy.serviceApp.testToastDeduplication({
+              errorCode: 503,
+              count: 10,
+            });
+          console.log('[503 Test]', result);
+        }}
+      >
+        🔥 Test 10x 503 (Should show 1 toast)
+      </Button>
+      <Button
+        onPress={async () => {
+          const result =
+            await backgroundApiProxy.serviceApp.testToastDeduplication({
+              errorCode: 502,
+              count: 10,
+            });
+          console.log('[502 Test]', result);
+        }}
+      >
+        🔥 Test 10x 502 (Should show 1 toast)
+      </Button>
+      <Button
+        onPress={async () => {
+          const result =
+            await backgroundApiProxy.serviceApp.testToastDeduplication({
+              errorCode: 500,
+              count: 10,
+            });
+          console.log('[500 Test]', result);
+        }}
+      >
+        🔥 Test 10x 500 (Should show 1 toast)
+      </Button>
+      <Button
+        onPress={async () => {
+          const result =
+            await backgroundApiProxy.serviceApp.testToastDeduplication({
+              errorCode: 429,
+              count: 10,
+            });
+          console.log('[429 Test]', result);
+        }}
+      >
+        🔥 Test 10x 429 (Should show 1 toast)
+      </Button>
+      <Button
+        onPress={async () => {
+          const result =
+            await backgroundApiProxy.serviceApp.testToastDeduplication({
+              errorCode: 403,
+              count: 10,
+            });
+          console.log('[403 Test]', result);
+        }}
+      >
+        🔥 Test 10x 403 (Should show 1 toast)
+      </Button>
+      <Button
+        onPress={async () => {
+          // Test mixed 5xx errors - all should be deduplicated to 1 toast
+          await Promise.all([
+            backgroundApiProxy.serviceApp.testToastDeduplication({
+              errorCode: 500,
+              count: 5,
+            }),
+            backgroundApiProxy.serviceApp.testToastDeduplication({
+              errorCode: 502,
+              count: 5,
+            }),
+            backgroundApiProxy.serviceApp.testToastDeduplication({
+              errorCode: 503,
+              count: 5,
+            }),
+          ]);
+          console.log('[Mixed 5xx Test] All 15 requests completed');
+        }}
+      >
+        🔥 Test Mixed 5xx (15 requests, should show 1 toast)
+      </Button>
+      <Button
         onPress={() => {
           // Simulate error toast with diagnostic info via EventBus
           appEventBus.emit(EAppEventBusNames.ShowToast, {
@@ -344,7 +426,7 @@ const ErrorToastGallery = () => (
         ),
       },
       {
-        title: 'ErrorToast - New UX (Step 2)',
+        title: 'ErrorToast - Deduplication Tests (403/429/5xx)',
         element: (
           <Stack gap="$1">
             <Demo2 />

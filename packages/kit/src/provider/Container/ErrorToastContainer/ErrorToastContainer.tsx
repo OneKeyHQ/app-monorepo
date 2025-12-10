@@ -9,8 +9,25 @@ import {
 
 import { getErrorAction } from './ErrorToasts';
 
-const ERROR_CODE = [403];
-const isFilterErrorCode = (code?: number) => code && ERROR_CODE.includes(code);
+// Get deduplication ID for error codes to prevent toast spam
+const getDeduplicationId = (
+  code?: number,
+): { id: string | undefined; forceDeduplicate: boolean } => {
+  if (!code) return { id: undefined, forceDeduplicate: false };
+
+  // Forbidden - force deduplicate
+  if (code === 403) return { id: 'error_403', forceDeduplicate: true };
+
+  // Rate limiting - force deduplicate to avoid spam
+  if (code === 429) return { id: 'error_429', forceDeduplicate: true };
+
+  // Server errors (5xx) - force unified deduplication to prevent toast avalanche
+  if (code >= 500 && code < 600) {
+    return { id: 'error_5xx', forceDeduplicate: true };
+  }
+
+  return { id: undefined, forceDeduplicate: false };
+};
 
 export function ErrorToastContainer() {
   useEffect(() => {
@@ -18,11 +35,12 @@ export function ErrorToastContainer() {
       if (!p.title) {
         return;
       }
-      const toastIdByErrorCode = isFilterErrorCode(p.errorCode)
-        ? String(p.errorCode)
-        : undefined;
-      // Use requestId or title as toastId for de-duplication
-      const toastId = p.toastId || toastIdByErrorCode || p.requestId || p.title;
+      const deduplication = getDeduplicationId(p.errorCode);
+      // For critical errors (403, 429, 5xx), force deduplication to prevent toast spam
+      // Otherwise, respect custom toastId from caller
+      const toastId = deduplication.forceDeduplicate
+        ? deduplication.id
+        : p.toastId || deduplication.id || p.requestId || p.title;
 
       const actions = getErrorAction({
         errorCode: p.errorCode,
