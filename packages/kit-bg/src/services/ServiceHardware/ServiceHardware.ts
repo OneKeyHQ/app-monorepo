@@ -1229,6 +1229,7 @@ class ServiceHardware extends ServiceBase {
       | {
           fw_vendor: string | undefined;
           capabilities: number[] | undefined;
+          $app_firmware_type?: EFirmwareType;
         }
       | undefined;
     const capabilityBitcoinLike = 2;
@@ -1249,6 +1250,7 @@ class ServiceHardware extends ServiceBase {
         bitcoinOnlyFlag = {
           fw_vendor: bitcoinOnlyFwVendor,
           capabilities: newCapabilities,
+          $app_firmware_type: EFirmwareType.BitcoinOnly,
         };
       } else if (
         updateFirmwareInfo?.fromFirmwareType === EFirmwareType.BitcoinOnly &&
@@ -1269,6 +1271,7 @@ class ServiceHardware extends ServiceBase {
         bitcoinOnlyFlag = {
           fw_vendor: undefined,
           capabilities,
+          $app_firmware_type: EFirmwareType.Universal,
         };
       }
     } catch (error) {
