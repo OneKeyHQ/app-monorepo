@@ -847,6 +847,7 @@
   "earn_no_assets_deposited": "এখনও কোনও সম্পদ জমা দেওয়া হয়নি।",
   "earn_reward_distribution_schedule": "আগামী মাসের ১০ তারিখের মধ্যে আপনার Arbitrum ওয়ালেটে (Ethereum এর ঠিকানায়) পুরষ্কার বিতরণ করা হবে।",
   "edit_fee_custom_set_as_default_description": "সমস্ত ভবিষ্যৎ লেনদেনের জন্য {network}-এ ডিফল্ট হিসাবে সেট করুন",
+  "email_verification_rate_limit": "অনুগ্রহ করে নতুন যাচাইকরণ কোডের অনুরোধ করার আগে {rest} সেকেন্ড অপেক্ষা করুন",
   "energy_consumed": "ব্যবহৃত শক্তি",
   "enter_passcode": "পাসকোড প্রবেশ করুন",
   "enter_password": "পাসওয়ার্ড লিখুন",
