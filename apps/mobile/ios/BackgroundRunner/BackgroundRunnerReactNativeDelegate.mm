@@ -100,20 +100,21 @@ static std::string safeGetStringProperty(jsi::Runtime &rt, const jsi::Object &ob
 
 - (NSURL *)bundleURL
 {
-  if (_jsBundleSource.empty()) {
-    return nil;
-  }
+  if (!_jsBundleSource.empty()) {
+    NSString *jsBundleSourceNS = [NSString stringWithUTF8String:_jsBundleSource.c_str()];
+    NSURL *url = [NSURL URLWithString:jsBundleSourceNS];
+    if (url && url.scheme) {
+      return url;
+    }
 
-  NSString *jsBundleSourceNS = [NSString stringWithUTF8String:_jsBundleSource.c_str()];
-  NSURL *url = [NSURL URLWithString:jsBundleSourceNS];
-  if (url && url.scheme) {
-    return url;
+    if ([jsBundleSourceNS hasSuffix:@".jsbundle"]) {
+      return [[NSBundle mainBundle] URLForResource:jsBundleSourceNS withExtension:nil];
+    }
   }
-
-  if ([jsBundleSourceNS hasSuffix:@".jsbundle"]) {
-    return [[NSBundle mainBundle] URLForResource:jsBundleSourceNS withExtension:nil];
-  }
-  return [[NSBundle mainBundle] URLForResource: @"background" withExtension: @"bundle"];
+  
+  NSURL* bundleFile = [[NSBundle mainBundle] URLForResource: @"background" withExtension: @"bundle"];
+  NSLog(@"bundleFileURL: %@", bundleFile);
+  return bundleFile;
 }
 
 - (void)postMessage:(const std::string &)message
