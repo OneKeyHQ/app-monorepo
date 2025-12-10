@@ -18,10 +18,10 @@ import { WalletEditButton } from '@onekeyhq/kit/src/views/AccountManagerStacks/c
 import { WalletRenameButton } from '@onekeyhq/kit/src/views/AccountManagerStacks/components/WalletRename';
 import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import type { IWalletDetailsProps } from '..';
-import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 
 type IWalletDetailsHeaderProps = {
   editable?: boolean;

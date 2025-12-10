@@ -34,13 +34,7 @@ const ManagePositionPage = () => {
     vault: string | undefined;
     tokenImageUri: string | undefined;
   }>(() => {
-    const {
-      networkId,
-      symbol,
-      provider,
-      vault,
-      tokenImageUri,
-    } = route.params;
+    const { networkId, symbol, provider, vault, tokenImageUri } = route.params;
     return {
       accountId: activeAccount.account?.id || '',
       indexedAccountId: activeAccount.indexedAccount?.id,
