@@ -53,14 +53,6 @@ RCT_EXPORT_MODULE(BackgroundRunnerModule)
   return @[@"toUI", @"toBackground"];
 }
 
-- (void)startObserving {
-  _hasListeners = YES;
-}
-
-- (void)stopObserving {
-  _hasListeners = NO;
-}
-
 RCT_EXPORT_METHOD(startBackgroundRunner) {
   if (isStarted) {
     return;
@@ -80,9 +72,7 @@ RCT_EXPORT_METHOD(startBackgroundRunner) {
 }
 
 RCT_EXPORT_METHOD(postMessage:(NSString *)msg) {
-  if (_hasListeners) {
     [self.reactNativeFactoryDelegate postMessage:std::string([msg UTF8String])];
-  }
 }
 
 RCT_EXPORT_METHOD(onMessage:(RCTResponseSenderBlock)callback) {
