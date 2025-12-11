@@ -178,7 +178,7 @@ const SwapProContainer = ({
           />
           <TabBarItem
             name={ETabName.SwapProOpenOrders}
-            isFocused={activeTab === ETabName.OpenOrders}
+            isFocused={activeTab === ETabName.SwapProOpenOrders}
             onPress={setActiveTab}
           />
         </XStack>
