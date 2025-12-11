@@ -40,9 +40,6 @@ export const DeviceTransfer = ({ packs }: IDeviceTransferProps) => {
               return;
             }
             try {
-              (
-                globalThis as Record<string, unknown>
-              ).$pendingDeviceKeyPackForTransfer = packs.deviceKeyPack;
               setDeviceTransferResult(
                 '⏳ DeviceKeyPack stored. Opening transfer page...',
               );
@@ -87,8 +84,7 @@ export const DeviceTransfer = ({ packs }: IDeviceTransferProps) => {
           size="small"
           variant="tertiary"
           onPress={() => {
-            const pendingPack = (globalThis as Record<string, unknown>)
-              .$pendingDeviceKeyPackForTransfer;
+            const pendingPack = {};
             if (pendingPack) {
               Dialog.debugMessage({
                 debugMessage: {
@@ -109,9 +105,6 @@ export const DeviceTransfer = ({ packs }: IDeviceTransferProps) => {
           size="small"
           variant="tertiary"
           onPress={() => {
-            (
-              globalThis as Record<string, unknown>
-            ).$pendingDeviceKeyPackForTransfer = undefined;
             setDeviceTransferResult('✅ Cleared pending DeviceKeyPack');
           }}
         >

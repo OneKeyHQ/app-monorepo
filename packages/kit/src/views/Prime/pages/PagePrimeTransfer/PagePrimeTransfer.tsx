@@ -270,24 +270,6 @@ export default function PagePrimeTransfer() {
         shouldPreventRemove={primeTransferAtom.shouldPreventExit}
         // shouldPreventRemove={false}
       />
-      {/* Only show "I don't have a Keyless Wallet" for creation flow */}
-      {/* - default: other data transfer, not related to Keyless Wallet */}
-      {/* - createKeylessWallet: creating Keyless Wallet, user might not have one */}
-      {/* - recoverKeylessWallet: recovering, user already has Keyless Wallet */}
-      {routeParamsTransferType === EPrimeTransferDataType.keylessWallet ? (
-        <Page.Footer>
-          <YStack p="$5">
-            <Button variant="tertiary" size="small" childrenAsText={false}>
-              <XStack gap="$2" alignItems="center">
-                <SizableText color="$textInteractive" size="$bodyMdMedium">
-                  I don't have a Keyless Wallet
-                </SizableText>
-                <Icon name="OpenOutline" color="$textInteractive" size="$4" />
-              </XStack>
-            </Button>
-          </YStack>
-        </Page.Footer>
-      ) : null}
     </Page>
   );
 }

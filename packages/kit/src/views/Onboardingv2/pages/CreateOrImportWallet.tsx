@@ -3,7 +3,7 @@ import { useCallback, useState } from 'react';
 
 import { useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
-import { ActivityIndicator, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
 
 import type { ISizableTextProps, IYStackProps } from '@onekeyhq/components';
 import {
@@ -16,6 +16,7 @@ import {
   Image,
   Page,
   SizableText,
+  Spinner,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -301,7 +302,7 @@ function CreateOrImportWallet() {
                   </SizableText>
                 ) : null} */}
                 {enableKeylessWalletLoading ? (
-                  <ActivityIndicator size="small" color="$iconDisabled" />
+                  <Spinner size="small" color="$iconDisabled" />
                 ) : (
                   <Icon name="ChevronRightSmallOutline" color="$iconSubdued" />
                 )}

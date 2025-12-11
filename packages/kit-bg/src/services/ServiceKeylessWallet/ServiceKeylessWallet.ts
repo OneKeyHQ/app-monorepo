@@ -426,7 +426,6 @@ class ServiceKeylessWallet extends ServiceBase {
   /**
    * Get navigation params for sending deviceKeyPack to another device.
    * The caller should:
-   * 1. Store deviceKeyPack to globalThis.$pendingDeviceKeyPackForTransfer
    * 2. Navigate to PrimeTransfer with the returned params
    */
   @backgroundMethod()

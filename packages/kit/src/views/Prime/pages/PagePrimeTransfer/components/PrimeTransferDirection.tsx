@@ -350,8 +350,8 @@ export function PrimeTransferDirection({
 
         // Handle keylessWallet transfer - either local or remote is in keylessWallet mode
         if (isKeylessWalletTransfer) {
-          const deviceKeyPack = (globalThis as Record<string, unknown>)
-            .$pendingDeviceKeyPackForTransfer as IDeviceKeyPack | undefined;
+          const deviceKeyPack =
+            await backgroundApiProxy.serviceKeylessWallet.getKeylessDevicePackSafe();
           if (!deviceKeyPack) {
             Toast.error({
               title: 'No DeviceKeyPack to transfer',
@@ -538,7 +538,7 @@ export function PrimeTransferDirection({
       // Handle keylessWallet transfer - show deviceKeyPack in debug dialog
       if (isKeylessWalletTransfer) {
         const receivedDeviceKeyPack = data.data?.privateData?.deviceKeyPack;
-        exitTransferFlow();
+        exitTransferFlow(600, { skipCloseOnboardingPages: true });
         Dialog.debugMessage({
           debugMessage: {
             message: 'DeviceKeyPack received successfully',
@@ -687,3 +687,24 @@ export function PrimeTransferDirection({
     </>
   );
 }
+
+/* Only show "I don't have a Keyless Wallet" for creation flow */
+/* - default: other data transfer, not related to Keyless Wallet */
+/* - createKeylessWallet: creating Keyless Wallet, user might not have one */
+/* - recoverKeylessWallet: recovering, user already has Keyless Wallet */
+/* 
+      {transferType === EPrimeTransferDataType.keylessWallet ? (
+        <Page.Footer>
+          <YStack p="$5">
+            <Button variant="tertiary" size="small" childrenAsText={false}>
+              <XStack gap="$2" alignItems="center">
+                <SizableText color="$textInteractive" size="$bodyMdMedium">
+                  I don't have a Keyless Wallet
+                </SizableText>
+                <Icon name="OpenOutline" color="$textInteractive" size="$4" />
+              </XStack>
+            </Button>
+          </YStack>
+        </Page.Footer>
+      ) : null}
+*/
