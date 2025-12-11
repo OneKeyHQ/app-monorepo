@@ -27,6 +27,7 @@ import { devSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms'
 import type { IJotaiSetter } from '@onekeyhq/kit-bg/src/states/jotai/types';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
 import {
   WALLET_TYPE_EXTERNAL,
   WALLET_TYPE_IMPORTED,
@@ -856,6 +857,44 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             isOverrideWallet,
           });
           return { wallet, indexedAccount, isOverrideWallet };
+        },
+        generatingAccountsFn: async ({ wallet, indexedAccount }) => {
+          await this.addDefaultNetworkAccounts.call(set, {
+            wallet,
+            indexedAccount,
+          });
+        },
+      }),
+  );
+
+  createKeylessWallet = contextAtomMethod(
+    async (
+      _,
+      set,
+      {
+        packSetId,
+        name,
+        avatarInfo,
+      }: {
+        packSetId: string;
+        name?: string;
+        avatarInfo?: IAvatarInfo;
+      },
+    ) =>
+      this.withFinalizeWalletSetupStep.call(set, {
+        createWalletFn: async () => {
+          const { wallet, indexedAccount } =
+            await backgroundApiProxy.serviceKeylessWallet.createKeylessWallet({
+              packSetId,
+              name,
+              avatarInfo,
+            });
+          await this.autoSelectToCreatedWallet.call(set, {
+            wallet,
+            indexedAccount,
+            isOverrideWallet: undefined,
+          });
+          return { wallet, indexedAccount, isOverrideWallet: undefined };
         },
         generatingAccountsFn: async ({ wallet, indexedAccount }) => {
           await this.addDefaultNetworkAccounts.call(set, {
@@ -2259,6 +2298,7 @@ export function useAccountSelectorActions() {
   const createHWWalletWithoutHidden = actions.createHWWalletWithoutHidden.use();
   const createQrWallet = actions.createQrWallet.use();
   const createTonImportedWallet = actions.createTonImportedWallet.use();
+  const createKeylessWallet = actions.createKeylessWallet.use();
   const autoSelectNextAccount = actions.autoSelectNextAccount.use();
   const updateHwWalletsDeprecatedStatus =
     actions.updateHwWalletsDeprecatedStatus.use();
@@ -2297,6 +2337,7 @@ export function useAccountSelectorActions() {
     createHWWalletWithoutHidden,
     createQrWallet,
     createTonImportedWallet,
+    createKeylessWallet,
     updateHwWalletsDeprecatedStatus,
     autoSelectNextAccount,
     autoSelectNetworkOfOthersWalletAccount,

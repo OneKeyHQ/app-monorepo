@@ -8,7 +8,10 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import type { ICloudBackupKeylessWalletPayload } from '@onekeyhq/shared/src/cloudBackup/cloudBackupTypes';
 import { ECloudBackupProviderType } from '@onekeyhq/shared/src/cloudBackup/cloudBackupTypes';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  OneKeyLocalError,
+  PrimeLoginDialogCancelError,
+} from '@onekeyhq/shared/src/errors';
 import type {
   IAuthKeyPack,
   ICloudKeyPack,
@@ -32,7 +35,7 @@ import { EPrimeTransferDataType } from '@onekeyhq/shared/types/prime/primeTransf
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import localDb from '../../dbs/local/localDb';
-import { primePersistAtom } from '../../states/jotai/atoms';
+import { IKeylessDialogAtomData, keylessDialogAtom, primePersistAtom } from '../../states/jotai/atoms';
 import { devSettingsPersistAtom } from '../../states/jotai/atoms/devSettings';
 import ServiceBase from '../ServiceBase';
 
@@ -163,17 +166,20 @@ class ServiceKeylessWallet extends ServiceBase {
     return wallet;
   }
 
-  async restoreKeylessWalletMnemonic(_params: {
+  @backgroundMethod()
+  @toastIfError()
+  async revealKeylessWalletMnemonic(_params: {
     walletId: string;
     password: string;
   }): Promise<{
     mnemonic: string;
   }> {
-    const MOCKED_KEYLESS_MNEMONIC =
-      'sketch boil bubble crazy yard thunder wrestle clutch episode roast unique quiz inform grain month spirit veteran solution nature layer notable mom second pet';
-
+    const result = await this.enableKeylessWalletSilently();
+    if (!result?.packs?.mnemonic) {
+      throw new OneKeyLocalError('Failed to restore keyless wallet mnemonic');
+    }
     return {
-      mnemonic: MOCKED_KEYLESS_MNEMONIC,
+      mnemonic: result.packs.mnemonic,
     };
   }
 
@@ -586,7 +592,71 @@ class ServiceKeylessWallet extends ServiceBase {
     if (cachedAuthPack) {
       return cachedAuthPack;
     }
+
+    // 2. Try server API to get authPack
+    try {
+      const authPack = await this.promptKeylessAuthPackDialog();
+      if (authPack) {
+        // Cache the authPack in memory
+        await this.cacheAuthPackInMemory({ authPack });
+        return authPack;
+      }
+    } catch (error) {
+      // User cancelled or error occurred, return null
+      return null;
+    }
+
     return null;
+  }
+
+  @backgroundMethod()
+  async promptKeylessAuthPackDialog(): Promise<IAuthKeyPack | null> {
+    const authPack = await new Promise<IAuthKeyPack | null>(
+      // eslint-disable-next-line no-async-promise-executor
+      async (resolve, reject) => {
+        const promiseId = this.backgroundApi.servicePromise.createCallback({
+          resolve,
+          reject,
+        });
+        await keylessDialogAtom.set((v: IKeylessDialogAtomData) => ({
+          ...v,
+          promptKeylessAuthPackDialog: promiseId,
+        }));
+      },
+    );
+    return authPack;
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async resolveKeylessAuthPackDialog({
+    promiseId,
+    authPack,
+  }: {
+    promiseId: number;
+    authPack: IAuthKeyPack;
+  }) {
+    await keylessDialogAtom.set((v: IKeylessDialogAtomData) => ({
+      ...v,
+      promptKeylessAuthPackDialog: undefined,
+    }));
+    await this.backgroundApi.servicePromise.resolveCallback({
+      id: promiseId,
+      data: authPack,
+    });
+  }
+
+  @backgroundMethod()
+  async cancelKeylessAuthPackDialog({ promiseId }: { promiseId: number }) {
+    const error = new PrimeLoginDialogCancelError();
+    await keylessDialogAtom.set((v: IKeylessDialogAtomData) => ({
+      ...v,
+      promptKeylessAuthPackDialog: undefined,
+    }));
+    return this.backgroundApi.servicePromise.rejectCallback({
+      id: promiseId,
+      error,
+    });
   }
 
   @backgroundMethod()

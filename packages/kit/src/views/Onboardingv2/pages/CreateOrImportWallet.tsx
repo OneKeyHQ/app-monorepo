@@ -32,8 +32,10 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import externalWalletLogoUtils from '@onekeyhq/shared/src/utils/externalWalletLogoUtils';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { useKeylessWallet } from '../../../components/KeylessWallet/useKeylessWallet';
 import { useOneKeyAuth } from '../../../components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '../../../hooks/useAppNavigation';
@@ -136,7 +138,7 @@ const Card = Object.assign(CardRoot, {
   Body: CardBody,
 });
 
-export default function CreateOrImportWallet() {
+function CreateOrImportWallet() {
   const intl = useIntl();
   const route =
     useRoute<
@@ -577,3 +579,17 @@ export default function CreateOrImportWallet() {
     </Page>
   );
 }
+
+function CreateOrImportWalletWithContext() {
+  return (
+    <AccountSelectorProviderMirror
+      enabledNum={[0]}
+      config={{
+        sceneName: EAccountSelectorSceneName.home,
+      }}
+    >
+      <CreateOrImportWallet />
+    </AccountSelectorProviderMirror>
+  );
+}
+export default CreateOrImportWalletWithContext;

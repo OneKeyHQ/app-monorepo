@@ -61,7 +61,7 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
         })
       ) {
         const { mnemonic } =
-          await this.backgroundApi.serviceKeylessWallet.restoreKeylessWalletMnemonic(
+          await this.backgroundApi.serviceKeylessWallet.revealKeylessWalletMnemonic(
             {
               walletId: checkIsDefined(this.walletId),
               password,

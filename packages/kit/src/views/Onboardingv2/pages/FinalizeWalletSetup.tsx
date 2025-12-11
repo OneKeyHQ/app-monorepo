@@ -316,14 +316,9 @@ function FinalizeWalletSetupPage({
         });
       } else if (keylessPackSetId && !created.current) {
         // Create keyless wallet
-        await backgroundApiProxy.serviceKeylessWallet.createKeylessWallet({
+        await actions.current.createKeylessWallet({
           packSetId: keylessPackSetId,
         });
-        goNextStep(EFinalizeWalletSetupSteps.EncryptingData);
-        await timerUtils.wait(2200);
-        goNextStep(EFinalizeWalletSetupSteps.GeneratingAccounts);
-        await timerUtils.wait(2200);
-        goNextStep(EFinalizeWalletSetupSteps.Ready);
         created.current = true;
       }
     } catch (error) {

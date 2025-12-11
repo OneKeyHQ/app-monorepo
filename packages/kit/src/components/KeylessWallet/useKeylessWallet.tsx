@@ -28,6 +28,7 @@ import { EPrimeTransferDataType } from '@onekeyhq/shared/types/prime/primeTransf
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../hooks/useAppNavigation';
+import { useAccountSelectorActions } from '../../states/jotai/contexts/accountSelector';
 import { useOneKeyAuth } from '../OneKeyAuth/useOneKeyAuth';
 
 export function useKeylessWallet() {
@@ -38,6 +39,7 @@ export function useKeylessWallet() {
     return !!user?.keylessWalletId;
   }, []);
   const navigation = useAppNavigation();
+  const actions = useAccountSelectorActions();
 
   const generatePacks = useCallback(async () => {
     await loginOneKeyId();
@@ -267,6 +269,7 @@ export function useKeylessWallet() {
           if (fromScene === EKeylessWalletEnableScene.Onboarding) {
             if (keylessWalletId) {
               const restoredPacks = await enableKeylessWalletSilentlyFn();
+              // TODO remove mnemonic from method return
               if (restoredPacks?.packs?.mnemonic) {
                 Dialog.show({
                   title: 'Keyless Wallet',
@@ -276,6 +279,10 @@ export function useKeylessWallet() {
                   onConfirmText: intl.formatMessage({
                     id: ETranslations.global_got_it,
                   }),
+                });
+                // TODO coreApi stringify ERROR
+                void actions.current.createKeylessWallet({
+                  packSetId: restoredPacks?.packs?.deviceKeyPack?.packSetId,
                 });
               } else {
                 navigation.navigate(ERootRoutes.Onboarding, {
@@ -311,6 +318,7 @@ export function useKeylessWallet() {
       });
     },
     [
+      actions,
       enableKeylessWalletSilentlyFn,
       intl,
       isSupportCloudBackup,

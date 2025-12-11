@@ -99,6 +99,7 @@ import type {
   IDeviceVersionCacheInfo,
   IOneKeyDeviceFeatures,
 } from '@onekeyhq/shared/types/device';
+import type { ICloudSyncKeyInfoWallet } from '@onekeyhq/shared/types/prime/primeCloudSyncTypes';
 import type {
   ICreateConnectedSiteParams,
   ICreateSignedMessageParams,
@@ -3254,6 +3255,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     const wallet = await this.getWallet({
       walletId,
     });
+    const isKeylessWallet = accountUtils.isKeylessWallet({ walletId });
     const walletsInSameDevice = await this.getNormalHwQrWalletInSameDevice({
       associatedDevice: wallet.associatedDevice,
     });
@@ -3263,9 +3265,12 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       dbRecord: wallet,
     });
     // TODO buildSyncKeyAndPayloadSafe
-    const syncKeyInfo = await syncManagers.wallet.buildSyncKeyAndPayload({
-      target,
-    });
+    let syncKeyInfo: ICloudSyncKeyInfoWallet | undefined;
+    if (!isKeylessWallet) {
+      syncKeyInfo = await syncManagers.wallet.buildSyncKeyAndPayload({
+        target,
+      });
+    }
 
     await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
       // call remove account & indexed account
@@ -3319,7 +3324,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             });
           }
         }
-      } else {
+      } else if (!isKeylessWallet) {
         await this.txRemoveRecords({
           tx,
           name: ELocalDBStoreNames.Credential,
@@ -3367,7 +3372,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       }
     });
 
-    await this.removeCloudSyncPoolItems({ keys: [syncKeyInfo.key] });
+    if (syncKeyInfo) {
+      await this.removeCloudSyncPoolItems({ keys: [syncKeyInfo.key] });
+    }
 
     delete this.tempWallets[walletId];
 

@@ -21,6 +21,7 @@ import {
 } from '@onekeyhq/components';
 import type { IKeyOfIcons } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { useKeylessWallet } from '@onekeyhq/kit/src/components/KeylessWallet/useKeylessWallet';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -36,9 +37,11 @@ import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import secureStorage from '@onekeyhq/shared/src/storage/secureStorage';
 import { findMismatchedPaths } from '@onekeyhq/shared/src/utils/miscUtils';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EPrimeTransferDataType } from '@onekeyhq/shared/types/prime/primeTransferTypes';
 
 import { Layout } from './utils/Layout';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 // Helper function to compare packs with stable fields only
 function isPacksEqual(
@@ -414,6 +417,9 @@ function KeylessWalletRecoveryFlow() {
     try {
       setGetDevicePackStep({ status: 'loading' });
       const result = await getDevicePack();
+      if (!result) {
+        throw new OneKeyLocalError('Device pack not found');
+      }
       setGetDevicePackStep({ status: 'success', result });
     } catch (e: any) {
       const errorMessage = (e as Error)?.message ?? 'Unknown error';
@@ -425,6 +431,9 @@ function KeylessWalletRecoveryFlow() {
     try {
       setGetAuthPackFromCacheStep({ status: 'loading' });
       const result = await getAuthPackFromCache();
+      if (!result) {
+        throw new OneKeyLocalError('Auth pack not found');
+      }
       setGetAuthPackFromCacheStep({ status: 'success', result });
     } catch (e: any) {
       const errorMessage = (e as Error)?.message ?? 'Unknown error';
@@ -436,6 +445,9 @@ function KeylessWalletRecoveryFlow() {
     try {
       setGetAuthPackFromServerStep({ status: 'loading' });
       const result = await getAuthPackFromServer();
+      if (!result) {
+        throw new OneKeyLocalError('Auth pack not found');
+      }
       setGetAuthPackFromServerStep({ status: 'success', result });
     } catch (e: any) {
       const errorMessage = (e as Error)?.message ?? 'Unknown error';
@@ -447,6 +459,9 @@ function KeylessWalletRecoveryFlow() {
     try {
       setGetCloudPackStep({ status: 'loading' });
       const result = await getCloudPack();
+      if (!result) {
+        throw new OneKeyLocalError('Cloud pack not found');
+      }
       setGetCloudPackStep({ status: 'success', result });
     } catch (e: any) {
       const errorMessage = (e as Error)?.message ?? 'Unknown error';
@@ -2010,4 +2025,17 @@ const KeylessWalletGallery = () => {
   );
 };
 
-export default KeylessWalletGallery;
+function KeylessWalletGalleryWithContext() {
+  return (
+    <AccountSelectorProviderMirror
+      enabledNum={[0]}
+      config={{
+        sceneName: EAccountSelectorSceneName.home,
+      }}
+    >
+      <KeylessWalletGallery />
+    </AccountSelectorProviderMirror>
+  );
+}
+
+export default KeylessWalletGalleryWithContext;
