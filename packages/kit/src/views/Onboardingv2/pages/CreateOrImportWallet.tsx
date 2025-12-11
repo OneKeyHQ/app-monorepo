@@ -201,7 +201,6 @@ function CreateOrImportWallet() {
       fromScene: EKeylessWalletEnableScene.Onboarding,
     });
   }, [enableKeylessWallet]);
-
   return (
     <Page>
       <OnboardingLayout>
