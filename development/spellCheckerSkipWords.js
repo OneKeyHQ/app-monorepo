@@ -468,6 +468,8 @@ module.exports = [
   'keysend',
   'keytag',
   'keytar',
+  'keyless',
+  'Keyless',
   'krc20',
   'Lamports',
   'lang',

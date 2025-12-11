@@ -192,9 +192,14 @@ export function WalletListItem({
   shouldShowCreateHiddenWalletButtonFn,
   ...rest
 }: IWalletListItemProps) {
+  // TODO: @zuo Check if wallet is keyless (using custom flag for mock)
+  const isKeylessWallet = (
+    wallet as IAccountSelectorWalletInfo & { isKeyless?: boolean }
+  )?.isKeyless;
+
   let walletAvatarProps: IWalletAvatarProps = {
     wallet,
-    status: 'default', // 'default' | 'connected';
+    status: isKeylessWallet ? 'keyless' : 'default',
     badge,
     firmwareTypeBadge: wallet?.firmwareTypeBadge,
   };

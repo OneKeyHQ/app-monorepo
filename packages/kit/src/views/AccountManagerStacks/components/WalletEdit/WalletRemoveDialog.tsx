@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import type { ICheckedState } from '@onekeyhq/components';
 import { Checkbox, Dialog, Toast } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import type { IAccountSelectorContextData } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -64,6 +65,11 @@ export function WalletRemoveDialog({
   );
 }
 
+// TODO: @zuo Check if wallet is keyless (using custom flag for mock)
+function isKeylessWallet(wallet: IDBWallet | undefined): boolean {
+  return !!(wallet as IDBWallet & { isKeyless?: boolean })?.isKeyless;
+}
+
 export function getTitleAndDescription({
   wallet,
   isRemoveToMocked,
@@ -72,12 +78,27 @@ export function getTitleAndDescription({
   isRemoveToMocked?: boolean; // hw standard wallet mocked remove only
 }): {
   isHwOrQr: boolean;
+  isKeyless: boolean;
   title: string;
   description: string;
 } {
   const isHwOrQr =
     accountUtils.isHwWallet({ walletId: wallet?.id }) ||
     accountUtils.isQrWallet({ walletId: wallet?.id });
+
+  const isKeyless = isKeylessWallet(wallet);
+
+  // Keyless wallet has a different description
+  if (isKeyless) {
+    return {
+      isHwOrQr: false,
+      isKeyless: true,
+      title: appLocale.intl.formatMessage({ id: ETranslations.remove_wallet }),
+      // TODO: Add proper translation key for keyless wallet removal
+      description:
+        'You can restore this wallet anytime using your security keys.',
+    };
+  }
 
   if (isHwOrQr) {
     if (
@@ -87,6 +108,7 @@ export function getTitleAndDescription({
     ) {
       return {
         isHwOrQr,
+        isKeyless: false,
         title: appLocale.intl.formatMessage({
           id: ETranslations.remove_wallet,
         }),
@@ -98,6 +120,7 @@ export function getTitleAndDescription({
     if (!isRemoveToMocked) {
       return {
         isHwOrQr,
+        isKeyless: false,
         title: appLocale.intl.formatMessage({
           id: ETranslations.remove_device,
         }),
@@ -109,6 +132,7 @@ export function getTitleAndDescription({
 
     return {
       isHwOrQr,
+      isKeyless: false,
       title: appLocale.intl.formatMessage({
         id: ETranslations.remove_standard_wallet,
       }),
@@ -120,6 +144,7 @@ export function getTitleAndDescription({
 
   return {
     isHwOrQr,
+    isKeyless: false,
     title: appLocale.intl.formatMessage({ id: ETranslations.remove_wallet }),
     description: appLocale.intl.formatMessage({
       id: ETranslations.remove_wallet_desc,
@@ -144,6 +169,33 @@ export function showWalletRemoveDialog({
   showCheckBox: boolean;
   isRemoveToMocked?: boolean; // hw standard wallet mocked remove only
 }) {
+  // When no checkbox needed, use simpler dialog without renderContent to avoid extra space
+  if (!showCheckBox) {
+    return Dialog.show({
+      icon: 'ErrorOutline',
+      tone: 'destructive',
+      title,
+      description,
+      onConfirmText: appLocale.intl.formatMessage({
+        id: ETranslations.global_remove,
+      }),
+      confirmButtonProps: {
+        variant: 'destructive',
+      },
+      onConfirm: async () => {
+        await backgroundApiProxy.serviceAccount.removeWallet({
+          walletId: wallet?.id || '',
+        });
+        defaultLogger.account.wallet.deleteWallet();
+        Toast.success({
+          title: appLocale.intl.formatMessage({
+            id: ETranslations.feedback_change_saved,
+          }),
+        });
+      },
+    });
+  }
+
   return Dialog.show({
     icon: 'ErrorOutline',
     tone: 'destructive',

@@ -161,6 +161,32 @@ export function AccountSelectorWalletListSideBar({
           };
         }),
       );
+
+      // TODO: @zuo Remove mock keyless wallet after integration
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      wallets.unshift({
+        id: 'keyless-mock-1',
+        name: 'Keyless Wallet',
+        type: 'hd',
+        backuped: true,
+        accounts: [],
+        nextIds: {},
+        walletNo: 999,
+        avatarInfo: { img: 'bear' },
+        firmwareTypeBadge: undefined,
+        badge: undefined,
+        isKeyless: true, // Custom flag for mock
+        dbIndexedAccounts: [
+          {
+            id: 'keyless-mock-1--0',
+            name: 'Account #1',
+            walletId: 'keyless-mock-1',
+            index: 0,
+            idHash: 'mock-hash-0',
+          },
+        ],
+      } as any);
+
       return {
         wallets,
       };
