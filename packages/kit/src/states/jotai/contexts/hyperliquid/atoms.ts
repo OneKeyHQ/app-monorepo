@@ -26,10 +26,10 @@ export const {
   atom: perpsAllAssetsFilteredAtom,
   use: usePerpsAllAssetsFilteredAtom,
 } = contextAtom<{
-  assets: HL.IPerpsUniverse[];
+  assetsByDex: HL.IPerpsUniverse[][];
   query: string;
 }>({
-  assets: [],
+  assetsByDex: [],
   query: '',
 });
 
@@ -38,14 +38,17 @@ export const {
   use: usePerpsAllAssetsFilteredLengthAtom,
 } = contextAtomComputed((get) => {
   const perpsAllAssetsFiltered = get(perpsAllAssetsFilteredAtom());
-  return perpsAllAssetsFiltered.assets.length;
+  return perpsAllAssetsFiltered.assetsByDex.reduce(
+    (sum, assets) => sum + assets.length,
+    0,
+  );
 });
 
 export const { atom: perpsAllAssetCtxsAtom, use: usePerpsAllAssetCtxsAtom } =
   contextAtom<{
-    assetCtxs: HL.IPerpsAssetCtx[];
+    assetCtxsByDex: HL.IPerpsAssetCtx[][];
   }>({
-    assetCtxs: [],
+    assetCtxsByDex: [],
   });
 
 export const { atom: l2BookAtom, use: useL2BookAtom } =
