@@ -133,6 +133,7 @@ export function NormalManageContent({
             tokenInfo,
             symbol,
             provider,
+            onSuccess,
           };
 
           if (isInModalContext) {
@@ -169,6 +170,7 @@ export function NormalManageContent({
       provider,
       onTabChange,
       isInModalContext,
+      onSuccess,
     ],
   );
 
