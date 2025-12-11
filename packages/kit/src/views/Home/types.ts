@@ -337,3 +337,5 @@ export type IOverviewTokenDetailListItem = {
   poolCode?: string;
   protocol?: IOverviewDefiRes;
 };
+
+export const PORTFOLIO_CONTAINER_RIGHT_SIDE_FIXED_WIDTH = 328;

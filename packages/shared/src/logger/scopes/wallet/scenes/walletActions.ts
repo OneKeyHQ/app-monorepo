@@ -11,6 +11,7 @@ export type IWalletActionBaseParams = {
     | 'receiveSelector'
     | 'tokenDetails'
     | 'homeTokenList'
+    | 'homePopularTrading'
     | 'earn'
     | 'swap'
     | 'accountSelector';
