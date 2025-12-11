@@ -1,4 +1,4 @@
-import { XStack, YStack, useMedia } from '@onekeyhq/components';
+import { Tabs, XStack, YStack, useMedia } from '@onekeyhq/components';
 
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { ProviderJotaiContextDeFiList } from '../../../states/jotai/contexts/deFiList';
@@ -62,7 +62,9 @@ function PortfolioContainerWithProvider() {
       <ProviderJotaiContextDeFiList>
         <ProviderJotaiContextHistoryList>
           <ProviderJotaiContextEarn>
-            <PortfolioContainer />
+            <Tabs.ScrollView>
+              <PortfolioContainer />
+            </Tabs.ScrollView>
           </ProviderJotaiContextEarn>
         </ProviderJotaiContextHistoryList>
       </ProviderJotaiContextDeFiList>

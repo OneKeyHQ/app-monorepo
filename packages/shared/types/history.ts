@@ -11,6 +11,7 @@ import type {
   EReplaceTxType,
   IDecodedTx,
 } from './tx';
+import { ISizableTextProps } from '@onekeyhq/components';
 
 export enum EHistoryTxDetailsBlock {
   Flow = 'Flow',
@@ -166,6 +167,7 @@ export type IHistoryListSectionGroup = {
   title?: string;
   titleKey?: ETranslations;
   data: IAccountHistoryTx[];
+  titleProps?: ISizableTextProps;
 };
 
 export type IFetchAccountHistoryParams = {

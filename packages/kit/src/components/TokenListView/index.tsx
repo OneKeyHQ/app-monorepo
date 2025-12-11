@@ -149,7 +149,7 @@ function TokenListViewCmp(props: IProps) {
     networkId,
     indexedAccountId,
     searchKeyLengthThreshold,
-    plainMode = false,
+    plainMode,
     limit,
   } = props;
 
@@ -485,6 +485,7 @@ function TokenListViewCmp(props: IProps) {
             hideZeroBalanceTokens={hideZeroBalanceTokens}
             hasTokens={filteredTokens.length > 0}
             manageTokenEnabled={manageTokenEnabled}
+            plainMode={plainMode}
           />
         ) : null}
         {!tokenSelectorSearchKey && footerTipText ? (
@@ -517,6 +518,7 @@ function TokenListViewCmp(props: IProps) {
     hideZeroBalanceTokens,
     filteredTokens.length,
     manageTokenEnabled,
+    plainMode,
     tokenSelectorSearchKey,
     footerTipText,
     intl,
@@ -636,6 +638,7 @@ function TokenListViewCmp(props: IProps) {
               hideZeroBalanceTokens={hideZeroBalanceTokens}
               hasTokens={filteredTokens.length > 0}
               manageTokenEnabled={manageTokenEnabled}
+              plainMode={plainMode}
             />
           ) : null}
           {!tokenSelectorSearchKey && footerTipText ? (

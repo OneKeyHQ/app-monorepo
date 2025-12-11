@@ -15,6 +15,7 @@ import type {
   ITokenData,
   ITokenFiat,
 } from '../../types/token';
+import accountUtils from './accountUtils';
 
 export const caseSensitiveNetworkImpl = [
   'sol',
@@ -1026,4 +1027,49 @@ export function filterAccountTokenListByLimit({
     filteredRiskyTokenList,
     filteredTokenListMap,
   };
+}
+
+export function calculateAccountTokensValue({
+  accountId,
+  networkId,
+  tokensWorth,
+  mergeDeriveAssetsEnabled,
+}: {
+  accountId: string;
+  networkId: string;
+  tokensWorth: {
+    worth: Record<string, string>;
+    createAtNetworkWorth: string;
+    accountId: string;
+    initialized: boolean;
+    updateAll?: boolean;
+  };
+  mergeDeriveAssetsEnabled: boolean;
+}) {
+  if (networkUtils.isAllNetwork({ networkId })) {
+    const allWorth = Object.values(tokensWorth.worth).reduce(
+      (acc: string, cur: string) => new BigNumber(acc).plus(cur).toFixed(),
+      '0',
+    );
+    return allWorth;
+  }
+
+  if (mergeDeriveAssetsEnabled) {
+    const allWorth = Object.values(tokensWorth.worth).reduce(
+      (acc: string, cur: string) => new BigNumber(acc).plus(cur).toFixed(),
+      '0',
+    );
+    return allWorth;
+  }
+
+  return (
+    tokensWorth.worth[
+      accountUtils.buildAccountValueKey({
+        accountId,
+        networkId,
+      })
+    ] ??
+    Object.values(tokensWorth.worth)[0] ??
+    '0'
+  );
 }

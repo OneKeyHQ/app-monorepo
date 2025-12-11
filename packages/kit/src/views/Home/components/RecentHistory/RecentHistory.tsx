@@ -2,11 +2,16 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Button } from '@onekeyhq/components';
+import { Button, XStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { TxHistoryListContainer } from '../../pages/TxHistoryContainer';
 import { RichBlock } from '../RichBlock';
+import {
+  appEventBus,
+  EAppEventBusNames,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { EHomeWalletTab } from '@onekeyhq/shared/types/wallet';
 
 function RecentHistory() {
   const intl = useIntl();
@@ -22,17 +27,24 @@ function RecentHistory() {
         color: '$textSubdued',
       }}
       headerActions={
-        <Button
-          size="small"
-          variant="tertiary"
-          iconAfter="ChevronRightSmallOutline"
-          color="$textSubdued"
-          iconProps={{ color: '$iconSubdued' }}
-        >
-          {intl.formatMessage({
-            id: ETranslations.global_all,
-          })}
-        </Button>
+        <XStack py="$1">
+          <Button
+            size="small"
+            variant="tertiary"
+            iconAfter="ChevronRightSmallOutline"
+            color="$textSubdued"
+            iconProps={{ color: '$iconSubdued' }}
+            onPress={() => {
+              appEventBus.emit(EAppEventBusNames.SwitchWalletHomeTab, {
+                id: EHomeWalletTab.History,
+              });
+            }}
+          >
+            {intl.formatMessage({
+              id: ETranslations.global_all,
+            })}
+          </Button>
+        </XStack>
       }
       content={renderContent()}
     />

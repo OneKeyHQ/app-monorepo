@@ -346,16 +346,11 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
       }
     };
 
-    const fn = () => {
-      if (isFocused) {
-        refresh();
-      }
-    };
-    appEventBus.on(EAppEventBusNames.NetworkDeriveTypeChanged, fn);
-    appEventBus.on(EAppEventBusNames.AccountDataUpdate, fn);
+    appEventBus.on(EAppEventBusNames.NetworkDeriveTypeChanged, refresh);
+    appEventBus.on(EAppEventBusNames.AccountDataUpdate, refresh);
     return () => {
-      appEventBus.off(EAppEventBusNames.AccountDataUpdate, fn);
-      appEventBus.off(EAppEventBusNames.NetworkDeriveTypeChanged, fn);
+      appEventBus.off(EAppEventBusNames.AccountDataUpdate, refresh);
+      appEventBus.off(EAppEventBusNames.NetworkDeriveTypeChanged, refresh);
     };
   }, [isFocused, network?.isAllNetworks, handleRefreshAllNetworkData, run]);
 
@@ -383,7 +378,7 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
           .plus(r.overview.netWorth)
           .toFixed();
         tempOverview.chains = Array.from(
-          new Set([...overview.chains, ...r.overview.chains]),
+          new Set([...tempOverview.chains, ...r.overview.chains]),
         );
         tempOverview.protocolCount += r.overview.protocolCount;
         tempOverview.positionCount += r.overview.positionCount;
@@ -412,8 +407,8 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
     updateDeFiListOverview,
     updateDeFiListProtocols,
     updateDeFiListProtocolMap,
-    overview.chains,
     updateDeFiListState,
+    overview.chains,
   ]);
 
   useEffect(() => {

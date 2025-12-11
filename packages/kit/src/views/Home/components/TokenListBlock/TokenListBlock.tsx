@@ -9,6 +9,7 @@ import { useThrottledCallback } from 'use-debounce';
 import {
   IconButton,
   NumberSizeableText,
+  Skeleton,
   Stack,
   useOnRouterChange,
   useTabIsRefreshingFocused,
@@ -23,6 +24,7 @@ import { useManageToken } from '@onekeyhq/kit/src/hooks/useManageToken';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   useAccountOverviewActions,
+  useAccountWorthAtom,
   useAllNetworksStateStateAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountOverview';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -30,6 +32,7 @@ import {
   useAggregateTokensListMapAtom,
   useTokenListActions,
   useTokenListMapAtom,
+  useTokenListStateAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
 import type { IDBAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { ISimpleDBAggregateToken } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAggregateToken';
@@ -64,6 +67,7 @@ import perfUtils, {
 import {
   buildAggregateTokenListData,
   buildLocalAggregateTokenMapKey,
+  calculateAccountTokensValue,
   getEmptyTokenData,
   getMergedDeriveTokenData,
   getMergedTokenData,
@@ -107,6 +111,7 @@ function TokenListBlock({ tableLayout }: { tableLayout?: boolean }) {
     },
   } = useActiveAccount({ num: 0 });
   const [shouldAlwaysFetch, setShouldAlwaysFetch] = useState(false);
+  const [tokenListState] = useTokenListStateAtom();
   const [allNetworkAccounts, setAllNetworkAccounts] = useState<
     IAllNetworkAccountInfo[] | undefined
   >(undefined);
@@ -116,6 +121,22 @@ function TokenListBlock({ tableLayout }: { tableLayout?: boolean }) {
     vaultSettings?.mergeDeriveAssetsEnabled &&
     !accountUtils.isOthersWallet({ walletId: wallet?.id ?? '' }) &&
     deriveInfoItems.length > 1;
+
+  const [accountTokensWorth] = useAccountWorthAtom();
+
+  const accountTokensValue = useMemo(() => {
+    return calculateAccountTokensValue({
+      accountId: account?.id ?? '',
+      networkId: network?.id ?? '',
+      tokensWorth: accountTokensWorth,
+      mergeDeriveAssetsEnabled: !!vaultSettings?.mergeDeriveAssetsEnabled,
+    });
+  }, [
+    account?.id,
+    network?.id,
+    accountTokensWorth,
+    vaultSettings?.mergeDeriveAssetsEnabled,
+  ]);
 
   const tokenListRef = useRef<{
     keys: string;
@@ -1924,6 +1945,10 @@ function TokenListBlock({ tableLayout }: { tableLayout?: boolean }) {
 
   const renderSubTitle = useCallback(() => {
     if (tableLayout) {
+      if (!tokenListState.initialized && tokenListState.isRefreshing) {
+        return <Skeleton.HeadingXl />;
+      }
+
       return (
         <NumberSizeableText
           size="$headingXl"
@@ -1933,13 +1958,19 @@ function TokenListBlock({ tableLayout }: { tableLayout?: boolean }) {
             currency: settings.currencyInfo.symbol,
           }}
         >
-          123
+          {accountTokensValue}
         </NumberSizeableText>
       );
     }
 
     return null;
-  }, [tableLayout, settings.currencyInfo.symbol]);
+  }, [
+    tableLayout,
+    settings.currencyInfo.symbol,
+    accountTokensValue,
+    tokenListState.initialized,
+    tokenListState.isRefreshing,
+  ]);
 
   const renderHeaderActions = useCallback(() => {
     if (manageTokenEnabled && tableLayout) {
@@ -1962,7 +1993,7 @@ function TokenListBlock({ tableLayout }: { tableLayout?: boolean }) {
   const renderContent = useCallback(() => {
     return (
       <TokenListView
-        limit={5}
+        limit={6}
         plainMode
         withHeader
         withFooter

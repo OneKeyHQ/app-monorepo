@@ -380,9 +380,7 @@ function TokenListFooter(props: IProps) {
               />
             ) : null}
           </XStack>
-          {tableLayout ? (
-            <Stack flexGrow={1} flexBasis={0} maxWidth="$36" />
-          ) : null}
+          {tableLayout ? <Stack flexGrow={1} flexBasis={0} /> : null}
           <Stack flexGrow={1} flexBasis={0} justifyContent="flex-end">
             <NumberSizeableText
               size={tableLayout ? '$bodyMdMedium' : '$bodyLgMedium'}

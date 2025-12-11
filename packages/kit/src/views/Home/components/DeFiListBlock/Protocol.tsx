@@ -56,12 +56,6 @@ function Protocol({
       })
     ];
 
-  const protocolTotalValue = useMemo(() => {
-    return new BigNumber(protocolInfo?.totalValue ?? 0)
-      .plus(protocolInfo?.totalDebt ?? 0)
-      .toFixed();
-  }, [protocolInfo?.totalValue, protocolInfo?.totalDebt]);
-
   const columns = useMemo(() => {
     return [
       {
@@ -145,6 +139,9 @@ function Protocol({
             columns={columns}
             keyExtractor={(item) => item.address}
             estimatedItemSize={48}
+            onRow={() => ({
+              onPress: undefined,
+            })}
           />
         </Stack>
       );
@@ -207,7 +204,7 @@ function Protocol({
               formatter="value"
               formatterOptions={{ currency: settings.currencyInfo.symbol }}
             >
-              {protocolTotalValue}
+              {protocolInfo?.netWorth ?? '0'}
             </NumberSizeableText>
           }
         />
@@ -283,7 +280,7 @@ function Protocol({
                   formatter="value"
                   formatterOptions={{ currency: settings.currencyInfo.symbol }}
                 >
-                  {protocolTotalValue}
+                  {protocolInfo?.netWorth ?? '0'}
                 </NumberSizeableText>
                 <View
                   animation="quick"

@@ -56,7 +56,7 @@ function SortButton({
       onPress={onPress}
     >
       <SizableText
-        size="$bodyMdMedium"
+        size="$headingXs"
         color="$textSubdued"
         textTransform="uppercase"
       >
@@ -105,7 +105,7 @@ function TokenListHeader({ tableLayout }: IProps) {
           }}
         />
       </Stack>
-      <Stack flexGrow={1} flexBasis={0} maxWidth="$36" alignItems="flex-end">
+      <Stack flexGrow={1} flexBasis={0} alignItems="flex-end">
         <SortButton
           label={intl.formatMessage({ id: ETranslations.global_balance })}
           iconName={renderSortButton(ETokenListSortType.Value)}
