@@ -29,6 +29,7 @@ import { SwapScope } from './scopes/swap';
 import { TokenScope } from './scopes/token';
 import { TransactionScope } from './scopes/transaction';
 import { UIScope } from './scopes/ui';
+import { UniversalSearchScope } from './scopes/universalSearch';
 import { UpdateScope } from './scopes/update';
 import { WalletScope } from './scopes/wallet';
 
@@ -94,6 +95,8 @@ export class DefaultLogger {
   prime = new PrimeScope();
 
   onboarding = new OnboardingScope();
+
+  universalSearch = new UniversalSearchScope();
 }
 
 const defaultLogger = new DefaultLogger();

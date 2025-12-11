@@ -228,10 +228,10 @@ function BasicTabHeaderSettings({ focusedTab }: { focusedTab: string }) {
       }),
     [intl],
   );
-  const cryptoName = useMemo(
+  const portfolioName = useMemo(
     () =>
       intl.formatMessage({
-        id: ETranslations.global_crypto,
+        id: ETranslations.global_portfolio,
       }),
     [intl],
   );
@@ -245,7 +245,7 @@ function BasicTabHeaderSettings({ focusedTab }: { focusedTab: string }) {
   );
   const content = useMemo(() => {
     switch (focusedTab) {
-      case cryptoName:
+      case portfolioName:
         return <TokenListSettings />;
       case historyName:
         return <TxHistorySettings />;
@@ -258,7 +258,7 @@ function BasicTabHeaderSettings({ focusedTab }: { focusedTab: string }) {
       default:
         return null;
     }
-  }, [approvalName, cryptoName, focusedTab, historyName]);
+  }, [approvalName, portfolioName, focusedTab, historyName]);
   return <XStack pr="$5">{content}</XStack>;
 }
 
