@@ -562,16 +562,17 @@ class ServiceHardware extends ServiceBase {
           const messageType =
             messages.payload.length > 0 ? messages.payload[0] : '';
 
-          if (
-            messageType.includes('@onekey/hd-core') ||
-            messageType.includes('@onekey/hd-transport') ||
-            messageType.includes('@onekey/hd-ble-transport')
-          ) {
-            defaultLogger.hardware.sdkLog.log(
-              messages.event,
-              messages.payload.join(' '),
-            );
-          }
+          console.log('LOG_EVENT', messages.event, messages.payload.join(' '));
+          // if (
+          //   messageType.includes('@onekey/hd-core') ||
+          //   messageType.includes('@onekey/hd-transport') ||
+          //   messageType.includes('@onekey/hd-ble-transport')
+          // ) {
+          //   defaultLogger.hardware.sdkLog.log(
+          //     messages.event,
+          //     messages.payload.join(' '),
+          //   );
+          // }
         },
       );
     }
