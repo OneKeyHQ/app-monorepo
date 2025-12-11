@@ -178,7 +178,7 @@ class ServiceKeylessWallet extends ServiceBase {
     });
     if (!result?.packs?.mnemonic) {
       // TODO i18n @franco 无法启用无私钥钱包
-      throw new OneKeyLocalError('无法启用无私钥钱包');
+      throw new OneKeyLocalError('核验身份失败，无法启用您的无私钥钱包');
     }
     return {
       mnemonic: result.packs.mnemonic,

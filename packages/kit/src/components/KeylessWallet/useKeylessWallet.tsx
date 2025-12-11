@@ -291,7 +291,7 @@ export function useKeylessWallet() {
     }: {
       fromScene?: EKeylessWalletEnableScene;
       restoreAuthPackFromServer?: boolean;
-    }={}) => {
+    } = {}) => {
       if (enableKeylessWalletLoadingRef.current) {
         return;
       }
