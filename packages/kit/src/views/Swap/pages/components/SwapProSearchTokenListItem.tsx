@@ -8,7 +8,14 @@ import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { IMarketSearchV2Token } from '@onekeyhq/shared/types/market';
 
+import { CommunityRecognizedBadge } from '../../../Market/components/CommunityRecognizedBadge';
 import { MarketStarV2 } from '../../../Market/components/MarketStarV2';
+import { MarketTokenIcon } from '../../../Market/components/MarketTokenIcon';
+import { BaseMarketTokenPrice } from '../../../Market/components/MarketTokenPrice';
+import {
+  ContractAddress,
+  MarketTokenLiquidity,
+} from '../../../UniversalSearch/components/SearchResultItems';
 
 interface ISwapProSearchTokenListItemProps {
   item: IMarketSearchV2Token & { networkLogoURI: string };
@@ -19,53 +26,57 @@ const SwapProSearchTokenListItem = ({
   item,
   onPress,
 }: ISwapProSearchTokenListItemProps) => {
-  const currencyInfo = useCurrency();
-  const formatPrice = useMemo(() => {
-    return numberFormat(item.price, {
-      formatter: 'price',
-      formatterOptions: { currency: currencyInfo.symbol },
-    });
-  }, [item.price, currencyInfo.symbol]);
-  const formatLiq = useMemo(() => {
-    return numberFormat(item.liquidity, {
-      formatter: 'balance',
-    });
-  }, [item.liquidity]);
+  const {
+    logoUrl,
+    network,
+    symbol,
+    name,
+    address,
+    isNative,
+    communityRecognized,
+    volume_24h: volume24h,
+    liquidity,
+    price,
+  } = item;
   return (
-    <ListItem justifyContent="space-between" onPress={() => onPress(item)}>
-      <XStack gap="$2">
-        <Token
-          tokenImageUri={item.logoUrl}
-          networkImageUri={item.networkLogoURI}
-        />
-        <YStack>
-          <SizableText size="$bodyLgMedium">{item.name}</SizableText>
-          <SizableText size="$bodyMd" color="$textSubdued">
-            {item.symbol}
-          </SizableText>
-        </YStack>
-      </XStack>
-      <XStack gap="$1.5">
-        <YStack gap="$1">
-          <SizableText textAlign="right" size="$bodyLgMedium">
-            {formatPrice}
-          </SizableText>
-          <SizableText textAlign="right" size="$bodyMd" color="$textSubdued">
-            {formatLiq}
-          </SizableText>
-        </YStack>
-        <XStack justifyContent="center" alignItems="center">
-          <MarketStarV2
-            w="$10"
-            h="$10"
-            chainId={item.network}
-            contractAddress={item.address}
-            from={EWatchlistFrom.Search}
-            tokenSymbol={item.symbol}
-            size="small"
-            isNative={item.isNative}
+    <ListItem
+      jc="space-between"
+      onPress={() => {
+        onPress(item);
+      }}
+      renderAvatar={
+        <MarketTokenIcon uri={logoUrl} size="lg" networkId={network} />
+      }
+    >
+      <ListItem.Text
+        flex={1}
+        primary={
+          <XStack alignItems="center" gap="$1">
+            <SizableText size="$bodyLgMedium">{symbol}</SizableText>
+            {communityRecognized ? <CommunityRecognizedBadge /> : null}
+          </XStack>
+        }
+        secondary={<ContractAddress address={address} />}
+      />
+      <XStack alignItems="center">
+        <YStack alignItems="flex-end">
+          <BaseMarketTokenPrice
+            price={price}
+            size="$bodyLgMedium"
+            tokenName={name}
+            tokenSymbol={symbol}
           />
-        </XStack>
+          <MarketTokenLiquidity liquidity={liquidity} volume24h={volume24h} />
+        </YStack>
+        <MarketStarV2
+          chainId={network}
+          contractAddress={address}
+          ml="$3"
+          from={EWatchlistFrom.Search}
+          tokenSymbol={symbol}
+          size="medium"
+          isNative={isNative}
+        />
       </XStack>
     </ListItem>
   );

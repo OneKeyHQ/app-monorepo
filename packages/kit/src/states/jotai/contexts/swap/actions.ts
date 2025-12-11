@@ -1853,7 +1853,15 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       type: ESwapTabSwitchType,
       swapAccountNetworkId?: string,
     ) => {
+      const oldType = get(swapTypeSwitchAtom());
       set(swapTypeSwitchAtom(), type);
+      if (
+        platformEnv.isNative &&
+        (type === ESwapTabSwitchType.LIMIT ||
+          oldType === ESwapTabSwitchType.LIMIT)
+      ) {
+        return;
+      }
       const fromTokenAmount = get(swapFromTokenAmountAtom());
       const fromTokenAmountBN = new BigNumber(fromTokenAmount.value);
       if (
