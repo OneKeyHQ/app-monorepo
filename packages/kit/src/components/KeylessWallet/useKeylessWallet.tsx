@@ -85,19 +85,19 @@ export function useKeylessWallet() {
   const uploadAuthPack = useCallback(
     async ({
       authPack,
-      packSetInFromCloudPack,
-      packSetInFromDevicePack,
+      packSetIdFromCloudPack,
+      packSetIdFromDevicePack,
     }: {
       authPack: IAuthKeyPack;
-      packSetInFromCloudPack: string;
-      packSetInFromDevicePack: string;
+      packSetIdFromCloudPack: string;
+      packSetIdFromDevicePack: string;
     }): Promise<{ success: boolean }> => {
       await loginOneKeyId();
       const packSetIdFromAuthPack = authPack.packSetId;
       if (
-        packSetIdFromAuthPack !== packSetInFromCloudPack ||
-        packSetIdFromAuthPack !== packSetInFromDevicePack ||
-        packSetInFromCloudPack !== packSetInFromDevicePack
+        packSetIdFromAuthPack !== packSetIdFromCloudPack ||
+        packSetIdFromAuthPack !== packSetIdFromDevicePack ||
+        packSetIdFromCloudPack !== packSetIdFromDevicePack
       ) {
         throw new OneKeyLocalError('Pack set id mismatch');
       }

@@ -146,8 +146,8 @@ const KeylessWalletCreationFlow = () => {
       setStep4({ status: 'loading' });
       const result = await uploadAuthPack({
         authPack: generatedPacks.authKeyPack,
-        packSetInFromCloudPack,
-        packSetInFromDevicePack,
+        packSetIdFromCloudPack: packSetInFromCloudPack,
+        packSetIdFromDevicePack: packSetInFromDevicePack,
       });
       setStep4({ status: 'success', result });
     } catch (e: any) {

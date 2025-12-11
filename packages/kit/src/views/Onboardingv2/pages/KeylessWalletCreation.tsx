@@ -334,8 +334,8 @@ export function KeylessWalletCreation({
     try {
       const result = await uploadAuthPack({
         authPack: packsRef.current.authKeyPack,
-        packSetInFromCloudPack: cloudPackSetIdRef.current,
-        packSetInFromDevicePack: devicePackSetIdRef.current,
+        packSetIdFromCloudPack: cloudPackSetIdRef.current,
+        packSetIdFromDevicePack: devicePackSetIdRef.current,
       });
 
       if (result.success) {
@@ -376,7 +376,10 @@ export function KeylessWalletCreation({
 
   // Handle "Complete Setup" - navigate to finalize wallet setup
   const handleCompleteSetup = useCallback(() => {
-    navigation.push(EOnboardingPagesV2.FinalizeWalletSetup, {});
+    const packSetId = devicePackSetIdRef.current ?? cloudPackSetIdRef.current;
+    navigation.push(EOnboardingPagesV2.FinalizeWalletSetup, {
+      keylessPackSetId: packSetId,
+    });
   }, [navigation]);
 
   // Auto-navigate when all steps are complete
