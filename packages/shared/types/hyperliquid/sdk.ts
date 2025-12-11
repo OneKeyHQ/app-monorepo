@@ -1,93 +1,87 @@
 import type { ESubscriptionType } from './types';
 import type * as HL from '@nktkas/hyperliquid';
 
-// import type { WebSocketAsyncRequest } from '@nktkas/hyperliquid/esm/src/transports/websocket/_hyperliquid_event_target.js';
+// WebSocket event types
+export type IWsWebData2 = HL.WebData2WsEvent;
+export type IWsWebData3 = HL.WebData3WsEvent;
+export type IWsAllMids = HL.AllMidsWsEvent;
+export type IWsActiveAssetCtx = HL.ActiveAssetCtxWsEvent;
+export type IWsUserEvent = HL.UserEventsWsEvent;
+export type IWsUserFills = HL.UserFillsWsEvent;
+export type IWsUserNonFundingLedgerUpdates =
+  HL.UserNonFundingLedgerUpdatesWsEvent;
+export type IWsOpenOrders = HL.OpenOrdersWsEvent;
+export type IWsAllDexsClearinghouseState = HL.AllDexsClearinghouseStateWsEvent;
+export type IWsAllDexsAssetCtxs = HL.AllDexsAssetCtxsWsEvent;
 
-// WebSocket data types
-export type IWsWebData2 = HL.WsWebData2;
-export type IWsAllMids = HL.WsAllMids;
-export type IWsActiveAssetCtx = HL.WsActiveAssetCtx;
-export type IWsUserEvent = HL.WsUserEvent;
-export type IWsUserFills = HL.WsUserFills;
-export type IWsUserNonFundingLedgerUpdates = HL.WsUserNonFundingLedgerUpdates;
-export type IWsBbo = HL.WsBbo;
-export type IHyperliquidEventTarget = EventTarget; // HL.HyperliquidEventTarget;
-// export type IWebSocketAsyncRequest = WebSocketAsyncRequest; // HL.WebSocketAsyncRequest;
+export type IHyperliquidEventTarget = EventTarget;
 
-export type IWsNotification = HL.WsNotification;
-export type IWsTrade = HL.WsTrade;
-
-export interface IDepositPending extends HL.DepositUpdate {
+export type IUserNonFundingLedgerUpdate =
+  HL.UserNonFundingLedgerUpdatesWsEvent['nonFundingLedgerUpdates'][number];
+export type IDepositUpdate = Extract<
+  IUserNonFundingLedgerUpdate['delta'],
+  { type: 'deposit' }
+>;
+export interface IDepositPending extends IDepositUpdate {
   status: string;
 }
-type IExtendedDelta = HL.UserNonFundingLedgerUpdate['delta'] | IDepositPending;
 
-export type IUserNonFundingLedgerUpdate = {
-  time: number;
-  hash: string;
-  delta: IExtendedDelta;
-};
+// API responses / request results
 export type IApiRequestError = HL.ApiRequestError;
-export type IApiRequestResult = HL.SuccessResponse;
-export type IApiErrorResponse = HL.ErrorResponse;
+export type IApiRequestResult =
+  | HL.OrderSuccessResponse
+  | HL.CancelSuccessResponse
+  | HL.ApproveAgentSuccessResponse;
+export type IApiErrorResponse = HL.ApiRequestError;
 
-export type IPerpsAssetCtxRaw = HL.PerpsAssetCtx;
-export type IPerpsAssetCtx = IPerpsAssetCtxRaw;
-
-// Core trading types
-export type IPerpsUniverseRaw = HL.PerpsUniverse;
-export type IPerpsUniverse = IPerpsUniverseRaw & {
-  assetId: number;
-};
-export type IMarginTables = HL.MarginTables;
-export type IMarginTable = HL.MarginTable;
-export type IMarginTableMap = Partial<{
-  [key: number]: IMarginTable;
-}>;
-export type IOrder = HL.Order;
-export type IPerpsFrontendOrder = HL.FrontendOrder;
-export type IOrderParams = HL.OrderParams;
-export type IOrderResponse = HL.OrderResponse;
-export type ICancelResponse = HL.CancelResponse;
-export type IOrderStatus<T extends HL.Order | HL.FrontendOrder = HL.Order> =
-  HL.OrderStatus<T>;
-export type IOrderProcessingStatus = HL.OrderProcessingStatus;
-export type IOrderType = HL.OrderType;
-export type ITIF = HL.TIF;
-
-// Account and asset types
-export type IPerpsAssetPosition = HL.AssetPosition;
-export type IPerpsActiveAssetDataRaw = HL.ActiveAssetData;
-export type IPerpsActiveAssetData = Omit<IPerpsActiveAssetDataRaw, 'user'> & {
+// Info & market data types
+export type IPerpsUniverseRaw = HL.MetaResponse['universe'][number];
+export type IPerpsUniverse = IPerpsUniverseRaw & { assetId: number };
+export type IPerpsAssetCtx =
+  HL.AllDexsAssetCtxsWsEvent['ctxs'][number][1][number];
+export type IActiveAssetData = HL.ActiveAssetDataWsEvent;
+export type IPerpsActiveAssetDataRaw = IActiveAssetData;
+export type IPerpsActiveAssetData = Omit<IActiveAssetData, 'user'> & {
   accountAddress: string;
   coin: string;
   assetId: number | undefined;
 };
-export type IPerpsClearinghouseState = HL.PerpsClearinghouseState;
-export type ISpotClearinghouseState = HL.SpotClearinghouseState;
-export type ISpotBalance = HL.SpotBalance;
+export type IAllPerpMetasResponse = HL.AllPerpMetasResponse;
+export type IMarginTable = HL.MarginTableResponse;
+export type IMarginTableMap = Partial<Record<number, IMarginTable>>;
+
+// Orders
+export type IPerpsFrontendOrder = HL.OpenOrdersWsEvent['orders'][number];
+export type IOrderParams = HL.OrderParameters['orders'][number];
+export type IOrderResponse = HL.OrderSuccessResponse;
+export type ICancelResponse = HL.CancelSuccessResponse;
+export type ITIF = 'Gtc' | 'Ioc' | 'Alo';
+
+// Account and asset states
+export type IPerpsAssetPosition =
+  HL.ClearinghouseStateResponse['assetPositions'][number];
+export type IPerpsClearinghouseState = HL.ClearinghouseStateResponse;
 
 // Client types
 export type IInfoClient = HL.InfoClient;
 export type IExchangeClient = HL.ExchangeClient;
 export type ISubscriptionClient = HL.SubscriptionClient;
-export type IPerpsSubscription = HL.Subscription;
+export type IPerpsSubscription = HL.WebSocketSubscription;
 export type IHttpTransport = HL.HttpTransport;
 export type IWebSocketTransport = HL.WebSocketTransport;
 
 // Market data types
-export type IAllMids = HL.AllMids;
-export type ICandle = HL.Candle;
-export type IBook = HL.Book;
-export type IBookLevel = HL.BookLevel;
-export type IFill = HL.Fill;
+export type IAllMids = HL.AllMidsResponse;
+export type ICandle = HL.CandleSnapshotResponse[number];
+export type IBook = HL.L2BookWsEvent;
+export type IBookLevel = IBook['levels'][number][number];
+export type IFill = HL.UserFillsResponse[number];
 
 // User and account types
-export type IUserFees = HL.UserFees;
-export type IUserRole = HL.UserRole;
-export type IPortfolio = HL.Portfolio;
-export type IReferral = HL.Referral;
-export type IExtraAgent = HL.ExtraAgent;
+export type IUserFees = HL.UserFeesResponse;
+export type IUserRole = HL.UserRoleResponse;
+export type IPortfolio = HL.PortfolioResponse;
+export type IReferral = HL.ReferralResponse;
 
 // Request types
 export type IUserFillsByTimeParameters = HL.UserFillsByTimeParameters;
@@ -95,27 +89,33 @@ export type IUserFillsParameters = HL.UserFillsParameters;
 export type ICandleSnapshotParameters = HL.CandleSnapshotParameters;
 export type IWithdraw3Request = HL.Withdraw3Parameters;
 export type IOrderRequest = HL.OrderParameters;
+
 // Subscription parameter types
-export type IWsAllMidsParameters = HL.WsAllMidsParameters;
-export type IEventActiveAssetCtxParameters = HL.EventActiveAssetCtxParameters;
-export type IEventActiveAssetDataParameters = HL.EventActiveAssetDataParameters;
-export type IEventBboParameters = HL.EventBboParameters;
-export type IEventL2BookParameters = HL.EventL2BookParameters;
-export type IEventNotificationParameters = HL.EventNotificationParameters;
-export type IEventTradesParameters = HL.EventTradesParameters;
-export type IEventUserEventsParameters = HL.EventUserEventsParameters;
-export type IEventWebData2Parameters = HL.EventWebData2Parameters;
-export type IEventUserFillsParameters = HL.EventUserFillsParameters;
+export type IWsAllMidsParameters = HL.AllMidsWsParameters;
+export type IEventActiveAssetCtxParameters = HL.ActiveAssetCtxWsParameters;
+export type IEventActiveAssetDataParameters = HL.ActiveAssetDataWsParameters;
+export type IEventL2BookParameters = HL.L2BookWsParameters;
+export type IEventWebData2Parameters = HL.WebData2WsParameters;
+export type IEventUserFillsParameters = HL.UserFillsWsParameters;
 export type IEventUserNonFundingLedgerUpdatesParameters =
-  HL.EventUserNonFundingLedgerUpdatesParameters;
+  HL.UserNonFundingLedgerUpdatesWsParameters;
+export type IEventWebData3Parameters = HL.WebData3WsParameters;
+export type IEventAllDexsClearinghouseStateParameters =
+  HL.AllDexsClearinghouseStateWsParameters;
+export type IEventOpenOrdersParameters = HL.OpenOrdersWsParameters;
+export type IEventAllDexsAssetCtxsParameters = Record<string, never>;
+export type IEventTwapStatesParameters = {
+  user: IHex;
+  dex?: string;
+};
 
 // Response types
-export type ISuccessResponse = HL.SuccessResponse;
-export type IErrorResponse = HL.ErrorResponse;
+export type ISuccessResponse = unknown;
+export type IErrorResponse = HL.ApiRequestError;
 
 // Basic types
 export type IHex = `0x${string}`;
-export type ISignature = HL.Signature;
+export type ISignature = unknown;
 
 export type IPerpsSubscriptionParams = {
   [ESubscriptionType.L2_BOOK]: IEventL2BookParameters;
@@ -126,10 +126,12 @@ export type IPerpsSubscriptionParams = {
   [ESubscriptionType.WEB_DATA2]: IEventWebData2Parameters;
   [ESubscriptionType.ALL_MIDS]: IWsAllMidsParameters;
   [ESubscriptionType.ACTIVE_ASSET_CTX]: IEventActiveAssetCtxParameters;
-  // [ESubscriptionType.USER_EVENTS]: IEventUserEventsParameters;
-  // [ESubscriptionType.USER_NOTIFICATIONS]: IEventNotificationParameters;
-  // [ESubscriptionType.TRADES]: IEventTradesParameters;
-  // [ESubscriptionType.BBO]: IEventBboParameters;
+
+  [ESubscriptionType.WEB_DATA3]: IEventWebData3Parameters;
+  [ESubscriptionType.ALL_DEXS_CLEARINGHOUSE_STATE]: IEventAllDexsClearinghouseStateParameters;
+  [ESubscriptionType.OPEN_ORDERS]: IEventOpenOrdersParameters;
+  [ESubscriptionType.ALL_DEXS_ASSET_CTXS]: IEventAllDexsAssetCtxsParameters;
+  [ESubscriptionType.TWAP_STATES]: IEventTwapStatesParameters;
 };
 
 export type IWebSocketTransportOptions = HL.WebSocketTransportOptions;
