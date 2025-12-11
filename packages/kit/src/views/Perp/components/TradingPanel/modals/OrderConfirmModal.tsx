@@ -17,6 +17,7 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { parseDexCoin } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import { useOrderConfirm, useTradingCalculationsForSide } from '../../../hooks';
 import { PerpsProviderMirror } from '../../../PerpsProviderMirror';
@@ -66,7 +67,8 @@ function OrderConfirmContent({
   const sizeDisplay = useMemo(() => {
     const sizeString = computedSizeForSide.toFixed(szDecimals);
     if (selectedSymbol?.coin) {
-      return `${sizeString} ${selectedSymbol.coin}`;
+      const parsed = parseDexCoin(selectedSymbol.coin);
+      return `${sizeString} ${parsed.displayName}`;
     }
     return sizeString;
   }, [computedSizeForSide, szDecimals, selectedSymbol?.coin]);
