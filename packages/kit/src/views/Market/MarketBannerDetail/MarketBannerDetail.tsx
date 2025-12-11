@@ -109,6 +109,7 @@ function MarketBannerDetailContent({ title }: { title: string }) {
           <MarketTokenListBase
             result={listResult}
             onItemPress={handleItemPress}
+            hideTokenAge
           />
         </Stack>
       </Page.Body>
