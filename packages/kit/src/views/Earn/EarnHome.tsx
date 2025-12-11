@@ -211,11 +211,13 @@ function BasicEarnHome({
 
   const banners = useMemo(
     () => (
-      <Stack px="$5">
-        <BannerV2 data={earnBanners} onBannerPress={onBannerPress} />
-      </Stack>
+      <BannerV2
+        data={earnBanners}
+        onBannerPress={onBannerPress}
+        isActive={isEarnTabFocused}
+      />
     ),
-    [earnBanners, onBannerPress],
+    [earnBanners, onBannerPress, isEarnTabFocused],
   );
 
   const mobileContainerProps = useMemo(

@@ -9,16 +9,44 @@ index ce18dad..4043e77 100644
 +export { resolveSource, resolveSources } from './utils/resolveSources';
  //# sourceMappingURL=index.d.ts.map
 \ No newline at end of file
+diff --git a/node_modules/expo-image/ios/ExpoImage.podspec b/node_modules/expo-image/ios/ExpoImage.podspec
+index 818e050..271ae26 100644
+--- a/node_modules/expo-image/ios/ExpoImage.podspec
++++ b/node_modules/expo-image/ios/ExpoImage.podspec
+@@ -20,10 +20,10 @@ Pod::Spec.new do |s|
+ 
+   s.dependency 'ExpoModulesCore'
+   s.dependency 'SDWebImage', '~> 5.21.0'
+-  s.dependency 'SDWebImageAVIFCoder', '~> 0.11.0'
++  # s.dependency 'SDWebImageAVIFCoder', '~> 0.11.0'
+   s.dependency 'SDWebImageSVGCoder', '~> 1.7.0'
+   s.dependency 'SDWebImageWebPCoder', '~> 0.14.6'
+-  s.dependency 'libavif/libdav1d'
++  # s.dependency 'libavif/libdav1d'
+ 
+   # Swift/Objective-C compatibility
+   s.pod_target_xcconfig = {
 diff --git a/node_modules/expo-image/ios/ImageModule.swift b/node_modules/expo-image/ios/ImageModule.swift
-index 361c806..d12d8e2 100644
+index b44f431..9a51548 100644
 --- a/node_modules/expo-image/ios/ImageModule.swift
 +++ b/node_modules/expo-image/ios/ImageModule.swift
-@@ -227,7 +227,8 @@ public final class ImageModule: Module {
+@@ -2,7 +2,7 @@
+ 
+ import ExpoModulesCore
+ import SDWebImage
+-import SDWebImageAVIFCoder
++// import SDWebImageAVIFCoder
+ import SDWebImageSVGCoder
+ 
+ public final class ImageModule: Module {
+@@ -251,8 +251,9 @@ public final class ImageModule: Module {
+ 
    static func registerCoders() {
      SDImageCodersManager.shared.addCoder(WebPCoder.shared)
-     SDImageCodersManager.shared.addCoder(SDImageAVIFCoder.shared)
+-    SDImageCodersManager.shared.addCoder(SDImageAVIFCoder.shared)
 -    SDImageCodersManager.shared.addCoder(SDImageSVGCoder.shared)
-+    //  uncaught exception 'NSInternalInconsistencyException', reason: 'UIGraphicsBeginImageContext() failed to allocate CGBitampContext
++    // SDImageCodersManager.shared.addCoder(SDImageAVIFCoder.shared)
++    // uncaught exception 'NSInternalInconsistencyException', reason: 'UIGraphicsBeginImageContext() failed to allocate CGBitampContext
 +    // SDImageCodersManager.shared.addCoder(SDImageSVGCoder.shared)
      SDImageCodersManager.shared.addCoder(SDImageHEICCoder.shared)
    }

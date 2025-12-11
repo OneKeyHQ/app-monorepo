@@ -14,7 +14,9 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useSwapProJumpTokenAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/swap';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -22,28 +24,31 @@ import {
 import { dismissKeyboardWithDelay } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 import { MarketWatchListProviderMirrorV2 } from '../../../MarketWatchListProviderMirrorV2';
 
 import { SwapPanelWrap } from './SwapPanelWrap';
 
 export function SwapPanel({
-  networkId,
-  tokenAddress,
+  swapToken,
+  disableTrade,
 }: {
-  networkId?: string;
-  tokenAddress?: string;
+  swapToken: ISwapToken;
+  disableTrade?: boolean;
 }) {
   const intl = useIntl();
   const media = useMedia();
+  const navigation = useAppNavigation();
   const isModalPage = useIsModalPage();
   const inPageDialog = useInPageDialog(
     isModalPage ? EInPageDialogType.inModalPage : EInPageDialogType.inTabPages,
   );
   const dialogRef = useRef<IDialogInstance>(null);
-
-  if (!networkId || !tokenAddress) {
+  const [, setSwapProJumpTokenAtom] = useSwapProJumpTokenAtom();
+  if (!swapToken) {
     return (
       <Stack
         minHeight={400}
@@ -57,7 +62,7 @@ export function SwapPanel({
   }
 
   const showSwapDialog = () => {
-    if (networkId && tokenAddress) {
+    if (swapToken) {
       dialogRef.current = inPageDialog.show({
         onClose: () => {
           appEventBus.emit(
@@ -92,7 +97,28 @@ export function SwapPanel({
     }
   };
 
-  if (platformEnv.isNative || media.lg) {
+  if (platformEnv.isNative) {
+    if (disableTrade) {
+      return null;
+    }
+    return (
+      <View p="$3">
+        <Button
+          size="large"
+          variant="primary"
+          onPress={() => {
+            setSwapProJumpTokenAtom({ token: swapToken });
+            navigation.pop();
+            navigation.switchTab(ETabRoutes.Swap);
+          }}
+        >
+          {intl.formatMessage({ id: ETranslations.dexmarket_details_trade })}
+        </Button>
+      </View>
+    );
+  }
+
+  if (media.lg) {
     return (
       <View p="$3">
         <Button size="large" variant="primary" onPress={() => showSwapDialog()}>

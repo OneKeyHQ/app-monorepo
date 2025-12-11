@@ -17,6 +17,7 @@ import {
   type IEarnManagePageResponse,
   type IEarnTokenInfo,
   type IProtocolInfo,
+  type IStakeTag,
 } from '@onekeyhq/shared/types/staking';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
@@ -50,6 +51,11 @@ interface IAdaManageContentProps {
   } | null;
   protocolInfo?: IProtocolInfo;
   tokenInfo?: IEarnTokenInfo;
+  // PendingIndicator props
+  indicatorAccountId?: string;
+  stakeTag?: IStakeTag;
+  onIndicatorRefresh?: () => void;
+  onRefreshPendingRef?: React.MutableRefObject<(() => Promise<void>) | null>;
 }
 
 export function AdaManageContent({
@@ -66,6 +72,10 @@ export function AdaManageContent({
   earnAccount,
   protocolInfo,
   tokenInfo,
+  indicatorAccountId,
+  stakeTag,
+  onIndicatorRefresh,
+  onRefreshPendingRef,
 }: IAdaManageContentProps) {
   const appNavigation = useAppNavigation();
   const [delegateLoading, setDelegateLoading] = useState(false);
@@ -378,6 +388,12 @@ export function AdaManageContent({
       transactionConfirmation={transactionConfirmation}
       fallbackTokenImageUri={fallbackTokenImageUri}
       fallbackSymbol={symbol}
+      // PendingIndicator props
+      indicatorAccountId={indicatorAccountId || earnAccount?.accountId}
+      networkId={networkId}
+      stakeTag={stakeTag || protocolInfo?.stakeTag}
+      onIndicatorRefresh={onIndicatorRefresh}
+      onRefreshPendingRef={onRefreshPendingRef}
     />
   );
 }

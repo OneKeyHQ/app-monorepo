@@ -1,5 +1,7 @@
 import type { ColorTokens, IKeyOfIcons } from '@onekeyhq/components';
 
+import type { IEarnPermit2ApproveSignData } from './staking';
+
 export enum EEarnProviderEnum {
   Lido = 'Lido',
   Everstake = 'Everstake',
@@ -69,6 +71,7 @@ export interface IEarnPermitCache {
   tokenAddress: string;
   amount: string;
   signature: string;
+  permit2Data?: IEarnPermit2ApproveSignData;
   expiredAt: number;
 }
 

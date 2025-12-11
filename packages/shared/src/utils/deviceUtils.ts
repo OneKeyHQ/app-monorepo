@@ -23,6 +23,7 @@ import type {
   IFetchFirmwareVerifyHashParams,
   IFirmwareVerifyInfo,
   IOneKeyDeviceFeatures,
+  IOneKeyDeviceFeaturesWithAppParams,
   IOneKeyDeviceType,
 } from '../../types/device';
 import type {
@@ -548,10 +549,28 @@ function getDefaultHardwareTransportType(): EHardwareTransportType {
   if (platformEnv.isNative) {
     return EHardwareTransportType.BLE;
   }
+  // Because of uDev rules, using http bridge in linux desktop
+  if (platformEnv.isDesktopLinux) {
+    return EHardwareTransportType.Bridge;
+  }
   if (platformEnv.isSupportWebUSB) {
     return EHardwareTransportType.WEBUSB;
   }
   return EHardwareTransportType.Bridge;
+}
+
+function getFirmwareTypeByCachedFeatures({
+  features,
+}: {
+  features:
+    | (IOneKeyDeviceFeatures & { $app_firmware_type?: EFirmwareType })
+    | undefined;
+}) {
+  if (!features) {
+    return EFirmwareType.Universal;
+  }
+
+  return features.$app_firmware_type;
 }
 
 async function getFirmwareType({
@@ -654,6 +673,17 @@ async function buildDeviceUSBConnectId({
   return getDeviceUUID(features);
 }
 
+async function attachAppParamsToFeatures({
+  features,
+}: {
+  features: IOneKeyDeviceFeatures;
+}): Promise<IOneKeyDeviceFeaturesWithAppParams> {
+  const firmwareType = await getFirmwareType({
+    features,
+  });
+  return { ...features, $app_firmware_type: firmwareType };
+}
+
 export default {
   dbDeviceToSearchDevice,
   getDeviceVersion,
@@ -682,9 +712,11 @@ export default {
   getDeviceConnectId,
   getDefaultHardwareTransportType,
   isBtcOnlyFirmware,
+  getFirmwareTypeByCachedFeatures,
   getFirmwareType,
   getFirmwareTypeLabel,
   getFirmwareTypeLabelByFirmwareType,
   isTouchDevice,
   buildDeviceUSBConnectId,
+  attachAppParamsToFeatures,
 };

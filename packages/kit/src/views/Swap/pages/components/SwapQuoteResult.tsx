@@ -36,7 +36,6 @@ import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils'
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   EProtocolOfExchange,
-  ESwapLimitOrderExpiryStep,
   ESwapQuoteKind,
   ESwapTabSwitchType,
   type IFetchQuoteResult,
@@ -51,6 +50,7 @@ import SwapCommonInfoItem from '../../components/SwapCommonInfoItem';
 import SwapProviderInfoItem from '../../components/SwapProviderInfoItem';
 import SwapQuoteResultRate from '../../components/SwapQuoteResultRate';
 import { useSwapRecipientAddressInfo } from '../../hooks/useSwapAccount';
+import { useSwapLimitConfigMaps } from '../../hooks/useSwapGlobal';
 import { useSwapSlippageActions } from '../../hooks/useSwapSlippageActions';
 import {
   useSwapQuoteEventFetching,
@@ -195,70 +195,8 @@ const SwapQuoteResult = ({
 
   const quoting = useSwapQuoteEventFetching();
 
-  const limitOrderExpiryStepMap = useMemo(
-    () => [
-      {
-        label: `5 ${intl.formatMessage({
-          id: ETranslations.Limit_expire_minutes,
-        })}`,
-        value: ESwapLimitOrderExpiryStep.FIVE_MINUTES.toString(),
-      },
-      {
-        label: `30 ${intl.formatMessage({
-          id: ETranslations.Limit_expire_minutes,
-        })}`,
-        value: ESwapLimitOrderExpiryStep.THIRTY_MINUTES.toString(),
-      },
-      {
-        label: `1 ${intl.formatMessage({
-          id: ETranslations.Limit_expire_hour,
-        })}`,
-        value: ESwapLimitOrderExpiryStep.ONE_HOUR.toString(),
-      },
-      {
-        label: `1 ${intl.formatMessage({
-          id: ETranslations.Limit_expire_day,
-        })}`,
-        value: ESwapLimitOrderExpiryStep.ONE_DAY.toString(),
-      },
-      {
-        label: `3 ${intl.formatMessage({
-          id: ETranslations.Limit_expire_days,
-        })}`,
-        value: ESwapLimitOrderExpiryStep.THREE_DAYS.toString(),
-      },
-      {
-        label: `7 ${intl.formatMessage({
-          id: ETranslations.Limit_expire_days,
-        })}`,
-        value: ESwapLimitOrderExpiryStep.ONE_WEEK.toString(),
-      },
-      {
-        label: `1 ${intl.formatMessage({
-          id: ETranslations.Limit_expire_month,
-        })}`,
-        value: ESwapLimitOrderExpiryStep.ONE_MONTH.toString(),
-      },
-    ],
-    [intl],
-  );
-  const limitOrderPartiallyFillStepMap = useMemo(
-    () => [
-      {
-        label: intl.formatMessage({
-          id: ETranslations.Limit_info_partial_fill_enable,
-        }),
-        value: true,
-      },
-      {
-        label: intl.formatMessage({
-          id: ETranslations.Limit_info_partial_fill_disable,
-        }),
-        value: false,
-      },
-    ],
-    [intl],
-  );
+  const { limitOrderExpiryStepMap, limitOrderPartiallyFillStepMap } =
+    useSwapLimitConfigMaps();
 
   const onValueChange = useCallback((value: string) => {
     if (value === SWAP_ACCORDION_VALUE) {

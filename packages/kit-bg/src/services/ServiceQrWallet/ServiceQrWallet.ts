@@ -1,3 +1,4 @@
+import { EFirmwareType } from '@onekeyfe/hd-shared';
 import { uniq } from 'lodash';
 
 import type {
@@ -28,6 +29,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
+import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IQrWalletDevice } from '@onekeyhq/shared/types/device';
@@ -247,7 +249,11 @@ class ServiceQrWallet extends ServiceBase {
     allDefaultAddAccountNetworksIds = uniq([
       ...allDefaultAddAccountNetworksIds,
     ]);
-    if (networkUtils.isAllNetwork({ networkId })) {
+    const firmwareType = await deviceUtils.getFirmwareType({
+      features: byDevice?.featuresInfo,
+    });
+    const isBtcOnlyFirmware = firmwareType === EFirmwareType.BitcoinOnly;
+    if (networkUtils.isAllNetwork({ networkId }) || isBtcOnlyFirmware) {
       networkIds = uniq([...allDefaultAddAccountNetworksIds]);
     } else {
       // networkIds = [networkId];

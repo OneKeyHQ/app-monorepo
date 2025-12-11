@@ -8,6 +8,7 @@ import {
   Checkbox,
   Dialog,
   Divider,
+  IconButton,
   Page,
   SizableText,
   Toast,
@@ -471,7 +472,7 @@ const SetTpslForm = memo(
                   id: ETranslations.perp_trade_tp_price,
                 })}
               </SizableText>
-              <YStack>
+              <YStack gap="$1">
                 <XStack gap="$1">
                   <SizableText size="$bodyMdMedium">
                     {appLocale.intl.formatMessage({
@@ -493,11 +494,25 @@ const SetTpslForm = memo(
                   </SizableText>
                 </XStack>
                 {expectedProfit ? (
-                  <SizableText size="$bodySm" alignSelf="flex-end">
+                  <SizableText
+                    size="$bodySm"
+                    alignSelf="flex-end"
+                    color="$textSubdued"
+                  >
                     {appLocale.intl.formatMessage({
                       id: ETranslations.perp_tp_sl_profit,
                     })}
-                    {': '}${expectedProfit}
+                    {': '}
+                    <SizableText
+                      size="$bodySm"
+                      color={
+                        expectedProfit.startsWith('-') ? '$red11' : '$green11'
+                      }
+                    >
+                      {expectedProfit.startsWith('-')
+                        ? `-$${expectedProfit.slice(1)}`
+                        : `$${expectedProfit}`}
+                    </SizableText>
                   </SizableText>
                 ) : null}
               </YStack>
@@ -526,7 +541,7 @@ const SetTpslForm = memo(
                   id: ETranslations.perp_trade_sl_price,
                 })}
               </SizableText>
-              <YStack>
+              <YStack gap="$1">
                 <XStack gap="$1">
                   <SizableText size="$bodyMdMedium">
                     {appLocale.intl.formatMessage({
@@ -548,11 +563,25 @@ const SetTpslForm = memo(
                   </SizableText>
                 </XStack>
                 {expectedLoss ? (
-                  <SizableText size="$bodySm" alignSelf="flex-end">
+                  <SizableText
+                    size="$bodySm"
+                    alignSelf="flex-end"
+                    color="$textSubdued"
+                  >
                     {appLocale.intl.formatMessage({
                       id: ETranslations.perp_tp_sl_loss,
                     })}
-                    {': '}${expectedLoss}
+                    {': '}
+                    <SizableText
+                      size="$bodySm"
+                      color={
+                        expectedLoss.startsWith('-') ? '$red11' : '$green11'
+                      }
+                    >
+                      {expectedLoss.startsWith('-')
+                        ? `-$${expectedLoss.slice(1)}`
+                        : `$${expectedLoss}`}
+                    </SizableText>
                   </SizableText>
                 ) : null}
               </YStack>

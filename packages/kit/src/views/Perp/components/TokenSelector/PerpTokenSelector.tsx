@@ -520,7 +520,7 @@ function BasePerpTokenSelector() {
 
             {/* Token Name */}
             <SizableText size="$heading2xl">
-              {parsedActive.displayName}
+              {parsedActive.displayName}USDC
             </SizableText>
             <Icon name="ChevronBottomOutline" size="$4" />
             {isLoading ? <Spinner size="small" /> : null}
@@ -564,7 +564,7 @@ const BasePerpTokenSelectorMobileView = memo(
           justifyContent="center"
           alignItems="center"
         >
-          <SizableText size="$headingXl">{displayCoin}USD</SizableText>
+          <SizableText size="$headingXl">{displayCoin}USDC</SizableText>
           <Badge radius="$1" bg="$bgSubdued" px="$1" py={0}>
             <SizableText color="$textSubdued" fontSize={11}>
               {intl.formatMessage({

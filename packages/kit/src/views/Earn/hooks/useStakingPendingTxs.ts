@@ -102,7 +102,10 @@ export const useStakingPendingTxs = ({
   // Trigger onRefresh callback when all pending transactions complete
   useEffect(() => {
     if (!isPending && prevIsPending) {
-      onRefreshRef.current?.();
+      // Delay refresh to allow backend data sync after transaction confirmation
+      setTimeout(() => {
+        onRefreshRef.current?.();
+      }, timerUtils.getTimeDurationMs({ seconds: 3 }));
     }
   }, [isPending, prevIsPending]);
 

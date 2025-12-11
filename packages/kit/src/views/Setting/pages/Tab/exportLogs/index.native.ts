@@ -158,9 +158,9 @@ export const uploadLogBundle = async ({
   let text = '';
 
   let uploadTaskError: Error | undefined;
-  let fileSystemModule: typeof import('expo-file-system') | undefined;
+  let fileSystemModule: typeof import('expo-file-system/legacy') | undefined;
   try {
-    fileSystemModule = await import('expo-file-system');
+    fileSystemModule = await import('expo-file-system/legacy');
   } catch (error) {
     fileSystemModule = undefined;
   }
