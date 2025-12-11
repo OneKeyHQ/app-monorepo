@@ -617,8 +617,10 @@ class ServiceHardware extends ServiceBase {
     // return Promise.reject(deviceError);
   }
 
-  private connectDevice = (params: IDeviceGetFeaturesOptions) =>
-    this.getFeaturesWithoutCache(params);
+  @backgroundMethod()
+  async connectDevice(params: IDeviceGetFeaturesOptions) {
+    return this.getFeaturesWithoutCache(params);
+  }
 
   private handlerConnectError = (e: any) => {
     const error: deviceErrors.OneKeyHardwareError | undefined =
@@ -1227,6 +1229,7 @@ class ServiceHardware extends ServiceBase {
       | {
           fw_vendor: string | undefined;
           capabilities: number[] | undefined;
+          $app_firmware_type?: EFirmwareType;
         }
       | undefined;
     const capabilityBitcoinLike = 2;
@@ -1247,6 +1250,7 @@ class ServiceHardware extends ServiceBase {
         bitcoinOnlyFlag = {
           fw_vendor: bitcoinOnlyFwVendor,
           capabilities: newCapabilities,
+          $app_firmware_type: EFirmwareType.BitcoinOnly,
         };
       } else if (
         updateFirmwareInfo?.fromFirmwareType === EFirmwareType.BitcoinOnly &&
@@ -1267,6 +1271,7 @@ class ServiceHardware extends ServiceBase {
         bitcoinOnlyFlag = {
           fw_vendor: undefined,
           capabilities,
+          $app_firmware_type: EFirmwareType.Universal,
         };
       }
     } catch (error) {

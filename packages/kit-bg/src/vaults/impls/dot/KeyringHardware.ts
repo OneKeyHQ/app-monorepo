@@ -176,11 +176,12 @@ export class KeyringHardware extends KeyringHardwareBase {
       ...encodedTx,
       metadataRpc,
     });
+    const chainId = await this.getNetworkChainId();
     const { signature } = await convertDeviceResponse(async () =>
       sdk.polkadotSignTransaction(connectId, deviceId, {
         path: account.path,
         prefix: +networkInfo.addressPrefix,
-        network: SpecialNetworkIdMap[network.chainId] || network.chainId,
+        network: SpecialNetworkIdMap[chainId] || chainId,
         rawTx: bufferUtils.bytesToHex(tx.rawTx),
         ...deviceCommonParams,
       }),

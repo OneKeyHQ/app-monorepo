@@ -579,8 +579,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                 navigation?.push(EModalSettingRoutes.SettingCustomRPC);
               },
             },
-            platformEnv.isSupportWebUSB ||
-            (platformEnv.isSupportDesktopBle && platformEnv.isDev)
+            platformEnv.isDev
               ? {
                   icon: 'UsbOutline',
                   title: intl.formatMessage({

@@ -24,12 +24,12 @@ interface ICopyLinkSplitButtonProps {
 
 export function CopyLinkSplitButton({ url }: ICopyLinkSplitButtonProps) {
   const intl = useIntl();
-  const { copyText } = useClipboard();
+  const { copyUrl } = useClipboard();
 
   const handleCopy = useCallback(() => {
-    void copyText(url);
+    void copyUrl(url);
     defaultLogger.referral.page.shareReferralLink('copy');
-  }, [url, copyText]);
+  }, [url, copyUrl]);
 
   const handleStopPropagation = useCallback(
     (e: { stopPropagation: () => void }) => {

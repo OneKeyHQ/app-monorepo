@@ -47,6 +47,7 @@ import {
   maxRecentTokenPairs,
   mevSwapNetworks,
   swapApprovingStateFetchInterval,
+  swapDefaultSetTokens,
   swapHistoryStateFetchInterval,
   swapHistoryStateFetchRiceIntervalCount,
   swapQuoteEventTimeout,
@@ -61,6 +62,7 @@ import type {
   IFetchQuoteResult,
   IFetchQuotesParams,
   IFetchResponse,
+  IFetchSwapQuoteParams,
   IFetchSwapTxHistoryStatusResponse,
   IFetchTokenDetailParams,
   IFetchTokenListParams,
@@ -108,6 +110,8 @@ const formatter: INumberFormatProps = {
 @backgroundClass()
 export default class ServiceSwap extends ServiceBase {
   private _quoteAbortController?: AbortController;
+
+  private _speedSwapQuoteAbortController?: AbortController;
 
   private _checkTokenApproveAllowanceAbortController?: AbortController;
 
@@ -193,6 +197,14 @@ export default class ServiceSwap extends ServiceBase {
     if (this._perpDepositQuoteController) {
       this._perpDepositQuoteController.abort();
       this._perpDepositQuoteController = undefined;
+    }
+  }
+
+  @backgroundMethod()
+  async cancelFetchSpeedSwapQuote() {
+    if (this._speedSwapQuoteAbortController) {
+      this._speedSwapQuoteAbortController.abort();
+      this._speedSwapQuoteAbortController = undefined;
     }
   }
 
@@ -661,23 +673,7 @@ export default class ServiceSwap extends ServiceBase {
     kind,
     toTokenAmount,
     userMarketPriceRate,
-  }: {
-    fromToken: ISwapToken;
-    toToken: ISwapToken;
-    fromTokenAmount?: string;
-    receivingAddress?: string;
-    userAddress?: string;
-    slippagePercentage: number;
-    autoSlippage?: boolean;
-    blockNumber?: number;
-    accountId?: string;
-    protocol: ESwapTabSwitchType;
-    expirationTime?: number;
-    limitPartiallyFillable?: boolean;
-    kind?: ESwapQuoteKind;
-    toTokenAmount?: string;
-    userMarketPriceRate?: string;
-  }) {
+  }: IFetchSwapQuoteParams) {
     await this.removeQuoteEventSourceListeners();
     const denyCrossChainProvider = await this.getDenyCrossChainProvider(
       fromToken.networkId,
@@ -2223,8 +2219,87 @@ export default class ServiceSwap extends ServiceBase {
           swapMevNetConfig: mevSwapNetworks,
         },
         supportSpeedSwap: false,
+        speedDefaultSelectToken: swapDefaultSetTokens['evm--1'].toToken,
       };
     }
+  }
+
+  @backgroundMethod()
+  async fetchSpeedSwapQuote({
+    fromToken,
+    toToken,
+    fromTokenAmount,
+    userAddress,
+    slippagePercentage,
+    autoSlippage,
+    blockNumber,
+    accountId,
+    expirationTime,
+    receivingAddress,
+    kind,
+    protocol,
+  }: IFetchSwapQuoteParams) {
+    await this.cancelFetchSpeedSwapQuote();
+    const walletDevice =
+      await this.backgroundApi.serviceAccount.getAccountDeviceSafe({
+        accountId: accountId ?? '',
+      });
+    const params: IFetchQuotesParams = {
+      fromTokenAddress: fromToken.contractAddress,
+      toTokenAddress: toToken.contractAddress,
+      fromTokenAmount,
+      fromNetworkId: fromToken.networkId,
+      toNetworkId: toToken.networkId,
+      protocol:
+        protocol === ESwapTabSwitchType.LIMIT
+          ? EProtocolOfExchange.LIMIT
+          : EProtocolOfExchange.SWAP,
+      userAddress,
+      slippagePercentage,
+      autoSlippage,
+      blockNumber,
+      receivingAddress,
+      expirationTime,
+      kind,
+      walletDeviceType: walletDevice?.deviceType,
+    };
+    this._speedSwapQuoteAbortController = new AbortController();
+    const client = await this.getClient(EServiceEndpointEnum.Swap);
+    const fetchUrl = '/swap/v1/quote/speed';
+    try {
+      const { data } = await client.get<IFetchResponse<IFetchQuoteResult[]>>(
+        fetchUrl,
+        {
+          params,
+          signal: this._speedSwapQuoteAbortController.signal,
+          headers:
+            await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader(
+              {
+                accountId,
+              },
+            ),
+        },
+      );
+      this._speedSwapQuoteAbortController = undefined;
+
+      if (data?.code === 0 && data?.data?.length) {
+        return data?.data;
+      }
+    } catch (e) {
+      if (axios.isCancel(e)) {
+        // eslint-disable-next-line no-restricted-syntax
+        throw new Error('swap speed fetch quote cancel', {
+          cause: ESwapFetchCancelCause.SWAP_SPEED_QUOTE_CANCEL,
+        });
+      }
+    }
+    return [
+      {
+        info: { provider: '', providerName: '' },
+        fromTokenInfo: fromToken,
+        toTokenInfo: toToken,
+      },
+    ];
   }
 
   @backgroundMethod()

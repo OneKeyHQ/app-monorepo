@@ -1,30 +1,42 @@
+/**
+ * Metro configuration for React Native
+ * https://github.com/facebook/metro
+ *
+ * This config extends '@react-native/metro-config' to support React Native >=0.73
+ * For details see: https://github.com/react-native-community/template/blob/main/template/metro.config.js
+ */
+
+const { getDefaultConfig, mergeConfig } = require('@react-native/metro-config');
 const { withRozenite } = require('@rozenite/metro');
 const path = require('path');
 const fs = require('fs-extra');
 const { getSentryExpoConfig } = require('@sentry/react-native/metro');
-const { withRozeniteExpoAtlasPlugin } = require('@rozenite/expo-atlas-plugin');
+// const { withRozeniteExpoAtlasPlugin } = require('@rozenite/expo-atlas-plugin'); // Uncomment if needed
 
-// Find the project and workspace directories
 const projectRoot = __dirname;
-// This can be replaced with `find-yarn-workspace-root`
-// const workspaceRoot = path.resolve(projectRoot, '../..');
 
-const config = getSentryExpoConfig(projectRoot);
+// Get Metro's default config for the project
+const defaultConfig = getDefaultConfig(projectRoot);
+
+// Use Sentry Expo's Metro config as a base, merged with the RN default config
+const sentryConfig = getSentryExpoConfig(projectRoot);
+const config = mergeConfig(defaultConfig, sentryConfig);
 
 config.projectRoot = projectRoot;
 
-// hot-reload file type
-// cjs is needed for superstruct: https://github.com/ianstormtaylor/superstruct/issues/404#issuecomment-800182972
+// Allow custom hot-reload and third-party extensions
+config.resolver = config.resolver || {};
 config.resolver.sourceExts = [
-  ...config.resolver.sourceExts,
+  ...(config.resolver.sourceExts || []),
   'text-js',
   'd.ts',
-  'cjs',
+  'cjs', // Needed for superstruct: https://github.com/ianstormtaylor/superstruct/issues/404#issuecomment-800182972
   'min.js',
 ];
-// https://www.npmjs.com/package/node-libs-react-native
+
+// Provide extra shims/polyfills for node modules
 config.resolver.extraNodeModules = {
-  ...config.resolver.extraNodeModules,
+  ...(config.resolver.extraNodeModules || {}),
   crypto: require.resolve(
     '@onekeyhq/shared/src/modules3rdParty/cross-crypto/index.native.js',
   ),
@@ -38,20 +50,20 @@ config.resolver.extraNodeModules = {
   zlib: require.resolve('browserify-zlib'),
 };
 
-// https://github.com/facebook/metro/issues/1222
-// Unable to resolve self-referring "subpath exports" from within a haste module
+// Fix for Metro resolver with "subpath exports"
 config.resolver.unstable_enablePackageExports = false;
 
-// 1. Watch all files within the monorepo
+// ---- Optional monorepo setup for Yarn workspaces (commented) ----
+// const workspaceRoot = path.resolve(projectRoot, '../..');
 // config.watchFolders = [workspaceRoot];
-// 2. Let Metro know where to resolve packages and in what order
 // config.resolver.nodeModulesPaths = [
 //   path.resolve(projectRoot, 'node_modules'),
 //   path.resolve(workspaceRoot, 'node_modules'),
 // ];
-// 3. Force Metro to resolve (sub)dependencies only from the `nodeModulesPaths`
 // config.resolver.disableHierarchicalLookup = true;
+// ---------------------------------------------------------------
 
+// Ensure cache directories exist
 const fileMapCacheDirectoryPath = path.resolve(
   projectRoot,
   'node_modules',
@@ -72,21 +84,22 @@ config.cacheStores = ({ FileStore }) => [
   }),
 ];
 
-// https://github.com/facebook/metro/issues/1191
-// Lazy compilation is unstable and can easily lead to 'Reached heap limit Allocation failed.
-
-// @expo/metro-config/build/rewriteRequestUrl.js
-// metro includes rewriteExpoRequestUrl function which is used to rewrite the request url.
-const orignalRewriteRequestUrl = config.server.rewriteRequestUrl
+// Patch for lazy compilation instability: always set lazy=false in bundle requests
+const orignalRewriteRequestUrl = config.server && config.server.rewriteRequestUrl
   ? config.server.rewriteRequestUrl
   : (url) => url;
+config.server = config.server || {};
 config.server.rewriteRequestUrl = (url) =>
   orignalRewriteRequestUrl(url).replace('&lazy=true', '&lazy=false');
 
+// Apply split code plugin, then wrap with Rozenite plugin
 const splitCodePlugin = require('./plugins');
 
-module.exports = withRozenite(splitCodePlugin(config, projectRoot), {
-  enabled: process.env.WITH_ROZENITE === 'true',
-  // enhanceMetroConfig: (config) => withRozeniteExpoAtlasPlugin(config),
-  enhanceMetroConfig: (config) => config,
-});
+module.exports = withRozenite(
+  splitCodePlugin(config, projectRoot),
+  {
+    enabled: process.env.WITH_ROZENITE === 'true',
+    // enhanceMetroConfig: (config) => withRozeniteExpoAtlasPlugin(config),
+    enhanceMetroConfig: (config) => config,
+  },
+);
