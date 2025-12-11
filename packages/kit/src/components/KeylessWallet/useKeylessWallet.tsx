@@ -2,7 +2,7 @@ import { useCallback, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Dialog } from '@onekeyhq/components';
+import { Dialog, Toast } from '@onekeyhq/components';
 import { primePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { ECloudBackupProviderType } from '@onekeyhq/shared/src/cloudBackup/cloudBackupTypes';
 import { EPrimeEmailOTPScene } from '@onekeyhq/shared/src/consts/primeConsts';
@@ -21,6 +21,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes, ERootRoutes } from '@onekeyhq/shared/src/routes';
 import {
   EOnboardingPagesV2,
+  EOnboardingV2KeylessWalletCreationMode,
   EOnboardingV2Routes,
 } from '@onekeyhq/shared/src/routes/onboardingv2';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
@@ -160,6 +161,9 @@ export function useKeylessWalletMethods() {
     }, []);
 
   const getAuthPackFromServer = useCallback(async (): Promise<IAuthKeyPack> => {
+    Toast.success({
+      title: 'getAuthPackFromServer',
+    });
     await loginOneKeyId();
     const user = await primePersistAtom.get();
     const packSetId = user?.keylessWalletId;
@@ -216,6 +220,30 @@ export function useKeylessWalletMethods() {
     });
   }, []);
 
+  const receiveDevicePackByQrCode = useCallback(() => {
+    navigation.pushModal(EModalRoutes.PrimeModal, {
+      screen: EPrimePages.PrimeTransfer,
+      params: {
+        defaultTab: 'qr-code',
+        transferType: EPrimeTransferDataType.keylessWallet,
+      },
+    });
+  }, [navigation]);
+
+  /**
+   * Initiates the process to send the DeviceKeyPack to another device using QR code pairing.
+   * Navigates to the PrimeTransfer modal with the appropriate screen and params.
+   */
+  const sendDevicePackByQrCode = useCallback(() => {
+    navigation.pushModal(EModalRoutes.PrimeModal, {
+      screen: EPrimePages.PrimeTransfer,
+      params: {
+        defaultTab: 'enter-link',
+        transferType: EPrimeTransferDataType.keylessWallet,
+      },
+    });
+  }, [navigation]);
+
   return {
     // create flow
     generatePacks,
@@ -228,6 +256,8 @@ export function useKeylessWalletMethods() {
     getAuthPackFromServer,
     getCloudPack,
     deleteAuthPackFromServer,
+    receiveDevicePackByQrCode,
+    sendDevicePackByQrCode,
   };
 }
 
@@ -329,8 +359,10 @@ export function useKeylessWallet() {
                 navigation.navigate(ERootRoutes.Onboarding, {
                   screen: EOnboardingV2Routes.OnboardingV2,
                   params: {
-                    screen: EOnboardingPagesV2.KeylessWalletRecovery,
-                    params: {},
+                    screen: EOnboardingPagesV2.KeylessWalletCreation,
+                    params: {
+                      mode: EOnboardingV2KeylessWalletCreationMode.Restore,
+                    },
                   },
                 });
               }
@@ -339,7 +371,9 @@ export function useKeylessWallet() {
                 screen: EOnboardingV2Routes.OnboardingV2,
                 params: {
                   screen: EOnboardingPagesV2.KeylessWalletCreation,
-                  params: {},
+                  params: {
+                    mode: EOnboardingV2KeylessWalletCreationMode.Create,
+                  },
                 },
               });
             } else {

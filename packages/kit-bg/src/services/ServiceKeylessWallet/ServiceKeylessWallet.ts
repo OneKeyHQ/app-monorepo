@@ -23,12 +23,13 @@ import keylessWalletUtils from '@onekeyhq/shared/src/keylessWallet/keylessWallet
 import shamirUtils from '@onekeyhq/shared/src/keylessWallet/shamirUtils';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
 import { findMismatchedPaths } from '@onekeyhq/shared/src/utils/miscUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
+import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
 import { EPrimeTransferDataType } from '@onekeyhq/shared/types/prime/primeTransferTypes';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
@@ -200,9 +201,7 @@ class ServiceKeylessWallet extends ServiceBase {
     indexedAccount: IDBIndexedAccount | undefined;
   }> {
     const { servicePassword } = this.backgroundApi;
-    const { password } = await servicePassword.promptPasswordVerify({
-      reason: EReasonForNeedPassword.CreateOrRemoveWallet,
-    });
+    const { password } = await servicePassword.promptPasswordVerify();
 
     return localDb.createKeylessWallet({
       password,
@@ -636,6 +635,31 @@ class ServiceKeylessWallet extends ServiceBase {
     await keylessAuthPackCache.clearAuthPackCache(params);
   }
 
+  /**
+   * Remove keyless wallet.
+   * Requires allowDeleteKeylessKey setting to be enabled.
+   */
+  @backgroundMethod()
+  async removeKeylessWallet(params: { packSetId: string }): Promise<void> {
+    // Check if deletion is allowed
+    const devSettings = await devSettingsPersistAtom.get();
+    const isDeletionAllowed =
+      devSettings.enabled && devSettings.settings?.allowDeleteKeylessKey;
+    if (!isDeletionAllowed) {
+      throw new OneKeyLocalError(
+        'Deletion of keyless key is not allowed. Please enable the setting in dev settings.',
+      );
+    }
+
+    const walletId = accountUtils.buildKeylessWalletId({
+      sharePackSetId: params.packSetId,
+    });
+
+    await this.backgroundApi.serviceAccount.removeWallet({
+      walletId,
+    });
+  }
+
   @backgroundMethod()
   async promptKeylessAuthPackDialog(): Promise<IAuthKeyPack | null> {
     const authPack = await new Promise<IAuthKeyPack | null>(
@@ -863,6 +887,8 @@ class ServiceKeylessWallet extends ServiceBase {
 
     // Cache the authPack in memory after successful upload
     await this.cacheAuthPackInMemory({ authPack });
+
+    await this.backgroundApi.servicePrime.apiFetchPrimeUserInfo();
 
     return {
       success,

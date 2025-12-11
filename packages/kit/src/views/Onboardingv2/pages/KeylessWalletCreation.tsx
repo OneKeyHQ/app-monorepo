@@ -1,79 +1,60 @@
 import type { ReactNode } from 'react';
-import {
-  Fragment,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
-
-import { useIntl } from 'react-intl';
-import { StyleSheet } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
-import {
-  AnimatePresence,
-  Button,
-  HeightTransition,
-  Icon,
-  Page,
-  SizableText,
-  Spinner,
-  XStack,
-  YStack,
-} from '@onekeyhq/components';
+import { Page, SizableText, Toast, YStack } from '@onekeyhq/components';
 import type { IBackupProviderAccountInfo } from '@onekeyhq/shared/src/cloudBackup/cloudBackupTypes';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import type { IKeylessWalletPacks } from '@onekeyhq/shared/src/keylessWallet/keylessWalletTypes';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type {
+  IAuthKeyPack,
+  ICloudKeyPack,
+  IDeviceKeyPack,
+  IKeylessWalletPacks,
+  IKeylessWalletRestoredData,
+} from '@onekeyhq/shared/src/keylessWallet/keylessWalletTypes';
 import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
-import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
+import {
+  EOnboardingPagesV2,
+  EOnboardingV2KeylessWalletCreationMode,
+} from '@onekeyhq/shared/src/routes/onboardingv2';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { useKeylessWallet } from '../../../components/KeylessWallet/useKeylessWallet';
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { useAppRoute } from '../../../hooks/useAppRoute';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
-import { OnboardingLayout } from '../components/OnboardingLayout';
 import {
-  type ISecurityKeyType,
-  SecurityKeyIcon,
-} from '../components/SecurityKeyIcon';
+  ECreationStepId,
+  ECreationStepState,
+  type ICreationStep,
+} from '../components/keylessWalletOnboardingTypes';
+import { KeylessWalletShareCard } from '../components/KeylessWalletShareCard';
+import { OnboardingLayout } from '../components/OnboardingLayout';
 
-enum ECreationStepState {
-  Idle = 'idle',
-  InProgress = 'inProgress',
-  Info = 'info',
-  Success = 'success',
-  Error = 'error',
-}
+import type { ISecurityKeyType } from '../components/SecurityKeyIcon';
 
-enum ECreationStepId {
-  DeviceShare = 'device-share',
-  CloudShare = 'cloud-share',
-  AuthShare = 'auth-share',
-}
+function KeylessWalletCreation() {
+  const route = useAppRoute<
+    IOnboardingParamListV2,
+    EOnboardingPagesV2.KeylessWalletCreation
+  >();
+  const mode =
+    route.params?.mode ?? EOnboardingV2KeylessWalletCreationMode.Create;
 
-interface ICreationStep {
-  id: ECreationStepId;
-  securityKeyType: ISecurityKeyType | undefined;
-  title: string | undefined;
-  description?: ReactNode;
-  state: ECreationStepState | undefined;
-  infoMessage?: string;
-}
-
-export function KeylessWalletCreation({
-  route: _route,
-}: IPageScreenProps<
-  IOnboardingParamListV2,
-  EOnboardingPagesV2.KeylessWalletCreation
->) {
-  const intl = useIntl();
   const navigation = useAppNavigation();
-  const { generatePacks, saveDevicePack, uploadCloudPack, uploadAuthPack } =
-    useKeylessWallet();
+  const {
+    generatePacks,
+    saveDevicePack,
+    uploadCloudPack,
+    uploadAuthPack,
+    getDevicePack,
+    getAuthPackFromCache,
+    getAuthPackFromServer,
+    getCloudPack,
+    receiveDevicePackByQrCode,
+  } = useKeylessWallet();
 
   // Store generated packs in ref to persist across re-renders
   const packsRef = useRef<IKeylessWalletPacks | null>(null);
@@ -81,6 +62,15 @@ export function KeylessWalletCreation({
   // Store packSetIds from device and cloud operations for auth pack upload
   const devicePackSetIdRef = useRef<string | null>(null);
   const cloudPackSetIdRef = useRef<string | null>(null);
+  const authPackSetIdRef = useRef<string | null>(null);
+  // Store restored packs for validation
+  const devicePackRef = useRef<IDeviceKeyPack | null>(null);
+  const cloudPackRef = useRef<ICloudKeyPack | null>(null);
+  const authPackRef = useRef<IAuthKeyPack | null>(null);
+  // Store restore validation result
+  const restoreValidationResultRef = useRef<
+    IKeylessWalletRestoredData | undefined
+  >(undefined);
 
   const { result: keylessWalletCreationConfig } = usePromiseResult(async () => {
     let cloudAccountInfo: IBackupProviderAccountInfo | undefined;
@@ -92,6 +82,9 @@ export function KeylessWalletCreation({
         await backgroundApiProxy.serviceCloudBackupV2.getCloudAccountInfo();
     }
     const cloudProviderType = cloudAccountInfo?.providerType;
+
+    const isRestoreMode =
+      mode === EOnboardingV2KeylessWalletCreationMode.Restore;
 
     // Centralized text configuration for all steps
     const STEP_CONFIG: Record<
@@ -117,21 +110,23 @@ export function KeylessWalletCreation({
           </>
         ),
         // infoMessage: 'Tap to save the key to your device',
-        buttonText: 'Save to Device',
+        buttonText: isRestoreMode ? 'Restore from Device' : 'Save to Device',
       },
       [ECreationStepId.CloudShare]: {
         securityKeyType: 'cloud',
         title: 'Cloud Key',
         description: `Encrypted backup to ${cloudProviderType ?? ''}`,
         // infoMessage: `Tap to backup the key to ${cloudProviderName}`,
-        buttonText: `Backup to ${cloudProviderType ?? ''}`,
+        buttonText: isRestoreMode
+          ? `Restore from ${cloudProviderType ?? ''}`
+          : `Backup to ${cloudProviderType ?? ''}`,
       },
       [ECreationStepId.AuthShare]: {
         securityKeyType: 'auth',
         title: 'Auth Key',
         description: 'Protected by your OneKey ID',
         // infoMessage: 'Tap to save the key to OneKey server',
-        buttonText: 'Save to Server',
+        buttonText: isRestoreMode ? 'Restore from Server' : 'Save to Server',
       },
     };
 
@@ -140,7 +135,7 @@ export function KeylessWalletCreation({
       isSupportCloudBackup,
       cloudAccountInfo,
     };
-  }, []);
+  }, [mode]);
 
   // Helper to create a step from config
   const createStep = useCallback(
@@ -161,18 +156,33 @@ export function KeylessWalletCreation({
 
   // Build initial steps - all start in Idle state except first one
   const buildInitialSteps = useCallback((): ICreationStep[] => {
+    const isRestoreMode =
+      mode === EOnboardingV2KeylessWalletCreationMode.Restore;
+    if (isRestoreMode) {
+      // Restore mode: all steps start with Info state (all visible at once)
+      return [
+        createStep(ECreationStepId.DeviceShare, ECreationStepState.Info),
+        createStep(ECreationStepId.CloudShare, ECreationStepState.Info),
+        createStep(ECreationStepId.AuthShare, ECreationStepState.Info),
+      ];
+    }
+    // Create mode: first step starts with Info, others are Idle
     return [
       createStep(ECreationStepId.DeviceShare, ECreationStepState.Info), // First step starts with Info state
       createStep(ECreationStepId.CloudShare, ECreationStepState.Idle),
       createStep(ECreationStepId.AuthShare, ECreationStepState.Idle),
     ];
-  }, [createStep]);
+  }, [createStep, mode]);
 
   const [steps, setSteps] = useState<ICreationStep[]>(buildInitialSteps);
   const [successCount, setSuccessCount] = useState(0);
 
+  const isRestoreMode = mode === EOnboardingV2KeylessWalletCreationMode.Restore;
+
   // Check if all steps are complete
-  const isCreationComplete = successCount >= 3;
+  const isCreationComplete = isRestoreMode
+    ? successCount >= 2 && restoreValidationResultRef.current !== undefined
+    : successCount >= 3;
 
   // Get visible steps (all steps are always visible in creation flow)
   const visibleSteps = useMemo(() => steps, [steps]);
@@ -309,6 +319,227 @@ export function KeylessWalletCreation({
     }
   }, [updateStepState, moveToNextStep, uploadCloudPack]);
 
+  // Check restore validation when we have 2+ packs
+  const checkRestoreValidation = useCallback(async () => {
+    const packs: {
+      deviceKeyPack?: IDeviceKeyPack;
+      cloudKeyPack?: ICloudKeyPack;
+      authKeyPack?: IAuthKeyPack;
+    } = {};
+
+    if (devicePackRef.current) {
+      packs.deviceKeyPack = devicePackRef.current;
+    }
+    if (cloudPackRef.current) {
+      packs.cloudKeyPack = cloudPackRef.current;
+    }
+    if (authPackRef.current) {
+      packs.authKeyPack = authPackRef.current;
+    }
+
+    const packCount =
+      (packs.deviceKeyPack ? 1 : 0) +
+      (packs.cloudKeyPack ? 1 : 0) +
+      (packs.authKeyPack ? 1 : 0);
+
+    if (packCount >= 2) {
+      try {
+        const result =
+          await backgroundApiProxy.serviceKeylessWallet.restoreKeylessWalletSafe(
+            packs,
+          );
+        if (result) {
+          restoreValidationResultRef.current = result;
+          return true;
+        }
+        // Validation failed - packs cannot restore mnemonic
+        restoreValidationResultRef.current = undefined;
+        return false;
+      } catch (error) {
+        restoreValidationResultRef.current = undefined;
+        return false;
+      }
+    }
+    return false;
+  }, []);
+
+  // Restore handlers
+  const handleDeviceShareRestore = useCallback(async () => {
+    updateStepState(ECreationStepId.DeviceShare, ECreationStepState.InProgress);
+
+    try {
+      const devicePack = await getDevicePack();
+      if (!devicePack) {
+        throw new OneKeyLocalError('Failed to restore device pack');
+      }
+
+      devicePackRef.current = devicePack;
+      devicePackSetIdRef.current = devicePack.packSetId;
+
+      const isValid = await checkRestoreValidation();
+      if (isValid) {
+        updateStepState(
+          ECreationStepId.DeviceShare,
+          ECreationStepState.Success,
+        );
+        return;
+      }
+      // If we have 2 packs but validation failed, show error
+      if (
+        (devicePackRef.current ? 1 : 0) +
+          (cloudPackRef.current ? 1 : 0) +
+          (authPackRef.current ? 1 : 0) >=
+        2
+      ) {
+        updateStepState(
+          ECreationStepId.DeviceShare,
+          ECreationStepState.Error,
+          'Cannot restore wallet with these packs. Please try other packs.',
+        );
+        // Reset other successful steps that might be part of invalid combination
+        // Need to reset state and success count for other steps
+        if (cloudPackRef.current) {
+          cloudPackRef.current = null;
+          updateStepState(ECreationStepId.CloudShare, ECreationStepState.Info);
+        }
+        if (authPackRef.current) {
+          authPackRef.current = null;
+          updateStepState(ECreationStepId.AuthShare, ECreationStepState.Info);
+        }
+        restoreValidationResultRef.current = undefined;
+        return;
+      }
+      updateStepState(ECreationStepId.DeviceShare, ECreationStepState.Success);
+    } catch {
+      updateStepState(
+        ECreationStepId.DeviceShare,
+        ECreationStepState.Info,
+        'Device key restore failed. Tap to try again.',
+      );
+    }
+  }, [updateStepState, getDevicePack, checkRestoreValidation]);
+
+  const handleCloudShareRestore = useCallback(async () => {
+    updateStepState(ECreationStepId.CloudShare, ECreationStepState.InProgress);
+
+    try {
+      const cloudPack = await getCloudPack();
+      if (!cloudPack) {
+        throw new OneKeyLocalError('Failed to restore cloud pack');
+      }
+
+      cloudPackRef.current = cloudPack;
+      cloudPackSetIdRef.current = cloudPack.packSetId;
+
+      const isValid = await checkRestoreValidation();
+      if (isValid) {
+        updateStepState(ECreationStepId.CloudShare, ECreationStepState.Success);
+        return;
+      }
+      // If we have 2 packs but validation failed, show error
+      if (
+        (devicePackRef.current ? 1 : 0) +
+          (cloudPackRef.current ? 1 : 0) +
+          (authPackRef.current ? 1 : 0) >=
+        2
+      ) {
+        updateStepState(
+          ECreationStepId.CloudShare,
+          ECreationStepState.Error,
+          'Cannot restore wallet with these packs. Please try other packs.',
+        );
+        // Reset other successful steps that might be part of invalid combination
+        if (devicePackRef.current) {
+          devicePackRef.current = null;
+          updateStepState(ECreationStepId.DeviceShare, ECreationStepState.Info);
+        }
+        if (authPackRef.current) {
+          authPackRef.current = null;
+          updateStepState(ECreationStepId.AuthShare, ECreationStepState.Info);
+        }
+        restoreValidationResultRef.current = undefined;
+        return;
+      }
+      updateStepState(ECreationStepId.CloudShare, ECreationStepState.Success);
+    } catch {
+      updateStepState(
+        ECreationStepId.CloudShare,
+        ECreationStepState.Info,
+        'Cloud backup restore failed. Tap to try again.',
+      );
+    }
+  }, [updateStepState, getCloudPack, checkRestoreValidation]);
+
+  const handleAuthShareRestore = useCallback(async () => {
+    Toast.success({
+      title: 'handleAuthShareRestore',
+    });
+    updateStepState(ECreationStepId.AuthShare, ECreationStepState.InProgress);
+    let authPack: IAuthKeyPack | null = null;
+
+    try {
+      // Try cache first, then server
+      authPack = await getAuthPackFromCache();
+    } catch (error) {
+      console.error('Failed to get auth pack from cache:', error);
+    }
+
+    try {
+      if (!authPack) {
+        authPack = await getAuthPackFromServer();
+      }
+
+      if (!authPack) {
+        throw new OneKeyLocalError('Failed to restore auth pack');
+      }
+
+      authPackRef.current = authPack;
+      authPackSetIdRef.current = authPack.packSetId;
+
+      const isValid = await checkRestoreValidation();
+      if (isValid) {
+        updateStepState(ECreationStepId.AuthShare, ECreationStepState.Success);
+        return;
+      }
+      // If we have 2 packs but validation failed, show error
+      if (
+        (devicePackRef.current ? 1 : 0) +
+          (cloudPackRef.current ? 1 : 0) +
+          (authPackRef.current ? 1 : 0) >=
+        2
+      ) {
+        updateStepState(
+          ECreationStepId.AuthShare,
+          ECreationStepState.Error,
+          'Cannot restore wallet with these packs. Please try other packs.',
+        );
+        // Reset other successful steps that might be part of invalid combination
+        if (devicePackRef.current) {
+          devicePackRef.current = null;
+          updateStepState(ECreationStepId.DeviceShare, ECreationStepState.Info);
+        }
+        if (cloudPackRef.current) {
+          cloudPackRef.current = null;
+          updateStepState(ECreationStepId.CloudShare, ECreationStepState.Info);
+        }
+        restoreValidationResultRef.current = undefined;
+        return;
+      }
+      updateStepState(ECreationStepId.AuthShare, ECreationStepState.Success);
+    } catch {
+      updateStepState(
+        ECreationStepId.AuthShare,
+        ECreationStepState.Info,
+        'Server restore failed. Tap to try again.',
+      );
+    }
+  }, [
+    updateStepState,
+    getAuthPackFromCache,
+    getAuthPackFromServer,
+    checkRestoreValidation,
+  ]);
+
   // Step 3: Save Auth Share
   const handleAuthShareSave = useCallback(async () => {
     if (!packsRef.current) {
@@ -352,9 +583,19 @@ export function KeylessWalletCreation({
     }
   }, [updateStepState, uploadAuthPack]);
 
-  // Handle step action based on step type
+  // Handle step action based on step type and mode
   const handleStepAction = useCallback(
     (stepId: ECreationStepId) => {
+      if (isRestoreMode) {
+        if (stepId === ECreationStepId.DeviceShare) {
+          void handleDeviceShareRestore();
+        } else if (stepId === ECreationStepId.CloudShare) {
+          void handleCloudShareRestore();
+        } else if (stepId === ECreationStepId.AuthShare) {
+          void handleAuthShareRestore();
+        }
+        return;
+      }
       if (stepId === ECreationStepId.DeviceShare) {
         void handleDeviceShareSave();
       } else if (stepId === ECreationStepId.CloudShare) {
@@ -363,7 +604,15 @@ export function KeylessWalletCreation({
         void handleAuthShareSave();
       }
     },
-    [handleDeviceShareSave, handleCloudShareSave, handleAuthShareSave],
+    [
+      isRestoreMode,
+      handleDeviceShareSave,
+      handleCloudShareSave,
+      handleAuthShareSave,
+      handleDeviceShareRestore,
+      handleCloudShareRestore,
+      handleAuthShareRestore,
+    ],
   );
 
   // Get button text from config
@@ -376,7 +625,11 @@ export function KeylessWalletCreation({
 
   // Handle "Complete Setup" - navigate to finalize wallet setup
   const handleCompleteSetup = useCallback(() => {
-    const packSetId = devicePackSetIdRef.current ?? cloudPackSetIdRef.current;
+    // Priority: Auth > Cloud > Device
+    const packSetId =
+      authPackSetIdRef.current ??
+      cloudPackSetIdRef.current ??
+      devicePackSetIdRef.current;
     navigation.push(EOnboardingPagesV2.FinalizeWalletSetup, {
       keylessPackSetId: packSetId,
     });
@@ -399,8 +652,13 @@ export function KeylessWalletCreation({
     setSteps(buildInitialSteps());
   }, [buildInitialSteps]);
 
-  // Generate packs on mount if they don't exist
+  // Generate packs on mount if they don't exist (only in Create mode)
   useEffect(() => {
+    // Skip in Restore mode
+    if (isRestoreMode) {
+      return;
+    }
+
     const generatePacksOnMount = async () => {
       // Skip if packs already exist
       if (packsRef.current) {
@@ -425,7 +683,7 @@ export function KeylessWalletCreation({
     };
 
     void generatePacksOnMount();
-  }, [generatePacks]);
+  }, [generatePacks, isRestoreMode]);
 
   // Clear packs on component cleanup
   useEffect(() => {
@@ -433,77 +691,13 @@ export function KeylessWalletCreation({
       packsRef.current = null;
       devicePackSetIdRef.current = null;
       cloudPackSetIdRef.current = null;
+      authPackSetIdRef.current = null;
+      devicePackRef.current = null;
+      cloudPackRef.current = null;
+      authPackRef.current = null;
+      restoreValidationResultRef.current = undefined;
     };
   }, []);
-
-  const renderStepStatusIcon = useCallback(
-    (state: ECreationStepState | undefined) => {
-      if (!state) {
-        return null;
-      }
-      switch (state) {
-        case ECreationStepState.InProgress:
-          return (
-            <Spinner
-              key="spinner"
-              size="small"
-              animation="quick"
-              enterStyle={{ scale: 0.7, opacity: 0 }}
-              exitStyle={{ scale: 0.7, opacity: 0 }}
-              scale={0.8}
-            />
-          );
-        case ECreationStepState.Success:
-          return (
-            <YStack
-              animation="quick"
-              enterStyle={{ scale: 0.8, opacity: 0 }}
-              exitStyle={{ scale: 0.8, opacity: 0 }}
-              key="checkmark"
-            >
-              <Icon
-                name="Checkmark2SmallOutline"
-                color="$iconSuccess"
-                size="$5"
-              />
-            </YStack>
-          );
-        case ECreationStepState.Error:
-          return (
-            <YStack
-              animation="quick"
-              enterStyle={{ scale: 0.8, opacity: 0 }}
-              exitStyle={{ scale: 0.8, opacity: 0 }}
-              key="error"
-            >
-              <Icon
-                name="CrossedSmallOutline"
-                color="$iconCritical"
-                size="$5"
-              />
-            </YStack>
-          );
-        case ECreationStepState.Info:
-          return (
-            <YStack
-              animation="quick"
-              enterStyle={{ scale: 0.8, opacity: 0 }}
-              exitStyle={{ scale: 0.8, opacity: 0 }}
-              key="info"
-            >
-              <Icon
-                name="CirclePlaceholderOnOutline"
-                color="$iconSubdued"
-                size="$4.5"
-              />
-            </YStack>
-          );
-        default:
-          return null;
-      }
-    },
-    [],
-  );
 
   return (
     <Page>
@@ -526,216 +720,42 @@ export function KeylessWalletCreation({
               </SizableText>
             </YStack>
 
-            {visibleSteps.map((step, index) => (
-              <Fragment key={step.id}>
-                <YStack>
-                  {/* Highlight background */}
-                  <AnimatePresence>
-                    {step.state !== ECreationStepState.Success &&
-                    step.state !== ECreationStepState.Idle ? (
-                      <YStack
-                        animation="quick"
-                        animateOnly={['opacity', 'transform']}
-                        enterStyle={{
-                          opacity: 0,
-                          scale: 0.97,
-                          filter: 'blur(4px)',
-                        }}
-                        exitStyle={{
-                          opacity: 0,
-                          scale: 0.97,
-                          filter: 'blur(4px)',
-                        }}
-                        position="absolute"
-                        left={-10}
-                        top={-10}
-                        right={-10}
-                        bottom={-10}
-                        $gtMd={{
-                          left: -16,
-                          top: -16,
-                          right: -16,
-                          bottom: -16,
-                        }}
-                        bg="$bgSubdued"
-                        borderRadius="$4"
-                        borderCurve="continuous"
-                        $platform-web={{
-                          boxShadow:
-                            '0 0 0 1px rgba(0, 0, 0, 0.04), 0 0 2px 0 rgba(0, 0, 0, 0.08), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
-                        }}
-                        $theme-dark={{
-                          borderWidth: StyleSheet.hairlineWidth,
-                          borderColor: '$neutral2',
-                        }}
-                        zIndex={0}
-                      />
-                    ) : null}
-                  </AnimatePresence>
+            {visibleSteps.map((step, index) => {
+              const isLastStep = index === visibleSteps.length - 1;
+              const commonProps = {
+                step,
+                index,
+                isLastStep,
+                onStepAction: () => handleStepAction(step.id),
+                buttonText: getButtonText(step.id),
+              };
 
-                  {/* Connected line between steps */}
-                  {index < visibleSteps.length - 1 ? (
-                    <YStack
-                      w={2}
-                      position="absolute"
-                      left={31}
-                      top={64}
-                      bottom={-40}
-                      gap="$1"
-                      overflow="hidden"
-                    >
-                      {Array.from({ length: 20 }).map((_, i) => (
-                        <YStack
-                          key={i}
-                          w="100%"
-                          h="$1"
-                          bg="$neutral3"
-                          borderRadius="$full"
-                        />
-                      ))}
-                    </YStack>
-                  ) : null}
-
-                  <XStack alignItems="center" gap="$5">
-                    <YStack
-                      w="$16"
-                      h="$16"
-                      borderRadius="$2"
-                      bg="$bg"
-                      borderCurve="continuous"
-                      $platform-web={{
-                        boxShadow:
-                          '0 1px 1px 0 rgba(0, 0, 0, 0.05), 0 0 0 1px rgba(0, 0, 0, 0.05), 0 4px 6px 0 rgba(0, 0, 0, 0.04), 0 24px 68px 0 rgba(0, 0, 0, 0.05), 0 2px 3px 0 rgba(0, 0, 0, 0.04)',
-                      }}
-                      $theme-dark={{
-                        bg: '$whiteA1',
-                        borderWidth: 1,
-                        borderColor: '$neutral3',
-                      }}
-                      $platform-native={{
-                        borderWidth: StyleSheet.hairlineWidth,
-                        borderColor: '$neutral3',
-                      }}
-                      $platform-ios={{
-                        shadowColor: '#000',
-                        shadowOffset: { width: 0, height: 0.5 },
-                        shadowOpacity: 0.2,
-                        shadowRadius: 0.5,
-                      }}
-                      $platform-android={{ elevation: 0.5 }}
-                      alignItems="center"
-                      justifyContent="center"
-                      opacity={step.state === ECreationStepState.Idle ? 0.5 : 1}
-                    >
-                      {step.securityKeyType ? (
-                        <SecurityKeyIcon
-                          type={step.securityKeyType}
-                          muted={step.state === ECreationStepState.Idle}
-                        />
-                      ) : null}
-                      {step.state !== ECreationStepState.Idle ? (
-                        <YStack
-                          position="absolute"
-                          right={-9}
-                          bottom={-9}
-                          w={26}
-                          h={26}
-                          borderWidth={1}
-                          bg="$bg"
-                          borderRadius="$full"
-                          borderColor="$borderSubdued"
-                          alignItems="center"
-                          justifyContent="center"
-                        >
-                          <AnimatePresence exitBeforeEnter initial={false}>
-                            {renderStepStatusIcon(step.state)}
-                          </AnimatePresence>
-                        </YStack>
-                      ) : null}
-                    </YStack>
-                    <YStack
-                      gap="$1"
-                      flex={1}
-                      opacity={step.state === ECreationStepState.Idle ? 0.5 : 1}
-                    >
-                      <SizableText size="$headingSm">{step.title}</SizableText>
-                      <HeightTransition initialHeight={0}>
-                        {step.description &&
-                        (step.state === ECreationStepState.Info ||
-                          step.state === ECreationStepState.InProgress) ? (
-                          <SizableText color="$textDisabled">
-                            {step.description}
-                          </SizableText>
-                        ) : null}
-                      </HeightTransition>
-                    </YStack>
-                  </XStack>
-
-                  <HeightTransition initialHeight={0}>
-                    {/* Info state - waiting for user action */}
-                    {step.state === ECreationStepState.Info ? (
-                      <XStack
-                        gap="$2"
-                        mt="$4"
-                        pt="$4"
-                        borderWidth={0}
-                        borderTopWidth={StyleSheet.hairlineWidth}
-                        borderTopColor="$borderSubdued"
-                        alignItems="center"
-                      >
-                        {step.infoMessage ? (
-                          <SizableText
-                            size="$bodyMdMedium"
-                            color="$textInfo"
-                            flex={1}
-                            textAlign="left"
-                          >
-                            {step.infoMessage}
-                          </SizableText>
-                        ) : null}
-                        <Button
-                          variant="primary"
-                          onPress={() => handleStepAction(step.id)}
-                          w="100%"
-                        >
-                          {getButtonText(step.id)}
-                        </Button>
-                      </XStack>
-                    ) : null}
-
-                    {/* Error state */}
-                    {step.state === ECreationStepState.Error ? (
-                      <XStack
-                        gap="$2"
-                        mt="$4"
-                        pt="$4"
-                        borderWidth={0}
-                        borderTopWidth={StyleSheet.hairlineWidth}
-                        borderTopColor="$borderSubdued"
-                        alignItems="center"
-                      >
-                        <SizableText
-                          size="$bodyMdMedium"
-                          color="$textCritical"
-                          flex={1}
-                          textAlign="left"
-                        >
-                          {step.infoMessage ?? 'Operation failed'}
-                        </SizableText>
-                        <Button
-                          variant="primary"
-                          onPress={() => handleStepAction(step.id)}
-                        >
-                          {intl.formatMessage({
-                            id: ETranslations.global_retry,
-                          })}
-                        </Button>
-                      </XStack>
-                    ) : null}
-                  </HeightTransition>
-                </YStack>
-              </Fragment>
-            ))}
+              if (step.id === ECreationStepId.DeviceShare) {
+                return (
+                  <KeylessWalletShareCard
+                    key={step.id}
+                    {...commonProps}
+                    onSecondaryAction={
+                      isRestoreMode ? receiveDevicePackByQrCode : undefined
+                    }
+                    secondaryButtonText={
+                      isRestoreMode ? 'Restore from another device' : undefined
+                    }
+                  />
+                );
+              }
+              if (step.id === ECreationStepId.CloudShare) {
+                return (
+                  <KeylessWalletShareCard key={step.id} {...commonProps} />
+                );
+              }
+              if (step.id === ECreationStepId.AuthShare) {
+                return (
+                  <KeylessWalletShareCard key={step.id} {...commonProps} />
+                );
+              }
+              return null;
+            })}
           </OnboardingLayout.ConstrainedContent>
         </OnboardingLayout.Body>
         <OnboardingLayout.Footer />
@@ -744,4 +764,22 @@ export function KeylessWalletCreation({
   );
 }
 
-export default KeylessWalletCreation;
+function KeylessWalletCreationWithContext({
+  route: _route,
+}: IPageScreenProps<
+  IOnboardingParamListV2,
+  EOnboardingPagesV2.KeylessWalletCreation
+>) {
+  return (
+    <AccountSelectorProviderMirror
+      enabledNum={[0]}
+      config={{
+        sceneName: EAccountSelectorSceneName.home,
+      }}
+    >
+      <KeylessWalletCreation />
+    </AccountSelectorProviderMirror>
+  );
+}
+
+export default KeylessWalletCreationWithContext;

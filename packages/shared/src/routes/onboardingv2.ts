@@ -13,6 +13,12 @@ export enum EOnboardingV2ImportPhraseOrPrivateKeyTab {
   PrivateKey = 'privateKey',
 }
 
+export enum EOnboardingV2KeylessWalletCreationMode {
+  Create = 'Create',
+  Restore = 'Restore',
+  View = 'View',
+}
+
 export enum EOnboardingPagesV2 {
   GetStarted = 'GetStarted',
   AddExistingWallet = 'AddExistingWallet',
@@ -103,5 +109,6 @@ export type IOnboardingParamListV2 = {
   };
   [EOnboardingPagesV2.KeylessWalletCreation]: {
     email?: string;
+    mode?: EOnboardingV2KeylessWalletCreationMode;
   };
 };

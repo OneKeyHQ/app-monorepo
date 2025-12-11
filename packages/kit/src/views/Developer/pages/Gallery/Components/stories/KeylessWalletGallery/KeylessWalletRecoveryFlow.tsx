@@ -5,6 +5,7 @@ import {
   Dialog,
   SizableText,
   Toast,
+  XStack,
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -46,10 +47,12 @@ export function KeylessWalletRecoveryFlow() {
   const [isDeletingDevicePack, setIsDeletingDevicePack] = useState(false);
   const [isDeletingAuthPackFromCache, setIsDeletingAuthPackFromCache] =
     useState(false);
+  const [isDeletingWallet, setIsDeletingWallet] = useState(false);
   const [deleteAuthPackResult, setDeleteAuthPackResult] = useState('');
   const [deleteDevicePackResult, setDeleteDevicePackResult] = useState('');
   const [deleteAuthPackFromCacheResult, setDeleteAuthPackFromCacheResult] =
     useState('');
+  const [deleteWalletResult, setDeleteWalletResult] = useState('');
 
   const packSetId = user?.keylessWalletId;
 
@@ -109,6 +112,13 @@ export function KeylessWalletRecoveryFlow() {
     }
   }, [getCloudPack]);
 
+  const handleResetSteps = useCallback(() => {
+    setGetDevicePackStep({ status: 'pending' });
+    setGetAuthPackFromCacheStep({ status: 'pending' });
+    setGetAuthPackFromServerStep({ status: 'pending' });
+    setGetCloudPackStep({ status: 'pending' });
+  }, []);
+
   return (
     <YStack gap="$4">
       <SizableText size="$bodyMd" color="$textSubdued">
@@ -120,17 +130,22 @@ export function KeylessWalletRecoveryFlow() {
       <SizableText size="$bodyMd" color="$textSubdued">
         supabaseUser: {supabaseUser?.email}
       </SizableText>
-      <Button
-        onPress={async () => {
-          const result =
-            await backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo();
-          Dialog.debugMessage({
-            debugMessage: result,
-          });
-        }}
-      >
-        GetUserInfo
-      </Button>
+      <XStack gap="$3">
+        <Button
+          onPress={async () => {
+            const result =
+              await backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo();
+            Dialog.debugMessage({
+              debugMessage: result,
+            });
+          }}
+        >
+          GetUserInfo
+        </Button>
+        <Button variant="secondary" onPress={handleResetSteps}>
+          Reset Steps
+        </Button>
+      </XStack>
 
       <YStack gap="$3">
         <StepRenderer
@@ -278,6 +293,44 @@ export function KeylessWalletRecoveryFlow() {
         >
           Delete Auth Pack From Cache
         </Button>
+        <Button
+          variant="destructive"
+          disabled={!packSetId || isDeletingWallet}
+          loading={isDeletingWallet}
+          onPress={async () => {
+            if (!packSetId) {
+              setDeleteWalletResult(
+                '❌ Error: No packSetId available. Please login first.',
+              );
+              return;
+            }
+            try {
+              setIsDeletingWallet(true);
+              setDeleteWalletResult('⏳ Deleting wallet...');
+              await backgroundApiProxy.serviceKeylessWallet.removeKeylessWallet(
+                {
+                  packSetId,
+                },
+              );
+              setDeleteWalletResult('✅ Wallet deleted successfully!');
+              Toast.success({
+                title: 'Delete Success',
+                message: 'Wallet has been deleted.',
+              });
+            } catch (e: any) {
+              const errorMessage = (e as Error)?.message ?? 'Unknown error';
+              setDeleteWalletResult(`❌ Error: ${errorMessage}`);
+              Toast.error({
+                title: 'Delete Failed',
+                message: errorMessage,
+              });
+            } finally {
+              setIsDeletingWallet(false);
+            }
+          }}
+        >
+          Delete Wallet
+        </Button>
         {deleteAuthPackResult ? (
           <YStack gap="$2" p="$3" borderRadius="$2" bg="$bgSubdued">
             <SizableText size="$headingSm">
@@ -305,6 +358,14 @@ export function KeylessWalletRecoveryFlow() {
             </SizableText>
             <SizableText size="$bodyMd" selectable>
               {deleteAuthPackFromCacheResult}
+            </SizableText>
+          </YStack>
+        ) : null}
+        {deleteWalletResult ? (
+          <YStack gap="$2" p="$3" borderRadius="$2" bg="$bgSubdued">
+            <SizableText size="$headingSm">Delete Wallet Result:</SizableText>
+            <SizableText size="$bodyMd" selectable>
+              {deleteWalletResult}
             </SizableText>
           </YStack>
         ) : null}
