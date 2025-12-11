@@ -99,7 +99,7 @@ function SupportHub() {
                 zIndex={0}
               />
               <Theme name="light">
-                <YStack width="70%" zIndex={99} position="absolute" left="$4">
+                <YStack width="60%" zIndex={99} position="absolute" left="$4">
                   <SizableText size="$headingLg" flex={1}>
                     {intl.formatMessage({
                       id: ETranslations.wallet_onekey_sifu,

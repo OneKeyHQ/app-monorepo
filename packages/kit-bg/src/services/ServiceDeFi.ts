@@ -41,7 +41,6 @@ class ServiceDeFi extends ServiceBase {
       isAllNetworks,
       allNetworksAccountId,
       allNetworksNetworkId,
-      saveToLocal,
     } = params;
 
     const isUrlAccount = accountUtils.isUrlAccountFn({ accountId });
@@ -141,4 +140,3 @@ class ServiceDeFi extends ServiceBase {
 }
 
 export default ServiceDeFi;
-
