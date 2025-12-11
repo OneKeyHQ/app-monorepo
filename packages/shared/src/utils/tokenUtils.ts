@@ -6,6 +6,7 @@ import { getNetworkIdsMap } from '../config/networkIds';
 import { AGGREGATE_TOKEN_MOCK_NETWORK_ID } from '../consts/networkConsts';
 import { SEARCH_KEY_MIN_LENGTH } from '../consts/walletConsts';
 
+import accountUtils from './accountUtils';
 import networkUtils from './networkUtils';
 
 import type {
@@ -1026,4 +1027,49 @@ export function filterAccountTokenListByLimit({
     filteredRiskyTokenList,
     filteredTokenListMap,
   };
+}
+
+export function calculateAccountTokensValue({
+  accountId,
+  networkId,
+  tokensWorth,
+  mergeDeriveAssetsEnabled,
+}: {
+  accountId: string;
+  networkId: string;
+  tokensWorth: {
+    worth: Record<string, string>;
+    createAtNetworkWorth: string;
+    accountId: string;
+    initialized: boolean;
+    updateAll?: boolean;
+  };
+  mergeDeriveAssetsEnabled: boolean;
+}) {
+  if (networkUtils.isAllNetwork({ networkId })) {
+    const allWorth = Object.values(tokensWorth.worth).reduce(
+      (acc: string, cur: string) => new BigNumber(acc).plus(cur).toFixed(),
+      '0',
+    );
+    return allWorth;
+  }
+
+  if (mergeDeriveAssetsEnabled) {
+    const allWorth = Object.values(tokensWorth.worth).reduce(
+      (acc: string, cur: string) => new BigNumber(acc).plus(cur).toFixed(),
+      '0',
+    );
+    return allWorth;
+  }
+
+  return (
+    tokensWorth.worth[
+      accountUtils.buildAccountValueKey({
+        accountId,
+        networkId,
+      })
+    ] ??
+    Object.values(tokensWorth.worth)[0] ??
+    '0'
+  );
 }

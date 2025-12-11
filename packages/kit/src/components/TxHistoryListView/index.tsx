@@ -74,6 +74,7 @@ type IProps = {
   isSingleAccount?: boolean;
   tokenMap?: Record<string, ITokenFiat>;
   ref?: ForwardedRef<typeof SectionList>;
+  plainMode?: boolean;
 };
 
 const ListFooterComponent = ({
@@ -280,6 +281,7 @@ function BaseTxHistoryListView(props: IProps) {
     isSingleAccount,
     tokenMap,
     ref,
+    plainMode,
   } = props;
 
   const [searchKey] = useSearchKeyAtom();
@@ -411,6 +413,32 @@ function BaseTxHistoryListView(props: IProps) {
     tokenMap,
     tableLayout,
   ]);
+
+  if (plainMode) {
+    if (sections.length === 0) {
+      return EmptyComponentElement;
+    }
+
+    return (
+      <YStack>
+        {sections.map((section, index) => (
+          <YStack key={section.title}>
+            {renderSectionHeader({ section, index })}
+            {section.data.map((item, itemIndex) => (
+              <TxHistoryListItem
+                key={item.id}
+                historyTx={item}
+                index={itemIndex}
+                showIcon={showIcon}
+                onPress={onPressHistory}
+                tableLayout={tableLayout}
+              />
+            ))}
+          </YStack>
+        ))}
+      </YStack>
+    );
+  }
 
   return (
     <ListComponent
