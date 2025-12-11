@@ -18,6 +18,7 @@ import { WalletEditButton } from '@onekeyhq/kit/src/views/AccountManagerStacks/c
 import { WalletRenameButton } from '@onekeyhq/kit/src/views/AccountManagerStacks/components/WalletRename';
 import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import type { IWalletDetailsProps } from '..';
@@ -59,6 +60,12 @@ export function WalletDetailsHeader({
     [wallet, editable],
   );
 
+  const firmwareType = useMemo(() => {
+    return deviceUtils.getFirmwareTypeByCachedFeatures({
+      features: device?.featuresInfo,
+    });
+  }, [device]);
+
   return (
     <YStack
       testID="account-selector-header"
@@ -91,7 +98,11 @@ export function WalletDetailsHeader({
             })}
           >
             <Stack>
-              <WalletAvatar size="$8" wallet={wallet} />
+              <WalletAvatar
+                size="$8"
+                wallet={wallet}
+                firmwareTypeBadge={firmwareType}
+              />
               {isAvatarEditable ? (
                 <ListItem.Avatar.CornerIcon
                   name="MenuCircleHorSolid"

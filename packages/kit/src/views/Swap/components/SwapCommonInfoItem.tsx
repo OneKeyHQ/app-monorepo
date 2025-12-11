@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { memo, useMemo } from 'react';
 
 import {
+  type ISizableTextProps,
   Icon,
   Popover,
   SizableText,
@@ -17,14 +18,18 @@ interface ISwapCommonInfoItemProps {
   onPress?: () => void;
   questionMarkContent?: ReactNode;
   isLoading?: boolean;
+  titleProps?: ISizableTextProps;
+  valueProps?: ISizableTextProps;
 }
 
 const SwapCommonInfoItemTitleContent = ({
   title,
   questionMarkContent,
+  titleProps,
 }: {
   title: string;
   questionMarkContent?: ReactNode;
+  titleProps?: ISizableTextProps;
 }) => {
   const questionMarkComponent = useMemo(
     () => (
@@ -50,6 +55,7 @@ const SwapCommonInfoItemTitleContent = ({
         mr="$1"
         size="$bodyMd"
         color="$textSubdued"
+        {...titleProps}
       >
         {title}
       </SizableText>
@@ -67,6 +73,8 @@ const SwapCommonInfoItem = ({
   isLoading,
   valueComponent,
   questionMarkContent,
+  titleProps,
+  valueProps,
 }: ISwapCommonInfoItemProps) => {
   const rightTrigger = useMemo(
     () => (
@@ -80,7 +88,9 @@ const SwapCommonInfoItem = ({
         cursor={onPress ? 'pointer' : undefined}
       >
         {valueComponent || (
-          <SizableText size="$bodyMdMedium">{value}</SizableText>
+          <SizableText size="$bodyMdMedium" {...valueProps}>
+            {value}
+          </SizableText>
         )}
         {onPress ? (
           <Icon
@@ -92,7 +102,7 @@ const SwapCommonInfoItem = ({
         ) : null}
       </XStack>
     ),
-    [onPress, value, valueComponent],
+    [onPress, value, valueComponent, valueProps],
   );
 
   return (
@@ -100,11 +110,12 @@ const SwapCommonInfoItem = ({
       <SwapCommonInfoItemTitleContentMemo
         title={title}
         questionMarkContent={questionMarkContent}
+        titleProps={titleProps}
       />
 
       <XStack gap="$2">
         {isLoading ? (
-          <Stack py="$1">
+          <Stack py={valueProps?.size === '$bodySmMedium' ? '$0' : '$1'}>
             <Skeleton h="$3" w="$24" />
           </Stack>
         ) : (
