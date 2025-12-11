@@ -177,7 +177,7 @@ const SwapProContainer = ({
             onPress={setActiveTab}
           />
           <TabBarItem
-            name={ETabName.OpenOrders}
+            name={ETabName.SwapProOpenOrders}
             isFocused={activeTab === ETabName.OpenOrders}
             onPress={setActiveTab}
           />
