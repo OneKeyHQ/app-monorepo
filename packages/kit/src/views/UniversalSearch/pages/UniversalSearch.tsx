@@ -23,6 +23,7 @@ import { DiscoveryBrowserProviderMirror } from '@onekeyhq/kit/src/views/Discover
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { isGoogleSearchItem } from '@onekeyhq/shared/src/consts/discovery';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import type {
@@ -373,6 +374,23 @@ export function UniversalSearch({
 
       setSections(searchResultSections);
       setSearchStatus(ESearchStatus.done);
+
+      // Track search event for analytics
+      // Exclude Google search item from result count
+      const resultCount = searchResultSections.reduce((sum, section) => {
+        const count = section.data.filter(
+          (item) =>
+            !(
+              item.type === EUniversalSearchType.Dapp &&
+              isGoogleSearchItem(item.payload?.dappId)
+            ),
+        ).length;
+        return sum + count;
+      }, 0);
+      defaultLogger.universalSearch.search.universalSearchQuery({
+        searchText: input,
+        resultCount,
+      });
     } else {
       setSearchStatus(ESearchStatus.init);
     }
