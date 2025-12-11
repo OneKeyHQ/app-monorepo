@@ -26,6 +26,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
@@ -35,12 +36,15 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { showOneKeyIDLoginDialog } from '../../Prime/components/OneKeyIDLoginDialog';
 import { OnboardingLayout } from '../components/OnboardingLayout';
+import {
+  type ISecurityKeyType,
+  SecurityKeyIcon,
+} from '../components/SecurityKeyIcon';
 
 enum ERecoveryStepState {
   Idle = 'idle',
   InProgress = 'inProgress',
-  Warning = 'warning',
-  Skipped = 'skipped',
+  Info = 'info',
   Success = 'success',
   Error = 'error',
 }
@@ -61,6 +65,7 @@ enum ERecoveryFlow {
 interface IRecoveryStep {
   id: ERecoveryStepId;
   icon: IKeyOfIcons;
+  securityKeyType: ISecurityKeyType;
   title: string;
   description?: string;
   state: ERecoveryStepState;
@@ -68,45 +73,53 @@ interface IRecoveryStep {
 }
 
 // ============ STEP CONFIGURATION ============
+// Platform-specific cloud provider name
+const cloudProviderName =
+  platformEnv.isNativeIOS || platformEnv.isMas ? 'iCloud' : 'Google Drive';
+
 // Centralized text configuration for all steps
-// This makes it easier to maintain and replace with i18n keys later
 const STEP_CONFIG: Record<
   ERecoveryStepId,
   {
     icon: IKeyOfIcons;
+    securityKeyType: ISecurityKeyType;
     title: string;
     description: string;
-    infoMessage: string;
+    infoMessage?: string;
     buttonText: string;
   }
 > = {
   [ERecoveryStepId.AuthShare]: {
     icon: 'EmailOutline',
-    title: 'Email Verification',
-    description: 'Confirm ownership of your account',
-    infoMessage: 'Verification pending',
-    buttonText: 'Verify',
+    securityKeyType: 'auth',
+    title: 'Auth Key',
+    description: 'Protected by your OneKey ID',
+    // infoMessage: 'Verification pending',
+    buttonText: 'Confirm email',
   },
   [ERecoveryStepId.DeviceShare]: {
     icon: 'PasswordOutline',
-    title: 'Device Unlock',
-    description: 'Use Face ID, fingerprint, or passcode',
-    infoMessage: 'Unlock required',
+    securityKeyType: 'device',
+    title: 'Device Key',
+    description: 'Encrypted with your passcode',
+    // infoMessage: 'Unlock required',
     buttonText: 'Unlock',
   },
   [ERecoveryStepId.CloudShare]: {
     icon: 'CloudOutline',
-    title: 'Cloud Backup',
-    description: 'Retrieve from iCloud or Google Drive',
-    infoMessage: 'Backup not retrieved',
-    buttonText: 'Retry',
+    securityKeyType: 'cloud',
+    title: 'Cloud Key',
+    description: `Retrieve from ${cloudProviderName}`,
+    // infoMessage: 'Backup not retrieved',
+    buttonText: `Restore from ${cloudProviderName}`,
   },
   [ERecoveryStepId.QRMigration]: {
     icon: 'MultipleDevicesOutline',
+    securityKeyType: 'device',
     title: 'Device Transfer',
-    description: 'Scan QR code from your other OneKey app',
-    infoMessage: 'Transfer incomplete',
-    buttonText: 'Continue',
+    description: 'Transfer from another device',
+    // infoMessage: 'Transfer incomplete',
+    buttonText: 'Start Transfer',
   },
 };
 // ============================================
@@ -138,6 +151,7 @@ export default function KeylessWalletRecovery({
     (id: ERecoveryStepId): IRecoveryStep => ({
       id,
       icon: STEP_CONFIG[id].icon,
+      securityKeyType: STEP_CONFIG[id].securityKeyType,
       title: STEP_CONFIG[id].title,
       description: STEP_CONFIG[id].description,
       state: ERecoveryStepState.Idle,
@@ -147,10 +161,10 @@ export default function KeylessWalletRecovery({
 
   // Build steps dynamically based on conditions
   const buildInitialSteps = useCallback((): IRecoveryStep[] => {
-    // Auth Share is always required
-    const initialSteps: IRecoveryStep[] = [
-      createStep(ERecoveryStepId.AuthShare),
-    ];
+    // Auth Share is always required, starts in Info state for manual trigger
+    const authStep = createStep(ERecoveryStepId.AuthShare);
+    authStep.state = ERecoveryStepState.Info;
+    const initialSteps: IRecoveryStep[] = [authStep];
 
     if (hasLocalDeviceShare) {
       // Device has local Device Share, add it as second step
@@ -185,7 +199,7 @@ export default function KeylessWalletRecovery({
   }, [steps, isRecoveryComplete]);
 
   // Get the second step type for conditional logic
-  const secondStepId = steps[1]?.id;
+  const _secondStepId = steps[1]?.id;
 
   // Get available fallback options based on current flow
   const getAvailableFallbacks = useCallback(() => {
@@ -228,16 +242,16 @@ export default function KeylessWalletRecovery({
     setSteps(buildInitialSteps());
   }, [buildInitialSteps]);
 
-  // Helper: Mark Auth Share as success and proceed to step 2
+  // Helper: Mark Auth Share as success and enable step 2
   const onAuthShareSuccess = useCallback(() => {
     setSteps((prev) => {
       const newSteps = [...prev];
       newSteps[0] = { ...newSteps[0], state: ERecoveryStepState.Success };
-      // Start the second step (whatever it is)
+      // Enable the second step for manual trigger (Info state shows action button)
       if (newSteps[1]) {
         newSteps[1] = {
           ...newSteps[1],
-          state: ERecoveryStepState.InProgress,
+          state: ERecoveryStepState.Info,
         };
       }
       return newSteps;
@@ -246,7 +260,7 @@ export default function KeylessWalletRecovery({
   }, []);
 
   // Helper: Mark Auth Share as warning (waiting for verification)
-  const onAuthShareWarning = useCallback((message?: string) => {
+  const onAuthShareInfo = useCallback((message?: string) => {
     setSteps((prev) => {
       const newSteps = [...prev];
       // If step was previously Success, decrement successCount
@@ -255,7 +269,7 @@ export default function KeylessWalletRecovery({
       }
       newSteps[0] = {
         ...newSteps[0],
-        state: ERecoveryStepState.Warning,
+        state: ERecoveryStepState.Info,
         infoMessage: message,
       };
       return newSteps;
@@ -278,11 +292,11 @@ export default function KeylessWalletRecovery({
       },
       onDismiss: () => {
         // User closed dialog without completing verification
-        // Set to Warning state so user can retry
-        onAuthShareWarning();
+        // Set to Info state so user can retry
+        onAuthShareInfo();
       },
     });
-  }, [email, onAuthShareSuccess, onAuthShareWarning]);
+  }, [email, onAuthShareSuccess, onAuthShareInfo]);
 
   // Handle Device Share verification (biometric/passcode)
   const handleDeviceShareVerification = useCallback(async () => {
@@ -314,7 +328,7 @@ export default function KeylessWalletRecovery({
         if (deviceStepIndex !== -1) {
           newSteps[deviceStepIndex] = {
             ...newSteps[deviceStepIndex],
-            state: ERecoveryStepState.Warning,
+            state: ERecoveryStepState.Info,
             infoMessage: undefined,
           };
         }
@@ -372,7 +386,7 @@ export default function KeylessWalletRecovery({
   }, []);
 
   // Helper: Mark second step as warning (waiting for verification)
-  const onSecondStepWarning = useCallback((message?: string) => {
+  const onSecondStepInfo = useCallback((message?: string) => {
     setSteps((prev) => {
       const newSteps = [...prev];
       if (newSteps[1]) {
@@ -382,7 +396,7 @@ export default function KeylessWalletRecovery({
         }
         newSteps[1] = {
           ...newSteps[1],
-          state: ERecoveryStepState.Warning,
+          state: ERecoveryStepState.Info,
           infoMessage: message,
         };
       }
@@ -390,7 +404,7 @@ export default function KeylessWalletRecovery({
     });
   }, []);
 
-  // Handle "Try another method" - add fallback steps in Warning state
+  // Handle "Try another method" - add fallback steps in Info state
   const handleTryAnotherMethod = useCallback(() => {
     const fallbacks = getAvailableFallbacks();
     if (fallbacks.length === 0) return;
@@ -404,9 +418,10 @@ export default function KeylessWalletRecovery({
       .map((id) => ({
         id,
         icon: STEP_CONFIG[id].icon,
+        securityKeyType: STEP_CONFIG[id].securityKeyType,
         title: STEP_CONFIG[id].title,
         description: STEP_CONFIG[id].description,
-        state: ERecoveryStepState.Warning, // Start in Warning state (waiting for user)
+        state: ERecoveryStepState.Info, // Start in Info state (waiting for user)
         infoMessage: STEP_CONFIG[id].infoMessage,
       }));
 
@@ -416,51 +431,7 @@ export default function KeylessWalletRecovery({
     }
   }, [getAvailableFallbacks, steps]);
 
-  // Execute the second step based on its type
-  const executeSecondStep = useCallback(() => {
-    if (secondStepId === ERecoveryStepId.DeviceShare) {
-      void handleDeviceShareVerification();
-    } else if (secondStepId === ERecoveryStepId.CloudShare) {
-      handleCloudShareRetrieval();
-    } else if (secondStepId === ERecoveryStepId.QRMigration) {
-      // Add delay before opening Transfer modal so user can see the step transition
-      setTimeout(() => {
-        handleQRMigration();
-      }, 1000);
-    }
-  }, [
-    secondStepId,
-    handleDeviceShareVerification,
-    handleCloudShareRetrieval,
-    handleQRMigration,
-  ]);
-
-  // Auto-start the flow
-  useEffect(() => {
-    const authStep = steps[0];
-    if (authStep?.state === ERecoveryStepState.Idle) {
-      // Small delay before starting
-      const timer = setTimeout(() => {
-        handleAuthShareVerification();
-      }, 500);
-      return () => clearTimeout(timer);
-    }
-    return undefined;
-  }, [steps, handleAuthShareVerification]);
-
-  // Auto-continue to the second step after Auth Share succeeds
-  useEffect(() => {
-    const authStep = steps[0];
-    const secondStep = steps[1];
-    if (
-      authStep?.state === ERecoveryStepState.Success &&
-      secondStep?.state === ERecoveryStepState.InProgress
-    ) {
-      executeSecondStep();
-    }
-  }, [steps, executeSecondStep]);
-
-  // Handle returning from Transfer modal - set QRMigration step to Warning if not completed
+  // Handle returning from Transfer modal - set QRMigration step to Info if not completed
   useFocusEffect(
     useCallback(() => {
       if (isTransferModalOpenRef.current) {
@@ -477,7 +448,7 @@ export default function KeylessWalletRecovery({
             const newSteps = [...prev];
             newSteps[qrStepIndex] = {
               ...newSteps[qrStepIndex],
-              state: ERecoveryStepState.Warning,
+              state: ERecoveryStepState.Info,
               infoMessage: undefined,
             };
             return newSteps;
@@ -580,16 +551,19 @@ export default function KeylessWalletRecovery({
             <Icon name="CrossedSmallOutline" color="$iconCritical" size="$5" />
           </YStack>
         );
-      case ERecoveryStepState.Warning:
-      case ERecoveryStepState.Skipped:
+      case ERecoveryStepState.Info:
         return (
           <YStack
             animation="quick"
             enterStyle={{ scale: 0.8, opacity: 0 }}
             exitStyle={{ scale: 0.8, opacity: 0 }}
-            key="warning"
+            key="info"
           >
-            <Icon name="InfoCircleOutline" color="$iconInfo" size="$5" />
+            <Icon
+              name="CirclePlaceholderOnOutline"
+              color="$iconSubdued"
+              size="$4.5"
+            />
           </YStack>
         );
       default:
@@ -600,7 +574,7 @@ export default function KeylessWalletRecovery({
   return (
     <Page>
       <OnboardingLayout>
-        <OnboardingLayout.Header title="Restore Your Wallet" />
+        <OnboardingLayout.Header title="Restore your wallet" />
         <OnboardingLayout.Body constrained={false}>
           <OnboardingLayout.ConstrainedContent
             gap="$10"
@@ -609,26 +583,26 @@ export default function KeylessWalletRecovery({
             }}
           >
             <YStack gap="$2">
-              <SizableText color="$textSubdued">
-                Your Keyless Wallet is protected by multiple security keys.
-                Complete{' '}
-                <SizableText color="$text" size="$bodyMdMedium">
-                  2
-                </SizableText>{' '}
-                of the following steps to restore access.
+              <SizableText color="$textDisabled">
+                Restore by{' '}
+                <SizableText color="$textSubdued" size="$bodyMdMedium">
+                  2 security keys
+                </SizableText>
+                .
               </SizableText>
             </YStack>
 
             {visibleSteps.map((step, index) => (
               <Fragment key={step.id}>
-                {/* Grouping title for alternatives - show before first alternative step */}
-                {index === 1 && visibleSteps.length > 2 ? (
-                  <SizableText size="$bodyMd" color="$textSubdued" mb="$-3">
-                    Complete{' '}
-                    <SizableText size="$bodyMdMedium" color="$text">
-                      any ONE
-                    </SizableText>{' '}
-                    of the following:
+                {/* Show "or" above each alternative step (except the first one) */}
+                {index > 1 && visibleSteps.length > 2 ? (
+                  <SizableText
+                    size="$bodyMd"
+                    color="$textDisabled"
+                    my="$-4"
+                    textAlign="center"
+                  >
+                    or
                   </SizableText>
                 ) : null}
 
@@ -636,8 +610,7 @@ export default function KeylessWalletRecovery({
                   {/* Highlight background */}
                   <AnimatePresence>
                     {step.state !== ERecoveryStepState.Success &&
-                    step.state !== ERecoveryStepState.Idle &&
-                    step.state !== ERecoveryStepState.Skipped ? (
+                    step.state !== ERecoveryStepState.Idle ? (
                       <YStack
                         animation="quick"
                         animateOnly={['opacity', 'transform']}
@@ -685,7 +658,7 @@ export default function KeylessWalletRecovery({
                       position="absolute"
                       left={31}
                       top={64}
-                      bottom={-80}
+                      bottom={-40}
                       gap="$1"
                       overflow="hidden"
                     >
@@ -701,7 +674,13 @@ export default function KeylessWalletRecovery({
                     </YStack>
                   ) : null}
 
-                  <XStack alignItems="center" gap="$5">
+                  <XStack
+                    animation="quick"
+                    animateOnly={['opacity']}
+                    alignItems="center"
+                    gap="$5"
+                    opacity={step.state === ERecoveryStepState.Idle ? 0.5 : 1}
+                  >
                     <YStack
                       w="$16"
                       h="$16"
@@ -731,7 +710,10 @@ export default function KeylessWalletRecovery({
                       alignItems="center"
                       justifyContent="center"
                     >
-                      <Icon name={step.icon} size="$6" color="$iconActive" />
+                      <SecurityKeyIcon
+                        type={step.securityKeyType}
+                        muted={step.state === ERecoveryStepState.Idle}
+                      />
                       {step.state !== ERecoveryStepState.Idle ? (
                         <YStack
                           position="absolute"
@@ -754,17 +736,21 @@ export default function KeylessWalletRecovery({
                     </YStack>
                     <YStack gap="$1" flex={1}>
                       <SizableText size="$headingSm">{step.title}</SizableText>
-                      {step.description ? (
-                        <SizableText color="$textSubdued">
-                          {step.description}
-                        </SizableText>
-                      ) : null}
+                      <HeightTransition initialHeight={0}>
+                        {step.description &&
+                        (step.state === ERecoveryStepState.Info ||
+                          step.state === ERecoveryStepState.InProgress) ? (
+                          <SizableText color="$textDisabled">
+                            {step.description}
+                          </SizableText>
+                        ) : null}
+                      </HeightTransition>
                     </YStack>
                   </XStack>
 
                   <HeightTransition initialHeight={0}>
-                    {/* Warning state - waiting for verification */}
-                    {step.state === ERecoveryStepState.Warning ? (
+                    {/* Info state - waiting for user action */}
+                    {step.state === ERecoveryStepState.Info ? (
                       <YStack gap="$3">
                         <XStack
                           gap="$2"
@@ -775,16 +761,20 @@ export default function KeylessWalletRecovery({
                           borderTopColor="$borderSubdued"
                           alignItems="center"
                         >
-                          <SizableText
-                            size="$bodyMdMedium"
-                            color="$textInfo"
-                            flex={1}
-                            textAlign="left"
-                          >
-                            {step.infoMessage ?? getDefaultInfoMessage(step.id)}
-                          </SizableText>
+                          {step.infoMessage ? (
+                            <SizableText
+                              size="$bodyMdMedium"
+                              color="$textInfo"
+                              flex={1}
+                              textAlign="left"
+                            >
+                              {step.infoMessage ??
+                                getDefaultInfoMessage(step.id)}
+                            </SizableText>
+                          ) : null}
                           <Button
                             variant="primary"
+                            w="100%"
                             onPress={() => handleRetryStep(step.id)}
                           >
                             {getRetryButtonText(step.id)}
@@ -797,6 +787,7 @@ export default function KeylessWalletRecovery({
                           <Button
                             variant="tertiary"
                             size="small"
+                            m="$0"
                             onPress={handleTryAnotherMethod}
                           >
                             Try another method
@@ -850,6 +841,7 @@ export default function KeylessWalletRecovery({
                 borderWidth={1}
                 borderColor="$borderCautionSubdued"
                 borderStyle="dashed"
+                // display="none"
               >
                 <XStack alignItems="center" gap="$2">
                   <Icon name="BugOutline" size="$5" color="$iconCaution" />
@@ -977,9 +969,7 @@ export default function KeylessWalletRecovery({
                           Start
                         </Badge>
                         <Badge onPress={onAuthShareSuccess}>Success</Badge>
-                        <Badge onPress={() => onAuthShareWarning()}>
-                          Warning
-                        </Badge>
+                        <Badge onPress={() => onAuthShareInfo()}>Info</Badge>
                       </XStack>
                     </XStack>
 
@@ -1009,9 +999,7 @@ export default function KeylessWalletRecovery({
                           Start
                         </Badge>
                         <Badge onPress={onSecondStepSuccess}>Success</Badge>
-                        <Badge onPress={() => onSecondStepWarning()}>
-                          Warning
-                        </Badge>
+                        <Badge onPress={() => onSecondStepInfo()}>Info</Badge>
                       </XStack>
                     </XStack>
 
@@ -1037,9 +1025,7 @@ export default function KeylessWalletRecovery({
                       <XStack gap="$1.5" flexWrap="wrap" flex={1}>
                         <Badge onPress={handleCloudShareRetrieval}>Start</Badge>
                         <Badge onPress={onSecondStepSuccess}>Success</Badge>
-                        <Badge onPress={() => onSecondStepWarning()}>
-                          Warning
-                        </Badge>
+                        <Badge onPress={() => onSecondStepInfo()}>Info</Badge>
                       </XStack>
                     </XStack>
 
@@ -1065,9 +1051,7 @@ export default function KeylessWalletRecovery({
                       <XStack gap="$1.5" flexWrap="wrap" flex={1}>
                         <Badge onPress={handleQRMigration}>Start</Badge>
                         <Badge onPress={onSecondStepSuccess}>Success</Badge>
-                        <Badge onPress={() => onSecondStepWarning()}>
-                          Warning
-                        </Badge>
+                        <Badge onPress={() => onSecondStepInfo()}>Info</Badge>
                       </XStack>
                     </XStack>
                   </YStack>

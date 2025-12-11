@@ -194,12 +194,11 @@ export default function CreateOrImportWallet() {
   const isKeylessEnabled = false;
 
   // TODO: @zuo Replace with actual server check after login
-  const hasServerAuthShare = false;
+  const hasServerAuthShare = true;
 
   // Cloud backup is supported on iOS (iCloud), Android (Google Drive), and macOS App Store (iCloud)
-  // const isCloudBackupSupported =
-  //   platformEnv.isNativeIOS || platformEnv.isNativeAndroid || platformEnv.isMas;
-  const isCloudBackupSupported = true;
+  const isCloudBackupSupported =
+    platformEnv.isNativeIOS || platformEnv.isNativeAndroid || platformEnv.isMas;
 
   const handleKeylessWalletClick = useCallback(() => {
     // Step 1: Check if local device already has Keyless Wallet

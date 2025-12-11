@@ -374,7 +374,7 @@ export function KeylessWalletCreation({
           >
             <YStack gap="$2">
               <SizableText color="$textDisabled">
-                Secure by{' '}
+                Secured by{' '}
                 <SizableText size="$bodyMdMedium" color="$textSubdued">
                   3 security keys
                 </SizableText>
@@ -452,7 +452,13 @@ export function KeylessWalletCreation({
                     </YStack>
                   ) : null}
 
-                  <XStack alignItems="center" gap="$5">
+                  <XStack
+                    animation="quick"
+                    animateOnly={['opacity']}
+                    alignItems="center"
+                    gap="$5"
+                    opacity={step.state === ECreationStepState.Idle ? 0.5 : 1}
+                  >
                     <YStack
                       w="$16"
                       h="$16"
@@ -481,7 +487,6 @@ export function KeylessWalletCreation({
                       $platform-android={{ elevation: 0.5 }}
                       alignItems="center"
                       justifyContent="center"
-                      opacity={step.state === ECreationStepState.Idle ? 0.5 : 1}
                     >
                       <SecurityKeyIcon
                         type={step.securityKeyType}
@@ -507,11 +512,7 @@ export function KeylessWalletCreation({
                         </YStack>
                       ) : null}
                     </YStack>
-                    <YStack
-                      gap="$1"
-                      flex={1}
-                      opacity={step.state === ECreationStepState.Idle ? 0.5 : 1}
-                    >
+                    <YStack gap="$1" flex={1}>
                       <SizableText size="$headingSm">{step.title}</SizableText>
                       <HeightTransition initialHeight={0}>
                         {step.description &&
