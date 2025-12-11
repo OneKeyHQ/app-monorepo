@@ -10,7 +10,10 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
-import { getValidPriceDecimals } from '@onekeyhq/shared/src/utils/perpsUtils';
+import {
+  getValidPriceDecimals,
+  parseDexCoin,
+} from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IPerpsFrontendOrder } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { calcCellAlign, getColumnStyle } from '../utils';
@@ -56,7 +59,8 @@ const OpenOrdersRow = memo(
     const actions = useHyperliquidActions();
     const intl = useIntl();
     const assetInfo = useMemo(() => {
-      const assetSymbol = order.coin ?? '-';
+      const parsedCoin = parseDexCoin(order.coin);
+      const assetSymbol = parsedCoin.displayName;
       const orderType = (() => {
         switch (order.orderType) {
           case 'Market':
@@ -108,7 +112,13 @@ const OpenOrdersRow = memo(
         });
       })();
       const typeColor = order.side === 'B' ? '$green11' : '$red11';
-      return { assetSymbol, type, orderType, typeColor };
+      return {
+        assetSymbol,
+        rawCoin: order.coin,
+        type,
+        orderType,
+        typeColor,
+      };
     }, [order.coin, order.side, order.orderType, intl, order.reduceOnly]);
     const dateInfo = useMemo(() => {
       const timeDate = new Date(order.timestamp);
@@ -196,7 +206,7 @@ const OpenOrdersRow = memo(
               cursor="pointer"
               onPress={() =>
                 actions.current.changeActiveAsset({
-                  coin: assetInfo.assetSymbol,
+                  coin: assetInfo.rawCoin,
                 })
               }
             >
@@ -343,7 +353,7 @@ const OpenOrdersRow = memo(
           cursor="pointer"
           onPress={() =>
             actions.current.changeActiveAsset({
-              coin: assetInfo.assetSymbol,
+              coin: assetInfo.rawCoin,
             })
           }
         >

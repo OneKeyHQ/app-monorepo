@@ -29,6 +29,10 @@ import perpsUtils from '@onekeyhq/shared/src/utils/perpsUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
+import {
+  XYZ_ASSET_ID_OFFSET,
+  XYZ_DEX_PREFIX,
+} from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 import type {
   IApiRequestError,
   IApiRequestResult,
@@ -109,6 +113,23 @@ export default class ServiceHyperliquid extends ServiceBase {
 
   private get walletService(): ServiceHyperliquidWallet {
     return this.backgroundApi.serviceHyperliquidWallet;
+  }
+
+  private detectDexIndexByCoin(coin: string): number {
+    return coin.startsWith(XYZ_DEX_PREFIX) ? 1 : 0;
+  }
+
+  private getAssetIdWithDexPrefix({
+    dexIndex,
+    index,
+  }: {
+    dexIndex: number;
+    index: number;
+  }) {
+    if (dexIndex === 1) {
+      return XYZ_ASSET_ID_OFFSET + index;
+    }
+    return index;
   }
 
   private async init() {
@@ -452,18 +473,27 @@ export default class ServiceHyperliquid extends ServiceBase {
   @backgroundMethod()
   async refreshTradingMeta() {
     const { infoClient } = hyperLiquidApiClients;
-    // const dexList = (await this.infoClient.perpDexs()).filter(Boolean);
-    const meta = await infoClient.meta({
-      // dex: dexList?.[0]?.name || '',
-    });
-    if (meta?.universe?.length) {
-      const marginTablesMap = meta?.marginTables.reduce((acc, item) => {
-        acc[item[0]] = item[1];
-        return acc;
-      }, {} as IMarginTableMap);
+    // eslint-disable-next-line spellcheck/spell-checker
+    let perpMetaMultiDexList = await infoClient.allPerpMetas();
+    if (perpMetaMultiDexList?.length) {
+      if (perpMetaMultiDexList.length >= 2) {
+        perpMetaMultiDexList = perpMetaMultiDexList.slice(0, 2);
+      }
+      const universes = perpMetaMultiDexList.map((meta, dexIndex) =>
+        (meta?.universe || []).map((item, index) => ({
+          ...item,
+          assetId: this.getAssetIdWithDexPrefix({ dexIndex, index }),
+        })),
+      );
+      const marginTablesMapList = perpMetaMultiDexList.map((meta) =>
+        meta?.marginTables?.reduce((acc, item) => {
+          acc[item[0]] = item[1];
+          return acc;
+        }, {} as IMarginTableMap),
+      );
       await this.backgroundApi.simpleDb.perp.setTradingUniverse({
-        universe: meta?.universe || [],
-        marginTablesMap,
+        universes,
+        marginTablesMapList,
       });
     }
   }
@@ -475,7 +505,8 @@ export default class ServiceHyperliquid extends ServiceBase {
 
   @backgroundMethod()
   async getSymbolsMetaMap({ coins }: { coins: string[] }) {
-    const { universeItems, marginTablesMap } = await this.getTradingUniverse();
+    const { universesByDex, marginTablesMapByDex } =
+      await this.getTradingUniverse();
     const map: Partial<{
       [coin: string]: {
         coin: string;
@@ -485,17 +516,20 @@ export default class ServiceHyperliquid extends ServiceBase {
       };
     }> = {};
     coins.forEach((coin) => {
-      const universe = universeItems.find((item) => item.name === coin);
+      const dexIndex = this.detectDexIndexByCoin(coin);
+      const universes = universesByDex?.[dexIndex];
+      const marginTables = marginTablesMapByDex?.[dexIndex];
+      const universe = universes?.find((item) => item.name === coin);
       if (isNil(universe?.assetId)) {
         throw new OneKeyLocalError(`Asset id not found for coin: ${coin}`);
       }
       map[coin] = {
-        assetId: universe?.assetId,
+        assetId: universe.assetId,
         coin,
         universe,
-        marginTable: isNil(universe?.marginTableId)
+        marginTable: isNil(universe.marginTableId)
           ? undefined
-          : marginTablesMap?.[universe?.marginTableId],
+          : marginTables?.[universe.marginTableId],
       };
     });
     return map;
@@ -742,15 +776,31 @@ export default class ServiceHyperliquid extends ServiceBase {
     const oldActiveAsset = await perpsActiveAssetAtom.get();
     const oldCoin = oldActiveAsset?.coin;
     const newCoin = params.coin;
-    const { universeItems = [], marginTablesMap } =
+    const { universesByDex, marginTablesMapByDex } =
       await this.getTradingUniverse();
+
+    const targetDexIndex = this.detectDexIndexByCoin(newCoin);
+    const dexUniverses: IPerpsUniverse[] | undefined =
+      universesByDex?.[targetDexIndex];
+    const dexMarginTables: IMarginTableMap | undefined =
+      marginTablesMapByDex?.[targetDexIndex];
+
+    if (dexUniverses?.length === 0) {
+      return {
+        universeItems: [],
+        selectedUniverse: oldActiveAsset?.universe,
+      };
+    }
+
     const selectedUniverse: IPerpsUniverse | undefined =
-      universeItems?.find((item) => item.name === newCoin) ||
-      universeItems?.[0];
+      dexUniverses?.find((item) => item.name === newCoin) || dexUniverses?.[0];
     const assetId =
       selectedUniverse?.assetId ??
-      universeItems.findIndex((token) => token.name === selectedUniverse.name);
-    const selectedMargin = marginTablesMap?.[selectedUniverse?.marginTableId];
+      dexUniverses?.findIndex(
+        (token) => token.name === selectedUniverse?.name,
+      ) ??
+      -1;
+    const selectedMargin = dexMarginTables?.[selectedUniverse?.marginTableId];
     await perpsActiveAssetAtom.set({
       coin: selectedUniverse?.name || newCoin || '',
       assetId,
@@ -761,7 +811,7 @@ export default class ServiceHyperliquid extends ServiceBase {
       await perpsActiveAssetCtxAtom.set(undefined);
     }
     return {
-      universeItems,
+      universeItems: dexUniverses || [],
       selectedUniverse,
     };
   }

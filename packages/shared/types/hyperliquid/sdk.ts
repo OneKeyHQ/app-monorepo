@@ -46,6 +46,7 @@ export type IPerpsActiveAssetData = Omit<IActiveAssetData, 'user'> & {
   coin: string;
   assetId: number | undefined;
 };
+export type IAllPerpMetasResponse = HL.AllPerpMetasResponse;
 export type IMarginTable = HL.MarginTableResponse;
 export type IMarginTableMap = Partial<Record<number, IMarginTable>>;
 

@@ -41,14 +41,14 @@ export function usePerpTokenSelector() {
   const [searchQuery, setSearchQuery] = useState('');
   const actions = useHyperliquidActions();
 
-  const allAssetsRef = useRef<IPerpsUniverse[] | undefined>(undefined);
+  const allAssetsRef = useRef<IPerpsUniverse[][] | undefined>(undefined);
 
   const refreshAllAssets = useCallback(async () => {
-    const { universeItems } =
+    const { universesByDex } =
       await backgroundApiProxy.serviceHyperliquid.getTradingUniverse();
-    allAssetsRef.current = universeItems || [];
+    allAssetsRef.current = universesByDex || [];
     actions.current.updateAllAssetsFiltered({
-      allAssets: allAssetsRef.current,
+      allAssetsByDex: allAssetsRef.current,
       query: searchQuery,
     });
   }, [actions, searchQuery]);
@@ -72,7 +72,7 @@ export function usePerpTokenSelector() {
     return () => {
       // eslint-disable-next-line react-hooks/exhaustive-deps
       actions.current.updateAllAssetsFiltered({
-        allAssets: [],
+        allAssetsByDex: [],
         query: '',
       });
     };

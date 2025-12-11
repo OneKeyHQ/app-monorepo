@@ -30,6 +30,7 @@ import {
 import {
   calculateProfitLoss,
   formatWithPrecision,
+  parseDexCoin,
   validateSizeInput,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IPerpsFrontendOrder } from '@onekeyhq/shared/types/hyperliquid/sdk';
@@ -194,6 +195,11 @@ const SetTpslForm = memo(
     const [configureAmount, setConfigureAmount] = useState(false);
 
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const displayName = useMemo(() => {
+      if (!currentPosition) return '';
+      const parsed = parseDexCoin(currentPosition.coin);
+      return parsed.displayName || currentPosition.coin;
+    }, [currentPosition]);
 
     const calculatedAmount = useMemo(() => {
       const percentage = Number.isNaN(formData.percentage)
@@ -425,9 +431,7 @@ const SetTpslForm = memo(
                   id: ETranslations.perp_token_selector_asset,
                 })}
               </SizableText>
-              <SizableText size="$bodyMdMedium">
-                {currentPosition.coin}
-              </SizableText>
+              <SizableText size="$bodyMdMedium">{displayName}</SizableText>
             </XStack>
 
             <XStack justifyContent="space-between" alignItems="center">
@@ -437,7 +441,7 @@ const SetTpslForm = memo(
                 })}
               </SizableText>
               <SizableText size="$bodyMdMedium">
-                {positionSize.toFixed(szDecimals)} {currentPosition.coin}
+                {positionSize.toFixed(szDecimals)} {displayName}
               </SizableText>
             </XStack>
 

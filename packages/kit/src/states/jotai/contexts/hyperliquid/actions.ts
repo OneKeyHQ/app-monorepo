@@ -58,6 +58,12 @@ import { EActionType, withToast } from './utils';
 
 import type { ITradingFormData } from './atoms';
 
+type IChStateLite = {
+  assetPositions?: HL.IPerpsAssetPosition[];
+};
+
+type IChPositionLite = HL.IPerpsAssetPosition;
+
 class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
   private orderBookTickOptionsLoaded = false;
 
@@ -137,27 +143,31 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     // just save raw ctxs here
     // use usePerpsAssetCtx() for single asset ctx with ctx formatted
     set(perpsAllAssetCtxsAtom(), {
-      assetCtxs: data.assetCtxs,
+      assetCtxsByDex: [data.assetCtxs || []],
     });
   });
 
   updateAllAssetsFiltered = contextAtomMethod(
-    (_, set, data: { allAssets: HL.IPerpsUniverse[]; query: string }) => {
-      const { allAssets, query } = data;
+    (
+      _,
+      set,
+      data: { allAssetsByDex: HL.IPerpsUniverse[][]; query: string },
+    ) => {
+      const { allAssetsByDex, query } = data;
       const searchQuery = query?.trim()?.toLowerCase();
-      let assets = allAssets;
-      if (!searchQuery) {
-        assets = allAssets.filter((token) => !token.isDelisted);
-      } else {
-        assets = allAssets.filter(
+      const assetsByDex = allAssetsByDex.map((assets) => {
+        if (!searchQuery) {
+          return assets.filter((token) => !token.isDelisted);
+        }
+        return assets.filter(
           (token) =>
             token.name?.toLowerCase().includes(searchQuery) &&
             !token.isDelisted,
         );
-      }
+      });
 
       set(perpsAllAssetsFilteredAtom(), {
-        assets,
+        assetsByDex,
         query,
       });
     },
@@ -245,21 +255,45 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         return;
       }
 
-      const statePair =
-        data.clearinghouseStates?.find(([name]) => name === 'Hyperliquid') ??
-        data.clearinghouseStates?.[0];
-      const clearinghouseState = statePair?.[1];
-      const positions = clearinghouseState?.assetPositions || [];
-      const activePositions = positions
+      const statesRaw =
+        (data?.clearinghouseStates as Array<
+          [string, HL.IPerpsClearinghouseState | undefined]
+        >) || [];
+      const states: Array<[string, IChStateLite]> = statesRaw.map(
+        ([dexName, state]) => [dexName, (state as IChStateLite) || {}],
+      );
+
+      const stateMap = new Map<string, IChStateLite>();
+      states.forEach(([dexName, state]) => {
+        stateMap.set(dexName, state);
+      });
+
+      const primaryState =
+        stateMap.get('') ?? stateMap.get('perps') ?? states[0]?.[1];
+      const xyzState = stateMap.get('xyz');
+
+      const getPositions = (state?: IChStateLite): IChPositionLite[] =>
+        state?.assetPositions || [];
+
+      const combinedPositions: IChPositionLite[] = [
+        ...getPositions(primaryState),
+        ...getPositions(xyzState),
+      ];
+
+      const activePositions = combinedPositions
         .filter((pos) => {
-          const size = parseFloat(pos.position?.szi || '0');
+          const size = parseFloat(pos.position?.szi ?? '0');
           return Math.abs(size) > 0;
         })
-        .sort(
-          (a, b) =>
-            parseFloat(b.position.positionValue || '0') -
-            parseFloat(a.position.positionValue || '0'),
-        );
+        .sort((a, b) => {
+          const af = parseFloat(a.position?.cumFunding?.allTime ?? '0');
+          const bf = parseFloat(b.position?.cumFunding?.allTime ?? '0');
+          if (bf !== af) return bf - af;
+          return (
+            parseFloat(b.position?.positionValue ?? '0') -
+            parseFloat(a.position?.positionValue ?? '0')
+          );
+        });
 
       set(perpsActivePositionAtom(), {
         accountAddress: activeAccountAddress,
@@ -307,12 +341,19 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
 
   updateAllDexsAssetCtxs = contextAtomMethod(
     (_, set, data: HL.IWsAllDexsAssetCtxs) => {
-      const ctxs =
-        data?.ctxs?.find(([name]) => name === 'Hyperliquid')?.[1] ||
-        data?.ctxs?.[0]?.[1] ||
-        [];
+      const incoming = data?.ctxs || [];
+      const ctxMap = new Map<string, HL.IPerpsAssetCtx[]>();
+      incoming.forEach(([dexName, ctxList]) => {
+        ctxMap.set(dexName, ctxList || []);
+      });
+
+      const ctxsByDex: HL.IPerpsAssetCtx[][] = [];
+      const perpsCtx = ctxMap.get('') ?? ctxMap.get('perps') ?? [];
+      const xyzCtx = ctxMap.get('xyz') ?? [];
+      ctxsByDex[0] = perpsCtx;
+      ctxsByDex[1] = xyzCtx;
       set(perpsAllAssetCtxsAtom(), {
-        assetCtxs: ctxs,
+        assetCtxsByDex: ctxsByDex,
       });
     },
   );
@@ -637,7 +678,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
   clearAllData = contextAtomMethod(async (get, set) => {
     set(perpsAllMidsAtom(), null);
     set(perpsAllAssetCtxsAtom(), {
-      assetCtxs: [],
+      assetCtxsByDex: [],
     });
     set(l2BookAtom(), null);
     set(subscriptionActiveAtom(), false);

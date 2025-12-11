@@ -206,6 +206,7 @@ export function calculateRequiredSubscriptions(
 
     const openOrdersParams: IEventOpenOrdersParameters = {
       user: state.currentUser,
+      dex: 'ALL_DEXS',
     };
     specs.push(
       buildSubscriptionSpec({
