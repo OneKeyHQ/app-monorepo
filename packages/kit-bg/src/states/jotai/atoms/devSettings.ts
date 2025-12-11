@@ -36,6 +36,8 @@ export interface IDevSettings {
   allowAddSameHDWallet?: boolean;
   // allow create keyless wallet on web platform (mock cloud backup info)
   allowCreateKeylessWalletOnWeb?: boolean;
+  // allow delete keyless key (device key and auth key)
+  allowDeleteKeylessKey?: boolean;
 
   showPrimeTest?: boolean;
   usePrimeSandboxPayment?: boolean;

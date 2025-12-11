@@ -31,6 +31,16 @@ async function devicePackGetItem(key: string): Promise<string | null> {
   return appStorage.getItem(key);
 }
 
+async function devicePackRemoveItem(key: string): Promise<void> {
+  const isSecureStorageSupported =
+    await appStorage.secureStorage.supportSecureStorage();
+  if (isSecureStorageSupported) {
+    await appStorage.secureStorage.removeSecureItem(key);
+  } else {
+    await appStorage.removeItem(key);
+  }
+}
+
 /**
  * Save device pack to local storage with passcode encryption.
  * Unified method for creating, enabling, and manual recovery flows.
@@ -119,7 +129,24 @@ async function getDevicePackFromStorage(params: {
   }
 }
 
+/**
+ * Remove device pack from local storage.
+ */
+async function removeDevicePackFromStorage(params: {
+  packSetId: string;
+}): Promise<void> {
+  const { packSetId } = params;
+  // 1. Build unique key for this packSetId
+  const key = accountUtils.buildKeylessDevicePackKey({
+    packSetId,
+  });
+
+  // 2. Remove encrypted data from storage, prefer secureStorage if available
+  await devicePackRemoveItem(key);
+}
+
 export default {
   saveDevicePackToStorage,
   getDevicePackFromStorage,
+  removeDevicePackFromStorage,
 };

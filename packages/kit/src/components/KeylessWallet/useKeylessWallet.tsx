@@ -31,7 +31,7 @@ import useAppNavigation from '../../hooks/useAppNavigation';
 import { useAccountSelectorActions } from '../../states/jotai/contexts/accountSelector';
 import { useOneKeyAuth } from '../OneKeyAuth/useOneKeyAuth';
 
-export function useKeylessWallet() {
+export function useKeylessWalletMethods() {
   const { loginOneKeyId, sendEmailOTP } = useOneKeyAuth();
   const intl = useIntl();
   const isKeylessWalletCreated = useCallback(async () => {
@@ -39,7 +39,6 @@ export function useKeylessWallet() {
     return !!user?.keylessWalletId;
   }, []);
   const navigation = useAppNavigation();
-  const actions = useAccountSelectorActions();
 
   const generatePacks = useCallback(async () => {
     await loginOneKeyId();
@@ -155,7 +154,7 @@ export function useKeylessWallet() {
           'You need to create the keyless wallet first.',
         );
       }
-      return backgroundApiProxy.serviceKeylessWallet.getKeylessAuthPack({
+      return backgroundApiProxy.serviceKeylessWallet.getAuthPackFromCache({
         packSetId,
       });
     }, []);
@@ -217,6 +216,32 @@ export function useKeylessWallet() {
     });
   }, []);
 
+  return {
+    // create flow
+    generatePacks,
+    saveDevicePack,
+    uploadCloudPack,
+    uploadAuthPack,
+    // restore flow
+    getDevicePack,
+    getAuthPackFromCache,
+    getAuthPackFromServer,
+    getCloudPack,
+    deleteAuthPackFromServer,
+  };
+}
+
+export function useKeylessWallet() {
+  const methods = useKeylessWalletMethods();
+  const actions = useAccountSelectorActions();
+  const { loginOneKeyId } = useOneKeyAuth();
+  const isKeylessWalletCreated = useCallback(async () => {
+    const user = await primePersistAtom.get();
+    return !!user?.keylessWalletId;
+  }, []);
+  const navigation = useAppNavigation();
+  const intl = useIntl();
+
   const createKeylessWalletFn = useCallback(async () => {
     const walletPacks =
       await backgroundApiProxy.serviceKeylessWallet.generateKeylessWalletPacks();
@@ -234,14 +259,25 @@ export function useKeylessWallet() {
     return backgroundApiProxy.serviceCloudBackupV2.supportCloudBackup();
   }, []);
 
-  const enableKeylessWalletSilentlyFn = useCallback(async () => {
-    await loginOneKeyId();
-    const { keylessWalletId } = await primePersistAtom.get();
-    if (!keylessWalletId) {
-      return;
-    }
-    return backgroundApiProxy.serviceKeylessWallet.enableKeylessWalletSilently();
-  }, [loginOneKeyId]);
+  const enableKeylessWalletSilentlyFn = useCallback(
+    async ({
+      restoreAuthPackFromServer,
+    }: {
+      restoreAuthPackFromServer?: boolean;
+    } = {}) => {
+      await loginOneKeyId();
+      const { keylessWalletId } = await primePersistAtom.get();
+      if (!keylessWalletId) {
+        return;
+      }
+      return backgroundApiProxy.serviceKeylessWallet.enableKeylessWalletSilently(
+        {
+          restoreAuthPackFromServer,
+        },
+      );
+    },
+    [loginOneKeyId],
+  );
 
   const [enableKeylessWalletLoading, setEnableKeylessWalletLoading] =
     useState(false);
@@ -251,9 +287,11 @@ export function useKeylessWallet() {
   const enableKeylessWallet = useCallback(
     async ({
       fromScene = EKeylessWalletEnableScene.Onboarding,
+      restoreAuthPackFromServer = false,
     }: {
       fromScene?: EKeylessWalletEnableScene;
-    }) => {
+      restoreAuthPackFromServer?: boolean;
+    }={}) => {
       if (enableKeylessWalletLoadingRef.current) {
         return;
       }
@@ -268,7 +306,10 @@ export function useKeylessWallet() {
 
           if (fromScene === EKeylessWalletEnableScene.Onboarding) {
             if (keylessWalletId) {
-              const restoredPacks = await enableKeylessWalletSilentlyFn();
+              const restoredPacks = await enableKeylessWalletSilentlyFn({
+                restoreAuthPackFromServer,
+              });
+
               // TODO remove mnemonic from method return
               if (restoredPacks?.packs?.mnemonic) {
                 Dialog.show({
@@ -328,19 +369,9 @@ export function useKeylessWallet() {
   );
 
   return {
+    ...methods,
     // TODO handleKeylessWalletClick
     enableKeylessWallet,
     enableKeylessWalletLoading,
-    // create flow
-    generatePacks,
-    saveDevicePack,
-    uploadCloudPack,
-    uploadAuthPack,
-    // restore flow
-    getDevicePack,
-    getAuthPackFromCache,
-    getAuthPackFromServer,
-    getCloudPack,
-    deleteAuthPackFromServer,
   };
 }

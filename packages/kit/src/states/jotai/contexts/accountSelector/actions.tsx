@@ -27,7 +27,6 @@ import { devSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms'
 import type { IJotaiSetter } from '@onekeyhq/kit-bg/src/states/jotai/types';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
-import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
 import {
   WALLET_TYPE_EXTERNAL,
   WALLET_TYPE_IMPORTED,
@@ -58,6 +57,7 @@ import accountSelectorUtils from '@onekeyhq/shared/src/utils/accountSelectorUtil
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
+import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {

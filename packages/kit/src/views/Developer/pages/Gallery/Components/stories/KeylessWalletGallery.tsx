@@ -29,6 +29,8 @@ import type {
   IDBIndexedAccount,
   IDBWallet,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { EKeylessWalletEnableScene } from '@onekeyhq/shared/src/keylessWallet/keylessWalletConsts';
 import type {
   IKeylessMnemonicInfo,
   IKeylessWalletPacks,
@@ -41,7 +43,6 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EPrimeTransferDataType } from '@onekeyhq/shared/types/prime/primeTransferTypes';
 
 import { Layout } from './utils/Layout';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 // Helper function to compare packs with stable fields only
 function isPacksEqual(
@@ -399,7 +400,8 @@ function KeylessWalletRecoveryFlow() {
     getAuthPackFromCache,
     getAuthPackFromServer,
     getCloudPack,
-    deleteAuthPackFromServer,
+    enableKeylessWallet,
+    enableKeylessWalletLoading,
   } = useKeylessWallet();
 
   const [getDevicePackStep, setGetDevicePackStep] = useState<IStepState>({
@@ -412,6 +414,19 @@ function KeylessWalletRecoveryFlow() {
   const [getCloudPackStep, setGetCloudPackStep] = useState<IStepState>({
     status: 'pending',
   });
+
+  // Delete states
+  const [isDeletingAuthPackFromServer, setIsDeletingAuthPackFromServer] =
+    useState(false);
+  const [isDeletingDevicePack, setIsDeletingDevicePack] = useState(false);
+  const [isDeletingAuthPackFromCache, setIsDeletingAuthPackFromCache] =
+    useState(false);
+  const [deleteAuthPackResult, setDeleteAuthPackResult] = useState('');
+  const [deleteDevicePackResult, setDeleteDevicePackResult] = useState('');
+  const [deleteAuthPackFromCacheResult, setDeleteAuthPackFromCacheResult] =
+    useState('');
+
+  const packSetId = user?.keylessWalletId;
 
   const handleGetDevicePack = useCallback(async () => {
     try {
@@ -619,14 +634,193 @@ function KeylessWalletRecoveryFlow() {
         )}
         <Button
           variant="destructive"
+          disabled={!packSetId || isDeletingAuthPackFromServer}
+          loading={isDeletingAuthPackFromServer}
           onPress={async () => {
-            const r = await deleteAuthPackFromServer();
-            Dialog.debugMessage({
-              debugMessage: r,
-            });
+            if (!packSetId) {
+              setDeleteAuthPackResult(
+                '❌ Error: No packSetId available. Please login first.',
+              );
+              return;
+            }
+            try {
+              setIsDeletingAuthPackFromServer(true);
+              setDeleteAuthPackResult('⏳ Deleting auth pack from server...');
+              const result =
+                await backgroundApiProxy.serviceKeylessWallet.deleteAuthPackFromServer();
+              setDeleteAuthPackResult(
+                `✅ Delete success!\n${JSON.stringify(result, null, 2)}`,
+              );
+              Toast.success({
+                title: 'Delete Success',
+                message: 'Auth pack has been deleted from server.',
+              });
+            } catch (e: any) {
+              const errorMessage = (e as Error)?.message ?? 'Unknown error';
+              setDeleteAuthPackResult(`❌ Error: ${errorMessage}`);
+              Toast.error({
+                title: 'Delete Failed',
+                message: errorMessage,
+              });
+            } finally {
+              setIsDeletingAuthPackFromServer(false);
+            }
           }}
         >
           Delete Auth Pack From Server
+        </Button>
+        <Button
+          variant="destructive"
+          disabled={!packSetId || isDeletingDevicePack}
+          loading={isDeletingDevicePack}
+          onPress={async () => {
+            if (!packSetId) {
+              setDeleteDevicePackResult(
+                '❌ Error: No packSetId available. Please login first.',
+              );
+              return;
+            }
+            try {
+              setIsDeletingDevicePack(true);
+              setDeleteDevicePackResult('⏳ Deleting device pack...');
+              await backgroundApiProxy.serviceKeylessWallet.removeDevicePackFromStorage(
+                {
+                  packSetId,
+                },
+              );
+              setDeleteDevicePackResult('✅ Device pack deleted successfully!');
+              Toast.success({
+                title: 'Delete Success',
+                message: 'Device pack has been deleted from storage.',
+              });
+            } catch (e: any) {
+              const errorMessage = (e as Error)?.message ?? 'Unknown error';
+              setDeleteDevicePackResult(`❌ Error: ${errorMessage}`);
+              Toast.error({
+                title: 'Delete Failed',
+                message: errorMessage,
+              });
+            } finally {
+              setIsDeletingDevicePack(false);
+            }
+          }}
+        >
+          Delete Device Pack From Storage
+        </Button>
+        <Button
+          variant="destructive"
+          disabled={!packSetId || isDeletingAuthPackFromCache}
+          loading={isDeletingAuthPackFromCache}
+          onPress={async () => {
+            if (!packSetId) {
+              setDeleteAuthPackFromCacheResult(
+                '❌ Error: No packSetId available. Please login first.',
+              );
+              return;
+            }
+            try {
+              setIsDeletingAuthPackFromCache(true);
+              setDeleteAuthPackFromCacheResult(
+                '⏳ Deleting auth pack from cache...',
+              );
+              await backgroundApiProxy.serviceKeylessWallet.removeAuthPackFromCache(
+                {
+                  packSetId,
+                },
+              );
+              setDeleteAuthPackFromCacheResult(
+                '✅ Auth pack deleted from cache successfully!',
+              );
+              Toast.success({
+                title: 'Delete Success',
+                message: 'Auth pack has been deleted from cache.',
+              });
+            } catch (e: any) {
+              const errorMessage = (e as Error)?.message ?? 'Unknown error';
+              setDeleteAuthPackFromCacheResult(`❌ Error: ${errorMessage}`);
+              Toast.error({
+                title: 'Delete Failed',
+                message: errorMessage,
+              });
+            } finally {
+              setIsDeletingAuthPackFromCache(false);
+            }
+          }}
+        >
+          Delete Auth Pack From Cache
+        </Button>
+        {deleteAuthPackResult ? (
+          <YStack gap="$2" p="$3" borderRadius="$2" bg="$bgSubdued">
+            <SizableText size="$headingSm">
+              Delete Auth Pack From Server Result:
+            </SizableText>
+            <SizableText size="$bodyMd" selectable>
+              {deleteAuthPackResult}
+            </SizableText>
+          </YStack>
+        ) : null}
+        {deleteDevicePackResult ? (
+          <YStack gap="$2" p="$3" borderRadius="$2" bg="$bgSubdued">
+            <SizableText size="$headingSm">
+              Delete Device Pack Result:
+            </SizableText>
+            <SizableText size="$bodyMd" selectable>
+              {deleteDevicePackResult}
+            </SizableText>
+          </YStack>
+        ) : null}
+        {deleteAuthPackFromCacheResult ? (
+          <YStack gap="$2" p="$3" borderRadius="$2" bg="$bgSubdued">
+            <SizableText size="$headingSm">
+              Delete Auth Pack From Cache Result:
+            </SizableText>
+            <SizableText size="$bodyMd" selectable>
+              {deleteAuthPackFromCacheResult}
+            </SizableText>
+          </YStack>
+        ) : null}
+        <Button
+          variant="primary"
+          disabled={enableKeylessWalletLoading}
+          loading={enableKeylessWalletLoading}
+          onPress={async () => {
+            try {
+              await enableKeylessWallet({
+                fromScene: EKeylessWalletEnableScene.Onboarding,
+              });
+            } catch (e: any) {
+              const errorMessage = (e as Error)?.message ?? 'Unknown error';
+              Toast.error({
+                title: 'Enable Wallet Error',
+                message: errorMessage,
+              });
+            }
+          }}
+        >
+          {enableKeylessWalletLoading ? 'Enabling...' : 'Enable Wallet'}
+        </Button>
+        <Button
+          variant="primary"
+          disabled={enableKeylessWalletLoading}
+          loading={enableKeylessWalletLoading}
+          onPress={async () => {
+            try {
+              await enableKeylessWallet({
+                fromScene: EKeylessWalletEnableScene.Onboarding,
+                restoreAuthPackFromServer: true,
+              });
+            } catch (e: any) {
+              const errorMessage = (e as Error)?.message ?? 'Unknown error';
+              Toast.error({
+                title: 'Enable Wallet Error',
+                message: errorMessage,
+              });
+            }
+          }}
+        >
+          {enableKeylessWalletLoading
+            ? 'Enabling...'
+            : 'Enable Wallet (Restore AuthPack From Server)'}
         </Button>
       </YStack>
 
@@ -734,8 +928,10 @@ const KeylessWalletGallery = () => {
   const [cloudRestoreResult, setCloudRestoreResult] = useState('');
   const [allowDuplicate, setAllowDuplicate] = useState(true);
 
-  // Delete Auth Pack From Server States
-  const [deleteAuthPackResult, setDeleteAuthPackResult] = useState('');
+  // Button loading states
+  const [isGeneratingPacks, setIsGeneratingPacks] = useState(false);
+  const [isCreatingWallet, setIsCreatingWallet] = useState(false);
+  const [isGettingUserInfo, setIsGettingUserInfo] = useState(false);
 
   // Restore result with decrypted data
   const [restoredDecryptedData, setRestoredDecryptedData] = useState<{
@@ -905,6 +1101,7 @@ const KeylessWalletGallery = () => {
 
   // create keyless wallet
   const createKeylessWallet = useCallback(async () => {
+    if (isCreatingWallet) return;
     const packSetId =
       packs?.deviceKeyPack?.packSetId ??
       packs?.cloudKeyPack?.packSetId ??
@@ -920,6 +1117,7 @@ const KeylessWalletGallery = () => {
     }
 
     try {
+      setIsCreatingWallet(true);
       setCreateWalletError('');
       const result =
         await backgroundApiProxy.serviceKeylessWallet.createKeylessWallet({
@@ -944,22 +1142,30 @@ const KeylessWalletGallery = () => {
         title: 'Create Wallet Error',
         description: errorMessage,
       });
+    } finally {
+      setIsCreatingWallet(false);
     }
-  }, [packs]);
+  }, [packs, isCreatingWallet]);
 
   const generateKeylessWalletPacks = useCallback(async () => {
-    const result =
-      await backgroundApiProxy.serviceKeylessWallet.generateKeylessWalletPacks();
-    setPacks(result);
+    if (isGeneratingPacks) return;
+    try {
+      setIsGeneratingPacks(true);
+      const result =
+        await backgroundApiProxy.serviceKeylessWallet.generateKeylessWalletPacks();
+      setPacks(result);
 
-    setMnemonic(result.mnemonic);
-    setShares(result);
+      setMnemonic(result.mnemonic);
+      setShares(result);
 
-    // Auto fill restore inputs for convenience
-    setRestoreDeviceKey(result.deviceKey);
-    setRestoreCloudKey(result.cloudKey);
-    setRestoreAuthKey(result.authKey);
-  }, []);
+      // Auto fill restore inputs for convenience
+      setRestoreDeviceKey(result.deviceKey);
+      setRestoreCloudKey(result.cloudKey);
+      setRestoreAuthKey(result.authKey);
+    } finally {
+      setIsGeneratingPacks(false);
+    }
+  }, [isGeneratingPacks]);
 
   const generateMnemonic = useCallback(async () => {
     const result =
@@ -1271,62 +1477,40 @@ const KeylessWalletGallery = () => {
           title: 'Packs',
           element: (
             <YStack gap="$4">
-              <Button onPress={generateKeylessWalletPacks} variant="primary">
+              <Button
+                onPress={generateKeylessWalletPacks}
+                variant="primary"
+                loading={isGeneratingPacks}
+                disabled={isGeneratingPacks}
+              >
                 Generate Wallet Packs
               </Button>
-              <Button onPress={createKeylessWallet} variant="primary">
+              <Button
+                onPress={createKeylessWallet}
+                variant="primary"
+                loading={isCreatingWallet}
+                disabled={isCreatingWallet}
+              >
                 Create Wallet
               </Button>
               <Button
                 onPress={async () => {
-                  const result =
-                    await backgroundApiProxy.serviceKeylessWallet.buildKeylessWalletUserInfo();
-                  Dialog.debugMessage({
-                    debugMessage: result,
-                  });
+                  if (isGettingUserInfo) return;
+                  try {
+                    setIsGettingUserInfo(true);
+                    const result =
+                      await backgroundApiProxy.serviceKeylessWallet.buildKeylessWalletUserInfo();
+                    Dialog.debugMessage({
+                      debugMessage: result,
+                    });
+                  } finally {
+                    setIsGettingUserInfo(false);
+                  }
                 }}
+                loading={isGettingUserInfo}
+                disabled={isGettingUserInfo}
               >
                 Keyless Wallet User Info
-              </Button>
-              <Button
-                variant="destructive"
-                disabled={!packs?.authKeyPack?.packSetId}
-                onPress={async () => {
-                  const packSetId =
-                    packs?.authKeyPack?.packSetId ??
-                    packs?.deviceKeyPack?.packSetId ??
-                    packs?.cloudKeyPack?.packSetId;
-                  if (!packSetId) {
-                    setDeleteAuthPackResult(
-                      '❌ Error: No packSetId available. Generate wallet packs first.',
-                    );
-                    return;
-                  }
-                  try {
-                    setDeleteAuthPackResult(
-                      '⏳ Deleting auth pack from server...',
-                    );
-                    const result =
-                      await backgroundApiProxy.serviceKeylessWallet.deleteAuthPackFromServer();
-                    setDeleteAuthPackResult(
-                      `✅ Delete success!\n${JSON.stringify(result, null, 2)}`,
-                    );
-                    Toast.success({
-                      title: 'Delete Success',
-                      message: 'Auth pack has been deleted from server.',
-                    });
-                  } catch (e: any) {
-                    const errorMessage =
-                      (e as Error)?.message ?? 'Unknown error';
-                    setDeleteAuthPackResult(`❌ Error: ${errorMessage}`);
-                    Toast.error({
-                      title: 'Delete Failed',
-                      message: errorMessage,
-                    });
-                  }
-                }}
-              >
-                Delete Auth Pack From Server
               </Button>
 
               {/* Created Wallet Display */}
@@ -1561,17 +1745,6 @@ const KeylessWalletGallery = () => {
                   No packs generated yet. Click "Create Wallet" first.
                 </SizableText>
               )}
-
-              {deleteAuthPackResult ? (
-                <YStack gap="$2" p="$3" borderRadius="$2" bg="$bgSubdued">
-                  <SizableText size="$headingSm">
-                    Delete Auth Pack Result:
-                  </SizableText>
-                  <SizableText size="$bodyMd" selectable>
-                    {deleteAuthPackResult}
-                  </SizableText>
-                </YStack>
-              ) : null}
             </YStack>
           ),
         },

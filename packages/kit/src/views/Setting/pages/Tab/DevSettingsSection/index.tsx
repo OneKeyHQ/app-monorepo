@@ -1170,6 +1170,15 @@ const BaseDevSettingsSection = () => {
                 <Switch size={ESwitchSize.small} />
               </SectionFieldItem>
 
+              <SectionFieldItem
+                icon="WalletOutline"
+                name="allowDeleteKeylessKey"
+                title="允许删除 Keyless Key"
+                subtitle="允许删除 deviceKey 和 authKey"
+              >
+                <Switch size={ESwitchSize.small} />
+              </SectionFieldItem>
+
               <SectionPressItem
                 icon="ServerOutline"
                 title="Add ServerNetwork Test Data"

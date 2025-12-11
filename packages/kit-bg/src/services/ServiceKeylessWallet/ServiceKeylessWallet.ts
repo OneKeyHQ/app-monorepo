@@ -8,10 +8,8 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import type { ICloudBackupKeylessWalletPayload } from '@onekeyhq/shared/src/cloudBackup/cloudBackupTypes';
 import { ECloudBackupProviderType } from '@onekeyhq/shared/src/cloudBackup/cloudBackupTypes';
-import {
-  OneKeyLocalError,
-  PrimeLoginDialogCancelError,
-} from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import type {
   IAuthKeyPack,
   ICloudKeyPack,
@@ -35,7 +33,7 @@ import { EPrimeTransferDataType } from '@onekeyhq/shared/types/prime/primeTransf
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import localDb from '../../dbs/local/localDb';
-import { IKeylessDialogAtomData, keylessDialogAtom, primePersistAtom } from '../../states/jotai/atoms';
+import { keylessDialogAtom, primePersistAtom } from '../../states/jotai/atoms';
 import { devSettingsPersistAtom } from '../../states/jotai/atoms/devSettings';
 import ServiceBase from '../ServiceBase';
 
@@ -43,6 +41,7 @@ import keylessAuthPackCache from './utils/keylessAuthPackCache';
 import keylessDeviceKeyStorage from './utils/keylessDeviceKeyStorage';
 
 import type { IDBIndexedAccount, IDBWallet } from '../../dbs/local/types';
+import type { IKeylessDialogAtomData } from '../../states/jotai/atoms';
 
 @backgroundClass()
 class ServiceKeylessWallet extends ServiceBase {
@@ -174,7 +173,9 @@ class ServiceKeylessWallet extends ServiceBase {
   }): Promise<{
     mnemonic: string;
   }> {
-    const result = await this.enableKeylessWalletSilently();
+    const result = await this.enableKeylessWalletSilently({
+      restoreAuthPackFromServer: true,
+    });
     if (!result?.packs?.mnemonic) {
       throw new OneKeyLocalError('Failed to restore keyless wallet mnemonic');
     }
@@ -542,6 +543,20 @@ class ServiceKeylessWallet extends ServiceBase {
     });
   }
 
+  @backgroundMethod()
+  async getKeylessAuthPackFromCacheSafe(): Promise<IAuthKeyPack | null> {
+    try {
+      const user = await primePersistAtom.get();
+      const packSetId = user?.keylessWalletId;
+      if (!packSetId) {
+        return null;
+      }
+      return await this.getAuthPackFromCache({ packSetId });
+    } catch (error) {
+      return null;
+    }
+  }
+
   /**
    * Clear authPack cache for a specific packSetId or all caches.
    * Should be called when user logs out or switches accounts.
@@ -577,36 +592,47 @@ class ServiceKeylessWallet extends ServiceBase {
   }
 
   /**
-   * Get auth pack with fallback strategy:
-   * 1. Try memory cache first
-   * 2. If cache miss, return null (caller should use getAuthPackFromServerWithOTP to fetch via OTP)
+   * Remove device pack from local storage.
+   * Requires allowDeleteKeylessKey setting to be enabled.
    */
   @backgroundMethod()
-  async getKeylessAuthPack(params: {
+  async removeDevicePackFromStorage(params: {
     packSetId: string;
-  }): Promise<IAuthKeyPack | null> {
-    const { packSetId } = params;
-
-    // 1. Try memory cache first
-    const cachedAuthPack = await this.getAuthPackFromCache({ packSetId });
-    if (cachedAuthPack) {
-      return cachedAuthPack;
+  }): Promise<void> {
+    // Check if deletion is allowed
+    const devSettings = await devSettingsPersistAtom.get();
+    const isDeletionAllowed =
+      devSettings.enabled && devSettings.settings?.allowDeleteKeylessKey;
+    if (!isDeletionAllowed) {
+      throw new OneKeyLocalError(
+        'Deletion of keyless key is not allowed. Please enable the setting in dev settings.',
+      );
     }
 
-    // 2. Try server API to get authPack
-    try {
-      const authPack = await this.promptKeylessAuthPackDialog();
-      if (authPack) {
-        // Cache the authPack in memory
-        await this.cacheAuthPackInMemory({ authPack });
-        return authPack;
-      }
-    } catch (error) {
-      // User cancelled or error occurred, return null
-      return null;
+    await keylessDeviceKeyStorage.removeDevicePackFromStorage({
+      packSetId: params.packSetId,
+    });
+  }
+
+  /**
+   * Remove auth pack from cache.
+   * Requires allowDeleteKeylessKey setting to be enabled.
+   */
+  @backgroundMethod()
+  async removeAuthPackFromCache(params?: {
+    packSetId?: string;
+  }): Promise<void> {
+    // Check if deletion is allowed
+    const devSettings = await devSettingsPersistAtom.get();
+    const isDeletionAllowed =
+      devSettings.enabled && devSettings.settings?.allowDeleteKeylessKey;
+    if (!isDeletionAllowed) {
+      throw new OneKeyLocalError(
+        'Deletion of keyless key is not allowed. Please enable the setting in dev settings.',
+      );
     }
 
-    return null;
+    await keylessAuthPackCache.clearAuthPackCache(params);
   }
 
   @backgroundMethod()
@@ -647,8 +673,13 @@ class ServiceKeylessWallet extends ServiceBase {
   }
 
   @backgroundMethod()
-  async cancelKeylessAuthPackDialog({ promiseId }: { promiseId: number }) {
-    const error = new PrimeLoginDialogCancelError();
+  async rejectKeylessAuthPackDialog({
+    promiseId,
+    error,
+  }: {
+    promiseId: number;
+    error: IOneKeyError;
+  }) {
     await keylessDialogAtom.set((v: IKeylessDialogAtomData) => ({
       ...v,
       promptKeylessAuthPackDialog: undefined,
@@ -660,14 +691,42 @@ class ServiceKeylessWallet extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getKeylessAuthPackSafe(): Promise<IAuthKeyPack | null> {
+  async getKeylessAuthPackSafe({
+    restoreAuthPackFromServer,
+  }: {
+    restoreAuthPackFromServer: boolean | undefined;
+  }): Promise<IAuthKeyPack | null> {
     try {
       const user = await primePersistAtom.get();
       const packSetId = user?.keylessWalletId;
       if (!packSetId) {
         return null;
       }
-      return await this.getKeylessAuthPack({ packSetId });
+
+      try {
+        const cachedAuthPack = await this.getAuthPackFromCache({ packSetId });
+        if (cachedAuthPack) {
+          return cachedAuthPack;
+        }
+      } catch (error) {
+        console.error('getKeylessAuthPackSafe ERROR', error);
+      }
+
+      // Only restore from server if restoreAuthPackFromServer is true
+      if (restoreAuthPackFromServer) {
+        try {
+          const authPack = await this.promptKeylessAuthPackDialog();
+          if (authPack) {
+            // Cache the authPack in memory
+            await this.cacheAuthPackInMemory({ authPack });
+            return authPack;
+          }
+        } catch (error) {
+          // User cancelled or error occurred, return null
+          return null;
+        }
+      }
+      return null;
     } catch (error) {
       return null;
     }
@@ -796,11 +855,6 @@ class ServiceKeylessWallet extends ServiceBase {
 
     const responseData = result?.data?.data;
 
-    await this.showToast({
-      method: 'success',
-      title: 'uploadAuthPackToServerWithOTP',
-      message: JSON.stringify(responseData, null, 2),
-    });
     const success = responseData?.ok;
     if (!success) {
       throw new OneKeyLocalError('Failed to upload authPack to server');
@@ -818,6 +872,16 @@ class ServiceKeylessWallet extends ServiceBase {
   @backgroundMethod()
   @toastIfError()
   async deleteAuthPackFromServer() {
+    // Check if deletion is allowed
+    const devSettings = await devSettingsPersistAtom.get();
+    const isDeletionAllowed =
+      devSettings.enabled && devSettings.settings?.allowDeleteKeylessKey;
+    if (!isDeletionAllowed) {
+      throw new OneKeyLocalError(
+        'Deletion of keyless key is not allowed. Please enable the setting in dev settings.',
+      );
+    }
+
     // Call server API to delete authPack
     const client = await this.backgroundApi.servicePrime.getOneKeyIdClient(
       EServiceEndpointEnum.Prime,
@@ -900,9 +964,13 @@ class ServiceKeylessWallet extends ServiceBase {
   }
 
   @backgroundMethod()
-  async enableKeylessWalletSilently() {
+  async enableKeylessWalletSilently({
+    restoreAuthPackFromServer,
+  }: {
+    restoreAuthPackFromServer?: boolean;
+  } = {}) {
     const deviceKeyPack = await this.getKeylessDevicePackSafe();
-    let authKeyPack = await this.getKeylessAuthPackSafe();
+    let authKeyPack = await this.getKeylessAuthPackFromCacheSafe();
     let cloudKeyPack: ICloudKeyPack | undefined;
     if (deviceKeyPack && authKeyPack) {
       void (deviceKeyPack && authKeyPack);
@@ -915,7 +983,9 @@ class ServiceKeylessWallet extends ServiceBase {
     if (!deviceKeyPack) {
       if (!authKeyPack) {
         void (!deviceKeyPack && !authKeyPack);
-        authKeyPack = await this.getKeylessAuthPackSafe();
+        authKeyPack = await this.getKeylessAuthPackSafe({
+          restoreAuthPackFromServer,
+        });
       } else {
         void (!deviceKeyPack && authKeyPack);
         // do nothing
@@ -948,7 +1018,9 @@ class ServiceKeylessWallet extends ServiceBase {
           cloudKeyProvider: deviceKeyPack.cloudKeyProvider,
         });
         if (!cloudKeyPack) {
-          authKeyPack = await this.getKeylessAuthPackSafe();
+          authKeyPack = await this.getKeylessAuthPackSafe({
+            restoreAuthPackFromServer,
+          });
         }
         const restoredPacks = await this.restoreKeylessWalletSafe({
           authKeyPack: authKeyPack || undefined,
