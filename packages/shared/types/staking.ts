@@ -854,6 +854,7 @@ export interface IEarnManagePageResponse {
     minTransactionFee?: string;
     claimable?: string;
     remainingCap?: string;
+    protocolInputDecimals?: number;
   };
   alerts?: IEarnAlert[];
   alertsStake?: IEarnAlert[];

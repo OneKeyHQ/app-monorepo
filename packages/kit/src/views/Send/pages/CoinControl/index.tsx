@@ -145,7 +145,7 @@ const UTXOListItem = memo(
           <SizableText size="$bodyMd" color="$text">
             {shortenedAddress}
           </SizableText>
-          <SizableText size="$bodyMd" color="$textSubdued">
+          <SizableText size="$bodySm" color="$textSubdued">
             {formattedInfo}
           </SizableText>
         </YStack>
