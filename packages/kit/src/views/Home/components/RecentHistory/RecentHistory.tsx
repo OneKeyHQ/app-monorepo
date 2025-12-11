@@ -3,15 +3,15 @@ import { useCallback } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Button, XStack } from '@onekeyhq/components';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EHomeWalletTab } from '@onekeyhq/shared/types/wallet';
 
 import { TxHistoryListContainer } from '../../pages/TxHistoryContainer';
 import { RichBlock } from '../RichBlock';
-import {
-  appEventBus,
-  EAppEventBusNames,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { EHomeWalletTab } from '@onekeyhq/shared/types/wallet';
 
 function RecentHistory() {
   const intl = useIntl();

@@ -1,3 +1,4 @@
+import type { ISizableTextProps } from '@onekeyhq/components';
 import type { ICurrencyItem } from '@onekeyhq/kit/src/views/Setting/pages/Currency';
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
 
@@ -11,7 +12,6 @@ import type {
   EReplaceTxType,
   IDecodedTx,
 } from './tx';
-import { ISizableTextProps } from '@onekeyhq/components';
 
 export enum EHistoryTxDetailsBlock {
   Flow = 'Flow',

@@ -6,6 +6,7 @@ import { getNetworkIdsMap } from '../config/networkIds';
 import { AGGREGATE_TOKEN_MOCK_NETWORK_ID } from '../consts/networkConsts';
 import { SEARCH_KEY_MIN_LENGTH } from '../consts/walletConsts';
 
+import accountUtils from './accountUtils';
 import networkUtils from './networkUtils';
 
 import type {
@@ -15,7 +16,6 @@ import type {
   ITokenData,
   ITokenFiat,
 } from '../../types/token';
-import accountUtils from './accountUtils';
 
 export const caseSensitiveNetworkImpl = [
   'sol',

@@ -1,7 +1,11 @@
+import { isEmpty } from 'lodash';
+
 import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import defiUtils from '@onekeyhq/shared/src/utils/defiUtils';
 import type {
   IFetchAccountDeFiPositionsParams,
@@ -10,9 +14,6 @@ import type {
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import ServiceBase from './ServiceBase';
-import { isEmpty } from 'lodash';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 
 @backgroundClass()
 class ServiceDeFi extends ServiceBase {

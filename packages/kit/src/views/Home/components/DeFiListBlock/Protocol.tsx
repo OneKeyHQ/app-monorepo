@@ -1,6 +1,5 @@
 import { useCallback, useMemo } from 'react';
 
-import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
@@ -27,11 +26,8 @@ import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalAssetDetailRoutes } from '@onekeyhq/shared/src/routes/assetDetails';
 import defiUtils from '@onekeyhq/shared/src/utils/defiUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
-import type {
-  EDeFiAssetType,
-  IDeFiAsset,
-  IDeFiProtocol,
-} from '@onekeyhq/shared/types/defi';
+import type { IDeFiAsset, IDeFiProtocol } from '@onekeyhq/shared/types/defi';
+import { EDeFiAssetType } from '@onekeyhq/shared/types/defi';
 
 import { RichTable } from '../RichTable';
 
@@ -71,15 +67,36 @@ function Protocol({
       {
         title: 'Type',
         dataIndex: 'category',
-        render: (category: string) => (
-          <SizableText
-            size="$bodyMdMedium"
-            color="$textInfo"
-            textTransform="capitalize"
-          >
-            {category}
-          </SizableText>
-        ),
+        render: (
+          category: string,
+          record: IDeFiAsset & { type: EDeFiAssetType },
+        ) => {
+          let type = '';
+          if (record.type === EDeFiAssetType.DEBT) {
+            type = intl.formatMessage({
+              id: ETranslations.wallet_defi_asset_type_borrowed,
+            });
+          } else if (record.type === EDeFiAssetType.REWARD) {
+            type = intl.formatMessage({
+              id: ETranslations.wallet_defi_position_module_rewards,
+            });
+          } else if (record.type === EDeFiAssetType.ASSET) {
+            type = intl.formatMessage({
+              id: ETranslations.wallet_defi_asset_type_supplied,
+            });
+          } else {
+            type = category;
+          }
+          return (
+            <SizableText
+              size="$bodyMdMedium"
+              color="$textInfo"
+              textTransform="capitalize"
+            >
+              {type}
+            </SizableText>
+          );
+        },
       },
       {
         title: 'Amount',

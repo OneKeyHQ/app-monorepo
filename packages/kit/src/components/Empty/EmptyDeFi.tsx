@@ -24,7 +24,11 @@ function EmptyDeFi() {
           }}
           iconAfter="ArrowRightOutline"
         >
-          <SizableText size="$headingXl">start earning</SizableText>
+          <SizableText size="$headingXl">
+            {intl.formatMessage({
+              id: ETranslations.wallet_defi_portfolio_empty_cta,
+            })}
+          </SizableText>
         </Button>
       }
       description={intl.formatMessage({

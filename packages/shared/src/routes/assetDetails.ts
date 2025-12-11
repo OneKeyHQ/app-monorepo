@@ -1,8 +1,8 @@
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
-import type { IUtxoAddressInfo } from '../../types/tx';
 import type { IDeFiProtocol, IProtocolSummary } from '../../types/defi';
+import type { IUtxoAddressInfo } from '../../types/tx';
 
 export enum EModalAssetDetailRoutes {
   TokenDetails = 'AssetDetail_TokenDetails',
