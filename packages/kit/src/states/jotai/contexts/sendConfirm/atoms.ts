@@ -4,6 +4,7 @@ import type {
   ISendSelectedFeeInfo,
 } from '@onekeyhq/shared/types/fee';
 import { EFeeType, ESendFeeStatus } from '@onekeyhq/shared/types/fee';
+import type { EUtxoSelectionStrategy } from '@onekeyhq/shared/types/send';
 import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
 
 import { createJotaiContext } from '../../utils/createJotaiContext';
@@ -133,6 +134,8 @@ export interface ISelectedUTXOsAtomValue {
   networkId: string;
   accountId: string;
   selectedUtxoKeys: string[]; // Format: "txid:vout"
+  selectedUtxoTotalValue: string; // Total value of selected UTXOs (in smallest unit, e.g. satoshi)
+  utxoSelectionStrategy: EUtxoSelectionStrategy; // UTXO selection strategy
   timestamp: number;
 }
 

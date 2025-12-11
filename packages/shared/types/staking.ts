@@ -150,6 +150,7 @@ export type IStakeBaseParams = {
   protocolVault?: string; // protocol vault
   approveType?: EApproveType;
   permitSignature?: string;
+  unsignedMessage?: IEarnPermit2ApproveSignData;
   // Stakefish: original message for permit signature
   message?: string;
 
@@ -297,9 +298,17 @@ export enum EInternalDappEnum {
   Swap = 'swap',
 }
 
+export enum EInternalStakingAction {
+  Stake = 'stake',
+  Withdraw = 'withdraw',
+  Claim = 'claim',
+}
+
 export type IInternalDappTxParams = {
   internalDappTx: IStakeTx;
   internalDappType: EInternalDappEnum;
+  /** Staking action type, only applicable when internalDappType is Staking */
+  stakingAction?: EInternalStakingAction;
 };
 
 // Cosmos dapp interface signAmino
@@ -812,6 +821,7 @@ export interface IEarnManagePageResponse {
     minTransactionFee?: string;
     claimable?: string;
     remainingCap?: string;
+    protocolInputDecimals?: number;
   };
   alerts?: IEarnAlert[];
   alertsStake?: IEarnAlert[];
@@ -1504,6 +1514,7 @@ export type IApproveConfirmFnParams = {
   amount: string;
   approveType?: EApproveType;
   permitSignature?: string;
+  unsignedMessage?: IEarnPermit2ApproveSignData;
   // Stakefish: original message for permit signature
   message?: string;
   // Stakefish ETH validator

@@ -1,6 +1,7 @@
 import type { ReactElement } from 'react';
 import { isValidElement, useMemo } from 'react';
 
+import { EFirmwareType } from '@onekeyfe/hd-shared';
 import { isString } from 'lodash';
 
 import type {
@@ -23,7 +24,9 @@ import type {
   IDBIndexedAccount,
   IDBWallet,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import { presetNetworksMap } from '@onekeyhq/shared/src/config/presetNetworks';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import externalWalletLogoUtils from '@onekeyhq/shared/src/utils/externalWalletLogoUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
@@ -143,6 +146,15 @@ function BasicAccountAvatar({
         (account || dbAccount)?.address,
     ),
   );
+
+  const firmwareType = useMemo(() => {
+    if (!wallet?.associatedDeviceInfo) {
+      return undefined;
+    }
+    return deviceUtils.getFirmwareTypeByCachedFeatures({
+      features: wallet.associatedDeviceInfo?.featuresInfo,
+    });
+  }, [wallet?.associatedDeviceInfo]);
 
   const uriSource = useMemo(() => {
     const emptyAccountAvatar = <DefaultEmptyAccount />;
@@ -338,6 +350,21 @@ function BasicAccountAvatar({
           zIndex="$1"
         >
           <NetworkAvatar networkId={networkId} size={logoSize} />
+        </Stack>
+      ) : null}
+
+      {firmwareType === EFirmwareType.BitcoinOnly ? (
+        <Stack
+          position="absolute"
+          h="$4"
+          px="$0.5"
+          justifyContent="center"
+          top={-4}
+          left={-4}
+          borderRadius="$full"
+          zIndex="$1"
+        >
+          <NetworkAvatar networkId={presetNetworksMap.btc.id} size={14} />
         </Stack>
       ) : null}
     </Stack>

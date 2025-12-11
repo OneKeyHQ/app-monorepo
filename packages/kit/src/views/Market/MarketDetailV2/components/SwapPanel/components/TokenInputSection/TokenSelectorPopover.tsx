@@ -14,6 +14,8 @@ export interface ITokenSelectorPopoverProps {
   onOpenChange: (open: boolean) => void;
   tokens: IToken[];
   onTokenPress: (token: IToken) => void;
+  disabledOnSwitchToTrade?: boolean;
+  onTradePress?: () => void;
 }
 
 export function TokenSelectorPopover({
@@ -21,6 +23,8 @@ export function TokenSelectorPopover({
   onOpenChange,
   tokens,
   onTokenPress,
+  disabledOnSwitchToTrade,
+  onTradePress,
 }: ITokenSelectorPopoverProps) {
   const intl = useIntl();
 
@@ -43,9 +47,11 @@ export function TokenSelectorPopover({
           <TokenList
             onTradePress={() => {
               onOpenChange(false);
+              onTradePress?.();
             }}
             tokens={tokens}
             onTokenPress={onTokenPress}
+            disabledOnSwitchToTrade={disabledOnSwitchToTrade}
           />
         </AccountSelectorProviderMirror>
       }

@@ -193,6 +193,7 @@ export enum ENotificationPushMessageMode {
   dialog = 2,
   openInBrowser = 3,
   openInApp = 4,
+  openInDapp = 5,
 }
 // /notification/v1/message/ack
 export type INotificationPushMessageAckParams = {

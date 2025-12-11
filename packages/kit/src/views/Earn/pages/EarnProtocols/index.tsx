@@ -7,6 +7,7 @@ import {
   Empty,
   SizableText,
   Skeleton,
+  Stack,
   XStack,
   YStack,
   useMedia,
@@ -138,12 +139,15 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
         render: (item) => {
           return (
             <XStack jc="center" ai="center">
-              <Token
-                size="md"
-                borderRadius="$2"
-                mr="$3"
-                tokenImageUri={item.provider.logoURI}
-              />
+              <Stack mr="$3">
+                <Token
+                  size="md"
+                  borderRadius="$2"
+                  tokenImageUri={item.provider.logoURI}
+                  showNetworkIcon={!isDesktopLayout}
+                  networkId={item.network.networkId}
+                />
+              </Stack>
               <YStack mr="$2">
                 <XStack ai="center" gap="$2">
                   <SizableText size="$bodyLgMedium">
@@ -212,7 +216,7 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
         ),
       },
     ];
-  }, [intl]);
+  }, [intl, isDesktopLayout]);
 
   const content = useMemo(() => {
     if (isLoading) {

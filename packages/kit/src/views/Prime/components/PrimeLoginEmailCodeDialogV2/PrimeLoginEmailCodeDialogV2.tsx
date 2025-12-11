@@ -12,20 +12,16 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-
-import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
-
-import type { IPrivyState } from '../../hooks/usePrivyUniversalV2/usePrivyUniversalV2Types';
 
 const COUNTDOWN_TIME = 60;
 
 export function PrimeLoginEmailCodeDialogV2(props: {
   email: string;
-  privyState?: IPrivyState;
   sendCode: (args: { email: string }) => Promise<void>;
-  loginWithCode: (args: { code: string; email?: string }) => Promise<void>;
+  loginWithCode: (args: { code: string; email: string }) => Promise<void>;
   onLoginSuccess?: () => void | Promise<void>;
   onConfirm: (code: string) => void;
 }) {
@@ -41,8 +37,7 @@ export function PrimeLoginEmailCodeDialogV2(props: {
     status: 'initial',
   });
   const intl = useIntl();
-  const { isReady } = usePrimeAuthV2();
-  // https://auth.privy.io/api/v1/passwordless/init
+  const { isReady } = useOneKeyAuth();
   const [isApiReady, setIsApiReady] = useState(false);
 
   const sendEmailVerificationCode = useCallback(async () => {
@@ -56,6 +51,14 @@ export function PrimeLoginEmailCodeDialogV2(props: {
       await sendCode({ email });
       setIsApiReady(true);
       setCountdown(COUNTDOWN_TIME);
+    } catch (error) {
+      Toast.error({
+        title: (error as Error)?.message,
+      });
+      setIsApiReady(true);
+      setState({ status: 'initial' });
+      setCountdown(0);
+      throw error;
     } finally {
       setIsResending(false);
     }

@@ -25,6 +25,7 @@ import {
 import { PaginationButton } from '@onekeyhq/components/src/composite/Banner/PaginationButton';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -36,7 +37,6 @@ import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import type { IPrimeParamList } from '@onekeyhq/shared/src/routes/prime';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
-import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
 import { usePrimePayment } from '../../hooks/usePrimePayment';
 import { usePrimeRequirements } from '../../hooks/usePrimeRequirements';
 
@@ -126,7 +126,7 @@ export default function PagePrimeFeatures() {
 
   // const [primePersistData] = usePrimePersistAtom();
   // const [primeMasterPasswordPersistData] = usePrimeMasterPasswordPersistAtom();
-  const { isPrimeSubscriptionActive } = usePrimeAuthV2();
+  const { isPrimeSubscriptionActive } = useOneKeyAuth();
   const [primeCloudSyncPersistData] = usePrimeCloudSyncPersistAtom();
 
   const { result: isServerMasterPasswordSet } = usePromiseResult(() => {

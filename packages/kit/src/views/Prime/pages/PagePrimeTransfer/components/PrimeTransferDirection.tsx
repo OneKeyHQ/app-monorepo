@@ -17,8 +17,8 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { EmailOTPDialog } from '@onekeyhq/kit/src/components/OneKeyAuth/EmailOTPDialog';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { EmailOTPDialog } from '@onekeyhq/kit/src/hooks/useLoginOneKeyId';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { IPrimeTransferAtomData } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
@@ -38,7 +38,6 @@ import type { IPrimeParamList } from '@onekeyhq/shared/src/routes/prime';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IE2EESocketUserInfo } from '@onekeyhq/shared/types/prime/primeTransferTypes';
-import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import { usePrimeTransferExit } from './hooks/usePrimeTransferExit';
 

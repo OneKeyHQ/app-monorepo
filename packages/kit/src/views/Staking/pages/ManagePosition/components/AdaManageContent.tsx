@@ -17,6 +17,7 @@ import {
   type IEarnManagePageResponse,
   type IEarnTokenInfo,
   type IProtocolInfo,
+  type IStakeTag,
 } from '@onekeyhq/shared/types/staking';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
@@ -50,6 +51,11 @@ interface IAdaManageContentProps {
   } | null;
   protocolInfo?: IProtocolInfo;
   tokenInfo?: IEarnTokenInfo;
+  // PendingIndicator props
+  indicatorAccountId?: string;
+  stakeTag?: IStakeTag;
+  onIndicatorRefresh?: () => void;
+  onRefreshPendingRef?: React.MutableRefObject<(() => Promise<void>) | null>;
 }
 
 export function AdaManageContent({
@@ -66,6 +72,10 @@ export function AdaManageContent({
   earnAccount,
   protocolInfo,
   tokenInfo,
+  indicatorAccountId,
+  stakeTag,
+  onIndicatorRefresh,
+  onRefreshPendingRef,
 }: IAdaManageContentProps) {
   const appNavigation = useAppNavigation();
   const [delegateLoading, setDelegateLoading] = useState(false);
@@ -166,7 +176,6 @@ export function AdaManageContent({
   });
 
   const handleDelegate = useCallback(async () => {
-    const stakeToken = tokenInfo?.token as IToken | undefined;
     const executeStake = async () => {
       await handleStake({
         symbol,
@@ -179,7 +188,7 @@ export function AdaManageContent({
             providerName: provider,
           }),
           protocolLogoURI: protocolInfo?.providerDetail?.logoURI,
-          send: stakeToken ? { token: stakeToken, amount: '0' } : undefined,
+          // ADA delegate doesn't transfer funds, so no send field needed
           tags: protocolInfo?.stakeTag ? [protocolInfo.stakeTag] : [],
         },
       });
@@ -231,7 +240,6 @@ export function AdaManageContent({
     riskNoticeDialog,
     delegateAction,
     protocolInfo,
-    tokenInfo,
   ]);
 
   const handleUndelegate = useCallback(async () => {
@@ -380,6 +388,12 @@ export function AdaManageContent({
       transactionConfirmation={transactionConfirmation}
       fallbackTokenImageUri={fallbackTokenImageUri}
       fallbackSymbol={symbol}
+      // PendingIndicator props
+      indicatorAccountId={indicatorAccountId || earnAccount?.accountId}
+      networkId={networkId}
+      stakeTag={stakeTag || protocolInfo?.stakeTag}
+      onIndicatorRefresh={onIndicatorRefresh}
+      onRefreshPendingRef={onRefreshPendingRef}
     />
   );
 }

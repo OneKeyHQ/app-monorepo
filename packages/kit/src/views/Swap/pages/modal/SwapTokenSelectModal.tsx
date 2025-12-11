@@ -1,13 +1,6 @@
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { useFocusEffect, useRoute } from '@react-navigation/core';
+import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
@@ -185,7 +178,7 @@ const SwapTokenSelectPage = () => {
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [currentSelectNetwork?.networkId]);
 
   const { fetchLoading, currentTokens } = useSwapTokenList(
     type,

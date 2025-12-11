@@ -96,6 +96,22 @@ const hasPositiveFiatValue = (value: string | undefined): boolean =>
 const isEarnTestnetNetwork = (networkId: string): boolean =>
   earnTestnetNetworkIds.includes(networkId);
 
+// Check if investment has any assets (for testnet networks)
+// For testnet: check assetsStatus or rewardAssets instead of fiat value
+const hasAnyAssets = (
+  assets: Array<{
+    assetsStatus?: Array<{ title: { text: string } }>;
+    rewardAssets?: Array<{ title: { text: string } }>;
+  }>,
+): boolean => {
+  if (assets.length === 0) return false;
+  return assets.some(
+    (asset) =>
+      (asset.assetsStatus && asset.assetsStatus.length > 0) ||
+      (asset.rewardAssets && asset.rewardAssets.length > 0),
+  );
+};
+
 const sortByFiatValueDesc = (
   investments: IEarnPortfolioInvestment[],
 ): IEarnPortfolioInvestment[] =>
@@ -110,8 +126,10 @@ const filterValidInvestments = (
 ): IEarnPortfolioInvestment[] =>
   Array.from(values).filter((inv) => {
     if (inv.airdropAssets.length > 0) return true;
-    // Skip fiat value check for testnet networks
-    if (isEarnTestnetNetwork(inv.network.networkId)) return true;
+    // For testnet networks, check if there are any actual assets
+    if (isEarnTestnetNetwork(inv.network.networkId)) {
+      return hasAnyAssets(inv.assets);
+    }
     return hasPositiveFiatValue(inv.totalFiatValue);
   });
 
@@ -482,11 +500,11 @@ export const useEarnPortfolio = ({
           return null;
         }
 
-        // Skip fiat value check for testnet networks
-        if (
-          !isEarnTestnetNetwork(result.network.networkId) &&
-          !hasPositiveFiatValue(result.totalFiatValue)
-        ) {
+        const shouldRemove = isEarnTestnetNetwork(result.network.networkId)
+          ? !hasAnyAssets(result.assets)
+          : !hasPositiveFiatValue(result.totalFiatValue);
+
+        if (shouldRemove) {
           return {
             key,
             remove: true,

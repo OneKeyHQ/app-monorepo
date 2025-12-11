@@ -11,6 +11,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
@@ -27,7 +28,6 @@ import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IPrimeServerUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
 
-import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
 import { usePrimeRequirements } from '../../hooks/usePrimeRequirements';
 
 import type { ISubscriptionPeriod } from '../../hooks/usePrimePaymentTypes';
@@ -89,7 +89,7 @@ export function PrimeBenefitsList({
   const intl = useIntl();
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { ensureOneKeyIDLoggedIn } = usePrimeRequirements();
-  const { isPrimeSubscriptionActive } = usePrimeAuthV2();
+  const { isPrimeSubscriptionActive } = useOneKeyAuth();
   const {
     activeAccount: { wallet, account, network, indexedAccount },
   } = useActiveAccount({ num: 0 });

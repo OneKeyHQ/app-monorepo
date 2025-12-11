@@ -525,6 +525,14 @@ class ServiceAccountSelector extends ServiceBase {
               globalDeriveType || v.deriveType || 'default';
             v.deriveType = deriveType;
 
+            defaultLogger.accountSelector.listData.fixDeriveTypesForInitAccountSelectorMap(
+              {
+                selectedAccount: v,
+                globalDeriveType,
+                fixedDeriveType: deriveType,
+              },
+            );
+
             if (
               v.walletId &&
               accountUtils.isOthersWallet({ walletId: v.walletId })
@@ -555,6 +563,9 @@ class ServiceAccountSelector extends ServiceBase {
     // await timerUtils.wait(1000);
     const { serviceAccount } = this.backgroundApi;
     if (!focusedWallet) {
+      defaultLogger.accountSelector.listData.focusedWalletMissing({
+        focusedWallet,
+      });
       return [];
     }
     const buildAccountsData = ({
@@ -566,6 +577,12 @@ class ServiceAccountSelector extends ServiceBase {
       walletId: string;
       title?: string;
     }): IAccountSelectorAccountsListSectionData => {
+      defaultLogger.accountSelector.listData.buildAccountsData({
+        accountsLength: accounts.length,
+        walletId,
+        title,
+      });
+
       if (walletId === WALLET_TYPE_WATCHING) {
         return {
           title:
@@ -698,6 +715,10 @@ class ServiceAccountSelector extends ServiceBase {
     const { accounts } = await serviceAccount.getIndexedAccountsOfWallet({
       walletId,
     });
+    defaultLogger.accountSelector.listData.getIndexedAccountsOfWallet({
+      accountsLength: accounts.length,
+      walletId,
+    });
     if (linkedNetworkId) {
       await Promise.all(
         accounts.map(async (indexedAccount: IDBIndexedAccount) => {
@@ -787,6 +808,15 @@ class ServiceAccountSelector extends ServiceBase {
       othersNetworkId,
       linkedNetworkId,
       deriveType,
+    });
+
+    defaultLogger.accountSelector.listData.buildAccountsListData({
+      focusedWallet,
+      othersNetworkId,
+      linkedNetworkId,
+      selectedNetworkId,
+      deriveType,
+      keepAllOtherAccounts,
     });
 
     const sectionData = await this.getAccountSelectorAccountsListSectionData({

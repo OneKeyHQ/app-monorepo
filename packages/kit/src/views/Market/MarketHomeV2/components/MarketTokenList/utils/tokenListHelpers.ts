@@ -77,6 +77,7 @@ export function transformApiItemToToken(
     holders: item.holders || 0,
     turnover: safeNumber(item.volume24h),
     tokenImageUri: item.logoUrl || '',
+    decimals: item.decimals,
     networkLogoUri,
     networkId: item.networkId || chainId,
     chainId,
