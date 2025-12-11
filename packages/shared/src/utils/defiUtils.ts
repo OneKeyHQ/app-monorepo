@@ -132,15 +132,16 @@ function transformDeFiData({
       positionValue.value = positionValue.value.plus(
         position.assets
           .reduce((acc, asset) => acc.plus(asset.value), new BigNumber(0))
-          .plus(
-            position.debts.reduce(
-              (acc, debt) => acc.plus(debt.value),
-              new BigNumber(0),
-            ),
-          )
+
           .plus(
             position.rewards.reduce(
               (acc, reward) => acc.plus(reward.value),
+              new BigNumber(0),
+            ),
+          )
+          .minus(
+            position.debts.reduce(
+              (acc, debt) => acc.plus(debt.value),
               new BigNumber(0),
             ),
           ),
@@ -160,7 +161,10 @@ function transformDeFiData({
         category: key,
         value: position.value.toFixed(),
         all: position.all.sort((a, b) => {
-          return b.value - a.value;
+          return (
+            (b.type === EDeFiAssetType.DEBT ? -1 : 1) * b.value -
+            (a.type === EDeFiAssetType.DEBT ? -1 : 1) * a.value
+          );
         }),
       }),
     ),

@@ -17,11 +17,32 @@ import {
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import type {
   EModalAssetDetailRoutes,
   IModalAssetDetailsParamList,
 } from '@onekeyhq/shared/src/routes/assetDetails';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import { EDeFiAssetType, type IDeFiAsset } from '@onekeyhq/shared/types/defi';
+
+function getAssetType(asset: IDeFiAsset & { type: EDeFiAssetType }) {
+  if (asset.type === EDeFiAssetType.DEBT) {
+    return appLocale.intl.formatMessage({
+      id: ETranslations.wallet_defi_asset_type_borrowed,
+    });
+  }
+  if (asset.type === EDeFiAssetType.REWARD) {
+    return appLocale.intl.formatMessage({
+      id: ETranslations.wallet_defi_position_module_rewards,
+    });
+  }
+  if (asset.type === EDeFiAssetType.ASSET) {
+    return appLocale.intl.formatMessage({
+      id: ETranslations.wallet_defi_asset_type_supplied,
+    });
+  }
+  return asset.category;
+}
 
 function DeFiProtocolDetails() {
   const route =
@@ -46,13 +67,13 @@ function DeFiProtocolDetails() {
           <XStack alignItems="center" gap="$3">
             <Token
               size="xl"
-              tokenImageUri={protocolInfo.protocolLogo}
+              tokenImageUri={protocolInfo?.protocolLogo}
               showNetworkIcon
               networkId={protocol.networkId}
             />
             <YStack>
               <SizableText size="$heading2xl" numberOfLines={1}>
-                {protocolInfo.protocolName}
+                {protocolInfo?.protocolName ?? ''}
               </SizableText>
               <NumberSizeableText
                 size="$bodyLgMedium"
@@ -60,7 +81,7 @@ function DeFiProtocolDetails() {
                 formatterOptions={{ currency: settings.currencyInfo.symbol }}
                 color="$textSubdued"
               >
-                {protocolInfo.totalValue}
+                {protocolInfo?.netWorth ?? '0'}
               </NumberSizeableText>
             </YStack>
           </XStack>
@@ -78,13 +99,13 @@ function DeFiProtocolDetails() {
       </>
     );
   }, [
-    protocolInfo.totalValue,
+    protocolInfo?.netWorth,
     settings.currencyInfo.symbol,
     protocol.networkId,
     intl,
     protocolInfo?.protocolUrl,
-    protocolInfo.protocolLogo,
-    protocolInfo.protocolName,
+    protocolInfo?.protocolLogo,
+    protocolInfo?.protocolName,
   ]);
   const renderProtocolPositions = useCallback(() => {
     return (
@@ -118,15 +139,20 @@ function DeFiProtocolDetails() {
                   gap="$3"
                   justifyContent="space-between"
                   py="$2"
+                  flex={1}
                 >
                   <XStack alignItems="center" gap="$3" flex={1}>
                     <Token size="md" tokenImageUri={asset.meta?.logoUrl} />
-                    <YStack>
+                    <YStack flex={1}>
                       <SizableText size="$bodyLgMedium">
                         {asset.symbol}
                       </SizableText>
-                      <SizableText size="$bodyMd" color="$textInfo">
-                        {asset.category}
+                      <SizableText
+                        size="$bodyMd"
+                        color="$textInfo"
+                        textTransform="capitalize"
+                      >
+                        {getAssetType(asset)}
                       </SizableText>
                     </YStack>
                   </XStack>

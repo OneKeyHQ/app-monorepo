@@ -1,3 +1,4 @@
+import BigNumber from 'bignumber.js';
 import { isEmpty } from 'lodash';
 
 import {
@@ -41,6 +42,8 @@ class ServiceDeFi extends ServiceBase {
       isAllNetworks,
       allNetworksAccountId,
       allNetworksNetworkId,
+      excludeLowValueProtocols,
+      lowValueProtocolsThreshold = 0.01,
     } = params;
 
     const isUrlAccount = accountUtils.isUrlAccountFn({ accountId });
@@ -94,6 +97,19 @@ class ServiceDeFi extends ServiceBase {
       positions: resp.data.data.data.positions,
       protocolSummaries: resp.data.data.data.protocolSummaries,
     });
+
+    if (excludeLowValueProtocols) {
+      parsedData.protocols = parsedData.protocols.filter((protocol) => {
+        return new BigNumber(
+          parsedData.protocolMap[
+            defiUtils.buildProtocolMapKey({
+              protocol: protocol.protocol,
+              networkId: protocol.networkId,
+            })
+          ]?.totalValue ?? 0,
+        ).gt(lowValueProtocolsThreshold);
+      });
+    }
 
     return {
       overview: resp.data.data.data.totals,
