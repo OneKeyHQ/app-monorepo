@@ -1728,6 +1728,12 @@ export interface IBorrowHistory {
     tokenAddress: string;
     timestamp: number;
   }[];
+  networks: IBorrowNetwork[];
+  tokens: {
+    price: string;
+    price24h: string;
+    info: IEarnToken;
+  }[];
 }
 
 export interface IBorrowReserveDetail {
@@ -1771,4 +1777,25 @@ export interface IBorrowReserveDetail {
     totalBorrowedFiatValue: string;
   };
   interestRateModel: string;
+}
+
+export interface IBorrowTransactionConfirmation {
+  apyDetail: {
+    title: IEarnText;
+    button: IEarnPopupActionIcon;
+  };
+  canBeCollateral: boolean;
+  refundableFee: {
+    title: IEarnText;
+    description: IEarnText;
+    tooltip: IEarnTooltip;
+  };
+  healthFactor: {
+    title: IEarnText;
+    description: IEarnText;
+  };
+}
+
+export interface IBorrowUnsignedTransaction {
+  tx: string;
 }

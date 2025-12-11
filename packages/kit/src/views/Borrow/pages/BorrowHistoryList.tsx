@@ -24,6 +24,7 @@ import {
   type IModalStakingParamList,
 } from '@onekeyhq/shared/src/routes';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
+import type { IBorrowHistory } from '@onekeyhq/shared/types/staking';
 
 import {
   PageFrame,
@@ -32,21 +33,14 @@ import {
   isLoadingState,
 } from '../../Staking/components/PageFrame';
 
-type IBorrowHistoryItem = {
-  networkId: string;
-  txHash: string;
-  title: string;
-  amount: string;
-  tokenAddress: string;
-  timestamp: number;
-};
-
 type IHistoryItemProps = {
-  item: IBorrowHistoryItem;
-  networkId?: string;
+  item: IBorrowHistory['list'][number] & {
+    token: IBorrowHistory['tokens'][number];
+    network: IBorrowHistory['networks'][number];
+  };
 };
 
-const HistoryItem = ({ item, networkId }: IHistoryItemProps) => {
+const HistoryItem = ({ item }: IHistoryItemProps) => {
   const navigation = useAppNavigation();
   const route = useAppRoute<
     IModalStakingParamList,
@@ -67,17 +61,14 @@ const HistoryItem = ({ item, networkId }: IHistoryItemProps) => {
   return (
     <ListItem
       avatarProps={{
-        src: undefined,
-        fallbackProps: {
-          w: '$10',
-          h: '$10',
-          bg: '$bgStrong',
-          justifyContent: 'center',
-          alignItems: 'center',
-          children: <Icon name="GlobusOutline" />,
-        },
+        src: item.token.info.logoURI,
+        borderRadius: '$full',
+        cornerImageProps: item.network.logoURI
+          ? { src: item.network.logoURI }
+          : undefined,
       }}
       title={item.title}
+      subtitle={item.token.info.symbol}
       onPress={onPress}
     >
       <YStack>
@@ -89,7 +80,7 @@ const HistoryItem = ({ item, networkId }: IHistoryItemProps) => {
               showPlusMinusSigns: false,
             }}
           >
-            {item.amount}
+            {`${item.amount} ${item.token.info.symbol}`}
           </NumberSizeableText>
         ) : null}
       </YStack>
@@ -99,25 +90,39 @@ const HistoryItem = ({ item, networkId }: IHistoryItemProps) => {
 
 type IHistorySectionItem = {
   title: string;
-  data: IBorrowHistoryItem[];
+  data: Array<
+    IBorrowHistory['list'][number] & {
+      token: IBorrowHistory['tokens'][number];
+      network: IBorrowHistory['networks'][number];
+    }
+  >;
 };
 
 type IHistoryContentProps = {
   sections: IHistorySectionItem[];
-  networkId?: string;
 };
 
-const keyExtractor = (item: unknown) => {
-  const key = (item as IBorrowHistoryItem)?.txHash;
+const keyExtractor = (
+  item: IBorrowHistory['list'][number] & {
+    token: IBorrowHistory['tokens'][number];
+    network: IBorrowHistory['networks'][number];
+  },
+) => {
+  const key = item?.txHash;
   return key;
 };
 
-const HistoryContent = ({ sections, networkId }: IHistoryContentProps) => {
+const HistoryContent = ({ sections }: IHistoryContentProps) => {
   const renderItem = useCallback(
-    ({ item }: { item: IBorrowHistoryItem }) => (
-      <HistoryItem item={item} networkId={networkId} />
-    ),
-    [networkId],
+    ({
+      item,
+    }: {
+      item: IBorrowHistory['list'][number] & {
+        token: IBorrowHistory['tokens'][number];
+        network: IBorrowHistory['networks'][number];
+      };
+    }) => <HistoryItem item={item} />,
+    [],
   );
 
   const renderSectionHeader = useCallback(
@@ -181,7 +186,33 @@ function BorrowHistoryList() {
           marketAddress,
         });
 
-      const listMap = groupBy(historyResp.list, (item) =>
+      // Create maps for quick lookup
+      const networkMap = new Map(
+        historyResp.networks.map((network) => [network.networkId, network]),
+      );
+      const tokenMap = new Map(
+        historyResp.tokens.map((token) => [token.info.address, token]),
+      );
+
+      // Enrich list items with token and network data
+      const enrichedList = historyResp.list.map((item) => {
+        const network = networkMap.get(item.networkId);
+        const token = tokenMap.get(item.tokenAddress);
+
+        if (!network || !token) {
+          console.warn(
+            `Missing network or token for item: networkId=${item.networkId}, tokenAddress=${item.tokenAddress}`,
+          );
+        }
+
+        return {
+          ...item,
+          network: network || ({} as IBorrowHistory['networks'][number]),
+          token: token || ({} as IBorrowHistory['tokens'][number]),
+        };
+      });
+
+      const listMap = groupBy(enrichedList, (item) =>
         formatDate(new Date(item.timestamp), { hideTimeForever: true }),
       );
 
@@ -214,9 +245,7 @@ function BorrowHistoryList() {
           loading={isLoadingState({ result, isLoading })}
           onRefresh={run}
         >
-          {result ? (
-            <HistoryContent sections={result.sections} networkId={networkId} />
-          ) : null}
+          {result ? <HistoryContent sections={result.sections} /> : null}
         </PageFrame>
       </Page.Body>
     </Page>
