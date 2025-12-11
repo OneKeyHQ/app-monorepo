@@ -77,7 +77,6 @@ import {
   swapProInputAmountAtom,
   swapProSelectTokenAtom,
   swapProSellToTokenAtom,
-  swapProSlippageAtom,
   swapProSupportNetworksTokenListAtom,
   swapProSupportNetworksTokenListLoadingAtom,
   swapProToTotalValueAtom,
@@ -858,15 +857,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         if (res && res.length > 0) {
           const quoteResult = res[0];
           set(swapSpeedQuoteResultAtom(), quoteResult);
-          if (quoteResult.autoSuggestedSlippage) {
-            const slippageItem = get(swapProSlippageAtom());
-            if (slippageItem.key === ESwapSlippageSegmentKey.AUTO) {
-              set(swapProSlippageAtom(), {
-                key: ESwapSlippageSegmentKey.AUTO,
-                value: quoteResult.autoSuggestedSlippage,
-              });
-            }
-          }
         }
         set(swapSpeedQuoteFetchingAtom(), false);
       } catch (e: any) {
