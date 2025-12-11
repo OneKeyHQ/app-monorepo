@@ -89,10 +89,7 @@ export const CloudBackup = ({ packs }: ICloudBackupProps) => {
                   },
                 );
 
-              const isMatch = isEqual(
-                result.cloudKeyPack,
-                packs.cloudKeyPack,
-              );
+              const isMatch = isEqual(result.cloudKeyPack, packs.cloudKeyPack);
 
               if (isMatch) {
                 setCloudRestoreResult(

@@ -5,6 +5,8 @@ import type {
   IKeylessWalletPacks,
 } from '@onekeyhq/shared/src/keylessWallet/keylessWalletTypes';
 
+import { Layout } from '../utils/Layout';
+
 import { CloudBackup } from './components/CloudBackup';
 import { DeviceTransfer } from './components/DeviceTransfer';
 import { GenerateKeylessWallet } from './components/GenerateKeylessWallet';
@@ -13,7 +15,6 @@ import { RestoreMnemonicFromShares } from './components/RestoreMnemonicFromShare
 import { SecureStorageDemo } from './components/SecureStorageDemo';
 import { KeylessWalletCreationFlow } from './KeylessWalletCreationFlow';
 import { KeylessWalletRecoveryFlow } from './KeylessWalletRecoveryFlow';
-import { Layout } from '../utils/Layout';
 
 export const KeylessWalletGallery = () => {
   const [mnemonic, setMnemonic] = useState('');

@@ -1,6 +1,12 @@
 import { useState } from 'react';
 
-import { Button, Input, SizableText, XStack, YStack } from '@onekeyhq/components';
+import {
+  Button,
+  Input,
+  SizableText,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import secureStorage from '@onekeyhq/shared/src/storage/secureStorage';
 
 export const SecureStorageDemo = () => {

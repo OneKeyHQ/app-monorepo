@@ -1,6 +1,12 @@
 import { useState } from 'react';
 
-import { Button, Dialog, SizableText, XStack, YStack } from '@onekeyhq/components';
+import {
+  Button,
+  Dialog,
+  SizableText,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import type { IKeylessWalletPacks } from '@onekeyhq/shared/src/keylessWallet/keylessWalletTypes';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
@@ -34,8 +40,9 @@ export const DeviceTransfer = ({ packs }: IDeviceTransferProps) => {
               return;
             }
             try {
-              (globalThis as Record<string, unknown>).$pendingDeviceKeyPackForTransfer =
-                packs.deviceKeyPack;
+              (
+                globalThis as Record<string, unknown>
+              ).$pendingDeviceKeyPackForTransfer = packs.deviceKeyPack;
               setDeviceTransferResult(
                 '⏳ DeviceKeyPack stored. Opening transfer page...',
               );
@@ -102,8 +109,9 @@ export const DeviceTransfer = ({ packs }: IDeviceTransferProps) => {
           size="small"
           variant="tertiary"
           onPress={() => {
-            (globalThis as Record<string, unknown>).$pendingDeviceKeyPackForTransfer =
-              undefined;
+            (
+              globalThis as Record<string, unknown>
+            ).$pendingDeviceKeyPackForTransfer = undefined;
             setDeviceTransferResult('✅ Cleared pending DeviceKeyPack');
           }}
         >

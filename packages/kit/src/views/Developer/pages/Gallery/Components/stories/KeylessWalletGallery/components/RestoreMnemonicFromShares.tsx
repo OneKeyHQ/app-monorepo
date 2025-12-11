@@ -14,11 +14,7 @@ import type { IKeylessMnemonicInfo } from '@onekeyhq/shared/src/keylessWallet/ke
 interface IRestoreMnemonicFromSharesProps {
   shares?: IKeylessMnemonicInfo | null;
   mnemonic?: string;
-  onRestore?: (
-    deviceKey: string,
-    cloudKey: string,
-    authKey: string,
-  ) => void;
+  onRestore?: (deviceKey: string, cloudKey: string, authKey: string) => void;
 }
 
 export const RestoreMnemonicFromShares = ({

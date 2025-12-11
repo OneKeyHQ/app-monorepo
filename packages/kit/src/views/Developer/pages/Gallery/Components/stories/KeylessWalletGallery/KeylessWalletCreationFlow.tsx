@@ -15,6 +15,7 @@ import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKey
 import type { IKeylessWalletPacks } from '@onekeyhq/shared/src/keylessWallet/keylessWalletTypes';
 
 import { StepRenderer } from './StepRenderer';
+
 import type { IStepState } from './types';
 
 export const KeylessWalletCreationFlow = () => {
