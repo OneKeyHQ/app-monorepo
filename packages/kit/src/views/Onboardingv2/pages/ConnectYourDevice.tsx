@@ -1280,8 +1280,6 @@ function ConnectYourDevicePage({
       if (!item.device) {
         return;
       }
-      console.log('=====>>>>> connectDevice', innerTabValue, item);
-
       const connectId = item.device.connectId ?? '';
       try {
         if (

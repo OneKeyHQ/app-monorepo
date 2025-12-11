@@ -61,9 +61,6 @@ export function WalletDetailsHeader({
   );
 
   const firmwareType = useMemo(() => {
-    console.log('=====>>>>> firmwareType', {
-      features: device?.featuresInfo,
-    });
     return deviceUtils.getFirmwareTypeByCachedFeatures({
       features: device?.featuresInfo,
     });
