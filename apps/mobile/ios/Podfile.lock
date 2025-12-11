@@ -2227,7 +2227,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - SocketRocket
     - Yoga
-  - react-native-lite-card (1.0.15):
+  - react-native-lite-card (1.0.16):
     - boost
     - DoubleConversion
     - fast_float
@@ -4321,7 +4321,7 @@ SPEC CHECKSUMS:
   react-native-fast-pbkdf2: 329e89b9929a51ed4d9ba88bf355a266f13d9d93
   react-native-get-random-values: 419569b6ed3d15bfb9b6781b2f2e058f8e8d2698
   react-native-keyboard-controller: 44a1a840c0d2ede629af60d6fbf84fc69ee4cb10
-  react-native-lite-card: 119fe2c6f4667cb438328c5422cb4f6917e363ab
+  react-native-lite-card: e200a4ef3bd9153183866362dff6dc864bab82a3
   react-native-netinfo: cec9c4e86083cb5b6aba0e0711f563e2fbbff187
   react-native-network-info: 703d4b16ff0ff6f03127728348251bf5f12b823a
   react-native-pager-view: d91a84dd23f9fba7e63c4b9d68f32f52c9ec62ca
