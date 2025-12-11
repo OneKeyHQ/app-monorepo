@@ -39,6 +39,7 @@ import type {
   IPerpsAssetCtx,
   IPerpsUniverse,
 } from '@onekeyhq/shared/types/hyperliquid';
+import { XYZ_ASSET_ID_OFFSET } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 
 import { usePerpTokenSelector } from '../../hooks';
 
@@ -260,7 +261,10 @@ function BasePerpTokenSelectorContent({
       }
 
       const entries = assets.map((asset, index) => {
-        const sortValues = computeSortValues(assetCtxs?.[asset.assetId]);
+        // Normalize assetId to array index: HIP3 assets have offset, Perps don't
+        const normalizedAssetId =
+          dexIndex === 1 ? asset.assetId - XYZ_ASSET_ID_OFFSET : asset.assetId;
+        const sortValues = computeSortValues(assetCtxs?.[normalizedAssetId]);
         return {
           index,
           dexIndex,
@@ -276,12 +280,6 @@ function BasePerpTokenSelectorContent({
         ),
       );
 
-      if (sortDirection === 'asc') {
-        return entries.map((entry) => ({
-          index: entry.index,
-          dexIndex: entry.dexIndex,
-        }));
-      }
       return entries.map((entry) => ({
         index: entry.index,
         dexIndex: entry.dexIndex,
@@ -314,7 +312,11 @@ function BasePerpTokenSelectorContent({
       (assets: IPerpsUniverse[], dexIndex: number) => {
         const ctxs = assetCtxsByDexTyped[dexIndex] || [];
         return assets.map((asset, index) => {
-          const sortValues = computeSortValues(ctxs?.[asset.assetId]);
+          const normalizedAssetId =
+            dexIndex === 1
+              ? asset.assetId - XYZ_ASSET_ID_OFFSET
+              : asset.assetId;
+          const sortValues = computeSortValues(ctxs?.[normalizedAssetId]);
           return {
             dexIndex,
             index,

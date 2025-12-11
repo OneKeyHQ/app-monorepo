@@ -655,10 +655,7 @@ export default class ServiceHyperliquid extends ServiceBase {
       return;
     }
 
-    const statePair =
-      data.clearinghouseStates?.find(
-        ([name]: [string, unknown]) => name === 'Hyperliquid',
-      ) || data.clearinghouseStates?.[0];
+    const statePair = data.clearinghouseStates?.[0];
     const clearinghouseState = statePair?.[1];
     if (!clearinghouseState) {
       return;

@@ -32,7 +32,11 @@ function ShareContent({ data, onClose, isMobile }: IShareContentProps) {
   const { side, token, tokenDisplayName } = data;
 
   const [config, setConfig] = useState<IShareConfig>({
-    customText: getDefaultShareText(side, token, tokenDisplayName),
+    customText: getDefaultShareText({
+      side,
+      coin: token,
+      displayName: tokenDisplayName,
+    }),
     stickerIndex: null,
     backgroundIndex: 0,
     pnlDisplayMode: DEFAULT_PNL_DISPLAY_MODE,

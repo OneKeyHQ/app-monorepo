@@ -105,9 +105,7 @@ function PerpAccountList({
         };
         return {
           time: order.time ?? Date.now(),
-          hash:
-            ((order.toTxId || order.fromTxId || '0x') as IHex) ??
-            ('0x' as IHex),
+          hash: (order.toTxId || order.fromTxId || '0x') as IHex,
           delta,
         };
       })

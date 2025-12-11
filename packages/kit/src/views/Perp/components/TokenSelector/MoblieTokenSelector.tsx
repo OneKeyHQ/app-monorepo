@@ -24,6 +24,7 @@ import type {
   IPerpsAssetCtx,
   IPerpsUniverse,
 } from '@onekeyhq/shared/types/hyperliquid';
+import { XYZ_ASSET_ID_OFFSET } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 
 import { usePerpTokenSelector } from '../../hooks';
 import { PerpsAccountSelectorProviderMirror } from '../../PerpsAccountSelectorProviderMirror';
@@ -166,7 +167,11 @@ function MobileTokenSelectorModal({
         if (activeTab === 'hip3' && dexIndex !== 1) return [];
         const ctxs = assetCtxsByDexTyped[dexIndex] || [];
         return assets.map((asset, index) => {
-          const sortValues = computeSortValues(ctxs?.[asset.assetId]);
+          const normalizedAssetId =
+            dexIndex === 1
+              ? asset.assetId - XYZ_ASSET_ID_OFFSET
+              : asset.assetId;
+          const sortValues = computeSortValues(ctxs?.[normalizedAssetId]);
           return {
             dexIndex,
             index,

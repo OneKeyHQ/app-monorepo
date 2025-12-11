@@ -518,7 +518,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         url: 'wss://api.hyperliquid.xyz/ws',
         /* spell-checker:disable */
         reconnect: {
-          maxRetries: 1,
+          maxRetries: 999,
           connectionTimeout: 5000,
           // eslint-disable-next-line spellcheck/spell-checker
           reconnectionDelay: (
