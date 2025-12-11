@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import { Button } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 
 import { Recommended } from '../../../Earn/components/Recommended';
@@ -44,6 +45,13 @@ function EarnListView() {
             id: ETranslations.global_view_more,
           })}
         </Button>
+      }
+      contentContainerProps={
+        platformEnv.isNative
+          ? {
+              mx: '$-5',
+            }
+          : undefined
       }
       content={renderContent()}
       plainContentContainer

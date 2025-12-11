@@ -47,7 +47,7 @@ function BasicTokenListItem(props: ITokenListItemProps) {
   const renderFirstColumn = useCallback(() => {
     if (!tableLayout && !isTokenSelector) {
       return (
-        <XStack alignItems="center" gap="$3">
+        <XStack alignItems="center" gap="$3" flex={1}>
           <TokenIconView
             $key={token.$key}
             isAggregateToken={token.isAggregateToken}

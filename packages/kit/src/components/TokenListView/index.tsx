@@ -527,19 +527,17 @@ function TokenListViewCmp(props: IProps) {
   if (plainMode) {
     if (showSkeleton) {
       return (
-        <YStack style={{ flex: 1 }}>
-          <ListLoading
-            itemProps={
-              tableLayout
-                ? undefined
-                : {
-                    mx: '$0',
-                    px: '$0',
-                  }
-            }
-            isTokenSelectorView={!tableLayout}
-          />
-        </YStack>
+        <ListLoading
+          itemProps={
+            tableLayout
+              ? undefined
+              : {
+                  mx: '$0',
+                  px: '$0',
+                }
+          }
+          isTokenSelectorView={!tableLayout}
+        />
       );
     }
 

@@ -4,11 +4,11 @@ import { useIntl } from 'react-intl';
 
 import type { IIconProps } from '@onekeyhq/components';
 import {
-  Button,
   Icon,
   Image,
   SizableText,
   Stack,
+  Theme,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -92,23 +92,26 @@ function SupportHub() {
                 position="absolute"
                 top="0"
                 left="0"
+                bottom="0"
+                right="0"
                 source={require('@onekeyhq/kit/assets/sifu_banner.jpg')}
-                width="100%"
-                height="100%"
                 resizeMode="cover"
+                zIndex={0}
               />
-              <YStack width="70%">
-                <SizableText size="$headingLg" flex={1}>
-                  {intl.formatMessage({
-                    id: ETranslations.wallet_onekey_sifu,
-                  })}
-                </SizableText>
-                <SizableText size="$bodyMd" color="$textSubdued" flex={1}>
-                  {intl.formatMessage({
-                    id: ETranslations.wallet_get_one_on_one_hardware_wallet_setup_help,
-                  })}
-                </SizableText>
-              </YStack>
+              <Theme name="light">
+                <YStack width="70%" zIndex={99} position="absolute" left="$4">
+                  <SizableText size="$headingLg" flex={1}>
+                    {intl.formatMessage({
+                      id: ETranslations.wallet_onekey_sifu,
+                    })}
+                  </SizableText>
+                  <SizableText size="$bodyMd" color="$textSubdued" flex={1}>
+                    {intl.formatMessage({
+                      id: ETranslations.wallet_get_one_on_one_hardware_wallet_setup_help,
+                    })}
+                  </SizableText>
+                </YStack>
+              </Theme>
             </YStack>
           }
           contentContainerProps={{

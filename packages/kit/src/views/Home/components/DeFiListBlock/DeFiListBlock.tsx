@@ -408,7 +408,6 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
     updateDeFiListProtocols,
     updateDeFiListProtocolMap,
     updateDeFiListState,
-    overview.chains,
   ]);
 
   useEffect(() => {
