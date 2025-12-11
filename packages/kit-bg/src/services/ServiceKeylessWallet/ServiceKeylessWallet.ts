@@ -177,7 +177,8 @@ class ServiceKeylessWallet extends ServiceBase {
       restoreAuthPackFromServer: true,
     });
     if (!result?.packs?.mnemonic) {
-      throw new OneKeyLocalError('Failed to restore keyless wallet mnemonic');
+      // TODO i18n @franco 无法启用无私钥钱包
+      throw new OneKeyLocalError('无法启用无私钥钱包');
     }
     return {
       mnemonic: result.packs.mnemonic,
