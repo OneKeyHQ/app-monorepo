@@ -93,7 +93,7 @@ const STEP_CONFIG: Record<
   [ECreationStepId.AuthShare]: {
     securityKeyType: 'auth',
     title: 'Auth Key',
-    description: 'Protected by your OneKey ID',
+    description: 'Encrypted backup to your OneKey ID',
     // infoMessage: 'Tap to save the key to OneKey server',
     buttonText: 'Save to Server',
   },
@@ -535,7 +535,7 @@ export function KeylessWalletCreation({
                         pt="$4"
                         borderWidth={0}
                         borderTopWidth={StyleSheet.hairlineWidth}
-                        borderTopColor="$borderSubdued"
+                        borderTopColor="$neutral3"
                         alignItems="center"
                       >
                         {step.infoMessage ? (

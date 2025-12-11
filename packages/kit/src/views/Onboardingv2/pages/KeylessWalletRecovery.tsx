@@ -93,32 +93,28 @@ const STEP_CONFIG: Record<
     icon: 'EmailOutline',
     securityKeyType: 'auth',
     title: 'Auth Key',
-    description: 'Protected by your OneKey ID',
-    // infoMessage: 'Verification pending',
-    buttonText: 'Confirm email',
+    description: 'Linked to your OneKey ID',
+    buttonText: 'Verify via email',
   },
   [ERecoveryStepId.DeviceShare]: {
     icon: 'PasswordOutline',
     securityKeyType: 'device',
     title: 'Device Key',
-    description: 'Encrypted with your passcode',
-    // infoMessage: 'Unlock required',
-    buttonText: 'Unlock',
+    description: 'Stored securely on this device',
+    buttonText: 'Unlock with passcode',
   },
   [ERecoveryStepId.CloudShare]: {
     icon: 'CloudOutline',
     securityKeyType: 'cloud',
     title: 'Cloud Key',
-    description: `Retrieve from ${cloudProviderName}`,
-    // infoMessage: 'Backup not retrieved',
-    buttonText: `Restore from ${cloudProviderName}`,
+    description: `Backed up to ${cloudProviderName}`,
+    buttonText: `Get from ${cloudProviderName}`,
   },
   [ERecoveryStepId.QRMigration]: {
     icon: 'MultipleDevicesOutline',
     securityKeyType: 'device',
     title: 'Device Transfer',
-    description: 'Transfer from another device',
-    // infoMessage: 'Transfer incomplete',
+    description: 'Scan QR from another device',
     buttonText: 'Start Transfer',
   },
 };
@@ -227,7 +223,25 @@ export default function KeylessWalletRecovery({
   }, [steps, hasLocalDeviceShare, isCloudAccessible]);
 
   // Check if fallback options are available
-  const hasFallbackOptions = getAvailableFallbacks().length > 0;
+  const availableFallbacks = getAvailableFallbacks();
+  const hasFallbackOptions = availableFallbacks.length > 0;
+
+  // Get dynamic text for "try another method" button based on available fallbacks
+  const tryAnotherMethodText = useMemo(() => {
+    if (availableFallbacks.length === 1) {
+      switch (availableFallbacks[0]) {
+        case ERecoveryStepId.CloudShare:
+          return `Or try ${cloudProviderName} backup`;
+        case ERecoveryStepId.QRMigration:
+          return 'Or transfer from another device';
+        case ERecoveryStepId.DeviceShare:
+          return 'Or try Device key';
+        default:
+          return 'Try another method';
+      }
+    }
+    return 'Show other options';
+  }, [availableFallbacks]);
 
   // Reset steps and state when switching flows
   const resetToFlow = useCallback((flow: ERecoveryFlow) => {
@@ -758,7 +772,7 @@ export default function KeylessWalletRecovery({
                           pt="$4"
                           borderWidth={0}
                           borderTopWidth={StyleSheet.hairlineWidth}
-                          borderTopColor="$borderSubdued"
+                          borderTopColor="$neutral3"
                           alignItems="center"
                         >
                           {step.infoMessage ? (
@@ -780,19 +794,6 @@ export default function KeylessWalletRecovery({
                             {getRetryButtonText(step.id)}
                           </Button>
                         </XStack>
-                        {/* Show "Try another method" link for secondary steps when fallbacks available */}
-                        {index > 0 &&
-                        hasFallbackOptions &&
-                        !fallbacksRevealed ? (
-                          <Button
-                            variant="tertiary"
-                            size="small"
-                            m="$0"
-                            onPress={handleTryAnotherMethod}
-                          >
-                            Try another method
-                          </Button>
-                        ) : null}
                       </YStack>
                     ) : null}
 
@@ -829,6 +830,21 @@ export default function KeylessWalletRecovery({
                 </YStack>
               </Fragment>
             ))}
+
+            {/* Show "Try another method" link below all steps when step 2 is active and fallbacks available */}
+            {hasFallbackOptions &&
+            !fallbacksRevealed &&
+            visibleSteps[1]?.state !== ERecoveryStepState.Idle ? (
+              <Button
+                variant="tertiary"
+                size="small"
+                alignSelf="center"
+                m="$0"
+                onPress={handleTryAnotherMethod}
+              >
+                {tryAnotherMethodText}
+              </Button>
+            ) : null}
 
             {/* ============ MOCK CONTROLS FOR TESTING ============ */}
             {MOCK_MODE ? (
