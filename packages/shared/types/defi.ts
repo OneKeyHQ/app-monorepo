@@ -6,6 +6,8 @@ export type IFetchAccountDeFiPositionsParams = {
   allNetworksAccountId?: string;
   allNetworksNetworkId?: string;
   saveToLocal?: boolean;
+  excludeLowValueProtocols?: boolean;
+  lowValueProtocolsThreshold?: number;
 };
 
 export enum EDeFiAssetType {
