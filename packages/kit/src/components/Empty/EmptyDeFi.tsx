@@ -32,7 +32,7 @@ function EmptyDeFi() {
         </Button>
       }
       description={intl.formatMessage({
-        id: ETranslations.wallet_description_no_approvals,
+        id: ETranslations.wallet_positions_empty_desc,
       })}
     />
   );

@@ -100,7 +100,7 @@ function SupportHub() {
               <YStack width="70%">
                 <SizableText size="$headingLg" flex={1}>
                   {intl.formatMessage({
-                    id: ETranslations.wallet_approval_approval_details,
+                    id: ETranslations.wallet_onekey_sifu,
                   })}
                 </SizableText>
                 <SizableText size="$bodyMd" color="$textSubdued" flex={1}>
