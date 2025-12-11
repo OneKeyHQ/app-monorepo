@@ -28,6 +28,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { numberFormatAsRenderText } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
+import { calculateAccountTokensValue } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EHomeTab } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -296,38 +297,17 @@ function HomeOverviewContainer() {
   }, [account?.id, network?.id]);
 
   const balanceString = useMemo(() => {
-    if (network?.isAllNetworks) {
-      const allWorth = Object.values(accountWorth.worth).reduce(
-        (acc: string, cur: string) => new BigNumber(acc).plus(cur).toFixed(),
-        '0',
-      );
-      return allWorth;
-    }
-
-    if (vaultSettings?.mergeDeriveAssetsEnabled) {
-      const allWorth = Object.values(accountWorth.worth).reduce(
-        (acc: string, cur: string) => new BigNumber(acc).plus(cur).toFixed(),
-        '0',
-      );
-      return allWorth;
-    }
-
-    return (
-      accountWorth.worth[
-        accountUtils.buildAccountValueKey({
-          accountId: account?.id ?? '',
-          networkId: network?.id ?? '',
-        })
-      ] ??
-      Object.values(accountWorth.worth)[0] ??
-      '0'
-    );
+    return calculateAccountTokensValue({
+      accountId: account?.id ?? '',
+      networkId: network?.id ?? '',
+      tokensWorth: accountWorth,
+      mergeDeriveAssetsEnabled: !!vaultSettings?.mergeDeriveAssetsEnabled,
+    });
   }, [
-    network?.isAllNetworks,
-    network?.id,
-    vaultSettings?.mergeDeriveAssetsEnabled,
-    accountWorth.worth,
     account?.id,
+    network?.id,
+    accountWorth,
+    vaultSettings?.mergeDeriveAssetsEnabled,
   ]);
 
   const balanceSizeList: { length: number; size: FontSizeTokens }[] = [

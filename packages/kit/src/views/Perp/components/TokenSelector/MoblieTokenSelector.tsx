@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -18,17 +18,47 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import { usePerpTokenSortConfigPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { sortPerpsAssetIndices } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type {
   IPerpTokenSortConfig,
   IPerpTokenSortField,
+  IPerpsAssetCtx,
+  IPerpsUniverse,
 } from '@onekeyhq/shared/types/hyperliquid';
+import { XYZ_ASSET_ID_OFFSET } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 
 import { usePerpTokenSelector } from '../../hooks';
 import { PerpsAccountSelectorProviderMirror } from '../../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
 
 import { PerpTokenSelectorRow } from './PerpTokenSelectorRow';
+
+const TAB_LABELS = {
+  all: 'All',
+  perps: 'Perps',
+  hip3: 'HIP3',
+} as const;
+
+function TabItem({
+  name,
+  isFocused,
+  onPress,
+}: {
+  name: string;
+  isFocused: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <XStack
+      py="$3"
+      px="$4"
+      borderBottomWidth={isFocused ? '$0.5' : '$0'}
+      borderBottomColor="$borderActive"
+      onPress={onPress}
+    >
+      <SizableText size="$bodyMdMedium">{name}</SizableText>
+    </XStack>
+  );
+}
 
 function MobileTokenSelectorModal({
   onLoadingChange,
@@ -52,21 +82,142 @@ function MobileTokenSelectorModal({
     }
   };
 
-  const [{ assets }] = usePerpsAllAssetsFilteredAtom();
-  const [{ assetCtxs }] = usePerpsAllAssetCtxsAtom();
+  const [{ assetsByDex }] = usePerpsAllAssetsFilteredAtom();
+  const [{ assetCtxsByDex }] = usePerpsAllAssetCtxsAtom();
   const [sortConfig, setSortConfig] = usePerpTokenSortConfigPersistAtom();
+  const [activeTab, setActiveTab] = useState<'all' | 'perps' | 'hip3'>('all');
+
+  const computeSortValues = useCallback(
+    (assetCtx: IPerpsAssetCtx | undefined) => {
+      const markPrice = Number(assetCtx?.markPx || 0);
+      const fundingRate = Number(assetCtx?.funding || 0);
+      const volume24h = Number(assetCtx?.dayNtlVlm || 0);
+      const openInterest = Number(assetCtx?.openInterest || 0);
+      const prevDayPx = Number(assetCtx?.prevDayPx || 0);
+      const change24hPercent =
+        prevDayPx > 0 ? ((markPrice - prevDayPx) / prevDayPx) * 100 : 0;
+      const openInterestValue = openInterest * markPrice;
+      return {
+        markPrice,
+        fundingRate,
+        volume24h,
+        openInterest,
+        openInterestValue,
+        change24hPercent,
+      };
+    },
+    [],
+  );
+
+  const sortCompare = useCallback(
+    (
+      a: {
+        asset: IPerpsUniverse;
+        sortValues: ReturnType<typeof computeSortValues>;
+      },
+      b: {
+        asset: IPerpsUniverse;
+        sortValues: ReturnType<typeof computeSortValues>;
+      },
+    ) => {
+      const sortField = sortConfig?.field ?? '';
+      const sortDirection = sortConfig?.direction ?? 'desc';
+      if (!sortField) {
+        return 0;
+      }
+      let compareResult = 0;
+      switch (sortField) {
+        case 'name':
+          compareResult = a.asset.name.localeCompare(b.asset.name, undefined, {
+            sensitivity: 'base',
+          });
+          break;
+        case 'markPrice':
+          compareResult = a.sortValues.markPrice - b.sortValues.markPrice;
+          break;
+        case 'change24hPercent':
+          compareResult =
+            a.sortValues.change24hPercent - b.sortValues.change24hPercent;
+          break;
+        case 'fundingRate':
+          compareResult = a.sortValues.fundingRate - b.sortValues.fundingRate;
+          break;
+        case 'volume24h':
+          compareResult = a.sortValues.volume24h - b.sortValues.volume24h;
+          break;
+        case 'openInterest':
+          compareResult =
+            a.sortValues.openInterestValue - b.sortValues.openInterestValue;
+          break;
+        default:
+          break;
+      }
+      return sortDirection === 'asc' ? compareResult : -compareResult;
+    },
+    [sortConfig?.direction, sortConfig?.field],
+  );
 
   const mockedListData = useMemo(() => {
-    const sortedIndices = sortPerpsAssetIndices({
-      assets,
-      assetCtxs,
-      sortField: sortConfig?.field ?? '',
-      sortDirection: sortConfig?.direction ?? 'desc',
-    });
-    return sortedIndices.map((originalIndex) => ({
-      index: originalIndex,
+    const assetsByDexTyped: IPerpsUniverse[][] = assetsByDex || [];
+    const assetCtxsByDexTyped: IPerpsAssetCtx[][] = assetCtxsByDex || [];
+
+    const combinedEntries = assetsByDexTyped.flatMap(
+      (assets: IPerpsUniverse[], dexIndex: number) => {
+        if (activeTab === 'perps' && dexIndex !== 0) return [];
+        if (activeTab === 'hip3' && dexIndex !== 1) return [];
+        const ctxs = assetCtxsByDexTyped[dexIndex] || [];
+        return assets.map((asset, index) => {
+          const normalizedAssetId =
+            dexIndex === 1
+              ? asset.assetId - XYZ_ASSET_ID_OFFSET
+              : asset.assetId;
+          const sortValues = computeSortValues(ctxs?.[normalizedAssetId]);
+          return {
+            dexIndex,
+            index,
+            assetId: asset.assetId,
+            asset,
+            sortValues,
+          };
+        });
+      },
+    );
+
+    const sortField = sortConfig?.field ?? '';
+    if (!sortField) {
+      return combinedEntries.map((entry) => ({
+        dexIndex: entry.dexIndex,
+        index: entry.index,
+        assetId: entry.assetId,
+      }));
+    }
+    const sorted = [...combinedEntries].sort((a, b) =>
+      sortCompare(
+        { asset: a.asset, sortValues: a.sortValues },
+        { asset: b.asset, sortValues: b.sortValues },
+      ),
+    );
+    return sorted.map((entry) => ({
+      dexIndex: entry.dexIndex,
+      index: entry.index,
+      assetId: entry.assetId,
     }));
-  }, [assets, assetCtxs, sortConfig]);
+  }, [
+    activeTab,
+    assetCtxsByDex,
+    assetsByDex,
+    computeSortValues,
+    sortCompare,
+    sortConfig?.field,
+  ]);
+
+  const keyExtractor = useCallback(
+    (item: { dexIndex: number; assetId?: number; index: number }) => {
+      const assetId = item.assetId ?? item.index;
+      return `${item.dexIndex}-${assetId}`;
+    },
+    [],
+  );
 
   const handleSortPress = useCallback(
     (field: IPerpTokenSortField) => {
@@ -105,6 +256,23 @@ function MobileTokenSelectorModal({
           searchBarInputValue: undefined, // keep value undefined to make SearchBar Input debounce works
         }}
       />
+      <XStack
+        px="$5"
+        mb="$2"
+        borderBottomWidth="$px"
+        borderBottomColor="$borderSubdued"
+      >
+        <XStack gap="$3">
+          {(['all', 'perps', 'hip3'] as const).map((tabKey) => (
+            <TabItem
+              key={tabKey}
+              name={TAB_LABELS[tabKey]}
+              isFocused={activeTab === tabKey}
+              onPress={() => setActiveTab(tabKey)}
+            />
+          ))}
+        </XStack>
+      </XStack>
       <XStack
         px="$5"
         pb="$3"
@@ -173,6 +341,13 @@ function MobileTokenSelectorModal({
         <YStack flex={1} mt="$2">
           <ListView
             useFlashList
+            keyExtractor={keyExtractor}
+            estimatedItemSize={44}
+            windowSize={4}
+            initialNumToRender={10}
+            removeClippedSubviews
+            decelerationRate="normal"
+            showsVerticalScrollIndicator
             contentContainerStyle={{
               paddingBottom: 10,
             }}

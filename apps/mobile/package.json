@@ -42,7 +42,7 @@
     "@notifee/react-native": "9.1.8",
     "@onekeyfe/react-native-animated-charts": "1.0.0",
     "@onekeyfe/react-native-ble-utils": "0.1.4",
-    "@onekeyfe/react-native-lite-card": "1.0.15",
+    "@onekeyfe/react-native-lite-card": "1.1.0",
     "@onekeyfe/react-native-sni-connect": "1.1.0",
     "@onekeyfe/react-native-text-input": "0.3.0",
     "@onekeyhq/components": "*",

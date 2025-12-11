@@ -11,11 +11,11 @@ import {
   SearchBar,
   SizableText,
   Spinner,
+  Tabs,
   XStack,
   YStack,
   usePopoverContext,
 } from '@onekeyhq/components';
-import { DelayedRender } from '@onekeyhq/components/src/hocs/DelayedRender';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
@@ -33,19 +33,46 @@ import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
 import {
   getHyperliquidTokenImageUrl,
-  sortPerpsAssetIndices,
+  parseDexCoin,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
+import type {
+  IPerpsAssetCtx,
+  IPerpsUniverse,
+} from '@onekeyhq/shared/types/hyperliquid';
+import { XYZ_ASSET_ID_OFFSET } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 
 import { usePerpTokenSelector } from '../../hooks';
 
 import { PerpTokenSelectorRow } from './PerpTokenSelectorRow';
 import { SortableHeaderCell } from './SortableHeaderCell';
 
+function TabItem({
+  name,
+  isFocused,
+  onPress,
+}: {
+  name: string;
+  isFocused: boolean;
+  onPress: (name: string) => void;
+}) {
+  return (
+    <XStack
+      py="$3"
+      px="$4"
+      borderBottomWidth={isFocused ? '$0.5' : '$0'}
+      borderBottomColor="$borderActive"
+      onPress={() => onPress(name)}
+    >
+      <SizableText size="$bodyMdMedium">{name}</SizableText>
+    </XStack>
+  );
+}
+
 function TokenListHeader() {
   const intl = useIntl();
   return (
     <XStack
-      px="$5"
+      px="$4"
       py="$3"
       borderBottomWidth="$px"
       borderBottomColor="$borderSubdued"
@@ -108,12 +135,24 @@ function BasePerpTokenSelectorContent({
   const { closePopover } = usePopoverContext();
   const actions = useHyperliquidActions();
 
+  const tabNames = useMemo(
+    () => ({
+      all: 'All',
+      perps: 'Perps',
+      hip3: 'HIP3',
+    }),
+    [],
+  );
+  const [activeTab, setActiveTab] = useState<'all' | 'perps' | 'hip3'>('all');
+
   const handleSelectToken = useCallback(
     async (symbol: string) => {
       try {
         onLoadingChange(true);
         void closePopover?.();
-        await actions.current.changeActiveAsset({ coin: symbol });
+        await actions.current.changeActiveAsset({
+          coin: symbol,
+        });
       } catch (error) {
         console.error('Failed to switch token:', error);
       } finally {
@@ -123,26 +162,260 @@ function BasePerpTokenSelectorContent({
     [closePopover, actions, onLoadingChange],
   );
 
-  const [{ assets }] = usePerpsAllAssetsFilteredAtom();
-  const [{ assetCtxs }] = usePerpsAllAssetCtxsAtom();
+  const [{ assetsByDex }] = usePerpsAllAssetsFilteredAtom();
+  const [{ assetCtxsByDex }] = usePerpsAllAssetCtxsAtom();
   const [sortConfig] = usePerpTokenSortConfigPersistAtom();
 
-  const mockedListData = useMemo(() => {
-    const sortedIndices = sortPerpsAssetIndices({
+  const computeSortValues = useCallback(
+    (assetCtx: IPerpsAssetCtx | undefined) => {
+      const markPrice = Number(assetCtx?.markPx || 0);
+      const fundingRate = Number(assetCtx?.funding || 0);
+      const volume24h = Number(assetCtx?.dayNtlVlm || 0);
+      const openInterest = Number(assetCtx?.openInterest || 0);
+      const prevDayPx = Number(assetCtx?.prevDayPx || 0);
+      const change24hPercent =
+        prevDayPx > 0 ? ((markPrice - prevDayPx) / prevDayPx) * 100 : 0;
+      const openInterestValue = openInterest * markPrice;
+      return {
+        markPrice,
+        fundingRate,
+        volume24h,
+        openInterest,
+        openInterestValue,
+        change24hPercent,
+      };
+    },
+    [],
+  );
+
+  const sortCompare = useCallback(
+    (
+      a: {
+        asset: IPerpsUniverse;
+        sortValues: ReturnType<typeof computeSortValues>;
+      },
+      b: {
+        asset: IPerpsUniverse;
+        sortValues: ReturnType<typeof computeSortValues>;
+      },
+    ) => {
+      const sortField = sortConfig?.field ?? '';
+      const sortDirection = sortConfig?.direction ?? 'desc';
+      if (!sortField) {
+        return 0;
+      }
+      let compareResult = 0;
+      switch (sortField) {
+        case 'name':
+          compareResult = a.asset.name.localeCompare(b.asset.name, undefined, {
+            sensitivity: 'base',
+          });
+          break;
+        case 'markPrice':
+          compareResult = a.sortValues.markPrice - b.sortValues.markPrice;
+          break;
+        case 'change24hPercent':
+          compareResult =
+            a.sortValues.change24hPercent - b.sortValues.change24hPercent;
+          break;
+        case 'fundingRate':
+          compareResult = a.sortValues.fundingRate - b.sortValues.fundingRate;
+          break;
+        case 'volume24h':
+          compareResult = a.sortValues.volume24h - b.sortValues.volume24h;
+          break;
+        case 'openInterest':
+          compareResult =
+            a.sortValues.openInterestValue - b.sortValues.openInterestValue;
+          break;
+        default:
+          break;
+      }
+      return sortDirection === 'asc' ? compareResult : -compareResult;
+    },
+    [sortConfig?.direction, sortConfig?.field],
+  );
+
+  const buildListData = useCallback(
+    ({
       assets,
       assetCtxs,
-      sortField: sortConfig?.field ?? '',
-      sortDirection: sortConfig?.direction ?? 'desc',
+      dexIndex,
+    }: {
+      assets: IPerpsUniverse[];
+      assetCtxs: IPerpsAssetCtx[];
+      dexIndex: number;
+    }) => {
+      const sortField = sortConfig?.field ?? '';
+      const sortDirection = sortConfig?.direction ?? 'desc';
+      if (!assets?.length) {
+        return [];
+      }
+
+      if (!sortField) {
+        return assets.map((_, index) => ({
+          index,
+          dexIndex,
+          sortHelper: 0,
+        }));
+      }
+
+      const entries = assets.map((asset, index) => {
+        // Normalize assetId to array index: HIP3 assets have offset, Perps don't
+        const normalizedAssetId =
+          dexIndex === 1 ? asset.assetId - XYZ_ASSET_ID_OFFSET : asset.assetId;
+        const sortValues = computeSortValues(assetCtxs?.[normalizedAssetId]);
+        return {
+          index,
+          dexIndex,
+          asset,
+          sortValues,
+        };
+      });
+
+      entries.sort((a, b) =>
+        sortCompare(
+          { asset: a.asset, sortValues: a.sortValues },
+          { asset: b.asset, sortValues: b.sortValues },
+        ),
+      );
+
+      return entries.map((entry) => ({
+        index: entry.index,
+        dexIndex: entry.dexIndex,
+      }));
+    },
+    [computeSortValues, sortCompare, sortConfig?.direction, sortConfig?.field],
+  );
+
+  const listDataByTab = useMemo(() => {
+    const assetsByDexTyped: IPerpsUniverse[][] = assetsByDex || [];
+    const assetCtxsByDexTyped: IPerpsAssetCtx[][] = assetCtxsByDex || [];
+
+    const perpsAssets: IPerpsUniverse[] = assetsByDexTyped[0] || [];
+    const hip3Assets: IPerpsUniverse[] = assetsByDexTyped[1] || [];
+    const perpsCtxs: IPerpsAssetCtx[] = assetCtxsByDexTyped[0] || [];
+    const hip3Ctxs: IPerpsAssetCtx[] = assetCtxsByDexTyped[1] || [];
+
+    const listPerps = buildListData({
+      assets: perpsAssets,
+      assetCtxs: perpsCtxs,
+      dexIndex: 0,
     });
-    return sortedIndices.map((originalIndex) => ({
-      index: originalIndex,
-    }));
-  }, [assets, assetCtxs, sortConfig]);
+    const listHip3 = buildListData({
+      assets: hip3Assets,
+      assetCtxs: hip3Ctxs,
+      dexIndex: 1,
+    });
+
+    const combinedEntries = assetsByDexTyped.flatMap(
+      (assets: IPerpsUniverse[], dexIndex: number) => {
+        const ctxs = assetCtxsByDexTyped[dexIndex] || [];
+        return assets.map((asset, index) => {
+          const normalizedAssetId =
+            dexIndex === 1
+              ? asset.assetId - XYZ_ASSET_ID_OFFSET
+              : asset.assetId;
+          const sortValues = computeSortValues(ctxs?.[normalizedAssetId]);
+          return {
+            dexIndex,
+            index,
+            asset,
+            assetId: asset.assetId,
+            sortValues,
+          };
+        });
+      },
+    );
+
+    const sortField = sortConfig?.field ?? '';
+    const listAll = (() => {
+      if (!sortField) {
+        return combinedEntries.map((entry) => ({
+          dexIndex: entry.dexIndex,
+          index: entry.index,
+          assetId: entry.assetId,
+        }));
+      }
+      const sorted = [...combinedEntries].sort((a, b) =>
+        sortCompare(
+          { asset: a.asset, sortValues: a.sortValues },
+          { asset: b.asset, sortValues: b.sortValues },
+        ),
+      );
+      return sorted.map((entry) => ({
+        dexIndex: entry.dexIndex,
+        index: entry.index,
+        assetId: entry.assetId,
+      }));
+    })();
+
+    return {
+      all: listAll,
+      perps: listPerps,
+      hip3: listHip3,
+    };
+  }, [
+    assetCtxsByDex,
+    assetsByDex,
+    buildListData,
+    computeSortValues,
+    sortCompare,
+    sortConfig?.field,
+  ]);
+
+  const keyExtractor = useCallback(
+    (item: { dexIndex: number; index: number; assetId?: number }) => {
+      const assetId = item.assetId ?? item.index;
+      return `${item.dexIndex}-${assetId}`;
+    },
+    [],
+  );
+
+  const renderTokenList = useCallback(
+    (data: { dexIndex: number; index: number; assetId?: number }[]) => (
+      <Tabs.ScrollView>
+        <YStack>
+          <TokenListHeader />
+          <YStack height={350}>
+            <ListView
+              useFlashList
+              keyExtractor={keyExtractor}
+              data={data}
+              renderItem={({ item: mockedToken }) => (
+                <PerpTokenSelectorRow
+                  mockedToken={mockedToken}
+                  onPress={(name) => handleSelectToken(name)}
+                />
+              )}
+              ListEmptyComponent={
+                <XStack p="$4" justifyContent="center">
+                  <SizableText size="$bodySm" color="$textSubdued">
+                    {searchQuery
+                      ? intl.formatMessage({
+                          id: ETranslations.perp_token_selector_empty,
+                        })
+                      : intl.formatMessage({
+                          id: ETranslations.perp_token_selector_loading,
+                        })}
+                  </SizableText>
+                </XStack>
+              }
+              contentContainerStyle={{
+                paddingBottom: 10,
+              }}
+            />
+          </YStack>
+        </YStack>
+      </Tabs.ScrollView>
+    ),
+    [handleSelectToken, intl, keyExtractor, searchQuery],
+  );
 
   const content = (
     <YStack>
       <YStack gap="$2">
-        <XStack px="$5" pt="$5">
+        <XStack px="$2" pt="$2">
           <SearchBar
             containerProps={{
               borderRadius: '$2',
@@ -155,38 +428,45 @@ function BasePerpTokenSelectorContent({
             // value={searchQuery} // keep value undefined to make debounce works
           />
         </XStack>
-        {/* <Button onPress={refreshAllAssets}>{filteredTokensLength}</Button> */}
-        <TokenListHeader />
-      </YStack>
-
-      {/* Token List */}
-      <YStack flex={1} height={300}>
-        <ListView
-          useFlashList
-          contentContainerStyle={{
-            paddingBottom: 10,
+        <Tabs.Container
+          initialTabName={tabNames.all}
+          onTabChange={({ tabName }) => {
+            if (tabName === tabNames.perps) {
+              setActiveTab('perps');
+              return;
+            }
+            if (tabName === tabNames.hip3) {
+              setActiveTab('hip3');
+              return;
+            }
+            setActiveTab('all');
           }}
-          data={mockedListData}
-          renderItem={({ item: mockedToken }) => (
-            <PerpTokenSelectorRow
-              mockedToken={mockedToken}
-              onPress={(name) => handleSelectToken(name)}
+          renderTabBar={(tabBarProps) => (
+            <Tabs.TabBar
+              {...tabBarProps}
+              renderItem={({ name, isFocused, onPress }) => (
+                <TabItem name={name} isFocused={isFocused} onPress={onPress} />
+              )}
+              containerStyle={{
+                borderRadius: 0,
+                margin: 0,
+                paddingHorizontal: 0,
+              }}
             />
           )}
-          ListEmptyComponent={
-            <XStack p="$5" justifyContent="center">
-              <SizableText size="$bodySm" color="$textSubdued">
-                {searchQuery
-                  ? intl.formatMessage({
-                      id: ETranslations.perp_token_selector_empty,
-                    })
-                  : intl.formatMessage({
-                      id: ETranslations.perp_token_selector_loading,
-                    })}
-              </SizableText>
-            </XStack>
-          }
-        />
+        >
+          <Tabs.Tab name={tabNames.all}>
+            {activeTab === 'all' ? renderTokenList(listDataByTab.all) : null}
+          </Tabs.Tab>
+          <Tabs.Tab name={tabNames.perps}>
+            {activeTab === 'perps'
+              ? renderTokenList(listDataByTab.perps)
+              : null}
+          </Tabs.Tab>
+          <Tabs.Tab name={tabNames.hip3}>
+            {activeTab === 'hip3' ? renderTokenList(listDataByTab.hip3) : null}
+          </Tabs.Tab>
+        </Tabs.Container>
       </YStack>
     </YStack>
   );
@@ -205,12 +485,7 @@ function PerpTokenSelectorContent({
   onLoadingChange: (isLoading: boolean) => void;
 }) {
   return isOpen ? (
-    <DelayedRender
-      // wait popover open animation done, otherwise the list layout will be wrong
-      delay={200}
-    >
-      <BasePerpTokenSelectorContent onLoadingChange={onLoadingChange} />
-    </DelayedRender>
+    <BasePerpTokenSelectorContent onLoadingChange={onLoadingChange} />
   ) : null;
 }
 
@@ -221,6 +496,7 @@ function BasePerpTokenSelector() {
   const [isOpen, setIsOpen] = useState(false);
   const [currentToken] = usePerpsActiveAssetAtom();
   const { coin } = currentToken;
+  const parsedActive = useMemo(() => parseDexCoin(coin), [coin]);
   const [isLoading, setIsLoading] = useState(false);
   const content = useMemo(
     () => (
@@ -233,31 +509,21 @@ function BasePerpTokenSelector() {
         onOpenChange={setIsOpen}
         placement="bottom-start"
         renderTrigger={
-          <Badge
-            gap="$3"
-            bg="$bgApp"
-            cursor="pointer"
-            hoverStyle={{
-              p: '$2',
-              borderRadius: '$full',
-              bg: '$bgHover',
-            }}
-            pressStyle={{
-              p: '$2',
-              borderRadius: '$full',
-              bg: '$bgActive',
-            }}
-          >
+          <Badge gap="$3" bg="$bgApp" cursor="pointer" p="$2">
             <Token
               size="md"
               borderRadius="$full"
               bg={themeVariant === 'light' ? null : '$bgInverse'}
-              tokenImageUri={getHyperliquidTokenImageUrl(coin)}
+              tokenImageUri={getHyperliquidTokenImageUrl(
+                parsedActive.displayName,
+              )}
               fallbackIcon="CryptoCoinOutline"
             />
 
             {/* Token Name */}
-            <SizableText size="$heading2xl">{coin}USDC</SizableText>
+            <SizableText size="$heading2xl">
+              {parsedActive.displayName}USDC
+            </SizableText>
             <Icon name="ChevronBottomOutline" size="$4" />
             {isLoading ? <Spinner size="small" /> : null}
           </Badge>
@@ -270,7 +536,7 @@ function BasePerpTokenSelector() {
         )}
       />
     ),
-    [isOpen, coin, isLoading, themeVariant],
+    [isOpen, isLoading, themeVariant, parsedActive.displayName],
   );
   return (
     <DebugRenderTracker name="PerpTokenSelector">{content}</DebugRenderTracker>
@@ -288,6 +554,8 @@ const BasePerpTokenSelectorMobileView = memo(
     coin: string;
   }) => {
     const intl = useIntl();
+    const parsedCoin = useMemo(() => parseDexCoin(coin), [coin]);
+    const displayCoin = parsedCoin.displayName || coin;
 
     return (
       <DebugRenderTracker name="BasePerpTokenSelectorMobileView">
@@ -298,7 +566,7 @@ const BasePerpTokenSelectorMobileView = memo(
           justifyContent="center"
           alignItems="center"
         >
-          <SizableText size="$headingXl">{coin}USDC</SizableText>
+          <SizableText size="$headingXl">{displayCoin}USDC</SizableText>
           <Badge radius="$1" bg="$bgSubdued" px="$1" py={0}>
             <SizableText color="$textSubdued" fontSize={11}>
               {intl.formatMessage({
