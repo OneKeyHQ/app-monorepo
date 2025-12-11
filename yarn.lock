@@ -7366,13 +7366,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/react-native-lite-card@npm:1.0.15":
-  version: 1.0.15
-  resolution: "@onekeyfe/react-native-lite-card@npm:1.0.15"
+"@onekeyfe/react-native-lite-card@npm:1.0.16":
+  version: 1.0.16
+  resolution: "@onekeyfe/react-native-lite-card@npm:1.0.16"
   peerDependencies:
     react: "*"
     react-native: "*"
-  checksum: 10/f980d952525baa1f4fb64e8f56b45543e644834d0e4a167f4e9cddf7d3952da18b6e5789c51a5537df77e579e7ceb66f8885186c5bcc64d38b393ed6d34fed4c
+  checksum: 10/271400eb2441a6f253801bb87b47854ac285c498e6e4d38c5caca68adddaea71a58492bc38dabdfd6cce841009f1cf29b1454b3a3515a960757f8c631b142d45
   languageName: node
   linkType: hard
 
@@ -7798,7 +7798,7 @@ __metadata:
     "@notifee/react-native": "npm:9.1.8"
     "@onekeyfe/react-native-animated-charts": "npm:1.0.0"
     "@onekeyfe/react-native-ble-utils": "npm:0.1.4"
-    "@onekeyfe/react-native-lite-card": "npm:1.0.15"
+    "@onekeyfe/react-native-lite-card": "npm:1.0.16"
     "@onekeyfe/react-native-sni-connect": "npm:1.1.0"
     "@onekeyfe/react-native-text-input": "npm:0.3.0"
     "@onekeyhq/components": "npm:*"
