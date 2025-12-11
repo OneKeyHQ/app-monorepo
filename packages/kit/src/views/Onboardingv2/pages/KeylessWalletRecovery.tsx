@@ -30,6 +30,7 @@ import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
+import { EPrimeTransferDataType } from '@onekeyhq/shared/types/prime/primeTransferTypes';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
@@ -354,7 +355,7 @@ export default function KeylessWalletRecovery({
     navigation.pushModal(EModalRoutes.PrimeModal, {
       screen: EPrimePages.PrimeTransfer,
       params: {
-        variant: 'recoverKeylessWallet',
+        transferType: EPrimeTransferDataType.keylessWallet,
       },
     });
   }, [navigation]);

@@ -29,6 +29,7 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import type { IPrimeParamList } from '@onekeyhq/shared/src/routes/prime';
+import { EPrimeTransferDataType } from '@onekeyhq/shared/types/prime/primeTransferTypes';
 
 import { usePrimeTransferExit } from './components/hooks/usePrimeTransferExit';
 import { PrimeTransferDirection } from './components/PrimeTransferDirection';
@@ -140,13 +141,12 @@ export default function PagePrimeTransfer() {
     if (primeTransferAtom.status === EPrimeTransferStatus.init) {
       return (
         <PrimeTransferHome
-          variant={route.params?.variant ?? 'default'}
+          transferType={routeParamsTransferType}
           remotePairingCode={remotePairingCode}
           setRemotePairingCode={setRemotePairingCode}
           autoConnect={!!routeParamsCode}
           autoConnectCustomServer={routeParamsServer || undefined}
           defaultTab={routeParamsDefaultTab}
-          transferType={routeParamsTransferType}
         />
       );
     }
@@ -165,7 +165,6 @@ export default function PagePrimeTransfer() {
     }
     return <></>;
   }, [
-    route.params?.variant,
     routeParamsCode,
     routeParamsServer,
     routeParamsDefaultTab,
@@ -275,7 +274,7 @@ export default function PagePrimeTransfer() {
       {/* - default: other data transfer, not related to Keyless Wallet */}
       {/* - createKeylessWallet: creating Keyless Wallet, user might not have one */}
       {/* - recoverKeylessWallet: recovering, user already has Keyless Wallet */}
-      {route.params?.variant === 'createKeylessWallet' ? (
+      {routeParamsTransferType === EPrimeTransferDataType.keylessWallet ? (
         <Page.Footer>
           <YStack p="$5">
             <Button variant="tertiary" size="small" childrenAsText={false}>

@@ -21,9 +21,13 @@ const authPackCache: Map<string, string> = new Map();
 async function cacheAuthPackInMemory(params: {
   authPack: IAuthKeyPack;
   backgroundApi: IBackgroundApi;
-}): Promise<void> {
+}): Promise<{ success: boolean }> {
   const { authPack, backgroundApi } = params;
   const packSetId = authPack.packSetId;
+
+  if (!packSetId) {
+    throw new OneKeyLocalError('Pack set ID is required');
+  }
 
   // 1. Serialize authPack to JSON string
   const authPackString = stringUtils.stableStringify(authPack);
@@ -45,6 +49,8 @@ async function cacheAuthPackInMemory(params: {
 
   // 5. Store encrypted result in memory cache, keyed by packSetId
   authPackCache.set(packSetId, encryptedAuthPack);
+
+  return { success: true };
 }
 
 /**

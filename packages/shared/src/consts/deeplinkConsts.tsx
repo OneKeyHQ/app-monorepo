@@ -33,8 +33,6 @@ export type IEOneKeyDeepLinkParams = {
     server?: string;
     transferType?: EPrimeTransferDataType;
     defaultTab?: 'qr-code' | 'enter-link';
-    /** Variant to customize the transfer UI for Keyless Wallet operations */
-    variant?: 'default' | 'createKeylessWallet' | 'recoverKeylessWallet';
   };
 };
 

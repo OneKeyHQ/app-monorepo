@@ -3,7 +3,7 @@ import { useCallback, useState } from 'react';
 
 import { useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
-import { StyleSheet } from 'react-native';
+import { ActivityIndicator, StyleSheet } from 'react-native';
 
 import type { ISizableTextProps, IYStackProps } from '@onekeyhq/components';
 import {
@@ -20,6 +20,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { generateMnemonic } from '@onekeyhq/core/src/secret';
+import { EKeylessWalletEnableScene } from '@onekeyhq/shared/src/keylessWallet/keylessWalletConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -33,6 +34,7 @@ import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import externalWalletLogoUtils from '@onekeyhq/shared/src/utils/externalWalletLogoUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { useKeylessWallet } from '../../../components/KeylessWallet/useKeylessWallet';
 import { useOneKeyAuth } from '../../../components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { TermsAndPrivacy } from '../../Onboarding/pages/GetStarted/components';
@@ -143,6 +145,8 @@ export default function CreateOrImportWallet() {
   const { fullOptions } = route.params ?? {};
   const [expanded, setExpanded] = useState(false);
   const [keylessExpanded, setKeylessExpanded] = useState(false);
+  const { enableKeylessWallet, enableKeylessWalletLoading } =
+    useKeylessWallet();
 
   const walletKeys = ['metamask', 'okx', 'rainbow', 'tokenpocket'] as const;
   const navigation = useAppNavigation();
@@ -190,70 +194,11 @@ export default function CreateOrImportWallet() {
     defaultLogger.account.wallet.onboard({ onboardMethod: 'connectHWWallet' });
   };
 
-  // TODO: @zuo Replace with actual check
-  const isKeylessEnabled = false;
-
-  // TODO: @zuo Replace with actual server check after login
-  const hasServerAuthShare = false;
-
-  // Cloud backup is supported on iOS (iCloud), Android (Google Drive), and macOS App Store (iCloud)
-  // const isCloudBackupSupported =
-  //   platformEnv.isNativeIOS || platformEnv.isNativeAndroid || platformEnv.isMas;
-  const isCloudBackupSupported = true;
-
-  const handleKeylessWalletClick = useCallback(() => {
-    // Step 1: Check if local device already has Keyless Wallet
-    if (isKeylessEnabled) {
-      Dialog.show({
-        title: 'Keyless Wallet',
-        description:
-          'You already have a Keyless Wallet on this device. No need to create another one.',
-        showCancelButton: false,
-        onConfirmText: intl.formatMessage({ id: ETranslations.global_got_it }),
-      });
-      return;
-    }
-
-    // Logic to execute after login is confirmed
-    const proceedAfterLogin = () => {
-      // Step 2.2: Check if server has Auth Share for this OneKey ID
-      if (hasServerAuthShare) {
-        // Has Auth Share → Step 4: Recovery flow
-        navigation.push(EOnboardingPagesV2.KeylessWalletRecovery, {});
-        return;
-      }
-
-      // No Auth Share → Step 3: Create flow
-      if (!isCloudBackupSupported) {
-        // Step 3.1: Device doesn't support cloud backup → QR migration module
-        navigation.pushModal(EModalRoutes.PrimeModal, {
-          screen: EPrimePages.PrimeTransfer,
-          params: {
-            variant: 'createKeylessWallet',
-          },
-        });
-      } else {
-        // Step 3.2: Device supports cloud backup → Create Keyless Wallet
-        navigation.push(EOnboardingPagesV2.KeylessWalletCreation, {});
-      }
-    };
-
-    // Step 2.1: Ensure user is logged in to OneKey ID
-    if (!isLoggedIn) {
-      showOneKeyIDLoginDialog({
-        onLoginSuccess: proceedAfterLogin,
-      });
-    } else {
-      proceedAfterLogin();
-    }
-  }, [
-    hasServerAuthShare,
-    intl,
-    isCloudBackupSupported,
-    isKeylessEnabled,
-    isLoggedIn,
-    navigation,
-  ]);
+  const handleKeylessWalletClick = useCallback(async () => {
+    await enableKeylessWallet({
+      fromScene: EKeylessWalletEnableScene.Onboarding,
+    });
+  }, [enableKeylessWallet]);
 
   return (
     <Page>
@@ -349,12 +294,16 @@ export default function CreateOrImportWallet() {
                     </XStack>
                   </Button>
                 </YStack>
-                {isKeylessEnabled ? (
+                {/* {isKeylessEnabled ? (
                   <SizableText x="$2" color="$textSubdued">
                     {intl.formatMessage({ id: ETranslations.global_enabled })}
                   </SizableText>
-                ) : null}
-                <Icon name="ChevronRightSmallOutline" color="$iconSubdued" />
+                ) : null} */}
+                {enableKeylessWalletLoading ? (
+                  <ActivityIndicator size="small" color="$iconDisabled" />
+                ) : (
+                  <Icon name="ChevronRightSmallOutline" color="$iconSubdued" />
+                )}
               </Card.Header>
               <Card.Body>
                 <XStack gap="$2" flexWrap="wrap">

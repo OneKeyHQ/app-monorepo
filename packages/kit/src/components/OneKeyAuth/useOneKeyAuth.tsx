@@ -134,7 +134,7 @@ export function useOneKeyAuth() {
         let isResolved = false;
         const onLoginSuccessFn = async () => {
           isResolved = true;
-          await timerUtils.wait(120);
+          await timerUtils.wait(200);
           if (toOneKeyIdPageOnLoginSuccess) {
             toOneKeyIdPage();
           }

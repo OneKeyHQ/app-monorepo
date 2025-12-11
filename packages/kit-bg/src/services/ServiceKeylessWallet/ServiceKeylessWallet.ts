@@ -259,6 +259,19 @@ class ServiceKeylessWallet extends ServiceBase {
   }
 
   @backgroundMethod()
+  async restoreKeylessWalletSafe(params: {
+    deviceKeyPack?: IDeviceKeyPack;
+    authKeyPack?: IAuthKeyPack;
+    cloudKeyPack?: ICloudKeyPack;
+  }): Promise<IKeylessWalletRestoredData | undefined> {
+    try {
+      return await this.restoreKeylessWallet(params);
+    } catch (error) {
+      return undefined;
+    }
+  }
+
+  @backgroundMethod()
   public async enableKeylessWallet(params: {
     deviceKeyPack: IDeviceKeyPack;
     authKeyPack: IAuthKeyPack;
@@ -502,9 +515,7 @@ class ServiceKeylessWallet extends ServiceBase {
    * Avoids any disk persistence to reduce security risk.
    */
   @backgroundMethod()
-  async cacheAuthPackInMemory(params: {
-    authPack: IAuthKeyPack;
-  }): Promise<void> {
+  async cacheAuthPackInMemory(params: { authPack: IAuthKeyPack }) {
     return keylessAuthPackCache.cacheAuthPackInMemory({
       ...params,
       backgroundApi: this.backgroundApi,
@@ -545,6 +556,20 @@ class ServiceKeylessWallet extends ServiceBase {
     return this.getDevicePackFromStorage(params);
   }
 
+  @backgroundMethod()
+  async getKeylessDevicePackSafe(): Promise<IDeviceKeyPack | null> {
+    try {
+      const user = await primePersistAtom.get();
+      const packSetId = user?.keylessWalletId;
+      if (!packSetId) {
+        return null;
+      }
+      return await this.getKeylessDevicePack({ packSetId });
+    } catch (error) {
+      return null;
+    }
+  }
+
   /**
    * Get auth pack with fallback strategy:
    * 1. Try memory cache first
@@ -562,6 +587,20 @@ class ServiceKeylessWallet extends ServiceBase {
       return cachedAuthPack;
     }
     return null;
+  }
+
+  @backgroundMethod()
+  async getKeylessAuthPackSafe(): Promise<IAuthKeyPack | null> {
+    try {
+      const user = await primePersistAtom.get();
+      const packSetId = user?.keylessWalletId;
+      if (!packSetId) {
+        return null;
+      }
+      return await this.getKeylessAuthPack({ packSetId });
+    } catch (error) {
+      return null;
+    }
   }
 
   /**
@@ -754,6 +793,109 @@ class ServiceKeylessWallet extends ServiceBase {
           (error as Error)?.message
         }`,
       );
+    }
+  }
+
+  @backgroundMethod()
+  async getKeylessCloudPackSafe({
+    cloudKeyProvider,
+  }: {
+    cloudKeyProvider: ECloudBackupProviderType;
+  }) {
+    try {
+      const user = await primePersistAtom.get();
+      const packSetId = user?.keylessWalletId;
+      if (!packSetId) {
+        return undefined;
+      }
+      const isSupportCloudBackup =
+        await this.backgroundApi.serviceCloudBackupV2.supportCloudBackup();
+      if (!isSupportCloudBackup) {
+        return undefined;
+      }
+      const cloudAccount =
+        await this.backgroundApi.serviceCloudBackupV2.getCloudAccountInfo();
+      if (
+        cloudAccount &&
+        cloudAccount.userId &&
+        cloudKeyProvider === cloudAccount.providerType
+      ) {
+        const cloudPack = await this.getKeylessCloudPack({ packSetId });
+        return cloudPack;
+      }
+      return undefined;
+    } catch (error) {
+      return undefined;
+    }
+  }
+
+  @backgroundMethod()
+  async enableKeylessWalletSilently() {
+    const deviceKeyPack = await this.getKeylessDevicePackSafe();
+    let authKeyPack = await this.getKeylessAuthPackSafe();
+    let cloudKeyPack: ICloudKeyPack | undefined;
+    if (deviceKeyPack && authKeyPack) {
+      void (deviceKeyPack && authKeyPack);
+      const restoredPacks = await this.restoreKeylessWalletSafe({
+        deviceKeyPack,
+        authKeyPack,
+      });
+      return restoredPacks;
+    }
+    if (!deviceKeyPack) {
+      if (!authKeyPack) {
+        void (!deviceKeyPack && !authKeyPack);
+        authKeyPack = await this.getKeylessAuthPackSafe();
+      } else {
+        void (!deviceKeyPack && authKeyPack);
+        // do nothing
+      }
+      if (authKeyPack?.cloudKeyProvider) {
+        cloudKeyPack = await this.getKeylessCloudPackSafe({
+          cloudKeyProvider: authKeyPack?.cloudKeyProvider,
+        });
+      }
+
+      if (authKeyPack && cloudKeyPack) {
+        const restoredPacks = await this.restoreKeylessWalletSafe({
+          authKeyPack,
+          cloudKeyPack,
+        });
+        if (restoredPacks?.packs?.deviceKeyPack) {
+          const { success } = await this.saveDevicePackToStorage({
+            devicePack: restoredPacks?.packs?.deviceKeyPack,
+          });
+          if (success) {
+            return restoredPacks;
+          }
+        }
+      }
+    }
+    if (!authKeyPack) {
+      if (deviceKeyPack) {
+        void (deviceKeyPack && !authKeyPack);
+        cloudKeyPack = await this.getKeylessCloudPackSafe({
+          cloudKeyProvider: deviceKeyPack.cloudKeyProvider,
+        });
+        if (!cloudKeyPack) {
+          authKeyPack = await this.getKeylessAuthPackSafe();
+        }
+        const restoredPacks = await this.restoreKeylessWalletSafe({
+          authKeyPack: authKeyPack || undefined,
+          cloudKeyPack: cloudKeyPack || undefined,
+          deviceKeyPack: deviceKeyPack || undefined,
+        });
+        if (restoredPacks?.packs?.authKeyPack) {
+          const { success } = await this.cacheAuthPackInMemory({
+            authPack: restoredPacks?.packs?.authKeyPack,
+          });
+          if (success) {
+            return restoredPacks;
+          }
+        }
+      }
+      void (!deviceKeyPack && !authKeyPack);
+      // do nothing
     }
   }
 }

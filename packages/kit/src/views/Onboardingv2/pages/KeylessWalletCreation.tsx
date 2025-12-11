@@ -1,5 +1,12 @@
 import type { ReactNode } from 'react';
-import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
@@ -16,13 +23,18 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import type { IBackupProviderAccountInfo } from '@onekeyhq/shared/src/cloudBackup/cloudBackupTypes';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import type { IKeylessWalletPacks } from '@onekeyhq/shared/src/keylessWallet/keylessWalletTypes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { useKeylessWallet } from '../../../components/KeylessWallet/useKeylessWallet';
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { OnboardingLayout } from '../components/OnboardingLayout';
 import {
   type ISecurityKeyType,
@@ -45,60 +57,12 @@ enum ECreationStepId {
 
 interface ICreationStep {
   id: ECreationStepId;
-  securityKeyType: ISecurityKeyType;
-  title: string;
+  securityKeyType: ISecurityKeyType | undefined;
+  title: string | undefined;
   description?: ReactNode;
-  state: ECreationStepState;
+  state: ECreationStepState | undefined;
   infoMessage?: string;
 }
-
-// ============ STEP CONFIGURATION ============
-// Platform-specific cloud provider name
-const cloudProviderName =
-  platformEnv.isNativeIOS || platformEnv.isMas ? 'iCloud' : 'Google Drive';
-
-// Centralized text configuration for all steps
-const STEP_CONFIG: Record<
-  ECreationStepId,
-  {
-    securityKeyType: ISecurityKeyType;
-    title: string;
-    description: ReactNode;
-    infoMessage?: string;
-    buttonText: string;
-  }
-> = {
-  [ECreationStepId.DeviceShare]: {
-    securityKeyType: 'device',
-    title: 'Device Key',
-    description: (
-      <>
-        Encrypted with your{' '}
-        <SizableText size="$bodyMdMedium" color="$textSubdued">
-          passcode
-        </SizableText>
-        .
-      </>
-    ),
-    // infoMessage: 'Tap to save the key to your device',
-    buttonText: 'Save to Device',
-  },
-  [ECreationStepId.CloudShare]: {
-    securityKeyType: 'cloud',
-    title: 'Cloud Key',
-    description: `Encrypted backup to ${cloudProviderName}`,
-    // infoMessage: `Tap to backup the key to ${cloudProviderName}`,
-    buttonText: `Backup to ${cloudProviderName}`,
-  },
-  [ECreationStepId.AuthShare]: {
-    securityKeyType: 'auth',
-    title: 'Auth Key',
-    description: 'Protected by your OneKey ID',
-    // infoMessage: 'Tap to save the key to OneKey server',
-    buttonText: 'Save to Server',
-  },
-};
-// ============================================
 
 export function KeylessWalletCreation({
   route: _route,
@@ -108,21 +72,91 @@ export function KeylessWalletCreation({
 >) {
   const intl = useIntl();
   const navigation = useAppNavigation();
+  const { generatePacks, saveDevicePack, uploadCloudPack, uploadAuthPack } =
+    useKeylessWallet();
+
+  // Store generated packs in ref to persist across re-renders
+  const packsRef = useRef<IKeylessWalletPacks | null>(null);
+  const isGeneratingPacksRef = useRef(false);
+  // Store packSetIds from device and cloud operations for auth pack upload
+  const devicePackSetIdRef = useRef<string | null>(null);
+  const cloudPackSetIdRef = useRef<string | null>(null);
+
+  const { result: keylessWalletCreationConfig } = usePromiseResult(async () => {
+    let cloudAccountInfo: IBackupProviderAccountInfo | undefined;
+
+    const isSupportCloudBackup =
+      await backgroundApiProxy.serviceCloudBackupV2.supportCloudBackup();
+    if (isSupportCloudBackup) {
+      cloudAccountInfo =
+        await backgroundApiProxy.serviceCloudBackupV2.getCloudAccountInfo();
+    }
+    const cloudProviderType = cloudAccountInfo?.providerType;
+
+    // Centralized text configuration for all steps
+    const STEP_CONFIG: Record<
+      ECreationStepId,
+      {
+        securityKeyType: ISecurityKeyType;
+        title: string;
+        description: ReactNode;
+        infoMessage?: string;
+        buttonText: string;
+      }
+    > = {
+      [ECreationStepId.DeviceShare]: {
+        securityKeyType: 'device',
+        title: 'Device Key',
+        description: (
+          <>
+            Encrypted with your{' '}
+            <SizableText size="$bodyMdMedium" color="$textSubdued">
+              passcode
+            </SizableText>
+            .
+          </>
+        ),
+        // infoMessage: 'Tap to save the key to your device',
+        buttonText: 'Save to Device',
+      },
+      [ECreationStepId.CloudShare]: {
+        securityKeyType: 'cloud',
+        title: 'Cloud Key',
+        description: `Encrypted backup to ${cloudProviderType ?? ''}`,
+        // infoMessage: `Tap to backup the key to ${cloudProviderName}`,
+        buttonText: `Backup to ${cloudProviderType ?? ''}`,
+      },
+      [ECreationStepId.AuthShare]: {
+        securityKeyType: 'auth',
+        title: 'Auth Key',
+        description: 'Protected by your OneKey ID',
+        // infoMessage: 'Tap to save the key to OneKey server',
+        buttonText: 'Save to Server',
+      },
+    };
+
+    return {
+      STEP_CONFIG,
+      isSupportCloudBackup,
+      cloudAccountInfo,
+    };
+  }, []);
 
   // Helper to create a step from config
   const createStep = useCallback(
     (id: ECreationStepId, state: ECreationStepState): ICreationStep => ({
       id,
-      securityKeyType: STEP_CONFIG[id].securityKeyType,
-      title: STEP_CONFIG[id].title,
-      description: STEP_CONFIG[id].description,
+      securityKeyType:
+        keylessWalletCreationConfig?.STEP_CONFIG?.[id].securityKeyType,
+      title: keylessWalletCreationConfig?.STEP_CONFIG?.[id].title,
+      description: keylessWalletCreationConfig?.STEP_CONFIG?.[id].description,
       state,
       infoMessage:
         state === ECreationStepState.Info
-          ? STEP_CONFIG[id].infoMessage
+          ? keylessWalletCreationConfig?.STEP_CONFIG?.[id].infoMessage
           : undefined,
     }),
-    [],
+    [keylessWalletCreationConfig?.STEP_CONFIG],
   );
 
   // Build initial steps - all start in Idle state except first one
@@ -163,7 +197,8 @@ export function KeylessWalletCreation({
             state: newState,
             infoMessage:
               newState === ECreationStepState.Info
-                ? infoMessage ?? STEP_CONFIG[stepId].infoMessage
+                ? infoMessage ??
+                  keylessWalletCreationConfig?.STEP_CONFIG?.[stepId].infoMessage
                 : undefined,
           };
 
@@ -177,7 +212,7 @@ export function KeylessWalletCreation({
         return newSteps;
       });
     },
-    [],
+    [keylessWalletCreationConfig?.STEP_CONFIG],
   );
 
   // Helper: Move to next step
@@ -199,18 +234,36 @@ export function KeylessWalletCreation({
 
   // Step 1: Save Device Share
   const handleDeviceShareSave = useCallback(async () => {
+    if (!packsRef.current) {
+      updateStepState(
+        ECreationStepId.DeviceShare,
+        ECreationStepState.Error,
+        'Packs not generated. Please wait.',
+      );
+      return;
+    }
+
     updateStepState(ECreationStepId.DeviceShare, ECreationStepState.InProgress);
 
     try {
       // Prompt user for biometric/passcode verification to save device share
       await backgroundApiProxy.servicePassword.promptPasswordVerify();
 
-      // TODO: Implement actual device share save logic
-      // Simulate save delay
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      const result = await saveDevicePack({
+        devicePack: packsRef.current.deviceKeyPack,
+      });
 
-      updateStepState(ECreationStepId.DeviceShare, ECreationStepState.Success);
-      moveToNextStep(ECreationStepId.DeviceShare);
+      if (result.success) {
+        // Store packSetId for later use in auth pack upload
+        devicePackSetIdRef.current = result.packSetInFromDevicePack;
+        updateStepState(
+          ECreationStepId.DeviceShare,
+          ECreationStepState.Success,
+        );
+        moveToNextStep(ECreationStepId.DeviceShare);
+      } else {
+        throw new OneKeyLocalError('Failed to save device pack');
+      }
     } catch {
       // User cancelled or verification failed
       updateStepState(
@@ -219,19 +272,34 @@ export function KeylessWalletCreation({
         'Device key not saved. Tap to try again.',
       );
     }
-  }, [updateStepState, moveToNextStep]);
+  }, [updateStepState, moveToNextStep, saveDevicePack]);
 
   // Step 2: Save Cloud Share
   const handleCloudShareSave = useCallback(async () => {
+    if (!packsRef.current) {
+      updateStepState(
+        ECreationStepId.CloudShare,
+        ECreationStepState.Error,
+        'Packs not generated. Please wait.',
+      );
+      return;
+    }
+
     updateStepState(ECreationStepId.CloudShare, ECreationStepState.InProgress);
 
     try {
-      // TODO: Implement actual cloud share save logic
-      // Simulate cloud backup delay
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      const result = await uploadCloudPack({
+        cloudPack: packsRef.current.cloudKeyPack,
+      });
 
-      updateStepState(ECreationStepId.CloudShare, ECreationStepState.Success);
-      moveToNextStep(ECreationStepId.CloudShare);
+      if (result.success) {
+        // Store packSetId for later use in auth pack upload
+        cloudPackSetIdRef.current = result.packSetInFromCloudPack;
+        updateStepState(ECreationStepId.CloudShare, ECreationStepState.Success);
+        moveToNextStep(ECreationStepId.CloudShare);
+      } else {
+        throw new OneKeyLocalError('Failed to upload cloud pack');
+      }
     } catch {
       updateStepState(
         ECreationStepId.CloudShare,
@@ -239,18 +307,42 @@ export function KeylessWalletCreation({
         'Cloud backup failed. Tap to try again.',
       );
     }
-  }, [updateStepState, moveToNextStep]);
+  }, [updateStepState, moveToNextStep, uploadCloudPack]);
 
   // Step 3: Save Auth Share
   const handleAuthShareSave = useCallback(async () => {
+    if (!packsRef.current) {
+      updateStepState(
+        ECreationStepId.AuthShare,
+        ECreationStepState.Error,
+        'Packs not generated. Please wait.',
+      );
+      return;
+    }
+
+    if (!devicePackSetIdRef.current || !cloudPackSetIdRef.current) {
+      updateStepState(
+        ECreationStepId.AuthShare,
+        ECreationStepState.Error,
+        'Please complete device and cloud steps first.',
+      );
+      return;
+    }
+
     updateStepState(ECreationStepId.AuthShare, ECreationStepState.InProgress);
 
     try {
-      // TODO: Implement actual auth share save logic
-      // Simulate server save delay
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      const result = await uploadAuthPack({
+        authPack: packsRef.current.authKeyPack,
+        packSetInFromCloudPack: cloudPackSetIdRef.current,
+        packSetInFromDevicePack: devicePackSetIdRef.current,
+      });
 
-      updateStepState(ECreationStepId.AuthShare, ECreationStepState.Success);
+      if (result.success) {
+        updateStepState(ECreationStepId.AuthShare, ECreationStepState.Success);
+      } else {
+        throw new OneKeyLocalError('Failed to upload auth pack');
+      }
     } catch {
       updateStepState(
         ECreationStepId.AuthShare,
@@ -258,7 +350,7 @@ export function KeylessWalletCreation({
         'Server save failed. Tap to try again.',
       );
     }
-  }, [updateStepState]);
+  }, [updateStepState, uploadAuthPack]);
 
   // Handle step action based on step type
   const handleStepAction = useCallback(
@@ -276,8 +368,10 @@ export function KeylessWalletCreation({
 
   // Get button text from config
   const getButtonText = useCallback(
-    (stepId: ECreationStepId) => STEP_CONFIG[stepId]?.buttonText ?? 'Continue',
-    [],
+    (stepId: ECreationStepId) =>
+      keylessWalletCreationConfig?.STEP_CONFIG?.[stepId]?.buttonText ??
+      'Continue',
+    [keylessWalletCreationConfig?.STEP_CONFIG],
   );
 
   // Handle "Complete Setup" - navigate to finalize wallet setup
@@ -302,64 +396,111 @@ export function KeylessWalletCreation({
     setSteps(buildInitialSteps());
   }, [buildInitialSteps]);
 
-  const renderStepStatusIcon = useCallback((state: ECreationStepState) => {
-    switch (state) {
-      case ECreationStepState.InProgress:
-        return (
-          <Spinner
-            key="spinner"
-            size="small"
-            animation="quick"
-            enterStyle={{ scale: 0.7, opacity: 0 }}
-            exitStyle={{ scale: 0.7, opacity: 0 }}
-            scale={0.8}
-          />
-        );
-      case ECreationStepState.Success:
-        return (
-          <YStack
-            animation="quick"
-            enterStyle={{ scale: 0.8, opacity: 0 }}
-            exitStyle={{ scale: 0.8, opacity: 0 }}
-            key="checkmark"
-          >
-            <Icon
-              name="Checkmark2SmallOutline"
-              color="$iconSuccess"
-              size="$5"
-            />
-          </YStack>
-        );
-      case ECreationStepState.Error:
-        return (
-          <YStack
-            animation="quick"
-            enterStyle={{ scale: 0.8, opacity: 0 }}
-            exitStyle={{ scale: 0.8, opacity: 0 }}
-            key="error"
-          >
-            <Icon name="CrossedSmallOutline" color="$iconCritical" size="$5" />
-          </YStack>
-        );
-      case ECreationStepState.Info:
-        return (
-          <YStack
-            animation="quick"
-            enterStyle={{ scale: 0.8, opacity: 0 }}
-            exitStyle={{ scale: 0.8, opacity: 0 }}
-            key="info"
-          >
-            <Icon
-              name="CirclePlaceholderOnOutline"
-              color="$iconSubdued"
-              size="$4.5"
-            />
-          </YStack>
-        );
-      default:
-        return null;
-    }
+  // Generate packs on mount if they don't exist
+  useEffect(() => {
+    const generatePacksOnMount = async () => {
+      // Skip if packs already exist
+      if (packsRef.current) {
+        return;
+      }
+
+      // Skip if already generating
+      if (isGeneratingPacksRef.current) {
+        return;
+      }
+
+      isGeneratingPacksRef.current = true;
+      try {
+        const packs = await generatePacks();
+        packsRef.current = packs;
+      } catch (error) {
+        // Handle error silently or show error state if needed
+        console.error('Failed to generate packs:', error);
+      } finally {
+        isGeneratingPacksRef.current = false;
+      }
+    };
+
+    void generatePacksOnMount();
+  }, [generatePacks]);
+
+  // Clear packs on component cleanup
+  useEffect(() => {
+    return () => {
+      packsRef.current = null;
+      devicePackSetIdRef.current = null;
+      cloudPackSetIdRef.current = null;
+    };
   }, []);
+
+  const renderStepStatusIcon = useCallback(
+    (state: ECreationStepState | undefined) => {
+      if (!state) {
+        return null;
+      }
+      switch (state) {
+        case ECreationStepState.InProgress:
+          return (
+            <Spinner
+              key="spinner"
+              size="small"
+              animation="quick"
+              enterStyle={{ scale: 0.7, opacity: 0 }}
+              exitStyle={{ scale: 0.7, opacity: 0 }}
+              scale={0.8}
+            />
+          );
+        case ECreationStepState.Success:
+          return (
+            <YStack
+              animation="quick"
+              enterStyle={{ scale: 0.8, opacity: 0 }}
+              exitStyle={{ scale: 0.8, opacity: 0 }}
+              key="checkmark"
+            >
+              <Icon
+                name="Checkmark2SmallOutline"
+                color="$iconSuccess"
+                size="$5"
+              />
+            </YStack>
+          );
+        case ECreationStepState.Error:
+          return (
+            <YStack
+              animation="quick"
+              enterStyle={{ scale: 0.8, opacity: 0 }}
+              exitStyle={{ scale: 0.8, opacity: 0 }}
+              key="error"
+            >
+              <Icon
+                name="CrossedSmallOutline"
+                color="$iconCritical"
+                size="$5"
+              />
+            </YStack>
+          );
+        case ECreationStepState.Info:
+          return (
+            <YStack
+              animation="quick"
+              enterStyle={{ scale: 0.8, opacity: 0 }}
+              exitStyle={{ scale: 0.8, opacity: 0 }}
+              key="info"
+            >
+              <Icon
+                name="CirclePlaceholderOnOutline"
+                color="$iconSubdued"
+                size="$4.5"
+              />
+            </YStack>
+          );
+        default:
+          return null;
+      }
+    },
+    [],
+  );
 
   return (
     <Page>
@@ -483,10 +624,12 @@ export function KeylessWalletCreation({
                       justifyContent="center"
                       opacity={step.state === ECreationStepState.Idle ? 0.5 : 1}
                     >
-                      <SecurityKeyIcon
-                        type={step.securityKeyType}
-                        muted={step.state === ECreationStepState.Idle}
-                      />
+                      {step.securityKeyType ? (
+                        <SecurityKeyIcon
+                          type={step.securityKeyType}
+                          muted={step.state === ECreationStepState.Idle}
+                        />
+                      ) : null}
                       {step.state !== ECreationStepState.Idle ? (
                         <YStack
                           position="absolute"

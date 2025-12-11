@@ -1,14 +1,16 @@
-import { useCallback } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import { Dialog } from '@onekeyhq/components';
 import { primePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type { ECloudBackupProviderType } from '@onekeyhq/shared/src/cloudBackup/cloudBackupTypes';
 import { EPrimeEmailOTPScene } from '@onekeyhq/shared/src/consts/primeConsts';
 import {
   OneKeyLocalError,
   PrimeSendEmailOTPCancelError,
 } from '@onekeyhq/shared/src/errors';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { EKeylessWalletEnableScene } from '@onekeyhq/shared/src/keylessWallet/keylessWalletConsts';
 import type {
   IAuthKeyPack,
@@ -16,18 +18,26 @@ import type {
   IDeviceKeyPack,
 } from '@onekeyhq/shared/src/keylessWallet/keylessWalletTypes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { EModalRoutes, ERootRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  EOnboardingPagesV2,
+  EOnboardingV2Routes,
+} from '@onekeyhq/shared/src/routes/onboardingv2';
+import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
+import { EPrimeTransferDataType } from '@onekeyhq/shared/types/prime/primeTransferTypes';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import useAppNavigation from '../../hooks/useAppNavigation';
 import { useOneKeyAuth } from '../OneKeyAuth/useOneKeyAuth';
 
 export function useKeylessWallet() {
-  const { isLoggedIn, loginOneKeyId, sendEmailOTP } = useOneKeyAuth();
+  const { loginOneKeyId, sendEmailOTP } = useOneKeyAuth();
   const intl = useIntl();
   const isKeylessWalletCreated = useCallback(async () => {
     const user = await primePersistAtom.get();
     return !!user?.keylessWalletId;
   }, []);
+  const navigation = useAppNavigation();
 
   const generatePacks = useCallback(async () => {
     await loginOneKeyId();
@@ -218,82 +228,23 @@ export function useKeylessWallet() {
     // TODO enable keyless wallet
   }, [createKeylessWalletFn, isKeylessWalletCreated]);
 
+  const isSupportCloudBackup = useCallback(async () => {
+    return backgroundApiProxy.serviceCloudBackupV2.supportCloudBackup();
+  }, []);
+
   const enableKeylessWalletSilentlyFn = useCallback(async () => {
     await loginOneKeyId();
-    await timerUtils.wait(300);
     const { keylessWalletId } = await primePersistAtom.get();
     if (!keylessWalletId) {
       return;
     }
-    const getCloudKeySilently = async () => {
-      if (await backgroundApiProxy.serviceCloudBackupV2.supportCloudBackup()) {
-        const cloudAccount =
-          await backgroundApiProxy.serviceCloudBackupV2.getCloudAccountInfo();
-        if (cloudAccount.userId) {
-          const cloudPack = await getCloudPack();
-          return cloudPack;
-        }
-      }
-    };
-    const deviceKeyPack = await getDevicePack();
-    let authKeyPack = await getAuthPackFromCache();
-    let cloudKeyPack: ICloudKeyPack | undefined;
-    if (deviceKeyPack && authKeyPack) {
-      void (deviceKeyPack && authKeyPack);
-      const restoredPacks =
-        await backgroundApiProxy.serviceKeylessWallet.restoreKeylessWallet({
-          deviceKeyPack,
-          authKeyPack,
-        });
-      return restoredPacks;
-    }
-    if (!deviceKeyPack) {
-      cloudKeyPack = await getCloudKeySilently();
-      if (!authKeyPack) {
-        void (!deviceKeyPack && !authKeyPack);
-        authKeyPack = await getAuthPackFromServer();
-      } else {
-        void (!deviceKeyPack && authKeyPack);
-        // do nothing
-      }
-      if (authKeyPack && cloudKeyPack) {
-        const restoredPacks =
-          await backgroundApiProxy.serviceKeylessWallet.restoreKeylessWallet({
-            authKeyPack,
-            cloudKeyPack,
-          });
-        await saveDevicePack({
-          devicePack: restoredPacks.packs.deviceKeyPack,
-        });
-        return restoredPacks;
-      }
-    }
-    if (!authKeyPack) {
-      if (deviceKeyPack) {
-        void (deviceKeyPack && !authKeyPack);
-        cloudKeyPack = await getCloudKeySilently();
-        if (!cloudKeyPack) {
-          authKeyPack = await getAuthPackFromServer();
-        }
-        const restoredPacks =
-          await backgroundApiProxy.serviceKeylessWallet.restoreKeylessWallet({
-            authKeyPack: authKeyPack || undefined,
-            cloudKeyPack: cloudKeyPack || undefined,
-            deviceKeyPack,
-          });
-        return restoredPacks;
-      }
-      void (!deviceKeyPack && !authKeyPack);
-      // do nothing
-    }
-  }, [
-    loginOneKeyId,
-    getDevicePack,
-    getAuthPackFromCache,
-    getCloudPack,
-    getAuthPackFromServer,
-    saveDevicePack,
-  ]);
+    return backgroundApiProxy.serviceKeylessWallet.enableKeylessWalletSilently();
+  }, [loginOneKeyId]);
+
+  const [enableKeylessWalletLoading, setEnableKeylessWalletLoading] =
+    useState(false);
+  const enableKeylessWalletLoadingRef = useRef(enableKeylessWalletLoading);
+  enableKeylessWalletLoadingRef.current = enableKeylessWalletLoading;
 
   const enableKeylessWallet = useCallback(
     async ({
@@ -301,32 +252,77 @@ export function useKeylessWallet() {
     }: {
       fromScene?: EKeylessWalletEnableScene;
     }) => {
-      await loginOneKeyId();
-      if (fromScene === EKeylessWalletEnableScene.Onboarding) {
-        const { userInfo } =
-          await backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo();
-        if (userInfo.keylessWalletId) {
-          Dialog.show({
-            title: 'Keyless Wallet',
-            description:
-              'You already have a Keyless Wallet on this device. No need to create another one.',
-            showCancelButton: false,
-            onConfirmText: intl.formatMessage({
-              id: ETranslations.global_got_it,
-            }),
-          });
-        } else {
-          // do nothing
-        }
+      if (enableKeylessWalletLoadingRef.current) {
+        return;
       }
-      // await enableKeylessWalletFn();
+      await errorToastUtils.withErrorAutoToast(async () => {
+        try {
+          enableKeylessWalletLoadingRef.current = true;
+          setEnableKeylessWalletLoading(true);
+          await loginOneKeyId();
+          const { userInfo } =
+            await backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo();
+          const keylessWalletId = userInfo.keylessWalletId;
+
+          if (fromScene === EKeylessWalletEnableScene.Onboarding) {
+            if (keylessWalletId) {
+              const restoredPacks = await enableKeylessWalletSilentlyFn();
+              if (restoredPacks?.packs?.mnemonic) {
+                Dialog.show({
+                  title: 'Keyless Wallet',
+                  description:
+                    'You already have a Keyless Wallet on this device. No need to create another one.',
+                  showCancelButton: false,
+                  onConfirmText: intl.formatMessage({
+                    id: ETranslations.global_got_it,
+                  }),
+                });
+              } else {
+                navigation.navigate(ERootRoutes.Onboarding, {
+                  screen: EOnboardingV2Routes.OnboardingV2,
+                  params: {
+                    screen: EOnboardingPagesV2.KeylessWalletRecovery,
+                    params: {},
+                  },
+                });
+              }
+            } else if (await isSupportCloudBackup()) {
+              navigation.navigate(ERootRoutes.Onboarding, {
+                screen: EOnboardingV2Routes.OnboardingV2,
+                params: {
+                  screen: EOnboardingPagesV2.KeylessWalletCreation,
+                  params: {},
+                },
+              });
+            } else {
+              // TODO add Dialog to confirm
+              navigation.pushModal(EModalRoutes.PrimeModal, {
+                screen: EPrimePages.PrimeTransfer,
+                params: {
+                  transferType: EPrimeTransferDataType.keylessWallet,
+                },
+              });
+            }
+          }
+          // await enableKeylessWalletFn();
+        } finally {
+          setEnableKeylessWalletLoading(false);
+        }
+      });
     },
-    [intl, loginOneKeyId],
+    [
+      enableKeylessWalletSilentlyFn,
+      intl,
+      isSupportCloudBackup,
+      loginOneKeyId,
+      navigation,
+    ],
   );
 
   return {
     // TODO handleKeylessWalletClick
     enableKeylessWallet,
+    enableKeylessWalletLoading,
     // create flow
     generatePacks,
     saveDevicePack,
