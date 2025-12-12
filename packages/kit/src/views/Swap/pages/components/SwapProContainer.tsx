@@ -98,9 +98,10 @@ const SwapProContainer = ({
     setSwapProSliderValue(0);
   }, [setSwapProInputAmount, setFromInputAmount, setSwapProSliderValue]);
 
+  const netAccountAddress = netAccountRes.result?.addressDetail.address;
   useEffect(() => {
     cleanInputAmount();
-  }, [netAccountRes.result?.addressDetail.address, cleanInputAmount]);
+  }, [netAccountAddress, cleanInputAmount]);
 
   const onTokenPress = useCallback(
     (token: ISwapToken) => {

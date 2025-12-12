@@ -535,7 +535,6 @@ export function useSwapInit(params?: ISwapInitParams) {
           void syncNetworksSort(defaultToToken.networkId);
         }
         if (defaultFromToken) {
-          console.log('swap__defaultFromToken', defaultFromToken);
           checkSupportTokenSwapType(defaultFromToken, true);
         }
       }
