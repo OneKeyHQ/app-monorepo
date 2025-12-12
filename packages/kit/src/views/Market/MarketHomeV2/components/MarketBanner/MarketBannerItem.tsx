@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 
-import { SizableText, XStack, YStack } from '@onekeyhq/components';
+import { SizableText, Stack, YStack } from '@onekeyhq/components';
 import { TokenGroup } from '@onekeyhq/kit/src/components/Token';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketBannerItem } from '@onekeyhq/shared/types/marketV2';
@@ -47,78 +47,43 @@ export function MarketBannerItem({
     onPress?.(item);
   };
 
-  // Compact layout: Native or (md screens with 3+ banners)
-  if (platformEnv.isNative || compact) {
-    return (
-      <YStack
-        bg={bgColor}
-        borderRadius="$3"
-        p="$2.5"
-        flex={1}
-        justifyContent="space-between"
-        onPress={handlePress}
-        {...(!platformEnv.isNative && {
-          animation: 'quick',
-          borderWidth: 1,
-          borderColor: '$transparent',
-          hoverStyle: { borderColor: '$borderHover' },
-        })}
-        pressStyle={{ opacity: 0.7 }}
-        cursor="pointer"
-      >
-        <YStack gap="$1">
-          <SizableText
-            size="$bodySm"
-            fontWeight="500"
-            numberOfLines={2}
-            maxWidth="$80"
-            $md={{
-              maxWidth: '$40',
-            }}
-          >
-            {title}
-          </SizableText>
-          {description ? (
-            <SizableText size="$bodyXs" color={descriptionColor}>
-              {description.text}
-            </SizableText>
-          ) : null}
-        </YStack>
-        <TokenGroup
-          tokens={tokens}
-          size="xs"
-          maxVisible={3}
-          overlapOffset="$-3"
-          showRemainingBadge={false}
-        />
-      </YStack>
-    );
-  }
+  const isCompact = platformEnv.isNative || compact;
 
-  // Desktop layout: XStack (horizontal)
   return (
-    <XStack
+    <Stack
+      flexDirection={isCompact ? 'column' : 'row'}
       bg={bgColor}
       borderRadius="$3"
-      p="$3"
-      gap="$4"
-      alignItems="center"
+      p={isCompact ? '$2.5' : '$3'}
+      gap={isCompact ? undefined : '$4'}
+      alignItems={isCompact ? undefined : 'center'}
       justifyContent="space-between"
       flex={1}
       onPress={handlePress}
-      animation="quick"
-      borderWidth={1}
-      borderColor="$transparent"
-      hoverStyle={{ borderColor: '$borderHover' }}
+      {...(!platformEnv.isNative && {
+        animation: 'quick',
+        borderWidth: 1,
+        borderColor: '$transparent',
+        hoverStyle: { borderColor: '$borderHover' },
+      })}
       pressStyle={{ opacity: 0.7 }}
       cursor="pointer"
     >
-      <YStack gap="$1" flex={1}>
-        <SizableText size="$bodyMdMedium" numberOfLines={2} maxWidth="$40">
+      <YStack gap="$1" flex={isCompact ? undefined : 1}>
+        <SizableText
+          size={isCompact ? '$bodySm' : '$bodyMdMedium'}
+          fontWeight={isCompact ? '500' : undefined}
+          numberOfLines={2}
+          {...(isCompact && { $md: { maxWidth: '$40' } })}
+          {...(!isCompact && { maxWidth: '$40' })}
+        >
           {title}
         </SizableText>
         {description ? (
-          <SizableText size="$bodySm" color={descriptionColor}>
+          <SizableText
+            size={isCompact ? '$bodyXs' : '$bodySm'}
+            color={descriptionColor}
+          >
             {description.text}
           </SizableText>
         ) : null}
@@ -130,6 +95,6 @@ export function MarketBannerItem({
         overlapOffset="$-3"
         showRemainingBadge={false}
       />
-    </XStack>
+    </Stack>
   );
 }
