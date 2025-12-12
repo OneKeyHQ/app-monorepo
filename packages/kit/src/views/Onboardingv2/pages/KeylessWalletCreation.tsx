@@ -25,14 +25,7 @@ function KeylessWalletCreation() {
       <OnboardingLayout>
         <OnboardingLayout.Header title="Secure your wallet" />
         <OnboardingLayout.Body constrained={false}>
-          <OnboardingLayout.ConstrainedContent
-            gap="$10"
-            $platform-native={{
-              py: '$5',
-            }}
-          >
-            <KeylessWalletShareCardsView mode={mode} />
-          </OnboardingLayout.ConstrainedContent>
+          <KeylessWalletShareCardsView mode={mode} />
         </OnboardingLayout.Body>
         <OnboardingLayout.Footer />
       </OnboardingLayout>

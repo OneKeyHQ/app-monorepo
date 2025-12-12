@@ -35,8 +35,34 @@ import {
   type ICreationStep,
 } from './keylessWalletOnboardingTypes';
 import { KeylessWalletShareCard } from './KeylessWalletShareCard';
+import { OnboardingLayout } from './OnboardingLayout';
 
 import type { ISecurityKeyType } from './SecurityKeyIcon';
+
+// Step order constant - defined outside component to avoid recreation
+const STEP_ORDER = [
+  ECreationStepId.DeviceShare,
+  ECreationStepId.CloudShare,
+  ECreationStepId.AuthShare,
+] as const;
+
+// Helper function: Calculate current pack count
+// Extracted outside component since it has no dependencies
+function getPackCount({
+  restoreDevicePackRef,
+  restoreCloudPackRef,
+  restoreAuthPackRef,
+}: {
+  restoreDevicePackRef: { current: IDeviceKeyPack | null };
+  restoreCloudPackRef: { current: ICloudKeyPack | null };
+  restoreAuthPackRef: { current: IAuthKeyPack | null };
+}): number {
+  return [
+    restoreDevicePackRef.current,
+    restoreCloudPackRef.current,
+    restoreAuthPackRef.current,
+  ].filter(Boolean).length;
+}
 
 export interface IKeylessWalletShareCardsViewProps {
   mode: EOnboardingV2KeylessWalletCreationMode;
@@ -58,17 +84,27 @@ export function KeylessWalletShareCardsView({
     receiveDevicePackByQrCode,
   } = useKeylessWallet();
 
-  // Store generated packs in ref to persist across re-renders
-  const packsRef = useRef<IKeylessWalletPacks | null>(null);
+  // Define mode flags at the beginning for reuse throughout the component
+  const isRestoreMode = useMemo(
+    () => mode === EOnboardingV2KeylessWalletCreationMode.Restore,
+    [mode],
+  );
+  const isViewMode = useMemo(
+    () => mode === EOnboardingV2KeylessWalletCreationMode.View,
+    [mode],
+  );
+
+  // Store generated packs in ref to persist across re-renders (only used in create mode)
+  const generatePacksRef = useRef<IKeylessWalletPacks | null>(null);
   const isGeneratingPacksRef = useRef(false);
   // Store packSetIds from device and cloud operations for auth pack upload
   const devicePackSetIdRef = useRef<string | null>(null);
   const cloudPackSetIdRef = useRef<string | null>(null);
   const authPackSetIdRef = useRef<string | null>(null);
-  // Store restored packs for validation
-  const devicePackRef = useRef<IDeviceKeyPack | null>(null);
-  const cloudPackRef = useRef<ICloudKeyPack | null>(null);
-  const authPackRef = useRef<IAuthKeyPack | null>(null);
+  // Store restored packs for validation (only used in restore mode)
+  const restoreDevicePackRef = useRef<IDeviceKeyPack | null>(null);
+  const restoreCloudPackRef = useRef<ICloudKeyPack | null>(null);
+  const restoreAuthPackRef = useRef<IAuthKeyPack | null>(null);
   // Store restore validation result
   const restoreValidationResultRef = useRef<
     IKeylessWalletRestoredData | undefined
@@ -84,9 +120,6 @@ export function KeylessWalletShareCardsView({
         await backgroundApiProxy.serviceCloudBackupV2.getCloudAccountInfo();
     }
     const cloudProviderType = cloudAccountInfo?.providerType;
-
-    const isRestoreMode =
-      mode === EOnboardingV2KeylessWalletCreationMode.Restore;
 
     // Centralized text configuration for all steps
     const STEP_CONFIG: Record<
@@ -137,11 +170,17 @@ export function KeylessWalletShareCardsView({
       isSupportCloudBackup,
       cloudAccountInfo,
     };
-  }, [mode]);
+  }, [isRestoreMode]);
 
   // Helper to create a step from config
   const createStep = useCallback(
-    (id: ECreationStepId, state: ECreationStepState): ICreationStep => ({
+    ({
+      id,
+      state,
+    }: {
+      id: ECreationStepId;
+      state: ECreationStepState;
+    }): ICreationStep => ({
       id,
       securityKeyType:
         keylessWalletCreationConfig?.STEP_CONFIG?.[id].securityKeyType,
@@ -158,49 +197,68 @@ export function KeylessWalletShareCardsView({
 
   // Build initial steps - all start in Idle state except first one
   const buildInitialSteps = useCallback((): ICreationStep[] => {
-    const isRestoreMode =
-      mode === EOnboardingV2KeylessWalletCreationMode.Restore;
-    const isViewMode = mode === EOnboardingV2KeylessWalletCreationMode.View;
     if (isRestoreMode || isViewMode) {
       // Restore/View mode: all steps start with Info state (all visible at once)
       return [
-        createStep(ECreationStepId.DeviceShare, ECreationStepState.Info),
-        createStep(ECreationStepId.CloudShare, ECreationStepState.Info),
-        createStep(ECreationStepId.AuthShare, ECreationStepState.Info),
+        createStep({
+          id: ECreationStepId.DeviceShare,
+          state: ECreationStepState.Info,
+        }),
+        createStep({
+          id: ECreationStepId.CloudShare,
+          state: ECreationStepState.Info,
+        }),
+        createStep({
+          id: ECreationStepId.AuthShare,
+          state: ECreationStepState.Info,
+        }),
       ];
     }
     // Create mode: first step starts with Info, others are Idle
     return [
-      createStep(ECreationStepId.DeviceShare, ECreationStepState.Info), // First step starts with Info state
-      createStep(ECreationStepId.CloudShare, ECreationStepState.Idle),
-      createStep(ECreationStepId.AuthShare, ECreationStepState.Idle),
+      createStep({
+        id: ECreationStepId.DeviceShare,
+        state: ECreationStepState.Info,
+      }), // First step starts with Info state
+      createStep({
+        id: ECreationStepId.CloudShare,
+        state: ECreationStepState.Idle,
+      }),
+      createStep({
+        id: ECreationStepId.AuthShare,
+        state: ECreationStepState.Idle,
+      }),
     ];
-  }, [createStep, mode]);
+  }, [createStep, isRestoreMode, isViewMode]);
 
   const [steps, setSteps] = useState<ICreationStep[]>(buildInitialSteps);
   const [successCount, setSuccessCount] = useState(0);
 
-  const isRestoreMode = mode === EOnboardingV2KeylessWalletCreationMode.Restore;
-  const isViewMode = mode === EOnboardingV2KeylessWalletCreationMode.View;
-
   // Check if all steps are complete
-  let isCreationComplete = false;
-  if (isViewMode) {
-    // View mode: disable auto-complete
-    isCreationComplete = false;
-  } else if (isRestoreMode) {
-    isCreationComplete =
-      successCount >= 2 && restoreValidationResultRef.current !== undefined;
-  } else {
-    isCreationComplete = successCount >= 3;
-  }
+  const isCreationComplete = useMemo(() => {
+    if (isViewMode) {
+      // View mode: disable auto-complete
+      return false;
+    }
+    if (isRestoreMode) {
+      return (
+        successCount >= 2 && restoreValidationResultRef.current !== undefined
+      );
+    }
+    return successCount >= 3;
+  }, [isViewMode, isRestoreMode, successCount]);
+
   // Helper: Update step state
   const updateStepState = useCallback(
-    (
-      stepId: ECreationStepId,
-      newState: ECreationStepState,
-      infoMessage?: string,
-    ) => {
+    ({
+      stepId,
+      newState,
+      infoMessage,
+    }: {
+      stepId: ECreationStepId;
+      newState: ECreationStepState;
+      infoMessage?: string;
+    }) => {
       setSteps((prev) => {
         const newSteps = [...prev];
         const stepIndex = newSteps.findIndex((s) => s.id === stepId);
@@ -234,97 +292,55 @@ export function KeylessWalletShareCardsView({
 
   // Helper: Move to next step
   const moveToNextStep = useCallback(
-    (completedStepId: ECreationStepId) => {
-      const stepOrder = [
-        ECreationStepId.DeviceShare,
-        ECreationStepId.CloudShare,
-        ECreationStepId.AuthShare,
-      ];
-      const currentIndex = stepOrder.indexOf(completedStepId);
-      if (currentIndex < stepOrder.length - 1) {
-        const nextStepId = stepOrder[currentIndex + 1];
-        updateStepState(nextStepId, ECreationStepState.Info);
+    ({ completedStepId }: { completedStepId: ECreationStepId }) => {
+      const currentIndex = STEP_ORDER.indexOf(completedStepId);
+      if (currentIndex < STEP_ORDER.length - 1) {
+        const nextStepId = STEP_ORDER[currentIndex + 1];
+        updateStepState({
+          stepId: nextStepId,
+          newState: ECreationStepState.Info,
+        });
       }
     },
     [updateStepState],
   );
-
-  // Step 1: Save Device Share
-  const handleDeviceShareSave = useCallback(async () => {
-    if (!packsRef.current) {
-      updateStepState(
-        ECreationStepId.DeviceShare,
-        ECreationStepState.Error,
-        'Packs not generated. Please wait.',
-      );
-      return;
-    }
-
-    updateStepState(ECreationStepId.DeviceShare, ECreationStepState.InProgress);
-
-    try {
-      // Prompt user for biometric/passcode verification to save device share
-      await backgroundApiProxy.servicePassword.promptPasswordVerify();
-
-      const result = await saveDevicePack({
-        devicePack: packsRef.current.deviceKeyPack,
-      });
-
-      if (result.success) {
-        // Store packSetId for later use in auth pack upload
-        devicePackSetIdRef.current = result.packSetInFromDevicePack;
-        updateStepState(
-          ECreationStepId.DeviceShare,
-          ECreationStepState.Success,
-        );
-        moveToNextStep(ECreationStepId.DeviceShare);
-      } else {
-        throw new OneKeyLocalError('Failed to save device pack');
+  // Helper: Reset other packs when validation fails
+  const resetOtherPacksOnValidationFailure = useCallback(
+    ({ currentStepId }: { currentStepId: ECreationStepId }) => {
+      if (
+        currentStepId !== ECreationStepId.DeviceShare &&
+        restoreDevicePackRef.current
+      ) {
+        restoreDevicePackRef.current = null;
+        updateStepState({
+          stepId: ECreationStepId.DeviceShare,
+          newState: ECreationStepState.Info,
+        });
       }
-    } catch {
-      // User cancelled or verification failed
-      updateStepState(
-        ECreationStepId.DeviceShare,
-        ECreationStepState.Info,
-        'Device key not saved. Tap to try again.',
-      );
-    }
-  }, [updateStepState, moveToNextStep, saveDevicePack]);
-
-  // Step 2: Save Cloud Share
-  const handleCloudShareSave = useCallback(async () => {
-    if (!packsRef.current) {
-      updateStepState(
-        ECreationStepId.CloudShare,
-        ECreationStepState.Error,
-        'Packs not generated. Please wait.',
-      );
-      return;
-    }
-
-    updateStepState(ECreationStepId.CloudShare, ECreationStepState.InProgress);
-
-    try {
-      const result = await uploadCloudPack({
-        cloudPack: packsRef.current.cloudKeyPack,
-      });
-
-      if (result.success) {
-        // Store packSetId for later use in auth pack upload
-        cloudPackSetIdRef.current = result.packSetInFromCloudPack;
-        updateStepState(ECreationStepId.CloudShare, ECreationStepState.Success);
-        moveToNextStep(ECreationStepId.CloudShare);
-      } else {
-        throw new OneKeyLocalError('Failed to upload cloud pack');
+      if (
+        currentStepId !== ECreationStepId.CloudShare &&
+        restoreCloudPackRef.current
+      ) {
+        restoreCloudPackRef.current = null;
+        updateStepState({
+          stepId: ECreationStepId.CloudShare,
+          newState: ECreationStepState.Info,
+        });
       }
-    } catch {
-      updateStepState(
-        ECreationStepId.CloudShare,
-        ECreationStepState.Info,
-        'Cloud backup failed. Tap to try again.',
-      );
-    }
-  }, [updateStepState, moveToNextStep, uploadCloudPack]);
+      if (
+        currentStepId !== ECreationStepId.AuthShare &&
+        restoreAuthPackRef.current
+      ) {
+        restoreAuthPackRef.current = null;
+        updateStepState({
+          stepId: ECreationStepId.AuthShare,
+          newState: ECreationStepState.Info,
+        });
+      }
+      restoreValidationResultRef.current = undefined;
+    },
+    [updateStepState],
+  );
 
   // Check restore validation when we have 2+ packs
   const checkRestoreValidation = useCallback(async () => {
@@ -334,20 +350,21 @@ export function KeylessWalletShareCardsView({
       authKeyPack?: IAuthKeyPack;
     } = {};
 
-    if (devicePackRef.current) {
-      packs.deviceKeyPack = devicePackRef.current;
+    if (restoreDevicePackRef.current) {
+      packs.deviceKeyPack = restoreDevicePackRef.current;
     }
-    if (cloudPackRef.current) {
-      packs.cloudKeyPack = cloudPackRef.current;
+    if (restoreCloudPackRef.current) {
+      packs.cloudKeyPack = restoreCloudPackRef.current;
     }
-    if (authPackRef.current) {
-      packs.authKeyPack = authPackRef.current;
+    if (restoreAuthPackRef.current) {
+      packs.authKeyPack = restoreAuthPackRef.current;
     }
 
-    const packCount =
-      (packs.deviceKeyPack ? 1 : 0) +
-      (packs.cloudKeyPack ? 1 : 0) +
-      (packs.authKeyPack ? 1 : 0);
+    const packCount = getPackCount({
+      restoreDevicePackRef,
+      restoreCloudPackRef,
+      restoreAuthPackRef,
+    });
 
     if (packCount >= 2) {
       try {
@@ -370,229 +387,289 @@ export function KeylessWalletShareCardsView({
     return false;
   }, []);
 
+  // Generic restore handler
+  const handleRestoreShare = useCallback(
+    async ({
+      stepId,
+      getPack,
+      setPackRef,
+      setPackSetIdRef,
+      errorMessage,
+    }: {
+      stepId: ECreationStepId;
+      getPack: () => Promise<{
+        pack: IDeviceKeyPack | ICloudKeyPack | IAuthKeyPack;
+        packSetId: string;
+      } | null>;
+      setPackRef: (
+        pack: IDeviceKeyPack | ICloudKeyPack | IAuthKeyPack | null,
+      ) => void;
+      setPackSetIdRef: (id: string | null) => void;
+      errorMessage: string;
+    }) => {
+      updateStepState({ stepId, newState: ECreationStepState.InProgress });
+
+      try {
+        const result = await getPack();
+        if (!result) {
+          throw new OneKeyLocalError(errorMessage);
+        }
+
+        setPackRef(result.pack);
+        setPackSetIdRef(result.packSetId);
+
+        const isValid = await checkRestoreValidation();
+        if (isValid) {
+          updateStepState({ stepId, newState: ECreationStepState.Success });
+          return;
+        }
+
+        // If we have 2 packs but validation failed, show error
+        if (
+          getPackCount({
+            restoreDevicePackRef,
+            restoreCloudPackRef,
+            restoreAuthPackRef,
+          }) >= 2
+        ) {
+          updateStepState({
+            stepId,
+            newState: ECreationStepState.Error,
+            infoMessage:
+              'Cannot restore wallet with these packs. Please try other packs.',
+          });
+          resetOtherPacksOnValidationFailure({ currentStepId: stepId });
+          return;
+        }
+
+        // Only one pack so far, mark as success
+        updateStepState({ stepId, newState: ECreationStepState.Success });
+      } catch {
+        updateStepState({
+          stepId,
+          newState: ECreationStepState.Info,
+          infoMessage: errorMessage,
+        });
+      }
+    },
+    [
+      updateStepState,
+      checkRestoreValidation,
+      resetOtherPacksOnValidationFailure,
+    ],
+  );
+
+  // Generic save handler
+  const handleSaveShare = useCallback(
+    async ({
+      stepId,
+      validateBeforeSave,
+      saveFunction,
+      onSuccess,
+      errorMessage,
+      shouldMoveToNextStep = true,
+    }: {
+      stepId: ECreationStepId;
+      validateBeforeSave?: () => Promise<void> | void;
+      saveFunction: () => Promise<{ success: boolean; [key: string]: unknown }>;
+      onSuccess: (result: { success: boolean; [key: string]: unknown }) => void;
+      errorMessage: string;
+      shouldMoveToNextStep?: boolean;
+    }) => {
+      if (!generatePacksRef.current) {
+        updateStepState({
+          stepId,
+          newState: ECreationStepState.Error,
+          infoMessage: 'Packs not generated. Please wait.',
+        });
+        return;
+      }
+
+      if (validateBeforeSave) {
+        try {
+          await validateBeforeSave();
+        } catch (error) {
+          // Validation failed, error should be handled by validateBeforeSave
+          return;
+        }
+      }
+
+      updateStepState({ stepId, newState: ECreationStepState.InProgress });
+
+      try {
+        const result = await saveFunction();
+
+        if (result.success) {
+          onSuccess(result);
+          updateStepState({ stepId, newState: ECreationStepState.Success });
+          if (shouldMoveToNextStep) {
+            moveToNextStep({ completedStepId: stepId });
+          }
+        } else {
+          throw new OneKeyLocalError(`Failed to save ${stepId}`);
+        }
+      } catch {
+        updateStepState({
+          stepId,
+          newState: ECreationStepState.Info,
+          infoMessage: errorMessage,
+        });
+      }
+    },
+    [updateStepState, moveToNextStep],
+  );
+
+  // Step 1: Save Device Share
+  const handleDeviceShareSave = useCallback(async () => {
+    await handleSaveShare({
+      stepId: ECreationStepId.DeviceShare,
+      validateBeforeSave: async () => {
+        // Prompt user for biometric/passcode verification to save device share
+        await backgroundApiProxy.servicePassword.promptPasswordVerify();
+      },
+      saveFunction: async () => {
+        if (!generatePacksRef.current) {
+          throw new OneKeyLocalError('Packs not generated');
+        }
+        return saveDevicePack({
+          devicePack: generatePacksRef.current.deviceKeyPack,
+        });
+      },
+      onSuccess: (result) => {
+        devicePackSetIdRef.current = result.packSetInFromDevicePack as string;
+      },
+      errorMessage: 'Device key not saved. Tap to try again.',
+    });
+  }, [handleSaveShare, saveDevicePack]);
+
+  // Step 2: Save Cloud Share
+  const handleCloudShareSave = useCallback(async () => {
+    await handleSaveShare({
+      stepId: ECreationStepId.CloudShare,
+      saveFunction: async () => {
+        if (!generatePacksRef.current) {
+          throw new OneKeyLocalError('Packs not generated');
+        }
+        return uploadCloudPack({
+          cloudPack: generatePacksRef.current.cloudKeyPack,
+        });
+      },
+      onSuccess: (result) => {
+        cloudPackSetIdRef.current = result.packSetInFromCloudPack as string;
+      },
+      errorMessage: 'Cloud backup failed. Tap to try again.',
+    });
+  }, [handleSaveShare, uploadCloudPack]);
+
   // Restore handlers
   const handleDeviceShareRestore = useCallback(async () => {
-    updateStepState(ECreationStepId.DeviceShare, ECreationStepState.InProgress);
-
-    try {
-      const devicePack = await getDevicePack();
-      if (!devicePack) {
-        throw new OneKeyLocalError('Failed to restore device pack');
-      }
-
-      devicePackRef.current = devicePack;
-      devicePackSetIdRef.current = devicePack.packSetId;
-
-      const isValid = await checkRestoreValidation();
-      if (isValid) {
-        updateStepState(
-          ECreationStepId.DeviceShare,
-          ECreationStepState.Success,
-        );
-        return;
-      }
-      // If we have 2 packs but validation failed, show error
-      if (
-        (devicePackRef.current ? 1 : 0) +
-          (cloudPackRef.current ? 1 : 0) +
-          (authPackRef.current ? 1 : 0) >=
-        2
-      ) {
-        updateStepState(
-          ECreationStepId.DeviceShare,
-          ECreationStepState.Error,
-          'Cannot restore wallet with these packs. Please try other packs.',
-        );
-        // Reset other successful steps that might be part of invalid combination
-        // Need to reset state and success count for other steps
-        if (cloudPackRef.current) {
-          cloudPackRef.current = null;
-          updateStepState(ECreationStepId.CloudShare, ECreationStepState.Info);
-        }
-        if (authPackRef.current) {
-          authPackRef.current = null;
-          updateStepState(ECreationStepId.AuthShare, ECreationStepState.Info);
-        }
-        restoreValidationResultRef.current = undefined;
-        return;
-      }
-      updateStepState(ECreationStepId.DeviceShare, ECreationStepState.Success);
-    } catch {
-      updateStepState(
-        ECreationStepId.DeviceShare,
-        ECreationStepState.Info,
-        'Device key restore failed. Tap to try again.',
-      );
-    }
-  }, [updateStepState, getDevicePack, checkRestoreValidation]);
+    await handleRestoreShare({
+      stepId: ECreationStepId.DeviceShare,
+      getPack: async () => {
+        const pack = await getDevicePack();
+        if (!pack) return null;
+        return { pack, packSetId: pack.packSetId };
+      },
+      setPackRef: (pack) => {
+        restoreDevicePackRef.current = pack as IDeviceKeyPack | null;
+      },
+      setPackSetIdRef: (id) => {
+        devicePackSetIdRef.current = id;
+      },
+      errorMessage: 'Device key restore failed. Tap to try again.',
+    });
+  }, [handleRestoreShare, getDevicePack]);
 
   const handleCloudShareRestore = useCallback(async () => {
-    updateStepState(ECreationStepId.CloudShare, ECreationStepState.InProgress);
-
-    try {
-      const cloudPack = await getCloudPack();
-      if (!cloudPack) {
-        throw new OneKeyLocalError('Failed to restore cloud pack');
-      }
-
-      cloudPackRef.current = cloudPack;
-      cloudPackSetIdRef.current = cloudPack.packSetId;
-
-      const isValid = await checkRestoreValidation();
-      if (isValid) {
-        updateStepState(ECreationStepId.CloudShare, ECreationStepState.Success);
-        return;
-      }
-      // If we have 2 packs but validation failed, show error
-      if (
-        (devicePackRef.current ? 1 : 0) +
-          (cloudPackRef.current ? 1 : 0) +
-          (authPackRef.current ? 1 : 0) >=
-        2
-      ) {
-        updateStepState(
-          ECreationStepId.CloudShare,
-          ECreationStepState.Error,
-          'Cannot restore wallet with these packs. Please try other packs.',
-        );
-        // Reset other successful steps that might be part of invalid combination
-        if (devicePackRef.current) {
-          devicePackRef.current = null;
-          updateStepState(ECreationStepId.DeviceShare, ECreationStepState.Info);
-        }
-        if (authPackRef.current) {
-          authPackRef.current = null;
-          updateStepState(ECreationStepId.AuthShare, ECreationStepState.Info);
-        }
-        restoreValidationResultRef.current = undefined;
-        return;
-      }
-      updateStepState(ECreationStepId.CloudShare, ECreationStepState.Success);
-    } catch {
-      updateStepState(
-        ECreationStepId.CloudShare,
-        ECreationStepState.Info,
-        'Cloud backup restore failed. Tap to try again.',
-      );
-    }
-  }, [updateStepState, getCloudPack, checkRestoreValidation]);
+    await handleRestoreShare({
+      stepId: ECreationStepId.CloudShare,
+      getPack: async () => {
+        const pack = await getCloudPack();
+        if (!pack) return null;
+        return { pack, packSetId: pack.packSetId };
+      },
+      setPackRef: (pack) => {
+        restoreCloudPackRef.current = pack as ICloudKeyPack | null;
+      },
+      setPackSetIdRef: (id) => {
+        cloudPackSetIdRef.current = id;
+      },
+      errorMessage: 'Cloud backup restore failed. Tap to try again.',
+    });
+  }, [handleRestoreShare, getCloudPack]);
 
   const handleAuthShareRestore = useCallback(async () => {
     Toast.success({
       title: 'handleAuthShareRestore',
     });
-    updateStepState(ECreationStepId.AuthShare, ECreationStepState.InProgress);
-    let authPack: IAuthKeyPack | null = null;
-
-    try {
-      // Try cache first, then server
-      authPack = await getAuthPackFromCache();
-    } catch (error) {
-      console.error('Failed to get auth pack from cache:', error);
-    }
-
-    try {
-      if (!authPack) {
-        authPack = await getAuthPackFromServer();
-      }
-
-      if (!authPack) {
-        throw new OneKeyLocalError('Failed to restore auth pack');
-      }
-
-      authPackRef.current = authPack;
-      authPackSetIdRef.current = authPack.packSetId;
-
-      const isValid = await checkRestoreValidation();
-      if (isValid) {
-        updateStepState(ECreationStepId.AuthShare, ECreationStepState.Success);
-        return;
-      }
-      // If we have 2 packs but validation failed, show error
-      if (
-        (devicePackRef.current ? 1 : 0) +
-          (cloudPackRef.current ? 1 : 0) +
-          (authPackRef.current ? 1 : 0) >=
-        2
-      ) {
-        updateStepState(
-          ECreationStepId.AuthShare,
-          ECreationStepState.Error,
-          'Cannot restore wallet with these packs. Please try other packs.',
-        );
-        // Reset other successful steps that might be part of invalid combination
-        if (devicePackRef.current) {
-          devicePackRef.current = null;
-          updateStepState(ECreationStepId.DeviceShare, ECreationStepState.Info);
+    await handleRestoreShare({
+      stepId: ECreationStepId.AuthShare,
+      getPack: async () => {
+        // Try cache first, then server
+        let authPack: IAuthKeyPack | null = null;
+        try {
+          authPack = await getAuthPackFromCache();
+        } catch (error) {
+          console.error('Failed to get auth pack from cache:', error);
         }
-        if (cloudPackRef.current) {
-          cloudPackRef.current = null;
-          updateStepState(ECreationStepId.CloudShare, ECreationStepState.Info);
+
+        if (!authPack) {
+          authPack = await getAuthPackFromServer();
         }
-        restoreValidationResultRef.current = undefined;
-        return;
-      }
-      updateStepState(ECreationStepId.AuthShare, ECreationStepState.Success);
-    } catch {
-      updateStepState(
-        ECreationStepId.AuthShare,
-        ECreationStepState.Info,
-        'Server restore failed. Tap to try again.',
-      );
-    }
-  }, [
-    updateStepState,
-    getAuthPackFromCache,
-    getAuthPackFromServer,
-    checkRestoreValidation,
-  ]);
+
+        if (!authPack) return null;
+        return { pack: authPack, packSetId: authPack.packSetId };
+      },
+      setPackRef: (pack) => {
+        restoreAuthPackRef.current = pack as IAuthKeyPack | null;
+      },
+      setPackSetIdRef: (id) => {
+        authPackSetIdRef.current = id;
+      },
+      errorMessage: 'Server restore failed. Tap to try again.',
+    });
+  }, [handleRestoreShare, getAuthPackFromCache, getAuthPackFromServer]);
 
   // Step 3: Save Auth Share
   const handleAuthShareSave = useCallback(async () => {
-    if (!packsRef.current) {
-      updateStepState(
-        ECreationStepId.AuthShare,
-        ECreationStepState.Error,
-        'Packs not generated. Please wait.',
-      );
-      return;
-    }
-
-    if (!devicePackSetIdRef.current || !cloudPackSetIdRef.current) {
-      updateStepState(
-        ECreationStepId.AuthShare,
-        ECreationStepState.Error,
-        'Please complete device and cloud steps first.',
-      );
-      return;
-    }
-
-    updateStepState(ECreationStepId.AuthShare, ECreationStepState.InProgress);
-
-    try {
-      const result = await uploadAuthPack({
-        authPack: packsRef.current.authKeyPack,
-        packSetIdFromCloudPack: cloudPackSetIdRef.current,
-        packSetIdFromDevicePack: devicePackSetIdRef.current,
-      });
-
-      if (result.success) {
-        updateStepState(ECreationStepId.AuthShare, ECreationStepState.Success);
-      } else {
-        throw new OneKeyLocalError('Failed to upload auth pack');
-      }
-    } catch {
-      updateStepState(
-        ECreationStepId.AuthShare,
-        ECreationStepState.Info,
-        'Server save failed. Tap to try again.',
-      );
-    }
-  }, [updateStepState, uploadAuthPack]);
+    await handleSaveShare({
+      stepId: ECreationStepId.AuthShare,
+      validateBeforeSave: () => {
+        if (!devicePackSetIdRef.current || !cloudPackSetIdRef.current) {
+          updateStepState({
+            stepId: ECreationStepId.AuthShare,
+            newState: ECreationStepState.Error,
+            infoMessage: 'Please complete device and cloud steps first.',
+          });
+          throw new OneKeyLocalError(
+            'Please complete device and cloud steps first.',
+          );
+        }
+      },
+      saveFunction: async () => {
+        if (!generatePacksRef.current) {
+          throw new OneKeyLocalError('Packs not generated');
+        }
+        if (!cloudPackSetIdRef.current || !devicePackSetIdRef.current) {
+          throw new OneKeyLocalError('Missing pack set IDs');
+        }
+        return uploadAuthPack({
+          authPack: generatePacksRef.current.authKeyPack,
+          packSetIdFromCloudPack: cloudPackSetIdRef.current,
+          packSetIdFromDevicePack: devicePackSetIdRef.current,
+        });
+      },
+      onSuccess: () => {
+        // No additional action needed on success for auth share
+      },
+      errorMessage: 'Server save failed. Tap to try again.',
+      shouldMoveToNextStep: false, // Don't move to next step for auth share
+    });
+  }, [handleSaveShare, updateStepState, uploadAuthPack]);
 
   // Handle step action based on step type and mode
   const handleStepAction = useCallback(
-    (stepId: ECreationStepId) => {
+    ({ stepId }: { stepId: ECreationStepId }) => {
       if (isRestoreMode || isViewMode) {
         if (stepId === ECreationStepId.DeviceShare) {
           void handleDeviceShareRestore();
@@ -625,7 +702,7 @@ export function KeylessWalletShareCardsView({
 
   // Get button text from config
   const getButtonText = useCallback(
-    (stepId: ECreationStepId) => {
+    ({ stepId }: { stepId: ECreationStepId }) => {
       if (isViewMode) {
         return 'Check';
       }
@@ -636,6 +713,17 @@ export function KeylessWalletShareCardsView({
     },
     [keylessWalletCreationConfig?.STEP_CONFIG, isViewMode],
   );
+
+  // Memoize secondary action handler for DeviceShare in view mode
+  const handleDeviceShareViewModeSecondaryAction = useCallback(() => {
+    navigation.pushModal(EModalRoutes.PrimeModal, {
+      screen: EPrimePages.PrimeTransfer,
+      params: {
+        defaultTab: 'enter-link',
+        transferType: EPrimeTransferDataType.keylessWallet,
+      },
+    });
+  }, [navigation]);
 
   // Handle "Complete Setup" - navigate to finalize wallet setup
   const handleCompleteSetup = useCallback(async () => {
@@ -649,10 +737,10 @@ export function KeylessWalletShareCardsView({
     if (isRestoreMode) {
       try {
         // Save device pack if available
-        if (devicePackRef.current) {
+        if (restoreDevicePackRef.current) {
           try {
             await saveDevicePack({
-              devicePack: devicePackRef.current,
+              devicePack: restoreDevicePackRef.current,
             });
           } catch (error) {
             console.error('Failed to save device pack:', error);
@@ -694,7 +782,7 @@ export function KeylessWalletShareCardsView({
 
     const generatePacksOnMount = async () => {
       // Skip if packs already exist
-      if (packsRef.current) {
+      if (generatePacksRef.current) {
         return;
       }
 
@@ -706,7 +794,7 @@ export function KeylessWalletShareCardsView({
       isGeneratingPacksRef.current = true;
       try {
         const packs = await generatePacks();
-        packsRef.current = packs;
+        generatePacksRef.current = packs;
       } catch (error) {
         // Handle error silently or show error state if needed
         console.error('Failed to generate packs:', error);
@@ -732,100 +820,56 @@ export function KeylessWalletShareCardsView({
         return;
       }
 
-      // Handle deviceKeyPack restore
-      void (async () => {
-        try {
-          updateStepState(
-            ECreationStepId.DeviceShare,
-            ECreationStepState.InProgress,
-          );
-
-          // Save deviceKeyPack to ref
-          devicePackRef.current = receivedDeviceKeyPack;
-          devicePackSetIdRef.current = receivedDeviceKeyPack.packSetId;
-
-          // Check if we can restore with current packs
-          const isValid = await checkRestoreValidation();
-          if (isValid) {
-            updateStepState(
-              ECreationStepId.DeviceShare,
-              ECreationStepState.Success,
-            );
-            return;
-          }
-
-          // If we have 2 packs but validation failed, show error
-          if (
-            (devicePackRef.current ? 1 : 0) +
-              (cloudPackRef.current ? 1 : 0) +
-              (authPackRef.current ? 1 : 0) >=
-            2
-          ) {
-            updateStepState(
-              ECreationStepId.DeviceShare,
-              ECreationStepState.Error,
-              'Cannot restore wallet with these packs. Please try other packs.',
-            );
-            // Reset other successful steps that might be part of invalid combination
-            if (cloudPackRef.current) {
-              cloudPackRef.current = null;
-              updateStepState(
-                ECreationStepId.CloudShare,
-                ECreationStepState.Info,
-              );
-            }
-            if (authPackRef.current) {
-              authPackRef.current = null;
-              updateStepState(
-                ECreationStepId.AuthShare,
-                ECreationStepState.Info,
-              );
-            }
-            restoreValidationResultRef.current = undefined;
-            return;
-          }
-
-          // Only one pack so far, mark as success
-          updateStepState(
-            ECreationStepId.DeviceShare,
-            ECreationStepState.Success,
-          );
-        } catch (error) {
-          console.error('Failed to restore deviceKeyPack:', error);
-          updateStepState(
-            ECreationStepId.DeviceShare,
-            ECreationStepState.Info,
-            'Device key restore failed. Tap to try again.',
-          );
-        }
-      })();
+      // Handle deviceKeyPack restore using the generic handler
+      void handleRestoreShare({
+        stepId: ECreationStepId.DeviceShare,
+        getPack: async () => {
+          return {
+            pack: receivedDeviceKeyPack,
+            packSetId: receivedDeviceKeyPack.packSetId,
+          };
+        },
+        setPackRef: (pack) => {
+          restoreDevicePackRef.current = pack as IDeviceKeyPack | null;
+        },
+        setPackSetIdRef: (id) => {
+          devicePackSetIdRef.current = id;
+        },
+        errorMessage: 'Device key restore failed. Tap to try again.',
+      });
     };
 
     appEventBus.on(EAppEventBusNames.PrimeTransferDataReceived, fn);
     return () => {
       appEventBus.off(EAppEventBusNames.PrimeTransferDataReceived, fn);
     };
-  }, [isRestoreMode, updateStepState, checkRestoreValidation]);
+  }, [isRestoreMode, handleRestoreShare]);
 
   // Clear packs on component cleanup
   useEffect(() => {
     return () => {
-      packsRef.current = null;
+      generatePacksRef.current = null;
       devicePackSetIdRef.current = null;
       cloudPackSetIdRef.current = null;
       authPackSetIdRef.current = null;
-      devicePackRef.current = null;
-      cloudPackRef.current = null;
-      authPackRef.current = null;
+      restoreDevicePackRef.current = null;
+      restoreCloudPackRef.current = null;
+      restoreAuthPackRef.current = null;
       restoreValidationResultRef.current = undefined;
     };
   }, []);
 
   // Get visible steps (all steps are always visible in creation flow)
-  const visibleSteps = useMemo(() => steps, [steps]);
+  // No need for useMemo here as steps is already a state variable
+  const visibleSteps = steps;
 
   return (
-    <>
+    <OnboardingLayout.ConstrainedContent
+      gap="$10"
+      $platform-native={{
+        py: '$5',
+      }}
+    >
       <YStack gap="$2">
         <SizableText color="$textDisabled">
           Secure by{' '}
@@ -842,8 +886,8 @@ export function KeylessWalletShareCardsView({
           step,
           index,
           isLastStep,
-          onStepAction: () => handleStepAction(step.id),
-          buttonText: getButtonText(step.id),
+          onStepAction: () => handleStepAction({ stepId: step.id }),
+          buttonText: getButtonText({ stepId: step.id }),
         };
 
         if (step.id === ECreationStepId.DeviceShare) {
@@ -853,15 +897,7 @@ export function KeylessWalletShareCardsView({
             onSecondaryAction = receiveDevicePackByQrCode;
             secondaryButtonText = 'Restore from another device';
           } else if (isViewMode) {
-            onSecondaryAction = () => {
-              navigation.pushModal(EModalRoutes.PrimeModal, {
-                screen: EPrimePages.PrimeTransfer,
-                params: {
-                  defaultTab: 'enter-link',
-                  transferType: EPrimeTransferDataType.keylessWallet,
-                },
-              });
-            };
+            onSecondaryAction = handleDeviceShareViewModeSecondaryAction;
             secondaryButtonText = '发送到其他设备';
           }
           return (
@@ -881,6 +917,6 @@ export function KeylessWalletShareCardsView({
         }
         return null;
       })}
-    </>
+    </OnboardingLayout.ConstrainedContent>
   );
 }
