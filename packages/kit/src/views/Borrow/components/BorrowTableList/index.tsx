@@ -5,6 +5,7 @@ import type {
 } from '@onekeyhq/kit/src/components/ListView/TableList';
 import { TableList } from '@onekeyhq/kit/src/components/ListView/TableList';
 
+import { ActionField } from './ActionField';
 import { AmountField } from './AmountField';
 import { AssetField } from './AssetField';
 import { BorrowAPYField } from './BorrowAPYField';
@@ -50,6 +51,7 @@ const BorrowTableList = <T,>({
 
 export {
   BorrowTableList,
+  ActionField,
   AssetField,
   AmountField,
   BorrowAPYField,
