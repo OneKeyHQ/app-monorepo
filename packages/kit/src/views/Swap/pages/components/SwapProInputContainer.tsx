@@ -39,11 +39,13 @@ import type { IToken } from '../../../Market/MarketDetailV2/components/SwapPanel
 interface ISwapProInputContainerProps {
   defaultTokens: IToken[];
   isLoading?: boolean;
+  cleanInputAmount: () => void;
 }
 
 const SwapProInputContainer = ({
   defaultTokens,
   isLoading,
+  cleanInputAmount,
 }: ISwapProInputContainerProps) => {
   const intl = useIntl();
   const [swapProDirection] = useSwapProDirectionAtom();
@@ -78,10 +80,11 @@ const SwapProInputContainer = ({
   );
   const handleTokenSelect = useCallback(
     (token: IToken) => {
+      cleanInputAmount();
       setSwapProUseSelectBuyToken(token);
       setIsPopoverOpen(false);
     },
-    [setSwapProUseSelectBuyToken],
+    [setSwapProUseSelectBuyToken, cleanInputAmount],
   );
   const isTokenSelectorVisible =
     swapProDirection === ESwapDirection.BUY && defaultTokens.length > 1;
