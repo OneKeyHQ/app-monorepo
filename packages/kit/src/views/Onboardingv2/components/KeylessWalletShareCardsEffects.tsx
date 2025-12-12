@@ -1,3 +1,4 @@
+import type { MutableRefObject } from 'react';
 import { useEffect } from 'react';
 
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
@@ -21,7 +22,7 @@ export function KeylessWalletShareCardsEffects(props: {
 
   isRestoreOrViewMode: boolean;
   generatePacks: () => Promise<IKeylessWalletPacks>;
-  refs: React.MutableRefObject<IKeylessWalletShareCardsRefs>;
+  refs: MutableRefObject<IKeylessWalletShareCardsRefs>;
 
   isRestoreMode: boolean;
   handleRestoreOrCheckShare: IKeylessWalletShareCardsCardContextValue['handleRestoreOrCheckShare'];

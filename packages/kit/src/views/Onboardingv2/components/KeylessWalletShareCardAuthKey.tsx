@@ -6,11 +6,12 @@ import { EOnboardingV2KeylessWalletCreationMode } from '@onekeyhq/shared/src/rou
 
 import { useKeylessWallet } from '../../../components/KeylessWallet/useKeylessWallet';
 
-import { useKeylessWalletShareCardsCardContext } from './KeylessWalletShareCardsCardContext';
-import type { IKeylessWalletShareCardProps } from './KeylessWalletShareCardsCardContext';
-import type { ICreationStep } from './keylessWalletOnboardingTypes';
 import { ECreationStepId } from './keylessWalletOnboardingTypes';
 import { KeylessWalletShareCard } from './KeylessWalletShareCard';
+import { useKeylessWalletShareCardsCardContext } from './KeylessWalletShareCardsCardContext';
+
+import type { ICreationStep } from './keylessWalletOnboardingTypes';
+import type { IKeylessWalletShareCardProps } from './KeylessWalletShareCardsCardContext';
 
 export function KeylessWalletShareCardAuthKey({
   step,
@@ -28,7 +29,9 @@ export function KeylessWalletShareCardAuthKey({
       shouldMoveToNextStep: false,
       fn: async ({ generatedPacks }) => {
         if (!refs.current.packSetIds.device || !refs.current.packSetIds.cloud) {
-          throw new OneKeyLocalError('Please complete device and cloud steps first.');
+          throw new OneKeyLocalError(
+            'Please complete device and cloud steps first.',
+          );
         }
         const result = await uploadAuthPack({
           authPack: generatedPacks.authKeyPack,
@@ -62,7 +65,9 @@ export function KeylessWalletShareCardAuthKey({
           authPack = await getAuthPackFromServer();
         }
         if (!authPack) {
-          throw new OneKeyLocalError('Server restore failed. Tap to try again.');
+          throw new OneKeyLocalError(
+            'Server restore failed. Tap to try again.',
+          );
         }
         return { pack: authPack, packSetId: authPack.packSetId };
       },

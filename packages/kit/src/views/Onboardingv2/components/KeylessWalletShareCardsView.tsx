@@ -93,8 +93,6 @@ export function KeylessWalletShareCardsView({
     })),
   );
 
-  const steps = stepStates;
-
   const successCount = useMemo(
     () =>
       stepStates.filter((s) => s.state === ECreationStepState.Success).length,
@@ -170,6 +168,7 @@ export function KeylessWalletShareCardsView({
         refs.current.restorePacks.device
       ) {
         refs.current.restorePacks.device = null;
+        refs.current.packSetIds.device = null;
         updateStepState({
           stepId: ECreationStepId.DeviceShare,
           newState: ECreationStepState.Info,
@@ -180,6 +179,7 @@ export function KeylessWalletShareCardsView({
         refs.current.restorePacks.cloud
       ) {
         refs.current.restorePacks.cloud = null;
+        refs.current.packSetIds.cloud = null;
         updateStepState({
           stepId: ECreationStepId.CloudShare,
           newState: ECreationStepState.Info,
@@ -190,6 +190,7 @@ export function KeylessWalletShareCardsView({
         refs.current.restorePacks.auth
       ) {
         refs.current.restorePacks.auth = null;
+        refs.current.packSetIds.auth = null;
         updateStepState({
           stepId: ECreationStepId.AuthShare,
           newState: ECreationStepState.Info,
@@ -220,25 +221,27 @@ export function KeylessWalletShareCardsView({
 
     const packCount = getRestorePackCount(refs.current);
 
-    if (packCount >= 2) {
-      try {
-        const result =
-          await backgroundApiProxy.serviceKeylessWallet.restoreKeylessWalletSafe(
-            packs,
-          );
-        if (result) {
-          refs.current.restoreValidationResult = result;
-          return true;
-        }
-        // Validation failed - packs cannot restore mnemonic
-        refs.current.restoreValidationResult = undefined;
-        return false;
-      } catch (error) {
-        refs.current.restoreValidationResult = undefined;
-        return false;
-      }
+    if (packCount < 2) {
+      refs.current.restoreValidationResult = undefined;
+      return false;
     }
-    return false;
+
+    try {
+      const result =
+        await backgroundApiProxy.serviceKeylessWallet.restoreKeylessWalletSafe(
+          packs,
+        );
+      if (result) {
+        refs.current.restoreValidationResult = result;
+        return true;
+      }
+      // Validation failed - packs cannot restore mnemonic
+      refs.current.restoreValidationResult = undefined;
+      return false;
+    } catch {
+      refs.current.restoreValidationResult = undefined;
+      return false;
+    }
   }, []);
 
   const handleSaveShare = useCallback(
@@ -324,7 +327,19 @@ export function KeylessWalletShareCardsView({
       };
       try {
         const result = await fn();
-        refs.current.restorePacks[restoreTarget] = result.pack as any;
+        switch (restoreTarget) {
+          case 'device':
+            refs.current.restorePacks.device = result.pack as IDeviceKeyPack;
+            break;
+          case 'cloud':
+            refs.current.restorePacks.cloud = result.pack as ICloudKeyPack;
+            break;
+          case 'auth':
+            refs.current.restorePacks.auth = result.pack as IAuthKeyPack;
+            break;
+          default:
+            break;
+        }
         refs.current.packSetIds[restoreTarget] = result.packSetId;
 
         const isValid = await checkRestoreValidation();
@@ -408,10 +423,6 @@ export function KeylessWalletShareCardsView({
     });
   }, [navigation, isRestoreMode, saveDevicePack]);
 
-  // Get visible steps (all steps are always visible in creation flow)
-  // No need for useMemo here as steps is already a state variable
-  const visibleSteps = steps;
-
   return (
     <>
       <KeylessWalletShareCardsEffects
@@ -441,8 +452,8 @@ export function KeylessWalletShareCardsView({
             </SizableText>
           </YStack>
 
-          {visibleSteps.map((step, index) => {
-            const isLastStep = index === visibleSteps.length - 1;
+          {stepStates.map((step, index) => {
+            const isLastStep = index === stepStates.length - 1;
             if (step.id === ECreationStepId.DeviceShare) {
               return (
                 <KeylessWalletShareCardDeviceKey

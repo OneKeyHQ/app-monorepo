@@ -7,11 +7,12 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { useKeylessWallet } from '../../../components/KeylessWallet/useKeylessWallet';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 
-import { useKeylessWalletShareCardsCardContext } from './KeylessWalletShareCardsCardContext';
-import type { IKeylessWalletShareCardProps } from './KeylessWalletShareCardsCardContext';
-import type { ICreationStep } from './keylessWalletOnboardingTypes';
 import { ECreationStepId } from './keylessWalletOnboardingTypes';
 import { KeylessWalletShareCard } from './KeylessWalletShareCard';
+import { useKeylessWalletShareCardsCardContext } from './KeylessWalletShareCardsCardContext';
+
+import type { ICreationStep } from './keylessWalletOnboardingTypes';
+import type { IKeylessWalletShareCardProps } from './KeylessWalletShareCardsCardContext';
 
 export function KeylessWalletShareCardCloudKey({
   step,
@@ -59,7 +60,9 @@ export function KeylessWalletShareCardCloudKey({
       fn: async () => {
         const pack = await getCloudPack();
         if (!pack) {
-          throw new OneKeyLocalError('Cloud backup restore failed. Tap to try again.');
+          throw new OneKeyLocalError(
+            'Cloud backup restore failed. Tap to try again.',
+          );
         }
         return { pack, packSetId: pack.packSetId };
       },
