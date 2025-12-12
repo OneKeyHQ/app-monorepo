@@ -1,5 +1,7 @@
-import { SizableText, Stack, XStack, YStack } from '@onekeyhq/components';
-import { Token } from '@onekeyhq/kit/src/components/Token';
+import { useMemo } from 'react';
+
+import { SizableText, XStack, YStack } from '@onekeyhq/components';
+import { TokenGroup } from '@onekeyhq/kit/src/components/Token';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketBannerItem } from '@onekeyhq/shared/types/marketV2';
 
@@ -24,30 +26,6 @@ function convertBackgroundColor(backgroundColor: string): string {
   return `$${backgroundColor}`;
 }
 
-function TokenIconsStack({ tokenLogos }: { tokenLogos?: string[] }) {
-  const logos = tokenLogos?.slice(0, 3) ?? [];
-
-  if (logos.length === 0) {
-    return null;
-  }
-
-  return (
-    <XStack>
-      {logos.map((logoUrl, index) => (
-        <Stack
-          key={logoUrl}
-          p="$0.5"
-          bg="$bgApp"
-          borderRadius="$full"
-          {...(index !== 0 && { ml: '$-3' })}
-        >
-          <Token size="xs" tokenImageUri={logoUrl} />
-        </Stack>
-      ))}
-    </XStack>
-  );
-}
-
 export function MarketBannerItem({
   item,
   onPress,
@@ -57,6 +35,11 @@ export function MarketBannerItem({
   const bgColor = convertBackgroundColor(backgroundColor);
 
   const descriptionColor = description?.fontColor || '$textSubdued';
+
+  const tokens = useMemo(
+    () => tokenLogos?.map((url) => ({ tokenImageUri: url })) ?? [],
+    [tokenLogos],
+  );
 
   const handlePress = () => {
     onPress?.(item);
@@ -99,7 +82,13 @@ export function MarketBannerItem({
             </SizableText>
           ) : null}
         </YStack>
-        <TokenIconsStack tokenLogos={tokenLogos} />
+        <TokenGroup
+          tokens={tokens}
+          size="xs"
+          maxVisible={3}
+          overlapOffset="$-3"
+          showRemainingBadge={false}
+        />
       </YStack>
     );
   }
@@ -132,7 +121,13 @@ export function MarketBannerItem({
           </SizableText>
         ) : null}
       </YStack>
-      <TokenIconsStack tokenLogos={tokenLogos} />
+      <TokenGroup
+        tokens={tokens}
+        size="xs"
+        maxVisible={3}
+        overlapOffset="$-3"
+        showRemainingBadge={false}
+      />
     </XStack>
   );
 }
