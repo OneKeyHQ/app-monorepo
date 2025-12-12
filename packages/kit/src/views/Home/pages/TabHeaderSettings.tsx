@@ -9,6 +9,7 @@ import {
   Stack,
   Switch,
   XStack,
+  useMedia,
 } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getNetworksSupportFilterScamHistory } from '@onekeyhq/shared/src/config/presetNetworks';
@@ -33,7 +34,7 @@ import { HomeApprovalListProviderMirror } from '../components/HomeApprovalListPr
 
 function TokenListSettings() {
   const intl = useIntl();
-
+  const media = useMedia();
   const {
     activeAccount: {
       account,
@@ -52,6 +53,11 @@ function TokenListSettings() {
     indexedAccountId: indexedAccount?.id,
     isOthersWallet,
   });
+
+  if (media.gtXl) {
+    return null;
+  }
+
   return manageTokenEnabled ? (
     <IconButton
       title={intl.formatMessage({
