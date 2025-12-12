@@ -126,7 +126,7 @@ function WalletEditButtonView({
           {/* Keyless wallet: Keys & Recovery */}
           {isKeyless ? (
             <ActionList.Item
-              icon="ShieldCheckDoneOutline"
+              icon="Key2Outline"
               label="Keys & Recovery"
               onClose={handleActionListClose}
               onPress={() => {
