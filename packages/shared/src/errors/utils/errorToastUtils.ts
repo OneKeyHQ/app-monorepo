@@ -102,20 +102,23 @@ function showToastOfError(error: IOneKeyError | unknown | undefined) {
     void (async () => {
       const diagnosticText = await buildDiagnosticText(err);
 
-      let httpStatusCode: number | undefined;
-      const errorWithResponse = err as
-        | (IOneKeyError & {
-            response?: {
-              status?: unknown;
-            };
-          })
-        | undefined;
+      let httpStatusCode: number | undefined = err.httpStatusCode;
 
-      if (
-        errorWithResponse?.response &&
-        typeof errorWithResponse.response.status === 'number'
-      ) {
-        httpStatusCode = errorWithResponse.response.status;
+      if (!httpStatusCode) {
+        const errorWithResponse = err as
+          | (IOneKeyError & {
+              response?: {
+                status?: unknown;
+              };
+            })
+          | undefined;
+
+        if (
+          errorWithResponse?.response &&
+          typeof errorWithResponse.response.status === 'number'
+        ) {
+          httpStatusCode = errorWithResponse.response.status;
+        }
       }
 
       appEventBus.emit(EAppEventBusNames.ShowToast, {
