@@ -247,7 +247,7 @@ const SwapHistoryListModal = ({
             id: ETranslations.swap_page_limit_dialog_title,
           })
         : intl.formatMessage({
-            id: ETranslations.Limit_order_history,
+            id: ETranslations.perp_trade_market,
           });
     return (
       <Select
