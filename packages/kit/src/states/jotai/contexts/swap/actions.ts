@@ -77,7 +77,6 @@ import {
   swapProInputAmountAtom,
   swapProSelectTokenAtom,
   swapProSellToTokenAtom,
-  swapProSlippageAtom,
   swapProSupportNetworksTokenListAtom,
   swapProSupportNetworksTokenListLoadingAtom,
   swapProToTotalValueAtom,
@@ -858,15 +857,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         if (res && res.length > 0) {
           const quoteResult = res[0];
           set(swapSpeedQuoteResultAtom(), quoteResult);
-          if (quoteResult.autoSuggestedSlippage) {
-            const slippageItem = get(swapProSlippageAtom());
-            if (slippageItem.key === ESwapSlippageSegmentKey.AUTO) {
-              set(swapProSlippageAtom(), {
-                key: ESwapSlippageSegmentKey.AUTO,
-                value: quoteResult.autoSuggestedSlippage,
-              });
-            }
-          }
         }
         set(swapSpeedQuoteFetchingAtom(), false);
       } catch (e: any) {
@@ -940,10 +930,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     set(swapSpeedQuoteFetchingAtom(), false);
     set(swapSpeedQuoteResultAtom(), undefined);
     set(swapProToTotalValueAtom(), '');
-    set(swapProSlippageAtom(), {
-      key: ESwapSlippageSegmentKey.AUTO,
-      value: swapSlippageAutoValue,
-    });
   });
 
   cleanLimitOrderMarketPriceInterval = () => {
@@ -1853,7 +1839,15 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       type: ESwapTabSwitchType,
       swapAccountNetworkId?: string,
     ) => {
+      const oldType = get(swapTypeSwitchAtom());
       set(swapTypeSwitchAtom(), type);
+      if (
+        platformEnv.isNative &&
+        (type === ESwapTabSwitchType.LIMIT ||
+          oldType === ESwapTabSwitchType.LIMIT)
+      ) {
+        return;
+      }
       const fromTokenAmount = get(swapFromTokenAmountAtom());
       const fromTokenAmountBN = new BigNumber(fromTokenAmount.value);
       if (

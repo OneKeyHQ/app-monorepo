@@ -11,6 +11,7 @@ import {
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
@@ -25,6 +26,7 @@ import {
   EProtocolOfExchange,
   ESwapAlertLevel,
   ESwapDirectionType,
+  ESwapProTradeType,
   ESwapQuoteKind,
   ESwapSlippageSegmentKey,
   ESwapTabSwitchType,
@@ -38,6 +40,7 @@ import {
   useSwapBuildTxFetchingAtom,
   useSwapFromTokenAmountAtom,
   useSwapLimitPriceUseRateAtom,
+  useSwapProTradeTypeAtom,
   useSwapQuoteApproveAllowanceUnLimitAtom,
   useSwapQuoteCurrentSelectAtom,
   useSwapQuoteEventTotalCountAtom,
@@ -49,6 +52,7 @@ import {
   useSwapSelectedFromTokenBalanceAtom,
   useSwapShouldRefreshQuoteAtom,
   useSwapSilenceQuoteLoading,
+  useSwapSpeedQuoteResultAtom,
   useSwapToTokenAmountAtom,
   useSwapTypeSwitchAtom,
 } from '../../../states/jotai/contexts/swap';
@@ -433,7 +437,19 @@ export function useSwapActionState() {
 export function useSwapSlippagePercentageModeInfo() {
   const [{ swapSlippagePercentageCustomValue, swapSlippagePercentageMode }] =
     useSettingsAtom();
-  const [quoteResult] = useSwapQuoteCurrentSelectAtom();
+  const [swapCurrentQuote] = useSwapQuoteCurrentSelectAtom();
+  const [swapProQuoteResult] = useSwapSpeedQuoteResultAtom();
+  const [swapProTradeType] = useSwapProTradeTypeAtom();
+  const [swapTypeSwitch] = useSwapTypeSwitchAtom();
+  const focusSwapPro = useMemo(() => {
+    return platformEnv.isNative && swapTypeSwitch === ESwapTabSwitchType.LIMIT;
+  }, [swapTypeSwitch]);
+  const quoteResult = useMemo(() => {
+    if (focusSwapPro && swapProTradeType === ESwapProTradeType.MARKET) {
+      return swapProQuoteResult;
+    }
+    return swapCurrentQuote;
+  }, [focusSwapPro, swapProTradeType, swapCurrentQuote, swapProQuoteResult]);
   const res = useMemo(() => {
     let autoValue = swapSlippageAutoValue;
     let value = swapSlippageAutoValue;

@@ -432,6 +432,7 @@ function BaseTxHistoryListView(props: IProps) {
                 showIcon={showIcon}
                 onPress={onPressHistory}
                 tableLayout={tableLayout}
+                hideValue={hideValue}
               />
             ))}
           </YStack>

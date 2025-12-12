@@ -1,52 +1,23 @@
-import { useCallback, useMemo } from 'react';
+import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type { IDialogInstance } from '@onekeyhq/components';
-import { Dialog, Icon, SizableText, XStack } from '@onekeyhq/components';
-import SlippageSettingDialog from '@onekeyhq/kit/src/components/SlippageSettingDialog';
-import { useSwapProSlippageAtom } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import { Icon, SizableText, XStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { swapSlippageWillAheadMinValue } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
-import type { ISwapSlippageSegmentItem } from '@onekeyhq/shared/types/swap/types';
 import { ESwapSlippageSegmentKey } from '@onekeyhq/shared/types/swap/types';
 
+import { useSwapSlippageActions } from '../../hooks/useSwapSlippageActions';
+
 export interface ISwapProSlippageSettingProps {
-  autoDefaultValue?: number;
   isMEV?: boolean;
 }
 
 export function SwapProSlippageSetting({
   isMEV = false,
-  autoDefaultValue = 0.5,
 }: ISwapProSlippageSettingProps) {
   const intl = useIntl();
-  const [slippageItem, setSlippageItem] = useSwapProSlippageAtom();
-
-  const slippageOnSave = useCallback(
-    (item: ISwapSlippageSegmentItem, closeFn?: IDialogInstance['close']) => {
-      setSlippageItem(item);
-      if (closeFn) {
-        void closeFn({ flag: 'save' });
-      }
-    },
-    [setSlippageItem],
-  );
-
-  const onSlippageHandleClick = useCallback(() => {
-    Dialog.show({
-      title: intl.formatMessage({ id: ETranslations.slippage_tolerance_title }),
-      renderContent: (
-        <SlippageSettingDialog
-          swapSlippage={slippageItem}
-          autoValue={autoDefaultValue}
-          onSave={slippageOnSave}
-          isMEV={isMEV}
-        />
-      ),
-    });
-  }, [intl, slippageItem, autoDefaultValue, slippageOnSave, isMEV]);
-
+  const { onSlippageHandleClick, slippageItem } = useSwapSlippageActions();
   const displaySlippageText = useMemo(() => {
     if (slippageItem.key === ESwapSlippageSegmentKey.AUTO) {
       return `${intl.formatMessage({
@@ -56,8 +27,7 @@ export function SwapProSlippageSetting({
     return `${intl.formatMessage({
       id: ETranslations.slippage_tolerance_switch_custom,
     })} (${slippageItem.value}%)`;
-  }, [slippageItem, intl]);
-
+  }, [intl, slippageItem]);
   return (
     <XStack
       justifyContent="space-between"
