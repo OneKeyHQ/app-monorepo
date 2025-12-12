@@ -98,7 +98,7 @@ const TokenInfoCellDesktop = memo(() => {
         offsetY={10}
       >
         <XStack
-          width={150}
+          width={180}
           justifyContent="flex-start"
           gap="$1.5"
           alignItems="center"
@@ -111,18 +111,40 @@ const TokenInfoCellDesktop = memo(() => {
             fallbackIcon="CryptoCoinOutline"
           />
           <SizableText size="$bodySmMedium">{token.displayName}</SizableText>
-          <XStack gap="$0.5" alignItems="center">
-            <Badge radius="$2" bg="$bgInfo" gap="$1">
-              <SizableText color="$textInfo" size="$bodyXsMedium">
+          <XStack gap="$1">
+            <XStack
+              borderRadius="$1"
+              bg="$bgInfo"
+              justifyContent="center"
+              alignItems="center"
+              px="$1.5"
+            >
+              <SizableText
+                fontSize={10}
+                alignSelf="center"
+                color="$textInfo"
+                lineHeight={16}
+              >
                 {token.maxLeverage}x
               </SizableText>
-            </Badge>
+            </XStack>
             {token.dexLabel ? (
-              <Badge radius="$2" bg="$bgInfo" gap="$1">
-                <SizableText color="$textInfo" size="$bodyXsMedium">
+              <XStack
+                borderRadius="$1"
+                bg="$bgInfo"
+                justifyContent="center"
+                alignItems="center"
+                px="$1.5"
+              >
+                <SizableText
+                  fontSize={10}
+                  alignSelf="center"
+                  color="$textInfo"
+                  lineHeight={16}
+                >
                   {token.dexLabel}
                 </SizableText>
-              </Badge>
+              </XStack>
             ) : null}
           </XStack>
         </XStack>
@@ -145,7 +167,7 @@ const TokenPriceCellDesktop = memo(() => {
         name="TokenPriceCellDesktop"
         offsetY={10}
       >
-        <XStack width={100} justifyContent="flex-start">
+        <XStack width={110} justifyContent="flex-start">
           <SkeletonContainer isLoading={isLoading} width="80%" height={16}>
             <NumberSizeableText
               formatter="price"
@@ -175,7 +197,7 @@ const Token24hChangeCellDesktop = memo(() => {
         name="Token24hChangeCellDesktop"
         offsetY={10}
       >
-        <XStack width={120} justifyContent="flex-start">
+        <XStack width={150} justifyContent="flex-start">
           <SkeletonContainer isLoading={isLoading} width="80%" height={16}>
             <SizableText
               size="$bodySm"
@@ -218,7 +240,7 @@ const TokenFundingCellDesktop = memo(() => {
         name="TokenFundingCellDesktop"
         offsetY={10}
       >
-        <XStack width={100} justifyContent="flex-start">
+        <XStack width={110} justifyContent="flex-start">
           <SkeletonContainer isLoading={isLoading} width="80%" height={16}>
             <SizableText size="$bodySm" color="$text">
               {(Number(assetCtx.fundingRate) * 100).toFixed(4)}%
@@ -244,7 +266,7 @@ const TokenVolumeCellDesktop = memo(() => {
         name="TokenVolumeCellDesktop"
         offsetY={10}
       >
-        <XStack width={100} justifyContent="flex-start">
+        <XStack width={110} justifyContent="flex-start">
           <SkeletonContainer isLoading={isLoading} width="80%" height={16}>
             <SizableText size="$bodySm" color="$text">
               $
@@ -285,7 +307,7 @@ const TokenOpenInterestCellDesktop = memo(() => {
         name="TokenOpenInterestCellDesktop"
         offsetY={10}
       >
-        <XStack flex={1} justifyContent="flex-start">
+        <XStack width={120} justifyContent="flex-start">
           <SkeletonContainer isLoading={isLoading} width="80%" height={16}>
             <SizableText size="$bodySm" color="$text">
               ${openInterestValue}
