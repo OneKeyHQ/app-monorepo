@@ -438,9 +438,18 @@ class ProviderApiCosmos extends ProviderApiBase {
     const [signerInfo] = txInfo.authInfo.signerInfos;
     const [signature] = txInfo.signatures;
 
-    const pubKey = PubKey.decode(
-      signerInfo?.publicKey?.value ?? new Uint8Array(),
-    );
+    let pubKey;
+    try {
+      const decodedPubKey = PubKey.decode(
+        signerInfo?.publicKey?.value ?? new Uint8Array(),
+      );
+      pubKey = encodeSecp256k1Pubkey(decodedPubKey.key);
+    } catch (error) {
+      pubKey = {
+        type: '',
+        value: '',
+      };
+    }
 
     return {
       signed: {
@@ -463,7 +472,7 @@ class ProviderApiCosmos extends ProviderApiBase {
       },
       signature: {
         signature: Buffer.from(bytesToHex(signature), 'hex').toString('base64'),
-        pub_key: encodeSecp256k1Pubkey(pubKey.key),
+        pub_key: pubKey,
       },
     };
   }
@@ -716,18 +725,17 @@ class ProviderApiCosmos extends ProviderApiBase {
       };
     },
   ) {
+    const bodyBytesHex = hexUtils.stripHexPrefix(params.signDoc.bodyBytes);
+    const authInfoBytesHex = hexUtils.stripHexPrefix(
+      params.signDoc.authInfoBytes,
+    );
     return this.signDirect(request, {
       signer: params.signerAddress,
       signDoc: {
         chainId: params.signDoc.chainId,
         accountNumber: params.signDoc.accountNumber,
-        authInfoBytes: Buffer.from(
-          params.signDoc.authInfoBytes,
-          'base64',
-        ).toString('hex'),
-        bodyBytes: Buffer.from(params.signDoc.bodyBytes, 'base64').toString(
-          'hex',
-        ),
+        authInfoBytes: authInfoBytesHex,
+        bodyBytes: bodyBytesHex,
       },
     }).then((res) => {
       return {

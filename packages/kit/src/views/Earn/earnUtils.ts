@@ -1,3 +1,5 @@
+import { type NavigationState, StackActions } from '@react-navigation/native';
+
 import { rootNavigationRef } from '@onekeyhq/components';
 import {
   WEB_APP_URL,
@@ -27,6 +29,7 @@ const NetworkNameToIdMap: Record<string, string> = {
   cosmos: getNetworkIdsMap().cosmoshub,
   sbtc: getNetworkIdsMap().sbtc,
   bsc: getNetworkIdsMap().bsc,
+  base: getNetworkIdsMap().base,
 };
 
 const NetworkIdToNameMap: Record<string, string> = Object.fromEntries(
@@ -69,13 +72,66 @@ async function safePushToEarnRoute(
   }
   await timerUtils.wait(0);
 
-  rootNavigationRef.current?.navigate(ERootRoutes.Main, {
-    screen: targetTab,
-    params: {
-      screen: route,
-      params,
-    },
-  });
+  const rootNavigation = rootNavigationRef.current;
+  const findTargetStack = (state?: NavigationState) => {
+    if (!state) return undefined;
+    // Find tab navigator state under Main
+    const mainRoute = state.routes.find(
+      (item) => item.name === ERootRoutes.Main,
+    );
+    const mainState = (mainRoute as { state?: NavigationState })?.state;
+    if (!mainState) return undefined;
+
+    // Find the target tab route
+    const tabRoute = mainState.routes.find((item) => item.name === targetTab);
+    if (!tabRoute) return undefined;
+
+    // Stack navigator inside the tab
+    const tabState = (tabRoute as { state?: NavigationState })?.state;
+    // Prefer inner stack key; fall back to tab route key
+    const targetKey = tabState?.key ?? tabRoute.key;
+    return { targetKey, tabState };
+  };
+
+  if (!rootNavigation) {
+    navigation.navigate(ERootRoutes.Main, {
+      screen: targetTab,
+      params: {
+        screen: route,
+        params,
+      },
+    });
+    return;
+  }
+
+  const targetStack = findTargetStack(rootNavigation.getRootState?.());
+  const targetKey = targetStack?.targetKey;
+  const tabState = targetStack?.tabState;
+  const topRoute = tabState?.routes?.[tabState.index || 0];
+
+  if (targetKey) {
+    if (topRoute?.name === route) {
+      const action = StackActions.replace(route, params);
+      // @ts-expect-error target is added at runtime for navigator selection
+      action.target = targetKey;
+      rootNavigation.dispatch(action);
+      return;
+    }
+
+    const action = StackActions.push(route, params);
+    // @ts-expect-error target is added at runtime for navigator selection
+    action.target = targetKey;
+    rootNavigation.dispatch(action);
+  } else {
+    // Fallback: navigate as before (may reuse route)
+    rootNavigation.navigate(ERootRoutes.Main, {
+      screen: targetTab,
+      params: {
+        screen: route,
+        params,
+      },
+    });
+  }
 }
 
 export const EarnNavigation = {

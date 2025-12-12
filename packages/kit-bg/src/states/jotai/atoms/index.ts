@@ -23,4 +23,5 @@ export * from './allNetworks';
 export * from './desktopBluetooth';
 export * from './perps';
 export * from './networkDoctor';
+export * from './swap';
 export * from './market';

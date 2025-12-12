@@ -2,7 +2,7 @@ import { memo, useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { ActionList, Divider } from '@onekeyhq/components';
+import { ActionList, Divider, Toast } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
@@ -22,6 +22,11 @@ import { DeviceManagementButton } from './DeviceManagementButton';
 import { HdWalletBackupButton } from './HdWalletBackupButton';
 import { WalletBoundReferralCodeButton } from './WalletBoundReferralCodeButton';
 import { WalletRemoveButton } from './WalletRemoveButton';
+
+// TODO: @zuo Check if wallet is keyless (using custom flag for mock)
+function isKeylessWallet(wallet: IDBWallet | undefined): boolean {
+  return !!(wallet as IDBWallet & { isKeyless?: boolean })?.isKeyless;
+}
 
 function WalletEditButtonView({
   wallet,
@@ -44,6 +49,7 @@ function WalletEditButtonView({
   }, [user]);
 
   const showDeviceManagementButton = useMemo(() => {
+    if (isKeylessWallet(wallet)) return false;
     return (
       !accountUtils.isHwHiddenWallet({ wallet }) &&
       accountUtils.isHwOrQrWallet({ walletId: wallet?.id })
@@ -51,6 +57,7 @@ function WalletEditButtonView({
   }, [wallet]);
 
   const showAddHiddenWalletButton = useMemo(() => {
+    if (isKeylessWallet(wallet)) return false;
     return (
       !accountUtils.isHwHiddenWallet({ wallet }) &&
       accountUtils.isHwOrQrWallet({ walletId: wallet?.id })
@@ -58,6 +65,8 @@ function WalletEditButtonView({
   }, [wallet]);
 
   const showRemoveWalletButton = useMemo(() => {
+    // Keyless wallet can also be removed
+    if (isKeylessWallet(wallet)) return true;
     return (
       !wallet?.isMocked &&
       !accountUtils.isOthersWallet({ walletId: wallet?.id || '' })
@@ -65,6 +74,7 @@ function WalletEditButtonView({
   }, [wallet]);
 
   const showRemoveDeviceButton = useMemo(() => {
+    if (isKeylessWallet(wallet)) return false;
     return (
       !accountUtils.isHwHiddenWallet({ wallet }) &&
       accountUtils.isHwOrQrWallet({ walletId: wallet?.id })
@@ -72,10 +82,15 @@ function WalletEditButtonView({
   }, [wallet]);
 
   const showBackupButton = useMemo(() => {
+    if (isKeylessWallet(wallet)) return false;
     return accountUtils.isHdWallet({ walletId: wallet?.id });
   }, [wallet]);
 
+  // TODO: @zuo Check if wallet is keyless
+  const isKeyless = useMemo(() => isKeylessWallet(wallet), [wallet]);
+
   const showBulkCopyAddressesButton = useMemo(() => {
+    if (isKeylessWallet(wallet)) return false;
     if (!isPrimeAvailable) {
       return false;
     }
@@ -99,6 +114,7 @@ function WalletEditButtonView({
       if (!config) {
         return null;
       }
+
       return (
         // fix missing context in popover
         <AccountSelectorProviderMirror enabledNum={[0]} config={config}>
@@ -106,6 +122,22 @@ function WalletEditButtonView({
             wallet={wallet}
             onClose={handleActionListClose}
           />
+
+          {/* Keyless wallet: Keys & Recovery */}
+          {isKeyless ? (
+            <ActionList.Item
+              icon="Key2Outline"
+              label="Keys & Recovery"
+              onClose={handleActionListClose}
+              onPress={() => {
+                // TODO: @zuo Implement Keys & Recovery navigation
+                Toast.message({
+                  title: 'Keys & Recovery',
+                  message: 'Coming soon...',
+                });
+              }}
+            />
+          ) : null}
 
           {showBackupButton ? (
             <HdWalletBackupButton
@@ -139,7 +171,8 @@ function WalletEditButtonView({
             />
           ) : null}
 
-          {showDeviceManagementButton ||
+          {isKeyless ||
+          showDeviceManagementButton ||
           showAddHiddenWalletButton ||
           showBulkCopyAddressesButton ? (
             <Divider mx="$2" my="$1" />
@@ -165,6 +198,7 @@ function WalletEditButtonView({
     [
       config,
       wallet,
+      isKeyless,
       showBackupButton,
       showDeviceManagementButton,
       showBulkCopyAddressesButton,

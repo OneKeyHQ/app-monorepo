@@ -31,7 +31,10 @@ import type {
   IDBIndexedAccount,
   IDBWallet,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
-import type { IAccountSelectorAccountsListSectionData } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
+import type {
+  IAccountSelectorAccountsListSectionData,
+  IAccountSelectorSelectedAccount,
+} from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import { accountSelectorAccountsListIsLoadingAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { emptyArray } from '@onekeyhq/shared/src/consts';
@@ -65,6 +68,9 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
   const actions = useAccountSelectorActions();
   const listRef = useRef<ISortableSectionListRef<any> | null>(null);
   const route = useAccountSelectorRoute();
+  const selectedAccountRef =
+    useRef<IAccountSelectorSelectedAccount>(selectedAccount);
+  selectedAccountRef.current = selectedAccount;
 
   const linkNetwork: boolean | undefined = route.params?.linkNetwork;
   const linkNetworkId: string | undefined = route.params?.linkNetworkId;
@@ -113,8 +119,54 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
   } = usePromiseResult(
     async () => {
       if (!selectedAccount?.focusedWallet || !usedDeriveType) {
+        defaultLogger.accountSelector.listData.listDataMissingParams({
+          focusedWallet: selectedAccount?.focusedWallet,
+          deriveType: usedDeriveType,
+          selectedAccount: selectedAccountRef.current,
+        });
         return Promise.resolve(undefined);
       }
+
+      // TODO: @zuo Remove mock keyless wallet data after integration
+      if (selectedAccount?.focusedWallet === 'keyless-mock-1') {
+        const mockKeylessWallet = {
+          id: 'keyless-mock-1',
+          name: 'Keyless Wallet',
+          type: 'hd' as const,
+          backuped: true,
+          accounts: [],
+          nextIds: {},
+          walletNo: 999,
+          avatarInfo: { img: 'bear' },
+          isKeyless: true,
+        };
+        const mockIndexedAccount = {
+          id: 'keyless-mock-1--0',
+          name: 'Account #1',
+          walletId: 'keyless-mock-1',
+          index: 0,
+          idHash: 'mock-hash-0',
+        };
+        return {
+          focusedWalletInfo: {
+            wallet: mockKeylessWallet as IDBWallet,
+            device: undefined,
+          },
+          sectionData: [
+            {
+              title: '',
+              data: [mockIndexedAccount],
+              walletId: 'keyless-mock-1',
+              emptyText: '',
+              firstAccount: mockIndexedAccount,
+            },
+          ],
+          accountsCount: 1,
+          accountsValue: [],
+          mergeDeriveAssetsEnabled: false,
+        };
+      }
+
       // await timerUtils.wait(1000);
       const accountSelectorAccountsListData =
         await serviceAccountSelector.buildAccountSelectorAccountsListData({
@@ -147,6 +199,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
       },
     },
   );
+
   const sectionDataOriginal = useMemo(
     () => listDataResult?.sectionData || [],
     [listDataResult?.sectionData],

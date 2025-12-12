@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { debounce } from 'lodash';
@@ -8,6 +8,7 @@ import {
   useSwapLimitPriceMarketPriceAtom,
   useSwapLimitPriceRateReverseAtom,
   useSwapLimitPriceUseRateAtom,
+  useSwapProTradeTypeAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapTypeSwitchAtom,
@@ -18,7 +19,14 @@ import {
   checkWrappedTokenPair,
   equalTokenNoCaseSensitive,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
-import { LimitMarketUpPercentages } from '@onekeyhq/shared/types/swap/types';
+import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
+import {
+  ESwapProTradeType,
+  ESwapTabSwitchType,
+  LimitMarketUpPercentages,
+} from '@onekeyhq/shared/types/swap/types';
+
+import { useSwapProInputToken, useSwapProToToken } from './useSwapPro';
 
 export const useSwapLimitRate = () => {
   const [limitPriceUseRate, setLimitPriceUseRate] =
@@ -27,13 +35,53 @@ export const useSwapLimitRate = () => {
     useSwapLimitPriceRateReverseAtom();
   const [limitPriceMarketPrice] = useSwapLimitPriceMarketPriceAtom();
   const [swapTypeSwitchValue] = useSwapTypeSwitchAtom();
-  const [fromSelectToken] = useSwapSelectFromTokenAtom();
-  const [toSelectToken] = useSwapSelectToTokenAtom();
+  const [swapProTradeType] = useSwapProTradeTypeAtom();
+  const [fromSelectTokenSwap] = useSwapSelectFromTokenAtom();
+  const [toSelectTokenSwap] = useSwapSelectToTokenAtom();
+  const fromSelectTokenPro = useSwapProInputToken();
+  const toSelectTokenPro = useSwapProToToken();
   const [, setInAppNotification] = useInAppNotificationAtom();
   const {
     limitOrderMarketPriceIntervalAction,
     cleanLimitOrderMarketPriceInterval,
   } = useSwapActions().current;
+
+  const fromSelectToken = useMemo(() => {
+    if (
+      swapTypeSwitchValue === ESwapTabSwitchType.LIMIT &&
+      swapProTradeType === ESwapProTradeType.LIMIT
+    ) {
+      return fromSelectTokenPro;
+    }
+    return fromSelectTokenSwap;
+  }, [
+    fromSelectTokenPro,
+    fromSelectTokenSwap,
+    swapProTradeType,
+    swapTypeSwitchValue,
+  ]);
+  const toSelectToken = useMemo(() => {
+    if (
+      swapTypeSwitchValue === ESwapTabSwitchType.LIMIT &&
+      swapProTradeType === ESwapProTradeType.LIMIT
+    ) {
+      return toSelectTokenPro;
+    }
+    return toSelectTokenSwap;
+  }, [
+    toSelectTokenPro,
+    toSelectTokenSwap,
+    swapProTradeType,
+    swapTypeSwitchValue,
+  ]);
+  const fromSelectTokenRef = useRef<ISwapToken | undefined>(fromSelectToken);
+  const toSelectTokenRef = useRef<ISwapToken | undefined>(toSelectToken);
+  if (fromSelectTokenRef.current !== fromSelectToken) {
+    fromSelectTokenRef.current = fromSelectToken;
+  }
+  if (toSelectTokenRef.current !== toSelectToken) {
+    toSelectTokenRef.current = toSelectToken;
+  }
   const onLimitRateChange = useCallback(
     (text: string) => {
       const isValidate = validateAmountInput(
@@ -91,7 +139,10 @@ export const useSwapLimitRate = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const limitOrderMarketPriceIntervalDeb = useCallback(
     debounce(() => {
-      void limitOrderMarketPriceIntervalAction();
+      void limitOrderMarketPriceIntervalAction(
+        fromSelectTokenRef.current,
+        toSelectTokenRef.current,
+      );
     }, 300),
     [],
   );

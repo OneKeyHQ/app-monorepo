@@ -89,6 +89,9 @@ export enum EAtomNames {
   perpsLastUsedLeverageAtom = 'perpsLastUsedLeverageAtom',
   // network doctor
   networkDoctorStateAtom = 'networkDoctorStateAtom',
+
+  // swap
+  swapProJumpTokenAtom = 'swapProJumpTokenAtom',
   // market
   marketSelectedTabAtom = 'marketSelectedTabAtom',
 }

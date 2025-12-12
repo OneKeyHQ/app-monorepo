@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
@@ -8,7 +8,8 @@ import type { ICheckedState } from '@onekeyhq/components';
 import {
   Button,
   Checkbox,
-  HeaderIconButton,
+  Divider,
+  Icon,
   ListView,
   Page,
   Select,
@@ -26,6 +27,7 @@ import {
   useSendConfirmActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
 import type { IUtxoInfo } from '@onekeyhq/kit-bg/src/vaults/types';
+import { COIN_CONTROL_HELP_LINK } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import type {
@@ -33,9 +35,13 @@ import type {
   IModalSendParamList,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import { formatDateFns } from '@onekeyhq/shared/src/utils/dateUtils';
+import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import { EUtxoSelectionStrategy } from '@onekeyhq/shared/types/send';
 
 import { SendConfirmProviderMirror } from '../../components/SendConfirmProvider/SendConfirmProviderMirror';
+
+import CoinControlStrategyPopover from './CoinControlStrategyPopover';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -48,12 +54,11 @@ enum ESortType {
 }
 
 // Format blockTime to readable date
-// - If blockTime exists: format as "October 21, 2025 at 11:21"
 // - If no blockTime and confirmations = 0: show "Pending"
 // - Otherwise: show "-"
 function formatBlockTime(blockTime?: number, confirmations?: number): string {
   if (blockTime) {
-    return formatDateFns(new Date(blockTime));
+    return formatDate(new Date(blockTime));
   }
   if (confirmations === 0) {
     return appLocale.intl.formatMessage({ id: ETranslations.global_pending });
@@ -140,7 +145,7 @@ const UTXOListItem = memo(
           <SizableText size="$bodyMd" color="$text">
             {shortenedAddress}
           </SizableText>
-          <SizableText size="$bodyMd" color="$textSubdued">
+          <SizableText size="$bodySm" color="$textSubdued">
             {formattedInfo}
           </SizableText>
         </YStack>
@@ -184,26 +189,51 @@ function CoinControlPage() {
   );
 
   // Memoize utxoList to prevent dependency issues
-  const utxoList: IUtxoInfo[] = useMemo(() => result ?? [], [result]);
+  const utxoList: IUtxoInfo[] = useMemo(
+    () => (Array.isArray(result) ? result : []),
+    [result],
+  );
 
-  // Initialize selected UTXOs from atom (only on mount)
-  const initialSelectedUtxos = useMemo(() => {
+  // Track if initial selection has been applied
+  const hasInitializedRef = useRef(false);
+
+  // State management - stores UTXO keys in "txid:vout" format
+  const [selectedUTXOs, setSelectedUTXOs] = useState<Set<string>>(new Set());
+
+  // State for UTXO selection strategy
+  const [strategy, setStrategy] = useState<EUtxoSelectionStrategy>(
+    EUtxoSelectionStrategy.Default,
+  );
+
+  // State for sort type
+  const [sortType, setSortType] = useState<ESortType>(ESortType.NewestFirst);
+
+  // Initialize selected UTXOs and strategy when utxoList is loaded
+  // Priority: 1. Use saved selection from atom if exists 2. Default to select all
+  useEffect(() => {
+    if (hasInitializedRef.current || utxoList.length === 0) {
+      return;
+    }
+    hasInitializedRef.current = true;
+
+    // Check if there's a saved selection in atom for this account/network
     if (
       selectedUTXOsFromAtom &&
       selectedUTXOsFromAtom.networkId === networkId &&
       selectedUTXOsFromAtom.accountId === accountId &&
       selectedUTXOsFromAtom.selectedUtxoKeys.length > 0
     ) {
-      return new Set(selectedUTXOsFromAtom.selectedUtxoKeys);
+      // Use saved selection and strategy
+      setSelectedUTXOs(new Set(selectedUTXOsFromAtom.selectedUtxoKeys));
+      setStrategy(selectedUTXOsFromAtom.utxoSelectionStrategy);
+    } else {
+      // Default: select all UTXOs with Default strategy
+      setSelectedUTXOs(
+        new Set(utxoList.map((utxo) => generateUtxoKey(utxo.txid, utxo.vout))),
+      );
+      setStrategy(EUtxoSelectionStrategy.Default);
     }
-    return new Set<string>();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Only compute on mount
-
-  // State management - stores UTXO keys in "txid:vout" format
-  const [selectedUTXOs, setSelectedUTXOs] =
-    useState<Set<string>>(initialSelectedUtxos);
-  const [sortType, setSortType] = useState<ESortType>(ESortType.NewestFirst);
+  }, [utxoList, selectedUTXOsFromAtom, networkId, accountId]);
 
   // Sorted data based on current sort type
   const sortedData = useMemo(() => {
@@ -249,9 +279,8 @@ function CoinControlPage() {
     return false;
   }, [isAllSelected, isIndeterminate]);
 
-  // Calculate total amount of selected UTXOs
-  const totalAmount = useMemo(() => {
-    if (!network) return '0';
+  // Calculate total value of selected UTXOs (in smallest unit, e.g. satoshi)
+  const totalValueRaw = useMemo(() => {
     let sum = new BigNumber(0);
     sortedData.forEach((utxo) => {
       const utxoKey = generateUtxoKey(utxo.txid, utxo.vout);
@@ -259,8 +288,14 @@ function CoinControlPage() {
         sum = sum.plus(utxo.value);
       }
     });
-    return sum.shiftedBy(-network.decimals).toFixed();
-  }, [selectedUTXOs, sortedData, network]);
+    return sum.toFixed();
+  }, [selectedUTXOs, sortedData]);
+
+  // Calculate total amount for display (formatted with decimals)
+  const totalAmount = useMemo(() => {
+    if (!network) return '0';
+    return new BigNumber(totalValueRaw).shiftedBy(-network.decimals).toFixed();
+  }, [totalValueRaw, network]);
 
   // Toggle single UTXO selection
   const handleToggleUTXO = useCallback((utxoKey: string) => {
@@ -288,17 +323,31 @@ function CoinControlPage() {
 
   // Done button handler
   const handleDone = useCallback(() => {
-    // Save selected UTXOs to atom
+    // Save selected UTXOs and strategy to atom
     updateSelectedUTXOs({
       networkId,
       accountId,
       selectedUtxoKeys: Array.from(selectedUTXOs),
+      selectedUtxoTotalValue: totalValueRaw,
+      utxoSelectionStrategy: strategy,
       timestamp: Date.now(),
     });
 
     // Navigate back to SendDataInput page
     navigation.pop();
-  }, [selectedUTXOs, networkId, accountId, updateSelectedUTXOs, navigation]);
+  }, [
+    selectedUTXOs,
+    totalValueRaw,
+    strategy,
+    networkId,
+    accountId,
+    updateSelectedUTXOs,
+    navigation,
+  ]);
+
+  const handleLearnMore = useCallback(() => {
+    openUrlExternal(COIN_CONTROL_HELP_LINK);
+  }, []);
 
   // Sort options
   const sortOptions = useMemo(
@@ -357,42 +406,112 @@ function CoinControlPage() {
     [sortType],
   );
 
-  // Header right filter button
-  const headerRight = useCallback(
-    () => (
-      <Select
-        title={intl.formatMessage({ id: ETranslations.market_sort_by })}
-        value={sortType}
-        onChange={setSortType}
-        items={sortOptions}
-        renderTrigger={({ onPress }) => (
-          <HeaderIconButton icon="SliderVerOutline" onPress={onPress} />
-        )}
-      />
-    ),
-    [sortType, setSortType, sortOptions, intl],
-  );
+  // Get current sort label
+  const currentSortLabel = useMemo(() => {
+    const option = sortOptions.find((opt) => opt.value === sortType);
+    return option?.label ?? '';
+  }, [sortType, sortOptions]);
 
   return (
     <Page>
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.wallet_coin_control })}
-        headerRight={headerRight}
       />
       <Page.Body>
-        {isLoading ? (
-          <Stack flex={1} alignItems="center" justifyContent="center">
-            <Spinner size="large" />
+        <YStack flex={1}>
+          {/* Strategy Selector */}
+          <XStack
+            px="$5"
+            py="$4"
+            ai="center"
+            jc="space-between"
+            borderBottomWidth="$0"
+          >
+            <SizableText size="$bodyMd" fontWeight="500" color="$text">
+              {intl.formatMessage({
+                id: ETranslations.wallet_coin_selection_strategy,
+              })}
+            </SizableText>
+            <CoinControlStrategyPopover
+              value={strategy}
+              onChange={setStrategy}
+              onLearnMore={handleLearnMore}
+            />
+          </XStack>
+
+          {/* Divider */}
+          <Stack px="$5">
+            <Divider />
           </Stack>
-        ) : (
-          <ListView
-            estimatedItemSize={60}
-            data={sortedData}
-            renderItem={renderItem}
-            keyExtractor={keyExtractor}
-            extraData={sortType}
-          />
-        )}
+
+          {/* Sort Selector */}
+          <XStack
+            px="$5"
+            py="$4"
+            ai="center"
+            jc="space-between"
+            borderBottomWidth="$0"
+          >
+            <SizableText size="$bodyMd" fontWeight="500" color="$text">
+              {intl.formatMessage({ id: ETranslations.wallet_sort_coins })}
+            </SizableText>
+            <Select
+              title={intl.formatMessage({ id: ETranslations.market_sort_by })}
+              value={sortType}
+              onChange={setSortType}
+              items={sortOptions}
+              renderTrigger={({ onPress }) => (
+                <XStack
+                  // gap="$0.5"
+                  ai="center"
+                  onPress={onPress}
+                  cursor="pointer"
+                  px="$2"
+                  py="$1"
+                  mx="$-2"
+                  my="$-1"
+                  borderRadius="$2"
+                  hoverStyle={{ bg: '$bgHover' }}
+                  pressStyle={{ bg: '$bgActive' }}
+                >
+                  <SizableText
+                    size="$bodyMd"
+                    fontWeight="500"
+                    color="$textSubdued"
+                  >
+                    {currentSortLabel}
+                  </SizableText>
+                  <Icon
+                    name="ChevronDownSmallOutline"
+                    size="$4"
+                    color="$iconSubdued"
+                  />
+                </XStack>
+              )}
+            />
+          </XStack>
+
+          {/* UTXO List */}
+          {isLoading ? (
+            <Stack
+              flex={1}
+              alignItems="center"
+              justifyContent="center"
+              py="$20"
+            >
+              <Spinner size="large" />
+            </Stack>
+          ) : (
+            <ListView
+              flex={1}
+              estimatedItemSize={60}
+              data={sortedData}
+              renderItem={renderItem}
+              keyExtractor={keyExtractor}
+              extraData={sortType}
+            />
+          )}
+        </YStack>
       </Page.Body>
       <Page.Footer>
         <XStack px="$5" py="$5" gap="$3" ai="center" bg="$bgApp">
@@ -418,7 +537,9 @@ function CoinControlPage() {
 
           {/* Done button */}
           <Button variant="primary" onPress={handleDone}>
-            Done
+            {intl.formatMessage({
+              id: ETranslations.global_done,
+            })}
           </Button>
         </XStack>
       </Page.Footer>

@@ -1,7 +1,7 @@
 import { useRef } from 'react';
 
 import { Semaphore } from 'async-mutex';
-import { cloneDeep, isEqual, isUndefined, omitBy } from 'lodash';
+import { cloneDeep, isEmpty, isEqual, isUndefined, omitBy } from 'lodash';
 
 import type { IDialogInstance } from '@onekeyhq/components';
 import { Dialog, Toast } from '@onekeyhq/components';
@@ -59,6 +59,7 @@ import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import rnUtils from '@onekeyhq/shared/src/utils/rnUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   EAccountSelectorAutoSelectTriggerBy,
@@ -361,6 +362,10 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             omitBy(newSelectedAccount, isUndefined),
           )
         ) {
+          return;
+        }
+
+        if (isEmpty(newSelectedAccount)) {
           return;
         }
 
@@ -1515,6 +1520,10 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           },
         );
 
+      defaultLogger.accountSelector.listData.simpleDbSelectedAccountsMap({
+        selectedAccountsMap: selectedAccountsMapInDB,
+      });
+
       // fix discover account from dappConnection
       if (sceneUrl && sceneName === EAccountSelectorSceneName.discover) {
         const connectionMap =
@@ -1523,6 +1532,11 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
               sceneUrl,
             },
           );
+        defaultLogger.accountSelector.listData.simpleDbDappConnectionSelectedAccountsMap(
+          {
+            connectionMap,
+          },
+        );
         if (connectionMap) {
           const map: IAccountSelectorSelectedAccountsMap = {};
           Object.entries(connectionMap).forEach(([num, v]) => {
@@ -1537,6 +1551,11 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             map[Number(num)] = omitBy(map[Number(num)], isUndefined) as any;
           });
           selectedAccountsMapInDB = map;
+          defaultLogger.accountSelector.listData.initFromStorageDiscoverySelectedAccountsMapMerged(
+            {
+              selectedAccountsMap: selectedAccountsMapInDB,
+            },
+          );
         }
       }
 
@@ -1563,6 +1582,11 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
               sceneUrl,
             },
           );
+        defaultLogger.accountSelector.listData.fixDeriveTypesForInitAccountSelectorMapResult(
+          {
+            selectedAccountsMap: selectedAccountsMapInDB,
+          },
+        );
       }
 
       const selectedAccountsMap = get(selectedAccountsAtom());
@@ -1572,7 +1596,15 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       ) {
         this.setSelectedAccountsAtom(
           set,
-          (v) => selectedAccountsMapInDB || v,
+          (v) => {
+            const r = selectedAccountsMapInDB || v;
+            defaultLogger.accountSelector.listData.initFromStorageSelectedAccountsMapResult(
+              {
+                selectedAccountsMap: r,
+              },
+            );
+            return r;
+          },
           'initFromStorage',
         );
       }
