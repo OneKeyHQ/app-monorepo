@@ -75,6 +75,7 @@ function TabBarItem({
         borderBottomWidth={isFocused ? '$0.5' : '$0'}
         borderBottomColor="$borderActive"
         onPress={() => onPress(name)}
+        cursor="pointer"
       >
         <SizableText size="$headingXs">{`${tabTitle} ${tabCount}`}</SizableText>
       </XStack>
@@ -109,6 +110,7 @@ function PerpOrderInfoPanel() {
             borderRadius: 0,
             margin: 0,
             padding: 0,
+            cursor: 'default',
           }}
         />
       )}

@@ -33,8 +33,7 @@ import { PerpsProviderMirror } from '../../PerpsProviderMirror';
 import { PerpTokenSelectorRow } from './PerpTokenSelectorRow';
 
 const TAB_LABELS = {
-  all: 'All',
-  perps: 'Perps',
+  all: 'PERPS',
   hip3: 'HIP3',
 } as const;
 
@@ -49,13 +48,20 @@ function TabItem({
 }) {
   return (
     <XStack
-      py="$3"
-      px="$4"
+      pb="$3"
+      ml="$5"
+      mr="$2"
       borderBottomWidth={isFocused ? '$0.5' : '$0'}
       borderBottomColor="$borderActive"
       onPress={onPress}
+      cursor="pointer"
     >
-      <SizableText size="$bodyMdMedium">{name}</SizableText>
+      <SizableText
+        size="$headingXs"
+        color={isFocused ? '$text' : '$textSubdued'}
+      >
+        {name}
+      </SizableText>
     </XStack>
   );
 }
@@ -85,7 +91,7 @@ function MobileTokenSelectorModal({
   const [{ assetsByDex }] = usePerpsAllAssetsFilteredAtom();
   const [{ assetCtxsByDex }] = usePerpsAllAssetCtxsAtom();
   const [sortConfig, setSortConfig] = usePerpTokenSortConfigPersistAtom();
-  const [activeTab, setActiveTab] = useState<'all' | 'perps' | 'hip3'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | 'hip3'>('all');
 
   const computeSortValues = useCallback(
     (assetCtx: IPerpsAssetCtx | undefined) => {
@@ -163,7 +169,6 @@ function MobileTokenSelectorModal({
 
     const combinedEntries = assetsByDexTyped.flatMap(
       (assets: IPerpsUniverse[], dexIndex: number) => {
-        if (activeTab === 'perps' && dexIndex !== 0) return [];
         if (activeTab === 'hip3' && dexIndex !== 1) return [];
         const ctxs = assetCtxsByDexTyped[dexIndex] || [];
         return assets.map((asset, index) => {
@@ -257,13 +262,12 @@ function MobileTokenSelectorModal({
         }}
       />
       <XStack
-        px="$5"
         mb="$2"
         borderBottomWidth="$px"
         borderBottomColor="$borderSubdued"
       >
-        <XStack gap="$3">
-          {(['all', 'perps', 'hip3'] as const).map((tabKey) => (
+        <XStack flex={1}>
+          {(['all', 'hip3'] as const).map((tabKey) => (
             <TabItem
               key={tabKey}
               name={TAB_LABELS[tabKey]}
@@ -276,6 +280,7 @@ function MobileTokenSelectorModal({
       <XStack
         px="$5"
         pb="$3"
+        pt="$1"
         justifyContent="space-between"
         borderBottomWidth="$px"
         borderBottomColor="$borderSubdued"
