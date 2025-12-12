@@ -1,10 +1,4 @@
-import {
-  SizableText,
-  Skeleton,
-  Stack,
-  XStack,
-  YStack,
-} from '@onekeyhq/components';
+import { SizableText, Stack, XStack, YStack } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketBannerItem } from '@onekeyhq/shared/types/marketV2';
@@ -12,6 +6,7 @@ import type { IMarketBannerItem } from '@onekeyhq/shared/types/marketV2';
 type IMarketBannerItemProps = {
   item: IMarketBannerItem;
   onPress?: (item: IMarketBannerItem) => void;
+  compact?: boolean;
 };
 
 function convertBackgroundColor(backgroundColor: string): string {
@@ -46,14 +41,18 @@ function TokenIconsStack({ tokenLogos }: { tokenLogos?: string[] }) {
           borderRadius="$full"
           {...(index !== 0 && { ml: '$-3' })}
         >
-          <Token size="sm" tokenImageUri={logoUrl} />
+          <Token size="xs" tokenImageUri={logoUrl} />
         </Stack>
       ))}
     </XStack>
   );
 }
 
-export function MarketBannerItem({ item, onPress }: IMarketBannerItemProps) {
+export function MarketBannerItem({
+  item,
+  onPress,
+  compact,
+}: IMarketBannerItemProps) {
   const { title, description, backgroundColor, tokenLogos } = item;
   const bgColor = convertBackgroundColor(backgroundColor);
 
@@ -63,25 +62,39 @@ export function MarketBannerItem({ item, onPress }: IMarketBannerItemProps) {
     onPress?.(item);
   };
 
-  // Mobile layout: YStack (vertical)
-  if (platformEnv.isNative) {
+  // Compact layout: Native or (md screens with 3+ banners)
+  if (platformEnv.isNative || compact) {
     return (
       <YStack
         bg={bgColor}
         borderRadius="$3"
-        p="$3"
-        gap="$2"
-        minWidth={140}
+        p="$2.5"
+        flex={1}
+        justifyContent="space-between"
         onPress={handlePress}
+        {...(!platformEnv.isNative && {
+          animation: 'quick',
+          borderWidth: 1,
+          borderColor: '$transparent',
+          hoverStyle: { borderColor: '$borderHover' },
+        })}
         pressStyle={{ opacity: 0.7 }}
         cursor="pointer"
       >
         <YStack gap="$1">
-          <SizableText size="$bodyMdMedium" numberOfLines={1}>
+          <SizableText
+            size="$bodySm"
+            fontWeight="500"
+            numberOfLines={2}
+            maxWidth="$80"
+            $md={{
+              maxWidth: '$40',
+            }}
+          >
             {title}
           </SizableText>
           {description ? (
-            <SizableText size="$bodySm" color={descriptionColor}>
+            <SizableText size="$bodyXs" color={descriptionColor}>
               {description.text}
             </SizableText>
           ) : null}
@@ -100,13 +113,17 @@ export function MarketBannerItem({ item, onPress }: IMarketBannerItemProps) {
       gap="$4"
       alignItems="center"
       justifyContent="space-between"
-      minWidth={180}
+      flex={1}
       onPress={handlePress}
+      animation="quick"
+      borderWidth={1}
+      borderColor="$transparent"
+      hoverStyle={{ borderColor: '$borderHover' }}
       pressStyle={{ opacity: 0.7 }}
       cursor="pointer"
     >
       <YStack gap="$1" flex={1}>
-        <SizableText size="$bodyMdMedium" numberOfLines={1}>
+        <SizableText size="$bodyMdMedium" numberOfLines={2} maxWidth="$40">
           {title}
         </SizableText>
         {description ? (
@@ -116,60 +133,6 @@ export function MarketBannerItem({ item, onPress }: IMarketBannerItemProps) {
         ) : null}
       </YStack>
       <TokenIconsStack tokenLogos={tokenLogos} />
-    </XStack>
-  );
-}
-
-export function MarketBannerItemSkeleton() {
-  // Mobile layout
-  if (platformEnv.isNative) {
-    return (
-      <YStack bg="$bgSubdued" borderRadius="$3" p="$3" gap="$2" minWidth={140}>
-        <YStack gap="$1">
-          <Skeleton w="$20" h="$4" />
-          <Skeleton w="$12" h="$3" />
-        </YStack>
-        <XStack>
-          {[0, 1, 2].map((i) => (
-            <Skeleton
-              key={i}
-              w="$6"
-              h="$6"
-              radius="round"
-              {...(i !== 0 && { ml: '$-3' })}
-            />
-          ))}
-        </XStack>
-      </YStack>
-    );
-  }
-
-  // Desktop layout
-  return (
-    <XStack
-      bg="$bgSubdued"
-      borderRadius="$3"
-      p="$3"
-      gap="$4"
-      alignItems="center"
-      justifyContent="space-between"
-      minWidth={180}
-    >
-      <YStack gap="$1">
-        <Skeleton w="$20" h="$4" />
-        <Skeleton w="$12" h="$3" />
-      </YStack>
-      <XStack>
-        {[0, 1, 2].map((i) => (
-          <Skeleton
-            key={i}
-            w="$6"
-            h="$6"
-            radius="round"
-            {...(i !== 0 && { ml: '$-3' })}
-          />
-        ))}
-      </XStack>
     </XStack>
   );
 }

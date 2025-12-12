@@ -1,15 +1,18 @@
-import { ScrollView, XStack, YStack } from '@onekeyhq/components';
+import { Stack, XStack, useMedia } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 
-import { MarketBannerItem, MarketBannerItemSkeleton } from './MarketBannerItem';
+import { MarketBannerItem } from './MarketBannerItem';
+import { MarketBannerItemSkeleton } from './MarketBannerItemSkeleton';
 import { useToMarketBannerDetail } from './useToMarketBannerDetail';
 
-function MarketBannerListSkeleton() {
+function MarketBannerListSkeleton({ compact }: { compact?: boolean }) {
   return (
     <XStack gap="$3" px="$4" py="$2">
       {[0, 1, 2].map((i) => (
-        <MarketBannerItemSkeleton key={i} />
+        <Stack key={i} flex={1}>
+          <MarketBannerItemSkeleton compact={compact} />
+        </Stack>
       ))}
     </XStack>
   );
@@ -17,6 +20,7 @@ function MarketBannerListSkeleton() {
 
 export function MarketBannerList() {
   const toMarketBannerDetail = useToMarketBannerDetail();
+  const { md } = useMedia();
 
   const { result: bannerList, isLoading } = usePromiseResult(
     async () => {
@@ -30,8 +34,10 @@ export function MarketBannerList() {
     },
   );
 
+  const useCompactLayout = md && (bannerList?.length ?? 0) >= 3;
+
   if (isLoading) {
-    return <MarketBannerListSkeleton />;
+    return <MarketBannerListSkeleton compact={md} />;
   }
 
   if (!bannerList || bannerList.length === 0) {
@@ -39,23 +45,16 @@ export function MarketBannerList() {
   }
 
   return (
-    <YStack py="$2">
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{
-          paddingHorizontal: 16,
-          gap: 12,
-        }}
-      >
-        {bannerList.map((item) => (
+    <XStack py="$2" px="$4" gap="$3">
+      {bannerList.map((item) => (
+        <Stack key={item._id} flex={1}>
           <MarketBannerItem
-            key={item._id}
             item={item}
             onPress={toMarketBannerDetail}
+            compact={useCompactLayout}
           />
-        ))}
-      </ScrollView>
-    </YStack>
+        </Stack>
+      ))}
+    </XStack>
   );
 }

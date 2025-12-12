@@ -1,2 +1,3 @@
 export { MarketBannerList } from './MarketBannerList';
-export { MarketBannerItem, MarketBannerItemSkeleton } from './MarketBannerItem';
+export { MarketBannerItem } from './MarketBannerItem';
+export { MarketBannerItemSkeleton } from './MarketBannerItemSkeleton';

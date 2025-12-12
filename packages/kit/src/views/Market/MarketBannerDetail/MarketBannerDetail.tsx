@@ -2,23 +2,22 @@ import { useCallback, useMemo } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 
-import {
-  Page,
-  SizableText,
-  Stack,
-  XStack,
-  useMedia,
-} from '@onekeyhq/components';
+import { NavBackButton, Page, SizableText, Stack } from '@onekeyhq/components';
+import { HeaderButtonGroup } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import {
+  AccountSelectorProviderMirror,
+  AccountSelectorTriggerHome,
+} from '@onekeyhq/kit/src/components/AccountSelector';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useAccountSelectorContextData } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type {
   ETabMarketRoutes,
   ITabMarketParamList,
 } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-
-import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { useToDetailPage } from '../MarketHomeV2/components/MarketTokenList/hooks/useToMarketDetailPage';
 import { MarketTokenListBase } from '../MarketHomeV2/components/MarketTokenList/MarketTokenListBase';
 import {
@@ -40,6 +39,30 @@ function MarketBannerDetailContent({ title }: { title: string }) {
   const route = useRoute<IMarketBannerDetailRouteParams>();
   const { tokenListId } = route.params;
   const toDetailPage = useToDetailPage();
+  const navigation = useAppNavigation();
+  const { config } = useAccountSelectorContextData();
+
+  const renderHeaderLeft = useCallback(
+    () => <NavBackButton onPress={() => navigation.pop()} />,
+    [navigation],
+  );
+
+  const renderHeaderTitle = useCallback(
+    () => <SizableText size="$headingLg">{title}</SizableText>,
+    [title],
+  );
+
+  const renderHeaderRight = useCallback(
+    () =>
+      config ? (
+        <AccountSelectorProviderMirror enabledNum={[0]} config={config}>
+          <HeaderButtonGroup>
+            <AccountSelectorTriggerHome num={0} />
+          </HeaderButtonGroup>
+        </AccountSelectorProviderMirror>
+      ) : null,
+    [config],
+  );
 
   const { result, isLoading } = usePromiseResult(
     async () => {
@@ -90,20 +113,13 @@ function MarketBannerDetailContent({ title }: { title: string }) {
     [transformedData, isLoading],
   );
 
-  const { md } = useMedia();
-
   return (
     <Page>
-      {md ? (
-        <Page.Header title={title} />
-      ) : (
-        <>
-          <Page.Header headerShown={false} />
-          <XStack alignItems="center" px="$5" h="$14">
-            <SizableText size="$heading2xl">{title}</SizableText>
-          </XStack>
-        </>
-      )}
+      <Page.Header
+        headerTitle={renderHeaderTitle}
+        headerLeft={renderHeaderLeft}
+        headerRight={renderHeaderRight}
+      />
       <Page.Body>
         <Stack flex={1} px="$4">
           <MarketTokenListBase
