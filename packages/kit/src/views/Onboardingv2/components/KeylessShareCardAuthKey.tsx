@@ -6,22 +6,23 @@ import { EOnboardingV2KeylessWalletCreationMode } from '@onekeyhq/shared/src/rou
 
 import { useKeylessWallet } from '../../../components/KeylessWallet/useKeylessWallet';
 
-import { ECreationStepId } from './keylessWalletOnboardingTypes';
-import { KeylessWalletShareCard } from './KeylessWalletShareCard';
-import { useKeylessWalletShareCardsCardContext } from './KeylessWalletShareCardsCardContext';
+import {
+  ECreationStepId,
+  type ICreationStep,
+  type IKeylessShareCardProps,
+} from './keylessOnboardingTypes';
+import { KeylessShareCard } from './KeylessShareCard';
+import { useKeylessShareCardsContext } from './KeylessShareCardsContext';
 
-import type { ICreationStep } from './keylessWalletOnboardingTypes';
-import type { IKeylessWalletShareCardProps } from './KeylessWalletShareCardsCardContext';
-
-export function KeylessWalletShareCardAuthKey({
+export function KeylessShareCardAuthKey({
   step,
   index,
   isLastStep,
-}: IKeylessWalletShareCardProps) {
+}: IKeylessShareCardProps) {
   const { uploadAuthPack, getAuthPackFromCache, getAuthPackFromServer } =
     useKeylessWallet();
   const { mode, refs, handleSaveShare, handleRestoreOrCheckShare } =
-    useKeylessWalletShareCardsCardContext();
+    useKeylessShareCardsContext();
 
   const handleCreate = useCallback(async () => {
     await handleSaveShare({
@@ -87,25 +88,17 @@ export function KeylessWalletShareCardAuthKey({
     buttonText = 'Restore from Server';
   }
 
-  const stepWithConfig = useMemo<ICreationStep>(
-    () => ({
-      id: step.id,
-      state: step.state,
-      infoMessage: step.infoMessage,
-      securityKeyType: 'auth',
-      title: 'Auth Key',
-      description: 'Protected by your OneKey ID',
-    }),
-    [step.id, step.infoMessage, step.state],
-  );
-
   return (
-    <KeylessWalletShareCard
-      step={stepWithConfig}
+    <KeylessShareCard
+      step={step}
+      securityKeyType="auth"
+      title="Auth Key"
+      description="Protected by your OneKey ID"
       index={index}
       isLastStep={isLastStep}
       onStepAction={onStepAction}
       buttonText={buttonText}
+      mode={mode}
     />
   );
 }

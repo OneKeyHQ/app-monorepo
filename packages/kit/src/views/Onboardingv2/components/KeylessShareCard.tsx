@@ -1,4 +1,5 @@
-import { useIntl } from 'react-intl';
+import { useMemo } from 'react';
+
 import { StyleSheet } from 'react-native';
 
 import {
@@ -11,23 +12,14 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EOnboardingV2KeylessWalletCreationMode } from '@onekeyhq/shared/src/routes/onboardingv2';
 
 import {
   ECreationStepState,
   type ICreationStep,
-} from './keylessWalletOnboardingTypes';
+  type IKeylessKeyStepCardProps,
+} from './keylessOnboardingTypes';
 import { SecurityKeyIcon } from './SecurityKeyIcon';
-
-export interface IKeylessKeyStepCardProps {
-  step: ICreationStep;
-  index: number;
-  isLastStep: boolean;
-  onStepAction: () => void;
-  buttonText: string;
-  onSecondaryAction?: () => void;
-  secondaryButtonText?: string;
-}
 
 function renderStepStatusIcon(state: ECreationStepState | undefined) {
   if (!state) {
@@ -87,7 +79,40 @@ function renderStepStatusIcon(state: ECreationStepState | undefined) {
   }
 }
 
-export function KeylessWalletShareCard({
+function StepInfoMessage(props: {
+  state: ECreationStepState | undefined;
+  infoMessage?: string;
+}) {
+  const { state, infoMessage } = props;
+  if (!infoMessage) {
+    return null;
+  }
+
+  if (state === ECreationStepState.Error) {
+    // Error state: show error styling and optional error message
+    return (
+      <SizableText
+        size="$bodyMdMedium"
+        color="$textCritical"
+        textAlign="center"
+      >
+        {infoMessage ?? 'Operation failed'}
+      </SizableText>
+    );
+  }
+
+  // Info state: show info styling and info message
+  return (
+    <SizableText size="$bodyMdMedium" color="$textInfo" textAlign="center">
+      {infoMessage}
+    </SizableText>
+  );
+}
+
+export function KeylessShareCard({
+  securityKeyType,
+  title,
+  description,
   step,
   index: _index,
   isLastStep,
@@ -95,8 +120,28 @@ export function KeylessWalletShareCard({
   buttonText,
   onSecondaryAction,
   secondaryButtonText,
+  mode,
 }: IKeylessKeyStepCardProps) {
-  const intl = useIntl();
+  const isStepLoading = step.state === ECreationStepState.InProgress;
+  const isStepActionDisabled = useMemo(() => {
+    if (mode === EOnboardingV2KeylessWalletCreationMode.View) {
+      return isStepLoading;
+    }
+    return (
+      step.state === ECreationStepState.Idle ||
+      step.state === ECreationStepState.Success ||
+      isStepLoading
+    );
+  }, [mode, step.state, isStepLoading]);
+  const shouldShowActionButtons = useMemo(() => {
+    if (mode === EOnboardingV2KeylessWalletCreationMode.View) {
+      return true;
+    }
+    return (
+      step.state !== ECreationStepState.Success &&
+      step.state !== ECreationStepState.Idle
+    );
+  }, [mode, step.state]);
 
   return (
     <>
@@ -199,9 +244,9 @@ export function KeylessWalletShareCard({
             justifyContent="center"
             opacity={step.state === ECreationStepState.Idle ? 0.5 : 1}
           >
-            {step.securityKeyType ? (
+            {securityKeyType ? (
               <SecurityKeyIcon
-                type={step.securityKeyType}
+                type={securityKeyType}
                 muted={step.state === ECreationStepState.Idle}
               />
             ) : null}
@@ -230,75 +275,55 @@ export function KeylessWalletShareCard({
             flex={1}
             opacity={step.state === ECreationStepState.Idle ? 0.5 : 1}
           >
-            <SizableText size="$headingSm">{step.title}</SizableText>
+            <SizableText size="$headingSm">{title}</SizableText>
             <HeightTransition initialHeight={0}>
-              {step.description &&
+              {description &&
               (step.state === ECreationStepState.Info ||
                 step.state === ECreationStepState.InProgress) ? (
-                <SizableText color="$textDisabled">
-                  {step.description}
-                </SizableText>
+                <SizableText color="$textDisabled">{description}</SizableText>
               ) : null}
             </HeightTransition>
           </YStack>
         </XStack>
 
         <HeightTransition initialHeight={0}>
-          {/* Info state - waiting for user action */}
-          {step.state === ECreationStepState.Info ||
-          step.state === ECreationStepState.Error ? (
-            <YStack
-              gap="$2"
-              mt="$4"
-              pt="$4"
-              borderWidth={0}
-              borderTopWidth={StyleSheet.hairlineWidth}
-              borderTopColor="$borderSubdued"
-              alignItems="center"
-            >
-              {step.infoMessage
-                ? (() => {
-                    if (step.state === ECreationStepState.Error) {
-                      // Error state: show error styling and optional error message
-                      return (
-                        <SizableText
-                          size="$bodyMdMedium"
-                          color="$textCritical"
-                          flex={1}
-                          textAlign="left"
-                        >
-                          {step.infoMessage ?? 'Operation failed'}
-                        </SizableText>
-                      );
-                    }
-                    // Info state: show info styling and info message
-                    return (
-                      <SizableText
-                        size="$bodyMdMedium"
-                        color="$textInfo"
-                        textAlign="left"
-                      >
-                        {step.infoMessage}
-                      </SizableText>
-                    );
-                  })()
-                : null}
+          <YStack
+            gap="$2"
+            mt="$4"
+            pt="$4"
+            pl="$12"
+            borderWidth={0}
+            borderTopWidth={StyleSheet.hairlineWidth}
+            borderTopColor="$borderSubdued"
+          >
+            {shouldShowActionButtons ? (
               <YStack gap="$2">
-                <Button variant="primary" onPress={onStepAction} w="100%">
+                <Button
+                  variant="primary"
+                  onPress={onStepAction}
+                  loading={isStepLoading}
+                  disabled={isStepActionDisabled}
+                >
                   {buttonText}
                 </Button>
                 {onSecondaryAction && secondaryButtonText ? (
                   <Button
                     variant="secondary"
                     onPress={onSecondaryAction}
-                    w="100%"
+                    loading={isStepLoading}
+                    disabled={isStepActionDisabled}
                   >
                     {secondaryButtonText}
                   </Button>
                 ) : null}
               </YStack>
-            </YStack>
-          ) : null}
+            ) : null}
+
+            <StepInfoMessage
+              state={step.state}
+              infoMessage={step.infoMessage}
+            />
+          </YStack>
         </HeightTransition>
       </YStack>
     </>

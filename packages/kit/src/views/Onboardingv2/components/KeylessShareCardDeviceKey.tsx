@@ -7,18 +7,19 @@ import { EOnboardingV2KeylessWalletCreationMode } from '@onekeyhq/shared/src/rou
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useKeylessWallet } from '../../../components/KeylessWallet/useKeylessWallet';
 
-import { ECreationStepId } from './keylessWalletOnboardingTypes';
-import { KeylessWalletShareCard } from './KeylessWalletShareCard';
-import { useKeylessWalletShareCardsCardContext } from './KeylessWalletShareCardsCardContext';
+import {
+  ECreationStepId,
+  type ICreationStep,
+  type IKeylessShareCardProps,
+} from './keylessOnboardingTypes';
+import { KeylessShareCard } from './KeylessShareCard';
+import { useKeylessShareCardsContext } from './KeylessShareCardsContext';
 
-import type { ICreationStep } from './keylessWalletOnboardingTypes';
-import type { IKeylessWalletShareCardProps } from './KeylessWalletShareCardsCardContext';
-
-export function KeylessWalletShareCardDeviceKey({
+export function KeylessShareCardDeviceKey({
   step,
   index,
   isLastStep,
-}: IKeylessWalletShareCardProps) {
+}: IKeylessShareCardProps) {
   const {
     saveDevicePack,
     getDevicePack,
@@ -26,7 +27,7 @@ export function KeylessWalletShareCardDeviceKey({
     sendDevicePackByQrCode,
   } = useKeylessWallet();
   const { mode, handleSaveShare, handleRestoreOrCheckShare } =
-    useKeylessWalletShareCardsCardContext();
+    useKeylessShareCardsContext();
 
   const handleCreate = useCallback(async () => {
     await handleSaveShare({
@@ -88,14 +89,12 @@ export function KeylessWalletShareCardDeviceKey({
     secondaryButtonText = 'Send to another device';
   }
 
-  const stepWithConfig = useMemo<ICreationStep>(
-    () => ({
-      id: step.id,
-      state: step.state,
-      infoMessage: step.infoMessage,
-      securityKeyType: 'device',
-      title: 'Device Key',
-      description: (
+  return (
+    <KeylessShareCard
+      step={step}
+      securityKeyType="device"
+      title="Device Key"
+      description={
         <>
           Encrypted with your{' '}
           <SizableText size="$bodyMdMedium" color="$textSubdued">
@@ -103,20 +102,14 @@ export function KeylessWalletShareCardDeviceKey({
           </SizableText>
           .
         </>
-      ),
-    }),
-    [step.id, step.infoMessage, step.state],
-  );
-
-  return (
-    <KeylessWalletShareCard
-      step={stepWithConfig}
+      }
       index={index}
       isLastStep={isLastStep}
       onStepAction={onStepAction}
       buttonText={buttonText}
       onSecondaryAction={onSecondaryAction}
       secondaryButtonText={secondaryButtonText}
+      mode={mode}
     />
   );
 }

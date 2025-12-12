@@ -15,21 +15,22 @@ import {
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useKeylessWallet } from '../../../components/KeylessWallet/useKeylessWallet';
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { usePromiseResult } from '../../../hooks/usePromiseResult';
 
 import {
   ECreationStepId,
   ECreationStepState,
   type ICreationStep,
-} from './keylessWalletOnboardingTypes';
-import { KeylessWalletShareCardAuthKey } from './KeylessWalletShareCardAuthKey';
-import { KeylessWalletShareCardCloudKey } from './KeylessWalletShareCardCloudKey';
-import { KeylessWalletShareCardDeviceKey } from './KeylessWalletShareCardDeviceKey';
-import {
-  type IKeylessWalletShareCardsCardContextValue,
-  type IKeylessWalletShareCardsRefs,
-  KeylessWalletShareCardsCardContext,
-} from './KeylessWalletShareCardsCardContext';
-import { KeylessWalletShareCardsEffects } from './KeylessWalletShareCardsEffects';
+  type IKeylessShareCardRuntimeStep,
+  type IKeylessShareCardsCardContextValue,
+  type IKeylessShareCardsRefs,
+  type IKeylessShareCardsViewProps,
+} from './keylessOnboardingTypes';
+import { KeylessShareCardAuthKey } from './KeylessShareCardAuthKey';
+import { KeylessShareCardCloudKey } from './KeylessShareCardCloudKey';
+import { KeylessShareCardDeviceKey } from './KeylessShareCardDeviceKey';
+import { KeylessShareCardsContext } from './KeylessShareCardsContext';
+import { KeylessShareCardsEffects } from './KeylessShareCardsEffects';
 import { OnboardingLayout } from './OnboardingLayout';
 
 // Step order constant - defined outside component to avoid recreation
@@ -39,7 +40,7 @@ const STEP_ORDER = [
   ECreationStepId.AuthShare,
 ] as const;
 
-function getRestorePackCount(refs: IKeylessWalletShareCardsRefs): number {
+function getRestorePackCount(refs: IKeylessShareCardsRefs): number {
   return [
     refs.restorePacks.device,
     refs.restorePacks.cloud,
@@ -47,19 +48,11 @@ function getRestorePackCount(refs: IKeylessWalletShareCardsRefs): number {
   ].filter(Boolean).length;
 }
 
-export interface IKeylessWalletShareCardsViewProps {
-  mode: EOnboardingV2KeylessWalletCreationMode;
-}
-
-type IStepRuntimeState = Pick<ICreationStep, 'id' | 'state' | 'infoMessage'>;
-
 type IHandleSaveShareParams = Parameters<
-  IKeylessWalletShareCardsCardContextValue['handleSaveShare']
+  IKeylessShareCardsCardContextValue['handleSaveShare']
 >[0];
 
-export function KeylessWalletShareCardsView({
-  mode,
-}: IKeylessWalletShareCardsViewProps) {
+export function KeylessShareCardsView({ mode }: IKeylessShareCardsViewProps) {
   const navigation = useAppNavigation();
   const { generatePacks, saveDevicePack } = useKeylessWallet();
 
@@ -67,7 +60,18 @@ export function KeylessWalletShareCardsView({
   const isViewMode = mode === EOnboardingV2KeylessWalletCreationMode.View;
   const isRestoreOrViewMode = isRestoreMode || isViewMode;
 
-  const refs = useRef<IKeylessWalletShareCardsRefs>({
+  const { result: cloudProviderType } = usePromiseResult(async () => {
+    const isSupportCloudBackup =
+      await backgroundApiProxy.serviceCloudBackupV2.supportCloudBackup();
+    if (!isSupportCloudBackup) {
+      return undefined;
+    }
+    const cloudAccountInfo =
+      await backgroundApiProxy.serviceCloudBackupV2.getCloudAccountInfo();
+    return cloudAccountInfo?.providerType;
+  }, []);
+
+  const refs = useRef<IKeylessShareCardsRefs>({
     generatedPacks: null,
     isGeneratingPacks: false,
     packSetIds: {
@@ -82,15 +86,16 @@ export function KeylessWalletShareCardsView({
     },
     restoreValidationResult: undefined,
   });
-  const [stepStates, setStepStates] = useState<IStepRuntimeState[]>(() =>
-    STEP_ORDER.map((id, idx) => ({
-      id,
-      state:
-        isRestoreOrViewMode || idx === 0
-          ? ECreationStepState.Info
-          : ECreationStepState.Idle,
-      infoMessage: undefined,
-    })),
+  const [stepStates, setStepStates] = useState<IKeylessShareCardRuntimeStep[]>(
+    () =>
+      STEP_ORDER.map((id, idx) => ({
+        id,
+        state:
+          isRestoreOrViewMode || idx === 0
+            ? ECreationStepState.Info
+            : ECreationStepState.Idle,
+        infoMessage: undefined,
+      })),
   );
 
   const successCount = useMemo(
@@ -310,7 +315,7 @@ export function KeylessWalletShareCardsView({
       restoreTarget,
       fn,
     }: Parameters<
-      IKeylessWalletShareCardsCardContextValue['handleRestoreOrCheckShare']
+      IKeylessShareCardsCardContextValue['handleRestoreOrCheckShare']
     >[0]) => {
       updateStepState({ stepId, newState: ECreationStepState.InProgress });
       const defaultErrorMessage = () => {
@@ -378,18 +383,19 @@ export function KeylessWalletShareCardsView({
   );
 
   // NOTE: Per-component card handlers are now defined inside:
-  // - KeylessWalletShareCardDeviceKey
-  // - KeylessWalletShareCardCloudKey
-  // - KeylessWalletShareCardAuthKey
+  // - KeylessShareCardDeviceKey
+  // - KeylessShareCardCloudKey
+  // - KeylessShareCardAuthKey
 
-  const cardContextValue = useMemo<IKeylessWalletShareCardsCardContextValue>(
+  const cardContextValue = useMemo<IKeylessShareCardsCardContextValue>(
     () => ({
       mode,
       refs,
+      cloudProviderType,
       handleSaveShare,
       handleRestoreOrCheckShare,
     }),
-    [handleRestoreOrCheckShare, handleSaveShare, mode, refs],
+    [handleRestoreOrCheckShare, handleSaveShare, mode, refs, cloudProviderType],
   );
 
   // Handle "Complete Setup" - navigate to finalize wallet setup
@@ -425,7 +431,7 @@ export function KeylessWalletShareCardsView({
 
   return (
     <>
-      <KeylessWalletShareCardsEffects
+      <KeylessShareCardsEffects
         isCreationComplete={isCreationComplete}
         isViewMode={isViewMode}
         handleCompleteSetup={handleCompleteSetup}
@@ -435,7 +441,7 @@ export function KeylessWalletShareCardsView({
         isRestoreMode={isRestoreMode}
         handleRestoreOrCheckShare={handleRestoreOrCheckShare}
       />
-      <KeylessWalletShareCardsCardContext.Provider value={cardContextValue}>
+      <KeylessShareCardsContext.Provider value={cardContextValue}>
         <OnboardingLayout.ConstrainedContent
           gap="$10"
           $platform-native={{
@@ -456,7 +462,7 @@ export function KeylessWalletShareCardsView({
             const isLastStep = index === stepStates.length - 1;
             if (step.id === ECreationStepId.DeviceShare) {
               return (
-                <KeylessWalletShareCardDeviceKey
+                <KeylessShareCardDeviceKey
                   key={step.id}
                   step={step}
                   index={index}
@@ -466,7 +472,7 @@ export function KeylessWalletShareCardsView({
             }
             if (step.id === ECreationStepId.CloudShare) {
               return (
-                <KeylessWalletShareCardCloudKey
+                <KeylessShareCardCloudKey
                   key={step.id}
                   step={step}
                   index={index}
@@ -476,7 +482,7 @@ export function KeylessWalletShareCardsView({
             }
             if (step.id === ECreationStepId.AuthShare) {
               return (
-                <KeylessWalletShareCardAuthKey
+                <KeylessShareCardAuthKey
                   key={step.id}
                   step={step}
                   index={index}
@@ -487,7 +493,7 @@ export function KeylessWalletShareCardsView({
             return null;
           })}
         </OnboardingLayout.ConstrainedContent>
-      </KeylessWalletShareCardsCardContext.Provider>
+      </KeylessShareCardsContext.Provider>
     </>
   );
 }

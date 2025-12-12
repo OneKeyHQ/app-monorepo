@@ -1,4 +1,3 @@
-import type { MutableRefObject } from 'react';
 import { useEffect } from 'react';
 
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
@@ -6,27 +5,15 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import type { IKeylessWalletPacks } from '@onekeyhq/shared/src/keylessWallet/keylessWalletTypes';
 
-import { ECreationStepId } from './keylessWalletOnboardingTypes';
+import {
+  ECreationStepId,
+  type IKeylessShareCardsEffectsProps,
+} from './keylessOnboardingTypes';
 
-import type {
-  IKeylessWalletShareCardsCardContextValue,
-  IKeylessWalletShareCardsRefs,
-} from './KeylessWalletShareCardsCardContext';
-
-export function KeylessWalletShareCardsEffects(props: {
-  isCreationComplete: boolean;
-  isViewMode: boolean;
-  handleCompleteSetup: () => Promise<void>;
-
-  isRestoreOrViewMode: boolean;
-  generatePacks: () => Promise<IKeylessWalletPacks>;
-  refs: MutableRefObject<IKeylessWalletShareCardsRefs>;
-
-  isRestoreMode: boolean;
-  handleRestoreOrCheckShare: IKeylessWalletShareCardsCardContextValue['handleRestoreOrCheckShare'];
-}) {
+export function KeylessShareCardsEffects(
+  props: IKeylessShareCardsEffectsProps,
+) {
   const {
     isCreationComplete,
     isViewMode,

@@ -3,14 +3,14 @@ import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/Acco
 import { EOnboardingV2KeylessWalletCreationMode } from '@onekeyhq/shared/src/routes/onboardingv2';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import { KeylessWalletShareCardsView } from '../../../Onboardingv2/components/KeylessWalletShareCardsView';
+import { KeylessShareCardsView } from '../../../Onboardingv2/components/KeylessShareCardsView';
 
 function KeylessWalletPage() {
   return (
     <Page scrollEnabled>
       <Page.Header title="Keyless Wallet" />
       <Page.Body>
-        <KeylessWalletShareCardsView
+        <KeylessShareCardsView
           mode={EOnboardingV2KeylessWalletCreationMode.View}
         />
       </Page.Body>

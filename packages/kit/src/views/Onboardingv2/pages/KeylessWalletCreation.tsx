@@ -9,7 +9,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { useAppRoute } from '../../../hooks/useAppRoute';
-import { KeylessWalletShareCardsView } from '../components/KeylessWalletShareCardsView';
+import { KeylessShareCardsView } from '../components/KeylessShareCardsView';
 import { OnboardingLayout } from '../components/OnboardingLayout';
 
 function KeylessWalletCreation() {
@@ -25,7 +25,7 @@ function KeylessWalletCreation() {
       <OnboardingLayout>
         <OnboardingLayout.Header title="Secure your wallet" />
         <OnboardingLayout.Body constrained={false}>
-          <KeylessWalletShareCardsView mode={mode} />
+          <KeylessShareCardsView mode={mode} />
         </OnboardingLayout.Body>
         <OnboardingLayout.Footer />
       </OnboardingLayout>

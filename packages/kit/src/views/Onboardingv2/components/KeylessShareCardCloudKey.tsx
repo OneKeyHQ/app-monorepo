@@ -3,36 +3,28 @@ import { useCallback, useMemo } from 'react';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { EOnboardingV2KeylessWalletCreationMode } from '@onekeyhq/shared/src/routes/onboardingv2';
 
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useKeylessWallet } from '../../../components/KeylessWallet/useKeylessWallet';
-import { usePromiseResult } from '../../../hooks/usePromiseResult';
 
-import { ECreationStepId } from './keylessWalletOnboardingTypes';
-import { KeylessWalletShareCard } from './KeylessWalletShareCard';
-import { useKeylessWalletShareCardsCardContext } from './KeylessWalletShareCardsCardContext';
+import {
+  ECreationStepId,
+  type ICreationStep,
+  type IKeylessShareCardProps,
+} from './keylessOnboardingTypes';
+import { KeylessShareCard } from './KeylessShareCard';
+import { useKeylessShareCardsContext } from './KeylessShareCardsContext';
 
-import type { ICreationStep } from './keylessWalletOnboardingTypes';
-import type { IKeylessWalletShareCardProps } from './KeylessWalletShareCardsCardContext';
-
-export function KeylessWalletShareCardCloudKey({
+export function KeylessShareCardCloudKey({
   step,
   index,
   isLastStep,
-}: IKeylessWalletShareCardProps) {
+}: IKeylessShareCardProps) {
   const { uploadCloudPack, getCloudPack } = useKeylessWallet();
-  const { mode, handleSaveShare, handleRestoreOrCheckShare } =
-    useKeylessWalletShareCardsCardContext();
-
-  const { result: cloudProviderType } = usePromiseResult(async () => {
-    const isSupportCloudBackup =
-      await backgroundApiProxy.serviceCloudBackupV2.supportCloudBackup();
-    if (!isSupportCloudBackup) {
-      return undefined;
-    }
-    const cloudAccountInfo =
-      await backgroundApiProxy.serviceCloudBackupV2.getCloudAccountInfo();
-    return cloudAccountInfo?.providerType;
-  }, []);
+  const {
+    mode,
+    cloudProviderType,
+    handleSaveShare,
+    handleRestoreOrCheckShare,
+  } = useKeylessShareCardsContext();
 
   const handleCreate = useCallback(async () => {
     await handleSaveShare({
@@ -82,25 +74,17 @@ export function KeylessWalletShareCardCloudKey({
     buttonText = 'Restore from Cloud';
   }
 
-  const stepWithConfig = useMemo<ICreationStep>(
-    () => ({
-      id: step.id,
-      state: step.state,
-      infoMessage: step.infoMessage,
-      securityKeyType: 'cloud',
-      title: 'Cloud Key',
-      description: `Encrypted backup to ${cloudProviderType ?? ''}`,
-    }),
-    [cloudProviderType, step.id, step.infoMessage, step.state],
-  );
-
   return (
-    <KeylessWalletShareCard
-      step={stepWithConfig}
+    <KeylessShareCard
+      step={step}
+      securityKeyType="cloud"
+      title="Cloud Key"
+      description={`Encrypted backup to ${cloudProviderType ?? ''}`}
       index={index}
       isLastStep={isLastStep}
       onStepAction={onStepAction}
       buttonText={buttonText}
+      mode={mode}
     />
   );
 }
