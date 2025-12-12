@@ -3144,7 +3144,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - SocketRocket
     - Yoga
-  - ReactNativeLiteCard (1.1.3):
+  - ReactNativeLiteCard (1.1.4):
     - boost
     - DoubleConversion
     - fast_float
@@ -4367,7 +4367,7 @@ SPEC CHECKSUMS:
   ReactNativeCameraKit: dc309a3b86d6e5655cdf0d731e96b0e380ce72df
   ReactNativeCheckBiometricAuthChanged: ed8edad7a49a82e133772ee0119280e2fec5a542
   ReactNativeFs: 0688196a126e3d0b0f5b1ec654a1f464f661f13c
-  ReactNativeLiteCard: fda82484b5a2cf4d2badd4bee188658a9e756255
+  ReactNativeLiteCard: e1fbb5f44ab5b32f536ee525126364c8881137b8
   ReactNativePasskeys: 9e950e8cbf0e7d6aad9df4dcd21cee0efeb4e5cd
   RealmJS: 1c37c6bdfe060f4caa0f9175aa0eedb962622ee1
   RestartNewArch: 274b840533a495869fcc12485fecd87d1b874896

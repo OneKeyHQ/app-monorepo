@@ -7396,13 +7396,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/react-native-lite-card@npm:1.1.3":
-  version: 1.1.3
-  resolution: "@onekeyfe/react-native-lite-card@npm:1.1.3"
+"@onekeyfe/react-native-lite-card@npm:1.1.4":
+  version: 1.1.4
+  resolution: "@onekeyfe/react-native-lite-card@npm:1.1.4"
   peerDependencies:
     react: "*"
     react-native: "*"
-  checksum: 10/4bedd5f6dfe57cf1e45bc72dff613e130b5a01d78fa38d71f574413d00a48919ddf6d8798a79a4f043a491a87f7319affd20f7b9cd8be2c4bc129d0a19658c0a
+  checksum: 10/0ef1009afa4781a93800347cfa9eac54db27aa9c3186b823b804835965bfa840a4e61a98f0c76d5e0250097e1ff17d773d953f7347d19b36817deabacdd9ab40
   languageName: node
   linkType: hard
 
@@ -7829,7 +7829,7 @@ __metadata:
     "@onekeyfe/react-native-animated-charts": "npm:1.0.0"
     "@onekeyfe/react-native-ble-utils": "npm:0.1.4"
     "@onekeyfe/react-native-check-biometric-auth-changed": "npm:1.1.3"
-    "@onekeyfe/react-native-lite-card": "npm:1.1.3"
+    "@onekeyfe/react-native-lite-card": "npm:1.1.4"
     "@onekeyfe/react-native-sni-connect": "npm:1.1.0"
     "@onekeyfe/react-native-text-input": "npm:0.3.0"
     "@onekeyhq/components": "npm:*"
