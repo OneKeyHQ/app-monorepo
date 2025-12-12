@@ -10,6 +10,26 @@ const BANNER_ITEM_WIDTH = 128;
 const BANNER_GAP = 12;
 
 function MarketBannerListSkeleton({ compact }: { compact?: boolean }) {
+  if (compact) {
+    return (
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={{
+          py: '$2',
+          px: '$4',
+          gap: BANNER_GAP,
+        }}
+      >
+        {[0, 1, 2].map((i) => (
+          <Stack key={i} h={118} w={BANNER_ITEM_WIDTH}>
+            <MarketBannerItemSkeleton compact={compact} />
+          </Stack>
+        ))}
+      </ScrollView>
+    );
+  }
+
   return (
     <XStack gap="$3" px="$4" py="$2">
       {[0, 1, 2].map((i) => (

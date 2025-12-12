@@ -123,16 +123,18 @@ function MarketBannerDetailContent({ title }: { title: string }) {
 
   return (
     <Page>
-      {!md ? (
+      {md ? (
+        <Page.Header title={title} />
+      ) : (
         <Page.Header
           headerTitle={renderHeaderTitle}
           headerLeft={renderHeaderLeft}
           headerRight={renderHeaderRight}
         />
-      ) : null}
+      )}
 
       <Page.Body>
-        <Stack flex={1} px="$4">
+        <Stack flex={1} px={md ? '$0' : '$4'}>
           <MarketTokenListBase
             result={listResult}
             onItemPress={handleItemPress}

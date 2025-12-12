@@ -1,4 +1,5 @@
 import { Skeleton, XStack, YStack } from '@onekeyhq/components';
+import { TokenGroupSkeleton } from '@onekeyhq/kit/src/components/Token';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export function MarketBannerItemSkeleton({ compact }: { compact?: boolean }) {
@@ -16,17 +17,7 @@ export function MarketBannerItemSkeleton({ compact }: { compact?: boolean }) {
           <Skeleton w="$16" h="$3.5" />
           <Skeleton w="$10" h="$3" />
         </YStack>
-        <XStack>
-          {[0, 1, 2].map((i) => (
-            <Skeleton
-              key={i}
-              w="$6"
-              h="$6"
-              radius="round"
-              {...(i !== 0 && { ml: '$-3' })}
-            />
-          ))}
-        </XStack>
+        <TokenGroupSkeleton size="xs" count={3} overlapOffset="$-3" />
       </YStack>
     );
   }
@@ -46,17 +37,7 @@ export function MarketBannerItemSkeleton({ compact }: { compact?: boolean }) {
         <Skeleton w="$20" h="$4" />
         <Skeleton w="$12" h="$3" />
       </YStack>
-      <XStack>
-        {[0, 1, 2].map((i) => (
-          <Skeleton
-            key={i}
-            w="$6"
-            h="$6"
-            radius="round"
-            {...(i !== 0 && { ml: '$-3' })}
-          />
-        ))}
-      </XStack>
+      <TokenGroupSkeleton size="xs" count={3} overlapOffset="$-3" />
     </XStack>
   );
 }
