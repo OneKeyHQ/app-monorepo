@@ -58,12 +58,19 @@ function TabItem({
   return (
     <XStack
       py="$3"
-      px="$4"
+      ml="$4"
+      mr="$2"
       borderBottomWidth={isFocused ? '$0.5' : '$0'}
       borderBottomColor="$borderActive"
       onPress={() => onPress(name)}
+      cursor="pointer"
     >
-      <SizableText size="$bodyMdMedium">{name}</SizableText>
+      <SizableText
+        size="$headingXs"
+        color={isFocused ? '$text' : '$textSubdued'}
+      >
+        {name}
+      </SizableText>
     </XStack>
   );
 }
@@ -82,42 +89,42 @@ function TokenListHeader() {
         label={intl.formatMessage({
           id: ETranslations.perp_token_selector_asset,
         })}
-        width={150}
+        width={180}
       />
       <SortableHeaderCell
         field="markPrice"
         label={intl.formatMessage({
           id: ETranslations.perp_token_selector_last_price,
         })}
-        width={100}
+        width={110}
       />
       <SortableHeaderCell
         field="change24hPercent"
         label={intl.formatMessage({
           id: ETranslations.perp_token_selector_24h_change,
         })}
-        width={120}
+        width={150}
       />
       <SortableHeaderCell
         field="fundingRate"
         label={intl.formatMessage({
           id: ETranslations.perp_position_funding,
         })}
-        width={100}
+        width={110}
       />
       <SortableHeaderCell
         field="volume24h"
         label={intl.formatMessage({
           id: ETranslations.perp_token_selector_volume,
         })}
-        width={100}
+        width={110}
       />
       <SortableHeaderCell
         field="openInterest"
         label={intl.formatMessage({
           id: ETranslations.perp_token_bar_open_Interest,
         })}
-        width={110}
+        width={120}
       />
     </XStack>
   );
@@ -137,13 +144,12 @@ function BasePerpTokenSelectorContent({
 
   const tabNames = useMemo(
     () => ({
-      all: 'All',
-      perps: 'Perps',
+      all: 'PERPS',
       hip3: 'HIP3',
     }),
     [],
   );
-  const [activeTab, setActiveTab] = useState<'all' | 'perps' | 'hip3'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | 'hip3'>('all');
 
   const handleSelectToken = useCallback(
     async (symbol: string) => {
@@ -292,16 +298,11 @@ function BasePerpTokenSelectorContent({
     const assetsByDexTyped: IPerpsUniverse[][] = assetsByDex || [];
     const assetCtxsByDexTyped: IPerpsAssetCtx[][] = assetCtxsByDex || [];
 
-    const perpsAssets: IPerpsUniverse[] = assetsByDexTyped[0] || [];
+    // const perpsAssets: IPerpsUniverse[] = assetsByDexTyped[0] || [];
     const hip3Assets: IPerpsUniverse[] = assetsByDexTyped[1] || [];
-    const perpsCtxs: IPerpsAssetCtx[] = assetCtxsByDexTyped[0] || [];
+    // const perpsCtxs: IPerpsAssetCtx[] = assetCtxsByDexTyped[0] || [];
     const hip3Ctxs: IPerpsAssetCtx[] = assetCtxsByDexTyped[1] || [];
 
-    const listPerps = buildListData({
-      assets: perpsAssets,
-      assetCtxs: perpsCtxs,
-      dexIndex: 0,
-    });
     const listHip3 = buildListData({
       assets: hip3Assets,
       assetCtxs: hip3Ctxs,
@@ -352,7 +353,6 @@ function BasePerpTokenSelectorContent({
 
     return {
       all: listAll,
-      perps: listPerps,
       hip3: listHip3,
     };
   }, [
@@ -414,11 +414,14 @@ function BasePerpTokenSelectorContent({
 
   const content = (
     <YStack>
-      <YStack gap="$2">
+      <YStack gap="$1">
         <XStack px="$2" pt="$2">
           <SearchBar
             containerProps={{
               borderRadius: '$2',
+              mx: '$2',
+              mt: '$2',
+              flex: 1,
             }}
             autoFocus
             placeholder={intl.formatMessage({
@@ -431,10 +434,6 @@ function BasePerpTokenSelectorContent({
         <Tabs.Container
           initialTabName={tabNames.all}
           onTabChange={({ tabName }) => {
-            if (tabName === tabNames.perps) {
-              setActiveTab('perps');
-              return;
-            }
             if (tabName === tabNames.hip3) {
               setActiveTab('hip3');
               return;
@@ -449,19 +448,15 @@ function BasePerpTokenSelectorContent({
               )}
               containerStyle={{
                 borderRadius: 0,
-                margin: 0,
+                backgroundColor: '$bg',
                 paddingHorizontal: 0,
+                cursor: 'default',
               }}
             />
           )}
         >
           <Tabs.Tab name={tabNames.all}>
             {activeTab === 'all' ? renderTokenList(listDataByTab.all) : null}
-          </Tabs.Tab>
-          <Tabs.Tab name={tabNames.perps}>
-            {activeTab === 'perps'
-              ? renderTokenList(listDataByTab.perps)
-              : null}
           </Tabs.Tab>
           <Tabs.Tab name={tabNames.hip3}>
             {activeTab === 'hip3' ? renderTokenList(listDataByTab.hip3) : null}
@@ -503,7 +498,7 @@ function BasePerpTokenSelector() {
       <Popover
         title="Select Token"
         floatingPanelProps={{
-          width: 700,
+          width: 800,
         }}
         open={isOpen}
         onOpenChange={setIsOpen}
