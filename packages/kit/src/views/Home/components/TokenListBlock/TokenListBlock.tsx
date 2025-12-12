@@ -15,6 +15,7 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { EmptyAccount } from '@onekeyhq/kit/src/components/Empty';
+import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { TokenListView } from '@onekeyhq/kit/src/components/TokenListView';
 import { perfTokenListView } from '@onekeyhq/kit/src/components/TokenListView/perfTokenListView';
 import { useAllNetworkRequests } from '@onekeyhq/kit/src/hooks/useAllNetwork';
@@ -86,7 +87,6 @@ import type {
 
 import { onHomePageRefresh } from '../PullToRefresh';
 import { RichBlock } from '../RichBlock/RichBlock';
-import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 
 const networkIdsMap = getNetworkIdsMap();
 

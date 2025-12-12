@@ -94,7 +94,7 @@ function SupportHub() {
                 left="0"
                 bottom="0"
                 right="0"
-                source={require('@onekeyhq/kit/assets/sifu_banner.jpg')}
+                source="https://uni.onekey-asset.com/static/wallet/sifu_bg.jpg"
                 resizeMode="cover"
                 zIndex={0}
               />
