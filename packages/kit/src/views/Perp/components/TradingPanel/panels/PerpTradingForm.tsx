@@ -32,7 +32,10 @@ import {
   usePerpsShouldShowEnableTradingButtonAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { formatPriceToSignificantDigits } from '@onekeyhq/shared/src/utils/perpsUtils';
+import {
+  formatPriceToSignificantDigits,
+  parseDexCoin,
+} from '@onekeyhq/shared/src/utils/perpsUtils';
 import { EPerpsSizeInputMode } from '@onekeyhq/shared/types/hyperliquid';
 
 import { useShowDepositWithdrawModal } from '../../../hooks/useShowDepositWithdrawModal';
@@ -88,6 +91,10 @@ function PerpTradingForm({
   const currentTokenName = activeAsset?.coin;
   const [{ activePositions: perpsPositions }] = usePerpsActivePositionAtom();
   const [perpsSelectedSymbol] = usePerpsActiveAssetAtom();
+  const perpsSelectedDisplayName = useMemo(
+    () => parseDexCoin(perpsSelectedSymbol.coin).displayName,
+    [perpsSelectedSymbol.coin],
+  );
   const [activeAssetData] = usePerpsActiveAssetDataAtom();
   const { universe } = perpsSelectedSymbol;
   const [shouldShowEnableTradingButton] =
@@ -448,7 +455,7 @@ function PerpTradingForm({
                   selectedSymbolPositionSide as ITradeSide,
                 )}
               >
-                {selectedSymbolPositionValue} {perpsSelectedSymbol.coin}
+                {selectedSymbolPositionValue} {perpsSelectedDisplayName}
               </SizableText>
             )}
           </XStack>
@@ -483,7 +490,7 @@ function PerpTradingForm({
         side={formData.side}
         activeAsset={activeAsset}
         activeAssetCtx={activeAssetCtx}
-        symbol={perpsSelectedSymbol.coin}
+        symbol={perpsSelectedDisplayName}
         value={formData.size}
         onChange={handleManualSizeChange}
         sizeInputMode={tradingComputed.sizeInputMode}

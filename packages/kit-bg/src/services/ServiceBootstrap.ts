@@ -31,6 +31,7 @@ class ServiceBootstrap extends ServiceBase {
         this.backgroundApi.serviceReferralCode.getPostConfig(),
         this.backgroundApi.serviceSetting.syncWalletConfig(),
         this.backgroundApi.serviceToken.clearLastActiveTabNameData(),
+        this.backgroundApi.serviceDeFi.syncDeFiEnabledNetworks(),
       ]);
     } catch (error) {
       console.error(error);
