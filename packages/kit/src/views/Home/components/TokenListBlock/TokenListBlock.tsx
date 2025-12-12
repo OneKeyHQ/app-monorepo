@@ -8,7 +8,6 @@ import { useThrottledCallback } from 'use-debounce';
 
 import {
   IconButton,
-  NumberSizeableText,
   Skeleton,
   Stack,
   useOnRouterChange,
@@ -87,6 +86,7 @@ import type {
 
 import { onHomePageRefresh } from '../PullToRefresh';
 import { RichBlock } from '../RichBlock/RichBlock';
+import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 
 const networkIdsMap = getNetworkIdsMap();
 
@@ -1950,7 +1950,8 @@ function TokenListBlock({ tableLayout }: { tableLayout?: boolean }) {
       }
 
       return (
-        <NumberSizeableText
+        <NumberSizeableTextWrapper
+          hideValue
           size="$headingXl"
           color="$textSubdued"
           formatter="value"
@@ -1959,7 +1960,7 @@ function TokenListBlock({ tableLayout }: { tableLayout?: boolean }) {
           }}
         >
           {accountTokensValue}
-        </NumberSizeableText>
+        </NumberSizeableTextWrapper>
       );
     }
 
