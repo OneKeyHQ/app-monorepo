@@ -203,7 +203,7 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
       },
       {
         key: 'yield',
-        label: intl.formatMessage({ id: ETranslations.global_apr }),
+        label: intl.formatMessage({ id: ETranslations.earn_yield }),
         flex: 2,
         align: 'flex-end',
         render: (item) => (

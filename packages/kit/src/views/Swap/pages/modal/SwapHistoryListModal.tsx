@@ -247,7 +247,7 @@ const SwapHistoryListModal = ({
             id: ETranslations.swap_page_limit_dialog_title,
           })
         : intl.formatMessage({
-            id: ETranslations.swap_history_title,
+            id: ETranslations.Limit_order_history,
           });
     return (
       <Select
@@ -255,7 +255,7 @@ const SwapHistoryListModal = ({
         items={[
           {
             label: intl.formatMessage({
-              id: ETranslations.swap_history_title,
+              id: ETranslations.perp_trade_market,
             }),
             value: EProtocolOfExchange.SWAP,
           },

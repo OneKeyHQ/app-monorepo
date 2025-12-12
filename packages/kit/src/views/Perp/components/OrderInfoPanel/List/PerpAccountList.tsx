@@ -165,7 +165,9 @@ function PerpAccountList({
       data={mergedData}
       isMobile={isMobile}
       renderRow={renderAccountRow}
-      listLoading={!isSubscribed}
+      // If account has no Perp address (unsupported or not created),
+      // show empty state instead of skeleton loading.
+      listLoading={currentUser?.accountAddress ? !isSubscribed : false}
       emptyMessage={intl.formatMessage({
         id: ETranslations.perp_trade_history_empty,
       })}
