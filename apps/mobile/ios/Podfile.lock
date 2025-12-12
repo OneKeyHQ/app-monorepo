@@ -3086,7 +3086,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - SocketRocket
     - Yoga
-  - ReactNativeCheckBiometricAuthChanged (1.1.3):
+  - ReactNativeCheckBiometricAuthChanged (1.1.5):
     - boost
     - DoubleConversion
     - fast_float
@@ -3144,7 +3144,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - SocketRocket
     - Yoga
-  - ReactNativeLiteCard (1.1.4):
+  - ReactNativeLiteCard (1.1.5):
     - boost
     - DoubleConversion
     - fast_float
@@ -4365,9 +4365,9 @@ SPEC CHECKSUMS:
   ReactCodegen: cc4afb1cabd4dc96a6d6f1d99539bceb3bebe437
   ReactCommon: 6d0fa86a4510730da7c72560e0ced14258292ab9
   ReactNativeCameraKit: dc309a3b86d6e5655cdf0d731e96b0e380ce72df
-  ReactNativeCheckBiometricAuthChanged: ed8edad7a49a82e133772ee0119280e2fec5a542
+  ReactNativeCheckBiometricAuthChanged: 8deac1c194b8fc06d60e140b5d5ca22ee31755af
   ReactNativeFs: 0688196a126e3d0b0f5b1ec654a1f464f661f13c
-  ReactNativeLiteCard: e1fbb5f44ab5b32f536ee525126364c8881137b8
+  ReactNativeLiteCard: 9a4a7d7168d779cb1a062aa1e18331a2bb767566
   ReactNativePasskeys: 9e950e8cbf0e7d6aad9df4dcd21cee0efeb4e5cd
   RealmJS: 1c37c6bdfe060f4caa0f9175aa0eedb962622ee1
   RestartNewArch: 274b840533a495869fcc12485fecd87d1b874896

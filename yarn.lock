@@ -7385,24 +7385,24 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/react-native-check-biometric-auth-changed@npm:1.1.3":
-  version: 1.1.3
-  resolution: "@onekeyfe/react-native-check-biometric-auth-changed@npm:1.1.3"
+"@onekeyfe/react-native-check-biometric-auth-changed@npm:1.1.5":
+  version: 1.1.5
+  resolution: "@onekeyfe/react-native-check-biometric-auth-changed@npm:1.1.5"
   peerDependencies:
     react: "*"
     react-native: "*"
     react-native-nitro-modules: ^0.31.10
-  checksum: 10/cbfecb1208d6fd8adfa0155fedb347700c1abf0cb441487c95e59f652662cd56b2e6a605340291a48578970cf68d728196e28a9437bde57b25bcc82543cba89e
+  checksum: 10/131b6eeb0b7ebef86fda11e774bc458571863f1812c378ba74afc414d3d80922a7b02c2d3a4bdd0393eed7f244ac144aea7285cddef520e776c8cb589ee1ae1d
   languageName: node
   linkType: hard
 
-"@onekeyfe/react-native-lite-card@npm:1.1.4":
-  version: 1.1.4
-  resolution: "@onekeyfe/react-native-lite-card@npm:1.1.4"
+"@onekeyfe/react-native-lite-card@npm:1.1.5":
+  version: 1.1.5
+  resolution: "@onekeyfe/react-native-lite-card@npm:1.1.5"
   peerDependencies:
     react: "*"
     react-native: "*"
-  checksum: 10/0ef1009afa4781a93800347cfa9eac54db27aa9c3186b823b804835965bfa840a4e61a98f0c76d5e0250097e1ff17d773d953f7347d19b36817deabacdd9ab40
+  checksum: 10/e7219324a238ac282f05636aed5ea26a1af530adf9a0eab05058c1bda05678f43e1f411ddff3ad47963e3bef04565b9f9e471dee682e9f120f260f8da5c2c11c
   languageName: node
   linkType: hard
 
@@ -7828,8 +7828,8 @@ __metadata:
     "@notifee/react-native": "npm:9.1.8"
     "@onekeyfe/react-native-animated-charts": "npm:1.0.0"
     "@onekeyfe/react-native-ble-utils": "npm:0.1.4"
-    "@onekeyfe/react-native-check-biometric-auth-changed": "npm:1.1.3"
-    "@onekeyfe/react-native-lite-card": "npm:1.1.4"
+    "@onekeyfe/react-native-check-biometric-auth-changed": "npm:1.1.5"
+    "@onekeyfe/react-native-lite-card": "npm:1.1.5"
     "@onekeyfe/react-native-sni-connect": "npm:1.1.0"
     "@onekeyfe/react-native-text-input": "npm:0.3.0"
     "@onekeyhq/components": "npm:*"
