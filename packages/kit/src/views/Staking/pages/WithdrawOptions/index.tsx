@@ -34,7 +34,13 @@ const WithdrawOptions = () => {
   >();
   const intl = useIntl();
   const appNavigation = useAppNavigation();
-  const { accountId, networkId, protocolInfo, tokenInfo } = appRoute.params;
+  const {
+    accountId,
+    networkId,
+    protocolInfo,
+    tokenInfo,
+    onSuccess: externalOnSuccess,
+  } = appRoute.params;
   const symbol = tokenInfo?.token.symbol || '';
   const provider = protocolInfo?.provider || '';
   const { result, isLoading, run } = usePromiseResult(
@@ -72,7 +78,12 @@ const WithdrawOptions = () => {
         allowPartialWithdraw: stakingConfig?.allowPartialWithdraw,
         onSuccess: () => {
           // pop to portfolio details page
-          setTimeout(() => appNavigation.pop(), 4);
+          setTimeout(() => {
+            appNavigation.pop();
+            // Trigger external onSuccess callback (from ManagePositionContent)
+            // This ensures the entire modal stack is closed when in modal context
+            externalOnSuccess?.();
+          }, 4);
         },
       });
     },
@@ -83,6 +94,7 @@ const WithdrawOptions = () => {
       protocolInfo,
       tokenInfo,
       stakingConfig?.allowPartialWithdraw,
+      externalOnSuccess,
     ],
   );
 

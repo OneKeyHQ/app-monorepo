@@ -102,11 +102,8 @@ import {
   useSwapLimitPartiallyFillAtom,
   useSwapLimitPriceFromAmountAtom,
   useSwapLimitPriceToAmountAtom,
-  useSwapQuoteCurrentSelectAtom,
   useSwapQuoteEventTotalCountAtom,
   useSwapQuoteListAtom,
-  useSwapSelectFromTokenAtom,
-  useSwapSelectToTokenAtom,
   useSwapStepNetFeeLevelAtom,
   useSwapStepsAtom,
   useSwapToTokenAmountAtom,
@@ -114,6 +111,7 @@ import {
 } from '../../../states/jotai/contexts/swap';
 
 import { useSwapAddressInfo } from './useSwapAccount';
+import { useSwapBuildTxInfo } from './useSwapPro';
 import {
   useSwapActionState,
   useSwapSlippagePercentageModeInfo,
@@ -123,7 +121,6 @@ import { useSwapTxHistoryActions } from './useSwapTxHistory';
 const formatter: INumberFormatProps = {
   formatter: 'balance',
 };
-
 /**
  * React hook that manages the full lifecycle of building, approving, signing, and sending swap transactions in a multi-step workflow.
  *
@@ -133,10 +130,12 @@ const formatter: INumberFormatProps = {
  */
 export function useSwapBuildTx() {
   const intl = useIntl();
-  const [fromToken] = useSwapSelectFromTokenAtom();
-  const [toToken] = useSwapSelectToTokenAtom();
+  const {
+    currentQuoteRes: selectQuote,
+    fromSelectToken: fromToken,
+    toSelectToken: toToken,
+  } = useSwapBuildTxInfo();
   const { slippageItem } = useSwapSlippagePercentageModeInfo();
-  const [selectQuote] = useSwapQuoteCurrentSelectAtom();
   const [, setSwapBuildTxFetching] = useSwapBuildTxFetchingAtom();
   const [, setInAppNotificationAtom] = useInAppNotificationAtom();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();

@@ -83,8 +83,12 @@ export type IModalStakingParamList = {
       identity?: string;
       claimableAmount?: string;
     };
-  [EModalStakingRoutes.ClaimOptions]: IDetailPageInfoParams;
-  [EModalStakingRoutes.WithdrawOptions]: IDetailPageInfoParams;
+  [EModalStakingRoutes.ClaimOptions]: IDetailPageInfoParams & {
+    onSuccess?: () => void;
+  };
+  [EModalStakingRoutes.WithdrawOptions]: IDetailPageInfoParams & {
+    onSuccess?: () => void;
+  };
   [EModalStakingRoutes.AssetProtocolList]: IBaseRouteParams & {
     symbol: string;
     filter?: boolean;
