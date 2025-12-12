@@ -14,6 +14,10 @@ import {
 } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IMarketSearchV2Token } from '@onekeyhq/shared/types/market';
 import type { IMarketTokenTransaction } from '@onekeyhq/shared/types/marketV2';
+import {
+  swapProPositionsListMaxCount,
+  swapProPositionsListMinValue,
+} from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import {
   ESwapProTradeType,
@@ -33,16 +37,19 @@ import {
   useSwapLimitPriceFromAmountAtom,
   useSwapLimitPriceToAmountAtom,
   useSwapProDirectionAtom,
+  useSwapProEnableCurrentSymbolAtom,
   useSwapProInputAmountAtom,
   useSwapProSelectTokenAtom,
   useSwapProSellToTokenAtom,
-  useSwapProSlippageAtom,
+  useSwapProSupportNetworksTokenListAtom,
   useSwapProToTotalValueAtom,
   useSwapProTokenSupportLimitAtom,
   useSwapProTokenTransactionPriceAtom,
   useSwapProTradeTypeAtom,
   useSwapProUseSelectBuyTokenAtom,
   useSwapQuoteCurrentSelectAtom,
+  useSwapSelectFromTokenAtom,
+  useSwapSelectToTokenAtom,
   useSwapSpeedQuoteResultAtom,
   useSwapToTokenAmountAtom,
   useSwapTypeSwitchAtom,
@@ -51,6 +58,8 @@ import { useMarketBasicConfig } from '../../Market/hooks';
 import { useTransactionsWebSocket } from '../../Market/MarketDetailV2/components/InformationTabs/components/TransactionsHistory/hooks/useTransactionsWebSocket';
 import { useSpeedSwapInit } from '../../Market/MarketDetailV2/components/SwapPanel/hooks/useSpeedSwapInit';
 import { ESwapDirection } from '../../Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
+
+import { useSwapSlippagePercentageModeInfo } from './useSwapState';
 
 export function useSwapProInit() {
   const [, setSwapSwitchType] = useSwapTypeSwitchAtom();
@@ -573,6 +582,8 @@ export function useSwapProSupportNetworksTokenList() {
   const { swapProLoadSupportNetworksTokenList } = useSwapActions().current;
   const { networkList } = useMarketBasicConfig();
   const { activeAccount } = useActiveAccount({ num: 0 });
+  const [swapProSupportNetworksTokenList] =
+    useSwapProSupportNetworksTokenListAtom();
   const swapProLoadSupportNetworksTokenListRun = useCallback(async () => {
     if (networkList.length > 0 && activeAccount) {
       await swapProLoadSupportNetworksTokenList(
@@ -589,10 +600,103 @@ export function useSwapProSupportNetworksTokenList() {
     }
   }, [networkList, activeAccount, swapProLoadSupportNetworksTokenList]);
   useEffect(() => {
-    void swapProLoadSupportNetworksTokenListRun();
-  }, [swapProLoadSupportNetworksTokenListRun]);
+    if (swapProSupportNetworksTokenList.length === 0) {
+      void swapProLoadSupportNetworksTokenListRun();
+    }
+  }, [
+    swapProLoadSupportNetworksTokenListRun,
+    swapProSupportNetworksTokenList.length,
+  ]);
   return {
     swapProLoadSupportNetworksTokenListRun,
+  };
+}
+
+export function useSwapProPositionsListFilter() {
+  const [swapProSupportNetworksTokenList] =
+    useSwapProSupportNetworksTokenListAtom();
+  const [swapProEnableCurrentSymbol] = useSwapProEnableCurrentSymbolAtom();
+  const [swapProTokenSelect] = useSwapProSelectTokenAtom();
+  const filterDefaultTokenList = useMemo(() => {
+    const filterMinValueTokenList = swapProSupportNetworksTokenList.filter(
+      (token) => {
+        return new BigNumber(token.fiatValue ?? '0').gt(
+          swapProPositionsListMinValue,
+        );
+      },
+    );
+    if (filterMinValueTokenList.length <= swapProPositionsListMaxCount) {
+      return filterMinValueTokenList;
+    }
+    return filterMinValueTokenList.slice(0, swapProPositionsListMaxCount);
+  }, [swapProSupportNetworksTokenList]);
+
+  const finallyTokenList = useMemo(
+    () =>
+      swapProEnableCurrentSymbol
+        ? swapProSupportNetworksTokenList.filter((token) =>
+            equalTokenNoCaseSensitive({
+              token1: token,
+              token2: swapProTokenSelect,
+            }),
+          )
+        : filterDefaultTokenList,
+    [
+      filterDefaultTokenList,
+      swapProEnableCurrentSymbol,
+      swapProSupportNetworksTokenList,
+      swapProTokenSelect,
+    ],
+  );
+  return {
+    finallyTokenList,
+  };
+}
+
+export function useSwapBuildTxInfo() {
+  const [swapTypeSwitch] = useSwapTypeSwitchAtom();
+  const [swapProTradeType] = useSwapProTradeTypeAtom();
+  const [swapProQuoteResult] = useSwapSpeedQuoteResultAtom();
+  const swapProFromToken = useSwapProInputToken();
+  const swapProToToken = useSwapProToToken();
+  const [fromSelectTokenAtom] = useSwapSelectFromTokenAtom();
+  const [toSelectTokenAtom] = useSwapSelectToTokenAtom();
+  const [currentQuote] = useSwapQuoteCurrentSelectAtom();
+  const focusSwapPro = useMemo(() => {
+    return platformEnv.isNative && swapTypeSwitch === ESwapTabSwitchType.LIMIT;
+  }, [swapTypeSwitch]);
+  const currentQuoteRes = useMemo(() => {
+    if (focusSwapPro && swapProTradeType === ESwapProTradeType.MARKET) {
+      return swapProQuoteResult;
+    }
+    return currentQuote;
+  }, [focusSwapPro, swapProTradeType, currentQuote, swapProQuoteResult]);
+  const fromSelectToken = useMemo(() => {
+    if (focusSwapPro) {
+      return swapProFromToken;
+    }
+    return fromSelectTokenAtom;
+  }, [focusSwapPro, fromSelectTokenAtom, swapProFromToken]);
+  const toSelectToken = useMemo(() => {
+    if (focusSwapPro) {
+      return swapProToToken;
+    }
+    return toSelectTokenAtom;
+  }, [focusSwapPro, toSelectTokenAtom, swapProToToken]);
+
+  const swapTypeFinal = useMemo(() => {
+    if (focusSwapPro) {
+      return swapProTradeType === ESwapProTradeType.LIMIT
+        ? ESwapTabSwitchType.LIMIT
+        : ESwapTabSwitchType.SWAP;
+    }
+    return swapTypeSwitch;
+  }, [focusSwapPro, swapProTradeType, swapTypeSwitch]);
+  return {
+    currentQuoteRes,
+    fromSelectToken,
+    toSelectToken,
+    swapTypeFinal,
   };
 }
 
@@ -613,7 +717,7 @@ export function useSwapProActionsQuote() {
   const [swapProSellToTokenAtom] = useSwapProSellToTokenAtom();
   const [, setSwapProToTotalValue] = useSwapProToTotalValueAtom();
   const [swapProQuoteResult] = useSwapSpeedQuoteResultAtom();
-  const [slippageItem] = useSwapProSlippageAtom();
+  const { slippageItem } = useSwapSlippagePercentageModeInfo();
   const swapProtoToken = useSwapProToToken();
   const swapProAccount = useSwapProAccount();
   const slippageItemRef = useRef(slippageItem);
