@@ -3,9 +3,15 @@ import { useCallback, useRef, useState } from 'react';
 import { RefreshControl, ScrollView } from 'react-native';
 
 import { IconButton, XStack, YStack } from '@onekeyhq/components';
-import { useSwapProSelectTokenAtom } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import {
+  useSwapFromTokenAmountAtom,
+  useSwapProInputAmountAtom,
+  useSwapProSelectTokenAtom,
+  useSwapProSliderValueAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import type {
   IFetchLimitOrderRes,
+  ISwapProSpeedConfig,
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 
@@ -14,7 +20,6 @@ import {
   useSwapProSupportNetworksTokenList,
   useSwapProTokenDetailInfo,
   useSwapProTokenInfoSync,
-  useSwapProTokenInit,
 } from '../../hooks/useSwapPro';
 
 import LimitOrderList from './LimitOrderList';
@@ -30,6 +35,13 @@ interface ISwapProContainerProps {
   onSwapProActionClick: () => void;
   handleSelectAccountClick: () => void;
   onProMarketDetail: () => void;
+  config: {
+    isLoading: boolean;
+    speedConfig: ISwapProSpeedConfig;
+    balanceLoading: boolean;
+    isMEV: boolean;
+    hasEnoughBalance: boolean;
+  };
 }
 
 const SwapProContainer = ({
@@ -38,6 +50,7 @@ const SwapProContainer = ({
   onSwapProActionClick,
   handleSelectAccountClick,
   onProMarketDetail,
+  config,
 }: ISwapProContainerProps) => {
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState<ETabName | string>(
@@ -45,6 +58,9 @@ const SwapProContainer = ({
   );
   const [swapProTokenSelect, setSwapProSelectToken] =
     useSwapProSelectTokenAtom();
+  const [, setSwapProInputAmount] = useSwapProInputAmountAtom();
+  const [, setFromInputAmount] = useSwapFromTokenAmountAtom();
+  const [, setSwapProSliderValue] = useSwapProSliderValueAtom();
   const scrollViewRef = useRef<ScrollView>(null);
   const { fetchTokenMarketDetailInfo } = useSwapProTokenDetailInfo();
   const { syncInputTokenBalance, syncToTokenPrice } = useSwapProTokenInfoSync();
@@ -65,6 +81,18 @@ const SwapProContainer = ({
     syncInputTokenBalance,
     syncToTokenPrice,
   ]);
+  const { isLoading, speedConfig, balanceLoading, isMEV, hasEnoughBalance } =
+    config;
+
+  const cleanInputAmount = useCallback(() => {
+    setSwapProInputAmount('');
+    setFromInputAmount({
+      value: '',
+      isInput: true,
+    });
+    setSwapProSliderValue(0);
+  }, [setSwapProInputAmount, setFromInputAmount, setSwapProSliderValue]);
+
   const onTokenPress = useCallback(
     (token: ISwapToken) => {
       setSwapProSelectToken({
@@ -85,8 +113,6 @@ const SwapProContainer = ({
     },
     [setSwapProSelectToken],
   );
-  const { isLoading, speedConfig, balanceLoading, isMEV, hasEnoughBalance } =
-    useSwapProTokenInit();
   return (
     <ScrollView
       style={{ flex: 1 }}
@@ -106,7 +132,10 @@ const SwapProContainer = ({
     >
       <XStack justifyContent="space-between" pb="$4" pt="$1" bg="$bgApp">
         <SwapProTokenSelector
-          onSelectTokenClick={onProSelectToken}
+          onSelectTokenClick={() => {
+            cleanInputAmount();
+            onProSelectToken();
+          }}
           configLoading={isLoading}
         />
         <IconButton
@@ -130,6 +159,7 @@ const SwapProContainer = ({
             onSwapProActionClick={onSwapProActionClick}
             hasEnoughBalance={hasEnoughBalance}
             handleSelectAccountClick={handleSelectAccountClick}
+            cleanInputAmount={cleanInputAmount}
           />
         </YStack>
       </XStack>
@@ -147,8 +177,8 @@ const SwapProContainer = ({
             onPress={setActiveTab}
           />
           <TabBarItem
-            name={ETabName.OpenOrders}
-            isFocused={activeTab === ETabName.OpenOrders}
+            name={ETabName.SwapProOpenOrders}
+            isFocused={activeTab === ETabName.SwapProOpenOrders}
             onPress={setActiveTab}
           />
         </XStack>

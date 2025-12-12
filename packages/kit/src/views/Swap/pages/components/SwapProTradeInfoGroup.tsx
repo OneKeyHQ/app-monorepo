@@ -84,7 +84,7 @@ const SwapProTradeInfoGroup = ({
   }, [swapProQuoteResult?.fee?.percentageFee]);
 
   return (
-    <YStack gap="$3">
+    <YStack gap="$3" mt="$2">
       <SwapCommonInfoItem
         title={intl.formatMessage({ id: ETranslations.global_balance })}
         value={balanceValue}

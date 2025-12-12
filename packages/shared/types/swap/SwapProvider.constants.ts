@@ -176,6 +176,9 @@ export const swapProTimeRangeItems: {
   { label: '24H', value: ESwapProTimeRange.TWENTY_FOUR_HOURS },
 ];
 
+export const swapProPositionsListMinValue = 1;
+export const swapProPositionsListMaxCount = 50;
+
 export const swapDefaultSetTokens: Record<
   string,
   {

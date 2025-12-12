@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 
@@ -20,10 +20,7 @@ const SwapProSlider = () => {
   const [, setSwapFromTokenAmount] = useSwapFromTokenAmountAtom();
   const [swapProSliderValue, setSwapProSliderValue] =
     useSwapProSliderValueAtom();
-  const isBalanceDisabled = useMemo(() => {
-    const balanceBN = new BigNumber(inputToken?.balanceParsed ?? '0');
-    return balanceBN.isNaN() || balanceBN.isZero();
-  }, [inputToken?.balanceParsed]);
+
   const handleSliderPercentChange = useCallback(
     (value: number) => {
       let newValue = value;
@@ -67,7 +64,6 @@ const SwapProSlider = () => {
       value={swapProSliderValue}
       showBubble={false}
       onChange={handleSliderPercentChange}
-      disabled={isBalanceDisabled}
       segments={4}
       sliderHeight={2}
     />

@@ -4,11 +4,9 @@ import { useIntl } from 'react-intl';
 
 import { Icon, YStack } from '@onekeyhq/components';
 import {
-  useSwapFromTokenAmountAtom,
   useSwapLimitExpirationTimeAtom,
   useSwapLimitPartiallyFillAtom,
   useSwapProDirectionAtom,
-  useSwapProInputAmountAtom,
   useSwapProTokenSupportLimitAtom,
   useSwapProTradeTypeAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
@@ -42,6 +40,7 @@ interface ISwapProTradingPanelProps {
   onSwapProActionClick: () => void;
   hasEnoughBalance: boolean;
   handleSelectAccountClick: () => void;
+  cleanInputAmount: () => void;
 }
 
 const SwapProTradingPanel = ({
@@ -52,11 +51,10 @@ const SwapProTradingPanel = ({
   onSwapProActionClick,
   handleSelectAccountClick,
   hasEnoughBalance,
+  cleanInputAmount,
 }: ISwapProTradingPanelProps) => {
   const [swapProDirection, setSwapProDirection] = useSwapProDirectionAtom();
   const [swapProTradeType, setSwapProTradeType] = useSwapProTradeTypeAtom();
-  const [, setSwapProInputAmount] = useSwapProInputAmountAtom();
-  const [, setFromInputAmount] = useSwapFromTokenAmountAtom();
   const [swapLimitExpirySelect, setSwapLimitExpirySelect] =
     useSwapLimitExpirationTimeAtom();
   const [swapLimitPartiallyFill, setSwapLimitPartiallyFill] =
@@ -94,6 +92,7 @@ const SwapProTradingPanel = ({
           value={swapProDirection}
           onChange={(value) => {
             if (value) {
+              cleanInputAmount();
               setSwapProDirection(value);
             }
           }}
@@ -102,11 +101,7 @@ const SwapProTradingPanel = ({
           currentSelect={swapProTradeType}
           onSelectTradeType={(value) => {
             if (value === swapProTradeType) return;
-            setSwapProInputAmount('');
-            setFromInputAmount({
-              value: '',
-              isInput: true,
-            });
+            cleanInputAmount();
             setSwapProTradeType(value);
           }}
           selectItems={selectTradeTypeItems}
@@ -117,15 +112,13 @@ const SwapProTradingPanel = ({
         <SwapProInputContainer
           isLoading={configLoading}
           defaultTokens={swapProConfig.defaultTokens as IToken[]}
+          cleanInputAmount={cleanInputAmount}
         />
         <SwapProSlider />
         <SwapProToTotalValue />
         <SwapProTradeInfoGroup balanceLoading={balanceLoading} />
         <SwapProAccountSelect onSelectAccountClick={handleSelectAccountClick} />
-        <SwapProSlippageSetting
-          autoDefaultValue={swapProConfig?.slippage}
-          isMEV={isMev}
-        />
+        <SwapProSlippageSetting isMEV={isMev} />
         {swapProTradeType === ESwapProTradeType.LIMIT ? (
           <>
             <LimitExpirySelect
