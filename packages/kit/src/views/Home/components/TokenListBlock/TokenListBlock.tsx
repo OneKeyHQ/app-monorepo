@@ -8,7 +8,6 @@ import { useThrottledCallback } from 'use-debounce';
 
 import {
   IconButton,
-  NumberSizeableText,
   Skeleton,
   Stack,
   useOnRouterChange,
@@ -16,6 +15,7 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { EmptyAccount } from '@onekeyhq/kit/src/components/Empty';
+import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { TokenListView } from '@onekeyhq/kit/src/components/TokenListView';
 import { perfTokenListView } from '@onekeyhq/kit/src/components/TokenListView/perfTokenListView';
 import { useAllNetworkRequests } from '@onekeyhq/kit/src/hooks/useAllNetwork';
@@ -1950,7 +1950,8 @@ function TokenListBlock({ tableLayout }: { tableLayout?: boolean }) {
       }
 
       return (
-        <NumberSizeableText
+        <NumberSizeableTextWrapper
+          hideValue
           size="$headingXl"
           color="$textSubdued"
           formatter="value"
@@ -1959,7 +1960,7 @@ function TokenListBlock({ tableLayout }: { tableLayout?: boolean }) {
           }}
         >
           {accountTokensValue}
-        </NumberSizeableText>
+        </NumberSizeableTextWrapper>
       );
     }
 

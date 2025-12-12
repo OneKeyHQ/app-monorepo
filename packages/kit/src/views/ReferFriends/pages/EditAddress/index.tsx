@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -32,6 +32,7 @@ import { renderAddressSecurityHeaderRightButton } from '@onekeyhq/kit/src/compon
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { EPrimeEmailOTPScene } from '@onekeyhq/shared/src/consts/primeConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
@@ -71,6 +72,19 @@ function BasicEditAddress() {
   const accountId = route.params?.accountId ?? '';
 
   const { sendEmailOTP } = useOneKeyAuth();
+  const actions = useAccountSelectorActions();
+
+  // Sync account selection from home scene to make wallet active
+  useEffect(() => {
+    void actions.current.syncFromScene({
+      from: {
+        sceneName: EAccountSelectorSceneName.home,
+        sceneUrl: '',
+        sceneNum: 0,
+      },
+      num: 0,
+    });
+  }, [actions]);
 
   const { result: networksResp } = usePromiseResult(
     async () => {
