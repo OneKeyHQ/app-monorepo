@@ -88,13 +88,9 @@ function Protocol({
             type = category;
           }
           return (
-            <SizableText
-              size="$bodyMdMedium"
-              color="$textInfo"
-              textTransform="capitalize"
-            >
-              {type}
-            </SizableText>
+            <Badge badgeType="info" badgeSize="lg">
+              <Badge.Text textTransform="capitalize">{type}</Badge.Text>
+            </Badge>
           );
         },
       },
