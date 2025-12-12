@@ -69,13 +69,12 @@ export function MarketBannerItem({
       pressStyle={{ opacity: 0.7 }}
       cursor="pointer"
     >
-      <YStack gap="$1" flex={isCompact ? undefined : 1}>
+      <YStack gap="$1" flex={isCompact ? undefined : 1} h={20}>
         <SizableText
           size={isCompact ? '$bodySm' : '$bodyMdMedium'}
           fontWeight={isCompact ? '500' : undefined}
           numberOfLines={2}
-          {...(isCompact && { $md: { maxWidth: '$40' } })}
-          {...(!isCompact && { maxWidth: '$40' })}
+          $md={{ maxWidth: '$40' }}
         >
           {title}
         </SizableText>

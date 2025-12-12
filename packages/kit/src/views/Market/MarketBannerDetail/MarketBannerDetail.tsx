@@ -2,7 +2,13 @@ import { useCallback, useMemo } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 
-import { NavBackButton, Page, SizableText, Stack } from '@onekeyhq/components';
+import {
+  NavBackButton,
+  Page,
+  SizableText,
+  Stack,
+  useMedia,
+} from '@onekeyhq/components';
 import { HeaderButtonGroup } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
@@ -18,6 +24,7 @@ import type {
   ITabMarketParamList,
 } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+
 import { useToDetailPage } from '../MarketHomeV2/components/MarketTokenList/hooks/useToMarketDetailPage';
 import { MarketTokenListBase } from '../MarketHomeV2/components/MarketTokenList/MarketTokenListBase';
 import {
@@ -41,6 +48,7 @@ function MarketBannerDetailContent({ title }: { title: string }) {
   const toDetailPage = useToDetailPage();
   const navigation = useAppNavigation();
   const { config } = useAccountSelectorContextData();
+  const { md } = useMedia();
 
   const renderHeaderLeft = useCallback(
     () => <NavBackButton onPress={() => navigation.pop()} />,
@@ -115,11 +123,14 @@ function MarketBannerDetailContent({ title }: { title: string }) {
 
   return (
     <Page>
-      <Page.Header
-        headerTitle={renderHeaderTitle}
-        headerLeft={renderHeaderLeft}
-        headerRight={renderHeaderRight}
-      />
+      {!md ? (
+        <Page.Header
+          headerTitle={renderHeaderTitle}
+          headerLeft={renderHeaderLeft}
+          headerRight={renderHeaderRight}
+        />
+      ) : null}
+
       <Page.Body>
         <Stack flex={1} px="$4">
           <MarketTokenListBase
