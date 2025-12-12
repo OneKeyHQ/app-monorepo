@@ -15,6 +15,13 @@ export enum ESubscriptionType {
   WEB_DATA2 = 'webData2',
   USER_FILLS = 'userFills',
   USER_NON_FUNDING_LEDGER_UPDATES = 'userNonFundingLedgerUpdates',
+
+  // v0.29.1 types
+  WEB_DATA3 = 'webData3',
+  ALL_DEXS_CLEARINGHOUSE_STATE = 'allDexsClearinghouseState',
+  OPEN_ORDERS = 'openOrders',
+  ALL_DEXS_ASSET_CTXS = 'allDexsAssetCtxs',
+  TWAP_STATES = 'twapStates',
   // TRADES = 'trades',
   // BBO = 'bbo',
   // USER_EVENTS = 'userEvents',
