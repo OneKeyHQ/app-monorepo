@@ -22,11 +22,9 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
 import { getTokenPriceChangeStyle } from '@onekeyhq/shared/src/utils/tokenUtils';
+import { getImportFromToken } from '@onekeyhq/shared/types/earn/earnProvider.constants';
 import type { IPopularTrading } from '@onekeyhq/shared/types/swap/types';
-import {
-  ESwapSource,
-  ESwapTabSwitchType,
-} from '@onekeyhq/shared/types/swap/types';
+import { ESwapSource } from '@onekeyhq/shared/types/swap/types';
 
 import { RichBlock } from '../RichBlock/RichBlock';
 import { RichTable } from '../RichTable';
@@ -226,18 +224,25 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
               }
         }
         onRow={(record) => ({
-          onPress: () => {
+          onPress: async () => {
+            const { importFromToken, swapTabSwitchType } = getImportFromToken({
+              networkId: record.networkId,
+              tokenAddress: record.address,
+              isSupportSwap: true,
+            });
+
             defaultLogger.wallet.walletActions.actionTrade({
               walletType: wallet?.type ?? '',
               networkId: record.networkId,
               source: 'homePopularTrading',
-              tradeType: ESwapTabSwitchType.SWAP,
+              tradeType: swapTabSwitchType,
               isSoftwareWalletOnlyUser,
             });
             navigation.pushModal(EModalRoutes.SwapModal, {
               screen: EModalSwapRoutes.SwapMainLand,
               params: {
                 importNetworkId: record.networkId,
+                importFromToken,
                 importToToken: {
                   contractAddress: record.address,
                   symbol: record.symbol,
@@ -247,7 +252,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
                   name: record.tokenDetail.info.name,
                   logoURI: record.tokenDetail.info.logoURI,
                 },
-                swapTabSwitchType: ESwapTabSwitchType.SWAP,
+                swapTabSwitchType,
                 swapSource: ESwapSource.WALLET_HOME_POPULAR_TRADING,
               },
             });
