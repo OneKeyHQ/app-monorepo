@@ -94,6 +94,7 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
             accountId: account.id,
             networkId: network.id,
             accountAddress: account.address,
+            excludeLowValueProtocols: true,
           });
         updateDeFiListOverview({
           overview: {
@@ -177,6 +178,7 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
         allNetworksAccountId: account?.id,
         allNetworksNetworkId: network?.id,
         saveToLocal: true,
+        excludeLowValueProtocols: true,
       });
 
       if (!allNetworkDataInit && r.isSameAllNetworksAccountData) {
@@ -447,7 +449,7 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
             currency: settings.currencyInfo.symbol,
           }}
         >
-          {overview.totalValue}
+          {overview.netWorth}
         </NumberSizeableText>
       );
     }
@@ -455,7 +457,7 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
     return null;
   }, [
     settings.currencyInfo.symbol,
-    overview.totalValue,
+    overview.netWorth,
     initialized,
     isRefreshing,
     tableLayout,
