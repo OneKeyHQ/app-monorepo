@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { groupBy } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -9,7 +9,9 @@ import {
   NumberSizeableText,
   Page,
   SectionList,
+  Select,
   SizableText,
+  XStack,
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -76,11 +78,13 @@ const HistoryItem = ({ item }: IHistoryItemProps) => {
           <NumberSizeableText
             size="$bodyLgMedium"
             formatter="balance"
+            color={item.direction === 'receive' ? '$textSuccess' : undefined}
             formatterOptions={{
-              showPlusMinusSigns: false,
+              tokenSymbol: item.token.info.symbol,
+              showPlusMinusSigns: true,
             }}
           >
-            {`${item.amount} ${item.token.info.symbol}`}
+            {`${item.direction === 'send' ? '-' : ''}${item.amount}`}
           </NumberSizeableText>
         ) : null}
       </YStack>
@@ -100,6 +104,9 @@ type IHistorySectionItem = {
 
 type IHistoryContentProps = {
   sections: IHistorySectionItem[];
+  filter: Record<string, string>;
+  filterType?: string;
+  onFilterTypeChange: (type: string) => void;
 };
 
 const keyExtractor = (
@@ -112,7 +119,12 @@ const keyExtractor = (
   return key;
 };
 
-const HistoryContent = ({ sections }: IHistoryContentProps) => {
+const HistoryContent = ({
+  sections,
+  filter,
+  filterType,
+  onFilterTypeChange,
+}: IHistoryContentProps) => {
   const renderItem = useCallback(
     ({
       item,
@@ -134,8 +146,40 @@ const HistoryContent = ({ sections }: IHistoryContentProps) => {
 
   const intl = useIntl();
 
+  const items = useMemo(() => {
+    const keys = Object.keys(filter);
+    return keys.map((key) => ({
+      label: filter[key],
+      value: key,
+    }));
+  }, [filter]);
+
+  const handleSelectChange = useCallback(
+    (v: string) => {
+      onFilterTypeChange(v);
+    },
+    [onFilterTypeChange],
+  );
+
   return (
     <YStack flex={1}>
+      <XStack px="$5">
+        <Select
+          value={filterType}
+          renderTrigger={({ label }) => (
+            <XStack h="$12" ai="center" gap="$1">
+              <Icon name="Filter2Outline" size="$4" mr="$1" />
+              <SizableText size="$bodyMd" color="$textSubdued">
+                {label}
+              </SizableText>
+              <Icon name="ChevronDownSmallOutline" size="$4" />
+            </XStack>
+          )}
+          items={items}
+          onChange={handleSelectChange}
+          title={intl.formatMessage({ id: ETranslations.global_filter_by })}
+        />
+      </XStack>
       <SectionList
         estimatedItemSize="$14"
         sections={sections}
@@ -170,11 +214,14 @@ function BorrowHistoryList() {
   const intl = useIntl();
   const { accountId, networkId, provider, title, marketAddress } = route.params;
 
+  const [filterType, setFilterType] = useState('all');
+
   const { result, isLoading, run } = usePromiseResult(
     async () => {
       if (!provider || !networkId || !marketAddress) {
         return {
           sections: [],
+          filter: {},
         };
       }
 
@@ -184,6 +231,7 @@ function BorrowHistoryList() {
           networkId,
           provider,
           marketAddress,
+          type: filterType,
         });
 
       // Create maps for quick lookup
@@ -225,9 +273,10 @@ function BorrowHistoryList() {
 
       return {
         sections,
+        filter: historyResp.filter || {},
       };
     },
-    [accountId, networkId, provider, marketAddress],
+    [accountId, networkId, provider, marketAddress, filterType],
     { watchLoading: true, pollingInterval: 30 * 1000 },
   );
 
@@ -245,7 +294,14 @@ function BorrowHistoryList() {
           loading={isLoadingState({ result, isLoading })}
           onRefresh={run}
         >
-          {result ? <HistoryContent sections={result.sections} /> : null}
+          {result ? (
+            <HistoryContent
+              sections={result.sections}
+              filter={result.filter}
+              filterType={filterType}
+              onFilterTypeChange={setFilterType}
+            />
+          ) : null}
         </PageFrame>
       </Page.Body>
     </Page>

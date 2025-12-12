@@ -1980,8 +1980,9 @@ class ServiceStaking extends ServiceBase {
     provider: string;
     marketAddress: string;
     accountId: string;
+    type?: string;
   }) {
-    const { accountId, ...rest } = params;
+    const { accountId, type, ...rest } = params;
 
     const accountAddress =
       await this.backgroundApi.serviceAccount.getAccountAddressForApi({
@@ -1989,14 +1990,20 @@ class ServiceStaking extends ServiceBase {
         accountId,
       });
 
+    const data: Record<string, string | undefined> & { type?: string } = {
+      ...rest,
+      accountAddress,
+    };
+
+    if (type) {
+      data.type = type;
+    }
+
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const response = await client.get<{
       data: IBorrowHistory;
     }>('/earn/v1/borrow/obligation/history', {
-      params: {
-        ...rest,
-        accountAddress,
-      },
+      params: data,
     });
     return response.data.data;
   }

@@ -1721,6 +1721,7 @@ export interface IBorrowReserveItem {
 }
 
 export interface IBorrowHistory {
+  filter: Record<string, string>;
   list: {
     networkId: string;
     txHash: string;
@@ -1728,6 +1729,8 @@ export interface IBorrowHistory {
     amount: string;
     tokenAddress: string;
     timestamp: number;
+    type: 'repay' | 'borrow' | 'withdraw' | 'supply';
+    direction: 'send' | 'receive';
   }[];
   networks: IBorrowNetwork[];
   tokens: {
