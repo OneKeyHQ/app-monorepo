@@ -11,19 +11,19 @@ type IMarketBannerItemProps = {
   compact?: boolean;
 };
 
-function convertBackgroundColor(backgroundColor: string): string {
-  // Convert "bg/subdued" format to "$bgSubdued" Tamagui token
-  if (!backgroundColor) {
-    return '$bgSubdued';
+function convertThemeToken(token: string, defaultValue: string): string {
+  // Convert "prefix/suffix" format to "$prefixSuffix" Tamagui token
+  // e.g., "bg/subdued" -> "$bgSubdued", "text/success" -> "$textSuccess"
+  if (!token) {
+    return defaultValue;
   }
-  const parts = backgroundColor.split('/');
+  const parts = token.split('/');
   if (parts.length === 2) {
     const [prefix, suffix] = parts;
-    // Capitalize first letter of suffix
     const capitalizedSuffix = suffix.charAt(0).toUpperCase() + suffix.slice(1);
     return `$${prefix}${capitalizedSuffix}`;
   }
-  return `$${backgroundColor}`;
+  return token.startsWith('$') ? token : `$${token}`;
 }
 
 export function MarketBannerItem({
@@ -32,9 +32,11 @@ export function MarketBannerItem({
   compact,
 }: IMarketBannerItemProps) {
   const { title, description, backgroundColor, tokenLogos } = item;
-  const bgColor = convertBackgroundColor(backgroundColor);
-
-  const descriptionColor = description?.fontColor || '$textSubdued';
+  const bgColor = convertThemeToken(backgroundColor, '$bgSubdued');
+  const descriptionColor = convertThemeToken(
+    description?.fontColor ?? '',
+    '$textSubdued',
+  );
 
   const tokens = useMemo(
     () => tokenLogos?.map((url) => ({ tokenImageUri: url })) ?? [],
