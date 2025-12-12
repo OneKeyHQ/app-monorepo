@@ -245,7 +245,8 @@ export function KeylessWalletShareCard({
 
         <HeightTransition initialHeight={0}>
           {/* Info state - waiting for user action */}
-          {step.state === ECreationStepState.Info ? (
+          {step.state === ECreationStepState.Info ||
+          step.state === ECreationStepState.Error ? (
             <YStack
               gap="$2"
               mt="$4"
@@ -253,16 +254,35 @@ export function KeylessWalletShareCard({
               borderWidth={0}
               borderTopWidth={StyleSheet.hairlineWidth}
               borderTopColor="$borderSubdued"
+              alignItems="center"
             >
-              {step.infoMessage ? (
-                <SizableText
-                  size="$bodyMdMedium"
-                  color="$textInfo"
-                  textAlign="left"
-                >
-                  {step.infoMessage}
-                </SizableText>
-              ) : null}
+              {step.infoMessage
+                ? (() => {
+                    if (step.state === ECreationStepState.Error) {
+                      // Error state: show error styling and optional error message
+                      return (
+                        <SizableText
+                          size="$bodyMdMedium"
+                          color="$textCritical"
+                          flex={1}
+                          textAlign="left"
+                        >
+                          {step.infoMessage ?? 'Operation failed'}
+                        </SizableText>
+                      );
+                    }
+                    // Info state: show info styling and info message
+                    return (
+                      <SizableText
+                        size="$bodyMdMedium"
+                        color="$textInfo"
+                        textAlign="left"
+                      >
+                        {step.infoMessage}
+                      </SizableText>
+                    );
+                  })()
+                : null}
               <YStack gap="$2">
                 <Button variant="primary" onPress={onStepAction} w="100%">
                   {buttonText}
@@ -278,33 +298,6 @@ export function KeylessWalletShareCard({
                 ) : null}
               </YStack>
             </YStack>
-          ) : null}
-
-          {/* Error state */}
-          {step.state === ECreationStepState.Error ? (
-            <XStack
-              gap="$2"
-              mt="$4"
-              pt="$4"
-              borderWidth={0}
-              borderTopWidth={StyleSheet.hairlineWidth}
-              borderTopColor="$borderSubdued"
-              alignItems="center"
-            >
-              <SizableText
-                size="$bodyMdMedium"
-                color="$textCritical"
-                flex={1}
-                textAlign="left"
-              >
-                {step.infoMessage ?? 'Operation failed'}
-              </SizableText>
-              <Button variant="primary" onPress={onStepAction}>
-                {intl.formatMessage({
-                  id: ETranslations.global_retry,
-                })}
-              </Button>
-            </XStack>
           ) : null}
         </HeightTransition>
       </YStack>
