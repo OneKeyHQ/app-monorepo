@@ -1748,12 +1748,6 @@ function TokenListContainer({
     void updateAllNetworksTokenList();
   }, [updateAllNetworksTokenList]);
 
-  useEffect(() => {
-    if (isHeaderRefreshing) {
-      void run();
-    }
-  }, [isHeaderRefreshing, run]);
-
   const handleOnPressToken = useCallback(
     (token: IAccountToken) => {
       if (!network || !wallet || !deriveInfo || !deriveType) return;
@@ -1921,6 +1915,21 @@ function TokenListContainer({
     }
     return false;
   }, [allNetworksState.visibleCount, network?.isAllNetworks]);
+
+  useEffect(() => {
+    if (isHeaderRefreshing) {
+      if (network?.isAllNetworks) {
+        handleRefreshAllNetworkData();
+      } else {
+        void run();
+      }
+    }
+  }, [
+    isHeaderRefreshing,
+    run,
+    handleRefreshAllNetworkData,
+    network?.isAllNetworks,
+  ]);
 
   return (
     <TokenListView

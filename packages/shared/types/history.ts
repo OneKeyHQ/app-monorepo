@@ -1,3 +1,4 @@
+import type { ISizableTextProps } from '@onekeyhq/components';
 import type { ICurrencyItem } from '@onekeyhq/kit/src/views/Setting/pages/Currency';
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
 
@@ -166,6 +167,7 @@ export type IHistoryListSectionGroup = {
   title?: string;
   titleKey?: ETranslations;
   data: IAccountHistoryTx[];
+  titleProps?: ISizableTextProps;
 };
 
 export type IFetchAccountHistoryParams = {
@@ -180,6 +182,7 @@ export type IFetchAccountHistoryParams = {
   sourceCurrency?: string;
   targetCurrency?: string;
   currencyMap?: Record<string, ICurrencyItem>;
+  limit?: number;
 };
 
 export type IOnChainHistoryTxToken = {

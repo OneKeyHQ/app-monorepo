@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { type LayoutChangeEvent } from 'react-native';
 
+import type { ITabContainerRef } from '@onekeyhq/components';
 import {
   Icon,
   Page,
@@ -46,8 +47,8 @@ import { NotBackedUpEmpty } from '../components/NotBakcedUp';
 import { ApprovalListContainerWithProvider } from './ApprovalListContainer';
 import { HomeHeaderContainer } from './HomeHeaderContainer';
 import { NFTListContainerWithProvider } from './NFTListContainer';
+import { PortfolioContainerWithProvider } from './PortfolioContainer';
 import { TabHeaderSettings } from './TabHeaderSettings';
-import { TokenListContainerWithProvider } from './TokenListContainer';
 import { TxHistoryListContainerWithProvider } from './TxHistoryContainer';
 import WalletContentWithAuth from './WalletContentWithAuth';
 
@@ -78,6 +79,8 @@ export function HomePageView({
 
   const [{ hasRiskApprovals }] = useApprovalsInfoAtom();
   const { updateApprovalsInfo } = useAccountOverviewActions().current;
+
+  const tabsRef = useRef<ITabContainerRef | null>(null);
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const addressType = deriveInfo?.labelKey
@@ -202,11 +205,11 @@ export function HomePageView({
   const tabConfigs = useMemo(() => {
     return [
       {
-        id: EHomeWalletTab.Tokens,
+        id: EHomeWalletTab.Portfolio,
         name: intl.formatMessage({
-          id: ETranslations.global_crypto,
+          id: ETranslations.global_portfolio,
         }),
-        component: <TokenListContainerWithProvider />,
+        component: <PortfolioContainerWithProvider />,
       },
       isNFTEnabled
         ? {
@@ -273,6 +276,7 @@ export function HomePageView({
     }-${isNFTEnabled ? '1' : '0'}-${isBulkRevokeApprovalEnabled ? '1' : '0'}`;
     return (
       <Tabs.Container
+        ref={tabsRef as any}
         key={key}
         allowHeaderOverscroll
         width={tabContainerWidth}
@@ -307,6 +311,16 @@ export function HomePageView({
     tabContainerWidth,
   ]);
 
+  const handleSwitchWalletHomeTab = useCallback(
+    (payload: { id: EHomeWalletTab }) => {
+      const name = tabConfigs.find((i) => i.id === payload.id)?.name;
+      if (name) {
+        tabsRef.current?.jumpToTab(name);
+      }
+    },
+    [tabConfigs],
+  );
+
   useEffect(() => {
     void Icon.prefetch('CloudOffOutline');
   }, []);
@@ -319,12 +333,20 @@ export function HomePageView({
     appEventBus.on(EAppEventBusNames.WalletUpdate, clearCache);
     appEventBus.on(EAppEventBusNames.AccountUpdate, clearCache);
     appEventBus.on(EAppEventBusNames.AddressBookUpdate, clearCache);
+    appEventBus.on(
+      EAppEventBusNames.SwitchWalletHomeTab,
+      handleSwitchWalletHomeTab,
+    );
     return () => {
       appEventBus.off(EAppEventBusNames.WalletUpdate, clearCache);
       appEventBus.off(EAppEventBusNames.AccountUpdate, clearCache);
       appEventBus.off(EAppEventBusNames.AddressBookUpdate, clearCache);
+      appEventBus.off(
+        EAppEventBusNames.SwitchWalletHomeTab,
+        handleSwitchWalletHomeTab,
+      );
     };
-  }, []);
+  }, [handleSwitchWalletHomeTab]);
 
   const homePageContent = useMemo(() => {
     if (

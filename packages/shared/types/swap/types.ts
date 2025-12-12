@@ -30,6 +30,7 @@ import type {
   IGasLegacy,
 } from '../fee';
 import type { EMessageTypesEth } from '../message';
+import type { IToken } from '../token';
 import type { IDecodedTxActionTokenApprove } from '../tx';
 import type { NormalizedOrder, TypedDataDomain } from '@cowprotocol/contracts';
 import type { IDeviceType } from '@onekeyfe/hd-core';
@@ -78,6 +79,7 @@ export enum ESwapSource {
   WALLET_HOME = 'wallet_home',
   TOKEN_DETAIL = 'token_detail',
   WALLET_HOME_TOKEN_LIST = 'wallet_home_token_list',
+  WALLET_HOME_POPULAR_TRADING = 'wallet_home_popular_trading',
   EARN = 'earn',
   MARKET = 'market',
   TAB = 'tab',
@@ -1100,3 +1102,15 @@ export const SwapAmountInputAccessoryViewID =
 export const ChainFlipLogo =
   'https://uni.onekey-asset.com/static/logo/chainFlip_logo.png';
 export const ChainFlipName = 'ChainFlip';
+
+export type IPopularTrading = {
+  networkId: string;
+  symbol: string;
+  address: string;
+  marketCap: number;
+  tokenDetail: {
+    info: IToken;
+    price: number;
+    price24h: number;
+  };
+};

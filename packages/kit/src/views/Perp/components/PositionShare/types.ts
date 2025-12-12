@@ -9,7 +9,8 @@ export interface IShareConfig {
 
 export interface IShareData {
   side: 'long' | 'short';
-  token: string;
+  token: string; // original coin (e.g., xyz:NVDA)
+  tokenDisplayName: string; // formatted name (e.g., NVDA)
   tokenImageUrl?: string;
   pnl: string;
   pnlPercent: string;
