@@ -59,6 +59,7 @@ export const useHandleWithdraw = () => {
           tokenInfo,
           symbol,
           provider,
+          onSuccess,
         });
         return;
       }

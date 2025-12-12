@@ -84,6 +84,7 @@ export const ShareImageGenerator = forwardRef<
       const {
         side,
         token,
+        tokenDisplayName,
         tokenImageUrl,
         pnl,
         leverage,
@@ -94,7 +95,8 @@ export const ShareImageGenerator = forwardRef<
       const pnlBn = new BigNumber(pnl || '0');
       const isProfit = pnlBn.isGreaterThan(0);
       const pnlColor = isProfit ? colors.long : colors.short;
-      const tokenImage = tokenImageUrl || getHyperliquidTokenImageUrl(token);
+      const tokenImage =
+        tokenImageUrl || getHyperliquidTokenImageUrl(tokenDisplayName);
       const pnlDisplayText = getPnlDisplayInfo(data, config.pnlDisplayMode);
       const pnlFontSize =
         pnlDisplayText.length > 6
@@ -154,7 +156,7 @@ export const ShareImageGenerator = forwardRef<
           ctx.textBaseline = 'middle';
 
           ctx.fillText(
-            token,
+            tokenDisplayName,
             padding + layout.tokenSize + layout.tokenOffsetX,
             tokenY,
           );
@@ -164,7 +166,7 @@ export const ShareImageGenerator = forwardRef<
 
         if (display.showSideAndLeverage) {
           // Calculate position
-          const coinNameWidth = ctx.measureText(token).width;
+          const coinNameWidth = ctx.measureText(tokenDisplayName).width;
           const textX =
             padding +
             layout.tokenSize +

@@ -49,6 +49,7 @@ export type IAllNetworkAccountsParams = {
   deriveType?: IAccountDeriveTypes; // required for single network, all network should pass undefined
   accountId: string;
   nftEnabledOnly?: boolean;
+  DeFiEnabledOnly?: boolean;
   includingNonExistingAccount?: boolean;
   includingNotEqualGlobalDeriveTypeAccount?: boolean;
   includingDeriveTypeMismatchInDefaultVisibleNetworks?: boolean;
@@ -217,6 +218,13 @@ class ServiceAllNetwork extends ServiceBase {
     const accountsInfoBackendIndexed: Array<IAllNetworkAccountInfo> = [];
     const accountsInfoBackendNotIndexed: Array<IAllNetworkAccountInfo> = [];
     const allAccountsInfo: Array<IAllNetworkAccountInfo> = [];
+    const enableNFTNetworkIds = networkUtils.getEnabledNFTNetworkIds();
+
+    let enableDeFiNetworkIdsMap: Record<string, boolean> = {};
+    if (params.DeFiEnabledOnly) {
+      enableDeFiNetworkIdsMap =
+        await this.backgroundApi.simpleDb.deFi.getEnabledNetworksMap();
+    }
 
     defaultLogger.account.allNetworkAccountPerf.consoleLog('getAllNetworks');
     const { networks: allNetworks } =
@@ -230,7 +238,6 @@ class ServiceAllNetwork extends ServiceBase {
     defaultLogger.account.allNetworkAccountPerf.consoleLog(
       'process all networks',
     );
-    const enableNFTNetworkIds = networkUtils.getEnabledNFTNetworkIds();
 
     let enabledNetworks: Record<string, boolean> = {};
     let disabledNetworks: Record<string, boolean> = {};
@@ -246,6 +253,7 @@ class ServiceAllNetwork extends ServiceBase {
         const { backendIndex: isBackendIndexed } = n;
         const realNetworkId = n.id;
         const isNftEnabled = enableNFTNetworkIds.includes(realNetworkId);
+        const isDeFiEnabled = enableDeFiNetworkIdsMap[realNetworkId];
 
         const appendAccountInfo = (accountInfo: IAllNetworkAccountInfo) => {
           if (
@@ -260,7 +268,10 @@ class ServiceAllNetwork extends ServiceBase {
             return;
           }
 
-          if (!params.nftEnabledOnly || isNftEnabled) {
+          if (
+            (!params.nftEnabledOnly || isNftEnabled) &&
+            (!params.DeFiEnabledOnly || isDeFiEnabled)
+          ) {
             accountsInfo.push(accountInfo);
             if (isBackendIndexed) {
               accountsInfoBackendIndexed.push(accountInfo);

@@ -40,6 +40,7 @@ import type {
   ISwapTokenBase,
 } from '../../types/swap/types';
 import type { IAccountToken, ITokenFiat } from '../../types/token';
+import type { EHomeWalletTab } from '../../types/wallet';
 import type { IOneKeyError } from '../errors/types/errorTypes';
 import type { EModalRoutes, ETabRoutes } from '../routes';
 import type { IWalletConnectSession } from '../walletConnect/types';
@@ -208,6 +209,9 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.HardwareVerifyAfterDeviceConfirm]: undefined;
   [EAppEventBusNames.SwitchMarketHomeTab]: {
     tabIndex: number;
+  };
+  [EAppEventBusNames.SwitchWalletHomeTab]: {
+    id: EHomeWalletTab;
   };
   [EAppEventBusNames.RefreshMarketWatchList]: undefined;
   [EAppEventBusNames.RefreshCustomRpcList]: undefined;
