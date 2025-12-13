@@ -41,7 +41,7 @@ export function KeylessShareCardDeviceKey({
           throw new OneKeyLocalError('Failed to save device share');
         }
         return {
-          devicePackSetId: result.packSetInFromDevicePack,
+          devicePackSetId: result.packSetIdFromDevicePack,
           cloudPackSetId: undefined,
           authPackSetId: undefined,
         };

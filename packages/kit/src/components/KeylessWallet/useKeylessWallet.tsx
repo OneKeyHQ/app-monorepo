@@ -47,7 +47,7 @@ export function useKeylessWalletMethods() {
       devicePack,
     }: {
       devicePack: IDeviceKeyPack;
-    }): Promise<{ success: boolean; packSetInFromDevicePack: string }> => {
+    }): Promise<{ success: boolean; packSetIdFromDevicePack: string }> => {
       return backgroundApiProxy.serviceKeylessWallet.saveDevicePackToStorage({
         devicePack,
       });

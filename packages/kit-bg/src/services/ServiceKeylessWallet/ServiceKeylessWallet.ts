@@ -457,7 +457,7 @@ class ServiceKeylessWallet extends ServiceBase {
   @backgroundMethod()
   async saveDevicePackToStorage(params: {
     devicePack: IDeviceKeyPack;
-  }): Promise<{ success: boolean; packSetInFromDevicePack: string }> {
+  }): Promise<{ success: boolean; packSetIdFromDevicePack: string }> {
     await keylessDeviceKeyStorage.saveDevicePackToStorage({
       ...params,
       backgroundApi: this.backgroundApi,
@@ -499,7 +499,7 @@ class ServiceKeylessWallet extends ServiceBase {
     return {
       success: true,
       // TODO rename packSetIdFromDevicePack
-      packSetInFromDevicePack: savedDevicePack.packSetId,
+      packSetIdFromDevicePack: savedDevicePack.packSetId,
     };
   }
 
