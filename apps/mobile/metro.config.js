@@ -96,9 +96,29 @@ config.server.rewriteRequestUrl = (url) =>
 // Apply split code plugin, then wrap with Rozenite plugin
 const splitCodePlugin = require('./plugins');
 
+const GET_TOP_DIR_SYMBOL = 'relative_dir_symbol';
+const buildRelativeDirPath = (url, depth = 2) => {
+  const symbols = Array.from({ length: depth }, () => GET_TOP_DIR_SYMBOL).join(
+    '/',
+  );
+  return `/assets/${symbols}${url}`;
+};
+
+const AssetsPaths = [
+  '/packages/shared/src/assets/',
+  '/packages/components/src/hocs/Provider/fonts/',
+  '/node_modules/@expo-google-fonts',
+  '/packages/kit/assets',
+];
+
 const applyFixImageAssetsMiddleware = (middleware) => {
   return (req, res, next) => {
     console.log('req.url', req.url);
+    const prefixPath = AssetsPaths.find((path) => req.url.startsWith(path));
+    if (prefixPath) {
+      req.url = req.url.replace(prefixPath, buildRelativeDirPath(prefixPath));
+      console.log('fixed req.url', req.url);
+    }
     return middleware(req, res, next);
   };
 };
