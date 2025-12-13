@@ -113,11 +113,22 @@ const AssetsPaths = [
 
 const applyFixImageAssetsMiddleware = (middleware) => {
   return (req, res, next) => {
-    console.log('req.url', req.url);
+    console.log('metro-sever: >>>>>', req.url);
+    // Android asset path fix
     const prefixPath = AssetsPaths.find((path) => req.url.startsWith(path));
     if (prefixPath) {
       req.url = req.url.replace(prefixPath, buildRelativeDirPath(prefixPath));
-      console.log('fixed req.url', req.url);
+      console.log(
+        'metro-sever: >>>>> the asset path is auto fixed >>>>>',
+        req.url,
+      );
+    } else if (req.url.startsWith('/assets/')) {
+      // iOS asset path fix
+      req.url = req.url.replaceAll('../', `${GET_TOP_DIR_SYMBOL}/`);
+      console.log(
+        'metro-sever: >>>>> the asset path is auto fixed >>>>>',
+        req.url,
+      );
     }
     return middleware(req, res, next);
   };
