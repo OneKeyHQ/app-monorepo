@@ -30,6 +30,7 @@ import { SettingList } from './SettingList';
 import { SubSettings } from './SubSettings';
 import { useIsTabNavigator } from './useIsTabNavigator';
 import { useSearch } from './useSearch';
+
 import type {
   BottomTabBarProps,
   BottomTabNavigationOptions,
