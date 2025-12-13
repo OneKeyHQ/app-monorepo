@@ -9,8 +9,28 @@ import {
 
 import { getErrorAction } from './ErrorToasts';
 
-const ERROR_CODE = [403];
-const isFilterErrorCode = (code?: number) => code && ERROR_CODE.includes(code);
+// Get deduplication ID for HTTP status codes to prevent toast spam
+// @param httpStatusCode - HTTP status code (e.g., 403, 429, 503)
+const getDeduplicationId = (
+  httpStatusCode?: number,
+): { id: string | undefined; forceDeduplicate: boolean } => {
+  if (!httpStatusCode) return { id: undefined, forceDeduplicate: false };
+
+  // Forbidden - force deduplicate
+  if (httpStatusCode === 403)
+    return { id: 'error_403', forceDeduplicate: true };
+
+  // Rate limiting - force deduplicate to avoid spam
+  if (httpStatusCode === 429)
+    return { id: 'error_429', forceDeduplicate: true };
+
+  // Server errors (5xx) - force unified deduplication to prevent toast avalanche
+  if (httpStatusCode >= 500 && httpStatusCode < 600) {
+    return { id: 'error_5xx', forceDeduplicate: true };
+  }
+
+  return { id: undefined, forceDeduplicate: false };
+};
 
 export function ErrorToastContainer() {
   useEffect(() => {
@@ -18,11 +38,15 @@ export function ErrorToastContainer() {
       if (!p.title) {
         return;
       }
-      const toastIdByErrorCode = isFilterErrorCode(p.errorCode)
-        ? String(p.errorCode)
-        : undefined;
-      // Use requestId or title as toastId for de-duplication
-      const toastId = p.toastId || toastIdByErrorCode || p.requestId || p.title;
+      const statusCodeForDeduplicate =
+        p.httpStatusCode ??
+        (typeof p.errorCode === 'number' ? p.errorCode : undefined);
+      const deduplication = getDeduplicationId(statusCodeForDeduplicate);
+      // For critical errors (403, 429, 5xx), force deduplication to prevent toast spam
+      // Otherwise, respect custom toastId from caller
+      const toastId = deduplication.forceDeduplicate
+        ? deduplication.id
+        : p.toastId || deduplication.id || p.requestId || p.title;
 
       const actions = getErrorAction({
         errorCode: p.errorCode,

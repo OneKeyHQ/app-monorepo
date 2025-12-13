@@ -32,34 +32,6 @@ PODS:
     - ExpoModulesCore
     - SPAlert (~> 4.2)
     - SPIndicator (~> 1.6)
-  - CheckBiometricAuthChanged (0.1.1):
-    - boost
-    - DoubleConversion
-    - fast_float
-    - fmt
-    - glog
-    - hermes-engine
-    - RCT-Folly
-    - RCT-Folly/Fabric
-    - RCTRequired
-    - RCTTypeSafety
-    - React-Core
-    - React-debug
-    - React-Fabric
-    - React-featureflags
-    - React-graphics
-    - React-ImageManager
-    - React-jsi
-    - React-NativeModulesApple
-    - React-RCTFabric
-    - React-renderercss
-    - React-rendererdebug
-    - React-utils
-    - ReactCodegen
-    - ReactCommon/turbomodule/bridging
-    - ReactCommon/turbomodule/core
-    - SocketRocket
-    - Yoga
   - CocoaAsyncSocket (7.6.5)
   - CocoaLumberjack (3.9.0):
     - CocoaLumberjack/Core (= 3.9.0)
@@ -2227,34 +2199,6 @@ PODS:
     - ReactCommon/turbomodule/core
     - SocketRocket
     - Yoga
-  - react-native-lite-card (1.1.0):
-    - boost
-    - DoubleConversion
-    - fast_float
-    - fmt
-    - glog
-    - hermes-engine
-    - RCT-Folly
-    - RCT-Folly/Fabric
-    - RCTRequired
-    - RCTTypeSafety
-    - React-Core
-    - React-debug
-    - React-Fabric
-    - React-featureflags
-    - React-graphics
-    - React-ImageManager
-    - React-jsi
-    - React-NativeModulesApple
-    - React-RCTFabric
-    - React-renderercss
-    - React-rendererdebug
-    - React-utils
-    - ReactCodegen
-    - ReactCommon/turbomodule/bridging
-    - ReactCommon/turbomodule/core
-    - SocketRocket
-    - Yoga
   - react-native-netinfo (11.4.1):
     - React-Core
   - react-native-network-info (5.2.2):
@@ -3142,7 +3086,65 @@ PODS:
     - ReactCommon/turbomodule/core
     - SocketRocket
     - Yoga
+  - ReactNativeCheckBiometricAuthChanged (1.1.5):
+    - boost
+    - DoubleConversion
+    - fast_float
+    - fmt
+    - glog
+    - hermes-engine
+    - NitroModules
+    - RCT-Folly
+    - RCT-Folly/Fabric
+    - RCTRequired
+    - RCTTypeSafety
+    - React-callinvoker
+    - React-Core
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - SocketRocket
+    - Yoga
   - ReactNativeFs (2.34.0):
+    - boost
+    - DoubleConversion
+    - fast_float
+    - fmt
+    - glog
+    - hermes-engine
+    - RCT-Folly
+    - RCT-Folly/Fabric
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - SocketRocket
+    - Yoga
+  - ReactNativeLiteCard (1.1.5):
     - boost
     - DoubleConversion
     - fast_float
@@ -3747,7 +3749,6 @@ DEPENDENCIES:
   - "BleUtils (from `../../../node_modules/@onekeyfe/react-native-ble-utils`)"
   - boost (from `../../../node_modules/react-native/third-party-podspecs/boost.podspec`)
   - Burnt (from `../../../node_modules/burnt/ios`)
-  - CheckBiometricAuthChanged (from `../../../node_modules/react-native-check-biometric-auth-changed`)
   - DoubleConversion (from `../../../node_modules/react-native/third-party-podspecs/DoubleConversion.podspec`)
   - EXApplication (from `../../../node_modules/expo-application/ios`)
   - EXConstants (from `../../../node_modules/expo-constants/ios`)
@@ -3832,7 +3833,6 @@ DEPENDENCIES:
   - react-native-fast-pbkdf2 (from `../../../node_modules/react-native-fast-pbkdf2`)
   - react-native-get-random-values (from `../../../node_modules/react-native-get-random-values`)
   - react-native-keyboard-controller (from `../../../node_modules/react-native-keyboard-controller`)
-  - "react-native-lite-card (from `../../../node_modules/@onekeyfe/react-native-lite-card`)"
   - "react-native-netinfo (from `../../../node_modules/@react-native-community/netinfo`)"
   - react-native-network-info (from `../../../node_modules/react-native-network-info`)
   - react-native-pager-view (from `../../../node_modules/react-native-pager-view`)
@@ -3876,7 +3876,9 @@ DEPENDENCIES:
   - ReactCodegen (from `build/generated/ios`)
   - ReactCommon/turbomodule/core (from `../../../node_modules/react-native/ReactCommon`)
   - ReactNativeCameraKit (from `../../../node_modules/react-native-camera-kit`)
+  - "ReactNativeCheckBiometricAuthChanged (from `../../../node_modules/@onekeyfe/react-native-check-biometric-auth-changed`)"
   - ReactNativeFs (from `../../../node_modules/react-native-fs`)
+  - "ReactNativeLiteCard (from `../../../node_modules/@onekeyfe/react-native-lite-card`)"
   - ReactNativePasskeys (from `../../../node_modules/react-native-passkeys/ios`)
   - RealmJS (from `../../../node_modules/realm`)
   - RestartNewArch (from `../../../node_modules/react-native-restart`)
@@ -3928,8 +3930,6 @@ EXTERNAL SOURCES:
     :podspec: "../../../node_modules/react-native/third-party-podspecs/boost.podspec"
   Burnt:
     :path: "../../../node_modules/burnt/ios"
-  CheckBiometricAuthChanged:
-    :path: "../../../node_modules/react-native-check-biometric-auth-changed"
   DoubleConversion:
     :podspec: "../../../node_modules/react-native/third-party-podspecs/DoubleConversion.podspec"
   EXApplication:
@@ -4097,8 +4097,6 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/react-native-get-random-values"
   react-native-keyboard-controller:
     :path: "../../../node_modules/react-native-keyboard-controller"
-  react-native-lite-card:
-    :path: "../../../node_modules/@onekeyfe/react-native-lite-card"
   react-native-netinfo:
     :path: "../../../node_modules/@react-native-community/netinfo"
   react-native-network-info:
@@ -4185,8 +4183,12 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/react-native/ReactCommon"
   ReactNativeCameraKit:
     :path: "../../../node_modules/react-native-camera-kit"
+  ReactNativeCheckBiometricAuthChanged:
+    :path: "../../../node_modules/@onekeyfe/react-native-check-biometric-auth-changed"
   ReactNativeFs:
     :path: "../../../node_modules/react-native-fs"
+  ReactNativeLiteCard:
+    :path: "../../../node_modules/@onekeyfe/react-native-lite-card"
   ReactNativePasskeys:
     :path: "../../../node_modules/react-native-passkeys/ios"
   RealmJS:
@@ -4228,7 +4230,6 @@ SPEC CHECKSUMS:
   BleUtils: d558f749a645d8b6d4941ff091ea9d847238be4e
   boost: 7e761d76ca2ce687f7cc98e698152abd03a18f90
   Burnt: e3a3397e26172fca31a59bb27421475a58068836
-  CheckBiometricAuthChanged: e1873fd1eecf3d8dc37d40ec55e9343ae2bf03ed
   CocoaAsyncSocket: 065fd1e645c7abab64f7a6a2007a48038fdc6a99
   CocoaLumberjack: 5644158777912b7de7469fa881f8a3f259c2512a
   DoubleConversion: cb417026b2400c8f53ae97020b2be961b59470cb
@@ -4321,7 +4322,6 @@ SPEC CHECKSUMS:
   react-native-fast-pbkdf2: 329e89b9929a51ed4d9ba88bf355a266f13d9d93
   react-native-get-random-values: 419569b6ed3d15bfb9b6781b2f2e058f8e8d2698
   react-native-keyboard-controller: 44a1a840c0d2ede629af60d6fbf84fc69ee4cb10
-  react-native-lite-card: 51f1ac09e6c02cef55d958f39aeb0ee92ebc31b1
   react-native-netinfo: cec9c4e86083cb5b6aba0e0711f563e2fbbff187
   react-native-network-info: 703d4b16ff0ff6f03127728348251bf5f12b823a
   react-native-pager-view: d91a84dd23f9fba7e63c4b9d68f32f52c9ec62ca
@@ -4365,7 +4365,9 @@ SPEC CHECKSUMS:
   ReactCodegen: cc4afb1cabd4dc96a6d6f1d99539bceb3bebe437
   ReactCommon: 6d0fa86a4510730da7c72560e0ced14258292ab9
   ReactNativeCameraKit: dc309a3b86d6e5655cdf0d731e96b0e380ce72df
+  ReactNativeCheckBiometricAuthChanged: 8deac1c194b8fc06d60e140b5d5ca22ee31755af
   ReactNativeFs: 0688196a126e3d0b0f5b1ec654a1f464f661f13c
+  ReactNativeLiteCard: 9a4a7d7168d779cb1a062aa1e18331a2bb767566
   ReactNativePasskeys: 9e950e8cbf0e7d6aad9df4dcd21cee0efeb4e5cd
   RealmJS: 1c37c6bdfe060f4caa0f9175aa0eedb962622ee1
   RestartNewArch: 274b840533a495869fcc12485fecd87d1b874896
@@ -4396,6 +4398,6 @@ SPEC CHECKSUMS:
   Yoga: cc4a6600d61e4e9276e860d4d68eebb834a050ba
   ZXingObjC: 8898711ab495761b2dbbdec76d90164a6d7e14c5
 
-PODFILE CHECKSUM: 204d63471517428199c4c6d69fbbf4b96b4012eb
+PODFILE CHECKSUM: 2f942673c23732868ca25698a410004d68479376
 
 COCOAPODS: 1.16.2
