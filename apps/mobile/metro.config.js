@@ -5,7 +5,7 @@
  * This config extends '@react-native/metro-config' to support React Native >=0.73
  * For details see: https://github.com/react-native-community/template/blob/main/template/metro.config.js
  */
-
+const connect = require('connect');
 const { getDefaultConfig, mergeConfig } = require('@react-native/metro-config');
 const { withRozenite } = require('@rozenite/metro');
 const path = require('path');
@@ -85,9 +85,10 @@ config.cacheStores = ({ FileStore }) => [
 ];
 
 // Patch for lazy compilation instability: always set lazy=false in bundle requests
-const orignalRewriteRequestUrl = config.server && config.server.rewriteRequestUrl
-  ? config.server.rewriteRequestUrl
-  : (url) => url;
+const orignalRewriteRequestUrl =
+  config.server && config.server.rewriteRequestUrl
+    ? config.server.rewriteRequestUrl
+    : (url) => url;
 config.server = config.server || {};
 config.server.rewriteRequestUrl = (url) =>
   orignalRewriteRequestUrl(url).replace('&lazy=true', '&lazy=false');
@@ -95,11 +96,19 @@ config.server.rewriteRequestUrl = (url) =>
 // Apply split code plugin, then wrap with Rozenite plugin
 const splitCodePlugin = require('./plugins');
 
-module.exports = withRozenite(
-  splitCodePlugin(config, projectRoot),
-  {
-    enabled: process.env.WITH_ROZENITE === 'true',
-    // enhanceMetroConfig: (config) => withRozeniteExpoAtlasPlugin(config),
-    enhanceMetroConfig: (config) => config,
-  },
-);
+const applyFixImageAssetsMiddleware = (middleware) => {
+  return (req, res, next) => {
+    console.log('req.url', req.url);
+    return middleware(req, res, next);
+  };
+};
+
+const outputChunkDir = path.resolve(projectRoot, 'dist/chunks');
+config.server.enhanceMiddleware = (metroMiddleware, metroServer) =>
+  connect().use(applyFixImageAssetsMiddleware(metroMiddleware));
+
+module.exports = withRozenite(splitCodePlugin(config, projectRoot), {
+  enabled: process.env.WITH_ROZENITE === 'true',
+  // enhanceMetroConfig: (config) => withRozeniteExpoAtlasPlugin(config),
+  enhanceMetroConfig: (config) => config,
+});
