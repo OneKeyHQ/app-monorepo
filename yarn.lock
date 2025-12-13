@@ -7385,13 +7385,24 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/react-native-lite-card@npm:1.1.0":
-  version: 1.1.0
-  resolution: "@onekeyfe/react-native-lite-card@npm:1.1.0"
+"@onekeyfe/react-native-check-biometric-auth-changed@npm:1.1.5":
+  version: 1.1.5
+  resolution: "@onekeyfe/react-native-check-biometric-auth-changed@npm:1.1.5"
   peerDependencies:
     react: "*"
     react-native: "*"
-  checksum: 10/d11849a05aef617b26e9e427227099f997bc1087ec942fa29dc024791b5daae3bd2f37d0c40cc709b1ac5a07f00f9eefeddc4166192f18e2a3b3023d21609fce
+    react-native-nitro-modules: ^0.31.10
+  checksum: 10/131b6eeb0b7ebef86fda11e774bc458571863f1812c378ba74afc414d3d80922a7b02c2d3a4bdd0393eed7f244ac144aea7285cddef520e776c8cb589ee1ae1d
+  languageName: node
+  linkType: hard
+
+"@onekeyfe/react-native-lite-card@npm:1.1.5":
+  version: 1.1.5
+  resolution: "@onekeyfe/react-native-lite-card@npm:1.1.5"
+  peerDependencies:
+    react: "*"
+    react-native: "*"
+  checksum: 10/e7219324a238ac282f05636aed5ea26a1af530adf9a0eab05058c1bda05678f43e1f411ddff3ad47963e3bef04565b9f9e471dee682e9f120f260f8da5c2c11c
   languageName: node
   linkType: hard
 
@@ -7817,7 +7828,8 @@ __metadata:
     "@notifee/react-native": "npm:9.1.8"
     "@onekeyfe/react-native-animated-charts": "npm:1.0.0"
     "@onekeyfe/react-native-ble-utils": "npm:0.1.4"
-    "@onekeyfe/react-native-lite-card": "npm:1.1.0"
+    "@onekeyfe/react-native-check-biometric-auth-changed": "npm:1.1.5"
+    "@onekeyfe/react-native-lite-card": "npm:1.1.5"
     "@onekeyfe/react-native-sni-connect": "npm:1.1.0"
     "@onekeyfe/react-native-text-input": "npm:0.3.0"
     "@onekeyhq/components": "npm:*"
@@ -7881,7 +7893,6 @@ __metadata:
     react-native-camera-kit: "npm:15.1.0"
     react-native-canvas: "npm:^0.1.39"
     react-native-capture-protection: "npm:2.3.0"
-    react-native-check-biometric-auth-changed: "npm:0.1.1"
     react-native-cloud-fs: "npm:@onekeyfe/react-native-cloud-fs@2.6.5"
     react-native-collapsible-tab-view: "npm:8.0.1"
     react-native-crypto: "npm:^2.2.0"
@@ -35121,16 +35132,6 @@ __metadata:
     expo:
       optional: true
   checksum: 10/99d4d3045e3ed1786e0374149abe2b510ea3ac969fcb4f2cf9b14b462bc285f32e5836eebf156410c9ca4b3cb263436eb55821eb9f705e467fd3023c7d96fa8b
-  languageName: node
-  linkType: hard
-
-"react-native-check-biometric-auth-changed@npm:0.1.1":
-  version: 0.1.1
-  resolution: "react-native-check-biometric-auth-changed@npm:0.1.1"
-  peerDependencies:
-    react: "*"
-    react-native: "*"
-  checksum: 10/83a656b0244594db3177ffb670d0791ec9f5d8ce217fd2deb64ee2c7ca0f4a897352c24e5b622adb380b24ceb2dadec0b75b74d683f8d303ea5f836b55d78e4f
   languageName: node
   linkType: hard
 
