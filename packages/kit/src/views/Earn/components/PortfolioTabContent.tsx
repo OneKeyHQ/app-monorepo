@@ -335,11 +335,10 @@ const AssetStatusField = ({
   return (
     <FieldWrapper asset={asset}>
       {asset.assetsStatus?.map((status, index) => (
-        <XStack key={index} ai="center" maxWidth={200} flexWrap="wrap">
-          <EarnText mr="$2" size="$bodyMdMedium" text={status.title} />
-          <XStack>
+        <XStack key={index} ai="center" maxWidth={200} flexWrap="wrap" gap="$2">
+          <EarnText size="$bodyMdMedium" text={status.title} />
+          <XStack gap="$2">
             <EarnText
-              mr="$2"
               size="$bodyMd"
               color="$textSubdued"
               text={status.description}

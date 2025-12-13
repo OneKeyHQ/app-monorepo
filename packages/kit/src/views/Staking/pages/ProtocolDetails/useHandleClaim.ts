@@ -107,6 +107,7 @@ export const useHandleClaim = ({
             tokenInfo,
             symbol,
             provider,
+            onSuccess,
           },
         });
         return;
@@ -141,6 +142,7 @@ export const useHandleClaim = ({
             tokenInfo,
             symbol,
             provider,
+            onSuccess,
           },
         });
         return;

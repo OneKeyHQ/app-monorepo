@@ -10,17 +10,12 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import {
-  useSwapProEnableCurrentSymbolAtom,
-  useSwapProSelectTokenAtom,
-  useSwapProSupportNetworksTokenListAtom,
-  useSwapProSupportNetworksTokenListLoadingAtom,
-} from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import { useSwapProSupportNetworksTokenListLoadingAtom } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 import SwapProPositionItem from '../../components/SwapProPositionItem';
+import { useSwapProPositionsListFilter } from '../../hooks/useSwapPro';
 
 interface ISwapProPositionsListProps {
   onTokenPress: (token: ISwapToken) => void;
@@ -30,28 +25,9 @@ const ItemSeparatorComponent = () => <Divider />;
 
 const SwapProPositionsList = ({ onTokenPress }: ISwapProPositionsListProps) => {
   const intl = useIntl();
-  const [swapProSupportNetworksTokenList] =
-    useSwapProSupportNetworksTokenListAtom();
+  const { finallyTokenList } = useSwapProPositionsListFilter();
   const [swapProSupportNetworksTokenListLoading] =
     useSwapProSupportNetworksTokenListLoadingAtom();
-  const [swapProEnableCurrentSymbol] = useSwapProEnableCurrentSymbolAtom();
-  const [swapProTokenSelect] = useSwapProSelectTokenAtom();
-
-  const filteredTokenList = useMemo(() => {
-    if (swapProEnableCurrentSymbol) {
-      return swapProSupportNetworksTokenList.filter((token) =>
-        equalTokenNoCaseSensitive({
-          token1: token,
-          token2: swapProTokenSelect,
-        }),
-      );
-    }
-    return swapProSupportNetworksTokenList;
-  }, [
-    swapProEnableCurrentSymbol,
-    swapProSupportNetworksTokenList,
-    swapProTokenSelect,
-  ]);
 
   const renderItem = useCallback(
     ({ item }: { item: ISwapToken }) => (
@@ -74,7 +50,7 @@ const SwapProPositionsList = ({ onTokenPress }: ISwapProPositionsListProps) => {
   }
   return (
     <ListView
-      data={filteredTokenList}
+      data={finallyTokenList}
       renderItem={renderItem}
       ItemSeparatorComponent={ItemSeparatorComponent}
       ListEmptyComponent={

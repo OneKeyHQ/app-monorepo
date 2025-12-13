@@ -742,12 +742,6 @@ export const {
   use: useSwapSpeedQuoteResultAtom,
 } = contextAtom<IFetchQuoteResult | undefined>(undefined);
 
-export const { atom: swapProSlippageAtom, use: useSwapProSlippageAtom } =
-  contextAtom<ISwapSlippageSegmentItem>({
-    key: ESwapSlippageSegmentKey.AUTO,
-    value: swapSlippageAutoValue,
-  });
-
 export const {
   atom: swapProTokenSupportLimitAtom,
   use: useSwapProTokenSupportLimitAtom,

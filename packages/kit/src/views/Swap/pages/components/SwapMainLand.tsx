@@ -101,6 +101,7 @@ import {
   useSwapProInit,
   useSwapProInputToken,
   useSwapProToToken,
+  useSwapProTokenInit,
 } from '../../hooks/useSwapPro';
 import { useSwapQuote } from '../../hooks/useSwapQuote';
 import {
@@ -1016,6 +1017,9 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     [navigation, storeName],
   );
 
+  const { isLoading, speedConfig, balanceLoading, isMEV, hasEnoughBalance } =
+    useSwapProTokenInit();
+
   useSwapQuote();
 
   return (
@@ -1025,6 +1029,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
       marginHorizontal="auto"
       width="100%"
       maxWidth={pageType === EPageType.modal ? '100%' : 500}
+      pt="$2.5"
     >
       <SwapTipsContainer />
       <SwapHeaderContainer
@@ -1039,6 +1044,13 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
           onSwapProActionClick={onPreSwap}
           handleSelectAccountClick={handleSelectAccountClick}
           onProMarketDetail={onProMarketDetail}
+          config={{
+            isLoading,
+            speedConfig,
+            balanceLoading,
+            isMEV,
+            hasEnoughBalance,
+          }}
         />
       ) : (
         <ScrollView

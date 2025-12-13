@@ -1,10 +1,12 @@
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
+import type { IDeFiProtocol, IProtocolSummary } from '../../types/defi';
 import type { IUtxoAddressInfo } from '../../types/tx';
 
 export enum EModalAssetDetailRoutes {
   TokenDetails = 'AssetDetail_TokenDetails',
+  DeFiProtocolDetails = 'AssetDetail_DeFiProtocolDetails',
   NFTDetails = 'AssetDetail_NFTDetails',
   HistoryDetails = 'AssetDetail_HistoryDetails',
   UTXODetails = 'AssetDetail_UTXODetails',
@@ -53,5 +55,9 @@ export type IModalAssetDetailsParamList = {
     txId: string;
     inputs?: IUtxoAddressInfo[];
     outputs?: IUtxoAddressInfo[];
+  };
+  [EModalAssetDetailRoutes.DeFiProtocolDetails]: {
+    protocol: IDeFiProtocol;
+    protocolInfo: IProtocolSummary;
   };
 };

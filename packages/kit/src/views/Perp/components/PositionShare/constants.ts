@@ -89,8 +89,17 @@ export function getPnlDisplayInfo(
   return `${pnlPercentSign}${pnlPercentText}%`;
 }
 
-export function getDefaultShareText(side: string, coin: string): string {
-  return `Check out my ${side.toUpperCase()} position on ${coin}! 🚀`;
+export function getDefaultShareText({
+  side,
+  coin,
+  displayName,
+}: {
+  side: string;
+  coin: string;
+  displayName?: string;
+}): string {
+  const name = displayName || coin;
+  return `Check out my ${side.toUpperCase()} position on ${name}! 🚀`;
 }
 
 const BASE_SIZE = 1080;

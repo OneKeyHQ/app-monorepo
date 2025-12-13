@@ -19,12 +19,6 @@ function formatAmount(amount: string) {
   return typeof result === 'string' ? result : amount;
 }
 
-function getLocalizedDirection(isBuy: boolean) {
-  return appLocale.intl.formatMessage({
-    id: isBuy ? ETranslations.global_buy : ETranslations.global_sell,
-  });
-}
-
 function buildTransactionMarks({
   transactions,
   accountAddress,
@@ -47,11 +41,19 @@ function buildTransactionMarks({
     const userIsReceiver = tx.to?.address?.toLowerCase() === account;
     const isBuy = userIsReceiver;
     const label = isBuy ? 'B' : 'S';
-    const direction = getLocalizedDirection(isBuy);
     const displaySymbol = tokenSymbol || '';
-    const text = displaySymbol
-      ? `${direction} ${formatAmount(tx.amount)} ${displaySymbol}`
-      : `${direction} ${formatAmount(tx.amount)}`;
+    const text = appLocale.intl.formatMessage(
+      {
+        id: isBuy
+          ? ETranslations.dexmarket_point_buy
+          : ETranslations.dexmarket_point_sell,
+      },
+      {
+        Amount: formatAmount(tx.amount),
+        From_Token: displaySymbol,
+        to_Token: displaySymbol,
+      },
+    );
     return {
       id: `${tx.hash}-${isBuy ? 'buy' : 'sell'}-${index}`,
       time: Math.floor(tx.timestamp),
