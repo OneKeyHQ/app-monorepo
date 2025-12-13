@@ -9,6 +9,8 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { presetNetworksMap } from '@onekeyhq/shared/src/config/presetNetworks';
+import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
+import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 import { SwitchToTradePrompt } from './SwitchToTradePrompt';
 
@@ -27,6 +29,7 @@ interface ITokenListProps {
   onTokenPress?: (token: IToken) => void;
   onTradePress: () => void;
   disabledOnSwitchToTrade?: boolean;
+  currentSelectToken?: ISwapToken;
 }
 
 export function TokenList({
@@ -34,6 +37,7 @@ export function TokenList({
   onTokenPress,
   onTradePress,
   disabledOnSwitchToTrade,
+  currentSelectToken,
 }: ITokenListProps) {
   const { activeAccount } = useActiveAccount({ num: 0 });
   const [settingsPersistAtom] = useSettingsPersistAtom();
@@ -146,6 +150,13 @@ export function TokenList({
             valueProps={token.valueProps}
             onPress={() => onTokenPress?.(token)}
             margin={0}
+            disabled={Boolean(
+              currentSelectToken &&
+                equalTokenNoCaseSensitive({
+                  token1: currentSelectToken,
+                  token2: token,
+                }),
+            )}
           />
         ))}
       </YStack>

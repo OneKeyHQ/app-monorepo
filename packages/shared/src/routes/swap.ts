@@ -74,6 +74,7 @@ export type IModalSwapParamList = {
   };
   [EModalSwapRoutes.SwapProSelectToken]: {
     storeName: EJotaiContextStoreNames;
+    autoSearch?: boolean;
   };
   [EModalSwapRoutes.SwapProMarketDetail]: {
     tokenAddress: string;

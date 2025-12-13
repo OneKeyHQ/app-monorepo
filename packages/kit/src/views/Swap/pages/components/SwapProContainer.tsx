@@ -1,10 +1,11 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { RefreshControl, ScrollView } from 'react-native';
 
 import { IconButton, XStack, YStack } from '@onekeyhq/components';
 import {
   useSwapFromTokenAmountAtom,
+  useSwapProErrorAlertAtom,
   useSwapProInputAmountAtom,
   useSwapProSelectTokenAtom,
   useSwapProSliderValueAtom,
@@ -16,7 +17,9 @@ import type {
 } from '@onekeyhq/shared/types/swap/types';
 
 import { ETabName, TabBarItem } from '../../../Perp/layouts/PerpMobileLayout';
+import SwapProErrorAlert from '../../components/SwapProErrorAlert';
 import {
+  useSwapProErrorAlert,
   useSwapProSupportNetworksTokenList,
   useSwapProTokenDetailInfo,
   useSwapProTokenInfoSync,
@@ -30,7 +33,7 @@ import SwapProTradeInfoPanel from './SwapProTradeInfoPanel';
 import SwapProTradingPanel from './SwapProTradingPanel';
 
 interface ISwapProContainerProps {
-  onProSelectToken: () => void;
+  onProSelectToken: (autoSearch?: boolean) => void;
   onOpenOrdersClick: (item: IFetchLimitOrderRes) => void;
   onSwapProActionClick: () => void;
   handleSelectAccountClick: () => void;
@@ -63,7 +66,9 @@ const SwapProContainer = ({
   const [, setSwapProSliderValue] = useSwapProSliderValueAtom();
   const scrollViewRef = useRef<ScrollView>(null);
   const { fetchTokenMarketDetailInfo } = useSwapProTokenDetailInfo();
-  const { syncInputTokenBalance, syncToTokenPrice } = useSwapProTokenInfoSync();
+  const [swapProErrorAlert] = useSwapProErrorAlertAtom();
+  const { syncInputTokenBalance, syncToTokenPrice, netAccountRes } =
+    useSwapProTokenInfoSync();
   const { swapProLoadSupportNetworksTokenListRun } =
     useSwapProSupportNetworksTokenList();
   const handleRefresh = useCallback(async () => {
@@ -83,7 +88,7 @@ const SwapProContainer = ({
   ]);
   const { isLoading, speedConfig, balanceLoading, isMEV, hasEnoughBalance } =
     config;
-
+  useSwapProErrorAlert();
   const cleanInputAmount = useCallback(() => {
     setSwapProInputAmount('');
     setFromInputAmount({
@@ -92,6 +97,11 @@ const SwapProContainer = ({
     });
     setSwapProSliderValue(0);
   }, [setSwapProInputAmount, setFromInputAmount, setSwapProSliderValue]);
+
+  const netAccountAddress = netAccountRes.result?.addressDetail.address;
+  useEffect(() => {
+    cleanInputAmount();
+  }, [netAccountAddress, cleanInputAmount]);
 
   const onTokenPress = useCallback(
     (token: ISwapToken) => {
@@ -163,6 +173,10 @@ const SwapProContainer = ({
           />
         </YStack>
       </XStack>
+      <SwapProErrorAlert
+        title={swapProErrorAlert?.title}
+        message={swapProErrorAlert?.message}
+      />
       <XStack
         bg="$bgApp"
         borderBottomWidth="$0.5"
@@ -189,7 +203,10 @@ const SwapProContainer = ({
           flex={1}
         >
           <SwapProCurrentSymbolEnable />
-          <SwapProPositionsList onTokenPress={onTokenPress} />
+          <SwapProPositionsList
+            onTokenPress={onTokenPress}
+            onSearchClick={() => onProSelectToken(true)}
+          />
         </YStack>
         <YStack
           display={activeTab === ETabName.OpenOrders ? 'flex' : 'none'}

@@ -1,9 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { useIntl } from 'react-intl';
 
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
-import { useSwapProJumpTokenAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/swap';
+import {
+  ESwapProJumpTokenDirection,
+  useSwapProJumpTokenAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms/swap';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
@@ -38,9 +43,11 @@ import {
   useSwapLimitPriceToAmountAtom,
   useSwapProDirectionAtom,
   useSwapProEnableCurrentSymbolAtom,
+  useSwapProErrorAlertAtom,
   useSwapProInputAmountAtom,
   useSwapProSelectTokenAtom,
   useSwapProSellToTokenAtom,
+  useSwapProSliderValueAtom,
   useSwapProSupportNetworksTokenListAtom,
   useSwapProToTotalValueAtom,
   useSwapProTokenSupportLimitAtom,
@@ -63,6 +70,7 @@ import { useSwapSlippagePercentageModeInfo } from './useSwapState';
 
 export function useSwapProInit() {
   const [, setSwapSwitchType] = useSwapTypeSwitchAtom();
+  const [, setSwapProDirection] = useSwapProDirectionAtom();
   const [swapProSelectToken, setSwapProSelectToken] =
     useSwapProSelectTokenAtom();
   const [swapProJumpToken, setSwapProJumpToken] = useSwapProJumpTokenAtom();
@@ -88,9 +96,22 @@ export function useSwapProInit() {
   useEffect(() => {
     if (swapProJumpToken.token) {
       swapSwitchProToken({ token: swapProJumpToken.token });
-      setSwapProJumpToken({ token: undefined });
+      if (swapProJumpToken.direction === ESwapProJumpTokenDirection.SELL) {
+        setSwapProDirection(ESwapDirection.SELL);
+      } else {
+        setSwapProDirection(ESwapDirection.BUY);
+      }
+      setSwapProJumpToken({
+        token: undefined,
+        direction: ESwapProJumpTokenDirection.BUY,
+      });
     }
-  }, [swapProJumpToken, swapSwitchProToken, setSwapProJumpToken]);
+  }, [
+    swapProJumpToken,
+    swapSwitchProToken,
+    setSwapProJumpToken,
+    setSwapProDirection,
+  ]);
 }
 
 export function useSwapProInputToken() {
@@ -169,6 +190,7 @@ export function useSwapProAccount() {
     swapTypeSwitch,
     updateSelectedAccountNetwork,
   ]);
+
   return netAccountRes;
 }
 
@@ -208,6 +230,8 @@ export function useSwapProTokenInfoSync() {
                   balanceParsed: balanceTokenInfo[0].balanceParsed ?? '',
                   price: balanceTokenInfo[0].price ?? '',
                   fiatValue: balanceTokenInfo[0].fiatValue ?? '',
+                  accountAddress:
+                    netAccountRes.result?.addressDetail.address ?? '',
                 }
               : undefined,
           );
@@ -219,6 +243,8 @@ export function useSwapProTokenInfoSync() {
                   balanceParsed: balanceTokenInfo[0].balanceParsed ?? '',
                   price: balanceTokenInfo[0].price ?? '',
                   fiatValue: balanceTokenInfo[0].fiatValue ?? '',
+                  accountAddress:
+                    netAccountRes.result?.addressDetail.address ?? '',
                 }
               : undefined,
           );
@@ -264,6 +290,7 @@ export function useSwapProTokenInfoSync() {
     syncInputTokenBalance,
     syncToTokenPrice,
     balanceLoading,
+    netAccountRes,
   };
 }
 
@@ -356,14 +383,26 @@ export function useSwapProTokenInit() {
   }, [defaultTokens, setSwapProSellToToken, swapProSellToToken]);
   const inputToken = useSwapProInputToken();
 
-  const { syncInputTokenBalance, syncToTokenPrice, balanceLoading } =
-    useSwapProTokenInfoSync();
+  const {
+    syncInputTokenBalance,
+    syncToTokenPrice,
+    balanceLoading,
+    netAccountRes,
+  } = useSwapProTokenInfoSync();
 
   useEffect(() => {
-    if (inputToken && !inputToken.balanceParsed) {
+    if (
+      (inputToken && !inputToken.balanceParsed) ||
+      (inputToken as ISwapToken)?.accountAddress !==
+        netAccountRes.result?.addressDetail.address
+    ) {
       void syncInputTokenBalance();
     }
-  }, [inputToken, syncInputTokenBalance]);
+  }, [
+    inputToken,
+    syncInputTokenBalance,
+    netAccountRes.result?.addressDetail.address,
+  ]);
 
   useEffect(() => {
     if (swapProSellToToken && !swapProSellToToken.price) {
@@ -421,13 +460,15 @@ export function useSwapProTokenSearch(input: string) {
         if (isCancelled) {
           return;
         }
-        const searchTokenParse = searchRes?.map((t) => {
-          const networkInfo = networkUtils.getLocalNetworkInfo(t.network);
-          return {
-            ...t,
-            networkLogoURI: networkInfo?.logoURI ?? '',
-          };
-        });
+        const searchTokenParse = searchRes
+          ?.map((t) => {
+            const networkInfo = networkUtils.getLocalNetworkInfo(t.network);
+            return {
+              ...t,
+              networkLogoURI: networkInfo?.logoURI ?? '',
+            };
+          })
+          .filter((t) => !t.isNative);
         setSearchTokenList(searchTokenParse ?? []);
       } catch (e) {
         if (!isCancelled) {
@@ -810,6 +851,44 @@ export function useSwapProActionsQuote() {
   return {
     quoteSpeedAction,
   };
+}
+
+export function useSwapProErrorAlert() {
+  const intl = useIntl();
+  const [, setSwapProErrorAlert] = useSwapProErrorAlertAtom();
+  const swapProAccount = useSwapProAccount();
+  const [swapProQuoteResult] = useSwapSpeedQuoteResultAtom();
+  const [swapCurrentQuote] = useSwapQuoteCurrentSelectAtom();
+  const [swapProTradeType] = useSwapProTradeTypeAtom();
+  const currentQuoteRes = useMemo(() => {
+    if (swapProTradeType === ESwapProTradeType.MARKET) {
+      return swapProQuoteResult;
+    }
+    return swapCurrentQuote;
+  }, [swapProTradeType, swapProQuoteResult, swapCurrentQuote]);
+  useEffect(() => {
+    if (!swapProAccount.result?.addressDetail.address) {
+      setSwapProErrorAlert({
+        title: intl.formatMessage({
+          id: ETranslations.dexmarket_swap_unsupported_title,
+        }),
+        message: intl.formatMessage({
+          id: ETranslations.dexmarket_swap_unsupported_desc,
+        }),
+      });
+    } else if (currentQuoteRes?.errorMessage) {
+      setSwapProErrorAlert({
+        title: currentQuoteRes?.errorMessage,
+      });
+    } else {
+      setSwapProErrorAlert(undefined);
+    }
+  }, [
+    currentQuoteRes,
+    intl,
+    setSwapProErrorAlert,
+    swapProAccount.result?.addressDetail.address,
+  ]);
 }
 
 export function useSwapLimitPriceCheck(

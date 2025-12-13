@@ -57,7 +57,9 @@ const SwapProTokenSelector = ({
       />
 
       {/* Token Name */}
-      <SizableText size="$heading2xl">{swapProTokenSelect?.symbol}</SizableText>
+      <SizableText size="$headingLg" numberOfLines={1} flexShrink={1}>
+        {swapProTokenSelect?.symbol}
+      </SizableText>
       <Icon name="ChevronBottomOutline" size="$4" />
     </Badge>
   );
