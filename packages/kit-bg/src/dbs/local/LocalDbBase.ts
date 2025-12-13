@@ -71,6 +71,7 @@ import {
 import { CoreSDKLoader } from '@onekeyhq/shared/src/hardware/instance';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import { getDeviceAvatarImage } from '@onekeyhq/shared/src/utils/avatarUtils';
@@ -1301,6 +1302,13 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       (await this.getWalletSafe({
         walletId,
       }));
+
+    defaultLogger.accountSelector.listData.dbGetWalletSafe({
+      isDbWalletFromParams: !!dbWallet,
+      walletId,
+      isMocked: wallet?.isMocked,
+    });
+
     if (wallet && !wallet?.isMocked) {
       // TODO performance
       const allIndexedAccounts0 =
@@ -1310,18 +1318,29 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       accounts = allIndexedAccounts0.filter(
         (item) => item.walletId === walletId,
       );
+      defaultLogger.accountSelector.listData.dbFilterAllIndexedAccounts({
+        indexedAccountsLength: allIndexedAccounts0.length,
+        walletIdFilter: walletId,
+        accountsFilteredLength: accounts.length,
+      });
     }
 
+    accounts = accounts
+      .map((a) => this.refillIndexedAccount({ indexedAccount: a }))
+      .sort((a, b) =>
+        // indexedAccount sort by index
+        natsort({ insensitive: true })(a.order ?? a.index, b.order ?? b.index),
+      );
+
+    defaultLogger.accountSelector.listData.dbGetIndexedAccountsOfWallet({
+      allIndexedAccountsFromParamsLength: allIndexedAccounts?.length,
+      isDbWalletFromParams: !!dbWallet,
+      walletId,
+      resultAccountsLength: accounts.length,
+    });
+
     return {
-      accounts: accounts
-        .map((a) => this.refillIndexedAccount({ indexedAccount: a }))
-        .sort((a, b) =>
-          // indexedAccount sort by index
-          natsort({ insensitive: true })(
-            a.order ?? a.index,
-            b.order ?? b.index,
-          ),
-        ),
+      accounts,
     };
   }
 
@@ -2142,6 +2161,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       return;
     }
 
+    const featuresInfo = await deviceUtils.attachAppParamsToFeatures({
+      features,
+    });
     let isUpdated = false;
     await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
       await this.txUpdateRecords({
@@ -2149,7 +2171,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         name: ELocalDBStoreNames.Device,
         ids: [device.id],
         updater: async (item) => {
-          const newFeatures = stringUtils.stableStringify(features);
+          const newFeatures = stringUtils.stableStringify(featuresInfo);
           if (item.features !== newFeatures) {
             item.features = newFeatures;
             isUpdated = true;
@@ -2224,6 +2246,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       | {
           fw_vendor: string | undefined;
           capabilities: number[] | undefined;
+          $app_firmware_type?: EFirmwareType;
         }
       | undefined;
   }) {
@@ -2842,7 +2865,10 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       hiddenDefaultWalletName = hiddenWalletNameInfo.hiddenWalletName;
     }
 
-    const featuresStr = JSON.stringify(features);
+    const featuresInfo = await deviceUtils.attachAppParamsToFeatures({
+      features,
+    });
+    const featuresStr = JSON.stringify(featuresInfo);
 
     const firstAccountIndex = 0;
 
@@ -4248,12 +4274,22 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     const allIndexedAccountsInCache =
       this.getAllRecordsByCache<IDBIndexedAccount>(cacheKey);
     if (allIndexedAccountsInCache && allIndexedAccountsInCache.length) {
+      defaultLogger.accountSelector.listData.dbGetAllIndexedAccounts({
+        indexedAccountsLength: allIndexedAccountsInCache.length,
+        isFromCache: true,
+      });
       return { indexedAccounts: allIndexedAccountsInCache };
     }
     const { records: indexedAccounts } = await this.getAllRecords({
       name: ELocalDBStoreNames.IndexedAccount,
     });
-    this.dbAllRecordsCache.set(cacheKey, indexedAccounts);
+    if (indexedAccounts?.length) {
+      this.dbAllRecordsCache.set(cacheKey, indexedAccounts);
+    }
+    defaultLogger.accountSelector.listData.dbGetAllIndexedAccounts({
+      indexedAccountsLength: indexedAccounts.length,
+      isFromCache: false,
+    });
     return { indexedAccounts };
   }
 

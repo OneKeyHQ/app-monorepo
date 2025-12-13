@@ -38,8 +38,10 @@ export interface ISimpleDbPerpData {
     string,
     IPerpOrderBookTickOptionPersist
   >;
-  tradingUniverse?: IPerpsUniverse[] | undefined;
-  marginTablesMap?: IMarginTablesMap;
+  tradingUniverse?: IPerpsUniverse[] | undefined; // legacy single-dex
+  marginTablesMap?: IMarginTablesMap; // legacy single-dex
+  tradingUniverses?: IPerpsUniverse[][]; // multi-dex
+  marginTablesMapList?: Array<IMarginTablesMap | undefined>;
   agentTTL?: number; // in milliseconds
   referralCode?: string;
   configVersion?: string;
@@ -94,34 +96,31 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
 
   @backgroundMethod()
   async getTradingUniverse(): Promise<{
-    universeItems: IPerpsUniverse[];
-    marginTablesMap: IMarginTablesMap | undefined;
+    universesByDex: IPerpsUniverse[][];
+    marginTablesMapByDex: Array<IMarginTablesMap | undefined>;
   }> {
     const config = await this.getPerpData();
     return {
-      universeItems: config.tradingUniverse || [],
-      marginTablesMap: config.marginTablesMap,
+      universesByDex: config.tradingUniverses || [],
+      marginTablesMapByDex: config.marginTablesMapList || [],
     };
   }
 
   @backgroundMethod()
   async setTradingUniverse({
-    universe,
-    marginTablesMap,
+    universes,
+    marginTablesMapList,
   }: {
-    universe: IPerpsUniverseRaw[];
-    marginTablesMap: IMarginTablesMap;
+    universes: IPerpsUniverse[][];
+    marginTablesMapList: Array<IMarginTablesMap | undefined>;
   }) {
     await this.setPerpData(
       (prev): ISimpleDbPerpData => ({
         ...prev,
-        marginTablesMap,
-        tradingUniverse: universe.map((item, index) => {
-          return {
-            ...item,
-            assetId: index,
-          };
-        }),
+        marginTablesMapList,
+        marginTablesMap: marginTablesMapList?.[0],
+        tradingUniverses: universes,
+        tradingUniverse: universes?.[0],
       }),
     );
   }

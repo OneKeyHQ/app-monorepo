@@ -18,7 +18,6 @@ import {
   mevSwapNetworks,
   swapProTimeRangeItems,
   swapProviderRecommendApprovedWeights,
-  swapSlippageAutoValue,
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
   ESwapDirectionType,
@@ -31,7 +30,6 @@ import type {
   ISwapNativeTokenReserveGas,
   ISwapNetwork,
   ISwapPreSwapData,
-  ISwapSlippageSegmentItem,
   ISwapStep,
   ISwapTips,
   ISwapToken,
@@ -41,7 +39,6 @@ import type {
 import {
   ESwapNetworkFeeLevel,
   ESwapProTradeType,
-  ESwapSlippageSegmentKey,
   ESwapTabSwitchType,
   LIMIT_PRICE_DEFAULT_DECIMALS,
   defaultLimitExpirationTime,
@@ -679,6 +676,11 @@ export const {
 } = contextAtom<IMarketTokenDetail | undefined>(undefined);
 
 export const {
+  atom: swapProTokenTransactionPriceAtom,
+  use: useSwapProTokenTransactionPriceAtom,
+} = contextAtom<string>('');
+
+export const {
   atom: swapProTokenDetailWebsocketAtom,
   use: useSwapProTokenDetailWebsocketAtom,
 } = contextAtom<IMarketTokenDetailWebsocket | undefined>(undefined);
@@ -715,7 +717,7 @@ export const { atom: swapProTokenValueAtom, use: useSwapProTokenValueAtom } =
 export const {
   atom: swapProEnableCurrentSymbolAtom,
   use: useSwapProEnableCurrentSymbolAtom,
-} = contextAtom<boolean>(false);
+} = contextAtom<boolean>(true);
 
 export const {
   atom: swapProToTotalValueAtom,
@@ -737,12 +739,6 @@ export const {
   use: useSwapSpeedQuoteResultAtom,
 } = contextAtom<IFetchQuoteResult | undefined>(undefined);
 
-export const { atom: swapProSlippageAtom, use: useSwapProSlippageAtom } =
-  contextAtom<ISwapSlippageSegmentItem>({
-    key: ESwapSlippageSegmentKey.AUTO,
-    value: swapSlippageAutoValue,
-  });
-
 export const {
   atom: swapProTokenSupportLimitAtom,
   use: useSwapProTokenSupportLimitAtom,
@@ -756,6 +752,9 @@ export const {
     (net) => net.networkId === swapProSelectToken?.networkId,
   );
 });
+
+export const { atom: swapProErrorAlertAtom, use: useSwapProErrorAlertAtom } =
+  contextAtom<{ title: string; message?: string } | undefined>(undefined);
 
 export const {
   atom: swapLimitPriceMarketPriceAtom,

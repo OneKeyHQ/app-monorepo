@@ -101,6 +101,7 @@ import {
   useSwapProInit,
   useSwapProInputToken,
   useSwapProToToken,
+  useSwapProTokenInit,
 } from '../../hooks/useSwapPro';
 import { useSwapQuote } from '../../hooks/useSwapQuote';
 import {
@@ -248,14 +249,18 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     [navigation, storeName],
   );
 
-  const onProSelectToken = useCallback(() => {
-    navigation.pushModal(EModalRoutes.SwapModal, {
-      screen: EModalSwapRoutes.SwapProSelectToken,
-      params: {
-        storeName,
-      },
-    });
-  }, [navigation, storeName]);
+  const onProSelectToken = useCallback(
+    (autoSearch?: boolean) => {
+      navigation.pushModal(EModalRoutes.SwapModal, {
+        screen: EModalSwapRoutes.SwapProSelectToken,
+        params: {
+          storeName,
+          autoSearch,
+        },
+      });
+    },
+    [navigation, storeName],
+  );
 
   const onProMarketDetail = useCallback(() => {
     navigation.pushModal(EModalRoutes.SwapModal, {
@@ -899,6 +904,8 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
       params: {
         num: 0,
         sceneName: EAccountSelectorSceneName.swap,
+        editable: true,
+        linkNetwork: true,
       },
     });
   }, [navigation]);
@@ -1014,19 +1021,23 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     [navigation, storeName],
   );
 
+  const { isLoading, speedConfig, balanceLoading, isMEV, hasEnoughBalance } =
+    useSwapProTokenInit();
+
   useSwapQuote();
 
   return (
-    // <ScrollView
-    //   keyboardShouldPersistTaps="handled"
-    //   keyboardDismissMode="on-drag"
-    // >
     <YStack
       testID="swap-content-container"
       flex={1}
       marginHorizontal="auto"
       width="100%"
       maxWidth={pageType === EPageType.modal ? '100%' : 500}
+      pt="$2.5"
+      $gtMd={{
+        flex: 'unset',
+        pt: pageType === EPageType.modal ? '$2.5' : '$5',
+      }}
     >
       <SwapTipsContainer />
       <SwapHeaderContainer
@@ -1034,29 +1045,36 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
         defaultSwapType={swapInitParams?.swapTabSwitchType}
         showSwapPro={platformEnv.isNative}
       />
-      <YStack
-        pt="$2.5"
-        px="$5"
-        gap="$5"
-        flex={1}
-        $gtMd={{
-          flex: 'unset',
-          pt: pageType === EPageType.modal ? '$2.5' : '$5',
-        }}
-        {...(focusSwapPro ? { pb: '$0' } : { pb: '$5' })}
-      >
-        {focusSwapPro ? (
-          <SwapProContainer
-            onProSelectToken={onProSelectToken}
-            onOpenOrdersClick={onOpenOrdersClick}
-            onSwapProActionClick={onPreSwap}
-            handleSelectAccountClick={handleSelectAccountClick}
-            onProMarketDetail={onProMarketDetail}
-          />
-        ) : (
-          <ScrollView
-            keyboardShouldPersistTaps="handled"
-            keyboardDismissMode="on-drag"
+      {focusSwapPro ? (
+        <SwapProContainer
+          onProSelectToken={onProSelectToken}
+          onOpenOrdersClick={onOpenOrdersClick}
+          onSwapProActionClick={onPreSwap}
+          handleSelectAccountClick={handleSelectAccountClick}
+          onProMarketDetail={onProMarketDetail}
+          config={{
+            isLoading,
+            speedConfig,
+            balanceLoading,
+            isMEV,
+            hasEnoughBalance,
+          }}
+        />
+      ) : (
+        <ScrollView
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+        >
+          <YStack
+            pt="$2.5"
+            px="$5"
+            gap="$5"
+            flex={1}
+            $gtMd={{
+              flex: 'unset',
+              pt: pageType === EPageType.modal ? '$2.5' : '$5',
+            }}
+            pb="$5"
           >
             <LimitOrderOpenItem storeName={storeName} />
             <SwapQuoteInput
@@ -1091,11 +1109,10 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
               fromTokenAmount={fromTokenAmount.value}
             />
             <SwapPendingHistoryListComponent pageType={pageType} />
-          </ScrollView>
-        )}
-      </YStack>
+          </YStack>
+        </ScrollView>
+      )}
     </YStack>
-    // </ScrollView>
   );
 };
 

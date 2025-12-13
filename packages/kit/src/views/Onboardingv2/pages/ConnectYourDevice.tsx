@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { EDeviceType } from '@onekeyfe/hd-shared';
+import { EDeviceType, HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { useIsFocused } from '@react-navigation/core';
 import { useNavigation } from '@react-navigation/native';
-import { isString } from 'lodash';
+import { get, isString } from 'lodash';
 import natsort from 'natsort';
 import { useIntl } from 'react-intl';
 import { Linking, StyleSheet } from 'react-native';
@@ -46,6 +46,7 @@ import {
   NeedBluetoothPermissions,
   NeedBluetoothTurnedOn,
   NeedOneKeyBridge,
+  OneKeyHardwareError,
 } from '@onekeyhq/shared/src/errors';
 import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import bleManagerInstance from '@onekeyhq/shared/src/hardware/bleManager';
@@ -1019,15 +1020,62 @@ function BluetoothConnectionIndicator({
     EBluetoothStatus.checking,
   );
 
+  const connectDevice = useCallback(
+    async (
+      item: IConnectYourDeviceItem,
+      innerTabValue: EConnectDeviceChannel,
+    ) => {
+      if (!item.device) {
+        return;
+      }
+
+      const connectId = item.device.connectId ?? '';
+      try {
+        void backgroundApiProxy.serviceHardwareUI.showCheckingDeviceDialog({
+          connectId,
+        });
+        await backgroundApiProxy.serviceHardware.connectDevice({
+          connectId,
+          params: {
+            retryCount: 0,
+          },
+        });
+        navigation.push(EOnboardingPagesV2.CheckAndUpdate, {
+          deviceData: item,
+          tabValue: innerTabValue,
+        });
+      } catch (error) {
+        if (error instanceof OneKeyHardwareError) {
+          const { code, message } = error;
+          if (
+            code === HardwareErrorCode.CallMethodNeedUpgradeFirmware ||
+            code === HardwareErrorCode.BlePermissionError ||
+            code === HardwareErrorCode.BleLocationError
+          ) {
+            return;
+          }
+          Toast.error({
+            title: message || 'DeviceConnectError',
+          });
+        } else {
+          console.error('connectDevice error:', get(error, 'message', ''));
+        }
+      } finally {
+        void backgroundApiProxy.serviceHardwareUI.closeHardwareUiStateDialog({
+          connectId,
+          hardClose: false,
+          skipDelayClose: true,
+          deviceResetToHome: false,
+        });
+      }
+    },
+    [navigation],
+  );
+
   // Use shared device connection logic for Bluetooth
   const deviceConnection = useDeviceConnection({
     tabValue,
-    onDeviceSelect: async (item) => {
-      navigation.push(EOnboardingPagesV2.CheckAndUpdate, {
-        deviceData: item,
-        tabValue,
-      });
-    },
+    onDeviceSelect: async (item) => connectDevice(item, tabValue),
   });
 
   const { devicesData, scanDevice, stopScan, handleDeviceSelect } =

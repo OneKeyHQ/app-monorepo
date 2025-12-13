@@ -11,6 +11,7 @@ import type { IPerpsDepositOrderAtom } from '@onekeyhq/kit-bg/src/states/jotai/a
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   IDepositPending,
+  IHex,
   IUserNonFundingLedgerUpdate,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
 import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
@@ -104,7 +105,7 @@ function PerpAccountList({
         };
         return {
           time: order.time ?? Date.now(),
-          hash: order.toTxId || order.fromTxId,
+          hash: (order.toTxId || order.fromTxId || '0x') as IHex,
           delta,
         };
       })
@@ -164,7 +165,9 @@ function PerpAccountList({
       data={mergedData}
       isMobile={isMobile}
       renderRow={renderAccountRow}
-      listLoading={!isSubscribed}
+      // If account has no Perp address (unsupported or not created),
+      // show empty state instead of skeleton loading.
+      listLoading={currentUser?.accountAddress ? !isSubscribed : false}
       emptyMessage={intl.formatMessage({
         id: ETranslations.perp_trade_history_empty,
       })}

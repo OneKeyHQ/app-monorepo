@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -10,66 +10,35 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import {
-  useSwapProEnableCurrentSymbolAtom,
-  useSwapProSelectTokenAtom,
-  useSwapProSupportNetworksTokenListAtom,
-  useSwapProSupportNetworksTokenListLoadingAtom,
-} from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import { useSwapProSupportNetworksTokenListLoadingAtom } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 import SwapProPositionItem from '../../components/SwapProPositionItem';
+import SwapProPositionListFooter from '../../components/SwapProPositionListFooter';
+import { useSwapProPositionsListFilter } from '../../hooks/useSwapPro';
+
+interface ISwapProPositionsListProps {
+  onTokenPress: (token: ISwapToken) => void;
+  onSearchClick: () => void;
+}
 
 const ItemSeparatorComponent = () => <Divider />;
 
-const SwapProPositionsList = () => {
+const SwapProPositionsList = ({
+  onTokenPress,
+  onSearchClick,
+}: ISwapProPositionsListProps) => {
   const intl = useIntl();
-  const [swapProSupportNetworksTokenList] =
-    useSwapProSupportNetworksTokenListAtom();
+  const { finallyTokenList } = useSwapProPositionsListFilter();
   const [swapProSupportNetworksTokenListLoading] =
     useSwapProSupportNetworksTokenListLoadingAtom();
-  const [swapProEnableCurrentSymbol] = useSwapProEnableCurrentSymbolAtom();
-  const [swapProTokenSelect, setSwapProSelectToken] =
-    useSwapProSelectTokenAtom();
-  const onPositionTokenPress = useCallback(
-    (token: ISwapToken) => {
-      setSwapProSelectToken({
-        networkId: token.networkId,
-        contractAddress: token.contractAddress,
-        decimals: token.decimals,
-        symbol: token.symbol,
-        logoURI: token.logoURI,
-        networkLogoURI: token.networkLogoURI,
-        name: token.name,
-        isNative: token.isNative,
-        price: token.price?.toString(),
-      });
-    },
-    [setSwapProSelectToken],
-  );
-  const filteredTokenList = useMemo(() => {
-    if (swapProEnableCurrentSymbol) {
-      return swapProSupportNetworksTokenList.filter((token) =>
-        equalTokenNoCaseSensitive({
-          token1: token,
-          token2: swapProTokenSelect,
-        }),
-      );
-    }
-    return swapProSupportNetworksTokenList;
-  }, [
-    swapProEnableCurrentSymbol,
-    swapProSupportNetworksTokenList,
-    swapProTokenSelect,
-  ]);
 
   const renderItem = useCallback(
     ({ item }: { item: ISwapToken }) => (
-      <SwapProPositionItem token={item} onPress={onPositionTokenPress} />
+      <SwapProPositionItem token={item} onPress={onTokenPress} />
     ),
-    [onPositionTokenPress],
+    [onTokenPress],
   );
   if (swapProSupportNetworksTokenListLoading) {
     return (
@@ -86,7 +55,7 @@ const SwapProPositionsList = () => {
   }
   return (
     <ListView
-      data={filteredTokenList}
+      data={finallyTokenList}
       renderItem={renderItem}
       ItemSeparatorComponent={ItemSeparatorComponent}
       ListEmptyComponent={
@@ -94,6 +63,9 @@ const SwapProPositionsList = () => {
           icon="SearchOutline"
           title={intl.formatMessage({ id: ETranslations.global_no_results })}
         />
+      }
+      ListFooterComponent={
+        <SwapProPositionListFooter onSearchClick={onSearchClick} />
       }
     />
   );

@@ -30,7 +30,7 @@ const SwapProTokenSelector = ({
     return undefined;
   }, [swapProTokenSelect]);
   if (configLoading) {
-    return <Skeleton w="$10" h="$10" />;
+    return <Skeleton w="$20" h="$9" borderRadius="$2" />;
   }
   return (
     <Badge
@@ -57,7 +57,9 @@ const SwapProTokenSelector = ({
       />
 
       {/* Token Name */}
-      <SizableText size="$heading2xl">{swapProTokenSelect?.symbol}</SizableText>
+      <SizableText size="$headingLg" numberOfLines={1} flexShrink={1}>
+        {swapProTokenSelect?.symbol}
+      </SizableText>
       <Icon name="ChevronBottomOutline" size="$4" />
     </Badge>
   );

@@ -1,9 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { useIntl } from 'react-intl';
 
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
-import { useSwapProJumpTokenAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/swap';
+import {
+  ESwapProJumpTokenDirection,
+  useSwapProJumpTokenAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms/swap';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -13,6 +19,10 @@ import {
 } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IMarketSearchV2Token } from '@onekeyhq/shared/types/market';
 import type { IMarketTokenTransaction } from '@onekeyhq/shared/types/marketV2';
+import {
+  swapProPositionsListMaxCount,
+  swapProPositionsListMinValue,
+} from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import {
   ESwapProTradeType,
@@ -22,22 +32,31 @@ import {
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useCurrency } from '../../../components/Currency';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
-import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
+import {
+  useAccountSelectorActions,
+  useActiveAccount,
+} from '../../../states/jotai/contexts/accountSelector';
 import {
   useSwapActions,
   useSwapFromTokenAmountAtom,
   useSwapLimitPriceFromAmountAtom,
   useSwapLimitPriceToAmountAtom,
   useSwapProDirectionAtom,
+  useSwapProEnableCurrentSymbolAtom,
+  useSwapProErrorAlertAtom,
   useSwapProInputAmountAtom,
   useSwapProSelectTokenAtom,
   useSwapProSellToTokenAtom,
-  useSwapProSlippageAtom,
+  useSwapProSliderValueAtom,
+  useSwapProSupportNetworksTokenListAtom,
   useSwapProToTotalValueAtom,
   useSwapProTokenSupportLimitAtom,
+  useSwapProTokenTransactionPriceAtom,
   useSwapProTradeTypeAtom,
   useSwapProUseSelectBuyTokenAtom,
   useSwapQuoteCurrentSelectAtom,
+  useSwapSelectFromTokenAtom,
+  useSwapSelectToTokenAtom,
   useSwapSpeedQuoteResultAtom,
   useSwapToTokenAmountAtom,
   useSwapTypeSwitchAtom,
@@ -47,8 +66,11 @@ import { useTransactionsWebSocket } from '../../Market/MarketDetailV2/components
 import { useSpeedSwapInit } from '../../Market/MarketDetailV2/components/SwapPanel/hooks/useSpeedSwapInit';
 import { ESwapDirection } from '../../Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
 
+import { useSwapSlippagePercentageModeInfo } from './useSwapState';
+
 export function useSwapProInit() {
   const [, setSwapSwitchType] = useSwapTypeSwitchAtom();
+  const [, setSwapProDirection] = useSwapProDirectionAtom();
   const [swapProSelectToken, setSwapProSelectToken] =
     useSwapProSelectTokenAtom();
   const [swapProJumpToken, setSwapProJumpToken] = useSwapProJumpTokenAtom();
@@ -74,9 +96,22 @@ export function useSwapProInit() {
   useEffect(() => {
     if (swapProJumpToken.token) {
       swapSwitchProToken({ token: swapProJumpToken.token });
-      setSwapProJumpToken({ token: undefined });
+      if (swapProJumpToken.direction === ESwapProJumpTokenDirection.SELL) {
+        setSwapProDirection(ESwapDirection.SELL);
+      } else {
+        setSwapProDirection(ESwapDirection.BUY);
+      }
+      setSwapProJumpToken({
+        token: undefined,
+        direction: ESwapProJumpTokenDirection.BUY,
+      });
     }
-  }, [swapProJumpToken, swapSwitchProToken, setSwapProJumpToken]);
+  }, [
+    swapProJumpToken,
+    swapSwitchProToken,
+    setSwapProJumpToken,
+    setSwapProDirection,
+  ]);
 }
 
 export function useSwapProInputToken() {
@@ -107,8 +142,10 @@ export function useSwapProToToken() {
 
 export function useSwapProAccount() {
   const { activeAccount } = useActiveAccount({ num: 0 });
+  const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const inputToken = useSwapProInputToken();
   const [selectMarketToken] = useSwapProSelectTokenAtom();
+  const { updateSelectedAccountNetwork } = useAccountSelectorActions().current;
   const netAccountRes = usePromiseResult(async () => {
     try {
       const defaultDeriveType =
@@ -134,6 +171,26 @@ export function useSwapProAccount() {
     inputToken?.networkId,
     selectMarketToken?.networkId,
   ]);
+
+  useEffect(() => {
+    if (
+      selectMarketToken?.networkId &&
+      swapTypeSwitch === ESwapTabSwitchType.LIMIT &&
+      activeAccount?.network?.id !== selectMarketToken?.networkId &&
+      platformEnv.isNative
+    ) {
+      void updateSelectedAccountNetwork({
+        num: 0,
+        networkId: selectMarketToken?.networkId,
+      });
+    }
+  }, [
+    activeAccount?.network?.id,
+    selectMarketToken?.networkId,
+    swapTypeSwitch,
+    updateSelectedAccountNetwork,
+  ]);
+
   return netAccountRes;
 }
 
@@ -149,7 +206,6 @@ export function useSwapProTokenInfoSync() {
 
   const syncInputTokenBalance = useCallback(async () => {
     if (
-      !inputToken?.contractAddress ||
       !inputToken?.networkId ||
       !netAccountRes.result?.addressDetail.address ||
       !netAccountRes.result?.id
@@ -174,6 +230,8 @@ export function useSwapProTokenInfoSync() {
                   balanceParsed: balanceTokenInfo[0].balanceParsed ?? '',
                   price: balanceTokenInfo[0].price ?? '',
                   fiatValue: balanceTokenInfo[0].fiatValue ?? '',
+                  accountAddress:
+                    netAccountRes.result?.addressDetail.address ?? '',
                 }
               : undefined,
           );
@@ -185,6 +243,8 @@ export function useSwapProTokenInfoSync() {
                   balanceParsed: balanceTokenInfo[0].balanceParsed ?? '',
                   price: balanceTokenInfo[0].price ?? '',
                   fiatValue: balanceTokenInfo[0].fiatValue ?? '',
+                  accountAddress:
+                    netAccountRes.result?.addressDetail.address ?? '',
                 }
               : undefined,
           );
@@ -230,6 +290,7 @@ export function useSwapProTokenInfoSync() {
     syncInputTokenBalance,
     syncToTokenPrice,
     balanceLoading,
+    netAccountRes,
   };
 }
 
@@ -244,6 +305,7 @@ export function useSwapProTokenInit() {
   const [swapProUseSelectBuyTokenAtom, setSwapProUseSelectBuyTokenAtom] =
     useSwapProUseSelectBuyTokenAtom();
   const [swapProInputAmount] = useSwapProInputAmountAtom();
+
   const {
     defaultTokens,
     isLoading,
@@ -251,6 +313,7 @@ export function useSwapProTokenInit() {
     swapMevNetConfig,
     speedDefaultSelectToken,
   } = useSpeedSwapInit(swapProSelectToken?.networkId || '');
+
   useEffect(() => {
     if (
       (!swapProUseSelectBuyTokenAtom && defaultTokens.length > 0) ||
@@ -301,7 +364,15 @@ export function useSwapProTokenInit() {
   ]);
 
   useEffect(() => {
-    if (!swapProSellToToken && defaultTokens.length > 0) {
+    if (
+      (!swapProSellToToken && defaultTokens.length > 0) ||
+      !defaultTokens.some((item) =>
+        equalTokenNoCaseSensitive({
+          token1: item,
+          token2: swapProSellToToken,
+        }),
+      )
+    ) {
       const nativeToken = defaultTokens.find((item) => item.isNative);
       if (nativeToken) {
         setSwapProSellToToken(nativeToken);
@@ -312,14 +383,26 @@ export function useSwapProTokenInit() {
   }, [defaultTokens, setSwapProSellToToken, swapProSellToToken]);
   const inputToken = useSwapProInputToken();
 
-  const { syncInputTokenBalance, syncToTokenPrice, balanceLoading } =
-    useSwapProTokenInfoSync();
+  const {
+    syncInputTokenBalance,
+    syncToTokenPrice,
+    balanceLoading,
+    netAccountRes,
+  } = useSwapProTokenInfoSync();
 
   useEffect(() => {
-    if (inputToken && !inputToken.balanceParsed) {
+    if (
+      (inputToken && !inputToken.balanceParsed) ||
+      (inputToken as ISwapToken)?.accountAddress !==
+        netAccountRes.result?.addressDetail.address
+    ) {
       void syncInputTokenBalance();
     }
-  }, [inputToken, syncInputTokenBalance]);
+  }, [
+    inputToken,
+    syncInputTokenBalance,
+    netAccountRes.result?.addressDetail.address,
+  ]);
 
   useEffect(() => {
     if (swapProSellToToken && !swapProSellToToken.price) {
@@ -377,13 +460,15 @@ export function useSwapProTokenSearch(input: string) {
         if (isCancelled) {
           return;
         }
-        const searchTokenParse = searchRes?.map((t) => {
-          const networkInfo = networkUtils.getLocalNetworkInfo(t.network);
-          return {
-            ...t,
-            networkLogoURI: networkInfo?.logoURI ?? '',
-          };
-        });
+        const searchTokenParse = searchRes
+          ?.map((t) => {
+            const networkInfo = networkUtils.getLocalNetworkInfo(t.network);
+            return {
+              ...t,
+              networkLogoURI: networkInfo?.logoURI ?? '',
+            };
+          })
+          .filter((t) => !t.isNative);
         setSearchTokenList(searchTokenParse ?? []);
       } catch (e) {
         if (!isCancelled) {
@@ -443,6 +528,8 @@ export function useSwapProTokenTransactionList(
 ) {
   const currencyInfo = useCurrency();
   const [swapProTradeType] = useSwapProTradeTypeAtom();
+  const [, setSwapProTokenTransactionPrice] =
+    useSwapProTokenTransactionPriceAtom();
   const transactionListPageSize = useMemo(() => {
     if (swapProTradeType === ESwapProTradeType.LIMIT) {
       return 10;
@@ -490,7 +577,8 @@ export function useSwapProTokenTransactionList(
       return;
     }
     setSwapProTokenTransactionList(newTransactions);
-  }, [transactionsData?.list]);
+    setSwapProTokenTransactionPrice(newTransactions[0].to.price ?? '');
+  }, [transactionsData?.list, setSwapProTokenTransactionPrice]);
 
   const addNewTransaction = useCallback(
     (newTransaction: IMarketTokenTransaction) => {
@@ -509,8 +597,9 @@ export function useSwapProTokenTransactionList(
         .sort((a, b) => b.timestamp - a.timestamp)
         .slice(0, transactionListPageSizeRef.current);
       setSwapProTokenTransactionList(updatedTransactions);
+      setSwapProTokenTransactionPrice(updatedTransactions[0].to.price ?? '');
     },
-    [],
+    [setSwapProTokenTransactionPrice],
   );
 
   // Subscribe to real-time transaction updates
@@ -534,6 +623,8 @@ export function useSwapProSupportNetworksTokenList() {
   const { swapProLoadSupportNetworksTokenList } = useSwapActions().current;
   const { networkList } = useMarketBasicConfig();
   const { activeAccount } = useActiveAccount({ num: 0 });
+  const [swapProSupportNetworksTokenList] =
+    useSwapProSupportNetworksTokenListAtom();
   const swapProLoadSupportNetworksTokenListRun = useCallback(async () => {
     if (networkList.length > 0 && activeAccount) {
       await swapProLoadSupportNetworksTokenList(
@@ -550,10 +641,103 @@ export function useSwapProSupportNetworksTokenList() {
     }
   }, [networkList, activeAccount, swapProLoadSupportNetworksTokenList]);
   useEffect(() => {
-    void swapProLoadSupportNetworksTokenListRun();
-  }, [swapProLoadSupportNetworksTokenListRun]);
+    if (swapProSupportNetworksTokenList.length === 0) {
+      void swapProLoadSupportNetworksTokenListRun();
+    }
+  }, [
+    swapProLoadSupportNetworksTokenListRun,
+    swapProSupportNetworksTokenList.length,
+  ]);
   return {
     swapProLoadSupportNetworksTokenListRun,
+  };
+}
+
+export function useSwapProPositionsListFilter() {
+  const [swapProSupportNetworksTokenList] =
+    useSwapProSupportNetworksTokenListAtom();
+  const [swapProEnableCurrentSymbol] = useSwapProEnableCurrentSymbolAtom();
+  const [swapProTokenSelect] = useSwapProSelectTokenAtom();
+  const filterDefaultTokenList = useMemo(() => {
+    const filterMinValueTokenList = swapProSupportNetworksTokenList.filter(
+      (token) => {
+        return new BigNumber(token.fiatValue ?? '0').gt(
+          swapProPositionsListMinValue,
+        );
+      },
+    );
+    if (filterMinValueTokenList.length <= swapProPositionsListMaxCount) {
+      return filterMinValueTokenList;
+    }
+    return filterMinValueTokenList.slice(0, swapProPositionsListMaxCount);
+  }, [swapProSupportNetworksTokenList]);
+
+  const finallyTokenList = useMemo(
+    () =>
+      swapProEnableCurrentSymbol
+        ? swapProSupportNetworksTokenList.filter((token) =>
+            equalTokenNoCaseSensitive({
+              token1: token,
+              token2: swapProTokenSelect,
+            }),
+          )
+        : filterDefaultTokenList,
+    [
+      filterDefaultTokenList,
+      swapProEnableCurrentSymbol,
+      swapProSupportNetworksTokenList,
+      swapProTokenSelect,
+    ],
+  );
+  return {
+    finallyTokenList,
+  };
+}
+
+export function useSwapBuildTxInfo() {
+  const [swapTypeSwitch] = useSwapTypeSwitchAtom();
+  const [swapProTradeType] = useSwapProTradeTypeAtom();
+  const [swapProQuoteResult] = useSwapSpeedQuoteResultAtom();
+  const swapProFromToken = useSwapProInputToken();
+  const swapProToToken = useSwapProToToken();
+  const [fromSelectTokenAtom] = useSwapSelectFromTokenAtom();
+  const [toSelectTokenAtom] = useSwapSelectToTokenAtom();
+  const [currentQuote] = useSwapQuoteCurrentSelectAtom();
+  const focusSwapPro = useMemo(() => {
+    return platformEnv.isNative && swapTypeSwitch === ESwapTabSwitchType.LIMIT;
+  }, [swapTypeSwitch]);
+  const currentQuoteRes = useMemo(() => {
+    if (focusSwapPro && swapProTradeType === ESwapProTradeType.MARKET) {
+      return swapProQuoteResult;
+    }
+    return currentQuote;
+  }, [focusSwapPro, swapProTradeType, currentQuote, swapProQuoteResult]);
+  const fromSelectToken = useMemo(() => {
+    if (focusSwapPro) {
+      return swapProFromToken;
+    }
+    return fromSelectTokenAtom;
+  }, [focusSwapPro, fromSelectTokenAtom, swapProFromToken]);
+  const toSelectToken = useMemo(() => {
+    if (focusSwapPro) {
+      return swapProToToken;
+    }
+    return toSelectTokenAtom;
+  }, [focusSwapPro, toSelectTokenAtom, swapProToToken]);
+
+  const swapTypeFinal = useMemo(() => {
+    if (focusSwapPro) {
+      return swapProTradeType === ESwapProTradeType.LIMIT
+        ? ESwapTabSwitchType.LIMIT
+        : ESwapTabSwitchType.SWAP;
+    }
+    return swapTypeSwitch;
+  }, [focusSwapPro, swapProTradeType, swapTypeSwitch]);
+  return {
+    currentQuoteRes,
+    fromSelectToken,
+    toSelectToken,
+    swapTypeFinal,
   };
 }
 
@@ -574,7 +758,7 @@ export function useSwapProActionsQuote() {
   const [swapProSellToTokenAtom] = useSwapProSellToTokenAtom();
   const [, setSwapProToTotalValue] = useSwapProToTotalValueAtom();
   const [swapProQuoteResult] = useSwapSpeedQuoteResultAtom();
-  const [slippageItem] = useSwapProSlippageAtom();
+  const { slippageItem } = useSwapSlippagePercentageModeInfo();
   const swapProtoToken = useSwapProToToken();
   const swapProAccount = useSwapProAccount();
   const slippageItemRef = useRef(slippageItem);
@@ -667,6 +851,44 @@ export function useSwapProActionsQuote() {
   return {
     quoteSpeedAction,
   };
+}
+
+export function useSwapProErrorAlert() {
+  const intl = useIntl();
+  const [, setSwapProErrorAlert] = useSwapProErrorAlertAtom();
+  const swapProAccount = useSwapProAccount();
+  const [swapProQuoteResult] = useSwapSpeedQuoteResultAtom();
+  const [swapCurrentQuote] = useSwapQuoteCurrentSelectAtom();
+  const [swapProTradeType] = useSwapProTradeTypeAtom();
+  const currentQuoteRes = useMemo(() => {
+    if (swapProTradeType === ESwapProTradeType.MARKET) {
+      return swapProQuoteResult;
+    }
+    return swapCurrentQuote;
+  }, [swapProTradeType, swapProQuoteResult, swapCurrentQuote]);
+  useEffect(() => {
+    if (!swapProAccount.result?.addressDetail.address) {
+      setSwapProErrorAlert({
+        title: intl.formatMessage({
+          id: ETranslations.dexmarket_swap_unsupported_title,
+        }),
+        message: intl.formatMessage({
+          id: ETranslations.dexmarket_swap_unsupported_desc,
+        }),
+      });
+    } else if (currentQuoteRes?.errorMessage) {
+      setSwapProErrorAlert({
+        title: currentQuoteRes?.errorMessage,
+      });
+    } else {
+      setSwapProErrorAlert(undefined);
+    }
+  }, [
+    currentQuoteRes,
+    intl,
+    setSwapProErrorAlert,
+    swapProAccount.result?.addressDetail.address,
+  ]);
 }
 
 export function useSwapLimitPriceCheck(

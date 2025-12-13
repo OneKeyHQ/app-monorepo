@@ -15,6 +15,7 @@ import {
   useSwapFromTokenAmountAtom,
   useSwapProDirectionAtom,
   useSwapProInputAmountAtom,
+  useSwapProSelectTokenAtom,
   useSwapProTradeTypeAtom,
   useSwapProUseSelectBuyTokenAtom,
   useSwapTypeSwitchAtom,
@@ -39,15 +40,18 @@ import type { IToken } from '../../../Market/MarketDetailV2/components/SwapPanel
 interface ISwapProInputContainerProps {
   defaultTokens: IToken[];
   isLoading?: boolean;
+  cleanInputAmount: () => void;
 }
 
 const SwapProInputContainer = ({
   defaultTokens,
   isLoading,
+  cleanInputAmount,
 }: ISwapProInputContainerProps) => {
   const intl = useIntl();
   const [swapProDirection] = useSwapProDirectionAtom();
   const [swapProTradeType] = useSwapProTradeTypeAtom();
+  const [swapProSelectToken] = useSwapProSelectTokenAtom();
   const [, setSwapTypeSwitch] = useSwapTypeSwitchAtom();
   const [fromInputAmount, setFromInputAmount] = useSwapFromTokenAmountAtom();
   const [swapProInputAmount, setSwapProInputAmount] =
@@ -78,10 +82,11 @@ const SwapProInputContainer = ({
   );
   const handleTokenSelect = useCallback(
     (token: IToken) => {
+      cleanInputAmount();
       setSwapProUseSelectBuyToken(token);
       setIsPopoverOpen(false);
     },
-    [setSwapProUseSelectBuyToken],
+    [setSwapProUseSelectBuyToken, cleanInputAmount],
   );
   const isTokenSelectorVisible =
     swapProDirection === ESwapDirection.BUY && defaultTokens.length > 1;
@@ -102,9 +107,7 @@ const SwapProInputContainer = ({
             : fromInputAmount.value
         }
         onChangeText={handleInputChange}
-        leftAddOnProps={{
-          label: intl.formatMessage({ id: ETranslations.content__amount }),
-        }}
+        placeholder={intl.formatMessage({ id: ETranslations.content__amount })}
         addOns={[
           {
             renderContent: isLoading ? (
@@ -146,6 +149,7 @@ const SwapProInputContainer = ({
         ]}
       />
       <TokenSelectorPopover
+        currentSelectToken={swapProSelectToken}
         isOpen={isPopoverOpen}
         onOpenChange={setIsPopoverOpen}
         tokens={defaultTokens}

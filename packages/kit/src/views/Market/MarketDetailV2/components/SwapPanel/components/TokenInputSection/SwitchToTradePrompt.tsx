@@ -5,19 +5,16 @@ import { useMarketTradeActions } from '@onekeyhq/kit/src/views/Market/components
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 interface ISwitchToTradePromptProps {
-  disabledOnSwitchToTrade?: boolean;
   onTradePress: () => void;
 }
 
 export function SwitchToTradePrompt(props: ISwitchToTradePromptProps) {
-  const { onTradePress, disabledOnSwitchToTrade } = props;
+  const { onTradePress } = props;
   const intl = useIntl();
   const { onSwap } = useMarketTradeActions(null);
 
   const handleTradePress = () => {
-    if (!disabledOnSwitchToTrade) {
-      void onSwap();
-    }
+    void onSwap();
     onTradePress?.();
   };
 

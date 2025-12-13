@@ -40,6 +40,7 @@ interface ISwapProTradingPanelProps {
   onSwapProActionClick: () => void;
   hasEnoughBalance: boolean;
   handleSelectAccountClick: () => void;
+  cleanInputAmount: () => void;
 }
 
 const SwapProTradingPanel = ({
@@ -50,6 +51,7 @@ const SwapProTradingPanel = ({
   onSwapProActionClick,
   handleSelectAccountClick,
   hasEnoughBalance,
+  cleanInputAmount,
 }: ISwapProTradingPanelProps) => {
   const [swapProDirection, setSwapProDirection] = useSwapProDirectionAtom();
   const [swapProTradeType, setSwapProTradeType] = useSwapProTradeTypeAtom();
@@ -90,13 +92,18 @@ const SwapProTradingPanel = ({
           value={swapProDirection}
           onChange={(value) => {
             if (value) {
+              cleanInputAmount();
               setSwapProDirection(value);
             }
           }}
         />
         <SwapProTradeTypeSelector
           currentSelect={swapProTradeType}
-          onSelectTradeType={setSwapProTradeType}
+          onSelectTradeType={(value) => {
+            if (value === swapProTradeType) return;
+            cleanInputAmount();
+            setSwapProTradeType(value);
+          }}
           selectItems={selectTradeTypeItems}
         />
         {swapProTradeType === ESwapProTradeType.LIMIT ? (
@@ -105,15 +112,13 @@ const SwapProTradingPanel = ({
         <SwapProInputContainer
           isLoading={configLoading}
           defaultTokens={swapProConfig.defaultTokens as IToken[]}
+          cleanInputAmount={cleanInputAmount}
         />
         <SwapProSlider />
         <SwapProToTotalValue />
         <SwapProTradeInfoGroup balanceLoading={balanceLoading} />
         <SwapProAccountSelect onSelectAccountClick={handleSelectAccountClick} />
-        <SwapProSlippageSetting
-          autoDefaultValue={swapProConfig?.slippage}
-          isMEV={isMev}
-        />
+        <SwapProSlippageSetting isMEV={isMev} />
         {swapProTradeType === ESwapProTradeType.LIMIT ? (
           <>
             <LimitExpirySelect

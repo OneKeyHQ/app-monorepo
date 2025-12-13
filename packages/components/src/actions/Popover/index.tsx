@@ -593,6 +593,7 @@ function Tooltip({
   placement = 'bottom',
   iconSize = '$4',
   renderContent,
+  triggerProps,
 }: IPopoverTooltip & {
   iconSize?: IIconButtonProps['iconSize'];
 }) {
@@ -606,6 +607,7 @@ function Tooltip({
           iconSize={iconSize}
           icon="InfoCircleOutline"
           variant="tertiary"
+          {...triggerProps}
         />
       }
       renderContent={

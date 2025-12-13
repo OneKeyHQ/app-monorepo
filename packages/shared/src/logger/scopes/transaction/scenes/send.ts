@@ -1,3 +1,5 @@
+import type { EUtxoSelectionStrategy } from '@onekeyhq/shared/types/send';
+
 import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal, LogToServer } from '../../../base/decorators';
 
@@ -29,12 +31,14 @@ export class SendScene extends BaseScene {
     outputCount,
     fee,
     txSize,
+    strategy,
   }: {
     network: string | undefined;
     inputCount: number | undefined;
     outputCount: number | undefined;
     fee: string | number | undefined;
     txSize: number | undefined;
+    strategy: EUtxoSelectionStrategy | undefined;
   }) {
     return {
       network,
@@ -42,6 +46,7 @@ export class SendScene extends BaseScene {
       outputCount,
       fee,
       txSize,
+      strategy,
     };
   }
 

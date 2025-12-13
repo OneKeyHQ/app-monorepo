@@ -178,7 +178,7 @@ const SwapTokenSelectPage = () => {
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [currentSelectNetwork?.networkId]);
 
   const { fetchLoading, currentTokens } = useSwapTokenList(
     type,

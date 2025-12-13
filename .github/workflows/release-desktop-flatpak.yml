@@ -34,15 +34,15 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y flatpak flatpak-builder libudev-dev
-          flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-          flatpak install -y --noninteractive flathub org.flatpak.Builder
-          flatpak install -y --noninteractive flathub org.freedesktop.Platform//22.08 org.freedesktop.Sdk//22.08 org.electronjs.Electron2.BaseApp//22.08
+          flatpak --user remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+          flatpak --user install -y --noninteractive flathub org.flatpak.Builder
+          flatpak --user install -y --noninteractive flathub org.freedesktop.Platform//22.08 org.freedesktop.Sdk//22.08 org.electronjs.Electron2.BaseApp//22.08
 
       - name: Run Shared Env Setup
         uses: ./.github/actions/shared-env
         with:
           env_file_name: ".env"
-          sentry_project: 'desktop-flatpak'
+          sentry_project: 'desktop'
           covalent_key: ${{ secrets.COVALENT_KEY }}
           sentry_token: ${{ secrets.SENTRY_TOKEN }}
           sentry_dsn_react_native: ${{ secrets.SENTRY_DSN_REACT_NATIVE }}

@@ -30,7 +30,7 @@ import type ServiceCustomToken from '../services/ServiceCustomToken';
 import type ServiceDApp from '../services/ServiceDApp';
 import type ServiceDappSide from '../services/ServiceDappSide';
 import type ServiceDBBackup from '../services/ServiceDBBackup';
-import type ServiceDefi from '../services/ServiceDefi';
+import type ServiceDeFi from '../services/ServiceDeFi';
 import type ServiceDemo from '../services/ServiceDemo';
 import type ServiceDevSetting from '../services/ServiceDevSetting';
 import type ServiceDiscovery from '../services/ServiceDiscovery';
@@ -167,7 +167,7 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceAppCleanup: ServiceAppCleanup;
   serviceHistory: ServiceHistory;
   serviceTransaction: ServiceTransaction;
-  serviceDefi: ServiceDefi;
+  serviceDeFi: ServiceDeFi;
   serviceValidator: ServiceValidator;
   serviceNameResolver: ServiceNameResolver;
   serviceGas: ServiceGas;

@@ -1,7 +1,6 @@
 import { useCallback, useMemo, useRef } from 'react';
 
-import LiteCard from '@onekeyfe/react-native-lite-card';
-import { CardErrors } from '@onekeyfe/react-native-lite-card/src/types';
+import LiteCard, { CardErrors } from '@onekeyfe/react-native-lite-card';
 
 import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
