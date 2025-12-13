@@ -149,6 +149,8 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
             exact: true,
             children: marketRouters,
             trackId: 'global-market',
+            // Hide Market tab on mobile (merged into Discovery)
+            hiddenIcon: platformEnv.isNative,
             // Only apply custom tab press handler for non-mobile platforms
             ...(platformEnv.isDesktop ||
             platformEnv.isWeb ||

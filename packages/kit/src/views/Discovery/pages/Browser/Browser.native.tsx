@@ -48,6 +48,7 @@ import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/de
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { EarnHomeWithProvider } from '../../../Earn/EarnHome';
+import { MarketHomeWithProvider } from '../../../Market/MarketHomeV2/MarketHomeV2';
 import CustomHeaderTitle from '../../components/CustomHeaderTitle';
 import { HandleRebuildBrowserData } from '../../components/HandleData/HandleRebuildBrowserTabData';
 import HeaderRightToolBar from '../../components/HeaderRightToolBar';
@@ -390,6 +391,23 @@ function MobileBrowser() {
         </XStack>
       )}
       <Page.Body>
+        {/* Market Tab */}
+        {!isTabletDetailView || (isTabletDetailView && !isLandscape) ? (
+          <Stack
+            flex={1}
+            display={
+              selectedHeaderTab === ETranslations.global_market
+                ? undefined
+                : 'none'
+            }
+          >
+            <MarketHomeWithProvider
+              showHeader={false}
+              showContent={selectedHeaderTab === ETranslations.global_market}
+            />
+          </Stack>
+        ) : null}
+        {/* Browser Tab */}
         <Stack
           flex={1}
           zIndex={3}
@@ -455,6 +473,9 @@ function MobileBrowser() {
           width="100%"
           onLayout={handleTabPageLayout}
         >
+          <Stack px="$5" pb="$3">
+            <CustomHeaderTitle handleSearchBarPress={handleSearchBarPress} />
+          </Stack>
           <TabPageHeader
             sceneName={EAccountSelectorSceneName.home}
             tabRoute={ETabRoutes.Discovery}

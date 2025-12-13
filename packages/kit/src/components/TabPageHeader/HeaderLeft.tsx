@@ -37,7 +37,11 @@ export function HeaderLeftCloseButton() {
     </Page.Close>
   );
 }
-const discoveryTabs = [ETranslations.global_browser, ETranslations.global_earn];
+const discoveryTabs = [
+  ETranslations.global_market,
+  ETranslations.global_earn,
+  ETranslations.global_browser,
+];
 
 function SegmentText({
   translationId,
@@ -50,6 +54,7 @@ function SegmentText({
   const handlePress = useCallback(() => {
     appEventBus.emit(EAppEventBusNames.SwitchDiscoveryTabInNative, {
       tab: translationId as
+        | ETranslations.global_market
         | ETranslations.global_browser
         | ETranslations.global_earn,
     });
