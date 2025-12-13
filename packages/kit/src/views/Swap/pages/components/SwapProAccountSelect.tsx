@@ -24,7 +24,7 @@ const SwapProAccountSelect = ({
     return accountUtils.shortenAddress({
       address: netAccountRes?.result?.address ?? '',
       leadingLength: 6,
-      trailingLength: 3,
+      trailingLength: 4,
     });
   }, [netAccountRes?.result?.address, intl]);
   return (

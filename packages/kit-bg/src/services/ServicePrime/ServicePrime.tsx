@@ -197,6 +197,22 @@ class ServicePrime extends ServiceBase {
     return randomId;
   }
 
+  @backgroundMethod()
+  async apiFetchPhoneOtp({ email, otp }: { email: string; otp: string }) {
+    const client = await this.getPrimeClient();
+
+    const result = await client.post<
+      IApiClientResponse<{ phone: string; otp: string }>
+    >('/prime/v1/general/phone-otp', {
+      params: {
+        email,
+        otp,
+      },
+    });
+
+    return result?.data?.data;
+  }
+
   async updatePrimeAtomByServerUserInfo({
     serverUserInfo,
   }: {

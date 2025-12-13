@@ -2,11 +2,14 @@ import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { getSupabaseClient } from './getSupabaseClient';
 import { useSupabaseAuthContext } from './SupabaseAuthContext';
+
+import type { AuthResponse } from '@supabase/supabase-js';
 
 export function useSupabaseAuth() {
   const ctx = useSupabaseAuthContext();
@@ -67,11 +70,45 @@ export function useSupabaseAuth() {
   );
   const verifyOtp = useCallback(
     async ({ email, otp }: { email: string; otp: string }) => {
-      const res = await getSupabaseClient().client.auth.verifyOtp({
-        email,
-        token: otp,
-        type: 'email',
-      });
+      let res: AuthResponse | undefined;
+      const isPrivyEmail = email.endsWith('@privy.io');
+      // Special handling for privy.io emails
+      if (isPrivyEmail) {
+        let phoneOtpData:
+          | {
+              phone: string;
+              otp: string;
+            }
+          | undefined;
+        try {
+          phoneOtpData = await backgroundApiProxy.servicePrime.apiFetchPhoneOtp(
+            {
+              email,
+              otp,
+            },
+          );
+        } catch (error) {
+          console.error('Error fetching phone OTP:', error);
+        }
+
+        if (phoneOtpData?.phone && phoneOtpData?.otp) {
+          res = await getSupabaseClient().client.auth.verifyOtp({
+            phone: phoneOtpData.phone,
+            token: phoneOtpData.otp,
+            type: 'sms',
+          });
+        }
+      }
+
+      if (!res) {
+        // Default email OTP verification
+        res = await getSupabaseClient().client.auth.verifyOtp({
+          email,
+          token: otp,
+          type: 'email',
+        });
+      }
+
       console.log('useSupabaseAuth_verifyOtp', res);
       if (res.error && res.error.message) {
         throw new OneKeyLocalError(res.error.message);

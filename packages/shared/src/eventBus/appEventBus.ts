@@ -75,6 +75,7 @@ export type IEventBusPayloadShowToast = {
   message?: string;
   duration?: number;
   errorCode?: number;
+  httpStatusCode?: number;
   toastId?: string;
   i18nKey?: ETranslations;
   requestId?: string;
