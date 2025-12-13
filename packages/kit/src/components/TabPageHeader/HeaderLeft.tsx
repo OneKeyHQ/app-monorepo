@@ -73,7 +73,7 @@ function SegmentText({
   );
 }
 
-function DiscoveryHeaderSegment({
+export function DiscoveryHeaderSegment({
   selectedHeaderTab,
 }: {
   selectedHeaderTab?: ETranslations;
@@ -164,9 +164,7 @@ export function HeaderLeft({
 
     if (tabRoute === ETabRoutes.Discovery) {
       return platformEnv.isNative ? (
-        <Stack bg="$green3">
-          <DiscoveryHeaderSegment selectedHeaderTab={selectedHeaderTab} />
-        </Stack>
+        <DiscoveryHeaderSegment selectedHeaderTab={selectedHeaderTab} />
       ) : null;
     }
 

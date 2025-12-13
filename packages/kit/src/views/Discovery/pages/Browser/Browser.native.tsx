@@ -466,14 +466,14 @@ function MobileBrowser() {
       {showDiscoveryPage ? (
         <YStack
           position="absolute"
-          top={0}
+          top={-20}
           left={0}
           bg="$bgApp"
-          pt={top}
+          pt="$5"
           width="100%"
           onLayout={handleTabPageLayout}
         >
-          <Stack bg="$red3">
+          <Stack top={top} px="$4">
             <CustomHeaderTitle handleSearchBarPress={handleSearchBarPress} />
           </Stack>
           <TabPageHeader
