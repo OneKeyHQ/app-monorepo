@@ -7,6 +7,7 @@ import { useIsModalPage } from '@onekeyhq/components';
 import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { ISwapProviderManager } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
@@ -66,6 +67,9 @@ export function useSwapInit(params?: ISwapInitParams) {
   const [, setSwapNativeTokenReserveGas] = useSwapNativeTokenReserveGasAtom();
   const [, setSwapTips] = useSwapTipsAtom();
   const { swapTypeSwitchAction } = useSwapActions().current;
+  const focusSwapPro = useMemo(() => {
+    return platformEnv.isNative && swapTypeSwitch === ESwapTabSwitchType.LIMIT;
+  }, [swapTypeSwitch]);
   if (swapAddressInfoRef.current !== swapAddressInfo) {
     swapAddressInfoRef.current = swapAddressInfo;
   }
@@ -392,7 +396,11 @@ export function useSwapInit(params?: ISwapInitParams) {
         }
       }
       if (!params?.swapTabSwitchType && enableSwitchAction) {
-        if (supportTypes.length > 0 && !supportTypes.includes(swapTypeSwitch)) {
+        if (
+          supportTypes.length > 0 &&
+          !supportTypes.includes(swapTypeSwitch) &&
+          !focusSwapPro
+        ) {
           const needSwitchType = supportTypes.find((t) => t !== swapTypeSwitch);
           if (needSwitchType) {
             void swapTypeSwitchAction(
@@ -410,6 +418,7 @@ export function useSwapInit(params?: ISwapInitParams) {
       swapNetworks,
       swapTypeSwitch,
       swapTypeSwitchAction,
+      focusSwapPro,
     ],
   );
 

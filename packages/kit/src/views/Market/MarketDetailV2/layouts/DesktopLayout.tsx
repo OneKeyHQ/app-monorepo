@@ -14,13 +14,20 @@ import {
   TokenDetailHeader,
   TokenSupplementaryInfo,
 } from '../components';
+import { usePortfolioData } from '../components/InformationTabs/components/Portfolio/hooks/usePortfolioData';
+import { useNetworkAccountAddress } from '../components/InformationTabs/hooks/useNetworkAccountAddress';
 import { DesktopInformationTabs } from '../components/InformationTabs/layout/DesktopInformationTabs';
 import { useTokenDetail } from '../hooks/useTokenDetail';
 
 export function DesktopLayout() {
   const { tokenAddress, networkId, tokenDetail, isNative, websocketConfig } =
     useTokenDetail();
-
+  const { accountAddress } = useNetworkAccountAddress(networkId);
+  const { portfolioData, isRefreshing } = usePortfolioData({
+    tokenAddress,
+    networkId,
+    accountAddress,
+  });
   return (
     <XStack flex={1}>
       {/* Left column */}
@@ -44,7 +51,10 @@ export function DesktopLayout() {
         {/* Info tabs */}
         {!isNative ? (
           <Stack h="30vh">
-            <DesktopInformationTabs />
+            <DesktopInformationTabs
+              portfolioData={portfolioData}
+              isRefreshing={isRefreshing}
+            />
           </Stack>
         ) : null}
       </YStack>
