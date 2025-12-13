@@ -4,7 +4,6 @@ import { useIntl } from 'react-intl';
 
 import { Dialog, Toast } from '@onekeyhq/components';
 import { primePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import type { ECloudBackupProviderType } from '@onekeyhq/shared/src/cloudBackup/cloudBackupTypes';
 import { EPrimeEmailOTPScene } from '@onekeyhq/shared/src/consts/primeConsts';
 import {
   OneKeyLocalError,
@@ -35,10 +34,7 @@ import { useOneKeyAuth } from '../OneKeyAuth/useOneKeyAuth';
 export function useKeylessWalletMethods() {
   const { loginOneKeyId, sendEmailOTP } = useOneKeyAuth();
   const intl = useIntl();
-  const isKeylessWalletCreated = useCallback(async () => {
-    const user = await primePersistAtom.get();
-    return !!user?.keylessWalletId;
-  }, []);
+
   const navigation = useAppNavigation();
 
   const generatePacks = useCallback(async () => {
@@ -377,12 +373,14 @@ export function useKeylessWallet() {
                 },
               });
             } else {
-              // TODO add Dialog to confirm
-              navigation.pushModal(EModalRoutes.PrimeModal, {
-                screen: EPrimePages.PrimeTransfer,
-                params: {
-                  transferType: EPrimeTransferDataType.keylessWallet,
-                },
+              Dialog.show({
+                title: 'Keyless Wallet',
+                description:
+                  'Please first create your Keyless Wallet on the mobile app or Mac app, then continue on this device.',
+                showCancelButton: false,
+                onConfirmText: intl.formatMessage({
+                  id: ETranslations.global_got_it,
+                }),
               });
             }
           }

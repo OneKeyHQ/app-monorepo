@@ -537,14 +537,7 @@ export function PrimeTransferDirection({
 
       // Handle keylessWallet transfer - show deviceKeyPack in debug dialog
       if (isKeylessWalletTransfer) {
-        const receivedDeviceKeyPack = data.data?.privateData?.deviceKeyPack;
         exitTransferFlow(600, { skipCloseOnboardingPages: true });
-        Dialog.debugMessage({
-          debugMessage: {
-            message: 'DeviceKeyPack received successfully',
-            deviceKeyPack: receivedDeviceKeyPack,
-          },
-        });
         return;
       }
 
