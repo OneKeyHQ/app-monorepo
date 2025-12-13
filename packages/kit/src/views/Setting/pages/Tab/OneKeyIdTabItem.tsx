@@ -1,10 +1,12 @@
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Icon, Image, SizableText, XStack, YStack } from '@onekeyhq/components';
+import { SizableText, XStack, YStack } from '@onekeyhq/components';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+
+import { OneKeyIdAvatar } from '../OneKeyId/OneKeyIdAvatar';
 
 interface IOneKeyIdTabItemProps {
   selected?: boolean;
@@ -15,6 +17,20 @@ function BasicOneKeyIdTabItem({ selected, onPress }: IOneKeyIdTabItemProps) {
   const intl = useIntl();
   const { user, isLoggedIn, loginOneKeyId } = useOneKeyAuth();
 
+  // Track if login was attempted from this component
+  const loginAttemptedRef = useRef(false);
+  const onPressRef = useRef(onPress);
+  onPressRef.current = onPress;
+
+  // Auto-navigate to OneKey ID tab after successful login
+  useEffect(() => {
+    if (isLoggedIn && loginAttemptedRef.current) {
+      loginAttemptedRef.current = false;
+      // Navigate to OneKey ID tab after successful login
+      onPressRef.current?.();
+    }
+  }, [isLoggedIn]);
+
   const displayName = useMemo(() => {
     if (!isLoggedIn) {
       return intl.formatMessage({ id: ETranslations.prime_signup_login });
@@ -24,7 +40,9 @@ function BasicOneKeyIdTabItem({ selected, onPress }: IOneKeyIdTabItemProps) {
 
   const handlePress = useCallback(() => {
     if (!isLoggedIn) {
-      // If not logged in, trigger login flow directly
+      // Mark that login was attempted from this component
+      loginAttemptedRef.current = true;
+      // Trigger login flow directly
       void loginOneKeyId();
       return;
     }
@@ -59,44 +77,8 @@ function BasicOneKeyIdTabItem({ selected, onPress }: IOneKeyIdTabItemProps) {
       }
     >
       <XStack alignItems="center" gap="$2" flex={1}>
-        {/* Avatar - Three states:
-            1. Not logged in: subdued background + subdued icon
-            2. Logged in, no avatar (fallback): strong background + active icon
-            3. Logged in, has avatar: show user avatar image
-        */}
-        {isLoggedIn ? (
-          <Image
-            width="$10"
-            height="$10"
-            borderRadius="$full"
-            // TODO: Replace with actual avatar URL when available in user data
-            source={{ uri: (user as { avatarUrl?: string })?.avatarUrl }}
-            fallback={
-              <Image.Fallback
-                width="$10"
-                height="$10"
-                borderRadius="$full"
-                bg="$bgStrong"
-                alignItems="center"
-                justifyContent="center"
-              >
-                <Icon name="PeopleSolid" size="$5" color="$iconActive" />
-              </Image.Fallback>
-            }
-          />
-        ) : (
-          <YStack
-            width="$10"
-            height="$10"
-            borderRadius="$full"
-            bg="$neutral2"
-            alignItems="center"
-            justifyContent="center"
-            flexShrink={0}
-          >
-            <Icon name="PeopleSolid" size="$5" color="$iconSubdued" />
-          </YStack>
-        )}
+        {/* Avatar */}
+        <OneKeyIdAvatar size="$10" />
 
         {/* Username and Label */}
         <YStack flex={1} gap="$0.5">
