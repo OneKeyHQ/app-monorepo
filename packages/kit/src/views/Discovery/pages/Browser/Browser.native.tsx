@@ -176,7 +176,7 @@ function MobileBrowser() {
       ? ETranslations.global_browser
       : defaultTab ||
           settings.selectedBrowserTab ||
-          ETranslations.global_browser,
+          ETranslations.global_market,
   );
   const handleChangeHeaderTab = useCallback(
     async (tab: ETranslations) => {

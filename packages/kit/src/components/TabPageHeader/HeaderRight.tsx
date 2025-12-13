@@ -211,16 +211,24 @@ export function HeaderRight({
           </>
         );
       case ETabRoutes.Discovery:
-        return selectedHeaderTab === ETranslations.global_earn ? (
-          earnItems
-        ) : (
+        if (selectedHeaderTab === ETranslations.global_earn) {
+          return (
+            <>
+              <GiftAction copyAsUrl />
+              <WalletConnectionForWeb tabRoute={tabRoute} />
+            </>
+          );
+        }
+        if (selectedHeaderTab === ETranslations.global_market) {
+          return <WalletConnectionForWeb tabRoute={tabRoute} />;
+        }
+        return (
           <>
             <HistoryIconButton />
             {isHorizontal || !platformEnv.isNative ? undefined : (
               <TabCountButton testID="browser-header-tabs" />
             )}
             <WalletConnectionForWeb tabRoute={tabRoute} />
-            {fixedItems}
           </>
         );
       case ETabRoutes.Earn:
