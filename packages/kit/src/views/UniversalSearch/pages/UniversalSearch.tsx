@@ -125,8 +125,10 @@ function ListEmptyComponent() {
 
 export function UniversalSearch({
   filterTypes,
+  initialTab,
 }: {
   filterTypes?: EUniversalSearchType[];
+  initialTab?: 'market' | 'dapp';
 }) {
   const intl = useIntl();
   const { activeAccount } = useActiveAccount({ num: 0 });
@@ -178,6 +180,19 @@ export function UniversalSearch({
       }),
     ].filter(Boolean);
   }, [intl]);
+
+  const initialTabName = useMemo(() => {
+    if (initialTab === 'market') {
+      return intl.formatMessage({ id: ETranslations.global_market });
+    }
+    if (initialTab === 'dapp') {
+      return intl.formatMessage({
+        id: ETranslations.global_universal_search_tabs_dapps,
+      });
+    }
+    return tabTitles[0];
+  }, [initialTab, intl, tabTitles]);
+
   const [filterType, setFilterType] = useState(tabTitles[0]);
   const focusedTab = useSharedValue(tabTitles[0]);
   const handleTabPress = useCallback(
@@ -192,17 +207,16 @@ export function UniversalSearch({
   }, [filterType, tabTitles]);
 
   useEffect(() => {
-    if (
-      searchStatus === ESearchStatus.done &&
-      focusedTab.value !== tabTitles[0]
-    ) {
-      const firstTabName = tabTitles[0];
-      setFilterType(firstTabName);
-      setTimeout(() => {
-        focusedTab.value = firstTabName;
-      }, 0);
+    if (searchStatus === ESearchStatus.done) {
+      const targetTabName = initialTabName;
+      if (focusedTab.value !== targetTabName) {
+        setFilterType(targetTabName);
+        setTimeout(() => {
+          focusedTab.value = targetTabName;
+        }, 0);
+      }
     }
-  }, [focusedTab, searchStatus, tabTitles]);
+  }, [focusedTab, searchStatus, initialTabName]);
 
   const shouldUseTokensCacheData = useMemo(() => {
     return (
@@ -684,6 +698,7 @@ const UniversalSearchWithHomeTokenListProvider = ({
     >
       <UniversalSearch
         filterTypes={route?.params?.filterTypes || getSearchTypes()}
+        initialTab={route?.params?.initialTab}
       />
     </HomeTokenListProviderMirrorWrapper>
   );

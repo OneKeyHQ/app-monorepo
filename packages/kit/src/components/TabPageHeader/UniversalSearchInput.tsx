@@ -21,17 +21,20 @@ import useAppNavigation from '../../hooks/useAppNavigation';
 export function UniversalSearchInput({
   containerProps,
   size = 'large',
+  initialTab,
 }: {
   containerProps?: IStackStyle;
   size?: 'large' | 'medium' | 'small';
+  initialTab?: 'market' | 'dapp';
 }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const toUniversalSearchPage = useCallback(() => {
     navigation.pushModal(EModalRoutes.UniversalSearchModal, {
       screen: EUniversalSearchPages.UniversalSearch,
+      params: initialTab ? { initialTab } : undefined,
     });
-  }, [navigation]);
+  }, [navigation, initialTab]);
 
   const isLarge = size === 'large';
   if (size === 'small') {

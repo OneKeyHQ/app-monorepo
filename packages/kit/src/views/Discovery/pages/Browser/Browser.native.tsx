@@ -71,7 +71,6 @@ import MobileBrowserContent from './MobileBrowserContent';
 import { withBrowserProvider } from './WithBrowserProvider';
 
 import type { RouteProp } from '@react-navigation/core';
-import type { LayoutChangeEvent } from 'react-native';
 import type { WebView } from 'react-native-webview';
 
 const useAndroidHardwareBack = platformEnv.isNativeAndroid
@@ -190,6 +189,17 @@ function MobileBrowser() {
     },
     [isLandscape, isTabletDetailView, isTabletDevice],
   );
+
+  const searchInitialTab = useMemo(() => {
+    if (selectedHeaderTab === ETranslations.global_market) {
+      return 'market' as const;
+    }
+    if (selectedHeaderTab === ETranslations.global_browser) {
+      return 'dapp' as const;
+    }
+    return undefined;
+  }, [selectedHeaderTab]);
+
   const previousDefaultTab = useRef<ETranslations | undefined>(defaultTab);
   useEffect(() => {
     if (previousDefaultTab.current !== defaultTab) {
@@ -344,9 +354,7 @@ function MobileBrowser() {
     handleGoBackHome,
   });
 
-  const [tabPageHeight, setTabPageHeight] = useState(
-    platformEnv.isNativeIOS ? 153 : 92,
-  );
+  const [tabPageHeight] = useState(platformEnv.isNativeIOS ? 153 : 92);
   // const handleTabPageLayout = useCallback((e: LayoutChangeEvent) => {
   //   // Use the actual measured height without arbitrary adjustments
   //   const height = e.nativeEvent.layout.height - 20;
@@ -475,7 +483,7 @@ function MobileBrowser() {
           // onLayout={handleTabPageLayout}
         >
           <Stack position="absolute" top={top} px="$5">
-            <UniversalSearchInput size="medium" />
+            <UniversalSearchInput size="medium" initialTab={searchInitialTab} />
           </Stack>
           <TabPageHeader
             sceneName={EAccountSelectorSceneName.home}
