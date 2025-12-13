@@ -498,7 +498,6 @@ class ServiceKeylessWallet extends ServiceBase {
     }
     return {
       success: true,
-      // TODO rename packSetIdFromDevicePack
       packSetIdFromDevicePack: savedDevicePack.packSetId,
     };
   }
