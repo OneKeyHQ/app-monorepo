@@ -47,7 +47,7 @@ import { usePerpTokenSelector } from '../../hooks';
 import { PerpTokenSelectorRow } from './PerpTokenSelectorRow';
 import { SortableHeaderCell } from './SortableHeaderCell';
 
-type ITokenSelectorListItem = {
+export type ITokenSelectorListItem = {
   dexIndex: number;
   index: number;
   assetId?: number;

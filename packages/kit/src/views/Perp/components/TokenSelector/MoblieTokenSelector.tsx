@@ -33,16 +33,12 @@ import { PerpsProviderMirror } from '../../PerpsProviderMirror';
 
 import { PerpTokenSelectorRow } from './PerpTokenSelectorRow';
 
+import type { ITokenSelectorListItem } from './PerpTokenSelector';
+
 const TAB_LABELS = {
   all: 'PERPS',
   hip3: 'HIP3',
 } as const;
-
-type ITokenSelectorListItem = {
-  dexIndex: number;
-  assetId?: number;
-  index: number;
-};
 
 function TabItem({
   name,
