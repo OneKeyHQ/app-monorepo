@@ -22,6 +22,7 @@ import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navig
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { TabletHomeContainer } from '@onekeyhq/kit/src/components/TabletHomeContainer';
 import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
+import { UniversalSearchInput } from '@onekeyhq/kit/src/components/TabPageHeader/UniversalSearchInput';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useListenTabFocusState from '@onekeyhq/kit/src/hooks/useListenTabFocusState';
 import { useBrowserTabActions } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
@@ -344,13 +345,13 @@ function MobileBrowser() {
   });
 
   const [tabPageHeight, setTabPageHeight] = useState(
-    platformEnv.isNativeIOS ? 143 : 92,
+    platformEnv.isNativeIOS ? 153 : 92,
   );
-  const handleTabPageLayout = useCallback((e: LayoutChangeEvent) => {
-    // Use the actual measured height without arbitrary adjustments
-    const height = e.nativeEvent.layout.height - 20;
-    setTabPageHeight(height);
-  }, []);
+  // const handleTabPageLayout = useCallback((e: LayoutChangeEvent) => {
+  //   // Use the actual measured height without arbitrary adjustments
+  //   const height = e.nativeEvent.layout.height - 20;
+  //   setTabPageHeight(height);
+  // }, []);
 
   const showDiscoveryPage = useMemo(() => {
     if (isTabletMainView) {
@@ -466,15 +467,15 @@ function MobileBrowser() {
       {showDiscoveryPage ? (
         <YStack
           position="absolute"
-          top={-20}
+          top={0}
           left={0}
           bg="$bgApp"
-          pt="$5"
+          pt="$12"
           width="100%"
-          onLayout={handleTabPageLayout}
+          // onLayout={handleTabPageLayout}
         >
-          <Stack top={top} px="$4">
-            <CustomHeaderTitle handleSearchBarPress={handleSearchBarPress} />
+          <Stack position="absolute" top={top} px="$5">
+            <UniversalSearchInput size="medium" />
           </Stack>
           <TabPageHeader
             sceneName={EAccountSelectorSceneName.home}
