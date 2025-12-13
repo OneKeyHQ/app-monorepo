@@ -8,6 +8,7 @@ import {
   NavBackButton,
   Page,
   SizableText,
+  Stack,
   XStack,
   rootNavigationRef,
   useMedia,
@@ -163,7 +164,9 @@ export function HeaderLeft({
 
     if (tabRoute === ETabRoutes.Discovery) {
       return platformEnv.isNative ? (
-        <DiscoveryHeaderSegment selectedHeaderTab={selectedHeaderTab} />
+        <Stack bg="$green3">
+          <DiscoveryHeaderSegment selectedHeaderTab={selectedHeaderTab} />
+        </Stack>
       ) : null;
     }
 
