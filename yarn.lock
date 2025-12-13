@@ -7578,6 +7578,7 @@ __metadata:
     long: "npm:^5.2.1"
     lru-cache: "npm:^10.2.0"
     memoizee: "npm:^0.4.15"
+    metro: "npm:0.83.2"
     mipd: "npm:^0.0.7"
     mobile-detect: "npm:^1.4.5"
     natsort: "npm:^2.0.3"
@@ -35249,18 +35250,18 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-server-dom-webpack@npm:19.0.1":
-  version: 19.0.1
-  resolution: "react-server-dom-webpack@npm:19.0.1"
+"react-server-dom-webpack@npm:19.1.0":
+  version: 19.1.0
+  resolution: "react-server-dom-webpack@npm:19.1.0"
   dependencies:
     acorn-loose: "npm:^8.3.0"
     neo-async: "npm:^2.6.1"
     webpack-sources: "npm:^3.2.0"
   peerDependencies:
-    react: ^19.0.1
-    react-dom: ^19.0.1
+    react: ^19.1.0
+    react-dom: ^19.1.0
     webpack: ^5.59.0
-  checksum: 10/bf457509c1201b2bd5080beee6ffa50a2dff70e0ff8130e95bb39d75e51a2bbfad4b72acd732ac4f8dd7f91ec202986b44f68f78a81d1acd266279e1ce63721c
+  checksum: 10/b09a66d1f48b63007139391d3383476e97d00a2df8ae3c17bc2e24fcfc609e06fa57f73540aaade1c65f5367dfa8c491e43c900a79cfc0e2e18027ae2b1dbadf
   languageName: node
   linkType: hard
 
