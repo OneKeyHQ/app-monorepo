@@ -416,6 +416,7 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.MarketHomePageEnter]: {
     from: EEnterWay;
   };
+  [EAppEventBusNames.MarketWatchListV2Changed]: undefined;
 }
 
 export enum EEventBusBroadcastMethodNames {

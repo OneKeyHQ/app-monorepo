@@ -4,6 +4,10 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import sortUtils from '@onekeyhq/shared/src/utils/sortUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -22,6 +26,7 @@ import type {
   IMarketTokenSecurityBatchResponse,
   IMarketTokenTransactionsResponse,
 } from '@onekeyhq/shared/types/marketV2';
+import type { INotificationWatchlistToken } from '@onekeyhq/shared/types/notification';
 
 import { type IDBCloudSyncItem } from '../dbs/local/types';
 
@@ -366,11 +371,17 @@ class ServiceMarketV2 extends ServiceBase {
       isDeleted: false,
       skipSaveLocalSyncItem,
       skipEventEmit,
-      fn: () =>
-        this.backgroundApi.simpleDb.marketWatchListV2.addMarketWatchListV2({
-          watchList: newWatchList,
-          callerName,
-        }),
+      fn: async () => {
+        const result =
+          await this.backgroundApi.simpleDb.marketWatchListV2.addMarketWatchListV2(
+            {
+              watchList: newWatchList,
+              callerName,
+            },
+          );
+        appEventBus.emit(EAppEventBusNames.MarketWatchListV2Changed, undefined);
+        return result;
+      },
     });
   }
 
@@ -391,11 +402,17 @@ class ServiceMarketV2 extends ServiceBase {
       isDeleted: true,
       skipSaveLocalSyncItem,
       skipEventEmit,
-      fn: () =>
-        this.backgroundApi.simpleDb.marketWatchListV2.removeMarketWatchListV2({
-          items,
-          callerName,
-        }),
+      fn: async () => {
+        const result =
+          await this.backgroundApi.simpleDb.marketWatchListV2.removeMarketWatchListV2(
+            {
+              items,
+              callerName,
+            },
+          );
+        appEventBus.emit(EAppEventBusNames.MarketWatchListV2Changed, undefined);
+        return result;
+      },
     });
   }
 
@@ -437,7 +454,59 @@ class ServiceMarketV2 extends ServiceBase {
 
   @backgroundMethod()
   async clearAllMarketWatchListV2() {
-    return this.backgroundApi.simpleDb.marketWatchListV2.clearAllMarketWatchListV2();
+    const result =
+      await this.backgroundApi.simpleDb.marketWatchListV2.clearAllMarketWatchListV2();
+    appEventBus.emit(EAppEventBusNames.MarketWatchListV2Changed, undefined);
+    return result;
+  }
+
+  @backgroundMethod()
+  async buildWatchlistTokensForNotification(): Promise<
+    INotificationWatchlistToken[]
+  > {
+    const watchlistData = await this.getMarketWatchListV2();
+
+    if (watchlistData.data.length === 0) {
+      return [];
+    }
+
+    const tokenAddressList = watchlistData.data.map((item) => ({
+      chainId: item.chainId,
+      contractAddress: item.contractAddress,
+      isNative: item.isNative ?? false,
+    }));
+
+    let tokenDetails: IMarketTokenBatchListResponse = { list: [] };
+
+    try {
+      tokenDetails = await this.fetchMarketTokenListBatch({
+        tokenAddressList,
+      });
+    } catch (error) {
+      console.error(
+        '[ServiceMarketV2] buildWatchlistTokensForNotification fetchMarketTokenListBatch error:',
+        error,
+      );
+    }
+
+    const tokens = watchlistData.data.map(
+      (
+        item: IMarketWatchListItemV2,
+        index: number,
+      ): INotificationWatchlistToken => {
+        const detail = tokenDetails.list[index];
+
+        return {
+          networkId: item.chainId,
+          tokenAddress: item.contractAddress,
+          isNative: item.isNative ?? false,
+          symbol: detail?.symbol ?? '',
+          logoURI: detail?.logoUrl ?? '',
+        };
+      },
+    );
+
+    return tokens;
   }
 
   private _fetchMarketTokenSecurityCached = memoizee(
