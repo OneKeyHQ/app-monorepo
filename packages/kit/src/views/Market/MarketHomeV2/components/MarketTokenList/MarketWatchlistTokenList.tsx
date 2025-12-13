@@ -22,12 +22,14 @@ type IMarketWatchlistTokenListProps = {
   onItemPress?: (item: IMarketToken) => void;
   watchlist?: IMarketWatchListItemV2[];
   toolbar?: ReactNode;
+  hideNativeToken?: boolean;
 };
 
 function MarketWatchlistTokenList({
   onItemPress,
   watchlist: externalWatchlist,
   toolbar,
+  hideNativeToken = false,
 }: IMarketWatchlistTokenListProps) {
   // Get watchlist from atom if not provided externally
   const [watchlistState] = useMarketWatchListV2Atom();
@@ -54,7 +56,9 @@ function MarketWatchlistTokenList({
   const watchlist = externalWatchlist || internalWatchlist;
 
   const watchlistResult = useMarketWatchlistTokenList({
-    watchlist,
+    watchlist: hideNativeToken
+      ? watchlist.filter((t) => !t.isNative)
+      : watchlist,
     pageSize: 999,
   });
 

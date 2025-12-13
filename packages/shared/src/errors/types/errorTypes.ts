@@ -90,6 +90,7 @@ export interface IOneKeyError<
   // ---server props
   requestId?: string;
   disableFallbackMessage?: boolean;
+  httpStatusCode?: number; // HTTP status code for error deduplication
 }
 
 export type IOneKeyHardwareErrorPayload = {

@@ -249,14 +249,18 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     [navigation, storeName],
   );
 
-  const onProSelectToken = useCallback(() => {
-    navigation.pushModal(EModalRoutes.SwapModal, {
-      screen: EModalSwapRoutes.SwapProSelectToken,
-      params: {
-        storeName,
-      },
-    });
-  }, [navigation, storeName]);
+  const onProSelectToken = useCallback(
+    (autoSearch?: boolean) => {
+      navigation.pushModal(EModalRoutes.SwapModal, {
+        screen: EModalSwapRoutes.SwapProSelectToken,
+        params: {
+          storeName,
+          autoSearch,
+        },
+      });
+    },
+    [navigation, storeName],
+  );
 
   const onProMarketDetail = useCallback(() => {
     navigation.pushModal(EModalRoutes.SwapModal, {
@@ -1030,6 +1034,10 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
       width="100%"
       maxWidth={pageType === EPageType.modal ? '100%' : 500}
       pt="$2.5"
+      $gtMd={{
+        flex: 'unset',
+        pt: pageType === EPageType.modal ? '$2.5' : '$5',
+      }}
     >
       <SwapTipsContainer />
       <SwapHeaderContainer

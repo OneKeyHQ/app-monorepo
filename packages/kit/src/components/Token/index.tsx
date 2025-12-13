@@ -28,6 +28,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
 import { useAccountData } from '../../hooks/useAccountData';
+import { useThemeVariant } from '../../hooks/useThemeVariant';
 import { useAggregateTokensListMapAtom } from '../../states/jotai/contexts/tokenList';
 import { NetworkAvatar, NetworkAvatarBase } from '../NetworkAvatar';
 
@@ -69,11 +70,14 @@ export function Token({
   showNetworkIcon,
   fallbackIcon,
   isAggregateToken,
+  bg: bgProp,
   ...rest
 }: ITokenProps) {
   const { tokenImageSize, chainImageSize, fallbackIconSize } = size
     ? sizeMap[size]
     : sizeMap.lg;
+
+  const themeVariant = useThemeVariant();
 
   let fallbackIconName: IKeyOfIcons = isNFT
     ? 'ImageWavesOutline'
@@ -91,11 +95,19 @@ export function Token({
   const source = useMemo(() => {
     return tokenImageUri ? { uri: tokenImageUri } : undefined;
   }, [tokenImageUri]);
+
+  const resolvedBg =
+    bgProp ?? (themeVariant === 'light' ? undefined : '$neutral6Dark');
+  const shouldShowBorder = themeVariant === 'dark';
+
   const tokenImage = (
     <Image
       size={tokenImageSize}
       borderRadius={borderRadius}
       source={source}
+      bg={resolvedBg}
+      borderWidth={shouldShowBorder ? '$px' : undefined}
+      borderColor={shouldShowBorder ? '$neutral2Dark' : undefined}
       fallback={
         <Stack
           bg="$gray5"

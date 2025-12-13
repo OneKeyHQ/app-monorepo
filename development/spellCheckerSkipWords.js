@@ -269,6 +269,8 @@ module.exports = [
   'decrypted',
   'decrypting',
   'Deduplicate',
+  'Deduplication',
+  'deduplication',
   'deeplink',
   'deeplinking',
   'defi',
