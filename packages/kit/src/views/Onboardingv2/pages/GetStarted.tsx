@@ -422,7 +422,7 @@ export default function GetStarted() {
                   </XStack>
                 </Button>
                 <XStack gap="$2">
-                  {/* todo @zuo */}
+                  {/* todo @zuo google login button */}
                   <Button
                     flex={1}
                     bg="$gray3"

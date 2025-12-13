@@ -2,16 +2,22 @@ import { memo, useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { ActionList, Divider, Toast } from '@onekeyhq/components';
+import { ActionList, Divider } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
   useAccountSelectorContextData,
   useActiveAccount,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import {
+  EModalRoutes,
+  EOnboardingV2KeylessWalletCreationMode,
+} from '@onekeyhq/shared/src/routes';
+import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { usePrimeAvailable } from '../../../Prime/hooks/usePrimeAvailable';
@@ -22,11 +28,6 @@ import { DeviceManagementButton } from './DeviceManagementButton';
 import { HdWalletBackupButton } from './HdWalletBackupButton';
 import { WalletBoundReferralCodeButton } from './WalletBoundReferralCodeButton';
 import { WalletRemoveButton } from './WalletRemoveButton';
-
-// TODO: @zuo Check if wallet is keyless (using custom flag for mock)
-function isKeylessWallet(wallet: IDBWallet | undefined): boolean {
-  return !!(wallet as IDBWallet & { isKeyless?: boolean })?.isKeyless;
-}
 
 function WalletEditButtonView({
   wallet,
@@ -40,6 +41,11 @@ function WalletEditButtonView({
   const {
     activeAccount: { network },
   } = useActiveAccount({ num: num ?? 0 });
+  const navigation = useAppNavigation();
+  const isKeyless = useMemo(
+    () => accountUtils.isKeylessWallet({ walletId: wallet?.id || '' }),
+    [wallet],
+  );
 
   const { isPrimeAvailable } = usePrimeAvailable();
   const { user } = useOneKeyAuth();
@@ -49,48 +55,45 @@ function WalletEditButtonView({
   }, [user]);
 
   const showDeviceManagementButton = useMemo(() => {
-    if (isKeylessWallet(wallet)) return false;
+    if (isKeyless) return false;
     return (
       !accountUtils.isHwHiddenWallet({ wallet }) &&
       accountUtils.isHwOrQrWallet({ walletId: wallet?.id })
     );
-  }, [wallet]);
+  }, [wallet, isKeyless]);
 
   const showAddHiddenWalletButton = useMemo(() => {
-    if (isKeylessWallet(wallet)) return false;
+    if (isKeyless) return false;
     return (
       !accountUtils.isHwHiddenWallet({ wallet }) &&
       accountUtils.isHwOrQrWallet({ walletId: wallet?.id })
     );
-  }, [wallet]);
+  }, [wallet, isKeyless]);
 
   const showRemoveWalletButton = useMemo(() => {
     // Keyless wallet can also be removed
-    if (isKeylessWallet(wallet)) return true;
+    if (isKeyless) return true;
     return (
       !wallet?.isMocked &&
       !accountUtils.isOthersWallet({ walletId: wallet?.id || '' })
     );
-  }, [wallet]);
+  }, [wallet, isKeyless]);
 
   const showRemoveDeviceButton = useMemo(() => {
-    if (isKeylessWallet(wallet)) return false;
+    if (isKeyless) return false;
     return (
       !accountUtils.isHwHiddenWallet({ wallet }) &&
       accountUtils.isHwOrQrWallet({ walletId: wallet?.id })
     );
-  }, [wallet]);
+  }, [wallet, isKeyless]);
 
   const showBackupButton = useMemo(() => {
-    if (isKeylessWallet(wallet)) return false;
+    if (isKeyless) return false;
     return accountUtils.isHdWallet({ walletId: wallet?.id });
-  }, [wallet]);
-
-  // TODO: @zuo Check if wallet is keyless
-  const isKeyless = useMemo(() => isKeylessWallet(wallet), [wallet]);
+  }, [wallet, isKeyless]);
 
   const showBulkCopyAddressesButton = useMemo(() => {
-    if (isKeylessWallet(wallet)) return false;
+    // if (isKeyless) return false;
     if (!isPrimeAvailable) {
       return false;
     }
@@ -130,10 +133,11 @@ function WalletEditButtonView({
               label="Keys & Recovery"
               onClose={handleActionListClose}
               onPress={() => {
-                // TODO: @zuo Implement Keys & Recovery navigation
-                Toast.message({
-                  title: 'Keys & Recovery',
-                  message: 'Coming soon...',
+                navigation.push(EModalRoutes.PrimeModal, {
+                  screen: EPrimePages.KeylessWallet,
+                  params: {
+                    mode: EOnboardingV2KeylessWalletCreationMode.View,
+                  },
                 });
               }}
             />
@@ -207,6 +211,7 @@ function WalletEditButtonView({
       showAddHiddenWalletButton,
       showRemoveWalletButton,
       showRemoveDeviceButton,
+      navigation,
     ],
   );
 

@@ -74,7 +74,7 @@ export function AccountSelectorWalletListSideBarPerfTest({
 }: IWalletListProps) {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const actions = useAccountSelectorActions(); // make render twice first time
-  const { selectedAccount } = useSelectedAccount({ num }); // make render twice first time
+  const { selectedAccount: _selectedAccount } = useSelectedAccount({ num }); // make render twice first time
 
   defaultLogger.accountSelector.perf.renderWalletListSideBar({
     selectedAccount: {} as any,
@@ -136,6 +136,7 @@ export function AccountSelectorWalletListSideBar({
         ignoreEmptySingletonWalletAccounts: true,
         ignoreNonBackedUpWallets: hideNonBackedUpWallet,
       });
+
       const wallets = await Promise.all(
         r.wallets.map(async (wallet) => {
           const isHwWallet = accountUtils.isHwWallet({
@@ -161,31 +162,6 @@ export function AccountSelectorWalletListSideBar({
           };
         }),
       );
-
-      // TODO: @zuo Remove mock keyless wallet after integration
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      wallets.unshift({
-        id: 'keyless-mock-1',
-        name: 'Keyless Wallet',
-        type: 'hd',
-        backuped: true,
-        accounts: [],
-        nextIds: {},
-        walletNo: 999,
-        avatarInfo: { img: 'bear' },
-        firmwareTypeBadge: undefined,
-        badge: undefined,
-        isKeyless: true, // Custom flag for mock
-        dbIndexedAccounts: [
-          {
-            id: 'keyless-mock-1--0',
-            name: 'Account #1',
-            walletId: 'keyless-mock-1',
-            index: 0,
-            idHash: 'mock-hash-0',
-          },
-        ],
-      } as any);
 
       return {
         wallets,

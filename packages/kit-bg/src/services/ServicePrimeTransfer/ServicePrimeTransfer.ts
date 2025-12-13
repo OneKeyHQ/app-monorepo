@@ -989,6 +989,10 @@ class ServicePrimeTransfer extends ServiceBase {
       const walletId = accountUtils.parseAccountId({
         accountId: account.id,
       }).walletId;
+      if (!walletId) {
+        // eslint-disable-next-line no-continue
+        continue;
+      }
       const wallet = walletAccountMap[walletId];
       if (wallet) {
         const getNetworkAccountInfo = async () => {

@@ -876,7 +876,15 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       }
       // TODO performance
       const { wallets } = await this.getWallets();
-      const walletsByXfp = wallets.filter((w) => w.xfp === xfp);
+      const walletsByXfp = wallets.filter((w) => {
+        const isKeylessWallet = accountUtils.isKeylessWallet({
+          walletId: w.id,
+        });
+        if (isKeylessWallet) {
+          return false;
+        }
+        return w.xfp === xfp;
+      });
       return walletsByXfp;
     } catch (error) {
       return [];
@@ -901,9 +909,16 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       // TODO performance
       const { wallets } = await this.getWallets();
       if (walletType === WALLET_TYPE_HD) {
-        const wallet = wallets.find(
-          (w) => w.type === walletType && w.hash === walletHash,
-        );
+        const wallet = wallets.find((w) => {
+          const isKeylessWallet = accountUtils.isKeylessWallet({
+            walletId: w.id,
+          });
+          if (isKeylessWallet) {
+            return false;
+          }
+          const r = w.type === walletType && w.hash === walletHash;
+          return r;
+        });
         return wallet;
       }
       if (walletType === WALLET_TYPE_HW || walletType === WALLET_TYPE_QR) {
@@ -2152,7 +2167,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       id: walletId,
       name: initWalletName,
       hash: undefined,
-      xfp: undefined,
+      xfp: undefined, // keyless wallet doesn't have xfp
       avatar: JSON.stringify(avatarInfo),
       type: WALLET_TYPE_HD,
       backuped: true, // keyless wallet is always backed up

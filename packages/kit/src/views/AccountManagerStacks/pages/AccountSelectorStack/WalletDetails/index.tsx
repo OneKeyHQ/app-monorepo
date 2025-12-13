@@ -127,46 +127,6 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
         return Promise.resolve(undefined);
       }
 
-      // TODO: @zuo Remove mock keyless wallet data after integration
-      if (selectedAccount?.focusedWallet === 'keyless-mock-1') {
-        const mockKeylessWallet = {
-          id: 'keyless-mock-1',
-          name: 'Keyless Wallet',
-          type: 'hd' as const,
-          backuped: true,
-          accounts: [],
-          nextIds: {},
-          walletNo: 999,
-          avatarInfo: { img: 'bear' },
-          isKeyless: true,
-        };
-        const mockIndexedAccount = {
-          id: 'keyless-mock-1--0',
-          name: 'Account #1',
-          walletId: 'keyless-mock-1',
-          index: 0,
-          idHash: 'mock-hash-0',
-        };
-        return {
-          focusedWalletInfo: {
-            wallet: mockKeylessWallet as IDBWallet,
-            device: undefined,
-          },
-          sectionData: [
-            {
-              title: '',
-              data: [mockIndexedAccount],
-              walletId: 'keyless-mock-1',
-              emptyText: '',
-              firstAccount: mockIndexedAccount,
-            },
-          ],
-          accountsCount: 1,
-          accountsValue: [],
-          mergeDeriveAssetsEnabled: false,
-        };
-      }
-
       // await timerUtils.wait(1000);
       const accountSelectorAccountsListData =
         await serviceAccountSelector.buildAccountSelectorAccountsListData({

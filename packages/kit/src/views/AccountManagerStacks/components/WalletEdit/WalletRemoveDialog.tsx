@@ -65,11 +65,6 @@ export function WalletRemoveDialog({
   );
 }
 
-// TODO: @zuo Check if wallet is keyless (using custom flag for mock)
-function isKeylessWallet(wallet: IDBWallet | undefined): boolean {
-  return !!(wallet as IDBWallet & { isKeyless?: boolean })?.isKeyless;
-}
-
 export function getTitleAndDescription({
   wallet,
   isRemoveToMocked,
@@ -86,7 +81,9 @@ export function getTitleAndDescription({
     accountUtils.isHwWallet({ walletId: wallet?.id }) ||
     accountUtils.isQrWallet({ walletId: wallet?.id });
 
-  const isKeyless = isKeylessWallet(wallet);
+  const isKeyless = accountUtils.isKeylessWallet({
+    walletId: wallet?.id || '',
+  });
 
   // Keyless wallet has a different description
   if (isKeyless) {
