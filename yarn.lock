@@ -7613,6 +7613,7 @@ __metadata:
     rlp: "npm:^3.0.0"
     semver: "npm:7.5.4"
     set-interval-async: "npm:^3.0.3"
+    shamir-secret-sharing: "npm:^0.0.4"
     socket.io: "npm:^4.7.5"
     socket.io-client: "npm:^4.7.5"
     sonner: "npm:^1.4.41"
@@ -36797,6 +36798,13 @@ __metadata:
   dependencies:
     kind-of: "npm:^6.0.2"
   checksum: 10/e066bd540cfec5e1b0f78134853e0d892d1c8945fb9a926a579946052e7cb0c70ca4fc34f875a8083aa7910d751805d36ae64af250a6de6f3d28f9fa7be6c21b
+  languageName: node
+  linkType: hard
+
+"shamir-secret-sharing@npm:^0.0.4":
+  version: 0.0.4
+  resolution: "shamir-secret-sharing@npm:0.0.4"
+  checksum: 10/3892ed8d9db07fc2fabbdcd06c848dd20e635e3742c8035dd13a6ec91c67062267160cd4b3537511cb35078f4b5841656df08559627d7170cfb84e7ce17bb351
   languageName: node
   linkType: hard
 

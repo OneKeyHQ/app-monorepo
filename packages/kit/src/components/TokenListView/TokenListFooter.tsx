@@ -425,7 +425,7 @@ function TokenListFooter(props: IProps) {
         </ListItem>
       ) : null}
       {hasTokens && manageTokenEnabled ? (
-        <XStack py="$10" justifyContent="center" gap="$1">
+        <XStack py="$4" justifyContent="center" gap="$1">
           <SizableText size="$bodyMd" color="$textDisabled">
             {intl.formatMessage({ id: ETranslations.add_token_instruction })}
           </SizableText>

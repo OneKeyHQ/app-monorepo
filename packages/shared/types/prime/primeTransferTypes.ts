@@ -12,9 +12,15 @@ import type {
 //   market: Pick<ISimpleDbEntityMarktData, 'favorites'>;
 // };
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
+import type { IDeviceKeyPack } from '@onekeyhq/shared/src/keylessWallet/keylessWalletTypes';
 import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
 
 import type { IAllWalletAvatarImageNamesWithoutDividers } from '../../src/utils/avatarUtils';
+
+export enum EPrimeTransferDataType {
+  keylessWallet = 'keylessWallet',
+  allWallet = 'allWallet',
+}
 
 export enum EPrimeTransferServerType {
   OFFICIAL = 'official',
@@ -117,6 +123,8 @@ export type IPrimeTransferPrivateData = {
   watchingAccounts: Record<string, IPrimeTransferAccount>;
   // UUID -> ImportableHDWallet
   wallets: Record<string, IPrimeTransferHDWallet>;
+  // DeviceKeyPack for keyless wallet transfer
+  deviceKeyPack?: IDeviceKeyPack;
   // simpleDb?: {
   //   utxoAccounts?: ISimpleDbEntityUtxoData;
   //   market?: ISimpleDbEntityMarktData;

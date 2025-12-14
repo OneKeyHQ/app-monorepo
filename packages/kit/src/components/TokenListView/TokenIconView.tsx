@@ -1,5 +1,6 @@
 import { memo, useMemo } from 'react';
 
+import { useMedia } from '@onekeyhq/components';
 import { checkIsOnlyOneTokenHasBalance } from '@onekeyhq/shared/src/utils/tokenUtils';
 
 import { useAccountData } from '../../hooks/useAccountData';
@@ -31,6 +32,9 @@ function TokenIconView(props: IProps) {
   } = props;
 
   const { network } = useAccountData({ networkId });
+  const { gtMd } = useMedia();
+
+  const tokenSize = gtMd ? 'md' : 'lg';
 
   const [aggregateTokensListMap] = useAggregateTokensListMapAtom();
   const { allAggregateTokenMap } = useTokenListViewContext();
@@ -70,7 +74,7 @@ function TokenIconView(props: IProps) {
   if (isAllNetworks && showNetworkIcon) {
     return (
       <Token
-        size="lg"
+        size={tokenSize}
         tokenImageUri={icon}
         networkImageUri={network?.logoURI}
         networkId={
@@ -86,7 +90,7 @@ function TokenIconView(props: IProps) {
     );
   }
 
-  return <Token size="lg" tokenImageUri={icon} />;
+  return <Token size={tokenSize} tokenImageUri={icon} />;
 }
 
 export default memo(TokenIconView);

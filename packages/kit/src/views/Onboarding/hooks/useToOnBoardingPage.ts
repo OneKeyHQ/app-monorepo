@@ -41,33 +41,59 @@ export const useToOnBoardingPage = () => {
           return;
         }
 
+        // Check if onboarding is done to determine which page to navigate to
+        const { isOnboardingDone } =
+          await backgroundApiProxy.serviceOnboarding.isOnboardingDone();
+
         if (
           platformEnv.isExtensionUiPopup ||
           platformEnv.isExtensionUiSidePanel
         ) {
-          const newParams = {
-            ...params,
-            fromExt: true,
-          };
-          await backgroundApiProxy.serviceApp.openExtensionExpandTab({
-            path: `/onboarding/get-started`,
-            params: newParams,
-          });
+          if (isOnboardingDone) {
+            // Returning user - navigate to CreateOrImportWallet with fullOptions
+            await backgroundApiProxy.serviceApp.openExtensionExpandTab({
+              path: `/onboarding/CreateOrImportWallet`,
+              params: { fullOptions: true },
+            });
+          } else {
+            // First-time user - navigate to GetStarted
+            const newParams = {
+              ...params,
+              fromExt: true,
+            };
+            await backgroundApiProxy.serviceApp.openExtensionExpandTab({
+              path: `/onboarding/get-started`,
+              params: newParams,
+            });
+          }
           if (platformEnv.isExtensionUiSidePanel) {
             window.close();
           }
         } else {
           await closeModalPages();
           await timerUtils.wait(150);
-          rootNavigationRef.current?.navigate(ERootRoutes.Onboarding, {
-            screen: EOnboardingV2Routes.OnboardingV2,
-            params: {
-              screen: EOnboardingPagesV2.GetStarted,
+          if (isOnboardingDone) {
+            rootNavigationRef.current?.navigate(ERootRoutes.Onboarding, {
+              screen: EOnboardingV2Routes.OnboardingV2,
               params: {
-                ...params,
+                screen: EOnboardingPagesV2.CreateOrImportWallet,
+                params: {
+                  fullOptions: true,
+                },
               },
-            },
-          });
+            });
+          } else {
+            // First-time user - navigate to GetStarted
+            rootNavigationRef.current?.navigate(ERootRoutes.Onboarding, {
+              screen: EOnboardingV2Routes.OnboardingV2,
+              params: {
+                screen: EOnboardingPagesV2.GetStarted,
+                params: {
+                  ...params,
+                },
+              },
+            });
+          }
         }
       },
     [navigation],

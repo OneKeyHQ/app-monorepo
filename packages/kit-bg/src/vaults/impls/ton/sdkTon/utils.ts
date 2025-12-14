@@ -354,10 +354,10 @@ export async function createSignedExternalMessage({
 
 export function getAccountVersion(accountId: string) {
   if (accountUtils.isImportedAccount({ accountId })) {
-    return accountId.split(SEPERATOR)[3];
+    return accountId.split(SEPERATOR)?.[3] || '';
   }
   const { idSuffix: version } = accountUtils.parseAccountId({ accountId });
-  return version;
+  return version || '';
 }
 
 export interface IJettonTransferBodyParams {

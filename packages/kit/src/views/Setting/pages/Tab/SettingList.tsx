@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -14,15 +14,51 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 
-import { useSettingsConfig } from './config';
+import { type ISettingsConfig, useSettingsConfig } from './config';
 import { SocialButtonGroup } from './CustomElement';
 import { TabSettingsListItem } from './ListItem';
 import { SearchView } from './SearchView';
 import { useSearch } from './useSearch';
 
+function SettingListItem({
+  config,
+}: {
+  config: NonNullable<ISettingsConfig[number]>;
+}) {
+  const navigation = useAppNavigation();
+
+  const handlePress = useCallback(() => {
+    navigation.push(EModalSettingRoutes.SettingListSubModal, {
+      title: config.title,
+      name: config.name,
+    });
+  }, [navigation, config.title, config.name]);
+
+  // Use custom tab item renderer if provided
+  if (config.renderTabItem) {
+    const CustomTabItem = config.renderTabItem;
+    return <CustomTabItem onPress={handlePress} />;
+  }
+
+  return (
+    <TabSettingsListItem
+      {...config.tabBarItemStyle}
+      drillIn
+      showDot={config.showDot}
+      key={config.title}
+      icon={config.icon as IKeyOfIcons}
+      iconProps={config.tabBarIconStyle}
+      title={config.title}
+      subtitle={config.subtitle}
+      px="$7"
+      titleProps={config.tabBarLabelStyle}
+      onPress={handlePress}
+    />
+  );
+}
+
 export function SettingList() {
   const intl = useIntl();
-  const navigation = useAppNavigation();
   const settingsConfig = useSettingsConfig();
   const filteredSettingsConfig = useMemo(() => {
     return settingsConfig.filter((config) => config && !config.isHidden);
@@ -50,27 +86,7 @@ export function SettingList() {
               <>
                 {filteredSettingsConfig.map((config) =>
                   config ? (
-                    <TabSettingsListItem
-                      {...config.tabBarItemStyle}
-                      drillIn
-                      showDot={config.showDot}
-                      key={config.title}
-                      icon={config.icon as IKeyOfIcons}
-                      iconProps={config.tabBarIconStyle}
-                      title={config.title}
-                      subtitle={config.subtitle}
-                      px="$7"
-                      titleProps={config.tabBarLabelStyle}
-                      onPress={() => {
-                        navigation.push(
-                          EModalSettingRoutes.SettingListSubModal,
-                          {
-                            title: config.title,
-                            name: config.name,
-                          },
-                        );
-                      }}
-                    />
+                    <SettingListItem key={config.title} config={config} />
                   ) : null,
                 )}
               </>

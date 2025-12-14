@@ -113,10 +113,10 @@ const MatrixBackground = ({
 
 const AnimatedPath = Animated.createAnimatedComponent(Path);
 
-const STEPS_DATA: Record<
-  EFinalizeWalletSetupSteps,
-  { pathData: string; title: string } | null
-> = {
+type IStepData = { pathData: string; title: string } | null;
+
+// Regular wallet setup steps
+const STEPS_DATA: Partial<Record<EFinalizeWalletSetupSteps, IStepData>> = {
   [EFinalizeWalletSetupSteps.CreatingWallet]: {
     pathData:
       'M7 12V35C7 38.3138 9.6863 41 13 41H35C38.3138 41 41 38.3138 41 35V23C41 19.6863 38.3138 17 35 17H33M7 12C7 14.7614 9.23858 17 12 17H33M7 12C7 9.23858 9.23858 7 12 7H28.6666C31.06 7 33 8.9401 33 11.3333V17M35 29C35 31.2091 33.2091 33 31 33C28.7909 33 27 31.2091 27 29C27 26.7909 28.7909 25 31 25C33.2091 25 35 26.7909 35 29Z',
@@ -154,7 +154,7 @@ function FinalizeWalletSetupPage({
   EOnboardingPagesV2.FinalizeWalletSetup
 >) {
   const {
-    activeAccount: { wallet },
+    activeAccount: { wallet: _wallet },
   } = useActiveAccount({ num: 0 });
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -173,20 +173,20 @@ function FinalizeWalletSetupPage({
   const created = useRef(false);
   const mnemonic = route?.params?.mnemonic;
   const mnemonicType = route?.params?.mnemonicType;
+  const keylessPackSetId = route?.params?.keylessPackSetId;
   const deviceData = route?.params?.deviceData;
   const isFirmwareVerified = route?.params?.isFirmwareVerified;
   const isWalletBackedUp = route?.params?.isWalletBackedUp;
 
-  const [currentStep, setCurrentStep] = useState<EFinalizeWalletSetupSteps>(
-    EFinalizeWalletSetupSteps.CreatingWallet,
-  );
+  const initialStep = EFinalizeWalletSetupSteps.CreatingWallet;
+
+  const [currentStep, setCurrentStep] =
+    useState<EFinalizeWalletSetupSteps>(initialStep);
   const progress = useSharedValue(0);
   const pathLength = 150;
 
   // 队列管理
-  const stepQueue = useRef<EFinalizeWalletSetupSteps[]>([
-    EFinalizeWalletSetupSteps.CreatingWallet,
-  ]);
+  const stepQueue = useRef<EFinalizeWalletSetupSteps[]>([initialStep]);
   const isProcessing = useRef(false);
 
   const animatedProps = useAnimatedProps(() => {
@@ -314,6 +314,12 @@ function FinalizeWalletSetupPage({
           device: deviceData.device as SearchDevice,
           isFirmwareVerified,
         });
+      } else if (keylessPackSetId && !created.current) {
+        // Create keyless wallet
+        await actions.current.createKeylessWallet({
+          packSetId: keylessPackSetId,
+        });
+        created.current = true;
       }
     } catch (error) {
       console.error('createWallet error:', error);
@@ -341,6 +347,7 @@ function FinalizeWalletSetupPage({
     goNextStep,
     connectDevice,
     createHWWallet,
+    keylessPackSetId,
   ]);
 
   useEffect(() => {
@@ -379,12 +386,12 @@ function FinalizeWalletSetupPage({
 
   const retrySetup = useCallback(() => {
     setSetupError(undefined);
-    setCurrentStep(EFinalizeWalletSetupSteps.CreatingWallet);
+    setCurrentStep(initialStep);
     stepQueueIndex.current = 0;
     setTimeout(() => {
       void createWallet();
     });
-  }, [createWallet]);
+  }, [createWallet, initialStep]);
 
   const currentStepData =
     STEPS_DATA[currentStep] ||
@@ -610,6 +617,11 @@ function FinalizeWalletSetupPage({
             </YStack>
           ) : null}
         </OnboardingLayout.Body>
+        <OnboardingLayout.Footer>
+          <SizableText size="$bodySm" color="$textSubdued">
+            Please do not exit the app during setup, or the creation will fail
+          </SizableText>
+        </OnboardingLayout.Footer>
       </OnboardingLayout>
     </Page>
   );

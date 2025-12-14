@@ -8,6 +8,7 @@ import { LazyLoadPage } from '@onekeyhq/kit/src/components/LazyLoadPage';
 import { useSupabaseAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/supabase/useSupabaseAuth';
 import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { EPrimeEmailOTPScene } from '@onekeyhq/shared/src/consts/primeConsts';
+import { PrimeLoginDialogCancelError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
@@ -17,6 +18,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IPrimeUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import useAppNavigation from '../../hooks/useAppNavigation';
+// import PrimeLoginEmailDialogV2 from '../../views/Prime/components/PrimeLoginEmailDialogV2/PrimeLoginEmailDialogV2';
 
 import { getSupabaseClient } from './supabase/getSupabaseClient';
 
@@ -126,40 +128,63 @@ export function useOneKeyAuth() {
       toOneKeyIdPageOnLoginSuccess?: boolean;
     } = {}) => {
       const isLoggedIn = await backgroundApiProxy.servicePrime.isLoggedIn();
-      const onLoginSuccess = async () => {
-        if (toOneKeyIdPageOnLoginSuccess) {
-          await timerUtils.wait(120);
-          toOneKeyIdPage();
-        }
-      };
-      if (isLoggedIn) {
-        await onLoginSuccess();
-      } else {
-        defaultLogger.prime.subscription.onekeyIdLogout({
-          reason:
-            'useLoginOneKeyId.loginOneKeyId(): call logout() before showing login dialog',
-        });
-        // logout before login, make sure local supabase storage cache is cleared
-        void logout();
 
-        // 跳转到登录页面
-        const loginDialog = Dialog.show({
-          renderContent: (
-            <PrimeLoginEmailDialogV2
-              title={intl.formatMessage({
-                id: ETranslations.prime_signup_login,
-              })}
-              description={intl.formatMessage({
-                id: ETranslations.prime_onekeyid_continue_description,
-              })}
-              onComplete={() => {
-                void loginDialog.close();
-              }}
-              onLoginSuccess={onLoginSuccess}
-            />
-          ),
-        });
-      }
+      return new Promise<void>((resolve, reject) => {
+        let isClosedByNextStep = false;
+        let isResolved = false;
+        const onLoginSuccessFn = async () => {
+          isResolved = true;
+          await timerUtils.wait(200);
+          if (toOneKeyIdPageOnLoginSuccess) {
+            toOneKeyIdPage();
+          }
+          resolve();
+        };
+        const onCancelFn = () => {
+          if (isResolved) {
+            return;
+          }
+          reject(new PrimeLoginDialogCancelError());
+        };
+        const onCancelFirstStepFn = () => {
+          if (isClosedByNextStep) {
+            return;
+          }
+          onCancelFn();
+        };
+        if (isLoggedIn) {
+          void onLoginSuccessFn();
+        } else {
+          defaultLogger.prime.subscription.onekeyIdLogout({
+            reason:
+              'useLoginOneKeyId.loginOneKeyId(): call logout() before showing login dialog',
+          });
+          // logout before login, make sure local supabase storage cache is cleared
+          void logout();
+
+          // 跳转到登录页面
+          const loginDialog = Dialog.show({
+            onCancel: onCancelFirstStepFn,
+            onClose: onCancelFirstStepFn,
+            renderContent: (
+              <PrimeLoginEmailDialogV2
+                title={intl.formatMessage({
+                  id: ETranslations.prime_signup_login,
+                })}
+                description={intl.formatMessage({
+                  id: ETranslations.prime_onekeyid_continue_description,
+                })}
+                onComplete={() => {
+                  isClosedByNextStep = true;
+                  void loginDialog.close();
+                }}
+                onLoginSuccess={onLoginSuccessFn}
+                onCancel={onCancelFn}
+              />
+            ),
+          });
+        }
+      });
     },
     [intl, logout, toOneKeyIdPage],
   );
@@ -167,9 +192,11 @@ export function useOneKeyAuth() {
   const sendEmailOTP = useCallback(
     async ({
       onConfirm,
+      onCancel,
       scene,
       description,
     }: {
+      onCancel?: () => void;
       onConfirm: ({
         code,
         uuid,
@@ -184,6 +211,12 @@ export function useOneKeyAuth() {
       return new Promise<void>((resolve) => {
         let uuid = '';
         const dialog = Dialog.show({
+          onCancel: () => {
+            onCancel?.();
+          },
+          onClose: () => {
+            onCancel?.();
+          },
           renderContent: (
             <EmailOTPDialog
               title={intl.formatMessage({

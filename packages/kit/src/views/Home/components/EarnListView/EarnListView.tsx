@@ -19,6 +19,7 @@ function EarnListView() {
         withHeader={false}
         recommendedItemContainerProps={{
           bg: '$bgSubdued',
+          borderColor: '$neutral3',
         }}
       />
     );
