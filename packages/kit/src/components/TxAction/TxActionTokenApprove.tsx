@@ -61,6 +61,7 @@ function TxActionTokenApproveListView(props: ITxActionProps) {
     showIcon,
     replaceType,
     hideValue,
+    compact,
   } = props;
   const intl = useIntl();
   const { txFee, txFeeFiatValue, txFeeSymbol, hideFeeInfo } =
@@ -144,6 +145,7 @@ function TxActionTokenApproveListView(props: ITxActionProps) {
       networkId={decodedTx.networkId}
       networkLogoURI={decodedTx.networkLogoURI}
       riskyLevel={decodedTx.riskyLevel}
+      compact={compact}
       {...componentProps}
     />
   );
