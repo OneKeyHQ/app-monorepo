@@ -1,3 +1,4 @@
+import { buildAppStorageFactory } from './appStorageBuildFactory';
 import mockStorageInstance from './instance/mockStorageInstance';
 import {
   webStorage,
@@ -5,7 +6,6 @@ import {
   webStorageLegacy,
   webStorageSimpleDB,
 } from './instance/webStorageInstance';
-import { buildAppStorageFactory } from './syncStorage';
 
 import type { IAppStorageHub } from './appStorageTypes';
 

@@ -23,7 +23,7 @@ import { DesktopTabItem } from '@onekeyhq/components/src/layouts/Navigation/Tab/
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useSettingsConfig } from './config';
+import { ESettingsTabNames, useSettingsConfig } from './config';
 import { ConfigContext } from './configContext';
 import { SocialButtonGroup } from './CustomElement';
 import { SettingList } from './SettingList';
@@ -31,7 +31,6 @@ import { SubSettings } from './SubSettings';
 import { useIsTabNavigator } from './useIsTabNavigator';
 import { useSearch } from './useSearch';
 
-import type { ESettingsTabNames } from './config';
 import type {
   BottomTabBarProps,
   BottomTabNavigationOptions,
@@ -54,6 +53,10 @@ function TabItemView({
     tabBarLabelStyle?: ISizableTextProps;
     isHidden?: boolean;
     showDot?: boolean;
+    renderTabItem?: React.ComponentType<{
+      selected?: boolean;
+      onPress?: () => void;
+    }>;
   };
 }) {
   useMemo(() => {
@@ -65,26 +68,43 @@ function TabItemView({
     void Icon.prefetch(activeIcon, inActiveIcon);
   }, [options]);
 
-  const contentMemo = useMemo(
-    () =>
-      !options.isHidden && options.tabBarLabel ? (
-        <DesktopTabItem
-          onPress={options.tabbarOnPress ?? onPress}
-          trackId={options.trackId}
-          aria-current={isActive ? 'page' : undefined}
+  const contentMemo = useMemo(() => {
+    if (options.isHidden) {
+      return null;
+    }
+
+    // Use custom tab item renderer if provided
+    if (options.renderTabItem) {
+      const CustomTabItem = options.renderTabItem;
+      return (
+        <CustomTabItem
           selected={isActive}
-          tabBarStyle={options.tabBarStyle}
-          tabBarItemStyle={options.tabBarItemStyle}
-          tabBarIconStyle={options.tabBarIconStyle}
-          tabBarLabelStyle={options.tabBarLabelStyle}
-          showDot={options.showDot}
-          // @ts-expect-error
-          icon={options?.tabBarIcon?.(isActive) as IKeyOfIcons}
-          label={options.tabBarLabel as string}
+          onPress={options.tabbarOnPress ?? onPress}
         />
-      ) : null,
-    [isActive, onPress, options],
-  );
+      );
+    }
+
+    if (!options.tabBarLabel) {
+      return null;
+    }
+
+    return (
+      <DesktopTabItem
+        onPress={options.tabbarOnPress ?? onPress}
+        trackId={options.trackId}
+        aria-current={isActive ? 'page' : undefined}
+        selected={isActive}
+        tabBarStyle={options.tabBarStyle}
+        tabBarItemStyle={options.tabBarItemStyle}
+        tabBarIconStyle={options.tabBarIconStyle}
+        tabBarLabelStyle={options.tabBarLabelStyle}
+        showDot={options.showDot}
+        // @ts-expect-error
+        icon={options?.tabBarIcon?.(isActive) as IKeyOfIcons}
+        label={options.tabBarLabel as string}
+      />
+    );
+  }, [isActive, onPress, options]);
 
   return contentMemo;
 }
@@ -196,6 +216,7 @@ function SettingsTabNavigator() {
   return (
     <ConfigContext.Provider value={contextValue}>
       <Tab.Navigator
+        initialRouteName={ESettingsTabNames.Backup}
         tabBar={tabBarCallback}
         screenOptions={{
           headerShown: false,

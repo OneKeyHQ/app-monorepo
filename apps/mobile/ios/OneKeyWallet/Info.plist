@@ -79,6 +79,8 @@
 	<string>Use bluetooth peripheral to connect OneKey hardware devices.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Use Camera to scan QR Code.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Use biometrics to authenticate and unlock your wallet.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Use photo library to read QR images.</string>
 	<key>RCTNewArchEnabled</key>

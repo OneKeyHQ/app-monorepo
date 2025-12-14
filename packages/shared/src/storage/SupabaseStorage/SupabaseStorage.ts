@@ -6,20 +6,24 @@ import secureStorageInstance from '../instance/secureStorageInstance';
 
 import { SUPABASE_STORAGE_KEY_PREFIX } from './consts';
 
-const shouldUseSecureStorage = (() => {
-  const isSupportSecureStorage = secureStorageInstance.supportSecureStorage();
-  if (!isSupportSecureStorage) {
+const shouldUseSecureStorage = cacheUtils.memoizee(
+  async () => {
+    const isSupportSecureStorage =
+      await secureStorageInstance.supportSecureStorage();
+    if (!isSupportSecureStorage) {
+      return false;
+    }
+    if (platformEnv.isNative) {
+      return true;
+    }
+    // The secure storage of the desktop in the development environment does not work, the data written only has the key, and the value is always empty
+    if (platformEnv.isDesktop && !platformEnv.isDev) {
+      return true;
+    }
     return false;
-  }
-  if (platformEnv.isNative) {
-    return true;
-  }
-  // The secure storage of the desktop in the development environment does not work, the data written only has the key, and the value is always empty
-  if (platformEnv.isDesktop && !platformEnv.isDev) {
-    return true;
-  }
-  return false;
-})();
+  },
+  { promise: true, primitive: true },
+);
 
 const prefixedKeys = new Set<string>();
 
@@ -39,7 +43,7 @@ export class SupabaseStorage {
       // eslint-disable-next-line no-param-reassign
       key = withPrefixedKey(key);
 
-      if (shouldUseSecureStorage) {
+      if (await shouldUseSecureStorage()) {
         const result = await secureStorageInstance.getSecureItem(key);
         return result;
       }
@@ -58,7 +62,7 @@ export class SupabaseStorage {
     key = withPrefixedKey(key);
     this.getItemWithCache.clear();
 
-    if (shouldUseSecureStorage) {
+    if (await shouldUseSecureStorage()) {
       return secureStorageInstance.setSecureItem(key, value);
     }
     return appStorage.setItem(key, value);
@@ -69,7 +73,7 @@ export class SupabaseStorage {
     key = withPrefixedKey(key);
     this.getItemWithCache.clear();
 
-    if (shouldUseSecureStorage) {
+    if (await shouldUseSecureStorage()) {
       return secureStorageInstance.removeSecureItem(key);
     }
     return appStorage.removeItem(key);
@@ -86,10 +90,11 @@ export class SupabaseStorage {
     if (!keysToRemove.length) {
       return;
     }
+    const _shouldUseSecureStorage = await shouldUseSecureStorage();
 
     await Promise.all(
       keysToRemove.map((k) => {
-        if (shouldUseSecureStorage) {
+        if (_shouldUseSecureStorage) {
           return secureStorageInstance.removeSecureItem(k);
         }
         return appStorage.removeItem(k);

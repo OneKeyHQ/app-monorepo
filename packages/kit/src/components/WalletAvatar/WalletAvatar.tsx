@@ -115,6 +115,20 @@ export function WalletAvatar({
           </SizableText>
         </Stack>
       ) : null}
+      {/* Keyless wallet cloud icon */}
+      {status === 'keyless' ? (
+        <Stack
+          position="absolute"
+          bottom={-2}
+          right={-2}
+          bg="$bgApp"
+          p="$0.5"
+          borderRadius="$full"
+          zIndex="$1"
+        >
+          <Icon name="CloudOutline" size="$3.5" color="$iconInfo" />
+        </Stack>
+      ) : null}
     </Stack>
   );
 }

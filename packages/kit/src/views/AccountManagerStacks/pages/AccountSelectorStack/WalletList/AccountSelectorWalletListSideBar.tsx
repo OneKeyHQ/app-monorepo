@@ -74,7 +74,7 @@ export function AccountSelectorWalletListSideBarPerfTest({
 }: IWalletListProps) {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const actions = useAccountSelectorActions(); // make render twice first time
-  const { selectedAccount } = useSelectedAccount({ num }); // make render twice first time
+  const { selectedAccount: _selectedAccount } = useSelectedAccount({ num }); // make render twice first time
 
   defaultLogger.accountSelector.perf.renderWalletListSideBar({
     selectedAccount: {} as any,
@@ -136,6 +136,7 @@ export function AccountSelectorWalletListSideBar({
         ignoreEmptySingletonWalletAccounts: true,
         ignoreNonBackedUpWallets: hideNonBackedUpWallet,
       });
+
       const wallets = await Promise.all(
         r.wallets.map(async (wallet) => {
           const isHwWallet = accountUtils.isHwWallet({
@@ -161,6 +162,7 @@ export function AccountSelectorWalletListSideBar({
           };
         }),
       );
+
       return {
         wallets,
       };
