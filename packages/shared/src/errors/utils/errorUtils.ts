@@ -39,6 +39,7 @@ export function toPlainErrorObject(error: unknown | IOneKeyError | undefined) {
       message: e.message,
       autoToast: e.autoToast,
       requestId: e.requestId,
+      httpStatusCode: e.httpStatusCode,
       data: e.data,
       info: e.info,
       payload: e.payload,

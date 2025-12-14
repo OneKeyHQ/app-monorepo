@@ -18,7 +18,6 @@ import {
   mevSwapNetworks,
   swapProTimeRangeItems,
   swapProviderRecommendApprovedWeights,
-  swapSlippageAutoValue,
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
   ESwapDirectionType,
@@ -31,7 +30,6 @@ import type {
   ISwapNativeTokenReserveGas,
   ISwapNetwork,
   ISwapPreSwapData,
-  ISwapSlippageSegmentItem,
   ISwapStep,
   ISwapTips,
   ISwapToken,
@@ -41,7 +39,6 @@ import type {
 import {
   ESwapNetworkFeeLevel,
   ESwapProTradeType,
-  ESwapSlippageSegmentKey,
   ESwapTabSwitchType,
   LIMIT_PRICE_DEFAULT_DECIMALS,
   defaultLimitExpirationTime,
@@ -755,6 +752,9 @@ export const {
     (net) => net.networkId === swapProSelectToken?.networkId,
   );
 });
+
+export const { atom: swapProErrorAlertAtom, use: useSwapProErrorAlertAtom } =
+  contextAtom<{ title: string; message?: string } | undefined>(undefined);
 
 export const {
   atom: swapLimitPriceMarketPriceAtom,

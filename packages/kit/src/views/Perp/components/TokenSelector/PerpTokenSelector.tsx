@@ -19,7 +19,6 @@ import {
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpsAllAssetCtxsAtom,
@@ -524,7 +523,6 @@ function PerpTokenSelectorContent({
 const PerpTokenSelectorContentMemo = memo(PerpTokenSelectorContent);
 
 function BasePerpTokenSelector() {
-  const themeVariant = useThemeVariant();
   const [isOpen, setIsOpen] = useState(false);
   const [currentToken] = usePerpsActiveAssetAtom();
   const { coin } = currentToken;
@@ -545,7 +543,6 @@ function BasePerpTokenSelector() {
             <Token
               size="md"
               borderRadius="$full"
-              bg={themeVariant === 'light' ? null : '$bgInverse'}
               tokenImageUri={getHyperliquidTokenImageUrl(
                 parsedActive.displayName,
               )}
@@ -568,7 +565,7 @@ function BasePerpTokenSelector() {
         )}
       />
     ),
-    [isOpen, isLoading, themeVariant, parsedActive.displayName],
+    [isOpen, isLoading, parsedActive.displayName],
   );
   return (
     <DebugRenderTracker name="PerpTokenSelector">{content}</DebugRenderTracker>

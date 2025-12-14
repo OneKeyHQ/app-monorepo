@@ -15,6 +15,7 @@ import {
   useSwapFromTokenAmountAtom,
   useSwapProDirectionAtom,
   useSwapProInputAmountAtom,
+  useSwapProSelectTokenAtom,
   useSwapProTradeTypeAtom,
   useSwapProUseSelectBuyTokenAtom,
   useSwapTypeSwitchAtom,
@@ -50,6 +51,7 @@ const SwapProInputContainer = ({
   const intl = useIntl();
   const [swapProDirection] = useSwapProDirectionAtom();
   const [swapProTradeType] = useSwapProTradeTypeAtom();
+  const [swapProSelectToken] = useSwapProSelectTokenAtom();
   const [, setSwapTypeSwitch] = useSwapTypeSwitchAtom();
   const [fromInputAmount, setFromInputAmount] = useSwapFromTokenAmountAtom();
   const [swapProInputAmount, setSwapProInputAmount] =
@@ -147,6 +149,7 @@ const SwapProInputContainer = ({
         ]}
       />
       <TokenSelectorPopover
+        currentSelectToken={swapProSelectToken}
         isOpen={isPopoverOpen}
         onOpenChange={setIsPopoverOpen}
         tokens={defaultTokens}

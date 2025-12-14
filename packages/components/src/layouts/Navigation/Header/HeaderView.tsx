@@ -4,6 +4,7 @@ import * as React from 'react';
 
 import { Header } from '@react-navigation/elements';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDebouncedCallback } from 'use-debounce';
 
 import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
@@ -81,6 +82,13 @@ const DesktopDragZoneBoxView = platformEnv.isDesktop
     }
   : DesktopDragZoneBox;
 
+const useHeaderHeight = platformEnv.isNativeIOS
+  ? () => 52
+  : () => {
+      const { top } = useSafeAreaInsets();
+      return useMemo(() => 52 + top, [top]);
+    };
+
 function HeaderView({
   back: headerBack,
   options,
@@ -149,7 +157,7 @@ function HeaderView({
       headerLeft,
     ],
   );
-
+  const headerHeight = useHeaderHeight();
   const { gtMd } = useMedia();
 
   const isGtMd = gtMd && !platformEnv.isNativeAndroid;
@@ -240,7 +248,7 @@ function HeaderView({
             headerBackground={headerBackground}
             headerStyle={[
               {
-                height: 52,
+                height: headerHeight,
               },
               headerStyle,
             ]}
