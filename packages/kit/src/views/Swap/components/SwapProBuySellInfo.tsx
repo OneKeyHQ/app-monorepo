@@ -39,14 +39,14 @@ const SwapProBuySellInfo = ({
     return new BigNumber(buyCount ?? 0).plus(sellCount ?? 0).toNumber();
   }, [buyCount, sellCount]);
   const buyPercentage = useMemo(() => {
-    if (totalCount === 0) return 0;
+    if (!totalCount || totalCount === 0) return 0;
     return new BigNumber(buyCount ?? 0)
       .dividedBy(totalCount ?? 0)
       .multipliedBy(100)
       .toNumber();
   }, [buyCount, totalCount]);
   const sellPercentage = useMemo(() => {
-    if (totalCount === 0) return 0;
+    if (!totalCount || totalCount === 0) return 0;
     return new BigNumber(sellCount ?? 0)
       .dividedBy(totalCount ?? 0)
       .multipliedBy(100)
@@ -123,7 +123,7 @@ const SwapProBuySellInfo = ({
               B
             </SizableText>
           </Stack>
-          <SizableText size="$bodySm" color="$textSuccess">
+          <SizableText size="$bodySm" color="$textSuccess" ml="$0.5">
             {buyPercentage.toFixed(2)}%
           </SizableText>
         </XStack>
@@ -134,7 +134,7 @@ const SwapProBuySellInfo = ({
           position="relative"
           zIndex={1}
         >
-          <SizableText size="$bodySm" color="$textCritical">
+          <SizableText size="$bodySm" color="$textCritical" mr="$0.5">
             {sellPercentage.toFixed(2)}%
           </SizableText>
           <Stack

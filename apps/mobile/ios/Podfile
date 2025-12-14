@@ -227,8 +227,6 @@ target 'OneKeyWallet' do
     # end
     
     # framework_paths = [
-    #   File.join(Dir.pwd.split('/apps')[0], "node_modules/@onekeyfe/react-native-lite-card/ios/GPChannelSDKCore.xcframework/ios-arm64/GPChannelSDKCore.framework/GPChannelSDKCore"),
-    #   File.join(Dir.pwd.split('/apps')[0], "node_modules/@onekeyfe/react-native-lite-card/ios/GPChannelSDKCore.xcframework/ios-arm64_x86_64-simulator/GPChannelSDKCore.framework/GPChannelSDKCore"),
     # ]
 
     # framework_paths.each do |framework_relative_path|
