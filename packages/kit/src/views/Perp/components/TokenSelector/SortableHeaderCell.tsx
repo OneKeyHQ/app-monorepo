@@ -1,9 +1,9 @@
 import { memo, useCallback } from 'react';
 
 import { Icon, SizableText, XStack } from '@onekeyhq/components';
-import { usePerpTokenSortConfigPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { usePerpTokenSelectorConfigPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type {
-  IPerpTokenSortConfig,
+  IPerpTokenSelectorConfig,
   IPerpTokenSortField,
 } from '@onekeyhq/shared/types/hyperliquid';
 
@@ -20,20 +20,26 @@ function BaseSortableHeaderCell({
   width,
   flex,
 }: ISortableHeaderCellProps) {
-  const [sortConfig, setSortConfig] = usePerpTokenSortConfigPersistAtom();
+  const [selectorConfig, setSelectorConfig] =
+    usePerpTokenSelectorConfigPersistAtom();
 
   const handlePress = useCallback(() => {
-    setSortConfig((prev: IPerpTokenSortConfig | null) => {
+    setSelectorConfig((prev: IPerpTokenSelectorConfig | null) => {
       if (prev?.field === field) {
-        // Same field: toggle direction, or clear sort if already ascending
+        // Same field: toggle direction, or reset to default sort if already ascending
         if (prev.direction === 'asc') {
-          // Clear sort - return to default order
-          return null;
+          // Reset to default sort but preserve activeTab
+          return {
+            field: 'volume24h',
+            direction: 'desc',
+            activeTab: prev.activeTab ?? 'all',
+          };
         }
         // Toggle to ascending
         return {
           field,
           direction: 'asc',
+          activeTab: prev.activeTab ?? 'all',
         };
       }
 
@@ -41,13 +47,14 @@ function BaseSortableHeaderCell({
       return {
         field,
         direction: 'desc',
+        activeTab: prev?.activeTab ?? 'all',
       };
     });
-  }, [field, setSortConfig]);
+  }, [field, setSelectorConfig]);
 
-  const isActive = sortConfig?.field === field;
+  const isActive = selectorConfig?.field === field;
   let iconName: string;
-  if (isActive && sortConfig?.direction === 'asc') {
+  if (isActive && selectorConfig?.direction === 'asc') {
     iconName = 'ChevronTopOutline';
   } else if (isActive) {
     iconName = 'ChevronBottomOutline';

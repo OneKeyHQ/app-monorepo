@@ -24,7 +24,7 @@ import {
   usePerpsAllAssetsFilteredAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import {
-  usePerpTokenSortConfigPersistAtom,
+  usePerpTokenSelectorConfigPersistAtom,
   usePerpsActiveAssetAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -141,6 +141,11 @@ function BasePerpTokenSelectorContent({
   const { closePopover } = usePopoverContext();
   const actions = useHyperliquidActions();
 
+  const [{ assetsByDex }] = usePerpsAllAssetsFilteredAtom();
+  const [{ assetCtxsByDex }] = usePerpsAllAssetCtxsAtom();
+  const [selectorConfig, setSelectorConfig] =
+    usePerpTokenSelectorConfigPersistAtom();
+
   const tabNames = useMemo(
     () => ({
       all: 'PERPS',
@@ -148,7 +153,17 @@ function BasePerpTokenSelectorContent({
     }),
     [],
   );
-  const [activeTab, setActiveTab] = useState<'all' | 'hip3'>('all');
+  const activeTab = selectorConfig?.activeTab ?? 'all';
+  const setActiveTab = useCallback(
+    (tab: 'all' | 'hip3') => {
+      setSelectorConfig((prev) => ({
+        field: prev?.field ?? 'volume24h',
+        direction: prev?.direction ?? 'desc',
+        activeTab: tab,
+      }));
+    },
+    [setSelectorConfig],
+  );
 
   const handleSelectToken = useCallback(
     async (symbol: string) => {
@@ -166,10 +181,6 @@ function BasePerpTokenSelectorContent({
     },
     [closePopover, actions, onLoadingChange],
   );
-
-  const [{ assetsByDex }] = usePerpsAllAssetsFilteredAtom();
-  const [{ assetCtxsByDex }] = usePerpsAllAssetCtxsAtom();
-  const [sortConfig] = usePerpTokenSortConfigPersistAtom();
 
   const computeSortValues = useCallback(
     (assetCtx: IPerpsAssetCtx | undefined) => {
@@ -204,8 +215,8 @@ function BasePerpTokenSelectorContent({
         sortValues: ReturnType<typeof computeSortValues>;
       },
     ) => {
-      const sortField = sortConfig?.field ?? '';
-      const sortDirection = sortConfig?.direction ?? 'desc';
+      const sortField = selectorConfig?.field ?? '';
+      const sortDirection = selectorConfig?.direction ?? 'desc';
       if (!sortField) {
         return 0;
       }
@@ -238,7 +249,7 @@ function BasePerpTokenSelectorContent({
       }
       return sortDirection === 'asc' ? compareResult : -compareResult;
     },
-    [sortConfig?.direction, sortConfig?.field],
+    [selectorConfig?.direction, selectorConfig?.field],
   );
 
   const buildListData = useCallback(
@@ -251,8 +262,7 @@ function BasePerpTokenSelectorContent({
       assetCtxs: IPerpsAssetCtx[];
       dexIndex: number;
     }) => {
-      const sortField = sortConfig?.field ?? '';
-      const sortDirection = sortConfig?.direction ?? 'desc';
+      const sortField = selectorConfig?.field ?? '';
       if (!assets?.length) {
         return [];
       }
@@ -290,7 +300,7 @@ function BasePerpTokenSelectorContent({
         dexIndex: entry.dexIndex,
       }));
     },
-    [computeSortValues, sortCompare, sortConfig?.direction, sortConfig?.field],
+    [computeSortValues, sortCompare, selectorConfig?.field],
   );
 
   const listDataByTab = useMemo(() => {
@@ -328,7 +338,7 @@ function BasePerpTokenSelectorContent({
       },
     );
 
-    const sortField = sortConfig?.field ?? '';
+    const sortField = selectorConfig?.field ?? '';
     const listAll = (() => {
       if (!sortField) {
         return combinedEntries.map((entry) => ({
@@ -360,7 +370,7 @@ function BasePerpTokenSelectorContent({
     buildListData,
     computeSortValues,
     sortCompare,
-    sortConfig?.field,
+    selectorConfig?.field,
   ]);
 
   const keyExtractor = useCallback(
@@ -431,7 +441,7 @@ function BasePerpTokenSelectorContent({
           />
         </XStack>
         <Tabs.Container
-          initialTabName={tabNames.all}
+          initialTabName={activeTab === 'hip3' ? tabNames.hip3 : tabNames.all}
           onTabChange={({ tabName }) => {
             if (tabName === tabNames.hip3) {
               setActiveTab('hip3');
