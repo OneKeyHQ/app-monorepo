@@ -1,3 +1,5 @@
+import { memo } from 'react';
+
 import { Page } from '@onekeyhq/components';
 import { TabPageHeader } from '@onekeyhq/kit/src//components/TabPageHeader';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorProvider';
@@ -11,15 +13,9 @@ import { withBrowserProvider } from '../Browser/WithBrowserProvider';
 
 import DashboardContent from './DashboardContent';
 
-function Dashboard() {
+function BaseDashboard() {
   return (
-    <AccountSelectorProviderMirror
-      config={{
-        sceneName: EAccountSelectorSceneName.home,
-        sceneUrl: '',
-      }}
-      enabledNum={[0]}
-    >
+    <>
       <TabPageHeader
         sceneName={EAccountSelectorSceneName.home}
         tabRoute={ETabRoutes.Discovery}
@@ -31,6 +27,22 @@ function Dashboard() {
           {platformEnv.isNativeIOSPad ? <MobileBrowserBottomBar id="" /> : null}
         </Page.Body>
       </Page>
+    </>
+  );
+}
+
+const MemoizedBaseDashboard = memo(BaseDashboard);
+
+function Dashboard() {
+  return (
+    <AccountSelectorProviderMirror
+      config={{
+        sceneName: EAccountSelectorSceneName.home,
+        sceneUrl: '',
+      }}
+      enabledNum={[0]}
+    >
+      <MemoizedBaseDashboard />
     </AccountSelectorProviderMirror>
   );
 }
