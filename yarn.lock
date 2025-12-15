@@ -7375,6 +7375,16 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@onekeyfe/react-native-background-thread@npm:1.1.7":
+  version: 1.1.7
+  resolution: "@onekeyfe/react-native-background-thread@npm:1.1.7"
+  peerDependencies:
+    react: "*"
+    react-native: "*"
+  checksum: 10/6a874d9294ab8523f9c27627df88ee148566a4f4c6cff9571874b97b45b81b694e015ea951b242799a231d102bd04abf461270fe354733a273d576240534f3e7
+  languageName: node
+  linkType: hard
+
 "@onekeyfe/react-native-ble-utils@npm:0.1.4, @onekeyfe/react-native-ble-utils@npm:^0.1.4":
   version: 0.1.4
   resolution: "@onekeyfe/react-native-ble-utils@npm:0.1.4"
@@ -7850,6 +7860,7 @@ __metadata:
     "@formatjs/intl-pluralrules": "npm:^4.3.3"
     "@notifee/react-native": "npm:9.1.8"
     "@onekeyfe/react-native-animated-charts": "npm:1.0.0"
+    "@onekeyfe/react-native-background-thread": "npm:1.1.7"
     "@onekeyfe/react-native-ble-utils": "npm:0.1.4"
     "@onekeyfe/react-native-check-biometric-auth-changed": "npm:1.1.7"
     "@onekeyfe/react-native-cloud-kit-module": "npm:1.1.7"
