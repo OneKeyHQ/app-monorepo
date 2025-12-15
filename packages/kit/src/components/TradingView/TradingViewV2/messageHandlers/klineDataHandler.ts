@@ -64,7 +64,7 @@ function buildTransactionMarks({
   });
 }
 
-async function fetchAndSendAccountMarks({
+export async function fetchAndSendAccountMarks({
   accountAddress,
   tokenAddress,
   networkId,
