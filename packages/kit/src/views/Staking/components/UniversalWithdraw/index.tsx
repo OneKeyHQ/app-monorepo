@@ -186,6 +186,7 @@ export function UniversalWithdraw({
         : undefined,
       identity,
       accountAddress: account.address,
+      withdrawAll: withdrawAllRef.current,
     });
     return resp;
   }, [
