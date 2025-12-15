@@ -55,6 +55,8 @@ export type IDeFiPosition = {
   rewards: IDeFiAsset[];
   metrics: IMetrics;
   source: IDeFiSource;
+  groupId: string;
+  name: string;
 };
 
 export type IProtocolSummary = {
@@ -106,10 +108,11 @@ export type IDeFiProtocol = {
   categories: string[];
   positions: {
     category: string;
-    all: (IDeFiAsset & { type: EDeFiAssetType })[];
     assets: (IDeFiAsset & { type: EDeFiAssetType })[];
     debts: (IDeFiAsset & { type: EDeFiAssetType })[];
     rewards: (IDeFiAsset & { type: EDeFiAssetType })[];
     value: string;
+    groupId: string;
+    poolName: string;
   }[];
 };

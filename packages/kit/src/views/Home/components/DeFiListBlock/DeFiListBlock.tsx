@@ -9,6 +9,7 @@ import {
   NumberSizeableText,
   Skeleton,
   Stack,
+  XStack,
   YStack,
   useTabIsRefreshingFocused,
 } from '@onekeyhq/components';
@@ -476,14 +477,9 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
           ))}
         </YStack>
         {overflowState.isOverflow ? (
-          <Stack
-            alignItems="center"
-            justifyContent="center"
-            pt="$4"
-            flexDirection={tableLayout ? 'row' : 'column'}
-          >
+          <XStack alignItems="center" justifyContent="center" pt="$4">
             <Button
-              size={tableLayout ? 'small' : 'medium'}
+              size="small"
               variant="secondary"
               onPress={() =>
                 setOverflowState((prev) => ({
@@ -491,12 +487,20 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
                   isSliced: !prev.isSliced,
                 }))
               }
+              $md={
+                {
+                  flexGrow: 1,
+                  flexBasis: 0,
+                  size: 'medium',
+                  borderRadius: '$full',
+                } as any
+              }
             >
               {overflowState.isSliced
                 ? intl.formatMessage({ id: ETranslations.global_show_more })
                 : intl.formatMessage({ id: ETranslations.global_show_less })}
             </Button>
-          </Stack>
+          </XStack>
         ) : null}
       </>
     );
