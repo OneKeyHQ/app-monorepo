@@ -1,14 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
 
-export function useIsFirstFocused() {
+export function useIsFirstFocused(isFocused: boolean) {
   const isFocusedRef = useRef(false);
   const [isFirstFocused, setIsFirstFocused] = useState(false);
   useEffect(() => {
     if (isFocusedRef.current) {
       return;
     }
-    isFocusedRef.current = true;
-    setIsFirstFocused(true);
-  }, []);
+    if (isFocused) {
+      isFocusedRef.current = true;
+      setIsFirstFocused(true);
+    }
+  }, [isFocused]);
   return isFirstFocused;
 }
