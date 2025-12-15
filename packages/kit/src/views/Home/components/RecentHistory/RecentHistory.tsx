@@ -16,8 +16,20 @@ import { RichBlock } from '../RichBlock';
 function RecentHistory() {
   const intl = useIntl();
   const renderContent = useCallback(() => {
-    return <TxHistoryListContainer plainMode tableLayout={false} limit={5} />;
-  }, []);
+    return (
+      <TxHistoryListContainer
+        plainMode
+        tableLayout={false}
+        limit={5}
+        emptyTitle={intl.formatMessage({
+          id: ETranslations.wallet_transaction_history_empty_message,
+        })}
+        emptyDescription={intl.formatMessage({
+          id: ETranslations.wallet_transactions_empty_desc,
+        })}
+      />
+    );
+  }, [intl]);
   return (
     <RichBlock
       title={intl.formatMessage({
