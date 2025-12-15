@@ -1,5 +1,5 @@
 import { encodeSensitiveTextAsync } from '@onekeyhq/core/src/secret';
-import secureStorageInstance from '@onekeyhq/shared/src/storage/instance/secureStorageInstance';
+import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 
 import { biologyAuthUtils } from '../../services/ServicePassword/biologyAuthUtils';
 
@@ -7,7 +7,7 @@ import { V4MigrationManagerBase } from './V4MigrationManagerBase';
 
 export class V4MigrationForSecurePassword extends V4MigrationManagerBase {
   private async getV4SecurePassword(): Promise<string> {
-    const v4SecurePassword = await secureStorageInstance.getSecureItem(
+    const v4SecurePassword = await appStorage.secureStorage.getSecureItem(
       'password',
     );
     if (v4SecurePassword) {

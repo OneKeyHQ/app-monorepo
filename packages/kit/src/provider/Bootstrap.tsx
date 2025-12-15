@@ -41,15 +41,16 @@ import performance from '@onekeyhq/shared/src/performance';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EDiscoveryModalRoutes,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   EGalleryRoutes,
   EModalRoutes,
   EModalSettingRoutes,
   EMultiTabBrowserRoutes,
-  EOnboardingPagesV2,
-  EOnboardingV2Routes,
   ETabEarnRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { ERootRoutes } from '@onekeyhq/shared/src/routes/root';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
@@ -672,12 +673,12 @@ export function Bootstrap() {
         navigation.switchTab(autoNavigation.selectedTab as ETabRoutes);
         // ----------------------------------------------
         // navigate to auth gallery
-        navigation.navigate(ERootRoutes.Main, {
-          screen: ETabRoutes.Developer,
-          params: {
-            screen: EGalleryRoutes.ComponentAuth,
-          },
-        });
+        // navigation.navigate(ERootRoutes.Main, {
+        //   screen: ETabRoutes.Developer,
+        //   params: {
+        //     screen: EGalleryRoutes.ComponentAuth,
+        //   },
+        // });
         // ----------------------------------------------
         // navigation.pushModal(EModalRoutes.PrimeModal, {
         //   screen: EPrimePages.PrimeTransfer,
@@ -693,6 +694,9 @@ export function Bootstrap() {
         //     screen: EOnboardingPagesV2.AddExistingWallet,
         //   },
         // });
+        navigation.navigate(ETabRoutes.Developer, {
+          screen: EGalleryRoutes.ComponentKeylessWallet,
+        });
       }, 1000);
 
       return () => clearTimeout(timer);

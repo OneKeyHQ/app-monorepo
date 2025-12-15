@@ -62,6 +62,7 @@ export interface IHardwareErrorDialogPayload {
 }
 
 export enum EFinalizeWalletSetupSteps {
+  // Regular wallet steps
   CreatingWallet = 'CreatingWallet',
   GeneratingAccounts = 'GeneratingAccounts',
   EncryptingData = 'EncryptingData',
@@ -417,6 +418,7 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.MarketHomePageEnter]: {
     from: EEnterWay;
   };
+  [EAppEventBusNames.MarketWatchListV2Changed]: undefined;
 }
 
 export enum EEventBusBroadcastMethodNames {

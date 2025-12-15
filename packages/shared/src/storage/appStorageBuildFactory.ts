@@ -1,0 +1,53 @@
+import appGlobals from '../appGlobals';
+import dbPerfMonitor from '../utils/debug/dbPerfMonitor';
+import resetUtils from '../utils/resetUtils';
+
+import { createPrintMethod } from './createPrintMethod';
+import secureStorageInstance from './instance/secureStorageInstance';
+import { syncStorage } from './instance/syncStorageInstance';
+
+import type { AsyncStorageStatic, IAppStorage } from './appStorageTypes';
+
+export const buildAppStorageFactory = (
+  appStorage: AsyncStorageStatic,
+): IAppStorage => {
+  const storage = appStorage as IAppStorage;
+
+  const originalSetItem = storage.setItem;
+  const originalGetItem = storage.getItem;
+  const originalRemoveItem = storage.removeItem;
+
+  const setItem: IAppStorage['setItem'] = (key, value, callback) => {
+    resetUtils.checkNotInResetting();
+    dbPerfMonitor.logAppStorageCall('setItem', key);
+    // ensureRunOnBackground();
+    return originalSetItem.call(storage, key, value, callback);
+  };
+  const getItem: IAppStorage['getItem'] = (key, callback) => {
+    dbPerfMonitor.logAppStorageCall('getItem', key);
+    // ensureRunOnBackground();
+    return originalGetItem.call(storage, key, callback);
+  };
+  // eslint-disable-next-line arrow-body-style
+  const removeItem: IAppStorage['removeItem'] = (key, callback) => {
+    // ensureRunOnBackground();
+    return originalRemoveItem.call(storage, key, callback);
+  };
+
+  storage.setItem = setItem;
+  storage.getItem = getItem;
+  storage.removeItem = removeItem;
+
+  storage.syncStorage = syncStorage;
+  storage.secureStorage = secureStorageInstance;
+
+  appGlobals.$appStorage = storage;
+  if (process.env.NODE_ENV !== 'production') {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    // @ts-ignore
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    appGlobals.$appStorage.print = createPrintMethod({ storage: appStorage });
+  }
+
+  return storage;
+};

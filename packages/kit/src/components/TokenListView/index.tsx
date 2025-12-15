@@ -13,6 +13,7 @@ import {
   Tabs,
   XStack,
   YStack,
+  useMedia,
   useStyle,
 } from '@onekeyhq/components';
 import { SEARCH_KEY_MIN_LENGTH } from '@onekeyhq/shared/src/consts/walletConsts';
@@ -154,6 +155,7 @@ function TokenListViewCmp(props: IProps) {
   } = props;
 
   const intl = useIntl();
+  const media = useMedia();
 
   const [overFlowState, setOverFlowState] = useState<{
     isOverflow: boolean;

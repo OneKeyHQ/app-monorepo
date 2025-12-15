@@ -59,7 +59,7 @@ function Protocol({
         dataIndex: 'symbol',
         render: (symbol: string, record: IDeFiAsset) => (
           <XStack gap="$3" alignItems="center">
-            <Token size="lg" tokenImageUri={record.meta?.logoUrl} />
+            <Token size="md" tokenImageUri={record.meta?.logoUrl} />
             <SizableText size="$bodyMdMedium">{symbol}</SizableText>
           </XStack>
         ),
@@ -287,13 +287,13 @@ function Protocol({
             <>
               <XStack gap="$3" alignItems="center">
                 <Token
-                  size="lg"
+                  size="md"
                   tokenImageUri={protocolInfo?.protocolLogo}
                   isNFT
                   showNetworkIcon={isAllNetworks}
                   networkId={protocol.networkId}
                 />
-                <SizableText size="$headingLg">
+                <SizableText size="$headingMd">
                   {protocolInfo?.protocolName ?? protocol.protocol}
                 </SizableText>
                 <IconButton
@@ -308,7 +308,7 @@ function Protocol({
               </XStack>
               <XStack alignItems="center" gap="$3">
                 <NumberSizeableText
-                  size="$headingLg"
+                  size="$headingMd"
                   formatter="value"
                   formatterOptions={{ currency: settings.currencyInfo.symbol }}
                 >

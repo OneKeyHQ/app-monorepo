@@ -5,7 +5,10 @@ export {
   handleAnalyticsEvent,
   handleAnalyticsStudyCreated,
 } from './analyticsHandler';
-export { handleKLineDataRequest } from './klineDataHandler';
+export {
+  fetchAndSendAccountMarks,
+  handleKLineDataRequest,
+} from './klineDataHandler';
 export { handleLayoutUpdate } from './layoutUpdateHandler';
 export { useTradingViewMessageHandler } from './useTradingViewMessageHandler';
 export type {
