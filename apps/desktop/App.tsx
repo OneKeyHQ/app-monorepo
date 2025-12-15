@@ -9,8 +9,19 @@ import {
   withSentryHOC,
 } from '@onekeyhq/shared/src/modules3rdParty/sentry';
 import { SentryErrorBoundaryFallback } from '@onekeyhq/kit/src/components/ErrorBoundary';
+import {
+  ReanimatedLogLevel,
+  configureReanimatedLogger,
+} from 'react-native-reanimated';
 
 initSentry();
+
+if (process.env.NODE_ENV !== 'production') {
+  configureReanimatedLogger({
+    level: ReanimatedLogLevel.error,
+    strict: true, // Reanimated runs in strict mode by default
+  });
+}
 
 export default withSentryHOC(KitProvider, SentryErrorBoundaryFallback);
 // export default KitProvider;
