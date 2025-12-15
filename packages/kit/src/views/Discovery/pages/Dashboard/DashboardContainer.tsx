@@ -19,7 +19,7 @@ function BaseDashboard() {
       />
       <Page>
         <Page.Body>
-          {/* <DashboardContent /> */}
+          <DashboardContent />
         </Page.Body>
       </Page>
     </>
