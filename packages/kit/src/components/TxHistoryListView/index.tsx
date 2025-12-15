@@ -419,6 +419,8 @@ function BaseTxHistoryListView(props: IProps) {
     tokenMap,
     tableLayout,
     plainMode,
+    emptyTitle,
+    emptyDescription,
   ]);
 
   if (plainMode) {

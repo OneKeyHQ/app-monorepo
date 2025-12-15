@@ -1,3 +1,5 @@
+import type { ICurrencyItem } from '@onekeyhq/kit/src/views/Setting/pages/Currency';
+
 export type IFetchAccountDeFiPositionsParams = {
   accountId: string;
   networkId: string;
@@ -7,7 +9,9 @@ export type IFetchAccountDeFiPositionsParams = {
   allNetworksNetworkId?: string;
   saveToLocal?: boolean;
   excludeLowValueProtocols?: boolean;
-  lowValueProtocolsThreshold?: number;
+  lowValueProtocolsThresholdUsd?: number;
+  sourceCurrencyInfo?: ICurrencyItem;
+  targetCurrencyInfo?: ICurrencyItem;
 };
 
 export enum EDeFiAssetType {

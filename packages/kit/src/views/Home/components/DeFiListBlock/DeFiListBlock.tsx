@@ -25,7 +25,10 @@ import {
   useDeFiListProtocolsAtom,
   useDeFiListStateAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/deFiList';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useCurrencyPersistAtom,
+  useSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   POLLING_DEBOUNCE_INTERVAL,
   POLLING_INTERVAL_FOR_DEFI,
@@ -51,6 +54,13 @@ const MAX_PROTOCOLS_ON_SMALL_SCREEN = 6;
 function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
   const intl = useIntl();
   const [settings] = useSettingsPersistAtom();
+  const [{ currencyMap }] = useCurrencyPersistAtom();
+
+  const sourceCurrencyInfo = useMemo(
+    () => currencyMap[settings.currencyInfo.id],
+    [settings.currencyInfo.id, currencyMap],
+  );
+  const targetCurrencyInfo = useMemo(() => currencyMap.usd, [currencyMap]);
 
   const {
     updateDeFiListOverview,
@@ -96,6 +106,8 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
             networkId: network.id,
             accountAddress: account.address,
             excludeLowValueProtocols: true,
+            sourceCurrencyInfo,
+            targetCurrencyInfo,
           });
         updateDeFiListOverview({
           overview: {
@@ -129,6 +141,8 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
       updateDeFiListProtocols,
       updateDeFiListProtocolMap,
       updateDeFiListState,
+      sourceCurrencyInfo,
+      targetCurrencyInfo,
     ],
     {
       overrideIsFocused: (isPageFocused) => isPageFocused && isFocused,
@@ -180,6 +194,8 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
         allNetworksNetworkId: network?.id,
         saveToLocal: true,
         excludeLowValueProtocols: true,
+        sourceCurrencyInfo,
+        targetCurrencyInfo,
       });
 
       if (!allNetworkDataInit && r.isSameAllNetworksAccountData) {
@@ -228,6 +244,8 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
       network?.id,
       updateAllNetworkData,
       updateDeFiListProtocolMap,
+      sourceCurrencyInfo,
+      targetCurrencyInfo,
     ],
   );
 
