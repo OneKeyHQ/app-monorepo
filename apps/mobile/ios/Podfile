@@ -174,9 +174,9 @@ target 'OneKeyWallet' do
   use_expo_modules!
   config = use_native_modules!
 
-  use_frameworks! :linkage => podfile_properties['ios.useFrameworks'].to_sym if podfile_properties['ios.useFrameworks']
-  use_frameworks! :linkage => ENV['USE_FRAMEWORKS'].to_sym if ENV['USE_FRAMEWORKS']
-  use_frameworks! :linkage => :static
+  # use_frameworks! :linkage => podfile_properties['ios.useFrameworks'].to_sym if podfile_properties['ios.useFrameworks']
+  # use_frameworks! :linkage => ENV['USE_FRAMEWORKS'].to_sym if ENV['USE_FRAMEWORKS']
+  # use_frameworks! :linkage => :static
 
   # Flags change depending on the env values.
   flags = get_default_flags()
@@ -188,6 +188,9 @@ target 'OneKeyWallet' do
     # An absolute path to your application root.
     :app_path => "#{Pod::Config.instance.installation_root}/..",
   )
+
+  # Enable modular headers for EMASCurl to fix SniConnect dependency
+  pod 'EMASCurl', :modular_headers => true
 
   post_install do |installer|
     react_native_post_install(

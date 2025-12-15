@@ -155,6 +155,7 @@ export function UniversalStake({
   const showEstimateGasAlert = useShowStakeEstimateGasAlert();
   const [amountValue, setAmountValue] = useState('');
   const [approving, setApproving] = useState<boolean>(false);
+  const [submitting, setSubmitting] = useState<boolean>(false);
   const [selectedValidator, setSelectedValidator] = useState<
     string | undefined
   >(ongoingValidator?.select?.defaultValue);
@@ -753,12 +754,17 @@ export function UniversalStake({
       stakefishPermitMessageRef.current = undefined;
     };
     const handleConfirm = async () => {
-      await onConfirm?.({
-        amount: amountValue,
-        ...permitSignatureParams,
-        ...stakefishParams,
-      });
-      resetAmount();
+      setSubmitting(true);
+      try {
+        await onConfirm?.({
+          amount: amountValue,
+          ...permitSignatureParams,
+          ...stakefishParams,
+        });
+        resetAmount();
+      } finally {
+        setSubmitting(false);
+      }
     };
 
     // Wait for the dialog confirmation if it's shown
@@ -1163,7 +1169,8 @@ export function UniversalStake({
         }}
         confirmButtonProps={{
           onPress: shouldApprove ? onApprove : onSubmit,
-          loading: loadingAllowance || approving || checkAmountLoading,
+          loading:
+            loadingAllowance || approving || submitting || checkAmountLoading,
           disabled: isDisable,
           w: '100%',
         }}
@@ -1481,7 +1488,11 @@ export function UniversalStake({
               onConfirmText={onConfirmText}
               confirmButtonProps={{
                 onPress: shouldApprove ? onApprove : onSubmit,
-                loading: loadingAllowance || approving || checkAmountLoading,
+                loading:
+                  loadingAllowance ||
+                  approving ||
+                  submitting ||
+                  checkAmountLoading,
                 disabled: isDisable,
               }}
             />

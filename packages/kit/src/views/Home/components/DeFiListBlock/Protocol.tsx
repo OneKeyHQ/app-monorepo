@@ -74,23 +74,27 @@ function Protocol({
           record: IDeFiAsset & { type: EDeFiAssetType },
         ) => {
           let type = '';
+          let badgeType = 'info';
           if (record.type === EDeFiAssetType.DEBT) {
             type = intl.formatMessage({
               id: ETranslations.wallet_defi_asset_type_borrowed,
             });
+            badgeType = 'warning';
           } else if (record.type === EDeFiAssetType.REWARD) {
             type = intl.formatMessage({
               id: ETranslations.wallet_defi_position_module_rewards,
             });
+            badgeType = 'success';
           } else if (record.type === EDeFiAssetType.ASSET) {
             type = intl.formatMessage({
               id: ETranslations.wallet_defi_asset_type_supplied,
             });
+            badgeType = 'info';
           } else {
             type = category;
           }
           return (
-            <Badge badgeType="info" badgeSize="lg">
+            <Badge badgeType={badgeType} badgeSize="lg">
               <Badge.Text textTransform="capitalize">{type}</Badge.Text>
             </Badge>
           );
@@ -125,42 +129,53 @@ function Protocol({
 
   const renderProtocolPositions = useCallback(() => {
     return protocol.positions.map((position, index) => {
-      if (index !== 0 && index !== protocol.positions.length - 1) {
-        return <Divider key={index} />;
-      }
-
       return (
-        <Stack key={position.category}>
-          <XStack
-            alignItems="center"
-            justifyContent="space-between"
-            pl="$1"
-            pr="$3"
-            py="$3"
-          >
-            <Badge badgeType="success" badgeSize="lg">
-              <Badge.Text textTransform="capitalize">
-                {position.category}
-              </Badge.Text>
-            </Badge>
-            <NumberSizeableText
-              size="$headingSm"
-              formatter="value"
-              formatterOptions={{ currency: settings.currencyInfo.symbol }}
+        <>
+          <Stack key={position.groupId}>
+            <XStack
+              alignItems="center"
+              justifyContent="space-between"
+              pl="$1"
+              pr="$3"
+              py="$3"
             >
-              {position.value}
-            </NumberSizeableText>
-          </XStack>
-          <RichTable<IDeFiAsset & { type: EDeFiAssetType }>
-            dataSource={position.all}
-            columns={columns}
-            keyExtractor={(item) => item.address}
-            estimatedItemSize={48}
-            onRow={() => ({
-              onPress: undefined,
-            })}
-          />
-        </Stack>
+              <XStack gap="$3" alignItems="center">
+                <Badge badgeType="success" badgeSize="lg">
+                  <Badge.Text textTransform="capitalize">
+                    {position.category}
+                  </Badge.Text>
+                </Badge>
+                <SizableText size="$bodyMd" color="$textSubdued">
+                  {position.poolName}
+                </SizableText>
+              </XStack>
+              <NumberSizeableText
+                size="$headingSm"
+                formatter="value"
+                formatterOptions={{ currency: settings.currencyInfo.symbol }}
+              >
+                {position.value}
+              </NumberSizeableText>
+            </XStack>
+            <RichTable<IDeFiAsset & { type: EDeFiAssetType }>
+              dataSource={[
+                ...position.assets,
+                ...position.debts,
+                ...position.rewards,
+              ]}
+              columns={columns}
+              keyExtractor={(item) => item.address}
+              estimatedItemSize={48}
+              onRow={() => ({
+                onPress: undefined,
+              })}
+            />
+          </Stack>
+          {index !== protocol.positions.length - 1 &&
+          position.category !== protocol.positions[index + 1].category ? (
+            <Divider key={index} my="$2" />
+          ) : null}
+        </>
       );
     });
   }, [protocol.positions, settings.currencyInfo.symbol, columns]);
