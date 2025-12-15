@@ -135,7 +135,7 @@ const EarnMainTabsComponent = ({
       <Tabs.Tab name={tabNames.portfolio}>
         <Tabs.ScrollView>
           <YStack pt="$6" gap="$8">
-            {/* <PortfolioTabContent portfolioData={portfolioData} /> */}
+            <PortfolioTabContent portfolioData={portfolioData} />
           </YStack>
         </Tabs.ScrollView>
       </Tabs.Tab>
