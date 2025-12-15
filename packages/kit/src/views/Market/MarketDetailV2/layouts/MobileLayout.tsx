@@ -248,7 +248,7 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
           onShowSwapDialog={showSwapDialog}
         />
       )}
-      {platformEnv.isNative && !disableTrade ? (
+      {platformEnv.isNative && !disableTrade && !isNative ? (
         <SwapFlashBtn
           buttonProps={{
             style: { position: 'absolute', bottom: 100, right: 20 },

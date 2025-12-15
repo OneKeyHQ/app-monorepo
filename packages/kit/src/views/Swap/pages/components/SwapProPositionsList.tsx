@@ -10,7 +10,10 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import { useSwapProSupportNetworksTokenListLoadingAtom } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import {
+  useSwapProEnableCurrentSymbolAtom,
+  useSwapProSupportNetworksTokenListLoadingAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
@@ -33,6 +36,7 @@ const SwapProPositionsList = ({
   const { finallyTokenList } = useSwapProPositionsListFilter();
   const [swapProSupportNetworksTokenListLoading] =
     useSwapProSupportNetworksTokenListLoadingAtom();
+  const [SwapProCurrentSymbolEnable] = useSwapProEnableCurrentSymbolAtom();
 
   const renderItem = useCallback(
     ({ item }: { item: ISwapToken }) => (
@@ -65,7 +69,9 @@ const SwapProPositionsList = ({
         />
       }
       ListFooterComponent={
-        <SwapProPositionListFooter onSearchClick={onSearchClick} />
+        SwapProCurrentSymbolEnable ? undefined : (
+          <SwapProPositionListFooter onSearchClick={onSearchClick} />
+        )
       }
     />
   );
