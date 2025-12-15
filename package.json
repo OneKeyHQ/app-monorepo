@@ -306,7 +306,7 @@
     "@polkadot/api": "14.3.1",
     "@polkadot/util": "13.2.3",
     "@polkadot/util-crypto": "13.2.3",
-    "electron": "39.0.0",
+    "electron": "39.2.7",
     "@walletconnect/universal-provider": "2.21.7",
     "@walletconnect/core": "2.21.7",
     "@walletconnect/sign-client": "2.21.7",
