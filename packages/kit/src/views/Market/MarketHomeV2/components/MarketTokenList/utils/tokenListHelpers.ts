@@ -63,8 +63,14 @@ export function transformApiItemToToken(
     sortIndex?: number;
   },
 ): IMarketToken {
+  // Use token's own networkId to get network logo, fallback to passed chainId
+  const tokenNetworkId = item.networkId || chainId;
+  const tokenNetworkLogoUri = item.networkId
+    ? getNetworkLogoUri(item.networkId)
+    : networkLogoUri;
+
   return {
-    id: `${item.address}${item.name}${networkLogoUri}${item.symbol}`,
+    id: `${item.address}${item.name}${tokenNetworkLogoUri}${item.symbol}`,
     name: item.name,
     symbol: item.symbol,
     address: item.address,
@@ -78,8 +84,8 @@ export function transformApiItemToToken(
     turnover: safeNumber(item.volume24h),
     tokenImageUri: item.logoUrl || '',
     decimals: item.decimals,
-    networkLogoUri,
-    networkId: item.networkId || chainId,
+    networkLogoUri: tokenNetworkLogoUri,
+    networkId: tokenNetworkId,
     chainId,
     firstTradeTime: item.firstTradeTime
       ? Number(item.firstTradeTime)

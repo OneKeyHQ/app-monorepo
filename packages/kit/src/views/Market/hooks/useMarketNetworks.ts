@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
@@ -42,7 +43,7 @@ export function useMarketNetworks() {
       return [];
     }
     const networkMap = new Map(allNetworks.map((n) => [n.id, n]));
-    return networkIds
+    const networks = networkIds
       .map((networkId) => {
         const networkInfo = networkMap.get(networkId);
         if (networkInfo) {
@@ -65,6 +66,19 @@ export function useMarketNetworks() {
         return fallback;
       })
       .filter(Boolean);
+
+    // Add "All Networks" option at the first position
+    const allNetworkId = getNetworkIdsMap().onekeyall;
+    const allNetworkInfo = networkMap.get(allNetworkId);
+    if (allNetworkInfo) {
+      return [allNetworkInfo, ...networks];
+    }
+    // Fallback to local network info if not found in allNetworks
+    const allNetworkFallback = networkUtils.getLocalNetworkInfo(allNetworkId);
+    if (allNetworkFallback) {
+      return [allNetworkFallback, ...networks];
+    }
+    return networks;
   }, [allNetworks, networkIds, sortedNetworkList]);
 
   const isLoading = isConfigLoading || Boolean(isServerNetworksLoading);

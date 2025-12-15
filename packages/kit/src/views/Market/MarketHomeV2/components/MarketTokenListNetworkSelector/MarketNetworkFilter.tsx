@@ -108,6 +108,7 @@ const MarketNetworkFilter = forwardRef<
                   networkName={network.name}
                   networkImageUri={network.logoURI}
                   isSelected={network?.id === selectedNetwork?.id}
+                  isAllNetworks={network.isAllNetworks}
                   onPress={() => onSelectNetwork(network)}
                   onTouchStart={() => onSelectNetwork(network)}
                   onMouseDown={() => onSelectNetwork(network)}
