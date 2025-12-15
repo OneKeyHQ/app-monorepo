@@ -195,6 +195,10 @@ export function useAccountSelectorCreateAddress() {
             return await addAccounts();
           } catch (error2) {
             if (isAirGapAccountNotFound(error2)) {
+              const isBtcOnlyWallet =
+                await serviceAccount.isBtcOnlyFirmwareByWalletId({
+                  walletId: account.walletId,
+                });
               Dialog.show({
                 title: intl.formatMessage({
                   id: ETranslations.qr_wallet_address_creation_failed_dialog_title,
@@ -209,7 +213,9 @@ export function useAccountSelectorCreateAddress() {
                       tutorials={[
                         {
                           title: intl.formatMessage({
-                            id: ETranslations.qr_wallet_address_creation_failed_supports_network_desc,
+                            id: isBtcOnlyWallet
+                              ? ETranslations.qr_wallet_btc_only_address_creation_failed_supports_network_desc
+                              : ETranslations.qr_wallet_address_creation_failed_supports_network_desc,
                           }),
                         },
                         {
