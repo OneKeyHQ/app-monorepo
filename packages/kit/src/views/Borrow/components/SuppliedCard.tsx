@@ -62,7 +62,6 @@ export const SuppliedCard = () => {
                 buttonText={<EarnText text={{ text: 'Withdraw' }} />}
                 item={item}
                 onPress={() => {}}
-                needAdditionButton
               />
             ),
             flex: 1,

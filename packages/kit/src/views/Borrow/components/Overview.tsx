@@ -121,7 +121,7 @@ export const Overview = () => {
         needDivider
         title={{ text: 'Health factor' }} // FIXME[borrow]: i18n
         text={
-          reserves?.overview?.healthFactor.text ?? {
+          reserves?.overview?.healthFactor?.text ?? {
             text: amountPlaceholder,
             color: '$textDisabled',
           }
