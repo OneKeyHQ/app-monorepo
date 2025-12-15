@@ -196,14 +196,14 @@ function ApprovalListContainer() {
   );
 }
 
-const ApprovalListContainerWithProvider = memo(() => {
+function BaseApprovalListContainerWithProvider() {
   return (
     <HomeApprovalListProviderMirror>
       <ApprovalListContainer />
     </HomeApprovalListProviderMirror>
   );
-});
-ApprovalListContainerWithProvider.displayName =
-  'ApprovalListContainerWithProvider';
+}
 
-export { ApprovalListContainerWithProvider };
+export const ApprovalListContainerWithProvider = memo(
+  BaseApprovalListContainerWithProvider,
+);
