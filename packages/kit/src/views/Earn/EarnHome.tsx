@@ -8,7 +8,6 @@ import {
 } from 'react';
 
 import {
-  Page,
   RefreshControl,
   Stack,
   XStack,
