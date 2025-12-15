@@ -20,22 +20,17 @@ import { PortfolioTabContent } from './PortfolioTabContent';
 import { ProtocolsTabContent } from './ProtocolsTabContent';
 
 import type { IUseEarnPortfolioReturn } from '../hooks/useEarnPortfolio';
+import type { TabBarProps } from 'react-native-collapsible-tab-view';
 
 const EarnMainTabsComponent = ({
-  isMobile,
   faqList,
   isFaqLoading = false,
-  isAccountsLoading,
-  refreshEarnAccounts,
   containerProps,
   defaultTab,
   portfolioData,
 }: {
-  isMobile: boolean;
   faqList: Array<{ question: string; answer: string }>;
   isFaqLoading?: boolean;
-  isAccountsLoading?: boolean;
-  refreshEarnAccounts?: () => void;
   containerProps?: any;
   defaultTab?: 'assets' | 'portfolio' | 'faqs';
   portfolioData: IUseEarnPortfolioReturn;
@@ -110,16 +105,18 @@ const EarnMainTabsComponent = ({
 
   const tabContainerWidth = useTabContainerWidth();
 
+  const renderContent = useCallback((tabBarProps: TabBarProps<string>) => {
+    const handleTabPress = (name: string) => {
+      tabBarProps.onTabPress?.(name);
+    };
+    return <Tabs.TabBar {...tabBarProps} onTabPress={handleTabPress} />;
+  }, []);
+
   return (
     <Tabs.Container
       width={platformEnv.isNative ? tabContainerWidth : undefined}
       ref={tabsRef}
-      renderTabBar={(tabBarProps) => {
-        const handleTabPress = (name: string) => {
-          tabBarProps.onTabPress?.(name);
-        };
-        return <Tabs.TabBar {...tabBarProps} onTabPress={handleTabPress} />;
-      }}
+      renderTabBar={renderContent}
       initialTabName={initialTabName}
       onTabChange={handleTabChange}
       {...containerProps}
