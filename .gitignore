@@ -11,7 +11,7 @@ __generated__
 .claude/settings.local.json
 .clauderc
 .tmp/
-
+*.private_ai_docs.md
 dist
 build-electron
 .next

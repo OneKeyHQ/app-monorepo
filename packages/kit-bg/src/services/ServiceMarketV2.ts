@@ -4,6 +4,10 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import sortUtils from '@onekeyhq/shared/src/utils/sortUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -18,10 +22,12 @@ import type {
   IMarketTokenDetailResponse,
   IMarketTokenHoldersResponse,
   IMarketTokenKLineResponse,
+  IMarketTokenListItem,
   IMarketTokenListResponse,
   IMarketTokenSecurityBatchResponse,
   IMarketTokenTransactionsResponse,
 } from '@onekeyhq/shared/types/marketV2';
+import type { INotificationWatchlistToken } from '@onekeyhq/shared/types/notification';
 
 import { type IDBCloudSyncItem } from '../dbs/local/types';
 
@@ -31,6 +37,26 @@ import ServiceBase from './ServiceBase';
 class ServiceMarketV2 extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
+  }
+
+  // Cache for batch token list items with auto-expiration
+  // Key: chainId:contractAddress, Value: { data, timestamp }
+  private _marketTokenBatchCache = new Map<
+    string,
+    { data: IMarketTokenListItem; timestamp: number }
+  >();
+
+  private _marketTokenBatchCacheTTL = timerUtils.getTimeDurationMs({
+    seconds: 30,
+  });
+
+  private _cleanExpiredMarketTokenBatchCache() {
+    const now = Date.now();
+    for (const [key, value] of this._marketTokenBatchCache) {
+      if (now - value.timestamp > this._marketTokenBatchCacheTTL) {
+        this._marketTokenBatchCache.delete(key);
+      }
+    }
   }
 
   @backgroundMethod()
@@ -276,17 +302,64 @@ class ServiceMarketV2 extends ServiceBase {
       isNative: boolean;
     }[];
   }) {
+    // Clean expired cache entries periodically
+    this._cleanExpiredMarketTokenBatchCache();
+
+    const now = Date.now();
+    const cachedResults: IMarketTokenListItem[] = [];
+    const missingTokens: typeof tokenAddressList = [];
+    const tokenIndexMap = new Map<string, number>();
+
+    // Check cache for each token
+    tokenAddressList.forEach((token, index) => {
+      const cacheKey = `${
+        token.chainId
+      }:${token.contractAddress.toLowerCase()}`;
+      tokenIndexMap.set(cacheKey, index);
+
+      const cached = this._marketTokenBatchCache.get(cacheKey);
+      if (cached && now - cached.timestamp < this._marketTokenBatchCacheTTL) {
+        cachedResults[index] = cached.data;
+      } else {
+        missingTokens.push(token);
+      }
+    });
+
+    // If all tokens are cached, return immediately
+    if (missingTokens.length === 0) {
+      return { list: cachedResults };
+    }
+
+    // Fetch missing tokens from API
     const client = await this.getClient(EServiceEndpointEnum.Utility);
     const response = await client.post<{
       code: number;
       message: string;
       data: IMarketTokenBatchListResponse;
     }>('/utility/v2/market/token/list/batch', {
-      tokenAddressList,
+      tokenAddressList: missingTokens,
     });
 
     const { data } = response.data;
-    return data;
+
+    // Update cache and merge results
+    data.list.forEach((item, apiIndex) => {
+      const token = missingTokens[apiIndex];
+      const cacheKey = `${
+        token.chainId
+      }:${token.contractAddress.toLowerCase()}`;
+      const originalIndex = tokenIndexMap.get(cacheKey);
+
+      // Update cache
+      this._marketTokenBatchCache.set(cacheKey, { data: item, timestamp: now });
+
+      // Place in correct position
+      if (originalIndex !== undefined) {
+        cachedResults[originalIndex] = item;
+      }
+    });
+
+    return { list: cachedResults };
   }
 
   async buildMarketWatchListV2SyncItems({
@@ -366,11 +439,17 @@ class ServiceMarketV2 extends ServiceBase {
       isDeleted: false,
       skipSaveLocalSyncItem,
       skipEventEmit,
-      fn: () =>
-        this.backgroundApi.simpleDb.marketWatchListV2.addMarketWatchListV2({
-          watchList: newWatchList,
-          callerName,
-        }),
+      fn: async () => {
+        const result =
+          await this.backgroundApi.simpleDb.marketWatchListV2.addMarketWatchListV2(
+            {
+              watchList: newWatchList,
+              callerName,
+            },
+          );
+        appEventBus.emit(EAppEventBusNames.MarketWatchListV2Changed, undefined);
+        return result;
+      },
     });
   }
 
@@ -391,11 +470,17 @@ class ServiceMarketV2 extends ServiceBase {
       isDeleted: true,
       skipSaveLocalSyncItem,
       skipEventEmit,
-      fn: () =>
-        this.backgroundApi.simpleDb.marketWatchListV2.removeMarketWatchListV2({
-          items,
-          callerName,
-        }),
+      fn: async () => {
+        const result =
+          await this.backgroundApi.simpleDb.marketWatchListV2.removeMarketWatchListV2(
+            {
+              items,
+              callerName,
+            },
+          );
+        appEventBus.emit(EAppEventBusNames.MarketWatchListV2Changed, undefined);
+        return result;
+      },
     });
   }
 
@@ -437,7 +522,57 @@ class ServiceMarketV2 extends ServiceBase {
 
   @backgroundMethod()
   async clearAllMarketWatchListV2() {
-    return this.backgroundApi.simpleDb.marketWatchListV2.clearAllMarketWatchListV2();
+    const result =
+      await this.backgroundApi.simpleDb.marketWatchListV2.clearAllMarketWatchListV2();
+    appEventBus.emit(EAppEventBusNames.MarketWatchListV2Changed, undefined);
+    return result;
+  }
+
+  @backgroundMethod()
+  async buildWatchlistTokensForNotification(): Promise<
+    INotificationWatchlistToken[]
+  > {
+    const watchlistData = await this.getMarketWatchListV2();
+
+    if (watchlistData.data.length === 0) {
+      return [];
+    }
+
+    const tokenAddressList = watchlistData.data.map((item) => ({
+      chainId: item.chainId,
+      contractAddress: item.contractAddress,
+      isNative: item.isNative ?? false,
+    }));
+
+    let tokenDetails: IMarketTokenBatchListResponse = { list: [] };
+
+    try {
+      tokenDetails = await this.fetchMarketTokenListBatch({
+        tokenAddressList,
+      });
+    } catch (error) {
+      console.error(
+        '[ServiceMarketV2] buildWatchlistTokensForNotification fetchMarketTokenListBatch error:',
+        error,
+      );
+    }
+
+    const watchlistItems: IMarketWatchListItemV2[] = watchlistData.data;
+    const tokens: INotificationWatchlistToken[] = watchlistItems.map(
+      (item, index) => {
+        const detail = tokenDetails.list[index];
+
+        return {
+          networkId: item.chainId,
+          tokenAddress: item.contractAddress,
+          isNative: item.isNative ?? false,
+          symbol: detail?.symbol ?? '',
+          logoURI: detail?.logoUrl ?? '',
+        };
+      },
+    );
+
+    return tokens;
   }
 
   private _fetchMarketTokenSecurityCached = memoizee(

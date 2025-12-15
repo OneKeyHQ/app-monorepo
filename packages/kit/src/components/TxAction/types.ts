@@ -23,6 +23,7 @@ export type ITxActionProps = {
   replaceType?: EReplaceTxType;
   swapInfo?: ISwapTxInfo;
   hideValue?: boolean;
+  compact?: boolean;
 };
 
 export type ITxActionComponents = {
@@ -61,6 +62,7 @@ export type ITxActionCommonListViewProps = {
   networkId: string;
   networkLogoURI?: string;
   riskyLevel?: number;
+  compact?: boolean;
 };
 
 export type ITxActionCommonDetailViewProps = {
