@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { memo, useMemo } from 'react';
 
 import { isEmpty } from 'lodash';
 
@@ -27,7 +27,7 @@ function FAQPanelSkeleton() {
   );
 }
 
-export function FAQContent({
+function BaseFAQContent({
   faqList,
   isLoading = false,
 }: {
@@ -111,3 +111,5 @@ export function FAQContent({
     </Accordion>
   );
 }
+
+export const FAQContent = memo(BaseFAQContent);
