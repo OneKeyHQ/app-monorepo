@@ -43,7 +43,7 @@ function ApprovalListContainer() {
   const media = useMedia();
   const navigation = useAppNavigation();
 
-  const isFirstFocused = useIsFirstFocused();
+  const isFirstFocused = useIsFirstFocused(isFocused);
   const approvalListActions = useApprovalListActions();
 
   const { updateApprovalsInfo } = useAccountOverviewActions().current;
