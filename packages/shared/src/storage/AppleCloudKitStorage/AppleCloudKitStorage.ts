@@ -1,23 +1,17 @@
-import { NativeModules } from 'react-native';
-
 import { OneKeyLocalError } from '../../errors';
 import platformEnv from '../../platformEnv';
 
+import CloudKitModule from './cloudKitModule';
+
 import type {
-  IAppleCloudKitAccountInfo,
   IAppleCloudKitNativeModule,
-  IAppleCloudKitRecord,
   IAppleCloudKitStorage,
 } from './types';
 
 export class AppleCloudKitStorage implements IAppleCloudKitStorage {
   private getCloudKitModule(): IAppleCloudKitNativeModule {
     if (platformEnv.isNativeIOS) {
-      const m = NativeModules?.CloudKitModule;
-      if (!m) {
-        throw new OneKeyLocalError('CloudKit native module not found');
-      }
-      return m;
+      return CloudKitModule as IAppleCloudKitNativeModule;
     }
     if (platformEnv.isDesktopMac) {
       return desktopApiProxy.cloudKit;
