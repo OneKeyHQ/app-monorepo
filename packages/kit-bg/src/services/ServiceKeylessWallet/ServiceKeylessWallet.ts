@@ -110,8 +110,10 @@ class ServiceKeylessWallet extends ServiceBase {
   }
 
   @backgroundMethod()
-  async generateKeylessMnemonic(): Promise<IKeylessMnemonicInfo> {
-    return keylessWalletUtils.generateKeylessMnemonic();
+  async generateKeylessMnemonic(params?: {
+    customMnemonic?: string;
+  }): Promise<IKeylessMnemonicInfo> {
+    return keylessWalletUtils.generateKeylessMnemonic(params);
   }
 
   /**
@@ -153,10 +155,14 @@ class ServiceKeylessWallet extends ServiceBase {
 
   @backgroundMethod()
   @toastIfError()
-  async generateKeylessWalletPacks(): Promise<IKeylessWalletPacks> {
+  async generateKeylessWalletPacks(params?: {
+    customMnemonic?: string;
+  }): Promise<IKeylessWalletPacks> {
     const userInfo = await this.buildKeylessWalletUserInfo();
 
-    const mnemonicInfo = await keylessWalletUtils.generateKeylessMnemonic();
+    const mnemonicInfo = await keylessWalletUtils.generateKeylessMnemonic({
+      customMnemonic: params?.customMnemonic,
+    });
 
     const wallet = await keylessWalletUtils.generateKeylessWalletPacks({
       userInfo,
