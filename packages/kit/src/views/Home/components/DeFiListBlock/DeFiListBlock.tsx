@@ -8,7 +8,7 @@ import {
   Button,
   NumberSizeableText,
   Skeleton,
-  Stack,
+  XStack,
   YStack,
   useTabIsRefreshingFocused,
 } from '@onekeyhq/components';
@@ -24,7 +24,10 @@ import {
   useDeFiListProtocolsAtom,
   useDeFiListStateAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/deFiList';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useCurrencyPersistAtom,
+  useSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   POLLING_DEBOUNCE_INTERVAL,
   POLLING_INTERVAL_FOR_DEFI,
@@ -50,6 +53,13 @@ const MAX_PROTOCOLS_ON_SMALL_SCREEN = 6;
 function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
   const intl = useIntl();
   const [settings] = useSettingsPersistAtom();
+  const [{ currencyMap }] = useCurrencyPersistAtom();
+
+  const sourceCurrencyInfo = useMemo(
+    () => currencyMap[settings.currencyInfo.id],
+    [settings.currencyInfo.id, currencyMap],
+  );
+  const targetCurrencyInfo = useMemo(() => currencyMap.usd, [currencyMap]);
 
   const {
     updateDeFiListOverview,
@@ -76,6 +86,22 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
     activeAccount: { account, network, wallet },
   } = useActiveAccount({ num: 0 });
 
+  const [isDeFiEnabled, setIsDeFiEnabled] = useState(true);
+
+  const checkDeFiEnabled = useCallback(async () => {
+    if (network && !networkUtils.isAllNetwork({ networkId: network.id })) {
+      const enabledNetworks =
+        await backgroundApiProxy.serviceDeFi.getDeFiEnabledNetworksMap();
+      if (!enabledNetworks[network.id]) {
+        setIsDeFiEnabled(false);
+        return;
+      }
+    }
+
+    const blockData = await backgroundApiProxy.serviceStaking.getBlockRegion();
+    setIsDeFiEnabled(!blockData);
+  }, [network]);
+
   const { run } = usePromiseResult(
     async () => {
       if (!account || !network) {
@@ -83,6 +109,27 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
       }
 
       if (networkUtils.isAllNetwork({ networkId: network.id })) {
+        return;
+      }
+
+      const enabledNetworks =
+        await backgroundApiProxy.serviceDeFi.getDeFiEnabledNetworksMap();
+
+      if (!enabledNetworks[network.id]) {
+        const emptyData = defiUtils.getEmptyDeFiData();
+        updateDeFiListOverview({
+          overview: emptyData.overview,
+        });
+        updateDeFiListProtocols({
+          protocols: emptyData.protocols,
+        });
+        updateDeFiListProtocolMap({
+          protocolMap: emptyData.protocolMap,
+        });
+        updateDeFiListState({
+          initialized: true,
+          isRefreshing: false,
+        });
         return;
       }
 
@@ -95,6 +142,8 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
             networkId: network.id,
             accountAddress: account.address,
             excludeLowValueProtocols: true,
+            sourceCurrencyInfo,
+            targetCurrencyInfo,
           });
         updateDeFiListOverview({
           overview: {
@@ -128,6 +177,8 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
       updateDeFiListProtocols,
       updateDeFiListProtocolMap,
       updateDeFiListState,
+      sourceCurrencyInfo,
+      targetCurrencyInfo,
     ],
     {
       overrideIsFocused: (isPageFocused) => isPageFocused && isFocused,
@@ -179,6 +230,8 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
         allNetworksNetworkId: network?.id,
         saveToLocal: true,
         excludeLowValueProtocols: true,
+        sourceCurrencyInfo,
+        targetCurrencyInfo,
       });
 
       if (!allNetworkDataInit && r.isSameAllNetworksAccountData) {
@@ -227,6 +280,8 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
       network?.id,
       updateAllNetworkData,
       updateDeFiListProtocolMap,
+      sourceCurrencyInfo,
+      targetCurrencyInfo,
     ],
   );
 
@@ -276,6 +331,10 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
   const handleRefreshAllNetworkData = useCallback(() => {
     void runAllNetworkRequests({ alwaysSetState: true });
   }, [runAllNetworkRequests]);
+
+  useEffect(() => {
+    void checkDeFiEnabled();
+  }, [checkDeFiEnabled]);
 
   useEffect(() => {
     if (network?.isAllNetworks && isEmptyAccount) {
@@ -476,14 +535,9 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
           ))}
         </YStack>
         {overflowState.isOverflow ? (
-          <Stack
-            alignItems="center"
-            justifyContent="center"
-            pt="$4"
-            flexDirection={tableLayout ? 'row' : 'column'}
-          >
+          <XStack alignItems="center" justifyContent="center" pt="$4">
             <Button
-              size={tableLayout ? 'small' : 'medium'}
+              size="small"
               variant="secondary"
               onPress={() =>
                 setOverflowState((prev) => ({
@@ -491,12 +545,20 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
                   isSliced: !prev.isSliced,
                 }))
               }
+              $md={
+                {
+                  flexGrow: 1,
+                  flexBasis: 0,
+                  size: 'medium',
+                  borderRadius: '$full',
+                } as any
+              }
             >
               {overflowState.isSliced
                 ? intl.formatMessage({ id: ETranslations.global_show_more })
                 : intl.formatMessage({ id: ETranslations.global_show_less })}
             </Button>
-          </Stack>
+          </XStack>
         ) : null}
       </>
     );
@@ -508,6 +570,10 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
     overflowState.isOverflow,
     overflowState.isSliced,
   ]);
+
+  if (!isDeFiEnabled) {
+    return null;
+  }
 
   if (protocols.length === 0) {
     return (
