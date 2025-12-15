@@ -11,6 +11,7 @@ import type { IAccountDeriveTypes } from '../../../vaults/types';
 
 export type IPrimePersistAtomData = IPrimeUserInfo;
 export const primePersistAtomInitialValue: IPrimePersistAtomData = {
+  // export const initialPrimePersistAtomData: IPrimePersistAtomData = {
   isLoggedIn: false,
   isLoggedInOnServer: false,
   isEnablePrime: undefined,
@@ -21,6 +22,9 @@ export const primePersistAtomInitialValue: IPrimePersistAtomData = {
   onekeyUserId: undefined,
   primeSubscription: undefined,
   subscriptionManageUrl: undefined,
+  keylessWalletId: undefined, // packSetId
+  // salt: undefined,
+  // pwdHash: undefined,
 };
 export const {
   target: primePersistAtom, // persist

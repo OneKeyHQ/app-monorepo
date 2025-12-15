@@ -73,6 +73,8 @@ import {
 } from './CustomElement';
 import { DevSettingsSection } from './DevSettingsSection';
 import { showExportLogsDialog } from './exportLogs/showExportLogsDialog';
+import { OneKeyIdSubSettings } from './OneKeyIdSubSettings';
+import { OneKeyIdTabItem } from './OneKeyIdTabItem';
 import { SubSearchSettings } from './SubSettings';
 
 import type { RouteProp } from '@react-navigation/native';
@@ -90,6 +92,7 @@ export interface ISubSettingConfig {
 }
 
 export enum ESettingsTabNames {
+  OneKeyID = 'OneKeyID',
   Backup = 'Backup',
   Preferences = 'Preferences',
   Wallet = 'Wallet',
@@ -117,6 +120,11 @@ export type ISettingsConfig = (
         settingsConfig: ISettingsConfig;
       }>;
       configs: (ISubSettingConfig | undefined | null)[][];
+      // Custom tab item renderer for special tabs like OneKey ID
+      renderTabItem?: ComponentType<{
+        selected?: boolean;
+        onPress?: () => void;
+      }>;
     }
   | undefined
 )[];
@@ -151,6 +159,15 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
 
   return useMemo(
     () => [
+      // OneKey ID tab with custom rendering
+      {
+        name: ESettingsTabNames.OneKeyID,
+        icon: 'PeopleSolid',
+        title: 'OneKey ID',
+        renderTabItem: OneKeyIdTabItem,
+        Component: OneKeyIdSubSettings,
+        configs: [],
+      },
       {
         name: ESettingsTabNames.Backup,
         icon: 'CloudUploadSolid',

@@ -1,7 +1,7 @@
+import type { IBackupProviderInfo } from '@onekeyhq/shared/src/cloudBackup/cloudBackupTypes';
+
 import { EAtomNames } from '../atomNames';
 import { globalAtom } from '../utils';
-
-import type { IBackupProviderInfo } from '../../../services/ServiceCloudBackupV2/backupProviders/IOneKeyBackupProvider';
 
 export type ICloudBackupPersistAtom = {
   isEnabled: boolean;

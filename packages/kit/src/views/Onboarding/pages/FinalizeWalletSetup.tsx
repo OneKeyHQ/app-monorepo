@@ -95,6 +95,13 @@ function FinalizeWalletSetupPage({
     [EFinalizeWalletSetupSteps.Ready]: intl.formatMessage({
       id: ETranslations.onboarding_finalize_ready,
     }),
+    // TODO @franco i18n
+    [EFinalizeWalletSetupSteps.CreatingDeviceKey]:
+      'onboarding_finalize_creating_device_key',
+    [EFinalizeWalletSetupSteps.CreatingCloudKey]:
+      'onboarding_finalize_creating_cloud_key',
+    [EFinalizeWalletSetupSteps.CreatingAuthKey]:
+      'onboarding_finalize_creating_auth_key',
   };
 
   const created = useRef(false);

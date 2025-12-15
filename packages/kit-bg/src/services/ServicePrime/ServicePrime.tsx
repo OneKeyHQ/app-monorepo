@@ -6,6 +6,7 @@ import {
   backgroundMethod,
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import type { EPrimeEmailOTPScene } from '@onekeyhq/shared/src/consts/primeConsts';
 import { RESET_CLOUD_SYNC_MASTER_PASSWORD_UUID } from '@onekeyhq/shared/src/consts/primeConsts';
 import type { OneKeyError } from '@onekeyhq/shared/src/errors';
 import {
@@ -236,6 +237,7 @@ class ServicePrime extends ServiceBase {
         ...v,
         email: userEmail, // TODO update from PrimeGlobalEffect
         displayEmail: userEmail,
+        keylessWalletId: serverUserInfo?.keylessWalletId,
         onekeyUserId: serverUserInfo?.userId,
         isEnablePrime: serverUserInfo?.isEnablePrime,
         isEnableSandboxPay: serverUserInfo?.isEnableSandboxPay,
@@ -330,13 +332,19 @@ class ServicePrime extends ServiceBase {
   async setPrimePersistAtomNotLoggedIn() {
     console.log('servicePrime.setPrimePersistAtomNotLoggedIn');
     await primePersistAtom.set(
-      (): IPrimePersistAtomData => primePersistAtomInitialValue,
+      (): IPrimePersistAtomData => primePersistAtomInitialValue, // TODO clone deep
     );
     await this.backgroundApi.serviceMasterPassword.clearLocalMasterPassword();
     await primeServerMasterPasswordStatusAtom.set((v) => ({
       ...v,
       isServerMasterPasswordSet: false,
     }));
+    // Clear authPack cache when user logs out
+    try {
+      await this.backgroundApi.serviceKeylessWallet.clearAuthPackCache();
+    } catch {
+      // Ignore errors when clearing cache
+    }
   }
 
   @backgroundMethod()
@@ -755,7 +763,7 @@ class ServicePrime extends ServiceBase {
   }
 
   @backgroundMethod()
-  async sendEmailOTP(scene: string) {
+  async sendEmailOTP(scene: EPrimeEmailOTPScene) {
     if (!scene) {
       throw new OneKeyLocalError('sendEmailOTP ERROR: Invalid scene');
     }
