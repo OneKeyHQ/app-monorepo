@@ -1,8 +1,9 @@
-import { memo, useCallback, useMemo, useState } from 'react';
+import { memo, useCallback, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import {
+  type IListViewRef,
   Icon,
   ListView,
   Page,
@@ -31,6 +32,8 @@ import { PerpsAccountSelectorProviderMirror } from '../../PerpsAccountSelectorPr
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
 
 import { PerpTokenSelectorRow } from './PerpTokenSelectorRow';
+
+import type { ITokenSelectorListItem } from './PerpTokenSelector';
 
 const TAB_LABELS = {
   all: 'PERPS',
@@ -92,6 +95,7 @@ function MobileTokenSelectorModal({
   const [{ assetCtxsByDex }] = usePerpsAllAssetCtxsAtom();
   const [sortConfig, setSortConfig] = usePerpTokenSortConfigPersistAtom();
   const [activeTab, setActiveTab] = useState<'all' | 'hip3'>('all');
+  const listRef = useRef<IListViewRef<ITokenSelectorListItem> | null>(null);
 
   const computeSortValues = useCallback(
     (assetCtx: IPerpsAssetCtx | undefined) => {
@@ -235,6 +239,7 @@ function MobileTokenSelectorModal({
         }
         return { field, direction: 'desc' };
       });
+      listRef.current?.scrollToOffset?.({ offset: 0, animated: false });
     },
     [setSortConfig],
   );
@@ -346,6 +351,7 @@ function MobileTokenSelectorModal({
         <YStack flex={1} mt="$2">
           <ListView
             useFlashList
+            ref={listRef}
             keyExtractor={keyExtractor}
             estimatedItemSize={44}
             windowSize={4}
