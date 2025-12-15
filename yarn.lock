@@ -7746,7 +7746,7 @@ __metadata:
     adm-zip: "npm:^0.5.10"
     concurrently: "npm:8.2.2"
     cross-env: "npm:^7.0.3"
-    electron: "npm:39.0.0"
+    electron: "npm:39.2.7"
     electron-builder: "npm:26.0.9"
     electron-check-biometric-auth-changed: "npm:0.0.6"
     electron-context-menu: "npm:^3.5.0"
@@ -22319,16 +22319,16 @@ __metadata:
   languageName: node
   linkType: hard
 
-"electron@npm:39.0.0":
-  version: 39.0.0
-  resolution: "electron@npm:39.0.0"
+"electron@npm:39.2.7":
+  version: 39.2.7
+  resolution: "electron@npm:39.2.7"
   dependencies:
     "@electron/get": "npm:^2.0.0"
     "@types/node": "npm:^22.7.7"
     extract-zip: "npm:^2.0.1"
   bin:
     electron: cli.js
-  checksum: 10/c2bb9f84bd06d12a90c650b2741ee618426e1ce20be18ff3708bf5f373e942e75e6a8cade94c15d96a06077f7f1fae6709b95f53784456d1db09f493928b47f3
+  checksum: 10/a76dd5ee2568e533bd32e653f36795de6732b2a2a36d8af01b3a9105f5da47a8af18b7688454aa210ff03415dfba736a55acc191ef71887be1edceb536822b8f
   languageName: node
   linkType: hard
 
