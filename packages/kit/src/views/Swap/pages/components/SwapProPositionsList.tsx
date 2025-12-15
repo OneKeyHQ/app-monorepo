@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -10,24 +10,33 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import { useSwapProSupportNetworksTokenListLoadingAtom } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import {
+  useSwapProEnableCurrentSymbolAtom,
+  useSwapProSupportNetworksTokenListLoadingAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 import SwapProPositionItem from '../../components/SwapProPositionItem';
+import SwapProPositionListFooter from '../../components/SwapProPositionListFooter';
 import { useSwapProPositionsListFilter } from '../../hooks/useSwapPro';
 
 interface ISwapProPositionsListProps {
   onTokenPress: (token: ISwapToken) => void;
+  onSearchClick: () => void;
 }
 
 const ItemSeparatorComponent = () => <Divider />;
 
-const SwapProPositionsList = ({ onTokenPress }: ISwapProPositionsListProps) => {
+const SwapProPositionsList = ({
+  onTokenPress,
+  onSearchClick,
+}: ISwapProPositionsListProps) => {
   const intl = useIntl();
   const { finallyTokenList } = useSwapProPositionsListFilter();
   const [swapProSupportNetworksTokenListLoading] =
     useSwapProSupportNetworksTokenListLoadingAtom();
+  const [SwapProCurrentSymbolEnable] = useSwapProEnableCurrentSymbolAtom();
 
   const renderItem = useCallback(
     ({ item }: { item: ISwapToken }) => (
@@ -58,6 +67,11 @@ const SwapProPositionsList = ({ onTokenPress }: ISwapProPositionsListProps) => {
           icon="SearchOutline"
           title={intl.formatMessage({ id: ETranslations.global_no_results })}
         />
+      }
+      ListFooterComponent={
+        SwapProCurrentSymbolEnable ? undefined : (
+          <SwapProPositionListFooter onSearchClick={onSearchClick} />
+        )
       }
     />
   );

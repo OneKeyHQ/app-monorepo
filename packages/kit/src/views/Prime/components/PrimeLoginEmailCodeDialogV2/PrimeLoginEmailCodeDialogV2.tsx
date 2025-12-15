@@ -23,7 +23,7 @@ export function PrimeLoginEmailCodeDialogV2(props: {
   sendCode: (args: { email: string }) => Promise<void>;
   loginWithCode: (args: { code: string; email: string }) => Promise<void>;
   onLoginSuccess?: () => void | Promise<void>;
-  onConfirm: (code: string) => void;
+  onConfirm?: (code: string) => void;
 }) {
   const { email, sendCode, loginWithCode, onLoginSuccess, onConfirm } = props;
   const [isSubmittingVerificationCode, setIsSubmittingVerificationCode] =

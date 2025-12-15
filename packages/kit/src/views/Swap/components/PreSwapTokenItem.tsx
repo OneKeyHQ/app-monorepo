@@ -10,6 +10,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 import { Token } from '../../../components/Token';
@@ -33,6 +34,15 @@ const PreSwapTokenItem = ({
       : '0';
   }, [token?.price, amount]);
   const [settings] = useSettingsPersistAtom();
+  const networkImageUri = useMemo(() => {
+    if (token?.networkLogoURI) {
+      return token.networkLogoURI;
+    }
+    if (token?.networkId) {
+      return networkUtils.getLocalNetworkInfo(token.networkId)?.logoURI;
+    }
+    return '';
+  }, [token?.networkLogoURI, token?.networkId]);
   return (
     <XStack
       alignItems="center"
@@ -78,7 +88,7 @@ const PreSwapTokenItem = ({
       </YStack>
       <Token
         tokenImageUri={token?.logoURI}
-        networkImageUri={token?.networkLogoURI}
+        networkImageUri={networkImageUri}
         size="lg"
       />
     </XStack>

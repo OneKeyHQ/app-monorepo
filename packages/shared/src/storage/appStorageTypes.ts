@@ -1,6 +1,14 @@
+import type { ISyncStorage } from './instance/syncStorageInstance';
 import type MockStorage from './MockStorage';
-import type { IAppStorage } from './syncStorage';
+import type { ISecureStorage } from './secureStorage/types';
 import type { AsyncStorageStatic } from '@react-native-async-storage/async-storage';
+
+export interface IAppStorage extends AsyncStorageStatic {
+  syncStorage: ISyncStorage;
+  secureStorage: ISecureStorage;
+}
+
+export { AsyncStorageStatic };
 
 export type IAppStorageHub = {
   appStorage: AsyncStorageStatic;

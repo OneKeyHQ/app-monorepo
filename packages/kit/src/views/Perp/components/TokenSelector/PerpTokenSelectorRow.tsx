@@ -7,7 +7,6 @@ import {
 } from 'react';
 
 import {
-  Badge,
   DebugRenderTracker,
   NumberSizeableText,
   SizableText,
@@ -17,7 +16,6 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
-import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { usePerpsAllAssetsFilteredAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
@@ -87,7 +85,6 @@ function TokenSelectorRowProvider({
 
 // Desktop cell components
 const TokenInfoCellDesktop = memo(() => {
-  const themeVariant = useThemeVariant();
   const { token } = useTokenSelectorRowContext();
 
   const content = useMemo(
@@ -98,7 +95,7 @@ const TokenInfoCellDesktop = memo(() => {
         offsetY={10}
       >
         <XStack
-          width={150}
+          width={180}
           justifyContent="flex-start"
           gap="$1.5"
           alignItems="center"
@@ -106,29 +103,50 @@ const TokenInfoCellDesktop = memo(() => {
           <Token
             size="xs"
             borderRadius="$full"
-            bg={themeVariant === 'light' ? undefined : '$bgInverse'}
             tokenImageUri={getHyperliquidTokenImageUrl(token.displayName)}
             fallbackIcon="CryptoCoinOutline"
           />
           <SizableText size="$bodySmMedium">{token.displayName}</SizableText>
-          <XStack gap="$0.5" alignItems="center">
-            <Badge radius="$2" bg="$bgInfo" gap="$1">
-              <SizableText color="$textInfo" size="$bodyXsMedium">
+          <XStack gap="$1">
+            <XStack
+              borderRadius="$1"
+              bg="$bgInfo"
+              justifyContent="center"
+              alignItems="center"
+              px="$1.5"
+            >
+              <SizableText
+                fontSize={10}
+                alignSelf="center"
+                color="$textInfo"
+                lineHeight={16}
+              >
                 {token.maxLeverage}x
               </SizableText>
-            </Badge>
+            </XStack>
             {token.dexLabel ? (
-              <Badge radius="$2" bg="$bgInfo" gap="$1">
-                <SizableText color="$textInfo" size="$bodyXsMedium">
+              <XStack
+                borderRadius="$1"
+                bg="$bgInfo"
+                justifyContent="center"
+                alignItems="center"
+                px="$1.5"
+              >
+                <SizableText
+                  fontSize={10}
+                  alignSelf="center"
+                  color="$textInfo"
+                  lineHeight={16}
+                >
                   {token.dexLabel}
                 </SizableText>
-              </Badge>
+              </XStack>
             ) : null}
           </XStack>
         </XStack>
       </DebugRenderTracker>
     ),
-    [token.displayName, token.maxLeverage, token.dexLabel, themeVariant],
+    [token.displayName, token.maxLeverage, token.dexLabel],
   );
   return content;
 });
@@ -145,7 +163,7 @@ const TokenPriceCellDesktop = memo(() => {
         name="TokenPriceCellDesktop"
         offsetY={10}
       >
-        <XStack width={100} justifyContent="flex-start">
+        <XStack width={110} justifyContent="flex-start">
           <SkeletonContainer isLoading={isLoading} width="80%" height={16}>
             <NumberSizeableText
               formatter="price"
@@ -175,7 +193,7 @@ const Token24hChangeCellDesktop = memo(() => {
         name="Token24hChangeCellDesktop"
         offsetY={10}
       >
-        <XStack width={120} justifyContent="flex-start">
+        <XStack width={150} justifyContent="flex-start">
           <SkeletonContainer isLoading={isLoading} width="80%" height={16}>
             <SizableText
               size="$bodySm"
@@ -218,7 +236,7 @@ const TokenFundingCellDesktop = memo(() => {
         name="TokenFundingCellDesktop"
         offsetY={10}
       >
-        <XStack width={100} justifyContent="flex-start">
+        <XStack width={110} justifyContent="flex-start">
           <SkeletonContainer isLoading={isLoading} width="80%" height={16}>
             <SizableText size="$bodySm" color="$text">
               {(Number(assetCtx.fundingRate) * 100).toFixed(4)}%
@@ -244,7 +262,7 @@ const TokenVolumeCellDesktop = memo(() => {
         name="TokenVolumeCellDesktop"
         offsetY={10}
       >
-        <XStack width={100} justifyContent="flex-start">
+        <XStack width={110} justifyContent="flex-start">
           <SkeletonContainer isLoading={isLoading} width="80%" height={16}>
             <SizableText size="$bodySm" color="$text">
               $
@@ -285,7 +303,7 @@ const TokenOpenInterestCellDesktop = memo(() => {
         name="TokenOpenInterestCellDesktop"
         offsetY={10}
       >
-        <XStack flex={1} justifyContent="flex-start">
+        <XStack width={120} justifyContent="flex-start">
           <SkeletonContainer isLoading={isLoading} width="80%" height={16}>
             <SizableText size="$bodySm" color="$text">
               ${openInterestValue}
@@ -339,7 +357,6 @@ TokenSelectorRowDesktop.displayName = 'TokenSelectorRowDesktop';
 
 // Mobile cell components
 const TokenImageMobile = memo(() => {
-  const themeVariant = useThemeVariant();
   const { token } = useTokenSelectorRowContext();
 
   const content = useMemo(
@@ -352,13 +369,12 @@ const TokenImageMobile = memo(() => {
         <Token
           size="lg"
           borderRadius="$full"
-          bg={themeVariant === 'light' ? undefined : '$bgInverse'}
           tokenImageUri={getHyperliquidTokenImageUrl(token.displayName)}
           fallbackIcon="CryptoCoinOutline"
         />
       </DebugRenderTracker>
     ),
-    [token.displayName, themeVariant],
+    [token.displayName],
   );
   return content;
 });

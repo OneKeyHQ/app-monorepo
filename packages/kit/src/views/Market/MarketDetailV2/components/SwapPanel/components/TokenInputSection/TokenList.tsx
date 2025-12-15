@@ -9,6 +9,8 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { presetNetworksMap } from '@onekeyhq/shared/src/config/presetNetworks';
+import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
+import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 import { SwitchToTradePrompt } from './SwitchToTradePrompt';
 
@@ -27,6 +29,7 @@ interface ITokenListProps {
   onTokenPress?: (token: IToken) => void;
   onTradePress: () => void;
   disabledOnSwitchToTrade?: boolean;
+  currentSelectToken?: ISwapToken;
 }
 
 export function TokenList({
@@ -34,6 +37,7 @@ export function TokenList({
   onTokenPress,
   onTradePress,
   disabledOnSwitchToTrade,
+  currentSelectToken,
 }: ITokenListProps) {
   const { activeAccount } = useActiveAccount({ num: 0 });
   const [settingsPersistAtom] = useSettingsPersistAtom();
@@ -134,20 +138,34 @@ export function TokenList({
   return (
     <YStack gap="$1">
       <YStack gap="$1" px="$1" py="$1">
-        {displayTokens?.map((token: IEnhancedToken) => (
-          <TokenListItem
-            isLoading={tokensWithDetails.isLoading}
-            key={`${token.networkId}-${token.contractAddress}`}
-            tokenImageSrc={token.logoURI}
-            networkImageSrc={token.networkImageSrc}
-            tokenSymbol={token.symbol}
-            tokenName={token.name}
-            balance={token.balance}
-            valueProps={token.valueProps}
-            onPress={() => onTokenPress?.(token)}
-            margin={0}
-          />
-        ))}
+        {displayTokens?.map((token: IEnhancedToken) => {
+          const isDisabled = Boolean(
+            currentSelectToken &&
+              equalTokenNoCaseSensitive({
+                token1: currentSelectToken,
+                token2: token,
+              }),
+          );
+          const onPress = () => {
+            if (isDisabled) return;
+            onTokenPress?.(token);
+          };
+          return (
+            <TokenListItem
+              isLoading={tokensWithDetails.isLoading}
+              key={`${token.networkId}-${token.contractAddress}`}
+              tokenImageSrc={token.logoURI}
+              networkImageSrc={token.networkImageSrc}
+              tokenSymbol={token.symbol}
+              tokenName={token.name}
+              balance={token.balance}
+              valueProps={token.valueProps}
+              onPress={onPress}
+              margin={0}
+              disabled={isDisabled}
+            />
+          );
+        })}
       </YStack>
       {disabledOnSwitchToTrade ? null : (
         <SwitchToTradePrompt onTradePress={onTradePress} />

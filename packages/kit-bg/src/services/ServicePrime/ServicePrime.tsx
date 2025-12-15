@@ -1,11 +1,12 @@
 import { Semaphore } from 'async-mutex';
-import { isString } from 'lodash';
+import { cloneDeep, isString } from 'lodash';
 
 import { ensureSensitiveTextEncoded } from '@onekeyhq/core/src/secret';
 import {
   backgroundMethod,
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import type { EPrimeEmailOTPScene } from '@onekeyhq/shared/src/consts/primeConsts';
 import { RESET_CLOUD_SYNC_MASTER_PASSWORD_UUID } from '@onekeyhq/shared/src/consts/primeConsts';
 import type { OneKeyError } from '@onekeyhq/shared/src/errors';
 import {
@@ -197,6 +198,20 @@ class ServicePrime extends ServiceBase {
     return randomId;
   }
 
+  @backgroundMethod()
+  async apiFetchPhoneOtp({ email, otp }: { email: string; otp: string }) {
+    const client = await this.getPrimeClient();
+
+    const result = await client.post<
+      IApiClientResponse<{ phone: string; otp: string }>
+    >('/prime/v1/general/phone-otp', {
+      email,
+      otp,
+    });
+
+    return result?.data?.data;
+  }
+
   async updatePrimeAtomByServerUserInfo({
     serverUserInfo,
   }: {
@@ -220,6 +235,7 @@ class ServicePrime extends ServiceBase {
         ...v,
         email: userEmail, // TODO update from PrimeGlobalEffect
         displayEmail: userEmail,
+        keylessWalletId: serverUserInfo?.keylessWalletId,
         onekeyUserId: serverUserInfo?.userId,
         isEnablePrime: serverUserInfo?.isEnablePrime,
         isEnableSandboxPay: serverUserInfo?.isEnableSandboxPay,
@@ -314,13 +330,19 @@ class ServicePrime extends ServiceBase {
   async setPrimePersistAtomNotLoggedIn() {
     console.log('servicePrime.setPrimePersistAtomNotLoggedIn');
     await primePersistAtom.set(
-      (): IPrimePersistAtomData => primePersistAtomInitialValue,
+      (): IPrimePersistAtomData => cloneDeep(primePersistAtomInitialValue),
     );
     await this.backgroundApi.serviceMasterPassword.clearLocalMasterPassword();
     await primeServerMasterPasswordStatusAtom.set((v) => ({
       ...v,
       isServerMasterPasswordSet: false,
     }));
+    // Clear authPack cache when user logs out
+    try {
+      await this.backgroundApi.serviceKeylessWallet.clearAuthPackCache();
+    } catch {
+      // Ignore errors when clearing cache
+    }
   }
 
   @backgroundMethod()
@@ -739,7 +761,7 @@ class ServicePrime extends ServiceBase {
   }
 
   @backgroundMethod()
-  async sendEmailOTP(scene: string) {
+  async sendEmailOTP(scene: EPrimeEmailOTPScene) {
     if (!scene) {
       throw new OneKeyLocalError('sendEmailOTP ERROR: Invalid scene');
     }
