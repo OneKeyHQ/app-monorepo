@@ -879,6 +879,10 @@ function CheckAndUpdatePage({
                           boxShadow:
                             '0 0 0 1px rgba(0, 0, 0, 0.04), 0 0 2px 0 rgba(0, 0, 0, 0.08), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
                         }}
+                        $theme-dark={{
+                          borderWidth: StyleSheet.hairlineWidth,
+                          borderColor: '$neutral2',
+                        }}
                         zIndex={0}
                       />
                     ) : null}

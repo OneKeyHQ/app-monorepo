@@ -41,7 +41,11 @@ import networkUtils from './networkUtils';
 
 import type { IExternalConnectionInfo } from '../../types/externalWallet.types';
 
-function getWalletIdFromAccountId({ accountId }: { accountId: string }) {
+function getWalletIdFromAccountId({
+  accountId,
+}: {
+  accountId: string;
+}): string {
   /*
   external--60--0xf588ff00613814c3f86efc57059121c74eb237f1
   hd-1--m/44'/118'/0'/0/0
@@ -56,7 +60,10 @@ function getWalletIdFromAccountId({ accountId }: { accountId: string }) {
  * @param template derivation path template
  * @returns string
  */
-function slicePathTemplate(template: string) {
+function slicePathTemplate(template: string): {
+  pathPrefix: string;
+  pathSuffix: string;
+} {
   const [prefix, suffix] = template.split(INDEX_PLACEHOLDER);
   return {
     pathPrefix: prefix.slice(0, -1), // m/44'/60'
@@ -64,11 +71,11 @@ function slicePathTemplate(template: string) {
   };
 }
 
-function beautifyPathTemplate({ template }: { template: string }) {
+function beautifyPathTemplate({ template }: { template: string }): string {
   return template.replace(INDEX_PLACEHOLDER, '*');
 }
 
-function normalizePathTemplate({ template }: { template: string }) {
+function normalizePathTemplate({ template }: { template: string }): string {
   return template
     .replace('*', () => INDEX_PLACEHOLDER) // replace first * with INDEX_PLACEHOLDER
     .replace(/\*/g, '0'); // replace other * with 0
@@ -80,7 +87,7 @@ function findIndexFromTemplate({
 }: {
   template: string;
   path: string;
-}) {
+}): number | undefined {
   const templateItems = template.split('/');
   const pathItems = path.split('/');
   for (let i = 0; i < templateItems.length; i += 1) {
@@ -102,7 +109,7 @@ function buildPathFromTemplate({
 }: {
   template: string;
   index: number;
-}) {
+}): string {
   return normalizePathTemplate({ template }).replace(
     INDEX_PLACEHOLDER,
     index.toString(),
@@ -115,7 +122,7 @@ function removePathLastSegment({
 }: {
   path: string;
   removeCount: number;
-}) {
+}): string {
   const arr = path.split('/');
   return arr.slice(0, -removeCount).filter(Boolean).join('/');
 }
@@ -135,7 +142,7 @@ function buildBtcToLnPath({
 }: {
   path: string;
   isTestnet: boolean;
-}) {
+}): string {
   // purpose 84' -> 44'
   let transformedPath = path.replace(/84'/, "44'");
   const targetCoinType = isTestnet ? COINTYPE_TBTC : COINTYPE_BTC;
@@ -156,7 +163,7 @@ function buildLnToBtcPath({
 }: {
   path: string;
   isTestnet: boolean;
-}) {
+}): string {
   // purpose 44' -> 84'
   let transformedPath = path.replace(/44'/, "84'");
   const targetCoinType = isTestnet
@@ -213,7 +220,7 @@ function shortenAddress({
   trailingLength?: number;
   minLength?: number;
   showDot?: boolean;
-}) {
+}): string {
   if (!address) {
     return '';
   }
@@ -225,65 +232,89 @@ function shortenAddress({
   }${address.slice(-trailingLength)}`;
 }
 
-function isHdWallet({ walletId }: { walletId: string | undefined }) {
+function isHdWallet({ walletId }: { walletId: string | undefined }): boolean {
   return Boolean(walletId && walletId.startsWith(`${WALLET_TYPE_HD}-`));
 }
 
-function isQrWallet({ walletId }: { walletId: string | undefined }) {
+function isQrWallet({ walletId }: { walletId: string | undefined }): boolean {
   return Boolean(walletId && walletId.startsWith(`${WALLET_TYPE_QR}-`));
 }
 
-function isHwWallet({ walletId }: { walletId: string | undefined }) {
+function isHwWallet({ walletId }: { walletId: string | undefined }): boolean {
   return Boolean(walletId && walletId.startsWith(`${WALLET_TYPE_HW}-`));
 }
 
-function isHwOrQrWallet({ walletId }: { walletId: string | undefined }) {
+function isHwOrQrWallet({
+  walletId,
+}: {
+  walletId: string | undefined;
+}): boolean {
   return isHwWallet({ walletId }) || isQrWallet({ walletId });
 }
 
-function isHwHiddenWallet({ wallet }: { wallet: IDBWallet | undefined }) {
-  return (
+function isHwHiddenWallet({
+  wallet,
+}: {
+  wallet: IDBWallet | undefined;
+}): boolean {
+  return Boolean(
     wallet &&
-    (isHwWallet({ walletId: wallet.id }) ||
-      isQrWallet({ walletId: wallet.id })) &&
-    Boolean(wallet.passphraseState)
+      (isHwWallet({ walletId: wallet.id }) ||
+        isQrWallet({ walletId: wallet.id })) &&
+      wallet.passphraseState,
   );
 }
 
-function isImportedWallet({ walletId }: { walletId: string | undefined }) {
+function isImportedWallet({
+  walletId,
+}: {
+  walletId: string | undefined;
+}): boolean {
   return walletId === WALLET_TYPE_IMPORTED;
 }
 
-function isWatchingWallet({ walletId }: { walletId: string | undefined }) {
+function isWatchingWallet({
+  walletId,
+}: {
+  walletId: string | undefined;
+}): boolean {
   return walletId === WALLET_TYPE_WATCHING;
 }
 
-function isExternalWallet({ walletId }: { walletId: string | undefined }) {
+function isExternalWallet({
+  walletId,
+}: {
+  walletId: string | undefined;
+}): boolean {
   return walletId === WALLET_TYPE_EXTERNAL;
 }
 
-function isHdAccount({ accountId }: { accountId: string }) {
+function isHdAccount({ accountId }: { accountId: string }): boolean {
   const walletId = getWalletIdFromAccountId({ accountId });
   return isHdWallet({ walletId });
 }
 
-function isQrAccount({ accountId }: { accountId: string }) {
+function isQrAccount({ accountId }: { accountId: string }): boolean {
   const walletId = getWalletIdFromAccountId({ accountId });
   return isQrWallet({ walletId });
 }
 
-function isHwAccount({ accountId }: { accountId: string }) {
+function isHwAccount({ accountId }: { accountId: string }): boolean {
   const walletId = getWalletIdFromAccountId({ accountId });
   return isHwWallet({ walletId });
 }
 
-function isHwOrQrAccount({ accountId }: { accountId: string }) {
+function isHwOrQrAccount({ accountId }: { accountId: string }): boolean {
   const walletId = getWalletIdFromAccountId({ accountId });
   return isHwOrQrWallet({ walletId });
 }
 
 const URL_ACCOUNT_ID = `${WALLET_TYPE_WATCHING}--global-url-account`;
-function isUrlAccountFn({ accountId }: { accountId: string | undefined }) {
+function isUrlAccountFn({
+  accountId,
+}: {
+  accountId: string | undefined;
+}): boolean {
   return accountId === URL_ACCOUNT_ID;
 }
 
@@ -299,7 +330,7 @@ function buildWatchingAccountId({
   xpub?: string;
   addressEncoding?: EAddressEncodings | undefined;
   isUrlAccount?: boolean;
-}) {
+}): string {
   if (isUrlAccount) {
     return URL_ACCOUNT_ID;
   }
@@ -316,7 +347,7 @@ function buildWatchingAccountId({
   return id;
 }
 
-function buildIndexedAccountName({ pathIndex }: { pathIndex: number }) {
+function buildIndexedAccountName({ pathIndex }: { pathIndex: number }): string {
   return `Account #${pathIndex + 1}`;
 }
 
@@ -327,7 +358,7 @@ function buildHDAccountName({
   pathIndex: number;
   // VaultSettings.accountDeriveInfo.default.namePrefix
   namePrefix: string;
-}) {
+}): string {
   return `${namePrefix} #${pathIndex + 1}`;
 }
 
@@ -337,7 +368,7 @@ function buildBaseAccountName({
 }: {
   mainName?: string;
   nextAccountId: number;
-}) {
+}): string {
   return `${mainName} #${nextAccountId}`;
 }
 
@@ -353,7 +384,7 @@ function buildImportedAccountId({
   xpub?: string;
   addressEncoding?: EAddressEncodings | undefined;
   address?: string;
-}) {
+}): string {
   const publicKey = xpub || pub;
   if (!publicKey) {
     throw new OneKeyLocalError(
@@ -370,17 +401,17 @@ function buildImportedAccountId({
   return id;
 }
 
-function isExternalAccount({ accountId }: { accountId: string }) {
+function isExternalAccount({ accountId }: { accountId: string }): boolean {
   const walletId = getWalletIdFromAccountId({ accountId });
   return isExternalWallet({ walletId });
 }
 
-function isWatchingAccount({ accountId }: { accountId: string }) {
+function isWatchingAccount({ accountId }: { accountId: string }): boolean {
   const walletId = getWalletIdFromAccountId({ accountId });
   return isWatchingWallet({ walletId });
 }
 
-function isImportedAccount({ accountId }: { accountId: string }) {
+function isImportedAccount({ accountId }: { accountId: string }): boolean {
   const walletId = getWalletIdFromAccountId({ accountId });
   return isImportedWallet({ walletId });
 }
@@ -438,7 +469,7 @@ function buildIndexedAccountId({
 }: {
   walletId: string;
   index: number;
-}) {
+}): string {
   if (index < 0) {
     throw new OneKeyLocalError(
       'buildIndexedAccountId ERROR: index must be positive',
@@ -447,7 +478,11 @@ function buildIndexedAccountId({
   return `${walletId}--${index}`;
 }
 
-function parseAccountId({ accountId }: { accountId: string }) {
+function parseAccountId({ accountId }: { accountId: string }): {
+  walletId: string | undefined;
+  usedPath: string | undefined;
+  idSuffix: string | undefined;
+} {
   const arr = accountId.split(SEPERATOR);
   return {
     walletId: arr[0],
@@ -460,7 +495,10 @@ function parseIndexedAccountId({
   indexedAccountId,
 }: {
   indexedAccountId: string;
-}) {
+}): {
+  walletId: string;
+  index: number;
+} {
   const arr = indexedAccountId.split(SEPERATOR);
   const index = Number(arr[arr.length - 1]);
   const walletIdArr = arr.slice(0, -1);
@@ -470,7 +508,11 @@ function parseIndexedAccountId({
   };
 }
 
-function isAllNetworkMockAccount({ accountId }: { accountId: string }) {
+function isAllNetworkMockAccount({
+  accountId,
+}: {
+  accountId: string;
+}): boolean {
   const parsed = parseAccountId({ accountId });
   if (parsed?.usedPath) {
     const [coinType, index] = parsed.usedPath.split('/') || [];
@@ -484,19 +526,29 @@ function buildAllNetworkIndexedAccountIdFromAccountId({
   accountId,
 }: {
   accountId: string;
-}) {
+}): string {
   const { walletId, usedPath } = parseAccountId({ accountId });
+  if (!usedPath) {
+    throw new OneKeyLocalError(
+      'buildAllNetworkIndexedAccountIdFromAccountId ERROR: usedPath is empty',
+    );
+  }
+  if (!walletId) {
+    throw new OneKeyLocalError(
+      'buildAllNetworkIndexedAccountIdFromAccountId ERROR: walletId is empty',
+    );
+  }
   return buildIndexedAccountId({
     walletId,
     index: parseInt(usedPath.split('/')[1], 10),
   });
 }
 
-function buildHdWalletId({ nextHD }: { nextHD: number }) {
+function buildHdWalletId({ nextHD }: { nextHD: number }): string {
   return `${WALLET_TYPE_HD}-${nextHD}`;
 }
 
-function getDeviceIdFromWallet({ walletId }: { walletId: string }) {
+function getDeviceIdFromWallet({ walletId }: { walletId: string }): string {
   return walletId.replace(`${WALLET_TYPE_HW}-`, '');
 }
 
@@ -506,7 +558,7 @@ function buildLocalTokenId({
 }: {
   networkId: string;
   tokenIdOnNetwork: string;
-}) {
+}): string {
   return `${networkId}__${tokenIdOnNetwork}`;
 }
 
@@ -516,7 +568,7 @@ function buildLocalHistoryId(params: {
   txid: string;
   xpub?: string;
   $key?: string;
-}) {
+}): string {
   const { networkId, txid, accountAddress, xpub, $key } = params;
   const historyId = `${networkId}_${txid}_${xpub || accountAddress}_${
     $key || ''
@@ -532,7 +584,7 @@ function buildAccountLocalAssetsKey({
   networkId: string;
   accountAddress?: string;
   xpub?: string;
-}) {
+}): string {
   if (!accountAddress && !xpub) {
     throw new OneKeyInternalError('accountAddress or xpub is required');
   }
@@ -546,7 +598,7 @@ function isAccountCompatibleWithNetwork({
 }: {
   account: IDBAccount;
   networkId: string;
-}) {
+}): boolean {
   if (!networkId) {
     throw new OneKeyLocalError(
       'isAccountCompatibleWithNetwork ERROR: networkId is not defined',
@@ -581,7 +633,7 @@ function getAccountCompatibleNetwork({
 }: {
   account: IDBAccount;
   networkId: string | undefined;
-}) {
+}): string | undefined {
   let accountNetworkId = networkId || account.createAtNetwork;
 
   if (networkUtils.isAllNetwork({ networkId: accountNetworkId })) {
@@ -630,7 +682,7 @@ function getAccountCompatibleNetwork({
   return accountNetworkId || undefined;
 }
 
-function isOthersWallet({ walletId }: { walletId: string }) {
+function isOthersWallet({ walletId }: { walletId: string }): boolean {
   if (!walletId) {
     return false;
   }
@@ -641,7 +693,11 @@ function isOthersWallet({ walletId }: { walletId: string }) {
   );
 }
 
-function isOthersAccount({ accountId }: { accountId: string | undefined }) {
+function isOthersAccount({
+  accountId,
+}: {
+  accountId: string | undefined;
+}): boolean {
   if (!accountId) {
     return false;
   }
@@ -655,7 +711,7 @@ function buildHwWalletId({
 }: {
   dbDeviceId: string;
   passphraseState?: string;
-}) {
+}): string {
   let dbWalletId = `hw-${dbDeviceId}`;
   if (passphraseState) {
     dbWalletId = `hw-${dbDeviceId}-${passphraseState}`;
@@ -669,7 +725,7 @@ function buildQrWalletId({
 }: {
   dbDeviceId: string;
   xfpHash: string;
-}) {
+}): string {
   let dbWalletId = `qr-${dbDeviceId}`;
 
   // hidden wallet pass xfpHash
@@ -704,7 +760,7 @@ function buildExternalAccountId({
   wcSessionTopic: string | undefined;
   connectionInfo: IExternalConnectionInfo | undefined;
   networkId?: string;
-}) {
+}): string {
   let accountId = '';
   // eslint-disable-next-line no-param-reassign
   wcSessionTopic = wcSessionTopic || connectionInfo?.walletConnect?.topic;
@@ -743,7 +799,7 @@ function buildLightningAccountId({
 }: {
   accountId: string;
   isTestnet: boolean;
-}) {
+}): string {
   const parts = accountId.split(SEPERATOR);
   if (parts.length < 2) {
     throw new OneKeyLocalError(
@@ -766,11 +822,15 @@ function buildHiddenWalletName({
   parentWallet,
 }: {
   parentWallet: IDBWallet | undefined;
-}) {
+}): string {
   return `Hidden #${parentWallet?.nextIds?.hiddenWalletNum || 1}`;
 }
 
-function buildTonMnemonicCredentialId({ accountId }: { accountId: string }) {
+function buildTonMnemonicCredentialId({
+  accountId,
+}: {
+  accountId: string;
+}): string {
   return `${accountId}--ton_credential`;
 }
 
@@ -782,7 +842,7 @@ function getAccountIdFromTonMnemonicCredentialId({
   credentialId,
 }: {
   credentialId: string;
-}) {
+}): string {
   return credentialId.replace(/--ton_credential$/, '');
 }
 
@@ -792,7 +852,7 @@ function buildHyperLiquidAgentCredentialId({
 }: {
   userAddress: string;
   agentName: EHyperLiquidAgentName;
-}) {
+}): string {
   if (!userAddress) {
     throw new OneKeyLocalError(
       'buildHyperLiquidAgentCredentialId ERROR: userAddress is required',
@@ -801,7 +861,7 @@ function buildHyperLiquidAgentCredentialId({
   return `${HYPERLIQUID_AGENT_CREDENTIAL_PREFIX}--${userAddress}--${agentName}`;
 }
 
-function buildCustomEvmNetworkId({ chainId }: { chainId: string }) {
+function buildCustomEvmNetworkId({ chainId }: { chainId: string }): string {
   return `evm--${chainId}`;
 }
 
@@ -811,11 +871,14 @@ function buildAccountValueKey({
 }: {
   accountId: string;
   networkId: string;
-}) {
+}): string {
   return `${accountId}_${networkId}`;
 }
 
-function parseAccountValueKey({ key }: { key: string }) {
+function parseAccountValueKey({ key }: { key: string }): {
+  accountId: string;
+  networkId: string;
+} {
   const [accountId, networkId] = key.split('_');
   return {
     accountId,
@@ -823,11 +886,11 @@ function parseAccountValueKey({ key }: { key: string }) {
   };
 }
 
-function isAllNetworkMockAddress({ address }: { address?: string }) {
+function isAllNetworkMockAddress({ address }: { address?: string }): boolean {
   return address === ALL_NETWORK_ACCOUNT_MOCK_ADDRESS;
 }
 
-function isValidWalletXfp({ xfp }: { xfp: string | undefined }) {
+function isValidWalletXfp({ xfp }: { xfp: string | undefined }): boolean {
   return Boolean(xfp && xfp.length > 8 && xfp.includes('--'));
 }
 
@@ -837,14 +900,14 @@ function buildFullXfp({
 }: {
   xfp: string;
   firstTaprootXpub: string;
-}) {
+}): string | undefined {
   if (!xfp || !firstTaprootXpub) {
     return undefined;
   }
   return `${xfp.toLowerCase()}--${firstTaprootXpub}`;
 }
 
-function getShortXfp({ xfp }: { xfp: string }) {
+function getShortXfp({ xfp }: { xfp: string }): string {
   return xfp.split('--')[0];
 }
 
@@ -857,7 +920,7 @@ function getHDAccountPathIndex({
     template: string | undefined;
     path: string | undefined;
   };
-}) {
+}): number | undefined {
   let index = account.pathIndex;
   if (isNil(index) && account.indexedAccountId) {
     index = parseIndexedAccountId({
@@ -879,7 +942,7 @@ function getBTCFreshAddressKey({
 }: {
   networkId: string;
   xpubSegwit: string;
-}) {
+}): string {
   if (!xpubSegwit) {
     throw new OneKeyLocalError('xpubSegwit is required');
   }
@@ -896,7 +959,7 @@ function isEnabledBtcFreshAddress({
   walletId?: string | undefined;
   networkId?: string | undefined;
   enableBTCFreshAddress?: boolean | undefined;
-}) {
+}): boolean {
   if (!networkUtils.isBTCNetwork(networkId)) {
     return false;
   }
@@ -912,8 +975,49 @@ function isEnabledBtcFreshAddress({
   return false;
 }
 
+function buildKeylessWalletId({
+  sharePackSetId,
+}: {
+  sharePackSetId: string;
+}): string {
+  return `${WALLET_TYPE_HD}-keyless-${sharePackSetId}`;
+}
+
+function isKeylessWallet({
+  walletId,
+}: {
+  walletId: string | undefined | null;
+}): boolean {
+  return Boolean(
+    walletId && walletId?.startsWith(`${WALLET_TYPE_HD}-keyless-`),
+  );
+}
+
+function getKeylessWalletPackSetId({ walletId }: { walletId: string }): string {
+  const packSetId = walletId.split(`${WALLET_TYPE_HD}-keyless-`)[1];
+  if (!packSetId) {
+    throw new OneKeyLocalError(
+      'getKeylessWalletPackSetId ERROR: packSetId is empty',
+    );
+  }
+  return packSetId;
+}
+
+function buildKeylessDevicePackKey({
+  packSetId,
+}: {
+  packSetId: string;
+}): string {
+  return `OneKey_Keyless__${packSetId}`;
+}
+
 export default {
   URL_ACCOUNT_ID,
+  HYPERLIQUID_AGENT_CREDENTIAL_PREFIX,
+
+  getKeylessWalletPackSetId,
+  buildKeylessDevicePackKey,
+  buildKeylessWalletId,
   buildAccountValueKey,
   parseAccountValueKey,
   buildUtxoAddressRelPath,
@@ -931,6 +1035,8 @@ export default {
   buildQrWalletId,
   buildExternalAccountId,
   buildAllNetworkIndexedAccountIdFromAccountId,
+
+  isKeylessWallet,
   isHdWallet,
   isQrWallet,
   isHwWallet,
@@ -948,6 +1054,14 @@ export default {
   isImportedAccount,
   isAllNetworkMockAccount,
   isAllNetworkMockAddress,
+  isAccountCompatibleWithNetwork,
+  isOthersWallet,
+  isOthersAccount,
+  isUrlAccountFn,
+  isTonMnemonicCredentialId,
+  isValidWalletXfp,
+  isEnabledBtcFreshAddress,
+
   parseAccountId,
   parseIndexedAccountId,
   shortenAddress,
@@ -955,11 +1069,7 @@ export default {
   beautifyPathTemplate,
   getDeviceIdFromWallet,
   getWalletIdFromAccountId,
-  isAccountCompatibleWithNetwork,
   getAccountCompatibleNetwork,
-  isOthersWallet,
-  isOthersAccount,
-  isUrlAccountFn,
   buildBtcToLnPath,
   buildLnToBtcPath,
   buildLightningAccountId,
@@ -973,14 +1083,10 @@ export default {
   buildHiddenWalletName,
   buildAccountLocalAssetsKey,
   buildTonMnemonicCredentialId,
-  isTonMnemonicCredentialId,
   getAccountIdFromTonMnemonicCredentialId,
   buildHyperLiquidAgentCredentialId,
-  HYPERLIQUID_AGENT_CREDENTIAL_PREFIX,
   buildCustomEvmNetworkId,
-  isValidWalletXfp,
   buildFullXfp,
   getShortXfp,
   getBTCFreshAddressKey,
-  isEnabledBtcFreshAddress,
 };

@@ -13,6 +13,7 @@ import {
   Tabs,
   XStack,
   YStack,
+  useMedia,
   useStyle,
 } from '@onekeyhq/components';
 import { SEARCH_KEY_MIN_LENGTH } from '@onekeyhq/shared/src/consts/walletConsts';
@@ -154,6 +155,7 @@ function TokenListViewCmp(props: IProps) {
   } = props;
 
   const intl = useIntl();
+  const media = useMedia();
 
   const [overFlowState, setOverFlowState] = useState<{
     isOverflow: boolean;
@@ -466,11 +468,13 @@ function TokenListViewCmp(props: IProps) {
       return (
         <XStack py="$3" jc="center" ai="center">
           <Button
-            size="small"
+            size={media.gtMd ? 'small' : 'medium'}
             variant="secondary"
             onPress={() =>
               setOverFlowState((prev) => ({ ...prev, isSliced: false }))
             }
+            width={media.gtMd ? undefined : '100%'}
+            borderRadius={media.gtMd ? undefined : '$full'}
           >
             {intl.formatMessage({ id: ETranslations.global_show_more })}
           </Button>
@@ -498,11 +502,13 @@ function TokenListViewCmp(props: IProps) {
         {overFlowState.isOverflow && !overFlowState.isSliced ? (
           <Stack jc="center" ai="center" pt="$3">
             <Button
-              size="small"
+              size={media.gtMd ? 'small' : 'medium'}
               variant="secondary"
               onPress={() =>
                 setOverFlowState((prev) => ({ ...prev, isSliced: true }))
               }
+              width={media.gtMd ? undefined : '100%'}
+              borderRadius={media.gtMd ? undefined : '$full'}
             >
               {intl.formatMessage({ id: ETranslations.global_show_less })}
             </Button>
@@ -522,6 +528,7 @@ function TokenListViewCmp(props: IProps) {
     tokenSelectorSearchKey,
     footerTipText,
     intl,
+    media.gtMd,
   ]);
 
   if (plainMode) {
