@@ -1,4 +1,32 @@
 PODS:
+  - BackgroundThread (1.1.8):
+    - boost
+    - DoubleConversion
+    - fast_float
+    - fmt
+    - glog
+    - hermes-engine
+    - RCT-Folly
+    - RCT-Folly/Fabric
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - SocketRocket
+    - Yoga
   - BleUtils (0.1.4):
     - boost
     - DoubleConversion
@@ -32,6 +60,36 @@ PODS:
     - ExpoModulesCore
     - SPAlert (~> 4.2)
     - SPIndicator (~> 1.6)
+  - CloudKitModule (1.1.8):
+    - boost
+    - DoubleConversion
+    - fast_float
+    - fmt
+    - glog
+    - hermes-engine
+    - NitroModules
+    - RCT-Folly
+    - RCT-Folly/Fabric
+    - RCTRequired
+    - RCTTypeSafety
+    - React-callinvoker
+    - React-Core
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - SocketRocket
+    - Yoga
   - CocoaAsyncSocket (7.6.5)
   - CocoaLumberjack (3.9.0):
     - CocoaLumberjack/Core (= 3.9.0)
@@ -202,6 +260,36 @@ PODS:
     - React
   - JPushRN (3.2.1):
     - React
+  - KeychainModule (1.1.8):
+    - boost
+    - DoubleConversion
+    - fast_float
+    - fmt
+    - glog
+    - hermes-engine
+    - NitroModules
+    - RCT-Folly
+    - RCT-Folly/Fabric
+    - RCTRequired
+    - RCTTypeSafety
+    - React-callinvoker
+    - React-Core
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - SocketRocket
+    - Yoga
   - libwebp (1.5.0):
     - libwebp/demux (= 1.5.0)
     - libwebp/mux (= 1.5.0)
@@ -3086,7 +3174,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - SocketRocket
     - Yoga
-  - ReactNativeCheckBiometricAuthChanged (1.1.5):
+  - ReactNativeCheckBiometricAuthChanged (1.1.8):
     - boost
     - DoubleConversion
     - fast_float
@@ -3144,7 +3232,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - SocketRocket
     - Yoga
-  - ReactNativeLiteCard (1.1.5):
+  - ReactNativeLiteCard (1.1.8):
     - boost
     - DoubleConversion
     - fast_float
@@ -3746,9 +3834,11 @@ PODS:
     - ZXingObjC/Core
 
 DEPENDENCIES:
+  - "BackgroundThread (from `../../../node_modules/@onekeyfe/react-native-background-thread`)"
   - "BleUtils (from `../../../node_modules/@onekeyfe/react-native-ble-utils`)"
   - boost (from `../../../node_modules/react-native/third-party-podspecs/boost.podspec`)
   - Burnt (from `../../../node_modules/burnt/ios`)
+  - "CloudKitModule (from `../../../node_modules/@onekeyfe/react-native-cloud-kit-module`)"
   - DoubleConversion (from `../../../node_modules/react-native/third-party-podspecs/DoubleConversion.podspec`)
   - EXApplication (from `../../../node_modules/expo-application/ios`)
   - EXConstants (from `../../../node_modules/expo-constants/ios`)
@@ -3788,6 +3878,7 @@ DEPENDENCIES:
   - ImageColors (from `../../../node_modules/react-native-image-colors/ios`)
   - JCoreRN (from `../../../node_modules/jcore-react-native`)
   - JPushRN (from `../../../node_modules/jpush-react-native`)
+  - "KeychainModule (from `../../../node_modules/@onekeyfe/react-native-keychain-module`)"
   - lottie-react-native (from `../../../node_modules/lottie-react-native`)
   - NitroMmkv (from `../../../node_modules/react-native-mmkv`)
   - NitroModules (from `../../../node_modules/react-native-nitro-modules`)
@@ -3924,12 +4015,16 @@ SPEC REPOS:
     - ZXingObjC
 
 EXTERNAL SOURCES:
+  BackgroundThread:
+    :path: "../../../node_modules/@onekeyfe/react-native-background-thread"
   BleUtils:
     :path: "../../../node_modules/@onekeyfe/react-native-ble-utils"
   boost:
     :podspec: "../../../node_modules/react-native/third-party-podspecs/boost.podspec"
   Burnt:
     :path: "../../../node_modules/burnt/ios"
+  CloudKitModule:
+    :path: "../../../node_modules/@onekeyfe/react-native-cloud-kit-module"
   DoubleConversion:
     :podspec: "../../../node_modules/react-native/third-party-podspecs/DoubleConversion.podspec"
   EXApplication:
@@ -4009,6 +4104,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/jcore-react-native"
   JPushRN:
     :path: "../../../node_modules/jpush-react-native"
+  KeychainModule:
+    :path: "../../../node_modules/@onekeyfe/react-native-keychain-module"
   lottie-react-native:
     :path: "../../../node_modules/lottie-react-native"
   NitroMmkv:
@@ -4227,9 +4324,11 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/react-native/ReactCommon/yoga"
 
 SPEC CHECKSUMS:
+  BackgroundThread: de629f4efd5806cd01698f7a61a8ee87820773f2
   BleUtils: d558f749a645d8b6d4941ff091ea9d847238be4e
   boost: 7e761d76ca2ce687f7cc98e698152abd03a18f90
   Burnt: e3a3397e26172fca31a59bb27421475a58068836
+  CloudKitModule: 7de7f8069ab43219abcdfc5cfb66af8152ffd1ba
   CocoaAsyncSocket: 065fd1e645c7abab64f7a6a2007a48038fdc6a99
   CocoaLumberjack: 5644158777912b7de7469fa881f8a3f259c2512a
   DoubleConversion: cb417026b2400c8f53ae97020b2be961b59470cb
@@ -4272,6 +4371,7 @@ SPEC CHECKSUMS:
   ImageColors: 51cd79f7a9d2524b7a681c660b0a50574085563b
   JCoreRN: d985de509185b381c177fde4bb6bfc686089fdbd
   JPushRN: 807bc962b2f25860e5c0caa5fcb7b4910572b890
+  KeychainModule: 51b4f34940798297cf3fcfff69c30e7ebf1ff431
   libwebp: 02b23773aedb6ff1fd38cec7a77b81414c6842a8
   lottie-ios: a881093fab623c467d3bce374367755c272bdd59
   lottie-react-native: d2b7601b28c063bde347fac764166b5362037846
@@ -4365,9 +4465,9 @@ SPEC CHECKSUMS:
   ReactCodegen: cc4afb1cabd4dc96a6d6f1d99539bceb3bebe437
   ReactCommon: 6d0fa86a4510730da7c72560e0ced14258292ab9
   ReactNativeCameraKit: dc309a3b86d6e5655cdf0d731e96b0e380ce72df
-  ReactNativeCheckBiometricAuthChanged: 8deac1c194b8fc06d60e140b5d5ca22ee31755af
+  ReactNativeCheckBiometricAuthChanged: d217583041c81ad332e25076acedb20e3bd87d82
   ReactNativeFs: 0688196a126e3d0b0f5b1ec654a1f464f661f13c
-  ReactNativeLiteCard: 9a4a7d7168d779cb1a062aa1e18331a2bb767566
+  ReactNativeLiteCard: a89f6d7293434e30978c0a86a025b4bd72843217
   ReactNativePasskeys: 9e950e8cbf0e7d6aad9df4dcd21cee0efeb4e5cd
   RealmJS: 1c37c6bdfe060f4caa0f9175aa0eedb962622ee1
   RestartNewArch: 274b840533a495869fcc12485fecd87d1b874896
