@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 
-export function useIsFirstFocused(isFocused: boolean) {
+export function useIsFirstFocused(isFocused = false) {
   const isFocusedRef = useRef(false);
   const [isFirstFocused, setIsFirstFocused] = useState(false);
   useEffect(() => {
