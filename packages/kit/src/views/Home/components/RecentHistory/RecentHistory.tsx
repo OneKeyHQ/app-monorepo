@@ -21,7 +21,7 @@ function RecentHistory() {
   return (
     <RichBlock
       title={intl.formatMessage({
-        id: ETranslations.network_recent_used_network,
+        id: ETranslations.wallet_recent_transaction_history_title,
       })}
       titleProps={{
         color: '$textSubdued',

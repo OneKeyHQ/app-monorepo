@@ -124,7 +124,7 @@ function DeFiProtocolDetails() {
     return (
       <YStack py="$3">
         {protocol.positions.map((position, index) => (
-          <Stack key={position.category} py="$2" px="$5">
+          <Stack key={position.category} px="$5">
             <XStack
               alignItems="center"
               justifyContent="space-between"
@@ -186,7 +186,9 @@ function DeFiProtocolDetails() {
                 ),
               )}
             </YStack>
-            {index !== protocol.positions.length - 1 ? <Divider /> : null}
+            {index !== protocol.positions.length - 1 ? (
+              <Divider mt="$2" mb="$3" />
+            ) : null}
           </Stack>
         ))}
       </YStack>

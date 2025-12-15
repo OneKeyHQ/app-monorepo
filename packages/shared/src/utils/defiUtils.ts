@@ -201,13 +201,33 @@ function transformDeFiData({
     });
   });
 
-  const protocols: IDeFiProtocol[] = Array.from(
-    protocolPositionsMap.values(),
-  ).map((value) => ({
-    ...value,
-    positions: transferPositionMap(value.positionMap),
-    categories: Array.from(value.categorySet),
-  }));
+  const protocols: IDeFiProtocol[] = Array.from(protocolPositionsMap.values())
+    .map((value) => ({
+      ...value,
+      positions: transferPositionMap(value.positionMap),
+      categories: Array.from(value.categorySet),
+    }))
+    .sort((a, b) =>
+      new BigNumber(
+        protocolMap[
+          buildProtocolMapKey({
+            protocol: b.protocol,
+            networkId: b.networkId,
+          })
+        ]?.netWorth ?? 0,
+      )
+        .minus(
+          new BigNumber(
+            protocolMap[
+              buildProtocolMapKey({
+                protocol: a.protocol,
+                networkId: a.networkId,
+              })
+            ]?.netWorth ?? 0,
+          ),
+        )
+        .toNumber(),
+    );
 
   return {
     protocols,
