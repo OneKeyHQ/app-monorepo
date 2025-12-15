@@ -1,4 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
+import { cloneDeep } from 'lodash';
+
 import type {
   IPrimeServerUserInfo,
   IPrimeUserInfo,
@@ -32,7 +34,7 @@ export const {
 } = globalAtom<IPrimePersistAtomData>({
   name: EAtomNames.primePersistAtom,
   persist: true,
-  initialValue: primePersistAtomInitialValue,
+  initialValue: cloneDeep(primePersistAtomInitialValue),
 });
 
 export type IPrimeCloudSyncPersistAtomData = {

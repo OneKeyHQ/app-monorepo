@@ -140,9 +140,11 @@ async function decryptPackData<T>(params: {
   return JSON.parse(decryptedStr) as T;
 }
 
-async function generateKeylessMnemonic(): Promise<IKeylessMnemonicInfo> {
-  // 1. Generate Random Mnemonic (24 words)
-  const mnemonic = generateMnemonic(256);
+async function generateKeylessMnemonic(params?: {
+  customMnemonic?: string;
+}): Promise<IKeylessMnemonicInfo> {
+  // 1. Generate Random Mnemonic (24 words) or use custom mnemonic
+  const mnemonic = params?.customMnemonic ?? generateMnemonic(256);
   const entropyHex = mnemonicToEntropy(mnemonic);
   const entropyBytes = bufferUtils.toBuffer(entropyHex); // Use bufferUtils for consistency
 
