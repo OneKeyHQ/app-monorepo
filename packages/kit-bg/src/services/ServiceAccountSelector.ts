@@ -760,7 +760,7 @@ class ServiceAccountSelector extends ServiceBase {
     const isHd = accountUtils.isHdWallet({
       walletId: focusedWallet,
     });
-    const isHw = accountUtils.isHwWallet({
+    const isHwOrQr = accountUtils.isHwOrQrWallet({
       walletId: focusedWallet,
     });
     try {
@@ -769,7 +769,7 @@ class ServiceAccountSelector extends ServiceBase {
       });
 
       let device: IDBDevice | undefined;
-      if (isHw) {
+      if (isHwOrQr) {
         device = await this.backgroundApi.serviceAccount.getWalletDeviceSafe({
           dbWallet: wallet,
           walletId: focusedWallet,
