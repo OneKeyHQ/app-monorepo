@@ -10,7 +10,6 @@ import {
   Input,
   SizableText,
   Skeleton,
-  Stack,
   XStack,
   YStack,
 } from '@onekeyhq/components';
