@@ -1,4 +1,8 @@
 import { rootNavigationRef } from '@onekeyhq/components';
+import {
+  WEB_APP_URL,
+  WEB_APP_URL_DEV,
+} from '@onekeyhq/shared/src/config/appConfig';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalRoutes,
@@ -78,5 +82,39 @@ export const BorrowNavigation = {
         title: params.title || 'Borrow History', // FIXME[borrow]: i18n
       },
     });
+  },
+
+  generateBorrowShareLink({
+    networkId,
+    symbol,
+    provider,
+    marketAddress,
+    reserveAddress,
+    isDevMode = false,
+  }: {
+    networkId: string;
+    symbol: string;
+    provider: string;
+    marketAddress: string;
+    reserveAddress: string;
+    isDevMode?: boolean;
+  }): string {
+    let origin = WEB_APP_URL;
+    if (platformEnv.isWeb) {
+      origin = globalThis.location.origin;
+    }
+    if (!platformEnv.isWeb && isDevMode) {
+      origin = WEB_APP_URL_DEV;
+    }
+
+    // TODO: Update URL format when borrow share route is implemented
+    const baseUrl = `/borrow/${networkId}/${symbol.toLowerCase()}/${provider.toLowerCase()}`;
+    const queryParams = new URLSearchParams();
+
+    queryParams.append('marketAddress', marketAddress);
+    queryParams.append('reserveAddress', reserveAddress);
+
+    const queryString = queryParams.toString();
+    return `${origin}${baseUrl}?${queryString}`;
   },
 };

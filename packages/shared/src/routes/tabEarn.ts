@@ -11,6 +11,7 @@ export type ITabEarnParamList = {
     | undefined
     | {
         tab?: 'assets' | 'portfolio' | 'faqs';
+        mode?: 'earn' | 'borrow';
       };
   [ETabEarnRoutes.EarnProtocols]: {
     symbol: string;

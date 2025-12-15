@@ -18,11 +18,12 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import type {
+import type { ITabEarnParamList } from '@onekeyhq/shared/src/routes';
+import {
+  ETabDiscoveryRoutes,
   ETabEarnRoutes,
-  ITabEarnParamList,
+  ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
-import { ETabDiscoveryRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 import {
   openUrlExternal,
   openUrlInApp,
@@ -123,6 +124,17 @@ function BasicEarnHome({
   const navigation = useAppNavigation();
 
   const defaultTab = overrideDefaultTab || route.params?.tab;
+  const defaultMode = route.params?.mode || 'earn';
+
+  const handleModeChange = useCallback(
+    (mode: 'earn' | 'borrow') => {
+      navigation.navigate(ETabRoutes.Earn, {
+        screen: ETabEarnRoutes.EarnHome,
+        params: { mode, tab: route.params?.tab },
+      });
+    },
+    [navigation, route.params?.tab],
+  );
 
   const accountSelectorActions = useAccountSelectorActions();
 
@@ -266,6 +278,8 @@ function BasicEarnHome({
   if (platformEnv.isNative) {
     return (
       <EarnHomeTabs
+        defaultMode={defaultMode}
+        onModeChange={handleModeChange}
         earn={
           <YStack flex={1}>
             {showHeader && showContent && media.md ? (
@@ -317,6 +331,8 @@ function BasicEarnHome({
       }
     >
       <EarnHomeTabs
+        defaultMode={defaultMode}
+        onModeChange={handleModeChange}
         earn={
           <YStack flex={1}>
             <YStack>

@@ -7,15 +7,20 @@ const TabWrapper = ({ children }: { children: React.ReactNode }) => {
 export const EarnHomeTabs = ({
   earn,
   borrow,
+  defaultMode,
+  onModeChange,
 }: {
   earn: React.ReactNode;
   borrow: React.ReactNode;
+  defaultMode?: 'earn' | 'borrow';
+  onModeChange?: (mode: 'earn' | 'borrow') => void;
 }) => {
   // FIXME[borrow]: earn/borrow i18n
   return (
     <YStack pt="$2">
       <Tabs.Container
-        initialTabName="earn"
+        initialTabName={defaultMode || 'earn'}
+        onTabChange={onModeChange}
         renderTabBar={(tabBarProps) => {
           return <Tabs.TabBar {...tabBarProps} divider={false} />;
         }}
