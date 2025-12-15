@@ -314,5 +314,7 @@ export const useSwapLimitRate = () => {
     limitPriceSetReverse,
     limitPriceUseRate,
     limitPriceMarketPrice,
+    fromTokenInfo: fromSelectToken,
+    toTokenInfo: toSelectToken,
   };
 };
