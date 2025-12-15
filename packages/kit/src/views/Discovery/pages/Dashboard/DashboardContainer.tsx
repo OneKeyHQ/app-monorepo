@@ -3,11 +3,9 @@ import { memo } from 'react';
 import { Page } from '@onekeyhq/components';
 import { TabPageHeader } from '@onekeyhq/kit/src//components/TabPageHeader';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorProvider';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import { HandleRebuildBrowserData } from '../../components/HandleData/HandleRebuildBrowserTabData';
 import MobileBrowserBottomBar from '../../components/MobileBrowser/MobileBrowserBottomBar';
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
 
@@ -21,10 +19,8 @@ function BaseDashboard() {
         tabRoute={ETabRoutes.Discovery}
       />
       <Page>
-        {platformEnv.isNativeIOSPad ? <HandleRebuildBrowserData /> : null}
         <Page.Body>
-          <DashboardContent />
-          {platformEnv.isNativeIOSPad ? <MobileBrowserBottomBar id="" /> : null}
+          {/* <DashboardContent /> */}
         </Page.Body>
       </Page>
     </>
