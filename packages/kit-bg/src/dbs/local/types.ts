@@ -175,6 +175,12 @@ export type IDBCreateHDWalletParams = {
   walletXfp: string;
   avatar?: IAvatarInfo;
 };
+export type IDBCreateKeylessWalletParams = {
+  password: string;
+  packSetId: string;
+  name?: string;
+  avatar?: IAvatarInfo;
+};
 export type IDBCreateHwWalletParamsBase = {
   name?: string;
   device: SearchDevice;

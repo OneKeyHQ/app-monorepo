@@ -530,7 +530,7 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
               isTokenSelectorView={false}
             />
           ) : (
-            <EmptyDeFi />
+            <EmptyDeFi tableLayout={tableLayout} />
           )
         }
       />

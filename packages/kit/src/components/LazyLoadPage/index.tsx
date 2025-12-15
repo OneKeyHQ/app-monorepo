@@ -1,17 +1,33 @@
 import { memo } from 'react';
+import type { ComponentProps, ComponentType } from 'react';
 
 import { Stack } from '@onekeyhq/components';
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-export const LazyLoadPage = (
-  factory: () => Promise<{ default: any }>,
+// Helper type to extract component props from a lazy-loaded module
+type IExtractComponentProps<T> = T extends () => Promise<{
+  default: ComponentType<infer P>;
+}>
+  ? P
+  : never;
+
+export function LazyLoadPage<
+  T extends () => Promise<{ default: ComponentType<any> }>,
+>(
+  factory: T,
   delayMs?: number,
   unStyle?: boolean,
   fallback?: React.ReactNode,
-) => {
-  const LazyLoadComponent = LazyLoad(factory, delayMs, fallback);
-  function LazyLoadPageContainer(props: any) {
+): ComponentType<IExtractComponentProps<T>> {
+  const LazyLoadComponent = LazyLoad<IExtractComponentProps<T>>(
+    factory as () => Promise<{
+      default: ComponentType<IExtractComponentProps<T>>;
+    }>,
+    delayMs,
+    fallback,
+  );
+  function LazyLoadPageContainer(props: IExtractComponentProps<T>) {
     if (unStyle) {
       return <LazyLoadComponent {...props} />;
     }
@@ -22,8 +38,10 @@ export const LazyLoadPage = (
       </Stack>
     );
   }
-  return memo(LazyLoadPageContainer);
-};
+  return memo(LazyLoadPageContainer) as ComponentType<
+    IExtractComponentProps<T>
+  >;
+}
 
 // prevent useEffect triggers when tab loaded on Native
 export const LazyLoadRootTabPage = (factory: () => Promise<{ default: any }>) =>

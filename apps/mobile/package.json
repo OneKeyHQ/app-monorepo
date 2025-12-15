@@ -24,7 +24,7 @@
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",
-    "@react-native/metro-config": "0.82.1",
+    "@react-native/metro-config": "0.81.5",
     "@rozenite/expo-atlas-plugin": "1.0.0-alpha.16",
     "@rozenite/metro": "1.0.0-alpha.16",
     "@rozenite/mmkv-plugin": "1.0.0-alpha.16",
