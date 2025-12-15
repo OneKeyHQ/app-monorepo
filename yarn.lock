@@ -7847,7 +7847,7 @@ __metadata:
     "@rozenite/mmkv-plugin": "npm:1.0.0-alpha.16"
     "@rozenite/network-activity-plugin": "npm:1.0.0-alpha.16"
     "@rozenite/react-navigation-plugin": "npm:1.0.0-alpha.16"
-    "@sentry/react-native": "npm:6.21.0"
+    "@sentry/react-native": "npm:6.22.0"
     "@shopify/flash-list": "npm:2.2.0"
     "@types/react-native-canvas": "npm:^0.1.13"
     "@walletconnect/react-native-compat": "npm:2.21.7"
@@ -11710,9 +11710,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@sentry/react-native@npm:6.21.0":
-  version: 6.21.0
-  resolution: "@sentry/react-native@npm:6.21.0"
+"@sentry/react-native@npm:6.22.0":
+  version: 6.22.0
+  resolution: "@sentry/react-native@npm:6.22.0"
   dependencies:
     "@sentry/babel-plugin-component-annotate": "npm:4.2.0"
     "@sentry/browser": "npm:8.55.0"
@@ -11730,7 +11730,7 @@ __metadata:
       optional: true
   bin:
     sentry-expo-upload-sourcemaps: scripts/expo-upload-sourcemaps.js
-  checksum: 10/e60f8ec9e4da62842af4966bb1112101c76fa8f0491f608b22cfee92a1278b7443af5d9d92b741d0b64197227165b218af1d458cfcde8e4f7b123d6f0764783a
+  checksum: 10/2960a68685c5ddc10e0a79a3a4d0a9de7678396d5d67c8e03ad1550e5552344c266e8b7a28ca5f44523554b9e0b9bb53b20cbd3f23c22bdf0236438651f38621
   languageName: node
   linkType: hard
 

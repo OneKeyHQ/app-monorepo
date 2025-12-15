@@ -101,7 +101,9 @@ export type IKeylessShareCardsEffectsProps = {
   isViewMode: boolean;
   handleCompleteSetup: () => Promise<void>;
   isRestoreOrViewMode: boolean;
-  generatePacks: () => Promise<IKeylessWalletPacks>;
+  generatePacks: (params?: {
+    customMnemonic?: string;
+  }) => Promise<IKeylessWalletPacks>;
   refs: MutableRefObject<IKeylessShareCardsRefs>;
   isRestoreMode: boolean;
   handleRestoreOrCheckShare: IKeylessShareCardsCardContextValue['handleRestoreOrCheckShare'];
