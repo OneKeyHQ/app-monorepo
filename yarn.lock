@@ -7385,24 +7385,35 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/react-native-check-biometric-auth-changed@npm:1.1.5":
-  version: 1.1.5
-  resolution: "@onekeyfe/react-native-check-biometric-auth-changed@npm:1.1.5"
+"@onekeyfe/react-native-check-biometric-auth-changed@npm:1.1.6":
+  version: 1.1.6
+  resolution: "@onekeyfe/react-native-check-biometric-auth-changed@npm:1.1.6"
   peerDependencies:
     react: "*"
     react-native: "*"
     react-native-nitro-modules: ^0.31.10
-  checksum: 10/131b6eeb0b7ebef86fda11e774bc458571863f1812c378ba74afc414d3d80922a7b02c2d3a4bdd0393eed7f244ac144aea7285cddef520e776c8cb589ee1ae1d
+  checksum: 10/9ef2c3cd914e9e131883dd7b0785a2fd8a78f7ba2fc00a0fd186235cbae1d23ab7b51c60b213cc0dcb74acb6343fc31390641d05e45bc44e9a08b83292ff7cea
   languageName: node
   linkType: hard
 
-"@onekeyfe/react-native-lite-card@npm:1.1.5":
-  version: 1.1.5
-  resolution: "@onekeyfe/react-native-lite-card@npm:1.1.5"
+"@onekeyfe/react-native-keychain-module@npm:1.1.6":
+  version: 1.1.6
+  resolution: "@onekeyfe/react-native-keychain-module@npm:1.1.6"
   peerDependencies:
     react: "*"
     react-native: "*"
-  checksum: 10/e7219324a238ac282f05636aed5ea26a1af530adf9a0eab05058c1bda05678f43e1f411ddff3ad47963e3bef04565b9f9e471dee682e9f120f260f8da5c2c11c
+    react-native-nitro-modules: ^0.31.10
+  checksum: 10/c750ae82b8d5ec22835f3936c1010d7d54992f49a13a1a68964b15217bb23d76d4be086060f34264b55b0617abaa9d2ca1e04cbc408b450cd84f613453c4ceca
+  languageName: node
+  linkType: hard
+
+"@onekeyfe/react-native-lite-card@npm:1.1.6":
+  version: 1.1.6
+  resolution: "@onekeyfe/react-native-lite-card@npm:1.1.6"
+  peerDependencies:
+    react: "*"
+    react-native: "*"
+  checksum: 10/b5ec8cbabaa3bca8a4f50f1e6f866314a8931b820d2fff58d3800d1382fcdeedb94aa303d8b8075850494d536b7c4d3cc7a2bc964285418fcb2283aad9f201d2
   languageName: node
   linkType: hard
 
@@ -7829,8 +7840,9 @@ __metadata:
     "@notifee/react-native": "npm:9.1.8"
     "@onekeyfe/react-native-animated-charts": "npm:1.0.0"
     "@onekeyfe/react-native-ble-utils": "npm:0.1.4"
-    "@onekeyfe/react-native-check-biometric-auth-changed": "npm:1.1.5"
-    "@onekeyfe/react-native-lite-card": "npm:1.1.5"
+    "@onekeyfe/react-native-check-biometric-auth-changed": "npm:1.1.6"
+    "@onekeyfe/react-native-keychain-module": "npm:1.1.6"
+    "@onekeyfe/react-native-lite-card": "npm:1.1.6"
     "@onekeyfe/react-native-sni-connect": "npm:1.1.0"
     "@onekeyfe/react-native-text-input": "npm:0.3.0"
     "@onekeyhq/components": "npm:*"
