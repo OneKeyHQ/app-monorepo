@@ -67,10 +67,6 @@ export enum EFinalizeWalletSetupSteps {
   GeneratingAccounts = 'GeneratingAccounts',
   EncryptingData = 'EncryptingData',
   Ready = 'Ready',
-  // Keyless wallet steps
-  CreatingDeviceKey = 'CreatingDeviceKey',
-  CreatingCloudKey = 'CreatingCloudKey',
-  CreatingAuthKey = 'CreatingAuthKey',
 }
 
 export type IEventBusPayloadShowToast = {
@@ -422,6 +418,7 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.MarketHomePageEnter]: {
     from: EEnterWay;
   };
+  [EAppEventBusNames.MarketWatchListV2Changed]: undefined;
 }
 
 export enum EEventBusBroadcastMethodNames {

@@ -1,5 +1,5 @@
 import { Semaphore } from 'async-mutex';
-import { isString } from 'lodash';
+import { cloneDeep, isString } from 'lodash';
 
 import { ensureSensitiveTextEncoded } from '@onekeyhq/core/src/secret';
 import {
@@ -205,10 +205,8 @@ class ServicePrime extends ServiceBase {
     const result = await client.post<
       IApiClientResponse<{ phone: string; otp: string }>
     >('/prime/v1/general/phone-otp', {
-      params: {
-        email,
-        otp,
-      },
+      email,
+      otp,
     });
 
     return result?.data?.data;
@@ -332,7 +330,7 @@ class ServicePrime extends ServiceBase {
   async setPrimePersistAtomNotLoggedIn() {
     console.log('servicePrime.setPrimePersistAtomNotLoggedIn');
     await primePersistAtom.set(
-      (): IPrimePersistAtomData => primePersistAtomInitialValue, // TODO clone deep
+      (): IPrimePersistAtomData => cloneDeep(primePersistAtomInitialValue),
     );
     await this.backgroundApi.serviceMasterPassword.clearLocalMasterPassword();
     await primeServerMasterPasswordStatusAtom.set((v) => ({

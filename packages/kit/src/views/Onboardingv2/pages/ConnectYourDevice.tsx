@@ -120,6 +120,10 @@ function BridgeNotInstalledDialogContent(_props: { error: NeedOneKeyBridge }) {
 interface IDeviceConnectionProps {
   tabValue: EConnectDeviceChannel;
   deviceTypeItems: EDeviceType[];
+  connectDevice: (
+    item: IConnectYourDeviceItem,
+    innerTabValue: EConnectDeviceChannel,
+  ) => Promise<void> | void;
 }
 
 // Common device list and connection logic
@@ -760,6 +764,7 @@ function DeviceVideo({
 function USBOrBLEConnectionIndicator({
   tabValue,
   deviceTypeItems,
+  connectDevice,
 }: IDeviceConnectionProps) {
   const themeVariant = useThemeVariant();
   const intl = useIntl();
@@ -770,16 +775,7 @@ function USBOrBLEConnectionIndicator({
   // Use the shared device connection logic
   const deviceConnection = useDeviceConnection({
     tabValue,
-    onDeviceSelect: async (item) => {
-      navigation.push(EOnboardingPagesV2.CheckAndUpdate, {
-        deviceData: item,
-        tabValue,
-      });
-      defaultLogger.onboarding.page.connectYourDevice(
-        item.device?.deviceType || '',
-        tabValue,
-      );
-    },
+    onDeviceSelect: async (item) => connectDevice(item, tabValue),
   });
 
   const {
@@ -1012,64 +1008,12 @@ function USBOrBLEConnectionIndicator({
 function BluetoothConnectionIndicator({
   deviceTypeItems,
   tabValue,
+  connectDevice,
 }: IDeviceConnectionProps) {
   const intl = useIntl();
   const isFocused = useIsFocused();
-  const navigation = useAppNavigation();
   const [bluetoothStatus, setBluetoothStatus] = useState<EBluetoothStatus>(
     EBluetoothStatus.checking,
-  );
-
-  const connectDevice = useCallback(
-    async (
-      item: IConnectYourDeviceItem,
-      innerTabValue: EConnectDeviceChannel,
-    ) => {
-      if (!item.device) {
-        return;
-      }
-
-      const connectId = item.device.connectId ?? '';
-      try {
-        void backgroundApiProxy.serviceHardwareUI.showCheckingDeviceDialog({
-          connectId,
-        });
-        await backgroundApiProxy.serviceHardware.connectDevice({
-          connectId,
-          params: {
-            retryCount: 0,
-          },
-        });
-        navigation.push(EOnboardingPagesV2.CheckAndUpdate, {
-          deviceData: item,
-          tabValue: innerTabValue,
-        });
-      } catch (error) {
-        if (error instanceof OneKeyHardwareError) {
-          const { code, message } = error;
-          if (
-            code === HardwareErrorCode.CallMethodNeedUpgradeFirmware ||
-            code === HardwareErrorCode.BlePermissionError ||
-            code === HardwareErrorCode.BleLocationError
-          ) {
-            return;
-          }
-          Toast.error({
-            title: message || 'DeviceConnectError',
-          });
-        } else {
-          console.error('connectDevice error:', get(error, 'message', ''));
-        }
-      } finally {
-        void backgroundApiProxy.serviceHardwareUI.closeHardwareUiStateDialog({
-          connectId,
-          hardClose: false,
-          skipDelayClose: true,
-          deviceResetToHome: false,
-        });
-      }
-    },
-    [navigation],
   );
 
   // Use shared device connection logic for Bluetooth
@@ -1328,6 +1272,63 @@ function ConnectYourDevicePage({
     return unsubscribe;
   }, [reactNavigation]);
 
+  const connectDevice = useCallback(
+    async (
+      item: IConnectYourDeviceItem,
+      innerTabValue: EConnectDeviceChannel,
+    ) => {
+      if (!item.device) {
+        return;
+      }
+      const connectId = item.device.connectId ?? '';
+      try {
+        if (
+          item.device?.commType === 'electron-ble' ||
+          item.device?.commType === 'ble'
+        ) {
+          void backgroundApiProxy.serviceHardwareUI.showCheckingDeviceDialog({
+            connectId,
+          });
+          await backgroundApiProxy.serviceHardware.getFeaturesWithoutCache({
+            connectId,
+            params: {
+              retryCount: 0,
+              onlyConnectBleDevice: true,
+            },
+          });
+        }
+        navigation.push(EOnboardingPagesV2.CheckAndUpdate, {
+          deviceData: item,
+          tabValue: innerTabValue,
+        });
+      } catch (error) {
+        if (error instanceof OneKeyHardwareError) {
+          const { code, message } = error;
+          if (
+            code === HardwareErrorCode.CallMethodNeedUpgradeFirmware ||
+            code === HardwareErrorCode.BlePermissionError ||
+            code === HardwareErrorCode.BleLocationError
+          ) {
+            return;
+          }
+          Toast.error({
+            title: message || 'DeviceConnectError',
+          });
+        } else {
+          console.error('connectDevice error:', get(error, 'message', ''));
+        }
+      } finally {
+        void backgroundApiProxy.serviceHardwareUI.closeHardwareUiStateDialog({
+          connectId,
+          hardClose: false,
+          skipDelayClose: true,
+          deviceResetToHome: false,
+        });
+      }
+    },
+    [navigation],
+  );
+
   return (
     <Page>
       <OnboardingLayout>
@@ -1369,12 +1370,14 @@ function ConnectYourDevicePage({
               <USBOrBLEConnectionIndicator
                 tabValue={tabValue}
                 deviceTypeItems={deviceTypeItems}
+                connectDevice={connectDevice}
               />
             ) : null}
             {tabValue === EConnectDeviceChannel.bluetooth ? (
               <BluetoothConnectionIndicator
                 tabValue={tabValue}
                 deviceTypeItems={deviceTypeItems}
+                connectDevice={connectDevice}
               />
             ) : null}
           </OnboardingLayout.ConstrainedContent>

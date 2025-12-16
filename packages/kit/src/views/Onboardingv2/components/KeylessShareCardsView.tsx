@@ -1,6 +1,13 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 
-import { SizableText, YStack } from '@onekeyhq/components';
+import {
+  Button,
+  Dialog,
+  Input,
+  SizableText,
+  Toast,
+  YStack,
+} from '@onekeyhq/components';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import type {
   IAuthKeyPack,
@@ -14,6 +21,7 @@ import {
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useKeylessWallet } from '../../../components/KeylessWallet/useKeylessWallet';
+import { MultipleClickStack } from '../../../components/MultipleClickStack';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 
@@ -429,6 +437,64 @@ export function KeylessShareCardsView({ mode }: IKeylessShareCardsViewProps) {
     });
   }, [navigation, isRestoreMode, saveDevicePack]);
 
+  const handleImportCustomMnemonic = useCallback(() => {
+    Dialog.confirm({
+      title: 'Import Custom Mnemonic',
+      renderContent: (
+        <Dialog.Form
+          formProps={{
+            defaultValues: { mnemonic: '' },
+          }}
+        >
+          <Dialog.FormField
+            name="mnemonic"
+            rules={{
+              required: {
+                value: true,
+                message: 'Mnemonic is required',
+              },
+            }}
+          >
+            <Input
+              autoFocus
+              flex={1}
+              placeholder="Enter your custom mnemonic phrase"
+            />
+          </Dialog.FormField>
+        </Dialog.Form>
+      ),
+      onConfirm: async (dialogInstance) => {
+        const form = dialogInstance.getForm();
+        if (!form) {
+          return;
+        }
+        const { mnemonic } = form.getValues() as { mnemonic: string };
+        if (!mnemonic?.trim()) {
+          return;
+        }
+
+        refs.current.isGeneratingPacks = true;
+        try {
+          const packs = await generatePacks({
+            customMnemonic: mnemonic.trim(),
+          });
+          refs.current.generatedPacks = packs;
+          Toast.success({
+            title: 'Custom mnemonic imported successfully',
+          });
+        } catch (error) {
+          console.error(
+            'Failed to generate packs with custom mnemonic:',
+            error,
+          );
+          throw error;
+        } finally {
+          refs.current.isGeneratingPacks = false;
+        }
+      },
+    });
+  }, [generatePacks, refs]);
+
   return (
     <>
       <KeylessShareCardsEffects
@@ -492,6 +558,18 @@ export function KeylessShareCardsView({ mode }: IKeylessShareCardsViewProps) {
             }
             return null;
           })}
+
+          <MultipleClickStack
+            showDevBgColor
+            h="$10"
+            debugComponent={
+              <YStack gap="$2">
+                <Button onPress={handleImportCustomMnemonic}>
+                  ImportCustomMnemonic
+                </Button>
+              </YStack>
+            }
+          />
         </OnboardingLayout.ConstrainedContent>
       </KeylessShareCardsContext.Provider>
     </>

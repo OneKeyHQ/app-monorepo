@@ -1629,15 +1629,19 @@ class ServiceStaking extends ServiceBase {
     accountAddress?: string;
     approveType?: 'permit';
     permitSignature?: string;
+    withdrawAll?: boolean;
   }) {
-    const { symbol, protocolVault, ...rest } = params;
+    const { symbol, protocolVault, withdrawAll, ...rest } = params;
     const client = await this.getClient(EServiceEndpointEnum.Earn);
-    const sendParams: Record<string, string | undefined> = {
+    const sendParams: Record<string, string | boolean | undefined> = {
       symbol,
       ...rest,
     };
     if (earnUtils.isVaultBasedProvider({ providerName: params.provider })) {
       sendParams.vault = protocolVault;
+    }
+    if (withdrawAll !== undefined) {
+      sendParams.withdrawAll = withdrawAll;
     }
     const resp = await client.get<{
       data: IEarnEstimateFeeResp;

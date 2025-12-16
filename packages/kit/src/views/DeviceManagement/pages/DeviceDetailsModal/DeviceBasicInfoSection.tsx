@@ -195,6 +195,7 @@ function DeviceBasicInfoSection({
             wallet={wallet}
             status="default"
             badge={deviceInfo.walletAvatarBadge}
+            firmwareTypeBadge={deviceInfo.firmwareType}
           />
         </XStack>
         <YStack flex={1}>

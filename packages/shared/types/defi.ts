@@ -1,3 +1,5 @@
+import type { ICurrencyItem } from '@onekeyhq/kit/src/views/Setting/pages/Currency';
+
 export type IFetchAccountDeFiPositionsParams = {
   accountId: string;
   networkId: string;
@@ -7,7 +9,9 @@ export type IFetchAccountDeFiPositionsParams = {
   allNetworksNetworkId?: string;
   saveToLocal?: boolean;
   excludeLowValueProtocols?: boolean;
-  lowValueProtocolsThreshold?: number;
+  lowValueProtocolsThresholdUsd?: number;
+  sourceCurrencyInfo?: ICurrencyItem;
+  targetCurrencyInfo?: ICurrencyItem;
 };
 
 export enum EDeFiAssetType {
@@ -55,6 +59,8 @@ export type IDeFiPosition = {
   rewards: IDeFiAsset[];
   metrics: IMetrics;
   source: IDeFiSource;
+  groupId: string;
+  name: string;
 };
 
 export type IProtocolSummary = {
@@ -106,10 +112,11 @@ export type IDeFiProtocol = {
   categories: string[];
   positions: {
     category: string;
-    all: (IDeFiAsset & { type: EDeFiAssetType })[];
     assets: (IDeFiAsset & { type: EDeFiAssetType })[];
     debts: (IDeFiAsset & { type: EDeFiAssetType })[];
     rewards: (IDeFiAsset & { type: EDeFiAssetType })[];
     value: string;
+    groupId: string;
+    poolName: string;
   }[];
 };

@@ -88,7 +88,7 @@ import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
 import { createVaultDotSub } from './subs';
 import {
-  getFinalizedBlockInfo,
+  getBlockInfo,
   getGenesisHash,
   getMetadataRpc,
   getMinAmount,
@@ -183,11 +183,7 @@ export default class VaultDot extends VaultBase {
       getRuntimeVersion(this.networkId, this.backgroundApi, customRpcClient),
       getGenesisHash(this.networkId, this.backgroundApi, customRpcClient),
       getMetadataRpc(this.networkId, this.backgroundApi, customRpcClient),
-      getFinalizedBlockInfo(
-        this.networkId,
-        this.backgroundApi,
-        customRpcClient,
-      ),
+      getBlockInfo(this.networkId, this.backgroundApi, customRpcClient),
     ]);
     const info = {
       metadataRpc,
@@ -503,7 +499,7 @@ export default class VaultDot extends VaultBase {
     }
 
     if (!params.nonceInfo && !encodedTx.isFromDapp) {
-      const blockInfo = await getFinalizedBlockInfo(
+      const blockInfo = await getBlockInfo(
         this.networkId,
         this.backgroundApi,
         customRpcClient,

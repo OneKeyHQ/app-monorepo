@@ -22,12 +22,6 @@
     <true/>
     <key>com.apple.security.device.bluetooth</key>
     <true/>
-
-    <!-- Keychain access for biometric-protected storage -->
-    <key>com.apple.security.keychain-access-groups</key>
-    <array>
-      <string>$(AppIdentifierPrefix)so.onekey.wallet</string>
-    </array>
     
     <key>com.apple.developer.icloud-services</key>
     <array>
