@@ -1,34 +1,22 @@
-import { memo, useCallback, useEffect } from 'react';
+import { memo, useCallback } from 'react';
 
 import { IconButton, Stack, YStack } from '@onekeyhq/components';
 import {
   useSwapActions,
   useSwapFromTokenAmountAtom,
-  useSwapLimitPriceFromAmountAtom,
-  useSwapLimitPriceToAmountAtom,
-  useSwapQuoteCurrentSelectAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapSelectTokenDetailFetchingAtom,
   useSwapSelectedFromTokenBalanceAtom,
   useSwapSelectedToTokenBalanceAtom,
   useSwapToTokenAmountAtom,
-  useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import {
-  checkWrappedTokenPair,
-  equalTokenNoCaseSensitive,
-} from '@onekeyhq/shared/src/utils/tokenUtils';
-import {
-  ESwapDirectionType,
-  ESwapTabSwitchType,
-} from '@onekeyhq/shared/types/swap/types';
+import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 
 import { useSwapFromAccountNetworkSync } from '../../hooks/useSwapAccount';
 import { useSwapLimitPriceCheck } from '../../hooks/useSwapPro';
-import { useSwapQuote } from '../../hooks/useSwapQuote';
 import {
   useSwapQuoteEventFetching,
   useSwapQuoteLoading,

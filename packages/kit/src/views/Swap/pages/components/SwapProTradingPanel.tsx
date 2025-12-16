@@ -132,10 +132,10 @@ const SwapProTradingPanel = ({
               }
               titleProps={{
                 size: '$bodySm',
+                color: '$textSubdued',
               }}
               valueProps={{
                 size: '$bodySm',
-                color: '$textSubdued',
               }}
               rightIcon={
                 <Icon
@@ -158,10 +158,10 @@ const SwapProTradingPanel = ({
               }
               titleProps={{
                 size: '$bodySm',
+                color: '$textSubdued',
               }}
               valueProps={{
                 size: '$bodySm',
-                color: '$textSubdued',
               }}
               rightIcon={
                 <Icon

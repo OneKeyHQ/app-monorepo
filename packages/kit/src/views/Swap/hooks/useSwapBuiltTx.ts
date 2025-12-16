@@ -31,6 +31,8 @@ import type {
 import { BATCH_SEND_TXS_FEE_UP_RATIO_FOR_SWAP } from '@onekeyhq/shared/src/consts/walletConsts';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { ESwapEventAPIStatus } from '@onekeyhq/shared/src/logger/scopes/swap/scenes/swapEstimateFee';
@@ -1557,6 +1559,10 @@ export function useSwapBuildTx() {
         });
       } else if (buildSwapRes?.result?.protocol === EProtocolOfExchange.LIMIT) {
         swapType = ESwapTabSwitchType.LIMIT;
+        appEventBus.emit(
+          EAppEventBusNames.SwapLimitOrderBuildSuccess,
+          undefined,
+        );
         void backgroundApiProxy.serviceSwap.swapLimitOrdersFetchLoop(
           swapFromAddressInfo.accountInfo?.indexedAccount?.id,
           !swapFromAddressInfo.accountInfo?.indexedAccount?.id

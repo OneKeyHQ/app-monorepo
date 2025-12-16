@@ -3970,7 +3970,7 @@
   "wallet.hardware_wallet_connect_description_1": "Підключити через USB або QR-код",
   "wallet.hardware_wallet_connect_description_2": "Авторизувати на пристрої",
   "wallet.history_footer_view_full_history_in_explorer": "Відображаються лише останні транзакції. Щоб переглянути повну історію, відвідайте оглядач блоків.",
-  "wallet.history_settings_hide_risk_transaction_desc": "Підтримує основні блокчейни, включаючи ETH, BNB, TRX та інші.",
+  "wallet.history_settings_hide_risk_transaction_desc": "Підтримує основні блокчейни, включаючи ETH, BNB, TRX, SOL та інші.",
   "wallet.history_settings_hide_risk_transaction_desc_unsupported": "Мережа {networkName} поки що не підтримується.",
   "wallet.history_settings_hide_risk_transaction_title": "Приховати ризиковані транзакції",
   "wallet.history_settings_hide_small_transaction_desc": "Приховує транзакції з низькою вартістю. Токени без ціни не фільтруються.",

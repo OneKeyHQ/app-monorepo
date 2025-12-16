@@ -14,6 +14,7 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { EXT_RATE_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EOnboardingPages } from '@onekeyhq/shared/src/routes';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
@@ -109,18 +110,20 @@ function OneKeyWalletConnectionOptions({
   if (isMobile) {
     return (
       <>
-        <ListItem
-          py="$4"
-          px="$5"
-          mx="$0"
-          bg="$bgSubdued"
-          title={intl.formatMessage({
-            id: ETranslations.global_onekey_wallet_hardware_wallet,
-          })}
-          renderAvatar={<OneKeyHardwareWalletLogo />}
-          drillIn
-          onPress={handleConnectHardwarePress}
-        />
+        {platformEnv.isWebDappMode ? null : (
+          <ListItem
+            py="$4"
+            px="$5"
+            mx="$0"
+            bg="$bgSubdued"
+            title={intl.formatMessage({
+              id: ETranslations.global_onekey_wallet_hardware_wallet,
+            })}
+            renderAvatar={<OneKeyHardwareWalletLogo />}
+            drillIn
+            onPress={handleConnectHardwarePress}
+          />
+        )}
         <WalletConnectListItemComponent
           impl="evm"
           py="$4"
@@ -209,35 +212,37 @@ function OneKeyWalletConnectionOptions({
           </Button>
         )}
       </ListItem>
-      <ListItem
-        py="$4"
-        px="$5"
-        mx="$0"
-        bg="$bgSubdued"
-        cursor="pointer"
-        title={intl.formatMessage({
-          id: ETranslations.global_onekey_wallet_hardware_wallet,
-        })}
-        subtitle={
-          <>
-            <SizableText size="$bodyMd" color="$textSubdued">
-              1.{' '}
-              {intl.formatMessage({
-                id: ETranslations.wallet_hardware_wallet_connect_description_1,
-              })}
-            </SizableText>
-            <SizableText size="$bodyMd" color="$textSubdued">
-              2.{' '}
-              {intl.formatMessage({
-                id: ETranslations.wallet_hardware_wallet_connect_description_2,
-              })}
-            </SizableText>
-          </>
-        }
-        renderAvatar={<OneKeyHardwareWalletLogo />}
-        drillIn
-        onPress={handleConnectHardwarePress}
-      />
+      {platformEnv.isWebDappMode ? null : (
+        <ListItem
+          py="$4"
+          px="$5"
+          mx="$0"
+          bg="$bgSubdued"
+          cursor="pointer"
+          title={intl.formatMessage({
+            id: ETranslations.global_onekey_wallet_hardware_wallet,
+          })}
+          subtitle={
+            <>
+              <SizableText size="$bodyMd" color="$textSubdued">
+                1.{' '}
+                {intl.formatMessage({
+                  id: ETranslations.wallet_hardware_wallet_connect_description_1,
+                })}
+              </SizableText>
+              <SizableText size="$bodyMd" color="$textSubdued">
+                2.{' '}
+                {intl.formatMessage({
+                  id: ETranslations.wallet_hardware_wallet_connect_description_2,
+                })}
+              </SizableText>
+            </>
+          }
+          renderAvatar={<OneKeyHardwareWalletLogo />}
+          drillIn
+          onPress={handleConnectHardwarePress}
+        />
+      )}
     </>
   );
 }
