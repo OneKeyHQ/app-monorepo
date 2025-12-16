@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { memo, useMemo } from 'react';
 
 import { Stack, XStack, useMedia } from '@onekeyhq/components';
 import { ReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
@@ -82,7 +82,7 @@ const RIGHT_SIDE_ITEMS: IItemType[] = [
 ];
 
 // Component to render the dapp logos on either side
-function DappSideDisplay({
+function BaseDappSideDisplay({
   items,
   shuffledDapps,
   sideStackProps,
@@ -115,6 +115,8 @@ function DappSideDisplay({
   );
 }
 
+const DappSideDisplay = memo(BaseDappSideDisplay);
+
 export function Welcome({
   banner,
   discoveryData,
@@ -134,12 +136,15 @@ export function Welcome({
   );
 
   // Shared stack props for the side containers
-  const sideStackProps = {
-    $sm: { display: 'none' as const },
-    flex: 1,
-    width: '$50',
-    height: '100%',
-  };
+  const sideStackProps = useMemo(
+    () => ({
+      $sm: { display: 'none' as const },
+      flex: 1,
+      width: '$50',
+      height: '100%',
+    }),
+    [],
+  );
 
   // Extract both platform and media conditions into the showDefaultTitle variable
   const showDefaultTitle =

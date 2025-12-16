@@ -265,7 +265,11 @@ function useAppNavigation<
 
   const popTo: typeof navigationRef.current.popTo = useCallback(
     (...args: any) => {
-      navigationRef.current.popTo(...args);
+      const [screen, params, options] = args;
+      navigationRef.current.navigate(screen, params, {
+        pop: true,
+        ...options,
+      });
     },
     [],
   );
