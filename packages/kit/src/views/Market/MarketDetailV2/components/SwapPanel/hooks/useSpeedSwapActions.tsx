@@ -645,7 +645,7 @@ export function useSpeedSwapActions(props: {
 
   const checkTokenApproveAllowance = useCallback(
     async (amount: string) => {
-      const amountBN = new BigNumber(amount ?? 0);
+      const amountBN = new BigNumber(amount || 0);
       try {
         if (
           !spenderAddress ||
@@ -1011,7 +1011,7 @@ export function useSpeedSwapActions(props: {
 
   useEffect(() => {
     const fromTokenAmountDebouncedBN = new BigNumber(
-      fromTokenAmountDebounced ?? 0,
+      fromTokenAmountDebounced || 0,
     );
     if (
       (!fromTokenAmountDebouncedBN.isNaN() &&

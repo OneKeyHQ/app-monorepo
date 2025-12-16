@@ -388,6 +388,7 @@ export function useSwapProTokenInit() {
   const [swapProUseSelectBuyTokenAtom, setSwapProUseSelectBuyTokenAtom] =
     useSwapProUseSelectBuyTokenAtom();
   const [swapProInputAmount] = useSwapProInputAmountAtom();
+  const [swapFromInputAmount] = useSwapFromTokenAmountAtom();
 
   const {
     defaultTokens,
@@ -501,13 +502,24 @@ export function useSwapProTokenInit() {
     if (balanceLoading) {
       return true;
     }
-    const inputAmountBN = new BigNumber(swapProInputAmount ?? '0');
+    const inputAmountBN =
+      swapProTradeType === ESwapProTradeType.MARKET
+        ? new BigNumber(swapProInputAmount || '0')
+        : new BigNumber(
+            swapFromInputAmount.value ? swapFromInputAmount.value : '0',
+          );
     if (inputAmountBN.isNaN() || inputAmountBN.isZero()) {
       return true;
     }
-    const inputTokenBalanceBN = new BigNumber(inputToken?.balanceParsed ?? '0');
+    const inputTokenBalanceBN = new BigNumber(inputToken?.balanceParsed || '0');
     return inputTokenBalanceBN.gte(inputAmountBN);
-  }, [inputToken?.balanceParsed, swapProInputAmount, balanceLoading]);
+  }, [
+    balanceLoading,
+    swapProTradeType,
+    swapProInputAmount,
+    swapFromInputAmount.value,
+    inputToken?.balanceParsed,
+  ]);
 
   return {
     defaultTokens,
@@ -885,7 +897,7 @@ export function useSwapProPositionsListFilter() {
   const filterDefaultTokenList = useMemo(() => {
     const filterMinValueTokenList = swapProSupportNetworksTokenList.filter(
       (token) => {
-        return new BigNumber(token.fiatValue ?? '0').gt(
+        return new BigNumber(token.fiatValue || '0').gt(
           swapProPositionsListMinValue,
         );
       },
@@ -1002,7 +1014,7 @@ export function useSwapProActionsQuote() {
       swapTradeType === ESwapProTradeType.MARKET
     ) {
       const toAmountBN = new BigNumber(swapProQuoteResult.toAmount);
-      const toTokenPriceBN = new BigNumber(swapProtoToken?.price ?? '0');
+      const toTokenPriceBN = new BigNumber(swapProtoToken?.price || '0');
       const toTokenValue = toTokenPriceBN.multipliedBy(toAmountBN).toFixed();
       const formattedToTokenValue = numberFormat(toTokenValue, {
         formatter: 'value',
@@ -1051,7 +1063,7 @@ export function useSwapProActionsQuote() {
   ]);
 
   useEffect(() => {
-    const debounceInputAmountBN = new BigNumber(debounceInputAmount ?? '0');
+    const debounceInputAmountBN = new BigNumber(debounceInputAmount || '0');
     if (debounceInputAmountBN.isNaN() || debounceInputAmountBN.lte(0)) {
       cancelSpeedQuote();
       void cleanSpeedQuote();
