@@ -37,10 +37,17 @@ export function useKeylessWalletMethods() {
 
   const navigation = useAppNavigation();
 
-  const generatePacks = useCallback(async () => {
-    await loginOneKeyId();
-    return backgroundApiProxy.serviceKeylessWallet.generateKeylessWalletPacks();
-  }, [loginOneKeyId]);
+  const generatePacks = useCallback(
+    async (params?: { customMnemonic?: string }) => {
+      await loginOneKeyId();
+      return backgroundApiProxy.serviceKeylessWallet.generateKeylessWalletPacks(
+        {
+          customMnemonic: params?.customMnemonic,
+        },
+      );
+    },
+    [loginOneKeyId],
+  );
 
   const saveDevicePack = useCallback(
     async ({

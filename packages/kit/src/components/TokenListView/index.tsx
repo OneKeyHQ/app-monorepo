@@ -468,13 +468,19 @@ function TokenListViewCmp(props: IProps) {
       return (
         <XStack py="$3" jc="center" ai="center">
           <Button
-            size={media.gtMd ? 'small' : 'medium'}
+            size="small"
             variant="secondary"
             onPress={() =>
               setOverFlowState((prev) => ({ ...prev, isSliced: false }))
             }
-            width={media.gtMd ? undefined : '100%'}
-            borderRadius={media.gtMd ? undefined : '$full'}
+            $md={
+              {
+                flexGrow: 1,
+                flexBasis: 0,
+                size: 'medium',
+                borderRadius: '$full',
+              } as any
+            }
           >
             {intl.formatMessage({ id: ETranslations.global_show_more })}
           </Button>
@@ -500,19 +506,25 @@ function TokenListViewCmp(props: IProps) {
           </Stack>
         ) : null}
         {overFlowState.isOverflow && !overFlowState.isSliced ? (
-          <Stack jc="center" ai="center" pt="$3">
+          <XStack jc="center" ai="center" pt="$3">
             <Button
-              size={media.gtMd ? 'small' : 'medium'}
+              size="small"
               variant="secondary"
               onPress={() =>
                 setOverFlowState((prev) => ({ ...prev, isSliced: true }))
               }
-              width={media.gtMd ? undefined : '100%'}
-              borderRadius={media.gtMd ? undefined : '$full'}
+              $md={
+                {
+                  flexGrow: 1,
+                  flexBasis: 0,
+                  size: 'medium',
+                  borderRadius: '$full',
+                } as any
+              }
             >
               {intl.formatMessage({ id: ETranslations.global_show_less })}
             </Button>
-          </Stack>
+          </XStack>
         ) : null}
       </Stack>
     );
@@ -528,7 +540,6 @@ function TokenListViewCmp(props: IProps) {
     tokenSelectorSearchKey,
     footerTipText,
     intl,
-    media.gtMd,
   ]);
 
   if (plainMode) {

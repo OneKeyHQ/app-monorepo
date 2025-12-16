@@ -25,25 +25,6 @@ import type {
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EDeFiAssetType, type IDeFiAsset } from '@onekeyhq/shared/types/defi';
 
-function getAssetType(asset: IDeFiAsset & { type: EDeFiAssetType }) {
-  if (asset.type === EDeFiAssetType.DEBT) {
-    return appLocale.intl.formatMessage({
-      id: ETranslations.wallet_defi_asset_type_borrowed,
-    });
-  }
-  if (asset.type === EDeFiAssetType.REWARD) {
-    return appLocale.intl.formatMessage({
-      id: ETranslations.wallet_defi_position_module_rewards,
-    });
-  }
-  if (asset.type === EDeFiAssetType.ASSET) {
-    return appLocale.intl.formatMessage({
-      id: ETranslations.wallet_defi_asset_type_supplied,
-    });
-  }
-  return asset.category;
-}
-
 function DeFiProtocolDetails() {
   const route =
     useRoute<
@@ -107,11 +88,43 @@ function DeFiProtocolDetails() {
     protocolInfo?.protocolLogo,
     protocolInfo?.protocolName,
   ]);
+
+  const renderAssetType = useCallback(
+    (asset: IDeFiAsset & { type: EDeFiAssetType }) => {
+      let type = asset.category;
+      let badgeType = 'info';
+      if (asset.type === EDeFiAssetType.DEBT) {
+        type = appLocale.intl.formatMessage({
+          id: ETranslations.wallet_defi_asset_type_borrowed,
+        });
+        badgeType = 'warning';
+      } else if (asset.type === EDeFiAssetType.REWARD) {
+        type = appLocale.intl.formatMessage({
+          id: ETranslations.wallet_defi_position_module_rewards,
+        });
+        badgeType = 'success';
+      } else if (asset.type === EDeFiAssetType.ASSET) {
+        type = appLocale.intl.formatMessage({
+          id: ETranslations.wallet_defi_asset_type_supplied,
+        });
+        badgeType = 'info';
+      }
+
+      return (
+        <XStack>
+          <Badge badgeType={badgeType} badgeSize="lg">
+            <Badge.Text textTransform="capitalize">{type}</Badge.Text>
+          </Badge>
+        </XStack>
+      );
+    },
+    [],
+  );
   const renderProtocolPositions = useCallback(() => {
     return (
       <YStack py="$3">
         {protocol.positions.map((position, index) => (
-          <Stack key={position.category} py="$2" px="$5">
+          <Stack key={position.category} px="$5">
             <XStack
               alignItems="center"
               justifyContent="space-between"
@@ -124,7 +137,7 @@ function DeFiProtocolDetails() {
                 </Badge.Text>
               </Badge>
               <NumberSizeableText
-                size="$headingSm"
+                size="$headingMd"
                 formatter="value"
                 formatterOptions={{ currency: settings.currencyInfo.symbol }}
               >
@@ -132,56 +145,55 @@ function DeFiProtocolDetails() {
               </NumberSizeableText>
             </XStack>
             <YStack>
-              {position.all.map((asset) => (
-                <XStack
-                  key={asset.address}
-                  alignItems="center"
-                  gap="$3"
-                  justifyContent="space-between"
-                  py="$2"
-                  flex={1}
-                >
-                  <XStack alignItems="center" gap="$3" flex={1}>
-                    <Token size="md" tokenImageUri={asset.meta?.logoUrl} />
-                    <YStack flex={1}>
-                      <SizableText size="$bodyLgMedium">
-                        {asset.symbol}
-                      </SizableText>
-                      <SizableText
-                        size="$bodyMd"
-                        color="$textInfo"
-                        textTransform="capitalize"
+              {[...position.assets, ...position.debts, ...position.rewards].map(
+                (asset) => (
+                  <XStack
+                    key={asset.address}
+                    alignItems="center"
+                    gap="$3"
+                    justifyContent="space-between"
+                    py="$2"
+                    flex={1}
+                  >
+                    <XStack alignItems="center" gap="$3" flex={1}>
+                      <Token size="md" tokenImageUri={asset.meta?.logoUrl} />
+                      <YStack flex={1}>
+                        <SizableText size="$bodyLgMedium">
+                          {asset.symbol}
+                        </SizableText>
+                        {renderAssetType(asset)}
+                      </YStack>
+                    </XStack>
+                    <YStack flex={1} alignItems="flex-end">
+                      <NumberSizeableText
+                        size="$bodyLgMedium"
+                        formatter="balance"
                       >
-                        {getAssetType(asset)}
-                      </SizableText>
+                        {asset.amount}
+                      </NumberSizeableText>
+                      <NumberSizeableText
+                        size="$bodyMd"
+                        formatter="value"
+                        formatterOptions={{
+                          currency: settings.currencyInfo.symbol,
+                        }}
+                        color="$textSubdued"
+                      >
+                        {asset.value}
+                      </NumberSizeableText>
                     </YStack>
                   </XStack>
-                  <YStack flex={1} alignItems="flex-end">
-                    <SizableText size="$bodyLgMedium">
-                      {asset.amount}
-                    </SizableText>
-                    <NumberSizeableText
-                      size="$bodyMd"
-                      formatter="value"
-                      formatterOptions={{
-                        currency: settings.currencyInfo.symbol,
-                      }}
-                      color="$textSubdued"
-                    >
-                      {asset.value}
-                    </NumberSizeableText>
-                  </YStack>
-                </XStack>
-              ))}
+                ),
+              )}
             </YStack>
-            {index !== 0 && index !== protocol.positions.length - 1 ? (
-              <Divider my="$3" />
+            {index !== protocol.positions.length - 1 ? (
+              <Divider mt="$2" mb="$3" />
             ) : null}
           </Stack>
         ))}
       </YStack>
     );
-  }, [protocol.positions, settings.currencyInfo.symbol]);
+  }, [protocol.positions, settings.currencyInfo.symbol, renderAssetType]);
   return (
     <Page scrollEnabled>
       <Page.Header

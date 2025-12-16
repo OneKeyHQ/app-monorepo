@@ -18,6 +18,7 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { parseDexCoin } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import { PerpsProviderMirror } from '../../../PerpsProviderMirror';
 import { TradingGuardWrapper } from '../../TradingGuardWrapper';
@@ -133,7 +134,9 @@ export function showMarginModeDialog(
   symbolCoin: string,
   dialog?: ReturnType<typeof useInPageDialog>,
 ) {
-  const title = `${symbolCoin} ${appLocale.intl.formatMessage({
+  const title = `${
+    parseDexCoin(symbolCoin).displayName
+  } ${appLocale.intl.formatMessage({
     id: ETranslations.perp_trade_margin_type,
   })}`;
 
