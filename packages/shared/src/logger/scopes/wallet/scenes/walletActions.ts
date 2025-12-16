@@ -137,4 +137,27 @@ export class WalletActionsScene extends BaseScene {
       details,
     };
   }
+
+  @LogToServer()
+  public buyOnLowBalance({
+    source,
+    networkId,
+    tokenSymbol,
+    tokenAddress,
+    walletType,
+  }: {
+    source: 'swap' | 'perp';
+    networkId: string;
+    tokenSymbol: string;
+    tokenAddress: string;
+    walletType: string;
+  }) {
+    return {
+      source,
+      networkId,
+      tokenSymbol,
+      tokenAddress,
+      walletType,
+    };
+  }
 }

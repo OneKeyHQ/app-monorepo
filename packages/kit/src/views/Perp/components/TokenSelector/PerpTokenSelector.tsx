@@ -25,7 +25,7 @@ import {
   usePerpsAllAssetsFilteredAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import {
-  usePerpTokenSortConfigPersistAtom,
+  usePerpTokenSelectorConfigPersistAtom,
   usePerpsActiveAssetAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -39,7 +39,12 @@ import type {
   IPerpsAssetCtx,
   IPerpsUniverse,
 } from '@onekeyhq/shared/types/hyperliquid';
-import { XYZ_ASSET_ID_OFFSET } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
+import {
+  DEFAULT_PERP_TOKEN_ACTIVE_TAB,
+  DEFAULT_PERP_TOKEN_SORT_DIRECTION,
+  DEFAULT_PERP_TOKEN_SORT_FIELD,
+  XYZ_ASSET_ID_OFFSET,
+} from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 
 import { usePerpTokenSelector } from '../../hooks';
 
@@ -148,6 +153,11 @@ function BasePerpTokenSelectorContent({
   const { closePopover } = usePopoverContext();
   const actions = useHyperliquidActions();
 
+  const [{ assetsByDex }] = usePerpsAllAssetsFilteredAtom();
+  const [{ assetCtxsByDex }] = usePerpsAllAssetCtxsAtom();
+  const [selectorConfig, setSelectorConfig] =
+    usePerpTokenSelectorConfigPersistAtom();
+
   const tabNames = useMemo(
     () => ({
       all: 'PERPS',
@@ -155,7 +165,17 @@ function BasePerpTokenSelectorContent({
     }),
     [],
   );
-  const [activeTab, setActiveTab] = useState<'all' | 'hip3'>('all');
+  const activeTab = selectorConfig?.activeTab ?? DEFAULT_PERP_TOKEN_ACTIVE_TAB;
+  const setActiveTab = useCallback(
+    (tab: 'all' | 'hip3') => {
+      setSelectorConfig((prev) => ({
+        field: prev?.field ?? DEFAULT_PERP_TOKEN_SORT_FIELD,
+        direction: prev?.direction ?? DEFAULT_PERP_TOKEN_SORT_DIRECTION,
+        activeTab: tab,
+      }));
+    },
+    [setSelectorConfig],
+  );
 
   const handleSelectToken = useCallback(
     async (symbol: string) => {
@@ -174,9 +194,6 @@ function BasePerpTokenSelectorContent({
     [closePopover, actions, onLoadingChange],
   );
 
-  const [{ assetsByDex }] = usePerpsAllAssetsFilteredAtom();
-  const [{ assetCtxsByDex }] = usePerpsAllAssetCtxsAtom();
-  const [sortConfig] = usePerpTokenSortConfigPersistAtom();
   const listRefAll = useRef<IListViewRef<ITokenSelectorListItem> | null>(null);
   const listRefHip3 = useRef<IListViewRef<ITokenSelectorListItem> | null>(null);
   const activeTabRef = useRef(activeTab);
@@ -186,8 +203,8 @@ function BasePerpTokenSelectorContent({
   );
 
   useEffect(() => {
-    const field = sortConfig?.field;
-    const direction = sortConfig?.direction;
+    const field = selectorConfig?.field;
+    const direction = selectorConfig?.direction;
     const last = lastSortRef.current;
     if (last?.field === field && last?.direction === direction) {
       return;
@@ -199,7 +216,7 @@ function BasePerpTokenSelectorContent({
         ? listRefHip3.current
         : listRefAll.current;
     ref?.scrollToOffset?.({ offset: 0, animated: false });
-  }, [sortConfig?.direction, sortConfig?.field]);
+  }, [selectorConfig?.direction, selectorConfig?.field]);
 
   const computeSortValues = useCallback(
     (assetCtx: IPerpsAssetCtx | undefined) => {
@@ -234,8 +251,8 @@ function BasePerpTokenSelectorContent({
         sortValues: ReturnType<typeof computeSortValues>;
       },
     ) => {
-      const sortField = sortConfig?.field ?? '';
-      const sortDirection = sortConfig?.direction ?? 'desc';
+      const sortField = selectorConfig?.field ?? '';
+      const sortDirection = selectorConfig?.direction ?? 'desc';
       if (!sortField) {
         return 0;
       }
@@ -268,7 +285,7 @@ function BasePerpTokenSelectorContent({
       }
       return sortDirection === 'asc' ? compareResult : -compareResult;
     },
-    [sortConfig?.direction, sortConfig?.field],
+    [selectorConfig?.direction, selectorConfig?.field],
   );
 
   const buildListData = useCallback(
@@ -281,7 +298,7 @@ function BasePerpTokenSelectorContent({
       assetCtxs: IPerpsAssetCtx[];
       dexIndex: number;
     }) => {
-      const sortField = sortConfig?.field ?? '';
+      const sortField = selectorConfig?.field ?? '';
       if (!assets?.length) {
         return [];
       }
@@ -319,7 +336,7 @@ function BasePerpTokenSelectorContent({
         dexIndex: entry.dexIndex,
       }));
     },
-    [computeSortValues, sortCompare, sortConfig?.field],
+    [computeSortValues, sortCompare, selectorConfig?.field],
   );
 
   const listDataByTab = useMemo(() => {
@@ -357,7 +374,7 @@ function BasePerpTokenSelectorContent({
       },
     );
 
-    const sortField = sortConfig?.field ?? '';
+    const sortField = selectorConfig?.field ?? '';
     const listAll = (() => {
       if (!sortField) {
         return combinedEntries.map((entry) => ({
@@ -389,7 +406,7 @@ function BasePerpTokenSelectorContent({
     buildListData,
     computeSortValues,
     sortCompare,
-    sortConfig?.field,
+    selectorConfig?.field,
   ]);
 
   const keyExtractor = useCallback(
@@ -464,7 +481,7 @@ function BasePerpTokenSelectorContent({
           />
         </XStack>
         <Tabs.Container
-          initialTabName={tabNames.all}
+          initialTabName={activeTab === 'hip3' ? tabNames.hip3 : tabNames.all}
           onTabChange={({ tabName }) => {
             if (tabName === tabNames.hip3) {
               setActiveTab('hip3');

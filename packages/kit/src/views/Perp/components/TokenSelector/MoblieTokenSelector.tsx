@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useMemo, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -17,15 +17,20 @@ import {
   usePerpsAllAssetCtxsAtom,
   usePerpsAllAssetsFilteredAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
-import { usePerpTokenSortConfigPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { usePerpTokenSelectorConfigPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
-  IPerpTokenSortConfig,
+  IPerpTokenSelectorConfig,
   IPerpTokenSortField,
   IPerpsAssetCtx,
   IPerpsUniverse,
 } from '@onekeyhq/shared/types/hyperliquid';
-import { XYZ_ASSET_ID_OFFSET } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
+import {
+  DEFAULT_PERP_TOKEN_ACTIVE_TAB,
+  DEFAULT_PERP_TOKEN_SORT_DIRECTION,
+  DEFAULT_PERP_TOKEN_SORT_FIELD,
+  XYZ_ASSET_ID_OFFSET,
+} from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 
 import { usePerpTokenSelector } from '../../hooks';
 import { PerpsAccountSelectorProviderMirror } from '../../PerpsAccountSelectorProviderMirror';
@@ -93,8 +98,19 @@ function MobileTokenSelectorModal({
 
   const [{ assetsByDex }] = usePerpsAllAssetsFilteredAtom();
   const [{ assetCtxsByDex }] = usePerpsAllAssetCtxsAtom();
-  const [sortConfig, setSortConfig] = usePerpTokenSortConfigPersistAtom();
-  const [activeTab, setActiveTab] = useState<'all' | 'hip3'>('all');
+  const [selectorConfig, setSelectorConfig] =
+    usePerpTokenSelectorConfigPersistAtom();
+  const activeTab = selectorConfig?.activeTab ?? DEFAULT_PERP_TOKEN_ACTIVE_TAB;
+  const setActiveTab = useCallback(
+    (tab: 'all' | 'hip3') => {
+      setSelectorConfig((prev) => ({
+        field: prev?.field ?? DEFAULT_PERP_TOKEN_SORT_FIELD,
+        direction: prev?.direction ?? DEFAULT_PERP_TOKEN_SORT_DIRECTION,
+        activeTab: tab,
+      }));
+    },
+    [setSelectorConfig],
+  );
   const listRef = useRef<IListViewRef<ITokenSelectorListItem> | null>(null);
 
   const computeSortValues = useCallback(
@@ -130,8 +146,8 @@ function MobileTokenSelectorModal({
         sortValues: ReturnType<typeof computeSortValues>;
       },
     ) => {
-      const sortField = sortConfig?.field ?? '';
-      const sortDirection = sortConfig?.direction ?? 'desc';
+      const sortField = selectorConfig?.field ?? '';
+      const sortDirection = selectorConfig?.direction ?? 'desc';
       if (!sortField) {
         return 0;
       }
@@ -164,7 +180,7 @@ function MobileTokenSelectorModal({
       }
       return sortDirection === 'asc' ? compareResult : -compareResult;
     },
-    [sortConfig?.direction, sortConfig?.field],
+    [selectorConfig?.direction, selectorConfig?.field],
   );
 
   const mockedListData = useMemo(() => {
@@ -192,7 +208,7 @@ function MobileTokenSelectorModal({
       },
     );
 
-    const sortField = sortConfig?.field ?? '';
+    const sortField = selectorConfig?.field ?? '';
     if (!sortField) {
       return combinedEntries.map((entry) => ({
         dexIndex: entry.dexIndex,
@@ -217,7 +233,7 @@ function MobileTokenSelectorModal({
     assetsByDex,
     computeSortValues,
     sortCompare,
-    sortConfig?.field,
+    selectorConfig?.field,
   ]);
 
   const keyExtractor = useCallback(
@@ -230,23 +246,38 @@ function MobileTokenSelectorModal({
 
   const handleSortPress = useCallback(
     (field: IPerpTokenSortField) => {
-      setSortConfig((prev: IPerpTokenSortConfig | null) => {
+      setSelectorConfig((prev: IPerpTokenSelectorConfig | null) => {
         if (prev?.field === field) {
           if (prev.direction === 'asc') {
-            return null;
+            return {
+              field: DEFAULT_PERP_TOKEN_SORT_FIELD,
+              direction: DEFAULT_PERP_TOKEN_SORT_DIRECTION,
+              activeTab: prev.activeTab ?? DEFAULT_PERP_TOKEN_ACTIVE_TAB,
+            };
           }
-          return { field, direction: 'asc' };
+          return {
+            field,
+            direction: 'asc',
+            activeTab: prev.activeTab ?? DEFAULT_PERP_TOKEN_ACTIVE_TAB,
+          };
         }
-        return { field, direction: 'desc' };
+        return {
+          field,
+          direction: DEFAULT_PERP_TOKEN_SORT_DIRECTION,
+          activeTab: prev?.activeTab ?? DEFAULT_PERP_TOKEN_ACTIVE_TAB,
+        };
       });
       listRef.current?.scrollToOffset?.({ offset: 0, animated: false });
     },
-    [setSortConfig],
+    [setSelectorConfig],
   );
   let iconName: string;
-  if (sortConfig?.field === 'volume24h' && sortConfig?.direction === 'asc') {
+  if (
+    selectorConfig?.field === 'volume24h' &&
+    selectorConfig?.direction === 'asc'
+  ) {
     iconName = 'ChevronTopOutline';
-  } else if (sortConfig?.field === 'volume24h') {
+  } else if (selectorConfig?.field === 'volume24h') {
     iconName = 'ChevronBottomOutline';
   } else {
     iconName = 'ChevronGrabberVerOutline';
@@ -299,7 +330,9 @@ function MobileTokenSelectorModal({
         >
           <SizableText
             size="$bodySm"
-            color={sortConfig?.field === 'volume24h' ? '$text' : '$textSubdued'}
+            color={
+              selectorConfig?.field === 'volume24h' ? '$text' : '$textSubdued'
+            }
           >
             {intl.formatMessage({
               id: ETranslations.perp_token_selector_asset,
@@ -321,7 +354,7 @@ function MobileTokenSelectorModal({
           <SizableText
             size="$bodySm"
             color={
-              sortConfig?.field === 'change24hPercent'
+              selectorConfig?.field === 'change24hPercent'
                 ? '$text'
                 : '$textSubdued'
             }
@@ -334,10 +367,10 @@ function MobileTokenSelectorModal({
               id: ETranslations.perp_token_selector_24h_change,
             })}
           </SizableText>
-          {sortConfig?.field === 'change24hPercent' ? (
+          {selectorConfig?.field === 'change24hPercent' ? (
             <Icon
               name={
-                sortConfig.direction === 'asc'
+                selectorConfig.direction === 'asc'
                   ? 'ChevronTopOutline'
                   : 'ChevronBottomOutline'
               }
