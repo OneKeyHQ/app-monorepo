@@ -3970,7 +3970,7 @@
   "wallet.hardware_wallet_connect_description_1": "通过 USB 或二维码连接",
   "wallet.hardware_wallet_connect_description_2": "在设备上授权",
   "wallet.history_footer_view_full_history_in_explorer": "仅显示近期交易，如需查看完整历史记录，请访问区块浏览器。",
-  "wallet.history_settings_hide_risk_transaction_desc": "支持热门网络，包括 ETH、BNB、TRX 等。",
+  "wallet.history_settings_hide_risk_transaction_desc": "支持热门网络，包括 ETH、BNB、TRX、SOL 等。",
   "wallet.history_settings_hide_risk_transaction_desc_unsupported": "{networkName} 网络尚不支持。",
   "wallet.history_settings_hide_risk_transaction_title": "隐藏风险交易",
   "wallet.history_settings_hide_small_transaction_desc": "根据价值过滤小额交易。未定价的代币不会被隐藏。",

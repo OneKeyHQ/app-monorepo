@@ -8,6 +8,7 @@ import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contex
 import { useAddressBookPick } from '@onekeyhq/kit/src/views/AddressBook/hooks/useAddressBook';
 import type { IAddressItem } from '@onekeyhq/kit/src/views/AddressBook/type';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EInputAddressChangeType } from '@onekeyhq/shared/types/address';
 
@@ -209,13 +210,17 @@ const AccountSelectorAddressBookPlugin: FC<ISelectorPluginProps> = ({
           }),
           onPress: onShowAccountSelector,
         },
-        {
-          icon: 'ContactsOutline' as const,
-          label: intl.formatMessage({
-            id: ETranslations.send_to_contacts_selector_address_book,
-          }),
-          onPress: onContacts,
-        },
+        ...(platformEnv.isWebDappMode
+          ? []
+          : [
+              {
+                icon: 'ContactsOutline' as const,
+                label: intl.formatMessage({
+                  id: ETranslations.send_to_contacts_selector_address_book,
+                }),
+                onPress: onContacts,
+              },
+            ]),
       ]}
       renderTrigger={
         <IconButton

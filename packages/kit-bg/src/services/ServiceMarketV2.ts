@@ -16,6 +16,8 @@ import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
 import type {
   IMarketAccountPortfolioResponse,
   IMarketAccountTokenTransactionsResponse,
+  IMarketBannerListResponse,
+  IMarketBannerTokenListResponse,
   IMarketBasicConfigResponse,
   IMarketChainsResponse,
   IMarketTokenBatchListResponse,
@@ -649,6 +651,40 @@ class ServiceMarketV2 extends ServiceBase {
       // Return empty list on error instead of throwing
       return { list: [] };
     }
+  }
+
+  private memoizedFetchMarketBannerList = memoizee(
+    async () => {
+      const client = await this.getClient(EServiceEndpointEnum.Utility);
+      const response = await client.get<{
+        code: number;
+        message: string;
+        data: IMarketBannerListResponse;
+      }>('/utility/v2/market/banner/list');
+      const { data } = response.data;
+      return data.data;
+    },
+    {
+      maxAge: timerUtils.getTimeDurationMs({ hour: 1 }),
+      promise: true,
+    },
+  );
+
+  @backgroundMethod()
+  async fetchMarketBannerList() {
+    return this.memoizedFetchMarketBannerList();
+  }
+
+  @backgroundMethod()
+  async fetchMarketBannerTokenList({ tokenListId }: { tokenListId: string }) {
+    const client = await this.getClient(EServiceEndpointEnum.Utility);
+    const response = await client.get<{
+      code: number;
+      message: string;
+      data: IMarketBannerTokenListResponse;
+    }>(`/utility/v2/market/banner/token-list/${tokenListId}`);
+    const { data } = response.data;
+    return data.list;
   }
 }
 
