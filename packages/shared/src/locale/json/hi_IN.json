@@ -3970,7 +3970,7 @@
   "wallet.hardware_wallet_connect_description_1": "USB या QR कोड के साथ कनेक्ट करें",
   "wallet.hardware_wallet_connect_description_2": "डिवाइस पर प्राधिकृत करें",
   "wallet.history_footer_view_full_history_in_explorer": "केवल हाल के लेनदेन दिखाए गए हैं। पूरा इतिहास देखने के लिए, कृपया ब्लॉक एक्सप्लोरर पर जाएं।",
-  "wallet.history_settings_hide_risk_transaction_desc": "ETH, BNB, TRX और अन्य सहित प्रमुख ब्लॉकचेन का समर्थन करता है।",
+  "wallet.history_settings_hide_risk_transaction_desc": "ETH, BNB, TRX, SOL और अन्य सहित प्रमुख ब्लॉकचेน का समर्थन करता है।",
   "wallet.history_settings_hide_risk_transaction_desc_unsupported": "{networkName} नेटवर्क अभी तक समर्थित नहीं है।",
   "wallet.history_settings_hide_risk_transaction_title": "जोखिम भरे लेन-देन छुपाएं",
   "wallet.history_settings_hide_small_transaction_desc": "कम मूल्य के लेनदेन छुपाता है। बिना कीमत वाले टोकन फ़िल्टर नहीं होते।",

@@ -3970,7 +3970,7 @@
   "wallet.hardware_wallet_connect_description_1": "Conectar com USB ou código QR",
   "wallet.hardware_wallet_connect_description_2": "Autorizar no dispositivo",
   "wallet.history_footer_view_full_history_in_explorer": "Apenas as transações recentes são exibidas. Para visualizar o histórico completo, por favor, visite o explorador de blocos.",
-  "wallet.history_settings_hide_risk_transaction_desc": "Suporta as principais blockchains, incluindo ETH, BNB, TRX e mais.",
+  "wallet.history_settings_hide_risk_transaction_desc": "Suporta as principais blockchains, incluindo ETH, BNB, TRX, SOL e mais.",
   "wallet.history_settings_hide_risk_transaction_desc_unsupported": "A rede {networkName} ainda não é suportada.",
   "wallet.history_settings_hide_risk_transaction_title": "Ocultar transações arriscadas",
   "wallet.history_settings_hide_small_transaction_desc": "Oculta transações de baixo valor. Tokens sem cotação não são filtrados.",
