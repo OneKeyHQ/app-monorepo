@@ -397,7 +397,7 @@ function DepositWithdrawContent({
       return;
     }
 
-    void defaultLogger.wallet.walletActions.buyOnLowBalance({
+    defaultLogger.wallet.walletActions.buyOnLowBalance({
       source: 'perp',
       networkId: currentPerpsDepositSelectedToken.networkId ?? '',
       tokenSymbol: currentPerpsDepositSelectedToken.symbol ?? '',
@@ -1113,6 +1113,22 @@ function DepositWithdrawContent({
     shouldResetApprove,
   ]);
 
+  const shouldShowBuyButton = useMemo(
+    () =>
+      !errorMessage &&
+      isInsufficientBalance &&
+      selectedAction === 'deposit' &&
+      checkAccountSupport &&
+      !balanceLoading,
+    [
+      errorMessage,
+      isInsufficientBalance,
+      selectedAction,
+      checkAccountSupport,
+      balanceLoading,
+    ],
+  );
+
   useEffect(() => {
     if (!currentPerpsDepositSelectedToken) {
       const arbUSDCToken = depositTokensWithPrice.find((token) =>
@@ -1376,11 +1392,7 @@ function DepositWithdrawContent({
             {errorMessage}
           </SizableText>
         ) : null}
-        {!errorMessage &&
-        isInsufficientBalance &&
-        selectedAction === 'deposit' &&
-        checkAccountSupport &&
-        !balanceLoading ? (
+        {shouldShowBuyButton ? (
           <XStack gap="$1" alignItems="center">
             <SizableText size="$bodySm" color="$red10">
               {intl.formatMessage({

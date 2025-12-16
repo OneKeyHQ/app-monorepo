@@ -46,7 +46,7 @@ const SwapInputActions = ({
   const handleBuyPress = useCallback(() => {
     if (!fromToken || !accountInfo) return;
 
-    void defaultLogger.wallet.walletActions.buyOnLowBalance({
+    defaultLogger.wallet.walletActions.buyOnLowBalance({
       source: 'swap',
       networkId: fromToken.networkId ?? '',
       tokenSymbol: fromToken.symbol ?? '',
