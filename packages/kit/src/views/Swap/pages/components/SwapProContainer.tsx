@@ -5,11 +5,14 @@ import { RefreshControl, ScrollView } from 'react-native';
 import { IconButton, XStack, YStack } from '@onekeyhq/components';
 import {
   useSwapFromTokenAmountAtom,
+  useSwapProEnableCurrentSymbolAtom,
   useSwapProErrorAlertAtom,
   useSwapProInputAmountAtom,
   useSwapProSelectTokenAtom,
   useSwapProSliderValueAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import type {
   IFetchLimitOrderRes,
   ISwapProSpeedConfig,
@@ -67,9 +70,10 @@ const SwapProContainer = ({
   const scrollViewRef = useRef<ScrollView>(null);
   const { fetchTokenMarketDetailInfo } = useSwapProTokenDetailInfo();
   const [swapProErrorAlert] = useSwapProErrorAlertAtom();
+  const [swapCurrentSymbolEnable] = useSwapProEnableCurrentSymbolAtom();
   const { syncInputTokenBalance, syncToTokenPrice, netAccountRes } =
     useSwapProTokenInfoSync();
-  const { swapProLoadSupportNetworksTokenListRun } =
+  const { swapProLoadSupportNetworksTokenListRun, networkNotSupported } =
     useSwapProSupportNetworksTokenList();
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -88,7 +92,7 @@ const SwapProContainer = ({
   ]);
   const { isLoading, speedConfig, balanceLoading, isMEV, hasEnoughBalance } =
     config;
-  useSwapProErrorAlert();
+  useSwapProErrorAlert(!!networkNotSupported);
   const cleanInputAmount = useCallback(() => {
     setSwapProInputAmount('');
     setFromInputAmount({
@@ -123,6 +127,28 @@ const SwapProContainer = ({
     },
     [setSwapProSelectToken],
   );
+
+  const changeTabToLimitOrderList = useCallback(() => {
+    setActiveTab(ETabName.SwapProOpenOrders);
+  }, [setActiveTab]);
+
+  useEffect(() => {
+    appEventBus.off(
+      EAppEventBusNames.SwapLimitOrderBuildSuccess,
+      changeTabToLimitOrderList,
+    );
+    appEventBus.on(
+      EAppEventBusNames.SwapLimitOrderBuildSuccess,
+      changeTabToLimitOrderList,
+    );
+    return () => {
+      appEventBus.off(
+        EAppEventBusNames.SwapLimitOrderBuildSuccess,
+        changeTabToLimitOrderList,
+      );
+    };
+  }, [changeTabToLimitOrderList]);
+
   return (
     <ScrollView
       style={{ flex: 1 }}
@@ -209,14 +235,16 @@ const SwapProContainer = ({
           />
         </YStack>
         <YStack
-          display={activeTab === ETabName.OpenOrders ? 'flex' : 'none'}
+          display={activeTab === ETabName.SwapProOpenOrders ? 'flex' : 'none'}
           flex={1}
         >
           <SwapProCurrentSymbolEnable />
           <LimitOrderList
             onClickCell={onOpenOrdersClick}
             type="open"
-            filterToken={swapProTokenSelect}
+            filterToken={
+              swapCurrentSymbolEnable ? swapProTokenSelect : undefined
+            }
           />
         </YStack>
       </YStack>

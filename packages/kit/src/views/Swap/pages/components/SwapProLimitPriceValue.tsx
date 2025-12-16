@@ -24,6 +24,7 @@ const SwapProLimitPriceValue = () => {
     onChangeReverse,
     limitPriceSetReverse,
     fromTokenInfo,
+    onSetMarketPrice,
     toTokenInfo,
     limitPriceMarketPrice,
   } = useSwapLimitRate();
@@ -121,6 +122,7 @@ const SwapProLimitPriceValue = () => {
         onReverseChange={() => onChangeReverse(!limitPriceSetReverse)}
         fromSymbol={tokenCurrency.from}
         toSymbol={tokenCurrency.to}
+        onSetMarketPrice={onSetMarketPrice}
       />
       <SwapProLimitPriceSlider
         percentValue={rateDifferenceInfo.value}
