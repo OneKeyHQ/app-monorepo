@@ -111,7 +111,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
         accountAddress,
         tokenAddress,
         networkId,
-        from: now - 86400,
+        from: now - 86_400,
         to: now,
         tokenSymbol: symbol,
         webRef,

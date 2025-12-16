@@ -205,10 +205,8 @@ class ServicePrime extends ServiceBase {
     const result = await client.post<
       IApiClientResponse<{ phone: string; otp: string }>
     >('/prime/v1/general/phone-otp', {
-      params: {
-        email,
-        otp,
-      },
+      email,
+      otp,
     });
 
     return result?.data?.data;

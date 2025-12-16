@@ -22,7 +22,13 @@ import { MobileLayout } from './layouts/MobileLayout';
 import type { ITimeRangeSelectorValue } from './components/TimeRangeSelector';
 import type { ILiquidityFilter } from './types';
 
-function MarketHome() {
+function BasicMarketHome({
+  showHeader = true,
+  showContent = true,
+}: {
+  showHeader?: boolean;
+  showContent?: boolean;
+}) {
   const { md } = useMedia();
 
   // Load market basic config using the new hook
@@ -111,12 +117,18 @@ function MarketHome() {
     ],
   );
 
+  if (!showContent) {
+    return null;
+  }
+
   return (
     <Page>
-      <TabPageHeader
-        sceneName={EAccountSelectorSceneName.home}
-        tabRoute={ETabRoutes.Market}
-      />
+      {showHeader ? (
+        <TabPageHeader
+          sceneName={EAccountSelectorSceneName.home}
+          tabRoute={ETabRoutes.Market}
+        />
+      ) : null}
       <Page.Body>
         {md || platformEnv.isNative ? (
           <MobileLayout {...mobileProps} />
@@ -141,9 +153,33 @@ export function MarketHomeV2() {
         <MarketWatchListProviderMirrorV2
           storeName={EJotaiContextStoreNames.marketWatchListV2}
         >
-          <MarketHome />
+          <BasicMarketHome />
         </MarketWatchListProviderMirrorV2>
       </AccountSelectorProviderMirror>
     </TabletHomeContainer>
+  );
+}
+
+export function MarketHomeWithProvider({
+  showHeader = true,
+  showContent = true,
+}: {
+  showHeader?: boolean;
+  showContent?: boolean;
+}) {
+  return (
+    <AccountSelectorProviderMirror
+      config={{
+        sceneName: EAccountSelectorSceneName.home,
+        sceneUrl: '',
+      }}
+      enabledNum={[0]}
+    >
+      <MarketWatchListProviderMirrorV2
+        storeName={EJotaiContextStoreNames.marketWatchListV2}
+      >
+        <BasicMarketHome showHeader={showHeader} showContent={showContent} />
+      </MarketWatchListProviderMirrorV2>
+    </AccountSelectorProviderMirror>
   );
 }

@@ -1,4 +1,5 @@
 import BigNumber from 'bignumber.js';
+import { flatMap, groupBy, map } from 'lodash';
 
 import {
   EDeFiAssetType,
@@ -18,6 +19,49 @@ function buildProtocolMapKey({
   return `${networkId}-${protocol}`;
 }
 
+function transferPositionMap(
+  positionMap: Map<
+    string,
+    {
+      groupId: string;
+      poolName: string;
+      category: string;
+      assets: (IDeFiAsset & { type: EDeFiAssetType })[];
+      debts: (IDeFiAsset & { type: EDeFiAssetType })[];
+      rewards: (IDeFiAsset & { type: EDeFiAssetType })[];
+      value: BigNumber;
+    }
+  >,
+) {
+  const positions = Array.from(positionMap.entries()).map(([_, position]) => ({
+    ...position,
+    assets: position.assets.sort((a, b) => b.value - a.value),
+    debts: position.debts.sort((a, b) => b.value - a.value),
+    rewards: position.rewards.sort((a, b) => b.value - a.value),
+    value: position.value.toFixed(),
+  }));
+
+  const groupedPositions = map(
+    groupBy(positions, 'category'),
+    (_positions, category) => ({
+      category,
+      value: _positions
+        .reduce((acc, position) => acc.plus(position.value), new BigNumber(0))
+        .toFixed(),
+      details: _positions.sort((a, b) =>
+        new BigNumber(b.value).minus(new BigNumber(a.value)).toNumber(),
+      ),
+    }),
+  );
+
+  return flatMap(
+    groupedPositions.sort((a, b) =>
+      new BigNumber(b.value).minus(new BigNumber(a.value)).toNumber(),
+    ),
+    (group) => group.details,
+  );
+}
+
 function transformDeFiData({
   positions,
   protocolSummaries,
@@ -35,7 +79,9 @@ function transformDeFiData({
       positionMap: Map<
         string,
         {
-          all: (IDeFiAsset & { type: EDeFiAssetType })[];
+          groupId: string;
+          poolName: string;
+          category: string;
           assets: (IDeFiAsset & { type: EDeFiAssetType })[];
           debts: (IDeFiAsset & { type: EDeFiAssetType })[];
           rewards: (IDeFiAsset & { type: EDeFiAssetType })[];
@@ -78,7 +124,9 @@ function transformDeFiData({
         positionMap: Map<
           string,
           {
-            all: (IDeFiAsset & { type: EDeFiAssetType })[];
+            groupId: string;
+            poolName: string;
+            category: string;
             assets: (IDeFiAsset & { type: EDeFiAssetType })[];
             debts: (IDeFiAsset & { type: EDeFiAssetType })[];
             rewards: (IDeFiAsset & { type: EDeFiAssetType })[];
@@ -88,11 +136,13 @@ function transformDeFiData({
         categorySet: Set<string>;
       };
 
-      const positionKey = position.category;
+      const positionKey = position.groupId;
 
       if (!protocolPositionsMapValue.positionMap.has(positionKey)) {
         protocolPositionsMapValue.positionMap.set(positionKey, {
-          all: [],
+          groupId: position.groupId,
+          poolName: position.name,
+          category: position.category,
           assets: [],
           debts: [],
           rewards: [],
@@ -103,7 +153,9 @@ function transformDeFiData({
       const positionValue = protocolPositionsMapValue.positionMap.get(
         positionKey,
       ) as {
-        all: (IDeFiAsset & { type: EDeFiAssetType })[];
+        groupId: string;
+        poolName: string;
+        category: string;
         assets: (IDeFiAsset & { type: EDeFiAssetType })[];
         debts: (IDeFiAsset & { type: EDeFiAssetType })[];
         rewards: (IDeFiAsset & { type: EDeFiAssetType })[];
@@ -122,8 +174,6 @@ function transformDeFiData({
         ...reward,
         type: EDeFiAssetType.REWARD,
       }));
-
-      positionValue.all.push(...assets, ...debts, ...rewards);
 
       positionValue.assets.push(...assets);
       positionValue.debts.push(...debts);
@@ -151,25 +201,33 @@ function transformDeFiData({
     });
   });
 
-  const protocols: IDeFiProtocol[] = Array.from(
-    protocolPositionsMap.values(),
-  ).map((value) => ({
-    ...value,
-    positions: Array.from(value.positionMap.entries()).map(
-      ([key, position]) => ({
-        ...position,
-        category: key,
-        value: position.value.toFixed(),
-        all: position.all.sort((a, b) => {
-          return (
-            (b.type === EDeFiAssetType.DEBT ? -1 : 1) * b.value -
-            (a.type === EDeFiAssetType.DEBT ? -1 : 1) * a.value
-          );
-        }),
-      }),
-    ),
-    categories: Array.from(value.categorySet),
-  }));
+  const protocols: IDeFiProtocol[] = Array.from(protocolPositionsMap.values())
+    .map((value) => ({
+      ...value,
+      positions: transferPositionMap(value.positionMap),
+      categories: Array.from(value.categorySet),
+    }))
+    .sort((a, b) =>
+      new BigNumber(
+        protocolMap[
+          buildProtocolMapKey({
+            protocol: b.protocol,
+            networkId: b.networkId,
+          })
+        ]?.netWorth ?? 0,
+      )
+        .minus(
+          new BigNumber(
+            protocolMap[
+              buildProtocolMapKey({
+                protocol: a.protocol,
+                networkId: a.networkId,
+              })
+            ]?.netWorth ?? 0,
+          ),
+        )
+        .toNumber(),
+    );
 
   return {
     protocols,

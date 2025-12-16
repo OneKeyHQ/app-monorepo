@@ -43,7 +43,9 @@ class ServiceDeFi extends ServiceBase {
       allNetworksAccountId,
       allNetworksNetworkId,
       excludeLowValueProtocols,
-      lowValueProtocolsThreshold = 0.01,
+      lowValueProtocolsThresholdUsd = 0.01,
+      sourceCurrencyInfo,
+      targetCurrencyInfo,
     } = params;
 
     const isUrlAccount = accountUtils.isUrlAccountFn({ accountId });
@@ -93,6 +95,7 @@ class ServiceDeFi extends ServiceBase {
           }),
       },
     );
+
     const parsedData = defiUtils.transformDeFiData({
       positions: resp.data.data.data.positions,
       protocolSummaries: resp.data.data.data.protocolSummaries,
@@ -100,14 +103,28 @@ class ServiceDeFi extends ServiceBase {
 
     if (excludeLowValueProtocols) {
       parsedData.protocols = parsedData.protocols.filter((protocol) => {
-        return new BigNumber(
+        const sourceTotalValue = new BigNumber(
           parsedData.protocolMap[
             defiUtils.buildProtocolMapKey({
               protocol: protocol.protocol,
               networkId: protocol.networkId,
             })
           ]?.totalValue ?? 0,
-        ).gt(lowValueProtocolsThreshold);
+        );
+
+        let targetTotalValue = sourceTotalValue;
+
+        if (
+          sourceCurrencyInfo &&
+          targetCurrencyInfo &&
+          sourceCurrencyInfo?.id !== targetCurrencyInfo?.id
+        ) {
+          targetTotalValue = sourceTotalValue
+            .div(new BigNumber(sourceCurrencyInfo.value))
+            .times(new BigNumber(targetCurrencyInfo.value));
+        }
+
+        return targetTotalValue.gte(lowValueProtocolsThresholdUsd);
       });
     }
 

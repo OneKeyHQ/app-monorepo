@@ -1,11 +1,16 @@
 import { memo, useCallback } from 'react';
 
 import { Icon, SizableText, XStack } from '@onekeyhq/components';
-import { usePerpTokenSortConfigPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { usePerpTokenSelectorConfigPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type {
-  IPerpTokenSortConfig,
+  IPerpTokenSelectorConfig,
   IPerpTokenSortField,
 } from '@onekeyhq/shared/types/hyperliquid';
+import {
+  DEFAULT_PERP_TOKEN_ACTIVE_TAB,
+  DEFAULT_PERP_TOKEN_SORT_DIRECTION,
+  DEFAULT_PERP_TOKEN_SORT_FIELD,
+} from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 
 interface ISortableHeaderCellProps {
   field: IPerpTokenSortField;
@@ -20,34 +25,41 @@ function BaseSortableHeaderCell({
   width,
   flex,
 }: ISortableHeaderCellProps) {
-  const [sortConfig, setSortConfig] = usePerpTokenSortConfigPersistAtom();
+  const [selectorConfig, setSelectorConfig] =
+    usePerpTokenSelectorConfigPersistAtom();
 
   const handlePress = useCallback(() => {
-    setSortConfig((prev: IPerpTokenSortConfig | null) => {
+    setSelectorConfig((prev: IPerpTokenSelectorConfig | null) => {
       if (prev?.field === field) {
-        // Same field: toggle direction, or clear sort if already ascending
+        // Same field: toggle direction, or reset to default sort if already ascending
         if (prev.direction === 'asc') {
-          // Clear sort - return to default order
-          return null;
+          // Reset to default sort but preserve activeTab
+          return {
+            field: DEFAULT_PERP_TOKEN_SORT_FIELD,
+            direction: DEFAULT_PERP_TOKEN_SORT_DIRECTION,
+            activeTab: prev.activeTab ?? DEFAULT_PERP_TOKEN_ACTIVE_TAB,
+          };
         }
         // Toggle to ascending
         return {
           field,
           direction: 'asc',
+          activeTab: prev.activeTab ?? DEFAULT_PERP_TOKEN_ACTIVE_TAB,
         };
       }
 
       // New field, default to descending
       return {
         field,
-        direction: 'desc',
+        direction: DEFAULT_PERP_TOKEN_SORT_DIRECTION,
+        activeTab: prev?.activeTab ?? DEFAULT_PERP_TOKEN_ACTIVE_TAB,
       };
     });
-  }, [field, setSortConfig]);
+  }, [field, setSelectorConfig]);
 
-  const isActive = sortConfig?.field === field;
+  const isActive = selectorConfig?.field === field;
   let iconName: string;
-  if (isActive && sortConfig?.direction === 'asc') {
+  if (isActive && selectorConfig?.direction === 'asc') {
     iconName = 'ChevronTopOutline';
   } else if (isActive) {
     iconName = 'ChevronBottomOutline';

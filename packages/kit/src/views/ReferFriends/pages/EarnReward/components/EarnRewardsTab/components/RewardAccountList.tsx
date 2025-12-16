@@ -7,8 +7,6 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import { Currency } from '@onekeyhq/kit/src/components/Currency';
-import { Token } from '@onekeyhq/kit/src/components/Token';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   IEarnRewardItem,
@@ -19,6 +17,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EmptyData } from '../../EmptyData';
 import { ReferFriendsAccordionItem } from '../../ReferFriendsAccordionItem';
 import { ReferFriendsListHeader } from '../../ReferFriendsListHeader';
+import { TokenAmountWithFiat } from '../../TokenAmountWithFiat';
 
 export type IVaultAmount = Record<string, Record<string, string>>;
 
@@ -98,32 +97,11 @@ export function RewardAccountList({
                     ) : null}
                   </YStack>
 
-                  <XStack
-                    ai="center"
-                    gap="$2"
-                    flexDirection="row"
-                    $gtMd={{ gap: '$4' }}
-                  >
-                    <XStack ai="center">
-                      <Token
-                        size="xs"
-                        tokenImageUri={item.token.logoURI}
-                        mr="$2"
-                      />
-                      <NumberSizeableText
-                        formatter="balance"
-                        size="$bodyMd"
-                        formatterOptions={{
-                          tokenSymbol: item.token.symbol || '',
-                        }}
-                      >
-                        {item.amount}
-                      </NumberSizeableText>
-                    </XStack>
-                    <Currency formatter="value" size="$bodyMd">
-                      {item.fiatValue}
-                    </Currency>
-                  </XStack>
+                  <TokenAmountWithFiat
+                    token={item.token}
+                    amount={item.amount}
+                    fiatValue={item.fiatValue}
+                  />
                 </XStack>
               );
             })}

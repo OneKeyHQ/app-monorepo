@@ -55,6 +55,7 @@ type IMarketTokenListBaseProps = {
   result: IMarketTokenListResult;
   isWatchlistMode?: boolean;
   showEndReachedIndicator?: boolean;
+  hideTokenAge?: boolean;
 };
 
 function MarketTokenListBase({
@@ -64,11 +65,16 @@ function MarketTokenListBase({
   result,
   isWatchlistMode = false,
   showEndReachedIndicator = false,
+  hideTokenAge = false,
 }: IMarketTokenListBaseProps) {
   const toMarketDetailPage = useToDetailPage();
   const { md } = useMedia();
 
-  const marketTokenColumns = useMarketTokenColumns(networkId, isWatchlistMode);
+  const marketTokenColumns = useMarketTokenColumns(
+    networkId,
+    isWatchlistMode,
+    hideTokenAge,
+  );
 
   const {
     data,

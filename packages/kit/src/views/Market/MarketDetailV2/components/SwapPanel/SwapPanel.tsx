@@ -59,8 +59,13 @@ export function SwapPanel({
     );
     if (!positionInfo) {
       return {
-        formattedValue: '0',
-        formattedAmount: '0',
+        formattedValue: '0.00',
+        formattedAmount: numberFormat('0.00', {
+          formatter: 'value',
+          formatterOptions: {
+            currency: currencyInfo.symbol,
+          },
+        }),
       };
     }
     const tokenPriceBN = new BigNumber(positionInfo?.tokenPrice || '0');
@@ -104,13 +109,7 @@ export function SwapPanel({
         <Divider />
         <XStack py="$4" px="$5" justifyContent="space-between">
           <YStack gap="$0.5">
-            {isPortRefreshing ? (
-              <>
-                <Skeleton height="$4" width="$16" />
-                <Skeleton height="$4" width="$12" />
-                <Skeleton height="$4" width="$10" />
-              </>
-            ) : (
+            {myPositionInfo ? (
               <>
                 <SizableText size="$bodySmMedium" color="$textSubdued">
                   {intl.formatMessage({
@@ -124,7 +123,7 @@ export function SwapPanel({
                   {myPositionInfo.formattedValue}
                 </SizableText>
               </>
-            )}
+            ) : null}
           </YStack>
           <XStack gap="$2" alignItems="center">
             <Button

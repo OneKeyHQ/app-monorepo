@@ -15,11 +15,11 @@
 		07A167AA2E576AF7006A3117 /* OneKeyLogo.icon in Resources */ = {isa = PBXBuildFile; fileRef = 07A167A82E576AF7006A3117 /* OneKeyLogo.icon */; };
 		07BBD7EC2E7C85FA00A3654D /* Verification.m in Sources */ = {isa = PBXBuildFile; fileRef = 07BBD7EB2E7C85FA00A3654D /* Verification.m */; };
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
+		2788FF4A611FA65E5DD92E66 /* libPods-OneKeyWallet.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 9373BA6134E4C051DB510900 /* libPods-OneKeyWallet.a */; };
 		31ADF8BB30114AF196CCBDE4 /* noop-file.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DAB62C802804CA1BF90BB10 /* noop-file.swift */; };
 		35EE15B12B9A2ACD004C86AC /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 35EE15B32B9A2ACD004C86AC /* InfoPlist.strings */; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
 		4B0291071DB1A9856B2D4C1B /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 494070FD8580EB254AA2A894 /* ExpoModulesProvider.swift */; };
-		71B912F0C3D67FB0BADD2A00 /* Pods_OneKeyWallet.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D0B8C30C56C171EF9CB51609 /* Pods_OneKeyWallet.framework */; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
 		C274DAC12AE2644400755275 /* NotificationService.m in Sources */ = {isa = PBXBuildFile; fileRef = C274DAC02AE2644400755275 /* NotificationService.m */; };
 		C274DAC52AE2644400755275 /* ServiceExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = C274DABD2AE2644400755275 /* ServiceExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
@@ -28,12 +28,6 @@
 		EA9B87EC2BD94E3B00B8E64A /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = EA9B87EB2BD94E3B00B8E64A /* PrivacyInfo.xcprivacy */; };
 		EA9FF4ED2BDFFDBB00AC618A /* web-embed in Resources */ = {isa = PBXBuildFile; fileRef = EA9FF4EC2BDFFDBB00AC618A /* web-embed */; };
 		F42739F92D24DABD0072EBA9 /* StoreKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F42739F82D24DABD0072EBA9 /* StoreKit.framework */; };
-		F47935BC2EA0770600766A6F /* CloudKitModule.m in Sources */ = {isa = PBXBuildFile; fileRef = F47935B82EA0770600766A6F /* CloudKitModule.m */; };
-		F47935BD2EA0770600766A6F /* CloudKitModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = F47935B92EA0770600766A6F /* CloudKitModule.swift */; };
-		F47935BE2EA0770600766A6F /* KeychainModule.m in Sources */ = {isa = PBXBuildFile; fileRef = F47935BA2EA0770600766A6F /* KeychainModule.m */; };
-		F47935BF2EA0770600766A6F /* KeychainModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = F47935BB2EA0770600766A6F /* KeychainModule.swift */; };
-		F4B7B0862EA61E4200F80AB9 /* CloudKitModuleCore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4B7B0842EA61E4200F80AB9 /* CloudKitModuleCore.swift */; };
-		F4B7B0872EA61E4200F80AB9 /* KeychainModuleCore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4B7B0852EA61E4200F80AB9 /* KeychainModuleCore.swift */; };
 		LAUNCH0012E85D3A700D9A657 /* LaunchOptionsManager.m in Sources */ = {isa = PBXBuildFile; fileRef = LAUNCH0012E85D3A600D9A657 /* LaunchOptionsManager.m */; };
 /* End PBXBuildFile section */
 
@@ -92,6 +86,7 @@
 		494070FD8580EB254AA2A894 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-OneKeyWallet/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
 		7930D3EB206A16EE7BAE3E3F /* Pods-OneKeyWallet.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-OneKeyWallet.release.xcconfig"; path = "Target Support Files/Pods-OneKeyWallet/Pods-OneKeyWallet.release.xcconfig"; sourceTree = "<group>"; };
 		8F3684A92F0AE732D0290D9A /* Pods-OneKeyWallet.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-OneKeyWallet.debug.xcconfig"; path = "Target Support Files/Pods-OneKeyWallet/Pods-OneKeyWallet.debug.xcconfig"; sourceTree = "<group>"; };
+		9373BA6134E4C051DB510900 /* libPods-OneKeyWallet.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-OneKeyWallet.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = OneKeyWallet/SplashScreen.storyboard; sourceTree = "<group>"; };
 		BB2F792C24A3F905000567C9 /* Expo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Expo.plist; sourceTree = "<group>"; };
 		C274DABD2AE2644400755275 /* ServiceExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ServiceExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -99,7 +94,6 @@
 		C274DAC02AE2644400755275 /* NotificationService.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = NotificationService.m; sourceTree = "<group>"; };
 		C274DAC22AE2644400755275 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		C2D12C012B32FF2100DB502A /* OneKeyWallet.entitlements */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.entitlements; name = OneKeyWallet.entitlements; path = OneKeyWallet/OneKeyWallet.entitlements; sourceTree = "<group>"; };
-		D0B8C30C56C171EF9CB51609 /* Pods_OneKeyWallet.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_OneKeyWallet.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		E386ED442C7889E000B1E360 /* de */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = de; path = de.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		E386ED452C788A1300B1E360 /* es */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = es; path = es.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		E386ED472C788A2700B1E360 /* hi */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = hi; path = hi.lproj/InfoPlist.strings; sourceTree = "<group>"; };
@@ -122,12 +116,6 @@
 		EA9FF4EC2BDFFDBB00AC618A /* web-embed */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "web-embed"; path = "OneKeyWallet/web-embed"; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 		F42739F82D24DABD0072EBA9 /* StoreKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = StoreKit.framework; path = System/Library/Frameworks/StoreKit.framework; sourceTree = SDKROOT; };
-		F47935B82EA0770600766A6F /* CloudKitModule.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = CloudKitModule.m; path = OneKeyWallet/CloudKitModule.m; sourceTree = "<group>"; };
-		F47935B92EA0770600766A6F /* CloudKitModule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CloudKitModule.swift; path = OneKeyWallet/CloudKitModule.swift; sourceTree = "<group>"; };
-		F47935BA2EA0770600766A6F /* KeychainModule.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = KeychainModule.m; path = OneKeyWallet/KeychainModule.m; sourceTree = "<group>"; };
-		F47935BB2EA0770600766A6F /* KeychainModule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = KeychainModule.swift; path = OneKeyWallet/KeychainModule.swift; sourceTree = "<group>"; };
-		F4B7B0842EA61E4200F80AB9 /* CloudKitModuleCore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CloudKitModuleCore.swift; path = OneKeyWallet/CloudKitModuleCore.swift; sourceTree = "<group>"; };
-		F4B7B0852EA61E4200F80AB9 /* KeychainModuleCore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = KeychainModuleCore.swift; path = OneKeyWallet/KeychainModuleCore.swift; sourceTree = "<group>"; };
 		LAUNCH0012E85D3A600D9A657 /* LaunchOptionsManager.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = LaunchOptionsManager.m; path = OneKeyWallet/LaunchOptionsManager.m; sourceTree = "<group>"; };
 		LAUNCH0012E85D3A700D9A658 /* LaunchOptionsManager.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = LaunchOptionsManager.h; path = OneKeyWallet/LaunchOptionsManager.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -139,7 +127,7 @@
 			files = (
 				076068BF2E7EF3BA00E007B2 /* gopenpgp-3.3.0.xcframework in Frameworks */,
 				F42739F92D24DABD0072EBA9 /* StoreKit.framework in Frameworks */,
-				71B912F0C3D67FB0BADD2A00 /* Pods_OneKeyWallet.framework in Frameworks */,
+				2788FF4A611FA65E5DD92E66 /* libPods-OneKeyWallet.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -164,12 +152,6 @@
 		13B07FAE1A68108700A75B9A /* OneKeyWallet */ = {
 			isa = PBXGroup;
 			children = (
-				F47935B82EA0770600766A6F /* CloudKitModule.m */,
-				F47935B92EA0770600766A6F /* CloudKitModule.swift */,
-				F4B7B0842EA61E4200F80AB9 /* CloudKitModuleCore.swift */,
-				F47935BA2EA0770600766A6F /* KeychainModule.m */,
-				F47935BB2EA0770600766A6F /* KeychainModule.swift */,
-				F4B7B0852EA61E4200F80AB9 /* KeychainModuleCore.swift */,
 				EA9FF4EC2BDFFDBB00AC618A /* web-embed */,
 				BB2F792B24A3F905000567C9 /* Supporting */,
 				EA9B87EB2BD94E3B00B8E64A /* PrivacyInfo.xcprivacy */,
@@ -201,7 +183,7 @@
 				076068BE2E7EF3BA00E007B2 /* gopenpgp-3.3.0.xcframework */,
 				F42739F82D24DABD0072EBA9 /* StoreKit.framework */,
 				ED297162215061F000B7C4FE /* JavaScriptCore.framework */,
-				D0B8C30C56C171EF9CB51609 /* Pods_OneKeyWallet.framework */,
+				9373BA6134E4C051DB510900 /* libPods-OneKeyWallet.a */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -585,12 +567,6 @@
 				EA7A13F42D9EEC2C002BD82F /* RCTRootViewBackground.m in Sources */,
 				07A0D9DD2E7997C6005A1AA2 /* BundleUpdateModule.m in Sources */,
 				4B0291071DB1A9856B2D4C1B /* ExpoModulesProvider.swift in Sources */,
-				F47935BC2EA0770600766A6F /* CloudKitModule.m in Sources */,
-				F47935BD2EA0770600766A6F /* CloudKitModule.swift in Sources */,
-				F47935BE2EA0770600766A6F /* KeychainModule.m in Sources */,
-				F4B7B0862EA61E4200F80AB9 /* CloudKitModuleCore.swift in Sources */,
-				F4B7B0872EA61E4200F80AB9 /* KeychainModuleCore.swift in Sources */,
-				F47935BF2EA0770600766A6F /* KeychainModule.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -796,7 +772,10 @@
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_CFLAGS = "$(inherited)";
 				OTHER_CPLUSPLUSFLAGS = "$(inherited)";
-				OTHER_LDFLAGS = "$(inherited)  ";
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					" ",
+				);
 				REACT_NATIVE_PATH = "${PODS_ROOT}/../../../../node_modules/react-native";
 				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) DEBUG";
@@ -871,7 +850,10 @@
 				MTL_ENABLE_DEBUG_INFO = NO;
 				OTHER_CFLAGS = "$(inherited)";
 				OTHER_CPLUSPLUSFLAGS = "$(inherited)";
-				OTHER_LDFLAGS = "$(inherited)  ";
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					" ",
+				);
 				REACT_NATIVE_PATH = "${PODS_ROOT}/../../../../node_modules/react-native";
 				SDKROOT = iphoneos;
 				USE_HERMES = true;

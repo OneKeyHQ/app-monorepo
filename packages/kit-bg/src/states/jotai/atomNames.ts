@@ -84,7 +84,7 @@ export enum EAtomNames {
   perpsCandlesWebviewReloadHookAtom = 'perpsCandlesWebviewReloadHookAtom',
   perpsCandlesWebviewMountedAtom = 'perpsCandlesWebviewMountedAtom',
   perpsWebSocketDataUpdateTimesAtom = 'perpsWebSocketDataUpdateTimesAtom',
-  perpTokenSortConfigPersistAtom = 'perpTokenSortConfigPersistAtom',
+  perpTokenSelectorConfigPersistAtom = 'perpTokenSelectorConfigPersistAtom',
   perpsDepositOrderAtom = 'perpsDepositOrderAtom',
   perpsLastUsedLeverageAtom = 'perpsLastUsedLeverageAtom',
   // network doctor
