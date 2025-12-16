@@ -150,7 +150,7 @@ function Protocol({
                 </Badge>
                 <Popover
                   placement="top"
-                  title={position.poolName}
+                  title="Pool name"
                   renderTrigger={
                     <SizableText
                       size="$bodyMd"

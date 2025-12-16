@@ -9,6 +9,7 @@ import {
   IconButton,
   NumberSizeableText,
   Page,
+  Popover,
   SizableText,
   Stack,
   XStack,
@@ -131,11 +132,34 @@ function DeFiProtocolDetails() {
               py="$3"
               ml="$-2"
             >
-              <Badge badgeType="success" badgeSize="lg">
-                <Badge.Text textTransform="capitalize">
-                  {position.category}
-                </Badge.Text>
-              </Badge>
+              <XStack flex={1} alignItems="center" gap="$3">
+                <Badge badgeType="success" badgeSize="lg">
+                  <Badge.Text textTransform="capitalize">
+                    {position.category}
+                  </Badge.Text>
+                </Badge>
+                <Popover
+                  placement="top"
+                  title="Pool Name"
+                  renderTrigger={
+                    <SizableText
+                      size="$bodySm"
+                      color="$textSubdued"
+                      numberOfLines={1}
+                      textDecorationLine="underline"
+                      textDecorationColor="$textSubdued"
+                      textDecorationStyle="dotted"
+                    >
+                      {position.poolName}
+                    </SizableText>
+                  }
+                  renderContent={
+                    <SizableText size="$bodyLg">
+                      {position.poolFullName}
+                    </SizableText>
+                  }
+                />
+              </XStack>
               <NumberSizeableText
                 size="$headingMd"
                 formatter="value"
