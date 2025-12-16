@@ -44,7 +44,7 @@ export function SwapProSlippageSetting({
             slippageItem.key === ESwapSlippageSegmentKey.CUSTOM &&
             slippageItem.value > swapSlippageWillAheadMinValue
               ? '$textCaution'
-              : '$text'
+              : '$textSubdued'
           }
         >
           {displaySlippageText}
