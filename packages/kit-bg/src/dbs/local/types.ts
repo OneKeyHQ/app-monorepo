@@ -165,6 +165,7 @@ export type IDBWallet = IDBBaseObjectWithName & {
   airGapAccountsInfoRaw?: string;
   airGapAccountsInfo?: IQrWalletAirGapAccountsInfo;
   deprecated?: boolean; // hw wallet only
+  firmwareTypeAtCreated?: EFirmwareType;
 };
 export type IDBCreateHDWalletParams = {
   password: string;
@@ -206,6 +207,7 @@ export type IDBCreateQRWalletParams = {
   fullXfp?: string;
   isMockedStandardHwWallet?: boolean;
   existingDeviceId?: string;
+  firmwareTypeAtCreated?: EFirmwareType;
 };
 export type IDBSetWalletNameAndAvatarParams = {
   walletId: IDBWalletId;

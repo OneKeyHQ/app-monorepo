@@ -34,7 +34,6 @@ import {
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 
 import { useAccountSelectorRoute } from '../../../router/useAccountSelectorRoute';
 
@@ -139,25 +138,14 @@ export function AccountSelectorWalletListSideBar({
 
       const wallets = await Promise.all(
         r.wallets.map(async (wallet) => {
-          const isHwWallet = accountUtils.isHwWallet({
-            walletId: wallet.id,
-          });
           const isQrWallet = accountUtils.isQrWallet({
             walletId: wallet.id,
           });
-          const isHwOrQrWallet = isQrWallet || isHwWallet;
-
-          const firmwareTypeBadge = isHwOrQrWallet
-            ? await deviceUtils.getFirmwareType({
-                features: wallet.associatedDeviceInfo?.featuresInfo,
-              })
-            : undefined;
 
           const badge = isQrWallet ? 'QR' : undefined;
 
           return {
             ...wallet,
-            firmwareTypeBadge,
             badge,
           };
         }),
