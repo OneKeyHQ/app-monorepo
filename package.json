@@ -116,6 +116,7 @@
     "event-target-polyfill": "0.0.4",
     "expiry-map": "^2.0.0",
     "expo": "54.0.25",
+    "fast-base64-decode": "2.0.0",
     "isomorphic-ws": "^4.0.1",
     "jotai": "^2.5.0",
     "js-md5": "^0.8.3",

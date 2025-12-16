@@ -7608,6 +7608,7 @@ __metadata:
     expiry-map: "npm:^2.0.0"
     expo: "npm:54.0.25"
     fake-indexeddb: "npm:^5.0.0"
+    fast-base64-decode: "npm:2.0.0"
     html-webpack-plugin: "npm:^5.5.3"
     http-proxy-middleware: "npm:^2.0.3"
     ip: "npm:^1.1.9"
@@ -24976,6 +24977,13 @@ __metadata:
   version: 0.2.2
   resolution: "fancy-canvas@npm:0.2.2"
   checksum: 10/aa6ca42609e544b771a1b7285a6686283fde96b56f0c42db2e9880adab3c300cb2992d0ecd5eb2b1595f5933cbfba7cd1bd97ef44fc4a18c0e3fca7d3d24ce06
+  languageName: node
+  linkType: hard
+
+"fast-base64-decode@npm:2.0.0":
+  version: 2.0.0
+  resolution: "fast-base64-decode@npm:2.0.0"
+  checksum: 10/e09d7a9cb0727be47d8c78f6fd778e49bd07efe0e53a8aef7e9f289c41229524e1d8cb59538d600338a9c8df8635c7112ba849e3832a05da2e1bcd181ca7d56b
   languageName: node
   linkType: hard
 
