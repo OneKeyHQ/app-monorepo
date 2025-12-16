@@ -11,9 +11,10 @@ import {
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import { ETabEarnRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 
 import useAppNavigation from '../../hooks/useAppNavigation';
+import { safePushToEarnRoute } from '../../views/Earn/earnUtils';
 
 function EmptyDeFi({ tableLayout }: { tableLayout?: boolean }) {
   const intl = useIntl();
@@ -29,7 +30,7 @@ function EmptyDeFi({ tableLayout }: { tableLayout?: boolean }) {
               alignItems="center"
               gap="$1"
               onPress={() => {
-                navigation.switchTab(ETabRoutes.Earn);
+                void safePushToEarnRoute(navigation, ETabEarnRoutes.EarnHome);
               }}
             >
               <SizableText size="$bodyLgMedium">

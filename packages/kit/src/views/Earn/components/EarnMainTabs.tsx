@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 
-import { useIntl } from 'react-intl';
 import { useIsFocused } from '@react-navigation/core';
+import { useIntl } from 'react-intl';
 
 import type { ITabContainerRef } from '@onekeyhq/components';
 import {
@@ -14,6 +14,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { useIsFirstFocused } from '../../../hooks/useIsFirstFocused';
 import { useRouteIsFocused } from '../../../hooks/useRouteIsFocused';
 
 import { FAQContent } from './FAQContent';
@@ -22,7 +23,6 @@ import { ProtocolsTabContent } from './ProtocolsTabContent';
 
 import type { IUseEarnPortfolioReturn } from '../hooks/useEarnPortfolio';
 import type { TabBarProps } from 'react-native-collapsible-tab-view';
-import { useIsFirstFocused } from '../../../hooks/useIsFirstFocused';
 
 interface IEarnMainTabsProps {
   faqList: Array<{ question: string; answer: string }>;

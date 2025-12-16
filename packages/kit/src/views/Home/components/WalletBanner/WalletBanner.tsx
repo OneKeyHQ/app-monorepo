@@ -32,7 +32,7 @@ const closedBanners: Record<string, boolean> = {};
 
 function WalletBanner() {
   const {
-    activeAccount: { account, network, wallet, indexedAccount },
+    activeAccount: { account, network, wallet },
   } = useActiveAccount({ num: 0 });
 
   const closedBannerInitRef = useRef(false);
@@ -49,7 +49,6 @@ function WalletBanner() {
     account,
     network,
     wallet,
-    indexedAccountId: indexedAccount?.id,
   });
 
   const [closedForeverBanners, setClosedForeverBanners] = useState<
