@@ -48,9 +48,6 @@ config.resolver.extraNodeModules = {
   net: require.resolve('react-native-tcp-socket'),
   tls: require.resolve('react-native-tcp-socket'),
   zlib: require.resolve('browserify-zlib'),
-  'react-native-get-random-values': require.resolve(
-    '@onekeyfe/react-native-get-random-values',
-  ),
 };
 
 // Fix for Metro resolver with "subpath exports"
