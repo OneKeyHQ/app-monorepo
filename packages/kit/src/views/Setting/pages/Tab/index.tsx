@@ -216,7 +216,11 @@ function SettingsTabNavigator() {
   return (
     <ConfigContext.Provider value={contextValue}>
       <Tab.Navigator
-        initialRouteName={ESettingsTabNames.Backup}
+        initialRouteName={
+          platformEnv.isWebDappMode
+            ? ESettingsTabNames.Preferences
+            : ESettingsTabNames.Backup
+        }
         tabBar={tabBarCallback}
         screenOptions={{
           headerShown: false,

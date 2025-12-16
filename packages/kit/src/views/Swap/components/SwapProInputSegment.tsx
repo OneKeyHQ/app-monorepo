@@ -1,4 +1,6 @@
-import { Button, Divider, XStack } from '@onekeyhq/components';
+import { Fragment } from 'react';
+
+import { Button, Divider, SizableText, XStack } from '@onekeyhq/components';
 
 interface ISwapProInputSegmentProps {
   items: { label?: string; value: string }[];
@@ -14,24 +16,31 @@ const SwapProInputSegment = ({
   }
   return (
     <XStack borderBottomLeftRadius="$2" borderBottomRightRadius="$2" flex={1}>
-      {items.map((item, index) => (
-        <>
-          <Button
-            key={`${item.value}-${index}`}
-            onPress={() => onSelect(item.value)}
-            size="medium"
-            backgroundColor="$transparent"
-            borderTopLeftRadius={0}
-            borderTopRightRadius={0}
-            borderBottomRightRadius={index !== items.length - 1 ? 0 : '$2'}
-            borderBottomLeftRadius={index !== 0 ? 0 : '$2'}
-            flex={1}
-          >
-            {item.label ?? item.value}
-          </Button>
-          {index !== items.length - 1 ? <Divider vertical /> : null}
-        </>
-      ))}
+      {items.map((item, index) => {
+        const text = item.label ?? item.value;
+        return (
+          <Fragment key={`${item.value}-${index}`}>
+            <Button
+              onPress={() => onSelect(item.value)}
+              size="small"
+              py="$1.5"
+              px="$1"
+              backgroundColor="$transparent"
+              borderTopLeftRadius={0}
+              borderTopRightRadius={0}
+              borderBottomRightRadius={index !== items.length - 1 ? 0 : '$2'}
+              borderBottomLeftRadius={index !== 0 ? 0 : '$2'}
+              flex={1}
+              minWidth={0}
+            >
+              <SizableText size="$bodyMd" numberOfLines={1}>
+                {text}
+              </SizableText>
+            </Button>
+            {index !== items.length - 1 ? <Divider vertical /> : null}
+          </Fragment>
+        );
+      })}
     </XStack>
   );
 };

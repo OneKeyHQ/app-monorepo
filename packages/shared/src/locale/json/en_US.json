@@ -3970,7 +3970,7 @@
   "wallet.hardware_wallet_connect_description_1": "Connect with USB or QR code",
   "wallet.hardware_wallet_connect_description_2": "Authorize on the device",
   "wallet.history_footer_view_full_history_in_explorer": "Only recent transactions are shown. To view the full history, please visit the block explorer.",
-  "wallet.history_settings_hide_risk_transaction_desc": "Supports major blockchains, including ETH, BNB, TRX, and more.",
+  "wallet.history_settings_hide_risk_transaction_desc": "Supports major blockchains, including ETH, BNB, TRX, SOL, and more.",
   "wallet.history_settings_hide_risk_transaction_desc_unsupported": "{networkName} network is not supported yet.",
   "wallet.history_settings_hide_risk_transaction_title": "Hide risky transactions",
   "wallet.history_settings_hide_small_transaction_desc": "Filters received transactions by value. Unpriced tokens not filtered.",

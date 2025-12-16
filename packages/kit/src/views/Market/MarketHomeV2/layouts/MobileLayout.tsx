@@ -11,6 +11,7 @@ import {
 } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { MarketBannerList } from '../components/MarketBanner';
 import { MarketFilterBarSmall } from '../components/MarketFilterBarSmall';
 import { MarketNormalTokenList } from '../components/MarketTokenList/MarketNormalTokenList';
 import { MarketWatchlistTokenList } from '../components/MarketTokenList/MarketWatchlistTokenList';
@@ -86,6 +87,7 @@ export function MobileLayout({
 
   return (
     <YStack>
+      <MarketBannerList />
       <Tabs.TabBar
         divider={false}
         onTabPress={handleTabChange}
