@@ -1,6 +1,6 @@
 import { type NavigationState, StackActions } from '@react-navigation/native';
 
-import { rootNavigationRef } from '@onekeyhq/components';
+import { rootNavigationRef, switchTab } from '@onekeyhq/components';
 import {
   WEB_APP_URL,
   WEB_APP_URL_DEV,
@@ -242,10 +242,9 @@ export const EarnNavigation = {
     if (platformEnv.isNative) {
       navigation.popTo(ETabDiscoveryRoutes.TabDiscovery, params);
     } else {
-      navigation.popTo(ERootRoutes.Main, {
-        screen: ETabRoutes.Earn,
-        params: { screen: ETabEarnRoutes.EarnHome, params },
-      });
+      switchTab(ETabRoutes.Earn);
+      await timerUtils.wait(50);
+      navigation.popToTop();
     }
 
     await timerUtils.wait(0);
