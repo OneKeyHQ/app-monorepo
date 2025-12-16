@@ -176,6 +176,20 @@ export const swapProTimeRangeItems: {
   { label: '24H', value: ESwapProTimeRange.TWENTY_FOUR_HOURS },
 ];
 
+export const swapProSellInputSegmentItems = [
+  { label: '25%', value: '0.25' },
+  { label: '50%', value: '0.5' },
+  { label: '75%', value: '0.75' },
+  { label: '100%', value: '1' },
+];
+
+export const swapProBuyInputSegmentItems = [
+  { label: '0.1', value: '0.1' },
+  { label: '0.5', value: '0.5' },
+  { label: '1', value: '1' },
+  { label: '10', value: '10' },
+];
+
 export const swapProPositionsListMinValue = 1;
 export const swapProPositionsListMaxCount = 50;
 

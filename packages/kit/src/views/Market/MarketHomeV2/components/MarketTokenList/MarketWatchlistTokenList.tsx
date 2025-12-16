@@ -29,7 +29,7 @@ function MarketWatchlistTokenList({
   onItemPress,
   watchlist: externalWatchlist,
   toolbar,
-  hideNativeToken = false,
+  hideNativeToken,
 }: IMarketWatchlistTokenListProps) {
   // Get watchlist from atom if not provided externally
   const [watchlistState] = useMarketWatchListV2Atom();
@@ -56,11 +56,17 @@ function MarketWatchlistTokenList({
   const watchlist = externalWatchlist || internalWatchlist;
 
   const watchlistResult = useMarketWatchlistTokenList({
-    watchlist: hideNativeToken
-      ? watchlist.filter((t) => !t.isNative)
-      : watchlist,
+    watchlist,
     pageSize: 999,
   });
+
+  const watchListResultNoNative = useMemo(() => {
+    const resultDataNoNative = watchlistResult.data.filter((t) => !t.isNative);
+    return {
+      ...watchlistResult,
+      data: resultDataNoNative,
+    };
+  }, [watchlistResult]);
 
   // console.log('MarketWatchlistTokenList___watchlistResult', {
   //   watchlist,
@@ -82,7 +88,7 @@ function MarketWatchlistTokenList({
     <MarketTokenListBase
       onItemPress={onItemPress}
       toolbar={toolbar}
-      result={watchlistResult}
+      result={hideNativeToken ? watchListResultNoNative : watchlistResult}
       isWatchlistMode
     />
   );
