@@ -7741,7 +7741,7 @@ __metadata:
     bip32: "npm:^4.0.0"
     bip322-js: "npm:3.0.0"
     bip39: "npm:^3.1.0"
-    bitcoinjs-lib: "npm:7.0.0-rc.0"
+    bitcoinjs-lib: "npm:@onekeyfe/bitcoinjs-lib@7.0.1"
     bitcoinjs-message: "npm:2.2.0"
     bs58check: "npm:^3.0.1"
     cardano-crypto.js: "npm:^6.1.2"
@@ -18459,6 +18459,16 @@ __metadata:
   languageName: node
   linkType: hard
 
+"bip174@npm:^3.0.0":
+  version: 3.0.0
+  resolution: "bip174@npm:3.0.0"
+  dependencies:
+    uint8array-tools: "npm:^0.0.9"
+    varuint-bitcoin: "npm:^2.0.0"
+  checksum: 10/b698437e5461cd1f02fc2f24bc074684909cf59ecd85da246000473d88c7a9bf7c2fe62b88ac84af33c3c1c60b17d7a85fb17e5cfa17d0053fb3d9fa0f7ea844
+  languageName: node
+  linkType: hard
+
 "bip322-js@npm:3.0.0":
   version: 3.0.0
   resolution: "bip322-js@npm:3.0.0"
@@ -18581,18 +18591,18 @@ __metadata:
   languageName: node
   linkType: hard
 
-"bitcoinjs-lib@npm:7.0.0-rc.0":
-  version: 7.0.0-rc.0
-  resolution: "bitcoinjs-lib@npm:7.0.0-rc.0"
+"bitcoinjs-lib@npm:@onekeyfe/bitcoinjs-lib@7.0.1":
+  version: 7.0.1
+  resolution: "@onekeyfe/bitcoinjs-lib@npm:7.0.1"
   dependencies:
     "@noble/hashes": "npm:^1.2.0"
     bech32: "npm:^2.0.0"
-    bip174: "npm:^3.0.0-rc.0"
+    bip174: "npm:^3.0.0"
     bs58check: "npm:^4.0.0"
     uint8array-tools: "npm:^0.0.9"
     valibot: "npm:^0.38.0"
     varuint-bitcoin: "npm:^2.0.0"
-  checksum: 10/b8b65ab1a24dd4f2cb0fec8726b9ee256ebd1c449f2eb6b2f9739a0f240dfefda3c7a994cbf14ebc1cce95f76ce79fb8bfeabed2378ab17c7e17ea6546151e61
+  checksum: 10/581b42a14439af6d00a9724388267099d414ca807be90fc10753d3e2ddd18063ec0bb8b04ad97d4d56ec1e4fa7f5d826228679b150bcb80dc1941bfbdd201410
   languageName: node
   linkType: hard
 
