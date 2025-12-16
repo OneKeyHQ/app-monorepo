@@ -22,6 +22,7 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import biologyAuth from '@onekeyhq/shared/src/biologyAuth';
 import { biologyAuthNativeError } from '@onekeyhq/shared/src/biologyAuth/error';
+import { ELockDuration } from '@onekeyhq/shared/src/consts/appAutoLockConsts';
 import * as OneKeyErrors from '@onekeyhq/shared/src/errors';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import * as deviceErrorUtils from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
@@ -203,7 +204,15 @@ export default class ServicePassword extends ServiceBase {
     void this.backgroundApi.servicePrimeCloudSync.clearCachedSyncCredential();
   }
 
+  async isCachedPasswordAvailable(): Promise<boolean> {
+    const { appLockDuration } = await passwordPersistAtom.get();
+    return !(String(appLockDuration) === ELockDuration.Never);
+  }
+
   async setCachedPassword({ password }: { password: string }): Promise<string> {
+    if (!(await this.isCachedPasswordAvailable())) {
+      return password;
+    }
     const prevPassword = this.cachedPassword;
     ensureSensitiveTextEncoded(password);
     this.cachedPassword = password;
@@ -239,6 +248,9 @@ export default class ServicePassword extends ServiceBase {
 
   @backgroundMethod()
   async getCachedPassword(): Promise<string | undefined> {
+    if (!(await this.isCachedPasswordAvailable())) {
+      return undefined;
+    }
     if (this.cachedPasswordTimeOutObject) {
       clearTimeout(this.cachedPasswordTimeOutObject);
     }
