@@ -12,7 +12,7 @@ if (globalThis.crypto && globalThis.crypto.getRandomValues) {
 }
 // shim global.crypto.getRandomValues
 // node_modules/react-native-get-random-values/index.js
-require('react-native-get-random-values');
+require('@onekeyfe/react-native-get-random-values');
 
 if (process.env.NODE_ENV !== 'production') {
   const getRandomValuesOld = globalThis.crypto.getRandomValues;

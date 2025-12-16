@@ -7417,6 +7417,17 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@onekeyfe/react-native-get-random-values@npm:1.1.10, react-native-get-random-values@npm:@onekeyfe/react-native-get-random-values@1.1.10":
+  version: 1.1.10
+  resolution: "@onekeyfe/react-native-get-random-values@npm:1.1.10"
+  peerDependencies:
+    react: "*"
+    react-native: "*"
+    react-native-nitro-modules: ^0.31.10
+  checksum: 10/377ef1947f13467877f23541bccb734ceb8e85137bc24aac01dbf542992ead802883a4836a4cb61600d79ebeda936767eb90f5a1d730541ded1f51a4295eaf07
+  languageName: node
+  linkType: hard
+
 "@onekeyfe/react-native-keychain-module@npm:1.1.10":
   version: 1.1.10
   resolution: "@onekeyfe/react-native-keychain-module@npm:1.1.10"
@@ -7864,6 +7875,7 @@ __metadata:
     "@onekeyfe/react-native-ble-utils": "npm:0.1.4"
     "@onekeyfe/react-native-check-biometric-auth-changed": "npm:1.1.10"
     "@onekeyfe/react-native-cloud-kit-module": "npm:1.1.10"
+    "@onekeyfe/react-native-get-random-values": "npm:1.1.10"
     "@onekeyfe/react-native-keychain-module": "npm:1.1.10"
     "@onekeyfe/react-native-lite-card": "npm:1.1.10"
     "@onekeyfe/react-native-sni-connect": "npm:1.1.0"
@@ -7937,7 +7949,6 @@ __metadata:
     react-native-file-logger: "npm:0.7.1"
     react-native-fs: "npm:@dr.pogodin/react-native-fs@2.34.0"
     react-native-gesture-handler: "npm:2.29.1"
-    react-native-get-random-values: "npm:1.9.0"
     react-native-image-colors: "npm:^2.5.0"
     react-native-image-crop-picker: "npm:0.50.0"
     react-native-keyboard-controller: "npm:1.19.6"
@@ -24968,13 +24979,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"fast-base64-decode@npm:^1.0.0":
-  version: 1.0.0
-  resolution: "fast-base64-decode@npm:1.0.0"
-  checksum: 10/4c59eb1775a7f132333f296c5082476fdcc8f58d023c42ed6d378d2e2da4c328c7a71562f271181a725dd17cdaa8f2805346cc330cdbad3b8e4b9751508bd0a3
-  languageName: node
-  linkType: hard
-
 "fast-deep-equal@npm:3.1.3, fast-deep-equal@npm:^3.1.1, fast-deep-equal@npm:^3.1.3":
   version: 3.1.3
   resolution: "fast-deep-equal@npm:3.1.3"
@@ -34580,28 +34584,6 @@ __metadata:
     react: "*"
     react-native: "*"
   checksum: 10/349517d8e0b3ed5282bc3f8536945dee3439c9cfe773fe26f248a4ccb53049169d484371bb0612a081c3860eff492db7f4dcbac528ff9b5ff1d504d04eb06f5f
-  languageName: node
-  linkType: hard
-
-"react-native-get-random-values@npm:1.9.0":
-  version: 1.9.0
-  resolution: "react-native-get-random-values@npm:1.9.0"
-  dependencies:
-    fast-base64-decode: "npm:^1.0.0"
-  peerDependencies:
-    react-native: ">=0.56"
-  checksum: 10/8af3ee2de0b1f811088fb068e1caddb5ea0dd31c7f8f411854d95758b19c7380d4153e8ba6879e971a76fa84c0b5f933aad5342fc023fda3bc9b2e974e039505
-  languageName: node
-  linkType: hard
-
-"react-native-get-random-values@npm:@onekeyfe/react-native-get-random-values@1.1.10":
-  version: 1.1.10
-  resolution: "@onekeyfe/react-native-get-random-values@npm:1.1.10"
-  peerDependencies:
-    react: "*"
-    react-native: "*"
-    react-native-nitro-modules: ^0.31.10
-  checksum: 10/377ef1947f13467877f23541bccb734ceb8e85137bc24aac01dbf542992ead802883a4836a4cb61600d79ebeda936767eb90f5a1d730541ded1f51a4295eaf07
   languageName: node
   linkType: hard
 
