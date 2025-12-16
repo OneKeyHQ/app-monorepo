@@ -1,21 +1,24 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import {
   AnimatePresence,
+  Button,
   Icon,
   SizableText,
   XStack,
   useMedia,
 } from '@onekeyhq/components';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import type { IAccountSelectorActiveAccountInfo } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { EModalReceiveRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import { SwapPercentageInputStage } from '@onekeyhq/shared/types/swap/types';
 
-import ActionBuy from '../../../AssetDetails/pages/TokenDetails/ActionBuy';
 import SwapPercentageStageBadge from '../../components/SwapPercentageStageBadge';
 
 const SwapInputActions = ({
@@ -33,10 +36,44 @@ const SwapInputActions = ({
 }) => {
   const intl = useIntl();
   const { gtSm } = useMedia();
+  const navigation = useAppNavigation();
+
   const needSwapPercentageInputStage = useMemo(
     () => (gtSm ? SwapPercentageInputStage : SwapPercentageInputStage.slice(1)),
     [gtSm],
   );
+
+  const handleBuyPress = useCallback(() => {
+    if (!fromToken || !accountInfo) return;
+
+    defaultLogger.wallet.walletActions.buyOnLowBalance({
+      source: 'swap',
+      networkId: fromToken.networkId ?? '',
+      tokenSymbol: fromToken.symbol ?? '',
+      tokenAddress: fromToken.contractAddress ?? '',
+      walletType: accountInfo.wallet?.type ?? '',
+    });
+
+    navigation.pushModal(EModalRoutes.ReceiveModal, {
+      screen: EModalReceiveRoutes.ReceiveSelector,
+      params: {
+        accountId: accountInfo.account?.id ?? '',
+        networkId: fromToken.networkId ?? '',
+        walletId: accountInfo.wallet?.id ?? '',
+        indexedAccountId: accountInfo.indexedAccount?.id,
+        token: {
+          networkId: fromToken.networkId ?? '',
+          address: fromToken.contractAddress ?? '',
+          name: fromToken.name ?? '',
+          symbol: fromToken.symbol ?? '',
+          decimals: fromToken.decimals,
+          logoURI: fromToken.logoURI,
+          isNative: fromToken.isNative,
+        },
+      },
+    });
+  }, [navigation, fromToken, accountInfo]);
+
   return (
     <XStack gap="$0.5">
       <AnimatePresence>
@@ -50,36 +87,26 @@ const SwapInputActions = ({
               opacity: 0,
             }}
           >
-            <ActionBuy
-              hiddenIfDisabled
-              showButtonStyle
+            <Button
               height="$5"
               px="$1.5"
               py="$0"
               pt={platformEnv.isNativeIOS ? '$1' : '$0'}
               bg="$bgSubdued"
               size="small"
-              childrenAsText={false}
-              label={
-                <XStack ai="center" jc="center" gap="$1">
-                  <Icon
-                    name="CreditCardCvvOutline"
-                    size="$4"
-                    mt={platformEnv.isNative ? 2 : undefined}
-                  />
-                  <SizableText size="$bodySmMedium" color="$textSubdued">
-                    {intl.formatMessage({ id: ETranslations.global_buy })}
-                  </SizableText>
-                </XStack>
-              }
-              networkId={fromToken?.networkId ?? ''}
-              accountId={accountInfo?.account?.id ?? ''}
-              walletId={accountInfo?.wallet?.id ?? ''}
-              walletType={accountInfo?.wallet?.type ?? ''}
-              tokenAddress={fromToken?.contractAddress ?? ''}
-              tokenSymbol={fromToken?.symbol ?? ''}
-              source="swap"
-            />
+              onPress={handleBuyPress}
+            >
+              <XStack ai="center" jc="center" gap="$1">
+                <Icon
+                  name="CreditCardCvvOutline"
+                  size="$4"
+                  mt={platformEnv.isNative ? 2 : undefined}
+                />
+                <SizableText size="$bodySmMedium" color="$textSubdued">
+                  {intl.formatMessage({ id: ETranslations.global_buy })}
+                </SizableText>
+              </XStack>
+            </Button>
           </XStack>
         ) : null}
       </AnimatePresence>

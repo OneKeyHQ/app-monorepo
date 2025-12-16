@@ -218,7 +218,9 @@ export enum EPerpsSizeInputMode {
   SLIDER = 'slider',
 }
 
-// Token Selector Sorting Types
+// Token Selector Types
+export type IPerpTokenSelectorTab = 'all' | 'hip3';
+
 export type IPerpTokenSortField =
   | 'name'
   | 'markPrice'
@@ -229,7 +231,11 @@ export type IPerpTokenSortField =
 
 export type IPerpTokenSortDirection = 'asc' | 'desc';
 
-export interface IPerpTokenSortConfig {
+export interface IPerpTokenSelectorConfig {
   field: IPerpTokenSortField;
   direction: IPerpTokenSortDirection;
+  activeTab: IPerpTokenSelectorTab;
 }
+
+// Deprecated: Use IPerpTokenSelectorConfig instead
+export type IPerpTokenSortConfig = IPerpTokenSelectorConfig;
