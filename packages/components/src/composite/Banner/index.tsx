@@ -1,6 +1,7 @@
 import type { ReactElement } from 'react';
 import { useCallback, useState } from 'react';
 
+import { useIsFocused } from '@react-navigation/native';
 import { isNil } from 'lodash';
 import { useDebouncedCallback } from 'use-debounce';
 
@@ -20,7 +21,6 @@ import type {
   IStackStyle,
   IXStackProps,
 } from '../../primitives';
-import { useIsFocused } from '@react-navigation/native';
 
 export interface IBannerData {
   title?: string;
