@@ -61,9 +61,7 @@ export function DashboardBanner({
       alignItems="center"
     >
       <Banner
-        onBannerClose={() => {
-          closeAllBanners();
-        }}
+        onBannerClose={closeAllBanners}
         showCloseButton
         showPaginationButton={false}
         height={120}

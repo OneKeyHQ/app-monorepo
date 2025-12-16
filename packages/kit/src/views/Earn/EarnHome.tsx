@@ -286,11 +286,8 @@ function BasicEarnHome({
               <Stack h={tabPageHeight} />
             ) : null}
             <EarnMainTabs
-              isMobile
               faqList={faqList || []}
               isFaqLoading={isFaqLoading}
-              isAccountsLoading={isLoading}
-              refreshEarnAccounts={refreshEarnData}
               defaultTab={defaultTab}
               portfolioData={portfolioData}
               containerProps={mobileContainerProps}
@@ -346,13 +343,10 @@ function BasicEarnHome({
               ) : null}
             </YStack>
             <EarnMainTabs
-              isMobile={false}
               faqList={faqList || []}
               isFaqLoading={isFaqLoading}
-              isAccountsLoading={isLoading}
               defaultTab={defaultTab}
               portfolioData={portfolioData}
-              refreshEarnAccounts={refreshEarnData}
             />
           </YStack>
         }

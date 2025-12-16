@@ -20,6 +20,7 @@ import type {
   IStackStyle,
   IXStackProps,
 } from '../../primitives';
+import { useIsFocused } from '@react-navigation/native';
 
 export interface IBannerData {
   title?: string;
@@ -223,6 +224,8 @@ export function Banner<T extends IBannerData>({
 
   const keyExtractor = useCallback((item: T) => item.bannerId, []);
 
+  const isFocused = useIsFocused();
+
   if (isNil(isLoading) || isLoading || data.length === 0) {
     return emptyComponent;
   }
@@ -236,9 +239,9 @@ export function Banner<T extends IBannerData>({
     >
       <Swiper
         position="relative"
-        autoplay
-        autoplayLoop
-        autoplayLoopKeepAnimation
+        autoplay={isFocused}
+        autoplayLoop={isFocused}
+        autoplayLoopKeepAnimation={isFocused}
         autoplayDelayMs={3000}
         keyExtractor={keyExtractor}
         data={data}

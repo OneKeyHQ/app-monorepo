@@ -7,7 +7,7 @@ import type {
   IL2BookOptions,
   IMarginTable,
   IPerpCommonConfig,
-  IPerpTokenSortConfig,
+  IPerpTokenSelectorConfig,
   IPerpUserConfig,
   IPerpsActiveAssetData,
   IPerpsFormattedAssetCtx,
@@ -245,16 +245,17 @@ export const {
   initialValue: undefined,
 });
 
-// Token Selector Sort Config (Persisted)
+// Token Selector Config (Persisted)
 export const {
-  target: perpTokenSortConfigPersistAtom,
-  use: usePerpTokenSortConfigPersistAtom,
-} = globalAtom<IPerpTokenSortConfig | null>({
-  name: EAtomNames.perpTokenSortConfigPersistAtom,
+  target: perpTokenSelectorConfigPersistAtom,
+  use: usePerpTokenSelectorConfigPersistAtom,
+} = globalAtom<IPerpTokenSelectorConfig | null>({
+  name: EAtomNames.perpTokenSelectorConfigPersistAtom,
   persist: true,
   initialValue: {
     field: 'volume24h',
     direction: 'desc',
+    activeTab: 'all',
   },
 });
 
