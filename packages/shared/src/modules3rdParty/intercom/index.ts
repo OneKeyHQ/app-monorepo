@@ -5,8 +5,6 @@ import Intercom, {
   update,
 } from '@intercom/messenger-js-sdk';
 
-import platformEnv from '../../platformEnv';
-
 import { getCustomerJWT, getInstanceId } from './utils';
 
 import type { InitType } from '@intercom/messenger-js-sdk/dist/types';
@@ -16,7 +14,7 @@ export const initIntercom = async (settings?: Partial<InitType>) => {
 
   Intercom({
     app_id: APP_ID,
-    hide_default_launcher: !platformEnv.isWebDappMode,
+    hide_default_launcher: true,
     alignment: 'right',
     horizontal_padding: 10,
     vertical_padding: 55,
