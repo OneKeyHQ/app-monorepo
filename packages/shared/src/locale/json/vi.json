@@ -3970,7 +3970,7 @@
   "wallet.hardware_wallet_connect_description_1": "Kết nối bằng USB hoặc mã QR",
   "wallet.hardware_wallet_connect_description_2": "Ủy quyền trên thiết bị",
   "wallet.history_footer_view_full_history_in_explorer": "Chỉ hiển thị các giao dịch gần đây. Để xem toàn bộ lịch sử, vui lòng truy cập trình khám phá khối.",
-  "wallet.history_settings_hide_risk_transaction_desc": "Hỗ trợ các blockchain chính, bao gồm ETH, BNB, TRX và nhiều hơn nữa.",
+  "wallet.history_settings_hide_risk_transaction_desc": "Hỗ trợ các blockchain chính, bao gồm ETH, BNB, TRX, SOL và nhiều hơn nữa.",
   "wallet.history_settings_hide_risk_transaction_desc_unsupported": "Mạng {networkName} chưa được hỗ trợ.",
   "wallet.history_settings_hide_risk_transaction_title": "Ẩn các giao dịch rủi ro",
   "wallet.history_settings_hide_small_transaction_desc": "Ẩn các giao dịch giá trị nhỏ. Token chưa có giá sẽ không bị lọc.",

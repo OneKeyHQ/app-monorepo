@@ -3970,7 +3970,7 @@
   "wallet.hardware_wallet_connect_description_1": "เชื่อมต่อด้วย USB หรือ QR code",
   "wallet.hardware_wallet_connect_description_2": "อนุญาตบนอุปกรณ์",
   "wallet.history_footer_view_full_history_in_explorer": "แสดงเฉพาะธุรกรรมล่าสุดเท่านั้น หากต้องการดูประวัติทั้งหมด โปรดไปที่ block explorer",
-  "wallet.history_settings_hide_risk_transaction_desc": "รองรับบล็อกเชนหลัก ๆ รวมถึง ETH, BNB, TRX และอื่น ๆ",
+  "wallet.history_settings_hide_risk_transaction_desc": "รองรับบล็อกเชนหลัก ๆ รวมถึง ETH, BNB, TRX, SOL และอื่น ๆ",
   "wallet.history_settings_hide_risk_transaction_desc_unsupported": "เครือข่าย {networkName} ยังไม่รองรับในขณะนี้",
   "wallet.history_settings_hide_risk_transaction_title": "ซ่อนธุรกรรมที่มีความเสี่ยง",
   "wallet.history_settings_hide_small_transaction_desc": "ซ่อนธุรกรรมมูลค่าน้อย โทเค็นที่ยังไม่มีการกำหนดราคาจะไม่ถูกกรอง",
