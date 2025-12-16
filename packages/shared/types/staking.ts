@@ -1809,3 +1809,5 @@ export interface IBorrowTransactionConfirmation {
 export interface IBorrowUnsignedTransaction {
   tx: string;
 }
+
+export type IBorrowManagePage = IEarnManagePageResponse;

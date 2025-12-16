@@ -39,6 +39,7 @@ import type {
   IBabylonPortfolioItem,
   IBorrowApyHistoryItem,
   IBorrowHistory,
+  IBorrowManagePage,
   IBorrowMarketItem,
   IBorrowReserveDetail,
   IBorrowReserveItem,
@@ -2199,6 +2200,35 @@ class ServiceStaking extends ServiceBase {
     const response = await client.get<{
       data: IBorrowUnsignedTransaction;
     }>('/earn/v1/borrow/build-repay-transaction', {
+      params: {
+        ...rest,
+        accountAddress,
+      },
+    });
+    return response.data.data;
+  }
+
+  @backgroundMethod()
+  async getBorrowManagePage(params: {
+    networkId: string;
+    provider: string;
+    marketAddress: string;
+    reserveAddress: string;
+    accountId: string;
+    type: 'supply' | 'withdraw' | 'borrow' | 'repay';
+  }) {
+    const { accountId, ...rest } = params;
+
+    const accountAddress =
+      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        networkId: params.networkId,
+        accountId,
+      });
+
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const response = await client.get<{
+      data: IBorrowManagePage;
+    }>('/earn/v1/borrow/manage-page', {
       params: {
         ...rest,
         accountAddress,
