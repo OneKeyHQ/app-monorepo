@@ -9,6 +9,7 @@ import {
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { MarketBannerList } from '../components/MarketBanner';
 import { MarketFilterBar } from '../components/MarketFilterBar';
 import { MarketNormalTokenList } from '../components/MarketTokenList/MarketNormalTokenList';
 import { MarketWatchlistTokenList } from '../components/MarketTokenList/MarketWatchlistTokenList';
@@ -96,6 +97,7 @@ export function DesktopLayout({
   }
   return (
     <YStack>
+      <MarketBannerList />
       <Tabs.TabBar
         divider={false}
         onTabPress={handleTabChange}

@@ -189,6 +189,7 @@ const LimitOrderList = ({
       )),
     [gtMd],
   );
+
   return !swapLimitOrders.length && isLoading ? (
     loadingSkeleton
   ) : (

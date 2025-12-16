@@ -3970,7 +3970,7 @@
   "wallet.hardware_wallet_connect_description_1": "Hubungkan dengan USB atau QR code",
   "wallet.hardware_wallet_connect_description_2": "Otorisasi pada perangkat",
   "wallet.history_footer_view_full_history_in_explorer": "Hanya transaksi terbaru yang ditampilkan. Untuk melihat riwayat lengkap, silakan kunjungi penjelajah blok.",
-  "wallet.history_settings_hide_risk_transaction_desc": "Mendukung blockchain utama, termasuk ETH, BNB, TRX, dan lainnya.",
+  "wallet.history_settings_hide_risk_transaction_desc": "Mendukung blockchain utama, termasuk ETH, BNB, TRX, SOL, dan lainnya.",
   "wallet.history_settings_hide_risk_transaction_desc_unsupported": "Jaringan {networkName} belum didukung.",
   "wallet.history_settings_hide_risk_transaction_title": "Sembunyikan transaksi berisiko",
   "wallet.history_settings_hide_small_transaction_desc": "Menyembunyikan transaksi bernilai kecil. Token yang belum memiliki harga tidak akan disaring.",

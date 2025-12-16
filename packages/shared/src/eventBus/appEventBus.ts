@@ -404,7 +404,10 @@ export interface IAppEventBusPayload {
     message?: string;
   };
   [EAppEventBusNames.SwitchDiscoveryTabInNative]: {
-    tab: ETranslations.global_browser | ETranslations.global_earn;
+    tab:
+      | ETranslations.global_market
+      | ETranslations.global_browser
+      | ETranslations.global_earn;
     openUrl?: boolean;
   };
   [EAppEventBusNames.SwitchTabBar]: {
@@ -419,6 +422,7 @@ export interface IAppEventBusPayload {
     from: EEnterWay;
   };
   [EAppEventBusNames.MarketWatchListV2Changed]: undefined;
+  [EAppEventBusNames.SwapLimitOrderBuildSuccess]: undefined;
 }
 
 export enum EEventBusBroadcastMethodNames {
