@@ -20,7 +20,6 @@ import type { AuthenticationType } from 'expo-local-authentication';
 export type IPasswordAtom = {
   unLock: boolean;
   // Is the application not locked manually by the user
-  manualLocking: boolean;
   passwordVerifyStatus: {
     value: EPasswordVerifyStatus;
     message?: string;
@@ -32,7 +31,6 @@ export const { target: passwordAtom, use: usePasswordAtom } =
     name: EAtomNames.passwordAtom,
     initialValue: {
       unLock: false,
-      manualLocking: false,
       passwordVerifyStatus: { value: EPasswordVerifyStatus.DEFAULT },
     },
   });
@@ -67,11 +65,13 @@ export type IPasswordPersistAtom = {
   enablePasswordErrorProtection: boolean;
   passwordErrorAttempts: number;
   passwordErrorProtectionTime: number;
+  manualLocking: boolean;
 };
 export const passwordAtomInitialValue: IPasswordPersistAtom = {
   isPasswordSet: false,
   webAuthCredentialId: '',
-  appLockDuration: Number(ELockDuration.Hour2),
+  appLockDuration: Number(ELockDuration.Always),
+  manualLocking: false,
   enableSystemIdleLock: true,
   passwordMode: EPasswordMode.PASSWORD,
   enablePasswordErrorProtection: false,
@@ -151,8 +151,9 @@ export const { target: appIsLocked, use: useAppIsLockedAtom } =
     if (isMigrationModalOpen || isProcessing) {
       return false;
     }
-    const { isPasswordSet, appLockDuration } = get(passwordPersistAtom.atom());
-    const { manualLocking } = get(passwordAtom.atom());
+    const { isPasswordSet, appLockDuration, manualLocking } = get(
+      passwordPersistAtom.atom(),
+    );
     if (isPasswordSet) {
       if (manualLocking) {
         return true;
