@@ -118,5 +118,6 @@ export type IDeFiProtocol = {
     value: string;
     groupId: string;
     poolName: string;
+    poolFullName: string;
   }[];
 };

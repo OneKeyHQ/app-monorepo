@@ -8,6 +8,54 @@ import {
   type IProtocolSummary,
 } from '../../types/defi';
 
+function extractParenthesizedContent(input: string) {
+  const startIndex = input.indexOf('(');
+
+  if (startIndex === -1) {
+    return { originalString: input, targetString: input };
+  }
+
+  let balance = 0;
+  let endIndex = -1;
+
+  for (let i = startIndex; i < input.length; i += 1) {
+    const char = input[i];
+    if (char === '(') {
+      balance += 1;
+    } else if (char === ')') {
+      balance -= 1;
+    }
+
+    if (balance === 0) {
+      endIndex = i;
+      break;
+    }
+  }
+
+  if (endIndex === -1) {
+    return { originalString: input, targetString: input };
+  }
+
+  const contentInside = input.substring(startIndex + 1, endIndex);
+
+  const emojiRegex =
+    /[\p{Extended_Pictographic}\u{1F300}-\u{1F5FF}\u{1F900}-\u{1F9FF}\u{1F600}-\u{1F64F}\u{1F680}-\u{1F6FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu;
+
+  const urlRegex = /((https?:\/\/[^\s]+)|(([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}))/g;
+
+  const cleanedContent = contentInside
+    .replace(emojiRegex, '')
+    .replace(urlRegex, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (cleanedContent.length === 0) {
+    return { originalString: input, targetString: input };
+  }
+
+  return { originalString: input, targetString: cleanedContent };
+}
+
 function mergeAssets(assets: (IDeFiAsset & { type: EDeFiAssetType })[]) {
   return assets.reduce((acc, asset) => {
     const existingAsset = acc.find(
@@ -43,6 +91,7 @@ function transferPositionMap(
     {
       groupId: string;
       poolName: string;
+      poolFullName: string;
       category: string;
       assets: (IDeFiAsset & { type: EDeFiAssetType })[];
       debts: (IDeFiAsset & { type: EDeFiAssetType })[];
@@ -88,6 +137,7 @@ function transformDeFiData({
         {
           groupId: string;
           poolName: string;
+          poolFullName: string;
           category: string;
           assets: (IDeFiAsset & { type: EDeFiAssetType })[];
           debts: (IDeFiAsset & { type: EDeFiAssetType })[];
@@ -133,6 +183,7 @@ function transformDeFiData({
           {
             groupId: string;
             poolName: string;
+            poolFullName: string;
             category: string;
             assets: (IDeFiAsset & { type: EDeFiAssetType })[];
             debts: (IDeFiAsset & { type: EDeFiAssetType })[];
@@ -146,9 +197,13 @@ function transformDeFiData({
       const positionKey = position.groupId;
 
       if (!protocolPositionsMapValue.positionMap.has(positionKey)) {
+        const { targetString, originalString } = extractParenthesizedContent(
+          position.name,
+        );
         protocolPositionsMapValue.positionMap.set(positionKey, {
           groupId: position.groupId,
-          poolName: position.name,
+          poolName: targetString,
+          poolFullName: originalString,
           category: position.category,
           assets: [],
           debts: [],
@@ -162,6 +217,7 @@ function transformDeFiData({
       ) as {
         groupId: string;
         poolName: string;
+        poolFullName: string;
         category: string;
         assets: (IDeFiAsset & { type: EDeFiAssetType })[];
         debts: (IDeFiAsset & { type: EDeFiAssetType })[];
@@ -242,7 +298,7 @@ function transformDeFiData({
   };
 }
 
-export function getEmptyDeFiData() {
+function getEmptyDeFiData() {
   return {
     overview: {
       totalValue: '0',
