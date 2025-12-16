@@ -6,6 +6,11 @@ import type {
   IPerpTokenSelectorConfig,
   IPerpTokenSortField,
 } from '@onekeyhq/shared/types/hyperliquid';
+import {
+  DEFAULT_PERP_TOKEN_ACTIVE_TAB,
+  DEFAULT_PERP_TOKEN_SORT_DIRECTION,
+  DEFAULT_PERP_TOKEN_SORT_FIELD,
+} from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 
 interface ISortableHeaderCellProps {
   field: IPerpTokenSortField;
@@ -30,24 +35,24 @@ function BaseSortableHeaderCell({
         if (prev.direction === 'asc') {
           // Reset to default sort but preserve activeTab
           return {
-            field: 'volume24h',
-            direction: 'desc',
-            activeTab: prev.activeTab ?? 'all',
+            field: DEFAULT_PERP_TOKEN_SORT_FIELD,
+            direction: DEFAULT_PERP_TOKEN_SORT_DIRECTION,
+            activeTab: prev.activeTab ?? DEFAULT_PERP_TOKEN_ACTIVE_TAB,
           };
         }
         // Toggle to ascending
         return {
           field,
           direction: 'asc',
-          activeTab: prev.activeTab ?? 'all',
+          activeTab: prev.activeTab ?? DEFAULT_PERP_TOKEN_ACTIVE_TAB,
         };
       }
 
       // New field, default to descending
       return {
         field,
-        direction: 'desc',
-        activeTab: prev?.activeTab ?? 'all',
+        direction: DEFAULT_PERP_TOKEN_SORT_DIRECTION,
+        activeTab: prev?.activeTab ?? DEFAULT_PERP_TOKEN_ACTIVE_TAB,
       };
     });
   }, [field, setSelectorConfig]);

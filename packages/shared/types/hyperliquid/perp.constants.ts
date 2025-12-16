@@ -35,3 +35,8 @@ export const PRIVACY_POLICY_URL =
 export const XYZ_DEX_PREFIX = 'xyz:';
 export const XYZ_ASSET_ID_OFFSET = 110_000;
 export const XYZ_ASSET_ID_LENGTH = `${XYZ_ASSET_ID_OFFSET}`.length;
+
+// Token Selector default values
+export const DEFAULT_PERP_TOKEN_SORT_FIELD = 'volume24h';
+export const DEFAULT_PERP_TOKEN_SORT_DIRECTION = 'desc';
+export const DEFAULT_PERP_TOKEN_ACTIVE_TAB = 'all';

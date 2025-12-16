@@ -39,7 +39,12 @@ import type {
   IPerpsAssetCtx,
   IPerpsUniverse,
 } from '@onekeyhq/shared/types/hyperliquid';
-import { XYZ_ASSET_ID_OFFSET } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
+import {
+  DEFAULT_PERP_TOKEN_ACTIVE_TAB,
+  DEFAULT_PERP_TOKEN_SORT_DIRECTION,
+  DEFAULT_PERP_TOKEN_SORT_FIELD,
+  XYZ_ASSET_ID_OFFSET,
+} from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 
 import { usePerpTokenSelector } from '../../hooks';
 
@@ -160,12 +165,12 @@ function BasePerpTokenSelectorContent({
     }),
     [],
   );
-  const activeTab = selectorConfig?.activeTab ?? 'all';
+  const activeTab = selectorConfig?.activeTab ?? DEFAULT_PERP_TOKEN_ACTIVE_TAB;
   const setActiveTab = useCallback(
     (tab: 'all' | 'hip3') => {
       setSelectorConfig((prev) => ({
-        field: prev?.field ?? 'volume24h',
-        direction: prev?.direction ?? 'desc',
+        field: prev?.field ?? DEFAULT_PERP_TOKEN_SORT_FIELD,
+        direction: prev?.direction ?? DEFAULT_PERP_TOKEN_SORT_DIRECTION,
         activeTab: tab,
       }));
     },

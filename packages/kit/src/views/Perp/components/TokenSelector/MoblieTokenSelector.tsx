@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useMemo, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -25,7 +25,12 @@ import type {
   IPerpsAssetCtx,
   IPerpsUniverse,
 } from '@onekeyhq/shared/types/hyperliquid';
-import { XYZ_ASSET_ID_OFFSET } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
+import {
+  DEFAULT_PERP_TOKEN_ACTIVE_TAB,
+  DEFAULT_PERP_TOKEN_SORT_DIRECTION,
+  DEFAULT_PERP_TOKEN_SORT_FIELD,
+  XYZ_ASSET_ID_OFFSET,
+} from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 
 import { usePerpTokenSelector } from '../../hooks';
 import { PerpsAccountSelectorProviderMirror } from '../../PerpsAccountSelectorProviderMirror';
@@ -95,12 +100,12 @@ function MobileTokenSelectorModal({
   const [{ assetCtxsByDex }] = usePerpsAllAssetCtxsAtom();
   const [selectorConfig, setSelectorConfig] =
     usePerpTokenSelectorConfigPersistAtom();
-  const activeTab = selectorConfig?.activeTab ?? 'all';
+  const activeTab = selectorConfig?.activeTab ?? DEFAULT_PERP_TOKEN_ACTIVE_TAB;
   const setActiveTab = useCallback(
     (tab: 'all' | 'hip3') => {
       setSelectorConfig((prev) => ({
-        field: prev?.field ?? 'volume24h',
-        direction: prev?.direction ?? 'desc',
+        field: prev?.field ?? DEFAULT_PERP_TOKEN_SORT_FIELD,
+        direction: prev?.direction ?? DEFAULT_PERP_TOKEN_SORT_DIRECTION,
         activeTab: tab,
       }));
     },
@@ -245,21 +250,21 @@ function MobileTokenSelectorModal({
         if (prev?.field === field) {
           if (prev.direction === 'asc') {
             return {
-              field: 'volume24h',
-              direction: 'desc',
-              activeTab: prev.activeTab ?? 'all',
+              field: DEFAULT_PERP_TOKEN_SORT_FIELD,
+              direction: DEFAULT_PERP_TOKEN_SORT_DIRECTION,
+              activeTab: prev.activeTab ?? DEFAULT_PERP_TOKEN_ACTIVE_TAB,
             };
           }
           return {
             field,
             direction: 'asc',
-            activeTab: prev.activeTab ?? 'all',
+            activeTab: prev.activeTab ?? DEFAULT_PERP_TOKEN_ACTIVE_TAB,
           };
         }
         return {
           field,
-          direction: 'desc',
-          activeTab: prev?.activeTab ?? 'all',
+          direction: DEFAULT_PERP_TOKEN_SORT_DIRECTION,
+          activeTab: prev?.activeTab ?? DEFAULT_PERP_TOKEN_ACTIVE_TAB,
         };
       });
       listRef.current?.scrollToOffset?.({ offset: 0, animated: false });
