@@ -11,8 +11,6 @@ import PasswordVerifyContainer from '../../../components/Password/container/Pass
 import AppStateLock from './components/AppStateLock';
 import { AppStateUpdater } from './components/AppStateUpdater';
 
-import type { LayoutChangeEvent } from 'react-native';
-
 const useWebLockCheck = (isLocked: boolean) => {
   const lockContainerRef = useRef<HTMLElement | null>(null);
   const lockedRef = useRef(isLocked);
