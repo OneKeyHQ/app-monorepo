@@ -13,7 +13,7 @@
     "ios:device": "SENTRY_DISABLE_AUTO_UPLOAD=true expo run:ios --device",
     "ios:build": "cd ios && xcodebuild -workspace OneKeyWallet.xcworkspace -scheme OneKeyWallet -configuration Release -archivePath ./build/OneKeyWallet.xcarchive",
     "ios:pod-install": "cd ios && pod install && cd ..",
-    "native-bundle": "WITH_ROZENITE=true react-native start",
+    "native-bundle": "NODE_OPTIONS='--max_old_space_size=8192' WITH_ROZENITE=true react-native start",
     "build-bundle": "node build-bundle.js",
     "clean": "yarn clean:build",
     "clean:build": "rimraf ./dist && rimraf ./expo && rimraf .tamagui && rimraf ./node_modules/.cache && yarn android:clean",
