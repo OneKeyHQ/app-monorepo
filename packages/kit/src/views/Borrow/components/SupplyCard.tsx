@@ -7,7 +7,6 @@ import type { IBorrowReserveItem } from '@onekeyhq/shared/types/staking';
 import { EarnText } from '../../Staking/components/ProtocolDetails/EarnText';
 import { useBorrowContext } from '../BorrowProvider';
 import { BorrowNavigation } from '../borrowUtils';
-import { useSupplyActions } from '../hooks/useSupplyActions';
 
 import {
   ActionField,
@@ -23,6 +22,7 @@ type ISupplyAsset = IBorrowReserveItem['supply']['assets'][number];
 export const SupplyCard = () => {
   const { reserves, market } = useBorrowContext();
   const navigation = useAppNavigation();
+  const { activeAccount } = useActiveAccount({ num: 0 });
 
   const handlePressRow = useCallback(
     (item: ISupplyAsset) => {
@@ -37,6 +37,23 @@ export const SupplyCard = () => {
       });
     },
     [navigation, market],
+  );
+
+  const handleManageSupply = useCallback(
+    (item: ISupplyAsset) => {
+      if (!market) return;
+
+      BorrowNavigation.pushToBorrowManagePosition(navigation, {
+        accountId: activeAccount.account?.id || '',
+        networkId: market.networkId,
+        provider: market.provider,
+        marketAddress: market.marketAddress,
+        reserveAddress: item.reserveAddress,
+        symbol: item.token.symbol,
+        logoURI: item.token.logoURI,
+      });
+    },
+    [navigation, market, activeAccount.account?.id],
   );
 
   return (
@@ -77,7 +94,7 @@ export const SupplyCard = () => {
               <ActionField
                 buttonText={<EarnText text={{ text: 'Supply' }} />}
                 item={item}
-                onPress={() => {}}
+                onPress={() => handleManageSupply(item)}
                 needAdditionButton
               />
             ),

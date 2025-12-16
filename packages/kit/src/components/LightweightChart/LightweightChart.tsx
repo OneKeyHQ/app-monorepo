@@ -19,6 +19,8 @@ export function LightweightChart({
   lineColor,
   topColor,
   bottomColor,
+  lineWidth,
+  showPriceScale,
   onHover,
 }: ILightweightChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
@@ -30,6 +32,8 @@ export function LightweightChart({
     lineColor,
     topColor,
     bottomColor,
+    lineWidth,
+    showPriceScale,
   });
 
   useEffect(() => {
@@ -39,13 +43,13 @@ export function LightweightChart({
     const container = chartContainerRef.current;
 
     const chart = createChart(container, {
-      ...createChartOptions(chartConfig.theme),
+      ...createChartOptions(chartConfig.theme, chartConfig.showPriceScale),
       width: container.clientWidth,
       height,
     });
 
     const series = chart.addAreaSeries(
-      createAreaSeriesOptions(chartConfig.theme),
+      createAreaSeriesOptions(chartConfig.theme, chartConfig.lineWidth),
     );
     series.setData(chartConfig.data as any);
     chart.timeScale().fitContent();

@@ -137,10 +137,13 @@ const ReserveDetailsPage = () => {
         {gtMd ? (
           <Stack width="35%">
             <ManagePositionPart
+              accountId={accountId}
               networkId={networkId}
               provider={provider}
               marketAddress={marketAddress}
               reserveAddress={reserveAddress}
+              symbol={symbol}
+              logoURI={logoURI}
             />
           </Stack>
         ) : null}

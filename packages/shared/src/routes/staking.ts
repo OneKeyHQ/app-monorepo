@@ -10,6 +10,7 @@ export enum EModalStakingRoutes {
   Stake = 'Stake',
   Withdraw = 'Withdraw',
   ManagePosition = 'ManagePosition',
+  BorrowManagePosition = 'BorrowManagePosition',
   Claim = 'Claim',
   ProtocolDetails = 'ProtocolDetails',
   ProtocolDetailsV2 = 'ProtocolDetailsV2',
@@ -64,6 +65,13 @@ export type IModalStakingParamList = {
     vault?: string;
     tab?: 'deposit' | 'withdraw';
     tokenImageUri?: string;
+  };
+  [EModalStakingRoutes.BorrowManagePosition]: IBaseRouteParams & {
+    provider: string;
+    marketAddress: string;
+    reserveAddress: string;
+    symbol: string;
+    logoURI?: string;
   };
   [EModalStakingRoutes.Stake]: IDetailPageInfoParams & {
     currentAllowance: string;

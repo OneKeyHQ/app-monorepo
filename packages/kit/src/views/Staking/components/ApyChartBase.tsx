@@ -18,12 +18,22 @@ interface IApyChartBaseProps {
   data: IApyHistoryItem[] | undefined;
   isLoading?: boolean;
   title?: string;
+  lineColor?: string;
+  topColor?: string;
+  bottomColor?: string;
+  lineWidth?: number;
+  showPriceScale?: boolean;
 }
 
 const ApyChartBaseComponent = ({
   data,
   isLoading,
   title,
+  lineColor,
+  topColor,
+  bottomColor,
+  lineWidth,
+  showPriceScale,
 }: IApyChartBaseProps) => {
   const intl = useIntl();
 
@@ -182,6 +192,11 @@ const ApyChartBaseComponent = ({
           <LightweightChart
             data={chartData.marketChartData}
             height={200}
+            lineColor={lineColor}
+            topColor={topColor}
+            bottomColor={bottomColor}
+            lineWidth={lineWidth}
+            showPriceScale={showPriceScale}
             onHover={handleHover}
           />
           <Divider mt="$8" />

@@ -84,6 +84,32 @@ export const BorrowNavigation = {
     });
   },
 
+  pushToBorrowManagePosition(
+    navigation: IAppNavigation,
+    params: {
+      accountId: string;
+      networkId: string;
+      provider: string;
+      marketAddress: string;
+      reserveAddress: string;
+      symbol: string;
+      logoURI?: string;
+    },
+  ) {
+    navigation.pushModal(EModalRoutes.StakingModal, {
+      screen: EModalStakingRoutes.BorrowManagePosition,
+      params: {
+        accountId: params.accountId,
+        networkId: params.networkId,
+        provider: params.provider,
+        marketAddress: params.marketAddress,
+        reserveAddress: params.reserveAddress,
+        symbol: params.symbol,
+        logoURI: params.logoURI,
+      },
+    });
+  },
+
   generateBorrowShareLink({
     networkId,
     symbol,

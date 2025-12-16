@@ -17,6 +17,8 @@ export function LightweightChart({
   lineColor,
   topColor,
   bottomColor,
+  lineWidth,
+  showPriceScale,
   onHover,
 }: ILightweightChartProps) {
   const webViewRef = useRef<WebView>(null);
@@ -27,6 +29,8 @@ export function LightweightChart({
     lineColor,
     topColor,
     bottomColor,
+    lineWidth,
+    showPriceScale,
   });
   const htmlContent = useMemo(
     () => generateChartHTML(chartConfig),

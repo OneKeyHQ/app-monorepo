@@ -36,6 +36,9 @@ export function ChartSection({
   details,
 }: IChartSectionProps) {
   const [timePeriod, setTimePeriod] = useState<ITimePeriod>('week');
+  const supplyLineColor = '#008347D6';
+  const borrowLineColor = '#DA8A00C9';
+  const lineWidth = 2;
 
   const { result: apyHistory = [], isLoading } = usePromiseResult(
     async () => {
@@ -111,7 +114,15 @@ export function ChartSection({
             onChange={(value) => setTimePeriod(value as ITimePeriod)}
           />
         </XStack>
-        <ApyChartBase data={supplyHistory} isLoading={isLoading} />
+        <ApyChartBase
+          data={supplyHistory}
+          isLoading={isLoading}
+          lineColor={supplyLineColor}
+          topColor="#42FFA426"
+          bottomColor="#42FFA400"
+          lineWidth={lineWidth}
+          showPriceScale
+        />
 
         {/* Supply Metrics */}
         {details ? (
@@ -139,7 +150,15 @@ export function ChartSection({
         <SizableText size="$headingLg">
           {Number(latestBorrowApy).toFixed(2)}% Borrow APY
         </SizableText>
-        <ApyChartBase data={borrowHistory} isLoading={isLoading} />
+        <ApyChartBase
+          data={borrowHistory}
+          isLoading={isLoading}
+          lineColor={borrowLineColor}
+          topColor="#BF700026"
+          bottomColor="#BF700000"
+          lineWidth={lineWidth}
+          showPriceScale
+        />
       </YStack>
     </YStack>
   );

@@ -1784,17 +1784,23 @@ export interface IBorrowReserveDetail {
 }
 
 export interface IBorrowTransactionConfirmation {
-  apyDetail: {
+  apyDetail?: {
     title: IEarnText;
     button: IEarnPopupActionIcon;
   };
-  canBeCollateral: boolean;
-  refundableFee: {
+  canBeCollateral?: boolean;
+  refundableFee?: {
     title: IEarnText;
     description: IEarnText;
     tooltip: IEarnTooltip;
   };
-  healthFactor: {
+  liquidationAt?: {
+    title: IEarnText;
+    description: IEarnText;
+  };
+  liquidationRisk?: boolean;
+  blockRepay?: boolean;
+  healthFactor?: {
     title: IEarnText;
     description: IEarnText;
   };
