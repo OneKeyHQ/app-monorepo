@@ -822,7 +822,6 @@ export default class ServicePassword extends ServiceBase {
   // lock ---------------------------
   @backgroundMethod()
   async unLockApp() {
-    console.log('appIsLocked unLockApp call');
     await passwordPersistAtom.set((v) => ({ ...v, manualLocking: false }));
     await passwordAtom.set((v) => ({
       ...v,
