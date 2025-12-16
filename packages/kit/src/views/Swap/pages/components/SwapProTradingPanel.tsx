@@ -25,7 +25,6 @@ import SwapProAccountSelect from './SwapProAccountSelect';
 import SwapProActionButton from './SwapProActionButton';
 import SwapProInputContainer from './SwapProInputContainer';
 import SwapProLimitPriceValue from './SwapProLimitPriceValue';
-import SwapProSlider from './SwapProSlider';
 import { SwapProSlippageSetting } from './SwapProSlippageSetting';
 import SwapProToTotalValue from './SwapProToTotalValue';
 import SwapProTradeInfoGroup from './SwapProTradeInfoGroup';
@@ -114,7 +113,6 @@ const SwapProTradingPanel = ({
           defaultTokens={swapProConfig.defaultTokens as IToken[]}
           cleanInputAmount={cleanInputAmount}
         />
-        <SwapProSlider />
         <SwapProToTotalValue />
         <SwapProTradeInfoGroup balanceLoading={balanceLoading} />
         <SwapProAccountSelect onSelectAccountClick={handleSelectAccountClick} />

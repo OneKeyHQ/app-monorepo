@@ -47,7 +47,6 @@ import {
   useSwapProInputAmountAtom,
   useSwapProSelectTokenAtom,
   useSwapProSellToTokenAtom,
-  useSwapProSliderValueAtom,
   useSwapProSupportNetworksTokenListAtom,
   useSwapProToTotalValueAtom,
   useSwapProTokenSupportLimitAtom,

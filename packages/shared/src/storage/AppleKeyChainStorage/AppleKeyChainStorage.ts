@@ -1,7 +1,7 @@
-import { NativeModules } from 'react-native';
-
 import { OneKeyLocalError } from '../../errors';
 import platformEnv from '../../platformEnv';
+
+import KeychainModule from './keychainModule';
 
 import type {
   IAppleKeyChainNativeModule,
@@ -11,11 +11,7 @@ import type {
 export class AppleKeyChainStorage implements IAppleKeyChainStorage {
   private getKeychainModule(): IAppleKeyChainNativeModule {
     if (platformEnv.isNativeIOS) {
-      const m = NativeModules?.KeychainModule;
-      if (!m) {
-        throw new OneKeyLocalError('Keychain native module not found');
-      }
-      return m;
+      return KeychainModule;
     }
     if (platformEnv.isDesktopMac) {
       return desktopApiProxy.keychain;

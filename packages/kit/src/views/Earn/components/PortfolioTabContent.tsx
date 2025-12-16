@@ -913,7 +913,7 @@ const PortfolioSkeleton = () => (
   </YStack>
 );
 
-export const PortfolioTabContent = ({
+const BasePortfolioTabContent = ({
   portfolioData,
 }: {
   portfolioData: IUseEarnPortfolioReturn;
@@ -978,3 +978,5 @@ export const PortfolioTabContent = ({
 
   return <YStack>{filteredInvestments.map(investmentsItemRender)}</YStack>;
 };
+
+export const PortfolioTabContent = memo(BasePortfolioTabContent);

@@ -75,6 +75,8 @@ type IProps = {
   tokenMap?: Record<string, ITokenFiat>;
   ref?: ForwardedRef<typeof SectionList>;
   plainMode?: boolean;
+  emptyTitle?: string;
+  emptyDescription?: string;
 };
 
 const ListFooterComponent = ({
@@ -282,6 +284,8 @@ function BaseTxHistoryListView(props: IProps) {
     tokenMap,
     ref,
     plainMode,
+    emptyTitle,
+    emptyDescription,
   } = props;
 
   const [searchKey] = useSearchKeyAtom();
@@ -391,13 +395,15 @@ function BaseTxHistoryListView(props: IProps) {
     }
     return (
       <EmptyHistory
-        showViewInExplorer
+        showViewInExplorer={!plainMode}
         walletId={walletId}
         accountId={accountId}
         networkId={networkId}
         indexedAccountId={indexedAccountId}
         isSingleAccount={isSingleAccount}
         tokenMap={tokenMap}
+        emptyTitle={emptyTitle}
+        emptyDescription={emptyDescription}
       />
     );
   }, [
@@ -412,6 +418,9 @@ function BaseTxHistoryListView(props: IProps) {
     isSingleAccount,
     tokenMap,
     tableLayout,
+    plainMode,
+    emptyTitle,
+    emptyDescription,
   ]);
 
   if (plainMode) {

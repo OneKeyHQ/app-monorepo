@@ -21,6 +21,8 @@ interface IEmptyHistoryProps {
   showViewInExplorer?: boolean;
   isSingleAccount?: boolean;
   tokenMap?: Record<string, ITokenFiat>;
+  emptyTitle?: string;
+  emptyDescription?: string;
 }
 
 function EmptyHistory({
@@ -30,6 +32,9 @@ function EmptyHistory({
   indexedAccountId,
   isSingleAccount,
   tokenMap,
+  showViewInExplorer,
+  emptyTitle,
+  emptyDescription,
 }: IEmptyHistoryProps) {
   const intl = useIntl();
   const { account, network, vaultSettings } = useAccountData({
@@ -58,6 +63,9 @@ function EmptyHistory({
   ]);
 
   const renderViewInExplorerButton = useCallback(() => {
+    if (!showViewInExplorer) {
+      return null;
+    }
     if (vaultSettings?.hideBlockExplorer && !network?.isAllNetworks) {
       return null;
     }
@@ -110,6 +118,7 @@ function EmptyHistory({
     tokenMap,
     handleOnPress,
     requiresNetworkSelection,
+    showViewInExplorer,
   ]);
 
   return (
