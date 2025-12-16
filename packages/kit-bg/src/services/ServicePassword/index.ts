@@ -821,7 +821,6 @@ export default class ServicePassword extends ServiceBase {
 
   @backgroundMethod()
   async resetPasswordStatus() {
-    await passwordPersistAtom.set((v) => ({ ...v, manualLocking: false }));
     await passwordAtom.set((v) => ({
       ...v,
       passwordVerifyStatus: { value: EPasswordVerifyStatus.DEFAULT },
