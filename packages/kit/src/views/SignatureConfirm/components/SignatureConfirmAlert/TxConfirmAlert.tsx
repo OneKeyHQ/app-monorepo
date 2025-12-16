@@ -7,6 +7,7 @@ import { useIntl } from 'react-intl';
 import type { IAlertType } from '@onekeyhq/components';
 import { Alert } from '@onekeyhq/components';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
   useDecodedTxsAtom,
   useNativeTokenInfoAtom,
@@ -24,11 +25,10 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EModalReceiveRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { ESendFeeStatus } from '@onekeyhq/shared/types/fee';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { EModalReceiveRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 
 interface IProps {
   accountId: string;

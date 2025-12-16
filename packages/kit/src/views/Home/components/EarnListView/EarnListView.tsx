@@ -10,8 +10,8 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabEarnRoutes } from '@onekeyhq/shared/src/routes';
 
 import { Recommended } from '../../../Earn/components/Recommended';
-import { RichBlock } from '../RichBlock';
 import { safePushToEarnRoute } from '../../../Earn/earnUtils';
+import { RichBlock } from '../RichBlock';
 
 function EarnListView() {
   const navigation = useAppNavigation();

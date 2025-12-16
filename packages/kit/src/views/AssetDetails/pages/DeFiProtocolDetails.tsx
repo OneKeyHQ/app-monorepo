@@ -221,7 +221,7 @@ function DeFiProtocolDetails() {
         ))}
       </YStack>
     );
-  }, [protocol.positions, settings.currencyInfo.symbol, renderAssetType]);
+  }, [protocol.positions, intl, settings.currencyInfo.symbol, renderAssetType]);
   return (
     <Page scrollEnabled>
       <Page.Header

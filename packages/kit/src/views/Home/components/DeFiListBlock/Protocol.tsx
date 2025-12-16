@@ -202,7 +202,7 @@ function Protocol({
         </>
       );
     });
-  }, [protocol.positions, settings.currencyInfo.symbol, columns]);
+  }, [protocol.positions, intl, settings.currencyInfo.symbol, columns]);
 
   const handlePressProtocol = useCallback(() => {
     navigation.pushModal(EModalRoutes.MainModal, {
