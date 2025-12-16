@@ -7,10 +7,11 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import { ETabEarnRoutes } from '@onekeyhq/shared/src/routes';
 
 import { Recommended } from '../../../Earn/components/Recommended';
 import { RichBlock } from '../RichBlock';
+import { safePushToEarnRoute } from '../../../Earn/earnUtils';
 
 function EarnListView() {
   const navigation = useAppNavigation();
@@ -27,7 +28,7 @@ function EarnListView() {
   }, []);
 
   const handleViewMore = useCallback(() => {
-    navigation.switchTab(ETabRoutes.Earn);
+    void safePushToEarnRoute(navigation, ETabEarnRoutes.EarnHome);
   }, [navigation]);
 
   const intl = useIntl();

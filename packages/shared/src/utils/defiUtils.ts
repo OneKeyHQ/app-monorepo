@@ -43,17 +43,21 @@ function extractParenthesizedContent(input: string) {
 
   const urlRegex = /((https?:\/\/[^\s]+)|(([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}))/g;
 
-  const cleanedContent = contentInside
+  const cleanedInside = contentInside
     .replace(emojiRegex, '')
     .replace(urlRegex, '')
     .replace(/\s+/g, ' ')
     .trim();
 
-  if (cleanedContent.length === 0) {
-    return { originalString: input, targetString: input };
+  if (cleanedInside.length > 0) {
+    return { originalString: input, targetString: cleanedInside };
   }
+  const partBefore = input.substring(0, startIndex);
+  const partAfter = input.substring(endIndex + 1);
 
-  return { originalString: input, targetString: cleanedContent };
+  const outerContent = `${partBefore} ${partAfter}`.replace(/\s+/g, ' ').trim();
+
+  return { originalString: input, targetString: outerContent };
 }
 
 function mergeAssets(assets: (IDeFiAsset & { type: EDeFiAssetType })[]) {

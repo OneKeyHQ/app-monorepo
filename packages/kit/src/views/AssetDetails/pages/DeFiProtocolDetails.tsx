@@ -154,9 +154,11 @@ function DeFiProtocolDetails() {
                     </SizableText>
                   }
                   renderContent={
-                    <SizableText size="$bodyLg">
-                      {position.poolFullName}
-                    </SizableText>
+                    <Stack px="$4" py="$2">
+                      <SizableText size="$bodyLg">
+                        {position.poolFullName}
+                      </SizableText>
+                    </Stack>
                   }
                 />
               </XStack>
