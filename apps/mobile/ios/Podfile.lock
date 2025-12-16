@@ -3996,7 +3996,7 @@ DEPENDENCIES:
   - ReactNativeCameraKit (from `../../../node_modules/react-native-camera-kit`)
   - "ReactNativeCheckBiometricAuthChanged (from `../../../node_modules/@onekeyfe/react-native-check-biometric-auth-changed`)"
   - ReactNativeFs (from `../../../node_modules/react-native-fs`)
-  - "ReactNativeGetRandomValues (from `../../../node_modules/@onekeyfe/react-native-get-random-values`)"
+  - ReactNativeGetRandomValues (from `../../../node_modules/react-native-get-random-values`)
   - "ReactNativeLiteCard (from `../../../node_modules/@onekeyfe/react-native-lite-card`)"
   - ReactNativePasskeys (from `../../../node_modules/react-native-passkeys/ios`)
   - RealmJS (from `../../../node_modules/realm`)
@@ -4311,7 +4311,7 @@ EXTERNAL SOURCES:
   ReactNativeFs:
     :path: "../../../node_modules/react-native-fs"
   ReactNativeGetRandomValues:
-    :path: "../../../node_modules/@onekeyfe/react-native-get-random-values"
+    :path: "../../../node_modules/react-native-get-random-values"
   ReactNativeLiteCard:
     :path: "../../../node_modules/@onekeyfe/react-native-lite-card"
   ReactNativePasskeys:
