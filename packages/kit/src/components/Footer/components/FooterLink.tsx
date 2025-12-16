@@ -1,11 +1,36 @@
-import { Anchor } from '@onekeyhq/components';
+import { Anchor, SizableText } from '@onekeyhq/components';
 
 export interface IFooterLinkProps {
   label: string;
-  href: string;
+  href?: string;
+  onPress?: () => void;
 }
 
-export function FooterLink({ label, href }: IFooterLinkProps) {
+export function FooterLink({ label, href, onPress }: IFooterLinkProps) {
+  if (onPress) {
+    return (
+      <SizableText
+        size="$bodyMd"
+        color="$textSubdued"
+        cursor="pointer"
+        hoverStyle={{
+          bg: '$bgHover',
+        }}
+        pressStyle={{
+          bg: '$bgActive',
+        }}
+        px="$2"
+        py="$1"
+        mx="$-1"
+        my="$-1"
+        borderRadius="$2"
+        onPress={onPress}
+      >
+        {label}
+      </SizableText>
+    );
+  }
+
   return (
     <Anchor
       href={href}

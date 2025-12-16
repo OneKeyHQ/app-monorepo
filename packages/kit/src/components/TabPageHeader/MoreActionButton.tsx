@@ -518,23 +518,27 @@ function MoreActionContentGrid() {
   const [{ firstTimeGuideOpened, badge }] = useNotificationsAtom();
   const items = useMemo(() => {
     return [
-      {
-        title: intl.formatMessage({
-          id: ETranslations.address_book_title,
-        }),
-        icon: 'ContactsOutline',
-        onPress: openAddressBook,
-        testID: 'address-book',
-        trackID: 'wallet-address-book',
-      },
-      {
-        title: intl.formatMessage({
-          id: ETranslations.global_my_onekey,
-        }),
-        icon: 'OnekeyDeviceCustom',
-        onPress: handleDeviceManagement,
-        testID: 'my-onekey',
-      },
+      platformEnv.isWebDappMode
+        ? undefined
+        : {
+            title: intl.formatMessage({
+              id: ETranslations.address_book_title,
+            }),
+            icon: 'ContactsOutline',
+            onPress: openAddressBook,
+            testID: 'address-book',
+            trackID: 'wallet-address-book',
+          },
+      platformEnv.isWebDappMode
+        ? undefined
+        : {
+            title: intl.formatMessage({
+              id: ETranslations.global_my_onekey,
+            }),
+            icon: 'OnekeyDeviceCustom',
+            onPress: handleDeviceManagement,
+            testID: 'my-onekey',
+          },
       {
         title: intl.formatMessage({
           id: ETranslations.settings_settings,
@@ -559,13 +563,15 @@ function MoreActionContentGrid() {
         testID: 'referral',
         onPress: toReferFriendsPage,
       },
-      {
-        title: intl.formatMessage({ id: ETranslations.scan_scan_qr_code }),
-        icon: 'ScanOutline' as const,
-        onPress: handleScan,
-        testID: 'scan-qr-code',
-        trackID: 'wallet-scan',
-      },
+      platformEnv.isWebDappMode
+        ? undefined
+        : {
+            title: intl.formatMessage({ id: ETranslations.scan_scan_qr_code }),
+            icon: 'ScanOutline' as const,
+            onPress: handleScan,
+            testID: 'scan-qr-code',
+            trackID: 'wallet-scan',
+          },
       gtMd
         ? undefined
         : {
@@ -579,23 +585,25 @@ function MoreActionContentGrid() {
             badges: badge,
             trackID: 'notification-in-more-action',
           },
-      {
-        title: intl.formatMessage({
-          id: ETranslations.global_bulk_copy_addresses,
-        }),
-        icon: 'Copy3Outline',
-        onPress: () => {
-          if (!isPrimeUser) {
-            defaultLogger.prime.subscription.primeEntryClick({
-              featureName: EPrimeFeatures.BulkCopyAddresses,
-              entryPoint: 'moreActions',
-            });
-          }
-          void openBulkCopyAddressesModal();
-        },
-        trackID: 'bulk-copy-addresses-in-more-action',
-        isPrimeFeature: true,
-      },
+      platformEnv.isWebDappMode
+        ? undefined
+        : {
+            title: intl.formatMessage({
+              id: ETranslations.global_bulk_copy_addresses,
+            }),
+            icon: 'Copy3Outline',
+            onPress: () => {
+              if (!isPrimeUser) {
+                defaultLogger.prime.subscription.primeEntryClick({
+                  featureName: EPrimeFeatures.BulkCopyAddresses,
+                  entryPoint: 'moreActions',
+                });
+              }
+              void openBulkCopyAddressesModal();
+            },
+            trackID: 'bulk-copy-addresses-in-more-action',
+            isPrimeFeature: true,
+          },
     ].filter(Boolean) as IMoreActionContentGridItemProps[];
   }, [
     badge,
