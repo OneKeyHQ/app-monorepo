@@ -150,7 +150,9 @@ function Protocol({
                 </Badge>
                 <Popover
                   placement="top"
-                  title="Pool name"
+                  title={intl.formatMessage({
+                    id: ETranslations.wallet_defi_position_name_popover_title,
+                  })}
                   renderTrigger={
                     <SizableText
                       size="$bodyMd"

@@ -140,7 +140,9 @@ function DeFiProtocolDetails() {
                 </Badge>
                 <Popover
                   placement="top"
-                  title="Pool Name"
+                  title={intl.formatMessage({
+                    id: ETranslations.wallet_defi_position_name_popover_title,
+                  })}
                   renderTrigger={
                     <SizableText
                       size="$bodySm"
