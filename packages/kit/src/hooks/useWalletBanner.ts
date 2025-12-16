@@ -18,12 +18,10 @@ function useWalletBanner({
   account,
   network,
   wallet,
-  indexedAccountId,
 }: {
   account: INetworkAccount | undefined;
   network: IServerNetwork | undefined;
   wallet: IDBWallet | undefined;
-  indexedAccountId: string | undefined;
 }) {
   const navigation = useAppNavigation();
   const parseQRCode = useParseQRCode();

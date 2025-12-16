@@ -1,8 +1,9 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import { Button } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -30,6 +31,20 @@ function EarnListView() {
   }, [navigation]);
 
   const intl = useIntl();
+  const [isDeFiEnabled, setIsDeFiEnabled] = useState(true);
+  const checkDeFiEnabled = useCallback(async () => {
+    const blockData = await backgroundApiProxy.serviceStaking.getBlockRegion();
+    setIsDeFiEnabled(!blockData);
+  }, []);
+
+  useEffect(() => {
+    void checkDeFiEnabled();
+  }, [checkDeFiEnabled]);
+
+  if (!isDeFiEnabled) {
+    return null;
+  }
+
   return (
     <RichBlock
       title={intl.formatMessage({ id: ETranslations.earn_title })}

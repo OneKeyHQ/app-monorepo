@@ -9,6 +9,7 @@ import { Alert } from '@onekeyhq/components';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import {
   useDecodedTxsAtom,
+  useNativeTokenInfoAtom,
   usePayWithTokenInfoAtom,
   usePreCheckTxStatusAtom,
   useSendFeeStatusAtom,
@@ -26,6 +27,8 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { ESendFeeStatus } from '@onekeyhq/shared/types/fee';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { EModalReceiveRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 
 interface IProps {
   accountId: string;
@@ -37,9 +40,11 @@ function TxConfirmAlert(props: IProps) {
   const { networkId, accountId, transferPayload } = props;
 
   const intl = useIntl();
+  const navigation = useAppNavigation();
   const [{ decodedTxs }] = useDecodedTxsAtom();
   const [sendFeeStatus] = useSendFeeStatusAtom();
   const [sendTxStatus] = useSendTxStatusAtom();
+  const [nativeTokenInfo] = useNativeTokenInfoAtom();
   const [sendSelectedFeeInfo] = useSendSelectedFeeInfoAtom();
   const [preCheckTxStatus] = usePreCheckTxStatusAtom();
   const { network } = useAccountData({
@@ -136,6 +141,22 @@ function TxConfirmAlert(props: IProps) {
               )})`
             : ''
         }`}
+        action={{
+          primary: intl.formatMessage({
+            id: ETranslations.global_top_up,
+          }),
+          onPrimaryPress() {
+            navigation.pushModal(EModalRoutes.ReceiveModal, {
+              screen: EModalReceiveRoutes.ReceiveSelector,
+              params: {
+                networkId,
+                accountId,
+                walletId: accountUtils.getWalletIdFromAccountId({ accountId }),
+                token: nativeTokenInfo.info,
+              },
+            });
+          },
+        }}
       />
     );
   }, [
@@ -149,6 +170,10 @@ function TxConfirmAlert(props: IProps) {
     payWithTokenInfo.symbol,
     intl,
     network?.symbol,
+    navigation,
+    networkId,
+    accountId,
+    nativeTokenInfo.info,
   ]);
 
   const renderPreCheckTxAlert = useCallback(() => {

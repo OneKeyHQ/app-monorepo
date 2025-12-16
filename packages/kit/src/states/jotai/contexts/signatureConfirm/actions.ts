@@ -7,12 +7,12 @@ import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { ETronResourceRentalPayType } from '@onekeyhq/shared/types/fee';
 import type {
   EFeeType,
-  ESendFeeDiscountStatus,
   ESendFeeStatus,
   IFeeInfoUnit,
   ISendSelectedFeeInfo,
   ITronResourceRentalInfo,
 } from '@onekeyhq/shared/types/fee';
+import type { IToken } from '@onekeyhq/shared/types/token';
 import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
 
 import { ContextJotaiActionsBase } from '../../utils/ContextJotaiActionsBase';
@@ -149,6 +149,7 @@ class ContextJotaiActionsSignatureConfirm extends ContextJotaiActionsBase {
         logoURI: string;
         balance: string;
         isLoading: boolean;
+        info: IToken | undefined;
       },
     ) => {
       set(nativeTokenInfoAtom(), payload);

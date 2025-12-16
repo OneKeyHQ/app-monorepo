@@ -88,20 +88,6 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
 
   const [isDeFiEnabled, setIsDeFiEnabled] = useState(true);
 
-  const checkDeFiEnabled = useCallback(async () => {
-    if (network && !networkUtils.isAllNetwork({ networkId: network.id })) {
-      const enabledNetworks =
-        await backgroundApiProxy.serviceDeFi.getDeFiEnabledNetworksMap();
-      if (!enabledNetworks[network.id]) {
-        setIsDeFiEnabled(false);
-        return;
-      }
-    }
-
-    const blockData = await backgroundApiProxy.serviceStaking.getBlockRegion();
-    setIsDeFiEnabled(!blockData);
-  }, [network]);
-
   const { run } = usePromiseResult(
     async () => {
       if (!account || !network) {
@@ -116,6 +102,7 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
         await backgroundApiProxy.serviceDeFi.getDeFiEnabledNetworksMap();
 
       if (!enabledNetworks[network.id]) {
+        setIsDeFiEnabled(false);
         const emptyData = defiUtils.getEmptyDeFiData();
         updateDeFiListOverview({
           overview: emptyData.overview,
@@ -331,10 +318,6 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
   const handleRefreshAllNetworkData = useCallback(() => {
     void runAllNetworkRequests({ alwaysSetState: true });
   }, [runAllNetworkRequests]);
-
-  useEffect(() => {
-    void checkDeFiEnabled();
-  }, [checkDeFiEnabled]);
 
   useEffect(() => {
     if (network?.isAllNetworks && isEmptyAccount) {
