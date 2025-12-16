@@ -605,8 +605,11 @@ async function createMainWindow() {
 
   // dom-ready is fired after ipcMain:app/ready
   browserWindow.webContents.on('dom-ready', () => {
-    isAppReady = true;
     logger.info('set isAppReady on browserWindow dom-ready', isAppReady);
+    // Emit ready event first, so pending deep link handlers can execute
+    // before isAppReady is set to true (which affects the cache logic)
+    emitter.emit('ready');
+    isAppReady = true;
   });
 
   browserWindow.webContents.setWindowOpenHandler(({ url }) => {
