@@ -171,8 +171,7 @@ function Protocol({
               })}
             />
           </Stack>
-          {index !== protocol.positions.length - 1 &&
-          position.category !== protocol.positions[index + 1].category ? (
+          {index !== protocol.positions.length - 1 ? (
             <Divider key={index} my="$2" />
           ) : null}
         </>
