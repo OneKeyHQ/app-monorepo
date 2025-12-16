@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 
 import { Stack, YStack, useMedia } from '@onekeyhq/components';
 import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
@@ -13,7 +13,7 @@ import WalletBanner from '../components/WalletBanner';
 
 import { HomeOverviewContainer } from './HomeOverviewContainer';
 
-function HomeHeaderContainer() {
+function BaseHomeHeaderContainer() {
   const {
     activeAccount: { wallet },
   } = useActiveAccount({
@@ -104,4 +104,4 @@ function HomeHeaderContainer() {
   );
 }
 
-export { HomeHeaderContainer };
+export const HomeHeaderContainer = memo(BaseHomeHeaderContainer);

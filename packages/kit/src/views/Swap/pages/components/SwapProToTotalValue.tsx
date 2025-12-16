@@ -15,8 +15,6 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ESwapProTradeType } from '@onekeyhq/shared/types/swap/types';
 
 import SwapCommonInfoItem from '../../components/SwapCommonInfoItem';
-// import SwapProCenterInput from '../../components/SwapProCenterInput';
-// import { useSwapProToToken } from '../../hooks/useSwapPro';
 
 const SwapProToTotalValue = () => {
   const intl = useIntl();
@@ -25,9 +23,6 @@ const SwapProToTotalValue = () => {
   const [toTokenAmount] = useSwapToTokenAmountAtom();
   const [swapProToTotalValue, setSwapProToTotalValue] =
     useSwapProToTotalValueAtom();
-  // const swapProtoToToken = useSwapProToToken();
-  // const currencyInfo = useCurrency();
-  // const handleTokenValueChange = useCallback(
   //   (text: string) => {
   //     if (swapProTradeType === ESwapProTradeType.LIMIT) {
   //       setSwapProToTotalValue(text);
@@ -99,18 +94,6 @@ const SwapProToTotalValue = () => {
     );
   }
   return null;
-  // return (
-  //   <Stack mt="$2">
-  //     <SwapProCenterInput
-  //       title={`${intl.formatMessage({ id: ETranslations.dexmarket_total })} (${
-  //         currencyInfo.symbol
-  //       })`}
-  //       value={swapProToTotalValue}
-  //       onChangeText={handleTokenValueChange}
-  //       inputDisabled={false}
-  //     />
-  //   </Stack>
-  // );
 };
 
 export default SwapProToTotalValue;

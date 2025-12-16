@@ -1,15 +1,17 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
+  Divider,
   Icon,
   Image,
   Input,
   SizableText,
   Skeleton,
-  Stack,
   XStack,
+  YStack,
 } from '@onekeyhq/components';
 import {
   useSwapFromTokenAmountAtom,
@@ -23,12 +25,17 @@ import {
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
+  swapProBuyInputSegmentItems,
+  swapProSellInputSegmentItems,
+} from '@onekeyhq/shared/types/swap/SwapProvider.constants';
+import {
   ESwapProTradeType,
   ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
 
 import { TokenSelectorPopover } from '../../../Market/MarketDetailV2/components/SwapPanel/components/TokenInputSection/TokenSelectorPopover';
 import { ESwapDirection } from '../../../Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
+import SwapProInputSegment from '../../components/SwapProInputSegment';
 import {
   useSwapLimitPriceCheck,
   useSwapProInputToken,
@@ -56,7 +63,8 @@ const SwapProInputContainer = ({
   const [fromInputAmount, setFromInputAmount] = useSwapFromTokenAmountAtom();
   const [swapProInputAmount, setSwapProInputAmount] =
     useSwapProInputAmountAtom();
-  const [, setSwapProUseSelectBuyToken] = useSwapProUseSelectBuyTokenAtom();
+  const [swapProUseSelectBuyToken, setSwapProUseSelectBuyToken] =
+    useSwapProUseSelectBuyTokenAtom();
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
   const inputToken = useSwapProInputToken();
   const toToken = useSwapProToToken();
@@ -91,75 +99,124 @@ const SwapProInputContainer = ({
   const isTokenSelectorVisible =
     swapProDirection === ESwapDirection.BUY && defaultTokens.length > 1;
 
+  const inputSegmentItems = useMemo(() => {
+    if (swapProDirection === ESwapDirection.SELL) {
+      return swapProSellInputSegmentItems;
+    }
+    const buyAmountDefaultInput =
+      swapProUseSelectBuyToken?.speedSwapDefaultAmount;
+    if (buyAmountDefaultInput?.length) {
+      return buyAmountDefaultInput.map((item) => ({
+        label: item.toString(),
+        value: item.toString(),
+      }));
+    }
+    return swapProBuyInputSegmentItems;
+  }, [swapProDirection, swapProUseSelectBuyToken?.speedSwapDefaultAmount]);
+
+  const onSelectInputSegment = useCallback(
+    (value: string) => {
+      if (swapProDirection === ESwapDirection.BUY) {
+        handleInputChange(value);
+      } else {
+        const percentage = new BigNumber(value);
+        if (inputToken?.balanceParsed) {
+          const balanceBN = new BigNumber(inputToken.balanceParsed);
+          const inputNewAmount = balanceBN
+            .multipliedBy(percentage)
+            .decimalPlaces(inputToken?.decimals ?? 0, BigNumber.ROUND_DOWN)
+            .toFixed();
+          handleInputChange(inputNewAmount);
+        }
+      }
+    },
+    [
+      swapProDirection,
+      handleInputChange,
+      inputToken?.balanceParsed,
+      inputToken?.decimals,
+    ],
+  );
+
   useSwapLimitPriceCheck(inputToken, toToken);
 
   return (
-    <Stack borderRadius="$2" bg="$bgStrong" mb="$2">
-      <Input
-        size="medium"
-        containerProps={{
-          borderWidth: 0,
-        }}
-        keyboardType="decimal-pad"
-        value={
-          swapProTradeType === ESwapProTradeType.MARKET
-            ? swapProInputAmount
-            : fromInputAmount.value
-        }
-        onChangeText={handleInputChange}
-        placeholder={intl.formatMessage({ id: ETranslations.content__amount })}
-        addOns={[
-          {
-            renderContent: isLoading ? (
-              <XStack alignItems="center" gap="$1" px="$2">
-                <Skeleton width="$10" height="$5" borderRadius="$full" />
-              </XStack>
-            ) : (
-              <XStack
-                alignItems="center"
-                gap="$1"
-                px="$2"
-                {...(isTokenSelectorVisible && {
-                  onPress: () => setIsPopoverOpen(true),
-                  userSelect: 'none',
-                  hoverStyle: { bg: '$bgHover' },
-                  pressStyle: { bg: '$bgActive' },
-                  borderCurve: 'continuous',
-                })}
-              >
-                {inputToken?.logoURI ? (
-                  <Image
-                    src={inputToken.logoURI}
-                    width="$5"
-                    height="$5"
-                    borderRadius="$full"
-                  />
-                ) : null}
-                <SizableText size="$bodyLg">{inputToken?.symbol}</SizableText>
-                {isTokenSelectorVisible ? (
-                  <Icon
-                    name="ChevronDownSmallOutline"
-                    size="$4"
-                    color="$iconSubdued"
-                  />
-                ) : null}
-              </XStack>
-            ),
-          },
-        ]}
+    <YStack borderRadius="$2" bg="$bgStrong" mb="$2">
+      <XStack borderTopLeftRadius="$2" borderTopRightRadius="$2">
+        <Input
+          size="medium"
+          containerProps={{
+            flex: 1,
+            borderWidth: 0,
+          }}
+          keyboardType="decimal-pad"
+          value={
+            swapProTradeType === ESwapProTradeType.MARKET
+              ? swapProInputAmount
+              : fromInputAmount.value
+          }
+          onChangeText={handleInputChange}
+          placeholder={intl.formatMessage({
+            id: ETranslations.content__amount,
+          })}
+          addOns={[
+            {
+              renderContent: isLoading ? (
+                <XStack alignItems="center" gap="$1" px="$2">
+                  <Skeleton width="$10" height="$5" borderRadius="$full" />
+                </XStack>
+              ) : (
+                <XStack
+                  alignItems="center"
+                  gap="$1"
+                  px="$2"
+                  {...(isTokenSelectorVisible && {
+                    onPress: () => setIsPopoverOpen(true),
+                    userSelect: 'none',
+                    hoverStyle: { bg: '$bgHover' },
+                    pressStyle: { bg: '$bgActive' },
+                    borderCurve: 'continuous',
+                  })}
+                >
+                  {inputToken?.logoURI ? (
+                    <Image
+                      src={inputToken.logoURI}
+                      width="$5"
+                      height="$5"
+                      borderRadius="$full"
+                    />
+                  ) : null}
+                  <SizableText size="$bodyLg">{inputToken?.symbol}</SizableText>
+                  {isTokenSelectorVisible ? (
+                    <Icon
+                      name="ChevronDownSmallOutline"
+                      size="$4"
+                      color="$iconSubdued"
+                    />
+                  ) : null}
+                </XStack>
+              ),
+            },
+          ]}
+        />
+        <TokenSelectorPopover
+          currentSelectToken={swapProSelectToken}
+          isOpen={isPopoverOpen}
+          onOpenChange={setIsPopoverOpen}
+          tokens={defaultTokens}
+          onTokenPress={handleTokenSelect}
+          onTradePress={() => {
+            setSwapTypeSwitch(ESwapTabSwitchType.SWAP);
+          }}
+          disabledOnSwitchToTrade
+        />
+      </XStack>
+      <Divider />
+      <SwapProInputSegment
+        items={inputSegmentItems}
+        onSelect={onSelectInputSegment}
       />
-      <TokenSelectorPopover
-        currentSelectToken={swapProSelectToken}
-        isOpen={isPopoverOpen}
-        onOpenChange={setIsPopoverOpen}
-        tokens={defaultTokens}
-        onTokenPress={handleTokenSelect}
-        onTradePress={() => {
-          setSwapTypeSwitch(ESwapTabSwitchType.SWAP);
-        }}
-        disabledOnSwitchToTrade
-      />
-    </Stack>
+    </YStack>
   );
 };
 
