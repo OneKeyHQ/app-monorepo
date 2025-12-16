@@ -180,7 +180,7 @@ export function Welcome({
         }}
       >
         {banner || (showDefaultTitle && <DefaultTitle />)}
-        <SearchInput />
+        {!platformEnv.isNative ? <SearchInput /> : null}
       </Stack>
 
       {/* Right side with logo items */}

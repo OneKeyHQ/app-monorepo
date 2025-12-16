@@ -3970,7 +3970,7 @@
   "wallet.hardware_wallet_connect_description_1": "USB または QR コードで接続",
   "wallet.hardware_wallet_connect_description_2": "デバイス上で承認",
   "wallet.history_footer_view_full_history_in_explorer": "最近の取引のみ表示されます。全履歴を確認するには、ブロックエクスプローラーをご覧ください。",
-  "wallet.history_settings_hide_risk_transaction_desc": "ETH、BNB、TRXなど、主要なブロックチェーンをサポートしています。",
+  "wallet.history_settings_hide_risk_transaction_desc": "ETH、BNB、TRX、SOLなど、主要なブロックチェーンをサポートしています。",
   "wallet.history_settings_hide_risk_transaction_desc_unsupported": "{networkName} ネットワークはまだサポートされていません。",
   "wallet.history_settings_hide_risk_transaction_title": "リスクのある取引を隠す",
   "wallet.history_settings_hide_small_transaction_desc": "少額取引を非表示にします。価格が設定されていないトークンはフィルタリングされません。",

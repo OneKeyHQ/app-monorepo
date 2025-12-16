@@ -6,12 +6,14 @@ import { useAccountSelectorContextData } from '../../states/jotai/contexts/accou
 import { HomeTokenListProviderMirror } from '../../views/Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
 import { AccountSelectorProviderMirror } from '../AccountSelector';
 
-import { HeaderLeft } from './HeaderLeft';
+import { DiscoveryHeaderSegment, HeaderLeft } from './HeaderLeft';
 import { HeaderMDSearch } from './HeaderMDSearch';
 import { HeaderRight } from './HeaderRight';
 import { HeaderTitle } from './HeaderTitle';
 
 import type { ITabPageHeaderProp } from './type';
+
+export { DiscoveryHeaderSegment };
 
 export function TabPageHeader({
   sceneName,

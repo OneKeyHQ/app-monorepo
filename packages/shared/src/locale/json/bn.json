@@ -3970,7 +3970,7 @@
   "wallet.hardware_wallet_connect_description_1": "USB বা QR কোড দিয়ে সংযোগ করুন",
   "wallet.hardware_wallet_connect_description_2": "ডিভাইসে অনুমোদন করুন",
   "wallet.history_footer_view_full_history_in_explorer": "শুধুমাত্র সাম্প্রতিক লেনদেন দেখানো হচ্ছে। সম্পূর্ণ ইতিহাস দেখতে, অনুগ্রহ করে ব্লক এক্সप्लोরার দেখুন।",
-  "wallet.history_settings_hide_risk_transaction_desc": "ETH, BNB, TRX এবং আরও অনেক কিছুর মতো প্রধান ব্লকচেইনগুলিকে সমর্থন করে।",
+  "wallet.history_settings_hide_risk_transaction_desc": "ETH, BNB, TRX, SOL এবং আরও অনেক কিছুর মতো প্রধান ব্লকচেইনগুলিকে সমর্থন করে।",
   "wallet.history_settings_hide_risk_transaction_desc_unsupported": "{networkName} নেটওয়ার্ক এখনও সমর্থিত নয়।",
   "wallet.history_settings_hide_risk_transaction_title": "ঝুঁকিপূর্ণ লেনদেন লুকান",
   "wallet.history_settings_hide_small_transaction_desc": "ছোট মূল্যের লেনদেন লুকিয়ে রাখে। যেসব টোকেনের মূল্য নির্ধারিত নয় সেগুলো ফিল্টার হবে না।",
