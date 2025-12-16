@@ -157,14 +157,19 @@ export const { target: appIsLocked, use: useAppIsLockedAtom } =
       if (manualLocking) {
         return true;
       }
+
+      const isNeverLock = String(appLockDuration) === ELockDuration.Never;
+
+      if (isNeverLock) {
+        return false;
+      }
+
       const { unLock } = get(passwordAtom.atom());
       let usedUnlock = unLock;
       if (isMigrationModalOpen) {
         usedUnlock = true;
       }
-      if (platformEnv.isWeb || platformEnv.isDev) {
-        return !usedUnlock && String(appLockDuration) !== ELockDuration.Never;
-      }
+
       return !usedUnlock;
     }
     return false;
