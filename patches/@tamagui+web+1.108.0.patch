@@ -1,5 +1,5 @@
 diff --git a/node_modules/@tamagui/web/dist/cjs/hooks/useMedia.native.js b/node_modules/@tamagui/web/dist/cjs/hooks/useMedia.native.js
-index 47addac..808ba9d 100644
+index 47addac..eb9ceb8 100644
 --- a/node_modules/@tamagui/web/dist/cjs/hooks/useMedia.native.js
 +++ b/node_modules/@tamagui/web/dist/cjs/hooks/useMedia.native.js
 @@ -160,11 +160,76 @@ function unlisten() {
@@ -29,9 +29,6 @@ index 47addac..808ba9d 100644
 +    // });
 +    callback(true);
 +  } else if (ExpoDevice.deviceType === ExpoDevice.DeviceType.TABLET) {
-+    // ScreenOrientation.getOrientationAsync().then((result) => {
-+    //   callback(result === ScreenOrientation.Orientation.LANDSCAPE_LEFT || result === ScreenOrientation.Orientation.LANDSCAPE_RIGHT);
-+    // });
 +    callback(true);
 +  } else {
 +    callback(false);
@@ -46,6 +43,9 @@ index 47addac..808ba9d 100644
 +      checkTabletSplitView((isSplitView) => {
 +        if (isSplitView) {
 +           switch (key2) {
++            case 'md':
++              next = true;
++              break;
 +            case 'gtMd':
 +              next = false;
 +              break;
