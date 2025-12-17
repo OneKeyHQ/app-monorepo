@@ -2,8 +2,8 @@ import { ELocalDBStoreNames } from '../../localDBStoreNames';
 import { RealmObjectBase } from '../base/RealmObjectBase';
 
 import type { IDBWallet, IDBWalletType } from '../../types';
-import type Realm from 'realm';
 import type { EFirmwareType } from '@onekeyfe/hd-shared';
+import type Realm from 'realm';
 
 class RealmSchemaWallet extends RealmObjectBase<IDBWallet> {
   public id!: string;

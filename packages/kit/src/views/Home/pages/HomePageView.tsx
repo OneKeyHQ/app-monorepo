@@ -41,6 +41,7 @@ import {
   useApprovalsInfoAtom,
 } from '../../../states/jotai/contexts/accountOverview';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
+import { NetworkUnsupportedWarning } from '../../Staking/components/ProtocolDetails/NetworkUnsupportedWarning';
 import { HomeSupportedWallet } from '../components/HomeSupportedWallet';
 import { NotBackedUpEmpty } from '../components/NotBakcedUp';
 
@@ -51,7 +52,6 @@ import { PortfolioContainerWithProvider } from './PortfolioContainer';
 import { TabHeaderSettings } from './TabHeaderSettings';
 import { TxHistoryListContainerWithProvider } from './TxHistoryContainer';
 import WalletContentWithAuth from './WalletContentWithAuth';
-import { NetworkUnsupportedWarning } from '../../Staking/components/ProtocolDetails/NetworkUnsupportedWarning';
 
 const networksSupportBulkRevokeApproval =
   getNetworksSupportBulkRevokeApproval();
@@ -352,7 +352,7 @@ export function HomePageView({
   const { result: accountNetworkNotSupported } = usePromiseResult(
     async () => {
       if (!network?.id) return undefined;
-      const result =
+      const checkResult =
         await backgroundApiProxy.serviceAccount.checkAccountNetworkNotSupported(
           {
             walletId: wallet?.id,
@@ -363,7 +363,7 @@ export function HomePageView({
           },
         );
 
-      return !!result?.networkImpl;
+      return !!checkResult?.networkImpl;
     },
     [account?.id, account?.impl, wallet?.id, network?.id, device?.featuresInfo],
     { initResult: undefined },

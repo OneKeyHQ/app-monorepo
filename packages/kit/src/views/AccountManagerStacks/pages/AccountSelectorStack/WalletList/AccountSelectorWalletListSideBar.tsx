@@ -136,20 +136,18 @@ export function AccountSelectorWalletListSideBar({
         ignoreNonBackedUpWallets: hideNonBackedUpWallet,
       });
 
-      const wallets = await Promise.all(
-        r.wallets.map(async (wallet) => {
-          const isQrWallet = accountUtils.isQrWallet({
-            walletId: wallet.id,
-          });
+      const wallets = r.wallets.map((wallet) => {
+        const isQrWallet = accountUtils.isQrWallet({
+          walletId: wallet.id,
+        });
 
-          const badge = isQrWallet ? 'QR' : undefined;
+        const badge = isQrWallet ? 'QR' : undefined;
 
-          return {
-            ...wallet,
-            badge,
-          };
-        }),
-      );
+        return {
+          ...wallet,
+          badge,
+        };
+      });
 
       return {
         wallets,
