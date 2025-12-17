@@ -17,6 +17,7 @@ import {
   Stack,
   Swiper,
   Theme,
+  Toast,
   XStack,
   YStack,
   useMedia,
@@ -200,6 +201,14 @@ export default function PagePrimeFeatures() {
                 mt="$2"
                 variant="tertiary"
                 onPress={() => {
+                  if (platformEnv.isWebDappMode) {
+                    Toast.message({
+                      title: intl.formatMessage({
+                        id: ETranslations.global_web_feature_not_available_go_to_app,
+                      }),
+                    });
+                    return;
+                  }
                   navigation.navigate(EPrimePages.PrimeCloudSync, {
                     serverUserInfo,
                   });

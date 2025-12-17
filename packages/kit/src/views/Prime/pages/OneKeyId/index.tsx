@@ -166,25 +166,27 @@ function OneKeyIdPage() {
               onPress={toInviteRewardPage}
             />
 
-            <ListItem
-              drillIn
-              userSelect="none"
-              renderAvatar={
-                <XStack
-                  borderRadius="$3"
-                  bg="$blue8"
-                  w="$12"
-                  h="$12"
-                  ai="center"
-                  jc="center"
-                >
-                  <Icon name="WalletCryptoSolid" color="$blue12" size="$6" />
-                </XStack>
-              }
-              title="Keyless Wallet"
-              subtitle="View your keyless wallet shares"
-              onPress={toKeylessWalletPage}
-            />
+            {platformEnv.isWebDappMode ? null : (
+              <ListItem
+                drillIn
+                userSelect="none"
+                renderAvatar={
+                  <XStack
+                    borderRadius="$3"
+                    bg="$blue8"
+                    w="$12"
+                    h="$12"
+                    ai="center"
+                    jc="center"
+                  >
+                    <Icon name="WalletCryptoSolid" color="$blue12" size="$6" />
+                  </XStack>
+                }
+                title="Keyless Wallet"
+                subtitle="View your keyless wallet shares"
+                onPress={toKeylessWalletPage}
+              />
+            )}
           </YStack>
         </YStack>
       </Page.Body>
