@@ -2539,6 +2539,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           airGapAccounts: [],
           isMockedStandardHwWallet: true,
           existingDeviceId: dbDeviceId,
+          firmwareTypeAtCreated: firmwareType,
         });
         parentWalletId = createStandardWalletResult.wallet?.id;
         if (!parentWalletId) {
@@ -2615,6 +2616,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
 
       deprecated: false,
       isMocked: isMockedStandardHwWallet ?? false,
+      firmwareTypeAtCreated: firmwareType,
     };
 
     const isUsingDefaultName = () => {
@@ -2715,6 +2717,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             updater: (item) => {
               item.isTemp = false;
               item.xfp = fullXfp;
+              item.firmwareTypeAtCreated = firmwareType;
 
               if (!isMockedStandardHwWallet && !passphraseState) {
                 item.isMocked = false;
@@ -2915,7 +2918,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       features,
     });
     const deviceType = deviceTypeFromFeatures || device.deviceType;
-
+    const firmwareType = await deviceUtils.getFirmwareType({
+      features,
+    });
     const avatar: IAvatarInfo = {
       img: getDeviceAvatarImage(
         deviceType,
@@ -3026,6 +3031,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       walletNo: context.nextWalletNo,
       deprecated: false,
       xfp,
+      firmwareTypeAtCreated: firmwareType,
     };
 
     const isUsingDefaultName = () =>
@@ -3155,6 +3161,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
               if (!isMockedStandardHwWallet && !passphraseState) {
                 item.isMocked = false;
               }
+              item.firmwareTypeAtCreated = firmwareType;
               return item;
             },
           });

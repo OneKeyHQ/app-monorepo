@@ -32,7 +32,7 @@ export const KeylessWalletCreationFlow = () => {
     useState<IKeylessWalletPacks | null>(null);
   const [packSetIdFromDevicePack, setpackSetIdFromDevicePack] =
     useState<string>('');
-  const [packSetInFromCloudPack, setPackSetInFromCloudPack] =
+  const [packSetIdFromCloudPack, setpackSetIdFromCloudPack] =
     useState<string>('');
 
   const handleStep1 = useCallback(async () => {
@@ -76,7 +76,7 @@ export const KeylessWalletCreationFlow = () => {
       const result = await uploadCloudPack({
         cloudPack: generatedPacks.cloudKeyPack,
       });
-      setPackSetInFromCloudPack(result.packSetInFromCloudPack);
+      setpackSetIdFromCloudPack(result.packSetIdFromCloudPack);
       setStep3({ status: 'success', result });
     } catch (e: any) {
       const errorMessage = (e as Error)?.message ?? 'Unknown error';
@@ -90,7 +90,7 @@ export const KeylessWalletCreationFlow = () => {
       setStep4({ status: 'error', error: 'No packs generated' });
       return;
     }
-    if (!packSetIdFromDevicePack || !packSetInFromCloudPack) {
+    if (!packSetIdFromDevicePack || !packSetIdFromCloudPack) {
       setStep4({
         status: 'error',
         error: 'Previous steps not completed',
@@ -101,7 +101,7 @@ export const KeylessWalletCreationFlow = () => {
       setStep4({ status: 'loading' });
       const result = await uploadAuthPack({
         authPack: generatedPacks.authKeyPack,
-        packSetIdFromCloudPack: packSetInFromCloudPack,
+        packSetIdFromCloudPack,
         packSetIdFromDevicePack,
       });
       setStep4({ status: 'success', result });
@@ -112,7 +112,7 @@ export const KeylessWalletCreationFlow = () => {
     }
   }, [
     generatedPacks,
-    packSetInFromCloudPack,
+    packSetIdFromCloudPack,
     packSetIdFromDevicePack,
     uploadAuthPack,
   ]);
@@ -124,7 +124,7 @@ export const KeylessWalletCreationFlow = () => {
     setStep4({ status: 'pending' });
     setGeneratedPacks(null);
     setpackSetIdFromDevicePack('');
-    setPackSetInFromCloudPack('');
+    setpackSetIdFromCloudPack('');
 
     Toast.success({
       title: 'Flow Status Reset',
@@ -223,9 +223,9 @@ export const KeylessWalletCreationFlow = () => {
               packSetIdFromDevicePack: {packSetIdFromDevicePack}
             </SizableText>
           ) : null}
-          {packSetInFromCloudPack ? (
+          {packSetIdFromCloudPack ? (
             <SizableText size="$bodySm" color="$textSubdued">
-              packSetInFromCloudPack: {packSetInFromCloudPack}
+              packSetIdFromCloudPack: {packSetIdFromCloudPack}
             </SizableText>
           ) : null}
           <Button
