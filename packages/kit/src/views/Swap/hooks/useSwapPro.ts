@@ -22,12 +22,16 @@ import {
   equalTokenNoCaseSensitive,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IMarketSearchV2Token } from '@onekeyhq/shared/types/market';
-import type { IMarketTokenTransaction } from '@onekeyhq/shared/types/marketV2';
+import type {
+  IMarketBasicConfigNetwork,
+  IMarketTokenTransaction,
+} from '@onekeyhq/shared/types/marketV2';
 import {
   swapProPositionsListMaxCount,
   swapProPositionsListMinValue,
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
+  ISwapNetwork,
   ISwapToken,
   ISwapTokenBase,
 } from '@onekeyhq/shared/types/swap/types';
@@ -77,6 +81,7 @@ import { useSwapSlippagePercentageModeInfo } from './useSwapState';
 export function useSwapProInit() {
   const [, setSwapSwitchType] = useSwapTypeSwitchAtom();
   const [, setSwapProDirection] = useSwapProDirectionAtom();
+  const { networkList } = useMarketBasicConfig();
   const [swapProSelectToken, setSwapProSelectToken] =
     useSwapProSelectTokenAtom();
   const [swapProJumpToken, setSwapProJumpToken] = useSwapProJumpTokenAtom();
@@ -99,6 +104,14 @@ export function useSwapProInit() {
   if (swapProJumpTokenRef.current !== swapProJumpToken?.token) {
     swapProJumpTokenRef.current = swapProJumpToken?.token;
   }
+  const networkNotSupported = useMemo(() => {
+    return (
+      swapProSelectToken?.networkId &&
+      !networkList.some(
+        (token) => token.networkId === swapProSelectToken?.networkId,
+      )
+    );
+  }, [swapProSelectToken?.networkId, networkList]);
   useEffect(() => {
     if (swapProJumpToken.token) {
       swapSwitchProToken({ token: swapProJumpToken.token });
@@ -118,6 +131,10 @@ export function useSwapProInit() {
     setSwapProJumpToken,
     setSwapProDirection,
   ]);
+  return {
+    networkNotSupported,
+    networkList,
+  };
 }
 
 export function useSwapProInputToken() {
@@ -714,11 +731,12 @@ export function useSwapProTokenTransactionList(
   };
 }
 
-export function useSwapProSupportNetworksTokenList() {
+export function useSwapProSupportNetworksTokenList(
+  networkList: IMarketBasicConfigNetwork[],
+) {
   const { swapProLoadSupportNetworksTokenList } = useSwapActions().current;
   const [swapSelectToken] = useSwapProSelectTokenAtom();
   const [swapProUseSelectBuyToken] = useSwapProUseSelectBuyTokenAtom();
-  const { networkList } = useMarketBasicConfig();
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { syncOrderTokenBalance } = useSwapProTokenInfoSync();
   const [swapProSupportNetworksTokenList, setSwapProSupportNetworksTokenList] =
@@ -758,21 +776,8 @@ export function useSwapProSupportNetworksTokenList() {
     }
   }, [networkList, activeAccount, swapProLoadSupportNetworksTokenList]);
   useEffect(() => {
-    if (swapProSupportNetworksTokenList.length === 0) {
-      void swapProLoadSupportNetworksTokenListRun();
-    }
-  }, [
-    swapProLoadSupportNetworksTokenListRun,
-    swapProSupportNetworksTokenList.length,
-  ]);
-  const networkNotSupported = useMemo(() => {
-    return (
-      swapSelectToken?.networkId &&
-      !networkList.some(
-        (token) => token.networkId === swapSelectToken?.networkId,
-      )
-    );
-  }, [swapSelectToken?.networkId, networkList]);
+    void swapProLoadSupportNetworksTokenListRun();
+  }, [swapProLoadSupportNetworksTokenListRun, activeAccount]);
 
   const checkSyncOrderTokenBalance = useCallback(
     async ({
@@ -885,7 +890,6 @@ export function useSwapProSupportNetworksTokenList() {
 
   return {
     swapProLoadSupportNetworksTokenListRun,
-    networkNotSupported,
   };
 }
 
