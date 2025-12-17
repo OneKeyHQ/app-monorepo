@@ -75,29 +75,37 @@ function Protocol({
           record: IDeFiAsset & { type: EDeFiAssetType },
         ) => {
           let type = '';
-          let badgeType = 'info';
+          let typeColor = '$blue10';
           if (record.type === EDeFiAssetType.DEBT) {
             type = intl.formatMessage({
               id: ETranslations.wallet_defi_asset_type_borrowed,
             });
-            badgeType = 'warning';
+            typeColor = '$orange10';
           } else if (record.type === EDeFiAssetType.REWARD) {
             type = intl.formatMessage({
               id: ETranslations.wallet_defi_position_module_rewards,
             });
-            badgeType = 'success';
+            typeColor = '$teal10';
           } else if (record.type === EDeFiAssetType.ASSET) {
             type = intl.formatMessage({
               id: ETranslations.wallet_defi_asset_type_supplied,
             });
-            badgeType = 'info';
+            typeColor = '$blue10';
           } else {
             type = category;
           }
           return (
-            <Badge badgeType={badgeType} badgeSize="lg">
-              <Badge.Text textTransform="capitalize">{type}</Badge.Text>
-            </Badge>
+            <XStack gap="$1" alignItems="center">
+              <Stack
+                width={7}
+                height={7}
+                borderRadius="$full"
+                backgroundColor={typeColor}
+              />
+              <SizableText size="$bodyMdMedium" textTransform="capitalize">
+                {type}
+              </SizableText>
+            </XStack>
           );
         },
       },
