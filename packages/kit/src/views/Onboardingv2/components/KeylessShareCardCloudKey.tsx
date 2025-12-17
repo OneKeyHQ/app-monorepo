@@ -38,7 +38,7 @@ export function KeylessShareCardCloudKey({
         }
         return {
           devicePackSetId: undefined,
-          cloudPackSetId: result.packSetInFromCloudPack,
+          cloudPackSetId: result.packSetIdFromCloudPack,
           authPackSetId: undefined,
         };
       },

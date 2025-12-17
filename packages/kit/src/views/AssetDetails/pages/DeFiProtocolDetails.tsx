@@ -7,7 +7,6 @@ import {
   Badge,
   Divider,
   IconButton,
-  NumberSizeableText,
   Page,
   Popover,
   SizableText,
@@ -15,6 +14,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -57,14 +57,15 @@ function DeFiProtocolDetails() {
               <SizableText size="$heading2xl" numberOfLines={1}>
                 {protocolInfo?.protocolName ?? ''}
               </SizableText>
-              <NumberSizeableText
+              <NumberSizeableTextWrapper
+                hideValue
                 size="$bodyLgMedium"
                 formatter="value"
                 formatterOptions={{ currency: settings.currencyInfo.symbol }}
                 color="$textSubdued"
               >
                 {protocolInfo?.netWorth ?? '0'}
-              </NumberSizeableText>
+              </NumberSizeableTextWrapper>
             </YStack>
           </XStack>
           <IconButton
@@ -93,29 +94,35 @@ function DeFiProtocolDetails() {
   const renderAssetType = useCallback(
     (asset: IDeFiAsset & { type: EDeFiAssetType }) => {
       let type = asset.category;
-      let badgeType = 'info';
+      let typeColor = '$blue10';
       if (asset.type === EDeFiAssetType.DEBT) {
         type = appLocale.intl.formatMessage({
           id: ETranslations.wallet_defi_asset_type_borrowed,
         });
-        badgeType = 'warning';
+        typeColor = '$orange10';
       } else if (asset.type === EDeFiAssetType.REWARD) {
         type = appLocale.intl.formatMessage({
           id: ETranslations.wallet_defi_position_module_rewards,
         });
-        badgeType = 'success';
+        typeColor = '$teal10';
       } else if (asset.type === EDeFiAssetType.ASSET) {
         type = appLocale.intl.formatMessage({
           id: ETranslations.wallet_defi_asset_type_supplied,
         });
-        badgeType = 'info';
+        typeColor = '$blue10';
       }
 
       return (
-        <XStack>
-          <Badge badgeType={badgeType} badgeSize="lg">
-            <Badge.Text textTransform="capitalize">{type}</Badge.Text>
-          </Badge>
+        <XStack alignItems="center" gap="$1">
+          <Stack
+            width={7}
+            height={7}
+            backgroundColor={typeColor}
+            borderRadius="$full"
+          />
+          <SizableText size="$bodyMd" color="$textSubdued">
+            {type}
+          </SizableText>
         </XStack>
       );
     },
@@ -126,51 +133,53 @@ function DeFiProtocolDetails() {
       <YStack py="$3">
         {protocol.positions.map((position, index) => (
           <Stack key={position.category} px="$5">
-            <XStack
-              alignItems="center"
-              justifyContent="space-between"
-              py="$3"
-              ml="$-2"
-            >
-              <XStack flex={1} alignItems="center" gap="$3">
+            <XStack alignItems="center" py="$3" ml="$-2" gap="$1">
+              <XStack alignItems="center" gap="$3" flexShrink={1} minWidth={0}>
                 <Badge badgeType="success" badgeSize="lg">
                   <Badge.Text textTransform="capitalize">
                     {position.category}
                   </Badge.Text>
                 </Badge>
-                <Popover
-                  placement="top"
-                  title={intl.formatMessage({
-                    id: ETranslations.wallet_defi_position_name_popover_title,
-                  })}
-                  renderTrigger={
-                    <SizableText
-                      size="$bodySm"
-                      color="$textSubdued"
-                      numberOfLines={1}
-                      textDecorationLine="underline"
-                      textDecorationColor="$textSubdued"
-                      textDecorationStyle="dotted"
-                    >
-                      {position.poolName}
-                    </SizableText>
-                  }
-                  renderContent={
-                    <Stack px="$4" py="$2">
-                      <SizableText size="$bodyLg">
-                        {position.poolFullName}
+                <Stack flexShrink={1} minWidth={0}>
+                  <Popover
+                    placement="top"
+                    title={intl.formatMessage({
+                      id: ETranslations.wallet_defi_position_name_popover_title,
+                    })}
+                    renderTrigger={
+                      <SizableText
+                        size="$bodySm"
+                        color="$textSubdued"
+                        numberOfLines={1}
+                        textDecorationLine="underline"
+                        textDecorationColor="$textSubdued"
+                        textDecorationStyle="dotted"
+                      >
+                        {position.poolName}
                       </SizableText>
-                    </Stack>
-                  }
-                />
+                    }
+                    renderContent={
+                      <Stack px="$4" py="$2">
+                        <SizableText size="$bodyLg">
+                          {position.poolFullName}
+                        </SizableText>
+                      </Stack>
+                    }
+                  />
+                </Stack>
               </XStack>
-              <NumberSizeableText
-                size="$headingMd"
-                formatter="value"
-                formatterOptions={{ currency: settings.currencyInfo.symbol }}
-              >
-                {position.value}
-              </NumberSizeableText>
+              <Stack maxWidth="70%" flexShrink={0} ml="auto">
+                <NumberSizeableTextWrapper
+                  hideValue
+                  size="$headingMd"
+                  formatter="value"
+                  formatterOptions={{ currency: settings.currencyInfo.symbol }}
+                  numberOfLines={1}
+                  textAlign="right"
+                >
+                  {position.value}
+                </NumberSizeableTextWrapper>
+              </Stack>
             </XStack>
             <YStack>
               {[...position.assets, ...position.debts, ...position.rewards].map(
@@ -193,13 +202,15 @@ function DeFiProtocolDetails() {
                       </YStack>
                     </XStack>
                     <YStack flex={1} alignItems="flex-end">
-                      <NumberSizeableText
+                      <NumberSizeableTextWrapper
+                        hideValue
                         size="$bodyLgMedium"
                         formatter="balance"
                       >
                         {asset.amount}
-                      </NumberSizeableText>
-                      <NumberSizeableText
+                      </NumberSizeableTextWrapper>
+                      <NumberSizeableTextWrapper
+                        hideValue
                         size="$bodyMd"
                         formatter="value"
                         formatterOptions={{
@@ -208,7 +219,7 @@ function DeFiProtocolDetails() {
                         color="$textSubdued"
                       >
                         {asset.value}
-                      </NumberSizeableText>
+                      </NumberSizeableTextWrapper>
                     </YStack>
                   </XStack>
                 ),
