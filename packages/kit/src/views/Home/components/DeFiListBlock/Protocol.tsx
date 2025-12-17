@@ -210,7 +210,7 @@ function Protocol({
             />
           </Stack>
           {index !== protocol.positions.length - 1 ? (
-            <Divider key={index} my="$2" />
+            <Divider borderColor="$neutral3" mx="$2" key={index} my="$2" />
           ) : null}
         </>
       );
