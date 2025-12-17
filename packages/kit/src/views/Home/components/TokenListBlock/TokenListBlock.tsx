@@ -1946,13 +1946,13 @@ function TokenListBlock({ tableLayout }: { tableLayout?: boolean }) {
   const renderSubTitle = useCallback(() => {
     if (tableLayout) {
       if (!tokenListState.initialized && tokenListState.isRefreshing) {
-        return <Skeleton.HeadingXl />;
+        return <Skeleton.HeadingLg />;
       }
 
       return (
         <NumberSizeableTextWrapper
           hideValue
-          size="$headingXl"
+          size="$headingLg"
           color="$textSubdued"
           formatter="value"
           formatterOptions={{

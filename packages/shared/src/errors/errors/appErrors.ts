@@ -316,6 +316,21 @@ export class PrimeLoginDialogCancelError extends OneKeyAppError {
   override name = EOneKeyErrorClassNames.PrimeLoginDialogCancelError;
 }
 
+export class PrimeSendEmailOTPCancelError extends OneKeyAppError {
+  constructor(props?: IOneKeyError | string) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'PrimeSendEmailOTPCancelError',
+        defaultKey: ETranslations.global_cancel,
+      }),
+    );
+  }
+
+  override className = EOneKeyErrorClassNames.PrimeSendEmailOTPCancelError;
+
+  override name = EOneKeyErrorClassNames.PrimeSendEmailOTPCancelError;
+}
+
 export class FailedToTransfer extends OneKeyAppError {
   constructor(props?: IOneKeyError) {
     super(

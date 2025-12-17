@@ -10,15 +10,20 @@ export function usePrimeTransferExit() {
   const [, setPrimeTransferAtom] = usePrimeTransferAtom();
 
   const exitTransferFlow = useCallback(
-    (delay = 600) => {
+    (
+      delay = 600,
+      { skipCloseOnboardingPages }: { skipCloseOnboardingPages?: boolean } = {},
+    ) => {
       setPrimeTransferAtom((v) => ({
         ...v,
         shouldPreventExit: false,
       }));
       setTimeout(async () => {
         navigation.popStack();
-        await timerUtils.wait(150);
-        await closeOnboardingPages();
+        if (!skipCloseOnboardingPages) {
+          await timerUtils.wait(150);
+          await closeOnboardingPages();
+        }
       }, delay);
     },
     [navigation, setPrimeTransferAtom],

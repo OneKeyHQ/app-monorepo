@@ -126,6 +126,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
         });
         return Promise.resolve(undefined);
       }
+
       // await timerUtils.wait(1000);
       const accountSelectorAccountsListData =
         await serviceAccountSelector.buildAccountSelectorAccountsListData({

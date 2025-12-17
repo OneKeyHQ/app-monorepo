@@ -24,6 +24,7 @@ const PrimeTransferPreview = LazyLoadPage(
   () => import('../pages/PagePrimeTransfer/PagePrimeTransferPreview'),
 );
 const OneKeyId = LazyLoadPage(() => import('../pages/OneKeyId'));
+const KeylessWallet = LazyLoadPage(() => import('../pages/KeylessWallet'));
 
 export const PrimeRouter: IModalFlowNavigatorConfig<
   EPrimePages,
@@ -74,5 +75,9 @@ export const PrimeRouter: IModalFlowNavigatorConfig<
   {
     name: EPrimePages.OneKeyId,
     component: OneKeyId,
+  },
+  {
+    name: EPrimePages.KeylessWallet,
+    component: KeylessWallet,
   },
 ];

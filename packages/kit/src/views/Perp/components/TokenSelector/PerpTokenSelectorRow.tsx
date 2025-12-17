@@ -7,7 +7,6 @@ import {
 } from 'react';
 
 import {
-  Badge,
   DebugRenderTracker,
   NumberSizeableText,
   SizableText,
@@ -17,7 +16,6 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
-import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { usePerpsAllAssetsFilteredAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
@@ -87,7 +85,6 @@ function TokenSelectorRowProvider({
 
 // Desktop cell components
 const TokenInfoCellDesktop = memo(() => {
-  const themeVariant = useThemeVariant();
   const { token } = useTokenSelectorRowContext();
 
   const content = useMemo(
@@ -106,7 +103,6 @@ const TokenInfoCellDesktop = memo(() => {
           <Token
             size="xs"
             borderRadius="$full"
-            bg={themeVariant === 'light' ? undefined : '$bgInverse'}
             tokenImageUri={getHyperliquidTokenImageUrl(token.displayName)}
             fallbackIcon="CryptoCoinOutline"
           />
@@ -150,7 +146,7 @@ const TokenInfoCellDesktop = memo(() => {
         </XStack>
       </DebugRenderTracker>
     ),
-    [token.displayName, token.maxLeverage, token.dexLabel, themeVariant],
+    [token.displayName, token.maxLeverage, token.dexLabel],
   );
   return content;
 });
@@ -361,7 +357,6 @@ TokenSelectorRowDesktop.displayName = 'TokenSelectorRowDesktop';
 
 // Mobile cell components
 const TokenImageMobile = memo(() => {
-  const themeVariant = useThemeVariant();
   const { token } = useTokenSelectorRowContext();
 
   const content = useMemo(
@@ -374,13 +369,12 @@ const TokenImageMobile = memo(() => {
         <Token
           size="lg"
           borderRadius="$full"
-          bg={themeVariant === 'light' ? undefined : '$bgInverse'}
           tokenImageUri={getHyperliquidTokenImageUrl(token.displayName)}
           fallbackIcon="CryptoCoinOutline"
         />
       </DebugRenderTracker>
     ),
-    [token.displayName, themeVariant],
+    [token.displayName],
   );
   return content;
 });

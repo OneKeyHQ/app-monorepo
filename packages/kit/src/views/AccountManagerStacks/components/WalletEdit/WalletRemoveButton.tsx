@@ -49,15 +49,17 @@ export function WalletRemoveButton({
       label={label}
       onClose={onClose}
       onPress={() => {
-        const { title, description, isHwOrQr } = getTitleAndDescription({
-          wallet,
-          isRemoveToMocked,
-        });
+        const { title, description, isHwOrQr, isKeyless } =
+          getTitleAndDescription({
+            wallet,
+            isRemoveToMocked,
+          });
         showWalletRemoveDialog({
           config,
           title,
           description,
-          showCheckBox: !isHwOrQr,
+          // No checkbox for hw/qr wallets and keyless wallets
+          showCheckBox: !isHwOrQr && !isKeyless,
           defaultChecked: false,
           wallet,
           isRemoveToMocked,

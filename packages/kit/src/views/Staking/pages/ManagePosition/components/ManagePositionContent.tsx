@@ -132,11 +132,11 @@ export function ManagePositionContent({
   const { result: accountNetworkNotSupported } = usePromiseResult(
     async () => {
       return backgroundApiProxy.serviceAccount.checkAccountNetworkNotSupported({
-        accountId,
+        accountId: accountId?.length > 0 ? accountId : indexedAccountId ?? '',
         activeNetworkId: networkId,
       });
     },
-    [accountId, networkId],
+    [accountId, networkId, indexedAccountId],
     { initResult: undefined },
   );
 

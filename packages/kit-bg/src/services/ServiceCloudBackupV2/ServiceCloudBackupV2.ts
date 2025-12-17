@@ -1,22 +1,22 @@
 /* eslint-disable spellcheck/spell-checker */
 import { cloneDeep } from 'lodash';
 
-import {
-  decryptAsync,
-  decryptImportedCredential,
-  decryptRevealableSeed,
-  encryptAsync,
-} from '@onekeyhq/core/src/secret';
+import { decryptAsync, encryptAsync } from '@onekeyhq/core/src/secret';
 import {
   backgroundClass,
   backgroundMethod,
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import type {
+  IBackupCloudServerDownloadData,
+  IBackupDataEncryptedPayload,
+  IBackupProviderInfo,
+  ICloudBackupKeylessWalletPayload,
+} from '@onekeyhq/shared/src/cloudBackup/cloudBackupTypes';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
@@ -32,12 +32,7 @@ import { OneKeyBackupProvider } from './backupProviders/OneKeyBackupProvider';
 
 import type { GoogleDriveBackupProvider } from './backupProviders/GoogleDriveBackupProvider';
 import type { ICloudBackupProvider } from './backupProviders/ICloudBackupProvider';
-import type {
-  IBackupCloudServerDownloadData,
-  IBackupDataEncryptedPayload,
-  IBackupProviderInfo,
-  IOneKeyBackupProvider,
-} from './backupProviders/IOneKeyBackupProvider';
+import type { IOneKeyBackupProvider } from './backupProviders/IOneKeyBackupProvider';
 import type { ICloudBackupStatusAtom } from '../../states/jotai/atoms/cloudBackup';
 
 export type IBackupStatus = {
@@ -269,6 +264,9 @@ class ServiceCloudBackupV2 extends ServiceBase {
     });
 
     const { recordID, content } = result;
+
+    await timerUtils.wait(2000);
+
     console.log('serviceCloudBackupV2__download');
     const downloadData = await this.download({
       recordId: recordID,
@@ -289,8 +287,6 @@ class ServiceCloudBackupV2 extends ServiceBase {
       });
       throw new OneKeyLocalError('Failed to backup data: content mismatch');
     }
-
-    await timerUtils.wait(2000);
 
     const allBackups = await this.getAllBackups();
     const matchedBackup = allBackups?.items?.find(
@@ -314,6 +310,40 @@ class ServiceCloudBackupV2 extends ServiceBase {
       },
     );
     return result;
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async downloadKeylessWallet(params: { recordID: string }): Promise<{
+    payload: ICloudBackupKeylessWalletPayload;
+    content: string;
+  } | null> {
+    const provider = this.getProvider();
+    await provider.checkAvailability();
+    const result = await provider.downloadKeylessWalletData(params);
+    return result;
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async getKeylessWalletBackupRecordID(params: { packSetId: string }): Promise<{
+    recordID: string;
+    packSetId: string;
+  } | null> {
+    const provider = this.getProvider();
+    await provider.checkAvailability();
+    const result = await provider.getKeylessWalletBackupRecordID(params);
+    return result;
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async backupKeylessWalletData(
+    payload: ICloudBackupKeylessWalletPayload,
+  ): Promise<{ recordID: string; content: string; meta: string }> {
+    const provider = this.getProvider();
+    await provider.checkAvailability();
+    return provider.backupKeylessWalletData(payload);
   }
 
   @backgroundMethod()

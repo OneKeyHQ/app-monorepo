@@ -154,6 +154,7 @@ import {
   devSettingsPersistAtom,
   hardwareWalletXfpStatusAtom,
   indexedAccountAddressCreationStateAtom,
+  primePersistAtom,
 } from '../../states/jotai/atoms';
 import { hardwareForceTransportAtom } from '../../states/jotai/atoms/desktopBluetooth';
 import { vaultFactory } from '../../vaults/factory';
@@ -266,9 +267,38 @@ class ServiceAccount extends ServiceBase {
     };
   }
 
+  private async shouldIncludeWalletButNotKeyless(
+    wallet: IDBWallet,
+  ): Promise<boolean> {
+    const isKeylessWallet = accountUtils.isKeylessWallet({
+      walletId: wallet.id,
+    });
+    if (!isKeylessWallet) {
+      return true;
+    }
+    let expectedId: string | undefined;
+    if (expectedId === undefined) {
+      const { keylessWalletId: packSetId } = await primePersistAtom.get();
+      expectedId = packSetId
+        ? accountUtils.buildKeylessWalletId({ sharePackSetId: packSetId })
+        : undefined;
+    }
+    if (!expectedId) {
+      return false;
+    }
+    return wallet.id === expectedId;
+  }
+
   @backgroundMethod()
   async getWallet({ walletId }: { walletId: string }): Promise<IDBWallet> {
-    return localDb.getWallet({ walletId });
+    const wallet = await localDb.getWallet({ walletId });
+    const shouldInclude = await this.shouldIncludeWalletButNotKeyless(wallet);
+    if (!shouldInclude) {
+      throw new OneKeyError('KeylessWallet not found', {
+        code: EOneKeyErrorClassNames.OneKeyError,
+      });
+    }
+    return wallet;
   }
 
   @backgroundMethod()
@@ -302,7 +332,15 @@ class ServiceAccount extends ServiceBase {
     walletId: string;
     withoutRefill?: boolean;
   }): Promise<IDBWallet | undefined> {
-    return localDb.getWalletSafe({ walletId, withoutRefill });
+    const wallet = await localDb.getWalletSafe({ walletId, withoutRefill });
+    if (!wallet) {
+      return undefined;
+    }
+    const shouldInclude = await this.shouldIncludeWalletButNotKeyless(wallet);
+    if (!shouldInclude) {
+      return undefined;
+    }
+    return wallet;
   }
 
   // TODO move to serviceHardware
@@ -342,8 +380,23 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getWallets(options?: IDBGetWalletsParams) {
-    return localDb.getWallets(options);
+  async getWallets(options?: IDBGetWalletsParams): Promise<{
+    wallets: IDBWallet[];
+  }> {
+    const r = await localDb.getWallets(options);
+
+    const wallets: IDBWallet[] = [];
+    for (const wallet of r.wallets) {
+      const shouldInclude = await this.shouldIncludeWalletButNotKeyless(wallet);
+      if (shouldInclude) {
+        wallets.push(wallet);
+      }
+    }
+
+    return {
+      ...r,
+      wallets,
+    };
   }
 
   @backgroundMethod()
@@ -4151,6 +4204,13 @@ class ServiceAccount extends ServiceBase {
       [walletId: string]: { hash: string; xfp: string };
     } = {};
     for (const wallet of hdWallets) {
+      const isKeylessWallet = accountUtils.isKeylessWallet({
+        walletId: wallet.id,
+      });
+      if (isKeylessWallet) {
+        // eslint-disable-next-line no-continue
+        continue;
+      }
       try {
         const isHdWallet = accountUtils.isHdWallet({ walletId: wallet.id });
         if (isHdWallet) {
@@ -4880,7 +4940,7 @@ class ServiceAccount extends ServiceBase {
       return;
     }
 
-    const { wallets } = await localDb.getWallets();
+    const { wallets } = await this.getWallets();
     const walletsBackedUpStatusMap: {
       [walletId: string]: {
         isBackedUp: boolean;
@@ -4912,7 +4972,7 @@ class ServiceAccount extends ServiceBase {
       console.log('migrateHdWalletsBackedUpStatus: already migrated');
       return;
     }
-    const { wallets } = await localDb.getWallets();
+    const { wallets } = await this.getWallets();
     const walletsBackedUpStatusMap: {
       [walletId: string]: {
         isBackedUp: boolean;
@@ -5475,8 +5535,12 @@ class ServiceAccount extends ServiceBase {
       };
     }
 
+    if (!finalWalletId) {
+      return undefined;
+    }
+
     const isBtcOnlyFirmware = await this.isBtcOnlyFirmwareByWalletId({
-      walletId: finalWalletId!,
+      walletId: finalWalletId,
       featuresInfo: featuresInfoCache,
     });
 

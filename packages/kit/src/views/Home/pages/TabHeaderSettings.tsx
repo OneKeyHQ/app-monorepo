@@ -54,7 +54,7 @@ function TokenListSettings() {
     isOthersWallet,
   });
 
-  if (media.gtXl) {
+  if (media.gtMd) {
     return null;
   }
 

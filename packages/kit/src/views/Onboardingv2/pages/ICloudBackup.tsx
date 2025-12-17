@@ -15,14 +15,14 @@ import {
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import type {
-  IBackupDataManifest,
-  IBackupDataManifestItem,
-} from '@onekeyhq/kit-bg/src/services/ServiceCloudBackupV2/backupProviders/IOneKeyBackupProvider';
 import {
   onboardingCloudBackupListRefreshAtom,
   useOnboardingCloudBackupListRefreshAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type {
+  IBackupDataManifest,
+  IBackupDataManifestItem,
+} from '@onekeyhq/shared/src/cloudBackup/cloudBackupTypes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes';

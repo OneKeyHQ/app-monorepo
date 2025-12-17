@@ -1,3 +1,5 @@
+import { OneKeyLocalError } from '../../errors';
+
 import type { ISecureStorage } from './types';
 
 const setSecureItem = async (key: string, data: string) => {
@@ -16,13 +18,17 @@ const getSecureItem = async (key: string) => {
 const removeSecureItem = async (key: string) =>
   globalThis?.desktopApiProxy?.storage?.secureDelItemAsync(key);
 
-const supportSecureStorage = () => true;
+const supportSecureStorage = async () => true;
 
 const storage: ISecureStorage = {
   setSecureItem,
   getSecureItem,
   removeSecureItem,
   supportSecureStorage,
+  setSecureItemWithBiometrics(key, data, options) {
+    // TODO: mac use keychain to set secure item
+    throw new OneKeyLocalError('use webauthn/keychain to set secure item');
+  },
 };
 
 export default storage;

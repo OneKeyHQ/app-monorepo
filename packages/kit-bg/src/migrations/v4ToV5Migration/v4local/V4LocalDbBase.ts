@@ -8,6 +8,9 @@ import {
 import {
   DB_MAIN_CONTEXT_ID,
   DEFAULT_VERIFY_STRING,
+  WALLET_NO_EXTERNAL,
+  WALLET_NO_IMPORTED,
+  WALLET_NO_WATCHING,
   WALLET_TYPE_EXTERNAL,
   WALLET_TYPE_IMPORTED,
   WALLET_TYPE_WATCHING,
@@ -48,15 +51,15 @@ export abstract class V4LocalDbBase extends V4LocalDbBaseContainer {
     > = {
       [WALLET_TYPE_IMPORTED]: {
         avatar: {},
-        walletNo: 1_000_001,
+        walletNo: WALLET_NO_IMPORTED,
       },
       [WALLET_TYPE_WATCHING]: {
         avatar: {},
-        walletNo: 1_000_002,
+        walletNo: WALLET_NO_WATCHING,
       },
       [WALLET_TYPE_EXTERNAL]: {
         avatar: {},
-        walletNo: 1_000_003,
+        walletNo: WALLET_NO_EXTERNAL,
       },
     };
     const record: IV4DBWallet = {

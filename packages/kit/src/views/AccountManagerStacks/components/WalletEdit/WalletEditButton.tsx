@@ -6,12 +6,18 @@ import { ActionList, Divider } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
   useAccountSelectorContextData,
   useActiveAccount,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import {
+  EModalRoutes,
+  EOnboardingV2KeylessWalletCreationMode,
+} from '@onekeyhq/shared/src/routes';
+import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { usePrimeAvailable } from '../../../Prime/hooks/usePrimeAvailable';
@@ -35,6 +41,11 @@ function WalletEditButtonView({
   const {
     activeAccount: { network },
   } = useActiveAccount({ num: num ?? 0 });
+  const navigation = useAppNavigation();
+  const isKeyless = useMemo(
+    () => accountUtils.isKeylessWallet({ walletId: wallet?.id || '' }),
+    [wallet],
+  );
 
   const { isPrimeAvailable } = usePrimeAvailable();
   const { user } = useOneKeyAuth();
@@ -44,38 +55,45 @@ function WalletEditButtonView({
   }, [user]);
 
   const showDeviceManagementButton = useMemo(() => {
+    if (isKeyless) return false;
     return (
       !accountUtils.isHwHiddenWallet({ wallet }) &&
       accountUtils.isHwOrQrWallet({ walletId: wallet?.id })
     );
-  }, [wallet]);
+  }, [wallet, isKeyless]);
 
   const showAddHiddenWalletButton = useMemo(() => {
+    if (isKeyless) return false;
     return (
       !accountUtils.isHwHiddenWallet({ wallet }) &&
       accountUtils.isHwOrQrWallet({ walletId: wallet?.id })
     );
-  }, [wallet]);
+  }, [wallet, isKeyless]);
 
   const showRemoveWalletButton = useMemo(() => {
+    // Keyless wallet can also be removed
+    if (isKeyless) return true;
     return (
       !wallet?.isMocked &&
       !accountUtils.isOthersWallet({ walletId: wallet?.id || '' })
     );
-  }, [wallet]);
+  }, [wallet, isKeyless]);
 
   const showRemoveDeviceButton = useMemo(() => {
+    if (isKeyless) return false;
     return (
       !accountUtils.isHwHiddenWallet({ wallet }) &&
       accountUtils.isHwOrQrWallet({ walletId: wallet?.id })
     );
-  }, [wallet]);
+  }, [wallet, isKeyless]);
 
   const showBackupButton = useMemo(() => {
+    if (isKeyless) return false;
     return accountUtils.isHdWallet({ walletId: wallet?.id });
-  }, [wallet]);
+  }, [wallet, isKeyless]);
 
   const showBulkCopyAddressesButton = useMemo(() => {
+    // if (isKeyless) return false;
     if (!isPrimeAvailable) {
       return false;
     }
@@ -99,6 +117,7 @@ function WalletEditButtonView({
       if (!config) {
         return null;
       }
+
       return (
         // fix missing context in popover
         <AccountSelectorProviderMirror enabledNum={[0]} config={config}>
@@ -106,6 +125,23 @@ function WalletEditButtonView({
             wallet={wallet}
             onClose={handleActionListClose}
           />
+
+          {/* Keyless wallet: Keys & Recovery */}
+          {isKeyless ? (
+            <ActionList.Item
+              icon="Key2Outline"
+              label="Keys & Recovery"
+              onClose={handleActionListClose}
+              onPress={() => {
+                navigation.push(EModalRoutes.PrimeModal, {
+                  screen: EPrimePages.KeylessWallet,
+                  params: {
+                    mode: EOnboardingV2KeylessWalletCreationMode.View,
+                  },
+                });
+              }}
+            />
+          ) : null}
 
           {showBackupButton ? (
             <HdWalletBackupButton
@@ -139,7 +175,8 @@ function WalletEditButtonView({
             />
           ) : null}
 
-          {showDeviceManagementButton ||
+          {isKeyless ||
+          showDeviceManagementButton ||
           showAddHiddenWalletButton ||
           showBulkCopyAddressesButton ? (
             <Divider mx="$2" my="$1" />
@@ -165,6 +202,7 @@ function WalletEditButtonView({
     [
       config,
       wallet,
+      isKeyless,
       showBackupButton,
       showDeviceManagementButton,
       showBulkCopyAddressesButton,
@@ -173,6 +211,7 @@ function WalletEditButtonView({
       showAddHiddenWalletButton,
       showRemoveWalletButton,
       showRemoveDeviceButton,
+      navigation,
     ],
   );
 

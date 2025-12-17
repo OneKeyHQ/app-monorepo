@@ -29,6 +29,7 @@ import {
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes';
 import type { HwWalletAvatarImages } from '@onekeyhq/shared/src/utils/avatarUtils';
 
@@ -226,6 +227,77 @@ const GridBackground = memo(
 
 GridBackground.displayName = 'GridBackground';
 
+export const AnimatedDeviceAvatar = memo(
+  ({ deviceSize }: { deviceSize: number }) => {
+    const themeVariant = useThemeVariant();
+
+    const deviceData: (keyof typeof HwWalletAvatarImages)[] = useMemo(() => {
+      return [
+        themeVariant === 'light' ? `${EDeviceType.Pro}White` : EDeviceType.Pro,
+        EDeviceType.Classic,
+        EDeviceType.Touch,
+        ...(!platformEnv.isNative ? [EDeviceType.Mini] : []),
+      ];
+    }, [themeVariant]);
+
+    const [enableAnimation, setEnableAnimation] = useState(false);
+
+    useEffect(() => {
+      const timer = setTimeout(() => {
+        setEnableAnimation(true);
+      }, 100);
+
+      return () => clearTimeout(timer);
+    }, []);
+
+    return (
+      <YStack w="$5" h={deviceSize} overflow="hidden" alignItems="center">
+        {enableAnimation ? (
+          <MotiView
+            from={{
+              translateY: 0,
+            }}
+            animate={{
+              translateY: Array.from(
+                { length: deviceData.length },
+                (_, index) => ({
+                  type: 'spring',
+                  value: -index * deviceSize,
+                  delay: 1000,
+                }),
+              ),
+            }}
+            transition={{
+              loop: true,
+            }}
+          >
+            <YStack>
+              {deviceData.map((device, index) => (
+                <WalletAvatar
+                  key={index}
+                  wallet={undefined}
+                  img={device}
+                  size={deviceSize}
+                />
+              ))}
+            </YStack>
+          </MotiView>
+        ) : (
+          <YStack>
+            <WalletAvatar
+              wallet={undefined}
+              img={deviceData[0]}
+              size={deviceSize}
+            />
+          </YStack>
+        )}
+      </YStack>
+    );
+  },
+);
+
+AnimatedDeviceAvatar.displayName = 'AnimatedDeviceAvatar';
+
 export default function GetStarted() {
   const navigation = useAppNavigation();
   const handleGetStarted = () => {
@@ -239,32 +311,9 @@ export default function GetStarted() {
     navigation.push(EOnboardingPagesV2.CreateOrImportWallet);
   };
 
-  const themeVariant = useThemeVariant();
-
   // Cache theme values to avoid multiple useThemeValue calls during render
   const neutral6 = useThemeValue('$neutral6');
   const bgColor = useThemeValue('$bgApp');
-
-  const DEVICE_DATA: (keyof typeof HwWalletAvatarImages)[] = useMemo(() => {
-    return [
-      themeVariant === 'light' ? `${EDeviceType.Pro}White` : EDeviceType.Pro,
-      EDeviceType.Classic,
-      EDeviceType.Touch,
-      EDeviceType.Mini,
-    ];
-  }, [themeVariant]);
-
-  // Delay animation initialization to improve initial render performance
-  const [enableAnimation, setEnableAnimation] = useState(false);
-
-  useEffect(() => {
-    // Start animation after component has mounted and initial render is complete
-    const timer = setTimeout(() => {
-      setEnableAnimation(true);
-    }, 100);
-
-    return () => clearTimeout(timer);
-  }, []);
 
   return (
     <Page>
@@ -353,7 +402,7 @@ export default function GetStarted() {
                 </GridItem>
               </YStack>
             </YStack>
-            <YStack gap={44} justifyContent="center" alignItems="center">
+            <YStack gap={56} justifyContent="center" alignItems="center">
               <DecorativeOneKeyLogo />
               <Stack gap="$4" minWidth="$80" zIndex={1}>
                 <Button
@@ -364,52 +413,7 @@ export default function GetStarted() {
                   onPress={handleGetStarted}
                 >
                   <XStack alignItems="center" gap="$2">
-                    <YStack
-                      w="$5"
-                      h={DEVICE_SIZE}
-                      overflow="hidden"
-                      alignItems="center"
-                    >
-                      {enableAnimation ? (
-                        <MotiView
-                          from={{
-                            translateY: 0,
-                          }}
-                          animate={{
-                            translateY: Array.from(
-                              { length: DEVICE_DATA.length },
-                              (_, index) => ({
-                                type: 'spring',
-                                value: -index * DEVICE_SIZE,
-                                delay: 1000,
-                              }),
-                            ),
-                          }}
-                          transition={{
-                            loop: true,
-                          }}
-                        >
-                          <YStack>
-                            {DEVICE_DATA.map((device, index) => (
-                              <WalletAvatar
-                                key={index}
-                                wallet={undefined}
-                                img={device}
-                                size={DEVICE_SIZE}
-                              />
-                            ))}
-                          </YStack>
-                        </MotiView>
-                      ) : (
-                        <YStack>
-                          <WalletAvatar
-                            wallet={undefined}
-                            img={DEVICE_DATA[0]}
-                            size={DEVICE_SIZE}
-                          />
-                        </YStack>
-                      )}
-                    </YStack>
+                    <AnimatedDeviceAvatar deviceSize={DEVICE_SIZE} />
                     <SizableText size="$bodyLgMedium" color="$textInverse">
                       {intl.formatMessage({
                         id: ETranslations.global_get_started,
@@ -417,18 +421,34 @@ export default function GetStarted() {
                     </SizableText>
                   </XStack>
                 </Button>
-                <Button
-                  bg="$gray3"
-                  hoverStyle={{ bg: '$gray4' }}
-                  pressStyle={{ bg: '$gray5' }}
-                  size="large"
-                  icon="PlusLargeOutline"
-                  onPress={handleCreateOrImportWallet}
-                >
-                  {intl.formatMessage({
-                    id: ETranslations.onboarding_create_or_import_wallet,
-                  })}
-                </Button>
+                <XStack gap="$2">
+                  {/* todo @zuo google login button */}
+                  <Button
+                    flex={1}
+                    bg="$gray3"
+                    hoverStyle={{ bg: '$gray4' }}
+                    pressStyle={{ bg: '$gray5' }}
+                    size="large"
+                    childrenAsText={false}
+                  >
+                    <XStack gap="$2" alignItems="center">
+                      <Icon name="GoogleIllus" size="$5" />
+                      <SizableText size="$bodyLgMedium">
+                        Continue with Google
+                      </SizableText>
+                    </XStack>
+                  </Button>
+                  <Button
+                    bg="$gray3"
+                    hoverStyle={{ bg: '$gray4' }}
+                    pressStyle={{ bg: '$gray5' }}
+                    size="large"
+                    childrenAsText={false}
+                    onPress={handleCreateOrImportWallet}
+                  >
+                    <Icon name="DotHorOutline" size="$5" />
+                  </Button>
+                </XStack>
               </Stack>
             </YStack>
           </YStack>

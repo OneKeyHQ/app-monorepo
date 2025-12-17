@@ -15,6 +15,7 @@ import {
 import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import { usePrimeTransferAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EPrimeTransferDataType } from '@onekeyhq/shared/types/prime/primeTransferTypes';
 
 import { PrimeTransferHomeEnterLink } from './PrimeTransferHomeEnterLink';
 import { PrimeTransferHomeQrCode } from './PrimeTransferHomeQrCode';
@@ -35,11 +36,15 @@ export function PrimeTransferHome({
   setRemotePairingCode,
   autoConnect,
   autoConnectCustomServer,
+  defaultTab,
+  transferType,
 }: {
   remotePairingCode: string;
   setRemotePairingCode: (code: string) => void;
   autoConnect?: boolean;
   autoConnectCustomServer?: string;
+  defaultTab?: 'qr-code' | 'enter-link';
+  transferType?: EPrimeTransferDataType;
 }) {
   const [primeTransferAtom] = usePrimeTransferAtom();
 
@@ -62,7 +67,7 @@ export function PrimeTransferHome({
   );
 
   const [value, setValue] = useState<ITransferMethod>(
-    autoConnect ? ENTER_LINK : QR_CODE,
+    defaultTab || (autoConnect ? ENTER_LINK : QR_CODE),
   );
 
   const qrcodeViewRef = useRef<React.ReactNode | null>(null);
@@ -77,22 +82,28 @@ export function PrimeTransferHome({
   return (
     <>
       <Page.Header
-        title={intl.formatMessage({
-          id: ETranslations.transfer_establish_connection,
-        })}
+        title={
+          transferType === EPrimeTransferDataType.keylessWallet
+            ? 'Transfer Keyless Wallet'
+            : intl.formatMessage({
+                id: ETranslations.transfer_establish_connection,
+              })
+        }
       />
 
       <PrimeTransferServerStatusBar />
 
       <Stack px="$4" gap="$5" mt="$2">
-        <SegmentControl
-          fullWidth
-          value={value}
-          onChange={(v) => {
-            setValue(v as ITransferMethod);
-          }}
-          options={TRANSFER_OPTIONS}
-        />
+        {transferType === EPrimeTransferDataType.keylessWallet ? null : (
+          <SegmentControl
+            fullWidth
+            value={value}
+            onChange={(v) => {
+              setValue(v as ITransferMethod);
+            }}
+            options={TRANSFER_OPTIONS}
+          />
+        )}
 
         <Stack display={value === QR_CODE ? 'flex' : 'none'}>
           {qrcodeViewRef.current}

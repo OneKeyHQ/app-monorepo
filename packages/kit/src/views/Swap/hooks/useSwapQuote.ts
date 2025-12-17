@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useIsModalPage } from '@onekeyhq/components';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
@@ -13,6 +13,7 @@ import {
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { ESwapEventAPIStatus } from '@onekeyhq/shared/src/logger/scopes/swap/scenes/swapEstimateFee';
 import type { ISwapQuoteProvideResult } from '@onekeyhq/shared/src/logger/scopes/swap/scenes/swapQuote';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
@@ -50,6 +51,7 @@ import {
 import { truncateDecimalPlaces } from '../utils/utils';
 
 import { useSwapAddressInfo } from './useSwapAccount';
+import { useSwapProInputToken, useSwapProToToken } from './useSwapPro';
 import { useSwapSlippagePercentageModeInfo } from './useSwapState';
 
 /**
@@ -70,10 +72,29 @@ export function useSwapQuote() {
   const swapAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
   const [swapToAnotherAccountAddress] = useSwapToAnotherAccountAddressAtom();
-  const [fromToken, setSwapSelectFromToken] = useSwapSelectFromTokenAtom();
+  const [swapTabSwitchType] = useSwapTypeSwitchAtom();
+  const [swapFromToken, setSwapSelectFromToken] = useSwapSelectFromTokenAtom();
   const { slippageItem } = useSwapSlippagePercentageModeInfo();
-  const [toToken, setSwapSelectToToken] = useSwapSelectToTokenAtom();
-
+  const [swapToToken, setSwapSelectToToken] = useSwapSelectToTokenAtom();
+  const swapProInputToken = useSwapProInputToken();
+  const swapProToToken = useSwapProToToken();
+  const focusSwapPro = useMemo(() => {
+    return (
+      platformEnv.isNative && swapTabSwitchType === ESwapTabSwitchType.LIMIT
+    );
+  }, [swapTabSwitchType]);
+  const fromToken = useMemo(() => {
+    if (focusSwapPro) {
+      return swapProInputToken;
+    }
+    return swapFromToken;
+  }, [focusSwapPro, swapProInputToken, swapFromToken]);
+  const toToken = useMemo(() => {
+    if (focusSwapPro) {
+      return swapProToToken;
+    }
+    return swapToToken;
+  }, [focusSwapPro, swapProToToken, swapToToken]);
   const [swapSlippageDialogOpening] = useSwapSlippageDialogOpeningAtom();
   const [swapApproveAllowanceSelectOpen] =
     useSwapApproveAllowanceSelectOpenAtom();
@@ -86,7 +107,6 @@ export function useSwapQuote() {
     useSwapQuoteEventTotalCountAtom();
   const [swapQuoteFetching] = useSwapQuoteFetchingAtom();
   const [swapShouldRefresh] = useSwapShouldRefreshQuoteAtom();
-  const [swapTabSwitchType] = useSwapTypeSwitchAtom();
   const [settingsAtom] = useSettingsAtom();
   const [settingsPersistAtom] = useSettingsPersistAtom();
 

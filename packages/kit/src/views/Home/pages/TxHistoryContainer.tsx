@@ -47,10 +47,13 @@ function TxHistoryListContainer(
         plainMode?: boolean;
         tableLayout?: boolean;
         limit?: number;
+        emptyTitle?: string;
+        emptyDescription?: string;
       }
     | undefined,
 ) {
-  const { plainMode, tableLayout, limit } = params ?? {};
+  const { plainMode, tableLayout, limit, emptyTitle, emptyDescription } =
+    params ?? {};
 
   const { isFocused, isHeaderRefreshing, setIsHeaderRefreshing } =
     useTabIsRefreshingFocused();
@@ -461,6 +464,8 @@ function TxHistoryListContainer(
         },
       }}
       tokenMap={allTokenListMap}
+      emptyTitle={emptyTitle}
+      emptyDescription={emptyDescription}
     />
   );
 }

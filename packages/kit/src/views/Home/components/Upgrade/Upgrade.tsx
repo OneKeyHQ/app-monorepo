@@ -85,7 +85,7 @@ function Upgrade() {
             <SizableText size="$headingMd">
               {intl.formatMessage({ id: ETranslations.global_prime })}
             </SizableText>
-            <SizableText size="$bodyMd" numberOfLines={2}>
+            <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={2}>
               {intl.formatMessage({
                 id: ETranslations.settings_cloud_sync_bulk_tools_and_more,
               })}
@@ -121,7 +121,10 @@ function Upgrade() {
       content={renderContent()}
       contentContainerProps={{
         px: '$4',
-        py: '$4',
+        py: '$2',
+        $gtMd: {
+          py: '$4',
+        },
         bg: '$bgSubdued',
       }}
     />

@@ -15,8 +15,6 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ESwapProTradeType } from '@onekeyhq/shared/types/swap/types';
 
 import SwapCommonInfoItem from '../../components/SwapCommonInfoItem';
-// import SwapProCenterInput from '../../components/SwapProCenterInput';
-// import { useSwapProToToken } from '../../hooks/useSwapPro';
 
 const SwapProToTotalValue = () => {
   const intl = useIntl();
@@ -25,44 +23,6 @@ const SwapProToTotalValue = () => {
   const [toTokenAmount] = useSwapToTokenAmountAtom();
   const [swapProToTotalValue, setSwapProToTotalValue] =
     useSwapProToTotalValueAtom();
-  // const swapProtoToToken = useSwapProToToken();
-  // const currencyInfo = useCurrency();
-  // const handleTokenValueChange = useCallback(
-  //   (text: string) => {
-  //     if (swapProTradeType === ESwapProTradeType.LIMIT) {
-  //       setSwapProToTotalValue(text);
-  //       const toAmountValue = new BigNumber(text ?? '0');
-  //       let toTokenAmountValue = '';
-  //       if (toAmountValue.isNaN() || toAmountValue.isZero()) {
-  //         toTokenAmountValue = '';
-  //       } else {
-  //         const toTokenPrice = new BigNumber(swapProtoToToken?.price ?? '0');
-  //         if (toTokenPrice.isNaN() || toTokenPrice.isZero()) {
-  //           toTokenAmountValue = '';
-  //         } else {
-  //           toTokenAmountValue = toAmountValue
-  //             .div(toTokenPrice)
-  //             .decimalPlaces(
-  //               swapProtoToToken?.decimals ?? 0,
-  //               BigNumber.ROUND_DOWN,
-  //             )
-  //             .toFixed();
-  //         }
-  //       }
-  //       setSwapToTokenAmount({
-  //         value: toTokenAmountValue,
-  //         isInput: true,
-  //       });
-  //     }
-  //   },
-  //   [
-  //     setSwapProToTotalValue,
-  //     setSwapToTokenAmount,
-  //     swapProTradeType,
-  //     swapProtoToToken?.decimals,
-  //     swapProtoToToken?.price,
-  //   ],
-  // );
 
   useEffect(() => {
     if (swapProTradeType === ESwapProTradeType.LIMIT) {
@@ -99,18 +59,6 @@ const SwapProToTotalValue = () => {
     );
   }
   return null;
-  // return (
-  //   <Stack mt="$2">
-  //     <SwapProCenterInput
-  //       title={`${intl.formatMessage({ id: ETranslations.dexmarket_total })} (${
-  //         currencyInfo.symbol
-  //       })`}
-  //       value={swapProToTotalValue}
-  //       onChangeText={handleTokenValueChange}
-  //       inputDisabled={false}
-  //     />
-  //   </Stack>
-  // );
 };
 
 export default SwapProToTotalValue;

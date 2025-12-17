@@ -33,6 +33,8 @@ export function OnChainReward({ onChain }: IOnChainRewardProps) {
   return (
     <Card.Container flex={1}>
       <Card.Title
+        // TODO @franco missing icon?
+        // @ts-ignore
         icon="AtomSolid"
         title={onChain.title}
         description={intl.formatMessage({

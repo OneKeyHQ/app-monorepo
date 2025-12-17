@@ -13,6 +13,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
+import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { ONEKEY_SIFU_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
@@ -39,6 +40,13 @@ function SupportHubItem({
       py="$3"
       bg="$bgSubdued"
       justifyContent="space-between"
+      flex={1}
+      hoverStyle={{
+        bg: '$bgHover',
+      }}
+      pressStyle={{
+        bg: '$bgActive',
+      }}
       onPress={
         link
           ? () => {
@@ -64,6 +72,7 @@ function SupportHubItem({
 
 function SupportHub() {
   const intl = useIntl();
+  const themeVariant = useThemeVariant();
 
   const helpCenterCommonFaqLink = useHelpLink({
     path: '',
@@ -75,10 +84,11 @@ function SupportHub() {
         <RichBlock
           blockContainerProps={{
             flex: 1,
+            flexBasis: 0,
           }}
           content={
             <YStack
-              height={145}
+              height={151}
               justifyContent="center"
               px="$4"
               position="relative"
@@ -94,9 +104,10 @@ function SupportHub() {
                 left="0"
                 bottom="0"
                 right="0"
-                source="https://uni.onekey-asset.com/static/wallet/sifu_bg.jpg"
+                source={require('@onekeyhq/kit/assets/sifu_bg.jpg')}
                 resizeMode="cover"
                 zIndex={0}
+                opacity={themeVariant === 'dark' ? 0.9 : 1}
               />
               <Theme name="light">
                 <YStack width="60%" zIndex={99} position="absolute" left="$4">
@@ -117,9 +128,12 @@ function SupportHub() {
           contentContainerProps={{
             px: '$0',
             py: '$0',
+            outlineWidth: 1,
+            outlineStyle: 'solid',
+            outlineColor: '$neutral2',
           }}
         />
-        <Stack flexDirection="column" gap="$3" flex={1}>
+        <Stack flexDirection="column" gap="$3" flex={1} flexBasis={0}>
           <RichBlock
             blockContainerProps={{
               flex: 1,
@@ -138,6 +152,7 @@ function SupportHub() {
             contentContainerProps={{
               px: '$0',
               py: '$0',
+              flex: 1,
             }}
           />
           <RichBlock
@@ -156,12 +171,13 @@ function SupportHub() {
             contentContainerProps={{
               px: '$0',
               py: '$0',
+              flex: 1,
             }}
           />
         </Stack>
       </Stack>
     );
-  }, [intl, helpCenterCommonFaqLink]);
+  }, [intl, helpCenterCommonFaqLink, themeVariant]);
 
   return (
     <RichBlock

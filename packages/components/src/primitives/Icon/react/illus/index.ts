@@ -39,6 +39,7 @@ export { default as Filecoin } from './Filecoin';
 export { default as Gas } from './Gas';
 export { default as GnosisChain } from './GnosisChain';
 export { default as GooglePay } from './GooglePay';
+export { default as Google } from './Google';
 export { default as HandDrawRightDownArrow } from './HandDrawRightDownArrow';
 export { default as HardwareAboutDeviceBg } from './HardwareAboutDeviceBg';
 export { default as HuobiEcoChain } from './HuobiEcoChain';

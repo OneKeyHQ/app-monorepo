@@ -5,12 +5,12 @@ import { useThrottledCallback } from 'use-debounce';
 
 import type { IDialogInstance } from '@onekeyhq/components';
 import { Dialog, Toast } from '@onekeyhq/components';
-import type { IBackupDataEncryptedPayload } from '@onekeyhq/kit-bg/src/services/ServiceCloudBackupV2/backupProviders/IOneKeyBackupProvider';
 import type { ICloudBackupExitPreventAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   cloudBackupExitPreventAtom,
   useCloudBackupStatusAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type { IBackupDataEncryptedPayload } from '@onekeyhq/shared/src/cloudBackup/cloudBackupTypes';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';

@@ -10,8 +10,10 @@ import {
   Icon,
   IconButton,
   NumberSizeableText,
+  Popover,
   SizableText,
   Stack,
+  Tooltip,
   View,
   XStack,
   YStack,
@@ -59,43 +61,51 @@ function Protocol({
         dataIndex: 'symbol',
         render: (symbol: string, record: IDeFiAsset) => (
           <XStack gap="$3" alignItems="center">
-            <Token size="lg" tokenImageUri={record.meta?.logoUrl} />
+            <Token size="md" tokenImageUri={record.meta?.logoUrl} />
             <SizableText size="$bodyMdMedium">{symbol}</SizableText>
           </XStack>
         ),
       },
       {
-        title: 'Type',
+        title: intl.formatMessage({
+          id: ETranslations.wallet_defi_portfolio_column_type,
+        }),
         dataIndex: 'category',
         render: (
           category: string,
           record: IDeFiAsset & { type: EDeFiAssetType },
         ) => {
           let type = '';
+          let badgeType = 'info';
           if (record.type === EDeFiAssetType.DEBT) {
             type = intl.formatMessage({
               id: ETranslations.wallet_defi_asset_type_borrowed,
             });
+            badgeType = 'warning';
           } else if (record.type === EDeFiAssetType.REWARD) {
             type = intl.formatMessage({
               id: ETranslations.wallet_defi_position_module_rewards,
             });
+            badgeType = 'success';
           } else if (record.type === EDeFiAssetType.ASSET) {
             type = intl.formatMessage({
               id: ETranslations.wallet_defi_asset_type_supplied,
             });
+            badgeType = 'info';
           } else {
             type = category;
           }
           return (
-            <Badge badgeType="info" badgeSize="lg">
+            <Badge badgeType={badgeType} badgeSize="lg">
               <Badge.Text textTransform="capitalize">{type}</Badge.Text>
             </Badge>
           );
         },
       },
       {
-        title: 'Amount',
+        title: intl.formatMessage({
+          id: ETranslations.wallet_defi_portfolio_column_amount,
+        }),
         dataIndex: 'amount',
         render: (amount: string) => (
           <NumberSizeableText size="$bodyMdMedium" formatter="balance">
@@ -121,45 +131,78 @@ function Protocol({
 
   const renderProtocolPositions = useCallback(() => {
     return protocol.positions.map((position, index) => {
-      if (index !== 0 && index !== protocol.positions.length - 1) {
-        return <Divider key={index} />;
-      }
-
       return (
-        <Stack key={position.category}>
-          <XStack
-            alignItems="center"
-            justifyContent="space-between"
-            pl="$1"
-            pr="$3"
-            py="$3"
-          >
-            <Badge badgeType="success" badgeSize="lg">
-              <Badge.Text textTransform="capitalize">
-                {position.category}
-              </Badge.Text>
-            </Badge>
-            <NumberSizeableText
-              size="$headingSm"
-              formatter="value"
-              formatterOptions={{ currency: settings.currencyInfo.symbol }}
+        <>
+          <Stack key={position.groupId}>
+            <XStack
+              alignItems="center"
+              justifyContent="space-between"
+              pl="$1"
+              pr="$3"
+              py="$3"
+              gap="$3"
             >
-              {position.value}
-            </NumberSizeableText>
-          </XStack>
-          <RichTable<IDeFiAsset & { type: EDeFiAssetType }>
-            dataSource={position.all}
-            columns={columns}
-            keyExtractor={(item) => item.address}
-            estimatedItemSize={48}
-            onRow={() => ({
-              onPress: undefined,
-            })}
-          />
-        </Stack>
+              <XStack gap="$3" alignItems="center" flex={1}>
+                <Badge badgeType="success" badgeSize="lg">
+                  <Badge.Text textTransform="capitalize">
+                    {position.category}
+                  </Badge.Text>
+                </Badge>
+                <Popover
+                  placement="top"
+                  title={intl.formatMessage({
+                    id: ETranslations.wallet_defi_position_name_popover_title,
+                  })}
+                  renderTrigger={
+                    <SizableText
+                      size="$bodyMd"
+                      color="$textSubdued"
+                      numberOfLines={1}
+                      textDecorationLine="underline"
+                      textDecorationColor="$textSubdued"
+                      textDecorationStyle="dotted"
+                    >
+                      {position.poolName}
+                    </SizableText>
+                  }
+                  renderContent={
+                    <Stack px="$4" py="$2">
+                      <SizableText size="$bodyLgMedium">
+                        {position.poolFullName}
+                      </SizableText>
+                    </Stack>
+                  }
+                />
+              </XStack>
+              <NumberSizeableText
+                size="$headingSm"
+                formatter="value"
+                formatterOptions={{ currency: settings.currencyInfo.symbol }}
+              >
+                {position.value}
+              </NumberSizeableText>
+            </XStack>
+            <RichTable<IDeFiAsset & { type: EDeFiAssetType }>
+              dataSource={[
+                ...position.assets,
+                ...position.debts,
+                ...position.rewards,
+              ]}
+              columns={columns}
+              keyExtractor={(item) => item.address}
+              estimatedItemSize={48}
+              onRow={() => ({
+                onPress: undefined,
+              })}
+            />
+          </Stack>
+          {index !== protocol.positions.length - 1 ? (
+            <Divider key={index} my="$2" />
+          ) : null}
+        </>
       );
     });
-  }, [protocol.positions, settings.currencyInfo.symbol, columns]);
+  }, [protocol.positions, intl, settings.currencyInfo.symbol, columns]);
 
   const handlePressProtocol = useCallback(() => {
     navigation.pushModal(EModalRoutes.MainModal, {
@@ -268,13 +311,13 @@ function Protocol({
             <>
               <XStack gap="$3" alignItems="center">
                 <Token
-                  size="lg"
+                  size="md"
                   tokenImageUri={protocolInfo?.protocolLogo}
                   isNFT
                   showNetworkIcon={isAllNetworks}
                   networkId={protocol.networkId}
                 />
-                <SizableText size="$headingLg">
+                <SizableText size="$headingMd">
                   {protocolInfo?.protocolName ?? protocol.protocol}
                 </SizableText>
                 <IconButton
@@ -289,7 +332,7 @@ function Protocol({
               </XStack>
               <XStack alignItems="center" gap="$3">
                 <NumberSizeableText
-                  size="$headingLg"
+                  size="$headingMd"
                   formatter="value"
                   formatterOptions={{ currency: settings.currencyInfo.symbol }}
                 >

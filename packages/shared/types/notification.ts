@@ -105,6 +105,15 @@ export type INotificationPushSyncAccount = {
   accountId: string;
   accountName: string | undefined;
 };
+
+// /notification/v1/watchlist/tokens
+export type INotificationWatchlistToken = {
+  networkId: string;
+  tokenAddress: string;
+  isNative: boolean;
+  symbol: string;
+  logoURI: string;
+};
 export enum ENotificationPushSyncMethod {
   override = 'override',
   append = 'append', // append or replace

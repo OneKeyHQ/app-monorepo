@@ -1,72 +1,11 @@
 import type {
-  IAppleCloudKitRecord,
-  ICloudKitAccountStatusName,
-} from '@onekeyhq/shared/src/storage/AppleCloudKitStorage/types';
-import type {
-  IGoogleDriveFile,
-  IGoogleUserInfo,
-} from '@onekeyhq/shared/src/storage/GoogleDriveStorage';
-import type {
-  IPrimeTransferData,
-  IPrimeTransferPublicData,
-} from '@onekeyhq/shared/types/prime/primeTransferTypes';
-
-export type IBackupCloudServerData = {
-  iCloud?: IAppleCloudKitRecord;
-  googleDrive?: IGoogleDriveFile;
-};
-export type IBackupCloudServerDownloadData = {
-  payload: IBackupDataEncryptedPayload;
-  content: string;
-};
-export type IBackupProviderInfo = {
-  displayName: string;
-  displayNameI18nKey: string;
-};
-export type IBackupProviderAccountInfo = {
-  userId: string;
-  iCloud?: {
-    cloudKitStatus: number; // CKContainer.AccountStatus raw value
-    cloudKitStatusName: ICloudKitAccountStatusName;
-    cloudKitContainerUserId: string | null;
-    cloudFsAvailable: boolean | undefined;
-    cloudKitAvailable: boolean;
-    keychainCloudSyncEnabled: boolean;
-  };
-  googleDrive?: {
-    email?: string;
-    userInfo?: IGoogleUserInfo | null;
-    googlePlayServiceAvailable: boolean;
-    // cloudFsAvailable?: boolean; // iOS only
-  };
-};
-export type IBackupDataEncryptedPayload = Omit<
-  IPrimeTransferData,
-  'privateData'
-> & {
-  privateDataEncrypted: string; // base64 string
-};
-export type IBackupDataManifestItem = Omit<
-  IPrimeTransferPublicData,
-  'walletDetails'
-> & {
-  recordID: string;
-  fileName?: string;
-};
-export type IBackupDataManifest = {
-  items: IBackupDataManifestItem[];
-  total: number;
-  backupPasswordVerify?: IBackupDataPasswordVerify;
-  googleDriveLegacyMetaDataFileId?: string;
-};
-export type IBackupDataPasswordVerify = {
-  content: string; // encryptStringAsync(CLOUD_BACKUP_PASSWORD_VERIFY_TEXT, password)
-};
-
-export const CLOUD_BACKUP_PASSWORD_VERIFY_TEXT =
-  'backup_password_verify/130B1659-2648-4034-A089-78BE7002E777';
-export const CLOUD_BACKUP_PASSWORD_SALT =
-  '96AC44BC-DBA1-4782-A9A0-B683E72F5FD3';
+  IBackupCloudServerDownloadData,
+  IBackupDataEncryptedPayload,
+  IBackupDataManifest,
+  IBackupProviderAccountInfo,
+  IBackupProviderInfo,
+  ICloudBackupKeylessWalletPayload,
+} from '@onekeyhq/shared/src/cloudBackup/cloudBackupTypes';
 
 /**
  * Common interface for all cloud backup providers (iCloud, Google Drive, etc.)
@@ -126,6 +65,19 @@ export interface IOneKeyBackupProvider {
   backupData(
     payload: IBackupDataEncryptedPayload,
   ): Promise<{ recordID: string; content: string }>;
+
+  backupKeylessWalletData(
+    payload: ICloudBackupKeylessWalletPayload,
+  ): Promise<{ recordID: string; content: string; meta: string }>;
+
+  downloadKeylessWalletData(params: { recordID: string }): Promise<{
+    payload: ICloudBackupKeylessWalletPayload;
+    content: string;
+  } | null>;
+
+  getKeylessWalletBackupRecordID(params: {
+    packSetId: string;
+  }): Promise<{ recordID: string; packSetId: string } | null>;
 
   downloadData(params: {
     recordId: string;

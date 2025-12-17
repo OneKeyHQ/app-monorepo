@@ -27,6 +27,7 @@ import type {
   IWsOpenOrders,
   IWsUserFills,
   IWsWebData2,
+  IWsWebData3,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
 import type { IL2BookOptions } from '@onekeyhq/shared/types/hyperliquid/types';
 import { ESubscriptionType } from '@onekeyhq/shared/types/hyperliquid/types';
@@ -34,6 +35,7 @@ import { ESubscriptionType } from '@onekeyhq/shared/types/hyperliquid/types';
 import { devSettingsPersistAtom } from '../../states/jotai/atoms';
 import {
   perpsActiveAccountAtom,
+  perpsActiveAccountStatusAtom,
   perpsActiveAssetAtom,
   perpsActiveOrderBookOptionsAtom,
   perpsCandlesWebviewReloadHookAtom,
@@ -179,6 +181,22 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     };
 
     const requiredSubSpecsMap = calculateRequiredSubscriptionsMap(params);
+
+    // Skip WEB_DATA3 subscription if user already has DEX abstraction enabled
+    if (activeAccount?.accountAddress) {
+      const isDexAbstractionEnabled =
+        await this.backgroundApi.simpleDb.perp.isDexAbstractionEnabled(
+          activeAccount.accountAddress,
+        );
+      if (isDexAbstractionEnabled) {
+        Object.keys(requiredSubSpecsMap).forEach((key) => {
+          if (requiredSubSpecsMap[key]?.type === ESubscriptionType.WEB_DATA3) {
+            delete requiredSubSpecsMap[key];
+          }
+        });
+      }
+    }
+
     return { requiredSubSpecsMap, params };
   }
 
@@ -393,6 +411,25 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   @backgroundMethod()
   async cleanup(): Promise<void> {
     await this._cleanupAllSubscriptions();
+  }
+
+  @backgroundMethod()
+  async cancelSubscriptionByType(
+    type: ESubscriptionType,
+  ): Promise<{ cancelled: boolean }> {
+    const specs = Array.from(this._activeSubscriptions.values()).filter(
+      (sub) => sub.type === type,
+    );
+
+    if (specs.length === 0) {
+      return { cancelled: false };
+    }
+
+    for (const sub of specs) {
+      await this._destroySubscription(sub.spec);
+    }
+
+    return { cancelled: true };
   }
 
   private _applyStateUpdates(
@@ -931,6 +968,40 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
           );
         }
         this._emitHyperliquidDataUpdate(subscriptionType, data);
+        return;
+      }
+      if (subscriptionType === ESubscriptionType.WEB_DATA3) {
+        const webData3 = data as IWsWebData3;
+        const { userState } = webData3;
+        const userAddress = userState?.user;
+        if (userState?.dexAbstractionEnabled) {
+          if (userAddress) {
+            void this.backgroundApi.simpleDb.perp.setDexAbstractionEnabled(
+              userAddress,
+              true,
+            );
+          }
+          void this.cancelSubscriptionByType(ESubscriptionType.WEB_DATA3);
+        } else {
+          // Enable HIP-3 DEX abstraction silently when not enabled
+          void (async () => {
+            const accountStatus = await perpsActiveAccountStatusAtom.get();
+            if (accountStatus?.canTrade) {
+              try {
+                await this.backgroundApi.serviceHyperliquidExchange.enableDexAbstraction();
+                if (userAddress) {
+                  await this.backgroundApi.simpleDb.perp.setDexAbstractionEnabled(
+                    userAddress,
+                    true,
+                  );
+                }
+                void this.cancelSubscriptionByType(ESubscriptionType.WEB_DATA3);
+              } catch {
+                // Silently ignore, will retry on next webData3 update
+              }
+            }
+          })();
+        }
         return;
       }
 

@@ -380,7 +380,6 @@ function TokenListFooter(props: IProps) {
               />
             ) : null}
           </XStack>
-          {tableLayout ? <Stack flexGrow={1} flexBasis={0} /> : null}
           <Stack flexGrow={1} flexBasis={0} justifyContent="flex-end">
             <NumberSizeableText
               size={tableLayout ? '$bodyMdMedium' : '$bodyLgMedium'}
@@ -392,7 +391,6 @@ function TokenListFooter(props: IProps) {
               {smallBalanceTokensFiatValue}
             </NumberSizeableText>
           </Stack>
-          {tableLayout ? <Stack flexGrow={1} flexBasis={0} /> : null}
         </ListItem>
       ) : null}
       {!isSearchMode && filteredRiskyTokens.length > 0 ? (
@@ -425,7 +423,7 @@ function TokenListFooter(props: IProps) {
         </ListItem>
       ) : null}
       {hasTokens && manageTokenEnabled ? (
-        <XStack py="$10" justifyContent="center" gap="$1">
+        <XStack py="$4" justifyContent="center" gap="$1">
           <SizableText size="$bodyMd" color="$textDisabled">
             {intl.formatMessage({ id: ETranslations.add_token_instruction })}
           </SizableText>

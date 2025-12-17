@@ -12,7 +12,6 @@ import {
   getFormInstances,
   rootNavigationRef,
   useIsTabletDetailView,
-  useMedia,
   useShortcuts,
 } from '@onekeyhq/components';
 import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
@@ -33,23 +32,21 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { electronUpdateListeners } from '@onekeyhq/shared/src/modules3rdParty/auto-update/electronUpdateListeners';
-import {
-  initIntercom,
-  update,
-} from '@onekeyhq/shared/src/modules3rdParty/intercom';
+import { initIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import performance from '@onekeyhq/shared/src/performance';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EDiscoveryModalRoutes,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   EGalleryRoutes,
   EModalRoutes,
   EModalSettingRoutes,
   EMultiTabBrowserRoutes,
-  EOnboardingPagesV2,
-  EOnboardingV2Routes,
   ETabEarnRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { ERootRoutes } from '@onekeyhq/shared/src/routes/root';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
@@ -460,21 +457,14 @@ const launchFloatingIconEvent = async (intl: IntlShape) => {
 };
 
 export const useIntercomInit = () => {
-  const { md } = useMedia();
   const isInitializedRef = useRef(false);
 
   useEffect(() => {
-    const shouldHideLauncher = md || !platformEnv.isWebDappMode;
-
     if (!isInitializedRef.current) {
-      // Initialize Intercom on first render, hide launcher on small screens
-      void initIntercom({ hide_default_launcher: shouldHideLauncher });
+      void initIntercom();
       isInitializedRef.current = true;
-    } else {
-      // Update launcher visibility when screen size changes
-      update({ hide_default_launcher: shouldHideLauncher });
     }
-  }, [md]);
+  }, []);
 };
 
 export const useLaunchEvents = (): void => {
@@ -672,12 +662,12 @@ export function Bootstrap() {
         navigation.switchTab(autoNavigation.selectedTab as ETabRoutes);
         // ----------------------------------------------
         // navigate to auth gallery
-        navigation.navigate(ERootRoutes.Main, {
-          screen: ETabRoutes.Developer,
-          params: {
-            screen: EGalleryRoutes.ComponentAuth,
-          },
-        });
+        // navigation.navigate(ERootRoutes.Main, {
+        //   screen: ETabRoutes.Developer,
+        //   params: {
+        //     screen: EGalleryRoutes.ComponentAuth,
+        //   },
+        // });
         // ----------------------------------------------
         // navigation.pushModal(EModalRoutes.PrimeModal, {
         //   screen: EPrimePages.PrimeTransfer,
@@ -693,6 +683,9 @@ export function Bootstrap() {
         //     screen: EOnboardingPagesV2.AddExistingWallet,
         //   },
         // });
+        navigation.navigate(ETabRoutes.Developer, {
+          screen: EGalleryRoutes.ComponentKeylessWallet,
+        });
       }, 1000);
 
       return () => clearTimeout(timer);

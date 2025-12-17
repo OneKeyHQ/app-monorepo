@@ -1,10 +1,11 @@
-import { memo, useCallback, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import {
   Badge,
   DebugRenderTracker,
+  type IListViewRef,
   Icon,
   ListView,
   Popover,
@@ -18,14 +19,13 @@ import {
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpsAllAssetCtxsAtom,
   usePerpsAllAssetsFilteredAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import {
-  usePerpTokenSortConfigPersistAtom,
+  usePerpTokenSelectorConfigPersistAtom,
   usePerpsActiveAssetAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -39,12 +39,23 @@ import type {
   IPerpsAssetCtx,
   IPerpsUniverse,
 } from '@onekeyhq/shared/types/hyperliquid';
-import { XYZ_ASSET_ID_OFFSET } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
+import {
+  DEFAULT_PERP_TOKEN_ACTIVE_TAB,
+  DEFAULT_PERP_TOKEN_SORT_DIRECTION,
+  DEFAULT_PERP_TOKEN_SORT_FIELD,
+  XYZ_ASSET_ID_OFFSET,
+} from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 
 import { usePerpTokenSelector } from '../../hooks';
 
 import { PerpTokenSelectorRow } from './PerpTokenSelectorRow';
 import { SortableHeaderCell } from './SortableHeaderCell';
+
+export type ITokenSelectorListItem = {
+  dexIndex: number;
+  index: number;
+  assetId?: number;
+};
 
 function TabItem({
   name,
@@ -142,6 +153,11 @@ function BasePerpTokenSelectorContent({
   const { closePopover } = usePopoverContext();
   const actions = useHyperliquidActions();
 
+  const [{ assetsByDex }] = usePerpsAllAssetsFilteredAtom();
+  const [{ assetCtxsByDex }] = usePerpsAllAssetCtxsAtom();
+  const [selectorConfig, setSelectorConfig] =
+    usePerpTokenSelectorConfigPersistAtom();
+
   const tabNames = useMemo(
     () => ({
       all: 'PERPS',
@@ -149,7 +165,17 @@ function BasePerpTokenSelectorContent({
     }),
     [],
   );
-  const [activeTab, setActiveTab] = useState<'all' | 'hip3'>('all');
+  const activeTab = selectorConfig?.activeTab ?? DEFAULT_PERP_TOKEN_ACTIVE_TAB;
+  const setActiveTab = useCallback(
+    (tab: 'all' | 'hip3') => {
+      setSelectorConfig((prev) => ({
+        field: prev?.field ?? DEFAULT_PERP_TOKEN_SORT_FIELD,
+        direction: prev?.direction ?? DEFAULT_PERP_TOKEN_SORT_DIRECTION,
+        activeTab: tab,
+      }));
+    },
+    [setSelectorConfig],
+  );
 
   const handleSelectToken = useCallback(
     async (symbol: string) => {
@@ -168,9 +194,29 @@ function BasePerpTokenSelectorContent({
     [closePopover, actions, onLoadingChange],
   );
 
-  const [{ assetsByDex }] = usePerpsAllAssetsFilteredAtom();
-  const [{ assetCtxsByDex }] = usePerpsAllAssetCtxsAtom();
-  const [sortConfig] = usePerpTokenSortConfigPersistAtom();
+  const listRefAll = useRef<IListViewRef<ITokenSelectorListItem> | null>(null);
+  const listRefHip3 = useRef<IListViewRef<ITokenSelectorListItem> | null>(null);
+  const activeTabRef = useRef(activeTab);
+  activeTabRef.current = activeTab;
+  const lastSortRef = useRef<{ field?: string; direction?: string } | null>(
+    null,
+  );
+
+  useEffect(() => {
+    const field = selectorConfig?.field;
+    const direction = selectorConfig?.direction;
+    const last = lastSortRef.current;
+    if (last?.field === field && last?.direction === direction) {
+      return;
+    }
+    lastSortRef.current = { field, direction };
+
+    const ref =
+      activeTabRef.current === 'hip3'
+        ? listRefHip3.current
+        : listRefAll.current;
+    ref?.scrollToOffset?.({ offset: 0, animated: false });
+  }, [selectorConfig?.direction, selectorConfig?.field]);
 
   const computeSortValues = useCallback(
     (assetCtx: IPerpsAssetCtx | undefined) => {
@@ -205,8 +251,8 @@ function BasePerpTokenSelectorContent({
         sortValues: ReturnType<typeof computeSortValues>;
       },
     ) => {
-      const sortField = sortConfig?.field ?? '';
-      const sortDirection = sortConfig?.direction ?? 'desc';
+      const sortField = selectorConfig?.field ?? '';
+      const sortDirection = selectorConfig?.direction ?? 'desc';
       if (!sortField) {
         return 0;
       }
@@ -239,7 +285,7 @@ function BasePerpTokenSelectorContent({
       }
       return sortDirection === 'asc' ? compareResult : -compareResult;
     },
-    [sortConfig?.direction, sortConfig?.field],
+    [selectorConfig?.direction, selectorConfig?.field],
   );
 
   const buildListData = useCallback(
@@ -252,8 +298,7 @@ function BasePerpTokenSelectorContent({
       assetCtxs: IPerpsAssetCtx[];
       dexIndex: number;
     }) => {
-      const sortField = sortConfig?.field ?? '';
-      const sortDirection = sortConfig?.direction ?? 'desc';
+      const sortField = selectorConfig?.field ?? '';
       if (!assets?.length) {
         return [];
       }
@@ -291,7 +336,7 @@ function BasePerpTokenSelectorContent({
         dexIndex: entry.dexIndex,
       }));
     },
-    [computeSortValues, sortCompare, sortConfig?.direction, sortConfig?.field],
+    [computeSortValues, sortCompare, selectorConfig?.field],
   );
 
   const listDataByTab = useMemo(() => {
@@ -329,7 +374,7 @@ function BasePerpTokenSelectorContent({
       },
     );
 
-    const sortField = sortConfig?.field ?? '';
+    const sortField = selectorConfig?.field ?? '';
     const listAll = (() => {
       if (!sortField) {
         return combinedEntries.map((entry) => ({
@@ -361,7 +406,7 @@ function BasePerpTokenSelectorContent({
     buildListData,
     computeSortValues,
     sortCompare,
-    sortConfig?.field,
+    selectorConfig?.field,
   ]);
 
   const keyExtractor = useCallback(
@@ -373,13 +418,17 @@ function BasePerpTokenSelectorContent({
   );
 
   const renderTokenList = useCallback(
-    (data: { dexIndex: number; index: number; assetId?: number }[]) => (
+    (
+      data: ITokenSelectorListItem[],
+      listRef: React.MutableRefObject<IListViewRef<ITokenSelectorListItem> | null>,
+    ) => (
       <Tabs.ScrollView>
         <YStack>
           <TokenListHeader />
           <YStack height={350}>
             <ListView
               useFlashList
+              ref={listRef}
               keyExtractor={keyExtractor}
               data={data}
               renderItem={({ item: mockedToken }) => (
@@ -432,7 +481,7 @@ function BasePerpTokenSelectorContent({
           />
         </XStack>
         <Tabs.Container
-          initialTabName={tabNames.all}
+          initialTabName={activeTab === 'hip3' ? tabNames.hip3 : tabNames.all}
           onTabChange={({ tabName }) => {
             if (tabName === tabNames.hip3) {
               setActiveTab('hip3');
@@ -456,10 +505,14 @@ function BasePerpTokenSelectorContent({
           )}
         >
           <Tabs.Tab name={tabNames.all}>
-            {activeTab === 'all' ? renderTokenList(listDataByTab.all) : null}
+            {activeTab === 'all'
+              ? renderTokenList(listDataByTab.all, listRefAll)
+              : null}
           </Tabs.Tab>
           <Tabs.Tab name={tabNames.hip3}>
-            {activeTab === 'hip3' ? renderTokenList(listDataByTab.hip3) : null}
+            {activeTab === 'hip3'
+              ? renderTokenList(listDataByTab.hip3, listRefHip3)
+              : null}
           </Tabs.Tab>
         </Tabs.Container>
       </YStack>
@@ -487,7 +540,6 @@ function PerpTokenSelectorContent({
 const PerpTokenSelectorContentMemo = memo(PerpTokenSelectorContent);
 
 function BasePerpTokenSelector() {
-  const themeVariant = useThemeVariant();
   const [isOpen, setIsOpen] = useState(false);
   const [currentToken] = usePerpsActiveAssetAtom();
   const { coin } = currentToken;
@@ -508,7 +560,6 @@ function BasePerpTokenSelector() {
             <Token
               size="md"
               borderRadius="$full"
-              bg={themeVariant === 'light' ? null : '$bgInverse'}
               tokenImageUri={getHyperliquidTokenImageUrl(
                 parsedActive.displayName,
               )}
@@ -531,7 +582,7 @@ function BasePerpTokenSelector() {
         )}
       />
     ),
-    [isOpen, isLoading, themeVariant, parsedActive.displayName],
+    [isOpen, isLoading, parsedActive.displayName],
   );
   return (
     <DebugRenderTracker name="PerpTokenSelector">{content}</DebugRenderTracker>

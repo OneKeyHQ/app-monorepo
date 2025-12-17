@@ -6,6 +6,21 @@ import {
 } from '@onekeyhq/core/src/secret';
 import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
 import {
+  CLOUD_BACKUP_PASSWORD_SALT,
+  CLOUD_BACKUP_PASSWORD_VERIFY_TEXT,
+} from '@onekeyhq/shared/src/cloudBackup/cloudBackupConsts';
+import { ECloudBackupProviderType } from '@onekeyhq/shared/src/cloudBackup/cloudBackupTypes';
+import type {
+  IBackupCloudServerDownloadData,
+  IBackupDataEncryptedPayload,
+  IBackupDataManifest,
+  IBackupDataManifestItem,
+  IBackupDataPasswordVerify,
+  IBackupProviderAccountInfo,
+  IBackupProviderInfo,
+  ICloudBackupKeylessWalletPayload,
+} from '@onekeyhq/shared/src/cloudBackup/cloudBackupTypes';
+import {
   IncorrectPassword,
   OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
@@ -16,23 +31,17 @@ import { appleKeyChainStorage } from '@onekeyhq/shared/src/storage/AppleKeyChain
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import type { IPrimeTransferPublicData } from '@onekeyhq/shared/types/prime/primeTransferTypes';
 
-import {
-  CLOUD_BACKUP_PASSWORD_SALT,
-  CLOUD_BACKUP_PASSWORD_VERIFY_TEXT,
-  type IBackupCloudServerDownloadData,
-  type IBackupDataEncryptedPayload,
-  type IBackupDataManifest,
-  type IBackupDataManifestItem,
-  type IBackupDataPasswordVerify,
-  type IBackupProviderAccountInfo,
-  type IBackupProviderInfo,
-  type IOneKeyBackupProvider,
-} from './IOneKeyBackupProvider';
+import type { IOneKeyBackupProvider } from './IOneKeyBackupProvider';
 
 const CLOUDKIT_RECORD_TYPE = 'OneKeyBackupV2';
 const CLOUDKIT_RECORD_ID_PREFIX = 'onekey_backup_v2_item';
+const CLOUDKIT_KEYLESS_WALLET_RECORD_ID_PREFIX = 'onekey_keyless_wallet_';
 const CLOUDKIT_BACKUP_PASSWORD_VERIFY_RECORD_ID =
   'onekey_backup_v2____backup_password_verify';
+
+function buildKeylessWalletRecordID(packSetId: string): string {
+  return `${CLOUDKIT_KEYLESS_WALLET_RECORD_ID_PREFIX}${packSetId}`;
+}
 
 const ICLOUD_KEYCHAIN_KEY = 'com.onekey.backup_v2.encryption.key';
 const ICLOUD_KEYCHAIN_LABEL = 'OneKey Wallet Backup V2 Key (DO NOT DELETE)';
@@ -84,6 +93,8 @@ export class ICloudBackupProvider implements IOneKeyBackupProvider {
 
     return {
       userId: cloudKitAccountInfo.containerUserId ?? '',
+      userEmail: '',
+      providerType: ECloudBackupProviderType.iCloud,
       iCloud: {
         cloudKitStatus: cloudKitAccountInfo.status,
         cloudKitStatusName: cloudKitAccountInfo.statusName,
@@ -283,6 +294,67 @@ export class ICloudBackupProvider implements IOneKeyBackupProvider {
       recordID,
       content,
       meta: meta || '',
+    };
+  }
+
+  async backupKeylessWalletData(
+    payload: ICloudBackupKeylessWalletPayload,
+  ): Promise<{ recordID: string; content: string; meta: string }> {
+    const recordID = buildKeylessWalletRecordID(payload.cloudKeyPack.packSetId);
+    const content = stringUtils.stableStringify(payload);
+    await appleCloudKitStorage.saveRecord({
+      recordType: CLOUDKIT_RECORD_TYPE,
+      recordID,
+      data: content,
+      meta: '',
+    });
+    return {
+      recordID,
+      content,
+      meta: '',
+    };
+  }
+
+  async downloadKeylessWalletData({ recordID }: { recordID: string }): Promise<{
+    payload: ICloudBackupKeylessWalletPayload;
+    content: string;
+  } | null> {
+    await this.checkAvailability();
+    const record = await appleCloudKitStorage.fetchRecord({
+      recordID,
+      recordType: CLOUDKIT_RECORD_TYPE,
+    });
+    if (!record?.data) {
+      return null;
+    }
+    try {
+      return {
+        payload: JSON.parse(record.data) as ICloudBackupKeylessWalletPayload,
+        content: record.data,
+      };
+    } catch (error) {
+      console.error('Failed to download keyless wallet data:', error);
+      return null;
+    }
+  }
+
+  async getKeylessWalletBackupRecordID({
+    packSetId,
+  }: {
+    packSetId: string;
+  }): Promise<{ recordID: string; packSetId: string } | null> {
+    await this.checkAvailability();
+    const recordID = buildKeylessWalletRecordID(packSetId);
+    const record = await appleCloudKitStorage.fetchRecord({
+      recordID,
+      recordType: CLOUDKIT_RECORD_TYPE,
+    });
+    if (!record?.data) {
+      return null;
+    }
+    return {
+      recordID,
+      packSetId,
     };
   }
 

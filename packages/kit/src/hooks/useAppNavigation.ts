@@ -80,6 +80,7 @@ function useAppNavigation<
     | IPageNavigationProp<any>
     | IModalNavigationProp<any> = IPageNavigationProp<any>,
 >() {
+  // rootNavigationRef
   const navigation = useNavigation<P>();
   const navigationRef = useRef(navigation);
   const isTabletMainView = useIsTabletMainView();
@@ -264,7 +265,11 @@ function useAppNavigation<
 
   const popTo: typeof navigationRef.current.popTo = useCallback(
     (...args: any) => {
-      navigationRef.current.popTo(...args);
+      const [screen, params, options] = args;
+      navigationRef.current.navigate(screen, params, {
+        pop: true,
+        ...options,
+      });
     },
     [],
   );

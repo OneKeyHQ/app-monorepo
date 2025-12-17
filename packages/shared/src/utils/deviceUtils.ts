@@ -74,13 +74,13 @@ export enum EHardwareUiStateAction {
 }
 
 type IGetDeviceVersionParams = {
-  device: SearchDevice | undefined;
+  device: IDBDevice | Omit<SearchDevice, 'commType'> | undefined;
   features: IOneKeyDeviceFeatures | undefined;
 };
 
 // TODO move to db converter
 function dbDeviceToSearchDevice(device: IDBDevice) {
-  const result: SearchDevice = {
+  const result: Omit<SearchDevice, 'commType'> = {
     ...device,
     connectId: device.connectId,
     uuid: device.uuid,
@@ -309,7 +309,7 @@ async function buildDeviceName({
   device,
   features,
 }: {
-  device?: SearchDevice;
+  device?: Omit<SearchDevice, 'commType'>;
   features: IOneKeyDeviceFeatures;
 }): Promise<string> {
   const label = await buildDeviceLabel({ features });
@@ -512,7 +512,7 @@ function getRawDeviceId({
   device,
   features,
 }: {
-  device: SearchDevice;
+  device: Omit<SearchDevice, 'commType'>;
   features: IOneKeyDeviceFeatures;
 }) {
   // SearchDevice.deviceId is undefined when BLE connecting

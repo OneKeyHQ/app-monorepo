@@ -39,6 +39,10 @@ import type {
 import {
   DB_MAIN_CONTEXT_ID,
   DEFAULT_VERIFY_STRING,
+  WALLET_NO_EXTERNAL,
+  WALLET_NO_IMPORTED,
+  WALLET_NO_KEYLESS,
+  WALLET_NO_WATCHING,
   WALLET_TYPE_EXTERNAL,
   WALLET_TYPE_HD,
   WALLET_TYPE_HW,
@@ -81,6 +85,7 @@ import perfUtils, {
 } from '@onekeyhq/shared/src/utils/debug/perfUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
+import { randomAvatar } from '@onekeyhq/shared/src/utils/emojiUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
@@ -95,6 +100,7 @@ import type {
   IDeviceVersionCacheInfo,
   IOneKeyDeviceFeatures,
 } from '@onekeyhq/shared/types/device';
+import type { ICloudSyncKeyInfoWallet } from '@onekeyhq/shared/types/prime/primeCloudSyncTypes';
 import type {
   ICreateConnectedSiteParams,
   ICreateSignedMessageParams,
@@ -115,6 +121,7 @@ import type {
   IDBContext,
   IDBCreateHDWalletParams,
   IDBCreateHwWalletParams,
+  IDBCreateKeylessWalletParams,
   IDBCreateQRWalletParams,
   IDBCredentialBase,
   IDBDevice,
@@ -184,19 +191,19 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         avatar: {
           img: 'othersImported',
         },
-        walletNo: 1_000_001,
+        walletNo: WALLET_NO_IMPORTED,
       },
       [WALLET_TYPE_WATCHING]: {
         avatar: {
           img: 'othersWatching',
         },
-        walletNo: 1_000_002,
+        walletNo: WALLET_NO_WATCHING,
       },
       [WALLET_TYPE_EXTERNAL]: {
         avatar: {
           img: 'othersExternal',
         },
-        walletNo: 1_000_003,
+        walletNo: WALLET_NO_EXTERNAL,
       },
     };
     const record: IDBWallet = {
@@ -869,7 +876,15 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       }
       // TODO performance
       const { wallets } = await this.getWallets();
-      const walletsByXfp = wallets.filter((w) => w.xfp === xfp);
+      const walletsByXfp = wallets.filter((w) => {
+        const isKeylessWallet = accountUtils.isKeylessWallet({
+          walletId: w.id,
+        });
+        if (isKeylessWallet) {
+          return false;
+        }
+        return w.xfp === xfp;
+      });
       return walletsByXfp;
     } catch (error) {
       return [];
@@ -894,9 +909,16 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       // TODO performance
       const { wallets } = await this.getWallets();
       if (walletType === WALLET_TYPE_HD) {
-        const wallet = wallets.find(
-          (w) => w.type === walletType && w.hash === walletHash,
-        );
+        const wallet = wallets.find((w) => {
+          const isKeylessWallet = accountUtils.isKeylessWallet({
+            walletId: w.id,
+          });
+          if (isKeylessWallet) {
+            return false;
+          }
+          const r = w.type === walletType && w.hash === walletHash;
+          return r;
+        });
         return wallet;
       }
       if (walletType === WALLET_TYPE_HW || walletType === WALLET_TYPE_QR) {
@@ -2007,7 +2029,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
 
     rebuildWalletRecord({
       name: initWalletName,
-      avatar: initAvatarInfo,
+      avatar: initAvatarInfo ?? randomAvatar(),
     });
 
     if (!currentWalletToCreate) {
@@ -2115,6 +2137,67 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           });
         },
       });
+    });
+
+    return this.buildCreateHDAndHWWalletResult({
+      walletId,
+      addedHdAccountIndex,
+    });
+  }
+
+  async createKeylessWallet(params: IDBCreateKeylessWalletParams): Promise<{
+    wallet: IDBWallet;
+    indexedAccount: IDBIndexedAccount | undefined;
+  }> {
+    const { password, name, avatar: initAvatarInfo, packSetId } = params;
+    await this.getContext({ verifyPassword: password });
+    const walletId = accountUtils.buildKeylessWalletId({
+      sharePackSetId: packSetId,
+    });
+    const defaultWalletName = `KeylessWallet`;
+    const initWalletName = name || defaultWalletName;
+
+    const firstAccountIndex = 0;
+
+    let addedHdAccountIndex = -1;
+
+    const avatarInfo = initAvatarInfo ?? randomAvatar();
+
+    const walletToCreate: IDBWallet = {
+      id: walletId,
+      name: initWalletName,
+      hash: undefined,
+      xfp: undefined, // keyless wallet doesn't have xfp
+      avatar: JSON.stringify(avatarInfo),
+      type: WALLET_TYPE_HD,
+      backuped: true, // keyless wallet is always backed up
+      nextIds: {
+        accountHdIndex: firstAccountIndex,
+      },
+      accounts: [],
+      walletNo: WALLET_NO_KEYLESS, // Keyless wallet uses a fixed walletNo and doesn't participate in nextWalletNo increment
+      deprecated: false,
+    };
+
+    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
+      // add db wallet
+      await this.txAddRecords({
+        tx,
+        name: ELocalDBStoreNames.Wallet,
+        records: [walletToCreate],
+        skipIfExists: true,
+      });
+
+      // add first indexed account
+      const { nextIndex } = await this.txAddHDNextIndexedAccount({
+        tx,
+        walletId,
+        onlyAddFirst: true,
+        skipServerSyncFlow: true, // Keyless wallet doesn't need cloud sync
+      });
+      addedHdAccountIndex = nextIndex;
+
+      // Keyless wallet doesn't increment nextWalletNo
     });
 
     return this.buildCreateHDAndHWWalletResult({
@@ -3213,6 +3296,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     const wallet = await this.getWallet({
       walletId,
     });
+    const isKeylessWallet = accountUtils.isKeylessWallet({ walletId });
     const walletsInSameDevice = await this.getNormalHwQrWalletInSameDevice({
       associatedDevice: wallet.associatedDevice,
     });
@@ -3222,9 +3306,12 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       dbRecord: wallet,
     });
     // TODO buildSyncKeyAndPayloadSafe
-    const syncKeyInfo = await syncManagers.wallet.buildSyncKeyAndPayload({
-      target,
-    });
+    let syncKeyInfo: ICloudSyncKeyInfoWallet | undefined;
+    if (!isKeylessWallet) {
+      syncKeyInfo = await syncManagers.wallet.buildSyncKeyAndPayload({
+        target,
+      });
+    }
 
     await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
       // call remove account & indexed account
@@ -3278,7 +3365,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             });
           }
         }
-      } else {
+      } else if (!isKeylessWallet) {
         await this.txRemoveRecords({
           tx,
           name: ELocalDBStoreNames.Credential,
@@ -3326,7 +3413,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       }
     });
 
-    await this.removeCloudSyncPoolItems({ keys: [syncKeyInfo.key] });
+    if (syncKeyInfo) {
+      await this.removeCloudSyncPoolItems({ keys: [syncKeyInfo.key] });
+    }
 
     delete this.tempWallets[walletId];
 

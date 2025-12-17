@@ -34,6 +34,10 @@ export interface IDevSettings {
   disableWebEmbedApi?: boolean; // Do not render webembedApi Webview
   webviewDebuggingEnabled?: boolean;
   allowAddSameHDWallet?: boolean;
+  // allow create keyless wallet on web platform (mock cloud backup info)
+  allowCreateKeylessWalletOnWeb?: boolean;
+  // allow delete keyless key (device key and auth key)
+  allowDeleteKeylessKey?: boolean;
 
   showPrimeTest?: boolean;
   usePrimeSandboxPayment?: boolean;
@@ -95,7 +99,8 @@ export const {
         selectedTab: ETabRoutes.Home,
       },
       useLocalTradingViewUrl: false,
-      usbCommunicationMode: 'webusb',
+      // Linux Desktop use Bridge，avoiding WebUSB permission problem
+      usbCommunicationMode: platformEnv.isDesktopLinux ? 'bridge' : 'webusb',
       disableIpTableInProd: false, // IP Table enabled by default
       forceIpTableStrict: false, // Strict mode: disabled by default
     },
