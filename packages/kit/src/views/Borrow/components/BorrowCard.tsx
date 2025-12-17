@@ -1,10 +1,13 @@
 import { useCallback } from 'react';
 
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type { IBorrowReserveItem } from '@onekeyhq/shared/types/staking';
 
 import { EarnText } from '../../Staking/components/ProtocolDetails/EarnText';
+import { EManagePositionType } from '../../Staking/pages/ManagePosition/hooks/useManagePage';
 import { useBorrowContext } from '../BorrowProvider';
+import { BorrowNavigation } from '../borrowUtils';
 import { useSupplyActions } from '../hooks/useSupplyActions';
 
 import {
@@ -19,7 +22,27 @@ import { Card } from './Card';
 type IBorrowAsset = IBorrowReserveItem['borrow']['assets'][number];
 
 export const BorrowCard = () => {
-  const { reserves } = useBorrowContext();
+  const { reserves, market } = useBorrowContext();
+  const navigation = useAppNavigation();
+  const { activeAccount } = useActiveAccount({ num: 0 });
+
+  const handleManageBorrow = useCallback(
+    (item: IBorrowAsset) => {
+      if (!market) return;
+
+      BorrowNavigation.pushToBorrowManagePosition(navigation, {
+        accountId: activeAccount.account?.id || '',
+        networkId: market.networkId,
+        provider: market.provider,
+        marketAddress: market.marketAddress,
+        reserveAddress: item.reserveAddress,
+        symbol: item.token.symbol,
+        logoURI: item.token.logoURI,
+        type: EManagePositionType.Borrow,
+      });
+    },
+    [navigation, market, activeAccount.account?.id],
+  );
 
   // FIXME[borrow]: i18n
   return (
@@ -61,7 +84,7 @@ export const BorrowCard = () => {
               <ActionField
                 buttonText={<EarnText text={{ text: 'Borrow' }} />}
                 item={item}
-                onPress={() => {}}
+                onPress={() => handleManageBorrow(item)}
               />
             ),
             flex: 1,

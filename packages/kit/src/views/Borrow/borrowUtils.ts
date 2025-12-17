@@ -14,6 +14,7 @@ import {
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import type { IAppNavigation } from '../../hooks/useAppNavigation';
+import type { EManagePositionType } from '../Staking/pages/ManagePosition/hooks/useManagePage';
 
 async function safePushToBorrowRoute(
   navigation: IAppNavigation,
@@ -94,6 +95,7 @@ export const BorrowNavigation = {
       reserveAddress: string;
       symbol: string;
       logoURI?: string;
+      type: EManagePositionType;
     },
   ) {
     navigation.pushModal(EModalRoutes.StakingModal, {
@@ -106,6 +108,7 @@ export const BorrowNavigation = {
         reserveAddress: params.reserveAddress,
         symbol: params.symbol,
         logoURI: params.logoURI,
+        type: params.type,
       },
     });
   },

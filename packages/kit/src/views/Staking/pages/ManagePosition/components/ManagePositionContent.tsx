@@ -423,6 +423,7 @@ export function ManagePositionContent({
       symbol={symbol}
       provider={provider}
       vault={vault}
+      type={type}
       tokenInfo={resolvedTokenInfo}
       fallbackTokenImageUri={resolvedTokenImageUri}
       protocolInfo={protocolInfo}
@@ -444,6 +445,7 @@ export function ManagePositionContent({
       appNavigation={appNavigation}
       showApyDetail={showApyDetail}
       ongoingValidator={ongoingValidator}
+      managePageData={managePageData}
     />
   );
 }

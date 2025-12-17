@@ -18,7 +18,10 @@ import { buildLocalTxStatusSyncId } from '../../../utils/utils';
 
 export enum EManagePositionType {
   Staking = 'staking',
+  Supply = 'supply',
   Borrow = 'borrow',
+  Withdraw = 'withdraw',
+  Repay = 'repay',
 }
 
 export const useManagePage = ({
@@ -49,7 +52,14 @@ export const useManagePage = ({
   } = usePromiseResult(
     async () => {
       // For Borrow type, use different API
-      if (type === EManagePositionType.Borrow) {
+      if (
+        [
+          EManagePositionType.Supply,
+          EManagePositionType.Borrow,
+          EManagePositionType.Withdraw,
+          EManagePositionType.Repay,
+        ].includes(type)
+      ) {
         const earnAccount =
           await backgroundApiProxy.serviceStaking.getEarnAccount({
             accountId,
@@ -69,7 +79,7 @@ export const useManagePage = ({
             provider,
             marketAddress: marketAddress || '',
             reserveAddress: reserveAddress || '',
-            type: 'supply',
+            type: type as 'supply' | 'withdraw' | 'borrow' | 'repay',
           });
 
         const protocolList =

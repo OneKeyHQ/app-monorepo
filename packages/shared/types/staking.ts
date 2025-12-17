@@ -747,6 +747,10 @@ export enum EStakingActionType {
   Activate = 'activate',
   Receive = 'receive',
   Trade = 'trade',
+
+  Supply = 'supply',
+  Borrow = 'borrow',
+  Repay = 'repay',
 }
 
 export interface IEarnWithdrawActionIcon {
@@ -765,6 +769,45 @@ export interface IEarnWithdrawOrderActionIcon {
   text: IEarnText;
   data?: {
     text: IEarnText;
+  };
+}
+
+export interface IEarnSupplyActionData {
+  type: 'supply';
+  disabled: boolean;
+  text: IEarnText;
+  data: {
+    balance: string;
+    token: {
+      info: IEarnToken;
+      price: string;
+    };
+  };
+}
+
+export interface IEarnBorrowActionData {
+  type: 'borrow';
+  disabled: boolean;
+  text: IEarnText;
+  data: {
+    balance: string;
+    token: {
+      info: IEarnToken;
+      price: string;
+    };
+  };
+}
+
+export interface IEarnRepayActionData {
+  type: 'repay';
+  disabled: boolean;
+  text: IEarnText;
+  data: {
+    balance: string;
+    token: {
+      info: IEarnToken;
+      price: string;
+    };
   };
 }
 
@@ -832,6 +875,10 @@ export interface IEarnSelectField {
 }
 
 export interface IEarnManagePageResponse {
+  supply?: IEarnSupplyActionData;
+  borrow?: IEarnBorrowActionData;
+  repay?: IEarnRepayActionData;
+
   deposit?: IEarnDepositActionData;
   withdraw?: IEarnWithdrawActionData;
   receive?: IEarnReceiveActionIcon;

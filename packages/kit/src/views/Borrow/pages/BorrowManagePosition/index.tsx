@@ -31,6 +31,7 @@ const BorrowManagePosition = () => {
       logoURI,
       reserveAddress,
       marketAddress,
+      type,
     } = route.params;
     return {
       accountId: activeAccount.account?.id || '',
@@ -41,6 +42,7 @@ const BorrowManagePosition = () => {
       logoURI,
       reserveAddress,
       marketAddress,
+      type,
     };
   }, [route.params, activeAccount]);
 
@@ -53,6 +55,7 @@ const BorrowManagePosition = () => {
     logoURI,
     reserveAddress,
     marketAddress,
+    type,
   } = resolvedParams;
 
   return (
@@ -68,7 +71,7 @@ const BorrowManagePosition = () => {
           accountId={accountId}
           indexedAccountId={indexedAccountId}
           fallbackTokenImageUri={logoURI}
-          type={EManagePositionType.Borrow}
+          type={type as EManagePositionType}
           reserveAddress={reserveAddress}
           marketAddress={marketAddress}
         />

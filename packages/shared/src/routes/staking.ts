@@ -1,3 +1,5 @@
+import type { EManagePositionType } from '@onekeyhq/kit/src/views/Staking/pages/ManagePosition/hooks/useManagePage';
+
 import type {
   IEarnAlert,
   IEarnTokenInfo,
@@ -72,6 +74,7 @@ export type IModalStakingParamList = {
     reserveAddress: string;
     symbol: string;
     logoURI?: string;
+    type?: EManagePositionType;
   };
   [EModalStakingRoutes.Stake]: IDetailPageInfoParams & {
     currentAllowance: string;

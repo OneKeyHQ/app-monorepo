@@ -5,6 +5,7 @@ import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accoun
 import type { IBorrowReserveItem } from '@onekeyhq/shared/types/staking';
 
 import { EarnText } from '../../Staking/components/ProtocolDetails/EarnText';
+import { EManagePositionType } from '../../Staking/pages/ManagePosition/hooks/useManagePage';
 import { useBorrowContext } from '../BorrowProvider';
 import { BorrowNavigation } from '../borrowUtils';
 
@@ -51,6 +52,7 @@ export const SupplyCard = () => {
         reserveAddress: item.reserveAddress,
         symbol: item.token.symbol,
         logoURI: item.token.logoURI,
+        type: EManagePositionType.Supply,
       });
     },
     [navigation, market, activeAccount.account?.id],

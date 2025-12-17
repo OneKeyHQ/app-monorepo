@@ -9,12 +9,15 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import type {
   IEarnHistoryActionIcon,
+  IEarnManagePageResponse,
   IEarnSelectField,
   IEarnTokenInfo,
   IProtocolInfo,
   IStakeTag,
 } from '@onekeyhq/shared/types/staking';
 import { EStakingActionType } from '@onekeyhq/shared/types/staking';
+
+import { EManagePositionType } from '../hooks/useManagePage';
 
 import { HeaderRight } from './HeaderRight';
 import { StakeSection } from './StakeSection';
@@ -48,6 +51,8 @@ interface INormalManageContentProps {
   showApyDetail?: boolean;
   fallbackTokenImageUri?: string;
   ongoingValidator?: IEarnSelectField;
+  managePageData?: IEarnManagePageResponse;
+  type?: EManagePositionType;
 }
 
 export function NormalManageContent({
@@ -76,6 +81,8 @@ export function NormalManageContent({
   showApyDetail,
   fallbackTokenImageUri,
   ongoingValidator,
+  managePageData,
+  type = EManagePositionType.Staking,
 }: INormalManageContentProps) {
   const intl = useIntl();
 
@@ -92,8 +99,41 @@ export function NormalManageContent({
     }
   }, [defaultTab]);
 
-  const tabData = useMemo(
-    () => [
+  const tabData = useMemo(() => {
+    if (managePageData) {
+      if (
+        [EManagePositionType.Supply, EManagePositionType.Withdraw].includes(
+          type,
+        )
+      ) {
+        return [
+          {
+            title: managePageData.supply?.text?.text ?? '',
+            type: EStakingActionType.Supply,
+          },
+          {
+            title: managePageData.withdraw?.text?.text ?? '',
+            type: EStakingActionType.Withdraw,
+          },
+        ];
+      }
+      if (
+        [EManagePositionType.Borrow, EManagePositionType.Repay].includes(type)
+      ) {
+        return [
+          {
+            title: managePageData.borrow?.text?.text ?? '',
+            type: EStakingActionType.Borrow,
+          },
+          {
+            title: managePageData.repay?.text?.text ?? '',
+            type: EStakingActionType.Repay,
+          },
+        ];
+      }
+    }
+
+    return [
       {
         title: intl.formatMessage({ id: ETranslations.earn_deposit }),
         type: EStakingActionType.Deposit,
@@ -102,9 +142,8 @@ export function NormalManageContent({
         title: intl.formatMessage({ id: ETranslations.global_withdraw }),
         type: EStakingActionType.Withdraw,
       },
-    ],
-    [intl],
-  );
+    ];
+  }, [intl, managePageData, type]);
 
   const tabNames = useMemo(() => tabData.map((item) => item.title), [tabData]);
 
