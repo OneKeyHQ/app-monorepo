@@ -162,7 +162,7 @@ function BaseMarketHomeWithProvider({
 }) {
   const { mobileProps } = useMarketHomeLayoutProps();
 
-  return <MobileLayout {...mobileProps} isFocused={isFocused} />;
+  return <MobileLayout {...mobileProps} />;
 }
 
 export function MarketHomeWithProvider({
