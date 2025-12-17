@@ -51,6 +51,7 @@ import { PortfolioContainerWithProvider } from './PortfolioContainer';
 import { TabHeaderSettings } from './TabHeaderSettings';
 import { TxHistoryListContainerWithProvider } from './TxHistoryContainer';
 import WalletContentWithAuth from './WalletContentWithAuth';
+import { NetworkUnsupportedWarning } from '../../Staking/components/ProtocolDetails/NetworkUnsupportedWarning';
 
 const networksSupportBulkRevokeApproval =
   getNetworksSupportBulkRevokeApproval();
@@ -348,7 +349,40 @@ export function HomePageView({
     };
   }, [handleSwitchWalletHomeTab]);
 
+  const { result: accountNetworkNotSupported } = usePromiseResult(
+    async () => {
+      if (!network?.id) return undefined;
+      const result =
+        await backgroundApiProxy.serviceAccount.checkAccountNetworkNotSupported(
+          {
+            walletId: wallet?.id,
+            accountId: account?.id,
+            accountImpl: account?.impl,
+            activeNetworkId: network.id,
+            featuresInfoCache: device?.featuresInfo,
+          },
+        );
+
+      return !!result?.networkImpl;
+    },
+    [account?.id, account?.impl, wallet?.id, network?.id, device?.featuresInfo],
+    { initResult: undefined },
+  );
+
   const homePageContent = useMemo(() => {
+    if (accountNetworkNotSupported) {
+      return (
+        <YStack height="100%">
+          <Stack flex={1} justifyContent="center">
+            <NetworkUnsupportedWarning
+              networkId={network?.id ?? ''}
+              emptyStyle
+            />
+          </Stack>
+        </YStack>
+      );
+    }
+
     if (
       (softwareAccountDisabled &&
         accountUtils.isHdWallet({
@@ -397,6 +431,7 @@ export function HomePageView({
 
     return tabs;
   }, [
+    accountNetworkNotSupported,
     softwareAccountDisabled,
     wallet?.id,
     supportedDeviceTypes,
