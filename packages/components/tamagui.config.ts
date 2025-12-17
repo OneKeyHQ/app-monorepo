@@ -6,6 +6,8 @@ import { createFont, createTokens } from '@tamagui/web';
 import { createTamagui } from 'tamagui';
 
 import {
+  blue,
+  blueDark,
   brand,
   brandDark,
   caution,
@@ -16,6 +18,8 @@ import {
   infoDark,
   neutral,
   neutralDark,
+  orange,
+  orangeDark,
   pink,
   pinkDark,
   primary,
@@ -28,6 +32,8 @@ import {
   purpleDark,
   success,
   successDark,
+  teal,
+  tealDark,
 } from './colors';
 import { webFontFamily } from './src/utils/webFontFamily';
 
@@ -225,6 +231,9 @@ const lightColors = {
   ...purple,
   ...pink,
   ...gray,
+  ...blue,
+  ...orange,
+  ...teal,
   bg: '#FFFFFF',
   bgActive: neutral.neutral4,
   bgApp: '#FFFFFF',
@@ -324,6 +333,9 @@ const darkColors: typeof lightColors = {
   ...purpleDark,
   ...pinkDark,
   ...grayDark,
+  ...blueDark,
+  ...orangeDark,
+  ...tealDark,
   bg: '#1b1b1b',
   bgActive: neutralDark.neutral4,
   bgApp: '#0f0f0f',
