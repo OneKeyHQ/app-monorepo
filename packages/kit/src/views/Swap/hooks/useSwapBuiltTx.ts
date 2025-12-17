@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 
 import {
   OrderBalance,
@@ -36,6 +36,7 @@ import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusName
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { ESwapEventAPIStatus } from '@onekeyhq/shared/src/logger/scopes/swap/scenes/swapEstimateFee';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EScanQrCodeModalPages } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { calculateFeeForSend } from '@onekeyhq/shared/src/utils/feeUtils';
@@ -113,7 +114,7 @@ import {
 } from '../../../states/jotai/contexts/swap';
 
 import { useSwapAddressInfo } from './useSwapAccount';
-import { useSwapBuildTxInfo } from './useSwapPro';
+import { useSwapBuildTxInfo, useSwapProAccount } from './useSwapPro';
 import {
   useSwapActionState,
   useSwapSlippagePercentageModeInfo,
@@ -143,6 +144,80 @@ export function useSwapBuildTx() {
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
+  const swapProAccount = useSwapProAccount();
+  const focusSwapPro = useMemo(() => {
+    return platformEnv.isNative && swapTypeSwitch === ESwapTabSwitchType.LIMIT;
+  }, [swapTypeSwitch]);
+  const fromUserAddress = useMemo(() => {
+    if (focusSwapPro) {
+      return swapProAccount.result?.addressDetail.address;
+    }
+    return swapFromAddressInfo.address;
+  }, [
+    focusSwapPro,
+    swapProAccount.result?.addressDetail.address,
+    swapFromAddressInfo.address,
+  ]);
+  const toUserAddress = useMemo(() => {
+    if (focusSwapPro) {
+      return swapProAccount.result?.addressDetail.address;
+    }
+    return swapToAddressInfo.address;
+  }, [
+    focusSwapPro,
+    swapProAccount.result?.addressDetail.address,
+    swapToAddressInfo.address,
+  ]);
+  const fromAccountId = useMemo(() => {
+    if (focusSwapPro) {
+      return swapProAccount.result?.id;
+    }
+    return swapFromAddressInfo.accountInfo?.account?.id;
+  }, [
+    focusSwapPro,
+    swapProAccount.result?.id,
+    swapFromAddressInfo.accountInfo?.account?.id,
+  ]);
+  const toAccountId = useMemo(() => {
+    if (focusSwapPro) {
+      return swapProAccount.result?.id;
+    }
+    return swapToAddressInfo.accountInfo?.account?.id;
+  }, [
+    focusSwapPro,
+    swapProAccount.result?.id,
+    swapToAddressInfo.accountInfo?.account?.id,
+  ]);
+  const fromAccountIndexedAccountId = useMemo(() => {
+    if (focusSwapPro) {
+      return swapProAccount.result?.indexedAccountId;
+    }
+    return swapFromAddressInfo.accountInfo?.indexedAccount?.id;
+  }, [
+    focusSwapPro,
+    swapProAccount.result?.indexedAccountId,
+    swapFromAddressInfo.accountInfo?.indexedAccount?.id,
+  ]);
+  const fromAccountNetworkId = useMemo(() => {
+    if (focusSwapPro) {
+      return swapProAccount.result?.addressDetail.networkId;
+    }
+    return swapFromAddressInfo.networkId;
+  }, [
+    focusSwapPro,
+    swapProAccount.result?.addressDetail.networkId,
+    swapFromAddressInfo.networkId,
+  ]);
+  const dbAccountId = useMemo(() => {
+    if (focusSwapPro) {
+      return swapProAccount.result?.id;
+    }
+    return swapFromAddressInfo.accountInfo?.dbAccount?.id;
+  }, [
+    focusSwapPro,
+    swapFromAddressInfo.accountInfo?.dbAccount?.id,
+    swapProAccount.result?.id,
+  ]);
   const { generateSwapHistoryItem } = useSwapTxHistoryActions();
   const [swapLimitExpirationTime] = useSwapLimitExpirationTimeAtom();
   const [swapLimitPriceFromAmount] = useSwapLimitPriceFromAmountAtom();
@@ -159,8 +234,8 @@ export function useSwapBuildTx() {
   const [, setSettings] = useSettingsAtom();
   const { navigationToMessageConfirm, navigationToTxConfirm } =
     useSignatureConfirm({
-      accountId: swapFromAddressInfo.accountInfo?.account?.id ?? '',
-      networkId: swapFromAddressInfo.networkId ?? '',
+      accountId: fromAccountId ?? '',
+      networkId: fromAccountNetworkId ?? '',
     });
 
   const swapStepsRef = useRef(swapSteps);
@@ -253,7 +328,7 @@ export function useSwapBuildTx() {
         );
         if (
           accountUtils.isQrAccount({
-            accountId: swapFromAddressInfo.accountInfo?.account?.id ?? '',
+            accountId: fromAccountId ?? '',
           })
         ) {
           void goBackQrCodeModal();
@@ -279,7 +354,7 @@ export function useSwapBuildTx() {
       goBackQrCodeModal,
       generateSwapHistoryItem,
       setSwapSteps,
-      swapFromAddressInfo.accountInfo?.account?.id,
+      fromAccountId,
     ],
   );
 
@@ -295,7 +370,7 @@ export function useSwapBuildTx() {
         clearQuoteData();
         if (
           accountUtils.isQrAccount({
-            accountId: swapFromAddressInfo.accountInfo?.account?.id ?? '',
+            accountId: fromAccountId ?? '',
           })
         ) {
           rootNavigationRef.current?.goBack();
@@ -323,12 +398,7 @@ export function useSwapBuildTx() {
         });
       }
     },
-    [
-      clearQuoteData,
-      generateSwapHistoryItem,
-      setSwapSteps,
-      swapFromAddressInfo.accountInfo?.account?.id,
-    ],
+    [clearQuoteData, generateSwapHistoryItem, setSwapSteps, fromAccountId],
   );
 
   const checkOtherFee = useCallback(
@@ -342,8 +412,8 @@ export function useSwapBuildTx() {
               await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
                 networkId: item.token?.networkId,
                 contractAddress: item.token?.contractAddress,
-                accountAddress: swapFromAddressInfo.address,
-                accountId: swapFromAddressInfo.accountInfo?.account?.id,
+                accountAddress: fromUserAddress,
+                accountId: fromAccountId,
               });
             if (tokenBalanceInfo?.length) {
               const tokenBalanceBN = new BigNumber(
@@ -387,13 +457,7 @@ export function useSwapBuildTx() {
       }
       return checkRes;
     },
-    [
-      fromToken,
-      intl,
-      selectQuote?.fromAmount,
-      swapFromAddressInfo.accountInfo?.account?.id,
-      swapFromAddressInfo.address,
-    ],
+    [fromToken, intl, selectQuote?.fromAmount, fromUserAddress, fromAccountId],
   );
 
   const cancelLimitOrder = useCallback(
@@ -413,10 +477,7 @@ export function useSwapBuildTx() {
             populated.value,
           ),
         );
-        if (
-          !swapFromAddressInfo.accountInfo?.indexedAccount?.id &&
-          !swapFromAddressInfo.accountInfo?.account?.id
-        ) {
+        if (!fromAccountIndexedAccountId && !fromAccountId) {
           throw new OneKeyError('No account found');
         }
         let orderAccount: INetworkAccount | undefined;
@@ -429,11 +490,10 @@ export function useSwapBuildTx() {
             );
           orderAccount =
             await backgroundApiProxy.serviceAccount.getNetworkAccount({
-              accountId: swapFromAddressInfo.accountInfo?.indexedAccount?.id
+              accountId: fromAccountIndexedAccountId
                 ? undefined
-                : swapFromAddressInfo?.accountInfo?.account?.id,
-              indexedAccountId:
-                swapFromAddressInfo?.accountInfo?.indexedAccount?.id ?? '',
+                : fromAccountId,
+              indexedAccountId: fromAccountIndexedAccountId ?? '',
               networkId: item.networkId,
               deriveType: defaultDeriveType ?? 'default',
             });
@@ -482,10 +542,9 @@ export function useSwapBuildTx() {
               userAddress: item.userAddress,
             });
             await backgroundApiProxy.serviceSwap.swapLimitOrdersFetchLoop(
-              swapFromAddressInfo.accountInfo?.indexedAccount?.id,
-              !swapFromAddressInfo.accountInfo?.indexedAccount?.id
-                ? swapFromAddressInfo.accountInfo?.account?.id ??
-                    swapFromAddressInfo.accountInfo?.dbAccount?.id
+              fromAccountIndexedAccountId,
+              !fromAccountIndexedAccountId
+                ? fromAccountId ?? dbAccountId
                 : undefined,
               true,
             );
@@ -500,7 +559,12 @@ export function useSwapBuildTx() {
         }
       }
     },
-    [swapFromAddressInfo, navigationToMessageConfirm],
+    [
+      fromAccountIndexedAccountId,
+      fromAccountId,
+      navigationToMessageConfirm,
+      dbAccountId,
+    ],
   );
 
   const updateUnsignedTxAndSendTx = useCallback(
@@ -659,8 +723,8 @@ export function useSwapBuildTx() {
         swapType = ESwapTabSwitchType.BRIDGE;
       }
       defaultLogger.swap.swapSendTx.swapSendTx({
-        fromAddress: swapFromAddressInfo.address ?? '',
-        toAddress: swapToAddressInfo.address ?? '',
+        fromAddress: fromUserAddress ?? '',
+        toAddress: toUserAddress ?? '',
         status,
         message,
         orderId: swapInfo?.swapBuildResData.orderId ?? '',
@@ -683,11 +747,7 @@ export function useSwapBuildTx() {
         encodedTx: encodedTx ?? '',
       });
     },
-    [
-      slippageItem.value,
-      swapFromAddressInfo.address,
-      swapToAddressInfo.address,
-    ],
+    [slippageItem.value, fromUserAddress, toUserAddress],
   );
 
   const handleApproveFallbackOnSuccess = useCallback(
@@ -842,12 +902,12 @@ export function useSwapBuildTx() {
   const onApproveTxSuccess = useCallback(() => {
     if (
       accountUtils.isQrAccount({
-        accountId: swapFromAddressInfo.accountInfo?.account?.id ?? '',
+        accountId: fromAccountId ?? '',
       })
     ) {
       goBackQrCodeModal();
     }
-  }, [goBackQrCodeModal, swapFromAddressInfo.accountInfo?.account?.id]);
+  }, [goBackQrCodeModal, fromAccountId]);
 
   const findGasInfo = useCallback(
     (
@@ -961,11 +1021,7 @@ export function useSwapBuildTx() {
       quoteResult?: IFetchQuoteResult,
       needFetchGas?: boolean,
     ) => {
-      if (
-        !fromToken ||
-        !swapFromAddressInfo.accountInfo?.account?.id ||
-        !swapFromAddressInfo.address
-      ) {
+      if (!fromToken || !fromAccountId || !fromUserAddress) {
         throw new OneKeyError('account error');
       }
       const stepGasInfos =
@@ -1284,7 +1340,7 @@ export function useSwapBuildTx() {
                 });
               const gasRes = await backgroundApiProxy.serviceGas.estimateFee({
                 ...estimateFeeParams,
-                accountAddress: swapFromAddressInfo.address,
+                accountAddress: fromUserAddress,
                 networkId,
                 accountId,
               });
@@ -1351,7 +1407,7 @@ export function useSwapBuildTx() {
         try {
           const gasRes = await backgroundApiProxy.serviceGas.estimateFee({
             ...estimateFeeParams,
-            accountAddress: swapFromAddressInfo.address,
+            accountAddress: fromUserAddress,
             networkId,
             accountId,
           });
@@ -1419,8 +1475,8 @@ export function useSwapBuildTx() {
     },
     [
       fromToken,
-      swapFromAddressInfo.accountInfo?.account?.id,
-      swapFromAddressInfo.address,
+      fromAccountId,
+      fromUserAddress,
       setSwapSteps,
       intl,
       findGasInfo,
@@ -1440,12 +1496,9 @@ export function useSwapBuildTx() {
       data?: IFetchQuoteResult,
       prevNonce?: number,
     ) => {
-      if (
-        data?.allowanceResult?.allowanceTarget &&
-        swapFromAddressInfo.address
-      ) {
+      if (data?.allowanceResult?.allowanceTarget && fromUserAddress) {
         const approveInfo: IApproveInfo = {
-          owner: swapFromAddressInfo.address,
+          owner: fromUserAddress,
           spender: data.allowanceResult.allowanceTarget,
           amount,
           isMax: amount === '0' ? false : isMax,
@@ -1457,11 +1510,11 @@ export function useSwapBuildTx() {
           },
           swapApproveRes: data,
         };
-        if (swapFromAddressInfo.accountInfo?.account?.id) {
+        if (fromAccountId) {
           const unsignedTx =
             await backgroundApiProxy.serviceSend.prepareSendConfirmUnsignedTx({
               networkId: data.fromTokenInfo.networkId,
-              accountId: swapFromAddressInfo.accountInfo?.account?.id,
+              accountId: fromAccountId ?? '',
               approveInfo,
               prevNonce,
             });
@@ -1470,7 +1523,7 @@ export function useSwapBuildTx() {
       }
       return { unsignedTx: undefined, approveInfo: undefined };
     },
-    [swapFromAddressInfo.address, swapFromAddressInfo.accountInfo?.account?.id],
+    [fromAccountId, fromUserAddress],
   );
   const approveTxNew = useCallback(
     async (
@@ -1482,12 +1535,9 @@ export function useSwapBuildTx() {
       shouldWaitApprove?: boolean,
       needFetchGas?: boolean,
     ) => {
-      if (
-        data?.allowanceResult?.allowanceTarget &&
-        swapFromAddressInfo.address
-      ) {
+      if (data?.allowanceResult?.allowanceTarget && fromUserAddress) {
         const approveInfo: IApproveInfo = {
-          owner: swapFromAddressInfo.address,
+          owner: fromUserAddress,
           spender: data.allowanceResult.allowanceTarget,
           amount,
           isMax: amount === '0' ? false : isMax,
@@ -1499,7 +1549,7 @@ export function useSwapBuildTx() {
           },
           swapApproveRes: data,
         };
-        if (swapFromAddressInfo.accountInfo?.account?.id) {
+        if (fromAccountId) {
           if (shouldFallback) {
             await navigationToTxConfirm({
               isInternalSwap: true,
@@ -1517,10 +1567,10 @@ export function useSwapBuildTx() {
               true,
               stepIndex,
               data.fromTokenInfo.networkId,
-              swapFromAddressInfo.accountInfo?.account?.id,
+              fromAccountId ?? '',
               {
                 networkId: data.fromTokenInfo.networkId,
-                accountId: swapFromAddressInfo.accountInfo?.account?.id,
+                accountId: fromAccountId ?? '',
                 approveInfo,
               },
               undefined,
@@ -1541,8 +1591,8 @@ export function useSwapBuildTx() {
       handleApproveFallbackOnSuccess,
       navigationToTxConfirm,
       sendTxActions,
-      swapFromAddressInfo.accountInfo?.account?.id,
-      swapFromAddressInfo.address,
+      fromAccountId,
+      fromUserAddress,
     ],
   );
 
@@ -1564,10 +1614,9 @@ export function useSwapBuildTx() {
           undefined,
         );
         void backgroundApiProxy.serviceSwap.swapLimitOrdersFetchLoop(
-          swapFromAddressInfo.accountInfo?.indexedAccount?.id,
-          !swapFromAddressInfo.accountInfo?.indexedAccount?.id
-            ? swapFromAddressInfo.accountInfo?.account?.id ??
-                swapFromAddressInfo.accountInfo?.dbAccount?.id
+          fromAccountIndexedAccountId,
+          !fromAccountIndexedAccountId
+            ? fromAccountId ?? dbAccountId
             : undefined,
           true,
         );
@@ -1582,8 +1631,8 @@ export function useSwapBuildTx() {
         fromTokenAmount: buildSwapRes.result?.fromAmount ?? '',
         toTokenAmount: buildSwapRes.result?.toAmount ?? '',
         quoteToTokenAmount: quoteResult?.toAmount ?? '',
-        fromAddress: swapFromAddressInfo.address ?? '',
-        toAddress: swapToAddressInfo.address ?? '',
+        fromAddress: fromUserAddress ?? '',
+        toAddress: toUserAddress ?? '',
         status: ESwapEventAPIStatus.SUCCESS,
         swapProvider: buildSwapRes.result?.info.provider ?? '',
         swapProviderName: buildSwapRes.result?.info.providerName ?? '',
@@ -1610,11 +1659,11 @@ export function useSwapBuildTx() {
       isModalPage,
       setPersistSettings,
       slippageItem.value,
-      swapFromAddressInfo.accountInfo?.account?.id,
-      swapFromAddressInfo.accountInfo?.dbAccount?.id,
-      swapFromAddressInfo.accountInfo?.indexedAccount?.id,
-      swapFromAddressInfo.address,
-      swapToAddressInfo.address,
+      fromAccountId,
+      dbAccountId,
+      fromAccountIndexedAccountId,
+      fromUserAddress,
+      toUserAddress,
       syncRecentTokenPairs,
       toToken,
     ],
@@ -1632,10 +1681,10 @@ export function useSwapBuildTx() {
         data.fromAmount &&
         slippageItem &&
         data?.toAmount &&
-        swapFromAddressInfo.address &&
-        swapToAddressInfo.address &&
-        swapFromAddressInfo.networkId &&
-        swapFromAddressInfo.accountInfo?.account?.id
+        fromUserAddress &&
+        toUserAddress &&
+        fromAccountNetworkId &&
+        fromAccountId
       ) {
         if (swapStepsRef.current.preSwapData.swapBuildResultData) {
           return swapStepsRef.current.preSwapData.swapBuildResultData;
@@ -1659,14 +1708,14 @@ export function useSwapBuildTx() {
             toTokenAmount: data.toAmount,
             fromTokenAmount: data.fromAmount,
             slippagePercentage: slippageItem.value,
-            receivingAddress: swapToAddressInfo.address,
-            userAddress: swapFromAddressInfo.address,
+            receivingAddress: toUserAddress ?? '',
+            userAddress: fromUserAddress,
             provider: data?.info.provider,
-            accountId: swapFromAddressInfo.accountInfo?.account?.id,
+            accountId: fromAccountId ?? '',
             quoteResultCtx: data?.quoteResultCtx,
             protocol: data.protocol ?? EProtocolOfExchange.SWAP,
             kind: data.kind ?? ESwapQuoteKind.SELL,
-            walletType: swapFromAddressInfo.accountInfo?.wallet?.type,
+            walletType: swapFromAddressInfo.accountInfo?.wallet?.type ?? '',
           });
         } catch (e: any) {
           setSwapSteps((prev) => ({
@@ -1688,8 +1737,8 @@ export function useSwapBuildTx() {
             fromTokenAmount: data?.fromAmount ?? '',
             toTokenAmount: buildSwapRes?.result?.toAmount ?? '',
             quoteToTokenAmount: data?.toAmount ?? '',
-            fromAddress: swapFromAddressInfo.address ?? '',
-            toAddress: swapToAddressInfo.address ?? '',
+            fromAddress: fromUserAddress ?? '',
+            toAddress: toUserAddress ?? '',
             status: ESwapEventAPIStatus.FAIL,
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
             message: e?.message ?? 'unknown error',
@@ -1721,7 +1770,7 @@ export function useSwapBuildTx() {
             encodedTx = undefined;
             // swft order
             transferInfo = {
-              from: swapFromAddressInfo.address,
+              from: fromUserAddress ?? '',
               tokenInfo: {
                 ...buildSwapRes.result.fromTokenInfo,
                 isNative: !!buildSwapRes.result.fromTokenInfo.isNative,
@@ -1738,7 +1787,7 @@ export function useSwapBuildTx() {
             encodedTx = undefined;
             // changelly order
             transferInfo = {
-              from: swapFromAddressInfo.address,
+              from: fromUserAddress ?? '',
               tokenInfo: {
                 ...buildSwapRes.result.fromTokenInfo,
                 isNative: !!buildSwapRes.result.fromTokenInfo.isNative,
@@ -1754,7 +1803,7 @@ export function useSwapBuildTx() {
           } else if (buildSwapRes?.thorSwapCallData) {
             encodedTx = undefined;
             transferInfo = {
-              from: swapFromAddressInfo.address,
+              from: fromUserAddress ?? '',
               tokenInfo: {
                 ...buildSwapRes.result.fromTokenInfo,
                 isNative: !!buildSwapRes.result.fromTokenInfo.isNative,
@@ -1774,7 +1823,7 @@ export function useSwapBuildTx() {
           } else if (buildSwapRes?.OKXTxObject) {
             encodedTx =
               await backgroundApiProxy.serviceSwap.buildOkxSwapEncodedTx({
-                accountId: swapFromAddressInfo?.accountInfo?.account?.id ?? '',
+                accountId: fromAccountId ?? '',
                 networkId: buildSwapRes.result.fromTokenInfo.networkId,
                 okxTx: buildSwapRes.OKXTxObject,
                 fromTokenInfo: buildSwapRes.result.fromTokenInfo,
@@ -1795,7 +1844,7 @@ export function useSwapBuildTx() {
               encodedTx = {
                 ...buildSwapRes?.tx,
                 value: valueHex,
-                from: swapFromAddressInfo.address,
+                from: fromUserAddress ?? '',
               };
             } else {
               encodedTx = buildSwapRes.tx as string;
@@ -1806,8 +1855,8 @@ export function useSwapBuildTx() {
             if (buildSwapRes.btcData) {
               if (
                 buildSwapRes.btcData.addressType.includes(
-                  swapFromAddressInfo.accountInfo.deriveInfo?.addressEncoding ??
-                    '',
+                  swapFromAddressInfo.accountInfo?.deriveInfo
+                    ?.addressEncoding ?? '',
                 )
               ) {
                 inputTx = {
@@ -1827,8 +1876,8 @@ export function useSwapBuildTx() {
             if (inputTx) {
               encodedTx =
                 await backgroundApiProxy.serviceStaking.buildInternalDappTx({
-                  accountId: swapFromAddressInfo.accountInfo?.account?.id ?? '',
-                  networkId: swapFromAddressInfo.networkId ?? '',
+                  accountId: fromAccountId ?? '',
+                  networkId: fromAccountNetworkId ?? '',
                   tx: inputTx,
                   internalDappType: EInternalDappEnum.Swap,
                 });
@@ -1867,7 +1916,7 @@ export function useSwapBuildTx() {
               amount: buildSwapRes.result.fromAmount ?? data.fromAmount,
               token: currentFromToken ?? buildSwapRes.result.fromTokenInfo,
               accountInfo: {
-                accountId: swapFromAddressInfo.accountInfo?.account?.id,
+                accountId: fromAccountId ?? '',
                 networkId: buildSwapRes.result.fromTokenInfo.networkId,
               },
             },
@@ -1875,12 +1924,12 @@ export function useSwapBuildTx() {
               amount: buildSwapRes.result.toAmount ?? data.toAmount,
               token: currentToToken ?? buildSwapRes.result.toTokenInfo,
               accountInfo: {
-                accountId: swapToAddressInfo.accountInfo?.account?.id,
+                accountId: toAccountId ?? '',
                 networkId: buildSwapRes.result.toTokenInfo.networkId,
               },
             },
-            accountAddress: swapFromAddressInfo.address,
-            receivingAddress: swapToAddressInfo.address,
+            accountAddress: fromUserAddress ?? '',
+            receivingAddress: toUserAddress ?? '',
             swapBuildResData: {
               ...buildSwapRes,
               result: {
@@ -1932,21 +1981,21 @@ export function useSwapBuildTx() {
       return {};
     },
     [
+      slippageItem,
+      fromUserAddress,
+      toUserAddress,
+      fromAccountNetworkId,
+      fromAccountId,
+      setSwapSteps,
       checkOtherFee,
-      intl,
+      swapFromAddressInfo.accountInfo?.wallet?.type,
+      swapFromAddressInfo.accountInfo?.deriveInfo?.addressEncoding,
       isFirstTimeSwap,
       isModalPage,
-      setSwapSteps,
-      slippageItem,
+      toAccountId,
       swapBuildFinish,
-      swapFromAddressInfo.accountInfo?.account?.id,
-      swapFromAddressInfo.accountInfo?.deriveInfo?.addressEncoding,
-      swapFromAddressInfo.accountInfo?.wallet?.type,
-      swapFromAddressInfo.address,
-      swapFromAddressInfo.networkId,
-      swapToAddressInfo.accountInfo?.account?.id,
-      swapToAddressInfo.address,
       swapTypeSwitch,
+      intl,
     ],
   );
 
@@ -1967,10 +2016,10 @@ export function useSwapBuildTx() {
         data.fromAmount &&
         slippageItem &&
         data?.toAmount &&
-        swapFromAddressInfo.address &&
-        swapToAddressInfo.address &&
-        swapFromAddressInfo.networkId &&
-        swapFromAddressInfo.accountInfo?.account?.id
+        fromUserAddress &&
+        toUserAddress &&
+        fromAccountNetworkId &&
+        fromAccountId
       ) {
         setSwapSteps(
           (prev: {
@@ -2041,11 +2090,11 @@ export function useSwapBuildTx() {
             const sendTxRes = await sendTxActions(
               false,
               stepIndex,
-              swapFromAddressInfo.networkId,
-              swapFromAddressInfo.accountInfo?.account?.id,
+              fromAccountNetworkId ?? '',
+              fromAccountId ?? '',
               {
-                networkId: swapFromAddressInfo.networkId,
-                accountId: swapFromAddressInfo.accountInfo?.account?.id,
+                networkId: fromAccountNetworkId ?? '',
+                accountId: fromAccountId ?? '',
                 transfersInfo: transferInfo ? [transferInfo] : undefined,
                 encodedTx,
                 swapInfo,
@@ -2063,10 +2112,10 @@ export function useSwapBuildTx() {
     },
     [
       slippageItem,
-      swapFromAddressInfo.address,
-      swapFromAddressInfo.networkId,
-      swapFromAddressInfo.accountInfo?.account?.id,
-      swapToAddressInfo.address,
+      fromUserAddress,
+      toUserAddress,
+      fromAccountNetworkId,
+      fromAccountId,
       setSwapSteps,
       buildSwapAction,
       intl,
@@ -2093,16 +2142,13 @@ export function useSwapBuildTx() {
         data.fromAmount &&
         slippageItem &&
         data?.toAmount &&
-        swapFromAddressInfo.address &&
-        swapToAddressInfo.address &&
-        swapFromAddressInfo.networkId &&
-        swapFromAddressInfo.accountInfo?.account?.id
+        fromUserAddress &&
+        toUserAddress &&
+        fromAccountNetworkId &&
+        fromAccountId
       ) {
         const selectQuoteRes = cloneDeep(data);
-        if (
-          selectQuoteRes.swapShouldSignedData &&
-          swapFromAddressInfo.accountInfo?.account?.id
-        ) {
+        if (selectQuoteRes.swapShouldSignedData && fromAccountId) {
           const {
             unSignedInfo,
             unSignedMessage,
@@ -2126,7 +2172,7 @@ export function useSwapBuildTx() {
             } =
               // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
               selectQuoteRes.quoteResultCtx?.cowSwapUnSignedOrder;
-            unSignedOrder.receiver = swapToAddressInfo.address;
+            unSignedOrder.receiver = toUserAddress ?? '';
             let dataMessage = unSignedMessage;
             if (!dataMessage && unSignedData) {
               let validTo = unSignedOrder.validTo;
@@ -2204,13 +2250,10 @@ export function useSwapBuildTx() {
                     type:
                       unSignedInfo.signedType ?? EMessageTypesEth.TYPED_DATA_V4,
                     message: dataMessage,
-                    payload: [
-                      swapFromAddressInfo.address.toLowerCase(),
-                      dataMessage,
-                    ],
+                    payload: [fromUserAddress.toLowerCase(), dataMessage],
                   },
-                  networkId: swapFromAddressInfo.networkId,
-                  accountId: swapFromAddressInfo.accountInfo?.account?.id,
+                  networkId: fromAccountNetworkId ?? '',
+                  accountId: fromAccountId ?? '',
                 },
               );
               if (signHash) {
@@ -2254,13 +2297,10 @@ export function useSwapBuildTx() {
                     type:
                       unSignedInfo.signedType ?? EMessageTypesEth.TYPED_DATA_V4,
                     message: dataMessage,
-                    payload: [
-                      swapFromAddressInfo.address.toLowerCase(),
-                      dataMessage,
-                    ],
+                    payload: [fromUserAddress.toLowerCase(), dataMessage],
                   },
-                  networkId: swapFromAddressInfo.networkId,
-                  accountId: swapFromAddressInfo.accountInfo?.account?.id,
+                  networkId: fromAccountNetworkId ?? '',
+                  accountId: fromAccountId ?? '',
                 },
               );
               if (signHash) {
@@ -2290,14 +2330,14 @@ export function useSwapBuildTx() {
     [
       buildTxNew,
       slippageItem,
-      swapFromAddressInfo.accountInfo?.account?.id,
-      swapFromAddressInfo.address,
-      swapFromAddressInfo.networkId,
+      fromAccountId,
+      fromUserAddress,
+      fromAccountNetworkId,
       swapLimitExpirationTime.value,
       swapLimitPartiallyFillObj.value,
       swapLimitPriceFromAmount,
       swapLimitPriceToAmount,
-      swapToAddressInfo.address,
+      toUserAddress,
     ],
   );
 
@@ -2312,17 +2352,17 @@ export function useSwapBuildTx() {
       if (
         fromTokenInfo &&
         toTokenInfo &&
-        swapFromAddressInfo.address &&
-        swapToAddressInfo.address &&
+        fromUserAddress &&
+        toUserAddress &&
         data?.fromAmount &&
-        swapFromAddressInfo.accountInfo?.account?.id
+        fromAccountId
       ) {
         setSwapBuildTxFetching(true);
         const wrappedType = fromTokenInfo.isNative
           ? EWrappedType.DEPOSIT
           : EWrappedType.WITHDRAW;
         const wrappedInfo: IWrappedInfo = {
-          from: swapFromAddressInfo.address,
+          from: fromUserAddress ?? '',
           type: wrappedType,
           contract:
             wrappedType === EWrappedType.WITHDRAW
@@ -2336,7 +2376,7 @@ export function useSwapBuildTx() {
             amount: data.fromAmount ?? '',
             token: fromTokenInfo,
             accountInfo: {
-              accountId: swapFromAddressInfo.accountInfo?.account?.id,
+              accountId: fromAccountId ?? '',
               networkId: fromTokenInfo.networkId,
             },
           },
@@ -2344,12 +2384,12 @@ export function useSwapBuildTx() {
             amount: data.toAmount ?? '',
             token: toTokenInfo,
             accountInfo: {
-              accountId: swapToAddressInfo.accountInfo?.account?.id,
+              accountId: toAccountId ?? '',
               networkId: toTokenInfo.networkId,
             },
           },
-          accountAddress: swapFromAddressInfo.address,
-          receivingAddress: swapToAddressInfo.address ?? '',
+          accountAddress: fromUserAddress ?? '',
+          receivingAddress: toUserAddress ?? '',
           swapBuildResData: {
             result: { ...data },
             orderId: data.quoteId ?? '',
@@ -2360,10 +2400,10 @@ export function useSwapBuildTx() {
           false,
           stepIndex,
           fromTokenInfo.networkId,
-          swapFromAddressInfo.accountInfo?.account?.id,
+          fromAccountId ?? '',
           {
             networkId: fromTokenInfo.networkId,
-            accountId: swapFromAddressInfo.accountInfo?.account?.id,
+            accountId: fromAccountId ?? '',
             wrappedInfo,
             swapInfo,
           },
@@ -2383,11 +2423,11 @@ export function useSwapBuildTx() {
       }
     },
     [
-      swapFromAddressInfo.address,
-      swapFromAddressInfo.accountInfo?.account?.id,
-      swapToAddressInfo.address,
-      swapToAddressInfo.accountInfo?.account?.id,
+      fromUserAddress,
+      toUserAddress,
+      fromAccountId,
       setSwapBuildTxFetching,
+      toAccountId,
       sendTxActions,
       syncRecentTokenPairs,
       onBuildTxSuccess,
@@ -2404,10 +2444,10 @@ export function useSwapBuildTx() {
         data.fromAmount &&
         slippageItem &&
         data?.toAmount &&
-        swapFromAddressInfo.address &&
-        swapToAddressInfo.address &&
-        swapFromAddressInfo.networkId &&
-        swapFromAddressInfo.accountInfo?.account?.id
+        fromUserAddress &&
+        toUserAddress &&
+        fromAccountNetworkId &&
+        fromAccountId
       ) {
         let prevNonce: number | undefined;
         if (data.allowanceResult) {
@@ -2458,10 +2498,10 @@ export function useSwapBuildTx() {
     },
     [
       slippageItem,
-      swapFromAddressInfo.address,
-      swapFromAddressInfo.networkId,
-      swapFromAddressInfo.accountInfo?.account?.id,
-      swapToAddressInfo.address,
+      fromUserAddress,
+      fromAccountNetworkId,
+      fromAccountId,
+      toUserAddress,
       getApproveUnsignedTx,
       swapActionState.approveUnLimit,
     ],
@@ -2481,10 +2521,10 @@ export function useSwapBuildTx() {
         data.fromAmount &&
         slippageItem &&
         data?.toAmount &&
-        swapFromAddressInfo.address &&
-        swapToAddressInfo.address &&
-        swapFromAddressInfo.networkId &&
-        swapFromAddressInfo.accountInfo?.account?.id
+        fromUserAddress &&
+        toUserAddress &&
+        fromAccountNetworkId &&
+        fromAccountId
       ) {
         const { unsignedTxArr, fallbackApproveInfos } =
           await getApproveUnSignedTxArr(data);
@@ -2502,10 +2542,10 @@ export function useSwapBuildTx() {
     },
     [
       slippageItem,
-      swapFromAddressInfo.address,
-      swapFromAddressInfo.networkId,
-      swapFromAddressInfo.accountInfo?.account?.id,
-      swapToAddressInfo.address,
+      fromUserAddress,
+      fromAccountNetworkId,
+      fromAccountId,
+      toUserAddress,
       getApproveUnSignedTxArr,
       buildTxNew,
     ],
@@ -2518,11 +2558,7 @@ export function useSwapBuildTx() {
       buildUnsignedParams: ISendTxBaseParams & IBuildUnsignedTxParams,
       approveUnsignedTxArr?: IUnsignedTxPro[],
     ) => {
-      if (
-        !fromToken ||
-        !swapFromAddressInfo.accountInfo?.account?.id ||
-        !swapFromAddressInfo.address
-      ) {
+      if (!fromToken || !fromAccountId || !fromUserAddress) {
         throw new OneKeyError('account error');
       }
       const swapInfo = buildUnsignedParams?.swapInfo;
@@ -2678,7 +2714,7 @@ export function useSwapBuildTx() {
                 });
               const gasRes = await backgroundApiProxy.serviceGas.estimateFee({
                 ...estimateFeeParams,
-                accountAddress: swapFromAddressInfo.address,
+                accountAddress: fromUserAddress ?? '',
                 networkId,
                 accountId,
               });
@@ -2709,7 +2745,7 @@ export function useSwapBuildTx() {
           try {
             const gasRes = await backgroundApiProxy.serviceGas.estimateFee({
               ...estimateFeeParams,
-              accountAddress: swapFromAddressInfo.address,
+              accountAddress: fromUserAddress ?? '',
               networkId,
               accountId,
             });
@@ -2786,8 +2822,8 @@ export function useSwapBuildTx() {
       fromToken,
       setSwapSteps,
       swapEstimateFeeEvent,
-      swapFromAddressInfo.accountInfo?.account?.id,
-      swapFromAddressInfo.address,
+      fromAccountId,
+      fromUserAddress,
     ],
   );
 
@@ -2803,10 +2839,10 @@ export function useSwapBuildTx() {
         data.fromAmount &&
         slippageItem &&
         data?.toAmount &&
-        swapFromAddressInfo.address &&
-        swapToAddressInfo.address &&
-        swapFromAddressInfo.networkId &&
-        swapFromAddressInfo.accountInfo?.account?.id
+        fromUserAddress &&
+        toUserAddress &&
+        fromAccountNetworkId &&
+        fromAccountId
       ) {
         setSwapSteps((prev) => ({
           ...prev,
@@ -2823,11 +2859,11 @@ export function useSwapBuildTx() {
           );
           const { unsignedTxArr } = await getApproveUnSignedTxArr(data);
           await estimateNetworkFee(
-            swapFromAddressInfo.networkId,
-            swapFromAddressInfo.accountInfo?.account?.id,
+            fromAccountNetworkId ?? '',
+            fromAccountId ?? '',
             {
-              networkId: swapFromAddressInfo.networkId,
-              accountId: swapFromAddressInfo.accountInfo?.account?.id,
+              networkId: fromAccountNetworkId ?? '',
+              accountId: fromAccountId ?? '',
               transfersInfo: transferInfo ? [transferInfo] : undefined,
               encodedTx,
               swapInfo,
@@ -2858,10 +2894,10 @@ export function useSwapBuildTx() {
       getApproveUnSignedTxArr,
       setSwapSteps,
       slippageItem,
-      swapFromAddressInfo.accountInfo?.account?.id,
-      swapFromAddressInfo.address,
-      swapFromAddressInfo.networkId,
-      swapToAddressInfo.address,
+      fromAccountId,
+      fromAccountNetworkId,
+      fromUserAddress,
+      toUserAddress,
     ],
   );
 
@@ -2980,7 +3016,7 @@ export function useSwapBuildTx() {
                             quoteId: quoteResultFinal?.quoteId ?? '',
                             amount: approveAmount,
                             toAmount: preSwapDataFinal?.toTokenAmount ?? '',
-                            useAddress: swapFromAddressInfo.address ?? '',
+                            useAddress: fromUserAddress ?? '',
                             spenderAddress:
                               preSwapDataFinal?.allowanceResult
                                 ?.allowanceTarget ?? '',
@@ -3144,7 +3180,7 @@ export function useSwapBuildTx() {
                 void preSwapStepsStart(fallbackSwapStepsValues);
               } else if (
                 accountUtils.isQrAccount({
-                  accountId: swapFromAddressInfo.accountInfo?.account?.id ?? '',
+                  accountId: fromAccountId ?? '',
                 }) &&
                 // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
                 error?.key !== 'global.cancel'
@@ -3168,8 +3204,8 @@ export function useSwapBuildTx() {
       intl,
       setInAppNotificationAtom,
       swapTypeSwitch,
-      swapFromAddressInfo.address,
-      swapFromAddressInfo.accountInfo?.account?.id,
+      fromUserAddress,
+      fromAccountId,
       wrappedTx,
       buildTxNew,
       signMessage,

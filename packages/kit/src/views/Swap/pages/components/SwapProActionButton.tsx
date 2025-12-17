@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Button } from '@onekeyhq/components';
+import { useDebouncedCallback } from '@onekeyhq/kit/src/hooks/useDebounce';
 import {
   useSwapProDirectionAtom,
   useSwapProSelectTokenAtom,
@@ -38,6 +39,12 @@ const SwapProActionButton = ({
   const [swapProSelectToken] = useSwapProSelectTokenAtom();
   const quoteLoading = useSwapQuoteLoading();
   const [quoteFetching] = useSwapSpeedQuoteFetchingAtom();
+
+  const debouncedOnSwapProActionClick = useDebouncedCallback(
+    onSwapProActionClick,
+    500,
+    { leading: true, trailing: false },
+  );
   const currentQuoteRes = useMemo(() => {
     if (swapProTradeType === ESwapProTradeType.MARKET) {
       return swapProQuoteResult;
@@ -89,7 +96,7 @@ const SwapProActionButton = ({
   return (
     <Button
       disabled={actionButtonDisabled}
-      onPress={onSwapProActionClick}
+      onPress={debouncedOnSwapProActionClick}
       variant="primary"
       backgroundColor={
         swapProDirection === ESwapDirection.BUY

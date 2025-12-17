@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -35,8 +35,22 @@ const SwapProLimitPriceInput = ({
   onSetMarketPrice,
 }: ISwapProLimitPriceInputProps) => {
   const inputRef = useRef<IInputRef & TextInput>(null);
+  const isFocusedRef = useRef(false);
   const intl = useIntl();
+
+  // Reset scroll position to show text from the beginning when value changes and input is not focused
+  useEffect(() => {
+    if (!isFocusedRef.current) {
+      inputRef.current?.setSelection?.(0, 0);
+    }
+  }, [value]);
+
+  const handleFocus = useCallback(() => {
+    isFocusedRef.current = true;
+  }, []);
+
   const handleBlur = useCallback(() => {
+    isFocusedRef.current = false;
     // Reset scroll position to show text from the beginning when unfocused
     inputRef.current?.setSelection?.(0, 0);
   }, []);
@@ -46,20 +60,41 @@ const SwapProLimitPriceInput = ({
   }, [fromSymbol]);
   const reverseChangeComponent = useMemo(() => {
     return (
-      <XStack alignItems="center" gap="$1" onPress={onReverseChange} mr="$2">
+      <XStack alignItems="center" gap="$1" onPress={onReverseChange}>
         <SizableText size="$bodyMd">{fromSymbolLabel}</SizableText>
-        <Icon name="SwapVerSolid" size="$4" />
+        <Icon name="SwapHorSolid" size="$4" />
       </XStack>
     );
   }, [fromSymbolLabel, onReverseChange]);
+
+  const toSymbolAddOn = useMemo(() => {
+    return (
+      <XStack alignItems="center" px="$1">
+        <SizableText
+          size="$bodySm"
+          color="$textSubdued"
+          maxWidth="$16"
+          numberOfLines={1}
+        >
+          {toSymbol}
+        </SizableText>
+      </XStack>
+    );
+  }, [toSymbol]);
   return (
     <YStack borderRadius="$2" bg="$bgStrong" py="$2" gap="$1">
       <XStack justifyContent="space-between">
-        <XStack alignItems="center" gap="$1">
+        <XStack
+          alignItems="center"
+          gap="$1"
+          justifyContent="space-between"
+          flex={1}
+        >
           <SizableText size="$bodySm" color="$textDisabled" ml="$2">
             {title}
           </SizableText>
           <Badge
+            mr="$2"
             bg="$bgApp"
             borderRadius="$2.5"
             borderWidth={1}
@@ -76,12 +111,12 @@ const SwapProLimitPriceInput = ({
             {intl.formatMessage({ id: ETranslations.Limit_market })}
           </Badge>
         </XStack>
-        {reverseChangeComponent}
       </XStack>
       <Input
         ref={inputRef}
         value={value}
         onChangeText={onChangeText}
+        onFocus={handleFocus}
         onBlur={handleBlur}
         placeholder="0.0"
         textAlign="left"
@@ -91,7 +126,10 @@ const SwapProLimitPriceInput = ({
           borderWidth: 0,
           flex: 1,
         }}
-        addOns={[{ label: toSymbol }]}
+        addOns={[{ renderContent: toSymbolAddOn }]}
+        leftAddOnProps={{
+          renderContent: reverseChangeComponent,
+        }}
       />
     </YStack>
   );
