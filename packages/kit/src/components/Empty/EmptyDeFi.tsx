@@ -56,6 +56,10 @@ function EmptyDeFi({ tableLayout }: { tableLayout?: boolean }) {
       h={platformEnv.isNativeAndroid ? 300 : undefined}
       testID="Wallet-DeFi-Empty"
       icon="CoinsOutline"
+      iconProps={{
+        size: '$14',
+        mb: '$4',
+      }}
       title={
         <Button
           variant="tertiary"
@@ -75,6 +79,9 @@ function EmptyDeFi({ tableLayout }: { tableLayout?: boolean }) {
       description={intl.formatMessage({
         id: ETranslations.wallet_positions_empty_desc,
       })}
+      descriptionProps={{
+        mt: '$1',
+      }}
     />
   );
 }
