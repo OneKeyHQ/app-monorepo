@@ -69,7 +69,7 @@ export function useKeylessWalletMethods() {
       cloudPack: ICloudKeyPack;
     }): Promise<{
       success: boolean;
-      packSetInFromCloudPack: string;
+      packSetIdFromCloudPack: string;
     }> => {
       // TODO cloud login check
       const { recordID } =
@@ -81,7 +81,7 @@ export function useKeylessWalletMethods() {
         });
       return {
         success: !!recordID,
-        packSetInFromCloudPack: cloudPack.packSetId,
+        packSetIdFromCloudPack: cloudPack.packSetId,
       };
     },
     [],
