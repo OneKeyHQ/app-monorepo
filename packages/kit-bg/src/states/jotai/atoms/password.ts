@@ -1,6 +1,7 @@
 import type { IDialogShowProps } from '@onekeyhq/components/src/composite/Dialog/type';
 import { ELockDuration } from '@onekeyhq/shared/src/consts/appAutoLockConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { isNeverLockDuration } from '@onekeyhq/shared/src/utils/passwordUtils';
 import { isSupportWebAuth } from '@onekeyhq/shared/src/webAuth';
 import {
   EPasswordMode,
@@ -20,7 +21,6 @@ import type { AuthenticationType } from 'expo-local-authentication';
 export type IPasswordAtom = {
   unLock: boolean;
   // Is the application not locked manually by the user
-  manualLocking: boolean;
   passwordVerifyStatus: {
     value: EPasswordVerifyStatus;
     message?: string;
@@ -32,7 +32,6 @@ export const { target: passwordAtom, use: usePasswordAtom } =
     name: EAtomNames.passwordAtom,
     initialValue: {
       unLock: false,
-      manualLocking: false,
       passwordVerifyStatus: { value: EPasswordVerifyStatus.DEFAULT },
     },
   });
@@ -67,11 +66,13 @@ export type IPasswordPersistAtom = {
   enablePasswordErrorProtection: boolean;
   passwordErrorAttempts: number;
   passwordErrorProtectionTime: number;
+  manualLocking: boolean;
 };
 export const passwordAtomInitialValue: IPasswordPersistAtom = {
   isPasswordSet: false,
   webAuthCredentialId: '',
-  appLockDuration: Number(ELockDuration.Hour2),
+  appLockDuration: Number(ELockDuration.Always),
+  manualLocking: false,
   enableSystemIdleLock: true,
   passwordMode: EPasswordMode.PASSWORD,
   enablePasswordErrorProtection: false,
@@ -100,7 +101,7 @@ export const { target: systemIdleLockSupport, use: useSystemIdleLockSupport } =
     const { appLockDuration } = get(passwordPersistAtom.atom());
     return (
       platformSupport &&
-      appLockDuration !== Number(ELockDuration.Never) &&
+      !isNeverLockDuration(appLockDuration) &&
       appLockDuration !== Number(ELockDuration.Always)
     );
   });
@@ -151,20 +152,26 @@ export const { target: appIsLocked, use: useAppIsLockedAtom } =
     if (isMigrationModalOpen || isProcessing) {
       return false;
     }
-    const { isPasswordSet, appLockDuration } = get(passwordPersistAtom.atom());
-    const { manualLocking } = get(passwordAtom.atom());
+    const { isPasswordSet, appLockDuration, manualLocking } = get(
+      passwordPersistAtom.atom(),
+    );
     if (isPasswordSet) {
       if (manualLocking) {
         return true;
       }
+
+      const isNeverLock = isNeverLockDuration(appLockDuration);
+
+      if (isNeverLock) {
+        return false;
+      }
+
       const { unLock } = get(passwordAtom.atom());
       let usedUnlock = unLock;
       if (isMigrationModalOpen) {
         usedUnlock = true;
       }
-      if (platformEnv.isWeb || platformEnv.isDev) {
-        return !usedUnlock && String(appLockDuration) !== ELockDuration.Never;
-      }
+
       return !usedUnlock;
     }
     return false;

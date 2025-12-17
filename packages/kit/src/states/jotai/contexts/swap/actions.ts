@@ -856,6 +856,11 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         });
         if (res && res.length > 0) {
           const quoteResult = res[0];
+          const quoteResultFromAmount = quoteResult.fromAmount;
+          const fromTokenCurrentAmount = get(swapProInputAmountAtom());
+          if (quoteResultFromAmount !== fromTokenCurrentAmount) {
+            return;
+          }
           set(swapSpeedQuoteResultAtom(), quoteResult);
         }
         set(swapSpeedQuoteFetchingAtom(), false);
