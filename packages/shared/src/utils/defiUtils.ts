@@ -1,5 +1,4 @@
 import BigNumber from 'bignumber.js';
-import { flatMap, groupBy, map } from 'lodash';
 
 import {
   EDeFiAssetType,
@@ -8,6 +7,77 @@ import {
   type IDeFiProtocol,
   type IProtocolSummary,
 } from '../../types/defi';
+
+function extractParenthesizedContent(input: string) {
+  const startIndex = input.indexOf('(');
+
+  if (startIndex === -1) {
+    return { originalString: input, targetString: input };
+  }
+
+  let balance = 0;
+  let endIndex = -1;
+
+  for (let i = startIndex; i < input.length; i += 1) {
+    const char = input[i];
+    if (char === '(') {
+      balance += 1;
+    } else if (char === ')') {
+      balance -= 1;
+    }
+
+    if (balance === 0) {
+      endIndex = i;
+      break;
+    }
+  }
+
+  if (endIndex === -1) {
+    return { originalString: input, targetString: input };
+  }
+
+  const contentInside = input.substring(startIndex + 1, endIndex);
+
+  const emojiRegex =
+    /[\p{Extended_Pictographic}\u{1F300}-\u{1F5FF}\u{1F900}-\u{1F9FF}\u{1F600}-\u{1F64F}\u{1F680}-\u{1F6FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu;
+
+  const urlRegex = /((https?:\/\/[^\s]+)|(([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}))/g;
+
+  const cleanedInside = contentInside
+    .replace(emojiRegex, '')
+    .replace(urlRegex, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (cleanedInside.length > 0) {
+    return { originalString: input, targetString: cleanedInside };
+  }
+  const partBefore = input.substring(0, startIndex);
+  const partAfter = input.substring(endIndex + 1);
+
+  const outerContent = `${partBefore} ${partAfter}`.replace(/\s+/g, ' ').trim();
+
+  return { originalString: input, targetString: outerContent };
+}
+
+function mergeAssets(assets: (IDeFiAsset & { type: EDeFiAssetType })[]) {
+  return assets.reduce((acc, asset) => {
+    const existingAsset = acc.find(
+      (a) => a.symbol === asset.symbol && a.address === asset.address,
+    );
+    if (existingAsset) {
+      existingAsset.value = new BigNumber(existingAsset.value)
+        .plus(asset.value)
+        .toNumber();
+      existingAsset.amount = new BigNumber(existingAsset.amount)
+        .plus(asset.amount)
+        .toFixed();
+    } else {
+      acc.push(asset);
+    }
+    return acc;
+  }, [] as (IDeFiAsset & { type: EDeFiAssetType })[]);
+}
 
 function buildProtocolMapKey({
   protocol,
@@ -25,6 +95,7 @@ function transferPositionMap(
     {
       groupId: string;
       poolName: string;
+      poolFullName: string;
       category: string;
       assets: (IDeFiAsset & { type: EDeFiAssetType })[];
       debts: (IDeFiAsset & { type: EDeFiAssetType })[];
@@ -33,33 +104,22 @@ function transferPositionMap(
     }
   >,
 ) {
-  const positions = Array.from(positionMap.entries()).map(([_, position]) => ({
-    ...position,
-    assets: position.assets.sort((a, b) => b.value - a.value),
-    debts: position.debts.sort((a, b) => b.value - a.value),
-    rewards: position.rewards.sort((a, b) => b.value - a.value),
-    value: position.value.toFixed(),
-  }));
-
-  const groupedPositions = map(
-    groupBy(positions, 'category'),
-    (_positions, category) => ({
-      category,
-      value: _positions
-        .reduce((acc, position) => acc.plus(position.value), new BigNumber(0))
-        .toFixed(),
-      details: _positions.sort((a, b) =>
-        new BigNumber(b.value).minus(new BigNumber(a.value)).toNumber(),
+  const positions = Array.from(positionMap.entries())
+    .map(([_, position]) => ({
+      ...position,
+      assets: mergeAssets(position.assets).sort((a, b) =>
+        new BigNumber(b.value).comparedTo(new BigNumber(a.value)),
       ),
-    }),
-  );
-
-  return flatMap(
-    groupedPositions.sort((a, b) =>
-      new BigNumber(b.value).minus(new BigNumber(a.value)).toNumber(),
-    ),
-    (group) => group.details,
-  );
+      debts: mergeAssets(position.debts).sort((a, b) =>
+        new BigNumber(b.value).comparedTo(new BigNumber(a.value)),
+      ),
+      rewards: mergeAssets(position.rewards).sort((a, b) =>
+        new BigNumber(b.value).comparedTo(new BigNumber(a.value)),
+      ),
+      value: position.value.toFixed(),
+    }))
+    .sort((a, b) => new BigNumber(b.value).comparedTo(new BigNumber(a.value)));
+  return positions;
 }
 
 function transformDeFiData({
@@ -81,6 +141,7 @@ function transformDeFiData({
         {
           groupId: string;
           poolName: string;
+          poolFullName: string;
           category: string;
           assets: (IDeFiAsset & { type: EDeFiAssetType })[];
           debts: (IDeFiAsset & { type: EDeFiAssetType })[];
@@ -126,6 +187,7 @@ function transformDeFiData({
           {
             groupId: string;
             poolName: string;
+            poolFullName: string;
             category: string;
             assets: (IDeFiAsset & { type: EDeFiAssetType })[];
             debts: (IDeFiAsset & { type: EDeFiAssetType })[];
@@ -139,9 +201,13 @@ function transformDeFiData({
       const positionKey = position.groupId;
 
       if (!protocolPositionsMapValue.positionMap.has(positionKey)) {
+        const { targetString, originalString } = extractParenthesizedContent(
+          position.name,
+        );
         protocolPositionsMapValue.positionMap.set(positionKey, {
           groupId: position.groupId,
-          poolName: position.name,
+          poolName: targetString,
+          poolFullName: originalString,
           category: position.category,
           assets: [],
           debts: [],
@@ -155,6 +221,7 @@ function transformDeFiData({
       ) as {
         groupId: string;
         poolName: string;
+        poolFullName: string;
         category: string;
         assets: (IDeFiAsset & { type: EDeFiAssetType })[];
         debts: (IDeFiAsset & { type: EDeFiAssetType })[];
@@ -235,7 +302,7 @@ function transformDeFiData({
   };
 }
 
-export function getEmptyDeFiData() {
+function getEmptyDeFiData() {
   return {
     overview: {
       totalValue: '0',

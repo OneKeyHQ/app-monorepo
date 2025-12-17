@@ -214,6 +214,14 @@ export function calculateRequiredSubscriptions(
         params: openOrdersParams,
       }),
     );
+    specs.push(
+      buildSubscriptionSpec({
+        type: ESubscriptionType.WEB_DATA3,
+        params: {
+          user: state.currentUser,
+        },
+      }),
+    );
     const userFillsParams: IEventUserFillsParameters = {
       user: state.currentUser,
       aggregateByTime: true,
@@ -257,7 +265,6 @@ export function calculateRequiredSubscriptions(
     }
     */
   } else {
-    // If no user, maybe we still want anonymous WebData3 or equivalent?
     // WebData3 requires a user address.
     // If no user, we likely only need market data (handled above).
   }

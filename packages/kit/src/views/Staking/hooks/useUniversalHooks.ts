@@ -1,11 +1,14 @@
 import { useCallback } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { useIntl } from 'react-intl';
 
+import { Toast } from '@onekeyhq/components';
 import type { IEncodedTxBtc } from '@onekeyhq/core/src/chains/btc/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { type IModalSendParamList } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
@@ -15,6 +18,7 @@ import {
   EInternalStakingAction,
   type IEarnPermit2ApproveSignData,
   type IStakeTxResponse,
+  type IStakeTxStakefishExitBroadcast,
   type IStakingInfo,
 } from '@onekeyhq/shared/types/staking';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
@@ -175,6 +179,7 @@ export function useUniversalWithdraw({
   networkId: string;
   accountId: string;
 }) {
+  const intl = useIntl();
   const { navigationToTxConfirm } = useSignatureConfirm({
     accountId,
     networkId,
@@ -271,6 +276,20 @@ export function useUniversalWithdraw({
             message: withdrawMessage,
           });
       }
+
+      // Handle Stakefish validator exit broadcast (no on-chain tx needed)
+      const txAsExitBroadcast =
+        stakeTx.tx as unknown as IStakeTxStakefishExitBroadcast;
+      if (txAsExitBroadcast?.exitBroadcasted === true) {
+        Toast.success({
+          title: intl.formatMessage({
+            id: ETranslations.feedback_transaction_submitted,
+          }),
+        });
+        onSuccess?.([]);
+        return;
+      }
+
       const encodedTx =
         await backgroundApiProxy.serviceStaking.buildInternalDappTx({
           networkId,
@@ -326,7 +345,7 @@ export function useUniversalWithdraw({
         onFail,
       });
     },
-    [accountId, networkId, navigationToTxConfirm],
+    [accountId, networkId, navigationToTxConfirm, intl],
   );
 }
 

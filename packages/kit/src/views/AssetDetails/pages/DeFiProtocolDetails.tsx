@@ -9,6 +9,7 @@ import {
   IconButton,
   NumberSizeableText,
   Page,
+  Popover,
   SizableText,
   Stack,
   XStack,
@@ -131,11 +132,38 @@ function DeFiProtocolDetails() {
               py="$3"
               ml="$-2"
             >
-              <Badge badgeType="success" badgeSize="lg">
-                <Badge.Text textTransform="capitalize">
-                  {position.category}
-                </Badge.Text>
-              </Badge>
+              <XStack flex={1} alignItems="center" gap="$3">
+                <Badge badgeType="success" badgeSize="lg">
+                  <Badge.Text textTransform="capitalize">
+                    {position.category}
+                  </Badge.Text>
+                </Badge>
+                <Popover
+                  placement="top"
+                  title={intl.formatMessage({
+                    id: ETranslations.wallet_defi_position_name_popover_title,
+                  })}
+                  renderTrigger={
+                    <SizableText
+                      size="$bodySm"
+                      color="$textSubdued"
+                      numberOfLines={1}
+                      textDecorationLine="underline"
+                      textDecorationColor="$textSubdued"
+                      textDecorationStyle="dotted"
+                    >
+                      {position.poolName}
+                    </SizableText>
+                  }
+                  renderContent={
+                    <Stack px="$4" py="$2">
+                      <SizableText size="$bodyLg">
+                        {position.poolFullName}
+                      </SizableText>
+                    </Stack>
+                  }
+                />
+              </XStack>
               <NumberSizeableText
                 size="$headingMd"
                 formatter="value"
@@ -193,7 +221,7 @@ function DeFiProtocolDetails() {
         ))}
       </YStack>
     );
-  }, [protocol.positions, settings.currencyInfo.symbol, renderAssetType]);
+  }, [protocol.positions, intl, settings.currencyInfo.symbol, renderAssetType]);
   return (
     <Page scrollEnabled>
       <Page.Header
