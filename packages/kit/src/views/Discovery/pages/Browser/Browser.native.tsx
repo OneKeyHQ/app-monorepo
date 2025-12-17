@@ -401,7 +401,8 @@ function MobileBrowser() {
       )}
       <Page.Body>
         {/* Market Tab */}
-        {!isTabletDetailView || (isTabletDetailView && !isLandscape) ? (
+        {(isTabletMainView && isLandscape) ||
+        (isTabletDetailView && !isLandscape) ? (
           <Stack
             flex={1}
             display={
