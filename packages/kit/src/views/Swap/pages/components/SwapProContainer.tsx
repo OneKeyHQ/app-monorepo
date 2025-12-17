@@ -13,6 +13,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
+import type { IMarketBasicConfigNetwork } from '@onekeyhq/shared/types/marketV2';
 import type {
   IFetchLimitOrderRes,
   ISwapProSpeedConfig,
@@ -22,7 +23,6 @@ import type {
 import { ETabName, TabBarItem } from '../../../Perp/layouts/PerpMobileLayout';
 import SwapProErrorAlert from '../../components/SwapProErrorAlert';
 import {
-  useSwapProErrorAlert,
   useSwapProSupportNetworksTokenList,
   useSwapProTokenDetailInfo,
   useSwapProTokenInfoSync,
@@ -47,6 +47,7 @@ interface ISwapProContainerProps {
     balanceLoading: boolean;
     isMEV: boolean;
     hasEnoughBalance: boolean;
+    networkList: IMarketBasicConfigNetwork[];
   };
 }
 
@@ -58,6 +59,14 @@ const SwapProContainer = ({
   onProMarketDetail,
   config,
 }: ISwapProContainerProps) => {
+  const {
+    isLoading,
+    speedConfig,
+    balanceLoading,
+    isMEV,
+    hasEnoughBalance,
+    networkList,
+  } = config;
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState<ETabName | string>(
     ETabName.Positions,
@@ -73,8 +82,8 @@ const SwapProContainer = ({
   const [swapCurrentSymbolEnable] = useSwapProEnableCurrentSymbolAtom();
   const { syncInputTokenBalance, syncToTokenPrice, netAccountRes } =
     useSwapProTokenInfoSync();
-  const { swapProLoadSupportNetworksTokenListRun, networkNotSupported } =
-    useSwapProSupportNetworksTokenList();
+  const { swapProLoadSupportNetworksTokenListRun } =
+    useSwapProSupportNetworksTokenList(networkList);
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     await Promise.all([
@@ -90,9 +99,6 @@ const SwapProContainer = ({
     syncInputTokenBalance,
     syncToTokenPrice,
   ]);
-  const { isLoading, speedConfig, balanceLoading, isMEV, hasEnoughBalance } =
-    config;
-  useSwapProErrorAlert(!!networkNotSupported);
   const cleanInputAmount = useCallback(() => {
     setSwapProInputAmount('');
     setFromInputAmount({
@@ -231,7 +237,13 @@ const SwapProContainer = ({
           <SwapProCurrentSymbolEnable />
           <SwapProPositionsList
             onTokenPress={onTokenPress}
-            onSearchClick={() => onProSelectToken(true)}
+            onSearchClick={() => {
+              onProSelectToken(true);
+              scrollViewRef.current?.scrollTo({
+                y: 0,
+                animated: false,
+              });
+            }}
           />
         </YStack>
         <YStack
