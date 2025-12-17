@@ -275,6 +275,7 @@
     "react-dom": "19.1.0",
     "react-server-dom-webpack": "19.1.0",
     "react-native": "0.81.5",
+    "promise": "^8.3.0",
     "metro": "0.83.2",
     "metro-babel-transformer": "0.83.2",
     "metro-cache": "0.83.2",
