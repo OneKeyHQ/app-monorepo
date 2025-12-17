@@ -76,10 +76,10 @@ export function NumberSizeableText({
   );
 
   if (hideValue) {
-    if (formatter === 'balance') {
+    if (formatter === 'balance' && formatterOptions?.tokenSymbol) {
       return (
         <SizableText {...props}>
-          **** {formatterOptions?.tokenSymbol}
+          **** {formatterOptions.tokenSymbol}
         </SizableText>
       );
     }

@@ -245,7 +245,9 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
   @backgroundMethod()
   async isDexAbstractionEnabled(userAddress: string): Promise<boolean> {
     const config = await this.getPerpData();
-    return config.dexAbstractionEnabledUsers?.[userAddress.toLowerCase()] ?? false;
+    return (
+      config.dexAbstractionEnabledUsers?.[userAddress.toLowerCase()] ?? false
+    );
   }
 
   @backgroundMethod()
