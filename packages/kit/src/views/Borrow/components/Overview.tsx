@@ -129,9 +129,13 @@ export const Overview = () => {
       />
       <OverviewItem
         needDivider
-        title={{ text: 'Onekey bonus' }} // FIXME[borrow]: i18n
+        title={
+          reserves?.overview?.platformBonus?.data?.title ?? {
+            text: 'Platform bonus',
+          }
+        }
         text={
-          reserves?.overview?.onekeyBonus.text ?? {
+          reserves?.overview?.platformBonus?.totalReceived.description ?? {
             text: amountPlaceholder,
             color: '$textDisabled',
           }

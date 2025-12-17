@@ -16,6 +16,11 @@ import type {
 
 import { buildLocalTxStatusSyncId } from '../../../utils/utils';
 
+export enum EManagePositionType {
+  Staking = 'staking',
+  Borrow = 'borrow',
+}
+
 export const useManagePage = ({
   accountId,
   networkId,
@@ -23,6 +28,9 @@ export const useManagePage = ({
   symbol,
   provider,
   vault,
+  type = EManagePositionType.Staking,
+  reserveAddress,
+  marketAddress,
 }: {
   accountId: string;
   indexedAccountId: string | undefined;
@@ -30,6 +38,9 @@ export const useManagePage = ({
   symbol: ISupportedSymbol;
   provider: string;
   vault: string | undefined;
+  type?: EManagePositionType;
+  reserveAddress?: string;
+  marketAddress?: string;
 }) => {
   const {
     result,
@@ -37,6 +48,40 @@ export const useManagePage = ({
     run,
   } = usePromiseResult(
     async () => {
+      // For Borrow type, use different API
+      if (type === EManagePositionType.Borrow) {
+        const earnAccount =
+          await backgroundApiProxy.serviceStaking.getEarnAccount({
+            accountId,
+            networkId,
+            indexedAccountId,
+            btcOnlyTaproot: true,
+          });
+
+        if (!earnAccount || !earnAccount.accountAddress) {
+          return undefined;
+        }
+
+        const managePageData =
+          await backgroundApiProxy.serviceStaking.getBorrowManagePage({
+            accountId,
+            networkId,
+            provider,
+            marketAddress: marketAddress || '',
+            reserveAddress: reserveAddress || '',
+            type: 'supply',
+          });
+
+        const protocolList =
+          await backgroundApiProxy.serviceStaking.getProtocolList({
+            symbol,
+            filterNetworkId: networkId,
+          });
+
+        return { managePageData, protocolList, earnAccount };
+      }
+
+      // Default: Staking type
       const earnAccount =
         await backgroundApiProxy.serviceStaking.getEarnAccount({
           accountId,
@@ -70,7 +115,17 @@ export const useManagePage = ({
 
       return { managePageData, protocolList, earnAccount };
     },
-    [networkId, symbol, provider, vault, accountId, indexedAccountId],
+    [
+      networkId,
+      symbol,
+      provider,
+      vault,
+      accountId,
+      indexedAccountId,
+      type,
+      reserveAddress,
+      marketAddress,
+    ],
     { watchLoading: true },
   );
 

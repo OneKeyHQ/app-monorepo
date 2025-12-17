@@ -1658,10 +1658,26 @@ export interface IBorrowReserveItem {
       text: IEarnText;
       button?: IBorrowHealthFactorRiskDetail;
     };
-    onekeyBonus: {
-      value: string;
-      text: IEarnText;
-      button?: IBorrowOnekeyBonusAction;
+    platformBonus: {
+      totalReceived: {
+        description: IEarnText;
+        button: IEarnHistoryActionIcon;
+      };
+      description: IEarnText;
+      distributed: {
+        text: IEarnText;
+        description: IEarnText;
+        token: IBorrowToken;
+      };
+      data: {
+        icon: {
+          icon: IKeyOfIcons;
+        };
+        title: IEarnText;
+        endsIn: number;
+        rewards: any[];
+        button: IEarnLinkActionIcon;
+      };
     };
     history: IEarnHistoryActionIcon;
     rewards: {

@@ -12,7 +12,7 @@ import type { ISupportedSymbol } from '@onekeyhq/shared/types/earn';
 import { EarnAlert } from '../../../components/ProtocolDetails/EarnAlert';
 import { NetworkUnsupportedWarning } from '../../../components/ProtocolDetails/NetworkUnsupportedWarning';
 import { NoAddressWarning } from '../../../components/ProtocolDetails/NoAddressWarning';
-import { useManagePage } from '../hooks/useManagePage';
+import { EManagePositionType, useManagePage } from '../hooks/useManagePage';
 
 import { AdaManageContent } from './AdaManageContent';
 import { NormalManageContent } from './NormalManageContent';
@@ -27,6 +27,13 @@ export interface IManagePositionContentProps {
   accountId: string;
   indexedAccountId?: string;
   isInModalContext?: boolean;
+
+  // Type of manage position (Staking or Borrow)
+  type?: EManagePositionType;
+
+  // Borrow-specific params
+  reserveAddress?: string;
+  marketAddress?: string;
 
   // Optional configurations
   defaultTab?: 'deposit' | 'withdraw';
@@ -87,6 +94,9 @@ export function ManagePositionContent({
   vault,
   accountId,
   indexedAccountId,
+  type = EManagePositionType.Staking,
+  reserveAddress,
+  marketAddress,
   defaultTab,
   onTabChange,
   showApyDetail = false,
@@ -118,6 +128,9 @@ export function ManagePositionContent({
     symbol: symbol as ISupportedSymbol,
     provider,
     vault,
+    type,
+    reserveAddress,
+    marketAddress,
   });
 
   // Handle create address
