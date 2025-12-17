@@ -23,11 +23,15 @@ import { HeaderRight } from './HeaderRight';
 import { StakeSection } from './StakeSection';
 import { WithdrawSection } from './WithdrawSection';
 
+type IBorrowAction = 'supply' | 'withdraw' | 'borrow' | 'repay';
+
 interface INormalManageContentProps {
   networkId: string;
   symbol: string;
   provider: string;
   vault?: string;
+  marketAddress?: string;
+  reserveAddress?: string;
   tokenInfo?: IEarnTokenInfo;
   protocolInfo?: IProtocolInfo;
   earnAccount?: {
@@ -60,6 +64,8 @@ export function NormalManageContent({
   symbol,
   provider,
   vault,
+  marketAddress,
+  reserveAddress,
   tokenInfo,
   protocolInfo,
   earnAccount,
@@ -85,6 +91,43 @@ export function NormalManageContent({
   type = EManagePositionType.Staking,
 }: INormalManageContentProps) {
   const intl = useIntl();
+  const useBorrowApi = useMemo(
+    () => type !== EManagePositionType.Staking,
+    [type],
+  );
+  const borrowActionPrimary = useMemo<IBorrowAction | undefined>(() => {
+    if (!useBorrowApi) {
+      return undefined;
+    }
+    if (
+      [EManagePositionType.Supply, EManagePositionType.Withdraw].includes(type)
+    ) {
+      return 'supply';
+    }
+    if (
+      [EManagePositionType.Borrow, EManagePositionType.Repay].includes(type)
+    ) {
+      return 'borrow';
+    }
+    return undefined;
+  }, [type, useBorrowApi]);
+
+  const borrowActionSecondary = useMemo<IBorrowAction | undefined>(() => {
+    if (!useBorrowApi) {
+      return undefined;
+    }
+    if (
+      [EManagePositionType.Supply, EManagePositionType.Withdraw].includes(type)
+    ) {
+      return 'withdraw';
+    }
+    if (
+      [EManagePositionType.Borrow, EManagePositionType.Repay].includes(type)
+    ) {
+      return 'repay';
+    }
+    return undefined;
+  }, [type, useBorrowApi]);
 
   const [selectedTabIndex, setSelectedTabIndex] = useState(() => {
     if (defaultTab === 'withdraw') return 1;
@@ -275,6 +318,10 @@ export function NormalManageContent({
           isInModalContext={isInModalContext}
           fallbackTokenImageUri={fallbackTokenImageUri}
           ongoingValidator={ongoingValidator}
+          useBorrowApi={useBorrowApi}
+          borrowMarketAddress={marketAddress}
+          borrowReserveAddress={reserveAddress}
+          borrowAction={borrowActionPrimary}
         />
       ) : null}
       {selectedTabIndex === 1 ? (
@@ -289,6 +336,10 @@ export function NormalManageContent({
           showApyDetail={showApyDetail}
           isInModalContext={isInModalContext}
           fallbackTokenImageUri={fallbackTokenImageUri}
+          useBorrowApi={useBorrowApi}
+          borrowMarketAddress={marketAddress}
+          borrowReserveAddress={reserveAddress}
+          borrowAction={borrowActionSecondary}
         />
       ) : null}
     </>

@@ -1,7 +1,6 @@
 import type { ReactElement } from 'react';
 import { useCallback, useMemo } from 'react';
 
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import {
@@ -11,7 +10,14 @@ import {
 } from '@onekeyhq/shared/types/staking';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
+import { UniversalBorrowRepay } from '../../../components/UniversalBorrowRepay';
+import { UniversalBorrowWithdraw } from '../../../components/UniversalBorrowWithdraw';
 import { UniversalWithdraw } from '../../../components/UniversalWithdraw';
+import { useBorrowApiParams } from '../../../hooks/useBorrowApiParams';
+import {
+  useUniversalBorrowRepay,
+  useUniversalBorrowWithdraw,
+} from '../../../hooks/useUniversalBorrowHooks';
 import { useUniversalWithdraw } from '../../../hooks/useUniversalHooks';
 
 export const WithdrawSection = ({
@@ -25,6 +31,10 @@ export const WithdrawSection = ({
   showApyDetail,
   isInModalContext,
   fallbackTokenImageUri,
+  useBorrowApi,
+  borrowMarketAddress,
+  borrowReserveAddress,
+  borrowAction,
 }: {
   accountId: string;
   networkId: string;
@@ -36,20 +46,42 @@ export const WithdrawSection = ({
   showApyDetail?: boolean;
   isInModalContext?: boolean;
   fallbackTokenImageUri?: string;
+  useBorrowApi?: boolean;
+  borrowMarketAddress?: string;
+  borrowReserveAddress?: string;
+  borrowAction?: 'supply' | 'withdraw' | 'borrow' | 'repay';
 }) => {
   // Early return if no tokenInfo or protocolInfo
   // This happens when there's no account or no address
   const hasRequiredData = tokenInfo && protocolInfo;
-
   const providerName = useMemo(
     () => protocolInfo?.provider ?? '',
     [protocolInfo?.provider],
   );
+  const borrowApiCtx = useBorrowApiParams({
+    useBorrowApi,
+    networkId,
+    provider: providerName,
+    marketAddress: borrowMarketAddress,
+    reserveAddress: borrowReserveAddress,
+    accountId,
+    action: borrowAction,
+  });
+  const isBorrowWithdraw =
+    borrowApiCtx.isBorrow &&
+    (borrowApiCtx.borrowApiParams.action === 'withdraw' ||
+      borrowApiCtx.borrowApiParams.action === 'repay');
+  const BorrowWithdrawComponent =
+    borrowAction === 'repay' ? UniversalBorrowRepay : UniversalBorrowWithdraw;
   const token = useMemo(() => tokenInfo?.token as IToken, [tokenInfo]);
   const symbol = useMemo(() => token?.symbol || '', [token]);
   const vault = useMemo(() => protocolInfo?.vault || '', [protocolInfo?.vault]);
   const handleWithdraw = useUniversalWithdraw({ accountId, networkId });
-  const appNavigation = useAppNavigation();
+  const handleBorrowWithdraw = useUniversalBorrowWithdraw({
+    accountId,
+    networkId,
+  });
+  const handleBorrowRepay = useUniversalBorrowRepay({ accountId, networkId });
 
   const onConfirm = useCallback(
     async ({
@@ -60,6 +92,37 @@ export const WithdrawSection = ({
       withdrawAll: boolean;
     }) => {
       if (!hasRequiredData) return;
+
+      if (borrowApiCtx.isBorrow) {
+        const { provider, marketAddress, reserveAddress, action } =
+          borrowApiCtx.borrowApiParams;
+
+        await (action === 'repay' ? handleBorrowRepay : handleBorrowWithdraw)({
+          amount,
+          provider,
+          marketAddress,
+          reserveAddress,
+          stakingInfo: token
+            ? {
+                label:
+                  action === 'repay' ? EEarnLabels.Stake : EEarnLabels.Withdraw,
+                protocol: earnUtils.getEarnProviderName({
+                  providerName: provider,
+                }),
+                protocolLogoURI: protocolInfo?.providerDetail.logoURI,
+                ...(action === 'repay'
+                  ? { send: { token, amount } }
+                  : { receive: { token, amount } }),
+                tags: [protocolInfo?.stakeTag || ''],
+              }
+            : undefined,
+          onSuccess: () => {
+            onSuccess?.();
+          },
+        });
+
+        return;
+      }
 
       await handleWithdraw({
         amount,
@@ -91,6 +154,9 @@ export const WithdrawSection = ({
     },
     [
       hasRequiredData,
+      borrowApiCtx,
+      handleBorrowRepay,
+      handleBorrowWithdraw,
       handleWithdraw,
       // identity,
       providerName,
@@ -105,6 +171,32 @@ export const WithdrawSection = ({
 
   // If no required data, render placeholder to maintain layout
   if (!hasRequiredData) {
+    if (
+      useBorrowApi &&
+      borrowMarketAddress &&
+      borrowReserveAddress &&
+      (borrowAction === 'withdraw' || borrowAction === 'repay')
+    ) {
+      return (
+        <BorrowWithdrawComponent
+          accountAddress=""
+          price="0"
+          balance="0"
+          accountId={accountId}
+          networkId={networkId}
+          providerName=""
+          onConfirm={async () => {}}
+          protocolVault=""
+          isDisabled
+          borrowMarketAddress={borrowMarketAddress}
+          borrowReserveAddress={borrowReserveAddress}
+          isInModalContext={isInModalContext}
+          beforeFooter={beforeFooter}
+          tokenImageUri={fallbackTokenImageUri}
+          tokenSymbol={tokenInfo?.token.symbol}
+        />
+      );
+    }
     return (
       <UniversalWithdraw
         accountAddress=""
@@ -125,28 +217,58 @@ export const WithdrawSection = ({
   }
 
   return (
-    <UniversalWithdraw
-      accountAddress={protocolInfo?.earnAccount?.accountAddress || ''}
-      price={tokenInfo?.price ? String(tokenInfo.price) : '0'}
-      decimals={protocolInfo?.protocolInputDecimals ?? token?.decimals}
-      balance={protocolInfo?.activeBalance || '0'}
-      accountId={accountId}
-      networkId={networkId}
-      tokenSymbol={symbol || ''}
-      tokenImageUri={token?.logoURI || fallbackTokenImageUri}
-      providerLogo={protocolInfo?.providerDetail.logoURI}
-      providerName={providerName}
-      onConfirm={onConfirm}
-      minAmount={
-        Number(protocolInfo?.minUnstakeAmount) > 0
-          ? String(protocolInfo?.minUnstakeAmount)
-          : undefined
-      }
-      protocolVault={protocolInfo?.vault ?? ''}
-      isDisabled={isDisabled}
-      beforeFooter={beforeFooter}
-      showApyDetail={showApyDetail}
-      isInModalContext={isInModalContext}
-    />
+    <>
+      {isBorrowWithdraw ? (
+        <BorrowWithdrawComponent
+          accountAddress={protocolInfo?.earnAccount?.accountAddress || ''}
+          price={tokenInfo?.price ? String(tokenInfo.price) : '0'}
+          decimals={protocolInfo?.protocolInputDecimals ?? token?.decimals}
+          balance={protocolInfo?.activeBalance || '0'}
+          accountId={accountId}
+          networkId={networkId}
+          tokenSymbol={symbol || ''}
+          tokenImageUri={token?.logoURI || fallbackTokenImageUri}
+          providerLogo={protocolInfo?.providerDetail.logoURI}
+          providerName={providerName}
+          onConfirm={onConfirm}
+          minAmount={
+            Number(protocolInfo?.minUnstakeAmount) > 0
+              ? String(protocolInfo?.minUnstakeAmount)
+              : undefined
+          }
+          protocolVault={protocolInfo?.vault ?? ''}
+          isDisabled={isDisabled}
+          borrowMarketAddress={borrowApiCtx.borrowApiParams!.marketAddress}
+          borrowReserveAddress={borrowApiCtx.borrowApiParams!.reserveAddress}
+          beforeFooter={beforeFooter}
+          showApyDetail={showApyDetail}
+          isInModalContext={isInModalContext}
+        />
+      ) : (
+        <UniversalWithdraw
+          accountAddress={protocolInfo?.earnAccount?.accountAddress || ''}
+          price={tokenInfo?.price ? String(tokenInfo.price) : '0'}
+          decimals={protocolInfo?.protocolInputDecimals ?? token?.decimals}
+          balance={protocolInfo?.activeBalance || '0'}
+          accountId={accountId}
+          networkId={networkId}
+          tokenSymbol={symbol || ''}
+          tokenImageUri={token?.logoURI || fallbackTokenImageUri}
+          providerLogo={protocolInfo?.providerDetail.logoURI}
+          providerName={providerName}
+          onConfirm={onConfirm}
+          minAmount={
+            Number(protocolInfo?.minUnstakeAmount) > 0
+              ? String(protocolInfo?.minUnstakeAmount)
+              : undefined
+          }
+          protocolVault={protocolInfo?.vault ?? ''}
+          isDisabled={isDisabled}
+          beforeFooter={beforeFooter}
+          showApyDetail={showApyDetail}
+          isInModalContext={isInModalContext}
+        />
+      )}
+    </>
   );
 };

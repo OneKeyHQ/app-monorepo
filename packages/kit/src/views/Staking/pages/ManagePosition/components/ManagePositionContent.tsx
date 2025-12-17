@@ -184,6 +184,7 @@ export function ManagePositionContent({
       totalSupply: '0',
       riskLevel: 0,
       coingeckoId: '',
+      networkId,
     };
 
     if (tokenInfo) {
@@ -424,6 +425,8 @@ export function ManagePositionContent({
       provider={provider}
       vault={vault}
       type={type}
+      marketAddress={marketAddress}
+      reserveAddress={reserveAddress}
       tokenInfo={resolvedTokenInfo}
       fallbackTokenImageUri={resolvedTokenImageUri}
       protocolInfo={protocolInfo}

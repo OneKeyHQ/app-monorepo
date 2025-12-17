@@ -46,6 +46,8 @@ export interface ICheckAmountAlert {
   text: {
     text: string;
   };
+  title?: IEarnText;
+  description?: IEarnText;
   button?: IEarnAlertButton;
 }
 
@@ -1737,7 +1739,7 @@ export interface IBorrowEstimateFee {
 
 export interface IBorrowCheckAmount {
   result: boolean;
-  alerts: IEarnAlert[];
+  alerts: ICheckAmountAlert[];
 }
 
 export interface IBorrowReserveItem {

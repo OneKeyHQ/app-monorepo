@@ -5,6 +5,7 @@ import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accoun
 import type { IBorrowReserveItem } from '@onekeyhq/shared/types/staking';
 
 import { EarnText } from '../../Staking/components/ProtocolDetails/EarnText';
+import { EManagePositionType } from '../../Staking/pages/ManagePosition/hooks/useManagePage';
 import { useBorrowContext } from '../BorrowProvider';
 import { BorrowNavigation } from '../borrowUtils';
 import { useSupplyActions } from '../hooks/useSupplyActions';
@@ -17,7 +18,6 @@ import {
   BorrowTableList,
 } from './BorrowTableList';
 import { Card } from './Card';
-import { EManagePositionType } from '../../Staking/pages/ManagePosition/hooks/useManagePage';
 
 export type IBorrowedAsset = IBorrowReserveItem['borrowed']['assets'][number];
 

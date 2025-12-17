@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 
 import { Button, SizableText, YStack } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { EManagePositionType } from '@onekeyhq/kit/src/views/Staking/pages/ManagePosition/hooks/useManagePage';
 
 import { BorrowNavigation } from '../../../borrowUtils';
 
@@ -35,6 +36,7 @@ export const ManagePositionPart = ({
       reserveAddress,
       symbol,
       logoURI,
+      type: EManagePositionType.Supply,
     });
   }, [
     navigation,

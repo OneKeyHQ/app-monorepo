@@ -20,7 +20,11 @@ export const EarnHomeTabs = ({
     <YStack pt="$2">
       <Tabs.Container
         initialTabName={defaultMode || 'earn'}
-        onTabChange={onModeChange}
+        onTabChange={({ tabName }) => {
+          if (tabName === 'earn' || tabName === 'borrow') {
+            onModeChange?.(tabName);
+          }
+        }}
         renderTabBar={(tabBarProps) => {
           return <Tabs.TabBar {...tabBarProps} divider={false} />;
         }}

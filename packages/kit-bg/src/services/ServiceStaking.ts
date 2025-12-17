@@ -797,6 +797,7 @@ class ServiceStaking extends ServiceBase {
     accountId?: string;
     indexedAccountId?: string;
     filterNetworkId?: string;
+    skipStakingConfigFilter?: boolean;
   }) {
     let allItems: IStakeProtocolListItem[] = [];
     try {
@@ -820,6 +821,10 @@ class ServiceStaking extends ServiceBase {
       allItems = allItems.filter(
         (item) => item.network.networkId === params.filterNetworkId,
       );
+    }
+
+    if (params.skipStakingConfigFilter) {
+      return allItems;
     }
 
     // Check enabled status for all items
@@ -2072,10 +2077,12 @@ class ServiceStaking extends ServiceBase {
     marketAddress: string;
     reserveAddress: string;
     accountId: string;
-    action: string;
+    action: 'supply' | 'withdraw' | 'borrow' | 'repay';
     amount: string;
   }) {
-    const { accountId, ...rest } = params;
+    const { accountId, amount, ...rest } = params;
+
+    const amountNumber = BigNumber(amount || 0);
 
     const accountAddress =
       await this.backgroundApi.serviceAccount.getAccountAddressForApi({
@@ -2089,6 +2096,7 @@ class ServiceStaking extends ServiceBase {
     }>('/earn/v1/borrow/transaction-confirmation', {
       params: {
         ...rest,
+        amount: amountNumber.isNaN() ? '0' : amountNumber.toFixed(),
         accountAddress,
       },
     });
@@ -2277,7 +2285,9 @@ class ServiceStaking extends ServiceBase {
     action: 'supply' | 'withdraw' | 'borrow' | 'repay';
     amount: string;
   }) {
-    const { accountId, ...rest } = params;
+    const { accountId, amount, ...rest } = params;
+
+    const amountNumber = BigNumber(amount || 0);
 
     const accountAddress =
       await this.backgroundApi.serviceAccount.getAccountAddressForApi({
@@ -2287,14 +2297,17 @@ class ServiceStaking extends ServiceBase {
 
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const response = await client.get<{
+      code: number;
+      message: string;
       data: IBorrowCheckAmount;
     }>('/earn/v1/borrow/check-amount', {
       params: {
         ...rest,
+        amount: amountNumber.isNaN() ? '0' : amountNumber.toFixed(),
         accountAddress,
       },
     });
-    return response.data.data;
+    return response.data;
   }
 
   @backgroundMethod()
@@ -2307,7 +2320,9 @@ class ServiceStaking extends ServiceBase {
     action: 'supply' | 'withdraw' | 'borrow' | 'repay';
     amount: string;
   }) {
-    const { accountId, ...rest } = params;
+    const { accountId, amount, ...rest } = params;
+
+    const amountNumber = BigNumber(amount || 0);
 
     const accountAddress =
       await this.backgroundApi.serviceAccount.getAccountAddressForApi({
@@ -2317,10 +2332,13 @@ class ServiceStaking extends ServiceBase {
 
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const response = await client.get<{
+      code: number;
+      message: string;
       data: IBorrowEstimateFee;
     }>('/earn/v1/borrow/estimate-fee', {
       params: {
         ...rest,
+        amount: amountNumber.isNaN() ? '0' : amountNumber.toFixed(),
         accountAddress,
       },
     });

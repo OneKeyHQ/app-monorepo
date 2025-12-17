@@ -86,6 +86,7 @@ export const useManagePage = ({
           await backgroundApiProxy.serviceStaking.getProtocolList({
             symbol,
             filterNetworkId: networkId,
+            skipStakingConfigFilter: true,
           });
 
         return { managePageData, protocolList, earnAccount };
@@ -142,30 +143,52 @@ export const useManagePage = ({
   const { managePageData, protocolList, earnAccount } = result || {};
 
   const tokenInfo: IEarnTokenInfo | undefined = useMemo(() => {
-    if (!managePageData?.deposit?.data?.token) {
+    if (!managePageData) {
       return undefined;
     }
 
-    const balanceBN = new BigNumber(managePageData.deposit.data.balance || '0');
+    const actionData = (() => {
+      // Borrow manage-page uses supply/borrow actions for the first tab.
+      if (
+        [EManagePositionType.Supply, EManagePositionType.Withdraw].includes(
+          type,
+        )
+      ) {
+        return (
+          managePageData.supply ??
+          managePageData.withdraw ??
+          managePageData.deposit
+        );
+      }
+      if (
+        [EManagePositionType.Borrow, EManagePositionType.Repay].includes(type)
+      ) {
+        return (
+          managePageData.borrow ??
+          managePageData.repay ??
+          managePageData.deposit
+        );
+      }
+      return managePageData.deposit;
+    })();
+
+    if (!actionData?.data?.token) {
+      return undefined;
+    }
+
+    const balanceBN = new BigNumber(actionData.data.balance || '0');
     const balanceParsed = balanceBN.isNaN() ? '0' : balanceBN.toFixed();
 
     return {
       balanceParsed,
-      token: managePageData.deposit.data.token.info,
-      price: managePageData.deposit.data.token.price,
+      token: actionData.data.token.info,
+      price: actionData.data.token.price,
       networkId,
       provider,
       vault,
       accountId,
     };
-  }, [
-    managePageData?.deposit?.data?.token,
-    managePageData?.deposit?.data?.balance,
-    networkId,
-    provider,
-    vault,
-    accountId,
-  ]);
+  }, [managePageData, networkId, provider, vault, accountId, type]);
 
   const protocolInfo: IProtocolInfo | undefined = useMemo(() => {
     if (!managePageData) {
@@ -191,7 +214,9 @@ export const useManagePage = ({
       vault,
       networkId,
       earnAccount,
-      activeBalance: managePageData.withdraw?.data?.balance,
+      activeBalance:
+        managePageData.withdraw?.data?.balance ??
+        managePageData.repay?.data?.balance,
       stakeTag: buildLocalTxStatusSyncId({
         providerName: provider,
         tokenSymbol: symbol,
@@ -232,15 +257,51 @@ export const useManagePage = ({
     earnAccount,
   ]);
 
-  const depositDisabled = useMemo(
-    () => managePageData?.deposit?.disabled ?? false,
-    [managePageData?.deposit?.disabled],
-  );
+  const depositDisabled = useMemo(() => {
+    if (!managePageData) {
+      return false;
+    }
+    if (
+      [EManagePositionType.Supply, EManagePositionType.Withdraw].includes(type)
+    ) {
+      return (
+        managePageData.supply?.disabled ??
+        managePageData.deposit?.disabled ??
+        false
+      );
+    }
+    if (
+      [EManagePositionType.Borrow, EManagePositionType.Repay].includes(type)
+    ) {
+      return (
+        managePageData.borrow?.disabled ??
+        managePageData.deposit?.disabled ??
+        false
+      );
+    }
+    return managePageData.deposit?.disabled ?? false;
+  }, [managePageData, type]);
 
-  const withdrawDisabled = useMemo(
-    () => managePageData?.withdraw?.disabled ?? false,
-    [managePageData?.withdraw?.disabled],
-  );
+  const withdrawDisabled = useMemo(() => {
+    if (!managePageData) {
+      return false;
+    }
+    if (
+      [EManagePositionType.Supply, EManagePositionType.Withdraw].includes(type)
+    ) {
+      return managePageData.withdraw?.disabled ?? false;
+    }
+    if (
+      [EManagePositionType.Borrow, EManagePositionType.Repay].includes(type)
+    ) {
+      return (
+        managePageData.repay?.disabled ??
+        managePageData.withdraw?.disabled ??
+        false
+      );
+    }
+    return managePageData.withdraw?.disabled ?? false;
+  }, [managePageData, type]);
 
   const alerts = useMemo(
     () => managePageData?.alerts || [],

@@ -58,6 +58,12 @@ const BorrowManagePosition = () => {
     marketAddress,
     type,
   } = resolvedParams;
+  const defaultTab = useMemo(() => {
+    if (type === 'withdraw' || type === 'repay') {
+      return 'withdraw';
+    }
+    return 'deposit';
+  }, [type]);
 
   return (
     <Page scrollEnabled>
@@ -75,6 +81,7 @@ const BorrowManagePosition = () => {
           type={type as EManagePositionType}
           reserveAddress={reserveAddress}
           marketAddress={marketAddress}
+          defaultTab={defaultTab}
         />
       </Page.Body>
     </Page>
