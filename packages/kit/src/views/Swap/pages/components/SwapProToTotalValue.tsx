@@ -43,7 +43,7 @@ const SwapProToTotalValue = () => {
 
   if (swapProTradeType !== ESwapProTradeType.LIMIT) {
     return (
-      <Stack mt="$3">
+      <Stack>
         <SwapCommonInfoItem
           title={intl.formatMessage({ id: ETranslations.dexmarket_total })}
           value={`≈ ${swapProToTotalValue}`}
@@ -54,6 +54,9 @@ const SwapProToTotalValue = () => {
             size: '$bodySmMedium',
           }}
           isLoading={swapProQuoteFetching}
+          containerProps={{
+            py: '$1',
+          }}
         />
       </Stack>
     );

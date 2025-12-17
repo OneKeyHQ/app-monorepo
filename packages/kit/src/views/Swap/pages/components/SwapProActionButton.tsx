@@ -91,6 +91,7 @@ const SwapProActionButton = ({
       disabled={actionButtonDisabled}
       onPress={onSwapProActionClick}
       variant="primary"
+      size="small"
       backgroundColor={
         swapProDirection === ESwapDirection.BUY
           ? '$bgSuccessStrong'

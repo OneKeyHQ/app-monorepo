@@ -144,10 +144,11 @@ const SwapProInputContainer = ({
     <YStack borderRadius="$2" bg="$bgStrong" mb="$2">
       <XStack borderTopLeftRadius="$2" borderTopRightRadius="$2">
         <Input
-          size="medium"
+          size="small"
           containerProps={{
             flex: 1,
             borderWidth: 0,
+            py: '$1',
           }}
           keyboardType="decimal-pad"
           value={
@@ -181,12 +182,11 @@ const SwapProInputContainer = ({
                   {inputToken?.logoURI ? (
                     <Image
                       src={inputToken.logoURI}
-                      width="$5"
-                      height="$5"
+                      size="$4.5"
                       borderRadius="$full"
                     />
                   ) : null}
-                  <SizableText size="$bodyLg">{inputToken?.symbol}</SizableText>
+                  <SizableText size="$bodyMd">{inputToken?.symbol}</SizableText>
                   {isTokenSelectorVisible ? (
                     <Icon
                       name="ChevronDownSmallOutline"
