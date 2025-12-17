@@ -3,7 +3,7 @@ import { useMemo } from 'react';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import { YStack } from '@onekeyhq/components';
+import { NumberSizeableText, YStack } from '@onekeyhq/components';
 import {
   useSwapProTradeTypeAtom,
   useSwapQuoteCurrentSelectAtom,
@@ -45,13 +45,7 @@ const SwapProTradeInfoGroup = ({
     if (balanceBN.isZero() || balanceBN.isNaN()) {
       return `0 ${inputToken?.symbol ?? '-'}`;
     }
-    const formattedBalance = numberFormat(balanceBN.toFixed(), {
-      formatter: 'balance',
-      formatterOptions: {
-        tokenSymbol: inputToken?.symbol ?? '-',
-      },
-    });
-    return formattedBalance;
+    return balanceBN.toFixed();
   }, [inputToken]);
 
   const swapProQuoteResult = useMemo(() => {
@@ -106,7 +100,15 @@ const SwapProTradeInfoGroup = ({
     <YStack gap="$3" mt="$2">
       <SwapCommonInfoItem
         title={intl.formatMessage({ id: ETranslations.global_balance })}
-        value={balanceValue}
+        valueComponent={
+          <NumberSizeableText
+            size="$bodySmMedium"
+            formatter="balance"
+            formatterOptions={{ tokenSymbol: inputToken?.symbol ?? '-' }}
+          >
+            {balanceValue}
+          </NumberSizeableText>
+        }
         titleProps={ITEM_TITLE_PROPS}
         valueProps={ITEM_VALUE_PROPS}
         isLoading={balanceLoading}

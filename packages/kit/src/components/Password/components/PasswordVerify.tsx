@@ -23,7 +23,7 @@ import {
   onVisibilityStateChange,
   useForm,
 } from '@onekeyhq/components';
-import { usePasswordAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { usePasswordPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import biologyAuth from '@onekeyhq/shared/src/biologyAuth';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { checkBiometricAuthChanged } from '@onekeyhq/shared/src/modules3rdParty/check-biometric-auth-changed';
@@ -111,7 +111,7 @@ function PasswordVerify({
   const passwordInput = form.watch(
     passwordMode === EPasswordMode.PASSWORD ? 'password' : 'passCode',
   );
-  const [{ manualLocking }] = usePasswordAtom();
+  const [{ manualLocking }] = usePasswordPersistAtom();
   const { icon: biologyAuthIconName, title: authTitle } =
     useBiometricAuthInfo();
 
