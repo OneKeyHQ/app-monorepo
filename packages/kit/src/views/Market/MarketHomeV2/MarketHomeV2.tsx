@@ -7,7 +7,6 @@ import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
-import { TabletHomeContainer } from '../../../components/TabletHomeContainer';
 import { TabPageHeader } from '../../../components/TabPageHeader';
 import { useSelectedNetworkIdAtom } from '../../../states/jotai/contexts/marketV2';
 import { useMarketBasicConfig } from '../hooks';
@@ -21,13 +20,7 @@ import { MobileLayout } from './layouts/MobileLayout';
 import type { ITimeRangeSelectorValue } from './components/TimeRangeSelector';
 import type { ILiquidityFilter } from './types';
 
-function BasicMarketHome({
-  showHeader = true,
-  showContent = true,
-}: {
-  showHeader?: boolean;
-  showContent?: boolean;
-}) {
+const useMarketHomeLayoutProps = () => {
   const { md } = useMedia();
 
   // Load market basic config using the new hook
@@ -114,18 +107,25 @@ function BasicMarketHome({
     ],
   );
 
-  if (!showContent) {
-    return null;
-  }
+  return useMemo(
+    () => ({
+      md,
+      mobileProps,
+      desktopProps,
+    }),
+    [md, mobileProps, desktopProps],
+  );
+};
+
+function BasicMarketHome() {
+  const { md, mobileProps, desktopProps } = useMarketHomeLayoutProps();
 
   return (
     <Page>
-      {showHeader ? (
-        <TabPageHeader
-          sceneName={EAccountSelectorSceneName.home}
-          tabRoute={ETabRoutes.Market}
-        />
-      ) : null}
+      <TabPageHeader
+        sceneName={EAccountSelectorSceneName.home}
+        tabRoute={ETabRoutes.Market}
+      />
       <Page.Body>
         {md || platformEnv.isNative ? (
           <MobileLayout {...mobileProps} />
@@ -139,31 +139,29 @@ function BasicMarketHome({
 
 export function MarketHomeV2() {
   return (
-    <TabletHomeContainer>
-      <AccountSelectorProviderMirror
-        config={{
-          sceneName: EAccountSelectorSceneName.home,
-          sceneUrl: '',
-        }}
-        enabledNum={[0]}
+    <AccountSelectorProviderMirror
+      config={{
+        sceneName: EAccountSelectorSceneName.home,
+        sceneUrl: '',
+      }}
+      enabledNum={[0]}
+    >
+      <MarketWatchListProviderMirrorV2
+        storeName={EJotaiContextStoreNames.marketWatchListV2}
       >
-        <MarketWatchListProviderMirrorV2
-          storeName={EJotaiContextStoreNames.marketWatchListV2}
-        >
-          <BasicMarketHome />
-        </MarketWatchListProviderMirrorV2>
-      </AccountSelectorProviderMirror>
-    </TabletHomeContainer>
+        <BasicMarketHome />
+      </MarketWatchListProviderMirrorV2>
+    </AccountSelectorProviderMirror>
   );
 }
 
-export function MarketHomeWithProvider({
-  showHeader = true,
-  showContent = true,
-}: {
-  showHeader?: boolean;
-  showContent?: boolean;
-}) {
+function BaseMarketHomeWithProvider() {
+  const { mobileProps } = useMarketHomeLayoutProps();
+
+  return <MobileLayout {...mobileProps} />;
+}
+
+export function MarketHomeWithProvider() {
   return (
     <AccountSelectorProviderMirror
       config={{
@@ -175,7 +173,7 @@ export function MarketHomeWithProvider({
       <MarketWatchListProviderMirrorV2
         storeName={EJotaiContextStoreNames.marketWatchListV2}
       >
-        <BasicMarketHome showHeader={showHeader} showContent={showContent} />
+        <BaseMarketHomeWithProvider />
       </MarketWatchListProviderMirrorV2>
     </AccountSelectorProviderMirror>
   );
