@@ -1730,6 +1730,16 @@ export interface IBorrowHealthFactor {
   };
 }
 
+export interface IBorrowEstimateFee {
+  feeFiatValue: string;
+  coverFeeSeconds?: string;
+}
+
+export interface IBorrowCheckAmount {
+  result: boolean;
+  alerts: IEarnAlert[];
+}
+
 export interface IBorrowReserveItem {
   overview: {
     netWorth: IEarnText;

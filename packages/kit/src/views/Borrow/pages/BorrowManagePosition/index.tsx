@@ -14,7 +14,8 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { DiscoveryBrowserProviderMirror } from '../../../Discovery/components/DiscoveryBrowserProviderMirror';
 import { EarnProviderMirror } from '../../../Earn/EarnProviderMirror';
 import { ManagePositionContent } from '../../../Staking/pages/ManagePosition/components/ManagePositionContent';
-import { EManagePositionType } from '../../../Staking/pages/ManagePosition/hooks/useManagePage';
+
+import type { EManagePositionType } from '../../../Staking/pages/ManagePosition/hooks/useManagePage';
 
 const BorrowManagePosition = () => {
   const route = useAppRoute<

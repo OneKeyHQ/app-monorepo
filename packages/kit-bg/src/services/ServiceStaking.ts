@@ -38,6 +38,8 @@ import type {
   IAvailableAsset,
   IBabylonPortfolioItem,
   IBorrowApyHistoryItem,
+  IBorrowCheckAmount,
+  IBorrowEstimateFee,
   IBorrowHealthFactor,
   IBorrowHistory,
   IBorrowManagePage,
@@ -2257,6 +2259,66 @@ class ServiceStaking extends ServiceBase {
     const response = await client.get<{
       data: IBorrowHealthFactor;
     }>('/earn/v1/borrow/health-factor', {
+      params: {
+        ...rest,
+        accountAddress,
+      },
+    });
+    return response.data.data;
+  }
+
+  @backgroundMethod()
+  async getBorrowCheckAmount(params: {
+    networkId: string;
+    provider: string;
+    marketAddress: string;
+    reserveAddress: string;
+    accountId: string;
+    action: 'supply' | 'withdraw' | 'borrow' | 'repay';
+    amount: string;
+  }) {
+    const { accountId, ...rest } = params;
+
+    const accountAddress =
+      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        networkId: params.networkId,
+        accountId,
+      });
+
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const response = await client.get<{
+      data: IBorrowCheckAmount;
+    }>('/earn/v1/borrow/check-amount', {
+      params: {
+        ...rest,
+        accountAddress,
+      },
+    });
+    return response.data.data;
+  }
+
+  @backgroundMethod()
+  async getBorrowEstimateFee(params: {
+    networkId: string;
+    provider: string;
+    marketAddress: string;
+    reserveAddress: string;
+    accountId: string;
+    action: 'supply' | 'withdraw' | 'borrow' | 'repay';
+    amount: string;
+  }) {
+    const { accountId, ...rest } = params;
+
+    const accountAddress =
+      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        networkId: params.networkId,
+        accountId,
+      });
+
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const response = await client.get<{
+      data: IBorrowEstimateFee;
+    }>('/earn/v1/borrow/estimate-fee', {
       params: {
         ...rest,
         accountAddress,
