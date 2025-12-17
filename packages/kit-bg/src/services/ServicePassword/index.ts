@@ -204,15 +204,7 @@ export default class ServicePassword extends ServiceBase {
     void this.backgroundApi.servicePrimeCloudSync.clearCachedSyncCredential();
   }
 
-  async isCachedPasswordAvailable(): Promise<boolean> {
-    const { appLockDuration } = await passwordPersistAtom.get();
-    return !isNeverLockDuration(appLockDuration);
-  }
-
   async setCachedPassword({ password }: { password: string }): Promise<string> {
-    if (!(await this.isCachedPasswordAvailable())) {
-      return password;
-    }
     const prevPassword = this.cachedPassword;
     ensureSensitiveTextEncoded(password);
     this.cachedPassword = password;
@@ -248,9 +240,6 @@ export default class ServicePassword extends ServiceBase {
 
   @backgroundMethod()
   async getCachedPassword(): Promise<string | undefined> {
-    if (!(await this.isCachedPasswordAvailable())) {
-      return undefined;
-    }
     if (this.cachedPasswordTimeOutObject) {
       clearTimeout(this.cachedPasswordTimeOutObject);
     }
