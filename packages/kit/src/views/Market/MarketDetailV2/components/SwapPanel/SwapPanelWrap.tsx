@@ -53,13 +53,23 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
 
   const { result: accountNetworkNotSupported } = usePromiseResult(
     async () => {
-      return backgroundApiProxy.serviceAccount.checkAccountNetworkNotSupported({
-        accountId: activeAccount?.account?.id ?? '',
-        accountImpl: activeAccount?.account?.impl,
-        activeNetworkId: networkId ?? '',
-      });
+      const result =
+        await backgroundApiProxy.serviceAccount.checkAccountNetworkNotSupported(
+          {
+            walletId: activeAccount?.wallet?.id ?? '',
+            accountId: activeAccount?.account?.id ?? '',
+            accountImpl: activeAccount?.account?.impl,
+            activeNetworkId: networkId ?? '',
+          },
+        );
+      return !!result?.networkImpl;
     },
-    [activeAccount?.account?.id, activeAccount?.account?.impl, networkId],
+    [
+      activeAccount?.wallet?.id,
+      activeAccount?.account?.id,
+      activeAccount?.account?.impl,
+      networkId,
+    ],
     {
       initResult: undefined,
     },
@@ -67,7 +77,7 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
 
   const supportSpeedSwap = useMemo(() => {
     let isAccountNetworkSupported: boolean;
-    if (accountNetworkNotSupported !== undefined) {
+    if (accountNetworkNotSupported) {
       isAccountNetworkSupported = false;
     } else {
       isAccountNetworkSupported = true;

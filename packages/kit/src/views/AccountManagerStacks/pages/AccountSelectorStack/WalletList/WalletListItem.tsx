@@ -200,7 +200,7 @@ export function WalletListItem({
     wallet,
     status: isKeylessWallet ? 'keyless' : 'default',
     badge,
-    firmwareTypeBadge: wallet?.firmwareTypeBadge,
+    firmwareTypeBadge: wallet?.firmwareTypeAtCreated,
   };
   const [accountSelectorStatus] = useAccountSelectorStatusAtom();
   noop(accountSelectorStatus?.passphraseProtectionChangedAt);

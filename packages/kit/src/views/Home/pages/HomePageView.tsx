@@ -41,6 +41,7 @@ import {
   useApprovalsInfoAtom,
 } from '../../../states/jotai/contexts/accountOverview';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
+import { NetworkUnsupportedWarning } from '../../Staking/components/ProtocolDetails/NetworkUnsupportedWarning';
 import { HomeSupportedWallet } from '../components/HomeSupportedWallet';
 import { NotBackedUpEmpty } from '../components/NotBakcedUp';
 
@@ -348,7 +349,40 @@ export function HomePageView({
     };
   }, [handleSwitchWalletHomeTab]);
 
+  const { result: accountNetworkNotSupported } = usePromiseResult(
+    async () => {
+      if (!network?.id) return undefined;
+      const checkResult =
+        await backgroundApiProxy.serviceAccount.checkAccountNetworkNotSupported(
+          {
+            walletId: wallet?.id,
+            accountId: account?.id,
+            accountImpl: account?.impl,
+            activeNetworkId: network.id,
+            featuresInfoCache: device?.featuresInfo,
+          },
+        );
+
+      return !!checkResult?.networkImpl;
+    },
+    [account?.id, account?.impl, wallet?.id, network?.id, device?.featuresInfo],
+    { initResult: undefined },
+  );
+
   const homePageContent = useMemo(() => {
+    if (accountNetworkNotSupported) {
+      return (
+        <YStack height="100%">
+          <Stack flex={1} justifyContent="center">
+            <NetworkUnsupportedWarning
+              networkId={network?.id ?? ''}
+              emptyStyle
+            />
+          </Stack>
+        </YStack>
+      );
+    }
+
     if (
       (softwareAccountDisabled &&
         accountUtils.isHdWallet({
@@ -397,6 +431,7 @@ export function HomePageView({
 
     return tabs;
   }, [
+    accountNetworkNotSupported,
     softwareAccountDisabled,
     wallet?.id,
     supportedDeviceTypes,
