@@ -20,7 +20,6 @@ import {
   getEmptyTokenData,
   getMergedTokenData,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
-import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   IAccountToken,
   IFetchAccountTokensParams,
@@ -518,14 +517,11 @@ class ServiceToken extends ServiceBase {
   fetchTokenInfoOnlyMemo = memoizee(
     async (params: { networkId: string; tokenAddress: string }) => {
       const { networkId, tokenAddress } = params;
-      const client = await this.getClient(EServiceEndpointEnum.Wallet);
-      const resp = await client.post<{ data: IFetchTokenDetailItem[] }>(
-        '/wallet/v1/account/token/search',
-        {
-          networkId,
-          contractList: [tokenAddress],
-        },
-      );
+      const vault = await vaultFactory.getChainOnlyVault({ networkId });
+      const resp = await vault.fetchTokenDetails({
+        networkId,
+        contractList: [tokenAddress],
+      });
       return resp.data.data[0];
     },
     {
