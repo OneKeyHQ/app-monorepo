@@ -26,7 +26,6 @@ import type {
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { presetNetworksMap } from '@onekeyhq/shared/src/config/presetNetworks';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import externalWalletLogoUtils from '@onekeyhq/shared/src/utils/externalWalletLogoUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
@@ -148,13 +147,8 @@ function BasicAccountAvatar({
   );
 
   const firmwareType = useMemo(() => {
-    if (!wallet?.associatedDeviceInfo) {
-      return undefined;
-    }
-    return deviceUtils.getFirmwareTypeByCachedFeatures({
-      features: wallet.associatedDeviceInfo?.featuresInfo,
-    });
-  }, [wallet?.associatedDeviceInfo]);
+    return wallet?.firmwareTypeAtCreated;
+  }, [wallet?.firmwareTypeAtCreated]);
 
   const uriSource = useMemo(() => {
     const emptyAccountAvatar = <DefaultEmptyAccount />;

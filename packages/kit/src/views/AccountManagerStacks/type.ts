@@ -33,7 +33,5 @@ export type IWalletProps = {
 };
 
 export type IAccountSelectorWalletInfo = IDBWallet & {
-  // only firmware device
-  firmwareTypeBadge?: EFirmwareType;
   badge?: number | string;
 };
