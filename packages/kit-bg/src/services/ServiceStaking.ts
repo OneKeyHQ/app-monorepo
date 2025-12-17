@@ -2121,13 +2121,11 @@ class ServiceStaking extends ServiceBase {
       });
 
     const client = await this.getClient(EServiceEndpointEnum.Earn);
-    const response = await client.get<{
+    const response = await client.post<{
       data: IBorrowUnsignedTransaction;
     }>('/earn/v1/borrow/build-supply-transaction', {
-      params: {
-        ...rest,
-        accountAddress,
-      },
+      ...rest,
+      accountAddress,
     });
     return response.data.data;
   }
@@ -2150,13 +2148,11 @@ class ServiceStaking extends ServiceBase {
       });
 
     const client = await this.getClient(EServiceEndpointEnum.Earn);
-    const response = await client.get<{
+    const response = await client.post<{
       data: IBorrowUnsignedTransaction;
     }>('/earn/v1/borrow/build-withdraw-transaction', {
-      params: {
-        ...rest,
-        accountAddress,
-      },
+      ...rest,
+      accountAddress,
     });
     return response.data.data;
   }
@@ -2179,13 +2175,11 @@ class ServiceStaking extends ServiceBase {
       });
 
     const client = await this.getClient(EServiceEndpointEnum.Earn);
-    const response = await client.get<{
+    const response = await client.post<{
       data: IBorrowUnsignedTransaction;
     }>('/earn/v1/borrow/build-borrow-transaction', {
-      params: {
-        ...rest,
-        accountAddress,
-      },
+      ...rest,
+      accountAddress,
     });
     return response.data.data;
   }
@@ -2208,13 +2202,11 @@ class ServiceStaking extends ServiceBase {
       });
 
     const client = await this.getClient(EServiceEndpointEnum.Earn);
-    const response = await client.get<{
+    const response = await client.post<{
       data: IBorrowUnsignedTransaction;
     }>('/earn/v1/borrow/build-repay-transaction', {
-      params: {
-        ...rest,
-        accountAddress,
-      },
+      ...rest,
+      accountAddress,
     });
     return response.data.data;
   }
