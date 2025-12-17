@@ -48,6 +48,7 @@ export interface ISimpleDbPerpData {
   tradingviewDisplayPriceScale?: Record<string, number>; // decimal places for price display in tradingview chart
   hyperliquidTermsAccepted?: boolean;
   hyperliquidErrorLocales?: IHyperLiquidErrorLocaleItem[];
+  dexAbstractionEnabledUsers?: Record<string, boolean>; // user address -> HIP-3 DEX abstraction enabled status
 }
 
 export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
@@ -239,5 +240,24 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
   > {
     const config = await this.getPerpData();
     return config.hyperliquidErrorLocales;
+  }
+
+  @backgroundMethod()
+  async isDexAbstractionEnabled(userAddress: string): Promise<boolean> {
+    const config = await this.getPerpData();
+    return config.dexAbstractionEnabledUsers?.[userAddress.toLowerCase()] ?? false;
+  }
+
+  @backgroundMethod()
+  async setDexAbstractionEnabled(userAddress: string, enabled: boolean) {
+    await this.setPerpData(
+      (prev): ISimpleDbPerpData => ({
+        ...prev,
+        dexAbstractionEnabledUsers: {
+          ...(prev?.dexAbstractionEnabledUsers ?? {}),
+          [userAddress.toLowerCase()]: enabled,
+        },
+      }),
+    );
   }
 }
