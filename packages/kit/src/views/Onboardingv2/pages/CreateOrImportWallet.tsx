@@ -10,7 +10,6 @@ import {
   AnimatePresence,
   Badge,
   Button,
-  Dialog,
   HeightTransition,
   Icon,
   Image,
@@ -21,27 +20,21 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { generateMnemonic } from '@onekeyhq/core/src/secret';
-import { EKeylessWalletEnableScene } from '@onekeyhq/shared/src/keylessWallet/keylessWalletConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes';
 import {
   EModalRoutes,
   EOnboardingPages,
   EOnboardingPagesV2,
 } from '@onekeyhq/shared/src/routes';
-import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import externalWalletLogoUtils from '@onekeyhq/shared/src/utils/externalWalletLogoUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { useKeylessWallet } from '../../../components/KeylessWallet/useKeylessWallet';
-import { useOneKeyAuth } from '../../../components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '../../../hooks/useAppNavigation';
-import { TermsAndPrivacy } from '../../Onboarding/pages/GetStarted/components';
-import { showOneKeyIDLoginDialog } from '../../Prime/components/OneKeyIDLoginDialog';
 import { OnboardingLayout } from '../components/OnboardingLayout';
 
 import { AnimatedDeviceAvatar } from './GetStarted';
@@ -148,12 +141,10 @@ function CreateOrImportWallet() {
   const { fullOptions } = route.params ?? {};
   const [expanded, setExpanded] = useState(false);
   const [keylessExpanded, setKeylessExpanded] = useState(false);
-  const { enableKeylessWallet, enableKeylessWalletLoading } =
-    useKeylessWallet();
+  const { enableKeylessWalletLoading } = useKeylessWallet();
 
   const walletKeys = ['metamask', 'okx', 'rainbow', 'tokenpocket'] as const;
   const navigation = useAppNavigation();
-  const { isLoggedIn } = useOneKeyAuth();
 
   const handleExpand = useCallback(() => {
     setExpanded((prev) => !prev);
@@ -197,11 +188,14 @@ function CreateOrImportWallet() {
     defaultLogger.account.wallet.onboard({ onboardMethod: 'connectHWWallet' });
   };
 
-  const handleKeylessWalletClick = useCallback(async () => {
-    await enableKeylessWallet({
-      fromScene: EKeylessWalletEnableScene.Onboarding,
-    });
-  }, [enableKeylessWallet]);
+  const handleKeylessWalletClick = useCallback(() => {
+    // await enableKeylessWallet({
+    //   fromScene: EKeylessWalletEnableScene.Onboarding,
+    // });
+
+    navigation.push(EOnboardingPagesV2.OneKeyIDLogin);
+  }, [navigation]);
+
   return (
     <Page>
       <OnboardingLayout>
@@ -243,6 +237,39 @@ function CreateOrImportWallet() {
                       color="$iconSubdued"
                     />
                   </Card.Header>
+                  <Card.Body>
+                    <XStack gap="$2" flexWrap="wrap">
+                      {[
+                        {
+                          title: 'Highest security',
+                          badge: 'success' as const,
+                        },
+                        { title: 'For large assets' },
+                        { title: 'Private keys stay on device' },
+                        {
+                          title: 'Ideal for long-term storage',
+                        },
+                        { title: 'Protects against malware' },
+                      ].map((item, index) => (
+                        <Badge
+                          key={index}
+                          {...(item.badge && { badgeType: item.badge })}
+                        >
+                          <Badge.Text size="$bodySm">{item.title}</Badge.Text>
+                        </Badge>
+                      ))}
+                      <Badge>
+                        <Badge.Text size="$bodySm">
+                          {intl.formatMessage({
+                            id: ETranslations.global_supports,
+                          })}
+                        </Badge.Text>
+                        <XStack gap="$1" ml="$1">
+                          <Icon name="OnekeyLogoIllus" size="$3" />
+                        </XStack>
+                      </Badge>
+                    </XStack>
+                  </Card.Body>
                 </Card>
               </>
             ) : null}

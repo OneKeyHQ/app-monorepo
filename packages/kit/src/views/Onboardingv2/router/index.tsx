@@ -131,6 +131,12 @@ const KeylessWalletCreation = LazyLoadPage(
   false,
   <OnboardingLayoutFallback />,
 );
+const OneKeyIDLogin = LazyLoadPage(
+  () => import('../pages/OneKeyIDLoginPage'),
+  undefined,
+  false,
+  <OnboardingLayoutFallback />,
+);
 
 const hiddenHeaderOptions = {
   headerShown: false,
@@ -243,6 +249,11 @@ export const OnboardingRouterV2: IModalFlowNavigatorConfig<
   {
     name: EOnboardingPagesV2.KeylessWalletCreation,
     component: KeylessWalletCreation,
+    options: hiddenHeaderOptions,
+  },
+  {
+    name: EOnboardingPagesV2.OneKeyIDLogin,
+    component: OneKeyIDLogin,
     options: hiddenHeaderOptions,
   },
 ];
