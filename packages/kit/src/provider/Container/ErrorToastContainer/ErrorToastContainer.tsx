@@ -46,7 +46,11 @@ export function ErrorToastContainer() {
       // Otherwise, respect custom toastId from caller
       const toastId = deduplication.forceDeduplicate
         ? deduplication.id
-        : p.toastId || deduplication.id || p.title || p.requestId;
+        : p.toastId ||
+          deduplication.id ||
+          p.errorCode ||
+          p.title ||
+          p.requestId;
 
       const actions = getErrorAction({
         errorCode: p.errorCode,
