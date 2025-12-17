@@ -1805,6 +1805,7 @@
   "global.watch_only_wallet": "กระเป๋าเงินแบบดูเท่านั้น",
   "global.watched": "ดูแล้ว",
   "global.watchlist": "รายการที่ติดตาม",
+  "global.web_feature_not_available_go_to_app": "ฟีเจอร์นี้ไม่พร้อมใช้งานบนเว็บ โปรดใช้แอปเดสก์ท็อปหรือมือถือ",
   "global.website": "เว็บไซต์",
   "global.what_happen": "สิ่งที่จะเกิดขึ้น:",
   "global.what_stay_safe": "สิ่งที่ยังคงปลอดภัย:",

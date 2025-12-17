@@ -1805,6 +1805,7 @@
   "global.watch_only_wallet": "閲覧専用ウォレット",
   "global.watched": "視聴済み",
   "global.watchlist": "ウォッチリスト",
+  "global.web_feature_not_available_go_to_app": "この機能はウェブでは利用できません。デスクトップまたはモバイル アプリを使用してください。",
   "global.website": "ウェブサイト",
   "global.what_happen": "何が起こるか:",
   "global.what_stay_safe": "安全に保たれるもの:",

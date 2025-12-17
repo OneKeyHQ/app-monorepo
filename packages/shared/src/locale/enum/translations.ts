@@ -1810,6 +1810,7 @@
   global_watch_only_wallet = 'global.watch_only_wallet',
   global_watched = 'global.watched',
   global_watchlist = 'global.watchlist',
+  global_web_feature_not_available_go_to_app = 'global.web_feature_not_available_go_to_app',
   global_website = 'global.website',
   global_what_happen = 'global.what_happen',
   global_what_stay_safe = 'global.what_stay_safe',

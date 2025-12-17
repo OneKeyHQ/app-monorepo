@@ -1805,6 +1805,7 @@
   "global.watch_only_wallet": "Portefeuille en lecture seule",
   "global.watched": "Regardé",
   "global.watchlist": "Liste de surveillance",
+  "global.web_feature_not_available_go_to_app": "Cette fonctionnalité n'est pas disponible sur le web. Veuillez utiliser l'application de bureau ou mobile.",
   "global.website": "Site web",
   "global.what_happen": "Ce qui va se passer :",
   "global.what_stay_safe": "Ce qui reste sécurisé :",
