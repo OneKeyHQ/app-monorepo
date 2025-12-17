@@ -1,6 +1,7 @@
 import type { IDialogShowProps } from '@onekeyhq/components/src/composite/Dialog/type';
 import { ELockDuration } from '@onekeyhq/shared/src/consts/appAutoLockConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { isNeverLockDuration } from '@onekeyhq/shared/src/utils/passwordUtils';
 import { isSupportWebAuth } from '@onekeyhq/shared/src/webAuth';
 import {
   EPasswordMode,
@@ -100,7 +101,7 @@ export const { target: systemIdleLockSupport, use: useSystemIdleLockSupport } =
     const { appLockDuration } = get(passwordPersistAtom.atom());
     return (
       platformSupport &&
-      appLockDuration !== Number(ELockDuration.Never) &&
+      !isNeverLockDuration(appLockDuration) &&
       appLockDuration !== Number(ELockDuration.Always)
     );
   });
@@ -159,7 +160,7 @@ export const { target: appIsLocked, use: useAppIsLockedAtom } =
         return true;
       }
 
-      const isNeverLock = String(appLockDuration) === ELockDuration.Never;
+      const isNeverLock = isNeverLockDuration(appLockDuration);
 
       if (isNeverLock) {
         return false;

@@ -22,13 +22,13 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import biologyAuth from '@onekeyhq/shared/src/biologyAuth';
 import { biologyAuthNativeError } from '@onekeyhq/shared/src/biologyAuth/error';
-import { ELockDuration } from '@onekeyhq/shared/src/consts/appAutoLockConsts';
 import * as OneKeyErrors from '@onekeyhq/shared/src/errors';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import * as deviceErrorUtils from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { isNeverLockDuration } from '@onekeyhq/shared/src/utils/passwordUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   EHardwareCallContext,
@@ -206,7 +206,7 @@ export default class ServicePassword extends ServiceBase {
 
   async isCachedPasswordAvailable(): Promise<boolean> {
     const { appLockDuration } = await passwordPersistAtom.get();
-    return !(String(appLockDuration) === ELockDuration.Never);
+    return !isNeverLockDuration(appLockDuration);
   }
 
   async setCachedPassword({ password }: { password: string }): Promise<string> {
