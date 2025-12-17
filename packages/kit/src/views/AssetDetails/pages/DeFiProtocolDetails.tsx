@@ -7,7 +7,6 @@ import {
   Badge,
   Divider,
   IconButton,
-  NumberSizeableText,
   Page,
   Popover,
   SizableText,
@@ -15,6 +14,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -57,14 +57,15 @@ function DeFiProtocolDetails() {
               <SizableText size="$heading2xl" numberOfLines={1}>
                 {protocolInfo?.protocolName ?? ''}
               </SizableText>
-              <NumberSizeableText
+              <NumberSizeableTextWrapper
+                hideValue
                 size="$bodyLgMedium"
                 formatter="value"
                 formatterOptions={{ currency: settings.currencyInfo.symbol }}
                 color="$textSubdued"
               >
                 {protocolInfo?.netWorth ?? '0'}
-              </NumberSizeableText>
+              </NumberSizeableTextWrapper>
             </YStack>
           </XStack>
           <IconButton
@@ -164,13 +165,14 @@ function DeFiProtocolDetails() {
                   }
                 />
               </XStack>
-              <NumberSizeableText
+              <NumberSizeableTextWrapper
+                hideValue
                 size="$headingMd"
                 formatter="value"
                 formatterOptions={{ currency: settings.currencyInfo.symbol }}
               >
                 {position.value}
-              </NumberSizeableText>
+              </NumberSizeableTextWrapper>
             </XStack>
             <YStack>
               {[...position.assets, ...position.debts, ...position.rewards].map(
@@ -193,13 +195,15 @@ function DeFiProtocolDetails() {
                       </YStack>
                     </XStack>
                     <YStack flex={1} alignItems="flex-end">
-                      <NumberSizeableText
+                      <NumberSizeableTextWrapper
+                        hideValue
                         size="$bodyLgMedium"
                         formatter="balance"
                       >
                         {asset.amount}
-                      </NumberSizeableText>
-                      <NumberSizeableText
+                      </NumberSizeableTextWrapper>
+                      <NumberSizeableTextWrapper
+                        hideValue
                         size="$bodyMd"
                         formatter="value"
                         formatterOptions={{
@@ -208,7 +212,7 @@ function DeFiProtocolDetails() {
                         color="$textSubdued"
                       >
                         {asset.value}
-                      </NumberSizeableText>
+                      </NumberSizeableTextWrapper>
                     </YStack>
                   </XStack>
                 ),

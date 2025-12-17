@@ -6,7 +6,6 @@ import { useThrottledCallback } from 'use-debounce';
 
 import {
   Button,
-  NumberSizeableText,
   Skeleton,
   XStack,
   YStack,
@@ -47,6 +46,7 @@ import type {
 import { RichBlock } from '../RichBlock/RichBlock';
 
 import { Protocol } from './Protocol';
+import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 
 const MAX_PROTOCOLS_ON_SMALL_SCREEN = 6;
 
@@ -483,7 +483,8 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
       }
 
       return (
-        <NumberSizeableText
+        <NumberSizeableTextWrapper
+          hideValue
           size="$headingXl"
           color="$textSubdued"
           formatter="value"
@@ -492,7 +493,7 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
           }}
         >
           {overview.netWorth}
-        </NumberSizeableText>
+        </NumberSizeableTextWrapper>
       );
     }
 

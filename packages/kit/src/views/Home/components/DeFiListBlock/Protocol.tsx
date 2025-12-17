@@ -9,16 +9,15 @@ import {
   Divider,
   Icon,
   IconButton,
-  NumberSizeableText,
   Popover,
   SizableText,
   Stack,
-  Tooltip,
   View,
   XStack,
   YStack,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDeFiListProtocolMapAtom } from '@onekeyhq/kit/src/states/jotai/contexts/deFiList';
@@ -108,22 +107,27 @@ function Protocol({
         }),
         dataIndex: 'amount',
         render: (amount: string) => (
-          <NumberSizeableText size="$bodyMdMedium" formatter="balance">
+          <NumberSizeableTextWrapper
+            hideValue
+            size="$bodyMdMedium"
+            formatter="balance"
+          >
             {amount}
-          </NumberSizeableText>
+          </NumberSizeableTextWrapper>
         ),
       },
       {
         title: intl.formatMessage({ id: ETranslations.global_value }),
         dataIndex: 'value',
         render: (value: string) => (
-          <NumberSizeableText
+          <NumberSizeableTextWrapper
+            hideValue
             size="$bodyMdMedium"
             formatter="value"
             formatterOptions={{ currency: settings.currencyInfo.symbol }}
           >
             {value}
-          </NumberSizeableText>
+          </NumberSizeableTextWrapper>
         ),
       },
     ];
@@ -174,13 +178,14 @@ function Protocol({
                   }
                 />
               </XStack>
-              <NumberSizeableText
+              <NumberSizeableTextWrapper
+                hideValue
                 size="$headingSm"
                 formatter="value"
                 formatterOptions={{ currency: settings.currencyInfo.symbol }}
               >
                 {position.value}
-              </NumberSizeableText>
+              </NumberSizeableTextWrapper>
             </XStack>
             <RichTable<IDeFiAsset & { type: EDeFiAssetType }>
               dataSource={[
@@ -255,13 +260,14 @@ function Protocol({
         <ListItem.Text
           align="right"
           primary={
-            <NumberSizeableText
+            <NumberSizeableTextWrapper
+              hideValue
               size="$bodyLgMedium"
               formatter="value"
               formatterOptions={{ currency: settings.currencyInfo.symbol }}
             >
               {protocolInfo?.netWorth ?? '0'}
-            </NumberSizeableText>
+            </NumberSizeableTextWrapper>
           }
         />
       </ListItem>
@@ -331,13 +337,14 @@ function Protocol({
                 />
               </XStack>
               <XStack alignItems="center" gap="$3">
-                <NumberSizeableText
+                <NumberSizeableTextWrapper
+                  hideValue
                   size="$headingMd"
                   formatter="value"
                   formatterOptions={{ currency: settings.currencyInfo.symbol }}
                 >
                   {protocolInfo?.netWorth ?? '0'}
-                </NumberSizeableText>
+                </NumberSizeableTextWrapper>
                 <View
                   animation="quick"
                   rotate={open ? '180deg' : '0deg'}
