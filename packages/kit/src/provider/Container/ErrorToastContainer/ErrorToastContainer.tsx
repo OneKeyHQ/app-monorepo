@@ -48,7 +48,7 @@ export function ErrorToastContainer() {
         ? deduplication.id
         : p.toastId ||
           deduplication.id ||
-          p.errorCode ||
+          (p.errorCode !== undefined ? String(p.errorCode) : undefined) ||
           p.title ||
           p.requestId;
 
