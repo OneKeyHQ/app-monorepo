@@ -411,10 +411,7 @@ function MobileBrowser() {
                 : 'none'
             }
           >
-            <MarketHomeWithProvider
-              showHeader={false}
-              showContent={selectedHeaderTab === ETranslations.global_market}
-            />
+            <MarketHomeWithProvider />
           </Stack>
         ) : null}
         {/* Browser Tab */}
