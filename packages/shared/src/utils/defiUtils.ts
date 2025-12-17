@@ -49,7 +49,11 @@ function extractParenthesizedContent(input: string) {
     .replace(/\s+/g, ' ')
     .trim();
 
-  if (cleanedInside.length > 0) {
+  if (
+    cleanedInside.length > 0 &&
+    cleanedInside.toLowerCase() !== 'yes' &&
+    cleanedInside.toLowerCase() !== 'no'
+  ) {
     return { originalString: input, targetString: cleanedInside };
   }
   const partBefore = input.substring(0, startIndex);
