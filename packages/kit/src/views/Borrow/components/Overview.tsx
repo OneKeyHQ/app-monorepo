@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { isValidElement, useCallback, useMemo } from 'react';
 
 import { Divider, XStack, YStack } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -10,10 +10,12 @@ import { EarnText } from '../../Staking/components/ProtocolDetails/EarnText';
 import { EarnTooltip } from '../../Staking/components/ProtocolDetails/EarnTooltip';
 import { useBorrowContext } from '../BorrowProvider';
 import { BorrowNavigation } from '../borrowUtils';
+import { useBorrowHealthFactor } from '../hooks/useBorrowHealthFactor';
 import { useBorrowReserves } from '../hooks/useBorrowReserves';
 import { useEarnAccount } from '../hooks/useEarnAccount';
 
 import { BorrowAction } from './BorrowAction';
+import { BorrowBouns } from './BorrowBouns';
 
 const OverviewItem = ({
   title,
@@ -25,7 +27,7 @@ const OverviewItem = ({
   title: IEarnText;
   text: IEarnText;
   action?: React.ReactNode;
-  tooltip?: IEarnTooltip;
+  tooltip?: IEarnTooltip | React.ReactNode;
   needDivider?: boolean;
 }) => {
   return (
@@ -34,7 +36,11 @@ const OverviewItem = ({
         <EarnText text={title} size="$bodyMd" color="$textSubdued" />
         <XStack gap="$2">
           <EarnText text={text} size="$headingLg" color="$textText" />
-          <EarnTooltip tooltip={tooltip} />
+          {isValidElement(tooltip) ? (
+            tooltip
+          ) : (
+            <EarnTooltip tooltip={tooltip as IEarnTooltip} />
+          )}
           {action}
         </XStack>
       </YStack>
@@ -65,6 +71,15 @@ export const Overview = () => {
   const marketAddress = market?.marketAddress;
   const providerLogoURI = market?.logoURI;
   const earnAccountId = earnAccount?.account.id;
+
+  // Fetch health factor separately with 30s polling
+  const { healthFactorData } = useBorrowHealthFactor({
+    networkId,
+    provider,
+    marketAddress,
+    accountId: earnAccountId,
+    enabled: !!(networkId && provider && marketAddress && earnAccountId),
+  });
 
   const handleRefresh = useCallback(async () => {
     if (!provider || !networkId || !marketAddress || !earnAccountId) return;
@@ -121,7 +136,7 @@ export const Overview = () => {
         needDivider
         title={{ text: 'Health factor' }} // FIXME[borrow]: i18n
         text={
-          reserves?.overview?.healthFactor?.text ?? {
+          healthFactorData?.healthFactor?.text ?? {
             text: amountPlaceholder,
             color: '$textDisabled',
           }
@@ -139,6 +154,12 @@ export const Overview = () => {
             text: amountPlaceholder,
             color: '$textDisabled',
           }
+        }
+        tooltip={
+          <BorrowBouns
+            data={reserves?.overview?.platformBonus}
+            handleHistoryPress={handleHistoryPress}
+          />
         }
       />
       <OverviewItem

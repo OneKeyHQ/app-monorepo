@@ -682,6 +682,22 @@ export interface IBorrowHealthFactorRiskDetail {
   type: 'healthFactorRiskDetail';
   disabled: boolean;
   text: IEarnText;
+  data: {
+    healthFactorDetail: {
+      value: string;
+      lowerLimit: string;
+      upperLimit: string;
+      status: {
+        tag: string;
+        badge: string;
+      };
+      statusDescription: IEarnText;
+      liquidationAt: {
+        description: IEarnText;
+      };
+      liquidationAtDescription: IEarnText;
+    };
+  };
 }
 
 export interface IBorrowOnekeyBonusAction {
@@ -1517,7 +1533,7 @@ export type IEarnEstimateFeeResp = {
   coverFeeDays?: string;
   coverFeeSeconds?: string;
   feeFiatValue: string;
-  token: {
+  token?: {
     balance: string;
     balanceParsed: string;
     fiatValue: string;
@@ -1707,15 +1723,17 @@ export interface IBorrowReserveRequestParams {
   accountId: string;
 }
 
+export interface IBorrowHealthFactor {
+  healthFactor: {
+    text: IEarnText;
+    button?: IBorrowHealthFactorRiskDetail;
+  };
+}
+
 export interface IBorrowReserveItem {
   overview: {
     netWorth: IEarnText;
     netApy: IEarnText;
-    healthFactor: {
-      value: string;
-      text: IEarnText;
-      button?: IBorrowHealthFactorRiskDetail;
-    };
     platformBonus: {
       totalReceived: {
         description: IEarnText;
@@ -1723,10 +1741,10 @@ export interface IBorrowReserveItem {
       };
       description: IEarnText;
       distributed: {
-        text: IEarnText;
+        title: IEarnText;
         description: IEarnText;
         token: IBorrowToken;
-      };
+      }[];
       data: {
         icon: {
           icon: IKeyOfIcons;

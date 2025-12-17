@@ -38,6 +38,7 @@ import type {
   IAvailableAsset,
   IBabylonPortfolioItem,
   IBorrowApyHistoryItem,
+  IBorrowHealthFactor,
   IBorrowHistory,
   IBorrowManagePage,
   IBorrowMarketItem,
@@ -2229,6 +2230,33 @@ class ServiceStaking extends ServiceBase {
     const response = await client.get<{
       data: IBorrowManagePage;
     }>('/earn/v1/borrow/manage-page', {
+      params: {
+        ...rest,
+        accountAddress,
+      },
+    });
+    return response.data.data;
+  }
+
+  @backgroundMethod()
+  async getBorrowHealthFactor(params: {
+    networkId: string;
+    provider: string;
+    marketAddress: string;
+    accountId: string;
+  }) {
+    const { accountId, ...rest } = params;
+
+    const accountAddress =
+      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        networkId: params.networkId,
+        accountId,
+      });
+
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const response = await client.get<{
+      data: IBorrowHealthFactor;
+    }>('/earn/v1/borrow/health-factor', {
       params: {
         ...rest,
         accountAddress,
