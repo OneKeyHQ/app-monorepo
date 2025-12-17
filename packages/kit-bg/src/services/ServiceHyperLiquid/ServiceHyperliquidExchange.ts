@@ -284,6 +284,15 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   }
 
   @backgroundMethod()
+  async enableDexAbstraction(): Promise<{ status: 'ok' } | undefined> {
+    await this.checkAccountCanTrade();
+    const response = await convertHyperLiquidResponse(() =>
+      this.exchangeClient.agentEnableDexAbstraction(),
+    );
+    return response;
+  }
+
+  @backgroundMethod()
   async updateLeverage(params: ILeverageUpdateRequest): Promise<void> {
     await this.checkAccountCanTrade();
 
