@@ -10,8 +10,10 @@ import {
   Icon,
   IconButton,
   NumberSizeableText,
+  Popover,
   SizableText,
   Stack,
+  Tooltip,
   View,
   XStack,
   YStack,
@@ -138,16 +140,39 @@ function Protocol({
               pl="$1"
               pr="$3"
               py="$3"
+              gap="$3"
             >
-              <XStack gap="$3" alignItems="center">
+              <XStack gap="$3" alignItems="center" flex={1}>
                 <Badge badgeType="success" badgeSize="lg">
                   <Badge.Text textTransform="capitalize">
                     {position.category}
                   </Badge.Text>
                 </Badge>
-                <SizableText size="$bodyMd" color="$textSubdued">
-                  {position.poolName}
-                </SizableText>
+                <Popover
+                  placement="top"
+                  title={intl.formatMessage({
+                    id: ETranslations.wallet_defi_position_name_popover_title,
+                  })}
+                  renderTrigger={
+                    <SizableText
+                      size="$bodyMd"
+                      color="$textSubdued"
+                      numberOfLines={1}
+                      textDecorationLine="underline"
+                      textDecorationColor="$textSubdued"
+                      textDecorationStyle="dotted"
+                    >
+                      {position.poolName}
+                    </SizableText>
+                  }
+                  renderContent={
+                    <Stack px="$4" py="$2">
+                      <SizableText size="$bodyLgMedium">
+                        {position.poolFullName}
+                      </SizableText>
+                    </Stack>
+                  }
+                />
               </XStack>
               <NumberSizeableText
                 size="$headingSm"
@@ -171,14 +196,13 @@ function Protocol({
               })}
             />
           </Stack>
-          {index !== protocol.positions.length - 1 &&
-          position.category !== protocol.positions[index + 1].category ? (
+          {index !== protocol.positions.length - 1 ? (
             <Divider key={index} my="$2" />
           ) : null}
         </>
       );
     });
-  }, [protocol.positions, settings.currencyInfo.symbol, columns]);
+  }, [protocol.positions, intl, settings.currencyInfo.symbol, columns]);
 
   const handlePressProtocol = useCallback(() => {
     navigation.pushModal(EModalRoutes.MainModal, {

@@ -178,6 +178,7 @@ function TxConfirm() {
       isLoading: true,
       balance: '0',
       logoURI: '',
+      info: undefined,
     });
     const nativeTokenAddress =
       await backgroundApiProxy.serviceToken.getNativeTokenAddress({
@@ -215,6 +216,7 @@ function TxConfirm() {
       isLoading: false,
       balance,
       logoURI: tokenResp?.[0]?.info.logoURI ?? '',
+      info: tokenResp?.[0]?.info,
     });
     txConfirmParamsInit.current = true;
   }, [

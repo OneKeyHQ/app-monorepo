@@ -105,7 +105,6 @@ function ReceiveToken() {
     account,
     network,
     wallet,
-    indexedAccountId,
   });
 
   const [currentDeriveType, setCurrentDeriveType] = useState<

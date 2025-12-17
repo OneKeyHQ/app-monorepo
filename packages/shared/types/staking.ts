@@ -264,7 +264,18 @@ export type IStakeTx =
   | IStakeTxEthEvertStake
   | IStakeTxEthLido
   | IStakeTxCosmosAmino
-  | IStakeTxSui;
+  | IStakeTxSui
+  | IStakeTxStakefishExitBroadcast;
+
+// Stakefish validator exit broadcast response (no on-chain tx needed)
+export type IStakeTxStakefishExitBroadcast = {
+  exitBroadcasted: boolean;
+  validators: {
+    pubkey: string;
+    validatorIndex: string;
+    successful: boolean;
+  }[];
+};
 
 export type IStakeTxResponse = {
   tx: IStakeTx;
