@@ -155,13 +155,21 @@ export function MarketHomeV2() {
   );
 }
 
-function BaseMarketHomeWithProvider() {
+function BaseMarketHomeWithProvider({
+  isFocused = true,
+}: {
+  isFocused?: boolean;
+}) {
   const { mobileProps } = useMarketHomeLayoutProps();
 
-  return <MobileLayout {...mobileProps} />;
+  return <MobileLayout {...mobileProps} isFocused={isFocused} />;
 }
 
-export function MarketHomeWithProvider() {
+export function MarketHomeWithProvider({
+  isFocused = true,
+}: {
+  isFocused?: boolean;
+}) {
   return (
     <AccountSelectorProviderMirror
       config={{
@@ -173,7 +181,7 @@ export function MarketHomeWithProvider() {
       <MarketWatchListProviderMirrorV2
         storeName={EJotaiContextStoreNames.marketWatchListV2}
       >
-        <BaseMarketHomeWithProvider />
+        <BaseMarketHomeWithProvider isFocused={isFocused} />
       </MarketWatchListProviderMirrorV2>
     </AccountSelectorProviderMirror>
   );
