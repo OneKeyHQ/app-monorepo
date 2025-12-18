@@ -154,7 +154,7 @@
     "socket.io-client": "^4.7.5",
     "sonner": "^1.4.41",
     "stream-browserify": "^3.0.0",
-    "systeminformation": "^5.25.11",
+    "systeminformation": "^5.27.14",
     "tamagui": "1.108.0",
     "text-encoding": "^0.7.0",
     "timeout-signal": "^2.0.0",
