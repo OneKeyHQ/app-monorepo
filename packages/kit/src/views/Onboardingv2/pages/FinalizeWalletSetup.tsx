@@ -619,7 +619,9 @@ function FinalizeWalletSetupPage({
         </OnboardingLayout.Body>
         <OnboardingLayout.Footer>
           <SizableText size="$bodySm" color="$textSubdued">
-            Please do not exit the app during setup, or the creation will fail
+            {intl.formatMessage({
+              id: ETranslations.do_not_exit_app_during_setup,
+            })}
           </SizableText>
         </OnboardingLayout.Footer>
       </OnboardingLayout>

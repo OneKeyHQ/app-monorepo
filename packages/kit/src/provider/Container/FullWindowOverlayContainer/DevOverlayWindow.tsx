@@ -155,10 +155,14 @@ function DevOverlayWindow() {
             <Button
               onPress={async () => {
                 if (passwordSetting.isPasswordSet) {
-                  await backgroundApiProxy.servicePassword.lockApp();
+                  await backgroundApiProxy.servicePassword.lockApp({
+                    manual: true,
+                  });
                 } else {
                   await backgroundApiProxy.servicePassword.promptPasswordVerify();
-                  await backgroundApiProxy.servicePassword.lockApp();
+                  await backgroundApiProxy.servicePassword.lockApp({
+                    manual: true,
+                  });
                 }
                 void dialog.close();
               }}

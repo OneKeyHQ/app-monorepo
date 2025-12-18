@@ -6,7 +6,6 @@ import { useThrottledCallback } from 'use-debounce';
 
 import {
   Button,
-  NumberSizeableText,
   Skeleton,
   XStack,
   YStack,
@@ -15,6 +14,7 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { EmptyDeFi } from '@onekeyhq/kit/src/components/Empty';
 import { ListLoading } from '@onekeyhq/kit/src/components/Loading';
+import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { useAllNetworkRequests } from '@onekeyhq/kit/src/hooks/useAllNetwork';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -86,7 +86,26 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
     activeAccount: { account, network, wallet },
   } = useActiveAccount({ num: 0 });
 
-  const [isDeFiEnabled, setIsDeFiEnabled] = useState(true);
+  const [isDeFiEnabled, setIsDeFiEnabled] = useState(false);
+
+  const checkDeFiEnabled = useCallback(async () => {
+    if (!network?.id) {
+      return;
+    }
+
+    if (networkUtils.isAllNetwork({ networkId: network.id })) {
+      setIsDeFiEnabled(true);
+      return;
+    }
+
+    const enabledNetworks =
+      await backgroundApiProxy.serviceDeFi.getDeFiEnabledNetworksMap();
+    setIsDeFiEnabled(!!enabledNetworks[network.id]);
+  }, [network?.id]);
+
+  useEffect(() => {
+    void checkDeFiEnabled();
+  }, [checkDeFiEnabled]);
 
   const { run } = usePromiseResult(
     async () => {
@@ -102,7 +121,6 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
         await backgroundApiProxy.serviceDeFi.getDeFiEnabledNetworksMap();
 
       if (!enabledNetworks[network.id]) {
-        setIsDeFiEnabled(false);
         const emptyData = defiUtils.getEmptyDeFiData();
         updateDeFiListOverview({
           overview: emptyData.overview,
@@ -352,10 +370,10 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
   ]);
 
   useEffect(() => {
-    if (!tableLayout && protocols.length > MAX_PROTOCOLS_ON_SMALL_SCREEN) {
+    if (!tableLayout) {
       setOverflowState((prev) => ({
         ...prev,
-        isOverflow: true,
+        isOverflow: protocols.length > MAX_PROTOCOLS_ON_SMALL_SCREEN,
       }));
     }
   }, [protocols, tableLayout]);
@@ -483,7 +501,8 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
       }
 
       return (
-        <NumberSizeableText
+        <NumberSizeableTextWrapper
+          hideValue
           size="$headingXl"
           color="$textSubdued"
           formatter="value"
@@ -492,7 +511,7 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
           }}
         >
           {overview.netWorth}
-        </NumberSizeableText>
+        </NumberSizeableTextWrapper>
       );
     }
 
