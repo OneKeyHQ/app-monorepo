@@ -3,12 +3,13 @@ import { useMemo } from 'react';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import { YStack } from '@onekeyhq/components';
+import { NumberSizeableText, YStack } from '@onekeyhq/components';
 import {
   useSwapProTradeTypeAtom,
   useSwapQuoteCurrentSelectAtom,
   useSwapSpeedQuoteFetchingAtom,
   useSwapSpeedQuoteResultAtom,
+  useSwapToTokenAmountAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
@@ -36,6 +37,7 @@ const SwapProTradeInfoGroup = ({
   const [swapProQuoteResultPro] = useSwapSpeedQuoteResultAtom();
   const [swapProQuoteFetchingPro] = useSwapSpeedQuoteFetchingAtom();
   const [swapCurrentQuoteResult] = useSwapQuoteCurrentSelectAtom();
+  const [toTokenAmount] = useSwapToTokenAmountAtom();
   const [swapProTradeType] = useSwapProTradeTypeAtom();
   const swapQuoteLoading = useSwapQuoteLoading();
   const balanceValue = useMemo(() => {
@@ -43,13 +45,7 @@ const SwapProTradeInfoGroup = ({
     if (balanceBN.isZero() || balanceBN.isNaN()) {
       return `0 ${inputToken?.symbol ?? '-'}`;
     }
-    const formattedBalance = numberFormat(balanceBN.toFixed(), {
-      formatter: 'balance',
-      formatterOptions: {
-        tokenSymbol: inputToken?.symbol ?? '-',
-      },
-    });
-    return formattedBalance;
+    return balanceBN.toFixed();
   }, [inputToken]);
 
   const swapProQuoteResult = useMemo(() => {
@@ -66,6 +62,18 @@ const SwapProTradeInfoGroup = ({
   }, [swapProQuoteFetchingPro, swapQuoteLoading, swapProTradeType]);
 
   const receiveValue = useMemo(() => {
+    if (swapProTradeType === ESwapProTradeType.LIMIT) {
+      const toAmountBN = new BigNumber(
+        toTokenAmount?.value ? toTokenAmount.value : '0',
+      );
+      const formattedToTokenValue = numberFormat(toAmountBN.toFixed(), {
+        formatter: 'balance',
+        formatterOptions: {
+          tokenSymbol: toToken?.symbol ?? '-',
+        },
+      });
+      return formattedToTokenValue;
+    }
     if (swapProQuoteResult?.toAmount) {
       const toAmountBN = new BigNumber(swapProQuoteResult.toAmount);
       const formattedToTokenValue = numberFormat(toAmountBN.toFixed(), {
@@ -77,7 +85,12 @@ const SwapProTradeInfoGroup = ({
       return formattedToTokenValue;
     }
     return `-- ${toToken?.symbol ?? '-'}`;
-  }, [swapProQuoteResult?.toAmount, toToken?.symbol]);
+  }, [
+    toTokenAmount?.value,
+    swapProQuoteResult?.toAmount,
+    swapProTradeType,
+    toToken?.symbol,
+  ]);
   const tradingFeeValue = useMemo(() => {
     const tradingFee = swapProQuoteResult?.fee?.percentageFee ?? 0;
     return `${tradingFee}%`;
@@ -87,7 +100,15 @@ const SwapProTradeInfoGroup = ({
     <YStack gap="$3" mt="$2">
       <SwapCommonInfoItem
         title={intl.formatMessage({ id: ETranslations.global_balance })}
-        value={balanceValue}
+        valueComponent={
+          <NumberSizeableText
+            size="$bodySmMedium"
+            formatter="balance"
+            formatterOptions={{ tokenSymbol: inputToken?.symbol ?? '-' }}
+          >
+            {balanceValue}
+          </NumberSizeableText>
+        }
         titleProps={ITEM_TITLE_PROPS}
         valueProps={ITEM_VALUE_PROPS}
         isLoading={balanceLoading}
@@ -97,7 +118,11 @@ const SwapProTradeInfoGroup = ({
         value={receiveValue}
         titleProps={ITEM_TITLE_PROPS}
         valueProps={ITEM_VALUE_PROPS}
-        isLoading={swapProQuoteFetching}
+        isLoading={
+          swapProTradeType === ESwapProTradeType.LIMIT
+            ? false
+            : swapProQuoteFetching
+        }
       />
       <SwapCommonInfoItem
         title={intl.formatMessage({

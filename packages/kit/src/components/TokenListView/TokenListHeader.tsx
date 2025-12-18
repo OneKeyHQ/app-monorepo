@@ -6,7 +6,6 @@ import type { IKeyOfIcons, IXStackProps } from '@onekeyhq/components';
 import { Icon, SizableText, Stack, XStack } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type { IAccountToken } from '@onekeyhq/shared/types/token';
 import { ETokenListSortType } from '@onekeyhq/shared/types/token';
 
 import {
@@ -15,7 +14,6 @@ import {
 } from '../../states/jotai/contexts/tokenList';
 
 type IProps = {
-  filteredTokens: IAccountToken[];
   tableLayout?: boolean;
   onManageToken?: () => void;
   manageTokenEnabled?: boolean;

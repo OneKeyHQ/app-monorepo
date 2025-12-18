@@ -6,10 +6,10 @@ import type {
 } from '@onekeyhq/shared/types/fee';
 import {
   EFeeType,
-  ESendFeeDiscountStatus,
   ESendFeeStatus,
   ETronResourceRentalPayType,
 } from '@onekeyhq/shared/types/fee';
+import type { IToken } from '@onekeyhq/shared/types/token';
 import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
 
 import { createJotaiContext } from '../../utils/createJotaiContext';
@@ -105,10 +105,12 @@ export const { atom: nativeTokenInfoAtom, use: useNativeTokenInfoAtom } =
     isLoading: boolean;
     balance: string;
     logoURI: string;
+    info: IToken | undefined;
   }>({
     isLoading: false,
     balance: '0',
     logoURI: '',
+    info: undefined,
   });
 
 export const { atom: sendTxStatusAtom, use: useSendTxStatusAtom } =

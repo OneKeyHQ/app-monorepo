@@ -128,4 +128,5 @@ export enum EAppEventBusNames {
   PushModalPageInTabletDetailView = 'PushModalPageInTabletDetailView',
   MarketHomePageEnter = 'MarketHomePageEnter',
   MarketWatchListV2Changed = 'MarketWatchListV2Changed',
+  SwapLimitOrderBuildSuccess = 'SwapLimitOrderBuildSuccess',
 }

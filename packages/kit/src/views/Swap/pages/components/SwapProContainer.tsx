@@ -5,11 +5,15 @@ import { RefreshControl, ScrollView } from 'react-native';
 import { IconButton, XStack, YStack } from '@onekeyhq/components';
 import {
   useSwapFromTokenAmountAtom,
+  useSwapProEnableCurrentSymbolAtom,
   useSwapProErrorAlertAtom,
   useSwapProInputAmountAtom,
   useSwapProSelectTokenAtom,
   useSwapProSliderValueAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
+import type { IMarketBasicConfigNetwork } from '@onekeyhq/shared/types/marketV2';
 import type {
   IFetchLimitOrderRes,
   ISwapProSpeedConfig,
@@ -19,7 +23,6 @@ import type {
 import { ETabName, TabBarItem } from '../../../Perp/layouts/PerpMobileLayout';
 import SwapProErrorAlert from '../../components/SwapProErrorAlert';
 import {
-  useSwapProErrorAlert,
   useSwapProSupportNetworksTokenList,
   useSwapProTokenDetailInfo,
   useSwapProTokenInfoSync,
@@ -44,6 +47,7 @@ interface ISwapProContainerProps {
     balanceLoading: boolean;
     isMEV: boolean;
     hasEnoughBalance: boolean;
+    networkList: IMarketBasicConfigNetwork[];
   };
 }
 
@@ -55,6 +59,14 @@ const SwapProContainer = ({
   onProMarketDetail,
   config,
 }: ISwapProContainerProps) => {
+  const {
+    isLoading,
+    speedConfig,
+    balanceLoading,
+    isMEV,
+    hasEnoughBalance,
+    networkList,
+  } = config;
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState<ETabName | string>(
     ETabName.Positions,
@@ -67,10 +79,11 @@ const SwapProContainer = ({
   const scrollViewRef = useRef<ScrollView>(null);
   const { fetchTokenMarketDetailInfo } = useSwapProTokenDetailInfo();
   const [swapProErrorAlert] = useSwapProErrorAlertAtom();
+  const [swapCurrentSymbolEnable] = useSwapProEnableCurrentSymbolAtom();
   const { syncInputTokenBalance, syncToTokenPrice, netAccountRes } =
     useSwapProTokenInfoSync();
   const { swapProLoadSupportNetworksTokenListRun } =
-    useSwapProSupportNetworksTokenList();
+    useSwapProSupportNetworksTokenList(networkList);
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     await Promise.all([
@@ -86,9 +99,6 @@ const SwapProContainer = ({
     syncInputTokenBalance,
     syncToTokenPrice,
   ]);
-  const { isLoading, speedConfig, balanceLoading, isMEV, hasEnoughBalance } =
-    config;
-  useSwapProErrorAlert();
   const cleanInputAmount = useCallback(() => {
     setSwapProInputAmount('');
     setFromInputAmount({
@@ -123,6 +133,28 @@ const SwapProContainer = ({
     },
     [setSwapProSelectToken],
   );
+
+  const changeTabToLimitOrderList = useCallback(() => {
+    setActiveTab(ETabName.SwapProOpenOrders);
+  }, [setActiveTab]);
+
+  useEffect(() => {
+    appEventBus.off(
+      EAppEventBusNames.SwapLimitOrderBuildSuccess,
+      changeTabToLimitOrderList,
+    );
+    appEventBus.on(
+      EAppEventBusNames.SwapLimitOrderBuildSuccess,
+      changeTabToLimitOrderList,
+    );
+    return () => {
+      appEventBus.off(
+        EAppEventBusNames.SwapLimitOrderBuildSuccess,
+        changeTabToLimitOrderList,
+      );
+    };
+  }, [changeTabToLimitOrderList]);
+
   return (
     <ScrollView
       style={{ flex: 1 }}
@@ -205,18 +237,26 @@ const SwapProContainer = ({
           <SwapProCurrentSymbolEnable />
           <SwapProPositionsList
             onTokenPress={onTokenPress}
-            onSearchClick={() => onProSelectToken(true)}
+            onSearchClick={() => {
+              onProSelectToken(true);
+              scrollViewRef.current?.scrollTo({
+                y: 0,
+                animated: false,
+              });
+            }}
           />
         </YStack>
         <YStack
-          display={activeTab === ETabName.OpenOrders ? 'flex' : 'none'}
+          display={activeTab === ETabName.SwapProOpenOrders ? 'flex' : 'none'}
           flex={1}
         >
           <SwapProCurrentSymbolEnable />
           <LimitOrderList
             onClickCell={onOpenOrdersClick}
             type="open"
-            filterToken={swapProTokenSelect}
+            filterToken={
+              swapCurrentSymbolEnable ? swapProTokenSelect : undefined
+            }
           />
         </YStack>
       </YStack>
