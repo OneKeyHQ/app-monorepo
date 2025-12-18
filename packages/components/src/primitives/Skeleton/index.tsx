@@ -1,6 +1,6 @@
 import { createContext, forwardRef, useContext, useMemo } from 'react';
 
-import { AutoSkeletonView } from 'react-native-auto-skeleton';
+import { SkeletonView } from '@onekeyfe/react-native-skeleton';
 
 import type { StackStyle } from '@onekeyhq/components/src/shared/tamagui';
 import {
@@ -27,22 +27,19 @@ export type ISkeletonProps = StackStyle & {
   isLoading?: boolean;
   radius?: 'round' | 'square' | number;
   colorMode?: 'dark' | 'light';
+  children?: React.ReactNode;
 };
 
 const DEFAULT_SKELETON_SIZE = 32;
+const DEFAULT_RADIUS = 8;
 const baseColors = {
-  dark: {
-    primary: 'rgb(17, 17, 17)',
-    secondary: 'rgb(51, 51, 51)',
-  },
-  light: {
-    primary: 'rgb(250, 250, 250)',
-    secondary: 'rgb(205, 205, 205)',
-  },
+  dark: ['#111111', '#333333'],
+  light: ['#fafafa', '#cdcdcd'],
 };
 function BasicSkeleton({
   isLoading = false,
   colorMode,
+  children,
   ...props
 }: ISkeletonProps) {
   const [restProps, style] = usePropsAndStyle(props, {
@@ -59,26 +56,34 @@ function BasicSkeleton({
     if (restProps.radius === 'square') {
       return 0;
     }
-    return restProps.radius;
+    return restProps.radius || DEFAULT_RADIUS;
   }, [restProps.radius]);
 
   const isGroupLoading = useIsGroupLoading();
-  return (
-    <AutoSkeletonView
-      isLoading={isGroupLoading !== undefined ? isGroupLoading : isLoading}
-      animationType="gradient"
-      shimmerSpeed={1}
-      gradientColors={[colors.primary, colors.secondary]}
+  return isGroupLoading === undefined || isGroupLoading ? (
+    <Stack
+      bg="$bg"
+      style={style as any}
+      height={style.height || DEFAULT_SKELETON_SIZE}
+      width={style.width || '100%'}
+      borderRadius={borderRadius}
+      overflow="hidden"
+      {...restProps}
     >
-      <Stack
-        bg="$bg"
-        style={style as any}
-        height={style.height || DEFAULT_SKELETON_SIZE}
-        width={style.width || DEFAULT_SKELETON_SIZE}
-        borderRadius={borderRadius}
-        {...restProps}
+      <SkeletonView
+        style={[
+          style as any,
+          {
+            height: style.height || DEFAULT_SKELETON_SIZE,
+            width: style.width || '100%',
+          },
+        ]}
+        shimmerSpeed={3}
+        shimmerGradientColors={colors}
       />
-    </AutoSkeletonView>
+    </Stack>
+  ) : (
+    children || null
   );
 }
 
