@@ -39,8 +39,8 @@ const SwapProTradeTypeSelector = ({
       onOpenChange={setIsOpen}
       renderTrigger={
         <XStack
-          px="$3"
-          cursor="pointer"
+          pl="$3"
+          pr="$2"
           userSelect="none"
           borderRadius="$2"
           onPress={() => setIsOpen(true)}
@@ -66,12 +66,7 @@ const SwapProTradeTypeSelector = ({
                   : ETranslations.perp_trade_market,
             })}
           </SizableText>
-          <Icon
-            w="$4"
-            h="$4"
-            name="ChevronDownSmallOutline"
-            color="$iconSubdued"
-          />
+          <Icon size="$4" name="ChevronDownSmallOutline" color="$iconSubdued" />
         </XStack>
       }
       renderContent={() => (
@@ -112,13 +107,7 @@ const SwapProTradeTypeSelector = ({
                   </XStack>
                 ) : null}
                 <YStack gap="$1">
-                  <SizableText
-                    flex={1}
-                    size="$bodyMd"
-                    color={
-                      item.value === currentSelect ? '$text' : '$textSubdued'
-                    }
-                  >
+                  <SizableText flex={1} size="$bodyMd">
                     {item.label}
                   </SizableText>
                   {item.description ? (
