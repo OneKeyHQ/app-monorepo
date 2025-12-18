@@ -220,13 +220,9 @@ export function MarketRecommendList({
               })}
             </XStack>
           ))}
-          {gtMd && confirmButton ? (
-            <YStack pt="$8">{confirmButton}</YStack>
-          ) : null}
+          <YStack pt="$8">{confirmButton}</YStack>
         </YStack>
       </ScrollView>
-
-      {!gtMd && confirmButton ? <YStack p="$5">{confirmButton}</YStack> : null}
     </Stack>
   );
 }
