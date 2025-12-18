@@ -1394,20 +1394,22 @@ function DepositWithdrawContent({
         ) : null}
         {shouldShowBuyButton ? (
           <XStack gap="$1" alignItems="center">
-            <SizableText size="$bodySm" color="$red10">
-              {intl.formatMessage({
-                id: ETranslations.earn_insufficient_balance,
-              })}
+            <SizableText size="$bodySm" color="$textSubdued">
+              {intl.formatMessage(
+                { id: ETranslations.perps_buy_tip },
+                { token: currentPerpsDepositSelectedToken?.symbol ?? '' },
+              )}
             </SizableText>
-            <SizableText
-              size="$bodySm"
-              color="$red10"
-              textDecorationLine="underline"
-              cursor="pointer"
+
+            <DashText
               onPress={handleBuyPress}
+              color="$textSuccess"
+              size="$bodySmMedium"
+              cursor="pointer"
+              dashColor="$textSuccess"
             >
-              {intl.formatMessage({ id: ETranslations.global_buy })}
-            </SizableText>
+              {intl.formatMessage({ id: ETranslations.global_top_up })}
+            </DashText>
           </XStack>
         ) : null}
       </YStack>
@@ -1542,7 +1544,7 @@ function DepositWithdrawContent({
               )}
             </SizableText>
           ) : (
-            <XStack gap="$1" alignItems="center">
+            <XStack gap="$1" alignItems="center" justifyContent="center">
               {perpDepositQuoteLoading ? (
                 <Skeleton w={60} h={14} />
               ) : (
