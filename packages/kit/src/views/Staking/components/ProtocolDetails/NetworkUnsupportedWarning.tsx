@@ -1,14 +1,16 @@
 import { useIntl } from 'react-intl';
 
-import { Alert } from '@onekeyhq/components';
+import { Alert, Empty } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 export function NetworkUnsupportedWarning({
   networkId,
+  emptyStyle = false,
 }: {
   networkId: string;
+  emptyStyle?: boolean;
 }) {
   const intl = useIntl();
 
@@ -20,7 +22,15 @@ export function NetworkUnsupportedWarning({
     };
   }, [networkId]);
 
-  return (
+  return emptyStyle ? (
+    <Empty
+      icon="GlobusOutline"
+      title={intl.formatMessage(
+        { id: ETranslations.wallet_unsupported_network_title },
+        { network: result?.networkName ?? '' },
+      )}
+    />
+  ) : (
     <Alert
       type="warning"
       title={intl.formatMessage(

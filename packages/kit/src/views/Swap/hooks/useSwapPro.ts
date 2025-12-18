@@ -8,6 +8,10 @@ import {
   ESwapProJumpTokenDirection,
   useSwapProJumpTokenAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/swap';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -18,12 +22,19 @@ import {
   equalTokenNoCaseSensitive,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IMarketSearchV2Token } from '@onekeyhq/shared/types/market';
-import type { IMarketTokenTransaction } from '@onekeyhq/shared/types/marketV2';
+import type {
+  IMarketBasicConfigNetwork,
+  IMarketTokenTransaction,
+} from '@onekeyhq/shared/types/marketV2';
 import {
   swapProPositionsListMaxCount,
   swapProPositionsListMinValue,
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
-import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
+import type {
+  ISwapNetwork,
+  ISwapToken,
+  ISwapTokenBase,
+} from '@onekeyhq/shared/types/swap/types';
 import {
   ESwapProTradeType,
   ESwapTabSwitchType,
@@ -70,6 +81,7 @@ import { useSwapSlippagePercentageModeInfo } from './useSwapState';
 export function useSwapProInit() {
   const [, setSwapSwitchType] = useSwapTypeSwitchAtom();
   const [, setSwapProDirection] = useSwapProDirectionAtom();
+  const { networkList } = useMarketBasicConfig();
   const [swapProSelectToken, setSwapProSelectToken] =
     useSwapProSelectTokenAtom();
   const [swapProJumpToken, setSwapProJumpToken] = useSwapProJumpTokenAtom();
@@ -92,6 +104,14 @@ export function useSwapProInit() {
   if (swapProJumpTokenRef.current !== swapProJumpToken?.token) {
     swapProJumpTokenRef.current = swapProJumpToken?.token;
   }
+  const networkNotSupported = useMemo(() => {
+    return (
+      swapProSelectToken?.networkId &&
+      !networkList.some(
+        (token) => token.networkId === swapProSelectToken?.networkId,
+      )
+    );
+  }, [swapProSelectToken?.networkId, networkList]);
   useEffect(() => {
     if (swapProJumpToken.token) {
       swapSwitchProToken({ token: swapProJumpToken.token });
@@ -111,6 +131,10 @@ export function useSwapProInit() {
     setSwapProJumpToken,
     setSwapProDirection,
   ]);
+  return {
+    networkNotSupported,
+    networkList,
+  };
 }
 
 export function useSwapProInputToken() {
@@ -195,9 +219,11 @@ export function useSwapProAccount() {
 
 export function useSwapProTokenInfoSync() {
   const [balanceLoading, setBalanceLoading] = useState(false);
-  const [, setSwapProSelectToken] = useSwapProSelectTokenAtom();
+  const [swapProSelectToken, setSwapProSelectToken] =
+    useSwapProSelectTokenAtom();
   const [swapProDirection] = useSwapProDirectionAtom();
-  const [, setSwapProUseSelectBuyTokenAtom] = useSwapProUseSelectBuyTokenAtom();
+  const [swapProUseSelectBuyToken, setSwapProUseSelectBuyTokenAtom] =
+    useSwapProUseSelectBuyTokenAtom();
   const [, setSwapProSellToToken] = useSwapProSellToTokenAtom();
   const netAccountRes = useSwapProAccount();
   const inputToken = useSwapProInputToken();
@@ -263,6 +289,80 @@ export function useSwapProTokenInfoSync() {
     setSwapProUseSelectBuyTokenAtom,
     swapProDirection,
   ]);
+  const syncOrderTokenBalance = useCallback(async () => {
+    if (
+      !inputToken?.networkId ||
+      !netAccountRes.result?.addressDetail.address ||
+      !netAccountRes.result?.id
+    ) {
+      return;
+    }
+    setBalanceLoading(true);
+    try {
+      const [swapProSelectTokenDetail, swapProUseSelectBuyTokenDetail] =
+        await Promise.all([
+          backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
+            networkId: swapProSelectToken?.networkId ?? '',
+            contractAddress: swapProSelectToken?.contractAddress ?? '',
+            accountAddress: netAccountRes.result?.addressDetail.address ?? '',
+            accountId: netAccountRes.result?.id ?? '',
+          }),
+          backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
+            networkId: swapProUseSelectBuyToken?.networkId ?? '',
+            contractAddress: swapProUseSelectBuyToken?.contractAddress ?? '',
+            accountAddress: netAccountRes.result?.addressDetail.address ?? '',
+            accountId: netAccountRes.result?.id ?? '',
+          }),
+        ]);
+      if (swapProSelectTokenDetail?.length) {
+        setSwapProSelectToken((prev) =>
+          prev
+            ? {
+                ...prev,
+                balanceParsed: swapProSelectTokenDetail[0].balanceParsed ?? '',
+                price: swapProSelectTokenDetail[0].price ?? '',
+                fiatValue: swapProSelectTokenDetail[0].fiatValue ?? '',
+                accountAddress:
+                  netAccountRes.result?.addressDetail.address ?? '',
+              }
+            : undefined,
+        );
+      }
+      if (swapProUseSelectBuyTokenDetail?.length) {
+        setSwapProUseSelectBuyTokenAtom((prev) =>
+          prev
+            ? {
+                ...prev,
+                balanceParsed:
+                  swapProUseSelectBuyTokenDetail[0].balanceParsed ?? '',
+                price: swapProUseSelectBuyTokenDetail[0].price ?? '',
+                fiatValue: swapProUseSelectBuyTokenDetail[0].fiatValue ?? '',
+                accountAddress:
+                  netAccountRes.result?.addressDetail.address ?? '',
+              }
+            : undefined,
+        );
+      }
+      return {
+        swapProSelectTokenDetail: swapProSelectTokenDetail?.[0],
+        swapProUseSelectBuyTokenDetail: swapProUseSelectBuyTokenDetail?.[0],
+      };
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setBalanceLoading(false);
+    }
+  }, [
+    inputToken?.networkId,
+    netAccountRes.result?.addressDetail.address,
+    netAccountRes.result?.id,
+    setSwapProSelectToken,
+    setSwapProUseSelectBuyTokenAtom,
+    swapProSelectToken?.contractAddress,
+    swapProSelectToken?.networkId,
+    swapProUseSelectBuyToken?.contractAddress,
+    swapProUseSelectBuyToken?.networkId,
+  ]);
 
   const syncToTokenPrice = useCallback(async () => {
     if (swapProSellToToken?.networkId && !swapProSellToToken?.price) {
@@ -286,6 +386,7 @@ export function useSwapProTokenInfoSync() {
     swapProSellToToken?.price,
   ]);
   return {
+    syncOrderTokenBalance,
     syncInputTokenBalance,
     syncToTokenPrice,
     balanceLoading,
@@ -304,6 +405,7 @@ export function useSwapProTokenInit() {
   const [swapProUseSelectBuyTokenAtom, setSwapProUseSelectBuyTokenAtom] =
     useSwapProUseSelectBuyTokenAtom();
   const [swapProInputAmount] = useSwapProInputAmountAtom();
+  const [swapFromInputAmount] = useSwapFromTokenAmountAtom();
 
   const {
     defaultTokens,
@@ -417,13 +519,24 @@ export function useSwapProTokenInit() {
     if (balanceLoading) {
       return true;
     }
-    const inputAmountBN = new BigNumber(swapProInputAmount ?? '0');
+    const inputAmountBN =
+      swapProTradeType === ESwapProTradeType.MARKET
+        ? new BigNumber(swapProInputAmount || '0')
+        : new BigNumber(
+            swapFromInputAmount.value ? swapFromInputAmount.value : '0',
+          );
     if (inputAmountBN.isNaN() || inputAmountBN.isZero()) {
       return true;
     }
-    const inputTokenBalanceBN = new BigNumber(inputToken?.balanceParsed ?? '0');
+    const inputTokenBalanceBN = new BigNumber(inputToken?.balanceParsed || '0');
     return inputTokenBalanceBN.gte(inputAmountBN);
-  }, [inputToken?.balanceParsed, swapProInputAmount, balanceLoading]);
+  }, [
+    balanceLoading,
+    swapProTradeType,
+    swapProInputAmount,
+    swapFromInputAmount.value,
+    inputToken?.balanceParsed,
+  ]);
 
   return {
     defaultTokens,
@@ -618,12 +731,35 @@ export function useSwapProTokenTransactionList(
   };
 }
 
-export function useSwapProSupportNetworksTokenList() {
+export function useSwapProSupportNetworksTokenList(
+  networkList: IMarketBasicConfigNetwork[],
+) {
   const { swapProLoadSupportNetworksTokenList } = useSwapActions().current;
-  const { networkList } = useMarketBasicConfig();
+  const [swapSelectToken] = useSwapProSelectTokenAtom();
+  const [swapProUseSelectBuyToken] = useSwapProUseSelectBuyTokenAtom();
   const { activeAccount } = useActiveAccount({ num: 0 });
-  const [swapProSupportNetworksTokenList] =
+  const { syncOrderTokenBalance } = useSwapProTokenInfoSync();
+  const [swapProSupportNetworksTokenList, setSwapProSupportNetworksTokenList] =
     useSwapProSupportNetworksTokenListAtom();
+  const swapProSelectTokenRef = useRef(swapSelectToken);
+  if (swapProSelectTokenRef.current !== swapSelectToken) {
+    swapProSelectTokenRef.current = swapSelectToken;
+  }
+  const swapProUseSelectBuyTokenRef = useRef(swapProUseSelectBuyToken);
+  if (swapProUseSelectBuyTokenRef.current !== swapProUseSelectBuyToken) {
+    swapProUseSelectBuyTokenRef.current = swapProUseSelectBuyToken;
+  }
+  const swapProSupportNetworksTokenListRef = useRef(
+    swapProSupportNetworksTokenList,
+  );
+  if (
+    swapProSupportNetworksTokenListRef.current !==
+    swapProSupportNetworksTokenList
+  ) {
+    swapProSupportNetworksTokenListRef.current = [
+      ...swapProSupportNetworksTokenList,
+    ];
+  }
   const swapProLoadSupportNetworksTokenListRun = useCallback(async () => {
     if (networkList.length > 0 && activeAccount) {
       await swapProLoadSupportNetworksTokenList(
@@ -640,13 +776,118 @@ export function useSwapProSupportNetworksTokenList() {
     }
   }, [networkList, activeAccount, swapProLoadSupportNetworksTokenList]);
   useEffect(() => {
-    if (swapProSupportNetworksTokenList.length === 0) {
-      void swapProLoadSupportNetworksTokenListRun();
-    }
-  }, [
-    swapProLoadSupportNetworksTokenListRun,
-    swapProSupportNetworksTokenList.length,
-  ]);
+    void swapProLoadSupportNetworksTokenListRun();
+  }, [swapProLoadSupportNetworksTokenListRun, activeAccount]);
+
+  const checkSyncOrderTokenBalance = useCallback(
+    async ({
+      orderFromToken,
+      orderToToken,
+    }: {
+      orderFromToken: ISwapTokenBase;
+      orderToToken: ISwapTokenBase;
+    }) => {
+      if (
+        swapProSelectTokenRef.current?.networkId &&
+        swapProUseSelectBuyTokenRef.current?.networkId &&
+        (equalTokenNoCaseSensitive({
+          token1: swapProSelectTokenRef.current,
+          token2: orderFromToken,
+        }) ||
+          equalTokenNoCaseSensitive({
+            token1: swapProUseSelectBuyTokenRef.current,
+            token2: orderFromToken,
+          }) ||
+          equalTokenNoCaseSensitive({
+            token1: swapProSelectTokenRef.current,
+            token2: orderToToken,
+          }) ||
+          equalTokenNoCaseSensitive({
+            token1: swapProUseSelectBuyTokenRef.current,
+            token2: orderToToken,
+          }))
+      ) {
+        const balanceTokensInfoRes = await syncOrderTokenBalance();
+        if (balanceTokensInfoRes) {
+          const newSwapProSelectTokenDetail =
+            balanceTokensInfoRes.swapProSelectTokenDetail;
+          const newSwapProUseSelectBuyTokenDetail =
+            balanceTokensInfoRes.swapProUseSelectBuyTokenDetail;
+
+          // Update swapProSupportNetworksTokenList with the new token details
+          const tokensToUpdate = [
+            newSwapProSelectTokenDetail,
+            newSwapProUseSelectBuyTokenDetail,
+          ].filter(Boolean);
+
+          if (tokensToUpdate.length > 0) {
+            setSwapProSupportNetworksTokenList((prevList) => {
+              let updatedList = [...prevList];
+
+              for (const tokenDetail of tokensToUpdate) {
+                if (tokenDetail) {
+                  const existingIndex = updatedList.findIndex((token) =>
+                    equalTokenNoCaseSensitive({
+                      token1: token,
+                      token2: tokenDetail,
+                    }),
+                  );
+
+                  if (existingIndex !== -1) {
+                    // Token exists, update balance, fiatValue and price
+                    updatedList[existingIndex] = {
+                      ...updatedList[existingIndex],
+                      balanceParsed: tokenDetail.balanceParsed ?? '',
+                      fiatValue: tokenDetail.fiatValue ?? '',
+                      price: tokenDetail.price ?? '',
+                    };
+                  } else {
+                    // Token doesn't exist, add it to the list
+                    updatedList = [
+                      ...updatedList,
+                      {
+                        ...tokenDetail,
+                        balanceParsed: tokenDetail.balanceParsed ?? '',
+                        fiatValue: tokenDetail.fiatValue ?? '',
+                        price: tokenDetail.price ?? '',
+                      } as ISwapToken,
+                    ];
+                  }
+                }
+              }
+
+              return updatedList;
+            });
+          }
+        }
+      } else {
+        void swapProLoadSupportNetworksTokenListRun();
+      }
+    },
+    [
+      syncOrderTokenBalance,
+      setSwapProSupportNetworksTokenList,
+      swapProLoadSupportNetworksTokenListRun,
+    ],
+  );
+
+  useEffect(() => {
+    appEventBus.off(
+      EAppEventBusNames.SwapSpeedBalanceUpdate,
+      checkSyncOrderTokenBalance,
+    );
+    appEventBus.on(
+      EAppEventBusNames.SwapSpeedBalanceUpdate,
+      checkSyncOrderTokenBalance,
+    );
+    return () => {
+      appEventBus.off(
+        EAppEventBusNames.SwapSpeedBalanceUpdate,
+        checkSyncOrderTokenBalance,
+      );
+    };
+  }, [checkSyncOrderTokenBalance]);
+
   return {
     swapProLoadSupportNetworksTokenListRun,
   };
@@ -660,7 +901,7 @@ export function useSwapProPositionsListFilter() {
   const filterDefaultTokenList = useMemo(() => {
     const filterMinValueTokenList = swapProSupportNetworksTokenList.filter(
       (token) => {
-        return new BigNumber(token.fiatValue ?? '0').gt(
+        return new BigNumber(token.fiatValue || '0').gt(
           swapProPositionsListMinValue,
         );
       },
@@ -777,7 +1018,7 @@ export function useSwapProActionsQuote() {
       swapTradeType === ESwapProTradeType.MARKET
     ) {
       const toAmountBN = new BigNumber(swapProQuoteResult.toAmount);
-      const toTokenPriceBN = new BigNumber(swapProtoToken?.price ?? '0');
+      const toTokenPriceBN = new BigNumber(swapProtoToken?.price || '0');
       const toTokenValue = toTokenPriceBN.multipliedBy(toAmountBN).toFixed();
       const formattedToTokenValue = numberFormat(toTokenValue, {
         formatter: 'value',
@@ -826,7 +1067,7 @@ export function useSwapProActionsQuote() {
   ]);
 
   useEffect(() => {
-    const debounceInputAmountBN = new BigNumber(debounceInputAmount ?? '0');
+    const debounceInputAmountBN = new BigNumber(debounceInputAmount || '0');
     if (debounceInputAmountBN.isNaN() || debounceInputAmountBN.lte(0)) {
       cancelSpeedQuote();
       void cleanSpeedQuote();
@@ -852,7 +1093,7 @@ export function useSwapProActionsQuote() {
   };
 }
 
-export function useSwapProErrorAlert() {
+export function useSwapProErrorAlert(networkNotSupported?: boolean) {
   const intl = useIntl();
   const [, setSwapProErrorAlert] = useSwapProErrorAlertAtom();
   const swapProAccount = useSwapProAccount();
@@ -867,6 +1108,12 @@ export function useSwapProErrorAlert() {
   }, [swapProTradeType, swapProQuoteResult, swapCurrentQuote]);
   useEffect(() => {
     if (!swapProAccount.result?.addressDetail.address) {
+      setSwapProErrorAlert({
+        title: intl.formatMessage({
+          id: ETranslations.swap_page_alert_account_does_not_support_swap,
+        }),
+      });
+    } else if (networkNotSupported) {
       setSwapProErrorAlert({
         title: intl.formatMessage({
           id: ETranslations.dexmarket_swap_unsupported_title,
@@ -885,6 +1132,7 @@ export function useSwapProErrorAlert() {
   }, [
     currentQuoteRes,
     intl,
+    networkNotSupported,
     setSwapProErrorAlert,
     swapProAccount.result?.addressDetail.address,
   ]);
@@ -896,7 +1144,6 @@ export function useSwapLimitPriceCheck(
 ) {
   const [swapLimitPriceFromAmount] = useSwapLimitPriceFromAmountAtom();
   const [swapLimitPriceToAmount] = useSwapLimitPriceToAmountAtom();
-  const [, setSwapProToTotalValueAtom] = useSwapProToTotalValueAtom();
   const [swapProTradeType] = useSwapProTradeTypeAtom();
   const [swapTypeSwitchValue] = useSwapTypeSwitchAtom();
   const [, setFromInputAmount] = useSwapFromTokenAmountAtom();
@@ -924,18 +1171,8 @@ export function useSwapLimitPriceCheck(
         value: swapLimitPriceToAmount,
         isInput: false,
       });
-      if (swapProTradeType === ESwapProTradeType.LIMIT) {
-        const swapLimitPriceToAmountBN = new BigNumber(swapLimitPriceToAmount);
-        const swapLimitPriceBN = new BigNumber(swapProtoToToken?.price ?? '0');
-        const swapLimitPriceValue = swapLimitPriceBN
-          .multipliedBy(swapLimitPriceToAmountBN)
-          .decimalPlaces(swapProtoToToken?.decimals ?? 0, BigNumber.ROUND_DOWN)
-          .toFixed();
-        setSwapProToTotalValueAtom(swapLimitPriceValue);
-      }
     }
   }, [
-    setSwapProToTotalValueAtom,
     setToInputAmount,
     swapLimitPriceToAmount,
     swapProTradeType,

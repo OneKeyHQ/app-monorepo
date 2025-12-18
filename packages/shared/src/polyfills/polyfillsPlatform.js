@@ -5,6 +5,15 @@
 /* eslint-disable global-require, no-restricted-syntax, import/no-unresolved */
 require('./setimmediateShim');
 
+// Promise.allSettled polyfill - must be injected before any code uses it
+// Hermes engine may have Promise but lack allSettled on some devices
+if (typeof Promise.allSettled !== 'function') {
+  console.log('Shims Injected log: Promise.allSettled');
+  // Use the promise library's implementation
+  const PromisePolyfill = require('promise/setimmediate/es6-extensions');
+  Promise.allSettled = PromisePolyfill.allSettled.bind(Promise);
+}
+
 require('./intlShim');
 require('react-native-url-polyfill/auto');
 const platformEnv = require('@onekeyhq/shared/src/platformEnv');

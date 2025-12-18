@@ -23,41 +23,6 @@ const SwapProToTotalValue = () => {
   const [toTokenAmount] = useSwapToTokenAmountAtom();
   const [swapProToTotalValue, setSwapProToTotalValue] =
     useSwapProToTotalValueAtom();
-  //   (text: string) => {
-  //     if (swapProTradeType === ESwapProTradeType.LIMIT) {
-  //       setSwapProToTotalValue(text);
-  //       const toAmountValue = new BigNumber(text ?? '0');
-  //       let toTokenAmountValue = '';
-  //       if (toAmountValue.isNaN() || toAmountValue.isZero()) {
-  //         toTokenAmountValue = '';
-  //       } else {
-  //         const toTokenPrice = new BigNumber(swapProtoToToken?.price ?? '0');
-  //         if (toTokenPrice.isNaN() || toTokenPrice.isZero()) {
-  //           toTokenAmountValue = '';
-  //         } else {
-  //           toTokenAmountValue = toAmountValue
-  //             .div(toTokenPrice)
-  //             .decimalPlaces(
-  //               swapProtoToToken?.decimals ?? 0,
-  //               BigNumber.ROUND_DOWN,
-  //             )
-  //             .toFixed();
-  //         }
-  //       }
-  //       setSwapToTokenAmount({
-  //         value: toTokenAmountValue,
-  //         isInput: true,
-  //       });
-  //     }
-  //   },
-  //   [
-  //     setSwapProToTotalValue,
-  //     setSwapToTokenAmount,
-  //     swapProTradeType,
-  //     swapProtoToToken?.decimals,
-  //     swapProtoToToken?.price,
-  //   ],
-  // );
 
   useEffect(() => {
     if (swapProTradeType === ESwapProTradeType.LIMIT) {
