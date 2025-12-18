@@ -137,6 +137,12 @@ const OneKeyIDLogin = LazyLoadPage(
   false,
   <OnboardingLayoutFallback />,
 );
+const CreatePin = LazyLoadPage(
+  () => import('../pages/CreatePinPage'),
+  undefined,
+  false,
+  <OnboardingLayoutFallback />,
+);
 
 const hiddenHeaderOptions = {
   headerShown: false,
@@ -254,6 +260,11 @@ export const OnboardingRouterV2: IModalFlowNavigatorConfig<
   {
     name: EOnboardingPagesV2.OneKeyIDLogin,
     component: OneKeyIDLogin,
+    options: hiddenHeaderOptions,
+  },
+  {
+    name: EOnboardingPagesV2.CreatePin,
+    component: CreatePin,
     options: hiddenHeaderOptions,
   },
 ];
