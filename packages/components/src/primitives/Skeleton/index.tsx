@@ -1,9 +1,12 @@
 import { forwardRef } from 'react';
 
-import { Skeleton as MotiSkeleton } from 'moti/skeleton';
-
 import {
-  type StackStyle,
+  AutoSkeletonIgnoreView,
+  AutoSkeletonView,
+} from 'react-native-auto-skeleton';
+
+import type { StackStyle } from '@onekeyhq/components/src/shared/tamagui';
+import {
   styled,
   usePropsAndStyle,
   useThemeName,
@@ -11,7 +14,7 @@ import {
 } from '@onekeyhq/components/src/shared/tamagui';
 
 import { useSettingConfig } from '../../hocs/Provider/hooks/useProviderValue';
-import { YStack } from '../Stack';
+import { Stack, YStack } from '../Stack';
 
 import type { MotiSkeletonProps } from 'moti/build/skeleton/types';
 
@@ -28,13 +31,9 @@ function BasicSkeleton({ children, ...props }: ISkeletonProps) {
   const { theme } = useSettingConfig();
   const themeName = useThemeName();
   return (
-    <MotiSkeleton
-      colorMode={themeName || theme}
-      {...(style as any)}
-      {...restProps}
-    >
-      {children}
-    </MotiSkeleton>
+    <AutoSkeletonView isLoading animationType="gradient" shimmerSpeed={1}>
+      <Stack bg="$bg" style={style as any} {...restProps} />
+    </AutoSkeletonView>
   );
 }
 
@@ -139,7 +138,7 @@ export const Skeleton = withStaticProperties(
     name: 'Skeleton',
   } as const),
   {
-    Group: MotiSkeleton.Group,
+    Group: () => null,
     BodySm: BodySmSkeleton,
     BodyMd: BodyMdSkeleton,
     BodyLg: BodyLgSkeleton,
