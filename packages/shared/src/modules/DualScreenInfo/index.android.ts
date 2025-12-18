@@ -2,8 +2,12 @@ import { useEffect, useState } from 'react';
 
 import { ReactNativeDeviceUtils } from '@onekeyfe/react-native-device-utils';
 
+let isDualScreen: boolean | undefined;
 export const isDualScreenDevice = () => {
-  return ReactNativeDeviceUtils.isDualScreenDevice();
+  if (isDualScreen === undefined) {
+    isDualScreen = ReactNativeDeviceUtils.isDualScreenDevice();
+  }
+  return isDualScreen;
 };
 
 export const isSpanning = () => {
