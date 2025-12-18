@@ -1,4 +1,4 @@
-import { Empty, Skeleton } from '@onekeyhq/components';
+import { Empty } from '@onekeyhq/components';
 import type {
   ITableColumn,
   ITableListProps,
@@ -9,6 +9,7 @@ import { ActionField } from './ActionField';
 import { AmountField } from './AmountField';
 import { AssetField } from './AssetField';
 import { BorrowAPYField } from './BorrowAPYField';
+import { BorrowListSkeleton } from './BorrowListSkeleton';
 import { FieldWrapper } from './FieldWrapper';
 
 type IBorrowTableListProps<T> = {
@@ -29,11 +30,12 @@ const BorrowTableList = <T,>({
   emptyContent,
   onPressRow,
 }: IBorrowTableListProps<T>) => {
-  if (isLoading) {
-    return <Skeleton height={200} />;
+  const hasData = data && data.length > 0;
+  if (isLoading && !hasData) {
+    return <BorrowListSkeleton />;
   }
 
-  if (!data || data.length === 0) {
+  if (!hasData) {
     return <Empty title={emptyContent} />;
   }
 

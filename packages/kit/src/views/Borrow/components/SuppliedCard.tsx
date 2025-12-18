@@ -22,7 +22,7 @@ import { Card } from './Card';
 type ISuppliedAsset = IBorrowReserveItem['supplied']['assets'][number];
 
 export const SuppliedCard = () => {
-  const { reserves, market } = useBorrowContext();
+  const { reserves, market, reservesLoading } = useBorrowContext();
   const navigation = useAppNavigation();
   const { activeAccount } = useActiveAccount({ num: 0 });
 
@@ -44,12 +44,15 @@ export const SuppliedCard = () => {
     [navigation, market, activeAccount.account?.id],
   );
 
+  const showLoading = !reserves && reservesLoading;
+
   // FIXME[borrow]: i18n
   return (
     <Card title="Your supplies">
       {/* FIXME[borrow]: i18n */}
       <BorrowTableList<ISuppliedAsset>
         data={reserves?.supplied.assets || []}
+        isLoading={showLoading}
         columns={[
           {
             label: 'Asset', // FIXME[borrow]: i18n

@@ -11,6 +11,8 @@ type IBorrowContextValue = {
   setReserves: React.Dispatch<React.SetStateAction<IBorrowReserveItem | null>>;
   market: IBorrowMarketItem | null;
   setMarket: React.Dispatch<React.SetStateAction<IBorrowMarketItem | null>>;
+  reservesLoading: boolean;
+  setReservesLoading: React.Dispatch<React.SetStateAction<boolean>>;
 };
 
 const BorrowContext = createContext<IBorrowContextValue>(undefined as any);
@@ -22,14 +24,24 @@ export const BorrowProvider = ({
 }>) => {
   const [reserves, setReserves] = useState<IBorrowReserveItem | null>(null);
   const [market, setMarket] = useState<IBorrowMarketItem | null>(null);
+  const [reservesLoading, setReservesLoading] = useState(false);
   const contextValue = useMemo(() => {
     return {
       reserves,
       setReserves,
       market,
       setMarket,
+      reservesLoading,
+      setReservesLoading,
     };
-  }, [reserves, setReserves, market, setMarket]);
+  }, [
+    reserves,
+    setReserves,
+    market,
+    setMarket,
+    reservesLoading,
+    setReservesLoading,
+  ]);
 
   return (
     <BorrowContext.Provider value={contextValue}>

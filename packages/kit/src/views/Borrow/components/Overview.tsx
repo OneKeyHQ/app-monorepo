@@ -52,7 +52,8 @@ const OverviewItem = ({
 };
 
 export const Overview = () => {
-  const { reserves, market, setReserves } = useBorrowContext();
+  const { reserves, market, setReserves, setReservesLoading } =
+    useBorrowContext();
   const { fetchReserves } = useBorrowReserves();
   const { earnAccount } = useEarnAccount({
     networkId: market?.networkId,
@@ -83,16 +84,22 @@ export const Overview = () => {
 
   const handleRefresh = useCallback(async () => {
     if (!provider || !networkId || !marketAddress || !earnAccountId) return;
-    const result = await fetchReserves({
-      provider,
-      networkId,
-      marketAddress,
-      accountId: earnAccountId,
-    });
-    setReserves(result);
+    setReservesLoading(true);
+    try {
+      const result = await fetchReserves({
+        provider,
+        networkId,
+        marketAddress,
+        accountId: earnAccountId,
+      });
+      setReserves(result);
+    } finally {
+      setReservesLoading(false);
+    }
   }, [
     fetchReserves,
     setReserves,
+    setReservesLoading,
     provider,
     networkId,
     marketAddress,

@@ -21,7 +21,7 @@ import { Card } from './Card';
 type ISupplyAsset = IBorrowReserveItem['supply']['assets'][number];
 
 export const SupplyCard = () => {
-  const { reserves, market } = useBorrowContext();
+  const { reserves, market, reservesLoading } = useBorrowContext();
   const navigation = useAppNavigation();
   const { activeAccount } = useActiveAccount({ num: 0 });
 
@@ -58,10 +58,13 @@ export const SupplyCard = () => {
     [navigation, market, activeAccount.account?.id],
   );
 
+  const showLoading = !reserves && reservesLoading;
+
   return (
     <Card title="Assets to supply">
       <BorrowTableList<ISupplyAsset>
         data={reserves?.supply.assets || []}
+        isLoading={showLoading}
         columns={[
           {
             label: 'Asset / Can be collateral',
