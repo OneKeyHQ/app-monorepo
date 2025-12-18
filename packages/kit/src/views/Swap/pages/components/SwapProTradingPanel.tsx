@@ -111,7 +111,8 @@ const SwapProTradingPanel = ({
         ) : null}
         <SwapProInputContainer
           isLoading={configLoading}
-          defaultTokens={swapProConfig.defaultTokens as IToken[]}
+          defaultTokens={swapProConfig.defaultTokens}
+          defaultLimitTokens={swapProConfig.defaultLimitTokens}
           cleanInputAmount={cleanInputAmount}
         />
       </YStack>
