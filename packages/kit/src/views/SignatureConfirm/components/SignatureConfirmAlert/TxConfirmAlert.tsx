@@ -221,7 +221,7 @@ function TxConfirmAlert(props: IProps) {
       },
       onCancel: () => {},
     });
-  }, [customRpcStatus, updateCustomRpcStatus, clearCustomRpcStatus]);
+  }, [intl, customRpcStatus, updateCustomRpcStatus, clearCustomRpcStatus]);
 
   const renderCustomRpcUnavailableAlert = useCallback(() => {
     if (
