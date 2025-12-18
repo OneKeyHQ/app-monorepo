@@ -7,7 +7,7 @@ import SwapProTokenTransactionList from './SwapProTokenTransactionList';
 
 const SwapProTradeInfoPanel = () => {
   return (
-    <YStack gap="$3" flex={1} justifyContent="space-between">
+    <YStack gap="$2.5" flex={1} justifyContent="space-between">
       <YStack gap="$3">
         <SwapProTokenDetailGroup />
         <SwapProPriceInfo />

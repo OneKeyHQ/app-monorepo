@@ -73,11 +73,11 @@ const SwapProTokenTransactionItem = ({
     item.type,
   ]);
   return (
-    <XStack alignItems="center" justifyContent="space-between">
-      <SizableText size="$bodySm" color={textColor}>
+    <XStack alignItems="center" justifyContent="space-between" py="$1">
+      <SizableText size="$bodySm" color={textColor} fontFamily="$monoRegular">
         {formatPrice}
       </SizableText>
-      <SizableText size="$bodySm" color={textColor}>
+      <SizableText size="$bodySm" color={textColor} fontFamily="$monoRegular">
         {formatTokenValue}
       </SizableText>
     </XStack>

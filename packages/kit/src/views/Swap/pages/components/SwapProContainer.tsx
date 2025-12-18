@@ -161,7 +161,6 @@ const SwapProContainer = ({
       ref={scrollViewRef}
       contentContainerStyle={{
         flexGrow: 1,
-        paddingTop: 10,
         paddingHorizontal: 20,
       }}
       showsVerticalScrollIndicator={false}
@@ -172,7 +171,13 @@ const SwapProContainer = ({
         <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
       }
     >
-      <XStack justifyContent="space-between" pb="$4" pt="$1" bg="$bgApp">
+      <XStack
+        justifyContent="space-between"
+        pb="$2"
+        pt="$2"
+        alignItems="center"
+        bg="$bgApp"
+      >
         <SwapProTokenSelector
           onSelectTokenClick={() => {
             cleanInputAmount();
@@ -181,14 +186,13 @@ const SwapProContainer = ({
           configLoading={isLoading}
         />
         <IconButton
-          icon="ChartTrendingUp2Outline"
-          w="$6"
-          h="$6"
+          icon="TradingViewCandlesOutline"
+          variant="tertiary"
+          flexShrink={0}
           onPress={onProMarketDetail}
-          backgroundColor="$bgApp"
         />
       </XStack>
-      <XStack gap="$2.5" pb="$4" alignItems="stretch">
+      <XStack mt="$2" gap="$4" pb="$4" alignItems="stretch">
         <YStack flexBasis="40%" flexShrink={1} alignSelf="stretch">
           <SwapProTradeInfoPanel />
         </YStack>
