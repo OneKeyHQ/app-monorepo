@@ -161,7 +161,7 @@
     "tonweb": "^0.0.66",
     "ua-parser-js": "^2.0.4",
     "use-suspender": "^2.0.0-beta.0",
-    "validator": "^13.7.0",
+    "validator": "13.15.23",
     "viem": "2.37.6",
     "zxcvbn": "^4.4.2"
   },
