@@ -1,9 +1,6 @@
 import { forwardRef } from 'react';
 
-import {
-  AutoSkeletonIgnoreView,
-  AutoSkeletonView,
-} from 'react-native-auto-skeleton';
+import { AutoSkeletonView } from 'react-native-auto-skeleton';
 
 import type { StackStyle } from '@onekeyhq/components/src/shared/tamagui';
 import {
@@ -13,26 +10,53 @@ import {
   withStaticProperties,
 } from '@onekeyhq/components/src/shared/tamagui';
 
-import { useSettingConfig } from '../../hocs/Provider/hooks/useProviderValue';
 import { Stack, YStack } from '../Stack';
 
-import type { MotiSkeletonProps } from 'moti/build/skeleton/types';
+export type ISkeletonProps = StackStyle & {
+  isLoading: boolean;
+  radius?: 'round' | 'square' | number;
+  children?: React.ReactNode;
+  colorMode?: 'dark' | 'light';
+};
 
-export type ISkeletonProps = Omit<
-  MotiSkeletonProps,
-  'Gradient' | 'height' | 'width'
-> &
-  StackStyle;
-
-function BasicSkeleton({ children, ...props }: ISkeletonProps) {
+const DEFAULT_SKELETON_SIZE = 32;
+const baseColors = {
+  dark: {
+    primary: 'rgb(17, 17, 17)',
+    secondary: 'rgb(51, 51, 51)',
+  },
+  light: {
+    primary: 'rgb(250, 250, 250)',
+    secondary: 'rgb(205, 205, 205)',
+  },
+};
+function BasicSkeleton({
+  children,
+  isLoading = false,
+  colorMode,
+  ...props
+}: ISkeletonProps) {
   const [restProps, style] = usePropsAndStyle(props, {
     resolveValues: 'auto',
   });
-  const { theme } = useSettingConfig();
   const themeName = useThemeName();
+  const colors =
+    (colorMode ?? themeName) === 'dark' ? baseColors.dark : baseColors.light;
   return (
-    <AutoSkeletonView isLoading animationType="gradient" shimmerSpeed={1}>
-      <Stack bg="$bg" style={style as any} {...restProps} />
+    <AutoSkeletonView
+      isLoading={isLoading}
+      animationType="gradient"
+      shimmerSpeed={2}
+      gradientColors={[colors.primary, colors.secondary]}
+    >
+      <Stack
+        bg="$bg"
+        style={style as any}
+        height={style.height || DEFAULT_SKELETON_SIZE}
+        width={style.width || DEFAULT_SKELETON_SIZE}
+        borderRadius={restProps.radius === 'round' ? 9999 : undefined}
+        {...restProps}
+      />
     </AutoSkeletonView>
   );
 }
@@ -162,8 +186,9 @@ export function SkeletonContainer({
   isLoading: boolean;
   children: React.ReactNode;
 }) {
-  if (isLoading) {
-    return <Skeleton {...props} />;
-  }
-  return children;
+  return (
+    <Skeleton {...props} isLoading={isLoading}>
+      {children}
+    </Skeleton>
+  );
 }
