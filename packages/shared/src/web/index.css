@@ -297,7 +297,7 @@ w3m-modal {
 }
 
 .ok-skeleton-light {
-  animation: ok-skeleton-light-loading 1.2s linear infinite alternate;
+  animation: ok-skeleton-light-loading 1.5s linear infinite alternate;
   color: transparent;
 }
 
@@ -311,7 +311,7 @@ w3m-modal {
 }
 
 .ok-skeleton-dark {
-  animation: ok-skeleton-dark-loading 1.2s linear infinite alternate;
+  animation: ok-skeleton-dark-loading 1.5s linear infinite alternate;
   color: transparent;
 }
 
