@@ -4,45 +4,8 @@ import { Layout } from './utils/Layout';
 
 const SkeletonDemo = () => (
   <YStack gap="$4">
-    <Skeleton radius="round" height={75} width={75} />
-    <Skeleton width={250} h="$8" />
-    <Skeleton width="100%" h="$8" />
-    <Skeleton width="100%" h="$8" />
-    <Skeleton width="100%" h="$8" />
-    <Skeleton width="100%" h="$8" />
-    <Skeleton width="100%" h="$8" />
-    <Skeleton width="100%" h="$8" />
-    <Skeleton width="100%" h="$8" />
-    <Skeleton width="100%" h="$8" />
-    <Skeleton width="100%" h="$8" />
-    <Skeleton width="100%" h="$8" />
-    <Skeleton width="100%" h="$8" />
-    <Skeleton width="100%" h="$8" />
-    <Skeleton width="100%" h="$8" />
-    <Skeleton width="100%" h="$8" />
-    <Skeleton width="100%" h="$8" />
-    <Skeleton width="100%" h="$8" />
-    <Skeleton width="100%" h="$8" />
-    <Skeleton width="100%" h="$8" />
-    <Skeleton width="100%" h="$8" />
-    <Skeleton width="100%" h="$8" />
-    <Skeleton width="100%" h="$8" />
-    <Skeleton width="100%" h="$8" />
-    <Skeleton width="100%" h="$8" />
-    <Skeleton width="100%" h="$8" />
-    <Skeleton width="100%" h="$8" />
-    <Skeleton width="100%" h="$8" />
-    <Skeleton width="100%" h="$8" />
-    <Skeleton width="100%" h="$8" />
-    <Skeleton width="100%" h="$8" />
-    <Skeleton width="100%" h="$8" />
-    <Skeleton width="100%" h="$8" />
-    <Skeleton width="100%" h="$8" />
-    <Skeleton width="100%" h="$8" />
-    <Skeleton width="100%" h="$8" />
-    <Skeleton width="100%" h="$8" />
-    <Skeleton width="100%" h="$8" />
-    <Skeleton width="100%" h="$8" />
+    <Skeleton isLoading radius="round" height={75} width={75} />
+    <Skeleton isLoading width={250} h="$8" />
   </YStack>
 );
 
