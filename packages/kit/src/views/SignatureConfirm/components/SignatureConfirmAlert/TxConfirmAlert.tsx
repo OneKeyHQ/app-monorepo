@@ -9,6 +9,7 @@ import { Alert } from '@onekeyhq/components';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
+  useCustomRpcStatusAtom,
   useDecodedTxsAtom,
   useNativeTokenInfoAtom,
   usePayWithTokenInfoAtom,
@@ -16,8 +17,10 @@ import {
   useSendFeeStatusAtom,
   useSendSelectedFeeInfoAtom,
   useSendTxStatusAtom,
+  useSignatureConfirmActions,
   useTronResourceRentalInfoAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
+import { showCustomRpcFallbackDialog } from '@onekeyhq/kit/src/views/Send/components/CustomRpcFallbackDialog';
 import type { ITransferPayload } from '@onekeyhq/kit-bg/src/vaults/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
@@ -52,6 +55,8 @@ function TxConfirmAlert(props: IProps) {
   });
   const [payWithTokenInfo] = usePayWithTokenInfoAtom();
   const [tronResourceRentalInfo] = useTronResourceRentalInfoAtom();
+  const [customRpcStatus] = useCustomRpcStatusAtom();
+  const { clearCustomRpcStatus } = useSignatureConfirmActions().current;
 
   const renderDecodedTxsAlert = useCallback(() => {
     const alerts = flatMap(
@@ -189,6 +194,31 @@ function TxConfirmAlert(props: IProps) {
     return null;
   }, [preCheckTxStatus]);
 
+  const renderCustomRpcUnavailableAlert = useCallback(() => {
+    if (!customRpcStatus?.isCustomRpcUnavailable) {
+      return null;
+    }
+    return (
+      <Alert
+        icon="ErrorOutline"
+        type="critical"
+        title="Custom RPC Unavailable"
+        description="Your custom RPC endpoint is not responding. You can switch to the default RPC to continue."
+        action={{
+          primary: 'Switch RPC',
+          onPrimaryPress() {
+            showCustomRpcFallbackDialog({
+              networkId: customRpcStatus.networkId,
+              accountId,
+              customRpcUrl: customRpcStatus.customRpcUrl,
+              onClose: clearCustomRpcStatus,
+            });
+          },
+        }}
+      />
+    );
+  }, [customRpcStatus, accountId, clearCustomRpcStatus]);
+
   const renderChainSpecialAlert = useCallback(() => {
     if (
       networkId === getNetworkIdsMap().kaspa &&
@@ -259,6 +289,7 @@ function TxConfirmAlert(props: IProps) {
 
   return (
     <>
+      {renderCustomRpcUnavailableAlert()}
       {renderTxFeeAlert()}
       {renderInsufficientNativeBalanceAlert()}
       {renderDecodedTxsAlert()}

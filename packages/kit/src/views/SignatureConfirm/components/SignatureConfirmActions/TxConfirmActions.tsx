@@ -22,6 +22,7 @@ import type { IHasId, LinkedDeck } from '@onekeyhq/kit/src/hooks/useLinkedList';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import useShouldRejectDappAction from '@onekeyhq/kit/src/hooks/useShouldRejectDappAction';
 import {
+  useCustomRpcStatusAtom,
   useDecodedTxsAtom,
   useDecodedTxsInitAtom,
   useNativeTokenInfoAtom,
@@ -112,6 +113,7 @@ function TxConfirmActions(props: IProps) {
   const [tronResourceRentalInfo] = useTronResourceRentalInfoAtom();
   const [txFeeInfoInit] = useTxFeeInfoInitAtom();
   const [decodedTxsInit] = useDecodedTxsInitAtom();
+  const [customRpcStatus] = useCustomRpcStatusAtom();
 
   const toAddress = transferPayload?.originalRecipient;
   const unsignedTx = unsignedTxs[0];
@@ -541,6 +543,7 @@ function TxConfirmActions(props: IProps) {
     if (!sendSelectedFeeInfo || sendFeeStatus.errMessage) return true;
     if (preCheckTxStatus.errorMessage) return true;
     if (txAdvancedSettings.dataChanged) return true;
+    if (customRpcStatus?.isCustomRpcUnavailable) return true;
     return false;
   }, [
     txFeeInfoInit,
@@ -556,6 +559,7 @@ function TxConfirmActions(props: IProps) {
     sendFeeStatus.errMessage,
     preCheckTxStatus.errorMessage,
     txAdvancedSettings.dataChanged,
+    customRpcStatus?.isCustomRpcUnavailable,
   ]);
 
   usePageUnMounted(() => {

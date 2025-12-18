@@ -226,3 +226,12 @@ export const {
   atom: txConfirmParamsInitAtom,
   use: useTxConfirmParamsInitAtom,
 } = contextAtom<boolean>(false);
+
+export interface ICustomRpcStatusAtomValue {
+  isCustomRpcUnavailable: boolean;
+  customRpcUrl: string;
+  networkId: string;
+}
+
+export const { atom: customRpcStatusAtom, use: useCustomRpcStatusAtom } =
+  contextAtom<ICustomRpcStatusAtomValue | null>(null);

@@ -75,6 +75,7 @@ function TxConfirm() {
     updateExtraFeeInfo,
     updateDecodedTxsInit,
     updateSendTxStatus,
+    updateCustomRpcStatus,
   } = useSignatureConfirmActions().current;
 
   const [settings] = useSettingsPersistAtom();
@@ -227,6 +228,48 @@ function TxConfirm() {
     updateNativeTokenInfo,
     updatePreCheckTxStatus,
   ]);
+
+  // Check custom RPC status on page mount
+  usePromiseResult(async () => {
+    // Check if the network has custom RPC enabled
+    const customRpcInfo =
+      await backgroundApiProxy.serviceCustomRpc.getCustomRpcForNetwork(
+        networkId,
+      );
+
+    if (!customRpcInfo?.rpc || !customRpcInfo?.enabled) {
+      // No custom RPC, clear status
+      updateCustomRpcStatus(null);
+      return;
+    }
+
+    // Check if this is a custom network (user-added)
+    const isCustomNetwork =
+      await backgroundApiProxy.serviceNetwork.isCustomNetwork({ networkId });
+    if (isCustomNetwork) {
+      // Custom network cannot fallback, skip detection
+      updateCustomRpcStatus(null);
+      return;
+    }
+
+    // Detect RPC availability
+    try {
+      await backgroundApiProxy.serviceCustomRpc.measureRpcStatus({
+        networkId,
+        rpcUrl: customRpcInfo.rpc,
+        validateChainId: true,
+      });
+      // RPC is available
+      updateCustomRpcStatus(null);
+    } catch {
+      // RPC is unavailable
+      updateCustomRpcStatus({
+        isCustomRpcUnavailable: true,
+        customRpcUrl: customRpcInfo.rpc,
+        networkId,
+      });
+    }
+  }, [networkId, updateCustomRpcStatus]);
 
   const txConfirmTitle = useMemo(() => {
     if ((!decodedTxs || decodedTxs.length === 0) && !decodedTxsInit) {
