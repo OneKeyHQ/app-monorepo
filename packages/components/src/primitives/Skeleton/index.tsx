@@ -13,9 +13,9 @@ import {
 import { Stack, YStack } from '../Stack';
 
 const SkeletonProvider = createContext<{
-  isLoading: boolean;
+  isLoading: boolean | undefined;
 }>({
-  isLoading: false,
+  isLoading: undefined,
 });
 
 const useIsGroupLoading = () => {
@@ -26,7 +26,6 @@ const useIsGroupLoading = () => {
 export type ISkeletonProps = StackStyle & {
   isLoading?: boolean;
   radius?: 'round' | 'square' | number;
-  children?: React.ReactNode;
   colorMode?: 'dark' | 'light';
 };
 
@@ -42,7 +41,6 @@ const baseColors = {
   },
 };
 function BasicSkeleton({
-  children,
   isLoading = false,
   colorMode,
   ...props
@@ -65,26 +63,21 @@ function BasicSkeleton({
   }, [restProps.radius]);
 
   const isGroupLoading = useIsGroupLoading();
-
-  console.log('isGroupLoading', isGroupLoading);
-
   return (
     <AutoSkeletonView
-      isLoading={isGroupLoading || isLoading}
+      isLoading={isGroupLoading !== undefined ? isGroupLoading : isLoading}
       animationType="gradient"
       shimmerSpeed={1}
       gradientColors={[colors.primary, colors.secondary]}
     >
-      {children || (
-        <Stack
-          bg="$bg"
-          style={style as any}
-          height={style.height || DEFAULT_SKELETON_SIZE}
-          width={style.width || DEFAULT_SKELETON_SIZE}
-          borderRadius={borderRadius}
-          {...restProps}
-        />
-      )}
+      <Stack
+        bg="$bg"
+        style={style as any}
+        height={style.height || DEFAULT_SKELETON_SIZE}
+        width={style.width || DEFAULT_SKELETON_SIZE}
+        borderRadius={borderRadius}
+        {...restProps}
+      />
     </AutoSkeletonView>
   );
 }
@@ -186,13 +179,13 @@ function Heading5XlSkeleton({ ...props }: ISkeletonProps) {
 }
 
 function SkeletonGroup({
-  isLoading,
+  show,
   children,
 }: {
-  isLoading: boolean;
+  show: boolean;
   children: React.ReactNode;
 }) {
-  const value = useMemo(() => ({ isLoading }), [isLoading]);
+  const value = useMemo(() => ({ isLoading: show }), [show]);
   return (
     <SkeletonProvider.Provider value={value}>
       {children}
@@ -229,9 +222,5 @@ export function SkeletonContainer({
   isLoading: boolean;
   children: React.ReactNode;
 }) {
-  return (
-    <Skeleton {...props} isLoading={isLoading}>
-      {children}
-    </Skeleton>
-  );
+  return isLoading ? <Skeleton {...props} isLoading /> : children;
 }
