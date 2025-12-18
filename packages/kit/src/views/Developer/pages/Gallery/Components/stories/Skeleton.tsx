@@ -1,4 +1,12 @@
-import { Skeleton, YStack } from '@onekeyhq/components';
+import { useState } from 'react';
+
+import {
+  Button,
+  Input,
+  SizableText,
+  Skeleton,
+  YStack,
+} from '@onekeyhq/components';
 
 import { Layout } from './utils/Layout';
 
@@ -11,35 +19,36 @@ const SkeletonDemo = () => (
   </YStack>
 );
 
-// const SkeletonGroupDemo = () => {
-//   const [loading, setLoading] = useState(false);
-//   return (
-//     <YStack>
-//       <Button
-//         onPress={() => {
-//           setLoading(true);
-//           setTimeout(() => {
-//             setLoading(false);
-//           }, 3000);
-//         }}
-//       >
-//         Click it to show LoadingView
-//       </Button>
-//       <YStack paddingVertical="$6">
-//         <Skeleton.Group show={loading}>
-//           <YStack gap="$4">
-//             <Skeleton>
-//               <Input />
-//             </Skeleton>
-//             <Skeleton>
-//               <SizableText>Hello Onekey</SizableText>
-//             </Skeleton>
-//           </YStack>
-//         </Skeleton.Group>
-//       </YStack>
-//     </YStack>
-//   );
-// };
+const SkeletonGroupDemo = () => {
+  const [loading, setLoading] = useState(true);
+  return (
+    <YStack gap="$4">
+      <Button
+        size="small"
+        onPress={() => {
+          setLoading(true);
+          setTimeout(() => {
+            setLoading(false);
+          }, 3000);
+        }}
+      >
+        Click it to show LoadingView
+      </Button>
+      <YStack py="$6">
+        <Skeleton.Group isLoading={loading}>
+          <YStack gap="$4">
+            <Skeleton>
+              <Input />
+            </Skeleton>
+            <Skeleton>
+              <SizableText>Hello Onekey</SizableText>
+            </Skeleton>
+          </YStack>
+        </Skeleton.Group>
+      </YStack>
+    </YStack>
+  );
+};
 
 const SelectGallery = () => (
   <Layout
@@ -51,10 +60,10 @@ const SelectGallery = () => (
         title: '默认状态',
         element: <SkeletonDemo />,
       },
-      // {
-      //   title: '默认状态',
-      //   element: <SkeletonGroupDemo />,
-      // },
+      {
+        title: 'Group Loading',
+        element: <SkeletonGroupDemo />,
+      },
     ]}
   />
 );
