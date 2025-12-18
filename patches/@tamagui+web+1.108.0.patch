@@ -1,32 +1,17 @@
 diff --git a/node_modules/@tamagui/web/dist/cjs/hooks/useMedia.native.js b/node_modules/@tamagui/web/dist/cjs/hooks/useMedia.native.js
-index 47addac..eb9ceb8 100644
+index 47addac..357b398 100644
 --- a/node_modules/@tamagui/web/dist/cjs/hooks/useMedia.native.js
 +++ b/node_modules/@tamagui/web/dist/cjs/hooks/useMedia.native.js
-@@ -160,11 +160,76 @@ function unlisten() {
+@@ -160,11 +160,61 @@ function unlisten() {
    }), dispose.clear();
  }
  var setupVersion = -1;
 +
-+let isDualScreenDevice = false;
-+
-+const DualScreenInfoNative = require('react-native').NativeModules.DualScreenInfo;
-+
-+const ScreenOrientation = require('expo-screen-orientation');
 +
 +const ExpoDevice = require('expo-device');
 +
-+
-+if (DualScreenInfoNative && DualScreenInfoNative.isDualScreenDevice) {
-+  DualScreenInfoNative.isDualScreenDevice().then((result) => {
-+    isDualScreenDevice = result;
-+  });
-+}
-+
 +function checkTabletSplitView(callback) {
-+  if (isDualScreenDevice) {
-+    // DualScreenInfoNative.isSpanning().then((result) => {
-+    //   callback(!!result);
-+    // });
++  if (import_constants.isAndroid) {
 +    callback(true);
 +  } else if (ExpoDevice.deviceType === ExpoDevice.DeviceType.TABLET) {
 +    callback(true);
