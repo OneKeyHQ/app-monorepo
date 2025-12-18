@@ -100,7 +100,6 @@
     "react": "19.1.0",
     "react-native": "0.81.5",
     "react-native-aes-crypto": "3.2.1",
-    "react-native-auto-skeleton": "0.1.30",
     "react-native-awesome-slider": "^2.9.0",
     "react-native-ble-plx": "3.5.0",
     "react-native-camera-kit": "15.1.0",

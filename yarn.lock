@@ -7949,7 +7949,6 @@ __metadata:
     react: "npm:19.1.0"
     react-native: "npm:0.81.5"
     react-native-aes-crypto: "npm:3.2.1"
-    react-native-auto-skeleton: "npm:0.1.30"
     react-native-awesome-slider: "npm:^2.9.0"
     react-native-ble-plx: "npm:3.5.0"
     react-native-camera-kit: "npm:15.1.0"
@@ -34359,16 +34358,6 @@ __metadata:
   dependencies:
     prop-types: "npm:^15.7.2"
   checksum: 10/be7552f9eca8a881e64ce4650849da4a20d68023a445288d609e4dce0ad454ebccefbe52a0cd4ee412782731174b84cdd89acbb384107ad1ed2af05441593ed3
-  languageName: node
-  linkType: hard
-
-"react-native-auto-skeleton@npm:0.1.30":
-  version: 0.1.30
-  resolution: "react-native-auto-skeleton@npm:0.1.30"
-  peerDependencies:
-    react: "*"
-    react-native: "*"
-  checksum: 10/196486f2408a89d47ea776fe802a8e8634dfb7b58e2c7c9ed4903ce64e88950d04257626cb122b797b738d1620a3e278acae5222bde66e33854ddffcccfafd63
   languageName: node
   linkType: hard
 
