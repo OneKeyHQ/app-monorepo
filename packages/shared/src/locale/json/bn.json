@@ -579,6 +579,7 @@
   "dexmarket.txns": "ট্রানজ্যাকশনস",
   "dexmarket_pro_token_find": "আপনার টোকেন খুঁজে পাচ্ছেন না?",
   "dexmarket_pro_token_find_search": "অনুসন্ধান করুন",
+  "do_not_exit_app_during_setup": "সেটআপের সময় অনুগ্রহ করে অ্যাপ থেকে বের হবেন না, নইলে তৈরি প্রক্রিয়া ব্যর্থ হবে",
   "dont_have_mobile_app_yet": "মোবাইল অ্যাপটি এখনো নেই?",
   "downgrade_warning_checkbox_label": "আমি OneKey v4 এ ডাউনগ্রেড করব না",
   "downgrade_warning_description": "OneKey v4 এ ডাউনগ্রেড করবেন না। ডাউনগ্রেড করলে অপরিবর্তনীয় ডাটা হারানোর ঝুঁকি রয়েছে।",

@@ -579,6 +579,7 @@
   "dexmarket.txns": "Giao dịch",
   "dexmarket_pro_token_find": "không tìm thấy mã thông báo của bạn?",
   "dexmarket_pro_token_find_search": "Tìm kiếm",
+  "do_not_exit_app_during_setup": "Vui lòng không thoát khỏi ứng dụng trong quá trình thiết lập, nếu không quá trình tạo sẽ thất bại",
   "dont_have_mobile_app_yet": "Chưa có ứng dụng di động?",
   "downgrade_warning_checkbox_label": "Tôi KHÔNG chuyển xuống OneKey v4",
   "downgrade_warning_description": "ĐỪNG hạ cấp xuống OneKey v4. Việc hạ cấp sẽ dẫn đến mất dữ liệu không thể đảo ngược.",

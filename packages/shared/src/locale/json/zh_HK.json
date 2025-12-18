@@ -579,6 +579,7 @@
   "dexmarket.txns": "交易數",
   "dexmarket_pro_token_find": "搵唔到代幣?",
   "dexmarket_pro_token_find_search": "搜尋",
+  "do_not_exit_app_during_setup": "設定期間請勿退出應用程式，否則建立將會失敗",
   "dont_have_mobile_app_yet": "還沒有移動端 App 嗎？",
   "downgrade_warning_checkbox_label": "我不會降級到 OneKey v4",
   "downgrade_warning_description": "請勿降級至 OneKey v4。降級將導致無法逆轉的數據損失。",

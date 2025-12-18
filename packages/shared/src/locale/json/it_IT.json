@@ -579,6 +579,7 @@
   "dexmarket.txns": "Txns",
   "dexmarket_pro_token_find": "non riesci a trovare il tuo token?",
   "dexmarket_pro_token_find_search": "Ricerca",
+  "do_not_exit_app_during_setup": "Non uscire dall'app durante la configurazione, altrimenti la creazione non riuscirà",
   "dont_have_mobile_app_yet": "Non hai ancora l'app mobile?",
   "downgrade_warning_checkbox_label": "Non effettuerò il downgrade a OneKey v4",
   "downgrade_warning_description": "NON effettuare il downgrade a OneKey v4. Il downgrade porterà a una perdita di dati irreversibile.",

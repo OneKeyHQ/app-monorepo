@@ -584,6 +584,7 @@
   dexmarket_txns = 'dexmarket.txns',
   dexmarket_pro_token_find = 'dexmarket_pro_token_find',
   dexmarket_pro_token_find_search = 'dexmarket_pro_token_find_search',
+  do_not_exit_app_during_setup = 'do_not_exit_app_during_setup',
   dont_have_mobile_app_yet = 'dont_have_mobile_app_yet',
   downgrade_warning_checkbox_label = 'downgrade_warning_checkbox_label',
   downgrade_warning_description = 'downgrade_warning_description',

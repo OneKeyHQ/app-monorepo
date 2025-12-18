@@ -579,6 +579,7 @@
   "dexmarket.txns": "लेन-देन",
   "dexmarket_pro_token_find": "अपना टोकन नहीं मिल रहा?",
   "dexmarket_pro_token_find_search": "खोज",
+  "do_not_exit_app_during_setup": "कृपया सेटअप के दौरान ऐप से बाहर न निकलें, अन्यथा निर्माण विफल हो जाएगा",
   "dont_have_mobile_app_yet": "क्या आपके पास मोबाइल ऐप अभी तक नहीं है?",
   "downgrade_warning_checkbox_label": "मैं OneKey v4 के लिए अवनति नहीं करूंगा",
   "downgrade_warning_description": "OneKey v4 के लिए अवनति न करें। अवनति करने से अपरिवर्तनीय डेटा हानि होगी।",

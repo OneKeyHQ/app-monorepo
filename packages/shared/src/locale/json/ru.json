@@ -579,6 +579,7 @@
   "dexmarket.txns": "Транзакции",
   "dexmarket_pro_token_find": "не можете найти свой токен?",
   "dexmarket_pro_token_find_search": "Поиск",
+  "do_not_exit_app_during_setup": "Пожалуйста, не выходите из приложения во время настройки, иначе создание не удастся",
   "dont_have_mobile_app_yet": "У вас еще нет мобильного приложения?",
   "downgrade_warning_checkbox_label": "Я НЕ собираюсь переходить на OneKey v4",
   "downgrade_warning_description": "НЕ понижайте версию до OneKey v4. Понижение версии приведет к необратимой потере данных.",
