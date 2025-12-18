@@ -2139,6 +2139,34 @@ PODS:
     - SocketRocket
   - react-native-aes (3.2.1):
     - React-Core
+  - react-native-auto-skeleton (0.1.30):
+    - boost
+    - DoubleConversion
+    - fast_float
+    - fmt
+    - glog
+    - hermes-engine
+    - RCT-Folly
+    - RCT-Folly/Fabric
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - SocketRocket
+    - Yoga
   - react-native-ble-plx (3.5.0):
     - boost
     - DoubleConversion
@@ -3975,6 +4003,7 @@ DEPENDENCIES:
   - React-Mapbuffer (from `../../../node_modules/react-native/ReactCommon`)
   - React-microtasksnativemodule (from `../../../node_modules/react-native/ReactCommon/react/nativemodule/microtasks`)
   - react-native-aes (from `../../../node_modules/react-native-aes-crypto`)
+  - react-native-auto-skeleton (from `../../../node_modules/react-native-auto-skeleton`)
   - react-native-ble-plx (from `../../../node_modules/react-native-ble-plx`)
   - react-native-capture-protection (from `../../../node_modules/react-native-capture-protection`)
   - react-native-cloud-fs (from `../../../node_modules/react-native-cloud-fs`)
@@ -4239,6 +4268,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/react-native/ReactCommon/react/nativemodule/microtasks"
   react-native-aes:
     :path: "../../../node_modules/react-native-aes-crypto"
+  react-native-auto-skeleton:
+    :path: "../../../node_modules/react-native-auto-skeleton"
   react-native-ble-plx:
     :path: "../../../node_modules/react-native-ble-plx"
   react-native-capture-protection:
@@ -4476,6 +4507,7 @@ SPEC CHECKSUMS:
   React-Mapbuffer: 94f4264de2cb156960cd82b338a403f4653f2fd9
   React-microtasksnativemodule: 6c4ee39a36958c39c97b074d28f360246a335e84
   react-native-aes: e38d08f68d27e85d14590b7ef0b404ceebf5f891
+  react-native-auto-skeleton: 891ac164b54168fc2159534a649ba04fea54bfcd
   react-native-ble-plx: effae4e8e465c52768497f87abd2b95791eb2de2
   react-native-capture-protection: a8abb2b0880aa1808e3724aa3fc7e56e72225a24
   react-native-cloud-fs: 03ad849da6cecc3cb58ed970ce4078a2e0814848
