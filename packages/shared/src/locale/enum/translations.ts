@@ -2559,6 +2559,7 @@
   perp_trading_adjust_margin_updated = 'perp_trading_adjust_margin_updated',
   perps_buy_tip = 'perps.buy_tip',
   perps_get_reward = 'perps.get_reward',
+  perps_offline_moblie = 'perps.offline_moblie',
   perps_share_position_background = 'perps.share_position_background',
   perps_share_position_btn_Share_on_x = 'perps.share_position_btn_Share_on_x',
   perps_share_position_btn_copy_link = 'perps.share_position_btn_copy_link',

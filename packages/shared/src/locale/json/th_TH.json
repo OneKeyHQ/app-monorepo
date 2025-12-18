@@ -2554,6 +2554,7 @@
   "perp_trading_adjust_margin_updated": "อัปเดตมาร์จิ้นแล้ว",
   "perps.buy_tip": "ต้องการเพิ่มเติม {token}-",
   "perps.get_reward": "รับรางวัล",
+  "perps.offline_moblie": "การเชื่อมต่อขาดหาย โปรดตรวจสอบเครือข่ายของคุณแล้วลองดึงหน้าลงเพื่อรีเฟรชอีกครั้ง",
   "perps.share_position_background": "พื้นหลัง",
   "perps.share_position_btn_Share_on_x": "แชร์บน X",
   "perps.share_position_btn_copy_link": "คัดลอกลิงก์",

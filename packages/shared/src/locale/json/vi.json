@@ -2554,6 +2554,7 @@
   "perp_trading_adjust_margin_updated": "Đã cập nhật biên lợi nhuận",
   "perps.buy_tip": "Cần thêm nữa {token}?",
   "perps.get_reward": "Nhận phần thưởng",
+  "perps.offline_moblie": "Mất kết nối. Vui lòng kiểm tra mạng và thử kéo xuống để làm mới.",
   "perps.share_position_background": "Nền tảng",
   "perps.share_position_btn_Share_on_x": "Chia sẻ trên X",
   "perps.share_position_btn_copy_link": "Sao chép liên kết",

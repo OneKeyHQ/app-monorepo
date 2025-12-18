@@ -2554,6 +2554,7 @@
   "perp_trading_adjust_margin_updated": "保证金已更新",
   "perps.buy_tip": "需要更多 {token} ？",
   "perps.get_reward": "獲得獎勵",
+  "perps.offline_moblie": "連線中斷。請檢查您的網路並嘗試下拉刷新",
   "perps.share_position_background": "背景图片",
   "perps.share_position_btn_Share_on_x": "在 X 上分享",
   "perps.share_position_btn_copy_link": "複製連結",

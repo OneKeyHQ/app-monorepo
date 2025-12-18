@@ -2554,6 +2554,7 @@
   "perp_trading_adjust_margin_updated": "मार्जिन अपडेट किया गया",
   "perps.buy_tip": "और चाहिए {token}?",
   "perps.get_reward": "पुरस्कार पाना",
+  "perps.offline_moblie": "कनेक्शन खो गया। कृपया अपना नेटवर्क जांचें और पुल-टू-रिफ्रेश करने का प्रयास करें।",
   "perps.share_position_background": "पृष्ठभूमि",
   "perps.share_position_btn_Share_on_x": "X पर साझा करें",
   "perps.share_position_btn_copy_link": "लिंक कॉपी करें",
