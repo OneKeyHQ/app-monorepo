@@ -8,6 +8,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   EAccountManagerStacksRoutes,
   IAccountManagerStacksParamList,
@@ -29,10 +30,12 @@ export function AccountSelectorStack({
       <Page.Body>
         <XStack flex={1}>
           {/* <AccountSelectorWalletListSideBarPerfTest num={num} /> */}
-          <AccountSelectorWalletListSideBar
-            num={num}
-            hideNonBackedUpWallet={hideNonBackedUpWallet}
-          />
+          {platformEnv.isWebDappMode ? null : (
+            <AccountSelectorWalletListSideBar
+              num={num}
+              hideNonBackedUpWallet={hideNonBackedUpWallet}
+            />
+          )}
 
           {/* <WalletDetailsPerfTest num={num} /> */}
           <WalletDetails num={num} />
