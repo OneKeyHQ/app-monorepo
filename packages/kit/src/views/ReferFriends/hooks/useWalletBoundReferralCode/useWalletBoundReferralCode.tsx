@@ -289,10 +289,8 @@ export function useWalletBoundReferralCode({
     }) => {
       dialog.show({
         showExitButton: true,
-        icon: 'GiftOutline',
-        tone: 'success',
         title: intl.formatMessage({
-          id: ETranslations.referral_wallet_code_title,
+          id: ETranslations.referral_apply_referral_code,
         }),
         renderContent: (
           <InviteCodeDialog
