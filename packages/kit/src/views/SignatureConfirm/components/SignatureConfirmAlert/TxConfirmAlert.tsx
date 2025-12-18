@@ -56,7 +56,8 @@ function TxConfirmAlert(props: IProps) {
   const [payWithTokenInfo] = usePayWithTokenInfoAtom();
   const [tronResourceRentalInfo] = useTronResourceRentalInfoAtom();
   const [customRpcStatus] = useCustomRpcStatusAtom();
-  const { clearCustomRpcStatus } = useSignatureConfirmActions().current;
+  const { updateCustomRpcStatus, clearCustomRpcStatus } =
+    useSignatureConfirmActions().current;
 
   const renderDecodedTxsAlert = useCallback(() => {
     const alerts = flatMap(
@@ -194,30 +195,49 @@ function TxConfirmAlert(props: IProps) {
     return null;
   }, [preCheckTxStatus]);
 
+  const handleSwitchToOneKeyRpc = useCallback(() => {
+    if (!customRpcStatus) return;
+
+    showCustomRpcFallbackDialog({
+      networkId: customRpcStatus.networkId,
+      onSwitchOnce: () => {
+        // Set one-time flag to use OneKey RPC for this transaction
+        updateCustomRpcStatus({
+          ...customRpcStatus,
+          isCustomRpcUnavailable: false,
+          useDefaultRpcOnce: true,
+        });
+      },
+      onSwitchPermanently: () => {
+        // Clear the status completely since custom RPC is now disabled
+        clearCustomRpcStatus();
+      },
+      onCancel: () => {
+        // Do nothing, keep the alert visible
+      },
+    });
+  }, [customRpcStatus, updateCustomRpcStatus, clearCustomRpcStatus]);
+
   const renderCustomRpcUnavailableAlert = useCallback(() => {
-    if (!customRpcStatus?.isCustomRpcUnavailable) {
+    if (
+      !customRpcStatus?.isCustomRpcUnavailable ||
+      customRpcStatus?.useDefaultRpcOnce
+    ) {
       return null;
     }
     return (
       <Alert
-        icon="ErrorOutline"
+        icon="InfoCircleOutline"
         type="critical"
-        title="Custom RPC Unavailable"
-        description="Your custom RPC endpoint is not responding. You can switch to the default RPC to continue."
+        title="Custom RPC Not Responding"
+        description="We couldn't reach your custom RPC node. To avoid a failed send, switch to OneKey RPC for this transaction."
         action={{
-          primary: 'Switch RPC',
-          onPrimaryPress() {
-            showCustomRpcFallbackDialog({
-              networkId: customRpcStatus.networkId,
-              accountId,
-              customRpcUrl: customRpcStatus.customRpcUrl,
-              onClose: clearCustomRpcStatus,
-            });
-          },
+          primary: 'Switch',
+          onPrimaryPress: handleSwitchToOneKeyRpc,
         }}
       />
     );
-  }, [customRpcStatus, accountId, clearCustomRpcStatus]);
+  }, [customRpcStatus, handleSwitchToOneKeyRpc]);
 
   const renderChainSpecialAlert = useCallback(() => {
     if (

@@ -231,6 +231,8 @@ export interface ICustomRpcStatusAtomValue {
   isCustomRpcUnavailable: boolean;
   customRpcUrl: string;
   networkId: string;
+  // One-time flag: use OneKey RPC for this transaction only
+  useDefaultRpcOnce?: boolean;
 }
 
 export const { atom: customRpcStatusAtom, use: useCustomRpcStatusAtom } =

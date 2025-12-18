@@ -1,19 +1,42 @@
-import { Dialog, SizableText, Toast, YStack } from '@onekeyhq/components';
+import { useState } from 'react';
+
+import {
+  Checkbox,
+  Dialog,
+  SizableText,
+  Toast,
+  YStack,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 
 interface IShowCustomRpcFallbackDialogParams {
   networkId: string;
-  accountId: string;
-  customRpcUrl: string;
-  onClose?: () => void;
+  onSwitchOnce?: () => void;
+  onSwitchPermanently?: () => void;
+  onCancel?: () => void;
 }
 
-function DialogContent({ customRpcUrl }: { customRpcUrl: string }) {
+function DialogContentWrapper({
+  onSetAsDefaultChange,
+}: {
+  onSetAsDefaultChange: (value: boolean) => void;
+}) {
+  const [setAsDefault, setSetAsDefault] = useState(false);
+
   return (
     <YStack gap="$4">
-      <SizableText size="$bodyMd" color="$textSubdued">
-        {`Your custom RPC (${customRpcUrl}) is not responding. Would you like to switch to the default RPC to continue?`}
+      <SizableText size="$bodyLg" color="$textSubdued">
+        We recommend using OneKey RPC to continue sending this transaction
+        successfully.
       </SizableText>
+      <Checkbox
+        value={setAsDefault}
+        label="Set OneKey RPC as default"
+        onChange={(value) => {
+          setSetAsDefault(!!value);
+          onSetAsDefaultChange(!!value);
+        }}
+      />
     </YStack>
   );
 }
@@ -21,41 +44,51 @@ function DialogContent({ customRpcUrl }: { customRpcUrl: string }) {
 export function showCustomRpcFallbackDialog(
   params: IShowCustomRpcFallbackDialogParams,
 ) {
-  const { networkId, customRpcUrl, onClose } = params;
+  const { networkId, onSwitchOnce, onSwitchPermanently, onCancel } = params;
 
-  const handleSwitchToDefaultRpc = async () => {
-    try {
-      await backgroundApiProxy.serviceCustomRpc.deleteCustomRpc({
-        customRpc: {
+  let setAsDefaultValue = false;
+
+  const handleSwitch = async (close: () => Promise<void>) => {
+    if (setAsDefaultValue) {
+      // Permanently disable custom RPC
+      try {
+        await backgroundApiProxy.serviceCustomRpc.updateCustomRpcEnabledStatus({
           networkId,
-          rpc: customRpcUrl,
-          enabled: true,
-          updatedAt: undefined,
-        },
-      });
-      Toast.success({
-        title: 'Switched to default RPC',
-      });
-      onClose?.();
-    } catch (error) {
-      Toast.error({
-        title: (error as Error).message || 'Operation failed',
-      });
+          enabled: false,
+        });
+        Toast.success({
+          title: 'OneKey RPC set as default',
+        });
+        onSwitchPermanently?.();
+      } catch (error) {
+        Toast.error({
+          title: (error as Error).message || 'Operation failed',
+        });
+      }
+    } else {
+      // One-time switch
+      onSwitchOnce?.();
     }
+    await close();
   };
 
   Dialog.show({
-    icon: 'BezierNodesOutline',
-    title: 'Custom RPC Unavailable',
-    renderContent: <DialogContent customRpcUrl={customRpcUrl} />,
+    title: 'Send via OneKey RPC',
+    renderContent: (
+      <DialogContentWrapper
+        onSetAsDefaultChange={(value) => {
+          setAsDefaultValue = value;
+        }}
+      />
+    ),
     showCancelButton: true,
-    onConfirmText: 'Switch to Default',
+    onCancelText: 'Cancel',
+    onConfirmText: 'Switch to OneKey RPC',
     onConfirm: async ({ close }) => {
-      await handleSwitchToDefaultRpc();
-      await close();
+      await handleSwitch(close);
     },
     onCancel: () => {
-      onClose?.();
+      onCancel?.();
     },
   });
 }
