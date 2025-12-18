@@ -4,6 +4,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useMarketBasicConfig } from '@onekeyhq/kit/src/views/Market/hooks';
 import { useNetworkLoadingAnalytics } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/hooks/useNetworkLoadingAnalytics';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IMarketTokenListResponse } from '@onekeyhq/shared/types/marketV2';
 
@@ -50,6 +51,15 @@ export function useMarketTokenList({
   );
   const hasNetworkId = Boolean(networkId);
 
+  // Check if "All Networks" is selected
+  const isAllNetworks = useMemo(
+    () => networkUtils.isAllNetwork({ networkId }),
+    [networkId],
+  );
+
+  // For API calls, use empty string when "All Networks" is selected
+  const apiNetworkId = isAllNetworks ? '' : networkId;
+
   const {
     result: apiResult,
     isLoading,
@@ -61,7 +71,7 @@ export function useMarketTokenList({
       }
       const response =
         await backgroundApiProxy.serviceMarketV2.fetchMarketTokenList({
-          networkId,
+          networkId: apiNetworkId,
           sortBy,
           sortType,
           page: 1,
@@ -73,7 +83,7 @@ export function useMarketTokenList({
         total: response.total,
       };
     },
-    [hasNetworkId, networkId, sortBy, sortType, pageSize, minLiquidity],
+    [hasNetworkId, apiNetworkId, sortBy, sortType, pageSize, minLiquidity],
     {
       watchLoading: hasNetworkId,
       pollingInterval: timerUtils.getTimeDurationMs({ seconds: 60 }),
@@ -154,7 +164,7 @@ export function useMarketTokenList({
       // Load the next page
       const response =
         await backgroundApiProxy.serviceMarketV2.fetchMarketTokenList({
-          networkId,
+          networkId: apiNetworkId,
           sortBy,
           sortType,
           page: nextPage,
@@ -192,6 +202,7 @@ export function useMarketTokenList({
     effectiveIsLoading,
     hasReachedEnd,
     hasNetworkId,
+    apiNetworkId,
     networkId,
     sortBy,
     sortType,
