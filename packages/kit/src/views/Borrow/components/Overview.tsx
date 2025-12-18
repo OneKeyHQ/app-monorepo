@@ -32,7 +32,7 @@ const OverviewItem = ({
 }) => {
   return (
     <>
-      <YStack gap="$1">
+      <YStack gap="$1" flexShrink={0}>
         <EarnText text={title} size="$bodyMd" color="$textSubdued" />
         <XStack gap="$2">
           <EarnText text={text} size="$headingLg" color="$textText" />

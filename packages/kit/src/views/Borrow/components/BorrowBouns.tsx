@@ -78,14 +78,7 @@ export const BorrowBouns = ({
   }
 
   return (
-    <XStack
-      flex={1}
-      jc="flex-end"
-      mb="auto"
-      position="absolute"
-      right={0}
-      top={0}
-    >
+    <XStack flexShrink={0}>
       <Popover
         open={open}
         onOpenChange={setOpen}
