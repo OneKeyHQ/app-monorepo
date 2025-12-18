@@ -2554,6 +2554,7 @@
   "perp_trading_adjust_margin_updated": "Marge aktualisiert",
   "perps.buy_tip": "Wir brauchen mehr {token}?",
   "perps.get_reward": "Prämien sichern",
+  "perps.offline_moblie": "Verbindung verloren. Bitte überprüfe dein Netzwerk und ziehe zum Aktualisieren nach unten.",
   "perps.share_position_background": "Hintergrund",
   "perps.share_position_btn_Share_on_x": "Auf X teilen",
   "perps.share_position_btn_copy_link": "Link kopieren",

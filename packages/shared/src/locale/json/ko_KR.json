@@ -2554,6 +2554,7 @@
   "perp_trading_adjust_margin_updated": "마진이 업데이트됨",
   "perps.buy_tip": "더 필요해요 {token}?",
   "perps.get_reward": "보상을 받으세요",
+  "perps.offline_moblie": "연결이 끊겼습니다. 네트워크를 확인한 후 끌어내려 새로고침을 시도하세요.",
   "perps.share_position_background": "배경",
   "perps.share_position_btn_Share_on_x": "X에서 공유",
   "perps.share_position_btn_copy_link": "링크 복사",

@@ -2554,6 +2554,7 @@
   "perp_trading_adjust_margin_updated": "Margin Diperbarui",
   "perps.buy_tip": "Butuh lebih banyak {token}?",
   "perps.get_reward": "Dapatkan Hadiah",
+  "perps.offline_moblie": "Koneksi terputus. Silakan periksa jaringan Anda dan coba tarik untuk menyegarkan.",
   "perps.share_position_background": "Latar Belakang",
   "perps.share_position_btn_Share_on_x": "Bagikan di X",
   "perps.share_position_btn_copy_link": "Salin Tautan",
