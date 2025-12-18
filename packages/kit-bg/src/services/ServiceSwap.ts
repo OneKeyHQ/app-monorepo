@@ -2217,6 +2217,7 @@ export default class ServiceSwap extends ServiceBase {
           slippage: 0.5,
           spenderAddress: '',
           defaultTokens: [],
+          defaultLimitTokens: [],
           swapMevNetConfig: mevSwapNetworks,
         },
         supportSpeedSwap: false,

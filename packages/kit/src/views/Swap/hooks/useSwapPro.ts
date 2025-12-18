@@ -29,9 +29,9 @@ import type {
 import {
   swapProPositionsListMaxCount,
   swapProPositionsListMinValue,
+  wrappedTokens,
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
-  ISwapNetwork,
   ISwapToken,
   ISwapTokenBase,
 } from '@onekeyhq/shared/types/swap/types';
@@ -104,14 +104,6 @@ export function useSwapProInit() {
   if (swapProJumpTokenRef.current !== swapProJumpToken?.token) {
     swapProJumpTokenRef.current = swapProJumpToken?.token;
   }
-  const networkNotSupported = useMemo(() => {
-    return (
-      swapProSelectToken?.networkId &&
-      !networkList.some(
-        (token) => token.networkId === swapProSelectToken?.networkId,
-      )
-    );
-  }, [swapProSelectToken?.networkId, networkList]);
   useEffect(() => {
     if (swapProJumpToken.token) {
       swapSwitchProToken({ token: swapProJumpToken.token });
@@ -132,7 +124,6 @@ export function useSwapProInit() {
     setSwapProDirection,
   ]);
   return {
-    networkNotSupported,
     networkList,
   };
 }
@@ -409,29 +400,38 @@ export function useSwapProTokenInit() {
 
   const {
     defaultTokens,
+    defaultLimitTokens,
     isLoading,
     speedConfig,
     swapMevNetConfig,
     speedDefaultSelectToken,
+    supportSpeedSwap,
   } = useSpeedSwapInit(swapProSelectToken?.networkId || '');
+
+  const defaultTokensFromType = useMemo(() => {
+    if (swapProTradeType === ESwapProTradeType.MARKET) {
+      return defaultTokens;
+    }
+    return defaultLimitTokens;
+  }, [swapProTradeType, defaultTokens, defaultLimitTokens]);
 
   useEffect(() => {
     if (
-      (!swapProUseSelectBuyTokenAtom && defaultTokens.length > 0) ||
-      !defaultTokens.some((item) =>
+      (!swapProUseSelectBuyTokenAtom && defaultTokensFromType.length > 0) ||
+      !defaultTokensFromType.some((item) =>
         equalTokenNoCaseSensitive({
           token1: item,
           token2: swapProUseSelectBuyTokenAtom,
         }),
       )
     ) {
-      setSwapProUseSelectBuyTokenAtom(defaultTokens[0]);
+      setSwapProUseSelectBuyTokenAtom(defaultTokensFromType[0]);
     }
   }, [
     swapProSelectToken,
     swapProUseSelectBuyTokenAtom,
     setSwapProUseSelectBuyTokenAtom,
-    defaultTokens,
+    defaultTokensFromType,
   ]);
 
   useEffect(() => {
@@ -466,22 +466,42 @@ export function useSwapProTokenInit() {
 
   useEffect(() => {
     if (
-      (!swapProSellToToken && defaultTokens.length > 0) ||
-      !defaultTokens.some((item) =>
+      (!swapProSellToToken && defaultTokensFromType.length > 0) ||
+      !defaultTokensFromType.some((item) =>
         equalTokenNoCaseSensitive({
           token1: item,
           token2: swapProSellToToken,
         }),
       )
     ) {
-      const nativeToken = defaultTokens.find((item) => item.isNative);
-      if (nativeToken) {
-        setSwapProSellToToken(nativeToken);
+      const nativeToken = defaultTokensFromType.find((item) => item.isNative);
+      const wrappedToken = defaultTokensFromType.find((item) =>
+        wrappedTokens.some(
+          (wrapped) =>
+            wrapped.address.toLowerCase() ===
+              item.contractAddress.toLowerCase() &&
+            wrapped.networkId === item.networkId,
+        ),
+      );
+      if (nativeToken || wrappedToken) {
+        if (swapProTradeType === ESwapProTradeType.MARKET && nativeToken) {
+          setSwapProSellToToken(nativeToken);
+        } else if (
+          swapProTradeType === ESwapProTradeType.LIMIT &&
+          wrappedToken
+        ) {
+          setSwapProSellToToken(wrappedToken);
+        }
       } else {
-        setSwapProSellToToken(defaultTokens[0]);
+        setSwapProSellToToken(defaultTokensFromType[0]);
       }
     }
-  }, [defaultTokens, setSwapProSellToToken, swapProSellToToken]);
+  }, [
+    defaultTokensFromType,
+    setSwapProSellToToken,
+    swapProSellToToken,
+    swapProTradeType,
+  ]);
   const inputToken = useSwapProInputToken();
 
   const {
@@ -539,7 +559,7 @@ export function useSwapProTokenInit() {
   ]);
 
   return {
-    defaultTokens,
+    defaultTokensFromType,
     isLoading,
     balanceLoading,
     speedConfig,
@@ -547,6 +567,7 @@ export function useSwapProTokenInit() {
     swapProSelectToken,
     isMEV,
     hasEnoughBalance,
+    supportSpeedSwap,
   };
 }
 

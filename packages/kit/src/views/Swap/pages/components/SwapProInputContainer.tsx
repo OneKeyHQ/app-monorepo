@@ -28,6 +28,7 @@ import {
   swapProBuyInputSegmentItems,
   swapProSellInputSegmentItems,
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
+import type { ISwapTokenBase } from '@onekeyhq/shared/types/swap/types';
 import {
   ESwapProTradeType,
   ESwapTabSwitchType,
@@ -45,13 +46,15 @@ import {
 import type { IToken } from '../../../Market/MarketDetailV2/components/SwapPanel/types';
 
 interface ISwapProInputContainerProps {
-  defaultTokens: IToken[];
+  defaultTokens: ISwapTokenBase[];
+  defaultLimitTokens: ISwapTokenBase[];
   isLoading?: boolean;
   cleanInputAmount: () => void;
 }
 
 const SwapProInputContainer = ({
   defaultTokens,
+  defaultLimitTokens,
   isLoading,
   cleanInputAmount,
 }: ISwapProInputContainerProps) => {
@@ -68,6 +71,12 @@ const SwapProInputContainer = ({
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
   const inputToken = useSwapProInputToken();
   const toToken = useSwapProToToken();
+  const defaultTokensFromType = useMemo(() => {
+    if (swapProTradeType === ESwapProTradeType.MARKET) {
+      return defaultTokens;
+    }
+    return defaultLimitTokens;
+  }, [swapProTradeType, defaultTokens, defaultLimitTokens]);
   const handleInputChange = useCallback(
     (text: string) => {
       if (validateAmountInput(text, inputToken?.decimals)) {
@@ -203,7 +212,7 @@ const SwapProInputContainer = ({
           currentSelectToken={swapProSelectToken}
           isOpen={isPopoverOpen}
           onOpenChange={setIsPopoverOpen}
-          tokens={defaultTokens}
+          tokens={defaultTokensFromType as IToken[]}
           onTokenPress={handleTokenSelect}
           onTradePress={() => {
             setSwapTypeSwitch(ESwapTabSwitchType.SWAP);
