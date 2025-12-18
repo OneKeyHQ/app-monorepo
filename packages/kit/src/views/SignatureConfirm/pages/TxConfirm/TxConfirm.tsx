@@ -7,6 +7,7 @@ import { useIntl } from 'react-intl';
 
 import { Page, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useCustomRpcAvailability } from '@onekeyhq/kit/src/hooks/useCustomRpcAvailability';
 import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
@@ -229,47 +230,28 @@ function TxConfirm() {
     updatePreCheckTxStatus,
   ]);
 
-  // Check custom RPC status on page mount
-  usePromiseResult(async () => {
-    // Check if the network has custom RPC enabled
-    const customRpcInfo =
-      await backgroundApiProxy.serviceCustomRpc.getCustomRpcForNetwork(
-        networkId,
-      );
+  // Check custom RPC status on page mount using shared hook
+  const { isCustomRpcUnavailable, customRpcUrl, isCustomNetwork } =
+    useCustomRpcAvailability(networkId);
 
-    if (!customRpcInfo?.rpc || !customRpcInfo?.enabled) {
-      // No custom RPC, clear status
-      updateCustomRpcStatus(null);
-      return;
-    }
-
-    // Check if this is a custom network (user-added)
-    const isCustomNetwork =
-      await backgroundApiProxy.serviceNetwork.isCustomNetwork({ networkId });
-    if (isCustomNetwork) {
-      // Custom network cannot fallback, skip detection
-      updateCustomRpcStatus(null);
-      return;
-    }
-
-    // Detect RPC availability
-    try {
-      await backgroundApiProxy.serviceCustomRpc.measureRpcStatus({
-        networkId,
-        rpcUrl: customRpcInfo.rpc,
-        validateChainId: true,
-      });
-      // RPC is available
-      updateCustomRpcStatus(null);
-    } catch {
-      // RPC is unavailable
+  // Update custom RPC status atom when detection result changes
+  useEffect(() => {
+    if (isCustomRpcUnavailable && customRpcUrl && !isCustomNetwork) {
       updateCustomRpcStatus({
         isCustomRpcUnavailable: true,
-        customRpcUrl: customRpcInfo.rpc,
+        customRpcUrl,
         networkId,
       });
+    } else {
+      updateCustomRpcStatus(null);
     }
-  }, [networkId, updateCustomRpcStatus]);
+  }, [
+    isCustomRpcUnavailable,
+    customRpcUrl,
+    isCustomNetwork,
+    networkId,
+    updateCustomRpcStatus,
+  ]);
 
   const txConfirmTitle = useMemo(() => {
     if ((!decodedTxs || decodedTxs.length === 0) && !decodedTxsInit) {
