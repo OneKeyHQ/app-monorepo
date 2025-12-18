@@ -31,8 +31,8 @@ const SwapProTokenTransactionList = () => {
       Boolean(enableWebSocket),
     );
   return (
-    <YStack gap="$1" mb="$1">
-      <XStack justifyContent="space-between" mb="$2">
+    <YStack>
+      <XStack justifyContent="space-between" py="$1">
         <SizableText size="$bodySm" color="$textSubdued">
           {intl.formatMessage({
             id: ETranslations.global_price,
@@ -47,14 +47,14 @@ const SwapProTokenTransactionList = () => {
       {isRefreshing ||
       !swapProTokenTransactionList ||
       swapProTokenTransactionList.length === 0 ? (
-        <YStack gap="$1.5">
-          <Skeleton w="100%" h="$4" radius="square" />
-          <Skeleton w="100%" h="$4" radius="square" />
-          <Skeleton w="100%" h="$4" radius="square" />
-          <Skeleton w="100%" h="$4" radius="square" />
+        <YStack>
+          <Skeleton w="100%" h="$4" radius="square" py="$1" />
+          <Skeleton w="100%" h="$4" radius="square" py="$1" />
+          <Skeleton w="100%" h="$4" radius="square" py="$1" />
+          <Skeleton w="100%" h="$4" radius="square" py="$1" />
         </YStack>
       ) : (
-        <YStack gap="$1.5">
+        <YStack>
           {swapProTokenTransactionList.map((item, index) => (
             <SwapProTokenTransactionItem
               key={`${item.hash}-${index}`}

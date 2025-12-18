@@ -1006,6 +1006,7 @@ export interface ISwapProSpeedConfig {
   slippage: number;
   spenderAddress: string;
   defaultTokens: ISwapTokenBase[];
+  defaultLimitTokens: ISwapTokenBase[];
   swapMevNetConfig: string[];
 }
 export interface ISpeedSwapConfig {

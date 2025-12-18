@@ -201,8 +201,6 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     return swapTypeSwitch;
   }, [focusSwapPro, swapProTradeType, swapTypeSwitch]);
 
-  const { networkNotSupported, networkList } = useSwapProInit();
-  useSwapProErrorAlert(!!networkNotSupported);
   const [swapNativeTokenReserveGas] = useSwapNativeTokenReserveGasAtom();
   const swapSlippageRef = useRef(slippageItem);
   if (swapSlippageRef.current !== slippageItem) {
@@ -1028,9 +1026,16 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     [navigation, storeName],
   );
 
-  const { isLoading, speedConfig, balanceLoading, isMEV, hasEnoughBalance } =
-    useSwapProTokenInit();
-
+  const { networkList } = useSwapProInit();
+  const {
+    isLoading,
+    speedConfig,
+    balanceLoading,
+    isMEV,
+    hasEnoughBalance,
+    supportSpeedSwap,
+  } = useSwapProTokenInit();
+  useSwapProErrorAlert(!supportSpeedSwap);
   useSwapQuote();
 
   return (

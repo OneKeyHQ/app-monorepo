@@ -119,11 +119,16 @@ const SwapProBuySellInfo = ({
             borderWidth={1}
             borderRadius="$1"
           >
-            <SizableText size="$bodySm" color="$textSuccess">
+            <SizableText size="$bodySmMedium" color="$textSuccess">
               B
             </SizableText>
           </Stack>
-          <SizableText size="$bodySm" color="$textSuccess" ml="$0.5">
+          <SizableText
+            size="$bodyXs"
+            color="$textSuccess"
+            ml="$0.5"
+            fontFamily="$monoRegular"
+          >
             {buyPercentage.toFixed(2)}%
           </SizableText>
         </XStack>
@@ -134,7 +139,12 @@ const SwapProBuySellInfo = ({
           position="relative"
           zIndex={1}
         >
-          <SizableText size="$bodySm" color="$textCritical" mr="$0.5">
+          <SizableText
+            size="$bodyXs"
+            color="$textCritical"
+            mr="$0.5"
+            fontFamily="$monoRegular"
+          >
             {sellPercentage.toFixed(2)}%
           </SizableText>
           <Stack
@@ -153,10 +163,18 @@ const SwapProBuySellInfo = ({
         </XStack>
       </XStack>
       <XStack justifyContent="space-between">
-        <SizableText size="$bodySm" color="$textSuccess">
+        <SizableText
+          size="$bodySm"
+          color="$textSuccess"
+          fontFamily="$monoRegular"
+        >
           {buyVolume}
         </SizableText>
-        <SizableText size="$bodySm" color="$textCritical">
+        <SizableText
+          size="$bodySm"
+          color="$textCritical"
+          fontFamily="$monoRegular"
+        >
           {sellVolume}
         </SizableText>
       </XStack>

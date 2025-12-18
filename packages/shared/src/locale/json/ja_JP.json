@@ -2554,6 +2554,7 @@
   "perp_trading_adjust_margin_updated": "マージンを更新しました",
   "perps.buy_tip": "もっと必要 {token}?",
   "perps.get_reward": "報酬を獲得",
+  "perps.offline_moblie": "接続が切断されました。ネットワークを確認して、プルして更新してください。",
   "perps.share_position_background": "背景",
   "perps.share_position_btn_Share_on_x": "Xで共有",
   "perps.share_position_btn_copy_link": "リンクをコピー",

@@ -62,7 +62,7 @@ const SwapProLimitPriceInput = ({
     return (
       <XStack alignItems="center" gap="$1" onPress={onReverseChange}>
         <SizableText size="$bodyMd">{fromSymbolLabel}</SizableText>
-        <Icon name="SwapHorSolid" size="$4" />
+        <Icon name="SwapVerSolid" color="$iconSubdued" size="$4" />
       </XStack>
     );
   }, [fromSymbolLabel, onReverseChange]);
