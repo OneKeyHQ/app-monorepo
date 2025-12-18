@@ -3,6 +3,8 @@ import { useCallback, useMemo } from 'react';
 import * as WebBrowser from 'expo-web-browser';
 import { useIntl } from 'react-intl';
 
+import type { IDesktopOpenUrlEventData } from '@onekeyhq/desktop/app/app';
+import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ONEKEY_APP_DEEP_LINK } from '@onekeyhq/shared/src/consts/deeplinkConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
@@ -63,8 +65,54 @@ enum EExtensionOAuthMethod {
 
 // Configure which OAuth method to use for extensions
 // Change this value to switch between methods
+// const EXTENSION_OAUTH_METHOD: EExtensionOAuthMethod =
+// EExtensionOAuthMethod.CHROME_IDENTITY_API;
 const EXTENSION_OAUTH_METHOD: EExtensionOAuthMethod =
-  EExtensionOAuthMethod.CHROME_IDENTITY_API;
+  EExtensionOAuthMethod.DIRECT_EXTENSION_SCHEME;
+
+// ============================================================================
+// Desktop OAuth Configuration
+// ============================================================================
+//
+// There are two methods for handling OAuth in Electron desktop app:
+//
+// METHOD 1: WEBVIEW (RECOMMENDED)
+// --------------------------------
+// Uses an in-app webview to load OAuth URL and intercept the redirect
+// Pros:
+//   - Better UX - OAuth happens within the app
+//   - No need for system deep link registration
+//   - More reliable token extraction
+//   - No external browser switching
+// Cons:
+//   - Requires webview component to be loaded
+//
+// METHOD 2: DEEP_LINK
+// -------------------
+// Opens OAuth URL in system browser and listens for deep link callback
+// Pros:
+//   - Uses native browser, some users may prefer this
+//   - Works even if webview has issues
+// Cons:
+//   - Switches to external browser, less seamless UX
+//   - Depends on system deep link protocol registration
+//   - May have issues if deep link is not properly registered
+//
+// ============================================================================
+
+enum EDesktopOAuthMethod {
+  // Use in-app webview to handle OAuth (recommended)
+  // Intercepts navigation to onekey-wallet://auth/callback
+  WEBVIEW = 'WEBVIEW',
+
+  // Use system browser + deep link callback
+  // Requires onekey-wallet:// protocol to be registered
+  DEEP_LINK = 'DEEP_LINK',
+}
+
+// Configure which OAuth method to use for desktop
+// Change this value to switch between methods
+const DESKTOP_OAUTH_METHOD: EDesktopOAuthMethod = EDesktopOAuthMethod.WEBVIEW;
 
 // Helper function to handle OAuth session persistence
 // This function is called after successfully extracting tokens from OAuth callback
@@ -275,13 +323,23 @@ export function useSupabaseAuth() {
       const { client } = getSupabaseClient();
 
       // Build redirect URL based on platform
-      // - Native: Use deep link scheme (onekey-wallet://auth/callback)
+      // - Native (iOS/Android): Use deep link scheme (onekey-wallet://auth/callback)
+      // - Desktop (Electron): Depends on DESKTOP_OAUTH_METHOD:
+      //   - WEBVIEW: Uses deep link scheme (intercepted by webview before navigation)
+      //   - DEEP_LINK: Uses deep link scheme (handled by system protocol)
+      //   Desktop registers onekey-wallet:// via app.setAsDefaultProtocolClient() in apps/desktop/app/app.ts
       // - Extension: Depends on EXTENSION_OAUTH_METHOD configuration
       //   - CHROME_IDENTITY_API: https://<extension-id>.chromiumapp.org/auth/callback
       //   - DIRECT_EXTENSION_SCHEME: chrome-extension://<extension-id>/auth/callback
       // - Web: Use current origin (https://app.onekey.so/auth/callback)
       let redirectTo: string;
       if (platformEnv.isNative) {
+        // Native uses deep link protocol
+        redirectTo = `${ONEKEY_APP_DEEP_LINK}auth/callback`;
+      } else if (platformEnv.isDesktop) {
+        // Desktop: both methods use deep link scheme as redirect URL
+        // - WEBVIEW: The webview intercepts navigation to this URL before it actually navigates
+        // - DEEP_LINK: The system handles this URL via registered protocol
         redirectTo = `${ONEKEY_APP_DEEP_LINK}auth/callback`;
       } else if (platformEnv.isExtension) {
         if (
@@ -371,6 +429,295 @@ export function useSupabaseAuth() {
 
         throw new OneKeyLocalError('OAuth sign-in failed');
       }
+
+      // For desktop (Electron), handle OAuth based on configured method
+      if (platformEnv.isDesktop) {
+        if (DESKTOP_OAUTH_METHOD === EDesktopOAuthMethod.WEBVIEW) {
+          // ====================================================================
+          // Method 1: WEBVIEW (RECOMMENDED)
+          // ====================================================================
+          // Opens OAuth in an in-app webview dialog and intercepts the redirect
+          // The webview monitors navigation and extracts tokens when the URL
+          // matches our redirect pattern (onekey-wallet://auth/callback)
+          //
+          // Pros:
+          //   - Better UX - OAuth happens within the app
+          //   - No need for system deep link registration
+          //   - More reliable token extraction
+          //
+          // Note: The webview will intercept navigation to onekey-wallet://
+          // before it actually tries to load (which would fail since custom
+          // protocols can't be loaded in webview)
+          // ====================================================================
+          return new Promise((resolve, reject) => {
+            // Create a container for the OAuth webview
+            const container = document.createElement('div');
+            container.id = 'oauth-webview-container';
+            container.style.cssText = `
+              position: fixed;
+              top: 0;
+              left: 0;
+              right: 0;
+              bottom: 0;
+              background: rgba(0, 0, 0, 0.5);
+              display: flex;
+              justify-content: center;
+              align-items: center;
+              z-index: 99999;
+            `;
+
+            // Create webview wrapper
+            const wrapper = document.createElement('div');
+            wrapper.style.cssText = `
+              width: 480px;
+              height: 640px;
+              background: white;
+              border-radius: 12px;
+              overflow: hidden;
+              box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+              display: flex;
+              flex-direction: column;
+            `;
+
+            // Create header with close button
+            const header = document.createElement('div');
+            header.style.cssText = `
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              padding: 12px 16px;
+              border-bottom: 1px solid #e5e5e5;
+              background: #f5f5f5;
+            `;
+
+            const title = document.createElement('span');
+            title.textContent = 'Sign in';
+            title.style.cssText = 'font-weight: 600; font-size: 14px;';
+
+            const closeButton = document.createElement('button');
+            closeButton.textContent = '✕';
+            closeButton.style.cssText = `
+              border: none;
+              background: none;
+              font-size: 18px;
+              cursor: pointer;
+              padding: 4px 8px;
+              border-radius: 4px;
+            `;
+            closeButton.onmouseover = () => {
+              closeButton.style.background = '#e0e0e0';
+            };
+            closeButton.onmouseout = () => {
+              closeButton.style.background = 'none';
+            };
+            closeButton.onclick = () => {
+              container.remove();
+              reject(new OneKeyLocalError('OAuth sign-in was cancelled'));
+            };
+
+            header.appendChild(title);
+            header.appendChild(closeButton);
+
+            // Create webview element
+            const webview = document.createElement('webview');
+            webview.setAttribute('src', authUrl);
+            webview.setAttribute('partition', 'persist:onekey-oauth');
+            webview.style.cssText = 'flex: 1; width: 100%;';
+
+            // Handle navigation events to intercept OAuth callback
+            const handleDidStartNavigation = async (event: Event) => {
+              const navEvent = event as unknown as {
+                url: string;
+                isMainFrame: boolean;
+              };
+              const { url: navUrl, isMainFrame } = navEvent;
+
+              // Check if this is our OAuth callback
+              if (
+                isMainFrame &&
+                navUrl?.startsWith(`${ONEKEY_APP_DEEP_LINK}auth/callback`)
+              ) {
+                // Stop loading - we can't actually navigate to onekey-wallet://
+                (webview as unknown as { stop: () => void }).stop?.();
+
+                // Remove the container
+                container.remove();
+
+                try {
+                  // Parse tokens from the callback URL
+                  const parsedUrl = new URL(navUrl);
+                  const hashParams = new URLSearchParams(
+                    parsedUrl.hash.substring(1) ||
+                      parsedUrl.search.substring(1),
+                  );
+
+                  const accessToken = hashParams.get('access_token');
+                  const refreshToken = hashParams.get('refresh_token');
+
+                  if (accessToken && refreshToken) {
+                    await handleOAuthSessionPersistence({
+                      client,
+                      accessToken,
+                      refreshToken,
+                      persistSession,
+                    });
+
+                    resolve({
+                      success: true,
+                      session: {
+                        accessToken,
+                        refreshToken,
+                      },
+                    });
+                  } else {
+                    resolve({
+                      success: false,
+                      session: undefined,
+                    });
+                  }
+                } catch (error) {
+                  reject(error);
+                }
+              }
+            };
+
+            webview.addEventListener(
+              'did-start-navigation',
+              handleDidStartNavigation,
+            );
+
+            // Handle webview load errors (e.g., if OAuth page fails to load)
+            webview.addEventListener('did-fail-load', (event: Event) => {
+              const failEvent = event as unknown as {
+                errorCode: number;
+                errorDescription: string;
+                validatedURL: string;
+                isMainFrame: boolean;
+              };
+              // Ignore aborted loads (e.g., when we stop navigation to callback URL)
+              if (failEvent.errorCode === -3) {
+                return;
+              }
+              // Only handle main frame errors
+              if (failEvent.isMainFrame) {
+                container.remove();
+                reject(
+                  new OneKeyLocalError(
+                    `OAuth page failed to load: ${failEvent.errorDescription}`,
+                  ),
+                );
+              }
+            });
+
+            // Assemble the UI
+            wrapper.appendChild(header);
+            wrapper.appendChild(webview);
+            container.appendChild(wrapper);
+            document.body.appendChild(container);
+
+            // Click outside to close
+            container.onclick = (e) => {
+              if (e.target === container) {
+                container.remove();
+                reject(new OneKeyLocalError('OAuth sign-in was cancelled'));
+              }
+            };
+
+            // Set a timeout
+            setTimeout(() => {
+              if (document.body.contains(container)) {
+                container.remove();
+                reject(new OneKeyLocalError('OAuth sign-in timed out'));
+              }
+            }, 5 * 60 * 1000); // 5 minutes timeout
+          });
+        }
+        // ====================================================================
+        // Method 2: DEEP_LINK
+        // ====================================================================
+        // Opens OAuth URL in system browser and listens for deep link callback
+        // Requires onekey-wallet:// protocol to be registered with the system
+        //
+        // How it works:
+        // 1. Opens OAuth URL in system browser via shell.openExternal
+        // 2. User completes OAuth in browser
+        // 3. Browser redirects to onekey-wallet://auth/callback?tokens...
+        // 4. System routes this URL to our Electron app
+        // 5. App receives the URL via IPC and extracts tokens
+        // ====================================================================
+        return new Promise((resolve, reject) => {
+          // Set up deep link listener for OAuth callback
+          const handleOAuthCallback = async (
+            _event: Event,
+            data: IDesktopOpenUrlEventData,
+          ) => {
+            const { url } = data;
+            // Check if this is our OAuth callback
+            if (url?.startsWith(`${ONEKEY_APP_DEEP_LINK}auth/callback`)) {
+              // Remove listener once we got the callback
+              globalThis.desktopApi.removeIpcEventListener(
+                ipcMessageKeys.EVENT_OPEN_URL,
+                handleOAuthCallback,
+              );
+
+              try {
+                // Parse tokens from the callback URL
+                const parsedUrl = new URL(url);
+                const hashParams = new URLSearchParams(
+                  parsedUrl.hash.substring(1) || parsedUrl.search.substring(1),
+                );
+
+                const accessToken = hashParams.get('access_token');
+                const refreshToken = hashParams.get('refresh_token');
+
+                if (accessToken && refreshToken) {
+                  await handleOAuthSessionPersistence({
+                    client,
+                    accessToken,
+                    refreshToken,
+                    persistSession,
+                  });
+
+                  resolve({
+                    success: true,
+                    session: {
+                      accessToken,
+                      refreshToken,
+                    },
+                  });
+                } else {
+                  resolve({
+                    success: false,
+                    session: undefined,
+                  });
+                }
+              } catch (error) {
+                reject(error);
+              }
+            }
+          };
+
+          // Add the listener
+          globalThis.desktopApi.addIpcEventListener(
+            ipcMessageKeys.EVENT_OPEN_URL,
+            handleOAuthCallback,
+          );
+
+          // Open OAuth URL in system browser
+          // On Electron, window.open with _blank target is intercepted and opens via shell.openExternal
+          window.open(authUrl, '_blank');
+
+          // Set a timeout to clean up listener if OAuth takes too long
+          setTimeout(() => {
+            globalThis.desktopApi.removeIpcEventListener(
+              ipcMessageKeys.EVENT_OPEN_URL,
+              handleOAuthCallback,
+            );
+            reject(new OneKeyLocalError('OAuth sign-in timed out'));
+          }, 5 * 60 * 1000); // 5 minutes timeout
+        });
+      }
+
       // For extension, handle OAuth based on configured method
       if (platformEnv.isExtension) {
         if (
