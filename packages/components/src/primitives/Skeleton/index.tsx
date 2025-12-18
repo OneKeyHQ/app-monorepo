@@ -1,4 +1,4 @@
-import { forwardRef } from 'react';
+import { createContext, forwardRef, useContext, useMemo } from 'react';
 
 import { AutoSkeletonView } from 'react-native-auto-skeleton';
 
@@ -12,8 +12,19 @@ import {
 
 import { Stack, YStack } from '../Stack';
 
-export type ISkeletonProps = StackStyle & {
+const SkeletonProvider = createContext<{
   isLoading: boolean;
+}>({
+  isLoading: false,
+});
+
+const useIsGroupLoading = () => {
+  const { isLoading } = useContext(SkeletonProvider);
+  return isLoading;
+};
+
+export type ISkeletonProps = StackStyle & {
+  isLoading?: boolean;
   radius?: 'round' | 'square' | number;
   children?: React.ReactNode;
   colorMode?: 'dark' | 'light';
@@ -42,21 +53,38 @@ function BasicSkeleton({
   const themeName = useThemeName();
   const colors =
     (colorMode ?? themeName) === 'dark' ? baseColors.dark : baseColors.light;
+
+  const borderRadius = useMemo(() => {
+    if (restProps.radius === 'round') {
+      return 9999;
+    }
+    if (restProps.radius === 'square') {
+      return 0;
+    }
+    return restProps.radius;
+  }, [restProps.radius]);
+
+  const isGroupLoading = useIsGroupLoading();
+
+  console.log('isGroupLoading', isGroupLoading);
+
   return (
     <AutoSkeletonView
-      isLoading={isLoading}
+      isLoading={isGroupLoading || isLoading}
       animationType="gradient"
-      shimmerSpeed={2}
+      shimmerSpeed={1}
       gradientColors={[colors.primary, colors.secondary]}
     >
-      <Stack
-        bg="$bg"
-        style={style as any}
-        height={style.height || DEFAULT_SKELETON_SIZE}
-        width={style.width || DEFAULT_SKELETON_SIZE}
-        borderRadius={restProps.radius === 'round' ? 9999 : undefined}
-        {...restProps}
-      />
+      {children || (
+        <Stack
+          bg="$bg"
+          style={style as any}
+          height={style.height || DEFAULT_SKELETON_SIZE}
+          width={style.width || DEFAULT_SKELETON_SIZE}
+          borderRadius={borderRadius}
+          {...restProps}
+        />
+      )}
     </AutoSkeletonView>
   );
 }
@@ -157,12 +185,27 @@ function Heading5XlSkeleton({ ...props }: ISkeletonProps) {
   );
 }
 
+function SkeletonGroup({
+  isLoading,
+  children,
+}: {
+  isLoading: boolean;
+  children: React.ReactNode;
+}) {
+  const value = useMemo(() => ({ isLoading }), [isLoading]);
+  return (
+    <SkeletonProvider.Provider value={value}>
+      {children}
+    </SkeletonProvider.Provider>
+  );
+}
+
 export const Skeleton = withStaticProperties(
   styled(forwardRef(BasicSkeleton), {
     name: 'Skeleton',
   } as const),
   {
-    Group: () => null,
+    Group: SkeletonGroup,
     BodySm: BodySmSkeleton,
     BodyMd: BodyMdSkeleton,
     BodyLg: BodyLgSkeleton,
