@@ -52,9 +52,12 @@ const TradesHistoryRow = memo(
   }: ITradesHistoryRowProps) => {
     const canShare = useMemo(() => {
       return (
-        fill.closedPnl && !new BigNumber(fill.closedPnl).isZero() && onShare
+        fill.closedPnl &&
+        !new BigNumber(fill.closedPnl).isZero() &&
+        !fill.liquidation &&
+        onShare
       );
-    }, [fill.closedPnl, onShare]);
+    }, [fill.closedPnl, fill.liquidation, onShare]);
     const actions = useHyperliquidActions();
     const intl = useIntl();
     const assetSymbol = useMemo(() => {
