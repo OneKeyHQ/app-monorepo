@@ -53,7 +53,7 @@ export const EarnNetworkUtils = {
   },
 };
 
-async function safePushToEarnRoute(
+export async function safePushToEarnRoute(
   navigation: IAppNavigation,
   route: ETabEarnRoutes,
   params?: any,

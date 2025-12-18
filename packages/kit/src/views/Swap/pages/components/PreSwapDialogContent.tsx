@@ -27,6 +27,7 @@ import type {
   IFetchQuoteResult,
   ISwapPreSwapData,
   ISwapStep,
+  ISwapToken,
   ISwapTxHistory,
 } from '@onekeyhq/shared/types/swap/types';
 import {
@@ -41,20 +42,30 @@ import PreSwapConfirmResult from '../../components/PreSwapConfirmResult';
 import PreSwapInfoGroup from '../../components/PreSwapInfoGroup';
 import PreSwapStep from '../../components/PreSwapStep';
 import PreSwapTokenItem from '../../components/PreSwapTokenItem';
-import { useSwapBuildTx } from '../../hooks/useSwapBuiltTx';
 
 interface IPreSwapDialogContentProps {
   onConfirm: () => void;
   onDone: () => void;
+  preSwapBeforeStepActions: (
+    data?: IFetchQuoteResult,
+    currentFromToken?: ISwapToken,
+    currentToToken?: ISwapToken,
+  ) => void;
+  preSwapStepsStart: (swapStepsValues?: {
+    steps: ISwapStep[];
+    preSwapData: ISwapPreSwapData;
+    quoteResult?: IFetchQuoteResult;
+  }) => void;
 }
 
 const PreSwapDialogContent = ({
   onDone,
   onConfirm,
+  preSwapBeforeStepActions,
+  preSwapStepsStart,
 }: IPreSwapDialogContentProps) => {
   const intl = useIntl();
   const [swapSteps, setSwapSteps] = useSwapStepsAtom();
-  const { preSwapBeforeStepActions } = useSwapBuildTx();
   const [swapStepNetFeeLevel, setSwapStepNetFeeLevel] =
     useSwapStepNetFeeLevelAtom();
   const swapStepsRef = useRef(swapSteps);
@@ -91,7 +102,6 @@ const PreSwapDialogContent = ({
 
   const [inAppNotificationAtom, setInAppNotificationAtom] =
     useInAppNotificationAtom();
-  const { preSwapStepsStart } = useSwapBuildTx();
 
   useEffect(() => {
     if (

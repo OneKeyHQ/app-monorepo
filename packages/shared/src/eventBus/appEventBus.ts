@@ -422,6 +422,7 @@ export interface IAppEventBusPayload {
     from: EEnterWay;
   };
   [EAppEventBusNames.MarketWatchListV2Changed]: undefined;
+  [EAppEventBusNames.SwapLimitOrderBuildSuccess]: undefined;
 }
 
 export enum EEventBusBroadcastMethodNames {

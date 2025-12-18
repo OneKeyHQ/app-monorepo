@@ -30,7 +30,7 @@ const SwapProSearchTokenList = ({
     return (
       <ListItem>
         <Skeleton w="$10" h="$10" radius="round" />
-        <YStack>
+        <YStack gap="$1">
           <Skeleton h="$4" w="$32" />
           <Skeleton h="$3" w="$24" />
         </YStack>

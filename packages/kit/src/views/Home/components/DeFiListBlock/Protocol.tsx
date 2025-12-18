@@ -9,7 +9,7 @@ import {
   Divider,
   Icon,
   IconButton,
-  NumberSizeableText,
+  Popover,
   SizableText,
   Stack,
   View,
@@ -17,6 +17,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDeFiListProtocolMapAtom } from '@onekeyhq/kit/src/states/jotai/contexts/deFiList';
@@ -74,29 +75,37 @@ function Protocol({
           record: IDeFiAsset & { type: EDeFiAssetType },
         ) => {
           let type = '';
-          let badgeType = 'info';
+          let typeColor = '$blue10';
           if (record.type === EDeFiAssetType.DEBT) {
             type = intl.formatMessage({
               id: ETranslations.wallet_defi_asset_type_borrowed,
             });
-            badgeType = 'warning';
+            typeColor = '$orange10';
           } else if (record.type === EDeFiAssetType.REWARD) {
             type = intl.formatMessage({
               id: ETranslations.wallet_defi_position_module_rewards,
             });
-            badgeType = 'success';
+            typeColor = '$teal10';
           } else if (record.type === EDeFiAssetType.ASSET) {
             type = intl.formatMessage({
               id: ETranslations.wallet_defi_asset_type_supplied,
             });
-            badgeType = 'info';
+            typeColor = '$blue10';
           } else {
             type = category;
           }
           return (
-            <Badge badgeType={badgeType} badgeSize="lg">
-              <Badge.Text textTransform="capitalize">{type}</Badge.Text>
-            </Badge>
+            <XStack gap="$1" alignItems="center">
+              <Stack
+                width={7}
+                height={7}
+                borderRadius="$full"
+                backgroundColor={typeColor}
+              />
+              <SizableText size="$bodyMdMedium" textTransform="capitalize">
+                {type}
+              </SizableText>
+            </XStack>
           );
         },
       },
@@ -106,22 +115,27 @@ function Protocol({
         }),
         dataIndex: 'amount',
         render: (amount: string) => (
-          <NumberSizeableText size="$bodyMdMedium" formatter="balance">
+          <NumberSizeableTextWrapper
+            hideValue
+            size="$bodyMdMedium"
+            formatter="balance"
+          >
             {amount}
-          </NumberSizeableText>
+          </NumberSizeableTextWrapper>
         ),
       },
       {
         title: intl.formatMessage({ id: ETranslations.global_value }),
         dataIndex: 'value',
         render: (value: string) => (
-          <NumberSizeableText
+          <NumberSizeableTextWrapper
+            hideValue
             size="$bodyMdMedium"
             formatter="value"
             formatterOptions={{ currency: settings.currencyInfo.symbol }}
           >
             {value}
-          </NumberSizeableText>
+          </NumberSizeableTextWrapper>
         ),
       },
     ];
@@ -138,24 +152,48 @@ function Protocol({
               pl="$1"
               pr="$3"
               py="$3"
+              gap="$3"
             >
-              <XStack gap="$3" alignItems="center">
+              <XStack gap="$3" alignItems="center" flex={1}>
                 <Badge badgeType="success" badgeSize="lg">
                   <Badge.Text textTransform="capitalize">
                     {position.category}
                   </Badge.Text>
                 </Badge>
-                <SizableText size="$bodyMd" color="$textSubdued">
-                  {position.poolName}
-                </SizableText>
+                <Popover
+                  placement="top"
+                  title={intl.formatMessage({
+                    id: ETranslations.wallet_defi_position_name_popover_title,
+                  })}
+                  renderTrigger={
+                    <SizableText
+                      size="$bodyMd"
+                      color="$textSubdued"
+                      numberOfLines={1}
+                      textDecorationLine="underline"
+                      textDecorationColor="$textSubdued"
+                      textDecorationStyle="dotted"
+                    >
+                      {position.poolName}
+                    </SizableText>
+                  }
+                  renderContent={
+                    <Stack px="$4" py="$2">
+                      <SizableText size="$bodyLgMedium">
+                        {position.poolFullName}
+                      </SizableText>
+                    </Stack>
+                  }
+                />
               </XStack>
-              <NumberSizeableText
+              <NumberSizeableTextWrapper
+                hideValue
                 size="$headingSm"
                 formatter="value"
                 formatterOptions={{ currency: settings.currencyInfo.symbol }}
               >
                 {position.value}
-              </NumberSizeableText>
+              </NumberSizeableTextWrapper>
             </XStack>
             <RichTable<IDeFiAsset & { type: EDeFiAssetType }>
               dataSource={[
@@ -171,14 +209,13 @@ function Protocol({
               })}
             />
           </Stack>
-          {index !== protocol.positions.length - 1 &&
-          position.category !== protocol.positions[index + 1].category ? (
-            <Divider key={index} my="$2" />
+          {index !== protocol.positions.length - 1 ? (
+            <Divider borderColor="$neutral3" mx="$2" key={index} my="$2" />
           ) : null}
         </>
       );
     });
-  }, [protocol.positions, settings.currencyInfo.symbol, columns]);
+  }, [protocol.positions, intl, settings.currencyInfo.symbol, columns]);
 
   const handlePressProtocol = useCallback(() => {
     navigation.pushModal(EModalRoutes.MainModal, {
@@ -231,13 +268,14 @@ function Protocol({
         <ListItem.Text
           align="right"
           primary={
-            <NumberSizeableText
+            <NumberSizeableTextWrapper
+              hideValue
               size="$bodyLgMedium"
               formatter="value"
               formatterOptions={{ currency: settings.currencyInfo.symbol }}
             >
               {protocolInfo?.netWorth ?? '0'}
-            </NumberSizeableText>
+            </NumberSizeableTextWrapper>
           }
         />
       </ListItem>
@@ -307,13 +345,14 @@ function Protocol({
                 />
               </XStack>
               <XStack alignItems="center" gap="$3">
-                <NumberSizeableText
+                <NumberSizeableTextWrapper
+                  hideValue
                   size="$headingMd"
                   formatter="value"
                   formatterOptions={{ currency: settings.currencyInfo.symbol }}
                 >
                   {protocolInfo?.netWorth ?? '0'}
-                </NumberSizeableText>
+                </NumberSizeableTextWrapper>
                 <View
                   animation="quick"
                   rotate={open ? '180deg' : '0deg'}
