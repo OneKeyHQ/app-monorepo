@@ -45,7 +45,9 @@ async function handleError(error: unknown): Promise<void> {
     }
   }
 
-  const friendlyMessage = errorType ? ERROR_MESSAGES[errorType] : errorMessage;
+  const friendlyMessage = errorType
+    ? ERROR_MESSAGES[errorType]()
+    : errorMessage;
   Toast.error({ title: friendlyMessage });
 }
 

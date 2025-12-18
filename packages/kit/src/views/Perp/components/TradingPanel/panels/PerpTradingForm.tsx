@@ -365,54 +365,65 @@ function PerpTradingForm({
   return (
     <YStack gap={isMobile ? '$2.5' : '$4'}>
       {isMobile ? (
-        <XStack alignItems="center" flex={1} gap="$2.5">
-          <YStack flex={1}>
-            <OrderTypeSelector
-              value={formData.type}
-              onChange={(type: 'market' | 'limit') => updateForm({ type })}
-              disabled={isSubmitting}
-              isMobile
-            />
-          </YStack>
-        </XStack>
-      ) : (
-        <YStack>
-          <XStack>
-            {orderTypeOptions.map((option) => (
-              <XStack
-                pb="$2.5"
-                key={option.value}
-                ml="$2.5"
-                mr="$2"
-                borderBottomWidth={
-                  formData.type === option.value ? '$0.5' : '$0'
-                }
-                borderBottomColor="$borderActive"
-                onPress={() => handleOrderTypeChange(option.name)}
-                cursor="pointer"
-              >
-                <SizableText
-                  size="$headingXs"
-                  fontSize={14}
-                  color={
-                    formData.type === option.value ? '$text' : '$textSubdued'
-                  }
-                >
-                  {option.name}
-                </SizableText>
-              </XStack>
-            ))}
+        <>
+          <XStack alignItems="center" flex={1} gap="$2.5">
+            <YStack flex={1}>
+              <MarginModeSelector disabled={isSubmitting} isMobile={isMobile} />
+            </YStack>
+            <LeverageAdjustModal isMobile={isMobile} />
           </XStack>
-          <Divider />
-        </YStack>
-      )}
 
-      <XStack alignItems="center" flex={1} gap={isMobile ? '$2.5' : '$3'}>
-        <YStack flex={1}>
-          <MarginModeSelector disabled={isSubmitting} isMobile={isMobile} />
-        </YStack>
-        <LeverageAdjustModal isMobile={isMobile} />
-      </XStack>
+          <XStack alignItems="center" flex={1} gap="$2.5">
+            <YStack flex={1}>
+              <OrderTypeSelector
+                value={formData.type}
+                onChange={(type: 'market' | 'limit') => updateForm({ type })}
+                disabled={isSubmitting}
+                isMobile
+              />
+            </YStack>
+          </XStack>
+        </>
+      ) : (
+        <>
+          <YStack>
+            <XStack>
+              {orderTypeOptions.map((option) => (
+                <XStack
+                  pb="$2.5"
+                  key={option.value}
+                  ml="$2.5"
+                  mr="$2"
+                  borderBottomWidth={
+                    formData.type === option.value ? '$0.5' : '$0'
+                  }
+                  borderBottomColor="$borderActive"
+                  onPress={() => handleOrderTypeChange(option.name)}
+                  cursor="pointer"
+                >
+                  <SizableText
+                    size="$headingXs"
+                    fontSize={14}
+                    color={
+                      formData.type === option.value ? '$text' : '$textSubdued'
+                    }
+                  >
+                    {option.name}
+                  </SizableText>
+                </XStack>
+              ))}
+            </XStack>
+            <Divider />
+          </YStack>
+
+          <XStack alignItems="center" flex={1} gap="$3">
+            <YStack flex={1}>
+              <MarginModeSelector disabled={isSubmitting} isMobile={isMobile} />
+            </YStack>
+            <LeverageAdjustModal isMobile={isMobile} />
+          </XStack>
+        </>
+      )}
 
       <YStack
         gap="$2.5"
