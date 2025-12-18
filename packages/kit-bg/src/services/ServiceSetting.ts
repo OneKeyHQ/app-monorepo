@@ -624,7 +624,9 @@ class ServiceSetting extends ServiceBase {
       return;
     }
 
-    const { wallets } = await this.backgroundApi.serviceAccount.getAllWallets();
+    const { wallets } = await this.backgroundApi.serviceAccount.getAllWallets({
+      excludeKeylessWallet: true,
+    });
 
     const hasHdOrHwWallet =
       wallets?.some((wallet) => {
