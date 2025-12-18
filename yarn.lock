@@ -7449,6 +7449,17 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@onekeyfe/react-native-skeleton@npm:1.1.11":
+  version: 1.1.11
+  resolution: "@onekeyfe/react-native-skeleton@npm:1.1.11"
+  peerDependencies:
+    react: "*"
+    react-native: "*"
+    react-native-nitro-modules: 0.31.10
+  checksum: 10/3ba21789bab002dbe44b587cc5533440c6f6e2e3208ffa08c3e55b04fa58ce9c804307fed21399abe101eb3021dd97497a2b7d9798685fc6e467dab98ee7b532
+  languageName: node
+  linkType: hard
+
 "@onekeyfe/react-native-sni-connect@npm:1.1.0":
   version: 1.1.0
   resolution: "@onekeyfe/react-native-sni-connect@npm:1.1.0"
@@ -7879,6 +7890,7 @@ __metadata:
     "@onekeyfe/react-native-device-utils": "npm:1.1.11"
     "@onekeyfe/react-native-keychain-module": "npm:1.1.11"
     "@onekeyfe/react-native-lite-card": "npm:1.1.11"
+    "@onekeyfe/react-native-skeleton": "npm:1.1.11"
     "@onekeyfe/react-native-sni-connect": "npm:1.1.0"
     "@onekeyfe/react-native-text-input": "npm:0.3.0"
     "@onekeyhq/components": "npm:*"
