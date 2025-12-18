@@ -35,7 +35,7 @@ const SkeletonGroupDemo = () => {
         Click it to show LoadingView
       </Button>
       <YStack py="$6">
-        <Skeleton.Group show>
+        <Skeleton.Group show={loading}>
           <YStack gap="$4">
             <Skeleton>
               <Input />
