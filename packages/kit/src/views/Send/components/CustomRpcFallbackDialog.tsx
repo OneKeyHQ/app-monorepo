@@ -1,5 +1,7 @@
 import { useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   Checkbox,
   Dialog,
@@ -8,8 +10,12 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 interface IShowCustomRpcFallbackDialogParams {
+  title: string;
+  confirmText: string;
+  cancelText: string;
   networkId: string;
   onSwitchOnce?: () => void;
   onSwitchPermanently?: () => void;
@@ -21,17 +27,21 @@ function DialogContentWrapper({
 }: {
   onSetAsDefaultChange: (value: boolean) => void;
 }) {
+  const intl = useIntl();
   const [setAsDefault, setSetAsDefault] = useState(false);
 
   return (
     <YStack gap="$4">
       <SizableText size="$bodyLg" color="$textSubdued">
-        We recommend using OneKey RPC to continue sending this transaction
-        successfully.
+        {intl.formatMessage({
+          id: ETranslations.transfer_send_onekey_rpc_desc,
+        })}
       </SizableText>
       <Checkbox
         value={setAsDefault}
-        label="Set OneKey RPC as default"
+        label={intl.formatMessage({
+          id: ETranslations.transfer_send_onekey_rpc_default,
+        })}
         onChange={(value) => {
           setSetAsDefault(!!value);
           onSetAsDefaultChange(!!value);
@@ -44,20 +54,24 @@ function DialogContentWrapper({
 export function showCustomRpcFallbackDialog(
   params: IShowCustomRpcFallbackDialogParams,
 ) {
-  const { networkId, onSwitchOnce, onSwitchPermanently, onCancel } = params;
+  const {
+    title,
+    confirmText,
+    cancelText,
+    networkId,
+    onSwitchOnce,
+    onSwitchPermanently,
+    onCancel,
+  } = params;
 
   let setAsDefaultValue = false;
 
   const handleSwitch = async (close: () => Promise<void>) => {
     if (setAsDefaultValue) {
-      // Permanently disable custom RPC
       try {
         await backgroundApiProxy.serviceCustomRpc.updateCustomRpcEnabledStatus({
           networkId,
           enabled: false,
-        });
-        Toast.success({
-          title: 'OneKey RPC set as default',
         });
         onSwitchPermanently?.();
       } catch (error) {
@@ -66,14 +80,13 @@ export function showCustomRpcFallbackDialog(
         });
       }
     } else {
-      // One-time switch
       onSwitchOnce?.();
     }
     await close();
   };
 
   Dialog.show({
-    title: 'Send via OneKey RPC',
+    title,
     renderContent: (
       <DialogContentWrapper
         onSetAsDefaultChange={(value) => {
@@ -82,8 +95,8 @@ export function showCustomRpcFallbackDialog(
       />
     ),
     showCancelButton: true,
-    onCancelText: 'Cancel',
-    onConfirmText: 'Switch to OneKey RPC',
+    onCancelText: cancelText,
+    onConfirmText: confirmText,
     onConfirm: async ({ close }) => {
       await handleSwitch(close);
     },

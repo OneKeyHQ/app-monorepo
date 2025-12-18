@@ -199,9 +199,17 @@ function TxConfirmAlert(props: IProps) {
     if (!customRpcStatus) return;
 
     showCustomRpcFallbackDialog({
+      title: intl.formatMessage({
+        id: ETranslations.transfer_send_onekey_rpc_title,
+      }),
+      confirmText: intl.formatMessage({
+        id: ETranslations.transfer_send_onekey_rpc_button,
+      }),
+      cancelText: intl.formatMessage({
+        id: ETranslations.global_cancel,
+      }),
       networkId: customRpcStatus.networkId,
       onSwitchOnce: () => {
-        // Set one-time flag to use OneKey RPC for this transaction
         updateCustomRpcStatus({
           ...customRpcStatus,
           isCustomRpcUnavailable: false,
@@ -209,12 +217,9 @@ function TxConfirmAlert(props: IProps) {
         });
       },
       onSwitchPermanently: () => {
-        // Clear the status completely since custom RPC is now disabled
         clearCustomRpcStatus();
       },
-      onCancel: () => {
-        // Do nothing, keep the alert visible
-      },
+      onCancel: () => {},
     });
   }, [customRpcStatus, updateCustomRpcStatus, clearCustomRpcStatus]);
 
@@ -229,15 +234,21 @@ function TxConfirmAlert(props: IProps) {
       <Alert
         icon="InfoCircleOutline"
         type="critical"
-        title="Custom RPC Not Responding"
-        description="We couldn't reach your custom RPC node. To avoid a failed send, switch to OneKey RPC for this transaction."
+        title={intl.formatMessage({
+          id: ETranslations.transfer_custom_rpc_fail_title,
+        })}
+        description={intl.formatMessage({
+          id: ETranslations.transfer_custom_rpc_fail_desc,
+        })}
         action={{
-          primary: 'Switch',
+          primary: intl.formatMessage({
+            id: ETranslations.transfer_custom_rpc_fail_button,
+          }),
           onPrimaryPress: handleSwitchToOneKeyRpc,
         }}
       />
     );
-  }, [customRpcStatus, handleSwitchToOneKeyRpc]);
+  }, [intl, customRpcStatus, handleSwitchToOneKeyRpc]);
 
   const renderChainSpecialAlert = useCallback(() => {
     if (
