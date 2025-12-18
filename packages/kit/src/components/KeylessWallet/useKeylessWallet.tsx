@@ -164,9 +164,6 @@ export function useKeylessWalletMethods() {
     }, []);
 
   const getAuthPackFromServer = useCallback(async (): Promise<IAuthKeyPack> => {
-    Toast.success({
-      title: 'getAuthPackFromServer',
-    });
     await loginOneKeyId();
     const user = await primePersistAtom.get();
     const packSetId = user?.keylessWalletId;

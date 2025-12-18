@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 
-import { Badge, Icon, SizableText, Skeleton } from '@onekeyhq/components';
+import { XStack, Icon, SizableText, Skeleton } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { useSwapProSelectTokenAtom } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
@@ -30,22 +30,21 @@ const SwapProTokenSelector = ({
     return undefined;
   }, [swapProTokenSelect]);
   if (configLoading) {
-    return <Skeleton w="$20" h="$9" borderRadius="$2" />;
+    return <Skeleton w="$20" h="$8" borderRadius="$2" />;
   }
   return (
-    <Badge
+    <XStack
       gap="$3"
       bg="$bgApp"
       cursor="pointer"
       hoverStyle={{
-        borderRadius: '$full',
-        bg: '$bgHover',
+        opacity: 0.8,
       }}
       pressStyle={{
-        borderRadius: '$full',
-        bg: '$bgActive',
+        opacity: 0.7,
       }}
       onPress={onSelectTokenClick}
+      alignItems="center"
     >
       <Token
         size="md"
@@ -56,12 +55,16 @@ const SwapProTokenSelector = ({
         fallbackIcon="CryptoCoinOutline"
       />
 
-      {/* Token Name */}
-      <SizableText size="$headingLg" numberOfLines={1} flexShrink={1}>
+      <SizableText
+        size="$headingLg"
+        color="$text"
+        numberOfLines={1}
+        flexShrink={1}
+      >
         {swapProTokenSelect?.symbol}
       </SizableText>
-      <Icon name="ChevronBottomOutline" size="$4" />
-    </Badge>
+      <Icon name="ChevronDownSmallOutline" size="$5" color="$iconSubdued" />
+    </XStack>
   );
 };
 

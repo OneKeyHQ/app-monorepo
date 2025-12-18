@@ -105,6 +105,14 @@ export function PrimeBenefitsList({
           id: ETranslations.prime_onekey_cloud_desc,
         })}
         onPress={() => {
+          if (platformEnv.isWebDappMode) {
+            Toast.message({
+              title: intl.formatMessage({
+                id: ETranslations.global_web_feature_not_available_go_to_app,
+              }),
+            });
+            return;
+          }
           if (isPrimeSubscriptionActive) {
             navigation.navigate(EPrimePages.PrimeCloudSync, {
               serverUserInfo,
@@ -156,6 +164,14 @@ export function PrimeBenefitsList({
           id: ETranslations.prime_bulk_copy_addresses_desc,
         })}
         onPress={() => {
+          if (platformEnv.isWebDappMode) {
+            Toast.message({
+              title: intl.formatMessage({
+                id: ETranslations.global_web_feature_not_available_go_to_app,
+              }),
+            });
+            return;
+          }
           if (isPrimeSubscriptionActive) {
             const fallbackNetworkId = networkUtils.toNetworkIdFallback({
               networkId,

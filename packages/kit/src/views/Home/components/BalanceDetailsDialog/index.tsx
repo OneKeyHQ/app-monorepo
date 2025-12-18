@@ -141,15 +141,21 @@ function BalanceDetailsContent({
       try {
         if (showDeriveItems) {
           const resp = await Promise.all(
-            networkAccounts.map(async (networkAccount) =>
-              backgroundApiProxy.serviceAccountProfile.fetchAccountDetails({
-                networkId,
-                accountId: networkAccount.account?.id ?? '',
-                withNonce: false,
-                withFrozenBalance: true,
-                withCheckInscription,
-              }),
-            ),
+            networkAccounts.map(async (networkAccount) => {
+              // Only check inscription and frozen balance for Taproot (BIP86) addresses
+              const isTaproot = networkAccount.deriveType === 'BIP86';
+              return backgroundApiProxy.serviceAccountProfile.fetchAccountDetails(
+                {
+                  networkId,
+                  accountId: networkAccount.account?.id ?? '',
+                  withNonce: false,
+                  withFrozenBalance: isTaproot,
+                  withCheckInscription: isTaproot
+                    ? withCheckInscription
+                    : false,
+                },
+              );
+            }),
           );
 
           r.deriveItems = [];

@@ -58,7 +58,7 @@ const SwapLimitPartialFillSelect = ({
     [currentSelectPartiallyFillValue?.label, intl, rightIcon, valueProps],
   );
   return (
-    <XStack justifyContent="space-between">
+    <XStack justifyContent="space-between" py="$1">
       <XStack gap="$1">
         {leftIcon || null}
         <SizableText
