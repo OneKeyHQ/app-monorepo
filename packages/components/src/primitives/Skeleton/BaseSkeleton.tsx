@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 
+import type { StackStyle } from '@onekeyhq/components/src/shared/tamagui';
 import {
   usePropsAndStyle,
   useThemeName,
@@ -17,15 +18,19 @@ export function BaseSkeleton({
   children,
   ...props
 }: ISkeletonProps) {
-  const [restProps, style] = usePropsAndStyle(props, {
-    resolveValues: 'auto',
-  });
+  const [{ className: classNameProp, ...restProps }, style] = usePropsAndStyle(
+    props,
+    {
+      resolveValues: 'auto',
+    },
+  ) as unknown as [ISkeletonProps & { className: string }, StackStyle];
   const themeName = useThemeName();
   const className =
     (colorMode ?? themeName) === 'dark'
       ? 'ok-skeleton-dark'
       : 'ok-skeleton-light';
 
+  console.log('themeName', colorMode || themeName, className);
   const borderRadius = useMemo(() => {
     if (restProps.radius === 'round') {
       return 9999;

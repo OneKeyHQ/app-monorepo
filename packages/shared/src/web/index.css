@@ -297,11 +297,11 @@ w3m-modal {
 }
 
 .ok-skeleton-light {
-  animation: ok-skeleton-loading 3s linear infinite alternate;
+  animation: ok-skeleton-light-loading 3s linear infinite alternate;
   color: transparent;
 }
 
-@keyframes ok-skeleton-loading {
+@keyframes ok-skeleton-light-loading {
   0% {
       background-color: #fafafa;
   }
@@ -311,11 +311,11 @@ w3m-modal {
 }
 
 .ok-skeleton-dark {
-  animation: ok-skeleton-loading 3s linear infinite alternate;
+  animation: ok-skeleton-dark-loading 3s linear infinite alternate;
   color: transparent;
 }
 
-@keyframes ok-skeleton-loading {
+@keyframes ok-skeleton-dark-loading {
   0% {
       background-color: #111111;
   }
