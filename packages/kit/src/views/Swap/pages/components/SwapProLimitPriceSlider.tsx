@@ -84,8 +84,8 @@ const SwapProLimitPriceSlider = ({
   // Handle input focus
   const handleInputFocus = useCallback(() => {
     setIsInputEditing(true);
-    setInputText(new BigNumber(percentValueNumber).toFixed(2));
-  }, [percentValueNumber]);
+    setInputText(displayValue);
+  }, [displayValue]);
 
   // Handle input blur - apply the value
   const handleInputBlur = useCallback(() => {
