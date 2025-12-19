@@ -52,6 +52,13 @@ const SwapProLimitPriceSlider = ({
     if (percentValue !== lastExternalPercentRef.current) {
       lastExternalPercentRef.current = percentValue;
     }
+    // If value is 0, return empty string to show placeholder
+    if (
+      new BigNumber(percentValueNumber).isZero() ||
+      new BigNumber(percentValueNumber).isNaN()
+    ) {
+      return '';
+    }
     return new BigNumber(percentValueNumber).toFixed(2);
   }, [isInputEditing, inputText, percentValue, percentValueNumber]);
 
@@ -119,6 +126,7 @@ const SwapProLimitPriceSlider = ({
         keyboardType="decimal-pad"
         textAlign="left"
         color={percentValueColor}
+        placeholder="0.00"
         onChangeText={handleInputChange}
         onFocus={handleInputFocus}
         onBlur={handleInputBlur}
