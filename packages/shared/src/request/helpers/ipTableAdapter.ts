@@ -89,7 +89,7 @@ async function getMappedDomainForIpLookup(
       '../../config/appConfig'
     );
     const endpointsMap = await getEndpointsMap();
-    const isTestEnv = endpointsMap.wallet?.includes('onekeytest.com');
+    const isTestEnv = endpointsMap.wallet?.includes(ONEKEY_TEST_API_HOST);
     return isTestEnv ? ONEKEY_TEST_API_HOST : ONEKEY_API_HOST;
   } catch {
     return null;
