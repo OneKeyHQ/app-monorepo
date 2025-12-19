@@ -379,6 +379,39 @@ class ServiceAccount extends ServiceBase {
     return localDb.getDevice(dbDeviceId);
   }
 
+  async getAllWallets(
+    params: { refillWalletInfo?: boolean; excludeKeylessWallet?: boolean } = {},
+  ) {
+    const { excludeKeylessWallet = false } = params;
+    let { wallets } = await localDb.getAllWallets();
+    let allDevices: IDBDevice[] | undefined;
+    if (params.refillWalletInfo) {
+      allDevices = (await this.getAllDevices()).devices;
+      const refilledWalletsCache: {
+        [walletId: string]: IDBWallet;
+      } = {};
+      wallets = await Promise.all(
+        wallets.map((wallet) =>
+          localDb.refillWalletInfo({
+            wallet,
+            refilledWalletsCache,
+            allDevices,
+          }),
+        ),
+      );
+    }
+    // Filter out keyless wallets if excludeKeylessWallet is true
+    if (excludeKeylessWallet) {
+      wallets = wallets.filter(
+        (wallet) =>
+          !accountUtils.isKeylessWallet({
+            walletId: wallet.id,
+          }),
+      );
+    }
+    return { wallets, allDevices };
+  }
+
   @backgroundMethod()
   async getWallets(options?: IDBGetWalletsParams): Promise<{
     wallets: IDBWallet[];
@@ -423,6 +456,7 @@ class ServiceAccount extends ServiceBase {
   }) {
     const { wallets, allDevices } = await this.getAllWallets({
       refillWalletInfo: true,
+      excludeKeylessWallet: true,
     });
 
     const filterQrWallet = params?.filterQrWallet ?? false;
@@ -2482,27 +2516,6 @@ class ServiceAccount extends ServiceBase {
     return networkId;
   }
 
-  async getAllWallets(params: { refillWalletInfo?: boolean } = {}) {
-    let { wallets } = await localDb.getAllWallets();
-    let allDevices: IDBDevice[] | undefined;
-    if (params.refillWalletInfo) {
-      allDevices = (await this.getAllDevices()).devices;
-      const refilledWalletsCache: {
-        [walletId: string]: IDBWallet;
-      } = {};
-      wallets = await Promise.all(
-        wallets.map((wallet) =>
-          localDb.refillWalletInfo({
-            wallet,
-            refilledWalletsCache,
-            allDevices,
-          }),
-        ),
-      );
-    }
-    return { wallets, allDevices };
-  }
-
   async getAllDevices() {
     return localDb.getAllDevices();
   }
@@ -3169,7 +3182,9 @@ class ServiceAccount extends ServiceBase {
 
     if (walletHash && shouldCheckDuplicate) {
       // TODO performance issue
-      const { wallets } = await this.getAllWallets();
+      const { wallets } = await this.getAllWallets({
+        excludeKeylessWallet: true,
+      });
       const existsSameHashWallet = wallets.find(
         (item) => walletHash && item.hash && item.hash === walletHash,
       );
@@ -4159,6 +4174,7 @@ class ServiceAccount extends ServiceBase {
 
         const { wallets } = await this.getAllWallets({
           refillWalletInfo: false,
+          excludeKeylessWallet: true,
         });
         const hdWallets = wallets.filter((wallet) =>
           accountUtils.isHdWallet({ walletId: wallet.id }),
@@ -4332,7 +4348,10 @@ class ServiceAccount extends ServiceBase {
       return;
     }
 
-    const { wallets } = await this.getAllWallets({ refillWalletInfo: true });
+    const { wallets } = await this.getAllWallets({
+      refillWalletInfo: true,
+      excludeKeylessWallet: true,
+    });
     const qrWallets = wallets.filter((wallet) =>
       accountUtils.isQrWallet({ walletId: wallet.id }),
     );
@@ -4625,6 +4644,7 @@ class ServiceAccount extends ServiceBase {
     });
     const { wallets: allWallets } = await this.getAllWallets({
       refillWalletInfo: true,
+      excludeKeylessWallet: true,
     });
     const sameWalletsMap: {
       [walletHash: string]: IDBWallet[];

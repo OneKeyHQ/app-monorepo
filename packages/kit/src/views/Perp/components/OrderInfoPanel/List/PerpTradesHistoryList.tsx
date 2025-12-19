@@ -118,6 +118,11 @@ function PerpTradesHistoryList({
         }
       }
       const parsed = parseDexCoin(fill.coin);
+      const exitPriceBN = new BigNumber(fill.px);
+      const exitPriceDecimals = getValidPriceDecimals(fill.px);
+      const exitPrice = exitPriceBN.isFinite()
+        ? exitPriceBN.toFixed(exitPriceDecimals)
+        : '0';
       showPositionShare({
         side: isLong ? 'long' : 'short',
         token: fill.coin,
@@ -126,7 +131,7 @@ function PerpTradesHistoryList({
         pnlPercent,
         leverage,
         entryPrice,
-        markPrice: fill.px,
+        markPrice: exitPrice,
         priceType: 'exit',
       });
     },

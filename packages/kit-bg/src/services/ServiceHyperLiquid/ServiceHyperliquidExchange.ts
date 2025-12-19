@@ -400,11 +400,15 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
 
     const { value, signatureHex, signerAddress } = signedData;
 
+    // These fields are NOT part of the signed EIP-712 message in SDK > 0.24.x,
+    // so reading them from `value` is unreliable. Use stable constants instead.
+    const actionType = 'approveAgent';
+    const signatureChainId = PERPS_EVM_CHAIN_ID_HEX;
     // Only extract approveAgent signatures
     return {
       action: {
-        type: value.type as string,
-        signatureChainId: value.signatureChainId as string,
+        type: actionType,
+        signatureChainId,
         hyperliquidChain: value.hyperliquidChain as string,
         agentAddress: value.agentAddress as string,
         agentName: value.agentName as string,

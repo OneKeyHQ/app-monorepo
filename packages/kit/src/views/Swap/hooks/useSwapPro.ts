@@ -22,10 +22,14 @@ import {
   equalTokenNoCaseSensitive,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IMarketSearchV2Token } from '@onekeyhq/shared/types/market';
-import type { IMarketTokenTransaction } from '@onekeyhq/shared/types/marketV2';
+import type {
+  IMarketBasicConfigNetwork,
+  IMarketTokenTransaction,
+} from '@onekeyhq/shared/types/marketV2';
 import {
   swapProPositionsListMaxCount,
   swapProPositionsListMinValue,
+  wrappedTokens,
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
   ISwapToken,
@@ -77,6 +81,7 @@ import { useSwapSlippagePercentageModeInfo } from './useSwapState';
 export function useSwapProInit() {
   const [, setSwapSwitchType] = useSwapTypeSwitchAtom();
   const [, setSwapProDirection] = useSwapProDirectionAtom();
+  const { networkList } = useMarketBasicConfig();
   const [swapProSelectToken, setSwapProSelectToken] =
     useSwapProSelectTokenAtom();
   const [swapProJumpToken, setSwapProJumpToken] = useSwapProJumpTokenAtom();
@@ -118,6 +123,9 @@ export function useSwapProInit() {
     setSwapProJumpToken,
     setSwapProDirection,
   ]);
+  return {
+    networkList,
+  };
 }
 
 export function useSwapProInputToken() {
@@ -392,29 +400,38 @@ export function useSwapProTokenInit() {
 
   const {
     defaultTokens,
+    defaultLimitTokens,
     isLoading,
     speedConfig,
     swapMevNetConfig,
     speedDefaultSelectToken,
+    supportSpeedSwap,
   } = useSpeedSwapInit(swapProSelectToken?.networkId || '');
+
+  const defaultTokensFromType = useMemo(() => {
+    if (swapProTradeType === ESwapProTradeType.MARKET) {
+      return defaultTokens;
+    }
+    return defaultLimitTokens;
+  }, [swapProTradeType, defaultTokens, defaultLimitTokens]);
 
   useEffect(() => {
     if (
-      (!swapProUseSelectBuyTokenAtom && defaultTokens.length > 0) ||
-      !defaultTokens.some((item) =>
+      (!swapProUseSelectBuyTokenAtom && defaultTokensFromType.length > 0) ||
+      !defaultTokensFromType.some((item) =>
         equalTokenNoCaseSensitive({
           token1: item,
           token2: swapProUseSelectBuyTokenAtom,
         }),
       )
     ) {
-      setSwapProUseSelectBuyTokenAtom(defaultTokens[0]);
+      setSwapProUseSelectBuyTokenAtom(defaultTokensFromType[0]);
     }
   }, [
     swapProSelectToken,
     swapProUseSelectBuyTokenAtom,
     setSwapProUseSelectBuyTokenAtom,
-    defaultTokens,
+    defaultTokensFromType,
   ]);
 
   useEffect(() => {
@@ -449,22 +466,42 @@ export function useSwapProTokenInit() {
 
   useEffect(() => {
     if (
-      (!swapProSellToToken && defaultTokens.length > 0) ||
-      !defaultTokens.some((item) =>
+      (!swapProSellToToken && defaultTokensFromType.length > 0) ||
+      !defaultTokensFromType.some((item) =>
         equalTokenNoCaseSensitive({
           token1: item,
           token2: swapProSellToToken,
         }),
       )
     ) {
-      const nativeToken = defaultTokens.find((item) => item.isNative);
-      if (nativeToken) {
-        setSwapProSellToToken(nativeToken);
+      const nativeToken = defaultTokensFromType.find((item) => item.isNative);
+      const wrappedToken = defaultTokensFromType.find((item) =>
+        wrappedTokens.some(
+          (wrapped) =>
+            wrapped.address.toLowerCase() ===
+              item.contractAddress.toLowerCase() &&
+            wrapped.networkId === item.networkId,
+        ),
+      );
+      if (nativeToken || wrappedToken) {
+        if (swapProTradeType === ESwapProTradeType.MARKET && nativeToken) {
+          setSwapProSellToToken(nativeToken);
+        } else if (
+          swapProTradeType === ESwapProTradeType.LIMIT &&
+          wrappedToken
+        ) {
+          setSwapProSellToToken(wrappedToken);
+        }
       } else {
-        setSwapProSellToToken(defaultTokens[0]);
+        setSwapProSellToToken(defaultTokensFromType[0]);
       }
     }
-  }, [defaultTokens, setSwapProSellToToken, swapProSellToToken]);
+  }, [
+    defaultTokensFromType,
+    setSwapProSellToToken,
+    swapProSellToToken,
+    swapProTradeType,
+  ]);
   const inputToken = useSwapProInputToken();
 
   const {
@@ -522,7 +559,7 @@ export function useSwapProTokenInit() {
   ]);
 
   return {
-    defaultTokens,
+    defaultTokensFromType,
     isLoading,
     balanceLoading,
     speedConfig,
@@ -530,6 +567,7 @@ export function useSwapProTokenInit() {
     swapProSelectToken,
     isMEV,
     hasEnoughBalance,
+    supportSpeedSwap,
   };
 }
 
@@ -714,11 +752,12 @@ export function useSwapProTokenTransactionList(
   };
 }
 
-export function useSwapProSupportNetworksTokenList() {
+export function useSwapProSupportNetworksTokenList(
+  networkList: IMarketBasicConfigNetwork[],
+) {
   const { swapProLoadSupportNetworksTokenList } = useSwapActions().current;
   const [swapSelectToken] = useSwapProSelectTokenAtom();
   const [swapProUseSelectBuyToken] = useSwapProUseSelectBuyTokenAtom();
-  const { networkList } = useMarketBasicConfig();
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { syncOrderTokenBalance } = useSwapProTokenInfoSync();
   const [swapProSupportNetworksTokenList, setSwapProSupportNetworksTokenList] =
@@ -758,21 +797,8 @@ export function useSwapProSupportNetworksTokenList() {
     }
   }, [networkList, activeAccount, swapProLoadSupportNetworksTokenList]);
   useEffect(() => {
-    if (swapProSupportNetworksTokenList.length === 0) {
-      void swapProLoadSupportNetworksTokenListRun();
-    }
-  }, [
-    swapProLoadSupportNetworksTokenListRun,
-    swapProSupportNetworksTokenList.length,
-  ]);
-  const networkNotSupported = useMemo(() => {
-    return (
-      swapSelectToken?.networkId &&
-      !networkList.some(
-        (token) => token.networkId === swapSelectToken?.networkId,
-      )
-    );
-  }, [swapSelectToken?.networkId, networkList]);
+    void swapProLoadSupportNetworksTokenListRun();
+  }, [swapProLoadSupportNetworksTokenListRun, activeAccount]);
 
   const checkSyncOrderTokenBalance = useCallback(
     async ({
@@ -885,7 +911,6 @@ export function useSwapProSupportNetworksTokenList() {
 
   return {
     swapProLoadSupportNetworksTokenListRun,
-    networkNotSupported,
   };
 }
 

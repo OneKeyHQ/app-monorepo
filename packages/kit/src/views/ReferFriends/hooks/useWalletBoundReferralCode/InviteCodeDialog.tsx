@@ -4,7 +4,6 @@ import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import {
-  Button,
   Dialog,
   Form,
   Icon,
@@ -17,19 +16,15 @@ import {
   useForm,
 } from '@onekeyhq/components';
 import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar/WalletAvatar';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import type { INavigationToMessageConfirmParams } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { OneKeyError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import {
-  EAccountManagerStacksRoutes,
-  EModalRoutes,
-} from '@onekeyhq/shared/src/routes';
-import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
+import { AllWalletsBoundEmpty } from './AllWalletsBoundEmpty';
+import { NoWalletEmpty } from './NoWalletEmpty';
 import { useFetchWalletsWithBoundStatus } from './useFetchWalletsWithBoundStatus';
 import { useGetReferralCodeWalletInfo } from './useGetReferralCodeWalletInfo';
 
@@ -63,7 +58,6 @@ export function InviteCodeDialog({
   const getReferralCodeWalletInfo = useGetReferralCodeWalletInfo();
   const { walletsWithStatus, isLoading: isLoadingWallets } =
     useFetchWalletsWithBoundStatus();
-  const navigation = useAppNavigation();
 
   // Selected wallet state
   const [selectedWalletId, setSelectedWalletId] = useState<string | undefined>(
@@ -96,8 +90,17 @@ export function InviteCodeDialog({
     }));
   }, [walletsWithStatus, intl]);
 
-  // Check if there are no available wallets
-  const hasNoWallets = !walletsWithStatus || walletsWithStatus.length === 0;
+  // Check if data is ready (loaded and not undefined)
+  const isDataReady = !isLoadingWallets && walletsWithStatus !== undefined;
+
+  // Check if there are no available wallets (only when data is ready)
+  const hasNoWallets = isDataReady && walletsWithStatus.length === 0;
+
+  // Check if all wallets are already bound
+  const allWalletsBound = useMemo(() => {
+    if (!walletsWithStatus || walletsWithStatus.length === 0) return false;
+    return walletsWithStatus.every((w) => w.isBound);
+  }, [walletsWithStatus]);
 
   // Check if the selected wallet is already bound
   const isSelectedWalletBound = useMemo(() => {
@@ -157,6 +160,29 @@ export function InviteCodeDialog({
     ],
   );
 
+  // Loading state - show spinner until all data is ready
+  if (!isDataReady) {
+    return (
+      <>
+        <XStack h="$20" ai="center" jc="center">
+          <Spinner size="small" />
+        </XStack>
+        <Dialog.Footer showConfirmButton={false} showCancelButton={false} />
+      </>
+    );
+  }
+
+  // No wallet state
+  if (hasNoWallets) {
+    return <NoWalletEmpty />;
+  }
+
+  // All wallets bound state
+  if (allWalletsBound) {
+    return <AllWalletsBoundEmpty />;
+  }
+
+  // Normal state with wallet selector and form
   return (
     <YStack mt="$-3">
       <YStack pb="$5" gap="$1">
@@ -165,77 +191,37 @@ export function InviteCodeDialog({
             id: ETranslations.referral_wallet_code_wallet,
           })}
         </SizableText>
-        {isLoadingWallets ? (
-          <XStack
-            gap="$2"
-            ai="center"
-            py="$2"
-            px="$3"
-            bg="$bgSubdued"
-            borderRadius="$2"
-            borderWidth={StyleSheet.hairlineWidth}
-            borderColor="$borderSubdued"
-            jc="center"
-          >
-            <Spinner size="small" />
-          </XStack>
-        ) : null}
-        {!isLoadingWallets && hasNoWallets ? (
-          <Button
-            variant="secondary"
-            size="medium"
-            onPress={() => {
-              navigation.pushModal(EModalRoutes.AccountManagerStacks, {
-                screen: EAccountManagerStacksRoutes.AccountSelectorStack,
-                params: {
-                  num: 0,
-                  sceneName: EAccountSelectorSceneName.home,
-                  sceneUrl: '',
-                  editable: true,
-                },
-              });
-            }}
-          >
-            {intl.formatMessage({
-              id: ETranslations.global_add_wallet,
-            })}
-          </Button>
-        ) : null}
-        {!isLoadingWallets && !hasNoWallets ? (
-          <Select
-            title={intl.formatMessage({
-              id: ETranslations.referral_select_wallet,
-            })}
-            items={walletItems}
-            value={selectedWalletId}
-            onChange={(walletId) => {
-              if (typeof walletId === 'string') {
-                setSelectedWalletId(walletId);
-              }
-            }}
-            renderTrigger={() => (
-              <XStack
-                gap="$2"
-                ai="center"
-                py="$2"
-                px="$3"
-                bg="$bgSubdued"
-                borderRadius="$2"
-                borderWidth={StyleSheet.hairlineWidth}
-                borderColor="$borderSubdued"
-                jc="space-between"
-              >
-                <XStack gap="$2" ai="center">
-                  <WalletAvatar wallet={selectedWallet} size="$6" />
-                  <SizableText size="$bodyLg">
-                    {selectedWallet?.name}
-                  </SizableText>
-                </XStack>
-                <Icon name="ChevronDownSmallOutline" color="$iconSubdued" />
+        <Select
+          title={intl.formatMessage({
+            id: ETranslations.referral_select_wallet,
+          })}
+          items={walletItems}
+          value={selectedWalletId}
+          onChange={(walletId) => {
+            if (typeof walletId === 'string') {
+              setSelectedWalletId(walletId);
+            }
+          }}
+          renderTrigger={() => (
+            <XStack
+              gap="$2"
+              ai="center"
+              py="$2"
+              px="$3"
+              bg="$bgSubdued"
+              borderRadius="$2"
+              borderWidth={StyleSheet.hairlineWidth}
+              borderColor="$borderSubdued"
+              jc="space-between"
+            >
+              <XStack gap="$2" ai="center">
+                <WalletAvatar wallet={selectedWallet} size="$6" />
+                <SizableText size="$bodyLg">{selectedWallet?.name}</SizableText>
               </XStack>
-            )}
-          />
-        ) : null}
+              <Icon name="ChevronDownSmallOutline" color="$iconSubdued" />
+            </XStack>
+          )}
+        />
         {isSelectedWalletBound ? (
           <SizableText size="$bodySm" color="$textCritical" mt="$1">
             {intl.formatMessage({
@@ -284,11 +270,7 @@ export function InviteCodeDialog({
           id: ETranslations.global_apply,
         })}
         confirmButtonProps={{
-          disabled:
-            hasNoWallets ||
-            isSelectedWalletBound ||
-            isLoadingWallets ||
-            !selectedWallet,
+          disabled: isSelectedWalletBound || !selectedWallet,
         }}
       />
     </YStack>

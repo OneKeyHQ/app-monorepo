@@ -98,6 +98,7 @@ import { useSwapBuildTx } from '../../hooks/useSwapBuiltTx';
 import { useSwapInit } from '../../hooks/useSwapGlobal';
 import {
   useSwapProAccount,
+  useSwapProErrorAlert,
   useSwapProInit,
   useSwapProInputToken,
   useSwapProToToken,
@@ -132,7 +133,7 @@ interface ISwapMainLoadProps {
 }
 
 const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
-  const { preSwapStepsStart } = useSwapBuildTx();
+  const { preSwapStepsStart, preSwapBeforeStepActions } = useSwapBuildTx();
   const intl = useIntl();
   const { fetchLoading } = useSwapInit(swapInitParams);
   const navigation =
@@ -199,8 +200,6 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     }
     return swapTypeSwitch;
   }, [focusSwapPro, swapProTradeType, swapTypeSwitch]);
-
-  useSwapProInit();
 
   const [swapNativeTokenReserveGas] = useSwapNativeTokenReserveGasAtom();
   const swapSlippageRef = useRef(slippageItem);
@@ -895,7 +894,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
         steps: [],
         preSwapData: {},
       });
-    }, 500);
+    }, 100);
   }, [setSwapBuildTxFetching, dialogClose, setSwapSteps]);
 
   const handleSelectAccountClick = useCallback(() => {
@@ -949,6 +948,8 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
                     }
                   >
                     <PreSwapDialogContent
+                      preSwapBeforeStepActions={preSwapBeforeStepActions}
+                      preSwapStepsStart={preSwapStepsStart}
                       onConfirm={handleConfirm}
                       onDone={onPreSwapClose}
                     />
@@ -980,6 +981,8 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
                     }
                   >
                     <PreSwapDialogContent
+                      preSwapBeforeStepActions={preSwapBeforeStepActions}
+                      preSwapStepsStart={preSwapStepsStart}
                       onDone={onPreSwapClose}
                       onConfirm={handleConfirm}
                     />
@@ -1003,6 +1006,8 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     InModalDialog,
     onPreSwapClose,
     intl,
+    preSwapBeforeStepActions,
+    preSwapStepsStart,
     handleConfirm,
     InTabDialog,
   ]);
@@ -1021,9 +1026,16 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     [navigation, storeName],
   );
 
-  const { isLoading, speedConfig, balanceLoading, isMEV, hasEnoughBalance } =
-    useSwapProTokenInit();
-
+  const { networkList } = useSwapProInit();
+  const {
+    isLoading,
+    speedConfig,
+    balanceLoading,
+    isMEV,
+    hasEnoughBalance,
+    supportSpeedSwap,
+  } = useSwapProTokenInit();
+  useSwapProErrorAlert(!supportSpeedSwap);
   useSwapQuote();
 
   return (
@@ -1058,6 +1070,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
             balanceLoading,
             isMEV,
             hasEnoughBalance,
+            networkList,
           }}
         />
       ) : (

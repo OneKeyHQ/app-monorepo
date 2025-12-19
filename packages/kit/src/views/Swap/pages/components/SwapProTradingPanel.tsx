@@ -85,17 +85,18 @@ const SwapProTradingPanel = ({
   useSwapProActionsQuote();
 
   return (
-    <YStack gap="$2" flex={1} justifyContent="space-between">
+    <YStack gap="$2.5" flex={1} justifyContent="space-between">
+      <TradeTypeSelector
+        value={swapProDirection}
+        size="small"
+        onChange={(value) => {
+          if (value) {
+            cleanInputAmount();
+            setSwapProDirection(value);
+          }
+        }}
+      />
       <YStack gap="$2">
-        <TradeTypeSelector
-          value={swapProDirection}
-          onChange={(value) => {
-            if (value) {
-              cleanInputAmount();
-              setSwapProDirection(value);
-            }
-          }}
-        />
         <SwapProTradeTypeSelector
           currentSelect={swapProTradeType}
           onSelectTradeType={(value) => {
@@ -110,9 +111,12 @@ const SwapProTradingPanel = ({
         ) : null}
         <SwapProInputContainer
           isLoading={configLoading}
-          defaultTokens={swapProConfig.defaultTokens as IToken[]}
+          defaultTokens={swapProConfig.defaultTokens}
+          defaultLimitTokens={swapProConfig.defaultLimitTokens}
           cleanInputAmount={cleanInputAmount}
         />
+      </YStack>
+      <YStack>
         <SwapProToTotalValue />
         <SwapProTradeInfoGroup balanceLoading={balanceLoading} />
         <SwapProAccountSelect onSelectAccountClick={handleSelectAccountClick} />

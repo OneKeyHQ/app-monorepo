@@ -33,8 +33,8 @@ export function SwapProSlippageSetting({
       justifyContent="space-between"
       alignItems="center"
       userSelect="none"
-      cursor="pointer"
       onPress={onSlippageHandleClick}
+      py="$1"
     >
       <XStack alignItems="center" gap="$1">
         <Icon name="ChartTrendingOutline" size="$4" color="$iconSubdued" />
