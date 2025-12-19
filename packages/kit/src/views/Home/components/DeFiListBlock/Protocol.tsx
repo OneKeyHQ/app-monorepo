@@ -8,7 +8,6 @@ import {
   Badge,
   Divider,
   Icon,
-  IconButton,
   Popover,
   SizableText,
   Stack,
@@ -31,6 +30,8 @@ import type { IDeFiAsset, IDeFiProtocol } from '@onekeyhq/shared/types/defi';
 import { EDeFiAssetType } from '@onekeyhq/shared/types/defi';
 
 import { RichTable } from '../RichTable';
+
+import type { GestureResponderEvent } from 'react-native';
 
 function Protocol({
   protocol,
@@ -334,15 +335,23 @@ function Protocol({
                 <SizableText size="$headingMd">
                   {protocolInfo?.protocolName ?? protocol.protocol}
                 </SizableText>
-                <IconButton
-                  title={intl.formatMessage({
-                    id: ETranslations.global_view_in_blockchain_explorer,
-                  })}
-                  variant="tertiary"
-                  icon="OpenOutline"
-                  size="small"
-                  onPress={() => openUrlExternal(protocolInfo?.protocolUrl)}
-                />
+                <XStack
+                  onPress={(event: GestureResponderEvent) => {
+                    event.stopPropagation();
+                    openUrlExternal(protocolInfo?.protocolUrl);
+                  }}
+                  cursor="pointer"
+                  borderRadius="$full"
+                  p="$1"
+                  hoverStyle={{
+                    bg: '$bgHover',
+                  }}
+                  pressStyle={{
+                    bg: '$bgActive',
+                  }}
+                >
+                  <Icon name="OpenOutline" size="$5" color="$iconSubdued" />
+                </XStack>
               </XStack>
               <XStack alignItems="center" gap="$3">
                 <NumberSizeableTextWrapper
