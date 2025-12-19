@@ -1,9 +1,16 @@
 import { useMemo } from 'react';
 
 import { isNil } from 'lodash';
+import { useIntl } from 'react-intl';
 
 import type { IYStackProps } from '@onekeyhq/components';
-import { IconButton, Stack, XStack, YStack } from '@onekeyhq/components';
+import {
+  IconButton,
+  SizableText,
+  Stack,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import AddressTypeSelector from '@onekeyhq/kit/src/components/AddressTypeSelector/AddressTypeSelector';
 import type { IListItemProps } from '@onekeyhq/kit/src/components/ListItem';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
@@ -17,6 +24,8 @@ import { showWalletAvatarEditDialog } from '@onekeyhq/kit/src/views/AccountManag
 import { WalletEditButton } from '@onekeyhq/kit/src/views/AccountManagerStacks/components/WalletEdit/WalletEditButton';
 import { WalletRenameButton } from '@onekeyhq/kit/src/views/AccountManagerStacks/components/WalletRename';
 import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -41,6 +50,7 @@ export function WalletDetailsHeader({
   const [accountSelectorContextData] = useAccountSelectorContextDataAtom();
   const { selectedAccount } = useSelectedAccount({ num: num ?? 0 });
   const actions = useAccountSelectorActions();
+  const intl = useIntl();
 
   const showAboutDevice =
     accountUtils.isHwWallet({ walletId: wallet?.id }) &&
@@ -108,7 +118,14 @@ export function WalletDetailsHeader({
               ) : null}
             </Stack>
           </Stack>
-          {wallet ? (
+          {platformEnv.isWebDappMode ? (
+            <SizableText size="$bodyLgMedium" pr="$1.5" numberOfLines={1}>
+              {intl.formatMessage({
+                id: ETranslations.global_connected_wallet,
+              })}
+            </SizableText>
+          ) : null}
+          {!platformEnv.isWebDappMode && wallet ? (
             <WalletRenameButton wallet={wallet} editable={editable} />
           ) : null}
         </XStack>
