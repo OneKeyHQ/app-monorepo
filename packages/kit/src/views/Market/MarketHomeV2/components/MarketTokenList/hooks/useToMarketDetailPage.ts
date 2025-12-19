@@ -8,12 +8,15 @@ import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/m
 import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
+  EModalRoutes,
   ERootRoutes,
   ETabMarketRoutes,
   ETabRoutes,
   type ITabMarketParamList,
 } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+
+import { EModalMarketRoutes } from '../../../../router';
 
 interface IMarketToken {
   tokenAddress: string;
@@ -72,10 +75,17 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
             from: params.from || enterSource,
           },
         });
-      } else if (options?.useRootNavigation || platformEnv.isNative) {
-        // Use root navigation for:
-        // - Cases that explicitly request it (e.g., from modal, universal search)
-        // - Native platforms (iOS/Android) where nested navigation may not work correctly
+      } else if (platformEnv.isNative) {
+        // Native platforms: Open as Modal for better UX
+        rootNavigationRef.current?.navigate(ERootRoutes.Modal, {
+          screen: EModalRoutes.MarketModal,
+          params: {
+            screen: EModalMarketRoutes.MarketDetailV2,
+            params,
+          },
+        });
+      } else if (options?.useRootNavigation) {
+        // Use root navigation for cases that explicitly request it (e.g., from modal, universal search)
         rootNavigationRef.current?.navigate(ERootRoutes.Main, {
           screen: ETabRoutes.Market,
           params: {
