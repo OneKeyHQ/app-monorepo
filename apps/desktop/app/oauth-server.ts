@@ -19,17 +19,17 @@ export function setMainWindow(window: BrowserWindow | null) {
 // Fixed port range for OAuth callback
 // Web Application type requires explicit port configuration in Google Cloud Console
 // These ports must be added to Authorized redirect URIs:
-// http://localhost:19800/callback
-// http://localhost:19801/callback
-// http://localhost:19802/callback
-// http://localhost:19803/callback
-// http://localhost:19804/callback
-// http://127.0.0.1:19800/callback
-// http://127.0.0.1:19801/callback
-// http://127.0.0.1:19802/callback
-// http://127.0.0.1:19803/callback
-// http://127.0.0.1:19804/callback
-const OAUTH_PORTS = [19_800, 19_801, 19_802, 19_803, 19_804];
+// http://localhost:19185/callback
+// http://localhost:19285/callback
+// http://localhost:19385/callback
+// http://localhost:19485/callback
+// http://localhost:19585/callback
+// http://127.0.0.1:19185/callback
+// http://127.0.0.1:19285/callback
+// http://127.0.0.1:19385/callback
+// http://127.0.0.1:19485/callback
+// http://127.0.0.1:19585/callback
+const OAUTH_PORTS = [19_185, 19_285, 19_385, 19_485, 19_585];
 
 // Export functions for DesktopApiOAuth to use
 export async function startOAuthServer(): Promise<{ port: number }> {
