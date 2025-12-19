@@ -136,8 +136,12 @@ export async function openOAuthPopupExtIdentity(options: {
   // Declare outside try block so it can be cleaned up in catch
   let windowUpdateListener: ((window: chrome.windows.Window) => void) | null =
     null;
+  let focusInterval: ReturnType<typeof setInterval> | null = null;
+  let oauthWindowId: number | null = null;
+
   windowUpdateListener = (window: chrome.windows.Window) => {
     if (window.type === 'popup' && window.id) {
+      oauthWindowId = window.id;
       // Try to update window size and position
       // Note: Chrome may ignore these updates for OAuth windows
       chrome.windows
@@ -151,6 +155,18 @@ export async function openOAuthPopupExtIdentity(options: {
         .catch(() => {
           // Ignore errors - Chrome may not allow updating OAuth windows
         });
+
+      // Set up a polling interval to periodically focus the OAuth window
+      // Similar to web OAuth popup behavior (openOAuthPopupWeb.tsx)
+      // This ensures the OAuth window stays in front during the authentication flow
+      focusInterval = setInterval(() => {
+        if (oauthWindowId !== null) {
+          chrome.windows.update(oauthWindowId, { focused: true }).catch(() => {
+            // Ignore errors - window may be closed or Chrome may not allow focusing
+          });
+        }
+      }, 500); // Poll every 500ms, same as web implementation
+
       // Remove listener after first window is found
       if (windowUpdateListener) {
         chrome.windows.onCreated.removeListener(windowUpdateListener);
@@ -196,8 +212,12 @@ export async function openOAuthPopupExtIdentity(options: {
       interactive: true,
     });
 
-    // Clean up listener if OAuth flow completes before window is detected
+    // Clean up listener and focus interval if OAuth flow completes
     chrome.windows.onCreated.removeListener(windowUpdateListener);
+    if (focusInterval !== null) {
+      clearInterval(focusInterval);
+      focusInterval = null;
+    }
 
     if (!callbackUrl) {
       return {
@@ -255,9 +275,13 @@ export async function openOAuthPopupExtIdentity(options: {
       },
     };
   } catch (error) {
-    // Clean up listener on error
+    // Clean up listener and focus interval on error
     if (windowUpdateListener) {
       chrome.windows.onCreated.removeListener(windowUpdateListener);
+    }
+    if (focusInterval !== null) {
+      clearInterval(focusInterval);
+      focusInterval = null;
     }
     // User closed the popup or other error
     if (

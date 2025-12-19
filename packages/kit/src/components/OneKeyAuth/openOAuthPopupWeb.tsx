@@ -5,7 +5,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 export type IHandleOAuthSessionPersistenceParams = {
   accessToken: string;
   refreshToken: string;
-  persistSession: boolean;
+  persistSession?: boolean;
   // Whether to also login to Prime service (default: true)
   loginToPrime?: boolean;
 };

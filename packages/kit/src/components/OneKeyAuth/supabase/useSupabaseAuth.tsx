@@ -75,7 +75,7 @@ async function handleOAuthSessionPersistence({
 }: {
   accessToken: string;
   refreshToken: string;
-  persistSession: boolean;
+  persistSession?: boolean;
   // Whether to also login to Prime service
   loginToPrime?: boolean;
 }): Promise<void> {

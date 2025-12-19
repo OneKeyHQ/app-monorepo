@@ -35,6 +35,7 @@ import {
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 import type {
@@ -65,7 +66,7 @@ function validateVaultSettings({
   }
 }
 
-export async function getVaultSettings({ networkId }: { networkId: string }) {
+async function getVaultSettingsFn({ networkId }: { networkId: string }) {
   if (!networkId) {
     throw new OneKeyLocalError('networkId is not defined');
   }
@@ -117,6 +118,11 @@ export async function getVaultSettings({ networkId }: { networkId: string }) {
   validateVaultSettings({ settings, networkId });
   return settings;
 }
+
+export const getVaultSettings = cacheUtils.memoizee(getVaultSettingsFn, {
+  promise: true,
+  primitive: true,
+});
 
 export async function getVaultSettingsAccountDeriveInfo({
   // template,

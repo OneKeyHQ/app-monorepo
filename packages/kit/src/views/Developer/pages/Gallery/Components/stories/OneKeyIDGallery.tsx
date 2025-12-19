@@ -3,10 +3,13 @@ import { useState } from 'react';
 import {
   Button,
   Dialog,
+  Icon,
   Input,
+  ScrollView,
   SizableText,
   Stack,
   Switch,
+  TextArea,
   Toast,
   XStack,
   YStack,
@@ -15,6 +18,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { useSupabaseAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/supabase/useSupabaseAuth';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
 import { Layout } from './utils/Layout';
 
@@ -52,6 +56,11 @@ function OneKeyIDApiTests() {
   const [otp, setOtp] = useState('');
   const [loading, setLoading] = useState<string | null>(null);
   const [persistSession, setPersistSession] = useState(false);
+  const [accessToken, setAccessToken] = useState('');
+  const [decodedToken, setDecodedToken] = useState<Record<
+    string,
+    unknown
+  > | null>(null);
 
   const {
     signInWithGoogle,
@@ -70,20 +79,31 @@ function OneKeyIDApiTests() {
   return (
     <YStack gap="$4">
       <SizableText size="$headingMd">Supabase Status</SizableText>
-      <SizableText>
-        Ready: {isReady ? 'Yes' : 'No'} | Logged In:{' '}
-        {isSupabaseLoggedIn ? 'Yes' : 'No'}
-      </SizableText>
+      <XStack gap="$4" alignItems="center">
+        <XStack gap="$2" alignItems="center">
+          <Icon
+            name={isReady ? 'CheckmarkSolid' : 'XCircleSolid'}
+            color={isReady ? '$iconSuccess' : '$iconCritical'}
+            size="$5"
+          />
+          <SizableText>Ready</SizableText>
+        </XStack>
+        <XStack gap="$2" alignItems="center">
+          <Icon
+            name={isSupabaseLoggedIn ? 'CheckmarkSolid' : 'XCircleSolid'}
+            color={isSupabaseLoggedIn ? '$iconSuccess' : '$iconCritical'}
+            size="$5"
+          />
+          <SizableText>Logged In</SizableText>
+        </XStack>
+      </XStack>
 
       <SizableText size="$headingMd" mt="$2">
         OAuth Sign In
       </SizableText>
 
       <XStack gap="$3" alignItems="center" mb="$2">
-        <Switch
-          value={persistSession}
-          onChange={setPersistSession}
-        />
+        <Switch value={persistSession} onChange={setPersistSession} />
         <SizableText size="$bodyMd">
           Persist Session (save to storage)
         </SizableText>
@@ -97,7 +117,14 @@ function OneKeyIDApiTests() {
             try {
               setLoading('google');
               const result = await signInWithGoogle({ persistSession });
-              if (result.success) {
+              if (result.success && result.session?.accessToken) {
+                // Set access token
+                setAccessToken(result.session.accessToken);
+                // Decode JWT token
+                const decoded = stringUtils.decodeJWT(
+                  result.session.accessToken,
+                );
+                setDecodedToken(decoded);
                 Toast.success({
                   title: 'Google Sign In Success',
                   message: 'You are now signed in with Google',
@@ -205,6 +232,46 @@ function OneKeyIDApiTests() {
           Verify OTP
         </Button>
       </Stack>
+
+      <Stack gap="$2" mt="$4">
+        <SizableText size="$headingMd">Access Token</SizableText>
+        <TextArea
+          value={accessToken}
+          onChangeText={(text) => {
+            setAccessToken(text);
+            // Re-decode JWT token when user changes the textarea content
+            if (text.trim()) {
+              const decoded = stringUtils.decodeJWT(text.trim());
+              setDecodedToken(decoded);
+            } else {
+              setDecodedToken(null);
+            }
+          }}
+          placeholder="Access token will appear here after login"
+          numberOfLines={4}
+        />
+      </Stack>
+
+      {decodedToken !== null ? (
+        <Stack gap="$2" mt="$4">
+          <SizableText size="$headingMd">Decoded Access Token</SizableText>
+          <ScrollView
+            maxHeight={300}
+            borderWidth={1}
+            borderColor="$borderSubdued"
+            borderRadius="$2"
+            padding="$3"
+            backgroundColor="$bgSubdued"
+          >
+            <SizableText
+              size="$bodySm"
+              style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}
+            >
+              {JSON.stringify(decodedToken, null, 2)}
+            </SizableText>
+          </ScrollView>
+        </Stack>
+      ) : null}
 
       <SizableText size="$headingMd" mt="$4">
         Session Management
