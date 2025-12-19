@@ -107,8 +107,6 @@ function PerpTradingForm({
   );
 
   const prevTypeRef = useRef<'market' | 'limit'>(formData.type);
-  const prevTokenRef = useRef<string>(currentTokenName || '');
-  const tokenSwitchingRef = useRef<string | false>(false);
 
   useEffect(() => {
     const prevType = prevTypeRef.current;
@@ -165,41 +163,6 @@ function PerpTradingForm({
     formData.leverage,
     updateForm,
   ]);
-
-  // Token Switch Effect: Handle price updates when user switches tokens
-  // This prevents stale price data from being used during token transitions
-  useEffect(() => {
-    const prevToken = prevTokenRef.current;
-    const hasTokenChanged =
-      currentTokenName && prevToken && prevToken !== currentTokenName;
-    const isDataSynced = prevToken === currentTokenName;
-    const shouldUpdatePrice =
-      tokenSwitchingRef.current === currentTokenName &&
-      formData.type === 'limit' &&
-      currentTokenName &&
-      midPrice &&
-      isDataSynced;
-
-    // Step 1: Detect token switch and mark switching state
-    if (hasTokenChanged) {
-      tokenSwitchingRef.current = currentTokenName;
-      prevTokenRef.current = currentTokenName;
-      return;
-    }
-
-    // Step 2: Update price after token data is synchronized (prevents stale price)
-    if (shouldUpdatePrice && midPrice) {
-      updateForm({
-        price: formatPriceToSignificantDigits(midPrice),
-      });
-      tokenSwitchingRef.current = false;
-    }
-
-    // Step 3: Initialize token reference on first load
-    if (!prevToken && currentTokenName) {
-      prevTokenRef.current = currentTokenName;
-    }
-  }, [currentTokenName, midPrice, formData.type, updateForm]);
 
   // Reference Price: Get the effective trading price (limit price or market price)
   const [, referencePriceString] = useMemo(() => {
