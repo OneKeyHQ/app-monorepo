@@ -59,7 +59,6 @@ import {
   useSwapProSelectTokenAtom,
   useSwapProSellToTokenAtom,
   useSwapProSupportNetworksTokenListAtom,
-  useSwapProToTotalValueAtom,
   useSwapProTokenSupportLimitAtom,
   useSwapProTokenTransactionPriceAtom,
   useSwapProTradeTypeAtom,
@@ -1012,15 +1011,11 @@ export function useSwapProActionsQuote() {
   const debounceInputAmount = useDebounce(swapProInputAmount, 300, {
     leading: true,
   });
-  const currencyInfo = useCurrency();
   const [swapProSelectToken] = useSwapProSelectTokenAtom();
   const [swapProDirection] = useSwapProDirectionAtom();
   const [swapProUseSelectBuyTokenAtom] = useSwapProUseSelectBuyTokenAtom();
   const [swapProSellToTokenAtom] = useSwapProSellToTokenAtom();
-  const [, setSwapProToTotalValue] = useSwapProToTotalValueAtom();
-  const [swapProQuoteResult] = useSwapSpeedQuoteResultAtom();
   const { slippageItem } = useSwapSlippagePercentageModeInfo();
-  const swapProtoToken = useSwapProToToken();
   const swapProAccount = useSwapProAccount();
   const slippageItemRef = useRef(slippageItem);
   if (slippageItemRef.current !== slippageItem) {
@@ -1032,30 +1027,6 @@ export function useSwapProActionsQuote() {
       swapTradeType === ESwapProTradeType.MARKET,
     [swapTabSwitchType, swapTradeType],
   );
-
-  useEffect(() => {
-    if (
-      swapProQuoteResult?.toAmount &&
-      swapTradeType === ESwapProTradeType.MARKET
-    ) {
-      const toAmountBN = new BigNumber(swapProQuoteResult.toAmount);
-      const toTokenPriceBN = new BigNumber(swapProtoToken?.price || '0');
-      const toTokenValue = toTokenPriceBN.multipliedBy(toAmountBN).toFixed();
-      const formattedToTokenValue = numberFormat(toTokenValue, {
-        formatter: 'value',
-        formatterOptions: {
-          currency: currencyInfo.symbol,
-        },
-      });
-      setSwapProToTotalValue(formattedToTokenValue);
-    }
-  }, [
-    swapTradeType,
-    setSwapProToTotalValue,
-    swapProtoToken?.price,
-    swapProQuoteResult?.toAmount,
-    currencyInfo.symbol,
-  ]);
 
   useEffect(() => {
     const debounceInputAmountBN = new BigNumber(debounceInputAmount ?? '0');

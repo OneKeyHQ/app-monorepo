@@ -27,6 +27,12 @@ export interface IPerpsSliderProps {
   sliderHeight?: number;
   showBubble?: boolean;
   step?: number;
+  /**
+   * When true, the slider fills from center (0) instead of left edge.
+   * Negative values fill left from center, positive values fill right from center.
+   * Native only.
+   */
+  centerOrigin?: boolean;
 }
 
 function PerpsSliderComponent({
@@ -39,6 +45,7 @@ function PerpsSliderComponent({
   sliderHeight,
   showBubble = false,
   step = 1,
+  centerOrigin = false,
 }: IPerpsSliderProps) {
   if (platformEnv.isNative) {
     return (
@@ -51,6 +58,7 @@ function PerpsSliderComponent({
         disabled={disabled}
         sliderHeight={sliderHeight}
         showBubble={showBubble}
+        centerOrigin={centerOrigin}
       />
     );
   }

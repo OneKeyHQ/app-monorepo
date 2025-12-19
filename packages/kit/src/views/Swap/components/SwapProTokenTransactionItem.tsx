@@ -37,7 +37,7 @@ const SwapProTokenTransactionItem = ({
     let formatPriceValue = FALLBACK_DISPLAY;
     if (isPriceValid) {
       formatPriceValue = numberFormat(rawTokenPrice, {
-        formatter: 'price',
+        formatter: 'marketCap',
         formatterOptions: {
           currency: currencyInfo.symbol,
         },
@@ -50,7 +50,7 @@ const SwapProTokenTransactionItem = ({
         .multipliedBy(rawTokenPrice)
         .toFixed();
       formatTokenValueValue = numberFormat(tokenValue, {
-        formatter: 'value',
+        formatter: 'marketCap',
         formatterOptions: {
           currency: currencyInfo.symbol,
         },

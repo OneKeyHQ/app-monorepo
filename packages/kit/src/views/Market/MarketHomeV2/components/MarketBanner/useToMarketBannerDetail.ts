@@ -3,6 +3,7 @@ import { useCallback } from 'react';
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import { rootNavigationRef, useMedia } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalRoutes,
@@ -21,6 +22,8 @@ export function useToMarketBannerDetail() {
 
   const toMarketBannerDetail = useCallback(
     (item: IMarketBannerItem) => {
+      defaultLogger.dex.banner.dexBannerEnter({ bannerId: item._id });
+
       const params = {
         tokenListId: item.tokenListId,
         title: item.title,
