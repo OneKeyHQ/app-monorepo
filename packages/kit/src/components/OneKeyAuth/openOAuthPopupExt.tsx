@@ -1,37 +1,33 @@
 /* eslint-disable spellcheck/spell-checker */
+import {
+  EExtensionOAuthMethod,
+  GOOGLE_OAUTH_AUTHORIZE_URL,
+  GOOGLE_OAUTH_DEFAULT_SCOPES,
+  GOOGLE_OAUTH_TOKENINFO_URL,
+  GOOGLE_OAUTH_USERINFO_URL,
+  OAUTH_FLOW_TIMEOUT_MS,
+  OAUTH_POLL_INTERVAL_MS,
+  OAUTH_POPUP_HEIGHT,
+  OAUTH_POPUP_WIDTH,
+  OAUTH_TOKEN_KEY_ACCESS_TOKEN,
+  OAUTH_TOKEN_KEY_ID_TOKEN,
+  OAUTH_TOKEN_KEY_REFRESH_TOKEN,
+} from '@onekeyhq/shared/src/consts/authConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { createTemporarySupabaseClient } from './supabase/getSupabaseClient';
 
 import type {
+  IExtensionOAuthConfig,
   IHandleOAuthSessionPersistenceParams,
   IOAuthPopupResult,
-} from './openOAuthPopupWeb';
+} from './openOAuthPopupTypes';
 
 // ============================================================================
 // Extension OAuth Methods
 // ============================================================================
 
-export enum EExtensionOAuthMethod {
-  // ✅ RECOMMENDED: Use getChromeApi().identity.launchWebAuthFlow with signInWithIdToken
-  // This method manually builds Google OAuth URL with response_type=id_token
-  // Then uses signInWithIdToken to exchange the ID token for a Supabase session
-  // Redirect URL: https://<extension-id>.chromiumapp.org/
-  // This is the Supabase recommended approach for Chrome Extensions
-  CHROME_IDENTITY_API = 'CHROME_IDENTITY_API',
-
-  // ✅ ALTERNATIVE: Use getChromeApi().identity.getAuthToken
-  // This method uses Chrome's built-in OAuth flow via manifest oauth2 config
-  // Then fetches user info and uses signInWithIdToken
-  // Requires oauth2.client_id in manifest.json
-  CHROME_GET_AUTH_TOKEN = 'CHROME_GET_AUTH_TOKEN',
-
-  // ❌ DOES NOT WORK: Direct chrome-extension:// scheme
-  // Redirect URL: chrome-extension://<extension-id>/ui-oauth-callback.html
-  // Chrome blocks external websites from redirecting to chrome-extension:// URLs
-  // Kept for reference only - do not use
-  DIRECT_EXTENSION_SCHEME = 'DIRECT_EXTENSION_SCHEME',
-}
+export { EExtensionOAuthMethod };
 
 /**
  * Get OAuth redirect URL for Chrome Extension
@@ -63,24 +59,6 @@ export function getOAuthRedirectUrlExt(
  * OAuth configuration for Google sign-in
  * These values should match your Google Cloud Console OAuth 2.0 Client ID settings
  */
-export interface IExtensionOAuthConfig {
-  // Google OAuth Client ID for Chrome Extension
-  // Create this in Google Cloud Console > APIs & Services > Credentials > OAuth 2.0 Client IDs
-  // Application type: Chrome Extension
-  googleClientId: string;
-  // OAuth scopes to request
-  scopes?: string[];
-}
-
-/**
- * Default OAuth scopes for Google sign-in
- */
-const DEFAULT_GOOGLE_SCOPES = [
-  'openid',
-  'https://www.googleapis.com/auth/userinfo.email',
-  'https://www.googleapis.com/auth/userinfo.profile',
-];
-
 /**
  * OAuth helper for Chrome Extension using getChromeApi().identity.launchWebAuthFlow
  * with Google ID Token + Supabase signInWithIdToken
@@ -112,7 +90,7 @@ export async function openOAuthPopupExtIdentity(options: {
   persistSession: boolean;
 }): Promise<IOAuthPopupResult> {
   const { config, handleSessionPersistence, persistSession } = options;
-  const { googleClientId, scopes = DEFAULT_GOOGLE_SCOPES } = config;
+  const { googleClientId, scopes = GOOGLE_OAUTH_DEFAULT_SCOPES } = config;
 
   if (!chrome.identity) {
     throw new OneKeyLocalError(
@@ -127,8 +105,8 @@ export async function openOAuthPopupExtIdentity(options: {
   // Note: chrome.identity.launchWebAuthFlow doesn't support window size/position options
   // Chrome controls the OAuth window and may not allow modifications
   // We'll set up a listener to try updating the window when it's created
-  const width = 500;
-  const height = 700;
+  const width = OAUTH_POPUP_WIDTH;
+  const height = OAUTH_POPUP_HEIGHT;
   const left = Math.round((globalThis.screen?.width || 1920) / 2 - width / 2);
   const top = Math.round((globalThis.screen?.height || 1080) / 2 - height / 2);
 
@@ -165,7 +143,7 @@ export async function openOAuthPopupExtIdentity(options: {
             // Ignore errors - window may be closed or Chrome may not allow focusing
           });
         }
-      }, 500); // Poll every 500ms, same as web implementation
+      }, OAUTH_POLL_INTERVAL_MS); // Same cadence as web implementation
 
       // Remove listener after first window is found
       if (windowUpdateListener) {
@@ -184,7 +162,7 @@ export async function openOAuthPopupExtIdentity(options: {
     if (redirectUrl.endsWith('/')) {
       redirectUrl = redirectUrl.slice(0, -1);
     }
-    const authUrl = new URL('https://accounts.google.com/o/oauth2/auth');
+    const authUrl = new URL(GOOGLE_OAUTH_AUTHORIZE_URL);
 
     authUrl.searchParams.set('client_id', googleClientId);
     authUrl.searchParams.set('response_type', 'id_token');
@@ -229,7 +207,7 @@ export async function openOAuthPopupExtIdentity(options: {
     // Parse id_token from the callback URL hash
     const url = new URL(callbackUrl);
     const hashParams = new URLSearchParams(url.hash.substring(1));
-    const idToken = hashParams.get('id_token');
+    const idToken = hashParams.get(OAUTH_TOKEN_KEY_ID_TOKEN);
 
     if (!idToken) {
       throw new OneKeyLocalError('No ID token received from Google OAuth');
@@ -355,7 +333,7 @@ export async function openOAuthPopupExtIdToken(_options: {
     // Step 2: Fetch user info from Google to get the ID token
     // We need to use the tokeninfo endpoint to get additional token details
     const tokenInfoResponse = await fetch(
-      `https://oauth2.googleapis.com/tokeninfo?access_token=${googleAccessToken}`,
+      `${GOOGLE_OAUTH_TOKENINFO_URL}?${OAUTH_TOKEN_KEY_ACCESS_TOKEN}=${googleAccessToken}`,
     );
 
     if (!tokenInfoResponse.ok) {
@@ -365,14 +343,11 @@ export async function openOAuthPopupExtIdToken(_options: {
     // Step 3: Get the ID token by making an OAuth request
     // Since getAuthToken doesn't directly return id_token, we need to use a different approach
     // We'll use the access token to get user info and then exchange with Supabase
-    const userInfoResponse = await fetch(
-      'https://www.googleapis.com/oauth2/v3/userinfo',
-      {
-        headers: {
-          Authorization: `Bearer ${googleAccessToken}`,
-        },
+    const userInfoResponse = await fetch(GOOGLE_OAUTH_USERINFO_URL, {
+      headers: {
+        Authorization: `Bearer ${googleAccessToken}`,
       },
-    );
+    });
 
     if (!userInfoResponse.ok) {
       throw new OneKeyLocalError('Failed to get user info from Google');
@@ -470,8 +445,8 @@ export function openOAuthPopupExtWindow(options: {
 
   return new Promise((resolve, reject) => {
     // Popup window dimensions (same as web OAuth popup)
-    const width = 500;
-    const height = 700;
+    const width = OAUTH_POPUP_WIDTH;
+    const height = OAUTH_POPUP_HEIGHT;
     let windowId: number | undefined;
     let resolved = false;
 
@@ -557,8 +532,8 @@ export function openOAuthPopupExtWindow(options: {
             parsedUrl.hash.substring(1) || parsedUrl.search.substring(1),
           );
 
-          const accessToken = hashParams.get('access_token');
-          const refreshToken = hashParams.get('refresh_token');
+          const accessToken = hashParams.get(OAUTH_TOKEN_KEY_ACCESS_TOKEN);
+          const refreshToken = hashParams.get(OAUTH_TOKEN_KEY_REFRESH_TOKEN);
 
           if (accessToken && refreshToken) {
             void handleSessionPersistence({
@@ -624,7 +599,7 @@ export function openOAuthPopupExtWindow(options: {
             closeWindow();
             reject(new OneKeyLocalError('OAuth sign-in timed out'));
           }
-        }, 5 * 60 * 1000); // 5 minutes timeout
+        }, OAUTH_FLOW_TIMEOUT_MS); // 5 minutes timeout
       },
     );
   });

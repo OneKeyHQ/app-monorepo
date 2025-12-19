@@ -1,28 +1,18 @@
+import {
+  OAUTH_FLOW_TIMEOUT_MS,
+  OAUTH_POLL_INTERVAL_MS,
+  OAUTH_POPUP_HEIGHT,
+  OAUTH_POPUP_WIDTH,
+  OAUTH_TOKEN_KEY_ACCESS_TOKEN,
+  OAUTH_TOKEN_KEY_REFRESH_TOKEN,
+} from '@onekeyhq/shared/src/consts/authConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
+import type {
+  IHandleOAuthSessionPersistenceParams,
+  IOAuthPopupResult,
+} from './openOAuthPopupTypes';
 import type { SupabaseClient } from '@supabase/supabase-js';
-
-export type IHandleOAuthSessionPersistenceParams = {
-  accessToken: string;
-  refreshToken: string;
-  persistSession?: boolean;
-  // Whether to also login to Prime service (default: true)
-  loginToPrime?: boolean;
-};
-
-export type IOAuthPopupResult = {
-  success: boolean;
-  session?: {
-    accessToken: string;
-    refreshToken: string;
-  };
-};
-
-export type IOpenOAuthPopupOptions = {
-  // Whether to persist the session to storage
-  // When false (default): Only return tokens, don't call setSession
-  persistSession?: boolean;
-};
 
 /**
  * Get OAuth redirect URL for web platform
@@ -60,8 +50,8 @@ export async function openOAuthPopupWeb(options: {
   const { authUrl, client, handleSessionPersistence, persistSession } = options;
   return new Promise((resolve, reject) => {
     // Calculate popup window position (centered)
-    const width = 500;
-    const height = 700;
+    const width = OAUTH_POPUP_WIDTH;
+    const height = OAUTH_POPUP_HEIGHT;
     const left = globalThis.screenX + (globalThis.outerWidth - width) / 2;
     const top = globalThis.screenY + (globalThis.outerHeight - height) / 2;
 
@@ -116,7 +106,10 @@ export async function openOAuthPopupWeb(options: {
         // Try to read the popup URL to check for callback
         try {
           const popupUrl = popup.location.href;
-          if (popupUrl && popupUrl.includes('access_token=')) {
+          if (
+            popupUrl &&
+            popupUrl.includes(`${OAUTH_TOKEN_KEY_ACCESS_TOKEN}=`)
+          ) {
             clearInterval(pollInterval);
             popup.close();
 
@@ -126,8 +119,8 @@ export async function openOAuthPopupWeb(options: {
               url.hash.substring(1) || url.search.substring(1),
             );
 
-            const accessToken = hashParams.get('access_token');
-            const refreshToken = hashParams.get('refresh_token');
+            const accessToken = hashParams.get(OAUTH_TOKEN_KEY_ACCESS_TOKEN);
+            const refreshToken = hashParams.get(OAUTH_TOKEN_KEY_REFRESH_TOKEN);
 
             if (accessToken && refreshToken) {
               await handleSessionPersistence({
@@ -159,7 +152,7 @@ export async function openOAuthPopupWeb(options: {
         popup.close();
         reject(error);
       }
-    }, 500);
+    }, OAUTH_POLL_INTERVAL_MS);
 
     // Cleanup after timeout (5 minutes)
     setTimeout(() => {
@@ -171,6 +164,6 @@ export async function openOAuthPopupWeb(options: {
         success: false,
         session: undefined,
       });
-    }, 5 * 60 * 1000);
+    }, OAUTH_FLOW_TIMEOUT_MS);
   });
 }

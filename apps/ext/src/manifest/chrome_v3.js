@@ -124,17 +124,4 @@ module.exports = {
     'sidePanel',
     'contextMenus',
   ],
-  // OAuth2 configuration for chrome.identity.getAuthToken
-  // Required for CHROME_GET_AUTH_TOKEN method
-  // The client_id should be a Chrome Extension type OAuth client from Google Cloud Console
-  'oauth2': {
-    'client_id':
-      process.env.GOOGLE_CHROME_EXTENSION_CLIENT_ID ||
-      '244450898872-foi2b6mtfqus1ed46hu5j03abne6b04s.apps.googleusercontent.com',
-    'scopes': [
-      'openid',
-      'https://www.googleapis.com/auth/userinfo.email',
-      'https://www.googleapis.com/auth/userinfo.profile',
-    ],
-  },
 };

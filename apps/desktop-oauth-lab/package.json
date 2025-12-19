@@ -1,0 +1,10 @@
+{
+  "name": "@onekeyhq/desktop-oauth-lab",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "node ./src/index.mjs",
+    "start:no-open": "node ./src/index.mjs --no-open"
+  }
+}

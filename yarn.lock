@@ -7763,6 +7763,12 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@onekeyhq/desktop-oauth-lab@workspace:apps/desktop-oauth-lab":
+  version: 0.0.0-use.local
+  resolution: "@onekeyhq/desktop-oauth-lab@workspace:apps/desktop-oauth-lab"
+  languageName: unknown
+  linkType: soft
+
 "@onekeyhq/desktop@workspace:apps/desktop":
   version: 0.0.0-use.local
   resolution: "@onekeyhq/desktop@workspace:apps/desktop"
