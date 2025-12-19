@@ -720,11 +720,6 @@ export const {
 } = contextAtom<boolean>(true);
 
 export const {
-  atom: swapProToTotalValueAtom,
-  use: useSwapProToTotalValueAtom,
-} = contextAtom<string>('');
-
-export const {
   atom: swapProLimitPriceValueAtom,
   use: useSwapProLimitPriceValueAtom,
 } = contextAtom<string>('');
