@@ -1,5 +1,6 @@
 import { useCallback, useMemo } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
@@ -11,6 +12,7 @@ import {
   Popover,
   SizableText,
   Stack,
+  Tooltip,
   View,
   XStack,
   YStack,
@@ -128,16 +130,38 @@ function Protocol({
       {
         title: intl.formatMessage({ id: ETranslations.global_value }),
         dataIndex: 'value',
-        render: (value: string) => (
-          <NumberSizeableTextWrapper
-            hideValue
-            size="$bodyMdMedium"
-            formatter="value"
-            formatterOptions={{ currency: settings.currencyInfo.symbol }}
-          >
-            {value}
-          </NumberSizeableTextWrapper>
-        ),
+        render: (value: string) => {
+          const valueBN = new BigNumber(value);
+          const isValueUnavailable = valueBN.isNaN() || valueBN.isZero();
+          return (
+            <XStack alignItems="center" gap="$1">
+              {isValueUnavailable ? (
+                <Stack width="$4" height="$4">
+                  <Tooltip
+                    renderContent={intl.formatMessage({
+                      id: ETranslations.wallet_price_unavailable,
+                    })}
+                    renderTrigger={
+                      <Icon
+                        name="ErrorOutline"
+                        size="$4"
+                        color="$iconCritical"
+                      />
+                    }
+                  />
+                </Stack>
+              ) : null}
+              <NumberSizeableTextWrapper
+                hideValue
+                size="$bodyMdMedium"
+                formatter="value"
+                formatterOptions={{ currency: settings.currencyInfo.symbol }}
+              >
+                {isValueUnavailable ? '--' : valueBN.toFixed()}
+              </NumberSizeableTextWrapper>
+            </XStack>
+          );
+        },
       },
     ];
   }, [settings.currencyInfo.symbol, intl]);
@@ -162,6 +186,7 @@ function Protocol({
                   </Badge.Text>
                 </Badge>
                 <Popover
+                  hoverable
                   placement="top"
                   title={intl.formatMessage({
                     id: ETranslations.wallet_defi_position_name_popover_title,

@@ -6,11 +6,13 @@ import { useIntl } from 'react-intl';
 import {
   Badge,
   Divider,
+  Icon,
   IconButton,
   Page,
   Popover,
   SizableText,
   Stack,
+  Tooltip,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -25,6 +27,7 @@ import type {
 } from '@onekeyhq/shared/src/routes/assetDetails';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EDeFiAssetType, type IDeFiAsset } from '@onekeyhq/shared/types/defi';
+import BigNumber from 'bignumber.js';
 
 function DeFiProtocolDetails() {
   const route =
@@ -209,17 +212,39 @@ function DeFiProtocolDetails() {
                       >
                         {asset.amount}
                       </NumberSizeableTextWrapper>
-                      <NumberSizeableTextWrapper
-                        hideValue
-                        size="$bodyMd"
-                        formatter="value"
-                        formatterOptions={{
-                          currency: settings.currencyInfo.symbol,
-                        }}
-                        color="$textSubdued"
-                      >
-                        {asset.value}
-                      </NumberSizeableTextWrapper>
+                      <XStack alignItems="center" gap="$1">
+                        {new BigNumber(asset.value).isNaN() ||
+                        new BigNumber(asset.value).isZero() ? (
+                          <Stack width="$4" height="$4">
+                            <Tooltip
+                              renderContent={intl.formatMessage({
+                                id: ETranslations.wallet_price_unavailable,
+                              })}
+                              renderTrigger={
+                                <Icon
+                                  name="ErrorOutline"
+                                  size="$4"
+                                  color="$iconCritical"
+                                />
+                              }
+                            />
+                          </Stack>
+                        ) : null}
+                        <NumberSizeableTextWrapper
+                          hideValue
+                          size="$bodyMd"
+                          formatter="value"
+                          formatterOptions={{
+                            currency: settings.currencyInfo.symbol,
+                          }}
+                          color="$textSubdued"
+                        >
+                          {new BigNumber(asset.value).isNaN() ||
+                          new BigNumber(asset.value).isZero()
+                            ? '--'
+                            : new BigNumber(asset.value).toFixed()}
+                        </NumberSizeableTextWrapper>
+                      </XStack>
                     </YStack>
                   </XStack>
                 ),
