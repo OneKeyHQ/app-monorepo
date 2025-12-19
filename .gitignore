@@ -6,6 +6,7 @@ __generated__
 .DS_Store
 .idea/
 .vscode/
+.cursor/debug.log
 .chat/
 .claude/PRPs
 .claude/settings.local.json
