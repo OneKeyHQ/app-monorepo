@@ -3651,7 +3651,7 @@
   "transfer.recent_transfers": "การโอนล่าสุด",
   "transfer.recent_transfers_empty": "ผู้รับล่าสุดจะแสดงที่นี่",
   "transfer.security_alert_new_device_re_pair": "ตรวจพบอุปกรณ์ใหม่ การเชื่อมต่อถูกขัดจังหวะเพื่อความปลอดภัย กรุณาจับคู่อุปกรณ์ของคุณใหม่",
-  "transfer.send_onekey_rpc_button": "สลับไปใช้ OneKey RPC",
+  "transfer.send_onekey_rpc_button": "สลับ",
   "transfer.send_onekey_rpc_default": "ตั้ง OneKey RPC เป็นค่าเริ่มต้น",
   "transfer.send_onekey_rpc_desc": "เราแนะนำให้ใช้ OneKey RPC เพื่อดำเนินการส่งธุรกรรมนี้ให้สำเร็จต่อไป",
   "transfer.send_onekey_rpc_title": "ส่งผ่าน OneKey RPC",

@@ -3651,7 +3651,7 @@
   "transfer.recent_transfers": "最近转账",
   "transfer.recent_transfers_empty": "最近的收款方将显示在此处",
   "transfer.security_alert_new_device_re_pair": "检测到新设备。为保障安全，连接已中断。请重新配对您的设备。",
-  "transfer.send_onekey_rpc_button": "切换到 OneKey RPC",
+  "transfer.send_onekey_rpc_button": "切换",
   "transfer.send_onekey_rpc_default": "将 OneKey RPC 设为默认",
   "transfer.send_onekey_rpc_desc": "我们建议使用 OneKey RPC 以继续成功发送此交易。",
   "transfer.send_onekey_rpc_title": "通过 OneKey RPC 发送",

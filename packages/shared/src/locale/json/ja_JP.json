@@ -3651,7 +3651,7 @@
   "transfer.recent_transfers": "最近の移籍",
   "transfer.recent_transfers_empty": "最近の受信者がここに表示されます",
   "transfer.security_alert_new_device_re_pair": "新しいデバイスを検出しました。セキュリティのため接続を中断しました。デバイスを再度ペアリングしてください。",
-  "transfer.send_onekey_rpc_button": "OneKey RPCに切り替える",
+  "transfer.send_onekey_rpc_button": "切り替える",
   "transfer.send_onekey_rpc_default": "OneKey RPCをデフォルトに設定",
   "transfer.send_onekey_rpc_desc": "このトランザクションを正常に送信し続けるには、OneKey RPCの使用をお勧めします。",
   "transfer.send_onekey_rpc_title": "OneKey RPCで送信",

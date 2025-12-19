@@ -3651,7 +3651,7 @@
   "transfer.recent_transfers": "Transfer terbaru",
   "transfer.recent_transfers_empty": "Penerima terbaru akan ditampilkan di sini",
   "transfer.security_alert_new_device_re_pair": "Perangkat baru terdeteksi. Koneksi terputus untuk keamanan. Silakan pasangkan kembali perangkat Anda.",
-  "transfer.send_onekey_rpc_button": "Beralih ke OneKey RPC",
+  "transfer.send_onekey_rpc_button": "Beralih",
   "transfer.send_onekey_rpc_default": "Atur OneKey RPC sebagai default",
   "transfer.send_onekey_rpc_desc": "Kami merekomendasikan menggunakan OneKey RPC untuk melanjutkan pengiriman transaksi ini dengan sukses.",
   "transfer.send_onekey_rpc_title": "Kirim melalui OneKey RPC",

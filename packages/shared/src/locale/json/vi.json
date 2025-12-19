@@ -3651,7 +3651,7 @@
   "transfer.recent_transfers": "Chuyển khoản gần đây",
   "transfer.recent_transfers_empty": "Người nhận gần đây sẽ hiển thị ở đây",
   "transfer.security_alert_new_device_re_pair": "Phát hiện thiết bị mới. Kết nối bị gián đoạn vì lý do bảo mật. Vui lòng ghép nối lại thiết bị của bạn.",
-  "transfer.send_onekey_rpc_button": "Chuyển sang OneKey RPC",
+  "transfer.send_onekey_rpc_button": "Chuyển đổi",
   "transfer.send_onekey_rpc_default": "Đặt OneKey RPC làm mặc định",
   "transfer.send_onekey_rpc_desc": "Chúng tôi khuyến nghị sử dụng OneKey RPC để tiếp tục gửi giao dịch này thành công.",
   "transfer.send_onekey_rpc_title": "Gửi qua OneKey RPC",

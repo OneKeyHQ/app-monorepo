@@ -3651,7 +3651,7 @@
   "transfer.recent_transfers": "हाल की ट्रांसफर",
   "transfer.recent_transfers_empty": "हाल ही के प्राप्तकर्ता यहाँ दिखेंगे",
   "transfer.security_alert_new_device_re_pair": "नया डिवाइस पाया गया। सुरक्षा के लिए कनेक्शन बाधित। कृपया अपना डिवाइस पुनः जोड़ें।",
-  "transfer.send_onekey_rpc_button": "OneKey RPC पर स्विच करें",
+  "transfer.send_onekey_rpc_button": "स्विच",
   "transfer.send_onekey_rpc_default": "OneKey RPC को डिफ़ॉल्ट के रूप में सेट करें",
   "transfer.send_onekey_rpc_desc": "हम इस लेनदेन को सफलतापूर्वक भेजना जारी रखने के लिए OneKey RPC का उपयोग करने की सलाह देते हैं।",
   "transfer.send_onekey_rpc_title": "OneKey RPC के माध्यम से भेजें",

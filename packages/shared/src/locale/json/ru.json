@@ -3651,7 +3651,7 @@
   "transfer.recent_transfers": "Недавние переводы",
   "transfer.recent_transfers_empty": "Здесь будут отображаться недавние получатели",
   "transfer.security_alert_new_device_re_pair": "Обнаружено новое устройство. Соединение прервано в целях безопасности. Пожалуйста, выполните сопряжение устройства заново.",
-  "transfer.send_onekey_rpc_button": "Переключиться на OneKey RPC",
+  "transfer.send_onekey_rpc_button": "Переключить",
   "transfer.send_onekey_rpc_default": "Установить OneKey RPC по умолчанию",
   "transfer.send_onekey_rpc_desc": "Мы рекомендуем использовать OneKey RPC для успешной отправки этой транзакции.",
   "transfer.send_onekey_rpc_title": "Отправить через OneKey RPC",

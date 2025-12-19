@@ -3651,7 +3651,7 @@
   "transfer.recent_transfers": "Transferencias recientes",
   "transfer.recent_transfers_empty": "Los destinatarios recientes se mostrarán aquí",
   "transfer.security_alert_new_device_re_pair": "Nuevo dispositivo detectado. Conexión interrumpida por seguridad. Por favor, vuelva a emparejar su dispositivo.",
-  "transfer.send_onekey_rpc_button": "Cambiar a OneKey RPC",
+  "transfer.send_onekey_rpc_button": "Cambiar",
   "transfer.send_onekey_rpc_default": "Establecer OneKey RPC como predeterminado",
   "transfer.send_onekey_rpc_desc": "Recomendamos usar OneKey RPC para seguir enviando esta transacción correctamente.",
   "transfer.send_onekey_rpc_title": "Enviar vía OneKey RPC",
