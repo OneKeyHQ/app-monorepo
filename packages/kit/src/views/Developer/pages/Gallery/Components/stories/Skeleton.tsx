@@ -1,7 +1,5 @@
 import { useState } from 'react';
 
-import { MotiView } from 'moti';
-
 import {
   Button,
   Input,
@@ -12,37 +10,21 @@ import {
 
 import { Layout } from './utils/Layout';
 
-const Spacer = ({ height = 16 }: { height?: number }) => (
-  <MotiView style={{ height }} />
-);
 const SkeletonDemo = () => (
-  <MotiView
-    transition={
-      {
-        type: 'timing',
-      } as any
-    }
-    style={{
-      flex: 1,
-      justifyContent: 'center',
-      padding: 16,
-    }}
-  >
-    <Skeleton radius="round" height={75} width={75} />
-    <Spacer />
-    <Skeleton width={250} />
-    <Spacer height={8} />
-    <Skeleton width="100%" />
-    <Spacer height={8} />
-    <Skeleton width="100%" />
-  </MotiView>
+  <YStack gap="$4">
+    <Skeleton radius="round" />
+    <Skeleton width={250} h="$8" />
+    <Skeleton colorMode="light" width={250} h="$8" />
+    <Skeleton colorMode="dark" width={250} h="$8" />
+  </YStack>
 );
 
 const SkeletonGroupDemo = () => {
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   return (
-    <YStack>
+    <YStack gap="$4">
       <Button
+        size="small"
         onPress={() => {
           setLoading(true);
           setTimeout(() => {
@@ -52,7 +34,7 @@ const SkeletonGroupDemo = () => {
       >
         Click it to show LoadingView
       </Button>
-      <YStack paddingVertical="$6">
+      <YStack py="$6">
         <Skeleton.Group show={loading}>
           <YStack gap="$4">
             <Skeleton>
@@ -79,7 +61,7 @@ const SelectGallery = () => (
         element: <SkeletonDemo />,
       },
       {
-        title: '默认状态',
+        title: 'Group Loading',
         element: <SkeletonGroupDemo />,
       },
     ]}
