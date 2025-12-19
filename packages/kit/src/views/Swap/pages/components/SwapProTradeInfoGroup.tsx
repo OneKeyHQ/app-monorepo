@@ -97,7 +97,7 @@ const SwapProTradeInfoGroup = ({
   }, [swapProQuoteResult?.fee?.percentageFee]);
 
   return (
-    <YStack gap="$3" mt="$2">
+    <YStack>
       <SwapCommonInfoItem
         title={intl.formatMessage({ id: ETranslations.global_balance })}
         valueComponent={
@@ -112,6 +112,9 @@ const SwapProTradeInfoGroup = ({
         titleProps={ITEM_TITLE_PROPS}
         valueProps={ITEM_VALUE_PROPS}
         isLoading={balanceLoading}
+        containerProps={{
+          py: '$1',
+        }}
       />
       <SwapCommonInfoItem
         title={intl.formatMessage({ id: ETranslations.earn_est_receive })}
@@ -123,6 +126,9 @@ const SwapProTradeInfoGroup = ({
             ? false
             : swapProQuoteFetching
         }
+        containerProps={{
+          py: '$1',
+        }}
       />
       <SwapCommonInfoItem
         title={intl.formatMessage({
@@ -132,6 +138,9 @@ const SwapProTradeInfoGroup = ({
         titleProps={ITEM_TITLE_PROPS}
         valueProps={ITEM_VALUE_PROPS}
         isLoading={swapProQuoteFetching}
+        containerProps={{
+          py: '$1',
+        }}
       />
     </YStack>
   );

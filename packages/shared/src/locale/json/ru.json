@@ -2554,6 +2554,7 @@
   "perp_trading_adjust_margin_updated": "Маржа обновлена",
   "perps.buy_tip": "Нужно больше {token}?",
   "perps.get_reward": "Получите награды",
+  "perps.offline_moblie": "Соединение потеряно. Проверьте подключение к сети и попробуйте обновить, потянув вниз.",
   "perps.share_position_background": "Фон",
   "perps.share_position_btn_Share_on_x": "Поделиться в X",
   "perps.share_position_btn_copy_link": "Копировать ссылку",

@@ -11,6 +11,7 @@ const defaultSpeedSwapConfig: ISpeedSwapConfig = {
     spenderAddress: '',
     slippage: 0.5,
     defaultTokens: [],
+    defaultLimitTokens: [],
     swapMevNetConfig: mevSwapNetworks,
   },
   supportSpeedSwap: false,
@@ -40,6 +41,7 @@ export function useSpeedSwapInit(
 
   return {
     defaultTokens: result?.speedConfig.defaultTokens as IToken[],
+    defaultLimitTokens: result?.speedConfig.defaultLimitTokens as IToken[],
     isLoading: !!isLoading,
     speedConfig: result?.speedConfig,
     supportSpeedSwap: result?.supportSpeedSwap,

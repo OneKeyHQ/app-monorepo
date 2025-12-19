@@ -94,6 +94,7 @@ const MarketNetworkFilterMobile = forwardRef<
                   networkName={network.name}
                   networkImageUri={network.logoURI}
                   isSelected={network?.id === selectedNetwork?.id}
+                  isAllNetworks={network.isAllNetworks}
                   onPress={() => onSelectNetwork(network)}
                   onLayout={(event) => handleItemLayout(network.id, event)}
                 />

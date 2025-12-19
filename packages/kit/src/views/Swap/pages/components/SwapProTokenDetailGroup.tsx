@@ -12,6 +12,7 @@ import SwapCommonInfoItem from '../../components/SwapCommonInfoItem';
 
 export const ITEM_TITLE_PROPS = { size: '$bodySm' } as const;
 export const ITEM_VALUE_PROPS = { size: '$bodySmMedium' } as const;
+export const ITEM_CONTAINER_PROPS = { py: '$0.5' } as const;
 
 const SwapProTokenDetailGroup = () => {
   const [tokenMarketDetailInfo] = useSwapProTokenMarketDetailInfoAtom();
@@ -59,12 +60,13 @@ const SwapProTokenDetailGroup = () => {
     };
   }, [tokenMarketDetailInfo, currencyInfo.symbol]);
   return (
-    <YStack gap="$1.5">
+    <YStack>
       <SwapCommonInfoItem
         title={intl.formatMessage({ id: ETranslations.dexmarket_market_cap })}
         value={marketCap}
         titleProps={ITEM_TITLE_PROPS}
         valueProps={ITEM_VALUE_PROPS}
+        containerProps={ITEM_CONTAINER_PROPS}
       />
       <SwapCommonInfoItem
         title={intl.formatMessage({
@@ -73,6 +75,7 @@ const SwapProTokenDetailGroup = () => {
         value={volume24h}
         titleProps={ITEM_TITLE_PROPS}
         valueProps={ITEM_VALUE_PROPS}
+        containerProps={ITEM_CONTAINER_PROPS}
       />
       <SwapCommonInfoItem
         title={intl.formatMessage({ id: ETranslations.dexmarket_liquidity })}
@@ -85,6 +88,7 @@ const SwapProTokenDetailGroup = () => {
         value={holders}
         titleProps={ITEM_TITLE_PROPS}
         valueProps={ITEM_VALUE_PROPS}
+        containerProps={ITEM_CONTAINER_PROPS}
       />
     </YStack>
   );

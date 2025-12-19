@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { Page, useMedia } from '@onekeyhq/components';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -31,7 +32,7 @@ function BasicMarketHome({
   const { md } = useMedia();
 
   // Load market basic config using the new hook
-  const { defaultNetworkId, formattedMinLiquidity } = useMarketBasicConfig();
+  const { formattedMinLiquidity } = useMarketBasicConfig();
   const [selectedNetworkId, setSelectedNetworkId] = useSelectedNetworkIdAtom();
 
   // Track market entry analytics
@@ -41,13 +42,15 @@ function BasicMarketHome({
   const { handleTabChange } = useTabAnalytics();
   const { handleNetworkChange } = useNetworkAnalytics(selectedNetworkId);
 
-  // Initialize with the default network from API config (only when not yet initialized)
+  // Initialize with "All Networks" as default (only when not yet initialized)
   useEffect(() => {
     // Only initialize if selectedNetworkId is empty (not yet set)
-    if (defaultNetworkId && !selectedNetworkId) {
-      setSelectedNetworkId(defaultNetworkId);
+    if (!selectedNetworkId) {
+      // Default to "All Networks"
+      const allNetworkId = getNetworkIdsMap().onekeyall;
+      setSelectedNetworkId(allNetworkId);
     }
-  }, [defaultNetworkId, selectedNetworkId, setSelectedNetworkId]);
+  }, [selectedNetworkId, setSelectedNetworkId]);
 
   const [liquidityFilter, setLiquidityFilter] = useState<ILiquidityFilter>({
     min: '5K',

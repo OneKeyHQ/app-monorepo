@@ -33,7 +33,7 @@ const SwapProInputSegment = ({
               flex={1}
               minWidth={0}
             >
-              <SizableText size="$bodyMd" numberOfLines={1}>
+              <SizableText size="$bodyMd" color="$text" numberOfLines={1}>
                 {text}
               </SizableText>
             </Button>

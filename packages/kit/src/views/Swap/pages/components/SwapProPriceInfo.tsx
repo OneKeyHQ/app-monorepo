@@ -64,11 +64,15 @@ const SwapProPriceInfo = () => {
     };
   }, [priceChange]);
   return (
-    <YStack gap="$1.5" mt="$1.5" mb="$1">
-      <SizableText size="$headingLg" color={textColor}>
+    <YStack>
+      <SizableText size="$headingLg" color={textColor} fontFamily="$monoMedium">
         {formattedPrice}
       </SizableText>
-      <SizableText size="$bodySmMedium" color={textColor}>
+      <SizableText
+        size="$bodySmMedium"
+        color={textColor}
+        fontFamily="$monoMedium"
+      >
         {formattedPriceChange}
       </SizableText>
     </YStack>
