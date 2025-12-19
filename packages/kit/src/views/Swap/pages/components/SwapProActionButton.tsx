@@ -3,7 +3,7 @@ import { useMemo } from 'react';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import { Button } from '@onekeyhq/components';
+import { Button, SizableText } from '@onekeyhq/components';
 import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
 import { useDebouncedCallback } from '@onekeyhq/kit/src/hooks/useDebounce';
 import {
@@ -16,7 +16,6 @@ import {
   useSwapSpeedQuoteResultAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { ESwapProTradeType } from '@onekeyhq/shared/types/swap/types';
 
 import { ESwapDirection } from '../../../Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
@@ -25,6 +24,105 @@ import {
   useSwapProInputToken,
 } from '../../hooks/useSwapPro';
 import { useSwapQuoteLoading } from '../../hooks/useSwapState';
+
+const MAX_BUTTON_CHARS = 25;
+
+/**
+ * Format value with compact notation (k, M, B, T)
+ */
+const formatCompactValue = (value: string, currencySymbol: string): string => {
+  const valueBN = new BigNumber(value);
+  if (valueBN.isNaN() || valueBN.isZero()) {
+    return '';
+  }
+
+  let formatted: string;
+  if (valueBN.gte(1e12)) {
+    formatted = `${valueBN.dividedBy(1e12).toFixed(1)}T`;
+  } else if (valueBN.gte(1e9)) {
+    formatted = `${valueBN.dividedBy(1e9).toFixed(1)}B`;
+  } else if (valueBN.gte(1e6)) {
+    formatted = `${valueBN.dividedBy(1e6).toFixed(1)}M`;
+  } else if (valueBN.gte(1e3)) {
+    formatted = `${valueBN.dividedBy(1e3).toFixed(1)}k`;
+  } else if (valueBN.gte(1)) {
+    formatted = valueBN.toFixed(2);
+  } else {
+    // For very small values, use 2 significant figures
+    formatted = valueBN.toPrecision(2);
+  }
+
+  return `(${currencySymbol}${formatted})`;
+};
+
+/**
+ * Format amount within character limit
+ * Rules:
+ * 1. Display as much as possible within the character limit
+ * 2. Use rounding for truncation
+ * 3. Special cases (may exceed limit, accept line break):
+ *    - At least 1 significant digit must be shown (e.g., 0.00000001)
+ *    - At least 4 decimal places if the number has decimals
+ */
+const formatAmountWithLimit = (amount: string, maxChars: number): string => {
+  if (!amount) return '';
+
+  const amountBN = new BigNumber(amount);
+  if (amountBN.isNaN() || amountBN.isZero()) {
+    return '0';
+  }
+
+  // Get full precision string
+  const fullPrecision = amountBN.toFixed();
+
+  // If full precision fits, return it
+  if (fullPrecision.length <= maxChars) {
+    return fullPrecision;
+  }
+
+  // Check if original number has decimals
+  const hasDecimal = !amountBN.isInteger();
+
+  // Calculate minimum required decimals
+  let minDecimals = 0;
+
+  if (amountBN.lt(1) && amountBN.gt(0)) {
+    // For numbers < 1, find first significant digit position
+    const decimalPart = fullPrecision.split('.')[1] || '';
+    let significantDecimalPos = decimalPart.length;
+
+    for (let i = 0; i < decimalPart.length; i += 1) {
+      if (decimalPart[i] !== '0') {
+        significantDecimalPos = i + 1;
+        break;
+      }
+    }
+
+    // At least show first significant digit, and at least 4 decimals
+    minDecimals = Math.max(4, significantDecimalPos);
+  } else if (hasDecimal) {
+    // For numbers >= 1 with decimals, at least 4 decimals
+    minDecimals = 4;
+  }
+
+  // Calculate available decimals based on character limit
+  const integerPartStr = amountBN.integerValue(BigNumber.ROUND_DOWN).toFixed();
+  // Available for decimals = maxChars - integerPart.length - 1 (for the dot)
+  const maxAvailableDecimals = maxChars - integerPartStr.length - 1;
+
+  // Determine final decimals to use
+  // If maxAvailable >= min, use maxAvailable to show as much as possible
+  // If maxAvailable < min, use min (accept line break)
+  const finalDecimals =
+    maxAvailableDecimals >= minDecimals ? maxAvailableDecimals : minDecimals;
+
+  if (finalDecimals > 0 && hasDecimal) {
+    return amountBN.toFixed(finalDecimals, BigNumber.ROUND_HALF_UP);
+  }
+
+  // No decimals
+  return integerPartStr;
+};
 
 interface ISwapProActionButtonProps {
   onSwapProActionClick: () => void;
@@ -58,70 +156,26 @@ const SwapProActionButton = ({
 
   const inputTokenValue = useMemo(() => {
     const inputPrice = new BigNumber(inputToken?.price || '0');
-    if (swapProTradeType === ESwapProTradeType.MARKET) {
-      const inputAmountBN = new BigNumber(inputAmount || '0');
-      if (
-        inputPrice.isNaN() ||
-        inputAmountBN.isNaN() ||
-        inputPrice.isZero() ||
-        inputAmountBN.isZero()
-      ) {
-        return '';
-      }
-      return `(${numberFormat(
-        inputPrice.multipliedBy(inputAmountBN).toFixed(),
-        {
-          formatter: 'value',
-          formatterOptions: {
-            currency: currencyInfo.symbol,
-          },
-        },
-      )})`;
-    }
-    const inputAmountBN = new BigNumber(swapFromInputAmount.value || '0');
-    if (
-      inputPrice.isNaN() ||
-      inputAmountBN.isNaN() ||
-      inputPrice.isZero() ||
-      inputAmountBN.isZero()
-    ) {
+    if (inputPrice.isNaN() || inputPrice.isZero()) {
       return '';
     }
-    return `(${numberFormat(inputPrice.multipliedBy(inputAmountBN).toFixed(), {
-      formatter: 'value',
-      formatterOptions: {
-        tokenSymbol: currencyInfo.symbol,
-      },
-    })})`;
+    if (swapProTradeType === ESwapProTradeType.MARKET) {
+      const inputProAmountBN = new BigNumber(inputAmount || '0');
+      if (inputProAmountBN.isNaN() || inputProAmountBN.isZero()) {
+        return '';
+      }
+      return inputPrice.multipliedBy(inputProAmountBN).toFixed();
+    }
+    const inputFromAmountBN = new BigNumber(swapFromInputAmount.value || '0');
+    if (inputFromAmountBN.isNaN() || inputFromAmountBN.isZero()) {
+      return '';
+    }
+    return inputPrice.multipliedBy(inputFromAmountBN).toFixed();
   }, [
     inputToken?.price,
     swapProTradeType,
     swapFromInputAmount.value,
     inputAmount,
-    currencyInfo.symbol,
-  ]);
-  const inputTokenAmountValue = useMemo(() => {
-    if (swapProTradeType === ESwapProTradeType.MARKET) {
-      const swapProInputAmountValue = new BigNumber(swapProInputAmount || '0');
-      return `${
-        swapProInputAmountValue.isZero() || swapProInputAmountValue.isNaN()
-          ? ''
-          : swapProInputAmountValue.toFixed()
-      } ${inputToken?.symbol ?? '-'}`;
-    }
-    const swapFromInputAmountValue = new BigNumber(
-      swapFromInputAmount.value || '0',
-    );
-    return `${
-      swapFromInputAmountValue.isZero() || swapFromInputAmountValue.isNaN()
-        ? ''
-        : swapFromInputAmountValue.toFixed()
-    } ${inputToken?.symbol ?? '-'}`;
-  }, [
-    swapProTradeType,
-    swapFromInputAmount.value,
-    swapProInputAmount,
-    inputToken?.symbol,
   ]);
   const debouncedOnSwapProActionClick = useDebouncedCallback(
     onSwapProActionClick,
@@ -162,19 +216,54 @@ const SwapProActionButton = ({
       });
     }
 
-    return `${intl.formatMessage({
+    // Format: "Buy {amount} {fromToken} ({Value})"
+    const directionText = intl.formatMessage({
       id:
         swapProDirection === ESwapDirection.BUY
           ? ETranslations.global_buy
           : ETranslations.global_sell,
-    })} ${inputTokenAmountValue} ${inputTokenValue}`;
+    });
+
+    const tokenSymbol = inputToken?.symbol ?? '-';
+    const currencySymbol = currencyInfo?.symbol ?? '$';
+
+    // Format value with compact notation (k, M, B, T)
+    const formattedValue = inputTokenValue
+      ? formatCompactValue(inputTokenValue, currencySymbol)
+      : '';
+
+    // Calculate fixed parts length
+    // Format: "{direction} {amount} {symbol} {value}"
+    // Fixed length = direction + space + symbol + (space + value if exists)
+    const fixedLength =
+      directionText.length +
+      1 +
+      tokenSymbol.length +
+      (formattedValue ? 1 + formattedValue.length : 0);
+
+    // Available characters for amount (subtract 1 for space before symbol)
+    const availableForAmount = MAX_BUTTON_CHARS - fixedLength - 1;
+
+    // Format amount within limit
+    const formattedAmount = formatAmountWithLimit(
+      inputAmount || '',
+      availableForAmount,
+    );
+
+    // Build final text
+    if (formattedValue) {
+      return `${directionText} ${formattedAmount} ${tokenSymbol} ${formattedValue}`;
+    }
+    return `${directionText} ${formattedAmount} ${tokenSymbol}`;
   }, [
     hasEnoughBalance,
-    inputTokenAmountValue,
-    inputTokenValue,
     intl,
     swapProAccount?.result?.addressDetail.address,
     swapProDirection,
+    inputToken?.symbol,
+    currencyInfo?.symbol,
+    inputTokenValue,
+    inputAmount,
   ]);
 
   return (
@@ -183,13 +272,16 @@ const SwapProActionButton = ({
       onPress={debouncedOnSwapProActionClick}
       variant="primary"
       size="small"
+      childrenAsText={false}
       backgroundColor={
         swapProDirection === ESwapDirection.BUY
           ? '$bgSuccessStrong'
           : '$bgCriticalStrong'
       }
     >
-      {actionButtonText}
+      <SizableText size="$bodyMdMedium" color="$textInverse" textAlign="center">
+        {actionButtonText}
+      </SizableText>
     </Button>
   );
 };
