@@ -302,16 +302,18 @@ function BasicEarnHome({
       refreshControl={
         <RefreshControl refreshing={isLoading} onRefresh={refreshEarnData} />
       }
-      fullWidthSlot={
-        <YStack>
-          <XStack px="$5" maxWidth={1280} mx="auto" w="100%">
-            <Overview onRefresh={refreshEarnData} isLoading={isLoading} />
-          </XStack>
-          {banners ? <YStack width="100%">{banners}</YStack> : null}
-        </YStack>
-      }
     >
       <YStack flex={1}>
+        <YStack>
+          <XStack px="$5">
+            <Overview onRefresh={refreshEarnData} isLoading={isLoading} />
+          </XStack>
+          {banners ? (
+            <YStack borderRadius="$3" width="100%" borderCurve="continuous">
+              {banners}
+            </YStack>
+          ) : null}
+        </YStack>
         <EarnMainTabs
           faqList={faqList || []}
           isFaqLoading={isFaqLoading}

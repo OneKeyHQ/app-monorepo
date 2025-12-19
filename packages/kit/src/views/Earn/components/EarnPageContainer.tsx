@@ -30,7 +30,6 @@ interface IEarnPageContainerProps {
   showBackButton?: boolean;
   footer?: React.ReactNode;
   customHeaderRightItems?: React.ReactNode;
-  fullWidthSlot?: React.ReactNode;
 }
 
 export function EarnPageContainer({
@@ -44,7 +43,6 @@ export function EarnPageContainer({
   footer,
   header,
   customHeaderRightItems,
-  fullWidthSlot,
 }: IEarnPageContainerProps) {
   const media = useMedia();
   const navigation = useAppNavigation();
@@ -95,9 +93,6 @@ export function EarnPageContainer({
                 {showHeader ? header : null}
               </XStack>
             ) : null}
-          </YStack>
-          {fullWidthSlot}
-          <YStack w="100%" maxWidth={EARN_PAGE_MAX_WIDTH} mx="auto">
             {children}
           </YStack>
         </ScrollView>
