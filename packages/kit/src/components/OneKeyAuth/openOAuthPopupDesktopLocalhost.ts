@@ -1,4 +1,5 @@
 import { Dialog } from '@onekeyhq/components';
+import type { IDialogInstance } from '@onekeyhq/components';
 import {
   OAUTH_CALLBACK_DESKTOP_CHANNEL,
   OAUTH_FLOW_TIMEOUT_MS,
@@ -27,12 +28,7 @@ import type {
  * 6. Renderer persists session via Supabase client auth.setSession
  *
  * Supabase Configuration:
- * - Add Redirect URLs (fixed port range), e.g.:
- *   http://127.0.0.1:19800/callback
- *   http://127.0.0.1:19801/callback
- *   http://127.0.0.1:19802/callback
- *   http://127.0.0.1:19803/callback
- *   http://127.0.0.1:19804/callback
+ * - Add Redirect URLs (fixed port range)
  *
  * @param options - Configuration options
  * @param options.authUrl - Supabase OAuth URL (skipBrowserRedirect=true)
@@ -59,6 +55,11 @@ export async function openOAuthPopupDesktopLocalhost(options: {
   return new Promise((resolve, reject) => {
     void (async () => {
       try {
+        let settled = false;
+        let timeoutId: ReturnType<typeof setTimeout> | null = null;
+        let dialogClosed = false;
+        let waitingDialog: IDialogInstance | null = null;
+
         // Listen for callback with tokens (access_token / refresh_token) via IPC
         const handleCallback = async (
           _event: Electron.IpcRendererEvent,
@@ -68,6 +69,10 @@ export async function openOAuthPopupDesktopLocalhost(options: {
             idToken?: string;
           },
         ) => {
+          if (settled) {
+            return;
+          }
+          settled = true;
           // Remove listener using desktopApi (for IPC events)
           if (globalThis.desktopApi) {
             globalThis.desktopApi.removeIpcEventListener(
@@ -77,6 +82,8 @@ export async function openOAuthPopupDesktopLocalhost(options: {
           }
 
           try {
+            dialogClosed = true;
+            await Promise.resolve(waitingDialog?.close());
             const accessToken = data.accessToken;
             const refreshToken = data.refreshToken;
 
@@ -105,6 +112,63 @@ export async function openOAuthPopupDesktopLocalhost(options: {
           }
         };
 
+        const cleanup = async (): Promise<void> => {
+          if (timeoutId) {
+            clearTimeout(timeoutId);
+            timeoutId = null;
+          }
+          if (globalThis.desktopApi) {
+            globalThis.desktopApi.removeIpcEventListener(
+              OAUTH_CALLBACK_DESKTOP_CHANNEL,
+              handleCallback,
+            );
+          }
+          try {
+            await globalThis.desktopApiProxy.oauthLocalServer.stopServer();
+          } catch {
+            // Ignore stop errors.
+          }
+          try {
+            if (!dialogClosed) {
+              await Promise.resolve(waitingDialog?.close());
+            }
+          } catch {
+            // Ignore close errors.
+          }
+        };
+
+        // Show an in-app "waiting" dialog so users can cancel immediately.
+        // Note: When opening **external system browsers**, we cannot reliably detect
+        // whether the browser window/tab was closed. Cancel is the only reliable way.
+        waitingDialog = Dialog.show({
+          title: 'Sign in',
+          description:
+            'Complete sign-in in your browser, then return to OneKey.',
+          showFooter: true,
+          showConfirmButton: false,
+          showCancelButton: true,
+          onCancel: async (close) => {
+            if (settled) {
+              await close();
+              return;
+            }
+            settled = true;
+            dialogClosed = true;
+            await close();
+            await cleanup();
+            reject(new OneKeyLocalError('OAuth sign-in was cancelled'));
+          },
+          onClose: async (extra) => {
+            // Treat manual dialog dismissal as cancel.
+            if (extra?.flag === 'cancel' && !settled) {
+              settled = true;
+              dialogClosed = true;
+              await cleanup();
+              reject(new OneKeyLocalError('OAuth sign-in was cancelled'));
+            }
+          },
+        });
+
         // Add listener using desktopApi (for IPC events)
         if (globalThis.desktopApi) {
           globalThis.desktopApi.addIpcEventListener(
@@ -117,15 +181,14 @@ export async function openOAuthPopupDesktopLocalhost(options: {
         await globalThis.desktopApiProxy.oauthLocalServer.openBrowser(authUrl);
 
         // Timeout after 5 minutes
-        setTimeout(() => {
-          if (globalThis.desktopApi) {
-            globalThis.desktopApi.removeIpcEventListener(
-              OAUTH_CALLBACK_DESKTOP_CHANNEL,
-              handleCallback,
-            );
+        timeoutId = setTimeout(() => {
+          if (settled) {
+            return;
           }
-          void globalThis.desktopApiProxy.oauthLocalServer.stopServer();
-          reject(new OneKeyLocalError('OAuth sign-in timed out'));
+          settled = true;
+          void cleanup().finally(() => {
+            reject(new OneKeyLocalError('OAuth sign-in timed out'));
+          });
         }, OAUTH_FLOW_TIMEOUT_MS);
       } catch (error) {
         Dialog.debugMessage({

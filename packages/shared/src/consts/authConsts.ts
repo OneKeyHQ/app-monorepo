@@ -88,6 +88,8 @@ export const DEFAULT_EXTENSION_OAUTH_METHOD: EExtensionOAuthMethod =
 export const DEFAULT_DESKTOP_OAUTH_METHOD: EDesktopOAuthMethod =
   EDesktopOAuthMethod.LOCALHOST_SERVER;
 
+// Google OAuth clients
+//  - https://console.cloud.google.com/auth/clients
 // Google OAuth client id (Chrome extension)
 // Configure in Google Cloud Console:
 // - OAuth client: https://console.cloud.google.com/apis/credentials
@@ -104,3 +106,8 @@ export const SUPABASE_PROJECT_URL = 'https://wtspqckturkzhstyjabx.supabase.co'; 
 // Publishable key at https://supabase.com/dashboard/project/_/settings/api-keys/new
 export const SUPABASE_PUBLIC_API_KEY =
   'sb_publishable_So24RIupCcXUHaKo1gM4VA_uOBbgjoN'; // local test
+
+// Supabase OAuth Providers
+// https://supabase.com/dashboard/project/_/auth/providers
+// Supabase OAuth Redirect URIs
+// https://supabase.com/dashboard/project/_/auth/url-configuration

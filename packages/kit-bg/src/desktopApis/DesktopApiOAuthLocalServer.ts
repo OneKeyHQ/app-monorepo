@@ -2,7 +2,7 @@ import {
   openOAuthBrowser,
   startOAuthServer,
   stopOAuthServer,
-} from '@onekeyhq/desktop/app/oauth-server';
+} from '@onekeyhq/desktop/app/service/oauthLocalServer/oauthLocalServer';
 
 import type { IDesktopApi } from './instance/IDesktopApi';
 

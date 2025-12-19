@@ -1012,6 +1012,7 @@ module.exports = [
   'servername',
   'keepAliveMsecs',
   'Msecs',
+  'Errno',
   'zlib',
   'Gunzip',
   'Brotli',

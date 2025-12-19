@@ -76,6 +76,34 @@ function OneKeyIDApiTests() {
 
   const { logout } = useOneKeyAuth();
 
+  const onTryCloseWindow = async () => {
+    if (platformEnv.isNative) {
+      Toast.error({
+        title: 'Not supported',
+        message: 'window.close() is not available on native.',
+      });
+      return;
+    }
+    try {
+      const beforeClosed = globalThis.window?.closed;
+      globalThis.window?.close();
+      const afterClosed = globalThis.window?.closed;
+      Dialog.debugMessage({
+        title: 'window.close() result',
+        debugMessage: {
+          beforeClosed,
+          afterClosed,
+          note: 'Most browsers only allow window.close() for windows opened by script (window.open).',
+        },
+      });
+    } catch (e) {
+      Dialog.debugMessage({
+        title: 'window.close() threw',
+        debugMessage: e,
+      });
+    }
+  };
+
   return (
     <YStack gap="$4">
       <SizableText size="$headingMd">Supabase Status</SizableText>
@@ -165,6 +193,12 @@ function OneKeyIDApiTests() {
           Sign In with Apple
         </Button>
       </XStack>
+
+      {!platformEnv.isNative ? (
+        <XStack gap="$3" flexWrap="wrap">
+          <Button onPress={onTryCloseWindow}>Try window.close()</Button>
+        </XStack>
+      ) : null}
 
       <SizableText size="$headingMd" mt="$4">
         Email OTP Sign In

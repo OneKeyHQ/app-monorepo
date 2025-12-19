@@ -47,7 +47,6 @@ import { ipcMessageKeys } from './config';
 import { ElectronTranslations, i18nText, initLocale } from './i18n';
 import { registerShortcuts, unregisterShortcuts } from './libs/shortcuts';
 import * as store from './libs/store';
-import { setMainWindow } from './oauth-server';
 import initProcess from './process';
 import {
   getAppStaticResourcesPath,
@@ -56,6 +55,7 @@ import {
 } from './resoucePath';
 import { initSentry } from './sentry';
 import { startServices } from './service';
+import { setMainWindow } from './service/oauthLocalServer/oauthLocalServer';
 
 logger.initialize();
 logger.transports.file.maxSize = 1024 * 1024 * 10;
