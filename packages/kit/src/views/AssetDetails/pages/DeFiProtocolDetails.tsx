@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 
 import { type RouteProp, useRoute } from '@react-navigation/core';
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
@@ -27,7 +28,6 @@ import type {
 } from '@onekeyhq/shared/src/routes/assetDetails';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EDeFiAssetType, type IDeFiAsset } from '@onekeyhq/shared/types/defi';
-import BigNumber from 'bignumber.js';
 
 function DeFiProtocolDetails() {
   const route =
