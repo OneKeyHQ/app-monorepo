@@ -73,7 +73,7 @@ export function GridItem({
             gap="$1"
             alignItems="center"
             cursor="pointer"
-            onPress={() => openUrlExternal(actionIcon.data.link)}
+            onPress={() => openUrlExternal(actionIcon?.data?.link)}
           >
             <EarnText text={description} size="$bodyLgMedium" />
             {descriptionComponent ?? null}
