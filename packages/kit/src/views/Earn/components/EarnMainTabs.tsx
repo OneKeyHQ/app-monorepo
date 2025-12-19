@@ -141,7 +141,7 @@ const EarnMainTabsComponent = ({
       </Tabs.Tab>
       <Tabs.Tab name={tabNames.faqs}>
         <Tabs.ScrollView>
-          <YStack px="$5" pt="$6" gap="$8">
+          <YStack px="$5" pt="$6" gap="$8" maxWidth={960}>
             <FAQContent faqList={faqList} isLoading={isFaqLoading} />
           </YStack>
         </Tabs.ScrollView>
