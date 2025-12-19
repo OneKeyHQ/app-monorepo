@@ -9,6 +9,7 @@ export enum EEnterWay {
   ExtensionPopup = 'ExtensionPopup',
   ExtensionSidePanel = 'ExtensionSidePanel',
   SwapPro = 'SwapPro',
+  BannerList = 'BannerList',
 }
 
 export enum EDexListName {
@@ -171,4 +172,8 @@ export interface IDexTVPriceMCParams {
 
 export interface IDexTVTimeframeParams {
   tvTimeframeSelect: string;
+}
+
+export interface IDexBannerEnterParams {
+  bannerId: string;
 }
