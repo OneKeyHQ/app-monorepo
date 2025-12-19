@@ -29,6 +29,7 @@ export enum ECopyFrom {
   Detail = 'Detail',
   Search = 'Search',
   Others = 'Others',
+  BannerList = 'BannerList',
 }
 
 export enum EVisitTarget {
@@ -61,6 +62,7 @@ export enum EWatchlistFrom {
   Search = 'Search',
   Recommend = 'Recommend',
   Others = 'Others',
+  BannerList = 'BannerList',
 }
 
 export enum ERouter {

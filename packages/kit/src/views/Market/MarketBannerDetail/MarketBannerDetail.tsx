@@ -19,7 +19,11 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useAccountSelectorContextData } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
+import {
+  ECopyFrom,
+  EEnterWay,
+  EWatchlistFrom,
+} from '@onekeyhq/shared/src/logger/scopes/dex';
 import type {
   ETabMarketRoutes,
   ITabMarketParamList,
@@ -140,6 +144,8 @@ function MarketBannerDetailContent({ title }: { title: string }) {
             result={listResult}
             onItemPress={handleItemPress}
             hideTokenAge
+            watchlistFrom={EWatchlistFrom.BannerList}
+            copyFrom={ECopyFrom.BannerList}
           />
         </Stack>
       </Page.Body>

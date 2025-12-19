@@ -36,6 +36,8 @@ export const useColumnsDesktop = (
   networkId?: string,
   isWatchlistMode?: boolean,
   hideTokenAge?: boolean,
+  watchlistFrom?: EWatchlistFrom,
+  copyFrom?: ECopyFrom,
 ): ITableColumn<IMarketToken>[] => {
   const { gtLg, gtXl } = useMedia();
   const [settings] = useSettingsPersistAtom();
@@ -56,7 +58,7 @@ export const useColumnsDesktop = (
           <MarketStarV2
             chainId={record.chainId || networkId || ''}
             contractAddress={record.address}
-            from={EWatchlistFrom.Homepage}
+            from={watchlistFrom || EWatchlistFrom.Homepage}
             tokenSymbol={record.symbol}
             size="small"
           />
@@ -77,7 +79,7 @@ export const useColumnsDesktop = (
           symbol={record.symbol}
           address={record.address}
           showCopyButton
-          copyFrom={ECopyFrom.Homepage}
+          copyFrom={copyFrom || ECopyFrom.Homepage}
           communityRecognized={record.communityRecognized}
         />
       ),
