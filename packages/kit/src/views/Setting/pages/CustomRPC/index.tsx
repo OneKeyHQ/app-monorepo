@@ -146,9 +146,9 @@ function DialogContent({
               if (!trimmedValue) {
                 return errorMessage;
               }
-              // if (!uriUtils.parseUrl(value) || !rpcValidRef.current) {
-              //   return errorMessage;
-              // }
+              if (!uriUtils.parseUrl(value) || !rpcValidRef.current) {
+                return errorMessage;
+              }
             },
           }}
         >

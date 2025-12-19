@@ -7,6 +7,7 @@ import { useIntl } from 'react-intl';
 
 import { Page, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useCustomRpcAvailability } from '@onekeyhq/kit/src/hooks/useCustomRpcAvailability';
 import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
@@ -75,6 +76,7 @@ function TxConfirm() {
     updateExtraFeeInfo,
     updateDecodedTxsInit,
     updateSendTxStatus,
+    updateCustomRpcStatus,
   } = useSignatureConfirmActions().current;
 
   const [settings] = useSettingsPersistAtom();
@@ -226,6 +228,29 @@ function TxConfirm() {
     unsignedTxs,
     updateNativeTokenInfo,
     updatePreCheckTxStatus,
+  ]);
+
+  // Check custom RPC status on page mount using shared hook
+  const { isCustomRpcUnavailable, customRpcUrl, isCustomNetwork } =
+    useCustomRpcAvailability(networkId);
+
+  // Update custom RPC status atom when detection result changes
+  useEffect(() => {
+    if (isCustomRpcUnavailable && customRpcUrl && !isCustomNetwork) {
+      updateCustomRpcStatus({
+        isCustomRpcUnavailable: true,
+        customRpcUrl,
+        networkId,
+      });
+    } else {
+      updateCustomRpcStatus(null);
+    }
+  }, [
+    isCustomRpcUnavailable,
+    customRpcUrl,
+    isCustomNetwork,
+    networkId,
+    updateCustomRpcStatus,
   ]);
 
   const txConfirmTitle = useMemo(() => {

@@ -1109,7 +1109,7 @@ export type IPopularTrading = {
   symbol: string;
   address: string;
   marketCap: number;
-  tokenDetail: {
+  tokenDetail?: {
     info: IToken;
     price: number;
     price24h: number;
