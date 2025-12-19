@@ -20,10 +20,10 @@ export const useMarketTokenColumns = (
   );
   const mobileColumns = useColumnsMobile();
 
-  const { md } = useMedia();
+  const media = useMedia();
 
   return useMemo(
-    () => (md ? mobileColumns : desktopColumns),
-    [md, mobileColumns, desktopColumns],
+    () => (media.gtMd ? desktopColumns : mobileColumns),
+    [media.gtMd, desktopColumns, mobileColumns],
   );
 };

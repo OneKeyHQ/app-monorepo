@@ -559,6 +559,18 @@ function TokenListViewCmp(props: IProps) {
       );
     }
 
+    if (!limitedTokens || limitedTokens.length === 0) {
+      return searchKey ? (
+        <EmptySearch
+          onManageToken={onManageToken}
+          manageTokenEnabled={manageTokenEnabled}
+          {...emptyProps}
+        />
+      ) : (
+        <EmptyToken {...emptyProps} />
+      );
+    }
+
     return (
       <YStack>
         {withHeader ? (

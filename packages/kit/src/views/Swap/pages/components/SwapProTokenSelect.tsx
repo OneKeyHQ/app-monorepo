@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 
-import { XStack, Icon, SizableText, Skeleton } from '@onekeyhq/components';
+import { Icon, SizableText, Skeleton, XStack } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { useSwapProSelectTokenAtom } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
