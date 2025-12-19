@@ -66,7 +66,9 @@ export function showCustomRpcFallbackDialog(
 
   let setAsDefaultValue = false;
 
-  const handleSwitch = async (close: () => Promise<void>) => {
+  const handleSwitch = async (
+    close: (extra?: { flag?: string }) => Promise<void> | void,
+  ) => {
     if (setAsDefaultValue) {
       try {
         await backgroundApiProxy.serviceCustomRpc.updateCustomRpcEnabledStatus({
