@@ -22,8 +22,6 @@ export const useMarketTokenColumns = (
 
   const media = useMedia();
 
-  console.log('md', media);
-
   return useMemo(
     () => (media.gtMd ? desktopColumns : mobileColumns),
     [media.gtMd, desktopColumns, mobileColumns],
