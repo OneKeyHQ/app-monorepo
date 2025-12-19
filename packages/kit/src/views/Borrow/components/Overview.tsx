@@ -16,6 +16,7 @@ import { useEarnAccount } from '../hooks/useEarnAccount';
 
 import { BorrowAction } from './BorrowAction';
 import { BorrowBouns } from './BorrowBouns';
+import { BorrowHealthFactorTooltip } from './BorrowHealthFactorTooltip';
 
 const OverviewItem = ({
   title,
@@ -147,6 +148,13 @@ export const Overview = () => {
             text: amountPlaceholder,
             color: '$textDisabled',
           }
+        }
+        tooltip={
+          <BorrowHealthFactorTooltip
+            detail={
+              healthFactorData?.healthFactor?.button?.data.healthFactorDetail
+            }
+          />
         }
       />
       <OverviewItem

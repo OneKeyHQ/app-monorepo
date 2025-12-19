@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 
+import { XStack } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type { IBorrowReserveItem } from '@onekeyhq/shared/types/staking';
@@ -50,6 +51,9 @@ export const SuppliedCard = () => {
   return (
     <Card title="Your supplies">
       {/* FIXME[borrow]: i18n */}
+      <XStack mt="$3" mb="$5" px="$5">
+        hello world
+      </XStack>
       <BorrowTableList<ISuppliedAsset>
         data={reserves?.supplied.assets || []}
         isLoading={showLoading}
