@@ -298,6 +298,7 @@ function BasicEarnHome({
     <EarnPageContainer
       sceneName={EAccountSelectorSceneName.home}
       tabRoute={ETabRoutes.Earn}
+      disableMaxWidth
       refreshControl={
         <RefreshControl refreshing={isLoading} onRefresh={refreshEarnData} />
       }
