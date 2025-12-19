@@ -52,6 +52,13 @@ const SwapProLimitPriceSlider = ({
     if (percentValue !== lastExternalPercentRef.current) {
       lastExternalPercentRef.current = percentValue;
     }
+    // If value is 0, return empty string to show placeholder
+    if (
+      new BigNumber(percentValueNumber).isZero() ||
+      new BigNumber(percentValueNumber).isNaN()
+    ) {
+      return '';
+    }
     return new BigNumber(percentValueNumber).toFixed(2);
   }, [isInputEditing, inputText, percentValue, percentValueNumber]);
 
@@ -77,8 +84,8 @@ const SwapProLimitPriceSlider = ({
   // Handle input focus
   const handleInputFocus = useCallback(() => {
     setIsInputEditing(true);
-    setInputText(new BigNumber(percentValueNumber).toFixed(2));
-  }, [percentValueNumber]);
+    setInputText(displayValue);
+  }, [displayValue]);
 
   // Handle input blur - apply the value
   const handleInputBlur = useCallback(() => {
@@ -106,6 +113,7 @@ const SwapProLimitPriceSlider = ({
           onChange={handleSliderChange}
           segments={4}
           sliderHeight={2}
+          centerOrigin
         />
       </XStack>
       <Input
@@ -118,6 +126,7 @@ const SwapProLimitPriceSlider = ({
         keyboardType="decimal-pad"
         textAlign="left"
         color={percentValueColor}
+        placeholder="0.00"
         onChangeText={handleInputChange}
         onFocus={handleInputFocus}
         onBlur={handleInputBlur}

@@ -24,9 +24,9 @@ export type ITokenGroupProps = {
   maxVisible?: number;
   /**
    * Overlap offset for overlapped variant
-   * Uses Tamagui space tokens like '$-2', '$-3', '$-4'
+   * Uses Tamagui space tokens like '$-2', '$-3', '$-4' or number values
    */
-  overlapOffset?: string;
+  overlapOffset?: string | number;
   /**
    * Wrapper style for overlapped tokens
    * - 'background': Uses background color with padding (like NetworkAvatarGroup)
@@ -56,7 +56,7 @@ function getWrapperProps(
   backgroundColor: string,
   wrapperBorderColor: string,
   index: number,
-  offset: string,
+  offset: string | number,
 ) {
   const baseProps: Record<string, unknown> = {
     borderRadius: '$full',

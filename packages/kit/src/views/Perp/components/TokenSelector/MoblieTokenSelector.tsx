@@ -101,6 +101,7 @@ function MobileTokenSelectorModal({
   const [selectorConfig, setSelectorConfig] =
     usePerpTokenSelectorConfigPersistAtom();
   const activeTab = selectorConfig?.activeTab ?? DEFAULT_PERP_TOKEN_ACTIVE_TAB;
+  const listRef = useRef<IListViewRef<ITokenSelectorListItem> | null>(null);
   const setActiveTab = useCallback(
     (tab: 'all' | 'hip3') => {
       setSelectorConfig((prev) => ({
@@ -108,10 +109,10 @@ function MobileTokenSelectorModal({
         direction: prev?.direction ?? DEFAULT_PERP_TOKEN_SORT_DIRECTION,
         activeTab: tab,
       }));
+      listRef.current?.scrollToOffset?.({ offset: 0, animated: false });
     },
     [setSelectorConfig],
   );
-  const listRef = useRef<IListViewRef<ITokenSelectorListItem> | null>(null);
 
   const computeSortValues = useCallback(
     (assetCtx: IPerpsAssetCtx | undefined) => {
@@ -239,9 +240,9 @@ function MobileTokenSelectorModal({
   const keyExtractor = useCallback(
     (item: { dexIndex: number; assetId?: number; index: number }) => {
       const assetId = item.assetId ?? item.index;
-      return `${item.dexIndex}-${assetId}`;
+      return `${activeTab}-${item.dexIndex}-${assetId}`;
     },
-    [],
+    [activeTab],
   );
 
   const handleSortPress = useCallback(

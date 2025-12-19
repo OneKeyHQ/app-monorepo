@@ -61,6 +61,7 @@ import type ServiceNFT from '../services/ServiceNFT';
 import type ServiceNostr from '../services/ServiceNostr';
 import type ServiceNotification from '../services/ServiceNotification';
 import type ServiceOnboarding from '../services/ServiceOnboarding';
+import type ServiceOneKeyID from '../services/ServiceOneKeyID';
 import type ServicePassword from '../services/ServicePassword';
 import type ServicePrime from '../services/ServicePrime';
 import type ServicePrimeCloudSync from '../services/ServicePrimeCloudSync';
@@ -382,6 +383,10 @@ class BackgroundApiProxy
   serviceNetworkDoctor = this._createProxyService(
     'serviceNetworkDoctor',
   ) as ServiceNetworkDoctor;
+
+  serviceOneKeyID = this._createProxyService(
+    'serviceOneKeyID',
+  ) as ServiceOneKeyID;
 }
 
 export default BackgroundApiProxy;

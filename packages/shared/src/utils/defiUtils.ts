@@ -110,7 +110,10 @@ function transferPositionMap(
 ) {
   const positions = Array.from(positionMap.entries())
     .map(([_, position]) => ({
-      ...position,
+      groupId: position.groupId,
+      poolName: position.poolName,
+      poolFullName: position.poolFullName,
+      category: position.category,
       assets: mergeAssets(position.assets).sort((a, b) =>
         new BigNumber(b.value).comparedTo(new BigNumber(a.value)),
       ),
@@ -274,7 +277,9 @@ function transformDeFiData({
 
   const protocols: IDeFiProtocol[] = Array.from(protocolPositionsMap.values())
     .map((value) => ({
-      ...value,
+      networkId: value.networkId,
+      owner: value.owner,
+      protocol: value.protocol,
       positions: transferPositionMap(value.positionMap),
       categories: Array.from(value.categorySet),
     }))

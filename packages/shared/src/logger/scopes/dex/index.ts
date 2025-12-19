@@ -2,6 +2,7 @@ import { BaseScope } from '../../base/baseScope';
 import { EScopeName } from '../../types';
 
 import { ActionsScene } from './scenes/actions';
+import { BannerScene } from './scenes/banner';
 import { EnterScene } from './scenes/enter';
 import { ListScene } from './scenes/list';
 import { SwapScene } from './scenes/swap';
@@ -10,6 +11,8 @@ import { WatchlistScene } from './scenes/watchlist';
 
 export class DexScope extends BaseScope {
   protected override scopeName = EScopeName.dex;
+
+  banner = this.createScene('banner', BannerScene);
 
   enter = this.createScene('enter', EnterScene);
 

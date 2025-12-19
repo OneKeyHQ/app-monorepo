@@ -86,7 +86,7 @@ export function transformApiItemToToken(
     decimals: item.decimals,
     networkLogoUri: tokenNetworkLogoUri,
     networkId: tokenNetworkId,
-    chainId,
+    chainId: tokenNetworkId,
     firstTradeTime: item.firstTradeTime
       ? Number(item.firstTradeTime)
       : undefined,

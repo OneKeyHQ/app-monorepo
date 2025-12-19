@@ -42,6 +42,9 @@ const copy1 = createCopyPlugin({
     createPattern('src/assets/ui-popup-boot.js'),
     createPattern('src/assets/preload-html-head.js'),
     // createPattern('src/entry/content-script.css'),
+
+    // OAuth callback page for chrome-extension:// scheme redirect
+    createPattern('src/assets/ui-oauth-callback.html'),
   ],
 });
 
