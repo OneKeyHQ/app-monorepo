@@ -22,7 +22,6 @@ import com.facebook.soloader.SoLoader;
 import cn.jiguang.plugins.push.JPushModule;
 import expo.modules.ApplicationLifecycleDispatcher;
 import expo.modules.ReactNativeHostWrapper;
-import so.onekey.app.wallet.dualscreen.DualScreenInfoPackage;
 import so.onekey.app.wallet.splashscreen.SplashScreenPackage;
 
 import java.io.IOException;
@@ -45,12 +44,10 @@ public class MainApplication extends Application implements ReactApplication {
         List<ReactPackage> packages = new PackageList(this).getPackages();
         packages.add(new AutoUpdateModulePackage(mReactNativeHost));
         packages.add(new BundleUpdatePackage());
-        packages.add(new RootViewBackgroundPackage());
         // packages.add(new GeckoViewPackage());
         packages.add(new ExitPackage());
         packages.add(new WebViewCheckerPackage());
         packages.add(new LaunchOptionPackage());
-        packages.add(new DualScreenInfoPackage());
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
           packages.add(new SplashScreenPackage());
         }
