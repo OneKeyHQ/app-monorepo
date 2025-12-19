@@ -273,6 +273,8 @@ const SwapProActionButton = ({
       variant="primary"
       size="small"
       childrenAsText={false}
+      color="$textOnColor"
+      py={5}
       backgroundColor={
         swapProDirection === ESwapDirection.BUY
           ? '$bgSuccessStrong'
