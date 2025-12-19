@@ -1,117 +1,69 @@
 import { useCallback, useMemo } from 'react';
 
-import * as WebBrowser from 'expo-web-browser';
 import { useIntl } from 'react-intl';
 
-import type { IDesktopOpenUrlEventData } from '@onekeyhq/desktop/app/app';
-import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { ONEKEY_APP_DEEP_LINK } from '@onekeyhq/shared/src/consts/deeplinkConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import {
+  EDesktopOAuthMethod,
+  getOAuthRedirectUrlDesktop,
+  openOAuthPopupDesktopDeepLink,
+  openOAuthPopupDesktopWebview,
+} from '../openOAuthPopupDesktop';
+import {
+  EExtensionOAuthMethod,
+  getOAuthRedirectUrlExt,
+  openOAuthPopupExtIdToken,
+  openOAuthPopupExtIdentity,
+  openOAuthPopupExtWindow,
+} from '../openOAuthPopupExt';
+import {
+  getOAuthRedirectUrlNative,
+  openOAuthPopupNative,
+} from '../openOAuthPopupNative';
+import {
+  getOAuthRedirectUrlWeb,
+  openOAuthPopupWeb,
+} from '../openOAuthPopupWeb';
 
 import { getSupabaseClient } from './getSupabaseClient';
 import { useSupabaseAuthContext } from './SupabaseAuthContext';
 
 import type { AuthResponse, SupabaseClient } from '@supabase/supabase-js';
 
-// ============================================================================
-// Extension OAuth Configuration
-// ============================================================================
-//
-// There are two methods for handling OAuth in Chrome extensions:
-//
-// METHOD 1: chrome.identity.launchWebAuthFlow (RECOMMENDED)
-// ---------------------------------------------------------
-// Uses: https://<extension-id>.chromiumapp.org/auth/callback
-// Pros:
-//   - Official Chrome API, handles popup lifecycle automatically
-//   - No need to create callback page in extension
-//   - More reliable token extraction
-// Cons:
-//   - Requires adding https://<extension-id>.chromiumapp.org/* to Supabase Redirect URLs
-//
-// Supabase Dashboard Configuration:
-//   Redirect URLs: https://<extension-id>.chromiumapp.org/auth/callback
-//   Or wildcard:   https://*.chromiumapp.org/*
-//
-// METHOD 2: Direct chrome-extension:// scheme
-// --------------------------------------------
-// Uses: chrome-extension://<extension-id>/auth/callback
-// Pros:
-//   - Simpler redirect URL format
-//   - Uses extension's own URL scheme
-// Cons:
-//   - Requires creating a callback page (auth/callback.html) in extension
-//   - Need to handle popup/tab communication manually
-//   - More complex implementation
-//
-// Supabase Dashboard Configuration:
-//   Redirect URLs: chrome-extension://<extension-id>/auth/callback
-//   Or wildcard:   chrome-extension://*/*
-//
-// ============================================================================
-
-enum EExtensionOAuthMethod {
-  // Use chrome.identity.launchWebAuthFlow API (recommended)
-  // Redirect URL format: https://<extension-id>.chromiumapp.org/auth/callback
-  CHROME_IDENTITY_API = 'CHROME_IDENTITY_API',
-
-  // Use direct chrome-extension:// scheme with tabs
-  // Redirect URL format: chrome-extension://<extension-id>/auth/callback
-  DIRECT_EXTENSION_SCHEME = 'DIRECT_EXTENSION_SCHEME',
-}
-
 // Configure which OAuth method to use for extensions
-// Change this value to switch between methods
-// const EXTENSION_OAUTH_METHOD: EExtensionOAuthMethod =
-// EExtensionOAuthMethod.CHROME_IDENTITY_API;
+// See EExtensionOAuthMethod in openOAuthPopupExt.tsx for options
+// - CHROME_IDENTITY_API: Recommended - uses launchWebAuthFlow + signInWithIdToken
+// - CHROME_GET_AUTH_TOKEN: Alternative - uses getAuthToken (requires manifest oauth2 config)
+// - DIRECT_EXTENSION_SCHEME: Does NOT work - Chrome blocks chrome-extension:// redirects
 const EXTENSION_OAUTH_METHOD: EExtensionOAuthMethod =
-  EExtensionOAuthMethod.DIRECT_EXTENSION_SCHEME;
+  EExtensionOAuthMethod.CHROME_IDENTITY_API;
 
-// ============================================================================
-// Desktop OAuth Configuration
-// ============================================================================
+// Google OAuth Client ID for Chrome Extension
 //
-// There are two methods for handling OAuth in Electron desktop app:
+// IMPORTANT: Different OAuth methods require different OAuth Client types in Google Cloud Console:
 //
-// METHOD 1: WEBVIEW (RECOMMENDED)
-// --------------------------------
-// Uses an in-app webview to load OAuth URL and intercept the redirect
-// Pros:
-//   - Better UX - OAuth happens within the app
-//   - No need for system deep link registration
-//   - More reliable token extraction
-//   - No external browser switching
-// Cons:
-//   - Requires webview component to be loaded
+// - CHROME_IDENTITY_API (launchWebAuthFlow): Must use "Web Application" type OAuth Client
+//   Redirect URI: https://<extension-id>.chromiumapp.org (without trailing slash)
 //
-// METHOD 2: DEEP_LINK
-// -------------------
-// Opens OAuth URL in system browser and listens for deep link callback
-// Pros:
-//   - Uses native browser, some users may prefer this
-//   - Works even if webview has issues
-// Cons:
-//   - Switches to external browser, less seamless UX
-//   - Depends on system deep link protocol registration
-//   - May have issues if deep link is not properly registered
+// - CHROME_GET_AUTH_TOKEN (getAuthToken): Must use "Chrome Extension" type OAuth Client
+//   Uses manifest.json oauth2.client_id, no redirect URI config needed
 //
-// ============================================================================
+// TODO: Move this to environment variables or config
+const GOOGLE_CHROME_EXTENSION_CLIENT_ID =
+  process.env.GOOGLE_CHROME_EXTENSION_CLIENT_ID ||
+  // Web Application type (for CHROME_IDENTITY_API / launchWebAuthFlow)
+  '244450898872-d22ubafv8ca38s6fp0kflhdr6e3s386u.apps.googleusercontent.com';
+  // Chrome Extension type (for CHROME_GET_AUTH_TOKEN / getAuthToken)
+  // '244450898872-foi2b6mtfqus1ed46hu5j03abne6b04s.apps.googleusercontent.com'
 
-enum EDesktopOAuthMethod {
-  // Use in-app webview to handle OAuth (recommended)
-  // Intercepts navigation to onekey-wallet://auth/callback
-  WEBVIEW = 'WEBVIEW',
 
-  // Use system browser + deep link callback
-  // Requires onekey-wallet:// protocol to be registered
-  DEEP_LINK = 'DEEP_LINK',
-}
 
 // Configure which OAuth method to use for desktop
-// Change this value to switch between methods
+// See EDesktopOAuthMethod in openOAuthPopupDesktop.tsx for options
 const DESKTOP_OAUTH_METHOD: EDesktopOAuthMethod = EDesktopOAuthMethod.WEBVIEW;
 
 // Helper function to handle OAuth session persistence
@@ -144,141 +96,6 @@ async function handleOAuthSessionPersistence({
       });
     }
   }
-}
-
-// OAuth popup window helper for web platform
-async function openOAuthPopup(
-  authUrl: string,
-  client: SupabaseClient,
-  options?: {
-    // Whether to persist the session to storage
-    // When false (default): Only return tokens, don't call setSession
-    persistSession?: boolean;
-  },
-): Promise<{
-  success: boolean;
-  session?: {
-    accessToken: string;
-    refreshToken: string;
-  };
-}> {
-  const { persistSession = false } = options ?? {};
-  return new Promise((resolve, reject) => {
-    // Calculate popup window position (centered)
-    const width = 500;
-    const height = 700;
-    const left = globalThis.screenX + (globalThis.outerWidth - width) / 2;
-    const top = globalThis.screenY + (globalThis.outerHeight - height) / 2;
-
-    // Open popup window without address bar and toolbar
-    // Note: Web browsers don't allow forcing popups to stay on top (alwaysOnTop)
-    // for security reasons. We can only focus the popup when it opens.
-    const popup = globalThis.open(
-      authUrl,
-      'oauth_popup',
-      `width=${width},height=${height},left=${left},top=${top},menubar=no,toolbar=no,location=no,status=no,scrollbars=yes,resizable=yes`,
-    );
-
-    if (!popup) {
-      reject(
-        new OneKeyLocalError(
-          'Popup was blocked. Please allow popups and try again.',
-        ),
-      );
-      return;
-    }
-
-    // Focus the popup window to bring it to front
-    popup.focus();
-
-    // Poll for popup close and check for auth tokens
-    const pollInterval = setInterval(async () => {
-      try {
-        popup.focus();
-        // Check if popup is closed
-        if (popup.closed) {
-          clearInterval(pollInterval);
-
-          // Check if we got a session after popup closed
-          const { data } = await client.auth.getSession();
-          if (data.session) {
-            resolve({
-              success: true,
-              session: {
-                accessToken: data.session.access_token,
-                refreshToken: data.session.refresh_token,
-              },
-            });
-          } else {
-            resolve({
-              success: false,
-              session: undefined,
-            });
-          }
-          return;
-        }
-
-        // Try to read the popup URL to check for callback
-        try {
-          const popupUrl = popup.location.href;
-          if (popupUrl && popupUrl.includes('access_token=')) {
-            clearInterval(pollInterval);
-            popup.close();
-
-            // Parse tokens from URL
-            const url = new URL(popupUrl);
-            const hashParams = new URLSearchParams(
-              url.hash.substring(1) || url.search.substring(1),
-            );
-
-            const accessToken = hashParams.get('access_token');
-            const refreshToken = hashParams.get('refresh_token');
-
-            if (accessToken && refreshToken) {
-              await handleOAuthSessionPersistence({
-                client,
-                accessToken,
-                refreshToken,
-                persistSession,
-                loginToPrime: false, // openOAuthPopup doesn't handle Prime login
-              });
-
-              resolve({
-                success: true,
-                session: {
-                  accessToken,
-                  refreshToken,
-                },
-              });
-            } else {
-              resolve({
-                success: false,
-                session: undefined,
-              });
-            }
-          }
-        } catch {
-          // Cross-origin error - popup is on different domain, continue polling
-        }
-      } catch (error) {
-        clearInterval(pollInterval);
-        popup.close();
-        reject(error);
-      }
-    }, 500);
-
-    // Cleanup after timeout (5 minutes)
-    setTimeout(() => {
-      clearInterval(pollInterval);
-      if (popup && !popup.closed) {
-        popup.close();
-      }
-      resolve({
-        success: false,
-        session: undefined,
-      });
-    }, 5 * 60 * 1000);
-  });
 }
 
 export function useSupabaseAuth() {
@@ -322,39 +139,46 @@ export function useSupabaseAuth() {
       const { persistSession = false } = options ?? {};
       const { client } = getSupabaseClient();
 
-      // Build redirect URL based on platform
-      // - Native (iOS/Android): Use deep link scheme (onekey-wallet://auth/callback)
-      // - Desktop (Electron): Depends on DESKTOP_OAUTH_METHOD:
-      //   - WEBVIEW: Uses deep link scheme (intercepted by webview before navigation)
-      //   - DEEP_LINK: Uses deep link scheme (handled by system protocol)
-      //   Desktop registers onekey-wallet:// via app.setAsDefaultProtocolClient() in apps/desktop/app/app.ts
-      // - Extension: Depends on EXTENSION_OAUTH_METHOD configuration
-      //   - CHROME_IDENTITY_API: https://<extension-id>.chromiumapp.org/auth/callback
-      //   - DIRECT_EXTENSION_SCHEME: chrome-extension://<extension-id>/auth/callback
-      // - Web: Use current origin (https://app.onekey.so/auth/callback)
-      let redirectTo: string;
-      if (platformEnv.isNative) {
-        // Native uses deep link protocol
-        redirectTo = `${ONEKEY_APP_DEEP_LINK}auth/callback`;
-      } else if (platformEnv.isDesktop) {
-        // Desktop: both methods use deep link scheme as redirect URL
-        // - WEBVIEW: The webview intercepts navigation to this URL before it actually navigates
-        // - DEEP_LINK: The system handles this URL via registered protocol
-        redirectTo = `${ONEKEY_APP_DEEP_LINK}auth/callback`;
-      } else if (platformEnv.isExtension) {
+      // For extension with CHROME_IDENTITY_API or CHROME_GET_AUTH_TOKEN methods,
+      // we don't need Supabase OAuth URL - these methods build their own Google OAuth URL
+      // and use signInWithIdToken instead
+      if (platformEnv.isExtension) {
         if (
           EXTENSION_OAUTH_METHOD === EExtensionOAuthMethod.CHROME_IDENTITY_API
         ) {
-          // Method 1: Use chrome.identity API redirect URL
-          // Format: https://<extension-id>.chromiumapp.org/auth/callback
-          redirectTo = chrome.identity.getRedirectURL('auth/callback');
-        } else {
-          // Method 2: Use direct chrome-extension:// scheme
-          // Format: chrome-extension://<extension-id>/auth/callback
-          redirectTo = `${chrome.runtime.getURL('auth/callback')}`;
+          // Use launchWebAuthFlow + signInWithIdToken (Supabase recommended)
+          // This method builds its own Google OAuth URL with response_type=id_token
+          return openOAuthPopupExtIdentity(
+            { googleClientId: GOOGLE_CHROME_EXTENSION_CLIENT_ID },
+            client,
+            handleOAuthSessionPersistence,
+            { persistSession },
+          );
         }
+        if (
+          EXTENSION_OAUTH_METHOD === EExtensionOAuthMethod.CHROME_GET_AUTH_TOKEN
+        ) {
+          // Use getAuthToken (requires manifest oauth2 config)
+          // Chrome handles OAuth internally, no redirect URL needed
+          return openOAuthPopupExtIdToken(
+            client,
+            handleOAuthSessionPersistence,
+            { persistSession },
+          );
+        }
+      }
+
+      // For other platforms and DIRECT_EXTENSION_SCHEME, we need Supabase OAuth URL
+      // Build redirect URL based on platform
+      let redirectTo: string | undefined;
+      if (platformEnv.isNative) {
+        redirectTo = getOAuthRedirectUrlNative();
+      } else if (platformEnv.isDesktop) {
+        redirectTo = getOAuthRedirectUrlDesktop(DESKTOP_OAUTH_METHOD);
+      } else if (platformEnv.isExtension) {
+        redirectTo = getOAuthRedirectUrlExt(EXTENSION_OAUTH_METHOD);
       } else {
-        redirectTo = `${globalThis.location?.origin || ''}/auth/callback`;
+        redirectTo = getOAuthRedirectUrlWeb();
       }
 
       const oauthUrlResult = await client.auth.signInWithOAuth({
@@ -381,501 +205,46 @@ export function useSupabaseAuth() {
         throw new OneKeyLocalError('Failed to get OAuth URL');
       }
 
-      // Open the OAuth URL
+      // Open the OAuth URL based on platform
       if (platformEnv.isNative) {
-        // Use expo-web-browser for native platforms
-        // eslint-disable-next-line spellcheck/spell-checker
-        const browserResult = await WebBrowser.openAuthSessionAsync(
+        return openOAuthPopupNative(
           authUrl,
           redirectTo,
-          {
-            // eslint-disable-next-line spellcheck/spell-checker
-            showInRecents: true,
-            preferEphemeralSession: false,
-          },
+          handleOAuthSessionPersistence,
+          { persistSession },
         );
-
-        if (browserResult.type === 'success' && browserResult.url) {
-          // Extract tokens from the callback URL
-          const url = new URL(browserResult.url);
-          const hashParams = new URLSearchParams(
-            url.hash.substring(1) || url.search.substring(1),
-          );
-
-          const accessToken = hashParams.get('access_token');
-          const refreshToken = hashParams.get('refresh_token');
-
-          if (accessToken && refreshToken) {
-            await handleOAuthSessionPersistence({
-              client,
-              accessToken,
-              refreshToken,
-              persistSession,
-            });
-
-            return {
-              success: true,
-              session: {
-                accessToken,
-                refreshToken,
-              },
-            };
-          }
-        }
-
-        if (browserResult.type === 'cancel') {
-          throw new OneKeyLocalError('OAuth sign-in was cancelled');
-        }
-
-        throw new OneKeyLocalError('OAuth sign-in failed');
       }
 
       // For desktop (Electron), handle OAuth based on configured method
       if (platformEnv.isDesktop) {
         if (DESKTOP_OAUTH_METHOD === EDesktopOAuthMethod.WEBVIEW) {
-          // ====================================================================
-          // Method 1: WEBVIEW (RECOMMENDED)
-          // ====================================================================
-          // Opens OAuth in an in-app webview dialog and intercepts the redirect
-          // The webview monitors navigation and extracts tokens when the URL
-          // matches our redirect pattern (onekey-wallet://auth/callback)
-          //
-          // Pros:
-          //   - Better UX - OAuth happens within the app
-          //   - No need for system deep link registration
-          //   - More reliable token extraction
-          //
-          // Note: The webview will intercept navigation to onekey-wallet://
-          // before it actually tries to load (which would fail since custom
-          // protocols can't be loaded in webview)
-          // ====================================================================
-          return new Promise((resolve, reject) => {
-            // Create a container for the OAuth webview
-            const container = document.createElement('div');
-            container.id = 'oauth-webview-container';
-            container.style.cssText = `
-              position: fixed;
-              top: 0;
-              left: 0;
-              right: 0;
-              bottom: 0;
-              background: rgba(0, 0, 0, 0.5);
-              display: flex;
-              justify-content: center;
-              align-items: center;
-              z-index: 99999;
-            `;
-
-            // Create webview wrapper
-            const wrapper = document.createElement('div');
-            wrapper.style.cssText = `
-              width: 480px;
-              height: 640px;
-              background: white;
-              border-radius: 12px;
-              overflow: hidden;
-              box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-              display: flex;
-              flex-direction: column;
-            `;
-
-            // Create header with close button
-            const header = document.createElement('div');
-            header.style.cssText = `
-              display: flex;
-              justify-content: space-between;
-              align-items: center;
-              padding: 12px 16px;
-              border-bottom: 1px solid #e5e5e5;
-              background: #f5f5f5;
-            `;
-
-            const title = document.createElement('span');
-            title.textContent = 'Sign in';
-            title.style.cssText = 'font-weight: 600; font-size: 14px;';
-
-            const closeButton = document.createElement('button');
-            closeButton.textContent = '✕';
-            closeButton.style.cssText = `
-              border: none;
-              background: none;
-              font-size: 18px;
-              cursor: pointer;
-              padding: 4px 8px;
-              border-radius: 4px;
-            `;
-            closeButton.onmouseover = () => {
-              closeButton.style.background = '#e0e0e0';
-            };
-            closeButton.onmouseout = () => {
-              closeButton.style.background = 'none';
-            };
-            closeButton.onclick = () => {
-              container.remove();
-              reject(new OneKeyLocalError('OAuth sign-in was cancelled'));
-            };
-
-            header.appendChild(title);
-            header.appendChild(closeButton);
-
-            // Create webview element
-            const webview = document.createElement('webview');
-            webview.setAttribute('src', authUrl);
-            webview.setAttribute('partition', 'persist:onekey-oauth');
-            webview.style.cssText = 'flex: 1; width: 100%;';
-
-            // Handle navigation events to intercept OAuth callback
-            const handleDidStartNavigation = async (event: Event) => {
-              const navEvent = event as unknown as {
-                url: string;
-                isMainFrame: boolean;
-              };
-              const { url: navUrl, isMainFrame } = navEvent;
-
-              // Check if this is our OAuth callback
-              if (
-                isMainFrame &&
-                navUrl?.startsWith(`${ONEKEY_APP_DEEP_LINK}auth/callback`)
-              ) {
-                // Stop loading - we can't actually navigate to onekey-wallet://
-                (webview as unknown as { stop: () => void }).stop?.();
-
-                // Remove the container
-                container.remove();
-
-                try {
-                  // Parse tokens from the callback URL
-                  const parsedUrl = new URL(navUrl);
-                  const hashParams = new URLSearchParams(
-                    parsedUrl.hash.substring(1) ||
-                      parsedUrl.search.substring(1),
-                  );
-
-                  const accessToken = hashParams.get('access_token');
-                  const refreshToken = hashParams.get('refresh_token');
-
-                  if (accessToken && refreshToken) {
-                    await handleOAuthSessionPersistence({
-                      client,
-                      accessToken,
-                      refreshToken,
-                      persistSession,
-                    });
-
-                    resolve({
-                      success: true,
-                      session: {
-                        accessToken,
-                        refreshToken,
-                      },
-                    });
-                  } else {
-                    resolve({
-                      success: false,
-                      session: undefined,
-                    });
-                  }
-                } catch (error) {
-                  reject(error);
-                }
-              }
-            };
-
-            webview.addEventListener(
-              'did-start-navigation',
-              handleDidStartNavigation,
-            );
-
-            // Handle webview load errors (e.g., if OAuth page fails to load)
-            webview.addEventListener('did-fail-load', (event: Event) => {
-              const failEvent = event as unknown as {
-                errorCode: number;
-                errorDescription: string;
-                validatedURL: string;
-                isMainFrame: boolean;
-              };
-              // Ignore aborted loads (e.g., when we stop navigation to callback URL)
-              if (failEvent.errorCode === -3) {
-                return;
-              }
-              // Only handle main frame errors
-              if (failEvent.isMainFrame) {
-                container.remove();
-                reject(
-                  new OneKeyLocalError(
-                    `OAuth page failed to load: ${failEvent.errorDescription}`,
-                  ),
-                );
-              }
-            });
-
-            // Assemble the UI
-            wrapper.appendChild(header);
-            wrapper.appendChild(webview);
-            container.appendChild(wrapper);
-            document.body.appendChild(container);
-
-            // Click outside to close
-            container.onclick = (e) => {
-              if (e.target === container) {
-                container.remove();
-                reject(new OneKeyLocalError('OAuth sign-in was cancelled'));
-              }
-            };
-
-            // Set a timeout
-            setTimeout(() => {
-              if (document.body.contains(container)) {
-                container.remove();
-                reject(new OneKeyLocalError('OAuth sign-in timed out'));
-              }
-            }, 5 * 60 * 1000); // 5 minutes timeout
-          });
-        }
-        // ====================================================================
-        // Method 2: DEEP_LINK
-        // ====================================================================
-        // Opens OAuth URL in system browser and listens for deep link callback
-        // Requires onekey-wallet:// protocol to be registered with the system
-        //
-        // How it works:
-        // 1. Opens OAuth URL in system browser via shell.openExternal
-        // 2. User completes OAuth in browser
-        // 3. Browser redirects to onekey-wallet://auth/callback?tokens...
-        // 4. System routes this URL to our Electron app
-        // 5. App receives the URL via IPC and extracts tokens
-        // ====================================================================
-        return new Promise((resolve, reject) => {
-          // Set up deep link listener for OAuth callback
-          const handleOAuthCallback = async (
-            _event: Event,
-            data: IDesktopOpenUrlEventData,
-          ) => {
-            const { url } = data;
-            // Check if this is our OAuth callback
-            if (url?.startsWith(`${ONEKEY_APP_DEEP_LINK}auth/callback`)) {
-              // Remove listener once we got the callback
-              globalThis.desktopApi.removeIpcEventListener(
-                ipcMessageKeys.EVENT_OPEN_URL,
-                handleOAuthCallback,
-              );
-
-              try {
-                // Parse tokens from the callback URL
-                const parsedUrl = new URL(url);
-                const hashParams = new URLSearchParams(
-                  parsedUrl.hash.substring(1) || parsedUrl.search.substring(1),
-                );
-
-                const accessToken = hashParams.get('access_token');
-                const refreshToken = hashParams.get('refresh_token');
-
-                if (accessToken && refreshToken) {
-                  await handleOAuthSessionPersistence({
-                    client,
-                    accessToken,
-                    refreshToken,
-                    persistSession,
-                  });
-
-                  resolve({
-                    success: true,
-                    session: {
-                      accessToken,
-                      refreshToken,
-                    },
-                  });
-                } else {
-                  resolve({
-                    success: false,
-                    session: undefined,
-                  });
-                }
-              } catch (error) {
-                reject(error);
-              }
-            }
-          };
-
-          // Add the listener
-          globalThis.desktopApi.addIpcEventListener(
-            ipcMessageKeys.EVENT_OPEN_URL,
-            handleOAuthCallback,
+          return openOAuthPopupDesktopWebview(
+            authUrl,
+            handleOAuthSessionPersistence,
+            { persistSession },
           );
+        }
+        return openOAuthPopupDesktopDeepLink(
+          authUrl,
+          handleOAuthSessionPersistence,
+          { persistSession },
+        );
+      }
 
-          // Open OAuth URL in system browser
-          // On Electron, window.open with _blank target is intercepted and opens via shell.openExternal
-          window.open(authUrl, '_blank');
-
-          // Set a timeout to clean up listener if OAuth takes too long
-          setTimeout(() => {
-            globalThis.desktopApi.removeIpcEventListener(
-              ipcMessageKeys.EVENT_OPEN_URL,
-              handleOAuthCallback,
-            );
-            reject(new OneKeyLocalError('OAuth sign-in timed out'));
-          }, 5 * 60 * 1000); // 5 minutes timeout
+      // For extension with DIRECT_EXTENSION_SCHEME (does not work, kept for reference)
+      if (platformEnv.isExtension) {
+        return openOAuthPopupExtWindow(authUrl, handleOAuthSessionPersistence, {
+          persistSession,
         });
       }
 
-      // For extension, handle OAuth based on configured method
-      if (platformEnv.isExtension) {
-        if (
-          EXTENSION_OAUTH_METHOD === EExtensionOAuthMethod.CHROME_IDENTITY_API
-        ) {
-          // ====================================================================
-          // Method 1: chrome.identity.launchWebAuthFlow (RECOMMENDED)
-          // ====================================================================
-          // This method opens a popup for OAuth and automatically handles the
-          // redirect. The callback URL with tokens is returned directly.
-          //
-          // Supabase Redirect URL to add:
-          //   https://<extension-id>.chromiumapp.org/auth/callback
-          // ====================================================================
-          try {
-            const callbackUrl = await chrome.identity.launchWebAuthFlow({
-              url: authUrl,
-              interactive: true,
-            });
-
-            if (callbackUrl) {
-              // Parse tokens from the callback URL
-              const url = new URL(callbackUrl);
-              const hashParams = new URLSearchParams(
-                url.hash.substring(1) || url.search.substring(1),
-              );
-
-              const accessToken = hashParams.get('access_token');
-              const refreshToken = hashParams.get('refresh_token');
-
-              if (accessToken && refreshToken) {
-                await handleOAuthSessionPersistence({
-                  client,
-                  accessToken,
-                  refreshToken,
-                  persistSession,
-                });
-
-                return {
-                  success: true,
-                  session: {
-                    accessToken,
-                    refreshToken,
-                  },
-                };
-              }
-            }
-
-            return {
-              success: false,
-              session: undefined,
-            };
-          } catch (error) {
-            // User closed the popup or other error
-            throw new OneKeyLocalError(
-              error instanceof Error ? error.message : 'Extension OAuth failed',
-            );
-          }
-        } else {
-          // ====================================================================
-          // Method 2: Direct chrome-extension:// scheme
-          // ====================================================================
-          // This method opens a new tab for OAuth. After authentication,
-          // Supabase redirects to chrome-extension://<id>/auth/callback
-          // with tokens in the URL hash.
-          //
-          // IMPORTANT: You need to create an auth/callback.html file in your
-          // extension that:
-          // 1. Extracts tokens from the URL hash
-          // 2. Sends tokens back to the popup via chrome.runtime.sendMessage
-          // 3. Closes itself
-          //
-          // Example auth/callback.html:
-          // ```html
-          // <script>
-          //   const hash = window.location.hash.substring(1);
-          //   const params = new URLSearchParams(hash);
-          //   const accessToken = params.get('access_token');
-          //   const refreshToken = params.get('refresh_token');
-          //   if (accessToken && refreshToken) {
-          //     chrome.runtime.sendMessage({
-          //       type: 'OAUTH_CALLBACK',
-          //       accessToken,
-          //       refreshToken,
-          //     });
-          //   }
-          //   window.close();
-          // </script>
-          // ```
-          //
-          // Supabase Redirect URL to add:
-          //   chrome-extension://<extension-id>/auth/callback
-          // ====================================================================
-          return new Promise((resolve, reject) => {
-            // Set up message listener for callback
-            const messageListener = async (message: {
-              type: string;
-              accessToken?: string;
-              refreshToken?: string;
-            }) => {
-              if (message.type === 'OAUTH_CALLBACK') {
-                chrome.runtime.onMessage.removeListener(messageListener);
-
-                const { accessToken, refreshToken } = message;
-                if (accessToken && refreshToken) {
-                  try {
-                    await handleOAuthSessionPersistence({
-                      client,
-                      accessToken,
-                      refreshToken,
-                      persistSession,
-                    });
-
-                    resolve({
-                      success: true,
-                      session: {
-                        accessToken,
-                        refreshToken,
-                      },
-                    });
-                  } catch (error) {
-                    reject(
-                      new OneKeyLocalError(
-                        error instanceof Error
-                          ? error.message
-                          : 'Failed to set session',
-                      ),
-                    );
-                  }
-                } else {
-                  resolve({
-                    success: false,
-                    session: undefined,
-                  });
-                }
-              }
-            };
-
-            chrome.runtime.onMessage.addListener(messageListener);
-
-            // Open OAuth URL in new tab
-            void chrome.tabs.create({ url: authUrl });
-
-            // Set timeout to clean up listener if callback doesn't happen
-            setTimeout(() => {
-              chrome.runtime.onMessage.removeListener(messageListener);
-              reject(
-                new OneKeyLocalError('OAuth timeout - no callback received'),
-              );
-            }, 5 * 60 * 1000); // 5 minutes timeout
-          });
-        }
-      }
-
       // Open OAuth popup window for web
-      const popupResult = await openOAuthPopup(authUrl, client, {
-        persistSession,
-      });
+      const popupResult = await openOAuthPopupWeb(
+        authUrl,
+        client,
+        handleOAuthSessionPersistence,
+        { persistSession },
+      );
       return popupResult;
     },
     [],
