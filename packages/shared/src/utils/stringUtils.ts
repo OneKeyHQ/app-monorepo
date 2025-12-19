@@ -1,5 +1,6 @@
 /* eslint-disable no-bitwise */
 import safeStringify from 'fast-safe-stringify';
+import { Base64 } from 'js-base64';
 import { isString } from 'lodash';
 import validator from 'validator';
 
@@ -251,6 +252,40 @@ function randomString(
   return result;
 }
 
+/**
+ * Decode JWT token payload
+ * JWT format: header.payload.signature
+ * Payload is base64url encoded JSON
+ */
+function decodeJWT(token: string): Record<string, unknown> | null {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) {
+      return null;
+    }
+
+    // Get payload part (second part)
+    const payload = parts[1];
+
+    // Convert base64url to base64
+    // Replace '-' with '+', '_' with '/', and add padding if needed
+    let base64 = payload.replace(/-/g, '+').replace(/_/g, '/');
+    const padding = base64.length % 4;
+    if (padding) {
+      base64 += '='.repeat(4 - padding);
+    }
+
+    // Decode base64 to string
+    const decoded = Base64.decode(base64);
+
+    // Parse JSON
+    return JSON.parse(decoded) as Record<string, unknown>;
+  } catch (error) {
+    console.error('Failed to decode JWT:', error);
+    return null;
+  }
+}
+
 export default {
   STRINGIFY_REPLACER,
   generateUUID,
@@ -264,4 +299,5 @@ export default {
   capitalizeWords,
   isPrintableASCII,
   isUTF8,
+  decodeJWT,
 };
