@@ -1,28 +1,12 @@
 /* eslint-disable spellcheck/spell-checker */
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
+import { createTemporarySupabaseClient } from './supabase/getSupabaseClient';
+
 import type {
   IHandleOAuthSessionPersistenceParams,
   IOAuthPopupResult,
 } from './openOAuthPopupWeb';
-
-// Get the original chrome API
-// webextension-polyfill may override global.chrome but doesn't include chrome.identity
-// In Firefox, the original chrome is saved to chromeLegacy
-// In Chrome, we can use globalThis.chrome directly
-function getChromeApi(): typeof chrome {
-  const g = globalThis as typeof globalThis & {
-    chromeLegacy?: typeof chrome;
-    chrome?: typeof chrome;
-  };
-  const api = g.chromeLegacy || g.chrome;
-  if (!api) {
-    throw new OneKeyLocalError(
-      'Chrome API is not available. This code must run in a Chrome Extension context.',
-    );
-  }
-  return api;
-}
 
 // ============================================================================
 // Extension OAuth Methods
@@ -72,7 +56,7 @@ export function getOAuthRedirectUrlExt(
   }
   // Use direct chrome-extension:// scheme
   // Format: chrome-extension://<extension-id>/ui-oauth-callback.html
-  return getChromeApi().runtime.getURL('ui-oauth-callback.html');
+  return chrome.runtime.getURL('ui-oauth-callback.html');
 }
 
 /**
@@ -114,41 +98,23 @@ const DEFAULT_GOOGLE_SCOPES = [
  * - Add Chrome Extension Client ID to Supabase Dashboard > Authentication > Providers > Google
  * - If you have multiple client IDs, concatenate them with comma (web ID first)
  *
- * @param config - OAuth configuration including Google Client ID
- * @param supabaseClient - Supabase client instance for signInWithIdToken
- * @param handleSessionPersistence - Function to handle session persistence
  * @param options - Configuration options
+ * @param options.config - OAuth configuration including Google Client ID
+ * @param options.handleSessionPersistence - Function to handle session persistence
+ * @param options.persistSession - Whether to persist the session
  * @returns Promise with success status and session tokens
  */
-export async function openOAuthPopupExtIdentity(
-  config: IExtensionOAuthConfig,
-  supabaseClient: {
-    auth: {
-      signInWithIdToken: (params: {
-        provider: 'google';
-        token: string;
-        nonce?: string;
-      }) => Promise<{
-        data: {
-          session: { access_token: string; refresh_token: string } | null;
-        };
-        error: Error | null;
-      }>;
-    };
-  },
+export async function openOAuthPopupExtIdentity(options: {
+  config: IExtensionOAuthConfig;
   handleSessionPersistence: (
     params: IHandleOAuthSessionPersistenceParams,
-  ) => Promise<void>,
-  options: {
-    persistSession: boolean;
-  },
-): Promise<IOAuthPopupResult> {
-  const { persistSession } = options;
+  ) => Promise<void>;
+  persistSession: boolean;
+}): Promise<IOAuthPopupResult> {
+  const { config, handleSessionPersistence, persistSession } = options;
   const { googleClientId, scopes = DEFAULT_GOOGLE_SCOPES } = config;
 
-  // Get chrome API and check if chrome.identity is available
-  const chromeApi = getChromeApi();
-  if (!chromeApi.identity) {
+  if (!chrome.identity) {
     throw new OneKeyLocalError(
       'chrome.identity API is not available. ' +
         'Make sure you are running in a Chrome Extension context (not content script) ' +
@@ -157,10 +123,47 @@ export async function openOAuthPopupExtIdentity(
     );
   }
 
+  // Launch the OAuth flow
+  // Note: chrome.identity.launchWebAuthFlow doesn't support window size/position options
+  // Chrome controls the OAuth window and may not allow modifications
+  // We'll set up a listener to try updating the window when it's created
+  const width = 500;
+  const height = 700;
+  const left = Math.round((globalThis.screen?.width || 1920) / 2 - width / 2);
+  const top = Math.round((globalThis.screen?.height || 1080) / 2 - height / 2);
+
+  // Set up a one-time listener to catch the OAuth window when it's created
+  // Declare outside try block so it can be cleaned up in catch
+  let windowUpdateListener: ((window: chrome.windows.Window) => void) | null =
+    null;
+  windowUpdateListener = (window: chrome.windows.Window) => {
+    if (window.type === 'popup' && window.id) {
+      // Try to update window size and position
+      // Note: Chrome may ignore these updates for OAuth windows
+      chrome.windows
+        .update(window.id, {
+          width,
+          height,
+          left,
+          top,
+          focused: true, // Try to bring window to front
+        })
+        .catch(() => {
+          // Ignore errors - Chrome may not allow updating OAuth windows
+        });
+      // Remove listener after first window is found
+      if (windowUpdateListener) {
+        chrome.windows.onCreated.removeListener(windowUpdateListener);
+      }
+    }
+  };
+
+  chrome.windows.onCreated.addListener(windowUpdateListener);
+
   try {
     // Build Google OAuth URL manually with response_type=id_token
     // This is the key difference from the standard OAuth flow
-    let redirectUrl = chromeApi.identity.getRedirectURL();
+    let redirectUrl = chrome.identity.getRedirectURL();
     // Remove trailing slash to match Google Cloud Console configuration
     if (redirectUrl.endsWith('/')) {
       redirectUrl = redirectUrl.slice(0, -1);
@@ -172,17 +175,29 @@ export async function openOAuthPopupExtIdentity(
     authUrl.searchParams.set('access_type', 'offline');
     authUrl.searchParams.set('redirect_uri', redirectUrl);
     authUrl.searchParams.set('scope', scopes.join(' '));
-    // Generate a random nonce for security (optional but recommended)
-    const nonce = crypto.randomUUID();
-    authUrl.searchParams.set('nonce', nonce);
+    // Generate a random nonce for security
+    // Supabase requires: hash the nonce before sending to Google, but pass raw nonce to Supabase
+    const rawNonce = crypto.randomUUID();
+    // Hash the nonce using SHA-256 for Google OAuth
+    const encoder = new TextEncoder();
+    const nonceData = encoder.encode(rawNonce);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', nonceData);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const hashedNonce = hashArray
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('');
+    // Pass hashed nonce to Google OAuth URL
+    authUrl.searchParams.set('nonce', hashedNonce);
     // Force account selection
     authUrl.searchParams.set('prompt', 'select_account');
 
-    // Launch the OAuth flow
-    const callbackUrl = await chromeApi.identity.launchWebAuthFlow({
+    const callbackUrl = await chrome.identity.launchWebAuthFlow({
       url: authUrl.href,
       interactive: true,
     });
+
+    // Clean up listener if OAuth flow completes before window is detected
+    chrome.windows.onCreated.removeListener(windowUpdateListener);
 
     if (!callbackUrl) {
       return {
@@ -201,10 +216,14 @@ export async function openOAuthPopupExtIdentity(
     }
 
     // Exchange ID token for Supabase session using signInWithIdToken
-    const { data, error } = await supabaseClient.auth.signInWithIdToken({
+    // Pass raw nonce to Supabase (not hashed)
+    // Use a temporary client that doesn't persist sessions automatically
+    // This allows us to get the session data without persisting it automatically
+    const tempClient = createTemporarySupabaseClient();
+    const { data, error } = await tempClient.auth.signInWithIdToken({
       provider: 'google',
       token: idToken,
-      nonce,
+      nonce: rawNonce, // Pass raw nonce to Supabase
     });
 
     if (error) {
@@ -221,9 +240,8 @@ export async function openOAuthPopupExtIdentity(
     const accessToken = data.session.access_token;
     const refreshToken = data.session.refresh_token;
 
-    // Handle session persistence
+    // Handle session persistence (only if persistSession is true)
     await handleSessionPersistence({
-      client: null as never, // Not needed for extension
       accessToken,
       refreshToken,
       persistSession,
@@ -237,6 +255,10 @@ export async function openOAuthPopupExtIdentity(
       },
     };
   } catch (error) {
+    // Clean up listener on error
+    if (windowUpdateListener) {
+      chrome.windows.onCreated.removeListener(windowUpdateListener);
+    }
     // User closed the popup or other error
     if (
       error instanceof Error &&
@@ -273,38 +295,18 @@ export async function openOAuthPopupExtIdentity(
  *   }
  * }
  *
- * @param supabaseClient - Supabase client instance for signInWithIdToken
- * @param handleSessionPersistence - Function to handle session persistence
  * @param options - Configuration options
+ * @param options.handleSessionPersistence - Function to handle session persistence
+ * @param options.persistSession - Whether to persist the session
  * @returns Promise with success status and session tokens
  */
-export async function openOAuthPopupExtIdToken(
-  supabaseClient: {
-    auth: {
-      signInWithIdToken: (params: {
-        provider: 'google';
-        token: string;
-        access_token?: string;
-      }) => Promise<{
-        data: {
-          session: { access_token: string; refresh_token: string } | null;
-        };
-        error: Error | null;
-      }>;
-    };
-  },
-  _handleSessionPersistence: (
+export async function openOAuthPopupExtIdToken(_options: {
+  handleSessionPersistence: (
     params: IHandleOAuthSessionPersistenceParams,
-  ) => Promise<void>,
-  _options: {
-    persistSession: boolean;
-  },
-): Promise<IOAuthPopupResult> {
-  void supabaseClient;
-
-  // Get chrome API and check if chrome.identity is available
-  const chromeApi = getChromeApi();
-  if (!chromeApi.identity) {
+  ) => Promise<void>;
+  persistSession: boolean;
+}): Promise<IOAuthPopupResult> {
+  if (!chrome.identity) {
     throw new OneKeyLocalError(
       'chrome.identity API is not available. ' +
         'Make sure you are running in a Chrome Extension context (not content script) ' +
@@ -316,7 +318,7 @@ export async function openOAuthPopupExtIdToken(
   try {
     // Step 1: Get Google Access Token using chrome.identity.getAuthToken
     // This requires oauth2 config in manifest.json
-    const authResult = await chromeApi.identity.getAuthToken({
+    const authResult = await chrome.identity.getAuthToken({
       interactive: true,
     });
 
@@ -426,23 +428,21 @@ export async function openOAuthPopupExtIdToken(
  * Supabase Redirect URL to add:
  *   chrome-extension://<extension-id>/ui-oauth-callback.html
  *
- * @param authUrl - The OAuth authorization URL to open
- * @param handleSessionPersistence - Function to handle session persistence
  * @param options - Configuration options
+ * @param options.authUrl - The OAuth authorization URL to open
+ * @param options.handleSessionPersistence - Function to handle session persistence
+ * @param options.persistSession - Whether to persist the session
  * @returns Promise with success status and session tokens
  * @deprecated Use openOAuthPopupExtIdentity instead - this method does not work due to Chrome security restrictions
  */
-export function openOAuthPopupExtWindow(
-  authUrl: string,
+export function openOAuthPopupExtWindow(options: {
+  authUrl: string;
   handleSessionPersistence: (
     params: IHandleOAuthSessionPersistenceParams,
-  ) => Promise<void>,
-  options: {
-    persistSession: boolean;
-  },
-): Promise<IOAuthPopupResult> {
-  const { persistSession } = options;
-  const chromeApi = getChromeApi();
+  ) => Promise<void>;
+  persistSession: boolean;
+}): Promise<IOAuthPopupResult> {
+  const { authUrl, handleSessionPersistence, persistSession } = options;
 
   return new Promise((resolve, reject) => {
     // Popup window dimensions (same as web OAuth popup)
@@ -455,7 +455,7 @@ export function openOAuthPopupExtWindow(
     const closeWindow = () => {
       if (windowId !== undefined) {
         try {
-          void chromeApi.windows.remove(windowId);
+          void chrome.windows.remove(windowId);
         } catch {
           // Window may already be closed
         }
@@ -477,10 +477,10 @@ export function openOAuthPopupExtWindow(
     // Helper to remove all listeners
     const cleanup = () => {
       if (listeners.onTabUpdated) {
-        chromeApi.tabs.onUpdated.removeListener(listeners.onTabUpdated);
+        chrome.tabs.onUpdated.removeListener(listeners.onTabUpdated);
       }
       if (listeners.onWindowRemoved) {
-        chromeApi.windows.onRemoved.removeListener(listeners.onWindowRemoved);
+        chrome.windows.onRemoved.removeListener(listeners.onWindowRemoved);
       }
     };
 
@@ -519,7 +519,7 @@ export function openOAuthPopupExtWindow(
       // Check if URL is our callback URL with tokens
       if (
         tabUrl.startsWith(
-          `chrome-extension://${chromeApi.runtime.id}/ui-oauth-callback.html`,
+          `chrome-extension://${chrome.runtime.id}/ui-oauth-callback.html`,
         )
       ) {
         resolved = true;
@@ -538,8 +538,6 @@ export function openOAuthPopupExtWindow(
 
           if (accessToken && refreshToken) {
             void handleSessionPersistence({
-              // Note: client is not needed for extension as we only call the persistence handler
-              client: null as never,
               accessToken,
               refreshToken,
               persistSession,
@@ -571,11 +569,11 @@ export function openOAuthPopupExtWindow(
     };
 
     // Add listeners before creating window
-    chromeApi.tabs.onUpdated.addListener(listeners.onTabUpdated);
-    chromeApi.windows.onRemoved.addListener(listeners.onWindowRemoved);
+    chrome.tabs.onUpdated.addListener(listeners.onTabUpdated);
+    chrome.windows.onRemoved.addListener(listeners.onWindowRemoved);
 
     // Create popup window for OAuth
-    chromeApi.windows.create(
+    chrome.windows.create(
       {
         url: authUrl,
         type: 'popup',

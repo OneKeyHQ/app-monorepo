@@ -1,3 +1,4 @@
+/* eslint-disable spellcheck/spell-checker */
 import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -32,7 +33,7 @@ import {
 import { getSupabaseClient } from './getSupabaseClient';
 import { useSupabaseAuthContext } from './SupabaseAuthContext';
 
-import type { AuthResponse, SupabaseClient } from '@supabase/supabase-js';
+import type { AuthResponse } from '@supabase/supabase-js';
 
 // Configure which OAuth method to use for extensions
 // See EExtensionOAuthMethod in openOAuthPopupExt.tsx for options
@@ -57,10 +58,8 @@ const GOOGLE_CHROME_EXTENSION_CLIENT_ID =
   process.env.GOOGLE_CHROME_EXTENSION_CLIENT_ID ||
   // Web Application type (for CHROME_IDENTITY_API / launchWebAuthFlow)
   '244450898872-d22ubafv8ca38s6fp0kflhdr6e3s386u.apps.googleusercontent.com';
-  // Chrome Extension type (for CHROME_GET_AUTH_TOKEN / getAuthToken)
-  // '244450898872-foi2b6mtfqus1ed46hu5j03abne6b04s.apps.googleusercontent.com'
-
-
+// Chrome Extension type (for CHROME_GET_AUTH_TOKEN / getAuthToken)
+// '244450898872-foi2b6mtfqus1ed46hu5j03abne6b04s.apps.googleusercontent.com'
 
 // Configure which OAuth method to use for desktop
 // See EDesktopOAuthMethod in openOAuthPopupDesktop.tsx for options
@@ -69,22 +68,20 @@ const DESKTOP_OAUTH_METHOD: EDesktopOAuthMethod = EDesktopOAuthMethod.WEBVIEW;
 // Helper function to handle OAuth session persistence
 // This function is called after successfully extracting tokens from OAuth callback
 async function handleOAuthSessionPersistence({
-  client,
   accessToken,
   refreshToken,
   persistSession,
   loginToPrime,
 }: {
-  client: SupabaseClient;
   accessToken: string;
   refreshToken: string;
   persistSession: boolean;
-  // Whether to also login to Prime service (default: true)
+  // Whether to also login to Prime service
   loginToPrime?: boolean;
 }): Promise<void> {
   if (persistSession) {
     // Persist session to Supabase client storage
-    await client.auth.setSession({
+    await getSupabaseClient().client.auth.setSession({
       access_token: accessToken,
       refresh_token: refreshToken,
     });
@@ -137,7 +134,6 @@ export function useSupabaseAuth() {
       };
     }> => {
       const { persistSession = false } = options ?? {};
-      const { client } = getSupabaseClient();
 
       // For extension with CHROME_IDENTITY_API or CHROME_GET_AUTH_TOKEN methods,
       // we don't need Supabase OAuth URL - these methods build their own Google OAuth URL
@@ -148,23 +144,21 @@ export function useSupabaseAuth() {
         ) {
           // Use launchWebAuthFlow + signInWithIdToken (Supabase recommended)
           // This method builds its own Google OAuth URL with response_type=id_token
-          return openOAuthPopupExtIdentity(
-            { googleClientId: GOOGLE_CHROME_EXTENSION_CLIENT_ID },
-            client,
-            handleOAuthSessionPersistence,
-            { persistSession },
-          );
+          return openOAuthPopupExtIdentity({
+            config: { googleClientId: GOOGLE_CHROME_EXTENSION_CLIENT_ID },
+            handleSessionPersistence: handleOAuthSessionPersistence,
+            persistSession,
+          });
         }
         if (
           EXTENSION_OAUTH_METHOD === EExtensionOAuthMethod.CHROME_GET_AUTH_TOKEN
         ) {
           // Use getAuthToken (requires manifest oauth2 config)
           // Chrome handles OAuth internally, no redirect URL needed
-          return openOAuthPopupExtIdToken(
-            client,
-            handleOAuthSessionPersistence,
-            { persistSession },
-          );
+          return openOAuthPopupExtIdToken({
+            handleSessionPersistence: handleOAuthSessionPersistence,
+            persistSession,
+          });
         }
       }
 
@@ -181,20 +175,21 @@ export function useSupabaseAuth() {
         redirectTo = getOAuthRedirectUrlWeb();
       }
 
-      const oauthUrlResult = await client.auth.signInWithOAuth({
-        provider,
-        options: {
-          skipBrowserRedirect: true,
-          redirectTo,
-          queryParams: {
-            // Google OAuth prompt options:
-            // - select_account: Force show account picker (let user choose which account to use)
-            // - consent: Force show authorization consent screen (re-request permissions)
-            // Combined: Show both account picker and consent screen
-            prompt: 'select_account', // 'select_account consent'  'select_account'
+      const oauthUrlResult =
+        await getSupabaseClient().client.auth.signInWithOAuth({
+          provider,
+          options: {
+            skipBrowserRedirect: true,
+            redirectTo,
+            queryParams: {
+              // Google OAuth prompt options:
+              // - select_account: Force show account picker (let user choose which account to use)
+              // - consent: Force show authorization consent screen (re-request permissions)
+              // Combined: Show both account picker and consent screen
+              prompt: 'select_account', // 'select_account consent'  'select_account'
+            },
           },
-        },
-      });
+        });
 
       if (oauthUrlResult.error) {
         throw new OneKeyLocalError(oauthUrlResult.error.message);
@@ -207,44 +202,46 @@ export function useSupabaseAuth() {
 
       // Open the OAuth URL based on platform
       if (platformEnv.isNative) {
-        return openOAuthPopupNative(
+        return openOAuthPopupNative({
           authUrl,
           redirectTo,
-          handleOAuthSessionPersistence,
-          { persistSession },
-        );
+          handleSessionPersistence: handleOAuthSessionPersistence,
+          persistSession,
+        });
       }
 
       // For desktop (Electron), handle OAuth based on configured method
       if (platformEnv.isDesktop) {
         if (DESKTOP_OAUTH_METHOD === EDesktopOAuthMethod.WEBVIEW) {
-          return openOAuthPopupDesktopWebview(
+          return openOAuthPopupDesktopWebview({
             authUrl,
-            handleOAuthSessionPersistence,
-            { persistSession },
-          );
+            handleSessionPersistence: handleOAuthSessionPersistence,
+            persistSession,
+          });
         }
-        return openOAuthPopupDesktopDeepLink(
+        return openOAuthPopupDesktopDeepLink({
           authUrl,
-          handleOAuthSessionPersistence,
-          { persistSession },
-        );
+          handleSessionPersistence: handleOAuthSessionPersistence,
+          persistSession,
+        });
       }
 
       // For extension with DIRECT_EXTENSION_SCHEME (does not work, kept for reference)
       if (platformEnv.isExtension) {
-        return openOAuthPopupExtWindow(authUrl, handleOAuthSessionPersistence, {
+        return openOAuthPopupExtWindow({
+          authUrl,
+          handleSessionPersistence: handleOAuthSessionPersistence,
           persistSession,
         });
       }
 
       // Open OAuth popup window for web
-      const popupResult = await openOAuthPopupWeb(
+      const popupResult = await openOAuthPopupWeb({
         authUrl,
-        client,
-        handleOAuthSessionPersistence,
-        { persistSession },
-      );
+        client: getSupabaseClient().client,
+        handleSessionPersistence: handleOAuthSessionPersistence,
+        persistSession,
+      });
       return popupResult;
     },
     [],
@@ -385,8 +382,7 @@ export function useSupabaseAuth() {
   }, []);
 
   const getSession = useCallback(async () => {
-    const { client } = getSupabaseClient();
-    const result = await client.auth.getSession();
+    const result = await getSupabaseClient().client.auth.getSession();
 
     if (result.error) {
       throw new OneKeyLocalError(result.error.message);
@@ -417,8 +413,7 @@ export function useSupabaseAuth() {
   }, []);
 
   const getUser = useCallback(async () => {
-    const { client } = getSupabaseClient();
-    const result = await client.auth.getUser();
+    const result = await getSupabaseClient().client.auth.getUser();
 
     if (result.error) {
       // User not logged in is not an error
@@ -445,8 +440,7 @@ export function useSupabaseAuth() {
   }, []);
 
   const refreshSession = useCallback(async () => {
-    const { client } = getSupabaseClient();
-    const result = await client.auth.refreshSession();
+    const result = await getSupabaseClient().client.auth.refreshSession();
 
     if (result.error) {
       throw new OneKeyLocalError(result.error.message);

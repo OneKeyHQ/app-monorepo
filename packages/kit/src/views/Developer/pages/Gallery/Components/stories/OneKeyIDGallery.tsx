@@ -6,6 +6,7 @@ import {
   Input,
   SizableText,
   Stack,
+  Switch,
   Toast,
   XStack,
   YStack,
@@ -50,6 +51,7 @@ function OneKeyIDApiTests() {
   const [email, setEmail] = useState('');
   const [otp, setOtp] = useState('');
   const [loading, setLoading] = useState<string | null>(null);
+  const [persistSession, setPersistSession] = useState(false);
 
   const {
     signInWithGoogle,
@@ -77,6 +79,16 @@ function OneKeyIDApiTests() {
         OAuth Sign In
       </SizableText>
 
+      <XStack gap="$3" alignItems="center" mb="$2">
+        <Switch
+          value={persistSession}
+          onChange={setPersistSession}
+        />
+        <SizableText size="$bodyMd">
+          Persist Session (save to storage)
+        </SizableText>
+      </XStack>
+
       <XStack gap="$3" flexWrap="wrap">
         <Button
           loading={loading === 'google'}
@@ -84,7 +96,7 @@ function OneKeyIDApiTests() {
           onPress={async () => {
             try {
               setLoading('google');
-              const result = await signInWithGoogle();
+              const result = await signInWithGoogle({ persistSession });
               if (result.success) {
                 Toast.success({
                   title: 'Google Sign In Success',
@@ -108,7 +120,7 @@ function OneKeyIDApiTests() {
           onPress={async () => {
             try {
               setLoading('apple');
-              const result = await signInWithApple();
+              const result = await signInWithApple({ persistSession });
               if (result.success) {
                 Toast.success({
                   title: 'Apple Sign In Success',

@@ -25,23 +25,23 @@ export function getOAuthRedirectUrlNative(): string {
  * Uses expo-web-browser to open an in-app browser for OAuth authentication.
  * The browser will redirect to the deep link callback URL when complete.
  *
- * @param authUrl - The OAuth authorization URL to open
- * @param redirectTo - The redirect URL for OAuth callback
- * @param handleSessionPersistence - Function to handle session persistence
  * @param options - Configuration options
+ * @param options.authUrl - The OAuth authorization URL to open
+ * @param options.redirectTo - The redirect URL for OAuth callback
+ * @param options.handleSessionPersistence - Function to handle session persistence
+ * @param options.persistSession - Whether to persist the session
  * @returns Promise with success status and session tokens
  */
-export async function openOAuthPopupNative(
-  authUrl: string,
-  redirectTo: string | undefined,
+export async function openOAuthPopupNative(options: {
+  authUrl: string;
+  redirectTo: string | undefined;
   handleSessionPersistence: (
     params: IHandleOAuthSessionPersistenceParams,
-  ) => Promise<void>,
-  options: {
-    persistSession: boolean;
-  },
-): Promise<IOAuthPopupResult> {
-  const { persistSession } = options;
+  ) => Promise<void>;
+  persistSession: boolean;
+}): Promise<IOAuthPopupResult> {
+  const { authUrl, redirectTo, handleSessionPersistence, persistSession } =
+    options;
 
   // Use expo-web-browser for native platforms
   // eslint-disable-next-line spellcheck/spell-checker
@@ -67,7 +67,6 @@ export async function openOAuthPopupNative(
 
     if (accessToken && refreshToken) {
       await handleSessionPersistence({
-        client: null as never, // Not needed for native
         accessToken,
         refreshToken,
         persistSession,

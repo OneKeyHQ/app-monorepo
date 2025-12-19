@@ -56,21 +56,20 @@ export enum EDesktopOAuthMethod {
  *   - No need for system deep link registration
  *   - More reliable token extraction
  *
- * @param authUrl - The OAuth authorization URL to open
- * @param handleSessionPersistence - Function to handle session persistence
  * @param options - Configuration options
+ * @param options.authUrl - The OAuth authorization URL to open
+ * @param options.handleSessionPersistence - Function to handle session persistence
+ * @param options.persistSession - Whether to persist the session
  * @returns Promise with success status and session tokens
  */
-export function openOAuthPopupDesktopWebview(
-  authUrl: string,
+export function openOAuthPopupDesktopWebview(options: {
+  authUrl: string;
   handleSessionPersistence: (
     params: IHandleOAuthSessionPersistenceParams,
-  ) => Promise<void>,
-  options: {
-    persistSession: boolean;
-  },
-): Promise<IOAuthPopupResult> {
-  const { persistSession } = options;
+  ) => Promise<void>;
+  persistSession: boolean;
+}): Promise<IOAuthPopupResult> {
+  const { authUrl, handleSessionPersistence, persistSession } = options;
 
   return new Promise((resolve, reject) => {
     // Create a container for the OAuth webview
@@ -178,7 +177,6 @@ export function openOAuthPopupDesktopWebview(
 
           if (accessToken && refreshToken) {
             await handleSessionPersistence({
-              client: null as never, // Not needed for desktop
               accessToken,
               refreshToken,
               persistSession,
@@ -265,21 +263,20 @@ export function openOAuthPopupDesktopWebview(
  * 4. System routes this URL to our Electron app
  * 5. App receives the URL via IPC and extracts tokens
  *
- * @param authUrl - The OAuth authorization URL to open
- * @param handleSessionPersistence - Function to handle session persistence
  * @param options - Configuration options
+ * @param options.authUrl - The OAuth authorization URL to open
+ * @param options.handleSessionPersistence - Function to handle session persistence
+ * @param options.persistSession - Whether to persist the session
  * @returns Promise with success status and session tokens
  */
-export function openOAuthPopupDesktopDeepLink(
-  authUrl: string,
+export function openOAuthPopupDesktopDeepLink(options: {
+  authUrl: string;
   handleSessionPersistence: (
     params: IHandleOAuthSessionPersistenceParams,
-  ) => Promise<void>,
-  options: {
-    persistSession: boolean;
-  },
-): Promise<IOAuthPopupResult> {
-  const { persistSession } = options;
+  ) => Promise<void>;
+  persistSession: boolean;
+}): Promise<IOAuthPopupResult> {
+  const { authUrl, handleSessionPersistence, persistSession } = options;
 
   return new Promise((resolve, reject) => {
     // Set up deep link listener for OAuth callback
@@ -308,7 +305,6 @@ export function openOAuthPopupDesktopDeepLink(
 
           if (accessToken && refreshToken) {
             await handleSessionPersistence({
-              client: null as never, // Not needed for desktop
               accessToken,
               refreshToken,
               persistSession,

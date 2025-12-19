@@ -3,7 +3,6 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 export type IHandleOAuthSessionPersistenceParams = {
-  client: SupabaseClient;
   accessToken: string;
   refreshToken: string;
   persistSession: boolean;
@@ -43,21 +42,22 @@ export function getOAuthRedirectUrlWeb(): string {
  * Opens a popup window for OAuth authentication and monitors for the callback URL.
  * Extracts tokens from the URL when authentication is complete.
  *
- * @param authUrl - The OAuth authorization URL to open
- * @param client - Supabase client instance
- * @param handleSessionPersistence - Function to handle session persistence
- * @param options - Optional configuration
+ * @param options - Configuration options
+ * @param options.authUrl - The OAuth authorization URL to open
+ * @param options.client - Supabase client instance
+ * @param options.handleSessionPersistence - Function to handle session persistence
+ * @param options.persistSession - Whether to persist the session (default: false)
  * @returns Promise with success status and session tokens
  */
-export async function openOAuthPopupWeb(
-  authUrl: string,
-  client: SupabaseClient,
+export async function openOAuthPopupWeb(options: {
+  authUrl: string;
+  client: SupabaseClient;
   handleSessionPersistence: (
     params: IHandleOAuthSessionPersistenceParams,
-  ) => Promise<void>,
-  options?: IOpenOAuthPopupOptions,
-): Promise<IOAuthPopupResult> {
-  const { persistSession = false } = options ?? {};
+  ) => Promise<void>;
+  persistSession?: boolean;
+}): Promise<IOAuthPopupResult> {
+  const { authUrl, client, handleSessionPersistence, persistSession } = options;
   return new Promise((resolve, reject) => {
     // Calculate popup window position (centered)
     const width = 500;
@@ -131,7 +131,6 @@ export async function openOAuthPopupWeb(
 
             if (accessToken && refreshToken) {
               await handleSessionPersistence({
-                client,
                 accessToken,
                 refreshToken,
                 persistSession,
