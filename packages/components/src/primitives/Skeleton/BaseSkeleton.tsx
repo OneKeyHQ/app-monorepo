@@ -16,6 +16,7 @@ import type { ISkeletonProps } from './type';
 export function BaseSkeleton({
   colorMode,
   children,
+  show,
   ...props
 }: ISkeletonProps) {
   const [{ className: classNameProp, ...restProps }, style] = usePropsAndStyle(
@@ -42,7 +43,16 @@ export function BaseSkeleton({
   }, [restProps.radius]);
 
   const isGroupLoading = useIsGroupLoading();
-  return isGroupLoading === undefined || isGroupLoading ? (
+  const showSkeleton = useMemo(() => {
+    if (isGroupLoading || show) {
+      return true;
+    }
+    if (isGroupLoading === undefined && show === undefined) {
+      return true;
+    }
+    return false;
+  }, [show, isGroupLoading]);
+  return showSkeleton ? (
     <Stack
       bg="$bg"
       style={style as any}

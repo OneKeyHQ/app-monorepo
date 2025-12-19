@@ -12,10 +12,10 @@ import { Layout } from './utils/Layout';
 
 const SkeletonDemo = () => (
   <YStack gap="$4">
-    <Skeleton isLoading radius="round" />
-    <Skeleton isLoading width={250} h="$8" />
-    <Skeleton colorMode="light" isLoading width={250} h="$8" />
-    <Skeleton colorMode="dark" isLoading width={250} h="$8" />
+    <Skeleton radius="round" />
+    <Skeleton width={250} h="$8" />
+    <Skeleton colorMode="light" width={250} h="$8" />
+    <Skeleton colorMode="dark" width={250} h="$8" />
   </YStack>
 );
 
