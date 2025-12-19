@@ -1,4 +1,5 @@
-import { Alert, XStack, YStack } from '@onekeyhq/components';
+import { Alert, Icon, XStack, YStack } from '@onekeyhq/components';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type {
   IEarnActionIcon,
   IEarnText,
@@ -52,6 +53,8 @@ export function GridItem({
       />
     );
   }
+  const isLinkAction = actionIcon?.type === 'link';
+
   return (
     <YStack
       p="$3"
@@ -65,9 +68,24 @@ export function GridItem({
         <EarnTooltip title={title.text} tooltip={tooltip} />
       </XStack>
       <XStack gap="$1" alignItems="center">
-        <EarnText text={description} size="$bodyLgMedium" />
-        {descriptionComponent ?? null}
-        <EarnActionIcon title={title.text} actionIcon={actionIcon} />
+        {isLinkAction ? (
+          <XStack
+            gap="$1"
+            alignItems="center"
+            cursor="pointer"
+            onPress={() => openUrlExternal(actionIcon?.data?.link)}
+          >
+            <EarnText text={description} size="$bodyLgMedium" />
+            {descriptionComponent ?? null}
+            <Icon name="OpenOutline" size="$4.5" color="$iconSubdued" />
+          </XStack>
+        ) : (
+          <>
+            <EarnText text={description} size="$bodyLgMedium" />
+            {descriptionComponent ?? null}
+            <EarnActionIcon title={title.text} actionIcon={actionIcon} />
+          </>
+        )}
       </XStack>
     </YStack>
   );

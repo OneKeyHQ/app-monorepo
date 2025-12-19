@@ -70,6 +70,71 @@ class ServiceAllNetwork extends ServiceBase {
     super({ backgroundApi });
   }
 
+  private async forEachWithConcurrency<T>(
+    items: T[],
+    concurrency: number,
+    fn: (item: T, index: number) => Promise<void>,
+  ) {
+    if (!items.length) return;
+    const limit = Math.max(1, Math.trunc(concurrency));
+    let nextIndex = 0;
+    const workers = new Array(Math.min(limit, items.length))
+      .fill(0)
+      .map(async () => {
+        // eslint-disable-next-line no-constant-condition
+        while (true) {
+          const index = nextIndex;
+          nextIndex += 1;
+          if (index >= items.length) return;
+          await fn(items[index], index);
+        }
+      });
+    await Promise.all(workers);
+  }
+
+  private getDeriveTypeByTemplateFromDeriveInfoMap({
+    accountId,
+    template,
+    deriveInfoMap,
+  }: {
+    accountId: string;
+    template: string | undefined;
+    deriveInfoMap: Record<string, IAccountDeriveInfo>;
+  }): { deriveType: IAccountDeriveTypes; deriveInfo: IAccountDeriveInfo | undefined } {
+    if (!template) {
+      return { deriveType: 'default', deriveInfo: undefined };
+    }
+
+    const entries = Object.entries(deriveInfoMap);
+    if (!entries.length) {
+      return { deriveType: 'default', deriveInfo: undefined };
+    }
+
+    const useAddressEncodingDerive = Boolean(entries[0]?.[1]?.useAddressEncodingDerive);
+    const shouldMatchByEncoding =
+      useAddressEncodingDerive && accountId.split('--').length > 2;
+
+    if (shouldMatchByEncoding) {
+      for (const [deriveType, info] of entries) {
+        if (
+          info.template === template &&
+          info.addressEncoding &&
+          accountId.endsWith(info.addressEncoding)
+        ) {
+          return { deriveType: deriveType as IAccountDeriveTypes, deriveInfo: info };
+        }
+      }
+    }
+
+    for (const [deriveType, info] of entries) {
+      if (info.template === template) {
+        return { deriveType: deriveType as IAccountDeriveTypes, deriveInfo: info };
+      }
+    }
+
+    return { deriveType: 'default', deriveInfo: undefined };
+  }
+
   @backgroundMethod()
   public async sampleMethod() {
     console.log('sampleMethod');
@@ -239,6 +304,12 @@ class ServiceAllNetwork extends ServiceBase {
       'process all networks',
     );
 
+    // Cache derive info per network impl for this run; derive templates are impl-scoped.
+    const deriveInfoMapCacheByImpl = new Map<
+      string,
+      Promise<Record<string, IAccountDeriveInfo>>
+    >();
+
     let enabledNetworks: Record<string, boolean> = {};
     let disabledNetworks: Record<string, boolean> = {};
 
@@ -248,165 +319,175 @@ class ServiceAllNetwork extends ServiceBase {
       disabledNetworks = allNetworkState.disabledNetworks;
     }
 
-    await Promise.all(
-      allNetworks.map(async (n) => {
-        const { backendIndex: isBackendIndexed } = n;
-        const realNetworkId = n.id;
-        const isNftEnabled = enableNFTNetworkIds.includes(realNetworkId);
-        const isDeFiEnabled = enableDeFiNetworkIdsMap[realNetworkId];
+    // Avoid spawning (networks * accounts) async tasks at once, which can cause
+    // event-loop stalls and show up as thousands of slow calls in profiling.
+    await this.forEachWithConcurrency(allNetworks, 8, async (n) => {
+      const { backendIndex: isBackendIndexed } = n;
+      const realNetworkId = n.id;
+      const impl = networkUtils.getNetworkImpl({ networkId: realNetworkId });
+      const isNftEnabled = enableNFTNetworkIds.includes(realNetworkId);
+      const isDeFiEnabled = enableDeFiNetworkIdsMap[realNetworkId];
 
-        const appendAccountInfo = (accountInfo: IAllNetworkAccountInfo) => {
-          if (
-            networksEnabledOnly &&
-            !isEnabledNetworksInAllNetworks({
-              networkId: accountInfo.networkId,
-              isTestnet: accountInfo.isTestnet,
-              disabledNetworks,
-              enabledNetworks,
-            })
-          ) {
-            return;
+      const appendAccountInfo = (accountInfo: IAllNetworkAccountInfo) => {
+        if (
+          networksEnabledOnly &&
+          !isEnabledNetworksInAllNetworks({
+            networkId: accountInfo.networkId,
+            isTestnet: accountInfo.isTestnet,
+            disabledNetworks,
+            enabledNetworks,
+          })
+        ) {
+          return;
+        }
+
+        if (
+          (!params.nftEnabledOnly || isNftEnabled) &&
+          (!params.DeFiEnabledOnly || isDeFiEnabled)
+        ) {
+          accountsInfo.push(accountInfo);
+          if (isBackendIndexed) {
+            accountsInfoBackendIndexed.push(accountInfo);
+          } else {
+            accountsInfoBackendNotIndexed.push(accountInfo);
           }
+        }
+        allAccountsInfo.push(accountInfo);
+      };
 
-          if (
-            (!params.nftEnabledOnly || isNftEnabled) &&
-            (!params.DeFiEnabledOnly || isDeFiEnabled)
-          ) {
-            accountsInfo.push(accountInfo);
-            if (isBackendIndexed) {
-              accountsInfoBackendIndexed.push(accountInfo);
-            } else {
-              accountsInfoBackendNotIndexed.push(accountInfo);
-            }
-          }
-          allAccountsInfo.push(accountInfo);
-        };
+      let compatibleAccountExists = false;
 
-        let compatibleAccountExists = false;
+      // Load derive info once per network (impl) and reuse for all accounts.
+      let deriveInfoMapPromise = deriveInfoMapCacheByImpl.get(impl);
+      if (!deriveInfoMapPromise) {
+        deriveInfoMapPromise =
+          this.backgroundApi.serviceNetwork.getDeriveInfoMapOfNetwork({
+            networkId: realNetworkId,
+          });
+        deriveInfoMapCacheByImpl.set(impl, deriveInfoMapPromise);
+      }
+      const deriveInfoMap = await deriveInfoMapPromise;
 
-        await Promise.all(
-          dbAccounts.map(async (a) => {
-            const perf = perfUtils.createPerf({
-              name: EPerformanceTimerLogNames.allNetwork__getAllNetworkAccounts_EachAccount,
+      const shouldFilterNotEqualGlobalDeriveTypeAccount =
+        !includingNotEqualGlobalDeriveTypeAccount &&
+        isAllNetwork &&
+        !(
+          networkUtils
+            .getDefaultDeriveTypeVisibleNetworks()
+            .includes(realNetworkId) &&
+          includingDeriveTypeMismatchInDefaultVisibleNetworks
+        );
+      let globalDeriveTypePromise: Promise<IAccountDeriveTypes> | undefined;
+
+      await Promise.all(
+        dbAccounts.map(async (a) => {
+          const perf = perfUtils.createPerf({
+            name: EPerformanceTimerLogNames.allNetwork__getAllNetworkAccounts_EachAccount,
+          });
+
+          const isCompatible = accountUtils.isAccountCompatibleWithNetwork({
+            account: a,
+            networkId: realNetworkId,
+          });
+
+          let isMatched = isAllNetwork ? isCompatible : networkId === realNetworkId;
+
+          const { deriveType, deriveInfo } =
+            this.getDeriveTypeByTemplateFromDeriveInfoMap({
+              accountId: a.id,
+              template: a.template,
+              deriveInfoMap,
             });
 
-            const isCompatible = accountUtils.isAccountCompatibleWithNetwork({
-              account: a,
-              networkId: realNetworkId,
-            });
-
-            let isMatched = isAllNetwork
-              ? isCompatible
-              : networkId === realNetworkId;
-
-            const { deriveType, deriveInfo } =
-              await this.backgroundApi.serviceNetwork.getDeriveTypeByTemplate({
-                accountId: a.id,
-                networkId: realNetworkId,
-                template: a.template,
-              });
-
-            if (
-              !includingNotEqualGlobalDeriveTypeAccount &&
-              isAllNetwork &&
-              isMatched &&
-              a.template &&
-              !(
-                networkUtils
-                  .getDefaultDeriveTypeVisibleNetworks()
-                  .includes(realNetworkId) &&
-                includingDeriveTypeMismatchInDefaultVisibleNetworks
-              )
-            ) {
-              const globalDeriveType =
-                await this.backgroundApi.serviceNetwork.getGlobalDeriveTypeOfNetwork(
-                  {
-                    networkId: realNetworkId,
-                  },
-                );
-
-              if (a.impl === IMPL_EVM) {
-                // console.log({ deriveType, globalDeriveType, realNetworkId });
-              }
-              if (deriveType !== globalDeriveType) {
-                isMatched = false;
-              }
+          if (shouldFilterNotEqualGlobalDeriveTypeAccount && isMatched && a.template) {
+            if (!globalDeriveTypePromise) {
+              globalDeriveTypePromise =
+                this.backgroundApi.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+                  networkId: realNetworkId,
+                });
             }
+            const globalDeriveType = await globalDeriveTypePromise;
 
-            let apiAddress = '';
-            let accountXpub: string | undefined;
-            if (isMatched) {
-              perf.markStart('getAccountAddressForApi');
-              let theMatchedNetworkAccount: INetworkAccount | undefined;
-              ({ address: apiAddress, account: theMatchedNetworkAccount } =
-                await this.backgroundApi.serviceAccount.getAccountAddressInfoForApi(
-                  {
-                    dbAccount: a,
-                    accountId: a.id,
-                    networkId: realNetworkId,
-                  },
-                ));
-              perf.markEnd('getAccountAddressForApi');
+            if (a.impl === IMPL_EVM) {
+              // console.log({ deriveType, globalDeriveType, realNetworkId });
+            }
+            if (deriveType !== globalDeriveType) {
+              isMatched = false;
+            }
+          }
 
-              // TODO pass dbAccount for better performance
-              perf.markStart('getAccountXpub');
-              accountXpub =
-                await this.backgroundApi.serviceAccount.getAccountXpub({
+          let apiAddress = '';
+          let accountXpub: string | undefined;
+          if (isMatched) {
+            perf.markStart('getAccountAddressForApi');
+            let theMatchedNetworkAccount: INetworkAccount | undefined;
+            ({ address: apiAddress, account: theMatchedNetworkAccount } =
+              await this.backgroundApi.serviceAccount.getAccountAddressInfoForApi(
+                {
                   dbAccount: a,
                   accountId: a.id,
                   networkId: realNetworkId,
-                });
-              perf.markEnd('getAccountXpub');
+                },
+              ));
+            perf.markEnd('getAccountAddressForApi');
 
-              const accountInfo: IAllNetworkAccountInfo = {
-                networkId: realNetworkId,
-                accountId: a.id,
-                apiAddress,
-                pub: a?.pub,
-                accountXpub,
-                isBackendIndexed,
-                isNftEnabled,
-                isTestnet: n.isTestnet,
-                dbAccount: a,
-                deriveType,
-                deriveInfo,
-              };
+            // TODO pass dbAccount for better performance
+            perf.markStart('getAccountXpub');
+            accountXpub = await this.backgroundApi.serviceAccount.getAccountXpub({
+              dbAccount: a,
+              accountId: a.id,
+              networkId: realNetworkId,
+            });
+            perf.markEnd('getAccountXpub');
 
-              appendAccountInfo(accountInfo);
-              void this.backgroundApi.serviceAccount.saveAccountAddresses({
-                networkId: realNetworkId,
-                account: theMatchedNetworkAccount,
-              });
+            const accountInfo: IAllNetworkAccountInfo = {
+              networkId: realNetworkId,
+              accountId: a.id,
+              apiAddress,
+              pub: a?.pub,
+              accountXpub,
+              isBackendIndexed,
+              isNftEnabled,
+              isTestnet: n.isTestnet,
+              dbAccount: a,
+              deriveType,
+              deriveInfo,
+            };
 
-              compatibleAccountExists = true;
-            }
-            perf.done({ minDuration: 1 });
-          }),
-        );
+            appendAccountInfo(accountInfo);
+            void this.backgroundApi.serviceAccount.saveAccountAddresses({
+              networkId: realNetworkId,
+              account: theMatchedNetworkAccount,
+            });
 
-        if (
-          !compatibleAccountExists &&
-          includingNonExistingAccount &&
-          isAllNetwork &&
-          !networkUtils.isAllNetwork({ networkId: realNetworkId }) &&
-          !accountUtils.isOthersAccount({ accountId })
-        ) {
-          appendAccountInfo({
-            networkId: realNetworkId,
-            accountId: '',
-            apiAddress: '',
-            pub: undefined,
-            accountXpub: undefined,
-            isNftEnabled,
-            isBackendIndexed,
-            dbAccount: undefined,
-            deriveType: undefined,
-            deriveInfo: undefined,
-            isTestnet: n.isTestnet,
-          });
-        }
-      }),
-    );
+            compatibleAccountExists = true;
+          }
+          perf.done({ minDuration: 1 });
+        }),
+      );
+
+      if (
+        !compatibleAccountExists &&
+        includingNonExistingAccount &&
+        isAllNetwork &&
+        !networkUtils.isAllNetwork({ networkId: realNetworkId }) &&
+        !accountUtils.isOthersAccount({ accountId })
+      ) {
+        appendAccountInfo({
+          networkId: realNetworkId,
+          accountId: '',
+          apiAddress: '',
+          pub: undefined,
+          accountXpub: undefined,
+          isNftEnabled,
+          isBackendIndexed,
+          dbAccount: undefined,
+          deriveType: undefined,
+          deriveInfo: undefined,
+          isTestnet: n.isTestnet,
+        });
+      }
+    });
     defaultLogger.account.allNetworkAccountPerf.consoleLog(
       'process all networks done',
     );

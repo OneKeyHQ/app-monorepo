@@ -15,8 +15,6 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import type { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import { EARN_PAGE_MAX_WIDTH } from '../EarnConfig';
-
 import type { RefreshControlProps } from 'react-native';
 
 interface IEarnPageContainerProps {
@@ -86,7 +84,7 @@ export function EarnPageContainer({
           contentContainerStyle={{ py: '$6' }}
           refreshControl={refreshControl}
         >
-          <YStack w="100%" maxWidth={EARN_PAGE_MAX_WIDTH} mx="auto">
+          <YStack w="100%" mx="auto">
             {showBreadcrumb || showHeader ? (
               <XStack px="$3" pb="$5" gap="$5" ai="center">
                 {showBreadcrumb ? <Breadcrumb {...breadcrumbProps} /> : null}

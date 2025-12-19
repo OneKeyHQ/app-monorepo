@@ -55,10 +55,9 @@ export function MarketBannerItem({
       bg={bgColor}
       borderRadius="$3"
       p={isCompact ? '$2.5' : '$3'}
-      gap={isCompact ? undefined : '$4'}
+      gap="$6"
       alignItems={isCompact ? undefined : 'center'}
       justifyContent="space-between"
-      flex={1}
       onPress={handlePress}
       {...(!platformEnv.isNative && {
         animation: 'quick',
@@ -69,12 +68,11 @@ export function MarketBannerItem({
       pressStyle={{ opacity: 0.7 }}
       cursor="pointer"
     >
-      <YStack gap="$1" flex={isCompact ? undefined : 1} h={20}>
+      <YStack gap="$1" flex={isCompact ? undefined : 1}>
         <SizableText
           size={isCompact ? '$bodySm' : '$bodyMdMedium'}
           fontWeight={isCompact ? '500' : undefined}
-          numberOfLines={2}
-          $md={{ maxWidth: '$40' }}
+          numberOfLines={1}
         >
           {title}
         </SizableText>
@@ -91,8 +89,9 @@ export function MarketBannerItem({
         tokens={tokens}
         size="xs"
         maxVisible={3}
-        overlapOffset="$-3"
+        overlapOffset={-6}
         showRemainingBadge={false}
+        wrapperStyle="none"
       />
     </Stack>
   );

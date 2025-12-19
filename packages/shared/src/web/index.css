@@ -295,3 +295,31 @@ w3m-modal {
     clip-path: inset(0 0 0 0);
   }
 }
+
+.ok-skeleton-light {
+  animation: ok-skeleton-light-loading 1.5s linear infinite alternate;
+  color: transparent;
+}
+
+@keyframes ok-skeleton-light-loading {
+  0% {
+      background-color: #fafafa;
+  }
+  100% {
+      background-color: #cdcdcd;
+  }
+}
+
+.ok-skeleton-dark {
+  animation: ok-skeleton-dark-loading 1.5s linear infinite alternate;
+  color: transparent;
+}
+
+@keyframes ok-skeleton-dark-loading {
+  0% {
+      background-color: #111111;
+  }
+  100% {
+      background-color: #333333;
+  }
+}

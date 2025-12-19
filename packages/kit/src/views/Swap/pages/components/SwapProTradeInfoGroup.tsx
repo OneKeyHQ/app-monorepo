@@ -92,7 +92,10 @@ const SwapProTradeInfoGroup = ({
     toToken?.symbol,
   ]);
   const tradingFeeValue = useMemo(() => {
-    const tradingFee = swapProQuoteResult?.fee?.percentageFee ?? 0;
+    const tradingFee = swapProQuoteResult?.fee?.percentageFee;
+    if (!tradingFee) {
+      return '--';
+    }
     return `${tradingFee}%`;
   }, [swapProQuoteResult?.fee?.percentageFee]);
 

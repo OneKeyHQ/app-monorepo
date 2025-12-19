@@ -634,6 +634,7 @@ export interface IBroadcastTransactionParams {
   signature?: string;
   rawTxType?: 'json' | 'hex';
   tronResourceRentalInfo?: ITronResourceRentalInfo;
+  useDefaultRpc?: boolean;
 }
 
 export interface IBroadcastTransactionByCustomRpcParams
@@ -654,6 +655,7 @@ export interface ISignTransactionParamsBase {
   // TODO rename externalSignOnly
   signOnly: boolean; // external account use this field to indicate sign only or sign and send
   rawTxType?: 'json' | 'hex';
+  useDefaultRpc?: boolean;
 }
 
 export type ISignAndSendTransactionParams = ISignTransactionParams;
@@ -674,6 +676,7 @@ export interface IBatchSignTransactionParamsBase {
   transferPayload: ITransferPayload | undefined;
   successfullySentTxs?: string[];
   tronResourceRentalInfo?: ITronResourceRentalInfo;
+  useDefaultRpc?: boolean;
 }
 
 export interface ISignMessageParams {
