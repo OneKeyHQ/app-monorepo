@@ -47,6 +47,7 @@ import { ipcMessageKeys } from './config';
 import { ElectronTranslations, i18nText, initLocale } from './i18n';
 import { registerShortcuts, unregisterShortcuts } from './libs/shortcuts';
 import * as store from './libs/store';
+import { setMainWindow } from './oauth-server';
 import initProcess from './process';
 import {
   getAppStaticResourcesPath,
@@ -561,6 +562,9 @@ async function createMainWindow() {
       });
 
   void browserWindow.loadURL(src);
+
+  // Set main window reference for OAuth server
+  setMainWindow(browserWindow);
 
   // Protocol handler for win32
   if (isWin || isMac) {

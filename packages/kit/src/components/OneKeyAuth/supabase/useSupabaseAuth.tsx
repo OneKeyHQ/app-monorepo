@@ -14,6 +14,7 @@ import {
   openOAuthPopupDesktopDeepLink,
   openOAuthPopupDesktopWebview,
 } from '../openOAuthPopupDesktop';
+import { openOAuthPopupDesktopLocalhost } from '../openOAuthPopupDesktopLocalhost';
 import {
   EExtensionOAuthMethod,
   getOAuthRedirectUrlExt,
@@ -60,10 +61,15 @@ const GOOGLE_CHROME_EXTENSION_CLIENT_ID =
   '244450898872-d22ubafv8ca38s6fp0kflhdr6e3s386u.apps.googleusercontent.com';
 // Chrome Extension type (for CHROME_GET_AUTH_TOKEN / getAuthToken)
 // '244450898872-foi2b6mtfqus1ed46hu5j03abne6b04s.apps.googleusercontent.com'
+// desktop app type
+// '244450898872-ncfr4k5vkk85ptkldbct2i9bpa0pideu.apps.googleusercontent.com'
 
 // Configure which OAuth method to use for desktop
 // See EDesktopOAuthMethod in openOAuthPopupDesktop.tsx for options
-const DESKTOP_OAUTH_METHOD: EDesktopOAuthMethod = EDesktopOAuthMethod.WEBVIEW;
+// - LOCALHOST: Recommended - uses localhost HTTP server + Google ID Token + signInWithIdToken
+// - WEBVIEW: Uses in-app webview (requires re-login to Google)
+// - DEEP_LINK: Uses system browser + deep link (security risk: protocol hijacking)
+const DESKTOP_OAUTH_METHOD: EDesktopOAuthMethod = EDesktopOAuthMethod.LOCALHOST;
 
 // Helper function to handle OAuth session persistence
 // This function is called after successfully extracting tokens from OAuth callback
@@ -212,6 +218,15 @@ export function useSupabaseAuth() {
 
       // For desktop (Electron), handle OAuth based on configured method
       if (platformEnv.isDesktop) {
+        if (DESKTOP_OAUTH_METHOD === EDesktopOAuthMethod.LOCALHOST) {
+          // Use localhost HTTP server + Google ID Token + signInWithIdToken
+          // This method bypasses Supabase redirect URL restrictions
+          // and doesn't need Supabase OAuth URL
+          return openOAuthPopupDesktopLocalhost({
+            handleSessionPersistence: handleOAuthSessionPersistence,
+            persistSession,
+          });
+        }
         if (DESKTOP_OAUTH_METHOD === EDesktopOAuthMethod.WEBVIEW) {
           return openOAuthPopupDesktopWebview({
             authUrl,

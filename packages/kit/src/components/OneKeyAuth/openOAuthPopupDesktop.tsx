@@ -35,7 +35,12 @@ export function getOAuthRedirectUrlDesktop(
 }
 
 export enum EDesktopOAuthMethod {
-  // Use in-app webview to handle OAuth (recommended)
+  // Use localhost HTTP server + Google ID Token + Supabase signInWithIdToken (recommended)
+  // Bypasses Supabase redirect URL restrictions
+  // Uses system browser for OAuth
+  LOCALHOST = 'LOCALHOST',
+
+  // Use in-app webview to handle OAuth
   // Intercepts navigation to onekey-wallet://auth/callback
   WEBVIEW = 'WEBVIEW',
 
