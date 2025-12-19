@@ -106,6 +106,7 @@ const SwapProLimitPriceSlider = ({
           onChange={handleSliderChange}
           segments={4}
           sliderHeight={2}
+          centerOrigin
         />
       </XStack>
       <Input
