@@ -10,6 +10,7 @@ import { SelectTokenScene } from './scenes/selectToken';
 import { SwapEstimateFeeScene } from './scenes/swapEstimateFee';
 import { SwapQuoteScene } from './scenes/swapQuote';
 import { SwapSendTxScene } from './scenes/swapSendTx';
+import { TokenSelectorSearchScene } from './scenes/tokenSelectorSearch';
 
 export class SwapScope extends BaseScope {
   protected override scopeName = EScopeName.swap;
@@ -17,6 +18,11 @@ export class SwapScope extends BaseScope {
   createSwapOrder = this.createScene('createSwapOrder', CreateOrderScene);
 
   selectToken = this.createScene('selectToken', SelectTokenScene);
+
+  tokenSelectorSearch = this.createScene(
+    'tokenSelectorSearch',
+    TokenSelectorSearchScene,
+  );
 
   providerChange = this.createScene('providerChange', ProviderChangeScene);
 

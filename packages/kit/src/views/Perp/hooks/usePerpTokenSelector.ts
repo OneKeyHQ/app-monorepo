@@ -134,7 +134,7 @@ export function usePerpTokenSelector() {
             sortDirection: params.sortDirection,
           });
         },
-        150,
+        500,
       ),
     [],
   );
