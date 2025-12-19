@@ -21,6 +21,7 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useCustomRpcAvailability } from '@onekeyhq/kit/src/hooks/useCustomRpcAvailability';
 import {
   useSwapActions,
   useSwapAlertsAtom,
@@ -143,6 +144,10 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const toAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
+  // Check custom RPC availability for the from network
+  const { isCustomRpcUnavailable } = useCustomRpcAvailability(
+    swapFromAddressInfo.networkId,
+  );
   const quoteLoading = useSwapQuoteLoading();
   const quoteEventFetching = useSwapQuoteEventFetching();
   const [{ swapRecentTokenPairs }] = useInAppNotificationAtom();
@@ -696,9 +701,10 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
         swapType: swapTypeFinal,
         fromToken: fromSelectToken,
         toToken: toSelectToken,
-        shouldFallback: SwapBuildShouldFallBackNetworkIds.includes(
-          fromSelectToken?.networkId ?? '',
-        ),
+        shouldFallback:
+          SwapBuildShouldFallBackNetworkIds.includes(
+            fromSelectToken?.networkId ?? '',
+          ) || isCustomRpcUnavailable,
         fromTokenAmount:
           focusSwapPro && swapProTradeType === ESwapProTradeType.MARKET
             ? swapProInputAmount
@@ -748,6 +754,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     intl,
     createBatchApproveSwapStep,
     createSendTxStep,
+    isCustomRpcUnavailable,
   ]);
   const onActionHandler = useCallback(() => {
     if (
