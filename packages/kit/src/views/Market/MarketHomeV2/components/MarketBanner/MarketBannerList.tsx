@@ -43,7 +43,7 @@ function MarketBannerListSkeleton({ compact }: { compact?: boolean }) {
 
 export function MarketBannerList() {
   const toMarketBannerDetail = useToMarketBannerDetail();
-  const { md } = useMedia();
+  const { sm, md } = useMedia();
 
   const { result: bannerList, isLoading } = usePromiseResult(
     async () => {
@@ -57,10 +57,12 @@ export function MarketBannerList() {
     },
   );
 
-  const useCompactLayout = md && (bannerList?.length ?? 0) >= 3;
+  const bannerLength = bannerList?.length ?? 0;
+  const isSmallScreen = bannerLength > 3 ? md : sm;
+  const useCompactLayout = isSmallScreen && bannerLength >= 3;
 
   if (isLoading) {
-    return <MarketBannerListSkeleton compact={md} />;
+    return <MarketBannerListSkeleton compact={sm} />;
   }
 
   if (!bannerList || bannerList.length === 0) {
@@ -68,7 +70,24 @@ export function MarketBannerList() {
   }
 
   const bannerCount = bannerList.length;
-  const useScrollView = md && bannerCount >= 3;
+  const useScrollView = isSmallScreen && bannerCount >= 3;
+  const itemWidth =
+    bannerCount === 1
+      ? '100%'
+      : `calc((100% - ${(bannerCount - 1) * BANNER_GAP}px) / ${bannerCount})`;
+
+  const bannerItems = bannerList.map((item) => (
+    <Stack
+      key={item._id}
+      {...(useScrollView ? { w: BANNER_ITEM_WIDTH } : { width: itemWidth })}
+    >
+      <MarketBannerItem
+        item={item}
+        onPress={toMarketBannerDetail}
+        compact={useCompactLayout}
+      />
+    </Stack>
+  ));
 
   if (useScrollView) {
     return (
@@ -76,35 +95,19 @@ export function MarketBannerList() {
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={{
-          py: '$2',
+          pt: '$2',
           px: '$4',
           gap: BANNER_GAP,
         }}
       >
-        {bannerList.map((item) => (
-          <Stack h={118} key={item._id} w={BANNER_ITEM_WIDTH}>
-            <MarketBannerItem
-              item={item}
-              onPress={toMarketBannerDetail}
-              compact={useCompactLayout}
-            />
-          </Stack>
-        ))}
+        {bannerItems}
       </ScrollView>
     );
   }
 
   return (
-    <XStack py="$2" px="$4" gap="$3">
-      {bannerList.map((item) => (
-        <Stack key={item._id} flex={1}>
-          <MarketBannerItem
-            item={item}
-            onPress={toMarketBannerDetail}
-            compact={useCompactLayout}
-          />
-        </Stack>
-      ))}
+    <XStack pt="$2" px="$4" gap="$3" justifyContent="space-between">
+      {bannerItems}
     </XStack>
   );
 }

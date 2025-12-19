@@ -33,6 +33,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { isDualScreenDevice } from '@onekeyhq/shared/src/modules/DualScreenInfo';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   ETabDiscoveryRoutes,
@@ -163,6 +164,7 @@ function MobileBrowser() {
   const isTabletDevice = useIsNativeTablet();
   const isTabletMainView = useIsTabletMainView();
   const isTabletDetailView = useIsTabletDetailView();
+  const isDualScreen = isDualScreenDevice();
   const route =
     useRoute<
       RouteProp<ITabDiscoveryParamList, ETabDiscoveryRoutes.TabDiscovery>
@@ -371,6 +373,16 @@ function MobileBrowser() {
     return displayHomePage;
   }, [isTabletMainView, isTabletDetailView, displayHomePage, isLandscape]);
 
+  const isShowContent = useMemo(() => {
+    if (!isDualScreen) {
+      return true;
+    }
+    if (isTabletMainView && isLandscape) {
+      return true;
+    }
+    return isTabletDetailView && !isLandscape;
+  }, [isDualScreen, isTabletMainView, isLandscape, isTabletDetailView]);
+
   if (isTabletDetailView && isLandscape && displayHomePage) {
     return <TabletHomeContainer />;
   }
@@ -401,7 +413,7 @@ function MobileBrowser() {
       )}
       <Page.Body>
         {/* Market Tab */}
-        {!isTabletDetailView || (isTabletDetailView && !isLandscape) ? (
+        {isShowContent ? (
           <Stack
             flex={1}
             display={
@@ -411,8 +423,7 @@ function MobileBrowser() {
             }
           >
             <MarketHomeWithProvider
-              showHeader={false}
-              showContent={selectedHeaderTab === ETranslations.global_market}
+              isFocused={selectedHeaderTab === ETranslations.global_market}
             />
           </Stack>
         ) : null}
@@ -455,7 +466,7 @@ function MobileBrowser() {
             </Animated.View>
           </Freeze>
         </Stack>
-        {!isTabletDetailView || (isTabletDetailView && !isLandscape) ? (
+        {isShowContent ? (
           <Stack
             flex={1}
             display={

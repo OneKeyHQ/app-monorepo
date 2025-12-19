@@ -616,7 +616,7 @@ const SetTpslForm = memo(
                       (formData.percentage > 0 ? calculatedAmount : '')
                     }
                     onChange={handleAmountChange}
-                    suffix={currentPosition.coin}
+                    suffix={displayName}
                     validator={(value: string) => {
                       const processedValue = value.replace(/。/g, '.');
                       return validateSizeInput(processedValue, szDecimals);
