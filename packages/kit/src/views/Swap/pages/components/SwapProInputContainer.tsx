@@ -195,7 +195,9 @@ const SwapProInputContainer = ({
                       borderRadius="$full"
                     />
                   ) : null}
-                  <SizableText size="$bodyMd">{inputToken?.symbol}</SizableText>
+                  <SizableText size="$bodyMd" maxWidth="$16" numberOfLines={1}>
+                    {inputToken?.symbol}
+                  </SizableText>
                   {isTokenSelectorVisible ? (
                     <Icon
                       name="ChevronDownSmallOutline"
