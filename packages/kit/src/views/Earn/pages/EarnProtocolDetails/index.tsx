@@ -238,12 +238,7 @@ function ChartSection({
         </XStack>
       ) : null}
       {/* Chart component */}
-      <ApyChart
-        networkId={networkId}
-        symbol={symbol}
-        provider={provider}
-        vault={vault}
-      />
+      <ApyChart apyHistory={apyHistory} />
     </YStack>
   );
 }
