@@ -153,7 +153,7 @@ export function Welcome({
   return (
     <XStack width="100%" $gtSm={{ justifyContent: 'center' }}>
       {/* Left side with logo items */}
-      {!platformEnv.isNativeAndroid ? (
+      {!platformEnv.isNative ? (
         <ReviewControl>
           <DappSideDisplay
             items={LEFT_SIDE_ITEMS}
@@ -184,13 +184,15 @@ export function Welcome({
       </Stack>
 
       {/* Right side with logo items */}
-      <ReviewControl>
-        <DappSideDisplay
-          items={RIGHT_SIDE_ITEMS}
-          shuffledDapps={shuffledDapps}
-          sideStackProps={sideStackProps}
-        />
-      </ReviewControl>
+      {!platformEnv.isNative ? (
+        <ReviewControl>
+          <DappSideDisplay
+            items={RIGHT_SIDE_ITEMS}
+            shuffledDapps={shuffledDapps}
+            sideStackProps={sideStackProps}
+          />
+        </ReviewControl>
+      ) : null}
     </XStack>
   );
 }
