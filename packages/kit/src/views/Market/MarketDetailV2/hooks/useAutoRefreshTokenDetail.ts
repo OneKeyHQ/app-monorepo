@@ -29,6 +29,10 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
       pollingInterval: 6000, // Changed from 5000 to 6000 to avoid race condition with K-line updates
       revalidateOnFocus: true,
       revalidateOnReconnect: true,
+      // Disable focus check to allow data fetching when navigating from Modal to Tab
+      // This is needed because when navigating from MarketBannerDetail (Modal) to MarketDetailV2 (Tab),
+      // the Modal may still be in the navigation stack, causing isFocused to return false
+      checkIsFocused: false,
     },
   );
 }

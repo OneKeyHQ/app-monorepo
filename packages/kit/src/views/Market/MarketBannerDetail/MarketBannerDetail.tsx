@@ -45,7 +45,7 @@ type IMarketBannerDetailRouteParams = RouteProp<
 function MarketBannerDetailContent({ title }: { title: string }) {
   const route = useRoute<IMarketBannerDetailRouteParams>();
   const { tokenListId } = route.params;
-  const toDetailPage = useToDetailPage();
+  const toDetailPage = useToDetailPage({ useRootNavigation: true });
   const navigation = useAppNavigation();
   const { config } = useAccountSelectorContextData();
   const { md } = useMedia();
