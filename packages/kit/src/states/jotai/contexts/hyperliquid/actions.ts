@@ -519,10 +519,26 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         return;
       }
 
+      const form = get(tradingFormAtom());
+      const shouldUpdateLimitPrice = form.type === 'limit';
+
       await this.clearActiveAssetData.call(set);
       await backgroundApiProxy.serviceHyperliquid.changeActiveAsset({
         coin,
       });
+
+      // update limit price once using current atom snapshot.
+      if (shouldUpdateLimitPrice) {
+        const allMids = get(perpsAllMidsAtom());
+        const mid = allMids?.mids?.[coin];
+        const midValue = new BigNumber(mid || '');
+        this.updateTradingForm.call(set, {
+          price:
+            mid && midValue.isFinite() && midValue.gt(0)
+              ? formatPriceToSignificantDigits(mid)
+              : '',
+        });
+      }
     },
   );
 
@@ -1036,21 +1052,25 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
   });
 
   tokenSzDecimalsCache: {
-    [coin: string]: number | null;
+    [coin: string]: number | null | undefined;
   } = {};
 
   getTokenSzDecimals = contextAtomMethod(
     async (get, _set, params: { coin: string }) => {
       const { coin } = params;
+      const cached = this.tokenSzDecimalsCache[coin];
+      if (cached !== undefined) {
+        return cached;
+      }
+
       let szDecimals: number | null = null;
-      if (this.tokenSzDecimalsCache[coin] !== null) {
-        szDecimals = this.tokenSzDecimalsCache[coin];
-      } else {
+      try {
         const tokenInfo =
           await backgroundApiProxy.serviceHyperliquid.getSymbolMeta({
             coin,
           });
         szDecimals = tokenInfo?.universe?.szDecimals ?? null;
+      } finally {
         this.tokenSzDecimalsCache[coin] = szDecimals;
       }
       return szDecimals;
