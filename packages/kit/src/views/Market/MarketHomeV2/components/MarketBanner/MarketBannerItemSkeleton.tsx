@@ -1,25 +1,5 @@
-import { Skeleton, Stack, XStack, YStack } from '@onekeyhq/components';
-
-function TokenGroupSkeleton() {
-  return (
-    <XStack>
-      {[0, 1, 2].map((i) => (
-        <Stack
-          key={i}
-          w="$5"
-          h="$5"
-          borderRadius="$full"
-          borderColor="$neutral3"
-          bg="$bgStrong"
-          overflow="hidden"
-          {...(i !== 0 && { ml: '$-1.5' })}
-        >
-          <Skeleton w="$5" h="$5" />
-        </Stack>
-      ))}
-    </XStack>
-  );
-}
+import { Skeleton, Stack, YStack } from '@onekeyhq/components';
+import { TokenGroupSkeleton } from '@onekeyhq/kit/src/components/Token';
 
 export function MarketBannerItemSkeleton() {
   return (
@@ -50,7 +30,7 @@ export function MarketBannerItemSkeleton() {
         <Skeleton w="$16" h="$3" $gtMd={{ w: '$20', h: '$4' }} />
         <Skeleton w="$10" h="$3" $gtMd={{ w: '$12' }} />
       </YStack>
-      <TokenGroupSkeleton />
+      <TokenGroupSkeleton size="xs" overlapOffset="$-1.5" wrapperStyle="none" />
     </Stack>
   );
 }
