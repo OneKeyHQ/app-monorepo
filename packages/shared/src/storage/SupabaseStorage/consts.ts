@@ -4,14 +4,14 @@
 import { OneKeyLocalError } from '../../errors';
 
 // Project URL at https://supabase.com/dashboard/project/_/settings/api
-// export const SUPABASE_PROJECT_URL = 'https://zvxscjkvkjepbrjncvzt.supabase.co';
-export const SUPABASE_PROJECT_URL = 'https://wtspqckturkzhstyjabx.supabase.co'; // local test
+export const SUPABASE_PROJECT_URL = 'https://zvxscjkvkjepbrjncvzt.supabase.co';
+// export const SUPABASE_PROJECT_URL = 'https://wtspqckturkzhstyjabx.supabase.co'; // local test
 
 // Publishable key at https://supabase.com/dashboard/project/_/settings/api-keys/new
-// export const SUPABASE_PUBLIC_API_KEY =
-// 'sb_publishable_ryfw0-h47JC2lHFRB2yrjw_iS_1KPgW';
 export const SUPABASE_PUBLIC_API_KEY =
-  'sb_publishable_So24RIupCcXUHaKo1gM4VA_uOBbgjoN'; // local test
+  'sb_publishable_ryfw0-h47JC2lHFRB2yrjw_iS_1KPgW';
+// export const SUPABASE_PUBLIC_API_KEY =
+//   'sb_publishable_So24RIupCcXUHaKo1gM4VA_uOBbgjoN'; // local test
 
 // Add Google/Apple Providers
 // https://supabase.com/dashboard/project/_/auth/providers
