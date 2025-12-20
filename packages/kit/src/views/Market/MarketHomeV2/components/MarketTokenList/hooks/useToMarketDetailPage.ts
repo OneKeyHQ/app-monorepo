@@ -8,7 +8,6 @@ import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/m
 import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
-  EModalRoutes,
   ERootRoutes,
   ETabMarketRoutes,
   ETabRoutes,
@@ -73,18 +72,8 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
             from: params.from || enterSource,
           },
         });
-      } else if (platformEnv.isNative) {
-        // Native platforms: Open as Modal for better UX
-        rootNavigationRef.current?.navigate(ERootRoutes.Modal, {
-          screen: EModalRoutes.MarketModal,
-          params: {
-            // Use string literal to avoid circular dependency with router/index.tsx
-            screen: 'MarketDetailV2',
-            params,
-          },
-        });
       } else if (options?.useRootNavigation) {
-        // Use root navigation for cases that explicitly request it (e.g., from modal, universal search)
+        // Use root navigation for cases that explicitly request it (e.g., from universal search on desktop/web)
         rootNavigationRef.current?.navigate(ERootRoutes.Main, {
           screen: ETabRoutes.Market,
           params: {
