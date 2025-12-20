@@ -10,6 +10,7 @@ export interface IMarketTokenDetail {
   tvl?: string;
   liquidity?: string;
   holders?: number;
+  circulatingSupply?: string;
   extraData?: {
     website?: string;
     twitter?: string;
@@ -89,6 +90,7 @@ export interface IMarketTokenDetail {
   vSell8h?: string;
   vSell24h?: string;
   lastUpdated?: number;
+  communityRecognized?: boolean;
   [key: string]: unknown;
 }
 
@@ -122,6 +124,7 @@ export interface IMarketTokenListItem {
   holders?: number;
   extraData?: IMarketTokenListItemExtraData;
   price?: string;
+  firstTradeTime?: string;
   priceChange1mPercent?: string;
   priceChange5mPercent?: string;
   priceChange30mPercent?: string;
@@ -178,6 +181,7 @@ export interface IMarketTokenListItem {
   networkId?: string;
   liquidity?: string;
   chainId?: string;
+  communityRecognized?: boolean;
 }
 
 export interface IMarketTokenListResponse {
@@ -215,12 +219,36 @@ export interface IMarketTokenTransaction {
   url: string;
   from: IMarketTokenTransactionToken;
   to: IMarketTokenTransactionToken;
+  poolLogoUrl?: string;
+  volumeUSD?: number;
 }
 
 export interface IMarketTokenTransactionsResponse {
   list: IMarketTokenTransaction[];
   hasMore?: boolean;
   total?: number;
+  cursor?: string;
+}
+
+export interface IMarketAccountTokenTransactionParty {
+  amount: string;
+  address: string;
+}
+
+export interface IMarketAccountTokenTransaction {
+  hash: string;
+  type: 'buy' | 'sell';
+  timestamp: number;
+  amount: string;
+  from: IMarketAccountTokenTransactionParty;
+  to: IMarketAccountTokenTransactionParty;
+}
+
+export interface IMarketAccountTokenTransactionsResponse {
+  list: IMarketAccountTokenTransaction[];
+  hasMore?: boolean;
+  total?: number;
+  cursor?: string;
 }
 
 export interface IMarketTokenHolder {
@@ -275,12 +303,30 @@ export interface IMarketBasicConfigToken {
   logo?: string;
 }
 
+export interface IMarketBasicConfigNetworkFeature {
+  actionBar?: boolean;
+  [key: string]: unknown;
+}
+
+export interface IMarketBasicConfigFeature {
+  marketWebsocket?: {
+    transactions?: boolean;
+    price?: boolean;
+  };
+  [key: string]: unknown;
+}
+
 export interface IMarketBasicConfigData {
+  tradingViewUrl: string;
   networkList: IMarketBasicConfigNetwork[];
   recommendTokens: IMarketBasicConfigToken[];
   searchRecommendTokens: IMarketBasicConfigToken[];
   refreshInterval: number;
   minLiquidity: number;
+  networkFeature?: {
+    [networkId: string]: IMarketBasicConfigNetworkFeature;
+  };
+  feature?: IMarketBasicConfigFeature;
 }
 
 export interface IMarketBasicConfigResponse {
@@ -303,4 +349,50 @@ export interface IMarketTokenDetailResponse {
   code: number;
   message: string;
   data: IMarketTokenDetailData;
+}
+
+export interface IMarketAccountPortfolioItem {
+  accountAddress: string;
+  tokenAddress: string;
+  amount: string;
+  symbol: string;
+  tokenPrice: string;
+  totalPrice: string;
+}
+
+export interface IMarketAccountPortfolioResponse {
+  list: IMarketAccountPortfolioItem[];
+}
+
+// Banner types
+export interface IMarketBannerDescription {
+  text: string;
+  fontColor: string;
+}
+
+export interface IMarketBannerItem {
+  _id: string;
+  title: string;
+  rank: number;
+  mode: number;
+  payload: string;
+  miniBundlerVersion: string;
+  backgroundColor: string;
+  tokenListId: string;
+  description?: IMarketBannerDescription;
+  tokenLogos?: string[];
+}
+
+export interface IMarketBannerListResponse {
+  total: number;
+  data: IMarketBannerItem[];
+}
+
+export interface IMarketBannerTokenListItem extends IMarketTokenListItem {
+  isNative?: boolean;
+  tokenAge?: string;
+}
+
+export interface IMarketBannerTokenListResponse {
+  list: IMarketBannerTokenListItem[];
 }

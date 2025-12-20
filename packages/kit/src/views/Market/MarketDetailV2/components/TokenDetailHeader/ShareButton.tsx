@@ -1,5 +1,6 @@
 import {
   HeaderIconButton,
+  IconButton,
   InteractiveIcon,
   useShare,
 } from '@onekeyhq/components';
@@ -12,6 +13,7 @@ interface IShareButtonProps {
   address: string;
   isNative?: boolean;
   size?: string;
+  useIconButton?: boolean;
 }
 
 export function ShareButton({
@@ -19,6 +21,7 @@ export function ShareButton({
   address,
   isNative,
   size,
+  useIconButton,
 }: IShareButtonProps) {
   const { shareText } = useShare();
 
@@ -34,6 +37,18 @@ export function ShareButton({
     });
     void shareText(url);
   };
+
+  // If useIconButton is true, use IconButton for consistency with favorite button
+  if (useIconButton) {
+    return (
+      <IconButton
+        icon="ShareOutline"
+        variant="tertiary"
+        size="medium"
+        onPress={handleShare}
+      />
+    );
+  }
 
   // If size is provided, use InteractiveIcon for consistency with other small buttons
   if (size) {

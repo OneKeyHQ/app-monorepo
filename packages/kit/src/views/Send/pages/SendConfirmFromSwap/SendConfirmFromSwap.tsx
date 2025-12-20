@@ -195,8 +195,13 @@ function SendConfirmFromSwap() {
 
   return (
     <Page onClose={handleOnClose}>
-      <Page.Body>
-        <Stack h="100%" justifyContent="center" alignContent="center">
+      <Page.Body bg="$bgApp">
+        <Stack
+          h="100%"
+          justifyContent="center"
+          alignContent="center"
+          bg="$bgApp"
+        >
           <Spinner size="large" />
         </Stack>
       </Page.Body>

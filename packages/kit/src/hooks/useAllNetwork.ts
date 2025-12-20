@@ -5,6 +5,7 @@ import { isEmpty } from 'lodash';
 import type { IDBAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { POLLING_DEBOUNCE_INTERVAL } from '@onekeyhq/shared/src/consts/walletConsts';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import perfUtils, {
@@ -101,6 +102,7 @@ function useAllNetworkRequests<T>(params: {
   clearAllNetworkData: () => void;
   abortAllNetworkRequests?: () => void;
   isNFTRequests?: boolean;
+  isDeFiRequests?: boolean;
   disabled?: boolean;
   interval?: number;
   shouldAlwaysFetch?: boolean;
@@ -133,6 +135,7 @@ function useAllNetworkRequests<T>(params: {
     abortAllNetworkRequests,
     clearAllNetworkData,
     isNFTRequests,
+    isDeFiRequests,
     disabled,
     shouldAlwaysFetch,
     onStarted,
@@ -190,6 +193,7 @@ function useAllNetworkRequests<T>(params: {
         networkId: currentNetworkId,
         deriveType: undefined,
         nftEnabledOnly: isNFTRequests,
+        DeFiEnabledOnly: isDeFiRequests,
         // disable test network in all networks
         excludeTestNetwork: true,
         // For single network accounts, display all available network data without filtering
@@ -390,6 +394,7 @@ function useAllNetworkRequests<T>(params: {
       isAllNetworks,
       abortAllNetworkRequests,
       isNFTRequests,
+      isDeFiRequests,
       allNetworkAccountsData,
       onStarted,
       onFinished,
@@ -420,16 +425,23 @@ function useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
   networkId,
   filterNetworksWithoutAccount,
   indexedAccountId,
+  withNetworksInfo = false,
 }: {
   walletId: string;
   networkId?: string;
   filterNetworksWithoutAccount?: boolean;
   indexedAccountId?: string;
+  withNetworksInfo?: boolean;
 }) {
   const { result, run } = usePromiseResult(
     async () => {
+      const networkInfoMap: Record<
+        string,
+        { deriveType: IAccountDeriveTypes; mergeDeriveAssetsEnabled: boolean }
+      > = {};
       if (networkId && !networkUtils.isAllNetwork({ networkId })) {
         return {
+          networkInfoMap,
           compatibleNetworks: [],
           compatibleNetworksWithoutAccount: [],
         };
@@ -464,6 +476,24 @@ function useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
       const compatibleNetworksWithoutAccount: IServerNetwork[] = [];
 
       const mainnetItems = compatibleNetworks.mainnetItems;
+
+      if (withNetworksInfo) {
+        for (const network of mainnetItems) {
+          const [globalDeriveType, vaultSettings] = await Promise.all([
+            backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+              networkId: network.id,
+            }),
+            backgroundApiProxy.serviceNetwork.getVaultSettings({
+              networkId: network.id,
+            }),
+          ]);
+          networkInfoMap[network.id] = {
+            deriveType: globalDeriveType,
+            mergeDeriveAssetsEnabled: !!vaultSettings.mergeDeriveAssetsEnabled,
+          };
+        }
+      }
+
       if (filterNetworksWithoutAccount && indexedAccountId) {
         const networksByImpl = compatibleNetworks.mainnetItems.reduce(
           (acc, network) => {
@@ -524,13 +554,21 @@ function useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
       }
 
       return {
+        networkInfoMap,
         compatibleNetworks: mainnetItems,
         compatibleNetworksWithoutAccount,
       };
     },
-    [walletId, networkId, filterNetworksWithoutAccount, indexedAccountId],
+    [
+      walletId,
+      networkId,
+      filterNetworksWithoutAccount,
+      indexedAccountId,
+      withNetworksInfo,
+    ],
     {
       initResult: {
+        networkInfoMap: {},
         compatibleNetworks: [],
         compatibleNetworksWithoutAccount: [],
       },
@@ -543,6 +581,7 @@ function useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
     result?.compatibleNetworksWithoutAccount ?? [];
 
   return {
+    networkInfoMap: result?.networkInfoMap ?? {},
     enabledNetworksCompatibleWithWalletId,
     enabledNetworksWithoutAccount,
     run,

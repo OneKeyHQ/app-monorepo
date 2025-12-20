@@ -39,6 +39,10 @@ import ServiceBase from '../ServiceBase';
 
 import type { IHyperliquidCustomSettings } from '../../dbs/simple/entity/SimpleDbEntityPerp';
 import type {
+  IPerpsDepositNetwork,
+  IPerpsDepositToken,
+} from '../../states/jotai/atoms';
+import type {
   IJsBridgeMessagePayload,
   IJsonRpcRequest,
 } from '@onekeyfe/cross-inpage-provider-types';
@@ -158,11 +162,17 @@ export interface IPerpServerBannerConfig {
   canClose?: boolean;
 }
 
+export interface IPerpServerDepositConfig {
+  network: IPerpsDepositNetwork;
+  tokens: IPerpsDepositToken[];
+}
+
 export interface IPerpServerReferrerConfig {
   referrerAddress?: string;
   referrerRate?: number;
   agentTTL?: number;
   referralCode?: string;
+  configVersion?: string;
 }
 
 export interface IPerpServerCommonConfig {
@@ -185,6 +195,7 @@ export interface IPerpServerConfigResponse {
   >;
   commonConfig?: IPerpServerCommonConfig;
   bannerConfig?: IPerpServerBannerConfig;
+  depositTokenConfig?: IPerpServerDepositConfig[];
   hyperLiquidErrorLocales?: IHyperLiquidErrorLocaleItem[];
 }
 @backgroundClass()
@@ -740,13 +751,16 @@ class ServiceWebviewPerp extends ServiceBase {
       this.lastExtPerpTab =
         await this.backgroundApi.serviceApp.openExtensionExpandTab({
           // routes: [ERootRoutes.Main, ETabRoutes.Perp], // not working for extension
-          path: '/perp',
+          path: '/perps',
         });
     }
   }
 
   @backgroundMethod()
   async setPerpUserConfig(type: EPerpUserType) {
+    // if (type === EPerpUserType.PERP_WEB) {
+    //   void this.backgroundApi.serviceHyperliquidSubscription.pauseSubscriptions();
+    // }
     await perpsUserConfigPersistAtom.set((prev) => ({
       ...prev,
       perpUserConfig: { ...prev.perpUserConfig, currentUserType: type },

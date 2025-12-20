@@ -161,7 +161,7 @@ export function MarketRecommendList({
               }
             >
               {intl.formatMessage({
-                id: ETranslations.market_empty_watchlist_title,
+                id: ETranslations.market_favorites_empty,
               })}
             </SizableText>
             <SizableText
@@ -173,7 +173,7 @@ export function MarketRecommendList({
               pt="$2"
             >
               {intl.formatMessage({
-                id: ETranslations.market_empty_watchlist_desc,
+                id: ETranslations.market_favorites_empty_desc,
               })}
             </SizableText>
           </>
@@ -220,13 +220,9 @@ export function MarketRecommendList({
               })}
             </XStack>
           ))}
-          {gtMd && confirmButton ? (
-            <YStack pt="$8">{confirmButton}</YStack>
-          ) : null}
+          <YStack pt="$8">{confirmButton}</YStack>
         </YStack>
       </ScrollView>
-
-      {!gtMd && confirmButton ? <YStack p="$5">{confirmButton}</YStack> : null}
     </Stack>
   );
 }

@@ -93,6 +93,9 @@ export class KeyringHardware extends KeyringHardwareBase {
                 __hwExtraInfo__: undefined,
               }),
               hwSdkNetwork: this.hwSdkNetwork,
+              useTweak:
+                params.deriveInfo.addressEncoding !==
+                EAddressEncodings.KASPA_ORG,
             });
             if (allNetworkAccounts) {
               return allNetworkAccounts;

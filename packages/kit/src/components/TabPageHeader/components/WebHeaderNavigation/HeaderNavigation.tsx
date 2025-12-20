@@ -14,7 +14,7 @@ export interface IHeaderNavigationItem {
 
 export interface IHeaderNavigationProps extends GetProps<typeof XStack> {
   items: IHeaderNavigationItem[];
-  activeKey?: string;
+  activeKey?: string | null;
   onTabChange?: (key: string) => void;
 }
 
@@ -25,10 +25,15 @@ export function HeaderNavigation({
   ...rest
 }: IHeaderNavigationProps) {
   const [internalActiveKey, setInternalActiveKey] = useState(items[0]?.key);
-  const activeKey = controlledActiveKey ?? internalActiveKey;
+  // If controlledActiveKey is null, no item should be active (controlled mode)
+  // If controlledActiveKey is undefined, use internal state (uncontrolled mode)
+  const activeKey =
+    controlledActiveKey === null
+      ? null
+      : controlledActiveKey ?? internalActiveKey;
 
   const handleTabPress = (item: IHeaderNavigationItem) => {
-    if (!controlledActiveKey) {
+    if (controlledActiveKey === undefined) {
       setInternalActiveKey(item.key);
     }
     if (onTabChange) {
@@ -42,7 +47,7 @@ export function HeaderNavigation({
   return (
     <XStack gap="$1" alignItems="center" testID="Header-Navigation" {...rest}>
       {items.map((item) => {
-        const isActive = item.key === activeKey;
+        const isActive = activeKey !== null && item.key === activeKey;
         return (
           <ButtonFrame
             key={item.key}

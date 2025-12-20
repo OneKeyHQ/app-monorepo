@@ -40,6 +40,7 @@ import type {
 } from 'react-native';
 
 export interface IDesktopTabItemProps {
+  hideCloseButton?: boolean;
   size?: 'small' | 'medium';
   icon?: IKeyOfIcons;
   showAvatar?: boolean;
@@ -57,6 +58,7 @@ export interface IDesktopTabItemProps {
   children?: React.ReactNode;
   trackId?: string;
   showDot?: boolean;
+  isContainerHovered?: boolean;
   onPressWhenSelected?: () => void; // New: Click event when already selected
 }
 
@@ -86,7 +88,7 @@ function BasicDesktopTabItemImage({
   );
 }
 
-const DesktopTabItemImage = memo(BasicDesktopTabItemImage);
+export const DesktopTabItemImage = memo(BasicDesktopTabItemImage);
 
 export function DesktopTabItem(
   props: IDesktopTabItemProps & GetProps<typeof Stack>,
@@ -110,6 +112,8 @@ export function DesktopTabItem(
     size = 'medium',
     children,
     showDot,
+    isContainerHovered = false,
+    hideCloseButton = false,
     onPressWhenSelected,
     ...rest
   } = props;
@@ -145,9 +149,8 @@ export function DesktopTabItem(
         // If there's a specific "when selected" callback, use it first
         if (onPressWhenSelected) {
           onPressWhenSelected();
-        } else {
-          openActionList?.current?.();
         }
+        // Removed: openActionList?.current?.() to avoid conflict with hover popover
       } else {
         onPress?.(e);
       }
@@ -159,7 +162,7 @@ export function DesktopTabItem(
   );
   const trigger = useMemo(
     () => (
-      <XStack
+      <YStack
         {...tabBarItemStyle}
         alignItems="center"
         py={size === 'small' ? '$1.5' : '$2'}
@@ -177,7 +180,7 @@ export function DesktopTabItem(
             bg: '$bgActive',
           },
         }) as any)}
-        {...(((isContextMenuOpened || isHovered) && {
+        {...(((isContextMenuOpened || isHovered || isContainerHovered) && {
           bg: '$bgHover',
         }) as any)}
         onMouseEnter={onMouseEnter}
@@ -186,8 +189,8 @@ export function DesktopTabItem(
         {...rest}
         testID={
           selected
-            ? `tab-modal-active-item-${rest.id || ''}`
-            : `tab-modal-no-active-item-${rest.id || ''}`
+            ? `tab-modal-active-item-${rest.id || icon || ''}`
+            : `tab-modal-no-active-item-${rest.id || icon || ''}`
         }
       >
         {icon ? (
@@ -229,7 +232,9 @@ export function DesktopTabItem(
             {label}
           </SizableText>
         ) : null}
-        {(selected || isHovered) && actionList ? (
+        {!hideCloseButton &&
+        (selected || isHovered || isContainerHovered) &&
+        actionList ? (
           <IconButton
             size="small"
             icon="CrossedSmallOutline"
@@ -265,7 +270,7 @@ export function DesktopTabItem(
           />
         ) : null}
         {children}
-      </XStack>
+      </YStack>
     ),
     [
       tabBarItemStyle,
@@ -273,6 +278,7 @@ export function DesktopTabItem(
       selected,
       isContextMenuOpened,
       isHovered,
+      isContainerHovered,
       onMouseEnter,
       onMouseLeave,
       reloadOnPress,
@@ -284,6 +290,7 @@ export function DesktopTabItem(
       avatarSrc,
       label,
       tabBarLabelStyle,
+      hideCloseButton,
       actionList,
       intl,
       onClose,

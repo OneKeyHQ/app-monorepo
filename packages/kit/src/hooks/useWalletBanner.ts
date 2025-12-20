@@ -2,13 +2,13 @@ import { useCallback } from 'react';
 
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { parseNotificationPayload } from '@onekeyhq/shared/src/utils/notificationsUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import { EQRCodeHandlerNames } from '@onekeyhq/shared/types/qrCode';
 import type { IWalletBanner } from '@onekeyhq/shared/types/walletBanner';
 
-import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import { EarnNavigation } from '../views/Earn/earnUtils';
 import useParseQRCode from '../views/ScanQrCode/hooks/useParseQRCode';
 
@@ -18,12 +18,10 @@ function useWalletBanner({
   account,
   network,
   wallet,
-  indexedAccountId,
 }: {
   account: INetworkAccount | undefined;
   network: IServerNetwork | undefined;
   wallet: IDBWallet | undefined;
-  indexedAccountId: string | undefined;
 }) {
   const navigation = useAppNavigation();
   const parseQRCode = useParseQRCode();
@@ -47,23 +45,12 @@ function useWalletBanner({
         const networkId = params.get('networkId');
         const vault = params.get('vault');
         if (provider && symbol && networkId) {
-          const earnAccount =
-            await backgroundApiProxy.serviceStaking.getEarnAccount({
-              indexedAccountId,
-              accountId: account?.id ?? '',
-              networkId,
-            });
           const navigationParams: {
-            accountId?: string;
             networkId: string;
-            indexedAccountId?: string;
             symbol: string;
             provider: string;
             vault?: string;
           } = {
-            accountId: earnAccount?.accountId || account?.id || '',
-            indexedAccountId:
-              earnAccount?.account.indexedAccountId || indexedAccountId,
             provider,
             symbol,
             networkId,
@@ -76,6 +63,11 @@ function useWalletBanner({
             navigationParams,
           );
         }
+        return;
+      }
+
+      if (item.mode) {
+        parseNotificationPayload(item.mode, item.payload, () => {});
         return;
       }
 
@@ -96,7 +88,7 @@ function useWalletBanner({
         });
       }
     },
-    [account, indexedAccountId, network, wallet, parseQRCode, navigation],
+    [account, network, wallet, parseQRCode, navigation],
   );
 
   return {

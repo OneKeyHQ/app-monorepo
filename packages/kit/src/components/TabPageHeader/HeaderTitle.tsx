@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 
+import { useMedia } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -12,14 +13,17 @@ export function HeaderTitle({
 }: {
   sceneName: EAccountSelectorSceneName;
 }) {
+  const { md } = useMedia();
   const item = useMemo(() => {
     if (
       !platformEnv.isNativeIOS &&
+      (!platformEnv.isWebDappMode || (platformEnv.isWebDappMode && md)) &&
       sceneName === EAccountSelectorSceneName.homeUrlAccount
     ) {
       return <UrlAccountPageHeader />;
     }
-  }, [sceneName]);
+  }, [md, sceneName]);
+
   return (
     <AccountSelectorProviderMirror
       enabledNum={[0]}

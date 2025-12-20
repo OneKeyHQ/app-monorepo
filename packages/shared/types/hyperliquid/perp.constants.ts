@@ -30,3 +30,13 @@ export const TERMS_OF_SERVICE_URL =
   'https://help.onekey.so/articles/11461297-user-service-agreement';
 export const PRIVACY_POLICY_URL =
   'https://help.onekey.so/articles/11461298-privacy-policy';
+
+// Multi-DEX support constants
+export const XYZ_DEX_PREFIX = 'xyz:';
+export const XYZ_ASSET_ID_OFFSET = 110_000;
+export const XYZ_ASSET_ID_LENGTH = `${XYZ_ASSET_ID_OFFSET}`.length;
+
+// Token Selector default values
+export const DEFAULT_PERP_TOKEN_SORT_FIELD = 'volume24h';
+export const DEFAULT_PERP_TOKEN_SORT_DIRECTION = 'desc';
+export const DEFAULT_PERP_TOKEN_ACTIVE_TAB = 'all';

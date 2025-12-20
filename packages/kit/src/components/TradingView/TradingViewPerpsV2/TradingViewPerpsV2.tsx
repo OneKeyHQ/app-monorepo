@@ -1,6 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 
-import { Stack, useOrientation } from '@onekeyhq/components';
+import { Stack } from '@onekeyhq/components';
 import type { IStackStyle } from '@onekeyhq/components';
 import { usePerpsCandlesWebviewMountedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -99,8 +99,6 @@ export function TradingViewPerpsV2(
 ) {
   const { symbol, userAddress, onLoadEnd, onTradeUpdate, webviewKey } = props;
   const [, setMounted] = usePerpsCandlesWebviewMountedAtom();
-  const isLandscape = useOrientation();
-  const isIPadPortrait = platformEnv.isNativeIOSPad && !isLandscape;
   const webRef = useRef<IWebViewRef | null>(null);
   const theme = useThemeVariant();
   const _webviewKey = useMemo(() => {
@@ -120,11 +118,23 @@ export function TradingViewPerpsV2(
   const { handleNavigation } = useNavigationHandler();
 
   // Optimization: Static URL with only initialization params to avoid WebView reload
-  const { finalUrl: staticTradingViewUrl } = useTradingViewUrl({
-    additionalParams: {
+  // Memoize additionalParams to prevent useTradingViewUrl from regenerating URL
+  const additionalParams = useMemo(
+    () => ({
       symbol: initialSymbolRef.current, // Use frozen initial symbol
-      type: 'perps',
-    },
+      type: 'perps' as const,
+    }),
+    // Empty deps: only regenerate when component mounts or webviewKey changes (via external reloadHook)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [_webviewKey],
+  );
+
+  useEffect(() => {
+    initialSymbolRef.current = symbol;
+  }, [symbol]);
+
+  const { finalUrl: staticTradingViewUrl } = useTradingViewUrl({
+    additionalParams,
   });
 
   // Optimization: Dynamic symbol parameter sync mechanism
@@ -174,7 +184,7 @@ export function TradingViewPerpsV2(
         decelerationRate="normal"
       />
 
-      {platformEnv.isNativeIOS || isIPadPortrait ? (
+      {platformEnv.isNativeIOS ? (
         <Stack
           position="absolute"
           left={0}

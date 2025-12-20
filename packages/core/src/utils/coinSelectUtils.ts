@@ -51,6 +51,7 @@ export type ICoinSelectWithWitnessOptions = {
     path: string;
   };
   txType: ICoinSelectPaymentType;
+  skipUtxoSelection?: boolean;
 };
 
 function utxoScore(x: ICoinSelectInput, feeRate: number) {

@@ -13,7 +13,10 @@ export function useBottomTabAnalytics() {
         case 0: // First tab is always transactions
           tabSelect = ETabSelect.Transactions;
           break;
-        case 1: // Second tab is holders (when available)
+        case 1: // Second tab is portfolio
+          tabSelect = ETabSelect.Portfolio;
+          break;
+        case 2: // Third tab is holders (when available)
           tabSelect = ETabSelect.Holders;
           break;
         default:

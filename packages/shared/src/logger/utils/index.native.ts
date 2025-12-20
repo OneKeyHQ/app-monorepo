@@ -11,6 +11,10 @@ import {
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
+  isDualScreenDevice,
+  isSpanning,
+} from '@onekeyhq/shared/src/modules/DualScreenInfo';
+import {
   FileLogger,
   LogLevel,
 } from '@onekeyhq/shared/src/modules3rdParty/react-native-file-logger';
@@ -63,6 +67,8 @@ const getDeviceInfo = () =>
     `System: ${osName ?? ''} ${osVersion ?? ''}`,
     `isDevice: ${isDevice ? 1 : 0}`,
     `deviceType: ${deviceType ?? ''}`,
+    `isDualScreenDevice: ${isDualScreenDevice() ? 1 : 0}`,
+    `isSpanning: ${isSpanning() ? 1 : 0}`,
     `arch: ${supportedCpuArchitectures?.join(',') ?? ''}`,
     `Version Hash: ${process.env.COMMITHASH || ''}`,
     `Memory: ${totalMemory ?? 0}`,

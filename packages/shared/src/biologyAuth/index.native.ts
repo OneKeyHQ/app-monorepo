@@ -46,6 +46,7 @@ export const biologyAuthenticate = async () => {
     cancelLabel: appLocale.intl.formatMessage({
       id: ETranslations.global_cancel,
     }),
+    requireConfirmation: false,
   });
 };
 

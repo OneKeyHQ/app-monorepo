@@ -31,6 +31,7 @@ class ServiceBootstrap extends ServiceBase {
         this.backgroundApi.serviceReferralCode.getPostConfig(),
         this.backgroundApi.serviceSetting.syncWalletConfig(),
         this.backgroundApi.serviceToken.clearLastActiveTabNameData(),
+        this.backgroundApi.serviceDeFi.syncDeFiEnabledNetworks(),
       ]);
     } catch (error) {
       console.error(error);
@@ -53,6 +54,8 @@ class ServiceBootstrap extends ServiceBase {
     void this.backgroundApi.serviceSetting.migrateBTCFreshAddressSetting();
     void this.backgroundApi.serviceHardware.removeDeviceHomeScreen();
     void systemTimeUtils.startServerTimeInterval();
+    void this.backgroundApi.serviceIpTable.init();
+    void this.backgroundApi.serviceCloudBackupV2.init();
   }
 }
 

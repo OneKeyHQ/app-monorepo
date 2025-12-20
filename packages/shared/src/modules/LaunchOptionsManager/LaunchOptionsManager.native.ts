@@ -4,9 +4,7 @@ import platformEnv from '../../platformEnv';
 
 import type { ILaunchOptionsManagerInterface } from './type';
 
-const { LaunchOptionsManager } = NativeModules as {
-  LaunchOptionsManager: ILaunchOptionsManagerInterface;
-};
+const { LaunchOptionsManager } = NativeModules;
 
 const getStartupTimeAt = async () => {
   if (LaunchOptionsManager && LaunchOptionsManager.getStartupTime) {
@@ -40,6 +38,9 @@ const LaunchOptionsManagerModule: ILaunchOptionsManagerInterface = {
     return Promise.resolve(true);
   },
   getDeviceToken: () => {
+    if (!platformEnv.isNativeIOS) {
+      return Promise.resolve('');
+    }
     if (LaunchOptionsManager && LaunchOptionsManager.getDeviceToken) {
       return LaunchOptionsManager.getDeviceToken();
     }
@@ -85,6 +86,15 @@ const LaunchOptionsManagerModule: ILaunchOptionsManagerInterface = {
           __BUNDLE_START_TIME__,
       ),
     );
+  },
+  registerDeviceToken: () => {
+    if (!platformEnv.isNativeIOS) {
+      return Promise.resolve(true);
+    }
+    if (LaunchOptionsManager && LaunchOptionsManager.registerDeviceToken) {
+      return LaunchOptionsManager.registerDeviceToken();
+    }
+    return Promise.resolve(true);
   },
 };
 

@@ -1,7 +1,12 @@
+import type { ETranslations } from '../locale';
+
 export enum ETabDiscoveryRoutes {
   TabDiscovery = 'TabDiscovery',
 }
 
 export type ITabDiscoveryParamList = {
-  [ETabDiscoveryRoutes.TabDiscovery]: undefined;
+  [ETabDiscoveryRoutes.TabDiscovery]: {
+    defaultTab?: ETranslations;
+    earnTab?: 'assets' | 'portfolio' | 'faqs';
+  };
 };

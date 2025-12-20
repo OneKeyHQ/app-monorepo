@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="" style="margin: 0;">
+  <head>
+    <meta charset="utf-8" />
+    <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1.00001, viewport-fit=cover"
+    />
+    <title>OAuth Callback</title>
+    <style>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        margin: 0;
+        background-color: #f5f5f5;
+      }
+      .container {
+        text-align: center;
+        padding: 20px;
+      }
+      .spinner {
+        width: 40px;
+        height: 40px;
+        border: 3px solid #e0e0e0;
+        border-top-color: #00B812;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin: 0 auto 16px;
+      }
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
+      .message {
+        color: #666;
+        font-size: 14px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="spinner"></div>
+      <div class="message">Processing sign-in...</div>
+    </div>
+    <script>
+      // This page is used as OAuth callback for chrome-extension:// scheme
+      // The extension's onTabUpdated listener will detect this URL and extract tokens
+      // This script is just for debugging - you can see the URL parameters in console
+      console.log('[OAuth Callback] URL:', window.location.href);
+      console.log('[OAuth Callback] Hash:', window.location.hash);
+      
+      // Parse and log tokens for debugging
+      const hashParams = new URLSearchParams(window.location.hash.substring(1));
+      const accessToken = hashParams.get('access_token');
+      const refreshToken = hashParams.get('refresh_token');
+      
+      if (accessToken) {
+        console.log('[OAuth Callback] Access Token received:', accessToken.substring(0, 20) + '...');
+      }
+      if (refreshToken) {
+        console.log('[OAuth Callback] Refresh Token received:', refreshToken.substring(0, 20) + '...');
+      }
+      
+      // The window should be closed automatically by the extension
+      // If not closed after 5 seconds, show a message
+      setTimeout(function() {
+        document.querySelector('.message').textContent = 'Sign-in complete. You can close this window.';
+        document.querySelector('.spinner').style.display = 'none';
+      }, 5000);
+    </script>
+  </body>
+</html>
+

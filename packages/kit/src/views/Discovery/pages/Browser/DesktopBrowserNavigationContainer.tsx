@@ -173,7 +173,7 @@ function DesktopBrowserNavigationBar({
 
   if (tab) {
     return (
-      <Freeze key={`${id}-navigationBar`} freeze={!isActive}>
+      <Freeze key={`${id}-${tab?.url ?? ''}-navigationBar`} freeze={!isActive}>
         <DesktopBrowserInfoBar
           {...tab}
           goBack={goBack}

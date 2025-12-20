@@ -37,6 +37,7 @@ import type {
   IPrimeParamList,
 } from '@onekeyhq/shared/src/routes/prime';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
   IPrimeTransferAccount,
   IPrimeTransferData,
@@ -154,7 +155,10 @@ function PreviewItem({
                     id: ETranslations.global_transfer_accounts_count,
                   },
                   {
-                    amount: wallet?.indexedAccountUUIDs?.length || 0,
+                    amount:
+                      wallet?.indexedAccountUUIDs?.length ||
+                      wallet?.indexedAccountUUIDsLength ||
+                      0,
                   },
                 )
               : accountUtils.shortenAddress({
@@ -182,7 +186,10 @@ function PreviewItem({
   );
 }
 
-const accountSortFn = (a: IDBAccount, b: IDBAccount) =>
+const accountSortFn = (
+  a: IDBAccount | IPrimeTransferAccount,
+  b: IDBAccount | IPrimeTransferAccount,
+) =>
   natsort({ insensitive: true })(
     a.accountOrder ?? a.accountOrderSaved ?? 0,
     b.accountOrder ?? b.accountOrderSaved ?? 0,
@@ -535,6 +542,9 @@ export default function PagePrimeTransferPreview() {
         try {
           void remotePasswordDialog?.close();
 
+          // exitTransferFlow();
+          // await timerUtils.wait(1000);
+
           await backgroundApiProxy.servicePrimeTransfer.initImportProgress({
             selectedTransferData,
           });
@@ -547,6 +557,8 @@ export default function PagePrimeTransferPreview() {
           const usedPassword = remoteDevicePassword || localPassword;
           const { success, errorsInfo } =
             await backgroundApiProxy.servicePrimeTransfer.startImport({
+              decryptedCredentialsHex:
+                transferData?.privateData?.decryptedCredentialsHex,
               selectedTransferData,
               password: usedPassword
                 ? await backgroundApiProxy.servicePassword.encodeSensitiveText({
@@ -657,12 +669,29 @@ export default function PagePrimeTransferPreview() {
       setIsImporting(false);
     }
   }, [
-    directionUserInfo?.fromUser?.appPlatformName,
-    intl,
+    selectedTransferData,
     isImporting,
     navigation,
-    selectedTransferData,
+    transferData?.privateData?.decryptedCredentialsHex,
     exitTransferFlow,
+    intl,
+    directionUserInfo?.fromUser?.appPlatformName,
+  ]);
+
+  const walletListView = useMemo(() => {
+    return (
+      <WalletList
+        selectedItemMap={selectedItemMap}
+        data={transferData}
+        onItemSelectChange={handleItemSelectChange}
+        onGroupSelectChange={handleGroupSelectChange}
+      />
+    );
+  }, [
+    selectedItemMap,
+    transferData,
+    handleItemSelectChange,
+    handleGroupSelectChange,
   ]);
 
   return (
@@ -674,12 +703,7 @@ export default function PagePrimeTransferPreview() {
       />
       <Page.Body>
         <Stack px="$5" pt="$2" gap="$5">
-          <WalletList
-            selectedItemMap={selectedItemMap}
-            data={transferData}
-            onItemSelectChange={handleItemSelectChange}
-            onGroupSelectChange={handleGroupSelectChange}
-          />
+          {walletListView}
           {debugButtons}
         </Stack>
       </Page.Body>

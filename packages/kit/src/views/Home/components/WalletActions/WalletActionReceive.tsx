@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react';
 import { useCallback, useMemo } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -11,6 +12,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import type { IWalletActionBaseParams } from '@onekeyhq/shared/src/logger/scopes/wallet/scenes/walletActions';
 
 import { RawActions } from './RawActions';
 
@@ -18,8 +20,19 @@ import type { IActionCustomization } from './types';
 
 function WalletActionReceive({
   customization,
+  renderTrigger,
+  source,
+  sameModal,
+  useSelector,
 }: {
   customization?: IActionCustomization;
+  renderTrigger?: (props: {
+    onPress: () => void;
+    disabled: boolean;
+  }) => ReactElement;
+  source?: IWalletActionBaseParams['source'];
+  sameModal?: boolean;
+  useSelector?: boolean;
 } = {}) {
   const {
     activeAccount: {
@@ -68,23 +81,37 @@ function WalletActionReceive({
     defaultLogger.wallet.walletActions.actionReceive({
       walletType: wallet?.type ?? '',
       networkId: network?.id ?? '',
-      source: 'homePage',
+      source: source ?? 'homePage',
       isSoftwareWalletOnlyUser,
     });
     if (customization?.onPress) {
       void customization.onPress();
     } else {
-      void handleOnReceive({ withAllAggregateTokens: network?.isAllNetworks });
+      void handleOnReceive({
+        withAllAggregateTokens: network?.isAllNetworks,
+        sameModal,
+        useSelector,
+      });
     }
   }, [
     wallet?.id,
     wallet?.type,
+    network?.id,
+    network?.isAllNetworks,
+    source,
+    isSoftwareWalletOnlyUser,
     customization,
     handleOnReceive,
-    network?.isAllNetworks,
-    network?.id,
-    isSoftwareWalletOnlyUser,
+    sameModal,
+    useSelector,
   ]);
+
+  if (renderTrigger) {
+    return renderTrigger({
+      disabled: customization?.disabled ?? isReceiveDisabled,
+      onPress: handleReceiveOnPress,
+    });
+  }
 
   return (
     <RawActions.Receive

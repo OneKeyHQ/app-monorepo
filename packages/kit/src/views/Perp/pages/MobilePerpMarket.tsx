@@ -11,6 +11,8 @@ import {
   Tabs,
   XStack,
   YStack,
+  useIsNativeTablet,
+  useOrientation,
 } from '@onekeyhq/components';
 import { usePerpsActiveAssetAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
@@ -21,7 +23,10 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
-import { getHyperliquidTokenImageUrl } from '@onekeyhq/shared/src/utils/perpsUtils';
+import {
+  getHyperliquidTokenImageUrl,
+  parseDexCoin,
+} from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import { Token } from '../../../components/Token';
 import useAppNavigation from '../../../hooks/useAppNavigation';
@@ -55,7 +60,9 @@ function MobilePerpMarket() {
   }, [navigation]);
 
   const renderHeaderTitle = useCallback(() => {
-    const pairLabel = coin ? `${coin}USD` : '--';
+    const parsedCoin = coin ? parseDexCoin(coin) : null;
+    const displayCoin = parsedCoin?.displayName || coin || '';
+    const pairLabel = displayCoin ? `${displayCoin}USD` : '--';
     return (
       <XStack alignItems="center" gap="$2">
         <NavBackButton
@@ -75,7 +82,9 @@ function MobilePerpMarket() {
             size="sm"
             borderRadius="$full"
             bg={themeVariant === 'light' ? undefined : '$bgInverse'}
-            tokenImageUri={coin ? getHyperliquidTokenImageUrl(coin) : undefined}
+            tokenImageUri={
+              displayCoin ? getHyperliquidTokenImageUrl(displayCoin) : undefined
+            }
             fallbackIcon="CryptoCoinOutline"
           />
           <SizableText size="$headingLg">{pairLabel}</SizableText>
@@ -92,13 +101,18 @@ function MobilePerpMarket() {
     );
   }, [coin, themeVariant, onPressTokenSelector, onPageGoBack, intl]);
 
+  const isTablet = useIsNativeTablet();
+  const isLandscape = useOrientation();
   useEffect(() => {
+    if (isTablet && isLandscape) {
+      return;
+    }
     appEventBus.emit(EAppEventBusNames.HideTabBar, true);
 
     return () => {
       appEventBus.emit(EAppEventBusNames.HideTabBar, false);
     };
-  }, []);
+  }, [isLandscape, isTablet]);
 
   const pageHeader = useMemo(
     () => <Page.Header headerLeft={renderHeaderTitle} />,

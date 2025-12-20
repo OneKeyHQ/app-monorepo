@@ -128,8 +128,21 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
         const websocketConfig = responseData.data.websocket;
 
         // Always preserve K-line updated price if it exists, fallback to API price
+        // BUT only if we're updating the SAME token (check address and networkId)
         const currentTokenDetail = get(tokenDetailAtom());
-        const hasKLinePrice = currentTokenDetail?.lastUpdated;
+        const isSameToken =
+          currentTokenDetail &&
+          equalTokenNoCaseSensitive({
+            token1: {
+              networkId,
+              contractAddress: tokenAddress,
+            },
+            token2: {
+              networkId,
+              contractAddress: currentTokenDetail.address || '',
+            },
+          });
+        const hasKLinePrice = isSameToken && currentTokenDetail?.lastUpdated;
 
         const finalTokenData = hasKLinePrice
           ? {

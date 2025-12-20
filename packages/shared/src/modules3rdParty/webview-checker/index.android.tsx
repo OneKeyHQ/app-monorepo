@@ -2,9 +2,7 @@ import { Linking, NativeModules } from 'react-native';
 
 import type { IWebViewChecker } from './type';
 
-const { WebViewCheckerModule } = NativeModules as {
-  WebViewCheckerModule: IWebViewChecker;
-};
+const { WebViewCheckerModule } = NativeModules;
 
 export const getCurrentWebViewPackageInfo: IWebViewChecker['getCurrentWebViewPackageInfo'] =
   () => WebViewCheckerModule.getCurrentWebViewPackageInfo();

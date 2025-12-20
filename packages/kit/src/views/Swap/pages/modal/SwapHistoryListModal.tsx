@@ -24,7 +24,6 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import useFormatDate from '@onekeyhq/kit/src/hooks/useFormatDate';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -34,6 +33,7 @@ import {
   EModalSwapRoutes,
   type IModalSwapParamList,
 } from '@onekeyhq/shared/src/routes/swap';
+import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import {
   EProtocolOfExchange,
   ESwapCleanHistorySource,
@@ -82,7 +82,6 @@ const SwapHistoryListModal = ({
 
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
-  const { formatDate } = useFormatDate();
   const sectionData = useMemo(() => {
     const pendingData =
       swapTxHistoryList?.filter(
@@ -100,8 +99,7 @@ const SwapHistoryListModal = ({
       (acc, item) => {
         const date = new Date(item.date.created);
         const monthDay = formatDate(date, {
-          hideTimeForever: true,
-          hideYear: true,
+          formatTemplate: 'yyyy-LL-dd',
         });
 
         if (!acc[monthDay]) {
@@ -134,7 +132,7 @@ const SwapHistoryListModal = ({
       ];
     }
     return result;
-  }, [formatDate, intl, swapTxHistoryList]);
+  }, [intl, swapTxHistoryList]);
 
   const onDeleteHistory = useCallback(() => {
     // dialog
@@ -249,7 +247,7 @@ const SwapHistoryListModal = ({
             id: ETranslations.swap_page_limit_dialog_title,
           })
         : intl.formatMessage({
-            id: ETranslations.swap_history_title,
+            id: ETranslations.perp_trade_market,
           });
     return (
       <Select
@@ -257,7 +255,7 @@ const SwapHistoryListModal = ({
         items={[
           {
             label: intl.formatMessage({
-              id: ETranslations.swap_history_title,
+              id: ETranslations.perp_trade_market,
             }),
             value: EProtocolOfExchange.SWAP,
           },
@@ -292,7 +290,7 @@ const SwapHistoryListModal = ({
         headerTitle={() => headerSelectType}
       />
       {historyType !== EProtocolOfExchange.LIMIT ? (
-        <>
+        <YStack flex={1}>
           {isLoading ? (
             Array.from({ length: 5 }).map((_, index) => (
               <ListItem key={index}>
@@ -311,22 +309,22 @@ const SwapHistoryListModal = ({
             <SectionList
               renderItem={renderItem}
               sections={sectionData}
-              py="$1"
+              py="$2"
               renderSectionHeader={({ section: { title, status } }) => (
-                <XStack px="$5" py="$2" gap="$3" alignItems="center">
+                <XStack px="$6" py="$2" gap="$3" alignItems="center">
                   {status === ESwapTxHistoryStatus.PENDING ? (
                     <Stack
                       w="$2"
                       h="$2"
-                      backgroundColor="$textCaution"
+                      backgroundColor="$textInfo"
                       borderRadius="$full"
                     />
                   ) : null}
                   <Heading
-                    size="$headingSm"
+                    size="$headingXs"
                     color={
                       status === ESwapTxHistoryStatus.PENDING
-                        ? '$textCaution'
+                        ? '$textInfo'
                         : '$textSubdued'
                     }
                   >
@@ -345,7 +343,7 @@ const SwapHistoryListModal = ({
               }
             />
           )}
-        </>
+        </YStack>
       ) : (
         <LimitOrderListModalWithAllProvider storeName={storeName} />
       )}

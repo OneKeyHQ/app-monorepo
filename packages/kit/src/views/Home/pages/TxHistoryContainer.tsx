@@ -41,7 +41,20 @@ import { useAllTokenListMapAtom } from '../../../states/jotai/contexts/tokenList
 import { HomeTokenListProviderMirrorWrapper } from '../components/HomeTokenListProvider';
 import { onHomePageRefresh } from '../components/PullToRefresh';
 
-function TxHistoryListContainer() {
+function TxHistoryListContainer(
+  params:
+    | {
+        plainMode?: boolean;
+        tableLayout?: boolean;
+        limit?: number;
+        emptyTitle?: string;
+        emptyDescription?: string;
+      }
+    | undefined,
+) {
+  const { plainMode, tableLayout, limit, emptyTitle, emptyDescription } =
+    params ?? {};
+
   const { isFocused, isHeaderRefreshing, setIsHeaderRefreshing } =
     useTabIsRefreshingFocused();
 
@@ -79,6 +92,30 @@ function TxHistoryListContainer() {
 
   const [settings] = useSettingsPersistAtom();
   const [{ currencyMap }] = useCurrencyPersistAtom();
+
+  const updateHistoryData = useCallback(
+    (txs: IAccountHistoryTx[]) => {
+      if (limit) {
+        const tempTxs: IAccountHistoryTx[] = [];
+        let tempLimit = 0;
+
+        for (let i = 0; i < txs.length; i += 1) {
+          const tx = txs[i];
+          if (tx.decodedTx.status !== EDecodedTxStatus.Pending) {
+            tempLimit += 1;
+          }
+          tempTxs.push(tx);
+          if (tempLimit >= limit) {
+            break;
+          }
+        }
+        setHistoryData(tempTxs);
+      } else {
+        setHistoryData(txs);
+      }
+    },
+    [limit],
+  );
 
   const mergeDeriveAddressData =
     !accountUtils.isOthersWallet({ walletId: wallet?.id ?? '' }) &&
@@ -174,6 +211,7 @@ function TxHistoryListContainer() {
               filterLowValue: settings.isFilterLowValueHistoryEnabled,
               sourceCurrency: settings.currencyInfo.id,
               currencyMap,
+              limit,
             }),
           ),
         );
@@ -212,6 +250,7 @@ function TxHistoryListContainer() {
           excludeTestNetwork: true,
           sourceCurrency: settings.currencyInfo.id,
           currencyMap,
+          limit,
         });
         setHasMoreOnChainHistory(!!r.hasMoreOnChainHistory);
         updateAddressesInfo({
@@ -228,7 +267,7 @@ function TxHistoryListContainer() {
         isRefreshing: false,
       });
       setIsHeaderRefreshing(false);
-      setHistoryData(r.txs);
+      updateHistoryData(r.txs);
 
       appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
         isRefreshing: false,
@@ -256,6 +295,8 @@ function TxHistoryListContainer() {
       settings.currencyInfo.id,
       currencyMap,
       setHasMoreOnChainHistory,
+      limit,
+      updateHistoryData,
     ],
     {
       overrideIsFocused: (isPageFocused) => isPageFocused && isFocused,
@@ -316,7 +357,7 @@ function TxHistoryListContainer() {
       }
 
       if (!isEmpty(accountHistoryTxs)) {
-        setHistoryData(accountHistoryTxs);
+        updateHistoryData(accountHistoryTxs);
         setHistoryState({
           initialized: true,
           isRefreshing: false,
@@ -345,10 +386,12 @@ function TxHistoryListContainer() {
     network?.id,
     settings.isFilterScamHistoryEnabled,
     settings.isFilterLowValueHistoryEnabled,
+    updateHistoryData,
     updateSearchKey,
     wallet?.id,
     settings.currencyInfo.id,
     currencyMap,
+    limit,
   ]);
 
   useEffect(() => {
@@ -398,6 +441,8 @@ function TxHistoryListContainer() {
 
   return (
     <TxHistoryListView
+      plainMode={plainMode}
+      isTabFocused={isFocused}
       showIcon
       inTabList
       hideValue
@@ -412,15 +457,15 @@ function TxHistoryListContainer() {
       indexedAccountId={indexedAccount?.id}
       isLoading={historyState.isRefreshing}
       initialized={historyState.initialized}
-      {...(media.gtLg && {
-        tableLayout: true,
-      })}
+      tableLayout={tableLayout ?? media.gtLg}
       listViewStyleProps={{
         contentContainerStyle: {
           mt: '$3',
         },
       }}
       tokenMap={allTokenListMap}
+      emptyTitle={emptyTitle}
+      emptyDescription={emptyDescription}
     />
   );
 }
@@ -440,4 +485,4 @@ const TxHistoryListContainerWithProvider = memo(() => {
 TxHistoryListContainerWithProvider.displayName =
   'TxHistoryListContainerWithProvider';
 
-export { TxHistoryListContainerWithProvider };
+export { TxHistoryListContainer, TxHistoryListContainerWithProvider };

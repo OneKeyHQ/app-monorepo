@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -9,6 +9,7 @@ import {
   SizableText,
   Stack,
   XStack,
+  YStack,
   useDialogInstance,
 } from '@onekeyhq/components';
 import type { IDialogShowProps } from '@onekeyhq/components/src/composite/Dialog/type';
@@ -44,6 +45,11 @@ function PrimeTransferImportProcessingDialogContent({
   const [isCancelled, setIsCancelled] = useState(false);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [hasError, setHasError] = useState(false);
+  const [importTargetProcessingDuration, setImportTargetProcessingDuration] =
+    useState<string>('');
+  const importTargetLastChangeTimestampRef = useRef<number>(Date.now());
+  const importTargetProcessingHistoryRef = useRef<Array<[string, string]>>([]);
+  const previousImportTargetNameRef = useRef<string>('');
 
   const { importProgress } = primeTransferAtom;
   const isDone = useMemo(() => {
@@ -85,6 +91,7 @@ function PrimeTransferImportProcessingDialogContent({
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       payload: IAppEventBusPayload[EAppEventBusNames.BatchCreateAccount],
     ) => {
+      console.log('servicePrimeTransfer___updateImportProgress');
       await backgroundApiProxy.servicePrimeTransfer.updateImportProgress();
     };
     appEventBus.on(EAppEventBusNames.BatchCreateAccount, cb);
@@ -93,6 +100,25 @@ function PrimeTransferImportProcessingDialogContent({
       appEventBus.off(EAppEventBusNames.BatchCreateAccount, cb);
     };
   }, []);
+
+  useEffect(() => {
+    const now = Date.now();
+    const currentDuration = `${
+      now - importTargetLastChangeTimestampRef.current
+    }ms`;
+    setImportTargetProcessingDuration(currentDuration);
+
+    if (previousImportTargetNameRef.current) {
+      importTargetProcessingHistoryRef.current.push([
+        previousImportTargetNameRef.current,
+        currentDuration,
+      ]);
+    }
+
+    importTargetLastChangeTimestampRef.current = now;
+    previousImportTargetNameRef.current =
+      primeTransferAtom.importCurrentCreatingTarget || '';
+  }, [primeTransferAtom.importCurrentCreatingTarget]);
 
   /*
   Dialog.show({
@@ -110,82 +136,97 @@ function PrimeTransferImportProcessingDialogContent({
 
   return (
     <Stack>
-      <Stack
-        py="$2.5"
-        px="$5"
-        gap="$5"
-        flex={1}
-        alignItems="center"
-        justifyContent="center"
-      >
-        <Stack
-          flex={1}
-          alignItems="center"
-          justifyContent="center"
-          alignSelf="center"
-          w="100%"
-          maxWidth="$80"
-        >
-          {isDone ? (
-            <Icon name="CheckRadioSolid" size="$12" color="$iconSuccess" />
-          ) : null}
+      <YStack alignItems="center">
+        {isDone ? (
+          <Icon name="CheckRadioSolid" size="$12" color="$iconSuccess" />
+        ) : null}
 
-          {(isCancelled || hasError) && !isDone ? (
-            <Icon name="XCircleSolid" size="$12" color="$iconCritical" />
-          ) : null}
+        {(isCancelled || hasError) && !isDone ? (
+          <Icon name="XCircleSolid" size="$12" color="$iconCritical" />
+        ) : null}
 
-          {!isFlowEnded && importProgress ? (
-            <Progress
-              mt="$4"
-              w="100%"
-              size="medium"
-              value={progressPercentage}
-            />
-          ) : null}
+        {!isFlowEnded && importProgress ? (
+          <Progress mt="$4" w="100%" size="medium" value={progressPercentage} />
+        ) : null}
 
-          <XStack mt="$5" alignItems="center" gap="$2">
-            <MultipleClickStack
-              onPress={() => {
-                Dialog.debugMessage({
-                  debugMessage: importProgress?.stats,
-                });
-              }}
-            >
-              <SizableText size="$bodyLg" textAlign="center">
-                {(() => {
-                  if (isDone || importProgress) {
-                    return `${intl.formatMessage(
-                      {
-                        id: ETranslations.global_import_progress,
-                      },
-                      {
-                        amount: platformEnv.isDev
-                          ? `${importProgress?.current || 0}/${
-                              importProgress?.total || 0
-                            } ${progressPercentage}%`
-                          : importProgress?.current ?? 0,
-                      },
-                    )} ${progressPercentage}%`;
-                  }
-                  if (isCancelled) {
-                    return intl.formatMessage({
-                      id: ETranslations.global_cancel,
-                    });
-                  }
-                  if (hasError) {
-                    return intl.formatMessage({
-                      id: ETranslations.global_an_error_occurred,
-                    });
-                  }
-                  return intl.formatMessage({
-                    id: ETranslations.transfer_transfer_loading,
+        <MultipleClickStack
+          showDevBgColor
+          debugComponent={
+            <YStack gap="$2" alignItems="center">
+              <SizableText
+                textAlign="center"
+                onPress={() => {
+                  Dialog.debugMessage({
+                    debugMessage: importProgress?.totalDetailInfo,
                   });
-                })()}
+                }}
+              >
+                {importProgress?.current ?? 0}/{importProgress?.total ?? 0}
+                {'  '}
+                {importTargetProcessingDuration}
               </SizableText>
-            </MultipleClickStack>
+              <SizableText
+                textAlign="center"
+                onPress={() => {
+                  Dialog.debugMessage({
+                    debugMessage: importTargetProcessingHistoryRef,
+                  });
+                }}
+              >
+                {primeTransferAtom.importCurrentCreatingTarget}
+              </SizableText>
+              <SizableText
+                onPress={async () => {
+                  const d =
+                    await backgroundApiProxy.servicePrimeTransfer.getBatchCreateHdAccountsParams();
+                  Dialog.debugMessage({
+                    debugMessage: d,
+                  });
+                }}
+              >
+                ShowBatchCreateHdAccountsParams
+              </SizableText>
+              <SizableText textAlign="center">
+                {JSON.stringify(importProgress?.stats)}
+              </SizableText>
+            </YStack>
+          }
+        >
+          <XStack mt="$5" alignItems="center" gap="$2">
+            <SizableText size="$bodyLg" textAlign="center">
+              {(() => {
+                if (isDone || importProgress) {
+                  return `${intl.formatMessage(
+                    {
+                      id: ETranslations.global_import_progress,
+                    },
+                    {
+                      amount: platformEnv.isDev
+                        ? `${importProgress?.current || 0}/${
+                            importProgress?.total || 0
+                          } ${progressPercentage}%`
+                        : importProgress?.current ?? 0,
+                    },
+                  )} ${progressPercentage}%`;
+                }
+                if (isCancelled) {
+                  return intl.formatMessage({
+                    id: ETranslations.global_cancel,
+                  });
+                }
+                if (hasError) {
+                  return intl.formatMessage({
+                    id: ETranslations.global_an_error_occurred,
+                  });
+                }
+                return intl.formatMessage({
+                  id: ETranslations.transfer_transfer_loading,
+                });
+              })()}
+            </SizableText>
           </XStack>
-        </Stack>
-      </Stack>
+        </MultipleClickStack>
+      </YStack>
 
       <Dialog.Footer
         showCancelButton={false}
@@ -236,8 +277,8 @@ export function showPrimeTransferImportProcessingDialog({
   closeAfterCancel?: boolean;
   closeAfterError?: boolean;
 }) {
-  Dialog.show({
-    showExitButton: false,
+  return Dialog.show({
+    showExitButton: !!platformEnv.isDev,
     dismissOnOverlayPress: false,
     onCancel() {
       void backgroundApiProxy.servicePrimeTransfer.resetImportProgress();

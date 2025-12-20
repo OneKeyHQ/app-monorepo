@@ -8,19 +8,19 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpsActiveAssetAtom,
-  usePerpsActiveAssetCtxAtom,
   usePerpsActiveAssetDataAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { EPerpsSizeInputMode } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import { useLiquidationPrice } from './useLiquidationPrice';
+import { useTradingPrice } from './useTradingPrice';
 
 export function useTradingCalculationsForSide(side: 'long' | 'short') {
   const [formData] = useTradingFormAtom();
   const [tradingComputed] = useTradingFormComputedAtom();
   const [activeAsset] = usePerpsActiveAssetAtom();
-  const [activeAssetCtx] = usePerpsActiveAssetCtxAtom();
   const [activeAssetData] = usePerpsActiveAssetDataAtom();
+  const { midPriceBN } = useTradingPrice();
 
   const liquidationPrice = useLiquidationPrice(side);
 
@@ -32,8 +32,8 @@ export function useTradingCalculationsForSide(side: 'long' | 'short') {
     if (formData.type === 'limit') {
       return new BigNumber(formData.price || 0);
     }
-    return new BigNumber(activeAssetCtx?.ctx?.markPrice || 0);
-  }, [formData.type, formData.price, activeAssetCtx?.ctx?.markPrice]);
+    return midPriceBN;
+  }, [formData.type, formData.price, midPriceBN]);
 
   const availableToTradeBN = useMemo(() => {
     const _availableToTrade = activeAssetData?.availableToTrade || [0, 0];

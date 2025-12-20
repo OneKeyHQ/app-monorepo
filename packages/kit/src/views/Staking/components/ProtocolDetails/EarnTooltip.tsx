@@ -156,11 +156,15 @@ export function EarnTooltip({
 
   const tooltipTitle = useMemo(() => {
     if (tooltip?.type === 'withdraw') {
-      return tooltip.data.title;
+      return tooltip.data.title.text;
     }
     if (tooltip?.type === 'rebateDetails') {
       return tooltip.data.title.text;
     }
+    if (tooltip?.type === 'text' && tooltip?.data?.title?.text) {
+      return tooltip.data.title.text;
+    }
+
     return title || '';
   }, [tooltip, title]);
   const tooltipContent = useMemo(() => {
@@ -178,7 +182,7 @@ export function EarnTooltip({
           ))}
           {tooltip.data.description ? (
             <EarnText
-              text={{ text: tooltip.data.description }}
+              text={tooltip.data.description}
               size="$bodySm"
               color="$textSubdued"
               boldTextProps={{
@@ -199,7 +203,7 @@ export function EarnTooltip({
       return <RebateDetailsPopoverContent tooltip={tooltip} />;
     }
 
-    return <EarnText text={tooltip.data} />;
+    return <EarnText text={tooltip?.data?.description} />;
   }, [onHistory, tooltip]);
   return tooltip ? (
     <Popover

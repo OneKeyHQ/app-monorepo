@@ -21,10 +21,12 @@ type IProps = {
   showIcon?: boolean;
   tableLayout?: boolean;
   hideValue?: boolean;
+  compact?: boolean;
 };
 
 function TxHistoryListItem(props: IProps) {
-  const { historyTx, tableLayout, onPress, showIcon, hideValue } = props;
+  const { historyTx, tableLayout, onPress, showIcon, hideValue, compact } =
+    props;
   const intl = useIntl();
 
   const {
@@ -143,6 +145,7 @@ function TxHistoryListItem(props: IProps) {
           //     bg: '$bgSubdued',
           //   }),
         }}
+        compact={compact}
       />
       {renderReplaceTxActions()}
     </TxHistoryListItemErrorBoundary>

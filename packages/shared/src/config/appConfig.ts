@@ -1,5 +1,7 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 
+import App from '@onekeyhq/desktop/App';
+
 import type { EServiceEndpointEnum, IEndpointEnv } from '../../types/endpoint';
 
 export const HARDWARE_SDK_IFRAME_SRC_ONEKEYSO =
@@ -34,6 +36,9 @@ export const DOWNLOAD_URL = 'https://onekey.so/download';
 export const DOWNLOAD_MOBILE_APP_URL =
   'https://onekey.so/download?client=mobile';
 export const REFERRAL_HELP_LINK = 'https://help.onekey.so/articles/11461266';
+export const COIN_CONTROL_HELP_LINK =
+  'https://help.onekey.so/articles/13050014';
+
 export const FRESH_ADDRESS_LEARN_MORE_URL =
   'https://help.onekey.so/articles/12620219';
 
@@ -50,9 +55,31 @@ export const ONEKEY_BLOCK_EXPLORER_TEST_URL = 'https://tx.onekeytest.com';
 export const ONEKEY_API_HOST = 'onekeycn.com';
 export const ONEKEY_TEST_API_HOST = 'onekeytest.com';
 
+// IP Table CDN Configuration
+export const IP_TABLE_CDN_URL = 'https://config.onekeycn.com/data.json';
+export const IP_TABLE_CDN_FETCH_TIMEOUT_MS = 5000; // 5 seconds timeout for CDN fetch
+
 export const WEB_APP_URL = 'https://app.onekey.so';
 export const WEB_APP_URL_SHORT = 'https://1key.so';
 export const WEB_APP_URL_DEV = 'https://app.onekeytest.com';
+
+export function getWebAppUrl(env: IEndpointEnv): string {
+  return env === 'prod' ? 'app.onekey.so' : 'app.onekeytest.com';
+}
+
+export function buildReferralUrl({
+  code,
+  source,
+  env = 'prod',
+}: {
+  code: string;
+  source: 'Perps' | 'Earn';
+  env?: IEndpointEnv;
+}): string {
+  const path = source === 'Perps' ? '/app/perps' : '/app/defi';
+  const baseUrl = getWebAppUrl(env);
+  return `${baseUrl}/r/${code}${path}`;
+}
 
 export const EXT_RATE_URL = {
   'chrome':
@@ -96,3 +123,7 @@ export const ONEKEY_HEALTH_CHECK_URL = '/wallet/v1/health';
 export const SUPPORT_URL = 'https://help.onekey.so/hc/requests/new';
 
 export const HYPERLIQUID_EXPLORER_URL = 'https://hypurrscan.io/address/';
+
+export const DESKTOP_ICLOUD_CONTAINER_ID = 'iCloud.so.onekey.wallet';
+
+export const ONEKEY_SIFU_URL = 'https://onekey.so/products/onekey-sifu';

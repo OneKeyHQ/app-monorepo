@@ -14,6 +14,14 @@ export enum ESubscriptionType {
   ACTIVE_ASSET_DATA = 'activeAssetData',
   WEB_DATA2 = 'webData2',
   USER_FILLS = 'userFills',
+  USER_NON_FUNDING_LEDGER_UPDATES = 'userNonFundingLedgerUpdates',
+
+  // v0.29.1 types
+  WEB_DATA3 = 'webData3',
+  ALL_DEXS_CLEARINGHOUSE_STATE = 'allDexsClearinghouseState',
+  OPEN_ORDERS = 'openOrders',
+  ALL_DEXS_ASSET_CTXS = 'allDexsAssetCtxs',
+  TWAP_STATES = 'twapStates',
   // TRADES = 'trades',
   // BBO = 'bbo',
   // USER_EVENTS = 'userEvents',
@@ -210,7 +218,9 @@ export enum EPerpsSizeInputMode {
   SLIDER = 'slider',
 }
 
-// Token Selector Sorting Types
+// Token Selector Types
+export type IPerpTokenSelectorTab = 'all' | 'hip3';
+
 export type IPerpTokenSortField =
   | 'name'
   | 'markPrice'
@@ -221,7 +231,11 @@ export type IPerpTokenSortField =
 
 export type IPerpTokenSortDirection = 'asc' | 'desc';
 
-export interface IPerpTokenSortConfig {
+export interface IPerpTokenSelectorConfig {
   field: IPerpTokenSortField;
   direction: IPerpTokenSortDirection;
+  activeTab: IPerpTokenSelectorTab;
 }
+
+// Deprecated: Use IPerpTokenSelectorConfig instead
+export type IPerpTokenSortConfig = IPerpTokenSelectorConfig;

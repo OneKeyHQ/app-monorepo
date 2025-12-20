@@ -10,10 +10,10 @@ import { TradingFormInput } from './TradingFormInput';
 interface IPriceInputProps {
   value: string;
   onChange: (value: string) => void;
-  marketPrice?: string;
+  midPrice?: string;
   error?: string;
   disabled?: boolean;
-  onUseMarketPrice?: () => void;
+  onUseMidPrice?: () => void;
   szDecimals?: number;
   label?: string;
   ifOnDialog?: boolean;
@@ -26,7 +26,7 @@ export const PriceInput = memo(
     onChange,
     error,
     disabled = false,
-    onUseMarketPrice,
+    onUseMidPrice,
     szDecimals,
     label,
     ifOnDialog = false,
@@ -51,17 +51,17 @@ export const PriceInput = memo(
 
     const actions = useMemo(
       () =>
-        onUseMarketPrice
+        onUseMidPrice
           ? [
               {
                 label: 'Mid',
                 labelColor: '$green11',
-                onPress: onUseMarketPrice,
+                onPress: onUseMidPrice,
                 disabled: false,
               },
             ]
           : undefined,
-      [onUseMarketPrice],
+      [onUseMidPrice],
     );
 
     return (

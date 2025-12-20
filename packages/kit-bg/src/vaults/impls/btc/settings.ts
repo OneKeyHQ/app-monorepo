@@ -108,6 +108,7 @@ const settings: IVaultSettings = {
   feeUTXORequired: true,
   editFeeEnabled: true,
   replaceTxEnabled: true,
+  coinControlEnabled: true,
   estimatedFeePollingInterval: 120,
 
   minTransferAmount: '0.00000546',

@@ -13,10 +13,13 @@ import {
   Spinner,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { openTransactionDetailsUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
+import { useRedirectWhenNotLoggedIn } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useRedirectWhenNotLoggedIn';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   IInvitePaidHistory,
@@ -24,6 +27,9 @@ import type {
 } from '@onekeyhq/shared/src/referralCode/type';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+
+import { ReferFriendsPageContainer } from '../../components';
 
 type ISectionListItem = {
   title?: string;
@@ -61,7 +67,10 @@ const formatSections = (items: IInvitePaidHistory['items']) => {
   });
 };
 
-export default function RewardDistributionHistory() {
+function RewardDistributionHistoryPageWrapper() {
+  // Redirect to ReferAFriend page if user is not logged in
+  useRedirectWhenNotLoggedIn();
+
   const originalData = useRef<IInvitePaidHistory['items']>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [sections, setSections] = useState<
@@ -108,6 +117,7 @@ export default function RewardDistributionHistory() {
   // }, [fetchInvitePaidList]);
 
   const intl = useIntl();
+  const { md } = useMedia();
   const renderItem = useCallback(
     ({ item }: { item: IInvitePaidItem; section: ISectionListItem }) => {
       return (
@@ -183,42 +193,59 @@ export default function RewardDistributionHistory() {
         })}
       />
       <Page.Body>
-        {sections === undefined ? (
-          <YStack
-            position="absolute"
-            top={0}
-            left={0}
-            right={0}
-            bottom={0}
-            ai="center"
-            jc="center"
-            flex={1}
-          >
-            <Spinner size="large" />
-          </YStack>
-        ) : (
-          <SectionList
-            refreshControl={
-              <RefreshControl refreshing={isLoading} onRefresh={onRefresh} />
-            }
-            contentContainerStyle={{ pb: '$10' }}
-            ListEmptyComponent={
-              <Empty
-                mt={34}
-                icon="SearchOutline"
-                title={intl.formatMessage({
-                  id: ETranslations.global_no_data,
-                })}
-              />
-            }
-            sections={sections}
-            renderSectionHeader={renderSectionHeader}
-            estimatedItemSize={60}
-            renderItem={renderItem}
-            // onEndReached={fetchMore}
-          />
-        )}
+        <ReferFriendsPageContainer flex={1} position="relative">
+          {sections === undefined ? (
+            <YStack
+              position="absolute"
+              top={0}
+              left={0}
+              right={0}
+              bottom={0}
+              ai="center"
+              jc="center"
+              flex={1}
+            >
+              <Spinner size="large" />
+            </YStack>
+          ) : (
+            <SectionList
+              flex={1}
+              refreshControl={
+                <RefreshControl refreshing={isLoading} onRefresh={onRefresh} />
+              }
+              contentContainerStyle={{ pb: '$10' }}
+              ListEmptyComponent={
+                <Empty
+                  mt={34}
+                  icon="SearchOutline"
+                  title={intl.formatMessage({
+                    id: ETranslations.global_no_data,
+                  })}
+                />
+              }
+              sections={sections}
+              renderSectionHeader={renderSectionHeader}
+              estimatedItemSize={60}
+              renderItem={renderItem}
+              // onEndReached={fetchMore}
+            />
+          )}
+        </ReferFriendsPageContainer>
       </Page.Body>
     </Page>
+  );
+}
+
+export default function RewardDistributionHistory() {
+  return (
+    <AccountSelectorProviderMirror
+      config={{
+        sceneName: EAccountSelectorSceneName.home,
+        sceneUrl: '',
+      }}
+      enabledNum={[0]}
+    >
+      <RewardDistributionHistoryPageWrapper />
+    </AccountSelectorProviderMirror>
   );
 }

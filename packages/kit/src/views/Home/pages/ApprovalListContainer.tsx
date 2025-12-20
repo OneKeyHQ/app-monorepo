@@ -20,10 +20,15 @@ import type { IContractApproval } from '@onekeyhq/shared/types/approval';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import ApprovalListView from '../../../components/ApprovalListView';
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { useIsFirstFocused } from '../../../hooks/useIsFirstFocused';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useAccountOverviewActions } from '../../../states/jotai/contexts/accountOverview';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
-import { useApprovalListActions } from '../../../states/jotai/contexts/approvalList';
+import {
+  useApprovalListActions,
+  useContractMapAtom,
+  useTokenMapAtom,
+} from '../../../states/jotai/contexts/approvalList';
 import { HomeApprovalListProviderMirror } from '../components/HomeApprovalListProvider/HomeApprovalListProviderMirror';
 import { onHomePageRefresh } from '../components/PullToRefresh';
 
@@ -38,14 +43,12 @@ function ApprovalListContainer() {
   const media = useMedia();
   const navigation = useAppNavigation();
 
-  const {
-    updateApprovalList,
-    updateTokenMap,
-    updateContractMap,
-    updateApprovalListState,
-  } = useApprovalListActions().current;
+  const isFirstFocused = useIsFirstFocused(isFocused);
+  const approvalListActions = useApprovalListActions();
 
   const { updateApprovalsInfo } = useAccountOverviewActions().current;
+  const [{ tokenMap }] = useTokenMapAtom();
+  const [{ contractMap }] = useContractMapAtom();
 
   const { run } = usePromiseResult(
     async () => {
@@ -76,9 +79,13 @@ function ApprovalListContainer() {
           hasRiskApprovals: !!(riskApprovals && riskApprovals.length > 0),
         });
 
-        updateApprovalList({ data: resp.contractApprovals });
-        updateTokenMap({ data: resp.tokenMap });
-        updateContractMap({ data: resp.contractMap });
+        approvalListActions.current.updateApprovalList({
+          data: resp.contractApprovals,
+        });
+        approvalListActions.current.updateTokenMap({ data: resp.tokenMap });
+        approvalListActions.current.updateContractMap({
+          data: resp.contractMap,
+        });
       } catch (error) {
         if (error instanceof CanceledError) {
           console.log('fetchAccountApprovals canceled');
@@ -93,7 +100,7 @@ function ApprovalListContainer() {
           networkId: network.id,
         });
         setIsHeaderRefreshing(false);
-        updateApprovalListState({
+        approvalListActions.current.updateApprovalListState({
           isRefreshing: false,
           initialized: true,
         });
@@ -104,11 +111,8 @@ function ApprovalListContainer() {
       network,
       indexedAccount?.id,
       updateApprovalsInfo,
-      updateApprovalList,
-      updateTokenMap,
-      updateContractMap,
+      approvalListActions,
       setIsHeaderRefreshing,
-      updateApprovalListState,
     ],
     {
       overrideIsFocused: (isPageFocused) => isPageFocused && isFocused,
@@ -123,10 +127,12 @@ function ApprovalListContainer() {
         screen: EModalApprovalManagementRoutes.ApprovalDetails,
         params: {
           approval,
+          tokenMap,
+          contractMap,
         },
       });
     },
-    [navigation],
+    [navigation, tokenMap, contractMap],
   );
 
   useEffect(() => {
@@ -137,12 +143,12 @@ function ApprovalListContainer() {
 
   useEffect(() => {
     if (wallet?.id && network?.id && account?.id) {
-      updateApprovalListState({
+      approvalListActions.current.updateApprovalListState({
         initialized: false,
         isRefreshing: true,
       });
     }
-  }, [wallet?.id, network?.id, account?.id, updateApprovalListState]);
+  }, [wallet?.id, network?.id, account?.id, approvalListActions]);
 
   useEffect(() => {
     const refresh = () => {
@@ -163,7 +169,7 @@ function ApprovalListContainer() {
     };
   }, [isFocused, run]);
 
-  return (
+  return isFirstFocused ? (
     <ApprovalListView
       accountId={account?.id ?? ''}
       networkId={network?.id ?? ''}
@@ -185,17 +191,17 @@ function ApprovalListContainer() {
         tableLayout: true,
       })}
     />
-  );
+  ) : null;
 }
 
-const ApprovalListContainerWithProvider = memo(() => {
+function BaseApprovalListContainerWithProvider() {
   return (
     <HomeApprovalListProviderMirror>
       <ApprovalListContainer />
     </HomeApprovalListProviderMirror>
   );
-});
-ApprovalListContainerWithProvider.displayName =
-  'ApprovalListContainerWithProvider';
+}
 
-export { ApprovalListContainerWithProvider };
+export const ApprovalListContainerWithProvider = memo(
+  BaseApprovalListContainerWithProvider,
+);

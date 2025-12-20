@@ -21,6 +21,7 @@ export enum EOneKeyErrorClassNames {
   UnknownHardwareError = 'UnknownHardwareError',
   OneKeyServerApiError = 'OneKeyServerApiError',
   LocalDBRecordNotFoundError = 'LocalDBRecordNotFoundError',
+  PrimeTransferImportCancelledError = 'PrimeTransferImportCancelledError',
   OneKeyValidatorError = 'OneKeyValidatorError',
   OneKeyValidatorTip = 'OneKeyValidatorTip',
   OneKeyAbortError = 'OneKeyAbortError',
@@ -32,6 +33,7 @@ export enum EOneKeyErrorClassNames {
   OneKeyAlreadyExistWalletError = 'OneKeyAlreadyExistWalletError',
   PasswordPromptDialogCancel = 'PasswordPromptDialogCancel',
   PrimeLoginDialogCancelError = 'PrimeLoginDialogCancelError',
+  PrimeSendEmailOTPCancelError = 'PrimeSendEmailOTPCancelError',
   OneKeyErrorPrimeMasterPasswordInvalid = 'OneKeyErrorPrimeMasterPasswordInvalid',
   VaultKeyringNotDefinedError = 'VaultKeyringNotDefinedError',
   OneKeyErrorInsufficientNativeBalance = 'OneKeyErrorInsufficientNativeBalance',
@@ -88,6 +90,7 @@ export interface IOneKeyError<
   // ---server props
   requestId?: string;
   disableFallbackMessage?: boolean;
+  httpStatusCode?: number; // HTTP status code for error deduplication
 }
 
 export type IOneKeyHardwareErrorPayload = {

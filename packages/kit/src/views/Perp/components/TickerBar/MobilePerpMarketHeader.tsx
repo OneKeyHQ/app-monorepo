@@ -46,22 +46,22 @@ function MobilePerpMarketHeader() {
   const [assetCtx] = usePerpsActiveAssetCtxAtom();
 
   const {
+    midPrice,
     markPrice,
-    oraclePrice,
     fundingRate,
     openInterest,
     volume24h,
     change24hPercent,
   } = assetCtx?.ctx || {
+    midPrice: '0',
     markPrice: '0',
-    oraclePrice: '0',
     fundingRate: '0',
     openInterest: '0',
     volume24h: '0',
     change24hPercent: 0,
   };
 
-  const markPriceNumber = useMemo(() => parseFloat(markPrice), [markPrice]);
+  const midPriceNumber = useMemo(() => parseFloat(midPrice), [midPrice]);
   const fundingRateNumber = useMemo(
     () => Number.parseFloat(fundingRate ?? ''),
     [fundingRate],
@@ -70,24 +70,20 @@ function MobilePerpMarketHeader() {
   const showSkeleton =
     !isReady ||
     hasError ||
-    !Number.isFinite(markPriceNumber) ||
-    markPriceNumber === 0;
+    !Number.isFinite(midPriceNumber) ||
+    midPriceNumber === 0;
 
   const fundingColor = fundingRateNumber >= 0 ? '$green11' : '$red11';
   const fundingDisplay = Number.isFinite(fundingRateNumber)
     ? `${(fundingRateNumber * 100).toFixed(4)}%`
     : '--';
 
-  const oraclePriceDisplay = useMemo(() => {
-    if (
-      oraclePrice === undefined ||
-      oraclePrice === null ||
-      oraclePrice === ''
-    ) {
+  const markPriceDisplay = useMemo(() => {
+    if (markPrice === undefined || markPrice === null || markPrice === '') {
       return '--';
     }
-    return `$${oraclePrice}`;
-  }, [oraclePrice]);
+    return `$${markPrice}`;
+  }, [markPrice]);
 
   const volumeDisplay = useMemo(() => {
     if (volume24h === undefined || volume24h === null) {
@@ -133,7 +129,7 @@ function MobilePerpMarketHeader() {
             <>
               <Popover
                 title={intl.formatMessage({
-                  id: ETranslations.perp_position_mark_price,
+                  id: ETranslations.perp_order_mid_price_title,
                 })}
                 renderTrigger={
                   <DashText
@@ -143,7 +139,7 @@ function MobilePerpMarketHeader() {
                     dashThickness={0.5}
                   >
                     {intl.formatMessage({
-                      id: ETranslations.perp_position_mark_price,
+                      id: ETranslations.perp_order_mid_price_title,
                     })}
                   </DashText>
                 }
@@ -151,13 +147,13 @@ function MobilePerpMarketHeader() {
                   <YStack px="$5" pb="$4">
                     <SizableText size="$bodyMd" color="$text">
                       {intl.formatMessage({
-                        id: ETranslations.perp_mark_price_tooltip,
+                        id: ETranslations.perp_order_mid_price_title_desc,
                       })}
                     </SizableText>
                   </YStack>
                 }
               />
-              <SizableText size="$heading2xl">{markPrice}</SizableText>
+              <SizableText size="$heading2xl">{midPrice}</SizableText>
             </>
           )}
 
@@ -189,11 +185,11 @@ function MobilePerpMarketHeader() {
           <XStack alignItems="center" gap="$1" mt="$-1">
             <SizableText fontSize={10} color="$textSubdued">
               {intl.formatMessage({
-                id: ETranslations.perp_token_bar_oracle_price,
+                id: ETranslations.perp_position_mark_price,
               })}
             </SizableText>
             <SizableText fontSize={10} color="$text">
-              {oraclePriceDisplay}
+              {markPriceDisplay}
             </SizableText>
           </XStack>
         </YStack>

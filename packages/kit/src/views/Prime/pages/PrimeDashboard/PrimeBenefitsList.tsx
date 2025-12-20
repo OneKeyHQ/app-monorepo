@@ -11,8 +11,13 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -23,7 +28,6 @@ import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IPrimeServerUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
 
-import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
 import { usePrimeRequirements } from '../../hooks/usePrimeRequirements';
 
 import type { ISubscriptionPeriod } from '../../hooks/usePrimePaymentTypes';
@@ -85,9 +89,9 @@ export function PrimeBenefitsList({
   const intl = useIntl();
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { ensureOneKeyIDLoggedIn } = usePrimeRequirements();
-  const { isPrimeSubscriptionActive } = usePrimeAuthV2();
+  const { isPrimeSubscriptionActive } = useOneKeyAuth();
   const {
-    activeAccount: { wallet, account, network },
+    activeAccount: { wallet, account, network, indexedAccount },
   } = useActiveAccount({ num: 0 });
 
   return (
@@ -101,6 +105,14 @@ export function PrimeBenefitsList({
           id: ETranslations.prime_onekey_cloud_desc,
         })}
         onPress={() => {
+          if (platformEnv.isWebDappMode) {
+            Toast.message({
+              title: intl.formatMessage({
+                id: ETranslations.global_web_feature_not_available_go_to_app,
+              }),
+            });
+            return;
+          }
           if (isPrimeSubscriptionActive) {
             navigation.navigate(EPrimePages.PrimeCloudSync, {
               serverUserInfo,
@@ -152,6 +164,14 @@ export function PrimeBenefitsList({
           id: ETranslations.prime_bulk_copy_addresses_desc,
         })}
         onPress={() => {
+          if (platformEnv.isWebDappMode) {
+            Toast.message({
+              title: intl.formatMessage({
+                id: ETranslations.global_web_feature_not_available_go_to_app,
+              }),
+            });
+            return;
+          }
           if (isPrimeSubscriptionActive) {
             const fallbackNetworkId = networkUtils.toNetworkIdFallback({
               networkId,
@@ -193,6 +213,7 @@ export function PrimeBenefitsList({
                 walletId: wallet?.id ?? '',
                 accountId: account?.id ?? '',
                 networkId: network?.id ?? '',
+                indexedAccountId: indexedAccount?.id ?? '',
               },
             });
           } else {

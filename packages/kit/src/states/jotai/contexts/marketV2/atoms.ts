@@ -56,11 +56,9 @@ export const { atom: isNativeAtom, use: useIsNativeAtom } =
 export const { atom: showWatchlistOnlyAtom, use: useShowWatchlistOnlyAtom } =
   contextAtom<boolean>(false);
 
+// Empty string means not initialized yet, will be set by MarketHomeV2
 export const { atom: selectedNetworkIdAtom, use: useSelectedNetworkIdAtom } =
-  contextAtom<string>('sol--101');
-
-export const { atom: selectedMarketTabAtom, use: useSelectedMarketTabAtom } =
-  contextAtom<string>('trending');
+  contextAtom<string>('');
 
 // SwapPanel Analytics Atoms
 export interface ISwapAnalyticsState {

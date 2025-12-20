@@ -5,6 +5,7 @@ import { RefreshControl, ScrollView } from 'react-native';
 
 import type { IModalNavigationProp } from '@onekeyhq/components';
 import {
+  Alert,
   DebugRenderTracker,
   IconButton,
   SizableText,
@@ -24,47 +25,42 @@ import {
 } from '../../../states/jotai/contexts/hyperliquid/atoms';
 import { PerpOpenOrdersList } from '../components/OrderInfoPanel/List/PerpOpenOrdersList';
 import { PerpPositionsList } from '../components/OrderInfoPanel/List/PerpPositionsList';
+import { PerpMobileNetworkAlert } from '../components/PerpMobileNetworkAlert';
 import { PerpOrderBook } from '../components/PerpOrderBook';
 import { PerpTips } from '../components/PerpTips';
 import { PerpTickerBar } from '../components/TickerBar/PerpTickerBar';
 import { PerpTradingPanel } from '../components/TradingPanel/PerpTradingPanel';
 
-enum ETabName {
+export enum ETabName {
   Positions = 'Positions',
   OpenOrders = 'OpenOrders',
+  SwapProOpenOrders = 'SwapProOpenOrders',
 }
 
 const tabNameToTranslationKey: Record<
   ETabName,
-  ETranslations.perp_position_title | ETranslations.perp_open_orders_title
+  | ETranslations.perp_position_title
+  | ETranslations.perp_open_orders_title
+  | ETranslations.Limit_open_order
 > = {
   [ETabName.Positions]: ETranslations.perp_position_title,
   [ETabName.OpenOrders]: ETranslations.perp_open_orders_title,
+  [ETabName.SwapProOpenOrders]: ETranslations.Limit_open_order,
 };
 
-const TabBarItem = memo(
+export const TabBarItem = memo(
   ({
     name,
     isFocused,
     onPress,
+    tabCount,
   }: {
     name: ETabName;
     isFocused: boolean;
     onPress: (name: ETabName) => void;
+    tabCount?: string;
   }) => {
     const intl = useIntl();
-    const [openOrdersLength] = usePerpsActiveOpenOrdersLengthAtom();
-    const [positionsLength] = usePerpsActivePositionLengthAtom();
-
-    const tabCount = useMemo(() => {
-      if (name === ETabName.Positions && positionsLength > 0) {
-        return `(${positionsLength})`;
-      }
-      if (name === ETabName.OpenOrders && openOrdersLength > 0) {
-        return `(${openOrdersLength})`;
-      }
-      return '';
-    }, [name, positionsLength, openOrdersLength]);
 
     return (
       <DebugRenderTracker
@@ -81,7 +77,7 @@ const TabBarItem = memo(
           <SizableText size="$headingXs">
             {`${intl.formatMessage({
               id: tabNameToTranslationKey[name],
-            })} ${tabCount}`}
+            })}${tabCount ? ` ${tabCount}` : ''}`}
           </SizableText>
         </XStack>
       </DebugRenderTracker>
@@ -118,6 +114,22 @@ export function PerpMobileLayout() {
     }
   }, [actions]);
 
+  const [openOrdersLength] = usePerpsActiveOpenOrdersLengthAtom();
+  const [positionsLength] = usePerpsActivePositionLengthAtom();
+
+  const positionsTabCount = useMemo(() => {
+    if (positionsLength > 0) {
+      return `(${positionsLength})`;
+    }
+    return '';
+  }, [positionsLength]);
+
+  const openOrdersTabCount = useMemo(() => {
+    if (openOrdersLength > 0) {
+      return `(${openOrdersLength})`;
+    }
+    return '';
+  }, [openOrdersLength]);
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: '$bgApp' }}
@@ -129,6 +141,8 @@ export function PerpMobileLayout() {
       }
     >
       <PerpTips />
+      <PerpMobileNetworkAlert />
+
       <PerpTickerBar />
       <XStack gap="$2.5" px="$4" pb="$4">
         <YStack flexBasis="35%" flexShrink={1}>
@@ -152,11 +166,13 @@ export function PerpMobileLayout() {
             name={ETabName.Positions}
             isFocused={activeTab === ETabName.Positions}
             onPress={setActiveTab}
+            tabCount={positionsTabCount}
           />
           <TabBarItem
             name={ETabName.OpenOrders}
             isFocused={activeTab === ETabName.OpenOrders}
             onPress={setActiveTab}
+            tabCount={openOrdersTabCount}
           />
         </XStack>
         <IconButton

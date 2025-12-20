@@ -35,6 +35,7 @@ import {
   useSwapNetworksIncludeAllNetworkAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
+  useSwapSelectTokenNetworkAtom,
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -150,10 +151,17 @@ const SwapTokenSelectPage = () => {
     toToken?.networkId,
     type,
   ]);
-  const [currentSelectNetwork, setCurrentSelectNetwork] = useState<
-    ISwapNetwork | undefined
-  >(syncDefaultNetworkSelect);
+  const [currentSelectNetwork, setCurrentSelectNetwork] =
+    useSwapSelectTokenNetworkAtom();
   const listViewRef = useRef<FlatList>(null);
+
+  useEffect(() => {
+    setCurrentSelectNetwork(syncDefaultNetworkSelect);
+    return () => {
+      setCurrentSelectNetwork(undefined);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [setCurrentSelectNetwork]);
 
   useEffect(() => {
     const accountNet =
@@ -170,12 +178,13 @@ const SwapTokenSelectPage = () => {
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [currentSelectNetwork?.networkId]);
 
   const { fetchLoading, currentTokens } = useSwapTokenList(
     type,
     currentSelectNetwork?.networkId,
     searchKeywordDebounce,
+    swapTypeSwitch,
   );
   const alertIndex = useMemo(
     () =>
@@ -266,13 +275,16 @@ const SwapTokenSelectPage = () => {
     [checkRiskToken, navigation, route.params.storeName, selectTokenHandler],
   );
 
-  const onSelectCurrentNetwork = useCallback((network: ISwapNetwork) => {
-    setCurrentSelectNetwork(network);
-    listViewRef.current?.scrollToOffset({
-      offset: 0,
-      animated: false,
-    });
-  }, []);
+  const onSelectCurrentNetwork = useCallback(
+    (network: ISwapNetwork) => {
+      setCurrentSelectNetwork(network);
+      listViewRef.current?.scrollToOffset({
+        offset: 0,
+        animated: false,
+      });
+    },
+    [setCurrentSelectNetwork],
+  );
 
   const { md } = useMedia();
   const { copyText, getClipboard } = useClipboard();
@@ -575,6 +587,7 @@ const SwapTokenSelectPage = () => {
         ) : null}
         <YStack flex={1}>
           <ListView
+            useFlashList
             ref={listViewRef}
             data={currentTokens}
             renderItem={renderItem}

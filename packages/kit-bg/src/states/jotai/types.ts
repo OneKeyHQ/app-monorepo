@@ -44,10 +44,12 @@ export type IJotaiWrite<Args extends unknown[], Result> = (
   ...args: Args
 ) => Result;
 
-type IJotaiAtomProProps<Value> = {
+export type IJotaiAtomProProps<Value> = {
+  name: string;
   initialValue: Value;
   storageReady: Promise<boolean>;
   persist: boolean;
+  $$isGlobalAtom: boolean;
 };
 export type IJotaiAtomPro<Value> = Atom<Value> & IJotaiAtomProProps<Value>;
 export type IJotaiWritableAtomPro<

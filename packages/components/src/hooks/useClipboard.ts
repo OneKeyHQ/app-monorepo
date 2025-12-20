@@ -6,6 +6,7 @@ import { useDebouncedCallback } from 'use-debounce';
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { ensureHttpsPrefix } from '@onekeyhq/shared/src/utils/uriUtils';
 
 import { Toast } from '../actions/Toast';
 
@@ -38,6 +39,14 @@ export function useClipboard() {
       }
     },
     [intl],
+  );
+
+  const copyUrl = useCallback(
+    (url: string, successMessageId?: ETranslations, showToast = true) => {
+      const processedUrl = ensureHttpsPrefix(url);
+      copyText(processedUrl, successMessageId, showToast);
+    },
+    [copyText],
   );
 
   const debounceToastClearSuccess = useDebouncedCallback(() => {
@@ -77,11 +86,12 @@ export function useClipboard() {
   return useMemo(
     () => ({
       copyText,
+      copyUrl,
       clearText,
       onPasteClearText,
       getClipboard,
       supportPaste,
     }),
-    [clearText, onPasteClearText, copyText, supportPaste],
+    [clearText, onPasteClearText, copyText, copyUrl, supportPaste],
   );
 }

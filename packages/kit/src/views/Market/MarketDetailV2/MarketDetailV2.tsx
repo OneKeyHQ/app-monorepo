@@ -1,7 +1,14 @@
-import { useEffect } from 'react';
+import { useCallback } from 'react';
+
+import { useFocusEffect } from '@react-navigation/native';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
-import { Page, useMedia } from '@onekeyhq/components';
+import {
+  Page,
+  useIsNativeTablet,
+  useMedia,
+  useOrientation,
+} from '@onekeyhq/components';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
@@ -27,8 +34,7 @@ import { MobileLayout } from './layouts/MobileLayout';
 function MarketDetail({
   route,
 }: IPageScreenProps<ITabMarketParamList, ETabMarketRoutes.MarketDetailV2>) {
-  const { tokenAddress, network, isNative } = route.params;
-
+  const { tokenAddress, network, isNative, disableTrade } = route.params;
   // Convert shortcode back to full networkId if needed
   // network is a shortcode like 'bsc', convert it to 'evm--56'
   const networkId =
@@ -53,7 +59,13 @@ function MarketDetail({
     <Page>
       <MarketDetailHeader />
 
-      <Page.Body>{media.gtLg ? <DesktopLayout /> : <MobileLayout />}</Page.Body>
+      <Page.Body>
+        {media.gtLg && !platformEnv.isNative ? (
+          <DesktopLayout />
+        ) : (
+          <MobileLayout disableTrade={disableTrade} />
+        )}
+      </Page.Body>
     </Page>
   );
 }
@@ -61,17 +73,21 @@ function MarketDetail({
 function MarketDetailV2(
   props: IPageScreenProps<ITabMarketParamList, ETabMarketRoutes.MarketDetailV2>,
 ) {
-  useEffect(() => {
-    if (platformEnv.isExtension) {
-      return;
-    }
+  const isLandscape = useOrientation();
+  const isTablet = useIsNativeTablet();
+  useFocusEffect(
+    useCallback(() => {
+      if (platformEnv.isExtension || (isTablet && isLandscape)) {
+        return;
+      }
 
-    appEventBus.emit(EAppEventBusNames.HideTabBar, true);
+      appEventBus.emit(EAppEventBusNames.HideTabBar, true);
 
-    return () => {
-      appEventBus.emit(EAppEventBusNames.HideTabBar, false);
-    };
-  }, []);
+      return () => {
+        appEventBus.emit(EAppEventBusNames.HideTabBar, false);
+      };
+    }, [isLandscape, isTablet]),
+  );
 
   return (
     <AccountSelectorProviderMirror

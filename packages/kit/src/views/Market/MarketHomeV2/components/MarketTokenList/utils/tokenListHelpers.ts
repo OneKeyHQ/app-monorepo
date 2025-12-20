@@ -13,6 +13,18 @@ export const SORT_MAP: Record<string, keyof IMarketToken> = {
   v24hUSD: 'turnover',
 };
 
+const ONE_HOUR = 60 * 60 * 1000;
+const ONE_DAY = 24 * ONE_HOUR;
+const ONE_MONTH = 30 * ONE_DAY;
+const ONE_YEAR = 12 * ONE_MONTH;
+
+export type ITokenAgeUnit = 'hour' | 'day' | 'month' | 'year';
+
+export interface ITokenAgeInfo {
+  amount: number;
+  unit: ITokenAgeUnit;
+}
+
 export function getNetworkLogoUri(chainOrNetworkId: string): string {
   const networks = getPresetNetworks();
   const network = networks.find((n) => n.id === chainOrNetworkId);
@@ -51,8 +63,14 @@ export function transformApiItemToToken(
     sortIndex?: number;
   },
 ): IMarketToken {
+  // Use token's own networkId to get network logo, fallback to passed chainId
+  const tokenNetworkId = item.networkId || chainId;
+  const tokenNetworkLogoUri = item.networkId
+    ? getNetworkLogoUri(item.networkId)
+    : networkLogoUri;
+
   return {
-    id: `${item.address}${item.name}${networkLogoUri}${item.symbol}`,
+    id: `${item.address}${item.name}${tokenNetworkLogoUri}${item.symbol}`,
     name: item.name,
     symbol: item.symbol,
     address: item.address,
@@ -65,14 +83,60 @@ export function transformApiItemToToken(
     holders: item.holders || 0,
     turnover: safeNumber(item.volume24h),
     tokenImageUri: item.logoUrl || '',
-    networkLogoUri,
-    networkId: item.networkId || chainId,
-    chainId,
+    decimals: item.decimals,
+    networkLogoUri: tokenNetworkLogoUri,
+    networkId: tokenNetworkId,
+    chainId: tokenNetworkId,
+    firstTradeTime: item.firstTradeTime
+      ? Number(item.firstTradeTime)
+      : undefined,
     sortIndex,
     isNative: item.isNative,
+    communityRecognized: item.communityRecognized,
     walletInfo: {
       buy: safeNumber(item.buy24hCount),
       sell: safeNumber(item.sell24hCount),
     },
+  };
+}
+
+export function getTokenAgeInfo(
+  firstTradeTime?: number,
+): ITokenAgeInfo | undefined {
+  if (!firstTradeTime) {
+    return undefined;
+  }
+
+  const now = Date.now();
+  const duration = now - firstTradeTime;
+
+  if (duration <= 0) {
+    return undefined;
+  }
+
+  if (duration < ONE_DAY) {
+    return {
+      amount: Math.max(1, Math.round(duration / ONE_HOUR)),
+      unit: 'hour',
+    };
+  }
+
+  if (duration < ONE_MONTH) {
+    return {
+      amount: Math.max(1, Math.round(duration / ONE_DAY)),
+      unit: 'day',
+    };
+  }
+
+  if (duration < ONE_YEAR) {
+    return {
+      amount: Math.max(1, Math.round(duration / ONE_MONTH)),
+      unit: 'month',
+    };
+  }
+
+  return {
+    amount: Math.max(1, Math.round(duration / ONE_YEAR)),
+    unit: 'year',
   };
 }

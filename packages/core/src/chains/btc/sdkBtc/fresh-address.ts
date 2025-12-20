@@ -1,5 +1,10 @@
 import { getAddressFromXpub } from '.';
 
+import type { ILocalHistory } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityLocalHistory';
+import appCrypto from '@onekeyhq/shared/src/appCrypto';
+import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
+
 import type { EAddressEncodings } from '../../../types';
 import type {
   IBtcBlockbookDerivedInfo,
@@ -8,11 +13,6 @@ import type {
   IBtcFreshAddressStructure,
   IEncodedTxBtc,
 } from '../types';
-
-import type { ILocalHistory } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityLocalHistory';
-import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
-import appCrypto from '@onekeyhq/shared/src/appCrypto';
-import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 
 const EMPTY_LOCAL_USED_ADDRESSES_HASH =
   'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'; // sha256('')

@@ -34,7 +34,13 @@ const WithdrawOptions = () => {
   >();
   const intl = useIntl();
   const appNavigation = useAppNavigation();
-  const { accountId, networkId, protocolInfo, tokenInfo } = appRoute.params;
+  const {
+    accountId,
+    networkId,
+    protocolInfo,
+    tokenInfo,
+    onSuccess: externalOnSuccess,
+  } = appRoute.params;
   const symbol = tokenInfo?.token.symbol || '';
   const provider = protocolInfo?.provider || '';
   const { result, isLoading, run } = usePromiseResult(
@@ -49,6 +55,16 @@ const WithdrawOptions = () => {
     { watchLoading: true },
   );
 
+  const { result: stakingConfig } = usePromiseResult(
+    () =>
+      backgroundApiProxy.serviceStaking.getStakingConfigs({
+        networkId,
+        symbol,
+        provider,
+      }),
+    [networkId, symbol, provider],
+  );
+
   const onPress = useCallback<IOnSelectOption>(
     ({ item }) => {
       appNavigation.push(EModalStakingRoutes.Withdraw, {
@@ -59,13 +75,27 @@ const WithdrawOptions = () => {
         identity: item.id,
         amount: item.amount,
         fromPage: EModalStakingRoutes.WithdrawOptions,
+        allowPartialWithdraw: stakingConfig?.allowPartialWithdraw,
         onSuccess: () => {
           // pop to portfolio details page
-          setTimeout(() => appNavigation.pop(), 4);
+          setTimeout(() => {
+            appNavigation.pop();
+            // Trigger external onSuccess callback (from ManagePositionContent)
+            // This ensures the entire modal stack is closed when in modal context
+            externalOnSuccess?.();
+          }, 4);
         },
       });
     },
-    [appNavigation, accountId, networkId, protocolInfo, tokenInfo],
+    [
+      appNavigation,
+      accountId,
+      networkId,
+      protocolInfo,
+      tokenInfo,
+      stakingConfig?.allowPartialWithdraw,
+      externalOnSuccess,
+    ],
   );
 
   const babylonStatusMap = useBabylonStatusMap();
@@ -113,6 +143,7 @@ const WithdrawOptions = () => {
               onConfirmText={intl.formatMessage({
                 id: ETranslations.global_withdraw,
               })}
+              description={result.description}
               extraFields={
                 networkUtils.isBTCNetwork(networkId)
                   ? [

@@ -8,6 +8,7 @@ import { app } from 'electron';
 import logger from 'electron-log/main';
 
 import {
+  calculateSHA256,
   getBundleDirName,
   getBundleExtractDir,
   testExtractedSha256FromVerifyAscFile,
@@ -16,6 +17,10 @@ import {
 } from '@onekeyhq/desktop/app/bundle';
 import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
 import * as store from '@onekeyhq/desktop/app/libs/store';
+import {
+  clearWindowProgressBar,
+  updateWindowProgressBar,
+} from '@onekeyhq/desktop/app/windowProgressBar';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type {
   IDownloadPackageParams,
@@ -83,6 +88,7 @@ class DesktopApiAppBundleUpdate {
     if (this.isDownloading) {
       return;
     }
+    clearWindowProgressBar(this.getMainWindow());
     if (!appVersion || !bundleVersion || !bundleUrl || !fileSize || !sha256) {
       this.isDownloading = false;
       return Promise.reject(new Error('Invalid parameters'));
@@ -213,6 +219,7 @@ class DesktopApiAppBundleUpdate {
                 delta: (chunk as Buffer).length,
               },
             );
+            updateWindowProgressBar(this.getMainWindow(), percent);
           });
 
           response.on('end', async () => {
@@ -238,6 +245,7 @@ class DesktopApiAppBundleUpdate {
             } else {
               reject(new Error('Download incomplete'));
             }
+            clearWindowProgressBar(this.getMainWindow());
           });
 
           response.on('error', (error) => {
@@ -246,6 +254,7 @@ class DesktopApiAppBundleUpdate {
             this.isDownloading = false;
             this.cancelCurrentDownload = () => {};
             reject(error);
+            clearWindowProgressBar(this.getMainWindow());
           });
         });
 
@@ -674,6 +683,10 @@ class DesktopApiAppBundleUpdate {
     return (
       globalThis.$desktopMainAppFunctions?.getBundleIndexHtmlPath?.() || ''
     );
+  }
+
+  async getSha256FromFilePath(filePath: string) {
+    return calculateSHA256(filePath);
   }
 }
 

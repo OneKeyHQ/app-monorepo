@@ -28,6 +28,7 @@ export function useMarketTransactions({
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const loadTimesRef = useRef(0);
   const accumulatedTransactionsRef = useRef(accumulatedTransactions);
+  const cursorRef = useRef<string | undefined>(undefined);
   const throttleSetAccumulatedTransactions = useThrottledCallback(
     (transactions: IMarketTokenTransaction[]) => {
       const current = platformEnv.isNative
@@ -48,6 +49,7 @@ export function useMarketTransactions({
         await backgroundApiProxy.serviceMarketV2.fetchMarketTokenTransactions({
           tokenAddress,
           networkId,
+          limit: DEFAULT_PAGE_SIZE,
         });
       return response;
     },
@@ -66,15 +68,22 @@ export function useMarketTransactions({
   useEffect(() => {
     throttleSetAccumulatedTransactions([]);
     setHasMore(true);
+    cursorRef.current = undefined;
+    loadTimesRef.current = 0;
   }, [tokenAddress, networkId, throttleSetAccumulatedTransactions]);
 
   // Merge new and old data, add new data at the front, and deduplicate
   useEffect(() => {
     const newTransactions = transactionsData?.list;
 
-    if (!newTransactions) {
+    if (!newTransactions || newTransactions.length === 0) {
+      cursorRef.current = undefined;
+      throttleSetAccumulatedTransactions([]);
+      setHasMore(false);
       return;
     }
+
+    cursorRef.current = transactionsData?.cursor;
 
     const prev = accumulatedTransactionsRef.current;
     // Merge new data at the front with existing data
@@ -95,9 +104,7 @@ export function useMarketTransactions({
     throttleSetAccumulatedTransactions(uniqueTransactions);
 
     // Update hasMore based on response
-    if (transactionsData?.hasMore !== undefined) {
-      setHasMore(transactionsData.hasMore);
-    }
+    setHasMore(Boolean(transactionsData?.cursor));
   }, [throttleSetAccumulatedTransactions, transactionsData]);
 
   const loadMore = useCallback(async (): Promise<void> => {
@@ -108,42 +115,48 @@ export function useMarketTransactions({
       return;
     }
 
+    const cursor = cursorRef.current;
+
+    if (!cursor) {
+      setHasMore(false);
+      return;
+    }
+
     setIsLoadingMore(true);
     try {
       const response =
         await backgroundApiProxy.serviceMarketV2.fetchMarketTokenTransactions({
           tokenAddress,
           networkId,
-          offset: accumulatedTransactions.length,
+          cursor,
           limit: DEFAULT_PAGE_SIZE,
         });
 
-      if (response?.list) {
-        loadTimesRef.current += 1;
-        const prev = accumulatedTransactionsRef.current;
-        // Append new data at the end
-        const mergedTransactions = [...prev, ...response.list];
-
-        // Deduplicate by hash
-        const seenHashes = new Set<string>();
-        const uniqueTransactions = mergedTransactions.filter((tx) => {
-          if (seenHashes.has(tx.hash)) {
-            return false;
-          }
-          seenHashes.add(tx.hash);
-          return true;
-        });
-
-        throttleSetAccumulatedTransactions(uniqueTransactions);
-
-        // Update hasMore
-        if (response.hasMore !== undefined) {
-          setHasMore(response.hasMore);
-        } else {
-          // If no hasMore field, assume no more data if we got less than requested
-          setHasMore(response.list.length >= DEFAULT_PAGE_SIZE);
-        }
+      if (!response?.list || response.list.length === 0) {
+        cursorRef.current = undefined;
+        setHasMore(false);
+        return;
       }
+
+      loadTimesRef.current += 1;
+      cursorRef.current = response.cursor;
+      const prev = accumulatedTransactionsRef.current;
+      // Append new data at the end
+      const mergedTransactions = [...prev, ...response.list];
+
+      // Deduplicate by hash
+      const seenHashes = new Set<string>();
+      const uniqueTransactions = mergedTransactions.filter((tx) => {
+        if (seenHashes.has(tx.hash)) {
+          return false;
+        }
+        seenHashes.add(tx.hash);
+        return true;
+      });
+
+      throttleSetAccumulatedTransactions(uniqueTransactions);
+
+      setHasMore(Boolean(response.cursor));
     } catch (error) {
       console.error('Failed to load more transactions:', error);
     } finally {
@@ -155,7 +168,6 @@ export function useMarketTransactions({
     isRefreshing,
     tokenAddress,
     networkId,
-    accumulatedTransactions.length,
     throttleSetAccumulatedTransactions,
   ]);
 

@@ -1,13 +1,18 @@
+import { EFirmwareType } from '@onekeyfe/hd-shared';
 import { uniqBy } from 'lodash';
 
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 import type { IAccountDeriveTypes } from '../../vaults/types';
 
 type IBuildDefaultAddAccountNetworksParams = {
   backgroundApi: IBackgroundApi;
+  walletId: string;
   includingNetworkWithGlobalDeriveType?: boolean;
+  firmwareType: EFirmwareType | undefined;
 };
 
 type INetworkWithDeriveType = {
@@ -164,7 +169,20 @@ async function buildAddAccountsNetworks({
 export async function buildDefaultAddAccountNetworks(
   params: IBuildDefaultAddAccountNetworksParams,
 ) {
-  const networks = await buildAddAccountsNetworks({
+  const { backgroundApi, walletId } = params;
+
+  const isBtcOnlyFirmware =
+    await backgroundApi.serviceAccount.isBtcOnlyFirmwareByWalletId({
+      walletId,
+    });
+  if (isBtcOnlyFirmware) {
+    return buildAddAccountsNetworks({
+      ...params,
+      btc: true,
+    });
+  }
+
+  const networks: INetworkWithDeriveType[] = await buildAddAccountsNetworks({
     ...params,
     btc: true,
     evm: true,
@@ -177,6 +195,14 @@ export async function buildDefaultAddAccountNetworks(
 export async function buildDefaultAddAccountNetworksForQrWallet(
   params: IBuildDefaultAddAccountNetworksParams,
 ) {
+  const { firmwareType } = params;
+  if (firmwareType === EFirmwareType.BitcoinOnly) {
+    return buildAddAccountsNetworks({
+      ...params,
+      btc: true,
+    });
+  }
+
   // TODO filter by vault settings
   const networks = await buildAddAccountsNetworks({
     ...params,

@@ -721,6 +721,30 @@ function BatchCreateAccountPreviewPage({
     return false;
   }, [previewError, isLoading]);
 
+  const tableView = useMemo(() => {
+    // return null;
+    return (
+      <Table
+        onRow={onRow}
+        rowProps={{
+          gap: platformEnv.isNative ? '$8' : '$4',
+          px: '$3',
+          mx: '$2',
+          minHeight: '$12',
+        }}
+        estimatedItemSize="$12"
+        headerRowProps={{ py: '$2', minHeight: 36 }}
+        showSkeleton={isLoading}
+        // showSkeleton
+        skeletonCount={3}
+        dataSource={accounts}
+        columns={columns as any}
+        extraData={extraData}
+        keyExtractor={(item) => item.id}
+      />
+    );
+  }, [accounts, columns, extraData, isLoading, onRow]);
+
   return (
     <Page scrollEnabled safeAreaEnabled>
       <Page.Header
@@ -767,24 +791,7 @@ function BatchCreateAccountPreviewPage({
             </Stack>
           </Stack>
         ) : (
-          <Table
-            onRow={onRow}
-            rowProps={{
-              gap: platformEnv.isNative ? '$8' : '$4',
-              px: '$3',
-              mx: '$2',
-              minHeight: '$12',
-            }}
-            estimatedItemSize="$12"
-            headerRowProps={{ py: '$2', minHeight: 36 }}
-            showSkeleton={isLoading}
-            // showSkeleton
-            skeletonCount={3}
-            dataSource={accounts}
-            columns={columns as any}
-            extraData={extraData}
-            keyExtractor={(item) => item.id}
-          />
+          tableView
         )}
       </Page.Body>
       <Page.Footer>

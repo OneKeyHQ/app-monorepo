@@ -5,6 +5,8 @@ import { TransitionPresets } from '@react-navigation/stack';
 import type { VariableVal } from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { EPageType } from '../../hocs';
+
 import { extAnimConfig } from './ExtAnimConfig';
 import { makeHeaderScreenOptions } from './Header';
 
@@ -79,11 +81,13 @@ export function makeModalStackNavigatorOptions({
   optionsInfo,
   bgColor,
   titleColor,
+  pageType,
 }: {
   bgColor: VariableVal;
   titleColor: VariableVal;
   isVerticalLayout?: boolean;
   optionsInfo?: IScreenOptionsInfo<any>;
+  pageType?: EPageType;
 }): StackNavigationOptions {
   const options: StackNavigationOptions = {
     detachPreviousScreen: false,
@@ -99,7 +103,9 @@ export function makeModalStackNavigatorOptions({
       navigation: optionsInfo?.navigation,
       bgColor,
       titleColor,
-      isModelScreen: true,
+      isModelScreen:
+        pageType === EPageType.modal || pageType === EPageType.fullScreen,
+      isOnboardingScreen: pageType === EPageType.onboarding,
     }),
   } as any;
 
@@ -111,6 +117,24 @@ export function makeModalStackNavigatorOptions({
 }
 
 export function makeModalScreenOptions(info: {
+  isVerticalLayout?: boolean;
+  optionsInfo: IScreenOptionsInfo<any>;
+}): StackNavigationOptions {
+  return {
+    detachPreviousScreen: false,
+    headerShown: false,
+    presentation: 'transparentModal',
+    cardStyle: { backgroundColor: 'transparent' },
+    // Keep this field to preserve animation timing when removing pages in react-navigation v7
+    // The stack navigator checks for the presence of the animation field to reserve time for page removal animations
+    // https://github.com/react-navigation/react-navigation/blob/858a8746a5c007a623206c920f70d55935ed39b4/packages/stack/src/views/Stack/StackView.tsx#L145
+    // @ts-expect-error
+    animation: 'custom-animation-on-web',
+    ...makeModalOpenAnimationOptions(info),
+  };
+}
+
+export function makeOnboardingScreenOptions(info: {
   isVerticalLayout?: boolean;
   optionsInfo: IScreenOptionsInfo<any>;
 }): StackNavigationOptions {

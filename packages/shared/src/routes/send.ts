@@ -23,6 +23,7 @@ export enum EModalSendRoutes {
   SendReplaceTx = 'SendReplaceTx',
   SendSelectToken = 'SendSelectToken',
   SendSelectDeriveAddress = 'SendSelectDeriveAddress',
+  CoinControl = 'CoinControl',
 }
 
 export type IModalSendParamList = {
@@ -94,5 +95,9 @@ export type IModalSendParamList = {
     onUnmounted?: () => void;
     tokenMap?: Record<string, ITokenFiat>;
     token?: IToken;
+  };
+  [EModalSendRoutes.CoinControl]: {
+    networkId: string;
+    accountId: string;
   };
 };

@@ -1,6 +1,9 @@
 import { Anchor, Badge, Icon, SizableText, XStack } from '@onekeyhq/components';
+import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 
 import { useFirmwareVersionValid } from '../hooks/useFirmwareVersionValid';
+
+import type { EFirmwareType } from '@onekeyfe/hd-shared';
 
 export function FirmwareVersionProgressBar({
   fromVersion = '',
@@ -25,23 +28,40 @@ export function FirmwareVersionProgressBar({
 
 export function FirmwareVersionProgressText({
   fromVersion = '',
+  fromFirmwareType = undefined,
   toVersion = '',
+  toFirmwareType = undefined,
   githubReleaseUrl = '',
   active,
 }: {
   fromVersion?: string;
+  fromFirmwareType?: EFirmwareType;
   toVersion?: string;
+  toFirmwareType?: EFirmwareType;
   githubReleaseUrl?: string;
   active: boolean;
 }) {
   const { versionValid, unknownMessage } = useFirmwareVersionValid();
+
+  const formatLabel = (firmwareType?: EFirmwareType) =>
+    deviceUtils.getFirmwareTypeLabelByFirmwareType({
+      firmwareType,
+      returnUniversal: true,
+      displayFormat: 'withSpace',
+    });
+
+  const fromFirmwareTypeStr = formatLabel(fromFirmwareType);
+  const toFirmwareTypeStr = formatLabel(toFirmwareType);
+
   return (
     <>
       <SizableText
         size="$bodyLgMedium"
         color={active ? '$text' : '$textSubdued'}
       >
-        {versionValid(fromVersion) ? fromVersion : unknownMessage}
+        {versionValid(fromVersion)
+          ? `${fromFirmwareTypeStr}${fromVersion}`
+          : unknownMessage}
       </SizableText>
       <Icon
         name="ArrowRightSolid"
@@ -59,14 +79,18 @@ export function FirmwareVersionProgressText({
             e.stopPropagation();
           }}
         >
-          {toVersion?.length > 0 ? toVersion : unknownMessage}
+          {toVersion?.length > 0
+            ? `${toFirmwareTypeStr}${toVersion}`
+            : unknownMessage}
         </Anchor>
       ) : (
         <SizableText
           size="$bodyLgMedium"
           color={active ? '$text' : '$textSubdued'}
         >
-          {toVersion?.length > 0 ? toVersion : unknownMessage}
+          {toVersion?.length > 0
+            ? `${toFirmwareTypeStr}${toVersion}`
+            : unknownMessage}
         </SizableText>
       )}
     </>

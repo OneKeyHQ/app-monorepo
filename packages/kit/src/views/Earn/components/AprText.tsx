@@ -6,8 +6,16 @@ import type { IEarnRewardUnit } from '@onekeyhq/shared/types/staking';
 const buildAprText = (apr: string, unit: IEarnRewardUnit) => `${apr} ${unit}`;
 
 // APR text component with aprInfo support
-export function AprText({ asset }: { asset: IEarnAvailableAsset }) {
-  const { aprInfo, aprWithoutFee, rewardUnit } = asset;
+export function AprText({
+  asset,
+}: {
+  asset: {
+    aprInfo?: IEarnAvailableAsset['aprInfo'];
+    aprWithoutFee: IEarnAvailableAsset['aprWithoutFee'];
+    rewardUnit?: IEarnAvailableAsset['rewardUnit'];
+  };
+}) {
+  const { aprInfo, aprWithoutFee, rewardUnit = 'APR' } = asset;
 
   // Special case: both highlight and deprecated exist
   if (aprInfo?.highlight && aprInfo?.deprecated) {

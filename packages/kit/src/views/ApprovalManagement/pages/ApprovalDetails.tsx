@@ -34,12 +34,12 @@ import { Token } from '../../../components/Token';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useIsMounted } from '../../../hooks/useIsMounted';
 import {
+  ProviderJotaiContextApprovalList,
   useApprovalListActions,
   useContractMapAtom,
   useTokenMapAtom,
 } from '../../../states/jotai/contexts/approvalList';
 import { openExplorerAddressUrl } from '../../../utils/explorerUtils';
-import { HomeApprovalListProviderMirror } from '../../Home/components/HomeApprovalListProvider/HomeApprovalListProviderMirror';
 import ApprovalActions from '../components/ApprovalActions';
 import {
   ApprovalManagementContext,
@@ -613,11 +613,11 @@ const ApprovalDetailsWithProvider = memo(() => {
     ],
   );
   return (
-    <HomeApprovalListProviderMirror>
+    <ProviderJotaiContextApprovalList>
       <ApprovalManagementContext.Provider value={contextValue}>
         <ApprovalDetails />
       </ApprovalManagementContext.Provider>
-    </HomeApprovalListProviderMirror>
+    </ProviderJotaiContextApprovalList>
   );
 });
 ApprovalDetailsWithProvider.displayName = 'ApprovalDetailsWithProvider';
