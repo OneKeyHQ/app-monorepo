@@ -268,7 +268,6 @@ const DepositField = ({
     <XStack ai="center" flex={1}>
       <Token
         size="md"
-        borderRadius="$2"
         tokenImageUri={asset.token.info.logoURI}
         networkImageUri={asset.metadata.network.logoURI}
       />
