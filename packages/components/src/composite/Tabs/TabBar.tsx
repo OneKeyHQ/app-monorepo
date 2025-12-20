@@ -253,7 +253,6 @@ export function TabBar({
   ) : (
     <YStack
       userSelect="none"
-      cursor="pointer"
       pointerEvents="box-none"
       bg="$bgApp"
       className="onekey-tabs-header"
