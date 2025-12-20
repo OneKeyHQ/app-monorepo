@@ -15,6 +15,8 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import type { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
+import { EARN_PAGE_MAX_WIDTH } from '../EarnConfig';
+
 import type { RefreshControlProps } from 'react-native';
 
 interface IEarnPageContainerProps {
@@ -28,6 +30,8 @@ interface IEarnPageContainerProps {
   showBackButton?: boolean;
   footer?: React.ReactNode;
   customHeaderRightItems?: React.ReactNode;
+  maxWidth?: number | string;
+  disableMaxWidth?: boolean;
 }
 
 export function EarnPageContainer({
@@ -41,6 +45,8 @@ export function EarnPageContainer({
   footer,
   header,
   customHeaderRightItems,
+  maxWidth,
+  disableMaxWidth,
 }: IEarnPageContainerProps) {
   const media = useMedia();
   const navigation = useAppNavigation();
@@ -70,6 +76,11 @@ export function EarnPageContainer({
     [breadcrumbProps, media],
   );
   const showHeader = useMemo(() => header, [header]);
+  const containerMaxWidth = useMemo(() => {
+    if (disableMaxWidth) return undefined;
+    if (maxWidth !== undefined) return maxWidth;
+    return EARN_PAGE_MAX_WIDTH;
+  }, [disableMaxWidth, maxWidth]);
 
   return (
     <Page>
@@ -84,7 +95,7 @@ export function EarnPageContainer({
           contentContainerStyle={{ py: '$6' }}
           refreshControl={refreshControl}
         >
-          <YStack w="100%" mx="auto">
+          <YStack w="100%" mx="auto" maxWidth={containerMaxWidth}>
             {showBreadcrumb || showHeader ? (
               <XStack px="$3" pb="$5" gap="$5" ai="center">
                 {showBreadcrumb ? <Breadcrumb {...breadcrumbProps} /> : null}
