@@ -174,7 +174,7 @@ const SwapProTradeInfoGroup = ({
       />
       <SwapCommonInfoItem
         title={intl.formatMessage({
-          id: ETranslations.swap_history_detail_service_fee,
+          id: ETranslations.provider_ios_popover_wallet_fee,
         })}
         value={tradingFeeValue}
         titleProps={ITEM_TITLE_PROPS}
