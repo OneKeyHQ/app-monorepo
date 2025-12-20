@@ -683,8 +683,11 @@ export function Bootstrap() {
         //     screen: EOnboardingPagesV2.AddExistingWallet,
         //   },
         // });
+        // navigation.navigate(ETabRoutes.Developer, {
+        //    screen: EGalleryRoutes.ComponentKeylessWallet,
+        // });
         navigation.navigate(ETabRoutes.Developer, {
-          screen: EGalleryRoutes.ComponentKeylessWallet,
+          screen: EGalleryRoutes.ComponentOneKeyID,
         });
       }, 1000);
 

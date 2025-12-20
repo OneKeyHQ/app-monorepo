@@ -17,7 +17,7 @@ interface ISwapProBuySellInfoProps {
 const getCountByTimeRange = (
   detail: IMarketTokenDetail | undefined,
   timeRange: ESwapProTimeRange,
-  type: 'buy' | 'sell' | 'volume',
+  type: 'buy' | 'sell' | 'vBuy' | 'vSell',
   endString: string,
 ) => {
   const key = `${type}${timeRange}${endString}` as keyof IMarketTokenDetail;
@@ -53,15 +53,13 @@ const SwapProBuySellInfo = ({
       .toNumber();
   }, [sellCount, totalCount]);
   const buyVolume = useMemo(() => {
-    const buyVolumeCount = getCountByTimeRange(
+    const buyVolumeValue = getCountByTimeRange(
       tokenDetailInfo,
       timeRange,
-      'buy',
-      'Count',
+      'vBuy',
+      '',
     );
-    const priceBN = new BigNumber(tokenDetailInfo?.price || 0);
-    const buyVolumeValue = priceBN.multipliedBy(buyVolumeCount);
-    return numberFormat(buyVolumeValue.toFixed(), {
+    return numberFormat(buyVolumeValue.toString(), {
       formatter: 'marketCap',
       formatterOptions: {
         currency: currencyInfo.symbol,
@@ -69,15 +67,13 @@ const SwapProBuySellInfo = ({
     });
   }, [tokenDetailInfo, timeRange, currencyInfo.symbol]);
   const sellVolume = useMemo(() => {
-    const sellVolumeCount = getCountByTimeRange(
+    const sellVolumeValue = getCountByTimeRange(
       tokenDetailInfo,
       timeRange,
-      'sell',
-      'Count',
+      'vSell',
+      '',
     );
-    const priceBN = new BigNumber(tokenDetailInfo?.price || 0);
-    const sellVolumeValue = priceBN.multipliedBy(sellVolumeCount);
-    return numberFormat(sellVolumeValue.toFixed(), {
+    return numberFormat(sellVolumeValue.toString(), {
       formatter: 'marketCap',
       formatterOptions: {
         currency: currencyInfo.symbol,
