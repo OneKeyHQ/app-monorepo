@@ -13,6 +13,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
@@ -36,6 +37,7 @@ import type {
   ISwapTokenBase,
 } from '@onekeyhq/shared/types/swap/types';
 import {
+  ESwapDirectionType,
   ESwapProTradeType,
   ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
@@ -570,11 +572,15 @@ export function useSwapProTokenInit() {
   };
 }
 
-export function useSwapProTokenSearch(input: string) {
+export function useSwapProTokenSearch(
+  input: string,
+  selectedNetworkId?: string,
+) {
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchTokenList, setSearchTokenList] = useState<
     (IMarketSearchV2Token & { networkLogoURI: string })[]
   >([]);
+  const lastLoggedSearchRef = useRef<string>(''); // query__networkId
   useEffect(() => {
     let isCancelled = false;
 
@@ -601,7 +607,32 @@ export function useSwapProTokenSearch(input: string) {
             };
           })
           .filter((t) => !t.isNative);
-        setSearchTokenList(searchTokenParse ?? []);
+        const finalList = searchTokenParse ?? [];
+        setSearchTokenList(finalList);
+
+        const queryLength = input.length;
+        const currentNetworkId = selectedNetworkId ?? '';
+        const logKey = `${input}__${currentNetworkId}`;
+        if (
+          queryLength >= 1 &&
+          queryLength <= 10 &&
+          lastLoggedSearchRef.current !== logKey
+        ) {
+          lastLoggedSearchRef.current = logKey;
+          const networkInfo = selectedNetworkId
+            ? networkUtils.getLocalNetworkInfo(selectedNetworkId)
+            : undefined;
+          const networkName =
+            networkInfo?.name ?? selectedNetworkId ?? 'Market';
+          defaultLogger.swap.tokenSelectorSearch.swapTokenSelectorSearch({
+            query: input,
+            resultCount: finalList.length,
+            networkId: currentNetworkId,
+            networkName,
+            direction: ESwapDirectionType.FROM,
+            from: 'pro',
+          });
+        }
       } catch (e) {
         if (!isCancelled) {
           console.error(e);
@@ -616,7 +647,7 @@ export function useSwapProTokenSearch(input: string) {
     return () => {
       isCancelled = true;
     };
-  }, [input]);
+  }, [input, selectedNetworkId]);
   return {
     searchLoading,
     searchTokenList,
