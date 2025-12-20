@@ -71,7 +71,7 @@ export type IPasswordPersistAtom = {
 export const passwordAtomInitialValue: IPasswordPersistAtom = {
   isPasswordSet: false,
   webAuthCredentialId: '',
-  appLockDuration: Number(ELockDuration.Always),
+  appLockDuration: Number(ELockDuration.Never),
   manualLocking: false,
   enableSystemIdleLock: true,
   passwordMode: EPasswordMode.PASSWORD,

@@ -7951,7 +7951,7 @@ __metadata:
     react-native-aes-crypto: "npm:3.2.1"
     react-native-awesome-slider: "npm:^2.9.0"
     react-native-ble-plx: "npm:3.5.0"
-    react-native-camera-kit: "npm:15.1.0"
+    react-native-camera-kit: "npm:16.1.3"
     react-native-canvas: "npm:^0.1.39"
     react-native-capture-protection: "npm:2.3.0"
     react-native-cloud-fs: "npm:@onekeyfe/react-native-cloud-fs@2.6.5"
@@ -34300,13 +34300,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-camera-kit@npm:15.1.0":
-  version: 15.1.0
-  resolution: "react-native-camera-kit@npm:15.1.0"
+"react-native-camera-kit@npm:16.1.3":
+  version: 16.1.3
+  resolution: "react-native-camera-kit@npm:16.1.3"
   peerDependencies:
     react: "*"
     react-native: "*"
-  checksum: 10/46997fc4fa3f1cfd96f3291a2f62b40518215e0d3c7502e6db3eeda0b15e53ebfde9463af6fdfdd1f844d6e5a757210bcc84c733b69ba71bbd484deb06d4fac1
+  checksum: 10/2a6e8236338e76c89080cd62401eff5a95940c24794aa88cbfd883546480b0ce2c0815be9503280180dbc86d96a1726071c88d4e52df7d8011b76acd7afc6e79
   languageName: node
   linkType: hard
 
