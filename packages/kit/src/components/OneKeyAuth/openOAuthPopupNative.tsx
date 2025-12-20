@@ -1,12 +1,16 @@
 import * as WebBrowser from 'expo-web-browser';
 
+import {
+  OAUTH_TOKEN_KEY_ACCESS_TOKEN,
+  OAUTH_TOKEN_KEY_REFRESH_TOKEN,
+} from '@onekeyhq/shared/src/consts/authConsts';
 import { ONEKEY_APP_DEEP_LINK } from '@onekeyhq/shared/src/consts/deeplinkConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import type {
   IHandleOAuthSessionPersistenceParams,
   IOAuthPopupResult,
-} from './openOAuthPopupWeb';
+} from './openOAuthPopupTypes';
 
 /**
  * Get OAuth redirect URL for native platforms (iOS/Android)
@@ -38,7 +42,7 @@ export async function openOAuthPopupNative(options: {
   handleSessionPersistence: (
     params: IHandleOAuthSessionPersistenceParams,
   ) => Promise<void>;
-  persistSession: boolean;
+  persistSession?: boolean;
 }): Promise<IOAuthPopupResult> {
   const { authUrl, redirectTo, handleSessionPersistence, persistSession } =
     options;
@@ -62,8 +66,8 @@ export async function openOAuthPopupNative(options: {
       url.hash.substring(1) || url.search.substring(1),
     );
 
-    const accessToken = hashParams.get('access_token');
-    const refreshToken = hashParams.get('refresh_token');
+    const accessToken = hashParams.get(OAUTH_TOKEN_KEY_ACCESS_TOKEN);
+    const refreshToken = hashParams.get(OAUTH_TOKEN_KEY_REFRESH_TOKEN);
 
     if (accessToken && refreshToken) {
       await handleSessionPersistence({

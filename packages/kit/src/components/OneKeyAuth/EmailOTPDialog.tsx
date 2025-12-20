@@ -12,9 +12,8 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { EMAIL_OTP_COUNTDOWN_SECONDS } from '@onekeyhq/shared/src/consts/authConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-
-const COUNTDOWN_TIME = 60;
 
 export function EmailOTPDialog(props: {
   title: string;
@@ -26,7 +25,7 @@ export function EmailOTPDialog(props: {
   const { sendCode, onConfirm, title, description, hideResendButton } = props;
   const [isSubmittingVerificationCode, setIsSubmittingVerificationCode] =
     useState(false);
-  const [countdown, setCountdown] = useState(COUNTDOWN_TIME);
+  const [countdown, setCountdown] = useState(EMAIL_OTP_COUNTDOWN_SECONDS);
   const [isResending, setIsResending] = useState(false);
   const [isConfirming, setIsConfirming] = useState(false);
   const [verificationCode, setVerificationCode] = useState('');
@@ -53,7 +52,7 @@ export function EmailOTPDialog(props: {
     setVerificationCode('');
     try {
       await sendCode();
-      setCountdown(COUNTDOWN_TIME);
+      setCountdown(EMAIL_OTP_COUNTDOWN_SECONDS);
     } catch (error) {
       Toast.error({
         title: (error as Error)?.message,
