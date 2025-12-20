@@ -84,6 +84,12 @@ type IEditableChainSelectorContentProps = {
   onFrequentlyUsedItemsChange?: (networks: IServerNetwork[]) => void;
   setAllNetworksChanged?: (value: boolean) => void;
   accountNetworkValueCurrency?: string;
+  accountDeFiOverview: Record<
+    string,
+    {
+      netWorth: number;
+    }
+  >;
 };
 
 export const EditableChainSelectorContent = ({
@@ -103,6 +109,7 @@ export const EditableChainSelectorContent = ({
   isEditMode,
   allNetworkItem,
   onFrequentlyUsedItemsChange,
+  accountDeFiOverview,
 }: IEditableChainSelectorContentProps) => {
   const intl = useIntl();
   const { bottom } = useSafeAreaInsets();
@@ -349,6 +356,7 @@ export const EditableChainSelectorContent = ({
       setRecentNetworksHeight,
       accountNetworkValues,
       accountNetworkValueCurrency,
+      accountDeFiOverview,
     }),
     [
       walletId,
@@ -364,6 +372,7 @@ export const EditableChainSelectorContent = ({
       accountNetworkValueCurrency,
       onFrequentlyUsedItemsChange,
       onEditCustomNetwork,
+      accountDeFiOverview,
     ],
   );
   const renderItem = useCallback(

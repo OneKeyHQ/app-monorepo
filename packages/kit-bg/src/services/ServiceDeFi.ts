@@ -17,6 +17,7 @@ import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import ServiceBase from './ServiceBase';
 
 import type { IDeFiDBStruct } from '../dbs/simple/entity/SimpleDbEntityDeFi';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 @backgroundClass()
 class ServiceDeFi extends ServiceBase {
@@ -254,11 +255,72 @@ class ServiceDeFi extends ServiceBase {
     deFiRawData,
   }: {
     accounts: {
+      accountId: string;
+      networkId: string;
+      indexedAccountId?: string;
       accountAddress?: string;
       xpub?: string;
     }[];
     deFiRawData?: IDeFiDBStruct;
   }) {
+    if (
+      accounts[0] &&
+      networkUtils.isAllNetwork({ networkId: accounts[0].networkId })
+    ) {
+      const result: Array<{
+        accountId: string;
+        networkId: string;
+        overview: Record<
+          string,
+          {
+            totalValue: number;
+            totalDebt: number;
+            totalReward: number;
+            netWorth: number;
+            currency: string;
+          }
+        >;
+      }> = [];
+      const rawData = await this.backgroundApi.simpleDb.deFi.getRawData();
+      for (let i = 0; i < accounts.length; i += 1) {
+        const account = accounts[i];
+        const { accountsInfo } =
+          await this.backgroundApi.serviceAllNetwork.getAllNetworkAccounts({
+            accountId: account.accountId,
+            networkId: account.networkId,
+            indexedAccountId: account.indexedAccountId,
+            deriveType: undefined,
+            nftEnabledOnly: false,
+            DeFiEnabledOnly: true,
+            excludeTestNetwork: true,
+            networksEnabledOnly: !accountUtils.isOthersAccount({
+              accountId: account.accountId,
+            }),
+          });
+        for (const accountInfo of accountsInfo) {
+          const key = accountUtils.buildAccountLocalAssetsKey({
+            accountAddress: accountInfo.apiAddress,
+            xpub: accountInfo.accountXpub,
+          });
+          if (rawData?.overview?.[key]) {
+            if (!result[i]) {
+              result[i] = {
+                accountId: account.accountId,
+                networkId: account.networkId,
+                overview: rawData?.overview?.[key],
+              };
+            } else {
+              result[i].overview = {
+                ...(result[i].overview ?? {}),
+                ...rawData?.overview?.[key],
+              };
+            }
+          }
+        }
+      }
+      return result;
+    }
+
     return this.backgroundApi.simpleDb.deFi.getAccountsDeFiOverview({
       accounts,
       deFiRawData,

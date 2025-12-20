@@ -337,10 +337,12 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
 
   const handleAllNetworkCacheRequests = useCallback(
     async ({
+      accountId,
       networkId,
       accountAddress,
       xpub,
     }: {
+      accountId: string;
       networkId: string;
       accountAddress: string;
       xpub?: string;
@@ -349,6 +351,8 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
         await backgroundApiProxy.serviceDeFi.getAccountsLocalDeFiOverview({
           accounts: [
             {
+              accountId,
+              networkId,
               accountAddress,
               xpub,
             },
@@ -529,6 +533,8 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
         await backgroundApiProxy.serviceDeFi.getAccountsLocalDeFiOverview({
           accounts: [
             {
+              accountId,
+              networkId,
               accountAddress: account?.address,
             },
           ],
