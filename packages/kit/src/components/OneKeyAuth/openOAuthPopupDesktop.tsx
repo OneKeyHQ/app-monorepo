@@ -1,12 +1,20 @@
 import type { IDesktopOpenUrlEventData } from '@onekeyhq/desktop/app/app';
 import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
+import {
+  EDesktopOAuthMethod,
+  OAUTH_DESKTOP_WEBVIEW_HEIGHT,
+  OAUTH_DESKTOP_WEBVIEW_WIDTH,
+  OAUTH_FLOW_TIMEOUT_MS,
+  OAUTH_TOKEN_KEY_ACCESS_TOKEN,
+  OAUTH_TOKEN_KEY_REFRESH_TOKEN,
+} from '@onekeyhq/shared/src/consts/authConsts';
 import { ONEKEY_APP_DEEP_LINK } from '@onekeyhq/shared/src/consts/deeplinkConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import type {
   IHandleOAuthSessionPersistenceParams,
   IOAuthPopupResult,
-} from './openOAuthPopupWeb';
+} from './openOAuthPopupTypes';
 
 // ============================================================================
 // Desktop OAuth Methods
@@ -24,24 +32,38 @@ import type {
  * @param _method - The desktop OAuth method (currently both methods use the same URL)
  * @returns The redirect URL for desktop OAuth
  */
-export function getOAuthRedirectUrlDesktop(
-  _method: EDesktopOAuthMethod,
-): string {
+export async function getOAuthRedirectUrlDesktop(
+  method: EDesktopOAuthMethod,
+): Promise<string> {
+  // Desktop LOCALHOST: use Supabase OAuth (skipBrowserRedirect) and a localhost callback.
+  // Flow: Google -> Supabase -> localhost (`code` in query, PKCE) -> app persists session.
+  if (method === EDesktopOAuthMethod.LOCALHOST_SERVER) {
+    if (!globalThis.desktopApiProxy?.oauthLocalServer) {
+      throw new OneKeyLocalError(
+        'Desktop OAuth Local Server API is not available',
+      );
+    }
+    let port = 0;
+    try {
+      const serverResult =
+        await globalThis.desktopApiProxy.oauthLocalServer.startServer();
+      port = serverResult.port;
+    } catch (e) {
+      throw new OneKeyLocalError(
+        'OAuth local ports are occupied. Please close conflicting apps and try again.',
+      );
+    }
+    if (!port) {
+      throw new OneKeyLocalError('OAuth local server returned invalid port.');
+    }
+    return `http://127.0.0.1:${port}/callback`;
+  }
+
   // Both WEBVIEW and DEEP_LINK methods use the same deep link URL
   // The difference is how the URL is handled:
   // - WEBVIEW: Intercepted by webview navigation event
   // - DEEP_LINK: Handled by system protocol registration
   return `${ONEKEY_APP_DEEP_LINK}auth/callback`;
-}
-
-export enum EDesktopOAuthMethod {
-  // Use in-app webview to handle OAuth (recommended)
-  // Intercepts navigation to onekey-wallet://auth/callback
-  WEBVIEW = 'WEBVIEW',
-
-  // Use system browser + deep link callback
-  // Requires onekey-wallet:// protocol to be registered
-  DEEP_LINK = 'DEEP_LINK',
 }
 
 /**
@@ -67,7 +89,7 @@ export function openOAuthPopupDesktopWebview(options: {
   handleSessionPersistence: (
     params: IHandleOAuthSessionPersistenceParams,
   ) => Promise<void>;
-  persistSession: boolean;
+  persistSession?: boolean;
 }): Promise<IOAuthPopupResult> {
   const { authUrl, handleSessionPersistence, persistSession } = options;
 
@@ -91,8 +113,8 @@ export function openOAuthPopupDesktopWebview(options: {
     // Create webview wrapper
     const wrapper = document.createElement('div');
     wrapper.style.cssText = `
-      width: 480px;
-      height: 640px;
+      width: ${OAUTH_DESKTOP_WEBVIEW_WIDTH}px;
+      height: ${OAUTH_DESKTOP_WEBVIEW_HEIGHT}px;
       background: white;
       border-radius: 12px;
       overflow: hidden;
@@ -172,8 +194,8 @@ export function openOAuthPopupDesktopWebview(options: {
             parsedUrl.hash.substring(1) || parsedUrl.search.substring(1),
           );
 
-          const accessToken = hashParams.get('access_token');
-          const refreshToken = hashParams.get('refresh_token');
+          const accessToken = hashParams.get(OAUTH_TOKEN_KEY_ACCESS_TOKEN);
+          const refreshToken = hashParams.get(OAUTH_TOKEN_KEY_REFRESH_TOKEN);
 
           if (accessToken && refreshToken) {
             await handleSessionPersistence({
@@ -246,7 +268,7 @@ export function openOAuthPopupDesktopWebview(options: {
         container.remove();
         reject(new OneKeyLocalError('OAuth sign-in timed out'));
       }
-    }, 5 * 60 * 1000); // 5 minutes timeout
+    }, OAUTH_FLOW_TIMEOUT_MS); // 5 minutes timeout
   });
 }
 
@@ -274,7 +296,7 @@ export function openOAuthPopupDesktopDeepLink(options: {
   handleSessionPersistence: (
     params: IHandleOAuthSessionPersistenceParams,
   ) => Promise<void>;
-  persistSession: boolean;
+  persistSession?: boolean;
 }): Promise<IOAuthPopupResult> {
   const { authUrl, handleSessionPersistence, persistSession } = options;
 
@@ -300,8 +322,8 @@ export function openOAuthPopupDesktopDeepLink(options: {
             parsedUrl.hash.substring(1) || parsedUrl.search.substring(1),
           );
 
-          const accessToken = hashParams.get('access_token');
-          const refreshToken = hashParams.get('refresh_token');
+          const accessToken = hashParams.get(OAUTH_TOKEN_KEY_ACCESS_TOKEN);
+          const refreshToken = hashParams.get(OAUTH_TOKEN_KEY_REFRESH_TOKEN);
 
           if (accessToken && refreshToken) {
             await handleSessionPersistence({
@@ -346,6 +368,6 @@ export function openOAuthPopupDesktopDeepLink(options: {
         handleOAuthCallback,
       );
       reject(new OneKeyLocalError('OAuth sign-in timed out'));
-    }, 5 * 60 * 1000); // 5 minutes timeout
+    }, OAUTH_FLOW_TIMEOUT_MS); // 5 minutes timeout
   });
 }
