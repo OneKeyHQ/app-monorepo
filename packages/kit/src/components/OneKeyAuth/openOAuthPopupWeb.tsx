@@ -12,6 +12,8 @@ import type {
 } from './openOAuthPopupTypes';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+const ONEKEY_OAUTH_STATE_KEY = 'onekey_oauth_state';
+
 /**
  * Get OAuth redirect URL for web platform
  *
@@ -66,17 +68,35 @@ export async function openOAuthPopupWeb(options: {
   persistSession?: boolean;
 }): Promise<IOAuthPopupResult> {
   const { authUrl, client, handleSessionPersistence, persistSession } = options;
+
   return new Promise((resolve, reject) => {
     let settled = false;
     let inFlight = false;
     let pollIntervalId: ReturnType<typeof setInterval> | null = null;
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
     let expectedState: string | null = null;
+    let expectedOneKeyState: string | null = null;
 
     try {
-      expectedState = new URL(authUrl).searchParams.get('state');
+      // "https://xxx.supabase.co/auth/v1/authorize?provider=google&redirect_to=http%3A%2F%2Flocalhost%3A3000%2Fauth%2Fcallback&code_challenge=xxxx-xxx&code_challenge_method=s256&prompt=select_account"
+      const authUrlObj = new URL(authUrl);
+      expectedState = authUrlObj.searchParams.get('state');
+
+      // Parse our own state from the embedded redirect_to URL (defense-in-depth)
+      const redirectTo = authUrlObj.searchParams.get('redirect_to');
+      if (redirectTo) {
+        try {
+          const redirectUrl = new URL(redirectTo);
+          expectedOneKeyState = redirectUrl.searchParams.get(
+            ONEKEY_OAUTH_STATE_KEY,
+          );
+        } catch {
+          expectedOneKeyState = null;
+        }
+      }
     } catch {
       expectedState = null;
+      expectedOneKeyState = null;
     }
 
     const cleanup = (popup: Window | null) => {
@@ -197,6 +217,22 @@ export async function openOAuthPopupWeb(options: {
             const url = new URL(popupUrl);
             const code = url.searchParams.get('code');
             const state = url.searchParams.get('state');
+            const oneKeyState = url.searchParams.get(ONEKEY_OAUTH_STATE_KEY);
+
+            // Validate OneKey state (defense-in-depth).
+            if (expectedOneKeyState) {
+              if (!oneKeyState) {
+                rejectOnce(
+                  new OneKeyLocalError('OAuth state is missing'),
+                  popup,
+                );
+                return;
+              }
+              if (oneKeyState !== expectedOneKeyState) {
+                rejectOnce(new OneKeyLocalError('OAuth state mismatch'), popup);
+                return;
+              }
+            }
 
             // Validate state (anti-CSRF / anti-injection). Supabase OAuth URLs should include `state=...`
             // and the redirect callback should echo it back.
@@ -215,11 +251,15 @@ export async function openOAuthPopupWeb(options: {
             }
 
             if (code) {
+              // const _sessionBefore = await client.auth.getSession();
+
               // Exchange authorization code for session tokens using PKCE
               // The Supabase client automatically uses the stored code_verifier
               const { data, error } = await client.auth.exchangeCodeForSession(
                 code,
               );
+
+              // const _sessionAfter = await client.auth.getSession();
 
               if (error) {
                 rejectOnce(new OneKeyLocalError(error.message), popup);

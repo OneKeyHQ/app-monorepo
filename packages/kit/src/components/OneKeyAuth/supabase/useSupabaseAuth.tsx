@@ -104,6 +104,8 @@ export function useSupabaseAuth() {
       const { persistSession } = options ?? {};
       const clientTemp: SupabaseClient = createTemporarySupabaseClient();
 
+      const ONEKEY_OAUTH_STATE_KEY = 'onekey_oauth_state';
+
       // For extension with CHROME_IDENTITY_API or CHROME_GET_AUTH_TOKEN methods,
       // we don't need Supabase OAuth URL - these methods build their own Google OAuth URL
       // and use signInWithIdToken instead
@@ -147,6 +149,36 @@ export function useSupabaseAuth() {
         redirectTo = getOAuthRedirectUrlExt(DEFAULT_EXTENSION_OAUTH_METHOD);
       } else {
         redirectTo = getOAuthRedirectUrlWeb();
+      }
+
+      // Defense-in-depth: Supabase PKCE URL may not include `state`. We embed our own
+      // nonce into redirectTo so the callback must carry it back to us.
+      if (
+        redirectTo &&
+        !platformEnv.isNative &&
+        !platformEnv.isDesktop &&
+        !platformEnv.isExtension
+      ) {
+        try {
+          const redirectUrl = new URL(redirectTo);
+          if (!redirectUrl.searchParams.has(ONEKEY_OAUTH_STATE_KEY)) {
+            // Prefer crypto-grade random on web; if unavailable, skip rather than generating weak state.
+            const bytes = new Uint8Array(16);
+            const cryptoObj = globalThis.crypto as
+              | undefined
+              | { getRandomValues: (arr: Uint8Array) => Uint8Array };
+            if (cryptoObj?.getRandomValues) {
+              cryptoObj.getRandomValues(bytes);
+              const state = Array.from(bytes)
+                .map((b) => b.toString(16).padStart(2, '0'))
+                .join('');
+              redirectUrl.searchParams.set(ONEKEY_OAUTH_STATE_KEY, state);
+              redirectTo = redirectUrl.toString();
+            }
+          }
+        } catch {
+          // ignore
+        }
       }
 
       const oauthUrlResult = await clientTemp.auth.signInWithOAuth({

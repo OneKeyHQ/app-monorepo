@@ -22,7 +22,7 @@ let oauthServer: Server | null = null;
 // Get main window reference (will be set from app.ts)
 let mainWindow: BrowserWindow | null = null;
 
-export function setMainWindow(window: BrowserWindow | null) {
+export function setMainWindowForOAuthServer(window: BrowserWindow | null) {
   mainWindow = window;
 }
 
