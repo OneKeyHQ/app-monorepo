@@ -67,8 +67,6 @@ export type {
 // Animate Presence
 export { AnimatePresence } from '@tamagui/animate-presence';
 
-// Text
-export { SizableText, Heading } from '@tamagui/text';
 export type { SizableTextProps, HeadingProps } from '@tamagui/text';
 
 // Font Size
